@@ -60,18 +60,48 @@ const ARTIFACT_KIND_LABEL = Object.freeze({
 });
 
 /**
- * The exact prefix a refresh caller uses to recognise its own generated report.
+ * The exact head every generated report starts with, ending at the body commitment value.
  *
- * A refresh that only checked the hash would happily replace any file whose bytes the caller
- * happened to know. Recognition needs a second, content-owned signal, so the first two lines are
- * fixed and exported rather than restated by the CLI.
+ * A refresh that only checked a fixed marker would replace any file that copied those first bytes,
+ * and one that checked a caller-supplied digest would replace whatever that caller pointed at. So
+ * the head carries a commitment over the entire body that follows it, and recognition is decided
+ * from the candidate file's own bytes. Editing the body without recomputing the commitment makes
+ * the file unrecognized, which is a hold rather than a rewrite.
  */
 export const SE_CORE_EVAL_QA_HUMAN_REPORT_MARKER = [
   '# SE Core 질의응답 상호작용 기록 (파생 보기)',
   '',
   `> 생성기: ${REPORT_SCHEMA}`,
-  '',
+  '> 본문 커밋먼트(SHA-256): ',
 ].join('\n');
+const REPORT_BODY_COMMITMENT_DOMAIN = 'soulforge.se_core_eval.qa_human_report_body.v1\n';
+
+function bodyCommitment(bodyBytes) {
+  return sha256(Buffer.concat([
+    Buffer.from(REPORT_BODY_COMMITMENT_DOMAIN, 'utf8'),
+    bodyBytes,
+  ]));
+}
+
+/**
+ * True only for bytes this renderer produced, proved from those bytes alone.
+ *
+ * This is what an automatic writer must consult before replacing a file it did not just create.
+ * It trusts no caller-supplied digest and no marker alone: the head must be exactly this
+ * renderer's, and the committed digest must still match the body it is supposed to commit to. A
+ * report written in an older format that had no commitment is simply not recognized, so it is held
+ * for an explicit human repair instead of being silently overwritten.
+ */
+export function verifySeCoreEvalQaHumanReportBytes(bytes) {
+  if (!Buffer.isBuffer(bytes)) return false;
+  const head = Buffer.from(SE_CORE_EVAL_QA_HUMAN_REPORT_MARKER, 'utf8');
+  if (bytes.length < head.length + 65
+    || !bytes.subarray(0, head.length).equals(head)
+    || bytes[head.length + 64] !== 0x0A) return false;
+  const commitment = bytes.subarray(head.length, head.length + 64).toString('latin1');
+  return HEX64.test(commitment)
+    && bodyCommitment(bytes.subarray(head.length + 65)) === commitment;
+}
 
 class QaHumanReportHold extends Error {
   constructor(code) {
@@ -163,29 +193,90 @@ function readCommittedArtifact(root, artifact) {
   }
 }
 
+/** One strictly decoded scalar, or a null scalar for the single byte that could not start one. */
+function decodeScalar(bytes, index) {
+  const first = bytes[index];
+  if (first < 0x80) return { scalar: first, length: 1 };
+  const length = first >= 0xF0 && first <= 0xF4
+    ? 4
+    : first >= 0xE0 && first <= 0xEF
+      ? 3
+      : first >= 0xC2 && first <= 0xDF ? 2 : 0;
+  if (length === 0 || index + length > bytes.length) return { scalar: null, length: 1 };
+  let scalar = first & (length === 2 ? 0x1F : length === 3 ? 0x0F : 0x07);
+  for (let offset = 1; offset < length; offset += 1) {
+    const next = bytes[index + offset];
+    if ((next & 0xC0) !== 0x80) return { scalar: null, length: 1 };
+    scalar = (scalar << 6) | (next & 0x3F);
+  }
+  const minimum = length === 2 ? 0x80 : length === 3 ? 0x800 : 0x10000;
+  if (scalar < minimum || scalar > 0x10FFFF || (scalar >= 0xD800 && scalar <= 0xDFFF)) {
+    return { scalar: null, length: 1 };
+  }
+  return { scalar, length };
+}
+
+function escapeScalar(scalar) {
+  if (scalar === 0x0A || scalar === 0x09) return String.fromCharCode(scalar);
+  if (scalar === 0x5C) return '\\\\';
+  if (scalar < 0x20
+    || scalar === 0x7F
+    || (scalar >= 0x80 && scalar <= 0x9F)
+    || scalar === 0xFEFF
+    || scalar === 0xFFFD) {
+    return `\\u{${scalar.toString(16).toUpperCase().padStart(4, '0')}}`;
+  }
+  return String.fromCodePoint(scalar);
+}
+
 /**
- * Decodes committed bytes into text that can be shown without changing what was captured.
+ * The one escaped notation, which is exact, reversible, and safe to show.
  *
- * Nothing here rewrites the source. A byte sequence that cannot be shown exactly — invalid UTF-8,
- * a replacement character that would silently stand in for bytes nobody recorded, a byte-order
- * mark, a lone carriage return, or any other control character — holds instead of being cleaned
- * up into something readable but different.
+ * A byte that starts no valid UTF-8 scalar becomes `\xNN`, and every scalar that cannot be shown
+ * directly becomes `\u{XXXX}`. Backslash doubles so the two forms can never be confused with source
+ * text that merely looks like them. Line feed and tab stay themselves, so an escaped block is still
+ * laid out the way it was captured; everything else that would be a control character, a lone
+ * carriage return, a byte-order mark, or a replacement character is written out instead.
  */
-function decodeExactText(bytes) {
-  let text;
+function escapedBytesText(bytes) {
+  const parts = [];
+  let index = 0;
+  while (index < bytes.length) {
+    const { scalar, length } = decodeScalar(bytes, index);
+    parts.push(scalar === null
+      ? `\\x${bytes[index].toString(16).toUpperCase().padStart(2, '0')}`
+      : escapeScalar(scalar));
+    index += length;
+  }
+  return parts.join('');
+}
+
+/**
+ * Turns committed bytes into text that can be shown without changing what was captured.
+ *
+ * The capture contract accepts any non-empty byte sequence, so this projection has to be total for
+ * every artifact that contract accepted: a shape refused here would let one recorded turn make the
+ * report unbuildable, and with it every automatic capture lane, permanently. Bytes that are already
+ * exactly showable are shown byte for byte as before. Anything else — invalid UTF-8, a byte-order
+ * mark, a lone carriage return, a control character, or a replacement character standing in for
+ * bytes nobody recorded — is written in the escaped notation instead. Nothing is cleaned up,
+ * dropped, or normalised, and every block states which notation it used.
+ */
+function bodyRepresentation(bytes) {
+  let text = null;
   try {
     // ignoreBOM keeps a leading U+FEFF in the decoded text instead of dropping it. Without it a
     // byte-order mark would vanish between the committed bytes and the rendered text.
     text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
-  } catch {
-    hold('RAW_TEXT_REFUSED');
-  }
-  guard(!text.startsWith(BYTE_ORDER_MARK)
+  } catch { /* not exactly showable, so the escaped notation below carries it instead */ }
+  if (text !== null
+    && !text.startsWith(BYTE_ORDER_MARK)
     && !text.includes(REPLACEMENT)
     && !UNSAFE_CONTROL.test(text)
-    && !LONE_CR.test(text),
-  'RAW_TEXT_REFUSED');
-  return text;
+    && !LONE_CR.test(text)) {
+    return { mode: 'exact_text', text };
+  }
+  return { mode: 'escaped_bytes', text: escapedBytesText(bytes) };
 }
 
 function cell(value) {
@@ -276,6 +367,7 @@ function buildView(root) {
   const answered = new Set();
   const questions = [];
   const counts = { question_recorded: 0, answer_received: 0, review_recorded: 0 };
+  let escapedBodyCount = 0;
   for (const [offset, event] of events.entries()) {
     validateEventShape(event);
     guard(event.sequence === offset + 1, 'LEDGER_VALIDATION_REFUSED');
@@ -284,7 +376,8 @@ function buildView(root) {
     counts[event.event_type] += 1;
 
     const bytes = readCommittedArtifact(root, event.artifact);
-    const body = event.event_type === 'review_recorded' ? null : decodeExactText(bytes);
+    const body = event.event_type === 'review_recorded' ? null : bodyRepresentation(bytes);
+    if (body !== null && body.mode === 'escaped_bytes') escapedBodyCount += 1;
     if (event.event_type === 'question_recorded') {
       questions.push({
         sequence: event.sequence,
@@ -312,13 +405,15 @@ function buildView(root) {
       answer_sequence: event.links.answer_event_hash === null
         ? null
         : sequenceByHash.get(event.links.answer_event_hash) ?? null,
-      body,
-      ends_with_newline: body === null ? null : body.endsWith('\n'),
+      body: body === null ? null : body.text,
+      body_mode: body === null ? null : body.mode,
+      ends_with_newline: body === null ? null : bytes.at(-1) === 0x0A,
     });
   }
   return {
     blocks,
     counts,
+    escaped_body_count: escapedBodyCount,
     pending: questions.filter((question) => !answered.has(question.interaction_id)),
     ledger_sha256: ledger.ledger_sha256,
     head_event_hash: events.length === 0 ? GENESIS_HASH : ledger.head_event_hash,
@@ -357,6 +452,11 @@ function metadataRows(block) {
     ['원문 바이트', cell(block.byte_length)],
     ['원문 SHA-256', code(block.artifact_sha256)],
   );
+  if (block.body_mode !== null) {
+    rows.push(['원문 표시 방식', block.body_mode === 'exact_text'
+      ? '바이트 그대로(exact_text)'
+      : '이스케이프 표기(escaped_bytes)']);
+  }
   if (block.ends_with_newline !== null) {
     rows.push(['원문 개행 종료', block.ends_with_newline ? '예' : '아니오']);
   }
@@ -412,12 +512,13 @@ function summaryLines(view) {
 
 function formatReport(view) {
   const lines = [
-    ...SE_CORE_EVAL_QA_HUMAN_REPORT_MARKER.split('\n').slice(0, -1),
     '> - 이 문서는 원장에서 결정론적으로 만든 **파생 보기**이며 권위가 아니다. 정본 증거는 append-only QA 상호작용 원장과 해시로 묶인 질문·답변 원문 파일이다.',
     '> - Notebook과 Engine은 **비교 참가자**이며 어느 쪽도 진실이나 정답지가 아니다.',
     '> - 동결된 70개·115개 event 벤치마크 원장과 그 보고서는 이 보기가 읽지도 수정하지 않는다.',
     '> - 현재 탐색 턴은 **채점하지 않는다**. 이 문서는 점수, 판정, 승자를 만들지 않는다.',
     '> - 원문은 코드 펜스 안에 바이트 그대로 넣는다. 번역, 요약, 교정하지 않는다. 원문이 개행으로 끝나지 않으면 닫는 펜스를 위한 개행 하나만 덧붙이며, 그 사실은 각 기록의 `원문 개행 종료` 값이 밝힌다.',
+    '> - 바이트 그대로 보일 수 없는 원문은 버리지 않고 `이스케이프 표기`로 넣는다. 유효한 UTF-8 scalar를 시작하지 못하는 바이트는 `\\xNN`, 제어문자·BOM·U+FFFD는 `\\u{XXXX}`, 역슬래시는 `\\\\`로 적고 줄바꿈과 탭은 그대로 둔다. 어느 표기를 썼는지는 각 기록의 `원문 표시 방식` 값이 밝힌다.',
+    '> - 위 `본문 커밋먼트`는 이 줄부터 문서 끝까지의 SHA-256이다. 자동 갱신은 그 값이 본문과 실제로 맞는 파일만 교체한다. 사람이 본문을 고쳤거나 이 머리말이 없는 파일은 덮어쓰지 않고 보류하며, 복구는 그 파일을 사람이 직접 옮기거나 지우는 것이다.',
     '',
     ...summaryLines(view),
     '',
@@ -428,7 +529,11 @@ function formatReport(view) {
   }
   for (const block of view.blocks) lines.push('', ...blockLines(block));
   while (lines.at(-1) === '') lines.pop();
-  return Buffer.from(`${lines.join('\n')}\n`, 'utf8');
+  const body = Buffer.from(`${lines.join('\n')}\n`, 'utf8');
+  return Buffer.concat([
+    Buffer.from(`${SE_CORE_EVAL_QA_HUMAN_REPORT_MARKER}${bodyCommitment(body)}\n`, 'utf8'),
+    body,
+  ]);
 }
 
 function passReport(view, bytes) {
@@ -442,6 +547,7 @@ function passReport(view, bytes) {
     answer_count: view.counts.answer_received,
     review_count: view.counts.review_recorded,
     pending_question_count: view.pending.length,
+    escaped_body_count: view.escaped_body_count,
     ledger_sha256: view.ledger_sha256,
     head_event_hash: view.head_event_hash,
     markdown_byte_length: bytes.length,
@@ -467,6 +573,7 @@ function failureReport(code_) {
     answer_count: 0,
     review_count: 0,
     pending_question_count: 0,
+    escaped_body_count: 0,
     ledger_sha256: GENESIS_HASH,
     head_event_hash: GENESIS_HASH,
     markdown_byte_length: 0,

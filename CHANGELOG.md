@@ -1,5 +1,60 @@
 # CHANGELOG
 
+## 2026-08-12 - Automatic derived report for every captured SE-core turn
+
+- Moved the derived QA human report's on-disk write into one owner-local writer
+  module and pointed the report CLI's create-only `--out` and guarded
+  `--refresh` modes at it, so the explicit and automatic lanes cannot drift into
+  two different notions of which file may be replaced. The CLI's arguments,
+  receipt fields, and closed issue codes are unchanged.
+- Made every capture lane keep one fixed-basename Markdown report level with the
+  ledger, so a captured question or answer no longer needs a separate manual
+  command to become readable. The report is created only if that basename is
+  free and refreshed only when the file is still a plain regular file with no
+  second hard link and its bytes still prove themselves to be exactly what this
+  renderer produced. That proof is a body commitment written into the report's
+  own head, so recognition trusts no caller-supplied digest and no marker alone,
+  and a hand-edited body under a copied head is refused. A report written in an
+  earlier format without that commitment is refused as well; there is no
+  automatic migration, and the repair is a human moving or deleting the file.
+- Staged each replacement as a create-only sibling in the same directory and
+  treated that create-only open as the ownership proof, so only a staged file the
+  call itself created is ever unlinked. A foreign file already occupying the
+  staging path refuses the refresh and is left untouched rather than deleted.
+- Made the Markdown projection total over every ledger state the capture contract
+  accepts. Bytes that cannot be shown exactly — invalid UTF-8, a byte-order mark,
+  a lone carriage return, a control character, a U+FFFD nobody recorded — are now
+  written in one explicit escaped notation with a per-block `원문 표시 방식` row
+  and an `escaped_body_count`, instead of refusing. Refusing them let a single
+  recorded turn make the report unbuildable and every automatic lane under that
+  root exit nonzero permanently.
+- Refreshed the NotebookLM lane once on the branch that is about to query and
+  once after the answer turn. The pre-query refresh runs after the at-most-once
+  preflight, so an orphaned, conflicting, closed, or unresolved attempt reports
+  its own outcome and an unbuildable report cannot keep an already-recorded
+  response from reaching its answer turn. A refusal before the query holds with
+  no provider invocation; a refusal afterwards holds while reporting that the
+  capture did happen and that the report is pending, and a retry of that attempt
+  resumes from the stored response, queries nothing, and only rebuilds the
+  derived view.
+- Refreshed the Engine source-cited lane after a successful fourteen-turn batch
+  and added the report basename, operation, and digest to its redacted receipt.
+  A refused refresh fails the run instead of claiming a readable report; the
+  append-only ledger keeps what it recorded, and a retry is idempotent and
+  repairs the file.
+- Added the report path to the capture contract's owned-target projection, so an
+  `--out` or `--receipt-out` aimed at it is refused before any claim or capture,
+  and refused a recorded raw artifact ref that would claim the same basename.
+- Refreshed the low-level QA capture CLI on `record-question`, `record-answer`,
+  `record-review`, and `import-existing`, leaving `initialize`, `validate`, and
+  `query` read-only and unchanged. A refused refresh exits nonzero and still
+  reports the exact ledger facts the append reached rather than unwinding a
+  recorded turn.
+- Kept the report a non-authoritative derived view. Truth and evidence remain
+  the append-only ledger and the hash-bound raw files, no score, verdict,
+  winner, or translation is introduced, and the frozen 70-event and 115-event
+  benchmark ledgers and reports are neither read nor written.
+
 ## 2026-08-12 - Automatic SE-core evaluation question and answer capture
 
 - Added an all-or-nothing `--capture-root` / `--capture-attempt-id` /

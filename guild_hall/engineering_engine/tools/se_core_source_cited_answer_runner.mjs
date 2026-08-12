@@ -26,6 +26,7 @@ import {
   captureQaInteraction,
   seCoreEvalQaCaptureTargets,
 } from '../evaluation/se_core_eval_qa_capture.mjs';
+import { ensureSeCoreEvalQaReportFile } from '../evaluation/se_core_eval_qa_report_writer.mjs';
 import { ContractError } from '../kernel/errors.mjs';
 import { ACCEPTED_QUESTION_SET_SHA256 } from '../subjects/se_core_crosswalk_case_run.mjs';
 import {
@@ -358,6 +359,16 @@ export function captureSeCoreSourceCitedAnswerBatch(input) {
       answer_bytes: turn.answer_bytes,
     }), 'one exact answer turn was not recorded');
   }
+  // The batch is only reported as captured once its turns are also readable. The ledger is
+  // append-only truth, so a refused refresh unwinds nothing: it fails this run with the writer's
+  // own closed issue code, and a retry reuses the same bytes idempotently and repairs the report.
+  const written = ensureSeCoreEvalQaReportFile({ root_path: root });
+  if (written.result !== 'PASS') {
+    throw captureRefused(
+      'the derived human report could not be created or refreshed for this batch',
+      written.issues,
+    );
+  }
   return {
     schema_version: CAPTURE_RECEIPT_SCHEMA,
     result: 'PASS',
@@ -370,6 +381,9 @@ export function captureSeCoreSourceCitedAnswerBatch(input) {
     counts: last.counts,
     ledger_sha256: last.ledger_sha256,
     head_event_hash: last.head_event_hash,
+    report_basename: written.basename,
+    report_operation: written.operation,
+    report_sha256: written.sha256,
   };
 }
 

@@ -42,7 +42,12 @@ The public-safe SE-core evaluation seam has seven distinct layers:
   capture ledger as one readable Markdown projection with Korean section labels.
   It is a derived view, never an authority: the ledger and the hash-bound raw
   question and answer files stay canonical, and it declares no verdict, score,
-  or winner.
+  or winner. The projection is total over every ledger state the capture contract
+  accepts, so no single recorded turn can make the report unbuildable.
+- `evaluation/se_core_eval_qa_report_writer.mjs` is the one place that
+  projection is written to disk. The report CLI's explicit create-only and
+  guarded refresh modes and both live capture lanes go through it, so an
+  automatic refresh can never write a file the explicit CLI would refuse.
 
 The crosswalk, source-cited answer, and ledger CLIs default to stdout/read-only behavior.
 An output file is created only through an explicit create-only option. The
@@ -51,6 +56,86 @@ Notebook surface.
 
 Both providers can now be captured the moment they answer, so no evaluation turn
 depends on a later manual transcription step.
+
+## Automatic derived report
+
+Every capture lane keeps one readable Markdown file level with the ledger, so a
+captured question or answer never needs a separate manual command to become
+visible. The basename is fixed — `SE_CORE_EVAL_QA_INTERACTIONS_KO.md` — and it
+lives directly under the explicitly supplied capture root.
+
+The first capture creates it only if that basename is free. A later capture
+refreshes it only when three signals still agree: the entry is a plain regular
+file, not a symlink, junction, or other reparse point; it carries no second hard
+link; and its bytes prove on their own that this renderer produced exactly them.
+That last signal is a body commitment written into the file's own head — the
+SHA-256 of everything below it — so recognition needs no digest from the caller
+and a marker alone is never enough. A hand-edited body under a copied head no
+longer matches its own commitment and is refused.
+
+The replacement is staged as a create-only sibling in the same directory. That
+create-only open is also the ownership proof: only a staged file the call itself
+created is ever unlinked. The recognized bytes are re-read and compared after
+staging so a file that drifted underneath is caught, and one rename swaps it in.
+
+What a refusal actually does, and its limits:
+
+- An arbitrary, human-written, or hand-edited file at the report path is never
+  overwritten, and its bytes are left byte-identical.
+- A report written in an earlier format that carries no body commitment is not
+  recognized either. It holds. There is no automatic migration: the repair is a
+  human moving or deleting that file, after which the next capture creates the
+  report normally.
+- A foreign file already occupying the `.refresh-tmp` staging sibling is refused
+  and left untouched, not deleted. Until a human removes it, refreshes under that
+  root keep holding.
+- "No residue" means only that this seam leaves nothing of its own behind: a
+  staged file it created is removed on every failure path it can observe. A
+  crash between the create-only open and the cleanup can still leave one, and
+  the next refresh then holds on it as a foreign file.
+
+Bytes the projection cannot show exactly — invalid UTF-8, a byte-order mark, a
+lone carriage return, a control character, a U+FFFD nobody recorded — do not
+refuse. The capture contract accepts any non-empty bytes, so refusing them here
+would let one recorded turn make the report unbuildable and every automatic lane
+under that root exit nonzero forever. They are written in one explicit escaped
+notation instead: `\xNN` for a byte that starts no valid scalar, `\u{XXXX}` for
+an unshowable scalar, `\\` for a backslash, with line feed and tab left as they
+were. Each block states which notation it used in its `원문 표시 방식` row, and
+the render report counts them in `escaped_body_count`. Nothing is translated,
+cleaned up, or dropped.
+
+The three lanes differ only in when they refresh:
+
+- The NotebookLM lane refreshes once on the branch that is about to query — so a
+  pending question is readable before the provider is ever asked — and once
+  after the answer turn. That first refresh runs *after* the at-most-once
+  preflight, not before it: an orphaned, conflicting, closed, or unresolved
+  attempt reports its own outcome, and a report that cannot be built never
+  stands between an already-recorded response and the answer turn that resumes
+  it. A refusal before the query holds with `query_performed: false` and no
+  provider invocation; a refusal after the query or after a resumed answer turn
+  holds with the captured counts retained and `report_refresh_pending: true`. A
+  retry of that attempt resumes from the stored response, queries nothing, and
+  only rebuilds the derived view.
+- The Engine source-cited lane refreshes once after a successful fourteen-turn
+  batch, and reports `report_basename`, `report_operation`, and
+  `report_sha256`. A refused refresh fails that run with the writer's own closed
+  issue code rather than claiming a readable report; the append-only ledger keeps
+  what it recorded, and a retry reuses the same bytes idempotently and repairs
+  the file. The report path is part of the owned-target projection, so an
+  `--out` or `--receipt-out` aimed at it is refused preflight, before any claim
+  or capture.
+- The low-level QA capture CLI refreshes after `record-question`,
+  `record-answer`, `record-review`, and `import-existing`. `initialize`,
+  `validate`, and `query` are read-only and unchanged. A refused refresh exits
+  nonzero and still reports the exact ledger facts the append reached, marked
+  `report_refresh_pending: true`, instead of unwinding a recorded turn.
+
+The report remains a reconstructable derived view with no authority. Truth and
+evidence stay in the append-only ledger and the hash-bound raw question and
+answer files, and the frozen 70-event and 115-event benchmark ledgers and their
+reports are neither read nor written by this lane.
 
 The source-cited answer CLI takes three all-or-nothing `--capture-*` flags:
 `--capture-root` (an existing absolute private evaluation root),

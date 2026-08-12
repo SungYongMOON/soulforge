@@ -22,6 +22,8 @@ const TARGETS_SCHEMA = 'soulforge.engineering_engine.se_core_eval_qa_capture_tar
 const CLAIM_CEILING = 'metadata_only_observation_ledger';
 const LEDGER_FILE = 'qa_interaction_ledger.jsonl';
 const LOCK_FILE = 'qa_interaction_ledger.lock';
+/** The fixed basename of the derived human report a live capture lane keeps refreshed. */
+const DERIVED_REPORT_FILE = 'SE_CORE_EVAL_QA_INTERACTIONS_KO.md';
 const GENESIS_HASH = '0'.repeat(64);
 const EVENT_TYPES = Object.freeze(['question_recorded', 'answer_received', 'review_recorded']);
 const SCOPES = Object.freeze(['fixed_benchmark', 'exploratory']);
@@ -189,6 +191,7 @@ function safeRelativeRef(value) {
     && value.split('/').every((part) => !PROJECT_ID.test(part))
     && normalizedName !== LEDGER_FILE
     && normalizedName !== LOCK_FILE
+    && normalizedName !== DERIVED_REPORT_FILE.toLowerCase()
     && !SENSITIVE_REF.test(value)
     && !SENSITIVE_VALUE.test(value),
   'ARTIFACT_REF_REFUSED');
@@ -1074,6 +1077,7 @@ export function seCoreEvalQaCaptureTargets(request = {}) {
       { kind: 'evaluation_root', path: root },
       { kind: 'ledger', path: ledgerPath(root) },
       { kind: 'writer_lock', path: join(root, LOCK_FILE) },
+      { kind: 'derived_report', path: join(root, DERIVED_REPORT_FILE) },
     ];
     for (const interactionId of interactionIds) {
       targets.push(...refTargets(root, 'raw_question', questionRawRef(interactionId)));
@@ -1109,3 +1113,4 @@ export function seCoreEvalQaCaptureTargets(request = {}) {
 }
 
 export const SE_CORE_EVAL_QA_LEDGER_FILE = LEDGER_FILE;
+export const SE_CORE_EVAL_QA_DERIVED_REPORT_FILE = DERIVED_REPORT_FILE;

@@ -1,31 +1,30 @@
 #!/usr/bin/env node
-import { createHash } from 'node:crypto';
-import {
-  closeSync,
-  fsyncSync,
-  lstatSync,
-  openSync,
-  readFileSync,
-  realpathSync,
-  renameSync,
-  statSync,
-  unlinkSync,
-  writeSync,
-} from 'node:fs';
-import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path';
+// Thin adapter over the shared derived-report writer.
+//
+// Both explicit modes — create-only `--out` and guarded `--refresh` — reach the same owner-local
+// writer the automatic capture lanes use, so an explicit run and an automatic refresh cannot
+// drift into two different notions of which file may be replaced.
+
 import { fileURLToPath } from 'node:url';
 
+import { renderSeCoreEvalQaHumanReport } from '../evaluation/se_core_eval_qa_human_report.mjs';
 import {
-  SE_CORE_EVAL_QA_HUMAN_REPORT_MARKER,
-  renderSeCoreEvalQaHumanReport,
-} from '../evaluation/se_core_eval_qa_human_report.mjs';
+  createSeCoreEvalQaReportFile,
+  refreshSeCoreEvalQaReportFile,
+} from '../evaluation/se_core_eval_qa_report_writer.mjs';
 
 const CLI_SCHEMA = 'soulforge.engineering_engine.se_core_eval_qa_human_report_cli.v1';
 const ALLOWED = new Set(['--root', '--out', '--refresh', '--expected-sha256']);
 const HEX64 = /^[0-9a-f]{64}$/;
-const WINDOWS_RESERVED = /^(?:nul|con|prn|aux|com[1-9]|lpt[1-9])(?:\.|$)/iu;
-const TEMP_SUFFIX = '.refresh-tmp';
-const MAX_EXISTING_REPORT_BYTES = 64 * 1024 * 1024;
+/** The writer's closed refusals, kept on this CLI's own established issue surface. */
+const CLI_ISSUE = Object.freeze({
+  REPORT_REQUEST_REFUSED: 'CLI_ARGUMENT_REFUSED',
+  REPORT_OUTPUT_REFUSED: 'CLI_OUTPUT_REFUSED',
+  REPORT_CREATE_ONLY_WRITE_REFUSED: 'CLI_CREATE_ONLY_WRITE_REFUSED',
+  REPORT_REFRESH_REFUSED: 'CLI_REFRESH_REFUSED',
+  REPORT_WRITE_INTERRUPTED: 'CLI_WRITE_INTERRUPTED',
+  REPORT_WRITE_FAILED: 'CLI_OPERATION_REFUSED',
+});
 
 function stableValue(value) {
   if (Array.isArray(value)) return value.map(stableValue);
@@ -37,10 +36,6 @@ function stableValue(value) {
 
 function jsonBytes(value) {
   return Buffer.from(`${JSON.stringify(stableValue(value))}\n`, 'utf8');
-}
-
-function sha256(bytes) {
-  return createHash('sha256').update(bytes).digest('hex');
 }
 
 function cliHold(code) {
@@ -84,129 +79,19 @@ function parse(argv) {
   return options;
 }
 
-function within(root, candidate) {
-  const locator = relative(root, candidate);
-  return locator === ''
-    || (locator !== '..' && !locator.startsWith(`..${sep}`) && !isAbsolute(locator));
-}
-
 /**
- * Resolves a derived-report path that must stay inside the supplied evaluation root.
+ * One written report, reported as counts, hashes, and a basename.
  *
- * The parent directory is resolved through the filesystem before the leaf is joined back on, so a
- * junction, symlink, short name, or case variant cannot place the report outside the root while
- * still looking contained.
+ * A refused write is reported with the writer's own render report when the ledger was the
+ * problem, and otherwise as this CLI's closed issue code. No absolute path and no captured text
+ * ever reaches stdout.
  */
-function resolveReportTarget(rootPath, outputPath, code) {
-  const leaf = basename(resolve(outputPath));
-  if (WINDOWS_RESERVED.test(leaf) || !leaf.toLowerCase().endsWith('.md')) throw new Error(code);
-  try {
-    const root = realpathSync(rootPath);
-    if (!statSync(root).isDirectory()) throw new Error(code);
-    const parent = realpathSync(dirname(resolve(outputPath)));
-    const target = resolve(parent, leaf);
-    if (!within(root, parent) || !within(root, target)) throw new Error(code);
-    return target;
-  } catch (error) {
-    throw error instanceof Error && error.message === code ? error : new Error(code);
+function writeReceipt(operation, written) {
+  if (written.result !== 'PASS') {
+    return written.issues[0] === 'REPORT_RENDER_REFUSED'
+      ? { exit_code: 2, stdout: jsonBytes(written.report) }
+      : cliHold(CLI_ISSUE[written.issues[0]] ?? 'CLI_OPERATION_REFUSED');
   }
-}
-
-function assertCreateOnlyTarget(rootPath, outputPath) {
-  const target = resolveReportTarget(rootPath, outputPath, 'CLI_OUTPUT_REFUSED');
-  try {
-    lstatSync(target);
-  } catch {
-    return target;
-  }
-  throw new Error('CLI_OUTPUT_REFUSED');
-}
-
-function writeCreateOnly(target, bytes) {
-  let fd;
-  try {
-    fd = openSync(target, 'wx', 0o600);
-    writeAll(fd, bytes);
-    fsyncSync(fd);
-    closeSync(fd);
-  } catch (error) {
-    if (fd !== undefined) {
-      try { closeSync(fd); } catch { /* the create-only claim already failed */ }
-    }
-    throw new Error('CLI_CREATE_ONLY_WRITE_REFUSED');
-  }
-}
-
-function writeAll(fd, bytes) {
-  let offset = 0;
-  while (offset < bytes.length) {
-    const written = writeSync(fd, bytes, offset, bytes.length - offset);
-    if (written <= 0) throw new Error('CLI_WRITE_INTERRUPTED');
-    offset += written;
-  }
-}
-
-/**
- * Replaces a report this tool generated, and only such a report.
- *
- * Two independent signals have to agree before anything is written: the file still hashes to the
- * digest the caller observed, and its bytes still begin with this renderer's own marker. An
- * arbitrary file the caller happens to know the hash of is refused, and so is a generated report
- * that changed under the caller since they read it. The replacement is staged as a create-only
- * sibling inside the same directory — never in an OS temp directory — the guard is re-checked, and
- * only then does one rename swap it in. Any failure unlinks the staged file, so a refused refresh
- * leaves the existing report byte-identical and no residue behind.
- */
-function refreshRecognizedReport(rootPath, outputPath, expectedSha256, bytes) {
-  const target = resolveReportTarget(rootPath, outputPath, 'CLI_REFRESH_REFUSED');
-  const marker = Buffer.from(SE_CORE_EVAL_QA_HUMAN_REPORT_MARKER, 'utf8');
-  const readGuarded = () => {
-    const links = lstatSync(target);
-    if (!links.isFile() || links.isSymbolicLink()) throw new Error('CLI_REFRESH_REFUSED');
-    const stats = statSync(target);
-    if (!stats.isFile() || stats.size > MAX_EXISTING_REPORT_BYTES) {
-      throw new Error('CLI_REFRESH_REFUSED');
-    }
-    const current = readFileSync(target);
-    if (current.length !== stats.size
-      || sha256(current) !== expectedSha256
-      || !current.subarray(0, marker.length).equals(marker)) {
-      throw new Error('CLI_REFRESH_REFUSED');
-    }
-    return current;
-  };
-
-  let staged;
-  try {
-    readGuarded();
-    staged = resolve(dirname(target), `${basename(target)}${TEMP_SUFFIX}`);
-    if (!within(realpathSync(rootPath), staged)) throw new Error('CLI_REFRESH_REFUSED');
-    let fd;
-    try {
-      fd = openSync(staged, 'wx', 0o600);
-      writeAll(fd, bytes);
-      fsyncSync(fd);
-      closeSync(fd);
-    } catch (error) {
-      if (fd !== undefined) {
-        try { closeSync(fd); } catch { /* the staged claim already failed */ }
-      }
-      throw error;
-    }
-    readGuarded();
-    renameSync(staged, target);
-    return target;
-  } catch (error) {
-    if (staged !== undefined) {
-      try { unlinkSync(staged); } catch { /* nothing was staged, or it is already gone */ }
-    }
-    throw error instanceof Error && error.message === 'CLI_REFRESH_REFUSED'
-      ? error
-      : new Error('CLI_REFRESH_REFUSED');
-  }
-}
-
-function writeReceipt(operation, report, target, bytes) {
   return {
     exit_code: 0,
     stdout: jsonBytes({
@@ -214,17 +99,17 @@ function writeReceipt(operation, report, target, bytes) {
       result: 'PASS',
       output_format: 'markdown',
       operation,
-      claim_ceiling: report.claim_ceiling,
-      event_count: report.event_count,
-      question_count: report.question_count,
-      answer_count: report.answer_count,
-      review_count: report.review_count,
-      pending_question_count: report.pending_question_count,
-      ledger_sha256: report.ledger_sha256,
-      head_event_hash: report.head_event_hash,
-      output_basename: basename(target),
-      output_byte_length: bytes.length,
-      output_sha256: report.markdown_sha256,
+      claim_ceiling: written.report.claim_ceiling,
+      event_count: written.report.event_count,
+      question_count: written.report.question_count,
+      answer_count: written.report.answer_count,
+      review_count: written.report.review_count,
+      pending_question_count: written.report.pending_question_count,
+      ledger_sha256: written.report.ledger_sha256,
+      head_event_hash: written.report.head_event_hash,
+      output_basename: written.basename,
+      output_byte_length: written.byte_length,
+      output_sha256: written.sha256,
       derived_view_only: true,
       notebook_is_gold: false,
       engine_is_gold: false,
@@ -237,25 +122,23 @@ function writeReceipt(operation, report, target, bytes) {
 export function runCli(argv = process.argv) {
   try {
     const options = parse(argv);
-    const rendered = renderSeCoreEvalQaHumanReport({ root_path: options['--root'] });
-    if (rendered.result !== 'PASS') {
-      return { exit_code: 2, stdout: jsonBytes(rendered.report) };
-    }
     if (Object.hasOwn(options, '--out')) {
-      const target = assertCreateOnlyTarget(options['--root'], options['--out']);
-      writeCreateOnly(target, rendered.markdown_bytes);
-      return writeReceipt('create', rendered.report, target, rendered.markdown_bytes);
+      return writeReceipt('create', createSeCoreEvalQaReportFile({
+        root_path: options['--root'],
+        output_path: options['--out'],
+      }));
     }
     if (Object.hasOwn(options, '--refresh')) {
-      const target = refreshRecognizedReport(
-        options['--root'],
-        options['--refresh'],
-        options['--expected-sha256'],
-        rendered.markdown_bytes,
-      );
-      return writeReceipt('refresh', rendered.report, target, rendered.markdown_bytes);
+      return writeReceipt('refresh', refreshSeCoreEvalQaReportFile({
+        root_path: options['--root'],
+        output_path: options['--refresh'],
+        expected_sha256: options['--expected-sha256'],
+      }));
     }
-    return { exit_code: 0, stdout: rendered.markdown_bytes };
+    const rendered = renderSeCoreEvalQaHumanReport({ root_path: options['--root'] });
+    return rendered.result === 'PASS'
+      ? { exit_code: 0, stdout: rendered.markdown_bytes }
+      : { exit_code: 2, stdout: jsonBytes(rendered.report) };
   } catch (error) {
     return cliHold(
       error instanceof Error && /^CLI_[A-Z_]+$/.test(error.message)

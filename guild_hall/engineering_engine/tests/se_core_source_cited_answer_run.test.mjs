@@ -11,6 +11,9 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { captureQaInteraction } from '../evaluation/se_core_eval_qa_capture.mjs';
+import {
+  SE_CORE_EVAL_QA_REPORT_BASENAME,
+} from '../evaluation/se_core_eval_qa_report_writer.mjs';
 import { ContractError } from '../kernel/errors.mjs';
 import {
   captureSeCoreSourceCitedAnswerBatch,
@@ -1034,5 +1037,114 @@ test('the real CLI refuses an output or receipt aimed at a capture-owned path', 
     rmSync(scratch, { recursive: true, force: true });
     rmSync(root, { recursive: true, force: true });
     rmSync(plainRoot, { recursive: true, force: true });
+  }
+});
+
+// ------------------------------------------ automatic derived human report after the batch
+
+function derivedReportPath(root) {
+  return join(root, SE_CORE_EVAL_QA_REPORT_BASENAME);
+}
+
+test('a successful engine batch creates the derived report and refreshes it on every later batch', () => {
+  const root = evaluationRoot();
+  try {
+    const first = captureSeCoreSourceCitedAnswerBatch(
+      captureInput(root, 'attempt-01', '2026-08-12T01:00:00Z', captureRun()),
+    );
+    assert.equal(first.result, 'PASS');
+    assert.equal(first.report_operation, 'created');
+    assert.equal(first.report_basename, SE_CORE_EVAL_QA_REPORT_BASENAME);
+    const created = readFileSync(derivedReportPath(root));
+    assert.equal(first.report_sha256, sha(created));
+    const createdText = created.toString('utf8');
+    assert.ok(createdText.includes(QUESTIONS[0].question));
+    assert.ok(createdText.includes(ANSWER_CANARY));
+    assert.match(createdText, /\| 총 event 수 \| 14 \|/u);
+    // The receipt stays redacted even though the derived view is now readable in the root.
+    assert.equal(JSON.stringify(first).includes(ANSWER_CANARY), false);
+    assert.equal(JSON.stringify(first).includes(root), false);
+
+    const rerun = captureSeCoreSourceCitedAnswerBatch(
+      captureInput(root, 'attempt-01', '2026-08-12T01:00:00Z', captureRun()),
+    );
+    assert.equal(rerun.report_operation, 'refreshed');
+    assert.deepEqual(readFileSync(derivedReportPath(root)), created);
+
+    const second = captureSeCoreSourceCitedAnswerBatch(
+      captureInput(root, 'attempt-02', '2026-08-12T02:00:00Z', captureRun()),
+    );
+    assert.equal(second.report_operation, 'refreshed');
+    assert.match(readFileSync(derivedReportPath(root), 'utf8'), /\| 총 event 수 \| 21 \|/u);
+    assert.equal(second.report_sha256, sha(readFileSync(derivedReportPath(root))));
+    assert.equal(existsSync(`${derivedReportPath(root)}.refresh-tmp`), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a refused report refresh keeps the ledger and the foreign file intact and a retry repairs it', () => {
+  const root = evaluationRoot();
+  try {
+    assert.equal(captureSeCoreSourceCitedAnswerBatch(
+      captureInput(root, 'attempt-01', '2026-08-12T01:00:00Z', captureRun()),
+    ).result, 'PASS');
+
+    const foreign = Buffer.from('# 사람이 직접 쓴 문서\n', 'utf8');
+    writeFileSync(derivedReportPath(root), foreign);
+    assert.throws(
+      () => captureSeCoreSourceCitedAnswerBatch(
+        captureInput(root, 'attempt-02', '2026-08-12T02:00:00Z', captureRun()),
+      ),
+      (error) => error instanceof ContractError
+        && error.code === 'SE_CORE_SOURCE_CITED_ANSWER_CLI_CAPTURE_REFUSED'
+        && error.detail.issues.includes('REPORT_REFRESH_REFUSED'),
+    );
+    // The append-only ledger is the truth and keeps what it recorded; nothing is unwound, and
+    // the file this seam refused to recognize is untouched.
+    assert.deepEqual(readFileSync(derivedReportPath(root)), foreign);
+    const held = captureQaInteraction({ root_path: root, command: 'validate' });
+    assert.equal(held.result, 'PASS');
+    assert.equal(held.event_count, 21);
+
+    rmSync(derivedReportPath(root));
+    const repaired = captureSeCoreSourceCitedAnswerBatch(
+      captureInput(root, 'attempt-02', '2026-08-12T02:00:00Z', captureRun()),
+    );
+    assert.equal(repaired.result, 'PASS');
+    assert.equal(repaired.report_operation, 'created');
+    assert.equal(repaired.event_count, 21);
+    assert.match(readFileSync(derivedReportPath(root), 'utf8'), /\| 총 event 수 \| 21 \|/u);
+    assert.equal(captureQaInteraction({ root_path: root, command: 'validate' }).event_count, 21);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('an explicit output aimed at the derived report is refused before any capture event', () => {
+  const root = evaluationRoot();
+  try {
+    let captureCalls = 0;
+    const mutate = () => {
+      captureCalls += 1;
+      return captureSeCoreSourceCitedAnswerBatch(
+        captureInput(root, 'attempt-01', '2026-08-12T01:00:00Z', captureRun()),
+      );
+    };
+    assert.throws(
+      () => withExplicitOutputsClaimed(
+        [[derivedReportPath(root), Buffer.from('claimed\n', 'utf8')]],
+        mutate,
+        captureIdentity(root),
+      ),
+      (error) => error instanceof ContractError
+        && error.code === 'SE_CORE_SOURCE_CITED_ANSWER_CLI_OUTPUT_CAPTURE_COLLISION'
+        && error.detail.issues.includes('derived_report'),
+    );
+    assert.equal(captureCalls, 0);
+    assert.equal(existsSync(derivedReportPath(root)), false);
+    assert.deepEqual(readdirSync(root), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });

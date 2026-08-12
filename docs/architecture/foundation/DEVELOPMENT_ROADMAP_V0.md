@@ -21,6 +21,15 @@
   attempt. Historical row-pointer import stays on `HOLD`, and live NotebookLM
   execution still needs owner-supplied runtime identifiers plus a fresh Level-3
   review before any production claim.
+- Every capture lane now keeps one fixed-basename Markdown report level with the
+  ledger through a single shared writer, so a captured turn is readable without a
+  separate manual command. The report stays a reconstructable derived view with
+  no authority, refuses to overwrite anything it cannot prove from that file's
+  own bytes that it generated, and reports a refused refresh honestly instead of
+  unwinding a recorded turn. Refused files are repaired by hand, not migrated
+  automatically. This
+  automation side-effect change needs a fresh Level-3 B/V accept before any
+  production or main-integration claim.
 
 ## 목적
 

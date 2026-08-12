@@ -2,9 +2,17 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { captureQaInteraction } from '../evaluation/se_core_eval_qa_capture.mjs';
+import { ensureSeCoreEvalQaReportFile } from '../evaluation/se_core_eval_qa_report_writer.mjs';
 
 const CLI_SCHEMA = 'soulforge.engineering_engine.se_core_eval_qa_capture_cli.v1';
 const CLAIM_CEILING = 'metadata_only_observation_ledger';
+/** The commands that append a turn, and therefore owe the derived report a refresh. */
+const RECORDING_COMMANDS = new Set([
+  'record-question',
+  'record-answer',
+  'record-review',
+  'import-existing',
+]);
 const COMMANDS = new Set([
   'initialize',
   'validate',
@@ -181,14 +189,45 @@ function requestFor(command, options) {
     : { root_path, command, filters };
 }
 
+/**
+ * Every recorded turn refreshes the derived human report before the command reports success.
+ *
+ * The ledger and the hash-bound raw files stay canonical, so a refused refresh never unwinds a
+ * recorded turn: the receipt keeps reporting the exact ledger facts the append really reached and
+ * marks the derived view as pending instead of claiming a readable report that does not exist.
+ */
+function withDerivedReport(command, report, rootPath) {
+  if (!RECORDING_COMMANDS.has(command) || report.result !== 'PASS') {
+    return { exit_code: report.result === 'PASS' ? 0 : 2, stdout: jsonBytes(report) };
+  }
+  const written = ensureSeCoreEvalQaReportFile({ root_path: rootPath });
+  if (written.result !== 'PASS') {
+    return {
+      exit_code: 2,
+      stdout: jsonBytes({
+        ...report,
+        result: 'HOLD',
+        report_operation: 'none',
+        report_refresh_pending: true,
+        issues: written.issues,
+      }),
+    };
+  }
+  return {
+    exit_code: 0,
+    stdout: jsonBytes({
+      ...report,
+      report_operation: written.operation,
+      report_refresh_pending: false,
+    }),
+  };
+}
+
 export function runCli(argv = process.argv) {
   try {
     const { command, options } = parse(argv);
     const report = captureQaInteraction(requestFor(command, options));
-    return {
-      exit_code: report.result === 'PASS' ? 0 : 2,
-      stdout: jsonBytes(report),
-    };
+    return withDerivedReport(command, report, options['--root']);
   } catch (error) {
     return cliHold(
       error instanceof Error && /^CLI_[A-Z_]+$/.test(error.message)

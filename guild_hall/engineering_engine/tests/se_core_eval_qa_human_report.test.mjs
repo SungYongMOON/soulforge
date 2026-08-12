@@ -18,6 +18,7 @@ import { captureQaInteraction } from '../evaluation/se_core_eval_qa_capture.mjs'
 import {
   SE_CORE_EVAL_QA_HUMAN_REPORT_MARKER,
   renderSeCoreEvalQaHumanReport,
+  verifySeCoreEvalQaHumanReportBytes,
 } from '../evaluation/se_core_eval_qa_human_report.mjs';
 import { runCli } from '../tools/se_core_eval_qa_human_report.mjs';
 
@@ -235,28 +236,59 @@ test('backtick-heavy and HTML-shaped raw text cannot break out of its fence', ()
   assert.doesNotMatch(outside, /^#+ 위조/m);
 });
 
-test('CRLF raw bytes are preserved while lone CR, BOM, replacement characters, and controls hold', () => {
+test('CRLF raw bytes are preserved and unshowable bytes render in one explicit escaped notation', () => {
   const crlfRoot = makeRoot();
   const crlf = '첫 줄\r\n둘째 줄\r\n';
   recordQuestion(crlfRoot, 'se-q-crlf', crlf);
   const crlfRendered = render(crlfRoot);
   assert.equal(crlfRendered.result, 'PASS');
   assert.ok(markdown(crlfRendered).includes(crlf));
+  assert.equal(crlfRendered.report.escaped_body_count, 0);
+  assert.match(markdown(crlfRendered), /\| 원문 표시 방식 \| 바이트 그대로\(exact_text\) \|/u);
 
-  for (const [label, payload] of [
-    ['lone-cr', Buffer.from('첫 줄\r둘째 줄', 'utf8')],
-    ['bom', Buffer.from(String.fromCharCode(0xFEFF) + '본문', 'utf8')],
-    ['replacement', Buffer.from('본문' + String.fromCharCode(0xFFFD), 'utf8')],
-    ['control', Buffer.from('본문' + String.fromCharCode(0x07), 'utf8')],
-    ['invalid-utf8', Buffer.from([0xed, 0x95, 0x9c, 0xff, 0xfe])],
+  // The capture contract accepts any non-empty bytes, so the projection has to be total for all of
+  // them: one unshowable turn must not be able to poison the whole lane.
+  for (const [label, payload, expected] of [
+    ['lone-cr', Buffer.from('첫 줄\r둘째 줄', 'utf8'), '첫 줄\\u{000D}둘째 줄'],
+    ['bom', Buffer.from(String.fromCharCode(0xFEFF) + '본문', 'utf8'), '\\u{FEFF}본문'],
+    ['replacement', Buffer.from('본문' + String.fromCharCode(0xFFFD), 'utf8'), '본문\\u{FFFD}'],
+    ['control', Buffer.from('본문' + String.fromCharCode(0x07), 'utf8'), '본문\\u{0007}'],
+    ['invalid-utf8', Buffer.from([0xed, 0x95, 0x9c, 0xff, 0xfe]), '한\\xFF\\xFE'],
+    ['truncated-utf8', Buffer.from([0xed, 0x95]), '\\xED\\x95'],
+    ['backslash-and-nul',
+      Buffer.concat([Buffer.from('역슬래시\\뒤', 'utf8'), Buffer.from([0x00])]),
+      '역슬래시\\\\뒤\\u{0000}'],
   ]) {
     const root = makeRoot();
     assert.equal(recordQuestion(root, 'se-q-raw-shape', payload).result, 'PASS', label);
     const rendered = render(root);
-    assert.equal(rendered.result, 'HOLD', label);
-    assert.deepEqual(rendered.report.issues, ['RAW_TEXT_REFUSED'], label);
-    assert.equal(rendered.markdown_bytes.length, 0, label);
+    assert.equal(rendered.result, 'PASS', label);
+    assert.deepEqual(rendered.report.issues, [], label);
+    assert.equal(rendered.report.escaped_body_count, 1, label);
+    const text = markdown(rendered);
+    assert.deepEqual(fencedRegions(text), [expected], label);
+    assert.match(text, /\| 원문 표시 방식 \| 이스케이프 표기\(escaped_bytes\) \|/u, label);
+    // Nothing unshowable survives into the projection itself.
+    assert.doesNotMatch(text, /[\0-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/u, label);
+    assert.equal(text.includes(String.fromCharCode(0xFFFD)), false, label);
+    assert.doesNotMatch(text, /\r(?!\n)/u, label);
+    assert.deepEqual(render(root).markdown_bytes, rendered.markdown_bytes, label);
   }
+});
+
+test('the generated report proves its own bytes and a hand-edited body no longer verifies', () => {
+  const root = makeRoot();
+  recordQuestion(root, 'se-q-commitment', '질문 본문');
+  const rendered = render(root);
+  assert.equal(verifySeCoreEvalQaHumanReportBytes(rendered.markdown_bytes), true);
+  assert.match(markdown(rendered), /^> 본문 커밋먼트\(SHA-256\): [0-9a-f]{64}$/mu);
+
+  // The head, including everything a marker check could look at, is preserved byte for byte.
+  const edited = Buffer.from(`${markdown(rendered)}사람이 덧붙인 줄.\n`, 'utf8');
+  assert.ok(edited.toString('utf8').startsWith(SE_CORE_EVAL_QA_HUMAN_REPORT_MARKER));
+  assert.equal(verifySeCoreEvalQaHumanReportBytes(edited), false);
+  assert.equal(verifySeCoreEvalQaHumanReportBytes(Buffer.from('# 다른 문서\n', 'utf8')), false);
+  assert.equal(verifySeCoreEvalQaHumanReportBytes(Buffer.alloc(0)), false);
 });
 
 test('a tampered ledger row holds and never echoes raw captured text', () => {

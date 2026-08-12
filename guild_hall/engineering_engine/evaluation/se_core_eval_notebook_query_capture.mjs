@@ -41,6 +41,7 @@ import {
 import { isAbsolute, join, relative, sep } from 'node:path';
 
 import { captureQaInteraction } from './se_core_eval_qa_capture.mjs';
+import { ensureSeCoreEvalQaReportFile } from './se_core_eval_qa_report_writer.mjs';
 
 const REPORT_SCHEMA = 'soulforge.engineering_engine.se_core_eval_notebook_query_capture_report.v1';
 const INTENT_SCHEMA = 'soulforge.engineering_engine.se_core_eval_notebook_query_intent.v1';
@@ -829,6 +830,9 @@ function newStage() {
     appended_event_count: 0,
     ledger_sha256: null,
     head_event_hash: null,
+    report_operation: 'none',
+    report_refresh_pending: false,
+    report_sha256: null,
   };
 }
 
@@ -839,6 +843,29 @@ function stageLedgerFacts(stage, report) {
   stage.head_event_hash = report.head_event_hash;
   stage.appended_event_count += report.appended_event_count;
   return report;
+}
+
+/**
+ * Bring the derived human report level with the ledger, or hold.
+ *
+ * This runs once on the branch that is about to query — after the preflight has already settled
+ * what happened before, so a pending question is readable before the provider is ever asked — and
+ * once after the answer turn. A resumed attempt never passes through the first one, so a report
+ * that cannot be built cannot keep an already-recorded response from reaching its answer turn. The
+ * ledger and the hash-bound raw files stay canonical either way: a refused refresh unwinds nothing,
+ * and the staged facts keep saying exactly what was captured and whether the query already happened.
+ */
+function refreshDerivedReport(root, stage) {
+  const written = ensureSeCoreEvalQaReportFile({ root_path: root });
+  if (written.result !== 'PASS') {
+    stage.report_refresh_pending = true;
+    // The writer's own closed code, so the reason the derived view could not be built stays
+    // distinguishable from a capture refusal.
+    hold(written.issues[0] ?? 'REPORT_REFRESH_REFUSED');
+  }
+  stage.report_operation = written.operation;
+  stage.report_sha256 = written.sha256;
+  stage.report_refresh_pending = false;
 }
 
 function reportFor(stage, state, disposition, extras) {
@@ -861,6 +888,9 @@ function reportFor(stage, state, disposition, extras) {
     appended_event_count: stage.appended_event_count,
     ledger_sha256: stage.ledger_sha256,
     head_event_hash: stage.head_event_hash,
+    report_operation: stage.report_operation,
+    report_refresh_pending: stage.report_refresh_pending,
+    report_sha256: stage.report_sha256,
     issues: [],
   };
 }
@@ -885,6 +915,9 @@ function failureReport(stage, result, code) {
     appended_event_count: stage.appended_event_count,
     ledger_sha256: stage.ledger_sha256,
     head_event_hash: stage.head_event_hash,
+    report_operation: stage.report_operation,
+    report_refresh_pending: stage.report_refresh_pending,
+    report_sha256: stage.report_sha256,
     issues: [code],
   };
 }
@@ -987,6 +1020,12 @@ export function captureSeCoreNotebookQuery(request = {}, dependencies = {}) {
       // An outcome with no intent is an orphan: the identity that produced it cannot be
       // reconstructed, so a first query under a freshly minted conversation is refused.
       guard(recordedResponse === null && recordedFailure === null, 'ORPHANED_QUERY_OUTCOME');
+      // Only this branch asks the provider anything, so this is where the pending question is made
+      // readable first, and a refusal here stops the attempt with nothing external invoked. It runs
+      // after the preflight on purpose: the at-most-once guards are the stronger check and must
+      // report their own outcome, and a derived view that cannot be built must never stand between
+      // an already-recorded response and the answer turn that resumes it.
+      refreshDerivedReport(root, stage);
       const conversationId = mintConversationId(root, newConversationId, values);
       intent = intentValue(values, conversationId, question);
       createPrivateArtifact(
@@ -1032,6 +1071,7 @@ export function captureSeCoreNotebookQuery(request = {}, dependencies = {}) {
       event_time: values.event_time,
       answer_bytes: validated.answer_bytes,
     }), 'ANSWER_CAPTURE_REFUSED'));
+    refreshDerivedReport(root, stage);
 
     return reportFor(stage, stage.query_performed ? 'captured' : 'resumed', answered.disposition, {
       answer_sha256: sha256(validated.answer_bytes),

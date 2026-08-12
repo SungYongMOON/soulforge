@@ -25,6 +25,9 @@ import {
   buildNotebookQueryArgv,
   captureSeCoreNotebookQuery,
 } from '../evaluation/se_core_eval_notebook_query_capture.mjs';
+import {
+  SE_CORE_EVAL_QA_REPORT_BASENAME,
+} from '../evaluation/se_core_eval_qa_report_writer.mjs';
 import { runCli } from '../tools/se_core_eval_notebook_query_capture.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -1027,4 +1030,198 @@ test('the thin CLI emits redacted metadata only and maps hold and unknown to non
   const cliSource = readFileSync(CLI_PATH, 'utf8');
   assert.doesNotMatch(cliSource, /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/u);
   assert.doesNotMatch(cliSource, /[A-Za-z]:[\\/]/u);
+});
+
+// ------------------------------------------- automatic derived human report around the query
+
+function reportPath(root) {
+  return join(root, SE_CORE_EVAL_QA_REPORT_BASENAME);
+}
+
+function reportText(root) {
+  return existsSync(reportPath(root)) ? readFileSync(reportPath(root), 'utf8') : '';
+}
+
+function assertNoReportResidue(root) {
+  assert.equal(existsSync(`${reportPath(root)}.refresh-tmp`), false);
+  assert.deepEqual(readdirSync(root).filter((name) => name.endsWith('.refresh-tmp')), []);
+}
+
+test('the pending question is readable in the derived report before the provider is asked', () => {
+  const root = makeRoot();
+  const seenAtQueryTime = [];
+  const executor = {
+    calls: [],
+    execute: (invocation) => {
+      executor.calls.push(invocation);
+      seenAtQueryTime.push(reportText(root));
+      return {
+        status: 0, timed_out: false, failed: false,
+        stdout: responseStdout(), stderr: Buffer.alloc(0),
+      };
+    },
+  };
+
+  const report = captureSeCoreNotebookQuery(baseRequest(root), dependencies(executor.execute));
+  assert.equal(report.result, 'PASS');
+  assert.equal(executor.calls.length, 1);
+
+  // The report the provider call was made under already showed the question as pending.
+  assert.equal(seenAtQueryTime.length, 1);
+  assert.ok(seenAtQueryTime[0].includes(QUESTION_TEXT));
+  assert.match(seenAtQueryTime[0], /답변 대기: `se-q-01`/u);
+  assert.equal(seenAtQueryTime[0].includes(ANSWER_CANARY), false);
+
+  // The answer turn refreshed the same file rather than adding a second one.
+  assert.equal(report.report_operation, 'refreshed');
+  assert.equal(report.report_refresh_pending, false);
+  assert.equal(report.report_sha256, sha256(readFileSync(reportPath(root))));
+  const finalText = reportText(root);
+  assert.ok(finalText.includes(QUESTION_TEXT));
+  assert.ok(finalText.includes(ANSWER_CANARY));
+  assert.match(finalText, /답변 대기 중인 질문 없음/u);
+  assert.deepEqual(readdirSync(root).filter((name) => name.endsWith('.md')),
+    [SE_CORE_EVAL_QA_REPORT_BASENAME]);
+  assertNoReportResidue(root);
+  assert.equal(JSON.stringify(report).includes(ANSWER_CANARY), false);
+});
+
+test('a refused pre-query refresh holds before the provider is invoked and never duplicates the question', () => {
+  const root = makeRoot();
+  const foreign = Buffer.from('# 사람이 직접 쓴 문서\n', 'utf8');
+  writeFileSync(reportPath(root), foreign);
+  const executor = refusingExecutor();
+
+  const held = captureSeCoreNotebookQuery(baseRequest(root), dependencies(executor.execute));
+  assert.equal(held.result, 'HOLD');
+  assert.deepEqual(held.issues, ['REPORT_REFRESH_REFUSED']);
+  assert.equal(held.query_performed, false);
+  assert.equal(held.report_refresh_pending, true);
+  assert.equal(executor.calls.length, 0);
+  // The question turn is real; only the derived view is pending.
+  assert.equal(held.event_count, 1);
+  assert.equal(held.appended_event_count, 1);
+  assert.equal(held.question_sha256, QUESTION_SHA256);
+  assert.deepEqual(readFileSync(reportPath(root)), foreign);
+  assert.equal(existsSync(privatePath(root, 'intent', 'se-q-01', 'attempt-01')), false);
+  assertNoReportResidue(root);
+
+  rmSync(reportPath(root));
+  const repaired = fakeExecutor();
+  const resumed = captureSeCoreNotebookQuery(baseRequest(root), dependencies(repaired.execute));
+  assert.equal(resumed.result, 'PASS');
+  assert.equal(repaired.calls.length, 1);
+  assert.equal(resumed.event_count, 2);
+  assert.equal(captureQaInteraction({ root_path: root, command: 'query' }).counts.question_recorded, 1);
+  assert.ok(reportText(root).includes(ANSWER_CANARY));
+});
+
+test('a refused post-answer refresh reports the query and capture that happened, and the retry never queries again', () => {
+  const root = makeRoot();
+  const foreign = Buffer.from('# 사람이 직접 쓴 문서\n', 'utf8');
+  const executor = {
+    calls: [],
+    execute: (invocation) => {
+      executor.calls.push(invocation);
+      // A concurrent writer replaces the recognized report while the query is in flight.
+      writeFileSync(reportPath(root), foreign);
+      return {
+        status: 0, timed_out: false, failed: false,
+        stdout: responseStdout(), stderr: Buffer.alloc(0),
+      };
+    },
+  };
+
+  const held = captureSeCoreNotebookQuery(baseRequest(root), dependencies(executor.execute));
+  assert.equal(held.result, 'HOLD');
+  assert.deepEqual(held.issues, ['REPORT_REFRESH_REFUSED']);
+  assert.equal(held.query_performed, true);
+  assert.equal(held.report_refresh_pending, true);
+  assert.equal(held.event_count, 2);
+  assert.equal(held.appended_event_count, 2);
+  assert.equal(held.question_sha256, QUESTION_SHA256);
+  assert.equal(executor.calls.length, 1);
+  assert.deepEqual(readFileSync(reportPath(root)), foreign);
+  assert.equal(captureQaInteraction({ root_path: root, command: 'validate' }).result, 'PASS');
+  assertNoReportResidue(root);
+
+  rmSync(reportPath(root));
+  const refusing = refusingExecutor();
+  const rebuilt = captureSeCoreNotebookQuery(baseRequest(root), dependencies(refusing.execute));
+  assert.equal(rebuilt.result, 'PASS');
+  assert.equal(rebuilt.state, 'resumed');
+  assert.equal(rebuilt.query_performed, false);
+  assert.equal(refusing.calls.length, 0);
+  assert.equal(rebuilt.event_count, 2);
+  assert.equal(rebuilt.appended_event_count, 0);
+  assert.equal(rebuilt.report_refresh_pending, false);
+  const text = reportText(root);
+  assert.ok(text.includes(QUESTION_TEXT));
+  assert.ok(text.includes(ANSWER_CANARY));
+  assert.equal(captureQaInteraction({ root_path: root, command: 'query' }).event_count, 2);
+});
+
+test('an unrefreshable report cannot keep an already-recorded response from being resumed', () => {
+  // A first attempt elsewhere produces the exact intent and response bytes a crash between the
+  // persisted response and the answer turn would have left behind.
+  const source = makeRoot();
+  assert.equal(
+    captureSeCoreNotebookQuery(baseRequest(source), dependencies(fakeExecutor().execute)).result,
+    'PASS',
+  );
+  const intentBytes = readFileSync(privatePath(source, 'intent', 'se-q-01', 'attempt-01'));
+  const responseBytes = readFileSync(privatePath(source, 'response', 'se-q-01', 'attempt-01'));
+
+  const root = makeRoot();
+  writePrivateArtifact(root, 'intent', 'se-q-01', 'attempt-01', intentBytes);
+  writePrivateArtifact(root, 'response', 'se-q-01', 'attempt-01', responseBytes);
+  const foreign = Buffer.from('# 사람이 직접 쓴 문서\n', 'utf8');
+  writeFileSync(reportPath(root), foreign);
+
+  const refusing = refusingExecutor();
+  const resumed = captureSeCoreNotebookQuery(baseRequest(root), dependencies(refusing.execute));
+  // The derived view is what is pending. The recorded response still reached its answer turn.
+  assert.equal(resumed.result, 'HOLD');
+  assert.deepEqual(resumed.issues, ['REPORT_REFRESH_REFUSED']);
+  assert.equal(resumed.report_refresh_pending, true);
+  assert.equal(resumed.query_performed, false);
+  assert.equal(refusing.calls.length, 0);
+  assert.equal(resumed.event_count, 2);
+  assert.equal(resumed.appended_event_count, 2);
+  assert.equal(captureQaInteraction({ root_path: root, command: 'query' }).counts.answer_received, 1);
+  assert.deepEqual(readFileSync(reportPath(root)), foreign);
+  assertNoReportResidue(root);
+
+  // Repairing the file is the only thing left, and it queries nothing.
+  rmSync(reportPath(root));
+  const rebuilt = captureSeCoreNotebookQuery(baseRequest(root), dependencies(refusing.execute));
+  assert.equal(rebuilt.result, 'PASS');
+  assert.equal(rebuilt.query_performed, false);
+  assert.equal(rebuilt.appended_event_count, 0);
+  assert.equal(refusing.calls.length, 0);
+  assert.ok(reportText(root).includes(ANSWER_CANARY));
+});
+
+test('the at-most-once preflight reports its own outcome even when the report cannot be refreshed', () => {
+  for (const kind of ['response', 'failure']) {
+    const root = makeRoot();
+    const bytes = kind === 'response'
+      ? responseStdout()
+      : Buffer.from('{"issue_code":"PROVIDER_QUERY_FAILED"}', 'utf8');
+    const target = writePrivateArtifact(root, kind, 'se-q-01', 'attempt-01', bytes);
+    const foreign = Buffer.from('# 사람이 직접 쓴 문서\n', 'utf8');
+    writeFileSync(reportPath(root), foreign);
+
+    const executor = fakeExecutor();
+    const report = captureSeCoreNotebookQuery(baseRequest(root), dependencies(executor.execute));
+    // The stronger orphan guard names the real blocker; the derived view never masks it.
+    assert.deepEqual(report.issues, ['ORPHANED_QUERY_OUTCOME'], kind);
+    assert.equal(report.result, 'HOLD', kind);
+    assert.equal(report.query_performed, false, kind);
+    assert.equal(report.report_refresh_pending, false, kind);
+    assert.equal(executor.calls.length, 0, kind);
+    assert.deepEqual(readFileSync(target), bytes, kind);
+    assert.deepEqual(readFileSync(reportPath(root)), foreign, kind);
+    assertNoReportResidue(root);
+  }
 });
