@@ -312,6 +312,17 @@ test("self, five-field, and workmeta tracking boundaries stay evidence-owned and
   }, "topology_snapshot_protected_node_invalid");
 });
 
+test("healthy self, five-field, and workmeta nodes omit non-green tracking", () => {
+  const snapshot = sampleSnapshot();
+  for (const id of ["watchtower_self", "gate_five_field", "store_workmeta"]) {
+    const node = snapshot.nodes.find((candidate) => candidate.id === id);
+    node.health = { state: "ok", reasons: [], age_seconds: 5 };
+    delete node.tracking;
+  }
+  snapshot.summary = { ok: 4, degraded: 0, stale: 0, down: 0, unmonitored: 4 };
+  assert.equal(validateTopologyHealthSnapshot(snapshot, { now: NOW }), snapshot);
+});
+
 test("privacy, raw, secret, and path sentinels fail closed", () => {
   expectInvalid((snapshot) => { snapshot.raw_payload = "hidden"; }, "topology_snapshot_privacy_sentinel");
   expectInvalid((snapshot) => { snapshot.nodes[0].health.reasons = ["token=not-public"]; }, "topology_snapshot_privacy_sentinel");

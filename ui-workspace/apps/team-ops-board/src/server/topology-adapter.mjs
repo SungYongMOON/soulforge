@@ -351,7 +351,7 @@ export function validateTopologyHealthSnapshot(snapshot, { now = Date.now() } = 
         || (!observedAllowed && node.health.state === "unmonitored"
           && (!node.health.reasons.includes(protectedContract.unmonitoredReasons[0])
             || !node.health.reasons.every((reason) => protectedContract.unmonitoredReasons.includes(reason))))
-        || (protectedContract.tracking !== undefined
+        || (node.health.state !== "ok" && protectedContract.tracking !== undefined
           && (!isPlainObject(node.tracking)
             || node.tracking.evidence_owner !== protectedContract.tracking.evidenceOwner
             || node.tracking.escalation_owner !== protectedContract.tracking.escalationOwner
