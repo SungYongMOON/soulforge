@@ -9,6 +9,9 @@
 - The nullable reset is accepted only for the sanitized Claude OAuth source.
   Status-line, compatibility, Antigravity, malformed, and implausible reset
   evidence retain their existing fail-closed validation.
+- Decoupled the five-minute Claude quota refresh from the potentially long
+  active-session Meter supplement. A slow active Codex session collection can
+  no longer prevent the next quota observation from running on schedule.
 
 ## 2026-08-13 - Workspace Board rollover and enrollment-gap hardening
 

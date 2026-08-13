@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { ACTIVE_CODEX_SESSION_MAX_AGE_MS, activeCodexSessionIds, loadActiveCodexSessionFiles, persistProducerHeartbeat, runUsageProducerSweep, startUsageProducerCompanion } from "./ai-usage-producer-companion.mjs";
+import { ACTIVE_CODEX_SESSION_MAX_AGE_MS, activeCodexSessionIds, loadActiveCodexSessionFiles, persistProducerHeartbeat, runClaudeQuotaSweep, runUsageProducerSweep, startUsageProducerCompanion } from "./ai-usage-producer-companion.mjs";
 
 const REPO_ROOT = path.resolve("test-fixtures", "repo");
 const STATE_ROOT = path.resolve("test-fixtures", "state");
@@ -46,7 +46,7 @@ test("active Codex collection includes a fresh session even before Board enrollm
   assert.deepEqual(files, [fresh]);
 });
 
-test("producer sweep refreshes lifecycle, usage ledgers, then gated Claude quota", async () => {
+test("producer sweep refreshes lifecycle and usage ledgers without coupling quota cadence", async () => {
   const calls = [];
   const heartbeats = [];
   const result = await runUsageProducerSweep({
@@ -62,29 +62,41 @@ test("producer sweep refreshes lifecycle, usage ledgers, then gated Claude quota
   });
   assert.equal(result.status, "observed");
   assert.deepEqual(calls.slice(0, 3).map((call) => call.args[1]), ["lifecycle-reconcile", "collect", "collect-claude"]);
-  assert.match(calls[3].args[0], /claude-oauth-usage-collector\.mjs$/u);
   assert.deepEqual(calls[0].args.filter((arg) => arg === "--thread-id").length, 2);
   assert.ok(calls.slice(0, 3).every((call) => call.args.includes("--apply")));
   assert.equal(calls[1].args[calls[1].args.indexOf("--project-root") + 1], PROJECT_ROOT);
-  assert.equal(calls.length, 7);
-  assert.match(calls[4].args[0], /guild_hall[\\/]watchtower[\\/]cli\.mjs$/u);
-  assert.deepEqual(calls[4].args.slice(1), ["probe", "--pointer", WATCHTOWER_POINTER, "--json"]);
-  assert.equal(calls[4].args.includes("--no-write"), false);
-  assert.ok(calls.slice(5).every((call) => call.args.includes("--include-active")));
-  assert.ok(calls.slice(5).every((call) => call.args[call.args.indexOf("--project-root") + 1] === PROJECT_ROOT));
-  assert.deepEqual(calls.slice(5).map((call) => call.args[call.args.indexOf("--session-file") + 1]), [
+  assert.equal(calls.length, 6);
+  assert.match(calls[3].args[0], /guild_hall[\\/]watchtower[\\/]cli\.mjs$/u);
+  assert.deepEqual(calls[3].args.slice(1), ["probe", "--pointer", WATCHTOWER_POINTER, "--json"]);
+  assert.equal(calls[3].args.includes("--no-write"), false);
+  assert.ok(calls.slice(4).every((call) => call.args.includes("--include-active")));
+  assert.ok(calls.slice(4).every((call) => call.args[call.args.indexOf("--project-root") + 1] === PROJECT_ROOT));
+  assert.deepEqual(calls.slice(4).map((call) => call.args[call.args.indexOf("--session-file") + 1]), [
     ...ACTIVE_FILES,
   ]);
-  assert.ok(calls[3].args.includes("--gate-path"));
+  assert.deepEqual(heartbeats.map(({ lane, succeeded }) => [lane, succeeded]), [["codex", true], ["claude", true], ["meter", true], ["store_usage_ledger", true]]);
+});
+
+test("Claude quota sweep uses the gated sanitized collector independently", async () => {
+  const calls = [];
+  const result = await runClaudeQuotaSweep({
+    repoRoot: REPO_ROOT,
+    projectRoot: PROJECT_ROOT,
+    run: async (file, args, options) => { calls.push({ file, args, options }); },
+  });
+  assert.equal(result.status, "observed");
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].args[0], /claude-oauth-usage-collector\.mjs$/u);
+  assert.ok(calls[0].args.includes("--gate-path"));
   assert.equal(
-    calls[3].args[calls[3].args.indexOf("--gate-path") + 1],
+    calls[0].args[calls[0].args.indexOf("--gate-path") + 1],
     path.join(PROJECT_ROOT, "guild_hall", "state", "operations", "provider_quota", "claude", "oauth", "enabled.v1.json"),
   );
   assert.equal(
-    calls[3].args[calls[3].args.indexOf("--receipt-path") + 1],
+    calls[0].args[calls[0].args.indexOf("--receipt-path") + 1],
     path.join(PROJECT_ROOT, "guild_hall", "state", "operations", "provider_quota", "claude", "statusline", "provider_quota.receipt.v1.json"),
   );
-  assert.deepEqual(heartbeats.map(({ lane, succeeded }) => [lane, succeeded]), [["codex", true], ["claude", true], ["meter", true], ["store_usage_ledger", true]]);
+  assert.equal(calls[0].options.windowsHide, true);
 });
 
 test("producer heartbeat retains last-good and never treats idle activity as failure", async (t) => {
@@ -159,6 +171,7 @@ test("sanitized Meter CLI error code is retained without stderr detail", async (
 
 test("companion is single-flight and stops without starting another sweep", async () => {
   let calls = 0;
+  let quotaCalls = 0;
   let release;
   const pending = new Promise((resolve) => { release = resolve; });
   const companion = startUsageProducerCompanion({
@@ -168,6 +181,7 @@ test("companion is single-flight and stops without starting another sweep", asyn
     watchtowerPointerPath: WATCHTOWER_POINTER,
     intervalMs: 5,
     loadThreadIds: async () => ["thread-a"],
+    quotaSweep: async () => { quotaCalls += 1; },
     sweep: async (options) => {
       assert.equal(options.watchtowerPointerPath, WATCHTOWER_POINTER);
       calls += 1;
@@ -176,6 +190,7 @@ test("companion is single-flight and stops without starting another sweep", asyn
   });
   await new Promise((resolve) => setTimeout(resolve, 15));
   assert.equal(calls, 1);
+  assert.ok(quotaCalls >= 2, "quota cadence must continue while the usage sweep is in flight");
   release();
   await companion.stop();
 });

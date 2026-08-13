@@ -103,13 +103,29 @@ export async function loadCurrentThreadIds(registryPath) {
     : [];
 }
 
+export async function runClaudeQuotaSweep({ repoRoot, projectRoot = repoRoot, run = execFileAsync } = {}) {
+  if (!path.isAbsolute(repoRoot ?? "") || !path.isAbsolute(projectRoot ?? "")) {
+    return { status: "hold", error_code: "quota_root_unavailable" };
+  }
+  const collector = path.join(repoRoot, "ui-workspace", "apps", "team-ops-board", "src", "server", "claude-oauth-usage-collector.mjs");
+  const stateRoot = path.join(projectRoot, "guild_hall", "state", "operations", "provider_quota", "claude");
+  try {
+    await run(process.execPath, [
+      collector,
+      "--gate-path", path.join(stateRoot, "oauth", "enabled.v1.json"),
+      "--receipt-path", path.join(stateRoot, "statusline", "provider_quota.receipt.v1.json"),
+    ], { cwd: repoRoot, windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
+    return { status: "observed" };
+  } catch (error) {
+    return { status: "hold", error_code: safeErrorCode(error) };
+  }
+}
+
 export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, stateRoot, watchtowerPointerPath, threadIds = [], run = execFileAsync, loadActiveFiles = loadActiveCodexSessionFiles, loadSnapshot = async () => JSON.parse(await readFile(path.join(stateRoot, "current.json"), "utf8")), persistHeartbeat = persistProducerHeartbeat, now = () => new Date() } = {}) {
   if (!path.isAbsolute(repoRoot ?? "") || !path.isAbsolute(projectRoot ?? "") || !path.isAbsolute(stateRoot ?? "")) {
     return { status: "hold", completed: 0 };
   }
   const cli = path.join(repoRoot, "guild_hall", "ai_usage_meter", "cli.mjs");
-  const claudeQuotaCollector = path.join(repoRoot, "ui-workspace", "apps", "team-ops-board", "src", "server", "claude-oauth-usage-collector.mjs");
-  const claudeQuotaStateRoot = path.join(projectRoot, "guild_hall", "state", "operations", "provider_quota", "claude");
   const watchtowerCli = path.join(repoRoot, "guild_hall", "watchtower", "cli.mjs");
   let completed = 0;
   let projectionCommandSucceeded = false;
@@ -128,7 +144,6 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
     lifecycleArgs,
     [cli, "collect", "--project-root", projectRoot, "--state-root", stateRoot, "--apply"],
     [cli, "collect-claude", "--state-root", stateRoot, "--max-age-days", "2", "--apply"],
-    [claudeQuotaCollector, "--gate-path", path.join(claudeQuotaStateRoot, "oauth", "enabled.v1.json"), "--receipt-path", path.join(claudeQuotaStateRoot, "statusline", "provider_quota.receipt.v1.json")],
   ].filter(Boolean);
   for (const args of commands) {
     const command = args[0] === cli ? args[1] : null;
@@ -190,7 +205,7 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
       // One conflicting active session must not block other exact active sessions.
     }
   }
-  const expected = (lifecycleArgs === null ? 3 : 4)
+  const expected = (lifecycleArgs === null ? 2 : 3)
     + (path.isAbsolute(watchtowerPointerPath ?? "") ? 1 : 0)
     + activeFiles.length;
   return { status: completed === expected ? "observed" : "partial", completed };
@@ -204,10 +219,12 @@ export function startUsageProducerCompanion({
   watchtowerPointerPath,
   intervalMs = DEFAULT_USAGE_PRODUCER_INTERVAL_MS,
   sweep = runUsageProducerSweep,
+  quotaSweep = runClaudeQuotaSweep,
   loadThreadIds = loadCurrentThreadIds,
 } = {}) {
   let stopped = false;
   let inFlight = null;
+  let quotaInFlight = null;
   const trigger = () => {
     if (stopped || inFlight !== null) return inFlight;
     inFlight = Promise.resolve(loadThreadIds(registryPath))
@@ -216,14 +233,27 @@ export function startUsageProducerCompanion({
       .finally(() => { inFlight = null; });
     return inFlight;
   };
+  const triggerQuota = () => {
+    if (stopped || quotaInFlight !== null) return quotaInFlight;
+    quotaInFlight = Promise.resolve(quotaSweep({ repoRoot, projectRoot }))
+      .finally(() => { quotaInFlight = null; });
+    return quotaInFlight;
+  };
   void trigger();
+  void triggerQuota();
   const timer = setInterval(() => { void trigger(); }, intervalMs);
+  const quotaTimer = setInterval(() => { void triggerQuota(); }, intervalMs);
   timer.unref?.();
+  quotaTimer.unref?.();
   return {
     async stop() {
       stopped = true;
       clearInterval(timer);
-      await inFlight?.catch(() => {});
+      clearInterval(quotaTimer);
+      await Promise.all([
+        inFlight?.catch(() => {}),
+        quotaInFlight?.catch(() => {}),
+      ]);
     },
   };
 }

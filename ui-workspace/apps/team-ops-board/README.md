@@ -260,6 +260,9 @@ not enable quota access by itself, store credentials, or persist provider
 responses. When the sanitized OAuth source reports a percentage but explicitly
 omits its reset timestamp, the Board retains that percentage and displays only
 the reset as unknown; it never invents a reset time.
+The gated quota collector has its own single-flight five-minute trigger. It does
+not wait for the Meter companion's active-session supplement to finish, so a
+long-running local session import cannot make a valid quota receipt stale.
 Local polling and cache refreshes share one in-flight read and perform no
 provider GET during cooldown. Missing v2 status, legacy v1,
 and unavailable values remain `UNKNOWN`/disabled and are never fabricated as
