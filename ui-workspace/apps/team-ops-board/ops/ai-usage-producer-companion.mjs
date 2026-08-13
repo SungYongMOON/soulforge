@@ -97,7 +97,7 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
   }
   const cli = path.join(repoRoot, "guild_hall", "ai_usage_meter", "cli.mjs");
   const claudeQuotaCollector = path.join(repoRoot, "ui-workspace", "apps", "team-ops-board", "src", "server", "claude-oauth-usage-collector.mjs");
-  const claudeQuotaRoot = path.join(repoRoot, "guild_hall", "state", "operations", "provider_quota", "claude", "oauth");
+  const claudeQuotaStateRoot = path.join(projectRoot, "guild_hall", "state", "operations", "provider_quota", "claude");
   const watchtowerCli = path.join(repoRoot, "guild_hall", "watchtower", "cli.mjs");
   let completed = 0;
   let projectionCommandSucceeded = false;
@@ -116,7 +116,7 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
     lifecycleArgs,
     [cli, "collect", "--project-root", projectRoot, "--state-root", stateRoot, "--apply"],
     [cli, "collect-claude", "--state-root", stateRoot, "--max-age-days", "2", "--apply"],
-    [claudeQuotaCollector, "--gate-path", path.join(claudeQuotaRoot, "enabled.v1.json"), "--receipt-path", path.join(repoRoot, "guild_hall", "state", "operations", "provider_quota", "claude", "statusline", "provider_quota.receipt.v1.json")],
+    [claudeQuotaCollector, "--gate-path", path.join(claudeQuotaStateRoot, "oauth", "enabled.v1.json"), "--receipt-path", path.join(claudeQuotaStateRoot, "statusline", "provider_quota.receipt.v1.json")],
   ].filter(Boolean);
   for (const args of commands) {
     const command = args[0] === cli ? args[1] : null;

@@ -1008,6 +1008,11 @@ function collapseUsageEventObservations(events, { rateCard = null } = {}) {
       current.set(event.event_id, lineageMerged);
       continue;
     }
+    const stableLineage = mergePreservingCanonicalDerivedLineage(existing, event);
+    if (stableLineage) {
+      current.set(event.event_id, stableLineage);
+      continue;
+    }
     const continuationCopy = mergeContinuationCopyObservation(existing, event);
     if (continuationCopy) {
       current.set(event.event_id, continuationCopy);
@@ -1501,6 +1506,24 @@ function mergeAncestorPreservingSelfRootUpgrade(ancestor, selfRoot) {
     : null;
 }
 
+function mergePreservingCanonicalDerivedLineage(canonical, observed) {
+  if (canonical.source.kind !== "codex_session_jsonl"
+    || observed.source.kind !== canonical.source.kind
+    || canonical.source.source_ref !== observed.source.source_ref
+    || canonical.measurement.attribution_confidence !== "derived_lineage"
+    || observed.measurement.attribution_confidence !== "derived_lineage"
+    || (canonical.root_thread_id === observed.root_thread_id
+      && canonical.root_turn_id === observed.root_turn_id)
+    || canonical.work_id !== `codex.${canonical.root_turn_id}`
+    || observed.work_id !== `codex.${observed.root_turn_id}`) return null;
+  const candidate = structuredClone(observed);
+  candidate.root_thread_id = canonical.root_thread_id;
+  candidate.root_turn_id = canonical.root_turn_id;
+  candidate.work_id = canonical.work_id;
+  validateUsageEvent(candidate);
+  return usageEventUpgradeAllowed(canonical, candidate) ? candidate : null;
+}
+
 async function writeUsageEvent(filePath, revisionsRoot, value) {
   await mkdir(path.dirname(filePath), { recursive: true });
   let handle;
@@ -1589,6 +1612,8 @@ export async function persistUsageEvents(stateRoot, events) {
       if (usageEventUpgradeAllowed(indexed.event, event)) return event;
       const lineageMerged = mergeAncestorPreservingSelfRootUpgrade(indexed.event, event);
       if (lineageMerged) return lineageMerged;
+      const stableLineage = mergePreservingCanonicalDerivedLineage(indexed.event, event);
+      if (stableLineage) return stableLineage;
       const retainedCanonical = retainStrongerCanonicalModelObservation(indexed.event, event);
       if (retainedCanonical) return retainedCanonical;
       if (selfRootToAncestorUpgrade(event, indexed.event)

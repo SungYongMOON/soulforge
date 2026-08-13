@@ -22,8 +22,12 @@ const boardTopologyOptions = createTeamOpsBoardTopologyOptions(boardEnvironment)
 const boardAllowedHosts = resolveTeamOpsBoardAllowedHosts();
 const boardRoot = path.dirname(fileURLToPath(import.meta.url));
 const soulforgeRoot = path.resolve(boardRoot, "../../..");
+const configuredOwnerRoot = process.env.SOULFORGE_AI_USAGE_PROJECT_ROOT;
+const ownerRoot = typeof configuredOwnerRoot === "string" && path.isAbsolute(configuredOwnerRoot)
+  ? path.resolve(configuredOwnerRoot)
+  : soulforgeRoot;
 const providerQuotaReceiptPath = path.join(
-  soulforgeRoot,
+  ownerRoot,
   "guild_hall",
   "state",
   "operations",

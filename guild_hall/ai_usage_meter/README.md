@@ -412,6 +412,7 @@ npm run validate:ai-usage-meter
 - continuation source rollover의 direct·pending 단조 승격과 revision 보존
 - 부모 continuation 전체 관찰 합성 후 SubagentStop lineage 귀속
 - stale self-root 백필은 ancestor 귀속을 보존한 채 약한 관찰은 replay하고 더 강한 전체 측정 snapshot은 단조 재기반하며, 일반 token/lineage 회귀는 conflict로 분리
+- 동일 source event의 파생 lineage가 재계산되면 최초 canonical root/work 귀속을 유지한 채 complete·project 같은 단조 정보만 승격하며, 명시 binding이나 token/model/source 불일치는 계속 conflict로 닫음
 - scoped collect의 authoritative full coverage snapshot 보존
 - cache-write 무료 계산과 exact-turn binding 우선순위
 - Stop 잠정치 → complete 승격, 현재 합계 중복 0

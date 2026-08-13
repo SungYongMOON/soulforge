@@ -252,6 +252,12 @@ quota stays in process memory across a failed attempt and is visibly
 `STALE`/error immediately; a new process has no retained value. Failed reads
 enter a five-minute exponential cooldown capped at one hour; a valid
 `Retry-After` delta or HTTP date may extend that cooldown to the same cap.
+The scheduled companion and read-only Board adapter resolve the ignored local
+quota gate and sanitized receipt from the stable
+`SOULFORGE_AI_USAGE_PROJECT_ROOT`, not from the active code worktree. A Board
+worktree switch therefore cannot silently orphan Claude quota state. This does
+not enable quota access by itself, store credentials, or persist provider
+responses.
 Local polling and cache refreshes share one in-flight read and perform no
 provider GET during cooldown. Missing v2 status, legacy v1,
 and unavailable values remain `UNKNOWN`/disabled and are never fabricated as

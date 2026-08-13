@@ -78,4 +78,12 @@ test("Vite server and preview share the resolver result and never allow every ho
   );
   assert.equal([...configSource.matchAll(/allowedHosts:\s*boardAllowedHosts\b/gu)].length, 2);
   assert.doesNotMatch(configSource, /allowedHosts\s*:\s*true\b/u);
+  assert.match(
+    configSource,
+    /process\.env\.SOULFORGE_AI_USAGE_PROJECT_ROOT/u,
+  );
+  assert.match(
+    configSource,
+    /path\.join\(\s*ownerRoot,\s*"guild_hall",\s*"state",\s*"operations",\s*"provider_quota"/u,
+  );
 });

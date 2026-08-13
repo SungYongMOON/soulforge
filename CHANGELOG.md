@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 2026-08-13 - AI usage collection lineage stability and Claude quota state ownership
+
+- Prevented the Codex scheduled collector from becoming permanently stale when
+  the same source-backed usage event is later assigned a different automatically
+  derived ancestor. The first canonical derived root/work assignment is retained
+  while monotonic completion and project enrichment may advance. Explicit
+  bindings and token, model, source, or credit disagreements remain fail-closed.
+- Moved the ignored Claude quota opt-in gate and sanitized receipt lookup from the
+  active Board worktree to the stable owner root supplied by
+  `SOULFORGE_AI_USAGE_PROJECT_ROOT`. Rebuilding or switching the Board worktree
+  no longer makes an existing local quota observation disappear. The change does
+  not read or store credentials, raw provider responses, or account data, and it
+  does not enable quota access without the existing explicit gate.
+
 ## 2026-08-13 - Source-bound answer lane: output-safety reason seam
 
 - Added a diagnostic-only reason to the evaluation-only source-bound answer lane

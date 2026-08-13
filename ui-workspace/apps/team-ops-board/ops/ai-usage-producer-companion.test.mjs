@@ -55,6 +55,14 @@ test("producer sweep refreshes lifecycle, usage ledgers, then gated Claude quota
     ...ACTIVE_FILES,
   ]);
   assert.ok(calls[3].args.includes("--gate-path"));
+  assert.equal(
+    calls[3].args[calls[3].args.indexOf("--gate-path") + 1],
+    path.join(PROJECT_ROOT, "guild_hall", "state", "operations", "provider_quota", "claude", "oauth", "enabled.v1.json"),
+  );
+  assert.equal(
+    calls[3].args[calls[3].args.indexOf("--receipt-path") + 1],
+    path.join(PROJECT_ROOT, "guild_hall", "state", "operations", "provider_quota", "claude", "statusline", "provider_quota.receipt.v1.json"),
+  );
   assert.deepEqual(heartbeats.map(({ lane, succeeded }) => [lane, succeeded]), [["codex", true], ["claude", true], ["meter", true], ["store_usage_ledger", true]]);
 });
 

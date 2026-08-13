@@ -1291,6 +1291,61 @@ test("persistence accepts only forward project attribution enrichment from the c
   await assert.rejects(persistUsageEvents(state, [unassigned]), { code: "usage_event_conflict" });
 });
 
+test("derived lineage drift preserves the first canonical root without blocking later completion", async () => {
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-usage-lineage-stability-"));
+  const sessions = await mkdtemp(path.join(os.tmpdir(), "sf-usage-lineage-stability-session-"));
+  const file = await writeSession(sessions, "lineage-stability", [
+    sessionMeta({ id: "lineage-stability" }), taskStarted("lineage-stability-turn"),
+    turnContext("lineage-stability-turn", "gpt-5.6-sol", "high"),
+    tokenCount(usage(100, 50, 10), "2026-08-03T00:00:03.000Z"), taskComplete("lineage-stability-turn"),
+  ]);
+  const [complete] = await buildUsageEvents({
+    sessionFiles: [file], config: config(), rateCard: await loadRateCard(RATE_CARD),
+  });
+  const canonical = structuredClone(complete);
+  canonical.parent_thread_id = "lineage-parent";
+  canonical.root_thread_id = "lineage-ancestor-a";
+  canonical.root_turn_id = "lineage-ancestor-turn-a";
+  canonical.work_id = `codex.${canonical.root_turn_id}`;
+  const recalculated = structuredClone(complete);
+  recalculated.parent_thread_id = canonical.parent_thread_id;
+  recalculated.root_thread_id = "lineage-ancestor-b";
+  recalculated.root_turn_id = "lineage-ancestor-turn-b";
+  recalculated.work_id = `codex.${recalculated.root_turn_id}`;
+
+  assert.equal((await persistUsageEvents(state, [canonical])).created, 1);
+  assert.equal((await persistUsageEvents(state, [recalculated])).replayed, 1);
+  let [persisted] = await loadPersistedUsageEvents(state);
+  assert.equal(persisted.root_thread_id, canonical.root_thread_id);
+  assert.equal(persisted.root_turn_id, canonical.root_turn_id);
+  assert.equal(persisted.work_id, canonical.work_id);
+
+  const batchState = await mkdtemp(path.join(os.tmpdir(), "sf-usage-lineage-stability-batch-"));
+  assert.equal((await persistUsageEvents(batchState, [canonical, recalculated])).created, 1);
+  [persisted] = await loadPersistedUsageEvents(batchState);
+  assert.equal(persisted.root_thread_id, canonical.root_thread_id);
+  assert.equal(persisted.root_turn_id, canonical.root_turn_id);
+  assert.equal(persisted.work_id, canonical.work_id);
+
+  const activeState = await mkdtemp(path.join(os.tmpdir(), "sf-usage-lineage-stability-active-"));
+  const active = structuredClone(canonical);
+  active.measurement.status = "active";
+  active.time.completed_at = null;
+  active.time.duration_ms = null;
+  assert.equal((await persistUsageEvents(activeState, [active])).created, 1);
+  assert.equal((await persistUsageEvents(activeState, [recalculated])).updated, 1);
+  [persisted] = await loadPersistedUsageEvents(activeState);
+  assert.equal(persisted.measurement.status, "complete");
+  assert.equal(persisted.root_thread_id, canonical.root_thread_id);
+  assert.equal(persisted.root_turn_id, canonical.root_turn_id);
+  assert.equal(persisted.work_id, canonical.work_id);
+
+  const explicit = structuredClone(recalculated);
+  explicit.measurement.attribution_confidence = "explicit_binding";
+  explicit.work_id = "explicit.other-work";
+  await assert.rejects(persistUsageEvents(state, [explicit]), { code: "usage_event_conflict" });
+});
+
 test("persistence retains stronger canonical model metadata but rejects token disagreement", async () => {
   const state = await mkdtemp(path.join(os.tmpdir(), "sf-usage-canonical-model-"));
   const sessions = await mkdtemp(path.join(os.tmpdir(), "sf-usage-canonical-model-session-"));
