@@ -94,16 +94,16 @@ export const TOPOLOGY_NODES = Object.freeze([
   { id: "store_mail_events", label: "메일 event 원장", kind: "store", group: "데이터 평면", probe: "store_mail_events", operation_mode: "structural", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 2, row: 0 },
   { id: "store_voice_custody", label: "음성 custody", kind: "store", group: "데이터 평면", probe: "store_voice_custody", operation_mode: "structural", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 2, row: 1.8 },
   { id: "store_slack_custody", label: "Slack custody", kind: "store", group: "데이터 평면", probe: "store_slack_custody", operation_mode: "structural", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 2, row: 2.7 },
-  { id: "gate_five_field", label: "five-field 원장 검증", kind: "gate", group: "게이트", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 2, row: 3.5 },
+  { id: "gate_five_field", label: "five-field 원장 검증", kind: "gate", group: "게이트", probe: "gate_five_field", operation_mode: "scheduled", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 2, row: 3.5 },
   { id: "usage_meter", label: "공통 AI Usage Meter", kind: "worker", group: "관측", probe: "usage_meter", operation_mode: "on_demand", health_scope: "aggregate", unmonitored_reason: "independent_evidence_absent", col: 2, row: 5.4 },
-  { id: "store_workmeta", label: "_workmeta 시간장부", kind: "store", group: "데이터 평면", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 2, row: 7.2 },
+  { id: "store_workmeta", label: "_workmeta 시간장부", kind: "store", group: "데이터 평면", probe: "store_workmeta", operation_mode: "structural", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 2, row: 7.2 },
 
   // 후처리·외부 목적지·공유 원장·검사 판정
   { id: "src_gmail", label: "Gmail API", kind: "consumer", group: "후처리", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 3, row: 0.9 },
   { id: "voice_label_worker", label: "음성 ASR·라벨 워커", kind: "worker", group: "후처리", probe: "voice_label_worker", operation_mode: "scheduled", health_scope: "node", unmonitored_reason: "collector_evidence_absent", col: 3, row: 1.8 },
   { id: "store_activity_outbox", label: "파일·활동 delta outbox", kind: "store", group: "후처리", probe: "store_activity_outbox", operation_mode: "structural", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 3, row: 4.2 },
   { id: "store_usage_ledger", label: "공유 AI usage-event 원장", kind: "store", group: "데이터 평면", probe: "store_usage_ledger", operation_mode: "structural", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 3, row: 5.4 },
-  { id: "watchtower_self", label: "Watchtower 검사·판정", kind: "gate", group: "관측", probe: null, operation_mode: "structural", health_scope: "self", unmonitored_reason: "independent_evidence_absent", col: 3, row: 7.2 },
+  { id: "watchtower_self", label: "Watchtower 검사·판정", kind: "gate", group: "관측", probe: "watchtower_self", operation_mode: "scheduled", health_scope: "self", unmonitored_reason: "independent_evidence_absent", col: 3, row: 7.2 },
 
   // 소비 표면
   { id: "consumer_timeline", label: "프로젝트 시간장부 shadow", kind: "consumer", group: "소비", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 4, row: 1.4 },
@@ -255,7 +255,7 @@ export function validateTopologyDefinition({ nodes = TOPOLOGY_NODES, edges = TOP
     if (node.health_scope === "aggregate" && (node.provider !== undefined || !["on_demand", "scheduled"].includes(node.operation_mode))) {
       topologyFail("topology_aggregate_scope_invalid", node.id);
     }
-    if (node.health_scope === "self" && (node.id !== "watchtower_self" || node.probe !== null)) {
+    if (node.health_scope === "self" && node.id !== "watchtower_self") {
       topologyFail("topology_self_scope_invalid", node.id);
     }
     nodesById.set(node.id, node);

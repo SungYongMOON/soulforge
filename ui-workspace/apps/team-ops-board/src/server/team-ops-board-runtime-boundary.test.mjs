@@ -740,6 +740,9 @@ test("tracked runtime has only the bounded on-demand task surface", async () => 
   assert.doesNotMatch(source, /\bspawn\s*\(/u);
   assert.doesNotMatch(source, /detached:\s*true/u);
   assert.match(source, /windowsHide:\s*true/u);
+  assert.match(source, /import \{ startRecoveryCompanion \} from/u);
+  assert.match(source, /recoveryCompanion = startRecoveryCompanion\(\{/u);
+  assert.ok((source.match(/await recoveryCompanion\?\.stop\(\)/gu) ?? []).length >= 3);
   assert.doesNotMatch(source, /Start-Process|cmd\.exe|\/c\s+start/iu);
   assert.doesNotMatch(source, /Invoke-CimMethod|Win32_Process|bootstrap/iu);
   assert.match(source, /Register-ScheduledTask/u);

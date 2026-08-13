@@ -491,7 +491,7 @@ test("separate producer heartbeats cannot green provider evidence", async () => 
   assert.equal(snapshot.summary.ok, 2);
 });
 
-test("watchtower self stays unmonitored even if a same-named binding is supplied", async () => {
+test("watchtower self accepts only a separately bound evidence receipt", async () => {
   const root = await tempRoot();
   const healthFile = path.join(root, "watchtower-health.json");
   await writeFile(healthFile, JSON.stringify({
@@ -511,23 +511,8 @@ test("watchtower self stays unmonitored even if a same-named binding is supplied
   }), { now: NOW });
   const self = snapshot.nodes.find((node) => node.id === "watchtower_self");
   assert.equal(self.health_scope, "self");
-  assert.deepEqual(self.health, {
-    state: "unmonitored",
-    reasons: ["independent_evidence_absent"],
-    age_seconds: null,
-  });
-  assert.deepEqual(self.tracking, {
-    node_id: "watchtower_self",
-    reason_code: "independent_evidence_absent",
-    evidence_owner: "independent_watchdog",
-    last_checked_at: new Date(NOW).toISOString(),
-    next_check_at: new Date(NOW + 300_000).toISOString(),
-    next_evidence_due_at: null,
-    repairability: "not_available",
-    repair_action: null,
-    verification_state: "evidence_absent",
-    escalation_owner: "watchtower_owner",
-  });
+  assert.deepEqual(self.health, { state: "ok", reasons: [], age_seconds: 30 });
+  assert.equal(Object.hasOwn(self, "tracking"), false);
 });
 
 test("composeTopologyHealth covers every node and never leaks paths", async () => {
@@ -586,7 +571,7 @@ test("composeTopologyHealth covers every node and never leaks paths", async () =
   );
 });
 
-test("tracking covers 13 structural absences plus one degraded probe without greening healthy nodes", async () => {
+test("tracking covers remaining structural absences plus one degraded probe without greening healthy nodes", async () => {
   const root = await tempRoot();
   const healthyFile = path.join(root, "healthy.json");
   const degradedFile = path.join(root, "degraded.json");
@@ -612,10 +597,10 @@ test("tracking covers 13 structural absences plus one degraded probe without gre
   const tracked = snapshot.nodes.filter((node) => Object.hasOwn(node, "tracking"));
   const healthy = snapshot.nodes.filter((node) => node.health.state === "ok");
 
-  assert.equal(snapshot.summary.unmonitored, 13);
+  assert.equal(snapshot.summary.unmonitored, 10);
   assert.equal(snapshot.summary.degraded, 1);
-  assert.equal(tracked.length, 14);
-  assert.equal(healthy.length, 13);
+  assert.equal(tracked.length, 11);
+  assert.equal(healthy.length, 16);
   assert.ok(healthy.every((node) => !Object.hasOwn(node, "tracking")));
   assert.ok(tracked.every((node) => node.tracking.node_id === node.id && node.tracking.repair_action === null));
 
@@ -632,31 +617,10 @@ test("tracking covers 13 structural absences plus one degraded probe without gre
     verification_state: "observed",
     escalation_owner: "watchtower_operator",
   });
-  assert.deepEqual(snapshot.nodes.find((node) => node.id === "gate_five_field").tracking, {
-    node_id: "gate_five_field",
-    reason_code: "event_validation_receipt_absent",
-    evidence_owner: "five_field_event_validator",
-    last_checked_at: new Date(NOW).toISOString(),
-    next_check_at: new Date(NOW + 300_000).toISOString(),
-    next_evidence_due_at: null,
-    repairability: "not_available",
-    repair_action: null,
-    verification_state: "evidence_absent",
-    escalation_owner: "five_field_owner",
-  });
-  assert.deepEqual(snapshot.nodes.find((node) => node.id === "store_workmeta").tracking, {
-    node_id: "store_workmeta",
-    reason_code: "owner_bounded_validation_receipt_absent",
-    evidence_owner: "workmeta_owner_bounded_validator",
-    last_checked_at: new Date(NOW).toISOString(),
-    next_check_at: new Date(NOW + 300_000).toISOString(),
-    next_evidence_due_at: null,
-    repairability: "not_available",
-    repair_action: null,
-    verification_state: "evidence_absent",
-    escalation_owner: "workmeta_owner",
-  });
-  assert.equal(snapshot.nodes.find((node) => node.id === "watchtower_self").tracking.reason_code, "independent_evidence_absent");
+  for (const nodeId of ["gate_five_field", "store_workmeta", "watchtower_self"]) {
+    assert.equal(snapshot.nodes.find((node) => node.id === nodeId).health.state, "ok");
+    assert.equal(Object.hasOwn(snapshot.nodes.find((node) => node.id === nodeId), "tracking"), false);
+  }
   assert.equal(assertSnapshotPathFree(snapshot, binding), snapshot);
 });
 

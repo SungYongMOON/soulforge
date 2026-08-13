@@ -45,6 +45,13 @@ length-bounded; filesystem- or URL-like values are rejected.
   각 간선은 source의 오른쪽 OUT에서 target의 왼쪽 IN으로만 연결되며,
   노드 선택은 직접 연결된 1-hop 경로만 강조한다. 간선은 구조 방향이며
   per-edge receipt가 없는 현재 전송 중 상태를 추정하지 않는다.
+  The scheduled Board worker also hosts a separate five-minute evidence and
+  bounded-recovery companion. It validates Watchtower execution, five-field
+  metadata ledgers, and `_workmeta` payload policy into independent sanitized
+  receipts. Safe task restart is possible only for ignored-local exact task
+  bindings with matching action digests and successful pre/post verification;
+  provider login, deletion, acknowledgement, upload, routing, external send,
+  and partial mail backlogs remain manual/HOLD.
   `unmonitored` 공급자 관계는 관측된 공급자 health가 아니라 구조/카탈로그
   관계다. 노드는 색만으로 표시하지 않고 `관측 미구성`과 safe reason을
   함께 보이며, 이는 Claude·Antigravity의 현재 성공·정상이나 독립적 공급자

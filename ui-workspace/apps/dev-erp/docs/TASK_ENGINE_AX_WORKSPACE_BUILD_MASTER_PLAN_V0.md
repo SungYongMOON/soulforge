@@ -6,6 +6,14 @@
 > packet. Its stable digest treats no change as healthy idle. This validates
 > only `store_activity_outbox`; provider availability, timeline delivery, and
 > all topology edges remain unproven.
+>
+> 2026-08-14 CURRENT: the Board-owned five-minute recovery companion adds
+> independent metadata-only validation receipts for Watchtower execution,
+> five-field ledgers, and `_workmeta` payload policy. It may start only a
+> locally owned scheduled task whose ignored binding has the exact action
+> digest and whose pre/post verification succeeds. Provider login, deletion,
+> acknowledgement, upload, route changes, external sends, partial mail backlog,
+> on-demand Antigravity, and the feature-OFF timeline remain manual/HOLD.
 
 | 항목 | 값 |
 | --- | --- |

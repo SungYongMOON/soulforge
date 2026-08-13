@@ -102,7 +102,7 @@ function sampleSnapshot() {
         group: "관측",
         col: 3,
         row: 0,
-        operation_mode: "structural",
+        operation_mode: "scheduled",
         health_scope: "self",
         health: { state: "unmonitored", reasons: ["independent_evidence_absent"], age_seconds: null },
         tracking: tracking("watchtower_self", "independent_evidence_absent", {
@@ -117,9 +117,9 @@ function sampleSnapshot() {
         group: "게이트",
         col: 2,
         row: 1,
-        operation_mode: "structural",
+        operation_mode: "scheduled",
         health_scope: "node",
-        health: { state: "unmonitored", reasons: ["structural_only"], age_seconds: null },
+        health: { state: "unmonitored", reasons: ["independent_evidence_absent"], age_seconds: null },
         tracking: tracking("gate_five_field", "event_validation_receipt_absent", {
           evidenceOwner: "five_field_event_validator",
           escalationOwner: "five_field_owner",
@@ -134,7 +134,7 @@ function sampleSnapshot() {
         row: 2,
         operation_mode: "structural",
         health_scope: "node",
-        health: { state: "unmonitored", reasons: ["structural_only"], age_seconds: null },
+        health: { state: "unmonitored", reasons: ["independent_evidence_absent"], age_seconds: null },
         tracking: tracking("store_workmeta", "owner_bounded_validation_receipt_absent", {
           evidenceOwner: "workmeta_owner_bounded_validator",
           escalationOwner: "workmeta_owner",
@@ -180,7 +180,7 @@ test("strict validation keeps provider sources and aggregate unmonitored while C
   assert.equal(snapshot.nodes.find((node) => node.id === "usage_codex_collector").health.state, "ok");
 });
 
-test("protected source, aggregate, and self nodes reject inferred or copied observed health", () => {
+test("protected source and aggregate nodes reject inferred or copied observed health", () => {
   expectInvalid((snapshot) => {
     snapshot.nodes.find((node) => node.id === "src_codex").health = { state: "ok", reasons: [], age_seconds: 1 };
   }, "topology_snapshot_protected_node_invalid");
@@ -191,11 +191,6 @@ test("protected source, aggregate, and self nodes reject inferred or copied obse
   }, "topology_snapshot_protected_node_invalid");
   expectInvalid((snapshot) => {
     snapshot.nodes.find((node) => node.id === "usage_meter").health = { state: "ok", reasons: [], age_seconds: 0 };
-  }, "topology_snapshot_protected_node_invalid");
-  expectInvalid((snapshot) => {
-    snapshot.nodes.find((node) => node.id === "watchtower_self").health = {
-      state: "down", reasons: ["source_missing"], age_seconds: null,
-    };
   }, "topology_snapshot_protected_node_invalid");
 });
 

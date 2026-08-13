@@ -416,13 +416,18 @@ export async function runProbe(probe, { now, run_schtasks: runSchtasks }) {
 }
 
 function trackingReasonCode(node, health) {
-  if (TRACKING_REASON_BY_NODE[node.id] !== undefined) return TRACKING_REASON_BY_NODE[node.id];
+  if (health.state === "unmonitored" && TRACKING_REASON_BY_NODE[node.id] !== undefined) {
+    return TRACKING_REASON_BY_NODE[node.id];
+  }
   const supported = health.reasons.find((reason) => typeof reason === "string" && SAFE_ERROR_CODE.test(reason));
   return supported ?? `health_${health.state}`;
 }
 
 function nonGreenTracking(node, health, probe, observedAtMs) {
-  const isStructuralAbsence = health.state === "unmonitored" && node.probe === null;
+  const isIndependentEvidenceAbsence = health.state === "unmonitored"
+    && ["watchtower_self", "gate_five_field", "store_workmeta"].includes(node.id);
+  const isStructuralAbsence = health.state === "unmonitored"
+    && (node.probe === null || isIndependentEvidenceAbsence);
   const evidenceOwner = TRACKING_EVIDENCE_OWNER_BY_NODE[node.id]
     ?? (node.health_scope === "provider" ? `${node.provider}_provider_owner`
       : probe !== undefined ? "watchtower_probe"

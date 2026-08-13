@@ -4759,7 +4759,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "98162a3c7c5f6aa44762b38a2660c85130b06af65784b21bc3336535c7fd0a0a",
+        "digest": "2f3fbb267646a39ed046e54bc6649f7b563fc3b5c0217583727d574f63f2e8a6",
         "revision": "watchtower_topology.v1",
         "schema_version": "soulforge.watchtower.topology.v1",
         "source_id": "watchtower_topology_source"
@@ -4906,7 +4906,7 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "98273bc6f1352941fd44b6270088b2e26af73d439d53b32199bae8408e94d1f3",
+  "source_set_digest": "431fc28d19ba73326ecb2b359c1cb92b9ced28bfb7ef1e65da116a150bfd61be",
   "summary": {
     "edge_count": 174,
     "node_count": 67,
@@ -4914,5 +4914,5 @@
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "c228f5caaba643d924cd76fe28f57804f8a92d813e00c684bbe69d55f3ef81c0"
+  "topology_digest": "e3d134732bb60b79f532bef2591bfffc1c90c2eab45c822aa7a3a4e04a1e87bf"
 }

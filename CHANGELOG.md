@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2026-08-14 - Independent topology evidence and bounded local recovery
+
+- Added independent sanitized evidence receipts for the Watchtower execution
+  contract, five-field metadata ledgers, and `_workmeta` payload policy so the
+  three formerly structural-only local nodes can be judged without circular
+  self-health or inferred provider state.
+- Added a five-minute Board companion that may start only an allowlisted local
+  scheduled task with an exact action digest and successful independent
+  pre/post checks. External providers, credentials, deletion, acknowledgement,
+  uploads, route changes, external sends, partial mail backlogs, on-demand
+  Antigravity, and the feature-OFF timeline remain non-automatic.
+- Extended the canonical Watchtower validator and Board runtime lifecycle tests
+  so missing, invalid, stale, and failed evidence remain fail-closed and the
+  companion stops with the Board worker.
+
 ## 2026-08-13 - Topology non-green tracking and safe mail retry quarantine
 
 - Added a sanitized tracking contract for every non-green Watchtower W1 node

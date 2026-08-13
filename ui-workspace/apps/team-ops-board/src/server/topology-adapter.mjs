@@ -134,16 +134,16 @@ const PROTECTED_NODE_CONTRACTS = new Map([
     unmonitoredReasons: ["independent_evidence_absent", "probe_unbound"], observedAllowed: true, migrationOptional: true,
   }],
   ["watchtower_self", {
-    kind: "gate", operationMode: "structural", provider: null, healthScope: "self",
-    unmonitoredReasons: ["independent_evidence_absent"], observedAllowed: false,
+    kind: "gate", operationMode: "scheduled", provider: null, healthScope: "self",
+    unmonitoredReasons: ["independent_evidence_absent", "probe_unbound", "heartbeat_receipt_unavailable", "source_missing"], observedAllowed: true,
     tracking: {
       evidenceOwner: "independent_watchdog", escalationOwner: "watchtower_owner",
       repairability: "not_available",
     },
   }],
   ["gate_five_field", {
-    kind: "gate", operationMode: "structural", provider: null, healthScope: "node",
-    unmonitoredReasons: ["structural_only"], observedAllowed: false,
+    kind: "gate", operationMode: "scheduled", provider: null, healthScope: "node",
+    unmonitoredReasons: ["independent_evidence_absent", "probe_unbound", "heartbeat_receipt_unavailable", "source_missing"], observedAllowed: true,
     tracking: {
       evidenceOwner: "five_field_event_validator", escalationOwner: "five_field_owner",
       repairability: "not_available",
@@ -151,7 +151,7 @@ const PROTECTED_NODE_CONTRACTS = new Map([
   }],
   ["store_workmeta", {
     kind: "store", operationMode: "structural", provider: null, healthScope: "node",
-    unmonitoredReasons: ["structural_only"], observedAllowed: false,
+    unmonitoredReasons: ["independent_evidence_absent", "probe_unbound", "heartbeat_receipt_unavailable", "source_missing"], observedAllowed: true,
     tracking: {
       evidenceOwner: "workmeta_owner_bounded_validator", escalationOwner: "workmeta_owner",
       repairability: "not_available",

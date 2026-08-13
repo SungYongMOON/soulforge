@@ -25,6 +25,7 @@ import {
 } from "../src/core/team-ops-board-read-only-pilot.mjs";
 import { resolveTeamOpsBoardAllowedHosts } from "../src/server/team-ops-board-allowed-hosts.mjs";
 import { startUsageProducerCompanion } from "./ai-usage-producer-companion.mjs";
+import { startRecoveryCompanion } from "../../../../guild_hall/watchtower/recovery_runtime.mjs";
 
 export const TEAM_OPS_BOARD_RUNTIME_SCHEMA = "soulforge.team_ops_board.runtime.v1";
 export const TEAM_OPS_BOARD_RUNTIME_HOST = "127.0.0.1";
@@ -1674,6 +1675,7 @@ async function runWorker(runId, env = process.env) {
   let fatalPromise = null;
   let heartbeatTimer = null;
   let usageProducerCompanion = null;
+  let recoveryCompanion = null;
   let shuttingDown = false;
   const shutdown = () => {
     if (shutdownPromise) return shutdownPromise;
@@ -1681,6 +1683,7 @@ async function runWorker(runId, env = process.env) {
     shutdownPromise = (async () => {
       clearInterval(heartbeatTimer);
       await usageProducerCompanion?.stop();
+      await recoveryCompanion?.stop();
       const current = await readRuntimeState(paths).catch(() => null);
       if (current?.run_id === runId && ["starting", "ready"].includes(current.state)) {
         await writeJsonAtomic(paths.state, transitionRuntimeState(current, "stop_requested"));
@@ -1696,6 +1699,8 @@ async function runWorker(runId, env = process.env) {
     shuttingDown = true;
     fatalPromise = (async () => {
       clearInterval(heartbeatTimer);
+      await usageProducerCompanion?.stop().catch(() => {});
+      await recoveryCompanion?.stop().catch(() => {});
       const failureClass = sanitizeRuntimeFailure(error, "runtime_worker_failed");
       const current = await readRuntimeState(paths).catch(() => null);
       if (current?.run_id === runId && current.state === "ready") {
@@ -1745,6 +1750,10 @@ async function runWorker(runId, env = process.env) {
       registryPath: workerEnv.TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY,
       watchtowerPointerPath: workerEnv.TEAM_OPS_BOARD_WATCHTOWER_POINTER,
     });
+    recoveryCompanion = startRecoveryCompanion({
+      repoRoot: SOULFORGE_ROOT,
+      projectRoot: workerEnv.SOULFORGE_AI_USAGE_PROJECT_ROOT,
+    });
     await writeJsonAtomic(paths.state, {
       ...transitionRuntimeState(startingState, "preview_ready"),
       build_sha256: await buildDigest(),
@@ -1771,6 +1780,8 @@ async function runWorker(runId, env = process.env) {
   } catch (error) {
     shuttingDown = true;
     clearInterval(heartbeatTimer);
+    await usageProducerCompanion?.stop().catch(() => {});
+    await recoveryCompanion?.stop().catch(() => {});
     const failureClass = sanitizeRuntimeFailure(error);
     await closePreviewGracefully(previewServer).catch(() => {});
     await closeControlServer(controlServer).catch(() => {});

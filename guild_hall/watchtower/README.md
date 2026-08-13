@@ -28,6 +28,8 @@
 | `tools/emit_federated_topology.mjs` | 고정된 tracked source allowlist만 읽어 단일 derived projection을 생성하거나 byte parity를 검사하는 도구 |
 | `topology/federated_topology.v1.json` | UI가 읽을 수 있는 tracked public-safe 선언 구조 projection; runtime truth가 아님 |
 | `watchtower.mjs` | binding 검증, probe 4종(jsonl_tail/json_file/dir_latest_mtime/schtask), 판정, 스냅샷 |
+| `local_evidence.mjs` | Watchtower 실행 계약, five-field metadata 원장, `_workmeta` payload policy의 독립 검증 receipt |
+| `recovery_runtime.mjs` | ignored local binding을 읽는 5분 evidence/recovery companion; exact task digest와 사전·사후 검증 없이는 실행 거부 |
 | `cli.mjs` | `probe [--binding <path>\|--pointer <path>] [--json] [--no-write]`, `init-binding --output <path>` |
 | `watchtower.test.mjs` | 합성 판정·경로 미노출·원자 기록 회귀 |
 
@@ -57,8 +59,10 @@
   `provider_evidence_absent`, 실제 on-demand 실행 증거를 받지 않는 collector는
   `catalog_only_on_demand`, 공통 meter와 Watchtower 자체는
   `independent_evidence_absent`다. 미감시를 정상으로 칠하지 않는다.
-- `watchtower_self`에는 heartbeat, binding, resident task가 없으며 synthetic `ok`를
-  만들지 않는다. 별도 독립 근거가 생기기 전에는 `unmonitored`/HOLD다.
+- `watchtower_self`, `gate_five_field`, `store_workmeta`는 Board runtime의 별도
+  evidence companion이 각각 실행 계약, metadata-only 원장, payload policy를 검증한
+  receipt가 있을 때만 관측된다. receipt가 없거나 손상되면 `unmonitored`/HOLD이며
+  Watchtower가 자기 스냅샷을 자기 건강 근거로 재사용하지 않는다.
 - exit code: 0=판정 완료, 2=down 노드 존재, 1=실행 실패.
 
 ## AI 사용량 hybrid topology
@@ -125,16 +129,21 @@ npm run validate:watchtower
 npm run guild-hall:watchtower:probe
 ```
 
-### Non-green tracking and feature-off recovery
+### Non-green tracking and bounded safe recovery
 
 - Every non-`ok` node carries a sanitized tracking record with its stable node
   ID, fixed reason, evidence owner, last check/next evidence due time, repairability, verification
-  state, and escalation owner. `watchtower_self`, `gate_five_field`, and
-  `store_workmeta` stay non-green until their separately owned evidence exists.
+  state, and escalation owner. External providers, on-demand Antigravity, and
+  the feature-OFF timeline stay non-green until their separately owned evidence exists.
 - `health_recovery_coordinator.mjs` is a feature-off recovery contract. Observe
   mode never executes repairs. Safe-repair mode still requires an injected
   action allowlist, executor, and independent verifier; credential, deletion,
   acknowledgement, route, account, upload, and external-send actions are denied.
+- `recovery_runtime.mjs` binds that contract only to local scheduled tasks whose
+  exact action digest is registered in ignored local state. A candidate must be
+  `stale` or `down`, the task must be safely startable, and independent pre/post
+  checks must pass. Provider login, message deletion, acknowledgement, upload,
+  route changes, external send, and partial mail backlog are never auto-repaired.
 
 ### AI usage producer heartbeat
 
