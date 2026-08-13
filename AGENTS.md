@@ -43,7 +43,7 @@
 - 작업 전 HEAD, `.git/index.lock`, dirty change ownership과 동시 편집 징후를 확인하고 충돌 가능성이 있으면 중단·보고한다.
 - 재사용 하네스와 스크립트는 가능한 표준 Node/CLI로 만들고 특정 agent 환경만의 기능을 정본 의존성으로 만들지 않는다.
 - 관찰하지 않은 명령·결과·권한·모델·상태를 주장하지 않는다. 불확실하면 `UNKNOWN` 또는 `HOLD`로 둔다.
-- 개발1팀 또는 AI 조직 TASK의 create/continue/rollover에서 exact Codex `thread_id`가 실제로 반환되면 `.workflow/codex_thread_manager_v0`의 Workspace Board local enrollment gate를 따른다. owner-provided `organization_group_id`, safe `display_label`, kind·relationship·lifecycle을 쓰고 route/work 값은 known일 때만 쓴다.
+- 개발1팀 또는 AI 조직 TASK의 create/fork/continue/rollover/handoff에서 exact Codex `thread_id`가 실제로 반환되면 `.workflow/codex_thread_manager_v0`의 Workspace Board local enrollment gate를 반드시 완료한다. owner-provided `organization_group_id`, safe `display_label`, kind·relationship·lifecycle을 쓰고 route/work 값은 known일 때만 쓴다. 프로젝트가 없는 TASK도 명시 delegation packet의 organization group과 exact nullable parent가 있을 때만 등록하며, 등록·validate·가능한 live reconcile 영수증 없이는 task operation 완료를 주장하지 않는다.
 - title, cwd, prefix, similarity, age, idle 또는 parent-only 값으로 thread ID를 추정하지 않으며, actual ID·roster·등록값은 ignored local state에만 두고 tracked 문서·workflow data에는 넣지 않는다.
 - idempotent `register-existing`, `validate`, 그리고 live adapter가 가능한 경우 `reconcile --live`가 통과하기 전에는 Board-visible 또는 enrollment-gate closed를 주장하지 않는다. CLI·registry·adapter의 disable/failure는 TASK 운영과 분리한 Board `HOLD`와 정확한 blocker로 남기며 우회·추측·자동 route를 금지한다.
 - manager rollover는 stable role을 유지하고 compact handoff acceptance 뒤 새 exact ID의 pending enrollment을 CLI rollover로 accepted/current로만 승격하며 prior ID는 history로 보존한다. Codex archive/delete는 자동 수행하지 않고 별도 권한을 요구한다.

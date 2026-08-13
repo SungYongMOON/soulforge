@@ -48,6 +48,7 @@ const canonicalOpenAi = await readUtf8(
 const registrySkill = await readUtf8(
   path.join(repoRoot, ".registry", "skills", "codex_thread_manager", "skill.yaml"),
 );
+const workflowConfig = parseYaml(workflow);
 
 for (const [name, source] of [
   ["workflow.yaml", workflow],
@@ -155,5 +156,12 @@ assert.match(applicability, /workflow_package_load_forbidden: true/);
 assert.match(applicability, /night_work_handoff_refresh_forbidden: true/);
 assert.match(applicability, /worker_or_topology_creation_forbidden: true/);
 assert.match(applicability, /workspace_board_enrollment_forbidden: true/);
+assert.deepEqual(
+  workflowConfig.codex_thread_manager_contract.workspace_board_enrollment_policy.task_operations,
+  ["create", "fork", "continue", "rollover", "handoff"],
+);
+assert.match(workflow, /post_operation_enrollment_receipt_required_before_task_operation_completion: true/);
+assert.match(workflow, /projectless_task_requires_explicit_delegation_group_nullable_parent_and_safe_label: true/);
+assert.match(readme, /mandatory post-operation completion gate/);
 
 console.log(`PASS applicability contract: ${fixture.cases.length} cases`);

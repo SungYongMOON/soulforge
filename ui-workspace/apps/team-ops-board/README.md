@@ -309,8 +309,19 @@ npm.cmd --prefix ui-workspace --workspace @soulforge/team-ops-board run threads:
 `register-existing` is idempotent only for the same exact metadata. It forces
 `metadata_only: true` and every raw flag to `false`. `rollover` moves a pending
 exact enrollment to `accepted` or `current` and retains the prior enrollment as
-metadata-only history. All writer operations use temporary-file plus rename
+metadata-only history. A stable-role rollover also keeps the replacement in the
+prior role's hierarchy position and reparents direct pending/accepted/current
+children to the new exact ID; history and retired children remain attached to
+their historical parent. All writer operations use temporary-file plus rename
 atomic replacement.
+
+The scheduled usage companion keeps the global completed-session collection
+independent from Board enrollment. Its active-session supplement unions the
+validated lifecycle identities with session files whose write metadata is fresh
+inside the bounded active window. This closes the short interval before a new
+exact TASK reaches the Board registry without changing Board visibility or
+organization attribution; no title, prompt, transcript content, or route is
+used to enroll the TASK.
 
 ## Explicit result gate
 

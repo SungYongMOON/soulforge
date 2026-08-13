@@ -55,7 +55,8 @@ Apply this gate before loading the workflow package or refreshing
   thread, worktree worker thread, and subagent.
 - Manager lifecycle and rollover policy.
 - Exact local Workspace Board enrollment gates for Development1 and AI-organization
-  TASK create, continue, and rollover after an actual Codex thread ID is returned.
+  TASK create, fork, continue, rollover, and handoff after an actual Codex thread
+  ID is returned.
 - Role worker topology, worker prompt packet shape, worker subagent bounds
   policy, no-subagent exception policy, thread id/title recording, and compact
   delegation packet minimum fields.
@@ -121,8 +122,8 @@ product organizations are excluded as direct recipients.
 
 ## Workspace Board Exact Enrollment Gate
 
-For a Development1 or AI-organization TASK create, continue, or manager
-rollover, the manager makes an explicit applicability decision. After the actual
+For a Development1 or AI-organization TASK create, fork, continue, manager
+rollover, or handoff, the manager makes an explicit applicability decision. After the actual
 Codex operation returns its exact thread ID, it runs the local Board CLI with
 owner-provided `organization_group_id`, a safe owner-provided `display_label`,
 and the applicable `thread_kind`, `relationship`, and `lifecycle`:
@@ -142,6 +143,14 @@ exact returned ID is the only allowed join key: title, cwd, prefix, similarity,
 age, idle state, and parent-only relationships are never enrollment evidence.
 Actual IDs and enrollment values stay in ignored local state, never in tracked
 workflow data or this documentation.
+
+This is a mandatory post-operation completion gate, not a claim that Codex task
+tools expose a central interception hook. The task operation cannot be reported
+complete until idempotent registration, validation, and available live
+reconciliation return a safe receipt. A projectless or external-project TASK may
+use an explicit delegation packet's owner-provided organization group, exact
+nullable parent, and safe label; missing classification metadata leaves the exact ID on
+`HOLD` and never triggers a guessed organization or route.
 
 `register-existing` must be idempotent, followed by:
 

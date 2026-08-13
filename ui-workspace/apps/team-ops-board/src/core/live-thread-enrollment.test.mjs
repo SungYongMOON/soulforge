@@ -171,7 +171,8 @@ test("owner display labels normalize Korean text and reject unsafe values", () =
   assert.equal(accepted.error, null);
   assert.equal(accepted.entry.display_label, normalizedKoreanLabel);
 
-  for (const displayLabel of ["https://example.test/private", "file:private", "C:relative-path", "C:\\private\\worktree", "owner\nTASK", "x".repeat(121)]) {
+  const localAbsoluteLabel = ["C:", "private", "worktree"].join("\\");
+  for (const displayLabel of ["https://example.test/private", "file:private", "C:relative-path", localAbsoluteLabel, "owner\nTASK", "x".repeat(121)]) {
     const rejected = registerExistingThread(empty, registration(`thread-unsafe-${displayLabel.length}`, { displayLabel }), { now: AT, env: ENV });
     assert.equal(rejected.error, "invalid_enrollment_entry");
   }
@@ -192,7 +193,7 @@ test("rollover promotes exact pending enrollment and preserves the prior record 
       lifecycle: "pending",
       threadKind: "continuation",
       relationship: "continuation",
-      parentThreadId: "thread-old",
+      parentThreadId: null,
       priorThreadHistoryPointer: "history:thread-old"
     }),
     { now: "2026-08-04T01:03:03.000Z", env: ENV }
@@ -236,6 +237,46 @@ test("rollover honors an explicit root null and an explicit reparented child", (
   }, { now: "2026-08-04T01:06:03.000Z", env: ENV });
   assert.equal(childRollover.error, null);
   assert.equal(childRollover.entry.parent_thread_id, "manager-new");
+});
+
+test("rollover keeps the stable role position and reparents active direct children", () => {
+  const empty = createEmptyThreadEnrollmentRegistry({ now: AT });
+  const withRoot = registerExistingThread(
+    empty,
+    registration("manager-old", { threadKind: "manager", parentThreadId: null }),
+    { now: AT, env: ENV }
+  ).registry;
+  const withCurrentChild = registerExistingThread(
+    withRoot,
+    registration("task-current", { parentThreadId: "manager-old", relationship: "child" }),
+    { now: "2026-08-04T01:01:03.000Z", env: ENV }
+  ).registry;
+  const withPendingChild = registerExistingThread(
+    withCurrentChild,
+    registration("task-pending", { parentThreadId: "manager-old", relationship: "child", lifecycle: "pending" }),
+    { now: "2026-08-04T01:02:03.000Z", env: ENV }
+  ).registry;
+  const withHistoryChild = registerExistingThread(
+    withPendingChild,
+    registration("task-history", { parentThreadId: "manager-old", relationship: "child", lifecycle: "current" }),
+    { now: "2026-08-04T01:03:03.000Z", env: ENV }
+  ).registry;
+  const historyChild = archiveThreadEnrollmentHistory(withHistoryChild, "task-history", {
+    now: "2026-08-04T01:04:03.000Z",
+    env: ENV
+  }).registry;
+
+  const rollover = rolloverThreadEnrollment(historyChild, {
+    priorThreadId: "manager-old",
+    threadId: "manager-new",
+    nextLifecycle: "current"
+  }, { now: "2026-08-04T01:05:03.000Z", env: ENV });
+
+  assert.equal(rollover.error, null);
+  assert.equal(rollover.entry.parent_thread_id, null);
+  assert.equal(rollover.registry.entries.find((entry) => entry.thread_id === "task-current").parent_thread_id, "manager-new");
+  assert.equal(rollover.registry.entries.find((entry) => entry.thread_id === "task-pending").parent_thread_id, "manager-new");
+  assert.equal(rollover.registry.entries.find((entry) => entry.thread_id === "task-history").parent_thread_id, "manager-old");
 });
 
 test("rollover repairs an exact completed rollover that is missing its history pointer", () => {

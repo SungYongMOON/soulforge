@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## 2026-08-13 - Workspace Board rollover and enrollment-gap hardening
+
+- Kept stable manager rollovers in the prior hierarchy position and atomically
+  reparented direct pending, accepted, and current children to the replacement
+  exact thread ID. Historical children stay on the historical parent, so a
+  rollover no longer leaves the current Board hierarchy pointing at a history
+  record.
+- Made the scheduled Meter companion's active Codex supplement independent of
+  Workspace Board enrollment by including recently written exact session files
+  in addition to validated lifecycle identities. Completed-session collection
+  remains global, while Board visibility and organization attribution remain
+  exact-enrollment-only.
+- Expanded the Thread Manager's mandatory post-operation enrollment gate to
+  create, fork, continue, rollover, and handoff. Projectless tasks require an
+  explicit delegation group, exact parent, and safe label; missing metadata is
+  `HOLD`. This does not claim a central Codex task-tool interception hook.
+
 ## 2026-08-13 - AI usage collection lineage stability and Claude quota state ownership
 
 - Prevented the Codex scheduled collector from becoming permanently stale when

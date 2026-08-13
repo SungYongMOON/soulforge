@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -73,10 +73,22 @@ export function activeCodexSessionIds(lifecycle, { now = Date.now } = {}) {
 
 export async function loadActiveCodexSessionFiles({ stateRoot, sessionsRoot = path.join(process.env.CODEX_HOME || path.join(process.env.USERPROFILE || "", ".codex"), "sessions"), now = Date.now } = {}) {
   if (!path.isAbsolute(stateRoot ?? "") || !path.isAbsolute(sessionsRoot ?? "")) return [];
-  const lifecycle = JSON.parse(await readFile(path.join(stateRoot, "lifecycle", "current.json"), "utf8"));
+  const lifecycle = await readFile(path.join(stateRoot, "lifecycle", "current.json"), "utf8")
+    .then((text) => JSON.parse(text))
+    .catch(() => ({ identities: [] }));
   const activeIds = new Set(activeCodexSessionIds(lifecycle, { now }));
-  return (await findCodexSessionFiles(sessionsRoot))
-    .filter((file) => [...activeIds].some((id) => file.endsWith(`-${id}.jsonl`)));
+  const referenceAt = now();
+  const selected = [];
+  for (const file of await findCodexSessionFiles(sessionsRoot)) {
+    const lifecycleActive = [...activeIds].some((id) => file.endsWith(`-${id}.jsonl`));
+    const recentlyWritten = await stat(file)
+      .then((info) => Number.isFinite(info.mtimeMs)
+        && info.mtimeMs <= referenceAt
+        && referenceAt - info.mtimeMs <= ACTIVE_CODEX_SESSION_MAX_AGE_MS)
+      .catch(() => false);
+    if (lifecycleActive || recentlyWritten) selected.push(file);
+  }
+  return selected;
 }
 
 export async function loadCurrentThreadIds(registryPath) {

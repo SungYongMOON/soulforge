@@ -21,6 +21,7 @@ export {
 
 const RAW_FLAG_KEYS = ["raw_preview", "raw_turns", "raw_messages", "raw_reasoning", "raw_tool_io", "raw_cwd"];
 const ROLLOVER_SOURCE_LIFECYCLES = new Set(["accepted", "current"]);
+const ROLLOVER_CHILD_LIFECYCLES = new Set(["pending", "accepted", "current"]);
 
 function isTruthyEnvironmentValue(value) {
   return ["1", "true", "yes", "on"].includes(String(value ?? "").trim().toLowerCase());
@@ -184,13 +185,13 @@ export function rolloverThreadEnrollment(registryInput, options = {}, { now = ne
   const hasExplicitParent = hasOption(options, "parentThreadId", "parent_thread_id");
   const rolloverParentThreadId = hasExplicitParent
     ? optionValue(options, "parentThreadId", "parent_thread_id")
-    : priorThreadId;
+    : source.parent_thread_id;
   let target = existingTarget;
   if (target) {
     if (target.lifecycle === "pending") {
       target = {
         ...target,
-        ...(hasExplicitParent ? { parent_thread_id: rolloverParentThreadId } : {}),
+        parent_thread_id: rolloverParentThreadId,
         prior_thread_history_pointer: target.prior_thread_history_pointer ?? historyPointer
       };
     } else if (isIncompleteCompletedRollover) {
@@ -224,6 +225,9 @@ export function rolloverThreadEnrollment(registryInput, options = {}, { now = ne
     registry.entries.map((entry) => {
       if (entry.thread_id === retiredSource.thread_id) return retiredSource;
       if (entry.thread_id === promoted.thread_id) return promoted;
+      if (entry.parent_thread_id === retiredSource.thread_id && ROLLOVER_CHILD_LIFECYCLES.has(entry.lifecycle)) {
+        return { ...entry, parent_thread_id: promoted.thread_id, updated_at: safeNow(now) };
+      }
       return entry;
     }).concat(existingTarget ? [] : [promoted]),
     now

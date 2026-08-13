@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { ACTIVE_CODEX_SESSION_MAX_AGE_MS, activeCodexSessionIds, persistProducerHeartbeat, runUsageProducerSweep, startUsageProducerCompanion } from "./ai-usage-producer-companion.mjs";
+import { ACTIVE_CODEX_SESSION_MAX_AGE_MS, activeCodexSessionIds, loadActiveCodexSessionFiles, persistProducerHeartbeat, runUsageProducerSweep, startUsageProducerCompanion } from "./ai-usage-producer-companion.mjs";
 
 const REPO_ROOT = path.resolve("test-fixtures", "repo");
 const STATE_ROOT = path.resolve("test-fixtures", "state");
@@ -23,6 +25,25 @@ test("active Codex collection selects only fresh exact started sessions", () => 
     { session_id: "fresh-a", lifecycle_state: "started", observed_at: "2026-08-10T11:58:00.000Z" },
   ] }, { now: () => now });
   assert.deepEqual(ids, ["fresh-a"]);
+});
+
+test("active Codex collection includes a fresh session even before Board enrollment or lifecycle projection", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "usage-global-active-"));
+  t.after(async () => { await rm(root, { recursive: true, force: true }); });
+  const stateRoot = path.join(root, "state");
+  const sessionsRoot = path.join(root, "sessions", "2026", "08", "13");
+  await mkdir(sessionsRoot, { recursive: true });
+  const fresh = path.join(sessionsRoot, "rollout-2026-08-13T01-00-00-fresh-unregistered.jsonl");
+  const stale = path.join(sessionsRoot, "rollout-2026-08-12T01-00-00-stale-unregistered.jsonl");
+  await writeFile(fresh, "", "utf8");
+  await writeFile(stale, "", "utf8");
+  const now = Date.parse("2026-08-13T02:00:00.000Z");
+  await utimes(fresh, new Date(now - 60_000), new Date(now - 60_000));
+  await utimes(stale, new Date(now - ACTIVE_CODEX_SESSION_MAX_AGE_MS - 1), new Date(now - ACTIVE_CODEX_SESSION_MAX_AGE_MS - 1));
+
+  const files = await loadActiveCodexSessionFiles({ stateRoot, sessionsRoot, now: () => now });
+
+  assert.deepEqual(files, [fresh]);
 });
 
 test("producer sweep refreshes lifecycle, usage ledgers, then gated Claude quota", async () => {
