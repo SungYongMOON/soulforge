@@ -67,6 +67,11 @@ HTML 본문을 넣으면 runner 는 `multipart/alternative` 메일로 보내며,
   it retries after 5 minutes, 15 minutes, 1 hour, then at a 6-hour cap. From the
   third identical failure the item is reported as held. It remains `partial`
   until a successful import clears it and is never deleted or marked seen.
+- Each cycle separates `collector_status=ok` from the delivery backlog. The
+  bounded backlog is reported as `retry_state=clear|retrying|held`, with a
+  sanitized failure count and next retry time. Task Scheduler and Watchtower
+  therefore keep a working collector green while the Board continues to show
+  held/retrying mail as a separate advisory; no item is acknowledged or hidden.
 - The five-minute interactive task starts through a repository-owned
   `wscript.exe //B //NoLogo` launcher so its PowerShell worker remains fully
   backgrounded without changing the runner arguments or task cadence.

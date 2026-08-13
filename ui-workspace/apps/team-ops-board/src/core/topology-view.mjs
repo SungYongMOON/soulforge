@@ -122,8 +122,20 @@ function unavailableTopologyViewModel() {
     summary: null,
     attention: [],
     unmonitored: [],
+    unmonitoredBreakdown: {
+      structuralOnly: 0,
+      providerEvidenceAbsent: 0,
+      onDemand: 0,
+      other: 0,
+    },
     nonGreenQueue: [],
-    edgeDelivery: { total: 0, deliveryProven: 0, deliveryUnproven: 0 },
+    advisoryQueue: [],
+    edgeDelivery: {
+      total: 0,
+      deliveryProven: 0,
+      deliveryUnproven: 0,
+      unprovenReasons: { receiptChannelAbsent: 0, probeObservationOnly: 0, structuralOnly: 0 },
+    },
     observedAt: null,
   };
 }
@@ -265,11 +277,21 @@ export function buildTopologyViewModel(snapshot) {
       ? ["관측 근거 없음"]
       : reasons;
     const healthObserved = state !== "unmonitored";
-    const activityState = ["usage_codex_collector", "usage_claude_collector", "usage_meter"].includes(node?.id)
-      && state === "ok" && ["idle", "collecting"].includes(node?.health?.activity_state)
+    const activityState = state === "ok"
+      && ["idle", "collecting", "clear", "retrying", "held"].includes(node?.health?.activity_state)
       ? node.health.activity_state : null;
+    const activityCount = activityState !== null && Number.isSafeInteger(node?.health?.activity_count)
+      && node.health.activity_count >= 0 ? node.health.activity_count : null;
+    const activityNextAt = activityState !== null
+      && (node?.health?.activity_next_at === null
+        || (typeof node?.health?.activity_next_at === "string"
+          && Number.isFinite(Date.parse(node.health.activity_next_at))))
+      ? node.health.activity_next_at : null;
     const stateLabel = activityState === "idle" ? "정상 유휴"
-      : activityState === "collecting" ? "정상 수집 중" : STATE_LABELS[state];
+      : activityState === "collecting" ? "정상 수집 중"
+        : activityState === "retrying" ? "정상 · 메일 재시도"
+          : activityState === "held" ? "정상 · 메일 보류"
+            : STATE_LABELS[state];
     const ageLabel = describeTopologyAge(node?.health?.age_seconds);
     const tracking = state === "ok" || node.tracking === undefined ? null : {
       nodeId: node.tracking.node_id,
@@ -306,6 +328,8 @@ export function buildTopologyViewModel(snapshot) {
       state,
       stateLabel,
       activityState,
+      activityCount,
+      activityNextAt,
       ageLabel,
       reasons: textReasons,
       tracking,
@@ -441,6 +465,20 @@ export function buildTopologyViewModel(snapshot) {
       return rank[left.state] - rank[right.state] || left.id.localeCompare(right.id, "en");
     });
   const unmonitored = nodes.filter((node) => node.state === "unmonitored");
+  const unmonitoredBreakdown = unmonitored.reduce((summary, node) => {
+    const reasonCode = node.tracking?.reasonCode ?? null;
+    if (reasonCode === "structural_only") summary.structuralOnly += 1;
+    else if (reasonCode === "provider_evidence_absent") summary.providerEvidenceAbsent += 1;
+    else if (reasonCode === "catalog_only_on_demand" || node.operationMode === "on_demand") {
+      summary.onDemand += 1;
+    } else summary.other += 1;
+    return summary;
+  }, {
+    structuralOnly: 0,
+    providerEvidenceAbsent: 0,
+    onDemand: 0,
+    other: 0,
+  });
   const nonGreenQueue = nodes
     .filter((node) => node.state !== "ok" && node.tracking !== null)
     .map((node) => ({
@@ -464,10 +502,29 @@ export function buildTopologyViewModel(snapshot) {
       const rank = { down: 0, stale: 1, degraded: 2, unmonitored: 3 };
       return rank[left.state] - rank[right.state] || left.id.localeCompare(right.id, "en");
     });
+  const advisoryQueue = nodes
+    .filter((node) => node.state === "ok" && (node.activityState === "retrying" || node.activityState === "held"))
+    .map((node) => ({
+      id: node.id,
+      label: node.label,
+      stateLabel: node.stateLabel,
+      activityState: node.activityState,
+      activityCount: node.activityCount,
+      activityNextAt: node.activityNextAt,
+    }))
+    .sort((left, right) => {
+      const rank = { held: 0, retrying: 1 };
+      return rank[left.activityState] - rank[right.activityState] || left.id.localeCompare(right.id, "en");
+    });
   const edgeDelivery = {
     total: edges.length,
     deliveryProven: edges.filter((edge) => edge.deliveryProven).length,
     deliveryUnproven: edges.filter((edge) => !edge.deliveryProven).length,
+    unprovenReasons: {
+      receiptChannelAbsent: edges.filter((edge) => edge.deliveryReason === "receipt_channel_absent").length,
+      probeObservationOnly: edges.filter((edge) => edge.deliveryReason === "probe_observation_only").length,
+      structuralOnly: edges.filter((edge) => edge.deliveryReason === "structural_only").length,
+    },
   };
   return {
     available: true,
@@ -476,7 +533,9 @@ export function buildTopologyViewModel(snapshot) {
     summary,
     attention,
     unmonitored,
+    unmonitoredBreakdown,
     nonGreenQueue,
+    advisoryQueue,
     edgeDelivery,
     observedAt: typeof snapshot.observed_at === "string" ? snapshot.observed_at : null,
   };

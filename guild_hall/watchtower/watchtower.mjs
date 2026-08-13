@@ -91,6 +91,20 @@ export function validateWatchtowerBinding(binding) {
         }
       }
     }
+    if ((probe.activity_field === undefined) !== (probe.activity_values === undefined)
+      || (probe.activity_field !== undefined
+        && (typeof probe.activity_field !== "string" || probe.activity_field.length === 0
+          || !Array.isArray(probe.activity_values) || probe.activity_values.length === 0
+          || probe.activity_values.some((value) => typeof value !== "string"
+            || !/^[a-z][a-z0-9_]{0,31}$/u.test(value))))) {
+      fail("probe_activity_contract_invalid", `probe ${key}`);
+    }
+    for (const field of ["activity_count_field", "activity_next_at_field"]) {
+      if (probe[field] !== undefined
+        && (probe.activity_field === undefined || typeof probe[field] !== "string" || probe[field].length === 0)) {
+        fail("probe_activity_contract_invalid", `probe ${key}.${field}`);
+      }
+    }
     for (const field of ["period_seconds", "grace_seconds"]) {
       if (!Number.isSafeInteger(probe[field]) || probe[field] < 0 || probe[field] > 604800) {
         fail("probe_window_invalid", `probe ${key}.${field}`);
@@ -410,9 +424,46 @@ export async function runProbe(probe, { now, run_schtasks: runSchtasks }) {
     reasons.push(...details.reasons);
   }
 
-  const activityState = record?.activity_changed === true ? "collecting"
+  let activityState = record?.activity_changed === true ? "collecting"
     : record?.activity_changed === false ? "idle" : null;
-  return { state: reasons.length > 0 ? "degraded" : "ok", reasons, age_seconds: ageSeconds, ...(activityState === null ? {} : { activity_state: activityState }) };
+  let activityCount;
+  let activityNextAt;
+  if (record !== null && typeof probe.activity_field === "string") {
+    const observedActivityState = fieldPath(record, probe.activity_field);
+    if (!probe.activity_values.includes(observedActivityState)) {
+      reasons.push("activity_state_invalid");
+      activityState = null;
+    } else {
+      activityState = observedActivityState;
+    }
+    if (typeof probe.activity_count_field === "string") {
+      const observedActivityCount = fieldPath(record, probe.activity_count_field);
+      if (!Number.isSafeInteger(observedActivityCount) || observedActivityCount < 0) {
+        reasons.push("activity_count_invalid");
+      } else {
+        activityCount = observedActivityCount;
+      }
+    }
+    if (typeof probe.activity_next_at_field === "string") {
+      const observedActivityNextAt = fieldPath(record, probe.activity_next_at_field);
+      if (observedActivityNextAt === null) {
+        activityNextAt = null;
+      } else if (typeof observedActivityNextAt !== "string"
+        || !Number.isFinite(Date.parse(observedActivityNextAt))) {
+        reasons.push("activity_next_at_invalid");
+      } else {
+        activityNextAt = observedActivityNextAt;
+      }
+    }
+  }
+  return {
+    state: reasons.length > 0 ? "degraded" : "ok",
+    reasons,
+    age_seconds: ageSeconds,
+    ...(activityState === null ? {} : { activity_state: activityState }),
+    ...(activityCount === undefined ? {} : { activity_count: activityCount }),
+    ...(activityNextAt === undefined ? {} : { activity_next_at: activityNextAt }),
+  };
 }
 
 function trackingReasonCode(node, health) {

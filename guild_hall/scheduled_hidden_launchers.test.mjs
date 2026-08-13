@@ -44,6 +44,9 @@ test("Hiworks scheduler pins the exact deployed forwarder bytes", async () => {
   assert.match(registrar, /rev-parse --path-format=absolute --git-common-dir/u);
   assert.match(registrar, /-BindingPath/u);
   assert.match(runner, /soulforge\.hiworks_gmail_forwarder\.binding\.v1/u);
+  assert.match(runner, /\$ForwarderExitCode\s*=\s*\$LASTEXITCODE/u);
+  assert.match(runner, /\$ForwarderExitCode\s*-notin\s*@\(0,\s*2\)/u);
+  assert.match(runner, /exit\s+0/u);
   assert.doesNotMatch(runner, /[A-Z]:[\\/]/u);
 });
 

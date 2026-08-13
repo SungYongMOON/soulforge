@@ -5613,6 +5613,44 @@ a:focus-visible {
 .watchtower-chip.is-stale { border-color: color-mix(in srgb, var(--live-amber, #f5b849) 40%, transparent); color: var(--live-amber, #f5b849); }
 .watchtower-chip.is-down { border-color: color-mix(in srgb, #ff8d84 60%, transparent); color: #ff8d84; }
 .watchtower-chip.is-unmonitored { border-color: rgb(114 183 255 / 54%); color: #82c0ff; }
+.watchtower-unmonitored-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+  align-items: center;
+  margin-top: 8px;
+  color: #82a7bd;
+  font: 10.5px/1.35 Consolas, ui-monospace, monospace;
+}
+.watchtower-unmonitored-breakdown > span {
+  padding: 2px 7px;
+  border: 1px solid rgb(114 183 255 / 24%);
+  border-radius: 999px;
+  background: rgb(114 183 255 / 5%);
+}
+.watchtower-unmonitored-breakdown > small { color: #718792; font: inherit; }
+.watchtower-advisory {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+  padding: 9px 11px;
+  border: 1px solid rgb(112 217 140 / 24%);
+  border-radius: 9px;
+  background: rgb(112 217 140 / 3%);
+}
+.watchtower-advisory > header,
+.watchtower-advisory li,
+.watchtower-advisory li > div { display: flex; align-items: center; gap: 8px; }
+.watchtower-advisory > header { justify-content: space-between; }
+.watchtower-advisory > header div { display: grid; gap: 1px; }
+.watchtower-advisory > header span { color: #6e9b7b; font: 700 9px/1.2 Consolas, ui-monospace, monospace; letter-spacing: 0.1em; }
+.watchtower-advisory > header strong { color: #dcebe1; font-size: 13px; }
+.watchtower-advisory > header > b { color: #83d89b; font: 700 10px/1 Consolas, ui-monospace, monospace; }
+.watchtower-advisory > ul { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.watchtower-advisory li { justify-content: space-between; min-width: 0; }
+.watchtower-advisory li span { color: #83d89b; font-size: 10px; }
+.watchtower-advisory li strong { color: #dfe9e2; font-size: 11px; }
+.watchtower-advisory li small { color: #8da49a; font: 10px/1.3 Consolas, ui-monospace, monospace; }
 .watchtower-observed { font-size: 11px; color: var(--live-faint, #627983); margin-left: 4px; }
 .watchtower-refresh-ages { font-size: 11px; color: #aab9c0; font-variant-numeric: tabular-nums; }
 .watchtower-observation-notice {

@@ -101,7 +101,16 @@ test("view model lays out columns and keeps observed health separate from catalo
   assert.equal(model.edges[1].relationKind, "receipted_delivery");
   assert.equal(model.edges[1].deliveryProven, true);
   assert.ok(model.edges.every((edge) => edge.healthObserved === false));
-  assert.deepEqual(model.edgeDelivery, { total: 3, deliveryProven: 1, deliveryUnproven: 2 });
+  assert.deepEqual(model.edgeDelivery, {
+    total: 3,
+    deliveryProven: 1,
+    deliveryUnproven: 2,
+    unprovenReasons: {
+      receiptChannelAbsent: 1,
+      probeObservationOnly: 0,
+      structuralOnly: 1,
+    },
+  });
   assert.equal(model.edges[0].sourceHandle, "output-topo-edge-0");
   assert.equal(model.edges[0].targetHandle, "input-topo-edge-0");
   assert.notEqual(model.edges[0].sourceHandle, model.edges[1].sourceHandle);
@@ -111,6 +120,12 @@ test("view model lays out columns and keeps observed health separate from catalo
   assert.deepEqual(model.summary, { ok: 1, degraded: 1, stale: 1, down: 1, unmonitored: 2 });
   assert.deepEqual(model.attention.map((node) => node.id), ["slack_batch", "voice_label_worker", "ingress_supervisor"]);
   assert.deepEqual(model.unmonitored.map((node) => node.id), ["src_hiworks", "gate_five_field"]);
+  assert.deepEqual(model.unmonitoredBreakdown, {
+    structuralOnly: 2,
+    providerEvidenceAbsent: 0,
+    onDemand: 0,
+    other: 0,
+  });
   assert.deepEqual(model.nonGreenQueue.map((node) => node.id), [
     "slack_batch", "voice_label_worker", "ingress_supervisor", "gate_five_field", "src_hiworks",
   ]);
@@ -152,6 +167,31 @@ test("usage health labels idle and collecting without changing the health state"
   node.health.activity_state = "collecting";
   usage = buildTopologyViewModel(snapshot).nodes.find(({ id }) => id === "usage_meter");
   assert.equal(usage.stateLabel, "정상 수집 중");
+});
+
+test("mail retry activity remains visible without turning a healthy collector orange", () => {
+  const snapshot = sampleSnapshot();
+  const node = snapshot.nodes.find(({ id }) => id === "consumer_board");
+  node.id = "mail_forwarder";
+  node.kind = "worker";
+  node.health.activity_state = "retrying";
+  node.health.activity_count = 16;
+  node.health.activity_next_at = "2026-08-14T02:00:00.000Z";
+  const model = buildTopologyViewModel(snapshot);
+  const mail = model.nodes.find(({ id }) => id === "mail_forwarder");
+  assert.equal(mail.state, "ok");
+  assert.equal(mail.activityState, "retrying");
+  assert.equal(mail.activityCount, 16);
+  assert.equal(mail.activityNextAt, "2026-08-14T02:00:00.000Z");
+  assert.equal(mail.stateLabel, "정상 · 메일 재시도");
+  assert.deepEqual(model.advisoryQueue, [{
+    id: "mail_forwarder",
+    label: mail.label,
+    stateLabel: "정상 · 메일 재시도",
+    activityState: "retrying",
+    activityCount: 16,
+    activityNextAt: "2026-08-14T02:00:00.000Z",
+  }]);
 });
 
 test("selected-node paths remain structural and enumerate direct plus reachable relationships", () => {

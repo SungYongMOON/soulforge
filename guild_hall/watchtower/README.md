@@ -53,6 +53,10 @@
   초과 → `stale`. 소스 부재·파싱 불가 → `down`(fail-closed).
 - `status_field`가 `ok_values` 밖이면 열화(`status_<value>`),
   `degrade_when`의 수치 초과도 열화(`count_<field>_<value>`).
+- A probe may expose an informational `activity_field` plus optional bounded
+  count/next-at fields. For the Hiworks forwarder this separates collector
+  liveness from its `retrying|held` queue: the node may remain healthy while the
+  queue stays visible, and invalid activity metadata fails closed.
 - `resident_task`가 지정된 노드는 stale일 때 schtasks 상태로 정지 여부를
   구분한다(`task_not_running` → down).
 - probe가 없는 구조 노드는 이유 코드가 있는 `unmonitored`다. provider source는
@@ -135,6 +139,10 @@ npm run guild-hall:watchtower:probe
   ID, fixed reason, evidence owner, last check/next evidence due time, repairability, verification
   state, and escalation owner. External providers, on-demand Antigravity, and
   the feature-OFF timeline stay non-green until their separately owned evidence exists.
+- The Board labels unmonitored nodes as evidence-unconnected and breaks them
+  down into structural markers, missing provider evidence, on-demand execution,
+  and other evidence gaps. These categories are not failures and are never
+  promoted to green without independent evidence.
 - `health_recovery_coordinator.mjs` is a feature-off recovery contract. Observe
   mode never executes repairs. Safe-repair mode still requires an injected
   action allowlist, executor, and independent verifier; credential, deletion,

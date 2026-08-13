@@ -14,6 +14,12 @@
 > digest and whose pre/post verification succeeds. Provider login, deletion,
 > acknowledgement, upload, route changes, external sends, partial mail backlog,
 > on-demand Antigravity, and the feature-OFF timeline remain manual/HOLD.
+>
+> 2026-08-14 CURRENT: the Hiworks-to-Gmail scheduled collector now separates a
+> successful collector cycle from its bounded per-message retry backlog. A
+> poison message remains hashed, unacknowledged, and visible as retrying/held
+> while unrelated mail and the collector heartbeat continue. Watchtower and the
+> Board expose that backlog as an advisory rather than a false collector outage.
 
 | 항목 | 값 |
 | --- | --- |

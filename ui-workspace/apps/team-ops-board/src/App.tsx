@@ -3670,7 +3670,7 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
           <span className="watchtower-chip is-degraded">열화 {summary.degraded}</span>
           <span className="watchtower-chip is-stale">신선도 {summary.stale}</span>
           <span className="watchtower-chip is-down">정지 {summary.down}</span>
-          <span className="watchtower-chip is-unmonitored">미감시 {summary.unmonitored}</span>
+          <span className="watchtower-chip is-unmonitored">증거 미연결 {summary.unmonitored}</span>
           <span className="watchtower-observed">
             판정 {model.observedAt ? new Date(model.observedAt).toLocaleTimeString("ko-KR") : "—"}
             {refreshing || projection.refresh_state === "refreshing" ? " · 갱신 중" : ""}
@@ -3678,11 +3678,42 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
           <span className="watchtower-refresh-ages" data-testid="system-topology-refresh-ages">{refreshMetadataText}</span>
         </div>
       </header>
+      {summary.unmonitored > 0 && (
+        <div className="watchtower-unmonitored-breakdown" data-testid="system-topology-unmonitored-breakdown">
+          <span>구조 표식 {model.unmonitoredBreakdown.structuralOnly}</span>
+          <span>공급자 증거 {model.unmonitoredBreakdown.providerEvidenceAbsent}</span>
+          <span>수동 실행 {model.unmonitoredBreakdown.onDemand}</span>
+          {model.unmonitoredBreakdown.other > 0 && <span>기타 {model.unmonitoredBreakdown.other}</span>}
+          <small>회색은 장애가 아니라 독립 관측 근거가 아직 연결되지 않은 항목입니다.</small>
+        </div>
+      )}
       {refreshNotice !== null && (
         <div className="watchtower-observation-notice" role="status" data-testid="system-topology-observation-boundary">
           <EyeOff size={15} aria-hidden="true" />
           <span>{refreshNotice}</span>
         </div>
+      )}
+      {model.advisoryQueue.length > 0 && (
+        <section className="watchtower-advisory" aria-labelledby="watchtower-advisory-title" data-testid="system-topology-advisory">
+          <header>
+            <div><span>HEALTHY WITH BACKLOG</span><strong id="watchtower-advisory-title">재시도/보류</strong></div>
+            <b>{model.advisoryQueue.length}건</b>
+          </header>
+          <ul>
+            {model.advisoryQueue.map((item: any) => (
+              <li key={item.id} className={`is-${item.activityState}`}>
+                <div>
+                  <span>{item.stateLabel}</span>
+                  <strong>{item.label}</strong>
+                </div>
+                <small>
+                  {item.activityCount === null ? "항목 수 미제공" : `${item.activityCount}개 항목`}
+                  {item.activityNextAt === null ? " · 다음 시각 없음" : ` · 다음 ${watchtowerTrackingTime(item.activityNextAt)}`}
+                </small>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
       {model.nonGreenQueue.length > 0 && (
         <section className="watchtower-tracking" aria-labelledby="watchtower-tracking-title" data-testid="system-topology-tracking">
@@ -3711,7 +3742,13 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
         </section>
       )}
       <div className="watchtower-graph-guide">
-        <span data-testid="system-topology-edge-evidence"><b>전달 근거</b> 영수증 관측 {model.edgeDelivery.deliveryProven} · 선언만 {model.edgeDelivery.deliveryUnproven}</span>
+        <span data-testid="system-topology-edge-evidence">
+          <b>전달 근거</b> 영수증 관측 {model.edgeDelivery.deliveryProven}
+          {` · 영수증 통로 없음 ${model.edgeDelivery.unprovenReasons.receiptChannelAbsent}`}
+          {` · 상태 관측 전용 ${model.edgeDelivery.unprovenReasons.probeObservationOnly}`}
+          {model.edgeDelivery.unprovenReasons.structuralOnly > 0
+            ? ` · 구조 전용 ${model.edgeDelivery.unprovenReasons.structuralOnly}` : ""}
+        </span>
         <span className="watchtower-shape-guide" aria-label="장치 도형 범례">
           <b>도형</b>
           <span><i className="is-external" />입력</span>

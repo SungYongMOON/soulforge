@@ -441,8 +441,20 @@ def run_cycle(
     state["uidl_failures"] = failures
     state["updated_at"] = _now()
     _write_json_atomic(_state_path(config), state)
+    next_attempt_at = min(
+        (failure["next_attempt_at"] for failure in failures.values()),
+        default=None,
+    )
+    tracked_held_count = sum(
+        1 for failure in failures.values()
+        if int(failure["failure_count"]) >= FAILURE_THRESHOLD
+    )
     result = {
         "status": "ok" if len(failures) == 0 else "partial",
+        "collector_status": "ok",
+        "retry_state": "clear" if len(failures) == 0
+        else "held" if tracked_held_count > 0 else "retrying",
+        "next_attempt_at": next_attempt_at,
         "delivery_mode": "gmail_api_original_import",
         "observed_count": len(rows),
         "imported_count": imported_count,
@@ -450,6 +462,7 @@ def run_cycle(
         "failed_count": failed_count,
         "deferred_count": deferred_count,
         "held_count": held_count,
+        "tracked_held_count": tracked_held_count,
         "tracked_failure_count": len(failures),
     }
     _append_event(config, {"action": "cycle", **result})

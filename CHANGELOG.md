@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2026-08-14 - Separate collector health from bounded mail backlog
+
+- Split Hiworks collector liveness from per-message retry delivery state. A
+  completed POP3/Gmail cycle now leaves the scheduled collector healthy while
+  hashed failed items remain visibly `retrying` or `held`, with their bounded
+  count and next attempt time; no POP3 deletion, acknowledgement, or silent
+  skip was added.
+- Added a Board advisory queue for healthy collectors with retry work and
+  renamed the gray summary to evidence-unconnected with separate structural,
+  provider-evidence, and on-demand counts. Missing independent evidence remains
+  fail-closed instead of being painted green.
+- Replaced the ambiguous edge `declared only` total with separate counts for
+  missing receipt channels, state-observation-only controls, and structural
+  relations; none of those categories claims live delivery.
+
 ## 2026-08-14 - Independent topology evidence and bounded local recovery
 
 - Added independent sanitized evidence receipts for the Watchtower execution

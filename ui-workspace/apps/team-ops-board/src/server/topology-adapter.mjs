@@ -40,7 +40,9 @@ const NODE_KEYS = new Set([
   ...NODE_REQUIRED_KEYS, "operation_mode", "provider", "health_scope", "tracking",
 ]);
 const HEALTH_REQUIRED_KEYS = new Set(["state", "reasons", "age_seconds"]);
-const HEALTH_KEYS = new Set([...HEALTH_REQUIRED_KEYS, "activity_state"]);
+const HEALTH_KEYS = new Set([
+  ...HEALTH_REQUIRED_KEYS, "activity_state", "activity_count", "activity_next_at",
+]);
 const TRACKING_KEYS = new Set([
   "node_id", "reason_code", "evidence_owner", "last_checked_at", "next_check_at", "next_evidence_due_at",
   "repairability", "repair_action", "verification_state", "escalation_owner",
@@ -60,6 +62,7 @@ const EDGE_DELIVERY_SUMMARY_KEYS = new Set([
 ]);
 const NODE_KIND_SET = new Set(TOPOLOGY_NODE_KINDS);
 const HEALTH_STATE_SET = new Set(TOPOLOGY_HEALTH_STATES);
+const HEALTH_ACTIVITY_STATE_SET = new Set(["idle", "collecting", "clear", "retrying", "held"]);
 const TRACKING_REPAIRABILITY_SET = new Set(["automatic", "manual", "not_available"]);
 const TRACKING_VERIFICATION_STATE_SET = new Set(["observed", "evidence_absent"]);
 const EDGE_FLOW_SET = new Set(TOPOLOGY_EDGE_FLOWS);
@@ -327,7 +330,15 @@ export function validateTopologyHealthSnapshot(snapshot, { now = Date.now() } = 
       || !node.health.reasons.every((reason) => validText(reason))
       || !(node.health.age_seconds === null
         || (Number.isFinite(node.health.age_seconds) && node.health.age_seconds >= 0))
-      || (node.health.activity_state !== undefined && !["idle", "collecting"].includes(node.health.activity_state))) {
+      || (node.health.activity_state !== undefined && !HEALTH_ACTIVITY_STATE_SET.has(node.health.activity_state))
+      || ((node.health.activity_count !== undefined || node.health.activity_next_at !== undefined)
+        && node.health.activity_state === undefined)
+      || (node.health.activity_count !== undefined
+        && (!Number.isSafeInteger(node.health.activity_count) || node.health.activity_count < 0))
+      || (node.health.activity_next_at !== undefined
+        && !(node.health.activity_next_at === null
+          || (typeof node.health.activity_next_at === "string"
+            && Number.isFinite(Date.parse(node.health.activity_next_at)))))) {
       throw new Error("topology_snapshot_node_invalid");
     }
     if (nodeIds.has(node.id)) throw new Error("topology_snapshot_node_duplicate");

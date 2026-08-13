@@ -176,6 +176,9 @@ def test_failed_import_is_not_marked_seen_and_retries(tmp_path: Path) -> None:
         now=clock,
     )
     assert first["status"] == "partial"
+    assert first["collector_status"] == "ok"
+    assert first["retry_state"] == "retrying"
+    assert first["next_attempt_at"] == (clock.value + timedelta(minutes=5)).isoformat()
     assert first["failed_count"] == 1
     assert _uidl_hash("uid-1") not in _state(config)["seen_uidl_hashes"]
     assert first_pop.deleted == []
@@ -246,6 +249,9 @@ def test_failure_state_is_sanitized_and_quarantines_at_threshold(tmp_path: Path)
     assert "private-uidl-value" not in json.dumps(state)
     assert "provider response" not in json.dumps(state)
     assert results[-1]["held_count"] == 1
+    assert results[-1]["collector_status"] == "ok"
+    assert results[-1]["retry_state"] == "held"
+    assert results[-1]["next_attempt_at"] == (clock.value + timedelta(hours=1)).isoformat()
     assert all(pop.deleted == [] for pop in pops)
 
 
@@ -273,6 +279,8 @@ def test_not_due_failure_is_skipped_while_other_mail_progresses(tmp_path: Path) 
 
     assert result["deferred_count"] == 1
     assert result["status"] == "partial"
+    assert result["collector_status"] == "ok"
+    assert result["retry_state"] == "retrying"
     assert result["tracked_failure_count"] == 1
     assert result["imported_count"] == 1
     assert pop.retrieved == [2]

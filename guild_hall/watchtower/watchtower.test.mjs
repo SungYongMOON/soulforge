@@ -204,6 +204,43 @@ test("json_file probe judges fresh, late, stale, status, and numeric degrades", 
   assert.deepEqual(degraded.reasons, ["status_degraded", "count_failed_count_5"]);
 });
 
+test("mail collector health stays ok while its bounded retry queue remains visible", async () => {
+  const root = await tempRoot();
+  const file = path.join(root, "events.jsonl");
+  const observedAt = new Date(NOW - 30_000).toISOString();
+  await writeFile(file, `${JSON.stringify({
+    observed_at: observedAt,
+    status: "partial",
+    collector_status: "ok",
+    retry_state: "retrying",
+    tracked_failure_count: 16,
+    tracked_held_count: 0,
+    next_attempt_at: new Date(NOW + 600_000).toISOString(),
+  })}\n`);
+  const result = await runProbe({
+    kind: "jsonl_tail",
+    path: file,
+    timestamp_field: "observed_at",
+    status_field: "collector_status",
+    ok_values: ["ok"],
+    activity_field: "retry_state",
+    activity_values: ["clear", "retrying", "held"],
+    activity_count_field: "tracked_failure_count",
+    activity_next_at_field: "next_attempt_at",
+    period_seconds: 600,
+    grace_seconds: 600,
+  }, { now: NOW });
+
+  assert.deepEqual(result, {
+    state: "ok",
+    reasons: [],
+    age_seconds: 30,
+    activity_state: "retrying",
+    activity_count: 16,
+    activity_next_at: new Date(NOW + 600_000).toISOString(),
+  });
+});
+
 test("sanitized JSON receipt contracts fail closed on schema and required field defects", async () => {
   const root = await tempRoot();
   const file = path.join(root, "receipt.json");

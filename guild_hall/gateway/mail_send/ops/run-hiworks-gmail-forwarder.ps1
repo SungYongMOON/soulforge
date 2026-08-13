@@ -9,7 +9,7 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..\..')).Path
 $Forwarder = Join-Path $RepoRoot 'guild_hall\gateway\mail_send\hiworks_gmail_forwarder.py'
 $Importer = Join-Path $RepoRoot 'guild_hall\gateway\mail_send\gmail_original_importer.py'
-$ExpectedForwarderSha256 = '79e9cf511b2f8b4b0d356af985e3aa0205fb53ecc4be6b46d7bdf6f88ebb1793'
+$ExpectedForwarderSha256 = '440b90ae2a388e71f5c897e2afc82b20c626159f665ed2c3f8b220e0bc76c010'
 $ExpectedImporterSha256 = '573c88a958ca967f7cc9f614c8be4f778905cb7e6bc56c243b28733cc262c296'
 $ActualForwarderSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $Forwarder).Hash.ToLowerInvariant()
 $ActualImporterSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $Importer).Hash.ToLowerInvariant()
@@ -43,6 +43,8 @@ $Action = if ($Mode -eq 'initialize') { '--initialize' } else { '--apply' }
     --oauth-token $OAuthToken `
     --receipt-root $ReceiptRoot `
     --json
-if ($LASTEXITCODE -ne 0) {
-    throw "Hiworks Gmail original importer failed with exit code $LASTEXITCODE."
+$ForwarderExitCode = $LASTEXITCODE
+if ($ForwarderExitCode -notin @(0, 2)) {
+    throw "Hiworks Gmail original importer failed with exit code $ForwarderExitCode."
 }
+exit 0

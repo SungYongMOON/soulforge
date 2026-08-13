@@ -52,6 +52,14 @@ length-bounded; filesystem- or URL-like values are rejected.
   bindings with matching action digests and successful pre/post verification;
   provider login, deletion, acknowledgement, upload, routing, external send,
   and partial mail backlogs remain manual/HOLD.
+  A healthy Hiworks collector may also carry a separate `retrying` or `held`
+  advisory with a sanitized item count and next attempt time. This keeps
+  collector liveness green without hiding unresolved delivery work. Gray nodes
+  are summarized as evidence-unconnected structural, provider-evidence, or
+  on-demand entries; they are not treated as failed programs.
+  Edge evidence is also split into observed receipts, absent receipt channels,
+  state-observation-only controls, and structural-only relations. A declared
+  line is never presented as live delivery.
   `unmonitored` 공급자 관계는 관측된 공급자 health가 아니라 구조/카탈로그
   관계다. 노드는 색만으로 표시하지 않고 `관측 미구성`과 safe reason을
   함께 보이며, 이는 Claude·Antigravity의 현재 성공·정상이나 독립적 공급자

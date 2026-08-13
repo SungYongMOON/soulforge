@@ -180,6 +180,41 @@ test("strict validation keeps provider sources and aggregate unmonitored while C
   assert.equal(snapshot.nodes.find((node) => node.id === "usage_codex_collector").health.state, "ok");
 });
 
+test("a healthy mail collector may expose a bounded retry activity state", () => {
+  const snapshot = sampleSnapshot();
+  snapshot.nodes.push({
+    id: "mail_forwarder",
+    label: "Hiworks to Gmail collector",
+    kind: "worker",
+    group: "collect",
+    col: 1,
+    row: 3,
+    operation_mode: "scheduled",
+    health_scope: "node",
+    health: {
+      state: "ok",
+      reasons: [],
+      age_seconds: 30,
+      activity_state: "retrying",
+      activity_count: 16,
+      activity_next_at: new Date(NOW + 600_000).toISOString(),
+    },
+  });
+  snapshot.summary.ok += 1;
+  assert.equal(validateTopologyHealthSnapshot(snapshot, { now: NOW }), snapshot);
+  snapshot.nodes.at(-1).health.activity_state = "invented";
+  assert.throws(
+    () => validateTopologyHealthSnapshot(snapshot, { now: NOW }),
+    (error) => error instanceof Error && error.message === "topology_snapshot_node_invalid",
+  );
+  snapshot.nodes.at(-1).health.activity_state = "retrying";
+  snapshot.nodes.at(-1).health.activity_count = -1;
+  assert.throws(
+    () => validateTopologyHealthSnapshot(snapshot, { now: NOW }),
+    (error) => error instanceof Error && error.message === "topology_snapshot_node_invalid",
+  );
+});
+
 test("protected source and aggregate nodes reject inferred or copied observed health", () => {
   expectInvalid((snapshot) => {
     snapshot.nodes.find((node) => node.id === "src_codex").health = { state: "ok", reasons: [], age_seconds: 1 };
