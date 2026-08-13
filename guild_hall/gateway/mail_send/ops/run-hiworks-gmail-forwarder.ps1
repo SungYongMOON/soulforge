@@ -1,13 +1,15 @@
 param(
     [ValidateSet('initialize','apply')]
-    [string]$Mode = 'apply'
+    [string]$Mode = 'apply',
+    [Parameter(Mandatory = $true)]
+    [string]$BindingPath
 )
 
 $ErrorActionPreference = 'Stop'
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..\..')).Path
 $Forwarder = Join-Path $RepoRoot 'guild_hall\gateway\mail_send\hiworks_gmail_forwarder.py'
 $Importer = Join-Path $RepoRoot 'guild_hall\gateway\mail_send\gmail_original_importer.py'
-$ExpectedForwarderSha256 = '7bbcf534422aa679dbe6261abfa6cc7366181ef062a0fc78ad8d4316bf76e8bf'
+$ExpectedForwarderSha256 = '79e9cf511b2f8b4b0d356af985e3aa0205fb53ecc4be6b46d7bdf6f88ebb1793'
 $ExpectedImporterSha256 = '573c88a958ca967f7cc9f614c8be4f778905cb7e6bc56c243b28733cc262c296'
 $ActualForwarderSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $Forwarder).Hash.ToLowerInvariant()
 $ActualImporterSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $Importer).Hash.ToLowerInvariant()
@@ -15,12 +17,22 @@ if ($ActualForwarderSha256 -ne $ExpectedForwarderSha256 -or $ActualImporterSha25
     throw 'Forwarder script integrity check failed.'
 }
 
-$AccountEnv = 'D:\Soulforge-data\config\guild_hall\state\gateway\mailbox\state\acct_acc_145a8edf2e.env'
-$StateRoot = 'D:\Soulforge-data\state\mail\hiworks_gmail_forwarder'
-$GmailConfigRoot = 'D:\Soulforge-data\config\guild_hall\state\gateway\mailbox\state\gmail_original_importer'
+$Binding = Get-Content -LiteralPath $BindingPath -Raw -Encoding UTF8 | ConvertFrom-Json
+$ExpectedBindingKeys = @('account_env', 'gmail_config_root', 'receipt_root', 'schema_version', 'state_root')
+$ObservedBindingKeys = @($Binding.PSObject.Properties.Name | Sort-Object)
+if (($ObservedBindingKeys -join '|') -ne ($ExpectedBindingKeys -join '|') -or
+    $Binding.schema_version -ne 'soulforge.hiworks_gmail_forwarder.binding.v1') {
+    throw 'Hiworks Gmail binding is invalid.'
+}
+$AccountEnv = [System.IO.Path]::GetFullPath([string]$Binding.account_env)
+$StateRoot = [System.IO.Path]::GetFullPath([string]$Binding.state_root)
+$GmailConfigRoot = [System.IO.Path]::GetFullPath([string]$Binding.gmail_config_root)
+$ReceiptRoot = [System.IO.Path]::GetFullPath([string]$Binding.receipt_root)
+foreach ($BoundPath in @($AccountEnv, $StateRoot, $GmailConfigRoot, $ReceiptRoot)) {
+    if (-not [System.IO.Path]::IsPathRooted($BoundPath)) { throw 'Hiworks Gmail binding path is invalid.' }
+}
 $OAuthClient = Join-Path $GmailConfigRoot 'oauth_client.json'
 $OAuthToken = Join-Path $GmailConfigRoot 'oauth_token.json'
-$ReceiptRoot = 'D:\Soulforge-data\state\mail\gmail_original_importer\receipts'
 $Action = if ($Mode -eq 'initialize') { '--initialize' } else { '--apply' }
 
 & python $Forwarder $Action `

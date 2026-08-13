@@ -31,6 +31,9 @@
   continue, the third identical failure is reported as held, and the cycle stays
   partial until successful import clears the failure. POP3 deletion remains
   forbidden. Runtime activation and task-pin deployment remain separate.
+- Moved Hiworks machine-local account/state/receipt paths into an ignored
+  owner-root binding and pinned the scheduled runner to the exact forwarder
+  bytes so worktree deployments fail closed instead of using stale code.
 
 ## 2026-08-13 - Claude quota reset-unknown compatibility
 

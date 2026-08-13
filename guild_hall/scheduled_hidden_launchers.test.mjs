@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -29,6 +30,21 @@ test("periodic interactive tasks use repository-owned hidden launchers", async (
     assert.match(registrar, new RegExp(entry.launcher.split("/").at(-1).replaceAll(".", "\\.")));
     assert.match(launcher, /shell\.Run\(command, 0, True\)/);
   }
+});
+
+test("Hiworks scheduler pins the exact deployed forwarder bytes", async () => {
+  const [registrar, runner, forwarder] = await Promise.all([
+    readFile("guild_hall/gateway/mail_send/ops/register-hiworks-gmail-forwarder-task.ps1", "utf8"),
+    readFile("guild_hall/gateway/mail_send/ops/run-hiworks-gmail-forwarder.ps1", "utf8"),
+    readFile("guild_hall/gateway/mail_send/hiworks_gmail_forwarder.py"),
+  ]);
+  const match = runner.match(/\$ExpectedForwarderSha256 = '([0-9a-f]{64})'/u);
+  assert.ok(match);
+  assert.equal(match[1], createHash("sha256").update(forwarder).digest("hex"));
+  assert.match(registrar, /rev-parse --path-format=absolute --git-common-dir/u);
+  assert.match(registrar, /-BindingPath/u);
+  assert.match(runner, /soulforge\.hiworks_gmail_forwarder\.binding\.v1/u);
+  assert.doesNotMatch(runner, /[A-Z]:[\\/]/u);
 });
 
 test("local activity scheduler emits an atomic sanitized producer-owned health receipt", async () => {

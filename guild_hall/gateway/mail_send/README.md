@@ -59,6 +59,9 @@ HTML 본문을 넣으면 runner 는 `multipart/alternative` 메일로 보내며,
   heartbeat evidence for a future supervisor. The scheduled-task runner pins
   the collector script SHA-256; revalidate and update that pin deliberately
   whenever the collector changes.
+- The scheduled runner resolves an ignored owner-root binding for the
+  machine-local account, state, Gmail configuration, and receipt paths. Public
+  source contains no PC-specific data path.
 - Repeated failure of one UIDL no longer blocks unrelated mail. The bridge keeps
   only the UIDL hash, a fixed failure class, attempt count, and retry timestamps;
   it retries after 5 minutes, 15 minutes, 1 hour, then at a 6-hour cap. From the
