@@ -92,13 +92,14 @@ function emptyClaudeOfficialQuota() {
   };
 }
 
-function normalizedOfficialWindow(value, { expectedId, expectedMinutes, observedAtMs }) {
+function normalizedOfficialWindow(value, { expectedId, expectedMinutes, observedAtMs, allowUnknownReset = false }) {
   if (isRecord(value) && value.limit_id === undefined && value.window_minutes === undefined) {
     const utilization = finitePercent(value.utilization);
     const resetsAt = isoOrNull(value.resets_at);
     const resetMs = resetsAt === null ? NaN : Date.parse(resetsAt);
-    return utilization !== null && Number.isFinite(resetMs) && resetMs > observedAtMs
-      ? { utilization, resets_at: resetsAt }
+    const resetUnknown = allowUnknownReset && value.resets_at === null;
+    return utilization !== null && (resetUnknown || (Number.isFinite(resetMs) && resetMs > observedAtMs))
+      ? { utilization, resets_at: resetUnknown ? null : resetsAt }
       : null;
   }
   if (!isRecord(value) || value.limit_id !== expectedId
@@ -107,10 +108,11 @@ function normalizedOfficialWindow(value, { expectedId, expectedMinutes, observed
   const percentage = finitePercent(value.percentage);
   const resetsAt = isoOrNull(value.resets_at);
   const resetMs = resetsAt === null ? NaN : Date.parse(resetsAt);
-  if (percentage === null || !Number.isFinite(resetMs) || resetMs <= observedAtMs) return null;
+  const resetUnknown = allowUnknownReset && value.resets_at === null;
+  if (percentage === null || (!resetUnknown && (!Number.isFinite(resetMs) || resetMs <= observedAtMs))) return null;
   return {
     utilization: value.percentage_kind === "used_percentage" ? percentage : 100 - percentage,
-    resets_at: resetsAt,
+    resets_at: resetUnknown ? null : resetsAt,
   };
 }
 
@@ -128,17 +130,20 @@ export function normalizeClaudeOfficialQuota(value) {
     expectedId: "claude_five_hour",
     expectedMinutes: 300,
     observedAtMs,
+    allowUnknownReset: value.source_kind === "claude_oauth_usage_sanitized",
   });
   const weekly = normalizedOfficialWindow(value.weekly, {
     expectedId: "claude_weekly",
     expectedMinutes: 10_080,
     observedAtMs,
+    allowUnknownReset: value.source_kind === "claude_oauth_usage_sanitized",
   });
   const fableWeekly = ["claude_orca_compat_receipt", "claude_oauth_usage_sanitized"].includes(value.source_kind)
     ? normalizedOfficialWindow(value.fable_weekly, {
       expectedId: "claude_fable_weekly",
       expectedMinutes: 10_080,
       observedAtMs,
+      allowUnknownReset: value.source_kind === "claude_oauth_usage_sanitized",
     })
     : null;
   const complete = fiveHour !== null && weekly !== null;

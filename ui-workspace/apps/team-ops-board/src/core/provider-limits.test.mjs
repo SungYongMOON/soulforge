@@ -57,6 +57,18 @@ test("sanitized Claude OAuth quota accepts exact 5h, weekly, and Fable windows",
   }]);
 });
 
+test("sanitized Claude OAuth quota preserves a known percentage with an unknown reset", () => {
+  const normalized = normalizeClaudeOfficialQuota(official({
+    source_kind: "claude_oauth_usage_sanitized",
+    five_hour: { ...official().five_hour, resets_at: null },
+  }));
+
+  assert.equal(normalized.capture_status, "accepted");
+  assert.equal(normalized.five_hour.utilization, 20);
+  assert.equal(normalized.five_hour.resets_at, null);
+  assert.equal(buildClaudeQuotaPresentation({ claude_official: normalized }).current, true);
+});
+
 test("malformed or inconsistent quota becomes UNKNOWN/HOLD, never zero/current", () => {
   const normalized = normalizeClaudeOfficialQuota(official({ weekly: null }));
   assert.equal(normalized.capture_status, "hold");

@@ -257,7 +257,9 @@ quota gate and sanitized receipt from the stable
 `SOULFORGE_AI_USAGE_PROJECT_ROOT`, not from the active code worktree. A Board
 worktree switch therefore cannot silently orphan Claude quota state. This does
 not enable quota access by itself, store credentials, or persist provider
-responses.
+responses. When the sanitized OAuth source reports a percentage but explicitly
+omits its reset timestamp, the Board retains that percentage and displays only
+the reset as unknown; it never invents a reset time.
 Local polling and cache refreshes share one in-flight read and perform no
 provider GET during cooldown. Missing v2 status, legacy v1,
 and unavailable values remain `UNKNOWN`/disabled and are never fabricated as

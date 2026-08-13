@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-08-13 - Claude quota reset-unknown compatibility
+
+- Kept a provider-reported Claude quota percentage when the sanitized OAuth
+  response explicitly reports no reset timestamp. The percentage remains
+  source-backed and current while the reset is shown as unknown; no reset time
+  is inferred or synthesized.
+- The nullable reset is accepted only for the sanitized Claude OAuth source.
+  Status-line, compatibility, Antigravity, malformed, and implausible reset
+  evidence retain their existing fail-closed validation.
+
 ## 2026-08-13 - Workspace Board rollover and enrollment-gap hardening
 
 - Kept stable manager rollovers in the prior hierarchy position and atomically

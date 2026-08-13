@@ -7,6 +7,7 @@ import {
   PROVIDER_QUOTA_PROJECTION_SCHEMA_VERSION,
   PROVIDER_QUOTA_SNAPSHOT_SCHEMA_VERSION,
   buildOfficialProviderQuotaProjection,
+  createClaudeOauthUsageQuotaSnapshot,
   createClaudeStatusLineQuotaSnapshot,
   createOfficialProviderQuotaSnapshot,
   isOfficialProviderQuotaSnapshot,
@@ -149,6 +150,21 @@ test("Claude status-line parser retains only the documented rate-limit fields", 
     }),
     { code: "provider_quota_claude_statusline_incomplete" },
   );
+});
+
+test("Claude OAuth keeps a reported percentage when the provider explicitly omits the reset time", () => {
+  const snapshot = createClaudeOauthUsageQuotaSnapshot({
+    five_hour: { utilization: 12, resets_at: null },
+    seven_day: { utilization: 34, resets_at: isoAfter(9_000) },
+  }, {
+    observedAt: new Date(NOW_MS).toISOString(),
+    nowMs: NOW_MS,
+  });
+
+  assert.equal(snapshot.limits[0].limit_id, "claude_five_hour");
+  assert.equal(snapshot.limits[0].percentage, 12);
+  assert.equal(snapshot.limits[0].resets_at, null);
+  assert.equal(validateOfficialProviderQuotaSnapshot(snapshot, { nowMs: NOW_MS }).limits[0].resets_at, null);
 });
 
 test("unknown fields, future observations, and implausible quota windows fail closed", () => {

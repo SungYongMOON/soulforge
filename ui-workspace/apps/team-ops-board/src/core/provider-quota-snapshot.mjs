@@ -123,7 +123,7 @@ function limitOrder(limitId) {
   return PROVIDER_QUOTA_LIMIT_IDS.indexOf(limitId);
 }
 
-function normalizedLimit(value, observedAtMs) {
+function normalizedLimit(value, observedAtMs, sourceKind) {
   if (!hasExactKeys(value, LIMIT_KEYS)) fail("provider_quota_limit_keys_invalid");
   if (!PROVIDER_QUOTA_LIMIT_IDS.includes(value.limit_id)) fail("provider_quota_limit_id_invalid");
   if (!PROVIDER_QUOTA_PERCENTAGE_KINDS.includes(value.percentage_kind)) {
@@ -133,17 +133,23 @@ function normalizedLimit(value, observedAtMs) {
   if (!Number.isSafeInteger(value.window_minutes) || value.window_minutes !== rule.windowMinutes) {
     fail("provider_quota_window_invalid");
   }
-  const reset = normalizedIso(value.resets_at, "provider_quota_reset_invalid");
-  const maximumResetMs = observedAtMs + (rule.windowMinutes * 60 * 1_000) + RESET_SLACK_MS;
-  if (reset.epochMs <= observedAtMs || reset.epochMs > maximumResetMs) {
-    fail("provider_quota_reset_implausible");
+  let resetsAt = null;
+  if (value.resets_at === null) {
+    if (sourceKind !== "claude_oauth_usage_sanitized") fail("provider_quota_reset_invalid");
+  } else {
+    const reset = normalizedIso(value.resets_at, "provider_quota_reset_invalid");
+    const maximumResetMs = observedAtMs + (rule.windowMinutes * 60 * 1_000) + RESET_SLACK_MS;
+    if (reset.epochMs <= observedAtMs || reset.epochMs > maximumResetMs) {
+      fail("provider_quota_reset_implausible");
+    }
+    resetsAt = reset.iso;
   }
   return {
     limit_id: value.limit_id,
     percentage_kind: value.percentage_kind,
     percentage: normalizedPercentage(value.percentage),
     window_minutes: rule.windowMinutes,
-    resets_at: reset.iso,
+    resets_at: resetsAt,
   };
 }
 
@@ -153,7 +159,7 @@ function normalizedLimits(value, sourceKind, observedAtMs) {
   const allowed = new Set([...sourceRule.expected, ...sourceRule.optional]);
   const seen = new Set();
   const limits = value.map((item) => {
-    const normalized = normalizedLimit(item, observedAtMs);
+    const normalized = normalizedLimit(item, observedAtMs, sourceKind);
     if (!allowed.has(normalized.limit_id) || seen.has(normalized.limit_id)) {
       fail("provider_quota_limits_invalid");
     }
@@ -346,7 +352,9 @@ function claudeOauthWindow(value, limitId) {
   if (!isRecord(value)) return null;
   const percentage = typeof value.utilization === "number" ? value.utilization : value.used_percentage;
   if (typeof percentage !== "number" || !Number.isFinite(percentage) || percentage < 0 || percentage > 100) return null;
-  const resetsAt = normalizedIso(value.resets_at, "provider_quota_claude_oauth_incomplete").iso;
+  const resetsAt = value.resets_at === null
+    ? null
+    : normalizedIso(value.resets_at, "provider_quota_claude_oauth_incomplete").iso;
   return { limit_id: limitId, percentage_kind: "used_percentage", percentage, window_minutes: LIMIT_RULES[limitId].windowMinutes, resets_at: resetsAt };
 }
 

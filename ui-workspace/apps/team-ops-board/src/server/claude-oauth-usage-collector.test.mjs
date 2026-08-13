@@ -32,6 +32,22 @@ test("collector sanitizes 5h weekly and Fable without returning secret or raw re
   assert.doesNotMatch(JSON.stringify({ result, captured }), /synthetic-secret|weekly_scoped/u);
 });
 
+test("collector retains a reported 5h percentage when its reset is explicitly unknown", async () => {
+  let captured;
+  const result = await collectClaudeOauthUsage({
+    gatePath: GATE_PATH,
+    receiptPath: RECEIPT_PATH,
+    read: async (filePath) => reader(filePath),
+    fetchImpl: async () => response({ ...payload, five_hour: { ...payload.five_hour, resets_at: null } }),
+    now: () => Date.parse("2026-08-10T10:00:00.000Z"),
+    store: { persistAcceptedSnapshot: async (snapshot) => { captured = snapshot; return { write_state: "written" }; } },
+  });
+
+  assert.deepEqual(result, { status: "written" });
+  assert.equal(captured.limits[0].percentage, 12);
+  assert.equal(captured.limits[0].resets_at, null);
+});
+
 test("auth, redirects, malformed, oversized, timeout, and future data fail closed with fixed codes", async () => {
   const common = { gatePath: GATE_PATH, receiptPath: RECEIPT_PATH, read: async (filePath) => reader(filePath), now: () => Date.parse("2026-08-10T10:00:00.000Z") };
   for (const fetchImpl of [
