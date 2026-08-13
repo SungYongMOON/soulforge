@@ -1,5 +1,56 @@
 # CHANGELOG
 
+## 2026-08-13 - Source-bound answer lane: output-safety reason seam
+
+- Added a diagnostic-only reason to the evaluation-only source-bound answer lane
+  (`guild_hall/engineering_engine/evaluation/se_core_sourcebound_answer_lane.mjs`).
+  `SE_CORE_SOURCEBOUND_ANSWER_OUTPUT_SAFETY_FAILED` named the decision but not the
+  check, so markup, a URL, a leaked path, a fabricated citation identifier, an
+  authority claim, a forbidden model field, a failed canonicalisation, and a
+  failed whole-answer scan were one opaque hold. Every one of those paths now
+  attaches exactly one token from a closed nine-member vocabulary:
+  `markup_detected`, `url_detected`, `sensitive_pattern_detected`,
+  `citation_identifier_in_prose`, `authority_claim_pattern`,
+  `model_payload_field_forbidden`, `answer_canonicalisation_failed`,
+  `rendered_answer_scan_failed`, and the exhaustiveness backstop
+  `unspecified_internal`, which no reachable refusal produces.
+- The token names a family of check and nothing else. It is a fixed literal
+  chosen by which branch was taken, so it carries no offending text, no location
+  within a value, no matched pattern, no question, no answer or evidence prose,
+  no path, no account, and no provider value. It cannot be injected: an
+  invocation, a model response, and a model section are each closed field sets,
+  every adapter throw is still one `MODEL_CALL_FAILED`, and a token this lane
+  does not publish is replaced rather than passed through.
+- No output-safety acceptance behaviour changed. The same patterns run in the
+  same order and refuse and accept exactly what they did before; nothing was
+  relaxed, added, removed, reordered, or tuned to any question. No-retry,
+  no-fallback, no-repair, and the response, resource, and TypedArray hardening
+  are untouched.
+- Bumped the two receipt contracts whose shape actually changed. The lane receipt
+  is `soulforge.se_core_sourcebound_answer_receipt.v1`: its top-level
+  `output_safety_reason` exists if and only if the result is an output-safety
+  hold, and the key is absent — not `null` — on every other hold and on a pass,
+  which is the canonical kernel's own omission rule, so the receipt needs no
+  serialisation special case and gets none. That makes the receipt shape
+  result-discriminated rather than one identical key set across every result: a
+  reader keys on the result first and asks for the token only where the result is
+  an output-safety hold. The command execution receipt is
+  `soulforge.se_core_sourcebound_answer_command_receipt.v2`; it is a separate
+  JSON-safe execution summary, so it keeps one closed top-level field set and
+  states `output_safety_reason` as `null` wherever there is no token. It carries
+  the field because a HOLD lane receipt is never emitted to stdout and
+  `--receipt-out` is rolled back on a hold, and it reads it from the lane result
+  that invocation awaited, so a reused adapter and two overlapping commands
+  cannot inherit or cross-attribute a reason. The answer schema is unchanged, and
+  the lane policy revision stays
+  `soulforge.se_core_sourcebound_answer_lane.v0` because the instruction, the
+  output schema, and every acceptance rule the model is held to are
+  byte-identical and that revision salts the prompt, adapter, and expansion
+  commitments.
+- Verified on the public synthetic corpus only. No private source, no benchmark
+  question, no crosswalk, rubric, evaluator gold, prior answer, or provider run
+  was read, and no benchmark result is claimed or implied by this change.
+
 ## 2026-08-13 - Source-bound answer lane: pinned loopback generation request
 
 - Fixed the source-bound answer lane failing every real run against the pinned

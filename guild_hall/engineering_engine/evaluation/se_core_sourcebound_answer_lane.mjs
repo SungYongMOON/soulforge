@@ -33,7 +33,13 @@ export const ANSWER_LANE_ID = 'soulforge.engineering_answer_lane.se_core_sourceb
 export const ANSWER_LANE_KIND = 'evaluation_only_sourcebound_answer_lane';
 export const ANSWER_LANE_POLICY_REVISION = 'soulforge.se_core_sourcebound_answer_lane.v0';
 export const ANSWER_SCHEMA_VERSION = 'soulforge.se_core_sourcebound_answer.v0';
-export const RECEIPT_SCHEMA_VERSION = 'soulforge.se_core_sourcebound_answer_receipt.v0';
+// v1, because the receipt's shape grew `output_safety_reason`. The shape is result-discriminated
+// rather than one identical key set: the key is present exactly on an output-safety HOLD and
+// absent otherwise. The lane *policy* revision above is deliberately unchanged: the instruction,
+// the output schema, and every acceptance rule the model is held to are byte-identical, and that
+// revision salts the prompt, adapter, and expansion commitments, so moving it would claim a change
+// to material that did not change.
+export const RECEIPT_SCHEMA_VERSION = 'soulforge.se_core_sourcebound_answer_receipt.v1';
 export const SOURCE_SET_CONTRACT_SCHEMA_VERSION = 'soulforge.se_core_sourcebound_source_set.v0';
 export const SOURCE_COHORT_COMMITMENT_SCHEMA_VERSION = 'soulforge.se_core_sourcebound_source_cohort.v0';
 export const RESULT_CLAIM_CEILING = 'observed';
@@ -62,6 +68,37 @@ export const CODES = Object.freeze({
   OUTPUT_SAFETY_FAILED: 'SE_CORE_SOURCEBOUND_ANSWER_OUTPUT_SAFETY_FAILED',
   RECEIPT_NOT_PAYLOAD_FREE: 'SE_CORE_SOURCEBOUND_ANSWER_RECEIPT_NOT_PAYLOAD_FREE',
 });
+
+/**
+ * Why one run failed output safety, as one closed family token.
+ *
+ * `CODES.OUTPUT_SAFETY_FAILED` says a rendered block or a rendered answer was refused. On its own
+ * it does not say *which* check refused it, and every refusal message here is fixed text that
+ * carries none of what it refused — so a hold was opaque: markup, a URL, a leaked path, a
+ * fabricated citation identifier, and a self-attributed authority claim all reported one code.
+ *
+ * These tokens name the family of check that refused and nothing else. Each is a fixed literal in
+ * this module: no token is derived from, influenced by, or varied with the refused text, the
+ * question, the evidence, a location, a path, an account, or any provider value. The set is closed,
+ * so a reader can key on it.
+ *
+ * `UNSPECIFIED_INTERNAL` is an exhaustiveness backstop, not a family. Every output-safety refusal
+ * this module can take names one of the eight families above it, and the suite proves that against
+ * every probe it has. The backstop exists so an output-safety hold can never report *no* reason,
+ * which is the one answer this field must never give.
+ */
+export const OUTPUT_SAFETY_REASONS = Object.freeze({
+  MARKUP: 'markup_detected',
+  URL: 'url_detected',
+  SENSITIVE_PATTERN: 'sensitive_pattern_detected',
+  CITATION_IDENTIFIER: 'citation_identifier_in_prose',
+  AUTHORITY_CLAIM: 'authority_claim_pattern',
+  MODEL_PAYLOAD_FIELD: 'model_payload_field_forbidden',
+  ANSWER_CANONICALISATION: 'answer_canonicalisation_failed',
+  RENDERED_ANSWER_SCAN: 'rendered_answer_scan_failed',
+  UNSPECIFIED_INTERNAL: 'unspecified_internal',
+});
+const OUTPUT_SAFETY_REASON_TOKENS = new Set(Object.values(OUTPUT_SAFETY_REASONS));
 
 const BLOCKER_STAGE = Object.freeze({
   [CODES.INPUT_INVALID]: 'input',
@@ -365,6 +402,26 @@ function fail(code, message, detail = {}) {
   throw new ContractError(code, message, detail);
 }
 
+/** Refuses output safety with one closed family token and, as before, none of what it refused. */
+function failOutputSafety(reason, message) {
+  fail(CODES.OUTPUT_SAFETY_FAILED, message, { output_safety_reason: reason });
+}
+
+/**
+ * One closed family token read back from a refusal detail this module authored.
+ *
+ * The detail is never caller or model material: every value it can carry here was written by a
+ * `fail` call in this file, from the frozen table above. The membership test is what makes that
+ * structural rather than merely true — a token this module does not publish is not passed through,
+ * it is replaced by the caller's fallback, so nothing arbitrary can reach the receipt by this path.
+ */
+function outputSafetyReasonToken(detail, fallback = OUTPUT_SAFETY_REASONS.UNSPECIFIED_INTERNAL) {
+  const token = detail === null || typeof detail !== 'object'
+    ? undefined
+    : detail.output_safety_reason;
+  return typeof token === 'string' && OUTPUT_SAFETY_REASON_TOKENS.has(token) ? token : fallback;
+}
+
 function deepFreeze(value) {
   if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
     Object.freeze(value);
@@ -388,8 +445,13 @@ function assertSafeString(value, code, maxLength = MAX.string) {
     fail(code, 'a metadata string must be bounded NFC text without control characters');
   }
   if (FORBIDDEN_STRINGS.some((pattern) => pattern.test(value))) {
+    // The family token is carried for the runs where this scan is reached on the way *out* — a
+    // model-authored string is snapshotted through here before any block filter sees it. On the way
+    // *in* the run ends at `FORBIDDEN_PARTICIPANT_INPUT`, which is not an output-safety refusal, so
+    // the receipt reports no reason for it.
     fail(CODES.FORBIDDEN_PARTICIPANT_INPUT,
-      'a path, secret, account, or runtime identifier is forbidden in public-safe metadata');
+      'a path, secret, account, or runtime identifier is forbidden in public-safe metadata',
+      { output_safety_reason: OUTPUT_SAFETY_REASONS.SENSITIVE_PATTERN });
   }
 }
 
@@ -485,11 +547,13 @@ function snapshotPlainOwnData(root, options = {}) {
       const lowered = key.toLowerCase();
       if (FORBIDDEN_PARTICIPANT_KEYS.has(lowered)) {
         fail(CODES.FORBIDDEN_PARTICIPANT_INPUT,
-          'crosswalk, rubric, gold, prior answer, and Notebook material are forbidden participant inputs');
+          'crosswalk, rubric, gold, prior answer, and Notebook material are forbidden participant inputs',
+          { output_safety_reason: OUTPUT_SAFETY_REASONS.MODEL_PAYLOAD_FIELD });
       }
       if (FORBIDDEN_PAYLOAD_KEYS.has(lowered)) {
         fail(CODES.FORBIDDEN_PARTICIPANT_INPUT,
-          'secret, account, runtime, and raw-body fields are forbidden at this boundary');
+          'secret, account, runtime, and raw-body fields are forbidden at this boundary',
+          { output_safety_reason: OUTPUT_SAFETY_REASONS.MODEL_PAYLOAD_FIELD });
       }
       // A canonical own "__proto__" data property is legal input and stays a plain key here;
       // it never reaches an object literal assignment that would retarget a prototype.
@@ -1259,26 +1323,33 @@ async function advisoryQueryExpansion({ seams, questionText, queryExpansion, cou
  * Every refusal message below is fixed text. The offending value is never interpolated into the
  * error, the receipt, or the log, because a refusal that quoted the refused string back would be
  * exactly the leak this check exists to prevent.
+ *
+ * Each refusal additionally names the *family* of check it failed, from the closed table at the top
+ * of this module. The family is a fixed literal chosen by which branch was taken; it says nothing
+ * about the value, the location within it, or the pattern that matched, so naming it adds no new
+ * channel out of this function. The checks themselves — which patterns, in which order, accepting
+ * exactly what they accepted before — are unchanged.
  */
 function assertModelBlockSafe(value) {
   if (HTML_LIKE.test(value) || MODEL_BLOCK_MARKUP.some((pattern) => pattern.test(value))) {
-    fail(CODES.OUTPUT_SAFETY_FAILED, 'the model returned markup where only prose is accepted');
+    failOutputSafety(OUTPUT_SAFETY_REASONS.MARKUP,
+      'the model returned markup where only prose is accepted');
   }
   if (URL_LIKE.test(value)) {
-    fail(CODES.OUTPUT_SAFETY_FAILED,
+    failOutputSafety(OUTPUT_SAFETY_REASONS.URL,
       'the model named a URL, which would be a source this lane never retrieved');
   }
   if (FORBIDDEN_STRINGS.some((pattern) => pattern.test(value))) {
-    fail(CODES.OUTPUT_SAFETY_FAILED,
+    failOutputSafety(OUTPUT_SAFETY_REASONS.SENSITIVE_PATTERN,
       'the model returned a path, secret, account, or runtime identifier; it is not echoed');
   }
   if (MODEL_BLOCK_IDENTIFIERS.some((pattern) => pattern.test(value))) {
-    fail(CODES.OUTPUT_SAFETY_FAILED,
+    failOutputSafety(OUTPUT_SAFETY_REASONS.CITATION_IDENTIFIER,
       'the model named a source, page, revision, or evidence identifier the lane never bound');
   }
   if (FORBIDDEN_AUTHORITY_CLAIMS.some((pattern) => pattern.test(value))
       || MODEL_BLOCK_CLAIMS.some((pattern) => pattern.test(value))) {
-    fail(CODES.OUTPUT_SAFETY_FAILED,
+    failOutputSafety(OUTPUT_SAFETY_REASONS.AUTHORITY_CLAIM,
       'the model claimed approval, canon, project use, or authority this lane cannot hold');
   }
 }
@@ -1291,8 +1362,14 @@ function validateModelSections(response, allowedEvidenceIds) {
     // A path, secret, or forbidden field arriving *from* the model is an output-safety failure,
     // not merely a malformed shape.
     if (error instanceof ContractError && error.code === CODES.FORBIDDEN_PARTICIPANT_INPUT) {
-      fail(CODES.OUTPUT_SAFETY_FAILED,
-        'the model response carries a forbidden path, secret, or field family; it is not echoed');
+      // A forbidden *field name* and a forbidden *string value* both arrive here, and they are two
+      // different families, so the token is taken from the refusal that happened rather than
+      // flattened into one. The snapshot is plain-data reflection over an already parsed response:
+      // no model code runs inside it, so the token it carries is still this module's own.
+      failOutputSafety(
+        outputSafetyReasonToken(error.detail, OUTPUT_SAFETY_REASONS.MODEL_PAYLOAD_FIELD),
+        'the model response carries a forbidden path, secret, or field family; it is not echoed',
+      );
     }
     fail(CODES.MODEL_OUTPUT_INVALID, 'the model response is not bounded plain own data');
   }
@@ -1399,13 +1476,18 @@ function canonicalAnswerJson(answer) {
   try {
     serialised = canonicalise(answer, ANSWER_ORDER_RULES);
   } catch {
-    fail(CODES.OUTPUT_SAFETY_FAILED, 'the rendered answer could not be canonicalised');
+    failOutputSafety(OUTPUT_SAFETY_REASONS.ANSWER_CANONICALISATION,
+      'the rendered answer could not be canonicalised');
   }
+  // One scan over the whole rendering, so the family is the scan itself rather than which of its
+  // four patterns matched: this is where a value no block filter ever sees — an operator-curated
+  // title or revision, for instance — is refused, and naming the pattern would start to describe it.
   if (FORBIDDEN_STRINGS.some((pattern) => pattern.test(serialised))
       || FORBIDDEN_AUTHORITY_CLAIMS.some((pattern) => pattern.test(serialised))
       || URL_LIKE.test(serialised)
       || HTML_LIKE.test(serialised.replace(/\\u003c/gu, ''))) {
-    fail(CODES.OUTPUT_SAFETY_FAILED, 'the rendered answer failed the output safety scan');
+    failOutputSafety(OUTPUT_SAFETY_REASONS.RENDERED_ANSWER_SCAN,
+      'the rendered answer failed the output safety scan');
   }
   return `${serialised}\n`;
 }
@@ -1483,6 +1565,14 @@ function holdReceipt({ code, counters, detail = {} }) {
     answer_rendered: false,
     blocker_code: code,
     blocker_stage: BLOCKER_STAGE[code] ?? 'unknown',
+    // One closed family token when — and only when — this hold is an output-safety refusal, and
+    // the key is absent on every other hold. It names which check refused, never what it refused,
+    // and never where. The token is chosen inside this module; no caller, adapter, or model value
+    // reaches it. Absence rather than `null` is the canonical kernel's own rule for a field that
+    // has nothing to say, so this receipt needs no serialisation special case to obey it.
+    ...(code === CODES.OUTPUT_SAFETY_FAILED
+      ? { output_safety_reason: outputSafetyReasonToken(detail) }
+      : {}),
     authority: { ...ZERO_AUTHORITY },
     model: {
       invocation_count: counters.total,
@@ -1653,6 +1743,8 @@ async function executeAnswerLane(input, context, pinRequest) {
       claim_ceiling: RESULT_CLAIM_CEILING,
       candidate_disposition: CANDIDATE_DISPOSITION,
       answer_rendered: true,
+      // No `output_safety_reason` key: a run that rendered an answer refused nothing on output
+      // safety, and the canonical rule for a field with nothing to say is to omit it.
       evaluation_scope: {
         evaluation_only: true,
         point_in_time: scope.point_in_time,

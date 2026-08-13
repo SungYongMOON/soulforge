@@ -247,17 +247,18 @@ test('the persisted receipt file is the lane receipt, never the command executio
 const COMMAND_RECEIPT_FIELDS = Object.freeze([
   'answer_emitted_to_stdout', 'answer_rendered', 'benchmark', 'blocker_code', 'blocker_stage',
   'candidate_disposition', 'claim_ceiling', 'lane_id', 'lane_internal_writes', 'lane_ran',
-  'model_call_occurred', 'model_invocation_count', 'model_refusal_reason', 'ok', 'persistence',
-  'result', 'schema_version',
+  'model_call_occurred', 'model_invocation_count', 'model_refusal_reason', 'ok',
+  'output_safety_reason', 'persistence', 'result', 'schema_version',
 ]);
 
 test('the command execution receipt is one closed field set at its own schema version', async () => {
   // The set is closed, so a reader keyed to it does not silently accept a receipt carrying a
-  // member it has never seen. `model_refusal_reason` is such a member, which is why this schema
-  // is v1 and not a v0 that quietly grew a field.
+  // member it has never seen. `model_refusal_reason` was such a member, which is why this schema
+  // left v0; `output_safety_reason` is the next one, which is why it is now v2 rather than a v1
+  // that quietly grew a field.
   assert.equal(
     COMMAND_RECEIPT_SCHEMA_VERSION,
-    'soulforge.se_core_sourcebound_answer_command_receipt.v1',
+    'soulforge.se_core_sourcebound_answer_command_receipt.v2',
   );
 
   const { root, argv } = fixture();
@@ -269,6 +270,7 @@ test('the command execution receipt is one closed field set at its own schema ve
   assert.deepEqual(Object.keys(passed).sort(), [...COMMAND_RECEIPT_FIELDS]);
   assert.equal(passed.schema_version, COMMAND_RECEIPT_SCHEMA_VERSION);
   assert.equal(passed.model_refusal_reason, null);
+  assert.equal(passed.output_safety_reason, null);
 
   // A hold that never reached the lane carries the same closed set and nothing else.
   const early = captureIo(fakeAnswerModel());
@@ -2916,4 +2918,159 @@ test('no named input is read with a whole-file convenience call', () => {
     'a whole-file read sizes its allocation from the file it has not bounded yet',
   );
   assert.ok(source.includes('fstatSync'), 'the size is taken from the open handle');
+});
+
+// ------------------------------------------------------------------ output-safety reason seam
+//
+// A lane HOLD receipt never reaches stdout and is never persisted — `--receipt-out` is rolled back
+// on a hold — so the command execution receipt is the only surface on which an operator can read
+// *which* output-safety check refused a run. These tests pin that it carries the lane's closed
+// family token, that it carries nothing else, and that the token belongs to one invocation.
+
+const MARKUP_SECTIONS = {
+  sections: [{ heading: '판단', text: '**강조** 된 기준입니다.', evidence_ids: ['E1'] }],
+};
+
+/** One in-memory model that renders exactly the given prose, cited to the first retrieved id. */
+const proseModel = (text) => fakeAnswerModel({
+  compose: (request) => ({
+    sections: [{ heading: '판단', text, evidence_ids: [request.evidence[0].evidence_id] }],
+  }),
+});
+
+test('an output-safety hold names its family on the command receipt and echoes no prose', async () => {
+  const probe = '문의는 owner@example.com 으로 하십시오.';
+  const { root, argv } = fixture();
+  const receiptPath = join(root, 'receipt.json');
+  const { io, out, err } = captureIo(proseModel(probe));
+  const run = await runSeCoreSourceboundAnswerCli([...argv, '--receipt-out', receiptPath], io);
+
+  assert.equal(run.receipt.result, 'HOLD');
+  assert.equal(run.receipt.blocker_code, LANE_CODES.OUTPUT_SAFETY_FAILED);
+  // The lane receipt is not written anywhere on a hold, which is why the command receipt carries
+  // the reason at all.
+  assert.equal(out.length, 0);
+  assert.equal(err.length, 1);
+  assert.equal(existsSync(receiptPath), false);
+
+  const command = commandReceipt(err);
+  assert.equal(command.output_safety_reason, 'sensitive_pattern_detected');
+  assert.equal(command.model_refusal_reason, null, 'no provider refusal happened on this run');
+  assert.equal(command.blocker_code, LANE_CODES.OUTPUT_SAFETY_FAILED);
+  assert.equal(command.blocker_stage, 'output_safety');
+  assert.deepEqual(Object.keys(command).sort(), [...COMMAND_RECEIPT_FIELDS]);
+  assert.equal(err[0].includes(probe), false);
+  assert.equal(err[0].includes('owner@example.com'), false);
+  assert.equal(/[\p{Script=Hangul}]/u.test(err[0]), false, 'a command receipt carries no prose');
+});
+
+test('each output-safety family reaches the command receipt as its own token', async () => {
+  for (const [text, expected] of [
+    ['**강조** 된 기준입니다.', 'markup_detected'],
+    ['https://example.org/handbook 에서 확인하십시오.', 'url_detected'],
+    [`${'/tmp'}/private-evidence.txt 에서 확인했습니다.`, 'sensitive_pattern_detected'],
+    ['E9 근거에 따르면 기준이 다릅니다.', 'citation_identifier_in_prose'],
+    ['Owner approval has been obtained.', 'authority_claim_pattern'],
+  ]) {
+    const { argv } = fixture();
+    const { io, out, err } = captureIo(proseModel(text));
+    const run = await runSeCoreSourceboundAnswerCli(argv, io);
+    assert.equal(run.receipt.blocker_code, LANE_CODES.OUTPUT_SAFETY_FAILED, text);
+    assert.equal(commandReceipt(err).output_safety_reason, expected, text);
+    assert.equal(out.length, 0, text);
+    assert.equal(err[err.length - 1].includes(text), false, text);
+  }
+});
+
+test('a pass and a non-output-safety hold both report a null output-safety reason', async () => {
+  const { root, argv } = fixture();
+  const passing = captureIo(fakeAnswerModel());
+  const run = await runSeCoreSourceboundAnswerCli([...argv, '--out', join(root, 'a.json')],
+    passing.io);
+  assert.equal(run.receipt.result, 'PASS');
+  assert.equal(commandReceipt(passing.err).output_safety_reason, null);
+
+  // A lane hold from another stage.
+  const drifted = captureIo(fakeAnswerModel());
+  const mismatched = await runSeCoreSourceboundAnswerCli(
+    withFlag(argv, '--source-set-sha256', sha256('a source set this run is not')), drifted.io,
+  );
+  assert.equal(mismatched.receipt.result, 'HOLD');
+  assert.equal(commandReceipt(drifted.err).output_safety_reason, null);
+
+  // A hold this command took before the lane ran at all.
+  const early = captureIo(fakeAnswerModel());
+  await assert.rejects(runSeCoreSourceboundAnswerCli(['--not-a-flag', 'x'], early.io));
+  assert.equal(commandReceipt(early.err).output_safety_reason, null);
+  assert.equal(commandReceipt(early.err).lane_ran, false);
+});
+
+test('a caller cannot put an output-safety reason on the io surface', async () => {
+  const { argv } = fixture();
+  const err = [];
+  const io = {
+    answerModel: fakeAnswerModel(),
+    stderrWrite: (value) => err.push(value),
+    output_safety_reason: 'markup_detected',
+  };
+  await assert.rejects(
+    runSeCoreSourceboundAnswerCli(argv, io),
+    (error) => error.code === CLI_CODES.IO_SURFACE_INVALID,
+  );
+  // The surface was refused before it was read, so this run reports through the process sinks and
+  // never adopts the caller's value.
+  assert.equal(err.length, 0);
+});
+
+test('one adapter reused by two sequential commands never inherits the earlier reason', async () => {
+  let call = 0;
+  const shared = fakeAnswerModel({
+    compose: (request) => {
+      call += 1;
+      const evidence_ids = [request.evidence[0].evidence_id];
+      return call === 1
+        ? { sections: [{ heading: '판단', text: '**강조** 된 기준입니다.', evidence_ids }] }
+        : { sections: [{ heading: '판단', text: '검증 기준이 필요합니다.', evidence_ids }] };
+    },
+  });
+  const held = captureIo(shared);
+  const first = await runSeCoreSourceboundAnswerCli(fixture().argv, held.io);
+  assert.equal(first.receipt.blocker_code, LANE_CODES.OUTPUT_SAFETY_FAILED);
+  assert.equal(commandReceipt(held.err).output_safety_reason, 'markup_detected');
+
+  const passing = captureIo(shared);
+  const second = await runSeCoreSourceboundAnswerCli(fixture().argv, passing.io);
+  assert.equal(second.receipt.result, 'PASS');
+  assert.equal(commandReceipt(passing.err).output_safety_reason, null);
+  assert.equal(
+    commandReceipt(held.err).output_safety_reason, 'markup_detected',
+    'the receipt already written is not the one a later run rewrites',
+  );
+});
+
+test('two overlapping commands on one adapter each report only their own output safety', async () => {
+  // Both runs are held open at the provider, so their model calls genuinely overlap, and the
+  // second one to start is the first one to finish.
+  const gates = [pendingResponse(), pendingResponse()];
+  const shared = gatedAnswerModel(gates);
+  const held = captureIo(shared);
+  const passing = captureIo(shared);
+
+  const heldRun = runSeCoreSourceboundAnswerCli(fixture().argv, held.io);
+  await gates[0].seen;
+  const passingRun = runSeCoreSourceboundAnswerCli(fixture().argv, passing.io);
+  await gates[1].seen;
+
+  gates[1].resolve(bodyResponse(envelopeFor(JSON.stringify(OK_SECTIONS))));
+  assert.equal((await passingRun).receipt.result, 'PASS');
+  assert.equal(commandReceipt(passing.err).output_safety_reason, null);
+
+  gates[0].resolve(bodyResponse(envelopeFor(JSON.stringify(MARKUP_SECTIONS))));
+  const refused = await heldRun;
+  assert.equal(refused.receipt.blocker_code, LANE_CODES.OUTPUT_SAFETY_FAILED);
+  assert.equal(commandReceipt(held.err).output_safety_reason, 'markup_detected');
+  assert.equal(
+    commandReceipt(passing.err).output_safety_reason, null,
+    'a run that answered names no output-safety refusal another run took',
+  );
 });

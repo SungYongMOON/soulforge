@@ -24,6 +24,8 @@ import {
   ANSWER_LANE_ID,
   ANSWER_LANE_POLICY_REVISION,
   CODES as LANE_CODES,
+  OUTPUT_SAFETY_REASONS,
+  RECEIPT_SCHEMA_VERSION,
   STRUCTURAL_LIMIT,
   canonicalSeCoreSourceboundAnswerJson,
   canonicalSeCoreSourceboundReceiptJson,
@@ -32,6 +34,8 @@ import {
   seCoreSourceCohortSha256,
   seCoreSourceSetContractSha256,
 } from '../evaluation/se_core_sourcebound_answer_lane.mjs';
+import { canonicalise } from '../kernel/canonical.mjs';
+import { CODES as KERNEL_CODES, ContractError } from '../kernel/errors.mjs';
 
 const laneInput = (question) => buildLaneInput({
   commitment: seCoreSourceSetContractSha256,
@@ -1150,6 +1154,546 @@ test('the same forbidden shapes are refused in a heading, not only in a body', a
     }));
     assert.equal(refused.code, LANE_CODES.OUTPUT_SAFETY_FAILED, probe);
   }
+});
+
+// ------------------------------------------------------------------ output-safety reason seam
+//
+// `OUTPUT_SAFETY_FAILED` says a run was refused; on its own it never said which check refused it,
+// so markup, a URL, a leaked path, a fabricated citation identifier, and a self-attributed
+// authority claim were one opaque hold. These probes pin the family token each path attaches — and
+// pin just as hard that a token is *all* it attaches.
+
+const REASON_FAMILY_PROBES = Object.freeze([
+  ['markdown emphasis', '**강조** 된 기준입니다.', OUTPUT_SAFETY_REASONS.MARKUP],
+  ['html', '<b>강조</b> 된 기준입니다.', OUTPUT_SAFETY_REASONS.MARKUP],
+  ['code fence', '```\n기준\n```', OUTPUT_SAFETY_REASONS.MARKUP],
+  ['link', '[근거](doc/page1) 를 보십시오.', OUTPUT_SAFETY_REASONS.MARKUP],
+  ['url', 'https://example.org/handbook 에서 확인하십시오.', OUTPUT_SAFETY_REASONS.URL],
+  ['bare host', '참고 자료는 www.example.org 입니다.', OUTPUT_SAFETY_REASONS.URL],
+  ['email', '문의는 owner@example.com 으로 하십시오.', OUTPUT_SAFETY_REASONS.SENSITIVE_PATTERN],
+  ['posix path', `${'/tmp'}/private-evidence.txt 에서 확인했습니다.`,
+    OUTPUT_SAFETY_REASONS.SENSITIVE_PATTERN],
+  ['private plane', '자료 위치는 _workmeta/system/reports 입니다.',
+    OUTPUT_SAFETY_REASONS.SENSITIVE_PATTERN],
+  ['project code', '과제 P26-014 에 적용했습니다.', OUTPUT_SAFETY_REASONS.SENSITIVE_PATTERN],
+  ['evidence id', 'E9 근거에 따르면 기준이 다릅니다.', OUTPUT_SAFETY_REASONS.CITATION_IDENTIFIER],
+  ['page number', 'page 12 의 기준을 참조하십시오.', OUTPUT_SAFETY_REASONS.CITATION_IDENTIFIER],
+  ['chunk id', 'syn_alpha_p9_c9 근거에 따르면 기준이 다릅니다.',
+    OUTPUT_SAFETY_REASONS.CITATION_IDENTIFIER],
+  ['approval claim', 'Owner approval has been obtained.', OUTPUT_SAFETY_REASONS.AUTHORITY_CLAIM],
+  ['canon claim', '이 답변을 정본으로 등록하십시오.', OUTPUT_SAFETY_REASONS.AUTHORITY_CLAIM],
+]);
+
+test('the output-safety reason vocabulary is one closed payload-free set', () => {
+  assert.deepEqual(Object.values(OUTPUT_SAFETY_REASONS), [
+    'markup_detected',
+    'url_detected',
+    'sensitive_pattern_detected',
+    'citation_identifier_in_prose',
+    'authority_claim_pattern',
+    'model_payload_field_forbidden',
+    'answer_canonicalisation_failed',
+    'rendered_answer_scan_failed',
+    'unspecified_internal',
+  ]);
+  // Naming the reason changed the lane receipt's shape, so the receipt schema is v1: the shape is
+  // result-discriminated, with the key present exactly on an output-safety HOLD. The lane
+  // *policy* — the instruction, the output schema, and every acceptance rule the model is held to —
+  // is byte-identical, and it salts the prompt, adapter, and expansion commitments, so bumping it
+  // would claim a change to material that did not change.
+  assert.equal(RECEIPT_SCHEMA_VERSION, 'soulforge.se_core_sourcebound_answer_receipt.v1');
+  assert.equal(ANSWER_LANE_POLICY_REVISION, 'soulforge.se_core_sourcebound_answer_lane.v0');
+});
+
+test('each output-safety family attaches exactly one closed reason token', async () => {
+  for (const [label, text, expected] of REASON_FAMILY_PROBES) {
+    const refused = await holdFor(() => {}, composeWith({
+      sections: [{ heading: '판단', text, evidence_ids: ['E1'] }],
+    }));
+    assert.equal(refused.code, LANE_CODES.OUTPUT_SAFETY_FAILED, label);
+    assert.equal(refused.receipt.output_safety_reason, expected, label);
+  }
+  // The same families are refused from a heading, and name the same reason there.
+  for (const [label, text, expected] of REASON_FAMILY_PROBES.filter(
+    ([, probe]) => !probe.includes('\n'),
+  )) {
+    const refused = await holdFor(() => {}, composeWith({
+      sections: [{ heading: text, text: '검증 기준입니다.', evidence_ids: ['E1'] }],
+    }));
+    assert.equal(refused.code, LANE_CODES.OUTPUT_SAFETY_FAILED, label);
+    assert.equal(refused.receipt.output_safety_reason, expected, label);
+  }
+});
+
+test('a forbidden field family arriving from the model is its own output-safety reason', async () => {
+  const refused = await holdFor(() => {}, {
+    compose: (request) => ({
+      sections: [{
+        heading: '판단',
+        text: '검증 기준이 필요합니다.',
+        evidence_ids: [request.evidence[0].evidence_id],
+      }],
+      api_key: 'a value this lane never reads and never echoes',
+    }),
+  });
+  assert.equal(refused.code, LANE_CODES.OUTPUT_SAFETY_FAILED);
+  assert.equal(refused.receipt.output_safety_reason, OUTPUT_SAFETY_REASONS.MODEL_PAYLOAD_FIELD);
+});
+
+test('the rendered-answer scan and its canonicalisation are two distinct reasons', async () => {
+  // A source title is operator-curated metadata that no block filter ever sees, so a URL there
+  // reaches the whole-answer scan rather than a model block.
+  const scanned = await holdFor((input) => {
+    for (const source of [...input.corpus.sources, ...input.corpus.sourceSetContract.sources]) {
+      source.title = `${source.title} https://example.org`;
+    }
+    input.corpus.expectedSourceSetSha256 = seCoreSourceSetContractSha256(
+      input.corpus.sourceSetContract,
+    );
+  });
+  assert.equal(scanned.code, LANE_CODES.OUTPUT_SAFETY_FAILED);
+  assert.equal(scanned.receipt.output_safety_reason, OUTPUT_SAFETY_REASONS.RENDERED_ANSWER_SCAN);
+
+  // A heading the canonical kernel refuses as a malformed instant passes every block filter and
+  // then fails serialisation, which is a different failure from a scan that found something.
+  const uncanonical = await holdFor(() => {}, {
+    compose: (request) => ({
+      sections: [{
+        heading: '2026-08-13Trev',
+        text: '검증 기준이 필요합니다.',
+        evidence_ids: [request.evidence[0].evidence_id],
+      }],
+    }),
+  });
+  assert.equal(uncanonical.code, LANE_CODES.OUTPUT_SAFETY_FAILED);
+  assert.equal(
+    uncanonical.receipt.output_safety_reason, OUTPUT_SAFETY_REASONS.ANSWER_CANONICALISATION,
+  );
+});
+
+test('a hold that is not an output-safety refusal, and a pass, carry no reason key', async () => {
+  const passed = await runSeCoreSourceboundAnswerLane(laneInput(), {
+    answerModel: fakeAnswerModel(),
+  });
+  assert.equal(passed.receipt.result, 'PASS');
+  assert.equal(Object.hasOwn(passed.receipt, 'output_safety_reason'), false);
+
+  const holds = [
+    ['input', () => holdFor((input) => { delete input.scope; })],
+    ['scope', () => holdFor((input) => { input.scope.authority_to_approve = true; })],
+    ['question pin', () => holdFor((input) => { input.expectedQuestionBytes += 1; })],
+    ['source set pin', () => holdFor((input) => {
+      input.corpus.expectedSourceSetSha256 = sha256('another source set entirely');
+    })],
+    // The same forbidden-string scan that names `sensitive_pattern_detected` on the way *out* is
+    // not an output-safety refusal on the way *in*, and the receipt must carry no reason for it.
+    ['forbidden participant input', () => holdFor((input) => {
+      input.corpus.sourceSetContract.sources[0].title = 'guide owner@example.com';
+    })],
+    ['model call', () => holdFor(() => {}, { compose: () => { throw new Error('provider'); } })],
+    ['model output', () => holdFor(() => {}, { compose: () => ({ sections: [] }) })],
+    ['citation binding', () => holdFor(() => {}, composeWith({
+      sections: [{ heading: '판단', text: '검증 기준입니다.', evidence_ids: ['E4096'] }],
+    }))],
+  ];
+  for (const [label, run] of holds) {
+    const held = await run();
+    assert.notEqual(held.code, LANE_CODES.OUTPUT_SAFETY_FAILED, label);
+    assert.equal(Object.hasOwn(held.receipt, 'output_safety_reason'), false, label);
+  }
+});
+
+test('an output-safety reason cannot be injected by a caller or by the model', async () => {
+  const injectedInput = await holdFor((input) => {
+    input.output_safety_reason = OUTPUT_SAFETY_REASONS.MARKUP;
+  });
+  assert.equal(injectedInput.code, LANE_CODES.INPUT_INVALID);
+  assert.equal(Object.hasOwn(injectedInput.receipt, 'output_safety_reason'), false);
+
+  const injectedResponse = await holdFor(() => {}, {
+    compose: (request) => ({
+      sections: [{
+        heading: '판단',
+        text: '검증 기준입니다.',
+        evidence_ids: [request.evidence[0].evidence_id],
+      }],
+      output_safety_reason: OUTPUT_SAFETY_REASONS.URL,
+    }),
+  });
+  assert.equal(injectedResponse.code, LANE_CODES.MODEL_OUTPUT_INVALID);
+  assert.equal(Object.hasOwn(injectedResponse.receipt, 'output_safety_reason'), false);
+
+  const injectedSection = await holdFor(() => {}, composeWith({
+    sections: [{
+      heading: '판단',
+      text: '검증 기준입니다.',
+      evidence_ids: ['E1'],
+      output_safety_reason: OUTPUT_SAFETY_REASONS.AUTHORITY_CLAIM,
+    }],
+  }));
+  assert.equal(injectedSection.code, LANE_CODES.MODEL_OUTPUT_INVALID);
+  assert.equal(Object.hasOwn(injectedSection.receipt, 'output_safety_reason'), false);
+
+  // Every adapter throw becomes one MODEL_CALL_FAILED, so an adapter that throws this lane's own
+  // error type, with this lane's own output-safety code and a legal token, reaches nothing.
+  const injectedThrow = await holdFor(() => {}, {
+    compose: () => {
+      throw new ContractError(LANE_CODES.OUTPUT_SAFETY_FAILED, 'injected by the adapter', {
+        output_safety_reason: OUTPUT_SAFETY_REASONS.CITATION_IDENTIFIER,
+      });
+    },
+  });
+  assert.equal(injectedThrow.code, LANE_CODES.MODEL_CALL_FAILED);
+  assert.equal(Object.hasOwn(injectedThrow.receipt, 'output_safety_reason'), false);
+});
+
+test('one adapter reused across runs never carries a reason from an earlier run', async () => {
+  let call = 0;
+  const answerModel = fakeAnswerModel({
+    compose: (request) => {
+      call += 1;
+      const evidence_ids = [request.evidence[0].evidence_id];
+      if (call === 1) {
+        return { sections: [{ heading: '판단', text: '**강조** 된 기준입니다.', evidence_ids }] };
+      }
+      if (call === 2) {
+        return { sections: [{ heading: '판단', text: '검증 기준이 필요합니다.', evidence_ids }] };
+      }
+      return { sections: [] };
+    },
+  });
+  const first = await runSeCoreSourceboundAnswerLane(laneInput(), { answerModel });
+  assert.equal(first.receipt.blocker_code, LANE_CODES.OUTPUT_SAFETY_FAILED);
+  assert.equal(first.receipt.output_safety_reason, OUTPUT_SAFETY_REASONS.MARKUP);
+
+  const second = await runSeCoreSourceboundAnswerLane(laneInput(), { answerModel });
+  assert.equal(second.receipt.result, 'PASS');
+  assert.equal(Object.hasOwn(second.receipt, 'output_safety_reason'), false);
+
+  const third = await runSeCoreSourceboundAnswerLane(laneInput(), { answerModel });
+  assert.equal(third.receipt.blocker_code, LANE_CODES.MODEL_OUTPUT_INVALID);
+  assert.equal(Object.hasOwn(third.receipt, 'output_safety_reason'), false);
+});
+
+test('every refused probe still holds, names a family, and echoes nothing it refused', async () => {
+  const families = new Set(Object.values(OUTPUT_SAFETY_REASONS));
+  for (const probe of OUTPUT_PROBES) {
+    const refused = await holdFor(() => {}, composeWith({
+      sections: [{ heading: '판단', text: probe, evidence_ids: ['E1'] }],
+    }));
+    // The decision itself is unchanged by naming its reason.
+    assert.equal(refused.code, LANE_CODES.OUTPUT_SAFETY_FAILED, probe.slice(0, 40));
+    const reason = refused.receipt.output_safety_reason;
+    assert.equal(families.has(reason), true, probe.slice(0, 40));
+    assert.notEqual(
+      reason, OUTPUT_SAFETY_REASONS.UNSPECIFIED_INTERNAL,
+      'every reachable refusal names a family; the backstop is not a family',
+    );
+    const serialised = canonicalSeCoreSourceboundReceiptJson({ receipt: refused.receipt });
+    assert.equal(serialised.includes(probe), false, probe.slice(0, 40));
+    assert.equal(serialised.includes(probe.slice(0, 20)), false, probe.slice(0, 40));
+    assert.equal(/[\p{Script=Hangul}]/u.test(serialised), false, 'a HOLD receipt carries no prose');
+    assert.equal(serialised.includes(reason), true, 'the canonical receipt carries the token');
+  }
+});
+
+test('the canonical receipt carries the reason key only on an output-safety hold', async () => {
+  const passed = await runSeCoreSourceboundAnswerLane(laneInput(), {
+    answerModel: fakeAnswerModel(),
+  });
+  assert.equal(
+    canonicalSeCoreSourceboundReceiptJson(passed).includes('output_safety_reason'), false,
+  );
+
+  const otherHold = await holdFor((input) => { input.expectedQuestionBytes += 1; });
+  assert.notEqual(otherHold.code, LANE_CODES.OUTPUT_SAFETY_FAILED);
+  assert.equal(
+    canonicalSeCoreSourceboundReceiptJson({ receipt: otherHold.receipt })
+      .includes('output_safety_reason'),
+    false,
+  );
+
+  const refused = await holdFor(() => {}, composeWith({
+    sections: [{ heading: '판단', text: '**강조** 된 기준입니다.', evidence_ids: ['E1'] }],
+  }));
+  assert.equal(
+    canonicalSeCoreSourceboundReceiptJson({ receipt: refused.receipt })
+      .includes('"output_safety_reason":"markup_detected"'),
+    true,
+  );
+});
+
+// The lane omits the key rather than stating it as null, which is the canonical kernel's own rule,
+// so serialisation needs no special case for it and has none: every null is refused, this key
+// included. A receipt that states `output_safety_reason: null` is malformed for exactly the same
+// reason any other null is, and quietly dropping it would accept the malformed receipt and emit
+// bytes that no longer say what was wrong with it.
+test('an unexpected top-level null still refuses canonical receipt serialisation', () => {
+  const refusesNull = (error) => error instanceof ContractError
+    && error.code === LANE_CODES.RECEIPT_NOT_PAYLOAD_FREE;
+  assert.throws(
+    () => canonicalSeCoreSourceboundReceiptJson({ receipt: { unexpected: null } }),
+    refusesNull,
+  );
+  // The reason key is not privileged: stated as null it is refused like any other null, and it
+  // does not license the unexpected one beside it either.
+  assert.throws(
+    () => canonicalSeCoreSourceboundReceiptJson({ receipt: { output_safety_reason: null } }),
+    refusesNull,
+  );
+  assert.throws(
+    () => canonicalSeCoreSourceboundReceiptJson({
+      receipt: { output_safety_reason: null, unexpected: null },
+    }),
+    refusesNull,
+  );
+  // `__proto__` is an own key like any other when it arrives on parsed bytes, so the refusal above
+  // has to reach it too. Assembling canonical material by assignment would hand it to the
+  // `Object.prototype` setter instead: the key would mutate a prototype and vanish, and a receipt
+  // that is malformed for exactly the reason above would serialise as an empty object.
+  assert.throws(
+    () => canonicalSeCoreSourceboundReceiptJson({ receipt: JSON.parse('{"__proto__":null}') }),
+    refusesNull,
+  );
+  assert.throws(
+    () => canonicalSeCoreSourceboundReceiptJson({
+      receipt: JSON.parse('{"output_safety_reason":null,"__proto__":null}'),
+    }),
+    refusesNull,
+  );
+});
+
+// The receipt reaches the canonical kernel exactly as it is: no copy, no view, no proxy, and no
+// observation of any kind before `canonicalise` makes its own. That is what these probes pin, and
+// they pin it the only way that stays true as the code moves — each shape is built fresh twice,
+// run once through the kernel directly and once through the public entry point, and the two must
+// agree on both the answer and the number of times the receipt was observed. Anything that read
+// the receipt first would diverge here: the kernel's program is to take the keys, then read them
+// one at a time in sorted order, so a receipt whose accessor or trap mutates a sibling is accepted
+// or refused by exactly that ordering, and one extra read ahead of it changes which.
+const refusesReceipt = (error) => error instanceof ContractError
+  && error.code === LANE_CODES.RECEIPT_NOT_PAYLOAD_FREE;
+const kernelRefuses = (code) => (error) => error instanceof ContractError && error.code === code;
+
+/**
+ * Runs one freshly built shape through the kernel and through the entry point and requires the
+ * same outcome from both: the kernel's bytes plus the trailing newline where it serialises, the
+ * lane's own refusal code where it throws anything at all. `build` returns the receipt together
+ * with a count of what the receipt observed, and the two counts must match.
+ */
+function assertMatchesDirectCanonicalise(label, build) {
+  const direct = build();
+  let expected = null;
+  try {
+    expected = canonicalise(direct.receipt, {});
+  } catch {
+    expected = null;
+  }
+  const through = build();
+  if (expected === null) {
+    assert.throws(
+      () => canonicalSeCoreSourceboundReceiptJson({ receipt: through.receipt }),
+      refusesReceipt, label,
+    );
+  } else {
+    assert.equal(
+      canonicalSeCoreSourceboundReceiptJson({ receipt: through.receipt }), `${expected}\n`, label,
+    );
+  }
+  assert.deepEqual(
+    through.observations(), direct.observations(), `${label}: no observation before the kernel`,
+  );
+}
+
+/** An accessor at `a` that removes the malformed null at `b` when the kernel reads it. */
+const deletesSibling = () => {
+  const receipt = {};
+  let reads = 0;
+  Object.defineProperty(receipt, 'a', {
+    enumerable: true,
+    configurable: true,
+    get() { reads += 1; delete receipt.b; return 'safe'; },
+  });
+  receipt.b = null;
+  return { receipt, observations: () => ({ reads }) };
+};
+
+/** The same shape with the accessor repairing the sibling instead of removing it. */
+const repairsSibling = () => {
+  const receipt = {};
+  let reads = 0;
+  Object.defineProperty(receipt, 'a', {
+    enumerable: true,
+    configurable: true,
+    get() { reads += 1; receipt.b = 'safe'; return 'safe'; },
+  });
+  receipt.b = null;
+  return { receipt, observations: () => ({ reads }) };
+};
+
+test('an accessor that mutates a sibling is answered exactly as the kernel answers it', () => {
+  // The kernel takes ['a','b'], reads `a` — which removes `b` — and then finds nothing at `b`: an
+  // unsupported type, not an absent key. Reading the receipt into a copy first would have erased
+  // the malformed null and accepted it.
+  assert.throws(
+    () => canonicalise(deletesSibling().receipt, {}), kernelRefuses(KERNEL_CODES.UNSUPPORTED_TYPE),
+  );
+  assertMatchesDirectCanonicalise('accessor deletes a sibling null', deletesSibling);
+
+  // Where the kernel accepts, the entry point emits the kernel's bytes and nothing else.
+  assert.equal(canonicalise(repairsSibling().receipt, {}), '{"a":"safe","b":"safe"}');
+  assertMatchesDirectCanonicalise('accessor repairs a sibling null', repairsSibling);
+
+  // Sorted order is not insertion order: `z` is inserted first but read last, so the kernel reaches
+  // the null at `a` before the accessor that would have deleted it ever runs — zero reads.
+  const readsAfterTheNull = () => {
+    const receipt = {};
+    let reads = 0;
+    Object.defineProperty(receipt, 'z', {
+      enumerable: true,
+      configurable: true,
+      get() { reads += 1; delete receipt.a; return 'safe'; },
+    });
+    receipt.a = null;
+    return { receipt, observations: () => ({ reads }) };
+  };
+  assert.throws(
+    () => canonicalise(readsAfterTheNull().receipt, {}), kernelRefuses(KERNEL_CODES.NULL_FORBIDDEN),
+  );
+  assertMatchesDirectCanonicalise('a null before the accessor that would hide it', readsAfterTheNull);
+  const probe = readsAfterTheNull();
+  assert.throws(
+    () => canonicalSeCoreSourceboundReceiptJson({ receipt: probe.receipt }), refusesReceipt,
+  );
+  assert.equal(probe.observations().reads, 0, 'no key the kernel never reached was read');
+});
+
+// The receipt key has no special handling, so an accessor or a computed value at that name is
+// treated as the kernel treats it and as nothing else.
+test('an accessor named output_safety_reason gets no special handling', () => {
+  const mutating = () => {
+    const receipt = {};
+    let reads = 0;
+    Object.defineProperty(receipt, 'output_safety_reason', {
+      enumerable: true,
+      configurable: true,
+      get() { reads += 1; delete receipt.trailing; return OUTPUT_SAFETY_REASONS.MARKUP; },
+    });
+    receipt.trailing = null;
+    return { receipt, observations: () => ({ reads }) };
+  };
+  assert.throws(
+    () => canonicalise(mutating().receipt, {}), kernelRefuses(KERNEL_CODES.UNSUPPORTED_TYPE),
+  );
+  assertMatchesDirectCanonicalise('an accessor at the reason key', mutating);
+  const probe = mutating();
+  assert.throws(
+    () => canonicalSeCoreSourceboundReceiptJson({ receipt: probe.receipt }), refusesReceipt,
+  );
+  assert.equal(probe.observations().reads, 1, 'read once, by the kernel, and not again');
+
+  // A computed null fails closed at the kernel; a computed token is carried, exactly as the kernel
+  // carries it.
+  const computedNull = () => {
+    let reads = 0;
+    return {
+      receipt: { kept: 'x', get output_safety_reason() { reads += 1; return null; } },
+      observations: () => ({ reads }),
+    };
+  };
+  assertMatchesDirectCanonicalise('a computed null at the reason key', computedNull);
+  const computedToken = () => ({
+    receipt: { kept: 'x', get output_safety_reason() { return OUTPUT_SAFETY_REASONS.URL; } },
+    observations: () => ({}),
+  });
+  assertMatchesDirectCanonicalise('a computed token at the reason key', computedToken);
+  assert.equal(
+    canonicalSeCoreSourceboundReceiptJson({ receipt: computedToken().receipt }),
+    `{"kept":"x","output_safety_reason":"${OUTPUT_SAFETY_REASONS.URL}"}\n`,
+  );
+});
+
+// Two counterexamples aimed at a descriptor read of the reason key ahead of the kernel. Both are
+// harmless now because no such read exists: the trap fires only when the kernel's own key walk
+// fires it, so the outcome and the trap count are the kernel's.
+test('a descriptor trap aimed at the reason key has nothing to fire before the kernel', () => {
+  // The trap deletes a malformed null when asked about the reason key. The kernel asks about the
+  // null first, keeps it in its key list, and then finds it gone: refused. A read ahead of the
+  // kernel would have deleted the null before the key list was taken and accepted the receipt.
+  const deletesNull = () => {
+    const target = JSON.parse(
+      '{"zz_unexpected":null,"kept":"x","output_safety_reason":"markup_detected"}',
+    );
+    let descriptorReads = 0;
+    const receipt = new Proxy(target, {
+      getOwnPropertyDescriptor(object, key) {
+        descriptorReads += 1;
+        if (key === 'output_safety_reason') delete object.zz_unexpected;
+        return Reflect.getOwnPropertyDescriptor(object, key);
+      },
+    });
+    return { receipt, observations: () => ({ descriptorReads }) };
+  };
+  assert.throws(
+    () => canonicalise(deletesNull().receipt, {}), kernelRefuses(KERNEL_CODES.UNSUPPORTED_TYPE),
+  );
+  assertMatchesDirectCanonicalise('a descriptor trap that deletes a null', deletesNull);
+
+  // The trap swaps payload prose in when asked about the reason key. The receipt has no such key,
+  // so the kernel never asks and the payload never exists; a read ahead of it would have made the
+  // payload and then serialised it.
+  const servesPayload = () => {
+    const target = { kept: 'x' };
+    let descriptorReads = 0;
+    const receipt = new Proxy(target, {
+      getOwnPropertyDescriptor(object, key) {
+        descriptorReads += 1;
+        if (key === 'output_safety_reason') object.kept = 'payload the receipt must never carry';
+        return Reflect.getOwnPropertyDescriptor(object, key);
+      },
+    });
+    return { receipt, observations: () => ({ descriptorReads }) };
+  };
+  assertMatchesDirectCanonicalise('a descriptor trap that serves payload', servesPayload);
+  const served = canonicalSeCoreSourceboundReceiptJson({ receipt: servesPayload().receipt });
+  assert.equal(served, '{"kept":"x"}\n');
+  assert.equal(served.includes('payload'), false);
+});
+
+// A caller-supplied receipt may itself be a Proxy. The contract for one is the contract for any
+// malformed receipt: refuse through the lane's own code and never surface a raw trap error.
+test('a hostile receipt proxy is refused by the lane, not by a raw trap error', () => {
+  const throwsOnDescriptor = () => ({
+    receipt: new Proxy({ kept: 'x' }, { getOwnPropertyDescriptor() { throw new Error('trap'); } }),
+    observations: () => ({}),
+  });
+  const throwsOnKeys = () => ({
+    receipt: new Proxy({ kept: 'x' }, { ownKeys() { throw new Error('trap'); } }),
+    observations: () => ({}),
+  });
+  for (const [label, build] of [['descriptor', throwsOnDescriptor], ['keys', throwsOnKeys]]) {
+    // The kernel raises a raw trap error; the lane converts it to its own refusal and raises
+    // nothing else.
+    assert.throws(() => canonicalise(build().receipt, {}), /trap/u, label);
+    assertMatchesDirectCanonicalise(`a proxy that throws on ${label}`, build);
+  }
+
+  // A descriptor that disagrees with the value the trap will hand over buys nothing: the kernel
+  // reads the value it is served, and a served null is refused.
+  const servesNull = () => ({
+    receipt: new Proxy({ kept: 'x', output_safety_reason: null }, {
+      getOwnPropertyDescriptor: (target, key) => (key === 'output_safety_reason'
+        ? {
+          value: OUTPUT_SAFETY_REASONS.MARKUP, writable: true, enumerable: true, configurable: true,
+        }
+        : Reflect.getOwnPropertyDescriptor(target, key)),
+    }),
+    observations: () => ({}),
+  });
+  assert.throws(
+    () => canonicalise(servesNull().receipt, {}), kernelRefuses(KERNEL_CODES.NULL_FORBIDDEN),
+  );
+  assertMatchesDirectCanonicalise('a proxy whose descriptor understates a null', servesNull);
 });
 
 // The citation, source, revision, and page rows are machine-generated from selected evidence, so

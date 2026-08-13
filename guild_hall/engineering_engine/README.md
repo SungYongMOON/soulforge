@@ -313,6 +313,51 @@ the refused string is never interpolated into the error, the receipt, or a log,
 because a refusal that quoted it back would be the leak the check exists to
 prevent.
 
+#### Which check refused, without what it refused
+
+`OUTPUT_SAFETY_FAILED` names the decision. On its own it did not name the check,
+so markup, a URL, a leaked path, a fabricated citation identifier, and an
+authority claim were one opaque hold. Every output-safety refusal now also
+carries `output_safety_reason`, one token from a closed set:
+
+| token | what refused |
+| --- | --- |
+| `markup_detected` | HTML, Markdown emphasis, a heading, a link, a code fence, or an entity in a model block |
+| `url_detected` | a URL or a bare host in a model block |
+| `sensitive_pattern_detected` | a path, private plane, secret, credential, project code, or address in model-authored material |
+| `citation_identifier_in_prose` | a source, page, revision, chunk, digest, or evidence identifier the lane never bound |
+| `authority_claim_pattern` | approval, canon, official standing, project-use direction, a winner claim, or authority escalation |
+| `model_payload_field_forbidden` | a forbidden field name in the model response |
+| `answer_canonicalisation_failed` | the rendered answer could not be canonically serialised |
+| `rendered_answer_scan_failed` | the whole-answer scan refused the rendering |
+| `unspecified_internal` | exhaustiveness backstop, not a family; no reachable refusal produces it |
+
+The token names a **family of check and nothing else**. It is a fixed literal
+chosen by which branch was taken, so it carries no offending text, no location
+within a value, no matched pattern, no question, no answer or evidence prose, no
+path, no account, and no provider value — the diagnostic is which door closed,
+never what was behind it. The backstop exists so an output-safety hold can never
+report *no* reason, which is the one answer this field must never give.
+
+**Acceptance behaviour is unchanged.** The same patterns, in the same order,
+refuse and accept exactly what they refused and accepted before; nothing was
+relaxed, added, removed, or reordered to make a reason nameable.
+
+The lane receipt carries the field exactly when it has something to say: the
+token on an output-safety `HOLD`, and **no key at all** on every other hold and
+on a `PASS`. That is the canonical kernel's own rule — `null` is forbidden, omit
+the key instead — so the receipt object and its canonical bytes say the same
+thing and serialisation needs no special case for it. The receipt shape is
+therefore *result-discriminated*, not one identical key set across every result:
+a reader keys on `result` and `blocker_code` first and asks for the token only
+where the result is an output-safety hold. Naming it changed the receipt's shape,
+so the lane receipt schema is
+`soulforge.se_core_sourcebound_answer_receipt.v1`. The lane **policy** revision
+deliberately stays `soulforge.se_core_sourcebound_answer_lane.v0`: the
+instruction, the output schema, and every acceptance rule the model is held to
+are byte-identical, and that revision salts the prompt, adapter, and expansion
+commitments, so moving it would claim a change to material that did not change.
+
 That filter applies to **model-authored blocks only, never to evidence prose**.
 A real systems-engineering page legitimately says "approval", "official",
 "page 12", or "rev 3"; a rendered block has no reason to, because every citation,
@@ -628,11 +673,27 @@ its own scoped adapter and its own refusal cell, and every model call it makes
 settles that cell alone. So an adapter a later run reuses never reports the
 earlier run's refusal, and two runs holding calls open against one adapter at the
 same time never report each other's — in either completion order. It is `null` on
-a pass and on every hold that never reached the provider. Naming it changed the receipt's closed top-level
-field set, so the command receipt schema is
-`soulforge.se_core_sourcebound_answer_command_receipt.v1`: a reader keyed to the
-v0 field set is meant to reject a v1 receipt rather than read it as a v0 one that
-grew a field. Lane-internal zero writes stay under `lane_internal_writes` so
+a pass and on every hold that never reached the provider.
+
+It is also where an **output-safety** refusal is named. A HOLD lane receipt is
+never emitted to stdout and `--receipt-out` is rolled back on a hold, so this is
+the only surface an operator can read `output_safety_reason` from. The value is
+the token the lane published on the receipt this call awaited, where it published
+one — the same closed family set documented above, taken from this invocation's
+own lane result and from no module state, adapter slot, or earlier run, so a
+reused adapter and two commands overlapping on one cannot inherit or
+cross-attribute a reason. Unlike the lane receipt this one keeps a single closed
+top-level field set across every result, so the member is stated as `null` on a
+pass, on every hold that is not an output-safety refusal, and on every hold this
+command took before the lane ran at all. It is a JSON-safe execution summary, not
+canonical-kernel material, so stating the absence costs nothing here.
+
+Each of those two members changed the receipt's closed top-level field set, so
+the command receipt schema is now
+`soulforge.se_core_sourcebound_answer_command_receipt.v2`: `model_refusal_reason`
+is why it left v0 and `output_safety_reason` is why it left v1. A reader keyed to
+an earlier field set is meant to reject a later receipt rather than read it as an
+earlier one that grew a field. Lane-internal zero writes stay under `lane_internal_writes` so
 they can never be read as a statement about files on disk. A run that exits
 nonzero after the model ran still emits one command receipt with a truthful model
 invocation count.

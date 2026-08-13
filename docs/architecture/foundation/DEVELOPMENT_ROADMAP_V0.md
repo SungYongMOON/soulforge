@@ -48,7 +48,15 @@
   and moved the command execution receipt to schema
   `soulforge.se_core_sourcebound_answer_command_receipt.v1`; that contract is
   covered by synthetic replies only, so one end-to-end run against the local
-  daemon is a precondition for the next benchmark attempt, not a formality.
+  daemon is a precondition for the next benchmark attempt, not a formality. A
+  further diagnostic-only change then named *which* output-safety check refuses a
+  run, as one token from a closed payload-free vocabulary, and moved the lane
+  receipt to `soulforge.se_core_sourcebound_answer_receipt.v1` and the command
+  execution receipt to
+  `soulforge.se_core_sourcebound_answer_command_receipt.v2`. It changed no
+  output-safety acceptance behaviour and is covered by synthetic probes only, so
+  it makes an eventual hold readable and does not by itself move the benchmark
+  attempt any closer to a result.
 - The fixed seven-case structured Engine runner stays distinct and historical.
   It is model-free, the two lanes are not comparable, and its recorded outputs
   are not reused as the new lane's results.

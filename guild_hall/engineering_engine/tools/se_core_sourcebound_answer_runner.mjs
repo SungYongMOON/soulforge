@@ -43,6 +43,7 @@ import { fileURLToPath } from 'node:url';
 import { types } from 'node:util';
 
 import {
+  OUTPUT_SAFETY_REASONS,
   canonicalSeCoreSourceboundAnswerJson,
   canonicalSeCoreSourceboundReceiptJson,
   runSeCorePinnedBenchmarkAnswerLane,
@@ -98,10 +99,11 @@ export const OLLAMA_NUM_CTX = 32768;
 // nothing.
 export const OLLAMA_TRUNCATE_PROMPT = false;
 // The command execution receipt is a *closed* top-level field set, so a reader keyed to it breaks
-// on a member it has never seen rather than ignoring one. `model_refusal_reason` is such a member,
-// which is why this is v1: a v0 that quietly grew a field would be a v0 no reader could trust.
+// on a member it has never seen rather than ignoring one. `model_refusal_reason` was such a member,
+// which is why this left v0; `output_safety_reason` is the next one, which is why it is now v2. A
+// version that quietly grew a field would be a version no reader could trust.
 export const COMMAND_RECEIPT_SCHEMA_VERSION =
-  'soulforge.se_core_sourcebound_answer_command_receipt.v1';
+  'soulforge.se_core_sourcebound_answer_command_receipt.v2';
 
 /**
  * A test-only checkpoint seam for the output transaction.
@@ -1590,6 +1592,33 @@ function createOutputTransaction(hook) {
 
 const HOLD_UNSPECIFIED = 'SE_CORE_SOURCEBOUND_ANSWER_HOLD_UNSPECIFIED';
 
+const OUTPUT_SAFETY_REASON_TOKENS = new Set(Object.values(OUTPUT_SAFETY_REASONS));
+
+/**
+ * Which output-safety family this invocation's lane run refused on, or `null`.
+ *
+ * The lane names it on its own receipt — under a key it carries only where there is a token to
+ * carry, since a canonical receipt omits a field with nothing to say. This command receipt is a
+ * JSON-safe execution summary rather than canonical material, so it keeps one closed top-level
+ * field set and states the absence as `null`. It is written here because a HOLD lane receipt is
+ * not emitted to stdout and `--receipt-out` is rolled back on a hold, so this command receipt is
+ * the only surface an operator can read it from. It is taken from the lane result this call
+ * awaited and from nothing
+ * else — no module state, no adapter slot, no earlier run — so a reused adapter cannot hand a later
+ * run an earlier reason, and two commands overlapping on one adapter cannot cross-attribute one.
+ * That is the same invocation-local rule `model_refusal_reason` holds, reached without a cell
+ * because a lane result is already one call's own value.
+ *
+ * The token must be one the lane publishes. Anything else is reported as no reason rather than
+ * passed through, so nothing that is not a closed family token can reach a reader by this field.
+ */
+function invocationOutputSafetyReason(laneReceipt) {
+  const reason = laneReceipt === null || typeof laneReceipt !== 'object'
+    ? null
+    : laneReceipt.output_safety_reason;
+  return typeof reason === 'string' && OUTPUT_SAFETY_REASON_TOKENS.has(reason) ? reason : null;
+}
+
 /**
  * One command execution receipt: what this process did, as distinct from what the lane decided.
  *
@@ -1629,6 +1658,10 @@ function commandExecutionReceipt(state) {
     // and never from anything the provider said. `null` whenever the hold came from somewhere
     // else, which is most of them: an argument, an input, an output, or the lane itself.
     model_refusal_reason: passed ? null : (state.modelRefusalReason ?? null),
+    // Which output-safety family the lane refused on, named from the closed set the lane publishes
+    // and never from the text it refused. `null` on a pass, on every hold that is not an
+    // output-safety refusal, and on every hold this command took before the lane ran at all.
+    output_safety_reason: passed ? null : invocationOutputSafetyReason(laneReceipt),
     answer_rendered: state.answerRendered,
     answer_emitted_to_stdout: state.answerEmitted,
     persistence: state.persistence,
