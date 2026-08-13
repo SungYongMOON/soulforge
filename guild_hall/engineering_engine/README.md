@@ -529,7 +529,33 @@ provider exists. It reads one explicit source-set contract, one exact question
 file, and exactly four explicit derived-text files, and calls **local
 `qwen3.5:9b` over loopback Ollama only** — one stateless on-demand request per
 call, `keep_alive` 5m, one user message, no tools, no history, no conversation or
-session reuse, no external egress. Validating the origin only pins the first hop,
+session reuse, no external egress. Every generation parameter that decides whether
+a reply can arrive at all is pinned in the request rather than inherited from the
+daemon: temperature and seed at 0, the reasoning channel off, a 32768-token
+context window, a prompt that the daemon must refuse rather than trim, and
+`format` bound to the exact closed JSON shape this lane accepts, with each
+citation slot bound to the evidence ids this run actually retrieved. Each default
+is a failure mode rather than a preference. A thinking-capable model left at its
+default spends the window on a channel this lane never reads and returns empty
+content with `done: true`; an inherited window silently drops the front of an
+oversize prompt and answers from the remainder, which would leave the receipt
+committing to evidence the model was never shown.
+
+The window is the smallest power-of-two value measured to hold this lane's widest
+legal prompt. That prompt is the lane's own ceilings rendered at once — 24
+evidence capsules of 900 characters, each with a title and a revision at the
+400-character metadata ceiling, and a question at the 8192-byte ceiling — and it
+measures 31 939 prompt tokens on `qwen3.5:9b`; 16 384 does not hold it. What
+32 768 does not also hold is that widest prompt *and* the widest legal reply of
+8 sections of 4000 characters, so a run configured at the lane's retrieval
+ceiling has a few hundred tokens of reply budget and a longer reply stops on the
+token budget and is refused. That is the fail-closed direction, and the lane's
+default retrieval of 6 capsules is far below the ceiling the bound is sized for.
+The prompt side is not diagnosed from the reply at all: a trimmed prompt comes
+back `200` with a `prompt_eval_count` *below* the window it was trimmed to, so
+the request asks the daemon to refuse an oversize prompt instead, and that
+refusal arrives as a non-success status. Validating the origin only pins the
+first hop,
 so a redirect is an error rather than a hop: a 307/308 would otherwise replay the
 prompt body at whatever host it names. A non-loopback origin, a different model, or a
 crosswalk/rubric/gold/prior-answer/Notebook input path is refused. Prompt text,
@@ -543,8 +569,32 @@ whose meaning is decided by a resolver, and `2130706433`, `0x7f000001`,
 `0177.0.0.1`, and `[0:0:0:0:0:0:0:1]` are spellings a parser silently folds into
 the loopback address; all are refused. So are a missing or default port —
 this service has no default of its own — and any credential, path, query, or
-fragment. A reply the provider marks unfinished, a non-string content field, and
-content that is not one JSON object are refusals, never a completed answer.
+fragment. A reply is answered only when it states both that the generation
+finished and that the model itself ended it — `done: true` and
+`done_reason: "stop"` — so a non-success status, a reply that leaves either
+unstated, one the token budget cut off, a non-string content field, and content
+that is not one JSON object are refusals rather than completed answers. Every
+field that decides this is read once as own data, and every slot the adapter
+takes from the response itself — `ok`, `headers`, `body`, `arrayBuffer`, `text` —
+is snapshotted once, so a surface that throws becomes this adapter's own fixed
+refusal instead of a provider-authored error carrying provider text out of it.
+Each step a streamed body hands back is read the same way: an ordinary plain
+object whose own data `done` is a boolean and, when it is `false`, whose own data
+`value` is one exact `Uint8Array` taken once and then counted and copied from that
+one snapshot. The chunk is required to be exact because `instanceof` is not a
+statement about how a value answers: a proxy around a `Uint8Array` and a subclass
+both satisfy it and both intercept every slot read that follows. So a proxy, a
+subclass, and an own `byteLength` are refused, and the chunk that remains is
+measured and copied through the engine's own `%TypedArray%` intrinsics into a
+fresh ordinary array rather than through any slot the chunk itself could answer.
+An accessor, a custom prototype, an inherited or hidden slot, a `done` that is
+merely truthy, a chunk those intrinsics will not measure or copy, and a chunk
+whose length moves between the count and the copy are each refused — the stream is
+cancelled exactly once and the call takes the same fixed body refusal — rather
+than read. A real Fetch body reader hands over exact `Uint8Array` chunks and is
+unaffected.
+None of them is retried, repaired, or answered by a second call: a refused run
+stays one refused run.
 
 That endpoint check is **syntax only**. It proves how the target is spelled, not
 what listens there: whatever process is bound to that loopback port receives the
@@ -565,7 +615,24 @@ receipt is where persistence is reported — `state` of
 `not_requested | complete | rolled_back | partial_unknown`, the exact
 `requested`, `claimed`, `completed`, `rolled_back`, and `unknown` counts, and
 `persistent_file_writes`: 0 for stdout-only, 1 for `--out`, 2 for `--out` plus
-`--receipt-out`. Lane-internal zero writes stay under `lane_internal_writes` so
+`--receipt-out`. It is also where a provider refusal is named:
+`model_refusal_reason` carries one token from a closed set the adapter publishes
+— `generation_stopped_on_budget`, `no_message_content`, `non_success_status` and
+the rest — chosen from the reply's *shape* and never from its content, so a hold
+says which refusal happened without echoing provider text, a path, the question,
+or a source. `generation_stopped_on_budget` is reserved for the one stop reason
+that means it; an unstated, malformed, or otherwise non-stop reason takes the
+neutral `generation_did_not_stop_normally`, and the value itself is never named.
+The token is bound to one command invocation, not to the adapter: each run gets
+its own scoped adapter and its own refusal cell, and every model call it makes
+settles that cell alone. So an adapter a later run reuses never reports the
+earlier run's refusal, and two runs holding calls open against one adapter at the
+same time never report each other's — in either completion order. It is `null` on
+a pass and on every hold that never reached the provider. Naming it changed the receipt's closed top-level
+field set, so the command receipt schema is
+`soulforge.se_core_sourcebound_answer_command_receipt.v1`: a reader keyed to the
+v0 field set is meant to reject a v1 receipt rather than read it as a v0 one that
+grew a field. Lane-internal zero writes stay under `lane_internal_writes` so
 they can never be read as a statement about files on disk. A run that exits
 nonzero after the model ran still emits one command receipt with a truthful model
 invocation count.
@@ -717,8 +784,10 @@ Every byte this command takes from outside is bounded before it is interpreted.
 - **provider response.** `response.json()` is never used: it would read and parse
   a body of unbounded length into this process before a single check could run.
   Instead a declared `Content-Length` over the cap refuses before the body is
-  touched; a streamed body is read with a running byte counter and the reader is
-  **cancelled** the moment the cap is crossed; an injected client's
+  touched; a streamed body is read with a running byte counter, from one own-data
+  snapshot of each step, and the reader is **cancelled** exactly once the moment
+  the cap is crossed or a step — or the chunk it carries — is not one this adapter
+  can read through the engine's own intrinsics; an injected client's
   `arrayBuffer`/`text` fallback has its byte length enforced too. Only then is
   the buffer decoded as UTF-8 with `fatal: true`, and only then parsed.
 

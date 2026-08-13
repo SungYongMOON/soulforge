@@ -41,19 +41,34 @@ import {
   CLI_CODES,
   COMMAND_RECEIPT_SCHEMA_VERSION,
   EXACT_ANSWER_MODEL,
+  MAX_ANSWER_SECTIONS,
   MAX_BENCHMARK_PIN_BYTES,
   MAX_DERIVED_TEXT_BYTES,
+  MAX_EXPANSION_TERMS,
+  MAX_EXPANSION_TERM_CHARS,
   MAX_MESSAGE_CONTENT_BYTES,
   MAX_MESSAGE_CONTENT_CHARS,
   MAX_PROVIDER_RESPONSE_BYTES,
   MAX_QUESTION_BYTES,
+  MAX_SECTION_EVIDENCE_IDS,
+  MAX_SECTION_HEADING_CHARS,
+  MAX_SECTION_TEXT_CHARS,
   MAX_SOURCE_SET_CONTRACT_BYTES,
   MAX_TIMEOUT_MS,
   OLLAMA_KEEP_ALIVE,
+  MODEL_REFUSAL_REASONS,
+  OLLAMA_NUM_CTX,
+  OLLAMA_THINK,
+  OLLAMA_TRUNCATE_PROMPT,
   TEST_ONLY_OUTPUT_HOOK,
+  answerResponseJsonSchema,
   assertLoopbackOllamaTarget,
   assertWritableOutputTarget,
   createLoopbackOllamaAnswerModel,
+  expansionResponseJsonSchema,
+  finishedReplyContent,
+  lastModelRefusalReason,
+  openModelRefusalScope,
   parseArgs,
   readSourceSetContractFile,
   renderPromptText,
@@ -141,9 +156,15 @@ function bodyResponse(bodyText, extra = {}) {
   };
 }
 
-/** One envelope whose `message.content` is the given JSON text. */
+/**
+ * One envelope whose `message.content` is the given JSON text.
+ *
+ * The two completion fields are part of the default because the adapter requires both: a reply
+ * that does not say it finished, or does not say it ended on its own, is a refusal rather than an
+ * answer. Every caller testing one of those guards overrides exactly the field it is testing.
+ */
 const envelopeFor = (contentText, envelope = {}) => JSON.stringify({
-  ...envelope, message: { content: contentText },
+  done: true, done_reason: 'stop', ...envelope, message: { content: contentText },
 });
 
 const jsonResponder = (payload) => async () => bodyResponse(
@@ -215,6 +236,55 @@ test('the persisted receipt file is the lane receipt, never the command executio
   assert.equal(command.lane_internal_writes.erp_writes, 0);
   assert.equal(command.persistence.persistent_file_writes, 2);
   assert.notEqual(readFileSync(receiptPath, 'utf8'), `${JSON.stringify(command)}\n`);
+});
+
+/**
+ * Every top-level member of the command execution receipt, as one closed set.
+ *
+ * `computed_source_set_sha256` is the one conditional member: it is carried only when the lane
+ * published a computed digest, which happens on a source-set commitment mismatch and nowhere else.
+ */
+const COMMAND_RECEIPT_FIELDS = Object.freeze([
+  'answer_emitted_to_stdout', 'answer_rendered', 'benchmark', 'blocker_code', 'blocker_stage',
+  'candidate_disposition', 'claim_ceiling', 'lane_id', 'lane_internal_writes', 'lane_ran',
+  'model_call_occurred', 'model_invocation_count', 'model_refusal_reason', 'ok', 'persistence',
+  'result', 'schema_version',
+]);
+
+test('the command execution receipt is one closed field set at its own schema version', async () => {
+  // The set is closed, so a reader keyed to it does not silently accept a receipt carrying a
+  // member it has never seen. `model_refusal_reason` is such a member, which is why this schema
+  // is v1 and not a v0 that quietly grew a field.
+  assert.equal(
+    COMMAND_RECEIPT_SCHEMA_VERSION,
+    'soulforge.se_core_sourcebound_answer_command_receipt.v1',
+  );
+
+  const { root, argv } = fixture();
+  const passing = captureIo(fakeAnswerModel());
+  const run = await runSeCoreSourceboundAnswerCli([...argv, '--out', join(root, 'a.json')],
+    passing.io);
+  assert.equal(run.receipt.result, 'PASS');
+  const passed = commandReceipt(passing.err);
+  assert.deepEqual(Object.keys(passed).sort(), [...COMMAND_RECEIPT_FIELDS]);
+  assert.equal(passed.schema_version, COMMAND_RECEIPT_SCHEMA_VERSION);
+  assert.equal(passed.model_refusal_reason, null);
+
+  // A hold that never reached the lane carries the same closed set and nothing else.
+  const early = captureIo(fakeAnswerModel());
+  await assert.rejects(runSeCoreSourceboundAnswerCli(['--not-a-flag', 'x'], early.io));
+  assert.deepEqual(Object.keys(commandReceipt(early.err)).sort(), [...COMMAND_RECEIPT_FIELDS]);
+
+  // And the one conditional member appears exactly where the lane publishes it.
+  const drifted = captureIo(fakeAnswerModel());
+  const mismatched = await runSeCoreSourceboundAnswerCli(
+    withFlag(argv, '--source-set-sha256', sha256('a source set this run is not')), drifted.io,
+  );
+  assert.equal(mismatched.receipt.result, 'HOLD');
+  const held = commandReceipt(drifted.err);
+  assert.deepEqual(Object.keys(held).sort(),
+    [...COMMAND_RECEIPT_FIELDS, 'computed_source_set_sha256'].sort());
+  assert.match(held.computed_source_set_sha256, /^[0-9a-f]{64}$/u);
 });
 
 test('the command execution receipt counts exactly the files this run left on disk', async () => {
@@ -929,15 +999,16 @@ test('a non-success or unparseable loopback response holds without echoing the b
 });
 
 test('a malformed provider reply is never completed into an answer', async () => {
+  const finished = { done: true, done_reason: 'stop' };
   for (const body of [
     // A reply the provider itself marks unfinished is a truncated generation, not an answer.
     { done: false, message: { content: JSON.stringify({ sections: [] }) } },
     // JSON that is not one object cannot carry the closed output schema.
-    { message: { content: '"just a string"' } },
-    { message: { content: '[1,2,3]' } },
-    { message: { content: 'null' } },
-    { message: { content: '' } },
-    { message: { content: 42 } },
+    { ...finished, message: { content: '"just a string"' } },
+    { ...finished, message: { content: '[1,2,3]' } },
+    { ...finished, message: { content: 'null' } },
+    { ...finished, message: { content: '' } },
+    { ...finished, message: { content: 42 } },
     // A response envelope that is not one object at all.
     [1, 2, 3],
   ]) {
@@ -1496,6 +1567,303 @@ test('a streamed body that crosses the cap is cancelled and refused', async () =
   assert.equal(commandReceipt(err).answer_rendered, false);
 });
 
+/**
+ * One synthetic streamed response whose reader is driven by `read`.
+ *
+ * `cancel` is a tripwire rather than a courtesy: a step this adapter refuses must still leave the
+ * stream cancelled. `arrayBuffer` throws for the same reason it does elsewhere — a body that
+ * exposes a stream commits the call to that stream and is never read a second way.
+ */
+function streamedResponse(read, seen) {
+  return {
+    ok: true,
+    headers: { get: () => null },
+    body: {
+      getReader: () => ({
+        read,
+        async cancel() { seen.cancelled = true; },
+      }),
+    },
+    arrayBuffer: async () => { throw new Error('the stream path must be preferred'); },
+  };
+}
+
+test('a well-formed streamed body is read from its own step snapshot and answered', async () => {
+  // The step a reader hands back is provider-shaped material like every other value at this seam,
+  // so it is taken as one snapshot of own data. A stream that delivers its chunks that way still
+  // answers end to end, in one chunk or several, and with either ordinary prototype a real reader
+  // may hand over.
+  const bytes = Buffer.from(envelopeFor(JSON.stringify(OK_SECTIONS)), 'utf8');
+  const half = Math.floor(bytes.length / 2);
+  const bare = (fields) => Object.assign(Object.create(null), fields);
+  const cases = [
+    ['two ordinary steps then done', [
+      { done: false, value: new Uint8Array(bytes.subarray(0, half)) },
+      { done: false, value: new Uint8Array(bytes.subarray(half)) },
+      { done: true, value: undefined },
+    ]],
+    ['null-prototype steps', [
+      bare({ done: false, value: new Uint8Array(bytes) }),
+      bare({ done: true }),
+    ]],
+    ['an empty chunk between two real ones', [
+      { done: false, value: new Uint8Array(bytes.subarray(0, half)) },
+      { done: false, value: new Uint8Array(0) },
+      { done: false, value: new Uint8Array(bytes.subarray(half)) },
+      { done: true },
+    ]],
+  ];
+  for (const [label, steps] of cases) {
+    const seen = { cancelled: false };
+    let index = 0;
+    const model = createLoopbackOllamaAnswerModel({
+      fetchImpl: async () => streamedResponse(async () => {
+        assert.ok(index < steps.length, `${label}: the reader is not read past its done step`);
+        const step = steps[index];
+        index += 1;
+        return step;
+      }, seen),
+      timeoutMs: 5000,
+    });
+    const { io, out } = captureIo(model);
+    const run = await runSeCoreSourceboundAnswerCli(fixture().argv, io);
+    assert.equal(run.receipt.result, 'PASS', label);
+    assert.equal(out.length, 1, label);
+    assert.equal(index, steps.length, label);
+    assert.equal(seen.cancelled, false, `${label}: a stream read to its end is not cancelled`);
+  }
+});
+
+test('a stream step this adapter cannot read as own data is cancelled, refused, and never echoed',
+  async () => {
+    // A read result is the one provider-authored object this loop both checks and then uses, so a
+    // shape that can answer those two moments differently — an accessor, a proxy trap, an inherited
+    // or hidden slot — is refused rather than read, and so is a step that does not state its own
+    // completion or hand over one ordinary chunk. Every one of them cancels the stream and throws
+    // this adapter's own fixed refusal with nothing the step carried.
+    const secret = 'stream-secret-detail-never-echoed';
+    const bytes = () => new Uint8Array(Buffer.from(envelopeFor(JSON.stringify(OK_SECTIONS)), 'utf8'));
+    let accessorRuns = 0;
+    const behind = (fields, key, read) => {
+      const step = { ...fields };
+      Object.defineProperty(step, key, {
+        get() { accessorRuns += 1; return read(); }, enumerable: true, configurable: true,
+      });
+      return step;
+    };
+    const hidden = (fields, key, held) => {
+      const step = { ...fields };
+      Object.defineProperty(step, key, { value: held, enumerable: false, configurable: true });
+      return step;
+    };
+    class Step {
+      constructor() {
+        this.done = false;
+        this.value = bytes();
+      }
+    }
+    let shifted = 0;
+    const cases = [
+      ['a getter-backed done', () => behind({ value: bytes() }, 'done', () => false)],
+      // The one shape the old read could not survive: a `value` that answers the type check with
+      // one chunk and the copy with another.
+      ['a shifting getter-backed value', () => behind({ done: false }, 'value', () => {
+        shifted += 1;
+        return new Uint8Array(shifted === 1 ? 8 : 1024);
+      })],
+      ['a hidden done', () => hidden({ value: bytes() }, 'done', false)],
+      ['a hidden value', () => hidden({ done: false }, 'value', bytes())],
+      ['an inherited done', () => Object.assign(Object.create({ done: false }), { value: bytes() })],
+      ['a custom prototype', () => Object.assign(Object.create({ marker: 1 }),
+        { done: false, value: bytes() })],
+      ['a class instance', () => new Step()],
+      ['a proxy', () => new Proxy({ done: false, value: bytes() }, {})],
+      ['a proxy that refuses to describe itself', () => new Proxy({ done: false, value: bytes() }, {
+        getOwnPropertyDescriptor() { throw new Error(secret); },
+      })],
+      ['no done at all', () => ({ value: bytes() })],
+      ['a string done', () => ({ done: 'true', value: bytes() })],
+      ['a numeric done', () => ({ done: 1, value: bytes() })],
+      ['a null done', () => ({ done: null, value: bytes() })],
+      ['an undefined done', () => ({ done: undefined, value: bytes() })],
+      ['no value on an unfinished step', () => ({ done: false })],
+      ['an undefined value on an unfinished step', () => ({ done: false, value: undefined })],
+      ['a string value', () => ({ done: false, value: secret })],
+      ['an array value', () => ({ done: false, value: [1, 2, 3] })],
+      ['a raw buffer value', () => ({ done: false, value: new ArrayBuffer(8) })],
+      ['a step that is not one object', () => secret],
+      ['a null step', () => null],
+      ['an undefined step', () => undefined],
+      ['an array step', () => [false, bytes()]],
+    ];
+    for (const [label, step] of cases) {
+      const seen = { cancelled: false };
+      const model = createLoopbackOllamaAnswerModel({
+        fetchImpl: async () => streamedResponse(async () => step(), seen),
+        timeoutMs: 5000,
+      });
+      // Called directly at the adapter seam: one fixed contract error and nothing else.
+      await assert.rejects(
+        () => model.composeAnswer({
+          instruction: 'i', question_text: 'q', evidence: [], output_schema: {},
+        }),
+        (error) => error.code === CLI_CODES.MODEL_CALL_REFUSED
+          && error.message.endsWith('the loopback model response body could not be read')
+          && !error.message.includes(secret),
+        label,
+      );
+      assert.equal(seen.cancelled, true, `${label}: the stream is cancelled on the way out`);
+      assert.equal(lastModelRefusalReason(model), MODEL_REFUSAL_REASONS.BODY_UNREADABLE, label);
+
+      // And through the whole command: one HOLD, no answer, and the same token on the receipt.
+      const { io, out, err } = captureIo(createLoopbackOllamaAnswerModel({
+        fetchImpl: async () => streamedResponse(async () => step(), { cancelled: false }),
+        timeoutMs: 5000,
+      }));
+      const run = await runSeCoreSourceboundAnswerCli(fixture().argv, io);
+      assert.equal(run.receipt.result, 'HOLD', label);
+      assert.equal(run.receipt.blocker_code, LANE_CODES.MODEL_CALL_FAILED, label);
+      assert.equal(out.length, 0, label);
+      const report = commandReceipt(err);
+      assert.equal(report.model_refusal_reason, MODEL_REFUSAL_REASONS.BODY_UNREADABLE, label);
+      assert.equal(report.answer_rendered, false, label);
+      assert.equal(err.join('').includes(secret), false, label);
+    }
+    assert.equal(accessorRuns, 0, 'no accessor on a stream step is ever invoked');
+    assert.equal(shifted, 0, 'a value that could shift is refused before it is read even once');
+  });
+
+/** The same synthetic stream, with a reader that counts how many times it was cancelled. */
+function countedStreamedResponse(read, seen) {
+  return {
+    ok: true,
+    headers: { get: () => null },
+    body: {
+      getReader: () => ({
+        read,
+        async cancel() { seen.cancels += 1; },
+      }),
+    },
+    arrayBuffer: async () => { throw new Error('the stream path must be preferred'); },
+  };
+}
+
+test('a chunk that could answer through provider code is refused, cancelled once, and never echoed',
+  async () => {
+    // A chunk that passes a type check is still provider-authored material, and `instanceof` is
+    // not a statement about how its slots answer: a proxy and a subclass both satisfy it and both
+    // intercept every read afterwards, so `chunk.byteLength` and a copy taken through the chunk
+    // are provider dispatch points. Each of them can run provider code, answer the byte counter
+    // with one number and the copy with another, and throw an error carrying the provider's own
+    // text. So the chunk is measured and copied through the engine's intrinsics only, and a shape
+    // those intrinsics will not answer for is refused rather than consulted — with the stream
+    // cancelled exactly once and this adapter's own fixed refusal on the way out.
+    const secret = 'chunk-secret-detail-never-echoed';
+    const envelope = () => new Uint8Array(
+      Buffer.from(envelopeFor(JSON.stringify(OK_SECTIONS)), 'utf8'),
+    );
+    let dispatched = 0;
+    const trap = () => { dispatched += 1; throw new Error(secret); };
+    class LoudChunk extends Uint8Array {
+      get byteLength() { return trap(); }
+    }
+    const cases = [
+      // `instanceof Uint8Array` is true for both of these, and every slot read runs their code.
+      ['a proxy around a real chunk', () => new Proxy(envelope(), {
+        get: trap, getOwnPropertyDescriptor: trap, has: trap,
+      })],
+      ['a Uint8Array subclass that overrides byteLength', () => new LoudChunk(envelope())],
+      ['a real chunk with an own byteLength getter', () => {
+        const chunk = envelope();
+        Object.defineProperty(chunk, 'byteLength', { get: trap, configurable: true });
+        return chunk;
+      }],
+      // Exactly the right prototype and no own slot at all — and still nothing the engine's own
+      // getter will measure, because there is no typed array underneath it.
+      ['an object wearing the Uint8Array prototype', () => Object.create(Uint8Array.prototype)],
+      // A genuine chunk whose buffer is gone: it measures, and then the copy is what fails.
+      ['a chunk over a transferred buffer', () => {
+        const buffer = new ArrayBuffer(64);
+        const chunk = new Uint8Array(buffer);
+        structuredClone(buffer, { transfer: [buffer] });
+        return chunk;
+      }],
+    ];
+    for (const [label, chunk] of cases) {
+      const seen = { cancels: 0 };
+      const model = createLoopbackOllamaAnswerModel({
+        fetchImpl: async () => countedStreamedResponse(
+          async () => ({ done: false, value: chunk() }), seen,
+        ),
+        timeoutMs: 5000,
+      });
+      // Called directly at the adapter seam: one fixed contract error and nothing else.
+      await assert.rejects(
+        () => model.composeAnswer({
+          instruction: 'i', question_text: 'q', evidence: [], output_schema: {},
+        }),
+        (error) => error.code === CLI_CODES.MODEL_CALL_REFUSED
+          && error.message.endsWith('the loopback model response body could not be read')
+          && !error.message.includes(secret),
+        label,
+      );
+      assert.equal(seen.cancels, 1, `${label}: the stream is cancelled exactly once`);
+      assert.equal(lastModelRefusalReason(model), MODEL_REFUSAL_REASONS.BODY_UNREADABLE, label);
+
+      // And through the whole command: one HOLD, no answer, and nothing the chunk carried.
+      const cli = { cancels: 0 };
+      const { io, out, err } = captureIo(createLoopbackOllamaAnswerModel({
+        fetchImpl: async () => countedStreamedResponse(
+          async () => ({ done: false, value: chunk() }), cli,
+        ),
+        timeoutMs: 5000,
+      }));
+      const run = await runSeCoreSourceboundAnswerCli(fixture().argv, io);
+      assert.equal(run.receipt.result, 'HOLD', label);
+      assert.equal(run.receipt.blocker_code, LANE_CODES.MODEL_CALL_FAILED, label);
+      assert.equal(cli.cancels, 1, `${label}: the command cancels the stream exactly once`);
+      assert.equal(out.length, 0, `${label}: nothing is published`);
+      const report = commandReceipt(err);
+      assert.equal(report.model_refusal_reason, MODEL_REFUSAL_REASONS.BODY_UNREADABLE, label);
+      assert.equal(report.answer_rendered, false, label);
+      assert.equal(err.join('').includes(secret), false, label);
+    }
+    assert.equal(dispatched, 0, 'no slot of a provider chunk is ever read through the chunk');
+  });
+
+test('a body delivered by a real Fetch stream reader is still read to its end and answered',
+  async () => {
+    // The gate above is only correct if it costs a real reader nothing: an actual WHATWG body
+    // hands over ordinary `Uint8Array` chunks, in one piece or several, and must still answer.
+    const bytes = Buffer.from(envelopeFor(JSON.stringify(OK_SECTIONS)), 'utf8');
+    const half = Math.floor(bytes.length / 2);
+    const bodies = [
+      ['a real Response body', () => new Response(bytes).body],
+      ['a real ReadableStream in two chunks', () => new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array(bytes.subarray(0, half)));
+          controller.enqueue(new Uint8Array(bytes.subarray(half)));
+          controller.close();
+        },
+      })],
+    ];
+    for (const [label, body] of bodies) {
+      const model = createLoopbackOllamaAnswerModel({
+        fetchImpl: async () => ({
+          ok: true,
+          headers: { get: () => null },
+          body: body(),
+          arrayBuffer: async () => { throw new Error('the stream path must be preferred'); },
+        }),
+        timeoutMs: 5000,
+      });
+      const { io, out } = captureIo(model);
+      const run = await runSeCoreSourceboundAnswerCli(fixture().argv, io);
+      assert.equal(run.receipt.result, 'PASS', label);
+      assert.equal(out.length, 1, label);
+    }
+  });
+
 test('a response exactly at the byte bound is accepted and one byte more is refused', async () => {
   const envelope = envelopeFor(JSON.stringify(OK_SECTIONS));
   const exact = createLoopbackOllamaAnswerModel({
@@ -1607,6 +1975,743 @@ test('a declared response model must be the exact runtime model', async () => {
   assert.equal(unnamed.receipt.result, 'PASS');
 });
 
+// ------------------------------------------------------------------ the pinned request shape
+//
+// Every test below is a regression on one observed benchmark failure. On this base the runner
+// stated a model, a temperature, a seed, and a keep-alive, and left the reasoning channel and the
+// context window to whatever the daemon defaulted to. Against the pinned thinking-capable model
+// that default spent the whole window on a channel this lane never reads: the reply came back
+// `done: true`, `done_reason: "length"`, `message.content: ""`, which `done` alone cannot see.
+
+test('the loopback request pins the reasoning channel, the window, and the exact reply shape', async () => {
+  const bodies = [];
+  const fetchImpl = async (url, init) => {
+    bodies.push(JSON.parse(init.body));
+    return bodyResponse(envelopeFor(JSON.stringify(OK_SECTIONS)));
+  };
+  const model = createLoopbackOllamaAnswerModel({ fetchImpl, timeoutMs: 5000 });
+  const run = await runSeCoreSourceboundAnswerCli(fixture().argv, captureIo(model).io);
+  assert.equal(run.receipt.result, 'PASS');
+  assert.equal(bodies.length, 1);
+  const [body] = bodies;
+
+  // The reasoning channel is stated, not inherited. This lane reads only `message.content`, so a
+  // channel it never reads must not be able to consume the generation budget it depends on.
+  assert.equal(OLLAMA_THINK, false);
+  assert.equal(body.think, OLLAMA_THINK);
+
+  // The window is stated, not inherited. An inherited window silently drops the front of an
+  // oversize prompt, which would answer from fewer capsules than the receipt commits to.
+  assert.equal(body.options.num_ctx, OLLAMA_NUM_CTX);
+  assert.equal(body.options.temperature, 0);
+  assert.equal(body.options.seed, 0);
+
+  // And what the daemon does when a prompt does not fit that window is stated too. The reply
+  // cannot be read for this after the fact, so the request asks to be refused instead of trimmed.
+  assert.equal(OLLAMA_TRUNCATE_PROMPT, false);
+  assert.equal(body.truncate, OLLAMA_TRUNCATE_PROMPT);
+
+  // The reply shape constrains generation instead of being a request graded afterwards.
+  assert.notEqual(body.format, 'json');
+  assert.equal(body.format.additionalProperties, false);
+  assert.deepEqual(body.format.required, ['sections']);
+  assert.equal(body.format.properties.sections.maxItems, MAX_ANSWER_SECTIONS);
+
+  // Pinning a shape must not have opened a channel the stateless contract closed.
+  for (const forbidden of [
+    'context', 'conversation_id', 'session_id', 'session', 'tools', 'history', 'system',
+  ]) {
+    assert.equal(Object.hasOwn(body, forbidden), false, forbidden);
+  }
+});
+
+test('an advisory expansion request is bound to the term shape the lane accepts', async () => {
+  const bodies = [];
+  const fetchImpl = async (url, init) => {
+    bodies.push(JSON.parse(init.body));
+    return bodyResponse(envelopeFor(JSON.stringify({ terms: ['systems engineering'] })));
+  };
+  const model = createLoopbackOllamaAnswerModel({ fetchImpl, timeoutMs: 5000 });
+  await model.proposeQueryExpansion({
+    instruction: 'i', question_text: 'q', max_terms: 3, output_schema: {},
+  });
+  assert.equal(bodies.length, 1);
+  const [body] = bodies;
+  assert.equal(body.think, OLLAMA_THINK);
+  assert.equal(body.truncate, OLLAMA_TRUNCATE_PROMPT);
+  assert.equal(body.options.num_ctx, OLLAMA_NUM_CTX);
+  assert.deepEqual(body.format.required, ['terms']);
+  assert.equal(body.format.additionalProperties, false);
+  // The caller's own advisory ceiling, which is at or below the lane ceiling, not the lane's.
+  assert.equal(body.format.properties.terms.maxItems, 3);
+  assert.ok(body.format.properties.terms.maxItems <= MAX_EXPANSION_TERMS);
+  assert.equal(body.format.properties.terms.items.maxLength, MAX_EXPANSION_TERM_CHARS);
+
+  // A request for more than the lane accepts is clamped to the lane ceiling, never above it.
+  const over = expansionResponseJsonSchema({ max_terms: MAX_EXPANSION_TERMS + 1 });
+  assert.equal(over.properties.terms.maxItems, MAX_EXPANSION_TERMS);
+});
+
+test('a generation stopped by the token budget is a truncation, not an answer', async () => {
+  // The exact envelope observed in the field, except that its content is a perfectly good answer.
+  // `done` is `true`, so only the stop reason separates a finished reply from a cut-off one.
+  const truncated = createLoopbackOllamaAnswerModel({
+    fetchImpl: async () => bodyResponse(envelopeFor(
+      JSON.stringify(OK_SECTIONS),
+      { done: true, done_reason: 'length', error: 'boom-secret-detail' },
+    )),
+    timeoutMs: 5000,
+  });
+  const { io, out, err } = captureIo(truncated);
+  const run = await runSeCoreSourceboundAnswerCli(fixture().argv, io);
+  assert.equal(run.receipt.result, 'HOLD');
+  assert.equal(run.receipt.blocker_code, LANE_CODES.MODEL_CALL_FAILED);
+  assert.equal(out.length, 0, 'a budget-truncated generation is never rendered as an answer');
+  assert.equal(commandReceipt(err).answer_rendered, false);
+  assert.equal(err.join('').includes('boom-secret-detail'), false, 'no provider field is echoed');
+
+  // The empty content the same failure actually produced holds on the same path.
+  const empty = createLoopbackOllamaAnswerModel({
+    fetchImpl: async () => bodyResponse(
+      JSON.stringify({ done: true, done_reason: 'length', message: { content: '' } }),
+    ),
+    timeoutMs: 5000,
+  });
+  const emptied = await runSeCoreSourceboundAnswerCli(fixture().argv, captureIo(empty).io);
+  assert.equal(emptied.receipt.result, 'HOLD');
+  assert.equal(emptied.receipt.blocker_code, LANE_CODES.MODEL_CALL_FAILED);
+
+  // A reply the model chose to end still passes: the guard refuses a reason, not every reply.
+  const stopped = createLoopbackOllamaAnswerModel({
+    fetchImpl: async () => bodyResponse(
+      envelopeFor(JSON.stringify(OK_SECTIONS), { done: true, done_reason: 'stop' }),
+    ),
+    timeoutMs: 5000,
+  });
+  const ok = await runSeCoreSourceboundAnswerCli(fixture().argv, captureIo(stopped).io);
+  assert.equal(ok.receipt.result, 'PASS');
+});
+
+test('a prompt the daemon would trim is refused there, not diagnosed from the reply', async () => {
+  // A dropped prompt cannot be recognised in the reply: the daemon answers 200 and reports a
+  // prompt_eval_count *below* the window it trimmed to, so any threshold on that field reads a
+  // silent drop as an ordinary short prompt. The request asks to be refused instead, and that
+  // refusal arrives as a non-success status like any other.
+  const refused = createLoopbackOllamaAnswerModel({
+    fetchImpl: async () => ({ ok: false, status: 400 }),
+    timeoutMs: 5000,
+  });
+  const { io, out, err } = captureIo(refused);
+  const run = await runSeCoreSourceboundAnswerCli(fixture().argv, io);
+  assert.equal(run.receipt.result, 'HOLD');
+  assert.equal(run.receipt.blocker_code, LANE_CODES.MODEL_CALL_FAILED);
+  assert.equal(out.length, 0);
+  const report = commandReceipt(err);
+  assert.equal(report.answer_rendered, false);
+  assert.equal(report.model_refusal_reason, MODEL_REFUSAL_REASONS.NON_SUCCESS_STATUS);
+
+  // No count in the reply is read as a window verdict, in either direction: an accepted reply
+  // that happens to report a large prompt evaluation is still an accepted reply.
+  const large = createLoopbackOllamaAnswerModel({
+    fetchImpl: async () => bodyResponse(
+      envelopeFor(JSON.stringify(OK_SECTIONS), { prompt_eval_count: OLLAMA_NUM_CTX }),
+    ),
+    timeoutMs: 5000,
+  });
+  const accepted = await runSeCoreSourceboundAnswerCli(fixture().argv, captureIo(large).io);
+  assert.equal(accepted.receipt.result, 'PASS');
+});
+
+test('a refusal names its own class without echoing one byte the provider sent', async () => {
+  // The lane collapses every adapter throw into one code, so without this the observed benchmark
+  // failure - a budget-truncated generation - is indistinguishable from an unreachable daemon.
+  // Each token below is chosen from the reply's shape; none is derived from its content.
+  const cases = [
+    [MODEL_REFUSAL_REASONS.STOPPED_ON_BUDGET,
+      envelopeFor(JSON.stringify(OK_SECTIONS), { done: true, done_reason: 'length' })],
+    [MODEL_REFUSAL_REASONS.UNFINISHED,
+      envelopeFor(JSON.stringify(OK_SECTIONS), { done: false })],
+    [MODEL_REFUSAL_REASONS.NO_CONTENT,
+      JSON.stringify({ done: true, done_reason: 'stop', message: { content: '' } })],
+    [MODEL_REFUSAL_REASONS.CONTENT_NOT_ONE_OBJECT,
+      envelopeFor('보안값 secret-detail-never-echoed')],
+    [MODEL_REFUSAL_REASONS.MODEL_MISMATCH,
+      envelopeFor(JSON.stringify(OK_SECTIONS), { model: 'some-other-model:1b' })],
+    [MODEL_REFUSAL_REASONS.NOT_ONE_OBJECT, JSON.stringify([1, 2, 3])],
+  ];
+  for (const [reason, envelope] of cases) {
+    const model = createLoopbackOllamaAnswerModel({
+      fetchImpl: async () => bodyResponse(envelope), timeoutMs: 5000,
+    });
+    const { io, err } = captureIo(model);
+    const run = await runSeCoreSourceboundAnswerCli(fixture().argv, io);
+    assert.equal(run.receipt.result, 'HOLD', reason);
+    const report = commandReceipt(err);
+    assert.equal(report.model_refusal_reason, reason);
+    assert.equal(lastModelRefusalReason(model), reason);
+    // The token is the whole disclosure: the receipt still carries no provider text.
+    assert.equal(err.join('').includes('secret-detail-never-echoed'), false);
+    assert.equal(err.join('').includes('some-other-model:1b'), false);
+  }
+
+  // A hold that never reached the provider names no provider refusal, and a PASS names none.
+  const clean = createLoopbackOllamaAnswerModel({
+    fetchImpl: jsonResponder(OK_SECTIONS), timeoutMs: 5000,
+  });
+  const { io, err } = captureIo(clean);
+  assert.equal((await runSeCoreSourceboundAnswerCli(fixture().argv, io)).receipt.result, 'PASS');
+  assert.equal(commandReceipt(err).model_refusal_reason, null);
+  assert.equal(lastModelRefusalReason(clean), null);
+  const early = captureIo(createLoopbackOllamaAnswerModel({
+    fetchImpl: jsonResponder(OK_SECTIONS), timeoutMs: 5000,
+  }));
+  await assert.rejects(runSeCoreSourceboundAnswerCli(['--not-a-flag', 'x'], early.io));
+  assert.equal(commandReceipt(early.err).model_refusal_reason, null);
+});
+
+test('a refusal belongs to the run that took it, not to the adapter that outlived it', async () => {
+  // An adapter is one object and a command is one invocation, and the second can be repeated
+  // against the first. A reason carried across that boundary would report a provider refusal on
+  // the receipt of a run that never reached a provider.
+  const reused = createLoopbackOllamaAnswerModel({
+    fetchImpl: async () => ({ ok: false, status: 500 }), timeoutMs: 5000,
+  });
+  const first = captureIo(reused);
+  const held = await runSeCoreSourceboundAnswerCli(fixture().argv, first.io);
+  assert.equal(held.receipt.result, 'HOLD');
+  assert.equal(
+    commandReceipt(first.err).model_refusal_reason, MODEL_REFUSAL_REASONS.NON_SUCCESS_STATUS,
+  );
+
+  // The same adapter, one run later, refused at the output preflight: zero model calls.
+  const { root, argv } = fixture();
+  const occupied = join(root, 'occupied.json');
+  writeFileSync(occupied, 'not this run\n', 'utf8');
+  const second = captureIo(reused);
+  await assert.rejects(
+    () => runSeCoreSourceboundAnswerCli([...argv, '--out', occupied], second.io),
+    (error) => error.code === CLI_CODES.OUTPUT_REFUSED,
+  );
+  const report = commandReceipt(second.err);
+  assert.equal(report.model_call_occurred, false);
+  assert.equal(report.model_invocation_count, 0);
+  assert.equal(report.model_refusal_reason, null, 'no provider refusal happened on this run');
+  assert.equal(readFileSync(occupied, 'utf8'), 'not this run\n');
+
+  // The same rule stated at the seam: a scope reports the refusals of the calls made through the
+  // adapter it handed out, and of no others. A call on the bare adapter belongs to no invocation.
+  const shared = createLoopbackOllamaAnswerModel({
+    fetchImpl: async () => ({ ok: false, status: 500 }), timeoutMs: 5000,
+  });
+  const scope = openModelRefusalScope(shared);
+  assert.notEqual(scope.answerModel, shared, 'an invocation is served by its own adapter');
+  await assert.rejects(
+    () => shared.composeAnswer({
+      instruction: 'i', question_text: 'q', evidence: [], output_schema: {},
+    }),
+    (error) => error.code === CLI_CODES.MODEL_CALL_REFUSED,
+  );
+  assert.equal(scope.readRefusalReason(), null, 'a call this scope never made is not its refusal');
+  assert.equal(lastModelRefusalReason(shared), MODEL_REFUSAL_REASONS.NON_SUCCESS_STATUS);
+
+  // An adapter this module did not create carries no refusal state, and says so. It is also
+  // handed back unchanged: there is nothing to scope, and the seam it names stays the seam.
+  const foreign = fakeAnswerModel();
+  const passthrough = openModelRefusalScope(foreign);
+  assert.equal(passthrough.answerModel, foreign);
+  assert.equal(passthrough.readRefusalReason(), null);
+});
+
+/**
+ * One provider response held open until the test resolves it.
+ *
+ * `seen` settles the moment the adapter enters the client, so a test can put two calls in flight
+ * and know both are there before it decides which one finishes first. Nothing here depends on
+ * timing: every ordering below is driven by resolving these gates in the order under test.
+ */
+function pendingResponse() {
+  let deliver;
+  let arrive;
+  const response = new Promise((resolve) => { deliver = resolve; });
+  const seen = new Promise((resolve) => { arrive = resolve; });
+  return { response, seen, arrive, resolve: (value) => deliver(value) };
+}
+
+/** One adapter whose calls are answered by `gates` in the order they arrive. */
+function gatedAnswerModel(gates) {
+  let taken = 0;
+  return createLoopbackOllamaAnswerModel({
+    fetchImpl: async () => {
+      const gate = gates[taken];
+      taken += 1;
+      assert.ok(gate !== undefined, 'no call is made that this test did not gate');
+      gate.arrive();
+      return gate.response;
+    },
+    timeoutMs: 5000,
+  });
+}
+
+const REQUEST = Object.freeze({
+  instruction: 'i', question_text: 'q', evidence: [], output_schema: {}, max_terms: 4,
+});
+const NON_SUCCESS = Object.freeze({ ok: false, status: 500 });
+const BUDGET_STOPPED = () => bodyResponse(
+  envelopeFor(JSON.stringify(OK_SECTIONS), { done: true, done_reason: 'length' }),
+);
+
+test('two scopes on one adapter each answer for their own call and for nothing else', async () => {
+  // An adapter is one object and an invocation is one command, and two of the second can be in
+  // flight against the first at once. Attribution therefore cannot live in a slot the adapter
+  // rewrites as calls arrive: each invocation holds its own cell, and each call writes only to the
+  // cell it captured.
+  const gates = [pendingResponse(), pendingResponse()];
+  const shared = gatedAnswerModel(gates);
+  const first = openModelRefusalScope(shared);
+  const second = openModelRefusalScope(shared);
+  assert.notEqual(first.answerModel, second.answerModel);
+
+  const callA = first.answerModel.composeAnswer(REQUEST);
+  const callB = second.answerModel.proposeQueryExpansion(REQUEST);
+  await Promise.all([gates[0].seen, gates[1].seen]);
+  assert.equal(first.readRefusalReason(), null, 'a call in flight has settled nothing');
+  assert.equal(second.readRefusalReason(), null);
+
+  // A finishes non-success while B is still open: only A has taken a refusal.
+  gates[0].resolve(NON_SUCCESS);
+  await assert.rejects(callA, (error) => error.code === CLI_CODES.MODEL_CALL_REFUSED);
+  assert.equal(first.readRefusalReason(), MODEL_REFUSAL_REASONS.NON_SUCCESS_STATUS);
+  assert.equal(second.readRefusalReason(), null, 'an open call carries no other run refusal');
+
+  // B then fails its own way, and neither reason moves to the other invocation.
+  gates[1].resolve(BUDGET_STOPPED());
+  await assert.rejects(callB, (error) => error.code === CLI_CODES.MODEL_CALL_REFUSED);
+  assert.equal(second.readRefusalReason(), MODEL_REFUSAL_REASONS.STOPPED_ON_BUDGET);
+  assert.equal(first.readRefusalReason(), MODEL_REFUSAL_REASONS.NON_SUCCESS_STATUS,
+    'the first invocation keeps the refusal it took');
+  assert.equal(lastModelRefusalReason(shared), MODEL_REFUSAL_REASONS.STOPPED_ON_BUDGET,
+    'the adapter still reports its own last refusal');
+});
+
+test('the same two scopes hold when the second call is the one that finishes first', async () => {
+  // The reverse completion order, because an attribution that depends on which call finishes first
+  // is not attribution. A run that succeeds while another refuses names no refusal at all.
+  const gates = [pendingResponse(), pendingResponse()];
+  const shared = gatedAnswerModel(gates);
+  const first = openModelRefusalScope(shared);
+  const second = openModelRefusalScope(shared);
+
+  const callA = first.answerModel.composeAnswer(REQUEST);
+  const callB = second.answerModel.composeAnswer(REQUEST);
+  await Promise.all([gates[0].seen, gates[1].seen]);
+
+  gates[1].resolve(BUDGET_STOPPED());
+  await assert.rejects(callB, (error) => error.code === CLI_CODES.MODEL_CALL_REFUSED);
+  assert.equal(second.readRefusalReason(), MODEL_REFUSAL_REASONS.STOPPED_ON_BUDGET);
+  assert.equal(first.readRefusalReason(), null, 'an open call carries no other run refusal');
+
+  gates[0].resolve(bodyResponse(envelopeFor(JSON.stringify(OK_SECTIONS))));
+  assert.deepEqual(await callA, OK_SECTIONS);
+  assert.equal(first.readRefusalReason(), null, 'a call that succeeded names no refusal');
+  assert.equal(second.readRefusalReason(), MODEL_REFUSAL_REASONS.STOPPED_ON_BUDGET,
+    'the second invocation keeps the refusal it took');
+});
+
+test('two overlapping commands on one adapter each report only their own refusal', async () => {
+  // The same property where it is actually read: on two command execution receipts. Both runs are
+  // held open at the provider, so their model calls genuinely overlap.
+  const gates = [pendingResponse(), pendingResponse()];
+  const shared = gatedAnswerModel(gates);
+  const held = captureIo(shared);
+  const passing = captureIo(shared);
+
+  const heldRun = runSeCoreSourceboundAnswerCli(fixture().argv, held.io);
+  await gates[0].seen;
+  const passingRun = runSeCoreSourceboundAnswerCli(fixture().argv, passing.io);
+  await gates[1].seen;
+
+  // The first run refuses while the second is still at the provider.
+  gates[0].resolve(NON_SUCCESS);
+  assert.equal((await heldRun).receipt.result, 'HOLD');
+  assert.equal(
+    commandReceipt(held.err).model_refusal_reason, MODEL_REFUSAL_REASONS.NON_SUCCESS_STATUS,
+  );
+
+  // The second then answers, and reports no provider refusal: the one that happened was not its.
+  gates[1].resolve(bodyResponse(envelopeFor(JSON.stringify(OK_SECTIONS))));
+  assert.equal((await passingRun).receipt.result, 'PASS');
+  assert.equal(passing.out.length, 1);
+  assert.equal(commandReceipt(passing.err).model_refusal_reason, null,
+    'a run that answered names no refusal another run took');
+});
+
+test('two overlapping commands keep their own refusals in either completion order', async () => {
+  const gates = [pendingResponse(), pendingResponse()];
+  const shared = gatedAnswerModel(gates);
+  const first = captureIo(shared);
+  const second = captureIo(shared);
+
+  const firstRun = runSeCoreSourceboundAnswerCli(fixture().argv, first.io);
+  await gates[0].seen;
+  const secondRun = runSeCoreSourceboundAnswerCli(fixture().argv, second.io);
+  await gates[1].seen;
+
+  // Reverse order: the run that started second is the one that finishes first.
+  gates[1].resolve(BUDGET_STOPPED());
+  assert.equal((await secondRun).receipt.result, 'HOLD');
+  assert.equal(
+    commandReceipt(second.err).model_refusal_reason, MODEL_REFUSAL_REASONS.STOPPED_ON_BUDGET,
+  );
+
+  gates[0].resolve(NON_SUCCESS);
+  assert.equal((await firstRun).receipt.result, 'HOLD');
+  assert.equal(
+    commandReceipt(first.err).model_refusal_reason, MODEL_REFUSAL_REASONS.NON_SUCCESS_STATUS,
+  );
+  assert.equal(
+    commandReceipt(second.err).model_refusal_reason, MODEL_REFUSAL_REASONS.STOPPED_ON_BUDGET,
+    'the receipt already written is not the one this run rewrites',
+  );
+});
+
+test('only an exact length stop reason may be reported as a token-budget stop', async () => {
+  // `generation_stopped_on_budget` is a claim about why a generation ended, so it is made for the
+  // one reason that means it and for nothing else. Every other spelling — another reason, a near
+  // miss, a wrong type, no reason at all — takes the neutral token, and none is echoed.
+  const cases = [
+    ['length', MODEL_REFUSAL_REASONS.STOPPED_ON_BUDGET],
+    ['load', MODEL_REFUSAL_REASONS.DID_NOT_STOP_NORMALLY],
+    ['unload', MODEL_REFUSAL_REASONS.DID_NOT_STOP_NORMALLY],
+    ['Length', MODEL_REFUSAL_REASONS.DID_NOT_STOP_NORMALLY],
+    ['length ', MODEL_REFUSAL_REASONS.DID_NOT_STOP_NORMALLY],
+    ['', MODEL_REFUSAL_REASONS.DID_NOT_STOP_NORMALLY],
+    ['boom-secret-reason', MODEL_REFUSAL_REASONS.DID_NOT_STOP_NORMALLY],
+    [42, MODEL_REFUSAL_REASONS.DID_NOT_STOP_NORMALLY],
+    [null, MODEL_REFUSAL_REASONS.DID_NOT_STOP_NORMALLY],
+    [['length'], MODEL_REFUSAL_REASONS.DID_NOT_STOP_NORMALLY],
+    [{ reason: 'length' }, MODEL_REFUSAL_REASONS.DID_NOT_STOP_NORMALLY],
+  ];
+  for (const [done_reason, reason] of cases) {
+    const model = createLoopbackOllamaAnswerModel({
+      fetchImpl: async () => bodyResponse(
+        envelopeFor(JSON.stringify(OK_SECTIONS), { done: true, done_reason }),
+      ),
+      timeoutMs: 5000,
+    });
+    const { io, out, err } = captureIo(model);
+    const label = JSON.stringify(done_reason);
+    const run = await runSeCoreSourceboundAnswerCli(fixture().argv, io);
+    assert.equal(run.receipt.result, 'HOLD', label);
+    assert.equal(run.receipt.blocker_code, LANE_CODES.MODEL_CALL_FAILED, label);
+    assert.equal(out.length, 0, label);
+    assert.equal(commandReceipt(err).model_refusal_reason, reason, label);
+    assert.equal(err.join('').includes('boom-secret-reason'), false, 'no reason value is echoed');
+  }
+});
+
+test('a non-streaming reply must state that it finished and that it stopped on its own', async () => {
+  // `done` and `done_reason` are read from the reply, so a reply that omits one is not a finished
+  // generation this adapter may complete: it is a reply whose completion is simply unstated.
+  const reply = (envelope) => JSON.stringify({
+    ...envelope, message: { content: JSON.stringify(OK_SECTIONS) },
+  });
+  const cases = [
+    [{}, MODEL_REFUSAL_REASONS.UNFINISHED],
+    [{ done_reason: 'stop' }, MODEL_REFUSAL_REASONS.UNFINISHED],
+    [{ done: false, done_reason: 'stop' }, MODEL_REFUSAL_REASONS.UNFINISHED],
+    [{ done: 'true', done_reason: 'stop' }, MODEL_REFUSAL_REASONS.UNFINISHED],
+    [{ done: 1, done_reason: 'stop' }, MODEL_REFUSAL_REASONS.UNFINISHED],
+    [{ done: null, done_reason: 'stop' }, MODEL_REFUSAL_REASONS.UNFINISHED],
+    [{ done: true }, MODEL_REFUSAL_REASONS.DID_NOT_STOP_NORMALLY],
+  ];
+  for (const [envelope, reason] of cases) {
+    const model = createLoopbackOllamaAnswerModel({
+      fetchImpl: async () => bodyResponse(reply(envelope)), timeoutMs: 5000,
+    });
+    const { io, out, err } = captureIo(model);
+    const label = JSON.stringify(envelope);
+    const run = await runSeCoreSourceboundAnswerCli(fixture().argv, io);
+    assert.equal(run.receipt.result, 'HOLD', label);
+    assert.equal(out.length, 0, label);
+    assert.equal(commandReceipt(err).model_refusal_reason, reason, label);
+  }
+
+  // Both stated, and stated as themselves: that reply is answered.
+  const finished = createLoopbackOllamaAnswerModel({
+    fetchImpl: async () => bodyResponse(reply({ done: true, done_reason: 'stop' })),
+    timeoutMs: 5000,
+  });
+  const run = await runSeCoreSourceboundAnswerCli(fixture().argv, captureIo(finished).io);
+  assert.equal(run.receipt.result, 'PASS');
+});
+
+test('a consumed reply field is read as own data or refused, never through an accessor', () => {
+  // A parsed JSON body cannot carry an accessor, an inherited slot, or a hidden field. This is
+  // the boundary where a value is checked and then used, though, so a slot that could run code
+  // between those two moments is refused rather than read: it is the one shape that can answer
+  // the check and the use differently.
+  const content = JSON.stringify(OK_SECTIONS);
+  const finished = () => ({ done: true, done_reason: 'stop', message: { content } });
+  assert.deepEqual(finishedReplyContent(finished(), EXACT_ANSWER_MODEL), { content });
+
+  let accessorRuns = 0;
+  const behind = (target, key) => {
+    const held = target[key];
+    Object.defineProperty(target, key, {
+      get() { accessorRuns += 1; return held; }, enumerable: true, configurable: true,
+    });
+    return target;
+  };
+  const hidden = (target, key) => {
+    const held = target[key];
+    Object.defineProperty(target, key, { value: held, enumerable: false, configurable: true });
+    return target;
+  };
+  const malformed = [
+    // Inherited: the prototype is a slot somebody else can still write.
+    Object.assign(Object.create({ done: true }), { done_reason: 'stop', message: { content } }),
+    behind(finished(), 'done'),
+    behind(finished(), 'done_reason'),
+    behind(finished(), 'message'),
+    behind(Object.assign(finished(), { model: EXACT_ANSWER_MODEL }), 'model'),
+    hidden(finished(), 'done'),
+    hidden(finished(), 'message'),
+    // A message object whose content is the accessor.
+    { done: true, done_reason: 'stop', message: behind({ content }, 'content') },
+    // A proxy that refuses to describe itself is not readable either.
+    new Proxy(finished(), {
+      getOwnPropertyDescriptor() { throw new Error('proxy-secret-detail'); },
+    }),
+  ];
+  malformed.forEach((body, index) => {
+    // The label is the position, not the body: the last case throws from its own reflection trap.
+    const verdict = finishedReplyContent(body, EXACT_ANSWER_MODEL);
+    assert.equal(verdict.reason, MODEL_REFUSAL_REASONS.REPLY_FIELD_MALFORMED, `case ${index}`);
+    assert.equal(Object.hasOwn(verdict, 'content'), false, `case ${index}`);
+    assert.equal(verdict.message.includes('secret'), false, `case ${index}`);
+  });
+  assert.equal(accessorRuns, 0, 'no accessor on a reply is ever invoked');
+
+  // The declared model keeps its stated asymmetry: absent is accepted, named must be this one.
+  assert.deepEqual(
+    finishedReplyContent({ ...finished(), model: EXACT_ANSWER_MODEL }, EXACT_ANSWER_MODEL),
+    { content },
+  );
+  assert.equal(
+    finishedReplyContent({ ...finished(), model: 'other:1b' }, EXACT_ANSWER_MODEL).reason,
+    MODEL_REFUSAL_REASONS.MODEL_MISMATCH,
+  );
+  assert.equal(
+    finishedReplyContent({ ...finished(), model: 7 }, EXACT_ANSWER_MODEL).reason,
+    MODEL_REFUSAL_REASONS.MODEL_MISMATCH,
+  );
+
+  // And the remaining shapes keep the tokens they already had.
+  assert.equal(finishedReplyContent([1, 2, 3], EXACT_ANSWER_MODEL).reason,
+    MODEL_REFUSAL_REASONS.NOT_ONE_OBJECT);
+  assert.equal(finishedReplyContent(null, EXACT_ANSWER_MODEL).reason,
+    MODEL_REFUSAL_REASONS.NOT_ONE_OBJECT);
+  for (const message of [undefined, 'a string', 42, { content: '' }, { content: 42 }]) {
+    assert.equal(
+      finishedReplyContent({ done: true, done_reason: 'stop', message }, EXACT_ANSWER_MODEL).reason,
+      MODEL_REFUSAL_REASONS.NO_CONTENT, JSON.stringify(message ?? null),
+    );
+  }
+});
+
+test('a response slot this adapter cannot read is its own refusal, never the provider error', async () => {
+  // `ok`, `headers`, `body`, `arrayBuffer`, and `text` are prototype getters and methods on a real
+  // Response, so they cannot be required to be own data. What can be required is that a slot which
+  // throws leaves this adapter with its own fixed refusal rather than a provider-authored error
+  // travelling out of it with whatever text that error carries.
+  const throwing = (key) => {
+    const response = bodyResponse(envelopeFor(JSON.stringify(OK_SECTIONS)));
+    Object.defineProperty(response, key, {
+      get() { throw new Error(`surface-secret-detail-${key}`); },
+      enumerable: true,
+      configurable: true,
+    });
+    return response;
+  };
+  for (const key of ['ok', 'headers', 'body', 'arrayBuffer', 'text']) {
+    const model = createLoopbackOllamaAnswerModel({
+      fetchImpl: async () => throwing(key), timeoutMs: 5000,
+    });
+    const { io, out, err } = captureIo(model);
+    const run = await runSeCoreSourceboundAnswerCli(fixture().argv, io);
+    assert.equal(run.receipt.result, 'HOLD', key);
+    assert.equal(run.receipt.blocker_code, LANE_CODES.MODEL_CALL_FAILED, key);
+    assert.equal(out.length, 0, key);
+    const report = commandReceipt(err);
+    assert.equal(report.model_refusal_reason, MODEL_REFUSAL_REASONS.RESPONSE_UNREADABLE, key);
+    assert.equal(report.answer_rendered, false, key);
+    assert.equal(err.join('').includes('surface-secret-detail'), false, key);
+  }
+
+  // A header accessor that throws is the same refusal at its own stage, and not a raw error.
+  const headers = createLoopbackOllamaAnswerModel({
+    fetchImpl: async () => bodyResponse(envelopeFor(JSON.stringify(OK_SECTIONS)), {
+      headers: { get() { throw new Error('header-secret-detail'); } },
+    }),
+    timeoutMs: 5000,
+  });
+  const capture = captureIo(headers);
+  const refused = await runSeCoreSourceboundAnswerCli(fixture().argv, capture.io);
+  assert.equal(refused.receipt.result, 'HOLD');
+  assert.equal(
+    commandReceipt(capture.err).model_refusal_reason, MODEL_REFUSAL_REASONS.BODY_UNREADABLE,
+  );
+  assert.equal(capture.err.join('').includes('header-secret-detail'), false);
+
+  // A body that exposes a stream commits the call to that stream: an unusable reader is refused
+  // rather than quietly answered from a second reading path.
+  let arrayBufferReads = 0;
+  const brokenStream = createLoopbackOllamaAnswerModel({
+    fetchImpl: async () => bodyResponse(envelopeFor(JSON.stringify(OK_SECTIONS)), {
+      body: { getReader: () => 'not a reader' },
+      arrayBuffer: async () => { arrayBufferReads += 1; return new ArrayBuffer(0); },
+    }),
+    timeoutMs: 5000,
+  });
+  const broken = captureIo(brokenStream);
+  const unopened = await runSeCoreSourceboundAnswerCli(fixture().argv, broken.io);
+  assert.equal(unopened.receipt.result, 'HOLD');
+  assert.equal(arrayBufferReads, 0, 'a body that exposes a stream is never read a second way');
+  assert.equal(
+    commandReceipt(broken.err).model_refusal_reason, MODEL_REFUSAL_REASONS.BODY_UNREADABLE,
+  );
+
+  // Called directly, the adapter throws its own contract error with its own fixed message.
+  const direct = createLoopbackOllamaAnswerModel({
+    fetchImpl: async () => throwing('ok'), timeoutMs: 5000,
+  });
+  await assert.rejects(
+    () => direct.composeAnswer({
+      instruction: 'i', question_text: 'q', evidence: [], output_schema: {},
+    }),
+    (error) => error.code === CLI_CODES.MODEL_CALL_REFUSED
+      && !error.message.includes('surface-secret-detail'),
+  );
+});
+
+test('every consumed response slot is read exactly once', async () => {
+  // One snapshot, then checks against the snapshot. A slot read twice is a slot that can pass the
+  // bound and then hand a different body to the decode.
+  const reads = {
+    ok: 0, headers: 0, body: 0, arrayBuffer: 0, text: 0,
+  };
+  const counted = () => {
+    const held = bodyResponse(envelopeFor(JSON.stringify(OK_SECTIONS)));
+    const response = {};
+    for (const key of Object.keys(reads)) {
+      Object.defineProperty(response, key, {
+        get() { reads[key] += 1; return held[key]; }, enumerable: true, configurable: true,
+      });
+    }
+    return response;
+  };
+  const model = createLoopbackOllamaAnswerModel({
+    fetchImpl: async () => counted(), timeoutMs: 5000,
+  });
+  const run = await runSeCoreSourceboundAnswerCli(fixture().argv, captureIo(model).io);
+  assert.equal(run.receipt.result, 'PASS');
+  for (const [key, count] of Object.entries(reads)) assert.equal(count, 1, key);
+});
+
+test('the requested answer shape binds citations to exactly the retrieved evidence ids', () => {
+  const schema = answerResponseJsonSchema({
+    evidence: [{ evidence_id: 'E1' }, { evidence_id: 'E2' }],
+  });
+  const section = schema.properties.sections.items;
+  assert.deepEqual(
+    section.properties.evidence_ids.items.enum, ['E1', 'E2'],
+    'a source this run never retrieved has no spelling the grammar can produce',
+  );
+  assert.equal(section.additionalProperties, false);
+  assert.deepEqual(section.required.slice().sort(), ['evidence_ids', 'heading', 'text']);
+  assert.equal(section.properties.heading.maxLength, MAX_SECTION_HEADING_CHARS);
+  assert.equal(section.properties.text.maxLength, MAX_SECTION_TEXT_CHARS);
+  assert.equal(section.properties.evidence_ids.maxItems, MAX_SECTION_EVIDENCE_IDS);
+
+  // A request naming no usable id still yields one valid schema. The lane's allowlist stays the
+  // authority for citations either way, which is exactly where it already was.
+  for (const request of [{ evidence: [] }, {}, { evidence: [{ evidence_id: 1 }] }]) {
+    const bare = answerResponseJsonSchema(request);
+    const items = bare.properties.sections.items.properties.evidence_ids.items;
+    assert.equal(Object.hasOwn(items, 'enum'), false);
+    assert.equal(items.type, 'string');
+  }
+});
+
+test('the requested shape bounds are the lane bounds, pinned from both sides', async () => {
+  // The shape is sent to the provider, so a bound written here that disagrees with the lane would
+  // either forbid a legal answer or ask for one the lane then rejects. Each is pinned to the
+  // lane's own boundary from both sides so the two cannot drift apart silently.
+  const withText = (chars) => ({
+    sections: [{ heading: '판단', text: '가'.repeat(chars), evidence_ids: ['E1'] }],
+  });
+  const exact = createLoopbackOllamaAnswerModel({
+    fetchImpl: jsonResponder(withText(MAX_SECTION_TEXT_CHARS)), timeoutMs: 5000,
+  });
+  assert.equal(
+    (await runSeCoreSourceboundAnswerCli(fixture().argv, captureIo(exact).io)).receipt.result,
+    'PASS', 'the requested bound is not below the lane bound',
+  );
+  const over = createLoopbackOllamaAnswerModel({
+    fetchImpl: jsonResponder(withText(MAX_SECTION_TEXT_CHARS + 1)), timeoutMs: 5000,
+  });
+  assert.equal(
+    (await runSeCoreSourceboundAnswerCli(fixture().argv, captureIo(over).io)).receipt.result,
+    'HOLD', 'the requested bound is not above the lane bound',
+  );
+
+  const withSections = (count) => ({
+    sections: Array.from({ length: count }, () => ({
+      heading: '판단', text: '검증 기준이 필요합니다.', evidence_ids: ['E1'],
+    })),
+  });
+  const full = createLoopbackOllamaAnswerModel({
+    fetchImpl: jsonResponder(withSections(MAX_ANSWER_SECTIONS)), timeoutMs: 5000,
+  });
+  assert.equal(
+    (await runSeCoreSourceboundAnswerCli(fixture().argv, captureIo(full).io)).receipt.result,
+    'PASS',
+  );
+  const overflow = createLoopbackOllamaAnswerModel({
+    fetchImpl: jsonResponder(withSections(MAX_ANSWER_SECTIONS + 1)), timeoutMs: 5000,
+  });
+  assert.equal(
+    (await runSeCoreSourceboundAnswerCli(fixture().argv, captureIo(overflow).io)).receipt.result,
+    'HOLD',
+  );
+});
+
+test('a pinned request shape adds no retry, no fallback, and no second answer call', async () => {
+  // A failed benchmark cell stays one failed historical record. Each failure class guarded here
+  // must cost exactly one call, write nothing, and be counted for exactly what it spent.
+  for (const envelope of [
+    { done: true, done_reason: 'length' },
+    { done: true, done_reason: 'load' },
+  ]) {
+    let calls = 0;
+    const model = createLoopbackOllamaAnswerModel({
+      fetchImpl: async () => {
+        calls += 1;
+        return bodyResponse(envelopeFor(JSON.stringify(OK_SECTIONS), envelope));
+      },
+      timeoutMs: 5000,
+    });
+    const { io, out, err } = captureIo(model);
+    const run = await runSeCoreSourceboundAnswerCli(fixture().argv, io);
+    assert.equal(run.receipt.result, 'HOLD');
+    assert.equal(calls, 1, 'a refusal is never retried against the same or another model');
+    const report = commandReceipt(err);
+    assert.equal(report.model_invocation_count, 1, 'the count is what was truly spent');
+    assert.equal(report.model_call_occurred, true);
+    assert.equal(report.persistence.completed, 0, 'a refused call leaves no artifact');
+    assert.equal(out.length, 0);
+  }
+});
 // ------------------------------------------------------------------ bounded local inputs
 
 /**

@@ -40,6 +40,7 @@ import {
 } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { types } from 'node:util';
 
 import {
   canonicalSeCoreSourceboundAnswerJson,
@@ -53,11 +54,54 @@ import { ContractError } from '../kernel/errors.mjs';
 
 export const EXACT_ANSWER_MODEL = 'qwen3.5:9b';
 export const DEFAULT_OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
-export const OLLAMA_ADAPTER_REVISION = 'soulforge.se_core_sourcebound_answer_ollama_adapter.v0';
+export const OLLAMA_ADAPTER_REVISION = 'soulforge.se_core_sourcebound_answer_ollama_adapter.v1';
 export const OLLAMA_KEEP_ALIVE = '5m';
 export const OLLAMA_CHAT_PATH = '/api/chat';
+// The reasoning channel, pinned off rather than inherited.
+//
+// The exact model this adapter serves is thinking-capable, and Ollama turns thinking on by
+// default for a model that reports the capability. A request that states no preference therefore
+// spends its generation budget on a channel this lane never reads: only `message.content` is
+// ever taken from a reply. Left at the default, the reasoning block alone exhausted the window
+// and the reply arrived `done: true`, `done_reason: "length"`, with empty content. One stateless
+// JSON emission is the whole contract here, so the channel that is not part of it is turned off.
+export const OLLAMA_THINK = false;
+// The context window, pinned for the same reason and one more.
+//
+// An inherited window is not merely smaller than this lane needs: when a prompt does not fit,
+// Ollama drops the front of it and answers from the remainder, with no field in the reply that
+// says so. The receipt commits to the evidence the prompt carried, so a silently trimmed prompt
+// would make that commitment false.
+//
+// The value is the smallest power-of-two window measured to hold this lane's widest legal
+// prompt. That prompt is the lane's own ceilings rendered at once - 24 evidence capsules of 900
+// characters, each carrying a title and a revision at the 400-character metadata ceiling, and a
+// question at the 8192-byte ceiling - and it measures 31 939 prompt tokens on the served model.
+// The same prompt reports the same count against a 65 536 window, so that figure is a true
+// length and not itself a trimmed one. 16 384 does not hold it; 32 768 does.
+//
+// What 32 768 does not hold is that widest prompt *and* the lane's widest legal reply of 8
+// sections of 4000 characters. A run configured at the lane's retrieval ceiling therefore has a
+// few hundred tokens of reply budget, and a reply that needs more stops on the token budget,
+// which the stop-reason guard below refuses. That is a refusal rather than a short answer
+// presented as a whole one, which is the direction this lane fails in. The lane's own default
+// retrieval is 6 capsules, well under the ceiling this bound is sized for.
+export const OLLAMA_NUM_CTX = 32768;
+// Prompt truncation, refused by the daemon rather than inferred from the reply.
+//
+// The reply cannot be read for this. Measured on the served daemon, a 3413-token prompt sent
+// against a 2048-token window returned HTTP 200 with `prompt_eval_count: 1026` - below the
+// window rather than at it - so no threshold on that field can separate a trimmed prompt from an
+// ordinary short one. Asking the daemon to refuse is exact instead of heuristic: the same
+// oversize request with this pinned returns a non-success status and performs no generation,
+// which the status check below already turns into a refusal that costs one call and writes
+// nothing.
+export const OLLAMA_TRUNCATE_PROMPT = false;
+// The command execution receipt is a *closed* top-level field set, so a reader keyed to it breaks
+// on a member it has never seen rather than ignoring one. `model_refusal_reason` is such a member,
+// which is why this is v1: a v0 that quietly grew a field would be a v0 no reader could trust.
 export const COMMAND_RECEIPT_SCHEMA_VERSION =
-  'soulforge.se_core_sourcebound_answer_command_receipt.v0';
+  'soulforge.se_core_sourcebound_answer_command_receipt.v1';
 
 /**
  * A test-only checkpoint seam for the output transaction.
@@ -525,6 +569,119 @@ function renderExpansionPromptText(request) {
 
 const plainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
+// ------------------------------------------------------------------ the requested reply shape
+//
+// The lane already declares its two closed output shapes, but it declares them as prose inside
+// the prompt, which a model is free to disregard. These are the same two shapes written as the
+// JSON Schema Ollama accepts, so the shape constrains generation instead of being a request the
+// reply is graded against afterwards. Nothing here relaxes the lane's own validation: every
+// reply still passes exactly the checks it always did, and a schema-shaped reply that fails one
+// is still refused.
+//
+// The bounds are the lane's, restated here for the same reason the byte ceilings above are: a
+// bound applied after a reply has already been built is not a bound on how it was built. The
+// suite pins each one to the lane's own boundary from both sides, so the two cannot drift apart
+// silently.
+export const MAX_ANSWER_SECTIONS = 8;
+export const MAX_SECTION_HEADING_CHARS = 120;
+export const MAX_SECTION_TEXT_CHARS = 4000;
+export const MAX_SECTION_EVIDENCE_IDS = 8;
+export const MAX_EXPANSION_TERMS = 12;
+export const MAX_EXPANSION_TERM_CHARS = 60;
+const MIN_EXPANSION_TERM_CHARS = 2;
+// Not a lane bound: the lane authorises a citation by allowlist membership, not by length. This
+// is only the cap on the fallback item below, which exists so that a request naming no usable id
+// still produces one valid schema instead of an empty enum.
+const MAX_EVIDENCE_ID_CHARS = 64;
+
+/** The evidence ids this request actually retrieved, or `null` when it names none usable. */
+function retrievedEvidenceIds(request) {
+  const evidence = plainObject(request) ? request.evidence : undefined;
+  if (!Array.isArray(evidence) || evidence.length === 0) return null;
+  const ids = [];
+  for (const capsule of evidence) {
+    const id = plainObject(capsule) ? capsule.evidence_id : undefined;
+    if (typeof id !== 'string' || id.length === 0 || id.length > MAX_EVIDENCE_ID_CHARS
+        || ids.includes(id)) {
+      return null;
+    }
+    ids.push(id);
+  }
+  return ids;
+}
+
+/**
+ * The answer shape this run asks for, bound to the ids this run actually retrieved.
+ *
+ * Citations are why this is worth binding at the provider rather than only checking afterwards:
+ * an `enum` of exactly the retrieved ids leaves no spelling for a source the run never showed the
+ * model, so a fabricated citation is unrepresentable instead of merely rejected. When a request
+ * names no usable id the item falls back to a bounded string, and the lane's allowlist remains
+ * the only authority for a citation, which is exactly where it already was.
+ */
+export function answerResponseJsonSchema(request) {
+  const ids = retrievedEvidenceIds(request);
+  return {
+    type: 'object',
+    additionalProperties: false,
+    required: ['sections'],
+    properties: {
+      sections: {
+        type: 'array',
+        minItems: 1,
+        maxItems: MAX_ANSWER_SECTIONS,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['heading', 'text', 'evidence_ids'],
+          properties: {
+            heading: { type: 'string', minLength: 1, maxLength: MAX_SECTION_HEADING_CHARS },
+            text: { type: 'string', minLength: 1, maxLength: MAX_SECTION_TEXT_CHARS },
+            evidence_ids: {
+              type: 'array',
+              minItems: 1,
+              maxItems: MAX_SECTION_EVIDENCE_IDS,
+              items: ids === null
+                ? { type: 'string', minLength: 1, maxLength: MAX_EVIDENCE_ID_CHARS }
+                : { type: 'string', enum: ids },
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
+/**
+ * The advisory expansion shape, bound to the caller's own term ceiling.
+ *
+ * The lane refuses more terms than the caller asked for, not merely more than the lane allows, so
+ * the request carries the caller's number and the shape is built from it. A request naming no
+ * usable ceiling falls back to the lane ceiling, never above it.
+ */
+export function expansionResponseJsonSchema(request) {
+  const requested = plainObject(request) ? request.max_terms : undefined;
+  const maxItems = Number.isSafeInteger(requested) && requested >= 1
+    && requested <= MAX_EXPANSION_TERMS ? requested : MAX_EXPANSION_TERMS;
+  return {
+    type: 'object',
+    additionalProperties: false,
+    required: ['terms'],
+    properties: {
+      terms: {
+        type: 'array',
+        minItems: 1,
+        maxItems,
+        items: {
+          type: 'string',
+          minLength: MIN_EXPANSION_TERM_CHARS,
+          maxLength: MAX_EXPANSION_TERM_CHARS,
+        },
+      },
+    },
+  };
+}
+
 // ------------------------------------------------------------------ bounded response reading
 //
 // Nothing about a provider reply is trusted for its size. `response.json()` would read and parse a
@@ -542,15 +699,39 @@ export const MAX_MESSAGE_CONTENT_CHARS = 49152;
 
 const CONTENT_LENGTH_VALUE = /^[0-9]{1,15}$/u;
 
-/** The declared body length, or `null` when the response declares none. */
-function declaredContentLength(response) {
-  const headers = response?.headers;
-  if (headers === null || typeof headers !== 'object' || typeof headers.get !== 'function') {
-    return null;
+// Every slot this adapter takes from a response, read once and then read from the snapshot.
+//
+// These cannot be required to be own data the way a caller-supplied object can: a real Fetch
+// Response answers `ok`, `headers`, and `body` from prototype getters and `arrayBuffer`/`text`
+// from prototype methods. What can be required is that each is read exactly once — a slot read
+// twice is a slot that can pass a check with one value and hand a different one to the code that
+// uses it — and that a slot which throws becomes this adapter's own fixed refusal rather than a
+// provider-authored error travelling out of it with whatever text that error carries.
+const RESPONSE_SLOTS = Object.freeze(['ok', 'headers', 'body', 'arrayBuffer', 'text']);
+
+/** One frozen snapshot of the consumed response slots, or `null` if any of them cannot be read. */
+function responseSurface(response) {
+  if (response === null || typeof response !== 'object') return null;
+  const surface = {};
+  for (const slot of RESPONSE_SLOTS) {
+    try {
+      surface[slot] = response[slot];
+    } catch {
+      return null;
+    }
   }
+  return Object.freeze(surface);
+}
+
+/** The declared body length, or `null` when the response declares none. */
+function declaredContentLength(headers) {
+  if (headers === null || typeof headers !== 'object') return null;
+  let read;
   let declared;
   try {
-    declared = headers.get('content-length');
+    read = headers.get;
+    if (typeof read !== 'function') return null;
+    declared = Reflect.apply(read, headers, ['content-length']);
   } catch {
     refuse(CLI_CODES.MODEL_CALL_REFUSED, 'the loopback model response headers could not be read');
   }
@@ -562,14 +743,114 @@ function declaredContentLength(response) {
   return Number(declared);
 }
 
-/** Reads a streamed body with a running byte counter, cancelling the moment the cap is crossed. */
-async function readBoundedStream(body) {
-  let reader;
+/** The one step shape that ends a stream, so a finished read allocates nothing to say so. */
+const FINISHED_STREAM_STEP = Object.freeze({ done: true, value: null });
+
+// The engine's own typed-array reflection, taken once at load time.
+//
+// A chunk is provider-authored material, so reading `chunk.byteLength` or calling `chunk.set` is a
+// dispatch through the provider's object: a proxy trap, an own accessor, or a subclass override
+// all run provider code at that point, can answer the byte counter with one number and the copy
+// with another, and can throw an error whose text is the provider's. These two intrinsics are
+// applied to the chunk instead, so the size this loop counts and the bytes it keeps come from the
+// engine. Both refuse an object without the typed-array internal slots rather than consult it.
+const TYPED_ARRAY_PROTOTYPE = Object.getPrototypeOf(Uint8Array.prototype);
+const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
+  TYPED_ARRAY_PROTOTYPE, 'byteLength',
+).get;
+const TYPED_ARRAY_SET = TYPED_ARRAY_PROTOTYPE.set;
+
+/**
+ * `true` only for an ordinary `Uint8Array` — the one chunk shape safe to reflect on directly.
+ *
+ * `instanceof` is not that check: it answers `true` for a proxy wrapping a `Uint8Array` and for a
+ * subclass, and both can intercept every slot read afterwards. A real Fetch stream hands over an
+ * exact `Uint8Array` with no own `byteLength`, so requiring exactly that costs a real reader
+ * nothing and leaves nothing for a provider object to answer.
+ */
+function ordinaryChunk(value) {
+  if (value === null || typeof value !== 'object' || types.isProxy(value)) return false;
+  let prototype;
   try {
-    reader = body.getReader();
+    prototype = Object.getPrototypeOf(value);
   } catch {
-    refuse(CLI_CODES.MODEL_CALL_REFUSED, 'the loopback model response body could not be opened');
+    return false;
   }
+  if (prototype !== Uint8Array.prototype) return false;
+  let customized;
+  try {
+    customized = Object.getOwnPropertyDescriptor(value, 'byteLength');
+  } catch {
+    return false;
+  }
+  return customized === undefined;
+}
+
+/** One numeric byte length taken from the intrinsic getter, or `null` when it cannot be taken. */
+function chunkByteLength(chunk) {
+  let size;
+  try {
+    size = Reflect.apply(TYPED_ARRAY_BYTE_LENGTH, chunk, []);
+  } catch {
+    return null;
+  }
+  return Number.isSafeInteger(size) && size >= 0 ? size : null;
+}
+
+/**
+ * One fresh ordinary `Uint8Array` holding `size` bytes copied from `chunk`, or `null` when the
+ * copy cannot be made.
+ *
+ * The copy runs through the intrinsic `set` with a genuine typed array on both sides, which moves
+ * bytes from the internal slots and dispatches nothing back to the provider. A chunk whose buffer
+ * is gone — detached, transferred, resized out from under the count — fails here rather than
+ * yielding a short or stale copy, and the failure is this adapter's own.
+ */
+function copiedChunkBytes(chunk, size) {
+  let copy;
+  try {
+    copy = new Uint8Array(size);
+    Reflect.apply(TYPED_ARRAY_SET, copy, [chunk]);
+  } catch {
+    return null;
+  }
+  return copy;
+}
+
+/**
+ * One snapshot of one `reader.read()` result, or `null` when it is not a step this adapter reads.
+ *
+ * A step is provider-authored material like every other value at this seam, so it is read the same
+ * way: as an ordinary plain object, through own enumerable **data** descriptors, with no accessor
+ * invoked and each consumed slot taken exactly once. A getter, a proxy, a custom prototype, and an
+ * inherited or hidden slot are all shapes that can run provider code between the check and the use,
+ * or answer the byte counter with one chunk and the copy with another, so each is refused here
+ * rather than read. A real reader hands back an ordinary `{ value, done }` object and is unaffected.
+ *
+ * `done` is required to be a boolean rather than merely truthy: a step that does not state its
+ * completion as itself has not stated it. `value` is required only of a step that says it is not
+ * done, which is exactly the step that carries bytes, and it is returned once so the caller counts
+ * and copies the same object it type-checked.
+ */
+function readerStepSnapshot(step) {
+  if (step === null || typeof step !== 'object' || types.isProxy(step)) return null;
+  let prototype;
+  try {
+    prototype = Object.getPrototypeOf(step);
+  } catch {
+    return null;
+  }
+  if (prototype !== Object.prototype && prototype !== null) return null;
+  const done = ownDataSlot(step, 'done');
+  if (done === null || typeof done.value !== 'boolean') return null;
+  if (done.value) return FINISHED_STREAM_STEP;
+  const value = ownDataSlot(step, 'value');
+  if (value === null || !ordinaryChunk(value.value)) return null;
+  return { done: false, value: value.value };
+}
+
+/** Reads a streamed body with a running byte counter, cancelling the moment the cap is crossed. */
+async function readBoundedStream(reader) {
   const chunks = [];
   let total = 0;
   let overflow = false;
@@ -582,13 +863,24 @@ async function readBoundedStream(body) {
       failed = true;
       break;
     }
-    if (!plainObject(step)) { failed = true; break; }
-    if (step.done === true) break;
-    if (!(step.value instanceof Uint8Array)) { failed = true; break; }
-    total += step.value.byteLength;
-    if (total > MAX_PROVIDER_RESPONSE_BYTES) { overflow = true; break; }
+    const snapshot = readerStepSnapshot(step);
+    if (snapshot === null) { failed = true; break; }
+    if (snapshot.done) break;
+    // Everything below reads the snapshot and never the step again, and reads the chunk only
+    // through the engine's intrinsics and never through a slot the chunk itself could answer.
+    const size = chunkByteLength(snapshot.value);
+    if (size === null) { failed = true; break; }
+    // Counted against what is left before anything is allocated, so one oversized chunk is refused
+    // rather than first copied into this process.
+    if (size > MAX_PROVIDER_RESPONSE_BYTES - total) { overflow = true; break; }
     // A copy, not a view: the chunk's backing buffer belongs to the stream and may be reused.
-    chunks.push(Buffer.from(step.value));
+    const chunk = copiedChunkBytes(snapshot.value, size);
+    if (chunk === null) { failed = true; break; }
+    // The copy is what this process now holds, so the counter is only honest if it is the copy's
+    // length. A chunk that changed length between the two is not one this call can bound.
+    if (chunk.length !== size || chunkByteLength(snapshot.value) !== size) { failed = true; break; }
+    total += size;
+    chunks.push(chunk);
   }
   if (overflow || failed) {
     try {
@@ -602,20 +894,40 @@ async function readBoundedStream(body) {
 }
 
 /** The response body as bytes, bounded at every path a body can arrive by. */
-async function readBoundedResponseBytes(response) {
-  const declared = declaredContentLength(response);
+async function readBoundedResponseBytes(response, surface) {
+  const declared = declaredContentLength(surface.headers);
   if (declared !== null && declared > MAX_PROVIDER_RESPONSE_BYTES) {
     refuse(CLI_CODES.MODEL_CALL_REFUSED,
       'the loopback model declared a response over the accepted byte ceiling');
   }
-  const body = response.body;
-  if (plainObject(body) && typeof body.getReader === 'function') {
-    return readBoundedStream(body);
+  // A body that exposes a stream is read as one. Once it does, this call is committed to that
+  // path: a reader that cannot be obtained is a refusal, never a reason to try a second one.
+  if (plainObject(surface.body)) {
+    let open;
+    try {
+      open = surface.body.getReader;
+    } catch {
+      refuse(CLI_CODES.MODEL_CALL_REFUSED, 'the loopback model response body could not be opened');
+    }
+    if (typeof open === 'function') {
+      let reader;
+      try {
+        reader = Reflect.apply(open, surface.body, []);
+      } catch {
+        refuse(CLI_CODES.MODEL_CALL_REFUSED,
+          'the loopback model response body could not be opened');
+      }
+      if (reader === null || typeof reader !== 'object') {
+        refuse(CLI_CODES.MODEL_CALL_REFUSED,
+          'the loopback model response body could not be opened');
+      }
+      return readBoundedStream(reader);
+    }
   }
-  if (typeof response.arrayBuffer === 'function') {
+  if (typeof surface.arrayBuffer === 'function') {
     let bytes;
     try {
-      bytes = Buffer.from(await response.arrayBuffer());
+      bytes = Buffer.from(await Reflect.apply(surface.arrayBuffer, response, []));
     } catch {
       refuse(CLI_CODES.MODEL_CALL_REFUSED, 'the loopback model response body could not be read');
     }
@@ -625,13 +937,13 @@ async function readBoundedResponseBytes(response) {
     }
     return bytes;
   }
-  if (typeof response.text === 'function') {
+  if (typeof surface.text === 'function') {
     // A client that exposes only text has already decoded, so this bound is taken on the
     // re-encoded bytes and cannot prove what crossed the socket. Real `fetch` always exposes a
     // stream, so nothing but an injected client reaches this branch.
     let text;
     try {
-      text = await response.text();
+      text = await Reflect.apply(surface.text, response, []);
     } catch {
       refuse(CLI_CODES.MODEL_CALL_REFUSED, 'the loopback model response body could not be read');
     }
@@ -650,8 +962,8 @@ async function readBoundedResponseBytes(response) {
 }
 
 /** Bytes, then bound, then fatal UTF-8, then parse — in that order and no other. */
-async function readBoundedResponseJson(response) {
-  const bytes = await readBoundedResponseBytes(response);
+async function readBoundedResponseJson(response, surface) {
+  const bytes = await readBoundedResponseBytes(response, surface);
   let text;
   try {
     text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
@@ -665,6 +977,206 @@ async function readBoundedResponseJson(response) {
   }
 }
 
+export const MODEL_REFUSAL_REASONS = Object.freeze({
+  REQUEST_FAILED: 'request_failed_or_timed_out',
+  NON_SUCCESS_STATUS: 'non_success_status',
+  RESPONSE_UNREADABLE: 'response_surface_unreadable',
+  BODY_UNREADABLE: 'response_body_unreadable',
+  NOT_ONE_OBJECT: 'response_not_one_json_object',
+  REPLY_FIELD_MALFORMED: 'reply_field_not_one_own_value',
+  UNFINISHED: 'generation_unfinished',
+  STOPPED_ON_BUDGET: 'generation_stopped_on_budget',
+  // Deliberately says nothing about *why*. `generation_stopped_on_budget` is a claim about the
+  // cause of a truncation, so it is reserved for the one reason that means it; every other
+  // spelling — another reason, a wrong type, no reason at all — reports only that the generation
+  // did not end normally, and the value itself is never echoed.
+  DID_NOT_STOP_NORMALLY: 'generation_did_not_stop_normally',
+  MODEL_MISMATCH: 'reply_names_another_model',
+  NO_CONTENT: 'no_message_content',
+  CONTENT_OVER_CEILING: 'message_content_over_ceiling',
+  CONTENT_NOT_ONE_OBJECT: 'message_content_not_one_json_object',
+});
+
+/**
+ * Reads one own enumerable **data** property, without ever invoking an accessor.
+ *
+ * Returns a one-element holder so a legitimately `undefined` value stays distinguishable from an
+ * absent, inherited, hidden, or accessor-backed slot.
+ */
+function ownDataSlot(target, key) {
+  let descriptor;
+  try {
+    descriptor = Object.getOwnPropertyDescriptor(target, key);
+  } catch {
+    return null;
+  }
+  if (descriptor === undefined || !descriptor.enumerable || !Object.hasOwn(descriptor, 'value')) {
+    return null;
+  }
+  return { value: descriptor.value };
+}
+
+/**
+ * One consumed reply field: `{ value }` when the reply carries it as own data or not at all, and
+ * `null` when it carries it in any other way.
+ *
+ * A parsed JSON body cannot hold an accessor, an inherited slot, or a hidden field, so nothing a
+ * provider sends can reach the `null` here. This is still the boundary where a value is checked
+ * and then used, and a slot that can run code between those two moments is a slot that can answer
+ * them differently, so it is refused rather than read.
+ */
+function consumedReplyField(target, key) {
+  const slot = ownDataSlot(target, key);
+  if (slot !== null) return slot;
+  let present;
+  try {
+    present = Reflect.has(target, key);
+  } catch {
+    present = true;
+  }
+  return present ? null : { value: undefined };
+}
+
+const MALFORMED_REPLY_FIELD = Object.freeze({
+  reason: MODEL_REFUSAL_REASONS.REPLY_FIELD_MALFORMED,
+  message: 'a consumed field of the loopback model reply is not one own value; nothing it holds '
+    + 'is echoed',
+});
+
+/**
+ * The message content of one finished non-streaming reply, or the refusal that reply earns.
+ *
+ * Returns `{ content }` or `{ reason, message }`. It records nothing: the adapter stays the only
+ * place a refusal is remembered, which keeps this one pure function the suite can drive with the
+ * shapes a JSON parse can never produce.
+ *
+ * Both completion fields are *required*, not merely checked when present. `done: true` is the
+ * reply saying the generation finished, and `done_reason: "stop"` is it saying the model ended it
+ * rather than a budget doing so — the observed benchmark failure arrived `done: true` with
+ * `done_reason: "length"` and empty content, which is exactly the pair of claims that separates a
+ * finished answer from a truncated one. A reply that states neither has not made either claim, so
+ * it is held rather than completed on this side.
+ *
+ * The declared model keeps its stated asymmetry: a reply that names one must name the served one,
+ * and a reply that names none is still accepted, because the request already pinned the model and
+ * neither receipt claims provider-side verification.
+ */
+export function finishedReplyContent(body, servedModel) {
+  if (!plainObject(body)) {
+    return {
+      reason: MODEL_REFUSAL_REASONS.NOT_ONE_OBJECT,
+      message: 'the loopback model response was not one JSON object',
+    };
+  }
+  const done = consumedReplyField(body, 'done');
+  const stopReason = consumedReplyField(body, 'done_reason');
+  const declaredModel = consumedReplyField(body, 'model');
+  const message = consumedReplyField(body, 'message');
+  if (done === null || stopReason === null || declaredModel === null || message === null) {
+    return MALFORMED_REPLY_FIELD;
+  }
+  if (done.value !== true) {
+    return {
+      reason: MODEL_REFUSAL_REASONS.UNFINISHED,
+      message: 'the loopback model did not report one finished generation',
+    };
+  }
+  if (stopReason.value !== 'stop') {
+    const onBudget = stopReason.value === 'length';
+    return {
+      reason: onBudget
+        ? MODEL_REFUSAL_REASONS.STOPPED_ON_BUDGET
+        : MODEL_REFUSAL_REASONS.DID_NOT_STOP_NORMALLY,
+      message: onBudget
+        ? 'the loopback model stopped this generation on the token budget'
+        : 'the loopback model did not end this generation normally; its reason is not echoed',
+    };
+  }
+  if (declaredModel.value !== undefined && declaredModel.value !== servedModel) {
+    return {
+      reason: MODEL_REFUSAL_REASONS.MODEL_MISMATCH,
+      message: 'the loopback model reply names a different model than this runner serves',
+    };
+  }
+  const content = plainObject(message.value)
+    ? consumedReplyField(message.value, 'content')
+    : { value: undefined };
+  if (content === null) return MALFORMED_REPLY_FIELD;
+  if (typeof content.value !== 'string' || content.value.length === 0) {
+    return {
+      reason: MODEL_REFUSAL_REASONS.NO_CONTENT,
+      message: 'the loopback model returned no message content',
+    };
+  }
+  return { content: content.value };
+}
+
+const MODEL_REFUSAL_STATE = new WeakMap();
+
+/**
+ * Which refusal this adapter last took, as one token from the closed set above, or `null`.
+ *
+ * The lane converts every adapter throw into one `MODEL_CALL_FAILED` and carries no provider
+ * detail, by design. That is correct for the lane and it is also why a hold used to be opaque:
+ * the observed benchmark failure - a budget-truncated generation with empty content - reported
+ * the same code as an unreachable daemon. These tokens are chosen from the reply's *shape*, never
+ * from its content, so naming one echoes no provider text, no path, no question, and no source.
+ *
+ * The state is held off the adapter object, on a WeakMap, so the surface the lane validates is
+ * exactly the surface it validated before.
+ *
+ * This is the *adapter's* last refusal. A receipt names an *invocation's* refusal, which is not
+ * the same question once an adapter outlives one command; that reader is below.
+ */
+export function lastModelRefusalReason(answerModel) {
+  return MODEL_REFUSAL_STATE.get(answerModel)?.reason ?? null;
+}
+
+/**
+ * One invocation's refusal cell: the single slot a scoped call may write.
+ *
+ * The cell is created when a scope opens and is captured by the adapter that scope hands out, so
+ * the binding between a call and the slot it settles is fixed before the call is made. Nothing
+ * re-points it and nothing else can reach it, which is what makes an attribution independent of
+ * how two invocations interleave.
+ */
+function createModelRefusalCell() {
+  let reason = null;
+  return Object.freeze({
+    settle(value) { reason = value; },
+    read: () => reason,
+  });
+}
+
+/**
+ * Opens one refusal scope for one command invocation: its own adapter and its own reader.
+ *
+ * An adapter is one object and a command is one invocation, and the same object can serve several
+ * of them — sequentially, when a later run reuses it, and at the same time, when two commands hold
+ * calls open at once. Attribution therefore cannot live in a slot the adapter rewrites as calls
+ * arrive: the run that read it would report whichever refusal happened last, on any invocation, and
+ * a run that never reached a provider could report one taken by a run that did.
+ *
+ * So each scope creates one cell and one adapter bound to it, and every call made through that
+ * adapter settles that cell and no other. The caller must use the adapter it is handed: a call on
+ * the underlying adapter belongs to no invocation and settles no cell.
+ *
+ * An adapter this module did not create holds no refusal state. It is handed back unchanged — there
+ * is nothing to scope — and its reader answers `null`, which is the honest answer for a seam whose
+ * refusals this module never observed.
+ */
+export function openModelRefusalScope(answerModel) {
+  const record = MODEL_REFUSAL_STATE.get(answerModel) ?? null;
+  if (record === null) {
+    return Object.freeze({ answerModel, readRefusalReason: () => null });
+  }
+  const cell = createModelRefusalCell();
+  return Object.freeze({
+    answerModel: record.bindInvocation(cell),
+    readRefusalReason: () => cell.read(),
+  });
+}
+
 /**
  * A stateless, tool-free, loopback-only Ollama chat adapter.
  *
@@ -676,8 +1188,13 @@ async function readBoundedResponseJson(response) {
  * the shape the hardened lane validates: an accessor could hand the lane one value at validation
  * and another at call time, so it would be refused there rather than tolerated.
  *
- * Nothing here fills a gap. A reply the provider marks unfinished, a reply whose content is not a
- * string, and content that is not one JSON object are refusals, not partial answers to complete.
+ * Nothing here fills a gap. A non-success status - which is what an oversize prompt becomes,
+ * since the request asks the daemon to refuse one rather than trim it - a reply that does not
+ * state both that it finished and that the model ended it, a reply the token budget cut off, a
+ * reply whose content is not a string, and content that is not one JSON object are refusals, not
+ * partial answers to complete. A response this adapter cannot read is one of its own refusals
+ * too: every slot it consumes is snapshotted once, and one that throws is answered with a fixed
+ * message rather than by letting somebody else's error out of here carrying somebody else's text.
  */
 export function createLoopbackOllamaAnswerModel(options = {}) {
   const origin = assertLoopbackOllamaTarget(options.baseUrl ?? DEFAULT_OLLAMA_BASE_URL);
@@ -699,7 +1216,23 @@ export function createLoopbackOllamaAnswerModel(options = {}) {
     refuse(CLI_CODES.MODEL_TARGET_REFUSED, 'the composed chat endpoint is not the exact API path');
   }
 
-  const call = async (promptText) => {
+  // This adapter's own last refusal, which is what `lastModelRefusalReason` reads. It is a
+  // different question from the one a receipt asks — a receipt names one *invocation's* refusal —
+  // so an invocation's answer is not kept here but in the cell that invocation captured.
+  const record = { reason: null, bindInvocation: null };
+
+  // One call, settling exactly one outcome into the cell it was bound to when its invocation
+  // opened. Nothing is cleared on the way in: a call that cleared a shared slot as it started would
+  // erase the refusal of a call that is still open on another invocation.
+  const call = async (cell, promptText, responseSchema) => {
+    const settle = (reason) => {
+      record.reason = reason;
+      if (cell !== null) cell.settle(reason);
+    };
+    const refuseCall = (reason, message) => {
+      settle(reason);
+      refuse(CLI_CODES.MODEL_CALL_REFUSED, message);
+    };
     let response;
     try {
       response = await fetchImpl(chatUrl, {
@@ -715,69 +1248,89 @@ export function createLoopbackOllamaAnswerModel(options = {}) {
           messages: [{ role: 'user', content: promptText }],
           stream: false,
           keep_alive: OLLAMA_KEEP_ALIVE,
-          format: 'json',
-          options: { temperature: 0, seed: 0 },
+          think: OLLAMA_THINK,
+          truncate: OLLAMA_TRUNCATE_PROMPT,
+          format: responseSchema,
+          options: { temperature: 0, seed: 0, num_ctx: OLLAMA_NUM_CTX },
         }),
       });
     } catch {
-      refuse(CLI_CODES.MODEL_CALL_REFUSED,
+      refuseCall(MODEL_REFUSAL_REASONS.REQUEST_FAILED,
         'the loopback model request failed or timed out; no provider text is echoed');
     }
-    if (response?.ok !== true) {
-      refuse(CLI_CODES.MODEL_CALL_REFUSED,
+    // One snapshot of every slot this adapter consumes, taken before any of them is judged. A
+    // response whose own surface cannot be read is refused here, with this adapter's message.
+    const surface = responseSurface(response);
+    if (surface === null) {
+      refuseCall(MODEL_REFUSAL_REASONS.RESPONSE_UNREADABLE,
+        'the loopback model response could not be read as one HTTP response');
+    }
+    if (surface.ok !== true) {
+      refuseCall(MODEL_REFUSAL_REASONS.NON_SUCCESS_STATUS,
         'the loopback model returned a non-success status; no provider body is echoed');
     }
-    const body = await readBoundedResponseJson(response);
-    if (!plainObject(body)) {
-      refuse(CLI_CODES.MODEL_CALL_REFUSED, 'the loopback model response was not one JSON object');
+    let body;
+    try {
+      body = await readBoundedResponseJson(response, surface);
+    } catch (error) {
+      settle(MODEL_REFUSAL_REASONS.BODY_UNREADABLE);
+      throw error;
     }
-    // A non-streaming reply reports `done`. An explicitly unfinished generation is a truncation,
-    // and a truncation completed on this side would be an answer the model never finished giving.
-    if (Object.hasOwn(body, 'done') && body.done !== true) {
-      refuse(CLI_CODES.MODEL_CALL_REFUSED, 'the loopback model reported an unfinished generation');
-    }
-    // Ollama's chat reply names the model it served. When the field is present it must name this
-    // one; when it is absent the reply is still accepted, because the request already pinned the
-    // model on the way out and nothing in either receipt claims provider-side verification. That
-    // asymmetry is the honest one: a named mismatch is evidence, a silent reply is not.
-    if (Object.hasOwn(body, 'model') && body.model !== model) {
-      refuse(CLI_CODES.MODEL_CALL_REFUSED,
-        'the loopback model reply names a different model than this runner serves');
-    }
-    const content = plainObject(body.message) ? body.message.content : undefined;
-    if (typeof content !== 'string' || content.length === 0) {
-      refuse(CLI_CODES.MODEL_CALL_REFUSED, 'the loopback model returned no message content');
-    }
+    // The reply must state that it finished and that it ended on its own, and every field that
+    // decides it is read as own data. Nothing here is completed, repaired, or assumed.
+    const verdict = finishedReplyContent(body, model);
+    if (verdict.reason !== undefined) refuseCall(verdict.reason, verdict.message);
+    const { content } = verdict;
     if (content.length > MAX_MESSAGE_CONTENT_CHARS
         || Buffer.byteLength(content, 'utf8') > MAX_MESSAGE_CONTENT_BYTES) {
-      refuse(CLI_CODES.MODEL_CALL_REFUSED,
+      refuseCall(MODEL_REFUSAL_REASONS.CONTENT_OVER_CEILING,
         'the loopback model returned message content over the accepted ceiling');
     }
     let parsed;
     try {
       parsed = JSON.parse(content);
     } catch {
-      refuse(CLI_CODES.MODEL_CALL_REFUSED,
+      refuseCall(MODEL_REFUSAL_REASONS.CONTENT_NOT_ONE_OBJECT,
         'the loopback model did not return one JSON object; no provider text is echoed');
     }
     if (!plainObject(parsed)) {
-      refuse(CLI_CODES.MODEL_CALL_REFUSED,
+      refuseCall(MODEL_REFUSAL_REASONS.CONTENT_NOT_ONE_OBJECT,
         'the loopback model content was not one JSON object; no provider text is echoed');
     }
+    // An answered call is an outcome too: it settles this invocation's cell at no refusal, so a
+    // run that reached a provider and got an answer never carries an earlier call's token.
+    settle(null);
     return parsed;
   };
 
-  return Object.freeze({
-    descriptor: {
-      adapter_id: 'loopback_ollama_chat',
-      adapter_revision: OLLAMA_ADAPTER_REVISION,
-      stateless: true,
-      tools_enabled: false,
-      history_enabled: false,
-    },
-    composeAnswer: (request) => call(renderPromptText(request)),
-    proposeQueryExpansion: (request) => call(renderExpansionPromptText(request)),
+  const descriptor = {
+    adapter_id: 'loopback_ollama_chat',
+    adapter_revision: OLLAMA_ADAPTER_REVISION,
+    stateless: true,
+    tools_enabled: false,
+    history_enabled: false,
+  };
+  // One adapter per invocation, each closing over that invocation's cell and over nothing else.
+  // The shape is the one the hardened lane validates — a plain frozen object whose seams are own
+  // enumerable data functions — and it is the same shape whether or not a cell was bound.
+  const boundAdapter = (cell) => Object.freeze({
+    descriptor,
+    composeAnswer: (request) =>
+      call(cell, renderPromptText(request), answerResponseJsonSchema(request)),
+    proposeQueryExpansion: (request) =>
+      call(cell, renderExpansionPromptText(request), expansionResponseJsonSchema(request)),
   });
+  record.bindInvocation = (cell) => {
+    const scoped = boundAdapter(cell);
+    // Registered too, so this module's own reader answers for a scoped adapter exactly as it does
+    // for the one it was made from: both are this adapter, and both share its last refusal.
+    MODEL_REFUSAL_STATE.set(scoped, record);
+    return scoped;
+  };
+
+  const adapter = boundAdapter(null);
+  MODEL_REFUSAL_STATE.set(adapter, record);
+  return adapter;
 }
 
 // ------------------------------------------------------------------ output target shape
@@ -1072,6 +1625,10 @@ function commandExecutionReceipt(state) {
     blocker_stage: passed ? null : (state.blockerStage ?? laneReceipt?.blocker_stage ?? 'cli'),
     model_call_occurred: state.modelInvocations > 0,
     model_invocation_count: state.modelInvocations,
+    // Which refusal the provider adapter took, named from the closed set the adapter publishes
+    // and never from anything the provider said. `null` whenever the hold came from somewhere
+    // else, which is most of them: an argument, an input, an output, or the lane itself.
+    model_refusal_reason: passed ? null : (state.modelRefusalReason ?? null),
     answer_rendered: state.answerRendered,
     answer_emitted_to_stdout: state.answerEmitted,
     persistence: state.persistence,
@@ -1158,6 +1715,9 @@ export async function runSeCoreSourceboundAnswerCli(argv, io = {}) {
   let transaction = createOutputTransaction(null);
   let laneReceipt = null;
   let modelInvocations = 0;
+  let answerModel = null;
+  // Nothing has been asked of a provider yet, and no earlier run's refusal may answer for it.
+  let readModelRefusalReason = () => null;
   let answerRendered = false;
   let benchmarkMode = 'generic';
   let reported = false;
@@ -1171,6 +1731,7 @@ export async function runSeCoreSourceboundAnswerCli(argv, io = {}) {
         answerRendered,
         benchmarkMode,
         persistence: transaction.persistence(),
+        modelRefusalReason: readModelRefusalReason(),
         ...state,
       }))}\n`);
     } catch { /* the caller's own sink failed; there is nowhere left to report it */ }
@@ -1208,11 +1769,18 @@ export async function runSeCoreSourceboundAnswerCli(argv, io = {}) {
       };
     });
 
-    const answerModel = seams.answerModel ?? createLoopbackOllamaAnswerModel({
+    const seamModel = seams.answerModel ?? createLoopbackOllamaAnswerModel({
       baseUrl: flags['--ollama-url'] ?? DEFAULT_OLLAMA_BASE_URL,
       model: flags['--model'] ?? EXACT_ANSWER_MODEL,
       timeoutMs: Number(flags['--timeout-ms'] ?? DEFAULTS.timeout_ms),
     });
+    // This invocation's own adapter and its own reader, opened before an output is staged. Every
+    // model call this run makes goes through the adapter below and settles this run's cell alone,
+    // so a run that refuses at the preflight — at zero model calls — reports no provider refusal
+    // even when the adapter it was handed is one another run is refusing on right now.
+    const scope = openModelRefusalScope(seamModel);
+    answerModel = scope.answerModel;
+    readModelRefusalReason = scope.readRefusalReason;
 
     // Staged before the lane runs, so an occupied or ambiguous output costs zero model calls.
     const requested = OUTPUT_FLAGS.filter(([flag]) => Object.hasOwn(flags, flag));

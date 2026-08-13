@@ -35,8 +35,20 @@
   exact four-source public corpus, binds every rendered block to retrieved
   evidence, and holds rather than answers when nothing matches. As of 2026-08-13
   it is an implementation candidate that is tested, not an executed benchmark —
-  the private 7-question × 3-run actual execution has not been performed at this
-  point, so no result, score, or comparison exists for it yet.
+  the private 7-question × 3-run actual execution has not produced a usable
+  result at this point, so no result, score, or comparison exists for it yet.
+  The first attempt at that execution failed as a process failure before any cell
+  answered, on a provider request that inherited the daemon's reasoning channel
+  and context window; that record stays failed and is neither retried nor
+  overwritten. The runner's generation request is now pinned and verified end to
+  end on the public synthetic corpus, so a benchmark execution is possible again,
+  but it would be a new separately versioned run and remains an operator
+  decision, not a step this correction performs. A follow-up correction then
+  required a reply to state both of its completion claims before it is answered
+  and moved the command execution receipt to schema
+  `soulforge.se_core_sourcebound_answer_command_receipt.v1`; that contract is
+  covered by synthetic replies only, so one end-to-end run against the local
+  daemon is a precondition for the next benchmark attempt, not a formality.
 - The fixed seven-case structured Engine runner stays distinct and historical.
   It is model-free, the two lanes are not comparable, and its recorded outputs
   are not reused as the new lane's results.

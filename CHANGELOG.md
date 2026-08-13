@@ -1,5 +1,118 @@
 # CHANGELOG
 
+## 2026-08-13 - Source-bound answer lane: pinned loopback generation request
+
+- Fixed the source-bound answer lane failing every real run against the pinned
+  local model. The runner
+  (`guild_hall/engineering_engine/tools/se_core_sourcebound_answer_runner.mjs`)
+  pinned the model, temperature, seed, and keep-alive but left the reasoning
+  channel and the context window to whatever the Ollama daemon defaulted to.
+  `qwen3.5:9b` is thinking-capable and Ollama enables thinking by default, so the
+  reasoning block alone exhausted the default window: the reply arrived
+  `done: true`, `done_reason: "length"`, with empty `message.content`, which the
+  existing `done` check could not see. The lane reported
+  `SE_CORE_SOURCEBOUND_ANSWER_MODEL_CALL_FAILED` at stage `model_call` with the
+  answer call counted. Reproduced end to end on the public synthetic corpus
+  against the installed model, before and after the change.
+- Pinned every generation parameter that decides whether a reply can arrive:
+  the reasoning channel off, a 32768-token context window, a prompt the daemon
+  must refuse rather than trim, and `format` bound to the exact closed JSON shape
+  the lane already declares, with each citation slot bound by `enum` to the
+  evidence ids the run actually retrieved. A JSON schema alone does not fix the
+  failure and was not treated as if it did: with thinking left on, the
+  schema-bound request still returned empty content on the token budget.
+- Sized the window from a measurement rather than an estimate. The lane's widest
+  legal prompt — its own ceilings rendered at once, 24 evidence capsules of 900
+  characters with title and revision at the 400-character metadata ceiling and a
+  question at the 8192-byte ceiling — measures 31 939 prompt tokens on
+  `qwen3.5:9b`, and reports the same count against a 65 536 window, so 16 384
+  cannot hold it and 32 768 is the smallest power-of-two value that can. 32 768
+  does not additionally hold the widest legal reply of 8 sections of 4000
+  characters, so a run configured at the lane's retrieval ceiling has a few
+  hundred tokens of reply budget and a longer reply stops on the token budget and
+  is refused rather than published short. The lane's default retrieval is 6
+  capsules. Measured resident footprint at this window is 6.13 GiB, fully in VRAM
+  on the 16 GiB device this lane runs against (7.49 GiB at 65 536).
+- Closed the prompt-side version of the same defect at the daemon instead of
+  guessing at it from the reply. An oversize prompt is silently trimmed at the
+  front by Ollama, and the reply does not report it: measured here, a 3413-token
+  prompt against a 2048-token window returned `200` with
+  `prompt_eval_count: 1026` — below the window rather than at it — so a threshold
+  on that field reads a trimmed prompt as an ordinary short one. The request now
+  pins `truncate: false`, which makes the same case a non-success status with no
+  generation, and the reply-side threshold that could not see it was removed.
+- Added `model_refusal_reason` to the command execution receipt: one token from a
+  closed set the provider adapter publishes, chosen from the reply's shape and
+  never from its content. The lane collapses every adapter refusal into one
+  `MODEL_CALL_FAILED`, so without it the observed failure was indistinguishable
+  from an unreachable daemon. It echoes no provider text, no path, no question,
+  and no source, and is `null` on a pass and on any hold that never reached the
+  provider. The token names one *invocation's* refusal, not one adapter's: each
+  command opens its own scoped adapter and its own refusal cell before any output
+  is staged, and every model call it makes settles that cell alone. So an adapter
+  reused by a later run cannot report the earlier run's refusal on a receipt whose
+  run never reached a provider, and two commands holding calls open against one
+  adapter at the same time cannot report each other's, in either completion
+  order. Attribution is not carried in a slot the adapter rewrites as calls
+  arrive, which is what an overlapping pair would otherwise read.
+- Reserved `generation_stopped_on_budget` for the one stop reason that means it.
+  A `done_reason` that is absent, malformed, mistyped, or simply another reason
+  now takes the neutral `generation_did_not_stop_normally`, so the receipt states
+  that the generation did not end normally without claiming a cause it did not
+  observe and without echoing the value it read.
+- Required both completion claims before a non-streaming reply is answered:
+  own-data `done: true` and own-data `done_reason: "stop"`. Previously each was
+  checked only when present, so a reply that stated neither was completed as if
+  it had stated both. A consumed completion, model, or message field that is
+  missing, inherited, accessor-backed, hidden, or of the wrong type now holds
+  safely instead of being read.
+- Made every response-surface failure this adapter's own refusal. `ok`,
+  `headers`, `body`, `arrayBuffer`, and `text` are snapshotted once per reply and
+  a slot that throws becomes one fixed no-echo `ContractError`, so a provider- or
+  client-authored error can no longer travel out of the adapter carrying its own
+  text, and no consumed slot can answer a check with one value and the use with
+  another. The snapshot reads values rather than requiring own data, so a native
+  Fetch `Response` — whose slots are prototype getters and methods — is still
+  served unchanged. Each step of a streamed body is snapshotted the same way, and
+  there own data *is* required: an ordinary plain object whose `done` is an own
+  data boolean and, when that is `false`, whose `value` is one own data
+  `Uint8Array`, taken once and then counted and copied from that snapshot alone.
+  The chunk is held to the same standard, because `instanceof Uint8Array` is true
+  of a proxy around one and of a subclass and both intercept every slot read that
+  follows: a chunk must be an exact `Uint8Array` — no proxy, no subclass, no own
+  `byteLength` — and it is then measured and copied through the engine's own
+  `%TypedArray%` intrinsics into a fresh ordinary array, never through a slot the
+  chunk itself could answer. An accessor, a custom prototype, an inherited or
+  hidden slot, a `done` that is merely truthy, a chunk those intrinsics will not
+  measure or copy, and a chunk whose length moves between the count and the copy
+  each cancel the stream exactly once and take the same fixed body refusal,
+  instead of running provider code at the byte counter, letting a value the byte
+  counter checked be replaced by the one it copies, or carrying provider-authored
+  error text out of the adapter. A real Fetch body reader hands over exact
+  `Uint8Array` chunks and is served unchanged.
+- Operational impact: no command, flag, blocker code, answer shape, lane receipt
+  shape, or persistence semantic changed, and no retry, fallback model, repair,
+  or hidden second answer call was added. The adapter revision the receipts carry
+  moves from `soulforge.se_core_sourcebound_answer_ollama_adapter.v0` to `.v1`
+  because the outgoing request shape changed. The command execution receipt moves
+  from `soulforge.se_core_sourcebound_answer_command_receipt.v0` to `.v1`, which
+  is a schema bump rather than an additive one: that receipt is a closed
+  top-level field set, and `model_refusal_reason` is a new member of it, so a
+  reader keyed to v0 is meant to reject a v1 receipt rather than read it as a v0
+  that grew a field. A refused run stays one refused historical record. Existing
+  failed benchmark cells remain failed; re-running a benchmark is a new,
+  separately versioned run and an operator decision.
+- Not yet re-verified against the installed model: the stricter completion
+  contract above was developed and tested against the public synthetic corpus
+  only. The recorded field observation shows this daemon does report
+  `done_reason` — that failure carried `"length"` — but no run in this change
+  observed a normal completion from it, so whether a real successful reply states
+  `done_reason: "stop"` is `UNKNOWN` here and one end-to-end run against the
+  local daemon is required before the next benchmark attempt.
+- Related paths: `guild_hall/engineering_engine/tools/`,
+  `guild_hall/engineering_engine/tests/`, `guild_hall/engineering_engine/README.md`,
+  `guild_hall/engineering_engine/topology/engine_manifest.sha256`.
+
 ## 2026-08-13 - Evaluation-only SE-core source-bound answer lane and corpus-wide retrieval
 
 - Added an evaluation-only Soulforge Engineering Answer Lane
