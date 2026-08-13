@@ -7,6 +7,12 @@ const TOPOLOGY_EDGE_FLOWS = new Set(["data", "control"]);
 const TOPOLOGY_EDGE_DELIVERY_STATES = new Set([
   "delivering", "late", "stale", "failed", "registered_no_delivery", "unreceipted",
 ]);
+const TRACKING_KEYS = new Set([
+  "node_id", "reason_code", "evidence_owner", "last_checked_at", "next_check_at", "next_evidence_due_at",
+  "repairability", "repair_action", "verification_state", "escalation_owner",
+]);
+const TRACKING_REPAIRABILITY = new Set(["automatic", "manual", "not_available"]);
+const TRACKING_VERIFICATION_STATES = new Set(["observed", "evidence_absent"]);
 const SUPPORTED_KIND_FLOWS = new Set([
   "data:external>supervisor", "data:external>worker", "data:supervisor>store",
   "data:worker>worker", "data:worker>store", "data:worker>consumer",
@@ -58,6 +64,14 @@ const REASON_LABELS = Object.freeze({
   catalog_only_on_demand: "필요 시 실행 · 현재 관측 없음",
   independent_evidence_absent: "독립 관측 근거 없음",
   structural_only: "구조 관계만 표시",
+  event_validation_receipt_absent: "이벤트 검증 영수증 없음",
+  owner_bounded_validation_receipt_absent: "owner 범위 검증 영수증 없음",
+});
+
+const REPAIRABILITY_LABELS = Object.freeze({
+  automatic: "자동 복구 가능",
+  manual: "수동 확인",
+  not_available: "복구 미제공",
 });
 
 const STRUCTURAL_DOES_NOT_PROVE = Object.freeze([
@@ -108,9 +122,44 @@ function unavailableTopologyViewModel() {
     summary: null,
     attention: [],
     unmonitored: [],
+    nonGreenQueue: [],
     edgeDelivery: { total: 0, deliveryProven: 0, deliveryUnproven: 0 },
     observedAt: null,
   };
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function validTracking(node) {
+  const tracking = node?.tracking;
+  if (node?.health?.state === "ok") return tracking === undefined;
+  // The strict server adapter rejects missing tracking before App delivery. Keeping the
+  // pure view compatible with older in-memory W1 overlays avoids erasing their health;
+  // those legacy nodes are deliberately omitted from the tracking queue.
+  if (tracking === undefined) return true;
+  if (!isPlainObject(tracking)) return false;
+  const keys = Object.keys(tracking);
+  const timestampOrNull = (value) => value === null
+    || (typeof value === "string" && Number.isFinite(Date.parse(value)));
+  return keys.length === TRACKING_KEYS.size
+    && keys.every((key) => TRACKING_KEYS.has(key))
+    && tracking.node_id === node.id
+    && typeof tracking.reason_code === "string"
+    && typeof tracking.evidence_owner === "string"
+    && typeof tracking.escalation_owner === "string"
+    && typeof tracking.last_checked_at === "string"
+    && Number.isFinite(Date.parse(tracking.last_checked_at))
+    && typeof tracking.next_check_at === "string"
+    && Number.isFinite(Date.parse(tracking.next_check_at))
+    && timestampOrNull(tracking.next_evidence_due_at)
+    && TRACKING_REPAIRABILITY.has(tracking.repairability)
+    && tracking.repair_action === null
+    && TRACKING_VERIFICATION_STATES.has(tracking.verification_state)
+    && (node.health.state === "unmonitored"
+      ? tracking.verification_state === "evidence_absent"
+      : tracking.verification_state === "observed");
 }
 
 // These are relationship paths from the published topology graph, never
@@ -183,7 +232,8 @@ export function buildTopologyViewModel(snapshot) {
   for (const node of snapshot.nodes) {
     if (typeof node?.id !== "string" || snapshotNodeIds.has(node.id)
       || !TOPOLOGY_NODE_KINDS.has(node.kind)
-      || !TOPOLOGY_HEALTH_STATES.includes(node?.health?.state)) {
+      || !TOPOLOGY_HEALTH_STATES.includes(node?.health?.state)
+      || !validTracking(node)) {
       return unavailableTopologyViewModel();
     }
     snapshotNodeIds.add(node.id);
@@ -221,6 +271,20 @@ export function buildTopologyViewModel(snapshot) {
     const stateLabel = activityState === "idle" ? "정상 유휴"
       : activityState === "collecting" ? "정상 수집 중" : STATE_LABELS[state];
     const ageLabel = describeTopologyAge(node?.health?.age_seconds);
+    const tracking = state === "ok" || node.tracking === undefined ? null : {
+      nodeId: node.tracking.node_id,
+      reasonCode: node.tracking.reason_code,
+      reasonLabel: describeTopologyReason(node.tracking.reason_code),
+      evidenceOwner: node.tracking.evidence_owner,
+      lastCheckedAt: node.tracking.last_checked_at,
+      nextCheckAt: node.tracking.next_check_at,
+      nextEvidenceDueAt: node.tracking.next_evidence_due_at,
+      repairability: node.tracking.repairability,
+      repairabilityLabel: REPAIRABILITY_LABELS[node.tracking.repairability],
+      repairAction: node.tracking.repair_action,
+      verificationState: node.tracking.verification_state,
+      escalationOwner: node.tracking.escalation_owner,
+    };
     const column = Number.isFinite(node?.col)
       ? Math.round(node.col)
       : (GROUP_COLUMNS[node.group] ?? 2);
@@ -244,6 +308,7 @@ export function buildTopologyViewModel(snapshot) {
       activityState,
       ageLabel,
       reasons: textReasons,
+      tracking,
       healthObserved,
       healthBasis: healthObserved ? "observed" : "catalog_only",
       evidenceScope: healthObserved ? "watchtower_node_health_observation" : "structural_catalog_only",
@@ -373,9 +438,32 @@ export function buildTopologyViewModel(snapshot) {
     .filter((node) => node.state === "degraded" || node.state === "stale" || node.state === "down")
     .sort((left, right) => {
       const rank = { down: 0, stale: 1, degraded: 2 };
-      return rank[left.state] - rank[right.state];
+      return rank[left.state] - rank[right.state] || left.id.localeCompare(right.id, "en");
     });
   const unmonitored = nodes.filter((node) => node.state === "unmonitored");
+  const nonGreenQueue = nodes
+    .filter((node) => node.state !== "ok" && node.tracking !== null)
+    .map((node) => ({
+      id: node.id,
+      label: node.label,
+      state: node.state,
+      stateLabel: node.stateLabel,
+      reasonCode: node.tracking.reasonCode,
+      reasonLabel: node.tracking.reasonLabel,
+      evidenceOwner: node.tracking.evidenceOwner,
+      lastCheckedAt: node.tracking.lastCheckedAt,
+      nextCheckAt: node.tracking.nextCheckAt,
+      nextEvidenceDueAt: node.tracking.nextEvidenceDueAt,
+      repairability: node.tracking.repairability,
+      repairabilityLabel: node.tracking.repairabilityLabel,
+      repairAction: node.tracking.repairAction,
+      verificationState: node.tracking.verificationState,
+      escalationOwner: node.tracking.escalationOwner,
+    }))
+    .sort((left, right) => {
+      const rank = { down: 0, stale: 1, degraded: 2, unmonitored: 3 };
+      return rank[left.state] - rank[right.state] || left.id.localeCompare(right.id, "en");
+    });
   const edgeDelivery = {
     total: edges.length,
     deliveryProven: edges.filter((edge) => edge.deliveryProven).length,
@@ -388,6 +476,7 @@ export function buildTopologyViewModel(snapshot) {
     summary,
     attention,
     unmonitored,
+    nonGreenQueue,
     edgeDelivery,
     observedAt: typeof snapshot.observed_at === "string" ? snapshot.observed_at : null,
   };

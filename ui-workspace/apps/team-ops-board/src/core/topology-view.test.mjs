@@ -9,17 +9,52 @@ import {
   distributeTopologyPorts,
 } from "./topology-view.mjs";
 
+function tracking(nodeId, reasonCode, {
+  evidenceOwner = "watchtower_probe",
+  lastCheckedAt = "2026-08-07T13:36:26.125Z",
+  nextCheckAt = "2026-08-07T13:41:26.125Z",
+  nextEvidenceDueAt = "2026-08-07T13:41:26.125Z",
+  repairability = "manual",
+  verificationState = "observed",
+  escalationOwner = "watchtower_operator",
+} = {}) {
+  return {
+    node_id: nodeId,
+    reason_code: reasonCode,
+    evidence_owner: evidenceOwner,
+    last_checked_at: lastCheckedAt,
+    next_check_at: nextCheckAt,
+    next_evidence_due_at: nextEvidenceDueAt,
+    repairability,
+    repair_action: null,
+    verification_state: verificationState,
+    escalation_owner: escalationOwner,
+  };
+}
+
+function absentTracking(nodeId, reasonCode, evidenceOwner = "declared_node_owner", escalationOwner = "node_owner") {
+  return tracking(nodeId, reasonCode, {
+    evidenceOwner,
+    lastCheckedAt: "2026-08-07T13:36:26.125Z",
+    nextCheckAt: "2026-08-07T13:41:26.125Z",
+    nextEvidenceDueAt: null,
+    repairability: "not_available",
+    verificationState: "evidence_absent",
+    escalationOwner,
+  });
+}
+
 function sampleSnapshot() {
   return {
-    schema_version: "soulforge.watchtower.topology_health.v1",
+    schema_version: "soulforge.watchtower.topology_health.v2",
     observed_at: "2026-08-07T13:36:26.125Z",
-    summary: { ok: 2, degraded: 1, stale: 0, down: 1, unmonitored: 2 },
+    summary: { ok: 1, degraded: 1, stale: 1, down: 1, unmonitored: 2 },
     nodes: [
-      { id: "src_hiworks", label: "Hiworks 메일", kind: "external", group: "외부 소스", health: { state: "unmonitored", reasons: [], age_seconds: null } },
-      { id: "ingress_supervisor", label: "Five-Lane Ingress 감독", kind: "supervisor", group: "수집", health: { state: "degraded", reasons: ["status_degraded"], age_seconds: 77 } },
-      { id: "voice_label_worker", label: "음성 ASR·라벨 워커", kind: "supervisor", group: "수집", col: 1.4, health: { state: "ok", reasons: [], age_seconds: 577 } },
-      { id: "slack_batch", label: "Slack 배치 수집기", kind: "worker", group: "수집", health: { state: "down", reasons: ["source_missing"], age_seconds: null } },
-      { id: "gate_five_field", label: "five-field 원장 검증", kind: "gate", group: "게이트", health: { state: "unmonitored", reasons: ["structural_only"], age_seconds: null } },
+      { id: "src_hiworks", label: "Hiworks 메일", kind: "external", group: "외부 소스", health: { state: "unmonitored", reasons: [], age_seconds: null }, tracking: absentTracking("src_hiworks", "structural_only") },
+      { id: "ingress_supervisor", label: "Five-Lane Ingress 감독", kind: "supervisor", group: "수집", health: { state: "degraded", reasons: ["status_degraded"], age_seconds: 77 }, tracking: tracking("ingress_supervisor", "status_degraded") },
+      { id: "voice_label_worker", label: "음성 ASR·라벨 워커", kind: "supervisor", group: "수집", col: 1.4, health: { state: "stale", reasons: ["heartbeat_stale"], age_seconds: 577 }, tracking: tracking("voice_label_worker", "heartbeat_stale") },
+      { id: "slack_batch", label: "Slack 배치 수집기", kind: "worker", group: "수집", health: { state: "down", reasons: ["source_missing"], age_seconds: null }, tracking: tracking("slack_batch", "source_missing") },
+      { id: "gate_five_field", label: "five-field 원장 검증", kind: "gate", group: "게이트", health: { state: "unmonitored", reasons: ["structural_only"], age_seconds: null }, tracking: absentTracking("gate_five_field", "structural_only", "five_field_event_validator", "five_field_owner") },
       { id: "consumer_board", label: "Workspace Board", kind: "consumer", group: "소비", health: { state: "ok", reasons: [], age_seconds: 0 } },
     ],
     edges: [
@@ -73,9 +108,30 @@ test("view model lays out columns and keeps observed health separate from catalo
   assert.deepEqual(external.outputPorts.map((port) => port.top), [36, 64]);
   assert.deepEqual(collectorA.inputPorts.map((port) => port.top), [50]);
 
-  assert.deepEqual(model.summary, { ok: 2, degraded: 1, stale: 0, down: 1, unmonitored: 2 });
-  assert.deepEqual(model.attention.map((node) => node.id), ["slack_batch", "ingress_supervisor"]);
+  assert.deepEqual(model.summary, { ok: 1, degraded: 1, stale: 1, down: 1, unmonitored: 2 });
+  assert.deepEqual(model.attention.map((node) => node.id), ["slack_batch", "voice_label_worker", "ingress_supervisor"]);
   assert.deepEqual(model.unmonitored.map((node) => node.id), ["src_hiworks", "gate_five_field"]);
+  assert.deepEqual(model.nonGreenQueue.map((node) => node.id), [
+    "slack_batch", "voice_label_worker", "ingress_supervisor", "gate_five_field", "src_hiworks",
+  ]);
+  assert.equal(model.nonGreenQueue.some((node) => node.id === "consumer_board"), false);
+  assert.deepEqual(model.nonGreenQueue[0], {
+    id: "slack_batch",
+    label: "Slack 배치 수집기",
+    state: "down",
+    stateLabel: "정지",
+    reasonCode: "source_missing",
+    reasonLabel: "신호 파일 없음",
+    evidenceOwner: "watchtower_probe",
+    lastCheckedAt: "2026-08-07T13:36:26.125Z",
+    nextCheckAt: "2026-08-07T13:41:26.125Z",
+    nextEvidenceDueAt: "2026-08-07T13:41:26.125Z",
+    repairability: "manual",
+    repairabilityLabel: "수동 확인",
+    repairAction: null,
+    verificationState: "observed",
+    escalationOwner: "watchtower_operator",
+  });
   assert.equal(external.healthObserved, false);
   assert.equal(external.healthBasis, "catalog_only");
   assert.equal(external.evidenceScope, "structural_catalog_only");
@@ -141,6 +197,16 @@ test("unknown states, dangling edges, and unsupported flows fail closed", () => 
   duplicate.edges.push({ ...duplicate.edges[0], label: "라벨만 다른 중복" });
   assert.equal(buildTopologyViewModel(duplicate).available, false);
 
+  const missingTracking = sampleSnapshot();
+  delete missingTracking.nodes[0].tracking;
+  const legacyModel = buildTopologyViewModel(missingTracking);
+  assert.equal(legacyModel.available, true);
+  assert.equal(legacyModel.nonGreenQueue.some((node) => node.id === "src_hiworks"), false);
+
+  const invalidTracking = sampleSnapshot();
+  invalidTracking.nodes[0].tracking.repairability = "maybe";
+  assert.equal(buildTopologyViewModel(invalidTracking).available, false);
+
   const empty = buildTopologyViewModel(null);
   assert.equal(empty.available, false);
   assert.deepEqual(empty.nodes, []);
@@ -149,6 +215,7 @@ test("unknown states, dangling edges, and unsupported flows fail closed", () => 
 test("node health never promotes an unreceipted edge", () => {
   const snapshot = sampleSnapshot();
   snapshot.nodes[0].health = { state: "ok", reasons: [], age_seconds: 0 };
+  delete snapshot.nodes[0].tracking;
   const edge = buildTopologyViewModel(snapshot).edges[0];
   assert.equal(edge.deliveryState, "unreceipted");
   assert.equal(edge.deliveryProven, false);
@@ -157,7 +224,7 @@ test("node health never promotes an unreceipted edge", () => {
 
 test("all provider evidence absent remains explicit catalog-only text-ready data", () => {
   const snapshot = {
-    schema_version: "soulforge.watchtower.topology_health.v1",
+    schema_version: "soulforge.watchtower.topology_health.v2",
     observed_at: "2026-08-08T06:00:00.000Z",
     summary: { ok: 0, degraded: 0, stale: 0, down: 0, unmonitored: 3 },
     nodes: ["codex", "claude", "antigravity"].map((provider, index) => ({
@@ -171,6 +238,12 @@ test("all provider evidence absent remains explicit catalog-only text-ready data
       provider,
       health_scope: "provider",
       health: { state: "unmonitored", reasons: ["provider_evidence_absent"], age_seconds: null },
+      tracking: absentTracking(
+        `src_${provider}`,
+        "provider_evidence_absent",
+        `${provider}_provider_owner`,
+        `${provider}_provider_owner`,
+      ),
     })),
     edges: [],
   };
@@ -178,6 +251,7 @@ test("all provider evidence absent remains explicit catalog-only text-ready data
   assert.equal(model.available, true);
   assert.equal(model.attention.length, 0);
   assert.equal(model.unmonitored.length, 3);
+  assert.deepEqual(model.nonGreenQueue.map((node) => node.id), ["src_antigravity", "src_claude", "src_codex"]);
   assert.ok(model.unmonitored.every((node) => (
     node.healthBasis === "catalog_only"
       && node.healthObserved === false

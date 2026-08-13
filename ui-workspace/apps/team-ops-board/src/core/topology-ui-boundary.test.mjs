@@ -41,6 +41,24 @@ test("classic topology keeps overview controls, node highlighting and focus rest
   assert.match(css, /\.watchtower-node\.is-selected/u);
 });
 
+test("classic topology renders the non-green tracking queue as a compact panel", () => {
+  const source = readFileSync(APP_PATH, "utf8");
+  const css = readFileSync(CSS_PATH, "utf8");
+  const start = source.indexOf("function SystemTopologySurface");
+  const surface = source.slice(start, source.indexOf("const ENGINE_NODE_ICON_BY_ID", start));
+  assert.match(surface, /model\.nonGreenQueue\.length/u);
+  assert.match(surface, /system-topology-tracking/u);
+  assert.match(surface, />추적 필요</u);
+  assert.match(surface, /item\.reasonLabel/u);
+  assert.match(surface, /watchtowerTrackingTime\(item\.lastCheckedAt\)/u);
+  assert.match(surface, /근거 기한/u);
+  assert.match(surface, /watchtowerTrackingTime\(item\.nextEvidenceDueAt\)/u);
+  assert.match(surface, /watchtowerTrackingTime\(item\.nextCheckAt\)/u);
+  assert.match(surface, /item\.repairabilityLabel/u);
+  assert.doesNotMatch(surface, /INCIDENT|watchtower-attention/u);
+  assert.match(css, /\.watchtower-tracking[\s\S]*max-height:\s*228px/u);
+});
+
 test("classic Engine inspector stays read-only and declares evidence limits", () => {
   const source = readFileSync(APP_PATH, "utf8");
   const start = source.indexOf("function EngineeringEngineTopologySurface");

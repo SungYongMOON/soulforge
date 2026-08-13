@@ -5621,6 +5621,43 @@ a:focus-visible {
   background: rgb(89 105 115 / 12%); color: #c7d2d7; font-size: 12px; line-height: 1.45;
 }
 .watchtower-observation-notice svg { flex: 0 0 auto; margin-top: 1px; color: #b8c6cc; }
+.watchtower-tracking {
+  display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px 14px;
+  padding: 10px 12px; border: 1px solid #334752; border-radius: 10px;
+  background: rgb(10 17 23 / 76%); color: #cbd7dc;
+}
+.watchtower-tracking > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.watchtower-tracking > header div { display: grid; gap: 2px; }
+.watchtower-tracking > header span { color: #78909d; font: 700 9px/1.2 Consolas, ui-monospace, monospace; letter-spacing: 0.12em; }
+.watchtower-tracking > header strong { color: #edf3f5; font-size: 14px; }
+.watchtower-tracking > header > b {
+  border: 1px solid #506672; border-radius: 999px; padding: 2px 7px;
+  color: #b9c8ce; font: 700 10px/1.2 Consolas, ui-monospace, monospace;
+}
+.watchtower-tracking > ul {
+  display: grid; gap: 5px; max-height: 228px; margin: 0; padding: 0 4px 0 0;
+  list-style: none; overflow: auto; scrollbar-color: #3d5663 transparent;
+}
+.watchtower-tracking li {
+  display: grid; grid-template-columns: minmax(190px, .9fr) minmax(310px, 1.25fr); gap: 8px 14px;
+  align-items: center; min-width: 0; padding: 6px 8px;
+  border: 1px solid rgb(107 132 145 / 20%); border-left: 3px solid #72b7ff;
+  border-radius: 7px; background: rgb(20 31 39 / 62%);
+}
+.watchtower-tracking li.is-down { border-left-color: #ff8d84; }
+.watchtower-tracking li.is-stale,
+.watchtower-tracking li.is-degraded { border-left-color: var(--live-amber, #f5b849); }
+.watchtower-tracking-main { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.watchtower-tracking-main > span {
+  flex: 0 0 auto; border-radius: 999px; padding: 2px 6px;
+  background: rgb(114 183 255 / 10%); color: #8dc8ff; font-size: 9.5px;
+}
+.watchtower-tracking li.is-down .watchtower-tracking-main > span { background: rgb(255 141 132 / 10%); color: #ffaaa3; }
+.watchtower-tracking li.is-stale .watchtower-tracking-main > span,
+.watchtower-tracking li.is-degraded .watchtower-tracking-main > span { background: rgb(245 184 73 / 10%); color: #f2c56f; }
+.watchtower-tracking-main > strong { overflow: hidden; color: #e1eaee; font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
+.watchtower-tracking-main > small { overflow: hidden; color: #94a7b0; font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+.watchtower-tracking-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; min-width: 0; color: #8096a1; font: 10px/1.35 Consolas, ui-monospace, monospace; }
 .watchtower-attention { display: flex; gap: 10px; align-items: flex-start; background: color-mix(in srgb, #ff8d84 9%, transparent); border: 1px solid color-mix(in srgb, #ff8d84 35%, transparent); border-radius: 10px; padding: 10px 14px; font-size: 12.5px; }
 .watchtower-attention svg { flex-shrink: 0; margin-top: 2px; color: #ff8d84; }
 .watchtower-attention ul { margin: 0; padding-left: 16px; display: grid; gap: 3px; }
@@ -6482,6 +6519,8 @@ a:focus-visible {
 }
 @media (max-width: 760px) {
   .watchtower-surface { padding: 14px 12px 12px; }
+  .watchtower-tracking { grid-template-columns: minmax(0, 1fr); }
+  .watchtower-tracking li { grid-template-columns: minmax(0, 1fr); }
   .watchtower-graph-focus { width: 100%; margin-left: 0; }
   .watchtower-canvas { height: 700px; }
   .watchtower-surface .react-flow__minimap { width: 112px; height: 78px; }

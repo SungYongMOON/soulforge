@@ -9,7 +9,7 @@ import { spawn } from "node:child_process";
 import { edgeDeliveryVerdict, summariseEdgeDelivery, topologySkeleton } from "./topology.mjs";
 
 export const WATCHTOWER_BINDING_SCHEMA_VERSION = "soulforge.watchtower.binding.v1";
-export const WATCHTOWER_SNAPSHOT_SCHEMA_VERSION = "soulforge.watchtower.topology_health.v1";
+export const WATCHTOWER_SNAPSHOT_SCHEMA_VERSION = "soulforge.watchtower.topology_health.v2";
 
 const PROBE_KINDS = new Set(["jsonl_tail", "json_file", "dir_latest_mtime", "schtask"]);
 const HEALTH_STATES = ["ok", "degraded", "stale", "down", "unmonitored"];
@@ -263,6 +263,21 @@ function judgeWindow(ageSeconds, probe) {
 }
 
 const SAFE_ERROR_CODE = /^[a-z][a-z0-9_]{0,127}$/u;
+const WATCHTOWER_CHECK_INTERVAL_SECONDS = 300;
+const TRACKING_EVIDENCE_OWNER_BY_NODE = Object.freeze({
+  gate_five_field: "five_field_event_validator",
+  store_workmeta: "workmeta_owner_bounded_validator",
+  watchtower_self: "independent_watchdog",
+});
+const TRACKING_ESCALATION_OWNER_BY_NODE = Object.freeze({
+  gate_five_field: "five_field_owner",
+  store_workmeta: "workmeta_owner",
+  watchtower_self: "watchtower_owner",
+});
+const TRACKING_REASON_BY_NODE = Object.freeze({
+  gate_five_field: "event_validation_receipt_absent",
+  store_workmeta: "owner_bounded_validation_receipt_absent",
+});
 
 // mail 계정별 요약(logs/last_run_summary.json)을 훑어 실패 계정을 사람 말로
 // 특정한다. 주소·경로·원문은 절대 싣지 않는다 — 라벨(owner 제공) 또는 별칭만.
@@ -400,6 +415,46 @@ export async function runProbe(probe, { now, run_schtasks: runSchtasks }) {
   return { state: reasons.length > 0 ? "degraded" : "ok", reasons, age_seconds: ageSeconds, ...(activityState === null ? {} : { activity_state: activityState }) };
 }
 
+function trackingReasonCode(node, health) {
+  if (TRACKING_REASON_BY_NODE[node.id] !== undefined) return TRACKING_REASON_BY_NODE[node.id];
+  const supported = health.reasons.find((reason) => typeof reason === "string" && SAFE_ERROR_CODE.test(reason));
+  return supported ?? `health_${health.state}`;
+}
+
+function nonGreenTracking(node, health, probe, observedAtMs) {
+  const isStructuralAbsence = health.state === "unmonitored" && node.probe === null;
+  const evidenceOwner = TRACKING_EVIDENCE_OWNER_BY_NODE[node.id]
+    ?? (node.health_scope === "provider" ? `${node.provider}_provider_owner`
+      : probe !== undefined ? "watchtower_probe"
+        : node.probe === null ? "declared_node_owner" : "watchtower_binding_owner");
+  const escalationOwner = TRACKING_ESCALATION_OWNER_BY_NODE[node.id]
+    ?? (node.health_scope === "provider" ? `${node.provider}_provider_owner`
+      : node.probe === null ? "node_owner" : "watchtower_operator");
+  const lastCheckedAt = new Date(observedAtMs).toISOString();
+  const nextCheckAt = new Date(
+    observedAtMs + WATCHTOWER_CHECK_INTERVAL_SECONDS * 1000,
+  ).toISOString();
+  const nextEvidenceDueAt = probe !== undefined
+    && Number.isSafeInteger(probe.period_seconds)
+    && Number.isFinite(health.age_seconds)
+    ? new Date(
+      observedAtMs - health.age_seconds * 1000 + probe.period_seconds * 1000,
+    ).toISOString()
+    : null;
+  return {
+    node_id: node.id,
+    reason_code: trackingReasonCode(node, health),
+    evidence_owner: evidenceOwner,
+    last_checked_at: lastCheckedAt,
+    next_check_at: nextCheckAt,
+    next_evidence_due_at: nextEvidenceDueAt,
+    repairability: isStructuralAbsence ? "not_available" : "manual",
+    repair_action: null,
+    verification_state: health.state === "unmonitored" ? "evidence_absent" : "observed",
+    escalation_owner: escalationOwner,
+  };
+}
+
 export async function composeTopologyHealth(binding, options = {}) {
   validateWatchtowerBinding(binding);
   const now = Number.isFinite(options.now) ? options.now : Date.now();
@@ -436,6 +491,9 @@ export async function composeTopologyHealth(binding, options = {}) {
       health,
     };
     if (node.provider !== undefined) projectedNode.provider = node.provider;
+    if (health.state !== "ok") {
+      projectedNode.tracking = nonGreenTracking(node, health, binding.probes[node.probe], now);
+    }
     nodes.push(projectedNode);
   }
 
@@ -482,7 +540,7 @@ export function assertSnapshotPathFree(snapshot, binding) {
 }
 
 export async function writeTopologyHealthSnapshot(binding, snapshot) {
-  const target = join(binding.state_root, "snapshot", "topology_health.v1.json");
+  const target = join(binding.state_root, "snapshot", "topology_health.v2.json");
   await mkdir(dirname(target), { recursive: true });
   const temp = `${target}.tmp`;
   await writeFile(temp, JSON.stringify(snapshot, null, 2), "utf8");

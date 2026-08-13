@@ -59,6 +59,11 @@ HTML 본문을 넣으면 runner 는 `multipart/alternative` 메일로 보내며,
   heartbeat evidence for a future supervisor. The scheduled-task runner pins
   the collector script SHA-256; revalidate and update that pin deliberately
   whenever the collector changes.
+- Repeated failure of one UIDL no longer blocks unrelated mail. The bridge keeps
+  only the UIDL hash, a fixed failure class, attempt count, and retry timestamps;
+  it retries after 5 minutes, 15 minutes, 1 hour, then at a 6-hour cap. From the
+  third identical failure the item is reported as held. It remains `partial`
+  until a successful import clears it and is never deleted or marked seen.
 - The five-minute interactive task starts through a repository-owned
   `wscript.exe //B //NoLogo` launcher so its PowerShell worker remains fully
   backgrounded without changing the runner arguments or task cadence.

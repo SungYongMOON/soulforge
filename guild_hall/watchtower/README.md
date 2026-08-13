@@ -97,7 +97,7 @@ Antigravity DB ────────────> usage_antigravity_collector
   (실경로·주기·resident task — `init-binding`으로 틀 생성 후 로컬 값 기입).
 - pointer: `guild_hall/state/operations/watchtower/binding.pointer.json`
   (git-ignored) — CLI와 Board 어댑터의 기본 진입점.
-- 스냅샷: binding `state_root`의 `snapshot/topology_health.v1.json` (원자 쓰기).
+- 스냅샷: binding `state_root`의 `snapshot/topology_health.v2.json` (원자 쓰기). v2는 모든 non-green 노드의 추적 시각·소유자·복구 가능성을 명시하므로 producer와 Board를 함께 배포한다.
 
 ## 소비자
 
@@ -124,6 +124,17 @@ Antigravity DB ────────────> usage_antigravity_collector
 npm run validate:watchtower
 npm run guild-hall:watchtower:probe
 ```
+
+### Non-green tracking and feature-off recovery
+
+- Every non-`ok` node carries a sanitized tracking record with its stable node
+  ID, fixed reason, evidence owner, last check/next evidence due time, repairability, verification
+  state, and escalation owner. `watchtower_self`, `gate_five_field`, and
+  `store_workmeta` stay non-green until their separately owned evidence exists.
+- `health_recovery_coordinator.mjs` is a feature-off recovery contract. Observe
+  mode never executes repairs. Safe-repair mode still requires an injected
+  action allowlist, executor, and independent verifier; credential, deletion,
+  acknowledgement, route, account, upload, and external-send actions are denied.
 
 ### AI usage producer heartbeat
 

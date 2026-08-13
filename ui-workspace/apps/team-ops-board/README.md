@@ -34,6 +34,12 @@ length-bounded; filesystem- or URL-like values are rejected.
   browser-local Owner read receipts, accepted/closed history, and the separate
   AI Usage Meter aggregate entry.
 - **시스템 토폴로지**: Watchtower W1의 local read-only health projection.
+  정상 이외의 모든 노드는 `추적 필요` 큐에서 고정 사유, 근거 소유자,
+  마지막 점검/다음 Watchtower 점검/다음 근거 기한 및 복구 가능 범위를 함께 보여준다.
+  W1 추적 계약은 `topology_health.v2`이며 producer와 Board를 함께 배포해야 한다. `다음
+  점검`은 Watchtower의 5분 재검사, `근거 기한`은 원천 증거 시각과 probe period로 계산한
+  별도 마감이다. 이 큐는 복구 버튼이나
+  실행 권한을 제공하지 않는다.
   장치 종류는 입력·감독·연산·저장·판단·출력의 외곽 도형으로, 상태는
   정상(초록)·열화/신선도(주황)·미감시 구조(파랑)·정지(빨강)로 분리한다.
   각 간선은 source의 오른쪽 OUT에서 target의 왼쪽 IN으로만 연결되며,

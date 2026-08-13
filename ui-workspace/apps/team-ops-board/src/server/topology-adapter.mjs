@@ -11,7 +11,7 @@ import process from "node:process";
 
 export const TOPOLOGY_SNAPSHOT_PATH = "/topology-health.snapshot.json";
 export const TOPOLOGY_PROJECTION_ENVELOPE_SCHEMA = "soulforge.team_ops_board.topology_projection.v1";
-export const TOPOLOGY_HEALTH_SNAPSHOT_SCHEMA = "soulforge.watchtower.topology_health.v1";
+export const TOPOLOGY_HEALTH_SNAPSHOT_SCHEMA = "soulforge.watchtower.topology_health.v2";
 export const DEFAULT_TOPOLOGY_REFRESH_DEBOUNCE_MS = 20_000;
 export const DEFAULT_TOPOLOGY_COMMAND_TIMEOUT_MS = 25_000;
 export const TOPOLOGY_NODE_KINDS = Object.freeze([
@@ -37,10 +37,14 @@ const ROOT_KEYS = new Set(["schema_version", "observed_at", "summary", "nodes", 
 const SUMMARY_KEYS = new Set(TOPOLOGY_HEALTH_STATES);
 const NODE_REQUIRED_KEYS = new Set(["id", "label", "kind", "group", "col", "row", "health"]);
 const NODE_KEYS = new Set([
-  ...NODE_REQUIRED_KEYS, "operation_mode", "provider", "health_scope",
+  ...NODE_REQUIRED_KEYS, "operation_mode", "provider", "health_scope", "tracking",
 ]);
 const HEALTH_REQUIRED_KEYS = new Set(["state", "reasons", "age_seconds"]);
 const HEALTH_KEYS = new Set([...HEALTH_REQUIRED_KEYS, "activity_state"]);
+const TRACKING_KEYS = new Set([
+  "node_id", "reason_code", "evidence_owner", "last_checked_at", "next_check_at", "next_evidence_due_at",
+  "repairability", "repair_action", "verification_state", "escalation_owner",
+]);
 const EDGE_REQUIRED_KEYS = new Set(["from", "to", "label", "flow"]);
 // receipt/unreceipted_reason 은 간선이 전달 근거를 가졌는지를 나른다. 화면이 근거 없는 선을
 // 전달로 그리지 않으려면 이 필드가 투영을 통과해야 한다.
@@ -56,6 +60,8 @@ const EDGE_DELIVERY_SUMMARY_KEYS = new Set([
 ]);
 const NODE_KIND_SET = new Set(TOPOLOGY_NODE_KINDS);
 const HEALTH_STATE_SET = new Set(TOPOLOGY_HEALTH_STATES);
+const TRACKING_REPAIRABILITY_SET = new Set(["automatic", "manual", "not_available"]);
+const TRACKING_VERIFICATION_STATE_SET = new Set(["observed", "evidence_absent"]);
 const EDGE_FLOW_SET = new Set(TOPOLOGY_EDGE_FLOWS);
 const OPERATION_MODE_SET = new Set(["structural", "on_demand", "scheduled", "resident"]);
 const PROVIDER_SET = new Set(["codex", "claude", "antigravity"]);
@@ -130,6 +136,26 @@ const PROTECTED_NODE_CONTRACTS = new Map([
   ["watchtower_self", {
     kind: "gate", operationMode: "structural", provider: null, healthScope: "self",
     unmonitoredReasons: ["independent_evidence_absent"], observedAllowed: false,
+    tracking: {
+      evidenceOwner: "independent_watchdog", escalationOwner: "watchtower_owner",
+      repairability: "not_available",
+    },
+  }],
+  ["gate_five_field", {
+    kind: "gate", operationMode: "structural", provider: null, healthScope: "node",
+    unmonitoredReasons: ["structural_only"], observedAllowed: false,
+    tracking: {
+      evidenceOwner: "five_field_event_validator", escalationOwner: "five_field_owner",
+      repairability: "not_available",
+    },
+  }],
+  ["store_workmeta", {
+    kind: "store", operationMode: "structural", provider: null, healthScope: "node",
+    unmonitoredReasons: ["structural_only"], observedAllowed: false,
+    tracking: {
+      evidenceOwner: "workmeta_owner_bounded_validator", escalationOwner: "workmeta_owner",
+      repairability: "not_available",
+    },
   }],
 ]);
 const SUPPORTED_KIND_FLOWS = new Set([
@@ -222,6 +248,45 @@ function parseExactTimestamp(value) {
   return parsed;
 }
 
+function validTrackingIdentifier(value) {
+  return typeof value === "string" && /^[a-z][a-z0-9_]{0,127}$/u.test(value);
+}
+
+function validateNodeTracking(node, observedAt) {
+  const tracking = node.tracking;
+  if (node.health.state === "ok") {
+    if (tracking !== undefined) throw new Error("topology_snapshot_tracking_unexpected");
+    return;
+  }
+  if (!isPlainObject(tracking) || !hasExactKeys(tracking, TRACKING_KEYS)
+    || tracking.node_id !== node.id
+    || !validTrackingIdentifier(tracking.reason_code)
+    || !validTrackingIdentifier(tracking.evidence_owner)
+    || !validTrackingIdentifier(tracking.escalation_owner)
+    || !TRACKING_REPAIRABILITY_SET.has(tracking.repairability)
+    || tracking.repair_action !== null
+    || !TRACKING_VERIFICATION_STATE_SET.has(tracking.verification_state)) {
+    throw new Error("topology_snapshot_tracking_invalid");
+  }
+  const lastCheckedAt = tracking.last_checked_at === null ? null : parseExactTimestamp(tracking.last_checked_at);
+  const nextCheckAt = tracking.next_check_at === null ? null : parseExactTimestamp(tracking.next_check_at);
+  const nextEvidenceDueAt = tracking.next_evidence_due_at === null ? null : parseExactTimestamp(tracking.next_evidence_due_at);
+  if (lastCheckedAt === null || lastCheckedAt > observedAt
+    || nextCheckAt === null || nextCheckAt < observedAt
+    || (tracking.next_evidence_due_at !== null && nextEvidenceDueAt === null)
+    || nextCheckAt < lastCheckedAt
+    || (node.health.state === "unmonitored" && tracking.verification_state !== "evidence_absent")
+    || (node.health.state !== "unmonitored"
+      && (tracking.verification_state !== "observed" || lastCheckedAt === null))) {
+    throw new Error("topology_snapshot_tracking_state_invalid");
+  }
+  const reasonSupported = node.health.reasons.some((reason) => reason === tracking.reason_code)
+    || tracking.reason_code === `health_${node.health.state}`
+    || (node.id === "gate_five_field" && tracking.reason_code === "event_validation_receipt_absent")
+    || (node.id === "store_workmeta" && tracking.reason_code === "owner_bounded_validation_receipt_absent");
+  if (!reasonSupported) throw new Error("topology_snapshot_tracking_reason_invalid");
+}
+
 export function validateTopologyHealthSnapshot(snapshot, { now = Date.now() } = {}) {
   if (!isPlainObject(snapshot)) {
     throw new Error("topology_snapshot_invalid");
@@ -285,10 +350,16 @@ export function validateTopologyHealthSnapshot(snapshot, { now = Date.now() } = 
         || (!observedAllowed && node.health.state !== "unmonitored")
         || (!observedAllowed && node.health.state === "unmonitored"
           && (!node.health.reasons.includes(protectedContract.unmonitoredReasons[0])
-            || !node.health.reasons.every((reason) => protectedContract.unmonitoredReasons.includes(reason))))) {
+            || !node.health.reasons.every((reason) => protectedContract.unmonitoredReasons.includes(reason))))
+        || (protectedContract.tracking !== undefined
+          && (!isPlainObject(node.tracking)
+            || node.tracking.evidence_owner !== protectedContract.tracking.evidenceOwner
+            || node.tracking.escalation_owner !== protectedContract.tracking.escalationOwner
+            || node.tracking.repairability !== protectedContract.tracking.repairability))) {
         throw new Error("topology_snapshot_protected_node_invalid");
       }
     }
+    validateNodeTracking(node, observedAt);
     if (node.provider !== undefined && node.health_scope !== "provider" && node.health_scope !== "collector") {
       throw new Error("topology_snapshot_node_scope_invalid");
     }
@@ -469,7 +540,7 @@ export async function readBoundTopologySnapshot({
   if (!isPlainObject(binding) || typeof binding.state_root !== "string" || binding.state_root.length === 0) {
     throw new Error("topology_binding_invalid");
   }
-  const snapshotPath = join(binding.state_root, "snapshot", "topology_health.v1.json");
+  const snapshotPath = join(binding.state_root, "snapshot", "topology_health.v2.json");
   const metadata = await lstat(snapshotPath);
   if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size <= 0 || metadata.size > MAX_SNAPSHOT_BYTES) {
     throw new Error("topology_snapshot_file_invalid");

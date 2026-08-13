@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## 2026-08-13 - Topology non-green tracking and safe mail retry quarantine
+
+- Added a sanitized tracking contract for every non-green Watchtower W1 node
+  and a compact Board queue ordered by severity with the next evidence due time. Watchtower self, five-field,
+  and `_workmeta` remain explicitly non-green until separately owned evidence
+  exists; node health still cannot prove edge delivery or repair authority.
+- Added a feature-off recovery coordinator with four independent dimensions
+  (liveness, connection, outcome, backlog). Observe mode is read-only and
+  safe-repair requires an injected allowlist, executor, and independent
+  verifier; credential, deletion, acknowledgement, route, account, upload, and
+  external-send actions are denied.
+- Kept repeatedly failing Hiworks UIDLs hashed and unacknowledged while applying
+  bounded 5-minute, 15-minute, 1-hour, and 6-hour retry delays. Other messages
+  continue, the third identical failure is reported as held, and the cycle stays
+  partial until successful import clears the failure. POP3 deletion remains
+  forbidden. Runtime activation and task-pin deployment remain separate.
+
 ## 2026-08-13 - Claude quota reset-unknown compatibility
 
 - Kept a provider-reported Claude quota percentage when the sanitized OAuth

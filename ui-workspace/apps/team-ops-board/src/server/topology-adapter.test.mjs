@@ -13,6 +13,29 @@ import {
 
 const NOW = Date.parse("2026-08-08T06:00:00.000Z");
 
+function tracking(nodeId, reasonCode, {
+  evidenceOwner = "declared_node_owner",
+  lastCheckedAt = "2026-08-08T06:00:00.000Z",
+  nextCheckAt = "2026-08-08T06:05:00.000Z",
+  nextEvidenceDueAt = null,
+  repairability = "not_available",
+  verificationState = "evidence_absent",
+  escalationOwner = "node_owner",
+} = {}) {
+  return {
+    node_id: nodeId,
+    reason_code: reasonCode,
+    evidence_owner: evidenceOwner,
+    last_checked_at: lastCheckedAt,
+    next_check_at: nextCheckAt,
+    next_evidence_due_at: nextEvidenceDueAt,
+    repairability,
+    repair_action: null,
+    verification_state: verificationState,
+    escalation_owner: escalationOwner,
+  };
+}
+
 function providerNode(id, provider, state = "unmonitored", reasons = ["provider_evidence_absent"], ageSeconds = null) {
   return {
     id,
@@ -25,14 +48,18 @@ function providerNode(id, provider, state = "unmonitored", reasons = ["provider_
     provider,
     health_scope: "provider",
     health: { state, reasons, age_seconds: ageSeconds },
+    tracking: tracking(id, reasons[0], {
+      evidenceOwner: `${provider}_provider_owner`,
+      escalationOwner: `${provider}_provider_owner`,
+    }),
   };
 }
 
 function sampleSnapshot() {
   return {
-    schema_version: "soulforge.watchtower.topology_health.v1",
+    schema_version: "soulforge.watchtower.topology_health.v2",
     observed_at: "2026-08-08T06:00:00.000Z",
-    summary: { ok: 1, degraded: 0, stale: 0, down: 0, unmonitored: 5 },
+    summary: { ok: 1, degraded: 0, stale: 0, down: 0, unmonitored: 7 },
     edge_delivery: {
       counts: { delivering: 0, late: 0, stale: 0, failed: 0, registered_no_delivery: 0, unreceipted: 4 },
       total: 4,
@@ -66,6 +93,7 @@ function sampleSnapshot() {
         operation_mode: "on_demand",
         health_scope: "aggregate",
         health: { state: "unmonitored", reasons: ["independent_evidence_absent"], age_seconds: null },
+        tracking: tracking("usage_meter", "independent_evidence_absent"),
       },
       {
         id: "watchtower_self",
@@ -77,6 +105,40 @@ function sampleSnapshot() {
         operation_mode: "structural",
         health_scope: "self",
         health: { state: "unmonitored", reasons: ["independent_evidence_absent"], age_seconds: null },
+        tracking: tracking("watchtower_self", "independent_evidence_absent", {
+          evidenceOwner: "independent_watchdog",
+          escalationOwner: "watchtower_owner",
+        }),
+      },
+      {
+        id: "gate_five_field",
+        label: "five-field validation",
+        kind: "gate",
+        group: "게이트",
+        col: 2,
+        row: 1,
+        operation_mode: "structural",
+        health_scope: "node",
+        health: { state: "unmonitored", reasons: ["structural_only"], age_seconds: null },
+        tracking: tracking("gate_five_field", "event_validation_receipt_absent", {
+          evidenceOwner: "five_field_event_validator",
+          escalationOwner: "five_field_owner",
+        }),
+      },
+      {
+        id: "store_workmeta",
+        label: "workmeta ledger",
+        kind: "store",
+        group: "데이터 평면",
+        col: 2,
+        row: 2,
+        operation_mode: "structural",
+        health_scope: "node",
+        health: { state: "unmonitored", reasons: ["structural_only"], age_seconds: null },
+        tracking: tracking("store_workmeta", "owner_bounded_validation_receipt_absent", {
+          evidenceOwner: "workmeta_owner_bounded_validator",
+          escalationOwner: "workmeta_owner",
+        }),
       },
     ],
     edges: [
@@ -109,7 +171,7 @@ function expectInvalid(mutator, code) {
 test("strict validation keeps provider sources and aggregate unmonitored while Codex collector is observed", () => {
   const snapshot = sampleSnapshot();
   assert.equal(validateTopologyHealthSnapshot(snapshot, { now: NOW }), snapshot);
-  assert.deepEqual(snapshot.summary, { ok: 1, degraded: 0, stale: 0, down: 0, unmonitored: 5 });
+  assert.deepEqual(snapshot.summary, { ok: 1, degraded: 0, stale: 0, down: 0, unmonitored: 7 });
   const aggregate = snapshot.nodes.find((node) => node.id === "usage_meter");
   assert.deepEqual(
     { scope: aggregate.health_scope, state: aggregate.health.state, reasons: aggregate.health.reasons },
@@ -194,11 +256,75 @@ test("summary mismatch fails closed", () => {
   expectInvalid((snapshot) => { snapshot.summary.ok = 0; }, "topology_snapshot_summary_mismatch");
 });
 
+test("non-green tracking validates exact fields, enums, timestamps, and reason support", () => {
+  expectInvalid((snapshot) => {
+    snapshot.nodes.find((node) => node.id === "src_codex").tracking.last_checked_at = null;
+  }, "topology_snapshot_tracking_state_invalid");
+  expectInvalid((snapshot) => {
+    snapshot.nodes.find((node) => node.id === "src_codex").tracking.next_check_at = null;
+  }, "topology_snapshot_tracking_state_invalid");
+  expectInvalid((snapshot) => {
+    delete snapshot.nodes.find((node) => node.id === "src_codex").tracking.next_check_at;
+  }, "topology_snapshot_tracking_invalid");
+  expectInvalid((snapshot) => {
+    delete snapshot.nodes.find((node) => node.id === "src_codex").tracking.next_evidence_due_at;
+  }, "topology_snapshot_tracking_invalid");
+  expectInvalid((snapshot) => {
+    snapshot.nodes.find((node) => node.id === "src_codex").tracking.node_id = "src_claude";
+  }, "topology_snapshot_tracking_invalid");
+  expectInvalid((snapshot) => {
+    snapshot.nodes.find((node) => node.id === "src_codex").tracking.repairability = "maybe";
+  }, "topology_snapshot_tracking_invalid");
+  expectInvalid((snapshot) => {
+    snapshot.nodes.find((node) => node.id === "src_codex").tracking.repair_action = "restart_task";
+  }, "topology_snapshot_tracking_invalid");
+  expectInvalid((snapshot) => {
+    snapshot.nodes.find((node) => node.id === "src_codex").tracking.next_check_at = "2026-08-08T05:59:59.000Z";
+  }, "topology_snapshot_tracking_state_invalid");
+  expectInvalid((snapshot) => {
+    snapshot.nodes.find((node) => node.id === "src_codex").tracking.reason_code = "source_missing";
+  }, "topology_snapshot_tracking_reason_invalid");
+  expectInvalid((snapshot) => {
+    snapshot.nodes.find((node) => node.id === "usage_codex_collector").tracking = tracking(
+      "usage_codex_collector", "health_ok",
+    );
+  }, "topology_snapshot_tracking_unexpected");
+});
+
+test("self, five-field, and workmeta tracking boundaries stay evidence-owned and non-green", () => {
+  const snapshot = sampleSnapshot();
+  const self = snapshot.nodes.find((node) => node.id === "watchtower_self");
+  const fiveField = snapshot.nodes.find((node) => node.id === "gate_five_field");
+  const workmeta = snapshot.nodes.find((node) => node.id === "store_workmeta");
+  assert.equal(validateTopologyHealthSnapshot(snapshot, { now: NOW }), snapshot);
+  assert.deepEqual(
+    [self.health.state, self.tracking.reason_code, self.tracking.evidence_owner],
+    ["unmonitored", "independent_evidence_absent", "independent_watchdog"],
+  );
+  assert.deepEqual(
+    [fiveField.tracking.evidence_owner, fiveField.tracking.next_evidence_due_at],
+    ["five_field_event_validator", null],
+  );
+  assert.deepEqual(
+    [workmeta.tracking.evidence_owner, workmeta.tracking.next_evidence_due_at],
+    ["workmeta_owner_bounded_validator", null],
+  );
+  expectInvalid((candidate) => {
+    candidate.nodes.find((node) => node.id === "gate_five_field").tracking.evidence_owner = "watchtower_probe";
+  }, "topology_snapshot_protected_node_invalid");
+  expectInvalid((candidate) => {
+    candidate.nodes.find((node) => node.id === "store_workmeta").tracking.repairability = "automatic";
+  }, "topology_snapshot_protected_node_invalid");
+});
+
 test("privacy, raw, secret, and path sentinels fail closed", () => {
   expectInvalid((snapshot) => { snapshot.raw_payload = "hidden"; }, "topology_snapshot_privacy_sentinel");
   expectInvalid((snapshot) => { snapshot.nodes[0].health.reasons = ["token=not-public"]; }, "topology_snapshot_privacy_sentinel");
   expectInvalid((snapshot) => {
     snapshot.nodes[0].health.reasons = [["C:", "private", "binding.json"].join("\\")];
+  }, "topology_snapshot_privacy_sentinel");
+  expectInvalid((snapshot) => {
+    snapshot.nodes[0].tracking.raw_ref = "private/provider/receipt";
   }, "topology_snapshot_privacy_sentinel");
 });
 
@@ -227,7 +353,7 @@ test("read-only pilot reads a strict existing snapshot without Watchtower probes
   for (const force of [false, true]) {
     const projection = await adapter.readProjection({ force });
     assert.equal(projection.refresh_state, "stale");
-    assert.equal(projection.snapshot.schema_version, "soulforge.watchtower.topology_health.v1");
+    assert.equal(projection.snapshot.schema_version, "soulforge.watchtower.topology_health.v2");
     assert.equal(projection.refresh_metadata.reason, "snapshot_only");
     assert.equal(projection.refresh_metadata.snapshot_age_seconds, 0);
   }
@@ -246,12 +372,12 @@ test("bound snapshot reader follows the canonical pointer and state-root snapsho
     await writeFile(bindingPath, JSON.stringify({ state_root: stateRoot }), "utf8");
     await writeFile(pointerPath, JSON.stringify({ binding_path: bindingPath }), "utf8");
     await writeFile(
-      join(stateRoot, "snapshot", "topology_health.v1.json"),
+      join(stateRoot, "snapshot", "topology_health.v2.json"),
       JSON.stringify(sampleSnapshot()),
       "utf8",
     );
     const snapshot = await readBoundTopologySnapshot({ pointerPath, now: () => NOW });
-    assert.equal(snapshot.schema_version, "soulforge.watchtower.topology_health.v1");
+    assert.equal(snapshot.schema_version, "soulforge.watchtower.topology_health.v2");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

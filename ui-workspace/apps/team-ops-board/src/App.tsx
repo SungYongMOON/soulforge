@@ -3415,6 +3415,11 @@ function watchtowerRefreshMetadataText(metadata: any): string {
   return `마지막 성공 ${watchtowerRefreshAgeLabel(metadata?.last_success_age_seconds)} · 마지막 실패 ${watchtowerRefreshAgeLabel(metadata?.last_failure_age_seconds)}`;
 }
 
+function watchtowerTrackingTime(value: unknown): string {
+  if (typeof value !== "string" || !Number.isFinite(Date.parse(value))) return "미정";
+  return new Date(value).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
 function WatchtowerTopologyLane({ data }: NodeProps<any>) {
   return (
     <div
@@ -3679,18 +3684,31 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
           <span>{refreshNotice}</span>
         </div>
       )}
-      {model.attention.length > 0 && (
-        <div className="watchtower-attention" role="alert" data-testid="system-topology-attention">
-          <span className="watchtower-incident-tag"><span aria-hidden="true" /> INCIDENT</span>
+      {model.nonGreenQueue.length > 0 && (
+        <section className="watchtower-tracking" aria-labelledby="watchtower-tracking-title" data-testid="system-topology-tracking">
+          <header>
+            <div><span>NON-GREEN TRACKING</span><strong id="watchtower-tracking-title">추적 필요</strong></div>
+            <b>{model.nonGreenQueue.length}건</b>
+          </header>
           <ul>
-            {model.attention.map((node: any) => (
-              <li key={node.id}><strong>{node.label}</strong> {node.stateLabel}{node.reasons.length > 0 ? ` · ${node.reasons.join(" · ")}` : ""}</li>
+            {model.nonGreenQueue.map((item: any) => (
+              <li key={item.id} className={`is-${item.state}`}>
+                <div className="watchtower-tracking-main">
+                  <span>{item.stateLabel}</span>
+                  <strong>{item.label}</strong>
+                  <small>{item.reasonLabel}</small>
+                </div>
+                <div className="watchtower-tracking-meta">
+                  <span>마지막 {watchtowerTrackingTime(item.lastCheckedAt)}</span>
+                  <span>다음 점검 {watchtowerTrackingTime(item.nextCheckAt)}</span>
+                  <span>근거 기한 {watchtowerTrackingTime(item.nextEvidenceDueAt)}</span>
+                  <span>{item.repairabilityLabel}</span>
+                  <span title={`근거 ${item.evidenceOwner} · 에스컬레이션 ${item.escalationOwner}`}>근거 소유자 {item.evidenceOwner}</span>
+                </div>
+              </li>
             ))}
           </ul>
-          <span className="watchtower-incident-flow" aria-label="대응 단계">
-            <b>진단</b><i aria-hidden="true">→</i><span>Owner 승인</span><i aria-hidden="true">→</i><span>W2 복구</span>
-          </span>
-        </div>
+        </section>
       )}
       <div className="watchtower-graph-guide">
         <span data-testid="system-topology-edge-evidence"><b>전달 근거</b> 영수증 관측 {model.edgeDelivery.deliveryProven} · 선언만 {model.edgeDelivery.deliveryUnproven}</span>

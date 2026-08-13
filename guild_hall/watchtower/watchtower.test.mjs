@@ -398,6 +398,18 @@ test("provider evidence absence stays catalog-only and never becomes green", asy
       reasons: ["provider_evidence_absent"],
       age_seconds: null,
     });
+    assert.deepEqual(source.tracking, {
+      node_id: `src_${provider}`,
+      reason_code: "provider_evidence_absent",
+      evidence_owner: `${provider}_provider_owner`,
+      last_checked_at: new Date(NOW).toISOString(),
+      next_check_at: new Date(NOW + 300_000).toISOString(),
+      next_evidence_due_at: null,
+      repairability: "not_available",
+      repair_action: null,
+      verification_state: "evidence_absent",
+      escalation_owner: `${provider}_provider_owner`,
+    });
   }
 
   for (const provider of ["antigravity"]) {
@@ -504,6 +516,18 @@ test("watchtower self stays unmonitored even if a same-named binding is supplied
     reasons: ["independent_evidence_absent"],
     age_seconds: null,
   });
+  assert.deepEqual(self.tracking, {
+    node_id: "watchtower_self",
+    reason_code: "independent_evidence_absent",
+    evidence_owner: "independent_watchdog",
+    last_checked_at: new Date(NOW).toISOString(),
+    next_check_at: new Date(NOW + 300_000).toISOString(),
+    next_evidence_due_at: null,
+    repairability: "not_available",
+    repair_action: null,
+    verification_state: "evidence_absent",
+    escalation_owner: "watchtower_owner",
+  });
 });
 
 test("composeTopologyHealth covers every node and never leaks paths", async () => {
@@ -531,9 +555,13 @@ test("composeTopologyHealth covers every node and never leaks paths", async () =
   assert.equal(snapshot.nodes.length, TOPOLOGY_NODES.length);
   const voice = snapshot.nodes.find((node) => node.id === "voice_label_worker");
   assert.equal(voice.health.state, "ok");
+  assert.equal(Object.hasOwn(voice, "tracking"), false);
   const unbound = snapshot.nodes.find((node) => node.id === "slack_batch");
   assert.equal(unbound.health.state, "unmonitored");
   assert.deepEqual(unbound.health.reasons, ["collector_evidence_absent", "probe_unbound"]);
+  assert.equal(unbound.tracking.reason_code, "collector_evidence_absent");
+  assert.equal(unbound.tracking.evidence_owner, "watchtower_binding_owner");
+  assert.equal(unbound.tracking.repairability, "manual");
   const total = Object.values(snapshot.summary).reduce((sum, count) => sum + count, 0);
   assert.equal(total, TOPOLOGY_NODES.length);
 
@@ -556,6 +584,80 @@ test("composeTopologyHealth covers every node and never leaks paths", async () =
     () => assertSnapshotPathFree(rawFieldLeaky, binding),
     (error) => error instanceof WatchtowerError && error.code === "snapshot_path_leak",
   );
+});
+
+test("tracking covers 13 structural absences plus one degraded probe without greening healthy nodes", async () => {
+  const root = await tempRoot();
+  const healthyFile = path.join(root, "healthy.json");
+  const degradedFile = path.join(root, "degraded.json");
+  await writeFile(healthyFile, JSON.stringify({
+    observed_at: new Date(NOW - 30_000).toISOString(), status: "ok",
+  }));
+  await writeFile(degradedFile, JSON.stringify({
+    observed_at: new Date(NOW - 30_000).toISOString(), status: "degraded",
+  }));
+  const probes = Object.fromEntries(TOPOLOGY_NODES
+    .filter((node) => node.probe !== null)
+    .map((node) => [node.probe, {
+      kind: "json_file",
+      path: node.id === "mail_forwarder" ? degradedFile : healthyFile,
+      timestamp_field: "observed_at",
+      status_field: "status",
+      ok_values: ["ok"],
+      period_seconds: 300,
+      grace_seconds: 300,
+    }]));
+  const binding = baseBinding(path.join(root, "state"), probes);
+  const snapshot = await composeTopologyHealth(binding, { now: NOW });
+  const tracked = snapshot.nodes.filter((node) => Object.hasOwn(node, "tracking"));
+  const healthy = snapshot.nodes.filter((node) => node.health.state === "ok");
+
+  assert.equal(snapshot.summary.unmonitored, 13);
+  assert.equal(snapshot.summary.degraded, 1);
+  assert.equal(tracked.length, 14);
+  assert.equal(healthy.length, 13);
+  assert.ok(healthy.every((node) => !Object.hasOwn(node, "tracking")));
+  assert.ok(tracked.every((node) => node.tracking.node_id === node.id && node.tracking.repair_action === null));
+
+  const degraded = snapshot.nodes.find((node) => node.id === "mail_forwarder");
+  assert.deepEqual(degraded.tracking, {
+    node_id: "mail_forwarder",
+    reason_code: "status_degraded",
+    evidence_owner: "watchtower_probe",
+    last_checked_at: new Date(NOW).toISOString(),
+    next_check_at: new Date(NOW + 300_000).toISOString(),
+    next_evidence_due_at: new Date(NOW + 270_000).toISOString(),
+    repairability: "manual",
+    repair_action: null,
+    verification_state: "observed",
+    escalation_owner: "watchtower_operator",
+  });
+  assert.deepEqual(snapshot.nodes.find((node) => node.id === "gate_five_field").tracking, {
+    node_id: "gate_five_field",
+    reason_code: "event_validation_receipt_absent",
+    evidence_owner: "five_field_event_validator",
+    last_checked_at: new Date(NOW).toISOString(),
+    next_check_at: new Date(NOW + 300_000).toISOString(),
+    next_evidence_due_at: null,
+    repairability: "not_available",
+    repair_action: null,
+    verification_state: "evidence_absent",
+    escalation_owner: "five_field_owner",
+  });
+  assert.deepEqual(snapshot.nodes.find((node) => node.id === "store_workmeta").tracking, {
+    node_id: "store_workmeta",
+    reason_code: "owner_bounded_validation_receipt_absent",
+    evidence_owner: "workmeta_owner_bounded_validator",
+    last_checked_at: new Date(NOW).toISOString(),
+    next_check_at: new Date(NOW + 300_000).toISOString(),
+    next_evidence_due_at: null,
+    repairability: "not_available",
+    repair_action: null,
+    verification_state: "evidence_absent",
+    escalation_owner: "workmeta_owner",
+  });
+  assert.equal(snapshot.nodes.find((node) => node.id === "watchtower_self").tracking.reason_code, "independent_evidence_absent");
+  assert.equal(assertSnapshotPathFree(snapshot, binding), snapshot);
 });
 
 test("snapshot write is atomic into the binding state_root", async () => {
