@@ -18,6 +18,7 @@ export const KNOWLEDGE_SOURCE_CARD_VALIDATION_SCHEMA_VERSION = "soulforge.knowle
 export const SOURCE_TEXT_INDEX_VALIDATION_SCHEMA_VERSION = "soulforge.source_text_index_validation.v0";
 export const SOURCE_TEXT_ANSWER_RUN_VALIDATION_SCHEMA_VERSION = "soulforge.source_text_answer_run_validation.v0";
 export const SOURCE_TEXT_TRACEABILITY_SIDECAR_VALIDATION_SCHEMA_VERSION = "soulforge.source_text_traceability_sidecar_validation.v0";
+export const SOURCE_TEXT_CORPUS_SEARCH_CONTRACT = "soulforge.source_text_corpus_search.v0";
 export const SOURCE_TEXT_INDEX_GENERATOR_ID = "guild_hall.rag.source_text_index_generator.v0";
 export const SOURCE_TEXT_ANSWER_RUN_GENERATOR_ID = "guild_hall.rag.source_text_answer_run_generator.v0";
 export const SOURCE_TEXT_TRACEABILITY_SIDECAR_GENERATOR_ID = "guild_hall.rag.source_text_traceability_sidecar_generator.v0";
@@ -95,6 +96,35 @@ const STOPWORD_TOKENS = new Set([
   "질문",
   "하나요",
 ]);
+const CORPUS_SEARCH_LIMITS = Object.freeze({
+  sources: 16,
+  chunks_per_source: 20000,
+  chunk_chars: 20000,
+  query_chars: 8000,
+  advisory_terms: 32,
+  advisory_term_chars: 120,
+  page_numbers: 64,
+  budget: 64,
+});
+const CORPUS_SEARCH_REQUEST_FIELDS = ["sources", "queryText", "advisoryTerms", "maxEvidence", "maxPerSource"];
+const CORPUS_SEARCH_SOURCE_FIELDS = ["source_id", "chunks"];
+const CORPUS_SEARCH_CHUNK_FIELDS = ["chunk_id", "page_numbers", "text"];
+// Structural ceilings for the pre-semantic snapshot. They are deliberately looser than the
+// declared per-position limits below: the snapshot's job is to stop a pathological tree before
+// anything is read twice, and the tighter per-path bounds then apply to the snapshot alone.
+const CORPUS_SEARCH_SNAPSHOT = Object.freeze({
+  depth: 6,
+  nodes: CORPUS_SEARCH_LIMITS.sources * CORPUS_SEARCH_LIMITS.chunks_per_source * 8,
+  items: CORPUS_SEARCH_LIMITS.chunks_per_source,
+  keys: 16,
+});
+// An advisory expansion term is scored at a fraction of an exact query token's weight. That
+// makes it a weaker vote, not a powerless one. A Korean question over English sources needs the
+// expansion to reach chunks the exact question never touches lexically, so an advisory-only chunk
+// stays selectable and can outrank a weak exact match. A channel that can still change the
+// selection must stay countable, which is what `selected_advisory_only_count` reports.
+const CORPUS_SEARCH_ADVISORY_WEIGHT = 0.35;
+const CORPUS_SEARCH_BM25 = Object.freeze({ k1: 1.2, b: 0.75 });
 const KOREAN_PARTICLE_SUFFIXES = [
   "으로서",
   "으로써",
@@ -832,6 +862,126 @@ export function validateSourceTextAnswerRun(run) {
   };
 }
 
+/**
+ * Score every chunk of every supplied source in one global lexical space.
+ *
+ * This is the corpus-wide counterpart to the single-index `retrieveChunks` path. Document
+ * frequency, corpus size, and average document length are taken once over the union of all
+ * chunks, so a score from a short source is directly comparable with a score from a long one.
+ * Merging four separately normalised per-source rankings would not have that property.
+ *
+ * Pure: no filesystem, network, clock, randomness, mutation of the caller's objects, or
+ * embedding/vector step. Ranking is total, so the result cannot depend on the order in which
+ * sources or chunks were supplied.
+ */
+export function searchSourceTextCorpus(request) {
+  const parsed = validateCorpusSearchRequest(request);
+  const documents = [];
+  for (const source of parsed.sources) {
+    for (const chunk of source.chunks) {
+      const profile = buildSearchProfile(chunk.text);
+      let length = 0;
+      for (const count of profile.counts.values()) length += count;
+      documents.push({
+        source_id: source.source_id,
+        chunk_id: chunk.chunk_id,
+        page_numbers: chunk.page_numbers,
+        counts: profile.counts,
+        length,
+      });
+    }
+  }
+  const queryProfile = buildSearchProfile(parsed.queryText);
+  const queryTokens = [...queryProfile.tokens].sort(compareCorpusSearchKeys);
+  const advisoryTokens = [...new Set(parsed.advisoryTerms.flatMap((term) => [...tokenize(term)]))]
+    .filter((token) => !queryProfile.tokens.has(token))
+    .sort(compareCorpusSearchKeys);
+  const scoredTokens = [
+    ...queryTokens.map((token) => ({ token, exact: true, weight: technicalTokenWeight(token) })),
+    ...advisoryTokens.map((token) => ({
+      token, exact: false, weight: technicalTokenWeight(token) * CORPUS_SEARCH_ADVISORY_WEIGHT,
+    })),
+  ];
+  // Integer sums and one division: the corpus statistics cannot drift with input order.
+  const corpusSize = documents.length;
+  let totalLength = 0;
+  for (const document of documents) totalLength += document.length;
+  const averageLength = corpusSize === 0 ? 0 : totalLength / corpusSize;
+  const documentFrequency = new Map(scoredTokens.map(({ token }) => [
+    token,
+    documents.reduce((total, document) => total + (document.counts.has(token) ? 1 : 0), 0),
+  ]));
+
+  const scored = documents.map((document) => {
+    let score = 0;
+    let matchedQuery = 0;
+    let matchedAdvisory = 0;
+    for (const { token, exact, weight } of scoredTokens) {
+      const termFrequency = document.counts.get(token) ?? 0;
+      if (termFrequency === 0) continue;
+      if (exact) matchedQuery += 1; else matchedAdvisory += 1;
+      score += weight * corpusSearchTermScore({
+        termFrequency, documentLength: document.length, averageLength, corpusSize,
+        frequency: documentFrequency.get(token) ?? 0,
+      });
+    }
+    return {
+      source_id: document.source_id,
+      chunk_id: document.chunk_id,
+      page_numbers: [...document.page_numbers],
+      score: roundScore(score),
+      matched_query_token_count: matchedQuery,
+      matched_advisory_token_count: matchedAdvisory,
+    };
+  });
+  const ranked = scored
+    .filter((hit) => hit.score > 0 && hit.matched_query_token_count + hit.matched_advisory_token_count > 0)
+    .sort((a, b) => b.score - a.score
+      || compareCorpusSearchKeys(a.source_id, b.source_id)
+      || compareCorpusSearchKeys(a.chunk_id, b.chunk_id));
+
+  const perSourceSelected = new Map(parsed.sources.map((source) => [source.source_id, 0]));
+  const hits = [];
+  for (const hit of ranked) {
+    if (hits.length >= parsed.maxEvidence) break;
+    if (perSourceSelected.get(hit.source_id) >= parsed.maxPerSource) continue;
+    perSourceSelected.set(hit.source_id, perSourceSelected.get(hit.source_id) + 1);
+    hits.push(hit);
+  }
+  const hitCountBySource = new Map(parsed.sources.map((source) => [source.source_id, 0]));
+  for (const hit of ranked) hitCountBySource.set(hit.source_id, hitCountBySource.get(hit.source_id) + 1);
+
+  return {
+    hits,
+    receipt: {
+      contract: SOURCE_TEXT_CORPUS_SEARCH_CONTRACT,
+      searched_source_count: parsed.sources.length,
+      searched_chunk_count: corpusSize,
+      hit_count: ranked.length,
+      selected_count: hits.length,
+      max_evidence: parsed.maxEvidence,
+      max_per_source: parsed.maxPerSource,
+      query_token_count: queryTokens.length,
+      advisory_token_count: advisoryTokens.length,
+      exact_query_preserved: true,
+      advisory_expansion_applied: advisoryTokens.length > 0,
+      selected_advisory_only_count: hits.filter((hit) => hit.matched_query_token_count === 0).length,
+      ranking_basis: "global_bm25_lexical_single_space",
+      tie_break_basis: "score_desc_then_source_id_then_chunk_id",
+      embeddings_used: false,
+      web_search_used: false,
+      per_source: [...parsed.sources]
+        .map((source) => ({
+          source_id: source.source_id,
+          chunk_count: source.chunks.length,
+          hit_count: hitCountBySource.get(source.source_id),
+          selected_count: perSourceSelected.get(source.source_id),
+        }))
+        .sort((a, b) => compareCorpusSearchKeys(a.source_id, b.source_id)),
+    },
+  };
+}
+
 export function renderSourceTextAnswerRunText(run) {
   const lines = [
     run.response?.answer_text ?? "No source-text answer text was generated.",
@@ -1397,6 +1547,190 @@ function retrieveChunks(index, question, maxChunks) {
     .slice(0, maxChunks);
 }
 
+function corpusSearchTermScore({ termFrequency, documentLength, averageLength, corpusSize, frequency }) {
+  const inverseDocumentFrequency = Math.log(
+    1 + (corpusSize - frequency + 0.5) / (frequency + 0.5),
+  );
+  const lengthNormalisation = averageLength === 0
+    ? 1
+    : 1 - CORPUS_SEARCH_BM25.b + CORPUS_SEARCH_BM25.b * (documentLength / averageLength);
+  return inverseDocumentFrequency
+    * ((termFrequency * (CORPUS_SEARCH_BM25.k1 + 1))
+      / (termFrequency + CORPUS_SEARCH_BM25.k1 * lengthNormalisation));
+}
+
+function compareCorpusSearchKeys(a, b) {
+  const left = [...String(a)];
+  const right = [...String(b)];
+  const shared = Math.min(left.length, right.length);
+  for (let index = 0; index < shared; index += 1) {
+    const difference = left[index].codePointAt(0) - right[index].codePointAt(0);
+    if (difference !== 0) return difference;
+  }
+  return left.length - right.length;
+}
+
+function corpusSearchRefused(reason) {
+  return new Error(`corpus_search_${reason}`);
+}
+
+function corpusSearchExactFields(value, fields) {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  if (Object.getPrototypeOf(value) !== Object.prototype) return false;
+  const keys = Reflect.ownKeys(value);
+  return keys.length === fields.length && fields.every((field) => Object.hasOwn(value, field));
+}
+
+/**
+ * Copies the request tree into fresh plain own data before one semantic read happens.
+ *
+ * Checking the declared field positions is not enough, because the request is a tree and every
+ * node of it is read at least twice: once to satisfy a bound and once to build the searched
+ * corpus. An accessor — at a field, at an array index, anywhere — can answer those two reads
+ * differently, so a chunk could pass the length bound as twelve characters and then be scored as
+ * an unbounded one, and a `page_numbers` element could pass the bound as page 1 and be cited as
+ * page 9999. A bound that only describes the value the validator happened to see is not a bound.
+ *
+ * So the whole tree is refused unless it is bounded, acyclic, unaliased plain JSON built from own
+ * enumerable data properties: no accessors, no symbol keys, no non-enumerable fields, no sparse or
+ * named arrays, no custom prototypes, and no host or wrapper objects. Aliasing is refused with
+ * cycles rather than tolerated, because a node reachable twice is a node whose single validation
+ * would silently stand in for two searched positions.
+ */
+function corpusSearchSnapshot(value, depth, seen, budget) {
+  budget.nodes += 1;
+  if (budget.nodes > CORPUS_SEARCH_SNAPSHOT.nodes || depth > CORPUS_SEARCH_SNAPSHOT.depth) {
+    throw corpusSearchRefused("request_tree_out_of_range");
+  }
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") {
+    if (!Number.isSafeInteger(value)) throw corpusSearchRefused("number_must_be_safe_integer");
+    return value;
+  }
+  if (typeof value === "string") return value;
+  if (value === null || typeof value !== "object") throw corpusSearchRefused("value_type_forbidden");
+  if (seen.has(value)) throw corpusSearchRefused("aliased_or_cyclic_request_tree");
+  seen.add(value);
+
+  const array = Array.isArray(value);
+  let prototype;
+  let descriptors;
+  try {
+    prototype = Object.getPrototypeOf(value);
+    descriptors = Object.getOwnPropertyDescriptors(value);
+  } catch {
+    throw corpusSearchRefused("request_reflection_failed");
+  }
+  if (array ? prototype !== Array.prototype : prototype !== Object.prototype) {
+    throw corpusSearchRefused("custom_prototype_forbidden");
+  }
+  const keys = Reflect.ownKeys(descriptors);
+  if (keys.some((key) => typeof key !== "string")) throw corpusSearchRefused("symbol_key_forbidden");
+  const length = array ? descriptors.length?.value : undefined;
+  if (array && (!Number.isSafeInteger(length) || length < 0 || length > CORPUS_SEARCH_SNAPSHOT.items)) {
+    throw corpusSearchRefused("array_length_out_of_range");
+  }
+  const dataKeys = array ? keys.filter((key) => key !== "length") : keys;
+  if (array) {
+    const expected = new Set(Array.from({ length }, (_, index) => String(index)));
+    if (dataKeys.length !== expected.size || dataKeys.some((key) => !expected.has(key))) {
+      throw corpusSearchRefused("sparse_or_named_array_forbidden");
+    }
+  } else if (dataKeys.length > CORPUS_SEARCH_SNAPSHOT.keys) {
+    throw corpusSearchRefused("object_key_count_out_of_range");
+  }
+  const snapshot = array ? new Array(length) : {};
+  for (const key of dataKeys) {
+    const descriptor = descriptors[key];
+    if (!descriptor.enumerable || !Object.hasOwn(descriptor, "value")) {
+      throw corpusSearchRefused("accessor_or_hidden_field_forbidden");
+    }
+    // A canonical own "__proto__" data key stays a plain key here; it never reaches an object
+    // literal assignment that would retarget a prototype.
+    Object.defineProperty(snapshot, key, {
+      value: corpusSearchSnapshot(descriptor.value, depth + 1, seen, budget),
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+  }
+  return snapshot;
+}
+
+function corpusSearchBudget(value, field) {
+  if (!Number.isSafeInteger(value) || value < 1 || value > CORPUS_SEARCH_LIMITS.budget) {
+    throw corpusSearchRefused(`${field}_out_of_range`);
+  }
+  return value;
+}
+
+/**
+ * Closed, order-independent request validation. Nothing is defaulted or coerced.
+ *
+ * The request tree is snapshotted first and every check below reads only the snapshot, so a bound
+ * always describes the value that is actually searched.
+ */
+function validateCorpusSearchRequest(input) {
+  if (input === null || typeof input !== "object" || Array.isArray(input)
+    || Object.getPrototypeOf(input) !== Object.prototype) {
+    throw corpusSearchRefused("request_must_be_one_plain_object");
+  }
+  const request = corpusSearchSnapshot(input, 0, new WeakSet(), { nodes: 0 });
+  if (!corpusSearchExactFields(request, CORPUS_SEARCH_REQUEST_FIELDS)) {
+    throw corpusSearchRefused("request_field_set_closed");
+  }
+  if (typeof request.queryText !== "string" || request.queryText.length === 0
+    || request.queryText.length > CORPUS_SEARCH_LIMITS.query_chars) {
+    throw corpusSearchRefused("query_text_invalid");
+  }
+  if (!Array.isArray(request.advisoryTerms)
+    || request.advisoryTerms.length > CORPUS_SEARCH_LIMITS.advisory_terms
+    || request.advisoryTerms.some((term) => typeof term !== "string" || term.length === 0
+      || term.length > CORPUS_SEARCH_LIMITS.advisory_term_chars)) {
+    throw corpusSearchRefused("advisory_terms_invalid");
+  }
+  if (!Array.isArray(request.sources) || request.sources.length === 0
+    || request.sources.length > CORPUS_SEARCH_LIMITS.sources) {
+    throw corpusSearchRefused("source_count_out_of_range");
+  }
+  const sourceIds = new Set();
+  const sources = request.sources.map((source) => {
+    if (!corpusSearchExactFields(source, CORPUS_SEARCH_SOURCE_FIELDS) || !isSafeId(source.source_id)) {
+      throw corpusSearchRefused("source_descriptor_invalid");
+    }
+    if (sourceIds.has(source.source_id)) throw corpusSearchRefused("source_id_duplicated");
+    sourceIds.add(source.source_id);
+    if (!Array.isArray(source.chunks) || source.chunks.length === 0
+      || source.chunks.length > CORPUS_SEARCH_LIMITS.chunks_per_source) {
+      throw corpusSearchRefused("chunk_count_out_of_range");
+    }
+    const chunkIds = new Set();
+    const chunks = source.chunks.map((chunk) => {
+      if (!corpusSearchExactFields(chunk, CORPUS_SEARCH_CHUNK_FIELDS) || !isSafeId(chunk.chunk_id)
+        || typeof chunk.text !== "string" || chunk.text.length === 0
+        || chunk.text.length > CORPUS_SEARCH_LIMITS.chunk_chars) {
+        throw corpusSearchRefused("chunk_descriptor_invalid");
+      }
+      if (chunkIds.has(chunk.chunk_id)) throw corpusSearchRefused("chunk_id_duplicated");
+      chunkIds.add(chunk.chunk_id);
+      if (!Array.isArray(chunk.page_numbers) || chunk.page_numbers.length === 0
+        || chunk.page_numbers.length > CORPUS_SEARCH_LIMITS.page_numbers
+        || chunk.page_numbers.some((page) => !Number.isSafeInteger(page) || page < 1)) {
+        throw corpusSearchRefused("chunk_page_numbers_invalid");
+      }
+      return { chunk_id: chunk.chunk_id, page_numbers: [...chunk.page_numbers], text: chunk.text };
+    });
+    return { source_id: source.source_id, chunks };
+  });
+  return {
+    sources,
+    queryText: request.queryText,
+    advisoryTerms: [...request.advisoryTerms],
+    maxEvidence: corpusSearchBudget(request.maxEvidence, "max_evidence"),
+    maxPerSource: corpusSearchBudget(request.maxPerSource, "max_per_source"),
+  };
+}
+
 function documentFrequenciesFor(queryTokens, chunkProfiles) {
   const frequencies = new Map(queryTokens.map((token) => [token, 0]));
   for (const { profile } of chunkProfiles) {
@@ -1541,7 +1875,9 @@ function tokenize(value) {
 
 function buildSearchProfile(value) {
   const normalizedText = normalizeSearchText(value);
-  const tokens = new Set();
+  // `counts` carries the term frequency the corpus-wide BM25 seam needs; `tokens` stays the
+  // presence set every existing caller already reads.
+  const counts = new Map();
   for (const segment of searchSegments(normalizedText)) {
     const pieces = segment
       .replace(/[^\p{L}\p{N}]+/gu, " ")
@@ -1552,23 +1888,24 @@ function buildSearchProfile(value) {
     for (let index = 0; index < pieces.length; index += 1) {
       const acronymRun = collectSingleLetterAcronymRun(pieces, index);
       if (acronymRun) {
-        addSearchToken(tokens, acronymRun.token);
+        addSearchToken(counts, acronymRun.token);
         sequence.push(acronymRun.token);
         index = acronymRun.endIndex;
         continue;
       }
       const variants = normalizedTokenVariants(pieces[index]);
-      for (const variant of variants) addSearchToken(tokens, variant);
+      for (const variant of variants) addSearchToken(counts, variant);
       const primary =
         variants.find((variant, variantIndex) => variantIndex > 0 && isSearchToken(variant)) ??
         variants.find((variant) => isSearchToken(variant));
       if (primary) sequence.push(primary);
     }
-    for (const compactToken of compactPhraseTokens(sequence)) addSearchToken(tokens, compactToken);
+    for (const compactToken of compactPhraseTokens(sequence)) addSearchToken(counts, compactToken);
   }
   return {
     normalizedText,
-    tokens,
+    tokens: new Set(counts.keys()),
+    counts,
   };
 }
 
@@ -1628,8 +1965,8 @@ function shouldCompactPhrase(terms) {
   return terms.some((term) => /\p{Script=Hangul}/u.test(term));
 }
 
-function addSearchToken(tokens, token) {
-  if (isSearchToken(token)) tokens.add(token);
+function addSearchToken(counts, token) {
+  if (isSearchToken(token)) counts.set(token, (counts.get(token) ?? 0) + 1);
 }
 
 function isSearchToken(token) {

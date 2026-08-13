@@ -30,6 +30,20 @@
   automatically. This
   automation side-effect change needs a fresh Level-3 B/V accept before any
   production or main-integration claim.
+- An evaluation-only source-bound answer lane now exists in public code beside
+  that fixed runner: it answers an arbitrary natural-language question over one
+  exact four-source public corpus, binds every rendered block to retrieved
+  evidence, and holds rather than answers when nothing matches. As of 2026-08-13
+  it is an implementation candidate that is tested, not an executed benchmark —
+  the private 7-question × 3-run actual execution has not been performed at this
+  point, so no result, score, or comparison exists for it yet.
+- The fixed seven-case structured Engine runner stays distinct and historical.
+  It is model-free, the two lanes are not comparable, and its recorded outputs
+  are not reused as the new lane's results.
+- Provider-effective post-ingest byte parity — and therefore any formal
+  Engine-versus-Notebook comparison, numeric score, or winner — remains `HOLD`
+  for the same unchanged reason: that parity is not observable on the provider
+  side. The new lane does not address that blocker and does not claim to.
 
 ## 목적
 

@@ -248,6 +248,517 @@ guard; unauthorized and wrong-project are access/binding refusal receipts, not
 invented Engine-native gap types. All rows remain
 `external_advisory_candidate` until a separate acceptance route says otherwise.
 
+## Evaluation-only Soulforge Engineering Answer Lane
+
+`evaluation/se_core_sourcebound_answer_lane.mjs` is a separate, **evaluation-only
+Soulforge Engineering Answer Lane**. It answers an arbitrary natural-language
+question over one exact, frozen four-source public systems-engineering corpus.
+
+It is deliberately **not**:
+
+- the deterministic Engine baseline — that is
+  `subjects/se_core_source_cited_answer_run.mjs`, a fixed seven-case renderer
+  that calls no model. The two lanes are not comparable, and the existing fixed
+  seven Engine outputs must not be reused as this lane's results;
+- general open question answering — every claim must cite retrieved evidence from
+  the four allowlisted sources, and an unmatched question is held, not answered;
+- production-ready, a score, a ranking, a winner, a parity claim, source truth,
+  an owner approval, a canon promotion, or a disposition.
+
+Every result is `ai_assisted`, non-authoritative, and source-bound. The claim
+ceiling is `observed` and the disposition is `external_advisory_candidate`.
+
+### Split of responsibility
+
+The deterministic side owns corpus validation, derived-text parsing, retrieval,
+evidence selection, citation binding, output schema validation, the claim
+ceiling, and the receipt. The learned model is only a bounded prose renderer.
+
+The injected `answerModel` receives the exact question text, the selected
+evidence capsules, and a closed output policy — nothing else. It has no
+filesystem, network, browser, or tool access, and it cannot create a source, a
+citation, an authority, or a claim ceiling. It may return only
+`{ sections: [{ heading, text, evidence_ids }] }`. Every substantive block must
+cite at least one retrieved evidence id; an unknown or foreign citation, an
+uncited block, an extra field, markup, a URL — which would name a source this
+lane never retrieved — a leaked path or secret, an authority claim, a throw, a
+timeout, or a malformed response all fail closed to a `HOLD` receipt with
+`answer: null`. Nothing is invented to fill a gap.
+
+The lane module performs no filesystem, network, write, or ERP operation, and is
+provider-independent: it does not know which runtime serves the model.
+
+The adapter is the one input the lane cannot snapshot, because it must carry
+functions. So it must be a plain object whose `composeAnswer`, optional
+`proposeQueryExpansion`, `descriptor`, and every descriptor field are **own
+enumerable data properties**, each read exactly once through its property
+descriptor — which never runs a getter. A stable accessor is refused for the same
+reason a shifting one is: the validated value and the used value are two reads of
+a caller-controlled function, so an accessor could hand a safe `adapter_id` to
+the receipt and a substituted renderer to the call. The seam bound at validation
+time is the function that actually runs, and `model.invocation_count`,
+`answer_invocation_count`, and `expansion_invocation_count` stay truthful — a
+refused adapter costs zero invocations.
+
+### Rendered-block output filter, and what it does not prove
+
+Model-authored headings and bodies pass a **conservative structural and
+forbidden-claim filter**. It refuses markup (Markdown emphasis, headings, links,
+code fences, HTML, entities), URLs, absolute Windows/POSIX/UNC paths, private
+planes, secrets, project codes, email addresses, foreign source, page, revision,
+chunk, digest, or evidence identifiers, and self-attributed authority — approval,
+canon, official standing, project-use direction, winner claims, and authority
+escalation. Every refusal is a `HOLD` with `answer: null` and fixed message text:
+the refused string is never interpolated into the error, the receipt, or a log,
+because a refusal that quoted it back would be the leak the check exists to
+prevent.
+
+That filter applies to **model-authored blocks only, never to evidence prose**.
+A real systems-engineering page legitimately says "approval", "official",
+"page 12", or "rev 3"; a rendered block has no reason to, because every citation,
+source, revision, and page row in the answer is machine-generated from the
+selected evidence. Applying the broad list to evidence text would refuse correct
+runs over the real corpus for no safety gain.
+
+**This is not a semantic entailment proof.** A grammatical Korean sentence that no
+selected capsule supports passes every check above. Correctness of arbitrary free
+text in this lane is **UNKNOWN**; it is not claimed by the receipt and cannot be
+inferred from a `PASS`. The receipt states the ceiling itself:
+`output.free_text_verification: structural_and_forbidden_claim_filter_only`,
+`output.semantic_entailment_verified: false`, and
+`output.free_text_correctness: unknown`. A caller that needs entailment must add
+its own check outside this lane.
+
+### Corpus pinning
+
+`corpus` must carry exactly four allowlisted source descriptors, in canonical
+`source_id` order, matching a frozen source-set contract member for member at the
+same position. Missing, extra, duplicate, or reordered members are refused as
+ambiguity rather than resolved. Every PDF commitment, every derived-text byte
+hash, and the source-set contract's own canonical commitment are verified; a
+one-byte derived-text drift refuses the run. An existing source-text index that
+lacks the derived-text hash binding is not trusted as a substitute.
+
+Runtime derived text is Markdown with `## Page N` headings and is parsed
+deterministically into page-aware chunks that never cross a page boundary, so a
+citation page is exact rather than inferred. A repeated or non-increasing page,
+or a page beyond the pinned page count, refuses the run. Raw PDFs are never read
+in this module. An oversized word is split between code points, never inside a
+surrogate pair, so a chunk boundary can never manufacture a lone surrogate that
+would be hashed, cited, and rendered as a replacement character.
+
+#### Validated contract vs pinned benchmark
+
+These are two different claims and the lane keeps them apart, because collapsing
+them is how "a run over four descriptors" quietly becomes "the benchmark result".
+
+- `runSeCoreSourceboundAnswerLane` is the **generic validated-contract API**. It
+  proves the supplied descriptors are internally consistent, allowlisted for
+  evaluation-lane analysis, and byte-pinned. It cannot prove they are the fixed
+  benchmark cohort, because the caller supplied both the descriptors *and* the
+  contract commitment over them — `seCoreSourceSetContractSha256` covers identity
+  and byte hashes only, so a caller can vary approval, permissions, or titles and
+  recompute a self-consistent hash. Its receipt says so:
+  `source_set.benchmark_pin.fixed_benchmark_identity_asserted` is `false`.
+- `runSeCorePinnedBenchmarkAnswerLane(input, context, benchmarkPin)` is the
+  **pinned benchmark execution gate**. `benchmarkPin` is independently configured
+  by the caller — `{ pin_id, source_set_id, expected_cohort_sha256,
+  allowed_source_ids }` — and is compared against the *full* runtime cohort
+  material: identity, byte hashes, `approval_status`, the operator
+  reuse-rights declaration, and every permission boolean
+  (`seCoreSourceCohortSha256`, exported for callers). A changed approval status,
+  a changed permission, or a changed source identity refuses the run
+  (`BENCHMARK_PIN_INVALID`) even when the caller recomputes every hash it
+  controls, because the pin is not derived from the descriptors under test. The
+  gate closes before any model call, so a refused pin costs zero invocations.
+
+The pin is a **seam**, not embedded configuration: this module hard-codes no
+cohort hash, no source id, no path, and no content, so nothing here can quietly
+bless a private corpus. Whichever cohort is pinned is the one the caller
+configured, and it is readable back from that run's own receipt.
+
+Both entry points are reachable from the CLI, so choosing between them is an
+operator decision made on the command line rather than a decision that requires
+writing a JS harness. See *Choosing the route* below.
+
+#### Approval and reuse rights
+
+`approval_status` must be exactly one of `owner_approved_public_source`,
+`official_public_source`, or `owner_approved_official_public_source`. The last is
+its own accepted value rather than something a caller has to flatten: what the
+document *is* and whether the owner cleared it for *this analysis* are two
+separate facts that can hold at once.
+
+`reuse_rights_reviewed` is a **runtime/operator declaration**, grounded in
+reviewed public-rights metadata for that source. It is never verbatim
+source-card data, and no receipt, README line, or comment describes it as such.
+The receipt records that basis explicitly as
+`source_set.reuse_rights_reviewed_basis`.
+
+#### Raw derived bytes
+
+The order is fixed and each step is recorded:
+
+1. the raw supplied bytes are hashed and compared with the pinned
+   `derived_text_sha256` — before any decode, so what gets parsed is provably
+   what the source set committed to. Verifying a normalised form instead would
+   commit to bytes nobody supplied;
+2. the bytes are decoded as UTF-8 with `fatal: true`;
+3. exactly two characters are rewritten, **in memory only** and both counted:
+   `U+0000` and `U+001F` become SPACE. Real extraction output carries stray NUL
+   and UNIT SEPARATOR where a PDF had a cell or record break, and both are
+   unambiguously word separators there;
+4. LINE FEED and TAB are preserved as the stream's own structure. **Every other
+   C0/C1 character refuses the run**, carriage return and form feed included: a
+   different control shape is a different extraction shape than this parser was
+   written for, and guessing at it is how a page boundary silently moves.
+
+Nothing else is rewritten, and the two boundary cases differ. A CRLF stream
+**refuses** (`DERIVED_TEXT_MALFORMED`), because carriage return is one of the
+refused C0 characters. A UTF-8 BOM is **not** refused and **not** rewritten
+here: `TextDecoder` consumes a leading BOM itself, before this module sees a
+character. The extraction step should still emit LF line endings and no BOM,
+because the BOM is the one case where the hash invariant below does not hold.
+
+Normalised bytes are never persisted. Each receipt source row carries
+`raw_derived_text_sha256`, `normalized_text_sha256`, `replacement_counts`
+(`{ u0000, u001f }`), `normalized_bytes_persisted: false`, and the two preamble
+booleans — commitments and counts only, never text. With zero replacements **and
+no BOM** the two hashes are identical, so the pair says precisely what changed.
+A stream that opened with a BOM passes with both replacement counts at zero and
+the two hashes still different, by exactly those three bytes. The parser does
+compute that case as `bom_stripped_by_decoder`, but it is **not** currently a
+receipt field, so from the receipt alone a BOM is not distinguishable from
+another cause of divergence.
+
+Because the replacement runs before the preamble is parsed, a control character
+*inside* the metadata preamble refuses the stream outright
+(`DERIVED_TEXT_MALFORMED`). In page prose the substituted space collapses
+harmlessly; in metadata it would break a private path, a secret, or a project
+code apart just enough to slip past the leakage scan, so a replaced control there
+is treated as evasion rather than formatting.
+
+#### Derived-text metadata preamble
+
+The authorized derived-text artifacts open with a bounded metadata preamble
+before their first page heading, so the parser accepts exactly one closed shape
+there and nothing else:
+
+```markdown
+# <document title>
+
+- source_id: <pinned source_id>
+- revision: <pinned revision>
+- source_pdf_sha256: <pinned source_pdf_sha256>
+- page_count: <pinned page_count>
+- extraction: <bounded provenance text>
+
+## Page 1
+```
+
+The rules are exact:
+
+- the preamble is **optional per stream**. A stream that starts at its first
+  `## Page N` heading keeps its previous behaviour unchanged; a stream that
+  opens with an H1 must then satisfy this whole shape. A mixed corpus is fine —
+  the check is per source, not per run;
+- the five keys above are the **only** accepted keys, each exactly once, in any
+  order, because the binding is by key and an emitted order carries no meaning.
+  A missing, repeated, or unknown key, a malformed bullet, a second H1, body
+  prose before `## Page 1`, or a preamble longer than its bounded line budget
+  refuses the run (`DERIVED_TEXT_MALFORMED`). This is a closed shape, not
+  arbitrary front matter;
+- a bullet value may be written plainly or as one Markdown code span
+  (`` `value` ``); both are the same value and the unwrapped value must still
+  bind exactly;
+- `source_id`, `revision`, `source_pdf_sha256`, and `page_count` must equal the
+  pinned source-set contract member **exactly**. A preamble that describes a
+  different document, revision, PDF, or page count refuses the run
+  (`DERIVED_TEXT_PIN_INVALID`) rather than being ignored;
+- `extraction` is provenance text: bounded, safe, non-empty, and deliberately
+  **not** part of the source-set commitment. It records how the text was
+  produced, not which document it is, so pinning it would refuse a re-extraction
+  of identical bytes;
+- every preamble value and the H1 are bounded NFC text without control
+  characters. A path, secret, account, project identifier, private-plane
+  reference, or URL there refuses the run
+  (`FORBIDDEN_PARTICIPANT_INPUT`);
+- the preamble is metadata about the stream, never content of it. No preamble
+  line is chunked, indexed, retrieved, cited, or copied into evidence, into the
+  answer, or into the receipt.
+
+**The H1 title rule.** The H1 is required when a preamble is present, but it is
+*not* required to equal the pinned `title`. The pinned title is an
+operator-curated label in the source-set contract; the H1 is whatever the
+extraction step rendered from the document itself, so a subtitle, an edition
+suffix, or punctuation can legitimately differ for the same document. Identity is
+already pinned four ways above, and the H1 bytes are already committed by
+`derived_text_sha256`, so a byte equality here could only refuse a correct run —
+it could not catch a substituted document. The divergence is therefore reported,
+not equated: each receipt source row carries `preamble_present` and
+`preamble_title_matches_pinned_title` (both booleans, never the text; the second
+is `false` when no preamble is present).
+
+### Retrieval
+
+Retrieval uses the corpus-wide seam `searchSourceTextCorpus` in
+`guild_hall/rag/source_text_index.mjs`: one global lexical/BM25-like space over
+all four sources, deterministic under input permutation, with bounded
+`max_evidence` and `max_per_source`. The receipt always reports
+`searched_source_count: 4` even when only a subset is cited. There is no
+embedding, vector index, or web search.
+
+The questions are Korean and the sources are English. The lane may therefore
+accept one optional **advisory** query expansion from the same bounded model. It
+is separately declared `model_advisory_shadow`, closed-schema,
+provenance-bound, and `authoritative: false` / `engine_retrieval: false`. The
+canonical retrieval always preserves the original exact question and its lexical
+search, and an advisory term carries a fraction of an exact query token's weight.
+It is a weaker vote, not a powerless one: bridging Korean to English is the point
+of the channel, so a capsule can enter on advisory signal alone. The retrieval
+receipt therefore reports `selected_advisory_only_count` — how many selected
+capsules the exact question never touched lexically — so the shadow channel's
+influence on the grounding is countable rather than assumed away. No question,
+expected answer, page hint, rubric minimum, or evaluator concept is encoded
+anywhere in this lane.
+
+### Runtime and provenance
+
+`tools/se_core_sourcebound_answer_runner.mjs` is the only place that knows a
+provider exists. It reads one explicit source-set contract, one exact question
+file, and exactly four explicit derived-text files, and calls **local
+`qwen3.5:9b` over loopback Ollama only** — one stateless on-demand request per
+call, `keep_alive` 5m, one user message, no tools, no history, no conversation or
+session reuse, no external egress. Validating the origin only pins the first hop,
+so a redirect is an error rather than a hop: a 307/308 would otherwise replay the
+prompt body at whatever host it names. A non-loopback origin, a different model, or a
+crosswalk/rubric/gold/prior-answer/Notebook input path is refused. Prompt text,
+source prose, and provider response bodies are never logged or persisted outside
+the private answer artifact.
+
+The endpoint is checked against the raw text as well as the parsed URL, because a
+URL parser is not a validator here: only a canonical numeric loopback origin
+spelled `http://<127.x.y.z or [::1]>:<port>` is accepted. `localhost` is a name
+whose meaning is decided by a resolver, and `2130706433`, `0x7f000001`,
+`0177.0.0.1`, and `[0:0:0:0:0:0:0:1]` are spellings a parser silently folds into
+the loopback address; all are refused. So are a missing or default port —
+this service has no default of its own — and any credential, path, query, or
+fragment. A reply the provider marks unfinished, a non-string content field, and
+content that is not one JSON object are refusals, never a completed answer.
+
+That endpoint check is **syntax only**. It proves how the target is spelled, not
+what listens there: whatever process is bound to that loopback port receives the
+request. The model name is *declared* — `qwen3.5:9b` is matched on the way out
+and sent in the request body. If the reply carries a `model` field it must name
+that same model or the run holds; if it omits the field the reply is still
+accepted, because the request already pinned the model and a silent reply is not
+evidence either way. Neither case is provider-side verification: "the prose came
+from `qwen3.5:9b`" remains an operator-side fact about the local runtime, not
+something this runner verifies or either receipt proves.
+
+stdout carries the canonical answer. stderr carries the payload-free **lane
+receipt** first and one **command execution receipt** last. The two are separate
+on purpose: the lane receipt is an immutable verification record of an in-memory
+evaluation that truthfully reports zero writes, and it is also the bytes
+`--receipt-out` persists, so it cannot describe its own persistence. The command
+receipt is where persistence is reported — `state` of
+`not_requested | complete | rolled_back | partial_unknown`, the exact
+`requested`, `claimed`, `completed`, `rolled_back`, and `unknown` counts, and
+`persistent_file_writes`: 0 for stdout-only, 1 for `--out`, 2 for `--out` plus
+`--receipt-out`. Lane-internal zero writes stay under `lane_internal_writes` so
+they can never be read as a statement about files on disk. A run that exits
+nonzero after the model ran still emits one command receipt with a truthful model
+invocation count.
+
+`--out` and `--receipt-out` are independent create-only files, both staged
+**before** the model is invoked, so an occupied output refuses the run at zero
+model calls. An output target is refused when its spelling and its meaning on
+disk can differ: an alternate data stream (`host.txt:stream`), a reserved device
+name with or without an extension (`nul`, `con.json`), a trailing dot or space, a
+traversal segment, a UNC or device-namespace root, an empty segment, and two
+targets that resolve to one file by normalised path or by file identity.
+
+Both outputs are written and flushed before either handle is closed, and a
+committed path is then re-checked against the file this run actually created.
+Two files on one filesystem cannot be made to appear atomically, so what cannot
+be made atomic is reported rather than glossed: a lost or aliased output ends the
+command in `partial_unknown` with exact counts, and one file is never presented
+as a completed answer. Nothing is ever removed by path alone — a staged output is
+identified by device and inode — so a file that replaced ours between the claim
+and the rollback is left untouched and counted `unknown`. No caller sink is
+invoked while any output is still rollback-eligible.
+
+Claude Code is build provenance for this lane's implementation only. It is not a
+runtime dependency, not a reviewer, and not an authority. The runtime model is
+the local `qwen3.5:9b` above.
+
+### Choosing the route: generic or pinned
+
+One canonical command serves both, and the flag is the whole difference:
+
+```text
+node guild_hall/engineering_engine/tools/se_core_sourcebound_answer_runner.mjs \
+  --source-set-contract <contract.json> --source-set-sha256 <sha256> \
+  --question <question.txt> --question-sha256 <sha256> --question-bytes <n> \
+  --point-in-time <YYYY-MM-DD> \
+  --derived-text <source_id>=<path>   (exactly four, one per source) \
+  [--benchmark-pin <pin.json>]        (a supplied pin means benchmark mode)
+```
+
+- **no `--benchmark-pin`** — the generic validated-contract route. The lane
+  receipt reports `fixed_benchmark_identity_asserted: false` and the command
+  receipt reports `benchmark.mode: generic`. A generic run is never described as
+  the benchmark by either surface.
+- **`--benchmark-pin <file>`** — the pinned benchmark route. On an exact match
+  the lane receipt reports `benchmark_pin.pinned: true`,
+  `cohort_commitment_verified: true`, and
+  `fixed_benchmark_identity_asserted: true`; the command receipt reports
+  `benchmark.mode: pinned` and mirrors the lane's assertion. It mirrors it: the
+  command receipt reads that boolean back out of the lane receipt and never
+  asserts it, because this process supplies the pin and is not a witness to its
+  own claim.
+
+The pin file is one closed plain JSON document holding exactly the four fields
+the deep API accepts, and nothing else — a `schema_version` or any other extra
+key is refused rather than ignored:
+
+```json
+{
+  "pin_id": "<safe identifier>",
+  "source_set_id": "<safe identifier>",
+  "expected_cohort_sha256": "<64 lowercase hex>",
+  "allowed_source_ids": ["<four distinct ids, canonical order>"]
+}
+```
+
+It is read as a **bounded ordinary file, opened read-only**, at most 4 KiB, under
+the same handle-based read every named input gets (see *Resource ceilings*
+below), then decoded as UTF-8 with `fatal: true`, parsed strictly, and rebuilt
+from validated primitives so no prototype, accessor, or extra field from the file
+reaches the lane. Anything that is not one bounded singly named ordinary file,
+plus undecodable bytes, a wrong field set, a non-lowercase digest, or anything
+but four distinct safe ids, refuses the run with
+`..._CLI_BENCHMARK_PIN_FILE_INVALID`. No pin content and no local path is echoed
+on any failure path.
+
+**The pin is never computed here.** The runner does not derive, recompute, or
+repair `expected_cohort_sha256` from the corpus under test — a commitment
+re-derived from the thing it is supposed to bind proves nothing about it. So the
+CLI refuses a mismatch instead of healing it, and these all hold before any model
+call and before any output byte:
+
+| what changed | refusal |
+| --- | --- |
+| a drifted `expected_cohort_sha256` | `BENCHMARK_PIN_INVALID` |
+| the source-set contract hash pasted in as the cohort hash | `BENCHMARK_PIN_INVALID` |
+| an `approval_status` changed to another accepted value | `BENCHMARK_PIN_INVALID` |
+| a source member renamed, with every caller-controlled hash recomputed | `BENCHMARK_PIN_INVALID` |
+| a permission flipped | `SOURCE_SET_INVALID`, at the earlier gate |
+
+The last row is the honest exception: permissions are fixed exactly by the
+source-set gate, which runs *ahead* of the cohort binding, so a flipped
+permission never reaches the pin comparison. It still holds with zero model calls
+and zero artifacts, which is the property that matters.
+
+Authoring a pin is therefore an **owner setup step, out of band and once**, not a
+per-run step: the owner computes the commitment over a cohort they have reviewed,
+using `seCoreSourceCohortSha256` (exported by the lane and re-exported here), and
+freezes the result. Running the 7×3 sweep afterwards needs only the command
+above — no JS import, no harness, no recomputation.
+
+### Resource ceilings
+
+Every byte this command takes from outside is bounded before it is interpreted.
+
+- **named local inputs.** No whole-file read is used anywhere: a whole-file read
+  sizes its allocation from the file, which is the one number this process does
+  not control. Each named input is opened read-only, its size is taken from the
+  **open handle** and compared against that input kind's ceiling *before* a
+  buffer is allocated, the allocation is exactly that size, the read is driven to
+  completion at explicit offsets, and one byte is probed past the end so a file
+  that grew after the stat is refused rather than silently accepted as the
+  shorter document that still parses.
+
+  | input | ceiling | why |
+  | --- | --- | --- |
+  | source-set contract | 65536 B | one closed four-member document is a few kilobytes; the rest is whitespace headroom |
+  | benchmark pin | 4096 B | four identifiers and one digest |
+  | question | 8192 B | exactly the lane's own question ceiling |
+  | each derived text | 8388608 B | exactly the lane's own derived-text ceiling |
+
+  The last two are not independent numbers. The suite pins each to the lane's
+  boundary from both sides — the exact ceiling answers end to end, one byte more
+  is refused — so the runner and the lane cannot drift apart silently.
+
+  The handle is the file; the path is only a name for it. Identity is read from
+  the descriptor and from the name — *without* following it — both before and
+  after the read, and any disagreement refuses. So a directory, a device, a
+  symlink, a junction, a **hard link** (a second name is a second writer this
+  call never checked), a short read, a replacement mid-read, an empty file, and
+  an oversized file are all refused with `..._CLI_INPUT_READ_FAILED`, or
+  `..._CLI_BENCHMARK_PIN_FILE_INVALID` for the pin. Every one of them shares one
+  fixed message: which check failed, which path was named, and what the file held
+  are all withheld, because a caller who can name a path could otherwise read the
+  filesystem one refusal at a time. All of it happens before the model adapter
+  exists and before any output is staged, so a refused input costs zero model
+  calls and creates no file.
+- **io surface.** The caller's `io` object is reflected exactly once, through
+  `getOwnPropertyDescriptors`, *before* any seam is used. No seam is ever read as
+  a property, so a getter never runs, and each seam is bound once from that
+  snapshot. A custom prototype, an inherited seam, a non-enumerable seam, an
+  accessor, an unknown string key, or any own symbol other than this module's
+  test checkpoint refuses the run with `..._CLI_IO_SURFACE_INVALID`. A refused
+  surface is not usable as a reporting sink either, so its command receipt goes
+  to the process's own stderr rather than through the object that was refused.
+- **request timeout.** `--timeout-ms` and the adapter's `timeoutMs` option both
+  cap at exactly **180000 ms**, which is also the default. `180000` is accepted;
+  `180001`, `9999999`, zero, a negative, a fraction, and a numeric string are
+  refused before any request is made.
+- **provider response.** `response.json()` is never used: it would read and parse
+  a body of unbounded length into this process before a single check could run.
+  Instead a declared `Content-Length` over the cap refuses before the body is
+  touched; a streamed body is read with a running byte counter and the reader is
+  **cancelled** the moment the cap is crossed; an injected client's
+  `arrayBuffer`/`text` fallback has its byte length enforced too. Only then is
+  the buffer decoded as UTF-8 with `fatal: true`, and only then parsed.
+
+  | ceiling | value | why |
+  | --- | --- | --- |
+  | whole HTTP response | 262144 B | the widest legal reply plus envelope, with margin |
+  | `message.content` bytes | 131072 B | ~99 KB is the widest legal rendering at 3 bytes/char |
+  | `message.content` characters | 49152 units | ~33 000 units is the widest legal rendering |
+
+  The two content ceilings are both live: bytes bound multi-byte prose, characters
+  bound ASCII-heavy prose, and neither implies the other. All three are derived
+  from the closed output schema — at most 8 sections, each with a 120-character
+  heading, 4000 characters of prose, and 8 evidence ids — not guessed.
+
+  An oversized, malformed, non-object, or undecodable reply is a `HOLD` with
+  `answer: null` and fixed message text. No provider byte is echoed into an
+  error, a receipt, or a log, and the model invocation count stays truthful: a
+  refused reply still happened, and the receipt says so.
+
+  The `text()` fallback carries one stated limit: a client that exposes only text
+  has already decoded, so the bound there is taken on the re-encoded bytes and
+  cannot prove what crossed the socket. Real `fetch` always exposes a stream, so
+  nothing but an injected client reaches that branch.
+
+### Receipt boundary
+
+The receipt is payload-free: exact question, source-set, cohort, derived-text,
+retrieval, prompt, model-adapter, and output commitments; the benchmark-pin
+posture; selected evidence ids
+with page metadata and chunk hashes; a truthful model invocation count;
+`filesystem_writes: 0`; `erp_writes: 0`; every canon/owner/P5/P8/Task authority
+flag false; and `claim_ceiling: observed` with
+`candidate_disposition: external_advisory_candidate`. It never contains question
+text, source prose, answer prose, absolute paths, credentials, runtime or session
+identifiers, or provider response bodies.
+
+Public code, fixtures, and tests contain only synthetic material. The synthetic
+four-source corpus lives in
+`fixtures/se_core_sourcebound_synthetic_corpus.mjs`.
+
 ## 목적
 
 - `engineering_engine/` 은 Soulforge 의 cross-project 증거기반 체계공학 판단 engine 을 소유한다.

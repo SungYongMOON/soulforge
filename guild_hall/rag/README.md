@@ -242,6 +242,67 @@ decisions, promote public canon, accept ontology, or switch default routes.
 - Terminal-only `--text` output is operator feedback, not a persisted knowledge
   artifact or source authority.
 
+## Corpus-Wide Lexical Retrieval Seam
+
+`source_text_index.mjs` exports one pure corpus-wide retrieval seam,
+`searchSourceTextCorpus`, next to the existing single-index `retrieveChunks`
+path. It scores every chunk of every supplied source in **one global
+lexical/BM25-like space**: document frequency, corpus size, and average document
+length are taken once over the union of all chunks, so a score from a short
+source is directly comparable with a score from a long one. Merging several
+separately normalised per-source rankings would not have that property, and
+collapsing four sources into one synthetic index would destroy source
+attribution — neither is done.
+
+The seam is pure: no filesystem, network, clock, randomness, embedding, vector
+index, web search, or mutation of the caller's objects. It takes a closed
+request (`sources`, `queryText`, `advisoryTerms`, `maxEvidence`,
+`maxPerSource`), refuses a duplicate source or chunk id, and returns bounded
+hits plus a receipt.
+
+**Strict request snapshot.** Before one semantic read happens, the whole request
+tree is copied into fresh plain own data, and every later check and the scoring
+itself read only that snapshot. Checking the declared field positions would not
+be enough: the request is a tree, and every node of it is read at least twice —
+once to satisfy a bound and once to build the searched corpus. A node that
+answers those two reads differently makes each bound describe a request that was
+never actually searched. A chunk could pass the length bound at twelve
+characters and be scored as an unbounded one; a `page_numbers` element could pass
+the bound as page 1 and be cited as page 9999.
+
+So the tree is refused unless it is bounded, acyclic, unaliased plain JSON built
+from own enumerable **data** properties. Refused outright, at any depth:
+accessors (stable ones too — a field that is not an own data property cannot be
+bounded, whatever it happens to return), symbol keys, non-enumerable fields,
+sparse arrays, named array properties, custom prototypes and `Array` subclasses,
+host and wrapper objects, non-safe-integer numbers, and any node reachable twice
+by aliasing or a cycle. A duplicate `source_id`, and a duplicate `chunk_id`
+within one source, are refused, so no source is searched twice and no
+`(source_id, chunk_id)` hit can be reported twice. The returned hits carry
+snapshot-owned arrays, never the caller's own.
+
+Two properties matter to callers:
+
+- **Order independence.** Ranking is total — score descending, then `source_id`,
+  then `chunk_id` — so permuting the sources or the chunks cannot change the
+  result, and identically scoring chunks resolve deterministically.
+- **Search proof.** The receipt reports `searched_source_count`,
+  `searched_chunk_count`, and a per-source row for **every** source, including
+  sources that contributed no selected evidence. A subset of cited sources is
+  therefore distinguishable from a subset of searched sources.
+
+`advisoryTerms` is an optional, deliberately weaker expansion channel. Exact
+query tokens are always scored, `exact_query_preserved` is always true, and the
+receipt separates `query_token_count` from `advisory_token_count`. An advisory
+term is scored at a fraction of an exact query token's weight, which makes it a
+weaker vote rather than a powerless one: a chunk that matches only advisory terms
+is still selectable and can outrank a weak exact match. That is deliberate — a
+Korean question over English sources needs the expansion to reach chunks the
+exact question never touches lexically — so the receipt reports
+`selected_advisory_only_count` rather than implying it cannot happen. The seam
+does not know or care where advisory terms came from; a caller that sources them
+from a model must declare that posture in its own receipt.
+
 ## Company Intake Packet Validation
 
 The public-safe template lives under

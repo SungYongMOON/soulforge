@@ -1,5 +1,173 @@
 # CHANGELOG
 
+## 2026-08-13 - Evaluation-only SE-core source-bound answer lane and corpus-wide retrieval
+
+- Added an evaluation-only Soulforge Engineering Answer Lane
+  (`guild_hall/engineering_engine/evaluation/se_core_sourcebound_answer_lane.mjs`)
+  that answers one arbitrary natural-language question over one exact four-source
+  public systems-engineering corpus. It is neither the deterministic Engine
+  baseline nor general open question answering: the existing fixed seven-case
+  source-cited runner remains a separate, unchanged, model-free lane, the two are
+  not comparable, and those seven fixed outputs must not be reused as this lane's
+  results. Every result is `ai_assisted` and non-authoritative, with
+  `claim_ceiling: observed` and
+  `candidate_disposition: external_advisory_candidate`.
+- Kept the source set operator-supplied rather than repo-embedded, and split two
+  claims that are easy to collapse. `runSeCoreSourceboundAnswerLane` is the
+  generic validated-contract API: it proves the four supplied descriptors are
+  internally consistent, allowlisted for evaluation-lane analysis, canonically
+  ordered, and byte-pinned, and it reports
+  `source_set.benchmark_pin.fixed_benchmark_identity_asserted: false`, because the
+  caller supplied both the descriptors and the identity/byte commitment over them.
+  `runSeCorePinnedBenchmarkAnswerLane` takes an independently configured cohort
+  pin whose commitment covers the **full** member material — identity, byte
+  hashes, `approval_status`, the operator reuse-rights declaration, and every
+  permission boolean — so a changed approval status, a changed permission, or a
+  changed source identity refuses the run at zero model calls even when the caller
+  recomputes every hash it controls. The module hard-codes no cohort hash, no
+  source id, no path, and no source content, so nothing in it can bless a private
+  corpus.
+- Made both routes reachable as one canonical command, so choosing between them
+  is an operator decision on the command line rather than one that requires
+  writing a JS harness. `--benchmark-pin <file>` supplies an operator-authored
+  pin and means benchmark mode; without it the run stays the generic
+  validated-contract route and says so on both receipts
+  (`benchmark.mode: generic`, `fixed_benchmark_identity_asserted: false`). The
+  pin file is one closed plain JSON document of exactly `pin_id`,
+  `source_set_id`, `expected_cohort_sha256`, and `allowed_source_ids` — an extra
+  key such as a `schema_version` is refused rather than ignored — read as a
+  bounded read-only ordinary file whose size is taken from the open handle,
+  decoded UTF-8 `fatal: true`, parsed strictly, and rebuilt from validated
+  primitives. The runner never derives, recomputes, or repairs the commitment
+  from the corpus under test: a drifted hash, the source-set hash pasted in as
+  the cohort hash, a re-approved source, or a renamed member refuses before any
+  model call and before any output byte, and a flipped permission refuses one
+  gate earlier still. The command receipt mirrors the lane's
+  `fixed_benchmark_identity_asserted` rather than asserting it, since the process
+  that supplies the pin is not a witness to its own claim, and it carries closed
+  safe metadata only — no pin content, no local path.
+- Bounded the named local inputs the same way, rather than reading them whole. A
+  whole-file read sizes its allocation from the file, which is the one number the
+  command does not control, so the source-set contract, the question, and each of
+  the four derived texts are now opened read-only, sized from the **open handle**,
+  and compared against that input kind's ceiling *before* a buffer exists —
+  65536 B for the contract, 4096 B for the pin, and 8192 B and 8388608 B for the
+  question and each derived text, which are exactly the ceilings the lane itself
+  enforces on the same material and are pinned to the lane's boundary from both
+  sides by the suite. The allocation is exactly the stated size, the read is
+  driven to completion at explicit offsets, and one byte is probed past the end so
+  a file that grew after the stat is refused rather than accepted as the shorter
+  document that still parses. Identity is read from the descriptor and from the
+  name without following it, both before and after the read, so a directory, a
+  device, a symlink, a junction, a hard link, a short read, a replacement
+  mid-read, an empty file, and an oversized file all refuse. Every refusal shares
+  one fixed message that names neither the path nor the content nor which check
+  failed, and all of it happens before the model adapter exists and before any
+  output is staged, so a refused input costs zero model calls and creates no file.
+- Bounded every byte this command takes from outside before it is interpreted.
+  The `io` surface is reflected exactly once through `getOwnPropertyDescriptors`
+  before any seam is used, so a getter never runs and each seam is bound once
+  from that snapshot; a custom prototype, an inherited or non-enumerable seam, an
+  accessor, an unknown key, or any own symbol but the test checkpoint refuses the
+  run, and a refused surface is not used as a reporting sink. `--timeout-ms` and
+  the adapter option both cap at exactly 180000 ms, which is also the default.
+  `response.json()` is never called: a declared `Content-Length` over the cap
+  refuses before the body is touched, a streamed body is counted incrementally
+  and the reader cancelled the moment the cap is crossed, an injected client's
+  `arrayBuffer`/`text` fallback is length-checked too, and only then is the buffer
+  decoded UTF-8 `fatal: true` and parsed. The ceilings — 262144 response bytes,
+  131072 `message.content` bytes, 49152 `message.content` characters — are
+  derived from the closed output schema rather than guessed. A reply that names a
+  `model` must name `qwen3.5:9b`; a reply that omits the field is accepted and
+  claims nothing, because the request already pinned the model. Every oversized,
+  malformed, or undecodable reply is a `HOLD` with no provider byte echoed and a
+  truthful invocation count.
+- Recorded the approval posture as what it actually is. `approval_status` accepts
+  exactly `owner_approved_public_source`, `official_public_source`, or
+  `owner_approved_official_public_source` — the combined value is its own accepted
+  status because what a document *is* and whether the owner cleared it for *this
+  analysis* are two facts that can hold at once — and permissions must allow
+  evaluation-lane analysis while forbidding canon promotion and external upload.
+  `reuse_rights_reviewed` is a runtime operator declaration over reviewed public
+  rights metadata, never verbatim source-card data; the receipt states that basis
+  as `source_set.reuse_rights_reviewed_basis`.
+- Fixed the derived-byte order: the raw supplied bytes are hashed against the
+  pinned `derived_text_sha256` **before** any decode, then decoded as UTF-8 with
+  `fatal: true`, and only then are exactly two characters — `U+0000` and `U+001F`
+  — replaced with SPACE **in memory**, both counted. Every other C0/C1 character
+  refuses the run, carriage return and form feed included; LF and TAB are
+  preserved. Each receipt source row carries `raw_derived_text_sha256`,
+  `normalized_text_sha256`, `replacement_counts`, and
+  `normalized_bytes_persisted: false`. No normalised byte is written anywhere.
+- Excluded the derived-text metadata preamble from the answer entirely. One
+  closed shape is accepted before the first `## Page N` heading — one H1 plus the
+  five known bullets, each exactly once — and `source_id`, `revision`,
+  `source_pdf_sha256`, and `page_count` must bind to the pinned contract member
+  exactly. No preamble line is chunked, indexed, retrieved, cited, or copied into
+  evidence, the answer, or the receipt, and a control character inside the
+  preamble region refuses the stream rather than being collapsed to a space.
+- Added one pure corpus-wide deterministic retrieval seam,
+  `searchSourceTextCorpus` in `guild_hall/rag/source_text_index.mjs`, beside the
+  existing single-index path. It scores every chunk of every supplied source in
+  one global lexical/BM25-like space, so scores from a short and a long source are
+  comparable; ranking is total and order-independent; the request tree is
+  snapshotted into plain own data before one semantic read, so no accessor can
+  show the validator one value and the scorer another; and the receipt proves how
+  much was searched, not only what was cited. There is no embedding, vector index,
+  or web search.
+- Made the local model a bounded prose renderer and nothing more. The lane itself
+  is provider-independent and performs no filesystem, network, write, or ERP
+  operation; `guild_hall/engineering_engine/tools/se_core_sourcebound_answer_runner.mjs`
+  is the only place that knows a provider exists and calls local `qwen3.5:9b`
+  over loopback Ollama only, stateless, no tools, no history, redirects refused.
+  An optional advisory query expansion from the same model is declared
+  `model_advisory_shadow`, weighted below an exact query token, and can change
+  which evidence is selected — so it stays non-authoritative *and* countable via
+  `selected_advisory_only_count`, rather than being described as harmless.
+  Evidence selection, citation binding, page attribution, the output schema, the
+  claim ceiling, and the receipt are owned deterministically outside the model,
+  which cannot create a source, a citation, an authority, or a ceiling.
+- Named the verification ceiling instead of implying a stronger one. Model-authored
+  headings and bodies pass a conservative structural and forbidden-claim scan —
+  markup, URLs, paths, secrets, project codes, foreign source/page/revision/chunk
+  identifiers, and self-attributed authority — and every refusal is a `HOLD` with
+  `answer: null` and fixed message text that never quotes what it refused. That
+  scan is **not** a semantic entailment proof: a grammatical sentence no selected
+  capsule supports passes it. The receipt says so in its own fields —
+  `free_text_verification: structural_and_forbidden_claim_filter_only`,
+  `semantic_entailment_verified: false`, `free_text_correctness: unknown` — so
+  free-text correctness in this lane stays UNKNOWN and cannot be inferred from a
+  `PASS`.
+- Split write accounting between the two surfaces so neither can be read as the
+  other. The lane receipt is a payload-free record of an in-memory evaluation and
+  truthfully reports `filesystem_writes: 0`; it is also the bytes `--receipt-out`
+  persists, so it cannot describe its own persistence. The CLI therefore emits a
+  separate command execution receipt carrying `state` of
+  `not_requested | complete | rolled_back | partial_unknown`, the exact
+  `requested`/`claimed`/`completed`/`rolled_back`/`unknown` counts, and
+  `persistent_file_writes`, with the lane's zero-write claim kept under
+  `lane_internal_writes`. Both explicit outputs are staged create-only before the
+  model is invoked, identified by device and inode rather than by path, and a lost
+  or replaced output ends the command in `partial_unknown` without touching a file
+  this run does not own.
+- Granted no authority with any of it. The lane holds zero owner approval, canon
+  promotion, task creation, disposition, P5/P8, action-execution, and source-truth
+  authority; it consumes no actual project or private data; and it produces no
+  score, no ranking, and no winner. The Notebook comparison's blocker is unchanged
+  and unaddressed here: provider-effective post-ingest byte parity is still not
+  observable, so no formal comparison, parity claim, or project-use claim follows
+  from this lane. Public code, fixtures, and tests carry synthetic material only.
+- Operator impact: the lane is public implementation and tested, not an executed
+  benchmark. Coverage runs under the existing canonical surfaces —
+  `npm run validate:engineering-engine-se-core-eval` now `node --check`s the lane,
+  the synthetic fixture, and the CLI and runs both new suites, and
+  `npm run validate:rag` runs the new corpus-search suite — with no new script and
+  no new command name. Actual execution over the real corpus needs the operator's
+  own source set, an owner-configured cohort pin, and a running local model, none
+  of which this change supplies. Authoring that pin stays an owner setup step done
+  once out of band with `seCoreSourceCohortSha256` over a reviewed cohort; running
+  the sweep afterwards needs only the one CLI command.
+
 ## 2026-08-12 - Automatic derived report for every captured SE-core turn
 
 - Moved the derived QA human report's on-disk write into one owner-local writer
