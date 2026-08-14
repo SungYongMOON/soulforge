@@ -5770,6 +5770,23 @@ a:focus-visible {
 .watchtower-inspector-paths p { margin: 0 0 7px; color: #94a8b2; font-size: 12px; line-height: 1.45; }
 .watchtower-inspector-paths ol { display: grid; gap: 5px; margin: 0; padding-left: 20px; color: #d1dde2; font: 12px/1.45 Consolas, ui-monospace, monospace; overflow-wrap: anywhere; }
 .watchtower-inspector-empty { color: #8fa1aa; }
+.watchtower-connection-diagnosis {
+  display: grid; gap: 8px; padding: 9px 11px;
+  border: 1px solid rgb(114 183 255 / 24%); border-radius: 8px; background: rgb(9 19 26 / 78%);
+}
+.watchtower-connection-diagnosis dd[data-state="confirmed"] { color: #83d89b; }
+.watchtower-connection-diagnosis dd[data-state="ok"] { color: #83d89b; }
+.watchtower-connection-diagnosis dd[data-state="attention"] { color: #f1c36e; }
+.watchtower-connection-diagnosis dd[data-state="failure_signal"] { color: #ff8d84; }
+.watchtower-connection-diagnosis dd[data-state="unverifiable"],
+.watchtower-connection-diagnosis dd[data-state="not_applicable"] { color: #9fb3bd; }
+.watchtower-connection-scope {
+  margin: 0; color: #9fb3bd; font: 11px/1.45 Consolas, ui-monospace, monospace; overflow-wrap: anywhere;
+}
+.watchtower-connection-limits {
+  display: grid; gap: 3px; margin: 0; padding-left: 16px;
+  color: #8fa1aa; font-size: 11px; line-height: 1.45;
+}
 .watchtower-inspector-owner-note { margin: 0; color: #f1c36e; font-size: 12px; font-weight: 650; }
 .watchtower-canvas { height: 920px; border: 1px solid #27323c; border-radius: 12px; overflow: hidden; background: radial-gradient(ellipse 92% 72% at 50% 28%, #121922 0%, #090d12 72%); }
 .watchtower-canvas .react-flow { background: transparent; }

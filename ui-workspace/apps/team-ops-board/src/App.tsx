@@ -77,6 +77,7 @@ import {
   isFocusRestoreCandidate
 } from "./core/mobile-detail.mjs";
 import { readCollapsedPanelIds, setPanelCollapsed } from "./core/panel-collapse.mjs";
+import { buildTopologyConnectionDiagnostic, isTopologyDiagnosticNode } from "./core/topology-connection-diagnostics.mjs";
 import { buildTopologyStructuralPaths, buildTopologyViewModel } from "./core/topology-view.mjs";
 import { buildEngineeringClassicTopologyViewModel } from "./core/topology-engine-classic-view.mjs";
 import {
@@ -1137,6 +1138,7 @@ function App() {
               <SystemTopologySurface
                 projection={topologyProjection}
                 refreshing={topologyRefreshing}
+                providerSnapshots={providerSnapshots}
                 onRefreshReadOnly={refreshDiagnostics}
               />
               <EngineeringEngineTopologySurface projection={topologyFederationProjection} />
@@ -3593,9 +3595,10 @@ function watchtowerMiniMapColor(node: any): string {
   return "#72b7ff";
 }
 
-function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
+function SystemTopologySurface({ projection, refreshing, providerSnapshots = null, onRefreshReadOnly }: {
   projection: any;
   refreshing: boolean;
+  providerSnapshots?: any;
   onRefreshReadOnly: () => Promise<any>;
 }) {
   const model = useMemo(() => buildTopologyViewModel(projection?.snapshot ?? null), [projection]);
@@ -3606,6 +3609,7 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [inspectorView, setInspectorView] = useState<"evidence" | "direct" | "all">("evidence");
   const [trackingInteraction, setTrackingInteraction] = useState<any>(null);
+  const [connectionDiagnosis, setConnectionDiagnosis] = useState<any>(null);
   const fittedLayoutRef = useRef<string | null>(null);
   const selectedNodeTriggerRef = useRef<HTMLButtonElement | null>(null);
   const inspectorRef = useRef<HTMLElement | null>(null);
@@ -3636,6 +3640,7 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
   function clearSelectedNode(restoreFocus = true) {
     const trigger = selectedNodeTriggerRef.current;
     setSelectedNodeId(null);
+    setConnectionDiagnosis(null);
     if (restoreFocus && trigger !== null) {
       window.requestAnimationFrame(() => trigger.focus({ preventScroll: true }));
     }
@@ -3643,6 +3648,7 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
 
   function activateTopologyNode(nodeId: string, trigger?: EventTarget | null) {
     if (trigger instanceof HTMLButtonElement) selectedNodeTriggerRef.current = trigger;
+    setConnectionDiagnosis(null);
     setSelectedNodeId((current) => current === nodeId ? null : nodeId);
   }
 
@@ -3672,6 +3678,26 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
       pending: false,
       text,
       observedAt: nextProjection?.observed_at ?? new Date().toISOString(),
+    });
+  }
+
+  // 연결 진단은 이미 받아 둔 loopback 스냅샷만 다시 읽는 별도 근거 렌즈다. 노드 health 를
+  // 바꾸지 않고, 공급자 계정·프로세스에 새 호출을 만들지 않으며, 복구를 실행하지 않는다.
+  async function diagnoseNodeConnection(nodeId: string) {
+    if (!isTopologyDiagnosticNode(nodeId)) {
+      setConnectionDiagnosis({ nodeId, pending: false, result: buildTopologyConnectionDiagnostic({ nodeId }) });
+      return;
+    }
+    setConnectionDiagnosis({ nodeId, pending: true, result: null });
+    const nextProjection = await onRefreshReadOnly();
+    setConnectionDiagnosis({
+      nodeId,
+      pending: false,
+      result: buildTopologyConnectionDiagnostic({
+        nodeId,
+        healthProjection: nextProjection ?? projection,
+        providerSnapshots,
+      }),
     });
   }
 
@@ -3733,6 +3759,13 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
     };
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [selectedNodeId]);
+
+  // 다른 노드를 고르면 이전 진단 결과를 남기지 않는다. 남기면 다른 노드의 근거로 읽힌다.
+  useEffect(() => {
+    setConnectionDiagnosis((current: any) => (
+      current === null || current.nodeId === selectedNodeId ? current : null
+    ));
   }, [selectedNodeId]);
 
   useEffect(() => {
@@ -4010,6 +4043,16 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
           </header>
           <div className="watchtower-inspector-actions" role="group" aria-label="선택 노드 읽기 전용 동작">
             <button type="button" onClick={onRefreshReadOnly} disabled={refreshing}>읽기 전용 갱신</button>
+            {isTopologyDiagnosticNode(selectedNode.id) && (
+              <button
+                type="button"
+                data-testid="system-topology-connection-diagnose"
+                aria-controls="watchtower-connection-diagnosis"
+                aria-expanded={connectionDiagnosis?.nodeId === selectedNode.id}
+                disabled={connectionDiagnosis?.nodeId === selectedNode.id && connectionDiagnosis?.pending === true}
+                onClick={() => { void diagnoseNodeConnection(selectedNode.id); }}
+              >진단</button>
+            )}
             <button type="button" aria-pressed={inspectorView === "evidence"} onClick={() => setInspectorView("evidence")}>근거 보기</button>
             <button type="button" aria-pressed={inspectorView === "direct"} onClick={() => setInspectorView("direct")}>직접 경로</button>
             <button type="button" aria-pressed={inspectorView === "all"} onClick={() => setInspectorView("all")}>전체 구조 경로</button>
@@ -4042,6 +4085,66 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
                     ))}
                   </ol>
                 )
+              )}
+            </section>
+          )}
+          {connectionDiagnosis?.nodeId === selectedNode.id && (
+            <section
+              id="watchtower-connection-diagnosis"
+              className="watchtower-connection-diagnosis"
+              aria-label={`${selectedNode.label} 연결 진단 결과`}
+              role="status"
+              aria-live="polite"
+              aria-busy={connectionDiagnosis.pending === true}
+              data-testid="system-topology-connection-diagnosis"
+            >
+              {connectionDiagnosis.pending === true || connectionDiagnosis.result === null ? (
+                <p className="watchtower-inspector-empty">이미 받아 둔 로컬 읽기 전용 관측만 다시 확인하고 있습니다.</p>
+              ) : connectionDiagnosis.result.available !== true ? (
+                <p className="watchtower-inspector-empty">진단 대상 노드가 아닙니다 · {connectionDiagnosis.result.account.reason_label}</p>
+              ) : (
+                <>
+                  <dl className="watchtower-inspector-evidence">
+                    <div>
+                      <dt>계정 연결</dt>
+                      <dd data-state={connectionDiagnosis.result.account.state}>
+                        {connectionDiagnosis.result.account.state_label} · {connectionDiagnosis.result.account.reason_label}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>로컬 수집·소스</dt>
+                      <dd data-state={connectionDiagnosis.result.local_source.state}>
+                        {connectionDiagnosis.result.local_source.state_label} · {connectionDiagnosis.result.local_source.reason_label}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>마지막 안전 관측</dt>
+                      <dd>
+                        {connectionDiagnosis.result.last_safe_observation.observed_at === null
+                          ? "관측 없음"
+                          : `${new Date(connectionDiagnosis.result.last_safe_observation.observed_at).toLocaleString("ko-KR")} · ${connectionDiagnosis.result.last_safe_observation.age_label}`}
+                        {` · ${connectionDiagnosis.result.last_safe_observation.state_label}`}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>토폴로지 상태</dt>
+                      <dd>{connectionDiagnosis.result.node_health.state_label ?? "관측 없음"} · 진단으로 바뀌지 않음</dd>
+                    </div>
+                  </dl>
+                  <p className="watchtower-connection-scope">
+                    근거 범위 {connectionDiagnosis.result.evidence.owners.length > 0
+                      ? connectionDiagnosis.result.evidence.owners.join(" · ")
+                      : "연결된 근거 소유자 없음"}
+                    {connectionDiagnosis.result.evidence.scopes.length > 0
+                      ? ` · ${connectionDiagnosis.result.evidence.scopes.join(" · ")}`
+                      : ""}
+                  </p>
+                  <ul className="watchtower-connection-limits">
+                    {connectionDiagnosis.result.evidence.limits.map((limit: string) => (
+                      <li key={limit}>{limit}</li>
+                    ))}
+                  </ul>
+                </>
               )}
             </section>
           )}

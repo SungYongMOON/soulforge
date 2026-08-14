@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## 2026-08-14 - Topology connection diagnostics for non-green nodes
+
+- Added a `진단` action to the System Topology selected-node inspector for the
+  exact allowlisted non-green source and consumer nodes. It reports 계정 연결,
+  로컬 수집·소스, the last safe observation, and the evidence scope with its
+  explicit limits, in plain Korean.
+- Derived the result from a deterministic pure projection over snapshots the
+  Board already holds: the existing loopback read-only topology-health
+  projection plus the existing sanitized provider-limit and Antigravity quota
+  projections. No server route, provider RPC, external account call, credential
+  read, or automation surface was added.
+- Kept the lens separate from health: only a currently fresh provider-issued
+  quota receipt reaches `확인됨` and only a provider-scope health failure
+  reaches `실패 신호`. Local collector, session-source, and producer evidence
+  prove local availability only, unknown or malformed node IDs fail closed, and
+  topology health, shapes, colors, layout, and edge meaning are unchanged.
+
 ## 2026-08-14 - Persistent collapsible Board panels
 
 - Added accessible `접기` / `펼치기` controls to the major Fleet, organization,

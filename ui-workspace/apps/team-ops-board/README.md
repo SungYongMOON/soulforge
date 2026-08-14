@@ -634,6 +634,26 @@ through explicit unselect, pane click, or Escape. It supplies state/reason,
 evidence scope/time, what the evidence proves and does not prove, and direct or
 all structural paths. Structural edges and paths are catalog relationships only:
 they never prove a live service, E2E path, receipt, provider health, or result.
-The only actions are read-only refresh, evidence view, and direct/all path
-views. Mutation guidance is exactly `Owner 승인 필요`; there is no execution
-action. The inspector supports keyboard focus and the mobile layout.
+The only actions are read-only refresh, evidence view, direct/all path views,
+and — for the exact allowlisted non-green source/consumer nodes — a `진단`
+connection check. Mutation guidance is exactly `Owner 승인 필요`; there is no
+execution action. The inspector supports keyboard focus and the mobile layout.
+
+`진단` is a separate read-only evidence lens over snapshots the Board already
+holds: the local read-only W1 topology-health projection it refreshes through
+the existing loopback path, plus the existing sanitized provider-limit and
+Antigravity quota projections. It adds no server route, provider RPC, external
+account call, credential read, browser or desktop automation, and it never
+promotes a node's health, color, shape, layout, or edge meaning.
+
+The result separates 계정 연결 (`확인됨` / `실패 신호` / `확인 불가` /
+`해당 없음`), 로컬 수집·소스 (`정상` / `주의` / `확인 불가`), the last safe
+observation time with `안전 관측` / `보존 관측` / `관측 없음`, and the evidence
+owners plus explicit limits. Only a provider-issued, currently fresh quota
+receipt can reach 계정 연결 `확인됨`, and only a provider-scope health failure
+can reach `실패 신호`. A live local collector, a readable OneDrive/PLAUD/Codex
+session source, or sanitized Hiworks/Slack/Gmail producer evidence proves local
+availability only and stays 계정 연결 `확인 불가`. `consumer_timeline` has no
+account surface and no deployed consumer receipt, so it stays `해당 없음` with
+`runtime_not_deployed`. Unknown or malformed node IDs fail closed, and missing
+evidence stays `확인 불가` instead of becoming a pass or a fault.
