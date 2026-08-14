@@ -290,8 +290,30 @@ and unavailable values remain `UNKNOWN`/disabled and are never fabricated as
 zero or green. The common Meter ledger's Claude usage row remains an independent
 read-only projection and never supplies or replaces official quota values.
 
-The pilot does not probe Antigravity's local RPC or read/write its quota cache.
-This mode does not start collectors, expose a public service, or prove provider
+The scheduled read-only Board enables one exact Antigravity quota gate. That
+gate sends only an empty JSON object to the running Antigravity language
+server's loopback-only quota-summary method and retains only sanitized group
+labels, weekly/five-hour remaining percentages, and reset times. It does not
+read the screen, UI Automation tree, OCR, session or credential material,
+project payloads, or account details. The cache is resolved from the stable
+`SOULFORGE_AI_USAGE_PROJECT_ROOT`, never from the active code worktree, so a
+Board deployment cannot orphan the last-good observation. A failed local read
+retains that last good value as `STALE`, or reports an explicit
+`app_running_source_unavailable`/`app_absent` status when no last good exists.
+If the current Antigravity version rejects that loopback method, the same exact
+gate may invoke the installed Antigravity CLI only after the desktop app is
+independently observed running, as
+`agy.exe --print /usage --output-format text --print-timeout 30s`. The child
+is resolved only from the regular, non-symlink
+`<LOCALAPPDATA>/agy/bin/agy.exe` installation and inherits only the bounded OS
+environment needed by that CLI. Its output must be exactly four tab-separated
+Gemini and Claude/GPT weekly/five-hour rows. Reset times must remain inside the
+source-owned window; anything extra, reordered, malformed, implausibly dated,
+or bearing another label fails closed. Raw CLI output is neither returned nor
+persisted. The interactive `/usage` (alias `/quota`) surface remains the manual
+operator cross-check.
+
+This mode does not start Antigravity, expose a public service, or prove provider
 health, live execution, E2E behavior, or task completion. All other pilot write
 and probe disables remain unchanged.
 
@@ -431,8 +453,10 @@ local read-only Serve status JSON, and assembles the Board's existing private
 default bindings in process memory before it owns one Board child. None of
 those values enter the task action,
 task metadata, repository, or logs. Scheduled mode starts from required OS
-variables only and replaces, rather than inherits, every Board binding. Claude
-quota access is OFF by default. An exact
+variables only and replaces, rather than inherits, every Board binding. The
+scheduled environment enables only the local read-only Antigravity quota gate;
+it carries no screen-reading flag and no protected value or CLI command in task
+arguments or XML. Claude quota access is OFF by default. An exact
 `TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ=1` on `task-run` is transferred to the
 attested scheduled worker over a local run-ID handshake and exists only in
 process memory; unset, blank, and malformed values remain OFF. The intent and

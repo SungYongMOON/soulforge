@@ -2845,9 +2845,9 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
       severity: quotaSeverityForRemaining(quotaRow.remaining_percent),
       stale: agStale,
       resetLabel: `${fleetResetAtLabel(resetsMs)}${agStale ? ` · ${fleetObservedAgoLabel(agQuotaSnapshot.observed_at)}` : ""}`,
-      note: quotaRow.source_kind === "antigravity_windows_uia_receipt"
-        ? "Antigravity 접근성 UI 안전 관측"
-        : "Antigravity 로컬 RPC 공식 잔여 쿼터",
+      note: quotaRow.source_kind === "antigravity_sanitized_cli_usage_receipt"
+        ? "Antigravity 설치 CLI 잔여 쿼터"
+        : "Antigravity 로컬 RPC 잔여 쿼터",
     });
   }
   const antigravity = providers?.antigravity ?? null;

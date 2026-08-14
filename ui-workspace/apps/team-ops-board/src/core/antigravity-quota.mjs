@@ -1,5 +1,6 @@
 // antigravity-quota.mjs — sanitized Antigravity quota observations only.
-// Groups stay dynamic: this layer never invents a fixed provider-window map.
+// Only the two source-observed group labels are accepted; their valid quota
+// windows remain data-driven and are never inferred from provider identity.
 
 export const ANTIGRAVITY_QUOTA_SCHEMA_VERSION = "soulforge.team_ops_board_antigravity_quota.v1";
 export const ANTIGRAVITY_QUOTA_STATUS_SCHEMA_VERSION = "soulforge.team_ops_board_antigravity_quota_status.v1";
@@ -9,10 +10,17 @@ const FRESHNESS = new Set(["current", "stale"]);
 const SOURCE_KINDS = new Set([
   "antigravity_sanitized_local_receipt",
   "antigravity_sanitized_loopback_receipt",
-  "antigravity_windows_uia_receipt",
+  "antigravity_sanitized_cli_usage_receipt",
 ]);
 const MAX_GROUPS = 8;
 const MAX_BUCKETS = 8;
+const SAFE_GROUP_LABELS = new Set(["Gemini Models", "Claude and GPT models"]);
+const CLI_ROW_CONTRACT = Object.freeze([
+  ["Gemini Models", "Weekly Limit Remaining", "weekly"],
+  ["Gemini Models", "Five Hour Limit Remaining", "5h"],
+  ["Claude and GPT models", "Weekly Limit Remaining", "weekly"],
+  ["Claude and GPT models", "Five Hour Limit Remaining", "5h"],
+]);
 
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -38,56 +46,37 @@ export function quotaSeverityForRemaining(remainingPercent) {
   return "ok";
 }
 
-const UIA_GROUPS = ["Gemini Models", "Claude and GPT models"];
-const UIA_WEEKLY = "Weekly Limit Remaining";
-const UIA_FIVE_HOUR = "Five Hour Limit Remaining";
-
-function uiaPercentage(value) {
-  const match = /^(100|[1-9]?\d)%$/u.exec(value);
-  return match ? Number(match[1]) / 100 : null;
+function safeLabel(value) {
+  if (typeof value !== "string") return "";
+  const label = value.trim();
+  return SAFE_GROUP_LABELS.has(label) ? label : "";
 }
 
-function uiaReset(value, nowMs) {
-  if (!/^Resets? [^\u0000-\u001f]{1,96}$/u.test(value)) return { valid: false, resetsAt: null };
-  const candidate = value.replace(/^Resets? (?:on )?/u, "").replace(/\bat\b/iu, "");
-  let parsed = Date.parse(candidate);
-  if (!Number.isFinite(parsed)) parsed = Date.parse(`${candidate} ${new Date(nowMs).getUTCFullYear()}`);
-  return {
-    valid: true,
-    resetsAt: Number.isFinite(parsed) && parsed >= nowMs - 60_000 && parsed <= nowMs + 8 * 86_400_000
-      ? new Date(parsed).toISOString()
-      : null,
-  };
-}
-
-export function parseAntigravityAccessibilityNames(names, { nowMs = Date.now() } = {}) {
-  if (!Array.isArray(names) || names.length > 64 || !Number.isFinite(nowMs)) return null;
-  const values = names.map((value) => typeof value === "string" ? value.trim() : "");
-  if (values.some((value) => value === "" || value.length > 120)) return null;
-  const groups = [];
-  let cursor = 0;
-  for (const label of UIA_GROUPS) {
-    if (values[cursor++] !== label || values[cursor++] !== UIA_WEEKLY) return null;
-    const reset = /^Resets? /u.test(values[cursor])
-      ? uiaReset(values[cursor++], nowMs)
-      : { valid: true, resetsAt: null };
-    const weekly = uiaPercentage(values[cursor++]);
-    if (!reset.valid || weekly === null || values[cursor++] !== UIA_FIVE_HOUR) return null;
-    const fiveHour = uiaPercentage(values[cursor++]);
-    if (fiveHour === null) return null;
-    groups.push({
-      label,
-      buckets: [
-        { window: "weekly", remaining_fraction: weekly, resets_at: reset.resetsAt },
-        { window: "5h", remaining_fraction: fiveHour, resets_at: null },
-      ],
+export function parseAntigravityUsageCliOutput(output, { nowMs = Date.now() } = {}) {
+  if (typeof output !== "string" || output.length === 0 || output.length > 4_096
+    || !Number.isFinite(nowMs)) return null;
+  const normalized = output.replace(/\r\n/gu, "\n").replace(/\n$/u, "");
+  const lines = normalized.split("\n");
+  if (lines.length !== CLI_ROW_CONTRACT.length) return null;
+  const grouped = new Map([...SAFE_GROUP_LABELS].map((label) => [label, []]));
+  for (let index = 0; index < CLI_ROW_CONTRACT.length; index += 1) {
+    const [expectedLabel, expectedWindowLabel, window] = CLI_ROW_CONTRACT[index];
+    const parts = lines[index].split("\t");
+    if (parts.length !== 4 || parts[0] !== expectedLabel || parts[1] !== expectedWindowLabel) return null;
+    const percentage = /^(100|[1-9]?\d)%$/u.exec(parts[2]);
+    const resetMs = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u.test(parts[3])
+      ? Date.parse(parts[3])
+      : NaN;
+    const resetHorizonMs = window === "weekly" ? 8 * 86_400_000 : 6 * 3_600_000;
+    if (percentage === null || !Number.isFinite(resetMs)
+      || resetMs < nowMs - 60_000 || resetMs > nowMs + resetHorizonMs) return null;
+    grouped.get(expectedLabel).push({
+      window,
+      remaining_fraction: Number(percentage[1]) / 100,
+      resets_at: new Date(resetMs).toISOString(),
     });
   }
-  return cursor === values.length ? groups : null;
-}
-
-function safeLabel(value, max = 48) {
-  return typeof value === "string" ? value.replace(/[\u0000-\u001f]/gu, "").trim().slice(0, max) : "";
+  return [...grouped].map(([label, buckets]) => ({ label, buckets }));
 }
 
 function fraction(value) {
@@ -107,7 +96,8 @@ function normalizedGroups(value) {
   const groups = [];
   for (const group of value.slice(0, MAX_GROUPS)) {
     if (!isRecord(group) || !Array.isArray(group.buckets)) continue;
-    const label = safeLabel(group.label ?? group.displayName) || "그룹";
+    const label = safeLabel(group.label ?? group.displayName);
+    if (label === "") continue;
     const buckets = [];
     for (const bucket of group.buckets.slice(0, MAX_BUCKETS)) {
       if (!isRecord(bucket)) continue;

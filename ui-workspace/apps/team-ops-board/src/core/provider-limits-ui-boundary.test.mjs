@@ -65,7 +65,9 @@ test("official Claude quota row is independent of common Meter history and fails
   assert.match(source, /className=\{`fleet-limit-row is-\$\{row\.severity\}\$\{row\.stale \? " is-stale" : ""\}`\}/u);
   assert.match(source, /data-freshness=\{row\.stale \? "stale" : "current"\}/u);
   assert.match(source, /Antigravity 2\.0 실행 중 · 안전한 한도 원천 미연결/u);
-  assert.match(source, /antigravity_windows_uia_receipt[\s\S]*Antigravity 접근성 UI 안전 관측/u);
+  assert.match(source, /antigravity_sanitized_cli_usage_receipt[\s\S]*Antigravity 설치 CLI 잔여 쿼터/u);
+  assert.match(source, /Antigravity 로컬 RPC 잔여 쿼터/u);
+  assert.doesNotMatch(source, /antigravity_windows_uia_receipt|접근성 UI|OCR/u);
   assert.match(source, /schema_version === ANTIGRAVITY_QUOTA_SCHEMA_VERSION[\s\S]*freshness === "current"/u);
   assert.doesNotMatch(source, /IDE 실행 시 갱신/u);
   assert.match(source, /claudeStatus\.state\.toUpperCase\(\)/u);

@@ -2,37 +2,42 @@
 // under an exact gate, a loopback language-server observation.
 
 import { execFile } from "node:child_process";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 import {
   buildAntigravityQuotaSnapshot,
   buildAntigravityQuotaStatus,
-  normalizeAntigravityQuotaSnapshot,
-  parseAntigravityAccessibilityNames,
   parseAntigravityQuotaResponse,
+  parseAntigravityUsageCliOutput,
   staleAntigravityQuotaSnapshot,
 } from "../core/antigravity-quota.mjs";
-import { isTeamOpsBoardReadOnlyPilot } from "../core/team-ops-board-read-only-pilot.mjs";
 
 const execFileAsync = promisify(execFile);
-const MODULE_ROOT = path.dirname(fileURLToPath(import.meta.url));
 
 export const ANTIGRAVITY_QUOTA_SNAPSHOT_PATH = "/antigravity-quota.snapshot.json";
 export const DEFAULT_ANTIGRAVITY_QUOTA_TTL_MS = 120_000;
 export const TEAM_OPS_BOARD_ANTIGRAVITY_QUOTA_LIVE_REFRESH = "TEAM_OPS_BOARD_ANTIGRAVITY_QUOTA_LIVE_REFRESH";
-export const TEAM_OPS_BOARD_ANTIGRAVITY_UIA_READ = "TEAM_OPS_BOARD_ANTIGRAVITY_UIA_READ";
-export const DEFAULT_ANTIGRAVITY_QUOTA_CACHE_PATH = path.resolve(
-  MODULE_ROOT,
-  "../../../../../guild_hall/state/operations/team_ops_board/antigravity_quota.last.json",
-);
 
 const RPC_PATH = "/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary";
 const PROBE_TIMEOUT_MS = 3_000;
+const PROCESS_QUERY_TIMEOUT_MS = 25_000;
 const MAX_CANDIDATE_PORTS = 24;
-const UIA_READER_PATH = path.resolve(MODULE_ROOT, "../../ops/read-antigravity-quota-uia.ps1");
+const ANTIGRAVITY_APP_EXECUTABLES = new Set(["agy.exe", "antigravity.exe", "language_server.exe"]);
+const ANTIGRAVITY_PORT_OWNER_EXECUTABLES = new Set(["agy.exe", "language_server.exe"]);
+const CLI_ENVIRONMENT_ALLOWLIST = Object.freeze([
+  "APPDATA",
+  "HOME",
+  "LOCALAPPDATA",
+  "PATH",
+  "PATHEXT",
+  "SystemRoot",
+  "TEMP",
+  "TMP",
+  "USERPROFILE",
+  "WINDIR",
+]);
 
 function isLoopbackAddress(address) {
   return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
@@ -42,30 +47,44 @@ export function isAntigravityQuotaLiveRefreshEnabled(env = process.env) {
   return env?.[TEAM_OPS_BOARD_ANTIGRAVITY_QUOTA_LIVE_REFRESH] === "1";
 }
 
-export function isAntigravityQuotaUiaReadEnabled(env = process.env) {
-  return env?.[TEAM_OPS_BOARD_ANTIGRAVITY_UIA_READ] === "1";
+export function resolveAntigravityQuotaCachePath(env = process.env) {
+  const ownerRoot = env?.SOULFORGE_AI_USAGE_PROJECT_ROOT;
+  if (typeof ownerRoot === "string" && path.isAbsolute(ownerRoot)) {
+    return path.join(
+      path.resolve(ownerRoot),
+      "guild_hall",
+      "state",
+      "operations",
+      "team_ops_board",
+      "antigravity_quota.last.json",
+    );
+  }
+  return null;
 }
 
-async function readQuotaFromWindowsUia({ nowMs = Date.now() } = {}) {
-  if (process.platform !== "win32") return null;
-  const { stdout } = await execFileAsync(
-    "powershell.exe",
-    ["-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", UIA_READER_PATH],
-    { timeout: 8_000, windowsHide: true, maxBuffer: 16 * 1024 },
-  );
-  let names;
-  try { names = JSON.parse(stdout); } catch { return null; }
-  return parseAntigravityAccessibilityNames(names, { nowMs });
+export function resolveAntigravityCliPath(env = process.env) {
+  const localAppData = env?.LOCALAPPDATA;
+  if (typeof localAppData !== "string" || !path.isAbsolute(localAppData)) return null;
+  return path.join(path.resolve(localAppData), "agy", "bin", "agy.exe");
 }
 
-async function agyProcessIds() {
-  const { stdout } = await execFileAsync("tasklist.exe", ["/FO", "CSV", "/NH"], { timeout: 10_000, windowsHide: true });
+export function parseAntigravityProcessIds(tasklistCsv, { portOwnersOnly = false } = {}) {
+  if (typeof tasklistCsv !== "string") return new Set();
+  const allowed = portOwnersOnly ? ANTIGRAVITY_PORT_OWNER_EXECUTABLES : ANTIGRAVITY_APP_EXECUTABLES;
   const pids = new Set();
-  for (const line of stdout.split("\n")) {
-    const match = /^"(agy\.exe|language_server\w*\.exe)","(\d+)"/u.exec(line.trim());
-    if (match) pids.add(match[2]);
+  for (const line of tasklistCsv.split("\n")) {
+    const match = /^"([A-Za-z0-9_.-]+)","(\d+)"/u.exec(line.trim());
+    if (match && allowed.has(match[1].toLowerCase())) pids.add(match[2]);
   }
   return pids;
+}
+
+async function agyProcessIds({ portOwnersOnly = false } = {}) {
+  const { stdout } = await execFileAsync("tasklist.exe", ["/FO", "CSV", "/NH"], {
+    timeout: PROCESS_QUERY_TIMEOUT_MS,
+    windowsHide: true,
+  });
+  return parseAntigravityProcessIds(stdout, { portOwnersOnly });
 }
 
 async function antigravityAppRunning() {
@@ -73,7 +92,7 @@ async function antigravityAppRunning() {
 }
 
 async function candidatePorts() {
-  const pids = await agyProcessIds();
+  const pids = await agyProcessIds({ portOwnersOnly: true });
   if (pids.size === 0) return [];
   const { stdout } = await execFileAsync("netstat.exe", ["-ano", "-p", "TCP"], { timeout: 15_000, windowsHide: true });
   const ports = [];
@@ -87,12 +106,40 @@ async function candidatePorts() {
 async function queryQuota(port, fetchImpl) {
   const response = await fetchImpl(`http://127.0.0.1:${port}${RPC_PATH}`, {
     method: "POST",
+    redirect: "error",
     headers: { "Content-Type": "application/json" },
     body: "{}",
     signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
   });
   if (!response.ok) return null;
   return parseAntigravityQuotaResponse(await response.json().catch(() => null));
+}
+
+export async function readAntigravityQuotaFromCli({
+  env = process.env,
+  nowMs = Date.now(),
+  runCli = execFileAsync,
+  statCli = lstat,
+} = {}) {
+  const cliPath = resolveAntigravityCliPath(env);
+  if (cliPath === null) return null;
+  const cliStat = await statCli(cliPath).catch(() => null);
+  if (cliStat === null || !cliStat.isFile() || cliStat.isSymbolicLink()) return null;
+  const cliEnvironment = {};
+  for (const name of CLI_ENVIRONMENT_ALLOWLIST) {
+    if (typeof env?.[name] === "string") cliEnvironment[name] = env[name];
+  }
+  const { stdout } = await runCli(
+    cliPath,
+    ["--print", "/usage", "--output-format", "text", "--print-timeout", "30s"],
+    {
+      env: cliEnvironment,
+      maxBuffer: 16 * 1024,
+      timeout: 40_000,
+      windowsHide: true,
+    },
+  );
+  return parseAntigravityUsageCliOutput(stdout, { nowMs });
 }
 
 function staleSnapshot(snapshot, nowMs) {
@@ -104,20 +151,17 @@ export function createAntigravityQuotaReader({
   fetchImpl = fetch,
   listPorts = candidatePorts,
   ttlMs = DEFAULT_ANTIGRAVITY_QUOTA_TTL_MS,
-  cachePath = DEFAULT_ANTIGRAVITY_QUOTA_CACHE_PATH,
+  cachePath = resolveAntigravityQuotaCachePath(env),
   now = Date.now,
   detectAppRunning = antigravityAppRunning,
-  readUiaQuota = readQuotaFromWindowsUia,
+  readCliQuota = () => readAntigravityQuotaFromCli({ env, nowMs: now() }),
 } = {}) {
   let inFlight = null;
   let lastAttemptAt = null;
   let lastGood = null;
-  let knownPort = null;
   let cacheChecked = false;
   let lastStatus = null;
-  const readOnlyPilot = isTeamOpsBoardReadOnlyPilot(env);
-  const liveRefreshEnabled = !readOnlyPilot && isAntigravityQuotaLiveRefreshEnabled(env);
-  const uiaReadEnabled = isAntigravityQuotaUiaReadEnabled(env);
+  const liveRefreshEnabled = isAntigravityQuotaLiveRefreshEnabled(env);
 
   async function persistCache(snapshot) {
     if (cachePath === null) return;
@@ -147,7 +191,7 @@ export function createAntigravityQuotaReader({
     lastGood = staleSnapshot(lastGood, now());
   }
 
-  function accept(groups, sourceKind = "antigravity_sanitized_loopback_receipt") {
+  async function accept(groups, sourceKind = "antigravity_sanitized_loopback_receipt") {
     const snapshot = buildAntigravityQuotaSnapshot({
       groups,
       observedAtMs: now(),
@@ -159,21 +203,15 @@ export function createAntigravityQuotaReader({
       return;
     }
     lastGood = snapshot;
+    lastStatus = null;
     cacheChecked = true;
-    void persistCache(snapshot);
+    await persistCache(snapshot);
   }
 
   async function refresh() {
     // Load before every gate so a Board restart can expose cache-only evidence
     // without RPC, process inspection, or a cache write.
     await loadCacheOnce();
-    if (uiaReadEnabled) {
-      const groups = await readUiaQuota({ nowMs: now() }).catch(() => null);
-      if (groups !== null) {
-        accept(groups, "antigravity_windows_uia_receipt");
-        return;
-      }
-    }
     if (!liveRefreshEnabled) {
       lastStatus = buildAntigravityQuotaStatus({
         appRunning: await detectAppRunning().catch(() => false),
@@ -182,25 +220,28 @@ export function createAntigravityQuotaReader({
       retainLastGoodAsStale();
       return;
     }
-    if (knownPort !== null) {
-      const groups = await queryQuota(knownPort, fetchImpl).catch(() => null);
-      if (groups !== null) {
-        accept(groups);
-        return;
-      }
-      knownPort = null;
-    }
     const ports = await listPorts().catch(() => []);
     for (const port of ports) {
       const groups = await queryQuota(port, fetchImpl).catch(() => null);
       if (groups !== null) {
-        knownPort = port;
-        accept(groups);
+        await accept(groups);
         return;
       }
     }
-    // Provider off, Orca off, auth/error, and malformed replies retain only a
-    // timestamped STALE last-good result.
+    const appRunning = await detectAppRunning().catch(() => false);
+    if (appRunning) {
+      const cliGroups = await readCliQuota().catch(() => null);
+      if (cliGroups !== null) {
+        await accept(cliGroups, "antigravity_sanitized_cli_usage_receipt");
+        return;
+      }
+    }
+    lastStatus = buildAntigravityQuotaStatus({
+      appRunning,
+      observedAtMs: now(),
+    });
+    // App absence, local source failure, and malformed replies retain only a
+    // timestamped STALE last-good result. They do not prove provider health.
     retainLastGoodAsStale();
   }
 

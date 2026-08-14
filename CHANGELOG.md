@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## 2026-08-14 - Stable local Antigravity quota observation
+
+- Replaced the unreliable screen-accessibility quota path with the running
+  Antigravity language server's loopback-only, empty-body quota summary behind
+  the Board's exact read-only runtime gate. Only sanitized group labels,
+  weekly/five-hour remaining percentages, and reset times are retained.
+- Moved the ignored last-good quota cache to the stable Owner project root so a
+  Board worktree switch cannot silently reset the displayed quota. Local read
+  failures now retain stale last-good evidence or return an explicit source
+  unavailable/app-absent status instead of `null`.
+- Added the installed Antigravity CLI's exact print-mode `/usage` result as a
+  fail-closed fallback when the current app rejects its loopback quota method.
+  Only the exact regular-file installation, four source-observed model/window
+  rows, and plausible source-window reset times are accepted; the child
+  runs only while Antigravity is already observed running, receives a bounded
+  environment, and never stores or serves raw CLI output.
+- Removed the UI Automation reader and its runtime flag. The official
+  interactive `/usage` (`/quota`) surface remains the manual cross-check; no
+  app startup, screen/OCR access, credential-content access, or runtime/repair
+  authority was added.
+
 ## 2026-08-14 - Antigravity local collector heartbeat
 
 - Added the existing read-only `collect-antigravity` path to the Board-owned five-minute

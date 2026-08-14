@@ -9,63 +9,39 @@ import {
   antigravityQuotaRows,
   buildAntigravityQuotaSnapshot,
   buildAntigravityQuotaStatus,
+  parseAntigravityUsageCliOutput,
   parseAntigravityQuotaResponse,
-  parseAntigravityAccessibilityNames,
   quotaSeverityForRemaining,
 } from "./antigravity-quota.mjs";
 
-const ACCESSIBILITY_NAMES = [
-  "Gemini Models",
-  "Weekly Limit Remaining",
-  "Resets 2026-08-14T09:05:32Z",
-  "96%",
-  "Five Hour Limit Remaining",
-  "100%",
-  "Claude and GPT models",
-  "Weekly Limit Remaining",
-  "Resets 2026-08-14T09:05:32Z",
-  "97%",
-  "Five Hour Limit Remaining",
-  "100%",
-];
+const CLI_USAGE_OUTPUT = [
+  "Gemini Models\tWeekly Limit Remaining\t95%\t2026-08-14T09:05:32Z",
+  "Gemini Models\tFive Hour Limit Remaining\t99%\t2026-08-14T07:05:32Z",
+  "Claude and GPT models\tWeekly Limit Remaining\t97%\t2026-08-14T09:05:32Z",
+  "Claude and GPT models\tFive Hour Limit Remaining\t100%\t2026-08-14T07:05:32Z",
+].join("\n");
 
-test("visible accessibility quota sequence produces exactly two sanitized groups", () => {
-  const groups = parseAntigravityAccessibilityNames(ACCESSIBILITY_NAMES, {
-    nowMs: Date.parse("2026-08-10T12:00:00Z"),
-  });
-  assert.deepEqual(groups, [
+test("official CLI usage output accepts only the exact four sanitized quota rows", () => {
+  const options = { nowMs: Date.parse("2026-08-14T06:00:00Z") };
+  assert.deepEqual(parseAntigravityUsageCliOutput(CLI_USAGE_OUTPUT, options), [
     { label: "Gemini Models", buckets: [
-      { window: "weekly", remaining_fraction: 0.96, resets_at: "2026-08-14T09:05:32.000Z" },
-      { window: "5h", remaining_fraction: 1, resets_at: null },
+      { window: "weekly", remaining_fraction: 0.95, resets_at: "2026-08-14T09:05:32.000Z" },
+      { window: "5h", remaining_fraction: 0.99, resets_at: "2026-08-14T07:05:32.000Z" },
     ] },
     { label: "Claude and GPT models", buckets: [
       { window: "weekly", remaining_fraction: 0.97, resets_at: "2026-08-14T09:05:32.000Z" },
-      { window: "5h", remaining_fraction: 1, resets_at: null },
+      { window: "5h", remaining_fraction: 1, resets_at: "2026-08-14T07:05:32.000Z" },
     ] },
   ]);
-  assert.doesNotMatch(JSON.stringify(groups), /csrf|cookie|credential|token|pid|port|path/iu);
-});
-
-test("visible accessibility sequence may omit an inaccessible reset sentence without inventing it", () => {
-  const names = ACCESSIBILITY_NAMES.filter((value) => !value.startsWith("Resets "));
-  const groups = parseAntigravityAccessibilityNames(names, {
-    nowMs: Date.parse("2026-08-10T12:00:00Z"),
-  });
-  assert.equal(groups[0].buckets[0].remaining_fraction, 0.96);
-  assert.equal(groups[0].buckets[0].resets_at, null);
-  assert.equal(groups[1].buckets[0].remaining_fraction, 0.97);
-});
-
-test("accessibility quota sequence fails closed on ambiguity, missing values, and order changes", () => {
-  const options = { nowMs: Date.parse("2026-08-10T12:00:00Z") };
-  assert.equal(parseAntigravityAccessibilityNames([...ACCESSIBILITY_NAMES, ...ACCESSIBILITY_NAMES], options), null);
-  assert.equal(parseAntigravityAccessibilityNames(ACCESSIBILITY_NAMES.slice(0, -1), options), null);
-  const reordered = [...ACCESSIBILITY_NAMES];
-  [reordered[1], reordered[4]] = [reordered[4], reordered[1]];
-  assert.equal(parseAntigravityAccessibilityNames(reordered, options), null);
-  const poisoned = [...ACCESSIBILITY_NAMES];
-  poisoned[3] = "101%";
-  assert.equal(parseAntigravityAccessibilityNames(poisoned, options), null);
+  for (const poisoned of [
+    `${CLI_USAGE_OUTPUT}\nextra`,
+    CLI_USAGE_OUTPUT.replace("95%", "101%"),
+    CLI_USAGE_OUTPUT.replace("Gemini Models", "Authorization Bearer Gemini Models"),
+    CLI_USAGE_OUTPUT.replace("Weekly Limit Remaining", "Monthly Limit Remaining"),
+    CLI_USAGE_OUTPUT.replace("2026-08-14T09:05:32Z", "not-a-time"),
+    CLI_USAGE_OUTPUT.replaceAll(/2026-08-14T(?:09|07):05:32Z/gu, "1970-01-01T00:00:00Z"),
+    CLI_USAGE_OUTPUT.replaceAll(/2026-08-14T(?:09|07):05:32Z/gu, "9999-01-01T00:00:00Z"),
+  ]) assert.equal(parseAntigravityUsageCliOutput(poisoned, options), null);
 });
 
 test("sanitized app status distinguishes running without exposing process details or quota", () => {
@@ -137,6 +113,24 @@ test("parseAntigravityQuotaResponse fails closed on malformed shapes", () => {
   assert.equal(parseAntigravityQuotaResponse({}), null);
   assert.equal(parseAntigravityQuotaResponse({ response: { groups: [] } }), null);
   assert.equal(parseAntigravityQuotaResponse({ response: { groups: [{ displayName: "x", buckets: [] }] } }), null);
+  for (const displayName of [
+    "operator@example.invalid",
+    "private/path/group",
+    "secret=synthetic",
+    "credential token",
+    "Authorization Bearer ABC123",
+    "API KEY ABC123",
+    "session id 12345",
+    "Authorization Bearer Gemini Models",
+    "secret token Gemini Models",
+    "private path Gemini Models",
+    "line\nbreak",
+  ]) {
+    assert.equal(parseAntigravityQuotaResponse({ response: { groups: [{
+      displayName,
+      buckets: [{ window: "weekly", remainingFraction: 0.5 }],
+    }] } }), null);
+  }
 });
 
 test("buildAntigravityQuotaSnapshot and row flattening produce gauge-ready rows", () => {
