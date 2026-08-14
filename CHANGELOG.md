@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2026-08-15 - Bounded topology recovery supervision
+
+- Deepened the existing five-minute Watchtower recovery companion with
+  per-node retry memory, fixed 5m/15m/60m backoff, a three-failure circuit
+  breaker, one half-open retry after 60 minutes, and verified-success reset.
+- Added bounded sanitized recovery history and a separate supervisor attempt
+  receipt so a failed cycle is visible while the last valid cycle and retry
+  state remain intact. Invalid history, supervision state, or fresh Watchtower
+  evidence fails closed and suppresses repair.
+- Extended the Board's existing read-only recovery inspector with last attempt,
+  next retry, consecutive failure, last verified repair, circuit state, and
+  recent history. Running tasks are never restarted merely because evidence is
+  stale; provider login, credentials, deletion, routes, external send, and
+  topology health/color promotion remain outside recovery authority.
+
 ## 2026-08-14 - Topology connection diagnostics for non-green nodes
 
 - Added a `진단` action to the System Topology selected-node inspector for the

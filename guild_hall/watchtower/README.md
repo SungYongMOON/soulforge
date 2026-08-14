@@ -153,6 +153,19 @@ npm run guild-hall:watchtower:probe
   `stale` or `down`, the task must be safely startable, and independent pre/post
   checks must pass. Provider login, message deletion, acknowledgement, upload,
   route changes, external send, and partial mail backlog are never auto-repaired.
+- Recovery supervision persists only bounded sanitized state and the latest 200
+  material events. Failed eligible attempts back off for 5 minutes, 15 minutes,
+  then 60 minutes; the third consecutive failure opens a 60-minute circuit and
+  permits one half-open trial afterward. Only an independently verified repair
+  resets the circuit.
+- A task that is already running but has stale evidence is never stopped or
+  restarted. It is reported as `running_but_stale` for Owner action. Invalid
+  supervision/history or an invalid fresh Watchtower snapshot suppresses all
+  repair execution and retains the last valid evidence instead of resetting it.
+- The Board exposes the cycle, retry state, circuit state, supervisor receipt,
+  and recent sanitized history through the existing loopback GET-only recovery
+  projection. This projection cannot execute repair or change topology health,
+  colors, edge delivery, provider state, or account state.
 
 ### AI usage producer heartbeat
 

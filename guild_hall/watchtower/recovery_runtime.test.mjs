@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -105,6 +105,9 @@ test("safe repair starts only an exact ready task and verifies the changed run",
   assert.equal(starts, 1);
   assert.equal(result.recovery[0].attempt, "succeeded");
   assert.equal(result.recovery[0].verification, "passed");
+  assert.equal(result.recovery[0].outcome_code, "verified_repair");
+  assert.equal(result.recovery[0].circuit_state, "closed");
+  assert.equal(result.state_revalidated, true);
 });
 
 test("digest mismatch denies repair without starting the task", async () => {
@@ -125,15 +128,67 @@ test("digest mismatch denies repair without starting the task", async () => {
   });
   assert.equal(starts, 0);
   assert.equal(result.recovery[0].attempt, "denied");
-  assert.equal(result.recovery[0].verification, "failed");
+  // The digest mismatch is caught by the gate check before the verifier is
+  // reached; the outcome code is what the contract guarantees, not the raw
+  // verifier field, which never runs.
+  assert.equal(result.recovery[0].outcome_code, "precondition_unmet");
+});
+
+test("a running owned task is never started and is reported running_but_stale", async () => {
+  const { projectRoot, snapshot } = await fixture();
+  const board = snapshot.nodes.find((node) => node.id === "consumer_board");
+  board.health = { state: "stale", reasons: ["heartbeat_stale"], age_seconds: 901 };
+  snapshot.summary.unmonitored -= 1;
+  snapshot.summary.stale += 1;
+  let starts = 0;
+  const result = await runRecoveryCycle({
+    repoRoot: projectRoot, projectRoot, binding: binding(),
+    evidenceRoot: path.join(projectRoot, "evidence"),
+    watchtowerPointerPath: path.join(projectRoot, "pointer.json"),
+    runWatchtower: async () => snapshot,
+    inspectTask: async () => ({
+      exists: true, enabled: true, state: "running", action_digest: "a".repeat(64), last_run_at: "2026-08-14T00:04:00.000Z",
+    }),
+    startTask: async () => { starts += 1; return { ok: true }; },
+    now: () => new Date("2026-08-14T00:05:00.000Z"),
+  });
+  assert.equal(starts, 0);
+  assert.equal(result.recovery[0].attempt, "denied");
+  assert.equal(result.recovery[0].outcome_code, "running_but_stale");
+});
+
+test("an invalid fresh Watchtower snapshot suppresses every repair", async () => {
+  const { projectRoot, snapshot } = await fixture();
+  const board = snapshot.nodes.find((node) => node.id === "consumer_board");
+  board.health = { state: "down", reasons: ["resident_task_not_running"], age_seconds: null };
+  snapshot.summary.unmonitored -= 1;
+  snapshot.summary.down += 1;
+  let probes = 0;
+  let starts = 0;
+  const result = await runRecoveryCycle({
+    repoRoot: projectRoot, projectRoot, binding: binding(),
+    evidenceRoot: path.join(projectRoot, "evidence"),
+    watchtowerPointerPath: path.join(projectRoot, "pointer.json"),
+    runWatchtower: async () => (probes++ === 0 ? snapshot : { ...snapshot, edges: [] }),
+    inspectTask: async () => ({
+      exists: true, enabled: true, state: "ready", action_digest: "a".repeat(64), last_run_at: null,
+    }),
+    startTask: async () => { starts += 1; return { ok: true }; },
+    now: () => new Date("2026-08-14T00:05:00.000Z"),
+  });
+  assert.equal(starts, 0);
+  assert.equal(result.state_revalidated, false);
+  assert.deepEqual(result.recovery, []);
+  assert.equal(result.status, "attention");
 });
 
 test("companion runs immediately, serializes cycles, and stops cleanly", async () => {
+  const projectRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-recovery-companion-"));
   let calls = 0;
   let release;
   const companion = startRecoveryCompanion({
-    repoRoot: path.resolve("synthetic-repo"),
-    projectRoot: path.resolve("synthetic-project"),
+    repoRoot: projectRoot,
+    projectRoot,
     intervalMs: 5,
     loadBinding: async () => binding("observe"),
     runCycle: async () => {
@@ -148,4 +203,39 @@ test("companion runs immediately, serializes cycles, and stops cleanly", async (
   const stoppedAt = calls;
   await new Promise((resolve) => setTimeout(resolve, 15));
   assert.equal(calls, stoppedAt);
+});
+
+test("a failed companion cycle writes only a sanitized supervisor receipt and retains last-good", async () => {
+  const projectRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-recovery-companion-"));
+  const evidenceRoot = path.join(projectRoot, "evidence");
+  await mkdir(evidenceRoot, { recursive: true });
+  const cyclePath = path.join(evidenceRoot, "recovery_cycle.json");
+  const lastGood = "{\"last_good\":true}\n";
+  await writeFile(cyclePath, lastGood, "utf8");
+  const companion = startRecoveryCompanion({
+    repoRoot: projectRoot,
+    projectRoot,
+    evidenceRoot,
+    intervalMs: 60_000,
+    loadBinding: async () => binding("observe"),
+    runCycle: async () => {
+      throw new Error(`private path ${path.resolve("test-fixtures", "secret")}`);
+    },
+    now: () => new Date("2026-08-14T00:05:00.000Z"),
+  });
+  const supervisorPath = path.join(evidenceRoot, "recovery_supervisor.json");
+  let supervisor = null;
+  for (let attempt = 0; attempt < 50 && supervisor === null; attempt += 1) {
+    try {
+      supervisor = JSON.parse(await readFile(supervisorPath, "utf8"));
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+  }
+  await companion.stop();
+  assert.equal(supervisor?.status, "error");
+  assert.equal(supervisor?.error_code, "recovery_cycle_failed");
+  assert.equal(supervisor?.consecutive_errors, 1);
+  assert.equal(await readFile(cyclePath, "utf8"), lastGood);
+  assert.doesNotMatch(JSON.stringify(supervisor), /private|secret|test-fixtures/u);
 });

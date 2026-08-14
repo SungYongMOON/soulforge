@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFile } from "node:child_process";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { promisify } from "node:util";
@@ -13,12 +13,30 @@ import {
   validateWatchtowerExecution,
   validateWorkmetaStore,
 } from "./local_evidence.mjs";
+import {
+  RECOVERY_NORMAL_CYCLE_MS,
+  appendRecoveryHistory,
+  applyAttemptOutcome,
+  buildHistoryRow,
+  classifyOwnedTaskGate,
+  defaultSupervisionRow,
+  persistRecoveryHistory,
+  persistRecoverySupervisorReceipt,
+  persistSupervisionState,
+  planNodeAttempt,
+  readRecoveryHistory,
+  readSupervisionState,
+  safeSupervisorErrorCode,
+  writeAtomicJson,
+} from "./recovery_supervision.mjs";
 
 export const RECOVERY_BINDING_SCHEMA_VERSION =
   "soulforge.watchtower.recovery_binding.v1";
+// v2 adds per-node retry supervision fields and the fresh-state revalidation
+// flag. v1 receipts are not reinterpreted as v2; readers fail closed.
 export const RECOVERY_CYCLE_SCHEMA_VERSION =
-  "soulforge.watchtower.recovery_cycle.v1";
-export const DEFAULT_RECOVERY_INTERVAL_MS = 5 * 60 * 1_000;
+  "soulforge.watchtower.recovery_cycle.v2";
+export const DEFAULT_RECOVERY_INTERVAL_MS = RECOVERY_NORMAL_CYCLE_MS;
 
 const execFileAsync = promisify(execFile);
 const SAFE_TASK = /^[A-Za-z0-9][A-Za-z0-9 _.-]{0,119}$/u;
@@ -121,21 +139,14 @@ async function defaultStartTask(taskName) {
   return JSON.parse(String(stdout).trim());
 }
 
-async function atomicJson(file, value) {
-  await mkdir(path.dirname(file), { recursive: true });
-  const temporary = `${file}.${process.pid}.tmp`;
-  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
-  await rename(temporary, file);
-}
-
-function restartObservation(node) {
+function restartObservation(node, decidedAtMs) {
   const state = node?.health?.state;
   return {
     nodeId: node.id,
     owner: "watchtower_recovery_owner",
     escalationOwner: "watchtower_operator",
-    lastCheck: new Date().toISOString(),
-    nextCheck: new Date(Date.now() + 5 * 60 * 1_000).toISOString(),
+    lastCheck: new Date(decidedAtMs).toISOString(),
+    nextCheck: new Date(decidedAtMs + RECOVERY_NORMAL_CYCLE_MS).toISOString(),
     liveness: state === "down" ? "stopped" : "unknown",
     connection: "not_applicable",
     outcome: state === "stale" ? "failed" : "unknown",
@@ -144,7 +155,22 @@ function restartObservation(node) {
   };
 }
 
-function publicRecoveryReceipt(receipt) {
+/**
+ * Derive the supervision outcome for a node that reached the coordinator. The
+ * coordinator never reports a repair as successful unless the independent
+ * post-verifier passed, so no other branch may claim success.
+ */
+function executedOutcomeCode(receipt) {
+  if (receipt.repairability === "forbidden") return "forbidden";
+  if (receipt.attempt === "succeeded") {
+    return receipt.verification === "passed" ? "verified_repair" : "postverify_failed";
+  }
+  if (receipt.attempt === "failed") return "execution_failed";
+  if (receipt.attempt === "denied" && receipt.verification === "failed") return "precondition_unmet";
+  return "not_eligible";
+}
+
+function publicRecoveryReceipt(receipt, outcomeCode, row) {
   return {
     node_id: receipt.node_id,
     reason: receipt.reason,
@@ -153,6 +179,12 @@ function publicRecoveryReceipt(receipt) {
     attempt: receipt.attempt,
     verification: receipt.verification,
     escalation: receipt.escalation,
+    outcome_code: outcomeCode,
+    circuit_state: row.circuit_state,
+    consecutive_failures: row.consecutive_failures,
+    last_attempt_at: row.last_attempt_at,
+    last_verified_repair_at: row.last_verified_repair_at,
+    next_retry_at: row.next_retry_at,
   };
 }
 
@@ -203,18 +235,70 @@ export async function runRecoveryCycle({
     });
   }
 
-  let currentSnapshot = initialSnapshot;
-  try { currentSnapshot = await runWatchtower(); } catch {}
-  const candidates = Array.isArray(currentSnapshot?.nodes)
+  // Fresh Watchtower state is revalidated before any action. If the second
+  // probe fails we do not fall back to the first snapshot and no repair runs.
+  let currentSnapshot = null;
+  let stateRevalidated = false;
+  try {
+    const candidateSnapshot = await runWatchtower();
+    const candidateValidation = validateWatchtowerExecution(candidateSnapshot);
+    if (candidateValidation.ok !== true) throw new TypeError("watchtower_snapshot_invalid");
+    currentSnapshot = candidateSnapshot;
+    stateRevalidated = true;
+  } catch {
+    stateRevalidated = false;
+  }
+  const decidedAt = now().toISOString();
+  const decidedAtMs = Date.parse(decidedAt);
+  const candidates = stateRevalidated && Array.isArray(currentSnapshot?.nodes)
     ? currentSnapshot.nodes.filter((node) => ["stale", "down"].includes(node?.health?.state)
       && Object.hasOwn(validatedBinding.task_bindings, node.id))
     : [];
+
+  const supervisionRead = await readSupervisionState({ evidenceRoot });
+  const priorHistory = await readRecoveryHistory({ evidenceRoot });
+  const supervisionRows = new Map(supervisionRead.rows.map((row) => [row.node_id, row]));
+  const plans = new Map();
+  // The gate-classification fetch below is also the verifier's pre-start
+  // snapshot; it is cached and reused instead of re-inspecting the task, so an
+  // owned task cannot be observed to change state between gate and verifier.
+  const taskCache = new Map();
+  for (const node of candidates) {
+    const row = supervisionRows.get(node.id) ?? defaultSupervisionRow(node.id);
+    if (!supervisionRead.ok || !priorHistory.ok) {
+      plans.set(node.id, { row, outcomeCode: "supervision_unavailable" });
+      continue;
+    }
+    if (validatedBinding.mode !== "safe-repair") {
+      plans.set(node.id, { row, outcomeCode: "observe_only" });
+      continue;
+    }
+    const plan = planNodeAttempt(row, decidedAtMs);
+    if (!plan.eligible) {
+      plans.set(node.id, {
+        row,
+        outcomeCode: plan.gate === "circuit_open" ? "suppressed_circuit_open" : "suppressed_backoff",
+      });
+      continue;
+    }
+    let task = null;
+    try {
+      task = await inspectTask(validatedBinding.task_bindings[node.id].task_name);
+    } catch {
+      task = null;
+    }
+    const gate = classifyOwnedTaskGate(task, validatedBinding.task_bindings[node.id].action_digest);
+    plans.set(node.id, { row, outcomeCode: gate === "startable" ? null : gate });
+    if (gate === "startable") taskCache.set(node.id, task);
+  }
+  const executable = candidates.filter((node) => plans.get(node.id).outcomeCode === null);
 
   const preState = new Map();
   const verifier = async ({ nodeId }) => {
     const row = validatedBinding.task_bindings[nodeId];
     if (row === undefined) return false;
-    const task = await inspectTask(row.task_name);
+    const task = preState.has(nodeId) ? await inspectTask(row.task_name)
+      : taskCache.get(nodeId) ?? await inspectTask(row.task_name);
     if (task?.exists !== true || task.enabled !== true || task.action_digest !== row.action_digest) return false;
     if (!preState.has(nodeId)) {
       if (!new Set(["ready", "queued"]).has(task.state)) return false;
@@ -231,12 +315,56 @@ export async function runRecoveryCycle({
   const recovery = candidates.length === 0 ? { mode: validatedBinding.mode, status: "healthy", receipts: [] }
     : await reconcile({
       mode: validatedBinding.mode,
-      nodes: candidates.map(restartObservation),
+      nodes: candidates.map((node) => restartObservation(node, decidedAtMs)),
     }, {
-      allowlist: new Set(candidates.map((node) => `${node.id}:restart_owned_task`)),
+      // Supervision suppression is expressed as an empty allowlist entry, so a
+      // suppressed node is denied inside the coordinator instead of executed.
+      allowlist: new Set(executable.map((node) => `${node.id}:restart_owned_task`)),
       executor: { restart_owned_task: executor },
       verifier: { restart_owned_task: verifier },
     });
+
+  const recoveryRows = [];
+  const historyCandidates = [];
+  for (const receipt of recovery.receipts) {
+    const plan = plans.get(receipt.node_id);
+    if (plan === undefined) continue;
+    const outcomeCode = plan.outcomeCode ?? executedOutcomeCode(receipt);
+    // A half-open probe is transient: its outcome resolves the circuit to
+    // closed (verified) or open (failed) inside the same cycle.
+    const nextRow = applyAttemptOutcome(plan.row, { outcomeCode, atMs: decidedAtMs });
+    supervisionRows.set(receipt.node_id, nextRow);
+    recoveryRows.push(publicRecoveryReceipt(receipt, outcomeCode, nextRow));
+    historyCandidates.push(buildHistoryRow({
+      at: decidedAt,
+      nodeId: receipt.node_id,
+      reason: receipt.reason,
+      action: receipt.repair_action,
+      attempt: receipt.attempt,
+      verification: receipt.verification,
+      row: nextRow,
+      outcomeCode,
+    }));
+  }
+
+  // A present-but-unreadable supervision file is left exactly as it is. Rewriting
+  // it here would silently reset the retry memory to "no failures" and reopen
+  // repairs on the next cycle; the owner clears the file instead.
+  if (supervisionRead.ok) {
+    await persistSupervisionState({
+      evidenceRoot,
+      rows: [...supervisionRows.values()],
+      keepNodeIds: new Set(Object.keys(validatedBinding.task_bindings)),
+      updatedAt: decidedAt,
+    });
+  }
+  if (priorHistory.ok) {
+    await persistRecoveryHistory({
+      evidenceRoot,
+      entries: appendRecoveryHistory(priorHistory.entries, historyCandidates),
+      updatedAt: decidedAt,
+    });
+  }
 
   const completedAt = now().toISOString();
   const cycle = {
@@ -245,17 +373,19 @@ export async function runRecoveryCycle({
     completed_at: completedAt,
     mode: validatedBinding.mode,
     status: Object.values(evidenceReceipts).every((receipt) => receipt.status === "ok")
-      && recovery.receipts.every((receipt) => receipt.attempt !== "failed"
-        && receipt.verification !== "failed") ? "ok" : "attention",
+      && stateRevalidated && supervisionRead.ok
+      && priorHistory.ok
+      && recoveryRows.every((row) => row.outcome_code === "verified_repair") ? "ok" : "attention",
+    state_revalidated: stateRevalidated,
     evidence: Object.fromEntries(Object.entries(evidenceReceipts).map(([lane, receipt]) => [lane, {
       status: receipt.status,
       validation_scope: receipt.validation_scope,
       validated_count: receipt.validated_count,
       error_codes: receipt.error_codes,
     }])),
-    recovery: recovery.receipts.map(publicRecoveryReceipt),
+    recovery: recoveryRows,
   };
-  await atomicJson(path.join(evidenceRoot, "recovery_cycle.json"), cycle);
+  await writeAtomicJson(path.join(evidenceRoot, "recovery_cycle.json"), cycle);
   return cycle;
 }
 
@@ -263,16 +393,29 @@ export function startRecoveryCompanion({
   repoRoot,
   projectRoot = repoRoot,
   bindingPath = path.join(projectRoot, "guild_hall", "state", "operations", "watchtower", "recovery.binding.json"),
+  evidenceRoot = path.join(projectRoot, "guild_hall", "state", "operations", "watchtower", "external_evidence"),
   intervalMs = DEFAULT_RECOVERY_INTERVAL_MS,
   loadBinding = async () => validateRecoveryBinding(JSON.parse(await readFile(bindingPath, "utf8"))),
   runCycle = runRecoveryCycle,
+  now = () => new Date(),
 } = {}) {
   let stopped = false;
   let inFlight = null;
+  // A failed cycle must not be silently invisible. The receipt records only a
+  // safe error code, never raw exception text, and never rewrites the last-good
+  // cycle, supervision state, or history files.
+  const receipt = (attemptedAt, status, errorCode) => persistRecoverySupervisorReceipt({
+    evidenceRoot, attemptedAt, status, errorCode, now,
+  }).catch(() => null);
   const trigger = () => {
     if (stopped || inFlight !== null) return inFlight;
+    const attemptedAt = now().toISOString();
     inFlight = Promise.resolve(loadBinding())
       .then((binding) => runCycle({ repoRoot, projectRoot, binding }))
+      .then(
+        () => receipt(attemptedAt, "ok", null),
+        (error) => receipt(attemptedAt, "error", safeSupervisorErrorCode(error)),
+      )
       .catch(() => null)
       .finally(() => { inFlight = null; });
     return inFlight;

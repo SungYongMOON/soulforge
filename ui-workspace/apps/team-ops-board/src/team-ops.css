@@ -5714,6 +5714,25 @@ a:focus-visible {
 .watchtower-tracking-result span { min-width: 0; }
 .watchtower-tracking-result small { margin-left: auto; color: #748b96; font: 10px Consolas, ui-monospace, monospace; }
 .watchtower-tracking-result.is-recovery strong { color: #83d89b; }
+.watchtower-tracking-supervision {
+  grid-column: 1 / -1; display: grid; gap: 6px; min-width: 0;
+  padding: 6px 8px; border: 1px solid rgb(114 183 255 / 18%); border-radius: 6px;
+  background: rgb(9 19 26 / 62%);
+}
+.watchtower-tracking-supervision dl { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; }
+.watchtower-tracking-supervision dl > div { display: flex; gap: 5px; min-width: 0; }
+.watchtower-tracking-supervision dt { color: #7e939e; font: 10px/1.35 Consolas, ui-monospace, monospace; }
+.watchtower-tracking-supervision dd { margin: 0; color: #c8d7dd; font: 10px/1.35 Consolas, ui-monospace, monospace; }
+.watchtower-tracking-supervision[data-state="repairing"] dd { color: #a9dcbc; }
+.watchtower-tracking-supervision[data-state="waiting"] dd { color: #e6c987; }
+.watchtower-tracking-supervision[data-state="blocked"] dd { color: #ffaaa3; }
+.watchtower-tracking-supervisor-notice { margin: 0; color: #ffaaa3; font-size: 10.5px; }
+.watchtower-tracking-history { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; }
+.watchtower-tracking-history li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; min-width: 0; }
+.watchtower-tracking-history span { color: #748b96; font: 10px Consolas, ui-monospace, monospace; }
+.watchtower-tracking-history b { overflow: hidden; color: #c1d1d8; font: 500 10.5px/1.35 inherit; text-overflow: ellipsis; }
+.watchtower-tracking-history small { margin-left: auto; color: #7e939e; font: 10px Consolas, ui-monospace, monospace; }
+.watchtower-tracking-history-empty { margin: 0; color: #7e939e; font-size: 10.5px; }
 .watchtower-attention { display: flex; gap: 10px; align-items: flex-start; background: color-mix(in srgb, #ff8d84 9%, transparent); border: 1px solid color-mix(in srgb, #ff8d84 35%, transparent); border-radius: 10px; padding: 10px 14px; font-size: 12.5px; }
 .watchtower-attention svg { flex-shrink: 0; margin-top: 2px; color: #ff8d84; }
 .watchtower-attention ul { margin: 0; padding-left: 16px; display: grid; gap: 3px; }
@@ -6650,6 +6669,8 @@ a:focus-visible {
   .watchtower-tracking li { grid-template-columns: minmax(0, 1fr); }
   .watchtower-tracking-actions { justify-content: flex-start; }
   .watchtower-tracking-result { grid-column: 1; align-items: flex-start; flex-wrap: wrap; }
+  .watchtower-tracking-supervision { grid-column: 1; }
+  .watchtower-tracking-history small { margin-left: 0; }
   .watchtower-graph-focus { width: 100%; margin-left: 0; }
   .watchtower-canvas { height: 700px; }
   .watchtower-surface .react-flow__minimap { width: 112px; height: 78px; }

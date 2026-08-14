@@ -78,6 +78,7 @@ import {
 } from "./core/mobile-detail.mjs";
 import { readCollapsedPanelIds, setPanelCollapsed } from "./core/panel-collapse.mjs";
 import { buildTopologyConnectionDiagnostic, isTopologyDiagnosticNode } from "./core/topology-connection-diagnostics.mjs";
+import { buildTopologyRecoverySupervision } from "./core/topology-recovery-view.mjs";
 import { buildTopologyStructuralPaths, buildTopologyViewModel } from "./core/topology-view.mjs";
 import { buildEngineeringClassicTopologyViewModel } from "./core/topology-engine-classic-view.mjs";
 import {
@@ -3742,6 +3743,7 @@ function SystemTopologySurface({ projection, refreshing, providerSnapshots = nul
         pending: false,
         text: next?.state === "stale" ? `이전 기록 · ${text}` : text,
         observedAt: next?.cycle?.completed_at ?? next?.observed_at ?? null,
+        supervision: buildTopologyRecoverySupervision({ projection: next, nodeId: item.id }),
       });
     } catch {
       setTrackingInteraction({
@@ -3750,6 +3752,7 @@ function SystemTopologySurface({ projection, refreshing, providerSnapshots = nul
         pending: false,
         text: "조치 기록을 읽지 못했습니다 · 현재 상태를 유지합니다.",
         observedAt: null,
+        supervision: null,
       });
     }
   }
@@ -3971,6 +3974,39 @@ function SystemTopologySurface({ projection, refreshing, providerSnapshots = nul
                     <strong>{trackingInteraction.pending ? "확인 중" : trackingInteraction.kind === "diagnosis" ? "진단 결과" : "조치 결과"}</strong>
                     <span>{trackingInteraction.text}</span>
                     {trackingInteraction.observedAt && <small>{watchtowerTrackingTime(trackingInteraction.observedAt)}</small>}
+                  </div>
+                )}
+                {trackingInteraction?.nodeId === item.id && trackingInteraction.kind === "recovery"
+                  && trackingInteraction.pending !== true && trackingInteraction.supervision && (
+                  <div
+                    className="watchtower-tracking-supervision"
+                    data-testid="watchtower-tracking-supervision"
+                    data-state={trackingInteraction.supervision.stateKey}
+                    aria-label={`${item.label} 복구 감독 상태`}
+                  >
+                    <dl>
+                      <div><dt>복구 상태</dt><dd>{trackingInteraction.supervision.stateLabel}</dd></div>
+                      <div><dt>마지막 시도</dt><dd>{watchtowerTrackingTime(trackingInteraction.supervision.lastAttemptAt)}</dd></div>
+                      <div><dt>다음 재시도</dt><dd>{watchtowerTrackingTime(trackingInteraction.supervision.nextRetryAt)}</dd></div>
+                      <div><dt>연속 실패</dt><dd>{trackingInteraction.supervision.consecutiveFailures}회</dd></div>
+                      <div><dt>마지막 복구 성공</dt><dd>{watchtowerTrackingTime(trackingInteraction.supervision.lastVerifiedRepairAt)}</dd></div>
+                    </dl>
+                    {trackingInteraction.supervision.supervisorNotice && (
+                      <p className="watchtower-tracking-supervisor-notice">{trackingInteraction.supervision.supervisorNotice}</p>
+                    )}
+                    {trackingInteraction.supervision.history.length > 0 ? (
+                      <ul className="watchtower-tracking-history">
+                        {trackingInteraction.supervision.history.map((entry: any) => (
+                          <li key={entry.at}>
+                            <span>{watchtowerTrackingTime(entry.at)}</span>
+                            <b>{entry.outcomeLabel}</b>
+                            <small>회로 {entry.circuitLabel}</small>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="watchtower-tracking-history-empty">최근 조치 기록 없음</p>
+                    )}
                   </div>
                 )}
               </li>
