@@ -91,6 +91,14 @@ subsequent explicit lifecycle update reappears automatically. This changes
 browser `localStorage` only; it never changes, archives, creates, deletes, or
 messages a Codex thread.
 
+Each major panel on the Fleet, organization, work/history, and system-topology
+surfaces also has a presentation-only `접기` / `펼치기` control. The first visit
+shows every panel. The browser stores only a versioned allowlist of collapsed
+panel identifiers in `localStorage`, so manual refreshes and accepted live data
+updates keep the Owner's layout preference. Invalid, unknown, or inaccessible
+storage fails open to the fully expanded layout. This preference does not stop
+polling, change any snapshot, or grant runtime/repair authority.
+
 ## Local endpoint and privacy boundary
 
 Vite exposes `GET /codex-threads.snapshot.json` only to loopback clients. The

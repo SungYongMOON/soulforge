@@ -6445,6 +6445,60 @@ a:focus-visible {
 .fleet-panel.is-totals { grid-column: 1 / -1; }
 .fleet-panel { gap: 8px; align-content: start; }
 .fleet-usage-title { color: #d5e1e8; font-size: 13px; font-weight: 700; }
+
+/* Presentation-only panel collapse. The persisted state contains allowlisted panel IDs only. */
+.panel-collapse-body { display: contents; }
+.panel-collapse-body[hidden] { display: none; }
+.panel-collapse-button {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 62px;
+  min-height: 34px;
+  margin: 0;
+  padding: 5px 9px;
+  border: 1px solid #33424d;
+  border-radius: 7px;
+  color: #aebfc8;
+  background: #121a20;
+  font: 700 10.5px/1 Consolas, ui-monospace, monospace;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.panel-collapse-button:hover { color: #e2ecef; border-color: #547080; background: #18232b; }
+.panel-collapse-button:focus-visible { outline: 2px solid #72b7ff; outline-offset: 2px; }
+.panel-collapse-button svg,
+.fleet-usage-card .panel-collapse-button svg,
+.fleet-usage-card.fleet-panel.is-totals .panel-collapse-button svg {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+}
+.fleet-usage-card.is-collapsed,
+.ledger-activity.is-collapsed,
+.ledger-distribution.is-collapsed,
+.ai-usage-panel.is-collapsed,
+.live-organization-group.is-collapsed,
+.watchtower-surface.is-collapsed {
+  gap: 0;
+}
+.fleet-usage-card.is-collapsed { align-self: start; min-height: 64px; }
+.realtime-surface.is-collapsed,
+.organization-workspace.is-collapsed { gap: 0; min-height: 0; }
+.watchtower-header > .panel-collapse-button,
+.realtime-headline > .panel-collapse-button,
+.organization-workspace-header > .panel-collapse-button,
+.ai-usage-header > .panel-collapse-button { align-self: center; }
+.live-organization-group > header > .panel-collapse-button { margin-left: 4px; }
+
+@media (max-width: 760px) {
+  .panel-collapse-button { min-width: 44px; min-height: 44px; padding: 7px; }
+  .panel-collapse-button > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .realtime-headline > .panel-collapse-button,
+  .organization-workspace-header > .panel-collapse-button { align-self: flex-end; }
+}
 .fleet-panel-foot {
   margin: 2px 0 0; font-family: Consolas, ui-monospace, monospace;
   font-size: 12px; line-height: 1.5; font-weight: 550; letter-spacing: 0.045em; color: #aebbc4;

@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-08-14 - Persistent collapsible Board panels
+
+- Added accessible `접기` / `펼치기` controls to the major Fleet, organization,
+  work/history, and system-topology panels, including individual enrolled work
+  groups. The first visit remains fully expanded.
+- Persisted only allowlisted presentation IDs in browser-local storage so a
+  refresh or live data update keeps the chosen layout. Invalid storage fails
+  open and no collector, snapshot, task, runtime, or repair behavior changes.
+
 ## 2026-08-14 - In-context Watchtower diagnosis and recovery visibility
 
 - Added `진단` and `조치 내역` controls to every non-green Watchtower tracking

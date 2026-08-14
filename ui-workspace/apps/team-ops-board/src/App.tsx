@@ -76,6 +76,7 @@ import {
   MOBILE_DETAIL_MEDIA_QUERY,
   isFocusRestoreCandidate
 } from "./core/mobile-detail.mjs";
+import { readCollapsedPanelIds, setPanelCollapsed } from "./core/panel-collapse.mjs";
 import { buildTopologyStructuralPaths, buildTopologyViewModel } from "./core/topology-view.mjs";
 import { buildEngineeringClassicTopologyViewModel } from "./core/topology-engine-classic-view.mjs";
 import {
@@ -169,6 +170,45 @@ function browserStorage(): Storage | null {
   } catch {
     return null;
   }
+}
+
+function usePersistentPanelCollapse(panelId: string) {
+  const [collapsed, setCollapsed] = useState(() => readCollapsedPanelIds(browserStorage()).has(panelId));
+  const toggle = () => {
+    setCollapsed((current) => {
+      const next = !current;
+      setPanelCollapsed(browserStorage(), panelId, next);
+      return next;
+    });
+  };
+  return { collapsed, toggle };
+}
+
+function PanelCollapseButton({ panelId, label, collapsed, onToggle }: {
+  panelId: string;
+  label: string;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="panel-collapse-button"
+      aria-expanded={!collapsed}
+      aria-controls={`panel-collapse-${panelId.replace(/[^a-z0-9_-]/giu, "-")}`}
+      aria-label={`${label} ${collapsed ? "펼치기" : "접기"}`}
+      title={collapsed ? "펼치기" : "접기"}
+      onClick={onToggle}
+      data-testid={`panel-collapse-${panelId}`}
+    >
+      {collapsed ? <ChevronRight size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}
+      <span>{collapsed ? "펼치기" : "접기"}</span>
+    </button>
+  );
+}
+
+function CollapsiblePanelBody({ panelId, collapsed, children }: { panelId: string; collapsed: boolean; children: any }) {
+  return <div id={`panel-collapse-${panelId.replace(/[^a-z0-9_-]/giu, "-")}`} className="panel-collapse-body" hidden={collapsed}>{children}</div>;
 }
 
 function formatRefreshTime(value: string | null) {
@@ -1104,27 +1144,14 @@ function App() {
           )}
 
           {surface === "work" && workGroups.map((group) => (
-            <section className="live-organization-group" key={group.organization_group_id} aria-labelledby={`group-${group.organization_group_id}`}>
-              <header>
-                <div>
-                  <span>ORGANIZATION GROUP</span>
-                  <h2 id={`group-${group.organization_group_id}`}>{group.display_label}</h2>
-                </div>
-                <strong>{group.threads.length}</strong>
-              </header>
-              <div className="live-thread-card-list">
-                {group.threads.map((thread: any) => (
-                  <LiveThreadCard
-                    key={`${thread.thread_id}:${thread.updated_at}`}
-                    thread={thread}
-                    selected={thread.thread_id === selectedThreadId}
-                    acknowledged={isAcknowledgeableLiveThread(thread) && isLiveThreadAcknowledged(storage, thread)}
-                    directChildCount={directChildCounts.get(thread.thread_id) ?? 0}
-                    onSelect={selectThread}
-                  />
-                ))}
-              </div>
-            </section>
+            <WorkOrganizationGroup
+              key={group.organization_group_id}
+              group={group}
+              selectedThreadId={selectedThreadId}
+              storage={storage}
+              directChildCounts={directChildCounts}
+              onSelect={selectThread}
+            />
           ))}
           </> : <InitialLiveProjectionLoading />}
         </section>
@@ -1152,6 +1179,43 @@ function App() {
         <span>no thread create, delete, archive, send, raw transcript, path, or worktree access</span>
       </footer>
     </div>
+  );
+}
+
+function WorkOrganizationGroup({ group, selectedThreadId, storage, directChildCounts, onSelect }: {
+  group: any;
+  selectedThreadId: string | null;
+  storage: Storage | null;
+  directChildCounts: Map<string, number>;
+  onSelect: (threadId: string, trigger: HTMLButtonElement) => void;
+}) {
+  const panelId = `work.group.${group.organization_group_id}`;
+  const panel = usePersistentPanelCollapse(panelId);
+  return (
+    <section className={`live-organization-group${panel.collapsed ? " is-collapsed" : ""}`} aria-labelledby={`group-${group.organization_group_id}`} data-collapsed={panel.collapsed || undefined}>
+      <header>
+        <div>
+          <span>ORGANIZATION GROUP</span>
+          <h2 id={`group-${group.organization_group_id}`}>{group.display_label}</h2>
+        </div>
+        <strong>{group.threads.length}</strong>
+        <PanelCollapseButton panelId={panelId} label={`${group.display_label} 업무`} collapsed={panel.collapsed} onToggle={panel.toggle} />
+      </header>
+      <CollapsiblePanelBody panelId={panelId} collapsed={panel.collapsed}>
+        <div className="live-thread-card-list">
+          {group.threads.map((thread: any) => (
+            <LiveThreadCard
+              key={`${thread.thread_id}:${thread.updated_at}`}
+              thread={thread}
+              selected={thread.thread_id === selectedThreadId}
+              acknowledged={isAcknowledgeableLiveThread(thread) && isLiveThreadAcknowledged(storage, thread)}
+              directChildCount={directChildCounts.get(thread.thread_id) ?? 0}
+              onSelect={onSelect}
+            />
+          ))}
+        </div>
+      </CollapsiblePanelBody>
+    </section>
   );
 }
 
@@ -1190,8 +1254,9 @@ function RealtimeDashboard({
   onSelect: (threadId: string, trigger: HTMLButtonElement) => void;
   onRetry: () => void;
 }) {
+  const panel = usePersistentPanelCollapse("owner.realtime");
   return (
-    <section className="realtime-surface" aria-labelledby="realtime-heading" data-testid="realtime-dashboard">
+    <section className={`realtime-surface${panel.collapsed ? " is-collapsed" : ""}`} aria-labelledby="realtime-heading" data-testid="realtime-dashboard" data-collapsed={panel.collapsed || undefined}>
       <header className="realtime-headline">
         <div>
           <span>REAL-TIME LOCAL PROJECTION</span>
@@ -1202,8 +1267,9 @@ function RealtimeDashboard({
           <Radio size={15} aria-hidden="true" />
           <span>현재 등록 {projection.scope.included_count}건</span>
         </div>
+        <PanelCollapseButton panelId="owner.realtime" label="실시간 업무 현황" collapsed={panel.collapsed} onToggle={panel.toggle} />
       </header>
-
+      <CollapsiblePanelBody panelId="owner.realtime" collapsed={panel.collapsed}>
       <div className="realtime-metric-grid" aria-label="실시간 상태 요약">
         <RealtimeMetricCard statusKey="active" icon={<Activity size={25} aria-hidden="true" />} count={buckets.active.length} />
         <RealtimeMetricCard statusKey="waiting" icon={<Clock3 size={25} aria-hidden="true" />} count={buckets.waiting.length} />
@@ -1268,6 +1334,7 @@ function RealtimeDashboard({
           <RealtimeMeterHealth projection={aiUsageProjection} />
         </aside>
       </div>
+      </CollapsiblePanelBody>
     </section>
   );
 }
@@ -1604,8 +1671,9 @@ function OrganizationWorkspace({
 }) {
   const companies = Array.isArray(organization?.companies) ? organization.companies : [];
   const currentCount = threads.length;
+  const panel = usePersistentPanelCollapse("organization.workspace");
   return (
-    <section className="organization-workspace" aria-labelledby="organization-workspace-heading" data-testid="organization-workspace">
+    <section className={`organization-workspace${panel.collapsed ? " is-collapsed" : ""}`} aria-labelledby="organization-workspace-heading" data-testid="organization-workspace" data-collapsed={panel.collapsed || undefined}>
       <header className="organization-workspace-header">
         <div>
           <span>EXACT PARENT EDGES · RESULT GATE METADATA</span>
@@ -1616,7 +1684,9 @@ function OrganizationWorkspace({
           <button type="button" role="tab" aria-selected={subview === "tree"} className={subview === "tree" ? "is-active" : ""} onClick={() => onChangeSubview("tree")} data-testid="organization-tree-subview">조직 트리</button>
           <button type="button" role="tab" aria-selected={subview === "flow"} className={subview === "flow" ? "is-active" : ""} onClick={() => onChangeSubview("flow")} data-testid="organization-flow-subview">책임 흐름</button>
         </div>
+        <PanelCollapseButton panelId="organization.workspace" label="조직도" collapsed={panel.collapsed} onToggle={panel.toggle} />
       </header>
+      <CollapsiblePanelBody panelId="organization.workspace" collapsed={panel.collapsed}>
       <div className="organization-context-strip">
         <span><Building2 size={15} aria-hidden="true" />회사 {companies.length}</span>
         <span><UsersRound size={15} aria-hidden="true" />정확한 현재 등록 {currentCount}</span>
@@ -1648,6 +1718,7 @@ function OrganizationWorkspace({
           onSelect={onSelect}
         />
       )}
+      </CollapsiblePanelBody>
     </section>
   );
 }
@@ -2690,6 +2761,9 @@ function UsageTrendChart({ usage }: { usage: any }) {
 }
 
 function FleetUsageCards({ usage, providers = null, pending = false }: { usage: any; providers?: any; pending?: boolean }) {
+  const limitsPanel = usePersistentPanelCollapse("owner.limits");
+  const modelsPanel = usePersistentPanelCollapse("owner.models");
+  const usagePanel = usePersistentPanelCollapse("owner.usage");
   const history = usage?.history ?? null;
   const windows = history?.windows ?? null;
   const claudeEvidence = usage?.provider_evidence?.claude ?? null;
@@ -2945,12 +3019,14 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
   if (limitRows.length === 0 && topModelRows.length === 0 && totalsRows.length === 0) return null;
   return (
     <div className="fleet-usage-cards is-panels" data-testid="fleet-usage-cards">
-      <article className="fleet-usage-card fleet-panel is-limits">
+      <article className={`fleet-usage-card fleet-panel is-limits${limitsPanel.collapsed ? " is-collapsed" : ""}`} data-collapsed={limitsPanel.collapsed || undefined}>
         <header>
           <span className="fleet-usage-dot" aria-hidden="true" />
           <span className="fleet-usage-title">한도</span>
           <span className="fleet-usage-pill">공식 관측</span>
+          <PanelCollapseButton panelId="owner.limits" label="한도" collapsed={limitsPanel.collapsed} onToggle={limitsPanel.toggle} />
         </header>
+        <CollapsiblePanelBody panelId="owner.limits" collapsed={limitsPanel.collapsed}>
         {providerObservationNote !== null && <p className="fleet-panel-foot" data-testid="fleet-provider-observation-state">{providerObservationNote}</p>}
         <ul className="fleet-limit-rows">
           {["5시간 창", "주간 창", "크레딧"].flatMap((group) => {
@@ -2985,13 +3061,16 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
           })}
         </ul>
         {limitFoot.length > 0 && <p className="fleet-panel-foot">{limitFoot}</p>}
+        </CollapsiblePanelBody>
       </article>
-      <article className="fleet-usage-card fleet-panel is-models">
+      <article className={`fleet-usage-card fleet-panel is-models${modelsPanel.collapsed ? " is-collapsed" : ""}`} data-collapsed={modelsPanel.collapsed || undefined}>
         <header>
           <span className="fleet-usage-dot" aria-hidden="true" />
           <span className="fleet-usage-title">모델 사용량</span>
           <span className="fleet-usage-pill">최근 7일</span>
+          <PanelCollapseButton panelId="owner.models" label="모델 사용량" collapsed={modelsPanel.collapsed} onToggle={modelsPanel.toggle} />
         </header>
+        <CollapsiblePanelBody panelId="owner.models" collapsed={modelsPanel.collapsed}>
         {topModelRows.length === 0 ? (
           <p className="fleet-panel-empty">모델 사용 관측 없음</p>
         ) : (
@@ -3027,13 +3106,16 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
         )}
         <p className="fleet-panel-foot">{meterTokens > 0 ? `기록 ${fleetTokenLabel(meterTokens)} tok` : ""}{totalRequestTurns > 0 ? ` · 미기록 ${totalRequestTurns.toLocaleString("en-US")}회` : ""}</p>
         <p className={`fleet-panel-foot fleet-claude-ledger-evidence ${claudeLedgerTone}`} data-testid="claude-ledger-evidence" data-ledger-freshness={claudeEvidence?.ledger_freshness ?? "unknown"}>{claudeLedgerSummary}</p>
+        </CollapsiblePanelBody>
       </article>
-      <article className="fleet-usage-card fleet-panel is-totals">
+      <article className={`fleet-usage-card fleet-panel is-totals${usagePanel.collapsed ? " is-collapsed" : ""}`} data-collapsed={usagePanel.collapsed || undefined}>
         <header>
           <span className="fleet-usage-dot" aria-hidden="true" />
           <span className="fleet-usage-title">사용량</span>
           <span className="fleet-usage-pill">로컬 집계</span>
+          <PanelCollapseButton panelId="owner.usage" label="사용량" collapsed={usagePanel.collapsed} onToggle={usagePanel.toggle} />
         </header>
+        <CollapsiblePanelBody panelId="owner.usage" collapsed={usagePanel.collapsed}>
         <ul className="fleet-total-rows">
           {totalsRows.map((row) => (
             <li key={row.key}><span>{row.label}</span><b>{row.value}</b><small>{row.meta}</small></li>
@@ -3041,6 +3123,7 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
         </ul>
         <UsageTrendChart usage={usage} />
         {totalsFoot.length > 0 && <p className="fleet-panel-foot">{totalsFoot}</p>}
+        </CollapsiblePanelBody>
       </article>
     </div>
   );
@@ -3091,18 +3174,21 @@ function LedgerProviderTokenChart({ providerDaily }: { providerDaily: any[] }) {
 }
 
 function LedgerActivity({ usage }: { usage: any }) {
+  const panel = usePersistentPanelCollapse("work.activity");
   const activity = usage?.history?.activity ?? null;
   if (!activity || !Array.isArray(activity.daily) || activity.daily.length < 2 || !Array.isArray(activity.hourly)) return null;
   const hourly = activity.hourly;
   const totalHourTurns = hourly.reduce((sum: number, row: any) => sum + (row.turns ?? 0), 0);
   const maxHour = Math.max(...hourly.map((row: any) => row.turns ?? 0), 1);
   return (
-    <section className="ledger-activity" aria-label="활동 빈도" data-testid="ledger-activity">
+    <section className={`ledger-activity${panel.collapsed ? " is-collapsed" : ""}`} aria-label="활동 빈도" data-testid="ledger-activity" data-collapsed={panel.collapsed || undefined}>
       <header>
         <span className="ledger-distribution-kicker">활동 빈도</span>
         <h2>최근 일자별 · 시간대별 작업</h2>
         <span className="ledger-distribution-meta">KST · 공통 Meter 원장</span>
+        <PanelCollapseButton panelId="work.activity" label="활동 빈도" collapsed={panel.collapsed} onToggle={panel.toggle} />
       </header>
+      <CollapsiblePanelBody panelId="work.activity" collapsed={panel.collapsed}>
       <div className="ledger-activity-panels">
         <div className="ledger-activity-panel is-usage-trend">
           <UsageTrendChart usage={usage} />
@@ -3121,11 +3207,13 @@ function LedgerActivity({ usage }: { usage: any }) {
           <div className="ledger-activity-axis"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>
         </div>
       </div>
+      </CollapsiblePanelBody>
     </section>
   );
 }
 
 function LedgerDistribution({ usage, exactTaskLabels }: { usage: any; exactTaskLabels: Map<string, string> | Record<string, string> | null }) {
+  const panel = usePersistentPanelCollapse("work.distribution");
   const windows = usage?.history?.windows ?? null;
   const window = windows?.all_time ?? windows?.calendar_month ?? null;
   if (!window || !window.breakdowns) return null;
@@ -3170,12 +3258,14 @@ function LedgerDistribution({ usage, exactTaskLabels }: { usage: any; exactTaskL
     { key: "projects", tone: "green", title: "프로젝트 코드별 토큰", meta: "세션 귀속 기준", rows: topRows("projects") },
   ];
   return (
-    <section className="ledger-distribution" aria-label="사용량 분포" data-testid="ledger-distribution">
+    <section className={`ledger-distribution${panel.collapsed ? " is-collapsed" : ""}`} aria-label="사용량 분포" data-testid="ledger-distribution" data-collapsed={panel.collapsed || undefined}>
       <header>
         <span className="ledger-distribution-kicker">분포</span>
         <h2>누적 사용 분포</h2>
         <span className="ledger-distribution-meta">전체 {window.totals.turns.toLocaleString("en-US")}턴 · {fleetTokenLabel(window.totals.total_tokens)} tok</span>
+        <PanelCollapseButton panelId="work.distribution" label="누적 사용 분포" collapsed={panel.collapsed} onToggle={panel.toggle} />
       </header>
+      <CollapsiblePanelBody panelId="work.distribution" collapsed={panel.collapsed}>
       <div className="ledger-distribution-columns">
         {columns.map((column) => {
           const rows = column.rows;
@@ -3207,6 +3297,7 @@ function LedgerDistribution({ usage, exactTaskLabels }: { usage: any; exactTaskL
           );
         })}
       </div>
+      </CollapsiblePanelBody>
     </section>
   );
 }
@@ -3508,6 +3599,7 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
   onRefreshReadOnly: () => Promise<any>;
 }) {
   const model = useMemo(() => buildTopologyViewModel(projection?.snapshot ?? null), [projection]);
+  const panel = usePersistentPanelCollapse("system.watchtower");
   const refreshNotice = watchtowerRefreshNotice(projection?.refresh_state, refreshing);
   const refreshMetadataText = watchtowerRefreshMetadataText(projection?.refresh_metadata);
   const [flowInstance, setFlowInstance] = useState<any>(null);
@@ -3740,7 +3832,7 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
   }
   const summary = model.summary ?? { ok: 0, degraded: 0, stale: 0, down: 0, unmonitored: 0 };
   return (
-    <section className="watchtower-surface" aria-label="Soulforge 시스템 토폴로지" data-testid="system-topology-surface">
+    <section className={`watchtower-surface${panel.collapsed ? " is-collapsed" : ""}`} aria-label="Soulforge 시스템 토폴로지" data-testid="system-topology-surface" data-collapsed={panel.collapsed || undefined}>
       <header className="watchtower-header">
         <div>
           <span className="watchtower-kicker"><Radio size={15} aria-hidden="true" /> WATCHTOWER · 검사 전용(W1)</span>
@@ -3759,7 +3851,9 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
           </span>
           <span className="watchtower-refresh-ages" data-testid="system-topology-refresh-ages">{refreshMetadataText}</span>
         </div>
+        <PanelCollapseButton panelId="system.watchtower" label="Watchtower 시스템 토폴로지" collapsed={panel.collapsed} onToggle={panel.toggle} />
       </header>
+      <CollapsiblePanelBody panelId="system.watchtower" collapsed={panel.collapsed}>
       {summary.unmonitored > 0 && (
         <div className="watchtower-unmonitored-breakdown" data-testid="system-topology-unmonitored-breakdown">
           <span>구조 표식 {model.unmonitoredBreakdown.structuralOnly}</span>
@@ -3958,6 +4052,7 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
         <EyeOff size={13} aria-hidden="true" />
         <span>노드 관측과 간선 전달은 별도 근거입니다. 흐린 간선은 선언 구조일 뿐이며, 영수증이 있는 간선만 관측 전달로 표시합니다.</span>
       </footer>
+      </CollapsiblePanelBody>
     </section>
   );
 }
@@ -3992,6 +4087,7 @@ const ENGINE_NODE_ICON_BY_ID: Record<string, any> = {
 
 function EngineeringEngineTopologySurface({ projection }: { projection: any }) {
   const model: any = useMemo(() => buildEngineeringClassicTopologyViewModel(projection), [projection]);
+  const panel = usePersistentPanelCollapse("system.engineering");
   const [flowInstance, setFlowInstance] = useState<any>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const fittedLayoutRef = useRef<string | null>(null);
@@ -4113,7 +4209,7 @@ function EngineeringEngineTopologySurface({ projection }: { projection: any }) {
   });
 
   return (
-    <section className={`watchtower-surface engineering-topology-surface${model.state === "stale" ? " is-stale" : ""}`} aria-label="Engineering Engine 선언 토폴로지" data-testid="engineering-engine-topology-surface">
+    <section className={`watchtower-surface engineering-topology-surface${model.state === "stale" ? " is-stale" : ""}${panel.collapsed ? " is-collapsed" : ""}`} aria-label="Engineering Engine 선언 토폴로지" data-testid="engineering-engine-topology-surface" data-collapsed={panel.collapsed || undefined}>
       <header className="watchtower-header engineering-topology-header">
         <div>
           <span className="watchtower-kicker"><Workflow size={15} aria-hidden="true" /> ENGINEERING ENGINE · DECLARED STRUCTURE</span>
@@ -4125,7 +4221,9 @@ function EngineeringEngineTopologySurface({ projection }: { projection: any }) {
           <strong>{model.source.edgeCount} 연결</strong>
           <span>runtime UNKNOWN</span>
         </div>
+        <PanelCollapseButton panelId="system.engineering" label="Engineering Engine 연결 구조" collapsed={panel.collapsed} onToggle={panel.toggle} />
       </header>
+      <CollapsiblePanelBody panelId="system.engineering" collapsed={panel.collapsed}>
       <div className="engineering-topology-boundary" role="status">
         <span>선언 구조 전용 · 실행 권한 false · 복구 권한 false</span>
         <span>{model.gap}</span>
@@ -4189,6 +4287,7 @@ function EngineeringEngineTopologySurface({ projection }: { projection: any }) {
         <EyeOff size={13} aria-hidden="true" />
         <span>표시된 선은 같은 Engine provider 안의 선언된 import 관계입니다. Watchtower와 Engine 사이 연결은 정본에 없으므로 만들지 않습니다.</span>
       </footer>
+      </CollapsiblePanelBody>
     </section>
   );
 }
@@ -4662,6 +4761,7 @@ function AiUsagePanel({ projection, exactTaskLabels, exactTaskAttribution, exact
   exactTaskAttributionState: "loading" | "ready" | "unavailable";
 }) {
   const { snapshot } = projection;
+  const panel = usePersistentPanelCollapse("work.usage_meter");
   const [historyWindow, setHistoryWindow] = useState("calendar_day");
   const roles = snapshot.roles.length > 0
     ? snapshot.roles
@@ -4675,7 +4775,7 @@ function AiUsagePanel({ projection, exactTaskLabels, exactTaskAttribution, exact
     ? `측정 불가 / ${refreshState.toUpperCase()}`
     : `${snapshot.coverage.status === "complete" && refreshState !== "hold" ? "자동 계측 정상" : "부분 계측"}${refreshState === "refreshing" ? " · 갱신 중" : refreshState === "hold" ? " · HOLD" : ""}`;
   return (
-    <section className={`ai-usage-panel ai-usage-panel-${projection.state}`} aria-label="AI Usage Meter read-only projection" data-live-dialog-background>
+    <section className={`ai-usage-panel ai-usage-panel-${projection.state}${panel.collapsed ? " is-collapsed" : ""}`} aria-label="AI Usage Meter read-only projection" data-live-dialog-background data-collapsed={panel.collapsed || undefined}>
       <header className="ai-usage-header">
         <div>
           <span>READ-ONLY LOCAL PROJECTION</span>
@@ -4685,7 +4785,9 @@ function AiUsagePanel({ projection, exactTaskLabels, exactTaskAttribution, exact
         <strong className="ai-usage-status" data-ai-usage-state={projection.state}>
           {measurementStatus}
         </strong>
+        <PanelCollapseButton panelId="work.usage_meter" label="AI Usage Meter" collapsed={panel.collapsed} onToggle={panel.toggle} />
       </header>
+      <CollapsiblePanelBody panelId="work.usage_meter" collapsed={panel.collapsed}>
       <dl className="ai-usage-summary">
         <div><dt>전체 토큰</dt><dd>{formatUsageNumber(snapshot.totals.total_tokens)}</dd></div>
         <div><dt>계산 크레딧</dt><dd>{formatUsageCredits(snapshot.totals.credits)}</dd></div>
@@ -4711,6 +4813,7 @@ function AiUsagePanel({ projection, exactTaskLabels, exactTaskAttribution, exact
         <span>시간 초과 {formatUsageNumber(snapshot.activity.timeout_count)}</span>
       </div>
       {projection.history && <AiUsageHistoryPanel history={projection.history} selectedWindow={historyWindow} onSelectWindow={setHistoryWindow} exactTaskLabels={exactTaskLabels} exactTaskAttribution={exactTaskAttribution} exactTaskAttributionState={exactTaskAttributionState} />}
+      </CollapsiblePanelBody>
     </section>
   );
 }
