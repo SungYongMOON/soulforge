@@ -11,6 +11,7 @@ import { createLiveThreadAdapterPlugin } from "./src/server/live-thread-adapter.
 import { createProviderLimitsAdapterPlugin } from "./src/server/provider-limits-adapter.mjs";
 import { createTopologyAdapterPlugin } from "./src/server/topology-adapter.mjs";
 import { createTopologyFederationAdapterPlugin } from "./src/server/topology-federation-adapter.mjs";
+import { createTopologyRecoveryAdapterPlugin } from "./src/server/topology-recovery-adapter.mjs";
 import {
   createTeamOpsBoardRuntimeEnvironment,
   createTeamOpsBoardTopologyOptions,
@@ -44,6 +45,7 @@ export default defineConfig({
     createAiUsageAdapterPlugin(),
     createTopologyAdapterPlugin(boardTopologyOptions),
     createTopologyFederationAdapterPlugin(),
+    createTopologyRecoveryAdapterPlugin({ ownerRoot }),
     createHostStatsAdapterPlugin(),
     createClaudeUsageAdapterPlugin(),
     createAntigravityUsageAdapterPlugin(),

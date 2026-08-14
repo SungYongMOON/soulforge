@@ -476,7 +476,7 @@ function App() {
   const [topologyProjection, setTopologyProjection] = useState<any>(null);
   const [topologyFederationProjection, setTopologyFederationProjection] = useState<any>(null);
   const [topologyRefreshing, setTopologyRefreshing] = useState(false);
-  const topologyRefreshRef = useRef<(force?: boolean) => Promise<void> | void>(() => {});
+  const topologyRefreshRef = useRef<(force?: boolean) => Promise<any> | void>(() => {});
   const [hostStatsSnapshot, setHostStatsSnapshot] = useState<any>(null);
   const [providerSnapshots, setProviderSnapshots] = useState<any>(() => createProviderSnapshots());
 
@@ -578,11 +578,13 @@ function App() {
         if (!response.ok) throw new Error("topology_projection_unavailable");
         const nextProjection = await response.json();
         if (!cancelled) setTopologyProjection(nextProjection);
+        return nextProjection;
       } catch {
         // A retained display must remain explicitly HOLD, never an implied current success.
         if (!cancelled) {
           setTopologyProjection((previous: any) => previous === null ? previous : { ...previous, refresh_state: "hold" });
         }
+        return null;
       } finally {
         if (!cancelled) setTopologyRefreshing(false);
       }
@@ -773,7 +775,7 @@ function App() {
     void operation;
   }
 
-  function refreshDiagnostics() {
+  async function refreshDiagnostics() {
     const usageRefresh = aiUsageProjectionRequest.load({ force: true }).then(
       (next: any) => startTransition(() => setAiUsageProjection(next)),
       () => startTransition(() => setAiUsageProjection({
@@ -783,7 +785,8 @@ function App() {
       }))
     );
     const topologyRefresh = Promise.resolve(topologyRefreshRef.current(true));
-    void Promise.allSettled([usageRefresh, topologyRefresh]);
+    const [, topologyResult] = await Promise.allSettled([usageRefresh, topologyRefresh]);
+    return topologyResult.status === "fulfilled" ? topologyResult.value : null;
   }
 
   function selectThread(threadId: string, trigger: HTMLButtonElement) {
@@ -3502,7 +3505,7 @@ function watchtowerMiniMapColor(node: any): string {
 function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
   projection: any;
   refreshing: boolean;
-  onRefreshReadOnly: () => void;
+  onRefreshReadOnly: () => Promise<any>;
 }) {
   const model = useMemo(() => buildTopologyViewModel(projection?.snapshot ?? null), [projection]);
   const refreshNotice = watchtowerRefreshNotice(projection?.refresh_state, refreshing);
@@ -3510,6 +3513,7 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
   const [flowInstance, setFlowInstance] = useState<any>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [inspectorView, setInspectorView] = useState<"evidence" | "direct" | "all">("evidence");
+  const [trackingInteraction, setTrackingInteraction] = useState<any>(null);
   const fittedLayoutRef = useRef<string | null>(null);
   const selectedNodeTriggerRef = useRef<HTMLButtonElement | null>(null);
   const inspectorRef = useRef<HTMLElement | null>(null);
@@ -3548,6 +3552,84 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
   function activateTopologyNode(nodeId: string, trigger?: EventTarget | null) {
     if (trigger instanceof HTMLButtonElement) selectedNodeTriggerRef.current = trigger;
     setSelectedNodeId((current) => current === nodeId ? null : nodeId);
+  }
+
+  async function diagnoseTrackingItem(item: any, trigger: HTMLButtonElement) {
+    activateTopologyNode(item.id, trigger);
+    setInspectorView("evidence");
+    setTrackingInteraction({
+      nodeId: item.id,
+      kind: "diagnosis",
+      pending: true,
+      text: "최신 Watchtower 진단을 실행하고 있습니다.",
+      observedAt: null,
+    });
+    const nextProjection = await onRefreshReadOnly();
+    const nextModel = buildTopologyViewModel(nextProjection?.snapshot ?? null);
+    const currentItem = nextModel.available
+      ? nextModel.nonGreenQueue.find((entry: any) => entry.id === item.id)
+      : null;
+    const text = !nextModel.available
+      ? "진단 실패 · 최신 Watchtower 관측을 읽지 못했습니다."
+      : currentItem
+        ? `진단 완료 · ${currentItem.stateLabel} · ${currentItem.reasonLabel}`
+        : "진단 완료 · 현재 비정상 목록에서 해제되었습니다.";
+    setTrackingInteraction({
+      nodeId: item.id,
+      kind: "diagnosis",
+      pending: false,
+      text,
+      observedAt: nextProjection?.observed_at ?? new Date().toISOString(),
+    });
+  }
+
+  async function inspectTrackingRecovery(item: any, trigger: HTMLButtonElement) {
+    activateTopologyNode(item.id, trigger);
+    setInspectorView("evidence");
+    setTrackingInteraction({
+      nodeId: item.id,
+      kind: "recovery",
+      pending: true,
+      text: "최근 안전 조치 내역을 확인하고 있습니다.",
+      observedAt: null,
+    });
+    try {
+      const response = await fetch("/topology-recovery.snapshot.json", { cache: "no-store" });
+      if (!response.ok) throw new Error("recovery_projection_unavailable");
+      const next = await response.json();
+      const row = Array.isArray(next?.cycle?.recovery)
+        ? next.cycle.recovery.find((entry: any) => entry?.node_id === item.id)
+        : null;
+      let text = `자동 조치 대상 아님 · ${item.repairabilityLabel}`;
+      if (next?.state === "unavailable") {
+        text = "조치 기록 없음 · 자동 조치 가능 여부를 확인하지 못했습니다.";
+      } else if (row?.attempt === "succeeded" && row?.verification === "passed") {
+        text = "안전 조치 완료 · 사후 검증 통과";
+      } else if (row?.attempt === "denied") {
+        text = row?.verification === "failed"
+          ? "안전 조치 실행 안 함 · 사전 검증 실패"
+          : "안전 조치 실행 안 함 · 허용 조건 불충족";
+      } else if (row?.attempt === "failed") {
+        text = "안전 조치 실패 · 상태를 그대로 유지합니다.";
+      } else if (row?.repairability === "allowlisted") {
+        text = "안전 조치 후보 확인 · 아직 실행되지 않았습니다.";
+      }
+      setTrackingInteraction({
+        nodeId: item.id,
+        kind: "recovery",
+        pending: false,
+        text: next?.state === "stale" ? `이전 기록 · ${text}` : text,
+        observedAt: next?.cycle?.completed_at ?? next?.observed_at ?? null,
+      });
+    } catch {
+      setTrackingInteraction({
+        nodeId: item.id,
+        kind: "recovery",
+        pending: false,
+        text: "조치 기록을 읽지 못했습니다 · 현재 상태를 유지합니다.",
+        observedAt: null,
+      });
+    }
   }
 
   useEffect(() => {
@@ -3736,6 +3818,30 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
                   <span>{item.repairabilityLabel}</span>
                   <span title={`근거 ${item.evidenceOwner} · 에스컬레이션 ${item.escalationOwner}`}>근거 소유자 {item.evidenceOwner}</span>
                 </div>
+                <div className="watchtower-tracking-actions" role="group" aria-label={`${item.label} 진단과 조치`}>
+                  <button
+                    type="button"
+                    disabled={trackingInteraction?.nodeId === item.id && trackingInteraction?.pending === true}
+                    onClick={(event) => { void diagnoseTrackingItem(item, event.currentTarget); }}
+                  >진단</button>
+                  <button
+                    type="button"
+                    disabled={trackingInteraction?.nodeId === item.id && trackingInteraction?.pending === true}
+                    onClick={(event) => { void inspectTrackingRecovery(item, event.currentTarget); }}
+                  >조치 내역</button>
+                </div>
+                {trackingInteraction?.nodeId === item.id && (
+                  <div
+                    id={`watchtower-tracking-result-${item.id}`}
+                    className={`watchtower-tracking-result is-${trackingInteraction.kind}`}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <strong>{trackingInteraction.pending ? "확인 중" : trackingInteraction.kind === "diagnosis" ? "진단 결과" : "조치 결과"}</strong>
+                    <span>{trackingInteraction.text}</span>
+                    {trackingInteraction.observedAt && <small>{watchtowerTrackingTime(trackingInteraction.observedAt)}</small>}
+                  </div>
+                )}
               </li>
             ))}
           </ul>

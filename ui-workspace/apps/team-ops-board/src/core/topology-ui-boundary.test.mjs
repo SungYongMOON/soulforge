@@ -63,6 +63,11 @@ test("classic topology renders the non-green tracking queue as a compact panel",
   assert.match(surface, /watchtowerTrackingTime\(item\.nextEvidenceDueAt\)/u);
   assert.match(surface, /watchtowerTrackingTime\(item\.nextCheckAt\)/u);
   assert.match(surface, /item\.repairabilityLabel/u);
+  assert.match(surface, />진단<\/button>/u);
+  assert.match(surface, />조치 내역<\/button>/u);
+  assert.match(surface, /\/topology-recovery\.snapshot\.json/u);
+  assert.match(surface, /안전 조치 실행 안 함/u);
+  assert.match(surface, /watchtower-tracking-result/u);
   assert.doesNotMatch(surface, /INCIDENT|watchtower-attention/u);
   assert.match(css, /\.watchtower-tracking[\s\S]*max-height:\s*228px/u);
 });

@@ -52,6 +52,10 @@ length-bounded; filesystem- or URL-like values are rejected.
   bindings with matching action digests and successful pre/post verification;
   provider login, deletion, acknowledgement, upload, routing, external send,
   and partial mail backlogs remain manual/HOLD.
+  Every non-green tracking row includes an immediate read-only diagnosis refresh
+  and a sanitized recovery-history view. The latter reports whether the existing
+  five-minute recovery companion succeeded, denied, or failed an allowlisted
+  action; it never grants a new browser-side repair authority.
   A healthy Hiworks collector may also carry a separate `retrying` or `held`
   advisory with a sanitized item count and next attempt time. This keeps
   collector liveness green without hiding unresolved delivery work. Gray nodes

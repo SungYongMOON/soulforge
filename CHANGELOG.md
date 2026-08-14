@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-08-14 - In-context Watchtower diagnosis and recovery visibility
+
+- Added `진단` and `조치 내역` controls to every non-green Watchtower tracking
+  row. Diagnosis forces the existing read-only W1 probe; recovery history shows
+  the latest sanitized automatic recovery outcome without requiring a separate
+  Codex question.
+- Added a loopback GET-only recovery projection that exposes only bounded node,
+  action, attempt, verification, and escalation identifiers. It does not run a
+  repair, add browser-side mutation authority, or expose local paths or payloads.
+
 ## 2026-08-14 - Stable local Antigravity quota observation
 
 - Replaced the unreliable screen-accessibility quota path with the running
