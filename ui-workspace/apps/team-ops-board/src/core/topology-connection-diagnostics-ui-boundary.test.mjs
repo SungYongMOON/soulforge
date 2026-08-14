@@ -96,6 +96,43 @@ test("기존 토폴로지 도형·색·미니맵·패널 접기 표면이 유지
   assert.match(css, /\.watchtower-connection-diagnosis dd\[data-state="failure_signal"\]/u);
 });
 
+test("provider 폴링은 owner·system 표면에서만 켜지고 같은 loopback 표면만 다시 읽는다", () => {
+  const source = readFileSync(APP_PATH, "utf8");
+  assert.match(source, /const providerPollingEnabled = surface === "owner" \|\| surface === "system";/u);
+
+  const effectStart = source.indexOf("if (!providerPollingEnabled) return undefined;");
+  assert.ok(effectStart > 0, "provider 폴링 게이트를 찾지 못했습니다");
+  const effectEnd = source.indexOf("}, [providerPollingEnabled]);", effectStart);
+  assert.ok(effectEnd > effectStart, "provider 폴링 effect 종료 지점을 찾지 못했습니다");
+  const effect = source.slice(effectStart, effectEnd);
+
+  // 기존 loopback GET 3개만 쓰고 새 route·provider 호출을 만들지 않는다.
+  assert.deepEqual(
+    [...effect.matchAll(/fetchJson\("([^"]+)"\)/gu)].map((match) => match[1]),
+    ["/antigravity-usage.snapshot.json", "/antigravity-quota.snapshot.json", "/provider-limits.snapshot.json"],
+  );
+  assert.equal([...effect.matchAll(/\bfetch\(/gu)].length, 1);
+  assert.doesNotMatch(effect, /XMLHttpRequest|EventSource|WebSocket|method:\s*"POST"/u);
+
+  // 폴링 effect 는 하나뿐이라 owner·system 사이 전환에서 중복 폴링이 생기지 않는다.
+  assert.equal([...source.matchAll(/if \(!providerPollingEnabled\) return undefined;/gu)].length, 1);
+  assert.equal([...source.matchAll(/\}, \[providerPollingEnabled\]\);/gu)].length, 1);
+  assert.equal([...source.matchAll(/PROVIDER_POLL_INTERVAL_MS\)/gu)].length, 1);
+});
+
+test("System Topology 는 owner 와 같은 providerSnapshots 를 그대로 받는다", () => {
+  const source = readFileSync(APP_PATH, "utf8");
+  assert.match(source, /<SystemTopologySurface[\s\S]{0,240}providerSnapshots=\{providerSnapshots\}/u);
+  assert.match(source, /<FleetUsageCards[^>]*providers=\{providerSnapshots\}/u);
+  // work·organization 표면은 이 수신면을 열지 않는다. 게이트는 owner·system 두 값만 본다.
+  assert.deepEqual(
+    [...source.matchAll(/const providerPollingEnabled = ([^;]+);/gu)].map((match) => match[1]),
+    ['surface === "owner" || surface === "system"'],
+  );
+  // provider 수신 상태를 쓰는 곳은 이 폴링 effect 하나뿐이다.
+  assert.equal([...source.matchAll(/setProviderSnapshots\(/gu)].length, 1);
+});
+
 test("allowlist 는 9개 미감시 노드 그대로이며 UI 가 별도 목록을 다시 만들지 않는다", () => {
   const source = readFileSync(APP_PATH, "utf8");
   assert.deepEqual([...TOPOLOGY_DIAGNOSTIC_NODE_IDS].sort(), [

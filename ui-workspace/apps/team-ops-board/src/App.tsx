@@ -540,8 +540,12 @@ function App() {
     };
   }, [surface]);
 
+  // Fleet 카드와 System Topology 연결 진단은 같은 loopback 수신면을 읽는다.
+  // 표면 전환마다 폴링이 재시작되지 않도록 두 표면을 하나의 게이트로 묶는다.
+  const providerPollingEnabled = surface === "owner" || surface === "system";
+
   useEffect(() => {
-    if (surface !== "owner") return undefined;
+    if (!providerPollingEnabled) return undefined;
     let cancelled = false;
     let generation = 0;
     let inFlight: Promise<void> | null = null;
@@ -607,7 +611,7 @@ function App() {
       controllers.clear();
       window.clearInterval(timer);
     };
-  }, [surface]);
+  }, [providerPollingEnabled]);
 
   useEffect(() => {
     if (surface !== "system" && surface !== "owner") return undefined;
