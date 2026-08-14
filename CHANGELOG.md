@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-08-14 - Antigravity local collector heartbeat
+
+- Added the existing read-only `collect-antigravity` path to the Board-owned five-minute
+  AI usage companion and published a separate sanitized Antigravity collector heartbeat.
+- Connected only collector execution health to Watchtower. Antigravity provider/login
+  availability and both usage data edges remain unproven, and no app, RPC, credential,
+  route, or repair authority was added.
+- Antigravity child output is schema-checked; any reported collection issue fails the
+  collector heartbeat closed while a clean zero-database no-op remains healthy idle.
+
 ## 2026-08-14 - Separate collector health from bounded mail backlog
 
 - Split Hiworks collector liveness from per-message retry delivery state. A

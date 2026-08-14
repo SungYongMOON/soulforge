@@ -71,8 +71,8 @@
 
 ## AI 사용량 hybrid topology
 
-AI 사용량 lane은 provider별 상주 미터가 아니다. 실제 구현에 맞춰 다음 on-demand
-producer와 하나의 공통 meter/원장을 구조로 표시한다.
+AI 사용량 lane은 provider별 상주 미터가 아니다. 실제 구현에 맞춰 Board의 5분
+companion이 호출하는 local producer와 하나의 공통 meter/원장을 구조로 표시한다.
 
 ```text
 Codex session JSONL ───────> usage_codex_collector ──────┐
@@ -86,7 +86,8 @@ Antigravity DB ────────────> usage_antigravity_collector
 ```
 
 - 세 collector는 각각 `collect`, `collect-claude`, `collect-antigravity`의 실제
-  on-demand producer다. scheduler나 상주 provider meter를 뜻하지 않는다.
+  local producer다. Board companion이 5분마다 호출하지만 상주 provider meter나
+  provider 로그인·가용성 증거를 뜻하지 않는다.
 - 공통 `usage_meter`는 usage-event 검증·집계 계약이며 provider가 아니다. provider
   source, provider collector, aggregate는 각각 `health_scope`가 분리된다.
 - 기존 `usage_meter` probe key는 `usage_codex_collector`의 generic/Codex hook collector
@@ -159,9 +160,14 @@ npm run guild-hall:watchtower:probe
 - The Board consumer uses its controller-owned runtime heartbeat plus exact resident-task state. Watchtower does not call its own Board endpoint as evidence.
 - Local activity uses the scheduler runner's atomic sanitized receipt. A successful no-delta cycle is healthy idle, not failure.
 
-- Board의 5분 companion은 ignored state의 `producer_health/{codex,claude,meter}.json`에
+- Board의 5분 companion은 ignored state의 `producer_health/{codex,claude,antigravity,meter}.json`에
   경로·원문 없는 원자적 heartbeat를 남긴다. period는 300초, grace는 600초다.
-- Codex와 Claude는 각 수집 시도/성공을 독립적으로 기록한다. Meter 성공은 두 수집이
+- Antigravity lane은 로컬 conversation DB를 읽기 전용으로 수집한다. 앱·계정·로컬 RPC를
+  시작하거나 호출하지 않으며, 성공 heartbeat는 issue 없는 collector 실행만 증명한다.
+  DB가 0개인 clean no-op은 정상 유휴지만 공급자 가용성 증거는 아니다. issue가 하나라도
+  있으면 `antigravity_collection_partial`로 fail closed한다. 공급자 가용성 및 data edge 전달은
+  계속 별도 근거가 없으므로 승격하지 않는다.
+- Codex·Claude·Antigravity는 각 수집 시도/성공을 독립적으로 기록한다. Meter 성공은 세 수집이
   끝난 뒤 최종 ledger snapshot의 schema와 생성 시각을 검증한 경우에만 기록한다.
 - `activity_changed=false`는 정상 유휴이며 장애 신호가 아니다. 토큰·event 증가는
   `activity_changed=true`라는 정보성 활동 표시일 뿐 health 판정에 참여하지 않는다.

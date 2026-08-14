@@ -16,6 +16,20 @@ const ACTIVE_FILES = [
   path.resolve("test-fixtures", "active-b.jsonl"),
 ];
 
+function antigravityResult({ conversationDbCount = 0, issueCount = 0, eventCount = 0 } = {}) {
+  return { stdout: JSON.stringify({
+    schema_version: "soulforge.ai_usage_meter_collect_antigravity_result.v1",
+    mode: "apply",
+    conversation_db_count: conversationDbCount,
+    issue_count: issueCount,
+    event_count: eventCount,
+  }) };
+}
+
+function successfulRun(args) {
+  return args?.[1] === "collect-antigravity" ? antigravityResult() : undefined;
+}
+
 test("active Codex collection selects only fresh exact started sessions", () => {
   const now = Date.parse("2026-08-10T12:00:00.000Z");
   const ids = activeCodexSessionIds({ identities: [
@@ -58,23 +72,82 @@ test("producer sweep refreshes lifecycle and usage ledgers without coupling quot
     loadActiveFiles: async () => ACTIVE_FILES,
     loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-11T00:00:00.000Z", events_digest: "same" }),
     persistHeartbeat: async (value) => { heartbeats.push(value); },
-    run: async (file, args) => { calls.push({ file, args }); },
+    run: async (file, args) => { calls.push({ file, args }); return successfulRun(args); },
   });
   assert.equal(result.status, "observed");
-  assert.deepEqual(calls.slice(0, 3).map((call) => call.args[1]), ["lifecycle-reconcile", "collect", "collect-claude"]);
+  assert.deepEqual(calls.slice(0, 4).map((call) => call.args[1]), ["lifecycle-reconcile", "collect", "collect-claude", "collect-antigravity"]);
   assert.deepEqual(calls[0].args.filter((arg) => arg === "--thread-id").length, 2);
-  assert.ok(calls.slice(0, 3).every((call) => call.args.includes("--apply")));
+  assert.ok(calls.slice(0, 4).every((call) => call.args.includes("--apply")));
   assert.equal(calls[1].args[calls[1].args.indexOf("--project-root") + 1], PROJECT_ROOT);
-  assert.equal(calls.length, 6);
-  assert.match(calls[3].args[0], /guild_hall[\\/]watchtower[\\/]cli\.mjs$/u);
-  assert.deepEqual(calls[3].args.slice(1), ["probe", "--pointer", WATCHTOWER_POINTER, "--json"]);
-  assert.equal(calls[3].args.includes("--no-write"), false);
-  assert.ok(calls.slice(4).every((call) => call.args.includes("--include-active")));
-  assert.ok(calls.slice(4).every((call) => call.args[call.args.indexOf("--project-root") + 1] === PROJECT_ROOT));
-  assert.deepEqual(calls.slice(4).map((call) => call.args[call.args.indexOf("--session-file") + 1]), [
+  assert.deepEqual(calls[3].args.slice(1), ["collect-antigravity", "--state-root", STATE_ROOT, "--max-age-days", "2", "--apply"]);
+  assert.equal(calls.length, 7);
+  assert.match(calls[4].args[0], /guild_hall[\\/]watchtower[\\/]cli\.mjs$/u);
+  assert.deepEqual(calls[4].args.slice(1), ["probe", "--pointer", WATCHTOWER_POINTER, "--json"]);
+  assert.equal(calls[4].args.includes("--no-write"), false);
+  assert.ok(calls.slice(5).every((call) => call.args.includes("--include-active")));
+  assert.ok(calls.slice(5).every((call) => call.args[call.args.indexOf("--project-root") + 1] === PROJECT_ROOT));
+  assert.deepEqual(calls.slice(5).map((call) => call.args[call.args.indexOf("--session-file") + 1]), [
     ...ACTIVE_FILES,
   ]);
-  assert.deepEqual(heartbeats.map(({ lane, succeeded }) => [lane, succeeded]), [["codex", true], ["claude", true], ["meter", true], ["store_usage_ledger", true]]);
+  assert.deepEqual(heartbeats.map(({ lane, succeeded }) => [lane, succeeded]), [["codex", true], ["claude", true], ["antigravity", true], ["meter", true], ["store_usage_ledger", true]]);
+});
+
+test("Antigravity collector failure is isolated and recorded with a sanitized lane receipt", async () => {
+  const heartbeats = [];
+  const result = await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    stateRoot: STATE_ROOT,
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-11T00:00:00.000Z", event_count: 12 }),
+    persistHeartbeat: async (value) => { heartbeats.push(value); },
+    run: async (_file, args) => {
+      if (args[1] === "collect-antigravity") {
+        throw Object.assign(new Error("redacted"), { code: 1, stderr: JSON.stringify({ error: "antigravity_index_unreadable", private_detail: "discarded" }) });
+      }
+      return successfulRun(args);
+    },
+  });
+  assert.equal(result.status, "partial");
+  assert.deepEqual(heartbeats.find(({ lane }) => lane === "antigravity"), {
+    stateRoot: STATE_ROOT,
+    lane: "antigravity",
+    attemptedAt: heartbeats[0].attemptedAt,
+    succeeded: false,
+    errorCode: "antigravity_index_unreadable",
+    now: heartbeats[0].now,
+  });
+  assert.equal(JSON.stringify(heartbeats).includes("private_detail"), false);
+  assert.equal(heartbeats.find(({ lane }) => lane === "meter").succeeded, true);
+});
+
+test("Antigravity partial result cannot produce a green collector heartbeat", async () => {
+  const heartbeats = [];
+  const result = await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    stateRoot: STATE_ROOT,
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-11T00:00:00.000Z", event_count: 12 }),
+    persistHeartbeat: async (value) => { heartbeats.push(value); },
+    run: async (_file, args) => args[1] === "collect-antigravity"
+      ? antigravityResult({ conversationDbCount: 1, issueCount: 1 })
+      : successfulRun(args),
+  });
+  assert.equal(result.status, "partial");
+  assert.equal(heartbeats.find(({ lane }) => lane === "antigravity").errorCode, "antigravity_collection_partial");
+});
+
+test("Antigravity zero local databases is a successful idle collector attempt, not provider evidence", async () => {
+  const heartbeats = [];
+  const result = await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    stateRoot: STATE_ROOT,
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-11T00:00:00.000Z", event_count: 12 }),
+    persistHeartbeat: async (value) => { heartbeats.push(value); },
+    run: async (_file, args) => successfulRun(args),
+  });
+  assert.equal(result.status, "observed");
+  assert.equal(heartbeats.find(({ lane }) => lane === "antigravity").succeeded, true);
 });
 
 test("Claude quota sweep uses the gated sanitized collector independently", async () => {
@@ -123,6 +196,7 @@ test("Meter heartbeat validates the final ledger independently from a provider f
     persistHeartbeat: async (value) => { heartbeats.push(value); },
     run: async (_file, args) => {
       if (args[1] === "collect-claude") throw Object.assign(new Error("claude unavailable"), { code: "collector_unavailable" });
+      return successfulRun(args);
     },
   });
   assert.equal(heartbeats.find(({ lane }) => lane === "claude").succeeded, false);
@@ -139,7 +213,7 @@ test("ledger validation receipt remains independent when the Meter receipt chann
       if (value.lane === "meter") throw new Error("meter receipt unavailable");
       heartbeats.push(value);
     },
-    run: async () => {},
+    run: async (_file, args) => successfulRun(args),
   });
   assert.equal(heartbeats.find(({ lane }) => lane === "store_usage_ledger").succeeded, true);
 });
@@ -150,7 +224,7 @@ test("collector child exit is preserved as a fixed sanitized error code", async 
     repoRoot: REPO_ROOT, stateRoot: STATE_ROOT, loadActiveFiles: async () => [],
     loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-11T00:00:00.000Z", events_digest: "same" }),
     persistHeartbeat: async (value) => { heartbeats.push(value); },
-    run: async (_file, args) => { if (args[1] === "collect") throw Object.assign(new Error("redacted"), { code: 1 }); },
+    run: async (_file, args) => { if (args[1] === "collect") throw Object.assign(new Error("redacted"), { code: 1 }); return successfulRun(args); },
   });
   assert.equal(heartbeats.find(({ lane }) => lane === "codex").errorCode, "collector_exit_1");
 });
@@ -163,6 +237,7 @@ test("sanitized Meter CLI error code is retained without stderr detail", async (
     persistHeartbeat: async (value) => { heartbeats.push(value); },
     run: async (_file, args) => {
       if (args[1] === "collect") throw Object.assign(new Error("redacted"), { code: 1, stderr: JSON.stringify({ error: "ledger_lock_held", error_digest: "not-retained" }) });
+      return successfulRun(args);
     },
   });
   assert.equal(heartbeats.find(({ lane }) => lane === "codex").errorCode, "ledger_lock_held");

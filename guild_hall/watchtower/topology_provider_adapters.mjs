@@ -95,7 +95,7 @@ export function adaptWatchtowerTopology(topology, exactSourceBytes) {
   if (topology.schema_version !== WATCHTOWER_SCHEMA_VERSION) {
     fail("topology_adapter_watchtower_schema_mismatch", topology.schema_version ?? "missing");
   }
-  assertExpectedCounts(topology.nodes, topology.edges, 27, 33, "watchtower_topology_source");
+  assertExpectedCounts(topology.nodes, topology.edges, 27, 34, "watchtower_topology_source");
 
   const nodes = topology.nodes.map((node) => {
     assertPlainObject(node, "topology_adapter_watchtower_node_shape");

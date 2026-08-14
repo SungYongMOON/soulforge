@@ -59,12 +59,12 @@ function sampleSnapshot() {
   return {
     schema_version: "soulforge.watchtower.topology_health.v2",
     observed_at: "2026-08-08T06:00:00.000Z",
-    summary: { ok: 1, degraded: 0, stale: 0, down: 0, unmonitored: 7 },
+    summary: { ok: 2, degraded: 0, stale: 0, down: 0, unmonitored: 7 },
     edge_delivery: {
-      counts: { delivering: 0, late: 0, stale: 0, failed: 0, registered_no_delivery: 0, unreceipted: 4 },
-      total: 4,
+      counts: { delivering: 0, late: 0, stale: 0, failed: 0, registered_no_delivery: 0, unreceipted: 7 },
+      total: 7,
       delivery_proven: 0,
-      delivery_unproven: 4,
+      delivery_unproven: 7,
       claim: "표시된 간선 중 현재 전달이 증명된 것은 없습니다",
     },
     nodes: [
@@ -82,6 +82,18 @@ function sampleSnapshot() {
         provider: "codex",
         health_scope: "collector",
         health: { state: "ok", reasons: [], age_seconds: 30 },
+      },
+      {
+        id: "usage_antigravity_collector",
+        label: "Antigravity collector",
+        kind: "worker",
+        group: "AI 사용량 수집",
+        col: 1,
+        row: 2,
+        operation_mode: "scheduled",
+        provider: "antigravity",
+        health_scope: "collector",
+        health: { state: "ok", reasons: [], age_seconds: 20 },
       },
       {
         id: "usage_meter",
@@ -145,6 +157,9 @@ function sampleSnapshot() {
       { from: "src_codex", to: "usage_codex_collector", label: "catalog relation", flow: "data" },
       { from: "usage_codex_collector", to: "usage_meter", label: "aggregate output", flow: "data" },
       { from: "usage_codex_collector", to: "watchtower_self", label: "collector health", flow: "control", scope: "usage_collector_health_only" },
+      { from: "src_antigravity", to: "usage_antigravity_collector", label: "local read", flow: "data" },
+      { from: "usage_antigravity_collector", to: "usage_meter", label: "aggregate output", flow: "data" },
+      { from: "usage_antigravity_collector", to: "watchtower_self", label: "collector health", flow: "control", scope: "usage_collector_health_only" },
       { from: "usage_meter", to: "watchtower_self", label: "contract structure", flow: "control", scope: "usage_contract_structure_only" },
     ].map((edge) => ({
       ...edge,
@@ -168,16 +183,17 @@ function expectInvalid(mutator, code) {
   );
 }
 
-test("strict validation keeps provider sources and aggregate unmonitored while Codex collector is observed", () => {
+test("strict validation keeps provider sources and aggregate unmonitored while collector lanes are observed", () => {
   const snapshot = sampleSnapshot();
   assert.equal(validateTopologyHealthSnapshot(snapshot, { now: NOW }), snapshot);
-  assert.deepEqual(snapshot.summary, { ok: 1, degraded: 0, stale: 0, down: 0, unmonitored: 7 });
+  assert.deepEqual(snapshot.summary, { ok: 2, degraded: 0, stale: 0, down: 0, unmonitored: 7 });
   const aggregate = snapshot.nodes.find((node) => node.id === "usage_meter");
   assert.deepEqual(
     { scope: aggregate.health_scope, state: aggregate.health.state, reasons: aggregate.health.reasons },
     { scope: "aggregate", state: "unmonitored", reasons: ["independent_evidence_absent"] },
   );
   assert.equal(snapshot.nodes.find((node) => node.id === "usage_codex_collector").health.state, "ok");
+  assert.equal(snapshot.nodes.find((node) => node.id === "usage_antigravity_collector").health.state, "ok");
 });
 
 test("a healthy mail collector may expose a bounded retry activity state", () => {
@@ -354,7 +370,7 @@ test("healthy self, five-field, and workmeta nodes omit non-green tracking", () 
     node.health = { state: "ok", reasons: [], age_seconds: 5 };
     delete node.tracking;
   }
-  snapshot.summary = { ok: 4, degraded: 0, stale: 0, down: 0, unmonitored: 4 };
+  snapshot.summary = { ok: 5, degraded: 0, stale: 0, down: 0, unmonitored: 4 };
   assert.equal(validateTopologyHealthSnapshot(snapshot, { now: NOW }), snapshot);
 });
 

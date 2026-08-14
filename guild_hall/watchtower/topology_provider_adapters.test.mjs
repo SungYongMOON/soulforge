@@ -38,7 +38,7 @@ test("allowlisted adapters map exact Watchtower and Engineering Engine inventori
   const engineeringEngine = adaptEngineeringEngineTopology(engineBytes);
 
   assert.equal(watchtower.nodes.length, 27);
-  assert.equal(watchtower.edges.length, 33);
+  assert.equal(watchtower.edges.length, 34);
   assert.equal(engineeringEngine.nodes.length, 29);
   assert.equal(engineeringEngine.edges.length, 127);
   assert.equal(watchtower.source.digest, digest(watchtowerBytes));
@@ -51,7 +51,7 @@ test("allowlisted adapters map exact Watchtower and Engineering Engine inventori
   assert.deepEqual(federation.summary, {
     provider_count: 2,
     node_count: 56,
-    edge_count: 160,
+    edge_count: 161,
     runtime_authority: false,
     repair_execution_authority: false,
   });
@@ -78,7 +78,7 @@ test("CLI emits canonical bytes only on stdout by default and --check remains re
   const parsed = JSON.parse(run.stdout);
   assert.equal(parsed.summary.provider_count, 4);
   assert.equal(parsed.summary.node_count, 67);
-  assert.equal(parsed.summary.edge_count, 174);
+  assert.equal(parsed.summary.edge_count, 175);
   assert.equal(run.stdout, canonicalStringify(parsed));
 
   const scratch = mkdtempSync(join(tmpdir(), "soulforge-federated-topology-"));
@@ -108,7 +108,7 @@ test("CLI never writes without --out and writes only the requested output", () =
     const parsed = JSON.parse(readFileSync(output, "utf8"));
     assert.equal(parsed.summary.provider_count, 4);
     assert.equal(parsed.summary.node_count, 67);
-    assert.equal(parsed.summary.edge_count, 174);
+    assert.equal(parsed.summary.edge_count, 175);
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }

@@ -104,6 +104,10 @@ const PROTECTED_NODE_CONTRACTS = new Map([
     kind: "worker", operationModes: ["on_demand", "scheduled"], provider: "claude", healthScope: "collector",
     unmonitoredReasons: ["collector_evidence_absent", "probe_unbound"], observedAllowed: true, migrationOptional: true,
   }],
+  ["usage_antigravity_collector", {
+    kind: "worker", operationModes: ["on_demand", "scheduled"], provider: "antigravity", healthScope: "collector",
+    unmonitoredReasons: ["catalog_only_on_demand", "collector_evidence_absent", "probe_unbound"], observedAllowed: true, migrationOptional: true,
+  }],
   ["usage_meter", {
     kind: "worker", operationMode: "on_demand", provider: null, healthScope: "aggregate",
     unmonitoredReasons: ["independent_evidence_absent", "probe_unbound"], observedAllowed: true,
@@ -441,7 +445,7 @@ export function validateTopologyHealthSnapshot(snapshot, { now = Date.now() } = 
     if ((edge.flow === "control" && edge.to === "watchtower_self" && edge.scope === undefined)
       || (edge.scope === "node_health_only" && sourceNode.health_scope !== "node")
       || (edge.scope === "usage_collector_health_only"
-        && (!["usage_codex_collector", "usage_claude_collector"].includes(sourceNode.id) || sourceNode.health_scope !== "collector"))
+        && (!["usage_codex_collector", "usage_claude_collector", "usage_antigravity_collector"].includes(sourceNode.id) || sourceNode.health_scope !== "collector"))
       || (edge.scope === "usage_contract_structure_only"
         && (sourceNode.id !== "usage_meter" || sourceNode.health_scope !== "aggregate"))
       || (edge.scope === "usage_meter_health_only"

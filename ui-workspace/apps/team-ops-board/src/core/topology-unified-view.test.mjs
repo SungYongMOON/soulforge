@@ -161,17 +161,17 @@ function assertNoVisibleNodeOverlap(nodes) {
   }
 }
 
-test("tracked federation totals remain 4 providers, 67 nodes and 174 provider-local edges", () => {
+test("tracked federation totals remain 4 providers, 67 nodes and 175 provider-local edges", () => {
   const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..", "..", "guild_hall", "watchtower", "topology", "federated_topology.v1.json");
   const snapshot = JSON.parse(readFileSync(root, "utf8"));
   const model = buildUnifiedTopologyViewModel({ lens: "declared_structure", state: "ready", reason: null, snapshot }, null);
   assert.equal(model.available, true);
   assert.deepEqual(
     { providers: model.source.providerCount, nodes: model.source.nodeCount, edges: model.source.edgeCount },
-    { providers: 4, nodes: 67, edges: 174 },
+    { providers: 4, nodes: 67, edges: 175 },
   );
   assert.deepEqual(model.providers.map(({ id, nodeCount, edgeCount }) => ({ id, nodeCount, edgeCount })), [
-    { id: "watchtower", nodeCount: 27, edgeCount: 33 },
+    { id: "watchtower", nodeCount: 27, edgeCount: 34 },
     { id: "engineering_engine", nodeCount: 29, edgeCount: 127 },
     { id: "knowledge_stack", nodeCount: 7, edgeCount: 9 },
     { id: "watchtower_notebook_advisory_adapter", nodeCount: 4, edgeCount: 5 },
@@ -214,7 +214,7 @@ test("tracked Watchtower identity overlays exact 27/27 with no duplicates or inv
   assert.deepEqual(model.diagnostics.unmatchedHealthIds, []);
   assert.deepEqual(model.diagnostics.missingWatchtowerIds, []);
   assert.equal(model.source.nodeIds.length, new Set(model.source.nodeIds).size);
-  assert.equal(model.diagnostics.receiptOverlayCount, 33);
+  assert.equal(model.diagnostics.receiptOverlayCount, 34);
   assert.equal(model.diagnostics.receiptDeliveryProvenCount, 0);
   assert.equal(model.providers.filter((entry) => entry.id !== "watchtower")
     .every((entry) => entry.healthObserved === false && entry.runtimeState === "unknown"), true);
@@ -229,7 +229,7 @@ test("size-aware layout has no collisions for all-expanded and single drill-down
   };
   const expanded = buildUnifiedTopologyViewModel({ lens: "declared_structure", state: "ready", reason: null, snapshot }, null, allExpanded);
   assert.equal(expanded.nodes.filter((entry) => entry.displayKind === "node").length, 67);
-  assert.equal(expanded.edges.length, 174);
+  assert.equal(expanded.edges.length, 175);
   assertNoVisibleNodeOverlap(expanded.nodes);
 
   const single = buildUnifiedTopologyViewModel(federationProjection(), healthProjection(), {

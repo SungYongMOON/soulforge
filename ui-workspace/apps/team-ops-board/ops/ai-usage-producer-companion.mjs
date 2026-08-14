@@ -11,6 +11,30 @@ export const ACTIVE_CODEX_SESSION_MAX_AGE_MS = 15 * 60 * 1_000;
 
 const SAFE_THREAD_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,239}$/u;
 const HEARTBEAT_SCHEMA = "soulforge.ai_usage_producer_heartbeat.v1";
+const ANTIGRAVITY_RESULT_SCHEMA = "soulforge.ai_usage_meter_collect_antigravity_result.v1";
+
+function validateAntigravityCollectionResult(result) {
+  let value;
+  try {
+    value = JSON.parse(String(result?.stdout ?? ""));
+  } catch {
+    throw Object.assign(new Error("antigravity_result_invalid"), { code: "antigravity_result_invalid" });
+  }
+  if (value?.schema_version !== ANTIGRAVITY_RESULT_SCHEMA
+    || value?.mode !== "apply"
+    || !Number.isSafeInteger(value?.conversation_db_count)
+    || value.conversation_db_count < 0
+    || !Number.isSafeInteger(value?.issue_count)
+    || value.issue_count < 0
+    || !Number.isSafeInteger(value?.event_count)
+    || value.event_count < 0) {
+    throw Object.assign(new Error("antigravity_result_invalid"), { code: "antigravity_result_invalid" });
+  }
+  if (value.issue_count > 0) {
+    throw Object.assign(new Error("antigravity_collection_partial"), { code: "antigravity_collection_partial" });
+  }
+  return value;
+}
 
 function safeErrorCode(error) {
   try {
@@ -144,15 +168,21 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
     lifecycleArgs,
     [cli, "collect", "--project-root", projectRoot, "--state-root", stateRoot, "--apply"],
     [cli, "collect-claude", "--state-root", stateRoot, "--max-age-days", "2", "--apply"],
+    [cli, "collect-antigravity", "--state-root", stateRoot, "--max-age-days", "2", "--apply"],
   ].filter(Boolean);
   for (const args of commands) {
     const command = args[0] === cli ? args[1] : null;
     try {
-      await run(process.execPath, args, { cwd: repoRoot, windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
+      const result = await run(process.execPath, args, { cwd: repoRoot, windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
+      if (command === "collect-antigravity") validateAntigravityCollectionResult(result);
       completed += 1;
       if (command === "collect-claude") {
         projectionCommandSucceeded = true;
         await persistHeartbeat({ stateRoot, lane: "claude", attemptedAt, succeeded: true, now });
+      }
+      if (command === "collect-antigravity") {
+        projectionCommandSucceeded = true;
+        await persistHeartbeat({ stateRoot, lane: "antigravity", attemptedAt, succeeded: true, now });
       }
       if (command === "collect") {
         projectionCommandSucceeded = true;
@@ -160,6 +190,7 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
       }
     } catch (error) {
       if (command === "collect-claude") await persistHeartbeat({ stateRoot, lane: "claude", attemptedAt, succeeded: false, errorCode: safeErrorCode(error), now });
+      if (command === "collect-antigravity") await persistHeartbeat({ stateRoot, lane: "antigravity", attemptedAt, succeeded: false, errorCode: safeErrorCode(error), now });
       if (command === "collect") {
         await persistHeartbeat({ stateRoot, lane: "codex", attemptedAt, succeeded: false, errorCode: safeErrorCode(error), now });
       }
@@ -205,7 +236,7 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
       // One conflicting active session must not block other exact active sessions.
     }
   }
-  const expected = (lifecycleArgs === null ? 2 : 3)
+  const expected = (lifecycleArgs === null ? 3 : 4)
     + (path.isAbsolute(watchtowerPointerPath ?? "") ? 1 : 0)
     + activeFiles.length;
   return { status: completed === expected ? "observed" : "partial", completed };

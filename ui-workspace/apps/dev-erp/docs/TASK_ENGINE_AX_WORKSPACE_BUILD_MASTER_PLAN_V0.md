@@ -13,7 +13,9 @@
 > locally owned scheduled task whose ignored binding has the exact action
 > digest and whose pre/post verification succeeds. Provider login, deletion,
 > acknowledgement, upload, route changes, external sends, partial mail backlog,
-> on-demand Antigravity, and the feature-OFF timeline remain manual/HOLD.
+> Antigravity provider/login state, and the feature-OFF timeline remain manual/HOLD.
+> The Antigravity local metadata collector itself participates in the same
+> five-minute heartbeat loop without launching the app or claiming provider/data-edge health.
 >
 > 2026-08-14 CURRENT: the Hiworks-to-Gmail scheduled collector now separates a
 > successful collector cycle from its bounded per-message retry backlog. A

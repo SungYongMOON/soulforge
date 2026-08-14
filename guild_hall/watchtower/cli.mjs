@@ -176,6 +176,17 @@ const EXAMPLE_BINDING = {
       missing_is_unmonitored: true,
       resident_task: "Soulforge-TeamOpsBoard-ReadOnly-v1",
     },
+    usage_antigravity_collector: {
+      kind: "json_file",
+      path: "<LOCAL_STATE_ROOT>/ai_usage_meter/producer_health/antigravity.json",
+      timestamp_field: "last_success_at",
+      status_field: "status",
+      ok_values: ["ok"],
+      period_seconds: 300,
+      grace_seconds: 600,
+      missing_is_unmonitored: true,
+      resident_task: "Soulforge-TeamOpsBoard-ReadOnly-v1",
+    },
     usage_meter: {
       kind: "json_file",
       path: "<LOCAL_STATE_ROOT>/ai_usage_meter/producer_health/meter.json",

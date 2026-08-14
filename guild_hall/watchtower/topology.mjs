@@ -85,10 +85,10 @@ export const TOPOLOGY_NODES = Object.freeze([
   { id: "slack_batch", label: "Slack 배치 수집기", kind: "worker", group: "수집", probe: "slack_batch", operation_mode: "scheduled", health_scope: "node", unmonitored_reason: "collector_evidence_absent", col: 1, row: 2.7 },
   { id: "local_activity", label: "파일·로컬활동 수집기", kind: "worker", group: "수집", probe: "local_activity", operation_mode: "scheduled", health_scope: "node", unmonitored_reason: "collector_evidence_absent", col: 1, row: 3.6 },
 
-  // provider별 실제 on-demand producer. provider source의 health와 collector health는 서로 대체하지 않는다.
+  // provider별 실제 scheduled local producer. provider source의 health와 collector health는 서로 대체하지 않는다.
   { id: "usage_codex_collector", label: "Codex scheduled collector", kind: "worker", group: "AI 사용량 수집", probe: "usage_codex_collector", operation_mode: "scheduled", provider: "codex", health_scope: "collector", unmonitored_reason: "collector_evidence_absent", col: 1, row: 4.5 },
   { id: "usage_claude_collector", label: "Claude scheduled collector/adapter", kind: "worker", group: "AI 사용량 수집", probe: "usage_claude_collector", operation_mode: "scheduled", provider: "claude", health_scope: "collector", unmonitored_reason: "collector_evidence_absent", col: 1, row: 5.4 },
-  { id: "usage_antigravity_collector", label: "Antigravity on-demand collector/adapter", kind: "worker", group: "AI 사용량 수집", probe: null, operation_mode: "on_demand", provider: "antigravity", health_scope: "collector", unmonitored_reason: "catalog_only_on_demand", col: 1, row: 6.3 },
+  { id: "usage_antigravity_collector", label: "Antigravity scheduled collector/adapter", kind: "worker", group: "AI 사용량 수집", probe: "usage_antigravity_collector", operation_mode: "scheduled", provider: "antigravity", health_scope: "collector", unmonitored_reason: "collector_evidence_absent", col: 1, row: 6.3 },
 
   // 저장·검증 평면
   { id: "store_mail_events", label: "메일 event 원장", kind: "store", group: "데이터 평면", probe: "store_mail_events", operation_mode: "structural", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 2, row: 0 },
@@ -134,7 +134,7 @@ export const TOPOLOGY_EDGES = Object.freeze([
 
   { from: "src_codex", to: "usage_codex_collector", label: "on-demand read", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
   { from: "src_claude", to: "usage_claude_collector", label: "on-demand read", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
-  { from: "src_antigravity", to: "usage_antigravity_collector", label: "on-demand read", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
+  { from: "src_antigravity", to: "usage_antigravity_collector", label: "scheduled local read", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
   { from: "usage_codex_collector", to: "usage_meter", label: "usage event", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
   { from: "usage_claude_collector", to: "usage_meter", label: "usage event", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
   { from: "usage_antigravity_collector", to: "usage_meter", label: "usage event", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
@@ -153,6 +153,7 @@ export const TOPOLOGY_EDGES = Object.freeze([
   { from: "mail_forwarder", to: "watchtower_self", label: "상태 관찰", flow: "control", scope: "node_health_only", receipt: null, unreceipted_reason: "probe_observation_only" },
   { from: "usage_codex_collector", to: "watchtower_self", label: "Codex collector health 관찰", flow: "control", scope: "usage_collector_health_only", receipt: null, unreceipted_reason: "probe_observation_only" },
   { from: "usage_claude_collector", to: "watchtower_self", label: "Claude collector health 관찰", flow: "control", scope: "usage_collector_health_only", receipt: null, unreceipted_reason: "probe_observation_only" },
+  { from: "usage_antigravity_collector", to: "watchtower_self", label: "Antigravity collector health 관찰", flow: "control", scope: "usage_collector_health_only", receipt: null, unreceipted_reason: "probe_observation_only" },
   { from: "usage_meter", to: "watchtower_self", label: "usage ledger validation health 관찰", flow: "control", scope: "usage_meter_health_only", receipt: null, unreceipted_reason: "probe_observation_only" },
   { from: "watchtower_self", to: "consumer_board", label: "판정 스냅샷", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
 ]);

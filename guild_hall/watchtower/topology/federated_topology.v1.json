@@ -1464,7 +1464,7 @@
       "evidence_mode": "structural_only",
       "from": "watchtower::src_antigravity",
       "id": "watchtower::edge.src_antigravity.usage_antigravity_collector.data",
-      "label": "on-demand read",
+      "label": "scheduled local read",
       "layer": "subsystem",
       "provider_id": "watchtower",
       "relation": "data",
@@ -1599,6 +1599,16 @@
       "provider_id": "watchtower",
       "relation": "data",
       "to": "watchtower::usage_meter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::usage_antigravity_collector",
+      "id": "watchtower::edge.usage_antigravity_collector.watchtower_self.control",
+      "label": "Antigravity collector health 관찰",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "control",
+      "to": "watchtower::watchtower_self"
     },
     {
       "evidence_mode": "structural_only",
@@ -2374,7 +2384,7 @@
       "group": "AI 사용량 수집",
       "id": "watchtower::usage_antigravity_collector",
       "kind": "worker",
-      "label": "Antigravity on-demand collector/adapter",
+      "label": "Antigravity scheduled collector/adapter",
       "layer": "subsystem",
       "parent_id": null,
       "provider_id": "watchtower",
@@ -4276,7 +4286,7 @@
           "evidence_mode": "structural_only",
           "from": "src_antigravity",
           "id": "edge.src_antigravity.usage_antigravity_collector.data",
-          "label": "on-demand read",
+          "label": "scheduled local read",
           "layer": "subsystem",
           "relation": "data",
           "to": "usage_antigravity_collector"
@@ -4397,6 +4407,15 @@
           "layer": "subsystem",
           "relation": "data",
           "to": "usage_meter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "usage_antigravity_collector",
+          "id": "edge.usage_antigravity_collector.watchtower_self.control",
+          "label": "Antigravity collector health 관찰",
+          "layer": "subsystem",
+          "relation": "control",
+          "to": "watchtower_self"
         },
         {
           "evidence_mode": "structural_only",
@@ -4697,7 +4716,7 @@
           "group": "AI 사용량 수집",
           "id": "usage_antigravity_collector",
           "kind": "worker",
-          "label": "Antigravity on-demand collector/adapter",
+          "label": "Antigravity scheduled collector/adapter",
           "layer": "subsystem",
           "parent_id": null,
           "repair_state": "none"
@@ -4759,7 +4778,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "2f3fbb267646a39ed046e54bc6649f7b563fc3b5c0217583727d574f63f2e8a6",
+        "digest": "8fece1eaf9dd9f62486bed1c7d38983209283b5b84b010633c9b87318911d3a0",
         "revision": "watchtower_topology.v1",
         "schema_version": "soulforge.watchtower.topology.v1",
         "source_id": "watchtower_topology_source"
@@ -4906,13 +4925,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "431fc28d19ba73326ecb2b359c1cb92b9ced28bfb7ef1e65da116a150bfd61be",
+  "source_set_digest": "2ce7a12d1303e3d7bb2e1d6ba545e69b15b9f4f04b84fdac7966a7ef774cf81e",
   "summary": {
-    "edge_count": 174,
+    "edge_count": 175,
     "node_count": 67,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "e3d134732bb60b79f532bef2591bfffc1c90c2eab45c822aa7a3a4e04a1e87bf"
+  "topology_digest": "c13c10f73c860a340f58a218c5d108e3dd8227766bd40f924040e6ec589c4ed3"
 }

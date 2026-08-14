@@ -25,11 +25,11 @@ import {
 
 const NOW = Date.parse("2026-08-07T12:00:00.000Z");
 
-test("topology models actual hybrid on-demand usage producers and structural routes", () => {
+test("topology models scheduled local usage producers and structural routes", () => {
   const nodesById = new Map(TOPOLOGY_NODES.map((node) => [node.id, node]));
   assert.equal(nodesById.size, TOPOLOGY_NODES.length);
   assert.equal(TOPOLOGY_NODES.length, 27);
-  assert.equal(TOPOLOGY_EDGES.length, 33);
+  assert.equal(TOPOLOGY_EDGES.length, 34);
   assert.equal(validateTopologyDefinition().nodes, TOPOLOGY_NODES);
   for (const edge of TOPOLOGY_EDGES) {
     assert.ok(nodesById.has(edge.from), `missing source ${edge.from}`);
@@ -50,7 +50,7 @@ test("topology models actual hybrid on-demand usage producers and structural rou
   assert.deepEqual(usageRoutes, [
     { from: "src_codex", to: "usage_codex_collector", label: "on-demand read", flow: "data" },
     { from: "src_claude", to: "usage_claude_collector", label: "on-demand read", flow: "data" },
-    { from: "src_antigravity", to: "usage_antigravity_collector", label: "on-demand read", flow: "data" },
+    { from: "src_antigravity", to: "usage_antigravity_collector", label: "scheduled local read", flow: "data" },
     { from: "usage_codex_collector", to: "usage_meter", label: "usage event", flow: "data" },
     { from: "usage_claude_collector", to: "usage_meter", label: "usage event", flow: "data" },
     { from: "usage_antigravity_collector", to: "usage_meter", label: "usage event", flow: "data" },
@@ -58,6 +58,7 @@ test("topology models actual hybrid on-demand usage producers and structural rou
     { from: "store_usage_ledger", to: "consumer_board", label: "read-only usage snapshot", flow: "data" },
     { from: "usage_codex_collector", to: "watchtower_self", label: "Codex collector health 관찰", flow: "control", scope: "usage_collector_health_only" },
     { from: "usage_claude_collector", to: "watchtower_self", label: "Claude collector health 관찰", flow: "control", scope: "usage_collector_health_only" },
+    { from: "usage_antigravity_collector", to: "watchtower_self", label: "Antigravity collector health 관찰", flow: "control", scope: "usage_collector_health_only" },
     { from: "usage_meter", to: "watchtower_self", label: "usage ledger validation health 관찰", flow: "control", scope: "usage_meter_health_only" },
   ]);
   for (const provider of ["codex", "claude", "antigravity"]) {
@@ -68,7 +69,8 @@ test("topology models actual hybrid on-demand usage producers and structural rou
     assert.equal(source.operation_mode, "structural");
     assert.equal(collector.provider, provider);
     assert.equal(collector.health_scope, "collector");
-    assert.equal(collector.operation_mode, provider === "antigravity" ? "on_demand" : "scheduled");
+    assert.equal(collector.operation_mode, "scheduled");
+    assert.equal(collector.probe, `usage_${provider}_collector`);
   }
   assert.equal(nodesById.get("usage_meter").health_scope, "aggregate");
   assert.equal(nodesById.get("usage_meter").operation_mode, "on_demand");
@@ -83,7 +85,7 @@ test("topology models actual hybrid on-demand usage producers and structural rou
 
   const watchtowerInputs = TOPOLOGY_EDGES.filter((edge) => edge.to === "watchtower_self");
   const watchtowerOutputs = TOPOLOGY_EDGES.filter((edge) => edge.from === "watchtower_self");
-  assert.equal(watchtowerInputs.length, 8);
+  assert.equal(watchtowerInputs.length, 9);
   assert.ok(watchtowerInputs.every((edge) => edge.flow === "control" && typeof edge.scope === "string"));
   assert.deepEqual(watchtowerOutputs.map(({ from, to, label, flow }) => ({ from, to, label, flow })), [
     { from: "watchtower_self", to: "consumer_board", label: "판정 스냅샷", flow: "data" },
@@ -451,11 +453,11 @@ test("provider evidence absence stays catalog-only and never becomes green", asy
 
   for (const provider of ["antigravity"]) {
     const collector = snapshot.nodes.find((node) => node.id === `usage_${provider}_collector`);
-    assert.equal(collector.operation_mode, "on_demand");
+    assert.equal(collector.operation_mode, "scheduled");
     assert.equal(collector.health_scope, "collector");
     assert.deepEqual(collector.health, {
       state: "unmonitored",
-      reasons: ["catalog_only_on_demand"],
+      reasons: ["collector_evidence_absent", "probe_unbound"],
       age_seconds: null,
     });
   }
@@ -634,10 +636,10 @@ test("tracking covers remaining structural absences plus one degraded probe with
   const tracked = snapshot.nodes.filter((node) => Object.hasOwn(node, "tracking"));
   const healthy = snapshot.nodes.filter((node) => node.health.state === "ok");
 
-  assert.equal(snapshot.summary.unmonitored, 10);
+  assert.equal(snapshot.summary.unmonitored, 9);
   assert.equal(snapshot.summary.degraded, 1);
-  assert.equal(tracked.length, 11);
-  assert.equal(healthy.length, 16);
+  assert.equal(tracked.length, 10);
+  assert.equal(healthy.length, 17);
   assert.ok(healthy.every((node) => !Object.hasOwn(node, "tracking")));
   assert.ok(tracked.every((node) => node.tracking.node_id === node.id && node.tracking.repair_action === null));
 
@@ -761,15 +763,11 @@ test("edge definition rejects a missing receipt field, a bad reason, and a recei
     (error) => error?.code === "topology_edge_receipt_reason_conflict",
   );
   // 근거로 probe 를 내세우려면 그 노드에 probe 가 있어야 한다.
-  const noProbe = TOPOLOGY_EDGES
-    .filter((edge) => !(edge.from === "usage_meter" && edge.to === "watchtower_self"))
-    .concat({
-      from: "usage_antigravity_collector", to: "watchtower_self", label: "unavailable collector health",
-      flow: "control", scope: "usage_collector_health_only",
-      receipt: null, unreceipted_reason: "probe_observation_only",
-    });
+  const noProbeNodes = TOPOLOGY_NODES.map((node) => node.id === "usage_antigravity_collector"
+    ? { ...node, probe: null, operation_mode: "on_demand", unmonitored_reason: "catalog_only_on_demand" }
+    : node);
   assert.throws(
-    () => validateTopologyDefinition({ edges: noProbe }),
+    () => validateTopologyDefinition({ nodes: noProbeNodes }),
     (error) => error?.code === "topology_edge_scope_subject_invalid",
   );
   // 유효한 영수증 키는 통과한다.
