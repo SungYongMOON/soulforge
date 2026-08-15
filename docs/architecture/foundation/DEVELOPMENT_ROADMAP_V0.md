@@ -830,6 +830,25 @@ Codex 계산 크레딧·호출 수·추가 질문·재작업·first-pass accepta
 raw transcript/private payload를 넘기거나, write action·default route·조직 authority를
 활성화하는 일은 이 후보의 첫 단계 범위 밖이다.
 
+Owner 재확인(2026-08-15): 후보 25와 이후 Plugin/App 도입은 위 AX Context-to-Execution
+북극성의 연결부를 가속하는 lane으로 해석한다. provider별 인증·검색·pagination·webhook·
+승인된 action transport 같은 비권위 commodity adapter는 검증된 managed App/Plugin을
+우선할 수 있고, custom MCP/adapter는 관리형 연결로 채울 수 없는 bounded gap에만 만든다.
+
+Soulforge는 cross-source identity, Context/세계수, provenance·temporal correction,
+Evidence/Claim, derived ACL, Task·authorization·verification·receipt 계약을 계속 소유한다.
+MCP는 queue나 판단 authority가 아니라 query/control/result/evidence/receipt interface다.
+Plugin을 제거해도 Task state와 source/revision refs, identity, provenance, authorization,
+execution receipts가 남아야 한다(`Plugin deletion test`). provider-native task·memory·history·
+`done`을 Soulforge 정본으로 자동 승격하거나 새 shadow state/evidence plane으로 쓰지 않는다.
+
+AI·agent 데일리 브리핑은 이 roadmap의 후보·active slice 우선순위를 재검토하는 입력이다.
+실제 정보 공백, authority 영향, provenance/ACL·보안, 총 통합비용과 exit 경로, Soulforge
+acceptance evidence를 대조해 `REPLACE|ACCELERATE|COMPLEMENT|WATCH|HOLD|REJECT`로
+분류한다. 이 판단만으로 Plugin 설치, TASK·canon·route 생성, 외부 action 또는 제품축 기술수락을
+자동 실행하지 않는다. 상세 CEO 책임과 보고 경계는
+`DEVELOPMENT1_TEAM_AND_AI_PLATFORM_ORGANIZATION_V0.md`가 소유한다.
+
 ## SE Engine 공통 지식 외부 shadow 평가 (2026-08-12 Owner 지시)
 
 목적은 실제 프로젝트 자료를 넣기 전에 동일한 공통 체계공학 자료와 완전 합성 case를

@@ -95,6 +95,31 @@ AX의 에이전트 운영 책임과 SYSTEM 실행기반의 경계는 다음처�
 이 경계의 상세 제품 계약은 기존 AX·SYSTEM owner가 소유하며 이 문서에서
 재정의하지 않는다.
 
+### AI 신기술 일일 portfolio 판단
+
+AI 기반시스템 회사 CEO는 AI·agent 데일리 브리핑과 별도 source 검증 결과를 현재
+AX·ERP·SYSTEM roadmap에 대조해 우선순위를 다시 정리한다. 목적은 새 기술을 많이
+도입하는 것이 아니라, 위 세 제품축과 Soulforge 장기 북극성에 실제로 도움이 되는
+변화만 bounded 검토·실험 후보로 남기는 것이다.
+
+각 후보는 `REPLACE`, `ACCELERATE`, `COMPLEMENT`, `WATCH`, `HOLD`, `REJECT` 중 하나로
+분류하고 다음을 함께 기록한다.
+
+1. 영향을 받는 제품축·현행 우선순위와 전일 대비 이동
+2. source truth·Task state·verification·Owner authority를 가져오거나 우회하는지
+3. exact source/revision, provenance, correction/invalidation, ACL과 receipt에 결속 가능한지
+4. 최소권한·project 격리·secret 비노출·prompt-injection·retention/deletion 경계
+5. 구현뿐 아니라 운영·관측·migration·rollback을 포함한 총 통합비용
+6. vendor 상태를 core interface에 누출하지 않는 exit/교체 경로와 `Plugin deletion test`
+7. 외부 benchmark가 아니라 Soulforge acceptance contract·합성시험·bounded pilot 근거
+8. 주관 제품 owner, 협업, independent reviewer와 Owner 결정·중단조건
+
+CEO는 이 분류와 portfolio 우선순위·충돌·Owner 에스컬레이션을 통합하지만 자동으로
+Plugin을 설치하거나 TASK·canon·route를 만들고, 외부 action을 실행하거나 제품축 기술수락을
+대신하지 않는다. `REPLACE`는 비권위 commodity adapter에만 적용하고, core authority를
+provider의 opaque task·memory·history·`done` 상태로 옮기는 후보는 `HOLD` 또는 `REJECT`한다.
+실제 반영은 해당 AX·ERP·SYSTEM owner의 bounded 구현·검증과 필요한 Owner gate를 따른다.
+
 ## AI 기반시스템 회사 상향 결과보고 attribution 계약
 
 AI 기반시스템 회사의 하위 책임 route가 상급 manager·CEO·Owner에게 업무 결과를

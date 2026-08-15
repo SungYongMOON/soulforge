@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## 2026-08-15 - AX Context-to-Execution 북극성과 Plugin 경계 재확인
+
+- Revision: 이 항목을 포함한 Git commit이 exact revision을 소유한다.
+- 무엇이 바뀌었는가: 운영 비전과 개발 로드맵에 `관찰→Context/세계수→공통·프로젝트
+  SE 지식→AX·SE 판단→승인된 Task·배정→권한 있는 local work→결과·evidence 제출→독립
+  검증·승격→feedback` 장기 폐루프를 Owner 재확인으로 기록했다.
+- Plugin 영향: Managed Plugin/App은 비권위 commodity adapter를 대체·가속하고, Soulforge
+  worker Plugin은 accepted assignment/WorkSession client binding, 외부 agent 도구는 runtime
+  선택지만 소유한다. MCP는 query/control/result/evidence/receipt interface이며 세계수·판단·
+  Task state·승인·공식 완료 owner가 아니다. core continuity를 확인하는 `Plugin deletion test`를
+  고정했다.
+- 조직 운영 영향: AI 기반시스템 회사 CEO가 데일리 AI 기술을
+  `REPLACE|ACCELERATE|COMPLEMENT|WATCH|HOLD|REJECT`로 분류하고 authority, provenance,
+  security, 총 통합비용, exit 경로, Soulforge 검증 근거와 제품 owner를 대조해 우선순위를
+  재배치하는 read-only portfolio 판단 경계를 추가했다.
+- 활성화 영향: Plugin 설치, live source/action, TASK·canon·route 생성, P5→P8 순서 변경,
+  ERP write, `_workspaces` authority 재분류를 승인하지 않는다. 현재 M2 판단 subsystem과
+  향후 assignment→local work→custody→review/promotion→accepted history vertical의 경계를
+  유지한다.
+- 관련 경로: `docs/architecture/foundation/VISION_AND_GOALS.md`,
+  `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md`,
+  `docs/architecture/guild_hall/DEVELOPMENT1_TEAM_AND_AI_PLATFORM_ORGANIZATION_V0.md`.
+
 ## 2026-08-15 - Bounded topology recovery supervision
 
 - Deepened the existing five-minute Watchtower recovery companion with

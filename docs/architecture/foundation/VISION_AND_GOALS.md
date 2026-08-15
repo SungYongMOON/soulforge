@@ -9,6 +9,32 @@
 
 - Soulforge는 사람이 한 번 수동으로 해낸 일을 reusable canon, held mission, local run truth 로 분해해 다시 자동화 가능한 운영 자산으로 바꾸는 저장소다.
 
+## AX Context-to-Execution 운영 북극성
+
+Soulforge의 장기 제품 방향은 단순 통합검색이나 특정 AI provider 자동화가 아니다. 회사와
+프로젝트에서 일어나는 관찰을 출처·시간·revision·권한과 함께 맥락 세계수로 연결하고,
+공통 체계공학 지식과 project context를 결합해 다음 업무 후보를 판단하며, 승인된 업무를
+권한 있는 사람·agent가 수행한 뒤 결과·증거·검토를 다시 업무 상태와 맥락에 환류하는
+Engineering OS를 지향한다.
+
+```text
+관찰(source systems·communication·files·work/run history)
+  -> Context/세계수(identity·event·decision·evidence·time·ACL)
+  -> 공통 SE 지식 + 격리된 project knowledge
+  -> AX·SE 판단(expected vs observed, gap·risk·mission·role candidate)
+  -> 사람 또는 exact policy 승인 → Task Engine의 공식 업무·배정
+  -> 권한 있는 사람·agent의 local workspace 실행
+  -> result·artifact revision·evidence 제출
+  -> 독립 검증·분야 수락·authorized promotion
+  -> Task state·Context·knowledge candidate feedback
+```
+
+Plugin/App은 외부 source와 action의 adapter, MCP는 query·control·result/evidence·receipt
+interface, 외부 agent·workbench·document-production 도구는 교체 가능한 실행 surface다. 이들은 source truth,
+Context, AX·SE 판단, Task state, authorization, verification과 공식 완료 owner를 대체하지
+않는다. 특정 Plugin이나 runtime을 제거해도 Task·source/revision refs·identity·provenance·
+authorization·execution receipt가 남고 provider 접근과 편의 UX만 사라지는 구조를 유지한다.
+
 ## 무엇을 만들고 있는가
 
 Soulforge는 단순한 agent catalog 나 workflow 예시 묶음이 아니다. 목표는 아래 세 층이 같은 언어로 이어지는 구조를 만드는 것이다.
