@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { ACTIVE_CODEX_SESSION_MAX_AGE_MS, activeCodexSessionIds, loadActiveCodexSessionFiles, persistProducerHeartbeat, runClaudeQuotaSweep, runUsageProducerSweep, startUsageProducerCompanion } from "./ai-usage-producer-companion.mjs";
+import { ACTIVE_CODEX_SESSION_MAX_AGE_MS, activeCodexSessionIds, containSweepFailure, loadActiveCodexSessionFiles, persistProducerHeartbeat, runClaudeQuotaSweep, runUsageProducerSweep, startUsageProducerCompanion } from "./ai-usage-producer-companion.mjs";
 
 const REPO_ROOT = path.resolve("test-fixtures", "repo");
 const STATE_ROOT = path.resolve("test-fixtures", "state");
@@ -242,6 +242,133 @@ test("sanitized Meter CLI error code is retained without stderr detail", async (
   });
   assert.equal(heartbeats.find(({ lane }) => lane === "codex").errorCode, "ledger_lock_held");
   assert.equal(JSON.stringify(heartbeats).includes("error_digest"), false);
+});
+
+// The companion intervals below are deliberately short, so the wait itself must
+// be generous: it returns as soon as the condition holds and only the failure
+// path pays the timeout. A tight deadline would flake on a loaded host without
+// making any assertion stronger.
+async function waitUntil(predicate, timeoutMs = 30_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() > deadline) throw new Error("expected companion condition was not reached");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+test("a rejected sweep is contained as a hold carrying only a sanitized code", async () => {
+  assert.deepEqual(
+    await containSweepFailure(() => {
+      throw Object.assign(new Error(`ledger at ${STATE_ROOT} is locked`), { code: "ledger_lock_held" });
+    }),
+    { status: "hold", error_code: "ledger_lock_held" },
+  );
+  const opaque = await containSweepFailure(async () => {
+    throw new Error(`unreadable ${REGISTRY_PATH} for account owner@example.com`);
+  });
+  assert.deepEqual(opaque, { status: "hold", error_code: "collector_failed" });
+  const childExit = await containSweepFailure(async () => {
+    throw Object.assign(new Error("redacted"), {
+      code: 2,
+      stderr: JSON.stringify({ error: "collector_gate_disabled", private_detail: "discarded" }),
+    });
+  });
+  assert.equal(childExit.error_code, "collector_gate_disabled");
+  const serialized = JSON.stringify([opaque, childExit]);
+  assert.equal(serialized.includes("owner@example.com"), false);
+  assert.equal(serialized.includes("private_detail"), false);
+  assert.equal(serialized.includes(REGISTRY_PATH.replaceAll("\\", "\\\\")), false);
+  assert.deepEqual(await containSweepFailure(async () => ({ status: "observed", completed: 3 })), {
+    status: "observed",
+    completed: 3,
+  });
+});
+
+test("a failed lane receipt write cannot abort the sweep or falsify sibling lanes", async () => {
+  const heartbeats = [];
+  const result = await runUsageProducerSweep({
+    repoRoot: REPO_ROOT, stateRoot: STATE_ROOT, loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-11T00:00:00.000Z", event_count: 12 }),
+    persistHeartbeat: async (value) => {
+      if (value.lane === "codex") {
+        throw Object.assign(new Error(`EACCES ${STATE_ROOT}`), { code: "EACCES" });
+      }
+      heartbeats.push(value);
+    },
+    run: async (_file, args) => successfulRun(args),
+  });
+  assert.equal(result.status, "observed");
+  assert.deepEqual(heartbeats.map(({ lane }) => lane), [
+    "claude", "antigravity", "meter", "store_usage_ledger",
+  ]);
+});
+
+test("rejected usage and quota sweeps never reach the runtime as unhandled rejections", async () => {
+  const rejections = [];
+  const listener = (reason) => rejections.push(reason);
+  process.on("unhandledRejection", listener);
+  let calls = 0;
+  let quotaCalls = 0;
+  const companion = startUsageProducerCompanion({
+    repoRoot: REPO_ROOT,
+    stateRoot: STATE_ROOT,
+    registryPath: REGISTRY_PATH,
+    watchtowerPointerPath: WATCHTOWER_POINTER,
+    intervalMs: 5,
+    loadThreadIds: async () => { throw new Error(`unreadable ${REGISTRY_PATH}`); },
+    sweep: async () => {
+      calls += 1;
+      throw Object.assign(new Error(`ledger at ${STATE_ROOT} is locked`), { code: "ledger_lock_held" });
+    },
+    quotaSweep: () => {
+      quotaCalls += 1;
+      throw Object.assign(new Error(`quota gate at ${PROJECT_ROOT}`), { code: "quota_gate_unreadable" });
+    },
+  });
+  try {
+    await waitUntil(() => calls >= 3 && quotaCalls >= 3);
+  } finally {
+    await companion.stop();
+    // `unhandledRejection` is emitted a full turn after a rejection goes
+    // unhandled, so drain the queue before asserting; otherwise the assertion
+    // could pass simply by running too early.
+    await new Promise((resolve) => setImmediate(resolve));
+    process.off("unhandledRejection", listener);
+  }
+  assert.deepEqual(rejections, []);
+});
+
+test("the sweep timers continue on their own cadence after a contained failure", async () => {
+  let calls = 0;
+  let quotaCalls = 0;
+  const observed = [];
+  const companion = startUsageProducerCompanion({
+    repoRoot: REPO_ROOT,
+    stateRoot: STATE_ROOT,
+    registryPath: REGISTRY_PATH,
+    intervalMs: 5,
+    loadThreadIds: async () => [],
+    sweep: async () => {
+      calls += 1;
+      if (calls === 1) throw Object.assign(new Error("first sweep failed"), { code: "ledger_lock_held" });
+      observed.push("usage");
+      return { status: "observed", completed: 3 };
+    },
+    quotaSweep: async () => {
+      quotaCalls += 1;
+      if (quotaCalls === 1) throw new Error("first quota sweep failed");
+      observed.push("quota");
+      return { status: "observed" };
+    },
+  });
+  try {
+    await waitUntil(() => observed.filter((lane) => lane === "usage").length >= 2
+      && observed.filter((lane) => lane === "quota").length >= 2);
+  } finally {
+    await companion.stop();
+  }
+  assert.ok(calls >= 3);
+  assert.ok(quotaCalls >= 3);
 });
 
 test("companion is single-flight and stops without starting another sweep", async () => {

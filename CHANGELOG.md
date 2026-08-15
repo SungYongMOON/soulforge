@@ -1,5 +1,39 @@
 # CHANGELOG
 
+## 2026-08-16 - Board runtime relaunch opportunity and contained collector failures
+
+- Contained every Team Operations Board usage/quota companion rejection at the
+  companion boundary. A collector failure now ends as a fail-closed hold with an
+  existing or minimal sanitized code instead of a process-level unhandled
+  rejection that the runtime deliberately exits on. A failed lane receipt write
+  no longer aborts the sweep or falsifies a sibling lane.
+- Extended the metadata-only termination receipt with bounded sanitized Board
+  child exit evidence: numeric exit code, a closed signal class, and an existing
+  safe failure class. The schema version is unchanged and receipts written
+  before these fields stay valid; no identifier, path, stack, or raw message is
+  persisted, and child output streams remain ignored.
+- Changed the single existing Windows Scheduled Task definition to carry exactly
+  one repeating five-minute time trigger as an independent relaunch opportunity,
+  registered with a future start boundary and an omitted repetition duration.
+  The recorded desired state stays authoritative and is the whole of the
+  guarantee: `stopped`, `stop_requested`, or `recovery_needed` intent makes a
+  tick a no-op, while `running` intent permits a gated relaunch after a
+  controller exit and, at a later trigger opportunity, after a reboot.
+  `desired_state` is the stored intent; the `recovery_needed` reported by
+  `task-status` is a computed `runtime_health` observation and does not by
+  itself stop a relaunch. `IgnoreNew` discards a tick while the Board is
+  healthy, and `task-register` records the `stopped` intent before the task
+  exists so registration never starts the Board. Limited privilege,
+  current-user/no stored password, hidden launcher, and loopback-only remain
+  unchanged, and no service, watchdog, second task, or UI repair button was
+  added. A task registered before the trigger is reported as `definition_hold`,
+  refuses `task-run`, and stays removable for re-registration.
+- Added deterministic regressions for rejected usage and quota sweeps, timer
+  continuation, a desired-stopped scheduled invocation, the repeating trigger
+  definition and its validation, and the safe termination fields, including
+  no-leakage assertions. No provider call, network listener, Task Scheduler
+  mutation, or runtime restart occurs in tests.
+
 ## 2026-08-15 - AX Context-to-Execution 북극성과 Plugin 경계 재확인
 
 - Revision: 이 항목을 포함한 Git commit이 exact revision을 소유한다.

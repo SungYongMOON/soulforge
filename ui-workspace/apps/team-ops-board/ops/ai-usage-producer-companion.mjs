@@ -47,6 +47,26 @@ function safeErrorCode(error) {
   return "collector_failed";
 }
 
+// A lane receipt channel is independent from the sweep. A failed write must not
+// abort the remaining lanes or escape as a process-level rejection, so the lane
+// simply stays at its prior value and ages out fail-closed.
+async function persistLaneHealth(persistHeartbeat, options) {
+  try {
+    await persistHeartbeat(options);
+  } catch {
+    // Intentionally contained; only sanitized codes are ever persisted.
+  }
+}
+
+// The companion runs inside the Board runtime, which deliberately exits on an
+// unhandled rejection. Every collector failure must therefore terminate here as
+// a fail-closed hold carrying only a sanitized code, never raw error text.
+export function containSweepFailure(runSweep) {
+  return Promise.resolve()
+    .then(runSweep)
+    .catch((error) => ({ status: "hold", error_code: safeErrorCode(error) }));
+}
+
 async function readHeartbeat(file) {
   try {
     const value = JSON.parse(await readFile(file, "utf8"));
@@ -178,21 +198,21 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
       completed += 1;
       if (command === "collect-claude") {
         projectionCommandSucceeded = true;
-        await persistHeartbeat({ stateRoot, lane: "claude", attemptedAt, succeeded: true, now });
+        await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "claude", attemptedAt, succeeded: true, now });
       }
       if (command === "collect-antigravity") {
         projectionCommandSucceeded = true;
-        await persistHeartbeat({ stateRoot, lane: "antigravity", attemptedAt, succeeded: true, now });
+        await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "antigravity", attemptedAt, succeeded: true, now });
       }
       if (command === "collect") {
         projectionCommandSucceeded = true;
-        await persistHeartbeat({ stateRoot, lane: "codex", attemptedAt, succeeded: true, now });
+        await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "codex", attemptedAt, succeeded: true, now });
       }
     } catch (error) {
-      if (command === "collect-claude") await persistHeartbeat({ stateRoot, lane: "claude", attemptedAt, succeeded: false, errorCode: safeErrorCode(error), now });
-      if (command === "collect-antigravity") await persistHeartbeat({ stateRoot, lane: "antigravity", attemptedAt, succeeded: false, errorCode: safeErrorCode(error), now });
+      if (command === "collect-claude") await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "claude", attemptedAt, succeeded: false, errorCode: safeErrorCode(error), now });
+      if (command === "collect-antigravity") await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "antigravity", attemptedAt, succeeded: false, errorCode: safeErrorCode(error), now });
       if (command === "collect") {
-        await persistHeartbeat({ stateRoot, lane: "codex", attemptedAt, succeeded: false, errorCode: safeErrorCode(error), now });
+        await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "codex", attemptedAt, succeeded: false, errorCode: safeErrorCode(error), now });
       }
       // Each producer remains fail-closed and the next interval retries it.
     }
@@ -213,11 +233,8 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
     projectionResult = { succeeded: false, errorCode: safeErrorCode(error) };
   }
   for (const lane of ["meter", "store_usage_ledger"]) {
-    try {
-      await persistHeartbeat({ stateRoot, lane, attemptedAt, ...projectionResult, now });
-    } catch {
-      // Receipt channels are independent; one failed write must not falsify the other lane.
-    }
+    // Receipt channels are independent; one failed write must not falsify the other lane.
+    await persistLaneHealth(persistHeartbeat, { stateRoot, lane, attemptedAt, ...projectionResult, now });
   }
   if (path.isAbsolute(watchtowerPointerPath ?? "")) {
     try {
@@ -258,15 +275,17 @@ export function startUsageProducerCompanion({
   let quotaInFlight = null;
   const trigger = () => {
     if (stopped || inFlight !== null) return inFlight;
-    inFlight = Promise.resolve(loadThreadIds(registryPath))
-      .catch(() => [])
-      .then((threadIds) => sweep({ repoRoot, projectRoot, stateRoot, watchtowerPointerPath, threadIds }))
-      .finally(() => { inFlight = null; });
+    inFlight = containSweepFailure(async () => {
+      const threadIds = await Promise.resolve()
+        .then(() => loadThreadIds(registryPath))
+        .catch(() => []);
+      return sweep({ repoRoot, projectRoot, stateRoot, watchtowerPointerPath, threadIds });
+    }).finally(() => { inFlight = null; });
     return inFlight;
   };
   const triggerQuota = () => {
     if (stopped || quotaInFlight !== null) return quotaInFlight;
-    quotaInFlight = Promise.resolve(quotaSweep({ repoRoot, projectRoot }))
+    quotaInFlight = containSweepFailure(() => quotaSweep({ repoRoot, projectRoot }))
       .finally(() => { quotaInFlight = null; });
     return quotaInFlight;
   };

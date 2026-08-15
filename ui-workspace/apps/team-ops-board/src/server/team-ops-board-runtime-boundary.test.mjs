@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -19,6 +21,9 @@ import {
   TEAM_OPS_BOARD_RUNTIME_RESTART_COUNT,
   TEAM_OPS_BOARD_RUNTIME_RESTART_INTERVAL,
   TEAM_OPS_BOARD_RUNTIME_TASK_NAME,
+  TEAM_OPS_BOARD_RUNTIME_TRIGGER_DURATION,
+  TEAM_OPS_BOARD_RUNTIME_TRIGGER_INTERVAL,
+  TEAM_OPS_BOARD_RUNTIME_TRIGGER_KIND,
   authorizeRuntimeControl,
   classifyRuntimeObservation,
   classifyRuntimeRecovery,
@@ -42,10 +47,13 @@ import {
   parseRuntimeCommand,
   isTerminationReceipt,
   refreshRuntimeHeartbeat,
+  runScheduledController,
   runtimeHeartbeatIsFresh,
   runtimeHealthIsReady,
+  sanitizeChildExitEvidence,
   sanitizeRuntimeFailure,
   scheduledTaskInspectionIsExact,
+  scheduledTaskInspectionIsTriggerlessLegacy,
   scheduledTaskUnregisterIsSafe,
   scheduledQuotaReadRequested,
   stopControllerOwnedChild,
@@ -135,15 +143,25 @@ test("runtime preview is fixed to strict loopback 4192", () => {
   assert.match(TEAM_OPS_BOARD_RUNTIME_PIPE, /^\\\\\.\\pipe\\/u);
 });
 
-test("scheduled task is on-demand, interactive, limited, and contains no protected values", () => {
+test("scheduled task is desired-state gated, interactive, limited, and contains no protected values", () => {
   const syntheticDrive = `${String.fromCharCode(67)}${String.fromCharCode(58)}`;
-  const nodePath = path.win32.join(syntheticDrive, "Program Files", "nodejs", "node.exe");
-  const modulePath = path.win32.join(syntheticDrive, "public-safe", "team-ops-board-runtime.mjs");
+  // The action operands are only quoted into the arguments string, so they stay
+  // non-absolute sentinels: this file tracks no concrete local absolute path.
+  // The spaces still exercise the argument quoting the sanitizer applies.
+  const nodePath = "sentinel node home\\node.exe";
+  const modulePath = "sentinel public-safe\\team-ops-board-runtime.mjs";
+  const launcherPath = "sentinel public-safe\\team-ops-board-hidden-launcher.vbs";
+  // Only the system root has to stay rooted: the definition resolves it to
+  // locate wscript.exe and powershell.exe.
   const systemRoot = path.win32.join(syntheticDrive, "Windows");
-  const launcherPath = path.win32.join(syntheticDrive, "public-safe", "team-ops-board-hidden-launcher.vbs");
   const definition = createScheduledTaskDefinition({ nodePath, modulePath, launcherPath, systemRoot });
   assert.equal(definition.task_name, TEAM_OPS_BOARD_RUNTIME_TASK_NAME);
-  assert.equal(definition.trigger_count, 0);
+  assert.equal(definition.trigger_count, 1);
+  assert.equal(definition.trigger_kind, TEAM_OPS_BOARD_RUNTIME_TRIGGER_KIND);
+  assert.equal(definition.trigger_repetition_interval, TEAM_OPS_BOARD_RUNTIME_TRIGGER_INTERVAL);
+  assert.equal(definition.trigger_repetition_interval, "PT5M");
+  assert.equal(definition.trigger_repetition_duration, TEAM_OPS_BOARD_RUNTIME_TRIGGER_DURATION);
+  assert.equal(definition.trigger_enabled, true);
   assert.equal(definition.stored_credential_count, 0);
   assert.equal(definition.logon_type, "Interactive");
   assert.equal(definition.run_level, "Limited");
@@ -172,7 +190,7 @@ test("scheduled task is on-demand, interactive, limited, and contains no protect
   assert.match(decoded, /Register-ScheduledTask/u);
   assert.match(
     decoded,
-    /New-ScheduledTask .* -Description 'Soulforge Team Operations Board read-only on-demand runtime'/u,
+    /New-ScheduledTask .* -Description 'Soulforge Team Operations Board read-only gated runtime'/u,
   );
   assert.doesNotMatch(decoded, /Register-ScheduledTask[^;]*-InputObject[^;]*-Description/u);
   assert.match(decoded, /Register-ScheduledTask[^;]*-InputObject \$definition/u);
@@ -185,7 +203,17 @@ test("scheduled task is on-demand, interactive, limited, and contains no protect
   assert.match(decoded, /Triggers \| Where-Object \{ \$null -ne \$_ \}/u);
   assert.match(decoded, /__scheduled_worker/u);
   assert.match(decoded, /team-ops-board-runtime\.mjs/u);
-  assert.doesNotMatch(decoded, /New-ScheduledTaskTrigger|-Password|Highest|SYSTEM/u);
+  // Exactly one repeating time trigger, a future start boundary so registration
+  // itself presents no start opportunity, and an omitted repetition duration,
+  // which is how Task Scheduler stores indefinite repetition.
+  assert.equal(
+    decoded.match(/New-ScheduledTaskTrigger[^;]*/u)?.[0],
+    "New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(5)) -RepetitionInterval (New-TimeSpan -Minutes 5)",
+  );
+  assert.doesNotMatch(decoded, /-RepetitionDuration/u);
+  assert.match(decoded, /New-ScheduledTask -Action \$action -Trigger \$trigger /u);
+  assert.doesNotMatch(decoded, /-AtLogOn|-AtStartup|-Daily|-Weekly|-User /u);
+  assert.doesNotMatch(decoded, /-Password|Highest|SYSTEM/u);
   assert.doesNotMatch(decoded, /protected-host|credential-value|binding-value|account-value/u);
   for (const operation of ["run", "unregister"]) {
     const mutationSpec = createScheduledTaskPowerShellSpec(operation, { definition, systemRoot });
@@ -214,7 +242,43 @@ test("scheduled task is on-demand, interactive, limited, and contains no protect
     assert.match(mutationDecoded, /ExecutionTimeLimit/u);
     assert.match(mutationDecoded, /IdleSettings\.StopOnIdleEnd/u);
     assert.match(mutationDecoded, /RestartCount/u);
+    const triggerExactAt = mutationDecoded.indexOf(
+      "$triggerExact=($facts.count -eq 1 -and $facts.kind -eq 'time' -and $facts.interval -eq $ri -and $facts.duration -eq $rd -and $facts.enabled -eq $true -and $facts.boundaryOk -eq $true)",
+    );
+    assert.ok(triggerExactAt >= 0 && mutationAt > triggerExactAt);
+    // The trigger exactness guard also requires a parseable, non-implausibly-
+    // far-future StartBoundary, computed once in Get-TriggerFacts so both the
+    // run and unregister mutation guards enforce it identically.
+    assert.match(mutationDecoded, /\$one\.StartBoundary/u);
+    assert.match(mutationDecoded, /\[datetime\]::TryParse\(\$b,\[ref\]\$bt\)/u);
+    assert.match(mutationDecoded, /\$bt -le \(Get-Date\)\.AddMinutes\(6\)/u);
+    assert.doesNotMatch(mutationDecoded, /New-ScheduledTaskTrigger|Set-ScheduledTask/u);
+    // Only removal tolerates the earlier triggerless registration; a single
+    // trigger that isn't exact is still refused by both operations.
+    assert.match(
+      mutationDecoded,
+      operation === "run"
+        ? /if\(\$null -eq \$t -or -not \$triggerExact -or /u
+        : /if\(\$null -eq \$t -or -not \(\$facts\.count -eq 0 -or \$triggerExact\) -or /u,
+    );
   }
+
+  // Inspection projects the same boundary fact the JS exactness check reads,
+  // in both the missing-task and existing-task branches, and observes only.
+  const inspectSpec = createScheduledTaskPowerShellSpec("inspect", { definition, systemRoot });
+  const inspectDecoded = Buffer.from(
+    inspectSpec.args[inspectSpec.args.indexOf("-EncodedCommand") + 1],
+    "base64",
+  ).toString("utf16le");
+  assert.ok(inspectDecoded.includes(
+    "boundary=$(if($null -ne $one){[string]$one.StartBoundary}else{$null})",
+  ));
+  assert.ok(inspectDecoded.includes("trigger_start_boundary=$null"));
+  assert.ok(inspectDecoded.includes("trigger_start_boundary=$facts.boundary"));
+  assert.doesNotMatch(
+    inspectDecoded,
+    /Register-ScheduledTask|Start-ScheduledTask|Unregister-ScheduledTask|Set-ScheduledTask/u,
+  );
 });
 
 test("scheduled controller bounds Board-child recovery and stop wins", async () => {
@@ -428,6 +492,7 @@ test("termination receipts distinguish evidence classes without private identifi
   });
   assert.equal(receipt.exit_classification, "external_termination");
   assert.deepEqual(Object.keys(receipt).sort(), [
+    "child_exit_code", "child_failure_class", "child_signal_class",
     "dependency_state", "desired_state", "exit_classification", "heartbeat",
     "intent_epoch", "last_result_class", "observed_at", "operation",
     "receipt_kind", "runtime_marker", "schema_version", "task_state",
@@ -687,7 +752,12 @@ test("CLI and failure output remain bounded to public-safe classes", () => {
   const inspection = {
     exists: true,
     task_state: "ready",
-    trigger_count: 0,
+    trigger_count: 1,
+    trigger_kind: "time",
+    trigger_repetition_interval: "PT5M",
+    trigger_repetition_duration: "indefinite",
+    trigger_enabled: true,
+    trigger_start_boundary: new Date(Date.now() - 60_000).toISOString(),
     stored_credential_count: 0,
     current_owner_match: true,
     run_level_limited: true,
@@ -707,6 +777,95 @@ test("CLI and failure output remain bounded to public-safe classes", () => {
   assert.equal(scheduledTaskUnregisterIsSafe({
     inspection, runtimeOwnership: "stopped", listenerState: "absent",
   }), true);
+  for (const drift of [
+    { trigger_count: 0, trigger_kind: null, trigger_repetition_interval: null, trigger_repetition_duration: null, trigger_enabled: null },
+    { trigger_count: 2, watchdog_count: 1 },
+    { trigger_repetition_interval: "PT1M" },
+    { trigger_repetition_duration: "PT30M" },
+    { trigger_kind: "other" },
+    { trigger_enabled: false },
+  ]) {
+    assert.equal(scheduledTaskInspectionIsExact({ ...inspection, ...drift }), false);
+  }
+  // StartBoundary contract, pinned to a fixed `now` so the tolerance edge is
+  // exact instead of racing the wall clock. Registration stamps the boundary at
+  // now+5m, so an immediate post-register inspection reads a boundary that
+  // hasn't happened yet and must stay exact; a boundary drifted further out
+  // than the tolerance signals a mismatched or tampered task, and a missing or
+  // unparseable boundary is never accepted.
+  const boundaryNow = Date.parse("2026-08-16T00:00:00.000Z");
+  const boundaryAt = (offsetMs) => new Date(boundaryNow + offsetMs).toISOString();
+  for (const [trigger_start_boundary, expected] of [
+    [boundaryAt(-365 * 24 * 60 * 60_000), true],
+    [boundaryAt(-60_000), true],
+    [boundaryAt(0), true],
+    [boundaryAt(5 * 60_000), true],
+    // Exactly the tolerance is still a fresh registration; one millisecond past
+    // it is not.
+    [boundaryAt(6 * 60_000), true],
+    [boundaryAt(6 * 60_000 + 1), false],
+    [boundaryAt(60 * 60_000), false],
+    [boundaryAt(365 * 24 * 60 * 60_000), false],
+    // Task Scheduler reports local time without a zone designator; a boundary
+    // that far in the past parses to the same verdict in any local zone.
+    ["2026-01-01T00:00:00", true],
+    [null, false],
+    [undefined, false],
+    ["", false],
+    ["   ", false],
+    ["not-a-date", false],
+    ["PT5M", false],
+    [boundaryNow, false],
+  ]) {
+    assert.equal(
+      scheduledTaskInspectionIsExact(
+        { ...inspection, trigger_start_boundary },
+        definition,
+        { now: boundaryNow },
+      ),
+      expected,
+    );
+  }
+  // A zero-trigger legacy task reports no boundary at all, so removal
+  // compatibility must not depend on one.
+  const triggerlessLegacy = {
+    ...inspection,
+    trigger_count: 0,
+    trigger_kind: null,
+    trigger_repetition_interval: null,
+    trigger_repetition_duration: null,
+    trigger_enabled: null,
+    trigger_start_boundary: null,
+  };
+  assert.equal(scheduledTaskInspectionIsTriggerlessLegacy(triggerlessLegacy), true);
+  assert.equal(scheduledTaskInspectionIsTriggerlessLegacy(inspection), false);
+  assert.equal(scheduledTaskInspectionIsTriggerlessLegacy({ ...inspection, trigger_count: 2 }), false);
+  assert.equal(scheduledTaskInspectionIsTriggerlessLegacy({
+    ...triggerlessLegacy, watchdog_count: 1,
+  }), false);
+  assert.equal(scheduledTaskInspectionIsTriggerlessLegacy({
+    ...triggerlessLegacy, action_digest: "b".repeat(64),
+  }), false);
+  // A task registered before the relaunch trigger stays removable, never runnable.
+  assert.equal(scheduledTaskInspectionIsExact(triggerlessLegacy), false);
+  assert.equal(scheduledTaskUnregisterIsSafe({
+    inspection: triggerlessLegacy, runtimeOwnership: "stopped", listenerState: "absent",
+  }), true);
+  assert.equal(scheduledTaskUnregisterIsSafe({
+    inspection, runtimeOwnership: "stopped", listenerState: "absent",
+  }), true);
+  assert.equal(scheduledTaskUnregisterIsSafe({
+    inspection: { ...inspection, trigger_count: 2, watchdog_count: 1 },
+    runtimeOwnership: "stopped",
+    listenerState: "absent",
+  }), false);
+  // A single trigger that differs from the exact relaunch definition is neither
+  // exact nor triggerless legacy, and must not be treated as removable.
+  assert.equal(scheduledTaskUnregisterIsSafe({
+    inspection: { ...inspection, trigger_repetition_interval: "PT1M" },
+    runtimeOwnership: "stopped",
+    listenerState: "absent",
+  }), false);
   for (const taskState of ["unknown", "running", "queued"]) {
     assert.equal(scheduledTaskUnregisterIsSafe({
       inspection: { ...inspection, task_state: taskState },
@@ -726,7 +885,142 @@ test("CLI and failure output remain bounded to public-safe classes", () => {
   assert.equal(taskState.ok, false);
 });
 
-test("tracked runtime has only the bounded on-demand task surface", async () => {
+test("termination evidence retains only bounded sanitized Board-child exit facts", () => {
+  assert.deepEqual(sanitizeChildExitEvidence(), {
+    child_exit_code: null,
+    child_signal_class: null,
+    child_failure_class: null,
+  });
+  assert.equal(sanitizeChildExitEvidence({ code: 0 }).child_exit_code, 0);
+  assert.equal(sanitizeChildExitEvidence({ code: 3221225477 }).child_exit_code, 3221225477);
+  assert.equal(sanitizeChildExitEvidence({ code: -1073741819 }).child_exit_code, -1073741819);
+  assert.equal(sanitizeChildExitEvidence({ code: 4294967296 }).child_exit_code, null);
+  assert.equal(sanitizeChildExitEvidence({ code: -2147483649 }).child_exit_code, null);
+  assert.equal(sanitizeChildExitEvidence({ code: 1.5 }).child_exit_code, null);
+  assert.equal(sanitizeChildExitEvidence({ code: "1" }).child_exit_code, null);
+  for (const [signal, expected] of [
+    ["SIGTERM", "sigterm"],
+    ["SIGKILL", "sigkill"],
+    ["SIGINT", "sigint"],
+    ["SIGHUP", "other"],
+    ["error", "spawn_error"],
+    ["", null],
+    [null, null],
+  ]) {
+    assert.equal(sanitizeChildExitEvidence({ signal }).child_signal_class, expected);
+  }
+  assert.equal(
+    sanitizeChildExitEvidence({ failureClass: "runtime_worker_failed" }).child_failure_class,
+    "runtime_worker_failed",
+  );
+  for (const unsafe of [
+    "owner-machine-secret::board/worker.mjs:12",
+    "Error: ECONNREFUSED 127.0.0.1:4192",
+    "must-not-project",
+    7,
+  ]) {
+    assert.equal(sanitizeChildExitEvidence({ failureClass: unsafe }).child_failure_class, null);
+  }
+
+  const ready = {
+    schema_version: "soulforge.team_ops_board.runtime.v1",
+    run_id: "11111111-1111-4111-8111-111111111111",
+    pid: 4321,
+    state: "error",
+    failure_class: "runtime_worker_failed",
+    heartbeat_at: "2026-08-10T00:00:05.000Z",
+    protected_path: "must-not-project",
+  };
+  const receipt = createTerminationReceipt({
+    operation: "restart_recovery",
+    desired: { desired_state: "running", intent_epoch: 4 },
+    runtimeState: ready,
+    taskState: "ready",
+    lastTaskResult: 1,
+    dependencyAvailable: true,
+    workerAliveAtCapture: false,
+    childExit: { code: 1, signal: null },
+    observedAt: "2026-08-10T00:00:06.000Z",
+  });
+  assert.equal(receipt.child_exit_code, 1);
+  assert.equal(receipt.child_signal_class, null);
+  assert.equal(receipt.child_failure_class, "runtime_worker_failed");
+  assert.equal(receipt.exit_classification, "handled_error");
+  const serialized = JSON.stringify(receipt);
+  assert.equal(serialized.includes("must-not-project"), false);
+  assert.equal(serialized.includes("4321"), false);
+  assert.equal(serialized.includes("11111111"), false);
+  assert.equal(serialized.includes("owner-machine-secret::"), false);
+  assert.equal(serialized.includes("ECONNREFUSED"), false);
+  assert.equal(isTerminationReceipt(JSON.parse(serialized)), true);
+
+  const killed = createTerminationReceipt({
+    operation: "restart_recovery",
+    desired: { desired_state: "running", intent_epoch: 4 },
+    runtimeState: null,
+    taskState: "ready",
+    lastTaskResult: 1,
+    dependencyAvailable: true,
+    workerAliveAtCapture: false,
+    childExit: { code: null, signal: "SIGKILL", failureClass: "runtime_start_timeout" },
+    observedAt: "2026-08-10T00:00:06.000Z",
+  });
+  assert.equal(killed.child_exit_code, null);
+  assert.equal(killed.child_signal_class, "sigkill");
+  assert.equal(killed.child_failure_class, "runtime_start_timeout");
+
+  // Receipts written before child evidence existed stay readable and valid.
+  const legacy = { ...receipt };
+  delete legacy.child_exit_code;
+  delete legacy.child_signal_class;
+  delete legacy.child_failure_class;
+  assert.equal(isTerminationReceipt(legacy), true);
+  assert.equal(isTerminationReceipt({ ...receipt, child_signal_class: "SIGTERM" }), false);
+  assert.equal(isTerminationReceipt({ ...receipt, child_signal_class: "reboot" }), false);
+  assert.equal(isTerminationReceipt({ ...receipt, child_exit_code: 1.5 }), false);
+  assert.equal(isTerminationReceipt({ ...receipt, child_exit_code: "1" }), false);
+  assert.equal(
+    isTerminationReceipt({ ...receipt, child_failure_class: "owner-machine-secret::worker.mjs" }),
+    false,
+  );
+});
+
+test("a scheduled invocation with desired stopped exits without starting the Board", async (t) => {
+  if (process.platform !== "win32") return t.skip("runtime state root is Windows-owned");
+  const localAppData = await mkdtemp(path.join(tmpdir(), "board-scheduled-gate-"));
+  t.after(async () => { await rm(localAppData, { recursive: true, force: true }); });
+  const root = path.join(localAppData, "Soulforge", "team-ops-board-runtime");
+  await mkdir(root, { recursive: true });
+  const forkCalls = [];
+  const forkChild = (...args) => { forkCalls.push(args); throw new Error("must-not-fork"); };
+
+  for (const desiredState of ["stopped", "stop_requested", "recovery_needed"]) {
+    await writeFile(path.join(root, "desired.v1.json"), `${JSON.stringify({
+      schema_version: "soulforge.team_ops_board.runtime.v1",
+      desired_state: desiredState,
+      intent_epoch: 7,
+      updated_at: "2026-08-16T00:00:00.000Z",
+    })}\n`, "utf8");
+    assert.equal(
+      await runScheduledController({ LOCALAPPDATA: localAppData }, { forkChild }),
+      undefined,
+    );
+    assert.deepEqual(forkCalls, []);
+    assert.equal(existsSync(path.join(root, "runtime.v1.json")), false);
+    assert.equal(existsSync(path.join(root, "runtime.v1.lock")), false);
+  }
+
+  // The repeating relaunch trigger reaches the same gate before any binding
+  // derivation, so a scheduled start can never bypass the recorded intent.
+  const source = await readFile(RUNTIME_SOURCE, "utf8");
+  const controller = source.slice(source.indexOf("export async function runScheduledController"));
+  const gateAt = controller.indexOf('(await readDesiredState(paths))?.desired_state !== "running") return');
+  assert.ok(gateAt >= 0);
+  assert.ok(gateAt < controller.indexOf("deriveScheduledRuntimeEnvironment"));
+  assert.ok(gateAt < controller.indexOf("forkChild("));
+});
+
+test("tracked runtime has only the bounded desired-state gated task surface", async () => {
   const source = await readFile(RUNTIME_SOURCE, "utf8");
   const hiddenLauncher = await readFile(HIDDEN_LAUNCHER_SOURCE, "utf8");
   assert.match(TEAM_OPS_BOARD_RUNTIME_HIDDEN_LAUNCHER, /team-ops-board-hidden-launcher\.vbs$/u);
@@ -749,7 +1043,16 @@ test("tracked runtime has only the bounded on-demand task surface", async () => 
   assert.match(source, /Register-ScheduledTask/u);
   assert.match(source, /-RestartCount 3 -RestartInterval \(\[TimeSpan\]::FromMinutes\(1\)\)/u);
   assert.match(source, /New-ScheduledTaskPrincipal -UserId \$owner -LogonType Interactive -RunLevel Limited/u);
-  assert.doesNotMatch(source, /New-ScheduledTaskTrigger|-Password|RunLevel Highest/u);
+  assert.doesNotMatch(source, /-Password|RunLevel Highest/u);
+  assert.equal(source.match(/New-ScheduledTaskTrigger/gu).length, 1);
+  assert.match(source, /New-ScheduledTaskTrigger -Once -At \(\(Get-Date\)\.AddMinutes\(5\)\) -RepetitionInterval \(New-TimeSpan -Minutes 5\)/u);
+  assert.doesNotMatch(source, /-AtLogOn|-AtStartup|-RepetitionDuration/u);
+  // Registration records the stopped intent before the task with the repeating
+  // trigger can exist, so registration itself never starts the Board.
+  assert.ok(
+    source.indexOf('transitionRuntimeDesiredState(current, "stopped"')
+      < source.indexOf('const after = await invokeScheduledTask("register", env)'),
+  );
   assert.match(source, /Start-ScheduledTask -TaskPath \$p -TaskName \$n/u);
   assert.match(source, /Unregister-ScheduledTask -TaskPath \$p -TaskName \$n -Confirm:\$false/u);
   assert.match(source, /\["serve", "status", "--json"\]/u);
@@ -776,11 +1079,20 @@ test("tracked runtime has only the bounded on-demand task surface", async () => 
   assert.match(source, /captureTerminationEvidence\(paths, "pre_recover"/u);
   assert.match(source, /captureTerminationEvidence\(paths, "pre_stop"/u);
   assert.match(source, /captureTerminationEvidence\(paths, "restart_recovery"/u);
-  assert.match(source, /async function runScheduledController/u);
-  assert.match(source, /fork\(fileURLToPath\(import\.meta\.url\), \["__runtime_child"\]/u);
+  assert.match(source, /export async function runScheduledController/u);
+  assert.match(source, /forkChild = fork,/u);
+  assert.match(source, /forkChild\(fileURLToPath\(import\.meta\.url\), \["__runtime_child"\]/u);
   assert.match(source, /restartCount \+= 1/u);
   assert.match(source, /desired\?\.desired_state !== "running"/u);
-  assert.match(source, /await waitForControllerStop\(paths\)/u);
+  // Retry exhaustion (desired still "running", restarts spent) must fail the
+  // scheduled worker process outright rather than idle-wait on desired state
+  // ever becoming anything other than "running" -- nothing else in this
+  // process would ever drive that transition, so such a wait would park the
+  // Scheduled Task process forever instead of exiting nonzero for the
+  // repeating PT5M relaunch trigger to retry from a clean process.
+  assert.doesNotMatch(source, /waitForControllerStop/u);
+  const controllerSource = source.slice(source.indexOf("export async function runScheduledController"));
+  assert.match(controllerSource, /if \(decision !== "restart"\) fail\("runtime_worker_failed"\);/u);
   assert.doesNotMatch(source, /detached:\s*true/u);
   assert.match(source, /desired\?\.desired_state !== "running"\) return/u);
   assert.match(source, /heartbeat_at/u);

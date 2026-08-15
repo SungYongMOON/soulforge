@@ -442,12 +442,19 @@ npm.cmd --prefix ui-workspace run team-ops-app:build
 
 ### Windows read-only runtime wrapper
 
-The Board owns one Windows-only, on-demand Scheduled Task for its approved
-read-only runtime. Registration stores only the Node executable, this integrated
-runtime module, and the internal scheduled-worker action. The task has no
-triggers, runs only for the current interactive user without a stored password,
-uses limited privilege, and ignores a second concurrent start. It is not a
-service, logon task, watchdog, or autostart surface.
+The Board owns one Windows-only Scheduled Task for its approved read-only
+runtime. Registration stores only the Node executable, this integrated runtime
+module, and the internal scheduled-worker action. The task carries exactly one
+trigger: a single time trigger repeating every `PT5M`, registered with the
+repetition duration omitted, which is how Task Scheduler stores unbounded
+repetition. Inspection reads that stored duration back as blank or `PT0S` and
+normalizes it to the documented `indefinite` value before comparing. The
+trigger's only effect is to re-enter the same desired-state gate. The task
+runs only for the current interactive user without a stored password, uses
+limited privilege, and ignores a second concurrent start. It is not a service
+and carries no boot or logon trigger; there is no second task, watchdog, or
+repair process. Whether a trigger opportunity actually starts the Board is
+decided entirely by the recorded desired state, described below.
 
 ```powershell
 node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs task-register
@@ -478,13 +485,51 @@ The runtime remains fixed to strict loopback `127.0.0.1:4192`. Registration
 leaves it stopped. Only `task-run` atomically records manual Owner intent and a
 monotonic epoch before requesting execution. Duplicate start and stop are
 idempotent. An explicit stop records `stop_requested` before graceful shutdown,
-then records `stopped`, so the controller cannot restart it. The task retains
-zero triggers. While intent remains `running`, the controller records a
-metadata-only receipt and restarts only its Board child after an unexpected
-exit or non-ready observation, with at most three retries and a one-second
-backoff. Each child owns a new runtime generation and heartbeat. A reboot
-therefore never starts the Board; stale running intent is reported as
-`recovery_needed` until a new manual start.
+then records `stopped`, so the controller cannot restart it. While intent
+remains `running`, the controller records a metadata-only receipt and restarts
+only its Board child after an unexpected exit or non-ready observation, with at
+most three retries and a one-second backoff. Each child owns a new runtime
+generation and heartbeat.
+
+The recorded desired state, not the Scheduler, remains the single authority.
+Every scheduled invocation — manual `task-run` or the repeating trigger — first
+reads the desired record and, for anything other than `running`, returns
+immediately without deriving bindings, opening a port, or owning a Board child.
+That gate is the whole of the guarantee, and it cuts exactly two ways:
+
+- `stopped`, `stop_requested`, or `recovery_needed` desired intent: a
+  five-minute tick is a no-op. The controller exits at the gate and the Board is
+  not started.
+- `running` desired intent: a five-minute tick permits a gated relaunch. This is
+  deliberate and it is the point of the trigger. It applies after the controller
+  process itself exits — including once its bounded child retries and the
+  Scheduler's `RestartOnFailure` retries are exhausted — and it applies after a
+  reboot, at the next trigger opportunity, because the desired record survives
+  the reboot. So with `running` recorded, the Board can come back without a
+  manual `task-run`. `IgnoreNew` discards a tick that arrives while the Board is
+  already healthy.
+
+The desired record is intent and the only thing the gate reads; `runtime_health`
+is a separate computed observation of what is actually there. `task-status`
+reports `runtime_health: recovery_needed` when the recorded intent is `running`,
+the task is `Ready`, and no live runtime is observed. That is an observation
+label, not a stored intent and not a block: `desired_state` still reads
+`running`, so the next trigger opportunity may relaunch the Board. Only an
+explicit `task-stop` — which records `stop_requested` and then `stopped` — turns
+the relaunch opportunity back into a no-op.
+
+Registration itself never starts the Board: `task-register` records the
+`stopped` intent before the task can exist, and the trigger's start boundary is
+set in the future, so no start opportunity exists at registration time.
+
+A task registered before this trigger existed is reported as `definition_hold`
+and refuses `task-run`. Removal is deliberately one step wider than execution:
+`task-unregister` accepts this exact action, owner, and settings with either
+the exact relaunch trigger or exactly zero triggers — the earlier triggerless
+registration — so that legacy shape can still be removed and re-registered
+instead of becoming permanently stuck. A single trigger that does not match
+the exact relaunch definition is neither shape and is refused by every
+operation, the same as more than one trigger.
 
 Before stop, stale-record recovery, or task removal can delete runtime
 evidence, the wrapper atomically writes one metadata-only termination receipt
@@ -495,6 +540,25 @@ dependency availability, and one of `normal_stop`, `handled_error`,
 Capture failure is HOLD and blocks removal. It contains no task name, process
 identifier, host, path, credential, account, or raw result/error.
 
+When the controller replaces an exited Board child it also retains bounded
+child exit evidence in that same receipt: `child_exit_code` (a numeric exit
+code, otherwise null), `child_signal_class` (one of `sigint`, `sigterm`,
+`sigkill`, `spawn_error`, `other`), and `child_failure_class` (only an existing
+safe failure class, otherwise null). This keeps the schema version unchanged;
+receipts written before these fields existed stay valid, and a present field
+must match the bounded shape exactly or the record fails closed. Raw exit text,
+signal strings, identifiers, paths, and stacks are never persisted, and the
+child's standard output and error streams remain ignored.
+
+The Board runtime deliberately exits on an unhandled rejection, so its
+five-minute usage and Claude-quota companions contain every collector failure
+at their own boundary. A rejected sweep becomes a fail-closed hold carrying only
+an existing or minimal sanitized code, both interval timers keep their
+independent cadence, and a failed lane receipt write no longer aborts the sweep
+or falsifies a sibling lane — that lane simply keeps its prior value and ages
+out fail-closed. A collector failure can therefore no longer terminate the
+runtime process.
+
 The earlier `runtime_worker_absent` evidence established an architecture gap:
 the task had zero restart policy and no desired-state, LastTaskResult, or
 termination-receipt evidence. Its ready marker and last heartbeat excluded a
@@ -504,13 +568,17 @@ crash, external termination, and dependency loss must not be claimed without
 the new receipt and ordering evidence. `task-fault` is a bounded local
 acceptance-only worker fault used after a natural-survival interval to prove the
 same intent epoch recovers through the approved Scheduler policy. There is no
-force kill, service, automatic trigger, elevation, firewall, LAN/public bind,
+force kill, service, boot/logon trigger, elevation, firewall, LAN/public bind,
 provider call, or Tailscale configuration mutation.
 
 This controller closes the missing child-lifetime-owner gap without adding a
-service or second watchdog. A controller-process crash remains a documented
-residual risk; the Board does not claim that Task Scheduler's
-`RestartOnFailure` setting alone proves recovery.
+service or second watchdog. A controller-process exit after its bounded retries
+are exhausted is now met by the repeating trigger's next gated relaunch
+opportunity rather than by an indefinite `Ready` task; the Board still does not
+claim that Task Scheduler's `RestartOnFailure` setting alone proves recovery,
+and recovery is only claimed from an observed ready runtime. The Board UI owns
+no repair button for this surface: when the Board itself is down it cannot be
+its own recovery owner.
 
 The app-server adapter tests cover handshake/initialization, pagination,
 `useStateDbOnly` fallback, redaction, exact-ID joining, bounded cache/failure

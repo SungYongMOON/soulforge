@@ -116,6 +116,9 @@ export const TEAM_OPS_BOARD_RUNTIME_PUBLIC_RECORD_MAX_BYTES = 4096;
 export const TEAM_OPS_BOARD_RUNTIME_HELPER_MAX_BUFFER_BYTES = 128 * 1024;
 export const TEAM_OPS_BOARD_RUNTIME_RESTART_COUNT = 3;
 export const TEAM_OPS_BOARD_RUNTIME_RESTART_INTERVAL = "PT1M";
+export const TEAM_OPS_BOARD_RUNTIME_TRIGGER_KIND = "time";
+export const TEAM_OPS_BOARD_RUNTIME_TRIGGER_INTERVAL = "PT5M";
+export const TEAM_OPS_BOARD_RUNTIME_TRIGGER_DURATION = "indefinite";
 export const TEAM_OPS_BOARD_CHILD_RESTART_LIMIT = 3;
 export const TEAM_OPS_BOARD_CHILD_RESTART_BACKOFF_MS = 1_000;
 const CHILD_HEALTH_POLL_MS = 1_000;
@@ -278,6 +281,42 @@ export function classifyRuntimeTermination({
   return "unknown";
 }
 
+const CHILD_SIGNAL_CLASSES = new Set([
+  "sigint",
+  "sigterm",
+  "sigkill",
+  "spawn_error",
+  "other",
+]);
+const CHILD_EXIT_CODE_MIN = -2_147_483_648;
+const CHILD_EXIT_CODE_MAX = 4_294_967_295;
+
+// Windows reports both signed and unsigned process exit codes; both stay inside
+// this bound, and anything outside it is discarded rather than projected.
+function isBoundedChildExitCode(code) {
+  return Number.isSafeInteger(code)
+    && code >= CHILD_EXIT_CODE_MIN
+    && code <= CHILD_EXIT_CODE_MAX;
+}
+
+// Board-child exit evidence is bounded metadata only: a numeric exit code, a
+// closed signal class, and an already-safe failure class. No identifier, path,
+// stack, or raw message may reach the receipt.
+export function sanitizeChildExitEvidence({ code = null, signal = null, failureClass = null } = {}) {
+  const normalizedSignal = typeof signal === "string" && signal !== ""
+    ? signal.toLowerCase()
+    : null;
+  return {
+    child_exit_code: isBoundedChildExitCode(code) ? code : null,
+    child_signal_class: normalizedSignal === null
+      ? null
+      : normalizedSignal === "error"
+        ? "spawn_error"
+        : CHILD_SIGNAL_CLASSES.has(normalizedSignal) ? normalizedSignal : "other",
+    child_failure_class: SAFE_FAILURE_CLASSES.has(failureClass) ? failureClass : null,
+  };
+}
+
 export function createTerminationReceipt({
   operation,
   desired,
@@ -287,6 +326,7 @@ export function createTerminationReceipt({
   dependencyAvailable,
   dependencyLossBeforeExit = false,
   workerAliveAtCapture = null,
+  childExit = null,
   observedAt,
 }) {
   const timestamp = String(observedAt ?? "");
@@ -329,6 +369,10 @@ export function createTerminationReceipt({
     exit_classification: exitClassification,
     dependency_state: dependencyAvailable === true
       ? "available" : dependencyAvailable === false ? "unavailable" : "unknown",
+    ...sanitizeChildExitEvidence({
+      ...(childExit ?? {}),
+      failureClass: childExit?.failureClass ?? runtimeState?.failure_class ?? null,
+    }),
   };
 }
 
@@ -401,7 +445,11 @@ export function createScheduledTaskDefinition({
     execute,
     arguments: argumentsValue,
     action_digest: scheduledActionDigest(execute, argumentsValue),
-    trigger_count: 0,
+    trigger_count: 1,
+    trigger_kind: TEAM_OPS_BOARD_RUNTIME_TRIGGER_KIND,
+    trigger_repetition_interval: TEAM_OPS_BOARD_RUNTIME_TRIGGER_INTERVAL,
+    trigger_repetition_duration: TEAM_OPS_BOARD_RUNTIME_TRIGGER_DURATION,
+    trigger_enabled: true,
     stored_credential_count: 0,
     logon_type: "Interactive",
     run_level: "Limited",
@@ -429,6 +477,8 @@ export function createScheduledTaskPowerShellSpec(operation, {
   const argumentsValue = powershellSingleQuoted(definition.arguments);
   const expectedDigest = powershellSingleQuoted(definition.action_digest);
   const runtimeSchema = powershellSingleQuoted(TEAM_OPS_BOARD_RUNTIME_SCHEMA);
+  const triggerInterval = powershellSingleQuoted(TEAM_OPS_BOARD_RUNTIME_TRIGGER_INTERVAL);
+  const triggerDuration = powershellSingleQuoted(TEAM_OPS_BOARD_RUNTIME_TRIGGER_DURATION);
   const script = [
     "$ErrorActionPreference='Stop'",
     `$n=${taskName}`,
@@ -436,36 +486,49 @@ export function createScheduledTaskPowerShellSpec(operation, {
     `$a=${argumentsValue}`,
     `$d=${expectedDigest}`,
     `$s=${runtimeSchema}`,
+    `$ri=${triggerInterval}`,
+    `$rd=${triggerDuration}`,
     "$p='\\'",
     "$identity=[System.Security.Principal.WindowsIdentity]::GetCurrent()",
     "$owner=$identity.Name",
     "$ownerSid=$identity.User.Value",
     "function Resolve-Sid([string]$id){try{return (New-Object System.Security.Principal.NTAccount($id)).Translate([System.Security.Principal.SecurityIdentifier]).Value}catch{try{return (New-Object System.Security.Principal.SecurityIdentifier($id)).Value}catch{return $null}}}",
     "function Get-Digest([string]$x,[string]$y){$h=[System.Security.Cryptography.SHA256]::Create();try{$b=[Text.Encoding]::UTF8.GetBytes($x+[char]0+$y);return ([BitConverter]::ToString($h.ComputeHash($b))).Replace('-','').ToLowerInvariant()}finally{$h.Dispose()}}",
+    "function Get-TriggerFacts($task){$objects=@($task.Triggers | Where-Object { $null -ne $_ });$one=$(if($objects.Count -eq 1){$objects[0]}else{$null});$raw=$(if($null -ne $one){[string]$one.Repetition.Duration}else{$null});[pscustomobject]@{count=$objects.Count;kind=$(if($null -eq $one){$null}elseif(([string]$one.CimClass.CimClassName) -eq 'MSFT_TaskTimeTrigger'){'time'}else{'other'});interval=$(if($null -ne $one){[string]$one.Repetition.Interval}else{$null});duration=$(if($null -eq $one){$null}elseif([string]::IsNullOrEmpty($raw) -or $raw -eq 'PT0S'){$rd}else{$raw});enabled=$(if($null -ne $one){[bool]$one.Enabled}else{$null});boundary=$(if($null -ne $one){[string]$one.StartBoundary}else{$null});boundaryOk=$(if($null -eq $one){$false}else{$b=[string]$one.StartBoundary;$bt=[datetime]::MinValue;([string]::IsNullOrEmpty($b) -eq $false) -and [datetime]::TryParse($b,[ref]$bt) -and $bt -le (Get-Date).AddMinutes(6)})}}",
+  ];
+  const definitionGuard = "[string]$t.State -ne 'Ready' -or [string]$t.TaskPath -ne $p -or $actions.Count -ne 1 -or (Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)) -ne $d -or $null -eq $principalSid -or $principalSid -ne $ownerSid -or $logon -ne 'Interactive' -or [string]$t.Principal.RunLevel -ne 'Limited' -or [string]$settings.MultipleInstances -ne 'IgnoreNew' -or $settings.Enabled -ne $true -or [string]$settings.ExecutionTimeLimit -ne 'PT0S' -or $settings.IdleSettings.StopOnIdleEnd -ne $false -or [int]$settings.RestartCount -ne 3 -or [string]$settings.RestartInterval -ne 'PT1M'";
+  const observationLines = [
+    "$t=Get-ScheduledTask -TaskPath $p -TaskName $n -ErrorAction SilentlyContinue",
+    "$actions=@($t.Actions);$logon=[string]$t.Principal.LogonType;$settings=$t.Settings;$principalSid=Resolve-Sid ([string]$t.Principal.UserId);$facts=Get-TriggerFacts $t",
+    "$triggerExact=($facts.count -eq 1 -and $facts.kind -eq 'time' -and $facts.interval -eq $ri -and $facts.duration -eq $rd -and $facts.enabled -eq $true -and $facts.boundaryOk -eq $true)",
   ];
   if (operation === "register") {
     script.push(
       "$existing=Get-ScheduledTask -TaskPath $p -TaskName $n -ErrorAction SilentlyContinue",
       "if($null -ne $existing){throw 'task_definition_mismatch'}",
       "$action=New-ScheduledTaskAction -Execute $e -Argument $a",
+      // One time trigger whose start boundary is deliberately in the future, so
+      // registration itself never presents a start opportunity, and whose
+      // repetition duration is omitted, which is how Task Scheduler stores
+      // indefinite repetition. Get-TriggerFacts reads that stored duration back
+      // as blank or PT0S and normalizes it to the documented value.
+      "$trigger=New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(5)) -RepetitionInterval (New-TimeSpan -Minutes 5)",
       "$principal=New-ScheduledTaskPrincipal -UserId $owner -LogonType Interactive -RunLevel Limited",
       "$settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -DontStopOnIdleEnd -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval ([TimeSpan]::FromMinutes(1))",
-      "$definition=New-ScheduledTask -Action $action -Principal $principal -Settings $settings -Description 'Soulforge Team Operations Board read-only on-demand runtime'",
+      "$definition=New-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'Soulforge Team Operations Board read-only gated runtime'",
       "$null=Register-ScheduledTask -TaskPath $p -TaskName $n -InputObject $definition",
     );
   } else if (operation === "run") {
     script.push(
-      "$t=Get-ScheduledTask -TaskPath $p -TaskName $n -ErrorAction SilentlyContinue",
-      "$actions=@($t.Actions);$triggers=@($t.Triggers | Where-Object { $null -ne $_ });$logon=[string]$t.Principal.LogonType;$settings=$t.Settings;$principalSid=Resolve-Sid ([string]$t.Principal.UserId)",
-      "if($null -eq $t -or [string]$t.State -ne 'Ready' -or [string]$t.TaskPath -ne $p -or $triggers.Count -ne 0 -or $actions.Count -ne 1 -or (Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)) -ne $d -or $null -eq $principalSid -or $principalSid -ne $ownerSid -or $logon -ne 'Interactive' -or [string]$t.Principal.RunLevel -ne 'Limited' -or [string]$settings.MultipleInstances -ne 'IgnoreNew' -or $settings.Enabled -ne $true -or [string]$settings.ExecutionTimeLimit -ne 'PT0S' -or $settings.IdleSettings.StopOnIdleEnd -ne $false -or [int]$settings.RestartCount -ne 3 -or [string]$settings.RestartInterval -ne 'PT1M'){throw 'task_definition_mismatch'}",
+      ...observationLines,
+      `if($null -eq $t -or -not $triggerExact -or ${definitionGuard}){throw 'task_definition_mismatch'}`,
       "Start-ScheduledTask -TaskPath $p -TaskName $n",
       "$o=[pscustomobject]@{schema_version=$s;ok=$true;outcome='run_requested'}",
     );
   } else if (operation === "unregister") {
     script.push(
-      "$t=Get-ScheduledTask -TaskPath $p -TaskName $n -ErrorAction SilentlyContinue",
-      "$actions=@($t.Actions);$triggers=@($t.Triggers | Where-Object { $null -ne $_ });$logon=[string]$t.Principal.LogonType;$settings=$t.Settings;$principalSid=Resolve-Sid ([string]$t.Principal.UserId)",
-      "if($null -eq $t -or [string]$t.State -ne 'Ready' -or [string]$t.TaskPath -ne $p -or $triggers.Count -ne 0 -or $actions.Count -ne 1 -or (Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)) -ne $d -or $null -eq $principalSid -or $principalSid -ne $ownerSid -or $logon -ne 'Interactive' -or [string]$t.Principal.RunLevel -ne 'Limited' -or [string]$settings.MultipleInstances -ne 'IgnoreNew' -or $settings.Enabled -ne $true -or [string]$settings.ExecutionTimeLimit -ne 'PT0S' -or $settings.IdleSettings.StopOnIdleEnd -ne $false -or [int]$settings.RestartCount -ne 3 -or [string]$settings.RestartInterval -ne 'PT1M'){throw 'task_definition_mismatch'}",
+      ...observationLines,
+      `if($null -eq $t -or -not ($facts.count -eq 0 -or $triggerExact) -or ${definitionGuard}){throw 'task_definition_mismatch'}`,
       "Unregister-ScheduledTask -TaskPath $p -TaskName $n -Confirm:$false",
       "$o=[pscustomobject]@{schema_version=$s;ok=$true;outcome='unregistered'}",
     );
@@ -474,7 +537,7 @@ export function createScheduledTaskPowerShellSpec(operation, {
     script.push(
       "$t=Get-ScheduledTask -TaskPath $p -TaskName $n -ErrorAction SilentlyContinue",
       "$info=$(if($null -ne $t){Get-ScheduledTaskInfo -TaskPath $p -TaskName $n -ErrorAction SilentlyContinue}else{$null})",
-      "if($null -eq $t){$o=[pscustomobject]@{exists=$false;task_state='missing';trigger_count=0;stored_credential_count=0;current_owner_match=$false;run_level_limited=$false;task_path_root=$false;multiple_instances_ignore_new=$false;enabled=$false;unlimited_execution=$false;stop_on_idle_end=$true;restart_count=0;restart_interval=$null;watchdog_count=0;action_count=0;action_digest=$null;last_task_result=$null}}else{$actions=@($t.Actions);$triggerObjects=@($t.Triggers | Where-Object { $null -ne $_ });$logon=[string]$t.Principal.LogonType;$settings=$t.Settings;$restart=[int]$settings.RestartCount;$triggerCount=$triggerObjects.Count;$principalSid=Resolve-Sid ([string]$t.Principal.UserId);$o=[pscustomobject]@{exists=$true;task_state=([string]$t.State).ToLowerInvariant();trigger_count=$triggerCount;stored_credential_count=($(if($logon -eq 'Interactive'){0}else{1}));current_owner_match=($null -ne $principalSid -and $principalSid -eq $ownerSid);run_level_limited=([string]$t.Principal.RunLevel -eq 'Limited');task_path_root=([string]$t.TaskPath -eq $p);multiple_instances_ignore_new=([string]$settings.MultipleInstances -eq 'IgnoreNew');enabled=($settings.Enabled -eq $true);unlimited_execution=([string]$settings.ExecutionTimeLimit -eq 'PT0S');stop_on_idle_end=([bool]$settings.IdleSettings.StopOnIdleEnd);restart_count=$restart;restart_interval=([string]$settings.RestartInterval);watchdog_count=$(if($triggerCount -eq 0){0}else{1});action_count=$actions.Count;action_digest=$(if($actions.Count -eq 1){Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)}else{$null});last_task_result=$(if($null -ne $info){[int64]$info.LastTaskResult}else{$null})}}",
+      "if($null -eq $t){$o=[pscustomobject]@{exists=$false;task_state='missing';trigger_count=0;trigger_kind=$null;trigger_repetition_interval=$null;trigger_repetition_duration=$null;trigger_enabled=$null;trigger_start_boundary=$null;stored_credential_count=0;current_owner_match=$false;run_level_limited=$false;task_path_root=$false;multiple_instances_ignore_new=$false;enabled=$false;unlimited_execution=$false;stop_on_idle_end=$true;restart_count=0;restart_interval=$null;watchdog_count=0;action_count=0;action_digest=$null;last_task_result=$null}}else{$actions=@($t.Actions);$facts=Get-TriggerFacts $t;$logon=[string]$t.Principal.LogonType;$settings=$t.Settings;$restart=[int]$settings.RestartCount;$triggerCount=$facts.count;$principalSid=Resolve-Sid ([string]$t.Principal.UserId);$o=[pscustomobject]@{exists=$true;task_state=([string]$t.State).ToLowerInvariant();trigger_count=$triggerCount;trigger_kind=$facts.kind;trigger_repetition_interval=$facts.interval;trigger_repetition_duration=$facts.duration;trigger_enabled=$facts.enabled;trigger_start_boundary=$facts.boundary;stored_credential_count=($(if($logon -eq 'Interactive'){0}else{1}));current_owner_match=($null -ne $principalSid -and $principalSid -eq $ownerSid);run_level_limited=([string]$t.Principal.RunLevel -eq 'Limited');task_path_root=([string]$t.TaskPath -eq $p);multiple_instances_ignore_new=([string]$settings.MultipleInstances -eq 'IgnoreNew');enabled=($settings.Enabled -eq $true);unlimited_execution=([string]$settings.ExecutionTimeLimit -eq 'PT0S');stop_on_idle_end=([bool]$settings.IdleSettings.StopOnIdleEnd);restart_count=$restart;restart_interval=([string]$settings.RestartInterval);watchdog_count=$(if($triggerCount -le 1){0}else{1});action_count=$actions.Count;action_digest=$(if($actions.Count -eq 1){Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)}else{$null});last_task_result=$(if($null -ne $info){[int64]$info.LastTaskResult}else{$null})}}",
     );
   }
   script.push("[Console]::Out.Write(($o|ConvertTo-Json -Compress))");
@@ -500,9 +563,23 @@ export function createScheduledTaskPowerShellSpec(operation, {
   };
 }
 
-export function scheduledTaskInspectionIsExact(inspection, definition = createScheduledTaskDefinition()) {
+// Registration stamps StartBoundary at now+5m so the one-time trigger never
+// presents an immediate start opportunity. Inspection tolerates a small
+// bounded window past that (immediate post-registration checks race the
+// clock) and any past boundary (the steady-state shape once the trigger has
+// already fired at least once), but refuses a boundary drifted implausibly
+// far into the future, which would signal a mismatched or tampered task.
+const SCHEDULED_TASK_TRIGGER_START_BOUNDARY_FUTURE_TOLERANCE_MS = 6 * 60 * 1000;
+
+function scheduledTaskTriggerStartBoundaryIsExact(value, now = Date.now()) {
+  if (typeof value !== "string" || value.trim() === "") return false;
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) return false;
+  return parsed <= now + SCHEDULED_TASK_TRIGGER_START_BOUNDARY_FUTURE_TOLERANCE_MS;
+}
+
+function scheduledTaskShapeIsExact(inspection, definition) {
   return inspection?.exists === true
-    && inspection.trigger_count === 0
     && inspection.stored_credential_count === 0
     && inspection.current_owner_match === true
     && inspection.run_level_limited === true
@@ -518,8 +595,34 @@ export function scheduledTaskInspectionIsExact(inspection, definition = createSc
     && inspection.action_digest === definition.action_digest;
 }
 
+// The one approved relaunch opportunity: a single repeating trigger that only
+// offers the desired-state gate another chance to run. Anything beyond it is a
+// watchdog surface and is not exact.
+export function scheduledTaskInspectionIsExact(
+  inspection,
+  definition = createScheduledTaskDefinition(),
+  { now = Date.now() } = {},
+) {
+  return scheduledTaskShapeIsExact(inspection, definition)
+    && inspection.trigger_count === 1
+    && inspection.trigger_kind === definition.trigger_kind
+    && inspection.trigger_repetition_interval === definition.trigger_repetition_interval
+    && inspection.trigger_repetition_duration === definition.trigger_repetition_duration
+    && inspection.trigger_enabled === true
+    && scheduledTaskTriggerStartBoundaryIsExact(inspection.trigger_start_boundary, now);
+}
+
+// Removal must stay possible for a task that carries this exact action, owner,
+// and settings but predates the relaunch trigger: the earlier triggerless
+// registration, with zero triggers exactly. A task with one trigger that does
+// not match the exact relaunch definition is not this shape and is refused.
+export function scheduledTaskInspectionIsTriggerlessLegacy(inspection, definition = createScheduledTaskDefinition()) {
+  return scheduledTaskShapeIsExact(inspection, definition)
+    && inspection.trigger_count === 0;
+}
+
 export function scheduledTaskUnregisterIsSafe({ inspection, runtimeOwnership, listenerState }) {
-  return scheduledTaskInspectionIsExact(inspection)
+  return (scheduledTaskInspectionIsExact(inspection) || scheduledTaskInspectionIsTriggerlessLegacy(inspection))
     && inspection.task_state === "ready"
     && runtimeOwnership === "stopped"
     && listenerState === "absent";
@@ -860,7 +963,15 @@ export function isTerminationReceipt(value) {
       || (DESIRED_STATES.has(value.desired_state)
         && Number.isSafeInteger(value.intent_epoch) && value.intent_epoch >= 0))
     && TERMINATION_CLASSIFICATIONS.has(value.exit_classification)
-    && new Set(["available", "unavailable", "unknown"]).has(value.dependency_state);
+    && new Set(["available", "unavailable", "unknown"]).has(value.dependency_state)
+    // Receipts written before child evidence existed stay valid; present fields
+    // must be exactly the bounded sanitized shape.
+    && ((value.child_exit_code ?? null) === null
+      || isBoundedChildExitCode(value.child_exit_code))
+    && ((value.child_signal_class ?? null) === null
+      || CHILD_SIGNAL_CLASSES.has(value.child_signal_class))
+    && ((value.child_failure_class ?? null) === null
+      || SAFE_FAILURE_CLASSES.has(value.child_failure_class));
 }
 
 async function dependencyAvailable() {
@@ -881,6 +992,7 @@ async function captureTerminationEvidence(paths, operation, {
   desired = null,
   state = null,
   workerAliveAtCapture = null,
+  childExit = null,
 } = {}) {
   try {
     const receipt = createTerminationReceipt({
@@ -891,6 +1003,7 @@ async function captureTerminationEvidence(paths, operation, {
       lastTaskResult: task?.last_task_result ?? null,
       dependencyAvailable: await dependencyAvailable(),
       workerAliveAtCapture,
+      childExit,
       observedAt: new Date().toISOString(),
     });
     await writeJsonAtomic(paths.terminationReceipt, receipt);
@@ -1123,6 +1236,14 @@ function validateTaskInspection(value) {
       || typeof value.exists !== "boolean"
       || typeof value.task_state !== "string"
       || !Number.isSafeInteger(value.trigger_count)
+      || ((value.trigger_kind ?? null) !== null && typeof value.trigger_kind !== "string")
+      || ((value.trigger_repetition_interval ?? null) !== null
+        && typeof value.trigger_repetition_interval !== "string")
+      || ((value.trigger_repetition_duration ?? null) !== null
+        && typeof value.trigger_repetition_duration !== "string")
+      || ((value.trigger_enabled ?? null) !== null && typeof value.trigger_enabled !== "boolean")
+      || ((value.trigger_start_boundary ?? null) !== null
+        && typeof value.trigger_start_boundary !== "string")
       || !Number.isSafeInteger(value.stored_credential_count)
       || typeof value.current_owner_match !== "boolean"
       || typeof value.run_level_limited !== "boolean"
@@ -1363,14 +1484,18 @@ async function waitForScheduledRuntime(env = process.env) {
 async function registerScheduledRuntime(env = process.env) {
   const before = await invokeScheduledTask("inspect", env);
   if (before.exists) fail("task_definition_mismatch");
-  const after = await invokeScheduledTask("register", env);
-  if (!scheduledTaskInspectionIsExact(after)) fail("task_definition_mismatch");
   const paths = runtimePaths(env);
   await ensureNormalDirectory(paths.root);
+  // The task carries a repeating relaunch trigger, so the recorded intent must
+  // already read `stopped` before the task can exist. A leftover `running`
+  // record from an earlier install would otherwise let the first trigger
+  // opportunity start the Board that registration left stopped.
   const current = await readDesiredState(paths);
   const desired = await writeDesiredState(paths, current?.desired_state === "stopped"
     ? current
     : transitionRuntimeDesiredState(current, "stopped", new Date().toISOString()));
+  const after = await invokeScheduledTask("register", env);
+  if (!scheduledTaskInspectionIsExact(after)) fail("task_definition_mismatch");
   return createPublicScheduledTaskState(after, "stopped", desired);
 }
 
@@ -1963,15 +2088,13 @@ async function observeBoardChild(child, paths) {
   return { reason: "exit", ...(await exit) };
 }
 
-async function waitForControllerStop(paths) {
-  while ((await readDesiredState(paths))?.desired_state === "running") {
-    await wait(CHILD_HEALTH_POLL_MS);
-  }
-}
-
-async function runScheduledController(env = process.env, {
+// Every scheduled invocation, manual or from the repeating relaunch trigger,
+// passes the same authoritative desired-state gate first. A scheduled start with
+// desired != running exits without deriving bindings or owning a Board child.
+export async function runScheduledController(env = process.env, {
   restartLimit = TEAM_OPS_BOARD_CHILD_RESTART_LIMIT,
   restartBackoffMs = TEAM_OPS_BOARD_CHILD_RESTART_BACKOFF_MS,
+  forkChild = fork,
 } = {}) {
   const paths = runtimePaths(env);
   await ensureNormalDirectory(paths.root);
@@ -1983,7 +2106,7 @@ async function runScheduledController(env = process.env, {
   let restartCount = 0;
 
   while ((await readDesiredState(paths))?.desired_state === "running") {
-    const child = fork(fileURLToPath(import.meta.url), ["__runtime_child"], {
+    const child = forkChild(fileURLToPath(import.meta.url), ["__runtime_child"], {
       env: childEnvironment,
       stdio: ["ignore", "ignore", "ignore", "ipc"],
       windowsHide: true,
@@ -2000,6 +2123,7 @@ async function runScheduledController(env = process.env, {
         desired,
         state,
         workerAliveAtCapture: false,
+        childExit: { code: outcome.code, signal: outcome.signal },
       });
     }
     if (state) await removeOwnedRuntime(paths, state.run_id);
@@ -2011,10 +2135,11 @@ async function runScheduledController(env = process.env, {
       restartCount,
       restartLimit,
     });
-    if (decision !== "restart") {
-      await waitForControllerStop(paths);
-      return;
-    }
+    // Exhaustion never awaits desired state settling to "stopped": that wait
+    // has no listener that would ever drive it there, and would leave the
+    // Scheduled Task process parked. Failing with a safe code exits nonzero
+    // so Scheduler's PT5M relaunch trigger can retry from a clean process.
+    if (decision !== "restart") fail("runtime_worker_failed");
     restartCount += 1;
     await wait(restartBackoffMs);
   }
