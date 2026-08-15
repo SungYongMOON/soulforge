@@ -9,6 +9,10 @@
   requests remain bounded at 3 seconds. A failure before the Board child starts
   now emits a sanitized `controller_preflight` termination receipt and exits
   fail-closed; this source change does not itself claim a successful deployment.
+- Normalized Windows `0x800710E0` to the existing public `running` result only
+  for an inspected task that is simultaneously `Running` and exact
+  `IgnoreNew`. This preserves expected five-minute duplicate suppression
+  without turning the same refusal code green in any other task context.
 - Contained every Team Operations Board usage/quota companion rejection at the
   companion boundary. A collector failure now ends as a fail-closed hold with an
   existing or minimal sanitized code instead of a process-level unhandled

@@ -513,7 +513,10 @@ That gate is the whole of the guarantee, and it cuts exactly two ways:
   reboot, at the next trigger opportunity, because the desired record survives
   the reboot. So with `running` recorded, the Board can come back without a
   manual `task-run`. `IgnoreNew` discards a tick that arrives while the Board is
-  already healthy.
+  already healthy. Windows records that exact overlap as `0x800710E0`; the
+  public status normalizes it to the existing `running` class only when the
+  inspected task is both `Running` and exact `IgnoreNew`. The same result in
+  every other context remains a failure.
 
 The desired record is intent and the only thing the gate reads; `runtime_health`
 is a separate computed observation of what is actually there. `task-status`

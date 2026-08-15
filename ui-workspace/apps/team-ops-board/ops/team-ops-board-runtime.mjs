@@ -247,11 +247,16 @@ export function transitionRuntimeDesiredState(current, event, observedAt) {
   fail("runtime_state_ambiguous");
 }
 
-export function classifyScheduledTaskResult(lastTaskResult) {
+export function classifyScheduledTaskResult(lastTaskResult, context = null) {
   if (lastTaskResult === null || lastTaskResult === undefined) return "unavailable";
   if (!Number.isSafeInteger(lastTaskResult)) return "invalid";
   if (lastTaskResult === 0) return "success";
   if (lastTaskResult === 267009) return "running";
+  if (lastTaskResult === 2147946720) {
+    return context?.taskState === "running" && context?.multipleInstancesIgnoreNew === true
+      ? "running"
+      : "failed";
+  }
   if ([267014, -1073741510].includes(lastTaskResult)) return "terminated";
   if ([-1073741819, -1073740791].includes(lastTaskResult)) return "native_crash";
   return "failed";
@@ -1327,7 +1332,10 @@ export function createPublicScheduledTaskState(inspection, runtimeHealth, desire
     runtime_health: runtimeHealth,
     desired_state: desired?.desired_state ?? "stopped",
     intent_epoch: desired?.intent_epoch ?? 0,
-    last_result_class: classifyScheduledTaskResult(inspection?.last_task_result),
+    last_result_class: classifyScheduledTaskResult(inspection?.last_task_result, {
+      taskState: inspection?.task_state,
+      multipleInstancesIgnoreNew: inspection?.multiple_instances_ignore_new,
+    }),
   };
 }
 

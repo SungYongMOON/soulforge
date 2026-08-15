@@ -415,6 +415,13 @@ test("termination receipts distinguish evidence classes without private identifi
   assert.equal(classifyScheduledTaskResult(267014), "terminated");
   assert.equal(classifyScheduledTaskResult(73), "failed");
   assert.equal(classifyScheduledTaskResult(-1073741819), "native_crash");
+  assert.equal(classifyScheduledTaskResult(2147946720), "failed");
+  assert.equal(classifyScheduledTaskResult(2147946720, {}), "failed");
+  assert.equal(classifyScheduledTaskResult(2147946720, { taskState: "ready" }), "failed");
+  assert.equal(classifyScheduledTaskResult(2147946720, { multipleInstancesIgnoreNew: true }), "failed");
+  assert.equal(classifyScheduledTaskResult(2147946720, { taskState: "ready", multipleInstancesIgnoreNew: true }), "failed");
+  assert.equal(classifyScheduledTaskResult(2147946720, { taskState: "running", multipleInstancesIgnoreNew: false }), "failed");
+  assert.equal(classifyScheduledTaskResult(2147946720, { taskState: "running", multipleInstancesIgnoreNew: true }), "running");
   assert.equal(classifyRuntimeTermination({
     desiredState: "stop_requested",
     runtimeState: "ready",
