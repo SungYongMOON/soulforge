@@ -2,6 +2,13 @@
 
 ## 2026-08-16 - Board runtime relaunch opportunity and contained collector failures
 
+- Separated scheduled-controller preflight timing from local control timing.
+  The Git common-directory helper can legitimately take longer than the former
+  shared 3-second limit under the sanitized Scheduled Task environment, so Git
+  and Tailscale preflight helpers now receive 15 seconds while local control
+  requests remain bounded at 3 seconds. A failure before the Board child starts
+  now emits a sanitized `controller_preflight` termination receipt and exits
+  fail-closed; this source change does not itself claim a successful deployment.
 - Contained every Team Operations Board usage/quota companion rejection at the
   companion boundary. A collector failure now ends as a fail-closed hold with an
   existing or minimal sanitized code instead of a process-level unhandled

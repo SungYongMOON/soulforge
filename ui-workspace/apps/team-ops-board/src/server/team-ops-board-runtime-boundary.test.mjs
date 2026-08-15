@@ -13,6 +13,7 @@ import {
   TEAM_OPS_BOARD_RUNTIME_HELPER_MAX_BUFFER_BYTES,
   TEAM_OPS_BOARD_RUNTIME_LAUNCH_PIPE,
   TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ,
+  TEAM_OPS_BOARD_RUNTIME_PREFLIGHT_TIMEOUT_MS,
   TEAM_OPS_BOARD_CHILD_RESTART_BACKOFF_MS,
   TEAM_OPS_BOARD_CHILD_RESTART_LIMIT,
   TEAM_OPS_BOARD_RUNTIME_PIPE,
@@ -1010,14 +1011,14 @@ test("a scheduled invocation with desired stopped exits without starting the Boa
     assert.equal(existsSync(path.join(root, "runtime.v1.lock")), false);
   }
 
-  // The repeating relaunch trigger reaches the same gate before any binding
-  // derivation, so a scheduled start can never bypass the recorded intent.
   const source = await readFile(RUNTIME_SOURCE, "utf8");
   const controller = source.slice(source.indexOf("export async function runScheduledController"));
-  const gateAt = controller.indexOf('(await readDesiredState(paths))?.desired_state !== "running") return');
-  assert.ok(gateAt >= 0);
-  assert.ok(gateAt < controller.indexOf("deriveScheduledRuntimeEnvironment"));
-  assert.ok(gateAt < controller.indexOf("forkChild("));
+  const preflightDesiredRead = controller.indexOf("const preflightDesired = await readDesiredState(paths)");
+  const desiredStateReturn = controller.indexOf('preflightDesired?.desired_state !== "running") return');
+  assert.ok(preflightDesiredRead >= 0);
+  assert.ok(desiredStateReturn > preflightDesiredRead);
+  assert.ok(desiredStateReturn < controller.indexOf("deriveEnvironment(env)", preflightDesiredRead));
+  assert.ok(desiredStateReturn < controller.indexOf("forkChild("));
 });
 
 test("tracked runtime has only the bounded desired-state gated task surface", async () => {
@@ -1126,4 +1127,114 @@ test("tracked runtime has only the bounded desired-state gated task surface", as
   assert.match(source, /process\.once\("uncaughtException"/u);
   assert.match(source, /process\.once\("unhandledRejection"/u);
   assert.match(source, /resolveTeamOpsBoardAllowedHosts/u);
+});
+
+test("preflight timeout is hardened to 15s and wired before control timeout", async () => {
+  assert.equal(TEAM_OPS_BOARD_RUNTIME_PREFLIGHT_TIMEOUT_MS, 15000);
+  const source = await readFile(RUNTIME_SOURCE, "utf8");
+  assert.match(source, /CONTROL_TIMEOUT_MS\s*=\s*3[_,]000/u);
+  const resolveOwnerRootAt = source.indexOf("async function resolveOwnerRoot");
+  const readServeStatusAt = source.indexOf("async function readServeStatus");
+  const resolveOwnerRootSlice = source.slice(resolveOwnerRootAt, readServeStatusAt || source.length);
+  assert.ok(resolveOwnerRootAt >= 0, "resolveOwnerRoot function found");
+  assert.match(resolveOwnerRootSlice, /timeout:\s*TEAM_OPS_BOARD_RUNTIME_PREFLIGHT_TIMEOUT_MS/u);
+  const readServeStatusEndAt = source.indexOf("async function", readServeStatusAt + 1);
+  const readServeStatusSlice = source.slice(readServeStatusAt, readServeStatusEndAt || source.length);
+  assert.match(readServeStatusSlice, /timeout:\s*TEAM_OPS_BOARD_RUNTIME_PREFLIGHT_TIMEOUT_MS/u);
+  const controlUsage = source.match(/CONTROL_TIMEOUT_MS/gu) ?? [];
+  const preflightUsage = source.match(/TEAM_OPS_BOARD_RUNTIME_PREFLIGHT_TIMEOUT_MS/gu) ?? [];
+  assert.ok(controlUsage.length > 0, "CONTROL_TIMEOUT_MS is used");
+  assert.ok(preflightUsage.length > 0, "PREFLIGHT_TIMEOUT_MS is used");
+});
+
+test("controller_preflight termination receipt validates with owner_root_unavailable", () => {
+  const desired = {
+    schema_version: "soulforge.team_ops_board.runtime.v1",
+    desired_state: "running",
+    intent_epoch: 1,
+    updated_at: "2026-08-16T00:00:00.000Z",
+  };
+  const safe = createTerminationReceipt({
+    operation: "controller_preflight",
+    desired,
+    runtimeState: null,
+    taskState: "ready",
+    lastTaskResult: 1,
+    dependencyAvailable: true,
+    workerAliveAtCapture: false,
+    childExit: { code: null, signal: null, failureClass: "owner_root_unavailable" },
+    observedAt: "2026-08-16T00:00:00.100Z",
+  });
+  assert.equal(safe.operation, "controller_preflight");
+  assert.equal(safe.child_failure_class, "owner_root_unavailable");
+  assert.equal(isTerminationReceipt(JSON.parse(JSON.stringify(safe))), true);
+
+  const unsafe = createTerminationReceipt({
+    operation: "controller_preflight",
+    desired,
+    runtimeState: null,
+    taskState: "ready",
+    lastTaskResult: 1,
+    dependencyAvailable: true,
+    workerAliveAtCapture: false,
+    childExit: { code: null, signal: null, failureClass: "unsafe-private-marker" },
+    observedAt: "2026-08-16T00:00:00.100Z",
+  });
+  assert.equal(unsafe.child_failure_class, null);
+  assert.equal(isTerminationReceipt(JSON.parse(JSON.stringify(unsafe))), true);
+  assert.equal(isTerminationReceipt({ ...unsafe, child_failure_class: "owner_root_unavailable" }), true);
+  assert.equal(isTerminationReceipt({ ...unsafe, child_failure_class: "unsafe-private-marker" }), false);
+});
+
+test("preflight controller rejects with owner_root_unavailable on temp LOCALAPPDATA", async (t) => {
+  if (process.platform !== "win32") return t.skip("test requires Windows temp paths");
+  const localAppData = await mkdtemp(path.join(tmpdir(), "board-preflight-"));
+  t.after(async () => { await rm(localAppData, { recursive: true, force: true }); });
+  const root = localAppData;
+  await mkdir(path.join(root, "Soulforge", "team-ops-board-runtime"), { recursive: true });
+  await writeFile(path.join(root, "Soulforge", "team-ops-board-runtime", "desired.v1.json"), `${JSON.stringify({
+    schema_version: "soulforge.team_ops_board.runtime.v1",
+    desired_state: "running",
+    intent_epoch: 1,
+    updated_at: "2026-08-16T00:00:00.000Z",
+  })}\n`, "utf8");
+
+  const captureLog = [];
+  const deriveEnvironment = () => { throw Object.assign(new Error("redacted"), { code: "owner_root_unavailable" }); };
+  const inspectTask = async () => null;
+  const captureEvidence = (paths, operation, options) => {
+    captureLog.push({ operation, options });
+  };
+  const forkCalls = [];
+  const forkChild = (...args) => {
+    forkCalls.push(args);
+    throw new Error("must-not-fork");
+  };
+
+  let rejectionCode = null;
+  try {
+    await runScheduledController(
+      { LOCALAPPDATA: localAppData },
+      {
+        restartLimit: 3,
+        restartBackoffMs: 1000,
+        forkChild,
+        deriveEnvironment,
+        inspectTask,
+        captureEvidence,
+      },
+    );
+  } catch (err) {
+    rejectionCode = err.code;
+  }
+
+  assert.equal(rejectionCode, "owner_root_unavailable");
+  assert.equal(captureLog.length, 1, "exactly one evidence capture");
+  const captured = captureLog[0];
+  assert.equal(captured.operation, "controller_preflight");
+  assert.equal(captured.options.desired.desired_state, "running");
+  assert.equal(captured.options.state, null);
+  assert.equal(captured.options.workerAliveAtCapture, false);
+  assert.equal(captured.options.childExit.failureClass, "owner_root_unavailable");
+  assert.equal(forkCalls.length, 0, "no fork calls");
 });

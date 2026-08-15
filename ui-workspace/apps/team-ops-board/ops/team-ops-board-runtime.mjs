@@ -110,6 +110,7 @@ const RUNTIME_DEPENDENCY_SENTINEL = path.resolve(
 const START_TIMEOUT_MS = 30_000;
 const STOP_TIMEOUT_MS = 15_000;
 const CONTROL_TIMEOUT_MS = 3_000;
+export const TEAM_OPS_BOARD_RUNTIME_PREFLIGHT_TIMEOUT_MS = 15_000;
 const HEARTBEAT_INTERVAL_MS = 10_000;
 export const TEAM_OPS_BOARD_RUNTIME_HEARTBEAT_MAX_AGE_MS = 30_000;
 export const TEAM_OPS_BOARD_RUNTIME_PUBLIC_RECORD_MAX_BYTES = 4096;
@@ -332,7 +333,7 @@ export function createTerminationReceipt({
   const timestamp = String(observedAt ?? "");
   const observedMs = Date.parse(timestamp);
   if (!Number.isFinite(observedMs)
-      || !new Set(["pre_stop", "pre_recover", "pre_unregister", "restart_recovery"])
+      || !new Set(["pre_stop", "pre_recover", "pre_unregister", "restart_recovery", "controller_preflight"])
         .has(operation)) fail("termination_capture_failed");
   const heartbeatMs = Date.parse(runtimeState?.heartbeat_at ?? "");
   const heartbeatAgeMs = Number.isFinite(heartbeatMs) && observedMs >= heartbeatMs
@@ -955,7 +956,7 @@ export function isTerminationReceipt(value) {
   return value
     && value.schema_version === TEAM_OPS_BOARD_RUNTIME_SCHEMA
     && value.receipt_kind === "termination_evidence"
-    && new Set(["pre_stop", "pre_recover", "pre_unregister", "restart_recovery"])
+    && new Set(["pre_stop", "pre_recover", "pre_unregister", "restart_recovery", "controller_preflight"])
       .has(value.operation)
     && typeof value.observed_at === "string"
     && Number.isFinite(Date.parse(value.observed_at))
@@ -1339,7 +1340,7 @@ async function resolveOwnerRoot(env = process.env) {
       encoding: "utf8",
       env: createScheduledHelperEnvironment(env),
       maxBuffer: MAX_RECORD_BYTES,
-      timeout: CONTROL_TIMEOUT_MS,
+      timeout: TEAM_OPS_BOARD_RUNTIME_PREFLIGHT_TIMEOUT_MS,
       windowsHide: true,
     }));
   } catch {
@@ -1365,7 +1366,7 @@ async function readServeStatus(env = process.env) {
       encoding: "utf8",
       env: createScheduledHelperEnvironment(env),
       maxBuffer: 256 * 1024,
-      timeout: CONTROL_TIMEOUT_MS,
+      timeout: TEAM_OPS_BOARD_RUNTIME_PREFLIGHT_TIMEOUT_MS,
       windowsHide: true,
     });
     return JSON.parse(String(stdout));
@@ -2095,12 +2096,35 @@ export async function runScheduledController(env = process.env, {
   restartLimit = TEAM_OPS_BOARD_CHILD_RESTART_LIMIT,
   restartBackoffMs = TEAM_OPS_BOARD_CHILD_RESTART_BACKOFF_MS,
   forkChild = fork,
+  deriveEnvironment = deriveScheduledRuntimeEnvironment,
+  inspectTask = invokeScheduledTask,
+  captureEvidence = captureTerminationEvidence,
 } = {}) {
   const paths = runtimePaths(env);
   await ensureNormalDirectory(paths.root);
-  if ((await readDesiredState(paths))?.desired_state !== "running") return;
+  const preflightDesired = await readDesiredState(paths);
+  if (preflightDesired?.desired_state !== "running") return;
 
-  const childEnvironment = await deriveScheduledRuntimeEnvironment(env);
+  let childEnvironment;
+  try {
+    childEnvironment = await deriveEnvironment(env);
+  } catch (error) {
+    const failureClass = sanitizeRuntimeFailure(error);
+    let task = null;
+    try {
+      task = await inspectTask("inspect", env);
+    } catch {
+      task = null;
+    }
+    await captureEvidence(paths, "controller_preflight", {
+      task,
+      desired: preflightDesired,
+      state: null,
+      workerAliveAtCapture: false,
+      childExit: { failureClass },
+    });
+    fail(failureClass);
+  }
   delete childEnvironment[TEAM_OPS_BOARD_CLAUDE_QUOTA_READ];
   delete childEnvironment[TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ];
   let restartCount = 0;
@@ -2117,8 +2141,8 @@ export async function runScheduledController(env = process.env, {
 
     const state = await readRuntimeState(paths);
     if (!outcome.receiptCaptured) {
-      const task = await invokeScheduledTask("inspect", env);
-      await captureTerminationEvidence(paths, "restart_recovery", {
+      const task = await inspectTask("inspect", env);
+      await captureEvidence(paths, "restart_recovery", {
         task,
         desired,
         state,

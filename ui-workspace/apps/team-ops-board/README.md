@@ -473,7 +473,13 @@ default bindings in process memory before it owns one Board child. None of
 those values enter the task action,
 task metadata, repository, or logs. Scheduled mode starts from required OS
 variables only and replaces, rather than inherits, every Board binding. The
-scheduled environment enables only the local read-only Antigravity quota gate;
+Git and Tailscale preflight helpers each have a dedicated 15-second timeout;
+the local runtime control request timeout remains 3 seconds. A preflight failure
+before the Board child starts exits fail-closed and writes only a sanitized
+`controller_preflight` termination receipt, without a path, command output,
+stack, or raw error message.
+
+The scheduled environment enables only the local read-only Antigravity quota gate;
 it carries no screen-reading flag and no protected value or CLI command in task
 arguments or XML. Claude quota access is OFF by default. An exact
 `TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ=1` on `task-run` is transferred to the
