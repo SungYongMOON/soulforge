@@ -111,6 +111,14 @@ Raw/source payloads stay in approved source stores:
 - runtime mailbox state
 - another owner-approved shared worksite
 
+The TARGET query and context-construction boundary opens exactly one project
+view. Project-specific payloads, derived RAG/Wiki bodies, context packets, and
+run payloads stay rooted in that project's `_workspaces/<project_code>/**`
+view. Approved common knowledge remains in its project-agnostic owner and may
+enter the project view only through an explicit exact revision allowlist. A
+global Owner catalog may expose safe metadata, but it is not body access and
+must not become a cross-project retrieval path.
+
 `_workmeta/<project_code>/project_context/**` is the live project-context state.
 It may store only metadata, hashes, source pointers, redacted labels, graph
 nodes/edges, judgments, summaries, review states, and validation receipts.
@@ -264,6 +272,43 @@ Context inference may use only an explicit bounded pack:
 Common SE knowledge is advisory, company rules are normative, and neither may
 overwrite project facts. Project/common scope is explicit and has no implicit
 fallback or cross-project leakage.
+The pack binds exactly one project. Common revisions are deliberate additions
+to that project view, not a second project and not a fallback. A missing,
+multi-project, foreign-project, or ambiguous binding remains `HOLD` before
+source retrieval or model invocation.
+
+## M2-3A Knowledge→Context Gate Crosswalk
+
+This section states how the M2-3 knowledge surfaces feed P5 accepted context.
+It adds no new file, owner, or schema; every field below already belongs to an
+existing `project_context/**` owner.
+
+Surface separation:
+
+- Wiki/canon is reviewed knowledge owned outside project context. It enters a
+  project view only through an explicit exact revision allowlist and never
+  becomes a project fact by being retrieved or cited.
+- `memory_candidate` is a project-local reviewed-reuse proposal. It is not
+  Wiki, not canon, and not accepted knowledge. Movement between the two
+  surfaces stays a separate reviewed promotion step.
+
+An accepted generation requires all of:
+
+| minimum | requirement |
+| --- | --- |
+| exact project | exactly one bound `project_code`; no multi-project, foreign-project, or ambiguous binding |
+| source revision set | the complete exact source/knowledge revision set the generation read, including allowlisted common revisions |
+| bitemporal stamps | `valid_at` and `known_at` on every contributing record, plus the generation's own known-at cutoff |
+| coverage/gap | declared coverage and the explicit gap, `unclassified`, and `held_conflict` list; silent omission is not coverage |
+| supersession | exact predecessor/supersession refs for corrected inputs and for the prior generation |
+| reviewer | the recorded reviewer state for every proposal that required review |
+| writer epoch | the authorized writer epoch that produced the generation |
+
+A missing minimum keeps the generation `HOLD`. It does not degrade into a
+partial accepted generation.
+
+P5C scope is one project with Slack, mail, and voice inputs only. LLM synthesis
+over that context stays a separate `HOLD` and is not part of this gate.
 
 ## Source Rows
 

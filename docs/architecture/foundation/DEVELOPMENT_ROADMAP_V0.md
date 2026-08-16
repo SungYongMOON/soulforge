@@ -1,6 +1,9 @@
 # Development Roadmap v0
 
-## Active slice update — SE-core public-synthetic evaluation (2026-08-12)
+## Historical slice — SE-core public-synthetic evaluation (2026-08-12)
+
+This section records the superseded evaluation slice. The current active slice is
+the 2026-08-14 M2 Project Context and Knowledge View vertical described below.
 
 - The four-source public source pack and closed scorer corpus now pin exact
   revisions, byte lengths, and SHA-256 values without publishing source bodies.
@@ -122,7 +125,7 @@
 
 ## 현재 큰 방향
 
-Soulforge는 현실 업무를 게임식 운영 루프로 바꾸는 시스템이다. 이 운영 루프가 장기 북극성이고, 지금 이를 실제 개발팀 업무에서 구현하는 현재 active build 는 dev-erp 앱(아래 '현재 phase')이다.
+Soulforge는 현실 업무를 게임식 운영 루프로 바꾸는 시스템이다. 이 운영 루프가 장기 북극성이고, 2026-08-14 owner 결정 기준 현재 active build는 프로젝트 상태를 읽어 다음 engineering mission을 제안하는 read-only AX·SE 판단 Engine이다. dev-ERP는 폐기하지 않고 장기 통합 자산·운영 표면으로 유지하되 전면 개편은 후속 phase로 둔다.
 
 현재 큰 방향은 아래 하나다.
 
@@ -138,8 +141,127 @@ read-only snapshot
 
 ## 현재 phase
 
-- active slice: **dev-erp (사내 개발팀 운영 콕핏)** — owner 1순위. 정본: `ui-workspace/apps/dev-erp/docs/DESIGN.md`, `ui-workspace/apps/dev-erp/docs/MASTER_PLAN_20260613.md`, 현재 작업 큐: `ui-workspace/apps/dev-erp/docs/SLICES_INDEX.md`. `checklist_phase1.json` 은 완료된 P1 이력 체크리스트로 보존한다.
-- 상태 해석: 2026-06 실제 개발의 대부분이 dev-erp(읽기 콕핏 P1 → 할일쓰기 P2 → 재고/BOM/부품 P3 → 챗봇 RAG/Ollama → 매뉴얼/FAQ, run1~17)에 집중됐고 owner 1순위가 이쪽으로 이동했다.
+- active slice(2026-08-14): **read-only AX·SE project assessment Engine** — owner 1순위.
+  exact project goal/context/evidence/artifact-state snapshot을 받아 current SE stage,
+  missing/unknown/conflict/risk, 다음 1~3개 mission candidate, 정확히 한 logical role
+  candidate 또는 `HOLD`, done/HOLD 조건을 반환한다.
+  같은 slice에 exact context packet 하나를 이 input으로 봉인하는 deterministic sealing
+  builder(`buildAxSeAssessmentInput`)를 포함한다. builder는 source를 직접 읽거나
+  sanitize하지 않고, caller-asserted snapshot hash, cross-project packet, policy
+  불일치를 거부한다.
+- active boundary: public pure function과 public-safe synthetic vertical만 구현한다. project
+  write, TaskDriver activation, ERP write, 자동 assignment, stage clear, actual project
+  적용은 모두 `false`다. Context Graph·deterministic RAG·thin Wiki는 exact revision-bound
+  context를 찾고 제시하는 support layer이며 Engine 전제나 판단 authority가 아니다.
+  learned model은 나중의 optional advisory rendering에만 둘 수 있다.
+- completion gate: (1) 동일 exact input에 대한 deterministic output, (2) public-safe
+  synthetic vertical의 stage/gap/risk/role-or-HOLD/done-HOLD 경로, (3) fail-closed
+  UNKNOWN·conflict·authority 회귀시험, (4) 관련 validator, (5) 독립 review가 모두
+  통과해야 한다. 그 전에는 actual project-ready 또는 accepted로 부르지 않는다.
+- accepted public slice(2026-08-14): 위 assessment v0와 zero-write runner는 focused
+  51/51, 기존 SE-core 348 pass/6 environment skip, Watchtower 44/44, changed path-policy
+  0 violations와 fresh Claude Opus B/V 검토를 통과했다. 이는 public deterministic
+  candidate acceptance이며 actual-project, live-current 또는 assignment acceptance가 아니다.
+- active follow-up(2026-08-14): `ax_se_project_role_roster.v0`는 logical role rows를 exact
+  project/source/capability-vocabulary/time/coverage에 묶고 자체 content ref를 계산하는
+  독립 public-safe module이다. coverage가 complete이고 unknown routing이 0일 때만
+  exclusivity를 지지한다. 사람 신원·live availability·조직 승인·assignment 권한은 0이며,
+  assessment v0와 아직 연결하지 않는다.
+- active follow-up(2026-08-14): 별도 `ax_se_project_role_bound_assessment.v1` pure subject가
+  context/policy packet과 source-bound roster를 결합한다. full roster exact ref는 packet 밖의
+  독립 pin으로 유지하고, policy/roster capability-vocabulary exact ref 일치도 확인한다.
+  incomplete roster에서도 stage/gap 평가는 유지하되 role routing과 overall resolution은
+  `HOLD`이며 stage 미관측 `UNKNOWN`은 별도 stage-gap 축에 보존한다. 사람·live availability·
+  assignment·Task·ERP 권한은 모두 0이다.
+- pilot command seam(2026-08-14): zero-write CLI
+  `guild_hall/engineering_engine/tools/ax_se_project_assessment_runner.mjs`가
+  `--packet` absolute local file 하나와 `--packet-sha256`만 받아 UTF-8/JSON 해석 전에
+  exact raw byte pin을 검증하고, stdout에 canonical assessment 하나, stderr에
+  payload-free receipt 하나만 낸다. command PASS는 domain
+  `HOLD`/`UNKNOWN`/`READY_FOR_OWNER_REVIEW`와 분리되고 model/RAG/Wiki/ERP/TaskDriver/
+  network/file write가 없다. 검증은 public synthetic/process/adversarial test까지이며
+  embedded local path, 파일 동일성 시각 축소, 적용 대상 없는 stage를 fail-closed하고,
+  engine topology가 현재 source의 fresh emit과 byte-equal한지도 함께 확인한다. actual
+  project pilot은 실행하지 않았고 live-current 주장을 하지 않는다. snapshot freshness와
+  terminal provenance가 아직 input에 없으므로 issue-free stage도 `active`로만 표시하고
+  `boss_clear_candidate`를 주장하지 않는다.
+- role-bound pilot command seam(2026-08-14): accepted v0 bytes를 보존한 별도 zero-write CLI
+  `guild_hall/engineering_engine/tools/ax_se_project_role_bound_assessment_runner.mjs`가
+  정확히 다섯 flag(`--packet`, `--packet-sha256`, `--expected-role-roster-entity-id`,
+  `--expected-role-roster-revision-id`, `--expected-role-roster-content-sha256`)만 받는다.
+  기대 roster ref는 packet 밖의 독립 입력이고, packet pin은 UTF-8/JSON 해석 전에 exact raw
+  byte 위에서 검증하며, stdout에 canonical assessment 하나와 stderr에 payload-free receipt
+  하나만 낸다. command PASS는 domain `HOLD`/`UNKNOWN`과 분리되고 model/RAG/Wiki/ERP/
+  TaskDriver/network/file write가 0이다.
+- **M1 public deterministic closeout(종료)**: public deterministic role-bound AX·SE v1
+  subject, 그 zero-write 명령 runner, 두 표면을 모두 덮는 focused validator와 fresh
+  Level 3 B/V review까지 닫혔다. 이 수락은 public deterministic 경계에 한정하며 actual
+  project, live-current, assignment, project-ready 수락을 포함하지 않는다.
+- **M2(현재 active slice)**는 아래 authoritative 순서를 바꾸지 않는다: M2-2 observed ephemeral
+  pilot → P4/M2-3 project-local deterministic persistent RAG + thin Wiki exact revision receipt →
+  P5 accepted context generation/freshness → P6 TaskIntent.
+  1. **M2-0 계약 고정(완료 후보)**: 공통 Engine 하나, project별 물리 지식 root,
+     exact project 하나 + 명시 allowlist common revisions로 구성한 Knowledge View,
+     foreign-project no-enumeration/no-retrieval, Owner/global metadata-only catalog를 TARGET으로
+     고정했다. bounded B/V/Claude review는 이 문서 경계를 수락했지만 runtime 격리 완료나
+     activation 주장은 아니다.
+  2. **M2-1 경계 구현(현재 public-synthetic 후보)**: `guild_hall/shared`의 selector가
+     exact project 하나와 explicit common revision 집합을 별도 expected grant ref 및
+     grant 전체 canonical hash에 결속한다. root resolver는 선택 root를 containment root의
+     strict descendant로 제한하고 project/common overlap을 거부하되 body를 읽거나 열거하지
+     않는다. portable scope fingerprint와 local admission fingerprint를 분리한다. local path
+     commitment는 stable file identity·content identity·actual-project approval이 아니며
+     durable/public actual-root 증거로 저장하지 않는다. model, ERP, TaskDriver, explicit network,
+     project write는 0이다.
+  3. **M2-2 observed ephemeral pilot(첫 판단 vertical, 현재 public-synthetic 구현 후보)**:
+     Project Context Adapter v0는 별도 expected pilot-grant ref, complete project-source
+     reference manifest, explicit common-revision→policy-requirement bindings와 roster pin을
+     한 portable material fingerprint로 묶고 기존 role-bound Engine을 한 번만 호출한다.
+     two-flag zero-write runner는 Owner-frozen launch를 먼저 pin한 뒤 admitted project root
+     아래 relative locator의 canonical packet 한 파일만 stable-open한다.
+     source body·RAG·Wiki·LLM을 읽거나 호출하지 않고 persistent RAG/Wiki store도 만들지
+     않으며 출력은 `observed` ephemeral candidate다. public synthetic 독립검토 뒤에도 실제
+     과제 pilot은 Owner가 exact launch/packet/grant/root provenance를 별도로 고정할 때까지
+     `HOLD`다. 이 수동 packet이 첫 pilot의 자료를 공급하므로 RAG/Wiki 자동화가 선행조건은
+     아니다.
+  4. **P4/M2-3 project-local deterministic persistent RAG + thin Wiki**: M2-2 observed ephemeral
+     pilot 뒤에만 project-local deterministic persistent RAG와 thin Wiki를 붙이고, 두 표면은
+     exact source revision을 pin한 receipt 없이 context를 공급하지 않는다. Project
+     History/Context Graph semantic adapter도 같은 receipt 경계 위에서만 연결한다.
+  5. **P5 accepted context generation/freshness**: M2-3 exact revision receipt 위에서 accepted
+     context generation과 freshness를 닫는다. accepted generation 최소조건은
+     `PROJECT_CONTEXT_GRAPH_MODEL_V0.md`의 `M2-3A Knowledge→Context Gate Crosswalk`가 소유하며,
+     그 전에는 live current-state를 주장하지 않는다.
+  6. **P6 TaskIntent**: accepted context generation이 닫힌 뒤에만 TaskIntent 후보를 만든다.
+     이 순서를 앞당기거나 runtime activation을 주장하지 않는다.
+  title/summary만으로 상태를 추론하거나 raw content를 Wiki/RAG/canon으로 자동 승격하지 않는다.
+  실제 project write, live-current 주장, cross-project body retrieval, LLM/project write
+  activation은 별도 계획·검토·Owner gate 전까지 `HOLD`다.
+- target flow(방향 요약): 공통 SE 지식과 격리된 project context는 각각 별도로 유지하고,
+  둘을 bounded packet 하나로 봉인해 공통 AX·SE Engine에 넣는다. Engine 판단은 model-free
+  deterministic이며, LLM은 그 결과를 사람이 읽기 좋게 설명하는 optional advisory rendering
+  으로만 붙일 수 있다. ERP 기록은 그 뒤의 별도 gate다.
+
+```text
+공통 SE 지식 + 격리된 project context
+  -> bounded packet (exact refs·hash pin)
+  -> 공통 AX·SE Engine (deterministic, model-free)
+  -> [optional] LLM 설명 (advisory only, 판단 authority 아님)
+  -> [later gate] ERP 기록
+```
+- ERP position: dev-ERP는 mail, voice, schedule, artifact, skill, 발주 이력, task,
+  project memory를 연결할 장기 통합 자산·운영 표면이다. 전면 개편은 위 판단 Engine과
+  source-bound context gate 이후로 유예한다. 아래 dev-ERP 중심 기록과
+  `ENGINE_EXPANSION_MASTER_PLAN_20260702.md`는 당시 설계 history이며 현재 실행 큐가 아니다.
+
+### 2026-06~2026-07 dev-ERP 중심 history
+
+- 당시 active slice: **dev-erp (사내 개발팀 운영 콕핏)**. 정본:
+  `ui-workspace/apps/dev-erp/docs/DESIGN.md`,
+  `ui-workspace/apps/dev-erp/docs/MASTER_PLAN_20260613.md`; 당시 작업 큐:
+  `ui-workspace/apps/dev-erp/docs/SLICES_INDEX.md`. `checklist_phase1.json`은 완료된 P1
+  이력 체크리스트로 보존한다.
+- 당시 상태 해석: 2026-06 실제 개발의 대부분이 dev-erp(읽기 콕핏 P1 → 할일쓰기 P2 → 재고/BOM/부품 P3 → 챗봇 RAG/Ollama → 매뉴얼/FAQ, run1~17)에 집중됐고 owner 1순위가 이쪽으로 이동했다.
 - active sub-slice(2026-07-12): `ENGINE-12-CONTEXT-LIFE-TREE`가 source-local 시간 이력을
   읽기 전용 사건축과 일별 과제 생명수로 투영한다. 네 PC/ERP 파일 이력은 logical file,
   immutable revision, node observation을 분리하고 24시간 hash-cache TTL, 월별 receipt/event,
@@ -172,14 +294,14 @@ read-only snapshot
   그대로 유지한다. 두 CEO의 cross-branch 자동 routing은 별도 governance
   overlay 또는 directory v2 계약·validator·Owner 승인 전까지
   `HOLD/non-routable`이다.
-- 판단(2026-06-14 갱신): snapshot→작전판 게임루프는 장기 북극성으로 유지하되, 지금 손이 가는 active slice 는 dev-erp 다. 과거 active slice `snapshot_to_operation_board_v0` 는 '다음 후보'로 내린다(스펙은 아래 'Active Slice 001' 절에 보존, 재개 시 참조).
+- historical 판단(2026-06-14): 당시 active slice는 dev-erp였고 `snapshot_to_operation_board_v0`는 '다음 후보'로 내렸다. 이 우선순위는 위 2026-08-14 active slice 결정으로 대체됐으며, 스펙은 아래 'Active Slice 001' 절에 history로 보존한다.
 
 ### Owner-approved adjacent lane — AI usage meter
 
 - 2026-08-03 owner가 Soulforge 전체, 두 회사 조직, 별도 프로젝트, 향후 팀원 Codex와 MCP에서 공통으로 사용할 AI 사용량 미터기 구축을 승인했다.
 - v1은 `guild_hall/ai_usage_meter/`가 소유하며 Codex session backfill, Stop/SubagentStop 계측, parent-child lineage, `work_id` binding, 버전 고정 rate card, local ledger, JSON/CSV/HTML, MCP query/binding adapter를 제공한다.
 - 원문 prompt, reasoning 내용, tool payload는 수집하지 않으며 일반 ChatGPT 사용량을 Codex 원장에 합치지 않는다. 일반 ChatGPT는 저장소 접근이 필요 없는 조사·전략 작업의 보조 라우팅 선택지다.
-- 이 lane은 품질을 낮추거나 `AGENTS.md`를 감으로 축약하기 전에 실제 비용 원인을 관찰하기 위한 운영 기반이다. dev-ERP active slice를 대체하지 않으며 중앙 집계, 예산 자동 차단, App Server streaming, non-Codex provider adapter는 별도 owner gate다.
+- 이 lane은 품질을 낮추거나 `AGENTS.md`를 감으로 축약하기 전에 실제 비용 원인을 관찰하기 위한 운영 기반이다. 현재 read-only AX·SE active slice를 대체하지 않으며 중앙 집계, 예산 자동 차단, App Server streaming, non-Codex provider adapter는 별도 owner gate다.
 - 정본 계약은 `docs/architecture/guild_hall/AI_USAGE_METER_V1.md`, 실행 runbook은 `guild_hall/ai_usage_meter/README.md`가 소유한다.
 
 ### Owner-approved adjacent lane — autonomous voice context resolver
@@ -199,7 +321,7 @@ read-only snapshot
   결정, 할일, 기한을 내부 임시 상태로 계속 적재하는 것이다.
 - AI 임시 확정은 현재 `accepted_project_route`나 사람 승인 필드를 재사용하지 않는다.
   외부 발송, 외부 공유, 구매, 공식 승인, 기술 truth 변경은 계속 별도 승인을 요구한다.
-- 이 lane은 dev-ERP active slice를 대체하지 않는 승인된 인접 구현 작업이다. 실행
+- 이 lane은 현재 read-only AX·SE active slice를 대체하지 않는 승인된 인접 구현 작업이다. 실행
   정본과 acceptance/stop 조건은
   `_workmeta/system/dev_worker_queue/autonomous_voice_context_resolver_v0.yaml`이
   소유하며, public 문서에는 상세 backlog를 복제하지 않는다.
@@ -208,9 +330,9 @@ read-only snapshot
 
 Current structural target:
 
-- Keep dev-erp as the current active slice and `snapshot_to_operation_board_v0`
-  as the demoted structural north-star; make the SE assistant a bounded
-  follow-on operating lane.
+- Keep the read-only AX·SE project assessment Engine as the current active
+  slice. Preserve dev-ERP as the deferred integrated operating surface and
+  `snapshot_to_operation_board_v0` as a structural north-star/history surface.
 - Use `systems_engineering_cell` as the party/loadout for SE assistant requests.
 - Use `se_assistant_operating_loop_v0` as the request-level router before
   calling stage gap scan, source/wiki, readiness, owner-decision, review, or
@@ -222,7 +344,7 @@ Current structural target:
 - Keep stage readiness, review approval, verification acceptance, and public
   canon promotion outside the assistant's authority.
 
-이 program lane 은 dev-erp active slice 나 장기 snapshot 북극성을 대체하지 않는다. SE assistant 는 dev-erp 가 안정되고 snapshot 표면이 굳은 뒤 project work 를 더 잘 굴리기 위한 후속 방향으로 둔다.
+현재 AX·SE Engine은 이 program의 판단 kernel을 먼저 닫는 slice다. 기존 SE assistant party/router는 요청·workflow routing을 계속 소유하지만 판단 결과를 승인하거나 project/ERP를 쓰지 않는다. 장기 snapshot UI와 후속 dev-ERP 통합은 이 read-only 판단 계약이 안정된 뒤 연결한다.
 
 핵심 owner 분리:
 
@@ -282,7 +404,12 @@ Boundaries:
 
 - This lane is support infrastructure for knowledge retrieval and evidence
   hygiene, not the current active slice.
-- It must not delay or redefine `snapshot_to_operation_board_v0`.
+- It must not delay or redefine the current read-only AX·SE project assessment
+  Engine. Deterministic RAG is a planned revision-bound context support layer;
+  it is neither an Engine prerequisite nor a judgment authority.
+- Automatic promotion from raw ingest into Wiki, RAG, or canon is not authorized
+  in the current slice. Existing RAG and Wiki contracts remain preserved for a
+  later bounded review rather than being deleted or silently activated.
 - Source-text commands may read only owner-approved `_workspaces/knowledge/**`
   source text and must keep public tracked files and `_workmeta` metadata-only
   unless an explicit private workspace command/source card allows private proof
@@ -314,7 +441,7 @@ Follow-on fit:
 
 ## 장기 후보: engineering co-pilot expansion
 
-이 후보는 `snapshot_to_operation_board_v0` 와 SE assistant lane 이 안정된 뒤, 실제 설계 업무를 더 넓게 보조하는 후속 방향으로 둔다. 핵심은 owner 의 거친 아이디어, 작업 흔적, 자료 접근 패턴을 실행 가능한 산출물 준비와 개선 제안으로 바꾸는 것이다.
+이 후보는 read-only AX·SE judgment, source-bound context support, SE assistant routing이 안정된 뒤 실제 설계 업무를 더 넓게 보조하는 후속 방향으로 둔다. 핵심은 owner의 거친 아이디어, 작업 흔적, 자료 접근 패턴을 실행 가능한 산출물 준비와 개선 제안으로 바꾸는 것이다.
 
 후보 기능:
 
@@ -696,7 +823,7 @@ Non-goals:
 - Mail body, attachment, secret, or credential handling.
 - Existing renderer reuse.
 - AI automatic priority, owner, or status decisions.
-- Full ERP scope (ERP 범위는 별도 active slice 인 dev-erp 앱이 소유한다).
+- Full ERP scope (ERP 범위는 후속 전면 개편 대상인 dev-ERP 앱이 소유한다).
 
 Development packet:
 
@@ -715,7 +842,7 @@ Start condition:
 
 `snapshot_to_operation_board_v0`
 
-> (2026-06-14 갱신) 이 슬라이스는 active 에서 '다음 후보'로 내려갔다. 현재 active slice 는 dev-erp. 아래 스펙은 재개 시 참조용으로 보존한다.
+> (2026-08-14 상태) 이 슬라이스는 2026-06-14 active에서 '다음 후보'로 내려간 history다. 현재 active slice는 read-only AX·SE project assessment Engine이며, 아래 스펙은 후속 UI/projection 재개 시 참조용으로 보존한다.
 
 ### 목표
 
@@ -789,8 +916,9 @@ Start condition:
 로 두며, owner 승인 전에는 `approved` 또는 `queued` 상태로 승격하지 않는다. 기존 `dev_worker_candidate_queue` 참조는 legacy path 로 이관 대상이다.
 
 추가(2026-06-14, Opus 2차 검증 + owner 결정): `snapshot_to_operation_board_v0`
-는 과거 active slice 였으나 active 가 dev-erp 로 바뀌며 다음 후보로 내려갔다.
-시작 조건: dev-erp 가 안정되고 owner 가 snapshot 재개를 정함. 내려갈 owner:
+는 과거 active slice였으나 당시 active가 dev-erp로 바뀌며 다음 후보로 내려갔다.
+2026-08-14 기준 시작 조건은 read-only AX·SE 판단과 source-bound context projection이
+안정되고 owner가 snapshot UI 재개를 정하는 것이다. 내려갈 owner:
 `guild_hall/snapshot`, `docs/architecture/guild_hall`, `ui-workspace`. 스펙은
 위 'Active Slice 001' 절에 보존.
 

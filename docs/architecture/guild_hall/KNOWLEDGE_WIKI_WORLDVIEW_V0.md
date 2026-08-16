@@ -127,13 +127,14 @@ Soulforge wiki는 하나의 폴더나 하나의 앱에만 있지 않다. 역할�
 | Soulforge `.party/**` | 여러 workflow를 묶은 실행 체인 | `knowledge_wiki_cell`처럼 "이 순서대로 처리해"라는 상위 호출 단위다. | 모델/강도/직업/종족/unit 최적화는 각 workflow가 가진다. |
 | Soulforge `.registry/knowledge/**` | 검토를 통과한 정본 지식 | 반복 사용 가능한 공유 지식. 팀원이 믿고 참조할 수 있는 최종 지식 표면이다. | private projection이나 LLM 요약이 자동으로 들어오지 않는다. |
 | Google Drive | 처음 받은 지식화 후보, owner-held source, source package, 보관본 | durable source warehouse이자 cross-PC source archive다. "이 자료 지식화해줘"라고 들어오면 Drive inbox/candidate 영역에 맡겨두고 다시 찾을 수 있게 한다. | 폴더 위치, `CANON` 라벨, connector 표시/읽기 성공은 source 승인, source truth, 정본을 뜻하지 않는다. `_workmeta`의 승인·검토 근거가 따로 필요하다. |
-| NotebookLM | 승인 근거가 기록된 source package를 올려 질문하는 source-grounded 질의 공간 | 승인된 source set을 먼저 물어보는 주 사용 인터페이스로 쓴다. 업로드 자료를 내려받을 수 있어도 주 역할은 보관소가 아니라 질의/호출면이다. | NotebookLM은 백업 저장소, 정본 승인자, source truth가 아니다. |
+| NotebookLM | 승인 근거가 기록된 source package를 올려 질문하는 source-grounded 질의 공간 | exact-one-project Knowledge View와 명시 common allowlist가 먼저 고정된 경우에만 그 범위 안의 선택적 질의 인터페이스로 쓴다. 업로드 자료를 내려받을 수 있어도 주 역할은 보관소가 아니라 질의/호출면이다. | NotebookLM은 cross-project router, 백업 저장소, 정본 승인자, source truth가 아니다. |
 | Obsidian vault/export | 정본 wiki entry만 모은 읽기 전용 markdown view | 사람이 지식만 훑어보는 로컬 viewer로 쓴다. 후보나 raw evidence는 보이지 않게 한다. | Obsidian vault가 canon owner가 되면 안 된다. canon에서 생성된 view/export여야 한다. |
 | knowledge access ledger | 어떤 ref를 읽고 썼는지에 대한 metadata-only 기록 | 많이 쓰이는 지식, 다시 볼 후보, 연결 강도를 나중에 분석한다. | 내용 복사 금지. 사용 기록은 진실성 증명이 아니다. |
 
 Google Drive는 durable source warehouse와 cross-PC source archive로 쓴다. 후보와 승인된 source를 함께 보관할 수 있으므로 `inbox`, `candidate_source`, `reviewed_source`, `source_package`, `obsolete_or_blocked` 같은 폴더, 라벨, manifest로 상태를 나눈다. 이런 placement 표시는 분류 편의일 뿐 승인이나 정본 권한이 아니다.
 
-private Wiki 본문 기본 root는 `_workspaces/knowledge/**/wiki/**` 또는
+private Wiki 본문 기본 root는 project-agnostic common Wiki의
+`_workspaces/knowledge/**/wiki/**` 또는 project-specific Wiki의
 `_workspaces/<project>/reference_payloads/knowledge_extract/**/wiki/**`다. 기본 상태는
 projection이다. owner가 private canon으로 선언할 때만 exact `wiki_revision_id`, Wiki
 body content hash, `owner_decision_ref`와 기존 private-canon frontmatter를 모두 고정하고,

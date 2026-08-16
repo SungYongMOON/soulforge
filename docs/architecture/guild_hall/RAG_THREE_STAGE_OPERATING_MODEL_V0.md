@@ -11,6 +11,15 @@ Use this model when estimating scope, reporting progress, planning DAPA-style
 source work, or deciding whether a file is merely indexed, usable for work, or
 ready to become durable knowledge.
 
+### M2 storage boundary (2026-08-14)
+
+This operating model inherits the exact-one-project Knowledge View boundary.
+Project-specific originals and every derived RAG/Wiki/run payload stay under
+the owning `_workspaces/<project_code>/**` view. Only project-agnostic common
+sources use `_workspaces/knowledge/**`. The current shared-root source-text/write
+CLI is `HOLD` for project material until M2-1 supplies and tests the project-root
+binding; source-card approval does not override this rule.
+
 ## Stage Names
 
 | Stage | Korean name | Plain meaning |
@@ -70,8 +79,9 @@ This stage answers:
 Main workflow:
 
 1. Register or confirm the source card.
-2. Keep the original source under `_workspaces/knowledge/**` or another
-   owner-approved worksite.
+2. Keep a project original inside its owning project view; keep only a
+   project-agnostic common original under `_workspaces/knowledge/**`. Another
+   owner-approved worksite must be bound to the same project/common owner.
 3. Extract the source with the parser-first tool chain.
 4. Record source hashes, tool labels, page counts, warning counts, and output
    refs.

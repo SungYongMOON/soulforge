@@ -1,4 +1,4 @@
-# dev-ERP 모델 비활성 및 RAG 전용 로컬 LLM 정책
+# dev-ERP 모델 비활성 및 과거 RAG 로컬 LLM 기록
 
 ## 현재 결정
 
@@ -18,9 +18,9 @@ Ollama 어댑터 코드는 격리된 호환성 테스트를 위해 남겨 두지
 정본 계약은
 `docs/architecture/guild_hall/KARPATHY_STYLE_WIKI_RAG_ERP_CONTRACT_V0.md`다.
 
-## RAG 전용 모델
+## 과거 RAG 전용 모델 후보 (현재 비활성)
 
-별도 RAG 생성 세션에서만 다음 모델을 사용한다.
+2026-07-23 실험에서는 별도 RAG 생성 세션 후보로 다음 값을 사용했다.
 
 | 항목 | 정책 |
 | --- | --- |
@@ -32,7 +32,11 @@ Ollama 어댑터 코드는 격리된 호환성 테스트를 위해 남겨 두지
 | background prewarm | 금지 |
 | ERP가 RAG 생성을 호출 | 금지 |
 
-Ollama 데몬이 실행 중인 것과 모델이 GPU에 올라가 있는 것은 다르다. 데몬은
+이 표는 현재 M2 모델 선택이 아니다. M2-0~M2-2는 모델 호출 없이 진행하며,
+generated-answer runner와 모델은 아직 선택·활성화되지 않았다. 이후 선택적 LLM은
+source-bound 품질 비교, 데이터 반출, 수명주기, Owner 승인 계약을 별도로 통과해야 한다.
+
+역사적 운영 참고로, Ollama 데몬이 실행 중인 것과 모델이 GPU에 올라가 있는 것은 다르다. 데몬은
 localhost에서 대기할 수 있지만 `ollama ps`가 비어 있으면 모델은 GPU 메모리를
 점유하지 않는다. 첫 RAG 생성 요청이 모델을 올리고, 세션 종료 명령이 즉시
 내린다. 종료 명령이 누락되었을 때는 `keep_alive: 5m`가 보조 해제 장치다.
@@ -52,8 +56,8 @@ ollama ps
 모델 목록이 비어 있어야 한다. `/api/version`의 `runtime.llm`은
 `provider: "stub"`, `model: null`, `thinking: false`를 보고해야 한다.
 
-RAG 생성 세션 중에는 `ollama ps`에 `qwen3.5:9b`와 GPU processor가 보여야 한다.
-세션 종료 후:
+현재는 RAG 생성 세션을 시작하지 않는다. 아래 명령은 과거 후보 모델이 이미 수동으로
+적재된 경우 이를 내리는 정리 참고일 뿐, 모델을 적재하거나 활성화하는 절차가 아니다.
 
 ```powershell
 ollama stop qwen3.5:9b
@@ -72,5 +76,5 @@ npm.cmd run validate:knowledge-access
 ```
 
 현재 `guild_hall/rag`의 결정적·extractive 경로는 모델 없이도 동작한다. 생성 답변
-runner가 모든 RAG 명령에 이미 연결되었다고 주장하지 않는다. 향후 생성 runner를
-활성화할 때 이 문서의 load/idle/stop 수명주기를 코드와 테스트로 먼저 닫아야 한다.
+runner는 활성화되지 않았다. 향후 생성 runner를 선택할 때는 이 과거 후보값을 자동
+재사용하지 말고 새 비교·결정과 코드/테스트를 먼저 닫아야 한다.

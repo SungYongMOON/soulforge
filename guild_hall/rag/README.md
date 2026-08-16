@@ -9,11 +9,24 @@ the manifest boundary, and can generate a small metadata-backed answer with
 citations to graph nodes and source handles.
 
 The default manifest/index path is still metadata-only. A separate
-`source-text-index` lane can read owner-approved starter sources under
-`_workspaces/knowledge` and writes its payload artifacts back under that private
-workspace alias.
+`source-text-index` lane can read owner-approved, project-agnostic starter
+sources under `_workspaces/knowledge` and writes its common payload artifacts
+back under that private workspace alias.
 
-Persisted `answer-engine-run` and `source-text-answer-run` outputs append one
+### M2 project-isolation boundary (2026-08-14)
+
+`_workspaces/knowledge/**` and `_workspaces/knowledge/rag/**` are common-only
+owner surfaces. The current CLI does not yet enforce the M2 Knowledge View or a
+project-root output binding. Therefore a project-specific source, question,
+index, answer, trace, review, work card, or run **must be refused/HOLD** on these
+shared routes, even if a caller supplies `--project-code`. A project code is
+ledger metadata; it cannot convert a shared output into an isolated project
+output. Existing project-coded assets under the shared root are legacy
+migration inputs only. New project-specific writes wait for the M2-1
+`_workspaces/<project_code>/reference_payloads/rag/**` route and its isolation
+tests.
+
+Persisted common-only `answer-engine-run` and `source-text-answer-run` outputs append one
 metadata-only `retrieve` event per selected evidence unit to an opaque per-node
 monthly knowledge-access shard. Pass `--project-code`, `--gate-id`, `--branch-id`, and
 `--task-ref` when known. The event stores opaque unit/chunk ids, index/run/rank,
@@ -24,7 +37,7 @@ revision hash. The writer first takes an exclusive output-global reservation,
 then
 creates a metadata-only pending receipt under
 `_workmeta/<project|system>/reports/knowledge_access/receipts/**` before writing
-the answer. Shared `_workspaces/knowledge/rag/answer_runs/**` outputs coordinate
+the answer. Common `_workspaces/knowledge/rag/answer_runs/**` outputs coordinate
 through `_workspaces/knowledge/rag/output_reservations/**`, independent of the
 declared project; project-private outputs keep the reservation in their
 `_workmeta` owner. This coordinates multiple writers only when they see the same
@@ -65,9 +78,9 @@ Progress must be reported using the three-stage operating model in
 searchable RAG, work-ready RAG, and canon knowledge. Stage 1 indexing, Stage 2
 work answers, and Stage 3 canon promotion are separate claims.
 
-## Local generation runtime policy
+## Historical local generation decision (inactive for M2)
 
-Owner decision effective 2026-07-23:
+The 2026-07-23 experiment recorded this candidate session posture:
 
 - generation model: `qwen3.5:9b`;
 - endpoint: Ollama on loopback only (`127.0.0.1:11434`);
@@ -77,15 +90,19 @@ Owner decision effective 2026-07-23:
 - background prewarm: disabled;
 - ERP model use and ERP-triggered generation: disabled.
 
-`ollama ps` is the operational check. An empty list means the daemon can remain
-available while no model occupies GPU memory. A live RAG request should show
-`qwen3.5:9b` on the GPU; after explicit session close, the list must return to
-empty. The current deterministic/extractive RAG CLI remains usable without a
-generation model. A future generated-answer runner must implement this session
-lifecycle before it can be activated; this policy does not claim that such a
-runner is already wired into every RAG command.
+This is historical test configuration, not a currently selected or activated
+M2 model. M2-0 through the frozen/manual M2-2 pilot are model-free; the current
+deterministic/extractive RAG CLI remains usable without a generation model. No
+generated-answer runner/model is selected for M2. A later optional advisory
+LLM requires a separate source-bound evaluation, data-egress decision, lifecycle
+contract, and Owner activation. Bookshelf or index availability alone never
+starts Ollama or any external model.
 
 ## Commands
+
+The shared-root write examples below are common-only. They must not be used with
+project-specific source or query payloads; project-specific use remains HOLD
+until the M2-1 project-root route exists.
 
 ```bash
 npm run guild-hall:rag -- master-inventory-refresh --write --date 2026-06-14
@@ -121,7 +138,7 @@ npm run guild-hall:rag -- approved-build-runner --write --date 2026-07-03 --ledg
 npm run guild-hall:rag -- validate-approved-build-run --run-ref _workmeta/system/reports/rag/approved_build_runs/<run_id>/approved_build_run.json
 npm run guild-hall:rag -- source-text-traceability-sidecar --write --source-text-index-ref _workspaces/knowledge/rag/indexes_local/source_text_indexes/<source_id>_source_text_index/source_text_index.json --docling-json-ref _workspaces/knowledge/common/<source_id>/derived_text/<docling_json_export>.json --traceability-id <source_id>_traceability
 npm run guild-hall:rag -- validate-source-text-traceability-sidecar --traceability-sidecar-ref _workspaces/knowledge/rag/traceability_sidecars/<source_id>_traceability/source_text_traceability_sidecar.json
-npm run guild-hall:rag -- source-text-answer-run --write --source-text-index-ref _workspaces/knowledge/rag/indexes_local/source_text_indexes/soulforge_common_knowledge_starter_20260525/source_text_index.json --traceability-sidecar-ref _workspaces/knowledge/rag/traceability_sidecars/<source_id>_traceability/source_text_traceability_sidecar.json --question "NotebookLM authority" --run-id soulforge_common_knowledge_answer_20260525 --project-code P24-049 --gate-id CDR --branch-id branch:P24-049:verification --text
+npm run guild-hall:rag -- source-text-answer-run --write --source-text-index-ref _workspaces/knowledge/rag/indexes_local/source_text_indexes/soulforge_common_knowledge_starter_20260525/source_text_index.json --traceability-sidecar-ref _workspaces/knowledge/rag/traceability_sidecars/<source_id>_traceability/source_text_traceability_sidecar.json --question "NotebookLM authority" --run-id soulforge_common_knowledge_answer_20260525 --text
 npm run guild-hall:rag -- validate-source-text-answer-run --run-ref _workspaces/knowledge/rag/answer_runs/soulforge_common_knowledge_answer_20260525/source_text_answer_run.json
 npm run guild-hall:rag -- source-text-quality-review --write --source-text-index-ref _workspaces/knowledge/rag/indexes_local/source_text_indexes/<source_id>_docling_json_index/source_text_index.json --traceability-sidecar-ref _workspaces/knowledge/rag/traceability_sidecars/<source_id>_traceability/source_text_traceability_sidecar.json --answer-run-ref _workspaces/knowledge/rag/answer_runs/<answer_run_id>/source_text_answer_run.json --page 18-19 --page 39 --page 120-121 --review-id <source_id>_quality_review
 npm run guild-hall:rag -- validate-source-text-quality-review --review-ref _workspaces/knowledge/rag/source_text_quality_reviews/<source_id>_quality_review/source_text_quality_review.json
@@ -203,7 +220,7 @@ npm run guild-hall:rag -- operational-route-candidate-record-view --candidate-re
 npm run guild-hall:rag -- operational-route-status --write --route-registry-ref _workspaces/knowledge/rag/operational_routes/<route_set_id>/route_registry.yaml --status-id <status_id>
 npm run guild-hall:rag -- validate-operational-route-status --operational-route-status-ref _workmeta/system/reports/rag/operational_route_status/<status_id>/status.json
 npm run guild-hall:rag -- operational-route-status-view --operational-route-status-ref _workmeta/system/reports/rag/operational_route_status/<status_id>/status.json
-npm run guild-hall:rag -- answer-engine-run --write --metadata-index-ref _workspaces/system/rag/metadata_retrieval_indexes/metadata_index_rag_manifest_knowledge_graph_view_v0/metadata_index.json --extraction-packet-ref _workmeta/system/reports/rag/source_text_extraction_packets/source_text_extraction_packet_v0/source_text_extraction_packet.json --extraction-run-report-ref _workmeta/system/reports/rag/source_text_extraction_runs/source_text_extraction_packet_v0/source_text_extraction_run_report.json --question "knowledge wiki" --project-code P24-049 --gate-id CDR --branch-id branch:P24-049:verification
+npm run guild-hall:rag -- answer-engine-run --write --metadata-index-ref _workspaces/system/rag/metadata_retrieval_indexes/metadata_index_rag_manifest_knowledge_graph_view_v0/metadata_index.json --extraction-packet-ref _workmeta/system/reports/rag/source_text_extraction_packets/source_text_extraction_packet_v0/source_text_extraction_packet.json --extraction-run-report-ref _workmeta/system/reports/rag/source_text_extraction_runs/source_text_extraction_packet_v0/source_text_extraction_run_report.json --question "knowledge wiki"
 npm run guild-hall:rag -- validate-answer-engine-run --run-ref _workmeta/system/reports/rag/answer_engine_runs/answer_engine_run_<id>/answer_engine_run.json
 npm run guild-hall:rag -- metadata-index --write --manifest-ref _workspaces/system/rag/manifests/rag_manifest_knowledge_graph_view_v0/rag_manifest.json --decision-packet-ref _workmeta/system/reports/rag/source_slice_decision_packets/source_slice_decision_source_slice_triage_source_slices_rag_manifest_knowledge_graph_view_v0/source_slice_decision_packet.json --owner-decision-record-ref _workmeta/system/reports/rag/source_slice_owner_decisions/source_slice_owner_decision_source_slice_decision_source_slice_triage_source_slices_rag_manifest_knowledge_graph_view_v0/source_slice_owner_decision_record.json
 npm run guild-hall:rag -- validate-metadata-index --metadata-index-ref _workspaces/system/rag/metadata_retrieval_indexes/metadata_index_rag_manifest_knowledge_graph_view_v0/metadata_index.json
@@ -309,7 +326,8 @@ The public-safe template lives under
 `docs/architecture/workspace/examples/company_knowledge_intake/`.
 
 All machine-readable path refs in company intake packets must be relative to the
-Soulforge project root, for example `_workspaces/knowledge/...`. Do not record
+Soulforge repository root. This common-only packet may use
+`_workspaces/knowledge/...`. Do not record
 machine-local mount paths, home-directory paths, or `file://` URLs; different
 computers may place the shared project at different absolute locations.
 
@@ -325,14 +343,86 @@ payloads, and keeps stronger permissions false until owner review.
 
 ## Source Extraction Tooling Standard
 
+### Feature-OFF project PDF candidate extractor
+
+- `project_document_ingest.mjs` is a feature-OFF seam: the caller passes the PDF
+  bytes in memory plus the exact expected SHA-256, which the seam re-verifies.
+- The extraction unit is the fixed repo-relative worker script
+  `guild_hall/rag/project_document_extract.py`; callers cannot choose it.
+- The Python/PyMuPDF interpreter is resolved separately from the existing repo
+  venv `guild_hall/state/tools/source_extraction_venv`.
+- Scope is public-synthetic and candidate-only: the result claims no source
+  truth, canon, project-state, approval, or Engineering Engine authority.
+- It performs zero persistence, network, model, RAG-index, Wiki, and
+  Engineering Engine effects.
+- `project_pdf_launch_authoring.mjs` is an import-only Feature-OFF two-phase
+  helper for that launch file.
+- Its prepare step takes exactly one closed input and calls the existing Project
+  Knowledge View selector once for root metadata, scope, and local-fingerprint
+  authentication only. It returns a deep-frozen private, non-runnable candidate
+  awaiting an external owner seal, carrying the launch material and the
+  challenge but no launch bytes, and it reads no document body.
+- Its seal step only correlates an externally supplied content-addressed seal to
+  the exact challenge and launch that seal names, returning fresh canonical
+  launch bytes and a deep-frozen payload-free manual-zero-write receipt.
+- Correlation cannot establish issuer identity, independent provenance, Owner
+  approval, or a trusted registry/key, and it cannot prevent a caller from
+  hand-crafting a valid launch and invoking admission directly.
+- It has no CLI or direct process entrypoint and performs zero filesystem
+  writes, document-body reads, network, model, RAG-index, Wiki, Engineering
+  Engine, ERP, and TaskDriver effects or authority.
+- `project_pdf_admission.mjs` pins exactly one closed launch file and verifies
+  its SHA-256 over the raw bytes before the fatal UTF-8 decode and the JSON
+  parse of those bytes.
+- The existing Project Knowledge View selector still decides admission and stays
+  on the `validation_only` route with `project_read_allowed` false; a separate
+  exact single-PDF document read grant, bound to the same project binding,
+  knowledge-scope fingerprint, and local-admission fingerprint, is what permits
+  the one bounded read.
+- One safe relative locator names one leaf below the admitted project root; it
+  is stable-opened and verified against the exact document revision SHA-256
+  before the existing extractor seam is called exactly once.
+- `runProjectPdfAdmissionCli` accepts exactly `--launch` and `--launch-sha256`,
+  can be imported, has no direct process entrypoint, keeps stdout empty, and
+  emits one closed payload-free receipt on stderr.
+- The admitted result stays feature-OFF and candidate-only at the `observed`
+  claim ceiling, with zero persistence, network, model, RAG-index, Wiki,
+  Engineering Engine, ERP, and TaskDriver effects or authority.
+- `project_pdf_rag_tracer.mjs` answers exactly one question over exactly one
+  admitted project PDF. Its request is one closed own-data object carrying
+  exactly `launchPath`, `expectedLaunchSha256`, and `queryText`; no retrieval
+  knob, root, or writer surface is reachable from the caller.
+- The admission seam above is called exactly once and stays the only thing that
+  decides admission and reads the launch file and the PDF bytes; the tracer
+  itself has no direct filesystem surface, no CLI, and no process entrypoint.
+- The returned extraction alone builds one ephemeral page-aware in-memory
+  document corpus, and the existing corpus search seam is called exactly once
+  with the tracer's fixed `maxEvidence` 3, `maxPerSource` 3, and empty
+  `advisoryTerms`.
+- Answers are deterministic and extractive: every citation is rebound to the
+  exact document revision, a stable source and chunk id, one page number, its
+  UTF-16 span, and an excerpt digest over the quoted text, and a question that
+  matches nothing gets one fixed uncited no-hit sentence instead.
+- The returned `{ answer, receipt }` is deep-frozen and the receipt is
+  payload-free; the tracer performs zero filesystem writes, persistence,
+  network, model, RAG-index, Wiki, Engineering Engine, ERP, and TaskDriver
+  effects and holds none of their authority.
+- `HOLD`: actual project launch, read grant, and project-root execution, actual
+  project, live, and persistent tracer answering, activation including
+  accepted-context and operational-retrieval activation, batching and
+  multi-document runs, persistence, Docling/OCR, UI, RAG index, Wiki/KVDS, and
+  Engine/ERP/TaskDriver integration.
+
 The source-text lane is parser-first, not LLM-first. The current
-`source-text-index` command consumes approved derived `.txt` or `.md` files
-under `_workspaces/knowledge/**`; it is not the raw PDF/Word/PPT/Excel/HWP
-reader.
+`source-text-index` command consumes approved project-agnostic common derived
+`.txt` or `.md` files under `_workspaces/knowledge/**`; it is not the raw
+PDF/Word/PPT/Excel/HWP reader or a project-source route.
 
 For company-PC intake, use this order before making or indexing a source card:
 
-1. keep originals in `_workspaces/knowledge/**` or an owner-approved worksite;
+1. keep only project-agnostic common originals in `_workspaces/knowledge/**`;
+   keep project originals in their owning project view, where indexing remains
+   `HOLD` until the M2-1 route exists;
 2. extract locally to rebuildable Markdown/text plus structured metadata;
 3. record only hashes, tool/version ids, counts, warnings, blocker codes, and
    Soulforge-root-relative output refs in `_workmeta/**`;
@@ -468,13 +558,14 @@ not read the source text.
   cross-PC source-text indexing. It validates Soulforge-root-relative refs,
   source card/source text ref matches, local file existence, byte size, SHA-256,
   and optional stability delay. It is not owner approval or source truth.
-- `source-text-index` is the first owner-approved source-text lane. It reads
-  only owner-approved source cards and derived source text under
+- `source-text-index` is the first owner-approved common source-text lane. It reads
+  only owner-approved project-agnostic source cards and derived source text under
   `_workspaces/knowledge/**`, supports text/markdown starter sources after
   parser-first extraction, can require a source sync ready manifest through
   `--ready-ref` or source-card `source_sync_ready_ref`, writes derived text and
   chunk indexes under `_workspaces/knowledge/rag/**` only when explicitly
-  allowed by the command/source card, and is not public-repo safe. If
+  allowed by the command/source card, and is not public-repo safe. A project-specific
+  source or output is HOLD here until the M2-1 project-root route exists. If
   `--docling-json-ref` is supplied, it builds chunks from the Docling JSON
   element/page order and stores native page spans on the private chunks; the
   default Markdown/text path is unchanged.
@@ -495,13 +586,13 @@ not read the source text.
   `_workspaces/knowledge/rag/traceability_sidecars/**`. It maps chunk ids to
   page spans, layout labels, and warning codes. The sidecar is a citation audit
   aid, not extraction approval, owner approval, or public canon promotion.
-- Official public source cards may allow public summary, ontology seed,
-  NotebookLM packet membership, and registry entry creation when the source
-  card records official source authority. This permission applies to public-safe
-  derived metadata, not to public copies of full source text or chunk payloads.
-  The source-family promotion policy decides whether the target is only source
-  canon, current-scope work-card use, private wiki candidate, or public canon
-  candidate.
+- Official public source cards may nominate public-safe summary, ontology seed,
+  NotebookLM packet, and registry-entry candidates when the card records
+  official source authority. A source card never performs or authorizes those
+  downstream actions: ontology acceptance, NotebookLM/external upload, and
+  public-canon registration each require their separate promotion gate. This
+  candidate posture applies to public-safe derived metadata, not public copies
+  of full source text or chunk payloads.
 - `source-text-answer-run` answers from the private workspace source-text index.
   Written runs persist query fingerprints rather than raw questions, cite
   chunk ids and `_workspaces/knowledge` source refs, may include page spans from

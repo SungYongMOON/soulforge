@@ -619,19 +619,25 @@ RAG와 Wiki 중 하나를 지식 전체로 삼지 않는다.
 
 ```text
 과제 질문
-  -> source catalog에서 권한·project·domain·valid_at/known_at·lifecycle로 범위 축소
+  -> exact project binding 하나를 고정하고, 필요한 common collection revision만 명시
+  -> Knowledge View에서 ACL·domain·valid_at/known_at·lifecycle로 범위 축소
   -> 필요하면 얇은 Wiki에서 SE 흐름과 관련 source family 확인
   -> 선택된 source revision 집합에서 RAG top-k page/chunk 검색
-  -> bounded context packet으로 LLM에 전달
+  -> exact refs와 선택 근거를 bounded context packet으로 봉인
+  -> 공통 deterministic AX·SE Engine이 stage·gap·risk·next mission candidate 판단
+  -> 필요할 때만 optional LLM이 Engine 판단과 exact evidence를 사람용으로 설명
   -> 실제 전달·인용·적용한 exact ref만 사용 원장에 기록
 ```
 
+- project binding이 없거나 둘 이상이면 retrieval 전에 `HOLD`한다. 한 project의 View는
+  다른 project를 enumerate·read·retrieve하지 않으며, common collection은 explicit
+  allowlist로 고른 경우에만 합류한다. 이는 implicit fallback이 아니다.
 - source catalog는 올바른 판본과 검색 범위를 고른다.
 - Wiki는 반복해서 필요한 개념·흐름·교차 문서 관계를 짧게 설명하는 지도다.
 - Wiki는 선택적 탐색 지도이며, source family가 이미 명확한 질문의 필수 병목이 아니다.
 - RAG는 원문에서 exact page/table/chunk를 찾는 검색층이다.
 - context packet은 전체 Wiki나 전체 corpus가 아니라 중심 맥락과 선택된 top-k 근거만
-  담는다.
+  담는다. LLM은 scope를 넓히거나 누락된 project/common source를 스스로 추가하지 않는다.
 
 모든 문서를 Wiki로 복제하지 않는다. 승인된 source는 RAG 검색 가능하게 만들고,
 반복 질문·온보딩·교차 문서 해석 가치가 있는 내용만 Wiki revision으로 만든다. 초기

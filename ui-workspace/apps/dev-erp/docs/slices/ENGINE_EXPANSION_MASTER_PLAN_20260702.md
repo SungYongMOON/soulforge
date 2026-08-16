@@ -1,5 +1,13 @@
 # 할일 엔진 확장 마스터 플랜 (2026-07-02, claude_fable-5 작성)
 
+> **2026-08-14 상태: `HISTORICAL / DEFERRED` — 현재 실행 큐 아님.** 이 문서는
+> 2026-07-02 당시 ERP engine 확장 계획을 보존한 history다. 현재 active build는
+> read-only AX·SE project assessment Engine이며 project write, TaskDriver activation,
+> ERP write, automatic assignment, stage clear를 수행하지 않는다. ERP는 폐기하지 않고
+> 장기 통합 자산·운영 표면으로 유지하되 전면 개편을 유예한다. E1~E13 재개는 별도
+> bounded plan과 Owner gate를 요구하며, 아래 순서·의존성·자동화 설명은 현재 실행
+> 권한이 아니다.
+
 - 목적: "여러 입력(메일·완료·음성·SE)이 맥락과 근거를 아는 판단을 거쳐 할일이 되고,
   일과 완료에서 지식·후속 할일이 자동으로 태어나는" 순환을 완성한다.
 - 실행 주체: **Codex(또는 어느 LLM이든)가 패킷 단위 cold-start 구현 가능**하도록 작성.

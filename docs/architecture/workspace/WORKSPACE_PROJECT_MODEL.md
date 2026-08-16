@@ -96,6 +96,16 @@ _workmeta/
 ## 정본 규칙
 
 - `_workspaces/<project_code>/` 가 실제 과제 현장 materialization root 다.
+- durable project-specific source payload, derived text, RAG index, Wiki body,
+  context packet, and run payload are rooted in the owning
+  `_workspaces/<project_code>/` view. An owner-approved shared worksite may back
+  that view, but it must not be surfaced through another project or a common
+  alias.
+- `_workspaces/knowledge/**` is the approved project-agnostic common-knowledge
+  plane. Project-coded payloads already there are legacy migration inputs, not
+  a target for new project writes; common bytes are referenced by exact
+  revision/hash from a project view rather than copied into a second project
+  canon.
 - `_workspaces/SE_TEMPLATE_LIBRARY/` 는 reusable SE artifact materials 의 canonical actual-file library/store 다. pointer-only reference folder 도 아니고 project execution baseline 도 아니다.
 - `_workspaces/system/` 은 특정 delivery project 가 아닌 reusable workflow lab pilot output 과 fixture materialization 을 두는 reserved root 다. 여러 PC 에서 같은 이름을 사용할 때는 [`WORKSPACE_PATH_IDENTITY_POLICY_V0.md`](WORKSPACE_PATH_IDENTITY_POLICY_V0.md) 에 따라 같은 owner-approved shared worksite 를 가리키는 shared view 로 materialize 한다.
 - library 의 canonical reusable files 는 owner-approved templates/forms, executable artifact workflows, artifact-specific authoring rules, sample output files 를 포함할 수 있다. provenance, hash, version, classification 은 `manifests/` 또는 catalog docs 에 기록한다.

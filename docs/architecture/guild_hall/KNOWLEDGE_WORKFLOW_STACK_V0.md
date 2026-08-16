@@ -69,8 +69,9 @@
   - project packet map or operating packet when present
   - known common references
   - known claim ceilings and source gaps
-- When an approved NotebookLM binding exists and the request is a knowledge
-  question, preflight should actually query that bounded bookshelf before new
+- After the caller has fixed exactly one project and any explicit common
+  collection revisions, an approved NotebookLM binding for that Knowledge View
+  may be queried before new
   source acquisition. Record only notebook/source IDs, purpose, sync state,
   and result status; trace important conclusions to the connected source or
   approved ontology package.
@@ -141,8 +142,11 @@ Knowledge-heavy monsters usually include:
 - “which sources are relevant?” questions
 - NotebookLM-backed synthesis or gap-scan work
 
-Do not run the preflight first for every monster automatically. Use it by
-default for knowledge questions with an approved bookshelf, and skip it when:
+Do not run the preflight first for every monster automatically. After the exact
+one-project Knowledge View and its explicit common-revision allowlist are fixed,
+use the preflight only when the current request or selected workflow explicitly
+chooses it. An approved bookshelf's mere existence never triggers NotebookLM or
+another external query. Skip it when:
 
 - the work is a local code edit or bounded refactor
 - the workflow already has a fully locked input packet
@@ -163,8 +167,8 @@ This is a role recommendation, not a locked runtime assignment.
 ## Project Use Sequence
 
 1. Open the project binding and source ledger first.
-2. Ask whether the question can be answered by existing project wiki state.
-3. If yes, use NotebookLM or known packet refs first.
+2. Build a Knowledge View for exactly that project plus explicitly allowed common revisions.
+3. Ask whether the question can be answered by the View's thin Wiki, approved NotebookLM bookshelf, or known packet refs.
 4. If no, route to approved-source deepening through the sourcebound loop.
 5. Record only metadata after use: refs used, purpose, gap found, and next
    route.

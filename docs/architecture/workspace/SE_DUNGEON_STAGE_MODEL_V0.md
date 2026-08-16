@@ -102,6 +102,42 @@ If any condition is missing, the UI or assistant must show the stage as
 
 v0 에서는 후보를 표시하고 모으는 데 집중한다. 자동 승급은 v1 이후로 미룬다.
 
+## Read-only Assessment Projection
+
+`guild_hall/engineering_engine/subjects/ax_se_project_assessment.mjs`는 이 문서의
+stage taxonomy를 읽어 source-bound assessment candidate를 만든다. stage code,
+stage 정의, Boss Clear Rule과 Claim Ceiling의 정본은 계속 이 문서이며 projection은
+이를 재정의하지 않는다.
+
+- current stage projection은 `stage_code`, `stage_label`, `floor_status`,
+  `assessment_resolution`, `requirement_counts`, `open_risk_count`를 낸다.
+- `floor_status`는 `blocked` 또는 `active`만 낸다. 현재 projection input에는 snapshot
+  freshness와 terminal provenance가 없으므로 `boss_clear_candidate`도 내지 않으며,
+  stronger clear claim은 위 Boss Clear Claim Ceiling의 근거와 owner gate를 그대로
+  요구한다. `270_UNCLASSIFIED`도 항상 `active` 또는 `blocked`로만 남는다.
+- 적용 가능한 requirement가 하나도 없는 stage policy는 이 projection이 판단할 대상과
+  Boss Clear 근거를 제공하지 않으므로 거부한다. 관측 0건을 완료 후보로 승격하지 않는다.
+- `stage_code`는 lifecycle 안에서 유일해야 하며 중복 stage가 같은 risk bucket을 공유하는
+  policy는 거부한다.
+- 함께 내는 값은 missing/unknown/conflict/risk issue, 최대 3개 mission candidate,
+  logical role candidate 또는 `HOLD`, done/HOLD 조건이다.
+- assignment, TaskIntent, TaskDriver activation, ERP write, canon promotion은 하지 않는다.
+- focused 검증은 `npm run validate:engineering-engine-ax-se-project-assessment`가 소유하며,
+  subject·runner 회귀시험뿐 아니라 committed topology와 fresh source emit의 byte equality도
+  확인한다.
+
+### Exact logical-role binding v1
+
+`guild_hall/engineering_engine/subjects/ax_se_project_role_bound_assessment.mjs`는 위 stage
+taxonomy를 바꾸지 않고 source-bound logical roster를 결합한다. full exact roster ref는
+combined packet 밖에서 별도로 검증되며 policy와 roster의 capability-vocabulary ref도 exact
+일치해야 한다. partial/unknown coverage 또는 unknown routing이어도 stage/gap/risk projection은
+유지하지만 role routing과 overall v1 resolution은 `HOLD`다. 이 projection은 사람 신원,
+live availability, assignment, TaskDriver, ERP, model 또는 write authority를 만들지 않는다.
+stage 미관측 `UNKNOWN`은 `resolution.stage_gap_state`에 별도로 보존한다.
+v1 `current_stage`는 중복된 `assessment_resolution`을 내지 않으며 최종 판단은 v1
+`resolution`과 `assessment_state`에서 읽는다.
+
 ## UI Projection
 
 `Dungeon Detail` 은 stage 를 아래 필드로 표시한다.

@@ -64,6 +64,13 @@ const SOURCE_RULES = Object.freeze({
     optional: Object.freeze([]),
     minimum_limits: 1,
   }),
+  // The Windows UIA collector reduces accessibility names to percentages and
+  // reset times before this boundary. No window handle, title, or raw name.
+  antigravity_windows_uia_receipt: Object.freeze({
+    expected: Object.freeze(["antigravity_five_hour", "antigravity_weekly"]),
+    optional: Object.freeze([]),
+    minimum_limits: 1,
+  }),
 });
 
 export const PROVIDER_QUOTA_SOURCE_KINDS = Object.freeze(Object.keys(SOURCE_RULES));

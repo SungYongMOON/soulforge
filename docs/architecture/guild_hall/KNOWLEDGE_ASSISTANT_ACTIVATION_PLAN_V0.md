@@ -1,15 +1,26 @@
 # Knowledge Assistant Activation Plan v0 (검토용 제안 — 미승인)
 
-> 상태: **부분 결정됨.** 2026-07-23 owner가 ERP 모델 사용은 중지하고, 별도 RAG 세션에서만
-> `qwen3.5:9b`를 on-demand로 쓰기로 결정했다. 이 문서는 "지식비서를 카파시 LLM Wiki처럼
-> 동작시키기 위해 켜야 할 3개 스위치"의 구현 설계와 **적대검증 결과**를 담은 결정용 자료다.
-> ERP 출처본문 합성 경로는 이 결정으로 보류되며, 별도 RAG 생성 runner는 여전히 구현·검토 전이다.
+> **2026-08-14 상태: `HOLD` — 미승인 결정 문서.** 현재 active build는
+> read-only AX·SE project assessment Engine이다. 이 문서의 source synthesis,
+> automatic Wiki compile, completion-loop activation은 Engine의 전제나 authority가
+> 아니며, 별도 bounded plan·검토·Owner gate 전에는 실행하지 않는다. Context Graph,
+> deterministic RAG, thin Wiki 계약은 revision-bound context support 후보로 보존한다.
+> raw ingest의 Wiki/RAG/canon 자동 승격은 현재 승인되지 않았고, 아래 상세 후보 설계는
+> 이 상태 배너로 변경하거나 활성화하지 않는다.
+
+> 상태: **부분 결정됨.** 2026-07-23의 `qwen3.5:9b` on-demand 결정은 당시 ERP/RAG
+> 후보 이력이며 현재 M2 runtime 선택이 아니다. M2-0~M2-2는 model call 0이고, 이후 optional
+> advisory LLM은 source-bound 평가와 data-egress 경계를 통과한 뒤 별도로 선택한다. 이 문서는
+> "지식비서를 카파시 LLM Wiki처럼 동작시키기 위해 켜야 할 3개 스위치"의 구현 설계와
+> **적대검증 결과**를 담은 결정용 자료다. ERP 출처본문 합성 경로는 계속 보류되며, 별도 RAG
+> 생성 runner도 여전히 구현·검토 전이다.
 
 ## 0. 한눈에 (비전문가용)
 
-지금 저장소는 자료 수집→정리→위키→검색→소비(S1~S6) 골격이 실데이터로 돌아간다. 영상(카파시
-LLM Wiki)의 "말 걸면 출처 읽고 답하는" 체감을 켜려면 다음 3개를 켜면 된다. **새로 짓는 게 아니라
-대부분 이미 있는 부품을 잇는 일**이다.
+지금 저장소에는 자료 수집→정리→위키→검색→소비(S1~S6)의 일부 골격과 합성·제한 운영
+증거가 있다. 실제 프로젝트 end-to-end accepted generation이나 자동 Wiki/RAG/LLM 경로가
+돌아간다는 뜻은 아니다. 영상(카파시 LLM Wiki)의 "말 걸면 출처 읽고 답하는" 체감은 아래
+후보 스위치와 별도 M2 경계를 모두 닫아야 하며, 현재는 전부 `HOLD`다.
 
 | 스위치 | 쉬운 설명 | 난이도 | 검증 평결 |
 | --- | --- | --- | --- |
@@ -18,10 +29,15 @@ LLM Wiki)의 "말 걸면 출처 읽고 답하는" 체감을 켜려면 다음 3�
 | **③b 완료 루프** | 과제 끝나면 '지식/다음할일' 제안을 승인 시 실제 적재(지금은 빈 동작) | S~M | ✅ go-with-fixes (3개 픽스 후, 가장 작음) |
 | **① 뜻으로 찾기(벡터)** | 비슷한 의미로도 검색(로컬 임베딩) | M | ⛔ 보류 권고 (카파시 규모상 후순위 + firewall 폭발반경 큼) |
 
+위 `평결` 열은 이 제안을 만들 당시의 **검토 결과 기록**이며 착수 승인이 아니다. 상단 `HOLD`
+배너가 상위이므로 `go-with-fixes`를 포함한 어떤 평결도 지금 실행을 허가하지 않는다. 네 스위치
+모두 M2 pilot과 별도 owner gate 전까지 `HOLD`다.
+
 **핵심 반전:** 당신이 제일 원하는 ②가, 당신 저장소의 핵심 보안원칙
 (`reads_source_bodies:false`, metadata_only, "ERP는 정답 권위가 아니라 길안내 신호")과 **정면으로
 긴장한다.** 즉 ②는 "코드 난이도" 문제가 아니라 **"ERP 챗을 출처-인용 응답기로 만들어도 되는가"라는
-owner의 경계 결정** 문제다. 그래서 즉시 착수 가능한 건 ③b(픽스 후)뿐이고, ②는 결정이 선행돼야 한다.
+owner의 경계 결정** 문제다. 당시 검토는 ③b만 상대적으로 작다고 봤지만, 상단 `HOLD` 배너에 따라
+③b도 지금 착수 대상이 아니다. ②는 그에 더해 owner 경계 결정이 선행돼야 한다.
 
 ## 1. 모든 스위치의 공통 안전 원칙
 
@@ -37,8 +53,9 @@ owner의 경계 결정** 문제다. 그래서 즉시 착수 가능한 건 ③b(�
 - **claim-ceiling 캡:** LLM/사용량 산출물은 정본 권위가 아니다. ②는 가장 약한 청크 등급으로 상한,
   ③a는 `observed` 고정, ③b는 `source_supported`보다 낮은 값, ①은 `observed` 이하 강등.
 - **config 게이트:** 신규 lane은 전부 env/플래그 뒤(기본 OFF). PUBLIC/미승인 환경에서 자동 비활성.
-- **`karpathy_llm_runtime_required:false` 유지:** 모든 LLM 의존은 로컬 Ollama(127.0.0.1) 또는 어댑터로만.
-  Ollama 없으면 메타/lexical/extractive로 **graceful degrade**(끊김 없음). 외부 인터넷 egress 0.
+- **`karpathy_llm_runtime_required:false` 유지:** M2 판단과 retrieval은 model-free다. 이후
+  optional advisory lane은 local runtime 또는 명시 승인된 adapter 중 하나를 별도 평가로
+  선택하고, 다른 모델로 자동 fallback하지 않는다. 승인되지 않은 private source egress는 0이다.
 
 ## 2. 스위치별 설계
 
@@ -149,18 +166,23 @@ claim_ceiling: observed`)가 있는 위키 .md 생성/갱신. Ollama 없으면 �
 
 | # | 결정 | 무엇을 정해야 하나 | 막는 것 |
 | --- | --- | --- | --- |
-| **D-1** | ②의 정당성 | **결정: ERP 모델 사용 및 ERP 출처본문 합성 보류.** 별도 RAG 세션만 생성 모델을 사용할 수 있다. | ERP ② 차단 |
+| **D-1** | ②의 정당성 | **결정: ERP 모델 사용 및 ERP 출처본문 합성 보류.** 별도 RAG 세션의 생성 모델도 현재 `HOLD`이며, D-5의 후속 평가·Owner activation을 통과한 경우에만 사용할 수 있다. | ERP ② 차단 |
 | **D-2** | ② 노출 방식 | **결정: ERP는 RAG 생성을 호출하지 않는다.** metadata shell과 비모델 검색/폴백만 유지한다. | ERP ② 차단 |
-| **D-3** | ③a 출력면 | LLM 위키 생성물을 `_workspaces/knowledge/<project>/wiki/`에 둘지(obsidian_export 예약어 회피). 승급 경로를 어떻게 강제할지 | ③a |
+| **D-3** | ③a 출력면 | project-specific LLM Wiki는 `_workspaces/<project_code>/reference_payloads/knowledge_extract/**/wiki/**` 아래에만 둔다. project-agnostic common Wiki만 `_workspaces/knowledge/**/wiki/**`를 쓸 수 있다. exact revision·승급 경로는 별도 gate다. | ③a |
 | **D-4** | ③b 등급·경계 | LLM 산출 지식의 claim_ceiling 약등급(정본 6-state에서 `source_supported`보다 낮은 값) + `core_knowledge` PUBLIC sync 제외 여부 + 부분성공 허용 여부 | ③b |
-| **D-5** | 런타임 | **결정: loopback Ollama + `qwen3.5:9b`, RAG 세션 첫 요청 시 load, `keep_alive:5m`, 세션 종료 시 `ollama stop`; ERP provider는 `stub`, intake는 `none`.** | 별도 RAG 생성 runner 구현만 남음 |
+| **D-5** | 런타임 | **현재 `HOLD`: M2-0~M2-2는 model call 0.** 과거 loopback Ollama + `qwen3.5:9b` 선택은 이력으로만 보존한다. 이후 advisory 답변은 source-bound 평가에서 local model과 승인된 Codex/Claude adapter의 품질·data-egress·재현성을 비교한 뒤 별도 선택한다. ERP provider는 계속 `stub`, intake는 `none`. | optional advisory runner와 모델 평가 |
 
-## 4. 권장 단계(Phasing)
+## 4. 권장 단계(Phasing) — 전부 `HOLD`
 
-- **Phase 1 — ③b** (가장 작고 firewall 위험 낮음, 픽스 3건 후). 단독 릴리스 가능.
-- **Phase 2 — ②** (핵심 가치, **단 D-1/D-2 결정 후**). 플래그 게이트로 점진 활성.
-- **Phase 3 — ③a** (신규 `_workspaces`-only 러너; D-3 후).
-- **Phase 4 — ①** (보류; ②③ 안정화·실측 효용 확인 후 opt-in).
+아래 순서는 활성화가 승인될 경우의 **제안 순서**일 뿐이며 착수 일정이나 실행 큐가 아니다.
+`Phase 1`을 포함해 어느 단계도 지금 열려 있지 않고, 상단 배너대로 M2 pilot과 별도 owner
+gate 전까지 전부 `HOLD`다. 아래 단계 번호는 이 문서 안의 상대 순서이며 roadmap의 M1/M2
+milestone과 다른 축이다.
+
+- **(제안 1순위) ③b** (가장 작고 firewall 위험 낮음, 픽스 3건 후). 승인 시 단독 릴리스 가능.
+- **(제안 2순위) ②** (핵심 가치, **단 D-1/D-2 결정 후**). 승인 시 플래그 게이트로 점진 활성.
+- **(제안 3순위) ③a** (신규 `_workspaces`-only 러너; D-3 후).
+- **(제안 4순위) ①** (보류; ②③ 안정화·실측 효용 확인 후 opt-in).
 
 ## 5. 연속성/검증 주의 (AGENTS.md)
 
@@ -168,6 +190,18 @@ claim_ceiling: observed`)가 있는 위키 .md 생성/갱신. Ollama 없으면 �
   시 graceful degrade로 "죽은 코드"처럼 보일 위험. 각 lane은 stub 기본 + 결정성 테스트로 검증 가능해야 함.
 - 매 슬라이스 후 `node:test` 전건 + verify_gate Level≥1 + 작업자·모델 표기 commit. 단 dev-erp 테스트
   (`core.test.mjs`)와 `guild_hall/rag/rag.test.mjs`는 **별도 test 명령** → "전건" 정의를 슬라이스별로 명시.
+
+## 6. M2 Knowledge View와의 관계
+
+- 이 문서의 어떤 스위치도 M2-0 계약 기록만으로 켜지지 않는다.
+- 모든 Wiki/RAG/LLM 후보는 정확히 한 project와 명시 allowlist된 common revisions로 만든
+  Knowledge View를 입력으로 받아야 한다. foreign-project 조회와 implicit fallback은 없다.
+- Wiki는 source-bound thin map, RAG는 exact evidence retrieval, LLM은 Engine 뒤 optional
+  advisory explanation이다. LLM은 project scope를 넓히거나 Engine 판단 authority를 가질 수 없다.
+- Owner/global catalog visibility는 body 권한이 아니다. body·chunk·Wiki prose·run payload는
+  대상별 별도 권한 없이는 읽지 않는다.
+- 이 절은 TARGET 계약이며 selector, ACL, live accepted generation, Wiki/RAG writer,
+  advisory LLM이 구현·활성화됐다는 주장이 아니다.
 
 ---
 

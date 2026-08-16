@@ -10,11 +10,11 @@
 // Output is a single JSON document plus a digest over it, so a viewer can state which
 // version of the code it is showing rather than asserting a topology of its own.
 //
-//   node tools/emit_topology.mjs [--out <path>]
+//   node tools/emit_topology.mjs [--out <path> | --check <path>]
 
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -26,8 +26,10 @@ const AREAS = ['kernel', 'assembly', 'subjects'];
 
 // ---------------------------------------------------------------- module edges, parsed
 
-// Relative imports inside an area ('./x.mjs') and across areas ('../kernel/x.mjs').
-const IMPORT_FROM = /from\s+'(?:\.\.?\/)+(?:[a-z_0-9]+\/)?([a-z_0-9]+)\.mjs'/g;
+// Relative imports are resolved before admission. Only modules that resolve back under one
+// of the Engine-owned areas belong in this topology; a subject may depend on a shared owner
+// without turning that external module into a dangling Engine node.
+const IMPORT_FROM = /from\s+'((?:\.\.?\/)+[^']+\.mjs)'/g;
 
 const sourceFiles = [];
 for (const area of AREAS) {
@@ -40,7 +42,8 @@ const modules = [];
 const edges = [];
 for (const { area, file } of sourceFiles) {
   const name = file.replace('.mjs', '');
-  const src = readFileSync(join(ENGINE, area, file), 'utf8');
+  const sourcePath = join(ENGINE, area, file);
+  const src = readFileSync(sourcePath, 'utf8');
   const exported = [...src.matchAll(/^export\s+(?:const|function|class)\s+([A-Za-z_][A-Za-z_0-9]*)/gm)].map((m) => m[1]);
   const reExported = [...src.matchAll(/^export\s*\{([^}]*)\}\s*from/gm)]
     .flatMap((m) => m[1].split(',').map((s) => s.trim().split(/\s+as\s+/)[0]).filter(Boolean));
@@ -52,7 +55,13 @@ for (const { area, file } of sourceFiles) {
     line_count: src.split('\n').length,
   });
   for (const m of src.matchAll(IMPORT_FROM)) {
-    const to = m[1];
+    const target = resolve(dirname(sourcePath), m[1]);
+    const targetRelative = relative(ENGINE, target);
+    if (isAbsolute(targetRelative) || targetRelative === '..'
+        || targetRelative.startsWith(`..${sep}`)) continue;
+    const parts = targetRelative.split(sep);
+    if (parts.length !== 2 || !AREAS.includes(parts[0]) || !parts[1].endsWith('.mjs')) continue;
+    const to = parts[1].slice(0, -4);
     if (to !== name && !edges.some((e) => e.from === name && e.to === to)) {
       // The edge is declared by the source. Whether it is ever traversed is a separate
       // question, so the edge also says how that could be observed. A new module gets this
@@ -189,9 +198,30 @@ function stableStringify(value) {
 // Stable digest over the whole document: a viewer can show this and say which code it rendered.
 topology.topology_digest = createHash('sha256').update(stableStringify(topology)).digest('hex');
 
-const out = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : null;
+const flagValue = (name) => {
+  const index = process.argv.indexOf(name);
+  if (index < 0) return null;
+  const value = process.argv[index + 1];
+  if (typeof value !== 'string' || value.length === 0 || value.startsWith('--')) {
+    throw new Error(`engine_topology_${name.slice(2)}_path_missing`);
+  }
+  return value;
+};
+const out = flagValue('--out');
+const check = flagValue('--check');
+if (out !== null && check !== null) throw new Error('engine_topology_output_mode_conflict');
 const text = `${JSON.stringify(topology, null, 2)}\n`;
-if (out) {
+if (check !== null) {
+  const matches = readFileSync(check, 'utf8') === text;
+  console.log(JSON.stringify({
+    checked: check,
+    topology_matches_code: matches,
+    modules: topology.module_count,
+    module_edges: topology.module_edge_count,
+    topology_digest: topology.topology_digest,
+  }, null, 2));
+  if (!matches) process.exitCode = 1;
+} else if (out !== null) {
   writeFileSync(out, text, 'utf8');
   console.log(JSON.stringify({
     emitted: out, modules: topology.module_count, module_edges: topology.module_edge_count,

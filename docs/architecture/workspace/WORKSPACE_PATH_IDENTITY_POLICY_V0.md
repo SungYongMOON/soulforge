@@ -29,7 +29,7 @@ not reuse a shared view name.
 | `_workspaces/<project_code>/` | Actual project files, source snapshots, document outputs, and project-local materialization. | Shared view when more than one PC must access the same project data; otherwise bounded local project view. |
 | `_workspaces/SE_TEMPLATE_LIBRARY/` | Owner-approved reusable SE artifact materials, templates, sample outputs, authoring rules, and manifests. | Shared view or owner-approved library store. |
 | `_workspaces/system/` | Reusable workflow lab outputs, fixture materialization, project-agnostic source/reference material, generated RAG manifests, and generated knowledge views. | Path-identity controlled shared view candidate. |
-| `_workspaces/knowledge/` | Owner-approved cross-project private knowledge/RAG source-text worksite and derived private proof payloads. | Registered shared non-project alias. |
+| `_workspaces/knowledge/` | Owner-approved project-agnostic common knowledge/RAG source-text worksite and derived private proof payloads. It is not a pool for project-specific payloads. | Registered shared non-project alias. |
 | `_workspaces/general_work/` | Cross-project general work payloads that are not owned by a delivery project. | Registered shared non-project alias. |
 | `_workspaces/P00-000_INBOX/` | Unresolved project intake workspace and project candidates before assignment. | Registered shared project/candidate inbox. |
 | `_workspaces/_local/<node_id>/` | PC-specific scratch, cache, local tool installs, temporary exports, and machine-only state. | PC-local view. |

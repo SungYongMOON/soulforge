@@ -1,0 +1,53 @@
+{
+  "schema_version": "soulforge.ax_se_project_role_roster_packet.v0",
+  "project_binding_ref": {
+    "entity_id": "synthetic-flight-control-project",
+    "revision_id": "synthetic-project-r1",
+    "content_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "content_hash_alg": "sha256"
+  },
+  "role_roster_identity": {
+    "entity_id": "synthetic-flight-control-role-roster",
+    "revision_id": "synthetic-role-roster-r1"
+  },
+  "capability_vocabulary_ref": {
+    "entity_id": "synthetic-ax-se-capability-vocabulary",
+    "revision_id": "synthetic-capability-vocabulary-r1",
+    "content_id": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "content_hash_alg": "sha256"
+  },
+  "source_revision_refs": [
+    {
+      "entity_id": "synthetic-role-policy",
+      "revision_id": "synthetic-role-policy-r1",
+      "content_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "content_hash_alg": "sha256"
+    },
+    {
+      "entity_id": "synthetic-role-register",
+      "revision_id": "synthetic-role-register-r1",
+      "content_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "content_hash_alg": "sha256"
+    }
+  ],
+  "valid_at": "2026-08-01T00:00:00.000Z",
+  "known_at": "2026-08-02T00:00:00.000Z",
+  "coverage_state": "complete",
+  "roles": [
+    {
+      "role_id": "risk_reviewer",
+      "routing_state": "eligible",
+      "capabilities": ["risk_management"]
+    },
+    {
+      "role_id": "systems_engineer",
+      "routing_state": "eligible",
+      "capabilities": ["systems_engineering"]
+    },
+    {
+      "role_id": "verification_reviewer",
+      "routing_state": "eligible",
+      "capabilities": ["verification_review"]
+    }
+  ]
+}

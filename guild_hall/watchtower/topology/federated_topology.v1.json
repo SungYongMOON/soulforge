@@ -32,6 +32,246 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_assessment",
+      "id": "engineering_engine::imports.ax_se_project_assessment.authority",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::authority"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_assessment",
+      "id": "engineering_engine::imports.ax_se_project_assessment.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_assessment",
+      "id": "engineering_engine::imports.ax_se_project_assessment.ceilings",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::ceilings"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_assessment",
+      "id": "engineering_engine::imports.ax_se_project_assessment.custody",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::custody"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_assessment",
+      "id": "engineering_engine::imports.ax_se_project_assessment.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_assessment",
+      "id": "engineering_engine::imports.ax_se_project_assessment.fingerprint",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_assessment",
+      "id": "engineering_engine::imports.ax_se_project_assessment.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_assessment",
+      "id": "engineering_engine::imports.ax_se_project_assessment.minting",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::minting"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_assessment",
+      "id": "engineering_engine::imports.ax_se_project_assessment.snapshot",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::snapshot"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_context_pilot",
+      "id": "engineering_engine::imports.ax_se_project_context_pilot.ax_se_project_role_bound_assessment",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::ax_se_project_role_bound_assessment"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_context_pilot",
+      "id": "engineering_engine::imports.ax_se_project_context_pilot.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_context_pilot",
+      "id": "engineering_engine::imports.ax_se_project_context_pilot.fingerprint",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_context_pilot",
+      "id": "engineering_engine::imports.ax_se_project_context_pilot.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_bound_assessment",
+      "id": "engineering_engine::imports.ax_se_project_role_bound_assessment.ax_se_project_assessment",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::ax_se_project_assessment"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_bound_assessment",
+      "id": "engineering_engine::imports.ax_se_project_role_bound_assessment.ax_se_project_role_roster",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::ax_se_project_role_roster"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_bound_assessment",
+      "id": "engineering_engine::imports.ax_se_project_role_bound_assessment.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_bound_assessment",
+      "id": "engineering_engine::imports.ax_se_project_role_bound_assessment.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_bound_assessment",
+      "id": "engineering_engine::imports.ax_se_project_role_bound_assessment.fingerprint",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_bound_assessment",
+      "id": "engineering_engine::imports.ax_se_project_role_bound_assessment.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_bound_assessment",
+      "id": "engineering_engine::imports.ax_se_project_role_bound_assessment.minting",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::minting"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_roster",
+      "id": "engineering_engine::imports.ax_se_project_role_roster.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_roster",
+      "id": "engineering_engine::imports.ax_se_project_role_roster.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_roster",
+      "id": "engineering_engine::imports.ax_se_project_role_roster.fingerprint",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_roster",
+      "id": "engineering_engine::imports.ax_se_project_role_roster.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::canonical",
       "id": "engineering_engine::imports.canonical.contract_config",
       "label": "imports",
@@ -1765,6 +2005,50 @@
     },
     {
       "diagnostic_state": "validator_backed",
+      "group": "subjects",
+      "id": "engineering_engine::ax_se_project_assessment",
+      "kind": "module",
+      "label": "ax_se_project_assessment",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "subjects",
+      "id": "engineering_engine::ax_se_project_context_pilot",
+      "kind": "module",
+      "label": "ax_se_project_context_pilot",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "subjects",
+      "id": "engineering_engine::ax_se_project_role_bound_assessment",
+      "kind": "module",
+      "label": "ax_se_project_role_bound_assessment",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "subjects",
+      "id": "engineering_engine::ax_se_project_role_roster",
+      "kind": "module",
+      "label": "ax_se_project_role_roster",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
       "group": "kernel",
       "id": "engineering_engine::canonical",
       "kind": "module",
@@ -2538,6 +2822,222 @@
           "evidence_mode": "structural_only",
           "from": "authority",
           "id": "imports.authority.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_assessment",
+          "id": "imports.ax_se_project_assessment.authority",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "authority"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_assessment",
+          "id": "imports.ax_se_project_assessment.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_assessment",
+          "id": "imports.ax_se_project_assessment.ceilings",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "ceilings"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_assessment",
+          "id": "imports.ax_se_project_assessment.custody",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "custody"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_assessment",
+          "id": "imports.ax_se_project_assessment.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_assessment",
+          "id": "imports.ax_se_project_assessment.fingerprint",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_assessment",
+          "id": "imports.ax_se_project_assessment.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_assessment",
+          "id": "imports.ax_se_project_assessment.minting",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "minting"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_assessment",
+          "id": "imports.ax_se_project_assessment.snapshot",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "snapshot"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_context_pilot",
+          "id": "imports.ax_se_project_context_pilot.ax_se_project_role_bound_assessment",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "ax_se_project_role_bound_assessment"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_context_pilot",
+          "id": "imports.ax_se_project_context_pilot.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_context_pilot",
+          "id": "imports.ax_se_project_context_pilot.fingerprint",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_context_pilot",
+          "id": "imports.ax_se_project_context_pilot.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_bound_assessment",
+          "id": "imports.ax_se_project_role_bound_assessment.ax_se_project_assessment",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "ax_se_project_assessment"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_bound_assessment",
+          "id": "imports.ax_se_project_role_bound_assessment.ax_se_project_role_roster",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "ax_se_project_role_roster"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_bound_assessment",
+          "id": "imports.ax_se_project_role_bound_assessment.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_bound_assessment",
+          "id": "imports.ax_se_project_role_bound_assessment.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_bound_assessment",
+          "id": "imports.ax_se_project_role_bound_assessment.fingerprint",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_bound_assessment",
+          "id": "imports.ax_se_project_role_bound_assessment.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_bound_assessment",
+          "id": "imports.ax_se_project_role_bound_assessment.minting",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "minting"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_roster",
+          "id": "imports.ax_se_project_role_roster.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_roster",
+          "id": "imports.ax_se_project_role_roster.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_roster",
+          "id": "imports.ax_se_project_role_roster.fingerprint",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_roster",
+          "id": "imports.ax_se_project_role_roster.identity",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
@@ -3674,6 +4174,46 @@
         },
         {
           "diagnostic_state": "validator_backed",
+          "group": "subjects",
+          "id": "ax_se_project_assessment",
+          "kind": "module",
+          "label": "ax_se_project_assessment",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "subjects",
+          "id": "ax_se_project_context_pilot",
+          "kind": "module",
+          "label": "ax_se_project_context_pilot",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "subjects",
+          "id": "ax_se_project_role_bound_assessment",
+          "kind": "module",
+          "label": "ax_se_project_role_bound_assessment",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "subjects",
+          "id": "ax_se_project_role_roster",
+          "kind": "module",
+          "label": "ax_se_project_role_roster",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
           "group": "kernel",
           "id": "canonical",
           "kind": "module",
@@ -3959,7 +4499,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "a02484838936c95a3cbae96dabebd08f9e9b08a854d5d83a6eebd9a3de024780",
+        "digest": "e0795a99c6f101e46e9868e077235ae64b599b383befb13d5184ca911ed91832",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -4156,7 +4696,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "a75499b2e347ace1f7b27c507f67e62009b864c1ed8910e1ce34185965630440",
+        "digest": "4ab8b6e7ee2b4f87c28d659450c9934b509e13fdba48a4ed30643344f0a3364c",
         "revision": "knowledge_stack_topology.v1",
         "schema_version": "knowledge_stack_owner_contracts.v1",
         "source_id": "knowledge_stack_owner_contracts"
@@ -4925,13 +5465,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "2ce7a12d1303e3d7bb2e1d6ba545e69b15b9f4f04b84fdac7966a7ef774cf81e",
+  "source_set_digest": "fd955af001211feef0899f1495b042a3d1de1c21b761002f2085b0c3783e70c1",
   "summary": {
-    "edge_count": 175,
-    "node_count": 67,
+    "edge_count": 199,
+    "node_count": 71,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "c13c10f73c860a340f58a218c5d108e3dd8227766bd40f924040e6ec589c4ed3"
+  "topology_digest": "e787f3e3e0d2a294d35764e6a5b0959105c30af175ed4b2461b883d724a51846"
 }

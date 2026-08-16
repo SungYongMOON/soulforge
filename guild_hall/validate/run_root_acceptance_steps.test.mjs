@@ -28,6 +28,8 @@ test("루트 게이트: 앱 테스트 스텝이 validate·done-check 양 모드�
     ['"backup-controller"', "npm run validate:backup-controller"],
     ['"dev-erp-mcp"', "npm run validate:dev-erp-mcp"],
     ['"codex-work-directory"', "npm run validate:codex-work-directory"],
+    ['"engineering-engine-ax-se-project-assessment"',
+      "npm run validate:engineering-engine-ax-se-project-assessment"],
     ['"watchtower"', "npm run validate:watchtower"],
   ];
   for (const [stepId, command] of requiredSteps) {
@@ -37,12 +39,18 @@ test("루트 게이트: 앱 테스트 스텝이 validate·done-check 양 모드�
   }
 });
 
-test("root gates validate the Watchtower projection before the Team Ops consumer", () => {
+test("root gates validate AX-SE before Watchtower and Watchtower before its consumer", () => {
   const blocks = source.match(/(?:validate|"done-check"): \[[\s\S]*?\n  \],/g) ?? [];
   assert.equal(blocks.length, 2);
   for (const block of blocks) {
+    const axSe = block.indexOf(
+      '["engineering-engine-ax-se-project-assessment", '
+      + '"npm run validate:engineering-engine-ax-se-project-assessment"]',
+    );
     const watchtower = block.indexOf('["watchtower", "npm run validate:watchtower"]');
     const board = block.indexOf('["team-ops-app", "npm run validate:team-ops-app"]');
+    assert.ok(axSe >= 0, "AX-SE focused validator step is missing");
+    assert.ok(watchtower > axSe, "Watchtower must follow the Engine gate it projects");
     assert.ok(watchtower >= 0, "watchtower step is missing");
     assert.ok(board > watchtower, "the consumer must follow its topology producer gate");
   }

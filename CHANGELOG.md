@@ -1,5 +1,41 @@
 # CHANGELOG
 
+## 2026-08-16 - M2 phase order correction and M2-3A Knowledge→Context gate crosswalk
+
+- Fixed the authoritative M2 slice order so no surface is built ahead of its
+  gate: M2-2 observed ephemeral pilot → P4/M2-3 project-local deterministic
+  persistent RAG + thin Wiki → P5 accepted context generation/freshness →
+  P6 TaskIntent. P4/M2-3 may attach only after the M2-2 observed ephemeral
+  pilot, and neither the RAG surface nor the thin Wiki supplies context without
+  a receipt pinning the exact source revision. P5 closes on top of those exact
+  revision receipts; P6 starts only after accepted context generation is closed.
+- Recorded the `M2-3A Knowledge→Context Gate Crosswalk` boundary for P5
+  accepted-generation minimums: exactly one bound project, the complete exact
+  source/knowledge revision set including allowlisted common revisions,
+  `valid_at`/`known_at` stamps plus the generation's own known-at cutoff,
+  declared coverage with explicit gap / `unclassified` / `held_conflict` list,
+  predecessor and supersession refs, recorded reviewer state, and the
+  authorized writer epoch. A missing minimum keeps the generation `HOLD` and
+  does not degrade into a partial accepted generation.
+- Recorded the separation of the two knowledge planes. Wiki/canon is reviewed
+  knowledge owned outside project context and enters a project view only
+  through an explicit exact revision allowlist; being retrieved or cited never
+  makes it a project fact. `memory_candidate` is a project-local reviewed-reuse
+  proposal and is not Wiki, not canon, and not accepted knowledge. Movement
+  between the two surfaces stays a separate reviewed promotion step.
+- Operational impact: this is a documentation-only phase-order correction;
+  no implementation, writer, index, runtime binding, or activation is claimed.
+  LLM synthesis, live-current claims, actual project writes, and cross-project
+  body retrieval remain `HOLD`.
+- authorship: this entry was written by Claude Opus 5; Fable 5 review is
+  `ACCEPT` for the frozen text only and is not a comprehensive readiness verdict.
+- Related paths: `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md`,
+  `docs/architecture/workspace/PROJECT_CONTEXT_GRAPH_MODEL_V0.md`
+  (`M2-3A Knowledge→Context Gate Crosswalk`), and
+  `ui-workspace/apps/dev-erp/docs/TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md`
+  (authoritative P4→P5→P6 phase table).
+- Revision: the Git commit containing this entry owns the exact revision.
+
 ## 2026-08-16 - Board runtime relaunch opportunity and contained collector failures
 
 - Separated scheduled-controller preflight timing from local control timing.
@@ -44,6 +80,101 @@
   definition and its validation, and the safe termination fields, including
   no-leakage assertions. No provider call, network listener, Task Scheduler
   mutation, or runtime restart occurs in tests.
+## 2026-08-16 - Feature-OFF 프로젝트 PDF launch authoring helper
+
+- `guild_hall/rag/project_pdf_launch_authoring.mjs`는 public-synthetic
+  feature-OFF import 전용 2단계 helper다. prepare는 root metadata만 읽어
+  non-runnable private candidate를 만들며 launch bytes를 담지 않는다.
+- seal은 외부에서 공급된 content-addressed seal을 exact challenge와 launch에만
+  correlate하고, canonical launch bytes와 payload-free zero-write receipt를
+  돌려준다.
+- issuer identity, 독립 provenance, Owner 승인은 주장하지 않는다.
+  `createOwnerSeal`은 없으며 hand-crafted launch가 admission에 직접 도달하는
+  경로도 막지 못한다. 실제 Owner·trusted registry·key·활성화는 `HOLD`다.
+- 모듈과 테스트는 `guild_hall/rag/project_pdf_launch_authoring.mjs`,
+  `guild_hall/rag/project_pdf_launch_authoring.test.mjs`이며, 전용 검증
+  스크립트 `validate:project-pdf-launch-authoring`을 추가하고 `validate:rag`에는
+  syntax check만 연결했다.
+- 대상 테스트 7/7 통과이고, Fable 5 Level-2 검토는 frozen module/test 해시
+  `020ebc42c561c4e7ba6c3dacb91259c2968562723e702bff0ac5c83df4119e4e`,
+  `262286ee011ee8b6db2f064db7ee50c9470024f3343e8df3e2453152686b7f67`에 한해
+  ACCEPT다. 포괄 준비 완료 판정은 아니다.
+- authorship: 구현과 테스트, 이 통합 텍스트는 Claude Opus 5가 작성했고 Fable이
+  검토했으며 controller가 검증했다.
+- Revision: working.
+
+## 2026-08-16 - Feature-OFF 프로젝트 PDF RAG tracer
+
+- `guild_hall/rag/project_pdf_rag_tracer.mjs`는 public-synthetic feature-OFF
+  seam으로, admitted PDF 1건에 대해 질문 1건을 in-memory lexical 방식으로만
+  답한다.
+- pinned admission을 1회 호출하고, 그 결과만으로 ephemeral page-aware corpus
+  1개를 만들며, 고정 evidence 3 / per-source 3 / advisory 없음으로 corpus
+  search를 1회 호출한다.
+- 답변은 exact citation을 가진 deterministic extractive 결과이거나 citation 없는
+  고정 no-hit 문장이다.
+- CLI, persistence, model, network, RAG index, Wiki, downstream authority는
+  없다.
+- 전용 검증 스크립트 `validate:project-pdf-rag-tracer`를 추가하고 `validate:rag`
+  에는 syntax check만 연결했다.
+- authorship: 구현과 테스트, 이 통합 텍스트는 Claude Opus 5가 작성했고
+  controller가 검증했다.
+- Fable Level-2 검토는 frozen module/test 해시
+  `ee0b59d72c5d585f856e97349dc7dde18f44a41991f0d98414bcbafb51f8452b`,
+  `da8053c96b354dba0198eb66b278781e9fce5a10d5664bf9203ab5f81363cf81`에 한해
+  ACCEPT다. 포괄 준비 완료 판정은 아니다.
+- `HOLD`: 실제 프로젝트·live·제품·persistent 사용, accepted-context 및
+  operational 활성화.
+
+## 2026-08-16 - Feature-OFF 프로젝트 PDF admitted 후보 seam
+
+- `guild_hall/rag/project_pdf_admission.mjs`는 public-synthetic feature-OFF
+  admitted PDF 후보만 만든다. pinned launch → 변경 없는 validation_only Project
+  Knowledge View → 별도로 결속된 document read grant → stable-open된 exact PDF
+  revision 1건 → 고정 extractor 1회 순서로만 진행하며 persistence, network,
+  model, RAG index, Wiki, Engine, ERP, TaskDriver effect와 authority는 0이다.
+- CLI `PASS`는 명령 gate일 뿐이며 source truth, canon, 승인, 활성화가 아니다.
+- 전용 검증 스크립트 `validate:project-pdf-admission`을 추가하고 `validate:rag`
+  에는 syntax check만 연결했다.
+- controller 관찰 기준으로 대상 테스트 16/16 통과, 인접 suite 53 pass / 0 fail /
+  1 POSIX-only skip이다. 그 밖의 광범위 suite 결과는 주장하지 않는다.
+- Fable Level-2 검토는 frozen module/test 해시
+  `90d76972f103e0dabf4c39059a018c0f0c52e916569d4644826846ff01bf32da`,
+  `697f81effb8a482d06e52321b182283bcf9e830fad8bc31d2020496c7423daa3`에 한해
+  ACCEPT다. 포괄 준비 완료 판정은 아니다.
+- authorship: 구현과 테스트, 이 통합 텍스트는 Claude Opus 5가 작성했고 Fable이
+  검토했으며 controller가 적용·검증했다.
+- `HOLD`: 실제 프로젝트·live·제품 사용, 활성화, batch 처리, persistence,
+  RAG/Wiki/KVDS, Engine/ERP/TaskDriver 연동.
+
+## 2026-08-15 - Feature-OFF 프로젝트 PDF 후보 추출 seam
+
+- `guild_hall/rag/project_document_ingest.mjs`에 public-synthetic 단일 파일 후보 전용
+  seam을 추가했다. 실제 KVDS read, ingest, promotion은 하지 않는다.
+- 구현 authorship은 Claude Opus 5 단독이며 test-first RED→GREEN으로 진행했다.
+- Fable/controller 검토가 Proxy/request 경계 blocker와 fatal UTF-8 stdout decoding
+  blocker를 독립적으로 재현했고 그 지적은 반영했다. bounded stdin은 Fable 지적이
+  아니라 같은 정정 슬라이스의 builder·controller 하드닝과 함께 추가했다. 이는 포괄
+  승인이나 준비 완료 판정이 아니다.
+- 전용 스크립트 `validate:project-document-ingest`를 추가하고 `validate:rag`에는
+  syntax check만 연결했다.
+
+## 2026-08-15 - Usage Meter Antigravity Windows UIA quota 입력 수용
+
+- Usage Meter provider quota snapshot 공개 함수가 닫힌 `antigravity_windows_uia_receipt`
+  입력을 기존 Antigravity expected 5시간/주간 limit 계약 그대로 수용한다.
+- 등록되지 않은 source는 그대로 fail-closed로 거부되며, 수용된 입력도 digest 결속을
+  유지한다.
+- TDD 근거: 대상 테스트 8/8 통과, 인접 quota suite 31/31 통과. 그 밖의 무관한 광범위
+  suite 결과는 주장하지 않는다.
+- Fable read-only 검토가 이 제한 범위 변경을 수용했다. live quota 정확도, 운영 준비
+  완료, credential·private·계정 상태 읽기는 주장하지 않는다.
+
+## 2026-08-15 - 업무메일 대용량 Google Drive 링크 전송 규칙
+
+- `MAIL_SEND_STYLE_POLICY_V0.md`의 첨부 선별 규칙 다음에 대용량 첨부파일 및 Google Drive 링크 전송 규칙을 추가했다.
+- 약 20MB 이하의 일반 첨부 우선, 초과 또는 반송 위험 시 전용 공유 폴더의 정확한 파일별 링크 사용, 뷰어 권한, 초안 단계 업로드 금지, 기밀자료 확인 중단선, 프로젝트 원본 비변경 원칙을 고정했다.
+- 기존 수신·참조·BCC·서명·보안문구 규칙과 외부 발송 승인 경계는 변경하지 않았다.
 
 ## 2026-08-15 - AX Context-to-Execution 북극성과 Plugin 경계 재확인
 
@@ -199,6 +330,208 @@
 - Moved Hiworks machine-local account/state/receipt paths into an ignored
   owner-root binding and pinned the scheduled runner to the exact forwarder
   bytes so worktree deployments fail closed instead of using stale code.
+## 2026-08-14 - Read-only AX-SE project assessment candidate
+
+- Canonicalized the M2 knowledge boundary after Owner review: one shared
+  deterministic AX-SE Engine consumes a Knowledge View containing exactly one
+  project plus explicitly allowlisted approved common revisions. Project source,
+  derived RAG/Wiki, context, and run payloads remain physically rooted in the
+  owning project view; common bytes remain single-owner and are reused by exact
+  revision/hash reference rather than copied.
+- Split M2 into ordered gates: document the boundary, implement and adversarially
+  validate project isolation on public synthetic data, run one Owner-frozen
+  manual zero-write context pilot, then add accepted-generation project RAG/thin
+  Wiki support. This contract does not activate live project reads, cross-project
+  body access, ERP writes, automatic Wiki promotion, or an LLM.
+- Added the M2-1 public-synthetic admission boundary in `guild_hall/shared`.
+  `selectProjectKnowledgeView` accepts exactly one project and an explicit common
+  revision set, then checks them against a separately supplied expected grant
+  reference whose canonical content binds the project, policy, common allowlist,
+  and declared roots before any root lookup.
+- Added a metadata-only physical-root resolver that requires selected roots to be
+  strict descendants of one containment root and requires project/common roots to
+  be disjoint. It never enumerates or reads their contents. Portable knowledge
+  scope fingerprints are separated from ephemeral local path-admission
+  commitments; neither grants project reads nor proves a live or production root.
+- Added the M2-2 public-synthetic Project Context pilot composition. A separately
+  pinned Owner-frozen pilot grant now binds the one-project Knowledge View, a
+  complete exact-reference manifest for project objective/evidence/risk/roster
+  material, explicit common-revision-to-policy-requirement projections, and the
+  unchanged role-bound AX-SE packet before the deterministic Engine is called.
+- Made the composition revalidate the delegated M2-1 result rather than trusting
+  its object shape: every emitted project, policy, common and grant reference is
+  exact, the grant must match the independently pinned inner grant, the common set
+  must remain an array, the portable scope fingerprint must be a closed SHA-256,
+  and the delegated authority/effect envelope remains validation-only and zero.
+- Added a two-flag zero-write M2-2 command candidate. It pins a canonical launch,
+  admits the Knowledge View before opening data, then stable-opens one canonical
+  packet by relative locator beneath the admitted project root. Its receipt is
+  payload-free and binds launch, packet, grant, project, manifest, common set,
+  roster, scope, and prepared output without paths or raw source identifiers.
+  This is not an actual-project run, source-body membership proof, freshness
+  acceptance, RAG/Wiki/LLM activation, ERP write, or TaskDriver authority.
+- Hardened that command's process and file seams: asynchronous stdout/stderr pipe
+  failures now close as `HOLD` without retry, launch and packet names are preflighted
+  as ordinary single-link files before nonblocking/no-follow open where supported,
+  root/ancestor identity is rechecked before size refusals, and its tests reclaim
+  every temporary directory they create. The POSIX FIFO execution case remains a
+  platform validation gate because this Windows host can only check that path
+  statically.
+- Updated the generated Engine topology for the M2-2 subject to 33 modules and
+  151 internal import edges, and the full Watchtower federation to 71 nodes
+  and 198 edges. Earlier 30/136 and 32/147 entries below remain historical M1
+  integration milestones rather than the current inventory.
+- Reclassified the earlier `qwen3.5:9b` choice as historical rather than the M2
+  runtime. M2 through the first pilot remains model-free; any later advisory LLM
+  requires a separate source-bound quality and data-egress decision.
+- Closed the follow-up isolation ambiguities: shared `_workspaces/knowledge/rag/**`
+  routes are common-only and project-specific writes are immediately `HOLD`;
+  NotebookLM/bookshelf presence cannot trigger an external query; chunk-bearing
+  common projections are ephemeral and non-persistable; and the old Qwen/Ollama
+  instructions are explicitly historical rather than an active M2 runtime.
+- Synchronized the two active RAG owner contracts with that boundary: every
+  older `_workspaces/knowledge/**` path/example is now governed by a common-only
+  override, while private project sources and derivatives require the owning
+  project root. The new M2-1 route validates only public-synthetic root metadata;
+  actual project reads remain `HOLD` until an Owner-frozen M2-2 packet and
+  independently trusted actual-root binding are accepted.
+- Propagated the same storage rule into the three-stage operating workflow,
+  extraction instructions, and bookshelf source-card description so an
+  executable old step cannot re-authorize a private project source in the
+  common warehouse.
+- Added a deterministic public subject that converts one exact source-bound project
+  snapshot, stage policy, and role list into the current SE stage, bounded
+  missing/unknown/conflict/risk issues, at most three mission candidates, a logical
+  role candidate or `HOLD`, and explicit done/HOLD conditions.
+- Added a directly hash-bound public synthetic fixture, fail-closed tests, and
+  `validate:engineering-engine-ax-se-project-assessment`. The subject creates no
+  permanent ID, TaskIntent, assignment, stage-clear decision, TaskDriver action,
+  filesystem/network/model call, ERP write, or canon promotion.
+- Reframed the roadmap around the read-only AX·SE judgment slice while preserving
+  dev-ERP as the deferred long-term integrated asset/operation surface. Existing
+  Context Graph/RAG/Wiki plans remain later context-support candidates; automatic
+  raw-to-Wiki/RAG/canon promotion stays `HOLD`.
+- Added `buildAxSeAssessmentInput` and `AX_SE_PROJECT_CONTEXT_PACKET_SCHEMA`, a
+  deterministic sealing entrance that binds one already sanitized,
+  requirement-bound context packet plus separately source-bound policy, logical
+  roles, and an expected exact project binding into the assessment input. It
+  canonicalises only unordered rows, computes the snapshot content SHA itself, and
+  refuses a caller-asserted snapshot hash, a cross-project packet, or a policy
+  mismatch. It reads no workspace or project-metadata plane, infers no requirement
+  status or missing fact, assigns nobody, and makes no live-current claim.
+- Added 26 focused tests covering the builder and the subject. Rejections stay
+  stable and echo no caller payload, and the raw assessment input path remains
+  valid.
+- Added the zero-write pilot CLI
+  `guild_hall/engineering_engine/tools/ax_se_project_assessment_runner.mjs`. It accepts
+  exactly `--packet`, one absolute local packet file, and `--packet-sha256`, pins the
+  exact raw packet bytes before any UTF-8/JSON interpretation, reads only one bounded
+  ordinary singly named file (packet 2 MiB, packet path 4096 chars, prepared result
+  4 MiB ceilings), and writes no output file. stdout carries one prepared canonical
+  assessment and stderr one closed payload-free receipt; a submitted receipt callback
+  is not an OS delivery claim.
+- Kept the command result separate from the domain state: command PASS is distinct from
+  domain HOLD/UNKNOWN/READY_FOR_OWNER_REVIEW, every gate/authority flag stays false, and
+  output stays candidate-only. The CLI makes no model, RAG, Wiki, ERP, TaskDriver,
+  network, or file-write call and does not discover, sanitize, or approve project data.
+- Extended `validate:engineering-engine-ax-se-project-assessment` to syntax-check the
+  assessment, roster, and role-bound subjects, both zero-write runners, and all five
+  test files; run all five test files; and verify the Engine manifest and topology.
+  Runner coverage is public synthetic/process/adversarial tests only; no actual
+  project pilot was executed and no live-current claim is made.
+- Synchronized Watchtower's allowlisted Engineering Engine topology adapter and
+  generated federated topology after the new AX·SE subject increased the declared
+  Engine inventory to 30 modules and 136 import edges.
+- Hardened the public pilot boundary after independent Level 3 review: embedded
+  local paths are refused anywhere in bounded input strings, a stage with no
+  applicable requirement is not presented as a clear candidate, incomplete
+  nanosecond file identity is unreadable, and direct invocation compares normalized
+  file URLs instead of raw argv spelling.
+- Refused duplicate lifecycle stage codes before two stages can share one risk
+  bucket, and normalized the Windows drive-letter spelling used only to decide
+  whether the runner is the direct entry module.
+- Stopped emitting the canon-owned `boss_clear_candidate` label from a projection
+  that cannot yet evaluate snapshot freshness or terminal provenance. Issue-free
+  stages, including `270_UNCLASSIFIED`, now remain `active`; stage clear and boss
+  candidacy stay behind their stronger evidence gates.
+- Renamed the unpublished command receipt field to the explicit
+  `canon_claim_ceiling`, documented caller-supplied logical roles as unbound routing
+  candidates rather than assignments, and made the focused validator compare the
+  committed Engine topology byte-for-byte with a fresh source emit.
+- Status remains candidate until independent Level 3 review and the full validators
+  pass; the Owner then selects one frozen/manual exact packet for a separate one-time
+  pilot, and accepted-context generation/freshness remains a later gate.
+- Closed that public deterministic boundary with focused 51/51 tests, the existing
+  SE-core and Watchtower suites, changed-path validation, and fresh Claude Opus B/V
+  acceptance. This acceptance does not cover an actual project, live freshness,
+  assignment, or a pilot execution.
+- Added the standalone public-safe `ax_se_project_role_roster.v0` module and synthetic
+  fixture. It binds logical roles to an exact project, source revisions, one exact
+  capability vocabulary, observation time, and coverage, computes its own immutable
+  roster ref, and states whether exclusivity is supportable. Partial/unknown coverage
+  and unknown routing never become unique-role evidence.
+- Kept the accepted assessment v0 byte-identical: the roster module is not yet an
+  input adapter. It grants no human identity, live availability, roster approval,
+  assignment, TaskIntent, ERP, or canon authority; that v1 integration and an
+  Owner-pinned manual pilot remain separate gates.
+- Added the separate pure `ax_se_project_role_bound_assessment.v1` subject, public
+  synthetic fixture, and fail-closed tests while preserving the accepted v0 subject,
+  v0 runner, and roster bytes. The full expected roster ref remains outside the
+  combined packet, and policy/roster capability-vocabulary refs must match exactly.
+- Incomplete roster coverage no longer blocks stage/gap observation and no longer
+  permits an overall ready result: role routing and the overall v1 resolution stay
+  `HOLD`. Capability matching is exact token equality only; vocabulary membership,
+  human identity, live availability, assignment, Task/ERP effects, and model/network/
+  filesystem authority remain explicitly unclaimed.
+- Resynchronized Watchtower's allowlisted Engineering Engine adapter and generated
+  federation after the role-roster and role-bound subjects brought the public Engine
+  inventory to 32 modules and 147 internal import edges.
+- Brought the existing zero-write role-bound v1 command runner under
+  `validate:engineering-engine-ax-se-project-assessment`. The validator now
+  syntax-checks three subjects and both runners and executes all five AX-SE test
+  files, so the role-bound runner and its test are no longer outside the focused
+  gate. Every previously covered check is retained in place.
+- Documented that runner in the Engine README as it is implemented: exactly five
+  flag/value pairs (`--packet`, `--packet-sha256`,
+  `--expected-role-roster-entity-id`, `--expected-role-roster-revision-id`,
+  `--expected-role-roster-content-sha256`), the expected roster ref supplied
+  independently of the packet, the raw-byte packet pin verified before any
+  UTF-8/JSON interpretation, one canonical assessment on stdout, and one closed
+  payload-free receipt on stderr whose gate flags are all false and whose effect
+  counts are zero. The receipt omits paths, source text, and raw roster identifiers
+  while committing the packet, full expected roster ref, assessment, prepared output,
+  and candidate count with hashes, byte counts, and an opaque handle. Correctly pinned
+  invalid UTF-8 and invalid JSON remain fail-closed, and distinct valid runs produce
+  distinct correlatable commitments.
+- Added the focused AX-SE validator to both root `validate` and root `done:check`, before
+  Watchtower, and locked that step ordering in the root acceptance-step tests.
+- Separated the M1 closeout scope — the public deterministic role-bound v1 subject,
+  its zero-write runner, the focused validator, and an independent Level 3 review
+  performed outside the implementing task — from M2, which owns the Project Context
+  Adapter v0 and one Owner-pinned frozen/manual zero-write pilot. Added the compact
+  target flow of common SE knowledge plus isolated project context into one bounded
+  packet, the model-free deterministic AX-SE Engine, an optional advisory LLM
+  explanation, and a later ERP gate.
+- Subordinated the Knowledge Assistant activation plan's body wording to its own
+  `HOLD` banner. The review verdicts and the phasing list are marked as a proposal
+  record rather than an approval, so no switch reads as immediately startable; LLM
+  and Wiki activation stays `HOLD` until the M2 pilot and a separate owner gate.
+- Closed the M1 public candidate boundary with fresh, separate Level 3 B and V
+  acceptance on the final pinned bytes. This accepts the deterministic role-bound
+  subject, zero-write runner, receipt correlation, and validator integration only;
+  it does not accept an actual-project pilot, live freshness, assignment, production
+  readiness, canon promotion, or M2. Repository-global `validate`/`done:check` green
+  is also not claimed because the tracked-scope path gate still stops on 50 unrelated
+  legacy violations, while the 28 changed files have zero path-policy violations.
+- Re-reviewed the unchanged Agent Boot Digest meaning against the current Lean Root
+  and revised roadmap, then regenerated its source manifest through the canonical
+  boot-digest guard. The digest remains a non-canonical bootstrap summary.
+- Regenerated the Engine byte manifest through the canonical
+  `guild_hall/engineering_engine/tools/emit_manifest.mjs`
+  emitter rather than hand-editing generated rows. No actual project was used. The
+  M2 runtime path makes no model or network call, ERP write, TaskDriver activation,
+  or project-data write; separately reported read-only external reviews are not part
+  of that runtime path.
 
 ## 2026-08-13 - Claude quota reset-unknown compatibility
 

@@ -4,14 +4,27 @@
 
 This document fixes the first Soulforge RAG implementation boundary.
 
+### M2 storage override (2026-08-14)
+
+This override governs every older `_workspaces/knowledge/**` command, example,
+and generic “private” path below. That root and `_workspaces/knowledge/rag/**`
+are project-agnostic-common only. A project source and every derived text,
+index, chunk, answer, trace, review, work card, Wiki, and run payload must stay
+under the owning `_workspaces/<project_code>/**` view. The present CLI has no
+M2 project-root binding, so its project-specific source-text/write route is
+`HOLD` until M2-1; a source-card grant or project label cannot reopen it.
+Existing project-coded shared-root artifacts are legacy migration inputs, not
+precedent for new writes.
+
 `guild_hall/rag` creates a metadata-only `rag_manifest_v0`, validates that the
 manifest does not contain source payloads, and can produce a first answer from
 manifest metadata with citations to graph nodes and source handles.
 
 The default path is not full source-text RAG. It is the safe bridge between the
 knowledge graph, future sourcebound retrieval, and later answer generation.
-Approved private source-text commands are a separate lane and may read only
-owner-approved `_workspaces/knowledge/**` source text.
+Approved common source-text commands are a separate lane and may read only
+owner-approved project-agnostic `_workspaces/knowledge/**` source text. Private
+project source-text commands remain `HOLD` until the M2-1 project-root route.
 
 Source-family promotion rules live in
 `docs/architecture/guild_hall/RAG_SOURCE_FAMILY_PROMOTION_POLICY_V0.md`. That
@@ -32,7 +45,7 @@ stages into one "RAG complete" claim.
 | `guild_hall/rag/**` | Manifest generator, validator, and metadata-only answer command. |
 | `guild_hall/knowledge_graph/**` | Metadata graph export, 3D/2D views, retrieval plan, and detection cards. |
 | `_workspaces/system/rag/**` | Generated metadata-only RAG output under the path-identity controlled system view. PC-local experiments must use `_workspaces/_local/<node_id>/system/rag/**`. |
-| `_workspaces/knowledge/**` | Owner-approved private source-text lane for source cards, approved source text, derived text, source-text indexes, and source-text answer proof runs. |
+| `_workspaces/knowledge/**` | Owner-approved project-agnostic common source-text lane for source cards, approved source text, derived text, source-text indexes, and source-text answer proof runs. Never a project payload root. |
 | `_workmeta/**` | Private evidence, source ledgers, review packets, and future sourcebound manifest fragments. |
 | `docs/architecture/guild_hall/**` | Public operating contracts and boundaries. |
 | `docs/architecture/workspace/examples/company_knowledge_intake/**` | Public-safe company knowledge intake packet template with placeholders only. |
@@ -145,10 +158,11 @@ It must not carry:
 - account IDs, conversation IDs, local host paths, secrets, or credentials;
 - real source locator payloads in public tracked files or `_workmeta`.
 
-If a later owner decision grants private source-text retrieval, only the
-separate source-text lane may read approved `_workspaces/knowledge/**` source
-text. The default metadata manifest, metadata index, trace/evaluation, and
-answer paths remain metadata-only.
+If a later owner decision grants common source-text retrieval, only the
+separate common source-text lane may read approved project-agnostic
+`_workspaces/knowledge/**` source text. Project source retrieval remains `HOLD`
+until the M2-1 project-root route. The default metadata manifest, metadata
+index, trace/evaluation, and answer paths remain metadata-only.
 
 ## Source Extraction Tooling Standard
 
@@ -158,10 +172,12 @@ the durable extraction authority.
 
 The standard flow is:
 
-1. keep the original source under `_workspaces/knowledge/**` or another
-   owner-approved worksite;
-2. run a local extraction worker that converts the source into rebuildable
-   Markdown, text, and structured metadata under `_workspaces/knowledge/**`;
+1. keep a project-agnostic common original under `_workspaces/knowledge/**`;
+   keep a project original inside its owning project view, where this CLI route
+   remains `HOLD` until M2-1;
+2. for the current common lane, run a local extraction worker that converts the
+   source into rebuildable Markdown, text, and structured metadata under
+   `_workspaces/knowledge/**`;
 3. record only metadata in `_workmeta/**`: source refs, hashes, tool ids,
    tool versions, page/slide/sheet counts, warnings, blocker codes, and output
    refs;
@@ -289,7 +305,8 @@ It must not contain:
 - runtime absolute paths.
 
 Any path-like ref stored by this lane is written relative to the Soulforge
-project root, such as `_workspaces/knowledge/...`. Machine-local absolute paths,
+repository root, such as the common-only `_workspaces/knowledge/...`.
+Machine-local absolute paths,
 home-directory paths, mount paths, and `file://` URLs are invalid because each
 computer can mount the shared project at a different location.
 
@@ -312,13 +329,15 @@ quality, or canon promotion. If no manifest evidence matches, it returns
 
 `source_text_index_v0` is separate from `rag_manifest_v0` and
 `rag_metadata_index_v0`. It can read only source cards and approved source text
-under `_workspaces/knowledge/**` whose card explicitly grants source-text
-retrieval, index build, and answer synthesis for that source.
+under the project-agnostic common `_workspaces/knowledge/**` owner whose card
+explicitly grants source-text retrieval, index build, and answer synthesis for
+that source. It is not a project-source route.
 
-Official public source cards may also grant downstream public-safe summary,
-ontology seed, NotebookLM packet membership, and registry entry creation. This
-is allowed when the source card records official source authority, for example
-an owner-approved DAPA/Korea.kr source. That stronger permission does not make
+Official public source cards may nominate downstream public-safe summary,
+ontology seed, NotebookLM packet, and registry-entry candidates. The card never
+completes those actions: each still requires the separate gate owned by
+`RAG_SOURCE_FAMILY_PROMOTION_POLICY_V0.md`. Official source authority, for
+example an owner-approved DAPA/Korea.kr source, does not make
 the source-text index public-repo safe: full source text, extracted text, chunk
 payloads, and answer-run payloads still stay under `_workspaces/knowledge/**`.
 Use `RAG_SOURCE_FAMILY_PROMOTION_POLICY_V0.md` to decide whether a source family
@@ -344,8 +363,10 @@ must pass the same ready manifest explicitly with `--ready-ref`. The indexer may
 read the derived text only after the ready manifest, source card, and file
 hashes match on the local PC.
 
-This lane may write private workspace payloads only when the command and source
-card explicitly allow them:
+This common-only lane may write private common workspace payloads only when the
+command and source card explicitly allow them. This shared lane never opens for
+project-specific use; that use remains `HOLD` until M2-1 provides a separate
+project-root route:
 
 - derived text under `_workspaces/knowledge/rag/derived_text/**`;
 - chunk indexes under `_workspaces/knowledge/rag/indexes_local/source_text_indexes/**`;
@@ -846,8 +867,9 @@ NotebookLM synthesis, public canon promotion, or source-text RAG.
 1. Extend graph lens projection with stronger per-project/per-workflow views and
    operator review queues.
 2. Add explicit owner-approved source-slice records for source-text access.
-3. Add the parser-first local extraction worker that writes derived Markdown,
-   text, and metadata under approved `_workspaces/knowledge/**` paths.
+3. Add the parser-first local extraction worker that writes common derived
+   Markdown, text, and metadata under approved `_workspaces/knowledge/**` paths;
+   project output requires the separate M2-1 project-root route.
 4. Add extraction workers that create source sync ready manifests as their final
    cross-PC handoff marker.
 5. Add BM25/vector indexes for approved source slices only.

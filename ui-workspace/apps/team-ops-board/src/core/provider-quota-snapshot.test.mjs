@@ -339,6 +339,32 @@ test("projection keeps prior evidence stale or holds unknown without fabricating
   });
 });
 
+test("sanitized Windows UIA Antigravity receipts are accepted, digest-bound, and stay closed-shape", () => {
+  const observation = antigravityObservation({ source_kind: "antigravity_windows_uia_receipt" });
+  const snapshot = createOfficialProviderQuotaSnapshot(observation, { nowMs: NOW_MS });
+
+  assert.equal(snapshot.source_kind, "antigravity_windows_uia_receipt");
+  assert.deepEqual(snapshot.limits.map((limit) => limit.limit_id), [
+    "antigravity_five_hour",
+    "antigravity_weekly",
+  ]);
+  assert.deepEqual(
+    validateOfficialProviderQuotaSnapshot(snapshot, { nowMs: NOW_MS }),
+    snapshot,
+  );
+  assert.throws(
+    () => validateOfficialProviderQuotaSnapshot({
+      ...snapshot,
+      source_kind: "antigravity_sanitized_local_receipt",
+    }, { nowMs: NOW_MS }),
+    { code: "provider_quota_digest_mismatch" },
+  );
+  assert.throws(
+    () => createOfficialProviderQuotaSnapshot({ ...observation, window_title: "synthetic-only" }, { nowMs: NOW_MS }),
+    { code: "provider_quota_observation_keys_invalid" },
+  );
+});
+
 test("inert snapshot library has no provider, process, filesystem, or configuration access", async () => {
   const source = await readFile(new URL("./provider-quota-snapshot.mjs", import.meta.url), "utf8");
   for (const forbiddenReference of [

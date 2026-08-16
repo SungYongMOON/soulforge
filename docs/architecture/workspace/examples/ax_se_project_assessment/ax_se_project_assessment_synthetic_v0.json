@@ -1,0 +1,195 @@
+{
+  "schema_version": "soulforge.ax_se_project_assessment_fixture.v0",
+  "input": {
+    "schema_version": "soulforge.ax_se_project_assessment_input.v0",
+    "policy_revision": "soulforge.ax_se_project_assessment_policy.v0",
+    "project_binding_ref": {
+      "entity_id": "synthetic-flight-control-project",
+      "revision_id": "synthetic-flight-control-project-r1",
+      "content_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "content_hash_alg": "sha256"
+    },
+    "objective_ref": {
+      "entity_id": "synthetic-flight-control-objective",
+      "revision_id": "synthetic-flight-control-objective-r1",
+      "content_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "content_hash_alg": "sha256"
+    },
+    "policy": {
+      "schema_version": "soulforge.ax_se_stage_policy.v0",
+      "policy_ref": {
+        "entity_id": "synthetic-se-lifecycle-policy",
+        "revision_id": "synthetic-se-lifecycle-policy-r1",
+        "content_id": "sha256:0325f2f931888bb5f2317a749d9bdd34cf520b832009a14ec2becda5b64e40f5",
+        "content_hash_alg": "sha256"
+      },
+      "stages": [
+        {
+          "stage_code": "030_SRR",
+          "stage_label": "System Requirements Review",
+          "sequence": 30,
+          "requirements": [
+            {
+              "requirement_id": "srr_objective_trace",
+              "requirement_kind": "baseline",
+              "required_capability": "systems_engineering",
+              "requirement_ref": {
+                "entity_id": "synthetic-srr-objective-trace",
+                "revision_id": "synthetic-srr-objective-trace-r1",
+                "content_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+                "content_hash_alg": "sha256"
+              },
+              "authority_family": "project_contract_baseline",
+              "applicability": true,
+              "valid_at": "2026-08-01T00:00:00.000Z",
+              "known_at": "2026-08-02T00:00:00.000Z"
+            },
+            {
+              "requirement_id": "srr_review_actions_closed",
+              "requirement_kind": "review",
+              "required_capability": "verification_review",
+              "requirement_ref": {
+                "entity_id": "synthetic-srr-review-actions",
+                "revision_id": "synthetic-srr-review-actions-r1",
+                "content_id": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+                "content_hash_alg": "sha256"
+              },
+              "authority_family": "company_approved_procedure",
+              "applicability": true,
+              "valid_at": "2026-08-01T00:00:00.000Z",
+              "known_at": "2026-08-02T00:00:00.000Z"
+            }
+          ]
+        },
+        {
+          "stage_code": "060_SFR",
+          "stage_label": "System Functional Review",
+          "sequence": 60,
+          "requirements": [
+            {
+              "requirement_id": "sfr_functional_baseline",
+              "requirement_kind": "baseline",
+              "required_capability": "systems_engineering",
+              "requirement_ref": {
+                "entity_id": "synthetic-sfr-functional-baseline",
+                "revision_id": "synthetic-sfr-functional-baseline-r1",
+                "content_id": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+                "content_hash_alg": "sha256"
+              },
+              "authority_family": "company_approved_procedure",
+              "applicability": true,
+              "valid_at": "2026-08-01T00:00:00.000Z",
+              "known_at": "2026-08-02T00:00:00.000Z"
+            }
+          ]
+        }
+      ]
+    },
+    "snapshot": {
+      "schema_version": "soulforge.ax_se_project_snapshot.v0",
+      "project_snapshot_ref": {
+        "entity_id": "synthetic-flight-control-snapshot",
+        "revision_id": "synthetic-flight-control-snapshot-r1",
+        "content_id": "sha256:60e1319238ba26c6d46e92538ad5549d82985e78d39e1d4256e1849dc73c5b28",
+        "content_hash_alg": "sha256"
+      },
+      "policy_ref": {
+        "entity_id": "synthetic-se-lifecycle-policy",
+        "revision_id": "synthetic-se-lifecycle-policy-r1",
+        "content_id": "sha256:0325f2f931888bb5f2317a749d9bdd34cf520b832009a14ec2becda5b64e40f5",
+        "content_hash_alg": "sha256"
+      },
+      "observations": [
+        {
+          "requirement_id": "srr_objective_trace",
+          "presence_state": "present",
+          "observation_attempt_ref": "observation:synthetic:srr-objective-trace",
+          "artifact_revision_ref": {
+            "entity_id": "synthetic-objective-trace-artifact",
+            "revision_id": "synthetic-objective-trace-artifact-r1",
+            "content_id": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "content_hash_alg": "sha256"
+          },
+          "valid_at": "2026-08-01T00:00:00.000Z",
+          "known_at": "2026-08-02T00:00:00.000Z",
+          "evidence_refs": [
+            {
+              "entity_id": "synthetic-objective-trace-evidence",
+              "revision_id": "synthetic-objective-trace-evidence-r1",
+              "content_id": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "content_hash_alg": "sha256"
+            }
+          ]
+        },
+        {
+          "requirement_id": "srr_review_actions_closed",
+          "presence_state": "absence_confirmed",
+          "observation_attempt_ref": "observation:synthetic:srr-review-actions",
+          "artifact_revision_ref": {
+            "entity_id": "synthetic-review-action-artifact",
+            "revision_id": "synthetic-review-action-artifact-r1",
+            "content_id": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+            "content_hash_alg": "sha256"
+          },
+          "valid_at": "2026-08-01T00:00:00.000Z",
+          "known_at": "2026-08-02T00:00:00.000Z",
+          "evidence_refs": [
+            {
+              "entity_id": "synthetic-review-action-scan",
+              "revision_id": "synthetic-review-action-scan-r1",
+              "content_id": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "content_hash_alg": "sha256"
+            }
+          ]
+        }
+      ],
+      "risks": [
+        {
+          "risk_id": "risk:synthetic:interface-ambiguity",
+          "risk_ref": {
+            "entity_id": "synthetic-interface-ambiguity-risk",
+            "revision_id": "synthetic-interface-ambiguity-risk-r1",
+            "content_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "content_hash_alg": "sha256"
+          },
+          "stage_code": "030_SRR",
+          "state": "open",
+          "severity": "high",
+          "required_capability": "risk_management",
+          "evidence_refs": [
+            {
+              "entity_id": "synthetic-interface-risk-evidence",
+              "revision_id": "synthetic-interface-risk-evidence-r1",
+              "content_id": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "content_hash_alg": "sha256"
+            }
+          ]
+        }
+      ]
+    },
+    "roles": [
+      {
+        "role_id": "risk_reviewer",
+        "availability_state": "available",
+        "capabilities": ["risk_management"]
+      },
+      {
+        "role_id": "systems_engineer",
+        "availability_state": "available",
+        "capabilities": ["systems_engineering"]
+      },
+      {
+        "role_id": "verification_reviewer",
+        "availability_state": "available",
+        "capabilities": ["verification_review"]
+      }
+    ]
+  },
+  "expected": {
+    "assessment_state": "HOLD",
+    "current_stage_code": "030_SRR",
+    "floor_status": "blocked",
+    "mission_kinds": ["disposition_open_risk", "close_confirmed_gap"],
+    "role_ids": ["risk_reviewer", "verification_reviewer"]
+  }
+}

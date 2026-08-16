@@ -4,6 +4,18 @@
 
 This policy makes Soulforge's RAG promotion rules source-family specific.
 
+### M2 storage override (2026-08-14)
+
+This override applies to every older generic workspace path in this document.
+`_workspaces/knowledge/**` and `_workspaces/knowledge/rag/**` are exclusively for
+project-agnostic common knowledge. Owner-approved private project sources and
+all of their derived text, indexes, chunks, answers, reviews, work cards, Wiki,
+and run payloads must remain under the owning `_workspaces/<project_code>/**`
+view. The current shared-root CLI is `HOLD` for project-specific sources and
+outputs until M2-1 supplies and tests the project-root binding. A source card or
+`--project-code` cannot override this storage boundary; existing project-coded
+shared-root assets are legacy migration inputs only.
+
 The owner should not need to read every document manually before Soulforge can
 classify it. Instead, the owner defines source families, default trust levels,
 allowed automatic promotion lanes, and stop conditions. Agents then apply the
@@ -26,9 +38,9 @@ Use the weakest supported state:
 | Level | Meaning | Typical owner surface |
 | --- | --- | --- |
 | `observed` | The material was found or inventoried, but source support is not enough. | `_workmeta/**` |
-| `source_canon` | The source identity/provenance is accepted for a bounded source family. | `_workspaces/knowledge/**` source card plus `_workmeta/**` evidence |
-| `source_supported` | A bounded claim is backed by accepted source refs, pages/chunks, and review metadata. | `_workspaces/knowledge/rag/**`, `_workmeta/**` |
-| `validated_private` | A private/workspace artifact is validated for bounded internal reuse. | `_workspaces/knowledge/**`, `_workmeta/**` |
+| `source_canon` | The source identity/provenance is accepted for a bounded source family. | Common source card in `_workspaces/knowledge/**`, or project source card in its owning `_workspaces/<project_code>/**`, plus `_workmeta/**` evidence |
+| `source_supported` | A bounded claim is backed by accepted source refs, pages/chunks, and review metadata. | Common or owning project RAG root plus `_workmeta/**` |
+| `validated_private` | A private/workspace artifact is validated for bounded internal reuse. | Owning project workspace (or project-agnostic common owner) plus `_workmeta/**` |
 | `canon_candidate` | A reusable knowledge entry is prepared but not yet registered. | `_workmeta/**`, private wiki candidate, or target owner draft |
 | `canon_entry` | The target owner surface has registered the entry with passing guards. | `.registry`, `.workflow`, `.party`, docs, or approved private wiki surface |
 | `rejected_or_blocked` | A required source, review, boundary, or owner-surface guard failed. | `_workmeta/**` |
@@ -88,8 +100,7 @@ Examples:
 
 - project plans, contracts, specifications, review notes, and customer or
   company documents;
-- owner-provided internal files under `_workspaces/<project_code>/**` or
-  `_workspaces/knowledge/**`;
+- owner-provided internal files under the owning `_workspaces/<project_code>/**`;
 - private source packets.
 
 Default authority:
@@ -103,7 +114,8 @@ Automatic lanes allowed without per-item owner prompt:
 
 - metadata inventory and source-card validation;
 - private source-text extraction/index when the source card grants retrieval
-  and the output stays in approved private workspace paths;
+  and the output stays inside the same owning project root; the current
+  shared-root CLI remains `HOLD` until M2-1;
 - project-local work-card route after citation/quality review;
 - private wiki candidate when private/raw/secret exclusion and claim ceiling
   are explicit.

@@ -1,5 +1,33 @@
 # guild_hall/shared
 
+## M2-1 Project Knowledge View admission (public-synthetic candidate)
+
+- `project_knowledge_view.mjs` selects exactly one project and an explicit set of
+  common revisions. A separately supplied expected grant ref must match a grant
+  whose canonical content binds the project, policy, common allowlist, and local
+  root declarations before filesystem metadata is consulted. The caller, not the
+  selector, owns the trusted provenance of that expected ref.
+- `knowledge_root_resolver.mjs` admits only normalized selected roots that are
+  strict descendants of one containment root. Selected project and common roots
+  must be physically disjoint. The resolver delegates only bounded filesystem
+  metadata probes; it never enumerates a directory or reads source bodies.
+- The portable knowledge-scope fingerprint is separate from the local admission
+  fingerprint. Local path commitments are ephemeral admission observations, not
+  root-content hashes, stable file identities, or publishable actual-project
+  authority evidence. Any later file read must reopen and revalidate identity.
+- This slice is Feature-OFF and public-synthetic. Project/common reads, retrieval,
+  Engine input, Wiki/RAG/ERP/TaskDriver writes, activation, and model calls remain
+  unauthorized. M2-2 requires an Owner-frozen packet and independent actual-root
+  binding before a zero-write project pilot.
+
+The M2-2 public-synthetic composition candidate lives in
+`../engineering_engine/subjects/ax_se_project_context_pilot.mjs`. It consumes this
+selector as an admission primitive but does not change or reinterpret the M2-1
+authority flags. A separately pinned pilot grant, complete project-source reference
+manifest, explicit common-to-policy bindings, and a root-bound stable packet read are
+required before the existing deterministic Engine is invoked. Actual project use is
+still a separate Owner gate.
+
 ## AI 작업 기록 공통 이벤트 v1
 
 - `ai_work_record_event.v1.schema.json`은 controlled wrapper/MCP/CLI/hook가

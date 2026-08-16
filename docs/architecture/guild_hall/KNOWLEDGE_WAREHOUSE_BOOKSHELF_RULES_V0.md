@@ -158,7 +158,9 @@ source_card:
 
 This warehouse card shape is a catalog/placement record. It is not identical to
 the RAG `soulforge.knowledge_source_card.v0` used by `guild_hall/rag`, which can
-point at extracted `.md`/`.txt` source text under `_workspaces/knowledge/**`.
+point at project-agnostic common extracted `.md`/`.txt` source text under
+`_workspaces/knowledge/**`. Project source cards must remain in the owning
+project view and cannot use the current shared-root RAG route before M2-1.
 RAG source cards may therefore use text-oriented values such as
 `source_kind: markdown_source_text` and more specific public-source labels, while
 the warehouse catalog card keeps durable Drive/NotebookLM placement vocabulary.

@@ -14,7 +14,7 @@ to all Soulforge code, workflow, party, project, or source-truth owners.
 | Google Drive `Soulforge_LLM_Wiki_Bookshelf/30_Domain_CANON/Soulforge_ontology/<ontology_release_id>/` | Canon owner for a reusable ontology package only when the release has owner approval, manifest, revision, hashes, source refs, classification, NotebookLM membership, and recovery evidence. |
 | `.registry/knowledge` | Public-safe, Git-tracked execution/search/automation projection of approved Drive ontology releases. It is not an independent replacement for the Drive release lineage. |
 | `_workmeta` | Metadata-only catalog: Drive IDs/paths/revisions, hashes, approval and review state, NotebookLM IDs/membership/query status, validation and recovery results. No package or source bodies. |
-| NotebookLM | Default advisory query bookshelf over approved source and ontology package membership. Important conclusions must trace to the connected source revision or approved package. |
+| NotebookLM | Optional advisory query bookshelf over approved source and ontology package membership inside an already bounded Knowledge View. It is not the default cross-project router. Important conclusions must trace to the connected source revision or approved package. |
 | Owner-approved company NAS target | One-way disaster-recovery copy of a Drive ontology release. It is not a jointly edited canon. |
 | OneDrive | Active/latest editable project work surface. It is not an ontology canon store. |
 | RAG, Obsidian, and graph views | Derived query and navigation views generated from approved sources or canon packages. |
@@ -71,8 +71,9 @@ newer unapproved Drive file or an unreviewed Git edit cannot win by timestamp.
 
 ## NotebookLM operating rule
 
-Approved knowledge questions should query the matching approved NotebookLM
-bookshelf first when one exists. A bookshelf is a query view, not a duplicate
+After one project and any explicit common collections have been fixed by the
+Knowledge View boundary, approved knowledge questions may query the matching
+approved NotebookLM bookshelf first when one exists and is allowed. A bookshelf is a query view, not a duplicate
 file store or approval authority. Record notebook ID, source ID, source
 revision/hash, purpose, and last synchronization state in
 `_BOOKSHELF_MANIFESTS` and `_workmeta`. Do not store answer bodies there.
@@ -80,6 +81,8 @@ revision/hash, purpose, and last synchronization state in
 NotebookLM output may identify a candidate relation or route. Before using an
 important conclusion, trace it to the connected source or package, run the
 sourcebound/review route, and keep the weakest supported claim ceiling.
+NotebookLM never widens project scope, enumerates another project, or supplies
+an implicit project/common fallback.
 
 ## Security boundary
 

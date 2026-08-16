@@ -47,6 +47,23 @@ when those PCs resolve the same `_workspaces/knowledge` coordination filesystem.
 
 ## Combination Rules
 
+- AX·SE knowledge use starts from one bounded Knowledge View: exactly one
+  project binding plus an explicit allowlist of approved common collection
+  revisions. A missing or multi-project binding, an unknown common collection,
+  or any foreign-project expansion fails closed before retrieval.
+- Project bodies and derived RAG/Wiki/runtime payloads remain under their owning
+  project root. Common source bytes remain under the common owner and are reused
+  by exact revision/hash reference, not copied into a project-specific canon.
+- Owner/global discovery is a safe metadata catalog, not a body-reading grant.
+  Catalog visibility must not reveal body, chunk, Wiki prose, private locator,
+  run payload, or unauthorized project existence.
+- The M2-1 public-synthetic admission candidate binds that cardinality and common
+  allowlist to a separately supplied expected grant ref. The grant's canonical
+  content binds the declared project, policy, common revisions, and local roots
+  before selected-root metadata is checked. This verifies a reference match and
+  local admission only; the caller remains responsible for sourcing the expected
+  ref from an independently trusted authority, and no body retrieval or actual
+  project approval follows from it.
 - Start with the smallest layer that matches the event: use the ledger helper for
   traceable public-safe reads, manual capture for reusable observations, and the
   sourcebound packet only when source intake/projection is actually in scope.

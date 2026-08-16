@@ -136,8 +136,8 @@ binding receipt+strict office LAN+explicit owner approval+Level 3 live gate 전�
 - 자연어 추론과 문서 작성 토큰: 팀원 개인 Codex 계정/구독에서 소비된다.
 - ERP MCP sidecar: LLM API를 호출하지 않으므로 별도 LLM 토큰을 소비하지 않는다.
 - ERP 서버: SQLite/HTTP/파일 저장 CPU·네트워크·디스크만 사용한다.
-- ERP 채팅 모델은 2026-07-23 owner 결정으로 `stub` 고정이며, 별도 RAG
-  세션만 `qwen3.5:9b`를 on-demand로 사용한다.
+- ERP 채팅 모델은 2026-07-23 owner 결정으로 `stub` 고정이다. 별도 RAG
+  세션의 `qwen3.5:9b`는 과거 후보 이력이며 현재 M2에서는 비활성·미선정이다.
 - MCP bearer는 계정별 256-bit random token이고 DB에는 SHA-256 hash만 저장한다.
   평문은 발급 응답에 한 번만 나타나며 각 팀원 PC의 환경변수에만 둔다.
 - 작업 세션·업로드 준비 요청은 bounded JSON 본문을 모두 받은 뒤 쓰기 직전에 bearer와

@@ -940,6 +940,198 @@ gold/oracle 노출, 자동 Task·승인·baseline 변경은 모두 범위 밖이
 npm run validate:engineering-engine-se-core-eval
 ```
 
+## AX·SE 프로젝트 평가 subject (active slice)
+
+`subjects/ax_se_project_assessment.mjs`는 exact source-bound project snapshot,
+stage policy, role 목록을 읽어 현재 engineering 상태를 candidate로 투영한다.
+
+- 출력은 현재 canonical stage, missing/unknown/conflict/risk issue, 최대 3개 mission
+  candidate, logical role candidate 또는 `HOLD`, done/HOLD 조건이다.
+- exact ref/hash drift는 거부한다. 관측되지 않았거나 불충분한 상태만 `UNKNOWN`이며,
+  명시적 부재 근거가 있을 때만 missing으로 분류한다.
+- model call, network call, filesystem write, ERP write가 없는 deterministic pure
+  function이다. TaskIntent 생성, TaskDriver 활성화, 사람 assignment, stage clear,
+  canon promotion을 하지 않는다.
+- `floor_status`는 `blocked` 또는 `active`만 낸다. 현재 input에는 snapshot freshness와
+  terminal provenance가 없으므로 `boss_clear_candidate`도 내지 않으며, `cleared`는 이
+  subject의 권한 밖이다.
+- 적용 가능한 requirement가 하나도 없는 stage policy는 판단 대상과 Boss Clear 근거가
+  없으므로 fail-closed 거부한다. 관측 0건을 `boss_clear_candidate`로 바꾸지 않는다.
+- `stage_code`는 lifecycle 안에서 유일해야 하며 두 stage가 한 risk bucket을 공유하도록
+  만드는 중복 policy는 거부한다.
+- RAG, Knowledge Graph, Wiki는 optional source/context support provider이며 필수
+  의존성이 아니다. Engine 판단에는 learned model이 필요하지 않다.
+- `AX_SE_PROJECT_CONTEXT_PACKET_SCHEMA`와 `buildAxSeAssessmentInput(request)`는 이미
+  sanitize되어 requirement에 묶인 context packet 하나와, 별도로 source-bound된 stage
+  policy, logical role 목록, 기대하는 exact project binding만 받아 `assessAxSeProject`가
+  읽는 input으로 봉인한다.
+- builder는 caller 의미가 없는 unordered row만 canonical 정렬하고 snapshot content SHA를
+  직접 계산한다. caller가 주장한 snapshot hash, 다른 project에 묶인 packet, packet과
+  policy의 ref 불일치는 거부한다.
+- builder는 `_workspaces`/`_workmeta`를 읽거나 sanitize하지 않고, requirement status나
+  missing을 추론하지 않으며, 사람을 배정하지 않고, live current 상태를 주장하지 않는다.
+- `roles`는 아직 caller-supplied logical routing 선언이며 별도의 source-bound roster가
+  아니다. 따라서 role candidate만 지지하고 사람·조직 배정 권한은 전혀 지지하지 않는다.
+- `subjects/ax_se_project_role_roster.mjs`는 그 다음 경계를 위한 독립 public-safe
+  module이다. exact project binding, source revision refs, capability vocabulary ref,
+  `valid_at`/`known_at`, coverage와 logical role routing state를 한 content-addressed
+  roster candidate로 봉인한다. `partial`/`unknown` coverage 또는 unknown routing은
+  exclusivity 근거가 아니며, 이 v0 module은 아직 assessment v0 입력에 연결되지 않는다.
+- role roster candidate도 사람 신원, live availability, 조직 승인, assignment,
+  TaskIntent, ERP write 또는 canon promotion을 증명하지 않는다. 실제 pilot은 roster와
+  assessment 사이의 별도 v1 binding 및 Owner가 고정한 exact refs 전까지 `HOLD`다.
+- `subjects/ax_se_project_role_bound_assessment.mjs`는 그 별도 v1 결합을 구현한다.
+  combined packet 밖의 full exact roster ref를 독립 pin으로 검증하고, packet 안에서
+  policy와 roster가 선언한 exact capability-vocabulary ref가 같은지도 확인한다.
+  capability token은 exact 문자열 일치로만 비교하며 vocabulary 본문 membership을
+  검증했다고 주장하지 않는다.
+- complete coverage와 known routing에서만 logical role candidate를 낸다. partial/unknown
+  coverage 또는 unknown routing에서도 stage/gap/risk 평가는 계속하지만 role routing과
+  전체 v1 resolution은 `HOLD`다. 이 logical projection은 사람 신원, 실제 가용성,
+  assignment, TaskDriver, ERP, model, network 또는 write authority를 만들지 않는다.
+  stage 자체의 미관측은 `resolution.stage_gap_state`에 `UNKNOWN`으로 보존하고, 최종 진행
+  가능 여부는 `resolution.overall_state`와 `assessment_state`에서 읽는다. 역할 결정은
+  `resolution.role_decisions_scope=emitted_mission_candidates_only`가 가리키는 최대 3개
+  mission candidate에만 적용된다.
+- v1에는 pure subject, public synthetic fixture와 아래의 별도 zero-write v1 command
+  runner가 있다. accepted v0 subject·v0 runner·roster bytes는 그대로 보존한다.
+  Owner-pinned actual-project 1회 pilot은 여전히 다음 별도 gate다.
+- raw assess input은 그대로 유효하며, builder는 frozen/manual pilot에서 더 안전한 봉인
+  입구다.
+
+`tools/ax_se_project_assessment_runner.mjs`는 이 subject의 zero-write pilot 명령 seam이다.
+
+- 인자는 정확히 두 개다: `--packet`(absolute local packet file 하나)과
+  `--packet-sha256`(그 파일 raw byte의 SHA-256 pin). packet 2 MiB, packet path 4096자,
+  prepared result 4 MiB의 상한을 넘으면 거부한다.
+- pin은 UTF-8 decode와 JSON parse 전에 exact raw byte 위에서 검증한다. packet은 bounded
+  ordinary singly named file 하나만 읽고, 출력 파일은 만들지 않는다.
+- stdout에는 prepared canonical assessment 하나, stderr에는 closed payload-free receipt
+  하나만 낸다. receipt의 `submitted`는 callback이 정상 반환했다는 뜻이지 OS delivery
+  보장이 아니다. stderr callback 실패 시 반환된 receipt는 제출을 시도한 원본이며,
+  `receiptSubmissionState: failed`와 exit 2를 함께 읽어야 하고 자동 재시도하지 않는다.
+- command PASS는 domain `HOLD`/`UNKNOWN`/`READY_FOR_OWNER_REVIEW`와 분리된 사실이다.
+  receipt의 gate/authority flag는 모두 false이고 `canon_claim_ceiling: observed`이며
+  출력은 candidate-only다.
+- model, RAG, Wiki, ERP, TaskDriver, network 호출과 file write가 없고, project 자료를
+  discover/sanitize/approve하지 않는다.
+
+```text
+node guild_hall/engineering_engine/tools/ax_se_project_assessment_runner.mjs \
+  --packet <absolute-packet-path> \
+  --packet-sha256 <64-hex-lowercase-sha256>
+```
+
+`tools/ax_se_project_role_bound_assessment_runner.mjs`는 role-bound v1 subject의 별도
+zero-write 명령 seam이다. v0 runner의 accepted bytes는 바꾸지 않는다.
+
+- 인자는 정확히 다섯 flag/value 쌍(argv 10개)이며 그 외 개수, 중복 flag, 미지 flag, 빈 값,
+  `--`로 시작하는 값은 모두 거부한다: `--packet`, `--packet-sha256`,
+  `--expected-role-roster-entity-id`, `--expected-role-roster-revision-id`,
+  `--expected-role-roster-content-sha256`. 두 sha256 값은 64자 lowercase hex여야 하고 두
+  roster 식별자는 bounded safe token이어야 한다.
+- 기대 roster ref는 packet 밖에서 독립으로 공급한다. runner는 그 세 값을
+  `{ entity_id, revision_id, content_id: "sha256:<hex>", content_hash_alg: "sha256" }`로
+  조립해 subject에 넘기고, roster binding 검증은 subject가 수행한다. runner는 roster를
+  읽거나 승인하지 않는다.
+- packet pin은 UTF-8 decode와 JSON parse 전에 exact raw byte 위에서 검증한다. packet은
+  bounded ordinary singly named file 하나만 읽으며 packet 2 MiB, packet path 4096자,
+  prepared result 4 MiB 상한을 넘으면 거부한다. 출력 파일은 만들지 않는다.
+- stdout에는 prepared canonical assessment 하나, stderr에는 closed payload-free receipt
+  하나만 낸다. receipt는 local path, raw roster identifier, source text를 담지 않는다.
+  대신 packet SHA-256·byte count, full expected roster ref의 domain-separated fingerprint,
+  assessment handle, prepared output SHA-256·byte count, mission candidate count를 기록해
+  서로 다른 run의 입력·roster·출력이 뒤섞이지 않게 결속한다. blocker는 closed
+  `AX_SE_ROLE_BOUND_COMMAND_*` code와 stage로만 보고한다. `submitted`는 callback이 정상
+  반환했다는 뜻이지 OS delivery 보장이 아니며, stderr callback 실패 시
+  `receiptSubmissionState: failed`와 exit 2를 함께 읽어야 하고 자동 재시도하지 않는다.
+- command PASS는 domain 결과와 분리된 사실이다. domain `HOLD`와 `UNKNOWN`도 성공한 평가
+  결과이며, receipt의 gate/authority flag(`stage_clear_allowed`, `owner_decision_made`,
+  `task_intent_created`, `roster_approved`, `human_identity_bound`,
+  `live_availability_claimed`)는 모두 false이고 `canon_claim_ceiling: observed`다.
+- effects는 명시적으로 0이다: `erp_writes`, `filesystem_writes`, `model_calls`,
+  `network_calls` 모두 0이고 `taskdriver_activated: false`,
+  `persistence.persistent_file_writes: 0`이다. model, RAG, Wiki, ERP, TaskDriver, network
+  호출과 file write가 없고 project 자료를 discover/sanitize/approve하지 않는다.
+
+```text
+node guild_hall/engineering_engine/tools/ax_se_project_role_bound_assessment_runner.mjs \
+  --packet <absolute-packet-path> \
+  --packet-sha256 <64-hex-lowercase-sha256> \
+  --expected-role-roster-entity-id <token> \
+  --expected-role-roster-revision-id <token> \
+  --expected-role-roster-content-sha256 <64-hex-lowercase-sha256>
+```
+
+### M2-2 Owner-frozen Project Context pilot (public-synthetic implementation candidate)
+
+`subjects/ax_se_project_context_pilot.mjs`는 M2-1 Knowledge View와 기존 role-bound
+AX·SE subject를 새 판단 엔진으로 복제하지 않고 한 번 결합하는 deep Interface다.
+
+- packet 밖에서 공급된 exact pilot-grant ref를 먼저 검증한다. 그 grant는 exact project,
+  M2-1 grant ref, expected role-roster ref, project-source manifest ref와 portable pilot
+  material fingerprint를 함께 결속한다. M2-1의 `synthetic_validation_only` 권한을 실제
+  read/Engine 권한으로 재해석하지 않는다.
+- `project_source_binding_manifest`는 objective, observation artifact/evidence/conflict source,
+  risk/evidence, roster source, capability vocabulary와 project로 분류된 policy requirement의
+  exact ref 전체를 닫는다. `common_projection_bindings`는 선택된 common revision을 실제
+  policy requirement ref에 명시적으로 연결한다. 모든 downstream ref는 project manifest와
+  approved common 집합 중 정확히 하나에 속해야 한다.
+- source body는 열지 않는다. manifest와 mapping은 Owner-frozen exact-reference attestation이며
+  source truth, source-file membership, freshness, terminal provenance 또는 live-current를
+  증명하지 않는다. 결과 claim ceiling은 `observed`이고 stage/assignment/Task/ERP/canon 권한은
+  모두 false다.
+- `tools/ax_se_project_context_pilot_runner.mjs`는 `--launch`와 `--launch-sha256` 두 flag만
+  받는다. Owner-frozen launch를 raw-byte pin과 canonical JSON으로 먼저 확인하고 M2-1 root
+  admission을 수행한 뒤, 그 project root 아래 relative locator의 packet 한 파일만 stable
+  handle로 읽는다. stdout은 canonical candidate result 하나, stderr는 path·raw ID·본문 없는
+  receipt 하나이며 자동 retry, output file, model/RAG/Wiki/ERP/TaskDriver call/write가 없다.
+- 현재 구현·시험 범위는 public-synthetic다. 실제 과제 launch, actual source body read,
+  accepted generation과 live activation은 Owner가 별도로 packet·grant·root provenance를
+  고정하기 전까지 `HOLD`다.
+
+```text
+node guild_hall/engineering_engine/tools/ax_se_project_context_pilot_runner.mjs \
+  --launch <absolute-owner-frozen-launch-path> \
+  --launch-sha256 <64-hex-lowercase-sha256>
+```
+
+public fixture와 focused validator:
+
+- `docs/architecture/workspace/examples/ax_se_project_assessment/ax_se_project_assessment_synthetic_v0.json`
+- `docs/architecture/workspace/examples/ax_se_project_assessment/ax_se_project_role_roster_synthetic_v0.json`
+- `docs/architecture/workspace/examples/ax_se_project_assessment/ax_se_project_role_bound_assessment_synthetic_v1.json`
+- `guild_hall/engineering_engine/tests/ax_se_project_assessment.test.mjs`
+- `guild_hall/engineering_engine/tests/ax_se_project_role_roster.test.mjs`
+- `guild_hall/engineering_engine/tests/ax_se_project_role_bound_assessment.test.mjs`
+- `guild_hall/engineering_engine/tests/ax_se_project_assessment_runner.test.mjs`
+- `guild_hall/engineering_engine/tests/ax_se_project_role_bound_assessment_runner.test.mjs`
+- `guild_hall/engineering_engine/tests/ax_se_project_context_pilot.test.mjs`
+- `guild_hall/engineering_engine/tests/ax_se_project_context_pilot_runner.test.mjs`
+- `npm run validate:engineering-engine-ax-se-project-context-pilot` — M2-2 pure composition과
+  two-flag zero-write command의 syntax·public-synthetic·adversarial 계약을 검증한다.
+- `npm run validate:engineering-engine-ax-se-project-assessment` — assessment·role-roster·
+  role-bound 및 M2-2 subject, 세 zero-write runner, 위 일곱 test 파일의 syntax check와
+  실행, engine manifest verify, committed topology와
+  현재 코드의 fresh emit byte equality까지 수행한다.
+- root `npm run validate`와 `npm run done:check`도 위 focused validator를 Watchtower보다
+  먼저 실행하므로, role-bound v1 runner나 receipt 계약이 루트 완료 경계를 우회할 수 없다.
+
+assessment v0와 그 pilot 명령 seam은 public deterministic candidate 경계에서 독립 Level 3
+검토까지 통과했다. role-roster v0, 이를 결합한 role-bound v1 pure subject, 그리고 위
+role-bound v1 zero-write runner까지 구현됐고 focused validator에 연결됐다.
+
+M1의 public deterministic role-bound AX·SE v1 subject, zero-write 명령 runner, focused
+validator와 fresh Level 3 B/V review는 닫혔다. 이 수락은 public
+synthetic/process/adversarial 경계에 한정하며 actual project pilot, live-current,
+assignment 또는 project-ready 수락을 뜻하지 않는다.
+
+현재 active slice는 M2 public-synthetic candidate다. Project Context Adapter v0와
+Owner-frozen/manual exact packet·roster pin을 결속하는 zero-write pilot command가 구현돼
+있지만, 실제 과제 실행은 exact launch/packet/grant/root provenance를 Owner가 별도로
+고정할 때까지 `HOLD`다. accepted-context generation/freshness와 terminal provenance는 그
+이후의 별도 gate로 남으며, 그 전에는 issue-free stage도 `active`다.
+
 ## kernel 이 하지 않는 것
 
 `kernel/index.mjs` 의 `NON_CAPABILITIES` 가 코드로 선언한다.
