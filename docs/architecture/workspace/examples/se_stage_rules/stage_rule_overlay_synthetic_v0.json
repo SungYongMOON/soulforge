@@ -1,0 +1,155 @@
+{
+  "fixture_id": "stage_rule_overlay_synthetic_v0",
+  "schema_version": "soulforge.se_stage_rule_compiler_fixture.v0",
+  "note": "Public-safe synthetic L2 overlay for compiled_variant_synthetic_v0.json. Every identifier, basis label, alias, instant and digest is invented for this file and names no actual project, contract, organisation or person. It carries one of each permitted operation: a condition that turns the conditional rules on, an addition the synthetic prime contract asked for, an alias that records the project's own slot name against the standard token, a not-applicable decision with an exact decision ref, and one operation aimed at a stage this compile does not target, which is skipped and counted rather than applied. The expected block is derived by hand.",
+  "overlay": {
+    "schema_version": "soulforge.se_stage_rule_overlay.v0",
+    "extends": {
+      "support_key": "synthetic_development__synthetic_prime__grade_a",
+      "spec_sha256": "624fcedba82ccf4712148a05a35518a68813849e94809d5ee90b6792de39fd88"
+    },
+    "ops": [
+      {
+        "op": "condition",
+        "token": "sw_included"
+      },
+      {
+        "op": "add",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "spec_linkage_table",
+        "label": "Synthetic prime-requested specification linkage table",
+        "evidence_level": "prime_contract",
+        "source_ref": {
+          "entity_id": "synthetic_prime_request_letter",
+          "revision_id": "rev_1",
+          "content_id": "sha256:f412e5a4b38323ec535db6fbcafa35aad95ffc12a8a6c84492866895deb59578",
+          "content_hash_alg": "sha256"
+        },
+        "basis": "synthetic_prime_request_item_04"
+      },
+      {
+        "op": "alias",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "pci",
+        "alias": "synthetic_slot_07_product_baseline"
+      },
+      {
+        "op": "mark_not_applicable",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "stp",
+        "basis": "synthetic_owner_decision_no_software_test_item",
+        "decision_ref": {
+          "entity_id": "synthetic_owner_decision",
+          "revision_id": "rev_1",
+          "content_id": "sha256:ebf39a105e1b0e2809a0ef5c7083d8e46cd12db27ad480e82c4fdc16e246e942",
+          "content_hash_alg": "sha256"
+        }
+      },
+      {
+        "op": "alias",
+        "stage_code": "240_LL",
+        "artifact_type_id": "lessons_learned",
+        "alias": "synthetic_slot_99_closeout"
+      }
+    ]
+  },
+  "expected": {
+    "note": "Derived by hand against the same target stages as the base fixture. The condition op turns sw_included on, so task 9004 keeps the full present rule its regulation basis gives it, while task 12006 stays at present_or_not_applicable because prime_contract never reaches present. The addition brings one new overlay row into 120_CDR, the alias records a project slot name without changing any rule, the not-applicable decision moves stp to a decided not-applicable, and the 240_LL alias is out of scope for this compile.",
+    "counts": {
+      "rows": 16,
+      "by_evidence_level": {
+        "regulation_mandated": 6,
+        "guidebook_recommended": 3,
+        "prime_contract": 2,
+        "internal_management": 4,
+        "unstated": 1
+      },
+      "by_presence_rule": {
+        "present": 5,
+        "present_or_not_applicable": 5,
+        "optional_context": 6
+      },
+      "engine_requirements": 10,
+      "not_applicable": 2,
+      "overlay_added": 1,
+      "overlay_aliases": 1,
+      "overlay_out_of_scope": 1,
+      "unmapped": 1,
+      "downgraded_unverified": 1
+    },
+    "engine_stage_codes": [
+      "090_PDR",
+      "120_CDR"
+    ],
+    "engine_requirement_ids": [
+      "090_PDR_hdd",
+      "090_PDR_icd",
+      "090_PDR_review_minutes_pdr",
+      "090_PDR_srs",
+      "120_CDR_dbdd",
+      "120_CDR_mra_report",
+      "120_CDR_pci",
+      "120_CDR_review_minutes_cdr",
+      "120_CDR_spec_linkage_table",
+      "120_CDR_stp"
+    ],
+    "not_applicable_requirement_ids": [
+      "120_CDR_mra_report",
+      "120_CDR_stp"
+    ],
+    "rows": [
+      {
+        "stage_code": "090_PDR",
+        "task_id": 9004,
+        "artifact_type_id": "icd",
+        "minimum_presence_rule": "present",
+        "origin": "variant",
+        "alias": null
+      },
+      {
+        "stage_code": "120_CDR",
+        "task_id": 12006,
+        "artifact_type_id": "dbdd",
+        "minimum_presence_rule": "present_or_not_applicable",
+        "origin": "variant",
+        "alias": null
+      },
+      {
+        "stage_code": "120_CDR",
+        "task_id": 12001,
+        "artifact_type_id": "pci",
+        "minimum_presence_rule": "present",
+        "origin": "variant",
+        "alias": "synthetic_slot_07_product_baseline"
+      },
+      {
+        "stage_code": "120_CDR",
+        "task_id": null,
+        "artifact_type_id": "spec_linkage_table",
+        "minimum_presence_rule": "present_or_not_applicable",
+        "origin": "overlay",
+        "alias": null
+      }
+    ],
+    "expected_artifact_families": [
+      {
+        "stage_code": "120_CDR",
+        "artifact_family_id": "stp",
+        "artifact_kind": "verification_planning_artifact",
+        "draftability_rule": "not_applicable",
+        "not_applicable_requires": [
+          "scoped_owner_decision_ref"
+        ]
+      },
+      {
+        "stage_code": "120_CDR",
+        "artifact_family_id": "spec_linkage_table",
+        "artifact_kind": "formal_document",
+        "draftability_rule": "draftable_with_sources",
+        "not_applicable_requires": [
+          "scoped_owner_decision_ref"
+        ]
+      }
+    ]
+  }
+}

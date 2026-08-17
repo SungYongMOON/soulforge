@@ -908,6 +908,7 @@ engine 이 소비하는 knowledge-supply provider 가 이미 같은 root 에 있
 ## 구성
 
 - `kernel/`: 결정론 kernel. 학습모델을 호출하지 않고, 공급된 값에 대한 순수 함수만 노출한다
+- `stage_rules/`: 단계 규칙 컴파일러. 폴더트리 variant(L1)와 과제 overlay(L2)를 세 소비자 표면으로 바꾸는 순수 함수만 둔다
 - 영수증은 4종을 구분해 쓴다: topology delivery(간선 통과) · MCP idempotency 응답(재시도) · Context Request 영수증 · Context Response 영수증. 서로 대신하지 못하며 소유 모듈이 다르다
 - `contracts/`: Phase 1-0 공통 계약과 lane 계약
 - `fixtures/`: 합성 fixture
@@ -939,6 +940,40 @@ gold/oracle 노출, 자동 Task·승인·baseline 변경은 모두 범위 밖이
 ```text
 npm run validate:engineering-engine-se-core-eval
 ```
+
+## 단계 규칙 컴파일러 (`stage_rules/`)
+
+`stage_rules/`는 "어느 단계에 어떤 산출물이 있어야 하는가"의 단일 원천을 읽어 세 소비자
+표면으로 바꾸는 순수 함수를 소유한다. 규칙을 새로 만들지 않는다. 설계 정본은
+`docs/architecture/workspace/SE_STAGE_RULE_SOURCE_MODEL_V0.md`다.
+
+- `artifact_vocabulary.mjs`: 산출물 표준어 토큰(`artifact_type_id`), 계열, 표시 이름,
+  기본 capability. 과제별 폴더명·발주처 슬롯명은 두지 않는다(D44).
+- `stage_rule_compiler.mjs`: `compileStageRules(request)`가 compiled variant(L1) +
+  overlay(L2) + project binding을 받아 `se_stage_expected_artifact_policy_v0` 인스턴스,
+  엔진 `soulforge.ax_se_stage_policy.v0` stage material, Needs 정책 stage·어휘 선언,
+  mapping table, 영수증을 결정론적으로 낸다. `mintEnginePolicyRef`는 엔진의 policy_ref
+  digest 규칙을 그대로 재현한다.
+
+경계:
+
+- fs, clock, random, env, network를 쓰지 않는다. import graph 전체가 `node:crypto` 하나만
+  bare로 쓰며 static effect pin 시험이 이를 고정한다. 파일 읽기·쓰기는 호출자 몫이고 CLI는 두지 않는다.
+- overlay는 `add`·`alias`·`mark_not_applicable`·`condition`만 할 수 있다. evidence level을
+  올리거나 바꾸는 연산은 D45에 따라 거부한다.
+- 정본 대조 결과가 `unverified`·`unsupported`·`contradicted`이거나 아예 없는 규칙은
+  `optional_context`로 낮추며, 낮추기만 하고 올리지 않는다.
+- `optional_context` 행과 고정 내부 폴더는 엔진 requirement로 내보내지 않는다. gap scan
+  정책과 mapping table에는 그대로 남는다.
+- stage clear, Task 생성, 승인, canon 승격 권한은 없다. 영수증의 effect는 전부 0이다.
+
+범위 검증:
+
+```text
+npm run validate:se-stage-rules
+```
+
+public-safe 합성 fixture는 `docs/architecture/workspace/examples/se_stage_rules/`에 있다.
 
 ## AX·SE 프로젝트 평가 subject (active slice)
 

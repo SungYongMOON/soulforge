@@ -37,6 +37,8 @@
   Expected/Observed 비교로 Snapshot·Finding·Missing/Unknown·Context Request 후보를 만들고,
   `rag/`·`knowledge_graph/`·`knowledge_access/`·`knowledge_canon/` 을 adapter 계약으로만 소비한다.
   Phase 1–4 baseline 은 `deterministic_only` 이며 학습모델을 호출하지 않는다.
+  `stage_rules/` 는 폴더트리 variant 와 과제 overlay 를 gap scan 정책·엔진 stage policy·Needs
+  정책 어휘로 바꾸는 순수 컴파일러를 소유하며 규칙을 새로 만들지 않는다.
   프로젝트 원문·계약서·source PDF·snapshot payload·secret 은 두지 않는다
 - `requirement_trace/`: 요구사항 추적(RTM) 커버리지 계산의 결정론 순수 함수 owner.
   `engineering_engine/kernel/` 어휘를 재사용해 커버리지 셀·요구 상태·고아 관측·게이트 준비도와
