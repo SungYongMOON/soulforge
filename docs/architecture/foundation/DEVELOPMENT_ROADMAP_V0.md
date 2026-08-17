@@ -1043,6 +1043,20 @@ source upload, 자동 answer 회수, accepted context, P5/P6/P7/P8, ERP Task, ru
 - OpenClaw 는 원본 repo 접근이 아니라 snapshot bridge 이후에 다시 판단한다.
 - UI polish 보다 read-only data contract 를 먼저 잠근다.
 
+## 계획 대비 변경 기록 (plan delta log)
+
+계획서(마스터플랜·이 로드맵)와 실제로 만들어진 것 사이의 차이를 사람이 추적할 수 있게 남기는 표다.
+행은 append만 하고, 각 행은 "계획이 말한 것 → 실제로 한 것 → 차이·이유 → 근거"를 짧게 적는다.
+raw 산출물·private 수치는 `_workmeta` 영수증을 가리키고 여기엔 상태값과 public ref만 둔다.
+
+| 날짜 | 계획 항목 | 계획이 말한 것 | 실제로 한 것 | 차이·이유 | 근거 |
+| --- | --- | --- | --- | --- | --- |
+| 2026-08-17 | M2-2 첫 실제 pilot | Owner-frozen launch/packet/grant/root 고정 뒤 수동 zero-write pilot 1회 | KVDS(P26-014) packet(120_CDR 14 requirement·관측 5·논리 역할 6·common 1)으로 runner 1회 PASS, domain UNKNOWN | 관측 5건은 사람이 폴더 1곳에서 손으로 넣음(자동 공급은 P4 몫); 로드맵 순서 그대로 | private run `ax_se_project_context_pilot_20260817_01`; 마스터플랜 CURRENT 표 "맥락·세계수·할일" 행 |
+| 2026-08-17 | PDF 근거 읽기(admission+tracer) | Feature-OFF 합성 검증만 | 실제 KVDS 계약자료 텍스트 PDF 2건 admission+tracer 각 1회 PASS(인용 3+3) | 8-16 HOLD 원인은 driver의 상대경로 launchPath였음(프로그램 결함 아님) → 절대경로 preflight를 driver 규칙으로 고정 | private run `project_pdf_rag_pilot_20260817_01` |
+| 2026-08-17 | MCP(내려받기·올리기·검토·승인) | 계획에 MCP 단계 번호 없음(P5D·P8·AX01/AXCP01·D28/D29/D35에 분산) | 개인 ERP MCP에 feature-OFF 조회 확장 3종(agenda no-due bucket, reviewer read-only, audit token ref) 착지 `main@8d702252`; 승인/거부 MCP는 D04로 미구현 | 계획이 비워둔 "검토자 read-only"를 앞당김(활성화는 여전히 D28/D29·Owner) | CHANGELOG 2026-08-17 항목, ERP-MCP-V0.md |
+| 2026-08-17 | 과제 맥락 메모리 구조(Owner 질문) | 계획에 결정 없음(PROJECT_CONTEXT_GRAPH_MODEL·M2-3A만) | 설계 초안 `PROJECT_REQUIREMENT_TRACE_MODEL_V0.md`(DRAFT/canon_candidate): 사실 원장+재생 투영+수락 게이트+얇은 카드, Graph DB 미도입 트리거, RTM 계산 규칙, D37~D41 제안 | 새 결정 항목 D37~D41 제안(Owner 승인 전 후보) | 해당 문서 |
+| 2026-08-17 | 마스터플랜 문서 정합 | CURRENT 표 유지 지침 :99-111 | :30 CURRENT 셀 08-17 보정, :56 HISTORICAL 태그, C09A evidence 정정, 남은 운영 게이트에 P6 삽입 | 07-31 이후 갱신 누락분 정정 | 이 커밋 |
+
 ## 갱신 규칙
 
 - 큰 우선순위가 바뀌면 이 문서를 먼저 갱신한다.

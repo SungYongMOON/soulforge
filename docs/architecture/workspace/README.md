@@ -21,6 +21,7 @@
 | `PROJECT_LEDGER_UPDATE_V0.md` | 주기적으로 전달되는 회사 PJT 관리 대장을 private source 로 받아 project registration 을 갱신하는 public-safe 절차다. |
 | `COMPANY_COMMON_SOURCE_STORAGE_V0.md` | 회사 공통 조직/연락처/자리배치/운영 참조 자료를 project worksite 와 분리해 knowledge common source packet 으로 보관하는 규칙이다. |
 | `PROJECT_KNOWLEDGE_EXTRACTION_STORAGE_V0.md` | 프로젝트 지식 추출(장서목록·본문추출·추출 메타)의 저장 위치를 `project_code` 단위로 격리해 고정하고, `HWP_NORMALIZATION`/`COMPANY_COMMON` 을 모든 문서 형식으로 일반화하며 `_local` 임의 폴더를 금지하는 규칙이다. |
+| `PROJECT_REQUIREMENT_TRACE_MODEL_V0.md` | (DRAFT/canon_candidate) 과제 맥락 = append-only 사실 원장 + 재생 가능한 타입 그래프·RTM 투영 + 별도 수락 게이트 + 얇은 카드; 계약 요구 ID→파생→산출물→시험 커버리지 계산 규칙과 Graph DB 도입 트리거를 고정한다. `PROJECT_CONTEXT_GRAPH_MODEL_V0.md`의 SE 확장. |
 | `VOICE_CAPTURE_MVP_V0.md` | MacBook Air 상주형 로컬 음성 수집 MVP 의 `_workspaces` raw payload 경계와 `_workmeta` metadata-only handoff 규칙이다. |
 | `VOICE_RECORDING_LIBRARY_V0.md` | 녹음 session 을 전체 보관함과 프로젝트 route 후보로 등록하는 metadata-only 색인 규칙이다. |
 | `DAILY_WORK_LEDGER_TAXONOMY_V0.md` | 일일 업무장부의 회사 프로젝트, P00 회사 일반업무, Soulforge 하위 장부 분류 기준이다. |
@@ -88,6 +89,7 @@
 - [`PROJECT_LEDGER_UPDATE_V0.md`](PROJECT_LEDGER_UPDATE_V0.md)
 - [`COMPANY_COMMON_SOURCE_STORAGE_V0.md`](COMPANY_COMMON_SOURCE_STORAGE_V0.md)
 - [`PROJECT_KNOWLEDGE_EXTRACTION_STORAGE_V0.md`](PROJECT_KNOWLEDGE_EXTRACTION_STORAGE_V0.md)
+- [`PROJECT_REQUIREMENT_TRACE_MODEL_V0.md`](PROJECT_REQUIREMENT_TRACE_MODEL_V0.md)
 - [`VOICE_CAPTURE_MVP_V0.md`](VOICE_CAPTURE_MVP_V0.md)
 - [`VOICE_RECORDING_LIBRARY_V0.md`](VOICE_RECORDING_LIBRARY_V0.md)
 - [`DAILY_WORK_LEDGER_TAXONOMY_V0.md`](DAILY_WORK_LEDGER_TAXONOMY_V0.md)

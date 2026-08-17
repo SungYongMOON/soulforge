@@ -1,5 +1,36 @@
 # CHANGELOG
 
+## 2026-08-17 - Requirement trace model draft, plan delta log, master plan CURRENT sync
+
+- Added `docs/architecture/workspace/PROJECT_REQUIREMENT_TRACE_MODEL_V0.md`
+  (`DRAFT / canon_candidate / claim_ceiling: observed`): the answer to the
+  Owner question "how should per-project context be managed — memory or graph?".
+  Decision: append-only bitemporal fact ledgers (source-local owners kept) +
+  deterministically replayable typed graph/RTM projections + a separate
+  accepted-generation gate + thin sourcebound cards; LLM/vector memory stays a
+  candidate layer; no Graph DB now (explicit triggers listed). It extends
+  `PROJECT_CONTEXT_GRAPH_MODEL_V0.md` without changing owners, writers, or
+  roots, adds three new relation types for the relation matrix, RTM coverage
+  pseudocode reusing the engine vocabulary, a 4-week R1~R4 plan, and proposed
+  Owner decisions D37~D41. Registered in `docs/architecture/workspace/README.md`.
+- Added a "계획 대비 변경 기록 (plan delta log)" section to
+  `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md` so plan-vs-built
+  differences stay traceable (first rows: M2-2 first actual pilot, PDF
+  admission+tracer actual run, ERP MCP feature-OFF extensions, memory-structure
+  design draft, master plan sync).
+- Master plan (`TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md`) CURRENT sync:
+  latest-observation cell now carries the 2026-08-17 state ahead of the 07-31
+  text, the 2026-07-27 file inventory row is tagged `HISTORICAL_SUPERSEDED`,
+  the 맥락·세계수·할일 row records the accepted M2-2 candidate and the first
+  actual KVDS pilot (command PASS / assessment UNKNOWN), C09A evidence text no
+  longer claims `task_engine_inventory.mjs` is absent, and the remaining
+  operating gates list P6 TaskIntent between P5 and TaskDriver promotion.
+- Operational impact: documentation only; no code, runtime, binding, or
+  writer change. Private run receipts referenced by id only.
+- authorship: design draft by Claude Opus 5 (subagent), structural review and
+  integration by Claude Fable 5.
+- Revision: the Git commit containing this entry owns the exact revision.
+
 ## 2026-08-17 - ERP MCP feature-OFF query extensions: agenda no-due bucket, reviewer read-only surfaces, audit token reference
 
 - Added three independently flagged read-only extensions to the dev-ERP MCP
