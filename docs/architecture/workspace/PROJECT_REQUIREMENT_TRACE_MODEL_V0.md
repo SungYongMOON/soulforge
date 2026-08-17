@@ -560,6 +560,14 @@ MCP·플러그인은 `_workmeta`를 직접 순회하거나 쓰지 않는다. 클
 | **D40**(신규) | 중복·상위판 판정 authority | 중복 exact 884건은 동일 `content_id`이므로 `observation`만 추가하고 새 revision 만들지 않음. 상위판 불확실 15군은 **자동 병합 금지**, conflict로 보존 | R2 |
 | **D41**(신규) | Graph DB 도입 트리거와 backup/restore 분류 | §4.4 트리거 전 미도입. 도입 시 `guild_hall/backup_controller` 분류와 synthetic restore gate 선행 | R4 이후 |
 
+### 8.2 결정 기록
+
+| ID | 상태 | 결정일 | 결정 내용 | 근거 |
+| --- | --- | --- | --- | --- |
+| D37 | **decided** | 2026-08-17 | 제안 기본값 채택. 자동 추출 요구 ID는 `observed` candidate만이며 확정은 사람(Owner/담당) | Owner 채팅 승인(설명 요청 후 "동의해 진행해줘") |
+| D38 | **decided** | 2026-08-17 | 제안 기본값 채택. Needs 선언은 기존 `stage_expected_artifact_policy` 확장으로 두고 새 정책 store·새 정본 없음. 미선언은 `gap_unknown` | 같은 승인 |
+| D39·D40·D41 | open | — | R2 이후 필요 시점에 요청 | — |
+
 ---
 
 ## 9. 대안 비교
