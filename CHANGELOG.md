@@ -1,5 +1,66 @@
 # CHANGELOG
 
+## 2026-08-17 - Requirement coverage pure function (R1)
+
+- Added `guild_hall/requirement_trace/`, a new `guild_hall` child that owns the
+  deterministic coverage calculation of
+  `docs/architecture/workspace/PROJECT_REQUIREMENT_TRACE_MODEL_V0.md` §5.3.
+  `computeRequirementCoverage(input)` takes requirements, needs, coverage
+  observations, risks, stages, and the two query cutoffs as plain data and
+  returns one deep-frozen projection — coverage cells, requirement states,
+  orphan observations, stage readiness, counts — with a payload-free receipt.
+- Effects are zero by construction: no filesystem, clock, network, model,
+  process, or persistence access anywhere in the module or in the kernel files it
+  imports, and a regression test walks that import graph to keep it that way.
+  Because the host clock is never read, `valid_at` and `known_at` are inputs, and
+  a replay of the same rows at the same cutoffs reproduces the same digests.
+- Fail-closed behaviour is the point of the slice: an unobserved need is
+  `gap_unknown`, a ref naming no revision is refused as `AX_SE_REFERENCE_INVALID`
+  rather than read as "latest", two sources disagreeing stay `gap_conflict`
+  instead of folding into an absence or a coverage claim, an undeclared Needs set
+  is `gap_unknown`, coverage of a superseded requirement revision is
+  `gap_unknown` with reason `coverage_revision_stale`, and an observation
+  covering a requirement outside the baseline is counted as
+  `unexpected_observed` rather than deleted. Gate readiness produces only
+  `UNKNOWN` / `HOLD` / `READY_FOR_OWNER_REVIEW` over `blocked` / `active`;
+  `cleared` and `boss_clear_candidate` are never minted here.
+- Controlled vocabularies (`GAP_TYPE`, `PRESENCE`, `RESOLUTION`,
+  `AUTHORITY_FAMILIES`, `APPLICABILITY`, canonical serialisation, and the exact
+  ref identity key) are imported from `guild_hall/engineering_engine/kernel/`
+  rather than restated, so a value renamed there cannot silently diverge.
+- Added the public-safe synthetic fixture
+  `docs/architecture/workspace/examples/project_requirement_trace/requirement_coverage_synthetic_v0.json`
+  (6 requirements, 8 needs, 7 observations, 1 risk, 2 stages, plus the
+  hand-derived expected projection). It names no actual project, contract,
+  organisation, or person and carries no document text. No actual project
+  material was read for this change.
+- Added the three §2.2 relations (`requirement_revision needs artifact_type`,
+  `artifact_revision covers requirement_revision`,
+  `artifact_revision verifies requirement_revision`) to
+  `docs/architecture/foundation/ONTOLOGY_RELATION_MATRIX_V1.md` as an explicitly
+  marked `canon_candidate` subsection, kept separate from the registered
+  relations above it.
+- Owner decisions D37–D41 remain open. They appear here only as input contract
+  and are named as candidates in `guild_hall/requirement_trace/README.md`; this
+  change settles none of them.
+- Scope `HOLD`: the JSONL ledger writers, the `projections/rtm/` generation
+  materialiser, the engine packet emitter, the ERP read model, and any actual
+  project requirement data. Those are R2–R4 and no writer, persistence surface,
+  or activation is added by this entry.
+- Verification: `npm run validate:requirement-trace` passes 18/18.
+  `npm run validate` remains at its pre-existing state — the path-policy step
+  still reports the same 48 tracked-scope violations it reported before this
+  change, none of them in the files added here.
+- authorship: implemented by Claude Opus 5; review by Claude Fable 5 is pending
+  and no review verdict is claimed by this entry.
+- Related paths: `guild_hall/requirement_trace/requirement_coverage.mjs`,
+  `guild_hall/requirement_trace/requirement_coverage.test.mjs`,
+  `guild_hall/requirement_trace/README.md`,
+  `docs/architecture/workspace/examples/project_requirement_trace/requirement_coverage_synthetic_v0.json`,
+  `docs/architecture/workspace/PROJECT_REQUIREMENT_TRACE_MODEL_V0.md`,
+  `docs/architecture/foundation/ONTOLOGY_RELATION_MATRIX_V1.md`, and
+  `guild_hall/README.md`.
+
 ## 2026-08-17 - Requirement index profile `kr_defense_spec_v0_1`
 
 - Added a second seam-owned recognition profile, `kr_defense_spec_v0_1`, to
