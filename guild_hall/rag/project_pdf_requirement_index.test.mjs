@@ -67,9 +67,13 @@ const READ_GRANT_AUTHORITY_CEILING = "single_pdf_candidate_extraction_only";
 const MEDIA_TYPE = "application/pdf";
 const RELATIVE_LOCATOR = "documents/spec.pdf";
 
-// The one profile this seam implements, and the domain its identifier roll-up is
-// computed under. Both are restated so a renamed constant cannot pass silently.
+// The two profiles this seam implements, and the domain its identifier roll-up
+// is computed under. All three are restated so a renamed constant cannot pass
+// silently. `v0` is frozen by every expectation below it; `v0_1` narrows the
+// title rule and adds the mention, malformed label and identifier family
+// diagnostics measured on a real requirement sheet.
 const PROFILE_ID = "kr_defense_spec_v0";
+const PROFILE_V0_1_ID = "kr_defense_spec_v0_1";
 const IDS_FINGERPRINT_DOMAIN = "soulforge.project_pdf_requirement_index.ids.v0";
 
 // The seam's own fixed bounds. Nothing in the request names them, so they exist
@@ -77,6 +81,9 @@ const IDS_FINGERPRINT_DOMAIN = "soulforge.project_pdf_requirement_index.ids.v0";
 const MAX_ROWS = 5000;
 const MAX_TITLE_CHARS = 120;
 const MAX_LABEL_GAP_CODE_UNITS = 64;
+// The `v0_1` unit bound: a bracket group this short and this plain is a unit or
+// a symbol, not the requirement's own title.
+const MAX_UNIT_BRACKET_CHARS = 4;
 
 function exactRef(seed) {
   const token = String(seed).padStart(12, "0");
@@ -1049,7 +1056,7 @@ test("refuses every malformed request before admission opens one file", async ()
     };
 
     // The profile is a closed list, not a caller supplied rule set.
-    assert.deepEqual([...REQUIREMENT_INDEX_PROFILES], [PROFILE_ID]);
+    assert.deepEqual([...REQUIREMENT_INDEX_PROFILES], [PROFILE_ID, PROFILE_V0_1_ID]);
     assert.equal(Object.isFrozen(REQUIREMENT_INDEX_PROFILES), true);
     await refuse({ ...ok(), profileId: "kr_defense_spec_v1" });
     await refuse({ ...ok(), profileId: "" });
@@ -1058,6 +1065,15 @@ test("refuses every malformed request before admission opens one file", async ()
     await refuse({ ...ok(), profileId: null });
     await refuse({ ...ok(), profileId: 7 });
     await refuse({ ...ok(), profileId: ["kr_defense_spec_v0"] });
+
+    // A near miss of the second profile is not the second profile. Adding one
+    // profile may not turn a misspelling of it into a silently accepted rule set.
+    await refuse({ ...ok(), profileId: "kr_defense_spec_v0.1" });
+    await refuse({ ...ok(), profileId: "kr_defense_spec_v01" });
+    await refuse({ ...ok(), profileId: "kr_defense_spec_v0_2" });
+    await refuse({ ...ok(), profileId: PROFILE_V0_1_ID.toUpperCase() });
+    await refuse({ ...ok(), profileId: `${PROFILE_V0_1_ID} ` });
+    await refuse({ ...ok(), profileId: [PROFILE_V0_1_ID] });
 
     await refuse({ ...ok(), launchPath: "" });
     await refuse({ ...ok(), launchPath: 7 });
@@ -1310,6 +1326,412 @@ test("carries no planted marker out of a passing or a refused receipt", async ()
   }
 });
 
+// ---------------------------------------------------------------- v0_1 profile
+
+// The second profile, stated against the shapes a real requirement sheet
+// actually carries. Page one defines two identifiers of one family: the first
+// block carries a bracket standing in front of the `요구사양` label and a `[mm]`
+// unit behind it, and the second carries a `[kg]` unit ahead of its own title,
+// so `v0` reads the wrong bracket in both blocks. Page two defines nothing: it
+// mentions a never defined identifier twice, mentions one that page one defines,
+// and ends on an identifier label no well formed identifier follows.
+const V0_1_PAGE_ONE_LINES = [
+  "7.1.1. 예인항목",
+  "식별자",
+  "R-TB_PETB-HMR-001",
+  "[전단제목]",
+  "요구사양",
+  "[mm]",
+  "[필터링기능]",
+  "예인몸체는 다음 항목을 요구한다",
+  "7.1.2. 추가항목",
+  "식별자",
+  "R-TB_PETB-HMR-002",
+  "요구사양",
+  "[kg]",
+  "[중량기능]",
+  "관련 항목 R-TB_DIV-SRR-009 참조",
+];
+const V0_1_PAGE_TWO_LINES = [
+  "7.2.1. 참조항목",
+  "R-TB_DIV-SRR-009 항목은 별도 정의한다",
+  "R-TB_PETB-HMR-001 항목도 참조한다",
+  "R-TB_DIV-SRR-009 항목은 재확인한다",
+  "7.2.2. 미정항목",
+  "식별자",
+  "미정",
+];
+const V0_1_PAGE_ONE_TEXT = extractedText(V0_1_PAGE_ONE_LINES);
+const V0_1_PAGE_TWO_TEXT = extractedText(V0_1_PAGE_TWO_LINES);
+const V0_1_PAGES = [V0_1_PAGE_ONE_TEXT, V0_1_PAGE_TWO_TEXT];
+const v0_1Pdf = () => syntheticPdf([pageOf(V0_1_PAGE_ONE_LINES), pageOf(V0_1_PAGE_TWO_LINES)]);
+
+const HMR_ONE_ID = "R-TB_PETB-HMR-001";
+const HMR_TWO_ID = "R-TB_PETB-HMR-002";
+const HMR_FAMILY = "R-TB_PETB-HMR";
+const V0_1_MENTION_ID = "R-TB_DIV-SRR-009";
+
+// Read off the page text rather than predicted, exactly as the `v0` spans are.
+const HMR_ONE_START = V0_1_PAGE_ONE_TEXT.indexOf(HMR_ONE_ID);
+const HMR_TWO_START = V0_1_PAGE_ONE_TEXT.indexOf(HMR_TWO_ID);
+const MALFORMED_LABEL_START = V0_1_PAGE_TWO_TEXT.lastIndexOf("식별자");
+const MALFORMED_LABEL_END = MALFORMED_LABEL_START + "식별자".length;
+
+function expectedExtendedRow({ id, family, section, title, page, start, end, text }) {
+  const block = text.slice(start, end);
+  return {
+    requirement_id: id,
+    id_family: family,
+    section,
+    title,
+    page_number: page,
+    span: { start, end },
+    tbc: false,
+    tbd: false,
+    block_char_count: block.length,
+    block_text_sha256: `sha256:${sha256Hex(block)}`,
+  };
+}
+
+const HMR_ONE_ROW = expectedExtendedRow({
+  id: HMR_ONE_ID,
+  family: HMR_FAMILY,
+  section: "7.1.1.",
+  title: "필터링기능",
+  page: 1,
+  start: HMR_ONE_START,
+  end: HMR_TWO_START,
+  text: V0_1_PAGE_ONE_TEXT,
+});
+const HMR_TWO_ROW = expectedExtendedRow({
+  id: HMR_TWO_ID,
+  family: HMR_FAMILY,
+  section: "7.1.2.",
+  title: "중량기능",
+  page: 1,
+  start: HMR_TWO_START,
+  end: V0_1_PAGE_ONE_TEXT.length,
+  text: V0_1_PAGE_ONE_TEXT,
+});
+
+// The mention roll-up and the unbound label, as the index must report them: page
+// numbers and one span, and not one character of either page.
+const V0_1_MENTIONS_BY_ID = Object.freeze({
+  [V0_1_MENTION_ID]: [1, 2],
+  [HMR_ONE_ID]: [2],
+});
+const V0_1_MALFORMED_LABELS = Object.freeze([
+  { page_number: 2, span: { start: MALFORMED_LABEL_START, end: MALFORMED_LABEL_END } },
+]);
+const V0_1_COUNTS = Object.freeze({
+  rows: 2,
+  pages_with_rows: 1,
+  tbc: 0,
+  tbd: 0,
+  duplicate_ids: 0,
+  mention_only: 1,
+  malformed_candidates: 1,
+});
+
+// The `v0_1` index: the `v0` keys in the same order, then the two diagnostics,
+// then the row count.
+function expectedExtendedIndex(state, pages, {
+  rows = [],
+  duplicateIds = [],
+  mentionOnlyIds = [],
+  mentionsById = {},
+  malformedLabels = [],
+} = {}) {
+  const document = documentEvidence(state, pages);
+  return {
+    schema_version: PROJECT_PDF_REQUIREMENT_INDEX_SCHEMA_VERSION,
+    profile_id: PROFILE_V0_1_ID,
+    document: {
+      sha256: document.sha256,
+      page_count: document.page_count,
+      character_count: document.character_count,
+      text_sha256: document.text_sha256,
+    },
+    rows,
+    duplicate_ids: duplicateIds,
+    mention_only_ids: mentionOnlyIds,
+    mentions_by_id: mentionsById,
+    malformed_labels: malformedLabels,
+    row_count: rows.length,
+  };
+}
+
+const v0_1Request = (state) => ({
+  launchPath: state.launchPath,
+  expectedLaunchSha256: state.expectedLaunchSha256,
+  profileId: PROFILE_V0_1_ID,
+});
+const v0Request = (state) => ({
+  launchPath: state.launchPath,
+  expectedLaunchSha256: state.expectedLaunchSha256,
+  profileId: PROFILE_ID,
+});
+
+// A unit bracket is not a title. `v0` took the first bracket group in the block,
+// so a `[mm]` beside the identifier and a bracket standing in front of the
+// requirement label both read as titles; `v0_1` reads a title only behind the
+// fixed requirement label and steps over a group that is short ascii, because a
+// unit or a symbol is exactly that shape and a korean title never is. The same
+// pinned document under both profiles is what states the difference.
+test("reads a v0_1 title behind the requirement label and steps over a unit bracket", async () => {
+  const state = admissionFixture({ documentBytes: v0_1Pdf() });
+  try {
+    const extended = await buildProjectPdfRequirementIndex(v0_1Request(state));
+    const legacy = await buildProjectPdfRequirementIndex(v0Request(state));
+
+    assert.equal(extended.index.document.text_sha256, `sha256:${sha256Hex(V0_1_PAGES.join(""))}`);
+    assert.equal(extended.receipt.result, "PASS");
+    assert.equal(extended.receipt.profile_id, PROFILE_V0_1_ID);
+
+    assert.deepEqual(extended.index, expectedExtendedIndex(state, V0_1_PAGES, {
+      rows: [HMR_ONE_ROW, HMR_TWO_ROW],
+      mentionOnlyIds: [V0_1_MENTION_ID],
+      mentionsById: { ...V0_1_MENTIONS_BY_ID },
+      malformedLabels: V0_1_MALFORMED_LABELS.map((label) => ({
+        page_number: label.page_number,
+        span: { ...label.span },
+      })),
+    }));
+
+    // The title behind the label, not the bracket in front of it and not the
+    // unit behind it.
+    assert.deepEqual(extended.index.rows.map((row) => row.title), ["필터링기능", "중량기능"]);
+    assert.equal(V0_1_PAGE_ONE_TEXT.includes("[전단제목]"), true, "the front bracket is on the page");
+    assert.equal(V0_1_PAGE_ONE_TEXT.includes("[mm]"), true, "the unit bracket is on the page");
+    assert.equal(V0_1_PAGE_ONE_TEXT.includes("[kg]"), true, "the unit bracket is on the page");
+
+    // The same document under `v0`: the first bracket in the block wins, so one
+    // block reads the bracket in front of the label and the other reads a unit.
+    // This is the measurement `v0_1` was added for, and `v0` still behaves this way.
+    assert.deepEqual(legacy.index.rows.map((row) => row.title), ["전단제목", "kg"]);
+    assert.equal(legacy.receipt.profile_id, PROFILE_ID);
+
+    // A group is stepped over only when it is both inside the unit bound and
+    // plain ascii. The bound alone does not decide it: `중량기능` is exactly as
+    // short as the bound allows and is still read as the title, because a unit
+    // or a symbol is ascii and a korean title is not.
+    const asciiOnly = /^[\x20-\x7e]+$/u;
+    for (const unit of ["mm", "kg"]) {
+      assert.equal(unit.length <= MAX_UNIT_BRACKET_CHARS, true);
+      assert.equal(asciiOnly.test(unit), true);
+    }
+    assert.equal(
+      "중량기능".length <= MAX_UNIT_BRACKET_CHARS, true,
+      "a title inside the unit bound is still a title",
+    );
+    assert.equal(asciiOnly.test("중량기능"), false, "because it is not ascii");
+    assert.equal(asciiOnly.test("필터링기능"), false);
+
+    // The identifier family is the identifier without its trailing ordinal, so
+    // both rows roll up under one family.
+    assert.deepEqual(extended.index.rows.map((row) => row.id_family), [HMR_FAMILY, HMR_FAMILY]);
+    assert.deepEqual(extended.index.rows.map((row) => row.requirement_id), [HMR_ONE_ID, HMR_TWO_ID]);
+    for (const row of extended.index.rows) {
+      assert.equal(row.requirement_id.startsWith(row.id_family), true);
+      assert.match(row.requirement_id.slice(row.id_family.length), /^[-_]\d+$/u);
+    }
+
+    // The block body never reaches the index on this profile either.
+    const serialised = JSON.stringify(extended.index);
+    for (const body of ["예인몸체는", "별도 정의한다", "재확인한다", state.launchPath]) {
+      assert.equal(serialised.includes(body), false, "the index must carry no block body");
+    }
+    assertPayloadFreeReceipt(extended.receipt, [
+      HMR_ONE_ID, HMR_TWO_ID, HMR_FAMILY, V0_1_MENTION_ID,
+      "필터링기능", "중량기능", "전단제목", "식별자", "요구사양",
+      V0_1_PAGE_ONE_TEXT.trim(), RELATIVE_LOCATOR, state.launchPath, state.tempRoot,
+    ]);
+    assertDeeplyFrozen(extended.index, "project_pdf_requirement_index_v0_1");
+    assertDeeplyFrozen(extended.receipt, "project_pdf_requirement_index_receipt");
+  } finally {
+    state.cleanup();
+  }
+});
+
+// An identifier that appears with no label in front of it stays a mention on
+// both profiles. `v0` reported only which identifiers were mention only; `v0_1`
+// also reports which pages each unlabelled occurrence was seen on, sorted and
+// deduplicated, and no page text rides along with it.
+test("records the pages a v0_1 unlabelled identifier was mentioned on", async () => {
+  const state = admissionFixture({ documentBytes: v0_1Pdf() });
+  try {
+    const { index, receipt } = await buildProjectPdfRequirementIndex(v0_1Request(state));
+
+    assert.deepEqual(index.mentions_by_id, { ...V0_1_MENTIONS_BY_ID });
+    assert.deepEqual(Object.keys(index.mentions_by_id), [V0_1_MENTION_ID, HMR_ONE_ID]);
+
+    // Mentioned on both pages, and twice on page two: the page list is sorted
+    // and carries each page once.
+    assert.deepEqual(index.mentions_by_id[V0_1_MENTION_ID], [1, 2]);
+    assert.equal(V0_1_PAGE_ONE_TEXT.includes(V0_1_MENTION_ID), true);
+    assert.equal(
+      V0_1_PAGE_TWO_TEXT.split(V0_1_MENTION_ID).length - 1, 2, "mentioned twice on page two",
+    );
+
+    // An identifier the document defines is still reported where it was
+    // mentioned, and is still not mention only.
+    assert.deepEqual(index.mentions_by_id[HMR_ONE_ID], [2]);
+    assert.deepEqual(index.mention_only_ids, [V0_1_MENTION_ID]);
+    assert.equal(
+      index.rows.some((row) => row.requirement_id === V0_1_MENTION_ID), false,
+      "an unlabelled mention may not become a row",
+    );
+    assert.equal(index.rows.some((row) => row.requirement_id === HMR_ONE_ID), true);
+
+    for (const pages of Object.values(index.mentions_by_id)) {
+      assert.deepEqual([...pages].sort((left, right) => left - right), pages);
+      assert.equal(new Set(pages).size, pages.length, "a page may be listed once");
+      for (const page of pages) assert.equal(Number.isSafeInteger(page) && page >= 1, true);
+    }
+
+    // The counts the receipt reports are the `v0` counts, unchanged.
+    assert.deepEqual(receipt.counts, V0_1_COUNTS);
+    assert.equal(receipt.counts.mention_only, index.mention_only_ids.length);
+    assertPayloadFreeReceipt(receipt, [V0_1_MENTION_ID, HMR_ONE_ID, "재확인한다"]);
+  } finally {
+    state.cleanup();
+  }
+});
+
+// A label with no well formed identifier behind it is one malformed candidate on
+// both profiles. `v0` reported only how many there were; `v0_1` also reports
+// where each one sat, as a page number and a span, so it can be found on the page
+// without the index quoting one character of it.
+test("reports every unbound v0_1 identifier label as a page and a span alone", async () => {
+  const state = admissionFixture({ documentBytes: v0_1Pdf() });
+  try {
+    const { index, receipt } = await buildProjectPdfRequirementIndex(v0_1Request(state));
+
+    assert.deepEqual(index.malformed_labels, [
+      { page_number: 2, span: { start: MALFORMED_LABEL_START, end: MALFORMED_LABEL_END } },
+    ]);
+    assert.equal(index.malformed_labels.length, receipt.counts.malformed_candidates);
+    assert.equal(receipt.counts.malformed_candidates, 1);
+
+    // The span really covers the label on the page, and the label really has no
+    // well formed identifier behind it.
+    const label = index.malformed_labels[0];
+    assert.equal(V0_1_PAGE_TWO_TEXT.slice(label.span.start, label.span.end), "식별자");
+    assert.equal(V0_1_PAGE_TWO_TEXT.includes("식별자\n미정"), true);
+    assert.equal(label.span.start < label.span.end, true);
+    assert.equal(label.span.end <= V0_1_PAGE_TWO_TEXT.length, true);
+
+    // A label that did bind is not reported: page one carries two labels and
+    // both of them bound an identifier.
+    assert.equal(V0_1_PAGE_ONE_TEXT.split("식별자").length - 1, 2);
+    assert.equal(
+      index.malformed_labels.some((entry) => entry.page_number === 1), false,
+      "a bound label is not a malformed candidate",
+    );
+
+    // Page number and span alone: no text, no label and no identifier.
+    for (const entry of index.malformed_labels) {
+      assert.deepEqual(Object.keys(entry), ["page_number", "span"]);
+      assert.deepEqual(Object.keys(entry.span), ["start", "end"]);
+    }
+    const serialised = JSON.stringify(index.malformed_labels);
+    for (const marker of ["식별자", "미정", "항목"]) {
+      assert.equal(serialised.includes(marker), false, "a malformed label carries no text");
+    }
+    assertPayloadFreeReceipt(receipt, ["식별자", "미정항목"]);
+  } finally {
+    state.cleanup();
+  }
+});
+
+// Adding one profile may not change the other. The `v0` index keeps exactly the
+// keys and the row shape it always had, the receipt shape is the same on both
+// profiles, and the identifier roll-up is the same digest because both profiles
+// recognise the same identifiers.
+test("keeps the v0 index shape closed while the v0_1 profile is accepted", async () => {
+  const state = admissionFixture({ documentBytes: v0_1Pdf() });
+  try {
+    const legacy = await buildProjectPdfRequirementIndex(v0Request(state));
+    const extended = await buildProjectPdfRequirementIndex(v0_1Request(state));
+
+    assert.deepEqual(Object.keys(legacy.index), [
+      "schema_version",
+      "profile_id",
+      "document",
+      "rows",
+      "duplicate_ids",
+      "mention_only_ids",
+      "row_count",
+    ]);
+    assert.deepEqual(Object.keys(legacy.index.rows[0]), [
+      "requirement_id",
+      "section",
+      "title",
+      "page_number",
+      "span",
+      "tbc",
+      "tbd",
+      "block_char_count",
+      "block_text_sha256",
+    ]);
+    for (const key of ["mentions_by_id", "malformed_labels"]) {
+      assert.equal(Object.hasOwn(legacy.index, key), false, "the v0 index gains no new field");
+    }
+    for (const row of legacy.index.rows) {
+      assert.equal(Object.hasOwn(row, "id_family"), false, "a v0 row gains no new field");
+    }
+
+    // The `v0_1` index is the `v0` keys, in the same order, plus the two
+    // diagnostics ahead of the row count.
+    assert.deepEqual(Object.keys(extended.index), [
+      "schema_version",
+      "profile_id",
+      "document",
+      "rows",
+      "duplicate_ids",
+      "mention_only_ids",
+      "mentions_by_id",
+      "malformed_labels",
+      "row_count",
+    ]);
+    assert.deepEqual(Object.keys(extended.index.rows[0]), [
+      "requirement_id",
+      "id_family",
+      "section",
+      "title",
+      "page_number",
+      "span",
+      "tbc",
+      "tbd",
+      "block_char_count",
+      "block_text_sha256",
+    ]);
+
+    // Same document, same identifiers, same spans and the same receipt shape:
+    // only the profile id, the titles and the diagnostics differ.
+    assert.deepEqual(Object.keys(extended.receipt), Object.keys(legacy.receipt));
+    assert.deepEqual(extended.receipt.counts, legacy.receipt.counts);
+    assert.deepEqual(extended.receipt.document, legacy.receipt.document);
+    assert.equal(extended.receipt.ids_sha256, legacy.receipt.ids_sha256);
+    assert.equal(extended.receipt.ids_sha256, idsFingerprint([HMR_ONE_ID, HMR_TWO_ID]));
+    assert.notEqual(extended.receipt.profile_id, legacy.receipt.profile_id);
+    assert.deepEqual(
+      extended.index.rows.map((row) => row.span), legacy.index.rows.map((row) => row.span),
+    );
+    assert.deepEqual(
+      extended.index.rows.map((row) => row.block_text_sha256),
+      legacy.index.rows.map((row) => row.block_text_sha256),
+    );
+
+    // Both profiles replay to the same result on the same pinned document.
+    const replay = await buildProjectPdfRequirementIndex(v0_1Request(state));
+    assert.deepEqual(replay, extended, "the second profile must replay identically");
+    assert.notEqual(replay.index, extended.index, "each call must build a fresh index");
+  } finally {
+    state.cleanup();
+  }
+});
+
 // ---------------------------------------------------------------- source shape
 
 // The closed shape is a property of the source, not of one lucky run: the
@@ -1346,8 +1768,15 @@ test("pins the read only, index only shape of the requirement index source", () 
 
   // The profile list and every recognition rule are the seam's own fixed
   // constants: no pattern, gap, cap or title rule is reachable from a caller.
-  assert.match(
-    code, /export const REQUIREMENT_INDEX_PROFILES = Object\.freeze\(\["kr_defense_spec_v0"\]\);/u,
+  // The list is exactly these two seam-owned profiles, in this order.
+  const profiles = code.match(
+    /export const REQUIREMENT_INDEX_PROFILES = Object\.freeze\(\[([^\]]*)\]\);/u,
+  );
+  assert.notEqual(profiles, null);
+  assert.deepEqual(
+    profiles[1].split(",").map((entry) => entry.trim().replace(/"/gu, "")).filter(Boolean),
+    ["kr_defense_spec_v0", "kr_defense_spec_v0_1"],
+    "the profile list is exactly the two profiles this seam implements",
   );
   assert.equal(
     code.includes(String.raw`/\bR[-_][A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)+\b/gu`), true,
@@ -1355,8 +1784,12 @@ test("pins the read only, index only shape of the requirement index source", () 
   );
   assert.equal(code.includes(String.raw`/^\d+(?:\.\d+)+\.?/u`), true, "the section rule is fixed");
   assert.match(code, /const IDENTIFIER_LABEL = "식별자";/u);
+  assert.match(code, /const REQUIREMENT_LABEL = "요구사양";/u);
   assert.match(code, new RegExp(`const MAX_ROWS = ${MAX_ROWS};`, "u"));
   assert.match(code, new RegExp(`const MAX_TITLE_CHARS = ${MAX_TITLE_CHARS};`, "u"));
+  assert.match(
+    code, new RegExp(`const MAX_UNIT_BRACKET_CHARS = ${MAX_UNIT_BRACKET_CHARS};`, "u"),
+  );
   assert.match(
     code, new RegExp(`const MAX_LABEL_GAP_CODE_UNITS = ${MAX_LABEL_GAP_CODE_UNITS};`, "u"),
   );
