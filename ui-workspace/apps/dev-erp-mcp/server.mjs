@@ -66,6 +66,8 @@ export function createErpMcpHttpServer({
   publicUrl = process.env.ERP_MCP_PUBLIC_URL || "http://127.0.0.1:4311",
   allowedHosts = process.env.ERP_MCP_ALLOWED_HOSTS || "",
   allowInsecureHttp = process.env.ERP_MCP_ALLOW_INSECURE_HTTP === "1",
+  // 검토자 조회 tool pilot. 미설정이면 OFF 이고 노출 tool 은 기존 8개 그대로다.
+  reviewTools = process.env.ERP_MCP_REVIEW_TOOLS === "1",
   erpClient = null,
 } = {}) {
   const publicEndpoint = new URL(publicUrl);
@@ -112,7 +114,7 @@ export function createErpMcpHttpServer({
       return sendJson(res, error?.status === 401 ? 401 : 502, { error: error?.code || "mcp_auth_failed" });
     }
 
-    const mcpServer = createErpMcpToolServer({ erpClient: client, token, publicUrl: publicEndpoint });
+    const mcpServer = createErpMcpToolServer({ erpClient: client, token, publicUrl: publicEndpoint, reviewTools });
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
       enableJsonResponse: true,

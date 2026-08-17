@@ -155,6 +155,57 @@ test("ERP MCP agenda is KST-local and actor scoped", () => {
   }
 });
 
+test("ERP MCP agenda no-due bucket stays feature-OFF and scoped when enabled", () => {
+  const f = fixture();
+  try {
+    const aliceNoDue = f.store.createItem({
+      project_id: "P26-MCP",
+      title: "Alice open task without a due date",
+      assignee_ref: "alice@example.com",
+      urgency: "high",
+    }).item;
+    const aliceDone = f.store.createItem({
+      project_id: "P26-MCP",
+      title: "Alice finished task without a due date",
+      assignee_ref: "alice@example.com",
+    }).item;
+    f.store.setItemStatus(aliceDone.id, "done");
+    const aliceUnclassified = f.store.createItem({
+      project_id: "P26-MCP",
+      title: "Alice unclassified inbox row",
+      assignee_ref: "alice@example.com",
+    }).item;
+    f.store.db.prepare("UPDATE core_item SET status='unclassified' WHERE id=?").run(aliceUnclassified.id);
+    const bobNoDue = f.store.createItem({
+      project_id: "P26-MCP",
+      title: "Bob open task without a due date",
+      assignee_ref: "bob@example.com",
+    }).item;
+
+    const off = f.service.agenda(f.alice, "today");
+    assert.equal(Object.hasOwn(off, "no_due_open"), false);
+    assert.deepEqual(Object.keys(off), ["date", "time_zone", "tasks", "overdue", "meetings"]);
+
+    const enabled = createErpMcpService({
+      store: f.store,
+      artifactRoot: join(f.root, "artifacts"),
+      now: () => f.clock.value,
+      agendaNoDueOpen: true,
+    });
+    const on = enabled.agenda(f.alice, "today");
+    assert.deepEqual(on.no_due_open.map((row) => row.id), [aliceNoDue.id]);
+    assert.equal(JSON.stringify(on.no_due_open).includes(bobNoDue.id), false);
+    assert.equal(JSON.stringify(on.no_due_open).includes(aliceDone.id), false);
+    assert.equal(JSON.stringify(on.no_due_open).includes(aliceUnclassified.id), false);
+    assert.deepEqual(on.tasks, off.tasks);
+    assert.deepEqual(on.overdue, off.overdue);
+    assert.deepEqual(on.meetings, off.meetings);
+    assert.equal(on.date, off.date);
+  } finally {
+    f.close();
+  }
+});
+
 test("ERP MCP work-session publication is bounded and idempotent", () => {
   const f = fixture();
   try {
@@ -201,6 +252,85 @@ test("ERP MCP work-session publication is bounded and idempotent", () => {
       f.service.completionPacket({ accountId: f.alice.id, itemId: f.aliceItem.id }).summary,
       "Second session at the same clock tick.",
     );
+  } finally {
+    f.close();
+  }
+});
+
+test("ERP MCP item work sessions stay assignee or admin scoped", () => {
+  const f = fixture();
+  try {
+    f.service.publishWorkSession(f.alice, {
+      item_id: f.aliceItem.id,
+      idempotency_key: "alice-review-0001",
+      summary: "Draft finished for reviewer visibility.",
+      outputs: ["draft.docx"],
+      next_actions: [],
+      stop_conditions: [],
+      artifact_ids: [],
+    });
+    const mine = f.service.listWorkSessionsForItem(f.alice, f.aliceItem.id);
+    assert.deepEqual(mine.map((row) => row.summary), ["Draft finished for reviewer visibility."]);
+    assert.equal(JSON.stringify(mine).includes("payload_sha256"), false);
+    assert.equal(JSON.stringify(mine).includes("account_id"), false);
+    expectCode(() => f.service.listWorkSessionsForItem(f.bob, f.aliceItem.id), "item_forbidden", 403);
+    expectCode(() => f.service.listWorkSessionsForItem(f.alice, "no-such-item"), "item_not_found", 404);
+
+    f.store.assignRole(f.bob.id, "admin");
+    const asAdmin = f.service.listWorkSessionsForItem(f.bob, f.aliceItem.id);
+    assert.deepEqual(asAdmin.map((row) => row.work_session_id), mine.map((row) => row.work_session_id));
+  } finally {
+    f.close();
+  }
+});
+
+test("ERP MCP pending review list is admin only and omits proposal payloads", () => {
+  const f = fixture();
+  try {
+    f.service.publishWorkSession(f.alice, {
+      item_id: f.aliceItem.id,
+      idempotency_key: "alice-review-0002",
+      summary: "S".repeat(900),
+      outputs: [],
+      next_actions: [],
+      stop_conditions: [],
+      artifact_ids: [],
+    });
+    f.store.db.prepare(
+      `INSERT INTO ai_proposal(id,at,source,kind,target_ref,payload_json,summary,status,data_label)
+       VALUES(?,?,?,?,?,?,?,?,?)`,
+    ).run(
+      "prop_review_1",
+      new Date(f.clock.value).toISOString(),
+      "erp_mcp_work_session",
+      "completion_digest",
+      f.aliceItem.id,
+      JSON.stringify({ secret_body: "PROPOSAL_PAYLOAD_SECRET", path: "C:/absolute/host/path.docx" }),
+      "PROPOSAL_SUMMARY_SECRET",
+      "pending",
+      "synthetic",
+    );
+
+    expectCode(() => f.service.pendingReviews(f.alice, {}), "admin_only", 403);
+    f.store.assignRole(f.bob.id, "admin");
+    const result = f.service.pendingReviews(f.bob, { days: 999, limit: 999 });
+    assert.equal(result.days, 30);
+    assert.equal(result.limit, 50);
+    assert.deepEqual(result.proposals.map((row) => row.id), ["prop_review_1"]);
+    assert.equal(result.proposals[0].item_ref, f.aliceItem.id);
+    assert.equal(result.proposals[0].project_ref, "P26-MCP");
+    assert.equal(result.proposals[0].status, "pending");
+    assert.equal(result.work_sessions[0].username, "alice");
+    assert.equal(result.work_sessions[0].project_id, "P26-MCP");
+    assert.equal(result.work_sessions[0].summary.length, 500);
+    assert.equal(result.work_sessions[0].artifact_count, 0);
+
+    const serialized = JSON.stringify(result);
+    assert.equal(serialized.includes("PROPOSAL_PAYLOAD_SECRET"), false);
+    assert.equal(serialized.includes("PROPOSAL_SUMMARY_SECRET"), false);
+    assert.equal(serialized.includes("payload_json"), false);
+    assert.equal(serialized.includes("C:/absolute"), false);
+    assert.equal(serialized.includes(f.root), false);
   } finally {
     f.close();
   }

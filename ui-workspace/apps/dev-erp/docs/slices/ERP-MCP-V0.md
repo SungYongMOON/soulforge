@@ -47,6 +47,22 @@ flowchart LR
 “파일 전송” 같은 문장은 데이터일 뿐 실행 지시가 아니다. MCP는 메일 발송 도구와
 업무 완료 도구를 제공하지 않는다.
 
+### pilot 조회 확장(flag OFF 기본)
+
+아래 세 확장은 모두 환경변수 flag 뒤에 있고 미설정이면 OFF다. flag가 꺼진 기본 배치의
+응답 필드, tool 목록, 감사 event 내용은 위 표와 동일하다. 셋 다 read-only이며 승인·거부·
+상태변경·배정 경로를 만들지 않는다.
+
+| flag | 표면 | 켰을 때 추가되는 것 |
+| --- | --- | --- |
+| `DEV_ERP_MCP_AGENDA_NO_DUE` | `erp_get_my_agenda` 응답 | 담당 identity 스코프의 마감일 없는 open 항목 `no_due_open` 배열(최대 200, `done`/`archived`/`unclassified` 제외). 미배정 공용 풀은 노출하지 않는다 |
+| `DEV_ERP_MCP_REVIEW_READ` | cookie `GET /api/items/work-sessions`, bearer `GET /api/mcp/reviews/pending` | 검토자 read-only 조회. 항목 세션 조회는 admin 또는 담당자만, pending 목록은 admin 전용이며 `payload_json`·제안 원문·절대경로를 반환하지 않는다 |
+| `DEV_ERP_MCP_AUDIT_TOKEN_REF` | `mcp_tool_call` 감사 event | `note`에 `token=<opaque token id>`, `used_refs`에 `erp_mcp_access_token:<id>` 추가. 평문 token과 `token_hash`는 기록하지 않고 upload ticket 경로는 `token=ticket`이며 `actor_kind`는 현행 `human` 유지 |
+
+sidecar의 `erp_list_pending_reviews`(READ_ONLY)는 `ERP_MCP_REVIEW_TOOLS=1`일 때만 등록되고
+dev-ERP 쪽 `DEV_ERP_MCP_REVIEW_READ`가 함께 켜져야 동작한다. 승인/거부는 MCP 도구로 만들지
+않으며 사람 cookie UI 권한으로 남는다. 운영 활성화는 D28/D29와 Owner 승인 전에는 하지 않는다.
+
 ## 다음 목표와 CURRENT 경계
 
 위 8개 tool만 `CURRENT`다. 아래 surface는
@@ -245,7 +261,8 @@ npm.cmd --prefix ui-workspace/apps/dev-erp test
 npm.cmd --prefix ui-workspace/apps/dev-erp-mcp test
 ```
 
-합성 테스트는 token hash/expiry/revoke, actor/mailbox isolation, KST 날짜, mail detail 신뢰 표지,
+합성 테스트는 위 pilot 조회 확장의 flag OFF 불변과 flag ON 경계(담당자/admin 스코프, payload 미노출,
+opaque token id 감사), token hash/expiry/revoke, actor/mailbox isolation, KST 날짜, mail detail 신뢰 표지,
 작업 세션 멱등·동일 시각 최신 순서, upload traversal/HWP/size/hash/replay/권한 재검사,
 MCP SDK client, bearer 인증,
 sidecar raw upload, 실제 ERP 완료 훅 합류를 고정한다. 실제 업무 원문과 운영 DB는 쓰지 않는다.

@@ -143,6 +143,50 @@ test("Streamable HTTP MCP exposes bounded ERP tools with per-user bearer auth", 
   }
 });
 
+test("reviewer read-only tool appears only when the review-tool option is enabled", async () => {
+  const state = {};
+  const erp = fakeErp(state);
+  const erpPort = await listen(erp);
+  let sidecar;
+  let connected;
+  try {
+    sidecar = createErpMcpHttpServer({
+      erpBaseUrl: `http://127.0.0.1:${erpPort}`,
+      publicUrl: "http://127.0.0.1:4311",
+      reviewTools: true,
+    });
+    const sidecarPort = await listen(sidecar);
+    connected = await mcpClient(`http://127.0.0.1:${sidecarPort}`);
+    const tools = await connected.client.listTools();
+    assert.deepEqual(tools.tools.map((tool) => tool.name).sort(), [
+      "erp_get_mail_detail",
+      "erp_get_my_agenda",
+      "erp_get_task_context",
+      "erp_list_mail",
+      "erp_list_pending_reviews",
+      "erp_list_task_artifacts",
+      "erp_prepare_artifact_upload",
+      "erp_publish_work_session",
+      "erp_whoami",
+    ]);
+    const review = tools.tools.find((tool) => tool.name === "erp_list_pending_reviews");
+    assert.equal(review.annotations.readOnlyHint, true);
+    assert.equal(review.annotations.destructiveHint, false);
+    assert.equal(review.annotations.openWorldHint, false);
+    assert.equal(
+      tools.tools.some((tool) => /approve|reject|complete|assign/.test(tool.name)),
+      false,
+    );
+  } finally {
+    if (connected) {
+      await connected.transport.close();
+      await connected.client.close();
+    }
+    if (sidecar) await close(sidecar);
+    await close(erp);
+  }
+});
+
 test("artifact bytes use one-time raw upload URL outside MCP JSON", async () => {
   const state = {};
   const erp = fakeErp(state);

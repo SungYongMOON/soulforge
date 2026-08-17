@@ -587,8 +587,16 @@ const ERP_MCP_ARTIFACT_ROOT = resolve(
     || join(BACKEND_ROOT, "_workspaces", "system", "dev-erp", "mcp-artifacts"),
 );
 const ERP_MCP_ENABLED = process.env.DEV_ERP_MCP_ENABLED === "1";
+// 조회 확장 pilot flag. 미설정이면 OFF 이고 기존 MCP 응답·라우트 목록은 그대로다.
+const ERP_MCP_AGENDA_NO_DUE = process.env.DEV_ERP_MCP_AGENDA_NO_DUE === "1";
+const ERP_MCP_REVIEW_READ = ERP_MCP_ENABLED && process.env.DEV_ERP_MCP_REVIEW_READ === "1";
+const ERP_MCP_AUDIT_TOKEN_REF = process.env.DEV_ERP_MCP_AUDIT_TOKEN_REF === "1";
 const erpMcp = ERP_MCP_ENABLED
-  ? createErpMcpService({ store, artifactRoot: ERP_MCP_ARTIFACT_ROOT })
+  ? createErpMcpService({
+    store,
+    artifactRoot: ERP_MCP_ARTIFACT_ROOT,
+    agendaNoDueOpen: ERP_MCP_AGENDA_NO_DUE,
+  })
   : null;
 try {
   const recovered = store.recoverInterruptedCodexTurnAudits("service_restart");
@@ -867,6 +875,16 @@ function authenticatedMcpAccount(req) {
   return account;
 }
 function appendMcpAudit(account, tool, { itemId = null, projectId = null, to = "ok" } = {}) {
+  // feature-OFF 기본: note/used_refs 는 기존과 동일하다. flag ON 이면 어느 credential 이 호출했는지
+  // opaque token id 만 덧붙인다(평문 token·token_hash 는 기록하지 않는다). actor_kind 는 현행 유지.
+  const tokenId = String(account?.mcp_token_id || "").trim();
+  const usedRefs = ["erp_mcp"];
+  let note = `tool=${tool}`;
+  if (ERP_MCP_AUDIT_TOKEN_REF) {
+    // bearer 가 아니라 1회용 upload ticket 으로 인증하는 PUT 경로에는 credential id 가 없다.
+    note = `tool=${tool};token=${tokenId || "ticket"}`;
+    if (tokenId) usedRefs.push(`erp_mcp_access_token:${tokenId}`);
+  }
   store.appendEvent({
     actor_ref: account?.username || "mcp_upload_ticket",
     actor_kind: account ? "human" : "system",
@@ -874,9 +892,9 @@ function appendMcpAudit(account, tool, { itemId = null, projectId = null, to = "
     item_ref: itemId,
     project_ref: projectId,
     to,
-    used_refs: ["erp_mcp"],
+    used_refs: usedRefs,
     data_label: "meta",
-    note: `tool=${tool}`,
+    note,
   });
 }
 
@@ -2511,6 +2529,13 @@ const server = createServer(async (req, res) => {
       });
       return send(res, result.replayed ? 200 : 201, result);
     }
+    // 검토자 조회 pilot(read-only). flag 미설정이면 라우트를 등록하지 않아 기존 404 로 남는다.
+    if (ERP_MCP_REVIEW_READ && path === "/api/mcp/reviews/pending" && req.method === "GET") {
+      const account = authenticatedMcpAccount(req);
+      const result = erpMcp.pendingReviews(account, { days: qp.days, limit: qp.limit });
+      appendMcpAudit(account, "reviews_pending");
+      return send(res, 200, result);
+    }
     if (path === "/api/mcp/uploads/prepare" && req.method === "POST") {
       const body = await readJson(req, 32 * 1024);
       const account = authenticatedMcpAccount(req);
@@ -3041,6 +3066,14 @@ const server = createServer(async (req, res) => {
         project_ref: result.item.project_id, used_refs: ["items", "mail"], data_label: "real"
       });
       return send(res, 200, result);
+    }
+    // 검토자 조회 pilot(read-only). flag 미설정이면 라우트를 등록하지 않아 기존 404 로 남는다.
+    if (ERP_MCP_REVIEW_READ && path === "/api/items/work-sessions" && req.method === "GET") {
+      const me = currentAccount(req);
+      if (!me) return send(res, 401, { error: "login_required" });
+      const itemId = String(qp.item_id || "");
+      if (!canAccessItem(req, itemId)) return send(res, 403, { error: "item_forbidden" });
+      return send(res, 200, { work_sessions: erpMcp.listWorkSessionsForItem(me, itemId) });
     }
     if (path === "/api/items/counts") {
       const assignee_any = viewIdentities(req, qp);

@@ -226,6 +226,7 @@ export function createErpMcpService({
   uploadTtlMs = ERP_MCP_UPLOAD_TTL_MS,
   workSessionLifecycleEnabled = false,
   workSessionMissingCloseoutAfterMs = 24 * 60 * 60 * 1000,
+  agendaNoDueOpen = false,
 } = {}) {
   if (!store?.db) throw new TypeError("store_required");
   const db = store.db;
@@ -423,7 +424,18 @@ export function createErpMcpService({
       `SELECT id,project_id,title,at,attendees FROM core_meeting
        WHERE status='active' AND substr(at,1,10)=? ORDER BY at,id LIMIT 200`,
     ).all(date);
-    return { date, time_zone: timeZone, tasks: rows, overdue, meetings };
+    const result = { date, time_zone: timeZone, tasks: rows, overdue, meetings };
+    // feature-OFF 기본. flag ON 일 때만 due 없는 본인 open 항목을 별도 bucket 으로 덧붙인다.
+    // 미배정 공용 풀은 노출하지 않고(assignee identities 스코프 유지) legacy status 를 그대로 쓴다.
+    if (agendaNoDueOpen === true) {
+      result.no_due_open = db.prepare(
+        `SELECT i.id,i.project_id,i.title,i.status,i.due,i.urgency,i.work_type,i.assignee_ref
+         FROM core_item i
+         WHERE ${scoped} AND i.status NOT IN ('done','archived','unclassified') AND i.due IS NULL
+         ORDER BY (i.urgency<>'high'),i.id LIMIT 200`,
+      ).all(...ids);
+    }
+    return result;
   }
 
   function listArtifacts(account, itemId) {
@@ -620,6 +632,47 @@ export function createErpMcpService({
        WHERE item_id=? AND account_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1`,
     ).get(itemId, account.id);
     return row ? publicWorkSession(row) : null;
+  }
+
+  // 검토자 조회(read-only). 승인/거부/상태변경은 이 서비스에 없으며 cookie UI 권한으로 남는다.
+  function listWorkSessionsForItem(account, itemId) {
+    const item = requireItem(account, itemId);
+    return db.prepare(
+      `SELECT * FROM erp_mcp_work_session
+       WHERE item_id=? ORDER BY created_at DESC,rowid DESC LIMIT 50`,
+    ).all(item.id).map(publicWorkSession);
+  }
+
+  function pendingReviews(account, { days = 14, limit = 20 } = {}) {
+    if (!isAdmin(account)) fail("admin_only", 403);
+    const boundedDays = Math.max(1, Math.min(30, Math.trunc(Number(days) || 14)));
+    const boundedLimit = Math.max(1, Math.min(50, Math.trunc(Number(limit) || 20)));
+    const since = new Date(now() - boundedDays * 86400000).toISOString();
+    // payload_json 과 proposal summary 원문은 반환하지 않는다(요약 ref 만).
+    const proposals = db.prepare(
+      `SELECT p.id,p.kind,p.status,p.at,p.source,p.target_ref AS item_ref,i.project_id AS project_ref
+       FROM ai_proposal p LEFT JOIN core_item i ON i.id=p.target_ref
+       WHERE p.status='pending' AND p.at>=?
+       ORDER BY p.at DESC,p.id DESC LIMIT ?`,
+    ).all(since, boundedLimit);
+    const workSessions = db.prepare(
+      `SELECT w.id,w.item_id,w.summary,w.artifact_ids_json,w.created_at,
+              i.project_id AS project_id,a.username AS username
+       FROM erp_mcp_work_session w
+       LEFT JOIN core_item i ON i.id=w.item_id
+       LEFT JOIN core_account a ON a.id=w.account_id
+       WHERE w.created_at>=?
+       ORDER BY w.created_at DESC,w.rowid DESC LIMIT ?`,
+    ).all(since, boundedLimit).map((row) => ({
+      work_session_id: row.id,
+      item_id: row.item_id,
+      project_id: row.project_id || null,
+      username: row.username || null,
+      created_at: row.created_at,
+      summary: String(row.summary || "").slice(0, 500),
+      artifact_count: parseJsonList(row.artifact_ids_json).length,
+    }));
+    return { days: boundedDays, limit: boundedLimit, proposals, work_sessions: workSessions };
   }
 
   function completionPacket({ accountId, itemId } = {}) {
@@ -844,6 +897,8 @@ export function createErpMcpService({
     listArtifacts,
     publishWorkSession,
     latestWorkSession,
+    listWorkSessionsForItem,
+    pendingReviews,
     completionPacket,
     registerPersonalWorkSessionNode,
     startPersonalWorkSession,

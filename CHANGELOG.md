@@ -1,5 +1,46 @@
 # CHANGELOG
 
+## 2026-08-17 - ERP MCP feature-OFF query extensions: agenda no-due bucket, reviewer read-only surfaces, audit token reference
+
+- Added three independently flagged read-only extensions to the dev-ERP MCP
+  pilot. Every flag is unset by default, and with the flags off the existing
+  `/api/mcp/*` responses, the sidecar's eight-tool list, and the `mcp_tool_call`
+  audit event contents are unchanged.
+- `DEV_ERP_MCP_AGENDA_NO_DUE=1` adds a `no_due_open` bucket to
+  `erp_get_my_agenda`: the caller's own open items that carry no due date,
+  scoped to assignee identities, excluding `done`/`archived`/`unclassified`,
+  bounded to 200 rows. The unassigned shared pool is not exposed and legacy
+  status values are used as-is.
+- `DEV_ERP_MCP_REVIEW_READ=1` opens two reviewer read paths: a cookie
+  `GET /api/items/work-sessions` limited to the item's assignee or an admin, and
+  a bearer `GET /api/mcp/reviews/pending` limited to admins. Both return bounded
+  summaries only; proposal `payload_json`, raw mail bodies, absolute paths, and
+  token material are never included. The sidecar registers the matching
+  read-only `erp_list_pending_reviews` tool only when `ERP_MCP_REVIEW_TOOLS=1`.
+  No approve, reject, status-change, or assignment tool or route was added;
+  those stay human cookie-UI authority.
+- `DEV_ERP_MCP_AUDIT_TOKEN_REF=1` records which credential made an MCP call by
+  appending an opaque `token=<token id>` to the audit note and an
+  `erp_mcp_access_token:<id>` used-ref. Plaintext tokens and token hashes are
+  still never written, the ticket-authenticated upload path records
+  `token=ticket`, and `actor_kind` stays `human`.
+- Operational impact: no DDL or schema change, no runtime environment or binding
+  change, and no writer or route activation. Enabling any flag in operations
+  remains gated on D28/D29 and owner approval, so this slice is not a
+  production-ready or team-ready claim.
+- Verification: `node --test ui-workspace/apps/dev-erp/test/erp_mcp_service.test.mjs
+  ui-workspace/apps/dev-erp/test/erp_mcp_server.test.mjs` passes 13/13 (8 before
+  this change) and `npm run validate:dev-erp-mcp` passes 44/44 (43 before).
+- authorship: implemented by Claude Opus 5; review by Claude Fable 5 is pending
+  and no review verdict is claimed by this entry.
+- Related paths: `ui-workspace/apps/dev-erp/src/erp_mcp_service.mjs`,
+  `ui-workspace/apps/dev-erp/server.mjs`,
+  `ui-workspace/apps/dev-erp-mcp/src/tools.mjs`,
+  `ui-workspace/apps/dev-erp-mcp/server.mjs`,
+  `ui-workspace/apps/dev-erp/docs/slices/ERP-MCP-V0.md`, and
+  `ui-workspace/apps/dev-erp-mcp/README.md`.
+- Revision: the Git commit containing this entry owns the exact revision.
+
 ## 2026-08-16 - M2 phase order correction and M2-3A Knowledge→Context gate crosswalk
 
 - Fixed the authoritative M2 slice order so no surface is built ahead of its

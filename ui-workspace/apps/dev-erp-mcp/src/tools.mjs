@@ -43,7 +43,7 @@ function guarded(handler) {
   };
 }
 
-export function createErpMcpToolServer({ erpClient, token, publicUrl } = {}) {
+export function createErpMcpToolServer({ erpClient, token, publicUrl, reviewTools = false } = {}) {
   if (!erpClient || !token || !publicUrl) throw new TypeError("erp_tool_context_required");
   const server = new McpServer(
     { name: "soulforge-erp", version: "0.1.0" },
@@ -161,6 +161,23 @@ export function createErpMcpToolServer({ erpClient, token, publicUrl } = {}) {
     delete response.upload_path;
     return response;
   }));
+
+  // 검토자 조회 pilot. 기본 OFF 이므로 기본 tool 목록은 위 8개 그대로다.
+  // 승인/거부/상태변경 도구는 여기에 추가하지 않는다(사람 cookie UI 권한).
+  if (reviewTools === true) {
+    server.registerTool("erp_list_pending_reviews", {
+      title: "List pending ERP reviews",
+      description: "List bounded pending proposal refs and recent work-session summaries for an ERP admin. Read-only; it never approves, rejects, or changes a task.",
+      inputSchema: {
+        days: z.number().int().min(1).max(30).default(14),
+        limit: z.number().int().min(1).max(50).default(20),
+      },
+      annotations: READ_ONLY,
+    }, guarded(({ days, limit }) => erpClient.request(
+      `/api/mcp/reviews/pending?days=${days}&limit=${limit}`,
+      { token },
+    )));
+  }
 
   return server;
 }

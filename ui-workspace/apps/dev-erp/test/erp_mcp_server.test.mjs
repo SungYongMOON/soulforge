@@ -133,10 +133,12 @@ test("ERP MCP HTTP pilot stores a completed file and completion hook consumes th
   const artifactRoot = join(root, "artifact-inbox");
   const port = await freePort();
   const base = `http://127.0.0.1:${port}`;
+  const pilotEnv = { ...process.env };
+  delete pilotEnv.DEV_ERP_MCP_AUDIT_TOKEN_REF;
   const child = spawn(process.execPath, ["server.mjs", "--port", String(port), "--db", dbPath], {
     cwd: APP_DIR,
     env: {
-      ...process.env,
+      ...pilotEnv,
       DEV_ERP_NO_TLS: "1",
       DEV_ERP_AUTOSYNC: "0",
       DEV_ERP_NO_FIXTURE: "1",
@@ -354,10 +356,241 @@ test("ERP MCP HTTP pilot stores a completed file and completion hook consumes th
       assert.equal(verify.db.prepare(
         "SELECT COUNT(*) AS n FROM erp_mcp_upload_ticket WHERE filename='disabled-race.pdf'",
       ).get().n, 0);
+      // 감사 provenance flag 가 OFF 인 기본 파일럿에서는 mcp_tool_call event 내용이 그대로다.
+      const audits = verify.db.prepare(
+        "SELECT note,used_refs,actor_kind FROM event_log WHERE kind='mcp_tool_call' ORDER BY id",
+      ).all();
+      assert.ok(audits.length > 0);
+      assert.deepEqual([...new Set(audits.map((row) => row.used_refs))], ['["erp_mcp"]']);
+      assert.equal(audits.some((row) => row.note.includes("token=")), false);
+      assert.deepEqual(
+        audits.filter((row) => row.note === "tool=whoami").map((row) => row.actor_kind),
+        ["human"],
+      );
     } finally {
       verify.db.close();
     }
     assert.equal(hasFile(artifactRoot), true);
+  } finally {
+    await stop();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("ERP MCP reviewer read routes stay read-only and audited when enabled", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-mcp-review-"));
+  const dbPath = join(root, "erp.db");
+  const artifactRoot = join(root, "artifact-inbox");
+  const port = await freePort();
+  const base = `http://127.0.0.1:${port}`;
+  const child = spawn(process.execPath, ["server.mjs", "--port", String(port), "--db", dbPath], {
+    cwd: APP_DIR,
+    env: {
+      ...process.env,
+      DEV_ERP_NO_TLS: "1",
+      DEV_ERP_AUTOSYNC: "0",
+      DEV_ERP_NO_FIXTURE: "1",
+      DEV_ERP_MCP_ENABLED: "1",
+      DEV_ERP_MCP_REVIEW_READ: "1",
+      DEV_ERP_MCP_ARTIFACT_ROOT: artifactRoot,
+    },
+    stdio: ["ignore", "ignore", "pipe"],
+  });
+  let stderrText = "";
+  child.stderr.on("data", (chunk) => { stderrText += chunk.toString(); });
+  const stop = async () => {
+    if (child.exitCode !== null || child.signalCode !== null) return;
+    child.kill();
+    await new Promise((resolve) => child.once("exit", resolve));
+  };
+  try {
+    await waitForHttp(`${base}/api/health`, child, () => stderrText);
+    const bootstrap = await fetch(`${base}/api/auth/bootstrap`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: "owner", password: "ownerpass123" }),
+    });
+    assert.equal(bootstrap.status, 200);
+    const cookie = bootstrap.headers.get("set-cookie")?.split(";")[0];
+    assert.equal((await fetch(`${base}/api/projects`, {
+      method: "POST",
+      headers: { Cookie: cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ id: "P26-MCP", title: "MCP review" }),
+    })).status, 200);
+    const itemResponse = await fetch(`${base}/api/items`, {
+      method: "POST",
+      headers: { Cookie: cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: "P26-MCP", title: "Reviewer visibility task" }),
+    });
+    assert.equal(itemResponse.status, 200);
+    const item = (await itemResponse.json()).item;
+
+    const tokenResponse = await fetch(`${base}/api/integrations/mcp/tokens`, {
+      method: "POST",
+      headers: { Cookie: cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ label: "Review Codex", expires_in_days: 30 }),
+    });
+    assert.equal(tokenResponse.status, 201);
+    const auth = { Authorization: `Bearer ${(await tokenResponse.json()).token}` };
+    assert.equal((await fetch(`${base}/api/mcp/work-sessions`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        item_id: item.id,
+        idempotency_key: "review-route-session-0001",
+        summary: "Reviewer visible structured result.",
+        outputs: [],
+        next_actions: [],
+        stop_conditions: [],
+        artifact_ids: [],
+      }),
+    })).status, 201);
+
+    assert.equal((await fetch(`${base}/api/mcp/reviews/pending`)).status, 401);
+    const pendingResponse = await fetch(`${base}/api/mcp/reviews/pending?days=7&limit=5`, { headers: auth });
+    assert.equal(pendingResponse.status, 200);
+    const pending = await pendingResponse.json();
+    assert.equal(pending.days, 7);
+    assert.equal(pending.limit, 5);
+    assert.equal(pending.work_sessions[0].item_id, item.id);
+    assert.equal(pending.work_sessions[0].username, "owner");
+    const pendingText = JSON.stringify(pending);
+    assert.equal(pendingText.includes("payload_json"), false);
+    assert.equal(pendingText.includes(artifactRoot), false);
+
+    const sessionsResponse = await fetch(`${base}/api/items/work-sessions?item_id=${item.id}`, {
+      headers: { Cookie: cookie },
+    });
+    assert.equal(sessionsResponse.status, 200);
+    const sessions = await sessionsResponse.json();
+    assert.deepEqual(sessions.work_sessions.map((row) => row.summary), ["Reviewer visible structured result."]);
+    assert.equal((await fetch(`${base}/api/items/work-sessions?item_id=${item.id}`)).status, 401);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await stop();
+
+    const verify = openStore(dbPath);
+    try {
+      assert.equal(verify.db.prepare(
+        "SELECT COUNT(*) AS n FROM event_log WHERE kind='mcp_tool_call' AND note='tool=reviews_pending'",
+      ).get().n, 1);
+      // read-only: 검토 조회는 제안·업무·작업 세션 row 를 만들거나 바꾸지 않는다.
+      assert.equal(verify.db.prepare("SELECT COUNT(*) AS n FROM erp_mcp_work_session").get().n, 1);
+      assert.equal(verify.db.prepare("SELECT status FROM ai_proposal WHERE target_ref=?").get(item.id)?.status, undefined);
+      assert.equal(verify.itemById(item.id).status, "open");
+    } finally {
+      verify.db.close();
+    }
+  } finally {
+    await stop();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("ERP MCP audit records an opaque credential id and reviewer reads stay flag-gated", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-mcp-audit-"));
+  const dbPath = join(root, "erp.db");
+  const artifactRoot = join(root, "artifact-inbox");
+  const port = await freePort();
+  const base = `http://127.0.0.1:${port}`;
+  const childEnv = { ...process.env };
+  delete childEnv.DEV_ERP_MCP_REVIEW_READ;
+  const child = spawn(process.execPath, ["server.mjs", "--port", String(port), "--db", dbPath], {
+    cwd: APP_DIR,
+    env: {
+      ...childEnv,
+      DEV_ERP_NO_TLS: "1",
+      DEV_ERP_AUTOSYNC: "0",
+      DEV_ERP_NO_FIXTURE: "1",
+      DEV_ERP_MCP_ENABLED: "1",
+      DEV_ERP_MCP_AUDIT_TOKEN_REF: "1",
+      DEV_ERP_MCP_ARTIFACT_ROOT: artifactRoot,
+    },
+    stdio: ["ignore", "ignore", "pipe"],
+  });
+  let stderrText = "";
+  child.stderr.on("data", (chunk) => { stderrText += chunk.toString(); });
+  const stop = async () => {
+    if (child.exitCode !== null || child.signalCode !== null) return;
+    child.kill();
+    await new Promise((resolve) => child.once("exit", resolve));
+  };
+  try {
+    await waitForHttp(`${base}/api/health`, child, () => stderrText);
+    const bootstrap = await fetch(`${base}/api/auth/bootstrap`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: "owner", password: "ownerpass123" }),
+    });
+    assert.equal(bootstrap.status, 200);
+    const cookie = bootstrap.headers.get("set-cookie")?.split(";")[0];
+    assert.ok(cookie);
+    assert.equal((await fetch(`${base}/api/projects`, {
+      method: "POST",
+      headers: { Cookie: cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ id: "P26-MCP", title: "MCP audit" }),
+    })).status, 200);
+    const itemResponse = await fetch(`${base}/api/items`, {
+      method: "POST",
+      headers: { Cookie: cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: "P26-MCP", title: "Audit provenance task" }),
+    });
+    assert.equal(itemResponse.status, 200);
+    const item = (await itemResponse.json()).item;
+
+    const tokenResponse = await fetch(`${base}/api/integrations/mcp/tokens`, {
+      method: "POST",
+      headers: { Cookie: cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ label: "Audit Codex", expires_in_days: 30 }),
+    });
+    assert.equal(tokenResponse.status, 201);
+    const issued = await tokenResponse.json();
+    const auth = { Authorization: `Bearer ${issued.token}` };
+    assert.equal((await fetch(`${base}/api/mcp/whoami`, { headers: auth })).status, 200);
+
+    // 검토자 조회 flag 는 별도이며 미설정이면 두 라우트 모두 열리지 않는다.
+    assert.equal((await fetch(`${base}/api/mcp/reviews/pending`, { headers: auth })).status, 404);
+    assert.equal((await fetch(`${base}/api/items/work-sessions?item_id=${item.id}`, {
+      headers: { Cookie: cookie },
+    })).status, 404);
+
+    const bytes = Buffer.from("audit provenance bytes", "utf8");
+    const preparedResponse = await fetch(`${base}/api/mcp/uploads/prepare`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        item_id: item.id,
+        filename: "audit.pdf",
+        size: bytes.length,
+        sha256: createHash("sha256").update(bytes).digest("hex"),
+      }),
+    });
+    assert.equal(preparedResponse.status, 201);
+    const prepared = await preparedResponse.json();
+    assert.equal((await fetch(`${base}${prepared.upload_path}`, { method: "PUT", body: bytes })).status, 201);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await stop();
+
+    const verify = openStore(dbPath);
+    try {
+      const audits = verify.db.prepare(
+        "SELECT note,used_refs,actor_kind FROM event_log WHERE kind='mcp_tool_call' ORDER BY id",
+      ).all();
+      const whoami = audits.find((row) => row.note.startsWith("tool=whoami"));
+      assert.equal(whoami.note, `tool=whoami;token=${issued.token_id}`);
+      assert.deepEqual(JSON.parse(whoami.used_refs), ["erp_mcp", `erp_mcp_access_token:${issued.token_id}`]);
+      assert.equal(whoami.actor_kind, "human");
+      const upload = audits.find((row) => row.note.startsWith("tool=artifact_upload;"));
+      assert.equal(upload.note, "tool=artifact_upload;token=ticket");
+      assert.deepEqual(JSON.parse(upload.used_refs), ["erp_mcp"]);
+      const tokenHash = verify.db.prepare(
+        "SELECT token_hash FROM erp_mcp_access_token WHERE id=?",
+      ).get(issued.token_id).token_hash;
+      const serialized = JSON.stringify(audits);
+      assert.equal(serialized.includes("sfmcp_v1_"), false);
+      assert.equal(serialized.includes(tokenHash), false);
+    } finally {
+      verify.db.close();
+    }
   } finally {
     await stop();
     rmSync(root, { recursive: true, force: true });

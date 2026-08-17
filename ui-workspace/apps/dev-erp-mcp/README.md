@@ -55,6 +55,13 @@ $env:ERP_MCP_PUBLIC_URL="http://127.0.0.1:4311"
 npm.cmd start
 ```
 
+개인 ERP MCP의 기본 노출 tool은 8개이며 `erp_get_my_agenda` 응답은
+`date`/`time_zone`/`tasks`/`overdue`/`meetings`다. dev-ERP에서 `DEV_ERP_MCP_AGENDA_NO_DUE=1`을 켠
+경우에만 마감일 없는 본인 open 항목 배열 `no_due_open`이 덧붙는다. `ERP_MCP_REVIEW_TOOLS=1`이면
+read-only `erp_list_pending_reviews`(admin 전용, dev-ERP `DEV_ERP_MCP_REVIEW_READ=1` 필요) 하나가
+더 등록되어 tool이 9개가 된다. 세 flag 모두 미설정이면 OFF이고 기본 tool 목록과 응답은 그대로다.
+승인·거부·업무 완료·배정 도구는 어느 flag에서도 생기지 않는다.
+
 기본 bind는 `127.0.0.1:4311`이다. LAN에서는 sidecar를 직접 평문 공개하지 않고 HTTPS
 reverse proxy/tunnel 뒤에 둔다. `/health`만 공개 liveness이며 `/mcp`는 개인 ERP bearer,
 `/upload/<one-time-ticket>`은 10분/1회/size/hash-bound raw upload만 받는다.
