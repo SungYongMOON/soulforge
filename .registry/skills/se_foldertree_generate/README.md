@@ -10,4 +10,5 @@
 - 현재 bundled spec 지원 조합은 `체계개발 / LIG 넥스원 / A`, `선행연구 / 공통 / 없음`, `탐색개발 / 공통 / 없음`, `운용연구개발 / 공통 / 없음` 이다.
 - `탐색개발` 과 `운용연구개발` 기본형은 common SE spine 기반 public-safe baseline 이며, contractor-specific overlay 나 project-specific tailoring 은 별도 variant/spec 로 분리한다.
 - `선행연구` 기본형도 같은 방식의 public-safe baseline 이며, 자료조사/대안분석/전환판단에 무게를 둔다.
+- 2026-08-18 정본 대조(`codex/references/source_verification_v0.md`, DRAFT): `체계개발` variant 의 SRR~PCA spine 은 방위사업관리규정 제56조④5·제79조② 와 부합(필수 산출물 17건 보강 대상), `탐색개발`·`선행연구` 기본형은 체계개발 명명틀을 차용한 상태라 정본 기준 재기준(re-base) 대상, `운용연구개발` 은 경미 성능개량/현존전력 트랙 분리 대상, `응용연구` 는 제안안만 있다. 재기준 전까지 이 세 기본형은 "미검증 기본형" 으로 취급한다.
 - actual model, MCP/tool set, installed skill name, install path, output root 선택은 tracked skill folder 가 아니라 local runtime owner 가 맡는다.

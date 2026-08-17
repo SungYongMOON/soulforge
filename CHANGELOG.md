@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## 2026-08-18 - SE folder-tree variant source verification (skill reference)
+
+- Added `.registry/skills/se_foldertree_generate/codex/references/source_verification_v0.md`
+  (DRAFT, claim ceiling observed): a task-by-task comparison of the four bundled
+  SE folder-tree variants (체계개발·탐색개발·선행연구·운용연구개발) against 13
+  official DAPA/MND texts (방위사업관리규정 2026-08, 국방전력발전업무훈령,
+  총수명주기관리 훈령, SE기반 기술검토회의 가이드북 2017/2024(OCR), SE 기반
+  기술관리업무 실무지침서, 국방 표준화 업무 실무지침서, 시험평가 가이드북·실무가이드,
+  RAM 업무지침, 현존전력 성능극대화 사업 업무지침, 선행연구 수행지침, 국방기술
+  연구개발 업무처리지침). Each task is marked source_supported /
+  partially_supported / unsupported / internal_management with citations, and
+  every required item the variant lacks is listed; a business-type matrix and
+  an 응용연구 variant proposal (v2) are included.
+- Verdicts recorded: the 체계개발 variant's SRR~PCA spine is source-supported
+  (17 required items missing, e.g. MRA, 사업중간점검, 국방규격화연계표, DT/OT
+  계획서); the 탐색개발 and 선행연구 baselines borrow the 체계개발 naming and are
+  marked for re-basing; 운용연구개발 needs track separation (경미 성능개량 vs
+  현존전력); no variant existed for 응용연구. `SKILL.md` and the skill README
+  point to the reference and label the three baselines "미검증 기본형" until
+  re-based. This is a reference document, not a generator change: no bundled
+  spec was modified and no folder is generated differently.
+- The 13 source texts live in the common knowledge library (private plane) with
+  an intake receipt; the machine-readable twin of the reference is a private
+  metadata report. Repository-wide `npm run validate` path-policy still reports
+  the 48 pre-existing tracked violations, unchanged.
+
 ## 2026-08-18 - Requirement coverage input builder (R2 preparation)
 
 - Added `guild_hall/requirement_trace/coverage_input_builder.mjs`, the second
