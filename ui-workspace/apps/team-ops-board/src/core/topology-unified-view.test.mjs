@@ -161,18 +161,18 @@ function assertNoVisibleNodeOverlap(nodes) {
   }
 }
 
-test("tracked federation totals remain 4 providers, 67 nodes and 175 provider-local edges", () => {
+test("tracked federation totals remain 4 providers, 71 nodes and 199 provider-local edges", () => {
   const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..", "..", "guild_hall", "watchtower", "topology", "federated_topology.v1.json");
   const snapshot = JSON.parse(readFileSync(root, "utf8"));
   const model = buildUnifiedTopologyViewModel({ lens: "declared_structure", state: "ready", reason: null, snapshot }, null);
   assert.equal(model.available, true);
   assert.deepEqual(
     { providers: model.source.providerCount, nodes: model.source.nodeCount, edges: model.source.edgeCount },
-    { providers: 4, nodes: 67, edges: 175 },
+    { providers: 4, nodes: 71, edges: 199 },
   );
   assert.deepEqual(model.providers.map(({ id, nodeCount, edgeCount }) => ({ id, nodeCount, edgeCount })), [
     { id: "watchtower", nodeCount: 27, edgeCount: 34 },
-    { id: "engineering_engine", nodeCount: 29, edgeCount: 127 },
+    { id: "engineering_engine", nodeCount: 33, edgeCount: 151 },
     { id: "knowledge_stack", nodeCount: 7, edgeCount: 9 },
     { id: "watchtower_notebook_advisory_adapter", nodeCount: 4, edgeCount: 5 },
   ]);
@@ -228,8 +228,8 @@ test("size-aware layout has no collisions for all-expanded and single drill-down
     groupKeys: [...new Set(snapshot.nodes.map((entry) => `${entry.provider_id}::${entry.group ?? "그룹 없음"}`))],
   };
   const expanded = buildUnifiedTopologyViewModel({ lens: "declared_structure", state: "ready", reason: null, snapshot }, null, allExpanded);
-  assert.equal(expanded.nodes.filter((entry) => entry.displayKind === "node").length, 67);
-  assert.equal(expanded.edges.length, 175);
+  assert.equal(expanded.nodes.filter((entry) => entry.displayKind === "node").length, 71);
+  assert.equal(expanded.edges.length, 199);
   assertNoVisibleNodeOverlap(expanded.nodes);
 
   const single = buildUnifiedTopologyViewModel(federationProjection(), healthProjection(), {

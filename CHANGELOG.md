@@ -1,5 +1,40 @@
 # CHANGELOG
 
+## 2026-08-17 - Board classic Engine view 33-module 정합과 CHANGELOG 표기 정정
+
+- Team Operations Board의 classic Engine 뷰가 현재 Engineering Engine topology를
+  전부 소비하도록 lane/shape 매핑을 33 모듈로 맞췄다. AX·SE subject 4개
+  (`ax_se_project_assessment`, `ax_se_project_role_roster`,
+  `ax_se_project_role_bound_assessment`, `ax_se_project_context_pilot`)를 기존
+  subject run과 같은 소비자 어휘로 OUTPUT lane에 배치했고, lane은 다섯 개
+  그대로다. 이전에는 lane 매핑이 29개에만 있어 뷰 전체가
+  `engineering_engine_lane_coverage_mismatch`로 닫혀 있었다.
+- 운영 영향: Board의 Engine 구조 화면이 다시 열린다. 이 변경은 선언 구조만
+  다루며 runtime 관측, 전달 영수증, W1 health, 복구 실행 권한을 만들지 않는다.
+  Engine runtime은 계속 `UNKNOWN`이고 runtime/repair authority는 `false`다.
+- classic 뷰 테스트의 기대 모듈·간선 수를 상수 대신 tracked
+  `federated_topology.v1.json`의 engineering_engine slice에서 유도하도록 바꾸고,
+  추적 artifact가 33 모듈·151 간선이라는 사실만 한 자리에서 고정했다. 신규 4개
+  모듈의 lane·shape 배치 회귀도 추가했다.
+- `guild_hall/engineering_engine/topology/phase_1_integration_receipt.json`은
+  25 모듈/105 간선 시점 그대로 두었다. `tools/phase_1_integration_check.mjs`는
+  receipt를 파일로 쓰지 않고 stdout으로만 내며, 재실행이 결정론적이지 않고
+  (`run_id`가 실행 시각에서 파생) `--scratch` 쓰기와 tracked tree 밖 frozen
+  phase_1_0 bundle/oracle을 요구한다. 이 receipt는 `engine_manifest.sha256`
+  대상에서 제외되어 있고 어떤 validator도 읽지 않으므로 stale 상태가 검증을
+  깨지 않는다. 갱신은 bundle 경로를 가진 실행자가 별도로 수행할 일로 남긴다.
+- 2026-08-16 `PDF launch authoring` 항목의 `Revision: working.`을 다른 항목과
+  같은 문구로 정정했고, 같은 날짜 federation 표기 `71 nodes and 198 edges`에
+  tracked artifact summary가 `edge_count: 199`라는 정정 주석을 달았다. 과거 항목
+  본문은 그대로 두었다.
+- authorship: 구현과 이 항목은 Claude Opus 5가 작성했고 Claude Fable 5 검토는
+  예정 상태다. 포괄 준비 완료 판정이 아니다.
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/core/topology-engine-classic-view.mjs`,
+  같은 폴더의 `topology-engine-classic-view.test.mjs`,
+  `ui-workspace/apps/team-ops-board/README.md`,
+  `guild_hall/watchtower/topology/federated_topology.v1.json`(읽기 전용),
+  `guild_hall/engineering_engine/topology/engine_topology.json`(읽기 전용).
+
 ## 2026-08-17 - Feature-OFF project PDF requirement identifier index seam
 
 - First actual measurement (private run, pending Owner ratification): the seam ran
@@ -232,7 +267,7 @@
   ACCEPT다. 포괄 준비 완료 판정은 아니다.
 - authorship: 구현과 테스트, 이 통합 텍스트는 Claude Opus 5가 작성했고 Fable이
   검토했으며 controller가 검증했다.
-- Revision: working.
+- Revision: the Git commit containing this entry owns the exact revision.
 
 ## 2026-08-16 - Feature-OFF 프로젝트 PDF RAG tracer
 
@@ -510,8 +545,10 @@
   statically.
 - Updated the generated Engine topology for the M2-2 subject to 33 modules and
   151 internal import edges, and the full Watchtower federation to 71 nodes
-  and 198 edges. Earlier 30/136 and 32/147 entries below remain historical M1
-  integration milestones rather than the current inventory.
+  and 198 edges (2026-08-17 정정: tracked
+  `guild_hall/watchtower/topology/federated_topology.v1.json` summary는
+  `edge_count: 199`이다). Earlier 30/136 and 32/147 entries below remain
+  historical M1 integration milestones rather than the current inventory.
 - Reclassified the earlier `qwen3.5:9b` choice as historical rather than the M2
   runtime. M2 through the first pilot remains model-free; any later advisory LLM
   requires a separate source-bound quality and data-egress decision.
