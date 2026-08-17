@@ -407,9 +407,43 @@ payloads, and keeps stronger permissions false until owner review.
   payload-free; the tracer performs zero filesystem writes, persistence,
   network, model, RAG-index, Wiki, Engineering Engine, ERP, and TaskDriver
   effects and holds none of their authority.
+- `project_pdf_requirement_index.mjs` builds one requirement identifier index
+  over exactly one admitted project PDF. Its request is one closed own-data
+  object carrying exactly `launchPath`, `expectedLaunchSha256`, and `profileId`;
+  no identifier pattern, label gap, row cap, or title rule is reachable from the
+  caller.
+- `profileId` must name one fixed profile from `REQUIREMENT_INDEX_PROFILES`;
+  today that list is exactly `kr_defense_spec_v0`, and any other value is one
+  `REQUEST_INVALID` refusal settled before admission opens a file.
+- The admission seam above is called exactly once and stays the only thing that
+  decides admission and reads the launch file and the PDF bytes; the requirement
+  index itself has no direct filesystem surface, no CLI, and no process
+  entrypoint.
+- Recognition is deterministic and regular-expression only over the returned page
+  text: the `식별자` label binds the first identifier token that follows it
+  inside the fixed gap, an identifier that appears with no label in front of it
+  stays a mention, a label with no well-formed identifier behind it is counted as
+  a malformed candidate, and a block runs from its identifier to the next
+  identifier on the same page or to the end of that page.
+- Each row carries the identifier, the nearest preceding section number, an
+  optional bracket title inside the fixed 120-character bound, the page number,
+  the page-local UTF-16 span, the `TBC`/`TBD` marks, the block character count,
+  and a digest of the block text; the block body itself is never carried, and a
+  bracket title that could be a secret or is past the bound is dropped to null.
+- Rows are sorted by page number then span start, an identifier defined twice in
+  the same document is listed under `duplicate_ids`, and an identifier only ever
+  mentioned is listed under `mention_only_ids`.
+- The returned `{ index, receipt }` is deep-frozen and the receipt is
+  payload-free: counts, digests, the fixed profile id, and the admission evidence
+  alone, with the sorted identifier list reduced to one domain-separated
+  `ids_sha256`. The seam performs zero filesystem writes, persistence, network,
+  model, RAG-index, Wiki, Engineering Engine, ERP, and TaskDriver effects and
+  holds none of their authority.
 - `HOLD`: actual project launch, read grant, and project-root execution, actual
-  project, live, and persistent tracer answering, activation including
-  accepted-context and operational-retrieval activation, batching and
+  project, live, and persistent tracer answering, actual project requirement
+  indexing, RTM/coverage claims and Engine policy-requirement packet supply from
+  an index, additional or caller-supplied recognition profiles, activation
+  including accepted-context and operational-retrieval activation, batching and
   multi-document runs, persistence, Docling/OCR, UI, RAG index, Wiki/KVDS, and
   Engine/ERP/TaskDriver integration.
 

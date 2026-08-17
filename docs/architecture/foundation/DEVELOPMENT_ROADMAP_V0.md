@@ -228,6 +228,11 @@ read-only snapshot
      pilot 뒤에만 project-local deterministic persistent RAG와 thin Wiki를 붙이고, 두 표면은
      exact source revision을 pin한 receipt 없이 context를 공급하지 않는다. Project
      History/Context Graph semantic adapter도 같은 receipt 경계 위에서만 연결한다.
+     - P4 첫 조각(2026-08-17): 요구사항 ID 색인 seam(`guild_hall/rag/project_pdf_requirement_index.mjs`)을
+       feature-OFF·zero-write·모델 없음으로 착수하고 public synthetic 합성 PDF로 검증했다.
+       admitted project PDF 하나를 고정 profile `kr_defense_spec_v0`의 정규식으로만 읽어
+       요구항목 색인과 payload-free 영수증을 만든다. 이는 나중 engine packet과 RTM 커버리지의
+       원료 후보일 뿐이며 persistent RAG/Wiki 부착, 실제 과제 실행, RTM 주장은 여전히 `HOLD`다.
   5. **P5 accepted context generation/freshness**: M2-3 exact revision receipt 위에서 accepted
      context generation과 freshness를 닫는다. accepted generation 최소조건은
      `PROJECT_CONTEXT_GRAPH_MODEL_V0.md`의 `M2-3A Knowledge→Context Gate Crosswalk`가 소유하며,
