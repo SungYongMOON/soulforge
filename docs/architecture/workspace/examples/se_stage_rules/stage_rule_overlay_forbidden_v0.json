@@ -1,0 +1,28 @@
+{
+  "fixture_id": "stage_rule_overlay_forbidden_v0",
+  "schema_version": "soulforge.se_stage_rule_compiler_fixture.v0",
+  "note": "Public-safe synthetic negative fixture. It extends the same synthetic variant and carries the one operation design decision D45 forbids: an overlay that re-grades the evidence level of a standard rule. A project may add its own contract items and may decide that a rule is not applicable to it, but the grade of the canonical source behind an L1 rule is not the project's to restate. The compiler must refuse the whole overlay with OVERLAY_FORBIDDEN rather than apply the operations around it.",
+  "overlay": {
+    "schema_version": "soulforge.se_stage_rule_overlay.v0",
+    "extends": {
+      "support_key": "synthetic_development__synthetic_prime__grade_a",
+      "spec_sha256": "624fcedba82ccf4712148a05a35518a68813849e94809d5ee90b6792de39fd88"
+    },
+    "ops": [
+      {
+        "op": "condition",
+        "token": "sw_included"
+      },
+      {
+        "op": "override_evidence",
+        "stage_code": "090_PDR",
+        "artifact_type_id": "sdd",
+        "evidence_level": "regulation_mandated",
+        "basis": "synthetic_attempt_to_regrade_an_unverified_rule"
+      }
+    ]
+  },
+  "expected": {
+    "error_code": "SE_STAGE_RULE_OVERLAY_FORBIDDEN"
+  }
+}

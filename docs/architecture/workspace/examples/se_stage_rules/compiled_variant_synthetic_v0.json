@@ -1,0 +1,488 @@
+{
+  "fixture_id": "compiled_variant_synthetic_v0",
+  "schema_version": "soulforge.se_stage_rule_compiler_fixture.v0",
+  "note": "Public-safe synthetic fixture for guild_hall/engineering_engine/stage_rules/stage_rule_compiler.mjs. The business type, prime contractor, quality grade, gate names, task names, task ids, source keys, locators, condition tokens, instants and digests below are all invented for this file. It names no actual project, contract, organisation, regulation, document or person, and carries no line of any real text: the sha256 values are digests of invented ascii strings, not of any real bytes. Only the artifact_type_id tokens and the gate-to-stage numbering are real, because those are the shared vocabulary under test. The expected block is derived by hand from SE_STAGE_RULE_SOURCE_MODEL_V0 sections 3 to 5 and from the compiler contract, so an implementation change cannot quietly redefine what is correct. The fifteen tasks exercise every machine field: the five evidence levels, a fixed internal folder, a task with no artifact_type_id, a conditional task whose condition is unmet, a task that is not applicable by default, and a mandated task whose source verification is unverified and therefore weakens to context.",
+  "request": {
+    "compiled_variant": {
+      "schema_version": "soulforge.se_foldertree_compiled_variant.v0",
+      "support_key": "synthetic_development__synthetic_prime__grade_a",
+      "business_type": "synthetic_development",
+      "prime_contractor": "synthetic_prime_office",
+      "quality_grade": "grade_a",
+      "spec_file": "synthetic_variant_spec_v0.md",
+      "spec_sha256": "624fcedba82ccf4712148a05a35518a68813849e94809d5ee90b6792de39fd88",
+      "spec_version": "v0.1",
+      "generated_by": "synthetic_export_variant_json_v0",
+      "principles": [
+        "synthetic_principle_one_folder_per_gate",
+        "synthetic_principle_task_names_are_stable"
+      ],
+      "special_folders": {
+        "inbox": "00_INBOX",
+        "log": "99_LOG"
+      },
+      "management_static_folders": [
+        "00_INBOX",
+        "99_LOG"
+      ],
+      "gates": [
+        {
+          "code": 20,
+          "name": "Synthetic programme management workspace",
+          "desc": "Fixed folders that hold working material rather than gate evidence.",
+          "tasks": [
+            {
+              "id": 2001,
+              "name": "Synthetic inbox",
+              "desc": "Incoming working material.",
+              "term": "whole_programme",
+              "source": "synthetic_variant_spec_v0",
+              "template": "none",
+              "is_fixed": true,
+              "artifact_type_id": "inbox",
+              "evidence_level": "internal_management",
+              "verification_status": "source_supported"
+            },
+            {
+              "id": 2002,
+              "name": "Synthetic work log",
+              "desc": "Running record of work.",
+              "term": "whole_programme",
+              "source": "synthetic_variant_spec_v0",
+              "template": "none",
+              "is_fixed": true,
+              "artifact_type_id": "log",
+              "evidence_level": "internal_management",
+              "verification_status": "source_supported"
+            },
+            {
+              "id": 2003,
+              "name": "Synthetic technical data exchange",
+              "desc": "Technical data sent and received.",
+              "term": "whole_programme",
+              "source": "synthetic_variant_spec_v0",
+              "template": "none",
+              "is_fixed": true,
+              "artifact_type_id": "tdp_exchange",
+              "evidence_level": "internal_management",
+              "verification_status": "source_supported"
+            }
+          ]
+        },
+        {
+          "code": 90,
+          "name": "Synthetic preliminary design review",
+          "desc": "Preliminary design gate of the synthetic business type.",
+          "tasks": [
+            {
+              "id": 9001,
+              "name": "Synthetic software requirements specification",
+              "desc": "Software requirements for the synthetic system.",
+              "term": "before_gate",
+              "source": "synthetic_regulation_v0",
+              "template": "synthetic_srs_template",
+              "artifact_type_id": "srs",
+              "evidence_level": "regulation_mandated",
+              "verification_status": "source_supported",
+              "source_refs": [
+                {
+                  "source_key": "synthetic_regulation_v0",
+                  "locator": "article_31_clause_1"
+                }
+              ]
+            },
+            {
+              "id": 9002,
+              "name": "Synthetic hardware design description",
+              "desc": "Hardware design of the synthetic system.",
+              "term": "before_gate",
+              "source": "synthetic_guidebook_v0",
+              "template": "synthetic_hdd_template",
+              "artifact_type_id": "hdd",
+              "evidence_level": "guidebook_recommended",
+              "verification_status": "source_supported",
+              "source_refs": [
+                {
+                  "source_key": "synthetic_guidebook_v0",
+                  "locator": "page_82"
+                }
+              ]
+            },
+            {
+              "id": 9003,
+              "name": "Synthetic software design description",
+              "desc": "Design description whose canonical basis has not been compared yet.",
+              "term": "before_gate",
+              "source": "synthetic_baseline_v0",
+              "template": "synthetic_sdd_template",
+              "artifact_type_id": "sdd",
+              "evidence_level": "regulation_mandated",
+              "verification_status": "unverified"
+            },
+            {
+              "id": 9004,
+              "name": "Synthetic interface control document",
+              "desc": "Required only when the synthetic system includes software.",
+              "term": "before_gate",
+              "source": "synthetic_regulation_v0",
+              "template": "synthetic_icd_template",
+              "artifact_type_id": "icd",
+              "evidence_level": "regulation_mandated",
+              "verification_status": "source_supported",
+              "applies_when": "sw_included",
+              "source_refs": [
+                {
+                  "source_key": "synthetic_regulation_v0",
+                  "locator": "article_31_clause_4"
+                }
+              ]
+            },
+            {
+              "id": 9005,
+              "name": "Synthetic working folder with no standard token",
+              "desc": "A real folder that has not been given machine fields yet.",
+              "term": "before_gate",
+              "source": "synthetic_variant_spec_v0",
+              "template": "none",
+              "evidence_level": "internal_management",
+              "verification_status": "source_supported"
+            },
+            {
+              "id": 9006,
+              "name": "Synthetic preliminary design review minutes",
+              "desc": "Minutes of the synthetic preliminary design review.",
+              "term": "at_gate",
+              "source": "synthetic_regulation_v0",
+              "template": "synthetic_minutes_template",
+              "artifact_type_id": "review_minutes_pdr",
+              "evidence_level": "regulation_mandated",
+              "verification_status": "source_supported",
+              "source_refs": [
+                {
+                  "source_key": "synthetic_regulation_v0",
+                  "locator": "article_33_clause_2"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": 120,
+          "name": "Synthetic critical design review",
+          "desc": "Critical design gate of the synthetic business type.",
+          "tasks": [
+            {
+              "id": 12001,
+              "name": "Synthetic product configuration identification",
+              "desc": "Product baseline of the synthetic system.",
+              "term": "before_gate",
+              "source": "synthetic_regulation_v0",
+              "template": "synthetic_pci_template",
+              "artifact_type_id": "pci",
+              "evidence_level": "regulation_mandated",
+              "verification_status": "source_supported",
+              "source_refs": [
+                {
+                  "source_key": "synthetic_regulation_v0",
+                  "locator": "article_44_clause_1"
+                }
+              ]
+            },
+            {
+              "id": 12002,
+              "name": "Synthetic software test plan",
+              "desc": "Test plan for the synthetic software item.",
+              "term": "before_gate",
+              "source": "synthetic_guidebook_v0",
+              "template": "synthetic_stp_template",
+              "artifact_type_id": "stp",
+              "evidence_level": "guidebook_recommended",
+              "verification_status": "partially_supported",
+              "source_refs": [
+                {
+                  "source_key": "synthetic_guidebook_v0",
+                  "locator": "page_119"
+                }
+              ]
+            },
+            {
+              "id": 12003,
+              "name": "Synthetic manufacturing readiness assessment report",
+              "desc": "Not applicable by default for this synthetic business type.",
+              "term": "before_gate",
+              "source": "synthetic_guidebook_v0",
+              "template": "synthetic_mra_template",
+              "artifact_type_id": "mra_report",
+              "evidence_level": "guidebook_recommended",
+              "verification_status": "source_supported",
+              "not_applicable_default": true,
+              "source_refs": [
+                {
+                  "source_key": "synthetic_guidebook_v0",
+                  "locator": "page_140"
+                }
+              ]
+            },
+            {
+              "id": 12004,
+              "name": "Synthetic critical design review minutes",
+              "desc": "Minutes of the synthetic critical design review.",
+              "term": "at_gate",
+              "source": "synthetic_regulation_v0",
+              "template": "synthetic_minutes_template",
+              "artifact_type_id": "review_minutes_cdr",
+              "evidence_level": "regulation_mandated",
+              "verification_status": "source_supported",
+              "source_refs": [
+                {
+                  "source_key": "synthetic_regulation_v0",
+                  "locator": "article_46_clause_2"
+                }
+              ]
+            },
+            {
+              "id": 12005,
+              "name": "Synthetic technology readiness assessment report",
+              "desc": "Carried by habit in this synthetic variant with no stated basis.",
+              "term": "before_gate",
+              "source": "synthetic_variant_spec_v0",
+              "template": "none",
+              "artifact_type_id": "tra_report",
+              "evidence_level": "unstated",
+              "verification_status": "source_supported"
+            },
+            {
+              "id": 12006,
+              "name": "Synthetic database design description",
+              "desc": "Asked for by the synthetic prime contract when software is included.",
+              "term": "before_gate",
+              "source": "synthetic_prime_request_v0",
+              "template": "synthetic_dbdd_template",
+              "artifact_type_id": "dbdd",
+              "evidence_level": "prime_contract",
+              "verification_status": "source_supported",
+              "applies_when": "sw_included",
+              "source_refs": [
+                {
+                  "source_key": "synthetic_prime_request_v0",
+                  "locator": "item_11"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "completion_rule": {
+        "gate_is_complete_when": "synthetic_all_required_tasks_present"
+      },
+      "generation_rules": {
+        "folder_name_pattern": "synthetic_{code}_{name}"
+      },
+      "profiles": {
+        "default": "synthetic_full"
+      }
+    },
+    "overlay": null,
+    "project_binding": {
+      "document_refs": [
+        {
+          "artifact_type_ids_covered": [
+            "srs",
+            "sdd",
+            "icd",
+            "dbdd"
+          ],
+          "requirement_ref": {
+            "entity_id": "synthetic_requirement_document_a",
+            "revision_id": "rev_1",
+            "content_id": "sha256:d5c01e34161ba80ba492f05e9c0509532f22b750d9750c85daa3d1f9fce3d3de",
+            "content_hash_alg": "sha256"
+          }
+        },
+        {
+          "artifact_type_ids_covered": [
+            "pci",
+            "review_minutes_cdr"
+          ],
+          "requirement_ref": {
+            "entity_id": "synthetic_requirement_document_b",
+            "revision_id": "rev_1",
+            "content_id": "sha256:4572edddda925a1aba1dff2e671432bc3029554db9b88949f42a4f175c8cc5d7",
+            "content_hash_alg": "sha256"
+          }
+        }
+      ],
+      "valid_at": "2026-05-04T00:00:00.000Z",
+      "known_at": "2026-05-11T00:00:00.000Z",
+      "authority_family": "project_contract_baseline",
+      "applicability_default": true
+    },
+    "target_stage_codes": [
+      "120_CDR",
+      "020_MGMT",
+      "090_PDR"
+    ],
+    "overlay_conditions": []
+  },
+  "expected": {
+    "note": "Derived by hand. Task 9003 is mandated but unverified, so it weakens to optional_context and produces no engine requirement. Task 9004 is mandated and conditional, and no condition is declared here, so it weakens only as far as present_or_not_applicable. Task 9005 has no artifact_type_id and becomes unmapped_9005. The three gate-20 tasks are fixed internal folders, so stage 020_MGMT carries rules but no engine requirement and is left out of the engine material entirely.",
+    "counts": {
+      "rows": 15,
+      "by_evidence_level": {
+        "regulation_mandated": 6,
+        "guidebook_recommended": 3,
+        "prime_contract": 1,
+        "internal_management": 4,
+        "unstated": 1
+      },
+      "by_presence_rule": {
+        "present": 4,
+        "present_or_not_applicable": 5,
+        "optional_context": 6
+      },
+      "engine_requirements": 9,
+      "not_applicable": 1,
+      "overlay_added": 0,
+      "overlay_aliases": 0,
+      "overlay_out_of_scope": 0,
+      "unmapped": 1,
+      "downgraded_unverified": 1
+    },
+    "engine_stage_codes": [
+      "090_PDR",
+      "120_CDR"
+    ],
+    "engine_requirement_ids": [
+      "090_PDR_hdd",
+      "090_PDR_icd",
+      "090_PDR_review_minutes_pdr",
+      "090_PDR_srs",
+      "120_CDR_dbdd",
+      "120_CDR_mra_report",
+      "120_CDR_pci",
+      "120_CDR_review_minutes_cdr",
+      "120_CDR_stp"
+    ],
+    "not_applicable_requirement_ids": [
+      "120_CDR_mra_report"
+    ],
+    "needs_stages": [
+      {
+        "stage_code": "020_MGMT",
+        "sequence": 20
+      },
+      {
+        "stage_code": "090_PDR",
+        "sequence": 90
+      },
+      {
+        "stage_code": "120_CDR",
+        "sequence": 120
+      }
+    ],
+    "artifact_type_ids": [
+      "dbdd",
+      "hdd",
+      "icd",
+      "inbox",
+      "log",
+      "mra_report",
+      "pci",
+      "review_minutes_cdr",
+      "review_minutes_pdr",
+      "sdd",
+      "srs",
+      "stp",
+      "tdp_exchange",
+      "tra_report",
+      "unmapped_9005"
+    ],
+    "rows": [
+      {
+        "stage_code": "090_PDR",
+        "task_id": 9001,
+        "artifact_type_id": "srs",
+        "minimum_presence_rule": "present",
+        "engine_requirement_id": "090_PDR_srs",
+        "document_ref_selection": "covered"
+      },
+      {
+        "stage_code": "090_PDR",
+        "task_id": 9002,
+        "artifact_type_id": "hdd",
+        "minimum_presence_rule": "present_or_not_applicable",
+        "engine_requirement_id": "090_PDR_hdd",
+        "document_ref_selection": "default_document_ref"
+      },
+      {
+        "stage_code": "090_PDR",
+        "task_id": 9003,
+        "artifact_type_id": "sdd",
+        "minimum_presence_rule": "optional_context",
+        "engine_requirement_id": null,
+        "document_ref_selection": null
+      },
+      {
+        "stage_code": "090_PDR",
+        "task_id": 9004,
+        "artifact_type_id": "icd",
+        "minimum_presence_rule": "present_or_not_applicable",
+        "engine_requirement_id": "090_PDR_icd",
+        "document_ref_selection": "covered"
+      },
+      {
+        "stage_code": "090_PDR",
+        "task_id": 9005,
+        "artifact_type_id": "unmapped_9005",
+        "minimum_presence_rule": "optional_context",
+        "engine_requirement_id": null,
+        "document_ref_selection": null
+      },
+      {
+        "stage_code": "120_CDR",
+        "task_id": 12003,
+        "artifact_type_id": "mra_report",
+        "minimum_presence_rule": "present_or_not_applicable",
+        "engine_requirement_id": "120_CDR_mra_report",
+        "document_ref_selection": "default_document_ref"
+      },
+      {
+        "stage_code": "120_CDR",
+        "task_id": 12005,
+        "artifact_type_id": "tra_report",
+        "minimum_presence_rule": "optional_context",
+        "engine_requirement_id": null,
+        "document_ref_selection": null
+      }
+    ],
+    "expected_artifact_families": [
+      {
+        "stage_code": "120_CDR",
+        "artifact_family_id": "mra_report",
+        "artifact_kind": "analysis_packet",
+        "draftability_rule": "not_applicable",
+        "not_applicable_requires": [
+          "policy_rule"
+        ]
+      },
+      {
+        "stage_code": "120_CDR",
+        "artifact_family_id": "stp",
+        "artifact_kind": "verification_planning_artifact",
+        "draftability_rule": "draftable_with_sources",
+        "not_applicable_requires": [
+          "scoped_owner_decision_ref"
+        ]
+      },
+      {
+        "stage_code": "020_MGMT",
+        "artifact_family_id": "inbox",
+        "artifact_kind": "formal_document",
+        "draftability_rule": "draftable_with_sources",
+        "not_applicable_requires": [
+          "scoped_owner_decision_ref"
+        ]
+      }
+    ]
+  }
+}

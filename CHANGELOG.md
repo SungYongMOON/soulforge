@@ -34,6 +34,39 @@
   document the compiled JSON, the machine fields, and the deterministic rules
   used to derive `evidence_level`/`applies_when`, including the vocabulary tokens
   that still need the `artifact_vocabulary.v0` owner decision (D44).
+## 2026-08-18 - SE stage rule compiler (engine `stage_rules/`)
+
+- Added `guild_hall/engineering_engine/stage_rules/`, the L3 compiler of
+  `docs/architecture/workspace/SE_STAGE_RULE_SOURCE_MODEL_V0.md`.
+  `artifact_vocabulary.mjs` owns the 75 shared `artifact_type_id` tokens with their
+  family, display labels, and default capability (D44).
+  `stage_rule_compiler.mjs` exposes `compileStageRules(request)`, which turns one
+  compiled folder-tree variant (L1), one optional project overlay (L2), and a
+  project document binding into a `se_stage_expected_artifact_policy_v0` instance,
+  `soulforge.ax_se_stage_policy.v0` stage material, the Needs-policy stage and
+  vocabulary declarations, a per-row mapping table, and a digest receipt.
+  `mintEnginePolicyRef` reproduces the engine's `policy_ref` digest rule.
+- Rules fixed by the slice: `regulation_mandated` maps to `present`,
+  `guidebook_recommended` and `prime_contract` to `present_or_not_applicable`,
+  `internal_management` and `unstated` to `optional_context`; an `unverified`,
+  `unsupported`, `contradicted`, or absent verification status weakens a row to
+  context and never strengthens one; an undeclared `applies_when` condition weakens
+  to `present_or_not_applicable`; `not_applicable_default` sets
+  `draftability_rule: not_applicable` on a `policy_rule` basis. Fixed internal
+  folders, unmapped tasks, and optional-context rows stay in the gap-scan policy and
+  the mapping table but are never emitted as engine requirements. An overlay may only
+  `add`, `alias`, `mark_not_applicable`, and `condition`; `override_evidence` and any
+  operation that would raise a rule's evidence level are refused (D45), as is an
+  overlay whose `extends` does not name the compiled variant, and any gate code
+  outside the eleven engine stage codes.
+- Pure module: the whole import graph reaches `node:crypto` and nothing else, with no
+  filesystem, clock, random, environment, or network use, pinned by a static test.
+  Public-safe synthetic fixtures (invented business type, gates, tasks, overlay, and a
+  negative overlay) live in `docs/architecture/workspace/examples/se_stage_rules/`.
+  New command `npm run validate:se-stage-rules` runs both syntax checks and the
+  17-test suite; the suite also pins the restated engine policy revision against the
+  engine's own export and validates the emitted material through the engine's exported
+  `buildAxSeAssessmentInput` and `assessAxSeProject`.
 
 ## 2026-08-18 - SE folder-tree variant source verification (skill reference)
 
