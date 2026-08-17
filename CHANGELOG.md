@@ -2,6 +2,13 @@
 
 ## 2026-08-17 - Feature-OFF project PDF requirement identifier index seam
 
+- First actual measurement (private run, pending Owner ratification): the seam ran
+  once on the pinned KVDS 요구사양서 launch and returned 118 requirement identifiers
+  over 33 of 42 pages (TBC 19 / TBD 9, 4 duplicate ids, 18 label-less mentions,
+  18 label-only candidates); a transient admission HOLD preceded the PASS. Counts
+  only; the index body stays in the project plane. Profile v0.1 candidates: prefer
+  the bracket after 요구사양, ignore short unit brackets, classify mention-only ids.
+
 - Added `guild_hall/rag/project_pdf_requirement_index.mjs`, an import-only
   Feature-OFF seam that turns exactly one admitted project PDF into one
   deterministic requirement identifier index plus one payload-free receipt. Its

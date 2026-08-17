@@ -1062,6 +1062,7 @@ raw 산출물·private 수치는 `_workmeta` 영수증을 가리키고 여기엔
 | 2026-08-17 | MCP(내려받기·올리기·검토·승인) | 계획에 MCP 단계 번호 없음(P5D·P8·AX01/AXCP01·D28/D29/D35에 분산) | 개인 ERP MCP에 feature-OFF 조회 확장 3종(agenda no-due bucket, reviewer read-only, audit token ref) 착지 `main@8d702252`; 승인/거부 MCP는 D04로 미구현 | 계획이 비워둔 "검토자 read-only"를 앞당김(활성화는 여전히 D28/D29·Owner) | CHANGELOG 2026-08-17 항목, ERP-MCP-V0.md |
 | 2026-08-17 | 과제 맥락 메모리 구조(Owner 질문) | 계획에 결정 없음(PROJECT_CONTEXT_GRAPH_MODEL·M2-3A만) | 설계 초안 `PROJECT_REQUIREMENT_TRACE_MODEL_V0.md`(DRAFT/canon_candidate): 사실 원장+재생 투영+수락 게이트+얇은 카드, Graph DB 미도입 트리거, RTM 계산 규칙, D37~D41 제안 | 새 결정 항목 D37~D41 제안(Owner 승인 전 후보) | 해당 문서 |
 | 2026-08-17 | 마스터플랜 문서 정합 | CURRENT 표 유지 지침 :99-111 | :30 CURRENT 셀 08-17 보정, :56 HISTORICAL 태그, C09A evidence 정정, 남은 운영 게이트에 P6 삽입 | 07-31 이후 갱신 누락분 정정 | 이 커밋 |
+| 2026-08-17 | P4/M2-3 첫 조각 실측 | P4는 M2-2 pilot 뒤 착수, RAG/Wiki는 revision 영수증 필수 | 요구사항 ID 색인 seam(`guild_hall/rag/project_pdf_requirement_index.mjs`, feature-OFF·zero-write) 착지 `main@1262dfd8` 후 pinned KVDS 요구사양서에 1회 실행: **118개 ID / 33쪽**, TBC 19·TBD 9, 중복 ID 4, 라벨 없는 언급 18, 라벨만 18 | 계획엔 없던 "측정 조각"을 앞세움(P4 크기 산정용); 첫 시도는 transient admission HOLD 후 재시도 PASS; profile v0.1 후보(단위 대괄호 제목 오탐·언급-only 처리) | private run `project_pdf_requirement_index_pilot_20260817_01`(pending Owner ratification), index는 project plane `reference_payloads/knowledge_extract/20260817_requirement_index/` |
 
 ## 갱신 규칙
 
