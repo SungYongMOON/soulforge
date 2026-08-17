@@ -493,7 +493,7 @@ MCP·플러그인은 `_workmeta`를 직접 순회하거나 쓰지 않는다. 클
 4. `unexpected_observed`(고아)가 삭제되지 않고 계수됨
 5. `npm run validate` 및 관련 focused validator 통과
 
-**Owner 결정 필요**: D37, D38, D39
+**Owner 결정 필요**: D39 (D37·D38은 2026-08-17 확정, §8.2)
 
 ### R2 — 원장 병행 + 재생 parity (2주차)
 
@@ -509,7 +509,7 @@ MCP·플러그인은 `_workmeta`를 직접 순회하거나 쓰지 않는다. 클
 3. `guard:workmeta-write` 전건 통과, `_workmeta`에 body 0
 4. rollback 리허설: reader를 CSV로 되돌려도 동작
 
-**Owner 결정 필요**: D37(요구 ID 확정 authority), D40(중복 884건·상위판 불확실 15군 처리)
+**Owner 결정 필요**: D40(중복 884건·상위판 불확실 15군 처리; 색인 중복 ID 4쌍 판정 포함) — D37은 확정(candidate만), R2 준비 조각의 실측은 §8 R2 bullet과 로드맵 delta log 2026-08-18 행 참조
 
 ### R3 — 커버리지 투영과 엔진 packet (3주차)
 
