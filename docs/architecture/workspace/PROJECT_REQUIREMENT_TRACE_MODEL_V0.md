@@ -57,6 +57,15 @@ repo 전체에 요구사항 추적을 소유하는 문서가 없다. `.workflow/
 | `Role`/`Capability` | `role_id` | `availability_state`, `capabilities[]` | `ax_se_project_role_roster.v0` 소유. 사람 신원 0 |
 | `Source` | `source_id` / `source_revision_id` | 기존 `sources.csv` + `knowledge/source_revision_records` | 메일·회의·문서 공통 |
 
+### 2.1A 확장 지점 — 산출물 내용 검사기 (Owner 제안 2026-08-17)
+
+지금 관측은 "파일이 있다/없다 + 해시"다. 다음 단계에서 산출물 종류별 **검사기(content checker)**를 붙여 관측에 점수를 매단다.
+
+- `CoverageObservation.checker_scores[]` = `{checker_id, checker_revision, score, max_score, ceiling, findings_digest, checked_at}` — 본문·발췌는 저장하지 않고 점수·사유 코드·digest만.
+- 검사기 예: 양식 준수(HWPX 구조 validator 재사용), 필수 절/항 누락, 요구 ID 커버(요구사항 ID 색인 seam), 논리 일관성(결정론 규칙; LLM 판단은 `llm_proposal` 후보층).
+- 규칙: 자동 검사기 점수에는 **상한**을 두고, 상한 위는 사람 확인 항목으로만 채운다(Innoslate/OpsLevel 방식). 검사기 점수는 `presence_state`를 바꾸지 않는다 — 존재 관측과 품질 점수는 다른 축이다.
+- 순서: R3(투영·엔진 observations 자동 생성)이 닫힌 뒤 검사기 스키마·상한 규칙을 Owner가 정하면 시작(로드맵 다음 후보 26).
+
 ### 2.2 엣지 타입
 
 기존 관계를 최대한 재사용하고 **신규는 3개만** 추가한다.

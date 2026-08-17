@@ -910,6 +910,7 @@ Start condition:
 | 23 | 메일 원장 시간 분할 + 증분 스캔 (무한 누적 대비) | owner 가 분할 단위(연/월) 정함; Codex 원장 표준 `soulforge.project_mail_history.private.v1` 변경 조율 | `guild_hall/gateway`, `docs/architecture/workspace`, `_workmeta` |
 | 24 | Rhino x Claude Code 연결 패턴 검토 | engineering co-pilot / SE assistant lane 재개 시 owner 가 Rhino 자동화 연결 필요성을 정함; 공개 영상 source ref 를 먼저 검토 | `.workflow`, `_workmeta/system`, external host setup |
 | 25 | Chat-first·MCP-first connected reasoning workspace | Owner 계정의 ChatGPT plan/model/app 제약을 재확인하고, compact 구현 패킷과 품질 gate 및 첫 read-only Smartsheet 대표 업무를 확정 | `.workflow/external_reasoning_workspace_v0`, `docs/architecture/guild_hall`, `guild_hall/ai_usage_meter`, external ChatGPT app/MCP setup |
+| 26 | 산출물별 문서 검사기(content checker) — 파일 유무·해시 관측을 넘어 산출물 종류별 검사기(양식 준수·필수 절/항 누락·요구 ID 커버·논리 일관성)를 붙이고, 검사 점수를 `CoverageObservation.checker_scores[]`로 요구항목·산출물에 매칭. 자동 점수는 상한을 두고 사람 확인 항목으로만 100%(Innoslate/OpsLevel 방식). 첫 검사기 후보 = 요구사항 ID 색인 seam(2026-08-17 착수)·양식 검사(HWPX 구조 validator 재사용) | Owner 2026-08-17 제안. `PROJECT_REQUIREMENT_TRACE_MODEL_V0.md` R3(투영)·엔진 observations 자동 생성이 먼저 닫히고, 검사기별 점수 스키마·상한 규칙을 Owner가 정하면 시작 | `guild_hall/rag`(추출·검사 seam), `guild_hall/engineering_engine`(관측 입력), `docs/architecture/workspace` |
 
 후보 10~21 의 출처는 2026-06-12 Fable5 심층 검증이다. 10~17 의 상세 후보
 패킷은 `_workmeta/system/dev_worker_queue/` 에 `status: proposed`

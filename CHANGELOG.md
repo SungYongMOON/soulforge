@@ -27,6 +27,12 @@
   operating gates list P6 TaskIntent between P5 and TaskDriver promotion.
 - Operational impact: documentation only; no code, runtime, binding, or
   writer change. Private run receipts referenced by id only.
+- Owner idea (2026-08-17) registered as roadmap next-candidate 26 and design
+  extension §2.1A: per-artifact content checkers (format, missing sections,
+  requirement-ID coverage, logical consistency) whose scores attach to
+  `CoverageObservation.checker_scores[]` with an automatic-score ceiling and
+  human-confirmed remainder; presence observation and quality score stay
+  separate axes.
 - authorship: design draft by Claude Opus 5 (subagent), structural review and
   integration by Claude Fable 5.
 - Revision: the Git commit containing this entry owns the exact revision.
