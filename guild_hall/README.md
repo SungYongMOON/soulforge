@@ -38,6 +38,9 @@
   `rag/`·`knowledge_graph/`·`knowledge_access/`·`knowledge_canon/` 을 adapter 계약으로만 소비한다.
   Phase 1–4 baseline 은 `deterministic_only` 이며 학습모델을 호출하지 않는다.
   프로젝트 원문·계약서·source PDF·snapshot payload·secret 은 두지 않는다
+- `requirement_trace/`: 요구사항 추적(RTM) 커버리지 계산의 결정론 순수 함수 owner.
+  `engineering_engine/kernel/` 어휘를 재사용해 커버리지 셀·요구 상태·고아 관측·게이트 준비도와
+  payload 없는 영수증만 내고, 원장 writer·저장 표면·게이트 통과 판정은 소유하지 않는다
 - `watchtower/`: 각 owner가 선언한 public-safe 구조를 결정론적으로 합성하고, local probe·receipt가
   제공하는 관측과 선언의 차이를 read-only로 진단하는 AX system-topology owner. 구조선은 health·delivery·수리 권한을 뜻하지 않는다.
 - `healer/`: 24시간 PC self-check 와 activity report writer

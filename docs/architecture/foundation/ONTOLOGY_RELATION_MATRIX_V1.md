@@ -86,6 +86,21 @@
 | `event_or_task on_branch branch` | event/task/artifact revision | branch | exact branch ref만 확정 관계 |
 | `event_or_task at_gate gate` | event/task/artifact revision | gate | exact gate/stage mapping만 확정 관계 |
 
+### 요구사항 추적 확장 관계 (`canon_candidate`)
+
+아래 세 관계는 `docs/architecture/workspace/PROJECT_REQUIREMENT_TRACE_MODEL_V0.md` §2.2가 제안한
+신규 관계이고 상태는 `canon_candidate`다. 그 문서와 Owner 결정 D37~D41이 닫히기 전까지는 후보이며,
+위 두 표의 등록된 관계와 같은 권위로 쓰지 않는다. 노드 타입 정의는 그 설계 문서가 소유한다.
+
+| Relation | Source | Target | owner/record rule |
+| --- | --- | --- | --- |
+| `requirement_revision needs artifact_type` | exact requirement revision | artifact type | Needs 선언. 정본 후보 owner는 기존 `stage_expected_artifact_policy` 확장이며(D38) 미선언은 `gap_unknown`으로 남기고 새 정책 store를 만들지 않음 |
+| `artifact_revision covers requirement_revision` | exact artifact revision | exact requirement revision | 설계·구현 산출물의 충족 주장. 구 개정을 덮으면 충족이 아니라 `coverage_revision_stale` 사유의 `gap_unknown`(D39) |
+| `artifact_revision verifies requirement_revision` | exact artifact revision | exact requirement revision | 시험 산출물의 검증 주장. `covers`와 합치지 않고 별도 관계로 기록 |
+
+세 관계 모두 exact 4-field revision ref로만 성립한다. 개정을 지정하지 않은 ref는 식별자가 아니라 결함이며,
+상충하는 주장은 자동 해소하지 않고 보존한다. 결정론 계산 표면은 `guild_hall/requirement_trace/`가 소유한다.
+
 모든 relation endpoint는 `{entity_type, owner_surface, entity_id}` 3-tuple을 사용한다.
 relation state, relation lifecycle, claim ceiling, application state, entity lifecycle은 서로
 다른 축으로 기록한다.

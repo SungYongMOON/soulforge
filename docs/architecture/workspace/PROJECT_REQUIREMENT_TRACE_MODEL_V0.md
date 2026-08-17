@@ -483,6 +483,7 @@ MCP·플러그인은 `_workmeta`를 직접 순회하거나 쓰지 않는다. 클
 - 이 문서를 `canon_candidate`로 등록, `ONTOLOGY_RELATION_MATRIX_V1.md`에 신규 관계 3개 동기화
 - public-safe synthetic fixture: `docs/architecture/workspace/examples/project_requirement_trace/`
 - 순수 함수 `computeRequirementCoverage(ledgerReplay, needsPolicy, cutoffs)` — 파일·시계·네트워크·모델 접근 0
+- 구현 착수(2026-08-17): 순수 함수·fixture 착지(`guild_hall/requirement_trace/`, `examples/project_requirement_trace/`), writer/원장은 R2
 - (선행 조각, 2026-08-17 착수) 프로젝트 PDF 요구사항 ID 색인 seam — 요구사양서에서 `식별자` 블록을 결정론적으로 추출해 rows(ID·절·쪽·span·TBC/TBD·블록 해시)와 payload-free 영수증을 낸다. Requirement 노드의 `source_locator_ref`와 `requirement_ref` 원료.
 
 **완료 기준**
