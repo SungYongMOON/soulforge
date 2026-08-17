@@ -1,5 +1,46 @@
 # CHANGELOG
 
+## 2026-08-17 - Requirement index profile `kr_defense_spec_v0_1`
+
+- Added a second seam-owned recognition profile, `kr_defense_spec_v0_1`, to
+  `guild_hall/rag/project_pdf_requirement_index.mjs` and to
+  `REQUIREMENT_INDEX_PROFILES`. It answers the three defects the first actual
+  measurement exposed. `kr_defense_spec_v0` is unchanged in behaviour, index
+  keys, and row shape, and every value outside the closed profile list is still
+  one `REQUEST_INVALID` refusal settled before admission opens a file.
+- Title: `v0_1` reads a bracket group only after the `요구사양` label inside the
+  block, so a bracket standing in front of that label is not a candidate; a
+  candidate of 1–4 plain ASCII characters is a unit or a symbol such as `[mm]` or
+  `[kg]` and is stepped over for the next candidate; with no qualifying candidate
+  the title is null, and a qualifying candidate that could be a secret or is past
+  the 120-character bound is still dropped to null as in `v0`.
+- Diagnostics: the `v0_1` index adds `mentions_by_id` (identifier to the sorted,
+  deduplicated page numbers of its label-less occurrences), `malformed_labels`
+  (page number and UTF-16 span alone for every identifier label that bound no
+  well-formed identifier), and a per-row `id_family` (the identifier without its
+  trailing `-`/`_` ordinal, so `R-TB_PETB-HMR-001` rolls up under
+  `R-TB_PETB-HMR`). None of them carries page text.
+- Unchanged on both profiles: the identifier pattern, the 64-code-unit label gap,
+  the block boundary, every bound, the payload-free receipt shape and its
+  `counts`, the single admission call, and zero filesystem writes, persistence,
+  network, model, RAG-index, Wiki, Engineering Engine, ERP, and TaskDriver
+  effects.
+- Verification: `npm run validate:project-pdf-requirement-index` passes 12/12 (8
+  before this change; the 4 new tests cover the title rule against the same pinned
+  document under both profiles, the mention page roll-up, the malformed label
+  spans, and the closed `v0` shape). `npm run validate:project-pdf-rag-tracer`
+  passes 10/10, unchanged. No actual project PDF was read: every fixture is the
+  synthetic public PDF the existing tests already build.
+- Operational impact: none. This stays a read-only candidate seam at the
+  `observed` claim ceiling with no CLI and no process entrypoint. `HOLD`: actual
+  project requirement indexing, RTM/coverage claims, caller-supplied profiles and
+  any profile beyond these two, persistence, batching, and any activation.
+- authorship: implemented by Claude Opus 5; review by Claude Fable 5 is pending
+  and no review verdict is claimed by this entry.
+- Related paths: `guild_hall/rag/project_pdf_requirement_index.mjs`,
+  `guild_hall/rag/project_pdf_requirement_index.test.mjs`, and
+  `guild_hall/rag/README.md`.
+
 ## 2026-08-17 - Board classic Engine view 33-module 정합과 CHANGELOG 표기 정정
 
 - Team Operations Board의 classic Engine 뷰가 현재 Engineering Engine topology를

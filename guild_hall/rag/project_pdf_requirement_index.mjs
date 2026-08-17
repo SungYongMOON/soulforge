@@ -23,10 +23,17 @@ export const PROJECT_PDF_REQUIREMENT_INDEX_RECEIPT_SCHEMA_VERSION =
   "soulforge.project_pdf_requirement_index_receipt.v0";
 
 // The fixed profile list. A profile is a closed recognition contract, not a
-// caller supplied rule set, so the request may only name one of these.
-export const REQUIREMENT_INDEX_PROFILES = Object.freeze(["kr_defense_spec_v0"]);
+// caller supplied rule set, so the request may only name one of these. Both
+// entries are this seam's own profiles: `v0_1` narrows what `v0` recognises and
+// widens only what it reports, and neither is reachable as a caller supplied
+// rule.
+export const REQUIREMENT_INDEX_PROFILES = Object.freeze([
+  "kr_defense_spec_v0",
+  "kr_defense_spec_v0_1",
+]);
 
 const KR_DEFENSE_SPEC_PROFILE = "kr_defense_spec_v0";
+const KR_DEFENSE_SPEC_V0_1_PROFILE = "kr_defense_spec_v0_1";
 
 // One hash domain for the identifier roll-up. The block digest is a separate,
 // plain content digest of the quoted block alone, so neither may ever be computed
@@ -66,6 +73,19 @@ const SECTION_NUMBER = /^\d+(?:\.\d+)+\.?/u;
 const BRACKET_TITLE = /\[([^\[\]\n\r]{1,120})\]/u;
 const TBC_MARK = "TBC";
 const TBD_MARK = "TBD";
+
+// The `kr_defense_spec_v0_1` additions. Measured pages carry unit brackets such
+// as `[mm]` and `[kg]` beside the requirement's own bracket title, and `v0`
+// took whichever came first. `v0_1` reads a title only after the fixed
+// requirement label, and skips a group that is short ascii, because a unit or a
+// symbol is exactly that shape and a korean title never is.
+const REQUIREMENT_LABEL = "요구사양";
+const BRACKET_GROUP = /\[([^\[\]\n\r]{1,120})\]/gu;
+const MAX_UNIT_BRACKET_CHARS = 4;
+const ASCII_GROUP = /^[\x20-\x7e]+$/u;
+// The identifier family is the identifier without its trailing ordinal, so
+// `R-TB_PETB-HMR-001` and `R-TB_PETB-HMR-002` roll up under `R-TB_PETB-HMR`.
+const IDENTIFIER_ORDINAL_SUFFIX = /[-_]\d+$/u;
 
 // A bracket title is raw document text, so it is carried only when it cannot be
 // a secret. A title that names a credential kind or carries one long opaque run
@@ -180,7 +200,10 @@ export async function buildProjectPdfRequirementIndex(request) {
   if (admitted === null) return hold("extraction_shape_refused", evidence);
   recordAdmission(evidence, admitted);
 
-  const indexed = readRequirementIndex(admitted);
+  // `v0_1` is `v0` plus the diagnostics measurement asked for, so the extended
+  // rules are decided here, once, off the accepted profile alone.
+  const extended = prepared.profileId === KR_DEFENSE_SPEC_V0_1_PROFILE;
+  const indexed = readRequirementIndex(admitted, extended);
   if (indexed === null) return hold("bound_exceeded", evidence);
   recordIndex(evidence, indexed);
 
@@ -196,8 +219,14 @@ export async function buildProjectPdfRequirementIndex(request) {
     rows: indexed.rows,
     duplicate_ids: indexed.duplicate_ids,
     mention_only_ids: indexed.mention_only_ids,
-    row_count: indexed.rows.length,
   };
+  // The `v0` index keeps exactly the keys it always had, so a reader pinned to
+  // that profile cannot see one new field.
+  if (extended) {
+    index.mentions_by_id = indexed.mentions_by_id;
+    index.malformed_labels = indexed.malformed_labels;
+  }
+  index.row_count = indexed.rows.length;
   return deepFreeze({ index, receipt: buildReceipt(evidence, null) });
 }
 
@@ -229,9 +258,12 @@ function prepareRequest(request) {
     return null;
   }
   if (typeof profileId !== "string" || !REQUIREMENT_INDEX_PROFILES.includes(profileId)) return null;
-  // The recognition rules below are the one profile's rules, so a listed profile
-  // this seam does not implement is refused rather than silently indexed as it.
-  if (profileId !== KR_DEFENSE_SPEC_PROFILE) return null;
+  // The recognition rules below are these two profiles' rules, so a listed
+  // profile this seam does not implement is refused rather than silently indexed
+  // as one of them.
+  if (profileId !== KR_DEFENSE_SPEC_PROFILE && profileId !== KR_DEFENSE_SPEC_V0_1_PROFILE) {
+    return null;
+  }
   return { launchPath, expectedLaunchSha256, profileId };
 }
 
@@ -367,14 +399,16 @@ function readAdmittedCandidate(candidate) {
 
 // ---------------------------------------------------------------- recognition
 
-// Every occurrence of the fixed label, by the offset just past it. The label is
-// matched literally: korean page text carries no word boundary, so a label is a
-// position and never a token.
+// Every occurrence of the fixed label, as its own span and the offset just past
+// it. The label is matched literally: korean page text carries no word boundary,
+// so a label is a position and never a token. Binding reads `end` alone, exactly
+// as before; `start` exists so a label that binds nothing can be reported as the
+// span it occupied and never as the text it carried.
 function labelPositions(text) {
   const positions = [];
   let from = text.indexOf(IDENTIFIER_LABEL);
   while (from !== -1) {
-    positions.push(from + IDENTIFIER_LABEL.length);
+    positions.push({ start: from, end: from + IDENTIFIER_LABEL.length });
     from = text.indexOf(IDENTIFIER_LABEL, from + 1);
   }
   return positions;
@@ -448,8 +482,8 @@ function readPageRequirements(text) {
   const mentions = [];
   let cursor = -1;
   for (const token of tokens) {
-    while (cursor + 1 < labels.length && labels[cursor + 1] <= token.start) cursor += 1;
-    const gap = cursor >= 0 ? token.start - labels[cursor] : null;
+    while (cursor + 1 < labels.length && labels[cursor + 1].end <= token.start) cursor += 1;
+    const gap = cursor >= 0 ? token.start - labels[cursor].end : null;
     if (cursor >= 0 && !bound[cursor] && gap <= MAX_LABEL_GAP_CODE_UNITS) {
       bound[cursor] = true;
       definitions.push(token);
@@ -457,10 +491,16 @@ function readPageRequirements(text) {
     }
     mentions.push(token.id);
   }
+  const malformed = labels.filter((label, index) => bound[index] === false);
   return {
     definitions,
     mentions,
-    malformed_candidates: bound.filter((used) => used === false).length,
+    // The unbound labels, as spans alone. The count is what `v0` already
+    // reported; the spans are what `v0_1` reports beside it, so a malformed
+    // candidate can be found on the page without the index quoting one character
+    // of it.
+    malformed_labels: malformed.map((label) => ({ start: label.start, end: label.end })),
+    malformed_candidates: malformed.length,
   };
 }
 
@@ -469,13 +509,41 @@ function readPageRequirements(text) {
 // each dropped to null rather than repaired or quoted.
 function blockTitle(blockText) {
   const match = blockText.match(BRACKET_TITLE);
-  if (match === null) return null;
-  const title = match[1];
+  return match === null ? null : carriableTitle(match[1]);
+}
+
+// The `v0_1` title rule. A title is read only after the fixed requirement label,
+// so a bracket that stands in front of it — a unit beside the identifier, a mark
+// beside the section — is not a title candidate at all. A candidate that is short
+// ascii is a unit or a symbol rather than a title, so it is stepped over and the
+// next candidate is read. A candidate that is a title but may not be carried is
+// dropped to null exactly as in `v0`: the scan stops there rather than reaching
+// past a refused title for another one.
+function labelledBlockTitle(blockText) {
+  const labelAt = blockText.indexOf(REQUIREMENT_LABEL);
+  if (labelAt === -1) return null;
+  const tail = blockText.slice(labelAt + REQUIREMENT_LABEL.length);
+  for (const match of tail.matchAll(BRACKET_GROUP)) {
+    const group = match[1];
+    if (group.length <= MAX_UNIT_BRACKET_CHARS && ASCII_GROUP.test(group)) continue;
+    return carriableTitle(group);
+  }
+  return null;
+}
+
+// A bracket title is carried verbatim or not at all, on either profile.
+function carriableTitle(title) {
   if (title.length === 0 || title.length > MAX_TITLE_CHARS) return null;
   if (!controlFree(title)) return null;
   if (SECRET_LIKE_TITLE.test(title) || CREDENTIAL_HEADER.test(title)
       || LONG_OPAQUE_RUN.test(title)) return null;
   return title;
+}
+
+// The identifier family, so rows can be rolled up by the series they belong to.
+// An identifier that carries no trailing ordinal is its own family.
+function identifierFamily(id) {
+  return id.replace(IDENTIFIER_ORDINAL_SUFFIX, "");
 }
 
 function controlFree(value) {
@@ -488,19 +556,21 @@ function controlFree(value) {
 
 // One row per definition. The block runs from the identifier to the next
 // identifier on the same page, or to the end of that page, and the block text
-// itself never leaves this function: only its length and its digest do.
-function buildRow(pageNumber, blockText, start, end, section, id) {
-  return {
-    requirement_id: id,
-    section,
-    title: blockTitle(blockText),
-    page_number: pageNumber,
-    span: { start, end },
-    tbc: blockText.includes(TBC_MARK),
-    tbd: blockText.includes(TBD_MARK),
-    block_char_count: blockText.length,
-    block_text_sha256: `sha256:${digestHex(blockText)}`,
-  };
+// itself never leaves this function: only its length and its digest do. `v0_1`
+// reads the title after the requirement label and carries the identifier family
+// beside the identifier; every other field is the field `v0` already reported.
+function buildRow(pageNumber, blockText, start, end, section, id, extended) {
+  const row = { requirement_id: id };
+  if (extended) row.id_family = identifierFamily(id);
+  row.section = section;
+  row.title = extended ? labelledBlockTitle(blockText) : blockTitle(blockText);
+  row.page_number = pageNumber;
+  row.span = { start, end };
+  row.tbc = blockText.includes(TBC_MARK);
+  row.tbd = blockText.includes(TBD_MARK);
+  row.block_char_count = blockText.length;
+  row.block_text_sha256 = `sha256:${digestHex(blockText)}`;
+  return row;
 }
 
 // Ascii only by the identifier pattern, so utf-16 order is code point order and
@@ -513,18 +583,34 @@ function compareIds(left, right) {
 // The whole document, page by page in page order. A page that carries no text is
 // skipped rather than searched, and the fixed row and mention bounds refuse the
 // index instead of truncating it.
-function readRequirementIndex(admitted) {
+function readRequirementIndex(admitted, extended) {
   const rows = [];
   const definedIds = new Set();
   const duplicateIds = new Set();
   const mentionIds = new Set();
+  // Which pages each unlabelled occurrence was seen on, and where each unbound
+  // label sat. Both are page numbers and spans alone, so neither carries one
+  // character of the page they were recognised in.
+  const mentionPages = new Map();
+  const malformedLabels = [];
   let malformedCandidates = 0;
 
   for (const page of admitted.extraction.pages) {
     if (page.text.length === 0) continue;
     const parsed = readPageRequirements(page.text);
     malformedCandidates += parsed.malformed_candidates;
-    for (const id of parsed.mentions) mentionIds.add(id);
+    for (const id of parsed.mentions) {
+      mentionIds.add(id);
+      if (!mentionPages.has(id)) mentionPages.set(id, new Set());
+      mentionPages.get(id).add(page.page_number);
+    }
+    for (const label of parsed.malformed_labels) {
+      if (malformedLabels.length >= MAX_ROWS) return null;
+      malformedLabels.push({
+        page_number: page.page_number,
+        span: { start: label.start, end: label.end },
+      });
+    }
     if (parsed.definitions.length === 0) continue;
     const marks = sectionMarks(page.text);
     for (let index = 0; index < parsed.definitions.length; index += 1) {
@@ -537,12 +623,14 @@ function readRequirementIndex(admitted) {
       definedIds.add(token.id);
       rows.push(buildRow(
         page.page_number, blockText, token.start, end, sectionAt(marks, token.start), token.id,
+        extended,
       ));
     }
   }
 
   const mentionOnlyIds = [...mentionIds].filter((id) => !definedIds.has(id)).sort(compareIds);
   if (mentionOnlyIds.length > MAX_MENTION_ONLY_IDS) return null;
+  if (mentionPages.size > MAX_MENTION_ONLY_IDS) return null;
   rows.sort((left, right) => (
     left.page_number - right.page_number || left.span.start - right.span.start
   ));
@@ -551,9 +639,21 @@ function readRequirementIndex(admitted) {
     rows,
     duplicate_ids: [...duplicateIds].sort(compareIds),
     mention_only_ids: mentionOnlyIds,
+    mentions_by_id: mentionsById(mentionPages),
+    malformed_labels: malformedLabels,
     ids_sha256: domainFingerprint(IDS_FINGERPRINT_DOMAIN, sortedIds.join("\n")),
     malformed_candidates: malformedCandidates,
   };
+}
+
+// The mention roll-up, in identifier order with each page list sorted and
+// deduplicated, so the same document always yields the same object.
+function mentionsById(mentionPages) {
+  const byId = {};
+  for (const id of [...mentionPages.keys()].sort(compareIds)) {
+    byId[id] = [...mentionPages.get(id)].sort((left, right) => left - right);
+  }
+  return byId;
 }
 
 // ---------------------------------------------------------------- fingerprints

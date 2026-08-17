@@ -413,8 +413,9 @@ payloads, and keeps stronger permissions false until owner review.
   no identifier pattern, label gap, row cap, or title rule is reachable from the
   caller.
 - `profileId` must name one fixed profile from `REQUIREMENT_INDEX_PROFILES`;
-  today that list is exactly `kr_defense_spec_v0`, and any other value is one
-  `REQUEST_INVALID` refusal settled before admission opens a file.
+  today that list is exactly `kr_defense_spec_v0` and `kr_defense_spec_v0_1`, and
+  any other value is one `REQUEST_INVALID` refusal settled before admission opens
+  a file. Both profiles are seam-owned; neither is a caller-supplied rule set.
 - The admission seam above is called exactly once and stays the only thing that
   decides admission and reads the launch file and the PDF bytes; the requirement
   index itself has no direct filesystem surface, no CLI, and no process
@@ -433,6 +434,24 @@ payloads, and keeps stronger permissions false until owner review.
 - Rows are sorted by page number then span start, an identifier defined twice in
   the same document is listed under `duplicate_ids`, and an identifier only ever
   mentioned is listed under `mention_only_ids`.
+- `kr_defense_spec_v0_1` keeps every `kr_defense_spec_v0` rule — the same
+  identifier pattern, the same 64-code-unit label gap, the same block boundary,
+  the same bounds, the same payload-free receipt shape and counts, the same
+  zero-write and single-admission behaviour — and changes only what a title is
+  and what the index reports beside its rows.
+- Its title rule reads a bracket group only *after* the `요구사양` label inside
+  the block, so a bracket standing in front of that label is not a title
+  candidate; a candidate that is 1–4 plain ASCII characters is a unit or a symbol
+  such as `[mm]` or `[kg]` and is stepped over for the next candidate; if no
+  candidate qualifies the title is null. A candidate that qualifies but may not
+  be carried is still dropped to null exactly as in `v0`.
+- Its index adds `mentions_by_id` (identifier to the sorted, deduplicated page
+  numbers it was mentioned on without a label), `malformed_labels` (page number
+  and span alone for every identifier label that bound no well-formed
+  identifier), and a per-row `id_family` (the identifier without its trailing
+  `-` or `_` ordinal, so `R-TB_PETB-HMR-001` rolls up under `R-TB_PETB-HMR`).
+  None of them carries page text; the `v0` index keys and row shape are
+  unchanged, and `counts` on the receipt are unchanged on both profiles.
 - The returned `{ index, receipt }` is deep-frozen and the receipt is
   payload-free: counts, digests, the fixed profile id, and the admission evidence
   alone, with the sorted identifier list reduced to one domain-separated
@@ -442,7 +461,8 @@ payloads, and keeps stronger permissions false until owner review.
 - `HOLD`: actual project launch, read grant, and project-root execution, actual
   project, live, and persistent tracer answering, actual project requirement
   indexing, RTM/coverage claims and Engine policy-requirement packet supply from
-  an index, additional or caller-supplied recognition profiles, activation
+  an index, caller-supplied recognition profiles and recognition profiles beyond
+  the two seam-owned entries above, activation
   including accepted-context and operational-retrieval activation, batching and
   multi-document runs, persistence, Docling/OCR, UI, RAG index, Wiki/KVDS, and
   Engine/ERP/TaskDriver integration.
