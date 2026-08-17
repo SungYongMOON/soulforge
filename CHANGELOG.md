@@ -1,5 +1,40 @@
 # CHANGELOG
 
+## 2026-08-18 - SE folder-tree 체계개발 machine fields and compiled variant JSON
+
+- `.registry/skills/se_foldertree_generate/codex/assets/SE_FolderTree_Guide.md`
+  (체계개발 / LIG 넥스원 / A) goes to `version: '0.8'`. Every task entry now
+  carries the optional machine fields from
+  `docs/architecture/workspace/SE_STAGE_RULE_SOURCE_MODEL_V0.md` §3 —
+  `artifact_type_id`, `evidence_level`, `source_refs` (source key + article or
+  page locator), `verification_status`, and `applies_when` where the source
+  verification records a condition. No existing key or value was changed;
+  `generate_tree.py` ignores unknown keys, so folder generation is unchanged for
+  the pre-existing slots.
+- The 17 required items the 2026-08-18 source verification listed as missing were
+  added as new task entries in their gates (SRR 49-55, PDR 109, CDR 144-146,
+  TRR_DT 170, FCA_OT 196-197, PCA 225-227): P-TEMP, M&S 활용계획, 상호운용성
+  확보계획, RAM 업무계획, WBS(EVM 조건부), 형상관리계획서, 기술검토회의 제출자료,
+  등록부품활용계획, MRA, 사업중간점검 결과보고서, 핵심부품 공인시험 성적서, DT
+  계획서·절차서, OT 계획서, FCA/PCA 계획서·점검표·QAR, 국방규격(안)·국방규격화
+  연계표, 체계개발결과보고서·기술자료묶음, 양산 계약 전 제출자료. A profile-A
+  dry-run generates 145 task folders instead of 128; no task was removed or
+  renamed.
+- Added `.registry/skills/se_foldertree_generate/codex/scripts/export_variant_json.py`
+  and the tracked `codex/assets/compiled/*.json` it produces for all four bundled
+  specs (schema `soulforge.se_foldertree_compiled_variant.v0`, deterministic:
+  sorted keys, indent 2, LF, trailing newline). Each compiled file records the
+  spec's sha256 so drift between markdown and JSON is detectable; specs without
+  machine fields export `verification_status: unverified` per task.
+- Added the `validate:se-foldertree-compiled` npm script
+  (`export_variant_json.py --check`). It is intentionally not part of the
+  aggregate `validate` chain. The script line uses `python`; that interpreter
+  needs PyYAML (other Python entries in `package.json` use `python3`/`uv`).
+- Skill `README.md`, `codex/SKILL.md`, and `codex/references/variants.md`
+  document the compiled JSON, the machine fields, and the deterministic rules
+  used to derive `evidence_level`/`applies_when`, including the vocabulary tokens
+  that still need the `artifact_vocabulary.v0` owner decision (D44).
+
 ## 2026-08-18 - SE folder-tree variant source verification (skill reference)
 
 - Added `.registry/skills/se_foldertree_generate/codex/references/source_verification_v0.md`

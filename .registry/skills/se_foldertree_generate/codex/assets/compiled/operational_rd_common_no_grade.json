@@ -1,0 +1,694 @@
+{
+  "business_type": "운용연구개발",
+  "completion_rule": {
+    "done_if": {
+      "fallback_mvp": "03_Out에 파일 1개 이상이면 완료로 간주",
+      "mode": "final_file",
+      "pattern_examples": [
+        "*_FINAL.*"
+      ]
+    },
+    "required_folder": "03_Out"
+  },
+  "gates": [
+    {
+      "code": 30,
+      "desc": "체계요구조건검토 (System Requirements Review)",
+      "name": "SRR",
+      "tasks": [
+        {
+          "desc": "분류 안 된 일정·산출물 임시 보관",
+          "id": 31,
+          "is_fixed": true,
+          "name": "INBOX_분류전",
+          "source": "내부관리",
+          "template": "없음",
+          "term": "INBOX",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
+          "id": 32,
+          "is_fixed": true,
+          "name": "LOG_의사결정조치기록",
+          "source": "내부관리",
+          "template": "없음",
+          "term": "LOG",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "주고받은 기술자료 패키지",
+          "id": 33,
+          "is_fixed": true,
+          "name": "TDP_기술자료",
+          "source": "내부관리",
+          "template": "없음",
+          "term": "TDP",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "현행 운용 문제, 개선 배경, 대상 범위 정리",
+          "id": 34,
+          "name": "운용문제정의및배경",
+          "source": "현존전력 성능 극대화 사업 업무지침",
+          "template": "없음",
+          "term": "운용문제",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "운용 시나리오, 사용자 관점, 적용 환경 정리",
+          "id": 35,
+          "name": "운용개념(CONOPS)",
+          "source": "방위사업관리규정",
+          "template": "없음",
+          "term": "CONOPS",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "연구 범위, 제약, 제외 범위, 초기 위험 자료",
+          "id": 36,
+          "name": "연구범위및제약사항",
+          "source": "현존전력 성능 극대화 사업 업무지침",
+          "template": "없음",
+          "term": "범위제약",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "운용개선 요구를 반영한 체계요구사항 초안",
+          "id": 37,
+          "name": "체계요구사항명세서(SSRS)_D",
+          "source": "SE기반 기술검토회의 가이드북",
+          "template": "없음",
+          "term": "SSRS",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "SRR 검토 결과, 진입조건, 후속 조치",
+          "id": 38,
+          "name": "SRR_회의록및조치결과",
+          "source": "방위사업관리규정",
+          "template": "없음",
+          "term": "SRR_회의록",
+          "verification_status": "unverified"
+        }
+      ]
+    },
+    {
+      "code": 60,
+      "desc": "체계기능검토 (System Functional Review)",
+      "name": "SFR",
+      "tasks": [
+        {
+          "desc": "분류 안 된 일정·산출물 임시 보관",
+          "id": 61,
+          "is_fixed": true,
+          "name": "INBOX_분류전",
+          "source": "내부관리",
+          "template": "없음",
+          "term": "INBOX",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
+          "id": 62,
+          "is_fixed": true,
+          "name": "LOG_의사결정조치기록",
+          "source": "내부관리",
+          "template": "없음",
+          "term": "LOG",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "주고받은 기술자료 패키지",
+          "id": 63,
+          "is_fixed": true,
+          "name": "TDP_기술자료",
+          "source": "내부관리",
+          "template": "없음",
+          "term": "TDP",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "기능 기준선 설정을 위한 체계요구사항 확정본",
+          "id": 64,
+          "name": "체계요구사항명세서(SSRS)_F",
+          "source": "SE기반 기술검토회의 가이드북",
+          "template": "없음",
+          "term": "SSRS",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "기능 분석, 운용 시나리오, 기능 할당 자료",
+          "id": 65,
+          "name": "기능시나리오분석",
+          "source": "SE기반 기술검토회의 가이드북",
+          "template": "없음",
+          "term": "기능분석",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "요구사항과 기능/하위항목 간 추적성 자료",
+          "id": 66,
+          "name": "요구사항추적표(RTM)",
+          "source": "SE기반 기술검토회의 가이드북",
+          "template": "없음",
+          "term": "RTM",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "인터페이스, 데이터 흐름, 연동 영향 초안",
+          "id": 67,
+          "name": "인터페이스및데이터흐름초안",
+          "source": "SE기반 기술검토회의 가이드북",
+          "template": "없음",
+          "term": "인터페이스초안",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "SFR 검토 결과와 기능 기준선 관련 조치",
+          "id": 68,
+          "name": "SFR_회의록및조치결과",
+          "source": "방위사업관리규정",
+          "template": "없음",
+          "term": "SFR_회의록",
+          "verification_status": "unverified"
+        }
+      ]
+    },
+    {
+      "code": 90,
+      "desc": "기본설계검토 (Preliminary Design Review)",
+      "name": "PDR",
+      "tasks": [
+        {
+          "desc": "분류 안 된 일정·산출물 임시 보관",
+          "id": 91,
+          "is_fixed": true,
+          "name": "INBOX_분류전",
+          "source": "내부관리",
+          "template": "없음",
+          "term": "INBOX",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
+          "id": 92,
+          "is_fixed": true,
+          "name": "LOG_의사결정조치기록",
+          "source": "내부관리",
+          "template": "없음",
+          "term": "LOG",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "주고받은 기술자료 패키지",
+          "id": 93,
+          "is_fixed": true,
+          "name": "TDP_기술자료",
+          "source": "내부관리",
+          "template": "없음",
+          "term": "TDP",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "기본설계 또는 실증/분석 설계 방안",
+          "id": 94,
+          "name": "기본설계및실증설계방안",
+          "source": "SE기반 기술검토회의 가이드북",
+          "template": "없음",
+          "term": "기본설계",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "대안 비교, 절충 분석, 영향 판단 자료",
+          "id": 95,
+          "name": "대안분석(Trade_Study)",
+          "source": "SE기반 기술검토회의 가이드북",
+          "template": "없음",
+          "term": "Trade_Study",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "초기 인터페이스 정의와 통제 초안",
+          "id": 96,
+          "name": "연동통제문서(ICD)_Prelim",
+          "source": "SE기반 기술검토회의 가이드북",
+          "template": "없음",
+          "term": "ICD",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "검증/실증 항목, 절차, 기준 초안",
+          "id": 97,
+          "name": "검증실증계획(VnV)_D",
+          "source": "시험평가 가이드북",
+          "template": "없음",
+          "term": "VnV",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "PDR 검토 결과와 설계 보완 조치",
+          "id": 98,
+          "name": "PDR_회의록및조치결과",
+          "source": "방위사업관리규정",
+          "template": "없음",
+          "term": "PDR_회의록",
+          "verification_status": "unverified"
+        }
+      ]
+    },
+    {
+      "code": 120,
+      "desc": "상세설계검토 (Critical Design Review)",
+      "name": "CDR",
+      "tasks": [
+        {
+          "desc": "분류 안 된 일정·산출물 임시 보관",
+          "id": 121,
+          "is_fixed": true,
+          "name": "INBOX_분류전",
+          "source": "내부관리",
+          "template": "없음",
+          "term": "INBOX",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
+          "id": 122,
+          "is_fixed": true,
+          "name": "LOG_의사결정조치기록",
+          "source": "내부관리",
+          "template": "없음",
+          "term": "LOG",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "주고받은 기술자료 패키지",
+          "id": 123,
+          "is_fixed": true,
+          "name": "TDP_기술자료",
+          "source": "내부관리",
+          "template": "없음",
+          "term": "TDP",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "구현/적용에 필요한 상세설계 패키지",
+          "id": 124,
+          "name": "상세설계구현패키지",
+          "source": "SE기반 기술검토회의 가이드북",
+          "template": "없음",
+          "term": "상세설계",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "인터페이스 상세설계 확정본",
+          "id": 125,
+          "name": "인터페이스설계기술서(IDD)_F",
+          "source": "SE기반 기술검토회의 가이드북",
+          "template": "없음",
+          "term": "IDD",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "상세 시험/실증 절차 초안",
+          "id": 126,
+          "name": "시험실증절차서(STP)_D",
+          "source": "시험평가 가이드북",
+          "template": "없음",
+          "term": "STP",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "변경 영향과 형상 식별/통제 자료",
+          "id": 127,
+          "name": "형상식별및변경관리자료",
+          "source": "국방 표준화 업무 실무 지침서",
+          "template": "없음",
+          "term": "형상관리",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "CDR 검토 결과와 구현 전 조치",
+          "id": 128,
+          "name": "CDR_회의록및조치결과",
+          "source": "방위사업관리규정",
+          "template": "없음",
+          "term": "CDR_회의록",
+          "verification_status": "unverified"
+        }
+      ]
+    },
+    {
+      "code": 150,
+      "desc": "시험준비상태검토 (Test Readiness Review)",
+      "name": "TRR",
+      "tasks": [
+        {
+          "desc": "분류 안 된 일정·산출물 임시 보관",
+          "id": 151,
+          "is_fixed": true,
+          "name": "INBOX_분류전",
+          "source": "내부관리",
+          "template": "없음",
+          "term": "INBOX",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
+          "id": 152,
+          "is_fixed": true,
+          "name": "LOG_의사결정조치기록",
+          "source": "내부관리",
+          "template": "없음",
+          "term": "LOG",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "주고받은 기술자료 패키지",
+          "id": 153,
+          "is_fixed": true,
+          "name": "TDP_기술자료",
+          "source": "내부관리",
+          "template": "없음",
+          "term": "TDP",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "시험 진입 판단에 필요한 검토 패키지",
+          "id": 154,
+          "name": "시험준비상태검토자료(TRR)",
+          "source": "시험평가 가이드북",
+          "template": "없음",
+          "term": "TRR",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "시험 장비, 환경, 인력, 데이터 준비 자료",
+          "id": 155,
+          "name": "시험환경및자원준비상태",
+          "source": "시험평가 가이드북",
+          "template": "없음",
+          "term": "시험준비",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "안전, 보안, 상호운용성 영향 점검 자료",
+          "id": 156,
+          "name": "안전보안상호운용성확인",
+          "source": "현존전력 성능 극대화 사업 업무지침",
+          "template": "없음",
+          "term": "안전보안상호운용성",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "수락 기준, 평가 항목, 판단 기준 자료",
+          "id": 157,
+          "name": "수락기준및평가항목",
+          "source": "시험평가 가이드북",
+          "template": "없음",
+          "term": "평가기준",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "TRR 검토 결과와 시험 착수 전 조치",
+          "id": 158,
+          "name": "TRR_회의록및조치결과",
+          "source": "방위사업관리규정",
+          "template": "없음",
+          "term": "TRR_회의록",
+          "verification_status": "unverified"
+        }
+      ]
+    },
+    {
+      "code": 180,
+      "desc": "기능적형상확인 (Functional Configuration Audit)",
+      "name": "FCA",
+      "tasks": [
+        {
+          "desc": "분류 안 된 일정·산출물 임시 보관",
+          "id": 181,
+          "is_fixed": true,
+          "name": "INBOX_분류전",
+          "source": "내부관리",
+          "template": "없음",
+          "term": "INBOX",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
+          "id": 182,
+          "is_fixed": true,
+          "name": "LOG_의사결정조치기록",
+          "source": "내부관리",
+          "template": "없음",
+          "term": "LOG",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "주고받은 기술자료 패키지",
+          "id": 183,
+          "is_fixed": true,
+          "name": "TDP_기술자료",
+          "source": "내부관리",
+          "template": "없음",
+          "term": "TDP",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "기능 충족 여부와 실증 결과 자료",
+          "id": 184,
+          "name": "기능검증실증결과",
+          "source": "시험평가 가이드북",
+          "template": "없음",
+          "term": "기능검증",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "운용 관점 적합성, 사용자/현장 피드백 자료",
+          "id": 185,
+          "name": "운용적합성사용자피드백",
+          "source": "현존전력 성능 극대화 사업 업무지침",
+          "template": "없음",
+          "term": "운용적합성",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "요구사항 충족 입증과 추적성 결과",
+          "id": 186,
+          "name": "요구사항검증매트릭스(VCRM)_F",
+          "source": "SE기반 기술검토회의 가이드북",
+          "template": "없음",
+          "term": "VCRM",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "시험/실증 중 식별된 결함과 개선 조치 결과",
+          "id": 187,
+          "name": "결함개선조치결과",
+          "source": "과학적사업관리 수행지침",
+          "template": "없음",
+          "term": "개선조치",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "FCA 결과와 기능 충족 판단 조치",
+          "id": 188,
+          "name": "FCA_회의록및조치결과",
+          "source": "방위사업관리규정",
+          "template": "없음",
+          "term": "FCA_회의록",
+          "verification_status": "unverified"
+        }
+      ]
+    },
+    {
+      "code": 210,
+      "desc": "물리적형상확인 (Physical Configuration Audit)",
+      "name": "PCA",
+      "tasks": [
+        {
+          "desc": "분류 안 된 일정·산출물 임시 보관",
+          "id": 211,
+          "is_fixed": true,
+          "name": "INBOX_분류전",
+          "source": "내부관리",
+          "template": "없음",
+          "term": "INBOX",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
+          "id": 212,
+          "is_fixed": true,
+          "name": "LOG_의사결정조치기록",
+          "source": "내부관리",
+          "template": "없음",
+          "term": "LOG",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "주고받은 기술자료 패키지",
+          "id": 213,
+          "is_fixed": true,
+          "name": "TDP_기술자료",
+          "source": "내부관리",
+          "template": "없음",
+          "term": "TDP",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "최종 형상 식별 및 반영 자료",
+          "id": 214,
+          "name": "제품형상식별서(PCI)_F",
+          "source": "SE기반 기술검토회의 가이드북",
+          "template": "없음",
+          "term": "PCI",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "최종 변경 반영 사항과 적용 범위 자료",
+          "id": 215,
+          "name": "현행체계변경반영자료",
+          "source": "현존전력 성능 극대화 사업 업무지침",
+          "template": "없음",
+          "term": "변경반영",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "최종 수행 결과와 후속 전환/적용 권고",
+          "id": 216,
+          "name": "최종보고서및전환권고",
+          "source": "현존전력 성능 극대화 사업 업무지침",
+          "template": "없음",
+          "term": "최종보고서",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "후속조치, 운영 반영, 유지관리 계획",
+          "id": 217,
+          "name": "후속조치운용반영계획",
+          "source": "현존전력 성능 극대화 사업 업무지침",
+          "template": "없음",
+          "term": "후속조치",
+          "verification_status": "unverified"
+        },
+        {
+          "desc": "PCA 결과와 최종 조치 이력",
+          "id": 218,
+          "name": "PCA_회의록및조치결과",
+          "source": "방위사업관리규정",
+          "template": "없음",
+          "term": "PCA_회의록",
+          "verification_status": "unverified"
+        }
+      ]
+    }
+  ],
+  "generated_by": "export_variant_json.py v0",
+  "generation_rules": {
+    "gate_folder_format": "{GATE_CODE:03d}_{GATE_NAME}",
+    "static_folders": [
+      "000_REF/01_방사청SE",
+      "000_REF/02_방사청품질",
+      "000_REF/03_공통참고자료",
+      "000_REF/99_템플릿",
+      "020_MGMT/021_자동화설정_운영규칙",
+      "020_MGMT/022_INBOX_원본수집",
+      "020_MGMT/023_연락처_이해관계자",
+      "020_MGMT/024_예산_집행",
+      "020_MGMT/025_통합로그_의사결정조치",
+      "020_MGMT/026_상태_진행현황",
+      "020_MGMT/027_수신이력_이동이력",
+      "020_MGMT/029_보류_미분류"
+    ],
+    "task_folder_format": "{TASK_ID:03d}_{TASK_NAME}"
+  },
+  "management_static_folders": [
+    {
+      "code": 21,
+      "desc": "프로젝트 자동화설정, 라우팅 기준, 운영 규칙",
+      "name": "자동화설정_운영규칙"
+    },
+    {
+      "code": 22,
+      "desc": "프로젝트로 들어온 메일과 원본 자료의 first landing path",
+      "name": "INBOX_원본수집"
+    },
+    {
+      "code": 23,
+      "desc": "연락처, 조직, 역할, 이해관계자 정보",
+      "name": "연락처_이해관계자"
+    },
+    {
+      "code": 24,
+      "desc": "예산, 집행, 정산 관련 자료",
+      "name": "예산_집행"
+    },
+    {
+      "code": 25,
+      "desc": "회의 결과, 공문, action item, 조치 이력",
+      "name": "통합로그_의사결정조치"
+    },
+    {
+      "code": 26,
+      "desc": "현재 단계, blocker, next action, 진행 현황 요약",
+      "name": "상태_진행현황"
+    },
+    {
+      "code": 27,
+      "desc": "이메일 수신 및 프로젝트 내부 자료 이동 이력",
+      "name": "수신이력_이동이력"
+    },
+    {
+      "code": 29,
+      "desc": "바로 분류하지 못한 자료와 보류 항목",
+      "name": "보류_미분류"
+    }
+  ],
+  "prime_contractor": "공통",
+  "principles": [
+    "폴더 순서 = 운용연구개발 기본 SE 수행 순서",
+    "SRR/SFR/PDR/CDR/TRR/FCA/PCA spine 을 유지하되 contractor-specific 품질 게이트와 특정 업체 산출물은 넣지 않는다.",
+    "운용연구개발은 public-safe 공통 variant 작동을 위한 작업용 용어로 취급하며, 실제 프로젝트의 공식 사업 분류와 다를 수 있다.",
+    "완료판정은 03_Out 기준"
+  ],
+  "profiles": {
+    "A": {
+      "description": "최상위(슈퍼셋) — 모든 폴더 생성",
+      "exclude_task_ids": []
+    },
+    "B": {
+      "description": "A에서 일부 제외(하드 제외: 폴더 미생성)",
+      "exclude_task_ids": []
+    },
+    "C": {
+      "description": "B보다 더 제외",
+      "exclude_task_ids": []
+    }
+  },
+  "quality_grade": "없음",
+  "schema_version": "soulforge.se_foldertree_compiled_variant.v0",
+  "spec_file": "assets/SE_FolderTree_OperationalRnD_Basic.md",
+  "spec_sha256": "2dd988117ca3a41298ceb3aa7815e1acc8763d9fee0e4562a06a27062f9f320d",
+  "spec_version": "0.1",
+  "special_folders": {
+    "management": {
+      "code": 20,
+      "desc": "프로젝트 통합 관리 및 원본 수집",
+      "name": "MGMT"
+    },
+    "reference": {
+      "code": 0,
+      "desc": "프로젝트 기준 및 참고자료",
+      "name": "REF"
+    },
+    "unclassified": {
+      "code": 270,
+      "desc": "단계 미판정 또는 후속 분류 대기 자료",
+      "name": "분류필요업무"
+    }
+  },
+  "support_key": "operational_rd_common_no_grade"
+}
