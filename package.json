@@ -56,7 +56,7 @@
     "validate:project-pdf-admission": "node --check guild_hall/rag/project_pdf_admission.mjs && node --test guild_hall/rag/project_pdf_admission.test.mjs",
     "validate:project-pdf-rag-tracer": "node --check guild_hall/rag/project_pdf_rag_tracer.mjs && node --test guild_hall/rag/project_pdf_rag_tracer.test.mjs",
     "validate:project-pdf-requirement-index": "node --check guild_hall/rag/project_pdf_requirement_index.mjs && node --test guild_hall/rag/project_pdf_requirement_index.test.mjs",
-    "validate:requirement-trace": "node --check guild_hall/requirement_trace/requirement_coverage.mjs && node --check guild_hall/requirement_trace/requirement_coverage.test.mjs && node --test guild_hall/requirement_trace/requirement_coverage.test.mjs",
+    "validate:requirement-trace": "node --check guild_hall/requirement_trace/requirement_coverage.mjs && node --check guild_hall/requirement_trace/requirement_coverage.test.mjs && node --check guild_hall/requirement_trace/coverage_input_builder.mjs && node --check guild_hall/requirement_trace/coverage_input_builder.test.mjs && node --test guild_hall/requirement_trace/requirement_coverage.test.mjs guild_hall/requirement_trace/coverage_input_builder.test.mjs",
     "validate:codex-bridge": "node --test guild_hall/codex_bridge/codex_bridge.test.mjs",
     "validate:workspace-junction": "node --test guild_hall/workspace_junction/audit.test.mjs && node guild_hall/workspace_junction/cli.mjs audit",
     "validate:workspace-system": "node --test guild_hall/workspace_junction/system_inventory.test.mjs && node guild_hall/workspace_junction/cli.mjs inventory-system --json",

@@ -501,6 +501,7 @@ MCP·플러그인은 `_workmeta`를 직접 순회하거나 쓰지 않는다. 클
 - CSV 7종 `g0` 동결 + digest manifest
 - JSONL owner 4종(`requirements/`, `requirement_needs/`, `coverage_observations/`, `decisions/`) writer
 - 시드는 **자동 추출이 아니라** owner 승인한 소량 pin부터: 관측된 과제의 `rtm` 25건 + `contract_sow` 18건을 출발점으로, 한 stage만
+- (준비 조각, 2026-08-18 착지) coverage input builder — `guild_hall/requirement_trace/coverage_input_builder.mjs`. 요구 ID 색인 1건 + Needs 정책(D38 확장) 1건 + 산출물 단위 관측을 받아 R1 입력과 provenance manifest, payload-free 영수증을 낸다. 원장 writer가 아니고 색인을 만들지도 않으며, 모든 요구 ID는 D37에 따라 `observed` candidate로만 다룬다. 중복 ID는 승자 없이 전건 hold(D40)
 
 **완료 기준**
 1. `replay(JSONL)` → CSV 재생성 결과가 `g0`의 표현 가능 부분집합과 행 단위 일치

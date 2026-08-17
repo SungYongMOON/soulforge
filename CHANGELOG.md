@@ -1,5 +1,65 @@
 # CHANGELOG
 
+## 2026-08-18 - Requirement coverage input builder (R2 preparation)
+
+- Added `guild_hall/requirement_trace/coverage_input_builder.mjs`, the second
+  pure function in the requirement-trace folder. It takes one requirement-id
+  index (as produced by `guild_hall/rag/project_pdf_requirement_index.mjs` on
+  the `kr_defense_spec_v0_1` profile), one Needs policy, and artifact-level
+  presence observations, and returns the exact input
+  `computeRequirementCoverage` accepts plus a provenance manifest and a
+  payload-free receipt. `projectRequirementCoverageFromIndex(request)` does the
+  same and runs R1 over the result in one call.
+- Operational effect: the coverage sheet for one stage can now be produced from
+  an index and a policy instead of hand-written requirement rows, and every
+  refusal along the way is named. There is still no writer, no ledger row, no
+  CLI, and no persistence surface — this is preparation for R2, not R2.
+- Effects are zero by construction, exactly as in R1: no filesystem, clock,
+  network, model, or persistence access anywhere in the module or in the R1 and
+  kernel files it imports, and a regression test walks that import graph.
+  Identifiers are minted as domain-separated sha256 digests of request values,
+  so the same request always mints the same refs and a replay reproduces the
+  same digests.
+- Owner decisions D37 and D38 (both decided 2026-08-17) are expressed as
+  structure rather than prose. D37: every admitted row is reported with
+  `confirmation_state: 'observed_candidate'` and the receipt's `claim_ceiling`
+  is `observed`; no path promotes a candidate to a confirmed requirement. D38:
+  the Needs policy is an extension that must name the
+  `stage_expected_artifact_policy` revision it extends by exact ref, and no new
+  policy store is introduced. D39–D41 remain open; D40 in particular is why a
+  duplicated requirement id holds *every* one of its rows with no winner, and
+  why separator variants of one family stay distinct identifiers.
+- Fail-closed in both directions. A row whose family, device code, or function
+  code the policy cannot resolve is held with a reason instead of admitted, and
+  admitted plus held always equals the index row count. A need or observation
+  that cannot be bound to an emitted requirement is refused rather than emitted,
+  because R1 silently ignores such a row and a silently ignored need is an
+  invisible gap. By default a present artifact becomes an `unknown` observation
+  (`presence_is_inconclusive`); the owner's "파일 있고 없고" basis is the opt-in
+  `presence_satisfies_need` value, recorded in the receipt either way.
+- Added the public-safe synthetic fixture
+  `docs/architecture/workspace/examples/project_requirement_trace/coverage_input_builder_synthetic_v0.json`
+  (12 index rows over 2 in-scope device codes and 4 function codes, 6 admitted,
+  6 held across all five hold reasons, 8 needs, 4 artifact observations, 2
+  stages, plus the hand-derived expectations for both presence semantics). Every
+  identifier, code, section, page, span, and digest in it is invented; it names
+  no actual project, contract, organisation, document, or person and carries no
+  document text. No actual project material was read for this change.
+- Verification: `npm run validate:requirement-trace` now covers both modules and
+  passes 40/40 (18 R1 + 22 builder). `npm run validate:canon` passes.
+  `npm run validate` remains at its pre-existing state — the path-policy step
+  still reports the same 48 tracked-scope violations it reported before this
+  change, none of them in the files added here.
+- authorship: implemented by Claude Opus 5; review is pending and no review
+  verdict is claimed by this entry.
+- Related paths: `guild_hall/requirement_trace/coverage_input_builder.mjs`,
+  `guild_hall/requirement_trace/coverage_input_builder.test.mjs`,
+  `guild_hall/requirement_trace/README.md`,
+  `docs/architecture/workspace/examples/project_requirement_trace/coverage_input_builder_synthetic_v0.json`,
+  `docs/architecture/workspace/examples/README.md`,
+  `docs/architecture/workspace/PROJECT_REQUIREMENT_TRACE_MODEL_V0.md`,
+  `guild_hall/README.md`, and `package.json`.
+
 ## 2026-08-17 - Requirement coverage pure function (R1)
 
 - Added `guild_hall/requirement_trace/`, a new `guild_hall` child that owns the

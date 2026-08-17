@@ -1,0 +1,939 @@
+{
+  "fixture_id": "coverage_input_builder_synthetic_v0",
+  "schema_version": "soulforge.requirement_coverage_input_builder_fixture.v0",
+  "note": "Public-safe synthetic fixture for guild_hall/requirement_trace/coverage_input_builder.mjs. Every identifier, device code, function code, artifact type, clause title, page number, span and digest below is invented for this file: it names no actual project, contract, organisation, document or person, and it carries no line of any real document. The sha256 values are digests of invented ascii strings, not of any real bytes. The expected blocks are derived by hand from the builder contract and from PROJECT_REQUIREMENT_TRACE_MODEL_V0 sections 5.2 and 5.3, so a change in the implementation cannot quietly redefine what is correct. Row 4 holds on an unmapped function code, rows 6 and 7 hold as two sides of one duplicated identifier with no winner, row 9 holds on an out of scope device, row 10 holds on an unmapped template device code, and row 11 holds on an unparseable family. requirement_index.duplicate_ids is deliberately empty even though rows 6 and 7 share an identifier: the builder recomputes duplicates from the rows.",
+  "request": {
+    "requirement_index": {
+      "schema_version": "soulforge.project_pdf_requirement_index.v0",
+      "profile_id": "kr_defense_spec_v0_1",
+      "document": {
+        "sha256": "sha256:20a6a1e463ecf576be2651f18c5b401c185a0865cafc6dbccc843f4231b59615",
+        "page_count": 44,
+        "character_count": 118432,
+        "text_sha256": "sha256:59df051b4c2317fdbbef8037e6def716b93198b1077b518ae6151155ac9887bc"
+      },
+      "rows": [
+        {
+          "requirement_id": "Q-ZZ_BETA-GEN-001",
+          "id_family": "Q-ZZ_BETA-GEN",
+          "section": null,
+          "title": null,
+          "page_number": 9,
+          "span": {
+            "start": 60,
+            "end": 250
+          },
+          "tbc": false,
+          "tbd": false,
+          "block_char_count": 190,
+          "block_text_sha256": "sha256:a0f3d03c111de50b5da44c2f59e6c910b4585ce79c1b4dc8faf3cd26cf3ac36e"
+        },
+        {
+          "requirement_id": "Q-ZZ_ALPHA-MEC-001",
+          "id_family": "Q-ZZ_ALPHA-MEC",
+          "section": "3.2.1",
+          "title": "Synthetic clause title one",
+          "page_number": 12,
+          "span": {
+            "start": 180,
+            "end": 640
+          },
+          "tbc": true,
+          "tbd": false,
+          "block_char_count": 460,
+          "block_text_sha256": "sha256:d60a1f2d2eb1534183def5d8bd185ea766128baecf306bfd842b562e0a986364"
+        },
+        {
+          "requirement_id": "Q-ZZ_ALPHA-MEC-002",
+          "id_family": "Q-ZZ_ALPHA-MEC",
+          "section": "3.2.2",
+          "title": null,
+          "page_number": 12,
+          "span": {
+            "start": 660,
+            "end": 980
+          },
+          "tbc": false,
+          "tbd": false,
+          "block_char_count": 320,
+          "block_text_sha256": "sha256:1d85b211fab6ac04ab7ce63048e935d4852c5f125bcaaf2ac8c0d41ebbbe182e"
+        },
+        {
+          "requirement_id": "Q-ZZ_ALPHA-ELE-001",
+          "id_family": "Q-ZZ_ALPHA-ELE",
+          "section": "3.3.1",
+          "title": "Synthetic clause title two",
+          "page_number": 18,
+          "span": {
+            "start": 90,
+            "end": 500
+          },
+          "tbc": false,
+          "tbd": true,
+          "block_char_count": 410,
+          "block_text_sha256": "sha256:c2c7a55e7f3431bf9b75bebaeadec0f79321333ea8ee63a7568076e72d5eaf11"
+        },
+        {
+          "requirement_id": "Q-ZZ_ALPHA-ZZZ-001",
+          "id_family": "Q-ZZ_ALPHA-ZZZ",
+          "section": "3.3.2",
+          "title": null,
+          "page_number": 18,
+          "span": {
+            "start": 520,
+            "end": 760
+          },
+          "tbc": false,
+          "tbd": false,
+          "block_char_count": 240,
+          "block_text_sha256": "sha256:61480beeac44eaf3d15942d55df28a3072043badedcddbaccfd551bd0ccbda7a"
+        },
+        {
+          "requirement_id": "Q-ZZ_BETA-SWF-001",
+          "id_family": "Q-ZZ_BETA-SWF",
+          "section": "3.4.1",
+          "title": null,
+          "page_number": 24,
+          "span": {
+            "start": 120,
+            "end": 700
+          },
+          "tbc": true,
+          "tbd": false,
+          "block_char_count": 580,
+          "block_text_sha256": "sha256:adb8a4d3541ea713f4f2117b6152c62b1c68104f3834ff98b8dc25b229741ce9"
+        },
+        {
+          "requirement_id": "Q-ZZ_BETA-SWF-002",
+          "id_family": "Q-ZZ_BETA-SWF",
+          "section": "3.4.2",
+          "title": null,
+          "page_number": 24,
+          "span": {
+            "start": 700,
+            "end": 1010
+          },
+          "tbc": false,
+          "tbd": false,
+          "block_char_count": 310,
+          "block_text_sha256": "sha256:34e4933ce440e09012991190719c6b4c76cb74a0388477c54c7aab5559903044"
+        },
+        {
+          "requirement_id": "Q-ZZ_BETA-SWF-002",
+          "id_family": "Q-ZZ_BETA-SWF",
+          "section": "3.4.3",
+          "title": null,
+          "page_number": 25,
+          "span": {
+            "start": 40,
+            "end": 300
+          },
+          "tbc": false,
+          "tbd": false,
+          "block_char_count": 260,
+          "block_text_sha256": "sha256:91a3b3cd1224495752a85444c2787f3277a47abcf37366b123330f6ff9e99b6b"
+        },
+        {
+          "requirement_id": "Q_ZZ_BETA-SWF-001",
+          "id_family": "Q_ZZ_BETA-SWF",
+          "section": "3.4.4",
+          "title": null,
+          "page_number": 25,
+          "span": {
+            "start": 320,
+            "end": 610
+          },
+          "tbc": false,
+          "tbd": false,
+          "block_char_count": 290,
+          "block_text_sha256": "sha256:87de5d16016cf896b944899ec5484f8705f9afc826f01fba99787758a5e4fd71"
+        },
+        {
+          "requirement_id": "Q-ZZ_GAMMA-ELE-001",
+          "id_family": "Q-ZZ_GAMMA-ELE",
+          "section": "3.5.1",
+          "title": null,
+          "page_number": 28,
+          "span": {
+            "start": 100,
+            "end": 420
+          },
+          "tbc": false,
+          "tbd": false,
+          "block_char_count": 320,
+          "block_text_sha256": "sha256:d1bcffbe2efb0ffc81a06a1689df84a8d6c5920e1cebf6a9de9173daaf7968d9"
+        },
+        {
+          "requirement_id": "Q-ZZ_XXXX-MEC-001",
+          "id_family": "Q-ZZ_XXXX-MEC",
+          "section": "3.6.1",
+          "title": null,
+          "page_number": 31,
+          "span": {
+            "start": 70,
+            "end": 380
+          },
+          "tbc": true,
+          "tbd": false,
+          "block_char_count": 310,
+          "block_text_sha256": "sha256:99b5d9672959ca514164a16c626c4e350f091d371a77dad8ba95e6da9854b14e"
+        },
+        {
+          "requirement_id": "Q-YY_ALPHA-MEC-003",
+          "id_family": "Q-YY_ALPHA-MEC",
+          "section": "3.7.1",
+          "title": null,
+          "page_number": 34,
+          "span": {
+            "start": 55,
+            "end": 305
+          },
+          "tbc": false,
+          "tbd": false,
+          "block_char_count": 250,
+          "block_text_sha256": "sha256:5b0942defaa9dcce7fcd3a8a9c262b325a0294c29957494970553c3a39a203a4"
+        }
+      ],
+      "duplicate_ids": [],
+      "mention_only_ids": [
+        "Q-ZZ_ALPHA-MEC-009",
+        "Q-ZZ_BETA-SWF-007"
+      ],
+      "mentions_by_id": {
+        "Q-ZZ_ALPHA-MEC-009": [
+          13,
+          41
+        ],
+        "Q-ZZ_BETA-SWF-007": [
+          26
+        ]
+      },
+      "malformed_labels": [
+        {
+          "page_number": 37,
+          "span": {
+            "start": 210,
+            "end": 236
+          }
+        }
+      ],
+      "row_count": 12
+    },
+    "document_binding": {
+      "document_ref": {
+        "entity_id": "contract-requirement-spec-synthetic",
+        "revision_id": "doc-rev-2",
+        "content_id": "sha256:20a6a1e463ecf576be2651f18c5b401c185a0865cafc6dbccc843f4231b59615",
+        "content_hash_alg": "sha256"
+      },
+      "valid_at": "2026-05-04T00:00:00.000Z",
+      "known_at": "2026-08-17T02:15:00.000Z"
+    },
+    "baseline_binding": {
+      "stage_code": "090_PDR",
+      "authority_family": "project_contract_baseline",
+      "default_normative_force": "must",
+      "applicability_default": true
+    },
+    "needs_policy": {
+      "schema_version": "soulforge.requirement_needs_policy.v0",
+      "policy_identity": {
+        "policy_id": "requirement-needs-policy-synthetic",
+        "revision_label": "r1"
+      },
+      "policy_status": "candidate",
+      "extends": {
+        "schema_version": "se_stage_expected_artifact_policy_v0",
+        "policy_ref": {
+          "entity_id": "stage-expected-artifact-policy-synthetic",
+          "revision_id": "base-rev-1",
+          "content_id": "sha256:9c12a779654025656187923a0dac837f1f1f5f9492fbf2a69a3a6f38b724bf29",
+          "content_hash_alg": "sha256"
+        }
+      },
+      "family_pattern": "^Q[-_]ZZ_(?<device>[A-Z]+)-(?<function>[A-Z]{3})$",
+      "device_code_map": [
+        {
+          "device_code": "ALPHA",
+          "label": "Alpha subsystem",
+          "in_scope": true
+        },
+        {
+          "device_code": "BETA",
+          "label": "Beta subsystem",
+          "in_scope": true
+        },
+        {
+          "device_code": "GAMMA",
+          "label": "Gamma subsystem, not in this build",
+          "in_scope": false
+        }
+      ],
+      "function_code_map": [
+        {
+          "function_code": "MEC",
+          "requirement_kind": "mechanical_performance",
+          "label": "Mechanical performance clause",
+          "source_locator": {
+            "section": "3.2",
+            "page_number": 12
+          }
+        },
+        {
+          "function_code": "ELE",
+          "requirement_kind": "electrical_interface",
+          "label": "Electrical interface clause",
+          "source_locator": {
+            "section": "3.3",
+            "page_number": 18
+          }
+        },
+        {
+          "function_code": "SWF",
+          "requirement_kind": "software_function",
+          "label": "Software function clause",
+          "source_locator": {
+            "section": "3.4",
+            "page_number": 24
+          }
+        },
+        {
+          "function_code": "GEN",
+          "requirement_kind": "general_statement",
+          "label": "General statement clause",
+          "source_locator": {
+            "section": "3.1",
+            "page_number": 9
+          }
+        }
+      ],
+      "artifact_presence_semantics": "presence_is_inconclusive",
+      "stages": [
+        {
+          "stage_code": "090_PDR",
+          "sequence": 2
+        },
+        {
+          "stage_code": "120_CDR",
+          "sequence": 3
+        }
+      ],
+      "needs": [
+        {
+          "stage_code": "090_PDR",
+          "device_code": "ALPHA",
+          "function_code": "MEC",
+          "needed_artifact_type_id": "design_document",
+          "needed_relation": "covers",
+          "basis": "base policy row for mechanical clauses at the preliminary design stage",
+          "confidence": "high"
+        },
+        {
+          "stage_code": "090_PDR",
+          "device_code": "ALPHA",
+          "function_code": "MEC",
+          "needed_artifact_type_id": "verification_report",
+          "needed_relation": "verifies",
+          "basis": "base policy row for mechanical clauses at the preliminary design stage",
+          "confidence": "medium"
+        },
+        {
+          "stage_code": "090_PDR",
+          "device_code": "ALPHA",
+          "function_code": "ELE",
+          "needed_artifact_type_id": "interface_sheet",
+          "needed_relation": "covers",
+          "basis": "base policy row for electrical interface clauses",
+          "confidence": "high"
+        },
+        {
+          "stage_code": "090_PDR",
+          "device_code": "ALPHA",
+          "function_code": "ELE",
+          "needed_artifact_type_id": "qualification_plan",
+          "needed_relation": "verifies",
+          "basis": "base policy row for electrical interface clauses",
+          "confidence": "low"
+        },
+        {
+          "stage_code": "090_PDR",
+          "device_code": "BETA",
+          "function_code": "SWF",
+          "needed_artifact_type_id": "design_document",
+          "needed_relation": "covers",
+          "basis": "base policy row for software function clauses",
+          "confidence": "high"
+        },
+        {
+          "stage_code": "120_CDR",
+          "device_code": "BETA",
+          "function_code": "GEN",
+          "needed_artifact_type_id": "design_document",
+          "needed_relation": "covers",
+          "basis": "base policy row that only applies at the later stage",
+          "confidence": "medium"
+        }
+      ]
+    },
+    "artifact_observations": [
+      {
+        "observation_id": "artifact-obs-001",
+        "artifact_type_id": "design_document",
+        "presence_state": "present",
+        "observation_attempt_ref": "attempt-artifact-obs-001",
+        "artifact_revision_ref": {
+          "entity_id": "artifact-design-document",
+          "revision_id": "artifact-rev-1",
+          "content_id": "sha256:f82d100b851a5ac07dce91958cfca6d9f49dc875cc3b34b3719344414a6164ba",
+          "content_hash_alg": "sha256"
+        },
+        "covered_document_revision_id": "doc-rev-2",
+        "evidence_refs": [
+          {
+            "entity_id": "evidence-artifact-obs-001",
+            "revision_id": "evidence-rev-1",
+            "content_id": "sha256:c9d111fd3ef31a486f34c328cc3a94bcf15840544a0324ea7f67fef232a43f7b",
+            "content_hash_alg": "sha256"
+          }
+        ],
+        "valid_at": "2026-08-15T09:30:00.000Z",
+        "known_at": "2026-08-15T09:30:00.000Z"
+      },
+      {
+        "observation_id": "artifact-obs-002",
+        "artifact_type_id": "verification_report",
+        "presence_state": "absence_confirmed",
+        "observation_attempt_ref": "attempt-artifact-obs-002",
+        "artifact_revision_ref": {
+          "entity_id": "artifact-verification-report",
+          "revision_id": "artifact-rev-1",
+          "content_id": "sha256:cfdce68a0373228c77c0038e4568cbdb3cc382c4375a2fae81b5612a682cfd55",
+          "content_hash_alg": "sha256"
+        },
+        "covered_document_revision_id": "doc-rev-2",
+        "evidence_refs": [
+          {
+            "entity_id": "evidence-artifact-obs-002",
+            "revision_id": "evidence-rev-1",
+            "content_id": "sha256:787940268f0ed27cf4db0d99469ab377eb280e46c653e111ed3351c4b28ab848",
+            "content_hash_alg": "sha256"
+          }
+        ],
+        "valid_at": "2026-08-15T09:30:00.000Z",
+        "known_at": "2026-08-15T09:30:00.000Z"
+      },
+      {
+        "observation_id": "artifact-obs-003",
+        "artifact_type_id": "interface_sheet",
+        "presence_state": "present",
+        "observation_attempt_ref": "attempt-artifact-obs-003",
+        "artifact_revision_ref": {
+          "entity_id": "artifact-interface-sheet",
+          "revision_id": "artifact-rev-1",
+          "content_id": "sha256:bb886c06b69137965b2021166f7c101fae54c93db1e508c15d844faca3e52611",
+          "content_hash_alg": "sha256"
+        },
+        "covered_document_revision_id": "doc-rev-1",
+        "evidence_refs": [
+          {
+            "entity_id": "evidence-artifact-obs-003",
+            "revision_id": "evidence-rev-1",
+            "content_id": "sha256:70009750596d9a04d3987b39838073e51f80baca9f62317335a9990602629fc8",
+            "content_hash_alg": "sha256"
+          }
+        ],
+        "valid_at": "2026-08-15T09:30:00.000Z",
+        "known_at": "2026-08-15T09:30:00.000Z"
+      },
+      {
+        "observation_id": "artifact-obs-004",
+        "artifact_type_id": "test_procedure",
+        "presence_state": "present",
+        "observation_attempt_ref": "attempt-artifact-obs-004",
+        "artifact_revision_ref": {
+          "entity_id": "artifact-test-procedure",
+          "revision_id": "artifact-rev-1",
+          "content_id": "sha256:fef847148ed120fa49bbcece9624ea0672e007ba8b84f436e2159eed55fa0277",
+          "content_hash_alg": "sha256"
+        },
+        "covered_document_revision_id": "doc-rev-2",
+        "evidence_refs": [
+          {
+            "entity_id": "evidence-artifact-obs-004",
+            "revision_id": "evidence-rev-1",
+            "content_id": "sha256:e89e1e52fd3f809dab754f9f19b0a509af27b7c6fa95590fe1e14b6685c9a390",
+            "content_hash_alg": "sha256"
+          }
+        ],
+        "valid_at": "2026-08-15T09:30:00.000Z",
+        "known_at": "2026-08-15T09:30:00.000Z"
+      }
+    ],
+    "stage_declarations": [
+      {
+        "stage_code": "090_PDR",
+        "sequence": 2,
+        "entry_criteria": [
+          {
+            "criterion_id": "entry-pdr-design-baseline",
+            "needed_artifact_type_id": "design_document"
+          }
+        ],
+        "success_criteria": [
+          {
+            "criterion_id": "exit-pdr-owner-approval",
+            "needed_artifact_type_id": "decision_record"
+          }
+        ]
+      },
+      {
+        "stage_code": "120_CDR",
+        "sequence": 3,
+        "entry_criteria": [
+          {
+            "criterion_id": "entry-cdr-qualification-plan",
+            "needed_artifact_type_id": "qualification_plan"
+          }
+        ],
+        "success_criteria": [
+          {
+            "criterion_id": "exit-cdr-owner-approval",
+            "needed_artifact_type_id": "decision_record"
+          }
+        ]
+      }
+    ],
+    "risks": [
+      {
+        "risk_id": "risk-pdr-interface-open",
+        "stage_code": "090_PDR",
+        "state": "open",
+        "severity": "medium"
+      }
+    ],
+    "cutoffs": {
+      "valid_at": "2026-08-18T00:00:00.000Z",
+      "known_at": "2026-08-18T00:00:00.000Z"
+    }
+  },
+  "expected": {
+    "holds": [
+      {
+        "row_index": 4,
+        "requirement_id": "Q-ZZ_ALPHA-ZZZ-001",
+        "id_family": "Q-ZZ_ALPHA-ZZZ",
+        "reason": "function_code_unmapped",
+        "detail": "function_code=ZZZ"
+      },
+      {
+        "row_index": 6,
+        "requirement_id": "Q-ZZ_BETA-SWF-002",
+        "id_family": "Q-ZZ_BETA-SWF",
+        "reason": "duplicate_requirement_id_conflict",
+        "detail": "row_count_for_this_id=2"
+      },
+      {
+        "row_index": 7,
+        "requirement_id": "Q-ZZ_BETA-SWF-002",
+        "id_family": "Q-ZZ_BETA-SWF",
+        "reason": "duplicate_requirement_id_conflict",
+        "detail": "row_count_for_this_id=2"
+      },
+      {
+        "row_index": 9,
+        "requirement_id": "Q-ZZ_GAMMA-ELE-001",
+        "id_family": "Q-ZZ_GAMMA-ELE",
+        "reason": "device_out_of_scope",
+        "detail": "device_code=GAMMA"
+      },
+      {
+        "row_index": 10,
+        "requirement_id": "Q-ZZ_XXXX-MEC-001",
+        "id_family": "Q-ZZ_XXXX-MEC",
+        "reason": "device_code_unmapped",
+        "detail": "device_code=XXXX"
+      },
+      {
+        "row_index": 11,
+        "requirement_id": "Q-YY_ALPHA-MEC-003",
+        "id_family": "Q-YY_ALPHA-MEC",
+        "reason": "family_unparseable",
+        "detail": "id_family does not match the declared family pattern"
+      }
+    ],
+    "counts": {
+      "rows_in": 12,
+      "admitted": 6,
+      "held": {
+        "duplicate_requirement_id_conflict": 2,
+        "family_unparseable": 1,
+        "device_code_unmapped": 1,
+        "function_code_unmapped": 1,
+        "device_out_of_scope": 1
+      },
+      "needs": 8,
+      "observations_emitted": 7,
+      "unbound_artifact_observations": 1,
+      "requirements_without_needs": 1,
+      "tbc": 2,
+      "tbd": 1
+    },
+    "requirement_ids_admitted": [
+      "Q-ZZ_ALPHA-ELE-001",
+      "Q-ZZ_ALPHA-MEC-001",
+      "Q-ZZ_ALPHA-MEC-002",
+      "Q-ZZ_BETA-GEN-001",
+      "Q-ZZ_BETA-SWF-001",
+      "Q_ZZ_BETA-SWF-001"
+    ],
+    "needs_undeclared_ids": [
+      "Q-ZZ_BETA-GEN-001"
+    ],
+    "needs_by_requirement_id": [
+      {
+        "requirement_id": "Q-ZZ_ALPHA-ELE-001",
+        "needed_artifact_type_id": "interface_sheet",
+        "needed_relation": "covers"
+      },
+      {
+        "requirement_id": "Q-ZZ_ALPHA-ELE-001",
+        "needed_artifact_type_id": "qualification_plan",
+        "needed_relation": "verifies"
+      },
+      {
+        "requirement_id": "Q-ZZ_ALPHA-MEC-001",
+        "needed_artifact_type_id": "design_document",
+        "needed_relation": "covers"
+      },
+      {
+        "requirement_id": "Q-ZZ_ALPHA-MEC-001",
+        "needed_artifact_type_id": "verification_report",
+        "needed_relation": "verifies"
+      },
+      {
+        "requirement_id": "Q-ZZ_ALPHA-MEC-002",
+        "needed_artifact_type_id": "design_document",
+        "needed_relation": "covers"
+      },
+      {
+        "requirement_id": "Q-ZZ_ALPHA-MEC-002",
+        "needed_artifact_type_id": "verification_report",
+        "needed_relation": "verifies"
+      },
+      {
+        "requirement_id": "Q-ZZ_BETA-SWF-001",
+        "needed_artifact_type_id": "design_document",
+        "needed_relation": "covers"
+      },
+      {
+        "requirement_id": "Q_ZZ_BETA-SWF-001",
+        "needed_artifact_type_id": "design_document",
+        "needed_relation": "covers"
+      }
+    ],
+    "needs_undeclared_by_group": [
+      {
+        "device_code": "BETA",
+        "function_code": "GEN",
+        "requirement_count": 1
+      }
+    ],
+    "unbound_artifact_observations": [
+      {
+        "observation_id": "artifact-obs-004",
+        "artifact_type_id": "test_procedure",
+        "presence_state": "present",
+        "reason": "no_declared_need_for_artifact_type"
+      }
+    ],
+    "fan_out": [
+      {
+        "source_observation_id": "artifact-obs-001",
+        "emitted_observation_count": 4
+      },
+      {
+        "source_observation_id": "artifact-obs-002",
+        "emitted_observation_count": 2
+      },
+      {
+        "source_observation_id": "artifact-obs-003",
+        "emitted_observation_count": 1
+      },
+      {
+        "source_observation_id": "artifact-obs-004",
+        "emitted_observation_count": 0
+      }
+    ],
+    "coverage": {
+      "counts": {
+        "satisfied": 0,
+        "gap_missing": 0,
+        "gap_unknown": 6,
+        "gap_conflict": 0,
+        "unexpected_observed": 0,
+        "not_applicable": 0
+      },
+      "requirement_states": [
+        {
+          "requirement_id": "Q-ZZ_ALPHA-ELE-001",
+          "state": "gap_unknown"
+        },
+        {
+          "requirement_id": "Q-ZZ_ALPHA-MEC-001",
+          "state": "gap_unknown"
+        },
+        {
+          "requirement_id": "Q-ZZ_ALPHA-MEC-002",
+          "state": "gap_unknown"
+        },
+        {
+          "requirement_id": "Q-ZZ_BETA-GEN-001",
+          "state": "gap_unknown"
+        },
+        {
+          "requirement_id": "Q-ZZ_BETA-SWF-001",
+          "state": "gap_unknown"
+        },
+        {
+          "requirement_id": "Q_ZZ_BETA-SWF-001",
+          "state": "gap_unknown"
+        }
+      ],
+      "cells": [
+        {
+          "requirement_id": "Q-ZZ_ALPHA-ELE-001",
+          "needed_artifact_type_id": "interface_sheet",
+          "needed_relation": "covers",
+          "state": "gap_unknown",
+          "reason": "observation_inconclusive"
+        },
+        {
+          "requirement_id": "Q-ZZ_ALPHA-ELE-001",
+          "needed_artifact_type_id": "qualification_plan",
+          "needed_relation": "verifies",
+          "state": "gap_unknown",
+          "reason": "coverage_not_attempted"
+        },
+        {
+          "requirement_id": "Q-ZZ_ALPHA-MEC-001",
+          "needed_artifact_type_id": "design_document",
+          "needed_relation": "covers",
+          "state": "gap_unknown",
+          "reason": "observation_inconclusive"
+        },
+        {
+          "requirement_id": "Q-ZZ_ALPHA-MEC-001",
+          "needed_artifact_type_id": "verification_report",
+          "needed_relation": "verifies",
+          "state": "gap_missing",
+          "reason": "absence_confirmed"
+        },
+        {
+          "requirement_id": "Q-ZZ_ALPHA-MEC-002",
+          "needed_artifact_type_id": "design_document",
+          "needed_relation": "covers",
+          "state": "gap_unknown",
+          "reason": "observation_inconclusive"
+        },
+        {
+          "requirement_id": "Q-ZZ_ALPHA-MEC-002",
+          "needed_artifact_type_id": "verification_report",
+          "needed_relation": "verifies",
+          "state": "gap_missing",
+          "reason": "absence_confirmed"
+        },
+        {
+          "requirement_id": "Q-ZZ_BETA-GEN-001",
+          "state": "gap_unknown",
+          "reason": "needs_undeclared"
+        },
+        {
+          "requirement_id": "Q-ZZ_BETA-SWF-001",
+          "needed_artifact_type_id": "design_document",
+          "needed_relation": "covers",
+          "state": "gap_unknown",
+          "reason": "observation_inconclusive"
+        },
+        {
+          "requirement_id": "Q_ZZ_BETA-SWF-001",
+          "needed_artifact_type_id": "design_document",
+          "needed_relation": "covers",
+          "state": "gap_unknown",
+          "reason": "observation_inconclusive"
+        }
+      ],
+      "stage_readiness": [
+        {
+          "stage_code": "090_PDR",
+          "assessment": "UNKNOWN",
+          "floor_status": "blocked",
+          "entry_ok": false,
+          "entry_unmet_criterion_ids": [
+            "entry-pdr-design-baseline"
+          ],
+          "success_criteria_count": 1,
+          "open_risk_count": 1,
+          "requirement_counts": {
+            "satisfied": 0,
+            "gap_missing": 0,
+            "gap_unknown": 6,
+            "gap_conflict": 0,
+            "not_applicable": 0
+          }
+        },
+        {
+          "stage_code": "120_CDR",
+          "assessment": "READY_FOR_OWNER_REVIEW",
+          "floor_status": "active",
+          "entry_ok": false,
+          "entry_unmet_criterion_ids": [
+            "entry-cdr-qualification-plan"
+          ],
+          "success_criteria_count": 1,
+          "open_risk_count": 0,
+          "requirement_counts": {
+            "satisfied": 0,
+            "gap_missing": 0,
+            "gap_unknown": 0,
+            "gap_conflict": 0,
+            "not_applicable": 0
+          }
+        }
+      ]
+    }
+  },
+  "expected_presence_satisfies": {
+    "note": "The same request with needs_policy.artifact_presence_semantics flipped to presence_satisfies_need. Nothing else changes.",
+    "coverage": {
+      "counts": {
+        "satisfied": 2,
+        "gap_missing": 2,
+        "gap_unknown": 2,
+        "gap_conflict": 0,
+        "unexpected_observed": 0,
+        "not_applicable": 0
+      },
+      "requirement_states": [
+        {
+          "requirement_id": "Q-ZZ_ALPHA-ELE-001",
+          "state": "gap_unknown"
+        },
+        {
+          "requirement_id": "Q-ZZ_ALPHA-MEC-001",
+          "state": "gap_missing"
+        },
+        {
+          "requirement_id": "Q-ZZ_ALPHA-MEC-002",
+          "state": "gap_missing"
+        },
+        {
+          "requirement_id": "Q-ZZ_BETA-GEN-001",
+          "state": "gap_unknown"
+        },
+        {
+          "requirement_id": "Q-ZZ_BETA-SWF-001",
+          "state": "satisfied"
+        },
+        {
+          "requirement_id": "Q_ZZ_BETA-SWF-001",
+          "state": "satisfied"
+        }
+      ],
+      "cells": [
+        {
+          "requirement_id": "Q-ZZ_ALPHA-ELE-001",
+          "needed_artifact_type_id": "interface_sheet",
+          "needed_relation": "covers",
+          "state": "gap_unknown",
+          "reason": "coverage_revision_stale"
+        },
+        {
+          "requirement_id": "Q-ZZ_ALPHA-ELE-001",
+          "needed_artifact_type_id": "qualification_plan",
+          "needed_relation": "verifies",
+          "state": "gap_unknown",
+          "reason": "coverage_not_attempted"
+        },
+        {
+          "requirement_id": "Q-ZZ_ALPHA-MEC-001",
+          "needed_artifact_type_id": "design_document",
+          "needed_relation": "covers",
+          "state": "satisfied"
+        },
+        {
+          "requirement_id": "Q-ZZ_ALPHA-MEC-001",
+          "needed_artifact_type_id": "verification_report",
+          "needed_relation": "verifies",
+          "state": "gap_missing",
+          "reason": "absence_confirmed"
+        },
+        {
+          "requirement_id": "Q-ZZ_ALPHA-MEC-002",
+          "needed_artifact_type_id": "design_document",
+          "needed_relation": "covers",
+          "state": "satisfied"
+        },
+        {
+          "requirement_id": "Q-ZZ_ALPHA-MEC-002",
+          "needed_artifact_type_id": "verification_report",
+          "needed_relation": "verifies",
+          "state": "gap_missing",
+          "reason": "absence_confirmed"
+        },
+        {
+          "requirement_id": "Q-ZZ_BETA-GEN-001",
+          "state": "gap_unknown",
+          "reason": "needs_undeclared"
+        },
+        {
+          "requirement_id": "Q-ZZ_BETA-SWF-001",
+          "needed_artifact_type_id": "design_document",
+          "needed_relation": "covers",
+          "state": "satisfied"
+        },
+        {
+          "requirement_id": "Q_ZZ_BETA-SWF-001",
+          "needed_artifact_type_id": "design_document",
+          "needed_relation": "covers",
+          "state": "satisfied"
+        }
+      ],
+      "stage_readiness": [
+        {
+          "stage_code": "090_PDR",
+          "assessment": "UNKNOWN",
+          "floor_status": "blocked",
+          "entry_ok": true,
+          "entry_unmet_criterion_ids": [],
+          "success_criteria_count": 1,
+          "open_risk_count": 1,
+          "requirement_counts": {
+            "satisfied": 2,
+            "gap_missing": 2,
+            "gap_unknown": 2,
+            "gap_conflict": 0,
+            "not_applicable": 0
+          }
+        },
+        {
+          "stage_code": "120_CDR",
+          "assessment": "READY_FOR_OWNER_REVIEW",
+          "floor_status": "active",
+          "entry_ok": false,
+          "entry_unmet_criterion_ids": [
+            "entry-cdr-qualification-plan"
+          ],
+          "success_criteria_count": 1,
+          "open_risk_count": 0,
+          "requirement_counts": {
+            "satisfied": 0,
+            "gap_missing": 0,
+            "gap_unknown": 0,
+            "gap_conflict": 0,
+            "not_applicable": 0
+          }
+        }
+      ]
+    }
+  }
+}
