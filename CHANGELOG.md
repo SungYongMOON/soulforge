@@ -1,5 +1,52 @@
 # CHANGELOG
 
+## 2026-08-17 - Feature-OFF project PDF requirement identifier index seam
+
+- Added `guild_hall/rag/project_pdf_requirement_index.mjs`, an import-only
+  Feature-OFF seam that turns exactly one admitted project PDF into one
+  deterministic requirement identifier index plus one payload-free receipt. Its
+  request is one closed own-data object carrying exactly `launchPath`,
+  `expectedLaunchSha256`, and `profileId`; the existing project PDF admission
+  seam is called exactly once and stays the only thing that decides admission and
+  touches the launch file and the document bytes.
+- Fixed the recognition contract to one profile, `kr_defense_spec_v0`, exported
+  through `REQUIREMENT_INDEX_PROFILES`. Recognition is regular-expression only
+  over the returned page text: the `식별자` label binds the first identifier
+  token inside a fixed gap, an unlabelled identifier stays a mention, a label
+  with no well-formed identifier behind it is counted as a malformed candidate,
+  and a block runs from its identifier to the next identifier on the same page or
+  to the end of that page. No identifier pattern, label gap, row cap, or title
+  rule is reachable from the caller.
+- Kept the index body-free. A row carries the identifier, the nearest preceding
+  section number, an optional bracket title inside the 120-character bound, the
+  page number, the page-local UTF-16 span, the `TBC`/`TBD` marks, the block
+  character count, and a digest of the block text. A bracket title that could be
+  a secret or is past the bound is dropped to null, duplicates are listed under
+  `duplicate_ids`, mention-only identifiers under `mention_only_ids`, and the
+  receipt reduces the sorted identifier list to one domain-separated
+  `ids_sha256`.
+- Operational impact: this is a read-only candidate seam at the `observed` claim
+  ceiling with zero filesystem writes, persistence, network, model, RAG-index,
+  Wiki, Engineering Engine, ERP, and TaskDriver effects and no CLI or process
+  entrypoint. `HOLD`: actual project execution, RTM/coverage claims and Engine
+  policy-requirement packet supply from an index, additional or caller-supplied
+  profiles, persistence, batching and multi-document runs, and any activation.
+- Validation: `npm run validate:project-pdf-requirement-index` runs the syntax
+  check plus 8 new `node --test` cases (happy path over a synthetic two-page
+  Korean spec fixture, empty document, deterministic replay, request refusal,
+  admission refusal, secret/over-long title drop, planted-marker payload
+  freedom, and the read-only source pin); all 8 pass, and the existing
+  `validate:project-pdf-rag-tracer` 10 cases and
+  `project_pdf_admission.test.mjs` 16 cases still pass unchanged.
+- authorship: this slice was implemented by Claude Opus 5; independent Claude
+  Fable 5 review is pending and no readiness verdict is claimed here.
+- Related paths: `guild_hall/rag/project_pdf_requirement_index.mjs`,
+  `guild_hall/rag/project_pdf_requirement_index.test.mjs`,
+  `guild_hall/rag/README.md` (`Source Extraction Tooling Standard`),
+  `package.json`, and
+  `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md`.
+- Revision: the Git commit containing this entry owns the exact revision.
+
 ## 2026-08-16 - M2 phase order correction and M2-3A Knowledge→Context gate crosswalk
 
 - Fixed the authoritative M2 slice order so no surface is built ahead of its
