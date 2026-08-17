@@ -20,7 +20,7 @@
   - `--scope tracked` 는 과거 tracked debt 전체를 점검하는 audit 모드
   - symlink file entry 는 `lstat` 으로 식별한 뒤 target 을 resolve/read 하지 않고 skip 함
 - `path_length_policy.mjs` (2026-08-18)
-  - Owner 결정: Windows 긴 경로 지원은 켜지 않는다(OneDrive·탐색기·Office·한컴이 어차피 깨짐). 새 경로는 예산 안에 들어와야 한다 — 총 길이 200자(`C:Soulforge` 포함), 폴더명 60자, 파일명(확장자 제외) 60자, 슬러그 폴더 안 파일명에 슬러그 반복 금지, 이름 속 해시 16자 이하
+  - Owner 결정: Windows 긴 경로 지원은 켜지 않는다(OneDrive·탐색기·Office·한컴이 어차피 깨짐). 새 경로는 예산 안에 들어와야 한다 — 총 길이 200자(로컬 checkout 접두 13자 포함), 폴더명 60자, 파일명(확장자 제외) 60자, 슬러그 폴더 안 파일명에 슬러그 반복 금지, 이름 속 해시 16자 이하
   - `npm run validate:path-length`는 변경분(changed scope)을, `npm run validate:path-length:tracked`는 tracked 전체(audit)를 검사한다. `--assert-path <repo-relative> [--kind directory]`로 단건 검사
   - `guard:workmeta-write`가 같은 예산을 write target에 적용한다(`path_budget_*` violation)
 - `workmeta_payload_policy.mjs`

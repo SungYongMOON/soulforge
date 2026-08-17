@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 2026-08-18 - Path-length budget policy (long paths stay off)
+
+- Owner decision: Windows long-path support stays disabled because OneDrive, Explorer,
+  Office and HWP break on long paths regardless of the registry switch; instead every
+  new path must fit a budget. New `guild_hall/validate/path_length_policy.mjs`
+  classifies repo-relative paths against: total <= 200 characters (13-char local
+  checkout prefix + relative), directory segment <= 60, file stem <= 60, no slug
+  repetition inside a slug folder, hashes in names <= 16 hex. `npm run
+  validate:path-length` (changed scope) and `validate:path-length:tracked` (audit)
+  are new; `guard:workmeta-write` applies the same budget to write targets.
+  Tracked-scope baseline today: 60 violations (35 in one long calibration folder
+  name, 22 slug repeats, 4 over 200, 3 long stems) - reported, not renamed. A
+  read-only audit of the private planes found the real exposure outside the public
+  repo (state stores with 64-hex directory names, old holds, backups, raw project
+  mail attachments); the rename/move plan is a private report.
+
 ## 2026-08-18 - SE folder-tree 체계개발 machine fields and compiled variant JSON
 
 - `.registry/skills/se_foldertree_generate/codex/assets/SE_FolderTree_Guide.md`

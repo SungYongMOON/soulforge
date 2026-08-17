@@ -3,7 +3,7 @@
 // Owner decision 2026-08-18: Windows long paths stay OFF (OneDrive/Explorer/Office/HWP break on
 // long paths regardless of the registry switch), so every path we create must fit a budget:
 //
-//   total path under the repo root  <= 200 characters (counted as `C:\Soulforge\` + relative)
+//   total path under the repo root  <= 200 characters (counted as a 13-char drive+repo prefix + relative)
 //   one directory segment           <= 60 characters (workflow/mission ids are descriptive)
 //   one file basename (without ext) <= 60 characters
 //   a file inside a slug folder must not repeat the folder's slug in its own name
@@ -16,7 +16,9 @@ import { fileURLToPath } from "node:url";
 
 export const PATH_LENGTH_POLICY_SCHEMA_VERSION = "soulforge.path_length_policy.v0";
 export const PATH_BUDGET = Object.freeze({
-  root_prefix: "C:\\Soulforge\\",
+  // Length of the local checkout prefix (drive letter, colon, separator, repo folder, separator)
+  // kept as a number rather than a literal path so this public file carries no host-local path.
+  root_prefix_length: 13,
   max_total: 200,
   max_dir_segment: 60,
   max_basename: 60,
@@ -36,7 +38,7 @@ export function classifyPath(relativePath, { kind = "file", budget = PATH_BUDGET
     return { ok: false, violations: [{ id: "path_empty" }] };
   }
   const rel = relativePath.replace(/\//g, "\\").replace(/^\.\\/, "");
-  const total = budget.root_prefix.length + rel.length;
+  const total = budget.root_prefix_length + rel.length;
   if (total > budget.max_total) violations.push({ id: "path_too_long", total, max: budget.max_total });
   const segments = rel.split("\\").filter(Boolean);
   const dirSegments = kind === "file" ? segments.slice(0, -1) : segments;
