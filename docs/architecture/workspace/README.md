@@ -57,6 +57,7 @@
 | `BATTLE_LOG_STORAGE_PLAN.md` | battle log 저장 위치, event stream, chain sample 기준이다. |
 | `MISSION_CLOSE_PROVENANCE_V0.md` | mission terminal 상태와 battle event provenance pointer 계약이다. |
 | `SE_DUNGEON_STAGE_MODEL_V0.md` | project=dungeon, stage/floor, boss clear 를 UI/업무 단계에 연결한다. |
+| `SE_STAGE_RULE_SOURCE_MODEL_V0.md` | (DRAFT/canon_candidate) 단계 규칙(단계→산출물)의 단일 원천 = 사업유형별 폴더트리 variant 스펙 + 기계 필드(L1), 과제 덧씌움(L2), 결정론 컴파일러(L3: expected-artifact policy·엔진 stage policy·Needs stages), 산출물 표준어(artifact_type_id), D42~D45. |
 | `SE_ASSISTANT_OPERATING_MODEL_V0.md` | Defines the public-safe SE assistant operating loop, authority boundary, request flow, and project use path. |
 | `MAILBOX_CONCRETE_CONTRACT_V0.md` | mailbox concrete source 와 gateway state surface 의 public-safe 계약이다. |
 | `AUTOHUNT_MODEL.md` | `_workmeta/<project_code>/autohunt/` 의 routing, policy, capability 확장선을 둔다. |
@@ -124,6 +125,7 @@
 - [`BATTLE_LOG_STORAGE_PLAN.md`](BATTLE_LOG_STORAGE_PLAN.md)
 - [`MISSION_CLOSE_PROVENANCE_V0.md`](MISSION_CLOSE_PROVENANCE_V0.md)
 - [`SE_DUNGEON_STAGE_MODEL_V0.md`](SE_DUNGEON_STAGE_MODEL_V0.md)
+- [`SE_STAGE_RULE_SOURCE_MODEL_V0.md`](SE_STAGE_RULE_SOURCE_MODEL_V0.md)
 - [`SE_ASSISTANT_OPERATING_MODEL_V0.md`](SE_ASSISTANT_OPERATING_MODEL_V0.md)
 - [`MAILBOX_CONCRETE_CONTRACT_V0.md`](MAILBOX_CONCRETE_CONTRACT_V0.md)
 - [`AUTOHUNT_MODEL.md`](AUTOHUNT_MODEL.md)
