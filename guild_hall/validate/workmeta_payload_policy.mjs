@@ -6,6 +6,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { classifyPath } from "./path_length_policy.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(__dirname, "../..");
@@ -119,6 +120,10 @@ export function validateWorkmetaWriteTarget({
   }
 
   const violations = classifyWorkmetaTarget(relative, targetKind);
+  // Path budget (owner decision 2026-08-18: long paths stay off; every new _workmeta path fits
+  // 200 chars total, 60 per segment, no slug repetition, hashes <= 16 hex).
+  const budget = classifyPath(path.relative(root, target), { kind: targetKind });
+  for (const v of budget.violations) violations.push({ id: "path_budget_" + v.id, ...v });
   return {
     schema_version: schemaVersion,
     ok: violations.length === 0,

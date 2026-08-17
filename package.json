@@ -17,6 +17,8 @@
     "canon:validate": "npm run guild-hall:validate:canon --",
     "validate:canon": "node guild_hall/validate/canon_validate.mjs",
     "validate:path-policy": "node --test guild_hall/validate/local_absolute_path_policy.test.mjs && node guild_hall/validate/local_absolute_path_policy.mjs --scope changed",
+    "validate:path-length": "node --test guild_hall/validate/path_length_policy.test.mjs && node guild_hall/validate/path_length_policy.mjs --scope changed",
+    "validate:path-length:tracked": "node guild_hall/validate/path_length_policy.mjs --scope tracked",
     "validate:path-policy:all": "node guild_hall/validate/local_absolute_path_policy.mjs --scope tracked",
     "validate:path-policy:state": "node guild_hall/validate/local_absolute_path_policy.mjs --scope changed --include-nested",
     "validate:workmeta-payload": "node --test guild_hall/validate/workmeta_payload_policy.test.mjs && node guild_hall/validate/workmeta_payload_policy.mjs",
