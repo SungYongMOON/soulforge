@@ -72,6 +72,7 @@
       "engine_requirements": 10,
       "not_applicable": 2,
       "overlay_added": 1,
+      "overlay_strengthened": 0,
       "overlay_aliases": 1,
       "overlay_out_of_scope": 1,
       "unmapped": 1,

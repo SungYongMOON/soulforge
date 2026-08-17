@@ -896,6 +896,7 @@ const emptyCounts = () => ({
   engine_requirements: 0,
   not_applicable: 0,
   overlay_added: 0,
+  overlay_strengthened: 0,
   overlay_aliases: 0,
   overlay_out_of_scope: 0,
   unmapped: 0,
@@ -992,10 +993,22 @@ export function compileStageRules(request) {
     }
     const key = `${op.stage_code}\u001f${op.artifact_type_id}`;
     if (op.op === 'add') {
-      if (rowIndex.has(key)) {
-        fail(STAGE_RULE_ERROR_CODES.OVERLAY_FORBIDDEN,
-          'an overlay addition names a rule the standard table already declares',
-          { stage_code: op.stage_code, artifact_type_id: op.artifact_type_id });
+      const existing = rowIndex.get(key);
+      if (existing !== undefined) {
+        // A buyer or contract may require an artifact the standard table only carries as
+        // context (optional_context: unstated, unverified, or downgraded). The overlay may then
+        // add its own prime_contract row beside the standard row — the standard row keeps its
+        // own evidence grade untouched, the group is governed by the strongest presence rule,
+        // and the receipt counts the strengthening. Where the standard already requires the
+        // artifact (present / present_or_not_applicable) an addition would only restate or
+        // regrade it, which D45 forbids.
+        const onlyContext = existing.every((row) => row.minimum_presence_rule === PRESENCE_RULE.OPTIONAL_CONTEXT);
+        if (!onlyContext) {
+          fail(STAGE_RULE_ERROR_CODES.OVERLAY_FORBIDDEN,
+            'an overlay addition names a rule the standard table already requires',
+            { stage_code: op.stage_code, artifact_type_id: op.artifact_type_id });
+        }
+        counts.overlay_strengthened += 1;
       }
       const row = overlayAddRow(op, STAGE_CODE_TO_SEQUENCE.get(op.stage_code));
       rows.push(row);

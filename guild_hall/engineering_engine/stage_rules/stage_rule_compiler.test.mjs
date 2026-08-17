@@ -342,10 +342,33 @@ test('an overlay may not raise the evidence level of a rule', () => {
   regraded.overlay.ops[1].evidence_level = 'regulation_mandated';
   assert.throws(() => compileStageRules(regraded), throwsWith(STAGE_RULE_ERROR_CODES.OVERLAY_FORBIDDEN));
 
-  // Adding a rule the standard table already carries would restate its grade.
+  // Adding a rule the standard table already REQUIRES would restate or regrade it.
   const duplicate = overlayRequest();
   duplicate.overlay.ops[1].artifact_type_id = 'pci';
   assert.throws(() => compileStageRules(duplicate), throwsWith(STAGE_RULE_ERROR_CODES.OVERLAY_FORBIDDEN));
+
+  // But a buyer may require an artifact the standard table only carries as context: the overlay
+  // adds its own prime_contract row beside the standard row, the standard row keeps its grade,
+  // and the group is governed by the stronger presence rule.
+  const base = compileStageRules(baseRequest());
+  const contextRow = base.mapping_table.find((row) => row.origin === 'variant'
+    && row.minimum_presence_rule === 'optional_context'
+    && row.evidence_level !== 'internal_management'
+    && !row.artifact_type_id.startsWith('unmapped_')
+    && base.mapping_table.filter((other) => other.stage_code === row.stage_code
+      && other.artifact_type_id === row.artifact_type_id).every((other) => other.minimum_presence_rule === 'optional_context'));
+  assert.ok(contextRow, 'fixture carries at least one context-only standard row');
+  const strengthen = overlayRequest();
+  strengthen.overlay.ops[1] = { ...strengthen.overlay.ops[1], stage_code: contextRow.stage_code, artifact_type_id: contextRow.artifact_type_id };
+  if (!strengthen.target_stage_codes.includes(contextRow.stage_code)) strengthen.target_stage_codes.push(contextRow.stage_code);
+  const strengthened = compileStageRules(strengthen);
+  assert.equal(strengthened.receipt.counts.overlay_strengthened, 1);
+  const group = strengthened.mapping_table.filter((row) => row.stage_code === contextRow.stage_code
+    && row.artifact_type_id === contextRow.artifact_type_id);
+  assert.ok(group.some((row) => row.origin === 'overlay' && row.evidence_level === 'prime_contract'));
+  assert.ok(group.some((row) => row.origin === 'variant' && row.minimum_presence_rule === 'optional_context'), 'standard row keeps its own grade');
+  const engineIds = strengthened.engine_stage_policy_material.stages.flatMap((stage) => stage.requirements.map((r) => r.requirement_id));
+  assert.ok(engineIds.includes(`${contextRow.stage_code}_${contextRow.artifact_type_id}`), 'the group now yields an engine requirement');
 
   // An operation aimed at a rule that does not exist is a mistake, not a silent no-op.
   const missing = overlayRequest();
