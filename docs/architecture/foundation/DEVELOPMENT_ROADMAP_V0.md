@@ -1066,6 +1066,7 @@ raw 산출물·private 수치는 `_workmeta` 영수증을 가리키고 여기엔
 | 2026-08-17 | M2-2 pilot 관측 확대(run 02) | "관측 확대 뒤 2차 pilot" (CURRENT 표 남은 연결) | run 01의 미관측 9개 중 4개(HRS·SRS·HDD 최종본, STP)를 03_Out 직접 확인으로 absence_confirmed 관측(증거=슬롯 카운트 JSON) → runner 1회 PASS: satisfied 5/missing 4/unknown 5, assessment UNKNOWN, mission 3(CDRL 취합·3D STEP·발표자료 취합) | Owner 야간 포괄 승인 근거로 실행(pending ratification); 남은 unknown 5는 STR·3D STEP·시험문서·CDRL·발표자료 취합(발표자료는 PART3 부분본만 존재) | private run `ax_se_project_context_pilot_20260817_02` |
 | 2026-08-17 | 요구사항 ID 색인 profile v0.1 | — | `kr_defense_spec_v0_1` 추가(요구사양 라벨 뒤 제목·단위 대괄호 건너뜀·mentions_by_id·malformed_labels·id_family) `main@08c2ba0d`, KVDS 재실행: 118행 동일, 제목 24행 정상 추출, mention 108키 | 실측 품질 문제 3건을 결정론 규칙으로 정정 | private receipt(run project_pdf_requirement_index_pilot_20260817_01) |
 | 2026-08-17 | Board classic engine view | 33모듈 topology 소비 | ENGINE_LANES 29→33·테스트를 tracked artifact에서 유도·README 수치 정합 `main@d8c3fa8e`; phase_1_integration_receipt는 비결정론(run_id 시각)+bundle 외부라 미갱신(사유 기록) | agent 위생 | CHANGELOG 08-17 항목 |
+| 2026-08-17 | 요구사항 추적 모델 R1(순수 함수) | 설계 §8 R1: 계약 고정 + `computeRequirementCoverage` + fixture(1주차) | 당일 착지 `main@ee1002b1`: `guild_hall/requirement_trace/requirement_coverage.mjs`(bitemporal replay·coverage cells·fail-closed 상태·orphan 보존·gate 진입/성공 분리, kernel 어휘 재사용, fs/clock/net 0), fixture, 테스트 18/18, relation matrix `canon_candidate` 관계 3 | 설계 §5.3과 다른 판단 3건 소스 주석에 명시(supersession 2-pass, known_at≥valid_at 미강제, firstMark=MARK_ORDER 최소); D37~D41 Owner 결정 전 candidate | CHANGELOG 08-17 항목 |
 
 ## 갱신 규칙
 
