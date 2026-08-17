@@ -565,13 +565,22 @@ test('the artifact vocabulary is unique, closed over its families, and closed ov
   // Every family the compiler can emit is carried by at least one token, so no family is a
   // name with nothing behind it.
   const families = new Set(ARTIFACT_VOCABULARY_V0.map((row) => row.family));
-  for (const family of ARTIFACT_FAMILIES) assert.ok(families.has(family), `${family} has no token`);
+  // `prime_contract_item` is carried by the prime_* token rule rather than by a listed entry.
+  for (const family of ARTIFACT_FAMILIES) {
+    if (family === 'prime_contract_item') continue;
+    assert.ok(families.has(family), `${family} has no token`);
+  }
 
   assert.equal(isKnownArtifactType('srs'), true);
   assert.equal(isKnownArtifactType('synthetic_unlisted_token'), false);
   assert.equal(isKnownArtifactType(undefined), false);
   assert.equal(artifactTypeEntry('srs').family, 'requirements_specification');
   assert.equal(artifactTypeEntry('synthetic_unlisted_token'), null);
+  // Prime-contractor items are recognised by shape and land in their own family.
+  assert.equal(isKnownArtifactType('prime_q4_manufacturing_readiness_review'), true);
+  assert.equal(artifactTypeEntry('prime_q4_manufacturing_readiness_review').family, 'prime_contract_item');
+  assert.equal(isKnownArtifactType('prime_'), false);
+  assert.equal(isKnownArtifactType('Prime_x'), false);
 });
 
 // ---------------------------------------------------------------- 14. static effect pin

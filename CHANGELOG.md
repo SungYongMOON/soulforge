@@ -67,7 +67,17 @@
   17-test suite; the suite also pins the restated engine policy revision against the
   engine's own export and validates the emitted material through the engine's exported
   `buildAxSeAssessmentInput` and `assessAxSeProject`.
-
+- Follow-up the same day (integration with the 체계개발 v0.8 compiled JSON): the
+  overlay may add a `prime_contract` row beside a standard row that is only
+  `optional_context` (buyer requirement; counted as `overlay_strengthened`), still
+  refused where the standard already requires the artifact (D45); `applies_when`
+  accepts a token or a list (all must hold); `verification_status` accepts
+  `internal_management`; `added_by_verification` accepts the exporter's date
+  stamp; the vocabulary gains the 26 extension tokens the v0.8 spec uses and
+  recognises `prime_<...>` tokens as prime-contract items. First real compile:
+  체계개발 variant + a 14-slot buyer overlay for one CDR stage yields 25 engine
+  requirements (14 buyer slots: 5 standard-origin, 2 strengthened, 7 buyer-added;
+  11 standard items the buyer did not request, 6 of them regulation-mandated).
 ## 2026-08-18 - SE folder-tree variant source verification (skill reference)
 
 - Added `.registry/skills/se_foldertree_generate/codex/references/source_verification_v0.md`

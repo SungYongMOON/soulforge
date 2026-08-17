@@ -37,6 +37,7 @@ export const ARTIFACT_FAMILIES = Object.freeze([
   'review_result',
   'closeout',
   'internal',
+  'prime_contract_item',
 ]);
 
 // The capability tokens the engine already observes in role rosters. A vocabulary entry may
@@ -160,6 +161,38 @@ export const ARTIFACT_VOCABULARY_V0 = Object.freeze([
   entry('tdp', 'closeout', '기술자료묶음', 'Technical Data Package', 'configuration_management'),
   entry('lessons_learned', 'closeout', '교훈', 'Lessons Learned', 'project_management'),
 
+  // -------------------------------------------------------------- extension tokens (2026-08-18)
+  //
+  // Tokens the 체계개발 variant's machine fields use beyond design §4 (see the skill's
+  // references/variants.md, D44 owner sign-off pending). Listed so a regulation-mandated row
+  // (e.g. RAM 분석보고서, 핵심부품 공인시험 성적서) is not silently downgraded to context.
+  entry('cdrl', 'configuration_and_bom', '계약자료요구목록', 'Contract Data Requirements List', 'configuration_management'),
+  entry('rtm', 'requirements_specification', '요구사항 추적표', 'Requirements Traceability Matrix', 'systems_engineering'),
+  entry('functional_analysis', 'design_description', '기능분석', 'Functional Analysis', 'systems_engineering'),
+  entry('vv_strategy', 'test_plan', '검증·확인 전략', 'Verification and Validation Strategy', 'verification_review'),
+  entry('trade_study', 'design_description', '절충연구', 'Trade Study', 'systems_engineering'),
+  entry('standard_parts_review', 'configuration_and_bom', '표준품 적절성 검토서', 'Standard Parts Review', 'configuration_management'),
+  entry('wps', 'configuration_and_bom', '제작사양서 및 검사요구', 'Workmanship/Process Specification', 'mechanical_design'),
+  entry('manufacturing_design_review', 'review_result', '제조관점 설계검토 결과', 'Manufacturing Design Review', 'mechanical_design'),
+  entry('manufacturing_process_flow', 'configuration_and_bom', '제조공정도·작업표준', 'Manufacturing Process Flow', 'mechanical_design'),
+  entry('ram_analysis_report', 'evaluation_report', 'RAM 분석 보고서', 'RAM Analysis Report', 'systems_engineering'),
+  entry('build_record', 'configuration_and_bom', '제작 이력', 'Build Record', 'configuration_management'),
+  entry('atp', 'test_procedure', '수락시험 절차서', 'Acceptance Test Procedure', 'verification_review'),
+  entry('delivery_acceptance_record', 'closeout', '납품·수락 기록', 'Delivery Acceptance Record', 'project_management'),
+  entry('sat_report', 'test_result', '현장 수락시험 결과', 'Site Acceptance Test Report', 'verification_review'),
+  entry('integration_test_support', 'test_docs', '체계통합시험 지원 결과', 'Integration Test Support Record', 'verification_review'),
+  entry('defect_action_report', 'evaluation_report', '결함 조치 보고서', 'Defect Action Report', 'verification_review'),
+  entry('ncr', 'evaluation_report', '부적합 보고서', 'Nonconformance Report', 'verification_review'),
+  entry('defense_spec_drawings', 'drawing_and_interface', '국방규격 도면', 'Defense Specification Drawings', 'configuration_management'),
+  entry('development_history', 'closeout', '개발 이력', 'Development History', 'project_management'),
+  entry('lessons_learned_workshop', 'closeout', '교훈 공유회', 'Lessons Learned Workshop', 'project_management'),
+  entry('review_minutes_kickoff', 'review_minutes', '착수회의 회의록', 'Kickoff Meeting Minutes', 'project_management'),
+  entry('cm_plan', 'technical_plan', '형상관리계획서', 'Configuration Management Plan', 'configuration_management'),
+  entry('technical_review_package', 'review_result', '기술검토회의 자료', 'Technical Review Package', 'systems_engineering'),
+  entry('critical_parts_test_report', 'test_result', '핵심부품 공인시험 성적서', 'Critical Parts Accredited Test Report', 'verification_review'),
+  entry('fca_pca_plan_checklist', 'configuration_audit', 'FCA/PCA 계획서·점검표', 'FCA/PCA Plan and Checklist', 'verification_review'),
+  entry('production_transition_package', 'closeout', '양산 이관 자료', 'Production Transition Package', 'project_management'),
+
   // -------------------------------------------------------------- internal management
   //
   // These are the fixed folders every variant carries. They are real folders and a real place
@@ -173,8 +206,21 @@ export const ARTIFACT_VOCABULARY_V0 = Object.freeze([
 const BY_ID = new Map(ARTIFACT_VOCABULARY_V0.map((row) => [row.artifact_type_id, row]));
 
 /** True when `id` is a token this vocabulary owns. */
+// Prime-contractor items (contract quality gates, supplier records) are per-contractor and cannot
+// be enumerated here. A token of the shape `prime_<...>` is recognised as a prime contract item
+// so that a variant row carrying one keeps its evidence level instead of falling to unmapped
+// context; other prime contractors mark such rows N/A in their overlay.
+const PRIME_TOKEN = /^prime_[a-z0-9]+(?:_[a-z0-9]+)*$/u;
+const primeEntry = (id) => Object.freeze({
+  artifact_type_id: id,
+  family: 'prime_contract_item',
+  label_ko: '주계약사 계약 항목',
+  label_en: 'Prime Contract Item',
+  capability_default: 'project_management',
+});
+
 export function isKnownArtifactType(id) {
-  return typeof id === 'string' && BY_ID.has(id);
+  return typeof id === 'string' && (BY_ID.has(id) || PRIME_TOKEN.test(id));
 }
 
 /**
@@ -185,5 +231,6 @@ export function isKnownArtifactType(id) {
  * unmapped context rather than by refusing the whole variant.
  */
 export function artifactTypeEntry(id) {
-  return (typeof id === 'string' ? BY_ID.get(id) : undefined) ?? null;
+  if (typeof id !== 'string') return null;
+  return BY_ID.get(id) ?? (PRIME_TOKEN.test(id) ? primeEntry(id) : null);
 }

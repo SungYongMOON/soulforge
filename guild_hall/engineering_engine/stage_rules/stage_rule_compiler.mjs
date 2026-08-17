@@ -119,8 +119,12 @@ const EVIDENCE_TO_PRESENCE = Object.freeze({
   unstated: PRESENCE_RULE.OPTIONAL_CONTEXT,
 });
 
+// `internal_management` is the verdict the source verification gives INBOX/LOG/TDP-style rows
+// (design §3: the verdict is copied verbatim). It neither supports nor weakens a rule; such rows
+// are context by their evidence level already.
 export const VERIFICATION_STATUSES = Object.freeze([
   'source_supported', 'partially_supported', 'unsupported', 'contradicted', 'unverified',
+  'internal_management',
 ]);
 // A row carrying one of these cannot be enforced. `unverified` is also the default for a task
 // that declares no status at all: not yet compared is not the same as compared and accepted.
@@ -452,11 +456,16 @@ function validateCompiledVariant(variant) {
           assertSafeString(task[field], `${taskWhere}.${field}`, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
         }
       }
-      for (const field of ['is_fixed', 'not_applicable_default', 'added_by_verification']) {
+      for (const field of ['is_fixed', 'not_applicable_default']) {
         if (task[field] !== undefined && typeof task[field] !== 'boolean') {
           fail(STAGE_RULE_ERROR_CODES.VARIANT_INVALID, `${taskWhere}.${field} must be a boolean`,
             { where: `${taskWhere}.${field}` });
         }
+      }
+      // The exporter stamps the verification date on rows it added; a bare `true` is also
+      // accepted. Either way it is provenance, not a rule input.
+      if (task.added_by_verification !== undefined && task.added_by_verification !== true) {
+        assertSafeString(task.added_by_verification, `${taskWhere}.added_by_verification`, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
       }
       if (task.artifact_type_id !== undefined) {
         assertToken(task.artifact_type_id, `${taskWhere}.artifact_type_id`, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
@@ -470,7 +479,14 @@ function validateCompiledVariant(variant) {
           STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
       }
       if (task.applies_when !== undefined) {
-        assertToken(task.applies_when, `${taskWhere}.applies_when`, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
+        // One condition token or a list of them (all must hold). The exporter emits a list so a
+        // slot may hang on more than one condition, e.g. an SDP at SRR on exploratory_skipped +
+        // sw_included.
+        const tokens = Array.isArray(task.applies_when) ? task.applies_when : [task.applies_when];
+        if (tokens.length === 0 || tokens.length > MAX.refs) {
+          fail(STAGE_RULE_ERROR_CODES.VARIANT_INVALID, 'applies_when must name at least one condition', { where: `${taskWhere}.applies_when` });
+        }
+        for (const token of tokens) assertToken(token, `${taskWhere}.applies_when`, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
       }
       if (task.source_refs !== undefined) {
         assertArray(task.source_refs, `${taskWhere}.source_refs`, MAX.refs, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
@@ -673,7 +689,9 @@ function variantRow(stageCode, sequence, task, conditions, counts) {
   // A conditional row whose condition this project has not declared is not thereby absent: it
   // is a row nobody has yet said applies, which is what present-or-not-applicable means. It can
   // only ever weaken; a condition cannot promote a context row into a required one.
-  if (task.applies_when !== undefined && !conditions.has(task.applies_when)) {
+  const appliesWhen = task.applies_when === undefined ? null
+    : (Array.isArray(task.applies_when) ? [...task.applies_when] : [task.applies_when]).sort(compareCodePoints);
+  if (appliesWhen !== null && !appliesWhen.every((token) => conditions.has(token))) {
     presence = weakenTo(presence, PRESENCE_RULE.PRESENT_OR_NOT_APPLICABLE);
   }
 
@@ -696,7 +714,7 @@ function variantRow(stageCode, sequence, task, conditions, counts) {
     })),
     overlay_source_ref: null,
     verification_status: verificationStatus,
-    applies_when: task.applies_when ?? null,
+    applies_when: appliesWhen,
     origin: ORIGIN.VARIANT,
     alias: null,
     unmapped,

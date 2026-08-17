@@ -52,6 +52,8 @@
 
 토큰은 소문자 스네이크, 정본이 준 약어를 우선한다. 별칭(과제별 폴더명·발주처 명칭)은 L2 overlay의 `aliases`에만 둔다.
 
+구현 메모(2026-08-18): 컴파일러의 `artifact_vocabulary.v0`는 위 목록 + 체계개발 스펙 v0.8이 쓴 확장 토큰 26개(`cdrl`, `rtm`, `ram_analysis_report`, `critical_parts_test_report`, `cm_plan`, `technical_review_package` …, 스킬 `references/variants.md`)를 갖고, `prime_<...>` 모양의 토큰은 주계약사 계약 항목(family `prime_contract_item`)으로 인식한다(열거 불가·다른 주계약사는 overlay로 N/A). D44 확정 전까지 표시명은 관찰 수준이다. overlay의 `add`는 표준 행이 `optional_context`일 때만 옆에 `prime_contract` 행을 추가할 수 있고(발주처 요구 강화, receipt `overlay_strengthened`), 표준이 이미 요구하는 항목에는 금지된다(D45).
+
 ## 5. 컴파일러 (L3)
 
 - 위치: `guild_hall/engineering_engine/stage_rules/`(신규 sibling; kernel 어휘 재사용, 순수 함수, fs/clock/net 0). CLI는 두지 않는다. I/O는 호출자(스크립트·runner)가 한다.
