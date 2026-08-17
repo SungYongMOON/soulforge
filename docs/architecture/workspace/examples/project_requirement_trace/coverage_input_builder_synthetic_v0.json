@@ -1,7 +1,7 @@
 {
   "fixture_id": "coverage_input_builder_synthetic_v0",
   "schema_version": "soulforge.requirement_coverage_input_builder_fixture.v0",
-  "note": "Public-safe synthetic fixture for guild_hall/requirement_trace/coverage_input_builder.mjs. Every identifier, device code, function code, artifact type, clause title, page number, span and digest below is invented for this file: it names no actual project, contract, organisation, document or person, and it carries no line of any real document. The sha256 values are digests of invented ascii strings, not of any real bytes. The expected blocks are derived by hand from the builder contract and from PROJECT_REQUIREMENT_TRACE_MODEL_V0 sections 5.2 and 5.3, so a change in the implementation cannot quietly redefine what is correct. Row 4 holds on an unmapped function code, rows 6 and 7 hold as two sides of one duplicated identifier with no winner, row 9 holds on an out of scope device, row 10 holds on an unmapped template device code, and row 11 holds on an unparseable family. requirement_index.duplicate_ids is deliberately empty even though rows 6 and 7 share an identifier: the builder recomputes duplicates from the rows.",
+  "note": "Public-safe synthetic fixture for guild_hall/requirement_trace/coverage_input_builder.mjs. Every identifier, device code, function code, artifact type, clause title, page number, span and digest below is invented for this file: it names no actual project, contract, organisation, document or person, and it carries no line of any real document. The sha256 values are digests of invented ascii strings, not of any real bytes. The expected blocks are derived by hand from the builder contract and from PROJECT_REQUIREMENT_TRACE_MODEL_V0 sections 5.2 and 5.3, so a change in the implementation cannot quietly redefine what is correct. Row 4 holds on an unmapped function code, rows 6 and 7 hold as two sides of one duplicated identifier with no winner, row 9 holds on an out of scope device, row 10 holds on an unmapped template device code, and row 11 holds on an unparseable family. requirement_index.duplicate_ids is deliberately empty even though rows 6 and 7 share an identifier: the builder recomputes duplicates from the rows. artifact-obs-003 covers an older revision of the bound document, and artifact-obs-005 covers a different document that labels its revision the same way; neither may be restamped as fresh coverage, so both read as coverage_revision_stale once presence is allowed to satisfy a need. expected holds the outcome under the default presence_is_inconclusive semantics; expected_presence_satisfies holds the outcome of the same request with needs_policy.artifact_presence_semantics flipped to presence_satisfies_need, and nothing else changed.",
   "request": {
     "requirement_index": {
       "schema_version": "soulforge.project_pdf_requirement_index.v0",
@@ -357,6 +357,15 @@
         },
         {
           "stage_code": "090_PDR",
+          "device_code": "ALPHA",
+          "function_code": "ELE",
+          "needed_artifact_type_id": "installation_note",
+          "needed_relation": "covers",
+          "basis": "base policy row for electrical interface clauses",
+          "confidence": "medium"
+        },
+        {
+          "stage_code": "090_PDR",
           "device_code": "BETA",
           "function_code": "SWF",
           "needed_artifact_type_id": "design_document",
@@ -387,7 +396,10 @@
           "content_id": "sha256:f82d100b851a5ac07dce91958cfca6d9f49dc875cc3b34b3719344414a6164ba",
           "content_hash_alg": "sha256"
         },
-        "covered_document_revision_id": "doc-rev-2",
+        "covered_document_ref": {
+          "entity_id": "contract-requirement-spec-synthetic",
+          "revision_id": "doc-rev-2"
+        },
         "evidence_refs": [
           {
             "entity_id": "evidence-artifact-obs-001",
@@ -410,7 +422,10 @@
           "content_id": "sha256:cfdce68a0373228c77c0038e4568cbdb3cc382c4375a2fae81b5612a682cfd55",
           "content_hash_alg": "sha256"
         },
-        "covered_document_revision_id": "doc-rev-2",
+        "covered_document_ref": {
+          "entity_id": "contract-requirement-spec-synthetic",
+          "revision_id": "doc-rev-2"
+        },
         "evidence_refs": [
           {
             "entity_id": "evidence-artifact-obs-002",
@@ -433,7 +448,10 @@
           "content_id": "sha256:bb886c06b69137965b2021166f7c101fae54c93db1e508c15d844faca3e52611",
           "content_hash_alg": "sha256"
         },
-        "covered_document_revision_id": "doc-rev-1",
+        "covered_document_ref": {
+          "entity_id": "contract-requirement-spec-synthetic",
+          "revision_id": "doc-rev-1"
+        },
         "evidence_refs": [
           {
             "entity_id": "evidence-artifact-obs-003",
@@ -456,12 +474,41 @@
           "content_id": "sha256:fef847148ed120fa49bbcece9624ea0672e007ba8b84f436e2159eed55fa0277",
           "content_hash_alg": "sha256"
         },
-        "covered_document_revision_id": "doc-rev-2",
+        "covered_document_ref": {
+          "entity_id": "contract-requirement-spec-synthetic",
+          "revision_id": "doc-rev-2"
+        },
         "evidence_refs": [
           {
             "entity_id": "evidence-artifact-obs-004",
             "revision_id": "evidence-rev-1",
             "content_id": "sha256:e89e1e52fd3f809dab754f9f19b0a509af27b7c6fa95590fe1e14b6685c9a390",
+            "content_hash_alg": "sha256"
+          }
+        ],
+        "valid_at": "2026-08-15T09:30:00.000Z",
+        "known_at": "2026-08-15T09:30:00.000Z"
+      },
+      {
+        "observation_id": "artifact-obs-005",
+        "artifact_type_id": "installation_note",
+        "presence_state": "present",
+        "observation_attempt_ref": "attempt-artifact-obs-005",
+        "artifact_revision_ref": {
+          "entity_id": "artifact-installation-note",
+          "revision_id": "artifact-rev-1",
+          "content_id": "sha256:d8767a5bf3a8f36dfd87e5e4d7c90368df027e05b438eaf7a1b4f0582bed9683",
+          "content_hash_alg": "sha256"
+        },
+        "covered_document_ref": {
+          "entity_id": "contract-requirement-spec-annex-synthetic",
+          "revision_id": "doc-rev-2"
+        },
+        "evidence_refs": [
+          {
+            "entity_id": "evidence-artifact-obs-005",
+            "revision_id": "evidence-rev-1",
+            "content_id": "sha256:8ac50cf720cfa7d05fde7a264a28b209b85aa1c92ec6cfa482afe656d97ec88a",
             "content_hash_alg": "sha256"
           }
         ],
@@ -523,42 +570,78 @@
         "requirement_id": "Q-ZZ_ALPHA-ZZZ-001",
         "id_family": "Q-ZZ_ALPHA-ZZZ",
         "reason": "function_code_unmapped",
-        "detail": "function_code=ZZZ"
+        "detail": "function_code=ZZZ",
+        "faults": [
+          {
+            "reason": "function_code_unmapped",
+            "detail": "function_code=ZZZ"
+          }
+        ]
       },
       {
         "row_index": 6,
         "requirement_id": "Q-ZZ_BETA-SWF-002",
         "id_family": "Q-ZZ_BETA-SWF",
         "reason": "duplicate_requirement_id_conflict",
-        "detail": "row_count_for_this_id=2"
+        "detail": "row_count_for_this_id=2",
+        "faults": [
+          {
+            "reason": "duplicate_requirement_id_conflict",
+            "detail": "row_count_for_this_id=2"
+          }
+        ]
       },
       {
         "row_index": 7,
         "requirement_id": "Q-ZZ_BETA-SWF-002",
         "id_family": "Q-ZZ_BETA-SWF",
         "reason": "duplicate_requirement_id_conflict",
-        "detail": "row_count_for_this_id=2"
+        "detail": "row_count_for_this_id=2",
+        "faults": [
+          {
+            "reason": "duplicate_requirement_id_conflict",
+            "detail": "row_count_for_this_id=2"
+          }
+        ]
       },
       {
         "row_index": 9,
         "requirement_id": "Q-ZZ_GAMMA-ELE-001",
         "id_family": "Q-ZZ_GAMMA-ELE",
         "reason": "device_out_of_scope",
-        "detail": "device_code=GAMMA"
+        "detail": "device_code=GAMMA",
+        "faults": [
+          {
+            "reason": "device_out_of_scope",
+            "detail": "device_code=GAMMA"
+          }
+        ]
       },
       {
         "row_index": 10,
         "requirement_id": "Q-ZZ_XXXX-MEC-001",
         "id_family": "Q-ZZ_XXXX-MEC",
         "reason": "device_code_unmapped",
-        "detail": "device_code=XXXX"
+        "detail": "device_code=XXXX",
+        "faults": [
+          {
+            "reason": "device_code_unmapped",
+            "detail": "device_code=XXXX"
+          }
+        ]
       },
       {
         "row_index": 11,
         "requirement_id": "Q-YY_ALPHA-MEC-003",
         "id_family": "Q-YY_ALPHA-MEC",
         "reason": "family_unparseable",
-        "detail": "id_family does not match the declared family pattern"
+        "detail": "id_family does not match the declared family pattern",
+        "faults": [
+          {
+            "reason": "family_unparseable",
+            "detail": "id_family does not match the declared family pattern"
+          }
+        ]
       }
     ],
     "counts": {
@@ -571,8 +654,15 @@
         "function_code_unmapped": 1,
         "device_out_of_scope": 1
       },
-      "needs": 8,
-      "observations_emitted": 7,
+      "held_faults": {
+        "duplicate_requirement_id_conflict": 2,
+        "family_unparseable": 1,
+        "device_code_unmapped": 1,
+        "function_code_unmapped": 1,
+        "device_out_of_scope": 1
+      },
+      "needs": 9,
+      "observations_emitted": 8,
       "unbound_artifact_observations": 1,
       "requirements_without_needs": 1,
       "tbc": 2,
@@ -590,6 +680,11 @@
       "Q-ZZ_BETA-GEN-001"
     ],
     "needs_by_requirement_id": [
+      {
+        "requirement_id": "Q-ZZ_ALPHA-ELE-001",
+        "needed_artifact_type_id": "installation_note",
+        "needed_relation": "covers"
+      },
       {
         "requirement_id": "Q-ZZ_ALPHA-ELE-001",
         "needed_artifact_type_id": "interface_sheet",
@@ -662,6 +757,10 @@
       {
         "source_observation_id": "artifact-obs-004",
         "emitted_observation_count": 0
+      },
+      {
+        "source_observation_id": "artifact-obs-005",
+        "emitted_observation_count": 1
       }
     ],
     "coverage": {
@@ -700,6 +799,13 @@
         }
       ],
       "cells": [
+        {
+          "requirement_id": "Q-ZZ_ALPHA-ELE-001",
+          "needed_artifact_type_id": "installation_note",
+          "needed_relation": "covers",
+          "state": "gap_unknown",
+          "reason": "observation_inconclusive"
+        },
         {
           "requirement_id": "Q-ZZ_ALPHA-ELE-001",
           "needed_artifact_type_id": "interface_sheet",
@@ -840,6 +946,13 @@
         }
       ],
       "cells": [
+        {
+          "requirement_id": "Q-ZZ_ALPHA-ELE-001",
+          "needed_artifact_type_id": "installation_note",
+          "needed_relation": "covers",
+          "state": "gap_unknown",
+          "reason": "coverage_revision_stale"
+        },
         {
           "requirement_id": "Q-ZZ_ALPHA-ELE-001",
           "needed_artifact_type_id": "interface_sheet",

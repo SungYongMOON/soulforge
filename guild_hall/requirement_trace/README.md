@@ -21,9 +21,10 @@
   `coverage_receipt`를 더해 낸다. 보조 export는 `CoverageInputBuilderError`, `BUILDER_ERROR_CODES`,
   `HOLD_REASONS`, `PRESENCE_SEMANTICS`, `COVERAGE_INPUT_BUILDER_SCHEMA_VERSION`,
   `REQUIREMENT_NEEDS_POLICY_SCHEMA_VERSION`.
-- `coverage_input_builder.test.mjs`: fixture 일치, 결정론·행 순서 무관, 중복 ID 전건 hold, 4종 hold 사유,
-  Needs 미선언, presence 의미 2종, unbound 관측, binding·정책 거부, R1 수락, 채굴 식별자 독립 재유도,
-  구분자 변형 보존, 입력 불변·deep-freeze, 영수증, 정적 pin.
+- `coverage_input_builder.test.mjs`: fixture 일치, 결정론·행 순서 무관, 중복 ID 전건 hold, 다중 결함 행,
+  4종 hold 사유, Needs 미선언, presence 의미 2종, 문서 정체성 기반 신선도, cutoff 밖 binding 거부,
+  unbound 관측, binding·정책 거부, 정책 선언 순서 무관, R1 수락, 채굴 식별자 독립 재유도, 구분자 변형 보존,
+  입력 불변·deep-freeze, 영수증, 정적 pin.
 - 합성 fixture는 public-safe example owner인
   `docs/architecture/workspace/examples/project_requirement_trace/`에 둔다
   (`requirement_coverage_synthetic_v0.json`, `coverage_input_builder_synthetic_v0.json`).
@@ -50,9 +51,26 @@
   domain별 sha256 채굴이라 같은 요청이면 항상 같은 값이며, 요구 entity는 문서 개정을 건너 유지되고 revision은
   블록 해시가 바뀌면 함께 바뀐다. 정적 pin은 이 모듈의 import graph 전체(R1과 kernel 포함)에 걸린다.
 - **builder는 무엇도 조용히 버리지 않는다.** 모든 색인 행은 admitted이거나 사유 있는 hold이며 그 합은 항상
-  `row_count`다. 정책이 Needs를 선언하지 않은 요구는 R1에서 `needs_undeclared`로 남고, 어떤 Needs와도 묶이지
-  않는 산출물 관측은 emit하지 않고 manifest의 `unbound_artifact_observations`에 사유와 함께 남긴다. 색인이
-  스스로 신고한 `duplicate_ids`는 판단 근거로 쓰지 않고 행에서 다시 계산한다.
+  `row_count`다. hold 행은 headline `reason` 하나가 아니라 해당되는 **모든** 사유를 `faults[]`로 들고,
+  영수증은 행 단위 `counts.held`와 사유 단위 `counts.held_faults`를 따로 낸다. 사유 우선순위는 중복이 가장
+  앞이라 D40 신호가 다른 결함에 가려지지 않는다. 정책이 Needs를 선언하지 않은 요구는 R1에서
+  `needs_undeclared`로 남고, 어떤 Needs와도 묶이지 않는 산출물 관측은 emit하지 않고 manifest의
+  `unbound_artifact_observations`에 사유와 함께 남긴다. 색인이 스스로 신고한 `duplicate_ids`는 판단 근거로
+  쓰지 않고 행에서 다시 계산한다.
+- **builder는 한 번에 문서 개정 하나만 읽는다.** `document_binding`이 그 개정을 지목하고 색인은 정확히 그
+  bytes에서 나와야 한다(`DOCUMENT_BINDING_MISMATCH`). 산출물 관측의 `covered_document_ref`는
+  `{entity_id, revision_id}` 둘 다 필요하며, 둘 다 일치할 때만 요구 개정으로 restamp한다. 개정 라벨만 같은
+  다른 문서는 신선도가 아니므로 그대로 넘겨 R1이 `coverage_revision_stale`로 읽게 한다. 여러 문서를 다루면
+  build를 나눈다.
+- **builder는 빈 시트가 준비완료로 읽히게 두지 않는다.** `document_binding`의 두 instant가 질의 cutoff 밖이면
+  R1이 어떤 요구도 재생하지 않아 셀 0·gap 0으로 stage가 `READY_FOR_OWNER_REVIEW`가 된다. 이 조합은
+  `BINDING_INCOMPLETE`로 거부한다. 반면 cutoff보다 늦은 산출물 관측은 정상적인 양시간축 탈락이라 거부하지 않는다.
+- **정책 식별자는 선언의 정체성이지 파일의 정체성이 아니다.** `policy_ref.content_id`는 `policy_identity`를 뺀
+  정책을 선언 순서까지 정규화해서 digest한다. R1이 이 값을 모든 `cell_id`에 넣기 때문에, 같은 선언을 다른
+  순서로 적었다고 시트 전체가 renumber되면 안 된다. 영수증의 `input_digests.needs_policy`는 반대로 caller가
+  준 순서 그대로를 묶는다.
+- **`family_pattern`은 owner가 쓰는 데이터라 모양을 제한한다.** 256자 이하, named group `device`·`function`
+  필수, 그리고 group 뒤 수량자(`)+`, `)*`, `)?`, `){n,m}`) 금지다. 위반은 `POLICY_INVALID`다.
 - **builder는 manifest와 input을 섞지 않는다.** R1이 거부하는 provenance(절·쪽·span·TBC/TBD·기기/기능 코드·
   hold 사유·정책 상태)는 manifest 사이드카에만 있고, `input`은 R1 계약 그대로다. 문서 본문·요구 원문·bracket
   title은 어느 쪽에도 들어가지 않는다. `title`은 값이 있었는지만 색인 digest에 반영하고 내용은 읽지 않는다.
@@ -67,7 +85,7 @@ D37과 D38은 2026-08-17에 결정됐고 D39~D41은 열려 있다. 이 폴더는
 | D37 요구 ID 확정 authority | **decided 2026-08-17** — 자동 추출은 `observed` candidate만, 확정은 사람 | R1은 requirement record를 caller에게서만 받는다. builder는 색인 행을 admit하되 모든 행에 `confirmation_state: 'observed_candidate'`를 붙이고 영수증 `claim_ceiling`을 `observed`로 고정한다. candidate를 confirmed로 올리는 경로가 없다 |
 | D38 Needs 선언 정본 owner | **decided 2026-08-17** — 기존 `stage_expected_artifact_policy` 확장, 새 정책 store 없음 | builder가 읽는 `soulforge.requirement_needs_policy.v0`는 확장 정책이며 `extends.policy_ref`로 base 정책 개정을 exact ref로 지목해야 한다. 이 필드가 없거나 다른 schema를 가리키면 `POLICY_INVALID`다. 미선언은 R1에서 `gap_unknown`으로 남는다 |
 | D39 `outdated` 처리 | open | 투영층 사유 코드 `coverage_revision_stale` + `gap_unknown`으로만 낸다. builder는 다른 문서 개정을 덮은 관측의 개정 id를 그대로 넘겨 R1이 stale로 읽게 하고, 신선도를 대신 주장하지 않는다 |
-| D40 중복·상위판 판정 | open | 자동 병합·자동 dedupe가 없다. 중복 requirement_id는 승자 없이 **모든 행**을 hold하고, 구분자 변형은 서로 다른 식별자로 남기며 `separator_variant`로 기록만 한다 |
+| D40 중복·상위판 판정 | open | 자동 병합·자동 dedupe가 없다. 중복 requirement_id는 승자 없이 **모든 행**을 hold하고 사유 우선순위 맨 앞이라 다른 결함에 가려지지 않는다. 구분자 변형은 서로 다른 식별자로 남기며 `separator_variant`로 기록만 한다 |
 | D41 Graph DB·백업 분류 | open | 저장 표면을 만들지 않으므로 해당 없음. R4 이후 판단이다 |
 
 ## 검증
@@ -76,7 +94,7 @@ D37과 D38은 2026-08-17에 결정됐고 D39~D41은 열려 있다. 이 폴더는
 npm run validate:requirement-trace
 ```
 
-- `node --check` 네 건과 `requirement_coverage.test.mjs`(18건) + `coverage_input_builder.test.mjs`(22건)
+- `node --check` 네 건과 `requirement_coverage.test.mjs`(18건) + `coverage_input_builder.test.mjs`(26건)
   `node --test`를 실행한다.
 - root canon 검사는 `npm run validate`를 함께 본다.
 

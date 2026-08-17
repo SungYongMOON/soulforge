@@ -189,6 +189,35 @@ test('every row of a duplicated requirement id is held and none of them wins', (
   );
 });
 
+test('a row that fails several checks reports all of them and the duplicate is never masked', () => {
+  // The two sides of the duplicated identifier are also moved onto an out of scope device.
+  // Reporting only one reason per row would file both under the scope problem, and the D40
+  // signal — the one an owner has to decide about rather than fix in a map — would vanish
+  // from the count entirely.
+  const dualFault = fixtureRequest();
+  for (const rowIndex of [6, 7]) {
+    dualFault.requirement_index.rows[rowIndex].id_family = 'Q-ZZ_GAMMA-SWF';
+  }
+  const built = buildRequirementCoverageInput(dualFault);
+  const both = built.manifest.holds.filter((row) => row.requirement_id === 'Q-ZZ_BETA-SWF-002');
+
+  assert.equal(both.length, 2);
+  for (const row of both) {
+    assert.equal(row.reason, HOLD_REASONS.DUPLICATE_REQUIREMENT_ID);
+    assert.deepEqual(row.faults.map((fault) => fault.reason),
+      [HOLD_REASONS.DUPLICATE_REQUIREMENT_ID, HOLD_REASONS.DEVICE_OUT_OF_SCOPE]);
+    assert.equal(row.faults[1].detail, 'device_code=GAMMA');
+  }
+
+  // `held` files each row once, under its headline reason, and still sums to the held rows.
+  assert.deepEqual(built.receipt.counts.held, FIXTURE.expected.counts.held);
+  assert.equal(Object.values(built.receipt.counts.held).reduce((a, b) => a + b, 0), built.manifest.holds.length);
+  // `held_faults` counts every reason that applied, so the extra scope faults are visible
+  // and the duplicate count is unchanged by them.
+  assert.equal(built.receipt.counts.held_faults[HOLD_REASONS.DEVICE_OUT_OF_SCOPE], 3);
+  assert.equal(built.receipt.counts.held_faults[HOLD_REASONS.DUPLICATE_REQUIREMENT_ID], 2);
+});
+
 // ---------------------------------------------------------------- 4. the other four holds
 
 test('an unparseable family, an unmapped device, an out of scope device and an unmapped function all hold', () => {
@@ -219,6 +248,12 @@ test('a requirement the policy declares no need for reaches R1 as needs_undeclar
   const projected = projectRequirementCoverageFromIndex(fixtureRequest());
 
   assert.equal(manifestRowOf(projected, 'Q-ZZ_BETA-GEN-001').needs_count, 0);
+  // The per-row count and the per-group roll-up name the same requirements, so a bug that
+  // moved one without the other cannot pass.
+  assert.deepEqual(
+    projected.manifest.requirements.filter((row) => row.needs_count === 0).map((row) => row.requirement_id),
+    FIXTURE.expected.needs_undeclared_ids,
+  );
   assert.deepEqual(projected.manifest.needs_undeclared_by_group,
     [{ device_code: 'BETA', function_code: 'GEN', requirement_count: 1 }]);
   assert.equal(projected.receipt.counts.requirements_without_needs, 1);
@@ -299,6 +334,75 @@ test('absence is missing, an unobserved need is unknown, and stale coverage is n
   const covered = projected.input.requirements
     .find((row) => row.requirement_ref.revision_id === freshObservation.covered_requirement_revision_id);
   assert.ok(covered, 'a fresh observation names the minted requirement revision, not the document revision');
+});
+
+test('a revision label from a different document is not freshness', () => {
+  // artifact-obs-005 was recorded against another document that happens to label its
+  // revision `doc-rev-2`, exactly as the bound document does. Comparing labels alone would
+  // restamp it onto the current requirement revision and report it as satisfied.
+  const projected = projectRequirementCoverageFromIndex(satisfiesRequest());
+  const emitted = projected.input.observations.find((row) => row.artifact_type_id === 'installation_note');
+
+  assert.equal(emitted.presence_state, 'present');
+  assert.equal(emitted.covered_requirement_revision_id, 'doc-rev-2');
+  assert.equal(projected.input.requirements
+    .some((row) => row.requirement_ref.revision_id === emitted.covered_requirement_revision_id), false);
+
+  const cell = cellOf(projected.coverage, 'Q-ZZ_ALPHA-ELE-001', 'installation_note', 'covers');
+  assert.equal(cell.state, 'gap_unknown');
+  assert.equal(cell.reason, 'coverage_revision_stale');
+  assert.notEqual(cell.state, 'satisfied');
+
+  // Pointing the same observation at the bound document — same entity, same revision —
+  // closes it, which shows the refusal came from the identity comparison and nothing else.
+  const boundDocument = FIXTURE.request.document_binding.document_ref;
+  const sameDocument = satisfiesRequest();
+  sameDocument.artifact_observations.find((row) => row.observation_id === 'artifact-obs-005')
+    .covered_document_ref = { entity_id: boundDocument.entity_id, revision_id: boundDocument.revision_id };
+  const closed = projectRequirementCoverageFromIndex(sameDocument);
+  assert.equal(cellOf(closed.coverage, 'Q-ZZ_ALPHA-ELE-001', 'installation_note', 'covers').state, 'satisfied');
+});
+
+// ---------------------------------------------------------------- 7b. cutoff binding
+
+test('a document binding outside the query cutoffs is refused instead of reading empty', () => {
+  // Every emitted requirement is stamped with the document binding's instants. Outside the
+  // cutoffs R1 replays none of them, so there is no cell, no gap, and an empty stage reports
+  // READY_FOR_OWNER_REVIEW. An empty sheet claiming readiness is the worst possible failure
+  // mode for this seam, so the combination never gets that far.
+  const laterKnownAt = fixtureRequest();
+  laterKnownAt.cutoffs.known_at = '2026-08-16T00:00:00.000Z';
+  assert.throws(() => buildRequirementCoverageInput(laterKnownAt), (error) => {
+    assert.ok(error instanceof CoverageInputBuilderError);
+    assert.equal(error.code, BUILDER_ERROR_CODES.BINDING_INCOMPLETE);
+    assert.equal(error.detail.cutoff_known_at, '2026-08-16T00:00:00.000Z');
+    return true;
+  });
+
+  const laterValidAt = fixtureRequest();
+  laterValidAt.cutoffs.valid_at = '2026-05-03T00:00:00.000Z';
+  assert.throws(() => buildRequirementCoverageInput(laterValidAt), (error) => {
+    assert.equal(error.code, BUILDER_ERROR_CODES.BINDING_INCOMPLETE);
+    assert.equal(error.detail.cutoff_valid_at, '2026-05-03T00:00:00.000Z');
+    return true;
+  });
+
+  // Equality is inside the window, exactly as R1's replay reads it.
+  const exactlyAtTheCutoffs = fixtureRequest();
+  exactlyAtTheCutoffs.cutoffs = {
+    valid_at: FIXTURE.request.document_binding.valid_at,
+    known_at: FIXTURE.request.document_binding.known_at,
+  };
+  assert.equal(projectRequirementCoverageFromIndex(exactlyAtTheCutoffs).coverage.requirement_states.length, 6);
+
+  // An artifact observation later than the cutoffs is ordinary bitemporal drop-out and stays
+  // the caller's business: the build succeeds and R1 simply does not replay it.
+  const lateObservation = fixtureRequest();
+  lateObservation.artifact_observations[0].known_at = '2026-12-01T00:00:00.000Z';
+  const projected = projectRequirementCoverageFromIndex(lateObservation);
+  assert.equal(projected.coverage.counts.gap_unknown, 6);
+  assert.equal(cellOf(projected.coverage, 'Q-ZZ_ALPHA-MEC-001', 'design_document', 'covers').reason,
+    'coverage_not_attempted');
 });
 
 // ---------------------------------------------------------------- 8. unbound observations
@@ -388,6 +492,25 @@ test('a malformed policy and an index without the extended profile are refused s
   const uncompilable = fixtureRequest();
   uncompilable.needs_policy.family_pattern = '^Q[-_]ZZ_(?<device>[A-Z]+-(?<function>[A-Z]{3})$';
   assert.throws(() => buildRequirementCoverageInput(uncompilable),
+    (error) => error.code === BUILDER_ERROR_CODES.POLICY_INVALID);
+
+  // A quantified group is how a bounded match becomes an unbounded one, and the policy is
+  // owner-authored data run once per index row.
+  for (const quantified of [
+    '^Q[-_]ZZ_(?<device>[A-Z]+)-(?<function>[A-Z]{3})*$',
+    '^(?:Q[-_])+ZZ_(?<device>[A-Z]+)-(?<function>[A-Z]{3})$',
+    '^Q[-_]ZZ_(?<device>[A-Z]+)?-(?<function>[A-Z]{3})$',
+    '^Q[-_]ZZ_(?<device>[A-Z]+)-(?<function>[A-Z]{3}){1,4}$',
+  ]) {
+    const quantifiedGroup = fixtureRequest();
+    quantifiedGroup.needs_policy.family_pattern = quantified;
+    assert.throws(() => buildRequirementCoverageInput(quantifiedGroup),
+      (error) => error.code === BUILDER_ERROR_CODES.POLICY_INVALID, `pattern "${quantified}"`);
+  }
+
+  const tooLong = fixtureRequest();
+  tooLong.needs_policy.family_pattern = `^Q[-_]ZZ_(?<device>[A-Z]+)-(?<function>[A-Z]{3})${'#'.repeat(256)}$`;
+  assert.throws(() => buildRequirementCoverageInput(tooLong),
     (error) => error.code === BUILDER_ERROR_CODES.POLICY_INVALID);
 
   const notAnExtension = fixtureRequest();
@@ -520,6 +643,32 @@ test('every minted identifier is a pure function of the request and can be re-de
   assert.notEqual(relabelledPolicyRef.revision_id, built.manifest.policy.policy_ref.revision_id);
 });
 
+test('writing the same policy declarations in another order is the same policy', () => {
+  const first = buildRequirementCoverageInput(fixtureRequest());
+
+  // R1 hashes policy_ref.content_id into every cell id, so an order-sensitive policy digest
+  // would renumber the whole coverage sheet on an edit that declared nothing new.
+  const reordered = fixtureRequest();
+  reordered.needs_policy.needs.reverse();
+  reordered.needs_policy.device_code_map.reverse();
+  reordered.needs_policy.function_code_map.reverse();
+  reordered.needs_policy.stages.reverse();
+  const second = buildRequirementCoverageInput(reordered);
+
+  assert.deepEqual(second.manifest.policy.policy_ref, first.manifest.policy.policy_ref);
+  assert.equal(second.receipt.output_digests.coverage_input, first.receipt.output_digests.coverage_input);
+  assert.deepEqual(second.input.needs, first.input.needs);
+  // The receipt still binds the policy as supplied, so that digest does move: "the same
+  // declarations" and "the same bytes on the wire" are different claims and stay separate.
+  assert.notEqual(second.receipt.input_digests.needs_policy, first.receipt.input_digests.needs_policy);
+
+  // Changing an actual declaration does change the identity.
+  const changed = fixtureRequest();
+  changed.needs_policy.needs[0].needed_artifact_type_id = 'design_review_record';
+  assert.notEqual(buildRequirementCoverageInput(changed).manifest.policy.policy_ref.content_id,
+    first.manifest.policy.policy_ref.content_id);
+});
+
 // ---------------------------------------------------------------- 13. separator variants
 
 test('a family pattern that names its separator records the variant and still keeps them apart', () => {
@@ -585,8 +734,9 @@ test('the receipt claims nothing above observed and reports no effect at all', (
   ]);
   assert.deepEqual(Object.keys(built.receipt.output_digests).sort(), ['coverage_input', 'manifest']);
   // A hold reason with no rows is reported as zero rather than omitted, so a reader cannot
-  // mistake "not counted" for "did not happen".
+  // mistake "not counted" for "did not happen". Both tallies carry the full key set.
   assert.deepEqual(Object.keys(built.receipt.counts.held).sort(), Object.values(HOLD_REASONS).sort());
+  assert.deepEqual(Object.keys(built.receipt.counts.held_faults).sort(), Object.values(HOLD_REASONS).sort());
 
   // The receipt carries no requirement text, no title, and no document body.
   const rendered = JSON.stringify(built.receipt);

@@ -6,9 +6,15 @@
 // observations — into the exact input `computeRequirementCoverage` accepts, plus a manifest
 // that carries everything R1 refuses to look at and a payload-free receipt.
 //
-// It is a reader and a shaper, nothing else. It appends no ledger row, writes no file,
-// reads no clock, opens no socket, calls no model, and keeps no state between calls. Every
-// instant in the output came from the request, which is what makes a build replayable.
+// This module is a projection input builder, not a writer. It is a reader and a shaper,
+// nothing else: it appends no ledger row, writes no file, reads no clock, opens no socket,
+// calls no model, and keeps no state between calls. Every instant in the output came from
+// the request, which is what makes a build replayable.
+//
+// One build reads one document revision. `document_binding` names that revision, the index
+// must have been read from exactly its bytes, and an artifact observation is only treated as
+// covering the current revision when it names that same document *entity* and revision. An
+// index spanning several documents is therefore several builds, not one.
 //
 // Two owner decisions are expressed here as structure rather than as prose.
 //
@@ -56,8 +62,11 @@
 //   policy entity         soulforge.requirement_trace.needs_policy.entity.v0
 //   policy revision       soulforge.requirement_trace.needs_policy.revision.v0
 //
-// The policy content id is the canonical digest of the policy without its identity block,
-// so relabelling a revision cannot change which bytes a coverage cell rests on.
+// The policy content id is the canonical digest of the policy without its identity block and
+// with every declared list in a canonical order, so relabelling a revision — or writing the
+// same declarations in a different order — cannot change which bytes a coverage cell rests
+// on. That matters beyond tidiness: R1 hashes `policy_ref.content_id` into every cell id, so
+// an order-sensitive policy digest would silently renumber the whole sheet.
 import { createHash } from 'node:crypto';
 
 import { canonicalise, compareCodePoints, isCanonicalInstant } from '../engineering_engine/kernel/canonical.mjs';
@@ -102,9 +111,9 @@ const fail = (code, message, detail = {}) => {
 /**
  * Why a row did not become a requirement.
  *
- * Every hold is reported with the row it came from. A row that is neither admitted nor held
- * would be a requirement that vanished, which is the one outcome this seam exists to make
- * impossible.
+ * Every hold is reported with the row it came from, and with *every* reason that applied to
+ * it rather than only the first. A row that is neither admitted nor held would be a
+ * requirement that vanished, which is the one outcome this seam exists to make impossible.
  */
 export const HOLD_REASONS = Object.freeze({
   DUPLICATE_REQUIREMENT_ID: 'duplicate_requirement_id_conflict',
@@ -115,15 +124,20 @@ export const HOLD_REASONS = Object.freeze({
 });
 
 // The order a row's defects are reported in. Resolved against this table rather than
-// against evaluation order so the reported reason does not depend on how the checks happen
-// to be written. A row can fail more than one of them; it is held either way, and the
-// reported reason is the first one in this list that applies.
+// against evaluation order, so the primary reason does not depend on how the checks happen
+// to be written. A row can fail several of them: it carries all of them in `faults`, and the
+// first entry of this list that applies becomes the headline `reason`.
+//
+// The duplicate is first deliberately. It is the D40 signal — the one hold an owner has to
+// decide about rather than fix in a policy map — and a row that is both duplicated and, say,
+// out of scope would otherwise report only the scope problem and drop the duplicate out of
+// the headline count entirely.
 const HOLD_ORDER = Object.freeze([
+  HOLD_REASONS.DUPLICATE_REQUIREMENT_ID,
   HOLD_REASONS.FAMILY_UNPARSEABLE,
   HOLD_REASONS.DEVICE_CODE_UNMAPPED,
   HOLD_REASONS.DEVICE_OUT_OF_SCOPE,
   HOLD_REASONS.FUNCTION_CODE_UNMAPPED,
-  HOLD_REASONS.DUPLICATE_REQUIREMENT_ID,
 ]);
 
 /**
@@ -198,8 +212,13 @@ const POLICY_NEED_FIELDS = Object.freeze([
 
 const ARTIFACT_OBSERVATION_FIELDS = Object.freeze([
   'observation_id', 'artifact_type_id', 'presence_state', 'observation_attempt_ref',
-  'artifact_revision_ref', 'covered_document_revision_id', 'evidence_refs', 'valid_at', 'known_at',
+  'artifact_revision_ref', 'covered_document_ref', 'evidence_refs', 'valid_at', 'known_at',
 ]);
+// Which document revision the artifact was recorded against. Both halves are required: a
+// bare revision label is not an identity, and two documents can legitimately both call a
+// revision `rev-2`. Comparing only the label would restamp an observation of some other
+// document as fresh coverage of this one.
+const COVERED_DOCUMENT_REF_FIELDS = Object.freeze(['entity_id', 'revision_id']);
 
 const NORMATIVE_FORCE = Object.freeze(['must', 'should', 'may', 'informational']);
 const NEEDED_RELATION = Object.freeze(['covers', 'verifies']);
@@ -220,6 +239,7 @@ const MAX = Object.freeze({ string: 512, array: 20000, evidence: 128, pattern: 2
 const SHA256_TAGGED = /^sha256:[0-9a-f]{64}$/u;
 const DEVICE_GROUP = '(?<device>';
 const FUNCTION_GROUP = '(?<function>';
+const QUANTIFIED_GROUP = /\)[+*?{]/u;
 
 // R1 refuses these shapes on its own input. They are restated here rather than imported —
 // R1 does not export the guard — because the manifest never reaches R1, and a manifest is
@@ -234,12 +254,31 @@ const FORBIDDEN_STRING_PATTERNS = Object.freeze([
 ]);
 
 // PC-11.4: every array that can appear in a canonicalised value declares its ordering.
-const POLICY_ORDER_RULES = Object.freeze({
+
+// The policy *as supplied*. Used for the receipt's input digest, which binds what the caller
+// actually handed over, order included.
+const POLICY_SUPPLIED_ORDER_RULES = Object.freeze({
   device_code_map: 'insertion_ordered',
   function_code_map: 'insertion_ordered',
   stages: 'insertion_ordered',
   needs: 'insertion_ordered',
 });
+
+// The policy *as content*. Used for `policy_ref.content_id`, which is an identity of the
+// declarations rather than of the file that carried them, so the lists are put in a declared
+// order first. The three single-keyed maps additionally declare `sorted_by`, which makes
+// canonicalisation re-check the ordering and reject a duplicate key rather than trusting the
+// sort above it. `needs` has a five-field sort key that `sorted_by` cannot express, so it is
+// ordered here and declared insertion ordered.
+const POLICY_CONTENT_ORDER_RULES = Object.freeze({
+  device_code_map: 'sorted_by:device_code',
+  function_code_map: 'sorted_by:function_code',
+  stages: 'sorted_by:stage_code',
+  needs: 'insertion_ordered',
+});
+const POLICY_NEED_SORT_FIELDS = Object.freeze([
+  'stage_code', 'device_code', 'function_code', 'needed_artifact_type_id', 'needed_relation',
+]);
 const INDEX_PROJECTION_ORDER_RULES = Object.freeze({
   rows: 'insertion_ordered',
   duplicate_ids: 'insertion_ordered',
@@ -269,6 +308,7 @@ const COVERAGE_INPUT_ORDER_RULES = Object.freeze({
 const MANIFEST_ORDER_RULES = Object.freeze({
   requirements: 'insertion_ordered',
   holds: 'insertion_ordered',
+  'holds[].faults': 'insertion_ordered',
   needs_undeclared_by_group: 'insertion_ordered',
   unbound_artifact_observations: 'insertion_ordered',
   fan_out: 'insertion_ordered',
@@ -624,6 +664,16 @@ function validateNeedsPolicy(policy) {
       'family_pattern must declare named groups "device" and "function"; a positional group would make the mapping depend on how the pattern was written',
       { where: 'needs_policy.family_pattern' });
   }
+  // A quantified group is the shape that turns a bounded match into a runaway one. The
+  // policy is owner-authored data rather than code, and this builder runs the pattern once
+  // per index row, so the cheap structural refusal is preferred over trusting the author to
+  // avoid catastrophic backtracking. Groups in a family pattern are for naming the device
+  // and the function; repeating one of them expresses nothing this seam needs.
+  if (QUANTIFIED_GROUP.test(policy.family_pattern)) {
+    fail(BUILDER_ERROR_CODES.POLICY_INVALID,
+      'family_pattern must not quantify a group; an identifier family is a fixed shape, and a quantified group is how a bounded match becomes an unbounded one',
+      { where: 'needs_policy.family_pattern' });
+  }
   let pattern;
   try {
     pattern = new RegExp(policy.family_pattern, 'u');
@@ -709,21 +759,52 @@ function validateNeedsPolicy(policy) {
 }
 
 /**
- * The exact ref of the policy bytes.
+ * The declarations a policy makes, in a declared order, without its identity block.
  *
- * The content id is taken over the policy *without* its identity block, so two revisions
- * that differ only in their label are recognisably the same bytes, and a relabelled policy
- * cannot silently change what a coverage cell rests on.
+ * Two things are deliberately excluded from the content identity. The identity block,
+ * because a relabelled revision of the same declarations is the same declarations. And the
+ * order the lists happened to be written in, because "design_document then
+ * verification_report" and the reverse are the same policy — and R1 hashes this content id
+ * into every cell id, so treating them as two policies would renumber the whole sheet on an
+ * edit that changed nothing.
+ */
+function policyContentProjection(policy) {
+  const projection = {};
+  for (const key of Object.keys(policy)) {
+    if (key !== 'policy_identity') projection[key] = policy[key];
+  }
+  projection.device_code_map = [...policy.device_code_map]
+    .sort((a, b) => compareCodePoints(a.device_code, b.device_code));
+  projection.function_code_map = [...policy.function_code_map]
+    .sort((a, b) => compareCodePoints(a.function_code, b.function_code));
+  projection.stages = [...policy.stages]
+    .sort((a, b) => compareCodePoints(a.stage_code, b.stage_code));
+  projection.needs = [...policy.needs].sort((a, b) => {
+    for (const field of POLICY_NEED_SORT_FIELDS) {
+      const difference = compareCodePoints(a[field], b[field]);
+      if (difference !== 0) return difference;
+    }
+    return 0;
+  });
+  return projection;
+}
+
+/**
+ * The exact ref of the policy declarations.
+ *
+ * The entity persists across revisions of one policy; the revision binds the label to the
+ * content it was applied to, so relabelling produces a new revision id over the same bytes
+ * rather than quietly reusing the old one.
  */
 function mintPolicyRef(policy) {
-  const { policy_identity: identity, ...withoutIdentity } = policy;
   let canonical;
   try {
-    canonical = canonicalise(withoutIdentity, POLICY_ORDER_RULES);
+    canonical = canonicalise(policyContentProjection(policy), POLICY_CONTENT_ORDER_RULES);
   } catch (error) {
     return fail(BUILDER_ERROR_CODES.POLICY_INVALID, 'needs_policy is not canonicalisable',
       { where: 'needs_policy', contract_code: error?.code ?? null });
   }
+  const identity = policy.policy_identity;
   const contentId = `sha256:${sha256Hex(canonical)}`;
   return {
     entity_id: uuidFromDigest(UUID_DOMAIN.POLICY_ENTITY, [identity.policy_id]),
@@ -780,6 +861,30 @@ function validateRequest(request) {
   assertInstant(request.cutoffs.valid_at, 'cutoffs.valid_at');
   assertInstant(request.cutoffs.known_at, 'cutoffs.known_at');
 
+  // Every emitted requirement is stamped with the document binding's two instants, so a
+  // binding outside the query cutoffs means R1 replays *no* requirement at all. The failure
+  // that produces is the dangerous kind: with no live requirement there is no cell, every
+  // emitted need is silently ignored, the observations become orphans, and a stage with
+  // nothing in it reads READY_FOR_OWNER_REVIEW. That is an empty sheet claiming readiness,
+  // so the combination is refused here rather than handed on.
+  //
+  // Canonical instants are fixed width UTC, so they compare as strings — the same comparison
+  // R1's replay uses. Only the requirement side is checked: an artifact observation dated
+  // after the cutoffs is ordinary bitemporal drop-out, and dropping it out is exactly what
+  // the known_at axis is for.
+  if (compareCodePoints(request.document_binding.known_at, request.cutoffs.known_at) > 0
+      || compareCodePoints(request.document_binding.valid_at, request.cutoffs.valid_at) > 0) {
+    fail(BUILDER_ERROR_CODES.BINDING_INCOMPLETE,
+      'the document binding lies outside the query cutoffs, so no emitted requirement could be live and the coverage sheet would read empty rather than unknown',
+      {
+        where: 'document_binding',
+        document_valid_at: request.document_binding.valid_at,
+        document_known_at: request.document_binding.known_at,
+        cutoff_valid_at: request.cutoffs.valid_at,
+        cutoff_known_at: request.cutoffs.known_at,
+      });
+  }
+
   assertArray(request.stage_declarations, 'stage_declarations');
   const declaredStages = new Set();
   request.stage_declarations.forEach((stage, i) => {
@@ -816,7 +921,9 @@ function validateRequest(request) {
     }
     assertSafeString(observation.observation_attempt_ref, `${where}.observation_attempt_ref`);
     assertRefShape(observation.artifact_revision_ref, `${where}.artifact_revision_ref`);
-    assertSafeString(observation.covered_document_revision_id, `${where}.covered_document_revision_id`);
+    assertExactKeys(observation.covered_document_ref, COVERED_DOCUMENT_REF_FIELDS, [], `${where}.covered_document_ref`);
+    assertSafeString(observation.covered_document_ref.entity_id, `${where}.covered_document_ref.entity_id`);
+    assertSafeString(observation.covered_document_ref.revision_id, `${where}.covered_document_ref.revision_id`);
     assertArray(observation.evidence_refs, `${where}.evidence_refs`);
     if (observation.evidence_refs.length > MAX.evidence) {
       fail(BUILDER_ERROR_CODES.REQUEST_INVALID, 'evidence_refs exceeds the declared bound', { where });
@@ -878,13 +985,18 @@ function admitRows(request, policyShape) {
     }
 
     if (faults.size > 0) {
-      const reason = HOLD_ORDER.find((candidate) => faults.has(candidate));
+      // Every applicable reason is carried, in the declared order, and the first of them is
+      // also reported as the headline `reason`. Reporting only the headline would let one
+      // defect mask another: a duplicated identifier that also fails a policy map would
+      // otherwise vanish from the duplicate count the moment the map was fixed.
+      const ordered = HOLD_ORDER.filter((candidate) => faults.has(candidate));
       holds.push({
         row_index: rowIndex,
         requirement_id: row.requirement_id,
         id_family: row.id_family,
-        reason,
-        detail: faults.get(reason),
+        reason: ordered[0],
+        detail: faults.get(ordered[0]),
+        faults: ordered.map((reason) => ({ reason, detail: faults.get(reason) })),
       });
       continue;
     }
@@ -1017,7 +1129,7 @@ function expandNeeds(request, admitted, policyRef) {
 
 function fanOutObservations(request, neededTypes) {
   const semantics = request.needs_policy.artifact_presence_semantics;
-  const documentRevisionId = request.document_binding.document_ref.revision_id;
+  const documentRef = request.document_binding.document_ref;
 
   const observations = [];
   const unbound = [];
@@ -1033,12 +1145,18 @@ function fanOutObservations(request, neededTypes) {
         && semantics !== PRESENCE_SEMANTICS.SATISFIES
         ? PRESENCE.UNKNOWN
         : source.presence_state;
-      // An artifact recorded against a different document revision keeps naming that
-      // revision. R1 then reports `coverage_revision_stale` rather than being handed a
-      // freshness this builder cannot vouch for.
-      const coveredRevisionId = source.covered_document_revision_id === documentRevisionId
+      // Restamping an observation onto the minted requirement revision is a freshness
+      // claim, so it is made only when the observation names this exact document — the same
+      // entity *and* the same revision. A revision label alone is not an identity: two
+      // documents can both call a revision `rev-2`, and matching on the label would restamp
+      // an observation of some other document as fresh coverage of this one. Anything else
+      // keeps the revision it named, and R1 reports `coverage_revision_stale` rather than
+      // being handed a freshness this builder cannot vouch for.
+      const coversThisRevision = source.covered_document_ref.entity_id === documentRef.entity_id
+        && source.covered_document_ref.revision_id === documentRef.revision_id;
+      const coveredRevisionId = coversThisRevision
         ? target.candidate.record.requirement_ref.revision_id
-        : source.covered_document_revision_id;
+        : source.covered_document_ref.revision_id;
 
       observations.push({
         observation_id: mintedToken(OBSERVATION_ID_PREFIX, UUID_DOMAIN.OBSERVATION,
@@ -1080,12 +1198,18 @@ function fanOutObservations(request, neededTypes) {
 /**
  * Builds the R1 coverage input from an index, a Needs policy, and artifact observations.
  *
- * @param request see the module header and §2.1 of the design packet. Plain data only:
- *   nothing is read from disk, a clock, a network, or a model, and every instant in the
- *   output was supplied here.
- * @returns a deep frozen `{ input, manifest, receipt }`. `input` is exactly what
- *   `computeRequirementCoverage` accepts; `manifest` carries the provenance R1 refuses;
- *   `receipt` is payload free.
+ * @param request `{ requirement_index, document_binding, baseline_binding, needs_policy,
+ *   artifact_observations, stage_declarations, risks, cutoffs }`. Plain data only: nothing is
+ *   read from disk, a clock, a network, or a model, and every instant in the output was
+ *   supplied here.
+ * @returns a deep frozen `{ input, manifest, receipt }`. The parts of `input` this builder
+ *   owns — `requirements`, `needs`, `observations` — are exactly what
+ *   `computeRequirementCoverage` accepts, and it is handed the emitted input unchanged.
+ *   `stages`, `risks` and `cutoffs` are the caller's `stage_declarations`, `risks` and
+ *   `cutoffs` copied through: this builder checks only what it needs from them (the baseline
+ *   stage is declared, the cutoffs admit the document binding) and leaves the rest of their
+ *   contract to R1, which owns it. `manifest` carries the provenance R1 refuses; `receipt` is
+ *   payload free.
  * @throws {CoverageInputBuilderError} on any refusal. Every one is deterministic and
  *   carries a stable `code`.
  */
@@ -1129,8 +1253,16 @@ export function buildRequirementCoverageInput(request) {
   }
 
   const index = request.requirement_index;
+  // Two tallies, because they answer different questions. `held` counts rows by the reason
+  // they are filed under and sums to the number of held rows. `held_faults` counts every
+  // reason that applied and can exceed it, which is how "the map fix will not bring these
+  // rows back, they are also duplicates" stays visible.
   const held = Object.fromEntries(Object.values(HOLD_REASONS).map((reason) => [reason, 0]));
-  for (const hold of holds) held[hold.reason] += 1;
+  const heldFaults = Object.fromEntries(Object.values(HOLD_REASONS).map((reason) => [reason, 0]));
+  for (const hold of holds) {
+    held[hold.reason] += 1;
+    for (const fault of hold.faults) heldFaults[fault.reason] += 1;
+  }
 
   const manifest = {
     schema_version: COVERAGE_INPUT_BUILDER_SCHEMA_VERSION,
@@ -1171,7 +1303,7 @@ export function buildRequirementCoverageInput(request) {
     d38: 'needs_from_policy_extending_stage_expected_artifact_policy',
     input_digests: {
       requirement_index: canonicalDigest('requirement_index', indexDigestProjection(index), INDEX_PROJECTION_ORDER_RULES),
-      needs_policy: canonicalDigest('needs_policy', request.needs_policy, POLICY_ORDER_RULES),
+      needs_policy: canonicalDigest('needs_policy', request.needs_policy, POLICY_SUPPLIED_ORDER_RULES),
       artifact_observations: canonicalDigest('artifact_observations', request.artifact_observations,
         ARTIFACT_OBSERVATION_ORDER_RULES),
       document_binding: canonicalDigest('document_binding', request.document_binding, NO_ARRAY_RULES),
@@ -1188,6 +1320,7 @@ export function buildRequirementCoverageInput(request) {
       rows_in: index.row_count,
       admitted: admitted.length,
       held,
+      held_faults: heldFaults,
       needs: needs.length,
       observations_emitted: observations.length,
       unbound_artifact_observations: unbound.length,

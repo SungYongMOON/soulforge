@@ -31,22 +31,42 @@
   why separator variants of one family stay distinct identifiers.
 - Fail-closed in both directions. A row whose family, device code, or function
   code the policy cannot resolve is held with a reason instead of admitted, and
-  admitted plus held always equals the index row count. A need or observation
-  that cannot be bound to an emitted requirement is refused rather than emitted,
-  because R1 silently ignores such a row and a silently ignored need is an
-  invisible gap. By default a present artifact becomes an `unknown` observation
+  admitted plus held always equals the index row count. A held row carries every
+  reason that applied in `faults[]`, not only the headline one, and the receipt
+  reports rows by headline reason (`counts.held`) separately from reasons by
+  occurrence (`counts.held_faults`). A need or observation that cannot be bound
+  to an emitted requirement is refused rather than emitted, because R1 silently
+  ignores such a row and a silently ignored need is an invisible gap. By default
+  a present artifact becomes an `unknown` observation
   (`presence_is_inconclusive`); the owner's "파일 있고 없고" basis is the opt-in
   `presence_satisfies_need` value, recorded in the receipt either way.
+- Two refusals exist specifically to stop an empty sheet from reading as a clean
+  one. A `document_binding` whose instants fall outside the query cutoffs is
+  refused as `BINDING_INCOMPLETE`: R1 would replay no requirement at all, and a
+  stage with nothing in it reports `READY_FOR_OWNER_REVIEW`. And an artifact
+  observation is only restamped onto the current requirement revision when its
+  `covered_document_ref` names the bound document's entity *and* revision — a
+  matching revision label from a different document stays stale, because a label
+  is not an identity. One build reads one document revision.
+- `policy_ref.content_id` is the identity of the policy's declarations, not of
+  the file that carried them: the identity block is excluded and every declared
+  list is put in a canonical order before digesting. R1 hashes that value into
+  every `cell_id`, so an order-sensitive digest would renumber a whole coverage
+  sheet on an edit that declared nothing new. The receipt's
+  `input_digests.needs_policy` still binds the policy exactly as supplied.
+- `family_pattern` is owner-authored data that runs once per index row, so its
+  shape is restricted rather than trusted: at most 256 characters, named groups
+  `device` and `function` required, and no quantifier on a group.
 - Added the public-safe synthetic fixture
   `docs/architecture/workspace/examples/project_requirement_trace/coverage_input_builder_synthetic_v0.json`
   (12 index rows over 2 in-scope device codes and 4 function codes, 6 admitted,
-  6 held across all five hold reasons, 8 needs, 4 artifact observations, 2
+  6 held across all five hold reasons, 9 needs, 5 artifact observations, 2
   stages, plus the hand-derived expectations for both presence semantics). Every
   identifier, code, section, page, span, and digest in it is invented; it names
   no actual project, contract, organisation, document, or person and carries no
   document text. No actual project material was read for this change.
 - Verification: `npm run validate:requirement-trace` now covers both modules and
-  passes 40/40 (18 R1 + 22 builder). `npm run validate:canon` passes.
+  passes 44/44 (18 R1 + 26 builder). `npm run validate:canon` passes.
   `npm run validate` remains at its pre-existing state — the path-policy step
   still reports the same 48 tracked-scope violations it reported before this
   change, none of them in the files added here.
