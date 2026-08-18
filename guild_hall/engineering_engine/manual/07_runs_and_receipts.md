@@ -12,7 +12,8 @@
 | 08-18 | `…/requirement_trace_coverage_pilot_20260818_02` | 같은 입력, Needs 정책 산출물 ID를 표준어(`artifact_type_id`)로 치환 | 수치 동일 | 표준어 전환이 결과를 바꾸지 않음을 확인 |
 | 08-18 | `…/se_stage_rules_kvds_120_cdr_20260818_01` | 120_CDR 첫 컴파일(② 스펙 v0.8 + ④ overlay 24 op) | 발주처 슬롯 14 = 표준 5·강화 2·추가 7; 발주처 미요청 표준 11 중 규정 필수 6 → 엔진 요구 25 | 산출물 `…/06_validation/stage_rules_20260818_01/{policy,overlay,mapping}` |
 | 08-18 | `…/ax_se_project_context_pilot_20260818_03` | R3: 컴파일 결과 → packet 생성기 → runner 1회 | 25 요구 = 충족 5 / 결손 4 / 불명 16, mission 후보 3(핵심부품 성적서→qa_reviewer, DBDD→sw_engineer, ICD→systems_engineer) | 엔진이 처음으로 **정본 규칙 기반**으로 판단 |
-| 08-18 | (컴파일만) 계층 등가 검사 | ② 공통 + ③ overlay + ④ vs 통합 스펙 | 27 = 27 (prime_contract 강등 예외 뒤) | runner는 27 정책으로 **재실행 안 함** — 다음 조각 |
+| 08-18 | (컴파일만) 계층 등가 검사 | ② 공통 + ③ overlay + ④ vs 통합 스펙 | 27 = 27 (prime_contract 강등 예외 뒤) | 27 정책 재실행은 아래 run 04의 120_CDR에서 완료 |
+| 08-18 | `…/ax_se_project_context_pilot_20260818_04` | **전 단계 판단**: SRR·SFR·PDR·CDR·TRR·FCA·PCA 7단계 각각 ②+③+④ 컴파일 → packet 생성 → runner 1회(zero-write, 재실행 바이트 동일) | 엔진 요구 합계 104 = 충족 5 / 결손 4 / 불명 95. CDR 27(5/4/18, 27 정책 재실행 완료), 나머지 6단계는 관측 0 → 전부 불명(SRR 19·SFR 7·PDR 13·TRR 15·FCA 10·PCA 13). 000_REF는 엔진 단계 아님, 240_LL은 정본 필수 항목 없음 | 산출물 `…/06_validation/stage_rules_20260818_02/<stage>/`, `…/ax_se_context_pilot_20260818_04/<stage>/`; 결정 기록 `decision_record.json`(단계별 requirement 토큰 = 관측 확대 backlog). 로컬 과제 폴더 03_Out 스캔은 엔진 요구 폴더에 산출물 0 → 관측 공급 없음 |
 | 08-18 | `_workmeta/system/reports/se_stage_rules/generic_layer_cdr_compare_20260818.json` | ① 단독 / ② 단독 / ②+③+④ 120_CDR 비교 | ① 38 / ② 16 / P26-014 27, ①∩② 토큰 9 | 별칭 정합 전 잠정값(02장) |
 
 ## 7.2 정본·지식 영수증
