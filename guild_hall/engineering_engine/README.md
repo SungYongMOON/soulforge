@@ -954,6 +954,12 @@ npm run validate:engineering-engine-se-core-eval
   엔진 `soulforge.ax_se_stage_policy.v0` stage material, Needs 정책 stage·어휘 선언,
   mapping table, 영수증을 결정론적으로 낸다. `mintEnginePolicyRef`는 엔진의 policy_ref
   digest 규칙을 그대로 재현한다.
+- `pilot_packet_generator.mjs`: `generatePilotPacketFromStageRules(request)`가 컴파일된
+  stage policy와 산출물 단위 관측을 받아 `soulforge.ax_se_project_context_pilot_packet.v0`
+  packet, 그 packet에서 파생되는 launch 필드(`launch_material`), 영수증을 낸다. 이미
+  검증된 base packet은 stage rule이 소유하지 않는 모든 것(Knowledge View request·authority
+  grant, role roster, objective, risks, project binding)의 템플릿이며, 관측은 mapping
+  table의 `artifact_type_id` 또는 과제 `alias`로 engine requirement에 다시 키를 맞춘다.
 
 경계:
 
@@ -965,7 +971,17 @@ npm run validate:engineering-engine-se-core-eval
   `optional_context`로 낮추며, 낮추기만 하고 올리지 않는다.
 - `optional_context` 행과 고정 내부 폴더는 엔진 requirement로 내보내지 않는다. gap scan
   정책과 mapping table에는 그대로 남는다.
+- generator는 engine requirement가 없는 산출물 관측을 이웃 requirement로 추정하지 않는다.
+  `receipt.unbound_observations`에 남기고 packet에서는 뺀다. 하나의 requirement에 관측이
+  둘이거나, 하나의 이름이 두 requirement를 가리키면 거부한다.
+- 재컴파일로 requirement 신원이 바뀌면 common projection binding은 base가 가리키던 exact
+  requirement ref가 새 policy에 그대로 있을 때만 유지된다. 없으면 caller가 명시한
+  `common_binding_requirement_id`로만 옮기며, 명시가 없으면 거부한다(임의 재배치·삭제 금지).
+- generator는 subject를 import하지 않으므로 `assessOwnerFrozenProjectContext` preflight는
+  시험과 호출자 쪽에서 돌린다. 영수증의 `preflight`가 이 위임과 모듈 안에서 실제로 재현한
+  digest·분할 규칙을 기록한다.
 - stage clear, Task 생성, 승인, canon 승격 권한은 없다. 영수증의 effect는 전부 0이다.
+  파일 쓰기(packet·launch)는 호출자 몫이다.
 
 범위 검증:
 

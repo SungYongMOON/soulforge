@@ -1,5 +1,36 @@
 # CHANGELOG
 
+## 2026-08-18 - R3 pilot packet generator (compiled stage rules feed the engine)
+
+- New `guild_hall/engineering_engine/stage_rules/pilot_packet_generator.mjs`:
+  `generatePilotPacketFromStageRules(request)` turns one compiled
+  `soulforge.ax_se_stage_policy.v0` material plus artifact-level observations into a
+  `soulforge.ax_se_project_context_pilot_packet.v0` packet, the launch fields that derive
+  from that packet (`launch_material`), and a receipt. The engine can now judge a stage
+  from the compiled standard+overlay policy instead of a hand-written slot list.
+- An already validated pilot packet is the template for everything the stage rules do not
+  own (Knowledge View request and authority grant, role roster, objective, risks, project
+  binding, feature state). Observations arrive keyed by standard `artifact_type_id` or by
+  the project's own `alias` and are re-keyed through the compiler's mapping table; an
+  artifact that maps to no engine requirement is listed in `receipt.unbound_observations`
+  and left out of the packet rather than attached to a neighbouring requirement.
+- Every digest the consumer recomputes is reproduced under the same domain: the engine's
+  `policy_ref` rule, the Knowledge View authority grant content id (re-bound because the
+  grant names the policy), the source binding manifest content id and its exact
+  project-plane partition, the pilot material fingerprint, and the pilot grant content id.
+  `launch_material.pilot_packet_sha256` is the sha256 of the canonical bytes plus the
+  trailing newline the caller writes, so the runner's file pin matches without a re-read.
+- A common projection binding is carried unchanged when the recompiled policy still holds
+  the exact requirement ref the base packet bound; otherwise it moves only to the
+  caller-named `common_binding_requirement_id`, and generation is refused when neither
+  resolves.
+- The module stays pure: its whole import graph uses one bare specifier (`node:crypto`),
+  fixed by a static effect pin, and it has no CLI and writes nothing. Because the pilot
+  subject's own graph is not pure, the `assessOwnerFrozenProjectContext` preflight runs in
+  the test suite and in the caller; the receipt records that deferral.
+- `npm run validate:se-stage-rules` now also syntax-checks and runs the generator and its
+  14 tests.
+
 ## 2026-08-18 - Path-length budget policy (long paths stay off)
 
 - Owner decision: Windows long-path support stays disabled because OneDrive, Explorer,
