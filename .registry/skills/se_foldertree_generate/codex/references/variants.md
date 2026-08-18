@@ -62,12 +62,14 @@ python scripts/export_variant_json.py --spec assets/SE_FolderTree_Guide.md --out
 
 ## Machine fields on task entries
 
-Optional per-task keys defined in design §3. `generate_tree.py` ignores unknown keys, so adding them does not change folder generation. Only `SE_FolderTree_Guide.md` (체계개발/LIG/A, v0.8) carries them today; for the other three baselines the exporter fills `verification_status: unverified` and no other machine field, which keeps them at the compiler's lowest tier until they are re-based.
+Optional per-task keys defined in design §3. `generate_tree.py` ignores unknown keys, so adding them does not change folder generation. `SE_FolderTree_Guide.md` (체계개발/LIG/A, v0.8) and `SE_FolderTree_GenericSE_Base.md` (일반SE/공통/없음, v0.1) carry them; for the other three baselines the exporter fills `verification_status: unverified` and no other machine field, which keeps them at the compiler's lowest tier until they are re-based.
 
 | field | meaning |
 | --- | --- |
 | `artifact_type_id` | shared artifact token (design §4 vocabulary), lower snake case |
-| `evidence_level` | `regulation_mandated` / `guidebook_recommended` / `prime_contract` / `internal_management` / `unstated` |
+| `evidence_level` | `regulation_mandated` / `guidebook_recommended` / `prime_contract` / `general_se_guidance` / `internal_management` / `unstated` |
+| `se_floor` | `must_have` / `should_have` / `context`, only on `general_se_guidance` rows (see the generic SE baseline section) |
+| `maturity` | maturity expected at that gate: `preliminary` / `updated` / `baseline` / `final` |
 | `source_refs` | `[{source_key, locator}]` copied from `references/source_verification_v0.md` citations; may be empty |
 | `verification_status` | the verdict recorded by the source verification, unchanged until re-verified |
 | `applies_when` | list of condition tokens; absent means unconditional |
@@ -90,6 +92,20 @@ Vocabulary notes:
 - `unmapped_41` (가정및제약사항) has no sensible token: canon treats it as a section of the SSRS, not a deliverable.
 - `artifact_type_id` is unique inside a gate, so a compiled `(gate, artifact_type_id)` pair identifies one slot.
 
+
+## Generic SE baseline (layer ①, 2026-08-18)
+
+`assets/SE_FolderTree_GenericSE_Base.md` (`support_key: generic_se_base`, input `일반SE / 공통 / 없음`) is the buyer- and country-independent floor: what a development run on systems engineering lines is expected to have produced before each technical review, before any national procurement rule or prime contract is applied.
+
+- Sources: NASA NPR 7123.1D (2023) appendix G entrance/success criteria and section 5.2 products, DoD Systems Engineering Guidebook (2022) section 3 review criteria, NASA SE Handbook SP-2016-6105 Rev2 6.7. These are guidance, not regulation, so every checklist task carries `evidence_level: general_se_guidance`, which the compiler maps to `present_or_not_applicable`.
+- Shape: 9 gates (`0 REF / 30 SRR / 60 SFR / 90 PDR / 120 CDR / 150 TRR_DT / 180 FCA_OT / 210 PCA / 240 LL`), 229 task folders = 202 checklist items + the three fixed INBOX/LOG/TDP slots per gate. Task ids are `gate_code * 10 + n` (`901…938`, `1201…1242`) because two gates carry more items than the classic `gate_code + n` decade allows; the ids stay grouped by gate and stay unique across the tree.
+- `se_floor` semantics: `must_have` = both canonical texts list the product at that review, or NASA marks it required (`**`); `should_have` = only one of them does; `context` = buyer-owned input or mission-specific product the development does not produce. Only `context` drops out of the engine requirements — `must_have` and `should_have` both compile to `present_or_not_applicable`, and the difference is recorded for the reader, not enforced as two different rules.
+- `maturity` (`preliminary` / `updated` / `baseline` / `final`) is the maturity expected at that gate and pairs with the folder-name suffix `_D` / `_U` / `_F`. A cross-cutting product (SEMP, IMS, RTM, risk register, TEMP/VCRM, ILS, security plan, safety analysis) repeats gate by gate with rising maturity on purpose, so the engine can check the expected maturity at each review instead of once.
+- `verification_status`: `source_supported` when two sources list the item or NASA marks it required, `partially_supported` when only one does. Never `unverified`: `partially_supported` does not weaken a `general_se_guidance` row, because single-source guidance is still guidance.
+- Citations are table ids and page markers only (`Table G-4`, `Table 3-2 p.72`, `p.38 §5.2.2.2.b [SE-39]`). No source sentence, derived-text path, or project name goes into this public spec.
+- How national/buyer rows relate: through the shared `artifact_type_id`. A national procurement tree's `ssrs`, `icd`, `temp`, `pci` rows and this baseline's rows are the same artifact at the same stage code, so a project can compile the generic floor, then a national layer, then a prime-contract overlay, and see one merged rule set. Contract-only items stay in the overlay with `evidence_level: prime_contract`; nothing buyer-specific is edited into this spec.
+- Deviations recorded at build time: the review tokens use the shared vocabulary (`review_minutes_srr` …) rather than the stage-coded names the checklist proposed; the two software-product-baseline rows use `vdd` because the vocabulary's `sps` is 체계성능시방서 (System Performance Specification); the 240_LL closeout result report keeps a token the vocabulary does not own and therefore compiles as unmapped context, which is correct — neither source defines a closeout gate. Single-source items are never `must_have`, and the IMS is `preliminary` at SRR and `baseline` at PDR (NASA lists the IMS as ready-to-baseline in Table G-6, not G-4).
+- 000_REF is a real gate here (buyer-owned concept-stage inputs), so `generation_rules.static_folders` carries only the `020_MGMT` folders.
 
 ## Layered outputs (2026-08-18)
 

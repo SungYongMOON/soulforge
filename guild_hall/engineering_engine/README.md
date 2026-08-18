@@ -968,7 +968,13 @@ npm run validate:engineering-engine-se-core-eval
 - overlay는 `add`·`alias`·`mark_not_applicable`·`condition`만 할 수 있다. evidence level을
   올리거나 바꾸는 연산은 D45에 따라 거부한다.
 - 정본 대조 결과가 `unverified`·`unsupported`·`contradicted`이거나 아예 없는 규칙은
-  `optional_context`로 낮추며, 낮추기만 하고 올리지 않는다.
+  `optional_context`로 낮추며, 낮추기만 하고 올리지 않는다. `partially_supported`는 낮추지
+  않는다. 한 정본에서만 확인됐다는 뜻이지 근거가 없다는 뜻이 아니다.
+- evidence level `general_se_guidance`는 발주처·국가와 무관한 체계공학 기준선(layer ①,
+  spec `generic_se_base`)의 행이다. 규정이 아니라 지침이므로 `present_or_not_applicable`로
+  가고, 같은 행의 `se_floor`가 `context`일 때만 `optional_context`로 내려간다
+  (`must_have`/`should_have`는 둘 다 engine requirement). `se_floor`와 `maturity`는
+  mapping table에 그대로 실려 나가며 그 밖의 판정에는 쓰이지 않는다.
 - `optional_context` 행과 고정 내부 폴더는 엔진 requirement로 내보내지 않는다. gap scan
   정책과 mapping table에는 그대로 남는다.
 - generator는 engine requirement가 없는 산출물 관측을 이웃 requirement로 추정하지 않는다.

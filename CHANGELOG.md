@@ -1,5 +1,37 @@
 # CHANGELOG
 
+## 2026-08-18 - Generic SE baseline layer (buyer- and country-independent SE floor)
+
+- New spec `.registry/skills/se_foldertree_generate/codex/assets/SE_FolderTree_GenericSE_Base.md`
+  (`support_key: generic_se_base`, input `일반SE / 공통 / 없음`, v0.1): the layer ① floor of
+  what a development run on systems engineering lines is expected to have produced before
+  each technical review, independent of any buyer, country, or contract. 9 gates
+  (`0 REF / 30 SRR / 60 SFR / 90 PDR / 120 CDR / 150 TRR_DT / 180 FCA_OT / 210 PCA / 240 LL`),
+  229 task folders = 202 checklist rows + the three fixed INBOX/LOG/TDP slots per gate.
+  Sources are NASA NPR 7123.1D (2023) appendix G and section 5.2, the DoD Systems Engineering
+  Guidebook (2022) section 3, and NASA SE Handbook SP-2016-6105 Rev2 6.7, cited by table id and
+  page marker only. Compiled to `assets/compiled/generic_se_base.json` by the existing exporter,
+  which needed no change.
+- Compiler: new evidence level `general_se_guidance` → `present_or_not_applicable` (guidance,
+  so "not applicable" is allowed but needs a basis), and two new optional task fields carried
+  into the mapping table: `se_floor` (`must_have` / `should_have` / `context`) and `maturity`.
+  A `general_se_guidance` row whose floor is `context` — a buyer-owned input or a mission-specific
+  product — becomes `optional_context` and never an engine requirement; `must_have` and
+  `should_have` both stay requirements. `partially_supported` does not weaken such a row:
+  single-source guidance is still guidance, and only `unverified` / `unsupported` / `contradicted`
+  weaken, as before.
+- Vocabulary: 30 new shared tokens the baseline needs (`conops`, `ims`, `vcrm`,
+  `system_safety_analysis`, `manufacturing_plan`, `hsi_plan`, `as_built_config`,
+  `acceptance_data_package`, `tech_manual`, … ), all generic — no token belongs to one buyer,
+  country, or contract. This is what lets a national or prime-contractor layer meet the generic
+  floor on a shared `artifact_type_id` instead of a second vocabulary.
+- `generate_tree.py` supports the `일반SE / 공통 / 없음` combination; skill README,
+  `codex/references/variants.md` ("Generic SE baseline (layer ①)"), `codex/SKILL.md` and
+  `guild_hall/engineering_engine/README.md` record the layer, its floor semantics and its
+  relation to the national layer. Four new compiler tests cover the evidence level, the two
+  carried fields, the vocabulary additions, and a real compile of the tracked
+  `generic_se_base.json` across all nine stages.
+
 ## 2026-08-18 - R3 pilot packet generator (compiled stage rules feed the engine)
 
 - New `guild_hall/engineering_engine/stage_rules/pilot_packet_generator.mjs`:

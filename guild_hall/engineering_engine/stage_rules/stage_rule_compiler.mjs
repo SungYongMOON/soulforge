@@ -109,15 +109,28 @@ const PRESENCE_RANK = Object.freeze({
 });
 
 export const EVIDENCE_LEVELS = Object.freeze([
-  'regulation_mandated', 'guidebook_recommended', 'prime_contract', 'internal_management', 'unstated',
+  'regulation_mandated', 'guidebook_recommended', 'prime_contract', 'general_se_guidance',
+  'internal_management', 'unstated',
 ]);
 const EVIDENCE_TO_PRESENCE = Object.freeze({
   regulation_mandated: PRESENCE_RULE.PRESENT,
   guidebook_recommended: PRESENCE_RULE.PRESENT_OR_NOT_APPLICABLE,
   prime_contract: PRESENCE_RULE.PRESENT_OR_NOT_APPLICABLE,
+  // The buyer- and country-independent systems engineering floor (layer ①): what any development
+  // run on SE lines is expected to have produced before a given technical review. It is guidance
+  // and not a regulation, so it can be answered with "not applicable, on this basis" — but the
+  // basis has to be given, which is what present-or-not-applicable means.
+  general_se_guidance: PRESENCE_RULE.PRESENT_OR_NOT_APPLICABLE,
   internal_management: PRESENCE_RULE.OPTIONAL_CONTEXT,
   unstated: PRESENCE_RULE.OPTIONAL_CONTEXT,
 });
+
+// How strongly the guidance floor asks for a row, as recorded by the layer ① checklist: both
+// canonical texts list it (`must_have`), one of them does (`should_have`), or it is carried as
+// background the development itself does not produce — a buyer-owned input or a mission-specific
+// product (`context`). Only `context` changes what the compiler enforces; the other two are
+// carried through so a downstream reader can tell a floor from a recommendation.
+export const SE_FLOORS = Object.freeze(['must_have', 'should_have', 'context']);
 
 // `internal_management` is the verdict the source verification gives INBOX/LOG/TDP-style rows
 // (design §3: the verdict is copied verbatim). It neither supports nor weakens a rule; such rows
@@ -128,6 +141,10 @@ export const VERIFICATION_STATUSES = Object.freeze([
 ]);
 // A row carrying one of these cannot be enforced. `unverified` is also the default for a task
 // that declares no status at all: not yet compared is not the same as compared and accepted.
+// `partially_supported` is deliberately not here: it says the row was compared and found in one
+// canonical text rather than in every one of them, which is support and not the absence of it.
+// For a `general_se_guidance` row that is the ordinary case — a single-source floor is still a
+// floor — and for the others it is the "exists under another name or at another gate" verdict.
 const WEAKENING_VERIFICATION = new Set(['unverified', 'unsupported', 'contradicted']);
 const DEFAULT_VERIFICATION_STATUS = 'unverified';
 
@@ -365,7 +382,7 @@ const TASK_REQUIRED_FIELDS = Object.freeze(['id', 'name']);
 const TASK_OPTIONAL_FIELDS = Object.freeze([
   'desc', 'term', 'source', 'template', 'is_fixed', 'artifact_type_id', 'evidence_level',
   'source_refs', 'applies_when', 'not_applicable_default', 'verification_status',
-  'added_by_verification',
+  'added_by_verification', 'se_floor', 'maturity',
 ]);
 const SOURCE_REF_FIELDS = Object.freeze(['source_key', 'locator']);
 const PROJECT_BINDING_FIELDS = Object.freeze([
@@ -483,6 +500,16 @@ function validateCompiledVariant(variant) {
       if (task.verification_status !== undefined) {
         assertEnum(task.verification_status, VERIFICATION_STATUSES, `${taskWhere}.verification_status`,
           STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
+      }
+      if (task.se_floor !== undefined) {
+        assertEnum(task.se_floor, SE_FLOORS, `${taskWhere}.se_floor`,
+          STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
+      }
+      // The maturity expected of the artifact at this gate (preliminary / updated / baseline /
+      // final in the layer ① checklist). It is display and downstream material, not a rule input,
+      // so it is bounded rather than enumerated.
+      if (task.maturity !== undefined) {
+        assertSafeString(task.maturity, `${taskWhere}.maturity`, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
       }
       if (task.applies_when !== undefined) {
         // One condition token or a list of them (all must hold). The exporter emits a list so a
@@ -691,9 +718,17 @@ function variantRow(stageCode, sequence, task, conditions, counts) {
   const capability = unmapped ? UNMAPPED_CAPABILITY : vocabulary.capability_default;
   const evidenceLevel = task.evidence_level ?? 'unstated';
   const verificationStatus = task.verification_status ?? DEFAULT_VERIFICATION_STATUS;
+  const seFloor = task.se_floor ?? null;
+  const maturity = task.maturity ?? null;
 
   let presence = EVIDENCE_TO_PRESENCE[evidenceLevel];
   if (isFixed || unmapped) presence = PRESENCE_RULE.OPTIONAL_CONTEXT;
+  // A guidance row the checklist marked `context` is background rather than a floor: the buyer
+  // owns it, or it belongs to a kind of mission this development is not running. Enforcing it
+  // would report a gap against something this project was never the one to produce.
+  if (evidenceLevel === 'general_se_guidance' && seFloor === 'context') {
+    presence = PRESENCE_RULE.OPTIONAL_CONTEXT;
+  }
   // The verification status measures support by the canonical (regulation/guidebook) texts. A
   // prime-contract row is supported by the contract, not by those texts, so 'unsupported' and
   // 'unverified' are its expected state and do not weaken it; only an explicit contradiction does.
@@ -732,6 +767,8 @@ function variantRow(stageCode, sequence, task, conditions, counts) {
     })),
     overlay_source_ref: null,
     verification_status: verificationStatus,
+    se_floor: seFloor,
+    maturity,
     applies_when: appliesWhen,
     origin: ORIGIN.VARIANT,
     alias: null,
@@ -758,6 +795,10 @@ function overlayAddRow(op, sequence) {
     // addition is not graded that way: what supports it is the exact contract revision in
     // `overlay_source_ref`, so it carries no L1 status and the weakening rule does not reach it.
     verification_status: null,
+    // The guidance floor and the expected maturity are layer ① readings of a canonical text. An
+    // overlay addition comes from a contract, which does not grade itself on that scale.
+    se_floor: null,
+    maturity: null,
     applies_when: null,
     origin: ORIGIN.OVERLAY,
     alias: null,
@@ -1100,6 +1141,8 @@ export function compileStageRules(request) {
       artifact_type_id: row.artifact_type_id,
       origin: row.origin,
       evidence_level: row.evidence_level,
+      se_floor: row.se_floor,
+      maturity: row.maturity,
       minimum_presence_rule: row.minimum_presence_rule,
       engine_requirement_id: bound === null ? null : bound.requirement_id,
       document_ref_selection: bound === null ? null : bound.document_ref_selection,

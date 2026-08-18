@@ -15,6 +15,7 @@ import {
   EXPECTED_ARTIFACT_POLICY_SCHEMA_VERSION,
   AX_SE_POLICY_REVISION_PIN,
   PRESENCE_RULE,
+  SE_FLOORS,
 } from './stage_rule_compiler.mjs';
 import {
   ARTIFACT_VOCABULARY_V0,
@@ -219,6 +220,94 @@ test('an unverified, unsupported, or contradicted status weakens a rule and neve
   delete taskOf(undeclared, 9001).verification_status;
   assert.equal(rowOf(compileStageRules(undeclared), 9001).minimum_presence_rule,
     PRESENCE_RULE.OPTIONAL_CONTEXT);
+});
+
+// ---------------------------------------------------------------- 4b. the generic SE floor
+
+test('a general_se_guidance row is present-or-not-applicable, and only its context floor is context', () => {
+  assert.deepEqual([...SE_FLOORS], ['must_have', 'should_have', 'context']);
+  // must_have and should_have are both floors the development is expected to answer for; the
+  // difference between them is how many canonical texts list the artifact, not whether it counts.
+  for (const floor of ['must_have', 'should_have']) {
+    const request = baseRequest();
+    const task = taskOf(request, 9002);
+    task.evidence_level = 'general_se_guidance';
+    task.se_floor = floor;
+    const row = rowOf(compileStageRules(request), 9002);
+    assert.equal(row.evidence_level, 'general_se_guidance', floor);
+    assert.equal(row.minimum_presence_rule, PRESENCE_RULE.PRESENT_OR_NOT_APPLICABLE, floor);
+    assert.equal(row.engine_requirement_id, '090_PDR_hdd', `${floor} is an engine requirement`);
+  }
+
+  // `context` is the checklist saying the buyer owns it, or the mission does. It stays visible
+  // and never becomes a gap.
+  const contextual = baseRequest();
+  const contextTask = taskOf(contextual, 9002);
+  contextTask.evidence_level = 'general_se_guidance';
+  contextTask.se_floor = 'context';
+  const contextRow = rowOf(compileStageRules(contextual), 9002);
+  assert.equal(contextRow.minimum_presence_rule, PRESENCE_RULE.OPTIONAL_CONTEXT);
+  assert.equal(contextRow.engine_requirement_id, null);
+  // A context floor is not a downgrade of a verified rule, so it is not counted as one.
+  assert.equal(compileStageRules(contextual).receipt.counts.downgraded_unverified, 1);
+
+  // A single-source guidance row is `partially_supported`, which is support and must not weaken
+  // it; the three weakening statuses still do.
+  const partial = baseRequest();
+  const partialTask = taskOf(partial, 9002);
+  partialTask.evidence_level = 'general_se_guidance';
+  partialTask.se_floor = 'must_have';
+  partialTask.verification_status = 'partially_supported';
+  assert.equal(rowOf(compileStageRules(partial), 9002).minimum_presence_rule,
+    PRESENCE_RULE.PRESENT_OR_NOT_APPLICABLE);
+  for (const status of ['unverified', 'unsupported', 'contradicted']) {
+    const weakened = baseRequest();
+    const weakenedTask = taskOf(weakened, 9002);
+    weakenedTask.evidence_level = 'general_se_guidance';
+    weakenedTask.se_floor = 'must_have';
+    weakenedTask.verification_status = status;
+    assert.equal(rowOf(compileStageRules(weakened), 9002).minimum_presence_rule,
+      PRESENCE_RULE.OPTIONAL_CONTEXT, status);
+  }
+
+  // The level is counted under its own name rather than folded into another one.
+  const counted = baseRequest();
+  taskOf(counted, 9002).evidence_level = 'general_se_guidance';
+  const counts = compileStageRules(counted).receipt.counts.by_evidence_level;
+  assert.equal(counts.general_se_guidance, 1);
+  assert.equal(counts.guidebook_recommended, BASE.expected.counts.by_evidence_level.guidebook_recommended - 1);
+});
+
+test('the guidance floor and the expected maturity travel into the mapping table', () => {
+  const request = baseRequest();
+  const task = taskOf(request, 9002);
+  task.evidence_level = 'general_se_guidance';
+  task.se_floor = 'should_have';
+  task.maturity = 'preliminary';
+  const result = compileStageRules(request);
+  assert.equal(rowOf(result, 9002).se_floor, 'should_have');
+  assert.equal(rowOf(result, 9002).maturity, 'preliminary');
+
+  // A task that declares neither carries neither, rather than a guessed default.
+  assert.equal(rowOf(result, 9001).se_floor, null);
+  assert.equal(rowOf(result, 9001).maturity, null);
+  // An overlay addition rests on a contract, which is not graded on the guidance scale.
+  const overlaid = compileStageRules(overlayRequest());
+  const added = overlayRowOf(overlaid, OVERLAY.expected.rows.find((row) => row.task_id === null).artifact_type_id);
+  assert.equal(added.se_floor, null);
+  assert.equal(added.maturity, null);
+
+  // Neither field is a rule input outside the context case, so neither changes the compile.
+  const graded = baseRequest();
+  taskOf(graded, 9001).se_floor = 'context';
+  taskOf(graded, 9001).maturity = 'final';
+  assert.equal(rowOf(compileStageRules(graded), 9001).minimum_presence_rule, PRESENCE_RULE.PRESENT);
+
+  for (const bad of ['required', 'MUST_HAVE', '']) {
+    const invalid = baseRequest();
+    taskOf(invalid, 9002).se_floor = bad;
+    assert.throws(() => compileStageRules(invalid), throwsWith(STAGE_RULE_ERROR_CODES.VARIANT_INVALID));
+  }
 });
 
 // ---------------------------------------------------------------- 5. applies_when
@@ -581,6 +670,98 @@ test('the artifact vocabulary is unique, closed over its families, and closed ov
   assert.equal(artifactTypeEntry('prime_q4_manufacturing_readiness_review').family, 'prime_contract_item');
   assert.equal(isKnownArtifactType('prime_'), false);
   assert.equal(isKnownArtifactType('Prime_x'), false);
+});
+
+test('the generic SE baseline tokens are in the vocabulary, closed over families and capabilities', () => {
+  // The thirty tokens the layer ① checklist needed beyond the earlier lists. Named here rather
+  // than counted so that dropping or renaming one is a test failure and not a silent re-grade of
+  // every rule that used it: a row whose token leaves the vocabulary falls to unmapped context.
+  const GENERIC_SE_TOKENS = [
+    'conops', 'spec_tree', 'tpm_list', 'resource_budget', 'risk_management_plan', 'ims',
+    'ils_plan', 'manufacturing_plan', 'hsi_plan', 'security_plan', 'integration_plan',
+    'emc_control_plan', 'handling_transport_plan', 'vcrm', 'system_safety_analysis', 'fmeca',
+    'engineering_analysis_report', 'discrepancy_log', 'ram_assessment_report',
+    'security_assessment_report', 'fracas_report', 'long_lead_list', 'critical_items_list',
+    'as_built_config', 'vdd', 'waiver_deviation_log', 'acceptance_data_package', 'tech_manual',
+    'training_material', 'action_item_log',
+  ];
+  assert.equal(new Set(GENERIC_SE_TOKENS).size, 30);
+  for (const token of GENERIC_SE_TOKENS) {
+    const row = artifactTypeEntry(token);
+    assert.ok(row, `${token} must be a vocabulary token`);
+    assert.equal(isKnownArtifactType(token), true, token);
+    assert.ok(ARTIFACT_FAMILIES.includes(row.family), `${token} family`);
+    assert.ok(CAPABILITY_TOKENS.includes(row.capability_default), `${token} capability`);
+    // None of them may be a prime-contractor item: this layer is buyer- and country-independent.
+    assert.notEqual(row.family, 'prime_contract_item', token);
+    assert.ok(!token.startsWith('prime_'), token);
+  }
+  // They are additions, so every token the vocabulary carried before is still there.
+  for (const token of ['srs', 'sdd', 'icd', 'semp', 'temp', 'pci', 'review_minutes_pdr']) {
+    assert.ok(artifactTypeEntry(token), `${token} must still be a vocabulary token`);
+  }
+});
+
+// ---------------------------------------------------------------- 13b. the real generic baseline
+
+test('the tracked generic SE baseline compiles to at least one engine requirement per review stage', () => {
+  const variant = JSON.parse(readFileSync(
+    new URL('../../../.registry/skills/se_foldertree_generate/codex/assets/compiled/generic_se_base.json',
+      import.meta.url), 'utf8'));
+  assert.equal(variant.schema_version, COMPILED_VARIANT_SCHEMA_VERSION);
+  assert.equal(variant.support_key, 'generic_se_base');
+
+  const stageCodes = ['000_REF', '030_SRR', '060_SFR', '090_PDR', '120_CDR', '150_TRR_DT',
+    '180_FCA_OT', '210_PCA', '240_LL'];
+  const result = compileStageRules({
+    compiled_variant: variant,
+    overlay: null,
+    project_binding: {
+      document_refs: [{
+        artifact_type_ids_covered: [],
+        requirement_ref: syntheticRef('generic_se_baseline_probe_document'),
+      }],
+      valid_at: '2026-05-04T00:00:00.000Z',
+      known_at: '2026-05-11T00:00:00.000Z',
+      authority_family: 'project_contract_baseline',
+      applicability_default: true,
+    },
+    target_stage_codes: stageCodes,
+    overlay_conditions: [],
+  });
+
+  // The eight review stages are what this layer exists to answer for; a stage that produced no
+  // requirement would mean the checklist said nothing about a gate the lifecycle names.
+  for (const stageCode of stageCodes.slice(1)) {
+    const stage = stageOf(result, stageCode);
+    assert.ok(stage, `${stageCode} must reach the engine`);
+    assert.ok(stage.requirements.length >= 1, `${stageCode} must own a requirement`);
+  }
+
+  // The floor is the whole content of this layer, so nothing in it may arrive as a regulation, as
+  // a contract item, or as an ungraded row.
+  const counts = result.receipt.counts;
+  assert.equal(counts.by_evidence_level.regulation_mandated, 0);
+  assert.equal(counts.by_evidence_level.prime_contract, 0);
+  assert.equal(counts.by_evidence_level.unstated, 0);
+  assert.ok(counts.by_evidence_level.general_se_guidance > 150);
+  // Nothing was compared and found wanting: the checklist states a verdict on every row.
+  assert.equal(counts.downgraded_unverified, 0);
+  assert.equal(counts.by_presence_rule.present, 0);
+
+  for (const row of result.mapping_table) {
+    if (row.evidence_level !== 'general_se_guidance') continue;
+    assert.ok(['must_have', 'should_have', 'context'].includes(row.se_floor), row.artifact_type_id);
+    assert.ok(['preliminary', 'updated', 'baseline', 'final'].includes(row.maturity), row.artifact_type_id);
+    assert.ok(row.source_refs.length >= 1, `${row.artifact_type_id} must cite a source`);
+    for (const ref of row.source_refs) {
+      assert.ok(['nasa_npr_7123_1d', 'dod_se_guidebook_2022', 'nasa_se_handbook_rev2']
+        .includes(ref.source_key), ref.source_key);
+    }
+    assert.equal(row.minimum_presence_rule,
+      row.se_floor === 'context' ? PRESENCE_RULE.OPTIONAL_CONTEXT : PRESENCE_RULE.PRESENT_OR_NOT_APPLICABLE,
+      `${row.stage_code}/${row.artifact_type_id}`);
+  }
 });
 
 // ---------------------------------------------------------------- 14. static effect pin

@@ -15,6 +15,7 @@ Scaffold SE project folders in owner order: confirm inputs first, prefer dry-run
 - Keep dependency assumptions minimal: Python 3 + `requirements.txt` only.
 - Stop with a clear message if the requested business-type / prime-contractor / quality-grade combination is not supported by the currently bundled spec set.
 - For draft variant work, use `assets/variants/` and `scripts/preview_variants.py`; do not use draft variants to materialize folders.
+- `일반SE / 공통 / 없음` selects `assets/SE_FolderTree_GenericSE_Base.md`, the buyer- and country-independent SE baseline (layer ①, 9 gates / 229 task folders, sourced from NASA NPR 7123.1D appendix G and the DoD SE Guidebook 2022 section 3). Use it when no national procurement rule or prime-contractor contract applies yet; national and contract items are added on top as overlays, never edited into this spec.
 - Use `scripts/seed_template_stubs.py` only when structure-only team draft templates should be copied into project-local `00_Temp`.
 - For document-producing artifacts, create or preserve `00_Temp/template_snapshot/` and `00_Temp/workflow_candidate/` when the generated spec or task requires them.
 - Treat `_workspaces/SE_TEMPLATE_LIBRARY/` as the canonical actual-file library/store for reusable SE artifact materials. It is not pointer-only and not a project execution baseline; `_workspaces/system/` remains the local lab and fixture workspace.

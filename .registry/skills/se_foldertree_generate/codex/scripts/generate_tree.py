@@ -78,6 +78,11 @@ SUPPORTED_VARIANTS = {
         "display": "운용연구개발 / 공통 / 없음",
         "default_spec": "assets/SE_FolderTree_OperationalRnD_Basic.md",
     },
+    ("일반SE", "공통", "없음"): {
+        "support_key": "generic_se_base",
+        "display": "일반SE / 공통 / 없음",
+        "default_spec": "assets/SE_FolderTree_GenericSE_Base.md",
+    },
 }
 
 

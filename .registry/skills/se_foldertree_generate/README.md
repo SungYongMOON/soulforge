@@ -7,7 +7,8 @@
 - draft variant 검토는 `codex/assets/variants/` 와 `codex/scripts/preview_variants.py` 로 분리하며, 이 경로는 실제 폴더를 생성하지 않는다.
 - skill 은 실행 전에 생성 모드, 사업 유형, 상위 체계업체, 품질등급, 시작일, 프로젝트명, 프로파일, 출력 루트를 먼저 확인해야 한다.
 - bundled 리소스 참조는 skill root 기준 상대경로를 기본으로 두고, tracked package 에 host-local 절대경로를 넣지 않는다.
-- 현재 bundled spec 지원 조합은 `체계개발 / LIG 넥스원 / A`, `선행연구 / 공통 / 없음`, `탐색개발 / 공통 / 없음`, `운용연구개발 / 공통 / 없음` 이다.
+- 현재 bundled spec 지원 조합은 `체계개발 / LIG 넥스원 / A`, `선행연구 / 공통 / 없음`, `탐색개발 / 공통 / 없음`, `운용연구개발 / 공통 / 없음`, `일반SE / 공통 / 없음` 이다.
+- `일반SE / 공통 / 없음` (`assets/SE_FolderTree_GenericSE_Base.md`, support_key `generic_se_base`) 은 발주처·국가에 종속되지 않는 체계공학 기준선(계층 ①) 이다. 근거는 NASA NPR 7123.1D 부록 G 와 DoD SE Guidebook 2022 §3, NASA SE Handbook Rev2 6.7 이며 규정이 아니라 지침이라 모든 task 가 `evidence_level: general_se_guidance` 다. 9 게이트 229 task(체크리스트 202 + 게이트별 고정 3) 이고, 국가 조달 규정·계약 항목은 이 위에 overlay 로 얹지 이 spec 안에 넣지 않는다. 세부는 `codex/references/variants.md` 의 "Generic SE baseline (layer ①)" 절을 따른다.
 - `탐색개발` 과 `운용연구개발` 기본형은 common SE spine 기반 public-safe baseline 이며, contractor-specific overlay 나 project-specific tailoring 은 별도 variant/spec 로 분리한다.
 - `선행연구` 기본형도 같은 방식의 public-safe baseline 이며, 자료조사/대안분석/전환판단에 무게를 둔다.
 - 2026-08-18 정본 대조(`codex/references/source_verification_v0.md`, DRAFT): `체계개발` variant 의 SRR~PCA spine 은 방위사업관리규정 제56조④5·제79조② 와 부합(필수 산출물 17건 보강 대상), `탐색개발`·`선행연구` 기본형은 체계개발 명명틀을 차용한 상태라 정본 기준 재기준(re-base) 대상, `운용연구개발` 은 경미 성능개량/현존전력 트랙 분리 대상, `응용연구` 는 제안안만 있다. 재기준 전까지 이 세 기본형은 "미검증 기본형" 으로 취급한다.

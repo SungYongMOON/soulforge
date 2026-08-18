@@ -193,6 +193,45 @@ export const ARTIFACT_VOCABULARY_V0 = Object.freeze([
   entry('fca_pca_plan_checklist', 'configuration_audit', 'FCA/PCA 계획서·점검표', 'FCA/PCA Plan and Checklist', 'verification_review'),
   entry('production_transition_package', 'closeout', '양산 이관 자료', 'Production Transition Package', 'project_management'),
 
+  // -------------------------------------------------------------- generic SE baseline tokens (2026-08-18)
+  //
+  // Tokens the buyer- and country-independent SE floor (layer ①, spec `generic_se_base`) needs
+  // beyond the two lists above. Each one is an artifact both canonical texts behind that layer
+  // name — NASA NPR 7123.1D appendix G entrance/success criteria and the DoD SE Guidebook 2022
+  // section 3 review criteria — or that one of them names and defence practice treats as standard.
+  // They are deliberately generic: no token here belongs to one buyer, one country, or one
+  // contract, which is what lets a national or prime-contractor layer meet this one on a shared id.
+  entry('conops', 'requirements_specification', '운용개념서', 'Concept of Operations', 'systems_engineering'),
+  entry('spec_tree', 'requirements_specification', '문서·규격 트리', 'Document and Specification Tree', 'systems_engineering'),
+  entry('tpm_list', 'requirements_specification', '기술성능지표 목록', 'Technical Performance Measure List', 'systems_engineering'),
+  entry('resource_budget', 'design_description', '기술자원 예산·여유도', 'Technical Resource Budget and Margins', 'systems_engineering'),
+  entry('risk_management_plan', 'technical_plan', '위험관리계획서', 'Risk Management Plan', 'risk_management'),
+  entry('ims', 'technical_plan', '통합일정', 'Integrated Master Schedule', 'project_management'),
+  entry('ils_plan', 'technical_plan', '종합군수지원계획서', 'Integrated Logistics Support Plan', 'project_management'),
+  entry('manufacturing_plan', 'technical_plan', '제조·생산계획서', 'Manufacturing Plan', 'mechanical_design'),
+  entry('hsi_plan', 'technical_plan', '인간체계통합계획서', 'Human Systems Integration Plan', 'systems_engineering'),
+  entry('security_plan', 'technical_plan', '체계보안·보호계획서', 'System Security and Protection Plan', 'systems_engineering'),
+  entry('integration_plan', 'technical_plan', '체계통합계획서', 'System Integration Plan', 'systems_engineering'),
+  entry('emc_control_plan', 'technical_plan', '전자기적합성·환경통제계획서', 'EMI/EMC and Environments Control Plan', 'hw_engineering'),
+  entry('handling_transport_plan', 'technical_plan', '운송·취급·포장 지침', 'Transportation, Handling and Packaging Instruction', 'project_management'),
+  entry('vcrm', 'test_plan', '검증교차참조표', 'Verification Cross-Reference Matrix', 'verification_review'),
+  entry('system_safety_analysis', 'evaluation_report', '체계안전·위험원 분석서', 'System Safety and Hazard Analysis', 'systems_engineering'),
+  entry('fmeca', 'evaluation_report', 'FMECA·신뢰성 분석서', 'FMECA and Reliability Analysis', 'systems_engineering'),
+  entry('engineering_analysis_report', 'evaluation_report', '공학해석·M&S 결과보고서', 'Engineering Analysis and M&S Report', 'systems_engineering'),
+  entry('discrepancy_log', 'evaluation_report', '결함·불일치 대장', 'Discrepancy Log', 'verification_review'),
+  entry('ram_assessment_report', 'evaluation_report', 'RAM 달성도 평가보고서', 'RAM Achieved Performance Assessment', 'systems_engineering'),
+  entry('security_assessment_report', 'evaluation_report', '보안통제 검증보고서', 'Security Controls Assessment Report', 'verification_review'),
+  entry('fracas_report', 'evaluation_report', '고장보고·분석·시정조치 기록', 'FRACAS Record', 'verification_review'),
+  entry('long_lead_list', 'configuration_and_bom', '장납기·핵심조달 품목 목록', 'Long-Lead Item List', 'configuration_management'),
+  entry('critical_items_list', 'configuration_and_bom', '핵심품목·단일고장점 목록', 'Critical Items and Single Point Failure List', 'systems_engineering'),
+  entry('as_built_config', 'configuration_and_bom', 'As-built 형상목록', 'As-Built Configuration List', 'configuration_management'),
+  entry('vdd', 'configuration_and_bom', '소프트웨어 버전기술서', 'Software Version Description Document', 'sw_engineering'),
+  entry('waiver_deviation_log', 'configuration_and_bom', '면제·일탈 및 결함종결 대장', 'Waiver and Deviation Register', 'configuration_management'),
+  entry('acceptance_data_package', 'test_result', '수락자료묶음', 'Acceptance Data Package', 'verification_review'),
+  entry('tech_manual', 'closeout', '운용·정비 기술교범', 'Operator and Maintenance Technical Manual', 'project_management'),
+  entry('training_material', 'closeout', '교육훈련 자료·이수기록', 'Training Material and Completion Record', 'project_management'),
+  entry('action_item_log', 'review_result', '검토 조치사항 종결 대장', 'Review Action Item Closure Log', 'verification_review'),
+
   // -------------------------------------------------------------- internal management
   //
   // These are the fixed folders every variant carries. They are real folders and a real place
