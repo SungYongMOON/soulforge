@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## 2026-08-18 - Manual chapter 11: how the guidance layer works
+
+Documentation only; no code, schema, or output changed.
+
+- New `guild_hall/engineering_engine/manual/11_guidance_layer.md` explains the layer that turns a
+  judgement into "here is what to do next": what it reads, where every field of a guide card comes
+  from (a table mapping each cell to the rule-row field or the fixed template behind it), the
+  instruction packet's fields and the two devices that keep the judgement unchanged (the forbidden
+  key check and the copied `judgment_ref`), the four parts of the one-page answer and the rule for
+  picking the next three (engine mission candidates first, ready-but-unobserved work only to fill
+  a shortfall, labelled as its own kind), the five output files and where they are stored, the
+  first P26-014 measurements for SRR and CDR, the six current limits, and the order to change it in.
+- Reading order in `manual/README.md` gains row 11, and the agreed-but-missing rows for
+  가이드 카드 and 결과 전달 now point at it. The 가이드 카드 row also regains the A3 landing status
+  it was given when that slice landed — the observation follow-up merge had reverted that line.
+- `manual/03_how_items_were_derived.md` gains section 3.9: where the guidance sentences come from
+  (they are assembled from fixed templates over row-copied slots, never written).
+
 ## 2026-08-18 - Observation cues widened, folder-level confirmation, and manual chapter 10
 
 Owner said yes to the three questions the previous slice left open, and the answers are three
