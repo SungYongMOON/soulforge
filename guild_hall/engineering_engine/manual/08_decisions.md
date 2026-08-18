@@ -16,6 +16,8 @@
 | D43 | 탐색개발·선행연구 재기준 스펙 승격 시점 | draft variant 먼저, 실제 과제 1건 검증 후 승격 | open |
 | D44 | 표준어(artifact_type_id) 소유자·표시명 | 컴파일러 `artifact_vocabulary.v0` + 글로서리 표시명(신규 56 토큰 표시명 포함) | open |
 | D45 | overlay가 evidence_level을 낮추는 것 허용 여부 | 금지(N/A는 가능, 등급 변경 불가) | open(구현은 기본값대로) |
+| D46 | 규칙 행에 활동·결정 노드 포함 + depends_on(파이프라인) | 확장(node_kind, 증거=기록, 판정 어휘 그대로) | 제안(2026-08-18, A2 전제) |
+| D47 | 서브 에이전트용 지시서 계약 owner | 엔진 owner 별도 계약, zero-write, 판단 불변 | 제안(2026-08-18, A3 전제) |
 
 번호 없는 대기 항목: Needs 정책 후보 확인, ① 스펙 principles의 완화 판단(HSI 계획·보안계획), 휴지통 `_workspaces/_trash_260818` 삭제(2026-09-17 이후), ai_usage_meter 상태 폴더 해시 64→16 정비 창, workmeta launch-file 경로 정책(run 영수증 미커밋 상태), MCP 활성화.
 
