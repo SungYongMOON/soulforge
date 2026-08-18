@@ -1,0 +1,36 @@
+# 04. 산출물 표준어 (`artifact_type_id`)
+
+## 4.1 왜 필요한가
+
+층이 넷이고 과제마다 폴더명·발주처 슬롯명이 다르므로, "같은 산출물"을 알아보는 열쇠가 하나 있어야 한다. 그것이 `artifact_type_id`(토큰)다.
+①의 `rtm` 행, ②의 요구추적 행, ④의 발주처 슬롯 "요구사항 추적표"는 모두 같은 토큰으로 만나야 커버리지·결손 계산이 한 잣대가 된다.
+
+## 4.2 정본과 모양
+
+- 정본: `guild_hall/engineering_engine/stage_rules/artifact_vocabulary.mjs`의 `ARTIFACT_VOCABULARY_V0` (2026-08-18: 130 토큰) + `prime_<...>` 규칙 계열.
+- 항목 모양: `{artifact_type_id, family, label_ko, label_en, capability_default}`. `capability_default`는 결손이 mission 후보가 될 때 기본 담당 capability(`systems_engineering`, `hw_engineering`, `sw_engineering`, `mechanical_design`, `configuration_management`, `verification_review`, `project_management`, `risk_management`).
+- 계열(family) 17종: requirements_specification · design_description · drawing_and_interface · configuration_and_bom · mechanical_model · technical_plan · test_plan · test_procedure · test_result · test_docs · evaluation_report · configuration_audit · review_minutes · review_result · closeout · internal · prime_contract_item.
+- 표시명(`label_ko`)은 D44(Owner 확정) 전까지 관찰 수준이다. 토큰 자체는 안정적으로 유지한다(토큰을 바꾸면 모든 층·overlay·Needs 정책이 깨진다).
+
+## 4.3 발행 규칙
+
+1. 토큰은 소문자 snake_case 영문 약어(`sss`, `ssrs`, `icd`, `temp`, `rtm`, `review_minutes_cdr`)이며 어휘 파일에서만 발행한다. 스펙·overlay·정책 파일이 새 토큰을 임의로 만들지 않는다.
+2. 새 토큰을 넣을 때는 계열과 기본 capability를 반드시 정하고, 기존 토큰과 뜻이 겹치지 않는지 확인한다(예: `sps`는 체계성능시방서이므로 SW 제품 기준선은 `vdd`).
+3. `prime_<...>` 모양(정규식 `^prime_[a-z0-9]+(?:_[a-z0-9]+)*$`)은 열거 없이 주계약사 계약 항목(family `prime_contract_item`)으로 인식한다. 다른 주계약사 과제는 overlay `mark_not_applicable`로 끈다.
+4. 어휘에 없는 토큰이 스펙에 나오면 컴파일러는 거부하지 않고 그 행을 **unmapped context**로 남긴다(변형 전체를 막지 않기 위해). 대신 시험이 "어휘 밖 토큰 0"을 확인하므로 실수는 시험에서 드러난다.
+5. 검토 회의록·결과보고서는 `review_minutes_<gate>` / `review_result_report_<gate>` 관례를 따른다.
+
+## 4.4 확장 이력
+
+| 시점 | 추가 | 이유 |
+| --- | --- | --- |
+| 설계 §4 초안(컴파일러 첫 착지) | 기본 74 토큰 | 체계개발 스펙 v0.7 폴더 기준 |
+| 2026-08-18 v0.8 반영 | +26 → 100(`cdrl`, `rtm`, `ram_analysis_report`, `critical_parts_test_report`, `cm_plan`, `technical_review_package`, `manufacturing_design_review`, `standard_parts_review`, `atp`, `ncr` …) | 정본 대조로 추가된 필수 17건과 기계 필드 부여 시 필요. 어휘에 없어서 규정 필수 행이 조용히 강등되던 문제를 발견 → 어휘 확장 + 시험 |
+| 2026-08-18 ① 반영 | +30 → 130(`conops`, `risk_management_plan`, `ims`, `system_safety_analysis`, `vcrm`, `fmeca`, `tech_manual`, `training_material`, `hsi_plan`, `tpm_list`, `trade_study` …) | NASA/DoD 검토회의 산출물 중 기존 어휘에 없던 것. 목록은 `references/generic_se_base_derivation_v0.md` §5 |
+| — | `prime_*` 규칙 계열 | 주계약사 항목을 열거 없이 인식 |
+
+## 4.5 별칭(alias)과 정합 미결
+
+- 과제 이름 → 토큰 번역은 overlay의 `alias` op가 한다(④). 스펙에 과제 이름을 넣지 않는다.
+- ①↔② 정합 미결: ①은 미국 문서 용어(`temp`, `rtm`, `semp`), ②는 한국 정본 용어로 토큰을 만들었고 일부가 다른 토큰이 되었다(예 `p_temp`↔`temp`, `spec_linkage_table`↔`rtm`). 또 ①은 횡단 산출물을 게이트마다 반복하지만 ②는 한 번만 둔다.
+  다음 조각은 (a) 어휘에 동의어 별칭표(canonical token + aliases)를 두거나 (b) ②의 토큰을 ①의 토큰으로 정규화하고 반복 행을 추가하는 것 중 하나다. 결정 전까지 ①과 ②의 비교 수치(예 공유 9)는 잠정값이다.

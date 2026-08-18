@@ -1,5 +1,32 @@
 # CHANGELOG
 
+## 2026-08-18 - Engine development manual + generic-layer derivation record + source-claim correction
+
+- New `guild_hall/engineering_engine/manual/` (README + chapters 01-09, Korean, tool-independent):
+  purpose and shape, the four rule layers, **how the checklist rows were derived** (per layer:
+  source acquisition → per-source extraction → synthesis/verification → critic → coder → compile →
+  verify, plus how to count rows vs artifact types), the artifact vocabulary, compiler and
+  generator, requirement trace, runs and receipts (numbers + private pointers only), decisions
+  D36-D45, next work and a start checklist for a new worker. It is a map of the canon, not a
+  canon; every related change updates the matching chapter.
+- New `.registry/skills/se_foldertree_generate/codex/references/generic_se_base_derivation_v0.md`
+  (generated from the compiled JSON + derivation working files): pipeline, floor rule, gate
+  mapping, deliberate exclusions, the critic's corrections and open risks, the 30 vocabulary
+  additions, and every row with its floor / maturity / verification status / citations. The
+  derivation working files (three per-source extractions, synthesis, critic, coder packet,
+  comparison driver) are kept in the private knowledge worksite
+  `_workspaces/knowledge/common/systems_engineering/derivations/generic_se_base_20260818/` with a
+  metadata-only receipt under `_workmeta/system/reports/se_stage_rules/`.
+- Correction: the generic baseline rows cite only NASA NPR 7123.1D (195 rows) and the DoD SE
+  Guidebook 2022 (173 rows). NASA SE Handbook SP-2016-6105 Rev2 was extracted but the synthesis
+  input was truncated before it, so **no row cites it yet**. The spec principles, the human
+  section, `references/variants.md` and the design note now say so; folding the handbook in is
+  recorded as open item 1 of the derivation record. Compiled JSON regenerated, `--check` PASS.
+- Counting note recorded in the manual and the derivation record: 202 rows are (gate, artifact
+  type, maturity) cells over 8 review gates, not 202 different documents — 100 distinct
+  `artifact_type_id`s (67 among must_have rows), about 25 rows to check per gate; the compiled
+  must_have count is 124 (synthesis had 132 before the critic's corrections).
+
 ## 2026-08-18 - Generic SE baseline layer (buyer- and country-independent SE floor)
 
 - New spec `.registry/skills/se_foldertree_generate/codex/assets/SE_FolderTree_GenericSE_Base.md`

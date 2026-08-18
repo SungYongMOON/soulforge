@@ -5445,7 +5445,7 @@
   "principles": [
     "폴더 순서 = 체계공학 수행 순서(기술검토 게이트 기준선)",
     "이 기준선은 특정 발주처·국가·계약의 규정이 아니라 체계공학 일반 지침이 각 기술검토 전에 만들어 두라고 말하는 산출물의 바닥선이다.",
-    "근거는 NASA NPR 7123.1D 부록 G 진입·성공 기준, DoD Systems Engineering Guidebook 2022 §3 기술검토 기준, NASA SE Handbook (SP-2016-6105 Rev2) 6.7 이며, 규정(regulation)이 아니라 지침(guidance)으로 취급한다.",
+    "근거는 NASA NPR 7123.1D 부록 G 진입·성공 기준과 DoD Systems Engineering Guidebook 2022 §3 기술검토 기준이며(행이 실제로 인용하는 정본은 이 둘뿐), NASA SE Handbook (SP-2016-6105 Rev2) 6.7 은 사실 추출만 되어 있고 아직 행에 반영되지 않았다(references/generic_se_base_derivation_v0.md §6). 규정(regulation)이 아니라 지침(guidance)으로 취급한다.",
     "발주처·국가 계층(예: 특정 국가 조달 규정, 주계약사 품질게이트)은 이 기준선 위에 add/alias/N-A 로 얹고, 같은 산출물은 같은 artifact_type_id 로 만난다.",
     "두 출처가 모두 요구하거나 NASA 가 required 로 표기한 항목은 must_have, 한 출처만 요구하면 should_have, 발주처 소유 입력이나 임무 특화 항목은 context 로 둔다.",
     "폴더명 규칙: 한글명(영문약어)_상태 예) 체계요구사항명세서(SSS)_F",
@@ -5468,7 +5468,7 @@
   "quality_grade": "없음",
   "schema_version": "soulforge.se_foldertree_compiled_variant.v0",
   "spec_file": "assets/SE_FolderTree_GenericSE_Base.md",
-  "spec_sha256": "e928b770be880be6e45c5574acf3b66cc0233d8817943bc7554a4ce599118482",
+  "spec_sha256": "498cd2b4b9bdf4446899671642273902496351a02d495597db9f78bff868c75b",
   "spec_version": "0.1",
   "special_folders": {
     "management": {

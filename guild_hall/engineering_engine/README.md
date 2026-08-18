@@ -909,6 +909,7 @@ engine 이 소비하는 knowledge-supply provider 가 이미 같은 root 에 있
 
 - `kernel/`: 결정론 kernel. 학습모델을 호출하지 않고, 공급된 값에 대한 순수 함수만 노출한다
 - `stage_rules/`: 단계 규칙 컴파일러. 폴더트리 variant(L1)와 과제 overlay(L2)를 세 소비자 표면으로 바꾸는 순수 함수만 둔다
+- `manual/`: 엔진 개발 매뉴얼(책 형태, v0). 규칙 4층·항목 도출 방법·어휘·컴파일러·요구 추적·실행 기록·결정·다음 작업을 다른 작업자(사람·LLM)가 이어받을 수 있게 정리한다. 정본이 아니라 정본들의 지도이며, 관련 변경마다 해당 장을 같이 고친다. 읽는 순서는 `manual/README.md`
 - 영수증은 4종을 구분해 쓴다: topology delivery(간선 통과) · MCP idempotency 응답(재시도) · Context Request 영수증 · Context Response 영수증. 서로 대신하지 못하며 소유 모듈이 다르다
 - `contracts/`: Phase 1-0 공통 계약과 lane 계약
 - `fixtures/`: 합성 fixture

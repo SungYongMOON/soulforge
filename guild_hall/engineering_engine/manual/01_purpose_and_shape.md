@@ -1,0 +1,75 @@
+# 01. 목적과 모양
+
+## 1.1 엔진이 하는 일 (한 장)
+
+Owner의 목적: 제품 엔지니어링을 체계공학 기반으로 해서 **요구사항을 놓치지 않고, 품질 좋게, 목적에 맞게** 만든다.
+엔진은 그 목적을 위해 두 가지 상태를 만들어 비교한다.
+
+- **Expected State(기대 상태)** — "이 단계(예: CDR)에서 이 과제는 무엇을 갖고 있어야 하는가". 규칙(정본·계약)에서 나온다.
+- **Observed State(관측 상태)** — "실제로 무엇이 있는가". 과제 폴더·문서 색인·메일 첨부·검토 결과에서 나온다.
+
+비교 결과는 요구별로 `satisfied / gap_missing / gap_unknown / gap_conflict` 중 하나이고, 결손·불명은 담당 역할에게 갈 mission 후보로 바뀐다.
+엔진은 **판단만** 한다 — 파일을 쓰지 않고, Task를 만들지 않고, 승인하지 않는다(zero-write). 쓰기는 호출자(runner·writer)가 별도 권한으로 한다.
+
+## 1.2 두 층
+
+| 층 | 역할 | 코드 | 특징 |
+| --- | --- | --- | --- |
+| **규칙 공급층** | "무엇이 있어야 하는가"를 만든다 | `stage_rules/`(단계→산출물 컴파일러·packet 생성기), `guild_hall/requirement_trace/`(요구→산출물 커버리지), `.registry/skills/se_foldertree_generate/`(규칙 스펙 정본) | 순수 함수. 규칙을 새로 만들지 않고 정본을 읽어 엔진 입력으로 바꾼다 |
+| **판단 엔진** | Expected와 Observed를 비교해 finding·mission 후보를 낸다 | `kernel/`(결정론 커널), `subjects/`(평가 대상별 subject: `ax_se_project_context_pilot.mjs` 등), `contracts/`, `tests/` | 학습 모델 호출 없음, 결정론, 영수증 4종 분리 |
+
+둘 사이의 계약은 `soulforge.ax_se_stage_policy.v0`(단계 정책)과 `soulforge.ax_se_project_context_pilot_packet.v0`(pilot packet)이다.
+규칙 공급층이 이 두 계약 인스턴스를 결정론적으로 만들고, 판단 엔진의 runner가 그것을 받아 1회 평가한다.
+
+## 1.3 왜 규칙을 밖에 두는가
+
+Owner 방향(2026-08-18): **"KVDS(P26-014)만 끼워맞추는 게 아니다. 다른 과제도 한다."**
+규칙(어느 단계에 어떤 산출물, 어떤 요구를 어떤 산출물이 덮나)은 공용 층에 있어야 하고 과제는 얇은 번역표(overlay)만 가진다.
+그래서 규칙 정본은 엔진 코드가 아니라 사업유형별 폴더트리 스펙(`SE_FolderTree_*.md`)에 있고, 엔진은 읽기만 한다.
+발주처(주계약사) 계약 항목도 스펙 본문에 섞지 않고 overlay로 분리했다(02장). 이유: 계약 항목이 섞이면 다른 발주처 과제에서 재사용할 수 없다.
+
+## 1.4 파일 지도
+
+```text
+docs/architecture/workspace/
+  SE_STAGE_RULE_SOURCE_MODEL_V0.md         단계 규칙 원천 설계(L0~L3, D42~D45)
+  PROJECT_REQUIREMENT_TRACE_MODEL_V0.md    요구 추적 설계(R1~R4, D36~D41, §8.2 결정 기록)
+  examples/se_stage_rules/                 컴파일러·생성기 public-safe fixture
+  examples/project_requirement_trace/      커버리지 fixture
+.registry/skills/se_foldertree_generate/codex/
+  assets/SE_FolderTree_Guide.md            ② 체계개발 스펙 v0.8 (+③ prime_contract 행 포함, exporter가 분리)
+  assets/SE_FolderTree_GenericSE_Base.md   ① 일반 SE 기준선 스펙 v0.1
+  assets/SE_FolderTree_{ExploratoryDev,OperationalRnD,PreStudy}_Basic.md  탐색·운용·선행 기본형(재기준 필요)
+  assets/compiled/*.json, compiled/overlays/*.json   스펙에서 export한 기계 형태
+  scripts/export_variant_json.py           스펙→compiled(+공통 기준선/prime overlay 분리), --check 드리프트 방지
+  references/source_verification_v0.md     ② 정본 대조표(행별 근거 판정)
+  references/generic_se_base_derivation_v0.md  ① 도출 기록(행별 인용·방법·정정·미결)
+guild_hall/engineering_engine/
+  stage_rules/artifact_vocabulary.mjs      산출물 표준어(artifact_type_id)
+  stage_rules/stage_rule_compiler.mjs      compileStageRules: L1+L2+binding → 정책 3종 + mapping table + 영수증
+  stage_rules/pilot_packet_generator.mjs   generatePilotPacketFromStageRules: 정책+관측 → pilot packet + launch
+  subjects/ax_se_project_context_pilot.mjs 판단 subject(M2-2), tools/…_runner.mjs 1회 실행
+  manual/                                  이 매뉴얼
+guild_hall/requirement_trace/
+  requirement_coverage.mjs                 R1 computeRequirementCoverage(순수)
+  coverage_input_builder.mjs               R2 준비: 색인+Needs 정책+관측 → R1 입력
+guild_hall/validate/path_length_policy.mjs 경로 길이 예산(200/60/60/해시16) — 모든 새 파일에 적용
+```
+
+private 면(공개 저장소 밖):
+
+```text
+_workspaces/<project_code>/…/06_validation/<run>/    실행 산출물(packet·policy·overlay·coverage)
+_workmeta/<project_code>/runs/<run>/                 실행 binding·영수증·결정 기록(metadata-only)
+_workmeta/system/reports/{se_stage_rules,source_research,rag}/  비교·정본 확보·색인 영수증
+_workspaces/knowledge/common/…                        정본 원문·파생 텍스트·source card(공통 지식 라이브러리)
+_workspaces/knowledge/common/systems_engineering/derivations/  규칙 도출 작업 파일(03장)
+```
+
+## 1.5 지켜야 할 경계 (요약)
+
+- 순수 함수: `stage_rules/*`·`requirement_trace/*`는 fs·clock·random·env·network를 쓰지 않는다(정적 effect pin 시험).
+- 규칙을 코드에 새로 쓰지 않는다. 규칙이 틀리면 스펙(정본)을 고치고 export한다.
+- 정본 대조 상태가 없거나 약한 행은 **낮추기만** 하고 올리지 않는다(05장).
+- private 실자료·사업명 세부·절대경로는 public 파일에 넣지 않는다. 실행 결과는 상대 포인터와 수치만.
+- 새 파일·폴더는 경로 예산(총 200자·세그먼트 60자·해시 16자)을 지킨다(`npm run validate:path-length`).

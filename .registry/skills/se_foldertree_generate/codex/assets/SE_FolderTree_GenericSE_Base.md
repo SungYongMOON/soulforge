@@ -11,7 +11,7 @@ supported_input:
 principles:
 - 폴더 순서 = 체계공학 수행 순서(기술검토 게이트 기준선)
 - 이 기준선은 특정 발주처·국가·계약의 규정이 아니라 체계공학 일반 지침이 각 기술검토 전에 만들어 두라고 말하는 산출물의 바닥선이다.
-- 근거는 NASA NPR 7123.1D 부록 G 진입·성공 기준, DoD Systems Engineering Guidebook 2022 §3 기술검토 기준, NASA SE Handbook (SP-2016-6105 Rev2) 6.7 이며, 규정(regulation)이 아니라 지침(guidance)으로 취급한다.
+- 근거는 NASA NPR 7123.1D 부록 G 진입·성공 기준과 DoD Systems Engineering Guidebook 2022 §3 기술검토 기준이며(행이 실제로 인용하는 정본은 이 둘뿐), NASA SE Handbook (SP-2016-6105 Rev2) 6.7 은 사실 추출만 되어 있고 아직 행에 반영되지 않았다(references/generic_se_base_derivation_v0.md §6). 규정(regulation)이 아니라 지침(guidance)으로 취급한다.
 - '발주처·국가 계층(예: 특정 국가 조달 규정, 주계약사 품질게이트)은 이 기준선 위에 add/alias/N-A 로 얹고, 같은 산출물은 같은 artifact_type_id 로 만난다.'
 - 두 출처가 모두 요구하거나 NASA 가 required 로 표기한 항목은 must_have, 한 출처만 요구하면 should_have, 발주처 소유 입력이나 임무 특화 항목은 context 로 둔다.
 - '폴더명 규칙: 한글명(영문약어)_상태 예) 체계요구사항명세서(SSS)_F'
@@ -3870,8 +3870,8 @@ generation_rules:
 - 이 문서의 YAML(위)을 파싱해서 발주처·국가에 종속되지 않는 일반 체계공학(SE) 기준선 폴더 트리를 생성한다.
 - 계층 ①(generic SE baseline)이다. "체계공학 기반으로 개발한다면 각 기술검토 전에 최소한 이것은 만들어 두어야 한다"는 바닥선만 담고,
   특정 국가 조달 규정·발주처 계약·주계약사 품질게이트는 담지 않는다. 그 계층은 이 기준선 위에 overlay 로 얹는다.
-- 근거: NASA NPR 7123.1D (2023) 부록 G 기술검토 진입·성공 기준과 5.2 절 산출물, DoD Systems Engineering Guidebook (2022) §3 기술검토 기준,
-  NASA SE Handbook SP-2016-6105 Rev2 6.7. 규정이 아니라 지침이므로 evidence_level 은 `general_se_guidance` 이며,
+- 근거: NASA NPR 7123.1D (2023) 부록 G 기술검토 진입·성공 기준과 5.2 절 산출물, DoD Systems Engineering Guidebook (2022) §3 기술검토 기준.
+  NASA SE Handbook SP-2016-6105 Rev2 6.7 은 추출만 되어 있고 행에는 아직 반영되지 않았다(도출 기록 §6). 규정이 아니라 지침이므로 evidence_level 은 `general_se_guidance` 이며,
   컴파일러에서 `present_or_not_applicable`(있거나, 근거를 들어 해당없음) 로 내려간다.
 - `se_floor` 의미: `must_have` = 두 출처가 모두 그 단계 산출물로 열거하거나 NASA 가 required(**) 로 표기, `should_have` = 한 출처만 열거,
   `context` = 발주처 소유 입력이거나 임무 특화라서 계약자가 만들지 않을 수 있는 항목. `context` 행만 engine requirement 에서 빠진다.
