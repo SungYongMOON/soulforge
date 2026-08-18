@@ -36,7 +36,7 @@ const INCLUDED_ROOT_FILES = ['README.md'];
 
 // The receipt records the result of a run, so it changes on every run and cannot be part of the
 // manifest that a run verifies against. Listing it would make the manifest self-invalidating.
-const EXCLUDED = new Set(['phase_1_integration_receipt.json', 'engine_manifest.sha256']);
+const EXCLUDED = new Set(['phase_1_integration_receipt.json', 'engine_manifest.sha256', 'engine_release.json']);
 
 export const BYTE_BASIS = 'git-clean-filter-lf';
 
@@ -118,6 +118,7 @@ export function buildManifest() {
     '# contains: tracked engine source, contracts and derived topology',
     '# excludes: the integration receipt, which records a run and would make this self-invalidating',
     '# excludes: runtime observations, which are host-local measurements under guild_hall/state/**',
+    '# excludes: the release manifest, which records this manifest sha and would otherwise be circular',
     `# byte_basis: ${BYTE_BASIS}`,
     `# blob_identity_verified: ${gitIds === null ? 'unavailable' : String(drift.length === 0)}`,
     `# file_count: ${rows.length}`,

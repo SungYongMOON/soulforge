@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 2026-08-18 - Engine version slot (0.0.0) and release manifest
+
+- New `guild_hall/engineering_engine/topology/ENGINE_VERSION` (`0.0.0` while the engine is under construction; Owner: real numbering starts at canon promotion) and `topology/engine_release.json` emitted by `tools/emit_release_manifest.mjs`: one label binding the rule-layer spec versions/shas, prime overlays, vocabulary digest, compiler/generator versions, the engine code manifest sha and the git commit. `--check` recomputes everything except the stamp and fails on drift; `npm run validate:engine-release`. Run receipts already carry `policy_ref`; stamping `engine_version` into receipts is left to the MCP/release slice (B1).
+
 ## 2026-08-18 - A causal spine for the national rule layer: backwards edges removed, gate roles, cross-layer projection, importance ordering
 
 Reviewing the first pass on real output found three things wrong with it, and this change is the

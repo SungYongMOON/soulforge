@@ -42,6 +42,7 @@ Owner 지시(2026-08-18): "하기로 한 것이 그림에서 빠지면 누락된
 | 과제 착수 명령 | 5입력 → 폴더트리·규칙·첫 판단 | 착수 | 없음 |
 | 발주처 덧씌움 추가(한화 등), 탐색·선행·운용 스펙 재기준 | 다른 발주처·사업유형 실체 | 규칙 | 없음(초안만) |
 | R2 원장·R3 투영·R4 카드 | 요구 추적 후반 | 요구 추적 | 없음 |
+| 엔진 버전·판 매니페스트 | 엔진 버전 라벨 하나에 규칙 층 스펙 sha·덧씌움·어휘·컴파일러·코드 매니페스트·git 커밋을 묶어, 영수증의 policy_ref가 어느 판에 귀속되는지 한 번에 읽히게 | 출시 | **자리 착지(2026-08-18)**: `topology/ENGINE_VERSION` = `0.0.0`(만드는 중; Owner: 정본 승격 때 실제 번호 시작) + `topology/engine_release.json`(`tools/emit_release_manifest.mjs --out/--check`, `npm run validate:engine-release`). 영수증에 engine_version 찍기는 B1 |
 
 ## 정본 위치 (매뉴얼이 가리키는 곳)
 

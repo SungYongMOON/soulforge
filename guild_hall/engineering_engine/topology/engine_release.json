@@ -1,0 +1,71 @@
+{
+  "schema_version": "soulforge.engine_release_manifest.v0",
+  "engine_version": "0.0.0",
+  "status": "under_construction",
+  "generated_at": "2026-08-18T10:40:00.351Z",
+  "git_commit": "1507ec74f1fff08de377fed901de0dd234c3249c",
+  "components": {
+    "engine_code_manifest": {
+      "file": "guild_hall/engineering_engine/topology/engine_manifest.sha256",
+      "sha256": "d0c4f6f129211fe3df8bbe54498fe2a36bfe0cc62d4e63f5e32409faf3db7809"
+    },
+    "stage_rule_compiler": {
+      "version": "v0",
+      "schema": "soulforge.se_stage_rule_compiler.v0",
+      "sha256": "d6d118c4e4d1eb33e779b81bc32a9161da771f674baf22577a7bd9aa75c77d95"
+    },
+    "pilot_packet_generator": {
+      "version": "v0",
+      "schema": "soulforge.ax_se_pilot_packet_generator.v0",
+      "sha256": "daa3a04c6c092403ffa7fb4ac593656fbeac84a2e61e19ee3f7f7c4733edb6ef"
+    },
+    "artifact_vocabulary": {
+      "sha256": "b4563a33f686baf24a661d695659e296e11185e345eb9c51c9850bb865227fef"
+    },
+    "rule_layers": {
+      "exploratory_dev_common_no_grade": {
+        "file": ".registry/skills/se_foldertree_generate/codex/assets/compiled/exploratory_dev_common_no_grade.json",
+        "spec_version": "0.1",
+        "spec_sha256": "bf5468299b6ea996e8f406bc6f4ae877539cd139ce546001271197b9c08c1bba",
+        "compiled_sha256": "002e2643b2a46e6dd9adba8c1e8fb7ac46b4e4cc8ce0b1c8dc0879d06c64a8b9"
+      },
+      "generic_se_base": {
+        "file": ".registry/skills/se_foldertree_generate/codex/assets/compiled/generic_se_base.json",
+        "spec_version": "0.3",
+        "spec_sha256": "6c37630e34c6652347df0a0fb97554a193c331cdd7d13fde80a0e6b8cca8acc4",
+        "compiled_sha256": "7f93668964f99eee3af208a3cd5f3c7d4ff33056c7b369e6ffc58ccadba6ed13"
+      },
+      "operational_rd_common_no_grade": {
+        "file": ".registry/skills/se_foldertree_generate/codex/assets/compiled/operational_rd_common_no_grade.json",
+        "spec_version": "0.1",
+        "spec_sha256": "2dd988117ca3a41298ceb3aa7815e1acc8763d9fee0e4562a06a27062f9f320d",
+        "compiled_sha256": "482e8ceda6a7d0b49495c4a01b76b3205fa0ed64d1ddd57188f35efdacb72366"
+      },
+      "pre_study_common_no_grade": {
+        "file": ".registry/skills/se_foldertree_generate/codex/assets/compiled/pre_study_common_no_grade.json",
+        "spec_version": "0.1",
+        "spec_sha256": "c292460646c55640effea03eadc45e992c36ad9dae2397af619caf3f75505576",
+        "compiled_sha256": "98515bac758ac554df3382ab62587c77e9b0b05d48e0da6f6d7e18d42ecb03cf"
+      },
+      "system_dev_common_no_grade": {
+        "file": ".registry/skills/se_foldertree_generate/codex/assets/compiled/system_dev_common_no_grade.json",
+        "spec_version": "0.10",
+        "spec_sha256": "1d740256fbe94a436f790256a1e4ae310171b9432067f50ca02d0c43ae01ee58",
+        "compiled_sha256": "4b36a8351bc08bb4d45ebf0513af23da126e7e1ede529ac4d9080c1b83a9fdb7"
+      },
+      "system_dev_lig_grade_a": {
+        "file": ".registry/skills/se_foldertree_generate/codex/assets/compiled/system_dev_lig_grade_a.json",
+        "spec_version": "0.10",
+        "spec_sha256": "1d740256fbe94a436f790256a1e4ae310171b9432067f50ca02d0c43ae01ee58",
+        "compiled_sha256": "a057bcbcd5df5e8e317c99a336dac49e7f63699025c3cd2f6dc355442d29b089"
+      }
+    },
+    "prime_overlays": {
+      "system_dev_lig_grade_a.prime.overlay.json": {
+        "file": ".registry/skills/se_foldertree_generate/codex/assets/compiled/overlays/system_dev_lig_grade_a.prime.overlay.json",
+        "sha256": "3550e57c5fd5b772387205fb5f9445c8034dd2b8e535a3800494c72007b726c6"
+      }
+    }
+  },
+  "note": "engine_version 0.0.0 = 만드는 중(Owner 2026-08-18). 정본 승격 시 실제 번호 시작. run receipts의 policy_ref는 이 매니페스트의 rule_layers/compiler 지문에서 나온다."
+}
