@@ -25,7 +25,7 @@
 import { createHash } from 'node:crypto';
 
 import { canonicalise, compareCodePoints } from '../kernel/canonical.mjs';
-import { INTERIM_WORDINGS, OUT_FOLDER } from './artifact_observation_candidates.mjs';
+import { INTERIM_WORDINGS, locateInTaskFolder } from './artifact_observation_candidates.mjs';
 
 export const OBSERVATION_HOUSEKEEPING_SCHEMA_VERSION = 'soulforge.observation_housekeeping.v0';
 
@@ -146,22 +146,10 @@ const fold = (value) => value.normalize('NFC').toLowerCase();
 const baseName = (fileRef) => fileRef.slice(fileRef.lastIndexOf('/') + 1);
 const clamp = (text) => (text.length <= MAX.detail ? text : `${text.slice(0, MAX.detail - 1)}…`);
 
-/**
- * The (gate, task folder) a file sits in, and whether it sits in that folder's output folder.
- *
- * A file outside the `gate/task/03_Out/...` shape has no task folder for this report's purposes:
- * housekeeping is about the folders the folder-tree contract defines, not about loose material.
- */
-function locate(fileRef) {
-  const segments = fileRef.split('/');
-  if (segments.length < 3) return null;
-  if (!/^\d{1,6}_/u.test(segments[0]) || !/^\d{1,6}_/u.test(segments[1])) return null;
-  return {
-    gate: segments[0],
-    task_folder: segments[1],
-    in_out_folder: segments[2] === OUT_FOLDER,
-  };
-}
+// The (gate, task folder) a file sits in, and whether it sits in that folder's output folder. A
+// file outside the `gate/task/03_Out/...` shape has no task folder for this report's purposes:
+// housekeeping is about the folders the folder-tree contract defines, not about loose material.
+const locate = locateInTaskFolder;
 
 const looksLikeTransport = (name, ext) => ARCHIVE_EXTENSIONS.has(fold(ext ?? ''))
   || SPLIT_PART_EXPRESSIONS.some((expression) => expression.test(fold(name)));

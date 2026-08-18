@@ -163,6 +163,70 @@ test('every auto-confirmed row carries a cue from the file itself', () => {
   }
 });
 
+test('the standard token in a file name is a cue for its own artifact and no other', () => {
+  const rows = byFileRef(build());
+
+  // The parts list: the spec term is Q-BOM and the vocabulary label is 부품목록, so before the
+  // token became a cue this file named nothing and the folder alone was carrying it.
+  const partsList = rows.get('120_CDR/131_synthetic_qbom_F/03_Out/synthetic_BOM_260818_v1.1.xlsx');
+  assert.equal(partsList.artifact_type_id, 'bom');
+  assert.equal(partsList.own_name_cue, true);
+  assert.equal(partsList.auto_confirmed, true);
+  assert.ok(partsList.cues.some((cue) => cue.kind === 'type_token' && cue.matched === 'bom'));
+
+  // A different artifact's token in the same folder is not a cue for this folder's artifact.
+  const foreign = rows.get('120_CDR/131_synthetic_qbom_F/03_Out/synthetic_icd_export.xlsx');
+  assert.equal(foreign.artifact_type_id, 'bom');
+  assert.equal(foreign.own_name_cue, false);
+  assert.equal(foreign.auto_confirmed, false);
+
+  // Bounded like every other latin cue.
+  assert.equal(rows.get('synthetic_master_doc/synthetic_bomb_shelter_note.pdf').outcome, 'unmatched');
+});
+
+test('a registered name pattern names the artifact where no word does', () => {
+  const rows = byFileRef(build());
+
+  const inFolder = rows.get('120_CDR/156_synthetic_drawings_second/03_Out/SD-0142-sheet.pdf');
+  assert.equal(inFolder.artifact_type_id, 'drawings');
+  assert.equal(inFolder.own_name_cue, true);
+  assert.equal(inFolder.auto_confirmed, true);
+  assert.ok(inFolder.cues.some((cue) => cue.kind === 'alias_pattern'));
+
+  // Registered with stage_code null: the stage comes from where the rules place the artifact.
+  const looseFile = rows.get('synthetic_master_doc/SD-0143-sheet.pdf');
+  assert.equal(looseFile.outcome, 'candidate');
+  assert.equal(looseFile.stage_code, '120_CDR');
+  assert.equal(looseFile.own_name_cue, true);
+
+  // A pattern is inert without its own file.
+  const withoutPatterns = build({ alias_patterns: [] });
+  assert.equal(withoutPatterns.unmatched.some(
+    (row) => row.file_ref === 'synthetic_master_doc/SD-0143-sheet.pdf',
+  ), true);
+});
+
+test('an unusable alias pattern is refused without echoing the pattern', () => {
+  const cases = [
+    [{ stage_code: null, artifact_type_id: 'drawings', pattern: '^SD-[unclosed', basis: 'b' },
+      OBSERVATION_CANDIDATE_ERROR_CODES.ALIAS_PATTERN_INVALID],
+    [{ stage_code: null, artifact_type_id: 'not_a_token', pattern: '^x', basis: 'b' },
+      OBSERVATION_CANDIDATE_ERROR_CODES.ALIAS_PATTERN_INVALID],
+    [{ stage_code: '999_NOWHERE', artifact_type_id: 'drawings', pattern: '^x', basis: 'b' },
+      OBSERVATION_CANDIDATE_ERROR_CODES.STAGE_CODE_UNKNOWN],
+    [{ stage_code: null, artifact_type_id: 'drawings', pattern: '^x' },
+      OBSERVATION_CANDIDATE_ERROR_CODES.ALIAS_PATTERN_INVALID],
+  ];
+  for (const [pattern, code] of cases) {
+    assert.throws(() => build({ alias_patterns: [pattern] }), (error) => {
+      assert.equal(error.code, code);
+      assert.equal(JSON.stringify(error.detail).includes('unclosed'), false);
+      assert.equal(error.message.includes('unclosed'), false);
+      return true;
+    }, JSON.stringify(pattern));
+  }
+});
+
 test('an activity or decision node can never become a candidate', () => {
   // D46 added rows that are work to be done and states to be declared rather than documents. A
   // file in such a folder shows the folder is not empty; it can never show the work happened.

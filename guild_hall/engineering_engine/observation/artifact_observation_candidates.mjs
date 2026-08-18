@@ -40,6 +40,7 @@ export const OBSERVATION_CANDIDATE_ERROR_CODES = Object.freeze({
   INVENTORY_INVALID: 'OBSERVATION_CANDIDATE_INVENTORY_INVALID',
   VARIANT_INVALID: 'OBSERVATION_CANDIDATE_VARIANT_INVALID',
   ALIAS_INVALID: 'OBSERVATION_CANDIDATE_ALIAS_INVALID',
+  ALIAS_PATTERN_INVALID: 'OBSERVATION_CANDIDATE_ALIAS_PATTERN_INVALID',
   VOCABULARY_INVALID: 'OBSERVATION_CANDIDATE_VOCABULARY_INVALID',
   STAGE_CODE_UNKNOWN: 'OBSERVATION_CANDIDATE_STAGE_CODE_UNKNOWN',
 });
@@ -96,8 +97,17 @@ export const CONFIDENCE = Object.freeze({ HIGH: 'high', MEDIUM: 'medium', LOW: '
 export const MATURITY = Object.freeze({
   PRELIMINARY: 'preliminary', UPDATED: 'updated', BASELINE: 'baseline', FINAL: 'final',
 });
+// Ordered strongest first; the sheet a person reads lists cues in this order.
+//
+// `type_token` is the standard token itself (`bom`, `hdd`, `icd`) appearing in a file name. It is
+// separated from `filename_term` because it says something different: the spec's term is what
+// this business type calls the artifact, the token is what every business type calls it, so a
+// token match is the one cue that works in a project whose spec row carries no short term.
+// `alias_pattern` is a project-registered shape (a drawing-number prefix, a document-number
+// scheme) — a name that names the artifact by convention rather than by word.
 export const CUE_KINDS = Object.freeze([
-  'task_folder', 'filename_term', 'label_ko', 'label_en', 'alias', 'title',
+  'task_folder', 'filename_term', 'type_token', 'label_ko', 'label_en',
+  'alias', 'alias_pattern', 'title',
 ]);
 
 // The folder the folder-tree contract reserves for a task's finished output. Rule 2 above rests
@@ -168,6 +178,7 @@ export const INTERIM_WORDINGS = Object.freeze([
 const MAX = Object.freeze({
   inventory: 200000, variants: 16, aliases: 4096, gates: 64, tasks: 4096,
   vocabulary: 4096, string: 1024, cues: 24, options: 32,
+  patterns: 512, pattern: 200,
 });
 
 // ---------------------------------------------------------------- small assertions
@@ -298,6 +309,25 @@ function containsTerm(haystack, term) {
   }
 }
 
+/**
+ * Where a file sits in the folder-tree shape, or `null` if it does not sit in one.
+ *
+ * `gate/task/03_Out/...` is the only shape this layer reads structurally. Exported because the
+ * confirmation sheet and the housekeeping report both group by task folder, and one parse shared
+ * between them is one definition of "the same folder".
+ */
+export function locateInTaskFolder(fileRef) {
+  const segments = String(fileRef).split('/');
+  if (segments.length < 3) return null;
+  if (!/^\d{1,6}_/u.test(segments[0]) || !/^\d{1,6}_/u.test(segments[1])) return null;
+  return {
+    gate: segments[0],
+    task_folder: segments[1],
+    task_folder_ref: `${segments[0]}/${segments[1]}`,
+    in_out_folder: segments[2] === OUT_FOLDER,
+  };
+}
+
 /** The leading `NNN_` number of a gate or task folder name, or `null`. */
 function leadingNumber(folderName) {
   const match = /^(\d{1,6})_/u.exec(folderName);
@@ -355,7 +385,7 @@ function addCueTerm(index, term, kind, stageCode, artifactTypeId) {
  * Builds the one index every match is read out of: cue term to the (stage, artifact type) pairs
  * that term can mean, plus the task-number map that rule 2 rests on.
  */
-function buildRuleIndex(variants, overlayAliases, vocabulary) {
+function buildRuleIndex(variants, overlayAliases, vocabulary, aliasPatterns) {
   const code = OBSERVATION_CANDIDATE_ERROR_CODES.VARIANT_INVALID;
   const termIndex = new Map();
   const taskTargets = new Map();
@@ -427,13 +457,19 @@ function buildRuleIndex(variants, overlayAliases, vocabulary) {
     }
   }
 
-  // Vocabulary labels are stage-agnostic: they say what an artifact type is called, not where it
-  // belongs. They are registered against every stage the rule specs place that type in, so a
-  // label cue can never invent a stage the rules do not declare.
+  // Vocabulary labels and the token itself are stage-agnostic: they say what an artifact type is
+  // called, not where it belongs. They are registered against every stage the rule specs place
+  // that type in, so neither can invent a stage the rules do not declare.
+  //
+  // The token is registered because it is what people actually type. A parts list filed as
+  // `K-VDS_BOM_260818.xlsx` names its artifact perfectly well; the spec row for that task calls
+  // it `Q-BOM` and the vocabulary calls it 부품목록, and before this the file matched neither.
+  // Token matching is boundary-bounded like every other latin cue, so `bom` does not find `bomb`.
   for (const [artifactTypeId, stages] of stagesByType) {
     const entry = vocabularyById.get(artifactTypeId) ?? artifactTypeEntry(artifactTypeId);
-    if (entry === null || entry === undefined) continue;
     for (const stageCode of stages) {
+      addCueTerm(termIndex, artifactTypeId, 'type_token', stageCode, artifactTypeId);
+      if (entry === null || entry === undefined) continue;
       if (typeof entry.label_ko === 'string') {
         addCueTerm(termIndex, entry.label_ko, 'label_ko', stageCode, artifactTypeId);
       }
@@ -473,7 +509,83 @@ function buildRuleIndex(variants, overlayAliases, vocabulary) {
     }
   }
 
-  return { termIndex, taskTargets, stagesByType, declaredPairs };
+  return {
+    termIndex,
+    taskTargets,
+    stagesByType,
+    declaredPairs,
+    patterns: compileAliasPatterns(aliasPatterns, stagesByType, nonEvidenceTypes, declaredPairs),
+  };
+}
+
+/**
+ * Compiles the project-registered name shapes into matchers.
+ *
+ * Some artifacts are named by a scheme rather than by a word. A project's drawings are filed as
+ * `F245-013001001002(...).pdf`: nothing in that name says "drawing", and no vocabulary label,
+ * spec term or token ever will. The Owner registers the shape once, privately, and from then on
+ * such a file names its artifact as clearly as one called `..._도면_....pdf` does.
+ *
+ * `stage_code: null` means "wherever the rules place this artifact", which is why this runs after
+ * the variants have been read: the pattern is registered against the stages the rule specs
+ * already declare for that type, and so cannot invent a stage of its own.
+ */
+function compileAliasPatterns(aliasPatterns, stagesByType, nonEvidenceTypes, declaredPairs) {
+  const code = OBSERVATION_CANDIDATE_ERROR_CODES.ALIAS_PATTERN_INVALID;
+  const compiled = [];
+  aliasPatterns.forEach((row, index) => {
+    assertExactKeys(row, ['stage_code', 'artifact_type_id', 'pattern', 'basis'], [],
+      'request.alias_patterns[]', code);
+    const artifactTypeId = assertText(row.artifact_type_id,
+      'request.alias_patterns[].artifact_type_id', code);
+    if (!isKnownArtifactType(artifactTypeId)) {
+      fail(code, 'an alias pattern names an artifact type no vocabulary owns',
+        { where: 'request.alias_patterns[].artifact_type_id', index });
+    }
+    if (nonEvidenceTypes.has(artifactTypeId)) return;
+    assertText(row.basis, 'request.alias_patterns[].basis', code);
+    if (typeof row.pattern !== 'string' || row.pattern.length === 0
+        || row.pattern.length > MAX.pattern) {
+      fail(code, 'an alias pattern must be bounded regular-expression source',
+        { where: 'request.alias_patterns[].pattern', index });
+    }
+
+    let stageCodes;
+    if (row.stage_code === null) {
+      stageCodes = [...(stagesByType.get(artifactTypeId) ?? [])];
+      if (stageCodes.length === 0) {
+        // The rules place this artifact nowhere in the compiled variants given, so a pattern for
+        // it could only ever produce a candidate with no stage. Registered and inert rather than
+        // refused: the same pattern file is meant to outlive one compile.
+        return;
+      }
+    } else {
+      const stageCode = assertText(row.stage_code, 'request.alias_patterns[].stage_code', code);
+      if (![...STAGE_CODE_BY_GATE_CODE.values()].includes(stageCode)) {
+        fail(OBSERVATION_CANDIDATE_ERROR_CODES.STAGE_CODE_UNKNOWN,
+          'an alias pattern names a stage code the engine does not declare',
+          { where: 'request.alias_patterns[].stage_code', index });
+      }
+      stageCodes = [stageCode];
+    }
+
+    let expression;
+    try {
+      expression = new RegExp(row.pattern, 'u');
+    } catch {
+      // The rejected pattern never travels back to the caller: a refusal names the field and the
+      // row, and the pattern itself stays in the private file it came from.
+      fail(code, 'an alias pattern is not a valid regular expression',
+        { where: 'request.alias_patterns[].pattern', index });
+    }
+    for (const stageCode of stageCodes) declaredPairs.add(stageTypeKey(stageCode, artifactTypeId));
+    compiled.push({
+      artifact_type_id: artifactTypeId,
+      targets: stageCodes.map((stageCode) => stageTypeKey(stageCode, artifactTypeId)),
+      expression,
+    });
+  });
+  return compiled;
 }
 
 // ---------------------------------------------------------------- maturity
@@ -561,6 +673,17 @@ function collectCues(row, ruleIndex, stageFromGate) {
       record(target, { kind: inName ? entry.kind : 'title', matched: term });
     }
   }
+
+  // Registered name shapes are matched against the file name as written rather than the folded
+  // form: the pattern is the Owner's own text and decides its own case handling.
+  for (const pattern of ruleIndex.patterns) {
+    const hit = pattern.expression.exec(nfc(row.name));
+    if (hit === null) continue;
+    for (const target of pattern.targets) {
+      if (stageFromGate !== null && target.split('\u001f')[0] !== stageFromGate) continue;
+      record(target, { kind: 'alias_pattern', matched: hit[0].slice(0, 64) });
+    }
+  }
   return byTarget;
 }
 
@@ -580,13 +703,14 @@ function bestCues(cues) {
 /**
  * Proposes candidate artifact observations for one walked inventory.
  *
- * @param request `{ inventory, compiled_variants, overlay_aliases?, vocabulary, known_at, rules? }`
+ * @param request `{ inventory, compiled_variants, overlay_aliases?, alias_patterns?, vocabulary,
+ *   known_at, rules? }`
  * @returns deeply frozen `{ candidates, unmatched, ambiguous, receipt }`
  */
 export function buildArtifactObservationCandidates(request) {
   const code = OBSERVATION_CANDIDATE_ERROR_CODES.REQUEST_INVALID;
   assertExactKeys(request, ['inventory', 'compiled_variants', 'vocabulary', 'known_at'],
-    ['overlay_aliases', 'rules'], 'request', code);
+    ['overlay_aliases', 'alias_patterns', 'rules'], 'request', code);
 
   const inventory = assertArray(request.inventory, 'request.inventory',
     OBSERVATION_CANDIDATE_ERROR_CODES.INVENTORY_INVALID, MAX.inventory);
@@ -601,6 +725,10 @@ export function buildArtifactObservationCandidates(request) {
     ? assertArray(request.overlay_aliases, 'request.overlay_aliases',
       OBSERVATION_CANDIDATE_ERROR_CODES.ALIAS_INVALID, MAX.aliases)
     : [];
+  const aliasPatterns = Object.hasOwn(request, 'alias_patterns')
+    ? assertArray(request.alias_patterns, 'request.alias_patterns',
+      OBSERVATION_CANDIDATE_ERROR_CODES.ALIAS_PATTERN_INVALID, MAX.patterns)
+    : [];
   if (!isCanonicalInstant(request.known_at)) {
     fail(code, 'request.known_at must be a canonical instant', { where: 'request.known_at' });
   }
@@ -613,7 +741,7 @@ export function buildArtifactObservationCandidates(request) {
   }
   const autoConfirmOut = rules.auto_confirm_03_out === true;
 
-  const ruleIndex = buildRuleIndex(variants, overlayAliases, request.vocabulary);
+  const ruleIndex = buildRuleIndex(variants, overlayAliases, request.vocabulary, aliasPatterns);
 
   const candidates = [];
   const unmatched = [];
@@ -788,6 +916,7 @@ export function buildArtifactObservationCandidates(request) {
       inventory: canonicalDigest(candidateDomain('inventory'), inventory),
       compiled_variants: canonicalDigest(candidateDomain('compiled_variants'), variants),
       overlay_aliases: canonicalDigest(candidateDomain('overlay_aliases'), overlayAliases),
+      alias_patterns: canonicalDigest(candidateDomain('alias_patterns'), aliasPatterns),
       vocabulary: canonicalDigest(candidateDomain('vocabulary'), request.vocabulary),
       rules: canonicalDigest(candidateDomain('rules'), { auto_confirm_03_out: autoConfirmOut }),
     },

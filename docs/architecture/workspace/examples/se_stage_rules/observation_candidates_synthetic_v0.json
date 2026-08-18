@@ -98,6 +98,14 @@
                 "verification_status": "source_supported"
               },
               {
+                "id": 131,
+                "name": "Synthetic bill of materials (Q-BOM)_F",
+                "term": "Q-BOM",
+                "artifact_type_id": "bom",
+                "evidence_level": "guidebook_recommended",
+                "verification_status": "source_supported"
+              },
+              {
                 "id": 141,
                 "name": "Synthetic software requirements specification (SRS)",
                 "term": "SRS",
@@ -130,6 +138,14 @@
         "artifact_type_id": "prime_synthetic_gate_review",
         "alias": "prime_synthetic_gate_review",
         "label": "Synthetic prime gate review (Q9A)"
+      }
+    ],
+    "alias_patterns": [
+      {
+        "stage_code": null,
+        "artifact_type_id": "drawings",
+        "pattern": "^SD-\\d{4}-",
+        "basis": "synthetic project drawing-number prefix"
       }
     ],
     "known_at": "2026-08-18T00:00:00.000Z",
@@ -351,18 +367,64 @@
         "mtime_iso": "2026-07-31T01:00:00.000Z",
         "gate_hint": "120_CDR",
         "task_folder_hint": "141_synthetic_srs"
+      },
+      {
+        "file_ref": "120_CDR/131_synthetic_qbom_F/03_Out/synthetic_BOM_260818_v1.1.xlsx",
+        "name": "synthetic_BOM_260818_v1.1.xlsx",
+        "ext": "xlsx",
+        "bytes": 88000,
+        "sha256": "def3f55138ba498983f3b633dd13335e3d08012dc98237cd010a0737fd3bc8a0",
+        "mtime_iso": "2026-08-01T01:00:00.000Z",
+        "gate_hint": "120_CDR",
+        "task_folder_hint": "131_synthetic_qbom_F"
+      },
+      {
+        "file_ref": "120_CDR/131_synthetic_qbom_F/03_Out/synthetic_icd_export.xlsx",
+        "name": "synthetic_icd_export.xlsx",
+        "ext": "xlsx",
+        "bytes": 12000,
+        "sha256": "554a43ce62dfc827936f826e81b0ad59bc26799ce61daa17f1c89c6442e0aba5",
+        "mtime_iso": "2026-08-02T01:00:00.000Z",
+        "gate_hint": "120_CDR",
+        "task_folder_hint": "131_synthetic_qbom_F"
+      },
+      {
+        "file_ref": "120_CDR/156_synthetic_drawings_second/03_Out/SD-0142-sheet.pdf",
+        "name": "SD-0142-sheet.pdf",
+        "ext": "pdf",
+        "bytes": 240000,
+        "sha256": "6b34a973e5614cba54c0601d5de04019e5a33be0a3cc44f395a18288ff132fc3",
+        "mtime_iso": "2026-08-03T01:00:00.000Z",
+        "gate_hint": "120_CDR",
+        "task_folder_hint": "156_synthetic_drawings_second"
+      },
+      {
+        "file_ref": "synthetic_master_doc/SD-0143-sheet.pdf",
+        "name": "SD-0143-sheet.pdf",
+        "ext": "pdf",
+        "bytes": 241000,
+        "sha256": "c59941bd3fe012443c3c5ef4ecd074abd4bc4c6340efca77af90a9e840f17680",
+        "mtime_iso": "2026-08-04T01:00:00.000Z"
+      },
+      {
+        "file_ref": "synthetic_master_doc/synthetic_bomb_shelter_note.pdf",
+        "name": "synthetic_bomb_shelter_note.pdf",
+        "ext": "pdf",
+        "bytes": 5000,
+        "sha256": "47ae20c210fbf5ea73ea3c69ca30fca68fcc880b6ab780f096ffc1695654077c",
+        "mtime_iso": "2026-08-05T01:00:00.000Z"
       }
     ]
   },
   "expected": {
     "counts": {
-      "inventory_files": 22,
-      "candidates": 16,
-      "auto_confirmed": 7,
-      "auto_confirm_withheld_no_own_cue": 2,
-      "needs_owner_confirmation": 9,
+      "inventory_files": 27,
+      "candidates": 20,
+      "auto_confirmed": 9,
+      "auto_confirm_withheld_no_own_cue": 3,
+      "needs_owner_confirmation": 11,
       "ambiguous": 1,
-      "unmatched": 5
+      "unmatched": 6
     },
     "by_file_ref": {
       "120_CDR/125_synthetic_hdd_F/03_Out/synthetic_hdd_final.pdf": {
@@ -527,6 +589,51 @@
         "reason": "no_rule_cue_in_name_or_title",
         "why": "the task is a D46 activity node, not a document. A file in its folder shows the folder is not empty, never that the work happened, so this layer will not read it as an observation"
       },
+      "120_CDR/131_synthetic_qbom_F/03_Out/synthetic_BOM_260818_v1.1.xlsx": {
+        "outcome": "candidate",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "bom",
+        "maturity": "final",
+        "confidence": "high",
+        "auto_confirmed": true,
+        "own_name_cue": true,
+        "why": "the parts-list case: the spec term is Q-BOM and the label is 부품목록, so nothing matched until the standard token itself became a cue. The name says BOM, which is what people actually type"
+      },
+      "120_CDR/131_synthetic_qbom_F/03_Out/synthetic_icd_export.xlsx": {
+        "outcome": "candidate",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "bom",
+        "maturity": "final",
+        "confidence": "high",
+        "auto_confirmed": false,
+        "own_name_cue": false,
+        "why": "a different artifact's token is not a cue for this one: the name says ICD while the folder says parts list, so a person decides"
+      },
+      "120_CDR/156_synthetic_drawings_second/03_Out/SD-0142-sheet.pdf": {
+        "outcome": "candidate",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "drawings",
+        "maturity": null,
+        "confidence": "high",
+        "auto_confirmed": true,
+        "own_name_cue": true,
+        "why": "named by a drawing-number scheme rather than by a word; the registered alias pattern is what lets the file name its own artifact"
+      },
+      "synthetic_master_doc/SD-0143-sheet.pdf": {
+        "outcome": "candidate",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "drawings",
+        "maturity": null,
+        "confidence": "medium",
+        "auto_confirmed": false,
+        "own_name_cue": true,
+        "why": "the same pattern outside any task folder. Registered with stage_code null, so the stage comes from where the rules place drawings — never from the pattern itself"
+      },
+      "synthetic_master_doc/synthetic_bomb_shelter_note.pdf": {
+        "outcome": "unmatched",
+        "reason": "no_rule_cue_in_name_or_title",
+        "why": "token matching is bounded: bom does not find bomb"
+      },
       "120_CDR/121_synthetic_inbox/03_Out/synthetic_hdd_copy.pdf": {
         "outcome": "candidate",
         "stage_code": "120_CDR",
@@ -550,37 +657,43 @@
     },
     "confirmed_run": {
       "note": "applyConfirmationSheet with no decisions confirms only the auto-confirmed rows; the observation builder then emits one observation per (stage, artifact type). Three confirmed drawings files collapse to one observation.",
-      "confirmed": 7,
-      "pending": 9,
-      "artifact_observations": 5,
+      "confirmed": 9,
+      "pending": 11,
+      "artifact_observations": 6,
       "superseded_pairs": 1,
-      "superseded_files": 2
+      "superseded_files": 3
     },
     "owner_confirmed_run": {
       "note": "with the working ICD draft also confirmed by an Owner decision, the final ICD wins that pair and the draft is recorded as superseded.",
       "decisions": [
         { "candidate_file_ref": "120_CDR/129_synthetic_icd_F/01_Work/synthetic_icd_draft.docx", "decision": "confirm" }
       ],
-      "confirmed": 8,
-      "artifact_observations": 5,
+      "confirmed": 10,
+      "artifact_observations": 6,
       "superseded_pairs": 2,
-      "superseded_files": 3
+      "superseded_files": 4
+    },
+    "folder_confirmed_run": {
+      "note": "one folder tick instead of per-file ticks. confirm_folder on the review-minutes folder confirms its three 03_Out candidates — including the two the tightened rule withheld — and leaves everything outside that folder untouched.",
+      "decision": { "task_folder_ref": "120_CDR/139_synthetic_cdr_minutes", "decision": "confirm_folder" },
+      "confirmed_by_folder": 3,
+      "note_on_counts": "all three 03_Out files, including the one the automatic rule had already confirmed: a person deciding the folder is a stronger statement than the rule, so it takes the row over rather than leaving it labelled automatic"
     },
     "housekeeping": {
       "note": "buildHousekeepingReport over the same inventory and candidates. Cleanup facts about folders, never a judgement about the project: no item here changes a candidate, an observation, or an engine requirement.",
-      "items": 7,
-      "task_folders_seen": 12,
+      "items": 9,
+      "task_folders_seen": 13,
       "by_kind": {
-        "duplicate_output": 1,
-        "wrong_material": 1,
+        "duplicate_output": 2,
+        "wrong_material": 2,
         "transport_package": 2,
         "draft_wording": 1,
         "duplicate_task_folder": 1,
         "out_folder_empty": 1
       },
       "expected_task_folders": {
-        "duplicate_output": "120_CDR/130_synthetic_drawings — two files that both name drawings; the misfiled material in the minutes folder is deliberately NOT counted here, it is wrong_material",
-        "wrong_material": "120_CDR/139_synthetic_cdr_minutes — two files in the minutes 03_Out that never name the minutes (2 files, one item)",
+        "duplicate_output": "120_CDR/130_synthetic_drawings and 120_CDR/156_synthetic_drawings_second — two files that both name drawings in each; the misfiled material in the minutes folder is deliberately NOT counted here, it is wrong_material",
+        "wrong_material": "120_CDR/139_synthetic_cdr_minutes (2 files) and 120_CDR/131_synthetic_qbom_F (the ICD export in the parts-list output folder)",
         "transport_package": "120_CDR/139_synthetic_cdr_minutes and 120_CDR/199_synthetic_unmapped_task — a split zip part in each",
         "draft_wording": "120_CDR/130_synthetic_drawings — 중간수정본 left in 03_Out",
         "duplicate_task_folder": "120_CDR drawings in both 130_synthetic_drawings and 156_synthetic_drawings_second",

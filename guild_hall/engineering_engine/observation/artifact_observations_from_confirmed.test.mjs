@@ -448,11 +448,17 @@ test('the generator accepts the observations this module produces', () => {
     });
     assert.equal(candidateResult.candidates.length, inventory.length);
 
-    // Confirmed by an Owner decision rather than by the `03_Out` rule. The compiled fixture's
-    // task rows carry no short term (`HDD`, `ICD`), so these synthetic file names name no
-    // artifact of their own, and the tightened auto-confirmation rightly withholds them. What is
-    // under test here is the generator's acceptance, so the confirmation comes the other way.
-    assert.equal(candidateResult.candidates.every((row) => row.own_name_cue === false), true);
+    // The compiled fixture's task rows carry no short term (`HDD`, `ICD`), so the only thing that
+    // can name these files' artifacts is the standard token itself. Three of the four carry it;
+    // the review minutes do not, because nobody writes `review_minutes_cdr` in a file name.
+    const ownCue = new Map(candidateResult.candidates.map(
+      (row) => [row.artifact_type_id, row.own_name_cue],
+    ));
+    assert.deepEqual([...ownCue.entries()].sort(), [
+      ['icd', true], ['pci', true], ['review_minutes_cdr', false], ['srs', true],
+    ]);
+    // Confirmed by an Owner decision so that the acceptance under test is the generator's, not
+    // the auto-confirmation rule's.
     const applied = applyConfirmationSheet(candidateResult.candidates,
       candidateResult.candidates.map((row) => ({ candidate_id: row.candidate_id, decision: 'confirm' })));
     assert.equal(applied.confirmed.length, inventory.length);

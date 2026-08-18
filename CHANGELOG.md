@@ -1,5 +1,39 @@
 # CHANGELOG
 
+## 2026-08-18 - Observation cues widened, folder-level confirmation, and manual chapter 10
+
+Owner said yes to the three questions the previous slice left open, and the answers are three
+small rules that together took auto-confirmation on the pilot project from 4 files back to 96 —
+without loosening the "the file must say what it is" condition that produced those numbers.
+
+- **The standard token is its own cue.** `bom`, `hdd`, `icd`, `rtm` appearing in a file name now
+  count as naming that artifact, alongside the spec term, the vocabulary labels and the project
+  aliases. This is what people actually type: a parts list filed as `K-VDS_BOM_260818.xlsx` matched
+  nothing before, because the spec row calls it `Q-BOM` and the vocabulary calls it 부품목록.
+  Matching stays token-bounded, so `bom` does not find `bomb`, and a different artifact's token is
+  never a cue for this one.
+- **Projects may register name shapes.** New `alias_patterns[]` input (CLI `--alias-patterns <abs
+  json>`, a private project file): `{stage_code|null, artifact_type_id, pattern, basis}`. Some
+  artifacts are named by a scheme rather than a word — drawings filed as `F245-013001001002(...)`
+  say neither "도면" nor `drawings`, and no vocabulary ever will. A match is a cue of kind
+  `alias_pattern` and satisfies the own-cue condition. `stage_code: null` means "wherever the rules
+  place this artifact", so a pattern can never invent a stage. An unusable pattern is refused with
+  a field label and the pattern source never travels into the refusal or the receipt.
+- **A folder can be confirmed in one tick.** The confirmation sheet now leads with a task-folder
+  table (단계 / 업무폴더 / 산출물 / 후보 수 / 03_Out 파일 수 / 확인) for every folder that resolves
+  to exactly one artifact, and `applyConfirmationSheet` accepts `confirm_folder` / `reject_folder`
+  (optionally reassigning). A folder decision reaches that folder's `03_Out` files only — working
+  material in `01_Work` and `02_Input` is not a claim about what was produced — and the precedence
+  is file decision > folder decision > automatic rule.
+- **New manual chapter `manual/10_observation_eye.md`** (Owner instruction: every built function has
+  to be explained where a reader can find it). Purpose and the two routes a document takes into the
+  engine, what is read and what is not, the 3+1 rules, the confirmation sheet and folder ticks, how
+  observations are shaped for the generator, the six housekeeping kinds, the seven output files and
+  where they live, the limits (a well-named empty shell still passes — that is D1's job), the
+  measured pilot numbers across runs, and the order to change this part in. Added to the manual
+  reading order as row 10, with a pointer from chapter 03 (new §3.8) and from the agreed-missing table.
+- `npm run validate:se-observation` now 67 tests (was 57).
+
 ## 2026-08-18 - Observation auto-confirmation tightened + folder housekeeping report
 
 - **The `03_Out` auto-confirmation now needs three conditions, not two.** A file is confirmed

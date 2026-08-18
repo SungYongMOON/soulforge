@@ -207,6 +207,75 @@ test('a run whose output folder sits inside the project does not walk its own ou
   assert.ok(third.rows.some((row) => row.file_ref.startsWith('validation/observation_run_01/')));
 });
 
+test('a project pattern file reaches the walk, and a broken one is refused cleanly', () => {
+  const projectRoot = syntheticProject();
+  write(join(projectRoot, '120_CDR', '125_synthetic_hdd_F', '03_Out', 'SD-0142-sheet.pdf'), 'sheet');
+  const patternRoot = scratch();
+  const patternPath = join(patternRoot, 'alias_patterns.json');
+  writeFileSync(patternPath, JSON.stringify([{
+    stage_code: null,
+    artifact_type_id: 'hdd',
+    pattern: '^SD-\\d{4}-',
+    basis: 'synthetic drawing-number prefix',
+  }]), 'utf8');
+
+  const out = join(scratch(), 'observation_run_patterns');
+  const result = run([
+    '--project-root', projectRoot,
+    '--out', out,
+    '--compiled-variant', variantPath(),
+    '--alias-patterns', patternPath,
+    '--known-at', '2026-08-18T00:00:00.000Z',
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  const candidates = JSON.parse(readFileSync(join(out, 'candidates.json'), 'utf8'));
+  const matched = candidates.candidates.find((row) => row.file_ref.endsWith('SD-0142-sheet.pdf'));
+  assert.ok(matched !== undefined);
+  assert.ok(matched.cues.some((cue) => cue.kind === 'alias_pattern'));
+  assert.equal(matched.auto_confirmed, true);
+
+  const receipt = JSON.parse(readFileSync(join(out, 'receipt.json'), 'utf8'));
+  assert.equal(receipt.inputs.alias_patterns, 1);
+  // The receipt counts the patterns and digests them; the regular-expression source itself stays
+  // in the project file it came from.
+  const rendered = JSON.stringify(receipt);
+  assert.equal(rendered.includes('^SD-'), false);
+  assert.equal(rendered.includes('drawing-number'), false);
+
+  const brokenPath = join(patternRoot, 'broken_patterns.json');
+  writeFileSync(brokenPath, JSON.stringify([{
+    stage_code: null, artifact_type_id: 'hdd', pattern: '^SD-[unclosed', basis: 'broken',
+  }]), 'utf8');
+  const broken = run([
+    '--project-root', projectRoot,
+    '--out', join(scratch(), 'observation_run_broken'),
+    '--compiled-variant', variantPath(),
+    '--alias-patterns', brokenPath,
+    '--known-at', '2026-08-18T00:00:00.000Z',
+  ]);
+  assert.notEqual(broken.status, 0);
+  assert.match(broken.stderr, /ALIAS_PATTERN_INVALID/u);
+  assert.equal(broken.stderr.includes('unclosed'), false);
+});
+
+test('the sheet the CLI writes offers folder-level confirmation', () => {
+  const projectRoot = syntheticProject();
+  const out = join(scratch(), 'observation_run_folders');
+  assert.equal(run([
+    '--project-root', projectRoot,
+    '--out', out,
+    '--compiled-variant', variantPath(),
+    '--known-at', '2026-08-18T00:00:00.000Z',
+  ]).status, 0);
+  const sheet = JSON.parse(readFileSync(join(out, 'confirmation_sheet.json'), 'utf8'));
+  const folder = sheet.folders.find((row) => row.task_folder === '125_synthetic_hdd_F');
+  assert.ok(folder !== undefined);
+  assert.equal(folder.artifact_type_id, 'hdd');
+  // Counted from the walk, so it is the real file count rather than the candidate count.
+  assert.equal(folder.out_file_count, 1);
+  assert.match(readFileSync(join(out, 'confirmation_sheet.md'), 'utf8'), /## 1\. 업무폴더 단위 확인/u);
+});
+
 test('a missing required argument is refused', () => {
   const result = run(['--out', join(scratch(), 'nowhere')]);
   assert.equal(result.status, 2);

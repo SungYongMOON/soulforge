@@ -1020,12 +1020,16 @@ fs·clock·random·env·network를 쓰지 않는다(정적 effect pin 시험). �
 
 - `artifact_observation_candidates.mjs` — `buildArtifactObservationCandidates(request)`:
   자료 목록 + compiled variant(들) + overlay 별칭 + 산출물 표준어 → `{candidates, unmatched, ambiguous, receipt}`.
-  단서는 규칙에서만 온다: 업무폴더 번호 → 스펙 task → `artifact_type_id`(가장 강함), 파일명·제목 안의
-  스펙 용어·표준어 `label_ko`/`label_en`·과제 별칭, 성숙도는 `_D`/`_U`/`_F` 접미사와 `초안|draft|rev|최종|승인|v0.x` 토큰.
+  단서는 규칙에서만 온다: 업무폴더 번호 → 스펙 task → `artifact_type_id`(가장 강함), 그리고 파일명·제목 안의
+  스펙 용어(`term`)·**표준어 토큰 자체**(`bom`, `hdd` — 토큰 경계로 찾으므로 `bom`이 `bomb`을 찾지 않는다)·
+  표준어 `label_ko`/`label_en`·과제 별칭·**과제가 등록한 이름 패턴**(`alias_patterns`, 예 `^F245-` 같은 도면번호 규칙).
+  성숙도는 `_D`/`_U`/`_F` 접미사와 `초안|draft|중간수정본|검토본|rev|최종|승인본|배포본|v0.x` 토큰.
   단서가 없으면 `unmatched`, 단서가 둘로 갈리면 `ambiguous`로 두고 **추정하지 않는다**. 모델을 부르지 않는다.
-- `observation_confirmation_sheet.mjs` — 후보를 단계별로 묶은 한글 확인표(마크다운)와 같은 줄의
-  JSON 시트(`decision: null`)로 만들고, `applyConfirmationSheet`가 `confirm`/`reject`/`reassign` 결정을 적용한다.
-  결정이 없는 줄은 확정도 반려도 아닌 **보류**로 남는다.
+- `observation_confirmation_sheet.mjs` — 후보를 **업무폴더 단위 표 → 파일 단위 표** 순서의 한글 확인표와
+  같은 줄의 JSON 시트(`decision: null`)로 만든다. `applyConfirmationSheet`가 파일 결정
+  (`confirm`/`reject`/`reassign`)과 폴더 결정(`confirm_folder`/`reject_folder`)을 적용하며, 폴더 결정은
+  그 업무폴더 `03_Out` 아래 후보 전부를 한 번에 처리한다(`01_Work`·`02_Input`은 건드리지 않는다).
+  우선순위는 파일 결정 > 폴더 결정 > 자동 확정이고, 결정이 없는 줄은 확정도 반려도 아닌 **보류**로 남는다.
 - `artifact_observations_from_confirmed.mjs` — 확인된 줄 + sha256 → `pilot_packet_generator`가 그대로 받는
   `artifact_observations[]`. (단계, 산출물 종류) 쌍마다 관측 하나이며, 여러 파일이 한 쌍에 걸리면
   성숙도 → 수정시각 → digest 순으로 이긴 파일을 쓰고 나머지는 영수증의 `superseded`에 남긴다.
@@ -1050,7 +1054,8 @@ fs·clock·random·env·network를 쓰지 않는다(정적 effect pin 시험). �
 ```text
 node guild_hall/engineering_engine/tools/artifact_observation_inventory_runner.mjs \
   --project-root <abs> --out <abs dir> --compiled-variant <abs json> [--overlay <abs json>] \
-  [--include-globs "<glob>,<glob>"] [--max-files N] [--known-at <instant>] [--no-auto-confirm]
+  [--alias-patterns <abs json>] [--include-globs "<glob>"] [--exclude-globs "<glob>"] \
+  [--max-files N] [--known-at <instant>] [--no-auto-confirm]
 ```
 
 `--out` 아래에만 쓰고, 이미 있는 실행 산출물은 덮어쓰지 않고 거부한다.
@@ -1063,6 +1068,9 @@ node guild_hall/engineering_engine/tools/artifact_observation_inventory_runner.m
 ```text
 npm run validate:se-observation
 ```
+
+`--alias-patterns` 파일은 과제 자료면에 둔다(정규식 source·근거만; public 코드에 넣지 않는다).
+사람이 읽는 설명은 매뉴얼 [10장 관측 공급자](manual/10_observation_eye.md)에 있다.
 
 public-safe 합성 fixture는 `docs/architecture/workspace/examples/se_stage_rules/observation_candidates_synthetic_v0.json`이다.
 

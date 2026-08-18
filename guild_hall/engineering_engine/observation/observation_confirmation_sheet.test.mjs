@@ -38,12 +38,14 @@ test('the table is Korean, grouped by stage, and marks what confirmed itself', (
   const perStage = new Map();
   for (const row of candidates()) perStage.set(row.stage_code, (perStage.get(row.stage_code) ?? 0) + 1);
   for (const [stageCode, count] of perStage) {
-    assert.ok(markdown.includes(`## ${stageCode} (${count}건)`), `${stageCode} heading`);
+    assert.ok(markdown.includes(`### ${stageCode} (${count}건)`), `${stageCode} heading`);
   }
   // The stage headings appear in the order the stage codes sort in, not in inventory order.
   assert.ok(markdown.indexOf('## 090_PDR') < markdown.indexOf('## 120_CDR'));
   assert.equal((markdown.match(/\[x\] 자동확정/gu) ?? []).length, FIXTURE.expected.counts.auto_confirmed);
-  assert.equal((markdown.match(/\| \[ \] \|/gu) ?? []).length,
+  // Counted in the file section only: the folder table above it has its own tick boxes.
+  const fileSection = markdown.slice(markdown.indexOf('## 2. 파일 단위 확인'));
+  assert.equal((fileSection.match(/\| \[ \] \|/gu) ?? []).length,
     FIXTURE.expected.counts.needs_owner_confirmation);
   assert.match(markdown, /최종\(F\)/u);
   assert.match(markdown, /미표기/u);
@@ -152,6 +154,112 @@ test('a decision this candidate set cannot carry is refused', () => {
       return true;
     }, label);
   }
+});
+
+// ---------------------------------------------------------------- 3. folder-level confirmation
+
+test('the sheet offers a folder table first, for folders that resolve to one artifact', () => {
+  const { markdown, sheet } = buildObservationConfirmationSheet({
+    candidates: candidates(), known_at: FIXTURE.request.known_at,
+  });
+  assert.ok(markdown.indexOf('## 1. 업무폴더 단위 확인') < markdown.indexOf('## 2. 파일 단위 확인'));
+  assert.match(markdown, /\| 단계 \| 업무폴더 \| 산출물 \| 후보 수 \| 03_Out 파일 수 \| 확인\[ \] \|/u);
+
+  assert.ok(sheet.folders.length >= 5);
+  assert.equal(sheet.counts.decidable_task_folders, sheet.folders.length);
+  for (const folder of sheet.folders) {
+    assert.equal(folder.decision, null);
+    assert.equal(folder.task_folder_ref, `${folder.stage_code}/${folder.task_folder}`);
+    assert.ok(folder.candidate_count >= 1);
+    assert.ok(folder.out_file_count <= folder.candidate_count + folder.out_file_count);
+  }
+  // The inbox holds a classified document but is nobody's output folder, so it is not offered.
+  assert.equal(sheet.folders.some((folder) => folder.task_folder === '121_synthetic_inbox'), false);
+  assert.match(sheet.folders_digest, /^[0-9a-f]{64}$/u);
+});
+
+test('the real 03_Out file count is used when the walk is handed over', () => {
+  const withWalk = buildObservationConfirmationSheet({
+    candidates: candidates(), inventory: clone(FIXTURE.request.inventory),
+  });
+  const minutes = withWalk.sheet.folders.find((row) => row.task_folder === '139_synthetic_cdr_minutes');
+  assert.equal(minutes.out_file_count, 3);
+});
+
+test('one folder tick confirms that folder\'s output files and nothing else', () => {
+  const rows = candidates();
+  const applied = applyConfirmationSheet(rows, [
+    { task_folder_ref: '120_CDR/139_synthetic_cdr_minutes', decision: 'confirm_folder' },
+  ]);
+  const expected = FIXTURE.expected.folder_confirmed_run;
+  assert.equal(applied.receipt.counts.folder_decisions, 1);
+  // Every 03_Out file of that folder, the automatically confirmed one included: a person
+  // deciding the folder outranks the rule that decided one of its files.
+  assert.equal(applied.receipt.counts.confirmed_by_folder, expected.confirmed_by_folder);
+  assert.equal(applied.receipt.counts.confirmed_auto, FIXTURE.expected.counts.auto_confirmed - 1);
+
+  const confirmedRefs = new Set(applied.confirmed.map((row) => row.file_ref));
+  // The two files the tightened rule withheld are now confirmed by the folder tick.
+  assert.ok(confirmedRefs.has('120_CDR/139_synthetic_cdr_minutes/03_Out/synthetic_drawings_l3_package.pdf'));
+  assert.ok(confirmedRefs.has('120_CDR/139_synthetic_cdr_minutes/03_Out/synthetic_submitted_set_01of03.zip'));
+  for (const row of applied.confirmed) {
+    if (!row.file_ref.startsWith('120_CDR/139_synthetic_cdr_minutes/')) continue;
+    assert.equal(row.artifact_type_id, 'review_minutes_cdr');
+  }
+  // Working material in a folder is not a claim about what was produced, so a folder tick does
+  // not reach it: the ICD draft in 129's 01_Work stays pending.
+  assert.equal(confirmedRefs.has('120_CDR/129_synthetic_icd_F/01_Work/synthetic_icd_draft.docx'), false);
+});
+
+test('a folder tick may reassign, may reject, and yields to a per-file decision', () => {
+  const rows = candidates();
+  const drawing = find(rows, '156_synthetic_drawings_second/03_Out/synthetic_drawings_index.pdf');
+
+  const reassigned = applyConfirmationSheet(rows, [
+    { task_folder_ref: '120_CDR/156_synthetic_drawings_second', decision: 'confirm_folder', artifact_type_id: 'icd' },
+  ]);
+  for (const row of reassigned.confirmed) {
+    if (!row.file_ref.startsWith('120_CDR/156_synthetic_drawings_second/')) continue;
+    assert.equal(row.artifact_type_id, 'icd');
+    assert.equal(row.confirmation, CONFIRMATION_SOURCES.OWNER_FOLDER_REASSIGNED);
+  }
+
+  const rejected = applyConfirmationSheet(rows, [
+    { task_folder_ref: '120_CDR/156_synthetic_drawings_second', decision: 'reject_folder' },
+  ]);
+  assert.ok(rejected.rejected.some((row) => row.candidate_id === drawing.candidate_id));
+
+  // The file decision wins over the folder decision covering it.
+  const both = applyConfirmationSheet(rows, [
+    { task_folder_ref: '120_CDR/156_synthetic_drawings_second', decision: 'reject_folder' },
+    { candidate_id: drawing.candidate_id, decision: 'confirm' },
+  ]);
+  const kept = both.confirmed.find((row) => row.candidate_id === drawing.candidate_id);
+  assert.equal(kept.confirmation, CONFIRMATION_SOURCES.OWNER_CONFIRMED);
+  assert.equal(both.rejected.some((row) => row.candidate_id === drawing.candidate_id), false);
+});
+
+test('a folder decision this sheet does not offer is refused', () => {
+  const rows = candidates();
+  const cases = [
+    [{ task_folder_ref: '120_CDR/999_not_a_folder', decision: 'confirm_folder' }, 'unknown folder'],
+    [{ task_folder_ref: '120_CDR/121_synthetic_inbox', decision: 'confirm_folder' }, 'folder not offered'],
+    [{ task_folder_ref: '120_CDR/156_synthetic_drawings_second', decision: 'confirm' }, 'file decision word'],
+    [{ task_folder_ref: '120_CDR/156_synthetic_drawings_second', decision: 'reject_folder', artifact_type_id: 'icd' },
+      'only a confirmation may rename'],
+    [{ task_folder_ref: '120_CDR/156_synthetic_drawings_second', decision: 'confirm_folder', artifact_type_id: 'nope' },
+      'unknown artifact type'],
+    [{ task_folder_ref: '120_CDR/156_synthetic_drawings_second', decision: 'confirm_folder', maturity: 'final' },
+      'undeclared field'],
+  ];
+  for (const [decision, label] of cases) {
+    assert.throws(() => applyConfirmationSheet(rows, [decision]),
+      (error) => error.code === CONFIRMATION_SHEET_ERROR_CODES.DECISION_INVALID, label);
+  }
+  assert.throws(() => applyConfirmationSheet(rows, [
+    { task_folder_ref: '120_CDR/156_synthetic_drawings_second', decision: 'confirm_folder' },
+    { task_folder_ref: '120_CDR/156_synthetic_drawings_second', decision: 'reject_folder' },
+  ]), (error) => error.code === CONFIRMATION_SHEET_ERROR_CODES.DECISION_INVALID);
 });
 
 test('one candidate id may not appear twice in the candidate set', () => {

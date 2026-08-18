@@ -55,8 +55,9 @@ test('the fixture produces exactly the housekeeping items it states by hand', ()
 });
 
 test('two issues of one artifact in one 03_Out are reported with the chosen file named', () => {
-  const [item] = itemsOfKind(report(), 'duplicate_output');
-  assert.equal(item.task_folder, '130_synthetic_drawings');
+  const item = itemsOfKind(report(), 'duplicate_output')
+    .find((row) => row.task_folder === '130_synthetic_drawings');
+  assert.ok(item !== undefined);
   assert.equal(item.artifact_type_id, 'drawings');
   assert.equal(item.files_count, 2);
   // The strongest maturity is the one the observation builder would carry, and this report says so.
@@ -66,8 +67,9 @@ test('two issues of one artifact in one 03_Out are reported with the chosen file
 
 test('material filed in the wrong task folder is reported as such, not as a revision', () => {
   const built = report();
-  const [item] = itemsOfKind(built, 'wrong_material');
-  assert.equal(item.task_folder, '139_synthetic_cdr_minutes');
+  const item = itemsOfKind(built, 'wrong_material')
+    .find((row) => row.task_folder === '139_synthetic_cdr_minutes');
+  assert.ok(item !== undefined);
   assert.equal(item.artifact_type_id, 'review_minutes_cdr');
   assert.equal(item.files_count, 2);
   assert.match(item.detail, /synthetic_drawings_l3_package\.pdf/u);
