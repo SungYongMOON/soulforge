@@ -16,6 +16,14 @@
 
 정리 잔여(엔진 밖): ai_usage_meter 상태 폴더 해시 64→16(수집기 정지 창), `_workspaces/system` 실험·git_push 잔재, P23-037/RAW 뿌리 축약, 지식 intake 파일 61개 슬러그 반복, 휴지통 삭제(09-17 이후).
 
+## 9.1A 출시 형태 (Owner 결정 2026-08-18)
+
+- **밖에서 엔진을 부르는 정문은 MCP 하나다.** 팀원·AI 비서·Owner 모두 MCP로 묻고(판단·결손·불명), 답·관측도 MCP로 넣는다. 터미널 CLI 제품은 만들지 않는다(다른 회사 개발자에게 공급할 때만 껍질로 추가 검토).
+- 지금 있는 스크립트(runner·드라이버)는 내부용이다: 개발·검증·야간 예약 실행이 치는 것이며 사용자에게 배포하지 않는다. "CLI 배포"라는 별도 산출물은 없다 — 배포되는 것은 엔진 코드 한 벌(운영 체크아웃 최신화)뿐이다.
+- MCP 서버는 dev-ERP 안이 아니라 엔진 owner 아래 독립으로 둔다(예: `guild_hall/engineering_engine/mcp/`). dev-ERP는 존폐 미정이므로 엔진 출시 경로가 그것에 의존하지 않게 한다.
+- MCP 도구는 로직을 갖지 않고 기존 순수 함수·runner를 그대로 부른다(한 로직, 여러 호출자). 잠금은 하나: launch 파일 + sha 핀 + Owner 동결 grant + zero-write + `_workmeta` 영수증. MCP 활성화 시점·답변 우편함(9.1의 9번)은 Owner 결정.
+- 밤에는 예약 실행이 같은 runner를 부른다(엔진용 예약은 아직 미설정).
+
 ## 9.2 새 작업자(LLM 포함) 시작 체크리스트
 
 1. `AGENTS.md` → `docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md` → 이 매뉴얼 README·01·02·03 순으로 읽는다. 관련 없는 문서를 선적재하지 않는다.
