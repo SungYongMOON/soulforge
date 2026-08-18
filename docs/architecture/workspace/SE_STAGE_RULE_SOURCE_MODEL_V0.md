@@ -68,6 +68,8 @@
 
 구현 착지(2026-08-18, D46 제안대로): 행에 `node_kind`(artifact|activity|decision)·`depends_on`(+`depends_on_refs`/`depends_on_evidence`)·`evidence_record`·`is_virtual`을 더하고, 컴파일러에 순수 함수 `orderStageWork(compileResult, observations?)`(인과 간선과 게이트 순서를 분리 출력, 고리는 `SE_STAGE_RULE_DEPENDENCY_CYCLE`로 거부)와 overlay 연산 `add_dependency`(더하기만, `remove_dependency`는 금지)를 더했다. 어휘 152 토큰(활동 19·결정 3), 간선 206(일반 SE 128·방사청 78, 규정 근거 0). 도출 근거·커버리지·미결은 `.registry/skills/se_foldertree_generate/codex/references/se_io_relations_v0.md`, 엔진 매뉴얼은 02장 §2.5~2.6·03장 §3.7·05장 §5.4A. D46 자체는 여전히 Owner 승인 전 제안이다.
 
+구현 착지(2026-08-18, D47 제안대로 — **D47은 여전히 Owner 승인 전 제안이다**): 컴파일 결과 옆에 안내 층 `guild_hall/engineering_engine/guidance/`를 두었다 — `buildGuideCards`(행마다 왜·언제·무엇을·어떻게·누가 카드, 인용은 `{source_key, locator}`만), `buildInstructionPackets`(`soulforge.engine_instruction_packet.v0`: mission 후보 + 카드 + 맥락 채움, `judgment_ref`로 policy_ref·assessment_handle·requirement_counts를 **복사**), `renderNextStepsAnswer`(위치·부족·다음 할 일·막힌 것). 셋 다 순수 함수이고 판단을 바꾸지 않으며, 한국어 문장은 고정 틀에서만 나온다(모델 호출 0). 호출자는 CLI 하나(`tools/engine_next_steps_runner.mjs`, create-only). 시험 42(`npm run validate:se-guidance`), fixture `examples/se_stage_rules/next_steps_synthetic_v0.json`. 첫 실측은 P26-014 030_SRR·120_CDR 답 1회(카드 22·28, 지시서 3·3).
+
 ## 6. 사업유형 라우팅
 
 - 3키(사업유형·발주처·품질등급)로 variant 선택 — 폴더트리 스킬의 support_key와 동일. 매핑표는 스킬 `references/variants.md`가 소유.

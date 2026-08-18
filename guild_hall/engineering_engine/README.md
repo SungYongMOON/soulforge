@@ -1066,6 +1066,67 @@ npm run validate:se-observation
 
 public-safe 합성 fixture는 `docs/architecture/workspace/examples/se_stage_rules/observation_candidates_synthetic_v0.json`이다.
 
+## 안내 층 (`guidance/`)
+
+판단 층은 "있냐 없냐"만 답한다. `guidance/`는 그 답 옆에 **"왜·언제·무엇을·어떻게·누가"**를 붙여
+사람이나 서브 에이전트가 움직일 수 있게 만든다(설계 D47 제안, 계획 조각 A3). 판단을 바꾸지 않는 것이
+이 층의 존재 이유이므로 수·판정·정책 ref는 전부 **복사**해 오고 다시 계산하지 않는다.
+세 모듈 모두 순수 함수이며 fs·clock·random·env·network를 쓰지 않는다(정적 effect pin 시험).
+
+- `guide_cards.mjs` — `buildGuideCards({compile_result, vocabulary, compiled_variant?, source_catalog?, work_order?})`:
+  (단계, 산출물 종류)마다 카드 하나. 엔진 요구가 된 행 전부와, 요구가 되지 않았어도 활동·결정 행은
+  카드를 받는다(그 행들이 "무슨 일을 해야 하는지"를 말하는 행이기 때문). 카드는
+  `why`(근거 등급·기대 상태·행 종류) · `when`(단계·기대 성숙도·앞뒤 입력 수) · `what`(스펙의 이름·설명·
+  증거 기록) · `how`(양식·입력 토큰과 표시명·이 항목을 입력으로 쓰는 항목·근거 인용) · `who`(기본 담당
+  capability) · `evidence`(근거 등급·정본 대조 결과·SE 바닥) · `citations`(인용 위치)로 이루어진다.
+- `instruction_packet.mjs` — `buildInstructionPackets({assessment, work_order, guide_cards, known_at, role_roster?, context_fill?, include_next_ready?, top_n?})`:
+  mission 후보마다 지시서 하나(`soulforge.engine_instruction_packet.v0`). 무엇을·왜(엔진 판정 +
+  카드) · 입력(과 관측 기준 상태) · 산출 · 어떻게 · 근거 · 담당 · 기한 · `judgment_ref`(policy_ref,
+  assessment_handle, requirement_counts 스냅숏) · `guidance_ref`(card_id). `claim_ceiling`은 언제나
+  `candidate`다.
+- `answer_render.mjs` — `renderNextStepsAnswer({assessment, work_order, instructions, guide_cards, stage_code, locale})`:
+  한국어 마크다운 + 같은 내용의 JSON. 순서는 고정 — **1 위치 · 2 부족 · 3 다음 할 일 · 4 그 뒤(막힌 것)**.
+  수치를 먼저 놓는 이유는, 할 일부터 읽은 사람은 "엔진이 결손이라 판정한 것"과 "아직 아무도 안 본 것"을
+  구분하지 못한 채 움직이기 때문이다.
+
+경계:
+
+- **문장을 짓지 않는다.** 카드·지시서의 한국어 문장은 전부 `GUIDE_CARD_TEMPLATES`의 고정 틀이고, 슬롯 값은
+  규칙 행에서 그대로 복사한다. 각 문장은 `{template_id, text_ko, slots}`로 나가며 시험이 template_id로
+  재렌더해 바이트가 같은지 확인한다. 모델을 부르지 않는다.
+- **행이 말하지 않은 것은 말하지 않는다.** 양식이 없으면 `양식 없음`, 인용이 없으면 `근거 미표기`로
+  적는다. 일반 지식으로 채우면 인용된 지시와 구분할 수 없는 지시가 사람 앞에 놓인다.
+- **인용은 위치만.** 카드는 `{source_key, locator}`를 싣고 원문을 싣지 않는다. 색인 카탈로그를 주면
+  그 카탈로그가 이미 가진 제목만 덧붙고, 없는 출처는 `catalog_known: false`로 정직하게 남는다.
+- **지시서는 쓰기가 아니다.** `presence_state`·수정본 ref·완료 표시 같은 필드가 지시서에 들어가려 하면
+  빌드를 거부한다(`forbidden_instruction_keys`). 담당은 논리 역할이며, 사람은 호출자가
+  `context_fill.owners`로 준 경우에만 들어간다. 기한도 마찬가지다 — 이 층은 시계를 읽지 않으므로
+  `known_at`은 호출자 입력이다.
+- 엔진이 mission 후보를 요청 수보다 적게 냈을 때만 "안 막혔는데 아직 관측되지 않은" 항목으로 채우며,
+  그 항목은 `instruction_kind: next_ready` · `engine_finding: not_yet_observed`로 따로 표시한다.
+  판정이 아니라 "아무도 안 봤다"이기 때문이다.
+
+호출자(파일을 쓰는 유일한 자리):
+
+```text
+node guild_hall/engineering_engine/tools/engine_next_steps_runner.mjs \
+  --compile-dir <abs dir> --assessment <abs json> --stage <code> --out <abs dir> \
+  [--compiled-variant <abs json>] [--observations <abs json>] [--source-catalog <abs json>] \
+  [--context-fill <abs json>] [--top N] [--known-at <instant>]
+```
+
+`--compile-dir`는 드라이버가 이미 쓴 `mapping_table.json`과 `needs_stage_declarations.json`을 읽는다.
+`--out` 아래에만 쓰고 이미 있는 답은 덮어쓰지 않고 거부한다(답은 그 시점 기록이다).
+`--compiled-variant`를 주면 스펙 행의 설명·양식·정본 대조 결과가 카드에 실린다.
+
+범위 검증:
+
+```text
+npm run validate:se-guidance
+```
+
+public-safe 합성 fixture는 `docs/architecture/workspace/examples/se_stage_rules/next_steps_synthetic_v0.json`이다.
+
 ## AX·SE 프로젝트 평가 subject (active slice)
 
 `subjects/ax_se_project_assessment.mjs`는 exact source-bound project snapshot,
