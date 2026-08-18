@@ -909,6 +909,7 @@ engine 이 소비하는 knowledge-supply provider 가 이미 같은 root 에 있
 
 - `kernel/`: 결정론 kernel. 학습모델을 호출하지 않고, 공급된 값에 대한 순수 함수만 노출한다
 - `stage_rules/`: 단계 규칙 컴파일러. 폴더트리 variant(L1)와 과제 overlay(L2)를 세 소비자 표면으로 바꾸는 순수 함수만 둔다
+- `observation/`: 관측 후보 공급자. 과제 자료 목록을 산출물 관측 **후보**로 바꾸고, 사람 확인을 거쳐 생성기가 받는 `artifact_observations`로 만드는 순수 함수만 둔다
 - `manual/`: 엔진 개발 매뉴얼(책 형태, v0). 규칙 4층·항목 도출 방법·어휘·컴파일러·요구 추적·실행 기록·결정·다음 작업을 다른 작업자(사람·LLM)가 이어받을 수 있게 정리한다. 정본이 아니라 정본들의 지도이며, 관련 변경마다 해당 장을 같이 고친다. 읽는 순서는 `manual/README.md`
 - 영수증은 4종을 구분해 쓴다: topology delivery(간선 통과) · MCP idempotency 응답(재시도) · Context Request 영수증 · Context Response 영수증. 서로 대신하지 못하며 소유 모듈이 다르다
 - `contracts/`: Phase 1-0 공통 계약과 lane 계약
@@ -997,6 +998,49 @@ npm run validate:se-stage-rules
 ```
 
 public-safe 합성 fixture는 `docs/architecture/workspace/examples/se_stage_rules/`에 있다.
+
+## 관측 후보 공급자 (`observation/`)
+
+컴파일러가 "무엇이 있어야 하는가"를 만든다면 `observation/`은 "실제로 무엇이 있는가"의 앞부분을 만든다.
+과제 자료 목록(파일 경로·이름·크기·sha256·수정시각)을 읽어 **어떤 파일이 어떤 산출물 종류로 보이는지**를
+규칙 기반으로 제안하고, 사람이 확인한 것만 엔진 관측으로 바꾼다. 세 모듈 모두 순수 함수이며
+fs·clock·random·env·network를 쓰지 않는다(정적 effect pin 시험). 파일을 읽는 쪽은 CLI 하나뿐이다.
+
+- `artifact_observation_candidates.mjs` — `buildArtifactObservationCandidates(request)`:
+  자료 목록 + compiled variant(들) + overlay 별칭 + 산출물 표준어 → `{candidates, unmatched, ambiguous, receipt}`.
+  단서는 규칙에서만 온다: 업무폴더 번호 → 스펙 task → `artifact_type_id`(가장 강함), 파일명·제목 안의
+  스펙 용어·표준어 `label_ko`/`label_en`·과제 별칭, 성숙도는 `_D`/`_U`/`_F` 접미사와 `초안|draft|rev|최종|승인|v0.x` 토큰.
+  단서가 없으면 `unmatched`, 단서가 둘로 갈리면 `ambiguous`로 두고 **추정하지 않는다**. 모델을 부르지 않는다.
+- `observation_confirmation_sheet.mjs` — 후보를 단계별로 묶은 한글 확인표(마크다운)와 같은 줄의
+  JSON 시트(`decision: null`)로 만들고, `applyConfirmationSheet`가 `confirm`/`reject`/`reassign` 결정을 적용한다.
+  결정이 없는 줄은 확정도 반려도 아닌 **보류**로 남는다.
+- `artifact_observations_from_confirmed.mjs` — 확인된 줄 + sha256 → `pilot_packet_generator`가 그대로 받는
+  `artifact_observations[]`. (단계, 산출물 종류) 쌍마다 관측 하나이며, 여러 파일이 한 쌍에 걸리면
+  성숙도 → 수정시각 → digest 순으로 이긴 파일을 쓰고 나머지는 영수증의 `superseded`에 남긴다.
+- `presence_state`는 언제나 `present`뿐이다. 걷지 못한 파일은 없는 것이 아니므로 이 층은
+  `absence_confirmed`를 만들지 않는다(그 판단은 사람 몫).
+
+자동 확정은 규칙 하나뿐이다: 파일이 업무폴더의 `03_Out` 아래이고 그 업무가 산출물 종류 하나에만
+대응할 때. 그 밖의 모든 후보는 `needs_owner_confirmation`으로 남는다(설계 D37: 자동 추출은 후보, 확정은 사람).
+
+호출자(파일·시계를 쓰는 유일한 자리):
+
+```text
+node guild_hall/engineering_engine/tools/artifact_observation_inventory_runner.mjs \
+  --project-root <abs> --out <abs dir> --compiled-variant <abs json> [--overlay <abs json>] \
+  [--include-globs "<glob>,<glob>"] [--max-files N] [--known-at <instant>] [--no-auto-confirm]
+```
+
+`--out` 아래에만 쓰고, 이미 있는 실행 산출물은 덮어쓰지 않고 거부한다.
+`.git`·`node_modules`·`00_Temp`·`__pycache__`·`_trash*`와 심볼릭 링크, 크기 상한을 넘는 파일은 건너뛴다.
+
+범위 검증:
+
+```text
+npm run validate:se-observation
+```
+
+public-safe 합성 fixture는 `docs/architecture/workspace/examples/se_stage_rules/observation_candidates_synthetic_v0.json`이다.
 
 ## AX·SE 프로젝트 평가 subject (active slice)
 

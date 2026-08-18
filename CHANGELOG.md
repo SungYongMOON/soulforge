@@ -1,5 +1,40 @@
 # CHANGELOG
 
+## 2026-08-18 - Observation candidate supplier (project material to candidate artifact observations)
+
+- New `guild_hall/engineering_engine/observation/` (plan slice A1, the engine's "eye"): three pure
+  modules that turn a walked file inventory into artifact observations the pilot packet generator
+  accepts, with a person in the middle.
+  - `artifact_observation_candidates.mjs` proposes which file looks like which standard artifact,
+    at which stage, at which maturity, and records the cue behind every proposal. Matching is
+    rule-based only — task folder number to spec task, spec term, vocabulary `label_ko`/`label_en`,
+    project overlay alias, maturity from `_D`/`_U`/`_F` and `초안|draft|rev|최종|승인|v0.x`. A file
+    with no cue is `unmatched`, a file with two competing cues is `ambiguous`, and neither is
+    resolved by guessing. No model is called and `absence_confirmed` is never emitted.
+  - `observation_confirmation_sheet.mjs` renders the candidates as a Korean per-stage table plus a
+    JSON sheet with `decision: null`, and applies `confirm` / `reject` / `reassign` decisions back.
+    A row nobody decided stays pending rather than defaulting either way.
+  - `artifact_observations_from_confirmed.mjs` emits generator-shaped `artifact_observations`, one
+    per (stage, artifact type); when several confirmed files map to one pair the strongest maturity
+    wins, then the newest modification time, then the digest, and the rest are recorded as
+    superseded. Identifiers are minted from digests, so one confirmed set reaches one byte-identical
+    observation set.
+- Design D37 holds: automatic extraction is candidate only. The single auto-confirmation is a file
+  under a task folder's `03_Out` where that task maps to exactly one artifact type — the folder
+  convention read back, not an inference. Everything else waits for the Owner.
+- New CLI `guild_hall/engineering_engine/tools/artifact_observation_inventory_runner.mjs` — the one
+  caller that reads a disk and a clock. It walks a project root (skipping `.git`, `node_modules`,
+  `00_Temp`, `__pycache__`, `_trash*`, symbolic links and oversized files), streams sha256 per file,
+  and writes six outputs under `--out` only, refusing to overwrite an earlier run.
+- New `npm run validate:se-observation` (39 tests): the hand-derived synthetic fixture
+  `docs/architecture/workspace/examples/se_stage_rules/observation_candidates_synthetic_v0.json`
+  row by row, determinism under input reordering, the `03_Out` rule on and off, ambiguity, maturity
+  reading, refusals, agreement with the compiler's gate-to-stage map, a static effect pin over the
+  whole import graph, acceptance of the produced observations by
+  `generatePilotPacketFromStageRules`, and the CLI's create-only boundary.
+- Docs: engine README gains a `observation/` section, manual 07 gains step 0 of the rerun recipe,
+  and the manual README's agreed-but-missing table moves 관측 공급 to "부분 → 후보 생성기 착지(확정은 사람)".
+
 ## 2026-08-18 - Engine development manual + generic-layer derivation record + source-claim correction
 
 - New `guild_hall/engineering_engine/manual/` (README + chapters 01-09, Korean, tool-independent):

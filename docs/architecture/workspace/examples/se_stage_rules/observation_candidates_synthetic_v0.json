@@ -1,0 +1,352 @@
+{
+  "fixture_id": "observation_candidates_synthetic_v0",
+  "schema_version": "soulforge.artifact_observation_candidates_fixture.v0",
+  "note": "Public-safe synthetic fixture for guild_hall/engineering_engine/observation/. Every gate name, task name, folder name, file name, digest and instant below is invented for this file: it names no actual project, contract, organisation, regulation, document or person, and the sha256 values are digests of invented ascii strings rather than of any real bytes. Only the artifact_type_id tokens and the gate-to-stage numbering are real, because those are the shared vocabulary under test. The expected block is derived by hand from the module contract (a task folder number is the strongest cue; only an unambiguous 03_Out row may auto-confirm; a file with no cue is unmatched and one with two competing cues is ambiguous; a maturity is read from the file name first and the task folder second), so an implementation change cannot quietly redefine what is correct.",
+  "request": {
+    "compiled_variants": [
+      {
+        "schema_version": "soulforge.se_foldertree_compiled_variant.v0",
+        "support_key": "synthetic_development__synthetic_prime__grade_a",
+        "business_type": "synthetic_development",
+        "spec_file": "synthetic_variant_spec_v0.md",
+        "spec_sha256": "624fcedba82ccf4712148a05a35518a68813849e94809d5ee90b6792de39fd88",
+        "spec_version": "v0.1",
+        "gates": [
+          {
+            "code": 90,
+            "name": "Synthetic preliminary design review",
+            "desc": "Preliminary design gate of the synthetic business type.",
+            "tasks": [
+              {
+                "id": 95,
+                "name": "Synthetic preliminary hardware design description (HDD)_D",
+                "term": "HDD",
+                "artifact_type_id": "hdd",
+                "evidence_level": "guidebook_recommended",
+                "verification_status": "source_supported"
+              },
+              {
+                "id": 96,
+                "name": "Synthetic engineering management plan (SEMP)",
+                "term": "SEMP",
+                "artifact_type_id": "semp",
+                "evidence_level": "guidebook_recommended",
+                "verification_status": "source_supported"
+              }
+            ]
+          },
+          {
+            "code": 120,
+            "name": "Synthetic critical design review",
+            "desc": "Detailed design gate of the synthetic business type.",
+            "tasks": [
+              {
+                "id": 121,
+                "name": "Synthetic inbox",
+                "term": "INBOX",
+                "is_fixed": true,
+                "artifact_type_id": "inbox",
+                "evidence_level": "internal_management",
+                "verification_status": "internal_management"
+              },
+              {
+                "id": 125,
+                "name": "Synthetic hardware design description (HDD)_F",
+                "term": "HDD",
+                "artifact_type_id": "hdd",
+                "evidence_level": "guidebook_recommended",
+                "verification_status": "source_supported"
+              },
+              {
+                "id": 129,
+                "name": "Synthetic interface control document (ICD)_F",
+                "term": "ICD",
+                "artifact_type_id": "icd",
+                "evidence_level": "regulation_mandated",
+                "verification_status": "source_supported"
+              },
+              {
+                "id": 137,
+                "name": "Synthetic requirements traceability matrix (RTM)",
+                "term": "RTM",
+                "artifact_type_id": "rtm",
+                "evidence_level": "unstated",
+                "verification_status": "partially_supported"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "overlay_aliases": [
+      {
+        "stage_code": "120_CDR",
+        "artifact_type_id": "icd",
+        "alias": "synthetic_slot_icd_bundle"
+      },
+      {
+        "stage_code": "120_CDR",
+        "artifact_type_id": "prime_synthetic_gate_review",
+        "alias": "prime_synthetic_gate_review",
+        "label": "Synthetic prime gate review (Q9A)"
+      }
+    ],
+    "known_at": "2026-08-18T00:00:00.000Z",
+    "rules": {
+      "auto_confirm_03_out": true
+    },
+    "inventory": [
+      {
+        "file_ref": "120_CDR/125_synthetic_hdd_F/03_Out/synthetic_hdd_final.pdf",
+        "name": "synthetic_hdd_final.pdf",
+        "ext": "pdf",
+        "bytes": 120400,
+        "sha256": "45fadd31ef36d00f36dc27ad491237ae1cddacd30a2074e6d280d271e91b4868",
+        "mtime_iso": "2026-07-02T01:00:00.000Z",
+        "gate_hint": "120_CDR",
+        "task_folder_hint": "125_synthetic_hdd_F"
+      },
+      {
+        "file_ref": "120_CDR/125_synthetic_hdd_F/02_Input/synthetic_vendor_datasheet.pdf",
+        "name": "synthetic_vendor_datasheet.pdf",
+        "ext": "pdf",
+        "bytes": 22100,
+        "sha256": "859642af8439b18f5d3842c1866383e9aab4255e0895d1185e40c8a0069eb5b7",
+        "mtime_iso": "2026-06-11T01:00:00.000Z",
+        "gate_hint": "120_CDR",
+        "task_folder_hint": "125_synthetic_hdd_F"
+      },
+      {
+        "file_ref": "120_CDR/129_synthetic_icd_F/01_Work/synthetic_icd_draft.docx",
+        "name": "synthetic_icd_draft.docx",
+        "ext": "docx",
+        "bytes": 51200,
+        "sha256": "e67f18df9a42503c024a60f456bbeb41ef08da9a804e4c39b4c5c53024ba56cb",
+        "mtime_iso": "2026-05-20T01:00:00.000Z",
+        "gate_hint": "120_CDR",
+        "task_folder_hint": "129_synthetic_icd_F"
+      },
+      {
+        "file_ref": "120_CDR/129_synthetic_icd_F/03_Out/synthetic_icd_v2_final.pdf",
+        "name": "synthetic_icd_v2_final.pdf",
+        "ext": "pdf",
+        "bytes": 76800,
+        "sha256": "883dbd9c93950153cd86cf400dc493a38ab94d3441df9132a4e73384b304539a",
+        "mtime_iso": "2026-07-15T01:00:00.000Z",
+        "gate_hint": "120_CDR",
+        "task_folder_hint": "129_synthetic_icd_F"
+      },
+      {
+        "file_ref": "120_CDR/137_synthetic_rtm/03_Out/synthetic_rtm_rev3.xlsx",
+        "name": "synthetic_rtm_rev3.xlsx",
+        "ext": "xlsx",
+        "bytes": 34000,
+        "sha256": "9ef9a4c90d164a2f15a20285686c11a09142a789c98cc65bd65e8c7d93aafef8",
+        "mtime_iso": "2026-07-09T01:00:00.000Z",
+        "gate_hint": "120_CDR",
+        "task_folder_hint": "137_synthetic_rtm"
+      },
+      {
+        "file_ref": "120_CDR/121_synthetic_inbox/03_Out/synthetic_unsorted_note.txt",
+        "name": "synthetic_unsorted_note.txt",
+        "ext": "txt",
+        "bytes": 900,
+        "sha256": "2e3c86e6ac7f81649953cbb897894ffef1d77e5c1c61c75677f1487ff605bd33",
+        "mtime_iso": "2026-07-01T01:00:00.000Z",
+        "gate_hint": "120_CDR",
+        "task_folder_hint": "121_synthetic_inbox"
+      },
+      {
+        "file_ref": "120_CDR/124_synthetic_prime_review/03_Out/prime_synthetic_gate_review_report.pdf",
+        "name": "prime_synthetic_gate_review_report.pdf",
+        "ext": "pdf",
+        "bytes": 41000,
+        "sha256": "c02f6d348eada4c918c2c800444afc079864f6b2911f8234529955c7d9f83d9f",
+        "mtime_iso": "2026-06-30T01:00:00.000Z",
+        "gate_hint": "120_CDR",
+        "task_folder_hint": "124_synthetic_prime_review"
+      },
+      {
+        "file_ref": "120_CDR/199_synthetic_unmapped_task/03_Out/synthetic_icd_and_rtm_bundle.zip",
+        "name": "synthetic_icd_and_rtm_bundle.zip",
+        "ext": "zip",
+        "bytes": 990000,
+        "sha256": "3d0a0f1eb6e24d3659fdb4cce8d65cb7f85914f7e13ba9973dbec0152d20df23",
+        "mtime_iso": "2026-07-20T01:00:00.000Z",
+        "gate_hint": "120_CDR",
+        "task_folder_hint": "199_synthetic_unmapped_task"
+      },
+      {
+        "file_ref": "120_CDR/synthetic_scan_0001.pdf",
+        "name": "synthetic_scan_0001.pdf",
+        "ext": "pdf",
+        "bytes": 8100,
+        "sha256": "1a4a444a08cf63a12fd8a00eb9e028be6722b1b93012282dcb86c70133fcae5f",
+        "mtime_iso": "2026-07-21T01:00:00.000Z",
+        "gate_hint": "120_CDR",
+        "title_hint": "Synthetic interface control document (ICD) scanned copy"
+      },
+      {
+        "file_ref": "synthetic_master_doc/synthetic_semp_approved.pdf",
+        "name": "synthetic_semp_approved.pdf",
+        "ext": "pdf",
+        "bytes": 61000,
+        "sha256": "2fe900e0051df0993cc6185cb6a9423132290d27871d92f735f419fbc1d179c4",
+        "mtime_iso": "2026-04-02T01:00:00.000Z"
+      },
+      {
+        "file_ref": "synthetic_master_doc/synthetic_hdd_notes.md",
+        "name": "synthetic_hdd_notes.md",
+        "ext": "md",
+        "bytes": 4100,
+        "sha256": "dd08999ec2dfbf5e2569c060067758e1efdcdbeb78f440244b39363b0dfba8e5",
+        "mtime_iso": "2026-04-03T01:00:00.000Z"
+      },
+      {
+        "file_ref": "020_MGMT/026_synthetic_status/synthetic_status.md",
+        "name": "synthetic_status.md",
+        "ext": "md",
+        "bytes": 2200,
+        "sha256": "46875bd5d4ae038c3416e2fa7b79462aea1a2d91927a5e07548fffc0632417ba",
+        "mtime_iso": "2026-07-22T01:00:00.000Z",
+        "gate_hint": "020_MGMT",
+        "task_folder_hint": "026_synthetic_status"
+      },
+      {
+        "file_ref": "130_synthetic_analysis/synthetic_note.md",
+        "name": "synthetic_note.md",
+        "ext": "md",
+        "bytes": 1100,
+        "sha256": "d0889184afecf85b2192ebf0afed3dde73c334b783a92d6c19d4394bf6bb011e",
+        "mtime_iso": "2026-07-23T01:00:00.000Z",
+        "gate_hint": "130_synthetic_analysis"
+      }
+    ]
+  },
+  "expected": {
+    "counts": {
+      "inventory_files": 13,
+      "candidates": 8,
+      "auto_confirmed": 3,
+      "needs_owner_confirmation": 5,
+      "ambiguous": 1,
+      "unmatched": 4
+    },
+    "by_file_ref": {
+      "120_CDR/125_synthetic_hdd_F/03_Out/synthetic_hdd_final.pdf": {
+        "outcome": "candidate",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "hdd",
+        "maturity": "final",
+        "confidence": "high",
+        "auto_confirmed": true,
+        "why": "the task folder number resolves to exactly one artifact type and the file sits in that task's 03_Out"
+      },
+      "120_CDR/125_synthetic_hdd_F/02_Input/synthetic_vendor_datasheet.pdf": {
+        "outcome": "candidate",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "hdd",
+        "maturity": "final",
+        "confidence": "high",
+        "auto_confirmed": false,
+        "why": "same task folder, but 02_Input is not the task's output; a person decides, and the maturity falls back to the folder suffix"
+      },
+      "120_CDR/129_synthetic_icd_F/01_Work/synthetic_icd_draft.docx": {
+        "outcome": "candidate",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "icd",
+        "maturity": "preliminary",
+        "confidence": "high",
+        "auto_confirmed": false,
+        "why": "working material, not output; the file name says draft and the file wins over the folder suffix"
+      },
+      "120_CDR/129_synthetic_icd_F/03_Out/synthetic_icd_v2_final.pdf": {
+        "outcome": "candidate",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "icd",
+        "maturity": "final",
+        "confidence": "high",
+        "auto_confirmed": true,
+        "why": "auto-confirmed, and supersedes the working draft above when both are confirmed"
+      },
+      "120_CDR/137_synthetic_rtm/03_Out/synthetic_rtm_rev3.xlsx": {
+        "outcome": "candidate",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "rtm",
+        "maturity": "updated",
+        "confidence": "high",
+        "auto_confirmed": true,
+        "why": "rev in the file name reads as an updated issue"
+      },
+      "120_CDR/121_synthetic_inbox/03_Out/synthetic_unsorted_note.txt": {
+        "outcome": "unmatched",
+        "reason": "no_rule_cue_in_name_or_title",
+        "why": "the inbox task is a fixed internal folder, so it is never evidence that a stage produced anything"
+      },
+      "120_CDR/124_synthetic_prime_review/03_Out/prime_synthetic_gate_review_report.pdf": {
+        "outcome": "candidate",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "prime_synthetic_gate_review",
+        "maturity": null,
+        "confidence": "medium",
+        "auto_confirmed": false,
+        "why": "the task number is not in the standard spec, so the overlay alias carries it; 03_Out alone does not auto-confirm"
+      },
+      "120_CDR/199_synthetic_unmapped_task/03_Out/synthetic_icd_and_rtm_bundle.zip": {
+        "outcome": "ambiguous",
+        "options": ["icd", "rtm"],
+        "why": "two artifact types are named in one file name and this module does not choose between them"
+      },
+      "120_CDR/synthetic_scan_0001.pdf": {
+        "outcome": "candidate",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "icd",
+        "maturity": null,
+        "confidence": "low",
+        "auto_confirmed": false,
+        "why": "only the title says what it is, so the reading is weak and always waits for a person"
+      },
+      "synthetic_master_doc/synthetic_semp_approved.pdf": {
+        "outcome": "candidate",
+        "stage_code": "090_PDR",
+        "artifact_type_id": "semp",
+        "maturity": "baseline",
+        "confidence": "medium",
+        "auto_confirmed": false,
+        "why": "no gate folder, but the rules place this artifact type in exactly one stage"
+      },
+      "synthetic_master_doc/synthetic_hdd_notes.md": {
+        "outcome": "unmatched",
+        "reason": "stage_not_resolvable_from_path_or_rules",
+        "why": "the name says what it is but the rules place that type in two stages and nothing says which"
+      },
+      "020_MGMT/026_synthetic_status/synthetic_status.md": {
+        "outcome": "unmatched",
+        "reason": "no_rule_cue_in_name_or_title",
+        "why": "management material carries no artifact cue"
+      },
+      "130_synthetic_analysis/synthetic_note.md": {
+        "outcome": "unmatched",
+        "reason": "gate_hint_is_not_an_engine_stage",
+        "why": "a numbered folder that is not one of the declared gates is not silently mapped to a nearby one"
+      }
+    },
+    "confirmed_run": {
+      "note": "applyConfirmationSheet with no decisions confirms only the auto-confirmed rows; the observation builder then emits one observation per (stage, artifact type).",
+      "confirmed": 3,
+      "pending": 5,
+      "artifact_observations": 3,
+      "superseded_pairs": 0
+    },
+    "owner_confirmed_run": {
+      "note": "with the working ICD draft also confirmed by an Owner decision, the final ICD wins the pair and the draft is recorded as superseded.",
+      "decisions": [
+        { "candidate_file_ref": "120_CDR/129_synthetic_icd_F/01_Work/synthetic_icd_draft.docx", "decision": "confirm" }
+      ],
+      "confirmed": 4,
+      "artifact_observations": 3,
+      "superseded_pairs": 1,
+      "superseded_files": 1
+    }
+  }
+}

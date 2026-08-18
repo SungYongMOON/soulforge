@@ -29,6 +29,11 @@
 
 ## 7.3 다시 돌리는 법 (요약)
 
+0. **관측 후보 만들기**(A1, 2026-08-18 착지): `guild_hall/engineering_engine/tools/artifact_observation_inventory_runner.mjs`에
+   `--project-root`(과제 폴더)·`--out`(private 실행 폴더)·`--compiled-variant`(사업유형 compiled JSON)·`--overlay`(과제 overlay, 별칭·prime add)를 주고 1회 실행한다.
+   `--out` 아래에 `inventory.json`·`candidates.json`·`confirmation_sheet.md`·`confirmation_sheet.json`·`artifact_observations_auto.json`·`receipt.json`이 생기며 이미 있으면 덮어쓰지 않고 거부한다.
+   `confirmation_sheet.md`를 Owner가 보고 `confirmation_sheet.json`의 `decision`에 `confirm`/`reject`/`reassign`을 적으면 그것이 2번의 관측이 된다.
+   업무폴더 `03_Out` 아래이고 그 업무가 산출물 종류 하나에만 대응하는 줄만 자동 확정이고 나머지는 사람 확인을 기다린다(D37).
 1. 스펙·overlay·binding을 읽어 `compileStageRules` 호출(05장) → policy·mapping·receipt를 `_workspaces/<project>/…/06_validation/stage_rules_<date>_<nn>/`에 저장.
 2. base packet(직전 accepted run의 packet) + 관측 → `generatePilotPacketFromStageRules` → packet·launch 저장.
 3. `guild_hall/engineering_engine/tools/ax_se_project_context_pilot_runner.mjs`로 1회 실행 → `assessment_stdout.json`(effects 전부 0 확인).
