@@ -1,6 +1,6 @@
 ---
 title: 일반 체계공학 기준선 폴더 트리 생성 지침 (발주처·국가 무관)
-version: '0.2'
+version: '0.3'
 owner_team: Soulforge
 variant_binding:
   support_key: generic_se_base
@@ -73,6 +73,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 2
     name: LOG_의사결정조치기록
     desc: 회의록, 공문, 액션아이템 등 의사결정 및 조치 기록
@@ -84,6 +85,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 3
     name: TDP_기술자료
     desc: 주고받은 기술자료 패키지
@@ -95,6 +97,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 4
     name: 소요-작전운용성능참조문서(ORD)_F
     desc: Buyer capability / operational requirements reference (ROC/ORD/CDD equivalent) with mission goals and MOEs
@@ -115,6 +118,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-4 p.81
     verification_status: source_supported
+    gate_role: supporting
   - id: 5
     name: 운용개념서초안(CONOPS)_D
     desc: Concept of Operations (draft) / operational mode summary and mission profile
@@ -135,6 +139,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-1 p.69
     verification_status: source_supported
+    gate_role: supporting
   - id: 6
     name: 대안분석-개념절충연구기록(Trade_Study)_D
     desc: Alternatives / concept trade study record (AoA-type)
@@ -153,6 +158,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-1 p.69
     verification_status: source_supported
+    gate_role: supporting
   - id: 7
     name: 기술성숙도평가-기술성숙화계획초안(TRA)_D
     desc: Technology readiness assessment / technology maturation (development) plan (initial)
@@ -171,6 +177,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-1 p.69
     verification_status: source_supported
+    gate_role: supporting
 - code: 30
   name: SRR
   desc: 체계요구조건검토 (System Requirements Review)
@@ -186,6 +193,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 302
     name: LOG_의사결정조치기록
     desc: 회의록, 공문, 액션아이템 등 의사결정 및 조치 기록
@@ -197,6 +205,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 303
     name: TDP_기술자료
     desc: 주고받은 기술자료 패키지
@@ -208,6 +217,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 304
     name: 체계요구사항명세서(SSS)_F
     desc: System/Subsystem Specification (system performance / system requirements specification) ready to baseline
@@ -232,6 +242,8 @@ gates:
     depends_on_refs:
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 305
     name: 운용개념서(CONOPS)_U
     desc: Concept of Operations / operations concept (updated)
@@ -263,6 +275,8 @@ gates:
       locator: §3.2.2.1-§3.2.2.3 (p.24)
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.66-75 (printed p.53-62) §4.1.1.1/§4.1.1.3, Figure 4.1-1
+    depends_on_origin: canonical
+    gate_role: entry
   - id: 306
     name: 체계공학관리계획서(SEMP)_F
     desc: Systems Engineering Management Plan (SEMP) ready to baseline
@@ -285,6 +299,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.63
     verification_status: source_supported
+    gate_role: entry
   - id: 307
     name: 요구사항추적표(RTM)_D
     desc: 'Requirements traceability matrix (bidirectional: buyer requirement - SOW - system spec)'
@@ -314,6 +329,8 @@ gates:
       locator: §4.2.1 (p.142-143)
     - source_key: nasa_npr_7123_1d
       locator: §3.2.3.1-§3.2.3.2 (p.24-25)
+    depends_on_origin: canonical
+    gate_role: core
   - id: 308
     name: 외부인터페이스통제문서(ICD)_D
     desc: External interface identification and preliminary external ICDs
@@ -339,6 +356,8 @@ gates:
       locator: §4.2.3 (p.145-148; explicit output sentence p.147)
     - source_key: dod_se_guidebook_2022
       locator: §4.2.5 (p.149-150)
+    depends_on_origin: canonical
+    gate_role: core
   - id: 309
     name: 검증전략-요구사항별검증방법(V_and_V)_D
     desc: 'Verification and validation strategy: verification method identified for each requirement, certifying agencies identified'
@@ -361,6 +380,8 @@ gates:
     depends_on_refs:
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1
+    depends_on_origin: canonical
+    gate_role: core
   - id: 310
     name: 위험관리계획서(RMP)_F
     desc: Risk management plan
@@ -379,6 +400,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-2 p.72
     verification_status: source_supported
+    gate_role: entry
   - id: 311
     name: 위험목록(Risk_Register)_U
     desc: Risk register / risk assessment with mitigation plans (technical, safety, security, cost, schedule)
@@ -397,6 +419,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-2 p.72
     verification_status: source_supported
+    gate_role: core
   - id: 312
     name: 형상관리계획서(CMP)_F
     desc: Configuration management plan
@@ -417,6 +440,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.134
     verification_status: source_supported
+    gate_role: entry
   - id: 313
     name: 기술성숙도평가-기술성숙화계획(TRA)_U
     desc: Technology readiness assessment and technology maturation plan (updated)
@@ -433,6 +457,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-2 p.73
     verification_status: source_supported
+    gate_role: entry
   - id: 314
     name: 통합일정(IMS)-WBS_D
     desc: Integrated master schedule / WBS with critical path (resourced) and cost basis
@@ -453,6 +478,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 2-4 p.59
     verification_status: source_supported
+    gate_role: supporting
   - id: 315
     name: 문서-규격트리(Spec_Tree)_D
     desc: Document tree / specification tree
@@ -469,6 +495,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.78
     verification_status: source_supported
+    gate_role: entry
   - id: 316
     name: 예비체계안전분석서(Safety)_D
     desc: Preliminary system safety / hazard analysis
@@ -487,6 +514,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-2 p.73
     verification_status: source_supported
+    gate_role: entry
   - id: 317
     name: RAM계획서_F
     desc: Reliability / maintainability (R&M) program plan; safety and mission assurance plan
@@ -505,6 +533,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.195-197
     verification_status: source_supported
+    gate_role: supporting
   - id: 318
     name: 핵심성능지표(TPM)목록_D
     desc: 'Key driving requirements: MOP/TPM list with thresholds and margins'
@@ -534,6 +563,8 @@ gates:
       locator: §3.2.3.1-§3.2.3.2 (p.24-25)
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1
+    depends_on_origin: canonical
+    gate_role: entry
   - id: 319
     name: 소프트웨어개발계획서(SDP)_D
     desc: Software development plan / software development strategy with sizing estimates
@@ -550,6 +581,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-2 p.72-73
     verification_status: source_supported
+    gate_role: supporting
   - id: 320
     name: 종합군수지원계획(ILS)_D
     desc: Integrated logistics support / product support plan (preliminary; maintenance concept)
@@ -575,6 +607,8 @@ gates:
       locator: §4.2.8 (p.152)
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1
+    depends_on_origin: canonical
+    gate_role: entry
   - id: 321
     name: 제조-생산전략서(MFG_Plan)_D
     desc: Manufacturing and production strategy (initial producibility)
@@ -599,6 +633,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.4 (p.148-149; explicit output sentences p.148 and p.149)
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 322
     name: 인간체계통합계획-접근(HSI)_F
     desc: Human systems integration approach / HSI plan
@@ -625,6 +661,8 @@ gates:
     depends_on_refs:
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1
+    depends_on_origin: canonical
+    gate_role: core
   - id: 323
     name: 체계보안-프로그램보호계획(PPP)_D
     desc: System security / program protection plan (preliminary) with initial cyber risk assessment
@@ -647,6 +685,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.71
     verification_status: source_supported
+    gate_role: entry
   - id: 324
     name: 자료요구목록(CDRL)_F
     desc: Contract data requirements list / product certification and acceptance data requirements
@@ -665,6 +704,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-4 p.81
     verification_status: source_supported
+    gate_role: supporting
   - id: 325
     name: SRR검토자료(Review_Package)_F
     desc: SRR technical review package (agenda, success criteria, prior RFA/RID closure status)
@@ -683,6 +723,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.75
     verification_status: source_supported
+    gate_role: entry
   - id: 326
     name: SRR회의록_F
     desc: SRR minutes with RID/RFA dispositions and action items
@@ -699,6 +740,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.75
     verification_status: source_supported
+    gate_role: supporting
   - id: 327
     name: SRR결과보고서_F
     desc: SRR review result report / decision memo (baselined requirements confirmation)
@@ -717,6 +759,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.74
     verification_status: source_supported
+    gate_role: supporting
   - id: 328
     name: 아키텍처·설계해 정의(활동)
     desc: Architecture design — activity node (no folder); evidenced by the records it produces
@@ -742,6 +785,7 @@ gates:
     - tpm_list
     - vv_strategy
     added_by_verification: '2026-08-18'
+    gate_role: supporting
   - id: 329
     name: 구현·제작(활동)
     desc: Product implementation — activity node (no folder); evidenced by the records it produces
@@ -757,15 +801,17 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.4 (p.148-149; explicit output sentences p.148 and p.149)
     verification_status: partially_supported
+    evidence_record:
+    - manufacturing_plan
+    added_by_verification: '2026-08-18'
     depends_on:
     - tra_report
     depends_on_evidence: general_se_guidance
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.4 (p.148-149; explicit output sentences p.148 and p.149)
-    evidence_record:
-    - manufacturing_plan
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 330
     name: 통합(활동)
     desc: Product integration — activity node (no folder); evidenced by the records it produces
@@ -781,15 +827,17 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.5 (p.149-150)
     verification_status: partially_supported
+    evidence_record:
+    - icd
+    added_by_verification: '2026-08-18'
     depends_on:
     - semp
     depends_on_evidence: general_se_guidance
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.5 (p.149-150)
-    evidence_record:
-    - icd
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 331
     name: 요구사항 분석(활동)
     desc: Requirements analysis — activity node (no folder); evidenced by the records it produces
@@ -807,16 +855,18 @@ gates:
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1
     verification_status: partially_supported
+    evidence_record:
+    - rtm
+    - tpm_list
+    added_by_verification: '2026-08-18'
     depends_on:
     - conops
     depends_on_evidence: general_se_guidance
     depends_on_refs:
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1
-    evidence_record:
-    - rtm
-    - tpm_list
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 332
     name: 이해관계자 기대 정의(활동)
     desc: Stakeholder expectations definition — activity node (no folder); evidenced by the records it produces
@@ -840,6 +890,7 @@ gates:
     - conops
     - rtm
     added_by_verification: '2026-08-18'
+    gate_role: supporting
   - id: 333
     name: 인도·전환(활동)
     desc: Product transition — activity node (no folder); evidenced by the records it produces
@@ -855,6 +906,9 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.8 (p.152)
     verification_status: partially_supported
+    evidence_record:
+    - ils_plan
+    added_by_verification: '2026-08-18'
     depends_on:
     - hsi_plan
     - icd
@@ -862,9 +916,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.8 (p.152)
-    evidence_record:
-    - ils_plan
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 334
     name: 확인(활동)
     desc: Product validation — activity node (no folder); evidenced by the records it produces
@@ -880,15 +933,17 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.7 (p.151-152; explicit product sentences p.152)
     verification_status: partially_supported
+    evidence_record:
+    - conops
+    added_by_verification: '2026-08-18'
     depends_on:
     - vv_strategy
     depends_on_evidence: general_se_guidance
     depends_on_refs:
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.129-136 (printed p.116-123) §5.4.1.1/§5.4.1.3, Figure 5.4-1
-    evidence_record:
-    - conops
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
 - code: 60
   name: SFR
   desc: 체계기능검토 (System Functional Review / NASA SDR)
@@ -904,6 +959,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 602
     name: LOG_의사결정조치기록
     desc: 회의록, 공문, 액션아이템 등 의사결정 및 조치 기록
@@ -915,6 +971,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 603
     name: TDP_기술자료
     desc: 주고받은 기술자료 패키지
@@ -926,6 +983,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 604
     name: 기능형상식별서(FCI)_F
     desc: Functional baseline configuration identification (system spec + verification requirements + external interfaces under configuration control)
@@ -950,6 +1008,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.2 (p.143-145)
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 605
     name: 체계요구사항명세서(SSS)_U
     desc: System/Subsystem Specification (updated, functional baseline version)
@@ -974,6 +1034,8 @@ gates:
     depends_on_refs:
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 606
     name: 기능분석-체계아키텍처정의서(Functional_Analysis)_F
     desc: Functional analysis / system architecture definition (functional allocation, timing, tradeoffs and options)
@@ -1004,6 +1066,8 @@ gates:
       locator: §3.2.4.1-§3.2.4.2 (p.25)
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.87-89 (printed p.74-76) §4.3.1.1/§4.3.1.3, Figure 4.3-1
+    depends_on_origin: canonical
+    gate_role: entry
   - id: 607
     name: 부체계요구사항명세서(SSRS)_D
     desc: Segment / subsystem performance requirements specifications (allocation to next lower level, draft)
@@ -1022,6 +1086,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-3 p.76
     verification_status: source_supported
+    gate_role: supporting
   - id: 608
     name: 검증교차참조표(VCRM)_D
     desc: Verification cross-reference matrix / verification requirements for FCA-SVR (per requirement method and level)
@@ -1046,6 +1111,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.6 (p.150-151; explicit output sentence p.151)
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 609
     name: 핵심성능지표정의및추이(TPM)_F
     desc: TPM/MOP definitions (approved) with technical performance status and margins
@@ -1079,6 +1146,8 @@ gates:
       locator: §3.2.3.1-§3.2.3.2 (p.24-25)
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1
+    depends_on_origin: canonical
+    gate_role: entry
   - id: 610
     name: 절충연구보고서(Trade_Study)_U
     desc: Trade study reports (architecture and allocation trades)
@@ -1103,6 +1172,8 @@ gates:
       locator: §4.2.3 (p.145-148; explicit output sentence p.147)
     - source_key: nasa_npr_7123_1d
       locator: §3.2.5.1-§3.2.5.3 (p.25)
+    depends_on_origin: canonical
+    gate_role: core
   - id: 611
     name: 인터페이스통제문서(ICD)_D
     desc: System interface definitions / ICDs (preliminary, external plus major internal)
@@ -1132,6 +1203,8 @@ gates:
       locator: §4.2.3 (p.145-148; explicit output sentence p.147)
     - source_key: dod_se_guidebook_2022
       locator: §4.2.5 (p.149-150)
+    depends_on_origin: canonical
+    gate_role: entry
   - id: 612
     name: 요구사항추적표(RTM)_U
     desc: 'Requirements traceability matrix (updated: parent to system to subsystem)'
@@ -1159,6 +1232,8 @@ gates:
       locator: §4.2.1 (p.142-143)
     - source_key: nasa_npr_7123_1d
       locator: §3.2.3.1-§3.2.3.2 (p.24-25)
+    depends_on_origin: canonical
+    gate_role: core
   - id: 613
     name: 위험목록(Risk_Register)_U
     desc: Risk register (updated, incl. HSI/ESOH/cyber mitigation requirements)
@@ -1175,6 +1250,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-3 p.76
     verification_status: source_supported
+    gate_role: core
   - id: 614
     name: SEMP_U
     desc: SEMP (updated)
@@ -1193,6 +1269,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.15-18
     verification_status: source_supported
+    gate_role: entry
   - id: 615
     name: RAM계획서_U
     desc: R&M program plan / SMA plan (updated)
@@ -1209,6 +1286,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-3 p.76
     verification_status: source_supported
+    gate_role: supporting
   - id: 616
     name: 체계안전분석서(Safety)_U
     desc: System safety analysis (preliminary, updated for architecture)
@@ -1225,6 +1303,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-3 p.76
     verification_status: source_supported
+    gate_role: entry
   - id: 617
     name: IMS_U
     desc: Integrated master schedule with resourced plan to PDR
@@ -1241,6 +1320,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-3 p.76
     verification_status: source_supported
+    gate_role: supporting
   - id: 618
     name: 통합계획서(Integration)_D
     desc: Integration plan (preliminary)
@@ -1257,6 +1337,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-2
     verification_status: partially_supported
+    gate_role: entry
   - id: 619
     name: ILSP_D
     desc: Integrated logistics support plan (preliminary)
@@ -1282,6 +1363,8 @@ gates:
       locator: §4.2.8 (p.152)
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1
+    depends_on_origin: canonical
+    gate_role: entry
   - id: 620
     name: 기술자원예산-여유도(Margins)_D
     desc: Technical resource budgets and margins (mass, power, memory, throughput) initial
@@ -1298,6 +1381,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-6
     verification_status: partially_supported
+    gate_role: entry
   - id: 621
     name: TRA_U
     desc: Technology readiness assessment (updated)
@@ -1312,6 +1396,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-5
     verification_status: partially_supported
+    gate_role: entry
   - id: 622
     name: 운용개념서(CONOPS)_U
     desc: Concept of operations (preliminary/updated for architecture)
@@ -1339,6 +1424,8 @@ gates:
       locator: §3.2.2.1-§3.2.2.3 (p.24)
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.66-75 (printed p.53-62) §4.1.1.1/§4.1.1.3, Figure 4.1-1
+    depends_on_origin: canonical
+    gate_role: core
   - id: 623
     name: 체계보안계획(PPP)_D
     desc: System security plan (preliminary, updated)
@@ -1357,6 +1444,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-3 p.76
     verification_status: source_supported
+    gate_role: entry
   - id: 624
     name: SFR검토자료(Review_Package)_F
     desc: SFR/SDR technical review package
@@ -1375,6 +1463,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.63
     verification_status: source_supported
+    gate_role: entry
   - id: 625
     name: SFR회의록_F
     desc: SFR minutes with RID/RFA dispositions
@@ -1391,6 +1480,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.76
     verification_status: source_supported
+    gate_role: supporting
   - id: 626
     name: SFR결과보고서_F
     desc: SFR review result report (functional baseline established)
@@ -1411,6 +1501,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.76
     verification_status: source_supported
+    gate_role: supporting
   - id: 627
     name: 통합(활동)
     desc: Product integration — activity node (no folder); evidenced by the records it produces
@@ -1426,6 +1517,9 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.5 (p.149-150)
     verification_status: partially_supported
+    evidence_record:
+    - icd
+    added_by_verification: '2026-08-18'
     depends_on:
     - integration_plan
     - semp
@@ -1433,9 +1527,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.5 (p.149-150)
-    evidence_record:
-    - icd
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 628
     name: 논리적 분해·기능분석(활동)
     desc: Logical decomposition — activity node (no folder); evidenced by the records it produces
@@ -1456,6 +1549,7 @@ gates:
     evidence_record:
     - functional_analysis
     added_by_verification: '2026-08-18'
+    gate_role: supporting
   - id: 629
     name: 검증(활동)
     desc: Product verification — activity node (no folder); evidenced by the records it produces
@@ -1471,6 +1565,9 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.6 (p.150-151; explicit output sentence p.151)
     verification_status: partially_supported
+    evidence_record:
+    - vcrm
+    added_by_verification: '2026-08-18'
     depends_on:
     - fci
     - icd
@@ -1481,9 +1578,8 @@ gates:
       locator: §4.2.6 (p.150-151; explicit output sentence p.151)
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.118-127 (printed p.105-114) §5.3.1.1/§5.3.1.3, Figure 5.3-1
-    evidence_record:
-    - vcrm
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 630
     name: 기능 기준선 확정(결정)
     desc: Functional baseline established at SFR — decision node (no folder); evidenced by the configuration identification and the review record
@@ -1499,16 +1595,18 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: '§4.1.6 (p.131-134; baseline definitions p.132-133)'
     verification_status: partially_supported
+    evidence_record:
+    - fci
+    - review_minutes_sfr
+    added_by_verification: '2026-08-18'
     depends_on:
     - fci
     depends_on_evidence: general_se_guidance
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
-      locator: '§4.1.6 (p.131-134; baseline definitions p.132-133)'
-    evidence_record:
-    - fci
-    - review_minutes_sfr
-    added_by_verification: '2026-08-18'
+      locator: §4.1.6 (p.131-134; baseline definitions p.132-133)
+    depends_on_origin: canonical
+    gate_role: supporting
 - code: 90
   name: PDR
   desc: 기본설계검토 (Preliminary Design Review)
@@ -1524,6 +1622,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 902
     name: LOG_의사결정조치기록
     desc: 회의록, 공문, 액션아이템 등 의사결정 및 조치 기록
@@ -1535,6 +1634,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 903
     name: TDP_기술자료
     desc: 주고받은 기술자료 패키지
@@ -1546,6 +1646,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 904
     name: 할당형상식별서-아키텍처및형상식별서(DCI)_F
     desc: Allocated baseline configuration identification (CI-level specs, ICDs, verification requirements, design/safety constraints under configuration control)
@@ -1574,6 +1675,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.3 (p.145-148; explicit output sentence p.147)
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 905
     name: 체계-부체계설계기술서(SSDD)_D
     desc: System/Subsystem Design Description (preliminary)
@@ -1596,6 +1699,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.3 (p.145-148; explicit output sentence p.147)
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 906
     name: 하드웨어설계기술서(HDD)_D
     desc: Hardware design description (preliminary) with supporting trade-off analyses
@@ -1612,6 +1717,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-4 p.81
     verification_status: source_supported
+    gate_role: supporting
   - id: 907
     name: 소프트웨어설계기술서(SDD)_D
     desc: Software architecture / software design description (preliminary; CSCI/CSC structure)
@@ -1628,6 +1734,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-4 p.81-82
     verification_status: source_supported
+    gate_role: supporting
   - id: 908
     name: 하드웨어요구사항명세서(HRS)_F
     desc: Hardware requirements specifications per CI (development specifications, baselined)
@@ -1646,6 +1753,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-4 p.81
     verification_status: source_supported
+    gate_role: supporting
   - id: 909
     name: 소프트웨어요구사항명세서(SRS)_F
     desc: Software requirements specifications per CSCI (baselined)
@@ -1662,6 +1770,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-4 p.81
     verification_status: source_supported
+    gate_role: supporting
   - id: 910
     name: 인터페이스요구사항명세서(IRS)_F
     desc: Interface requirements specifications (baselined)
@@ -1684,6 +1793,8 @@ gates:
     depends_on_refs:
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 911
     name: 인터페이스통제문서(ICD)_F
     desc: Interface control documents (internal and external, baselined)
@@ -1713,6 +1824,8 @@ gates:
       locator: §4.2.3 (p.145-148; explicit output sentence p.147)
     - source_key: dod_se_guidebook_2022
       locator: §4.2.5 (p.149-150)
+    depends_on_origin: canonical
+    gate_role: core
   - id: 912
     name: 소프트웨어개발계획서(SDP)_F
     desc: Software development plan (baselined)
@@ -1729,6 +1842,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-4 p.81-82
     verification_status: source_supported
+    gate_role: supporting
   - id: 913
     name: 요구사항추적표(RTM)_U
     desc: Requirements traceability matrix (functional to allocated baseline, complete and verifiable)
@@ -1754,6 +1868,8 @@ gates:
       locator: §4.2.1 (p.142-143)
     - source_key: nasa_npr_7123_1d
       locator: §3.2.3.1-§3.2.3.2 (p.24-25)
+    depends_on_origin: canonical
+    gate_role: core
   - id: 914
     name: 시험평가기본계획서(TEMP)-검증확인계획_F
     desc: Test and evaluation master plan / V&V plan (baselined; TEMP drafted)
@@ -1774,6 +1890,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.82
     verification_status: source_supported
+    gate_role: supporting
   - id: 915
     name: VCRM_U
     desc: Verification cross-reference matrix (updated for CI-level verification requirements)
@@ -1798,6 +1915,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.6 (p.150-151; explicit output sentence p.151)
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 916
     name: 통합계획서(Integration)_F
     desc: Integration plan (baselined)
@@ -1816,6 +1935,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-4 p.82
     verification_status: source_supported
+    gate_role: entry
   - id: 917
     name: 절충연구보고서(Trade_Study)_U
     desc: Trade study reports (design trades mostly complete; remaining planned)
@@ -1840,6 +1960,8 @@ gates:
       locator: §4.2.3 (p.145-148; explicit output sentence p.147)
     - source_key: nasa_npr_7123_1d
       locator: §3.2.5.1-§3.2.5.3 (p.25)
+    depends_on_origin: canonical
+    gate_role: core
   - id: 918
     name: 위험목록(Risk_Register)_U
     desc: Risk register (updated; mitigation plans approved and scheduled in IMS)
@@ -1858,6 +1980,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.83
     verification_status: source_supported
+    gate_role: core
   - id: 919
     name: TPM현황-자원여유도_U
     desc: TPM status with technical resource budgets and margins (updated)
@@ -1885,6 +2008,8 @@ gates:
       locator: §3.2.3.1-§3.2.3.2 (p.24-25)
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 920
     name: TRA_U
     desc: Technology readiness assessment (updated)
@@ -1903,6 +2028,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-4
     verification_status: source_supported
+    gate_role: core
   - id: 921
     name: 도면트리-예비도면(Drawings)_D
     desc: Engineering drawing tree and preliminary drawings / mechanical model
@@ -1928,6 +2054,8 @@ gates:
       locator: §4.2.3 (p.145-148; explicit output sentence p.147)
     - source_key: dod_se_guidebook_2022
       locator: §4.2.8 (p.152)
+    depends_on_origin: canonical
+    gate_role: entry
   - id: 922
     name: 부품관리계획서(Parts_Plan)_F
     desc: Parts management plan with preliminary parts list and DMSMS management plan
@@ -1944,6 +2072,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-4 p.81-82
     verification_status: source_supported
+    gate_role: supporting
   - id: 923
     name: 기능FMECA-신뢰성분석_D
     desc: Functional FMECA / reliability analyses and R&M estimate; reliability program plan
@@ -1960,6 +2089,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-4 p.81
     verification_status: source_supported
+    gate_role: core
   - id: 924
     name: 체계안전분석서(Safety)_U
     desc: System safety analyses (PHA, requirements hazard analysis) and hazard tracking; safety plan updated
@@ -1976,6 +2106,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-4 p.81
     verification_status: source_supported
+    gate_role: entry
   - id: 925
     name: 생산성평가-예비제조계획(MFG_Plan)_D
     desc: Producibility / manufacturability assessment and preliminary manufacturing plan
@@ -1998,6 +2129,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.4 (p.148-149; explicit output sentences p.148 and p.149)
+    depends_on_origin: canonical
+    gate_role: entry
   - id: 926
     name: 품질보증계획서(QAP)_F
     desc: Quality assurance plan
@@ -2020,6 +2153,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.4 (p.148-149; explicit output sentences p.148 and p.149)
+    depends_on_origin: canonical
+    gate_role: entry
   - id: 927
     name: EMI-EMC및환경통제계획_F
     desc: EMI/EMC and environments control plan (incl. contamination control where applicable)
@@ -2034,6 +2169,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-6
     verification_status: partially_supported
+    gate_role: entry
   - id: 928
     name: ILSP-LCSP_F
     desc: Integrated logistics support plan / life cycle sustainment plan (baselined)
@@ -2059,6 +2195,8 @@ gates:
       locator: §4.2.8 (p.152)
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1
+    depends_on_origin: canonical
+    gate_role: entry
   - id: 929
     name: 운용개념서(CONOPS)_F
     desc: Concept of operations (baseline)
@@ -2086,6 +2224,8 @@ gates:
       locator: §3.2.2.1-§3.2.2.3 (p.24)
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.66-75 (printed p.53-62) §4.1.1.1/§4.1.1.3, Figure 4.1-1
+    depends_on_origin: canonical
+    gate_role: core
   - id: 930
     name: IMS_F
     desc: Integrated master schedule and cost update with plan to CDR
@@ -2104,6 +2244,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.83
     verification_status: source_supported
+    gate_role: entry
   - id: 931
     name: 보안-보호계획(PPP)_U
     desc: System security / program protection plan (updated)
@@ -2120,6 +2261,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-4 p.82
     verification_status: source_supported
+    gate_role: entry
   - id: 932
     name: SEMP_U
     desc: SEMP (updated)
@@ -2136,6 +2278,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-4 p.81
     verification_status: source_supported
+    gate_role: entry
   - id: 933
     name: 장납기품목-조달목록(Long_Lead)_D
     desc: Long-lead item / critical procurement list with supply chain risk status
@@ -2152,6 +2295,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-4 p.82
     verification_status: source_supported
+    gate_role: supporting
   - id: 934
     name: 공학해석-M&S결과서(Analysis)_D
     desc: Preliminary engineering analysis and modeling results (subsystem analyses, M&S)
@@ -2176,6 +2320,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.4 (p.148-149; explicit output sentences p.148 and p.149)
+    depends_on_origin: canonical
+    gate_role: core
   - id: 935
     name: HSI접근_U
     desc: HSI approach / human rating or human factors plan (updated)
@@ -2198,6 +2344,8 @@ gates:
     depends_on_refs:
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1
+    depends_on_origin: canonical
+    gate_role: core
   - id: 936
     name: PDR검토자료(Review_Package)_F
     desc: PDR technical review package (incl. lower-level PDR closure and prior action items)
@@ -2216,6 +2364,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.82
     verification_status: source_supported
+    gate_role: entry
   - id: 937
     name: PDR회의록_F
     desc: PDR minutes with RID/RFA dispositions and corrective action plans
@@ -2232,6 +2381,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.83
     verification_status: source_supported
+    gate_role: supporting
   - id: 938
     name: PDR결과보고서_F
     desc: PDR review result report / assessment (allocated baseline evidence, TPM status)
@@ -2250,6 +2400,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.83-84
     verification_status: source_supported
+    gate_role: supporting
   - id: 939
     name: 구현·제작(활동)
     desc: Product implementation — activity node (no folder); evidenced by the records it produces
@@ -2265,6 +2416,11 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.4 (p.148-149; explicit output sentences p.148 and p.149)
     verification_status: partially_supported
+    evidence_record:
+    - engineering_analysis_report
+    - manufacturing_plan
+    - qa_plan
+    added_by_verification: '2026-08-18'
     depends_on:
     - drawings
     - tra_report
@@ -2274,11 +2430,8 @@ gates:
       locator: §4.2.4 (p.148-149; explicit output sentences p.148 and p.149)
     - source_key: nasa_npr_7123_1d
       locator: §3.2.6.1-§3.2.6.2 (p.25)
-    evidence_record:
-    - engineering_analysis_report
-    - manufacturing_plan
-    - qa_plan
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 940
     name: 통합(활동)
     desc: Product integration — activity node (no folder); evidenced by the records it produces
@@ -2294,6 +2447,9 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.5 (p.149-150)
     verification_status: partially_supported
+    evidence_record:
+    - icd
+    added_by_verification: '2026-08-18'
     depends_on:
     - dci
     - integration_plan
@@ -2302,9 +2458,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.5 (p.149-150)
-    evidence_record:
-    - icd
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 941
     name: 확인(활동)
     desc: Product validation — activity node (no folder); evidenced by the records it produces
@@ -2320,6 +2475,9 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.7 (p.151-152; explicit product sentences p.152)
     verification_status: partially_supported
+    evidence_record:
+    - conops
+    added_by_verification: '2026-08-18'
     depends_on:
     - temp
     - vv_strategy
@@ -2329,9 +2487,8 @@ gates:
       locator: §4.2.7 (p.151-152; explicit product sentences p.152)
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.129-136 (printed p.116-123) §5.4.1.1/§5.4.1.3, Figure 5.4-1
-    evidence_record:
-    - conops
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 942
     name: 검증(활동)
     desc: Product verification — activity node (no folder); evidenced by the records it produces
@@ -2347,6 +2504,9 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.6 (p.150-151; explicit output sentence p.151)
     verification_status: partially_supported
+    evidence_record:
+    - vcrm
+    added_by_verification: '2026-08-18'
     depends_on:
     - dci
     - fci
@@ -2358,9 +2518,8 @@ gates:
       locator: §4.2.6 (p.150-151; explicit output sentence p.151)
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.118-127 (printed p.105-114) §5.3.1.1/§5.3.1.3, Figure 5.3-1
-    evidence_record:
-    - vcrm
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 943
     name: 할당 기준선 확정(결정)
     desc: Allocated baseline established at PDR — decision node (no folder); evidenced by the configuration identification and the review record
@@ -2376,16 +2535,18 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: '§4.1.6 (p.131-134; baseline definitions p.132-133)'
     verification_status: partially_supported
+    evidence_record:
+    - dci
+    - review_minutes_pdr
+    added_by_verification: '2026-08-18'
     depends_on:
     - dci
     depends_on_evidence: general_se_guidance
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
-      locator: '§4.1.6 (p.131-134; baseline definitions p.132-133)'
-    evidence_record:
-    - dci
-    - review_minutes_pdr
-    added_by_verification: '2026-08-18'
+      locator: §4.1.6 (p.131-134; baseline definitions p.132-133)
+    depends_on_origin: canonical
+    gate_role: supporting
 - code: 120
   name: CDR
   desc: 상세설계검토 (Critical Design Review)
@@ -2401,6 +2562,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 1202
     name: LOG_의사결정조치기록
     desc: 회의록, 공문, 액션아이템 등 의사결정 및 조치 기록
@@ -2412,6 +2574,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 1203
     name: TDP_기술자료
     desc: 주고받은 기술자료 패키지
@@ -2423,6 +2586,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 1204
     name: 제품형상식별서(PCI)_F
     desc: Initial product baseline configuration identification (build-to/code-to documentation under configuration control)
@@ -2445,6 +2609,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.132-133
     verification_status: source_supported
+    gate_role: core
   - id: 1205
     name: 체계-부체계설계기술서(SSDD)_F
     desc: System/Subsystem Design Description (final, detailed design)
@@ -2467,6 +2632,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.3 (p.145-148; explicit output sentence p.147)
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 1206
     name: 하드웨어설계기술서(HDD)_F
     desc: Hardware design description (final)
@@ -2483,6 +2650,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-5 p.86
     verification_status: source_supported
+    gate_role: supporting
   - id: 1207
     name: 소프트웨어설계기술서(SDD)_F
     desc: Software design description (final, code-to)
@@ -2499,6 +2667,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-5 p.86-87
     verification_status: source_supported
+    gate_role: supporting
   - id: 1208
     name: 인터페이스설계기술서(IDD)+ICD갱신_F
     desc: Interface design descriptions and updated ICDs (mature for fabrication/integration/test)
@@ -2515,6 +2684,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-5 p.86-87
     verification_status: source_supported
+    gate_role: supporting
   - id: 1209
     name: 데이터베이스설계기술서(DBDD)_F
     desc: Database design description (where a database CSCI exists)
@@ -2531,6 +2701,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-7
     verification_status: source_supported
+    gate_role: supporting
   - id: 1210
     name: 제작도면(Drawings)_F
     desc: Engineering drawings (production-representative; 75-90% complete, 100% for critical/safety items)
@@ -2558,6 +2729,8 @@ gates:
       locator: §4.2.3 (p.145-148; explicit output sentence p.147)
     - source_key: dod_se_guidebook_2022
       locator: §4.2.8 (p.152)
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 1211
     name: 기계3D모델(3D_Model)_F
     desc: 3D mechanical model / production model (final)
@@ -2574,6 +2747,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-5 p.86
     verification_status: source_supported
+    gate_role: supporting
   - id: 1212
     name: 자재명세서(BOM)_F
     desc: Bill of materials / materials list with critical parts identified
@@ -2592,6 +2766,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-5 p.86
     verification_status: source_supported
+    gate_role: supporting
   - id: 1213
     name: 요구사항추적표(RTM)_U
     desc: Requirements traceability matrix (functional, allocated, product baselines)
@@ -2617,6 +2792,8 @@ gates:
       locator: §4.2.1 (p.142-143)
     - source_key: nasa_npr_7123_1d
       locator: §3.2.3.1-§3.2.3.2 (p.24-25)
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 1214
     name: 기술자료묶음(TDP)_D
     desc: 'Technical data package (initial: schematics, specs, ICDs, engineering analyses, spares list)'
@@ -2641,6 +2818,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.4 (p.148-149; explicit output sentences p.148 and p.149)
+    depends_on_origin: canonical
+    gate_role: entry
   - id: 1215
     name: 제조계획서(MFG_Plan)_F
     desc: 'Manufacturing plan: critical manufacturing processes, process control plans, tooling and fabrication/assembly plans'
@@ -2665,6 +2844,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.4 (p.148-149; explicit output sentences p.148 and p.149)
+    depends_on_origin: canonical
+    gate_role: core
   - id: 1216
     name: 개발시험계획서(DT_Plan)_F
     desc: Development / qualification test plan (baselined)
@@ -2681,6 +2862,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-5 p.86-87
     verification_status: source_supported
+    gate_role: supporting
   - id: 1217
     name: 개발시험절차서(DT_Proc)_D
     desc: Development / qualification test procedures (draft)
@@ -2697,6 +2879,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-5 p.86
     verification_status: source_supported
+    gate_role: supporting
   - id: 1218
     name: 수락시험계획서(ATP)_F
     desc: Acceptance test plan and acceptance criteria (ready to baseline)
@@ -2713,6 +2896,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-7 p.94
     verification_status: source_supported
+    gate_role: entry
   - id: 1219
     name: TEMP_U
     desc: Test and evaluation master plan / V&V plan (updated)
@@ -2729,6 +2913,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-5 p.87
     verification_status: source_supported
+    gate_role: supporting
   - id: 1220
     name: VCRM_U
     desc: Verification cross-reference matrix (updated to product baseline)
@@ -2751,6 +2936,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.6 (p.150-151; explicit output sentence p.151)
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 1221
     name: 소프트웨어시험기술서(STD)_D
     desc: Software test description / test cases (draft)
@@ -2767,6 +2954,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-7
     verification_status: source_supported
+    gate_role: supporting
   - id: 1222
     name: 통합계획서(Integration)_U
     desc: Integration plan (updated)
@@ -2783,6 +2971,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-5 p.87
     verification_status: source_supported
+    gate_role: entry
   - id: 1223
     name: 설계FMECA-신뢰성분석_F
     desc: Design FMECA / reliability analyses and R&M estimate (updated); R&M plan updated
@@ -2799,6 +2988,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-5 p.87
     verification_status: source_supported
+    gate_role: core
   - id: 1224
     name: 체계-부체계안전분석서(Safety)_F
     desc: System and subsystem safety analyses with associated verifications (baselined)
@@ -2815,6 +3005,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-5 p.87
     verification_status: source_supported
+    gate_role: entry
   - id: 1225
     name: 위험목록(Risk_Register)_U
     desc: Risk register (updated; mitigations in IMS)
@@ -2833,6 +3024,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.88
     verification_status: source_supported
+    gate_role: core
   - id: 1226
     name: TPM현황-자원여유도_U
     desc: TPM status, technical resource budgets and margins (updated)
@@ -2860,6 +3052,8 @@ gates:
       locator: §3.2.3.1-§3.2.3.2 (p.24-25)
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 1227
     name: TRA_U
     desc: Technology readiness assessment (updated)
@@ -2876,6 +3070,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.112
     verification_status: source_supported
+    gate_role: entry
   - id: 1228
     name: 부품관리-단종관리,부품목록(Parts_Plan)_U
     desc: Parts list and parts management / DMSMS status (EEE parts selected)
@@ -2892,6 +3087,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-5 p.88
     verification_status: source_supported
+    gate_role: supporting
   - id: 1229
     name: 장납기조달계획(Long_Lead)_U
     desc: Long-lead procurement plan and supply chain assessment
@@ -2908,6 +3104,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-5 p.88
     verification_status: source_supported
+    gate_role: supporting
   - id: 1230
     name: 공학해석보고서(Analysis)_F
     desc: Engineering analysis reports (loads/stress/thermal/EMC/fracture; material properties; M&S results)
@@ -2930,6 +3127,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.4 (p.148-149; explicit output sentences p.148 and p.149)
+    depends_on_origin: canonical
+    gate_role: core
   - id: 1231
     name: 핵심품목-단일고장점목록(CIL)_F
     desc: Critical items list (critical safety/application items, key product characteristics, single point failures)
@@ -2946,6 +3145,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-7
     verification_status: source_supported
+    gate_role: supporting
   - id: 1232
     name: 절충연구보고서(Trade_Study)_F
     desc: Trade study reports (detailed design trades, complete)
@@ -2970,6 +3170,8 @@ gates:
       locator: §4.2.3 (p.145-148; explicit output sentence p.147)
     - source_key: nasa_npr_7123_1d
       locator: §3.2.5.1-§3.2.5.3 (p.25)
+    depends_on_origin: canonical
+    gate_role: entry
   - id: 1233
     name: 제조성숙도평가(MRA)_D
     desc: Manufacturing readiness / producibility assessment (pre-build)
@@ -2988,6 +3190,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-7
     verification_status: source_supported
+    gate_role: supporting
   - id: 1234
     name: 품질보증계획(QAP)_U
     desc: Quality assurance plan / inspection plan (updated for fabrication)
@@ -3010,6 +3213,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.4 (p.148-149; explicit output sentences p.148 and p.149)
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 1235
     name: 운용한계-제약및명령·텔레메트리목록(SSDD)_U
     desc: Operational limits and constraints; command/telemetry or control-interface list (as applicable)
@@ -3030,6 +3235,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.3 (p.145-148; explicit output sentence p.147)
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 1236
     name: SEMP_U
     desc: SEMP (updated)
@@ -3046,6 +3253,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-5 p.87
     verification_status: source_supported
+    gate_role: entry
   - id: 1237
     name: IMS_U
     desc: 'Integrated master schedule (updated: fabrication, coding, integration, test critical path)'
@@ -3062,6 +3270,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-5 p.88
     verification_status: source_supported
+    gate_role: entry
   - id: 1238
     name: ILSP_U
     desc: Integrated logistics support plan / LCSP (updated with supportability features)
@@ -3087,6 +3296,8 @@ gates:
       locator: §4.2.8 (p.152)
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1
+    depends_on_origin: canonical
+    gate_role: entry
   - id: 1239
     name: 체계보안계획(PPP)_F
     desc: System security plan (baselined) / program protection plan updated; security controls identified
@@ -3103,6 +3314,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-5 p.87-88
     verification_status: source_supported
+    gate_role: entry
   - id: 1240
     name: CDR검토자료(Review_Package)_F
     desc: CDR technical review package (incl. lower-level CDR integration, prior action closure)
@@ -3119,6 +3331,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-5 p.87
     verification_status: source_supported
+    gate_role: entry
   - id: 1241
     name: CDR회의록_F
     desc: CDR minutes with RID/RFA dispositions and corrective action plans
@@ -3135,6 +3348,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.88
     verification_status: source_supported
+    gate_role: supporting
   - id: 1242
     name: CDR결과보고서_F
     desc: CDR review result report / assessment (product baseline evidence, TPM status)
@@ -3153,6 +3367,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.88-89
     verification_status: source_supported
+    gate_role: supporting
   - id: 1243
     name: 구현·제작(활동)
     desc: Product implementation — activity node (no folder); evidenced by the records it produces
@@ -3168,6 +3383,12 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.4 (p.148-149; explicit output sentences p.148 and p.149)
     verification_status: partially_supported
+    evidence_record:
+    - engineering_analysis_report
+    - manufacturing_plan
+    - qa_plan
+    - tdp
+    added_by_verification: '2026-08-18'
     depends_on:
     - pci
     - tra_report
@@ -3177,12 +3398,8 @@ gates:
       locator: §4.2.4 (p.148-149; explicit output sentences p.148 and p.149)
     - source_key: nasa_npr_7123_1d
       locator: §3.2.6.1-§3.2.6.2 (p.25)
-    evidence_record:
-    - engineering_analysis_report
-    - manufacturing_plan
-    - qa_plan
-    - tdp
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 1244
     name: 인도·전환(활동)
     desc: Product transition — activity node (no folder); evidenced by the records it produces
@@ -3198,6 +3415,10 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.8 (p.152)
     verification_status: partially_supported
+    evidence_record:
+    - drawings
+    - ils_plan
+    added_by_verification: '2026-08-18'
     depends_on:
     - hsi_plan
     - icd
@@ -3206,10 +3427,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.8 (p.152)
-    evidence_record:
-    - drawings
-    - ils_plan
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 1245
     name: 제품 기준선 확정(결정)
     desc: Initial product baseline established at CDR — decision node (no folder); evidenced by the configuration identification and the review record
@@ -3225,16 +3444,18 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: '§4.1.6 (p.131-134; baseline definitions p.132-133)'
     verification_status: partially_supported
+    evidence_record:
+    - pci
+    - review_minutes_cdr
+    added_by_verification: '2026-08-18'
     depends_on:
     - pci
     depends_on_evidence: general_se_guidance
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
-      locator: '§4.1.6 (p.131-134; baseline definitions p.132-133)'
-    evidence_record:
-    - pci
-    - review_minutes_cdr
-    added_by_verification: '2026-08-18'
+      locator: §4.1.6 (p.131-134; baseline definitions p.132-133)
+    depends_on_origin: canonical
+    gate_role: supporting
 - code: 150
   name: TRR_DT
   desc: 시험준비상태검토 및 개발시험 (Test Readiness Review / DT)
@@ -3250,6 +3471,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 1502
     name: LOG_의사결정조치기록
     desc: 회의록, 공문, 액션아이템 등 의사결정 및 조치 기록
@@ -3261,6 +3483,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 1503
     name: TDP_기술자료
     desc: 주고받은 기술자료 패키지
@@ -3272,6 +3495,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 1504
     name: 개발시험계획서(DT_Plan)_F
     desc: Development test plan (approved, with test objectives and cases)
@@ -3290,6 +3514,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.67
     verification_status: source_supported
+    gate_role: core
   - id: 1505
     name: 개발시험절차서(DT_Proc)_F
     desc: Development test procedures (approved)
@@ -3304,6 +3529,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-10
     verification_status: partially_supported
+    gate_role: entry
   - id: 1506
     name: 소프트웨어시험기술서(STD)_F
     desc: Software test description (final test cases/procedures)
@@ -3318,6 +3544,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-10
     verification_status: partially_supported
+    gate_role: supporting
   - id: 1507
     name: 시험품as-built형상목록(As_Built)_F
     desc: As-built configuration list of item under test (HW/SW) released under configuration control
@@ -3332,6 +3559,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-10
     verification_status: partially_supported
+    gate_role: entry
   - id: 1508
     name: 버전기술서(VDD)_F
     desc: Version description document(s) for test article software and test/support systems
@@ -3346,6 +3574,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-10
     verification_status: partially_supported
+    gate_role: entry
   - id: 1509
     name: 통합계획서및통합절차(Integration)_U
     desc: Integration plan (updated and approved) with integration procedures and workflow
@@ -3362,6 +3591,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: p.38 [SE-47]
     verification_status: source_supported
+    gate_role: supporting
   - id: 1510
     name: 하위시험결과보고서(DT)_D
     desc: Lower-tier verification results (unit, subsystem, qualification test reports; initial V&V results)
@@ -3386,6 +3616,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.6 (p.150-151; explicit output sentence p.151)
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 1511
     name: 환경시험계획-절차(Env_Test)_F
     desc: Environmental / qualification test plan and procedures
@@ -3404,6 +3636,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-5 p.86
     verification_status: source_supported
+    gate_role: supporting
   - id: 1512
     name: ESS시험_F
     desc: Environmental stress screening plan/procedure (where applicable)
@@ -3418,6 +3651,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-9
     verification_status: partially_supported
+    gate_role: supporting
   - id: 1513
     name: 인터페이스검증기록-VCRM_U
     desc: Interface verification records against ICDs (mechanical/electrical) and VCRM update
@@ -3438,6 +3672,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.6 (p.150-151; explicit output sentence p.151)
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 1514
     name: 결함-불일치목록(Discrepancy)_U
     desc: Discrepancy / deficiency log with dispositions and closure schedule
@@ -3468,6 +3704,8 @@ gates:
       locator: §4.2.8 (p.152)
     - source_key: nasa_npr_7123_1d
       locator: §3.2.9.1-§3.2.9.2 (p.26)
+    depends_on_origin: canonical
+    gate_role: entry
   - id: 1515
     name: 시험안전계획-취급안전요구(Safety)_U
     desc: Test safety plan / test hazard analysis and handling & safety requirements
@@ -3484,6 +3722,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-9
     verification_status: partially_supported
+    gate_role: supporting
   - id: 1516
     name: TRR검토자료(Review_Package)_F
     desc: Test readiness package (test resources, facilities, GSE, instrumentation, personnel roles and training, test director designation)
@@ -3500,6 +3739,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-9
     verification_status: partially_supported
+    gate_role: entry
   - id: 1517
     name: TEMP_U
     desc: Test and evaluation master plan / V&V plan (updated)
@@ -3514,6 +3754,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-9
     verification_status: partially_supported
+    gate_role: supporting
   - id: 1518
     name: 위험목록(Risk_Register)_U
     desc: Risk register (updated; residual test risk accepted)
@@ -3530,6 +3771,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-9
     verification_status: partially_supported
+    gate_role: core
   - id: 1519
     name: 운송-취급-포장지침(PHS_T)_F
     desc: Transportation, handling and packaging criteria/instructions (final)
@@ -3544,6 +3786,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-9
     verification_status: partially_supported
+    gate_role: supporting
   - id: 1520
     name: 설계기술서-ICD_U
     desc: Design description and ICDs (updated to as-built for integration)
@@ -3567,6 +3810,8 @@ gates:
       locator: §4.2.3 (p.145-148; explicit output sentence p.147)
     - source_key: dod_se_guidebook_2022
       locator: §4.2.5 (p.149-150)
+    depends_on_origin: canonical
+    gate_role: entry
   - id: 1521
     name: IMS_U
     desc: 'Integrated master schedule (updated: component availability and test schedule)'
@@ -3581,6 +3826,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-9
     verification_status: partially_supported
+    gate_role: supporting
   - id: 1522
     name: 시험교훈수집계획(Lessons_Learned)_D
     desc: Lessons learned capture plan for test (initial log)
@@ -3595,6 +3841,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-10
     verification_status: partially_supported
+    gate_role: core
   - id: 1523
     name: TRR회의록_F
     desc: TRR minutes with test authorization and RID/action dispositions
@@ -3611,6 +3858,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-10
     verification_status: partially_supported
+    gate_role: supporting
   - id: 1524
     name: TRR결과보고서_F
     desc: TRR review result report
@@ -3625,6 +3873,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: p.40 §5.2.3.1
     verification_status: partially_supported
+    gate_role: supporting
   - id: 1525
     name: 인도·전환(활동)
     desc: Product transition — activity node (no folder); evidenced by the records it produces
@@ -3640,6 +3889,9 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.8 (p.152)
     verification_status: partially_supported
+    evidence_record:
+    - discrepancy_log
+    added_by_verification: '2026-08-18'
     depends_on:
     - handling_transport_plan
     - hsi_plan
@@ -3649,9 +3901,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.8 (p.152)
-    evidence_record:
-    - discrepancy_log
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 1526
     name: 확인(활동)
     desc: Product validation — activity node (no folder); evidenced by the records it produces
@@ -3667,6 +3918,9 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: §3.2.9.1-§3.2.9.2 (p.26)
     verification_status: partially_supported
+    evidence_record:
+    - discrepancy_log
+    added_by_verification: '2026-08-18'
     depends_on:
     - pci
     - temp
@@ -3677,9 +3931,8 @@ gates:
       locator: §4.2.7 (p.151-152; explicit product sentences p.152)
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.129-136 (printed p.116-123) §5.4.1.1/§5.4.1.3, Figure 5.4-1
-    evidence_record:
-    - discrepancy_log
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
 - code: 180
   name: FCA_OT
   desc: 기능형상확인 및 운용시험 (Functional Configuration Audit / OT)
@@ -3695,6 +3948,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 1802
     name: LOG_의사결정조치기록
     desc: 회의록, 공문, 액션아이템 등 의사결정 및 조치 기록
@@ -3706,6 +3960,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 1803
     name: TDP_기술자료
     desc: 주고받은 기술자료 패키지
@@ -3717,6 +3972,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 1804
     name: 개발시험결과보고서-검증결과(DT)_F
     desc: Development test report(s) / verification results (all spec requirements verified by A/D/E/T and documented)
@@ -3741,6 +3997,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.6 (p.150-151; explicit output sentence p.151)
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 1805
     name: 소프트웨어시험결과보고서(STR)_F
     desc: Software test report (CSCI verification against SRS/IRS)
@@ -3757,6 +4015,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-11
     verification_status: source_supported
+    gate_role: supporting
   - id: 1806
     name: VCRM완료본_F
     desc: Verification cross-reference matrix completed (requirement-to-evidence compliance matrix)
@@ -3781,6 +4040,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.6 (p.150-151; explicit output sentence p.151)
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 1807
     name: 요구사항추적표(RTM)_F
     desc: Requirements traceability matrix (final, requirement to verification evidence)
@@ -3806,6 +4067,8 @@ gates:
       locator: §4.2.1 (p.142-143)
     - source_key: nasa_npr_7123_1d
       locator: §3.2.3.1-§3.2.3.2 (p.24-25)
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 1808
     name: 기능형상감사계획서(FCA_Plan)_F
     desc: Functional configuration audit plan
@@ -3822,6 +4085,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.89-91
     verification_status: partially_supported
+    gate_role: supporting
   - id: 1809
     name: 기능형상감사점검표(FCA_Checklist)_F
     desc: Functional configuration audit checklist
@@ -3836,6 +4100,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-6 p.91
     verification_status: partially_supported
+    gate_role: supporting
   - id: 1810
     name: 기능형상감사결과보고서(FCA)_F
     desc: Functional configuration audit report (functional/allocated baseline verified)
@@ -3852,6 +4117,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-11
     verification_status: source_supported
+    gate_role: supporting
   - id: 1811
     name: 운용시험계획(발주처주관(OT_Plan)_F
     desc: 'Operational test support: OT plan input / OT readiness evidence'
@@ -3868,6 +4134,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-11
     verification_status: source_supported
+    gate_role: supporting
   - id: 1812
     name: 운용시험결과보고서(OT)_F
     desc: Operational test / validation results report
@@ -3892,6 +4159,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.7 (p.151-152; explicit product sentences p.152)
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 1813
     name: RAM평가보고서_F
     desc: R&M assessment report (achieved R&M vs contractual specification)
@@ -3908,6 +4177,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-7
     verification_status: source_supported
+    gate_role: supporting
   - id: 1814
     name: As-built형상문서(As_Built)_F
     desc: As-built configuration documentation (HW/SW) baselined; product baseline for initial production
@@ -3924,6 +4194,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-6 p.91
     verification_status: source_supported
+    gate_role: entry
   - id: 1815
     name: TDP_U
     desc: Technical data package (updated with all test results)
@@ -3946,6 +4217,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.4 (p.148-149; explicit output sentences p.148 and p.149)
+    depends_on_origin: canonical
+    gate_role: entry
   - id: 1816
     name: 수락자료묶음(ADP)_F
     desc: Acceptance data package / certificate of conformance evidence
@@ -3964,6 +4237,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.91
     verification_status: source_supported
+    gate_role: core
   - id: 1817
     name: 결함-면제·일탈현황(Discrepancy)_U
     desc: Discrepancy / deficiency and waiver-deviation status (closed or planned)
@@ -3994,6 +4268,8 @@ gates:
       locator: §4.2.8 (p.152)
     - source_key: nasa_npr_7123_1d
       locator: §3.2.9.1-§3.2.9.2 (p.26)
+    depends_on_origin: canonical
+    gate_role: entry
   - id: 1818
     name: 위험목록(Risk_Register)_U
     desc: Risk register (residual risks accepted before initial production)
@@ -4010,6 +4286,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-6 p.91
     verification_status: source_supported
+    gate_role: core
   - id: 1819
     name: 보안통제검증보고서(SAR)_F
     desc: Security assessment / cybersecurity controls verification report
@@ -4026,6 +4303,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-5 p.88
     verification_status: partially_supported
+    gate_role: supporting
   - id: 1820
     name: 소프트웨어제품명세서(VDD)_D
     desc: Software product specification / executable and source baseline (preliminary)
@@ -4044,6 +4322,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-11
     verification_status: source_supported
+    gate_role: supporting
   - id: 1821
     name: 개발결과보고서(Final_Report)_D
     desc: System development result report (development completion evidence, preliminary)
@@ -4060,6 +4339,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-11
     verification_status: source_supported
+    gate_role: supporting
   - id: 1822
     name: 운송-취급-점검절차(PHS_T)_F
     desc: Shipping, handling, checkout and operational plans/procedures (safety-cleared)
@@ -4074,6 +4354,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-11
     verification_status: partially_supported
+    gate_role: entry
   - id: 1823
     name: IMS_U
     desc: Plan and schedule to PRR/PCA (resourced)
@@ -4088,6 +4369,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-6 p.91
     verification_status: partially_supported
+    gate_role: supporting
   - id: 1824
     name: 교훈기록(Lessons_Learned)_U
     desc: Lessons learned log (captured through verification)
@@ -4102,6 +4384,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-11
     verification_status: partially_supported
+    gate_role: core
   - id: 1825
     name: FCA검토자료(Review_Package)_F
     desc: FCA/SVR technical review package
@@ -4118,6 +4401,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.90
     verification_status: source_supported
+    gate_role: entry
   - id: 1826
     name: FCA회의록_F
     desc: FCA/SVR minutes with dispositions
@@ -4134,6 +4418,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-7 p.94
     verification_status: source_supported
+    gate_role: supporting
   - id: 1827
     name: FCA결과보고서_F
     desc: FCA/SVR review result report (verified functional/allocated baseline; authorization for acceptance/initial production)
@@ -4152,6 +4437,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.91
     verification_status: source_supported
+    gate_role: supporting
 - code: 210
   name: PCA
   desc: 물리적형상확인 및 생산·인도 준비 (Physical Configuration Audit / PRR)
@@ -4167,6 +4453,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 2102
     name: LOG_의사결정조치기록
     desc: 회의록, 공문, 액션아이템 등 의사결정 및 조치 기록
@@ -4178,6 +4465,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 2103
     name: TDP_기술자료
     desc: 주고받은 기술자료 패키지
@@ -4189,6 +4477,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 2104
     name: 물리형상감사계획서(PCA_Plan)_F
     desc: Physical configuration audit plan
@@ -4205,6 +4494,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.95-97
     verification_status: partially_supported
+    gate_role: supporting
   - id: 2105
     name: 물리형상감사점검표(PCA_Checklist)_F
     desc: Physical configuration audit checklist
@@ -4219,6 +4509,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.95-96
     verification_status: partially_supported
+    gate_role: supporting
   - id: 2106
     name: 물리형상감사결과보고서(PCA)_F
     desc: Physical configuration audit report (final product baseline verified)
@@ -4235,6 +4526,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-12
     verification_status: source_supported
+    gate_role: supporting
   - id: 2107
     name: 제품형상식별서(PCI)_F
     desc: Final product baseline configuration identification (as-built, OT-validated item)
@@ -4255,6 +4547,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-11
     verification_status: source_supported
+    gate_role: supporting
   - id: 2108
     name: 제작도면(Drawings)_F
     desc: Engineering drawings / production models approved and certified (as-built, redlines incorporated)
@@ -4280,6 +4573,8 @@ gates:
       locator: §4.2.3 (p.145-148; explicit output sentence p.147)
     - source_key: dod_se_guidebook_2022
       locator: §4.2.8 (p.152)
+    depends_on_origin: canonical
+    gate_role: core
   - id: 2109
     name: BOM-예비품목록_F
     desc: Bill of materials with critical parts and spares provisioning list (final)
@@ -4296,6 +4591,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-7 p.94
     verification_status: source_supported
+    gate_role: entry
   - id: 2110
     name: TDP_F
     desc: Technical data package (final, transferred per contract)
@@ -4318,6 +4614,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.4 (p.148-149; explicit output sentences p.148 and p.149)
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 2111
     name: 생산계획서(MFG_Plan)_F
     desc: Production plan (critical process controls, control limits, procedures, tooling/test equipment, delivery schedule)
@@ -4340,6 +4638,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.4 (p.148-149; explicit output sentences p.148 and p.149)
+    depends_on_origin: canonical
+    gate_role: core
   - id: 2112
     name: 수락시험절차-장비(ATP)_F
     desc: Acceptance test procedures and acceptance test equipment (validated, under CM)
@@ -4356,6 +4656,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-8
     verification_status: source_supported
+    gate_role: supporting
   - id: 2113
     name: 생산품질-검사계획(QAP)_F
     desc: Quality / inspection plan for production (in-process and end-item inspections)
@@ -4380,6 +4681,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.4 (p.148-149; explicit output sentences p.148 and p.149)
+    depends_on_origin: canonical
+    gate_role: core
   - id: 2114
     name: 제조성숙도평가-생산준비검토보고서(MRA)_F
     desc: Manufacturing readiness assessment / PRR report
@@ -4398,6 +4701,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-8
     verification_status: source_supported
+    gate_role: supporting
   - id: 2115
     name: 고장보고·분석·시정조치(FRACAS)기록_F
     desc: Failure reporting, analysis and corrective action system (FRACAS) records
@@ -4414,6 +4718,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-8
     verification_status: source_supported
+    gate_role: supporting
   - id: 2116
     name: 면제-일탈및결함종결대장(Waiver)_F
     desc: Waiver / deviation and deficiency closure register (all closed or incorporated)
@@ -4430,6 +4735,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.95-96
     verification_status: source_supported
+    gate_role: supporting
   - id: 2117
     name: 운용-정비기술교범(Tech_Manual)_F
     desc: Operator and maintenance technical manuals / operations documentation (verified and approved)
@@ -4457,6 +4763,8 @@ gates:
       locator: §4.2.8 (p.152)
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.105-108 (printed p.92-95) §5.1.1.1/§5.1.1.3, Figure 5.1-1
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 2118
     name: 교육훈련자료-이수기록(Training)_F
     desc: Training materials and training completion records
@@ -4481,6 +4789,8 @@ gates:
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
       locator: §4.2.8 (p.152)
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 2119
     name: 소프트웨어제품명세서-버전기술서(VDD)_F
     desc: Software product specification (final) and version description document (delivered build)
@@ -4497,6 +4807,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-12
     verification_status: source_supported
+    gate_role: supporting
   - id: 2120
     name: ILSP_F
     desc: Integrated logistics support plan / sustainment plan (final; sustaining planning complete)
@@ -4524,6 +4835,8 @@ gates:
       locator: §4.2.8 (p.152)
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 2121
     name: 생산-납품IMS_U
     desc: Production / delivery integrated master schedule
@@ -4542,6 +4855,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-8 p.97
     verification_status: source_supported
+    gate_role: supporting
   - id: 2122
     name: 위험목록(Risk_Register)_U
     desc: Risk register (production and deployment risks; low enough for FRP)
@@ -4562,6 +4876,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-8 p.97
     verification_status: source_supported
+    gate_role: entry
   - id: 2123
     name: 국방규격(Spec_Draft)_D
     desc: Product specification set for procurement / defense specification draft (from final product baseline)
@@ -4578,6 +4893,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.95
     verification_status: partially_supported
+    gate_role: supporting
   - id: 2124
     name: 현장인수-설치점검시험보고서(SAT)_F
     desc: Site acceptance / installation and checkout test report (enabling products delivered/installed)
@@ -4592,6 +4908,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-12
     verification_status: partially_supported
+    gate_role: supporting
   - id: 2125
     name: 보안-보호계획(PPP)_U
     desc: System security / protection plan (updated for deployment)
@@ -4608,6 +4925,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.216
     verification_status: source_supported
+    gate_role: supporting
   - id: 2126
     name: 개발결과보고서(Final_Report)_F
     desc: System development result report (final)
@@ -4624,6 +4942,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.97
     verification_status: source_supported
+    gate_role: supporting
   - id: 2127
     name: PCA-PRR검토자료(Review_Package)_F
     desc: PCA/PRR technical review package
@@ -4644,6 +4963,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: Table 3-8 p.97
     verification_status: source_supported
+    gate_role: supporting
   - id: 2128
     name: PCA-PRR회의록_F
     desc: PCA/PRR minutes with dispositions
@@ -4662,6 +4982,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.97
     verification_status: source_supported
+    gate_role: supporting
   - id: 2129
     name: PCA-PRR결과보고서_F
     desc: PCA/PRR review result report (final product baseline established; production go-ahead)
@@ -4682,6 +5003,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.97
     verification_status: source_supported
+    gate_role: supporting
 - code: 240
   name: LL
   desc: 사업 종결 및 교훈 정리 (Closeout and lessons learned)
@@ -4697,6 +5019,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 2402
     name: LOG_의사결정조치기록
     desc: 회의록, 공문, 액션아이템 등 의사결정 및 조치 기록
@@ -4708,6 +5031,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 2403
     name: TDP_기술자료
     desc: 주고받은 기술자료 패키지
@@ -4719,6 +5043,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 2404
     name: 교훈보고서(Lessons_Learned)_F
     desc: Lessons learned report (development, test, production, review process)
@@ -4737,6 +5062,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-11 and G-12
     verification_status: partially_supported
+    gate_role: supporting
   - id: 2405
     name: 검토조치사항종결대장(Action_Log)_F
     desc: Action item / RID-RFA closure log across all reviews (final)
@@ -4757,6 +5083,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.94
     verification_status: source_supported
+    gate_role: supporting
   - id: 2406
     name: 자료납품종결확인(CDRL)_F
     desc: CDRL delivery closeout / data transfer receipt (TDP, baselines, manuals delivered)
@@ -4773,6 +5100,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: Table G-11
     verification_status: source_supported
+    gate_role: supporting
   - id: 2407
     name: 위험목록종결본(Risk_Register)_F
     desc: Risk register closeout (final status, transferred risks)
@@ -4789,6 +5117,7 @@ gates:
     - source_key: dod_se_guidebook_2022
       locator: p.17
     verification_status: source_supported
+    gate_role: supporting
   - id: 2408
     name: TPM최종추이요약_F
     desc: Final TPM / leading-indicator trend summary
@@ -4818,6 +5147,8 @@ gates:
       locator: §3.2.3.1-§3.2.3.2 (p.24-25)
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1
+    depends_on_origin: canonical
+    gate_role: supporting
   - id: 2409
     name: 종결검토결과보고서_F
     desc: Closeout review minutes / result report (if a closeout meeting is held)
@@ -4832,6 +5163,7 @@ gates:
     - source_key: nasa_npr_7123_1d
       locator: p.40 §5.2.3.1
     verification_status: partially_supported
+    gate_role: supporting
 fixed_subfolders:
 - name: 00_Temp
   desc: AI가 읽는 산출물 생성 지침 및 양식. 이 폴더 안에 프롬프트, 템플릿, 작성 가이드를 배치하면 AI가 참조하여 산출물을 생성함.

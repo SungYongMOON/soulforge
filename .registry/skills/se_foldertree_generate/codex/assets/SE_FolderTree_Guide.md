@@ -1,6 +1,6 @@
 ---
 title: 'SE 기반 폴더 트리 생성 지침 (000_REF/020_MGMT/단계별 게이트)'
-version: '0.9'
+version: '0.10'
 owner_team: 개발1팀
 variant_binding:
   support_key: system_dev_lig_grade_a
@@ -75,6 +75,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 32
     name: LOG_의사결정조치기록
     desc: 회의록, 공문, 액션아이템 등 의사결정 및 조치 기록
@@ -86,6 +87,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 33
     name: TDP_기술자료
     desc: 주고받은 기술자료 패키지
@@ -97,6 +99,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 34
     name: 계약자료검토결과(Q1)
     desc: 고객 요구사양서 검토 및 리스크 식별
@@ -109,6 +112,7 @@ gates:
     verification_status: unsupported
     applies_when:
     - exploratory_skipped
+    gate_role: supporting
   - id: 35
     name: 협력개발실행계획서(Q2)
     desc: 계약 후 30일 이내 제출하는 승인된 계획서
@@ -129,6 +133,7 @@ gates:
     verification_status: partially_supported
     applies_when:
     - exploratory_skipped
+    gate_role: supporting
   - id: 36
     name: 체계공학관리계획서(SEMP)
     desc: (Final) 기술적 관리 및 SE 프로세스 계획
@@ -153,6 +158,7 @@ gates:
     verification_status: source_supported
     applies_when:
     - exploratory_skipped
+    gate_role: core
   - id: 37
     name: 품질보증계획서(QAP)
     desc: 개발 단계별 검사 계획 및 부적합 처리 절차
@@ -173,6 +179,7 @@ gates:
     verification_status: source_supported
     applies_when:
     - exploratory_skipped
+    gate_role: supporting
   - id: 38
     name: 착수회의록(Kick-off)
     desc: 사업 착수 회의 결과 기록
@@ -187,6 +194,7 @@ gates:
     verification_status: source_supported
     applies_when:
     - exploratory_skipped
+    gate_role: supporting
   - id: 39
     name: 운용개념(CONOPS)
     desc: 운용 시나리오 및 사용자 요구사항 분석
@@ -207,10 +215,23 @@ gates:
     - exploratory_skipped
     depends_on:
     - act_stakeholder_expectations
+    - p_temp
     depends_on_evidence: guidebook_recommended
     depends_on_refs:
     - source_key: dapa_se_technical_management_practice_guide
       locator: 표 26 (p.144); 그림 33 (p.141)
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.1 (p.142-143)
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.7 (p.151-152; explicit product sentences p.152)
+    - source_key: nasa_npr_7123_1d
+      locator: §3.2.2.1-§3.2.2.3 (p.24)
+    - source_key: nasa_se_handbook_rev2
+      locator: pdf p.129-136 (printed p.116-123) §5.4.1.1/§5.4.1.3, Figure 5.4-1
+    - source_key: nasa_se_handbook_rev2
+      locator: pdf p.66-75 (printed p.53-62) §4.1.1.1/§4.1.1.3, Figure 4.1-1
+    depends_on_origin: mixed
+    gate_role: entry
   - id: 40
     name: 체계요구사항명세서(SSRS)_D
     desc: (Draft) 기술적 요구사항 변환 초안
@@ -231,12 +252,7 @@ gates:
     verification_status: source_supported
     applies_when:
     - exploratory_skipped
-    depends_on:
-    - act_functional_analysis_allocation
-    depends_on_evidence: guidebook_recommended
-    depends_on_refs:
-    - source_key: dapa_se_technical_management_practice_guide
-      locator: '3.5 (p.54); 표 3 순서 4 ''체계 기능분석'' (p.14)'
+    gate_role: core
   - id: 41
     name: 가정및제약사항
     desc: 설계 제약 조건 및 가정 사항 정리
@@ -253,6 +269,7 @@ gates:
     verification_status: partially_supported
     applies_when:
     - exploratory_skipped
+    gate_role: supporting
   - id: 42
     name: 초기위험관리자료
     desc: 식별된 위험 요소 평가 및 관리 계획
@@ -271,6 +288,7 @@ gates:
     verification_status: source_supported
     applies_when:
     - exploratory_skipped
+    gate_role: supporting
   - id: 43
     name: SRR_회의록및조치결과
     desc: SRR 회의록 및 조치결과
@@ -289,6 +307,7 @@ gates:
     verification_status: source_supported
     applies_when:
     - exploratory_skipped
+    gate_role: supporting
   - id: 44
     name: 계약자료제출목록(CDRL)
     desc: 제출 산출물 목록 및 일정 정의
@@ -305,6 +324,7 @@ gates:
     verification_status: partially_supported
     applies_when:
     - exploratory_skipped
+    gate_role: supporting
   - id: 45
     name: SW개발계획서(SDP)
     desc: (Final) SW 개발 프로세스 및 조직 정의
@@ -324,6 +344,7 @@ gates:
     applies_when:
     - exploratory_skipped
     - sw_included
+    gate_role: supporting
   - id: 46
     name: 시험평가기본계획서(TEMP)_D
     desc: (Draft) 시험평가 마스터 플랜 초안
@@ -342,6 +363,7 @@ gates:
     verification_status: partially_supported
     applies_when:
     - exploratory_skipped
+    gate_role: supporting
   - id: 47
     name: 기능형상식별서(FCI)_D
     desc: (Draft) 체계 기능 식별서 초안
@@ -360,6 +382,16 @@ gates:
     verification_status: source_supported
     applies_when:
     - exploratory_skipped
+    depends_on:
+    - ord
+    depends_on_evidence: general_se_guidance
+    depends_on_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.2 (p.143-145)
+    - source_key: nasa_se_handbook_rev2
+      locator: pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1
+    depends_on_origin: generic_layer_projection
+    gate_role: supporting
   - id: 48
     name: 연동통제문서(ICD)_D
     desc: (Draft) 인터페이스 식별 초기 문서
@@ -376,6 +408,16 @@ gates:
     verification_status: source_supported
     applies_when:
     - exploratory_skipped
+    depends_on:
+    - semp
+    depends_on_evidence: general_se_guidance
+    depends_on_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.3 (p.145-148; explicit output sentence p.147)
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.5 (p.149-150)
+    depends_on_origin: generic_layer_projection
+    gate_role: core
   - id: 49
     name: 예비시험평가기본계획서(P-TEMP)
     desc: SRR 단계 예비 시험평가 기본계획, SFR 이후 TEMP로 발전
@@ -395,12 +437,7 @@ gates:
       locator: p.46
     verification_status: source_supported
     added_by_verification: '2026-08-18'
-    depends_on:
-    - act_functional_analysis_allocation
-    depends_on_evidence: guidebook_recommended
-    depends_on_refs:
-    - source_key: dapa_se_technical_management_practice_guide
-      locator: '3.5 (p.54); 표 3 순서 4 ''체계 기능분석'' (p.14)'
+    gate_role: supporting
   - id: 50
     name: M&S활용계획서
     desc: 수명주기 단계별 M&S 활용계획 수립과 SBA 등록, 각 검토회의에서 최신화
@@ -420,6 +457,7 @@ gates:
       locator: p.85
     verification_status: source_supported
     added_by_verification: '2026-08-18'
+    gate_role: supporting
   - id: 51
     name: 상호운용성확보계획서
     desc: 획득단계별 상호운용성 확보계획과 연동합의문서, ICD 연계
@@ -439,6 +477,7 @@ gates:
       locator: p.84
     verification_status: source_supported
     added_by_verification: '2026-08-18'
+    gate_role: supporting
   - id: 52
     name: RAM업무계획서(RAM)
     desc: RAM 업무계획 수립과 단계별 최신화, RAM 분석자료 및 분석결과 보고서
@@ -458,6 +497,7 @@ gates:
       locator: p.95-96
     verification_status: source_supported
     added_by_verification: '2026-08-18'
+    gate_role: supporting
   - id: 53
     name: 업무분할구조(WBS)
     desc: EVM 적용사업의 WBS 관리방안, 미적용 사업은 대안 관리방안
@@ -475,6 +515,7 @@ gates:
     applies_when:
     - evm_applied
     added_by_verification: '2026-08-18'
+    gate_role: supporting
   - id: 54
     name: 형상관리계획서(CMP)
     desc: SRR에서 수립하는 형상관리계획과 SW 형상관리계획, 각 검토회의에서 최신화 확인
@@ -494,6 +535,7 @@ gates:
       locator: 제158조
     verification_status: source_supported
     added_by_verification: '2026-08-18'
+    gate_role: supporting
   - id: 55
     name: 기술검토회의제출자료
     desc: 공식 기술검토회의 2주 전 제출하는 검토자료 본체
@@ -513,12 +555,7 @@ gates:
       locator: p.52
     verification_status: source_supported
     added_by_verification: '2026-08-18'
-    depends_on:
-    - act_functional_analysis_allocation
-    depends_on_evidence: guidebook_recommended
-    depends_on_refs:
-    - source_key: dapa_se_technical_management_practice_guide
-      locator: '3.5 (p.54); 표 3 순서 4 ''체계 기능분석'' (p.14)'
+    gate_role: supporting
   - id: 56
     name: 기능분석·기능할당(활동)
     desc: Functional analysis and allocation — activity node (no folder); evidenced by the records it produces
@@ -538,6 +575,7 @@ gates:
     - ssrs
     - technical_review_package
     added_by_verification: '2026-08-18'
+    gate_role: supporting
   - id: 57
     name: 이해관계자 기대 정의(활동)
     desc: Stakeholder expectations definition — activity node (no folder); evidenced by the records it produces
@@ -555,6 +593,7 @@ gates:
     evidence_record:
     - ord
     added_by_verification: '2026-08-18'
+    gate_role: supporting
   - id: 58
     name: 기술검토회의 수행(활동)
     desc: Technical review conducted — activity node (no folder); evidenced by the records it produces
@@ -569,15 +608,17 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.49 (바. 주요 산출물)
     verification_status: partially_supported
+    evidence_record:
+    - review_minutes_srr
+    added_by_verification: '2026-08-18'
     depends_on:
     - ord
     depends_on_evidence: guidebook_recommended
     depends_on_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.49 (바. 주요 산출물)
-    evidence_record:
-    - review_minutes_srr
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
 - code: 60
   name: SFR
   desc: 체계기능검토 (System Functional Review)
@@ -593,6 +634,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 62
     name: LOG_의사결정조치기록
     desc: 회의록, 공문, 액션아이템 등 의사결정 및 조치 기록
@@ -604,6 +646,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 63
     name: TDP_기술자료
     desc: 주고받은 기술자료 패키지
@@ -615,6 +658,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 64
     name: 체계요구사항명세서(SSRS)_F
     desc: (Final) 기능 기준선 확정본
@@ -631,12 +675,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.31
     verification_status: partially_supported
-    depends_on:
-    - act_functional_analysis_allocation
-    depends_on_evidence: guidebook_recommended
-    depends_on_refs:
-    - source_key: dapa_se_technical_management_practice_guide
-      locator: '3.5 (p.54); 표 3 순서 4 ''체계 기능분석'' (p.14)'
+    gate_role: core
   - id: 65
     name: 기능분석및할당자료
     desc: FFBD 및 요구사항 할당 분석
@@ -655,6 +694,22 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.53-54
     verification_status: source_supported
+    depends_on:
+    - ord
+    depends_on_evidence: general_se_guidance
+    depends_on_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.2 (p.143-145)
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.3 (p.145-148; explicit output sentence p.147)
+    - source_key: nasa_npr_7123_1d
+      locator: §3.2.4.1-§3.2.4.2 (p.25)
+    - source_key: nasa_se_handbook_rev2
+      locator: pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1
+    - source_key: nasa_se_handbook_rev2
+      locator: pdf p.87-89 (printed p.74-76) §4.3.1.1/§4.3.1.3, Figure 4.3-1
+    depends_on_origin: generic_layer_projection
+    gate_role: supporting
   - id: 66
     name: 요구사항추적표(RTM)
     desc: 요구사항-기능 매핑 추적 매트릭스
@@ -673,6 +728,18 @@ gates:
     - source_key: dapa_se_technical_management_practice_guide
       locator: §5.8
     verification_status: partially_supported
+    depends_on:
+    - ord
+    depends_on_evidence: general_se_guidance
+    depends_on_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.1 (p.142-143)
+    - source_key: nasa_npr_7123_1d
+      locator: §3.2.3.1-§3.2.3.2 (p.24-25)
+    - source_key: nasa_se_handbook_rev2
+      locator: pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1
+    depends_on_origin: generic_layer_projection
+    gate_role: supporting
   - id: 67
     name: 연동통제문서(ICD)_Prelim
     desc: (Preliminary) 인터페이스 구체화 중간본
@@ -685,6 +752,16 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.60
     verification_status: source_supported
+    depends_on:
+    - semp
+    depends_on_evidence: general_se_guidance
+    depends_on_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.3 (p.145-148; explicit output sentence p.147)
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.5 (p.149-150)
+    depends_on_origin: generic_layer_projection
+    gate_role: core
   - id: 68
     name: 검증확인전략(V&V)
     desc: 요구사항 검증 및 확인 전략
@@ -703,6 +780,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.117
     verification_status: partially_supported
+    gate_role: supporting
   - id: 69
     name: 대안분석(Trade-Study)
     desc: 설계 대안 분석 및 절충(Trade-Off) 연구 자료
@@ -717,6 +795,7 @@ gates:
     - source_key: dapa_se_technical_management_practice_guide
       locator: §5.9
     verification_status: partially_supported
+    gate_role: supporting
   - id: 70
     name: SFR_회의록및조치결과
     desc: SFR 회의 결과 및 기능 기준선 승인
@@ -731,6 +810,7 @@ gates:
     - source_key: dapa_program_management_rule_law_20260811
       locator: 제79조②
     verification_status: source_supported
+    gate_role: supporting
   - id: 71
     name: 기능형상식별서(FCI)_F
     desc: (Final) 기능 기준선 설정 문서
@@ -749,6 +829,16 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2024
       locator: pdf p.47
     verification_status: source_supported
+    depends_on:
+    - ord
+    depends_on_evidence: general_se_guidance
+    depends_on_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.2 (p.143-145)
+    - source_key: nasa_se_handbook_rev2
+      locator: pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1
+    depends_on_origin: generic_layer_projection
+    gate_role: supporting
   - id: 72
     name: HW요구사항명세서(HRS)_D
     desc: (Draft) HW 상세 요구사항 초안
@@ -763,6 +853,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.126
     verification_status: source_supported
+    gate_role: core
   - id: 73
     name: SW요구사항명세서(SRS)_D
     desc: (Draft) SW 상세 요구사항 초안
@@ -777,6 +868,7 @@ gates:
     verification_status: source_supported
     applies_when:
     - sw_included
+    gate_role: core
   - id: 74
     name: 체계설계기술서(SSDD)_D
     desc: (Draft) 체계 및 부체계 설계 초안
@@ -789,6 +881,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.60
     verification_status: source_supported
+    gate_role: core
   - id: 75
     name: 기술검토회의 수행(활동)
     desc: Technical review conducted — activity node (no folder); evidenced by the records it produces
@@ -803,6 +896,9 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.60 (바. 주요 산출물)
     verification_status: partially_supported
+    evidence_record:
+    - review_minutes_sfr
+    added_by_verification: '2026-08-18'
     depends_on:
     - icd
     - ord
@@ -811,9 +907,8 @@ gates:
     depends_on_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.60 (바. 주요 산출물)
-    evidence_record:
-    - review_minutes_sfr
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
 - code: 90
   name: PDR
   desc: 기본설계검토 (Preliminary Design Review)
@@ -831,6 +926,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 92
     name: LOG_의사결정조치기록
     desc: 회의록, 공문, 액션아이템 등 의사결정 및 조치 기록
@@ -842,6 +938,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 93
     name: TDP_기술자료
     desc: 주고받은 기술자료 패키지
@@ -853,6 +950,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 94
     name: 설계품질점검결과(Q3)
     desc: 상세설계 진입 전 성숙도 점검
@@ -863,6 +961,7 @@ gates:
     evidence_level: prime_contract
     source_refs: []
     verification_status: unsupported
+    gate_role: supporting
   - id: 95
     name: 체계아키텍처및형상식별서(안)
     desc: 아키텍처 정의 및 구성품 식별
@@ -883,6 +982,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2024
       locator: pdf p.71
     verification_status: source_supported
+    gate_role: core
   - id: 96
     name: 체계설계기술서(SSDD)_F
     desc: (Final) 아키텍처/설계 확정 (할당 기준선)
@@ -897,6 +997,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.127
     verification_status: source_supported
+    gate_role: core
   - id: 97
     name: HW요구사항명세서(HRS)_D
     desc: (Draft) HW 상세 요구사항 초안
@@ -911,6 +1012,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.63-64
     verification_status: partially_supported
+    gate_role: core
   - id: 98
     name: SW요구사항명세서(SRS)_D
     desc: (Draft) SW 상세 요구사항 초안
@@ -925,6 +1027,7 @@ gates:
     verification_status: partially_supported
     applies_when:
     - sw_included
+    gate_role: core
   - id: 99
     name: 인터페이스설계기술서(IDD)_D
     desc: (Draft) 인터페이스 상세 설계 초안
@@ -937,6 +1040,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.73
     verification_status: source_supported
+    gate_role: core
   - id: 100
     name: 연동통제문서(ICD)_Prelim
     desc: (Preliminary) PDR 단계 업데이트본
@@ -949,6 +1053,17 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.73-74
     verification_status: source_supported
+    depends_on:
+    - dci
+    - semp
+    depends_on_evidence: general_se_guidance
+    depends_on_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.3 (p.145-148; explicit output sentence p.147)
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.5 (p.149-150)
+    depends_on_origin: generic_layer_projection
+    gate_role: core
   - id: 101
     name: 요구사항추적표(RTM)_최신화
     desc: 할당 기준선 설정에 따른 업데이트
@@ -961,6 +1076,18 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.72-73
     verification_status: partially_supported
+    depends_on:
+    - ord
+    depends_on_evidence: general_se_guidance
+    depends_on_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.1 (p.142-143)
+    - source_key: nasa_npr_7123_1d
+      locator: §3.2.3.1-§3.2.3.2 (p.24-25)
+    - source_key: nasa_se_handbook_rev2
+      locator: pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1
+    depends_on_origin: generic_layer_projection
+    gate_role: supporting
   - id: 102
     name: 시험평가기본계획서(TEMP)_D
     desc: (Draft) P-TEMP 구체화 버전
@@ -977,6 +1104,7 @@ gates:
     - source_key: mnd_force_development_directive_law_20260701
       locator: 제63조
     verification_status: source_supported
+    gate_role: supporting
   - id: 103
     name: PDR_회의록및조치결과
     desc: PDR 회의 결과 및 할당 기준선 승인
@@ -993,6 +1121,7 @@ gates:
     - source_key: dapa_program_management_rule_law_20260811
       locator: 제79조②
     verification_status: source_supported
+    gate_role: supporting
   - id: 104
     name: HW설계기술서(HDD)_D
     desc: (Draft) HW 상세설계 초안
@@ -1005,6 +1134,14 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.73
     verification_status: source_supported
+    depends_on:
+    - idd
+    depends_on_evidence: guidebook_recommended
+    depends_on_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 부록 E-5 HDD 서식, p.128
+    depends_on_origin: canonical
+    gate_role: core
   - id: 105
     name: SW설계기술서(SDD)_D
     desc: (Draft) SW 상세설계 초안
@@ -1019,6 +1156,7 @@ gates:
     verification_status: source_supported
     applies_when:
     - sw_included
+    gate_role: core
   - id: 106
     name: DB설계기술서(DBDD)_D
     desc: (Draft) DB 상세설계 초안
@@ -1037,6 +1175,7 @@ gates:
     verification_status: source_supported
     applies_when:
     - db_included
+    gate_role: supporting
   - id: 107
     name: 상세설계도면_D
     desc: (Draft) 제작용 도면 초안
@@ -1051,6 +1190,19 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.31
     verification_status: source_supported
+    depends_on:
+    - bom
+    - icd
+    depends_on_evidence: guidebook_recommended
+    depends_on_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 부록 E-8 물리적 형상확인 점검표(HW 형상 일치성), p.131
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.3 (p.145-148; explicit output sentence p.147)
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.8 (p.152)
+    depends_on_origin: mixed
+    gate_role: supporting
   - id: 108
     name: 자재명세서(Q-BOM)_D
     desc: (Draft) 자재 내역서 초안
@@ -1063,6 +1215,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.71
     verification_status: source_supported
+    gate_role: supporting
   - id: 109
     name: 등록부품활용계획서
     desc: 제안 시 제출한 등록부품활용계획의 PDR 반영본과 국산화기본계획 연계
@@ -1080,6 +1233,7 @@ gates:
       locator: 제79조④
     verification_status: source_supported
     added_by_verification: '2026-08-18'
+    gate_role: supporting
   - id: 110
     name: 기술검토회의 수행(활동)
     desc: Technical review conducted — activity node (no folder); evidenced by the records it produces
@@ -1094,6 +1248,9 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.73 (바. 주요 산출물)
     verification_status: partially_supported
+    evidence_record:
+    - review_minutes_pdr
+    added_by_verification: '2026-08-18'
     depends_on:
     - hrs
     - icd
@@ -1103,9 +1260,8 @@ gates:
     depends_on_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.73 (바. 주요 산출물)
-    evidence_record:
-    - review_minutes_pdr
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
 - code: 120
   name: CDR
   desc: 상세설계검토 (Critical Design Review)
@@ -1123,6 +1279,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 122
     name: LOG_의사결정조치기록
     desc: 회의록, 공문, 액션아이템 등 의사결정 및 조치 기록
@@ -1134,6 +1291,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 123
     name: TDP_기술자료
     desc: 주고받은 기술자료 패키지
@@ -1145,6 +1303,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 124
     name: 제작준비검토결과(MRR_Q4)
     desc: 도면/자재/공정 준비 및 제작 승인
@@ -1155,6 +1314,7 @@ gates:
     evidence_level: prime_contract
     source_refs: []
     verification_status: unsupported
+    gate_role: supporting
   - id: 125
     name: HW설계기술서(HDD)_F
     desc: (Final) HW 상세설계 확정 (제품 기준선)
@@ -1169,6 +1329,14 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.128
     verification_status: source_supported
+    depends_on:
+    - idd
+    depends_on_evidence: guidebook_recommended
+    depends_on_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 부록 E-5 HDD 서식, p.128
+    depends_on_origin: canonical
+    gate_role: core
   - id: 126
     name: SW설계기술서(SDD)_F
     desc: (Final) SW 상세설계 확정 (제품 기준선)
@@ -1185,6 +1353,7 @@ gates:
     verification_status: source_supported
     applies_when:
     - sw_included
+    gate_role: core
   - id: 127
     name: DB설계기술서(DBDD)_F
     desc: (Final) DB 설계 확정본
@@ -1203,6 +1372,7 @@ gates:
     verification_status: source_supported
     applies_when:
     - db_included
+    gate_role: supporting
   - id: 128
     name: 인터페이스설계기술서(IDD)_F
     desc: (Final) 인터페이스 설계 확정본
@@ -1215,6 +1385,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.87
     verification_status: source_supported
+    gate_role: core
   - id: 129
     name: 연동통제문서(ICD)_F
     desc: (Final) ICD 최종 확정
@@ -1229,6 +1400,17 @@ gates:
     - source_key: dapa_program_management_rule_law_20260811
       locator: 제43조①
     verification_status: source_supported
+    depends_on:
+    - dci
+    - semp
+    depends_on_evidence: general_se_guidance
+    depends_on_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.3 (p.145-148; explicit output sentence p.147)
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.5 (p.149-150)
+    depends_on_origin: generic_layer_projection
+    gate_role: core
   - id: 130
     name: 상세설계도면_F
     desc: (Final) 승인된 제작용 도면
@@ -1245,6 +1427,19 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.31
     verification_status: source_supported
+    depends_on:
+    - bom
+    - icd
+    depends_on_evidence: guidebook_recommended
+    depends_on_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 부록 E-8 물리적 형상확인 점검표(HW 형상 일치성), p.131
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.3 (p.145-148; explicit output sentence p.147)
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.8 (p.152)
+    depends_on_origin: mixed
+    gate_role: supporting
   - id: 131
     name: 자재명세서(Q-BOM)_F
     desc: (Final) Q4 승인 자재 목록
@@ -1261,6 +1456,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2024
       locator: pdf p.27
     verification_status: source_supported
+    gate_role: supporting
   - id: 132
     name: Artwork설계검토서_F
     desc: PCB 제작을 위한 Artwork 승인
@@ -1271,6 +1467,7 @@ gates:
     evidence_level: prime_contract
     source_refs: []
     verification_status: unsupported
+    gate_role: supporting
   - id: 133
     name: 표준품적절성검토서
     desc: 부품 단종/수급 이슈 검토
@@ -1287,6 +1484,7 @@ gates:
     - source_key: dapa_program_management_rule_law_20260811
       locator: 제79조④
     verification_status: partially_supported
+    gate_role: supporting
   - id: 134
     name: 제작사양서(WPS)및검사요구
     desc: 제조 공정 및 검사 요구 기준서
@@ -1301,6 +1499,7 @@ gates:
     - source_key: dapa_se_technical_management_practice_guide
       locator: 부록D
     verification_status: partially_supported
+    gate_role: supporting
   - id: 135
     name: 제조관점설계검토결과
     desc: 양산 이관성 및 제조 용이성 검토
@@ -1315,6 +1514,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.84
     verification_status: partially_supported
+    gate_role: supporting
   - id: 136
     name: 제조공정도및작업표준(Flow)
     desc: 제조 흐름 및 공정별 작업 표준
@@ -1331,6 +1531,7 @@ gates:
     - source_key: dapa_se_technical_management_practice_guide
       locator: §4.8
     verification_status: partially_supported
+    gate_role: supporting
   - id: 137
     name: 요구사항추적표(RTM)_업데이트
     desc: 상세설계 결과 요구사항 충족 확인
@@ -1343,6 +1544,18 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.86
     verification_status: partially_supported
+    depends_on:
+    - ord
+    depends_on_evidence: general_se_guidance
+    depends_on_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.1 (p.142-143)
+    - source_key: nasa_npr_7123_1d
+      locator: §3.2.3.1-§3.2.3.2 (p.24-25)
+    - source_key: nasa_se_handbook_rev2
+      locator: pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1
+    depends_on_origin: generic_layer_projection
+    gate_role: supporting
   - id: 138
     name: 안전성및신뢰성분석_F
     desc: RAM 및 안전성 분석 확정본
@@ -1357,6 +1570,7 @@ gates:
     - source_key: dapa_program_management_rule_law_20260811
       locator: 제76조⑤
     verification_status: source_supported
+    gate_role: supporting
   - id: 139
     name: CDR_회의록및조치결과
     desc: CDR 회의 결과 및 승인 기록
@@ -1371,6 +1585,7 @@ gates:
     - source_key: dapa_program_management_rule_law_20260811
       locator: 제79조②
     verification_status: source_supported
+    gate_role: supporting
   - id: 140
     name: HW요구사항명세서(HRS)_F
     desc: (Final) HW 요구사항 최종본
@@ -1385,6 +1600,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.77-78
     verification_status: partially_supported
+    gate_role: entry
   - id: 141
     name: SW요구사항명세서(SRS)_F
     desc: (Final) SW 요구사항 최종본
@@ -1399,6 +1615,7 @@ gates:
     verification_status: partially_supported
     applies_when:
     - sw_included
+    gate_role: entry
   - id: 142
     name: 통합시험계획서절차서(STP)_D
     desc: (Draft) 통합시험 계획 및 절차 초안
@@ -1417,6 +1634,7 @@ gates:
     - source_key: dapa_se_technical_management_practice_guide
       locator: §4.5
     verification_status: source_supported
+    gate_role: supporting
   - id: 143
     name: 제품형상식별서(PCI)_D
     desc: (Draft) 제품 기준선 식별서 초안
@@ -1433,6 +1651,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2024
       locator: pdf p.82
     verification_status: source_supported
+    gate_role: core
   - id: 144
     name: 제조성숙도평가(MRA)계획및결과
     desc: MRL 8 목표의 제조성숙도평가 계획과 평가 결과
@@ -1452,6 +1671,7 @@ gates:
       locator: p.84
     verification_status: source_supported
     added_by_verification: '2026-08-18'
+    gate_role: supporting
   - id: 145
     name: 사업중간점검결과보고서
     desc: CDR 종료 이전 수행하는 사업중간점검 결과보고서(별지27) 입력자료
@@ -1467,6 +1687,7 @@ gates:
       locator: 제65조③④
     verification_status: source_supported
     added_by_verification: '2026-08-18'
+    gate_role: supporting
   - id: 146
     name: 핵심부품공인시험성적서
     desc: CDR까지 선정한 핵심부품·구성품의 공인시험기관 시험 성적서
@@ -1482,6 +1703,7 @@ gates:
       locator: 제81조③6
     verification_status: source_supported
     added_by_verification: '2026-08-18'
+    gate_role: supporting
   - id: 147
     name: 기술검토회의 수행(활동)
     desc: Technical review conducted — activity node (no folder); evidenced by the records it produces
@@ -1496,6 +1718,9 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.87 (바. 주요 산출물)
     verification_status: partially_supported
+    evidence_record:
+    - review_minutes_cdr
+    added_by_verification: '2026-08-18'
     depends_on:
     - hdd
     - hrs
@@ -1507,9 +1732,8 @@ gates:
     depends_on_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.87 (바. 주요 산출물)
-    evidence_record:
-    - review_minutes_cdr
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
 - code: 150
   name: TRR_DT
   desc: 시험준비/시제제작/개발시험 (Q5-Q6-Q7)
@@ -1529,6 +1753,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 152
     name: LOG_의사결정조치기록
     desc: 회의록, 공문, 액션아이템 등 의사결정 및 조치 기록
@@ -1540,6 +1765,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 153
     name: TDP_기술자료
     desc: 주고받은 기술자료 패키지
@@ -1551,6 +1777,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 154
     name: 협력사발주문서
     desc: 발주유형별 발주문서 (PO 등)
@@ -1561,6 +1788,7 @@ gates:
     evidence_level: prime_contract
     source_refs: []
     verification_status: unsupported
+    gate_role: supporting
   - id: 155
     name: 원자재성적서및COC
     desc: 원소재 MillSheet 및 추적 정보
@@ -1571,6 +1799,7 @@ gates:
     evidence_level: prime_contract
     source_refs: []
     verification_status: unsupported
+    gate_role: supporting
   - id: 156
     name: 부품COC(제조사또는대리점)
     desc: 정품 인증서 (COC)
@@ -1581,6 +1810,7 @@ gates:
     evidence_level: prime_contract
     source_refs: []
     verification_status: unsupported
+    gate_role: supporting
   - id: 157
     name: 위조품검사성적서(Offer_COC)
     desc: 비공식 구매품 검사 성적서
@@ -1591,6 +1821,7 @@ gates:
     evidence_level: prime_contract
     source_refs: []
     verification_status: unsupported
+    gate_role: supporting
   - id: 158
     name: 일솜씨검사결과(Q5)
     desc: 조립 공정 품질(Workmanship) 검사
@@ -1601,6 +1832,7 @@ gates:
     evidence_level: prime_contract
     source_refs: []
     verification_status: unsupported
+    gate_role: supporting
   - id: 159
     name: 시제제작기록(공정확인표)
     desc: 공정 확인표(Traveler) 및 기록
@@ -1617,6 +1849,7 @@ gates:
     - source_key: dapa_se_technical_management_practice_guide
       locator: §4.9
     verification_status: partially_supported
+    gate_role: supporting
   - id: 160
     name: SW산출물명세서(SPS_VDD)
     desc: SW 바이너리, 소스코드 및 버전 정의
@@ -1633,6 +1866,7 @@ gates:
     verification_status: source_supported
     applies_when:
     - sw_included
+    gate_role: supporting
   - id: 161
     name: SW시험계획절차서(STP_STD)
     desc: SW 단위/통합 시험 계획 및 절차
@@ -1649,6 +1883,7 @@ gates:
     verification_status: source_supported
     applies_when:
     - sw_included
+    gate_role: supporting
   - id: 162
     name: SW시험결과서(STR)
     desc: SW 통합시험 수행 결과
@@ -1665,6 +1900,7 @@ gates:
     verification_status: source_supported
     applies_when:
     - sw_included
+    gate_role: supporting
   - id: 163
     name: SW신뢰성시험결과(Q6)
     desc: SW 정적/동적 시험 성적서
@@ -1683,6 +1919,7 @@ gates:
     verification_status: source_supported
     applies_when:
     - sw_included
+    gate_role: supporting
   - id: 164
     name: 수락시험절차서(ATP)_F
     desc: 승인된 수락검사 기준 절차서
@@ -1699,6 +1936,7 @@ gates:
     - source_key: dapa_se_technical_management_practice_guide
       locator: §4.9
     verification_status: partially_supported
+    gate_role: supporting
   - id: 165
     name: 시험평가기본계획서(TEMP)_F
     desc: (Final) 시험평가 착수 승인 본
@@ -1715,6 +1953,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.97
     verification_status: source_supported
+    gate_role: core
   - id: 166
     name: 통합시험계획서절차서(STP)_F
     desc: (Final) 통합시험 절차서 확정
@@ -1731,6 +1970,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.97
     verification_status: source_supported
+    gate_role: supporting
   - id: 167
     name: 수락검사성적서(FAT_Q7)_F
     desc: 최종 수락검사 합격 성적서
@@ -1745,6 +1985,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.99
     verification_status: partially_supported
+    gate_role: supporting
   - id: 168
     name: TRR_회의록및시험준비검토
     desc: 시험평가 착수 승인 기록
@@ -1765,6 +2006,7 @@ gates:
     - source_key: dapa_program_management_rule_law_20260811
       locator: 제79조②
     verification_status: source_supported
+    gate_role: supporting
   - id: 169
     name: 개발시험평가결과(DT)
     desc: DT 로그, 데이터, 성적서 종합본
@@ -1779,6 +2021,19 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.90
     verification_status: source_supported
+    depends_on:
+    - dci
+    - fci
+    - icd
+    - vv_strategy
+    depends_on_evidence: general_se_guidance
+    depends_on_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.6 (p.150-151; explicit output sentence p.151)
+    - source_key: nasa_se_handbook_rev2
+      locator: pdf p.118-127 (printed p.105-114) §5.3.1.1/§5.3.1.3, Figure 5.3-1
+    depends_on_origin: generic_layer_projection
+    gate_role: supporting
   - id: 170
     name: 개발시험평가계획서및절차서(DT)
     desc: DT 착수 2개월 전 제출하는 개발시험평가계획서(별지5)와 시험평가절차서
@@ -1798,6 +2053,7 @@ gates:
       locator: p.97
     verification_status: source_supported
     added_by_verification: '2026-08-18'
+    gate_role: supporting
   - id: 171
     name: 기술검토회의 수행(활동)
     desc: Technical review conducted — activity node (no folder); evidenced by the records it produces
@@ -1812,6 +2068,9 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.97 (바. 주요 산출물)
     verification_status: partially_supported
+    evidence_record:
+    - review_minutes_trr
+    added_by_verification: '2026-08-18'
     depends_on:
     - ssrs
     - temp
@@ -1819,9 +2078,8 @@ gates:
     depends_on_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.97 (바. 주요 산출물)
-    evidence_record:
-    - review_minutes_trr
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
 - code: 180
   name: FCA_OT
   desc: 기능형상확인/통합/운용시험 (Q8)
@@ -1839,6 +2097,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 182
     name: LOG_의사결정조치기록
     desc: 회의록, 공문, 액션아이템 등 의사결정 및 조치 기록
@@ -1850,6 +2109,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 183
     name: TDP_기술자료
     desc: 주고받은 기술자료 패키지
@@ -1861,6 +2121,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 184
     name: 입고검사결과(Q8)
     desc: LIG 입고 후 외관/수량 검사
@@ -1871,6 +2132,7 @@ gates:
     evidence_level: prime_contract
     source_refs: []
     verification_status: unsupported
+    gate_role: supporting
   - id: 185
     name: 납품원장및인수증
     desc: 물품 인도 및 인수 증빙
@@ -1883,6 +2145,7 @@ gates:
     - source_key: dapa_se_technical_management_practice_guide
       locator: §4.9
     verification_status: partially_supported
+    gate_role: supporting
   - id: 186
     name: 현장수락시험결과(SAT)
     desc: 현장 수락시험 결과
@@ -1897,6 +2160,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.106
     verification_status: partially_supported
+    gate_role: supporting
   - id: 187
     name: 설치및시운전기록(STW)
     desc: 설치, 셋팅, 시운전 기록
@@ -1907,6 +2171,7 @@ gates:
     evidence_level: prime_contract
     source_refs: []
     verification_status: unsupported
+    gate_role: supporting
   - id: 188
     name: 체계통합지원결과
     desc: 통합시험 지원 데이터 및 내역
@@ -1921,6 +2186,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.88
     verification_status: partially_supported
+    gate_role: supporting
   - id: 189
     name: 기능형상확인결과보고서(FCA)
     desc: 체계요구사항 충족 여부 감사 결과
@@ -1939,6 +2205,15 @@ gates:
     - source_key: dapa_program_management_rule_law_20260811
       locator: 제79조②
     verification_status: source_supported
+    depends_on:
+    - drawings
+    - spec_linkage_table
+    depends_on_evidence: guidebook_recommended
+    depends_on_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 부록 E-9 FCA 결과보고서 서식, p.133
+    depends_on_origin: canonical
+    gate_role: core
   - id: 190
     name: 요구사항검증매트릭스(VCRM)_F
     desc: (Final) 요구사항 검증 입증
@@ -1957,6 +2232,19 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.96-97
     verification_status: partially_supported
+    depends_on:
+    - dci
+    - fci
+    - icd
+    - vv_strategy
+    depends_on_evidence: general_se_guidance
+    depends_on_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.6 (p.150-151; explicit output sentence p.151)
+    - source_key: nasa_se_handbook_rev2
+      locator: pdf p.118-127 (printed p.105-114) §5.3.1.1/§5.3.1.3, Figure 5.3-1
+    depends_on_origin: generic_layer_projection
+    gate_role: entry
   - id: 191
     name: 운용시험평가지원자료(OT)
     desc: OT 수행 지원 및 기록
@@ -1971,6 +2259,18 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.91-92
     verification_status: source_supported
+    depends_on:
+    - p_temp
+    - pci
+    - vv_strategy
+    depends_on_evidence: general_se_guidance
+    depends_on_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.7 (p.151-152; explicit product sentences p.152)
+    - source_key: nasa_se_handbook_rev2
+      locator: pdf p.129-136 (printed p.116-123) §5.4.1.1/§5.4.1.3, Figure 5.4-1
+    depends_on_origin: generic_layer_projection
+    gate_role: supporting
   - id: 192
     name: FCA_OT_회의록및조치결과
     desc: FCA 및 OT 회의록
@@ -1987,6 +2287,7 @@ gates:
     - source_key: dapa_se_technical_management_practice_guide
       locator: §4.7
     verification_status: source_supported
+    gate_role: core
   - id: 193
     name: 개발시험결과보고서(DT)_종합본
     desc: DT 성적서 종합본 (FCA 근거)
@@ -2001,6 +2302,19 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.99
     verification_status: source_supported
+    depends_on:
+    - dci
+    - fci
+    - icd
+    - vv_strategy
+    depends_on_evidence: general_se_guidance
+    depends_on_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.6 (p.150-151; explicit output sentence p.151)
+    - source_key: nasa_se_handbook_rev2
+      locator: pdf p.118-127 (printed p.105-114) §5.3.1.1/§5.3.1.3, Figure 5.3-1
+    depends_on_origin: generic_layer_projection
+    gate_role: supporting
   - id: 194
     name: 결함조치결과보고서(Defect)
     desc: 시험 중 결함 및 조치 결과
@@ -2019,6 +2333,7 @@ gates:
     - source_key: mnd_force_development_directive_law_20260701
       locator: 제69조⑤⑥
     verification_status: partially_supported
+    gate_role: supporting
   - id: 195
     name: 제품형상식별서(PCI)_Prelim
     desc: (Preliminary) 제품 형상 식별서 중간본
@@ -2033,6 +2348,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.99
     verification_status: source_supported
+    gate_role: supporting
   - id: 196
     name: 운용시험평가계획서(OT)
     desc: 운용시험평가계획(안)/계획서(별지7)와 상호운용성시험평가계획(안) 입력 지원
@@ -2048,6 +2364,7 @@ gates:
       locator: 제67조①⑥
     verification_status: source_supported
     added_by_verification: '2026-08-18'
+    gate_role: supporting
   - id: 197
     name: 형상확인계획서및점검표(FCA_PCA)
     desc: 기능적·물리적 형상확인 계획서와 점검표(E-7, E-8), 품질보증요구서(QAR)
@@ -2065,6 +2382,7 @@ gates:
       locator: p.130-132
     verification_status: source_supported
     added_by_verification: '2026-08-18'
+    gate_role: supporting
   - id: 198
     name: 기술검토회의 수행(활동)
     desc: Technical review conducted — activity node (no folder); evidenced by the records it produces
@@ -2079,6 +2397,9 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.104 (바. 주요 산출물)
     verification_status: partially_supported
+    evidence_record:
+    - review_minutes_fca
+    added_by_verification: '2026-08-18'
     depends_on:
     - drawings
     - spec_linkage_table
@@ -2086,9 +2407,8 @@ gates:
     depends_on_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.104 (바. 주요 산출물)
-    evidence_record:
-    - review_minutes_fca
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
 - code: 210
   name: PCA
   desc: 물리적 형상확인 및 규격화 (Product Baseline 확정)
@@ -2104,6 +2424,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 212
     name: LOG_의사결정조치기록
     desc: 회의록, 공문, 액션아이템 등 의사결정 및 조치 기록
@@ -2115,6 +2436,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 213
     name: TDP_기술자료
     desc: 주고받은 기술자료 패키지
@@ -2126,6 +2448,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 214
     name: 물리형상확인결과보고서(PCA)
     desc: 제품 실물-도면 일치성 검증 결과
@@ -2142,6 +2465,15 @@ gates:
     - source_key: dapa_program_management_rule_law_20260811
       locator: 제79조②
     verification_status: source_supported
+    depends_on:
+    - drawings
+    - spec_linkage_table
+    depends_on_evidence: guidebook_recommended
+    depends_on_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 부록 E-10 PCA 결과보고서 서식, p.134
+    depends_on_origin: canonical
+    gate_role: core
   - id: 215
     name: 최종도면(As-Built)_F
     desc: 실물 일치 최종 도면
@@ -2158,6 +2490,20 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.131-132
     verification_status: source_supported
+    depends_on:
+    - bom
+    - icd
+    - tdp
+    depends_on_evidence: guidebook_recommended
+    depends_on_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 부록 E-8 물리적 형상확인 점검표(HW 형상 일치성), p.131
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.3 (p.145-148; explicit output sentence p.147)
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.8 (p.152)
+    depends_on_origin: mixed
+    gate_role: supporting
   - id: 216
     name: 자재명세서(Q-BOM)_F
     desc: 최종 자재 목록(As-Built BOM)
@@ -2172,6 +2518,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2024
       locator: pdf p.27
     verification_status: source_supported
+    gate_role: supporting
   - id: 217
     name: 시험성적서통합본
     desc: PCA 증빙용 성적서 모음
@@ -2186,6 +2533,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.99
     verification_status: source_supported
+    gate_role: supporting
   - id: 218
     name: 부적합및면제요청서(NCR)
     desc: 부적합, 면제 등 불일치 관리
@@ -2200,6 +2548,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.132
     verification_status: source_supported
+    gate_role: supporting
   - id: 219
     name: 최종제품보증서(COC_CoA)
     desc: 최종 납품 제품 품질 보증서
@@ -2210,6 +2559,7 @@ gates:
     evidence_level: prime_contract
     source_refs: []
     verification_status: unsupported
+    gate_role: supporting
   - id: 220
     name: 기술자료패키지목록(TDP)
     desc: 국방규격 제정용 도면/목록 패키지
@@ -2226,6 +2576,16 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.83
     verification_status: source_supported
+    depends_on:
+    - pci
+    depends_on_evidence: general_se_guidance
+    depends_on_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.4 (p.148-149; explicit output sentences p.148 and p.149)
+    - source_key: nasa_npr_7123_1d
+      locator: §3.2.6.1-§3.2.6.2 (p.25)
+    depends_on_origin: generic_layer_projection
+    gate_role: supporting
   - id: 221
     name: PCA_회의록및조치결과
     desc: 제품 기준선 최종 승인 기록
@@ -2240,6 +2600,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.107
     verification_status: source_supported
+    gate_role: supporting
   - id: 222
     name: 연동통제문서(ICD)
     desc: 최종 인터페이스 문서
@@ -2254,6 +2615,17 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2024
       locator: pdf p.27
     verification_status: partially_supported
+    depends_on:
+    - dci
+    - semp
+    depends_on_evidence: general_se_guidance
+    depends_on_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.3 (p.145-148; explicit output sentence p.147)
+    - source_key: dod_se_guidebook_2022
+      locator: §4.2.5 (p.149-150)
+    depends_on_origin: generic_layer_projection
+    gate_role: supporting
   - id: 223
     name: 제품형상식별서(PCI)_F
     desc: (Final) 제품 기준선 최종 문서
@@ -2270,6 +2642,7 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2024
       locator: pdf p.107
     verification_status: source_supported
+    gate_role: supporting
   - id: 224
     name: 상세설계도면_F(PCA)
     desc: (Final) 국방규격화용 상세 도면
@@ -2284,6 +2657,7 @@ gates:
     - source_key: dapa_program_management_rule_law_20260811
       locator: 제80조①
     verification_status: source_supported
+    gate_role: supporting
   - id: 225
     name: 국방규격(안)및국방규격화연계표
     desc: DT로 검증하고 OT 적합 판정 후 제정 건의하는 국방규격(안)과 국방규격화연계표
@@ -2303,6 +2677,7 @@ gates:
       locator: p.135
     verification_status: source_supported
     added_by_verification: '2026-08-18'
+    gate_role: supporting
   - id: 226
     name: 체계개발결과보고서및기술자료묶음
     desc: 체계개발 완료 후 2개월 이내 제출하는 체계개발결과보고서(별지14)와 기술자료묶음
@@ -2318,6 +2693,7 @@ gates:
       locator: §4.10.5
     verification_status: source_supported
     added_by_verification: '2026-08-18'
+    gate_role: supporting
   - id: 227
     name: 양산전제출자료및양산지원자료
     desc: 양산 계약 이전 제출자료와 양산 지원 자료 묶음
@@ -2333,6 +2709,7 @@ gates:
       locator: 제81조④
     verification_status: source_supported
     added_by_verification: '2026-08-18'
+    gate_role: supporting
   - id: 228
     name: 기술검토회의 수행(활동)
     desc: Technical review conducted — activity node (no folder); evidenced by the records it produces
@@ -2347,15 +2724,17 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.111 (바. 주요 산출물)
     verification_status: partially_supported
+    evidence_record:
+    - review_minutes_pca
+    added_by_verification: '2026-08-18'
     depends_on:
     - atp
     depends_on_evidence: guidebook_recommended
     depends_on_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.111 (바. 주요 산출물)
-    evidence_record:
-    - review_minutes_pca
-    added_by_verification: '2026-08-18'
+    depends_on_origin: canonical
+    gate_role: supporting
 - code: 240
   name: LL
   desc: 개발이력 공유 및 종결 (Lessons Learned)
@@ -2371,6 +2750,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 242
     name: LOG_의사결정조치기록
     desc: 회의록, 공문, 액션아이템 등 의사결정 및 조치 기록
@@ -2382,6 +2762,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 243
     name: TDP_기술자료
     desc: 주고받은 기술자료 패키지
@@ -2393,6 +2774,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
+    gate_role: supporting
   - id: 244
     name: 협력개발품개발이력서
     desc: 개발 이력(변경, 이슈) 정리
@@ -2407,6 +2789,7 @@ gates:
     - source_key: dapa_program_management_rule_law_20260811
       locator: 제118조의15③
     verification_status: partially_supported
+    gate_role: supporting
   - id: 245
     name: 실패사례요약서
     desc: 실패 사례 및 극복 과정
@@ -2417,6 +2800,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: unsupported
+    gate_role: supporting
   - id: 246
     name: 개발이력공유회결과
     desc: 이력 공유회 발표 자료
@@ -2427,6 +2811,7 @@ gates:
     evidence_level: internal_management
     source_refs: []
     verification_status: unsupported
+    gate_role: supporting
   - id: 247
     name: 사업종료보고서
     desc: 사업 정산 및 행정 종료 보고서
@@ -2443,6 +2828,7 @@ gates:
     - source_key: dapa_se_technical_management_practice_guide
       locator: §4.10.5
     verification_status: partially_supported
+    gate_role: supporting
 fixed_subfolders:
 - name: 00_Temp
   desc: AI가 읽는 산출물 생성 지침 및 양식. 이 폴더 안에 프롬프트, 템플릿, 작성 가이드를 배치하면 AI가 참조하여 산출물을 생성함.

@@ -35,4 +35,22 @@
 
 - 과제 이름 → 토큰 번역은 overlay의 `alias` op가 한다(④). 스펙에 과제 이름을 넣지 않는다.
 - ①↔② 정합 미결: ①은 미국 문서 용어(`temp`, `rtm`, `semp`), ②는 한국 정본 용어로 토큰을 만들었고 일부가 다른 토큰이 되었다(예 `p_temp`↔`temp`, `spec_linkage_table`↔`rtm`). 또 ①은 횡단 산출물을 게이트마다 반복하지만 ②는 한 번만 둔다.
-  다음 조각은 (a) 어휘에 동의어 별칭표(canonical token + aliases)를 두거나 (b) ②의 토큰을 ①의 토큰으로 정규화하고 반복 행을 추가하는 것 중 하나다. 결정 전까지 ①과 ②의 비교 수치(예 공유 9)는 잠정값이다.
+  두 선택지 (a) 어휘에 동의어 별칭표를 두기 (b) ②의 토큰을 ①로 정규화하기 중 **(a)를 골랐다**(§4.6). (b)는 engine requirement id를 바꾸므로 D44와 함께 판단한다. ①과 ②의 비교 수치(예 공유 9)는 그때까지 잠정값이다.
+
+## 4.6 동의어와 층 대응표 (2판, 2026-08-18)
+
+두 가지를 구분해서 둔다. 섞으면 어휘가 오염된다.
+
+- **동의어(`ARTIFACT_TYPE_ALIASES`, `canonicalArtifactType(id)`)**: 두 토큰이 정말 같은 문서일 때만. 지금 한 쌍뿐이다 — `p_temp` → `temp`(예비/확정은 성숙도이고 ② 스펙이 스스로 "SFR 이후 TEMP로 발전"이라 적는다). 전역 주장이므로 문턱이 높다.
+- **층 대응(`CROSS_LAYER_TOKEN_EQUIVALENCE`, `nationalTokenFor`/`genericTokenFor`)**: ①의 관계를 ②로 옮길 때만 쓰는 표. 4쌍이며 3쌍은 `national_row_assignment` — ② **행**은 분명히 ① 토큰이 가리키는 문서인데(행 이름·용어가 그렇게 말한다) 배정된 토큰은 어휘에서 다른 문서를 가리킨다.
+
+| ① | ② | 종류 | 근거(두 스펙의 행 표기) |
+| --- | --- | --- | --- |
+| `temp` | `p_temp` | 동의어 | 예비시험평가기본계획서(P-TEMP), SFR 이후 TEMP로 발전 |
+| `vcrm` | `spec_linkage_table` | 행 배정 | ② 행 '요구사항검증매트릭스(VCRM)_F', 용어 VCRM |
+| `vdd` | `sps` | 행 배정 | ② 행 'SW산출물명세서(SPS_VDD)', 용어 SPS/VDD |
+| `conops` | `ord` | 행 배정 | ② 행 '운용개념(CONOPS)', 용어 CONOPS |
+
+기각: `spec_linkage_table` ↔ `rtm`(②는 요구사항추적표 행 3개를 이미 `rtm`으로 갖는다). 묶음 대응(`fca_pca_plan_checklist`, `test_docs`)은 다대일이라 표현할 수 없어 미결.
+
+**토큰은 바꾸지 않는다.** 행의 토큰 배정을 바로잡는 것이 더 깨끗하지만 engine requirement id가 바뀌므로 D44와 함께 판단한다.

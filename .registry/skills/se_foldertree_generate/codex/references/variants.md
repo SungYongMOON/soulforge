@@ -80,6 +80,8 @@ Optional per-task keys defined in design §3. `generate_tree.py` ignores unknown
 | `depends_on_evidence` | the grade of the text that states those edges; absent means `unstated` (practice), and it never inherits the row's own grade |
 | `depends_on_refs` | `[{source_key, locator}]` behind the edges |
 | `evidence_record` | for an activity or a decision, the tokens of the records that would show it happened |
+| `gate_role` | `core` (what the review is stated to produce) / `entry` (what it is stated to expect on the table) / `supporting` (default). A review's INPUT list is a gate role, never an edge between artifacts |
+| `depends_on_origin` | `canonical` (default) / `generic_layer_projection` (carried over from the buyer-independent layer through the recorded token equivalence) / `mixed` |
 
 Derivation rules used for the 체계개발 v0.8 pass (deterministic, reproducible from the verification record):
 
@@ -132,6 +134,21 @@ items are recorded in [`se_io_relations_v0.md`](se_io_relations_v0.md).
   `fci` / `dci` / `pci`.
 - Folder generation is untouched: `generate_tree.py` skips `is_virtual` rows, so a dry run still
   produces 145 task folders for 체계개발/LIG/A and 229 for 일반SE.
+
+Second pass (2026-08-18), after reviewing the real output:
+
+- `SE_FolderTree_GenericSE_Base.md` **v0.3**, `SE_FolderTree_Guide.md` **v0.10**.
+- Four backwards edges removed. The practice guide's activity table was read as "the functional
+  analysis produces the requirements specification", which puts the analysis before what it
+  analyses. Deleted rather than reversed — reversing would be a claim no text makes.
+- `gate_role` on every row of both specs, from the review guidebook's per-review 주요 산출물 /
+  INPUT tables (②) and NASA NPR appendix G success / entrance criteria (①). Counts: ① core 32,
+  entry 57, supporting 161; ② core 20, entry 5, supporting 129.
+- 52 edges projected from the generic layer onto 20 national rows through the four recorded token
+  equivalences, marked `depends_on_origin: generic_layer_projection` and never above
+  `general_se_guidance`. Composition rule and rejected hypotheses: `se_io_relations_v0.md` §6A.
+- Regulation-grade ordering candidates (60) stay in the private worksite behind an Owner
+  confirmation sheet; none is written into a spec.
 
 ## Layered outputs (2026-08-18)
 

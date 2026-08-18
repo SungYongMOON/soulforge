@@ -20,6 +20,7 @@
           "artifact_type_id": "inbox",
           "desc": "분류 안 된 일정·산출물 임시 보관",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 1,
           "is_fixed": true,
           "name": "INBOX_분류전",
@@ -34,6 +35,7 @@
           "artifact_type_id": "log",
           "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 2,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
@@ -48,6 +50,7 @@
           "artifact_type_id": "tdp_exchange",
           "desc": "주고받은 기술자료 패키지",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 3,
           "is_fixed": true,
           "name": "TDP_기술자료",
@@ -62,6 +65,7 @@
           "artifact_type_id": "ord",
           "desc": "Buyer capability / operational requirements reference (ROC/ORD/CDD equivalent) with mission goals and MOEs",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 4,
           "maturity": "baseline",
           "name": "소요-작전운용성능참조문서(ORD)_F",
@@ -94,6 +98,7 @@
           "artifact_type_id": "conops",
           "desc": "Concept of Operations (draft) / operational mode summary and mission profile",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 5,
           "maturity": "preliminary",
           "name": "운용개념서초안(CONOPS)_D",
@@ -126,6 +131,7 @@
           "artifact_type_id": "trade_study",
           "desc": "Alternatives / concept trade study record (AoA-type)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 6,
           "maturity": "preliminary",
           "name": "대안분석-개념절충연구기록(Trade_Study)_D",
@@ -154,6 +160,7 @@
           "artifact_type_id": "tra_report",
           "desc": "Technology readiness assessment / technology maturation (development) plan (initial)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 7,
           "maturity": "preliminary",
           "name": "기술성숙도평가-기술성숙화계획초안(TRA)_D",
@@ -189,6 +196,7 @@
           "artifact_type_id": "inbox",
           "desc": "분류 안 된 일정·산출물 임시 보관",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 301,
           "is_fixed": true,
           "name": "INBOX_분류전",
@@ -203,6 +211,7 @@
           "artifact_type_id": "log",
           "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 302,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
@@ -217,6 +226,7 @@
           "artifact_type_id": "tdp_exchange",
           "desc": "주고받은 기술자료 패키지",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 303,
           "is_fixed": true,
           "name": "TDP_기술자료",
@@ -233,6 +243,7 @@
             "act_architecture_design"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1",
@@ -241,6 +252,7 @@
           ],
           "desc": "System/Subsystem Specification (system performance / system requirements specification) ready to baseline",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 304,
           "maturity": "baseline",
           "name": "체계요구사항명세서(SSS)_F",
@@ -272,6 +284,7 @@
             "act_validation"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.1 (p.142-143)",
@@ -292,6 +305,7 @@
           ],
           "desc": "Concept of Operations / operations concept (updated)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 305,
           "maturity": "updated",
           "name": "운용개념서(CONOPS)_U",
@@ -320,6 +334,7 @@
           "artifact_type_id": "semp",
           "desc": "Systems Engineering Management Plan (SEMP) ready to baseline",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 306,
           "maturity": "baseline",
           "name": "체계공학관리계획서(SEMP)_F",
@@ -359,6 +374,7 @@
             "act_stakeholder_expectations"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.1 (p.142-143)",
@@ -371,6 +387,7 @@
           ],
           "desc": "Requirements traceability matrix (bidirectional: buyer requirement - SOW - system spec)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 307,
           "maturity": "preliminary",
           "name": "요구사항추적표(RTM)_D",
@@ -406,6 +423,7 @@
             "act_integration"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
@@ -418,6 +436,7 @@
           ],
           "desc": "External interface identification and preliminary external ICDs",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 308,
           "maturity": "preliminary",
           "name": "외부인터페이스통제문서(ICD)_D",
@@ -444,6 +463,7 @@
             "act_architecture_design"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1",
@@ -452,6 +472,7 @@
           ],
           "desc": "Verification and validation strategy: verification method identified for each requirement, certifying agencies identified",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 309,
           "maturity": "preliminary",
           "name": "검증전략-요구사항별검증방법(V_and_V)_D",
@@ -476,6 +497,7 @@
           "artifact_type_id": "risk_management_plan",
           "desc": "Risk management plan",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 310,
           "maturity": "baseline",
           "name": "위험관리계획서(RMP)_F",
@@ -504,6 +526,7 @@
           "artifact_type_id": "risk_register",
           "desc": "Risk register / risk assessment with mitigation plans (technical, safety, security, cost, schedule)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 311,
           "maturity": "updated",
           "name": "위험목록(Risk_Register)_U",
@@ -532,6 +555,7 @@
           "artifact_type_id": "cm_plan",
           "desc": "Configuration management plan",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 312,
           "maturity": "baseline",
           "name": "형상관리계획서(CMP)_F",
@@ -564,6 +588,7 @@
           "artifact_type_id": "tra_report",
           "desc": "Technology readiness assessment and technology maturation plan (updated)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 313,
           "maturity": "updated",
           "name": "기술성숙도평가-기술성숙화계획(TRA)_U",
@@ -588,6 +613,7 @@
           "artifact_type_id": "ims",
           "desc": "Integrated master schedule / WBS with critical path (resourced) and cost basis",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 314,
           "maturity": "preliminary",
           "name": "통합일정(IMS)-WBS_D",
@@ -620,6 +646,7 @@
           "artifact_type_id": "spec_tree",
           "desc": "Document tree / specification tree",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 315,
           "maturity": "preliminary",
           "name": "문서-규격트리(Spec_Tree)_D",
@@ -644,6 +671,7 @@
           "artifact_type_id": "system_safety_analysis",
           "desc": "Preliminary system safety / hazard analysis",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 316,
           "maturity": "preliminary",
           "name": "예비체계안전분석서(Safety)_D",
@@ -672,6 +700,7 @@
           "artifact_type_id": "ram_plan",
           "desc": "Reliability / maintainability (R&M) program plan; safety and mission assurance plan",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 317,
           "maturity": "baseline",
           "name": "RAM계획서_F",
@@ -703,6 +732,7 @@
             "act_requirements_analysis"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
@@ -719,6 +749,7 @@
           ],
           "desc": "Key driving requirements: MOP/TPM list with thresholds and margins",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 318,
           "maturity": "preliminary",
           "name": "핵심성능지표(TPM)목록_D",
@@ -747,6 +778,7 @@
           "artifact_type_id": "sdp",
           "desc": "Software development plan / software development strategy with sizing estimates",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 319,
           "maturity": "preliminary",
           "name": "소프트웨어개발계획서(SDP)_D",
@@ -774,6 +806,7 @@
             "act_transition"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.8 (p.152)",
@@ -786,6 +819,7 @@
           ],
           "desc": "Integrated logistics support / product support plan (preliminary; maintenance concept)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 320,
           "maturity": "preliminary",
           "name": "종합군수지원계획(ILS)_D",
@@ -812,6 +846,7 @@
             "act_implementation"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
@@ -820,6 +855,7 @@
           ],
           "desc": "Manufacturing and production strategy (initial producibility)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 321,
           "maturity": "preliminary",
           "name": "제조-생산전략서(MFG_Plan)_D",
@@ -850,6 +886,7 @@
             "act_architecture_design"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1",
@@ -858,6 +895,7 @@
           ],
           "desc": "Human systems integration approach / HSI plan",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 322,
           "maturity": "baseline",
           "name": "인간체계통합계획-접근(HSI)_F",
@@ -890,6 +928,7 @@
           "artifact_type_id": "security_plan",
           "desc": "System security / program protection plan (preliminary) with initial cyber risk assessment",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 323,
           "maturity": "preliminary",
           "name": "체계보안-프로그램보호계획(PPP)_D",
@@ -926,6 +965,7 @@
           "artifact_type_id": "cdrl",
           "desc": "Contract data requirements list / product certification and acceptance data requirements",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 324,
           "maturity": "baseline",
           "name": "자료요구목록(CDRL)_F",
@@ -954,6 +994,7 @@
           "artifact_type_id": "technical_review_package",
           "desc": "SRR technical review package (agenda, success criteria, prior RFA/RID closure status)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 325,
           "maturity": "final",
           "name": "SRR검토자료(Review_Package)_F",
@@ -982,6 +1023,7 @@
           "artifact_type_id": "review_minutes_srr",
           "desc": "SRR minutes with RID/RFA dispositions and action items",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 326,
           "maturity": "final",
           "name": "SRR회의록_F",
@@ -1006,6 +1048,7 @@
           "artifact_type_id": "review_result_report_srr",
           "desc": "SRR review result report / decision memo (baselined requirements confirmation)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 327,
           "maturity": "final",
           "name": "SRR결과보고서_F",
@@ -1043,6 +1086,7 @@
             "tpm_list",
             "vv_strategy"
           ],
+          "gate_role": "supporting",
           "id": 328,
           "is_virtual": true,
           "name": "아키텍처·설계해 정의(활동)",
@@ -1070,6 +1114,7 @@
             "tra_report"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
@@ -1081,6 +1126,7 @@
           "evidence_record": [
             "manufacturing_plan"
           ],
+          "gate_role": "supporting",
           "id": 329,
           "is_virtual": true,
           "name": "구현·제작(활동)",
@@ -1104,6 +1150,7 @@
             "semp"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.5 (p.149-150)",
@@ -1115,6 +1162,7 @@
           "evidence_record": [
             "icd"
           ],
+          "gate_role": "supporting",
           "id": 330,
           "is_virtual": true,
           "name": "통합(활동)",
@@ -1138,6 +1186,7 @@
             "conops"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1",
@@ -1150,6 +1199,7 @@
             "rtm",
             "tpm_list"
           ],
+          "gate_role": "supporting",
           "id": 331,
           "is_virtual": true,
           "name": "요구사항 분석(활동)",
@@ -1179,6 +1229,7 @@
             "conops",
             "rtm"
           ],
+          "gate_role": "supporting",
           "id": 332,
           "is_virtual": true,
           "name": "이해관계자 기대 정의(활동)",
@@ -1211,6 +1262,7 @@
             "icd"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.8 (p.152)",
@@ -1222,6 +1274,7 @@
           "evidence_record": [
             "ils_plan"
           ],
+          "gate_role": "supporting",
           "id": 333,
           "is_virtual": true,
           "name": "인도·전환(활동)",
@@ -1245,6 +1298,7 @@
             "vv_strategy"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "pdf p.129-136 (printed p.116-123) §5.4.1.1/§5.4.1.3, Figure 5.4-1",
@@ -1256,6 +1310,7 @@
           "evidence_record": [
             "conops"
           ],
+          "gate_role": "supporting",
           "id": 334,
           "is_virtual": true,
           "name": "확인(활동)",
@@ -1283,6 +1338,7 @@
           "artifact_type_id": "inbox",
           "desc": "분류 안 된 일정·산출물 임시 보관",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 601,
           "is_fixed": true,
           "name": "INBOX_분류전",
@@ -1297,6 +1353,7 @@
           "artifact_type_id": "log",
           "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 602,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
@@ -1311,6 +1368,7 @@
           "artifact_type_id": "tdp_exchange",
           "desc": "주고받은 기술자료 패키지",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 603,
           "is_fixed": true,
           "name": "TDP_기술자료",
@@ -1327,6 +1385,7 @@
             "act_requirements_analysis"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.2 (p.143-145)",
@@ -1335,6 +1394,7 @@
           ],
           "desc": "Functional baseline configuration identification (system spec + verification requirements + external interfaces under configuration control)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 604,
           "maturity": "baseline",
           "name": "기능형상식별서(FCI)_F",
@@ -1365,6 +1425,7 @@
             "act_architecture_design"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1",
@@ -1373,6 +1434,7 @@
           ],
           "desc": "System/Subsystem Specification (updated, functional baseline version)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 605,
           "maturity": "updated",
           "name": "체계요구사항명세서(SSS)_U",
@@ -1405,6 +1467,7 @@
             "act_requirements_analysis"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.2 (p.143-145)",
@@ -1425,6 +1488,7 @@
           ],
           "desc": "Functional analysis / system architecture definition (functional allocation, timing, tradeoffs and options)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 606,
           "maturity": "baseline",
           "name": "기능분석-체계아키텍처정의서(Functional_Analysis)_F",
@@ -1449,6 +1513,7 @@
           "artifact_type_id": "ssrs",
           "desc": "Segment / subsystem performance requirements specifications (allocation to next lower level, draft)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 607,
           "maturity": "preliminary",
           "name": "부체계요구사항명세서(SSRS)_D",
@@ -1479,6 +1544,7 @@
             "act_verification"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
@@ -1487,6 +1553,7 @@
           ],
           "desc": "Verification cross-reference matrix / verification requirements for FCA-SVR (per requirement method and level)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 608,
           "maturity": "preliminary",
           "name": "검증교차참조표(VCRM)_D",
@@ -1518,6 +1585,7 @@
             "act_requirements_analysis"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
@@ -1534,6 +1602,7 @@
           ],
           "desc": "TPM/MOP definitions (approved) with technical performance status and margins",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 609,
           "maturity": "baseline",
           "name": "핵심성능지표정의및추이(TPM)_F",
@@ -1572,6 +1641,7 @@
             "act_architecture_design"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
@@ -1584,6 +1654,7 @@
           ],
           "desc": "Trade study reports (architecture and allocation trades)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 610,
           "maturity": "updated",
           "name": "절충연구보고서(Trade_Study)_U",
@@ -1611,6 +1682,7 @@
             "act_integration"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
@@ -1623,6 +1695,7 @@
           ],
           "desc": "System interface definitions / ICDs (preliminary, external plus major internal)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 611,
           "maturity": "preliminary",
           "name": "인터페이스통제문서(ICD)_D",
@@ -1658,6 +1731,7 @@
             "act_stakeholder_expectations"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.1 (p.142-143)",
@@ -1670,6 +1744,7 @@
           ],
           "desc": "Requirements traceability matrix (updated: parent to system to subsystem)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 612,
           "maturity": "updated",
           "name": "요구사항추적표(RTM)_U",
@@ -1698,6 +1773,7 @@
           "artifact_type_id": "risk_register",
           "desc": "Risk register (updated, incl. HSI/ESOH/cyber mitigation requirements)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 613,
           "maturity": "updated",
           "name": "위험목록(Risk_Register)_U",
@@ -1722,6 +1798,7 @@
           "artifact_type_id": "semp",
           "desc": "SEMP (updated)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 614,
           "maturity": "updated",
           "name": "SEMP_U",
@@ -1750,6 +1827,7 @@
           "artifact_type_id": "ram_plan",
           "desc": "R&M program plan / SMA plan (updated)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 615,
           "maturity": "updated",
           "name": "RAM계획서_U",
@@ -1774,6 +1852,7 @@
           "artifact_type_id": "system_safety_analysis",
           "desc": "System safety analysis (preliminary, updated for architecture)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 616,
           "maturity": "updated",
           "name": "체계안전분석서(Safety)_U",
@@ -1798,6 +1877,7 @@
           "artifact_type_id": "ims",
           "desc": "Integrated master schedule with resourced plan to PDR",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 617,
           "maturity": "updated",
           "name": "IMS_U",
@@ -1822,6 +1902,7 @@
           "artifact_type_id": "integration_plan",
           "desc": "Integration plan (preliminary)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 618,
           "maturity": "preliminary",
           "name": "통합계획서(Integration)_D",
@@ -1849,6 +1930,7 @@
             "act_transition"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.8 (p.152)",
@@ -1861,6 +1943,7 @@
           ],
           "desc": "Integrated logistics support plan (preliminary)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 619,
           "maturity": "preliminary",
           "name": "ILSP_D",
@@ -1885,6 +1968,7 @@
           "artifact_type_id": "resource_budget",
           "desc": "Technical resource budgets and margins (mass, power, memory, throughput) initial",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 620,
           "maturity": "preliminary",
           "name": "기술자원예산-여유도(Margins)_D",
@@ -1909,6 +1993,7 @@
           "artifact_type_id": "tra_report",
           "desc": "Technology readiness assessment (updated)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 621,
           "maturity": "updated",
           "name": "TRA_U",
@@ -1932,6 +2017,7 @@
             "act_validation"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.1 (p.142-143)",
@@ -1952,6 +2038,7 @@
           ],
           "desc": "Concept of operations (preliminary/updated for architecture)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 622,
           "maturity": "updated",
           "name": "운용개념서(CONOPS)_U",
@@ -1972,6 +2059,7 @@
           "artifact_type_id": "security_plan",
           "desc": "System security plan (preliminary, updated)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 623,
           "maturity": "preliminary",
           "name": "체계보안계획(PPP)_D",
@@ -2000,6 +2088,7 @@
           "artifact_type_id": "technical_review_package",
           "desc": "SFR/SDR technical review package",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 624,
           "maturity": "final",
           "name": "SFR검토자료(Review_Package)_F",
@@ -2028,6 +2117,7 @@
           "artifact_type_id": "review_minutes_sfr",
           "desc": "SFR minutes with RID/RFA dispositions",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 625,
           "maturity": "final",
           "name": "SFR회의록_F",
@@ -2052,6 +2142,7 @@
           "artifact_type_id": "review_result_report_sfr",
           "desc": "SFR review result report (functional baseline established)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 626,
           "maturity": "final",
           "name": "SFR결과보고서_F",
@@ -2088,6 +2179,7 @@
             "semp"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.5 (p.149-150)",
@@ -2099,6 +2191,7 @@
           "evidence_record": [
             "icd"
           ],
+          "gate_role": "supporting",
           "id": 627,
           "is_virtual": true,
           "name": "통합(활동)",
@@ -2123,6 +2216,7 @@
           "evidence_record": [
             "functional_analysis"
           ],
+          "gate_role": "supporting",
           "id": 628,
           "is_virtual": true,
           "name": "논리적 분해·기능분석(활동)",
@@ -2152,6 +2246,7 @@
             "vv_strategy"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
@@ -2167,6 +2262,7 @@
           "evidence_record": [
             "vcrm"
           ],
+          "gate_role": "supporting",
           "id": 629,
           "is_virtual": true,
           "name": "검증(활동)",
@@ -2190,6 +2286,7 @@
             "fci"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.1.6 (p.131-134; baseline definitions p.132-133)",
@@ -2202,6 +2299,7 @@
             "fci",
             "review_minutes_sfr"
           ],
+          "gate_role": "supporting",
           "id": 630,
           "is_virtual": true,
           "name": "기능 기준선 확정(결정)",
@@ -2229,6 +2327,7 @@
           "artifact_type_id": "inbox",
           "desc": "분류 안 된 일정·산출물 임시 보관",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 901,
           "is_fixed": true,
           "name": "INBOX_분류전",
@@ -2243,6 +2342,7 @@
           "artifact_type_id": "log",
           "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 902,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
@@ -2257,6 +2357,7 @@
           "artifact_type_id": "tdp_exchange",
           "desc": "주고받은 기술자료 패키지",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 903,
           "is_fixed": true,
           "name": "TDP_기술자료",
@@ -2273,6 +2374,7 @@
             "act_architecture_design"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
@@ -2281,6 +2383,7 @@
           ],
           "desc": "Allocated baseline configuration identification (CI-level specs, ICDs, verification requirements, design/safety constraints under configuration control)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 904,
           "maturity": "baseline",
           "name": "할당형상식별서-아키텍처및형상식별서(DCI)_F",
@@ -2319,6 +2422,7 @@
             "act_architecture_design"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
@@ -2327,6 +2431,7 @@
           ],
           "desc": "System/Subsystem Design Description (preliminary)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 905,
           "maturity": "preliminary",
           "name": "체계-부체계설계기술서(SSDD)_D",
@@ -2351,6 +2456,7 @@
           "artifact_type_id": "hdd",
           "desc": "Hardware design description (preliminary) with supporting trade-off analyses",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 906,
           "maturity": "preliminary",
           "name": "하드웨어설계기술서(HDD)_D",
@@ -2375,6 +2481,7 @@
           "artifact_type_id": "sdd",
           "desc": "Software architecture / software design description (preliminary; CSCI/CSC structure)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 907,
           "maturity": "preliminary",
           "name": "소프트웨어설계기술서(SDD)_D",
@@ -2399,6 +2506,7 @@
           "artifact_type_id": "hrs",
           "desc": "Hardware requirements specifications per CI (development specifications, baselined)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 908,
           "maturity": "baseline",
           "name": "하드웨어요구사항명세서(HRS)_F",
@@ -2427,6 +2535,7 @@
           "artifact_type_id": "srs",
           "desc": "Software requirements specifications per CSCI (baselined)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 909,
           "maturity": "baseline",
           "name": "소프트웨어요구사항명세서(SRS)_F",
@@ -2453,6 +2562,7 @@
             "act_architecture_design"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1",
@@ -2461,6 +2571,7 @@
           ],
           "desc": "Interface requirements specifications (baselined)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 910,
           "maturity": "baseline",
           "name": "인터페이스요구사항명세서(IRS)_F",
@@ -2488,6 +2599,7 @@
             "act_integration"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
@@ -2500,6 +2612,7 @@
           ],
           "desc": "Interface control documents (internal and external, baselined)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 911,
           "maturity": "baseline",
           "name": "인터페이스통제문서(ICD)_F",
@@ -2532,6 +2645,7 @@
           "artifact_type_id": "sdp",
           "desc": "Software development plan (baselined)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 912,
           "maturity": "baseline",
           "name": "소프트웨어개발계획서(SDP)_F",
@@ -2559,6 +2673,7 @@
             "act_stakeholder_expectations"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.1 (p.142-143)",
@@ -2571,6 +2686,7 @@
           ],
           "desc": "Requirements traceability matrix (functional to allocated baseline, complete and verifiable)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 913,
           "maturity": "updated",
           "name": "요구사항추적표(RTM)_U",
@@ -2595,6 +2711,7 @@
           "artifact_type_id": "temp",
           "desc": "Test and evaluation master plan / V&V plan (baselined; TEMP drafted)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 914,
           "maturity": "baseline",
           "name": "시험평가기본계획서(TEMP)-검증확인계획_F",
@@ -2629,6 +2746,7 @@
             "act_verification"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
@@ -2637,6 +2755,7 @@
           ],
           "desc": "Verification cross-reference matrix (updated for CI-level verification requirements)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 915,
           "maturity": "updated",
           "name": "VCRM_U",
@@ -2665,6 +2784,7 @@
           "artifact_type_id": "integration_plan",
           "desc": "Integration plan (baselined)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 916,
           "maturity": "baseline",
           "name": "통합계획서(Integration)_F",
@@ -2695,6 +2815,7 @@
             "act_architecture_design"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
@@ -2707,6 +2828,7 @@
           ],
           "desc": "Trade study reports (design trades mostly complete; remaining planned)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 917,
           "maturity": "updated",
           "name": "절충연구보고서(Trade_Study)_U",
@@ -2731,6 +2853,7 @@
           "artifact_type_id": "risk_register",
           "desc": "Risk register (updated; mitigation plans approved and scheduled in IMS)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 918,
           "maturity": "updated",
           "name": "위험목록(Risk_Register)_U",
@@ -2762,6 +2885,7 @@
             "act_requirements_analysis"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
@@ -2778,6 +2902,7 @@
           ],
           "desc": "TPM status with technical resource budgets and margins (updated)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 919,
           "maturity": "updated",
           "name": "TPM현황-자원여유도_U",
@@ -2802,6 +2927,7 @@
           "artifact_type_id": "tra_report",
           "desc": "Technology readiness assessment (updated)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 920,
           "maturity": "updated",
           "name": "TRA_U",
@@ -2833,6 +2959,7 @@
             "act_transition"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
@@ -2845,6 +2972,7 @@
           ],
           "desc": "Engineering drawing tree and preliminary drawings / mechanical model",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 921,
           "maturity": "preliminary",
           "name": "도면트리-예비도면(Drawings)_D",
@@ -2869,6 +2997,7 @@
           "artifact_type_id": "registered_parts_plan",
           "desc": "Parts management plan with preliminary parts list and DMSMS management plan",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 922,
           "maturity": "baseline",
           "name": "부품관리계획서(Parts_Plan)_F",
@@ -2893,6 +3022,7 @@
           "artifact_type_id": "fmeca",
           "desc": "Functional FMECA / reliability analyses and R&M estimate; reliability program plan",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 923,
           "maturity": "preliminary",
           "name": "기능FMECA-신뢰성분석_D",
@@ -2917,6 +3047,7 @@
           "artifact_type_id": "system_safety_analysis",
           "desc": "System safety analyses (PHA, requirements hazard analysis) and hazard tracking; safety plan updated",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 924,
           "maturity": "updated",
           "name": "체계안전분석서(Safety)_U",
@@ -2943,6 +3074,7 @@
             "act_implementation"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
@@ -2951,6 +3083,7 @@
           ],
           "desc": "Producibility / manufacturability assessment and preliminary manufacturing plan",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 925,
           "maturity": "preliminary",
           "name": "생산성평가-예비제조계획(MFG_Plan)_D",
@@ -2977,6 +3110,7 @@
             "act_implementation"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
@@ -2985,6 +3119,7 @@
           ],
           "desc": "Quality assurance plan",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 926,
           "maturity": "baseline",
           "name": "품질보증계획서(QAP)_F",
@@ -3009,6 +3144,7 @@
           "artifact_type_id": "emc_control_plan",
           "desc": "EMI/EMC and environments control plan (incl. contamination control where applicable)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 927,
           "maturity": "baseline",
           "name": "EMI-EMC및환경통제계획_F",
@@ -3032,6 +3168,7 @@
             "act_transition"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.8 (p.152)",
@@ -3044,6 +3181,7 @@
           ],
           "desc": "Integrated logistics support plan / life cycle sustainment plan (baselined)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 928,
           "maturity": "baseline",
           "name": "ILSP-LCSP_F",
@@ -3071,6 +3209,7 @@
             "act_validation"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.1 (p.142-143)",
@@ -3091,6 +3230,7 @@
           ],
           "desc": "Concept of operations (baseline)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 929,
           "maturity": "baseline",
           "name": "운용개념서(CONOPS)_F",
@@ -3111,6 +3251,7 @@
           "artifact_type_id": "ims",
           "desc": "Integrated master schedule and cost update with plan to CDR",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 930,
           "maturity": "baseline",
           "name": "IMS_F",
@@ -3139,6 +3280,7 @@
           "artifact_type_id": "security_plan",
           "desc": "System security / program protection plan (updated)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 931,
           "maturity": "updated",
           "name": "보안-보호계획(PPP)_U",
@@ -3163,6 +3305,7 @@
           "artifact_type_id": "semp",
           "desc": "SEMP (updated)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 932,
           "maturity": "updated",
           "name": "SEMP_U",
@@ -3187,6 +3330,7 @@
           "artifact_type_id": "long_lead_list",
           "desc": "Long-lead item / critical procurement list with supply chain risk status",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 933,
           "maturity": "preliminary",
           "name": "장납기품목-조달목록(Long_Lead)_D",
@@ -3213,6 +3357,7 @@
             "act_implementation"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
@@ -3221,6 +3366,7 @@
           ],
           "desc": "Preliminary engineering analysis and modeling results (subsystem analyses, M&S)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 934,
           "maturity": "preliminary",
           "name": "공학해석-M&S결과서(Analysis)_D",
@@ -3251,6 +3397,7 @@
             "act_architecture_design"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1",
@@ -3259,6 +3406,7 @@
           ],
           "desc": "HSI approach / human rating or human factors plan (updated)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 935,
           "maturity": "updated",
           "name": "HSI접근_U",
@@ -3283,6 +3431,7 @@
           "artifact_type_id": "technical_review_package",
           "desc": "PDR technical review package (incl. lower-level PDR closure and prior action items)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 936,
           "maturity": "final",
           "name": "PDR검토자료(Review_Package)_F",
@@ -3311,6 +3460,7 @@
           "artifact_type_id": "review_minutes_pdr",
           "desc": "PDR minutes with RID/RFA dispositions and corrective action plans",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 937,
           "maturity": "final",
           "name": "PDR회의록_F",
@@ -3335,6 +3485,7 @@
           "artifact_type_id": "review_result_report_pdr",
           "desc": "PDR review result report / assessment (allocated baseline evidence, TPM status)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 938,
           "maturity": "final",
           "name": "PDR결과보고서_F",
@@ -3367,6 +3518,7 @@
             "tra_report"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
@@ -3384,6 +3536,7 @@
             "manufacturing_plan",
             "qa_plan"
           ],
+          "gate_role": "supporting",
           "id": 939,
           "is_virtual": true,
           "name": "구현·제작(활동)",
@@ -3409,6 +3562,7 @@
             "semp"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.5 (p.149-150)",
@@ -3420,6 +3574,7 @@
           "evidence_record": [
             "icd"
           ],
+          "gate_role": "supporting",
           "id": 940,
           "is_virtual": true,
           "name": "통합(활동)",
@@ -3444,6 +3599,7 @@
             "vv_strategy"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.7 (p.151-152; explicit product sentences p.152)",
@@ -3459,6 +3615,7 @@
           "evidence_record": [
             "conops"
           ],
+          "gate_role": "supporting",
           "id": 941,
           "is_virtual": true,
           "name": "확인(활동)",
@@ -3485,6 +3642,7 @@
             "vv_strategy"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
@@ -3500,6 +3658,7 @@
           "evidence_record": [
             "vcrm"
           ],
+          "gate_role": "supporting",
           "id": 942,
           "is_virtual": true,
           "name": "검증(활동)",
@@ -3523,6 +3682,7 @@
             "dci"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.1.6 (p.131-134; baseline definitions p.132-133)",
@@ -3535,6 +3695,7 @@
             "dci",
             "review_minutes_pdr"
           ],
+          "gate_role": "supporting",
           "id": 943,
           "is_virtual": true,
           "name": "할당 기준선 확정(결정)",
@@ -3562,6 +3723,7 @@
           "artifact_type_id": "inbox",
           "desc": "분류 안 된 일정·산출물 임시 보관",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 1201,
           "is_fixed": true,
           "name": "INBOX_분류전",
@@ -3576,6 +3738,7 @@
           "artifact_type_id": "log",
           "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 1202,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
@@ -3590,6 +3753,7 @@
           "artifact_type_id": "tdp_exchange",
           "desc": "주고받은 기술자료 패키지",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 1203,
           "is_fixed": true,
           "name": "TDP_기술자료",
@@ -3604,6 +3768,7 @@
           "artifact_type_id": "pci",
           "desc": "Initial product baseline configuration identification (build-to/code-to documentation under configuration control)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 1204,
           "maturity": "baseline",
           "name": "제품형상식별서(PCI)_F",
@@ -3642,6 +3807,7 @@
             "act_architecture_design"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
@@ -3650,6 +3816,7 @@
           ],
           "desc": "System/Subsystem Design Description (final, detailed design)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1205,
           "maturity": "final",
           "name": "체계-부체계설계기술서(SSDD)_F",
@@ -3674,6 +3841,7 @@
           "artifact_type_id": "hdd",
           "desc": "Hardware design description (final)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1206,
           "maturity": "final",
           "name": "하드웨어설계기술서(HDD)_F",
@@ -3698,6 +3866,7 @@
           "artifact_type_id": "sdd",
           "desc": "Software design description (final, code-to)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1207,
           "maturity": "final",
           "name": "소프트웨어설계기술서(SDD)_F",
@@ -3722,6 +3891,7 @@
           "artifact_type_id": "idd",
           "desc": "Interface design descriptions and updated ICDs (mature for fabrication/integration/test)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1208,
           "maturity": "baseline",
           "name": "인터페이스설계기술서(IDD)+ICD갱신_F",
@@ -3746,6 +3916,7 @@
           "artifact_type_id": "dbdd",
           "desc": "Database design description (where a database CSCI exists)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1209,
           "maturity": "baseline",
           "name": "데이터베이스설계기술서(DBDD)_F",
@@ -3773,6 +3944,7 @@
             "act_transition"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
@@ -3785,6 +3957,7 @@
           ],
           "desc": "Engineering drawings (production-representative; 75-90% complete, 100% for critical/safety items)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1210,
           "maturity": "baseline",
           "name": "제작도면(Drawings)_F",
@@ -3813,6 +3986,7 @@
           "artifact_type_id": "mechanical_model",
           "desc": "3D mechanical model / production model (final)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1211,
           "maturity": "final",
           "name": "기계3D모델(3D_Model)_F",
@@ -3837,6 +4011,7 @@
           "artifact_type_id": "bom",
           "desc": "Bill of materials / materials list with critical parts identified",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1212,
           "maturity": "baseline",
           "name": "자재명세서(BOM)_F",
@@ -3868,6 +4043,7 @@
             "act_stakeholder_expectations"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.1 (p.142-143)",
@@ -3880,6 +4056,7 @@
           ],
           "desc": "Requirements traceability matrix (functional, allocated, product baselines)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1213,
           "maturity": "updated",
           "name": "요구사항추적표(RTM)_U",
@@ -3906,6 +4083,7 @@
             "act_implementation"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
@@ -3914,6 +4092,7 @@
           ],
           "desc": "Technical data package (initial: schematics, specs, ICDs, engineering analyses, spares list)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1214,
           "maturity": "preliminary",
           "name": "기술자료묶음(TDP)_D",
@@ -3944,6 +4123,7 @@
             "act_implementation"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
@@ -3952,6 +4132,7 @@
           ],
           "desc": "Manufacturing plan: critical manufacturing processes, process control plans, tooling and fabrication/assembly plans",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 1215,
           "maturity": "baseline",
           "name": "제조계획서(MFG_Plan)_F",
@@ -3980,6 +4161,7 @@
           "artifact_type_id": "dt_plan",
           "desc": "Development / qualification test plan (baselined)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1216,
           "maturity": "baseline",
           "name": "개발시험계획서(DT_Plan)_F",
@@ -4004,6 +4186,7 @@
           "artifact_type_id": "dt_procedure",
           "desc": "Development / qualification test procedures (draft)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1217,
           "maturity": "preliminary",
           "name": "개발시험절차서(DT_Proc)_D",
@@ -4028,6 +4211,7 @@
           "artifact_type_id": "atp",
           "desc": "Acceptance test plan and acceptance criteria (ready to baseline)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1218,
           "maturity": "baseline",
           "name": "수락시험계획서(ATP)_F",
@@ -4052,6 +4236,7 @@
           "artifact_type_id": "temp",
           "desc": "Test and evaluation master plan / V&V plan (updated)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1219,
           "maturity": "updated",
           "name": "TEMP_U",
@@ -4078,6 +4263,7 @@
             "act_verification"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
@@ -4086,6 +4272,7 @@
           ],
           "desc": "Verification cross-reference matrix (updated to product baseline)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1220,
           "maturity": "updated",
           "name": "VCRM_U",
@@ -4110,6 +4297,7 @@
           "artifact_type_id": "std",
           "desc": "Software test description / test cases (draft)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1221,
           "maturity": "preliminary",
           "name": "소프트웨어시험기술서(STD)_D",
@@ -4134,6 +4322,7 @@
           "artifact_type_id": "integration_plan",
           "desc": "Integration plan (updated)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1222,
           "maturity": "updated",
           "name": "통합계획서(Integration)_U",
@@ -4158,6 +4347,7 @@
           "artifact_type_id": "fmeca",
           "desc": "Design FMECA / reliability analyses and R&M estimate (updated); R&M plan updated",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 1223,
           "maturity": "final",
           "name": "설계FMECA-신뢰성분석_F",
@@ -4182,6 +4372,7 @@
           "artifact_type_id": "system_safety_analysis",
           "desc": "System and subsystem safety analyses with associated verifications (baselined)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1224,
           "maturity": "baseline",
           "name": "체계-부체계안전분석서(Safety)_F",
@@ -4206,6 +4397,7 @@
           "artifact_type_id": "risk_register",
           "desc": "Risk register (updated; mitigations in IMS)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 1225,
           "maturity": "updated",
           "name": "위험목록(Risk_Register)_U",
@@ -4237,6 +4429,7 @@
             "act_requirements_analysis"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
@@ -4253,6 +4446,7 @@
           ],
           "desc": "TPM status, technical resource budgets and margins (updated)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1226,
           "maturity": "updated",
           "name": "TPM현황-자원여유도_U",
@@ -4277,6 +4471,7 @@
           "artifact_type_id": "tra_report",
           "desc": "Technology readiness assessment (updated)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1227,
           "maturity": "updated",
           "name": "TRA_U",
@@ -4301,6 +4496,7 @@
           "artifact_type_id": "registered_parts_plan",
           "desc": "Parts list and parts management / DMSMS status (EEE parts selected)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1228,
           "maturity": "updated",
           "name": "부품관리-단종관리,부품목록(Parts_Plan)_U",
@@ -4325,6 +4521,7 @@
           "artifact_type_id": "long_lead_list",
           "desc": "Long-lead procurement plan and supply chain assessment",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1229,
           "maturity": "updated",
           "name": "장납기조달계획(Long_Lead)_U",
@@ -4351,6 +4548,7 @@
             "act_implementation"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
@@ -4359,6 +4557,7 @@
           ],
           "desc": "Engineering analysis reports (loads/stress/thermal/EMC/fracture; material properties; M&S results)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 1230,
           "maturity": "final",
           "name": "공학해석보고서(Analysis)_F",
@@ -4383,6 +4582,7 @@
           "artifact_type_id": "critical_items_list",
           "desc": "Critical items list (critical safety/application items, key product characteristics, single point failures)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1231,
           "maturity": "baseline",
           "name": "핵심품목-단일고장점목록(CIL)_F",
@@ -4409,6 +4609,7 @@
             "act_architecture_design"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
@@ -4421,6 +4622,7 @@
           ],
           "desc": "Trade study reports (detailed design trades, complete)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1232,
           "maturity": "final",
           "name": "절충연구보고서(Trade_Study)_F",
@@ -4445,6 +4647,7 @@
           "artifact_type_id": "mra_report",
           "desc": "Manufacturing readiness / producibility assessment (pre-build)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1233,
           "maturity": "preliminary",
           "name": "제조성숙도평가(MRA)_D",
@@ -4475,6 +4678,7 @@
             "act_implementation"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
@@ -4483,6 +4687,7 @@
           ],
           "desc": "Quality assurance plan / inspection plan (updated for fabrication)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1234,
           "maturity": "updated",
           "name": "품질보증계획(QAP)_U",
@@ -4509,6 +4714,7 @@
             "act_architecture_design"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
@@ -4517,6 +4723,7 @@
           ],
           "desc": "Operational limits and constraints; command/telemetry or control-interface list (as applicable)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1235,
           "maturity": "updated",
           "name": "운용한계-제약및명령·텔레메트리목록(SSDD)_U",
@@ -4537,6 +4744,7 @@
           "artifact_type_id": "semp",
           "desc": "SEMP (updated)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1236,
           "maturity": "updated",
           "name": "SEMP_U",
@@ -4561,6 +4769,7 @@
           "artifact_type_id": "ims",
           "desc": "Integrated master schedule (updated: fabrication, coding, integration, test critical path)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1237,
           "maturity": "updated",
           "name": "IMS_U",
@@ -4588,6 +4797,7 @@
             "act_transition"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.8 (p.152)",
@@ -4600,6 +4810,7 @@
           ],
           "desc": "Integrated logistics support plan / LCSP (updated with supportability features)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1238,
           "maturity": "updated",
           "name": "ILSP_U",
@@ -4624,6 +4835,7 @@
           "artifact_type_id": "security_plan",
           "desc": "System security plan (baselined) / program protection plan updated; security controls identified",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1239,
           "maturity": "baseline",
           "name": "체계보안계획(PPP)_F",
@@ -4648,6 +4860,7 @@
           "artifact_type_id": "technical_review_package",
           "desc": "CDR technical review package (incl. lower-level CDR integration, prior action closure)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1240,
           "maturity": "final",
           "name": "CDR검토자료(Review_Package)_F",
@@ -4672,6 +4885,7 @@
           "artifact_type_id": "review_minutes_cdr",
           "desc": "CDR minutes with RID/RFA dispositions and corrective action plans",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1241,
           "maturity": "final",
           "name": "CDR회의록_F",
@@ -4696,6 +4910,7 @@
           "artifact_type_id": "review_result_report_cdr",
           "desc": "CDR review result report / assessment (product baseline evidence, TPM status)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1242,
           "maturity": "final",
           "name": "CDR결과보고서_F",
@@ -4728,6 +4943,7 @@
             "tra_report"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
@@ -4746,6 +4962,7 @@
             "qa_plan",
             "tdp"
           ],
+          "gate_role": "supporting",
           "id": 1243,
           "is_virtual": true,
           "name": "구현·제작(활동)",
@@ -4771,6 +4988,7 @@
             "tdp"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.8 (p.152)",
@@ -4783,6 +5001,7 @@
             "drawings",
             "ils_plan"
           ],
+          "gate_role": "supporting",
           "id": 1244,
           "is_virtual": true,
           "name": "인도·전환(활동)",
@@ -4806,6 +5025,7 @@
             "pci"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.1.6 (p.131-134; baseline definitions p.132-133)",
@@ -4818,6 +5038,7 @@
             "pci",
             "review_minutes_cdr"
           ],
+          "gate_role": "supporting",
           "id": 1245,
           "is_virtual": true,
           "name": "제품 기준선 확정(결정)",
@@ -4845,6 +5066,7 @@
           "artifact_type_id": "inbox",
           "desc": "분류 안 된 일정·산출물 임시 보관",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 1501,
           "is_fixed": true,
           "name": "INBOX_분류전",
@@ -4859,6 +5081,7 @@
           "artifact_type_id": "log",
           "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 1502,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
@@ -4873,6 +5096,7 @@
           "artifact_type_id": "tdp_exchange",
           "desc": "주고받은 기술자료 패키지",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 1503,
           "is_fixed": true,
           "name": "TDP_기술자료",
@@ -4887,6 +5111,7 @@
           "artifact_type_id": "dt_plan",
           "desc": "Development test plan (approved, with test objectives and cases)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 1504,
           "maturity": "final",
           "name": "개발시험계획서(DT_Plan)_F",
@@ -4915,6 +5140,7 @@
           "artifact_type_id": "dt_procedure",
           "desc": "Development test procedures (approved)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1505,
           "maturity": "final",
           "name": "개발시험절차서(DT_Proc)_F",
@@ -4935,6 +5161,7 @@
           "artifact_type_id": "std",
           "desc": "Software test description (final test cases/procedures)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1506,
           "maturity": "final",
           "name": "소프트웨어시험기술서(STD)_F",
@@ -4955,6 +5182,7 @@
           "artifact_type_id": "as_built_config",
           "desc": "As-built configuration list of item under test (HW/SW) released under configuration control",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1507,
           "maturity": "baseline",
           "name": "시험품as-built형상목록(As_Built)_F",
@@ -4975,6 +5203,7 @@
           "artifact_type_id": "vdd",
           "desc": "Version description document(s) for test article software and test/support systems",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1508,
           "maturity": "baseline",
           "name": "버전기술서(VDD)_F",
@@ -4995,6 +5224,7 @@
           "artifact_type_id": "integration_plan",
           "desc": "Integration plan (updated and approved) with integration procedures and workflow",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1509,
           "maturity": "updated",
           "name": "통합계획서및통합절차(Integration)_U",
@@ -5021,6 +5251,7 @@
             "act_verification"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
@@ -5029,6 +5260,7 @@
           ],
           "desc": "Lower-tier verification results (unit, subsystem, qualification test reports; initial V&V results)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1510,
           "maturity": "preliminary",
           "name": "하위시험결과보고서(DT)_D",
@@ -5057,6 +5289,7 @@
           "artifact_type_id": "env_test",
           "desc": "Environmental / qualification test plan and procedures",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1511,
           "maturity": "final",
           "name": "환경시험계획-절차(Env_Test)_F",
@@ -5085,6 +5318,7 @@
           "artifact_type_id": "ess_test",
           "desc": "Environmental stress screening plan/procedure (where applicable)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1512,
           "maturity": "final",
           "name": "ESS시험_F",
@@ -5107,6 +5341,7 @@
             "act_verification"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
@@ -5115,6 +5350,7 @@
           ],
           "desc": "Interface verification records against ICDs (mechanical/electrical) and VCRM update",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1513,
           "maturity": "updated",
           "name": "인터페이스검증기록-VCRM_U",
@@ -5139,6 +5375,7 @@
             "act_validation"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
@@ -5155,6 +5392,7 @@
           ],
           "desc": "Discrepancy / deficiency log with dispositions and closure schedule",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1514,
           "maturity": "updated",
           "name": "결함-불일치목록(Discrepancy)_U",
@@ -5183,6 +5421,7 @@
           "artifact_type_id": "system_safety_analysis",
           "desc": "Test safety plan / test hazard analysis and handling & safety requirements",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1515,
           "maturity": "updated",
           "name": "시험안전계획-취급안전요구(Safety)_U",
@@ -5207,6 +5446,7 @@
           "artifact_type_id": "technical_review_package",
           "desc": "Test readiness package (test resources, facilities, GSE, instrumentation, personnel roles and training, test director designation)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1516,
           "maturity": "final",
           "name": "TRR검토자료(Review_Package)_F",
@@ -5231,6 +5471,7 @@
           "artifact_type_id": "temp",
           "desc": "Test and evaluation master plan / V&V plan (updated)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1517,
           "maturity": "updated",
           "name": "TEMP_U",
@@ -5251,6 +5492,7 @@
           "artifact_type_id": "risk_register",
           "desc": "Risk register (updated; residual test risk accepted)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 1518,
           "maturity": "updated",
           "name": "위험목록(Risk_Register)_U",
@@ -5275,6 +5517,7 @@
           "artifact_type_id": "handling_transport_plan",
           "desc": "Transportation, handling and packaging criteria/instructions (final)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1519,
           "maturity": "final",
           "name": "운송-취급-포장지침(PHS_T)_F",
@@ -5298,6 +5541,7 @@
             "act_integration"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
@@ -5310,6 +5554,7 @@
           ],
           "desc": "Design description and ICDs (updated to as-built for integration)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1520,
           "maturity": "updated",
           "name": "설계기술서-ICD_U",
@@ -5330,6 +5575,7 @@
           "artifact_type_id": "ims",
           "desc": "Integrated master schedule (updated: component availability and test schedule)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1521,
           "maturity": "updated",
           "name": "IMS_U",
@@ -5350,6 +5596,7 @@
           "artifact_type_id": "lessons_learned",
           "desc": "Lessons learned capture plan for test (initial log)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 1522,
           "maturity": "preliminary",
           "name": "시험교훈수집계획(Lessons_Learned)_D",
@@ -5370,6 +5617,7 @@
           "artifact_type_id": "review_minutes_trr",
           "desc": "TRR minutes with test authorization and RID/action dispositions",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1523,
           "maturity": "final",
           "name": "TRR회의록_F",
@@ -5394,6 +5642,7 @@
           "artifact_type_id": "review_result_report_trr",
           "desc": "TRR review result report",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1524,
           "maturity": "final",
           "name": "TRR결과보고서_F",
@@ -5420,6 +5669,7 @@
             "tdp"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.8 (p.152)",
@@ -5431,6 +5681,7 @@
           "evidence_record": [
             "discrepancy_log"
           ],
+          "gate_role": "supporting",
           "id": 1525,
           "is_virtual": true,
           "name": "인도·전환(활동)",
@@ -5456,6 +5707,7 @@
             "vv_strategy"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.7 (p.151-152; explicit product sentences p.152)",
@@ -5471,6 +5723,7 @@
           "evidence_record": [
             "discrepancy_log"
           ],
+          "gate_role": "supporting",
           "id": 1526,
           "is_virtual": true,
           "name": "확인(활동)",
@@ -5498,6 +5751,7 @@
           "artifact_type_id": "inbox",
           "desc": "분류 안 된 일정·산출물 임시 보관",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 1801,
           "is_fixed": true,
           "name": "INBOX_분류전",
@@ -5512,6 +5766,7 @@
           "artifact_type_id": "log",
           "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 1802,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
@@ -5526,6 +5781,7 @@
           "artifact_type_id": "tdp_exchange",
           "desc": "주고받은 기술자료 패키지",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 1803,
           "is_fixed": true,
           "name": "TDP_기술자료",
@@ -5542,6 +5798,7 @@
             "act_verification"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
@@ -5550,6 +5807,7 @@
           ],
           "desc": "Development test report(s) / verification results (all spec requirements verified by A/D/E/T and documented)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1804,
           "maturity": "final",
           "name": "개발시험결과보고서-검증결과(DT)_F",
@@ -5578,6 +5836,7 @@
           "artifact_type_id": "str",
           "desc": "Software test report (CSCI verification against SRS/IRS)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1805,
           "maturity": "final",
           "name": "소프트웨어시험결과보고서(STR)_F",
@@ -5604,6 +5863,7 @@
             "act_verification"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
@@ -5612,6 +5872,7 @@
           ],
           "desc": "Verification cross-reference matrix completed (requirement-to-evidence compliance matrix)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1806,
           "maturity": "final",
           "name": "VCRM완료본_F",
@@ -5643,6 +5904,7 @@
             "act_stakeholder_expectations"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.1 (p.142-143)",
@@ -5655,6 +5917,7 @@
           ],
           "desc": "Requirements traceability matrix (final, requirement to verification evidence)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1807,
           "maturity": "final",
           "name": "요구사항추적표(RTM)_F",
@@ -5679,6 +5942,7 @@
           "artifact_type_id": "fca_plan",
           "desc": "Functional configuration audit plan",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1808,
           "maturity": "final",
           "name": "기능형상감사계획서(FCA_Plan)_F",
@@ -5703,6 +5967,7 @@
           "artifact_type_id": "fca_checklist",
           "desc": "Functional configuration audit checklist",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1809,
           "maturity": "final",
           "name": "기능형상감사점검표(FCA_Checklist)_F",
@@ -5723,6 +5988,7 @@
           "artifact_type_id": "fca_report",
           "desc": "Functional configuration audit report (functional/allocated baseline verified)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1810,
           "maturity": "final",
           "name": "기능형상감사결과보고서(FCA)_F",
@@ -5747,6 +6013,7 @@
           "artifact_type_id": "ot_plan",
           "desc": "Operational test support: OT plan input / OT readiness evidence",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1811,
           "maturity": "final",
           "name": "운용시험계획(발주처주관(OT_Plan)_F",
@@ -5773,6 +6040,7 @@
             "act_validation"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.7 (p.151-152; explicit product sentences p.152)",
@@ -5781,6 +6049,7 @@
           ],
           "desc": "Operational test / validation results report",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1812,
           "maturity": "final",
           "name": "운용시험결과보고서(OT)_F",
@@ -5809,6 +6078,7 @@
           "artifact_type_id": "ram_assessment_report",
           "desc": "R&M assessment report (achieved R&M vs contractual specification)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1813,
           "maturity": "final",
           "name": "RAM평가보고서_F",
@@ -5833,6 +6103,7 @@
           "artifact_type_id": "as_built_config",
           "desc": "As-built configuration documentation (HW/SW) baselined; product baseline for initial production",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1814,
           "maturity": "baseline",
           "name": "As-built형상문서(As_Built)_F",
@@ -5859,6 +6130,7 @@
             "act_implementation"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
@@ -5867,6 +6139,7 @@
           ],
           "desc": "Technical data package (updated with all test results)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1815,
           "maturity": "updated",
           "name": "TDP_U",
@@ -5891,6 +6164,7 @@
           "artifact_type_id": "acceptance_data_package",
           "desc": "Acceptance data package / certificate of conformance evidence",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 1816,
           "maturity": "final",
           "name": "수락자료묶음(ADP)_F",
@@ -5923,6 +6197,7 @@
             "act_validation"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
@@ -5939,6 +6214,7 @@
           ],
           "desc": "Discrepancy / deficiency and waiver-deviation status (closed or planned)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1817,
           "maturity": "updated",
           "name": "결함-면제·일탈현황(Discrepancy)_U",
@@ -5967,6 +6243,7 @@
           "artifact_type_id": "risk_register",
           "desc": "Risk register (residual risks accepted before initial production)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 1818,
           "maturity": "updated",
           "name": "위험목록(Risk_Register)_U",
@@ -5991,6 +6268,7 @@
           "artifact_type_id": "security_assessment_report",
           "desc": "Security assessment / cybersecurity controls verification report",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1819,
           "maturity": "final",
           "name": "보안통제검증보고서(SAR)_F",
@@ -6015,6 +6293,7 @@
           "artifact_type_id": "vdd",
           "desc": "Software product specification / executable and source baseline (preliminary)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1820,
           "maturity": "preliminary",
           "name": "소프트웨어제품명세서(VDD)_D",
@@ -6043,6 +6322,7 @@
           "artifact_type_id": "dev_result_report",
           "desc": "System development result report (development completion evidence, preliminary)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1821,
           "maturity": "preliminary",
           "name": "개발결과보고서(Final_Report)_D",
@@ -6067,6 +6347,7 @@
           "artifact_type_id": "handling_transport_plan",
           "desc": "Shipping, handling, checkout and operational plans/procedures (safety-cleared)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1822,
           "maturity": "final",
           "name": "운송-취급-점검절차(PHS_T)_F",
@@ -6087,6 +6368,7 @@
           "artifact_type_id": "ims",
           "desc": "Plan and schedule to PRR/PCA (resourced)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1823,
           "maturity": "updated",
           "name": "IMS_U",
@@ -6107,6 +6389,7 @@
           "artifact_type_id": "lessons_learned",
           "desc": "Lessons learned log (captured through verification)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 1824,
           "maturity": "updated",
           "name": "교훈기록(Lessons_Learned)_U",
@@ -6127,6 +6410,7 @@
           "artifact_type_id": "technical_review_package",
           "desc": "FCA/SVR technical review package",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 1825,
           "maturity": "final",
           "name": "FCA검토자료(Review_Package)_F",
@@ -6151,6 +6435,7 @@
           "artifact_type_id": "review_minutes_fca",
           "desc": "FCA/SVR minutes with dispositions",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1826,
           "maturity": "final",
           "name": "FCA회의록_F",
@@ -6175,6 +6460,7 @@
           "artifact_type_id": "review_result_report_fca",
           "desc": "FCA/SVR review result report (verified functional/allocated baseline; authorization for acceptance/initial production)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 1827,
           "maturity": "final",
           "name": "FCA결과보고서_F",
@@ -6210,6 +6496,7 @@
           "artifact_type_id": "inbox",
           "desc": "분류 안 된 일정·산출물 임시 보관",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 2101,
           "is_fixed": true,
           "name": "INBOX_분류전",
@@ -6224,6 +6511,7 @@
           "artifact_type_id": "log",
           "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 2102,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
@@ -6238,6 +6526,7 @@
           "artifact_type_id": "tdp_exchange",
           "desc": "주고받은 기술자료 패키지",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 2103,
           "is_fixed": true,
           "name": "TDP_기술자료",
@@ -6252,6 +6541,7 @@
           "artifact_type_id": "pca_plan",
           "desc": "Physical configuration audit plan",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2104,
           "maturity": "final",
           "name": "물리형상감사계획서(PCA_Plan)_F",
@@ -6276,6 +6566,7 @@
           "artifact_type_id": "pca_checklist",
           "desc": "Physical configuration audit checklist",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2105,
           "maturity": "final",
           "name": "물리형상감사점검표(PCA_Checklist)_F",
@@ -6296,6 +6587,7 @@
           "artifact_type_id": "pca_report",
           "desc": "Physical configuration audit report (final product baseline verified)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2106,
           "maturity": "final",
           "name": "물리형상감사결과보고서(PCA)_F",
@@ -6320,6 +6612,7 @@
           "artifact_type_id": "pci",
           "desc": "Final product baseline configuration identification (as-built, OT-validated item)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2107,
           "maturity": "final",
           "name": "제품형상식별서(PCI)_F",
@@ -6355,6 +6648,7 @@
             "act_transition"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
@@ -6367,6 +6661,7 @@
           ],
           "desc": "Engineering drawings / production models approved and certified (as-built, redlines incorporated)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 2108,
           "maturity": "final",
           "name": "제작도면(Drawings)_F",
@@ -6391,6 +6686,7 @@
           "artifact_type_id": "bom",
           "desc": "Bill of materials with critical parts and spares provisioning list (final)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 2109,
           "maturity": "final",
           "name": "BOM-예비품목록_F",
@@ -6417,6 +6713,7 @@
             "act_implementation"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
@@ -6425,6 +6722,7 @@
           ],
           "desc": "Technical data package (final, transferred per contract)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2110,
           "maturity": "final",
           "name": "TDP_F",
@@ -6451,6 +6749,7 @@
             "act_implementation"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
@@ -6459,6 +6758,7 @@
           ],
           "desc": "Production plan (critical process controls, control limits, procedures, tooling/test equipment, delivery schedule)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 2111,
           "maturity": "final",
           "name": "생산계획서(MFG_Plan)_F",
@@ -6483,6 +6783,7 @@
           "artifact_type_id": "atp",
           "desc": "Acceptance test procedures and acceptance test equipment (validated, under CM)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2112,
           "maturity": "final",
           "name": "수락시험절차-장비(ATP)_F",
@@ -6509,6 +6810,7 @@
             "act_implementation"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
@@ -6517,6 +6819,7 @@
           ],
           "desc": "Quality / inspection plan for production (in-process and end-item inspections)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "core",
           "id": 2113,
           "maturity": "final",
           "name": "생산품질-검사계획(QAP)_F",
@@ -6545,6 +6848,7 @@
           "artifact_type_id": "mra_report",
           "desc": "Manufacturing readiness assessment / PRR report",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2114,
           "maturity": "final",
           "name": "제조성숙도평가-생산준비검토보고서(MRA)_F",
@@ -6573,6 +6877,7 @@
           "artifact_type_id": "fracas_report",
           "desc": "Failure reporting, analysis and corrective action system (FRACAS) records",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2115,
           "maturity": "baseline",
           "name": "고장보고·분석·시정조치(FRACAS)기록_F",
@@ -6597,6 +6902,7 @@
           "artifact_type_id": "waiver_deviation_log",
           "desc": "Waiver / deviation and deficiency closure register (all closed or incorporated)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2116,
           "maturity": "final",
           "name": "면제-일탈및결함종결대장(Waiver)_F",
@@ -6624,6 +6930,7 @@
             "act_transition"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.8 (p.152)",
@@ -6636,6 +6943,7 @@
           ],
           "desc": "Operator and maintenance technical manuals / operations documentation (verified and approved)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2117,
           "maturity": "final",
           "name": "운용-정비기술교범(Tech_Manual)_F",
@@ -6666,6 +6974,7 @@
             "act_transition"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.8 (p.152)",
@@ -6674,6 +6983,7 @@
           ],
           "desc": "Training materials and training completion records",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2118,
           "maturity": "final",
           "name": "교육훈련자료-이수기록(Training)_F",
@@ -6702,6 +7012,7 @@
           "artifact_type_id": "vdd",
           "desc": "Software product specification (final) and version description document (delivered build)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2119,
           "maturity": "final",
           "name": "소프트웨어제품명세서-버전기술서(VDD)_F",
@@ -6729,6 +7040,7 @@
             "act_transition"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.8 (p.152)",
@@ -6741,6 +7053,7 @@
           ],
           "desc": "Integrated logistics support plan / sustainment plan (final; sustaining planning complete)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2120,
           "maturity": "final",
           "name": "ILSP_F",
@@ -6769,6 +7082,7 @@
           "artifact_type_id": "ims",
           "desc": "Production / delivery integrated master schedule",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2121,
           "maturity": "updated",
           "name": "생산-납품IMS_U",
@@ -6797,6 +7111,7 @@
           "artifact_type_id": "risk_register",
           "desc": "Risk register (production and deployment risks; low enough for FRP)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "entry",
           "id": 2122,
           "maturity": "updated",
           "name": "위험목록(Risk_Register)_U",
@@ -6829,6 +7144,7 @@
           "artifact_type_id": "defense_spec_draft",
           "desc": "Product specification set for procurement / defense specification draft (from final product baseline)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2123,
           "maturity": "preliminary",
           "name": "국방규격(Spec_Draft)_D",
@@ -6853,6 +7169,7 @@
           "artifact_type_id": "sat_report",
           "desc": "Site acceptance / installation and checkout test report (enabling products delivered/installed)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2124,
           "maturity": "final",
           "name": "현장인수-설치점검시험보고서(SAT)_F",
@@ -6873,6 +7190,7 @@
           "artifact_type_id": "security_plan",
           "desc": "System security / protection plan (updated for deployment)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2125,
           "maturity": "updated",
           "name": "보안-보호계획(PPP)_U",
@@ -6897,6 +7215,7 @@
           "artifact_type_id": "dev_result_report",
           "desc": "System development result report (final)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2126,
           "maturity": "final",
           "name": "개발결과보고서(Final_Report)_F",
@@ -6921,6 +7240,7 @@
           "artifact_type_id": "technical_review_package",
           "desc": "PCA/PRR technical review package",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2127,
           "maturity": "final",
           "name": "PCA-PRR검토자료(Review_Package)_F",
@@ -6953,6 +7273,7 @@
           "artifact_type_id": "review_minutes_pca",
           "desc": "PCA/PRR minutes with dispositions",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2128,
           "maturity": "final",
           "name": "PCA-PRR회의록_F",
@@ -6981,6 +7302,7 @@
           "artifact_type_id": "review_result_report_pca",
           "desc": "PCA/PRR review result report (final product baseline established; production go-ahead)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2129,
           "maturity": "final",
           "name": "PCA-PRR결과보고서_F",
@@ -7020,6 +7342,7 @@
           "artifact_type_id": "inbox",
           "desc": "분류 안 된 일정·산출물 임시 보관",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 2401,
           "is_fixed": true,
           "name": "INBOX_분류전",
@@ -7034,6 +7357,7 @@
           "artifact_type_id": "log",
           "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 2402,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
@@ -7048,6 +7372,7 @@
           "artifact_type_id": "tdp_exchange",
           "desc": "주고받은 기술자료 패키지",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 2403,
           "is_fixed": true,
           "name": "TDP_기술자료",
@@ -7062,6 +7387,7 @@
           "artifact_type_id": "lessons_learned",
           "desc": "Lessons learned report (development, test, production, review process)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2404,
           "maturity": "final",
           "name": "교훈보고서(Lessons_Learned)_F",
@@ -7090,6 +7416,7 @@
           "artifact_type_id": "action_item_log",
           "desc": "Action item / RID-RFA closure log across all reviews (final)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2405,
           "maturity": "final",
           "name": "검토조치사항종결대장(Action_Log)_F",
@@ -7122,6 +7449,7 @@
           "artifact_type_id": "cdrl",
           "desc": "CDRL delivery closeout / data transfer receipt (TDP, baselines, manuals delivered)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2406,
           "maturity": "final",
           "name": "자료납품종결확인(CDRL)_F",
@@ -7146,6 +7474,7 @@
           "artifact_type_id": "risk_register",
           "desc": "Risk register closeout (final status, transferred risks)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2407,
           "maturity": "final",
           "name": "위험목록종결본(Risk_Register)_F",
@@ -7173,6 +7502,7 @@
             "act_requirements_analysis"
           ],
           "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
@@ -7189,6 +7519,7 @@
           ],
           "desc": "Final TPM / leading-indicator trend summary",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2408,
           "maturity": "final",
           "name": "TPM최종추이요약_F",
@@ -7217,6 +7548,7 @@
           "artifact_type_id": "review_result_report_240_LL",
           "desc": "Closeout review minutes / result report (if a closeout meeting is held)",
           "evidence_level": "general_se_guidance",
+          "gate_role": "supporting",
           "id": 2409,
           "maturity": "final",
           "name": "종결검토결과보고서_F",
@@ -7320,8 +7652,8 @@
   "quality_grade": "없음",
   "schema_version": "soulforge.se_foldertree_compiled_variant.v0",
   "spec_file": "assets/SE_FolderTree_GenericSE_Base.md",
-  "spec_sha256": "e27975fe876d57d48624d5ce0e59dec17e2ed1a43ee618b94a2c3a02b95aa8bc",
-  "spec_version": "0.2",
+  "spec_sha256": "6c37630e34c6652347df0a0fb97554a193c331cdd7d13fde80a0e6b8cca8acc4",
+  "spec_version": "0.3",
   "special_folders": {
     "management": {
       "code": 20,

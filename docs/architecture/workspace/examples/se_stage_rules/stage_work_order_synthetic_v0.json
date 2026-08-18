@@ -385,6 +385,11 @@
         "activity": 2,
         "decision": 1
       },
+      "by_gate_role": {
+        "core": 0,
+        "entry": 0,
+        "supporting": 13
+      },
       "engine_requirements": 10,
       "not_applicable": 0,
       "overlay_added": 0,

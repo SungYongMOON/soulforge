@@ -75,6 +75,11 @@
         "activity": 0,
         "decision": 0
       },
+      "by_gate_role": {
+        "core": 0,
+        "entry": 1,
+        "supporting": 15
+      },
       "engine_requirements": 10,
       "not_applicable": 2,
       "overlay_added": 1,

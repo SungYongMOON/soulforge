@@ -19,10 +19,10 @@
 
 컴파일러(`compileStageRules`)는 `compiled_variant`(①이든 ②든 하나) + `overlay`(③·④ op 목록을 이어 붙인 것) + `project_binding`을 받는다.
 
-- overlay op는 네 가지뿐: `add`(행 추가) · `alias`(과제 이름→표준어) · `mark_not_applicable`(N/A, 근거 필요) · `condition`(조건 토큰, 예 `sw_included`).
+- overlay op는 다섯 가지뿐: `add`(행 추가) · `alias`(과제 이름→표준어) · `mark_not_applicable`(N/A, 근거 필요) · `condition`(조건 토큰, 예 `sw_included`) · `add_dependency`(입력 추가, §2.6).
 - overlay는 evidence level을 **올리거나 바꾸지 못한다**(D45). `add`는 표준 행이 `optional_context`일 때만 옆에 `prime_contract` 행을 둘 수 있고(발주처 요구 강화, 영수증 `overlay_strengthened`), 표준이 이미 요구하는 항목에는 거부된다.
 - 등가성 증명(2026-08-18): "통합 스펙(②+③이 한 파일) 컴파일" 결과와 "② 공통 + ③ overlay 컴파일" 결과가 P26-014 120_CDR에서 **같은 27개 엔진 요구**를 낸다. 이 검사가 깨지면 exporter나 컴파일러의 약화 규칙이 어긋난 것이다.
-- ①과 ②는 별도 링크 필드 없이 **같은 `artifact_type_id`**로 만난다. 지금은 토큰이 다른 쌍(예 `p_temp`↔`temp`, `spec_linkage_table`↔`rtm`)이 있어 별칭 정합이 다음 조각이다(09장).
+- ①과 ②는 별도 링크 필드 없이 **같은 `artifact_type_id`**로 만난다. 토큰이 다른 쌍은 어휘의 층 대응표 4쌍으로 잇고(04장 §4.6), 그 위에서 ①의 관계를 ②로 투영한다(§2.7). 남은 정합(묶음 대응·행 토큰 배정 3건)은 D44와 함께 판단한다.
 
 ## 2.3 한 단계(120_CDR)로 본 숫자
 
@@ -69,4 +69,22 @@
 - **덧씌움은 간선을 더할 수만 있다**: overlay op `add_dependency`(exact `source_ref` + `basis` 필수). 정본 간선을 지우는 연산은 없다 — evidence level을 못 내리는 것과 같은 이유다(D45).
 - 어휘가 모르는 토큰을 입력으로 적으면 컴파일을 거부하지 않고 영수증의 `unresolved_dependencies`에 이름과 함께 남긴다. 간선 하나의 오타가 변형 전체를 막지 않아야 한다.
 
-2026-08-18 현재 수치: ① 250행(산출물 229·활동 18·결정 3, 간선 133) · ② 154행(산출물 145·활동 9, 간선 24). 도출 근거와 커버리지 한계는 `.registry/skills/se_foldertree_generate/codex/references/se_io_relations_v0.md`.
+2026-08-18 현재 수치: ① 250행(산출물 229·활동 18·결정 3) · ② 154행(산출물 145·활동 9). 도출 근거와 커버리지 한계는 `.registry/skills/se_foldertree_generate/codex/references/se_io_relations_v0.md`.
+
+## 2.7 게이트 역할(`gate_role`)과 층을 건너는 투영 (2판, 2026-08-18)
+
+**행이 무엇을 먼저 필요로 하는가(`depends_on`)와 그 행이 게이트에 무엇인가(`gate_role`)는 다른 질문이다.** 1판은 이 둘을 섞어 검토회의 INPUT 표를 산출물 사이의 인과로 읽었고, 그 결과 기능분석이 그 분석의 대상인 요구사항명세서보다 앞선다는 거꾸로 된 간선이 나왔다. 2판에서 분리했다.
+
+| `gate_role` | 뜻 | 근거 |
+| --- | --- | --- |
+| `core` | 그 검토회의가 내놓기로 되어 있는 것 | ② 회의별 주요 산출물 표 · ① NPR 부록 G 성공기준 |
+| `entry` | 회의 전에 있어야 할 자료 | ② 회의별 INPUT 표 · ① NPR 부록 G 진입기준 |
+| `supporting` | 나머지(기본값) | 표기 없음 |
+
+회의 INPUT 표는 이제 산출물끼리의 간선이 아니라 `entry` 표시가 된다. 다만 `act_technical_review` 행의 `depends_on`은 남는다 — 그것은 산출물끼리의 관계가 아니라 **회의 자체가 무엇을 기다리는가**이고, 회의를 그 게이트의 마지막에 두는 것도 이 간선이다.
+
+**층을 건너는 투영**: ①과 ②는 토큰이 달라 ①의 관계가 ②에 닿지 않았다. 어휘의 `CROSS_LAYER_TOKEN_EQUIVALENCE`(4쌍)로 대응시키고, ①의 이분 관계를 활동 하나를 통과해 합성해 ② 행에 옮긴다(05장 §5.4B). 합성은 정본 문장이 아니므로 등급이 `general_se_guidance`를 넘지 않고 행에 `depends_on_origin: generic_layer_projection`으로 표시된다. **② 자신의 근거가 있으면 그쪽이 이긴다.**
+
+행 수(2판): ① 핵심 32·진입 57·보조 161 / ② 핵심 25·진입 4·보조 125. ② 인과 연결은 전 단계 10 → 25.
+
+정본의 별지 **서식**이 A의 칸에 B를 적도록 요구하는 자리도 간선이 된다(합성이 아니라 서식이 직접 보여 준다 → `guidebook_recommended`). 추출 62건 중 양 끝 토큰이 붙은 21건, ②에 앉은 것 9건.

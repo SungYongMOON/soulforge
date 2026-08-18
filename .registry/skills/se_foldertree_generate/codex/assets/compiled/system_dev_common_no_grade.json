@@ -13,7 +13,7 @@
   "derived_from": {
     "rule": "tasks with evidence_level=prime_contract removed; everything else verbatim",
     "spec_file": "assets/SE_FolderTree_Guide.md",
-    "spec_sha256": "01d2fc9c695a73c98e2eaf699b650c50d67f65d9e44504bf7e6183178637b6d2",
+    "spec_sha256": "1d740256fbe94a436f790256a1e4ae310171b9432067f50ca02d0c43ae01ee58",
     "support_key": "system_dev_lig_grade_a"
   },
   "gates": [
@@ -26,6 +26,7 @@
           "artifact_type_id": "inbox",
           "desc": "분류 안 된 일정·산출물 임시 보관",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 31,
           "is_fixed": true,
           "name": "INBOX_분류전",
@@ -40,6 +41,7 @@
           "artifact_type_id": "log",
           "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 32,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
@@ -54,6 +56,7 @@
           "artifact_type_id": "tdp_exchange",
           "desc": "주고받은 기술자료 패키지",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 33,
           "is_fixed": true,
           "name": "TDP_기술자료",
@@ -71,6 +74,7 @@
           "artifact_type_id": "semp",
           "desc": "(Final) 기술적 관리 및 SE 프로세스 계획",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "core",
           "id": 36,
           "name": "체계공학관리계획서(SEMP)",
           "node_kind": "artifact",
@@ -112,6 +116,7 @@
           "artifact_type_id": "qa_plan",
           "desc": "개발 단계별 검사 계획 및 부적합 처리 절차",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 37,
           "name": "품질보증계획서(QAP)",
           "node_kind": "artifact",
@@ -145,6 +150,7 @@
           "artifact_type_id": "review_minutes_kickoff",
           "desc": "사업 착수 회의 결과 기록",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 38,
           "name": "착수회의록(Kick-off)",
           "node_kind": "artifact",
@@ -165,17 +171,40 @@
           ],
           "artifact_type_id": "ord",
           "depends_on": [
-            "act_stakeholder_expectations"
+            "act_stakeholder_expectations",
+            "p_temp"
           ],
           "depends_on_evidence": "guidebook_recommended",
+          "depends_on_origin": "mixed",
           "depends_on_refs": [
             {
               "locator": "표 26 (p.144); 그림 33 (p.141)",
               "source_key": "dapa_se_technical_management_practice_guide"
+            },
+            {
+              "locator": "§4.2.1 (p.142-143)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.7 (p.151-152; explicit product sentences p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.2.1-§3.2.2.3 (p.24)",
+              "source_key": "nasa_npr_7123_1d"
+            },
+            {
+              "locator": "pdf p.129-136 (printed p.116-123) §5.4.1.1/§5.4.1.3, Figure 5.4-1",
+              "source_key": "nasa_se_handbook_rev2"
+            },
+            {
+              "locator": "pdf p.66-75 (printed p.53-62) §4.1.1.1/§4.1.1.3, Figure 4.1-1",
+              "source_key": "nasa_se_handbook_rev2"
             }
           ],
           "desc": "운용 시나리오 및 사용자 요구사항 분석",
           "evidence_level": "unstated",
+          "gate_role": "entry",
           "id": 39,
           "name": "운용개념(CONOPS)",
           "node_kind": "artifact",
@@ -203,18 +232,9 @@
             "exploratory_skipped"
           ],
           "artifact_type_id": "ssrs",
-          "depends_on": [
-            "act_functional_analysis_allocation"
-          ],
-          "depends_on_evidence": "guidebook_recommended",
-          "depends_on_refs": [
-            {
-              "locator": "3.5 (p.54); 표 3 순서 4 '체계 기능분석' (p.14)",
-              "source_key": "dapa_se_technical_management_practice_guide"
-            }
-          ],
           "desc": "(Draft) 기술적 요구사항 변환 초안",
           "evidence_level": "regulation_mandated",
+          "gate_role": "core",
           "id": 40,
           "name": "체계요구사항명세서(SSRS)_D",
           "node_kind": "artifact",
@@ -248,6 +268,7 @@
           "artifact_type_id": "unmapped_41",
           "desc": "설계 제약 조건 및 가정 사항 정리",
           "evidence_level": "unstated",
+          "gate_role": "supporting",
           "id": 41,
           "name": "가정및제약사항",
           "node_kind": "artifact",
@@ -273,6 +294,7 @@
           "artifact_type_id": "risk_register",
           "desc": "식별된 위험 요소 평가 및 관리 계획",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 42,
           "name": "초기위험관리자료",
           "node_kind": "artifact",
@@ -302,6 +324,7 @@
           "artifact_type_id": "review_minutes_srr",
           "desc": "SRR 회의록 및 조치결과",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 43,
           "name": "SRR_회의록및조치결과",
           "node_kind": "artifact",
@@ -331,6 +354,7 @@
           "artifact_type_id": "cdrl",
           "desc": "제출 산출물 목록 및 일정 정의",
           "evidence_level": "unstated",
+          "gate_role": "supporting",
           "id": 44,
           "name": "계약자료제출목록(CDRL)",
           "node_kind": "artifact",
@@ -357,6 +381,7 @@
           "artifact_type_id": "sdp",
           "desc": "(Final) SW 개발 프로세스 및 조직 정의",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 45,
           "name": "SW개발계획서(SDP)",
           "node_kind": "artifact",
@@ -386,6 +411,7 @@
           "artifact_type_id": "temp",
           "desc": "(Draft) 시험평가 마스터 플랜 초안",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 46,
           "name": "시험평가기본계획서(TEMP)_D",
           "node_kind": "artifact",
@@ -413,8 +439,24 @@
             "exploratory_skipped"
           ],
           "artifact_type_id": "fci",
+          "depends_on": [
+            "ord"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "generic_layer_projection",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.2 (p.143-145)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "(Draft) 체계 기능 식별서 초안",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 47,
           "name": "기능형상식별서(FCI)_D",
           "node_kind": "artifact",
@@ -442,8 +484,24 @@
             "exploratory_skipped"
           ],
           "artifact_type_id": "icd",
+          "depends_on": [
+            "semp"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "generic_layer_projection",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.5 (p.149-150)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "(Draft) 인터페이스 식별 초기 문서",
           "evidence_level": "regulation_mandated",
+          "gate_role": "core",
           "id": 48,
           "name": "연동통제문서(ICD)_D",
           "node_kind": "artifact",
@@ -465,18 +523,9 @@
         {
           "added_by_verification": "2026-08-18",
           "artifact_type_id": "p_temp",
-          "depends_on": [
-            "act_functional_analysis_allocation"
-          ],
-          "depends_on_evidence": "guidebook_recommended",
-          "depends_on_refs": [
-            {
-              "locator": "3.5 (p.54); 표 3 순서 4 '체계 기능분석' (p.14)",
-              "source_key": "dapa_se_technical_management_practice_guide"
-            }
-          ],
           "desc": "SRR 단계 예비 시험평가 기본계획, SFR 이후 TEMP로 발전",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 49,
           "name": "예비시험평가기본계획서(P-TEMP)",
           "node_kind": "artifact",
@@ -508,6 +557,7 @@
           "artifact_type_id": "ms_plan",
           "desc": "수명주기 단계별 M&S 활용계획 수립과 SBA 등록, 각 검토회의에서 최신화",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 50,
           "name": "M&S활용계획서",
           "node_kind": "artifact",
@@ -539,6 +589,7 @@
           "artifact_type_id": "interop_plan",
           "desc": "획득단계별 상호운용성 확보계획과 연동합의문서, ICD 연계",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 51,
           "name": "상호운용성확보계획서",
           "node_kind": "artifact",
@@ -570,6 +621,7 @@
           "artifact_type_id": "ram_plan",
           "desc": "RAM 업무계획 수립과 단계별 최신화, RAM 분석자료 및 분석결과 보고서",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 52,
           "name": "RAM업무계획서(RAM)",
           "node_kind": "artifact",
@@ -604,6 +656,7 @@
           "artifact_type_id": "wbs",
           "desc": "EVM 적용사업의 WBS 관리방안, 미적용 사업은 대안 관리방안",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 53,
           "name": "업무분할구조(WBS)",
           "node_kind": "artifact",
@@ -627,6 +680,7 @@
           "artifact_type_id": "cm_plan",
           "desc": "SRR에서 수립하는 형상관리계획과 SW 형상관리계획, 각 검토회의에서 최신화 확인",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 54,
           "name": "형상관리계획서(CMP)",
           "node_kind": "artifact",
@@ -656,18 +710,9 @@
         {
           "added_by_verification": "2026-08-18",
           "artifact_type_id": "technical_review_package",
-          "depends_on": [
-            "act_functional_analysis_allocation"
-          ],
-          "depends_on_evidence": "guidebook_recommended",
-          "depends_on_refs": [
-            {
-              "locator": "3.5 (p.54); 표 3 순서 4 '체계 기능분석' (p.14)",
-              "source_key": "dapa_se_technical_management_practice_guide"
-            }
-          ],
           "desc": "공식 기술검토회의 2주 전 제출하는 검토자료 본체",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 55,
           "name": "기술검토회의제출자료",
           "node_kind": "artifact",
@@ -704,6 +749,7 @@
             "ssrs",
             "technical_review_package"
           ],
+          "gate_role": "supporting",
           "id": 56,
           "is_virtual": true,
           "name": "기능분석·기능할당(활동)",
@@ -727,6 +773,7 @@
           "evidence_record": [
             "ord"
           ],
+          "gate_role": "supporting",
           "id": 57,
           "is_virtual": true,
           "name": "이해관계자 기대 정의(활동)",
@@ -749,6 +796,7 @@
             "ord"
           ],
           "depends_on_evidence": "guidebook_recommended",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "p.49 (바. 주요 산출물)",
@@ -760,6 +808,7 @@
           "evidence_record": [
             "review_minutes_srr"
           ],
+          "gate_role": "supporting",
           "id": 58,
           "is_virtual": true,
           "name": "기술검토회의 수행(활동)",
@@ -786,6 +835,7 @@
           "artifact_type_id": "inbox",
           "desc": "분류 안 된 일정·산출물 임시 보관",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 61,
           "is_fixed": true,
           "name": "INBOX_분류전",
@@ -800,6 +850,7 @@
           "artifact_type_id": "log",
           "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 62,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
@@ -814,6 +865,7 @@
           "artifact_type_id": "tdp_exchange",
           "desc": "주고받은 기술자료 패키지",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 63,
           "is_fixed": true,
           "name": "TDP_기술자료",
@@ -826,18 +878,9 @@
         },
         {
           "artifact_type_id": "ssrs",
-          "depends_on": [
-            "act_functional_analysis_allocation"
-          ],
-          "depends_on_evidence": "guidebook_recommended",
-          "depends_on_refs": [
-            {
-              "locator": "3.5 (p.54); 표 3 순서 4 '체계 기능분석' (p.14)",
-              "source_key": "dapa_se_technical_management_practice_guide"
-            }
-          ],
           "desc": "(Final) 기능 기준선 확정본",
           "evidence_level": "unstated",
+          "gate_role": "core",
           "id": 64,
           "name": "체계요구사항명세서(SSRS)_F",
           "node_kind": "artifact",
@@ -862,8 +905,36 @@
         },
         {
           "artifact_type_id": "functional_analysis",
+          "depends_on": [
+            "ord"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "generic_layer_projection",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.2 (p.143-145)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.4.1-§3.2.4.2 (p.25)",
+              "source_key": "nasa_npr_7123_1d"
+            },
+            {
+              "locator": "pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1",
+              "source_key": "nasa_se_handbook_rev2"
+            },
+            {
+              "locator": "pdf p.87-89 (printed p.74-76) §4.3.1.1/§4.3.1.3, Figure 4.3-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "FFBD 및 요구사항 할당 분석",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 65,
           "name": "기능분석및할당자료",
           "node_kind": "artifact",
@@ -892,8 +963,28 @@
         },
         {
           "artifact_type_id": "rtm",
+          "depends_on": [
+            "ord"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "generic_layer_projection",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.1 (p.142-143)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.3.1-§3.2.3.2 (p.24-25)",
+              "source_key": "nasa_npr_7123_1d"
+            },
+            {
+              "locator": "pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "요구사항-기능 매핑 추적 매트릭스",
           "evidence_level": "unstated",
+          "gate_role": "supporting",
           "id": 66,
           "name": "요구사항추적표(RTM)",
           "node_kind": "artifact",
@@ -922,8 +1013,24 @@
         },
         {
           "artifact_type_id": "icd",
+          "depends_on": [
+            "semp"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "generic_layer_projection",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.5 (p.149-150)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "(Preliminary) 인터페이스 구체화 중간본",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "core",
           "id": 67,
           "name": "연동통제문서(ICD)_Prelim",
           "node_kind": "artifact",
@@ -942,6 +1049,7 @@
           "artifact_type_id": "vv_strategy",
           "desc": "요구사항 검증 및 확인 전략",
           "evidence_level": "unstated",
+          "gate_role": "supporting",
           "id": 68,
           "name": "검증확인전략(V&V)",
           "node_kind": "artifact",
@@ -972,6 +1080,7 @@
           "artifact_type_id": "trade_study",
           "desc": "설계 대안 분석 및 절충(Trade-Off) 연구 자료",
           "evidence_level": "unstated",
+          "gate_role": "supporting",
           "id": 69,
           "name": "대안분석(Trade-Study)",
           "node_kind": "artifact",
@@ -994,6 +1103,7 @@
           "artifact_type_id": "review_minutes_sfr",
           "desc": "SFR 회의 결과 및 기능 기준선 승인",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 70,
           "name": "SFR_회의록및조치결과",
           "node_kind": "artifact",
@@ -1014,8 +1124,24 @@
         },
         {
           "artifact_type_id": "fci",
+          "depends_on": [
+            "ord"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "generic_layer_projection",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.2 (p.143-145)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "(Final) 기능 기준선 설정 문서",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 71,
           "name": "기능형상식별서(FCI)_F",
           "node_kind": "artifact",
@@ -1046,6 +1172,7 @@
           "artifact_type_id": "hrs",
           "desc": "(Draft) HW 상세 요구사항 초안",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "core",
           "id": 72,
           "name": "HW요구사항명세서(HRS)_D",
           "node_kind": "artifact",
@@ -1071,6 +1198,7 @@
           "artifact_type_id": "srs",
           "desc": "(Draft) SW 상세 요구사항 초안",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "core",
           "id": 73,
           "name": "SW요구사항명세서(SRS)_D",
           "node_kind": "artifact",
@@ -1089,6 +1217,7 @@
           "artifact_type_id": "ssdd",
           "desc": "(Draft) 체계 및 부체계 설계 초안",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "core",
           "id": 74,
           "name": "체계설계기술서(SSDD)_D",
           "node_kind": "artifact",
@@ -1112,6 +1241,7 @@
             "ssrs"
           ],
           "depends_on_evidence": "guidebook_recommended",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "p.60 (바. 주요 산출물)",
@@ -1123,6 +1253,7 @@
           "evidence_record": [
             "review_minutes_sfr"
           ],
+          "gate_role": "supporting",
           "id": 75,
           "is_virtual": true,
           "name": "기술검토회의 수행(활동)",
@@ -1149,6 +1280,7 @@
           "artifact_type_id": "inbox",
           "desc": "분류 안 된 일정·산출물 임시 보관",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 91,
           "is_fixed": true,
           "name": "INBOX_분류전",
@@ -1163,6 +1295,7 @@
           "artifact_type_id": "log",
           "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 92,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
@@ -1177,6 +1310,7 @@
           "artifact_type_id": "tdp_exchange",
           "desc": "주고받은 기술자료 패키지",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 93,
           "is_fixed": true,
           "name": "TDP_기술자료",
@@ -1191,6 +1325,7 @@
           "artifact_type_id": "dci",
           "desc": "아키텍처 정의 및 구성품 식별",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "core",
           "id": 95,
           "name": "체계아키텍처및형상식별서(안)",
           "node_kind": "artifact",
@@ -1225,6 +1360,7 @@
           "artifact_type_id": "ssdd",
           "desc": "(Final) 아키텍처/설계 확정 (할당 기준선)",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "core",
           "id": 96,
           "name": "체계설계기술서(SSDD)_F",
           "node_kind": "artifact",
@@ -1247,6 +1383,7 @@
           "artifact_type_id": "hrs",
           "desc": "(Draft) HW 상세 요구사항 초안",
           "evidence_level": "unstated",
+          "gate_role": "core",
           "id": 97,
           "name": "HW요구사항명세서(HRS)_D",
           "node_kind": "artifact",
@@ -1272,6 +1409,7 @@
           "artifact_type_id": "srs",
           "desc": "(Draft) SW 상세 요구사항 초안",
           "evidence_level": "unstated",
+          "gate_role": "core",
           "id": 98,
           "name": "SW요구사항명세서(SRS)_D",
           "node_kind": "artifact",
@@ -1290,6 +1428,7 @@
           "artifact_type_id": "idd",
           "desc": "(Draft) 인터페이스 상세 설계 초안",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "core",
           "id": 99,
           "name": "인터페이스설계기술서(IDD)_D",
           "node_kind": "artifact",
@@ -1306,8 +1445,25 @@
         },
         {
           "artifact_type_id": "icd",
+          "depends_on": [
+            "dci",
+            "semp"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "generic_layer_projection",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.5 (p.149-150)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "(Preliminary) PDR 단계 업데이트본",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "core",
           "id": 100,
           "name": "연동통제문서(ICD)_Prelim",
           "node_kind": "artifact",
@@ -1324,8 +1480,28 @@
         },
         {
           "artifact_type_id": "rtm",
+          "depends_on": [
+            "ord"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "generic_layer_projection",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.1 (p.142-143)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.3.1-§3.2.3.2 (p.24-25)",
+              "source_key": "nasa_npr_7123_1d"
+            },
+            {
+              "locator": "pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "할당 기준선 설정에 따른 업데이트",
           "evidence_level": "unstated",
+          "gate_role": "supporting",
           "id": 101,
           "name": "요구사항추적표(RTM)_최신화",
           "node_kind": "artifact",
@@ -1344,6 +1520,7 @@
           "artifact_type_id": "temp",
           "desc": "(Draft) P-TEMP 구체화 버전",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 102,
           "name": "시험평가기본계획서(TEMP)_D",
           "node_kind": "artifact",
@@ -1370,6 +1547,7 @@
           "artifact_type_id": "review_minutes_pdr",
           "desc": "PDR 회의 결과 및 할당 기준선 승인",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 103,
           "name": "PDR_회의록및조치결과",
           "node_kind": "artifact",
@@ -1394,8 +1572,20 @@
         },
         {
           "artifact_type_id": "hdd",
+          "depends_on": [
+            "idd"
+          ],
+          "depends_on_evidence": "guidebook_recommended",
+          "depends_on_origin": "canonical",
+          "depends_on_refs": [
+            {
+              "locator": "부록 E-5 HDD 서식, p.128",
+              "source_key": "dapa_se_technical_review_guidebook_2017"
+            }
+          ],
           "desc": "(Draft) HW 상세설계 초안",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "core",
           "id": 104,
           "name": "HW설계기술서(HDD)_D",
           "node_kind": "artifact",
@@ -1417,6 +1607,7 @@
           "artifact_type_id": "sdd",
           "desc": "(Draft) SW 상세설계 초안",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "core",
           "id": 105,
           "name": "SW설계기술서(SDD)_D",
           "node_kind": "artifact",
@@ -1438,6 +1629,7 @@
           "artifact_type_id": "dbdd",
           "desc": "(Draft) DB 상세설계 초안",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 106,
           "name": "DB설계기술서(DBDD)_D",
           "node_kind": "artifact",
@@ -1462,8 +1654,29 @@
         },
         {
           "artifact_type_id": "drawings",
+          "depends_on": [
+            "bom",
+            "icd"
+          ],
+          "depends_on_evidence": "guidebook_recommended",
+          "depends_on_origin": "mixed",
+          "depends_on_refs": [
+            {
+              "locator": "부록 E-8 물리적 형상확인 점검표(HW 형상 일치성), p.131",
+              "source_key": "dapa_se_technical_review_guidebook_2017"
+            },
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.8 (p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "(Draft) 제작용 도면 초안",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 107,
           "name": "상세설계도면_D",
           "node_kind": "artifact",
@@ -1486,6 +1699,7 @@
           "artifact_type_id": "bom",
           "desc": "(Draft) 자재 내역서 초안",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 108,
           "name": "자재명세서(Q-BOM)_D",
           "node_kind": "artifact",
@@ -1505,6 +1719,7 @@
           "artifact_type_id": "registered_parts_plan",
           "desc": "제안 시 제출한 등록부품활용계획의 PDR 반영본과 국산화기본계획 연계",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 109,
           "name": "등록부품활용계획서",
           "node_kind": "artifact",
@@ -1537,6 +1752,7 @@
             "ssdd"
           ],
           "depends_on_evidence": "guidebook_recommended",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "p.73 (바. 주요 산출물)",
@@ -1548,6 +1764,7 @@
           "evidence_record": [
             "review_minutes_pdr"
           ],
+          "gate_role": "supporting",
           "id": 110,
           "is_virtual": true,
           "name": "기술검토회의 수행(활동)",
@@ -1574,6 +1791,7 @@
           "artifact_type_id": "inbox",
           "desc": "분류 안 된 일정·산출물 임시 보관",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 121,
           "is_fixed": true,
           "name": "INBOX_분류전",
@@ -1588,6 +1806,7 @@
           "artifact_type_id": "log",
           "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 122,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
@@ -1602,6 +1821,7 @@
           "artifact_type_id": "tdp_exchange",
           "desc": "주고받은 기술자료 패키지",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 123,
           "is_fixed": true,
           "name": "TDP_기술자료",
@@ -1614,8 +1834,20 @@
         },
         {
           "artifact_type_id": "hdd",
+          "depends_on": [
+            "idd"
+          ],
+          "depends_on_evidence": "guidebook_recommended",
+          "depends_on_origin": "canonical",
+          "depends_on_refs": [
+            {
+              "locator": "부록 E-5 HDD 서식, p.128",
+              "source_key": "dapa_se_technical_review_guidebook_2017"
+            }
+          ],
           "desc": "(Final) HW 상세설계 확정 (제품 기준선)",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "core",
           "id": 125,
           "name": "HW설계기술서(HDD)_F",
           "node_kind": "artifact",
@@ -1641,6 +1873,7 @@
           "artifact_type_id": "sdd",
           "desc": "(Final) SW 상세설계 확정 (제품 기준선)",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "core",
           "id": 126,
           "name": "SW설계기술서(SDD)_F",
           "node_kind": "artifact",
@@ -1666,6 +1899,7 @@
           "artifact_type_id": "dbdd",
           "desc": "(Final) DB 설계 확정본",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 127,
           "name": "DB설계기술서(DBDD)_F",
           "node_kind": "artifact",
@@ -1692,6 +1926,7 @@
           "artifact_type_id": "idd",
           "desc": "(Final) 인터페이스 설계 확정본",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "core",
           "id": 128,
           "name": "인터페이스설계기술서(IDD)_F",
           "node_kind": "artifact",
@@ -1708,8 +1943,25 @@
         },
         {
           "artifact_type_id": "icd",
+          "depends_on": [
+            "dci",
+            "semp"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "generic_layer_projection",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.5 (p.149-150)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "(Final) ICD 최종 확정",
           "evidence_level": "regulation_mandated",
+          "gate_role": "core",
           "id": 129,
           "name": "연동통제문서(ICD)_F",
           "node_kind": "artifact",
@@ -1730,8 +1982,29 @@
         },
         {
           "artifact_type_id": "drawings",
+          "depends_on": [
+            "bom",
+            "icd"
+          ],
+          "depends_on_evidence": "guidebook_recommended",
+          "depends_on_origin": "mixed",
+          "depends_on_refs": [
+            {
+              "locator": "부록 E-8 물리적 형상확인 점검표(HW 형상 일치성), p.131",
+              "source_key": "dapa_se_technical_review_guidebook_2017"
+            },
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.8 (p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "(Final) 승인된 제작용 도면",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 130,
           "name": "상세설계도면_F",
           "node_kind": "artifact",
@@ -1758,6 +2031,7 @@
           "artifact_type_id": "bom",
           "desc": "(Final) Q4 승인 자재 목록",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 131,
           "name": "자재명세서(Q-BOM)_F",
           "node_kind": "artifact",
@@ -1784,6 +2058,7 @@
           "artifact_type_id": "standard_parts_review",
           "desc": "부품 단종/수급 이슈 검토",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 133,
           "name": "표준품적절성검토서",
           "node_kind": "artifact",
@@ -1810,6 +2085,7 @@
           "artifact_type_id": "wps",
           "desc": "제조 공정 및 검사 요구 기준서",
           "evidence_level": "unstated",
+          "gate_role": "supporting",
           "id": 134,
           "name": "제작사양서(WPS)및검사요구",
           "node_kind": "artifact",
@@ -1832,6 +2108,7 @@
           "artifact_type_id": "manufacturing_design_review",
           "desc": "양산 이관성 및 제조 용이성 검토",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 135,
           "name": "제조관점설계검토결과",
           "node_kind": "artifact",
@@ -1854,6 +2131,7 @@
           "artifact_type_id": "manufacturing_process_flow",
           "desc": "제조 흐름 및 공정별 작업 표준",
           "evidence_level": "unstated",
+          "gate_role": "supporting",
           "id": 136,
           "name": "제조공정도및작업표준(Flow)",
           "node_kind": "artifact",
@@ -1878,8 +2156,28 @@
         },
         {
           "artifact_type_id": "rtm",
+          "depends_on": [
+            "ord"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "generic_layer_projection",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.1 (p.142-143)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.3.1-§3.2.3.2 (p.24-25)",
+              "source_key": "nasa_npr_7123_1d"
+            },
+            {
+              "locator": "pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "상세설계 결과 요구사항 충족 확인",
           "evidence_level": "unstated",
+          "gate_role": "supporting",
           "id": 137,
           "name": "요구사항추적표(RTM)_업데이트",
           "node_kind": "artifact",
@@ -1898,6 +2196,7 @@
           "artifact_type_id": "ram_analysis_report",
           "desc": "RAM 및 안전성 분석 확정본",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 138,
           "name": "안전성및신뢰성분석_F",
           "node_kind": "artifact",
@@ -1920,6 +2219,7 @@
           "artifact_type_id": "review_minutes_cdr",
           "desc": "CDR 회의 결과 및 승인 기록",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 139,
           "name": "CDR_회의록및조치결과",
           "node_kind": "artifact",
@@ -1942,6 +2242,7 @@
           "artifact_type_id": "hrs",
           "desc": "(Final) HW 요구사항 최종본",
           "evidence_level": "unstated",
+          "gate_role": "entry",
           "id": 140,
           "name": "HW요구사항명세서(HRS)_F",
           "node_kind": "artifact",
@@ -1967,6 +2268,7 @@
           "artifact_type_id": "srs",
           "desc": "(Final) SW 요구사항 최종본",
           "evidence_level": "unstated",
+          "gate_role": "entry",
           "id": 141,
           "name": "SW요구사항명세서(SRS)_F",
           "node_kind": "artifact",
@@ -1985,6 +2287,7 @@
           "artifact_type_id": "stp",
           "desc": "(Draft) 통합시험 계획 및 절차 초안",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 142,
           "name": "통합시험계획서절차서(STP)_D",
           "node_kind": "artifact",
@@ -2015,6 +2318,7 @@
           "artifact_type_id": "pci",
           "desc": "(Draft) 제품 기준선 식별서 초안",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "core",
           "id": 143,
           "name": "제품형상식별서(PCI)_D",
           "node_kind": "artifact",
@@ -2042,6 +2346,7 @@
           "artifact_type_id": "mra_report",
           "desc": "MRL 8 목표의 제조성숙도평가 계획과 평가 결과",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 144,
           "name": "제조성숙도평가(MRA)계획및결과",
           "node_kind": "artifact",
@@ -2073,6 +2378,7 @@
           "artifact_type_id": "mid_check_report",
           "desc": "CDR 종료 이전 수행하는 사업중간점검 결과보고서(별지27) 입력자료",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 145,
           "name": "사업중간점검결과보고서",
           "node_kind": "artifact",
@@ -2096,6 +2402,7 @@
           "artifact_type_id": "critical_parts_test_report",
           "desc": "CDR까지 선정한 핵심부품·구성품의 공인시험기관 시험 성적서",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 146,
           "name": "핵심부품공인시험성적서",
           "node_kind": "artifact",
@@ -2126,6 +2433,7 @@
             "srs"
           ],
           "depends_on_evidence": "guidebook_recommended",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "p.87 (바. 주요 산출물)",
@@ -2137,6 +2445,7 @@
           "evidence_record": [
             "review_minutes_cdr"
           ],
+          "gate_role": "supporting",
           "id": 147,
           "is_virtual": true,
           "name": "기술검토회의 수행(활동)",
@@ -2163,6 +2472,7 @@
           "artifact_type_id": "inbox",
           "desc": "분류 안 된 일정·산출물 임시 보관",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 151,
           "is_fixed": true,
           "name": "INBOX_분류전",
@@ -2177,6 +2487,7 @@
           "artifact_type_id": "log",
           "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 152,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
@@ -2191,6 +2502,7 @@
           "artifact_type_id": "tdp_exchange",
           "desc": "주고받은 기술자료 패키지",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 153,
           "is_fixed": true,
           "name": "TDP_기술자료",
@@ -2205,6 +2517,7 @@
           "artifact_type_id": "build_record",
           "desc": "공정 확인표(Traveler) 및 기록",
           "evidence_level": "unstated",
+          "gate_role": "supporting",
           "id": 159,
           "name": "시제제작기록(공정확인표)",
           "node_kind": "artifact",
@@ -2234,6 +2547,7 @@
           "artifact_type_id": "sps",
           "desc": "SW 바이너리, 소스코드 및 버전 정의",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 160,
           "name": "SW산출물명세서(SPS_VDD)",
           "node_kind": "artifact",
@@ -2259,6 +2573,7 @@
           "artifact_type_id": "std",
           "desc": "SW 단위/통합 시험 계획 및 절차",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 161,
           "name": "SW시험계획절차서(STP_STD)",
           "node_kind": "artifact",
@@ -2284,6 +2599,7 @@
           "artifact_type_id": "str",
           "desc": "SW 통합시험 수행 결과",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 162,
           "name": "SW시험결과서(STR)",
           "node_kind": "artifact",
@@ -2309,6 +2625,7 @@
           "artifact_type_id": "prime_q6_sw_reliability_test",
           "desc": "SW 정적/동적 시험 성적서",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 163,
           "name": "SW신뢰성시험결과(Q6)",
           "node_kind": "artifact",
@@ -2335,6 +2652,7 @@
           "artifact_type_id": "atp",
           "desc": "승인된 수락검사 기준 절차서",
           "evidence_level": "unstated",
+          "gate_role": "supporting",
           "id": 164,
           "name": "수락시험절차서(ATP)_F",
           "node_kind": "artifact",
@@ -2361,6 +2679,7 @@
           "artifact_type_id": "temp",
           "desc": "(Final) 시험평가 착수 승인 본",
           "evidence_level": "regulation_mandated",
+          "gate_role": "core",
           "id": 165,
           "name": "시험평가기본계획서(TEMP)_F",
           "node_kind": "artifact",
@@ -2387,6 +2706,7 @@
           "artifact_type_id": "stp",
           "desc": "(Final) 통합시험 절차서 확정",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 166,
           "name": "통합시험계획서절차서(STP)_F",
           "node_kind": "artifact",
@@ -2413,6 +2733,7 @@
           "artifact_type_id": "review_minutes_trr",
           "desc": "시험평가 착수 승인 기록",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 168,
           "name": "TRR_회의록및시험준비검토",
           "node_kind": "artifact",
@@ -2445,8 +2766,27 @@
         },
         {
           "artifact_type_id": "dt_report",
+          "depends_on": [
+            "dci",
+            "fci",
+            "icd",
+            "vv_strategy"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "generic_layer_projection",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "pdf p.118-127 (printed p.105-114) §5.3.1.1/§5.3.1.3, Figure 5.3-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "DT 로그, 데이터, 성적서 종합본",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 169,
           "name": "개발시험평가결과(DT)",
           "node_kind": "artifact",
@@ -2470,6 +2810,7 @@
           "artifact_type_id": "dt_plan",
           "desc": "DT 착수 2개월 전 제출하는 개발시험평가계획서(별지5)와 시험평가절차서",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 170,
           "name": "개발시험평가계획서및절차서(DT)",
           "node_kind": "artifact",
@@ -2504,6 +2845,7 @@
             "temp"
           ],
           "depends_on_evidence": "guidebook_recommended",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "p.97 (바. 주요 산출물)",
@@ -2515,6 +2857,7 @@
           "evidence_record": [
             "review_minutes_trr"
           ],
+          "gate_role": "supporting",
           "id": 171,
           "is_virtual": true,
           "name": "기술검토회의 수행(활동)",
@@ -2541,6 +2884,7 @@
           "artifact_type_id": "inbox",
           "desc": "분류 안 된 일정·산출물 임시 보관",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 181,
           "is_fixed": true,
           "name": "INBOX_분류전",
@@ -2555,6 +2899,7 @@
           "artifact_type_id": "log",
           "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 182,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
@@ -2569,6 +2914,7 @@
           "artifact_type_id": "tdp_exchange",
           "desc": "주고받은 기술자료 패키지",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 183,
           "is_fixed": true,
           "name": "TDP_기술자료",
@@ -2583,6 +2929,7 @@
           "artifact_type_id": "delivery_acceptance_record",
           "desc": "물품 인도 및 인수 증빙",
           "evidence_level": "unstated",
+          "gate_role": "supporting",
           "id": 185,
           "name": "납품원장및인수증",
           "node_kind": "artifact",
@@ -2601,6 +2948,7 @@
           "artifact_type_id": "sat_report",
           "desc": "현장 수락시험 결과",
           "evidence_level": "unstated",
+          "gate_role": "supporting",
           "id": 186,
           "name": "현장수락시험결과(SAT)",
           "node_kind": "artifact",
@@ -2623,6 +2971,7 @@
           "artifact_type_id": "integration_test_support",
           "desc": "통합시험 지원 데이터 및 내역",
           "evidence_level": "unstated",
+          "gate_role": "supporting",
           "id": 188,
           "name": "체계통합지원결과",
           "node_kind": "artifact",
@@ -2643,8 +2992,21 @@
         },
         {
           "artifact_type_id": "fca_report",
+          "depends_on": [
+            "drawings",
+            "spec_linkage_table"
+          ],
+          "depends_on_evidence": "guidebook_recommended",
+          "depends_on_origin": "canonical",
+          "depends_on_refs": [
+            {
+              "locator": "부록 E-9 FCA 결과보고서 서식, p.133",
+              "source_key": "dapa_se_technical_review_guidebook_2017"
+            }
+          ],
           "desc": "체계요구사항 충족 여부 감사 결과",
           "evidence_level": "regulation_mandated",
+          "gate_role": "core",
           "id": 189,
           "name": "기능형상확인결과보고서(FCA)",
           "node_kind": "artifact",
@@ -2673,8 +3035,27 @@
         },
         {
           "artifact_type_id": "spec_linkage_table",
+          "depends_on": [
+            "dci",
+            "fci",
+            "icd",
+            "vv_strategy"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "generic_layer_projection",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "pdf p.118-127 (printed p.105-114) §5.3.1.1/§5.3.1.3, Figure 5.3-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "(Final) 요구사항 검증 입증",
           "evidence_level": "unstated",
+          "gate_role": "entry",
           "id": 190,
           "name": "요구사항검증매트릭스(VCRM)_F",
           "node_kind": "artifact",
@@ -2703,8 +3084,26 @@
         },
         {
           "artifact_type_id": "ot_report",
+          "depends_on": [
+            "p_temp",
+            "pci",
+            "vv_strategy"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "generic_layer_projection",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.7 (p.151-152; explicit product sentences p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "pdf p.129-136 (printed p.116-123) §5.4.1.1/§5.4.1.3, Figure 5.4-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "OT 수행 지원 및 기록",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 191,
           "name": "운용시험평가지원자료(OT)",
           "node_kind": "artifact",
@@ -2727,6 +3126,7 @@
           "artifact_type_id": "review_minutes_fca",
           "desc": "FCA 및 OT 회의록",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "core",
           "id": 192,
           "name": "FCA_OT_회의록및조치결과",
           "node_kind": "artifact",
@@ -2751,8 +3151,27 @@
         },
         {
           "artifact_type_id": "dt_report",
+          "depends_on": [
+            "dci",
+            "fci",
+            "icd",
+            "vv_strategy"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "generic_layer_projection",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "pdf p.118-127 (printed p.105-114) §5.3.1.1/§5.3.1.3, Figure 5.3-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "DT 성적서 종합본 (FCA 근거)",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 193,
           "name": "개발시험결과보고서(DT)_종합본",
           "node_kind": "artifact",
@@ -2775,6 +3194,7 @@
           "artifact_type_id": "defect_action_report",
           "desc": "시험 중 결함 및 조치 결과",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 194,
           "name": "결함조치결과보고서(Defect)",
           "node_kind": "artifact",
@@ -2805,6 +3225,7 @@
           "artifact_type_id": "pci",
           "desc": "(Preliminary) 제품 형상 식별서 중간본",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 195,
           "name": "제품형상식별서(PCI)_Prelim",
           "node_kind": "artifact",
@@ -2828,6 +3249,7 @@
           "artifact_type_id": "ot_plan",
           "desc": "운용시험평가계획(안)/계획서(별지7)와 상호운용성시험평가계획(안) 입력 지원",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 196,
           "name": "운용시험평가계획서(OT)",
           "node_kind": "artifact",
@@ -2851,6 +3273,7 @@
           "artifact_type_id": "fca_pca_plan_checklist",
           "desc": "기능적·물리적 형상확인 계획서와 점검표(E-7, E-8), 품질보증요구서(QAR)",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 197,
           "name": "형상확인계획서및점검표(FCA_PCA)",
           "node_kind": "artifact",
@@ -2881,6 +3304,7 @@
             "spec_linkage_table"
           ],
           "depends_on_evidence": "guidebook_recommended",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "p.104 (바. 주요 산출물)",
@@ -2892,6 +3316,7 @@
           "evidence_record": [
             "review_minutes_fca"
           ],
+          "gate_role": "supporting",
           "id": 198,
           "is_virtual": true,
           "name": "기술검토회의 수행(활동)",
@@ -2918,6 +3343,7 @@
           "artifact_type_id": "inbox",
           "desc": "분류 안 된 일정·산출물 임시 보관",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 211,
           "is_fixed": true,
           "name": "INBOX_분류전",
@@ -2932,6 +3358,7 @@
           "artifact_type_id": "log",
           "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 212,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
@@ -2946,6 +3373,7 @@
           "artifact_type_id": "tdp_exchange",
           "desc": "주고받은 기술자료 패키지",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 213,
           "is_fixed": true,
           "name": "TDP_기술자료",
@@ -2958,8 +3386,21 @@
         },
         {
           "artifact_type_id": "pca_report",
+          "depends_on": [
+            "drawings",
+            "spec_linkage_table"
+          ],
+          "depends_on_evidence": "guidebook_recommended",
+          "depends_on_origin": "canonical",
+          "depends_on_refs": [
+            {
+              "locator": "부록 E-10 PCA 결과보고서 서식, p.134",
+              "source_key": "dapa_se_technical_review_guidebook_2017"
+            }
+          ],
           "desc": "제품 실물-도면 일치성 검증 결과",
           "evidence_level": "regulation_mandated",
+          "gate_role": "core",
           "id": 214,
           "name": "물리형상확인결과보고서(PCA)",
           "node_kind": "artifact",
@@ -2984,8 +3425,30 @@
         },
         {
           "artifact_type_id": "drawings",
+          "depends_on": [
+            "bom",
+            "icd",
+            "tdp"
+          ],
+          "depends_on_evidence": "guidebook_recommended",
+          "depends_on_origin": "mixed",
+          "depends_on_refs": [
+            {
+              "locator": "부록 E-8 물리적 형상확인 점검표(HW 형상 일치성), p.131",
+              "source_key": "dapa_se_technical_review_guidebook_2017"
+            },
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.8 (p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "실물 일치 최종 도면",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 215,
           "name": "최종도면(As-Built)_F",
           "node_kind": "artifact",
@@ -3012,6 +3475,7 @@
           "artifact_type_id": "bom",
           "desc": "최종 자재 목록(As-Built BOM)",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 216,
           "name": "자재명세서(Q-BOM)_F",
           "node_kind": "artifact",
@@ -3034,6 +3498,7 @@
           "artifact_type_id": "test_docs",
           "desc": "PCA 증빙용 성적서 모음",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 217,
           "name": "시험성적서통합본",
           "node_kind": "artifact",
@@ -3056,6 +3521,7 @@
           "artifact_type_id": "ncr",
           "desc": "부적합, 면제 등 불일치 관리",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 218,
           "name": "부적합및면제요청서(NCR)",
           "node_kind": "artifact",
@@ -3076,8 +3542,24 @@
         },
         {
           "artifact_type_id": "tdp",
+          "depends_on": [
+            "pci"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "generic_layer_projection",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.6.1-§3.2.6.2 (p.25)",
+              "source_key": "nasa_npr_7123_1d"
+            }
+          ],
           "desc": "국방규격 제정용 도면/목록 패키지",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 220,
           "name": "기술자료패키지목록(TDP)",
           "node_kind": "artifact",
@@ -3104,6 +3586,7 @@
           "artifact_type_id": "review_minutes_pca",
           "desc": "제품 기준선 최종 승인 기록",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 221,
           "name": "PCA_회의록및조치결과",
           "node_kind": "artifact",
@@ -3124,8 +3607,25 @@
         },
         {
           "artifact_type_id": "icd",
+          "depends_on": [
+            "dci",
+            "semp"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_origin": "generic_layer_projection",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.5 (p.149-150)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "최종 인터페이스 문서",
           "evidence_level": "unstated",
+          "gate_role": "supporting",
           "id": 222,
           "name": "연동통제문서(ICD)",
           "node_kind": "artifact",
@@ -3148,6 +3648,7 @@
           "artifact_type_id": "pci",
           "desc": "(Final) 제품 기준선 최종 문서",
           "evidence_level": "guidebook_recommended",
+          "gate_role": "supporting",
           "id": 223,
           "name": "제품형상식별서(PCI)_F",
           "node_kind": "artifact",
@@ -3174,6 +3675,7 @@
           "artifact_type_id": "defense_spec_drawings",
           "desc": "(Final) 국방규격화용 상세 도면",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 224,
           "name": "상세설계도면_F(PCA)",
           "node_kind": "artifact",
@@ -3197,6 +3699,7 @@
           "artifact_type_id": "defense_spec_draft",
           "desc": "DT로 검증하고 OT 적합 판정 후 제정 건의하는 국방규격(안)과 국방규격화연계표",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 225,
           "name": "국방규격(안)및국방규격화연계표",
           "node_kind": "artifact",
@@ -3228,6 +3731,7 @@
           "artifact_type_id": "dev_result_report",
           "desc": "체계개발 완료 후 2개월 이내 제출하는 체계개발결과보고서(별지14)와 기술자료묶음",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 226,
           "name": "체계개발결과보고서및기술자료묶음",
           "node_kind": "artifact",
@@ -3251,6 +3755,7 @@
           "artifact_type_id": "production_transition_package",
           "desc": "양산 계약 이전 제출자료와 양산 지원 자료 묶음",
           "evidence_level": "regulation_mandated",
+          "gate_role": "supporting",
           "id": 227,
           "name": "양산전제출자료및양산지원자료",
           "node_kind": "artifact",
@@ -3276,6 +3781,7 @@
             "atp"
           ],
           "depends_on_evidence": "guidebook_recommended",
+          "depends_on_origin": "canonical",
           "depends_on_refs": [
             {
               "locator": "p.111 (바. 주요 산출물)",
@@ -3287,6 +3793,7 @@
           "evidence_record": [
             "review_minutes_pca"
           ],
+          "gate_role": "supporting",
           "id": 228,
           "is_virtual": true,
           "name": "기술검토회의 수행(활동)",
@@ -3313,6 +3820,7 @@
           "artifact_type_id": "inbox",
           "desc": "분류 안 된 일정·산출물 임시 보관",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 241,
           "is_fixed": true,
           "name": "INBOX_분류전",
@@ -3327,6 +3835,7 @@
           "artifact_type_id": "log",
           "desc": "회의록, 공문, 액션아이템 등 의사결정 및 조치 기록",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 242,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
@@ -3341,6 +3850,7 @@
           "artifact_type_id": "tdp_exchange",
           "desc": "주고받은 기술자료 패키지",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 243,
           "is_fixed": true,
           "name": "TDP_기술자료",
@@ -3355,6 +3865,7 @@
           "artifact_type_id": "development_history",
           "desc": "개발 이력(변경, 이슈) 정리",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 244,
           "name": "협력개발품개발이력서",
           "node_kind": "artifact",
@@ -3377,6 +3888,7 @@
           "artifact_type_id": "lessons_learned",
           "desc": "실패 사례 및 극복 과정",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 245,
           "name": "실패사례요약서",
           "node_kind": "artifact",
@@ -3390,6 +3902,7 @@
           "artifact_type_id": "lessons_learned_workshop",
           "desc": "이력 공유회 발표 자료",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 246,
           "name": "개발이력공유회결과",
           "node_kind": "artifact",
@@ -3403,6 +3916,7 @@
           "artifact_type_id": "prime_g6_project_closeout_report",
           "desc": "사업 정산 및 행정 종료 보고서",
           "evidence_level": "internal_management",
+          "gate_role": "supporting",
           "id": 247,
           "name": "사업종료보고서",
           "node_kind": "artifact",
@@ -3514,8 +4028,8 @@
   "quality_grade": "없음",
   "schema_version": "soulforge.se_foldertree_compiled_variant.v0",
   "spec_file": "assets/SE_FolderTree_Guide.md",
-  "spec_sha256": "01d2fc9c695a73c98e2eaf699b650c50d67f65d9e44504bf7e6183178637b6d2",
-  "spec_version": "0.9",
+  "spec_sha256": "1d740256fbe94a436f790256a1e4ae310171b9432067f50ca02d0c43ae01ee58",
+  "spec_version": "0.10",
   "special_folders": {
     "management": {
       "code": 20,
