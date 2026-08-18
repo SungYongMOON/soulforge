@@ -1,0 +1,629 @@
+{
+  "fixture_id": "next_steps_synthetic_v0",
+  "schema_version": "soulforge.engine_next_steps_answer.v0",
+  "note": "Public-safe synthetic fixture for guild_hall/engineering_engine/guidance/ (design D47). It extends the ordering fixture in stage_work_order_synthetic_v0.json with the fields the guidance layer reads — a stated form, an expected maturity, an evidence record, and one row that states neither a form nor a citation — and adds a hand-written assessment result in the shape the role-bound runner prints. Every support key, gate name, task name, task id, source key, locator, handle, instant and digest below is invented for this file: it names no actual project, contract, organisation, regulation, document or person, and the sha256-shaped values are placeholders rather than digests of anything.",
+  "compile_request": {
+    "compiled_variant": {
+      "schema_version": "soulforge.se_foldertree_compiled_variant.v0",
+      "support_key": "synthetic_ordering__synthetic_prime__grade_a",
+      "business_type": "synthetic_ordering",
+      "prime_contractor": "synthetic_prime_office",
+      "quality_grade": "grade_a",
+      "spec_file": "synthetic_ordering_spec_v0.md",
+      "spec_sha256": "9d84dfeae268e176657475e08e73a6d06acddf5682cc883374325fbc2a5a2a3a",
+      "spec_version": "v0.1",
+      "generated_by": "synthetic_export_variant_json_v0",
+      "principles": [
+        "synthetic_principle_inputs_before_outputs"
+      ],
+      "special_folders": {
+        "inbox": "00_INBOX"
+      },
+      "management_static_folders": [
+        "00_INBOX"
+      ],
+      "gates": [
+        {
+          "code": 30,
+          "name": "Synthetic system requirements review",
+          "desc": "First review gate of the synthetic lifecycle.",
+          "tasks": [
+            {
+              "id": 3001,
+              "name": "Synthetic inbox",
+              "desc": "Incoming working material.",
+              "is_fixed": true,
+              "artifact_type_id": "inbox",
+              "node_kind": "artifact",
+              "evidence_level": "internal_management",
+              "verification_status": "internal_management"
+            },
+            {
+              "id": 3002,
+              "name": "Synthetic operations concept",
+              "desc": "How the synthetic system is meant to be used.",
+              "artifact_type_id": "conops",
+              "node_kind": "artifact",
+              "evidence_level": "regulation_mandated",
+              "verification_status": "source_supported",
+              "source_refs": [
+                {
+                  "source_key": "synthetic_rule_book_v0",
+                  "locator": "article 11"
+                }
+              ]
+            },
+            {
+              "id": 3003,
+              "name": "Synthetic stakeholder expectations definition",
+              "desc": "Work that has to happen; no folder of its own.",
+              "artifact_type_id": "act_stakeholder_expectations",
+              "node_kind": "activity",
+              "is_virtual": true,
+              "evidence_level": "guidebook_recommended",
+              "verification_status": "source_supported",
+              "depends_on": [
+                "conops"
+              ],
+              "depends_on_evidence": "guidebook_recommended",
+              "depends_on_refs": [
+                {
+                  "source_key": "synthetic_guidebook_v0",
+                  "locator": "table 2-1"
+                }
+              ],
+              "evidence_record": [
+                "review_minutes_srr"
+              ],
+              "source_refs": [
+                {
+                  "source_key": "synthetic_guidebook_v0",
+                  "locator": "table 2-1"
+                }
+              ]
+            },
+            {
+              "id": 3004,
+              "name": "Synthetic system requirements specification",
+              "desc": "What the activity above produces.",
+              "artifact_type_id": "ssrs",
+              "node_kind": "artifact",
+              "evidence_level": "regulation_mandated",
+              "verification_status": "source_supported",
+              "depends_on": [
+                "act_stakeholder_expectations"
+              ],
+              "depends_on_evidence": "guidebook_recommended",
+              "depends_on_refs": [
+                {
+                  "source_key": "synthetic_guidebook_v0",
+                  "locator": "table 2-1"
+                }
+              ],
+              "source_refs": [
+                {
+                  "source_key": "synthetic_rule_book_v0",
+                  "locator": "article 12"
+                }
+              ]
+            },
+            {
+              "id": 3005,
+              "name": "Synthetic engineering management plan",
+              "desc": "A plan that needs nothing else first.",
+              "artifact_type_id": "semp",
+              "node_kind": "artifact",
+              "evidence_level": "guidebook_recommended",
+              "verification_status": "source_supported",
+              "source_refs": [
+                {
+                  "source_key": "synthetic_guidebook_v0",
+                  "locator": "table 2-2"
+                }
+              ],
+              "template": "synthetic appendix form 3",
+              "maturity": "preliminary"
+            },
+            {
+              "id": 3006,
+              "name": "Synthetic review minutes",
+              "desc": "Record of the first review.",
+              "artifact_type_id": "review_minutes_srr",
+              "node_kind": "artifact",
+              "evidence_level": "regulation_mandated",
+              "verification_status": "source_supported",
+              "depends_on": [
+                "ssrs"
+              ],
+              "depends_on_evidence": "unstated",
+              "source_refs": [
+                {
+                  "source_key": "synthetic_rule_book_v0",
+                  "locator": "article 13"
+                }
+              ]
+            },
+            {
+              "id": 3007,
+              "name": "Synthetic traceability matrix",
+              "desc": "Carried as context here, and still sequenced.",
+              "artifact_type_id": "rtm",
+              "node_kind": "artifact",
+              "evidence_level": "unstated",
+              "verification_status": "source_supported",
+              "depends_on": [
+                "ssrs"
+              ],
+              "depends_on_evidence": "unstated"
+            },
+            {
+              "id": 3008,
+              "name": "Synthetic work breakdown structure",
+              "desc": "A row that states neither a form nor a citation.",
+              "artifact_type_id": "wbs",
+              "node_kind": "artifact",
+              "evidence_level": "guidebook_recommended",
+              "verification_status": "source_supported"
+            }
+          ]
+        },
+        {
+          "code": 90,
+          "name": "Synthetic preliminary design review",
+          "desc": "Second review gate of the synthetic lifecycle.",
+          "tasks": [
+            {
+              "id": 9001,
+              "name": "Synthetic inbox",
+              "desc": "Incoming working material.",
+              "is_fixed": true,
+              "artifact_type_id": "inbox",
+              "node_kind": "artifact",
+              "evidence_level": "internal_management",
+              "verification_status": "internal_management"
+            },
+            {
+              "id": 9002,
+              "name": "Synthetic architecture design",
+              "desc": "Work that needs the previous gate's specification.",
+              "artifact_type_id": "act_architecture_design",
+              "node_kind": "activity",
+              "is_virtual": true,
+              "evidence_level": "guidebook_recommended",
+              "verification_status": "source_supported",
+              "depends_on": [
+                "ssrs"
+              ],
+              "depends_on_evidence": "guidebook_recommended",
+              "depends_on_refs": [
+                {
+                  "source_key": "synthetic_guidebook_v0",
+                  "locator": "table 3-1"
+                }
+              ],
+              "evidence_record": [
+                "review_minutes_pdr"
+              ],
+              "source_refs": [
+                {
+                  "source_key": "synthetic_guidebook_v0",
+                  "locator": "table 3-1"
+                }
+              ]
+            },
+            {
+              "id": 9003,
+              "name": "Synthetic system design description",
+              "desc": "What the architecture activity produces.",
+              "artifact_type_id": "ssdd",
+              "node_kind": "artifact",
+              "evidence_level": "regulation_mandated",
+              "verification_status": "source_supported",
+              "depends_on": [
+                "act_architecture_design"
+              ],
+              "depends_on_evidence": "guidebook_recommended",
+              "depends_on_refs": [
+                {
+                  "source_key": "synthetic_guidebook_v0",
+                  "locator": "table 3-1"
+                }
+              ],
+              "source_refs": [
+                {
+                  "source_key": "synthetic_rule_book_v0",
+                  "locator": "article 21"
+                }
+              ]
+            },
+            {
+              "id": 9004,
+              "name": "Synthetic allocated baseline declaration",
+              "desc": "A state that has to be declared; no folder of its own.",
+              "artifact_type_id": "dec_allocated_baseline",
+              "node_kind": "decision",
+              "is_virtual": true,
+              "evidence_level": "regulation_mandated",
+              "verification_status": "source_supported",
+              "depends_on": [
+                "ssdd"
+              ],
+              "depends_on_evidence": "regulation_mandated",
+              "depends_on_refs": [
+                {
+                  "source_key": "synthetic_rule_book_v0",
+                  "locator": "article 22"
+                }
+              ],
+              "evidence_record": [
+                "review_minutes_pdr",
+                "ssdd"
+              ],
+              "source_refs": [
+                {
+                  "source_key": "synthetic_rule_book_v0",
+                  "locator": "article 22"
+                }
+              ]
+            },
+            {
+              "id": 9005,
+              "name": "Synthetic design review minutes",
+              "desc": "Record of the second review.",
+              "artifact_type_id": "review_minutes_pdr",
+              "node_kind": "artifact",
+              "evidence_level": "regulation_mandated",
+              "verification_status": "source_supported",
+              "depends_on": [
+                "dec_allocated_baseline"
+              ],
+              "depends_on_evidence": "regulation_mandated",
+              "depends_on_refs": [
+                {
+                  "source_key": "synthetic_rule_book_v0",
+                  "locator": "article 23"
+                }
+              ],
+              "source_refs": [
+                {
+                  "source_key": "synthetic_rule_book_v0",
+                  "locator": "article 23"
+                }
+              ]
+            },
+            {
+              "id": 9006,
+              "name": "Synthetic software test plan",
+              "desc": "Declares an input that no token in this model owns.",
+              "artifact_type_id": "stp",
+              "node_kind": "artifact",
+              "evidence_level": "guidebook_recommended",
+              "verification_status": "source_supported",
+              "depends_on": [
+                "synthetic_unlisted_input"
+              ],
+              "depends_on_evidence": "unstated",
+              "source_refs": [
+                {
+                  "source_key": "synthetic_guidebook_v0",
+                  "locator": "table 3-4"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "completion_rule": {
+        "gate_is_complete_when": "synthetic_all_required_tasks_present"
+      },
+      "generation_rules": {
+        "folder_name_pattern": "synthetic_{code}_{name}"
+      },
+      "profiles": {
+        "default": "synthetic_full"
+      }
+    },
+    "overlay": null,
+    "project_binding": {
+      "document_refs": [
+        {
+          "artifact_type_ids_covered": [],
+          "requirement_ref": {
+            "entity_id": "synthetic_ordering_requirement_document",
+            "revision_id": "rev_1",
+            "content_id": "sha256:d29bd69fef3c9e14ae29294b0469ba442adac6535eca92e6d0c4f5d56293b917",
+            "content_hash_alg": "sha256"
+          }
+        }
+      ],
+      "valid_at": "2026-05-04T00:00:00.000Z",
+      "known_at": "2026-05-11T00:00:00.000Z",
+      "authority_family": "project_contract_baseline",
+      "applicability_default": true
+    },
+    "target_stage_codes": [
+      "090_PDR",
+      "030_SRR"
+    ],
+    "overlay_conditions": []
+  },
+  "observations": [
+    {
+      "artifact_type_id": "conops",
+      "presence_state": "present"
+    }
+  ],
+  "source_catalog": {
+    "catalog_id": "synthetic_source_catalog_v0",
+    "sources": [
+      {
+        "source_key": "synthetic_rule_book_v0",
+        "title": "Synthetic rule book",
+        "edition": "v0"
+      }
+    ]
+  },
+  "context_fill": {
+    "due_dates": [
+      {
+        "stage_code": "030_SRR",
+        "due_at": "2026-09-30T00:00:00.000Z"
+      }
+    ],
+    "owners": [
+      {
+        "capability": "systems_engineering",
+        "principal_ref": "role:synthetic_systems_engineer"
+      }
+    ],
+    "notes": "Synthetic context fill: one gate date and one capability owner."
+  },
+  "known_at": "2026-08-18T15:00:00.000Z",
+  "assessment_stdout": {
+    "schema_version": "soulforge.ax_se_project_context_pilot_result.v0",
+    "status": "ACCEPTED",
+    "mode": "owner_frozen_context",
+    "current_stage_code": "030_SRR",
+    "role_bound_assessment": {
+      "schema_version": "soulforge.ax_se_project_role_bound_assessment.v1",
+      "assessment_handle": "cand-5ynthetic0000000000000000000000000000000000000000000000000000",
+      "assessment_state": "UNKNOWN",
+      "evidence_claim_ceiling": "unknown",
+      "project_binding_ref": {
+        "entity_id": "synthetic_binding_entity",
+        "revision_id": "rev_1",
+        "content_id": "sha256:b00d000000000000000000000000000000000000000000000000000000000000",
+        "content_hash_alg": "sha256"
+      },
+      "objective_ref": {
+        "entity_id": "synthetic_objective_entity",
+        "revision_id": "rev_1",
+        "content_id": "sha256:0b0ec000e0000000000000000000000000000000000000000000000000000000",
+        "content_hash_alg": "sha256"
+      },
+      "policy_ref": {
+        "entity_id": "synthetic_policy_entity",
+        "revision_id": "rev_1",
+        "content_id": "sha256:0000c00000000000000000000000000000000000000000000000000000000000",
+        "content_hash_alg": "sha256"
+      },
+      "project_snapshot_ref": {
+        "entity_id": "synthetic_snapshot_entity",
+        "revision_id": "rev_1",
+        "content_id": "sha256:00a0000000000000000000000000000000000000000000000000000000000000",
+        "content_hash_alg": "sha256"
+      },
+      "current_stage": {
+        "stage_code": "030_SRR",
+        "stage_label": "SRR",
+        "floor_status": "blocked",
+        "requirement_counts": {
+          "conflict": 0,
+          "missing": 1,
+          "not_applicable": 0,
+          "satisfied": 1,
+          "unknown": 4
+        },
+        "open_risk_count": 0
+      },
+      "issues": [
+        {
+          "issue_handle": "cand-030actstakeholderexpectations00000000000000000000000000000000000",
+          "issue_kind": "unknown",
+          "reason_code": "observation_not_available",
+          "required_capability": "systems_engineering",
+          "stage_code": "030_SRR",
+          "subject_id": "030_SRR_act_stakeholder_expectations",
+          "evidence_refs": [],
+          "evidence_claim_ceiling": "unknown"
+        },
+        {
+          "issue_handle": "cand-030semp000000000000000000000000000000000000000000000000000000000",
+          "issue_kind": "unknown",
+          "reason_code": "observation_not_available",
+          "required_capability": "systems_engineering",
+          "stage_code": "030_SRR",
+          "subject_id": "030_SRR_semp",
+          "evidence_refs": [],
+          "evidence_claim_ceiling": "unknown"
+        },
+        {
+          "issue_handle": "cand-030ssrs000000000000000000000000000000000000000000000000000000000",
+          "issue_kind": "unknown",
+          "reason_code": "observation_not_available",
+          "required_capability": "systems_engineering",
+          "stage_code": "030_SRR",
+          "subject_id": "030_SRR_ssrs",
+          "evidence_refs": [],
+          "evidence_claim_ceiling": "unknown"
+        },
+        {
+          "issue_handle": "cand-030wbs0000000000000000000000000000000000000000000000000000000000",
+          "issue_kind": "unknown",
+          "reason_code": "observation_not_available",
+          "required_capability": "project_management",
+          "stage_code": "030_SRR",
+          "subject_id": "030_SRR_wbs",
+          "evidence_refs": [],
+          "evidence_claim_ceiling": "unknown"
+        },
+        {
+          "issue_handle": "cand-030reviewminutessrr000000000000000000000000000000000000000000000",
+          "issue_kind": "missing",
+          "reason_code": "observed_absent",
+          "required_capability": "verification_review",
+          "stage_code": "030_SRR",
+          "subject_id": "030_SRR_review_minutes_srr",
+          "evidence_refs": [],
+          "evidence_claim_ceiling": "source_referenced"
+        }
+      ],
+      "next_mission_candidates": [
+        {
+          "mission_candidate_handle": "cand-mission1030actstakeholderexpectations000000000000000000000000000",
+          "rank": 1,
+          "mission_kind": "acquire_requirement_evidence",
+          "stage_code": "030_SRR",
+          "subject_id": "030_SRR_act_stakeholder_expectations",
+          "issue_handle": "cand-030actstakeholderexpectations00000000000000000000000000000000000",
+          "evidence_refs": [],
+          "evidence_claim_ceiling": "unknown",
+          "role_decision": {
+            "state": "CANDIDATE",
+            "reason_code": "unique_logical_role_candidate",
+            "required_capability": "systems_engineering",
+            "role_id": "systems_engineer"
+          },
+          "done_conditions": [
+            "observation_attempt_completed",
+            "exact_revision_evidence_recorded",
+            "stage_reassessment_completed"
+          ],
+          "hold_conditions": [
+            "observation_blocked",
+            "source_revision_unknown",
+            "access_authority_unavailable"
+          ],
+          "candidate_only": true,
+          "task_intent_created": false,
+          "erp_delta": 0
+        },
+        {
+          "mission_candidate_handle": "cand-mission2030semp0000000000000000000000000000000000000000000000000",
+          "rank": 2,
+          "mission_kind": "acquire_requirement_evidence",
+          "stage_code": "030_SRR",
+          "subject_id": "030_SRR_semp",
+          "issue_handle": "cand-030semp000000000000000000000000000000000000000000000000000000000",
+          "evidence_refs": [],
+          "evidence_claim_ceiling": "unknown",
+          "role_decision": {
+            "state": "CANDIDATE",
+            "reason_code": "unique_logical_role_candidate",
+            "required_capability": "systems_engineering",
+            "role_id": "systems_engineer"
+          },
+          "done_conditions": [
+            "observation_attempt_completed",
+            "exact_revision_evidence_recorded",
+            "stage_reassessment_completed"
+          ],
+          "hold_conditions": [
+            "observation_blocked",
+            "source_revision_unknown",
+            "access_authority_unavailable"
+          ],
+          "candidate_only": true,
+          "task_intent_created": false,
+          "erp_delta": 0
+        },
+        {
+          "mission_candidate_handle": "cand-mission3030ssrs0000000000000000000000000000000000000000000000000",
+          "rank": 3,
+          "mission_kind": "acquire_requirement_evidence",
+          "stage_code": "030_SRR",
+          "subject_id": "030_SRR_ssrs",
+          "issue_handle": "cand-030ssrs000000000000000000000000000000000000000000000000000000000",
+          "evidence_refs": [],
+          "evidence_claim_ceiling": "unknown",
+          "role_decision": {
+            "state": "CANDIDATE",
+            "reason_code": "unique_logical_role_candidate",
+            "required_capability": "systems_engineering",
+            "role_id": "systems_engineer"
+          },
+          "done_conditions": [
+            "observation_attempt_completed",
+            "exact_revision_evidence_recorded",
+            "stage_reassessment_completed"
+          ],
+          "hold_conditions": [
+            "observation_blocked",
+            "source_revision_unknown",
+            "access_authority_unavailable"
+          ],
+          "candidate_only": true,
+          "task_intent_created": false,
+          "erp_delta": 0
+        }
+      ],
+      "candidate_truncation": {
+        "eligible_issue_count": 5,
+        "emitted_mission_count": 3
+      }
+    },
+    "effects": {
+      "erp_writes": 0,
+      "filesystem_writes": 0,
+      "model_calls": 0,
+      "network_calls": 0,
+      "taskdriver_activated": false
+    }
+  },
+  "expected": {
+    "note": "Derived by hand from the rows above. Eleven cards: every engine requirement of the two gates. The two inbox rows and the unstated rtm row are context artifacts and get no card; the activity and decision rows do, because they are the rows that say what work has to happen. Only the semp row states a form, and only the wbs row states no citation at all. The stp row names an input no token owns, which is the one unresolved input.",
+    "card_counts": {
+      "cards": 11,
+      "engine_requirement_cards": 11,
+      "context_node_cards": 0,
+      "by_node_kind": {
+        "artifact": 8,
+        "activity": 2,
+        "decision": 1
+      },
+      "cards_without_template": 10,
+      "cards_without_source": 1,
+      "cards_with_unresolved_input": 1,
+      "skipped_context_rows": 3
+    },
+    "srr_card_tokens": [
+      "conops",
+      "semp",
+      "act_stakeholder_expectations",
+      "ssrs",
+      "review_minutes_srr",
+      "wbs"
+    ],
+    "instruction_counts": {
+      "instructions": 4,
+      "from_mission_candidates": 3,
+      "from_next_ready": 1,
+      "with_due_date": 4,
+      "with_principal": 3,
+      "without_guide_card": 0,
+      "without_work_item": 0
+    },
+    "instruction_subjects": [
+      "030_SRR_act_stakeholder_expectations",
+      "030_SRR_semp",
+      "030_SRR_ssrs",
+      "030_SRR_wbs"
+    ],
+    "answer_sections": [
+      "1. 위치",
+      "2. 부족",
+      "3. 다음 할 일",
+      "4. 그 뒤"
+    ]
+  }
+}

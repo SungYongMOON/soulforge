@@ -91,3 +91,26 @@ work item은 엔진 요구가 된 행만이다. `optional_context` 행과 고정
 - 스펙 md의 YAML 앞부분을 읽어 `assets/compiled/<support_key>.json`을 만든다(`variant_binding.support_key`가 있는 스펙 자동 발견).
 - `evidence_level: prime_contract` 행이 있는 스펙은 추가로 공통 기준선 `compiled/<common_key>.json`(prime 행 제외, `derived_from`)과 `compiled/overlays/<support_key>.prime.overlay.json`(prime 행 → `add` op, `source_ref`=스펙 md exact ref, `extends`=공통 키+스펙 sha, `overlay_identity`)을 낸다. 매핑은 `COMMON_KEY_BY_SUPPORT_KEY`.
 - 알 수 없는 task 키는 pass-through(`normalize_task`)이므로 새 기계 필드를 더할 때 exporter를 고칠 필요가 대개 없다. 컴파일러 쪽 `TASK_OPTIONAL_FIELDS`·`VARIANT_OPTIONAL_FIELDS`·`OVERLAY_OPTIONAL_FIELDS`는 고쳐야 한다.
+
+## 5.6 안내 층 `guidance/` (A3, D47 제안, 2026-08-18)
+
+컴파일러와 순서 계산이 "무엇이 있어야 하고 무엇부터인가"를 만들면, `guild_hall/engineering_engine/guidance/`는 그 옆에 **"왜·언제·무엇을·어떻게·누가"**를 붙인다. 판단 층과 같은 규칙 행을 읽지만 판단을 만들지 않는다(9.0.2 원칙 2).
+
+| 모듈 | 순수 함수 | 내는 것 |
+| --- | --- | --- |
+| `guide_cards.mjs` | `buildGuideCards({compile_result, vocabulary, compiled_variant?, source_catalog?, work_order?})` | (단계, 산출물 종류)마다 카드 하나 + 영수증. 엔진 요구가 된 행 전부, 그리고 요구가 아니어도 **활동·결정 행**은 카드를 받는다 |
+| `instruction_packet.mjs` | `buildInstructionPackets({assessment, work_order, guide_cards, known_at, role_roster?, context_fill?, include_next_ready?, top_n?})` | mission 후보마다 지시서 하나(`soulforge.engine_instruction_packet.v0`) + 영수증 |
+| `answer_render.mjs` | `renderNextStepsAnswer({assessment, work_order, instructions, guide_cards, stage_code, locale})` | 한국어 마크다운과 같은 내용의 JSON: **위치 · 부족 · 다음 할 일 · 그 뒤** |
+
+지켜야 할 네 가지(코드가 아니라 시험이 지킨다):
+
+1. **문장을 짓지 않는다.** 카드의 모든 한국어 문장은 `GUIDE_CARD_TEMPLATES`의 고정 틀 하나이고 슬롯 값은 규칙 행에서 그대로 복사한다. 문장은 `{template_id, text_ko, slots}`로 나가며, 시험이 template_id로 재렌더해 같은 바이트가 나오는지와 슬롯 값이 행의 필드에서 왔는지를 확인한다. 모델 호출 0.
+2. **행이 말하지 않은 것은 말하지 않는다.** 양식 없으면 `양식 없음`, 인용 없으면 `근거 미표기`. 채워 넣으면 인용된 지시와 구분되지 않는 지시가 생긴다.
+3. **인용은 위치만.** `{source_key, locator}`만 싣고 원문은 싣지 않는다. 색인 카탈로그를 주면 그 카탈로그가 가진 제목만 덧붙고 없는 출처는 `catalog_known: false`로 남는다.
+4. **지시서는 판단도 쓰기도 아니다.** `judgment_ref`(policy_ref · assessment_handle · requirement_counts 스냅숏)는 **복사**이며 다시 계산하지 않는다. `presence_state`·수정본 ref·완료 표시가 지시서에 들어가려 하면 빌드를 거부한다. 담당은 논리 역할이고 사람은 `context_fill.owners`가 준 경우에만, 기한은 `context_fill.due_dates`가 준 경우에만 들어간다. `known_at`은 호출자 입력이다(이 층은 시계를 읽지 않는다).
+
+엔진이 mission 후보를 요청 수보다 적게 냈을 때만 "안 막혔는데 아직 관측되지 않은" 항목으로 채우고, 그것은 `instruction_kind: next_ready` · `engine_finding: not_yet_observed`로 구분한다 — 판정이 아니라 아무도 안 본 것이기 때문이다.
+
+파일을 읽고 쓰는 자리는 CLI 하나뿐이다(`tools/engine_next_steps_runner.mjs`, `--out` 아래 create-only). 시험은 `npm run validate:se-guidance`(2026-08-18: 42), fixture는 `docs/architecture/workspace/examples/se_stage_rules/next_steps_synthetic_v0.json`.
+
+첫 실측(P26-014, 2026-08-18, run 04 판정 재사용): 030_SRR 카드 22 · 지시서 3(불명 3, 담당 형상관리 2·체계공학 1), 120_CDR 카드 28 · 지시서 3(불명 3, 담당 검증 1·SW 1·체계공학 1). 판정 수치는 run 04 그대로이고 이 층이 바꾼 것은 없다. 다만 run 04는 A2 이전 컴파일러로 돌렸으므로 재컴파일한 요구 수(22·28)와 판정이 센 요구 수(19·27)가 다르다 — 같아지려면 재컴파일한 정책으로 runner를 다시 돌려야 한다(다음 실행).

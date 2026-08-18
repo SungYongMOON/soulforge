@@ -1,5 +1,42 @@
 # CHANGELOG
 
+## 2026-08-18 - Guidance layer: guide cards, instruction packets, and the "what do I do next" answer
+
+- The engine could say what was missing and could say what came first, but it could not say what to
+  do about it. New pure layer `guild_hall/engineering_engine/guidance/` reads the same compiled rows
+  and answers the other half — why the rule exists, when it is expected, what the thing is, how it
+  is made, who normally makes it — without touching the judgement (design D47, plan slice A3,
+  milestone M1).
+- `buildGuideCards` emits one card per (stage, artifact type): every engine requirement, plus every
+  activity and decision row even where it stayed context, because those are the rows that say what
+  work has to happen. A card carries `why` / `when` / `what` / `how` / `who` / `evidence` /
+  `citations`.
+- `buildInstructionPackets` emits `soulforge.engine_instruction_packet.v0`: the engine's mission
+  candidate joined to its card and to whatever the caller can fill in (a due date, a named owner).
+  `judgment_ref` copies the policy ref, the assessment handle and the requirement counts rather
+  than recomputing them, so no second set of numbers can enter circulation.
+- `renderNextStepsAnswer` writes the answer in Korean markdown and the same structure in JSON, in a
+  fixed order: 위치 · 부족 · 다음 할 일 · 그 뒤(막힌 것). Counts come before work on purpose — a
+  reader given the tasks first cannot tell "the engine judged this missing" from "nobody looked".
+- Three boundaries are enforced by tests rather than intended: **no invented text** (every Korean
+  sentence is one of the fixed templates in `GUIDE_CARD_TEMPLATES`, rendered over slot values
+  copied off a rule row, and each sentence ships as `{template_id, text_ko, slots}` so it can be
+  re-rendered and compared byte for byte — no model is called); **silence is reported, not filled**
+  (a row with no form reads `양식 없음`, a row with no citation reads `근거 미표기`); and **an
+  instruction is not a write** (a build refuses if a `presence_state`, revision ref, or completion
+  field would appear anywhere in it; the owner is a logical role, and a person appears only from
+  `context_fill.owners`).
+- Citations are locators. A card carries `{source_key, locator}` and, when a source catalogue is
+  supplied, only the title that catalogue already holds; a source the catalogue does not name stays
+  honestly `catalog_known: false`. No canonical text is copied into a card.
+- One caller writes files: `tools/engine_next_steps_runner.mjs`, create-only under `--out`, with
+  `--known-at` supplied by the caller because the pure layer reads no clock. Where the engine
+  emitted fewer mission candidates than asked for, the remainder is filled from work that is ready
+  and never observed, labelled `instruction_kind: next_ready` / `engine_finding: not_yet_observed`.
+- New `npm run validate:se-guidance` (42 tests) and public-safe fixture
+  `docs/architecture/workspace/examples/se_stage_rules/next_steps_synthetic_v0.json`. D47 itself
+  remains a proposal awaiting owner sign-off.
+
 ## 2026-08-18 - Activity/decision rule rows, `depends_on` from canon, and a compiler work order ("what first")
 
 - The rule tables could name documents and nothing else, so they could not say "do the functional
