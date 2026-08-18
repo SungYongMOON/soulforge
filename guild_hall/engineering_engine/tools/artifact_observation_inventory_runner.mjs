@@ -56,10 +56,14 @@ const OUTPUT_FILES = Object.freeze([
   'artifact_observations_auto.json', 'receipt.json',
 ]);
 
+// A refusal is a stated outcome, not a crash: the reason is written once, the exit code says
+// "refused", and the stack trace that would otherwise bury the reason is dropped.
+class RunnerRefusal extends Error {}
+
 const die = (message) => {
   process.stderr.write(`artifact_observation_inventory_runner: ${message}\n`);
   process.exitCode = 2;
-  throw new Error(message);
+  throw new RunnerRefusal(message);
 };
 
 // ---------------------------------------------------------------- arguments
@@ -384,4 +388,11 @@ async function main() {
   }, null, 2)}\n`);
 }
 
-await main();
+try {
+  await main();
+} catch (error) {
+  if (!(error instanceof RunnerRefusal)) {
+    process.stderr.write(`artifact_observation_inventory_runner: ${error?.code ?? error?.message ?? 'failed'}\n`);
+    process.exitCode = 1;
+  }
+}

@@ -122,8 +122,10 @@ test('a second run over one output folder refuses rather than overwrites', () =>
   ];
   assert.equal(run(args).status, 0);
   const second = run(args);
-  assert.notEqual(second.status, 0);
+  assert.equal(second.status, 2);
   assert.match(second.stderr, /refusing to overwrite/u);
+  // The reason is the whole message: a refusal does not arrive as a stack trace.
+  assert.equal(second.stderr.includes('at '), false);
 });
 
 test('the same project and instant produce the same bytes twice', () => {
@@ -161,6 +163,6 @@ test('an include glob narrows the walk without changing how a file is read', () 
 
 test('a missing required argument is refused', () => {
   const result = run(['--out', join(scratch(), 'nowhere')]);
-  assert.notEqual(result.status, 0);
+  assert.equal(result.status, 2);
   assert.match(result.stderr, /--project-root is required/u);
 });
