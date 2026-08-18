@@ -24,6 +24,9 @@ DEFAULT_OUT_DIR = SKILL_ROOT / "assets" / "compiled"
 SCHEMA_VERSION = "soulforge.se_foldertree_compiled_variant.v0"
 GENERATED_BY = "export_variant_json.py v0"
 DEFAULT_VERIFICATION_STATUS = "unverified"
+# D46: a rule row is a document unless it says otherwise. Filling the default here rather than in
+# every spec keeps the older rows unchanged in meaning and lets the compiler read one field name.
+DEFAULT_NODE_KIND = "artifact"
 
 # Windows 한글 출력 지원
 if sys.platform == "win32":
@@ -71,12 +74,18 @@ def skill_relative(md_path: Path) -> str:
 
 
 def normalize_task(task: Dict[str, Any]) -> Dict[str, Any]:
-    """YAML의 task 키를 그대로 옮기고, 없는 verification_status만 기본값으로 채운다."""
+    """YAML의 task 키를 그대로 옮기고, 없는 verification_status/node_kind만 기본값으로 채운다.
+
+    알 수 없는 키는 그대로 통과시킨다(pass-through). 새 기계 필드를 더할 때 이 함수를 고칠 필요가
+    없게 하기 위해서다. 기본값을 채우는 필드는 두 개뿐이며 둘 다 "말하지 않았으면 가장 약한 쪽"이다.
+    """
     if not isinstance(task, dict):
         raise ValueError(f"task 항목이 dict가 아닙니다: {task!r}")
     out = dict(task)
     if not out.get("verification_status"):
         out["verification_status"] = DEFAULT_VERIFICATION_STATUS
+    if not out.get("node_kind"):
+        out["node_kind"] = DEFAULT_NODE_KIND
     return out
 
 

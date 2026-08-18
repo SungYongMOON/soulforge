@@ -949,12 +949,18 @@ npm run validate:engineering-engine-se-core-eval
 `docs/architecture/workspace/SE_STAGE_RULE_SOURCE_MODEL_V0.md`다.
 
 - `artifact_vocabulary.mjs`: 산출물 표준어 토큰(`artifact_type_id`), 계열, 표시 이름,
-  기본 capability. 과제별 폴더명·발주처 슬롯명은 두지 않는다(D44).
+  기본 capability. 과제별 폴더명·발주처 슬롯명은 두지 않는다(D44). 계열에는 문서가 아닌
+  두 종류도 있다 — `activity`(정본이 "하라"고 말하는 일)와 `decision`(정본이 "확정하라"고
+  말하는 상태). 둘 다 증거는 기록이고 폴더는 만들지 않는다(D46).
 - `stage_rule_compiler.mjs`: `compileStageRules(request)`가 compiled variant(L1) +
   overlay(L2) + project binding을 받아 `se_stage_expected_artifact_policy_v0` 인스턴스,
   엔진 `soulforge.ax_se_stage_policy.v0` stage material, Needs 정책 stage·어휘 선언,
   mapping table, 영수증을 결정론적으로 낸다. `mintEnginePolicyRef`는 엔진의 policy_ref
   digest 규칙을 그대로 재현한다.
+- `orderStageWork(compileResult, observations?)`(같은 파일): 컴파일 결과를 게이트별
+  **"무엇부터"** 목록으로 바꾸는 순수 함수. 인과(같은 게이트 `depends_on` 위상 정렬)와
+  순서(게이트 sequence)를 분리해서 내고, 관측이 0인 빈 과제에서는 입력이 없는 항목이 먼저
+  나온다. 고리가 있으면 `SE_STAGE_RULE_DEPENDENCY_CYCLE`로 거부한다.
 - `pilot_packet_generator.mjs`: `generatePilotPacketFromStageRules(request)`가 컴파일된
   stage policy와 산출물 단위 관측을 받아 `soulforge.ax_se_project_context_pilot_packet.v0`
   packet, 그 packet에서 파생되는 launch 필드(`launch_material`), 영수증을 낸다. 이미
@@ -966,8 +972,14 @@ npm run validate:engineering-engine-se-core-eval
 
 - fs, clock, random, env, network를 쓰지 않는다. import graph 전체가 `node:crypto` 하나만
   bare로 쓰며 static effect pin 시험이 이를 고정한다. 파일 읽기·쓰기는 호출자 몫이고 CLI는 두지 않는다.
-- overlay는 `add`·`alias`·`mark_not_applicable`·`condition`만 할 수 있다. evidence level을
-  올리거나 바꾸는 연산은 D45에 따라 거부한다.
+- overlay는 `add`·`alias`·`mark_not_applicable`·`condition`·`add_dependency`만 할 수 있다.
+  evidence level을 올리거나 바꾸는 연산은 D45에 따라, 정본 간선을 지우는 연산은 D46에 따라
+  거부한다. `add_dependency`는 exact `source_ref`와 `basis`를 요구하고 합집합으로만 더한다.
+- 활동·결정 행은 규정이 요구하지 않는 한 `present`가 될 수 없고 `present_or_not_applicable`이
+  상한이다. 증거가 문서가 아니라 기록이기 때문이며, 무엇이 그 기록인지는 행의
+  `evidence_record`가 지목한다. 폴더는 만들지 않는다(`is_virtual`).
+- 어휘가 모르는 입력 토큰은 컴파일을 거부하지 않고 영수증의 `unresolved_dependencies`에
+  이름과 함께 남긴다. 간선 하나의 오타가 변형 전체를 막지 않아야 한다.
 - 정본 대조 결과가 `unverified`·`unsupported`·`contradicted`이거나 아예 없는 규칙은
   `optional_context`로 낮추며, 낮추기만 하고 올리지 않는다. `partially_supported`는 낮추지
   않는다. 한 정본에서만 확인됐다는 뜻이지 근거가 없다는 뜻이 아니다.

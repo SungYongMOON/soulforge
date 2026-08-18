@@ -74,6 +74,12 @@ Optional per-task keys defined in design §3. `generate_tree.py` ignores unknown
 | `verification_status` | the verdict recorded by the source verification, unchanged until re-verified |
 | `applies_when` | list of condition tokens; absent means unconditional |
 | `added_by_verification` | date the entry was added because the verification listed it as a missing required item |
+| `node_kind` | `artifact` (default, filled by the exporter) / `activity` / `decision` — D46. An activity or a decision is not a document: its evidence is a record, and it gets no folder |
+| `is_virtual` | `true` on a row that is a rule but not a folder. `generate_tree.py` skips it, so folder counts do not move |
+| `depends_on` | list of tokens this row needs first (causal edges only, never the gate order) |
+| `depends_on_evidence` | the grade of the text that states those edges; absent means `unstated` (practice), and it never inherits the row's own grade |
+| `depends_on_refs` | `[{source_key, locator}]` behind the edges |
+| `evidence_record` | for an activity or a decision, the tokens of the records that would show it happened |
 
 Derivation rules used for the 체계개발 v0.8 pass (deterministic, reproducible from the verification record):
 
@@ -108,6 +114,24 @@ How the rows were derived (sources → per-source extraction → synthesis floor
 - How national/buyer rows relate: through the shared `artifact_type_id`. A national procurement tree's `ssrs`, `icd`, `temp`, `pci` rows and this baseline's rows are the same artifact at the same stage code, so a project can compile the generic floor, then a national layer, then a prime-contract overlay, and see one merged rule set. Contract-only items stay in the overlay with `evidence_level: prime_contract`; nothing buyer-specific is edited into this spec.
 - Deviations recorded at build time: the review tokens use the shared vocabulary (`review_minutes_srr` …) rather than the stage-coded names the checklist proposed; the two software-product-baseline rows use `vdd` because the vocabulary's `sps` is 체계성능시방서 (System Performance Specification); the 240_LL closeout result report keeps a token the vocabulary does not own and therefore compiles as unmapped context, which is correct — neither source defines a closeout gate. Single-source items are never `must_have`, and the IMS is `preliminary` at SRR and `baseline` at PDR (NASA lists the IMS as ready-to-baseline in Table G-6, not G-4).
 - 000_REF is a real gate here (buyer-owned concept-stage inputs), so `generation_rules.static_folders` carries only the `020_MGMT` folders.
+
+## Activity and decision nodes, `depends_on` (2026-08-18, D46)
+
+How the edges were derived from canon, the per-source coverage, the placement rules and the open
+items are recorded in [`se_io_relations_v0.md`](se_io_relations_v0.md).
+
+- `SE_FolderTree_GenericSE_Base.md` **v0.2**: 250 task = 229 artifacts + 18 activity rows + 3 decision
+  rows; 82 rows carry `depends_on` (133 edges after compile). Sources cited by the edges: NASA SE
+  Handbook Rev2 chapters 4-6, NASA NPR 7123.1D section 3.2, DoD SE Guidebook 2022 section 4.
+- `SE_FolderTree_Guide.md` **v0.9**: 154 task = 145 artifacts + 9 activity rows; 12 rows carry
+  `depends_on` (24 edges). Sources: the 2017 review guidebook's per-review INPUT tables and the SE
+  technical management practice guide's activity procedures. The seven `act_technical_review` rows
+  are the most directly stated ones: the guidebook really does list a different input set per gate.
+- The three decision rows sit in the generic layer only, at the gates one canonical text names
+  (functional baseline at SFR, allocated at PDR, product at CDR) and where the spec already carries
+  `fci` / `dci` / `pci`.
+- Folder generation is untouched: `generate_tree.py` skips `is_virtual` rows, so a dry run still
+  produces 145 task folders for 체계개발/LIG/A and 229 for 일반SE.
 
 ## Layered outputs (2026-08-18)
 

@@ -66,6 +66,8 @@
 - 드리프트 가드: compiled JSON에 스펙 md의 sha256을 넣고, `validate:se-foldertree-compiled`가 md 재파싱 결과와 대조한다(불일치 = 실패).
 - overlay 연산: `add`(발주처 요청 산출물 추가, evidence_level=prime_contract, source_ref=요청 문서 exact ref), `mark_not_applicable`(basis 필수), `alias`(과제 슬롯명 ↔ artifact_type_id), `override_evidence`(금지: L1 근거 등급은 overlay가 못 바꾼다), `condition`(applies_when 조건 충족 선언).
 
+구현 착지(2026-08-18, D46 제안대로): 행에 `node_kind`(artifact|activity|decision)·`depends_on`(+`depends_on_refs`/`depends_on_evidence`)·`evidence_record`·`is_virtual`을 더하고, 컴파일러에 순수 함수 `orderStageWork(compileResult, observations?)`(인과 간선과 게이트 순서를 분리 출력, 고리는 `SE_STAGE_RULE_DEPENDENCY_CYCLE`로 거부)와 overlay 연산 `add_dependency`(더하기만, `remove_dependency`는 금지)를 더했다. 어휘 152 토큰(활동 19·결정 3), 간선 206(일반 SE 128·방사청 78, 규정 근거 0). 도출 근거·커버리지·미결은 `.registry/skills/se_foldertree_generate/codex/references/se_io_relations_v0.md`, 엔진 매뉴얼은 02장 §2.5~2.6·03장 §3.7·05장 §5.4A. D46 자체는 여전히 Owner 승인 전 제안이다.
+
 ## 6. 사업유형 라우팅
 
 - 3키(사업유형·발주처·품질등급)로 variant 선택 — 폴더트리 스킬의 support_key와 동일. 매핑표는 스킬 `references/variants.md`가 소유.
