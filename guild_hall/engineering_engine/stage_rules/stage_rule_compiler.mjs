@@ -58,6 +58,8 @@ export const STAGE_RULE_ERROR_CODES = Object.freeze({
   STAGE_CODE_UNKNOWN: 'SE_STAGE_RULE_STAGE_CODE_UNKNOWN',
   BINDING_INVALID: 'SE_STAGE_RULE_BINDING_INVALID',
   ENGINE_MATERIAL_INVALID: 'SE_STAGE_RULE_ENGINE_MATERIAL_INVALID',
+  WORK_ORDER_INVALID: 'SE_STAGE_RULE_WORK_ORDER_INVALID',
+  DEPENDENCY_CYCLE: 'SE_STAGE_RULE_DEPENDENCY_CYCLE',
 });
 
 export class StageRuleCompilerError extends Error {
@@ -132,6 +134,40 @@ const EVIDENCE_TO_PRESENCE = Object.freeze({
 // carried through so a downstream reader can tell a floor from a recommendation.
 export const SE_FLOORS = Object.freeze(['must_have', 'should_have', 'context']);
 
+// What kind of node a rule row is (design D46). Until now every row was a document that either
+// sits in a folder or does not. A development also owes work that leaves no folder of its own —
+// an analysis that has to happen, a baseline that has to be declared — and a checklist that can
+// only name documents cannot say "do the functional analysis before you write the design".
+//
+// The judgement vocabulary does not change: an activity or a decision is still satisfied,
+// missing, or unknown. What changes is what counts as evidence — for an activity or a decision it
+// is a record (minutes, a decision record, or the artifact the work produced), which is why such
+// a row carries `evidence_record` naming the records that would show it happened.
+export const NODE_KINDS = Object.freeze(['artifact', 'activity', 'decision']);
+const DEFAULT_NODE_KIND = 'artifact';
+
+// Which grade of canonical text states a dependency edge. An edge is only as strong as the text
+// behind it, and a practice-only edge — one everybody follows and no canonical text writes down —
+// is `unstated`. A row that declares inputs without declaring their grade is read as `unstated`
+// rather than inheriting the row's own grade: the row's evidence is about the artifact, not about
+// the order, and inheriting would silently promote a habit into a rule.
+const DEFAULT_DEPENDS_ON_EVIDENCE = 'unstated';
+
+// The precedence the plan declares for work order (manual 09 section 9.0.2 rule 4): regulation
+// before guidebook before general SE guidance before unstated. `prime_contract` is not on that
+// list because it is not a canonical-text grade at all; it is placed after the guidebook and
+// before the guidance floor because it is an obligation this project actually carries while the
+// floor is advice. This is a display order and never an evidence re-grade — nothing here changes
+// what `EVIDENCE_TO_PRESENCE` decided.
+const EVIDENCE_WORK_RANK = Object.freeze({
+  regulation_mandated: 0,
+  guidebook_recommended: 1,
+  prime_contract: 2,
+  general_se_guidance: 3,
+  internal_management: 4,
+  unstated: 5,
+});
+
 // `internal_management` is the verdict the source verification gives INBOX/LOG/TDP-style rows
 // (design §3: the verdict is copied verbatim). It neither supports nor weakens a rule; such rows
 // are context by their evidence level already.
@@ -190,6 +226,10 @@ const FAMILY_TO_ARTIFACT_KIND = Object.freeze({
   configuration_audit: 'review_evidence',
   review_minutes: 'review_evidence',
   review_result: 'review_evidence',
+  // D46. What is filed for an activity is the record that it happened; what is filed for a
+  // decision is the record of the decision. The gap-scan template already names both kinds.
+  activity: 'review_evidence',
+  decision: 'owner_decision_record',
 });
 const DEFAULT_ARTIFACT_KIND = 'formal_document';
 
@@ -383,6 +423,11 @@ const TASK_OPTIONAL_FIELDS = Object.freeze([
   'desc', 'term', 'source', 'template', 'is_fixed', 'artifact_type_id', 'evidence_level',
   'source_refs', 'applies_when', 'not_applicable_default', 'verification_status',
   'added_by_verification', 'se_floor', 'maturity',
+  // D46: the node kind, the causal edges into this row, the grade and citations behind those
+  // edges, the records that would show an activity or a decision happened, and whether the row
+  // is virtual (a rule with no folder of its own).
+  'node_kind', 'depends_on', 'depends_on_refs', 'depends_on_evidence', 'evidence_record',
+  'is_virtual',
 ]);
 const SOURCE_REF_FIELDS = Object.freeze(['source_key', 'locator']);
 const PROJECT_BINDING_FIELDS = Object.freeze([
@@ -406,8 +451,16 @@ const OP_MARK_NA_REQUIRED = Object.freeze(['op', 'stage_code', 'artifact_type_id
 const OP_MARK_NA_OPTIONAL = Object.freeze(['decision_ref']);
 const OP_ALIAS_FIELDS = Object.freeze(['op', 'stage_code', 'artifact_type_id', 'alias']);
 const OP_CONDITION_FIELDS = Object.freeze(['op', 'token']);
-const OVERLAY_OPS = Object.freeze(['add', 'mark_not_applicable', 'alias', 'condition']);
-const FORBIDDEN_OVERLAY_OPS = Object.freeze(['override_evidence']);
+// D46: an overlay may state an input the standard table did not, on the exact document that asks
+// for it. It is additive only — there is no operation that takes a canonical edge away, for the
+// same reason there is none that lowers a canonical evidence level (D45).
+const OP_ADD_DEPENDENCY_FIELDS = Object.freeze([
+  'op', 'stage_code', 'artifact_type_id', 'depends_on', 'source_ref', 'basis',
+]);
+const OVERLAY_OPS = Object.freeze([
+  'add', 'mark_not_applicable', 'alias', 'condition', 'add_dependency',
+]);
+const FORBIDDEN_OVERLAY_OPS = Object.freeze(['override_evidence', 'remove_dependency']);
 
 // ---------------------------------------------------------------- input validation
 
@@ -479,7 +532,7 @@ function validateCompiledVariant(variant) {
           assertSafeString(task[field], `${taskWhere}.${field}`, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
         }
       }
-      for (const field of ['is_fixed', 'not_applicable_default']) {
+      for (const field of ['is_fixed', 'not_applicable_default', 'is_virtual']) {
         if (task[field] !== undefined && typeof task[field] !== 'boolean') {
           fail(STAGE_RULE_ERROR_CODES.VARIANT_INVALID, `${taskWhere}.${field} must be a boolean`,
             { where: `${taskWhere}.${field}` });
@@ -525,6 +578,34 @@ function validateCompiledVariant(variant) {
         assertArray(task.source_refs, `${taskWhere}.source_refs`, MAX.refs, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
         task.source_refs.forEach((ref, refIndex) => {
           const refWhere = `${taskWhere}.source_refs[${refIndex}]`;
+          assertExactKeys(ref, SOURCE_REF_FIELDS, [], refWhere, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
+          assertSafeString(ref.source_key, `${refWhere}.source_key`, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
+          assertSafeString(ref.locator, `${refWhere}.locator`, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
+        });
+      }
+      // ---- D46 fields.
+      if (task.node_kind !== undefined) {
+        assertEnum(task.node_kind, NODE_KINDS, `${taskWhere}.node_kind`,
+          STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
+      }
+      if (task.depends_on !== undefined) {
+        assertArray(task.depends_on, `${taskWhere}.depends_on`, MAX.refs, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
+        task.depends_on.forEach((token, tokenIndex) => assertToken(token,
+          `${taskWhere}.depends_on[${tokenIndex}]`, STAGE_RULE_ERROR_CODES.VARIANT_INVALID));
+      }
+      if (task.evidence_record !== undefined) {
+        assertArray(task.evidence_record, `${taskWhere}.evidence_record`, MAX.refs, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
+        task.evidence_record.forEach((token, tokenIndex) => assertToken(token,
+          `${taskWhere}.evidence_record[${tokenIndex}]`, STAGE_RULE_ERROR_CODES.VARIANT_INVALID));
+      }
+      if (task.depends_on_evidence !== undefined) {
+        assertEnum(task.depends_on_evidence, EVIDENCE_LEVELS, `${taskWhere}.depends_on_evidence`,
+          STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
+      }
+      if (task.depends_on_refs !== undefined) {
+        assertArray(task.depends_on_refs, `${taskWhere}.depends_on_refs`, MAX.refs, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
+        task.depends_on_refs.forEach((ref, refIndex) => {
+          const refWhere = `${taskWhere}.depends_on_refs[${refIndex}]`;
           assertExactKeys(ref, SOURCE_REF_FIELDS, [], refWhere, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
           assertSafeString(ref.source_key, `${refWhere}.source_key`, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
           assertSafeString(ref.locator, `${refWhere}.locator`, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
@@ -641,6 +722,26 @@ function validateOverlay(overlay, variant) {
         op: 'alias', stage_code: op.stage_code, artifact_type_id: op.artifact_type_id, alias: op.alias,
       });
     }
+    if (op.op === 'add_dependency') {
+      assertExactKeys(op, OP_ADD_DEPENDENCY_FIELDS, [], where, STAGE_RULE_ERROR_CODES.OVERLAY_INVALID);
+      assertSafeString(op.basis, `${where}.basis`, STAGE_RULE_ERROR_CODES.OVERLAY_INVALID);
+      const tokens = assertArray(op.depends_on, `${where}.depends_on`, MAX.refs,
+        STAGE_RULE_ERROR_CODES.OVERLAY_INVALID);
+      if (tokens.length === 0) {
+        fail(STAGE_RULE_ERROR_CODES.OVERLAY_INVALID, 'an add_dependency op must name at least one input',
+          { where: `${where}.depends_on` });
+      }
+      tokens.forEach((token, tokenIndex) => assertToken(token, `${where}.depends_on[${tokenIndex}]`,
+        STAGE_RULE_ERROR_CODES.OVERLAY_INVALID));
+      return Object.freeze({
+        op: 'add_dependency',
+        stage_code: op.stage_code,
+        artifact_type_id: op.artifact_type_id,
+        depends_on: Object.freeze([...new Set(tokens)].sort(compareCodePoints)),
+        source_ref: assertExactRef(op.source_ref, `${where}.source_ref`, STAGE_RULE_ERROR_CODES.OVERLAY_INVALID),
+        basis: op.basis,
+      });
+    }
     if (op.op === 'mark_not_applicable') {
       assertExactKeys(op, OP_MARK_NA_REQUIRED, OP_MARK_NA_OPTIONAL, where, STAGE_RULE_ERROR_CODES.OVERLAY_INVALID);
       assertSafeString(op.basis, `${where}.basis`, STAGE_RULE_ERROR_CODES.OVERLAY_INVALID);
@@ -720,9 +821,18 @@ function variantRow(stageCode, sequence, task, conditions, counts) {
   const verificationStatus = task.verification_status ?? DEFAULT_VERIFICATION_STATUS;
   const seFloor = task.se_floor ?? null;
   const maturity = task.maturity ?? null;
+  const nodeKind = task.node_kind ?? DEFAULT_NODE_KIND;
+  const isVirtual = task.is_virtual === true;
 
   let presence = EVIDENCE_TO_PRESENCE[evidenceLevel];
   if (isFixed || unmapped) presence = PRESENCE_RULE.OPTIONAL_CONTEXT;
+  // An activity or a decision is evidenced by a record rather than by a filed document, and a
+  // record can legitimately be answered with "this did not apply here, on this basis". So unless
+  // a regulation says the work must happen, such a row is asked for as present-or-not-applicable
+  // and never as flatly present.
+  if (nodeKind !== DEFAULT_NODE_KIND && evidenceLevel !== 'regulation_mandated') {
+    presence = weakenTo(presence, PRESENCE_RULE.PRESENT_OR_NOT_APPLICABLE);
+  }
   // A guidance row the checklist marked `context` is background rather than a floor: the buyer
   // owns it, or it belongs to a kind of mission this development is not running. Enforcing it
   // would report a gap against something this project was never the one to produce.
@@ -774,6 +884,18 @@ function variantRow(stageCode, sequence, task, conditions, counts) {
     alias: null,
     unmapped,
     is_fixed: isFixed,
+    node_kind: nodeKind,
+    is_virtual: isVirtual,
+    // Declared inputs are deduplicated and sorted here so that the order the spec happens to
+    // list them in cannot reach a digest or a work order.
+    depends_on: [...new Set(task.depends_on ?? [])].sort(compareCodePoints),
+    depends_on_evidence: task.depends_on_evidence ?? DEFAULT_DEPENDS_ON_EVIDENCE,
+    depends_on_refs: (task.depends_on_refs ?? []).map((ref) => Object.freeze({
+      source_key: ref.source_key, locator: ref.locator,
+    })),
+    overlay_depends_on: [],
+    overlay_dependency_refs: [],
+    evidence_record: [...new Set(task.evidence_record ?? [])].sort(compareCodePoints),
   };
 }
 
@@ -804,6 +926,17 @@ function overlayAddRow(op, sequence) {
     alias: null,
     unmapped: false,
     is_fixed: false,
+    // An `add` op names a contract deliverable, which is a document. An overlay that also wants
+    // to say what that deliverable needs first uses `add_dependency`, which is applied after all
+    // rows exist and can therefore reach this row too.
+    node_kind: DEFAULT_NODE_KIND,
+    is_virtual: false,
+    depends_on: [],
+    depends_on_evidence: DEFAULT_DEPENDS_ON_EVIDENCE,
+    depends_on_refs: [],
+    overlay_depends_on: [],
+    overlay_dependency_refs: [],
+    evidence_record: [],
   };
 }
 
@@ -858,7 +991,11 @@ function buildExpectedArtifactPolicy(stageOrder, rowsByStage, variant, overlayDi
       return {
         artifact_family_id: row.artifact_type_id,
         artifact_kind: FAMILY_TO_ARTIFACT_KIND[row.family] ?? DEFAULT_ARTIFACT_KIND,
-        expected_inputs: [],
+        // The gap-scan template has always carried this field and the compiler has always left
+        // it empty, because until D46 no rule table said what an artifact needs first. It is now
+        // the union of the declared inputs of every row in the group — the causal edges only,
+        // never the stage sequence, which the reader already has from `stage_code`.
+        expected_inputs: [...new Set(rows.flatMap((member) => member.depends_on))].sort(compareCodePoints),
         minimum_presence_rule: row.minimum_presence_rule,
         draftability_rule: row.draftability_rule,
         not_applicable_requires: [...row.not_applicable_requires],
@@ -970,14 +1107,22 @@ const emptyCounts = () => ({
   rows: 0,
   by_evidence_level: Object.fromEntries(EVIDENCE_LEVELS.map((level) => [level, 0])),
   by_presence_rule: Object.fromEntries(Object.values(PRESENCE_RULE).map((rule) => [rule, 0])),
+  by_node_kind: Object.fromEntries(NODE_KINDS.map((kind) => [kind, 0])),
   engine_requirements: 0,
   not_applicable: 0,
   overlay_added: 0,
   overlay_strengthened: 0,
   overlay_aliases: 0,
   overlay_out_of_scope: 0,
+  overlay_dependencies_added: 0,
   unmapped: 0,
   downgraded_unverified: 0,
+  // D46 bookkeeping. `dependency_edges` counts declared (row, input) pairs after deduplication;
+  // `unresolved_dependency` counts the ones naming a token nothing in this model owns, which is
+  // recorded rather than refused so that one mistyped input cannot take a whole variant down.
+  virtual_rows: 0,
+  dependency_edges: 0,
+  unresolved_dependency: 0,
 });
 
 // ---------------------------------------------------------------- entry points
@@ -1101,6 +1246,20 @@ export function compileStageRules(request) {
     if (op.op === 'alias') {
       for (const row of targeted) row.alias = op.alias;
       counts.overlay_aliases += 1;
+    } else if (op.op === 'add_dependency') {
+      // Additive only: the union of what the standard table already said and what this project's
+      // document adds. The overlay's own tokens are also recorded separately, so a reader can
+      // always tell a canonical edge from one this project asked for.
+      for (const row of targeted) {
+        row.depends_on = [...new Set([...row.depends_on, ...op.depends_on])].sort(compareCodePoints);
+        row.overlay_depends_on = [...new Set([...row.overlay_depends_on, ...op.depends_on])]
+          .sort(compareCodePoints);
+        row.overlay_dependency_refs = [
+          ...row.overlay_dependency_refs,
+          Object.freeze({ source_ref: op.source_ref, basis: op.basis }),
+        ];
+      }
+      counts.overlay_dependencies_added += 1;
     } else {
       for (const row of targeted) {
         row.draftability_rule = DRAFTABILITY.NOT_APPLICABLE;
@@ -1109,12 +1268,48 @@ export function compileStageRules(request) {
     }
   }
 
+  // Which artifact, activity, and decision tokens this compile actually produces somewhere. An
+  // input naming one of them is an edge inside this rule set; an input naming a token the shared
+  // vocabulary owns but this compile does not produce is a real dependency on work outside the
+  // compiled scope; anything else is a token nothing owns.
+  const producedTokens = new Set(rows.map((row) => row.artifact_type_id));
+  const unresolvedDependencies = [];
   for (const row of rows) {
     counts.rows += 1;
     counts.by_evidence_level[row.evidence_level] += 1;
     counts.by_presence_rule[row.minimum_presence_rule] += 1;
+    counts.by_node_kind[row.node_kind] += 1;
+    if (row.is_virtual) counts.virtual_rows += 1;
     if (row.draftability_rule === DRAFTABILITY.NOT_APPLICABLE) counts.not_applicable += 1;
+
+    const inScope = [];
+    const external = [];
+    const unresolved = [];
+    for (const token of row.depends_on) {
+      if (producedTokens.has(token)) inScope.push(token);
+      else if (artifactTypeEntry(token) !== null) external.push(token);
+      else unresolved.push(token);
+    }
+    row.dependency_resolution = Object.freeze({
+      in_scope: Object.freeze(inScope),
+      out_of_scope: Object.freeze(external),
+      unresolved: Object.freeze(unresolved),
+    });
+    counts.dependency_edges += row.depends_on.length;
+    counts.unresolved_dependency += unresolved.length;
+    if (unresolved.length > 0) {
+      unresolvedDependencies.push({
+        stage_code: row.stage_code,
+        artifact_type_id: row.artifact_type_id,
+        task_id: row.task_id,
+        depends_on: [...unresolved],
+      });
+    }
   }
+  unresolvedDependencies.sort((left, right) => compareCodePoints(
+    `${left.stage_code}${left.artifact_type_id}${left.task_id ?? ''}`,
+    `${right.stage_code}${right.artifact_type_id}${right.task_id ?? ''}`,
+  ));
 
   const ordered = sortRows(rows);
   const rowsByStage = new Map(stageOrder.map(({ stage_code: stageCode }) => [stageCode, []]));
@@ -1140,6 +1335,8 @@ export function compileStageRules(request) {
       task_id: row.task_id,
       artifact_type_id: row.artifact_type_id,
       origin: row.origin,
+      node_kind: row.node_kind,
+      is_virtual: row.is_virtual,
       evidence_level: row.evidence_level,
       se_floor: row.se_floor,
       maturity: row.maturity,
@@ -1149,6 +1346,21 @@ export function compileStageRules(request) {
       alias: row.alias,
       source_refs: row.source_refs.map((ref) => ({ source_key: ref.source_key, locator: ref.locator })),
       overlay_source_ref: row.overlay_source_ref,
+      depends_on: [...row.depends_on],
+      depends_on_evidence: row.depends_on_evidence,
+      depends_on_refs: row.depends_on_refs.map((ref) => ({ source_key: ref.source_key, locator: ref.locator })),
+      overlay_depends_on: [...row.overlay_depends_on],
+      // Which document this project's added edges rest on. Always present, usually empty: an edge
+      // the canonical table already stated is provenanced by `depends_on_refs` instead.
+      overlay_dependency_refs: row.overlay_dependency_refs.map((entry) => ({
+        source_ref: { ...entry.source_ref }, basis: entry.basis,
+      })),
+      dependency_resolution: {
+        in_scope: [...row.dependency_resolution.in_scope],
+        out_of_scope: [...row.dependency_resolution.out_of_scope],
+        unresolved: [...row.dependency_resolution.unresolved],
+      },
+      evidence_record: [...row.evidence_record],
     };
   });
 
@@ -1179,6 +1391,9 @@ export function compileStageRules(request) {
       mapping_table: canonicalDigest(compilerDomain('mapping_table'), mappingTable),
     },
     counts,
+    // Named rather than only counted: an input that resolves to nothing is a rule-authoring
+    // mistake somebody has to go and fix, and a bare number does not say which row to open.
+    unresolved_dependencies: unresolvedDependencies,
     effects: {
       erp_writes: 0,
       filesystem_writes: 0,
@@ -1195,6 +1410,310 @@ export function compileStageRules(request) {
     mapping_table: mappingTable,
     receipt,
   });
+}
+
+// ---------------------------------------------------------------- work order (D46)
+
+export const STAGE_WORK_ORDER_SCHEMA_VERSION = 'soulforge.se_stage_work_order.v0';
+
+// The custody states a per-artifact observation can carry, restated from the pilot packet
+// generator rather than imported for the same reason the policy revision is restated: this
+// module's import graph is pinned. The generator's test asserts the two lists agree.
+export const OBSERVATION_PRESENCE_STATES = Object.freeze(['present', 'unknown', 'absence_confirmed']);
+const OBSERVED_PRESENT = 'present';
+const UNOBSERVED = 'unobserved';
+const OBSERVATION_FIELDS = Object.freeze(['artifact_type_id', 'presence_state']);
+
+// Which tie-breaks this ordering actually applies, and which one it cannot. The plan asks for
+// "gate entrance criteria first", but no rule spec marks which rows are a gate's entrance
+// criteria, and inventing that marking here would be the compiler writing a rule. So the
+// tie-break is declared skipped and named, rather than approximated.
+const WORK_ORDER_TIE_BREAKS_APPLIED = Object.freeze([
+  'dependency_topological_within_stage',
+  'unblocked_before_blocked',
+  'evidence_rank',
+  'artifact_type_id',
+]);
+const WORK_ORDER_TIE_BREAKS_SKIPPED = Object.freeze([
+  'gate_entrance_criteria_first: no rule spec field marks a row as gate entrance criteria',
+]);
+
+function validateObservations(observations) {
+  const rows = assertArray(observations, 'observations', MAX.tasks,
+    STAGE_RULE_ERROR_CODES.WORK_ORDER_INVALID);
+  const byToken = new Map();
+  rows.forEach((row, index) => {
+    const where = `observations[${index}]`;
+    assertExactKeys(row, OBSERVATION_FIELDS, [], where, STAGE_RULE_ERROR_CODES.WORK_ORDER_INVALID);
+    assertToken(row.artifact_type_id, `${where}.artifact_type_id`, STAGE_RULE_ERROR_CODES.WORK_ORDER_INVALID);
+    assertEnum(row.presence_state, OBSERVATION_PRESENCE_STATES, `${where}.presence_state`,
+      STAGE_RULE_ERROR_CODES.WORK_ORDER_INVALID);
+    if (byToken.has(row.artifact_type_id)) {
+      // Two states for one artifact is not something to average. The caller has to say which
+      // one it means before anything can be ordered against it.
+      fail(STAGE_RULE_ERROR_CODES.WORK_ORDER_INVALID, 'one artifact type carries two observations',
+        { where, artifact_type_id: row.artifact_type_id });
+    }
+    byToken.set(row.artifact_type_id, row.presence_state);
+  });
+  return byToken;
+}
+
+/**
+ * Turns a compile result into "what to do first", per target stage.
+ *
+ * Two different things are being separated here, and keeping them apart is the whole point.
+ *
+ * - A **causal edge** (`depends_on`) says one piece of work needs another's result. It comes from
+ *   a canonical text that said so, or it is `unstated` practice. It is a property of the rules.
+ * - The **stage sequence** says which review comes first. It comes from the lifecycle, not from
+ *   any input relation. An input produced at an earlier stage is already ordered by that, which
+ *   is why the topological pass only has to run inside one stage.
+ *
+ * Observations mark what is already done; they do not reorder the rules. An item whose declared
+ * inputs are all observed present sorts ahead of one still waiting, but an edge between two items
+ * stays an edge whatever has been observed, so the same rule set always yields the same shape.
+ *
+ * With no observations at all — the empty project — every declared input is unsatisfied, so a
+ * stage opens with the items that need nothing first.
+ *
+ * @param compileResult the return value of `compileStageRules`
+ * @param observations optional `[{artifact_type_id, presence_state}]`, the per-artifact projection
+ *        of the pilot packet's `artifact_observations`
+ * @returns deeply frozen `{schema_version, stages, receipt}`
+ */
+export function orderStageWork(compileResult, observations = []) {
+  assertPlainObject(compileResult, 'compile_result', STAGE_RULE_ERROR_CODES.WORK_ORDER_INVALID);
+  const mappingTable = assertArray(compileResult.mapping_table, 'compile_result.mapping_table',
+    MAX.gates * MAX.tasks, STAGE_RULE_ERROR_CODES.WORK_ORDER_INVALID);
+  assertPlainObject(compileResult.needs_stage_declarations, 'compile_result.needs_stage_declarations',
+    STAGE_RULE_ERROR_CODES.WORK_ORDER_INVALID);
+  const stageDeclarations = assertArray(compileResult.needs_stage_declarations.stages,
+    'compile_result.needs_stage_declarations.stages', MAX.gates, STAGE_RULE_ERROR_CODES.WORK_ORDER_INVALID);
+  if (mappingTable.length === 0) {
+    fail(STAGE_RULE_ERROR_CODES.WORK_ORDER_INVALID, 'a compile result with no mapping row orders nothing', {});
+  }
+  const observedByToken = validateObservations(observations);
+
+  const stageSequence = new Map(stageDeclarations.map((row) => [row.stage_code, row.sequence]));
+
+  // One node per (stage, artifact type). Context rows are nodes too: a required item can sit
+  // downstream of one, and dropping it would lose that ordering.
+  const nodes = new Map();
+  const nodeKey = (stageCode, token) => `${stageCode}${token}`;
+  const producingStages = new Map();
+  for (const row of mappingTable) {
+    const key = nodeKey(row.stage_code, row.artifact_type_id);
+    let node = nodes.get(key);
+    if (node === undefined) {
+      node = {
+        stage_code: row.stage_code,
+        stage_sequence: stageSequence.get(row.stage_code) ?? STAGE_CODE_TO_SEQUENCE.get(row.stage_code) ?? 0,
+        artifact_type_id: row.artifact_type_id,
+        node_kind: row.node_kind ?? DEFAULT_NODE_KIND,
+        is_virtual: row.is_virtual === true,
+        evidence_level: row.evidence_level,
+        minimum_presence_rule: row.minimum_presence_rule,
+        engine_requirement_id: row.engine_requirement_id ?? null,
+        alias: row.alias ?? null,
+        evidence_record: [],
+        declared: new Set(),
+        in_scope: new Set(),
+        out_of_scope: new Set(),
+        unresolved: new Set(),
+      };
+      nodes.set(key, node);
+    }
+    // The row that speaks for the group is the one the engine bound to a requirement; failing
+    // that, the strongest presence rule. Same rule as `governingRow`, read off the table.
+    if (node.engine_requirement_id === null && row.engine_requirement_id !== null) {
+      node.engine_requirement_id = row.engine_requirement_id;
+      node.evidence_level = row.evidence_level;
+      node.minimum_presence_rule = row.minimum_presence_rule;
+      node.node_kind = row.node_kind ?? DEFAULT_NODE_KIND;
+    } else if (PRESENCE_RANK[row.minimum_presence_rule] > PRESENCE_RANK[node.minimum_presence_rule]) {
+      node.evidence_level = row.evidence_level;
+      node.minimum_presence_rule = row.minimum_presence_rule;
+    }
+    if (row.alias !== null && row.alias !== undefined) node.alias = row.alias;
+    if (row.is_virtual === true) node.is_virtual = true;
+    for (const token of row.evidence_record ?? []) node.evidence_record.push(token);
+    for (const token of row.depends_on ?? []) node.declared.add(token);
+    const resolution = row.dependency_resolution ?? { in_scope: [], out_of_scope: [], unresolved: [] };
+    for (const token of resolution.in_scope) node.in_scope.add(token);
+    for (const token of resolution.out_of_scope) node.out_of_scope.add(token);
+    for (const token of resolution.unresolved) node.unresolved.add(token);
+
+    if (!producingStages.has(row.artifact_type_id)) producingStages.set(row.artifact_type_id, new Set());
+    producingStages.get(row.artifact_type_id).add(row.stage_code);
+  }
+
+  const counts = {
+    stages: 0,
+    work_items: 0,
+    context_items: 0,
+    ordering_edges: 0,
+    forward_dependency: 0,
+    earlier_stage_dependency: 0,
+    out_of_scope_dependency: 0,
+    unresolved_dependency: 0,
+    ready_at_start: 0,
+    blocked_at_start: 0,
+    observed_present: 0,
+  };
+
+  const stages = [];
+  for (const { stage_code: stageCode, sequence } of [...stageDeclarations]
+    .sort((left, right) => left.sequence - right.sequence)) {
+    const stageNodes = [...nodes.values()].filter((node) => node.stage_code === stageCode);
+    if (stageNodes.length === 0) continue;
+    counts.stages += 1;
+
+    const prepared = stageNodes.map((node) => {
+      const declared = [...node.declared].sort(compareCodePoints);
+      const sameStage = [];
+      const earlier = [];
+      const forward = [];
+      for (const token of [...node.in_scope].sort(compareCodePoints)) {
+        const producers = producingStages.get(token) ?? new Set();
+        if (producers.has(stageCode)) sameStage.push(token);
+        else {
+          const sequences = [...producers].map((code) => stageSequence.get(code)
+            ?? STAGE_CODE_TO_SEQUENCE.get(code) ?? 0);
+          if (sequences.some((value) => value < sequence)) earlier.push(token);
+          else forward.push(token);
+        }
+      }
+      const satisfied = declared.filter((token) => observedByToken.get(token) === OBSERVED_PRESENT);
+      const blockedBy = declared.filter((token) => observedByToken.get(token) !== OBSERVED_PRESENT);
+      counts.earlier_stage_dependency += earlier.length;
+      counts.forward_dependency += forward.length;
+      counts.out_of_scope_dependency += node.out_of_scope.size;
+      counts.unresolved_dependency += node.unresolved.size;
+      const observationState = observedByToken.get(node.artifact_type_id) ?? UNOBSERVED;
+      if (observationState === OBSERVED_PRESENT) counts.observed_present += 1;
+      if (blockedBy.length === 0) counts.ready_at_start += 1; else counts.blocked_at_start += 1;
+      return {
+        node,
+        same_stage_inputs: sameStage,
+        earlier_stage_inputs: earlier,
+        forward_stage_inputs: forward,
+        out_of_scope_inputs: [...node.out_of_scope].sort(compareCodePoints),
+        unresolved_inputs: [...node.unresolved].sort(compareCodePoints),
+        satisfied_inputs: satisfied,
+        blocked_by: blockedBy,
+        declared,
+        observation_state: observationState,
+      };
+    });
+
+    const byToken = new Map(prepared.map((item) => [item.node.artifact_type_id, item]));
+    const indegree = new Map(prepared.map((item) => [item.node.artifact_type_id, 0]));
+    const dependents = new Map(prepared.map((item) => [item.node.artifact_type_id, []]));
+    for (const item of prepared) {
+      for (const token of item.same_stage_inputs) {
+        if (!byToken.has(token) || token === item.node.artifact_type_id) continue;
+        dependents.get(token).push(item.node.artifact_type_id);
+        indegree.set(item.node.artifact_type_id, indegree.get(item.node.artifact_type_id) + 1);
+        counts.ordering_edges += 1;
+      }
+    }
+
+    const sortKey = (item) => [
+      item.blocked_by.length === 0 ? '0' : '1',
+      String(EVIDENCE_WORK_RANK[item.node.evidence_level] ?? 9),
+      item.node.artifact_type_id,
+    ].join('');
+    const emitted = [];
+    const ready = prepared.filter((item) => indegree.get(item.node.artifact_type_id) === 0);
+    while (ready.length > 0) {
+      ready.sort((left, right) => compareCodePoints(sortKey(left), sortKey(right)));
+      const next = ready.shift();
+      emitted.push(next);
+      for (const token of dependents.get(next.node.artifact_type_id)) {
+        const remaining = indegree.get(token) - 1;
+        indegree.set(token, remaining);
+        if (remaining === 0) ready.push(byToken.get(token));
+      }
+    }
+    if (emitted.length !== prepared.length) {
+      // A ring of inputs has no first item. Emitting some arbitrary member would be the compiler
+      // deciding a question the rules left contradictory, so this is refused and named.
+      const stuck = prepared
+        .filter((item) => indegree.get(item.node.artifact_type_id) > 0)
+        .map((item) => item.node.artifact_type_id)
+        .sort(compareCodePoints);
+      fail(STAGE_RULE_ERROR_CODES.DEPENDENCY_CYCLE,
+        'the declared inputs of one stage form a cycle, so no item can come first',
+        { stage_code: stageCode, artifact_type_ids: stuck });
+    }
+
+    const workItems = [];
+    for (const item of emitted) {
+      if (item.node.engine_requirement_id === null) {
+        counts.context_items += 1;
+        continue;
+      }
+      workItems.push({
+        order_index: workItems.length,
+        stage_code: stageCode,
+        artifact_type_id: item.node.artifact_type_id,
+        node_kind: item.node.node_kind,
+        is_virtual: item.node.is_virtual,
+        evidence_level: item.node.evidence_level,
+        evidence_rank: EVIDENCE_WORK_RANK[item.node.evidence_level] ?? 9,
+        minimum_presence_rule: item.node.minimum_presence_rule,
+        engine_requirement_id: item.node.engine_requirement_id,
+        alias: item.node.alias,
+        evidence_record: [...new Set(item.node.evidence_record)].sort(compareCodePoints),
+        depends_on: item.declared,
+        same_stage_inputs: item.same_stage_inputs,
+        earlier_stage_inputs: item.earlier_stage_inputs,
+        forward_stage_inputs: item.forward_stage_inputs,
+        out_of_scope_inputs: item.out_of_scope_inputs,
+        unresolved_inputs: item.unresolved_inputs,
+        satisfied_inputs: item.satisfied_inputs,
+        blocked_by: item.blocked_by,
+        ready: item.blocked_by.length === 0,
+        observation_state: item.observation_state,
+      });
+    }
+    counts.work_items += workItems.length;
+    if (workItems.length === 0) continue;
+    stages.push({ stage_code: stageCode, stage_sequence: sequence, work_items: workItems });
+  }
+
+  if (stages.length === 0) {
+    fail(STAGE_RULE_ERROR_CODES.WORK_ORDER_INVALID,
+      'no target stage carries a work item to order', {});
+  }
+
+  const receipt = {
+    schema_version: STAGE_WORK_ORDER_SCHEMA_VERSION,
+    compiler_version: COMPILER_VERSION,
+    deterministic: true,
+    claim_ceiling: 'observed',
+    tie_breaks_applied: [...WORK_ORDER_TIE_BREAKS_APPLIED],
+    tie_breaks_skipped: [...WORK_ORDER_TIE_BREAKS_SKIPPED],
+    evidence_rank: { ...EVIDENCE_WORK_RANK },
+    input_digests: {
+      mapping_table: canonicalDigest(compilerDomain('mapping_table'), mappingTable),
+      observations: canonicalDigest(compilerDomain('work_order_observations'), [...observations]),
+    },
+    output_digests: {
+      stages: canonicalDigest(compilerDomain('stage_work_order'), stages),
+    },
+    counts,
+    effects: {
+      erp_writes: 0,
+      filesystem_writes: 0,
+      model_calls: 0,
+      network_calls: 0,
+      clock_reads: 0,
+    },
+  };
+
+  return deepFreeze({ schema_version: STAGE_WORK_ORDER_SCHEMA_VERSION, stages, receipt });
 }
 
 /**

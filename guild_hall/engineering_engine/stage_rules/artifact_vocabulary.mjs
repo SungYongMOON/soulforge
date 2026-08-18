@@ -38,6 +38,12 @@ export const ARTIFACT_FAMILIES = Object.freeze([
   'closeout',
   'internal',
   'prime_contract_item',
+  // D46 node kinds that are not documents. An `activity` is work a canonical text says has to
+  // happen; a `decision` is a state a canonical text says has to be declared (a baseline, a
+  // selected concept). Neither has a folder of its own — what is filed is the record that shows
+  // it happened, which the rule row names in `evidence_record`.
+  'activity',
+  'decision',
 ]);
 
 // The capability tokens the engine already observes in role rosters. A vocabulary entry may
@@ -231,6 +237,56 @@ export const ARTIFACT_VOCABULARY_V0 = Object.freeze([
   entry('tech_manual', 'closeout', '운용·정비 기술교범', 'Operator and Maintenance Technical Manual', 'project_management'),
   entry('training_material', 'closeout', '교육훈련 자료·이수기록', 'Training Material and Completion Record', 'project_management'),
   entry('action_item_log', 'review_result', '검토 조치사항 종결 대장', 'Review Action Item Closure Log', 'verification_review'),
+
+  // -------------------------------------------------------------- activity and decision nodes (2026-08-18, D46)
+  //
+  // The seventeen common technical processes, plus the baselines and the study a canonical text
+  // names as a state to be declared. A token here is not a document: it is work that has to
+  // happen, or a state that has to be declared, and the row that carries it names in
+  // `evidence_record` which record would show it. Naming these lets a rule table say what a
+  // document needs before it can be written, which is what `depends_on` is for.
+  //
+  // Source correspondence per token, the per-process input and output lists behind each edge and
+  // the coverage gaps are in `.registry/skills/se_foldertree_generate/codex/references/se_io_relations_v0.md`.
+  // Where two canonical texts name the same process differently the token is one of the two
+  // names and the other is recorded there; where only one text names a process at all, the token
+  // exists but its edges are single-source.
+  entry('act_stakeholder_expectations', 'activity', '이해관계자 기대 정의', 'Stakeholder Expectations Definition', 'systems_engineering'),
+  entry('act_requirements_analysis', 'activity', '요구사항 분석', 'Requirements Analysis', 'systems_engineering'),
+  entry('act_logical_decomposition', 'activity', '논리적 분해·기능분석', 'Logical Decomposition', 'systems_engineering'),
+  entry('act_architecture_design', 'activity', '아키텍처·설계해 정의', 'Architecture Design', 'systems_engineering'),
+  entry('act_implementation', 'activity', '구현·제작', 'Product Implementation', 'systems_engineering'),
+  entry('act_integration', 'activity', '통합', 'Product Integration', 'systems_engineering'),
+  entry('act_verification', 'activity', '검증', 'Product Verification', 'verification_review'),
+  entry('act_validation', 'activity', '확인', 'Product Validation', 'verification_review'),
+  entry('act_transition', 'activity', '인도·전환', 'Product Transition', 'project_management'),
+  entry('act_technical_planning', 'activity', '기술 계획', 'Technical Planning', 'systems_engineering'),
+  entry('act_requirements_management', 'activity', '요구사항 관리', 'Requirements Management', 'systems_engineering'),
+  entry('act_interface_management', 'activity', '인터페이스 관리', 'Interface Management', 'systems_engineering'),
+  entry('act_risk_management', 'activity', '위험 관리', 'Technical Risk Management', 'risk_management'),
+  entry('act_configuration_management', 'activity', '형상 관리', 'Configuration Management', 'configuration_management'),
+  entry('act_technical_data_management', 'activity', '기술자료 관리', 'Technical Data Management', 'configuration_management'),
+  entry('act_technical_assessment', 'activity', '기술 평가·성과측정', 'Technical Assessment', 'systems_engineering'),
+  entry('act_decision_analysis', 'activity', '결정 분석·절충연구', 'Decision Analysis', 'systems_engineering'),
+  // Named by the national practice guide as its own process rather than folded into the design
+  // one, and by the NASA handbook as logical decomposition. Kept separate from
+  // `act_architecture_design` because the two texts treat "what functions, allocated where" and
+  // "which design solution" as different work with different inputs.
+  entry('act_functional_analysis_allocation', 'activity', '기능분석·기능할당', 'Functional Analysis and Allocation', 'systems_engineering'),
+  // The technical review meeting itself. The national review guidebook states a different INPUT
+  // list for every gate, which is the most directly useful "what has to exist before this review"
+  // the canon gives; the row for it therefore repeats gate by gate with its own inputs. Its
+  // records are the minutes and the review result report.
+  entry('act_technical_review', 'activity', '기술검토회의 수행', 'Technical Review Conducted', 'verification_review'),
+
+  // The three baselines a canonical text names as established at a named review. A baseline is
+  // not the document that identifies it: `fci` / `dci` / `pci` are the configuration
+  // identification documents, and these tokens are the act of putting the configuration under
+  // control. A development can hold the document and not have declared the baseline, which is
+  // exactly the difference this layer exists to make visible.
+  entry('dec_functional_baseline', 'decision', '기능 기준선 확정', 'Functional Baseline Established', 'configuration_management'),
+  entry('dec_allocated_baseline', 'decision', '할당 기준선 확정', 'Allocated Baseline Established', 'configuration_management'),
+  entry('dec_product_baseline', 'decision', '제품 기준선 확정', 'Product Baseline Established', 'configuration_management'),
 
   // -------------------------------------------------------------- internal management
   //

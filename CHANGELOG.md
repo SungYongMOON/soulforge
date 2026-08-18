@@ -1,5 +1,54 @@
 # CHANGELOG
 
+## 2026-08-18 - Activity/decision rule rows, `depends_on` from canon, and a compiler work order ("what first")
+
+- The rule tables could name documents and nothing else, so they could not say "do the functional
+  analysis before you write the design description". Rows now carry `node_kind`
+  (`artifact` | `activity` | `decision`, design D46). An activity or a decision is not a document:
+  its evidence is a record — the row's new `evidence_record` names which one — and it gets no
+  folder (`is_virtual: true`, which `generate_tree.py` skips). Folder generation is unchanged: a
+  dry run still produces 145 task folders for 체계개발/LIG/A and 229 for 일반SE.
+- Rows also carry `depends_on` with its own citations (`depends_on_refs`) and its own grade
+  (`depends_on_evidence`, defaulting to `unstated` rather than inheriting the row's grade). The
+  edges were derived from canon by four parallel readers: NASA SE Handbook SP-2016-6105 Rev2
+  chapters 4-6, NASA NPR 7123.1D section 3.2 and appendix G, DoD SE Guidebook 2022 section 4, and
+  the 방사청 SE 기술검토회의 가이드북 2017 per-review INPUT/OUTPUT tables (2024 OCR cross-check)
+  plus the SE 기술관리 실무지침서 activity procedures. Result: 206 edges (128 generic-SE,
+  78 national-common), 19 activity tokens and 3 baseline decision tokens added to the vocabulary
+  (130 → 152 tokens, 17 → 19 families).
+- **Source correction**: NPR 7123.1D appendix C is "Reserved" in Rev D (the core SE process
+  guidance moved to NASA/SP-6105), so it is not cited; Rev D section 3 carries no normative
+  per-process input/output table, and the DoD guidebook's 2022 section 4 has no inputs/activities/
+  outputs template either. Only the NASA handbook numbers an Inputs and an Outputs subsection for
+  every process. Measured coverage is therefore stated rather than implied: 243 of 773 extracted
+  items became an edge (31.4%), and **no edge is regulation-grade yet** because all four source
+  families read here are guidance or guidebooks.
+- Specs: `SE_FolderTree_GenericSE_Base.md` v0.1 → **v0.2** (250 task = 229 artifacts + 18 activity +
+  3 decision rows; 82 rows with `depends_on`) and `SE_FolderTree_Guide.md` v0.8 → **v0.9** (154 task
+  = 145 artifacts + 9 activity rows; 12 rows with `depends_on`). The seven `act_technical_review`
+  rows carry the gate-by-gate input list the review guidebook actually states.
+- New pure export `orderStageWork(compileResult, observations?)` answers "what first" per gate. It
+  keeps two things apart that are easy to confuse: a **causal edge** (`depends_on`, a property of
+  the rules) and the **stage sequence** (the lifecycle). Order is topological inside a gate, then
+  unblocked before blocked, then evidence rank (regulation > guidebook > prime contract > guidance
+  > unstated), then the token. A ring is refused with `SE_STAGE_RULE_DEPENDENCY_CYCLE` rather than
+  broken arbitrarily; an input naming a token nothing owns is recorded in the receipt's
+  `unresolved_dependencies` rather than failing the compile. The "gate entrance criteria first"
+  tie-break the plan asked for is declared **skipped** in the receipt, because no spec field marks
+  a row as entrance criteria and inventing one would be the compiler writing a rule. Observations
+  mark what is already done; they never move an item ahead of its own input.
+- Overlays gain `add_dependency` (exact `source_ref` + `basis`, union only). There is no
+  `remove_dependency`, for the same reason there is no way to lower a canonical evidence level.
+- Verification: `export_variant_json.py --check` PASS (5 compiled variants), `validate:se-stage-rules`
+  45/45 (was 35 — ten new cases, two widened), `validate:canon`, `validate:path-length` and the
+  local absolute path policy PASS, and the layered path (national common + prime overlay) still
+  compiles to the same engine requirements as the merged spec at 120_CDR. Public-safe fixture
+  `docs/architecture/workspace/examples/se_stage_rules/stage_work_order_synthetic_v0.json` added.
+- Derivation record: `.registry/skills/se_foldertree_generate/codex/references/se_io_relations_v0.md`
+  (method, per-source coverage and limits, token-to-canon correspondence, placement rules, 8 open
+  items). Working files stay in the private knowledge worksite with a metadata-only receipt under
+  `_workmeta/system/reports/se_stage_rules/`.
+
 ## 2026-08-18 - Observation candidate supplier (project material to candidate artifact observations)
 
 - New `guild_hall/engineering_engine/observation/` (plan slice A1, the engine's "eye"): three pure
@@ -34,6 +83,7 @@
   `generatePilotPacketFromStageRules`, and the CLI's create-only boundary.
 - Docs: engine README gains a `observation/` section, manual 07 gains step 0 of the rerun recipe,
   and the manual README's agreed-but-missing table moves 관측 공급 to "부분 → 후보 생성기 착지(확정은 사람)".
+
 
 ## 2026-08-18 - Engine development manual + generic-layer derivation record + source-claim correction
 

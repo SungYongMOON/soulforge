@@ -13,7 +13,7 @@
   "derived_from": {
     "rule": "tasks with evidence_level=prime_contract removed; everything else verbatim",
     "spec_file": "assets/SE_FolderTree_Guide.md",
-    "spec_sha256": "782e11ca8c28e9a236df0bc19aea0534f81da2a16eacc84d91cc6be25cc23e39",
+    "spec_sha256": "01d2fc9c695a73c98e2eaf699b650c50d67f65d9e44504bf7e6183178637b6d2",
     "support_key": "system_dev_lig_grade_a"
   },
   "gates": [
@@ -29,6 +29,7 @@
           "id": 31,
           "is_fixed": true,
           "name": "INBOX_분류전",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -42,6 +43,7 @@
           "id": 32,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -55,6 +57,7 @@
           "id": 33,
           "is_fixed": true,
           "name": "TDP_기술자료",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -70,6 +73,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 36,
           "name": "체계공학관리계획서(SEMP)",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 4",
           "source_refs": [
             {
@@ -110,6 +114,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 37,
           "name": "품질보증계획서(QAP)",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 5",
           "source_refs": [
             {
@@ -142,6 +147,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 38,
           "name": "착수회의록(Kick-off)",
+          "node_kind": "artifact",
           "source": "LIG 개발품질 6",
           "source_refs": [
             {
@@ -158,10 +164,21 @@
             "exploratory_skipped"
           ],
           "artifact_type_id": "ord",
+          "depends_on": [
+            "act_stakeholder_expectations"
+          ],
+          "depends_on_evidence": "guidebook_recommended",
+          "depends_on_refs": [
+            {
+              "locator": "표 26 (p.144); 그림 33 (p.141)",
+              "source_key": "dapa_se_technical_management_practice_guide"
+            }
+          ],
           "desc": "운용 시나리오 및 사용자 요구사항 분석",
           "evidence_level": "unstated",
           "id": 39,
           "name": "운용개념(CONOPS)",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 7",
           "source_refs": [
             {
@@ -186,10 +203,21 @@
             "exploratory_skipped"
           ],
           "artifact_type_id": "ssrs",
+          "depends_on": [
+            "act_functional_analysis_allocation"
+          ],
+          "depends_on_evidence": "guidebook_recommended",
+          "depends_on_refs": [
+            {
+              "locator": "3.5 (p.54); 표 3 순서 4 '체계 기능분석' (p.14)",
+              "source_key": "dapa_se_technical_management_practice_guide"
+            }
+          ],
           "desc": "(Draft) 기술적 요구사항 변환 초안",
           "evidence_level": "regulation_mandated",
           "id": 40,
           "name": "체계요구사항명세서(SSRS)_D",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 9",
           "source_refs": [
             {
@@ -222,6 +250,7 @@
           "evidence_level": "unstated",
           "id": 41,
           "name": "가정및제약사항",
+          "node_kind": "artifact",
           "source": "방사청 가이드북",
           "source_refs": [
             {
@@ -246,6 +275,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 42,
           "name": "초기위험관리자료",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 5",
           "source_refs": [
             {
@@ -274,6 +304,7 @@
           "evidence_level": "regulation_mandated",
           "id": 43,
           "name": "SRR_회의록및조치결과",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 11",
           "source_refs": [
             {
@@ -302,6 +333,7 @@
           "evidence_level": "unstated",
           "id": 44,
           "name": "계약자료제출목록(CDRL)",
+          "node_kind": "artifact",
           "source": "계약서 12",
           "source_refs": [
             {
@@ -327,6 +359,7 @@
           "evidence_level": "regulation_mandated",
           "id": 45,
           "name": "SW개발계획서(SDP)",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 13",
           "source_refs": [
             {
@@ -355,6 +388,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 46,
           "name": "시험평가기본계획서(TEMP)_D",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 14",
           "source_refs": [
             {
@@ -383,6 +417,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 47,
           "name": "기능형상식별서(FCI)_D",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 5",
           "source_refs": [
             {
@@ -411,6 +446,7 @@
           "evidence_level": "regulation_mandated",
           "id": 48,
           "name": "연동통제문서(ICD)_D",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 13",
           "source_refs": [
             {
@@ -429,10 +465,21 @@
         {
           "added_by_verification": "2026-08-18",
           "artifact_type_id": "p_temp",
+          "depends_on": [
+            "act_functional_analysis_allocation"
+          ],
+          "depends_on_evidence": "guidebook_recommended",
+          "depends_on_refs": [
+            {
+              "locator": "3.5 (p.54); 표 3 순서 4 '체계 기능분석' (p.14)",
+              "source_key": "dapa_se_technical_management_practice_guide"
+            }
+          ],
           "desc": "SRR 단계 예비 시험평가 기본계획, SFR 이후 TEMP로 발전",
           "evidence_level": "regulation_mandated",
           "id": 49,
           "name": "예비시험평가기본계획서(P-TEMP)",
+          "node_kind": "artifact",
           "source": "국방전력발전업무훈령 제63조①",
           "source_refs": [
             {
@@ -463,6 +510,7 @@
           "evidence_level": "regulation_mandated",
           "id": 50,
           "name": "M&S활용계획서",
+          "node_kind": "artifact",
           "source": "방위사업관리규정 제64조①",
           "source_refs": [
             {
@@ -493,6 +541,7 @@
           "evidence_level": "regulation_mandated",
           "id": 51,
           "name": "상호운용성확보계획서",
+          "node_kind": "artifact",
           "source": "방위사업관리규정 제41조·제42조",
           "source_refs": [
             {
@@ -523,6 +572,7 @@
           "evidence_level": "regulation_mandated",
           "id": 52,
           "name": "RAM업무계획서(RAM)",
+          "node_kind": "artifact",
           "source": "방위사업관리규정 제76조⑤",
           "source_refs": [
             {
@@ -556,6 +606,7 @@
           "evidence_level": "regulation_mandated",
           "id": 53,
           "name": "업무분할구조(WBS)",
+          "node_kind": "artifact",
           "source": "방위사업관리규정 제78조⑨",
           "source_refs": [
             {
@@ -578,6 +629,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 54,
           "name": "형상관리계획서(CMP)",
+          "node_kind": "artifact",
           "source": "SE기반 기술검토회의 가이드북 p.45",
           "source_refs": [
             {
@@ -604,10 +656,21 @@
         {
           "added_by_verification": "2026-08-18",
           "artifact_type_id": "technical_review_package",
+          "depends_on": [
+            "act_functional_analysis_allocation"
+          ],
+          "depends_on_evidence": "guidebook_recommended",
+          "depends_on_refs": [
+            {
+              "locator": "3.5 (p.54); 표 3 순서 4 '체계 기능분석' (p.14)",
+              "source_key": "dapa_se_technical_management_practice_guide"
+            }
+          ],
           "desc": "공식 기술검토회의 2주 전 제출하는 검토자료 본체",
           "evidence_level": "regulation_mandated",
           "id": 55,
           "name": "기술검토회의제출자료",
+          "node_kind": "artifact",
           "source": "방위사업관리규정 제70조③",
           "source_refs": [
             {
@@ -630,6 +693,87 @@
           "template": "없음",
           "term": "기술검토회의자료",
           "verification_status": "source_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_functional_analysis_allocation",
+          "desc": "Functional analysis and allocation — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "guidebook_recommended",
+          "evidence_record": [
+            "p_temp",
+            "ssrs",
+            "technical_review_package"
+          ],
+          "id": 56,
+          "is_virtual": true,
+          "name": "기능분석·기능할당(활동)",
+          "node_kind": "activity",
+          "source": "방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력",
+          "source_refs": [
+            {
+              "locator": "3.5 (p.54); 표 3 순서 4 '체계 기능분석' (p.14)",
+              "source_key": "dapa_se_technical_management_practice_guide"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_stakeholder_expectations",
+          "desc": "Stakeholder expectations definition — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "guidebook_recommended",
+          "evidence_record": [
+            "ord"
+          ],
+          "id": 57,
+          "is_virtual": true,
+          "name": "이해관계자 기대 정의(활동)",
+          "node_kind": "activity",
+          "source": "방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력",
+          "source_refs": [
+            {
+              "locator": "표 26 (p.144); 그림 33 (p.141)",
+              "source_key": "dapa_se_technical_management_practice_guide"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_technical_review",
+          "depends_on": [
+            "ord"
+          ],
+          "depends_on_evidence": "guidebook_recommended",
+          "depends_on_refs": [
+            {
+              "locator": "p.49 (바. 주요 산출물)",
+              "source_key": "dapa_se_technical_review_guidebook_2017"
+            }
+          ],
+          "desc": "Technical review conducted — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "guidebook_recommended",
+          "evidence_record": [
+            "review_minutes_srr"
+          ],
+          "id": 58,
+          "is_virtual": true,
+          "name": "기술검토회의 수행(활동)",
+          "node_kind": "activity",
+          "source": "방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력",
+          "source_refs": [
+            {
+              "locator": "p.49 (바. 주요 산출물)",
+              "source_key": "dapa_se_technical_review_guidebook_2017"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
         }
       ]
     },
@@ -645,6 +789,7 @@
           "id": 61,
           "is_fixed": true,
           "name": "INBOX_분류전",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -658,6 +803,7 @@
           "id": 62,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -671,6 +817,7 @@
           "id": 63,
           "is_fixed": true,
           "name": "TDP_기술자료",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -679,10 +826,21 @@
         },
         {
           "artifact_type_id": "ssrs",
+          "depends_on": [
+            "act_functional_analysis_allocation"
+          ],
+          "depends_on_evidence": "guidebook_recommended",
+          "depends_on_refs": [
+            {
+              "locator": "3.5 (p.54); 표 3 순서 4 '체계 기능분석' (p.14)",
+              "source_key": "dapa_se_technical_management_practice_guide"
+            }
+          ],
           "desc": "(Final) 기능 기준선 확정본",
           "evidence_level": "unstated",
           "id": 64,
           "name": "체계요구사항명세서(SSRS)_F",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 15",
           "source_refs": [
             {
@@ -708,6 +866,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 65,
           "name": "기능분석및할당자료",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 16",
           "source_refs": [
             {
@@ -737,6 +896,7 @@
           "evidence_level": "unstated",
           "id": 66,
           "name": "요구사항추적표(RTM)",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 17",
           "source_refs": [
             {
@@ -766,6 +926,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 67,
           "name": "연동통제문서(ICD)_Prelim",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 18",
           "source_refs": [
             {
@@ -783,6 +944,7 @@
           "evidence_level": "unstated",
           "id": 68,
           "name": "검증확인전략(V&V)",
+          "node_kind": "artifact",
           "source": "시험평가 19",
           "source_refs": [
             {
@@ -812,6 +974,7 @@
           "evidence_level": "unstated",
           "id": 69,
           "name": "대안분석(Trade-Study)",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 8",
           "source_refs": [
             {
@@ -833,6 +996,7 @@
           "evidence_level": "regulation_mandated",
           "id": 70,
           "name": "SFR_회의록및조치결과",
+          "node_kind": "artifact",
           "source": "LIG 개발품질 21",
           "source_refs": [
             {
@@ -854,6 +1018,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 71,
           "name": "기능형상식별서(FCI)_F",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 18",
           "source_refs": [
             {
@@ -883,6 +1048,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 72,
           "name": "HW요구사항명세서(HRS)_D",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 22",
           "source_refs": [
             {
@@ -907,6 +1073,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 73,
           "name": "SW요구사항명세서(SRS)_D",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 18",
           "source_refs": [
             {
@@ -924,6 +1091,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 74,
           "name": "체계설계기술서(SSDD)_D",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 18",
           "source_refs": [
             {
@@ -934,6 +1102,41 @@
           "template": "p.50 (산출물) 18",
           "term": "SSDD",
           "verification_status": "source_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_technical_review",
+          "depends_on": [
+            "icd",
+            "ord",
+            "ssrs"
+          ],
+          "depends_on_evidence": "guidebook_recommended",
+          "depends_on_refs": [
+            {
+              "locator": "p.60 (바. 주요 산출물)",
+              "source_key": "dapa_se_technical_review_guidebook_2017"
+            }
+          ],
+          "desc": "Technical review conducted — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "guidebook_recommended",
+          "evidence_record": [
+            "review_minutes_sfr"
+          ],
+          "id": 75,
+          "is_virtual": true,
+          "name": "기술검토회의 수행(활동)",
+          "node_kind": "activity",
+          "source": "방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력",
+          "source_refs": [
+            {
+              "locator": "p.60 (바. 주요 산출물)",
+              "source_key": "dapa_se_technical_review_guidebook_2017"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
         }
       ]
     },
@@ -949,6 +1152,7 @@
           "id": 91,
           "is_fixed": true,
           "name": "INBOX_분류전",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -962,6 +1166,7 @@
           "id": 92,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -975,6 +1180,7 @@
           "id": 93,
           "is_fixed": true,
           "name": "TDP_기술자료",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -987,6 +1193,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 95,
           "name": "체계아키텍처및형상식별서(안)",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 23",
           "source_refs": [
             {
@@ -1020,6 +1227,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 96,
           "name": "체계설계기술서(SSDD)_F",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 24",
           "source_refs": [
             {
@@ -1041,6 +1249,7 @@
           "evidence_level": "unstated",
           "id": 97,
           "name": "HW요구사항명세서(HRS)_D",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 26",
           "source_refs": [
             {
@@ -1065,6 +1274,7 @@
           "evidence_level": "unstated",
           "id": 98,
           "name": "SW요구사항명세서(SRS)_D",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 26",
           "source_refs": [
             {
@@ -1082,6 +1292,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 99,
           "name": "인터페이스설계기술서(IDD)_D",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 24",
           "source_refs": [
             {
@@ -1099,6 +1310,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 100,
           "name": "연동통제문서(ICD)_Prelim",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 24",
           "source_refs": [
             {
@@ -1116,6 +1328,7 @@
           "evidence_level": "unstated",
           "id": 101,
           "name": "요구사항추적표(RTM)_최신화",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 17",
           "source_refs": [
             {
@@ -1133,6 +1346,7 @@
           "evidence_level": "regulation_mandated",
           "id": 102,
           "name": "시험평가기본계획서(TEMP)_D",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 27",
           "source_refs": [
             {
@@ -1158,6 +1372,7 @@
           "evidence_level": "regulation_mandated",
           "id": 103,
           "name": "PDR_회의록및조치결과",
+          "node_kind": "artifact",
           "source": "LIG 개발품질 21",
           "source_refs": [
             {
@@ -1183,6 +1398,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 104,
           "name": "HW설계기술서(HDD)_D",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 24",
           "source_refs": [
             {
@@ -1203,6 +1419,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 105,
           "name": "SW설계기술서(SDD)_D",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 24",
           "source_refs": [
             {
@@ -1223,6 +1440,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 106,
           "name": "DB설계기술서(DBDD)_D",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 24",
           "source_refs": [
             {
@@ -1248,6 +1466,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 107,
           "name": "상세설계도면_D",
+          "node_kind": "artifact",
           "source": "방사청 가이드북",
           "source_refs": [
             {
@@ -1269,6 +1488,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 108,
           "name": "자재명세서(Q-BOM)_D",
+          "node_kind": "artifact",
           "source": "LIG 개발품질 28",
           "source_refs": [
             {
@@ -1287,6 +1507,7 @@
           "evidence_level": "regulation_mandated",
           "id": 109,
           "name": "등록부품활용계획서",
+          "node_kind": "artifact",
           "source": "방위사업관리규정 제79조④",
           "source_refs": [
             {
@@ -1305,6 +1526,42 @@
           "template": "없음",
           "term": "등록부품활용계획",
           "verification_status": "source_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_technical_review",
+          "depends_on": [
+            "hrs",
+            "icd",
+            "srs",
+            "ssdd"
+          ],
+          "depends_on_evidence": "guidebook_recommended",
+          "depends_on_refs": [
+            {
+              "locator": "p.73 (바. 주요 산출물)",
+              "source_key": "dapa_se_technical_review_guidebook_2017"
+            }
+          ],
+          "desc": "Technical review conducted — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "guidebook_recommended",
+          "evidence_record": [
+            "review_minutes_pdr"
+          ],
+          "id": 110,
+          "is_virtual": true,
+          "name": "기술검토회의 수행(활동)",
+          "node_kind": "activity",
+          "source": "방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력",
+          "source_refs": [
+            {
+              "locator": "p.73 (바. 주요 산출물)",
+              "source_key": "dapa_se_technical_review_guidebook_2017"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
         }
       ]
     },
@@ -1320,6 +1577,7 @@
           "id": 121,
           "is_fixed": true,
           "name": "INBOX_분류전",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -1333,6 +1591,7 @@
           "id": 122,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -1346,6 +1605,7 @@
           "id": 123,
           "is_fixed": true,
           "name": "TDP_기술자료",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -1358,6 +1618,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 125,
           "name": "HW설계기술서(HDD)_F",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 29",
           "source_refs": [
             {
@@ -1382,6 +1643,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 126,
           "name": "SW설계기술서(SDD)_F",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 29",
           "source_refs": [
             {
@@ -1406,6 +1668,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 127,
           "name": "DB설계기술서(DBDD)_F",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 31",
           "source_refs": [
             {
@@ -1431,6 +1694,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 128,
           "name": "인터페이스설계기술서(IDD)_F",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 31",
           "source_refs": [
             {
@@ -1448,6 +1712,7 @@
           "evidence_level": "regulation_mandated",
           "id": 129,
           "name": "연동통제문서(ICD)_F",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 31",
           "source_refs": [
             {
@@ -1469,6 +1734,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 130,
           "name": "상세설계도면_F",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 29",
           "source_refs": [
             {
@@ -1494,6 +1760,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 131,
           "name": "자재명세서(Q-BOM)_F",
+          "node_kind": "artifact",
           "source": "LIG 개발품질 28",
           "source_refs": [
             {
@@ -1519,6 +1786,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 133,
           "name": "표준품적절성검토서",
+          "node_kind": "artifact",
           "source": "LIG 개발품질 28",
           "source_refs": [
             {
@@ -1544,6 +1812,7 @@
           "evidence_level": "unstated",
           "id": 134,
           "name": "제작사양서(WPS)및검사요구",
+          "node_kind": "artifact",
           "source": "LIG 개발품질 32",
           "source_refs": [
             {
@@ -1565,6 +1834,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 135,
           "name": "제조관점설계검토결과",
+          "node_kind": "artifact",
           "source": "LIG 개발품질 33",
           "source_refs": [
             {
@@ -1586,6 +1856,7 @@
           "evidence_level": "unstated",
           "id": 136,
           "name": "제조공정도및작업표준(Flow)",
+          "node_kind": "artifact",
           "source": "LIG 개발품질 28",
           "source_refs": [
             {
@@ -1611,6 +1882,7 @@
           "evidence_level": "unstated",
           "id": 137,
           "name": "요구사항추적표(RTM)_업데이트",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 34",
           "source_refs": [
             {
@@ -1628,6 +1900,7 @@
           "evidence_level": "regulation_mandated",
           "id": 138,
           "name": "안전성및신뢰성분석_F",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 34",
           "source_refs": [
             {
@@ -1649,6 +1922,7 @@
           "evidence_level": "regulation_mandated",
           "id": 139,
           "name": "CDR_회의록및조치결과",
+          "node_kind": "artifact",
           "source": "LIG 개발품질 21",
           "source_refs": [
             {
@@ -1670,6 +1944,7 @@
           "evidence_level": "unstated",
           "id": 140,
           "name": "HW요구사항명세서(HRS)_F",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 35",
           "source_refs": [
             {
@@ -1694,6 +1969,7 @@
           "evidence_level": "unstated",
           "id": 141,
           "name": "SW요구사항명세서(SRS)_F",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 35",
           "source_refs": [
             {
@@ -1711,6 +1987,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 142,
           "name": "통합시험계획서절차서(STP)_D",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 35",
           "source_refs": [
             {
@@ -1740,6 +2017,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 143,
           "name": "제품형상식별서(PCI)_D",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 35",
           "source_refs": [
             {
@@ -1766,6 +2044,7 @@
           "evidence_level": "regulation_mandated",
           "id": 144,
           "name": "제조성숙도평가(MRA)계획및결과",
+          "node_kind": "artifact",
           "source": "방위사업관리규정 제78조③",
           "source_refs": [
             {
@@ -1796,6 +2075,7 @@
           "evidence_level": "regulation_mandated",
           "id": 145,
           "name": "사업중간점검결과보고서",
+          "node_kind": "artifact",
           "source": "방위사업관리규정 제65조①",
           "source_refs": [
             {
@@ -1818,6 +2098,7 @@
           "evidence_level": "regulation_mandated",
           "id": 146,
           "name": "핵심부품공인시험성적서",
+          "node_kind": "artifact",
           "source": "방위사업관리규정 제79조①",
           "source_refs": [
             {
@@ -1832,6 +2113,44 @@
           "template": "없음",
           "term": "핵심부품시험성적서",
           "verification_status": "source_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_technical_review",
+          "depends_on": [
+            "hdd",
+            "hrs",
+            "icd",
+            "idd",
+            "sdd",
+            "srs"
+          ],
+          "depends_on_evidence": "guidebook_recommended",
+          "depends_on_refs": [
+            {
+              "locator": "p.87 (바. 주요 산출물)",
+              "source_key": "dapa_se_technical_review_guidebook_2017"
+            }
+          ],
+          "desc": "Technical review conducted — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "guidebook_recommended",
+          "evidence_record": [
+            "review_minutes_cdr"
+          ],
+          "id": 147,
+          "is_virtual": true,
+          "name": "기술검토회의 수행(활동)",
+          "node_kind": "activity",
+          "source": "방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력",
+          "source_refs": [
+            {
+              "locator": "p.87 (바. 주요 산출물)",
+              "source_key": "dapa_se_technical_review_guidebook_2017"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
         }
       ]
     },
@@ -1847,6 +2166,7 @@
           "id": 151,
           "is_fixed": true,
           "name": "INBOX_분류전",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -1860,6 +2180,7 @@
           "id": 152,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -1873,6 +2194,7 @@
           "id": 153,
           "is_fixed": true,
           "name": "TDP_기술자료",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -1885,6 +2207,7 @@
           "evidence_level": "unstated",
           "id": 159,
           "name": "시제제작기록(공정확인표)",
+          "node_kind": "artifact",
           "source": "LIG 개발품질 28",
           "source_refs": [
             {
@@ -1913,6 +2236,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 160,
           "name": "SW산출물명세서(SPS_VDD)",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 39",
           "source_refs": [
             {
@@ -1937,6 +2261,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 161,
           "name": "SW시험계획절차서(STP_STD)",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 39",
           "source_refs": [
             {
@@ -1961,6 +2286,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 162,
           "name": "SW시험결과서(STR)",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 39",
           "source_refs": [
             {
@@ -1985,6 +2311,7 @@
           "evidence_level": "regulation_mandated",
           "id": 163,
           "name": "SW신뢰성시험결과(Q6)",
+          "node_kind": "artifact",
           "source": "LIG 개발품질 40",
           "source_refs": [
             {
@@ -2010,6 +2337,7 @@
           "evidence_level": "unstated",
           "id": 164,
           "name": "수락시험절차서(ATP)_F",
+          "node_kind": "artifact",
           "source": "LIG 개발품질 40",
           "source_refs": [
             {
@@ -2035,6 +2363,7 @@
           "evidence_level": "regulation_mandated",
           "id": 165,
           "name": "시험평가기본계획서(TEMP)_F",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 39",
           "source_refs": [
             {
@@ -2060,6 +2389,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 166,
           "name": "통합시험계획서절차서(STP)_F",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 39",
           "source_refs": [
             {
@@ -2085,6 +2415,7 @@
           "evidence_level": "regulation_mandated",
           "id": 168,
           "name": "TRR_회의록및시험준비검토",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 41",
           "source_refs": [
             {
@@ -2118,6 +2449,7 @@
           "evidence_level": "regulation_mandated",
           "id": 169,
           "name": "개발시험평가결과(DT)",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 42",
           "source_refs": [
             {
@@ -2140,6 +2472,7 @@
           "evidence_level": "regulation_mandated",
           "id": 170,
           "name": "개발시험평가계획서및절차서(DT)",
+          "node_kind": "artifact",
           "source": "국방전력발전업무훈령 제64조①",
           "source_refs": [
             {
@@ -2162,6 +2495,40 @@
           "template": "없음",
           "term": "DT계획서",
           "verification_status": "source_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_technical_review",
+          "depends_on": [
+            "ssrs",
+            "temp"
+          ],
+          "depends_on_evidence": "guidebook_recommended",
+          "depends_on_refs": [
+            {
+              "locator": "p.97 (바. 주요 산출물)",
+              "source_key": "dapa_se_technical_review_guidebook_2017"
+            }
+          ],
+          "desc": "Technical review conducted — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "guidebook_recommended",
+          "evidence_record": [
+            "review_minutes_trr"
+          ],
+          "id": 171,
+          "is_virtual": true,
+          "name": "기술검토회의 수행(활동)",
+          "node_kind": "activity",
+          "source": "방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력",
+          "source_refs": [
+            {
+              "locator": "p.97 (바. 주요 산출물)",
+              "source_key": "dapa_se_technical_review_guidebook_2017"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
         }
       ]
     },
@@ -2177,6 +2544,7 @@
           "id": 181,
           "is_fixed": true,
           "name": "INBOX_분류전",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -2190,6 +2558,7 @@
           "id": 182,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -2203,6 +2572,7 @@
           "id": 183,
           "is_fixed": true,
           "name": "TDP_기술자료",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -2215,6 +2585,7 @@
           "evidence_level": "unstated",
           "id": 185,
           "name": "납품원장및인수증",
+          "node_kind": "artifact",
           "source": "계약관리 36",
           "source_refs": [
             {
@@ -2232,6 +2603,7 @@
           "evidence_level": "unstated",
           "id": 186,
           "name": "현장수락시험결과(SAT)",
+          "node_kind": "artifact",
           "source": "LIG 개발품질 44",
           "source_refs": [
             {
@@ -2253,6 +2625,7 @@
           "evidence_level": "unstated",
           "id": 188,
           "name": "체계통합지원결과",
+          "node_kind": "artifact",
           "source": "사업관리",
           "source_refs": [
             {
@@ -2274,6 +2647,7 @@
           "evidence_level": "regulation_mandated",
           "id": 189,
           "name": "기능형상확인결과보고서(FCA)",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 45",
           "source_refs": [
             {
@@ -2303,6 +2677,7 @@
           "evidence_level": "unstated",
           "id": 190,
           "name": "요구사항검증매트릭스(VCRM)_F",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 17",
           "source_refs": [
             {
@@ -2332,6 +2707,7 @@
           "evidence_level": "regulation_mandated",
           "id": 191,
           "name": "운용시험평가지원자료(OT)",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 46",
           "source_refs": [
             {
@@ -2353,6 +2729,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 192,
           "name": "FCA_OT_회의록및조치결과",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 47",
           "source_refs": [
             {
@@ -2378,6 +2755,7 @@
           "evidence_level": "regulation_mandated",
           "id": 193,
           "name": "개발시험결과보고서(DT)_종합본",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 47",
           "source_refs": [
             {
@@ -2399,6 +2777,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 194,
           "name": "결함조치결과보고서(Defect)",
+          "node_kind": "artifact",
           "source": "LIG 개발품질 48",
           "source_refs": [
             {
@@ -2428,6 +2807,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 195,
           "name": "제품형상식별서(PCI)_Prelim",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 47",
           "source_refs": [
             {
@@ -2450,6 +2830,7 @@
           "evidence_level": "regulation_mandated",
           "id": 196,
           "name": "운용시험평가계획서(OT)",
+          "node_kind": "artifact",
           "source": "국방전력발전업무훈령 제67조②",
           "source_refs": [
             {
@@ -2472,6 +2853,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 197,
           "name": "형상확인계획서및점검표(FCA_PCA)",
+          "node_kind": "artifact",
           "source": "SE기반 기술검토회의 가이드북 p.99",
           "source_refs": [
             {
@@ -2490,6 +2872,40 @@
           "template": "없음",
           "term": "FCA_PCA점검표",
           "verification_status": "source_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_technical_review",
+          "depends_on": [
+            "drawings",
+            "spec_linkage_table"
+          ],
+          "depends_on_evidence": "guidebook_recommended",
+          "depends_on_refs": [
+            {
+              "locator": "p.104 (바. 주요 산출물)",
+              "source_key": "dapa_se_technical_review_guidebook_2017"
+            }
+          ],
+          "desc": "Technical review conducted — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "guidebook_recommended",
+          "evidence_record": [
+            "review_minutes_fca"
+          ],
+          "id": 198,
+          "is_virtual": true,
+          "name": "기술검토회의 수행(활동)",
+          "node_kind": "activity",
+          "source": "방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력",
+          "source_refs": [
+            {
+              "locator": "p.104 (바. 주요 산출물)",
+              "source_key": "dapa_se_technical_review_guidebook_2017"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
         }
       ]
     },
@@ -2505,6 +2921,7 @@
           "id": 211,
           "is_fixed": true,
           "name": "INBOX_분류전",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -2518,6 +2935,7 @@
           "id": 212,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -2531,6 +2949,7 @@
           "id": 213,
           "is_fixed": true,
           "name": "TDP_기술자료",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -2543,6 +2962,7 @@
           "evidence_level": "regulation_mandated",
           "id": 214,
           "name": "물리형상확인결과보고서(PCA)",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 49",
           "source_refs": [
             {
@@ -2568,6 +2988,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 215,
           "name": "최종도면(As-Built)_F",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 50",
           "source_refs": [
             {
@@ -2593,6 +3014,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 216,
           "name": "자재명세서(Q-BOM)_F",
+          "node_kind": "artifact",
           "source": "LIG 개발품질 28",
           "source_refs": [
             {
@@ -2614,6 +3036,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 217,
           "name": "시험성적서통합본",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 50",
           "source_refs": [
             {
@@ -2635,6 +3058,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 218,
           "name": "부적합및면제요청서(NCR)",
+          "node_kind": "artifact",
           "source": "LIG 개발품질 48",
           "source_refs": [
             {
@@ -2656,6 +3080,7 @@
           "evidence_level": "regulation_mandated",
           "id": 220,
           "name": "기술자료패키지목록(TDP)",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 15",
           "source_refs": [
             {
@@ -2681,6 +3106,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 221,
           "name": "PCA_회의록및조치결과",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 51",
           "source_refs": [
             {
@@ -2702,6 +3128,7 @@
           "evidence_level": "unstated",
           "id": 222,
           "name": "연동통제문서(ICD)",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 51",
           "source_refs": [
             {
@@ -2723,6 +3150,7 @@
           "evidence_level": "guidebook_recommended",
           "id": 223,
           "name": "제품형상식별서(PCI)_F",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 51",
           "source_refs": [
             {
@@ -2748,6 +3176,7 @@
           "evidence_level": "regulation_mandated",
           "id": 224,
           "name": "상세설계도면_F(PCA)",
+          "node_kind": "artifact",
           "source": "방사청 가이드북 50",
           "source_refs": [
             {
@@ -2770,6 +3199,7 @@
           "evidence_level": "regulation_mandated",
           "id": 225,
           "name": "국방규격(안)및국방규격화연계표",
+          "node_kind": "artifact",
           "source": "방위사업관리규정 제80조①",
           "source_refs": [
             {
@@ -2800,6 +3230,7 @@
           "evidence_level": "regulation_mandated",
           "id": 226,
           "name": "체계개발결과보고서및기술자료묶음",
+          "node_kind": "artifact",
           "source": "방위사업관리규정 제81조②",
           "source_refs": [
             {
@@ -2822,6 +3253,7 @@
           "evidence_level": "regulation_mandated",
           "id": 227,
           "name": "양산전제출자료및양산지원자료",
+          "node_kind": "artifact",
           "source": "방위사업관리규정 제81조③",
           "source_refs": [
             {
@@ -2836,6 +3268,39 @@
           "template": "없음",
           "term": "양산전제출자료",
           "verification_status": "source_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_technical_review",
+          "depends_on": [
+            "atp"
+          ],
+          "depends_on_evidence": "guidebook_recommended",
+          "depends_on_refs": [
+            {
+              "locator": "p.111 (바. 주요 산출물)",
+              "source_key": "dapa_se_technical_review_guidebook_2017"
+            }
+          ],
+          "desc": "Technical review conducted — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "guidebook_recommended",
+          "evidence_record": [
+            "review_minutes_pca"
+          ],
+          "id": 228,
+          "is_virtual": true,
+          "name": "기술검토회의 수행(활동)",
+          "node_kind": "activity",
+          "source": "방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력",
+          "source_refs": [
+            {
+              "locator": "p.111 (바. 주요 산출물)",
+              "source_key": "dapa_se_technical_review_guidebook_2017"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
         }
       ]
     },
@@ -2851,6 +3316,7 @@
           "id": 241,
           "is_fixed": true,
           "name": "INBOX_분류전",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -2864,6 +3330,7 @@
           "id": 242,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -2877,6 +3344,7 @@
           "id": 243,
           "is_fixed": true,
           "name": "TDP_기술자료",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -2889,6 +3357,7 @@
           "evidence_level": "internal_management",
           "id": 244,
           "name": "협력개발품개발이력서",
+          "node_kind": "artifact",
           "source": "LIG 개발품질 52",
           "source_refs": [
             {
@@ -2910,6 +3379,7 @@
           "evidence_level": "internal_management",
           "id": 245,
           "name": "실패사례요약서",
+          "node_kind": "artifact",
           "source": "LIG 개발품질 33",
           "source_refs": [],
           "template": "사례 양식",
@@ -2922,6 +3392,7 @@
           "evidence_level": "internal_management",
           "id": 246,
           "name": "개발이력공유회결과",
+          "node_kind": "artifact",
           "source": "LIG 개발품질 52",
           "source_refs": [],
           "template": "발표자료 양식",
@@ -2934,6 +3405,7 @@
           "evidence_level": "internal_management",
           "id": 247,
           "name": "사업종료보고서",
+          "node_kind": "artifact",
           "source": "LIG 개발품질 53",
           "source_refs": [
             {
@@ -3042,8 +3514,8 @@
   "quality_grade": "없음",
   "schema_version": "soulforge.se_foldertree_compiled_variant.v0",
   "spec_file": "assets/SE_FolderTree_Guide.md",
-  "spec_sha256": "782e11ca8c28e9a236df0bc19aea0534f81da2a16eacc84d91cc6be25cc23e39",
-  "spec_version": "0.8",
+  "spec_sha256": "01d2fc9c695a73c98e2eaf699b650c50d67f65d9e44504bf7e6183178637b6d2",
+  "spec_version": "0.9",
   "special_folders": {
     "management": {
       "code": 20,

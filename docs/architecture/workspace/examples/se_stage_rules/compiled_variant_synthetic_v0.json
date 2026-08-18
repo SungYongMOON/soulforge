@@ -341,14 +341,23 @@
         "present_or_not_applicable": 5,
         "optional_context": 6
       },
+      "by_node_kind": {
+        "artifact": 15,
+        "activity": 0,
+        "decision": 0
+      },
       "engine_requirements": 9,
       "not_applicable": 1,
       "overlay_added": 0,
       "overlay_strengthened": 0,
       "overlay_aliases": 0,
       "overlay_out_of_scope": 0,
+      "overlay_dependencies_added": 0,
       "unmapped": 1,
-      "downgraded_unverified": 1
+      "downgraded_unverified": 1,
+      "virtual_rows": 0,
+      "dependency_edges": 0,
+      "unresolved_dependency": 0
     },
     "engine_stage_codes": [
       "090_PDR",

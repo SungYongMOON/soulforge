@@ -87,3 +87,16 @@ Owner 지적: "1층이 0항목이면 안 된다. 체계공학 기반으로 엔�
 5. 스펙을 고쳤으면 exporter로 compiled를 다시 만들고 `--check`를 통과시킨다. 컴파일러 시험은 실제 compiled 파일도 읽으므로 스펙 변경이 시험을 깨면 그 시험이 알려준다.
 6. 병렬 코더 결과를 합칠 때 enum·list·date 같은 계약 불일치는 컴파일러 쪽에서 수용하고 시험으로 고정한다(예: `applies_when` 토큰|목록, `added_by_verification` 날짜 문자열, `internal_management` verification status).
 7. 남은 의문·미검증은 지우지 말고 도출 기록 §미결에 남긴다.
+
+## 3.7 선후 관계는 어떻게 구했나 (D46, 2026-08-18)
+
+행이 **어디서 왔나**와 별개로, 행 사이의 "이것이 먼저"는 따로 구해야 했다. 방법은 3.0의 파이프라인 그대로다.
+
+1. **사실 추출(S1)**: 정본 4계열에 리더 4개(병렬) — NASA SE Handbook Rev2 4~6장 프로세스 17개의 Inputs/Outputs, NPR 7123.1D §3.2와 부록 G, DoD SE Guidebook 2022 §4, 방사청 SE 기술검토회의 가이드북 2017의 회의별 INPUT/OUTPUT 표(+2024 OCR 교차확인)와 SE 기술관리 실무지침서의 활동 41건. 항목 이름 + 인용 위치만 뽑고 원문 문장은 넣지 않았다.
+2. **합성(S2)**: 리더가 제안한 프로세스 이름을 정본 공통 **활동 토큰**으로 손으로 매핑한 뒤(예: NASA "Technical Requirements Definition" = DoD "Requirements Analysis" = 실무지침서 "체계요구사항 개발" → `act_requirements_analysis`), 스크립트가 기계적으로 간선을 만든다. 간선이 되는 조건은 둘뿐이다 — 리더가 그 항목에 어휘 토큰을 붙였을 것, 그 프로세스가 활동 토큰으로 매핑될 것. 아니면 만들지 않고 **미포함으로 센다**. 결과 `relations.json` 간선 206(일반 SE 128 · 방사청 128 중 78).
+3. **스펙 반영(S4)**: 배치 규칙은 스크립트 안에 있고 순환 차단을 내장한다(활동은 자기가 만드는 것을 입력으로 선언하지 않는다, 스펙이 그 게이트나 앞 게이트에 갖고 있지 않은 입력은 붙이지 않는다). 남은 고리는 결정론적으로 가장 약한 간선 하나를 끊고 기록한다 — 이번에 끊은 것은 1건.
+4. **검증(S5)**: export `--check`, `validate:se-stage-rules` 45/45, dry-run 폴더 수 불변(체계개발 145 / 일반SE 229 — 활동·결정 행은 폴더를 만들지 않는다), 계층=통합 등가 유지.
+
+**정정 하나**: 계획(09장 A2a)은 NPR 7123.1D **부록 C**에서 공통 기술 프로세스 17개의 입출력을 뽑는다고 적었는데, Rev D에서 부록 C는 "Reserved"이고 본문이 "핵심 SE 프로세스 지침은 SP-6105로 옮겼다"고 말한다(부록 D도 마찬가지). 그래서 부록 C는 인용하지 않았다. 더 중요한 결과: **Rev D §3에는 규범적 프로세스 입출력 표가 없고**, DoD SEG 2022 §4에도 Inputs/Activities/Outputs 양식이 없다(명시 입력 목록은 §4.1.3 하나뿐). 번호 붙은 입출력 절을 전 프로세스에 갖는 정본은 NASA SE Handbook 하나뿐이다.
+
+측정된 한계: 추출 항목 773 중 간선이 된 것은 **243(31.4%)**이고, 정본이 준 이름이 일반적이어서("산출물", "results") 토큰을 붙이지 못한 것이 524건이다. 이번에 읽은 4계열은 전부 지침·가이드북이므로 **`regulation_mandated` 간선은 0**이다 — 결함이 아니라 실측이며, 규정·훈령 계열은 아직 읽지 않았다. 행별 근거·정본 대응표·미결 8건은 `.registry/skills/se_foldertree_generate/codex/references/se_io_relations_v0.md`, 작업 파일은 `_workspaces/knowledge/common/systems_engineering/derivations/se_io_relations_20260818/`(영수증 `_workmeta/system/reports/se_stage_rules/se_io_relations_20260818.json`).

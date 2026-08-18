@@ -45,3 +45,28 @@
 | `unstated` | 근거 미표기 | `optional_context` |
 
 `verification_status`(정본 대조 결과)가 `unverified/unsupported/contradicted`거나 없으면 `optional_context`로 **낮춘다**(prime_contract 예외). `partially_supported`(한 정본만 확인)는 낮추지 않는다.
+
+## 2.5 행의 종류: 산출물·활동·결정 (D46, 2026-08-18)
+
+지금까지 규칙표의 행은 전부 문서였다. 문서만 담는 체크리스트는 "기능분석을 끝내고 설계기술서를 써라"를 말할 수 없다. 그래서 행에 `node_kind`를 붙였다.
+
+| `node_kind` | 뜻 | 증거 | 폴더 |
+| --- | --- | --- | --- |
+| `artifact`(기본값) | 문서·도면·모델 | 파일이 있는가 | 만든다 |
+| `activity` | 정본이 "하라"고 말하는 일(요구분석·기능분석·통합·검증…) | **기록**(회의록·결정 기록·그 일이 만든 산출물) — 행의 `evidence_record`가 무엇이 증거인지 지목한다 | 만들지 않는다(`is_virtual: true` → `generate_tree.py`가 건너뜀) |
+| `decision` | 정본이 "확정하라"고 말하는 상태(기능·할당·제품 기준선) | 같음 | 만들지 않는다 |
+
+- **판정 어휘는 그대로다**: 활동·결정도 `satisfied / gap_missing / gap_unknown`으로 판정한다. 달라지는 것은 무엇을 증거로 보느냐뿐이다.
+- 규정이 요구하지 않는 활동·결정은 `present`가 될 수 없고 `present_or_not_applicable`이 상한이다(근거를 대고 "해당 없음"이라 답할 수 있어야 한다).
+- 결정 노드는 형상식별서와 **다른 행**이다. `pci`(제품형상식별서)를 갖고 있는 것과 `dec_product_baseline`(제품 기준선 확정)은 다르며, 그 차이를 보이게 하는 것이 결정 노드의 존재 이유다.
+
+## 2.6 선후 관계(`depends_on`)와 층 (D46)
+
+행은 `depends_on: [토큰]`으로 "이것이 먼저 있어야 한다"를 말한다. 간선마다 근거를 따로 단다 — `depends_on_refs`(정본 인용 위치) 또는 `depends_on_evidence: unstated`(관행).
+
+- **간선의 등급은 행의 등급과 다르다.** 행이 규정 필수여도 그 행의 입력 관계는 가이드북이 말한 것일 수 있다. 말하지 않으면 `unstated`로 두고 행의 등급을 물려받지 않는다(추정으로 올리지 않는다).
+- **층은 섞지 않는다**: ①의 간선은 NASA·DoD 인용만, ②의 간선은 방사청 인용만 단다. 같은 원칙이 행에도 적용된다(2.1).
+- **덧씌움은 간선을 더할 수만 있다**: overlay op `add_dependency`(exact `source_ref` + `basis` 필수). 정본 간선을 지우는 연산은 없다 — evidence level을 못 내리는 것과 같은 이유다(D45).
+- 어휘가 모르는 토큰을 입력으로 적으면 컴파일을 거부하지 않고 영수증의 `unresolved_dependencies`에 이름과 함께 남긴다. 간선 하나의 오타가 변형 전체를 막지 않아야 한다.
+
+2026-08-18 현재 수치: ① 250행(산출물 229·활동 18·결정 3, 간선 133) · ② 154행(산출물 145·활동 9, 간선 24). 도출 근거와 커버리지 한계는 `.registry/skills/se_foldertree_generate/codex/references/se_io_relations_v0.md`.

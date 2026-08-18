@@ -1,6 +1,6 @@
 ---
 title: 'SE 기반 폴더 트리 생성 지침 (000_REF/020_MGMT/단계별 게이트)'
-version: '0.8'
+version: '0.9'
 owner_team: 개발1팀
 variant_binding:
   support_key: system_dev_lig_grade_a
@@ -205,6 +205,12 @@ gates:
     verification_status: partially_supported
     applies_when:
     - exploratory_skipped
+    depends_on:
+    - act_stakeholder_expectations
+    depends_on_evidence: guidebook_recommended
+    depends_on_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: 표 26 (p.144); 그림 33 (p.141)
   - id: 40
     name: 체계요구사항명세서(SSRS)_D
     desc: (Draft) 기술적 요구사항 변환 초안
@@ -225,6 +231,12 @@ gates:
     verification_status: source_supported
     applies_when:
     - exploratory_skipped
+    depends_on:
+    - act_functional_analysis_allocation
+    depends_on_evidence: guidebook_recommended
+    depends_on_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '3.5 (p.54); 표 3 순서 4 ''체계 기능분석'' (p.14)'
   - id: 41
     name: 가정및제약사항
     desc: 설계 제약 조건 및 가정 사항 정리
@@ -383,6 +395,12 @@ gates:
       locator: p.46
     verification_status: source_supported
     added_by_verification: '2026-08-18'
+    depends_on:
+    - act_functional_analysis_allocation
+    depends_on_evidence: guidebook_recommended
+    depends_on_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '3.5 (p.54); 표 3 순서 4 ''체계 기능분석'' (p.14)'
   - id: 50
     name: M&S활용계획서
     desc: 수명주기 단계별 M&S 활용계획 수립과 SBA 등록, 각 검토회의에서 최신화
@@ -495,6 +513,71 @@ gates:
       locator: p.52
     verification_status: source_supported
     added_by_verification: '2026-08-18'
+    depends_on:
+    - act_functional_analysis_allocation
+    depends_on_evidence: guidebook_recommended
+    depends_on_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '3.5 (p.54); 표 3 순서 4 ''체계 기능분석'' (p.14)'
+  - id: 56
+    name: 기능분석·기능할당(활동)
+    desc: Functional analysis and allocation — activity node (no folder); evidenced by the records it produces
+    term: ACTIVITY
+    source: 방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력
+    template: 없음
+    artifact_type_id: act_functional_analysis_allocation
+    node_kind: activity
+    is_virtual: true
+    evidence_level: guidebook_recommended
+    source_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '3.5 (p.54); 표 3 순서 4 ''체계 기능분석'' (p.14)'
+    verification_status: partially_supported
+    evidence_record:
+    - p_temp
+    - ssrs
+    - technical_review_package
+    added_by_verification: '2026-08-18'
+  - id: 57
+    name: 이해관계자 기대 정의(활동)
+    desc: Stakeholder expectations definition — activity node (no folder); evidenced by the records it produces
+    term: ACTIVITY
+    source: 방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력
+    template: 없음
+    artifact_type_id: act_stakeholder_expectations
+    node_kind: activity
+    is_virtual: true
+    evidence_level: guidebook_recommended
+    source_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: 표 26 (p.144); 그림 33 (p.141)
+    verification_status: partially_supported
+    evidence_record:
+    - ord
+    added_by_verification: '2026-08-18'
+  - id: 58
+    name: 기술검토회의 수행(활동)
+    desc: Technical review conducted — activity node (no folder); evidenced by the records it produces
+    term: ACTIVITY
+    source: 방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력
+    template: 없음
+    artifact_type_id: act_technical_review
+    node_kind: activity
+    is_virtual: true
+    evidence_level: guidebook_recommended
+    source_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: p.49 (바. 주요 산출물)
+    verification_status: partially_supported
+    depends_on:
+    - ord
+    depends_on_evidence: guidebook_recommended
+    depends_on_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: p.49 (바. 주요 산출물)
+    evidence_record:
+    - review_minutes_srr
+    added_by_verification: '2026-08-18'
 - code: 60
   name: SFR
   desc: 체계기능검토 (System Functional Review)
@@ -548,6 +631,12 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.31
     verification_status: partially_supported
+    depends_on:
+    - act_functional_analysis_allocation
+    depends_on_evidence: guidebook_recommended
+    depends_on_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '3.5 (p.54); 표 3 순서 4 ''체계 기능분석'' (p.14)'
   - id: 65
     name: 기능분석및할당자료
     desc: FFBD 및 요구사항 할당 분석
@@ -700,6 +789,31 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.60
     verification_status: source_supported
+  - id: 75
+    name: 기술검토회의 수행(활동)
+    desc: Technical review conducted — activity node (no folder); evidenced by the records it produces
+    term: ACTIVITY
+    source: 방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력
+    template: 없음
+    artifact_type_id: act_technical_review
+    node_kind: activity
+    is_virtual: true
+    evidence_level: guidebook_recommended
+    source_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: p.60 (바. 주요 산출물)
+    verification_status: partially_supported
+    depends_on:
+    - icd
+    - ord
+    - ssrs
+    depends_on_evidence: guidebook_recommended
+    depends_on_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: p.60 (바. 주요 산출물)
+    evidence_record:
+    - review_minutes_sfr
+    added_by_verification: '2026-08-18'
 - code: 90
   name: PDR
   desc: 기본설계검토 (Preliminary Design Review)
@@ -965,6 +1079,32 @@ gates:
     - source_key: dapa_program_management_rule_law_20260811
       locator: 제79조④
     verification_status: source_supported
+    added_by_verification: '2026-08-18'
+  - id: 110
+    name: 기술검토회의 수행(활동)
+    desc: Technical review conducted — activity node (no folder); evidenced by the records it produces
+    term: ACTIVITY
+    source: 방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력
+    template: 없음
+    artifact_type_id: act_technical_review
+    node_kind: activity
+    is_virtual: true
+    evidence_level: guidebook_recommended
+    source_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: p.73 (바. 주요 산출물)
+    verification_status: partially_supported
+    depends_on:
+    - hrs
+    - icd
+    - srs
+    - ssdd
+    depends_on_evidence: guidebook_recommended
+    depends_on_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: p.73 (바. 주요 산출물)
+    evidence_record:
+    - review_minutes_pdr
     added_by_verification: '2026-08-18'
 - code: 120
   name: CDR
@@ -1342,6 +1482,34 @@ gates:
       locator: 제81조③6
     verification_status: source_supported
     added_by_verification: '2026-08-18'
+  - id: 147
+    name: 기술검토회의 수행(활동)
+    desc: Technical review conducted — activity node (no folder); evidenced by the records it produces
+    term: ACTIVITY
+    source: 방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력
+    template: 없음
+    artifact_type_id: act_technical_review
+    node_kind: activity
+    is_virtual: true
+    evidence_level: guidebook_recommended
+    source_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: p.87 (바. 주요 산출물)
+    verification_status: partially_supported
+    depends_on:
+    - hdd
+    - hrs
+    - icd
+    - idd
+    - sdd
+    - srs
+    depends_on_evidence: guidebook_recommended
+    depends_on_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: p.87 (바. 주요 산출물)
+    evidence_record:
+    - review_minutes_cdr
+    added_by_verification: '2026-08-18'
 - code: 150
   name: TRR_DT
   desc: 시험준비/시제제작/개발시험 (Q5-Q6-Q7)
@@ -1630,6 +1798,30 @@ gates:
       locator: p.97
     verification_status: source_supported
     added_by_verification: '2026-08-18'
+  - id: 171
+    name: 기술검토회의 수행(활동)
+    desc: Technical review conducted — activity node (no folder); evidenced by the records it produces
+    term: ACTIVITY
+    source: 방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력
+    template: 없음
+    artifact_type_id: act_technical_review
+    node_kind: activity
+    is_virtual: true
+    evidence_level: guidebook_recommended
+    source_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: p.97 (바. 주요 산출물)
+    verification_status: partially_supported
+    depends_on:
+    - ssrs
+    - temp
+    depends_on_evidence: guidebook_recommended
+    depends_on_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: p.97 (바. 주요 산출물)
+    evidence_record:
+    - review_minutes_trr
+    added_by_verification: '2026-08-18'
 - code: 180
   name: FCA_OT
   desc: 기능형상확인/통합/운용시험 (Q8)
@@ -1872,6 +2064,30 @@ gates:
     - source_key: dapa_se_technical_review_guidebook_2017
       locator: p.130-132
     verification_status: source_supported
+    added_by_verification: '2026-08-18'
+  - id: 198
+    name: 기술검토회의 수행(활동)
+    desc: Technical review conducted — activity node (no folder); evidenced by the records it produces
+    term: ACTIVITY
+    source: 방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력
+    template: 없음
+    artifact_type_id: act_technical_review
+    node_kind: activity
+    is_virtual: true
+    evidence_level: guidebook_recommended
+    source_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: p.104 (바. 주요 산출물)
+    verification_status: partially_supported
+    depends_on:
+    - drawings
+    - spec_linkage_table
+    depends_on_evidence: guidebook_recommended
+    depends_on_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: p.104 (바. 주요 산출물)
+    evidence_record:
+    - review_minutes_fca
     added_by_verification: '2026-08-18'
 - code: 210
   name: PCA
@@ -2116,6 +2332,29 @@ gates:
     - source_key: dapa_program_management_rule_law_20260811
       locator: 제81조④
     verification_status: source_supported
+    added_by_verification: '2026-08-18'
+  - id: 228
+    name: 기술검토회의 수행(활동)
+    desc: Technical review conducted — activity node (no folder); evidenced by the records it produces
+    term: ACTIVITY
+    source: 방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력
+    template: 없음
+    artifact_type_id: act_technical_review
+    node_kind: activity
+    is_virtual: true
+    evidence_level: guidebook_recommended
+    source_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: p.111 (바. 주요 산출물)
+    verification_status: partially_supported
+    depends_on:
+    - atp
+    depends_on_evidence: guidebook_recommended
+    depends_on_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: p.111 (바. 주요 산출물)
+    evidence_record:
+    - review_minutes_pca
     added_by_verification: '2026-08-18'
 - code: 240
   name: LL

@@ -14,7 +14,8 @@
 | `target_stage_codes` | 컴파일할 엔진 stage code 목록(예 `["120_CDR"]`) |
 | `overlay_conditions` | 켜진 조건 토큰(예 `["sw_included"]`) |
 
-출력(deep-frozen): `expected_artifact_policy`(`se_stage_expected_artifact_policy_v0`) · `engine_stage_policy_material`(`soulforge.ax_se_stage_policy.v0` 재료) · `needs_stage_declarations`(Needs 정책 stage·어휘 선언) · `mapping_table`(행마다 stage_code, artifact_type_id, engine_requirement_id 또는 null, presence rule, evidence_level, verification_status, se_floor, maturity, source_refs, overlay_source_ref) · `receipt`(입력·출력 digest, `effects` 전부 0, counts: `overlay_strengthened` 등).
+출력(deep-frozen): `expected_artifact_policy`(`se_stage_expected_artifact_policy_v0`) · `engine_stage_policy_material`(`soulforge.ax_se_stage_policy.v0` 재료) · `needs_stage_declarations`(Needs 정책 stage·어휘 선언) · `mapping_table`(행마다 stage_code, artifact_type_id, engine_requirement_id 또는 null, presence rule, evidence_level, verification_status, se_floor, maturity, source_refs, overlay_source_ref, 그리고 D46의 `node_kind`·`is_virtual`·`depends_on`·`depends_on_evidence`·`depends_on_refs`·`overlay_depends_on`·`dependency_resolution`·`evidence_record`) · `receipt`(입력·출력 digest, `effects` 전부 0, counts: `overlay_strengthened`·`by_node_kind`·`dependency_edges`·`unresolved_dependency` 등, 그리고 이름을 지목하는 `unresolved_dependencies[]`).
+gap scan 정책의 `expected_inputs`는 지금까지 빈 배열이었다 — 어떤 규칙표도 "무엇이 먼저"를 말하지 않았기 때문이다. 이제 그 행 그룹의 `depends_on` 합집합이 들어간다(인과 간선만, 게이트 순서는 넣지 않는다).
 `mintEnginePolicyRef(material, identity)`는 엔진의 policy_ref digest 규칙을 그대로 재현한다.
 
 판정 규칙(순서대로):
@@ -23,7 +24,9 @@
 2. `verification_status`가 `unverified/unsupported/contradicted`거나 없으면 `optional_context`로 **낮춘다**. 예외: `prime_contract` 행은 `contradicted`만 낮춘다(정본 지지도가 없는 것이 정상). `partially_supported`는 낮추지 않는다.
 3. `general_se_guidance` + `se_floor: context` → `optional_context`.
 4. `applies_when`(토큰 또는 목록, 목록이면 전부 참이어야 함)이 `overlay_conditions`에 없으면 그 행은 이 컴파일에서 빠진다.
-5. overlay op 적용: `add`(표준 행이 `optional_context`일 때만 옆에 추가 가능 → `overlay_strengthened`; 표준이 이미 요구하면 거부) · `alias`(과제 이름→토큰) · `mark_not_applicable`(basis 필수) · `condition`(조건 토큰 선언). `override_evidence` 류는 금지(D45).
+4A. `node_kind`가 `activity`·`decision`이고 evidence level이 `regulation_mandated`가 아니면 `present_or_not_applicable`이 상한이다(D46). 활동·결정의 증거는 기록이고, 기록은 근거를 대고 "해당 없음"이라 답할 수 있어야 한다.
+5. overlay op 적용: `add`(표준 행이 `optional_context`일 때만 옆에 추가 가능 → `overlay_strengthened`; 표준이 이미 요구하면 거부) · `alias`(과제 이름→토큰) · `mark_not_applicable`(basis 필수) · `condition`(조건 토큰 선언) · `add_dependency`(입력 추가, exact `source_ref`+`basis` 필수, 합집합으로만; 표준 행이 없으면 거부). `override_evidence`·`remove_dependency`는 금지(D45·D46).
+5A. 입력 토큰 해석: 이번 컴파일이 만드는 토큰이면 간선, 어휘는 아는데 이번에 안 만들면 범위 밖, 둘 다 아니면 `unresolved_dependency`로 **세고 이름을 남기되 컴파일을 거부하지 않는다**.
 6. `optional_context` 행과 고정 내부 폴더는 엔진 requirement로 내보내지 않는다(gap scan 정책·mapping table에는 남는다). 나머지 행마다 결정론적 `engine_requirement_id`를 발행한다.
 7. 어휘 밖 토큰은 unmapped context로 남긴다(거부하지 않음). 검토 회의록 등 어휘가 없는 행도 마찬가지.
 
@@ -54,6 +57,34 @@ runner(ax_se_project_context_pilot_runner) ── 1회 zero-write 평가 ─▶ 
 - `npm run validate:se-foldertree-compiled` — 스펙 md ↔ compiled JSON 드리프트(`export_variant_json.py --check`, `uv run --with pyyaml`).
 - `npm run validate:canon`, `npm run validate:path-length` — 공개 구조·경로 예산.
 - 스펙을 고쳤을 때 순서: exporter 실행 → `--check` → `validate:se-stage-rules` → 실제 과제 1개 재컴파일해 수치 비교(07장) → 문서 동기화.
+
+## 5.4A 순서 계산 `orderStageWork(compileResult, observations?)` (D46, 2026-08-18)
+
+컴파일 결과를 게이트별 **"무엇부터"** 목록으로 바꾸는 순수 함수. 출력은 `{schema_version, stages[], receipt}`이고 effect는 전부 0이다.
+
+여기서 두 가지를 **분리해서** 낸다. 섞으면 "PDR이 CDR보다 먼저"와 "설계기술서가 회의록보다 먼저"가 같은 말이 되어 버린다.
+
+| 나오는 것 | 뜻 |
+| --- | --- |
+| `stage_sequence` | 게이트 순서(수명주기가 정한다). 앞 게이트 입력은 이것으로 이미 정렬된다 |
+| `same_stage_inputs` / `earlier_stage_inputs` / `forward_stage_inputs` | 인과 간선(`depends_on`)을 어디서 만나는지로 나눈 것 |
+| `blocked_by` / `satisfied_inputs` / `ready` | 관측 기준 상태(관측 0이면 모든 선언 입력이 `blocked_by`) |
+| `out_of_scope_inputs` / `unresolved_inputs` | 어휘는 아는데 이번 컴파일이 안 만드는 것 / 아무도 안 가진 토큰 |
+
+정렬 규칙(순서대로):
+
+1. 같은 게이트 안 `depends_on` 위상 정렬. 고리가 있으면 `SE_STAGE_RULE_DEPENDENCY_CYCLE`로 **거부**한다(어느 하나를 임의로 앞세우면 컴파일러가 규칙을 정하는 셈이다).
+2. 안 막힌 것 먼저. 관측이 0이면 결과적으로 **입력이 없는 항목이 먼저** 나온다.
+3. 근거 등급 순: `regulation_mandated` > `guidebook_recommended` > `prime_contract` > `general_se_guidance` > `internal_management` > `unstated`. 표시 순서일 뿐 등급을 바꾸지 않는다(계획 9.0.2의 4번; `prime_contract`는 그 목록에 없어 "이 과제가 실제로 진 의무"라는 이유로 가이드북과 일반 지침 사이에 둔다).
+4. 토큰 사전순(결정론 tie-break).
+
+**"게이트 진입기준 먼저"는 적용하지 않는다.** 어느 행이 진입기준인지 표시하는 스펙 필드가 없고, 여기서 만들면 컴파일러가 규칙을 쓰는 것이 된다. 영수증 `tie_breaks_skipped`에 그렇게 적어 둔다.
+
+관측(`[{artifact_type_id, presence_state}]`, 상태 어휘는 생성기와 같은 `present/unknown/absence_confirmed`)은 **무엇이 이미 됐는지를 표시할 뿐 규칙을 다시 쓰지 않는다.** 간선은 관측과 무관하게 그대로 있으므로 어떤 항목도 자기 입력보다 앞설 수 없다. 달라지는 것은 "막히지 않은 것 먼저" tie-break에서 어느 항목이 위로 올라오느냐다.
+
+work item은 엔진 요구가 된 행만이다. `optional_context` 행과 고정 폴더는 그래프의 노드로는 남아(뒤 항목의 순서를 정하므로) 목록에는 나오지 않는다 — 사람에게 "할 일"로 줄 것이 아니기 때문이다.
+
+빈 과제 실측(2026-08-18, 관측 0): ② 공통 기준선 + 발주처 덧씌움 030_SRR = 안 막힌 18건(규정 7 → 가이드북 9 → 발주처 2) 뒤에 막힌 4건. ① 전 게이트 = work item 217, 순서 간선 58, 앞 게이트 입력 74.
 
 ## 5.5 exporter (`codex/scripts/export_variant_json.py`)
 

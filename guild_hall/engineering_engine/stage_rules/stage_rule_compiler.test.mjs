@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 
 import {
   compileStageRules,
+  orderStageWork,
   mintEnginePolicyRef,
   StageRuleCompilerError,
   STAGE_RULE_ERROR_CODES,
@@ -13,10 +14,14 @@ import {
   STAGE_RULE_OVERLAY_SCHEMA_VERSION,
   ENGINE_STAGE_POLICY_SCHEMA_VERSION,
   EXPECTED_ARTIFACT_POLICY_SCHEMA_VERSION,
+  STAGE_WORK_ORDER_SCHEMA_VERSION,
+  OBSERVATION_PRESENCE_STATES,
   AX_SE_POLICY_REVISION_PIN,
   PRESENCE_RULE,
+  NODE_KINDS,
   SE_FLOORS,
 } from './stage_rule_compiler.mjs';
+import { PRESENCE_STATES_PIN } from './pilot_packet_generator.mjs';
 import {
   ARTIFACT_VOCABULARY_V0,
   ARTIFACT_FAMILIES,
@@ -38,8 +43,18 @@ const load = (name) => JSON.parse(readFileSync(new URL(`${EXAMPLES}${name}`, imp
 const BASE = load('compiled_variant_synthetic_v0.json');
 const OVERLAY = load('stage_rule_overlay_synthetic_v0.json');
 const FORBIDDEN = load('stage_rule_overlay_forbidden_v0.json');
+const ORDER = load('stage_work_order_synthetic_v0.json');
 
 const baseRequest = () => structuredClone(BASE.request);
+const orderRequest = () => structuredClone(ORDER.request);
+const orderTaskOf = (request, taskId) => request.compiled_variant.gates
+  .flatMap((gate) => gate.tasks).find((task) => task.id === taskId);
+const workTokens = (result, stageCode) => result.stages
+  .find((stage) => stage.stage_code === stageCode)
+  ?.work_items.map((item) => item.artifact_type_id);
+const workItemOf = (result, stageCode, token) => result.stages
+  .find((stage) => stage.stage_code === stageCode)
+  ?.work_items.find((item) => item.artifact_type_id === token);
 const overlayRequest = () => {
   const request = baseRequest();
   request.overlay = structuredClone(OVERLAY.overlay);
@@ -119,7 +134,9 @@ test('the synthetic variant compiles to the hand-derived rule set', () => {
     assert.equal(actual.artifact_kind, row.artifact_kind);
     assert.equal(actual.draftability_rule, row.draftability_rule);
     assert.deepEqual(actual.not_applicable_requires, row.not_applicable_requires);
-    assert.deepEqual(actual.expected_inputs, []);
+    // `expected_inputs` is the declared causal edges of the group. These fixture rows declare
+    // none, so it is empty here — and the fixture states that rather than the test assuming it.
+    assert.deepEqual(actual.expected_inputs, row.expected_inputs ?? []);
     assert.equal(actual.downstream_route_hint, 'none');
   }
   for (const id of expected.not_applicable_requirement_ids) {
@@ -749,19 +766,434 @@ test('the tracked generic SE baseline compiles to at least one engine requiremen
   assert.equal(counts.downgraded_unverified, 0);
   assert.equal(counts.by_presence_rule.present, 0);
 
+  let activityRows = 0;
   for (const row of result.mapping_table) {
     if (row.evidence_level !== 'general_se_guidance') continue;
     assert.ok(['must_have', 'should_have', 'context'].includes(row.se_floor), row.artifact_type_id);
-    assert.ok(['preliminary', 'updated', 'baseline', 'final'].includes(row.maturity), row.artifact_type_id);
+    if (row.node_kind === 'artifact') {
+      // Maturity is a property of a document (draft, updated, baselined, final). An activity has
+      // no maturity, and giving it one to satisfy a check would be a rule invented by a test.
+      assert.ok(['preliminary', 'updated', 'baseline', 'final'].includes(row.maturity), row.artifact_type_id);
+    } else {
+      activityRows += 1;
+      assert.equal(row.maturity, null, row.artifact_type_id);
+      assert.equal(row.is_virtual, true, `${row.artifact_type_id} must not ask for a folder`);
+      assert.ok(row.evidence_record.length >= 1,
+        `${row.artifact_type_id} must name the record that would show it happened`);
+    }
     assert.ok(row.source_refs.length >= 1, `${row.artifact_type_id} must cite a source`);
-    for (const ref of row.source_refs) {
+    for (const ref of [...row.source_refs, ...row.depends_on_refs]) {
       assert.ok(['nasa_npr_7123_1d', 'dod_se_guidebook_2022', 'nasa_se_handbook_rev2']
         .includes(ref.source_key), ref.source_key);
     }
     assert.equal(row.minimum_presence_rule,
       row.se_floor === 'context' ? PRESENCE_RULE.OPTIONAL_CONTEXT : PRESENCE_RULE.PRESENT_OR_NOT_APPLICABLE,
       `${row.stage_code}/${row.artifact_type_id}`);
+    // Every declared input resolves to something: a token this layer produces, or one the shared
+    // vocabulary owns. Nothing in this layer may name an input that exists nowhere.
+    assert.deepEqual(row.dependency_resolution.unresolved, [], row.artifact_type_id);
   }
+  assert.ok(activityRows >= 10, 'the layer carries activity rows');
+  assert.equal(result.receipt.counts.unresolved_dependency, 0);
+  assert.ok(result.receipt.counts.dependency_edges > 100);
+
+  // And with nothing observed, every review stage opens with work that needs nothing first.
+  const order = orderStageWork(result);
+  for (const stage of order.stages) {
+    const firstBlocked = stage.work_items.findIndex((item) => !item.ready);
+    if (firstBlocked === -1) continue;
+    for (const item of stage.work_items.slice(firstBlocked)) {
+      assert.equal(item.ready, false, `${stage.stage_code}/${item.artifact_type_id}`);
+    }
+  }
+});
+
+// ---------------------------------------------------------------- 13c. node kinds and dependencies (D46)
+
+test('the ordering fixture compiles to its hand-derived rule set, with node kinds and edges carried', () => {
+  const result = compileStageRules(orderRequest());
+  assert.deepEqual(result.receipt.counts, ORDER.expected.counts);
+  assert.deepEqual(result.receipt.unresolved_dependencies, ORDER.expected.unresolved_dependencies);
+  assert.deepEqual([...NODE_KINDS], ['artifact', 'activity', 'decision']);
+
+  // An activity and a decision are rules, not folders: they reach the engine as requirements and
+  // they carry the record that would show the work happened.
+  const activity = rowOf(result, 3003);
+  assert.equal(activity.node_kind, 'activity');
+  assert.equal(activity.is_virtual, true);
+  assert.equal(activity.engine_requirement_id, '030_SRR_act_stakeholder_expectations');
+  assert.deepEqual(activity.evidence_record, ['review_minutes_srr']);
+  assert.equal(familyOf(result, '030_SRR', 'act_stakeholder_expectations').artifact_kind, 'review_evidence');
+  assert.equal(requirementOf(result, '030_SRR', '030_SRR_act_stakeholder_expectations').requirement_kind, 'activity');
+
+  const decision = rowOf(result, 9004);
+  assert.equal(decision.node_kind, 'decision');
+  assert.equal(decision.is_virtual, true);
+  assert.equal(familyOf(result, '090_PDR', 'dec_allocated_baseline').artifact_kind, 'owner_decision_record');
+  assert.deepEqual(decision.evidence_record, ['review_minutes_pdr', 'ssdd']);
+
+  // The declared inputs travel into the mapping table and into the gap-scan policy's own
+  // `expected_inputs`, which the compiler used to leave empty because no rule table said them.
+  assert.deepEqual(rowOf(result, 3004).depends_on, ['act_stakeholder_expectations']);
+  assert.equal(rowOf(result, 3004).depends_on_evidence, 'guidebook_recommended');
+  assert.deepEqual(rowOf(result, 3004).depends_on_refs,
+    [{ source_key: 'synthetic_guidebook_v0', locator: 'table 2-1' }]);
+  assert.deepEqual(familyOf(result, '030_SRR', 'ssrs').expected_inputs, ['act_stakeholder_expectations']);
+  // A row that declares inputs without saying what states them is read as practice, never as
+  // inheriting the row's own grade.
+  assert.equal(rowOf(result, 3007).depends_on_evidence, 'unstated');
+  assert.deepEqual(rowOf(result, 3002).depends_on, []);
+});
+
+test('an activity or a decision is asked for as present-or-not-applicable unless a regulation mandates it', () => {
+  // The decision row is regulation_mandated, so it stays `present`: a regulation that says the
+  // baseline shall be established is not answerable with "we chose not to".
+  const mandated = compileStageRules(orderRequest());
+  assert.equal(rowOf(mandated, 9004).minimum_presence_rule, PRESENCE_RULE.PRESENT);
+
+  // Drop it to a guidebook and it becomes answerable with a basis, like every other guidance row.
+  for (const level of ['guidebook_recommended', 'general_se_guidance', 'prime_contract']) {
+    const softened = orderRequest();
+    const task = orderTaskOf(softened, 9004);
+    task.evidence_level = level;
+    if (level === 'general_se_guidance') task.se_floor = 'must_have';
+    assert.equal(rowOf(compileStageRules(softened), 9004).minimum_presence_rule,
+      PRESENCE_RULE.PRESENT_OR_NOT_APPLICABLE, level);
+  }
+
+  // The ceiling only reaches non-artifact rows: an ordinary regulation-mandated document is
+  // still flatly present.
+  assert.equal(rowOf(mandated, 3002).minimum_presence_rule, PRESENCE_RULE.PRESENT);
+  const asArtifact = orderRequest();
+  orderTaskOf(asArtifact, 9004).node_kind = 'artifact';
+  assert.equal(rowOf(compileStageRules(asArtifact), 9004).minimum_presence_rule, PRESENCE_RULE.PRESENT);
+
+  // A node kind the model does not name is refused rather than read as a document.
+  const invalid = orderRequest();
+  orderTaskOf(invalid, 9004).node_kind = 'milestone';
+  assert.throws(() => compileStageRules(invalid), throwsWith(STAGE_RULE_ERROR_CODES.VARIANT_INVALID));
+});
+
+test('a declared input naming a token nothing owns is recorded and never refuses the compile', () => {
+  const result = compileStageRules(orderRequest());
+  assert.equal(result.receipt.counts.unresolved_dependency, 1);
+  assert.deepEqual(rowOf(result, 9006).dependency_resolution,
+    { in_scope: [], out_of_scope: [], unresolved: ['synthetic_unlisted_input'] });
+  // The row itself is unharmed: an authoring mistake in one edge does not re-grade the rule.
+  assert.equal(rowOf(result, 9006).minimum_presence_rule, PRESENCE_RULE.PRESENT_OR_NOT_APPLICABLE);
+  assert.equal(rowOf(result, 9006).engine_requirement_id, '090_PDR_stp');
+
+  // A vocabulary token this compile does not produce is a real dependency on work outside the
+  // compiled scope, which is a different thing from a token nobody owns.
+  const outside = orderRequest();
+  orderTaskOf(outside, 9006).depends_on = ['temp', 'synthetic_unlisted_input'];
+  const widened = compileStageRules(outside);
+  assert.deepEqual(rowOf(widened, 9006).dependency_resolution,
+    { in_scope: [], out_of_scope: ['temp'], unresolved: ['synthetic_unlisted_input'] });
+  assert.equal(workItemOf(orderStageWork(widened), '090_PDR', 'stp').out_of_scope_inputs.length, 1);
+});
+
+// ---------------------------------------------------------------- 13d. the work order
+
+test('an empty project is ordered inputs first, deterministically, and the order repeats', () => {
+  const compiled = compileStageRules(orderRequest());
+  const order = orderStageWork(compiled);
+  assert.equal(order.schema_version, STAGE_WORK_ORDER_SCHEMA_VERSION);
+  assert.deepEqual(order.stages.map((stage) => stage.stage_code), ['030_SRR', '090_PDR']);
+  assert.deepEqual(order.stages.map((stage) => stage.stage_sequence), [30, 90]);
+
+  for (const [stageCode, tokens] of Object.entries(ORDER.expected.empty_project_work_order)) {
+    assert.deepEqual(workTokens(order, stageCode), tokens, stageCode);
+  }
+
+  // With nothing observed, every declared input is unsatisfied, so a stage opens with the items
+  // that need nothing at all — and no item ever precedes one of its own same-stage inputs.
+  const srr = order.stages.find((stage) => stage.stage_code === '030_SRR');
+  assert.deepEqual(srr.work_items.filter((item) => item.ready).map((item) => item.artifact_type_id),
+    ORDER.expected.empty_project_ready_tokens);
+  for (const stage of order.stages) {
+    const placed = new Map(stage.work_items.map((item) => [item.artifact_type_id, item.order_index]));
+    for (const item of stage.work_items) {
+      assert.equal(item.order_index, stage.work_items.indexOf(item));
+      for (const input of item.same_stage_inputs) {
+        if (!placed.has(input)) continue;
+        assert.ok(placed.get(input) < item.order_index,
+          `${input} must precede ${item.artifact_type_id} in ${stage.stage_code}`);
+      }
+      assert.equal(item.observation_state, 'unobserved');
+      assert.deepEqual(item.blocked_by, item.depends_on);
+    }
+  }
+
+  // Same input, same bytes — and the order the gates and the target stages happen to be written
+  // in cannot reach it.
+  assert.deepEqual(orderStageWork(compileStageRules(orderRequest())).receipt.output_digests,
+    order.receipt.output_digests);
+  const shuffled = orderRequest();
+  shuffled.compiled_variant.gates.reverse();
+  for (const gate of shuffled.compiled_variant.gates) gate.tasks.reverse();
+  shuffled.target_stage_codes = ['030_SRR', '090_PDR'];
+  assert.deepEqual(orderStageWork(compileStageRules(shuffled)).stages, order.stages);
+
+  assert.deepEqual(order.receipt.effects, {
+    erp_writes: 0, filesystem_writes: 0, model_calls: 0, network_calls: 0, clock_reads: 0,
+  });
+  // The tie-break the plan asked for and this ordering cannot honestly apply is named, not faked.
+  assert.ok(order.receipt.tie_breaks_skipped.some((row) => row.startsWith('gate_entrance_criteria_first')));
+});
+
+test('causal edges and the stage sequence stay separate in the work order', () => {
+  const order = orderStageWork(compileStageRules(orderRequest()));
+
+  // An input produced at an earlier gate is already ordered by the lifecycle, so it is reported
+  // as an earlier-stage input and never as an edge inside this stage.
+  const design = workItemOf(order, '090_PDR', 'act_architecture_design');
+  assert.deepEqual(design.earlier_stage_inputs, ['ssrs']);
+  assert.deepEqual(design.same_stage_inputs, []);
+  assert.deepEqual(design.depends_on, ['ssrs']);
+  assert.deepEqual(design.blocked_by, ['ssrs']);
+  assert.equal(design.node_kind, 'activity');
+  assert.equal(design.is_virtual, true);
+  assert.deepEqual(design.evidence_record, ['review_minutes_pdr']);
+
+  const ssdd = workItemOf(order, '090_PDR', 'ssdd');
+  assert.deepEqual(ssdd.same_stage_inputs, ['act_architecture_design']);
+  assert.deepEqual(ssdd.earlier_stage_inputs, []);
+
+  // Only the rows the engine judges become work items; context rows are counted and sequenced
+  // but never handed out as something to do.
+  assert.equal(order.receipt.counts.work_items, 10);
+  assert.equal(order.receipt.counts.context_items, 3);
+  assert.ok(!workTokens(order, '030_SRR').includes('rtm'));
+  assert.ok(!workTokens(order, '030_SRR').includes('inbox'));
+
+  // The evidence precedence the plan declares is stated in the receipt rather than left implicit.
+  assert.ok(order.receipt.evidence_rank.regulation_mandated < order.receipt.evidence_rank.guidebook_recommended);
+  assert.ok(order.receipt.evidence_rank.guidebook_recommended < order.receipt.evidence_rank.general_se_guidance);
+  assert.ok(order.receipt.evidence_rank.general_se_guidance < order.receipt.evidence_rank.unstated);
+});
+
+test('observations mark what is already done without rewriting the rules', () => {
+  assert.deepEqual([...OBSERVATION_PRESENCE_STATES], [...PRESENCE_STATES_PIN]);
+  const compiled = compileStageRules(orderRequest());
+  const empty = orderStageWork(compiled);
+  const observed = orderStageWork(compiled, [
+    { artifact_type_id: 'conops', presence_state: 'present' },
+    { artifact_type_id: 'ssrs', presence_state: 'absence_confirmed' },
+  ]);
+
+  const activity = workItemOf(observed, '030_SRR', 'act_stakeholder_expectations');
+  assert.deepEqual(activity.satisfied_inputs, ['conops']);
+  assert.deepEqual(activity.blocked_by, []);
+  assert.equal(activity.ready, true);
+  assert.equal(workItemOf(observed, '030_SRR', 'conops').observation_state, 'present');
+  assert.equal(workItemOf(observed, '030_SRR', 'ssrs').observation_state, 'absence_confirmed');
+
+  // An edge is a property of the rules, so an item can never move ahead of its own same-stage
+  // input however much has been observed. What an observation does change is which items are
+  // unblocked, and an unblocked item is offered before one that is still waiting — so the
+  // activity, whose only input has now been seen, moves up past a plan that needs nothing.
+  assert.deepEqual(workTokens(empty, '030_SRR'),
+    ['conops', 'semp', 'act_stakeholder_expectations', 'ssrs', 'review_minutes_srr']);
+  assert.deepEqual(workTokens(observed, '030_SRR'),
+    ['conops', 'act_stakeholder_expectations', 'semp', 'ssrs', 'review_minutes_srr']);
+  const placed = new Map(workTokens(observed, '030_SRR').map((token, index) => [token, index]));
+  assert.ok(placed.get('conops') < placed.get('act_stakeholder_expectations'));
+  assert.ok(placed.get('act_stakeholder_expectations') < placed.get('ssrs'));
+  assert.notDeepEqual(observed.receipt.output_digests, empty.receipt.output_digests);
+  assert.equal(observed.receipt.counts.observed_present, 1);
+
+  // Two states for one artifact is a question for the caller, not something to average.
+  assert.throws(() => orderStageWork(compiled, [
+    { artifact_type_id: 'conops', presence_state: 'present' },
+    { artifact_type_id: 'conops', presence_state: 'unknown' },
+  ]), throwsWith(STAGE_RULE_ERROR_CODES.WORK_ORDER_INVALID));
+  assert.throws(() => orderStageWork(compiled, [
+    { artifact_type_id: 'conops', presence_state: 'probably' },
+  ]), throwsWith(STAGE_RULE_ERROR_CODES.WORK_ORDER_INVALID));
+});
+
+test('a ring of declared inputs has no first item and is refused by code', () => {
+  const cyclic = orderRequest();
+  // ssrs already needs the stakeholder activity; make the activity need ssrs back.
+  orderTaskOf(cyclic, 3003).depends_on = ['conops', 'ssrs'];
+  const compiled = compileStageRules(cyclic);
+  // The compile itself still succeeds: a cycle is a question about order, not about presence.
+  assert.equal(compiled.receipt.counts.dependency_edges, 10);
+  assert.throws(() => orderStageWork(compiled), (error) => {
+    assert.ok(error instanceof StageRuleCompilerError);
+    assert.equal(error.code, STAGE_RULE_ERROR_CODES.DEPENDENCY_CYCLE);
+    assert.equal(error.detail.stage_code, '030_SRR');
+    assert.deepEqual(error.detail.artifact_type_ids,
+      ['act_stakeholder_expectations', 'review_minutes_srr', 'rtm', 'ssrs']);
+    return true;
+  });
+
+  // A row that names itself is not an edge at all, so it does not deadlock the stage.
+  const selfish = orderRequest();
+  orderTaskOf(selfish, 3005).depends_on = ['semp'];
+  assert.ok(workTokens(orderStageWork(compileStageRules(selfish)), '030_SRR').includes('semp'));
+});
+
+test('an overlay may add a declared input and may never take one away', () => {
+  const request = orderRequest();
+  request.overlay = structuredClone(ORDER.overlay_add_dependency);
+  const compiled = compileStageRules(request);
+  assert.equal(compiled.receipt.counts.overlay_dependencies_added, 1);
+
+  const row = rowOf(compiled, 9006);
+  assert.deepEqual(row.depends_on, ['ssdd', 'synthetic_unlisted_input']);
+  // What the canonical table said and what this project added stay tellable apart, and the added
+  // edge carries the exact document revision that asked for it.
+  assert.deepEqual(row.overlay_depends_on, ['ssdd']);
+  assert.deepEqual(row.dependency_resolution.in_scope, ['ssdd']);
+  assert.equal(row.overlay_dependency_refs.length, 1);
+  assert.equal(row.overlay_dependency_refs[0].source_ref.entity_id, 'synthetic_buyer_request_letter');
+  assert.equal(row.overlay_dependency_refs[0].basis, 'synthetic_buyer_asked_for_the_design_first');
+  assert.deepEqual(rowOf(compiled, 9003).overlay_dependency_refs, []);
+
+  const order = orderStageWork(compiled);
+  assert.deepEqual(workTokens(order, '090_PDR'), ORDER.expected.work_order_with_overlay_dependency['090_PDR']);
+  assert.deepEqual(workItemOf(order, '090_PDR', 'stp').same_stage_inputs, ['ssdd']);
+
+  // There is no operation that removes a canonical edge, for the same reason there is none that
+  // lowers a canonical evidence level.
+  const removing = orderRequest();
+  removing.overlay = structuredClone(ORDER.overlay_add_dependency);
+  removing.overlay.ops[0] = { ...removing.overlay.ops[0], op: 'remove_dependency' };
+  assert.throws(() => compileStageRules(removing), throwsWith(STAGE_RULE_ERROR_CODES.OVERLAY_FORBIDDEN));
+
+  // And an added edge still has to name a rule that exists.
+  const missing = orderRequest();
+  missing.overlay = structuredClone(ORDER.overlay_add_dependency);
+  missing.overlay.ops[0].artifact_type_id = 'ot_report';
+  assert.throws(() => compileStageRules(missing), throwsWith(STAGE_RULE_ERROR_CODES.OVERLAY_INVALID));
+
+  const empty = orderRequest();
+  empty.overlay = structuredClone(ORDER.overlay_add_dependency);
+  empty.overlay.ops[0].depends_on = [];
+  assert.throws(() => compileStageRules(empty), throwsWith(STAGE_RULE_ERROR_CODES.OVERLAY_INVALID));
+});
+
+// ---------------------------------------------------------------- 13e. layered equals merged
+
+test('the layered rule path and the merged spec path agree on the real 체계개발 table at 120_CDR', () => {
+  // The tracked spec carries both the national common rows and the prime-contract rows, and the
+  // exporter splits them into a common baseline plus a prime overlay. If the split and the
+  // compiler's weakening rules ever disagree, the two paths stop naming the same requirements —
+  // which is the failure this asserts against, on the real rule table rather than a synthetic one.
+  const compiled = (name) => JSON.parse(readFileSync(new URL(
+    `../../../.registry/skills/se_foldertree_generate/codex/assets/compiled/${name}`,
+    import.meta.url), 'utf8'));
+  const merged = compiled('system_dev_lig_grade_a.json');
+  const common = compiled('system_dev_common_no_grade.json');
+  const primeOverlay = compiled('overlays/system_dev_lig_grade_a.prime.overlay.json');
+
+  const binding = {
+    document_refs: [{
+      artifact_type_ids_covered: [],
+      requirement_ref: syntheticRef('layered_equivalence_probe_document'),
+    }],
+    valid_at: '2026-05-04T00:00:00.000Z',
+    known_at: '2026-05-11T00:00:00.000Z',
+    authority_family: 'project_contract_baseline',
+    applicability_default: true,
+  };
+  const conditions = ['exploratory_skipped', 'sw_included'];
+  const run = (variant, overlay) => compileStageRules({
+    compiled_variant: variant,
+    overlay,
+    project_binding: structuredClone(binding),
+    target_stage_codes: ['120_CDR'],
+    overlay_conditions: [...conditions],
+  });
+
+  const mergedResult = run(merged, null);
+  const layeredResult = run(common, primeOverlay);
+  assert.deepEqual(requirementIds(layeredResult), requirementIds(mergedResult));
+  assert.equal(layeredResult.receipt.counts.engine_requirements,
+    mergedResult.receipt.counts.engine_requirements);
+  assert.ok(mergedResult.receipt.counts.engine_requirements > 0);
+
+  // The work order is a pure function of the rules, so the two paths also agree on what to do
+  // first — this is the property that would break silently if only one path carried the edges.
+  assert.deepEqual(workTokens(orderStageWork(layeredResult), '120_CDR'),
+    workTokens(orderStageWork(mergedResult), '120_CDR'));
+});
+
+// ---------------------------------------------------------------- 13f. the empty project
+
+test('an empty 체계개발 project is told what to do first at 030_SRR, from the real rule table', () => {
+  // The plan's completion test for this slice: with zero observations, the national common
+  // baseline plus its prime-contract overlay has to name a deterministic first list. What that
+  // list contains is whatever the canonical texts support and is asserted structurally rather
+  // than by name, so re-deriving an edge changes the order without breaking the property.
+  const compiled = (name) => JSON.parse(readFileSync(new URL(
+    `../../../.registry/skills/se_foldertree_generate/codex/assets/compiled/${name}`,
+    import.meta.url), 'utf8'));
+  const result = compileStageRules({
+    compiled_variant: compiled('system_dev_common_no_grade.json'),
+    overlay: compiled('overlays/system_dev_lig_grade_a.prime.overlay.json'),
+    project_binding: {
+      document_refs: [{
+        artifact_type_ids_covered: [],
+        requirement_ref: syntheticRef('empty_project_probe_document'),
+      }],
+      valid_at: '2026-05-04T00:00:00.000Z',
+      known_at: '2026-05-11T00:00:00.000Z',
+      authority_family: 'project_contract_baseline',
+      applicability_default: true,
+    },
+    target_stage_codes: ['030_SRR', '060_SFR', '090_PDR', '120_CDR'],
+    overlay_conditions: ['exploratory_skipped', 'sw_included'],
+  });
+  const order = orderStageWork(result);
+  const srr = order.stages.find((stage) => stage.stage_code === '030_SRR');
+  assert.ok(srr && srr.work_items.length > 10);
+
+  // Everything that needs nothing comes before everything that is still waiting on an input.
+  const firstBlocked = srr.work_items.findIndex((item) => !item.ready);
+  assert.ok(firstBlocked > 0, 'the stage opens with work that needs nothing');
+  for (const item of srr.work_items.slice(0, firstBlocked)) {
+    assert.deepEqual(item.depends_on, [], item.artifact_type_id);
+  }
+  for (const item of srr.work_items.slice(firstBlocked)) {
+    assert.ok(item.depends_on.length > 0, item.artifact_type_id);
+  }
+  // Inside the unblocked head, a regulation comes before a guidebook recommendation, and that
+  // before a contract item.
+  const head = srr.work_items.slice(0, firstBlocked).map((item) => item.evidence_rank);
+  assert.deepEqual(head, [...head].sort((left, right) => left - right));
+  assert.equal(srr.work_items[0].evidence_level, 'regulation_mandated');
+
+  // The two things this slice added are visible in the answer: an activity node, and an item
+  // that has to wait for one.
+  assert.ok(srr.work_items.some((item) => item.node_kind === 'activity' && item.is_virtual));
+  const waiting = srr.work_items.filter((item) => item.same_stage_inputs.length > 0);
+  assert.ok(waiting.length > 0, 'at least one SRR item waits on same-stage work');
+  for (const item of waiting) {
+    for (const input of item.same_stage_inputs) {
+      const inputIndex = srr.work_items.findIndex((row) => row.artifact_type_id === input);
+      // An input can be a context row of this stage rather than work — a buyer-owned document,
+      // for instance. It still sequences the item that needs it, and it is still not something
+      // to hand anybody as a thing to do, so it is absent from the work list by design.
+      if (inputIndex === -1) continue;
+      assert.ok(inputIndex < item.order_index,
+        `${input} must be offered before ${item.artifact_type_id}`);
+    }
+  }
+  // The review activity waits on a buyer-owned document that this stage carries as context: the
+  // list says "not yet" rather than pretending the review is ready.
+  const review = srr.work_items.find((item) => item.artifact_type_id === 'act_technical_review');
+  assert.ok(review && review.ready === false && review.blocked_by.length > 0);
+  assert.ok(!srr.work_items.some((item) => item.artifact_type_id === review.blocked_by[0]),
+    'the blocking input is a context row of this stage, not work');
+
+  // Every later stage is ordered too, and no stage names an input nothing owns.
+  assert.deepEqual(order.stages.map((stage) => stage.stage_code),
+    ['030_SRR', '060_SFR', '090_PDR', '120_CDR']);
+  assert.equal(order.receipt.counts.unresolved_dependency, 0);
+  assert.deepEqual(result.receipt.unresolved_dependencies, []);
 });
 
 // ---------------------------------------------------------------- 14. static effect pin

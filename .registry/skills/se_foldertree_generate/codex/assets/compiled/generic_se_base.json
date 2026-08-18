@@ -23,6 +23,7 @@
           "id": 1,
           "is_fixed": true,
           "name": "INBOX_분류전",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -36,6 +37,7 @@
           "id": 2,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -49,6 +51,7 @@
           "id": 3,
           "is_fixed": true,
           "name": "TDP_기술자료",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -62,6 +65,7 @@
           "id": 4,
           "maturity": "baseline",
           "name": "소요-작전운용성능참조문서(ORD)_F",
+          "node_kind": "artifact",
           "se_floor": "context",
           "source": "NASA NPR 7123.1D Table G-3, p.37 §5.2.2.2.a [SE-35..SE-37]; DoD SE Guidebook 2022 Table 3-1 p.69, Table 3-4 p.81",
           "source_refs": [
@@ -93,6 +97,7 @@
           "id": 5,
           "maturity": "preliminary",
           "name": "운용개념서초안(CONOPS)_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-3, Table G-4; DoD SE Guidebook 2022 p.68, Table 3-1 p.69",
           "source_refs": [
@@ -124,6 +129,7 @@
           "id": 6,
           "maturity": "preliminary",
           "name": "대안분석-개념절충연구기록(Trade_Study)_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-3; DoD SE Guidebook 2022 p.68, Table 3-1 p.69",
           "source_refs": [
@@ -151,6 +157,7 @@
           "id": 7,
           "maturity": "preliminary",
           "name": "기술성숙도평가-기술성숙화계획초안(TRA)_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-3, p.36 §5.1.6; DoD SE Guidebook 2022 Table 3-1 p.69",
           "source_refs": [
@@ -185,6 +192,7 @@
           "id": 301,
           "is_fixed": true,
           "name": "INBOX_분류전",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -198,6 +206,7 @@
           "id": 302,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -211,6 +220,7 @@
           "id": 303,
           "is_fixed": true,
           "name": "TDP_기술자료",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -219,11 +229,22 @@
         },
         {
           "artifact_type_id": "sss",
+          "depends_on": [
+            "act_architecture_design"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "System/Subsystem Specification (system performance / system requirements specification) ready to baseline",
           "evidence_level": "general_se_guidance",
           "id": 304,
           "maturity": "baseline",
           "name": "체계요구사항명세서(SSS)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-4, p.38 §5.2.2.2.b [SE-39]; DoD SE Guidebook 2022 Table 3-2 p.72",
           "source_refs": [
@@ -246,11 +267,35 @@
         },
         {
           "artifact_type_id": "conops",
+          "depends_on": [
+            "act_stakeholder_expectations",
+            "act_validation"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.1 (p.142-143)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.7 (p.151-152; explicit product sentences p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.2.1-§3.2.2.3 (p.24)",
+              "source_key": "nasa_npr_7123_1d"
+            },
+            {
+              "locator": "pdf p.66-75 (printed p.53-62) §4.1.1.1/§4.1.1.3, Figure 4.1-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "Concept of Operations / operations concept (updated)",
           "evidence_level": "general_se_guidance",
           "id": 305,
           "maturity": "updated",
           "name": "운용개념서(CONOPS)_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 Table 3-1 p.69, p.68",
           "source_refs": [
@@ -278,6 +323,7 @@
           "id": 306,
           "maturity": "baseline",
           "name": "체계공학관리계획서(SEMP)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-4, p.37 §5.2.2.2.b [SE-38]; DoD SE Guidebook 2022 Table 3-2 p.72, p.17",
           "source_refs": [
@@ -308,11 +354,27 @@
         },
         {
           "artifact_type_id": "rtm",
+          "depends_on": [
+            "act_requirements_analysis",
+            "act_stakeholder_expectations"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.1 (p.142-143)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.3.1-§3.2.3.2 (p.24-25)",
+              "source_key": "nasa_npr_7123_1d"
+            }
+          ],
           "desc": "Requirements traceability matrix (bidirectional: buyer requirement - SOW - system spec)",
           "evidence_level": "general_se_guidance",
           "id": 307,
           "maturity": "preliminary",
           "name": "요구사항추적표(RTM)_D",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-4, Table G-1; DoD SE Guidebook 2022 Table 3-2 p.72, p.71",
           "source_refs": [
@@ -339,11 +401,27 @@
         },
         {
           "artifact_type_id": "icd",
+          "depends_on": [
+            "act_architecture_design",
+            "act_integration"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.5 (p.149-150)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "External interface identification and preliminary external ICDs",
           "evidence_level": "general_se_guidance",
           "id": 308,
           "maturity": "preliminary",
           "name": "외부인터페이스통제문서(ICD)_D",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 Table 3-2 p.72",
           "source_refs": [
@@ -362,11 +440,22 @@
         },
         {
           "artifact_type_id": "vv_strategy",
+          "depends_on": [
+            "act_architecture_design"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "Verification and validation strategy: verification method identified for each requirement, certifying agencies identified",
           "evidence_level": "general_se_guidance",
           "id": 309,
           "maturity": "preliminary",
           "name": "검증전략-요구사항별검증방법(V_and_V)_D",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 Table 3-2 p.73",
           "source_refs": [
@@ -390,6 +479,7 @@
           "id": 310,
           "maturity": "baseline",
           "name": "위험관리계획서(RMP)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 p.17, Table 3-2 p.72",
           "source_refs": [
@@ -417,6 +507,7 @@
           "id": 311,
           "maturity": "updated",
           "name": "위험목록(Risk_Register)_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-4, Table G-1; DoD SE Guidebook 2022 Table 3-2 p.72",
           "source_refs": [
@@ -444,6 +535,7 @@
           "id": 312,
           "maturity": "baseline",
           "name": "형상관리계획서(CMP)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-4, Table G-1; DoD SE Guidebook 2022 Table 3-2 p.73, p.134",
           "source_refs": [
@@ -475,6 +567,7 @@
           "id": 313,
           "maturity": "updated",
           "name": "기술성숙도평가-기술성숙화계획(TRA)_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 Table 3-2 p.73",
           "source_refs": [
@@ -498,6 +591,7 @@
           "id": 314,
           "maturity": "preliminary",
           "name": "통합일정(IMS)-WBS_D",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 Table 3-2 p.72-73, p.108-109",
           "source_refs": [
@@ -529,6 +623,7 @@
           "id": 315,
           "maturity": "preliminary",
           "name": "문서-규격트리(Spec_Tree)_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 p.78",
           "source_refs": [
@@ -552,6 +647,7 @@
           "id": 316,
           "maturity": "preliminary",
           "name": "예비체계안전분석서(Safety)_D",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 Table 3-1 p.69, Table 3-2 p.73",
           "source_refs": [
@@ -579,6 +675,7 @@
           "id": 317,
           "maturity": "baseline",
           "name": "RAM계획서_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 Table 3-2 p.72-73, p.195-197",
           "source_refs": [
@@ -601,11 +698,31 @@
         },
         {
           "artifact_type_id": "tpm_list",
+          "depends_on": [
+            "act_architecture_design",
+            "act_requirements_analysis"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.3.1-§3.2.3.2 (p.24-25)",
+              "source_key": "nasa_npr_7123_1d"
+            },
+            {
+              "locator": "pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "Key driving requirements: MOP/TPM list with thresholds and margins",
           "evidence_level": "general_se_guidance",
           "id": 318,
           "maturity": "preliminary",
           "name": "핵심성능지표(TPM)목록_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 Table 3-2 p.72, p.83",
           "source_refs": [
@@ -633,6 +750,7 @@
           "id": 319,
           "maturity": "preliminary",
           "name": "소프트웨어개발계획서(SDP)_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 Table 3-2 p.72-73",
           "source_refs": [
@@ -651,11 +769,27 @@
         },
         {
           "artifact_type_id": "ils_plan",
+          "depends_on": [
+            "act_architecture_design",
+            "act_transition"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.8 (p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "Integrated logistics support / product support plan (preliminary; maintenance concept)",
           "evidence_level": "general_se_guidance",
           "id": 320,
           "maturity": "preliminary",
           "name": "종합군수지원계획(ILS)_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 Table 3-2 p.73",
           "source_refs": [
@@ -674,11 +808,22 @@
         },
         {
           "artifact_type_id": "manufacturing_plan",
+          "depends_on": [
+            "act_implementation"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Manufacturing and production strategy (initial producibility)",
           "evidence_level": "general_se_guidance",
           "id": 321,
           "maturity": "preliminary",
           "name": "제조-생산전략서(MFG_Plan)_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-3; DoD SE Guidebook 2022 Table 3-2 p.73, Table 3-1 p.69",
           "source_refs": [
@@ -701,11 +846,22 @@
         },
         {
           "artifact_type_id": "hsi_plan",
+          "depends_on": [
+            "act_architecture_design"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "Human systems integration approach / HSI plan",
           "evidence_level": "general_se_guidance",
           "id": 322,
           "maturity": "baseline",
           "name": "인간체계통합계획-접근(HSI)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-4, p.37 §5.2.1.3; DoD SE Guidebook 2022 Table 3-2 p.73",
           "source_refs": [
@@ -737,6 +893,7 @@
           "id": 323,
           "maturity": "preliminary",
           "name": "체계보안-프로그램보호계획(PPP)_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-4, Table G-1; DoD SE Guidebook 2022 Table 3-2 p.72, p.216",
           "source_refs": [
@@ -772,6 +929,7 @@
           "id": 324,
           "maturity": "baseline",
           "name": "자료요구목록(CDRL)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 Table 2-4 p.59, Table 3-4 p.81",
           "source_refs": [
@@ -799,6 +957,7 @@
           "id": 325,
           "maturity": "final",
           "name": "SRR검토자료(Review_Package)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 p.63, p.75",
           "source_refs": [
@@ -826,6 +985,7 @@
           "id": 326,
           "maturity": "final",
           "name": "SRR회의록_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D p.40 §5.2.3.1; DoD SE Guidebook 2022 p.75",
           "source_refs": [
@@ -849,6 +1009,7 @@
           "id": 327,
           "maturity": "final",
           "name": "SRR결과보고서_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D p.40 §5.2.3.1, Table G-4; DoD SE Guidebook 2022 p.74",
           "source_refs": [
@@ -868,6 +1029,248 @@
           "template": "없음",
           "term": "SRR_결과보고서",
           "verification_status": "source_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_architecture_design",
+          "desc": "Architecture design — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "general_se_guidance",
+          "evidence_record": [
+            "hsi_plan",
+            "icd",
+            "ils_plan",
+            "sss",
+            "tpm_list",
+            "vv_strategy"
+          ],
+          "id": 328,
+          "is_virtual": true,
+          "name": "아키텍처·설계해 정의(활동)",
+          "node_kind": "activity",
+          "se_floor": "should_have",
+          "source": "NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력",
+          "source_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_implementation",
+          "depends_on": [
+            "tra_report"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "desc": "Product implementation — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "general_se_guidance",
+          "evidence_record": [
+            "manufacturing_plan"
+          ],
+          "id": 329,
+          "is_virtual": true,
+          "name": "구현·제작(활동)",
+          "node_kind": "activity",
+          "se_floor": "should_have",
+          "source": "NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력",
+          "source_refs": [
+            {
+              "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_integration",
+          "depends_on": [
+            "semp"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.5 (p.149-150)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "desc": "Product integration — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "general_se_guidance",
+          "evidence_record": [
+            "icd"
+          ],
+          "id": 330,
+          "is_virtual": true,
+          "name": "통합(활동)",
+          "node_kind": "activity",
+          "se_floor": "should_have",
+          "source": "NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력",
+          "source_refs": [
+            {
+              "locator": "§4.2.5 (p.149-150)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_requirements_analysis",
+          "depends_on": [
+            "conops"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
+          "desc": "Requirements analysis — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "general_se_guidance",
+          "evidence_record": [
+            "rtm",
+            "tpm_list"
+          ],
+          "id": 331,
+          "is_virtual": true,
+          "name": "요구사항 분석(활동)",
+          "node_kind": "activity",
+          "se_floor": "should_have",
+          "source": "NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력",
+          "source_refs": [
+            {
+              "locator": "§3.2.3.1-§3.2.3.2 (p.24-25)",
+              "source_key": "nasa_npr_7123_1d"
+            },
+            {
+              "locator": "pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_stakeholder_expectations",
+          "desc": "Stakeholder expectations definition — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "general_se_guidance",
+          "evidence_record": [
+            "conops",
+            "rtm"
+          ],
+          "id": 332,
+          "is_virtual": true,
+          "name": "이해관계자 기대 정의(활동)",
+          "node_kind": "activity",
+          "se_floor": "should_have",
+          "source": "NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력",
+          "source_refs": [
+            {
+              "locator": "§4.2.1 (p.142-143)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.2.1-§3.2.2.3 (p.24)",
+              "source_key": "nasa_npr_7123_1d"
+            },
+            {
+              "locator": "pdf p.66-75 (printed p.53-62) §4.1.1.1/§4.1.1.3, Figure 4.1-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_transition",
+          "depends_on": [
+            "hsi_plan",
+            "icd"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.8 (p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "desc": "Product transition — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "general_se_guidance",
+          "evidence_record": [
+            "ils_plan"
+          ],
+          "id": 333,
+          "is_virtual": true,
+          "name": "인도·전환(활동)",
+          "node_kind": "activity",
+          "se_floor": "should_have",
+          "source": "NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력",
+          "source_refs": [
+            {
+              "locator": "§4.2.8 (p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_validation",
+          "depends_on": [
+            "vv_strategy"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "pdf p.129-136 (printed p.116-123) §5.4.1.1/§5.4.1.3, Figure 5.4-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
+          "desc": "Product validation — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "general_se_guidance",
+          "evidence_record": [
+            "conops"
+          ],
+          "id": 334,
+          "is_virtual": true,
+          "name": "확인(활동)",
+          "node_kind": "activity",
+          "se_floor": "should_have",
+          "source": "NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력",
+          "source_refs": [
+            {
+              "locator": "§4.2.7 (p.151-152; explicit product sentences p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
         }
       ]
     },
@@ -883,6 +1286,7 @@
           "id": 601,
           "is_fixed": true,
           "name": "INBOX_분류전",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -896,6 +1300,7 @@
           "id": 602,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -909,6 +1314,7 @@
           "id": 603,
           "is_fixed": true,
           "name": "TDP_기술자료",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -917,11 +1323,22 @@
         },
         {
           "artifact_type_id": "fci",
+          "depends_on": [
+            "act_requirements_analysis"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.2 (p.143-145)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Functional baseline configuration identification (system spec + verification requirements + external interfaces under configuration control)",
           "evidence_level": "general_se_guidance",
           "id": 604,
           "maturity": "baseline",
           "name": "기능형상식별서(FCI)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D p.38 §5.2.2.2.c [SE-41] [SE-42]; DoD SE Guidebook 2022 p.74, p.132",
           "source_refs": [
@@ -944,11 +1361,22 @@
         },
         {
           "artifact_type_id": "sss",
+          "depends_on": [
+            "act_architecture_design"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "System/Subsystem Specification (updated, functional baseline version)",
           "evidence_level": "general_se_guidance",
           "id": 605,
           "maturity": "updated",
           "name": "체계요구사항명세서(SSS)_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-2, Table G-5; DoD SE Guidebook 2022 Table 3-3 p.76",
           "source_refs": [
@@ -971,11 +1399,36 @@
         },
         {
           "artifact_type_id": "functional_analysis",
+          "depends_on": [
+            "act_architecture_design",
+            "act_logical_decomposition",
+            "act_requirements_analysis"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.2 (p.143-145)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.4.1-§3.2.4.2 (p.25)",
+              "source_key": "nasa_npr_7123_1d"
+            },
+            {
+              "locator": "pdf p.87-89 (printed p.74-76) §4.3.1.1/§4.3.1.3, Figure 4.3-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "Functional analysis / system architecture definition (functional allocation, timing, tradeoffs and options)",
           "evidence_level": "general_se_guidance",
           "id": 606,
           "maturity": "baseline",
           "name": "기능분석-체계아키텍처정의서(Functional_Analysis)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-5; DoD SE Guidebook 2022 Table 3-3 p.76",
           "source_refs": [
@@ -999,6 +1452,7 @@
           "id": 607,
           "maturity": "preliminary",
           "name": "부체계요구사항명세서(SSRS)_D",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-5, p.38 [SE-42]; DoD SE Guidebook 2022 Table 3-3 p.76",
           "source_refs": [
@@ -1021,11 +1475,22 @@
         },
         {
           "artifact_type_id": "vcrm",
+          "depends_on": [
+            "act_verification"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Verification cross-reference matrix / verification requirements for FCA-SVR (per requirement method and level)",
           "evidence_level": "general_se_guidance",
           "id": 608,
           "maturity": "preliminary",
           "name": "검증교차참조표(VCRM)_D",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-5, Table G-4; DoD SE Guidebook 2022 Table 3-3 p.76",
           "source_refs": [
@@ -1048,11 +1513,31 @@
         },
         {
           "artifact_type_id": "tpm_list",
+          "depends_on": [
+            "act_architecture_design",
+            "act_requirements_analysis"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.3.1-§3.2.3.2 (p.24-25)",
+              "source_key": "nasa_npr_7123_1d"
+            },
+            {
+              "locator": "pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "TPM/MOP definitions (approved) with technical performance status and margins",
           "evidence_level": "general_se_guidance",
           "id": 609,
           "maturity": "baseline",
           "name": "핵심성능지표정의및추이(TPM)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-5, p.38 [SE-40] [SE-43]; DoD SE Guidebook 2022 p.83, p.89",
           "source_refs": [
@@ -1083,11 +1568,26 @@
         },
         {
           "artifact_type_id": "trade_study",
+          "depends_on": [
+            "act_architecture_design"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.5.1-§3.2.5.3 (p.25)",
+              "source_key": "nasa_npr_7123_1d"
+            }
+          ],
           "desc": "Trade study reports (architecture and allocation trades)",
           "evidence_level": "general_se_guidance",
           "id": 610,
           "maturity": "updated",
           "name": "절충연구보고서(Trade_Study)_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-5; DoD SE Guidebook 2022 Table 3-3 p.76",
           "source_refs": [
@@ -1106,11 +1606,27 @@
         },
         {
           "artifact_type_id": "icd",
+          "depends_on": [
+            "act_architecture_design",
+            "act_integration"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.5 (p.149-150)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "System interface definitions / ICDs (preliminary, external plus major internal)",
           "evidence_level": "general_se_guidance",
           "id": 611,
           "maturity": "preliminary",
           "name": "인터페이스통제문서(ICD)_D",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-5, Table G-2; DoD SE Guidebook 2022 p.132-133, Table 3-2 p.72",
           "source_refs": [
@@ -1137,11 +1653,27 @@
         },
         {
           "artifact_type_id": "rtm",
+          "depends_on": [
+            "act_requirements_analysis",
+            "act_stakeholder_expectations"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.1 (p.142-143)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.3.1-§3.2.3.2 (p.24-25)",
+              "source_key": "nasa_npr_7123_1d"
+            }
+          ],
           "desc": "Requirements traceability matrix (updated: parent to system to subsystem)",
           "evidence_level": "general_se_guidance",
           "id": 612,
           "maturity": "updated",
           "name": "요구사항추적표(RTM)_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-2, Table G-5; DoD SE Guidebook 2022 Table 3-3 p.76",
           "source_refs": [
@@ -1169,6 +1701,7 @@
           "id": 613,
           "maturity": "updated",
           "name": "위험목록(Risk_Register)_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-5; DoD SE Guidebook 2022 Table 3-3 p.76",
           "source_refs": [
@@ -1192,6 +1725,7 @@
           "id": 614,
           "maturity": "updated",
           "name": "SEMP_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-5, Table G-2; DoD SE Guidebook 2022 p.15-18",
           "source_refs": [
@@ -1219,6 +1753,7 @@
           "id": 615,
           "maturity": "updated",
           "name": "RAM계획서_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-5; DoD SE Guidebook 2022 Table 3-3 p.76",
           "source_refs": [
@@ -1242,6 +1777,7 @@
           "id": 616,
           "maturity": "updated",
           "name": "체계안전분석서(Safety)_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-5; DoD SE Guidebook 2022 Table 3-3 p.76",
           "source_refs": [
@@ -1265,6 +1801,7 @@
           "id": 617,
           "maturity": "updated",
           "name": "IMS_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-5; DoD SE Guidebook 2022 Table 3-3 p.76",
           "source_refs": [
@@ -1288,6 +1825,7 @@
           "id": 618,
           "maturity": "preliminary",
           "name": "통합계획서(Integration)_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-5, Table G-2",
           "source_refs": [
@@ -1306,11 +1844,27 @@
         },
         {
           "artifact_type_id": "ils_plan",
+          "depends_on": [
+            "act_architecture_design",
+            "act_transition"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.8 (p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "Integrated logistics support plan (preliminary)",
           "evidence_level": "general_se_guidance",
           "id": 619,
           "maturity": "preliminary",
           "name": "ILSP_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-5; DoD SE Guidebook 2022 Table 3-3 p.76",
           "source_refs": [
@@ -1334,6 +1888,7 @@
           "id": 620,
           "maturity": "preliminary",
           "name": "기술자원예산-여유도(Margins)_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-5, Table G-6",
           "source_refs": [
@@ -1357,6 +1912,7 @@
           "id": 621,
           "maturity": "updated",
           "name": "TRA_U",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-5",
           "source_refs": [
@@ -1371,11 +1927,35 @@
         },
         {
           "artifact_type_id": "conops",
+          "depends_on": [
+            "act_stakeholder_expectations",
+            "act_validation"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.1 (p.142-143)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.7 (p.151-152; explicit product sentences p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.2.1-§3.2.2.3 (p.24)",
+              "source_key": "nasa_npr_7123_1d"
+            },
+            {
+              "locator": "pdf p.66-75 (printed p.53-62) §4.1.1.1/§4.1.1.3, Figure 4.1-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "Concept of operations (preliminary/updated for architecture)",
           "evidence_level": "general_se_guidance",
           "id": 622,
           "maturity": "updated",
           "name": "운용개념서(CONOPS)_U",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-5",
           "source_refs": [
@@ -1395,6 +1975,7 @@
           "id": 623,
           "maturity": "preliminary",
           "name": "체계보안계획(PPP)_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-5, Table G-2; DoD SE Guidebook 2022 Table 3-3 p.76",
           "source_refs": [
@@ -1422,6 +2003,7 @@
           "id": 624,
           "maturity": "final",
           "name": "SFR검토자료(Review_Package)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-5; DoD SE Guidebook 2022 p.75, p.63",
           "source_refs": [
@@ -1449,6 +2031,7 @@
           "id": 625,
           "maturity": "final",
           "name": "SFR회의록_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D p.40 §5.2.3.1; DoD SE Guidebook 2022 p.76",
           "source_refs": [
@@ -1472,6 +2055,7 @@
           "id": 626,
           "maturity": "final",
           "name": "SFR결과보고서_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D p.40 §5.2.3.1, p.38 §5.2.2.2.c; DoD SE Guidebook 2022 p.74, p.76",
           "source_refs": [
@@ -1495,6 +2079,144 @@
           "template": "없음",
           "term": "SFR_결과보고서",
           "verification_status": "source_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_integration",
+          "depends_on": [
+            "integration_plan",
+            "semp"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.5 (p.149-150)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "desc": "Product integration — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "general_se_guidance",
+          "evidence_record": [
+            "icd"
+          ],
+          "id": 627,
+          "is_virtual": true,
+          "name": "통합(활동)",
+          "node_kind": "activity",
+          "se_floor": "should_have",
+          "source": "NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력",
+          "source_refs": [
+            {
+              "locator": "§4.2.5 (p.149-150)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_logical_decomposition",
+          "desc": "Logical decomposition — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "general_se_guidance",
+          "evidence_record": [
+            "functional_analysis"
+          ],
+          "id": 628,
+          "is_virtual": true,
+          "name": "논리적 분해·기능분석(활동)",
+          "node_kind": "activity",
+          "se_floor": "should_have",
+          "source": "NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력",
+          "source_refs": [
+            {
+              "locator": "§3.2.4.1-§3.2.4.2 (p.25)",
+              "source_key": "nasa_npr_7123_1d"
+            },
+            {
+              "locator": "pdf p.87-89 (printed p.74-76) §4.3.1.1/§4.3.1.3, Figure 4.3-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_verification",
+          "depends_on": [
+            "fci",
+            "icd",
+            "vv_strategy"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "pdf p.118-127 (printed p.105-114) §5.3.1.1/§5.3.1.3, Figure 5.3-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
+          "desc": "Product verification — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "general_se_guidance",
+          "evidence_record": [
+            "vcrm"
+          ],
+          "id": 629,
+          "is_virtual": true,
+          "name": "검증(활동)",
+          "node_kind": "activity",
+          "se_floor": "should_have",
+          "source": "NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력",
+          "source_refs": [
+            {
+              "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "dec_functional_baseline",
+          "depends_on": [
+            "fci"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.1.6 (p.131-134; baseline definitions p.132-133)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "desc": "Functional baseline established at SFR — decision node (no folder); evidenced by the configuration identification and the review record",
+          "evidence_level": "general_se_guidance",
+          "evidence_record": [
+            "fci",
+            "review_minutes_sfr"
+          ],
+          "id": 630,
+          "is_virtual": true,
+          "name": "기능 기준선 확정(결정)",
+          "node_kind": "decision",
+          "se_floor": "should_have",
+          "source": "DoD SE Guidebook 2022 §4.1.6 (baseline definitions)",
+          "source_refs": [
+            {
+              "locator": "§4.1.6 (p.131-134; baseline definitions p.132-133)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "template": "없음",
+          "term": "DECISION",
+          "verification_status": "partially_supported"
         }
       ]
     },
@@ -1510,6 +2232,7 @@
           "id": 901,
           "is_fixed": true,
           "name": "INBOX_분류전",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -1523,6 +2246,7 @@
           "id": 902,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -1536,6 +2260,7 @@
           "id": 903,
           "is_fixed": true,
           "name": "TDP_기술자료",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -1544,11 +2269,22 @@
         },
         {
           "artifact_type_id": "dci",
+          "depends_on": [
+            "act_architecture_design"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Allocated baseline configuration identification (CI-level specs, ICDs, verification requirements, design/safety constraints under configuration control)",
           "evidence_level": "general_se_guidance",
           "id": 904,
           "maturity": "baseline",
           "name": "할당형상식별서-아키텍처및형상식별서(DCI)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6, p.38 [SE-45]; DoD SE Guidebook 2022 p.78, p.83",
           "source_refs": [
@@ -1579,11 +2315,22 @@
         },
         {
           "artifact_type_id": "ssdd",
+          "depends_on": [
+            "act_architecture_design"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "System/Subsystem Design Description (preliminary)",
           "evidence_level": "general_se_guidance",
           "id": 905,
           "maturity": "preliminary",
           "name": "체계-부체계설계기술서(SSDD)_D",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81",
           "source_refs": [
@@ -1607,6 +2354,7 @@
           "id": 906,
           "maturity": "preliminary",
           "name": "하드웨어설계기술서(HDD)_D",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81",
           "source_refs": [
@@ -1630,6 +2378,7 @@
           "id": 907,
           "maturity": "preliminary",
           "name": "소프트웨어설계기술서(SDD)_D",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81-82",
           "source_refs": [
@@ -1653,6 +2402,7 @@
           "id": 908,
           "maturity": "baseline",
           "name": "하드웨어요구사항명세서(HRS)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 p.78, Table 3-4 p.81",
           "source_refs": [
@@ -1680,6 +2430,7 @@
           "id": 909,
           "maturity": "baseline",
           "name": "소프트웨어요구사항명세서(SRS)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81",
           "source_refs": [
@@ -1698,11 +2449,22 @@
         },
         {
           "artifact_type_id": "irs",
+          "depends_on": [
+            "act_architecture_design"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "Interface requirements specifications (baselined)",
           "evidence_level": "general_se_guidance",
           "id": 910,
           "maturity": "baseline",
           "name": "인터페이스요구사항명세서(IRS)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81",
           "source_refs": [
@@ -1721,11 +2483,27 @@
         },
         {
           "artifact_type_id": "icd",
+          "depends_on": [
+            "act_architecture_design",
+            "act_integration"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.5 (p.149-150)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Interface control documents (internal and external, baselined)",
           "evidence_level": "general_se_guidance",
           "id": 911,
           "maturity": "baseline",
           "name": "인터페이스통제문서(ICD)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 p.78, Table 3-4 p.81",
           "source_refs": [
@@ -1757,6 +2535,7 @@
           "id": 912,
           "maturity": "baseline",
           "name": "소프트웨어개발계획서(SDP)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81-82",
           "source_refs": [
@@ -1775,11 +2554,27 @@
         },
         {
           "artifact_type_id": "rtm",
+          "depends_on": [
+            "act_requirements_analysis",
+            "act_stakeholder_expectations"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.1 (p.142-143)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.3.1-§3.2.3.2 (p.24-25)",
+              "source_key": "nasa_npr_7123_1d"
+            }
+          ],
           "desc": "Requirements traceability matrix (functional to allocated baseline, complete and verifiable)",
           "evidence_level": "general_se_guidance",
           "id": 913,
           "maturity": "updated",
           "name": "요구사항추적표(RTM)_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81",
           "source_refs": [
@@ -1803,6 +2598,7 @@
           "id": 914,
           "maturity": "baseline",
           "name": "시험평가기본계획서(TEMP)-검증확인계획_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6, p.38 [SE-68]; DoD SE Guidebook 2022 Table 3-4 p.80, p.82",
           "source_refs": [
@@ -1829,11 +2625,22 @@
         },
         {
           "artifact_type_id": "vcrm",
+          "depends_on": [
+            "act_verification"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Verification cross-reference matrix (updated for CI-level verification requirements)",
           "evidence_level": "general_se_guidance",
           "id": 915,
           "maturity": "updated",
           "name": "VCRM_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 p.78, Table 3-4 p.81",
           "source_refs": [
@@ -1861,6 +2668,7 @@
           "id": 916,
           "maturity": "baseline",
           "name": "통합계획서(Integration)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6, p.38 [SE-67]; DoD SE Guidebook 2022 Table 3-4 p.82",
           "source_refs": [
@@ -1883,11 +2691,26 @@
         },
         {
           "artifact_type_id": "trade_study",
+          "depends_on": [
+            "act_architecture_design"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.5.1-§3.2.5.3 (p.25)",
+              "source_key": "nasa_npr_7123_1d"
+            }
+          ],
           "desc": "Trade study reports (design trades mostly complete; remaining planned)",
           "evidence_level": "general_se_guidance",
           "id": 917,
           "maturity": "updated",
           "name": "절충연구보고서(Trade_Study)_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.82",
           "source_refs": [
@@ -1911,6 +2734,7 @@
           "id": 918,
           "maturity": "updated",
           "name": "위험목록(Risk_Register)_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.80, p.83",
           "source_refs": [
@@ -1933,11 +2757,31 @@
         },
         {
           "artifact_type_id": "tpm_list",
+          "depends_on": [
+            "act_architecture_design",
+            "act_requirements_analysis"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.3.1-§3.2.3.2 (p.24-25)",
+              "source_key": "nasa_npr_7123_1d"
+            },
+            {
+              "locator": "pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "TPM status with technical resource budgets and margins (updated)",
           "evidence_level": "general_se_guidance",
           "id": 919,
           "maturity": "updated",
           "name": "TPM현황-자원여유도_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 p.83-84",
           "source_refs": [
@@ -1961,6 +2805,7 @@
           "id": 920,
           "maturity": "updated",
           "name": "TRA_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 p.112, Table 3-4",
           "source_refs": [
@@ -1983,11 +2828,27 @@
         },
         {
           "artifact_type_id": "drawings",
+          "depends_on": [
+            "act_architecture_design",
+            "act_transition"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.8 (p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Engineering drawing tree and preliminary drawings / mechanical model",
           "evidence_level": "general_se_guidance",
           "id": 921,
           "maturity": "preliminary",
           "name": "도면트리-예비도면(Drawings)_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 p.86",
           "source_refs": [
@@ -2011,6 +2872,7 @@
           "id": 922,
           "maturity": "baseline",
           "name": "부품관리계획서(Parts_Plan)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81-82",
           "source_refs": [
@@ -2034,6 +2896,7 @@
           "id": 923,
           "maturity": "preliminary",
           "name": "기능FMECA-신뢰성분석_D",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81",
           "source_refs": [
@@ -2057,6 +2920,7 @@
           "id": 924,
           "maturity": "updated",
           "name": "체계안전분석서(Safety)_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81",
           "source_refs": [
@@ -2075,11 +2939,22 @@
         },
         {
           "artifact_type_id": "manufacturing_plan",
+          "depends_on": [
+            "act_implementation"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Producibility / manufacturability assessment and preliminary manufacturing plan",
           "evidence_level": "general_se_guidance",
           "id": 925,
           "maturity": "preliminary",
           "name": "생산성평가-예비제조계획(MFG_Plan)_D",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81-82",
           "source_refs": [
@@ -2098,11 +2973,22 @@
         },
         {
           "artifact_type_id": "qa_plan",
+          "depends_on": [
+            "act_implementation"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Quality assurance plan",
           "evidence_level": "general_se_guidance",
           "id": 926,
           "maturity": "baseline",
           "name": "품질보증계획서(QAP)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81",
           "source_refs": [
@@ -2126,6 +3012,7 @@
           "id": 927,
           "maturity": "baseline",
           "name": "EMI-EMC및환경통제계획_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-6",
           "source_refs": [
@@ -2140,11 +3027,27 @@
         },
         {
           "artifact_type_id": "ils_plan",
+          "depends_on": [
+            "act_architecture_design",
+            "act_transition"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.8 (p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "Integrated logistics support plan / life cycle sustainment plan (baselined)",
           "evidence_level": "general_se_guidance",
           "id": 928,
           "maturity": "baseline",
           "name": "ILSP-LCSP_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.82-83",
           "source_refs": [
@@ -2163,11 +3066,35 @@
         },
         {
           "artifact_type_id": "conops",
+          "depends_on": [
+            "act_stakeholder_expectations",
+            "act_validation"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.1 (p.142-143)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.7 (p.151-152; explicit product sentences p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.2.1-§3.2.2.3 (p.24)",
+              "source_key": "nasa_npr_7123_1d"
+            },
+            {
+              "locator": "pdf p.66-75 (printed p.53-62) §4.1.1.1/§4.1.1.3, Figure 4.1-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "Concept of operations (baseline)",
           "evidence_level": "general_se_guidance",
           "id": 929,
           "maturity": "baseline",
           "name": "운용개념서(CONOPS)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-6",
           "source_refs": [
@@ -2187,6 +3114,7 @@
           "id": 930,
           "maturity": "baseline",
           "name": "IMS_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.82, p.83",
           "source_refs": [
@@ -2214,6 +3142,7 @@
           "id": 931,
           "maturity": "updated",
           "name": "보안-보호계획(PPP)_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.82",
           "source_refs": [
@@ -2237,6 +3166,7 @@
           "id": 932,
           "maturity": "updated",
           "name": "SEMP_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81",
           "source_refs": [
@@ -2260,6 +3190,7 @@
           "id": 933,
           "maturity": "preliminary",
           "name": "장납기품목-조달목록(Long_Lead)_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.82",
           "source_refs": [
@@ -2278,11 +3209,22 @@
         },
         {
           "artifact_type_id": "engineering_analysis_report",
+          "depends_on": [
+            "act_implementation"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Preliminary engineering analysis and modeling results (subsystem analyses, M&S)",
           "evidence_level": "general_se_guidance",
           "id": 934,
           "maturity": "preliminary",
           "name": "공학해석-M&S결과서(Analysis)_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-2 p.73, Table 3-4",
           "source_refs": [
@@ -2305,11 +3247,22 @@
         },
         {
           "artifact_type_id": "hsi_plan",
+          "depends_on": [
+            "act_architecture_design"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "HSI approach / human rating or human factors plan (updated)",
           "evidence_level": "general_se_guidance",
           "id": 935,
           "maturity": "updated",
           "name": "HSI접근_U",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81",
           "source_refs": [
@@ -2333,6 +3286,7 @@
           "id": 936,
           "maturity": "final",
           "name": "PDR검토자료(Review_Package)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.80, p.82",
           "source_refs": [
@@ -2360,6 +3314,7 @@
           "id": 937,
           "maturity": "final",
           "name": "PDR회의록_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D p.40 §5.2.3.1; DoD SE Guidebook 2022 p.83",
           "source_refs": [
@@ -2383,6 +3338,7 @@
           "id": 938,
           "maturity": "final",
           "name": "PDR결과보고서_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D p.40 §5.2.3.1, p.38 §5.2.2.2.d; DoD SE Guidebook 2022 p.83-84",
           "source_refs": [
@@ -2402,6 +3358,198 @@
           "template": "없음",
           "term": "PDR_결과보고서",
           "verification_status": "source_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_implementation",
+          "depends_on": [
+            "drawings",
+            "tra_report"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.6.1-§3.2.6.2 (p.25)",
+              "source_key": "nasa_npr_7123_1d"
+            }
+          ],
+          "desc": "Product implementation — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "general_se_guidance",
+          "evidence_record": [
+            "engineering_analysis_report",
+            "manufacturing_plan",
+            "qa_plan"
+          ],
+          "id": 939,
+          "is_virtual": true,
+          "name": "구현·제작(활동)",
+          "node_kind": "activity",
+          "se_floor": "should_have",
+          "source": "NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력",
+          "source_refs": [
+            {
+              "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_integration",
+          "depends_on": [
+            "dci",
+            "integration_plan",
+            "semp"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.5 (p.149-150)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "desc": "Product integration — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "general_se_guidance",
+          "evidence_record": [
+            "icd"
+          ],
+          "id": 940,
+          "is_virtual": true,
+          "name": "통합(활동)",
+          "node_kind": "activity",
+          "se_floor": "should_have",
+          "source": "NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력",
+          "source_refs": [
+            {
+              "locator": "§4.2.5 (p.149-150)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_validation",
+          "depends_on": [
+            "temp",
+            "vv_strategy"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.7 (p.151-152; explicit product sentences p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "pdf p.129-136 (printed p.116-123) §5.4.1.1/§5.4.1.3, Figure 5.4-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
+          "desc": "Product validation — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "general_se_guidance",
+          "evidence_record": [
+            "conops"
+          ],
+          "id": 941,
+          "is_virtual": true,
+          "name": "확인(활동)",
+          "node_kind": "activity",
+          "se_floor": "should_have",
+          "source": "NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력",
+          "source_refs": [
+            {
+              "locator": "§4.2.7 (p.151-152; explicit product sentences p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_verification",
+          "depends_on": [
+            "dci",
+            "fci",
+            "icd",
+            "vv_strategy"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "pdf p.118-127 (printed p.105-114) §5.3.1.1/§5.3.1.3, Figure 5.3-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
+          "desc": "Product verification — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "general_se_guidance",
+          "evidence_record": [
+            "vcrm"
+          ],
+          "id": 942,
+          "is_virtual": true,
+          "name": "검증(활동)",
+          "node_kind": "activity",
+          "se_floor": "should_have",
+          "source": "NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력",
+          "source_refs": [
+            {
+              "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "dec_allocated_baseline",
+          "depends_on": [
+            "dci"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.1.6 (p.131-134; baseline definitions p.132-133)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "desc": "Allocated baseline established at PDR — decision node (no folder); evidenced by the configuration identification and the review record",
+          "evidence_level": "general_se_guidance",
+          "evidence_record": [
+            "dci",
+            "review_minutes_pdr"
+          ],
+          "id": 943,
+          "is_virtual": true,
+          "name": "할당 기준선 확정(결정)",
+          "node_kind": "decision",
+          "se_floor": "should_have",
+          "source": "DoD SE Guidebook 2022 §4.1.6 (baseline definitions)",
+          "source_refs": [
+            {
+              "locator": "§4.1.6 (p.131-134; baseline definitions p.132-133)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "template": "없음",
+          "term": "DECISION",
+          "verification_status": "partially_supported"
         }
       ]
     },
@@ -2417,6 +3565,7 @@
           "id": 1201,
           "is_fixed": true,
           "name": "INBOX_분류전",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -2430,6 +3579,7 @@
           "id": 1202,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -2443,6 +3593,7 @@
           "id": 1203,
           "is_fixed": true,
           "name": "TDP_기술자료",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -2456,6 +3607,7 @@
           "id": 1204,
           "maturity": "baseline",
           "name": "제품형상식별서(PCI)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D p.38 §5.2.2.2.e [SE-46], Table G-7; DoD SE Guidebook 2022 p.84, p.88",
           "source_refs": [
@@ -2486,11 +3638,22 @@
         },
         {
           "artifact_type_id": "ssdd",
+          "depends_on": [
+            "act_architecture_design"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "System/Subsystem Design Description (final, detailed design)",
           "evidence_level": "general_se_guidance",
           "id": 1205,
           "maturity": "final",
           "name": "체계-부체계설계기술서(SSDD)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.86",
           "source_refs": [
@@ -2514,6 +3677,7 @@
           "id": 1206,
           "maturity": "final",
           "name": "하드웨어설계기술서(HDD)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.86",
           "source_refs": [
@@ -2537,6 +3701,7 @@
           "id": 1207,
           "maturity": "final",
           "name": "소프트웨어설계기술서(SDD)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.86-87",
           "source_refs": [
@@ -2560,6 +3725,7 @@
           "id": 1208,
           "maturity": "baseline",
           "name": "인터페이스설계기술서(IDD)+ICD갱신_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.86-87",
           "source_refs": [
@@ -2583,6 +3749,7 @@
           "id": 1209,
           "maturity": "baseline",
           "name": "데이터베이스설계기술서(DBDD)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "DoD SE Guidebook 2022 Table 3-5 p.87; NASA NPR 7123.1D Table G-7",
           "source_refs": [
@@ -2601,11 +3768,27 @@
         },
         {
           "artifact_type_id": "drawings",
+          "depends_on": [
+            "act_architecture_design",
+            "act_transition"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.8 (p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Engineering drawings (production-representative; 75-90% complete, 100% for critical/safety items)",
           "evidence_level": "general_se_guidance",
           "id": 1210,
           "maturity": "baseline",
           "name": "제작도면(Drawings)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 p.86, p.89",
           "source_refs": [
@@ -2633,6 +3816,7 @@
           "id": 1211,
           "maturity": "final",
           "name": "기계3D모델(3D_Model)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-8; DoD SE Guidebook 2022 Table 3-5 p.86",
           "source_refs": [
@@ -2656,6 +3840,7 @@
           "id": 1212,
           "maturity": "baseline",
           "name": "자재명세서(BOM)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7, Table G-8; DoD SE Guidebook 2022 Table 3-5 p.86",
           "source_refs": [
@@ -2678,11 +3863,27 @@
         },
         {
           "artifact_type_id": "rtm",
+          "depends_on": [
+            "act_requirements_analysis",
+            "act_stakeholder_expectations"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.1 (p.142-143)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.3.1-§3.2.3.2 (p.24-25)",
+              "source_key": "nasa_npr_7123_1d"
+            }
+          ],
           "desc": "Requirements traceability matrix (functional, allocated, product baselines)",
           "evidence_level": "general_se_guidance",
           "id": 1213,
           "maturity": "updated",
           "name": "요구사항추적표(RTM)_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.86",
           "source_refs": [
@@ -2701,11 +3902,22 @@
         },
         {
           "artifact_type_id": "tdp",
+          "depends_on": [
+            "act_implementation"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Technical data package (initial: schematics, specs, ICDs, engineering analyses, spares list)",
           "evidence_level": "general_se_guidance",
           "id": 1214,
           "maturity": "preliminary",
           "name": "기술자료묶음(TDP)_D",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.86, p.96",
           "source_refs": [
@@ -2728,11 +3940,22 @@
         },
         {
           "artifact_type_id": "manufacturing_plan",
+          "depends_on": [
+            "act_implementation"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Manufacturing plan: critical manufacturing processes, process control plans, tooling and fabrication/assembly plans",
           "evidence_level": "general_se_guidance",
           "id": 1215,
           "maturity": "baseline",
           "name": "제조계획서(MFG_Plan)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-6, Table G-7; DoD SE Guidebook 2022 Table 3-5 p.86-87",
           "source_refs": [
@@ -2760,6 +3983,7 @@
           "id": 1216,
           "maturity": "baseline",
           "name": "개발시험계획서(DT_Plan)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.86-87",
           "source_refs": [
@@ -2783,6 +4007,7 @@
           "id": 1217,
           "maturity": "preliminary",
           "name": "개발시험절차서(DT_Proc)_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.86",
           "source_refs": [
@@ -2806,6 +4031,7 @@
           "id": 1218,
           "maturity": "baseline",
           "name": "수락시험계획서(ATP)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-7 p.94",
           "source_refs": [
@@ -2829,6 +4055,7 @@
           "id": 1219,
           "maturity": "updated",
           "name": "TEMP_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.87",
           "source_refs": [
@@ -2847,11 +4074,22 @@
         },
         {
           "artifact_type_id": "vcrm",
+          "depends_on": [
+            "act_verification"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Verification cross-reference matrix (updated to product baseline)",
           "evidence_level": "general_se_guidance",
           "id": 1220,
           "maturity": "updated",
           "name": "VCRM_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.87",
           "source_refs": [
@@ -2875,6 +4113,7 @@
           "id": 1221,
           "maturity": "preliminary",
           "name": "소프트웨어시험기술서(STD)_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "DoD SE Guidebook 2022 Table 3-5 p.87; NASA NPR 7123.1D Table G-7",
           "source_refs": [
@@ -2898,6 +4137,7 @@
           "id": 1222,
           "maturity": "updated",
           "name": "통합계획서(Integration)_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.87",
           "source_refs": [
@@ -2921,6 +4161,7 @@
           "id": 1223,
           "maturity": "final",
           "name": "설계FMECA-신뢰성분석_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.87",
           "source_refs": [
@@ -2944,6 +4185,7 @@
           "id": 1224,
           "maturity": "baseline",
           "name": "체계-부체계안전분석서(Safety)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.87",
           "source_refs": [
@@ -2967,6 +4209,7 @@
           "id": 1225,
           "maturity": "updated",
           "name": "위험목록(Risk_Register)_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.87, p.88",
           "source_refs": [
@@ -2989,11 +4232,31 @@
         },
         {
           "artifact_type_id": "tpm_list",
+          "depends_on": [
+            "act_architecture_design",
+            "act_requirements_analysis"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.3.1-§3.2.3.2 (p.24-25)",
+              "source_key": "nasa_npr_7123_1d"
+            },
+            {
+              "locator": "pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "TPM status, technical resource budgets and margins (updated)",
           "evidence_level": "general_se_guidance",
           "id": 1226,
           "maturity": "updated",
           "name": "TPM현황-자원여유도_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 p.89",
           "source_refs": [
@@ -3017,6 +4280,7 @@
           "id": 1227,
           "maturity": "updated",
           "name": "TRA_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 p.112",
           "source_refs": [
@@ -3040,6 +4304,7 @@
           "id": 1228,
           "maturity": "updated",
           "name": "부품관리-단종관리,부품목록(Parts_Plan)_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.88",
           "source_refs": [
@@ -3063,6 +4328,7 @@
           "id": 1229,
           "maturity": "updated",
           "name": "장납기조달계획(Long_Lead)_U",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.88",
           "source_refs": [
@@ -3081,11 +4347,22 @@
         },
         {
           "artifact_type_id": "engineering_analysis_report",
+          "depends_on": [
+            "act_implementation"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Engineering analysis reports (loads/stress/thermal/EMC/fracture; material properties; M&S results)",
           "evidence_level": "general_se_guidance",
           "id": 1230,
           "maturity": "final",
           "name": "공학해석보고서(Analysis)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.88",
           "source_refs": [
@@ -3109,6 +4386,7 @@
           "id": 1231,
           "maturity": "baseline",
           "name": "핵심품목-단일고장점목록(CIL)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "DoD SE Guidebook 2022 Table 3-5 p.86-87; NASA NPR 7123.1D Table G-7",
           "source_refs": [
@@ -3127,11 +4405,26 @@
         },
         {
           "artifact_type_id": "trade_study",
+          "depends_on": [
+            "act_architecture_design"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.5.1-§3.2.5.3 (p.25)",
+              "source_key": "nasa_npr_7123_1d"
+            }
+          ],
           "desc": "Trade study reports (detailed design trades, complete)",
           "evidence_level": "general_se_guidance",
           "id": 1232,
           "maturity": "final",
           "name": "절충연구보고서(Trade_Study)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.88",
           "source_refs": [
@@ -3155,6 +4448,7 @@
           "id": 1233,
           "maturity": "preliminary",
           "name": "제조성숙도평가(MRA)_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "DoD SE Guidebook 2022 Table 5-5 p.187-189, Table 3-5; NASA NPR 7123.1D Table G-7",
           "source_refs": [
@@ -3177,11 +4471,22 @@
         },
         {
           "artifact_type_id": "qa_plan",
+          "depends_on": [
+            "act_implementation"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Quality assurance plan / inspection plan (updated for fabrication)",
           "evidence_level": "general_se_guidance",
           "id": 1234,
           "maturity": "updated",
           "name": "품질보증계획(QAP)_U",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.86-87",
           "source_refs": [
@@ -3200,11 +4505,22 @@
         },
         {
           "artifact_type_id": "ssdd",
+          "depends_on": [
+            "act_architecture_design"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Operational limits and constraints; command/telemetry or control-interface list (as applicable)",
           "evidence_level": "general_se_guidance",
           "id": 1235,
           "maturity": "updated",
           "name": "운용한계-제약및명령·텔레메트리목록(SSDD)_U",
+          "node_kind": "artifact",
           "se_floor": "context",
           "source": "NASA NPR 7123.1D Table G-7",
           "source_refs": [
@@ -3224,6 +4540,7 @@
           "id": 1236,
           "maturity": "updated",
           "name": "SEMP_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.87",
           "source_refs": [
@@ -3247,6 +4564,7 @@
           "id": 1237,
           "maturity": "updated",
           "name": "IMS_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.88",
           "source_refs": [
@@ -3265,11 +4583,27 @@
         },
         {
           "artifact_type_id": "ils_plan",
+          "depends_on": [
+            "act_architecture_design",
+            "act_transition"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.8 (p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "Integrated logistics support plan / LCSP (updated with supportability features)",
           "evidence_level": "general_se_guidance",
           "id": 1238,
           "maturity": "updated",
           "name": "ILSP_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.88",
           "source_refs": [
@@ -3293,6 +4627,7 @@
           "id": 1239,
           "maturity": "baseline",
           "name": "체계보안계획(PPP)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.87-88",
           "source_refs": [
@@ -3316,6 +4651,7 @@
           "id": 1240,
           "maturity": "final",
           "name": "CDR검토자료(Review_Package)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.87",
           "source_refs": [
@@ -3339,6 +4675,7 @@
           "id": 1241,
           "maturity": "final",
           "name": "CDR회의록_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D p.40 §5.2.3.1; DoD SE Guidebook 2022 p.88",
           "source_refs": [
@@ -3362,6 +4699,7 @@
           "id": 1242,
           "maturity": "final",
           "name": "CDR결과보고서_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D p.40 §5.2.3.1, p.38 §5.2.2.2.e; DoD SE Guidebook 2022 p.88-89",
           "source_refs": [
@@ -3381,6 +4719,120 @@
           "template": "없음",
           "term": "CDR_결과보고서",
           "verification_status": "source_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_implementation",
+          "depends_on": [
+            "pci",
+            "tra_report"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.6.1-§3.2.6.2 (p.25)",
+              "source_key": "nasa_npr_7123_1d"
+            }
+          ],
+          "desc": "Product implementation — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "general_se_guidance",
+          "evidence_record": [
+            "engineering_analysis_report",
+            "manufacturing_plan",
+            "qa_plan",
+            "tdp"
+          ],
+          "id": 1243,
+          "is_virtual": true,
+          "name": "구현·제작(활동)",
+          "node_kind": "activity",
+          "se_floor": "should_have",
+          "source": "NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력",
+          "source_refs": [
+            {
+              "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_transition",
+          "depends_on": [
+            "hsi_plan",
+            "icd",
+            "tdp"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.8 (p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "desc": "Product transition — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "general_se_guidance",
+          "evidence_record": [
+            "drawings",
+            "ils_plan"
+          ],
+          "id": 1244,
+          "is_virtual": true,
+          "name": "인도·전환(활동)",
+          "node_kind": "activity",
+          "se_floor": "should_have",
+          "source": "NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력",
+          "source_refs": [
+            {
+              "locator": "§4.2.8 (p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "dec_product_baseline",
+          "depends_on": [
+            "pci"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.1.6 (p.131-134; baseline definitions p.132-133)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "desc": "Initial product baseline established at CDR — decision node (no folder); evidenced by the configuration identification and the review record",
+          "evidence_level": "general_se_guidance",
+          "evidence_record": [
+            "pci",
+            "review_minutes_cdr"
+          ],
+          "id": 1245,
+          "is_virtual": true,
+          "name": "제품 기준선 확정(결정)",
+          "node_kind": "decision",
+          "se_floor": "should_have",
+          "source": "DoD SE Guidebook 2022 §4.1.6 (baseline definitions)",
+          "source_refs": [
+            {
+              "locator": "§4.1.6 (p.131-134; baseline definitions p.132-133)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "template": "없음",
+          "term": "DECISION",
+          "verification_status": "partially_supported"
         }
       ]
     },
@@ -3396,6 +4848,7 @@
           "id": 1501,
           "is_fixed": true,
           "name": "INBOX_분류전",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -3409,6 +4862,7 @@
           "id": 1502,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -3422,6 +4876,7 @@
           "id": 1503,
           "is_fixed": true,
           "name": "TDP_기술자료",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -3435,6 +4890,7 @@
           "id": 1504,
           "maturity": "final",
           "name": "개발시험계획서(DT_Plan)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-10; DoD SE Guidebook 2022 Table 3-5 p.87, p.67",
           "source_refs": [
@@ -3462,6 +4918,7 @@
           "id": 1505,
           "maturity": "final",
           "name": "개발시험절차서(DT_Proc)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-10",
           "source_refs": [
@@ -3481,6 +4938,7 @@
           "id": 1506,
           "maturity": "final",
           "name": "소프트웨어시험기술서(STD)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-10",
           "source_refs": [
@@ -3500,6 +4958,7 @@
           "id": 1507,
           "maturity": "baseline",
           "name": "시험품as-built형상목록(As_Built)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-10",
           "source_refs": [
@@ -3519,6 +4978,7 @@
           "id": 1508,
           "maturity": "baseline",
           "name": "버전기술서(VDD)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-10",
           "source_refs": [
@@ -3538,6 +4998,7 @@
           "id": 1509,
           "maturity": "updated",
           "name": "통합계획서및통합절차(Integration)_U",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-9, p.38 [SE-47]",
           "source_refs": [
@@ -3556,11 +5017,22 @@
         },
         {
           "artifact_type_id": "dt_report",
+          "depends_on": [
+            "act_verification"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Lower-tier verification results (unit, subsystem, qualification test reports; initial V&V results)",
           "evidence_level": "general_se_guidance",
           "id": 1510,
           "maturity": "preliminary",
           "name": "하위시험결과보고서(DT)_D",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-9, p.38 [SE-48]; DoD SE Guidebook 2022 Table 3-6 p.91",
           "source_refs": [
@@ -3588,6 +5060,7 @@
           "id": 1511,
           "maturity": "final",
           "name": "환경시험계획-절차(Env_Test)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-9, Table G-7; DoD SE Guidebook 2022 Table 3-5 p.86",
           "source_refs": [
@@ -3615,6 +5088,7 @@
           "id": 1512,
           "maturity": "final",
           "name": "ESS시험_F",
+          "node_kind": "artifact",
           "se_floor": "context",
           "source": "NASA NPR 7123.1D Table G-9",
           "source_refs": [
@@ -3629,11 +5103,22 @@
         },
         {
           "artifact_type_id": "vcrm",
+          "depends_on": [
+            "act_verification"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Interface verification records against ICDs (mechanical/electrical) and VCRM update",
           "evidence_level": "general_se_guidance",
           "id": 1513,
           "maturity": "updated",
           "name": "인터페이스검증기록-VCRM_U",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-9",
           "source_refs": [
@@ -3648,11 +5133,32 @@
         },
         {
           "artifact_type_id": "discrepancy_log",
+          "depends_on": [
+            "act_implementation",
+            "act_transition",
+            "act_validation"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.8 (p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.9.1-§3.2.9.2 (p.26)",
+              "source_key": "nasa_npr_7123_1d"
+            }
+          ],
           "desc": "Discrepancy / deficiency log with dispositions and closure schedule",
           "evidence_level": "general_se_guidance",
           "id": 1514,
           "maturity": "updated",
           "name": "결함-불일치목록(Discrepancy)_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-9, Table G-10; DoD SE Guidebook 2022 p.95-96",
           "source_refs": [
@@ -3680,6 +5186,7 @@
           "id": 1515,
           "maturity": "updated",
           "name": "시험안전계획-취급안전요구(Safety)_U",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-10, Table G-9",
           "source_refs": [
@@ -3703,6 +5210,7 @@
           "id": 1516,
           "maturity": "final",
           "name": "TRR검토자료(Review_Package)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-10, Table G-9",
           "source_refs": [
@@ -3726,6 +5234,7 @@
           "id": 1517,
           "maturity": "updated",
           "name": "TEMP_U",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-9",
           "source_refs": [
@@ -3745,6 +5254,7 @@
           "id": 1518,
           "maturity": "updated",
           "name": "위험목록(Risk_Register)_U",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-10, Table G-9",
           "source_refs": [
@@ -3768,6 +5278,7 @@
           "id": 1519,
           "maturity": "final",
           "name": "운송-취급-포장지침(PHS_T)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-9",
           "source_refs": [
@@ -3782,11 +5293,27 @@
         },
         {
           "artifact_type_id": "icd",
+          "depends_on": [
+            "act_architecture_design",
+            "act_integration"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.5 (p.149-150)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Design description and ICDs (updated to as-built for integration)",
           "evidence_level": "general_se_guidance",
           "id": 1520,
           "maturity": "updated",
           "name": "설계기술서-ICD_U",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-9",
           "source_refs": [
@@ -3806,6 +5333,7 @@
           "id": 1521,
           "maturity": "updated",
           "name": "IMS_U",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-9",
           "source_refs": [
@@ -3825,6 +5353,7 @@
           "id": 1522,
           "maturity": "preliminary",
           "name": "시험교훈수집계획(Lessons_Learned)_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-10",
           "source_refs": [
@@ -3844,6 +5373,7 @@
           "id": 1523,
           "maturity": "final",
           "name": "TRR회의록_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D p.40 §5.2.3.1, Table G-10",
           "source_refs": [
@@ -3867,6 +5397,7 @@
           "id": 1524,
           "maturity": "final",
           "name": "TRR결과보고서_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D p.40 §5.2.3.1",
           "source_refs": [
@@ -3877,6 +5408,83 @@
           ],
           "template": "없음",
           "term": "TRR_결과보고서",
+          "verification_status": "partially_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_transition",
+          "depends_on": [
+            "handling_transport_plan",
+            "hsi_plan",
+            "icd",
+            "tdp"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.8 (p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "desc": "Product transition — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "general_se_guidance",
+          "evidence_record": [
+            "discrepancy_log"
+          ],
+          "id": 1525,
+          "is_virtual": true,
+          "name": "인도·전환(활동)",
+          "node_kind": "activity",
+          "se_floor": "should_have",
+          "source": "NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력",
+          "source_refs": [
+            {
+              "locator": "§4.2.8 (p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
+          "verification_status": "partially_supported"
+        },
+        {
+          "added_by_verification": "2026-08-18",
+          "artifact_type_id": "act_validation",
+          "depends_on": [
+            "pci",
+            "temp",
+            "vv_strategy"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.7 (p.151-152; explicit product sentences p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "pdf p.129-136 (printed p.116-123) §5.4.1.1/§5.4.1.3, Figure 5.4-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
+          "desc": "Product validation — activity node (no folder); evidenced by the records it produces",
+          "evidence_level": "general_se_guidance",
+          "evidence_record": [
+            "discrepancy_log"
+          ],
+          "id": 1526,
+          "is_virtual": true,
+          "name": "확인(활동)",
+          "node_kind": "activity",
+          "se_floor": "should_have",
+          "source": "NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력",
+          "source_refs": [
+            {
+              "locator": "§3.2.9.1-§3.2.9.2 (p.26)",
+              "source_key": "nasa_npr_7123_1d"
+            }
+          ],
+          "template": "없음",
+          "term": "ACTIVITY",
           "verification_status": "partially_supported"
         }
       ]
@@ -3893,6 +5501,7 @@
           "id": 1801,
           "is_fixed": true,
           "name": "INBOX_분류전",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -3906,6 +5515,7 @@
           "id": 1802,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -3919,6 +5529,7 @@
           "id": 1803,
           "is_fixed": true,
           "name": "TDP_기술자료",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -3927,11 +5538,22 @@
         },
         {
           "artifact_type_id": "dt_report",
+          "depends_on": [
+            "act_verification"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Development test report(s) / verification results (all spec requirements verified by A/D/E/T and documented)",
           "evidence_level": "general_se_guidance",
           "id": 1804,
           "maturity": "final",
           "name": "개발시험결과보고서-검증결과(DT)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-11, Table G-12 [SE-69]; DoD SE Guidebook 2022 Table 3-6 p.91",
           "source_refs": [
@@ -3959,6 +5581,7 @@
           "id": 1805,
           "maturity": "final",
           "name": "소프트웨어시험결과보고서(STR)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "DoD SE Guidebook 2022 p.90; NASA NPR 7123.1D Table G-11",
           "source_refs": [
@@ -3977,11 +5600,22 @@
         },
         {
           "artifact_type_id": "vcrm",
+          "depends_on": [
+            "act_verification"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.6 (p.150-151; explicit output sentence p.151)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Verification cross-reference matrix completed (requirement-to-evidence compliance matrix)",
           "evidence_level": "general_se_guidance",
           "id": 1806,
           "maturity": "final",
           "name": "VCRM완료본_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-11; DoD SE Guidebook 2022 Table 3-6 p.91, p.90",
           "source_refs": [
@@ -4004,11 +5638,27 @@
         },
         {
           "artifact_type_id": "rtm",
+          "depends_on": [
+            "act_requirements_analysis",
+            "act_stakeholder_expectations"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.1 (p.142-143)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.3.1-§3.2.3.2 (p.24-25)",
+              "source_key": "nasa_npr_7123_1d"
+            }
+          ],
           "desc": "Requirements traceability matrix (final, requirement to verification evidence)",
           "evidence_level": "general_se_guidance",
           "id": 1807,
           "maturity": "final",
           "name": "요구사항추적표(RTM)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-11; DoD SE Guidebook 2022 Table 3-6 p.91",
           "source_refs": [
@@ -4032,6 +5682,7 @@
           "id": 1808,
           "maturity": "final",
           "name": "기능형상감사계획서(FCA_Plan)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "DoD SE Guidebook 2022 §3.6, p.89-91",
           "source_refs": [
@@ -4055,6 +5706,7 @@
           "id": 1809,
           "maturity": "final",
           "name": "기능형상감사점검표(FCA_Checklist)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "DoD SE Guidebook 2022 Table 3-6 p.91",
           "source_refs": [
@@ -4074,6 +5726,7 @@
           "id": 1810,
           "maturity": "final",
           "name": "기능형상감사결과보고서(FCA)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "DoD SE Guidebook 2022 p.91; NASA NPR 7123.1D Table G-11",
           "source_refs": [
@@ -4097,6 +5750,7 @@
           "id": 1811,
           "maturity": "final",
           "name": "운용시험계획(발주처주관(OT_Plan)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "DoD SE Guidebook 2022 Table 3-6 p.91; NASA NPR 7123.1D Table G-11",
           "source_refs": [
@@ -4115,11 +5769,22 @@
         },
         {
           "artifact_type_id": "ot_report",
+          "depends_on": [
+            "act_validation"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.7 (p.151-152; explicit product sentences p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Operational test / validation results report",
           "evidence_level": "general_se_guidance",
           "id": 1812,
           "maturity": "final",
           "name": "운용시험결과보고서(OT)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-11; DoD SE Guidebook 2022 Table 3-6 p.91, p.95",
           "source_refs": [
@@ -4147,6 +5812,7 @@
           "id": 1813,
           "maturity": "final",
           "name": "RAM평가보고서_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "DoD SE Guidebook 2022 Table 3-6 p.91; NASA NPR 7123.1D Table G-7",
           "source_refs": [
@@ -4170,6 +5836,7 @@
           "id": 1814,
           "maturity": "baseline",
           "name": "As-built형상문서(As_Built)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-11; DoD SE Guidebook 2022 Table 3-6 p.91",
           "source_refs": [
@@ -4188,11 +5855,22 @@
         },
         {
           "artifact_type_id": "tdp",
+          "depends_on": [
+            "act_implementation"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Technical data package (updated with all test results)",
           "evidence_level": "general_se_guidance",
           "id": 1815,
           "maturity": "updated",
           "name": "TDP_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-11; DoD SE Guidebook 2022 p.90",
           "source_refs": [
@@ -4216,6 +5894,7 @@
           "id": 1816,
           "maturity": "final",
           "name": "수락자료묶음(ADP)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-11; DoD SE Guidebook 2022 Table 3-7 p.94, p.91",
           "source_refs": [
@@ -4238,11 +5917,32 @@
         },
         {
           "artifact_type_id": "discrepancy_log",
+          "depends_on": [
+            "act_implementation",
+            "act_transition",
+            "act_validation"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.8 (p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.9.1-§3.2.9.2 (p.26)",
+              "source_key": "nasa_npr_7123_1d"
+            }
+          ],
           "desc": "Discrepancy / deficiency and waiver-deviation status (closed or planned)",
           "evidence_level": "general_se_guidance",
           "id": 1817,
           "maturity": "updated",
           "name": "결함-면제·일탈현황(Discrepancy)_U",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-11, Table G-12; DoD SE Guidebook 2022 p.95-96",
           "source_refs": [
@@ -4270,6 +5970,7 @@
           "id": 1818,
           "maturity": "updated",
           "name": "위험목록(Risk_Register)_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-11; DoD SE Guidebook 2022 Table 3-6 p.91",
           "source_refs": [
@@ -4293,6 +5994,7 @@
           "id": 1819,
           "maturity": "final",
           "name": "보안통제검증보고서(SAR)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "DoD SE Guidebook 2022 p.90, Table 3-5 p.88",
           "source_refs": [
@@ -4316,6 +6018,7 @@
           "id": 1820,
           "maturity": "preliminary",
           "name": "소프트웨어제품명세서(VDD)_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "DoD SE Guidebook 2022 p.90, p.96; NASA NPR 7123.1D Table G-11",
           "source_refs": [
@@ -4343,6 +6046,7 @@
           "id": 1821,
           "maturity": "preliminary",
           "name": "개발결과보고서(Final_Report)_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "DoD SE Guidebook 2022 Table 3-6 p.91; NASA NPR 7123.1D Table G-11",
           "source_refs": [
@@ -4366,6 +6070,7 @@
           "id": 1822,
           "maturity": "final",
           "name": "운송-취급-점검절차(PHS_T)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-11",
           "source_refs": [
@@ -4385,6 +6090,7 @@
           "id": 1823,
           "maturity": "updated",
           "name": "IMS_U",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "DoD SE Guidebook 2022 Table 3-6 p.91",
           "source_refs": [
@@ -4404,6 +6110,7 @@
           "id": 1824,
           "maturity": "updated",
           "name": "교훈기록(Lessons_Learned)_U",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-11",
           "source_refs": [
@@ -4423,6 +6130,7 @@
           "id": 1825,
           "maturity": "final",
           "name": "FCA검토자료(Review_Package)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-11; DoD SE Guidebook 2022 p.90",
           "source_refs": [
@@ -4446,6 +6154,7 @@
           "id": 1826,
           "maturity": "final",
           "name": "FCA회의록_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D p.40 §5.2.3.1; DoD SE Guidebook 2022 Table 3-7 p.94",
           "source_refs": [
@@ -4469,6 +6178,7 @@
           "id": 1827,
           "maturity": "final",
           "name": "FCA결과보고서_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-11, p.40 §5.2.3.1; DoD SE Guidebook 2022 p.91",
           "source_refs": [
@@ -4503,6 +6213,7 @@
           "id": 2101,
           "is_fixed": true,
           "name": "INBOX_분류전",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -4516,6 +6227,7 @@
           "id": 2102,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -4529,6 +6241,7 @@
           "id": 2103,
           "is_fixed": true,
           "name": "TDP_기술자료",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -4542,6 +6255,7 @@
           "id": 2104,
           "maturity": "final",
           "name": "물리형상감사계획서(PCA_Plan)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "DoD SE Guidebook 2022 §3.8, p.95-97",
           "source_refs": [
@@ -4565,6 +6279,7 @@
           "id": 2105,
           "maturity": "final",
           "name": "물리형상감사점검표(PCA_Checklist)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "DoD SE Guidebook 2022 p.95-96",
           "source_refs": [
@@ -4584,6 +6299,7 @@
           "id": 2106,
           "maturity": "final",
           "name": "물리형상감사결과보고서(PCA)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "DoD SE Guidebook 2022 p.97; NASA NPR 7123.1D Table G-12",
           "source_refs": [
@@ -4607,6 +6323,7 @@
           "id": 2107,
           "maturity": "final",
           "name": "제품형상식별서(PCI)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "DoD SE Guidebook 2022 Table 3-8 p.97, p.133; NASA NPR 7123.1D Table G-12, Table G-11",
           "source_refs": [
@@ -4633,11 +6350,27 @@
         },
         {
           "artifact_type_id": "drawings",
+          "depends_on": [
+            "act_architecture_design",
+            "act_transition"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§4.2.8 (p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Engineering drawings / production models approved and certified (as-built, redlines incorporated)",
           "evidence_level": "general_se_guidance",
           "id": 2108,
           "maturity": "final",
           "name": "제작도면(Drawings)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-8; DoD SE Guidebook 2022 p.95-96",
           "source_refs": [
@@ -4661,6 +6394,7 @@
           "id": 2109,
           "maturity": "final",
           "name": "BOM-예비품목록_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-8; DoD SE Guidebook 2022 Table 3-7 p.94",
           "source_refs": [
@@ -4679,11 +6413,22 @@
         },
         {
           "artifact_type_id": "tdp",
+          "depends_on": [
+            "act_implementation"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Technical data package (final, transferred per contract)",
           "evidence_level": "general_se_guidance",
           "id": 2110,
           "maturity": "final",
           "name": "TDP_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "DoD SE Guidebook 2022 p.96; NASA NPR 7123.1D Table G-8",
           "source_refs": [
@@ -4702,11 +6447,22 @@
         },
         {
           "artifact_type_id": "manufacturing_plan",
+          "depends_on": [
+            "act_implementation"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Production plan (critical process controls, control limits, procedures, tooling/test equipment, delivery schedule)",
           "evidence_level": "general_se_guidance",
           "id": 2111,
           "maturity": "final",
           "name": "생산계획서(MFG_Plan)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-8; DoD SE Guidebook 2022 Table 3-7 p.93-94",
           "source_refs": [
@@ -4730,6 +6486,7 @@
           "id": 2112,
           "maturity": "final",
           "name": "수락시험절차-장비(ATP)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "DoD SE Guidebook 2022 Table 3-7 p.94; NASA NPR 7123.1D Table G-8",
           "source_refs": [
@@ -4748,11 +6505,22 @@
         },
         {
           "artifact_type_id": "qa_plan",
+          "depends_on": [
+            "act_implementation"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.4 (p.148-149; explicit output sentences p.148 and p.149)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Quality / inspection plan for production (in-process and end-item inspections)",
           "evidence_level": "general_se_guidance",
           "id": 2113,
           "maturity": "final",
           "name": "생산품질-검사계획(QAP)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-8; DoD SE Guidebook 2022 Table 3-7 p.94, Table 3-8 p.97",
           "source_refs": [
@@ -4780,6 +6548,7 @@
           "id": 2114,
           "maturity": "final",
           "name": "제조성숙도평가-생산준비검토보고서(MRA)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "DoD SE Guidebook 2022 p.94, Table 5-5 p.187-189; NASA NPR 7123.1D Table G-8",
           "source_refs": [
@@ -4807,6 +6576,7 @@
           "id": 2115,
           "maturity": "baseline",
           "name": "고장보고·분석·시정조치(FRACAS)기록_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "DoD SE Guidebook 2022 Table 3-7 p.94; NASA NPR 7123.1D Table G-8",
           "source_refs": [
@@ -4830,6 +6600,7 @@
           "id": 2116,
           "maturity": "final",
           "name": "면제-일탈및결함종결대장(Waiver)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-12; DoD SE Guidebook 2022 p.95-96",
           "source_refs": [
@@ -4848,11 +6619,27 @@
         },
         {
           "artifact_type_id": "tech_manual",
+          "depends_on": [
+            "act_implementation",
+            "act_transition"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.8 (p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "pdf p.105-108 (printed p.92-95) §5.1.1.1/§5.1.1.3, Figure 5.1-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "Operator and maintenance technical manuals / operations documentation (verified and approved)",
           "evidence_level": "general_se_guidance",
           "id": 2117,
           "maturity": "final",
           "name": "운용-정비기술교범(Tech_Manual)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-12; DoD SE Guidebook 2022 p.96, Table 3-5 p.88",
           "source_refs": [
@@ -4875,11 +6662,22 @@
         },
         {
           "artifact_type_id": "training_material",
+          "depends_on": [
+            "act_transition"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.8 (p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            }
+          ],
           "desc": "Training materials and training completion records",
           "evidence_level": "general_se_guidance",
           "id": 2118,
           "maturity": "final",
           "name": "교육훈련자료-이수기록(Training)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-12; DoD SE Guidebook 2022 Table 3-7 p.94, Table 3-8 p.97",
           "source_refs": [
@@ -4907,6 +6705,7 @@
           "id": 2119,
           "maturity": "final",
           "name": "소프트웨어제품명세서-버전기술서(VDD)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "DoD SE Guidebook 2022 p.96; NASA NPR 7123.1D Table G-12",
           "source_refs": [
@@ -4925,11 +6724,27 @@
         },
         {
           "artifact_type_id": "ils_plan",
+          "depends_on": [
+            "act_architecture_design",
+            "act_transition"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.8 (p.152)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "pdf p.90-100 (printed p.77-87) §4.4.1.1/§4.4.1.3, Figure 4.4-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "Integrated logistics support plan / sustainment plan (final; sustaining planning complete)",
           "evidence_level": "general_se_guidance",
           "id": 2120,
           "maturity": "final",
           "name": "ILSP_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-11, Table G-12; DoD SE Guidebook 2022 Table 3-8 p.97",
           "source_refs": [
@@ -4957,6 +6772,7 @@
           "id": 2121,
           "maturity": "updated",
           "name": "생산-납품IMS_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-8; DoD SE Guidebook 2022 Table 3-7 p.94, Table 3-8 p.97",
           "source_refs": [
@@ -4984,6 +6800,7 @@
           "id": 2122,
           "maturity": "updated",
           "name": "위험목록(Risk_Register)_U",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-8, Table G-12; DoD SE Guidebook 2022 Table 3-7 p.93, Table 3-8 p.97",
           "source_refs": [
@@ -5015,6 +6832,7 @@
           "id": 2123,
           "maturity": "preliminary",
           "name": "국방규격(Spec_Draft)_D",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "DoD SE Guidebook 2022 p.132-133, p.95",
           "source_refs": [
@@ -5038,6 +6856,7 @@
           "id": 2124,
           "maturity": "final",
           "name": "현장인수-설치점검시험보고서(SAT)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-12",
           "source_refs": [
@@ -5057,6 +6876,7 @@
           "id": 2125,
           "maturity": "updated",
           "name": "보안-보호계획(PPP)_U",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-12; DoD SE Guidebook 2022 p.216",
           "source_refs": [
@@ -5080,6 +6900,7 @@
           "id": 2126,
           "maturity": "final",
           "name": "개발결과보고서(Final_Report)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-12; DoD SE Guidebook 2022 p.97",
           "source_refs": [
@@ -5103,6 +6924,7 @@
           "id": 2127,
           "maturity": "final",
           "name": "PCA-PRR검토자료(Review_Package)_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-8, Table G-12; DoD SE Guidebook 2022 Table 3-7 p.94, Table 3-8 p.97",
           "source_refs": [
@@ -5134,6 +6956,7 @@
           "id": 2128,
           "maturity": "final",
           "name": "PCA-PRR회의록_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D p.40 §5.2.3.1; DoD SE Guidebook 2022 p.94, p.97",
           "source_refs": [
@@ -5161,6 +6984,7 @@
           "id": 2129,
           "maturity": "final",
           "name": "PCA-PRR결과보고서_F",
+          "node_kind": "artifact",
           "se_floor": "must_have",
           "source": "NASA NPR 7123.1D Table G-8, p.40 §5.2.3.1; DoD SE Guidebook 2022 p.94, p.97",
           "source_refs": [
@@ -5199,6 +7023,7 @@
           "id": 2401,
           "is_fixed": true,
           "name": "INBOX_분류전",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -5212,6 +7037,7 @@
           "id": 2402,
           "is_fixed": true,
           "name": "LOG_의사결정조치기록",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -5225,6 +7051,7 @@
           "id": 2403,
           "is_fixed": true,
           "name": "TDP_기술자료",
+          "node_kind": "artifact",
           "source": "내부관리",
           "source_refs": [],
           "template": "없음",
@@ -5238,6 +7065,7 @@
           "id": 2404,
           "maturity": "final",
           "name": "교훈보고서(Lessons_Learned)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D Table G-4, Table G-10",
           "source_refs": [
@@ -5265,6 +7093,7 @@
           "id": 2405,
           "maturity": "final",
           "name": "검토조치사항종결대장(Action_Log)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "NASA NPR 7123.1D p.40 §5.2.3.1; DoD SE Guidebook 2022 p.75, p.87",
           "source_refs": [
@@ -5296,6 +7125,7 @@
           "id": 2406,
           "maturity": "final",
           "name": "자료납품종결확인(CDRL)_F",
+          "node_kind": "artifact",
           "se_floor": "should_have",
           "source": "DoD SE Guidebook 2022 p.96; NASA NPR 7123.1D Table G-11",
           "source_refs": [
@@ -5319,6 +7149,7 @@
           "id": 2407,
           "maturity": "final",
           "name": "위험목록종결본(Risk_Register)_F",
+          "node_kind": "artifact",
           "se_floor": "context",
           "source": "NASA NPR 7123.1D Tables G-1..G-12; DoD SE Guidebook 2022 p.17",
           "source_refs": [
@@ -5337,11 +7168,31 @@
         },
         {
           "artifact_type_id": "tpm_list",
+          "depends_on": [
+            "act_architecture_design",
+            "act_requirements_analysis"
+          ],
+          "depends_on_evidence": "general_se_guidance",
+          "depends_on_refs": [
+            {
+              "locator": "§4.2.3 (p.145-148; explicit output sentence p.147)",
+              "source_key": "dod_se_guidebook_2022"
+            },
+            {
+              "locator": "§3.2.3.1-§3.2.3.2 (p.24-25)",
+              "source_key": "nasa_npr_7123_1d"
+            },
+            {
+              "locator": "pdf p.77-85 (printed p.64-72) §4.2.1.1/§4.2.1.3, Figure 4.2-1",
+              "source_key": "nasa_se_handbook_rev2"
+            }
+          ],
           "desc": "Final TPM / leading-indicator trend summary",
           "evidence_level": "general_se_guidance",
           "id": 2408,
           "maturity": "final",
           "name": "TPM최종추이요약_F",
+          "node_kind": "artifact",
           "se_floor": "context",
           "source": "NASA NPR 7123.1D Tables G-2, G-5..G-9; DoD SE Guidebook 2022 p.83, p.89",
           "source_refs": [
@@ -5369,6 +7220,7 @@
           "id": 2409,
           "maturity": "final",
           "name": "종결검토결과보고서_F",
+          "node_kind": "artifact",
           "se_floor": "context",
           "source": "NASA NPR 7123.1D p.40 §5.2.3.1",
           "source_refs": [
@@ -5468,8 +7320,8 @@
   "quality_grade": "없음",
   "schema_version": "soulforge.se_foldertree_compiled_variant.v0",
   "spec_file": "assets/SE_FolderTree_GenericSE_Base.md",
-  "spec_sha256": "498cd2b4b9bdf4446899671642273902496351a02d495597db9f78bff868c75b",
-  "spec_version": "0.1",
+  "spec_sha256": "e27975fe876d57d48624d5ce0e59dec17e2ed1a43ee618b94a2c3a02b95aa8bc",
+  "spec_version": "0.2",
   "special_folders": {
     "management": {
       "code": 20,

@@ -307,7 +307,10 @@ def write_index_file(
             
             if task_id in exclude_ids:
                 continue
-            
+            # is_virtual 행(활동·결정 노드)은 규칙일 뿐 폴더가 아니다. 목록에도 넣지 않는다.
+            if t.get("is_virtual"):
+                continue
+
             lines.append(f"'{task_id:03d}\t{task_name}\t{task_desc}")
     
     # 3. 분류필요업무 (옵션)
@@ -605,6 +608,12 @@ def main() -> None:
                 raise ValueError(f"task에 id/name이 없습니다: {t}")
             tid = int(task_id)
             tname = str(task_name)
+
+            # D46 활동·결정 노드: 규칙표에는 있고 폴더는 만들지 않는다(is_virtual).
+            # 제외(exclude)와 달리 프로필 결정이 아니라 행의 종류 자체가 폴더가 아니므로
+            # excluded_rows 에도 넣지 않는다 — 생성 대상이었던 적이 없다.
+            if t.get("is_virtual"):
+                continue
 
             if tid in exclude_ids:
                 excluded_rows.append({

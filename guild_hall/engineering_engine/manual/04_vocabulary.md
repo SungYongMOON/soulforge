@@ -7,9 +7,10 @@
 
 ## 4.2 정본과 모양
 
-- 정본: `guild_hall/engineering_engine/stage_rules/artifact_vocabulary.mjs`의 `ARTIFACT_VOCABULARY_V0` (2026-08-18: 130 토큰) + `prime_<...>` 규칙 계열.
+- 정본: `guild_hall/engineering_engine/stage_rules/artifact_vocabulary.mjs`의 `ARTIFACT_VOCABULARY_V0` (2026-08-18: 152 토큰) + `prime_<...>` 규칙 계열.
 - 항목 모양: `{artifact_type_id, family, label_ko, label_en, capability_default}`. `capability_default`는 결손이 mission 후보가 될 때 기본 담당 capability(`systems_engineering`, `hw_engineering`, `sw_engineering`, `mechanical_design`, `configuration_management`, `verification_review`, `project_management`, `risk_management`).
-- 계열(family) 17종: requirements_specification · design_description · drawing_and_interface · configuration_and_bom · mechanical_model · technical_plan · test_plan · test_procedure · test_result · test_docs · evaluation_report · configuration_audit · review_minutes · review_result · closeout · internal · prime_contract_item.
+- 계열(family) 19종: requirements_specification · design_description · drawing_and_interface · configuration_and_bom · mechanical_model · technical_plan · test_plan · test_procedure · test_result · test_docs · evaluation_report · configuration_audit · review_minutes · review_result · closeout · internal · prime_contract_item · **activity** · **decision**.
+- `activity`·`decision` 계열(D46)은 문서가 아니다. 컴파일러가 gap scan 정책으로 옮길 때 `activity`는 `review_evidence`, `decision`은 `owner_decision_record`로 읽는다(둘 다 정책 템플릿이 이미 갖고 있던 종류다).
 - 표시명(`label_ko`)은 D44(Owner 확정) 전까지 관찰 수준이다. 토큰 자체는 안정적으로 유지한다(토큰을 바꾸면 모든 층·overlay·Needs 정책이 깨진다).
 
 ## 4.3 발행 규칙
@@ -27,6 +28,7 @@
 | 설계 §4 초안(컴파일러 첫 착지) | 기본 74 토큰 | 체계개발 스펙 v0.7 폴더 기준 |
 | 2026-08-18 v0.8 반영 | +26 → 100(`cdrl`, `rtm`, `ram_analysis_report`, `critical_parts_test_report`, `cm_plan`, `technical_review_package`, `manufacturing_design_review`, `standard_parts_review`, `atp`, `ncr` …) | 정본 대조로 추가된 필수 17건과 기계 필드 부여 시 필요. 어휘에 없어서 규정 필수 행이 조용히 강등되던 문제를 발견 → 어휘 확장 + 시험 |
 | 2026-08-18 ① 반영 | +30 → 130(`conops`, `risk_management_plan`, `ims`, `system_safety_analysis`, `vcrm`, `fmeca`, `tech_manual`, `training_material`, `hsi_plan`, `tpm_list`, `trade_study` …) | NASA/DoD 검토회의 산출물 중 기존 어휘에 없던 것. 목록은 `references/generic_se_base_derivation_v0.md` §5 |
+| 2026-08-18 D46 반영 | +22 → 152: 활동 19(`act_stakeholder_expectations` … `act_decision_analysis` 17종 + `act_functional_analysis_allocation` + `act_technical_review`), 결정 3(`dec_functional_baseline`, `dec_allocated_baseline`, `dec_product_baseline`) | 정본이 말하는 일과 상태를 행으로 둘 수 있게. 토큰별 정본 대응·도출 방법은 `references/se_io_relations_v0.md` §4 |
 | — | `prime_*` 규칙 계열 | 주계약사 항목을 열거 없이 인식 |
 
 ## 4.5 별칭(alias)과 정합 미결
