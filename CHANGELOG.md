@@ -1,5 +1,40 @@
 # CHANGELOG
 
+## 2026-08-18 - Observation auto-confirmation tightened + folder housekeeping report
+
+- **The `03_Out` auto-confirmation now needs three conditions, not two.** A file is confirmed
+  without a person only when (a) it sits under a task folder's `03_Out`, (b) that task maps to
+  exactly one `artifact_type_id`, and (c) the file's own name or title carries a cue for *that*
+  artifact. The third came from a real project: a review-minutes task folder whose `03_Out` held
+  the drawings and the parts list submitted at that review, all of it auto-confirmed as the
+  minutes. The folder was right about what belongs there and wrong about what was put there, and
+  only the file names could tell the difference. Rows held back this way stay candidates, are
+  counted in the receipt as `auto_confirm_withheld_no_own_cue`, and each candidate now carries
+  `own_name_cue` so the reason is visible rather than inferred.
+- **New `guild_hall/engineering_engine/observation/observation_housekeeping.mjs`** —
+  `buildHousekeepingReport` plus `renderHousekeepingMarkdown`, and a seventh CLI output
+  `housekeeping_report.md`. It lists, per task folder: two issues of one artifact in one `03_Out`
+  (naming which file wins and which falls behind), material whose name never mentions the folder's
+  artifact, transport packaging (`.zip/.7z/.rar`, `01of03`, split parts), interim wording left in
+  `03_Out`, two task folders carrying one artifact in one gate, and a task folder in use whose
+  `03_Out` holds nothing. It is a cleanup notice for the team and never an observation, never a
+  judgement, and never reads file content: `03_Out 파일 없음` says the folder holds no output file,
+  not that an artifact is missing. Owner's standing instruction: this check stays after the team
+  starts filing properly — it becomes the guard that shows they still do.
+- Maturity vocabulary widened for the words a real project uses: `중간수정본|수정본|검토본|중간본|임시|wip`
+  read as preliminary, and `승인본|확정본|배포본` as final. `승인` on its own still reads as baseline,
+  because the `-본` suffix names the issued copy while the bare word names the act of approving.
+- **D46 follow-up:** activity and decision rule rows are excluded from classification. A file in an
+  activity's folder shows the folder is not empty; it can never show the work happened, and reading
+  it as an observation would have let a PDF stand in for a process. Rows carrying
+  `node_kind` other than `artifact`, and the `activity`/`decision` vocabulary families, take no
+  part in cue matching.
+- `npm run validate:se-observation` now 55 tests (was 39): the review-minutes failure shape by
+  name, every auto-confirmed row carrying its own cue, activity nodes never becoming candidates,
+  the new maturity words on both sides, and twelve housekeeping cases (each kind, determinism, the
+  folders deliberately not reported, and a guard that no observation or judgement vocabulary
+  appears in the report).
+
 ## 2026-08-18 - Activity/decision rule rows, `depends_on` from canon, and a compiler work order ("what first")
 
 - The rule tables could name documents and nothing else, so they could not say "do the functional

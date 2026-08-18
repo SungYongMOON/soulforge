@@ -175,7 +175,8 @@ function renderMarkdown(rows, counts) {
   lines.push('# 관측 후보 확인표 (artifact observation candidates)');
   lines.push('');
   lines.push(`- 후보 ${counts.candidates}건 = 자동확정 ${counts.auto_confirmed}건 + 확인 필요 ${counts.needs_owner_confirmation}건`);
-  lines.push('- 자동확정은 업무폴더 `03_Out` 아래이고 그 업무가 산출물 종류 하나에만 대응할 때만 붙는다. 나머지는 사람이 판단한다.');
+  lines.push('- 자동확정 조건 세 가지를 모두 만족할 때만 붙는다: (1) 업무폴더 `03_Out` 아래, (2) 그 업무가 산출물 종류 하나에만 대응, (3) **파일 이름·제목이 그 산출물을 가리킴**. 나머지는 사람이 판단한다.');
+  lines.push('- 근거 단서가 `업무폴더`뿐인 줄은 폴더만 보고 붙인 추정이다(예: 회의록 폴더 `03_Out`에 들어 있는 제출 도면). 그 줄부터 확인한다.');
   lines.push('- 확인 방법: JSON 시트(`confirmation_sheet.json`)의 같은 줄 `decision`에 `confirm`(맞음) · `reject`(아님) · `reassign`(다른 종류; `artifact_type_id`도 함께)을 적는다.');
   lines.push('- 이 표는 후보일 뿐이며 확인 전에는 엔진 관측이 되지 않는다(설계 D37).');
   lines.push('');

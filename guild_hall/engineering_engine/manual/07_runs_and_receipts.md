@@ -31,9 +31,13 @@
 
 0. **관측 후보 만들기**(A1, 2026-08-18 착지): `guild_hall/engineering_engine/tools/artifact_observation_inventory_runner.mjs`에
    `--project-root`(과제 폴더)·`--out`(private 실행 폴더)·`--compiled-variant`(사업유형 compiled JSON)·`--overlay`(과제 overlay, 별칭·prime add)를 주고 1회 실행한다.
-   `--out` 아래에 `inventory.json`·`candidates.json`·`confirmation_sheet.md`·`confirmation_sheet.json`·`artifact_observations_auto.json`·`receipt.json`이 생기며 이미 있으면 덮어쓰지 않고 거부한다.
+   `--out` 아래에 `inventory.json`·`candidates.json`·`confirmation_sheet.md`·`confirmation_sheet.json`·`artifact_observations_auto.json`·`housekeeping_report.md`·`receipt.json`이 생기며 이미 있으면 덮어쓰지 않고 거부한다.
    `confirmation_sheet.md`를 Owner가 보고 `confirmation_sheet.json`의 `decision`에 `confirm`/`reject`/`reassign`을 적으면 그것이 2번의 관측이 된다.
-   업무폴더 `03_Out` 아래이고 그 업무가 산출물 종류 하나에만 대응하는 줄만 자동 확정이고 나머지는 사람 확인을 기다린다(D37).
+   자동 확정은 세 조건을 **모두** 만족할 때만이다: 업무폴더 `03_Out` 아래 · 그 업무가 산출물 종류 하나에만 대응 · **파일 이름이나 제목이 그 산출물을 가리킴**.
+   세 번째 조건은 실제 과제에서 나온 것이다 — 회의록 업무폴더의 `03_Out`에 제출용 도면·자재명세서가 들어 있었고 폴더만 보면 전부 회의록으로 확정된다.
+   나머지는 사람 확인을 기다린다(D37). 자동 확정을 보류한 건수는 영수증의 `auto_confirm_withheld_no_own_cue`에 남는다.
+   `housekeeping_report.md`는 **판단이 아니라 폴더 청소 알림**이다(같은 산출물 중복·엉뚱한 자료·전송용 압축본·중간본 표현·업무폴더 중복·`03_Out` 파일 없음).
+   관측으로 들어가지 않으며 결손 판정도 아니다. Owner 방침: 팀이 제대로 등록하기 시작한 뒤에도 이 점검은 상시 가드로 남긴다.
 1. 스펙·overlay·binding을 읽어 `compileStageRules` 호출(05장) → policy·mapping·receipt를 `_workspaces/<project>/…/06_validation/stage_rules_<date>_<nn>/`에 저장.
 2. base packet(직전 accepted run의 packet) + 관측 → `generatePilotPacketFromStageRules` → packet·launch 저장.
 3. `guild_hall/engineering_engine/tools/ax_se_project_context_pilot_runner.mjs`로 1회 실행 → `assessment_stdout.json`(effects 전부 0 확인).

@@ -36,6 +36,9 @@ import {
 import {
   buildArtifactObservationsFromConfirmed,
 } from '../observation/artifact_observations_from_confirmed.mjs';
+import {
+  buildHousekeepingReport, renderHousekeepingMarkdown,
+} from '../observation/observation_housekeeping.mjs';
 import { ARTIFACT_VOCABULARY_V0 } from '../stage_rules/artifact_vocabulary.mjs';
 
 const RUNNER_SCHEMA_VERSION = 'soulforge.artifact_observation_inventory_runner.v0';
@@ -53,7 +56,7 @@ const DEFAULTS = Object.freeze({
 
 const OUTPUT_FILES = Object.freeze([
   'inventory.json', 'candidates.json', 'confirmation_sheet.md', 'confirmation_sheet.json',
-  'artifact_observations_auto.json', 'receipt.json',
+  'artifact_observations_auto.json', 'housekeeping_report.md', 'receipt.json',
 ]);
 
 // A refusal is a stated outcome, not a crash: the reason is written once, the exit code says
@@ -75,6 +78,7 @@ function parseArguments(argv) {
     compiledVariants: [],
     overlays: [],
     includeGlobs: [],
+    excludeGlobs: [],
     maxFiles: DEFAULTS.maxFiles,
     maxFileBytes: DEFAULTS.maxFileBytes,
     knownAt: null,
@@ -96,6 +100,9 @@ function parseArguments(argv) {
       case '--include-globs':
         options.includeGlobs.push(...value().split(',').map((glob) => glob.trim()).filter(Boolean));
         break;
+      case '--exclude-globs':
+        options.excludeGlobs.push(...value().split(',').map((glob) => glob.trim()).filter(Boolean));
+        break;
       case '--max-files': options.maxFiles = Number.parseInt(value(), 10); break;
       case '--max-file-bytes': options.maxFileBytes = Number.parseInt(value(), 10); break;
       case '--known-at': options.knownAt = value(); break;
@@ -104,7 +111,8 @@ function parseArguments(argv) {
         process.stdout.write(`${[
           'usage: artifact_observation_inventory_runner.mjs --project-root <abs> --out <abs dir>',
           '         --compiled-variant <abs json> [--compiled-variant ...] [--overlay <abs json>]',
-          '         [--include-globs "<glob>,<glob>"] [--max-files N] [--max-file-bytes N]',
+          '         [--include-globs "<glob>,<glob>"] [--exclude-globs "<glob>,<glob>"]',
+          '         [--max-files N] [--max-file-bytes N]',
           '         [--known-at <instant>] [--no-auto-confirm]',
         ].join('\n')}\n`);
         return null;
@@ -149,12 +157,13 @@ async function hashFile(absolutePath) {
   return hash.digest('hex');
 }
 
-async function walkProject(projectRoot, options) {
+async function walkProject(projectRoot, options, excludedDirectory = null) {
   const includeMatchers = options.includeGlobs.map(globToRegExp);
+  const excludeMatchers = options.excludeGlobs.map(globToRegExp);
   const inventory = [];
   const skipped = {
     directories: 0, too_large: 0, unreadable: 0, not_included: 0, symbolic_links: 0,
-    non_canonical_mtime: 0, over_max_files: 0,
+    non_canonical_mtime: 0, over_max_files: 0, own_output: 0, excluded: 0,
   };
 
   const walk = async (relativeDirectory) => {
@@ -176,12 +185,25 @@ async function walkProject(projectRoot, options) {
           skipped.directories += 1;
           continue;
         }
+        // A run whose output folder sits inside the project would otherwise walk the previous
+        // run's own files, which is how an observation run starts observing itself.
+        if (excludedDirectory !== null && resolve(absolute) === excludedDirectory) {
+          skipped.own_output += 1;
+          continue;
+        }
         await walk(relative);
         continue;
       }
       if (!entry.isFile()) continue;
       if (includeMatchers.length > 0 && !includeMatchers.some((matcher) => matcher.test(relative))) {
         skipped.not_included += 1;
+        continue;
+      }
+      // What the caller says is not project material. The case this exists for is an earlier run
+      // of this tool whose output folder lives inside the project: without excluding it, every
+      // rerun inventories the last run's files and the walks stop being comparable.
+      if (excludeMatchers.some((matcher) => matcher.test(relative))) {
+        skipped.excluded += 1;
         continue;
       }
       if (inventory.length >= options.maxFiles) { skipped.over_max_files += 1; continue; }
@@ -306,7 +328,7 @@ async function main() {
   const overlayAliases = [];
   for (const path of options.overlays) overlayAliases.push(...overlayCues(await readJson(resolve(path))));
 
-  const { inventory, skipped } = await walkProject(projectRoot, options);
+  const { inventory, skipped } = await walkProject(projectRoot, options, outDirectory);
 
   const candidateResult = buildArtifactObservationCandidates({
     inventory,
@@ -331,6 +353,17 @@ async function main() {
     known_at: knownAt,
   });
 
+  // Folder tidying, kept beside the classification and never mixed into it. The Owner's standing
+  // instruction is that this stays after the team files properly: it is how anyone sees whether
+  // they still do.
+  const housekeeping = buildHousekeepingReport({
+    inventory,
+    candidates: candidateResult.candidates,
+    unmatched: candidateResult.unmatched,
+    ambiguous: candidateResult.ambiguous,
+    known_at: knownAt,
+  });
+
   const receipt = {
     schema_version: RUNNER_SCHEMA_VERSION,
     known_at: knownAt,
@@ -340,6 +373,7 @@ async function main() {
       compiled_variants: options.compiledVariants.map((path) => basename(path)),
       overlays: options.overlays.map((path) => basename(path)),
       include_globs: options.includeGlobs,
+      exclude_globs: options.excludeGlobs,
       max_files: options.maxFiles,
       max_file_bytes: options.maxFileBytes,
       auto_confirm_03_out: options.autoConfirm,
@@ -352,6 +386,7 @@ async function main() {
     candidates: candidateResult.receipt,
     confirmation: applied.receipt,
     observations: observations.receipt,
+    housekeeping: housekeeping.receipt,
   };
 
   await writeCreateOnly(outDirectory, 'inventory.json', asJson({
@@ -374,17 +409,22 @@ async function main() {
     by_stage: observations.by_stage,
     receipt: observations.receipt,
   }));
+  await writeCreateOnly(outDirectory, 'housekeeping_report.md',
+    `${renderHousekeepingMarkdown(housekeeping)}\n`);
   await writeCreateOnly(outDirectory, 'receipt.json', asJson(receipt));
 
   process.stdout.write(`${JSON.stringify({
     files_inventoried: inventory.length,
     candidates: candidateResult.candidates.length,
     auto_confirmed: candidateResult.receipt.counts.auto_confirmed,
+    auto_confirm_withheld_no_own_cue: candidateResult.receipt.counts.auto_confirm_withheld_no_own_cue,
     needs_owner_confirmation: candidateResult.receipt.counts.needs_owner_confirmation,
     ambiguous: candidateResult.ambiguous.length,
     unmatched: candidateResult.unmatched.length,
     artifact_observations: observations.artifact_observations.length,
     candidates_by_stage: candidateResult.receipt.counts.candidates_by_stage,
+    housekeeping_items: housekeeping.counts.items,
+    housekeeping_by_kind: housekeeping.counts.by_kind,
   }, null, 2)}\n`);
 }
 

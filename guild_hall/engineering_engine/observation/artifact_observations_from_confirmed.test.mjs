@@ -143,8 +143,8 @@ test('several confirmed files for one pair leave one observation and a supersede
   assert.equal(built.receipt.counts.superseded_pairs, expected.superseded_pairs);
   assert.equal(built.receipt.counts.superseded_files, expected.superseded_files);
 
-  const [record] = built.superseded;
-  assert.equal(record.artifact_type_id, 'icd');
+  const record = built.superseded.find((row) => row.artifact_type_id === 'icd');
+  assert.ok(record !== undefined, 'the confirmed ICD draft should fall behind the issued one');
   assert.equal(record.chosen.maturity, 'final');
   assert.equal(record.superseded_refs[0].maturity, 'preliminary');
   // The winner is the one the observation actually cites.
@@ -447,9 +447,15 @@ test('the generator accepts the observations this module produces', () => {
       rules: { auto_confirm_03_out: true },
     });
     assert.equal(candidateResult.candidates.length, inventory.length);
-    assert.equal(candidateResult.candidates.every((row) => row.auto_confirmed), true);
 
-    const applied = applyConfirmationSheet(candidateResult.candidates, []);
+    // Confirmed by an Owner decision rather than by the `03_Out` rule. The compiled fixture's
+    // task rows carry no short term (`HDD`, `ICD`), so these synthetic file names name no
+    // artifact of their own, and the tightened auto-confirmation rightly withholds them. What is
+    // under test here is the generator's acceptance, so the confirmation comes the other way.
+    assert.equal(candidateResult.candidates.every((row) => row.own_name_cue === false), true);
+    const applied = applyConfirmationSheet(candidateResult.candidates,
+      candidateResult.candidates.map((row) => ({ candidate_id: row.candidate_id, decision: 'confirm' })));
+    assert.equal(applied.confirmed.length, inventory.length);
     const built = buildArtifactObservationsFromConfirmed({
       confirmed: applied.confirmed, inventory, known_at: KNOWN_AT,
     });

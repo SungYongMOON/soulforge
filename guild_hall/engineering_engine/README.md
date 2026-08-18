@@ -1029,11 +1029,21 @@ fs·clock·random·env·network를 쓰지 않는다(정적 effect pin 시험). �
 - `artifact_observations_from_confirmed.mjs` — 확인된 줄 + sha256 → `pilot_packet_generator`가 그대로 받는
   `artifact_observations[]`. (단계, 산출물 종류) 쌍마다 관측 하나이며, 여러 파일이 한 쌍에 걸리면
   성숙도 → 수정시각 → digest 순으로 이긴 파일을 쓰고 나머지는 영수증의 `superseded`에 남긴다.
+- `observation_housekeeping.mjs` — `buildHousekeepingReport(request)`: 같은 걷기 결과에서 **판단이 아닌
+  폴더 청소 항목**만 뽑는다(같은 산출물 파일 중복 · 엉뚱한 자료 가능성 · 전송용 압축·분할본 ·
+  중간본·검토본 표현 · 한 단계에 업무폴더 중복 · `03_Out` 파일 없음). 관측이 아니고 결손 판정도 아니며
+  파일 내용을 열지 않는다. `renderHousekeepingMarkdown`이 한글 표(단계/업무폴더/산출물/종류/내용/파일수)로 낸다.
+  Owner 방침: 팀이 제대로 등록하기 시작한 뒤에도 이 점검은 **상시 가드로 남긴다**.
 - `presence_state`는 언제나 `present`뿐이다. 걷지 못한 파일은 없는 것이 아니므로 이 층은
   `absence_confirmed`를 만들지 않는다(그 판단은 사람 몫).
+- D46 활동(`activity`)·결정(`decision`) 노드는 문서가 아니므로 후보가 되지 않는다. 활동 폴더에 파일이
+  있다는 것은 폴더가 비지 않았다는 뜻일 뿐 그 일이 수행됐다는 증거가 아니다.
 
-자동 확정은 규칙 하나뿐이다: 파일이 업무폴더의 `03_Out` 아래이고 그 업무가 산출물 종류 하나에만
-대응할 때. 그 밖의 모든 후보는 `needs_owner_confirmation`으로 남는다(설계 D37: 자동 추출은 후보, 확정은 사람).
+자동 확정은 세 조건을 **모두** 만족할 때만이다: (1) 파일이 업무폴더의 `03_Out` 아래, (2) 그 업무가
+산출물 종류 하나에만 대응, (3) 파일 이름이나 제목이 **그 산출물**을 가리키는 단서를 가짐.
+(3)은 실제 과제에서 나왔다 — 회의록 업무폴더의 `03_Out`에 제출용 도면·자재명세서가 들어 있어 폴더만
+보면 전부 회의록으로 확정된다. 보류한 건수는 영수증 `auto_confirm_withheld_no_own_cue`에 남는다.
+그 밖의 모든 후보는 `needs_owner_confirmation`으로 남는다(설계 D37: 자동 추출은 후보, 확정은 사람).
 
 호출자(파일·시계를 쓰는 유일한 자리):
 
@@ -1045,6 +1055,8 @@ node guild_hall/engineering_engine/tools/artifact_observation_inventory_runner.m
 
 `--out` 아래에만 쓰고, 이미 있는 실행 산출물은 덮어쓰지 않고 거부한다.
 `.git`·`node_modules`·`00_Temp`·`__pycache__`·`_trash*`와 심볼릭 링크, 크기 상한을 넘는 파일은 건너뛴다.
+산출은 7개: `inventory.json`·`candidates.json`·`confirmation_sheet.md`·`confirmation_sheet.json`·
+`artifact_observations_auto.json`·`housekeeping_report.md`·`receipt.json`.
 
 범위 검증:
 

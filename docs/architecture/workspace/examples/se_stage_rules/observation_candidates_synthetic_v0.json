@@ -72,6 +72,47 @@
                 "artifact_type_id": "rtm",
                 "evidence_level": "unstated",
                 "verification_status": "partially_supported"
+              },
+              {
+                "id": 139,
+                "name": "Synthetic critical design review minutes (CDR_MINUTES)",
+                "term": "CDR_MINUTES",
+                "artifact_type_id": "review_minutes_cdr",
+                "evidence_level": "regulation_mandated",
+                "verification_status": "source_supported"
+              },
+              {
+                "id": 130,
+                "name": "Synthetic detailed drawings (DRAWINGS)",
+                "term": "DRAWINGS",
+                "artifact_type_id": "drawings",
+                "evidence_level": "guidebook_recommended",
+                "verification_status": "source_supported"
+              },
+              {
+                "id": 156,
+                "name": "Synthetic detailed drawings second folder (DRAWINGS)",
+                "term": "DRAWINGS",
+                "artifact_type_id": "drawings",
+                "evidence_level": "guidebook_recommended",
+                "verification_status": "source_supported"
+              },
+              {
+                "id": 141,
+                "name": "Synthetic software requirements specification (SRS)",
+                "term": "SRS",
+                "artifact_type_id": "srs",
+                "evidence_level": "unstated",
+                "verification_status": "partially_supported"
+              },
+              {
+                "id": 158,
+                "name": "Synthetic technical review conducted (ACTIVITY)",
+                "term": "ACTIVITY",
+                "node_kind": "activity",
+                "artifact_type_id": "act_technical_review",
+                "evidence_level": "regulation_mandated",
+                "verification_status": "source_supported"
               }
             ]
           }
@@ -220,17 +261,108 @@
         "sha256": "d0889184afecf85b2192ebf0afed3dde73c334b783a92d6c19d4394bf6bb011e",
         "mtime_iso": "2026-07-23T01:00:00.000Z",
         "gate_hint": "130_synthetic_analysis"
+      },
+      {
+        "file_ref": "120_CDR/139_synthetic_cdr_minutes/03_Out/synthetic_cdr_minutes_final.pdf",
+        "name": "synthetic_cdr_minutes_final.pdf",
+        "ext": "pdf",
+        "bytes": 33000,
+        "sha256": "7e059f8aa4142e2120be3d3139db7e9ad19c2272657ddc13008efb1b03d02017",
+        "mtime_iso": "2026-07-24T01:00:00.000Z",
+        "gate_hint": "120_CDR",
+        "task_folder_hint": "139_synthetic_cdr_minutes"
+      },
+      {
+        "file_ref": "120_CDR/139_synthetic_cdr_minutes/03_Out/synthetic_drawings_l3_package.pdf",
+        "name": "synthetic_drawings_l3_package.pdf",
+        "ext": "pdf",
+        "bytes": 810000,
+        "sha256": "dbf7c9cf9a8a0613a78c46105cb573ad9f2d0143b3367042dcca9e9b02da097c",
+        "mtime_iso": "2026-07-25T01:00:00.000Z",
+        "gate_hint": "120_CDR",
+        "task_folder_hint": "139_synthetic_cdr_minutes"
+      },
+      {
+        "file_ref": "120_CDR/139_synthetic_cdr_minutes/03_Out/synthetic_submitted_set_01of03.zip",
+        "name": "synthetic_submitted_set_01of03.zip",
+        "ext": "zip",
+        "bytes": 4100000,
+        "sha256": "c92dd5382205e33b82a02b6db7451eff602a75602016c7c315a7729205023b69",
+        "mtime_iso": "2026-07-26T01:00:00.000Z",
+        "gate_hint": "120_CDR",
+        "task_folder_hint": "139_synthetic_cdr_minutes"
+      },
+      {
+        "file_ref": "120_CDR/130_synthetic_drawings/03_Out/synthetic_drawings_중간수정본.pdf",
+        "name": "synthetic_drawings_중간수정본.pdf",
+        "ext": "pdf",
+        "bytes": 512000,
+        "sha256": "f56e7f447a30eeb0989be2f1269ed0a8f283d4d8d0bfd45a3a82f1bd89c632ef",
+        "mtime_iso": "2026-07-27T01:00:00.000Z",
+        "gate_hint": "120_CDR",
+        "task_folder_hint": "130_synthetic_drawings"
+      },
+      {
+        "file_ref": "120_CDR/130_synthetic_drawings/03_Out/synthetic_drawings_승인본.pdf",
+        "name": "synthetic_drawings_승인본.pdf",
+        "ext": "pdf",
+        "bytes": 520000,
+        "sha256": "99cbae1cb854341d62cf815e93eb9e1b3c94eea80f90532509562ba4a9397d0e",
+        "mtime_iso": "2026-07-28T01:00:00.000Z",
+        "gate_hint": "120_CDR",
+        "task_folder_hint": "130_synthetic_drawings"
+      },
+      {
+        "file_ref": "120_CDR/156_synthetic_drawings_second/03_Out/synthetic_drawings_index.pdf",
+        "name": "synthetic_drawings_index.pdf",
+        "ext": "pdf",
+        "bytes": 41000,
+        "sha256": "6a13966b2f1a6e40f290f7834d84c0b089f0e618dd895faec3732611ff695846",
+        "mtime_iso": "2026-07-29T01:00:00.000Z",
+        "gate_hint": "120_CDR",
+        "task_folder_hint": "156_synthetic_drawings_second"
+      },
+      {
+        "file_ref": "120_CDR/158_synthetic_review_activity/03_Out/synthetic_review_pack.pdf",
+        "name": "synthetic_review_pack.pdf",
+        "ext": "pdf",
+        "bytes": 9000,
+        "sha256": "57b8de440b2cf4aff83d16a3a1d1f0c4bd4dd7401f1af793b109fe83711dee9b",
+        "mtime_iso": "2026-07-30T01:00:00.000Z",
+        "gate_hint": "120_CDR",
+        "task_folder_hint": "158_synthetic_review_activity"
+      },
+      {
+        "file_ref": "120_CDR/121_synthetic_inbox/03_Out/synthetic_hdd_copy.pdf",
+        "name": "synthetic_hdd_copy.pdf",
+        "ext": "pdf",
+        "bytes": 118000,
+        "sha256": "d8a88b601b064555827920d4b8d93d6b65672f2476f05acb684db3879b746037",
+        "mtime_iso": "2026-07-18T01:00:00.000Z",
+        "gate_hint": "120_CDR",
+        "task_folder_hint": "121_synthetic_inbox"
+      },
+      {
+        "file_ref": "120_CDR/141_synthetic_srs/01_Work/synthetic_srs_working_copy.docx",
+        "name": "synthetic_srs_working_copy.docx",
+        "ext": "docx",
+        "bytes": 31000,
+        "sha256": "e148b16b821c58f3fd97601d570f2ac86f22bf8cad27fc327807f2ca76b978b1",
+        "mtime_iso": "2026-07-31T01:00:00.000Z",
+        "gate_hint": "120_CDR",
+        "task_folder_hint": "141_synthetic_srs"
       }
     ]
   },
   "expected": {
     "counts": {
-      "inventory_files": 13,
-      "candidates": 8,
-      "auto_confirmed": 3,
-      "needs_owner_confirmation": 5,
+      "inventory_files": 22,
+      "candidates": 16,
+      "auto_confirmed": 7,
+      "auto_confirm_withheld_no_own_cue": 2,
+      "needs_owner_confirmation": 9,
       "ambiguous": 1,
-      "unmatched": 4
+      "unmatched": 5
     },
     "by_file_ref": {
       "120_CDR/125_synthetic_hdd_F/03_Out/synthetic_hdd_final.pdf": {
@@ -329,24 +461,136 @@
         "outcome": "unmatched",
         "reason": "gate_hint_is_not_an_engine_stage",
         "why": "a numbered folder that is not one of the declared gates is not silently mapped to a nearby one"
+      },
+      "120_CDR/139_synthetic_cdr_minutes/03_Out/synthetic_cdr_minutes_final.pdf": {
+        "outcome": "candidate",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "review_minutes_cdr",
+        "maturity": "final",
+        "confidence": "high",
+        "auto_confirmed": true,
+        "own_name_cue": true,
+        "why": "right folder and the file name names the minutes, so both halves of the auto-confirmation rule are met"
+      },
+      "120_CDR/139_synthetic_cdr_minutes/03_Out/synthetic_drawings_l3_package.pdf": {
+        "outcome": "candidate",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "review_minutes_cdr",
+        "maturity": null,
+        "confidence": "high",
+        "auto_confirmed": false,
+        "own_name_cue": false,
+        "why": "the real-world failure this rule exists for: drawings submitted at a review, filed in the minutes folder's 03_Out. The folder is right about what belongs there and wrong about what was put there, so a person decides"
+      },
+      "120_CDR/139_synthetic_cdr_minutes/03_Out/synthetic_submitted_set_01of03.zip": {
+        "outcome": "candidate",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "review_minutes_cdr",
+        "maturity": null,
+        "confidence": "high",
+        "auto_confirmed": false,
+        "own_name_cue": false,
+        "why": "a transport package says nothing about which artifact it holds"
+      },
+      "120_CDR/130_synthetic_drawings/03_Out/synthetic_drawings_중간수정본.pdf": {
+        "outcome": "candidate",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "drawings",
+        "maturity": "preliminary",
+        "confidence": "high",
+        "auto_confirmed": true,
+        "own_name_cue": true,
+        "why": "an interim working copy left in 03_Out; still auto-confirmed as drawings, and the maturity says it is not the issue"
+      },
+      "120_CDR/130_synthetic_drawings/03_Out/synthetic_drawings_승인본.pdf": {
+        "outcome": "candidate",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "drawings",
+        "maturity": "final",
+        "confidence": "high",
+        "auto_confirmed": true,
+        "own_name_cue": true,
+        "why": "승인본 names the issued copy, which is the final side, not the act of approving (승인 alone stays baseline)"
+      },
+      "120_CDR/156_synthetic_drawings_second/03_Out/synthetic_drawings_index.pdf": {
+        "outcome": "candidate",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "drawings",
+        "maturity": null,
+        "confidence": "high",
+        "auto_confirmed": true,
+        "own_name_cue": true,
+        "why": "a second task folder for the same artifact in one gate; the classification is unaffected and the housekeeping report is what flags the duplication"
+      },
+      "120_CDR/158_synthetic_review_activity/03_Out/synthetic_review_pack.pdf": {
+        "outcome": "unmatched",
+        "reason": "no_rule_cue_in_name_or_title",
+        "why": "the task is a D46 activity node, not a document. A file in its folder shows the folder is not empty, never that the work happened, so this layer will not read it as an observation"
+      },
+      "120_CDR/121_synthetic_inbox/03_Out/synthetic_hdd_copy.pdf": {
+        "outcome": "candidate",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "hdd",
+        "maturity": null,
+        "confidence": "medium",
+        "auto_confirmed": false,
+        "own_name_cue": true,
+        "why": "a copy of a design description dropped in the inbox. The name says what it is, so it is a candidate; the inbox is an internal folder that maps to no artifact, so it never auto-confirms and the housekeeping report must not read the inbox as a second HDD folder"
+      },
+      "120_CDR/141_synthetic_srs/01_Work/synthetic_srs_working_copy.docx": {
+        "outcome": "candidate",
+        "stage_code": "120_CDR",
+        "artifact_type_id": "srs",
+        "maturity": null,
+        "confidence": "high",
+        "auto_confirmed": false,
+        "own_name_cue": true,
+        "why": "working material: the task folder has no 03_Out at all, which the housekeeping report reports and this layer does not judge"
       }
     },
     "confirmed_run": {
-      "note": "applyConfirmationSheet with no decisions confirms only the auto-confirmed rows; the observation builder then emits one observation per (stage, artifact type).",
-      "confirmed": 3,
-      "pending": 5,
-      "artifact_observations": 3,
-      "superseded_pairs": 0
+      "note": "applyConfirmationSheet with no decisions confirms only the auto-confirmed rows; the observation builder then emits one observation per (stage, artifact type). Three confirmed drawings files collapse to one observation.",
+      "confirmed": 7,
+      "pending": 9,
+      "artifact_observations": 5,
+      "superseded_pairs": 1,
+      "superseded_files": 2
     },
     "owner_confirmed_run": {
-      "note": "with the working ICD draft also confirmed by an Owner decision, the final ICD wins the pair and the draft is recorded as superseded.",
+      "note": "with the working ICD draft also confirmed by an Owner decision, the final ICD wins that pair and the draft is recorded as superseded.",
       "decisions": [
         { "candidate_file_ref": "120_CDR/129_synthetic_icd_F/01_Work/synthetic_icd_draft.docx", "decision": "confirm" }
       ],
-      "confirmed": 4,
-      "artifact_observations": 3,
-      "superseded_pairs": 1,
-      "superseded_files": 1
+      "confirmed": 8,
+      "artifact_observations": 5,
+      "superseded_pairs": 2,
+      "superseded_files": 3
+    },
+    "housekeeping": {
+      "note": "buildHousekeepingReport over the same inventory and candidates. Cleanup facts about folders, never a judgement about the project: no item here changes a candidate, an observation, or an engine requirement.",
+      "items": 7,
+      "task_folders_seen": 12,
+      "by_kind": {
+        "duplicate_output": 1,
+        "wrong_material": 1,
+        "transport_package": 2,
+        "draft_wording": 1,
+        "duplicate_task_folder": 1,
+        "out_folder_empty": 1
+      },
+      "expected_task_folders": {
+        "duplicate_output": "120_CDR/130_synthetic_drawings — two files that both name drawings; the misfiled material in the minutes folder is deliberately NOT counted here, it is wrong_material",
+        "wrong_material": "120_CDR/139_synthetic_cdr_minutes — two files in the minutes 03_Out that never name the minutes (2 files, one item)",
+        "transport_package": "120_CDR/139_synthetic_cdr_minutes and 120_CDR/199_synthetic_unmapped_task — a split zip part in each",
+        "draft_wording": "120_CDR/130_synthetic_drawings — 중간수정본 left in 03_Out",
+        "duplicate_task_folder": "120_CDR drawings in both 130_synthetic_drawings and 156_synthetic_drawings_second",
+        "out_folder_empty": "120_CDR/141_synthetic_srs — files present, none under 03_Out"
+      },
+      "deliberately_not_reported": {
+        "120_CDR/121_synthetic_inbox": "an internal folder is for nothing in particular, so nothing in it is misfiled — and although a copy of the HDD is lying in it, the folder is not read as a second HDD folder: only a candidate resolved through the task folder number makes a folder be *for* an artifact",
+        "120_CDR/158_synthetic_review_activity": "an activity node has no artifact, so its 03_Out contents are unclassified rather than wrong",
+        "020_MGMT/026_synthetic_status": "the management gate has no 03_Out by contract, so its emptiness is not a finding"
+      }
     }
   }
 }

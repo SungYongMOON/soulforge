@@ -102,12 +102,22 @@ export const CUE_KINDS = Object.freeze([
 
 // The folder the folder-tree contract reserves for a task's finished output. Rule 2 above rests
 // on this one name; a file anywhere else in the task folder is working material.
-const OUT_FOLDER = '03_Out';
+export const OUT_FOLDER = '03_Out';
 
-// Families that are real folders but never evidence that a stage produced anything. Their
-// vocabulary labels ("Inbox", "Work Log") are common words that would match half a project, so
-// they take no part in cue matching and can never become a candidate.
-const NON_EVIDENCE_FAMILIES = new Set(['internal']);
+// Families that are real rows but never a document this layer can observe.
+//
+// `internal` covers the fixed folders every variant carries; their labels ("Inbox", "Work Log")
+// are common words that would match half a project. `activity` and `decision` are the D46 node
+// kinds: an activity is work a canonical text says has to happen, a decision is a state that has
+// to be declared, and neither is a file. Finding a PDF in an activity's folder would say the
+// folder is not empty, not that the work was done — the row that answers "did it happen" is the
+// evidence record the rule table names, which is an artifact row of its own. So these families
+// take no part in cue matching and can never become a candidate.
+const NON_EVIDENCE_FAMILIES = new Set(['internal', 'activity', 'decision']);
+
+// The D46 node kind a rule row must carry to be observable at all. A row that predates the field
+// is read as an artifact, which is what every row was before D46.
+const OBSERVABLE_NODE_KIND = 'artifact';
 
 // Maturity readings, strongest first. A name that says both "final" and "draft" is read as the
 // stronger claim rather than as an ambiguity, because that is what a file called
@@ -116,10 +126,15 @@ const NON_EVIDENCE_FAMILIES = new Set(['internal']);
 // the stem, or anywhere the same letter stands alone as its own token (`..._F_20260101`). The
 // `expressions` entries catch the numbered forms a person actually types — `rev3`, `Rev_2`, and
 // the `v0.x` that means "not finished yet" whatever else the name says.
+// `승인본`/`확정본`/`배포본` sit with FINAL rather than with BASELINE and are listed before the
+// bare `승인`, because the `-본` suffix names the copy that was issued, while `승인` on its own
+// names the act of approving. Order decides which reading wins, so the longer word comes first.
+// The interim wordings on the PRELIMINARY row are the ones a real project produces between two
+// issues (`중간수정본`, `검토본`, `임시`); they mean "not the issue", which is the draft side.
 const MATURITY_RULES = Object.freeze([
   Object.freeze({
     maturity: MATURITY.FINAL,
-    patterns: Object.freeze(['최종', 'final', '_f']),
+    patterns: Object.freeze(['승인본', '확정본', '배포본', '최종', 'final', '_f']),
     expressions: Object.freeze([]),
   }),
   Object.freeze({
@@ -134,9 +149,18 @@ const MATURITY_RULES = Object.freeze([
   }),
   Object.freeze({
     maturity: MATURITY.PRELIMINARY,
-    patterns: Object.freeze(['초안', 'draft', 'preliminary', '_d']),
+    patterns: Object.freeze([
+      '중간수정본', '수정본', '검토본', '중간본', '임시', 'wip',
+      '초안', 'draft', 'preliminary', '_d',
+    ]),
     expressions: Object.freeze([/(?:^|[^a-z0-9])[vr]0[._]\d+/u]),
   }),
+]);
+
+// The interim wordings, restated for the housekeeping report so that "this 03_Out still holds a
+// working copy" is asked of one list rather than of a second copy of it.
+export const INTERIM_WORDINGS = Object.freeze([
+  '중간수정본', '수정본', '검토본', '중간본', '임시', 'wip', '초안', 'draft',
 ]);
 
 // ---------------------------------------------------------------- bounds
@@ -379,6 +403,7 @@ function buildRuleIndex(variants, overlayAliases, vocabulary) {
         if (!isKnownArtifactType(artifactTypeId)) continue;
         if (nonEvidenceTypes.has(artifactTypeId)) continue;
         if (task.is_fixed === true) continue;
+        if (Object.hasOwn(task, 'node_kind') && task.node_kind !== OBSERVABLE_NODE_KIND) continue;
 
         declaredPairs.add(stageTypeKey(stageCode, artifactTypeId));
         let stages = stagesByType.get(artifactTypeId);
@@ -594,6 +619,10 @@ export function buildArtifactObservationCandidates(request) {
   const unmatched = [];
   const ambiguous = [];
   const seenFileRefs = new Set();
+  // Rows that sat in the right `03_Out` under an unambiguous task folder and still did not
+  // auto-confirm, because the file itself said nothing about what it is. Counted rather than
+  // hidden: this number is how a person sees whether the tightened rule is doing work.
+  let withheldForNoOwnCue = 0;
 
   inventory.forEach((raw, index) => {
     const row = readInventoryRow(raw, index);
@@ -635,9 +664,13 @@ export function buildArtifactObservationCandidates(request) {
     let target = null;
     let cues = [];
     let confidence = CONFIDENCE.LOW;
+    // A cue for this artifact found in the file's own name or title, as opposed to inherited from
+    // the folder it happens to sit in. Rule 2 below turns on this distinction.
+    let ownNameCues = [];
     if (taskTargets !== null && taskTargets.length === 1) {
       target = taskTargets[0];
-      cues = [{ kind: 'task_folder', matched: taskFolderHint }, ...bestCues(cueTargets.get(target) ?? [])];
+      ownNameCues = bestCues(cueTargets.get(target) ?? []);
+      cues = [{ kind: 'task_folder', matched: taskFolderHint }, ...ownNameCues];
       confidence = CONFIDENCE.HIGH;
     } else if (taskTargets !== null && taskTargets.length > 1) {
       ambiguous.push({
@@ -676,6 +709,9 @@ export function buildArtifactObservationCandidates(request) {
       }
       target = stageTypeKey(stageCode, artifactTypeId);
       cues = bestCues(matchedKeys.flatMap((key) => cueTargets.get(key) ?? []));
+      // This branch only exists because the name or the title named the artifact, so every cue
+      // it found is the file's own.
+      ownNameCues = cues;
       confidence = cues.some((cue) => cue.kind !== 'title') ? CONFIDENCE.MEDIUM : CONFIDENCE.LOW;
     }
 
@@ -691,10 +727,21 @@ export function buildArtifactObservationCandidates(request) {
       && segments[0] === gateHint
       && segments[1] === taskFolderHint
       && segments[2] === OUT_FOLDER;
-    const autoConfirmed = autoConfirmOut
-      && inOutFolder
-      && taskTargets !== null
-      && taskTargets.length === 1;
+    const folderResolvesToOneArtifact = taskTargets !== null && taskTargets.length === 1;
+    // The file has to say what it is, not only sit where it should be.
+    //
+    // The first version of this rule auto-confirmed on the folder alone, and a real project broke
+    // it immediately: a review-minutes task folder whose `03_Out` held the drawings and the parts
+    // list that were submitted at that review, all filed as the minutes. The folder was right
+    // about what belongs there and wrong about what was actually put there, and nothing in the
+    // path could tell the difference. So the third condition is a cue for *this* artifact in the
+    // file's own name or title. Without one the row is still a candidate — the file exists and
+    // the folder still means something — but a person confirms it.
+    const carriesOwnCue = ownNameCues.length > 0;
+    const autoConfirmed = autoConfirmOut && inOutFolder && folderResolvesToOneArtifact && carriesOwnCue;
+    if (autoConfirmOut && inOutFolder && folderResolvesToOneArtifact && !carriesOwnCue) {
+      withheldForNoOwnCue += 1;
+    }
 
     const maturityReading = readMaturity(row.name, taskFolderHint);
     const { maturity } = maturityReading;
@@ -712,6 +759,10 @@ export function buildArtifactObservationCandidates(request) {
       presence_state: PRESENCE_STATE_PRESENT,
       confidence,
       cues,
+      // Whether the file's own name or title named this artifact, as opposed to inheriting the
+      // reading from its folder. The auto-confirmation rule turns on it, and the housekeeping
+      // report reads it to ask "is this the right material for this folder".
+      own_name_cue: carriesOwnCue,
       auto_confirmed: autoConfirmed,
       needs_owner_confirmation: !autoConfirmed,
     });
@@ -749,6 +800,7 @@ export function buildArtifactObservationCandidates(request) {
       inventory_files: inventory.length,
       candidates: candidates.length,
       auto_confirmed: candidates.filter((candidate) => candidate.auto_confirmed).length,
+      auto_confirm_withheld_no_own_cue: withheldForNoOwnCue,
       needs_owner_confirmation: candidates.filter((candidate) => candidate.needs_owner_confirmation).length,
       ambiguous: ambiguous.length,
       unmatched: unmatched.length,

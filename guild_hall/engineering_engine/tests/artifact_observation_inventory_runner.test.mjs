@@ -58,7 +58,7 @@ function variantPath() {
 
 const run = (args) => spawnSync(process.execPath, [RUNNER, ...args], { encoding: 'utf8' });
 
-test('one run walks the project, writes six outputs, and skips what it declares it skips', () => {
+test('one run walks the project, writes seven outputs, and skips what it declares it skips', () => {
   const projectRoot = syntheticProject();
   const out = join(scratch(), 'observation_candidates_run_01');
   const result = run([
@@ -70,7 +70,8 @@ test('one run walks the project, writes six outputs, and skips what it declares 
   assert.equal(result.status, 0, result.stderr);
 
   for (const name of ['inventory.json', 'candidates.json', 'confirmation_sheet.md',
-    'confirmation_sheet.json', 'artifact_observations_auto.json', 'receipt.json']) {
+    'confirmation_sheet.json', 'artifact_observations_auto.json', 'housekeeping_report.md',
+    'receipt.json']) {
     assert.ok(existsSync(join(out, name)), name);
   }
 
@@ -102,6 +103,13 @@ test('one run walks the project, writes six outputs, and skips what it declares 
 
   const sheet = readFileSync(join(out, 'confirmation_sheet.md'), 'utf8');
   assert.match(sheet, /관측 후보 확인표/u);
+
+  // The housekeeping report is a separate page with its own heading, so nobody reads a folder
+  // tidying note as a judgement about the project.
+  const housekeeping = readFileSync(join(out, 'housekeeping_report.md'), 'utf8');
+  assert.match(housekeeping, /폴더 청소 알림/u);
+  assert.match(housekeeping, /판단이 아니다/u);
+  assert.equal(housekeeping.includes('관측 후보 확인표'), false);
 
   const receipt = JSON.parse(readFileSync(join(out, 'receipt.json'), 'utf8'));
   assert.equal(receipt.walk.files_inventoried, 3);
@@ -139,7 +147,8 @@ test('the same project and instant produce the same bytes twice', () => {
   ];
   assert.equal(run(args('run_a')).status, 0);
   assert.equal(run(args('run_b')).status, 0);
-  for (const name of ['candidates.json', 'confirmation_sheet.md', 'artifact_observations_auto.json']) {
+  for (const name of ['candidates.json', 'confirmation_sheet.md', 'artifact_observations_auto.json',
+    'housekeeping_report.md']) {
     assert.equal(readFileSync(join(scratchRoot, 'run_b', name), 'utf8'),
       readFileSync(join(scratchRoot, 'run_a', name), 'utf8'), name);
   }
@@ -159,6 +168,43 @@ test('an include glob narrows the walk without changing how a file is read', () 
   const inventory = JSON.parse(readFileSync(join(out, 'inventory.json'), 'utf8'));
   assert.deepEqual(inventory.rows.map((row) => row.file_ref),
     ['120_CDR/125_synthetic_hdd_F/03_Out/synthetic_hdd_final.pdf']);
+});
+
+test('a run whose output folder sits inside the project does not walk its own outputs', () => {
+  const projectRoot = syntheticProject();
+  const out = join(projectRoot, 'validation', 'observation_run_01');
+  const args = [
+    '--project-root', projectRoot,
+    '--out', out,
+    '--compiled-variant', variantPath(),
+    '--known-at', '2026-08-18T00:00:00.000Z',
+  ];
+  assert.equal(run(args).status, 0);
+  const first = JSON.parse(readFileSync(join(out, 'inventory.json'), 'utf8'));
+
+  // A second run sees the first run's seven files sitting in the project. Its own output folder
+  // is skipped by name; the earlier run's folder is what `--exclude-globs` is for, and the two
+  // together are what make two walks of one project comparable.
+  const secondOut = join(projectRoot, 'validation', 'observation_run_02');
+  assert.equal(run([
+    ...args.slice(0, 2), '--out', secondOut, ...args.slice(4),
+    '--exclude-globs', 'validation/**',
+  ]).status, 0);
+  const second = JSON.parse(readFileSync(join(secondOut, 'inventory.json'), 'utf8'));
+  const added = second.rows
+    .map((row) => row.file_ref)
+    .filter((ref) => !first.rows.some((row) => row.file_ref === ref));
+  assert.deepEqual(added, [], 'the second walk picked up files the first run wrote');
+  const receipt = JSON.parse(readFileSync(join(secondOut, 'receipt.json'), 'utf8'));
+  assert.equal(receipt.walk.skipped.own_output, 1);
+  assert.equal(receipt.walk.skipped.excluded, 7);
+
+  // Without the exclusion the earlier run's files really would be walked, which is why the
+  // option exists rather than being assumed unnecessary.
+  const thirdOut = join(projectRoot, 'validation', 'observation_run_03');
+  assert.equal(run([...args.slice(0, 2), '--out', thirdOut, ...args.slice(4)]).status, 0);
+  const third = JSON.parse(readFileSync(join(thirdOut, 'inventory.json'), 'utf8'));
+  assert.ok(third.rows.some((row) => row.file_ref.startsWith('validation/observation_run_01/')));
 });
 
 test('a missing required argument is refused', () => {

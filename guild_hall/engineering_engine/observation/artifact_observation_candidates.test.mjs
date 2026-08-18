@@ -56,6 +56,9 @@ test('every fixture file reaches the outcome the fixture states by hand', () => 
       assert.equal(actual.auto_confirmed, expected.auto_confirmed, fileRef);
       assert.equal(actual.needs_owner_confirmation, !expected.auto_confirmed, fileRef);
       assert.ok(actual.cues.length > 0, fileRef);
+      if (Object.hasOwn(expected, 'own_name_cue')) {
+        assert.equal(actual.own_name_cue, expected.own_name_cue, fileRef);
+      }
     } else if (expected.outcome === 'ambiguous') {
       assert.deepEqual(actual.options, expected.options, fileRef);
     } else {
@@ -70,6 +73,7 @@ test('the fixture counts are the counts the receipt reports', () => {
     inventory_files: receipt.counts.inventory_files,
     candidates: receipt.counts.candidates,
     auto_confirmed: receipt.counts.auto_confirmed,
+    auto_confirm_withheld_no_own_cue: receipt.counts.auto_confirm_withheld_no_own_cue,
     needs_owner_confirmation: receipt.counts.needs_owner_confirmation,
     ambiguous: receipt.counts.ambiguous,
     unmatched: receipt.counts.unmatched,
@@ -121,6 +125,57 @@ test('only an unambiguous 03_Out row auto-confirms, and only when the rule is sw
     on.candidates.map((row) => row.artifact_type_id));
 });
 
+test('the drawings filed in a review-minutes 03_Out are not auto-confirmed as the minutes', () => {
+  // The shape that broke the first version of this rule, in a real project: the folder is right
+  // about what belongs there, the files are what somebody actually put there, and only the file
+  // names can tell the difference.
+  const rows = byFileRef(build());
+  const minutesFolder = '120_CDR/139_synthetic_cdr_minutes/03_Out/';
+
+  const misfiled = [
+    rows.get(`${minutesFolder}synthetic_drawings_l3_package.pdf`),
+    rows.get(`${minutesFolder}synthetic_submitted_set_01of03.zip`),
+  ];
+  for (const row of misfiled) {
+    assert.equal(row.outcome, 'candidate');
+    assert.equal(row.artifact_type_id, 'review_minutes_cdr');
+    assert.equal(row.confidence, 'high', 'the folder cue is still the strongest thing known');
+    assert.equal(row.own_name_cue, false);
+    assert.equal(row.auto_confirmed, false);
+    assert.equal(row.needs_owner_confirmation, true);
+    assert.deepEqual(row.cues.map((cue) => cue.kind), ['task_folder']);
+  }
+
+  // The file in the same folder that does name the minutes still confirms itself.
+  const real = rows.get(`${minutesFolder}synthetic_cdr_minutes_final.pdf`);
+  assert.equal(real.own_name_cue, true);
+  assert.equal(real.auto_confirmed, true);
+
+  assert.equal(build().receipt.counts.auto_confirm_withheld_no_own_cue,
+    FIXTURE.expected.counts.auto_confirm_withheld_no_own_cue);
+});
+
+test('every auto-confirmed row carries a cue from the file itself', () => {
+  for (const row of build().candidates) {
+    if (!row.auto_confirmed) continue;
+    assert.equal(row.own_name_cue, true, row.file_ref);
+    assert.ok(row.cues.some((cue) => cue.kind !== 'task_folder'), row.file_ref);
+  }
+});
+
+test('an activity or decision node can never become a candidate', () => {
+  // D46 added rows that are work to be done and states to be declared rather than documents. A
+  // file in such a folder shows the folder is not empty; it can never show the work happened.
+  const rows = byFileRef(build());
+  const inActivityFolder = rows.get('120_CDR/158_synthetic_review_activity/03_Out/synthetic_review_pack.pdf');
+  assert.equal(inActivityFolder.outcome, 'unmatched');
+  assert.equal(inActivityFolder.reason, 'no_rule_cue_in_name_or_title');
+  for (const row of build().candidates) {
+    assert.equal(row.artifact_type_id.startsWith('act_'), false, row.artifact_type_id);
+    assert.equal(row.artifact_type_id.startsWith('dec_'), false, row.artifact_type_id);
+  }
+});
+
 test('a 03_Out file under a task number the spec does not carry is not auto-confirmed', () => {
   const rows = byFileRef(build());
   const overlayRow = rows.get('120_CDR/124_synthetic_prime_review/03_Out/prime_synthetic_gate_review_report.pdf');
@@ -169,6 +224,22 @@ test('maturity is read from the file name first and the task folder second', () 
   assert.equal(readMaturity('kvds_hdd.pdf', '125_hardware_design').maturity, null);
   // A word that merely contains a maturity letter is not a maturity claim.
   assert.equal(readMaturity('drawings_index.pdf', null).maturity, null);
+});
+
+test('the interim and issued wordings a real project uses are read on the right side', () => {
+  // Everything that means "not the issue" is the draft side, however it is worded.
+  for (const name of ['kvds_hdd_중간수정본.pdf', 'kvds_hdd_수정본.pdf', 'kvds_hdd_검토본.pdf',
+    'kvds_hdd_중간본.pdf', 'kvds_hdd_임시.pdf', 'kvds_hdd_wip.pdf']) {
+    assert.equal(readMaturity(name, null).maturity, 'preliminary', name);
+  }
+  // Everything that means "this is the copy that was issued" is the final side.
+  for (const name of ['kvds_hdd_승인본.pdf', 'kvds_hdd_확정본.pdf', 'kvds_hdd_배포본.pdf']) {
+    assert.equal(readMaturity(name, null).maturity, 'final', name);
+  }
+  // `승인` on its own still names the act of approving, which is the baseline.
+  assert.equal(readMaturity('kvds_hdd_승인.pdf', null).maturity, 'baseline');
+  // An issued copy of something that was a working draft reads as issued.
+  assert.equal(readMaturity('kvds_hdd_중간수정본_승인본.pdf', null).maturity, 'final');
 });
 
 // ---------------------------------------------------------------- 6. refusals
@@ -257,6 +328,7 @@ test('the modules and everything they import read no file, clock, network, or mo
     './artifact_observation_candidates.mjs',
     './observation_confirmation_sheet.mjs',
     './artifact_observations_from_confirmed.mjs',
+    './observation_housekeeping.mjs',
   ];
 
   const seen = new Map();

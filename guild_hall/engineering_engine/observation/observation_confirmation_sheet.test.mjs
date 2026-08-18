@@ -35,8 +35,11 @@ test('the table is Korean, grouped by stage, and marks what confirmed itself', (
     candidates: candidates(), known_at: FIXTURE.request.known_at,
   });
   assert.match(markdown, /\| 확인\[ \] \| 파일 \| 산출물 종류\(추정\) \| 단계 \| 성숙도\(추정\) \| 근거 단서 \| 신뢰도 \|/u);
-  assert.match(markdown, /^## 090_PDR \(1건\)$/mu);
-  assert.match(markdown, /^## 120_CDR \(7건\)$/mu);
+  const perStage = new Map();
+  for (const row of candidates()) perStage.set(row.stage_code, (perStage.get(row.stage_code) ?? 0) + 1);
+  for (const [stageCode, count] of perStage) {
+    assert.ok(markdown.includes(`## ${stageCode} (${count}건)`), `${stageCode} heading`);
+  }
   // The stage headings appear in the order the stage codes sort in, not in inventory order.
   assert.ok(markdown.indexOf('## 090_PDR') < markdown.indexOf('## 120_CDR'));
   assert.equal((markdown.match(/\[x\] 자동확정/gu) ?? []).length, FIXTURE.expected.counts.auto_confirmed);
