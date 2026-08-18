@@ -89,3 +89,9 @@ Vocabulary notes:
 - Tokens used that are not yet in design §4 and need the `artifact_vocabulary.v0` owner decision (D44): `cdrl`, `rtm`, `functional_analysis`, `vv_strategy`, `trade_study`, `standard_parts_review`, `wps`, `manufacturing_design_review`, `manufacturing_process_flow`, `ram_analysis_report`, `build_record`, `atp`, `delivery_acceptance_record`, `sat_report`, `integration_test_support`, `defect_action_report`, `ncr`, `defense_spec_drawings`, `development_history`, `lessons_learned_workshop`, `review_minutes_kickoff`, `cm_plan`, `technical_review_package`, `critical_parts_test_report`, `fca_pca_plan_checklist`, `production_transition_package`.
 - `unmapped_41` (가정및제약사항) has no sensible token: canon treats it as a section of the SSRS, not a deliverable.
 - `artifact_type_id` is unique inside a gate, so a compiled `(gate, artifact_type_id)` pair identifies one slot.
+
+
+## Layered outputs (2026-08-18)
+
+- `export_variant_json.py` derives, from a spec that carries `evidence_level: prime_contract` tasks, two more files: `compiled/<common_key>.json` (the common baseline: every task except prime_contract ones; `support_key` mapped via `COMMON_KEY_BY_SUPPORT_KEY`, currently `system_dev_lig_grade_a → system_dev_common_no_grade`; carries `derived_from`) and `compiled/overlays/<support_key>.prime.overlay.json` (`soulforge.se_stage_rule_overlay.v0`, one `add` op per prime task, `extends` = common key + spec sha, `source_ref` = the spec md by exact ref, `overlay_identity` provenance).
+- The engine compiles `common baseline + prime overlay + project overlay`; `--check` guards all three files against the spec.

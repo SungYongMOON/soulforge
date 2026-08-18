@@ -357,6 +357,9 @@ const VARIANT_FIELDS = Object.freeze([
   'spec_file', 'spec_sha256', 'spec_version', 'generated_by', 'principles', 'special_folders',
   'management_static_folders', 'gates', 'completion_rule', 'generation_rules', 'profiles',
 ]);
+// A common-base variant derived by the exporter from a prime-contractor spec carries where it came
+// from. Provenance only; the rules are the tasks that remain.
+const VARIANT_OPTIONAL_FIELDS = Object.freeze(['derived_from']);
 const GATE_FIELDS = Object.freeze(['code', 'name', 'desc', 'tasks']);
 const TASK_REQUIRED_FIELDS = Object.freeze(['id', 'name']);
 const TASK_OPTIONAL_FIELDS = Object.freeze([
@@ -370,6 +373,9 @@ const PROJECT_BINDING_FIELDS = Object.freeze([
 ]);
 const DOCUMENT_REF_FIELDS = Object.freeze(['artifact_type_ids_covered', 'requirement_ref']);
 const OVERLAY_FIELDS = Object.freeze(['schema_version', 'extends', 'ops']);
+// Provenance only: who authored the overlay and which spec/prime it was derived from. Read for the
+// receipt, never for a rule.
+const OVERLAY_OPTIONAL_FIELDS = Object.freeze(['overlay_identity']);
 const OVERLAY_EXTENDS_FIELDS = Object.freeze(['support_key', 'spec_sha256']);
 const OP_ADD_REQUIRED = Object.freeze([
   'op', 'stage_code', 'artifact_type_id', 'label', 'evidence_level', 'source_ref', 'basis',
@@ -389,7 +395,7 @@ const FORBIDDEN_OVERLAY_OPS = Object.freeze(['override_evidence']);
 // ---------------------------------------------------------------- input validation
 
 function validateCompiledVariant(variant) {
-  assertExactKeys(variant, VARIANT_FIELDS, [], 'compiled_variant', STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
+  assertExactKeys(variant, VARIANT_FIELDS, VARIANT_OPTIONAL_FIELDS, 'compiled_variant', STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
   if (variant.schema_version !== COMPILED_VARIANT_SCHEMA_VERSION) {
     fail(STAGE_RULE_ERROR_CODES.VARIANT_INVALID, 'compiled_variant carries an unknown schema version',
       { where: 'compiled_variant.schema_version' });
@@ -550,7 +556,13 @@ function validateProjectBinding(binding) {
 }
 
 function validateOverlay(overlay, variant) {
-  assertExactKeys(overlay, OVERLAY_FIELDS, [], 'overlay', STAGE_RULE_ERROR_CODES.OVERLAY_INVALID);
+  assertExactKeys(overlay, OVERLAY_FIELDS, OVERLAY_OPTIONAL_FIELDS, 'overlay', STAGE_RULE_ERROR_CODES.OVERLAY_INVALID);
+  if (overlay.overlay_identity !== undefined) {
+    assertPlainObject(overlay.overlay_identity, 'overlay.overlay_identity', STAGE_RULE_ERROR_CODES.OVERLAY_INVALID);
+    for (const [key, value] of Object.entries(overlay.overlay_identity)) {
+      assertSafeString(String(value), `overlay.overlay_identity.${key}`, STAGE_RULE_ERROR_CODES.OVERLAY_INVALID);
+    }
+  }
   if (overlay.schema_version !== STAGE_RULE_OVERLAY_SCHEMA_VERSION) {
     fail(STAGE_RULE_ERROR_CODES.OVERLAY_INVALID, 'overlay carries an unknown schema version',
       { where: 'overlay.schema_version' });
@@ -682,7 +694,13 @@ function variantRow(stageCode, sequence, task, conditions, counts) {
 
   let presence = EVIDENCE_TO_PRESENCE[evidenceLevel];
   if (isFixed || unmapped) presence = PRESENCE_RULE.OPTIONAL_CONTEXT;
-  if (WEAKENING_VERIFICATION.has(verificationStatus)) {
+  // The verification status measures support by the canonical (regulation/guidebook) texts. A
+  // prime-contract row is supported by the contract, not by those texts, so 'unsupported' and
+  // 'unverified' are its expected state and do not weaken it; only an explicit contradiction does.
+  // This keeps the layered path (common base + prime overlay) and the merged spec path identical.
+  const primeContract = task.evidence_level === 'prime_contract';
+  const weakens = primeContract ? verificationStatus === 'contradicted' : WEAKENING_VERIFICATION.has(verificationStatus);
+  if (weakens) {
     if (PRESENCE_RANK[presence] > 0) counts.downgraded_unverified += 1;
     presence = PRESENCE_RULE.OPTIONAL_CONTEXT;
   }

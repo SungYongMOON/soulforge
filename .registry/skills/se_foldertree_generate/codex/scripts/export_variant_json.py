@@ -135,6 +135,79 @@ def serialize(compiled: Dict[str, Any]) -> str:
     return json.dumps(compiled, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
 
 
+# ---------------------------------------------------------------- layer split (2026-08-18)
+# One spec md stays the single source. From it we also derive two layered outputs so the engine
+# can read "방사청 공통" and "발주처 계약" separately (design SE_STAGE_RULE_SOURCE_MODEL_V0 L1/L2):
+#   <common_key>.json                          = the compiled shape minus tasks whose evidence_level
+#                                                is prime_contract (business-type common baseline)
+#   overlays/<support_key>.prime.overlay.json  = those prime_contract tasks as overlay 'add' ops
+#                                                (schema soulforge.se_stage_rule_overlay.v0)
+# The overlay's source_ref is the spec md itself (deterministic entity/revision from the support key
+# and spec sha, content id = spec sha), so every prime item still cites where it came from.
+COMMON_KEY_BY_SUPPORT_KEY = {
+    "system_dev_lig_grade_a": "system_dev_common_no_grade",
+}
+GATE_CODE_TO_STAGE = {0: "000_REF", 20: "020_MGMT", 30: "030_SRR", 60: "060_SFR", 90: "090_PDR", 120: "120_CDR",
+                      150: "150_TRR_DT", 180: "180_FCA_OT", 210: "210_PCA", 240: "240_LL", 270: "270_UNCLASSIFIED"}
+OVERLAY_SCHEMA = "soulforge.se_stage_rule_overlay.v0"
+
+
+def _uuid_layout(hex_digest: str) -> str:
+    h = hex_digest[:32]
+    return f"{h[0:8]}-{h[8:12]}-{h[12:16]}-{h[16:20]}-{h[20:32]}"
+
+
+def _mint(domain: str, *parts: str) -> str:
+    return _uuid_layout(hashlib.sha256(("\u0000".join([domain, *parts])).encode("utf-8")).hexdigest())
+
+
+def build_layers(compiled: Dict[str, Any]) -> Dict[str, Any] | None:
+    """Return {'common': compiled_common, 'overlay': overlay} or None when the spec has no prime items."""
+    support_key = compiled["support_key"]
+    prime_tasks = [(g, t) for g in compiled["gates"] for t in g["tasks"] if t.get("evidence_level") == "prime_contract"]
+    if not prime_tasks:
+        return None
+    common_key = COMMON_KEY_BY_SUPPORT_KEY.get(support_key, f"{support_key}__common_base")
+    common = json.loads(json.dumps(compiled, ensure_ascii=False))
+    common["support_key"] = common_key
+    common["prime_contractor"] = "공통"
+    common["quality_grade"] = "없음"
+    common["derived_from"] = {"support_key": support_key, "spec_file": compiled["spec_file"], "spec_sha256": compiled["spec_sha256"],
+                              "rule": "tasks with evidence_level=prime_contract removed; everything else verbatim"}
+    for gate in common["gates"]:
+        gate["tasks"] = [t for t in gate["tasks"] if t.get("evidence_level") != "prime_contract"]
+    spec_sha = compiled["spec_sha256"]
+    source_ref = {
+        "entity_id": _mint("soulforge.se_foldertree.spec.entity.v0", support_key),
+        "revision_id": _mint("soulforge.se_foldertree.spec.revision.v0", support_key, spec_sha),
+        "content_id": f"sha256:{spec_sha}",
+        "content_hash_alg": "sha256",
+    }
+    ops: List[Dict[str, Any]] = []
+    for gate, task in prime_tasks:
+        stage = GATE_CODE_TO_STAGE.get(int(gate["code"]))
+        if stage is None:
+            raise ValueError(f"unknown gate code for overlay: {gate['code']}")
+        ops.append({
+            "op": "add",
+            "stage_code": stage,
+            "artifact_type_id": task["artifact_type_id"],
+            "label": task["name"],
+            "evidence_level": "prime_contract",
+            "source_ref": source_ref,
+            "basis": f"prime contractor item carried by spec {compiled['spec_file']} task {task['id']} (source: {task.get('source', '')})",
+        })
+    ops.sort(key=lambda o: (o["stage_code"], o["artifact_type_id"]))
+    overlay = {
+        "schema_version": OVERLAY_SCHEMA,
+        "extends": {"support_key": common_key, "spec_sha256": spec_sha},
+        "overlay_identity": {"overlay_id": f"{support_key}.prime", "derived_from_support_key": support_key,
+                             "prime_contractor": compiled.get("prime_contractor"), "quality_grade": compiled.get("quality_grade")},
+        "ops": ops,
+    }
+    return {"common": common, "overlay": overlay}
+
+
 def discover_specs(spec_dir: Path) -> List[Path]:
     """variant_binding.support_key를 가진 bundled spec만 모은다."""
     found: List[Path] = []
@@ -202,10 +275,27 @@ def main() -> int:
                 drift.append(f"drift: {out_path.name} (spec {compiled['spec_file']})")
             else:
                 print(f"[OK] {out_path.name} <- {compiled['spec_file']}")
+            layers = build_layers(compiled)
+            if layers is not None:
+                for rel, obj in ((f"{layers['common']['support_key']}.json", layers["common"]),
+                                 (f"overlays/{compiled['support_key']}.prime.overlay.json", layers["overlay"])):
+                    lp = out_dir / rel
+                    if not lp.is_file():
+                        drift.append(f"missing: {rel} (layer of {compiled['spec_file']})")
+                    elif lp.read_text(encoding="utf-8") != serialize(obj):
+                        drift.append(f"drift: {rel} (layer of {compiled['spec_file']})")
+                    else:
+                        print(f"[OK] {rel} <- {compiled['spec_file']} (layer)")
             continue
 
         out_dir.mkdir(parents=True, exist_ok=True)
         out_path.write_text(payload, encoding="utf-8", newline="\n")
+        layers = build_layers(compiled)
+        if layers is not None:
+            (out_dir / "overlays").mkdir(parents=True, exist_ok=True)
+            (out_dir / f"{layers['common']['support_key']}.json").write_text(serialize(layers["common"]), encoding="utf-8", newline="\n")
+            (out_dir / "overlays" / f"{compiled['support_key']}.prime.overlay.json").write_text(serialize(layers["overlay"]), encoding="utf-8", newline="\n")
+            print(f"[생성] {layers['common']['support_key']}.json + overlays/{compiled['support_key']}.prime.overlay.json (prime ops={len(layers['overlay']['ops'])})")
         task_count = sum(len(gate["tasks"]) for gate in compiled["gates"])
         print(
             f"[생성] {out_path.name} <- {compiled['spec_file']} "

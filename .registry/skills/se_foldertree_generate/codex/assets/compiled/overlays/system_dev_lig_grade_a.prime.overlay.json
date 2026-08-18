@@ -1,0 +1,211 @@
+{
+  "extends": {
+    "spec_sha256": "782e11ca8c28e9a236df0bc19aea0534f81da2a16eacc84d91cc6be25cc23e39",
+    "support_key": "system_dev_common_no_grade"
+  },
+  "ops": [
+    {
+      "artifact_type_id": "prime_q1_contract_data_review",
+      "basis": "prime contractor item carried by spec assets/SE_FolderTree_Guide.md task 34 (source: LIG 개발품질 1)",
+      "evidence_level": "prime_contract",
+      "label": "계약자료검토결과(Q1)",
+      "op": "add",
+      "source_ref": {
+        "content_hash_alg": "sha256",
+        "content_id": "sha256:782e11ca8c28e9a236df0bc19aea0534f81da2a16eacc84d91cc6be25cc23e39",
+        "entity_id": "b85aeaa0-eaea-870e-e7e3-dd9314f53a1b",
+        "revision_id": "5ecbcce5-f985-e417-d0fb-26d6a9bb78dc"
+      },
+      "stage_code": "030_SRR"
+    },
+    {
+      "artifact_type_id": "prime_q2_development_execution_plan",
+      "basis": "prime contractor item carried by spec assets/SE_FolderTree_Guide.md task 35 (source: LIG 개발품질 3)",
+      "evidence_level": "prime_contract",
+      "label": "협력개발실행계획서(Q2)",
+      "op": "add",
+      "source_ref": {
+        "content_hash_alg": "sha256",
+        "content_id": "sha256:782e11ca8c28e9a236df0bc19aea0534f81da2a16eacc84d91cc6be25cc23e39",
+        "entity_id": "b85aeaa0-eaea-870e-e7e3-dd9314f53a1b",
+        "revision_id": "5ecbcce5-f985-e417-d0fb-26d6a9bb78dc"
+      },
+      "stage_code": "030_SRR"
+    },
+    {
+      "artifact_type_id": "prime_q3_design_quality_review",
+      "basis": "prime contractor item carried by spec assets/SE_FolderTree_Guide.md task 94 (source: LIG 개발품질 3)",
+      "evidence_level": "prime_contract",
+      "label": "설계품질점검결과(Q3)",
+      "op": "add",
+      "source_ref": {
+        "content_hash_alg": "sha256",
+        "content_id": "sha256:782e11ca8c28e9a236df0bc19aea0534f81da2a16eacc84d91cc6be25cc23e39",
+        "entity_id": "b85aeaa0-eaea-870e-e7e3-dd9314f53a1b",
+        "revision_id": "5ecbcce5-f985-e417-d0fb-26d6a9bb78dc"
+      },
+      "stage_code": "090_PDR"
+    },
+    {
+      "artifact_type_id": "prime_artwork_design_review",
+      "basis": "prime contractor item carried by spec assets/SE_FolderTree_Guide.md task 132 (source: LIG 개발품질 28)",
+      "evidence_level": "prime_contract",
+      "label": "Artwork설계검토서_F",
+      "op": "add",
+      "source_ref": {
+        "content_hash_alg": "sha256",
+        "content_id": "sha256:782e11ca8c28e9a236df0bc19aea0534f81da2a16eacc84d91cc6be25cc23e39",
+        "entity_id": "b85aeaa0-eaea-870e-e7e3-dd9314f53a1b",
+        "revision_id": "5ecbcce5-f985-e417-d0fb-26d6a9bb78dc"
+      },
+      "stage_code": "120_CDR"
+    },
+    {
+      "artifact_type_id": "prime_q4_manufacturing_readiness_review",
+      "basis": "prime contractor item carried by spec assets/SE_FolderTree_Guide.md task 124 (source: LIG 개발품질 28)",
+      "evidence_level": "prime_contract",
+      "label": "제작준비검토결과(MRR_Q4)",
+      "op": "add",
+      "source_ref": {
+        "content_hash_alg": "sha256",
+        "content_id": "sha256:782e11ca8c28e9a236df0bc19aea0534f81da2a16eacc84d91cc6be25cc23e39",
+        "entity_id": "b85aeaa0-eaea-870e-e7e3-dd9314f53a1b",
+        "revision_id": "5ecbcce5-f985-e417-d0fb-26d6a9bb78dc"
+      },
+      "stage_code": "120_CDR"
+    },
+    {
+      "artifact_type_id": "prime_counterfeit_part_inspection",
+      "basis": "prime contractor item carried by spec assets/SE_FolderTree_Guide.md task 157 (source: LIG 개발품질 37)",
+      "evidence_level": "prime_contract",
+      "label": "위조품검사성적서(Offer_COC)",
+      "op": "add",
+      "source_ref": {
+        "content_hash_alg": "sha256",
+        "content_id": "sha256:782e11ca8c28e9a236df0bc19aea0534f81da2a16eacc84d91cc6be25cc23e39",
+        "entity_id": "b85aeaa0-eaea-870e-e7e3-dd9314f53a1b",
+        "revision_id": "5ecbcce5-f985-e417-d0fb-26d6a9bb78dc"
+      },
+      "stage_code": "150_TRR_DT"
+    },
+    {
+      "artifact_type_id": "prime_part_coc",
+      "basis": "prime contractor item carried by spec assets/SE_FolderTree_Guide.md task 156 (source: LIG 개발품질 32)",
+      "evidence_level": "prime_contract",
+      "label": "부품COC(제조사또는대리점)",
+      "op": "add",
+      "source_ref": {
+        "content_hash_alg": "sha256",
+        "content_id": "sha256:782e11ca8c28e9a236df0bc19aea0534f81da2a16eacc84d91cc6be25cc23e39",
+        "entity_id": "b85aeaa0-eaea-870e-e7e3-dd9314f53a1b",
+        "revision_id": "5ecbcce5-f985-e417-d0fb-26d6a9bb78dc"
+      },
+      "stage_code": "150_TRR_DT"
+    },
+    {
+      "artifact_type_id": "prime_q5_workmanship_inspection",
+      "basis": "prime contractor item carried by spec assets/SE_FolderTree_Guide.md task 158 (source: LIG 개발품질 38)",
+      "evidence_level": "prime_contract",
+      "label": "일솜씨검사결과(Q5)",
+      "op": "add",
+      "source_ref": {
+        "content_hash_alg": "sha256",
+        "content_id": "sha256:782e11ca8c28e9a236df0bc19aea0534f81da2a16eacc84d91cc6be25cc23e39",
+        "entity_id": "b85aeaa0-eaea-870e-e7e3-dd9314f53a1b",
+        "revision_id": "5ecbcce5-f985-e417-d0fb-26d6a9bb78dc"
+      },
+      "stage_code": "150_TRR_DT"
+    },
+    {
+      "artifact_type_id": "prime_q7_factory_acceptance_test",
+      "basis": "prime contractor item carried by spec assets/SE_FolderTree_Guide.md task 167 (source: LIG 개발품질 45)",
+      "evidence_level": "prime_contract",
+      "label": "수락검사성적서(FAT_Q7)_F",
+      "op": "add",
+      "source_ref": {
+        "content_hash_alg": "sha256",
+        "content_id": "sha256:782e11ca8c28e9a236df0bc19aea0534f81da2a16eacc84d91cc6be25cc23e39",
+        "entity_id": "b85aeaa0-eaea-870e-e7e3-dd9314f53a1b",
+        "revision_id": "5ecbcce5-f985-e417-d0fb-26d6a9bb78dc"
+      },
+      "stage_code": "150_TRR_DT"
+    },
+    {
+      "artifact_type_id": "prime_raw_material_coc",
+      "basis": "prime contractor item carried by spec assets/SE_FolderTree_Guide.md task 155 (source: LIG 개발품질 32)",
+      "evidence_level": "prime_contract",
+      "label": "원자재성적서및COC",
+      "op": "add",
+      "source_ref": {
+        "content_hash_alg": "sha256",
+        "content_id": "sha256:782e11ca8c28e9a236df0bc19aea0534f81da2a16eacc84d91cc6be25cc23e39",
+        "entity_id": "b85aeaa0-eaea-870e-e7e3-dd9314f53a1b",
+        "revision_id": "5ecbcce5-f985-e417-d0fb-26d6a9bb78dc"
+      },
+      "stage_code": "150_TRR_DT"
+    },
+    {
+      "artifact_type_id": "prime_supplier_purchase_order",
+      "basis": "prime contractor item carried by spec assets/SE_FolderTree_Guide.md task 154 (source: LIG 구매절차 36)",
+      "evidence_level": "prime_contract",
+      "label": "협력사발주문서",
+      "op": "add",
+      "source_ref": {
+        "content_hash_alg": "sha256",
+        "content_id": "sha256:782e11ca8c28e9a236df0bc19aea0534f81da2a16eacc84d91cc6be25cc23e39",
+        "entity_id": "b85aeaa0-eaea-870e-e7e3-dd9314f53a1b",
+        "revision_id": "5ecbcce5-f985-e417-d0fb-26d6a9bb78dc"
+      },
+      "stage_code": "150_TRR_DT"
+    },
+    {
+      "artifact_type_id": "prime_installation_commissioning_record",
+      "basis": "prime contractor item carried by spec assets/SE_FolderTree_Guide.md task 187 (source: 현장지원)",
+      "evidence_level": "prime_contract",
+      "label": "설치및시운전기록(STW)",
+      "op": "add",
+      "source_ref": {
+        "content_hash_alg": "sha256",
+        "content_id": "sha256:782e11ca8c28e9a236df0bc19aea0534f81da2a16eacc84d91cc6be25cc23e39",
+        "entity_id": "b85aeaa0-eaea-870e-e7e3-dd9314f53a1b",
+        "revision_id": "5ecbcce5-f985-e417-d0fb-26d6a9bb78dc"
+      },
+      "stage_code": "180_FCA_OT"
+    },
+    {
+      "artifact_type_id": "prime_q8_incoming_inspection",
+      "basis": "prime contractor item carried by spec assets/SE_FolderTree_Guide.md task 184 (source: LIG 개발품질 43)",
+      "evidence_level": "prime_contract",
+      "label": "입고검사결과(Q8)",
+      "op": "add",
+      "source_ref": {
+        "content_hash_alg": "sha256",
+        "content_id": "sha256:782e11ca8c28e9a236df0bc19aea0534f81da2a16eacc84d91cc6be25cc23e39",
+        "entity_id": "b85aeaa0-eaea-870e-e7e3-dd9314f53a1b",
+        "revision_id": "5ecbcce5-f985-e417-d0fb-26d6a9bb78dc"
+      },
+      "stage_code": "180_FCA_OT"
+    },
+    {
+      "artifact_type_id": "prime_final_product_certificate",
+      "basis": "prime contractor item carried by spec assets/SE_FolderTree_Guide.md task 219 (source: LIG 개발품질 32)",
+      "evidence_level": "prime_contract",
+      "label": "최종제품보증서(COC_CoA)",
+      "op": "add",
+      "source_ref": {
+        "content_hash_alg": "sha256",
+        "content_id": "sha256:782e11ca8c28e9a236df0bc19aea0534f81da2a16eacc84d91cc6be25cc23e39",
+        "entity_id": "b85aeaa0-eaea-870e-e7e3-dd9314f53a1b",
+        "revision_id": "5ecbcce5-f985-e417-d0fb-26d6a9bb78dc"
+      },
+      "stage_code": "210_PCA"
+    }
+  ],
+  "overlay_identity": {
+    "derived_from_support_key": "system_dev_lig_grade_a",
+    "overlay_id": "system_dev_lig_grade_a.prime",
+    "prime_contractor": "LIG 넥스원",
+    "quality_grade": "A"
+  },
+  "schema_version": "soulforge.se_stage_rule_overlay.v0"
+}

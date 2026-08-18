@@ -125,6 +125,18 @@
   체계개발 variant + a 14-slot buyer overlay for one CDR stage yields 25 engine
   requirements (14 buyer slots: 5 standard-origin, 2 strengthened, 7 buyer-added;
   11 standard items the buyer did not request, 6 of them regulation-mandated).
+- Layer split (same day, owner request that prime-contract items must not contaminate the
+  common checklist): the skill exporter now also emits, from the same spec, a business-type
+  common baseline (`compiled/system_dev_common_no_grade.json`, 131 tasks = every task whose
+  evidence level is not `prime_contract`) and a prime-contractor overlay
+  (`compiled/overlays/system_dev_lig_grade_a.prime.overlay.json`, 14 `add` ops citing the
+  spec by exact ref); `validate:se-foldertree-compiled` guards all three. The compiler
+  accepts the optional `derived_from` (variant) and `overlay_identity` (overlay) provenance
+  fields, and no longer downgrades `prime_contract` rows on `unsupported/unverified`
+  verification (contract items are expected to be unsupported by regulation texts; only
+  `contradicted` weakens). Verified: base + prime overlay + project overlay compiles to the
+  same 27 CDR requirements as the merged spec + project overlay (the two LIG contract items
+  the earlier 25-count had treated as context are now enforced).
 ## 2026-08-18 - SE folder-tree variant source verification (skill reference)
 
 - Added `.registry/skills/se_foldertree_generate/codex/references/source_verification_v0.md`

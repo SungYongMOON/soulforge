@@ -24,6 +24,8 @@
 
 원칙: L1은 과제 이름을 모른다. L2만 과제를 안다. L3는 L1+L2의 순수 함수다. L0은 인용 대상이지 실행 입력이 아니다.
 
+**계층의 물리 분리(2026-08-18 후속, Owner 지적 "LIG 계약 항목이 섞이면 재사용 못 한다")**: 스펙 md 한 장(체계개발/LIG/A v0.8)이 원천이지만, 내보내기는 세 벌을 낸다 — ① 전체 `compiled/system_dev_lig_grade_a.json`(145), ② **방사청 공통 기준선** `compiled/system_dev_common_no_grade.json`(131 = prime_contract 항목 제외, 사업유형 공통), ③ **발주처 덧씌움** `compiled/overlays/system_dev_lig_grade_a.prime.overlay.json`(14 = prime_contract 항목을 overlay add로). 엔진은 "공통 기준선 + 발주처 덧씌움 + 과제 덧씌움"으로 컴파일하며, 같은 입력에서 ①+과제 덧씌움과 ②+③+과제 덧씌움은 동일 결과를 낸다(KVDS 120_CDR 27항목 동일 확인). 드리프트 가드는 세 벌 모두 대조한다. 기본 SE 지식(NASA·INCOSE)은 체크리스트 행이 아니라 배경 지식(공통 스타터·authority family general_se_guidance)이다.
+
 ## 3. L1 기계 필드 (variant task 항목 확장)
 
 기존 task 항목 `{id, name, desc, term, source, template, is_fixed}`은 유지하고(생성기는 모르는 키를 무시함, `generate_tree.py`는 `.get()`으로만 읽음) 다음을 **선택 필드**로 더한다.
@@ -52,7 +54,7 @@
 
 토큰은 소문자 스네이크, 정본이 준 약어를 우선한다. 별칭(과제별 폴더명·발주처 명칭)은 L2 overlay의 `aliases`에만 둔다.
 
-구현 메모(2026-08-18): 컴파일러의 `artifact_vocabulary.v0`는 위 목록 + 체계개발 스펙 v0.8이 쓴 확장 토큰 26개(`cdrl`, `rtm`, `ram_analysis_report`, `critical_parts_test_report`, `cm_plan`, `technical_review_package` …, 스킬 `references/variants.md`)를 갖고, `prime_<...>` 모양의 토큰은 주계약사 계약 항목(family `prime_contract_item`)으로 인식한다(열거 불가·다른 주계약사는 overlay로 N/A). D44 확정 전까지 표시명은 관찰 수준이다. overlay의 `add`는 표준 행이 `optional_context`일 때만 옆에 `prime_contract` 행을 추가할 수 있고(발주처 요구 강화, receipt `overlay_strengthened`), 표준이 이미 요구하는 항목에는 금지된다(D45).
+구현 메모(2026-08-18): 컴파일러의 `artifact_vocabulary.v0`는 위 목록 + 체계개발 스펙 v0.8이 쓴 확장 토큰 26개(`cdrl`, `rtm`, `ram_analysis_report`, `critical_parts_test_report`, `cm_plan`, `technical_review_package` …, 스킬 `references/variants.md`)를 갖고, `prime_<...>` 모양의 토큰은 주계약사 계약 항목(family `prime_contract_item`)으로 인식한다(열거 불가·다른 주계약사는 overlay로 N/A). D44 확정 전까지 표시명은 관찰 수준이다. overlay의 `add`는 표준 행이 `optional_context`일 때만 옆에 `prime_contract` 행을 추가할 수 있고(발주처 요구 강화, receipt `overlay_strengthened`), 표준이 이미 요구하는 항목에는 금지된다(D45). `verification_status`는 정본(규정·가이드북) 지지도를 재는 값이므로 `prime_contract` 행에는 `unsupported/unverified`가 기대값이며 강등하지 않는다(`contradicted`만 강등) — 그래야 통합 스펙 경로와 계층 경로가 같은 결과를 낸다.
 
 ## 5. 컴파일러 (L3)
 
