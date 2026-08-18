@@ -40,7 +40,7 @@
 - Overlays gain `add_dependency` (exact `source_ref` + `basis`, union only). There is no
   `remove_dependency`, for the same reason there is no way to lower a canonical evidence level.
 - Verification: `export_variant_json.py --check` PASS (5 compiled variants), `validate:se-stage-rules`
-  45/45 (was 35 — nine new cases plus one widened), `validate:canon`, `validate:path-length` and the
+  45/45 (was 35 — ten new cases, two widened), `validate:canon`, `validate:path-length` and the
   local absolute path policy PASS, and the layered path (national common + prime overlay) still
   compiles to the same engine requirements as the merged spec at 120_CDR. Public-safe fixture
   `docs/architecture/workspace/examples/se_stage_rules/stage_work_order_synthetic_v0.json` added.
