@@ -18,6 +18,7 @@ import { createHash } from 'node:crypto';
 
 import { canonicalise, compareCodePoints } from '../kernel/canonical.mjs';
 import { isKnownArtifactType } from '../stage_rules/artifact_vocabulary.mjs';
+import { locateInTaskFolder } from './artifact_observation_candidates.mjs';
 
 export const OBSERVATION_CONFIRMATION_SHEET_SCHEMA_VERSION = 'soulforge.observation_confirmation_sheet.v0';
 
@@ -41,10 +42,17 @@ const fail = (code, message, detail = {}) => {
 };
 
 export const DECISIONS = Object.freeze(['confirm', 'reject', 'reassign']);
+// A folder decision answers the question a person actually asks when a task folder holds ninety
+// drawings: "is this folder's output what the folder says it is?" One tick then stands for every
+// file in that folder's `03_Out`. It deliberately does not reach the working material elsewhere
+// in the folder, because `01_Work` and `02_Input` are not claims about what was produced.
+export const FOLDER_DECISIONS = Object.freeze(['confirm_folder', 'reject_folder']);
 export const CONFIRMATION_SOURCES = Object.freeze({
   AUTO_OUT_FOLDER: 'auto_03_out',
   OWNER_CONFIRMED: 'owner_confirmed',
   OWNER_REASSIGNED: 'owner_reassigned',
+  OWNER_FOLDER_CONFIRMED: 'owner_folder_confirmed',
+  OWNER_FOLDER_REASSIGNED: 'owner_folder_reassigned',
 });
 
 // How each machine value is written for a person. Display text only: the decision is always made
@@ -69,7 +77,64 @@ const CUE_LABEL_KO = Object.freeze({
   title: '제목',
 });
 
-const MAX = Object.freeze({ candidates: 200000, decisions: 200000, note: 512 });
+const MAX = Object.freeze({ candidates: 200000, decisions: 200000, note: 512, inventory: 200000 });
+
+/**
+ * The task folders a person can decide as a whole, derived from the candidates themselves.
+ *
+ * A folder qualifies when its candidates resolved *through the task folder number* onto exactly
+ * one artifact type. That is the same test the housekeeping report applies, and for the same
+ * reason: a document lying in an inbox does not make the inbox that document's folder, and
+ * offering a folder tick for it would let one click confirm material nobody filed there on
+ * purpose.
+ */
+function taskFolderRows(candidates, inventory) {
+  const folders = new Map();
+  for (const candidate of candidates) {
+    const where = locateInTaskFolder(candidate.file_ref);
+    if (where === null) continue;
+    let folder = folders.get(where.task_folder_ref);
+    if (folder === undefined) {
+      folder = {
+        task_folder_ref: where.task_folder_ref,
+        stage_code: candidate.stage_code,
+        task_folder: where.task_folder,
+        declared_types: new Set(),
+        candidate_count: 0,
+        out_candidate_count: 0,
+      };
+      folders.set(where.task_folder_ref, folder);
+    }
+    folder.candidate_count += 1;
+    if (where.in_out_folder) folder.out_candidate_count += 1;
+    if (Array.isArray(candidate.cues) && candidate.cues.some((cue) => cue.kind === 'task_folder')
+        && typeof candidate.artifact_type_id === 'string') {
+      folder.declared_types.add(candidate.artifact_type_id);
+    }
+  }
+
+  const outFileCounts = new Map();
+  for (const row of inventory) {
+    const where = locateInTaskFolder(row?.file_ref ?? '');
+    if (where === null || !where.in_out_folder) continue;
+    outFileCounts.set(where.task_folder_ref, (outFileCounts.get(where.task_folder_ref) ?? 0) + 1);
+  }
+
+  return [...folders.values()]
+    .filter((folder) => folder.declared_types.size === 1)
+    .map((folder) => ({
+      task_folder_ref: folder.task_folder_ref,
+      stage_code: folder.stage_code,
+      task_folder: folder.task_folder,
+      artifact_type_id: [...folder.declared_types][0],
+      candidate_count: folder.candidate_count,
+      // The real file count when the caller handed over the walk it built the sheet from;
+      // otherwise what the candidates alone can show, which is never more than the truth.
+      out_file_count: outFileCounts.get(folder.task_folder_ref) ?? folder.out_candidate_count,
+      decision: null,
+    }))
+    .sort((left, right) => compareCodePoints(left.task_folder_ref, right.task_folder_ref));
+}
 
 const CANDIDATE_REQUIRED = Object.freeze([
   'candidate_id', 'file_ref', 'artifact_type_id', 'stage_code', 'maturity',
@@ -170,7 +235,7 @@ function cueLabel(cues) {
     .join('; ');
 }
 
-function renderMarkdown(rows, counts) {
+function renderMarkdown(rows, counts, folders) {
   const lines = [];
   lines.push('# 관측 후보 확인표 (artifact observation candidates)');
   lines.push('');
@@ -181,10 +246,42 @@ function renderMarkdown(rows, counts) {
   lines.push('- 이 표는 후보일 뿐이며 확인 전에는 엔진 관측이 되지 않는다(설계 D37).');
   lines.push('');
 
+  // The folder table comes first because it is the cheap way through: one tick can settle a
+  // folder that holds ninety files, and only what it does not cover needs the file table below.
+  lines.push('## 1. 업무폴더 단위 확인 (먼저 볼 것)');
+  lines.push('');
+  lines.push('업무폴더가 산출물 하나에 대응하고 그 폴더에 후보가 있으면 여기서 한 줄로 확정할 수 있다.');
+  lines.push('`confirm_folder`는 그 폴더 `03_Out` 아래의 후보 전부를 확정한다(`01_Work`·`02_Input` 등 나머지는 그대로 후보로 남는다).');
+  lines.push('개별 파일 결정이 폴더 결정보다 우선한다. JSON 시트의 `folders[]`에 `decision`을 적는다.');
+  lines.push('');
+  if (folders.length === 0) {
+    lines.push('폴더 단위로 확정할 수 있는 업무폴더 없음.');
+    lines.push('');
+  } else {
+    lines.push('| 단계 | 업무폴더 | 산출물 | 후보 수 | 03_Out 파일 수 | 확인[ ] |');
+    lines.push('| --- | --- | --- | --- | --- | --- |');
+    for (const folder of folders) {
+      lines.push([
+        '',
+        cell(folder.stage_code),
+        cell(folder.task_folder),
+        cell(folder.artifact_type_id),
+        String(folder.candidate_count),
+        String(folder.out_file_count),
+        '[ ]',
+        '',
+      ].join(' | ').trim());
+    }
+    lines.push('');
+  }
+
+  lines.push('## 2. 파일 단위 확인');
+  lines.push('');
+
   const stages = [...new Set(rows.map((row) => row.stage_code))].sort(compareCodePoints);
   for (const stageCode of stages) {
     const stageRows = rows.filter((row) => row.stage_code === stageCode);
-    lines.push(`## ${stageCode} (${stageRows.length}건)`);
+    lines.push(`### ${stageCode} (${stageRows.length}건)`);
     lines.push('');
     lines.push('| 확인[ ] | 파일 | 산출물 종류(추정) | 단계 | 성숙도(추정) | 근거 단서 | 신뢰도 |');
     lines.push('| --- | --- | --- | --- | --- | --- | --- |');
@@ -223,6 +320,8 @@ export function buildObservationConfirmationSheet(request) {
   if (!isPlainObject(request)) fail(code, 'request must be an object', { where: 'request' });
   const candidates = assertArray(request.candidates, 'request.candidates',
     CONFIRMATION_SHEET_ERROR_CODES.CANDIDATE_INVALID, MAX.candidates);
+  const inventory = Object.hasOwn(request, 'inventory')
+    ? assertArray(request.inventory, 'request.inventory', code, MAX.inventory) : [];
   const knownAt = Object.hasOwn(request, 'known_at') ? request.known_at : null;
   if (knownAt !== null && (typeof knownAt !== 'string' || knownAt.length === 0)) {
     fail(code, 'request.known_at must be a non-empty string when given', { where: 'request.known_at' });
@@ -247,21 +346,25 @@ export function buildObservationConfirmationSheet(request) {
     || compareCodePoints(left.artifact_type_id, right.artifact_type_id)
     || compareCodePoints(left.file_ref, right.file_ref));
 
+  const folders = taskFolderRows(rows, inventory);
   const counts = {
     candidates: rows.length,
     auto_confirmed: rows.filter((row) => row.auto_confirmed).length,
     needs_owner_confirmation: rows.filter((row) => row.needs_owner_confirmation).length,
+    decidable_task_folders: folders.length,
   };
 
   const sheet = {
     schema_version: OBSERVATION_CONFIRMATION_SHEET_SCHEMA_VERSION,
     ...(knownAt === null ? {} : { known_at: knownAt }),
     counts,
+    folders,
     rows,
     rows_digest: canonicalDigest(sheetDomain('rows'), rows),
+    folders_digest: canonicalDigest(sheetDomain('folders'), folders),
   };
 
-  return deepFreeze({ markdown: renderMarkdown(rows, counts), sheet });
+  return deepFreeze({ markdown: renderMarkdown(rows, counts, folders), sheet });
 }
 
 // ---------------------------------------------------------------- the return path
@@ -288,9 +391,49 @@ export function applyConfirmationSheet(candidates, decisions = []) {
     byId.set(row.candidate_id, row);
   }
 
-  const decisionById = new Map();
+  const foldersByRef = new Map(taskFolderRows(rows, []).map((folder) => [folder.task_folder_ref, folder]));
+  const folderDecisionByRef = new Map();
+  const fileDecisions = [];
   for (const decision of decisionRows) {
     if (!isPlainObject(decision)) fail(decisionCode, 'a decision must be an object', { where: 'decisions[]' });
+    if (!Object.hasOwn(decision, 'task_folder_ref')) {
+      fileDecisions.push(decision);
+      continue;
+    }
+    for (const key of Object.keys(decision)) {
+      if (!['task_folder_ref', 'decision', 'artifact_type_id', 'note'].includes(key)) {
+        fail(decisionCode, 'a folder decision carries an undeclared field', { where: 'decisions[]' });
+      }
+    }
+    const ref = decision.task_folder_ref;
+    if (typeof ref !== 'string' || !foldersByRef.has(ref)) {
+      fail(decisionCode, 'a folder decision names a task folder this sheet does not offer',
+        { where: 'decisions[].task_folder_ref' });
+    }
+    if (folderDecisionByRef.has(ref)) {
+      fail(decisionCode, 'one task folder carries two decisions', { where: 'decisions[].task_folder_ref' });
+    }
+    if (!FOLDER_DECISIONS.includes(decision.decision)) {
+      fail(decisionCode, 'a folder decision must be confirm_folder or reject_folder',
+        { where: 'decisions[].decision' });
+    }
+    if (Object.hasOwn(decision, 'artifact_type_id')) {
+      if (decision.decision !== 'confirm_folder'
+          || typeof decision.artifact_type_id !== 'string'
+          || !isKnownArtifactType(decision.artifact_type_id)) {
+        fail(decisionCode, 'only a folder confirmation may name a known artifact type',
+          { where: 'decisions[].artifact_type_id' });
+      }
+    }
+    if (Object.hasOwn(decision, 'note')
+        && (typeof decision.note !== 'string' || decision.note.length > MAX.note)) {
+      fail(decisionCode, 'a note must be bounded text', { where: 'decisions[].note' });
+    }
+    folderDecisionByRef.set(ref, decision);
+  }
+
+  const decisionById = new Map();
+  for (const decision of fileDecisions) {
     for (const key of Object.keys(decision)) {
       if (!['candidate_id', 'decision', 'artifact_type_id', 'maturity', 'note'].includes(key)) {
         fail(decisionCode, 'a decision carries an undeclared field', { where: 'decisions[]' });
@@ -336,6 +479,34 @@ export function applyConfirmationSheet(candidates, decisions = []) {
   for (const row of rows) {
     const decision = decisionById.get(row.candidate_id) ?? null;
     if (decision === null) {
+      // A folder decision reaches the folder's output files only, and only where the person did
+      // not already say something about this particular file.
+      const where = locateInTaskFolder(row.file_ref);
+      const folderDecision = where === null ? undefined : folderDecisionByRef.get(where.task_folder_ref);
+      if (folderDecision !== undefined && where.in_out_folder) {
+        if (folderDecision.decision === 'reject_folder') {
+          rejected.push({
+            candidate_id: row.candidate_id,
+            file_ref: row.file_ref,
+            note: Object.hasOwn(folderDecision, 'note') ? folderDecision.note : null,
+          });
+          continue;
+        }
+        const reassignedFolder = Object.hasOwn(folderDecision, 'artifact_type_id');
+        confirmed.push({
+          candidate_id: row.candidate_id,
+          file_ref: row.file_ref,
+          stage_code: row.stage_code,
+          artifact_type_id: reassignedFolder ? folderDecision.artifact_type_id : row.artifact_type_id,
+          maturity: row.maturity ?? null,
+          confidence: row.confidence,
+          confirmation: reassignedFolder
+            ? CONFIRMATION_SOURCES.OWNER_FOLDER_REASSIGNED
+            : CONFIRMATION_SOURCES.OWNER_FOLDER_CONFIRMED,
+          note: Object.hasOwn(folderDecision, 'note') ? folderDecision.note : null,
+        });
+        continue;
+      }
       if (row.auto_confirmed === true) {
         confirmed.push({
           candidate_id: row.candidate_id,
@@ -389,9 +560,12 @@ export function applyConfirmationSheet(candidates, decisions = []) {
     counts: {
       candidates: rows.length,
       decisions: decisionRows.length,
+      folder_decisions: folderDecisionByRef.size,
       confirmed: confirmed.length,
       confirmed_auto: confirmed.filter((row) => row.confirmation === CONFIRMATION_SOURCES.AUTO_OUT_FOLDER).length,
       confirmed_owner: confirmed.filter((row) => row.confirmation !== CONFIRMATION_SOURCES.AUTO_OUT_FOLDER).length,
+      confirmed_by_folder: confirmed.filter((row) => row.confirmation === CONFIRMATION_SOURCES.OWNER_FOLDER_CONFIRMED
+        || row.confirmation === CONFIRMATION_SOURCES.OWNER_FOLDER_REASSIGNED).length,
       pending: pending.length,
       rejected: rejected.length,
     },

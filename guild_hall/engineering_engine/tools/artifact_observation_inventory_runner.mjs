@@ -77,6 +77,7 @@ function parseArguments(argv) {
     out: null,
     compiledVariants: [],
     overlays: [],
+    aliasPatternFiles: [],
     includeGlobs: [],
     excludeGlobs: [],
     maxFiles: DEFAULTS.maxFiles,
@@ -97,6 +98,7 @@ function parseArguments(argv) {
       case '--out': options.out = value(); break;
       case '--compiled-variant': options.compiledVariants.push(value()); break;
       case '--overlay': options.overlays.push(value()); break;
+      case '--alias-patterns': options.aliasPatternFiles.push(value()); break;
       case '--include-globs':
         options.includeGlobs.push(...value().split(',').map((glob) => glob.trim()).filter(Boolean));
         break;
@@ -111,6 +113,7 @@ function parseArguments(argv) {
         process.stdout.write(`${[
           'usage: artifact_observation_inventory_runner.mjs --project-root <abs> --out <abs dir>',
           '         --compiled-variant <abs json> [--compiled-variant ...] [--overlay <abs json>]',
+          '         [--alias-patterns <abs json>]',
           '         [--include-globs "<glob>,<glob>"] [--exclude-globs "<glob>,<glob>"]',
           '         [--max-files N] [--max-file-bytes N]',
           '         [--known-at <instant>] [--no-auto-confirm]',
@@ -327,6 +330,14 @@ async function main() {
   for (const path of options.compiledVariants) compiledVariants.push(await readJson(resolve(path)));
   const overlayAliases = [];
   for (const path of options.overlays) overlayAliases.push(...overlayCues(await readJson(resolve(path))));
+  // Project-registered name shapes live in the project plane, not in the public rule specs: a
+  // drawing-number prefix is one project's convention and belongs with that project's material.
+  const aliasPatterns = [];
+  for (const path of options.aliasPatternFiles) {
+    const rows = await readJson(resolve(path));
+    if (!Array.isArray(rows)) die('an --alias-patterns file must hold an array');
+    aliasPatterns.push(...rows);
+  }
 
   const { inventory, skipped } = await walkProject(projectRoot, options, outDirectory);
 
@@ -334,6 +345,7 @@ async function main() {
     inventory,
     compiled_variants: compiledVariants,
     overlay_aliases: overlayAliases,
+    alias_patterns: aliasPatterns,
     vocabulary: ARTIFACT_VOCABULARY_V0,
     known_at: knownAt,
     rules: { auto_confirm_03_out: options.autoConfirm },
@@ -341,6 +353,7 @@ async function main() {
 
   const sheet = buildObservationConfirmationSheet({
     candidates: candidateResult.candidates,
+    inventory,
     known_at: knownAt,
   });
 
@@ -372,6 +385,8 @@ async function main() {
     inputs: {
       compiled_variants: options.compiledVariants.map((path) => basename(path)),
       overlays: options.overlays.map((path) => basename(path)),
+      alias_pattern_files: options.aliasPatternFiles.map((path) => basename(path)),
+      alias_patterns: aliasPatterns.length,
       include_globs: options.includeGlobs,
       exclude_globs: options.excludeGlobs,
       max_files: options.maxFiles,
@@ -423,6 +438,7 @@ async function main() {
     unmatched: candidateResult.unmatched.length,
     artifact_observations: observations.artifact_observations.length,
     candidates_by_stage: candidateResult.receipt.counts.candidates_by_stage,
+    decidable_task_folders: sheet.sheet.counts.decidable_task_folders,
     housekeeping_items: housekeeping.counts.items,
     housekeeping_by_kind: housekeeping.counts.by_kind,
   }, null, 2)}\n`);
