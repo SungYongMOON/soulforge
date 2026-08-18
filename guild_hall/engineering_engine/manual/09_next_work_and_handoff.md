@@ -12,6 +12,7 @@
 | 6 | **탐색·선행·운용·응용 variant 재기준(D43)** | 대조표 §10 초안, 정본 881호·974호 | draft variant 스펙 | 실제 과제 1건 검증 전 승격 금지 |
 | 7 | **문서 내용 검사기(설계 §2.1A)** | 산출물 원문(private) | 산출물 안 필수 절·표 존재 판정 | zero-write, 정본 기준 |
 | 8 | R4 카드·ERP read model·MCP 뷰 | R2/R3 | 얇은 카드, SQLite read model, MCP 뷰 4종 | 7조건 게이트 리포트 |
+| 9 | **답변 우편함(Context Response 수신 경로)** — MCP·P5 시점 | 독립검토 스레드(V1.2, 2026-08-11) 지적: 엔진은 질문+답변 영수증 둘 다 있어야 판정을 바꾸는데 답변을 실제로 받는 경로가 없음. `kernel/context_receipt.mjs`(Phase 3, 합성 전용·전송 없음)에 영수증 **검증**만 있고 runner는 질문을 내지도 답을 읽지도 않음 | 우편함 writer(답 → 답변 영수증+후보, private) + runner의 질문 발행/답변 읽기 + P5 승인자 등록 | Owner 판단(2026-08-18): **MCP 구현 단계에서** 함. 그때까지 답은 `artifact_observations`(누가·언제·근거)로 수동 공급하고 엔진 코드는 바꾸지 않는다 |
 
 정리 잔여(엔진 밖): ai_usage_meter 상태 폴더 해시 64→16(수집기 정지 창), `_workspaces/system` 실험·git_push 잔재, P23-037/RAW 뿌리 축약, 지식 intake 파일 61개 슬러그 반복, 휴지통 삭제(09-17 이후).
 
