@@ -6,6 +6,8 @@ import { createHash } from 'node:crypto';
 import {
   compileStageRules,
   orderStageWork,
+  projectGenericLayerEdges,
+  GATE_ROLES,
   mintEnginePolicyRef,
   StageRuleCompilerError,
   STAGE_RULE_ERROR_CODES,
@@ -25,8 +27,13 @@ import { PRESENCE_STATES_PIN } from './pilot_packet_generator.mjs';
 import {
   ARTIFACT_VOCABULARY_V0,
   ARTIFACT_FAMILIES,
+  ARTIFACT_TYPE_ALIASES,
   CAPABILITY_TOKENS,
+  CROSS_LAYER_TOKEN_EQUIVALENCE,
+  canonicalArtifactType,
+  genericTokenFor,
   isKnownArtifactType,
+  nationalTokenFor,
   artifactTypeEntry,
 } from './artifact_vocabulary.mjs';
 import {
@@ -938,8 +945,13 @@ test('an empty project is ordered inputs first, deterministically, and the order
   assert.deepEqual(order.receipt.effects, {
     erp_writes: 0, filesystem_writes: 0, model_calls: 0, network_calls: 0, clock_reads: 0,
   });
-  // The tie-break the plan asked for and this ordering cannot honestly apply is named, not faked.
-  assert.ok(order.receipt.tie_breaks_skipped.some((row) => row.startsWith('gate_entrance_criteria_first')));
+  // The tie-break that used to be declared skipped — "gate entrance criteria first" — is now
+  // applied, because the specs carry `gate_role` and the ordering reads it. Nothing is skipped.
+  assert.deepEqual(order.receipt.tie_breaks_skipped, []);
+  assert.deepEqual(order.receipt.tie_breaks_applied, [
+    'dependency_topological_within_stage', 'unblocked_before_blocked', 'evidence_rank',
+    'gate_role_rank', 'dependents_count_desc', 'artifact_type_id',
+  ]);
 });
 
 test('causal edges and the stage sequence stay separate in the work order', () => {
@@ -1194,6 +1206,229 @@ test('an empty 체계개발 project is told what to do first at 030_SRR, from th
     ['030_SRR', '060_SFR', '090_PDR', '120_CDR']);
   assert.equal(order.receipt.counts.unresolved_dependency, 0);
   assert.deepEqual(result.receipt.unresolved_dependencies, []);
+});
+
+// ---------------------------------------------------------------- 13g. gate role and importance
+
+test('a gate role travels from the spec into the mapping table and the work order', () => {
+  assert.deepEqual([...GATE_ROLES], ['core', 'entry', 'supporting']);
+
+  // A row that says nothing is supporting: what a review is FOR has to be stated, never assumed.
+  const plain = compileStageRules(orderRequest());
+  assert.equal(rowOf(plain, 3004).gate_role, 'supporting');
+  assert.equal(plain.receipt.counts.by_gate_role.supporting, plain.receipt.counts.rows);
+
+  const request = orderRequest();
+  orderTaskOf(request, 3004).gate_role = 'core';      // ssrs — what the review produces
+  orderTaskOf(request, 3002).gate_role = 'entry';     // conops — material it expects
+  const result = compileStageRules(request);
+  assert.equal(rowOf(result, 3004).gate_role, 'core');
+  assert.equal(rowOf(result, 3002).gate_role, 'entry');
+  assert.deepEqual(result.receipt.counts.by_gate_role, { core: 1, entry: 1, supporting: 11 });
+
+  const order = orderStageWork(result);
+  assert.equal(workItemOf(order, '030_SRR', 'ssrs').gate_role, 'core');
+  assert.equal(workItemOf(order, '030_SRR', 'ssrs').gate_role_rank, 0);
+  assert.equal(workItemOf(order, '030_SRR', 'conops').gate_role, 'entry');
+  assert.equal(order.receipt.counts.by_gate_role.core, 1);
+
+  const invalid = orderRequest();
+  orderTaskOf(invalid, 3004).gate_role = 'centrepiece';
+  assert.throws(() => compileStageRules(invalid), throwsWith(STAGE_RULE_ERROR_CODES.VARIANT_INVALID));
+});
+
+test('among equals, the gate centrepiece and the most depended-on item are offered first', () => {
+  // `semp` and `conops` both need nothing and both are unblocked; only the role separates them.
+  const roleFirst = orderRequest();
+  orderTaskOf(roleFirst, 3005).gate_role = 'core';    // semp, a guidebook row
+  orderTaskOf(roleFirst, 3002).evidence_level = 'guidebook_recommended'; // level the field
+  const ordered = workTokens(orderStageWork(compileStageRules(roleFirst)), '030_SRR');
+  assert.ok(ordered.indexOf('semp') < ordered.indexOf('conops'),
+    'the row the review exists to produce comes before one that merely sits at the gate');
+
+  // With the roles equal again, what more of the programme waits on decides.
+  const plain = compileStageRules(orderRequest());
+  const order = orderStageWork(plain);
+  assert.equal(workItemOf(order, '030_SRR', 'conops').dependents_count, 1);
+  assert.equal(workItemOf(order, '030_SRR', 'semp').dependents_count, 0);
+  const tokens = workTokens(order, '030_SRR');
+  assert.ok(tokens.indexOf('conops') < tokens.indexOf('semp'),
+    'conops is an input to later work and semp is not, so conops is offered first');
+
+  // The count is over the whole compile, not one stage, and it never counts a context row:
+  // ssrs is named by the review minutes at its own gate and by the design activity at the next
+  // one, while the traceability matrix that also names it is context and does not count.
+  assert.equal(workItemOf(order, '090_PDR', 'ssdd').dependents_count, 1);
+  assert.equal(workItemOf(order, '030_SRR', 'ssrs').dependents_count, 2);
+
+  // Still deterministic and still topological.
+  assert.deepEqual(orderStageWork(compileStageRules(orderRequest())).receipt.output_digests,
+    order.receipt.output_digests);
+  for (const stage of order.stages) {
+    const placed = new Map(stage.work_items.map((item) => [item.artifact_type_id, item.order_index]));
+    for (const item of stage.work_items) {
+      for (const input of item.same_stage_inputs) {
+        if (placed.has(input)) assert.ok(placed.get(input) < item.order_index, input);
+      }
+    }
+  }
+});
+
+test('the corrected 체계개발 table offers the requirements specification first at 030_SRR', () => {
+  // The point of the correction. Before it, SSRS carried an edge that made the functional
+  // analysis its prerequisite — backwards — so it sat blocked at the end of the stage; and among
+  // the unblocked rows the order was alphabetical, so a plan beat the review's centrepiece.
+  const compiled = (name) => JSON.parse(readFileSync(new URL(
+    `../../../.registry/skills/se_foldertree_generate/codex/assets/compiled/${name}`,
+    import.meta.url), 'utf8'));
+  const result = compileStageRules({
+    compiled_variant: compiled('system_dev_common_no_grade.json'),
+    overlay: compiled('overlays/system_dev_lig_grade_a.prime.overlay.json'),
+    project_binding: {
+      document_refs: [{
+        artifact_type_ids_covered: [],
+        requirement_ref: syntheticRef('srr_importance_probe_document'),
+      }],
+      valid_at: '2026-05-04T00:00:00.000Z',
+      known_at: '2026-05-11T00:00:00.000Z',
+      authority_family: 'project_contract_baseline',
+      applicability_default: true,
+    },
+    target_stage_codes: ['030_SRR', '060_SFR', '090_PDR', '120_CDR'],
+    overlay_conditions: ['exploratory_skipped', 'sw_included'],
+  });
+  const order = orderStageWork(result);
+  const srr = workTokens(order, '030_SRR');
+
+  assert.equal(srr[0], 'ssrs', 'the system requirements specification is offered first');
+  for (const later of ['cm_plan', 'fci', 'qa_plan', 'semp']) {
+    assert.ok(srr.indexOf('ssrs') < srr.indexOf(later), `ssrs must precede ${later}`);
+  }
+  const ssrs = workItemOf(order, '030_SRR', 'ssrs');
+  assert.equal(ssrs.gate_role, 'core');
+  assert.deepEqual(ssrs.depends_on, [], 'the backwards edge into ssrs is gone');
+  assert.ok(ssrs.dependents_count >= 1, 'later work names it');
+
+  // No row anywhere still claims the functional analysis produces its own inputs.
+  for (const row of result.mapping_table) {
+    if (['ssrs', 'p_temp', 'technical_review_package'].includes(row.artifact_type_id)) {
+      assert.ok(!row.depends_on.includes('act_functional_analysis_allocation'), row.artifact_type_id);
+    }
+  }
+  // The review's input list is now a gate role rather than an edge between artifacts. The
+  // operations concept is listed as material the first review expects on the table and by nothing
+  // as a product, so it is `entry`; the row is context there, so it is read off the mapping table
+  // rather than the work list.
+  const entry = result.mapping_table
+    .find((row) => row.stage_code === '030_SRR' && row.artifact_type_id === 'ord');
+  assert.equal(entry.gate_role, 'entry');
+  assert.equal(entry.minimum_presence_rule, PRESENCE_RULE.OPTIONAL_CONTEXT);
+  // A row can be entry material at one gate and the next review's own product at the next: the
+  // requirements specification is brought to the SFR and is also listed among what the SFR is
+  // completed by, and the stronger role speaks for the row.
+  assert.equal(result.mapping_table
+    .find((row) => row.stage_code === '060_SFR' && row.artifact_type_id === 'ssrs').gate_role, 'core');
+  // And the review activity itself is still the thing that waits.
+  assert.equal(workItemOf(order, '030_SRR', 'act_technical_review').ready, false);
+});
+
+// ---------------------------------------------------------------- 13h. cross-layer projection
+
+test('the vocabulary separates a true synonym from a national row assignment', () => {
+  assert.deepEqual(ARTIFACT_TYPE_ALIASES, { p_temp: 'temp' });
+  assert.equal(canonicalArtifactType('p_temp'), 'temp');
+  assert.equal(canonicalArtifactType('temp'), 'temp');
+  assert.equal(canonicalArtifactType('ord'), 'ord', 'a row assignment is not a global synonym');
+  assert.equal(canonicalArtifactType(undefined), null);
+
+  // Both sides of every equivalence are tokens the vocabulary owns, and no entry is a loop.
+  for (const row of CROSS_LAYER_TOKEN_EQUIVALENCE) {
+    assert.ok(artifactTypeEntry(row.generic_token), row.generic_token);
+    assert.ok(artifactTypeEntry(row.national_token), row.national_token);
+    assert.notEqual(row.generic_token, row.national_token);
+    assert.ok(['synonym', 'national_row_assignment'].includes(row.kind), row.kind);
+    assert.ok(row.basis.length > 20, `${row.generic_token} needs a basis a reader can check`);
+    assert.equal(nationalTokenFor(row.generic_token), row.national_token);
+    assert.equal(genericTokenFor(row.national_token), row.generic_token);
+  }
+  // The hypothesis that the defence-specification linkage table is the traceability matrix was
+  // refused: the national spec carries `rtm` rows of its own.
+  assert.equal(nationalTokenFor('rtm'), 'rtm');
+  assert.notEqual(genericTokenFor('spec_linkage_table'), 'rtm');
+  assert.equal(genericTokenFor('spec_linkage_table'), 'vcrm');
+  // An unlisted token passes straight through in both directions.
+  assert.equal(nationalTokenFor('srs'), 'srs');
+  assert.equal(genericTokenFor('srs'), 'srs');
+});
+
+test('generic-layer relations project onto the national layer, composed and never upgraded', () => {
+  const compiled = (name) => JSON.parse(readFileSync(new URL(
+    `../../../.registry/skills/se_foldertree_generate/codex/assets/compiled/${name}`,
+    import.meta.url), 'utf8'));
+  const generic = compiled('generic_se_base.json');
+  const national = compiled('system_dev_lig_grade_a.json');
+  const result = projectGenericLayerEdges({ generic_variant: generic, national_variant: national });
+
+  assert.ok(result.projections.length > 0, 'the two layers do meet');
+  assert.ok(result.receipt.counts.composed_generic_edges > result.receipt.counts.projected_edges,
+    'more is composed than lands, because the national layer does not carry every artifact');
+
+  const nationalTokens = new Set(national.gates.flatMap((gate) => gate.tasks
+    .map((task) => task.artifact_type_id).filter(Boolean)));
+  const firstGate = new Map();
+  for (const gate of national.gates) {
+    for (const task of gate.tasks) {
+      if (!task.artifact_type_id) continue;
+      const seen = firstGate.get(task.artifact_type_id);
+      if (seen === undefined || gate.code < seen) firstGate.set(task.artifact_type_id, gate.code);
+    }
+  }
+  for (const projection of result.projections) {
+    assert.ok(nationalTokens.has(projection.artifact_type_id), projection.artifact_type_id);
+    assert.equal(projection.depends_on_evidence, 'general_se_guidance',
+      'a composition never outranks the texts it was composed from');
+    assert.equal(projection.depends_on_origin, 'generic_layer_projection');
+    assert.ok(projection.via_activity.length > 0, 'the activity it went through is recorded');
+    assert.ok(projection.depends_on_refs.length > 0, 'and so is where it was read');
+    for (const input of projection.depends_on) {
+      assert.ok(nationalTokens.has(input), `${input} must exist in the national layer`);
+      assert.ok(firstGate.get(input) <= projection.gate_code,
+        `${input} must be asked for by the time ${projection.artifact_type_id} is due`);
+      assert.notEqual(input, projection.artifact_type_id);
+    }
+  }
+
+  // Same inputs, same answer.
+  const again = projectGenericLayerEdges({ generic_variant: generic, national_variant: national });
+  assert.deepEqual(again.projections, result.projections);
+  assert.deepEqual(again.receipt.counts, result.receipt.counts);
+  assert.deepEqual(again.receipt.effects, {
+    erp_writes: 0, filesystem_writes: 0, model_calls: 0, network_calls: 0, clock_reads: 0,
+  });
+
+  // A national layer that shares no token with the generic one projects nothing rather than
+  // guessing a correspondence.
+  const stranger = structuredClone(national);
+  for (const gate of stranger.gates) {
+    for (const task of gate.tasks) {
+      if (task.artifact_type_id) task.artifact_type_id = `zz_${task.artifact_type_id}`;
+    }
+  }
+  assert.equal(projectGenericLayerEdges({ generic_variant: generic, national_variant: stranger })
+    .projections.length, 0);
+
+  // The spec is the single source: what the helper computes is what the tracked spec carries.
+  const projected = national.gates.flatMap((gate) => gate.tasks
+    .filter((task) => task.depends_on_origin === 'generic_layer_projection'
+      || task.depends_on_origin === 'mixed')
+    .map((task) => [gate.code, task.artifact_type_id, task.depends_on]));
+  assert.ok(projected.length > 0, 'the national spec carries the projected edges');
+  for (const [gateCode, token, dependsOn] of projected) {
+    const projection = result.projections.find((row) => row.gate_code === gateCode
+      && row.artifact_type_id === token);
+    assert.ok(projection, `${gateCode}/${token} is not something the helper produces`);
+    for (const input of projection.depends_on) assert.ok(dependsOn.includes(input), input);
+  }
 });
 
 // ---------------------------------------------------------------- 14. static effect pin

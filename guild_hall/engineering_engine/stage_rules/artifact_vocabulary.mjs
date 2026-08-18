@@ -298,6 +298,99 @@ export const ARTIFACT_VOCABULARY_V0 = Object.freeze([
   entry('tdp_exchange', 'internal', '기술자료 송수신', 'Technical Data Exchange', 'project_management'),
 ]);
 
+// ---------------------------------------------------------------- synonyms and cross-layer matches
+
+/**
+ * True synonyms: two tokens that name the same artifact at different maturities, so a rule about
+ * one is a rule about the other.
+ *
+ * This is a global claim and the bar for entering it is high. A token only belongs here when the
+ * two tracked specs describe the same document — not when they merely sit near each other in a
+ * lifecycle. The one pair here is stated by the national spec's own row: the preliminary test and
+ * evaluation master plan is described as growing into the test and evaluation master plan after
+ * the system functional review, and that spec carries rows for both.
+ *
+ * Tokens are never renamed. An alias is a second name for a canonical token; both keep working.
+ */
+export const ARTIFACT_TYPE_ALIASES = Object.freeze({
+  p_temp: 'temp',
+});
+
+/**
+ * The canonical token for `id`, following the synonym map. Identity for everything else.
+ *
+ * Deliberately NOT a cross-layer resolver: see `CROSS_LAYER_TOKEN_EQUIVALENCE` for that, and the
+ * comment there for why the two are different questions.
+ */
+export function canonicalArtifactType(id) {
+  if (typeof id !== 'string') return null;
+  return ARTIFACT_TYPE_ALIASES[id] ?? id;
+}
+
+/**
+ * Which token the buyer-independent layer (①) and the national procurement layer (②) use for the
+ * same artifact, so a relation read in one layer can be projected onto the other.
+ *
+ * This is NOT the same claim as a synonym, and conflating the two would corrupt the vocabulary.
+ * Three of the four entries are `national_row_assignment`: the national spec's ROW is plainly the
+ * artifact the generic token names — its own row name and term say so — but the token it was given
+ * belongs, in the vocabulary, to a different document. Recording that here keeps the projection
+ * honest and reversible: nothing is renamed, no global meaning changes, and correcting the row's
+ * token assignment stays a separate D44 decision.
+ *
+ * `basis` cites the two specs' own row text, which is what a reader can check.
+ */
+export const CROSS_LAYER_TOKEN_EQUIVALENCE = Object.freeze([
+  Object.freeze({
+    generic_token: 'temp',
+    national_token: 'p_temp',
+    kind: 'synonym',
+    basis: 'national row 예비시험평가기본계획서(P-TEMP), term P-TEMP, described as growing into the TEMP after SFR; the same spec also carries temp rows',
+  }),
+  Object.freeze({
+    generic_token: 'vcrm',
+    national_token: 'spec_linkage_table',
+    kind: 'national_row_assignment',
+    basis: 'national row 요구사항검증매트릭스(VCRM)_F, term VCRM; the 국방규격화 연계표 the token is named for sits on the defense_spec_draft row instead',
+  }),
+  Object.freeze({
+    generic_token: 'vdd',
+    national_token: 'sps',
+    kind: 'national_row_assignment',
+    basis: 'national row SW산출물명세서(SPS_VDD), term SPS/VDD; the vocabulary reads sps as 체계성능시방서, and the generic layer already chose vdd for this row',
+  }),
+  Object.freeze({
+    generic_token: 'conops',
+    national_token: 'ord',
+    kind: 'national_row_assignment',
+    basis: 'national row 운용개념(CONOPS), term CONOPS; the generic layer keeps ord (소요-작전운용성능참조문서) and conops as separate rows',
+  }),
+]);
+
+// Two rejected hypotheses, kept so they are not re-proposed:
+//
+// - `spec_linkage_table` ↔ `rtm`. Refused: the national spec carries three dedicated 요구사항추적표
+//   (RTM) rows under `rtm` already, and its single `spec_linkage_table` row is the verification
+//   cross-reference matrix. The 국방규격화 연계표 itself rides on the defense specification draft row.
+// - bundle matches (`fca_plan`+`fca_checklist`+`pca_plan`+`pca_checklist` ↔ `fca_pca_plan_checklist`,
+//   and several test documents ↔ `test_docs`). These are many-to-one and cannot be stated as an
+//   equivalence between two tokens without deciding which of the four the bundle "is".
+
+const GENERIC_TO_NATIONAL = new Map(CROSS_LAYER_TOKEN_EQUIVALENCE.map((row) => [row.generic_token, row.national_token]));
+const NATIONAL_TO_GENERIC = new Map(CROSS_LAYER_TOKEN_EQUIVALENCE.map((row) => [row.national_token, row.generic_token]));
+
+/** The national-layer token for a generic-layer token, or the token itself when none is recorded. */
+export function nationalTokenFor(id) {
+  if (typeof id !== 'string') return null;
+  return GENERIC_TO_NATIONAL.get(id) ?? id;
+}
+
+/** The generic-layer token for a national-layer token, or the token itself when none is recorded. */
+export function genericTokenFor(id) {
+  if (typeof id !== 'string') return null;
+  return NATIONAL_TO_GENERIC.get(id) ?? id;
+}
+
 const BY_ID = new Map(ARTIFACT_VOCABULARY_V0.map((row) => [row.artifact_type_id, row]));
 
 /** True when `id` is a token this vocabulary owns. */

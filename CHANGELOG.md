@@ -1,5 +1,61 @@
 # CHANGELOG
 
+## 2026-08-18 - A causal spine for the national rule layer: backwards edges removed, gate roles, cross-layer projection, importance ordering
+
+Reviewing the first pass on real output found three things wrong with it, and this change is the
+correction. The rule tables now answer "what first" with the requirements specification rather
+than with whichever plan sorts earliest alphabetically.
+
+- **Backwards edges removed.** The practice guide's activity table had been read as "the
+  functional analysis produces the system requirements specification", which puts the analysis
+  before the thing it analyses. Four such edges are deleted rather than reversed — reversing would
+  be a claim no canonical text makes. A regulation sentence stating the correct direction (the
+  operational requirements are what the specification is written from) is among the candidates in
+  the next bullet, awaiting confirmation.
+- **A review's input list is a gate role, not causality.** New spec field `gate_role`:
+  `core` (what the review is stated to produce), `entry` (what it is stated to expect on the
+  table), `supporting` (default). Sources: the 방사청 review guidebook's per-review 주요 산출물 /
+  INPUT tables and the SE 기술관리 실무지침서 completion products for ②, NASA NPR 7123.1D appendix G
+  success / entrance criteria for ①. Counts: ① core 32 / entry 57 / supporting 161; ② core 25 /
+  entry 4 / supporting 125. The technical-review activity keeps its own `depends_on` — that is not
+  a relation between artifacts but what the meeting itself waits for.
+- **The two layers now meet.** None of the generic layer's 128 relations reached the national one,
+  because the tokens differ. The vocabulary gains `ARTIFACT_TYPE_ALIASES` +
+  `canonicalArtifactType(id)` for true synonyms (one pair: `p_temp` → `temp`) and a separate,
+  deliberately different `CROSS_LAYER_TOKEN_EQUIVALENCE` (4 pairs) for "the national row is
+  plainly this artifact, though its token says otherwise" — kept apart so a layer mapping cannot
+  corrupt a global meaning. The packet's `spec_linkage_table` ↔ `rtm` hypothesis was **refused**
+  on inspection: the national spec already carries three `rtm` rows and its `spec_linkage_table`
+  row is the verification cross-reference matrix. New pure export
+  `projectGenericLayerEdges({generic_variant, national_variant})` carries relations across by
+  composing two stated ones through a single activity (`A is an input of X` + `X produces B` give
+  `B needs A`); the result never rises above `general_se_guidance`, records the activity it went
+  through, and is marked `depends_on_origin: generic_layer_projection` in the row it lands on.
+  52 edges landed on 20 national rows.
+- **Form-reference edges.** Where a canonical form for artifact A has a field that requires naming
+  artifact B (적용문서 / 근거문서 / 규격 항번 / 추적성), A needs B. 62 read, 21 with both endpoints
+  tokenised, 9 landed. The strongest come from the three real grid forms in the 2017 guidebook's
+  appendix E; the practice guide has no 별지 서식 body at all, which is recorded rather than
+  worked around.
+- **Importance ordering.** `orderStageWork` gains two tie-breaks after evidence rank: gate role
+  (core > entry > supporting), then how many later work items name the token as an input, counted
+  over the whole compile from the rules alone. The "gate entrance criteria first" tie-break that
+  the previous pass had to declare **skipped** is now applied, and `tie_breaks_skipped` is empty.
+- Measured effect on an empty 체계개발 project (zero observations, national common + prime
+  overlay): 030_SRR now opens with 체계요구사항명세서 instead of ICD, and causal links across
+  SRR..PCA went from 10 to 25 (4·1·1·1·1·1·1 → 3·4·4·4·2·4·4; SRR drops by one because that is
+  where the four backwards edges were).
+- **Regulation-grade ordering: candidates only.** Every edge so far is guidance- or
+  guidebook-grade. 60 ordering sentences were extracted from 방위사업관리규정 and
+  국방전력발전업무훈령 (51 high confidence, 16 with both endpoints tokenised) and written to the
+  private worksite with an Owner confirmation sheet. **None is in any spec**: a regulation-grade
+  edge outranks a guidebook one, so a person confirms before it becomes a rule — the same rule the
+  engine already applies to observations.
+- Specs `SE_FolderTree_GenericSE_Base.md` v0.2 → **v0.3** and `SE_FolderTree_Guide.md` v0.9 →
+  **v0.10**. Verification: `export_variant_json.py --check` PASS, `validate:se-stage-rules` 50/50
+  (five new cases), `validate:canon`, `validate:path-length`, the local absolute path policy and
+  the engine manifest/topology all PASS, and folder generation is unchanged.
+
 ## 2026-08-18 - Observation cues widened, folder-level confirmation, and manual chapter 10
 
 Owner said yes to the three questions the previous slice left open, and the answers are three

@@ -31,7 +31,10 @@ import { canonicalise, compareCodePoints, isCanonicalInstant } from '../kernel/c
 import { CANONICAL, REF_REQUIRED_FIELDS } from '../kernel/contract_config.mjs';
 import { AUTHORITY_FAMILIES } from '../kernel/authority.mjs';
 import { isWellFormedRef } from '../kernel/identity.mjs';
-import { ARTIFACT_FAMILIES, CAPABILITY_TOKENS, artifactTypeEntry } from './artifact_vocabulary.mjs';
+import {
+  ARTIFACT_FAMILIES, CAPABILITY_TOKENS, CROSS_LAYER_TOKEN_EQUIVALENCE, artifactTypeEntry,
+  nationalTokenFor,
+} from './artifact_vocabulary.mjs';
 
 export const STAGE_RULE_COMPILER_SCHEMA_VERSION = 'soulforge.se_stage_rule_compiler.v0';
 export const COMPILED_VARIANT_SCHEMA_VERSION = 'soulforge.se_foldertree_compiled_variant.v0';
@@ -145,6 +148,27 @@ export const SE_FLOORS = Object.freeze(['must_have', 'should_have', 'context']);
 // a row carries `evidence_record` naming the records that would show it happened.
 export const NODE_KINDS = Object.freeze(['artifact', 'activity', 'decision']);
 const DEFAULT_NODE_KIND = 'artifact';
+
+// What a row is TO its gate, which is a different question from what it needs first.
+//
+// `core` is what the review exists to produce — the guidebook's 주요 산출물 column, the NASA
+// success criteria. `entry` is material the review expects to already be on the table — the
+// INPUT column, the entrance criteria. `supporting` is everything else the gate carries.
+//
+// This is the distinction the earlier pass got wrong: a review's input list was read as though
+// the listed artifacts fed each other, which produced backwards edges (functional analysis before
+// the requirements it analyses). An input list says what has to exist by the review, not what
+// derives from what, so it belongs here and not in `depends_on`.
+export const GATE_ROLES = Object.freeze(['core', 'entry', 'supporting']);
+const DEFAULT_GATE_ROLE = 'supporting';
+const GATE_ROLE_RANK = Object.freeze({ core: 0, entry: 1, supporting: 2 });
+
+// Where a row's declared inputs came from. `canonical` is the ordinary case: a text in this row's
+// own layer said it. `generic_layer_projection` marks an edge carried across from the buyer- and
+// country-independent layer through the recorded token equivalence, and `mixed` a row that has
+// both. A projected edge never outranks a canonical one — it arrives at `general_se_guidance`.
+export const DEPENDS_ON_ORIGINS = Object.freeze(['canonical', 'generic_layer_projection', 'mixed']);
+const DEFAULT_DEPENDS_ON_ORIGIN = 'canonical';
 
 // Which grade of canonical text states a dependency edge. An edge is only as strong as the text
 // behind it, and a practice-only edge — one everybody follows and no canonical text writes down —
@@ -428,6 +452,8 @@ const TASK_OPTIONAL_FIELDS = Object.freeze([
   // is virtual (a rule with no folder of its own).
   'node_kind', 'depends_on', 'depends_on_refs', 'depends_on_evidence', 'evidence_record',
   'is_virtual',
+  // What this row is to its gate, and where its declared inputs came from.
+  'gate_role', 'depends_on_origin',
 ]);
 const SOURCE_REF_FIELDS = Object.freeze(['source_key', 'locator']);
 const PROJECT_BINDING_FIELDS = Object.freeze([
@@ -600,6 +626,14 @@ function validateCompiledVariant(variant) {
       }
       if (task.depends_on_evidence !== undefined) {
         assertEnum(task.depends_on_evidence, EVIDENCE_LEVELS, `${taskWhere}.depends_on_evidence`,
+          STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
+      }
+      if (task.gate_role !== undefined) {
+        assertEnum(task.gate_role, GATE_ROLES, `${taskWhere}.gate_role`,
+          STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
+      }
+      if (task.depends_on_origin !== undefined) {
+        assertEnum(task.depends_on_origin, DEPENDS_ON_ORIGINS, `${taskWhere}.depends_on_origin`,
           STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
       }
       if (task.depends_on_refs !== undefined) {
@@ -886,6 +920,8 @@ function variantRow(stageCode, sequence, task, conditions, counts) {
     is_fixed: isFixed,
     node_kind: nodeKind,
     is_virtual: isVirtual,
+    gate_role: task.gate_role ?? DEFAULT_GATE_ROLE,
+    depends_on_origin: task.depends_on_origin ?? DEFAULT_DEPENDS_ON_ORIGIN,
     // Declared inputs are deduplicated and sorted here so that the order the spec happens to
     // list them in cannot reach a digest or a work order.
     depends_on: [...new Set(task.depends_on ?? [])].sort(compareCodePoints),
@@ -931,6 +967,10 @@ function overlayAddRow(op, sequence) {
     // rows exist and can therefore reach this row too.
     node_kind: DEFAULT_NODE_KIND,
     is_virtual: false,
+    // A contract addition is material this project's buyer asked for at that gate, which is what
+    // `entry` means. It is not the review's own stated purpose, so it is never `core`.
+    gate_role: 'entry',
+    depends_on_origin: DEFAULT_DEPENDS_ON_ORIGIN,
     depends_on: [],
     depends_on_evidence: DEFAULT_DEPENDS_ON_EVIDENCE,
     depends_on_refs: [],
@@ -1108,6 +1148,7 @@ const emptyCounts = () => ({
   by_evidence_level: Object.fromEntries(EVIDENCE_LEVELS.map((level) => [level, 0])),
   by_presence_rule: Object.fromEntries(Object.values(PRESENCE_RULE).map((rule) => [rule, 0])),
   by_node_kind: Object.fromEntries(NODE_KINDS.map((kind) => [kind, 0])),
+  by_gate_role: Object.fromEntries(GATE_ROLES.map((role) => [role, 0])),
   engine_requirements: 0,
   not_applicable: 0,
   overlay_added: 0,
@@ -1279,6 +1320,7 @@ export function compileStageRules(request) {
     counts.by_evidence_level[row.evidence_level] += 1;
     counts.by_presence_rule[row.minimum_presence_rule] += 1;
     counts.by_node_kind[row.node_kind] += 1;
+    counts.by_gate_role[row.gate_role] += 1;
     if (row.is_virtual) counts.virtual_rows += 1;
     if (row.draftability_rule === DRAFTABILITY.NOT_APPLICABLE) counts.not_applicable += 1;
 
@@ -1337,6 +1379,8 @@ export function compileStageRules(request) {
       origin: row.origin,
       node_kind: row.node_kind,
       is_virtual: row.is_virtual,
+      gate_role: row.gate_role,
+      depends_on_origin: row.depends_on_origin,
       evidence_level: row.evidence_level,
       se_floor: row.se_floor,
       maturity: row.maturity,
@@ -1412,6 +1456,178 @@ export function compileStageRules(request) {
   });
 }
 
+// ---------------------------------------------------------------- cross-layer edge projection
+
+export const GENERIC_EDGE_PROJECTION_SCHEMA_VERSION = 'soulforge.se_generic_edge_projection.v0';
+const PROJECTED_EDGE_EVIDENCE = 'general_se_guidance';
+
+/**
+ * Carries the buyer- and country-independent layer's input relations across to a national layer.
+ *
+ * Why this is needed at all: the generic layer states its relations bipartitely — an artifact
+ * needs an activity, and that activity needs artifacts. The national layer has almost none of
+ * those activity rows, so nothing joined the two and the national tables were left with no
+ * artifact-to-artifact ordering at all.
+ *
+ * So each projected edge is a COMPOSITION of two statements the generic layer does make, through
+ * one activity: `A is an input of activity X` and `X produces B` give `B needs A`. That is a
+ * sound composition, but it is not a sentence any canonical text wrote, which is why the result
+ * never rises above `general_se_guidance`, always records the activity it went through, and is
+ * marked `generic_layer_projection` in the row it lands on. The national layer's own edges
+ * outrank it wherever both exist.
+ *
+ * Both endpoints must exist in the national layer, and the input must be required at the same
+ * gate or an earlier one — an edge to something the national layer only asks for later would say
+ * "wait for a thing that has not been asked for yet".
+ *
+ * Pure: the caller reads and writes the files.
+ *
+ * @param request `{ generic_variant, national_variant }`, both compiled variant JSON
+ * @returns deeply frozen `{schema_version, projections[], receipt}`
+ */
+export function projectGenericLayerEdges(request) {
+  assertExactKeys(request, ['generic_variant', 'national_variant'], [], 'projection request');
+  const generic = request.generic_variant;
+  const national = request.national_variant;
+  validateCompiledVariant(generic);
+  validateCompiledVariant(national);
+
+  // Where each layer asks for each token, by gate code.
+  const gatesOfToken = (variant) => {
+    const map = new Map();
+    for (const gate of variant.gates) {
+      for (const task of gate.tasks) {
+        if (!task.artifact_type_id) continue;
+        if (!map.has(task.artifact_type_id)) map.set(task.artifact_type_id, []);
+        map.get(task.artifact_type_id).push(gate.code);
+      }
+    }
+    for (const codes of map.values()) codes.sort((left, right) => left - right);
+    return map;
+  };
+  const nationalGates = gatesOfToken(national);
+  const firstNationalGate = new Map([...nationalGates].map(([token, codes]) => [token, codes[0]]));
+
+  // The generic layer's activity rows, by token, with the gate they sit at and what they need.
+  const activityRows = [];
+  const producedBy = new Map(); // activity token -> [{token, gate_code, refs}]
+  for (const gate of generic.gates) {
+    for (const task of gate.tasks) {
+      if (!task.artifact_type_id) continue;
+      const kind = task.node_kind ?? DEFAULT_NODE_KIND;
+      if (kind !== DEFAULT_NODE_KIND) {
+        activityRows.push({
+          token: task.artifact_type_id,
+          gate_code: gate.code,
+          inputs: [...new Set(task.depends_on ?? [])].sort(compareCodePoints),
+          refs: task.depends_on_refs ?? [],
+        });
+        continue;
+      }
+      for (const producer of task.depends_on ?? []) {
+        if (!producedBy.has(producer)) producedBy.set(producer, []);
+        producedBy.get(producer).push({
+          token: task.artifact_type_id, gate_code: gate.code, refs: task.depends_on_refs ?? [],
+        });
+      }
+    }
+  }
+  activityRows.sort((left, right) => left.gate_code - right.gate_code
+    || compareCodePoints(left.token, right.token));
+
+  const counts = {
+    generic_activity_rows: activityRows.length,
+    composed_generic_edges: 0,
+    projected_edges: 0,
+    dropped_endpoint_absent: 0,
+    dropped_input_not_yet_required: 0,
+    dropped_self_edge: 0,
+    rows_touched: 0,
+  };
+  const byRow = new Map();
+
+  for (const activity of activityRows) {
+    for (const product of producedBy.get(activity.token) ?? []) {
+      // The statement of what the activity needs has to be the one that was current when the
+      // product was due: the latest activity row at or before the product's gate.
+      const current = activityRows
+        .filter((row) => row.token === activity.token && row.gate_code <= product.gate_code)
+        .pop();
+      if (current === undefined || current.gate_code !== activity.gate_code) continue;
+      for (const input of current.inputs) {
+        counts.composed_generic_edges += 1;
+        const target = nationalTokenFor(product.token);
+        const source = nationalTokenFor(input);
+        if (target === source) { counts.dropped_self_edge += 1; continue; }
+        const targetGates = nationalGates.get(target);
+        if (targetGates === undefined || !nationalGates.has(source)) {
+          counts.dropped_endpoint_absent += 1;
+          continue;
+        }
+        let landed = false;
+        for (const gateCode of targetGates) {
+          if (firstNationalGate.get(source) > gateCode) continue;
+          const key = `${gateCode}${target}`;
+          if (!byRow.has(key)) {
+            byRow.set(key, {
+              gate_code: gateCode,
+              artifact_type_id: target,
+              depends_on: new Set(),
+              via: new Set(),
+              refs: [],
+            });
+          }
+          const entry = byRow.get(key);
+          entry.depends_on.add(source);
+          entry.via.add(activity.token);
+          for (const ref of [...current.refs, ...product.refs]) {
+            if (!entry.refs.some((seen) => seen.source_key === ref.source_key && seen.locator === ref.locator)) {
+              entry.refs.push({ source_key: ref.source_key, locator: ref.locator });
+            }
+          }
+          landed = true;
+        }
+        if (landed) counts.projected_edges += 1;
+        else counts.dropped_input_not_yet_required += 1;
+      }
+    }
+  }
+
+  const projections = [...byRow.values()]
+    .map((entry) => ({
+      gate_code: entry.gate_code,
+      artifact_type_id: entry.artifact_type_id,
+      depends_on: [...entry.depends_on].sort(compareCodePoints),
+      via_activity: [...entry.via].sort(compareCodePoints),
+      depends_on_evidence: PROJECTED_EDGE_EVIDENCE,
+      depends_on_origin: 'generic_layer_projection',
+      depends_on_refs: entry.refs
+        .sort((left, right) => compareCodePoints(`${left.source_key}${left.locator}`,
+          `${right.source_key}${right.locator}`)),
+    }))
+    .sort((left, right) => left.gate_code - right.gate_code
+      || compareCodePoints(left.artifact_type_id, right.artifact_type_id));
+  counts.rows_touched = projections.length;
+
+  return deepFreeze({
+    schema_version: GENERIC_EDGE_PROJECTION_SCHEMA_VERSION,
+    generic_support_key: generic.support_key,
+    national_support_key: national.support_key,
+    equivalence_used: CROSS_LAYER_TOKEN_EQUIVALENCE.map((row) => ({ ...row })),
+    projections,
+    receipt: {
+      schema_version: GENERIC_EDGE_PROJECTION_SCHEMA_VERSION,
+      deterministic: true,
+      claim_ceiling: 'observed',
+      composition_rule: 'input_of(A, X) and produces(X, B) give depends_on(B, A); never stronger than general_se_guidance',
+      counts,
+      effects: {
+        erp_writes: 0, filesystem_writes: 0, model_calls: 0, network_calls: 0, clock_reads: 0,
+      },
+    },
+  });
+}
+
 // ---------------------------------------------------------------- work order (D46)
 
 export const STAGE_WORK_ORDER_SCHEMA_VERSION = 'soulforge.se_stage_work_order.v0';
@@ -1432,11 +1648,11 @@ const WORK_ORDER_TIE_BREAKS_APPLIED = Object.freeze([
   'dependency_topological_within_stage',
   'unblocked_before_blocked',
   'evidence_rank',
+  'gate_role_rank',
+  'dependents_count_desc',
   'artifact_type_id',
 ]);
-const WORK_ORDER_TIE_BREAKS_SKIPPED = Object.freeze([
-  'gate_entrance_criteria_first: no rule spec field marks a row as gate entrance criteria',
-]);
+const WORK_ORDER_TIE_BREAKS_SKIPPED = Object.freeze([]);
 
 function validateObservations(observations) {
   const rows = assertArray(observations, 'observations', MAX.tasks,
@@ -1477,6 +1693,13 @@ function validateObservations(observations) {
  * With no observations at all — the empty project — every declared input is unsatisfied, so a
  * stage opens with the items that need nothing first.
  *
+ * Among items the rules do not separate, two further questions decide which is offered first, and
+ * both are read off the rules rather than guessed. What is the item TO this gate — the thing the
+ * review exists to produce (`core`), material it expects on the table (`entry`), or the rest? And
+ * how much later work names it as an input? An artifact half the programme depends on is worth
+ * starting before one nothing waits for, which is what stops a centrepiece specification from
+ * being buried alphabetically among plans.
+ *
  * @param compileResult the return value of `compileStageRules`
  * @param observations optional `[{artifact_type_id, presence_state}]`, the per-artifact projection
  *        of the pilot packet's `artifact_observations`
@@ -1512,6 +1735,8 @@ export function orderStageWork(compileResult, observations = []) {
         artifact_type_id: row.artifact_type_id,
         node_kind: row.node_kind ?? DEFAULT_NODE_KIND,
         is_virtual: row.is_virtual === true,
+        gate_role: row.gate_role ?? DEFAULT_GATE_ROLE,
+        depends_on_origin: row.depends_on_origin ?? DEFAULT_DEPENDS_ON_ORIGIN,
         evidence_level: row.evidence_level,
         minimum_presence_rule: row.minimum_presence_rule,
         engine_requirement_id: row.engine_requirement_id ?? null,
@@ -1535,6 +1760,14 @@ export function orderStageWork(compileResult, observations = []) {
       node.evidence_level = row.evidence_level;
       node.minimum_presence_rule = row.minimum_presence_rule;
     }
+    // The strongest role any row of the group carries speaks for the group: if one row says this
+    // artifact is what the review is for, the group is core.
+    if (GATE_ROLE_RANK[row.gate_role ?? DEFAULT_GATE_ROLE] < GATE_ROLE_RANK[node.gate_role]) {
+      node.gate_role = row.gate_role;
+    }
+    if (row.depends_on_origin !== undefined && row.depends_on_origin !== node.depends_on_origin) {
+      node.depends_on_origin = 'mixed';
+    }
     if (row.alias !== null && row.alias !== undefined) node.alias = row.alias;
     if (row.is_virtual === true) node.is_virtual = true;
     for (const token of row.evidence_record ?? []) node.evidence_record.push(token);
@@ -1548,9 +1781,23 @@ export function orderStageWork(compileResult, observations = []) {
     producingStages.get(row.artifact_type_id).add(row.stage_code);
   }
 
+  // How much later work names each token as an input, counted once per work item over every
+  // target stage of this compile. It is a property of the compiled rule set, so it is computed
+  // before any stage is ordered and is the same number wherever the token appears. A context row
+  // does not count as a dependent: it is not work anybody is asked to do.
+  const dependentsCount = new Map();
+  for (const node of nodes.values()) {
+    if (node.engine_requirement_id === null) continue;
+    for (const token of node.declared) {
+      if (token === node.artifact_type_id) continue;
+      dependentsCount.set(token, (dependentsCount.get(token) ?? 0) + 1);
+    }
+  }
+
   const counts = {
     stages: 0,
     work_items: 0,
+    by_gate_role: Object.fromEntries(GATE_ROLES.map((role) => [role, 0])),
     context_items: 0,
     ordering_edges: 0,
     forward_dependency: 0,
@@ -1603,6 +1850,7 @@ export function orderStageWork(compileResult, observations = []) {
         satisfied_inputs: satisfied,
         blocked_by: blockedBy,
         declared,
+        dependents_count: dependentsCount.get(node.artifact_type_id) ?? 0,
         observation_state: observationState,
       };
     });
@@ -1622,6 +1870,10 @@ export function orderStageWork(compileResult, observations = []) {
     const sortKey = (item) => [
       item.blocked_by.length === 0 ? '0' : '1',
       String(EVIDENCE_WORK_RANK[item.node.evidence_level] ?? 9),
+      String(GATE_ROLE_RANK[item.node.gate_role] ?? 9),
+      // Inverted and zero-padded so that a plain code-point comparison sorts it descending:
+      // what more of the programme is waiting on is offered first.
+      String(9999 - Math.min(9999, item.dependents_count)).padStart(4, '0'),
       item.node.artifact_type_id,
     ].join('');
     const emitted = [];
@@ -1654,12 +1906,17 @@ export function orderStageWork(compileResult, observations = []) {
         counts.context_items += 1;
         continue;
       }
+      counts.by_gate_role[item.node.gate_role] += 1;
       workItems.push({
         order_index: workItems.length,
         stage_code: stageCode,
         artifact_type_id: item.node.artifact_type_id,
         node_kind: item.node.node_kind,
         is_virtual: item.node.is_virtual,
+        gate_role: item.node.gate_role,
+        gate_role_rank: GATE_ROLE_RANK[item.node.gate_role] ?? 9,
+        dependents_count: item.dependents_count,
+        depends_on_origin: item.node.depends_on_origin,
         evidence_level: item.node.evidence_level,
         evidence_rank: EVIDENCE_WORK_RANK[item.node.evidence_level] ?? 9,
         minimum_presence_rule: item.node.minimum_presence_rule,
@@ -1696,6 +1953,7 @@ export function orderStageWork(compileResult, observations = []) {
     tie_breaks_applied: [...WORK_ORDER_TIE_BREAKS_APPLIED],
     tie_breaks_skipped: [...WORK_ORDER_TIE_BREAKS_SKIPPED],
     evidence_rank: { ...EVIDENCE_WORK_RANK },
+    gate_role_rank: { ...GATE_ROLE_RANK },
     input_digests: {
       mapping_table: canonicalDigest(compilerDomain('mapping_table'), mappingTable),
       observations: canonicalDigest(compilerDomain('work_order_observations'), [...observations]),
