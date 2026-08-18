@@ -1,5 +1,56 @@
 # CHANGELOG
 
+## 2026-08-18 - The engine's MCP door, built and left switched off
+
+The Owner decision (plan 9.1A) is that the one way in from outside is MCP: no terminal CLI product,
+the existing runners stay internal, and the server lives under the engine owner rather than inside
+dev-ERP so the engine's release path does not depend on a component whose future is undecided.
+This lands that door. It is off, and turning it on is a separate Owner decision.
+
+- **New `guild_hall/engineering_engine/mcp/`.** A hand-rolled JSON-RPC 2.0 server over stdio —
+  `initialize`, `notifications/initialized`, `ping`, `tools/list`, `tools/call`, protocol version
+  `2025-06-18`, newline-delimited. Five methods did not justify a new npm dependency. Results carry
+  a markdown `content` block for a person and `structuredContent` for an agent, both rendered from
+  one value, plus the engine version.
+- **Off by default, twice.** Without `SOULFORGE_ENGINE_MCP=on` the process prints one line and
+  exits 3. Without `SOULFORGE_ENGINE_MCP_WRITE=on` the four write tools remain listed but refuse
+  the call with `WRITE_TOOLS_DISABLED` — listed rather than hidden, because hiding them would make
+  "off" indistinguishable from "absent". A profile the validator rejects stops the process (exit 4)
+  instead of opening a half-bound door. Nothing is registered with any client configuration.
+- **One private profile per project** (`soulforge.engine_project_profile.v0`). Every path is
+  absolute, carries no `..` segment — checked against the raw string, since normalising one away is
+  exactly how a path that reads as inside the project resolves outside it — and lies under
+  `_workspaces/**`, `_workmeta/**` or the compiled rule-spec assets. The key set is exact: an
+  unknown key is refused rather than ignored, because an ignored key is a setting its writer
+  believes is in force. The only path a caller may supply is a confirmation sheet, and it must sit
+  under the observation run the profile names.
+- **Thirteen tools with no logic of their own** (nine read, four write): `rules_layers`,
+  `rules_stage`, `rules_card`, `rules_version`, `observe_scan`\*, `observe_register`\*,
+  `observe_confirm`\*, `observe_status`, `judge_run`\*, `judge_result`, `judge_diff`, `next_steps`,
+  `project_status`. Each calls functions that already exist — the compiler, the work order, the
+  guide cards, the instruction packets, the answer renderer, the confirmation sheet, the packet
+  generator, and the two runners spawned exactly as chapter 7 documents. Two boundaries are written
+  into the tool definitions rather than into a comment: `observe_register` records a candidate
+  awaiting human confirmation, never an observation (none of the three automatic-confirmation
+  conditions is "somebody said so"), and `next_steps` quotes a stored judgement and writes nothing,
+  because an answer handed back through a call is not a record and should not pretend to be one.
+- **A metadata-only receipt per call.** Tool name, argument and result digests, duration, engine
+  version, refusal code — appended as one JSONL line under the profile's receipts directory. No
+  payload, no path, no filename; a test asserts those keys never appear. Writes into `_workmeta`
+  call the same policy function the repository's own `guard:workmeta-write` uses, so the door is
+  not an exception to it.
+- **`npm run validate:se-mcp`** — 28 tests: profile validation, every read tool against the public
+  synthetic fixtures compared byte for byte with calling the pure function directly, determinism
+  across fresh contexts, create-only refusals, and the protocol driven over a real child process.
+  New public fixture `docs/architecture/workspace/examples/se_stage_rules/project_profile_synthetic_v0.json`
+  and `fixtures/engine_mcp_synthetic_project.mjs`, which stages those fixtures into a temporary
+  project. No real project material enters a test.
+- Manual chapter 12 (`manual/12_mcp_door.md`) documents the switches, the profile, the tool table,
+  the receipt, the locks and the limits; the manual README's agreed-but-missing list now reads
+  "MCP 문 + 야간 예약 실행 → 부분(꺼진 채 착지)". Still missing and still drawn: the answer mailbox
+  and context fill (B2), the nightly schedule (B3, outside the engine), project start-up (C1), the
+  document content checker (D1).
+
 ## 2026-08-18 - Engine version slot (0.0.0) and release manifest
 
 - New `guild_hall/engineering_engine/topology/ENGINE_VERSION` (`0.0.0` while the engine is under construction; Owner: real numbering starts at canon promotion) and `topology/engine_release.json` emitted by `tools/emit_release_manifest.mjs`: one label binding the rule-layer spec versions/shas, prime overlays, vocabulary digest, compiler/generator versions, the engine code manifest sha and the git commit. `--check` recomputes everything except the stamp and fails on drift; `npm run validate:engine-release`. Run receipts already carry `policy_ref`; stamping `engine_version` into receipts is left to the MCP/release slice (B1).

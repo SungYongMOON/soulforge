@@ -1,0 +1,86 @@
+{
+  "fixture_id": "project_profile_synthetic_v0",
+  "schema_version": "soulforge.engine_project_profile_fixture.v0",
+  "note": "Public-safe synthetic fixture for guild_hall/engineering_engine/mcp/ (the engine MCP door, design 9.1A). The `profile` block below is the documentation copy: every path is the placeholder <abs> because a real profile is a private file whose paths point into _workspaces/** and _workmeta/**, and this repository holds no such path. A test builds a temporary profile with real temporary paths and asserts its key set against this block, so the documented shape cannot drift from the validator. The `observation_run` block is an invented observation run: the token is one the synthetic ordering fixture already declares, the counts are made up, and nothing here names an actual project, contract, organisation, document or person.",
+  "profile": {
+    "schema_version": "soulforge.engine_project_profile.v0",
+    "project_code": "SYN-000",
+    "business_type": "synthetic_ordering",
+    "prime": "synthetic_prime",
+    "quality_grade": "grade_a",
+    "compiled_variant": "<abs>",
+    "overlays": ["<abs>"],
+    "overlay_conditions": ["sw_included"],
+    "project_binding": "<abs or inline object>",
+    "base_packet": "<abs>",
+    "base_launch": "<abs or null>",
+    "alias_patterns": "<abs or null>",
+    "project_root": "<abs>",
+    "outputs_root": "<abs>",
+    "observations_dir": "<abs>",
+    "receipts_dir": "<abs>",
+    "runs_root": "<abs>",
+    "known_at_policy": "caller_supplied"
+  },
+  "path_roots": {
+    "note": "Which repository root each path field may sit under. `rule_assets` is .registry/skills/se_foldertree_generate/codex/assets — the compiled rule specs a project points at rather than copies.",
+    "project": "_workspaces/**",
+    "metadata": "_workmeta/**",
+    "rule_assets": ".registry/skills/se_foldertree_generate/codex/assets/**"
+  },
+  "observation_run": {
+    "known_at": "2026-08-18T15:00:00.000Z",
+    "artifact_observations_auto": {
+      "schema_version": "soulforge.artifact_observations_from_confirmed.v0",
+      "known_at": "2026-08-18T15:00:00.000Z",
+      "artifact_observations": [
+        {
+          "observation_id": "obs_030_SRR_conops",
+          "artifact_type_id": "conops",
+          "presence_state": "present",
+          "observation_attempt_ref": "observation:synthetic_scan:0000000000000000",
+          "valid_at": "2026-08-18T00:00:00.000Z",
+          "known_at": "2026-08-18T15:00:00.000Z"
+        }
+      ],
+      "by_stage": {
+        "030_SRR": [
+          {
+            "observation_id": "obs_030_SRR_conops",
+            "artifact_type_id": "conops",
+            "presence_state": "present"
+          }
+        ]
+      }
+    },
+    "receipt": {
+      "schema_version": "soulforge.artifact_observation_inventory_runner.v0",
+      "known_at": "2026-08-18T15:00:00.000Z",
+      "walk": { "files_inventoried": 12 },
+      "candidates": {
+        "counts": {
+          "candidates": 5,
+          "auto_confirmed": 1,
+          "needs_owner_confirmation": 4,
+          "auto_confirm_withheld_no_own_cue": 0
+        }
+      },
+      "housekeeping": {
+        "counts": {
+          "items": 2,
+          "by_kind": { "wrong_material": 1, "out_folder_empty": 1 }
+        }
+      }
+    }
+  },
+  "expected": {
+    "note": "Hand-written. The tool set is fixed at thirteen with four write tools; the synthetic project stands on two gates and one observation.",
+    "tool_count": 13,
+    "write_tool_names": ["observe_scan", "observe_register", "observe_confirm", "judge_run"],
+    "engine_stage_codes": ["030_SRR", "090_PDR"],
+    "observations_supplied": 1,
+    "housekeeping_items": 2,
+    "candidates": 5,
+    "needs_owner_confirmation": 4
+  }
+}

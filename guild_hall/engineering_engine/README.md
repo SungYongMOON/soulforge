@@ -1136,6 +1136,46 @@ npm run validate:se-guidance
 
 public-safe 합성 fixture는 `docs/architecture/workspace/examples/se_stage_rules/next_steps_synthetic_v0.json`이다.
 
+## MCP 문 (`mcp/`) — 만들어졌고 꺼져 있다
+
+Owner 결정(계획 9.1A): **밖에서 엔진을 부르는 정문은 MCP 하나다.** `mcp/`는 그 문이며 dev-ERP가 아니라
+엔진 owner 아래에 독립으로 산다. 도구는 **로직을 갖지 않는다** — 프로필이 지정한 파일을 읽고, 이미 있는
+순수 함수나 runner를 그대로 부르고, 결과를 마크다운과 JSON 두 벌로 낼 뿐이다. 상세는 매뉴얼
+[12장](manual/12_mcp_door.md).
+
+```text
+node guild_hall/engineering_engine/mcp/engine_mcp_server.mjs --profile <abs project_profile.json> [--repo-root <abs>]
+```
+
+- **스위치 둘.** `SOULFORGE_ENGINE_MCP=on`이 없으면 한 줄 거절 후 exit 3. `SOULFORGE_ENGINE_MCP_WRITE=on`이
+  없으면 쓰기 도구는 목록에 **보이되** 호출이 `WRITE_TOOLS_DISABLED`로 거절된다. 켜는 것은 Owner 결정이며
+  이 저장소는 어떤 클라이언트에도 이 서버를 등록하지 않았다.
+- **프로토콜.** stdio 위의 줄 단위 JSON-RPC 2.0을 직접 구현했다(`initialize` · `notifications/initialized` ·
+  `ping` · `tools/list` · `tools/call`, `protocolVersion` `2025-06-18`). 새 npm 의존성은 없다. 결과는
+  `content:[{type:'text'}]` + `structuredContent` + `_meta.engine_version`이다.
+- **프로필.** `mcp/project_profile.mjs`가 과제당 private JSON 한 장(`soulforge.engine_project_profile.v0`)을
+  검증한다. 모든 경로는 절대경로이고 `..`을 담지 않으며 `_workspaces/**` · `_workmeta/**` ·
+  `.registry/skills/se_foldertree_generate/codex/assets/**` 세 뿌리 안에만 있을 수 있다. 키 집합은 정확히
+  일치해야 하고 모르는 키는 무시가 아니라 거절이다. 호출자가 경로를 대는 자리는 확인표 하나뿐이며 그것도
+  프로필이 지정한 관측 폴더 아래여야 한다.
+- **도구 13종** (읽기 9 · 쓰기 4): `rules_layers` · `rules_stage` · `rules_card` · `rules_version` ·
+  `observe_scan`\* · `observe_register`\* · `observe_confirm`\* · `observe_status` · `judge_run`\* ·
+  `judge_result` · `judge_diff` · `next_steps` · `project_status` (\* = 쓰기).
+  `observe_register`는 관측이 아니라 **확인 대기 후보**를 남긴다(자동 확정 3조건은 채팅 발언을 포함하지
+  않는다, D37). `next_steps`는 저장된 판정을 인용만 하고 파일을 쓰지 않는다.
+- **영수증.** 도구에 닿은 호출마다 `receipts_dir/mcp_tool_calls.jsonl`에 한 줄 — 도구 이름, 인자·결과
+  digest, 소요 시간, engine_version, 거절 코드. **원문·경로·파일 이름은 들어가지 않는다.** `_workmeta`에
+  쓰기 전 저장소의 `guard:workmeta-write`와 같은 정책 함수를 문이 직접 부른다.
+- 잠금은 새로 만들지 않았다: launch + sha 핀, Owner 동결 grant, zero-write, create-only 출력.
+
+```text
+npm run validate:se-mcp
+```
+
+public-safe 합성 fixture는 `docs/architecture/workspace/examples/se_stage_rules/project_profile_synthetic_v0.json`이며
+`fixtures/engine_mcp_synthetic_project.mjs`가 그것과 `next_steps_synthetic_v0.json`을 임시 폴더에 과제
+모양으로 깔아 준다. 실제 과제 자료는 시험에 들어가지 않는다.
+
 ## AX·SE 프로젝트 평가 subject (active slice)
 
 `subjects/ax_se_project_assessment.mjs`는 exact source-bound project snapshot,
