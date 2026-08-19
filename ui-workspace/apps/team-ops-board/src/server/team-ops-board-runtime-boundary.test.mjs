@@ -61,7 +61,16 @@ import {
   transitionRuntimeState,
   transitionRuntimeDesiredState,
   validateRuntimeLaunchEnvironment,
+  TEAM_OPS_BOARD_RUNTIME_LIFECYCLE_EVENTS,
+  TEAM_OPS_BOARD_RUNTIME_LIFECYCLE_HISTORY_SCHEMA,
+  TEAM_OPS_BOARD_RUNTIME_LIFECYCLE_HISTORY_LIMIT,
+  createRuntimeLifecycleEntry,
+  isRuntimeLifecycleEntry,
 } from "../../ops/team-ops-board-runtime.mjs";
+import {
+  classifyBoundedHistory,
+  planBoundedHistoryAppend,
+} from "../core/bounded-observability-history.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const RUNTIME_SOURCE = path.resolve(HERE, "..", "..", "ops", "team-ops-board-runtime.mjs");
@@ -1244,4 +1253,107 @@ test("preflight controller rejects with owner_root_unavailable on temp LOCALAPPD
   assert.equal(captured.options.workerAliveAtCapture, false);
   assert.equal(captured.options.childExit.failureClass, "owner_root_unavailable");
   assert.equal(forkCalls.length, 0, "no fork calls");
+});
+
+test("runtime lifecycle history records material transitions with an exact bounded shape", () => {
+  assert.deepEqual([...TEAM_OPS_BOARD_RUNTIME_LIFECYCLE_EVENTS], [
+    "start", "ready", "stop_requested", "handled_fatal",
+    "restart_recovery", "child_restart", "child_exhausted",
+  ]);
+  assert.equal(TEAM_OPS_BOARD_RUNTIME_LIFECYCLE_HISTORY_LIMIT, 100);
+
+  const entry = createRuntimeLifecycleEntry({
+    event: "handled_fatal",
+    failureClass: "runtime_worker_failed",
+    observedAt: "2026-08-19T00:00:00.000Z",
+  });
+  // Ordered material events carry the whole answer. The entry holds no run id,
+  // pid, hash, or any other correlatable identity.
+  assert.deepEqual(entry, {
+    observed_at: "2026-08-19T00:00:00.000Z",
+    event: "handled_fatal",
+    failure_class: "runtime_worker_failed",
+  });
+  assert.equal(isRuntimeLifecycleEntry(entry), true);
+  assert.equal(isRuntimeLifecycleEntry({ ...entry, detail: "stack trace" }), false);
+  assert.equal(isRuntimeLifecycleEntry({ ...entry, event: "heartbeat" }), false);
+  assert.equal(isRuntimeLifecycleEntry({ ...entry, failure_class: "arbitrary text" }), false);
+  // An identity field is not merely ignored, it is rejected as an extra key.
+  assert.equal(isRuntimeLifecycleEntry({ ...entry, run_id: "0f3c1c1e-1c1e-4c1e-8c1e-1c1e1c1e1c1e" }), false);
+  assert.equal(isRuntimeLifecycleEntry({ ...entry, pid: 4192 }), false);
+  assert.equal(createRuntimeLifecycleEntry({ event: "heartbeat", observedAt: "2026-08-19T00:00:00.000Z" }), null);
+  assert.equal(createRuntimeLifecycleEntry({ event: "start", observedAt: "not-a-time" }), null);
+  assert.deepEqual(createRuntimeLifecycleEntry({ event: "start", observedAt: "2026-08-19T00:00:00.000Z" }), {
+    observed_at: "2026-08-19T00:00:00.000Z",
+    event: "start",
+    failure_class: null,
+  });
+  // A run id supplied by a caller cannot leak in through an ignored option.
+  assert.deepEqual(
+    createRuntimeLifecycleEntry({ event: "start", runId: "0f3c1c1e-1c1e-4c1e-8c1e-1c1e1c1e1c1e", observedAt: "2026-08-19T00:00:00.000Z" }),
+    { observed_at: "2026-08-19T00:00:00.000Z", event: "start", failure_class: null },
+  );
+});
+
+test("the 10s heartbeat stays latest-only and is never appended to lifecycle history", async () => {
+  const source = await readFile(RUNTIME_SOURCE, "utf8");
+  assert.match(source, /const HEARTBEAT_INTERVAL_MS = 10_000;/u);
+  // The heartbeat proves liveness; only transitions become history rows.
+  assert.doesNotMatch(source, /refreshRuntimeHeartbeat\([\s\S]{0,400}?appendRuntimeLifecycleEvent/u);
+  assert.match(source, /appendRuntimeLifecycleEvent\(paths, "ready"\)/u);
+  assert.match(source, /appendRuntimeLifecycleEvent\(paths, "stop_requested"\)/u);
+  assert.match(source, /appendRuntimeLifecycleEvent\(paths, "handled_fatal", \{ failureClass \}\)/u);
+  // No call site may pass identity into lifecycle history.
+  assert.doesNotMatch(source, /appendRuntimeLifecycleEvent\([^)]*runId/u);
+  assert.match(source, /appendRuntimeLifecycleEvent\(paths, "restart_recovery"/u);
+  assert.match(source, /appendRuntimeLifecycleEvent\(paths, "child_restart"/u);
+  assert.match(source, /appendRuntimeLifecycleEvent\(paths, "child_exhausted"/u);
+  // Termination last-good keeps its own separate file and contract.
+  assert.match(source, /terminationReceipt: path\.join\(root, "termination-receipt\.v1\.json"\)/u);
+  assert.match(source, /lifecycleHistory: path\.join\(root, "lifecycle-history\.v1\.json"\)/u);
+});
+
+test("a corrupt runtime lifecycle history is preserved and the core operation continues", async () => {
+  const source = await readFile(RUNTIME_SOURCE, "utf8");
+  // The append plans first and only writes a produced record; a preserved plan
+  // carries a null record precisely so the bad history cannot be written over.
+  assert.match(source, /planBoundedHistoryAppend\(\{/u);
+  assert.match(source, /if \(plan\.record === null\) return \{ outcome: plan\.outcome, reason: plan\.reason \};/u);
+  assert.match(source, /await writeJsonAtomic\(paths\.lifecycleHistory, plan\.record\);/u);
+  // Presence is probed, so a missing history is a safe first write while a
+  // present-but-untrustworthy one is classified invalid and preserved.
+  assert.match(source, /probeLifecycleHistory/u);
+  assert.match(source, /presence: "missing"/u);
+  assert.match(source, /presence: "unreadable"/u);
+  // Every call site stays best effort: no lifecycle append may throw into the
+  // start, ready, stop, fatal, or restart paths.
+  assert.match(source, /async function appendRuntimeLifecycleEvent\(paths, event, \{ failureClass = null \} = \{\}\) \{\n  try \{/u);
+  assert.match(source, /\} catch \{\n    return \{ outcome: "preserved", reason: "history_write_failed" \};\n  \}/u);
+  // No caller branches on the append result, so a preserved history can never
+  // change whether the runtime starts, stops, or restarts.
+  assert.doesNotMatch(source, /(const|let|if)[^\n]*await appendRuntimeLifecycleEvent/u);
+});
+
+test("lifecycle history classification preserves any present-but-invalid record", () => {
+  const good = { observed_at: "2026-08-19T00:00:00.000Z", event: "ready", failure_class: null };
+  const schemaVersion = TEAM_OPS_BOARD_RUNTIME_LIFECYCLE_HISTORY_SCHEMA;
+  const options = { schemaVersion, isEntry: isRuntimeLifecycleEntry };
+
+  assert.equal(classifyBoundedHistory({ presence: "missing", value: null, ...options }).state, "missing");
+  assert.equal(classifyBoundedHistory({ presence: "unreadable", value: null, ...options }).state, "invalid");
+  assert.equal(classifyBoundedHistory({ presence: "present", value: { schema_version: schemaVersion, entries: [good] }, ...options }).state, "valid");
+  for (const corrupt of [
+    { schema_version: "soulforge.foreign.v1", entries: [good] },
+    { schema_version: schemaVersion, entries: [good, { tampered: true }] },
+    { schema_version: schemaVersion, entries: [{ ...good, run_id: "0f3c1c1e-1c1e-4c1e-8c1e-1c1e1c1e1c1e" }] },
+    { schema_version: schemaVersion, entries: "nope" },
+    null,
+  ]) {
+    const classified = classifyBoundedHistory({ presence: "present", value: corrupt, ...options });
+    assert.equal(classified.state, "invalid");
+    assert.deepEqual(classified.entries, []);
+    const plan = planBoundedHistoryAppend({ classified, entry: good, schemaVersion, isEntry: isRuntimeLifecycleEntry });
+    assert.equal(plan.record, null, "no replacement record is ever produced for a corrupt history");
+    assert.equal(plan.outcome, "preserved");
+  }
 });

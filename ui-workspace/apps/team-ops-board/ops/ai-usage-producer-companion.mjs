@@ -1,15 +1,50 @@
 import { execFile } from "node:child_process";
-import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
+import { classifyBoundedHistory, planBoundedHistoryAppend } from "../src/core/bounded-observability-history.mjs";
 import { findCodexSessionFiles } from "../../../../guild_hall/ai_usage_meter/usage_meter.mjs";
 
 const execFileAsync = promisify(execFile);
 export const DEFAULT_USAGE_PRODUCER_INTERVAL_MS = 5 * 60 * 1_000;
 export const ACTIVE_CODEX_SESSION_MAX_AGE_MS = 15 * 60 * 1_000;
+// A collector child had no bound at all, so one wedged process could hold the
+// sweep's single-flight forever and every lane would silently stop aging.
+//
+// The bound is deliberately not tight: the Codex lane has been observed taking
+// ~78s live, so a 90s bound would kill healthy work. 180s leaves real headroom
+// over that observation while still terminating a wedged child.
+//
+// A slow sweep may therefore outrun the five-minute interval and skip one
+// overlapping tick, which is correct and self-correcting: trigger() simply
+// returns the in-flight sweep. What cannot happen is a permanent wedge, because
+// every child is bounded, so the sweep always terminates and always releases
+// single-flight for the next interval.
+export const DEFAULT_USAGE_PRODUCER_CHILD_TIMEOUT_MS = 180 * 1_000;
+export const USAGE_PRODUCER_CYCLE_SCHEMA = "soulforge.ai_usage_producer_cycle.v1";
+export const USAGE_PRODUCER_CYCLE_HISTORY_SCHEMA = "soulforge.ai_usage_producer_cycle_history.v1";
+export const USAGE_PRODUCER_CYCLE_HISTORY_LIMIT = 50;
+// A bounded read to match the bounded write: the history is read back on every
+// cycle, so an oversized, symlinked, or non-regular entry is refused before any
+// byte is parsed. 50 cycle rows with eight lanes each sit well under this.
+export const USAGE_PRODUCER_CYCLE_MAX_BYTES = 128 * 1024;
+// Fixed lane vocabulary. A cycle receipt names lanes only from this list, so it
+// can never grow a path, command line, session id, or provider payload.
+export const USAGE_PRODUCER_LANES = Object.freeze([
+  "lifecycle",
+  "codex",
+  "claude",
+  "antigravity",
+  "meter",
+  "store_usage_ledger",
+  "watchtower",
+  "active_sessions",
+]);
+export const USAGE_PRODUCER_LANE_STATUSES = Object.freeze(["ok", "error", "skipped"]);
 
 const SAFE_THREAD_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,239}$/u;
+const SAFE_ERROR_CODE = /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/u;
 const HEARTBEAT_SCHEMA = "soulforge.ai_usage_producer_heartbeat.v1";
 const ANTIGRAVITY_RESULT_SCHEMA = "soulforge.ai_usage_meter_collect_antigravity_result.v1";
 
@@ -37,6 +72,9 @@ function validateAntigravityCollectionResult(result) {
 }
 
 function safeErrorCode(error) {
+  // A timeout kill is checked before anything else: the child was terminated by
+  // us, so whatever it managed to print is not the reason it failed.
+  if (error?.killed === true) return "collector_timeout";
   try {
     const childError = JSON.parse(String(error?.stderr ?? ""))?.error;
     if (typeof childError === "string" && /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/u.test(childError)) return childError;
@@ -100,6 +138,178 @@ export async function persistProducerHeartbeat({ stateRoot, lane, attemptedAt, s
   return value;
 }
 
+// Every collector child gets the same bounded shape, so no lane can outlive the
+// sweep that owns it.
+function childOptions(repoRoot, childTimeoutMs) {
+  const timeout = Number.isSafeInteger(childTimeoutMs) && childTimeoutMs > 0
+    ? childTimeoutMs
+    : DEFAULT_USAGE_PRODUCER_CHILD_TIMEOUT_MS;
+  return { cwd: repoRoot, windowsHide: true, maxBuffer: 4 * 1024 * 1024, timeout };
+}
+
+function safeLaneStatus(value) {
+  return USAGE_PRODUCER_LANE_STATUSES.includes(value) ? value : "error";
+}
+
+// A cycle receipt is the producer's own liveness evidence: it says a sweep
+// started, and later how long it took and how each lane ended. The per-lane
+// heartbeats stay unchanged and remain the authority for lane freshness.
+export function createUsageProducerCycleRecord({
+  cycleState,
+  attemptedAt,
+  completedAt = null,
+  durationMs = null,
+  lanes = [],
+} = {}) {
+  const state = cycleState === "started" || cycleState === "completed" ? cycleState : null;
+  if (state === null || !Number.isFinite(Date.parse(attemptedAt ?? ""))) return null;
+  return {
+    schema_version: USAGE_PRODUCER_CYCLE_SCHEMA,
+    cycle_state: state,
+    attempted_at: attemptedAt,
+    completed_at: state === "completed" && Number.isFinite(Date.parse(completedAt ?? "")) ? completedAt : null,
+    duration_ms: state === "completed" && Number.isSafeInteger(durationMs) && durationMs >= 0 ? durationMs : null,
+    lanes: state === "started" ? [] : USAGE_PRODUCER_LANES.map((lane) => {
+      const row = lanes.find((candidate) => candidate?.lane === lane) ?? null;
+      const status = row === null ? "skipped" : safeLaneStatus(row.status);
+      const errorCode = typeof row?.error_code === "string" && SAFE_ERROR_CODE.test(row.error_code)
+        ? row.error_code
+        : null;
+      return { lane, status, error_code: status === "error" ? errorCode ?? "collector_failed" : null };
+    }),
+  };
+}
+
+// A lane row is exact in itself and consistent with its own status: an error
+// must carry a sanitized code, and a non-error must carry none. A row claiming
+// "ok" beside an error code, or "error" with nothing to say, is not a weaker
+// receipt — it is a contradictory one, so it fails the record outright.
+function isUsageProducerLaneRow(row) {
+  if (row === null || typeof row !== "object" || Array.isArray(row)) return false;
+  const keys = ["lane", "status", "error_code"];
+  if (Object.keys(row).length !== keys.length || !keys.every((key) => Object.hasOwn(row, key))) return false;
+  if (!USAGE_PRODUCER_LANES.includes(row.lane) || !USAGE_PRODUCER_LANE_STATUSES.includes(row.status)) return false;
+  if (row.status === "error") {
+    return typeof row.error_code === "string" && SAFE_ERROR_CODE.test(row.error_code);
+  }
+  return row.error_code === null;
+}
+
+// The shape a cycle receipt is allowed to take depends on which half of the
+// cycle it reports. A "started" row that already carries a duration, or a
+// "completed" row missing lanes, would let a partial or fabricated cycle read
+// as a real one, so each state is validated against its own exact contract
+// rather than a permissive union of both.
+export function isUsageProducerCycleRecord(value) {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  const keys = ["schema_version", "cycle_state", "attempted_at", "completed_at", "duration_ms", "lanes"];
+  if (Object.keys(value).length !== keys.length || !keys.every((key) => Object.hasOwn(value, key))) return false;
+  if (value.schema_version !== USAGE_PRODUCER_CYCLE_SCHEMA) return false;
+  if (!["started", "completed"].includes(value.cycle_state)) return false;
+  const attemptedMs = Date.parse(value.attempted_at ?? "");
+  if (!Number.isFinite(attemptedMs)) return false;
+  if (!Array.isArray(value.lanes) || !value.lanes.every(isUsageProducerLaneRow)) return false;
+
+  if (value.cycle_state === "started") {
+    // Nothing about the outcome exists yet, so nothing about it may be claimed.
+    return value.completed_at === null
+      && value.duration_ms === null
+      && value.lanes.length === 0;
+  }
+
+  const completedMs = Date.parse(value.completed_at ?? "");
+  if (!Number.isFinite(completedMs) || completedMs < attemptedMs) return false;
+  if (!Number.isSafeInteger(value.duration_ms) || value.duration_ms < 0) return false;
+  // Exactly one row per fixed lane: no duplicate, no omission, no extra.
+  if (value.lanes.length !== USAGE_PRODUCER_LANES.length) return false;
+  const seen = new Set(value.lanes.map((row) => row.lane));
+  return seen.size === value.lanes.length
+    && USAGE_PRODUCER_LANES.every((lane) => seen.has(lane));
+}
+
+// A missing history is a safe first write. A present-but-untrustworthy one is
+// evidence in its own right and must survive untouched, so the two cases are
+// reported apart rather than collapsed into "nothing usable".
+async function probeCycleHistory(file, fsOps) {
+  const readOps = { lstat, readFile, ...fsOps };
+  let info;
+  try {
+    info = await readOps.lstat(file);
+  } catch (error) {
+    return error?.code === "ENOENT"
+      ? { presence: "missing", value: null }
+      : { presence: "unreadable", value: null };
+  }
+  if (!info.isFile() || info.isSymbolicLink() || info.size > USAGE_PRODUCER_CYCLE_MAX_BYTES) {
+    return { presence: "unreadable", value: null };
+  }
+  try {
+    return { presence: "present", value: JSON.parse(await readOps.readFile(file, "utf8")) };
+  } catch (error) {
+    return error?.code === "ENOENT"
+      ? { presence: "missing", value: null }
+      : { presence: "unreadable", value: null };
+  }
+}
+
+// Latest plus one bounded history file. Two files total per state root, so a
+// resident producer cannot grow an unbounded evidence directory.
+export async function persistProducerCycleReceipt({
+  stateRoot,
+  record,
+  historyLimit = USAGE_PRODUCER_CYCLE_HISTORY_LIMIT,
+  fsOps = {},
+} = {}) {
+  if (!path.isAbsolute(stateRoot ?? "") || !isUsageProducerCycleRecord(record)) return null;
+  const directory = path.join(stateRoot, "producer_health");
+  const latestFile = path.join(directory, "cycle.json");
+  const historyFile = path.join(directory, "cycle-history.json");
+  // Latest and history are written independently. The sweep's current liveness
+  // must stay visible even when the history cannot be safely appended, and a
+  // corrupt history is never overwritten to force the write through.
+  let plan;
+  try {
+    const probe = await probeCycleHistory(historyFile, fsOps);
+    plan = planBoundedHistoryAppend({
+      classified: classifyBoundedHistory({
+        presence: probe.presence,
+        value: probe.value,
+        schemaVersion: USAGE_PRODUCER_CYCLE_HISTORY_SCHEMA,
+        isEntry: isUsageProducerCycleRecord,
+      }),
+      entry: record,
+      schemaVersion: USAGE_PRODUCER_CYCLE_HISTORY_SCHEMA,
+      limit: historyLimit,
+      isEntry: isUsageProducerCycleRecord,
+    });
+  } catch {
+    plan = { outcome: "preserved", record: null, reason: "history_plan_failed" };
+  }
+  let latestOutcome = "written";
+  try {
+    await writeHeartbeat(latestFile, record);
+  } catch {
+    // Cycle evidence is best effort; it must never abort or delay collection.
+    latestOutcome = "latest_write_failed";
+  }
+  let historyOutcome = plan.outcome;
+  let historyReason = plan.reason;
+  if (plan.record !== null) {
+    try {
+      await writeHeartbeat(historyFile, plan.record);
+    } catch {
+      historyOutcome = "preserved";
+      historyReason = "history_write_failed";
+    }
+  }
+  return {
+    record,
+    latest_outcome: latestOutcome,
+    history_outcome: historyOutcome,
+    history_reason: historyReason,
+  };
+}
+
 export function activeCodexSessionIds(lifecycle, { now = Date.now } = {}) {
   if (!Array.isArray(lifecycle?.identities)) return [];
   const referenceAt = now();
@@ -147,7 +357,12 @@ export async function loadCurrentThreadIds(registryPath) {
     : [];
 }
 
-export async function runClaudeQuotaSweep({ repoRoot, projectRoot = repoRoot, run = execFileAsync } = {}) {
+export async function runClaudeQuotaSweep({
+  repoRoot,
+  projectRoot = repoRoot,
+  run = execFileAsync,
+  childTimeoutMs = DEFAULT_USAGE_PRODUCER_CHILD_TIMEOUT_MS,
+} = {}) {
   if (!path.isAbsolute(repoRoot ?? "") || !path.isAbsolute(projectRoot ?? "")) {
     return { status: "hold", error_code: "quota_root_unavailable" };
   }
@@ -158,22 +373,33 @@ export async function runClaudeQuotaSweep({ repoRoot, projectRoot = repoRoot, ru
       collector,
       "--gate-path", path.join(stateRoot, "oauth", "enabled.v1.json"),
       "--receipt-path", path.join(stateRoot, "statusline", "provider_quota.receipt.v1.json"),
-    ], { cwd: repoRoot, windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
+    ], childOptions(repoRoot, childTimeoutMs));
     return { status: "observed" };
   } catch (error) {
     return { status: "hold", error_code: safeErrorCode(error) };
   }
 }
 
-export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, stateRoot, watchtowerPointerPath, threadIds = [], run = execFileAsync, loadActiveFiles = loadActiveCodexSessionFiles, loadSnapshot = async () => JSON.parse(await readFile(path.join(stateRoot, "current.json"), "utf8")), persistHeartbeat = persistProducerHeartbeat, now = () => new Date() } = {}) {
+export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, stateRoot, watchtowerPointerPath, threadIds = [], run = execFileAsync, loadActiveFiles = loadActiveCodexSessionFiles, loadSnapshot = async () => JSON.parse(await readFile(path.join(stateRoot, "current.json"), "utf8")), persistHeartbeat = persistProducerHeartbeat, persistCycle = persistProducerCycleReceipt, childTimeoutMs = DEFAULT_USAGE_PRODUCER_CHILD_TIMEOUT_MS, now = () => new Date() } = {}) {
   if (!path.isAbsolute(repoRoot ?? "") || !path.isAbsolute(projectRoot ?? "") || !path.isAbsolute(stateRoot ?? "")) {
     return { status: "hold", completed: 0 };
   }
   const cli = path.join(repoRoot, "guild_hall", "ai_usage_meter", "cli.mjs");
   const watchtowerCli = path.join(repoRoot, "guild_hall", "watchtower", "cli.mjs");
+  const options = childOptions(repoRoot, childTimeoutMs);
   let completed = 0;
   let projectionCommandSucceeded = false;
   const attemptedAt = now().toISOString();
+  const laneRows = new Map();
+  const observeLane = (lane, status, errorCode = null) => {
+    laneRows.set(lane, { lane, status, error_code: errorCode });
+  };
+  // The started receipt is written before any child exists, so a sweep that
+  // never returns still leaves proof that it was attempted and when.
+  await Promise.resolve(persistCycle({
+    stateRoot,
+    record: createUsageProducerCycleRecord({ cycleState: "started", attemptedAt }),
+  })).catch(() => null);
   let priorDigest = null;
   let priorEventCount = null;
   try {
@@ -190,12 +416,19 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
     [cli, "collect-claude", "--state-root", stateRoot, "--max-age-days", "2", "--apply"],
     [cli, "collect-antigravity", "--state-root", stateRoot, "--max-age-days", "2", "--apply"],
   ].filter(Boolean);
+  const commandLanes = new Map([
+    ["lifecycle-reconcile", "lifecycle"],
+    ["collect", "codex"],
+    ["collect-claude", "claude"],
+    ["collect-antigravity", "antigravity"],
+  ]);
   for (const args of commands) {
     const command = args[0] === cli ? args[1] : null;
     try {
-      const result = await run(process.execPath, args, { cwd: repoRoot, windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
+      const result = await run(process.execPath, args, options);
       if (command === "collect-antigravity") validateAntigravityCollectionResult(result);
       completed += 1;
+      observeLane(commandLanes.get(command), "ok");
       if (command === "collect-claude") {
         projectionCommandSucceeded = true;
         await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "claude", attemptedAt, succeeded: true, now });
@@ -209,6 +442,9 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
         await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "codex", attemptedAt, succeeded: true, now });
       }
     } catch (error) {
+      // A timed-out lane fails closed with its own fixed code and leaves the
+      // remaining lanes to run and report their own real result.
+      observeLane(commandLanes.get(command), "error", safeErrorCode(error));
       if (command === "collect-claude") await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "claude", attemptedAt, succeeded: false, errorCode: safeErrorCode(error), now });
       if (command === "collect-antigravity") await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "antigravity", attemptedAt, succeeded: false, errorCode: safeErrorCode(error), now });
       if (command === "collect") {
@@ -235,27 +471,47 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
   for (const lane of ["meter", "store_usage_ledger"]) {
     // Receipt channels are independent; one failed write must not falsify the other lane.
     await persistLaneHealth(persistHeartbeat, { stateRoot, lane, attemptedAt, ...projectionResult, now });
+    // An idle window is a healthy sweep: activity=false is not an error.
+    observeLane(lane, projectionResult.succeeded ? "ok" : "error", projectionResult.errorCode ?? null);
   }
   if (path.isAbsolute(watchtowerPointerPath ?? "")) {
     try {
-      await run(process.execPath, [watchtowerCli, "probe", "--pointer", watchtowerPointerPath, "--json"], { cwd: repoRoot, windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
+      await run(process.execPath, [watchtowerCli, "probe", "--pointer", watchtowerPointerPath, "--json"], options);
       completed += 1;
-    } catch {
+      observeLane("watchtower", "ok");
+    } catch (error) {
       // Observation failure is isolated from collection and retried next interval.
+      observeLane("watchtower", "error", safeErrorCode(error));
     }
   }
   const activeFiles = await Promise.resolve(loadActiveFiles({ stateRoot })).catch(() => []);
+  let activeFailures = 0;
   for (const sessionFile of activeFiles) {
     try {
-      await run(process.execPath, [cli, "collect", "--project-root", projectRoot, "--session-file", sessionFile, "--state-root", stateRoot, "--include-active", "--apply"], { cwd: repoRoot, windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
+      await run(process.execPath, [cli, "collect", "--project-root", projectRoot, "--session-file", sessionFile, "--state-root", stateRoot, "--include-active", "--apply"], options);
       completed += 1;
-    } catch {
+    } catch (error) {
       // One conflicting active session must not block other exact active sessions.
+      activeFailures += 1;
+      observeLane("active_sessions", "error", safeErrorCode(error));
     }
   }
+  if (activeFiles.length > 0 && activeFailures === 0) observeLane("active_sessions", "ok");
   const expected = (lifecycleArgs === null ? 3 : 4)
     + (path.isAbsolute(watchtowerPointerPath ?? "") ? 1 : 0)
     + activeFiles.length;
+  const completedAt = now().toISOString();
+  const durationMs = Math.max(0, Date.parse(completedAt) - Date.parse(attemptedAt));
+  await Promise.resolve(persistCycle({
+    stateRoot,
+    record: createUsageProducerCycleRecord({
+      cycleState: "completed",
+      attemptedAt,
+      completedAt,
+      durationMs: Number.isSafeInteger(durationMs) ? durationMs : null,
+      lanes: [...laneRows.values()],
+    }),
+  })).catch(() => null);
   return { status: completed === expected ? "observed" : "partial", completed };
 }
 

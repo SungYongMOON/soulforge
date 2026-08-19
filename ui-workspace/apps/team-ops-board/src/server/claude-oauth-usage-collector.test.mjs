@@ -17,6 +17,10 @@ function response(value, overrides = {}) {
 
 function reader(path) { return path.endsWith("gate.json") ? gate : credentials; }
 
+// Tests never write real attempt evidence: the collector's default log is a
+// file writer, so every case injects an in-memory one.
+const noAttemptLog = { recordAttempt: async () => null };
+
 test("collector is disabled by default and never requests or reads credentials", async () => {
   let calls = 0;
   const result = await collectClaudeOauthUsage({ gatePath: GATE_PATH, receiptPath: RECEIPT_PATH, read: async () => { calls += 1; throw new Error("missing"); }, fetchImpl: async () => { throw new Error("must-not-run"); } });
@@ -26,7 +30,7 @@ test("collector is disabled by default and never requests or reads credentials",
 
 test("collector sanitizes 5h weekly and Fable without returning secret or raw response", async () => {
   let captured;
-  const result = await collectClaudeOauthUsage({ gatePath: GATE_PATH, receiptPath: RECEIPT_PATH, read: async (filePath) => reader(filePath), fetchImpl: async (_url, init) => { assert.match(init.headers.Authorization, /^Bearer /u); return response(payload); }, now: () => Date.parse("2026-08-10T10:00:00.000Z"), store: { persistAcceptedSnapshot: async (snapshot) => { captured = snapshot; return { write_state: "written" }; } } });
+  const result = await collectClaudeOauthUsage({ gatePath: GATE_PATH, receiptPath: RECEIPT_PATH, read: async (filePath) => reader(filePath), fetchImpl: async (_url, init) => { assert.match(init.headers.Authorization, /^Bearer /u); return response(payload); }, now: () => Date.parse("2026-08-10T10:00:00.000Z"), attemptLog: noAttemptLog, store: { persistAcceptedSnapshot: async (snapshot) => { captured = snapshot; return { write_state: "written" }; } } });
   assert.deepEqual(result, { status: "written" });
   assert.deepEqual(captured.limits.map((row) => [row.limit_id, row.percentage]), [["claude_five_hour", 12], ["claude_weekly", 34], ["claude_fable_weekly", 56]]);
   assert.doesNotMatch(JSON.stringify({ result, captured }), /synthetic-secret|weekly_scoped/u);
@@ -40,6 +44,7 @@ test("collector retains a reported 5h percentage when its reset is explicitly un
     read: async (filePath) => reader(filePath),
     fetchImpl: async () => response({ ...payload, five_hour: { ...payload.five_hour, resets_at: null } }),
     now: () => Date.parse("2026-08-10T10:00:00.000Z"),
+    attemptLog: noAttemptLog,
     store: { persistAcceptedSnapshot: async (snapshot) => { captured = snapshot; return { write_state: "written" }; } },
   });
 
@@ -49,13 +54,60 @@ test("collector retains a reported 5h percentage when its reset is explicitly un
 });
 
 test("auth, redirects, malformed, oversized, timeout, and future data fail closed with fixed codes", async () => {
-  const common = { gatePath: GATE_PATH, receiptPath: RECEIPT_PATH, read: async (filePath) => reader(filePath), now: () => Date.parse("2026-08-10T10:00:00.000Z") };
+  const common = { gatePath: GATE_PATH, receiptPath: RECEIPT_PATH, read: async (filePath) => reader(filePath), now: () => Date.parse("2026-08-10T10:00:00.000Z"), attemptLog: noAttemptLog };
+  for (const status of [401, 403]) {
+    assert.deepEqual(
+      await collectClaudeOauthUsage({ ...common, fetchImpl: async () => response(payload, { status }) }),
+      { status: "auth_rejected" },
+    );
+  }
   for (const fetchImpl of [
-    async () => response(payload, { status: 401 }),
+    async () => response(payload, { status: 500 }),
     async () => response(payload, { redirected: true }),
     async () => response({ nope: true }),
     async () => response(payload, { headers: new Headers({ "content-type": "application/json", "content-length": "999999" }) }),
   ]) assert.deepEqual(await collectClaudeOauthUsage({ ...common, fetchImpl }), { status: "response_invalid" });
   assert.deepEqual(await collectClaudeOauthUsage({ ...common, fetchImpl: async () => { throw new Error("secret raw url"); } }), { status: "request_failed" });
   assert.deepEqual(await collectClaudeOauthUsage({ ...common, fetchImpl: async () => response({ ...payload, five_hour: { ...payload.five_hour, resets_at: "2099-01-01T00:00:00.000Z" } }) }), { status: "response_invalid" });
+});
+
+test("every gate-passing attempt records a sanitized latest receipt and history row", async () => {
+  const attempts = [];
+  const attemptLog = { recordAttempt: async (options) => { attempts.push(options); return null; } };
+  const common = { gatePath: GATE_PATH, receiptPath: RECEIPT_PATH, read: async (filePath) => reader(filePath), now: () => Date.parse("2026-08-10T10:00:00.000Z"), attemptLog };
+
+  await collectClaudeOauthUsage({ ...common, fetchImpl: async () => response(payload, { status: 401 }) });
+  await collectClaudeOauthUsage({ ...common, fetchImpl: async () => response(payload), store: { persistAcceptedSnapshot: async () => ({ write_state: "written" }) } });
+  await collectClaudeOauthUsage({ ...common, fetchImpl: async () => { throw new Error("secret raw url"); } });
+
+  assert.deepEqual(attempts.map((entry) => entry.result), ["auth_rejected", "written", "request_failed"]);
+  assert.ok(attempts.every((entry) => entry.provider === "claude" && entry.attemptedAt === "2026-08-10T10:00:00.000Z"));
+  assert.doesNotMatch(JSON.stringify(attempts), /synthetic-secret|api\.anthropic\.com|Bearer/u);
+});
+
+test("a disabled gate makes no attempt and therefore records no attempt evidence", async () => {
+  let recorded = 0;
+  const result = await collectClaudeOauthUsage({
+    gatePath: GATE_PATH,
+    receiptPath: RECEIPT_PATH,
+    read: async () => { throw new Error("missing"); },
+    fetchImpl: async () => { throw new Error("must-not-run"); },
+    attemptLog: { recordAttempt: async () => { recorded += 1; return null; } },
+  });
+  assert.deepEqual(result, { status: "gate_disabled" });
+  assert.equal(recorded, 0);
+});
+
+test("a missing credential is still an attempt worth recording", async () => {
+  const attempts = [];
+  const result = await collectClaudeOauthUsage({
+    gatePath: GATE_PATH,
+    receiptPath: RECEIPT_PATH,
+    read: async (filePath) => { if (filePath.endsWith("gate.json")) return gate; throw new Error("missing"); },
+    fetchImpl: async () => { throw new Error("must-not-run"); },
+    now: () => Date.parse("2026-08-10T10:00:00.000Z"),
+    attemptLog: { recordAttempt: async (options) => { attempts.push(options); return null; } },
+  });
+  assert.deepEqual(result, { status: "credential_unavailable" });
+  assert.deepEqual(attempts.map((entry) => entry.result), ["credential_unavailable"]);
 });

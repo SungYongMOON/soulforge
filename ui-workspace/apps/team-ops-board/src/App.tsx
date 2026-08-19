@@ -2824,7 +2824,17 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
   const claudeLastSuccessShort = claudeStatus.last_success_at === null
     ? "관측 시각 미상"
     : fleetObservedAgoLabel(claudeStatus.last_success_at).replace(" 관측", "");
-  const claudeStatusNote = `공식 쿼터 ${claudeStateLabel} · ${claudeOutcomeLabel} · ${claudeLastSuccessLabel}`;
+  // 마지막 성공과 마지막 시도는 다른 사실이다. 시도 기록이 있어야 "수집이 멈췄나,
+  // 로그인이 거절됐나, 제공자가 안 닿나"를 구분할 수 있다.
+  const claudeAttemptLabel = claudeStatus.attempted_at === null
+    ? "시도 기록 없음"
+    : `마지막 시도 ${fleetObservedAgoLabel(claudeStatus.attempted_at)}`;
+  const claudeReauthNote = claudeQuota.requires_reauth ? " · 재로그인 필요" : "";
+  const claudeStatusNote = `공식 쿼터 ${claudeStateLabel} · ${claudeOutcomeLabel} · ${claudeAttemptLabel} · ${claudeLastSuccessLabel}${claudeReauthNote}`;
+  // 게이지를 지운 자리에 마지막 관측값을 근거로만 남긴다. 숫자는 남기되 현재
+  // 잔여 용량으로 읽히지 않게 명시한다.
+  const claudeHistoricalNote = (utilization: number): string =>
+    `${claudeStatusNote} · 마지막 관측값 ${Math.round(utilization)}% 사용 (현재값 아님)`;
   const claudeResetLabel = (resetLabel: string): string => claudeQuota.current
     ? resetLabel
     : `${claudeLastSuccessShort} · ${resetLabel}`;
@@ -2835,11 +2845,11 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
       key: "claude_five_hour",
       group: "5시간 창",
       provider: "Claude",
-      percent: Number(claudeFiveHour.utilization),
-      severity: severityFor(Number(claudeFiveHour.utilization), false),
+      percent: claudeQuota.current ? Number(claudeFiveHour.utilization) : null,
+      severity: severityFor(Number(claudeFiveHour.utilization), !claudeQuota.current),
       stale: !claudeQuota.current,
       resetLabel: claudeResetLabel(fleetResetAtLabel(claudeFiveHour.resets_at ? Date.parse(claudeFiveHour.resets_at) : null)),
-      note: claudeStatusNote,
+      note: claudeQuota.current ? claudeStatusNote : claudeHistoricalNote(Number(claudeFiveHour.utilization)),
     });
   } else {
     limitRows.push({
@@ -2848,7 +2858,7 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
       provider: "Claude",
       percent: null,
       severity: "idle",
-      resetLabel: claudeLastSuccessLabel,
+      resetLabel: claudeAttemptLabel,
       note: `${claudeStatusNote} · 공식 값 UNKNOWN`,
     });
   }
@@ -2875,11 +2885,11 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
       key: "claude_weekly",
       group: "주간 창",
       provider: "Claude",
-      percent: Number(claudeSevenDay.utilization),
-      severity: severityFor(Number(claudeSevenDay.utilization), false),
+      percent: claudeQuota.current ? Number(claudeSevenDay.utilization) : null,
+      severity: severityFor(Number(claudeSevenDay.utilization), !claudeQuota.current),
       stale: !claudeQuota.current,
       resetLabel: claudeResetLabel(fleetResetAtLabel(claudeSevenDay.resets_at ? Date.parse(claudeSevenDay.resets_at) : null)),
-      note: claudeStatusNote,
+      note: claudeQuota.current ? claudeStatusNote : claudeHistoricalNote(Number(claudeSevenDay.utilization)),
     });
   }
   // Anthropic이 모델별 주간 창(예: Opus 전용 한도)을 보고하면 자동으로 행이 된다.
@@ -2888,11 +2898,11 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
       key: `claude_model_${modelWindow.key}`,
       group: "주간 창",
       provider: `Claude·${modelWindow.label}`,
-      percent: Number(modelWindow.utilization),
-      severity: severityFor(Number(modelWindow.utilization), false),
+      percent: claudeQuota.current ? Number(modelWindow.utilization) : null,
+      severity: severityFor(Number(modelWindow.utilization), !claudeQuota.current),
       stale: !claudeQuota.current,
       resetLabel: claudeResetLabel(fleetResetAtLabel(modelWindow.resets_at ? Date.parse(modelWindow.resets_at) : null)),
-      note: `모델별 공식 창 · ${claudeStatusNote}`,
+      note: `모델별 공식 창 · ${claudeQuota.current ? claudeStatusNote : claudeHistoricalNote(Number(modelWindow.utilization))}`,
     });
   }
   // Antigravity 로컬 RPC의 그룹별 공식 잔여 쿼터 — 앱이 꺼지면 마지막 관측을 유지 표시한다.

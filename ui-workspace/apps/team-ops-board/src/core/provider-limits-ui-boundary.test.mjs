@@ -61,7 +61,18 @@ test("official Claude quota row is independent of common Meter history and fails
   assert.doesNotMatch(source, /if \(!windows\) return null;/u);
   assert.match(source, /const week = windows\?\.calendar_week/u);
   assert.match(source, /key: "claude_official_status"[\s\S]*percent: null,[\s\S]*severity: "idle"/u);
-  assert.match(source, /severity: severityFor\(Number\(claudeFiveHour\.utilization\), false\),[\s\S]*stale: !claudeQuota\.current/u);
+  // A stale quota must not render a numeric gauge: the last-good percentage is
+  // historical evidence in the note, never a live remaining-capacity reading.
+  assert.match(source, /percent: claudeQuota\.current \? Number\(claudeFiveHour\.utilization\) : null,/u);
+  assert.match(source, /severity: severityFor\(Number\(claudeFiveHour\.utilization\), !claudeQuota\.current\),[\s\S]*stale: !claudeQuota\.current/u);
+  assert.match(source, /percent: claudeQuota\.current \? Number\(claudeSevenDay\.utilization\) : null,/u);
+  assert.match(source, /percent: claudeQuota\.current \? Number\(modelWindow\.utilization\) : null,/u);
+  assert.match(source, /claudeHistoricalNote/u);
+  assert.match(source, /현재값 아님/u);
+  assert.match(source, /claudeQuota\.requires_reauth/u);
+  assert.match(source, /재로그인 필요/u);
+  assert.match(source, /claudeStatus\.attempted_at === null/u);
+  assert.doesNotMatch(source, /attempt_class === "auth_rejected"/u);
   assert.match(source, /className=\{`fleet-limit-row is-\$\{row\.severity\}\$\{row\.stale \? " is-stale" : ""\}`\}/u);
   assert.match(source, /data-freshness=\{row\.stale \? "stale" : "current"\}/u);
   assert.match(source, /Antigravity 2\.0 실행 중 · 안전한 한도 원천 미연결/u);

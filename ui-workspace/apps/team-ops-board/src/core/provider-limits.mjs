@@ -2,7 +2,17 @@
 // This is deliberately separate from the AI usage ledger and accepts only the
 // small, sanitized receipt shape emitted by the server adapter.
 
-export const PROVIDER_LIMITS_SCHEMA_VERSION = "soulforge.team_ops_board_provider_limits.v3";
+// v4 adds exactly one root field, claude_quota_attempt. The root shape changed,
+// so the version changed with it: a strict v3 consumer must not be handed a
+// shape its contract never described.
+//
+// Reading stays compatible in the direction that matters. The reader never
+// branches on the root schema_version — it revalidates the inner
+// claude_official contract — so a retained v2 or v3 payload normalizes exactly
+// as before and its absent attempt field reads as null/UNKNOWN rather than as
+// a pass. Nothing about an older payload is reinterpreted.
+export const PROVIDER_LIMITS_SCHEMA_VERSION = "soulforge.team_ops_board_provider_limits.v4";
+export const PROVIDER_LIMITS_SCHEMA_VERSION_V3 = "soulforge.team_ops_board_provider_limits.v3";
 export const PROVIDER_LIMITS_SCHEMA_VERSION_V2 = "soulforge.team_ops_board_provider_limits.v2";
 
 const SAFE_PLAN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$/u;
@@ -13,6 +23,18 @@ const CLAUDE_SOURCE_KINDS = new Set([
 ]);
 const FRESHNESS = new Set(["fresh", "stale", "unknown"]);
 const CAPTURE_STATUS = new Set(["accepted", "hold"]);
+// Mirrors the collector's fixed attempt classes. It is deliberately a closed
+// set of tokens: an attempt outcome must never carry provider text, a status
+// line, a URL, or an account hint into the browser.
+export const CLAUDE_QUOTA_ATTEMPT_CLASSES = Object.freeze([
+  "accepted",
+  "auth_rejected",
+  "credential_unavailable",
+  "transport_failed",
+  "response_invalid",
+  "receipt_failed",
+]);
+const ATTEMPT_KEYS = Object.freeze(["attempted_at", "result_class"]);
 
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -162,12 +184,28 @@ export function normalizeClaudeOfficialQuota(value) {
   };
 }
 
+// Attempt evidence answers "did collection run and how did it end", which is a
+// different question from "what was the last good value". It can never promote
+// a value to current; it only tells the Owner whether the silence is a stopped
+// collector, a rejected login, or an unreachable provider.
+export function normalizeClaudeQuotaAttempt(value) {
+  if (!isRecord(value)
+    || Object.keys(value).length !== ATTEMPT_KEYS.length
+    || !ATTEMPT_KEYS.every((key) => Object.hasOwn(value, key))
+    || !CLAUDE_QUOTA_ATTEMPT_CLASSES.includes(value.result_class)) return null;
+  const attemptedAt = isoOrNull(value.attempted_at);
+  return attemptedAt === null ? null : { attempted_at: attemptedAt, result_class: value.result_class };
+}
+
 export function buildClaudeQuotaPresentation(snapshot) {
   const official = normalizeClaudeOfficialQuota(snapshot?.claude_official);
+  const attempt = normalizeClaudeQuotaAttempt(snapshot?.claude_quota_attempt);
   const current = official.capture_status === "accepted" && official.freshness === "fresh";
   const state = current ? "ready" : official.freshness === "stale" ? "stale" : "unknown";
   return {
     official,
+    attempt,
+    requires_reauth: attempt?.result_class === "auth_rejected",
     claude: {
       five_hour: official.five_hour,
       seven_day: official.weekly,
@@ -183,7 +221,11 @@ export function buildClaudeQuotaPresentation(snapshot) {
     status: {
       state,
       outcome: official.source_kind,
-      attempted_at: official.observed_at,
+      // attempted_at is the last collection attempt, not the last good value.
+      // Reusing observed_at for both made a 64h-old success look like a recent
+      // attempt, which is exactly the confusion this separation removes.
+      attempted_at: attempt?.attempted_at ?? null,
+      attempt_class: attempt?.result_class ?? "unknown",
       last_success_at: official.observed_at,
       freshness: current ? "current" : official.freshness,
     },
@@ -195,6 +237,7 @@ export function buildClaudeQuotaPresentation(snapshot) {
 export function buildProviderLimitsSnapshot({
   codex = null,
   claudeOfficial = null,
+  claudeAttempt = null,
   observedAtMs = Date.now(),
 } = {}) {
   const observed = new Date(observedAtMs);
@@ -204,5 +247,8 @@ export function buildProviderLimitsSnapshot({
     observed_at: observedAt,
     codex: normalizeCodexSnapshot(codex),
     claude_official: normalizeClaudeOfficialQuota(claudeOfficial),
+    // The v4 root field. A missing or malformed attempt stays null/UNKNOWN and
+    // can never promote a retained value to current.
+    claude_quota_attempt: normalizeClaudeQuotaAttempt(claudeAttempt),
   };
 }

@@ -11,6 +11,7 @@ import {
   buildProviderLimitsSnapshot,
   parseCodexRateLimitsFromJsonlText,
 } from "../core/provider-limits.mjs";
+import { createProviderQuotaAttemptLog } from "./provider-quota-attempt-log.mjs";
 import { createProviderQuotaReceiptStore } from "./provider-quota-receipt-store.mjs";
 
 export const PROVIDER_LIMITS_SNAPSHOT_PATH = "/provider-limits.snapshot.json";
@@ -170,6 +171,7 @@ export function createProviderLimitsReader({
   claudeFreshnessMs = DEFAULT_CLAUDE_QUOTA_FRESHNESS_MS,
   providerQuotaReceiptPath = null,
   providerQuotaReceiptStore = null,
+  providerQuotaAttemptLog = null,
   readCodexLimitsImpl = readCodexLimits,
   now = Date.now,
 } = {}) {
@@ -180,6 +182,11 @@ export function createProviderLimitsReader({
   let lastSnapshot = null;
   const receiptStore = providerQuotaReceiptStore ?? (typeof providerQuotaReceiptPath === "string" && providerQuotaReceiptPath.length > 0
     ? createProviderQuotaReceiptStore({ receiptPath: providerQuotaReceiptPath, now })
+    : null);
+  // The attempt log lives beside the receipt and is read the same read-only
+  // way: no directory creation, no provider call, no credential access.
+  const attemptLog = providerQuotaAttemptLog ?? (typeof providerQuotaReceiptPath === "string" && providerQuotaReceiptPath.length > 0
+    ? createProviderQuotaAttemptLog({ receiptDirectory: path.dirname(providerQuotaReceiptPath) })
     : null);
 
   async function refresh() {
@@ -201,9 +208,20 @@ export function createProviderLimitsReader({
     } else if (lastClaudeOfficial !== null) {
       claudeOfficial = asStaleClaudeOfficialProjection(lastClaudeOfficial);
     }
+    // Attempt evidence is never retained across a failed read: an unreadable
+    // log means the attempt state is unknown, not that the last one still holds.
+    const latestAttempt = attemptLog === null
+      ? null
+      : await Promise.resolve(attemptLog.readLatest()).catch(() => null);
+    // Only the two display fields cross this boundary. The stored result token
+    // and provider id stay on the server side of the loopback endpoint.
+    const claudeAttempt = latestAttempt === null
+      ? null
+      : { attempted_at: latestAttempt.attempted_at, result_class: latestAttempt.result_class };
     lastSnapshot = buildProviderLimitsSnapshot({
       codex: lastCodex,
       claudeOfficial,
+      claudeAttempt,
       observedAtMs: observedNow,
     });
   }

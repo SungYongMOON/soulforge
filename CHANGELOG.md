@@ -1,5 +1,67 @@
 # CHANGELOG
 
+## 2026-08-19 - Board observability: a stale quota number no longer looks like a current one
+
+The Board could not tell an Owner whether usage/quota collection was alive, stopped, slow, failed or
+merely idle, and it rendered a 64h-old Claude quota as three numeric gauges with a small STALE tag.
+Three latest-only evidence surfaces gained bounded append-only history; nothing that was already
+authoritative was replaced.
+
+- **Claude quota, HTTP 401/403 is now its own result.** The collector previously collapsed a rejected
+  credential into `response_invalid`, which reads as a transient parse fault. It is now the fixed
+  token `auth_rejected`, and the Board says re-login is required — it never initiates a login. No
+  token, header, body, account, URL or raw response crosses that boundary; the response body is
+  cancelled rather than read.
+- **Attempt evidence is separate from the accepted value.** New
+  `provider_quota.attempt.v1.json` (latest) and `provider_quota.attempt-history.v1.json` (bounded to
+  50 rows) record every gate-passing attempt, success or failure, as `{provider, attempted_at,
+  result, result_class}` and nothing else. A disabled gate is deliberately *not* recorded: no attempt
+  was made, so recording one would manufacture liveness evidence. The existing accepted receipt keeps
+  its own file, schema and meaning.
+- **The Board separates "last attempt" from "last good".** `status.attempted_at` used to be the
+  observation time of the last *successful* value, so a 64h-old success looked like a recent attempt.
+  It is now the real attempt time, with `attempt_class` beside it and `last_success_at` unchanged.
+  The provider-limits root gained `claude_quota_attempt`, so it is now an explicit **v4** rather than
+  a widened v3 - a strict v3 consumer is not handed a shape its contract never described. Reading
+  stays compatible where it matters: the reader never branches on the root version, so a retained v2
+  or v3 payload normalizes exactly as before and its absent attempt field reads `null`/UNKNOWN
+  rather than as a pass.
+- **Stale quota no longer renders a numeric gauge.** When the value is not current the gauge and the
+  "N% 남음" reading are suppressed; the last-good percentage survives in the note, explicitly marked
+  `현재값 아님`. Attempt evidence can never promote a value to current.
+- **The usage producer proves it ran.** A sanitized cycle receipt is written *before* any child
+  starts, and again on completion with duration and one status per lane, over a fixed lane
+  vocabulary (`producer_health/cycle.json` plus a 50-row `cycle-history.json`). Idle semantics are
+  unchanged: no new usage stays a healthy `ok` with `activity_changed:false`, not a failure.
+- **Producer children are bounded.** Collector children had no timeout at all, so one wedged child
+  could hold the sweep's single-flight indefinitely. Every child now carries a 180s bound. The bound
+  is deliberately loose, not tight: the Codex lane has been observed at ~78s live, so a tighter bound
+  would kill healthy work. A slow sweep may outrun the 5-minute interval and skip one overlapping
+  tick - correct and self-correcting, since the trigger returns the in-flight sweep. A permanent
+  wedge cannot happen, because every child is bounded, so the sweep always terminates and releases
+  single-flight. A timed-out lane fails closed as `collector_timeout` and never falsifies a sibling.
+- **Runtime lifecycle transitions are retained.** `lifecycle-history.v1.json` keeps up to 100 rows of
+  material transitions only — start, ready, requested stop, handled fatal, restart recovery, child
+  restart and child exhaustion. The 10s heartbeat stays latest-only and is deliberately never
+  appended; the termination receipt keeps its own separate file and last-good contract. A row is an
+  exact `{observed_at, event, failure_class}` with **no identity at all** - no run id, pid or hash.
+  Ordered material events already answer whether it restarted, crashed or was told to stop, so a
+  correlatable identifier would add a receipt field without adding an answer.
+- Retention is one shared deterministic reducer (newest-N, oldest evicted) with exact-key entry
+  validators per caller, and the file count per surface stays fixed at latest + history.
+- **Reads are bounded, not just writes.** Every history reader inspects the directory entry first and
+  refuses anything that is not a regular, non-symlink file inside a fixed byte budget, before parsing
+  a single byte.
+- **A corrupt history is preserved, never repaired.** The reader separates a genuinely missing
+  history (safe first write) from a present but untrustworthy one. Present-but-invalid — unreadable,
+  oversized, symlinked, non-regular, malformed JSON, wrong schema, wrong keys, or holding even one
+  invalid row — is left byte-for-byte at its existing path; the append is not attempted and no
+  replacement record is produced. Filtering the bad rows away or restarting from empty would destroy
+  exactly the trace needed to reconstruct what went wrong, so one invalid row invalidates the whole
+  stored history rather than being salvaged around. The core operation is never blocked: latest
+  receipts still update atomically so current liveness stays visible, and the history append returns
+  a bounded `preserved` outcome with a fixed reason to its caller.
+
 ## 2026-08-19 - D44 decided: three national rule rows now carry the token they actually are
 
 The previous slice found that three rows of the 체계개발 rule table carried a token whose meaning

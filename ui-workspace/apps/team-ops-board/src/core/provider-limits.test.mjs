@@ -77,7 +77,7 @@ test("malformed or inconsistent quota becomes UNKNOWN/HOLD, never zero/current",
   assert.equal(buildClaudeQuotaPresentation({ claude_official: normalized }).current, false);
 });
 
-test("provider snapshot is v3, sanitized, and keeps quota separate from usage", () => {
+test("provider snapshot is v4, sanitized, and keeps quota separate from usage", () => {
   const snapshot = buildProviderLimitsSnapshot({ claudeOfficial: official({ raw: "drop-me" }), observedAtMs: Date.parse(OBSERVED_AT) });
   assert.equal(snapshot.schema_version, PROVIDER_LIMITS_SCHEMA_VERSION);
   assert.equal(snapshot.claude_official.capture_status, "accepted");

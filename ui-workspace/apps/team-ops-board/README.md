@@ -497,6 +497,92 @@ only its Board child after an unexpected exit or non-ready observation, with at
 most three retries and a one-second backoff. Each child owns a new runtime
 generation and heartbeat.
 
+### Collection liveness evidence
+
+Three collection surfaces were latest-only, so a stopped, wedged, or rejected
+collector left no trace an Owner could read after the fact. Each now keeps its
+existing latest file plus one bounded append-only history file. Retention is
+deterministic newest-N with the oldest row evicted, the file count per surface
+is fixed at two, and every write is atomic.
+
+Reads are bounded as well as writes. Every history reader inspects the directory
+entry first and refuses anything that is not a regular, non-symlink file inside a
+fixed byte budget, before a single byte is parsed.
+
+A history is an audit record, not a cache, so the reader distinguishes a
+genuinely missing history from a present but untrustworthy one. Missing is a
+safe first write. Present-but-invalid — unreadable, oversized, symlinked,
+non-regular, malformed JSON, wrong schema, wrong keys, or holding even one
+invalid row — is preserved byte-for-byte at its existing path. The append is not
+attempted, no partial filtering happens, and no replacement record is produced,
+because salvaging the good rows or restarting from empty would destroy exactly
+the trace an Owner needs to reconstruct what went wrong. One invalid row
+invalidates the whole stored history, since a partially valid audit log cannot
+be told apart from a truncated or tampered one.
+
+The core operation is never blocked by this. Latest and history are written
+independently: the quota attempt receipt and the producer cycle receipt still
+update atomically so current liveness stays visible, while the history append
+returns a bounded `preserved` outcome with a fixed reason to its caller. The
+runtime lifecycle append is best effort in the same way — a preserved history
+leaves start, ready, stop, fatal, and restart behaviour completely unchanged.
+
+The Claude quota collector distinguishes a rejected credential from a malformed
+response. HTTP 401/403 is the fixed result `auth_rejected`; the Board reports
+that re-login is required and never initiates a login. Every gate-passing
+attempt, success or failure, writes `provider_quota.attempt.v1.json` and appends
+to `provider_quota.attempt-history.v1.json` (50 rows) with exactly
+`{provider, attempted_at, result, result_class}`. A disabled gate made no
+attempt and is deliberately not recorded. The accepted quota snapshot keeps its
+own separate file and meaning: attempt evidence answers whether collection ran,
+never what the value is, and can never promote a value to current.
+
+The Board therefore separates the last attempt from the last good value. The
+provider-limits root gained the `claude_quota_attempt` field, so its contract is
+now v4 rather than a widened v3: a strict v3 consumer is not handed a shape its
+contract never described. Reading stays compatible in the direction that matters,
+because the reader never branches on the root version - it revalidates the inner
+`claude_official` contract. A retained v2 or v3 payload therefore normalizes
+exactly as before, and its absent attempt field reads as `null`/UNKNOWN rather
+than as a pass. When the quota is stale or unknown the numeric
+gauge and the remaining-percentage reading are suppressed; the last-good
+percentage remains visible in the row note, explicitly marked as not a current
+value.
+
+The usage producer companion writes a sanitized cycle receipt before any child
+starts, and again on completion with a duration and one status per lane over a
+fixed lane vocabulary, to `producer_health/cycle.json` and a 50-row
+`cycle-history.json`. Idle stays healthy: no new usage remains a successful
+attempt, not a failure.
+
+Every collector child now carries a bounded 180-second timeout. The bound is
+deliberately loose rather than tight: the Codex lane has been observed taking
+about 78 seconds live, so a tighter bound would kill healthy work. A slow sweep
+may therefore outrun the five-minute interval and skip one overlapping tick,
+which is correct and self-correcting - the trigger simply returns the in-flight
+sweep. What cannot happen is a permanent wedge, because every child is bounded,
+so the sweep always terminates and always releases single-flight for the next
+interval. A timed-out lane fails closed as `collector_timeout`, does not falsify
+a sibling lane, and does not hold the next cycle. The per-lane heartbeats remain
+the authority for lane freshness, and Meter hook health remains authoritative
+for hook health.
+
+The runtime keeps its 10-second latest heartbeat for liveness and its separate
+termination receipt for last-good exit evidence. `lifecycle-history.v1.json`
+adds up to 100 rows of material transitions only — start, ready, requested stop,
+handled fatal, restart recovery, child restart, child exhaustion. The heartbeat
+is deliberately never appended to it. A row carries an exact
+`{observed_at, event, failure_class}` and no identity of any kind: no run id, pid,
+or hash. An ordered sequence of material events already answers whether the
+runtime restarted, crashed, or was told to stop, so a correlatable identifier
+would add a receipt field without adding an answer. Desired-state and task
+authority are unchanged.
+
+No receipt in any of these surfaces carries a path, command line, run, session or
+thread ID, pid, stdout/stderr, stack, raw session content, provider payload, or
+credential. Result and lane tokens come from closed sets, and history rows are
+validated against exact-key schemas on both write and read.
+
 The recorded desired state, not the Scheduler, remains the single authority.
 Every scheduled invocation — manual `task-run` or the repeating trigger — first
 reads the desired record and, for anything other than `running`, returns

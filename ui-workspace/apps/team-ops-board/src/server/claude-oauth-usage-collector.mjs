@@ -4,12 +4,17 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createClaudeOauthUsageQuotaSnapshot } from "../core/provider-quota-snapshot.mjs";
+import { createProviderQuotaAttemptLog } from "./provider-quota-attempt-log.mjs";
 import { createProviderQuotaReceiptStore, PROVIDER_QUOTA_RECEIPT_FILE_NAME } from "./provider-quota-receipt-store.mjs";
 
 export const CLAUDE_OAUTH_USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
 export const CLAUDE_OAUTH_USAGE_GATE_SCHEMA = "soulforge.claude_oauth_usage_gate.v1";
 export const MAX_CLAUDE_OAUTH_RESPONSE_BYTES = 64 * 1024;
-const SAFE_RESULTS = new Set(["written", "already_current", "retained_newer", "gate_disabled", "credential_unavailable", "request_failed", "response_invalid", "receipt_failed"]);
+const SAFE_RESULTS = new Set(["written", "already_current", "retained_newer", "gate_disabled", "credential_unavailable", "request_failed", "auth_rejected", "response_invalid", "receipt_failed"]);
+// A rejected credential is a distinct, actionable Owner state: the collector is
+// running and reachable, but the stored login no longer works. Collapsing it
+// into response_invalid hid that difference and read as a transient parse fault.
+const AUTH_REJECTED_STATUSES = new Set([401, 403]);
 
 async function gateEnabled(gatePath, read = readFile) {
   try {
@@ -47,27 +52,40 @@ async function boundedJson(response) {
   try { return JSON.parse(Buffer.concat(chunks.map((value) => Buffer.from(value))).toString("utf8")); } catch { return null; }
 }
 
-export async function collectClaudeOauthUsage({ gatePath, receiptPath, credentialsPath = path.join(os.homedir(), ".claude", ".credentials.json"), fetchImpl = fetch, read = readFile, now = Date.now, store = null } = {}) {
+export async function collectClaudeOauthUsage({ gatePath, receiptPath, credentialsPath = path.join(os.homedir(), ".claude", ".credentials.json"), fetchImpl = fetch, read = readFile, now = Date.now, store = null, attemptLog = null } = {}) {
   if (!path.isAbsolute(gatePath ?? "") || !path.isAbsolute(receiptPath ?? "") || path.basename(receiptPath) !== PROVIDER_QUOTA_RECEIPT_FILE_NAME) return { status: "gate_disabled" };
   if (!(await gateEnabled(gatePath, read))) return { status: "gate_disabled" };
+  // Everything past the gate is a real attempt, so it leaves attempt evidence
+  // whether it succeeds or fails. The accepted snapshot stays a separate file:
+  // a last-good value must never be read as proof that collection still runs.
+  const attemptedAt = new Date(Number(now())).toISOString();
+  const log = attemptLog ?? createProviderQuotaAttemptLog({ receiptDirectory: path.dirname(receiptPath) });
+  const finish = async (status) => {
+    await Promise.resolve(log.recordAttempt({ provider: "claude", attemptedAt, result: status })).catch(() => null);
+    return { status };
+  };
   let token = await credentialToken(credentialsPath, read);
-  if (token === null) return { status: "credential_unavailable" };
+  if (token === null) return finish("credential_unavailable");
   let response;
   try {
     response = await fetchImpl(CLAUDE_OAUTH_USAGE_URL, { method: "GET", redirect: "error", headers: { Authorization: `Bearer ${token}`, "anthropic-beta": "oauth-2025-04-20", "User-Agent": "claude-code/2.1.0", Accept: "application/json" }, signal: AbortSignal.timeout(10_000) });
-  } catch { token = null; return { status: "request_failed" }; }
+  } catch { token = null; return finish("request_failed"); }
   token = null;
+  if (AUTH_REJECTED_STATUSES.has(response.status)) {
+    await response.body?.cancel?.().catch(() => {});
+    return finish("auth_rejected");
+  }
   const payload = await boundedJson(response).catch(() => null);
-  if (payload === null) return { status: "response_invalid" };
+  if (payload === null) return finish("response_invalid");
   const referenceMs = Number(now());
   let snapshot;
   try { snapshot = createClaudeOauthUsageQuotaSnapshot(payload, { observedAt: new Date(referenceMs).toISOString(), nowMs: referenceMs }); } catch { snapshot = null; }
-  if (snapshot === null) return { status: "response_invalid" };
+  if (snapshot === null) return finish("response_invalid");
   try {
     const receiptStore = store ?? createProviderQuotaReceiptStore({ receiptPath, now });
     const result = await receiptStore.persistAcceptedSnapshot(snapshot);
-    return { status: SAFE_RESULTS.has(result.write_state) ? result.write_state : "receipt_failed" };
-  } catch { return { status: "receipt_failed" }; }
+    return finish(SAFE_RESULTS.has(result.write_state) ? result.write_state : "receipt_failed");
+  } catch { return finish("receipt_failed"); }
 }
 
 async function main() {

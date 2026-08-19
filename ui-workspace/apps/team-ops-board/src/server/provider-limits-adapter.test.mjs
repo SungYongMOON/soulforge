@@ -46,3 +46,30 @@ test("reader keeps one in-flight refresh for the bounded TTL", async () => {
   await Promise.all([reader.readSnapshot(), reader.readSnapshot(), reader.readSnapshot()]);
   assert.equal(calls, 1);
 });
+
+test("the reader projects the last collection attempt beside the retained value", async () => {
+  const reader = createProviderLimitsReader({
+    now: () => NOW,
+    readCodexLimitsImpl: async () => null,
+    providerQuotaReceiptStore: { readReadOnlyProjection: async () => ({ capture_status: "hold", freshness: "stale", snapshot: claudeSnapshot() }) },
+    providerQuotaAttemptLog: { readLatest: async () => ({ provider: "claude", attempted_at: "2026-08-10T00:00:30.000Z", result: "auth_rejected", result_class: "auth_rejected" }) },
+  });
+  const result = await reader.readSnapshot();
+  assert.deepEqual(result.claude_quota_attempt, { attempted_at: "2026-08-10T00:00:30.000Z", result_class: "auth_rejected" });
+});
+
+test("an unreadable or absent attempt log leaves attempt evidence UNKNOWN, never a pass", async () => {
+  for (const providerQuotaAttemptLog of [
+    null,
+    { readLatest: async () => null },
+    { readLatest: async () => { throw new Error("disk"); } },
+  ]) {
+    const reader = createProviderLimitsReader({
+      now: () => NOW,
+      readCodexLimitsImpl: async () => null,
+      providerQuotaReceiptStore: { readReadOnlyProjection: async () => ({ capture_status: "hold", freshness: "stale", snapshot: claudeSnapshot() }) },
+      providerQuotaAttemptLog,
+    });
+    assert.equal((await reader.readSnapshot()).claude_quota_attempt, null);
+  }
+});

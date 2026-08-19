@@ -23,6 +23,7 @@ import {
   TEAM_OPS_BOARD_READ_ONLY_PILOT,
   isTeamOpsBoardReadOnlyPilot,
 } from "../src/core/team-ops-board-read-only-pilot.mjs";
+import { classifyBoundedHistory, planBoundedHistoryAppend } from "../src/core/bounded-observability-history.mjs";
 import { resolveTeamOpsBoardAllowedHosts } from "../src/server/team-ops-board-allowed-hosts.mjs";
 import { startUsageProducerCompanion } from "./ai-usage-producer-companion.mjs";
 import { startRecoveryCompanion } from "../../../../guild_hall/watchtower/recovery_runtime.mjs";
@@ -192,6 +193,29 @@ const DESIRED_STATES = new Set([
   "stop_requested",
   "recovery_needed",
 ]);
+// Lifecycle history answers "what happened to this runtime", which the
+// latest-only heartbeat and the latest-only termination receipt cannot: both
+// are overwritten, so a restart loop or a handled fatal left no trace. Only
+// material transitions become rows; the 10s heartbeat deliberately does not.
+export const TEAM_OPS_BOARD_RUNTIME_LIFECYCLE_HISTORY_SCHEMA =
+  "soulforge.team_ops_board.runtime_lifecycle_history.v1";
+export const TEAM_OPS_BOARD_RUNTIME_LIFECYCLE_EVENTS = Object.freeze([
+  "start",
+  "ready",
+  "stop_requested",
+  "handled_fatal",
+  "restart_recovery",
+  "child_restart",
+  "child_exhausted",
+]);
+export const TEAM_OPS_BOARD_RUNTIME_LIFECYCLE_HISTORY_LIMIT = 100;
+export const TEAM_OPS_BOARD_RUNTIME_HISTORY_MAX_BYTES = 64 * 1024;
+// No identity of any kind, including the run id: an ordered sequence of
+// material events already answers "did it restart, crash, or get told to stop".
+// A per-run identifier would be a correlatable ID in a receipt for no added
+// answer, so the boundary excludes it rather than hashing or shortening it.
+const LIFECYCLE_ENTRY_KEYS = Object.freeze(["observed_at", "event", "failure_class"]);
+
 const TERMINATION_CLASSIFICATIONS = new Set([
   "normal_stop",
   "handled_error",
@@ -200,6 +224,31 @@ const TERMINATION_CLASSIFICATIONS = new Set([
   "dependency_loss",
   "unknown",
 ]);
+
+export function isRuntimeLifecycleEntry(value) {
+  return value !== null
+    && typeof value === "object"
+    && !Array.isArray(value)
+    && Object.keys(value).length === LIFECYCLE_ENTRY_KEYS.length
+    && LIFECYCLE_ENTRY_KEYS.every((key) => Object.hasOwn(value, key))
+    && typeof value.observed_at === "string"
+    && Number.isFinite(Date.parse(value.observed_at))
+    && TEAM_OPS_BOARD_RUNTIME_LIFECYCLE_EVENTS.includes(value.event)
+    && (value.failure_class === null || SAFE_FAILURE_CLASSES.has(value.failure_class));
+}
+
+export function createRuntimeLifecycleEntry({
+  event,
+  failureClass = null,
+  observedAt = new Date().toISOString(),
+} = {}) {
+  const entry = {
+    observed_at: observedAt,
+    event,
+    failure_class: SAFE_FAILURE_CLASSES.has(failureClass) ? failureClass : null,
+  };
+  return isRuntimeLifecycleEntry(entry) ? entry : null;
+}
 
 export function transitionRuntimeDesiredState(current, event, observedAt) {
   const timestamp = String(observedAt ?? "");
@@ -841,6 +890,7 @@ function runtimePaths(env = process.env) {
     state: path.join(root, "runtime.v1.json"),
     desired: path.join(root, "desired.v1.json"),
     terminationReceipt: path.join(root, "termination-receipt.v1.json"),
+    lifecycleHistory: path.join(root, "lifecycle-history.v1.json"),
   };
 }
 
@@ -890,6 +940,65 @@ async function writeJsonAtomic(filePath, value) {
     await rename(temporary, filePath);
   } finally {
     await rm(temporary, { force: true }).catch(() => {});
+  }
+}
+
+// The lifecycle history is the one runtime record allowed to exceed the small
+// single-state byte budget, so it gets its own bounded reader rather than
+// widening the shared MAX_RECORD_BYTES contract for every state file.
+// A missing history is a safe first write; a present-but-untrustworthy one is
+// preserved rather than replaced, so the two are reported apart.
+async function probeLifecycleHistory(paths) {
+  let info;
+  try {
+    info = await lstat(paths.lifecycleHistory);
+  } catch (error) {
+    return error?.code === "ENOENT"
+      ? { presence: "missing", value: null }
+      : { presence: "unreadable", value: null };
+  }
+  if (!info.isFile() || info.isSymbolicLink() || info.size > TEAM_OPS_BOARD_RUNTIME_HISTORY_MAX_BYTES) {
+    return { presence: "unreadable", value: null };
+  }
+  try {
+    return { presence: "present", value: JSON.parse(await readFile(paths.lifecycleHistory, "utf8")) };
+  } catch (error) {
+    return error?.code === "ENOENT"
+      ? { presence: "missing", value: null }
+      : { presence: "unreadable", value: null };
+  }
+}
+
+// Best effort by contract: lifecycle evidence must never change whether the
+// runtime starts, stops, or restarts. A failed append is simply a missing row,
+// and a history that is present but untrustworthy is left exactly as found
+// rather than being rebuilt over the top of the evidence.
+async function appendRuntimeLifecycleEvent(paths, event, { failureClass = null } = {}) {
+  try {
+    const entry = createRuntimeLifecycleEntry({
+      event,
+      failureClass,
+      observedAt: new Date().toISOString(),
+    });
+    if (entry === null) return { outcome: "preserved", reason: "entry_invalid" };
+    const probe = await probeLifecycleHistory(paths);
+    const plan = planBoundedHistoryAppend({
+      classified: classifyBoundedHistory({
+        presence: probe.presence,
+        value: probe.value,
+        schemaVersion: TEAM_OPS_BOARD_RUNTIME_LIFECYCLE_HISTORY_SCHEMA,
+        isEntry: isRuntimeLifecycleEntry,
+      }),
+      entry,
+      schemaVersion: TEAM_OPS_BOARD_RUNTIME_LIFECYCLE_HISTORY_SCHEMA,
+      limit: TEAM_OPS_BOARD_RUNTIME_LIFECYCLE_HISTORY_LIMIT,
+      isEntry: isRuntimeLifecycleEntry,
+    });
+    if (plan.record === null) return { outcome: plan.outcome, reason: plan.reason };
+    await writeJsonAtomic(paths.lifecycleHistory, plan.record);
+    return { outcome: plan.outcome, reason: null, entry };
+  } catch {
+    return { outcome: "preserved", reason: "history_write_failed" };
   }
 }
 
@@ -1802,6 +1911,7 @@ async function runWorker(runId, env = process.env) {
   await ensureNormalDirectory(paths.root);
   const { lock, state: startingState } = await waitForWorkerClaim(paths, runId, process.pid);
   if (lock.run_id !== runId || startingState.state !== "starting") fail("identity_mismatch");
+  await appendRuntimeLifecycleEvent(paths, "start");
 
   let previewServer = null;
   let controlServer = null;
@@ -1816,6 +1926,7 @@ async function runWorker(runId, env = process.env) {
     shuttingDown = true;
     shutdownPromise = (async () => {
       clearInterval(heartbeatTimer);
+      await appendRuntimeLifecycleEvent(paths, "stop_requested");
       await usageProducerCompanion?.stop();
       await recoveryCompanion?.stop();
       const current = await readRuntimeState(paths).catch(() => null);
@@ -1836,6 +1947,7 @@ async function runWorker(runId, env = process.env) {
       await usageProducerCompanion?.stop().catch(() => {});
       await recoveryCompanion?.stop().catch(() => {});
       const failureClass = sanitizeRuntimeFailure(error, "runtime_worker_failed");
+      await appendRuntimeLifecycleEvent(paths, "handled_fatal", { failureClass });
       const current = await readRuntimeState(paths).catch(() => null);
       if (current?.run_id === runId && current.state === "ready") {
         await writeJsonAtomic(
@@ -1893,6 +2005,7 @@ async function runWorker(runId, env = process.env) {
       build_sha256: await buildDigest(),
       heartbeat_at: new Date().toISOString(),
     });
+    await appendRuntimeLifecycleEvent(paths, "ready");
     heartbeatTimer = setInterval(async () => {
       if (shuttingDown) return;
       const current = await readRuntimeState(paths).catch(() => null);
@@ -2157,6 +2270,7 @@ export async function runScheduledController(env = process.env, {
         workerAliveAtCapture: false,
         childExit: { code: outcome.code, signal: outcome.signal },
       });
+      await appendRuntimeLifecycleEvent(paths, "restart_recovery");
     }
     if (state) await removeOwnedRuntime(paths, state.run_id);
 
@@ -2167,6 +2281,13 @@ export async function runScheduledController(env = process.env, {
       restartCount,
       restartLimit,
     });
+    if (decision === "restart") {
+      await appendRuntimeLifecycleEvent(paths, "child_restart");
+    } else {
+      await appendRuntimeLifecycleEvent(paths, "child_exhausted", {
+        failureClass: "runtime_worker_failed",
+      });
+    }
     // Exhaustion never awaits desired state settling to "stopped": that wait
     // has no listener that would ever drive it there, and would leave the
     // Scheduled Task process parked. Failing with a safe code exits nonzero
