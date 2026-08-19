@@ -46,7 +46,7 @@ import { siGmail, siGoogledrive } from "simple-icons";
 
 import { aiUsageProjectionRequest } from "./core/ai-usage-projection-request.mjs";
 import { createUnmeasuredAiUsageSnapshot } from "./core/ai-usage-snapshot.mjs";
-import { buildClaudeQuotaPresentation } from "./core/provider-limits.mjs";
+import { buildClaudeQuotaPresentation, selectCodexRateLimitObservation } from "./core/provider-limits.mjs";
 import { monotoneAreaPath, monotoneLinePath } from "./core/monotone-area.mjs";
 import { UNMEASURED_REQUEST_FAMILY_LABELS } from "./core/ai-usage-history-snapshot.mjs";
 import {
@@ -3019,22 +3019,20 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
     ? history.activity.daily.map((row: any) => row.total_tokens ?? 0)
     : [];
   // Codex 공식 %는 미터 이벤트 관측과 최신 세션 텔레메트리 중 더 새로운 쪽을 쓴다.
-  let rateLimit = history?.rate_limit ?? null;
+  const meterRateLimit = history?.rate_limit ?? null;
+  let liveRateLimit: any = null;
   const liveCodex = providers?.limits?.codex ?? null;
   if (liveCodex?.primary) {
-    const liveObservedMs = Date.parse(liveCodex.observed_at ?? "") || 0;
-    const meterObservedMs = rateLimit !== null ? (Date.parse(rateLimit.observed_at) || 0) : 0;
-    if (liveObservedMs >= meterObservedMs) {
-      rateLimit = {
-        limit_id: "codex",
-        plan_type: liveCodex.plan_type ?? rateLimit?.plan_type ?? null,
-        used_percent: liveCodex.primary.used_percent,
-        window_minutes: liveCodex.primary.window_minutes,
-        resets_at_epoch_s: liveCodex.primary.resets_at_epoch_s,
-        observed_at: liveCodex.observed_at ?? new Date().toISOString(),
-      };
-    }
+    liveRateLimit = {
+      limit_id: "codex",
+      plan_type: liveCodex.plan_type ?? meterRateLimit?.plan_type ?? null,
+      used_percent: liveCodex.primary.used_percent,
+      window_minutes: liveCodex.primary.window_minutes,
+      resets_at_epoch_s: liveCodex.primary.resets_at_epoch_s,
+      observed_at: liveCodex.observed_at ?? new Date().toISOString(),
+    };
   }
+  const rateLimit: any = selectCodexRateLimitObservation({ meter: meterRateLimit, live: liveRateLimit });
   const week = windows?.calendar_week?.totals ?? null;
   const day = windows?.calendar_day?.totals ?? null;
   const month = windows?.calendar_month?.totals ?? null;
@@ -3062,7 +3060,7 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
     ? "시도 기록 없음"
     : `마지막 시도 ${fleetObservedAgoLabel(claudeStatus.attempted_at)}`;
   const claudeReauthNote = claudeQuota.requires_reauth ? " · 재로그인 필요" : "";
-  const claudeStatusNote = `공식 쿼터 ${claudeStateLabel} · ${claudeOutcomeLabel} · ${claudeAttemptLabel} · ${claudeLastSuccessLabel}${claudeReauthNote}`;
+  const claudeStatusNote = `공식 쿼터 ${claudeStateLabel} · ${claudeStatus.attempt_label} · ${claudeOutcomeLabel} · ${claudeAttemptLabel} · ${claudeLastSuccessLabel}${claudeReauthNote}`;
   // 게이지를 지운 자리에 마지막 관측값을 근거로만 남긴다. 숫자는 남기되 현재
   // 잔여 용량으로 읽히지 않게 명시한다.
   const claudeHistoricalNote = (utilization: number): string =>

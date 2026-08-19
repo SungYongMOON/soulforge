@@ -72,6 +72,7 @@ test("official Claude quota row is independent of common Meter history and fails
   assert.match(source, /claudeQuota\.requires_reauth/u);
   assert.match(source, /재로그인 필요/u);
   assert.match(source, /claudeStatus\.attempted_at === null/u);
+  assert.match(source, /claudeStatus\.attempt_label/u);
   assert.doesNotMatch(source, /attempt_class === "auth_rejected"/u);
   assert.match(source, /className=\{`fleet-limit-row is-\$\{row\.severity\}\$\{row\.stale \? " is-stale" : ""\}`\}/u);
   assert.match(source, /data-freshness=\{row\.stale \? "stale" : "current"\}/u);

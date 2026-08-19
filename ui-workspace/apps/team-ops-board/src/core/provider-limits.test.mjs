@@ -7,6 +7,7 @@ import {
   buildProviderLimitsSnapshot,
   normalizeClaudeOfficialQuota,
   parseCodexRateLimitsFromJsonlText,
+  selectCodexRateLimitObservation,
 } from "./provider-limits.mjs";
 
 const OBSERVED_AT = "2026-08-10T00:00:00.000Z";
@@ -28,6 +29,44 @@ test("Codex parser keeps only the newest valid public rate-limit fields", () => 
   ].join("\n");
   assert.equal(parseCodexRateLimitsFromJsonlText(text).primary.used_percent, 25);
   assert.equal(parseCodexRateLimitsFromJsonlText("broken"), null);
+});
+
+test("Codex keeps the current window when a newer event prematurely reports the next window at zero", () => {
+  const currentReset = Date.parse("2026-08-20T03:31:30.000Z") / 1000;
+  const nextReset = Date.parse("2026-08-26T11:48:00.000Z") / 1000;
+  const selected = selectCodexRateLimitObservation({
+    meter: {
+      limit_id: "codex",
+      plan_type: "pro",
+      used_percent: 0,
+      window_minutes: 10_080,
+      resets_at_epoch_s: nextReset,
+      observed_at: "2026-08-19T11:48:00.000Z",
+    },
+    live: {
+      limit_id: "codex",
+      plan_type: "pro",
+      used_percent: 98,
+      window_minutes: 10_080,
+      resets_at_epoch_s: currentReset,
+      observed_at: "2026-08-19T11:46:00.000Z",
+    },
+    nowMs: Date.parse("2026-08-19T11:50:00.000Z"),
+  });
+  assert.equal(selected.used_percent, 98);
+  assert.equal(selected.resets_at_epoch_s, currentReset);
+});
+
+test("Codex accepts the newer observation once the earlier window has actually reset", () => {
+  const currentReset = Date.parse("2026-08-20T03:31:30.000Z") / 1000;
+  const nextReset = Date.parse("2026-08-26T11:48:00.000Z") / 1000;
+  const selected = selectCodexRateLimitObservation({
+    meter: { used_percent: 0, window_minutes: 10_080, resets_at_epoch_s: nextReset, observed_at: "2026-08-20T03:32:00.000Z" },
+    live: { used_percent: 98, window_minutes: 10_080, resets_at_epoch_s: currentReset, observed_at: "2026-08-19T11:46:00.000Z" },
+    nowMs: Date.parse("2026-08-20T03:32:00.000Z"),
+  });
+  assert.equal(selected.used_percent, 0);
+  assert.equal(selected.resets_at_epoch_s, nextReset);
 });
 
 test("official Claude status-line quota accepts documented 5h/7d and never infers Fable", () => {

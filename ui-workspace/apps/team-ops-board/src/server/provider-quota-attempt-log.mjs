@@ -37,6 +37,7 @@ const RESULT_CLASSES = Object.freeze({
   auth_rejected: "auth_rejected",
   credential_unavailable: "credential_unavailable",
   request_failed: "transport_failed",
+  rate_limited: "rate_limited",
   response_invalid: "response_invalid",
   receipt_failed: "receipt_failed",
 });

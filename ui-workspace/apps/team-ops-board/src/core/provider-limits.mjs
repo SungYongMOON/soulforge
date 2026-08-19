@@ -30,11 +30,22 @@ export const CLAUDE_QUOTA_ATTEMPT_CLASSES = Object.freeze([
   "accepted",
   "auth_rejected",
   "credential_unavailable",
+  "rate_limited",
   "transport_failed",
   "response_invalid",
   "receipt_failed",
 ]);
 const ATTEMPT_KEYS = Object.freeze(["attempted_at", "result_class"]);
+const CLAUDE_ATTEMPT_LABELS = Object.freeze({
+  accepted: "수집 성공",
+  auth_rejected: "로그인 거절",
+  credential_unavailable: "로그인 정보 없음",
+  rate_limited: "조회 제한 · 자동 재시도",
+  transport_failed: "연결 실패",
+  response_invalid: "응답 검증 실패",
+  receipt_failed: "저장 실패",
+  unknown: "시도 결과 UNKNOWN",
+});
 
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -100,6 +111,31 @@ export function parseCodexRateLimitsFromJsonlText(text) {
     if (normalized !== null) return normalized;
   }
   return null;
+}
+
+/** @param {{ meter?: any, live?: any, nowMs?: number }} options */
+export function selectCodexRateLimitObservation({ meter = null, live = null, nowMs = Date.now() } = {}) {
+  if (!isRecord(meter)) return isRecord(live) ? live : null;
+  if (!isRecord(live)) return meter;
+  const meterObservedMs = Date.parse(meter.observed_at ?? "");
+  const liveObservedMs = Date.parse(live.observed_at ?? "");
+  const selected = Number.isFinite(liveObservedMs)
+    && (!Number.isFinite(meterObservedMs) || liveObservedMs >= meterObservedMs)
+    ? live
+    : meter;
+  const liveResetMs = Number.isSafeInteger(live.resets_at_epoch_s)
+    ? live.resets_at_epoch_s * 1000
+    : NaN;
+  const meterResetMs = Number.isSafeInteger(meter.resets_at_epoch_s)
+    ? meter.resets_at_epoch_s * 1000
+    : NaN;
+  const prematureNextWindow = Number.isFinite(liveResetMs)
+    && Number.isFinite(meterResetMs)
+    && liveResetMs > nowMs
+    && meterResetMs > liveResetMs
+    && meter.window_minutes === live.window_minutes
+    && Number(meter.used_percent) < Number(live.used_percent);
+  return prematureNextWindow ? live : selected;
 }
 
 function emptyClaudeOfficialQuota() {
@@ -226,6 +262,7 @@ export function buildClaudeQuotaPresentation(snapshot) {
       // attempt, which is exactly the confusion this separation removes.
       attempted_at: attempt?.attempted_at ?? null,
       attempt_class: attempt?.result_class ?? "unknown",
+      attempt_label: CLAUDE_ATTEMPT_LABELS[attempt?.result_class ?? "unknown"],
       last_success_at: official.observed_at,
       freshness: current ? "current" : official.freshness,
     },

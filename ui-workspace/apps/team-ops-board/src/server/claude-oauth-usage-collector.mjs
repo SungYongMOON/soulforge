@@ -10,7 +10,8 @@ import { createProviderQuotaReceiptStore, PROVIDER_QUOTA_RECEIPT_FILE_NAME } fro
 export const CLAUDE_OAUTH_USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
 export const CLAUDE_OAUTH_USAGE_GATE_SCHEMA = "soulforge.claude_oauth_usage_gate.v1";
 export const MAX_CLAUDE_OAUTH_RESPONSE_BYTES = 64 * 1024;
-const SAFE_RESULTS = new Set(["written", "already_current", "retained_newer", "gate_disabled", "credential_unavailable", "request_failed", "auth_rejected", "response_invalid", "receipt_failed"]);
+export const CLAUDE_OAUTH_RATE_LIMIT_BACKOFF_MS = 30 * 60_000;
+const SAFE_RESULTS = new Set(["written", "already_current", "retained_newer", "gate_disabled", "credential_unavailable", "request_failed", "auth_rejected", "rate_limited", "response_invalid", "receipt_failed"]);
 // A rejected credential is a distinct, actionable Owner state: the collector is
 // running and reachable, but the stored login no longer works. Collapsing it
 // into response_invalid hid that difference and read as a transient parse fault.
@@ -55,11 +56,22 @@ async function boundedJson(response) {
 export async function collectClaudeOauthUsage({ gatePath, receiptPath, credentialsPath = path.join(os.homedir(), ".claude", ".credentials.json"), fetchImpl = fetch, read = readFile, now = Date.now, store = null, attemptLog = null } = {}) {
   if (!path.isAbsolute(gatePath ?? "") || !path.isAbsolute(receiptPath ?? "") || path.basename(receiptPath) !== PROVIDER_QUOTA_RECEIPT_FILE_NAME) return { status: "gate_disabled" };
   if (!(await gateEnabled(gatePath, read))) return { status: "gate_disabled" };
+  const log = attemptLog ?? createProviderQuotaAttemptLog({ receiptDirectory: path.dirname(receiptPath) });
+  const nowMs = Number(now());
+  const latestAttempt = typeof log?.readLatest === "function"
+    ? await Promise.resolve(log.readLatest()).catch(() => null)
+    : null;
+  const latestAttemptMs = Date.parse(latestAttempt?.attempted_at ?? "");
+  if (latestAttempt?.result === "rate_limited"
+    && Number.isFinite(latestAttemptMs)
+    && nowMs >= latestAttemptMs
+    && nowMs - latestAttemptMs < CLAUDE_OAUTH_RATE_LIMIT_BACKOFF_MS) {
+    return { status: "backoff_active" };
+  }
   // Everything past the gate is a real attempt, so it leaves attempt evidence
   // whether it succeeds or fails. The accepted snapshot stays a separate file:
   // a last-good value must never be read as proof that collection still runs.
-  const attemptedAt = new Date(Number(now())).toISOString();
-  const log = attemptLog ?? createProviderQuotaAttemptLog({ receiptDirectory: path.dirname(receiptPath) });
+  const attemptedAt = new Date(nowMs).toISOString();
   const finish = async (status) => {
     await Promise.resolve(log.recordAttempt({ provider: "claude", attemptedAt, result: status })).catch(() => null);
     return { status };
@@ -75,9 +87,13 @@ export async function collectClaudeOauthUsage({ gatePath, receiptPath, credentia
     await response.body?.cancel?.().catch(() => {});
     return finish("auth_rejected");
   }
+  if (response.status === 429) {
+    await response.body?.cancel?.().catch(() => {});
+    return finish("rate_limited");
+  }
   const payload = await boundedJson(response).catch(() => null);
   if (payload === null) return finish("response_invalid");
-  const referenceMs = Number(now());
+  const referenceMs = nowMs;
   let snapshot;
   try { snapshot = createClaudeOauthUsageQuotaSnapshot(payload, { observedAt: new Date(referenceMs).toISOString(), nowMs: referenceMs }); } catch { snapshot = null; }
   if (snapshot === null) return finish("response_invalid");
@@ -92,7 +108,7 @@ async function main() {
   const args = Object.fromEntries(process.argv.slice(2).reduce((rows, value, index, all) => index % 2 === 0 ? [...rows, [value, all[index + 1]]] : rows, []));
   const result = await collectClaudeOauthUsage({ gatePath: args["--gate-path"], receiptPath: args["--receipt-path"] });
   process.stdout.write(JSON.stringify(result));
-  process.exitCode = ["written", "already_current", "retained_newer", "gate_disabled"].includes(result.status) ? 0 : 1;
+  process.exitCode = ["written", "already_current", "retained_newer", "gate_disabled", "backoff_active"].includes(result.status) ? 0 : 1;
 }
 
 if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) void main().catch(() => { process.stdout.write('{"status":"request_failed"}'); process.exitCode = 1; });

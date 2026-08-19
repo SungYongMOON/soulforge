@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2026-08-19 - Team Ops Board explains Claude quota throttling and blocks premature Codex reset samples
+
+- Claude official-quota HTTP 429 responses now become the sanitized
+  `rate_limited` attempt class rather than the ambiguous `response_invalid`.
+  The collector makes no provider request for 30 minutes after that signal and
+  the Fleet card says `조회 제한 · 자동 재시도`; the last good percentages
+  remain visibly stale and are never promoted to current.
+- Codex quota display now rejects a premature next-window sample when the
+  currently corroborated window has not reset yet. This prevents a transient
+  `100% 남음` reading while preserving normal adoption after the real reset.
+- Focused regressions cover 429 classification, no-I/O backoff, fixed safe
+  attempt labels, current-window preference, and post-reset acceptance.
+
 ## 2026-08-19 - A Synology link issuer beside the engine door, so an outsider can upload without a folder path
 
 The engine hands out a ticket — a folder and an expiry — and makes no network call. Turning that

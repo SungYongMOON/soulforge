@@ -29,8 +29,8 @@ const attempt = (overrides = {}) => ({ attempted_at: ATTEMPTED_AT, result_class:
 
 test("attempt classes are a fixed sanitized set with no free text", () => {
   assert.deepEqual([...CLAUDE_QUOTA_ATTEMPT_CLASSES].sort(), [
-    "accepted", "auth_rejected", "credential_unavailable", "receipt_failed",
-    "response_invalid", "transport_failed",
+    "accepted", "auth_rejected", "credential_unavailable", "rate_limited",
+    "receipt_failed", "response_invalid", "transport_failed",
   ]);
 });
 
@@ -106,6 +106,19 @@ test("a rejected credential reaches the Owner as re-login required without any l
   assert.equal(presentation.requires_reauth, true);
   assert.equal(presentation.current, false);
   assert.equal(presentation.value_state, "last_known");
+});
+
+test("a rate-limited attempt stays stale and explains automatic retry without requesting login", () => {
+  const presentation = buildClaudeQuotaPresentation(buildProviderLimitsSnapshot({
+    claudeOfficial: official(),
+    claudeAttempt: attempt({ result_class: "rate_limited" }),
+    observedAtMs: Date.parse(ATTEMPTED_AT),
+  }));
+  assert.equal(presentation.status.state, "stale");
+  assert.equal(presentation.status.attempt_class, "rate_limited");
+  assert.equal(presentation.status.attempt_label, "조회 제한 · 자동 재시도");
+  assert.equal(presentation.requires_reauth, false);
+  assert.equal(presentation.current, false);
 });
 
 test("attempt evidence never upgrades a stale value to current and a fresh value stays current", () => {

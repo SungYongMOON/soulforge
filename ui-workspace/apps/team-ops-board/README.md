@@ -275,32 +275,36 @@ result-gate disables. The result-gate atomic writer also rejects the pilot env,
 including when invoked through its separate CLI.
 
 The pilot keeps Claude official quota reading off unless the same process also
-sets the exact opt-in `TEAM_OPS_BOARD_CLAUDE_QUOTA_READ=1`. That opt-in reuses
-only an existing credential for `GET https://api.anthropic.com/api/oauth/usage`,
-with a 6-second timeout, a minimum 120-second attempt cadence, and no login,
-credential write, response persistence, or provider mutation. Schema v2 adds
-only redacted `claude_status` metadata (`state`, safe `outcome`, attempt and
-last-success times, and source-owned freshness). The normalized last successful
-quota stays in process memory across a failed attempt and is visibly
-`STALE`/error immediately; a new process has no retained value. Failed reads
-enter a five-minute exponential cooldown capped at one hour; a valid
-`Retry-After` delta or HTTP date may extend that cooldown to the same cap.
-The scheduled companion and read-only Board adapter resolve the ignored local
-quota gate and sanitized receipt from the stable
+sets the exact opt-in `TEAM_OPS_BOARD_CLAUDE_QUOTA_READ=1`. The scheduled
+companion additionally requires its ignored local gate before it reuses only an
+existing credential for `GET https://api.anthropic.com/api/oauth/usage`. It
+never initiates login, writes credentials, persists a provider response, or
+mutates the provider. The last accepted sanitized receipt stays separate from
+attempt evidence and becomes visibly `STALE` after its freshness window.
+HTTP 429 is recorded as the fixed safe class `rate_limited`, not as malformed
+content. A rate-limited attempt starts a 30-minute local backoff; invocations
+during that window return `backoff_active` without another provider GET or a
+fabricated attempt row. The scheduled companion and read-only Board adapter
+resolve the ignored local quota gate and sanitized receipt from the stable
 `SOULFORGE_AI_USAGE_PROJECT_ROOT`, not from the active code worktree. A Board
 worktree switch therefore cannot silently orphan Claude quota state. This does
 not enable quota access by itself, store credentials, or persist provider
 responses. When the sanitized OAuth source reports a percentage but explicitly
 omits its reset timestamp, the Board retains that percentage and displays only
 the reset as unknown; it never invents a reset time.
-The gated quota collector has its own single-flight five-minute trigger. It does
-not wait for the Meter companion's active-session supplement to finish, so a
-long-running local session import cannot make a valid quota receipt stale.
-Local polling and cache refreshes share one in-flight read and perform no
-provider GET during cooldown. Missing v2 status, legacy v1,
-and unavailable values remain `UNKNOWN`/disabled and are never fabricated as
-zero or green. The common Meter ledger's Claude usage row remains an independent
-read-only projection and never supplies or replaces official quota values.
+The gated quota collector runs from the five-minute companion cycle and its
+backoff check happens before credential access or provider I/O. Missing legacy
+status and unavailable values remain `UNKNOWN`/disabled and are never
+fabricated as zero or green. The common Meter ledger's Claude usage row remains
+an independent read-only projection and never supplies or replaces official
+quota values.
+
+Codex quota rendering reconciles the latest event-carried sample with the
+newest local session sample. While the currently observed reset is still in the
+future, a premature next-window sample with a later reset and lower utilization
+cannot replace the current window. Once the current reset has actually passed,
+the newer window is eligible normally. This prevents a transient `100% 남음`
+display without delaying a real reset.
 
 The scheduled read-only Board enables one exact Antigravity quota gate. That
 gate sends only an empty JSON object to the running Antigravity language
@@ -536,6 +540,9 @@ to `provider_quota.attempt-history.v1.json` (50 rows) with exactly
 attempt and is deliberately not recorded. The accepted quota snapshot keeps its
 own separate file and meaning: attempt evidence answers whether collection ran,
 never what the value is, and can never promote a value to current.
+HTTP 429 is the separate fixed result/class `rate_limited`; the Board explains
+`조회 제한 · 자동 재시도`, keeps the last good value stale, and suppresses
+further provider requests for the bounded backoff window.
 
 The Board therefore separates the last attempt from the last good value. The
 provider-limits root gained the `claude_quota_attempt` field, so its contract is

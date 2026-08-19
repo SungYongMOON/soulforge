@@ -61,12 +61,12 @@ function parsed(fs, name) {
 
 test("every collector result maps to exactly one fixed sanitized class", () => {
   assert.deepEqual([...PROVIDER_QUOTA_ATTEMPT_RESULTS].sort(), [
-    "already_current", "auth_rejected", "credential_unavailable", "receipt_failed",
-    "request_failed", "response_invalid", "retained_newer", "written",
+    "already_current", "auth_rejected", "credential_unavailable", "rate_limited",
+    "receipt_failed", "request_failed", "response_invalid", "retained_newer", "written",
   ]);
   assert.deepEqual([...PROVIDER_QUOTA_ATTEMPT_CLASSES].sort(), [
-    "accepted", "auth_rejected", "credential_unavailable", "receipt_failed",
-    "response_invalid", "transport_failed",
+    "accepted", "auth_rejected", "credential_unavailable", "rate_limited",
+    "receipt_failed", "response_invalid", "transport_failed",
   ]);
   assert.equal(classifyProviderQuotaAttempt("written"), "accepted");
   assert.equal(classifyProviderQuotaAttempt("already_current"), "accepted");
@@ -74,6 +74,7 @@ test("every collector result maps to exactly one fixed sanitized class", () => {
   assert.equal(classifyProviderQuotaAttempt("auth_rejected"), "auth_rejected");
   assert.equal(classifyProviderQuotaAttempt("credential_unavailable"), "credential_unavailable");
   assert.equal(classifyProviderQuotaAttempt("request_failed"), "transport_failed");
+  assert.equal(classifyProviderQuotaAttempt("rate_limited"), "rate_limited");
   assert.equal(classifyProviderQuotaAttempt("response_invalid"), "response_invalid");
   assert.equal(classifyProviderQuotaAttempt("receipt_failed"), "receipt_failed");
   assert.equal(classifyProviderQuotaAttempt("gate_disabled"), null);
