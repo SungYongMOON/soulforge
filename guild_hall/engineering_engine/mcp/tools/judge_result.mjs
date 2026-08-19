@@ -4,18 +4,23 @@
 // it prints are the ones the run wrote.
 
 import { ENGINE_MCP_ERROR_CODES, assertRunId, mcpFail } from '../engine_context.mjs';
+import { paginate, pagingProperties } from '../paging.mjs';
 import { FOOTER, heading, lines, table } from '../render.mjs';
 
 export const name = 'judge_result';
 export const title_ko = '판단 결과 보기';
 export const description_ko = '저장된 판단 영수증 하나(실행 id + 단계)의 판정 상태·요구 수·mission 후보를 읽어 준다.';
 export const write = false;
+export const data_class = 'team_judgment';
+
+const DEFAULT_LIMIT = 100;
 
 export const inputSchema = Object.freeze({
   type: 'object',
   properties: {
     run_id: { type: 'string', description: '실행 폴더 이름' },
     stage_code: { type: 'string', description: '엔진 단계 코드' },
+    ...pagingProperties(DEFAULT_LIMIT),
   },
   required: ['run_id', 'stage_code'],
   additionalProperties: false,
@@ -66,7 +71,11 @@ export async function handler(args, ctx) {
       'this receipt carries no requirement counts', { run_id: runId, stage_code: stageCode });
   }
 
-  const structured = { run_id: runId, stage_code: stageCode, ...summary };
+  // The issue list is the part that grows with the project, so it is the part that pages.
+  const paged = paginate(summary.issues, args, { field: 'issues', default_limit: DEFAULT_LIMIT });
+  const structured = {
+    run_id: runId, stage_code: stageCode, ...summary, issues: paged.items, page: paged.page,
+  };
   const counts = summary.requirement_counts;
 
   const markdown = lines(

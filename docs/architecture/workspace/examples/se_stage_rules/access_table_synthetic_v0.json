@@ -1,0 +1,90 @@
+{
+  "fixture_id": "access_table_synthetic_v0",
+  "schema_version": "soulforge.engine_access_table_fixture.v0",
+  "note": "Public-safe synthetic fixture for the engine MCP door's access table (접근표, 설계 9.1F). The `access_table` block is a complete, valid table over the synthetic project codes the other fixtures use; a test loads it, drives the tools with it, and asserts what each role is shown. It grants nothing to anybody in the real world: the roles are the seven the design names, and the project codes are synthetic. The private instance lives beside the registry (`_workmeta/system/engine/access_table.json`) and is written by the Owner, never by a tool — the door has no tool that edits permissions.",
+  "instance_path_convention": "_workmeta/system/engine/access_table.json",
+  "data_classes": {
+    "public_rules": "ⓐ 규칙·카드·순서 — 누구나",
+    "team_judgment": "ⓑ 판단 결과·지시서 — 팀원, 지시서는 자기 역할 것 위주",
+    "confidential_contract": "ⓒ 계약서·SOW·단가·발주처 원문·과제 경로와 파일 이름 — Owner·PM",
+    "personal": "ⓓ 개인 첨부 — 작성자·담당·Owner"
+  },
+  "default_data_class": "confidential_contract",
+  "default_note": "등급 태그가 없는 것은 ⓒ로 다룬다(fail-closed). 표에 없는 역할은 아무 권한도 없다.",
+  "access_table": {
+    "schema_version": "soulforge.engine_access_table.v0",
+    "roles": {
+      "owner": {
+        "tools": ["*"],
+        "classes": ["public_rules", "team_judgment", "confidential_contract", "personal"],
+        "capabilities": ["*"]
+      },
+      "pm": {
+        "tools": ["*"],
+        "classes": ["public_rules", "team_judgment", "confidential_contract", "personal"],
+        "capabilities": ["*"]
+      },
+      "systems": {
+        "tools": [
+          "whoami", "engine_status", "projects_list",
+          "rules_layers", "rules_stage", "rules_card", "rules_version",
+          "observe_status", "observe_register",
+          "judge_result", "judge_diff", "next_steps", "project_status"
+        ],
+        "classes": ["public_rules", "team_judgment"],
+        "capabilities": ["systems_engineering"]
+      },
+      "hw": {
+        "tools": [
+          "whoami", "engine_status", "projects_list",
+          "rules_layers", "rules_stage", "rules_card", "rules_version",
+          "observe_status", "observe_register",
+          "judge_result", "judge_diff", "next_steps", "project_status"
+        ],
+        "classes": ["public_rules", "team_judgment"],
+        "capabilities": ["hw_engineering", "mechanical_design"]
+      },
+      "sw": {
+        "tools": [
+          "whoami", "engine_status", "projects_list",
+          "rules_layers", "rules_stage", "rules_card", "rules_version",
+          "observe_status", "observe_register",
+          "judge_result", "judge_diff", "next_steps", "project_status"
+        ],
+        "classes": ["public_rules", "team_judgment"],
+        "capabilities": ["sw_engineering"]
+      },
+      "quality": {
+        "tools": [
+          "whoami", "engine_status", "projects_list",
+          "rules_layers", "rules_stage", "rules_card", "rules_version",
+          "observe_status", "observe_register",
+          "judge_result", "judge_diff", "next_steps", "project_status"
+        ],
+        "classes": ["public_rules", "team_judgment"],
+        "capabilities": ["verification_review", "configuration_management", "risk_management"]
+      },
+      "external": {
+        "tools": ["whoami", "engine_status", "rules_layers", "rules_stage", "rules_card", "rules_version"],
+        "classes": ["public_rules"],
+        "capabilities": []
+      }
+    },
+    "project_overrides": {
+      "SYN-001": {
+        "hw": {
+          "tools": ["whoami", "engine_status", "rules_stage"],
+          "classes": ["public_rules"],
+          "capabilities": []
+        }
+      }
+    }
+  },
+  "override_note": "과제 덮어쓰기는 그 역할의 행을 통째로 대신한다(합치지 않는다). 그래야 덮어쓰기 한 줄만 읽어도 그 과제에서 무엇이 되는지 전부 알 수 있다.",
+  "refusal_reasons": {
+    "PRINCIPAL_REQUIRED": "신원이 붙지 않은 호출 — 공개 규칙 등급(ⓐ) 읽기 도구만 열린다",
+    "PERMISSION_DENIED": "역할에 그 도구가 없음(또는 과제가 paused/closed)",
+    "CLASS_EXCEEDED": "도구가 내는 자료 등급이 그 역할이 볼 수 있는 등급 밖",
+    "WRITE_DISABLED": "쓰기 스위치가 꺼져 있음"
+  }
+}

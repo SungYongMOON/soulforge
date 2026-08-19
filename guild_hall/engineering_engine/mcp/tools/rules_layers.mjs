@@ -3,16 +3,20 @@
 // Reads the compiled variant and the overlays the profile names and says what they are. No
 // compile: a caller asking which rules apply should not have to pay for evaluating them.
 
+import { paginate, pagingProperties } from '../paging.mjs';
 import { FOOTER, heading, lines, table } from '../render.mjs';
 
 export const name = 'rules_layers';
 export const title_ko = '적용 층 보기';
 export const description_ko = '이 과제에 붙는 규칙 층(사업유형 스펙·발주처 덧씌움·과제 덧씌움)과 그 판을 보여준다.';
 export const write = false;
+export const data_class = 'public_rules';
+
+const DEFAULT_LIMIT = 32;
 
 export const inputSchema = Object.freeze({
   type: 'object',
-  properties: {},
+  properties: { ...pagingProperties(DEFAULT_LIMIT) },
   additionalProperties: false,
 });
 
@@ -48,6 +52,8 @@ export async function handler(args, ctx) {
     })),
   ];
 
+  const paged = paginate(layers, args, { field: 'layers', default_limit: DEFAULT_LIMIT });
+
   const structured = {
     project_code: ctx.profile.project_code,
     business_type: ctx.profile.business_type,
@@ -55,13 +61,14 @@ export async function handler(args, ctx) {
     quality_grade: ctx.profile.quality_grade,
     overlay_conditions: [...ctx.profile.overlay_conditions],
     engine_stage_codes: stageCodes,
-    layers,
+    layers: paged.items,
+    page: paged.page,
   };
 
   const markdown = lines(
     `# ${ctx.profile.project_code} — 붙는 규칙 층`,
     table(['층', '파일', '판', 'op 수', '게이트 수'],
-      layers.map((row) => [
+      paged.items.map((row) => [
         row.layer === 'variant' ? `사업유형 스펙 (${row.support_key ?? '—'})` : '덧씌움',
         row.file_name, row.spec_version, row.ops, row.gates,
       ])),

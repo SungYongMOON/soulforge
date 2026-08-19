@@ -20,7 +20,7 @@ import {
   AX_SE_PROJECT_CONTEXT_PILOT_POLICY_REVISION,
 } from '../../tools/ax_se_project_context_pilot_runner.mjs';
 import {
-  ENGINE_MCP_ERROR_CODES, assertInstant, assertSafeName, mcpFail,
+  ENGINE_MCP_ERROR_CODES, assertInstant, assertNewRunId, mcpFail,
 } from '../engine_context.mjs';
 import { FOOTER, heading, lines, table } from '../render.mjs';
 
@@ -28,6 +28,12 @@ export const name = 'judge_run';
 export const title_ko = '판단 실행';
 export const description_ko = '단계별로 규칙을 컴파일하고 packet을 만들어 엔진을 1회 돌린다(엔진 쓰기 0). 영수증은 실행 폴더에 create-only로 남는다.';
 export const write = true;
+export const data_class = 'confidential_contract';
+// Create-only: the same revision_label twice refuses instead of writing a second run.
+export const idempotent = true;
+export const confidential_fields = Object.freeze([
+  'summary', 'stages[].compile_dir', 'stages[].launch', 'stages[].assessment',
+]);
 
 export const inputSchema = Object.freeze({
   type: 'object',
@@ -79,7 +85,9 @@ export async function handler(args, ctx) {
     mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID, 'stage_codes must be a non-empty array', {});
   }
   const knownAt = assertInstant(args.known_at);
-  const runId = assertSafeName(args.revision_label, 'revision_label');
+  // The run id names a folder other folders live under, so it is the short pattern (<=24)
+  // rather than the general safe-name one.
+  const runId = assertNewRunId(args.revision_label, 'revision_label');
   const stageCodes = [];
   for (const code of args.stage_codes) stageCodes.push(await ctx.assertKnownStage(code));
 
@@ -150,23 +158,28 @@ export async function handler(args, ctx) {
     const launchBytes = canonicalBytes(launch);
     const launchPath = join(ctx.profile.runs_root, runId, 'launches', `${stageCode}.launch.json`);
 
+    // Every target is labelled, because the path budget refuses by field name rather than by
+    // printing the path a refusal is about (경로는 답에 싣지 않는다).
     await ctx.writeCreateOnly(join(compileDir, 'expected_artifact_policy.json'),
-      asJson(compiled.expected_artifact_policy));
+      asJson(compiled.expected_artifact_policy), { field: 'expected_artifact_policy' });
     await ctx.writeCreateOnly(join(compileDir, 'engine_stage_policy_material.json'),
-      asJson(compiled.engine_stage_policy_material));
-    await ctx.writeCreateOnly(join(compileDir, 'mapping_table.json'), asJson(compiled.mapping_table));
+      asJson(compiled.engine_stage_policy_material), { field: 'engine_stage_policy_material' });
+    await ctx.writeCreateOnly(join(compileDir, 'mapping_table.json'),
+      asJson(compiled.mapping_table), { field: 'mapping_table' });
     await ctx.writeCreateOnly(join(compileDir, 'needs_stage_declarations.json'),
-      asJson(compiled.needs_stage_declarations));
-    await ctx.writeCreateOnly(join(compileDir, 'compiler_receipt.json'), asJson(compiled.receipt));
-    await ctx.writeCreateOnly(packetPath, packetBytes.toString('utf8'));
-    await ctx.writeCreateOnly(launchPath, launchBytes.toString('utf8'));
+      asJson(compiled.needs_stage_declarations), { field: 'needs_stage_declarations' });
+    await ctx.writeCreateOnly(join(compileDir, 'compiler_receipt.json'),
+      asJson(compiled.receipt), { field: 'compiler_receipt' });
+    await ctx.writeCreateOnly(packetPath, packetBytes.toString('utf8'),
+      { field: 'pilot_packet' });
+    await ctx.writeCreateOnly(launchPath, launchBytes.toString('utf8'), { field: 'launch' });
 
     const run = await spawnRunner([
       runnerPath, '--launch', launchPath, '--launch-sha256', sha256(launchBytes),
     ]);
     const receiptPath = join(ctx.profile.runs_root, runId, 'receipts',
       `assessment_stdout_${stageCode}.json`);
-    await ctx.writeCreateOnly(receiptPath, run.stdout);
+    await ctx.writeCreateOnly(receiptPath, run.stdout, { field: 'assessment_stdout' });
 
     let parsed = null;
     try {
@@ -208,7 +221,7 @@ export async function handler(args, ctx) {
     observation_sources: observations.sources,
     stages: stages.map(({ stderr_head, ...row }) => row),
   };
-  await ctx.writeCreateOnly(summaryPath, asJson(summary));
+  await ctx.writeCreateOnly(summaryPath, asJson(summary), { field: 'run_summary' });
 
   const structured = {
     run_id: runId,

@@ -1,5 +1,87 @@
 # CHANGELOG
 
+## 2026-08-19 - The engine door learns which project, who is asking, and when to say no
+
+The MCP door landed a day earlier served one project and asked no questions about who was calling.
+A read-only review of what happens at ten, a hundred and a thousand projects (manual appendix B)
+found the judgement layer clean and the door pinned at "one process, one project", with no word for
+"the others", no lock, and a cache that served observations from before a confirmation. The Owner's
+access requirement (plan 9.1F) added a second gap: everyone who reached the door saw everything.
+Both are closed here, minimally. **The door is still off and still registered nowhere.**
+
+- **A project registry** (`soulforge.engine_project_registry.v0`). One page listing which projects
+  this door may serve: project code, the absolute path of that project's private profile, a status
+  (`active` reads and writes · `paused` reads only · `closed` refuses), an optional label and
+  instant. The instance is private (`_workmeta/system/engine/project_registry.json`, asserted with
+  the repository's own write guard before it is created); what is public is the contract and a
+  synthetic fixture whose paths are `<abs>` placeholders. Every tool now takes an optional
+  `project_code` — added by the tool index rather than by each module — and one server holds a
+  context per project, LRU-capped at eight. `--profile` did not go away: it is a registry of one.
+  A registry whose rows include one unreadable or disagreeing profile does not half-open; the whole
+  start fails, because serving four of five projects quietly reads as "the fifth is empty".
+- **Two lines in the profile that make receipt mixing impossible.** `receipts_dir` and `runs_root`
+  must now sit under `_workmeta/<project_code>/`, not merely somewhere under `_workmeta`. Two
+  profiles naming one folder interleaved their receipt lines with nothing to separate them
+  afterwards, and that is not recoverable.
+- **A principal on every call, fail-closed** (`--principal {principal_ref, role}`). The engine does
+  not authenticate; identity comes from the assistant or gateway layer above it, and the engine's
+  job is to record it and filter by a table. Without a principal only the public rule class answers
+  (`whoami`, `engine_status`, `rules_*`); everything else refuses `SE_MCP_PRINCIPAL_REQUIRED`. Not
+  "anonymous may read": a caller the engine cannot name is a caller it cannot log.
+- **An access table beside the registry** (`soulforge.engine_access_table.v0`) over seven roles and
+  four data classes (ⓐ public rules · ⓑ team judgement · ⓒ confidential contract · ⓓ personal), with
+  per-project overrides that replace a role's row rather than merging into it. A role the table
+  leaves out is denied everything, and material with no declared class is treated as ⓒ — forgetting
+  to tag something hides it rather than publishing it. When no file exists a built-in default
+  applies, and that default is a narrow reading of 9.1F rather than a placeholder. **There is no
+  tool that edits permissions**; `access_table` is Owner/PM and read-only.
+- **The engine filters rather than trusting the caller.** A tool a role may not use is refused *and*
+  absent from `tools/list`. Fields a tool declares as ⓒ — repo pointers, file names — are blanked
+  for roles without that class, with `_redacted` naming what was withheld; the counts beside them
+  are ⓑ and stay, because what is hidden is the naming, not the judgement. `next_steps` hands a
+  discipline role the instructions its capability owns and reports how many it withheld, since a
+  silently shortened list reads as "there is nothing to do". Receipts gained `principal_ref`,
+  `role`, `access_decision` and `access_reason` — the access log 9.1F asked for — and still carry no
+  argument, result, name or path.
+- **A per-project write lock that refuses instead of queueing.** `runs_root/locks/<tool>.lock.json`,
+  create-only; a second holder gets `SE_MCP_LANE_BUSY` (contract lane 1D §4.3). A lock older than
+  thirty minutes is reported as stale in the refusal *and still refuses* — removing somebody else's
+  lock because it looks old is how two runs end up writing the same folder. The engine releases only
+  the lock it holds, matched by id.
+- **Cache entries cannot outlive the write that invalidated them.** Keys are built by
+  `kernel/mcp_contract.mjs` out of the project code, a generation counter and the binding revisions,
+  so one project's lookup structurally cannot reach another's entry, and a successful write bumps
+  the generation. This closes a bug that predates multi-project: confirming observations and then
+  judging in the same session used to judge against the observations loaded before the confirmation.
+- **The path budget applies on every plane.** Writes into the project plane were never measured
+  against the repository's 200/60/60 budget, so a long run folder passed silently; now every write
+  target is classified and an over-budget one is refused by field name (the path itself is never
+  printed). `run_id`/`revision_label` are capped at 24 characters, since that segment is the one
+  other segments are created under.
+- **Four new tools, seventeen in total** (thirteen read, four write): `whoami` (who am I, what may I
+  call, what was refused and why), `engine_status` (version, rule-layer fingerprints, protocol,
+  both switches, registry, receipts root, allowed roots — no arguments; `rules_version` stays for
+  compatibility), `access_table`, `projects_list`.
+- **Honest annotations and honest errors.** With the write switch off the write tools are now hidden
+  from `tools/list` rather than listed-and-refusing, and the list says how many it hid; the switches
+  are read once at start, so `listChanged` stays `false` rather than promising a notification that
+  cannot arrive. `destructiveHint` is false everywhere because every write is create-only;
+  `idempotentHint` is declared per tool (`observe_scan` is not, `judge_run` is). Argument and state
+  errors come back as `isError` tool results a model can read and fix; `-32000` is now reserved for
+  protocol-level refusals — permission, class, principal, project, lane, write switch.
+  `rules_layers`, `observe_status` and `judge_result` take `limit`/`cursor` and report `total` and
+  `next_cursor` rather than leaving length to be inferred.
+- **Tests: 66** (`npm run validate:se-mcp`, was 28) — profile 7, registry and routing 10, access 15,
+  tools 22, protocol 12 over a real spawned process. Two new public synthetic fixtures
+  (`project_registry_synthetic_v0.json`, `access_table_synthetic_v0.json`); no real project material
+  in any of them.
+- **Docs:** manual chapter 12 rewritten around the registry, the principal, the access table, the
+  lock, the cache and the path budget, plus a new **§12.A 등록·사용 안내** written for a
+  non-developer — what to prepare, per-client registration examples with placeholder paths, the
+  first five calls, what each role sees, how to unlock, where the receipts are, the five refusals
+  that happen most, and what not to do. New one-page `guild_hall/engineering_engine/mcp/README.md`
+  pointing at it.
+
 ## 2026-08-19 - Board observability: a stale quota number no longer looks like a current one
 
 The Board could not tell an Owner whether usage/quota collection was alive, stopped, slow, failed or

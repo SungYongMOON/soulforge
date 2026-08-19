@@ -21,6 +21,7 @@ export const name = 'next_steps';
 export const title_ko = '다음 할 일';
 export const description_ko = '한 단계의 위치·부족·다음 할 일·그 뒤를 한 장으로 낸다. 판정은 저장된 영수증을 그대로 인용하고 다시 계산하지 않는다.';
 export const write = false;
+export const data_class = 'team_judgment';
 
 const DEFAULT_TOP = 3;
 
@@ -74,10 +75,16 @@ export async function handler(args, ctx) {
     include_next_ready: missionCount < top,
     top_n: Math.max(top - missionCount, 0),
   });
+  // 9.1F, 3번째 겹: 지시서는 자기 역할 것 위주. Owner and PM hold every capability, so nothing is
+  // withheld from them; a discipline role is handed the steps its capability owns and told how
+  // many were withheld, because a silently shortened list reads as "there is nothing else to do".
+  const allInstructions = instructions.instructions ?? [];
+  const visibleInstructions = allInstructions.filter((packet) =>
+    ctx.canSeeCapability(packet.who?.capability_default ?? null));
   const answer = renderNextStepsAnswer({
     assessment,
     work_order: workOrder,
-    instructions,
+    instructions: visibleInstructions,
     guide_cards: cards,
     stage_code: stageCode,
     locale: 'ko',
@@ -93,8 +100,15 @@ export async function handler(args, ctx) {
     counts: {
       cards: cards.receipt.counts.cards,
       instructions: instructions.receipt.counts.instructions,
+      instructions_visible: visibleInstructions.length,
+      instructions_withheld_by_role: allInstructions.length - visibleInstructions.length,
       requirement_counts: answer.answer.position.requirement_counts,
       observations_supplied: observations.work_order.length,
+    },
+    role_filter: {
+      role: ctx.view?.role ?? null,
+      capabilities: ctx.view?.all_capabilities === true ? ['*'] : [...(ctx.view?.capabilities ?? [])],
+      applied: allInstructions.length !== visibleInstructions.length,
     },
     next_steps: answer.answer.next_steps.map((step) => ({
       order: step.order,

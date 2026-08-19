@@ -23,6 +23,7 @@ export const PROFILE_ERROR_CODES = Object.freeze({
   PROFILE_INVALID: 'ENGINE_MCP_PROFILE_INVALID',
   PROFILE_PATH_RELATIVE: 'ENGINE_MCP_PROFILE_PATH_RELATIVE',
   PROFILE_PATH_OUTSIDE_ROOTS: 'ENGINE_MCP_PROFILE_PATH_OUTSIDE_ROOTS',
+  PROFILE_PLANE_MISMATCH: 'ENGINE_MCP_PROFILE_PLANE_MISMATCH',
   PATH_OUTSIDE_ROOTS: 'ENGINE_MCP_PATH_OUTSIDE_ROOTS',
 });
 
@@ -279,6 +280,19 @@ export function validateProjectProfile(raw, options = {}) {
   if (!isPathUnder(profile.outputs_root, profile.project_root)) {
     fail(PROFILE_ERROR_CODES.PROFILE_INVALID,
       'outputs_root must lie under project_root', {});
+  }
+
+  // Two lines that make receipt mixing structurally impossible (부록 B, 최소 변경 2번). Being
+  // somewhere under `_workmeta` was never enough: two profiles could name the same folder and
+  // their `mcp_tool_calls.jsonl` would interleave with no way to tell the runs apart afterwards.
+  // A project's records live under that project's own metadata folder, and nowhere else.
+  const projectMetadata = resolve(roots.metadata, profile.project_code);
+  for (const field of ['receipts_dir', 'runs_root']) {
+    if (!isPathUnder(profile[field], projectMetadata)) {
+      fail(PROFILE_ERROR_CODES.PROFILE_PLANE_MISMATCH,
+        'this path must lie under the project\'s own metadata folder',
+        { field, expected_under: `_workmeta/${profile.project_code}` });
+    }
   }
 
   return Object.freeze({ ...profile, roots });

@@ -1,21 +1,31 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { stageSyntheticProject } from '../fixtures/engine_mcp_synthetic_project.mjs';
+import {
+  stageSyntheticProject, stageSyntheticRegistry,
+} from '../fixtures/engine_mcp_synthetic_project.mjs';
 
 const SERVER = fileURLToPath(new URL('../mcp/engine_mcp_server.mjs', import.meta.url));
 const PROTOCOL_VERSION = '2025-06-18';
 const ENGINE_VERSION = readFileSync(
   fileURLToPath(new URL('../topology/ENGINE_VERSION', import.meta.url)), 'utf8').trim();
 
+const OWNER = JSON.stringify({ principal_ref: 'owner_test', role: 'owner' });
+const HW = JSON.stringify({ principal_ref: 'hw_test', role: 'hw' });
+
 function stage() {
   const root = mkdtempSync(join(tmpdir(), 'engine_mcp_server_'));
   return { root, staged: stageSyntheticProject(root) };
+}
+
+function stageRegistry(options = {}) {
+  const root = mkdtempSync(join(tmpdir(), 'engine_mcp_server_reg_'));
+  return { root, staged: stageSyntheticRegistry(root, options) };
 }
 
 /**
@@ -24,10 +34,15 @@ function stage() {
  * The claim being tested is "a client can talk to this", so the test talks to it the way a client
  * would rather than calling the handler in-process.
  */
-function runServer({ root, profilePath, env = {}, requests = [] }) {
+function runServer({ root, profilePath = null, registryPath = null, principal = null,
+  env = {}, requests = [] }) {
   return new Promise((settle, reject) => {
-    const child = spawn(process.execPath,
-      [SERVER, '--profile', profilePath, '--repo-root', root],
+    const flags = [SERVER];
+    if (registryPath !== null) flags.push('--registry', registryPath);
+    if (profilePath !== null) flags.push('--profile', profilePath);
+    flags.push('--repo-root', root);
+    if (principal !== null) flags.push('--principal', principal);
+    const child = spawn(process.execPath, flags,
       { stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, ...env } });
     let stdout = '';
     let stderr = '';
@@ -48,6 +63,10 @@ function runServer({ root, profilePath, env = {}, requests = [] }) {
 
 const ON = { SOULFORGE_ENGINE_MCP: 'on' };
 const OFF_WRITE = { SOULFORGE_ENGINE_MCP_WRITE: '' };
+const ON_WRITE = { SOULFORGE_ENGINE_MCP: 'on', SOULFORGE_ENGINE_MCP_WRITE: 'on' };
+
+const readReceipts = (receiptsDir) => readFileSync(join(receiptsDir, 'mcp_tool_calls.jsonl'), 'utf8')
+  .split('\n').filter((line) => line.trim().length > 0).map((line) => JSON.parse(line));
 
 test('the door is shut unless the feature flag says otherwise', async () => {
   const { root, staged } = stage();
@@ -77,7 +96,27 @@ test('a profile it cannot accept stops the process rather than starting a half-b
       requests: [{ jsonrpc: '2.0', id: 1, method: 'ping' }],
     });
     assert.equal(refused.status, 4);
-    assert.match(refused.stderr, /profile refused/u);
+    assert.match(refused.stderr, /refused/u);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('neither flag, or both, is an argument error rather than a guess', async () => {
+  const { root, staged } = stage();
+  try {
+    const both = await runServer({
+      root,
+      profilePath: staged.profile_path,
+      registryPath: join(root, '_workmeta', 'system', 'engine', 'project_registry.json'),
+      env: { ...ON, ...OFF_WRITE },
+      requests: [],
+    });
+    assert.equal(both.status, 64);
+    assert.match(both.stderr, /alternatives/u);
+
+    const neither = await runServer({ root, env: { ...ON, ...OFF_WRITE }, requests: [] });
+    assert.equal(neither.status, 64);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -89,6 +128,7 @@ test('initialize, initialized, ping and tools/list speak JSON-RPC 2.0 and carry 
     const session = await runServer({
       root,
       profilePath: staged.profile_path,
+      principal: OWNER,
       env: { ...ON, ...OFF_WRITE },
       requests: [
         {
@@ -119,23 +159,52 @@ test('initialize, initialized, ping and tools/list speak JSON-RPC 2.0 and carry 
     assert.equal(initialize.serverInfo.version, ENGINE_VERSION);
     assert.equal(initialize.capabilities.tools.listChanged, false);
     assert.equal(initialize._meta.write_tools_enabled, false);
+    assert.equal(initialize._meta.principal_role, 'owner');
+    assert.equal(initialize._meta.projects, 1);
 
     assert.equal(session.responses[1].result._meta.initialised, true);
 
     const list = session.responses[2].result;
+    // Thirteen of seventeen: the four write tools are hidden while the write switch is off, and
+    // the list says how many it withheld rather than pretending they do not exist.
     assert.equal(list.tools.length, 13);
-    assert.equal(list._meta.engine_version, ENGINE_VERSION);
+    assert.equal(list._meta.tools_total, 17);
+    assert.equal(list._meta.tools_hidden, 4);
     const byName = new Map(list.tools.map((tool) => [tool.name, tool]));
+    assert.equal(byName.has('judge_run'), false);
     assert.equal(byName.get('rules_stage').annotations.readOnlyHint, true);
-    // Write tools stay listed even while they are off: hiding them would make "off" look like
-    // "absent", and a caller cannot ask for something it is never told exists.
-    assert.equal(byName.get('judge_run').annotations.readOnlyHint, false);
+    assert.equal(byName.get('rules_stage').annotations.idempotentHint, true);
+    assert.equal(byName.get('rules_stage').annotations.destructiveHint, false);
     for (const tool of list.tools) {
       assert.equal(typeof tool.title, 'string');
       assert.equal(tool.inputSchema.type, 'object');
+      assert.equal(tool.inputSchema.properties.project_code.type, 'string');
     }
 
     assert.equal(session.responses[3].error.code, -32601);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('with the write switch on the write tools are listed and honestly annotated', async () => {
+  const { root, staged } = stage();
+  try {
+    const session = await runServer({
+      root,
+      profilePath: staged.profile_path,
+      principal: OWNER,
+      env: ON_WRITE,
+      requests: [{ jsonrpc: '2.0', id: 1, method: 'tools/list' }],
+    });
+    const list = session.responses[0].result;
+    assert.equal(list.tools.length, 17);
+    assert.equal(list._meta.tools_hidden, 0);
+    const byName = new Map(list.tools.map((tool) => [tool.name, tool]));
+    assert.equal(byName.get('judge_run').annotations.readOnlyHint, false);
+    assert.equal(byName.get('judge_run').annotations.destructiveHint, false);
+    assert.equal(byName.get('judge_run').annotations.idempotentHint, true);
+    assert.equal(byName.get('observe_scan').annotations.idempotentHint, false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -147,6 +216,7 @@ test('tools/call returns markdown content plus structured JSON, and leaves one r
     const session = await runServer({
       root,
       profilePath: staged.profile_path,
+      principal: OWNER,
       env: { ...ON, ...OFF_WRITE },
       requests: [
         { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: PROTOCOL_VERSION } },
@@ -173,16 +243,20 @@ test('tools/call returns markdown content plus structured JSON, and leaves one r
     assert.equal(stageAnswer.content[0].type, 'text');
     assert.match(stageAnswer.content[0].text, /030_SRR/u);
     assert.equal(stageAnswer.structuredContent.engine_version, ENGINE_VERSION);
+    assert.equal(stageAnswer.structuredContent.project_code, 'SYN-000');
     assert.equal(stageAnswer.structuredContent.stage_code, '030_SRR');
     assert.ok(stageAnswer.structuredContent.work_items.length > 0);
 
     assert.equal(session.responses[3].error.code, -32602);
-    assert.equal(session.responses[4].error.code, -32000);
-    assert.equal(session.responses[4].error.data.code, 'ENGINE_MCP_STAGE_UNKNOWN');
 
-    const receipts = readFileSync(
-      join(staged.receipts_dir, 'mcp_tool_calls.jsonl'), 'utf8')
-      .split('\n').filter((line) => line.trim().length > 0).map((line) => JSON.parse(line));
+    // An unknown stage is an argument the caller can fix, so it comes back as a tool result the
+    // model can read rather than as a protocol failure (9.1E ⑪).
+    const badStage = session.responses[4].result;
+    assert.equal(badStage.isError, true);
+    assert.equal(badStage.structuredContent.error_code, 'ENGINE_MCP_STAGE_UNKNOWN');
+    assert.equal(session.responses[4].error, undefined);
+
+    const receipts = readReceipts(staged.receipts_dir);
     // One line per call that reached a tool, refusals included. The call naming a tool that does
     // not exist reached none, so it leaves no tool receipt — only a protocol error.
     assert.equal(receipts.length, 3);
@@ -192,6 +266,9 @@ test('tools/call returns markdown content plus structured JSON, and leaves one r
     for (const row of receipts) {
       assert.equal(row.schema_version, 'soulforge.engine_mcp_tool_call_receipt.v0');
       assert.equal(row.engine_version, ENGINE_VERSION);
+      assert.equal(row.principal_ref, 'owner_test');
+      assert.equal(row.role, 'owner');
+      assert.equal(row.project_code, 'SYN-000');
       assert.equal(typeof row.args_digest, 'string');
       assert.ok(Number.isInteger(row.duration_ms));
       // Metadata only: nothing that could carry a document, a path or an answer.
@@ -200,17 +277,20 @@ test('tools/call returns markdown content plus structured JSON, and leaves one r
         assert.equal(Object.hasOwn(row, forbidden), false, `receipt carries ${forbidden}`);
       }
     }
+    assert.deepEqual(receipts.map((row) => row.access_decision), ['allowed', 'allowed', 'refused']);
+    assert.equal(receipts[2].access_reason, null, 'the refusal was the stage, not the permission');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test('a write tool is listed but refused while the write switch is off', async () => {
+test('a write tool is hidden and refused while the write switch is off', async () => {
   const { root, staged } = stage();
   try {
     const session = await runServer({
       root,
       profilePath: staged.profile_path,
+      principal: OWNER,
       env: { ...ON, ...OFF_WRITE },
       requests: [
         {
@@ -222,7 +302,7 @@ test('a write tool is listed but refused while the write switch is off', async (
             arguments: {
               stage_codes: ['030_SRR'],
               known_at: '2026-08-18T15:00:00.000Z',
-              revision_label: 'mcp_protocol_test_01',
+              revision_label: 'mcp_protocol_01',
             },
           },
         },
@@ -247,11 +327,217 @@ test('a write tool is listed but refused while the write switch is off', async (
       assert.equal(response.error.data.code, 'WRITE_TOOLS_DISABLED');
       assert.equal(response.error.data.engine_version, ENGINE_VERSION);
     }
-    const receipts = readFileSync(join(staged.receipts_dir, 'mcp_tool_calls.jsonl'), 'utf8')
-      .split('\n').filter((line) => line.trim().length > 0).map((line) => JSON.parse(line));
+    const receipts = readReceipts(staged.receipts_dir);
     assert.deepEqual(receipts.map((row) => row.error_code),
       ['WRITE_TOOLS_DISABLED', 'WRITE_TOOLS_DISABLED']);
     assert.deepEqual(receipts.map((row) => row.write_enabled), [false, false]);
+    assert.deepEqual(receipts.map((row) => row.access_reason),
+      ['WRITE_DISABLED', 'WRITE_DISABLED']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('without a principal the door answers the public rule class and refuses the rest', async () => {
+  const { root, staged } = stage();
+  try {
+    const session = await runServer({
+      root,
+      profilePath: staged.profile_path,
+      env: { ...ON, ...OFF_WRITE },
+      requests: [
+        { jsonrpc: '2.0', id: 1, method: 'tools/list' },
+        {
+          jsonrpc: '2.0',
+          id: 2,
+          method: 'tools/call',
+          params: { name: 'rules_stage', arguments: { stage_code: '030_SRR' } },
+        },
+        { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'project_status', arguments: {} } },
+        { jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'whoami', arguments: {} } },
+      ],
+    });
+    assert.equal(session.status, 0, session.stderr);
+    const list = session.responses[0].result;
+    assert.deepEqual(list.tools.map((tool) => tool.name).sort(),
+      ['engine_status', 'rules_card', 'rules_layers', 'rules_stage', 'rules_version', 'whoami']);
+    assert.equal(list._meta.principal_role, null);
+
+    assert.equal(session.responses[1].result.structuredContent.stage_code, '030_SRR');
+    assert.equal(session.responses[2].error.code, -32000);
+    assert.equal(session.responses[2].error.data.code, 'SE_MCP_PRINCIPAL_REQUIRED');
+    assert.equal(session.responses[3].result.structuredContent.anonymous, true);
+
+    const receipts = readReceipts(staged.receipts_dir);
+    const refused = receipts.find((row) => row.tool === 'project_status');
+    assert.equal(refused.access_decision, 'refused');
+    assert.equal(refused.access_reason, 'PRINCIPAL_REQUIRED');
+    assert.equal(refused.principal_ref, null);
+    assert.equal(refused.role, null);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a registry serves several projects from one process, by project code', async () => {
+  const { root, staged } = stageRegistry({
+    project_codes: ['SYN-000', 'SYN-001'], statuses: { 'SYN-001': 'paused' },
+  });
+  try {
+    const session = await runServer({
+      root,
+      registryPath: staged.registry_path,
+      principal: OWNER,
+      env: { ...ON, ...OFF_WRITE },
+      requests: [
+        { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: PROTOCOL_VERSION } },
+        { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'projects_list', arguments: {} } },
+        {
+          jsonrpc: '2.0',
+          id: 3,
+          method: 'tools/call',
+          params: { name: 'observe_status', arguments: { project_code: 'SYN-001' } },
+        },
+        {
+          jsonrpc: '2.0',
+          id: 4,
+          method: 'tools/call',
+          params: { name: 'observe_status', arguments: { project_code: 'SYN-404' } },
+        },
+        { jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'engine_status', arguments: {} } },
+      ],
+    });
+    assert.equal(session.status, 0, session.stderr);
+    assert.equal(session.responses[0].result._meta.projects, 2);
+    assert.equal(session.responses[0].result._meta.default_project, 'SYN-000');
+
+    const listed = session.responses[1].result.structuredContent;
+    assert.equal(listed.counts.total, 2);
+    assert.equal(listed.counts.paused, 1);
+    assert.deepEqual(listed.projects.map((row) => row.project_code), ['SYN-000', 'SYN-001']);
+
+    // The answer is about the project the call named, not the default one.
+    assert.equal(session.responses[2].result.structuredContent.project_code, 'SYN-001');
+    assert.match(session.responses[2].result.structuredContent.observations_dir, /SYN-001/u);
+
+    assert.equal(session.responses[3].error.code, -32000);
+    assert.equal(session.responses[3].error.data.code, 'SE_MCP_PROJECT_UNKNOWN');
+
+    const status = session.responses[4].result.structuredContent;
+    assert.equal(status.registry.source, 'registry');
+    assert.equal(status.registry.projects, 2);
+    assert.equal(status.access.table_source, 'file');
+
+    // Each project's receipts land in that project's own metadata folder.
+    const first = readReceipts(staged.by_code.get('SYN-000').receipts_dir);
+    const second = readReceipts(staged.by_code.get('SYN-001').receipts_dir);
+    assert.deepEqual(second.map((row) => row.tool), ['observe_status']);
+    assert.ok(first.every((row) => row.project_code === 'SYN-000'));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a discipline role is shown no confidential field and cannot confirm observations', async () => {
+  const { root, staged } = stageRegistry({ project_codes: ['SYN-000'] });
+  try {
+    const session = await runServer({
+      root,
+      registryPath: staged.registry_path,
+      principal: HW,
+      env: ON_WRITE,
+      requests: [
+        { jsonrpc: '2.0', id: 1, method: 'tools/list' },
+        { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'observe_status', arguments: {} } },
+        {
+          jsonrpc: '2.0',
+          id: 3,
+          method: 'tools/call',
+          params: {
+            name: 'observe_confirm',
+            arguments: {
+              sheet_json_path: join(staged.by_code.get('SYN-000').observations_dir,
+                'confirmation_sheet.json'),
+              decisions: [],
+            },
+          },
+        },
+        { jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'access_table', arguments: {} } },
+        { jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'projects_list', arguments: {} } },
+      ],
+    });
+    assert.equal(session.status, 0, session.stderr);
+
+    // Write tools are on, so the one write tool this role holds is listed; the Owner-only ones
+    // are not, and neither is the permission table.
+    const listed = session.responses[0].result.tools.map((tool) => tool.name);
+    assert.ok(listed.includes('observe_register'));
+    assert.ok(!listed.includes('observe_confirm'));
+    assert.ok(!listed.includes('access_table'));
+
+    const status = session.responses[1].result.structuredContent;
+    assert.equal(status.observations_dir, null, 'a path is a ⓒ item');
+    assert.equal(status.files.auto, null);
+    assert.deepEqual(status._redacted.fields.sort(),
+      ['files.auto', 'observations_dir'].sort());
+    assert.equal(status._redacted.role, 'hw');
+    // The counts are ⓑ and stay: what is withheld is the naming, not the judgement.
+    assert.equal(status.counts.merged_observations, 1);
+
+    assert.equal(session.responses[2].error.data.code, 'SE_MCP_PERMISSION_DENIED');
+    assert.equal(session.responses[3].error.data.code, 'SE_MCP_PERMISSION_DENIED');
+    assert.equal(session.responses[4].result.structuredContent.projects[0].profile, null);
+
+    const receipts = readReceipts(staged.by_code.get('SYN-000').receipts_dir);
+    const refused = receipts.filter((row) => row.access_decision === 'refused');
+    assert.deepEqual(refused.map((row) => row.access_reason),
+      ['PERMISSION_DENIED', 'PERMISSION_DENIED']);
+    assert.ok(receipts.every((row) => row.role === 'hw' && row.principal_ref === 'hw_test'));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a lane another process holds refuses the call rather than queueing it', async () => {
+  const { root, staged } = stage();
+  try {
+    // Written the way another server process would have written it, and left there: the engine
+    // reports a held lane and never removes somebody else's lock.
+    const lockPath = join(staged.runs_root, 'locks', 'observe_confirm.lock.json');
+    mkdirSync(dirname(lockPath), { recursive: true });
+    writeFileSync(lockPath, `${JSON.stringify({
+      schema_version: 'soulforge.engine_mcp_write_lock.v0',
+      lock_id: 'another_process',
+      tool: 'observe_confirm',
+      acquired_at: new Date().toISOString(),
+    })}\n`);
+
+    const session = await runServer({
+      root,
+      profilePath: staged.profile_path,
+      principal: OWNER,
+      env: ON_WRITE,
+      requests: [{
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'observe_confirm',
+          arguments: {
+            sheet_json_path: join(staged.observations_dir, 'confirmation_sheet.json'),
+            decisions: [],
+          },
+        },
+      }],
+    });
+    assert.equal(session.status, 0, session.stderr);
+    assert.equal(session.responses[0].error.code, -32000);
+    assert.equal(session.responses[0].error.data.code, 'SE_MCP_LANE_BUSY');
+    assert.equal(session.responses[0].error.data.detail.stale, false);
+    assert.equal(readFileSync(lockPath, 'utf8').includes('another_process'), true);
+
+    const receipts = readReceipts(staged.receipts_dir);
+    assert.equal(receipts[0].error_code, 'SE_MCP_LANE_BUSY');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

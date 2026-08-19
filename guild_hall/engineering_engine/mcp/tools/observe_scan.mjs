@@ -17,6 +17,10 @@ export const name = 'observe_scan';
 export const title_ko = '눈 돌리기 (폴더 훑기)';
 export const description_ko = '과제 폴더를 한 번 걸어 산출물 후보·확인표·자동 확정 관측·청소 알림을 새 실행 폴더에 만든다. 확정은 사람이 한다.';
 export const write = true;
+export const data_class = 'confidential_contract';
+// Every walk makes a new run folder, so calling it twice is two runs, not one.
+export const idempotent = false;
+export const confidential_fields = Object.freeze(['out_dir']);
 
 export const inputSchema = Object.freeze({
   type: 'object',

@@ -13,6 +13,7 @@ export const name = 'rules_card';
 export const title_ko = '가이드 카드 1장';
 export const description_ko = '한 단계의 산출물 하나에 대해 왜·언제·무엇을·어떻게·누가와 정본 인용 위치를 담은 카드를 낸다.';
 export const write = false;
+export const data_class = 'public_rules';
 
 export const inputSchema = Object.freeze({
   type: 'object',

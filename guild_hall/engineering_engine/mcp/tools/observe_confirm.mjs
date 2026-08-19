@@ -21,6 +21,10 @@ export const name = 'observe_confirm';
 export const title_ko = '확인표 결정 반영';
 export const description_ko = '확인표의 파일·업무폴더 결정을 적용해 확정 관측 파일을 한 번 만든다(덮어쓰지 않는다).';
 export const write = true;
+export const data_class = 'confidential_contract';
+// Create-only: a second call with the same sheet refuses rather than writing again.
+export const idempotent = true;
+export const confidential_fields = Object.freeze(['file', 'file_name']);
 
 export const inputSchema = Object.freeze({
   type: 'object',
@@ -77,7 +81,8 @@ export async function handler(args, ctx) {
     by_stage: observations.by_stage,
     observation_receipt: observations.receipt,
   };
-  await ctx.writeCreateOnly(outPath, `${JSON.stringify(body, null, 2)}\n`);
+  await ctx.writeCreateOnly(outPath, `${JSON.stringify(body, null, 2)}\n`,
+    { field: 'confirmed_observations' });
 
   const structured = {
     file: ctx.pointer(outPath),

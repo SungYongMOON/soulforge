@@ -20,6 +20,9 @@ export const name = 'observe_register';
 export const title_ko = '관측 등록(확인 대기)';
 export const description_ko = '파일 하나를 어떤 단계의 어떤 산출물로 보는지 후보로 적어 둔다. 자동 확정 규칙은 적용되지 않으며 사람 확인 전에는 관측이 아니다.';
 export const write = true;
+export const data_class = 'team_judgment';
+export const idempotent = false;
+export const confidential_fields = Object.freeze(['file', 'registered.file_ref']);
 
 const MATURITY_VALUES = Object.freeze(Object.values(MATURITY));
 
@@ -80,7 +83,7 @@ export async function handler(args, ctx) {
     decision: null,
   };
   const path = join(ctx.profile.observations_dir, REGISTERED_CANDIDATES_FILE);
-  await ctx.appendLine(path, JSON.stringify(row));
+  await ctx.appendLine(path, JSON.stringify(row), { field: 'registered_candidates' });
 
   const structured = {
     registered: row,

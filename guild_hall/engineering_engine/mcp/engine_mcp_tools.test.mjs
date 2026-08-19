@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { compileStageRules, orderStageWork } from '../stage_rules/stage_rule_compiler.mjs';
@@ -11,16 +11,26 @@ import { buildGuideCards } from '../guidance/guide_cards.mjs';
 import { buildInstructionPackets } from '../guidance/instruction_packet.mjs';
 import { renderNextStepsAnswer } from '../guidance/answer_render.mjs';
 import {
-  NEXT_STEPS_FIXTURE, PROFILE_FIXTURE, stageSyntheticProject,
+  ACCESS_TABLE_FIXTURE, NEXT_STEPS_FIXTURE, PROFILE_FIXTURE, stageSyntheticProject,
 } from '../fixtures/engine_mcp_synthetic_project.mjs';
-import { createEngineContext } from './engine_context.mjs';
-import { ENGINE_MCP_TOOLS, ENGINE_MCP_TOOLS_BY_NAME, WRITE_TOOL_NAMES } from './tools/index.mjs';
+import { resolveAccessView, validateAccessTable } from './access_table.mjs';
+import { assertNewRunId, assertRunId, createEngineContext } from './engine_context.mjs';
+import {
+  ENGINE_MCP_TOOLS, ENGINE_MCP_TOOLS_BY_NAME, TOOL_DESCRIPTORS, WRITE_TOOL_NAMES,
+} from './tools/index.mjs';
 
 const ENGINE_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const ENGINE_VERSION = readFileSync(join(ENGINE_ROOT, 'topology', 'ENGINE_VERSION'), 'utf8').trim();
 const EXPECTED = PROFILE_FIXTURE.expected;
+const ACCESS_TABLE = validateAccessTable(ACCESS_TABLE_FIXTURE.access_table);
 
-async function stage({ write = false } = {}) {
+/**
+ * A context for one staged project.
+ *
+ * The view is explicit because the context's own default is the anonymous one: a context nobody
+ * named answers the public rule class only, and a test that wants an Owner's answer has to say so.
+ */
+async function stage({ write = false, role = 'owner' } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'engine_mcp_tools_'));
   const staged = stageSyntheticProject(root);
   const context = await createEngineContext({
@@ -29,6 +39,12 @@ async function stage({ write = false } = {}) {
     engine_root: ENGINE_ROOT,
     engine_version: ENGINE_VERSION,
     write_enabled: write,
+    view: resolveAccessView({
+      table: ACCESS_TABLE,
+      principal: { principal_ref: `test_${role}`, role },
+      project_code: staged.project_code,
+    }),
+    shared: { tools: TOOL_DESCRIPTORS, access_table: ACCESS_TABLE, protocol_version: 'test' },
   });
   return { root, staged, context };
 }
@@ -59,14 +75,29 @@ function directPureCalls(stageCode = '030_SRR') {
   return { compiled, observations, order, cards, stageCode };
 }
 
-test('the tool set is thirteen tools and exactly four of them write', () => {
+test('the tool set is seventeen tools, four of them write, and every one is classed', () => {
   assert.equal(ENGINE_MCP_TOOLS.length, EXPECTED.tool_count);
   assert.deepEqual([...WRITE_TOOL_NAMES], EXPECTED.write_tool_names);
   for (const tool of ENGINE_MCP_TOOLS) {
     assert.equal(tool.inputSchema.type, 'object');
     assert.equal(tool.inputSchema.additionalProperties, false);
     assert.ok(tool.title_ko.length > 0 && tool.description_ko.length > 0);
+    // Every tool takes the project argument, and every tool states the class of what it hands
+    // back. Neither is left to the module author to remember (tools/index.mjs).
+    assert.equal(tool.inputSchema.properties.project_code.type, 'string');
+    assert.ok(['public_rules', 'team_judgment', 'confidential_contract', 'personal']
+      .includes(tool.data_class), `${tool.name} carries no data class`);
+    assert.equal(typeof tool.idempotent, 'boolean');
   }
+  // The annotations a client reads have to be true of the tool: a read tool is idempotent, a walk
+  // that makes a new run folder every time is not, and nothing here destroys anything.
+  const byName = new Map(ENGINE_MCP_TOOLS.map((tool) => [tool.name, tool]));
+  assert.equal(byName.get('rules_stage').idempotent, true);
+  assert.equal(byName.get('observe_scan').idempotent, false);
+  assert.equal(byName.get('observe_register').idempotent, false);
+  assert.equal(byName.get('judge_run').idempotent, true);
+  assert.equal(byName.get('access_table').data_class, 'confidential_contract');
+  assert.equal(byName.get('whoami').data_class, 'public_rules');
 });
 
 test('rules_layers reports the layers and stages the profile stands on', async () => {
@@ -384,6 +415,145 @@ test('judge_run refuses when the profile states no base launch, before it writes
       known_at: NEXT_STEPS_FIXTURE.known_at,
       revision_label: '../escape',
     }, context), (error) => error.code === 'ENGINE_MCP_ARGUMENTS_INVALID');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a write into the project plane is refused when it does not fit the path budget', async () => {
+  const { root, staged, context } = await stage({ write: true });
+  try {
+    // The budget is a repository-wide rule (200 total, 60 per segment), and until now a write
+    // into `_workspaces` was never measured against it — only `_workmeta` writes were.
+    const longSegment = 'x'.repeat(61);
+    await assert.rejects(
+      context.writeCreateOnly(join(staged.outputs_root, longSegment, 'a.json'), '{}\n',
+        { field: 'over_budget' }),
+      (error) => error.code === 'ENGINE_MCP_PATH_BUDGET_EXCEEDED'
+        && error.detail.field === 'over_budget.directory');
+    assert.equal(existsSync(join(staged.outputs_root, longSegment)), false);
+
+    // The run id is the segment other segments are created under, so it is capped at 24.
+    await assert.rejects(call('judge_run', {
+      stage_codes: ['030_SRR'],
+      known_at: NEXT_STEPS_FIXTURE.known_at,
+      revision_label: 'mcp_test_run_with_a_very_long_label_01',
+    }, context), (error) => error.code === 'ENGINE_MCP_ARGUMENTS_INVALID');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('the length cap is on the run a call creates, not on the runs already on disk', async () => {
+  // A real project carries run folders named before the cap existed. Capping the *reading* side
+  // would make those runs unreadable, which loses the record rather than protecting it.
+  const legacy = 'ax_se_project_context_pilot_20260817_02';
+  assert.ok(legacy.length > 24);
+  assert.equal(assertRunId(legacy), legacy);
+  assert.throws(() => assertNewRunId(legacy),
+    (error) => error.code === 'ENGINE_MCP_ARGUMENTS_INVALID');
+  assert.equal(assertNewRunId('mcp_run_20260819_01'), 'mcp_run_20260819_01');
+});
+
+test('a busy project lane refuses the second writer instead of queueing it', async () => {
+  const { root, staged, context } = await stage({ write: true });
+  try {
+    const held = await context.acquireWriteLock('observe_confirm');
+    assert.ok(existsSync(join(staged.runs_root, 'locks', 'observe_confirm.lock.json')));
+
+    await assert.rejects(context.acquireWriteLock('observe_confirm'), (error) => {
+      assert.equal(error.code, 'SE_MCP_LANE_BUSY');
+      assert.equal(error.detail.stale, false);
+      assert.equal(error.detail.project_code, staged.project_code);
+      return true;
+    });
+    // A different lane is not blocked: the refusal is per tool and per project, not global.
+    const other = await context.acquireWriteLock('judge_run');
+    await context.releaseWriteLock(other);
+
+    // The engine releases the lock it holds and never removes one it does not.
+    assert.equal(await context.releaseWriteLock({ ...held, lock_id: 'someone_else' }), false);
+    assert.equal(await context.releaseWriteLock(held), true);
+    assert.equal(existsSync(held.path), false);
+
+    // And through the wrapper the tools use, the lock is gone again afterwards.
+    await context.withWriteLock('observe_confirm', async () => 'done');
+    assert.equal(existsSync(join(staged.runs_root, 'locks', 'observe_confirm.lock.json')), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a stale lock is reported as stale and still refuses, and is never deleted', async () => {
+  const { root, staged, context } = await stage({ write: true });
+  try {
+    const lockPath = join(staged.runs_root, 'locks', 'judge_run.lock.json');
+    mkdirSync(dirname(lockPath), { recursive: true });
+    writeFileSync(lockPath, `${JSON.stringify({
+      schema_version: 'soulforge.engine_mcp_write_lock.v0',
+      lock_id: 'from_another_process',
+      tool: 'judge_run',
+      acquired_at: new Date(Date.now() - 120 * 60000).toISOString(),
+    })}\n`);
+
+    await assert.rejects(context.acquireWriteLock('judge_run'), (error) => {
+      assert.equal(error.code, 'SE_MCP_LANE_BUSY');
+      assert.equal(error.detail.stale, true);
+      assert.ok(error.detail.age_minutes >= 120);
+      return true;
+    });
+    assert.equal(existsSync(lockPath), true, 'a stale lock is reported, not removed');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('confirming observations invalidates the caches the next judgement would read', async () => {
+  const { root, staged, context } = await stage({ write: true });
+  try {
+    // Warm the caches the way a read tool does.
+    const before = await context.loadObservations();
+    assert.equal(before.sources.confirmed_file, null);
+    await call('rules_stage', { stage_code: '030_SRR' }, context);
+    const warmed = context.cacheStats();
+    assert.ok(warmed.entries > 0);
+
+    await call('observe_confirm', {
+      sheet_json_path: join(staged.observations_dir, 'confirmation_sheet.json'), decisions: [],
+    }, context);
+
+    // Same session, same context: the observation set judge_run would supply is re-read rather
+    // than served from before the write.
+    assert.equal(context.cacheStats().generation, warmed.generation + 1);
+    const after = await context.loadObservations();
+    assert.equal(after.sources.confirmed_file, 'confirmed_observations_20260818T150000Z.json');
+    const status = await call('observe_status', {}, context);
+    assert.equal(status.structured.files.confirmed,
+      'confirmed_observations_20260818T150000Z.json');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a long list comes back one page at a time and says what it left out', async () => {
+  const { root, staged, context } = await stage();
+  try {
+    const first = await call('judge_result',
+      { run_id: staged.run_id, stage_code: staged.stage_code, limit: 1 }, context);
+    assert.equal(first.structured.page.limit, 1);
+    assert.equal(first.structured.issues.length <= 1, true);
+    if (first.structured.page.total > 1) {
+      assert.equal(first.structured.page.next_cursor, '1');
+      const second = await call('judge_result', {
+        run_id: staged.run_id, stage_code: staged.stage_code, limit: 1,
+        cursor: first.structured.page.next_cursor,
+      }, context);
+      assert.equal(second.structured.page.offset, 1);
+      assert.notDeepEqual(second.structured.issues, first.structured.issues);
+    }
+    await assert.rejects(call('judge_result',
+      { run_id: staged.run_id, stage_code: staged.stage_code, cursor: 'nonsense' }, context),
+    (error) => error.code === 'ENGINE_MCP_ARGUMENTS_INVALID');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
