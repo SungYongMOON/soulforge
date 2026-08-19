@@ -172,11 +172,11 @@ test('initialize, initialized, ping and tools/list speak JSON-RPC 2.0 and carry 
     assert.equal(session.responses[1].result._meta.initialised, true);
 
     const list = session.responses[2].result;
-    // Thirteen of seventeen: the four write tools are hidden while the write switch is off, and
+    // Fifteen of twenty-three: the eight write tools are hidden while the write switch is off, and
     // the list says how many it withheld rather than pretending they do not exist.
-    assert.equal(list.tools.length, 13);
-    assert.equal(list._meta.tools_total, 17);
-    assert.equal(list._meta.tools_hidden, 4);
+    assert.equal(list.tools.length, 15);
+    assert.equal(list._meta.tools_total, 23);
+    assert.equal(list._meta.tools_hidden, 8);
     const byName = new Map(list.tools.map((tool) => [tool.name, tool]));
     assert.equal(byName.has('judge_run'), false);
     assert.equal(byName.get('rules_stage').annotations.readOnlyHint, true);
@@ -205,7 +205,7 @@ test('with the write switch on the write tools are listed and honestly annotated
       requests: [{ jsonrpc: '2.0', id: 1, method: 'tools/list' }],
     });
     const list = session.responses[0].result;
-    assert.equal(list.tools.length, 17);
+    assert.equal(list.tools.length, 23);
     assert.equal(list._meta.tools_hidden, 0);
     const byName = new Map(list.tools.map((tool) => [tool.name, tool]));
     assert.equal(byName.get('judge_run').annotations.readOnlyHint, false);
@@ -714,6 +714,92 @@ test('a lane another process holds refuses the call rather than queueing it', as
 
     const receipts = readReceipts(staged.receipts_dir);
     assert.equal(receipts[0].error_code, 'SE_MCP_LANE_BUSY');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('the file door works through the real process: ticket, register, download, sweep', async () => {
+  const { root, staged } = stage();
+  try {
+    // Session one: ask for a place to put a file. A separate process from the registration on
+    // purpose — that is how it will actually be used, and it proves the ledger is on disk rather
+    // than in one process's memory.
+    const opened = await runServer({
+      root,
+      profilePath: staged.profile_path,
+      principal: OWNER,
+      env: ON_WRITE,
+      requests: [
+        { jsonrpc: '2.0', id: 1, method: 'tools/list' },
+        {
+          jsonrpc: '2.0',
+          id: 2,
+          method: 'tools/call',
+          params: { name: 'file_ticket', arguments: { purpose: 'upload', note: 'smoke' } },
+        },
+      ],
+    });
+    assert.equal(opened.status, 0, opened.stderr);
+    const listed = opened.responses[0].result.tools.map((tool) => tool.name);
+    for (const name of ['file_ticket', 'file_put', 'file_register', 'file_get',
+      'file_tickets_list', 'file_tickets_gc']) {
+      assert.ok(listed.includes(name), `${name} should be listed with the write switch on`);
+    }
+    const ticket = opened.responses[1].result.structuredContent;
+    assert.equal(ticket.purpose, 'upload');
+
+    // A person drops a file in the folder the ticket named.
+    const folder = join(staged.project_root, ...ticket.folder_ref.split('/'));
+    writeFileSync(join(folder, 'SSRS_final.pdf'), 'synthetic bytes', 'utf8');
+
+    // Session two: register it, take a copy back out, and ask what the sweep would do.
+    const used = await runServer({
+      root,
+      profilePath: staged.profile_path,
+      principal: OWNER,
+      env: ON_WRITE,
+      requests: [
+        {
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'tools/call',
+          params: {
+            name: 'file_register',
+            arguments: { ticket_id: ticket.ticket_id, artifact_type_id: 'ssrs', stage_code: '030_SRR' },
+          },
+        },
+        { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'file_tickets_list', arguments: {} } },
+        { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'file_tickets_gc', arguments: {} } },
+      ],
+    });
+    assert.equal(used.status, 0, used.stderr);
+
+    const registered = used.responses[0].result.structuredContent;
+    assert.equal(registered.observation_state, 'observed');
+    assert.equal(registered.counts.moved, 1);
+    assert.equal(registered.counts.observations, 1);
+    assert.equal(registered.task_number, 3004);
+    assert.match(used.responses[0].result.content[0].text, /등록 완료/u);
+    assert.equal(readFileSync(
+      join(staged.project_root, ...registered.registered[0].file_ref.split('/')), 'utf8'),
+    'synthetic bytes');
+
+    assert.equal(used.responses[1].result.structuredContent.counts.used, 1);
+    // Nothing is due for the sweep yet, and the sweep reports rather than moves by default.
+    assert.equal(used.responses[2].result.structuredContent.dry_run, true);
+    assert.equal(used.responses[2].result.structuredContent.counts.moved, 0);
+
+    // One receipt line per call, both sessions, with the caller on every line.
+    const receipts = readReceipts(staged.receipts_dir);
+    const fileCalls = receipts.filter((row) => row.tool.startsWith('file_'));
+    assert.equal(fileCalls.length, 4);
+    for (const row of fileCalls) {
+      assert.equal(row.principal_ref, 'owner_test');
+      assert.equal(row.access_decision, 'allowed');
+      assert.equal(row.status, 'OK');
+      assert.equal(row.write_enabled, true);
+    }
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

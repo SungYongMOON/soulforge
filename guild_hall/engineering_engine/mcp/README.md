@@ -38,8 +38,14 @@ named with `--access-table`; otherwise the built-in default applies.
 | `access_table.mjs` | 접근표 — roles × data classes × tools, fail-closed (`…engine_access_table.v0`) |
 | `engine_context.mjs` | one project's disk, clock, cache, path budget and write lock |
 | `engine_contexts.mjs` | one context per project code, LRU-capped |
+| `tickets.mjs` | 문 앞 칸 — the file-intake ticket ledger, pure (`…engine_mcp_file_ticket.v0`) |
 | `paging.mjs` · `render.mjs` | `limit`/`cursor` pages · markdown for a person |
-| `tools/` | 17 tools (13 read · 4 write); each one thin, each one classed |
+| `tools/` | 23 tools (15 read · 8 write); each one thin, each one classed |
+
+File intake and outtake (문 앞 칸: ticket → put/drop → register-by-move into `03_Out` → observation →
+cleanup to the trash) is described for people in 매뉴얼 **[12장 §12.B](../manual/12_mcp_door.md)**. The
+engine issues no link and makes no network call: `file_ticket` returns a folder and an id, and the
+share link is made outside (OneDrive UI today, a gateway later).
 
 Three rules this directory is built on. **No logic in a tool** — if a calculation is missing, it is
 added to the pure layer first. **Fail-closed** — no principal means the public rule class only, an
@@ -47,7 +53,8 @@ undeclared role means nothing, an unclassed answer is treated as confidential. *
 every write refuses rather than replaces, on every plane, inside the repository path budget.
 
 ```text
-npm run validate:se-mcp     # 70 tests: profile 7 · registry 10 · access 15 · tools 22 · protocol 16
+npm run validate:se-mcp     # 102 tests: profile 10 · registry 10 · access 16 · tickets 11
+                            #             tools 22 · file door 16 · protocol 17
 ```
 
 Never put a real project path, project code, or person into a file in this directory: the tests run

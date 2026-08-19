@@ -1,5 +1,62 @@
 # CHANGELOG
 
+## 2026-08-19 - The engine door takes files in and gives them back: tickets, register-by-move, cleanup to the trash
+
+등록 = 저장 (Owner decision 2026-08-19, engine manual §9.1D): a person should never open the project
+folder. Until now the door could be told "this file is the HDD" but could not accept the file, and
+the folder it named had to be reached by hand. This slice makes the hand-over itself a tool.
+**The door is still off, still registered nowhere, and still makes no network call.**
+
+- **A ticket is a folder, not a link.** `file_ticket` mints a ticket (주소표) and creates one folder
+  under the project's intake root — `intake_dir/<principal>/<ticket_id>/` — create-only, owned by
+  one person, expiring by the profile's policy. Issuing an actual OneDrive/SharePoint share link is
+  outside the engine: the tool returns a machine target and an id, and today Owner/PM makes the link
+  in the OneDrive UI (a gateway helper later).
+- **Register is a move, and the rules choose where.** `file_register(ticket, artifact, stage)`
+  verifies what is in the ticket folder (extension allow-list, sha256), then moves it into the task
+  folder's `03_Out` — but only when the compiled variant declares exactly one task for that artifact
+  at that stage **and** the folder carrying that task's number carries that task's name. A folder
+  tree generated from an older rule revision can reuse a number for a different task, so a
+  disagreement is a refusal (`task_folder_names_a_different_task`), never a guess. A missing task
+  folder is refused too: the door does not create task folders.
+- **The observation rule is the walk's rule.** The moved file goes through
+  `buildArtifactObservationCandidates` with the same `auto_confirm_03_out` switch, so `03_Out` +
+  one artifact per task folder + a cue in the file's own name is what makes it an observation
+  (`registered_observations.jsonl`, read by the engine). Anything less waits in
+  `registered_candidates.jsonl` for a person — D37 holds at the door as everywhere else.
+- **Never overwrite, never delete.** A name already in `03_Out` is refused unless the caller states
+  `allow_new_version`, and then the file lands as `name (v2).ext`. `file_tickets_gc` sweeps finished
+  tickets — used or expired, past the grace period — into the profile's trash folder, reports by
+  default (`dry_run: true`), and removes nothing.
+- **Small files through the call, big files through a link.** `file_put` accepts one base64 file up
+  to 25 MB with a caller-stated digest the tool re-checks; `file_get` hands one back. Bigger than a
+  mail attachment (30 MB) is a link's job, and the door says so instead of growing.
+- **Per-item class enforcement (9.1F 겹 3).** The file tools are open to every team role, but a file
+  inside a folder the profile lists in `confidential_dirs` is refused for a caller without ⓒ, before
+  anything is created (`SE_MCP_CLASS_EXCEEDED`). Paths, ticket folders and file names stay ⓒ fields;
+  a team role sees only its own tickets; the sweep is Owner/PM only.
+- **Five optional profile fields**, stated whole or not at all: `intake_dir`, `outbox_dir`,
+  `trash_dir`, `ticket_policy` (+ `confidential_dirs`, which stands alone). All under the project
+  root, all three door folders distinct, and none of them inside a confidential folder — a ticket
+  folder inside the contract folder would hand an uploader the contract folder. A profile without
+  them is valid and every file tool refuses with `ENGINE_MCP_FILE_DOOR_DISABLED`.
+- **Three ledgers.** `receipts_dir/file_tickets.jsonl` (append-only ticket lifecycle),
+  `receipts_dir/file_operations.jsonl` (who moved which digest where), and the registered
+  observations on the project plane. The two on the metadata plane carry pointers, hashes and
+  status — never payload.
+- **Tests.** `npm run validate:se-mcp` 70 → **101** (ticket ledger 11, file door 16, profile +3,
+  access +1), on synthetic fixtures only: a temporary repository root, a folder tree built from the
+  public compiled-variant fixture, and one task folder deliberately staged under the wrong name so
+  the refusal is exercised rather than described.
+
+관련 경로: `guild_hall/engineering_engine/mcp/tickets.mjs`,
+`guild_hall/engineering_engine/mcp/tools/file_*.mjs`,
+`guild_hall/engineering_engine/mcp/{project_profile,engine_context,access_table}.mjs`,
+`guild_hall/engineering_engine/observation/artifact_observation_candidates.mjs`,
+`guild_hall/engineering_engine/manual/12_mcp_door.md` (§12.B),
+`docs/architecture/workspace/examples/se_stage_rules/{project_profile,access_table}_synthetic_v0.json`,
+`package.json`
+
 ## 2026-08-19 - Slack Archive Query MCP v0: safe read model and stdio MCP adapter
 
 Chat and downstream query surfaces needed a way to query retained Slack history after Slack itself no longer exposes it. This slice builds the first safe v0 read model and stdio JSON-RPC MCP adapter in `guild_hall/slack_history`.

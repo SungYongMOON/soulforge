@@ -1,6 +1,6 @@
 # 12. MCP 문 — 밖에서 엔진을 부르는 자리
 
-`guild_hall/engineering_engine/mcp/`의 서버 하나와 도구 17개가 하는 일을 처음 보는 사람이
+`guild_hall/engineering_engine/mcp/`의 서버 하나와 도구 23개가 하는 일을 처음 보는 사람이
 읽고 고칠 수 있게 적는다. 코드가 정본이고 이 장은 그 지도다.
 
 **지금 상태: 만들어졌고 꺼져 있다.** 어디에도 등록하지 않았고 어떤 클라이언트 설정에도 넣지 않았다.
@@ -28,7 +28,7 @@ runner를 그대로 부르고, 그 결과를 사람이 읽는 마크다운과 �
 규칙도 판정도 이 층에 없다 — 있으면 같은 질문에 두 답이 생긴다.
 
 ```text
-사람/AI 비서 ──MCP(stdio JSON-RPC)──▶ 도구 17 ──▶ compileStageRules · orderStageWork · buildGuideCards
+사람/AI 비서 ──MCP(stdio JSON-RPC)──▶ 도구 23 ──▶ compileStageRules · orderStageWork · buildGuideCards
    (principal 첨부)                      │          buildInstructionPackets · renderNextStepsAnswer
                                           │          applyConfirmationSheet · generatePilotPacket…
                                           ├──명부──▶ 과제별 컨텍스트(LRU 8) · 과제별 잠금 · 과제별 캐시
@@ -52,7 +52,7 @@ node guild_hall/engineering_engine/mcp/engine_mcp_server.mjs --profile  <abs pro
 
 스위치가 둘인 이유: "비서가 규칙을 읽게 한다"와 "비서가 과제 자료면에 쓰게 한다"는 서로 다른 결정이고,
 Owner가 따로 내린다. **꺼진 쓰기 도구를 숨기는 쪽으로 바꿨다**(2026-08-19, 9.1E 벤치마크 ⑪): 목록에
-있는데 부르면 거절당하는 도구는 비서가 계속 다시 시도하고, 도구 17개 중 쓸 수 없는 4개를 매번 후보로
+있는데 부르면 거절당하는 도구는 비서가 계속 다시 시도하고, 도구 23개 중 쓸 수 없는 8개를 매번 후보로
 저울질한다. 대신 목록 응답이 `tools_total`·`tools_hidden`을 같이 실어 "없음"이 아니라 "지금 안 보임"임을
 말한다. 스위치는 프로세스가 뜰 때 한 번 읽고 도중에 바뀌지 않으므로 `listChanged`는 `false`로 정직하게
 둔다(바뀔 수 없는 알림을 약속하지 않는다).
@@ -153,6 +153,23 @@ Owner가 따로 내린다. **꺼진 쓰기 도구를 숨기는 쪽으로 바꿨�
 | `receipts_dir` · `runs_root` | 도구 호출 영수증 · 판단 실행 뿌리 | 메타면 |
 | `known_at_policy` | `caller_supplied` 하나만 | — |
 
+**문 앞 칸을 여는 과제만 쓰는 칸 다섯(2026-08-19).** 이 다섯은 유일한 선택 키다 — 없으면 파일 도구가
+전부 `ENGINE_MCP_FILE_DOOR_DISABLED`로 거절하고, 문을 열기 전에 쓰인 프로필은 그대로 유효하다.
+모르는 키를 무시하지 않고 거절하는 규칙은 그대로다.
+
+| 필드 | 뜻 | 뿌리 |
+| --- | --- | --- |
+| `intake_dir` | 문 앞 칸(올리기) 뿌리 — 표마다 `intake_dir/<사람>/<표>/` | 과제면, `project_root` 아래 |
+| `outbox_dir` | 내려받기 칸 뿌리 | 과제면, `project_root` 아래 |
+| `trash_dir` | 정리한 칸을 옮겨 두는 곳(지우지 않는다) | 과제면, `project_root` 아래 |
+| `ticket_policy` | `{upload_ttl_hours, download_ttl_hours, cleanup_after_days, allowed_extensions?, max_file_bytes?}` (기본 72·24·30·32종·25MB) | — |
+| `confidential_dirs[]` | ⓒ로 다룰 폴더(계약·단가·발주처 원문). 이 칸만 따로 써도 된다 | 과제면, `project_root` 아래 |
+
+앞 넷은 **통째로 쓰거나 아예 안 쓴다**: 넣는 칸만 있고 휴지통이 없는 문은 사람이 필요한 순간에 거절하는
+문이다. 그리고 넷은 서로 겹칠 수 없고(넣기·받기·휴지통은 세 자리), 과제 폴더 자체일 수 없으며,
+`confidential_dirs` 안에 있을 수 없다 — 계약 폴더 안에 문 앞 칸을 두면 그 칸을 받은 사람이 계약 폴더를
+열어 보게 된다.
+
 **경로 규칙 네 줄.** (1) 모든 경로는 절대경로이고 `..`을 담지 않는다 — 원문 그대로 검사한다(정규화는 `..`을
 지워 버려서, 안에 있는 것처럼 읽히는 경로가 밖으로 풀리는 바로 그 길이다). (2) 모든 경로는 이 저장소가
 이미 가진 세 뿌리 안에 있어야 한다. (3) **`receipts_dir`·`runs_root`는 `_workmeta/<project_code>/` 아래여야
@@ -174,7 +191,7 @@ public 예시는 `docs/architecture/workspace/examples/se_stage_rules/project_pr
 경로는 전부 `<abs>` 자리표시자다(실제 경로는 private이라 public 파일에 넣지 않는다). 시험이 이 예시의 키
 집합을 검증기의 필수 키와 대조하므로 문서와 코드가 따로 놀 수 없다.
 
-## 12.4 도구 17종
+## 12.4 도구 23종
 
 읽기 13 · 쓰기 4. "부르는 것" 칸이 이 층에 로직이 없다는 증거다. **모든 도구가 `project_code`를 선택 인자로
 받는다**(생략하면 명부의 기본 과제) — 도구 하나하나가 기억해야 하는 게 아니라 `tools/index.mjs`가 모든
@@ -194,6 +211,12 @@ public 예시는 `docs/architecture/workspace/examples/se_stage_rules/project_pr
 | 6 | `observe_register` | "이 파일이 HDD 최종본이야" | 후보 한 줄 append(관측 아님) | **쓰기** | ⓑ |
 | 7 | `observe_confirm` | "이 폴더는 맞아 / 이건 아니야" | `applyConfirmationSheet` + `buildArtifactObservationsFromConfirmed` | **쓰기** | ⓒ |
 | 8 | `observe_status` | "지금 관측된 게 뭐야?" | 관측 실행 파일 수치 | 읽기 | ⓑ |
+| 8a | `file_ticket` | "파일 어디에 올려요?" / "그거 좀 받을 수 있어요?" | 표 발급 + 칸 폴더 create-only(내려받기는 복사까지) | **쓰기** | ⓑ(자리 ⓒ) |
+| 8b | `file_put` | "이 작은 파일 넣어줘" | 칸에 바이트 저장(해시 확인, 25MB) | **쓰기** | ⓑ |
+| 8c | `file_register` | "이거 CDR BOM 최종본이야" | 규칙이 정한 업무폴더 `03_Out`으로 이동 + `buildArtifactObservationCandidates` → 관측/확인 대기 | **쓰기** | ⓑ(자리 ⓒ) |
+| 8d | `file_get` | "그 파일 내용 줘" | 등록된 작은 파일 base64(기밀 폴더는 등급 확인) | 읽기 | ⓑ |
+| 8e | `file_tickets_list` | "내 표 뭐 있더라?" | 표 대장 접기(팀 역할은 자기 것만) | 읽기 | ⓑ |
+| 8f | `file_tickets_gc` | "칸 정리해줘" | 끝난 표의 폴더를 휴지통으로 이동(기본 보고만) | **쓰기** | ⓒ |
 | 9 | `judge_run` | "지금 판단해줘" | 컴파일 → `generatePilotPacketFromStageRules` → 판단 runner 1회 | **쓰기** | ⓑ(쓴 자리 ⓒ) |
 | 10 | `judge_result` | "그때 그 판단 다시 보여줘" | 저장된 영수증 요약 | 읽기 | ⓑ |
 | 11 | `judge_diff` | "지난번이랑 뭐 달라졌어?" | 영수증 둘 비교 | 읽기 | ⓑ |
@@ -212,8 +235,12 @@ public 예시는 `docs/architecture/workspace/examples/se_stage_rules/project_pr
 - **`judge_run`의 산출물 자리는 둘로 갈린다.** packet과 컴파일 결과는 과제면으로 간다 — 판단 runner가 packet
   위치를 **과제 폴더 기준 상대경로**로 풀기 때문에 다른 곳에 둘 수 없다. launch와 판정 stdout은 메타면
   `runs_root/<run_id>/` 아래로 간다. 전부 create-only다.
-- **자유 경로를 받지 않는다.** 호출자가 경로를 대는 자리는 `observe_confirm`의 확인표 하나뿐이고, 그것도
-  프로필이 지정한 관측 폴더 아래여야 한다. `observe_scan`이 받는 것은 폴더 **이름**이지 경로가 아니다.
+- **자유 경로를 받지 않는다.** 호출자가 경로를 대는 자리는 `observe_confirm`의 확인표와 파일 도구의
+  `artifact_ref` 둘뿐이고, 확인표는 프로필이 지정한 관측 폴더 아래, `artifact_ref`는 **과제 폴더 기준
+  상대 포인터**로만 받아 과제 폴더 안으로 풀린다(드라이브 문자·선행 구분자·`..` 전부 거절).
+  `observe_scan`이 받는 것은 폴더 **이름**이지 경로가 아니다.
+- **`file_register`는 폴더를 만들지 않는다.** 옮길 자리는 규칙이 정하고(§12.B), 규칙과 폴더트리가
+  다르면 거절한다. 없는 업무폴더를 만드는 문은 없는 업무를 만드는 문이다.
 - **긴 목록은 쪽으로 나눈다.** `rules_layers`·`observe_status`·`judge_result`는 `limit`·`cursor`를 받고
   `page: {offset, limit, total, returned, next_cursor}`를 같이 낸다(9.1E ⑪). 커서는 앞 쪽이 돌려준 불투명한
   문자열이고, 남은 게 없으면 `next_cursor`는 `null`이다 — 길이로 짐작하게 두지 않는다.
@@ -297,9 +324,11 @@ public 예시는 `docs/architecture/workspace/examples/se_stage_rules/project_pr
 
 ## 12.8 시험과 실측
 
-`npm run validate:se-mcp` — 2026-08-19: **70**(2026-08-18: 28).
-프로필 검증 7 · 명부·라우팅 10 · 접근 모델 15 · 도구 22(합성 fixture 대조·결정론·쓰기 거절·경로 예산·
-잠금·캐시 무효화·쪽 나누기) · 프로토콜 16(자식 프로세스로 실제 stdio 왕복).
+`npm run validate:se-mcp` — 2026-08-19(2차): **102**(같은 날 1차: 70 · 2026-08-18: 28).
+프로필 검증 10 · 명부·라우팅 10 · 접근 모델 16 · 표 대장 11(순수: 기한·소유·이름·판 붙이기) ·
+도구 22(합성 fixture 대조·결정론·쓰기 거절·경로 예산·잠금·캐시 무효화·쪽 나누기) ·
+파일 문 16(표·이동 등록·폴더 불일치 거절·덮어쓰기 거절·판 붙이기·해시·등급 거절·정리) ·
+프로토콜 17(자식 프로세스로 실제 stdio 왕복 — 파일 문 한 바퀴 포함: 표 → 등록 → 목록 → 정리 보고).
 fixture는 `project_profile_synthetic_v0.json`(프로필 모양 + 합성 관측 실행), `next_steps_synthetic_v0.json`
 (규칙 + 합성 판정), `project_registry_synthetic_v0.json`(명부 모양), `access_table_synthetic_v0.json`
 (접근표 실물)이며, `fixtures/engine_mcp_synthetic_project.mjs`가 그것들을 임시 폴더에 과제 하나 또는
@@ -490,9 +519,9 @@ claude mcp add soulforge-engine --env SOULFORGE_ENGINE_MCP=on -- node <abs>/guil
 
 | 역할 | 보이는 것 | 안 보이는 것 |
 | --- | --- | --- |
-| owner · pm | 전부(도구 17, 등급 ⓐ~ⓓ) | — |
-| systems · quality | 아래 팀 역할이 보는 것 전부 + **훑기 `observe_scan`\* · 판단 실행 `judge_run`\***(Owner 결정 2026-08-19) | 과제 경로·파일 이름(ⓒ) · 확정 `observe_confirm` · 권한표 |
-| hw · sw | 규칙·카드·순서(ⓐ), 과제 신원·판단 수치·현황(ⓑ), 자기 역할 지시서, 등록 `observe_register`\* | 위 + 훑기·판단 실행 |
+| owner · pm | 전부(도구 23, 등급 ⓐ~ⓓ) | — |
+| systems · quality | 아래 팀 역할이 보는 것 전부 + **훑기 `observe_scan`\* · 판단 실행 `judge_run`\***(Owner 결정 2026-08-19) | 과제 경로·파일 이름(ⓒ) · 확정 `observe_confirm` · 권한표 · 칸 정리 `file_tickets_gc` |
+| hw · sw | 규칙·카드·순서(ⓐ), 과제 신원·판단 수치·현황(ⓑ), 자기 역할 지시서, 등록 `observe_register`\*, **파일 넣기·받기 다섯**(`file_ticket`\*·`file_put`\*·`file_register`\*·`file_get`·`file_tickets_list`) | 위 + 훑기·판단 실행 · 기밀 폴더의 파일(항목 단위 `SE_MCP_CLASS_EXCEEDED`) · 남의 표 |
 | external(발주처·협력) | 규칙·카드·순서(ⓐ)와 엔진 상태만. **어느 과제인지도, 규칙 파일 이름도 안 보인다**(ⓑ) | 나머지 전부 |
 | 신원 없음 | ⓐ 읽기 여섯(`whoami`·`engine_status`·`rules_*`), 그것도 **과제 신원 없이** — 엔진 판·프로토콜·스위치·규칙 판까지만 | 나머지 전부 |
 
@@ -529,3 +558,66 @@ claude mcp add soulforge-engine --env SOULFORGE_ENGINE_MCP=on -- node <abs>/guil
 - 스위치 둘을 **상시 on으로 두지 않는다.** 특히 쓰기는 할 일이 있을 때만 켠다.
 - 남의 잠금 파일을 습관적으로 지우지 않는다.
 - 접근표를 넓혀서 문제를 푸는 대신 **왜 거절됐는지**를 먼저 읽는다. 사유 코드가 넷뿐인 이유가 그것이다.
+
+## 12.B 파일 넣기·받기 (문 앞 칸) — 사람용
+
+Owner 결정 2026-08-19(09장 §9.1D): **등록 = 저장.** 사람은 과제 폴더를 직접 만지지 않는다. 파일을 넣을
+자리를 표로 받고, 그 자리에 넣고, "이건 무슨 산출물이다"라고 등록하면 **엔진이** 규칙이 정한 업무폴더로
+옮기고 관측까지 만든다. 잘못 저장은 잘못 등록이므로 폴더가 아니라 등록을 고친다.
+
+```text
+① 표 받기            file_ticket(purpose:'upload')
+   └▶ 020_MGMT/…/tickets/<내 이름>/<표 번호>/   (엔진이 만든 빈 폴더 하나, 기한 3일)
+② 링크 만들기(엔진 밖) OneDrive에서 그 폴더에 대해 "링크 만들기" → 사람에게 전달
+   └▶ 작은 파일이면 링크 없이  file_put(표, 이름, 내용, 해시)   (25MB까지)
+③ 넣기                사람이 링크로 올리거나 폴더에 끌어다 놓는다
+④ 등록                file_register(표, 산출물, 단계)
+   └▶ 엔진: 규칙에서 업무폴더 찾기 → 03_Out으로 이동(덮어쓰기 없음) → 관측 또는 확인 대기
+⑤ 받기                file_ticket(purpose:'download', artifact_ref) → outbox 칸에 복사본 + 기한 1일
+   └▶ 작은 파일이면    file_get(artifact_ref) 로 바로
+⑥ 정리                file_tickets_gc()  끝난 칸을 휴지통으로(지우지 않는다). 기본은 보고만
+```
+
+**큰 파일은 링크로, 작은 파일은 문으로.** 문으로 들어오는 한 파일의 상한은 25MB다. 메일 첨부가 대개
+30MB에서 막히므로 그보다 큰 것은 어차피 링크·공유함이 정답이고, 엔진은 그 링크를 만들지 않는다(아래).
+
+**표(ticket)는 주소표다.** 표 하나 = 폴더 하나 = 사람 하나 = 한 번의 주고받기. 표에는 누가·무엇을 위해·
+언제까지가 적히고 링크나 비밀번호는 적히지 않는다. 기한이 지나면 그 표로는 등록할 수 없고, 폴더는
+남아 있다가 정리 때 휴지통으로 간다.
+
+**등록하면 어디로 가나.** 엔진은 두 가지가 **같은 말을 할 때만** 파일을 옮긴다.
+
+| 확인 | 뜻 | 안 맞으면 |
+| --- | --- | --- |
+| 규칙 | compiled 스펙이 그 단계에 그 산출물의 업무 **하나**를 선언하고 있나 | `artifact_not_declared_at_this_stage` / `…_twice_…` |
+| 폴더트리 | 그 업무 번호를 단 폴더가 실제로 있고, **이름도 그 업무의 이름**인가 | `task_folder_missing` / `task_folder_names_a_different_task` |
+
+번호만 맞으면 옮기는 방식은 위험하다. 폴더트리를 옛 규칙판으로 만들었으면 같은 번호가 다른 업무를
+가리킬 수 있고, 그러면 발표자료가 성숙도평가 자리에 들어간다. **없는 폴더는 만들지 않는다** — 폴더트리는
+폴더트리 스킬이 만드는 것이고, 자리가 없다는 것은 그 자리를 사람이 정할 일이 남았다는 뜻이다.
+
+**관측이 되는 조건은 훑기와 똑같다**(10장 §10.3 +1): `03_Out`에 있고, 업무폴더가 산출물 하나로 풀리고,
+**파일 이름 자체가 무엇인지 말할 때**. 셋 다면 그 자리에서 관측이 되어 다음 판단에 들어간다
+(`registered_observations.jsonl`). 이름 단서가 없으면 옮기기는 하되 **확인 대기**로 남는다(`registered_candidates.jsonl`,
+D37). 그래서 파일 이름에 `BOM`·`HDD` 같은 표준어를 넣는 습관이 그대로 이득이 된다.
+
+**덮어쓰지 않는다.** 같은 이름이 이미 `03_Out`에 있으면 기본은 거절이고, `allow_new_version: true`를
+붙였을 때만 `이름 (v2).확장자`로 들어간다. 제출한 문서가 조용히 바뀌는 일을 막는 것이 이 통로의 존재
+이유다. 지우는 도구는 없다 — 정리도 휴지통으로 **옮기는** 것뿐이다.
+
+**등급.** 파일 도구는 팀 역할 전부에게 열려 있지만, `confidential_dirs`에 있는 파일은 내려받기·읽기에서
+항목 단위로 막힌다(`SE_MCP_CLASS_EXCEEDED`). 표·경로·파일 이름은 ⓒ라서 Owner·PM이 아니면 결과에서
+가려지고(`_redacted`), 남의 표는 목록에도 안 나온다.
+
+**남는 기록 셋.** `receipts_dir/file_tickets.jsonl`(표의 일생: 열림→사용됨→치워짐, 붙이기만 한다) ·
+`receipts_dir/file_operations.jsonl`(누가 어떤 해시를 어디로 옮겼나) · 
+`observations_dir/registered_observations.jsonl`(등록으로 생긴 관측). 앞 둘은 메타면이라 포인터·해시·상태만 담고 원문은 담지 않는다.
+
+**여기 없는 것(엔진 밖).**
+
+- **링크 발급.** OneDrive/SharePoint 공유 링크는 엔진이 만들지 않는다. 엔진은 네트워크를 부르지 않으며,
+  `file_ticket`이 돌려주는 것은 폴더 위치와 표 번호뿐이다. 지금은 Owner·PM이 그 폴더에 대해 OneDrive UI
+  에서 링크를 한 번 만들어 전달하고, 나중에 게이트웨이가 그 한 단계를 대신한다.
+- **원격 문·로그인.** 팀원이 자기 PC에서 붙는 자리는 비서/게이트웨이 층이다(9.1F).
+- **등록 정정·취소(`observe_amend`).** 잘못 등록한 것을 고치는 도구는 아직 없다(9.1E). 지금은 Owner가
+  등록 대장 줄과 파일을 보고 판단한다.

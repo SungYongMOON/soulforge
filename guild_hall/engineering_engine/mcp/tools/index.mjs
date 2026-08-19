@@ -1,6 +1,6 @@
-// The tool set, in the order the tool map (9.1B) groups them: 알아보기 → 자료 넣기 → 판단·할 일,
-// with the three status/permission tools (9.1E ①, 9.1F F2·F3) in front because they are what a
-// caller reads first.
+// The tool set, in the order the tool map (9.1B) groups them: 알아보기 → 자료 넣기 → 파일 넣기·받기
+// → 판단·할 일, with the three status/permission tools (9.1E ①, 9.1F F2·F3) in front because they
+// are what a caller reads first.
 //
 // Adding a tool means adding a module and a line here. A module that does not export the fields
 // below fails the shape check at import time rather than at call time.
@@ -26,6 +26,12 @@ import * as observeScan from './observe_scan.mjs';
 import * as observeRegister from './observe_register.mjs';
 import * as observeConfirm from './observe_confirm.mjs';
 import * as observeStatus from './observe_status.mjs';
+import * as fileTicket from './file_ticket.mjs';
+import * as filePut from './file_put.mjs';
+import * as fileRegister from './file_register.mjs';
+import * as fileGet from './file_get.mjs';
+import * as fileTicketsList from './file_tickets_list.mjs';
+import * as fileTicketsGc from './file_tickets_gc.mjs';
 import * as judgeRun from './judge_run.mjs';
 import * as judgeResult from './judge_result.mjs';
 import * as judgeDiff from './judge_diff.mjs';
@@ -38,6 +44,7 @@ const MODULES = [
   whoami, engineStatus, accessTable, projectsList,
   rulesLayers, rulesStage, rulesCard, rulesVersion,
   observeScan, observeRegister, observeConfirm, observeStatus,
+  fileTicket, filePut, fileRegister, fileGet, fileTicketsList, fileTicketsGc,
   judgeRun, judgeResult, judgeDiff, nextSteps, projectStatus,
 ];
 
