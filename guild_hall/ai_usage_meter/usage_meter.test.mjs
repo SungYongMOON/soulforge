@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 
 import {
+  ANTIGRAVITY_ALLOWED_MODEL_TIER_SUFFIXES,
   buildStopDeliveryReceipt,
   buildUsageMeterHealthReport,
   buildUsageEvents,
@@ -18,6 +19,7 @@ import {
   parseCodexSessionFile,
   planUsageBackfill,
   persistUsageEvents,
+  retainCanonicalAntigravityObservation,
   sha256,
   summarizeUsageEvents,
   reportHookManifestDrift,
@@ -1683,5 +1685,349 @@ test("hook common-root resolution falls back locally with an explicit health rea
     assert.equal(health.detail, "hook_common_root_unavailable");
   } finally {
     await rm(fixture, { recursive: true, force: true });
+  }
+});
+
+function makeAntigravityEvent({
+  conversationId = "11111111-2222-4333-8444-555555555555",
+  idx = 0,
+  organizationId = "soulforge",
+  teamId = "unassigned",
+  projectId = "unassigned",
+  nodeId = "local-node",
+  modelId = "gemini-3-flash",
+  startedAt = "2026-08-01T10:00:00.000Z",
+  sourceRef = conversationId,
+  inputTokens = 0,
+} = {}) {
+  return {
+    schema_version: "soulforge.ai_usage_event.v1",
+    event_id: `aue-ag-${conversationId}-${idx}`.slice(0, 120),
+    organization_id: organizationId,
+    team_id: teamId,
+    project_id: projectId,
+    work_id: `antigravity.${conversationId}`.slice(0, 120),
+    thread_id: conversationId,
+    turn_id: `${conversationId}.${idx}`.slice(0, 120),
+    parent_thread_id: null,
+    root_thread_id: conversationId,
+    root_turn_id: `${conversationId}.${idx}`.slice(0, 120),
+    source: {
+      kind: "antigravity_conversation_db",
+      source_ref: sourceRef,
+      originator: null,
+    },
+    actor: {
+      node_id: nodeId,
+      agent_id: "root",
+      agent_depth: 0,
+      role: "executor",
+    },
+    model: {
+      id: modelId,
+      reasoning_effort: null,
+      service_tier: "standard",
+      context_window: null,
+    },
+    usage: {
+      input_tokens: inputTokens,
+      cached_input_tokens: 0,
+      cache_write_input_tokens: 0,
+      output_tokens: 0,
+      reasoning_output_tokens: 0,
+      total_tokens: inputTokens,
+      uncached_input_tokens: inputTokens,
+      model_invocation_count: 1,
+      max_invocation_input_tokens: 0,
+    },
+    credits: {
+      status: "rate_unknown",
+      rate_card_id: "unpriced",
+      service_tier: "standard",
+      total: null,
+      components: null,
+    },
+    time: {
+      started_at: startedAt,
+      completed_at: startedAt,
+      duration_ms: null,
+    },
+    rate_limit_snapshot: null,
+    measurement: {
+      status: "complete",
+      token_confidence: "request_count_only",
+      attribution_confidence: "derived_lineage",
+    },
+    privacy: {
+      metadata_only: true,
+      prompt_captured: false,
+      reasoning_captured: false,
+      tool_payload_captured: false,
+    },
+  };
+}
+
+test("Antigravity persistence retains canonical event on organization downgrade only", async () => {
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-usage-ag-org-downgrade-"));
+  try {
+    const canonical = makeAntigravityEvent({ organizationId: "soulforge", modelId: "gemini-3-flash" });
+    const incoming = makeAntigravityEvent({ organizationId: "unassigned", modelId: "gemini-3-flash" });
+
+    assert.equal(retainCanonicalAntigravityObservation(canonical, incoming), canonical);
+
+    const first = await persistUsageEvents(state, [canonical]);
+    assert.equal(first.created, 1);
+    assert.equal(first.replayed, 0);
+
+    const second = await persistUsageEvents(state, [incoming]);
+    assert.equal(second.created, 0);
+    assert.equal(second.updated, 0);
+    assert.equal(second.replayed, 1);
+
+    const persisted = await loadPersistedUsageEvents(state);
+    assert.equal(persisted.length, 1);
+    assert.equal(persisted[0].organization_id, "soulforge");
+    await assert.rejects(readdir(path.join(state, "revisions")), { code: "ENOENT" });
+  } finally {
+    await rm(state, { recursive: true, force: true });
+  }
+});
+
+test("Antigravity persistence retains canonical event on model tier specificity downgrade only", async () => {
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-usage-ag-model-downgrade-"));
+  try {
+    for (const suffix of ANTIGRAVITY_ALLOWED_MODEL_TIER_SUFFIXES) {
+      const convId = `model-test-${suffix.replace("-", "")}`;
+      const canonical = makeAntigravityEvent({
+        conversationId: convId,
+        organizationId: "soulforge",
+        modelId: `gemini-3.7-flash${suffix}`,
+      });
+      const incoming = makeAntigravityEvent({
+        conversationId: convId,
+        organizationId: "soulforge",
+        modelId: "gemini-3.7-flash",
+      });
+
+      assert.equal(retainCanonicalAntigravityObservation(canonical, incoming), canonical);
+
+      const first = await persistUsageEvents(state, [canonical]);
+      assert.equal(first.created, 1);
+
+      const second = await persistUsageEvents(state, [incoming]);
+      assert.equal(second.replayed, 1);
+      assert.equal(second.created, 0);
+      assert.equal(second.updated, 0);
+    }
+    const persisted = await loadPersistedUsageEvents(state);
+    assert.equal(persisted.length, ANTIGRAVITY_ALLOWED_MODEL_TIER_SUFFIXES.length);
+    for (const event of persisted) {
+      assert.ok(ANTIGRAVITY_ALLOWED_MODEL_TIER_SUFFIXES.some((s) => event.model.id === `gemini-3.7-flash${s}`));
+    }
+  } finally {
+    await rm(state, { recursive: true, force: true });
+  }
+});
+
+test("Antigravity persistence retains canonical event on combined org and model specificity downgrade", async () => {
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-usage-ag-combined-"));
+  try {
+    const canonical = makeAntigravityEvent({
+      organizationId: "soulforge",
+      modelId: "gemini-3.7-flash-high",
+    });
+    const incoming = makeAntigravityEvent({
+      organizationId: "unassigned",
+      modelId: "gemini-3.7-flash",
+    });
+
+    assert.equal(retainCanonicalAntigravityObservation(canonical, incoming), canonical);
+
+    const first = await persistUsageEvents(state, [canonical]);
+    assert.equal(first.created, 1);
+
+    const second = await persistUsageEvents(state, [incoming]);
+    assert.equal(second.created, 0);
+    assert.equal(second.updated, 0);
+    assert.equal(second.replayed, 1);
+
+    const [persisted] = await loadPersistedUsageEvents(state);
+    assert.equal(persisted.organization_id, "soulforge");
+    assert.equal(persisted.model.id, "gemini-3.7-flash-high");
+  } finally {
+    await rm(state, { recursive: true, force: true });
+  }
+});
+
+test("Antigravity persistence rejects reverse org and reverse model downgrade direction", async () => {
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-usage-ag-reverse-"));
+  try {
+    // Reverse org: unassigned in ledger -> soulforge incoming
+    const unassignedBase = makeAntigravityEvent({ conversationId: "rev-org", organizationId: "unassigned" });
+    const soulforgeIncoming = makeAntigravityEvent({ conversationId: "rev-org", organizationId: "soulforge" });
+    assert.equal(retainCanonicalAntigravityObservation(unassignedBase, soulforgeIncoming), null);
+    await persistUsageEvents(state, [unassignedBase]);
+    await assert.rejects(persistUsageEvents(state, [soulforgeIncoming]), { code: "usage_event_conflict" });
+
+    // Reverse model: base model in ledger -> specific model incoming
+    const baseModelEvent = makeAntigravityEvent({ conversationId: "rev-model", modelId: "gemini-3.7-flash" });
+    const specificIncoming = makeAntigravityEvent({ conversationId: "rev-model", modelId: "gemini-3.7-flash-high" });
+    assert.equal(retainCanonicalAntigravityObservation(baseModelEvent, specificIncoming), null);
+    await persistUsageEvents(state, [baseModelEvent]);
+    await assert.rejects(persistUsageEvents(state, [specificIncoming]), { code: "usage_event_conflict" });
+
+    // Reverse combined
+    const combinedBase = makeAntigravityEvent({
+      conversationId: "rev-comb",
+      organizationId: "unassigned",
+      modelId: "gemini-3.7-flash",
+    });
+    const combinedIncoming = makeAntigravityEvent({
+      conversationId: "rev-comb",
+      organizationId: "soulforge",
+      modelId: "gemini-3.7-flash-high",
+    });
+    assert.equal(retainCanonicalAntigravityObservation(combinedBase, combinedIncoming), null);
+    await persistUsageEvents(state, [combinedBase]);
+    await assert.rejects(persistUsageEvents(state, [combinedIncoming]), { code: "usage_event_conflict" });
+  } finally {
+    await rm(state, { recursive: true, force: true });
+  }
+});
+
+test("Antigravity persistence rejects different known orgs or unrelated models", async () => {
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-usage-ag-diff-"));
+  try {
+    // Different known orgs
+    const orgA = makeAntigravityEvent({ conversationId: "diff-org", organizationId: "soulforge" });
+    const orgB = makeAntigravityEvent({ conversationId: "diff-org", organizationId: "other-org" });
+    assert.equal(retainCanonicalAntigravityObservation(orgA, orgB), null);
+    await persistUsageEvents(state, [orgA]);
+    await assert.rejects(persistUsageEvents(state, [orgB]), { code: "usage_event_conflict" });
+
+    // Unrelated models
+    const modelA = makeAntigravityEvent({ conversationId: "diff-model", modelId: "gemini-3.7-flash" });
+    const modelB = makeAntigravityEvent({ conversationId: "diff-model", modelId: "claude-sonnet-4-5" });
+    assert.equal(retainCanonicalAntigravityObservation(modelA, modelB), null);
+    await persistUsageEvents(state, [modelA]);
+    await assert.rejects(persistUsageEvents(state, [modelB]), { code: "usage_event_conflict" });
+
+    // Non-allowlisted suffix
+    const validBase = makeAntigravityEvent({ conversationId: "bad-suffix", modelId: "gemini-3.7-flash-ultra" });
+    const incomingBase = makeAntigravityEvent({ conversationId: "bad-suffix", modelId: "gemini-3.7-flash" });
+    assert.equal(retainCanonicalAntigravityObservation(validBase, incomingBase), null);
+    await persistUsageEvents(state, [validBase]);
+    await assert.rejects(persistUsageEvents(state, [incomingBase]), { code: "usage_event_conflict" });
+  } finally {
+    await rm(state, { recursive: true, force: true });
+  }
+});
+
+test("Antigravity persistence rejects token, time, source_ref, or attribution differences", async () => {
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-usage-ag-mismatch-"));
+  try {
+    const base = makeAntigravityEvent({ conversationId: "mismatch" });
+    await persistUsageEvents(state, [base]);
+
+    const variations = [
+      ["token", (e) => { e.usage.input_tokens = 100; e.usage.total_tokens = 100; e.usage.uncached_input_tokens = 100; }],
+      ["time", (e) => { e.time.started_at = "2026-08-02T10:00:00.000Z"; e.time.completed_at = "2026-08-02T10:00:00.000Z"; }],
+      ["source_ref", (e) => { e.source.source_ref = "other-conv"; }],
+      ["project_id", (e) => { e.project_id = "project-x"; }],
+      ["work_id", (e) => { e.work_id = "antigravity.other"; }],
+      ["actor_node", (e) => { e.actor.node_id = "other-node"; }],
+    ];
+
+    for (const [name, mutate] of variations) {
+      const candidate = makeAntigravityEvent({ conversationId: "mismatch", organizationId: "unassigned" });
+      mutate(candidate);
+      assert.equal(retainCanonicalAntigravityObservation(base, candidate), null, name);
+      await assert.rejects(persistUsageEvents(state, [candidate]), { code: "usage_event_conflict" }, name);
+    }
+  } finally {
+    await rm(state, { recursive: true, force: true });
+  }
+});
+
+test("Antigravity fail-closed retention rejects non-Antigravity source kinds", async () => {
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-usage-ag-kinds-"));
+  const sessions = await mkdtemp(path.join(os.tmpdir(), "sf-usage-ag-kinds-session-"));
+  try {
+    const file = await writeSession(sessions, "codex-kind", [
+      sessionMeta({ id: "codex-kind" }),
+      taskStarted("codex-kind-turn"),
+      turnContext("codex-kind-turn"),
+      tokenCount(usage(100, 50, 10), "2026-08-03T00:00:03.000Z"),
+      taskComplete("codex-kind-turn"),
+    ]);
+    const [codexCanonical] = await buildUsageEvents({
+      sessionFiles: [file],
+      config: config({ organization_id: "soulforge" }),
+      rateCard: await loadRateCard(RATE_CARD),
+    });
+    const codexDowngraded = structuredClone(codexCanonical);
+    codexDowngraded.organization_id = "unassigned";
+
+    assert.equal(retainCanonicalAntigravityObservation(codexCanonical, codexDowngraded), null);
+    await persistUsageEvents(state, [codexCanonical]);
+    await assert.rejects(persistUsageEvents(state, [codexDowngraded]), { code: "usage_event_conflict" });
+  } finally {
+    await rm(state, { recursive: true, force: true });
+    await rm(sessions, { recursive: true, force: true });
+  }
+});
+
+test("Antigravity 47-event synthetic replay regression preserves canonical events without conflict", async () => {
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-usage-ag-47-"));
+  try {
+    const canonicalEvents = [];
+    const incomingEvents = [];
+
+    for (let i = 0; i < 47; i += 1) {
+      const convId = `synthetic-ag-conv-${String(i).padStart(4, "0")}`;
+      // 2 events have model specificity gemini-3.7-flash-high, 45 have other standard models
+      const isSpecificModel = i < 2;
+      const canonicalModelId = isSpecificModel ? "gemini-3.7-flash-high" : "gemini-3-flash";
+      const incomingModelId = isSpecificModel ? "gemini-3.7-flash" : "gemini-3-flash";
+
+      const canonical = makeAntigravityEvent({
+        conversationId: convId,
+        idx: 0,
+        organizationId: "soulforge",
+        modelId: canonicalModelId,
+      });
+      const incoming = makeAntigravityEvent({
+        conversationId: convId,
+        idx: 0,
+        organizationId: "unassigned",
+        modelId: incomingModelId,
+      });
+
+      canonicalEvents.push(canonical);
+      incomingEvents.push(incoming);
+    }
+
+    const initial = await persistUsageEvents(state, canonicalEvents);
+    assert.equal(initial.created, 47);
+    assert.equal(initial.updated, 0);
+    assert.equal(initial.replayed, 0);
+    assert.equal(initial.total_event_count, 47);
+
+    const replay = await persistUsageEvents(state, incomingEvents);
+    assert.equal(replay.created, 0);
+    assert.equal(replay.updated, 0);
+    assert.equal(replay.replayed, 47);
+    assert.equal(replay.total_event_count, 47);
+
+    const persisted = await loadPersistedUsageEvents(state);
+    assert.equal(persisted.length, 47);
+    assert.equal(persisted.every((e) => e.organization_id === "soulforge"), true);
+
+    const highTierEvents = persisted.filter((e) => e.model.id === "gemini-3.7-flash-high");
+    assert.equal(highTierEvents.length, 2);
+
+    await assert.rejects(readdir(path.join(state, "revisions")), { code: "ENOENT" });
+  } finally {
+    await rm(state, { recursive: true, force: true });
   }
 });

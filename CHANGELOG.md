@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-19 - Antigravity request replay retains stronger canonical metadata
+
+- Antigravity conversation-DB events now replay the persisted canonical event when the same event ID is observed again with only a weaker `unassigned` organization and/or a base model ID replacing an already recorded `low`, `medium`, `high`, or `tiered` model variant.
+- The rule is limited to exact `antigravity_conversation_db` events. After the two allowlisted fields are normalized, every other field must remain canonically identical; token, time, credit, source, attribution, privacy, and unrelated known-model differences still fail closed as `usage_event_conflict`.
+- Focused regressions cover organization-only, model-tier-only, combined, reverse, unrelated, source-kind, token/time/source, and bounded multi-event replay cases. Existing canonical bytes are replayed without a duplicate event or revision.
+
 ## 2026-08-19 - Team Ops Board adds Antigravity unmeasured request activity overlay and exact quota family classification
 
 Adds Antigravity request-count-only activity to both realtime Fleet usage cards and work-history Ledger usage trend charts with cumulative distribution.

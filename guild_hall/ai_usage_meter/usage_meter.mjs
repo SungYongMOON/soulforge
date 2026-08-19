@@ -75,6 +75,13 @@ export const USAGE_EVENT_TOKEN_CONFIDENCE_BY_SOURCE_KIND = Object.freeze({
   antigravity_conversation_db: "request_count_only",
 });
 
+export const ANTIGRAVITY_ALLOWED_MODEL_TIER_SUFFIXES = Object.freeze([
+  "-low",
+  "-medium",
+  "-high",
+  "-tiered",
+]);
+
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$/u;
 const TARGET_EVENT_MARKERS = [
   '"type":"task_started"',
@@ -979,6 +986,41 @@ function retainStrongerCanonicalModelObservation(canonical, observed) {
   return canonical;
 }
 
+export function retainCanonicalAntigravityObservation(existing, incoming) {
+  if (!existing || !incoming || typeof existing !== "object" || typeof incoming !== "object") return null;
+  if (existing.source?.kind !== "antigravity_conversation_db"
+    || incoming.source?.kind !== "antigravity_conversation_db") {
+    return null;
+  }
+  if (existing.event_id !== incoming.event_id) return null;
+
+  const sameOrg = existing.organization_id === incoming.organization_id;
+  const orgDowngrade = incoming.organization_id === "unassigned"
+    && existing.organization_id !== "unassigned"
+    && SAFE_ID.test(existing.organization_id);
+  if (!sameOrg && !orgDowngrade) return null;
+
+  const sameModel = existing.model?.id === incoming.model?.id;
+  const modelTierDowngrade = typeof incoming.model?.id === "string"
+    && typeof existing.model?.id === "string"
+    && ANTIGRAVITY_ALLOWED_MODEL_TIER_SUFFIXES.some((suffix) => (
+      existing.model.id === `${incoming.model.id}${suffix}`
+    ));
+  if (!sameModel && !modelTierDowngrade) return null;
+
+  const normalizedIncoming = structuredClone(incoming);
+  normalizedIncoming.organization_id = existing.organization_id;
+  normalizedIncoming.model = {
+    ...incoming.model,
+    id: existing.model.id,
+  };
+
+  if (canonicalJson(existing) !== canonicalJson(normalizedIncoming)) return null;
+
+  validateUsageEvent(existing);
+  return existing;
+}
+
 function collapseUsageEventObservations(events, { rateCard = null } = {}) {
   const current = new Map();
   let duplicateCount = 0;
@@ -1016,6 +1058,12 @@ function collapseUsageEventObservations(events, { rateCard = null } = {}) {
     const continuationCopy = mergeContinuationCopyObservation(existing, event);
     if (continuationCopy) {
       current.set(event.event_id, continuationCopy);
+      continue;
+    }
+    const retainedAntigravity = retainCanonicalAntigravityObservation(existing, event)
+      ?? retainCanonicalAntigravityObservation(event, existing);
+    if (retainedAntigravity) {
+      current.set(event.event_id, retainedAntigravity);
       continue;
     }
     if (usageEventUpgradeAllowed(existing, event, { allowSourceRefChange: true })) {
@@ -1616,6 +1664,8 @@ export async function persistUsageEvents(stateRoot, events) {
       if (stableLineage) return stableLineage;
       const retainedCanonical = retainStrongerCanonicalModelObservation(indexed.event, event);
       if (retainedCanonical) return retainedCanonical;
+      const retainedAntigravity = retainCanonicalAntigravityObservation(indexed.event, event);
+      if (retainedAntigravity) return retainedAntigravity;
       if (selfRootToAncestorUpgrade(event, indexed.event)
         && usageEventUpgradeAllowed(event, indexed.event)) return indexed.event;
       fail("usage_event_conflict");
