@@ -87,7 +87,29 @@ export const PROFILE_OPTIONAL_KEYS = Object.freeze([
   ...PROFILE_FILE_DOOR_KEYS,
   'confidential_dirs',
   'link_issuer',
+  'nas_root',
 ]);
+
+/**
+ * The fourth root: a share the door's three folders may live on instead of the project tree
+ * (manual 12 §12.B/§12.C, Owner 2026-08-19).
+ *
+ * The other three roots are places this repository owns, so they are derived from one repo root and
+ * a caller cannot widen them. A NAS share is not that: it is company storage the engine reaches by
+ * UNC path, and the only way to state it is for the Owner to write it in the profile. So it is
+ * validated as a *shape* rather than looked up in a table — absolute, no climb, and for a UNC path
+ * the `\\server\share` form specifically, because a drive letter is a per-login mapping and a door
+ * that resolves through one breaks the moment nobody is logged in (§12.C: UNC + 전용 계정, 드라이브
+ * 문자 아님).
+ *
+ * Stating it moves **only** the door's three folders. Everything else a profile names — the project
+ * tree, the observations, the receipts, the confidential folders — stays exactly where it was, on
+ * the roots this repository owns.
+ */
+export const NAS_ROOT_KEY = 'nas_root';
+
+/** `\\server\share`, with both parts present. A bare `\\server` is not a place files live. */
+const UNC_SHARE = /^\\\\[^\\/]+\\[^\\/]/u;
 
 /**
  * The link issuer beside the door (manual 12 §12.C), stated by a project whose uploaders are
@@ -114,6 +136,25 @@ export const LINK_ISSUER_ENV_SUFFIXES = Object.freeze([
 ]);
 
 const ENV_PREFIX = /^[A-Z][A-Z0-9_]{2,31}$/u;
+
+/**
+ * One NAS root, checked as a shape.
+ *
+ * `assertAbsolutePath` already does the work that matters — absolute, no control byte, and no `..`
+ * segment in the raw string — so this adds the one rule that is specific to a share: a path that
+ * *looks* like UNC has to be the real two-part form written with backslashes. `//server/share`
+ * is refused rather than normalised, because the two forms are not interchangeable to every
+ * Windows API this path will eventually be handed to.
+ */
+export function assertNasRoot(value, field = NAS_ROOT_KEY) {
+  const absolute = assertAbsolutePath(value, field);
+  const looksUnc = String(value).startsWith('\\\\') || String(value).startsWith('//');
+  if (looksUnc && !UNC_SHARE.test(String(value))) {
+    fail(PROFILE_ERROR_CODES.PROFILE_INVALID,
+      'a UNC nas root is written \\\\server\\share, with both parts', { field });
+  }
+  return absolute;
+}
 
 export function validateLinkIssuer(raw, field = 'link_issuer') {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -387,28 +428,61 @@ export function validateProjectProfile(raw, options = {}) {
 
   profile.confidential_dirs = Object.freeze((raw.confidential_dirs === undefined
     ? [] : assertDirList(raw.confidential_dirs, 'confidential_dirs'))
-    .map((value, index) => underProject(pathField('confidential_dirs', value),
+    .map((value, index) => underRoot(pathField('confidential_dirs', value),
       profile.project_root, `confidential_dirs[${index}]`)));
 
   const doorOpen = raw.intake_dir !== undefined;
   profile.file_door_enabled = doorOpen;
   profile.ticket_policy = doorOpen ? validateTicketPolicy(raw.ticket_policy) : null;
+
+  // The NAS root is read before the door folders, because it decides which root they are measured
+  // against. Absent, everything below is exactly what it was.
+  profile.nas_root = raw.nas_root === undefined ? null : assertNasRoot(raw.nas_root);
+  if (profile.nas_root !== null) {
+    if (!doorOpen) {
+      fail(PROFILE_ERROR_CODES.PROFILE_INVALID,
+        'a nas root moves the file door this profile has not opened', { field: NAS_ROOT_KEY });
+    }
+    // The metadata plane holds pointers, hashes and status — never payload (AGENTS.md). A share
+    // rooted inside it would turn every uploaded file into a `_workmeta` write.
+    if (isPathUnder(profile.nas_root, roots.metadata)) {
+      fail(PROFILE_ERROR_CODES.PROFILE_PLANE_MISMATCH,
+        'a nas root may not lie on the metadata plane', { field: NAS_ROOT_KEY });
+    }
+  }
+  const onNas = profile.nas_root !== null;
+  profile.door_root = doorOpen ? (profile.nas_root ?? profile.project_root) : null;
+  profile.door_root_kind = doorOpen ? (onNas ? 'nas' : 'project') : null;
+
   for (const field of PROFILE_FILE_DOOR_KEYS) {
     if (field === 'ticket_policy') continue;
-    profile[field] = doorOpen
-      ? underProject(pathField(field, raw[field]), profile.project_root, field) : null;
+    if (!doorOpen) {
+      profile[field] = null;
+      continue;
+    }
+    profile[field] = onNas
+      // On the NAS the roots table does not apply: the share is not a place this repository owns,
+      // so containment under the stated root is the whole check.
+      ? underRoot(assertAbsolutePath(raw[field], field), profile.nas_root, field)
+      : underRoot(pathField(field, raw[field]), profile.project_root, field);
   }
 
   if (doorOpen) {
     // Four containment rules, each closing one way the door could hand material to the wrong
     // place. A ticket folder inside a contract folder would give an uploader a listing of the
     // contract folder; a trash folder inside the intake folder would sweep tickets into a place
-    // the next sweep walks again; and a door pointed at the project root would make every write a
-    // write to the whole project.
+    // the next sweep walks again; and a door pointed at its own root would make every write a
+    // write to the whole project — or to the whole share.
     for (const field of ['intake_dir', 'outbox_dir', 'trash_dir']) {
-      if (isPathUnder(profile.project_root, profile[field])) {
+      if (isPathUnder(profile.door_root, profile[field])) {
         fail(PROFILE_ERROR_CODES.PROFILE_INVALID,
-          'a door folder must be a folder inside the project, not the project itself', { field });
+          'a door folder must be a folder inside its root, not the root itself', { field });
+      }
+      // A NAS door that resolves back into the project tree is a project door wearing a share's
+      // name, and every cross-root rule below it would then be measuring the wrong distance.
+      if (onNas && isPathUnder(profile[field], profile.project_root)) {
+        fail(PROFILE_ERROR_CODES.PROFILE_INVALID,
+          'a door folder on the nas root may not sit inside the project tree', { field });
       }
       for (const confidential of profile.confidential_dirs) {
         if (isPathUnder(profile[field], confidential)) {
@@ -446,11 +520,11 @@ function assertDirList(value, field) {
   return value;
 }
 
-/** Every door folder is inside the project folder — the roots check alone allows a sibling. */
-function underProject(absolute, projectRoot, field) {
-  if (!isPathUnder(absolute, projectRoot)) {
+/** Every door folder is inside its root — the roots check alone would allow a sibling. */
+function underRoot(absolute, root, field) {
+  if (!isPathUnder(absolute, root)) {
     fail(PROFILE_ERROR_CODES.PROFILE_PATH_OUTSIDE_ROOTS,
-      'this path must lie under the project root', { field });
+      'this path must lie under its declared root', { field });
   }
   return absolute;
 }

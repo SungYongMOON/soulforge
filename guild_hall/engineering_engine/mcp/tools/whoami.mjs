@@ -13,6 +13,9 @@ export const title_ko = '내 권한 보기';
 export const description_ko = '이 호출자가 누구로 인식되는지, 어떤 역할·자료 등급·도구가 허용되는지, 어느 과제 범위인지 보여준다.';
 export const write = false;
 export const data_class = 'public_rules';
+// Which roots this caller's answers can point into — names only, never a path. `nas` appears only
+// when the project's door stands on a share, and that is a fact about the project, so it is ⓑ.
+export const team_fields = Object.freeze(['allowed_roots']);
 
 export const inputSchema = Object.freeze({
   type: 'object',
@@ -49,6 +52,9 @@ export async function handler(args, ctx) {
     capabilities: view.all_capabilities === true ? ['*'] : [...view.capabilities],
     allowed_tools: allowed,
     refused_tools: refused,
+    allowed_roots: (ctx.profile.nas_root ?? null) === null
+      ? ['project', 'metadata', 'rule_assets']
+      : ['project', 'metadata', 'rule_assets', 'nas'],
     write_tools_enabled: ctx.write_enabled,
     project_scope: {
       project_code: projectCode,
@@ -69,6 +75,12 @@ export async function handler(args, ctx) {
     ]]),
     heading('허용 도구'),
     allowed.length === 0 ? '(없음)' : allowed.join(' · '),
+    heading('허용 뿌리'),
+    // The markdown hides what the JSON hides — a table a role can read that the JSON withheld
+    // would make the redaction decorative.
+    ctx.canSeeClass('team_judgment')
+      ? structured.allowed_roots.join(' · ')
+      : '(이 역할에는 표시되지 않는다 — 팀 판단 등급 ⓑ)',
     heading('거절 도구와 사유'),
     table(['도구', '사유'], refused.map((row) => [row.tool, row.reason])),
     heading('과제 범위'),

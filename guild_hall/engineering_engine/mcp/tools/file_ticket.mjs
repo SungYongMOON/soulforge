@@ -16,10 +16,16 @@
 // child process and record what came back. The engine process still opens no socket and holds no
 // credential; the child does, and it dies with its answer.
 //
-// The link is ⓑ, not ⓒ, and that is deliberate. The folder path is confidential because it is a
-// piece of the project tree; the link is the opposite — a capability to one empty folder that
-// discloses nothing about where that folder sits. Redacting it for the very roles allowed to open a
-// ticket would leave them a ticket they cannot hand to the person waiting for it.
+// **The link's class follows what the link reaches** (Owner 결정 2026-08-19). An upload link is ⓑ:
+// it is a capability to one *empty* folder, discloses nothing about where that folder sits, and
+// redacting it for the very roles allowed to open a ticket would leave them a ticket they cannot
+// hand to the person waiting for it. A download link is the opposite — it reaches an actual file —
+// so it takes that file's class: ⓒ when the artifact sits in a confidential folder, ⓑ otherwise.
+//
+// **The live URL never reaches `_workmeta`.** The ledger row records that a link of some kind exists
+// and when it dies (`validateTicketLink` has no field for a URL at all); the URL goes to the answer
+// and to one create-only marker file inside the ticket folder — the one place where being able to
+// read it means you could already open the folder it points at.
 
 import { randomUUID } from 'node:crypto';
 import { basename, join } from 'node:path';
@@ -27,7 +33,8 @@ import { basename, join } from 'node:path';
 import { ACCESS_ERROR_CODES } from '../access_table.mjs';
 import { ENGINE_MCP_ERROR_CODES, assertArgumentString, mcpFail } from '../engine_context.mjs';
 import {
-  MAX, TICKET_PURPOSES, assertPrincipalRef, mintTicketId, newTicketRecord, ticketExpiry,
+  MAX, TICKET_MARKER_FILE, TICKET_MARKER_SCHEMA_VERSION, TICKET_PURPOSES, assertPrincipalRef,
+  mintTicketId, newTicketRecord, ticketExpiry,
 } from '../tickets.mjs';
 import { FOOTER, heading, lines, table } from '../render.mjs';
 
@@ -85,6 +92,9 @@ export async function handler(args, ctx) {
 
   let artifactRef = null;
   let copied = null;
+  // ⓑ until the artifact says otherwise. A download link reaches a real file, so it inherits that
+  // file's class; an upload link reaches an empty folder and stays ⓑ.
+  let linkClass = 'team_judgment';
   if (purpose === 'download') {
     if (args.artifact_ref === undefined) {
       mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID,
@@ -98,10 +108,13 @@ export async function handler(args, ctx) {
     }
     // Before the folder is made, not after: a refusal must leave nothing behind that says somebody
     // was allowed to ask.
-    if (ctx.isConfidentialPath(source) && !ctx.canSeeClass('confidential_contract')) {
-      mcpFail(ACCESS_ERROR_CODES.CLASS_EXCEEDED,
-        'this file sits in a confidential folder and this role may not take it out',
-        { field: 'artifact_ref', data_class: 'confidential_contract' });
+    if (ctx.isConfidentialPath(source)) {
+      linkClass = 'confidential_contract';
+      if (!ctx.canSeeClass('confidential_contract')) {
+        mcpFail(ACCESS_ERROR_CODES.CLASS_EXCEEDED,
+          'this file sits in a confidential folder and this role may not take it out',
+          { field: 'artifact_ref', data_class: 'confidential_contract' });
+      }
     }
     artifactRef = ctx.projectRef(source);
     await ctx.makeDirectoryCreateOnly(folder, { field: 'ticket_folder' });
@@ -125,6 +138,25 @@ export async function handler(args, ctx) {
     expires_at: expiresAt,
   });
 
+  // The URL goes to the folder it points at, and to the answer. Never to the ledger (§12.C).
+  let markerRef = null;
+  if (link.link_url !== null) {
+    const marker = join(folder, TICKET_MARKER_FILE);
+    await ctx.writeCreateOnly(marker, `${JSON.stringify({
+      schema_version: TICKET_MARKER_SCHEMA_VERSION,
+      ticket_id: ticketId,
+      purpose,
+      principal_ref: principalRef,
+      expires_at: expiresAt,
+      link_url: link.link_url,
+      link_kind: link.link_kind,
+      link_expires_at: link.link_expires_at,
+      note: '이 칸의 표와 링크. 비밀번호·토큰·세션은 여기에도 없다. 기한이 지나면 링크는 닫힌다.',
+    }, null, 2)}\n`, { field: 'ticket_marker' });
+    markerRef = ctx.doorRef(marker);
+  }
+  const linkVisible = link.link_url !== null && ctx.canSeeClass(linkClass);
+
   const record = newTicketRecord({
     ticket_id: ticketId,
     purpose,
@@ -132,11 +164,16 @@ export async function handler(args, ctx) {
     role: ctx.view?.role ?? null,
     created_at: createdAt,
     expires_at: expiresAt,
-    folder_ref: ctx.projectRef(folder),
+    folder_ref: ctx.doorRef(folder),
+    folder_root: ctx.doorRootKind(),
     artifact_ref: artifactRef,
     note,
     files: copied === null ? [] : [copied],
-    link: link.link_url === null ? null : link,
+    link: link.link_url === null ? null : {
+      link_kind: link.link_kind,
+      link_expires_at: link.link_expires_at,
+      dsm_link_id: link.dsm_link_id,
+    },
   });
   await ctx.appendTicketRow(record);
   await ctx.appendFileReceipt({
@@ -148,10 +185,11 @@ export async function handler(args, ctx) {
     role: ctx.view?.role ?? null,
     ticket_id: ticketId,
     folder_ref: record.folder_ref,
+    folder_root: record.folder_root,
     artifact_ref: artifactRef,
     files: record.files,
-    // The operations receipt says a link of this kind exists and when it dies. The URL itself stays
-    // on the ticket row and is not copied here: one capability, one place.
+    // Same rule as the ledger row: that a link of this kind exists, and when it dies. The URL is
+    // not on the metadata plane at all.
     link_kind: link.link_kind,
     link_expires_at: link.link_expires_at,
     link_note: link.link_note,
@@ -164,14 +202,21 @@ export async function handler(args, ctx) {
     expires_at: record.expires_at,
     folder: ctx.pointer(folder),
     folder_ref: record.folder_ref,
+    folder_root: record.folder_root,
     artifact_ref: artifactRef,
     copied_file: copied === null ? null : copied.name,
     allowed_extensions: door.policy.allowed_extensions.length,
     max_file_bytes: door.policy.max_file_bytes,
-    link_url: link.link_url,
+    // The class rule is applied here rather than by the static field list, because it depends on
+    // what this particular ticket reaches. A caller who cannot see that class is told the field was
+    // withheld and why — the same shape the server's own redaction uses.
+    link_url: linkVisible ? link.link_url : null,
     link_kind: link.link_kind,
     link_expires_at: link.link_expires_at,
+    link_data_class: link.link_url === null ? null : linkClass,
+    link_withheld: link.link_url !== null && !linkVisible,
     link_note: link.link_note,
+    ticket_marker_ref: markerRef,
     next: nextLine(purpose, link),
   };
 
@@ -181,7 +226,8 @@ export async function handler(args, ctx) {
     heading('자리'),
     structured.folder ?? '(가려짐)',
     heading('링크'),
-    link.link_url ?? `(없음 — ${link.link_note})`,
+    structured.link_url
+      ?? (link.link_url === null ? `(없음 — ${link.link_note})` : '(가려짐 — 이 역할에는 이 링크가 안 보인다)'),
     structured.next,
     FOOTER,
   );

@@ -50,7 +50,16 @@ export const SYNTHETIC_OVERLAY_FOLDER_NAME = 'Synthetic overlay review pack';
 export const SYNTHETIC_OVERLAY_UNPLACED_TOKEN = 'prime_synthetic_unplaced_item';
 export const OUT_FOLDER = '03_Out';
 
-/** Where the door's three folders sit inside a project. Kept away from the gate folders. */
+/**
+ * The stand-in for the company share, staged beside `_workspaces` rather than inside it.
+ *
+ * A test cannot mount a NAS, and it does not need to: what the cross-root code branches on is
+ * whether two paths are under the same declared root, and a sibling directory is a different root
+ * in exactly the way the share is.
+ */
+export const NAS_ROOT_DIR_NAME = '_nas_share_stub';
+
+/** Where the door's three folders sit — inside the project, or on the NAS root when one is staged. */
 export const DOOR_RELATIVE = Object.freeze({
   intake: ['020_MGMT', '022_INBOX', 'tickets'],
   outbox: ['020_MGMT', '022_INBOX', 'outbox'],
@@ -189,8 +198,16 @@ export function stageSyntheticProject(root, options = {}) {
     overlayPaths.push(overlayPath);
   }
 
-  const doorDirectory = (parts) => join(project, ...parts);
-  for (const parts of Object.values(DOOR_RELATIVE)) {
+  // The door's three folders sit either inside the project or on a stand-in for the company share
+  // (12장 §12.B/§12.C). The stand-in is a real directory beside the repository root rather than a
+  // UNC path, because a test cannot mount a share — what it exercises is the *root boundary*, which
+  // is the thing the cross-root code actually branches on.
+  const nasRoot = options.nas_root === true ? join(root, NAS_ROOT_DIR_NAME) : null;
+  const doorDirectory = (parts) => (nasRoot === null
+    ? join(project, ...parts) : join(nasRoot, ...parts));
+  mkdirSync(join(project, ...DOOR_RELATIVE.confidential), { recursive: true });
+  for (const [key, parts] of Object.entries(DOOR_RELATIVE)) {
+    if (key === 'confidential') continue;
     mkdirSync(doorDirectory(parts), { recursive: true });
   }
 
@@ -217,10 +234,12 @@ export function stageSyntheticProject(root, options = {}) {
   // A project that has not opened a file door is the older, still-valid shape, so the fixture can
   // stage both and a test can watch the door refuse rather than only watch it work.
   if (options.file_door !== false) {
+    if (nasRoot !== null) profile.nas_root = nasRoot;
     profile.intake_dir = doorDirectory(DOOR_RELATIVE.intake);
     profile.outbox_dir = doorDirectory(DOOR_RELATIVE.outbox);
     profile.trash_dir = doorDirectory(DOOR_RELATIVE.trash);
-    profile.confidential_dirs = [doorDirectory(DOOR_RELATIVE.confidential)];
+    // Confidential folders are project material and stay on the project plane whatever the door does.
+    profile.confidential_dirs = [join(project, ...DOOR_RELATIVE.confidential)];
     profile.ticket_policy = options.ticket_policy ?? {
       upload_ttl_hours: 72, download_ttl_hours: 24, cleanup_after_days: 30,
     };
@@ -250,10 +269,13 @@ export function stageSyntheticProject(root, options = {}) {
     compiled_variant: compiledVariant,
     known_at: NEXT_STEPS_FIXTURE.known_at,
     gate_folders: gateFolders,
+    nas_root: nasRoot,
+    door_root: nasRoot ?? project,
+    door_root_kind: nasRoot === null ? 'project' : 'nas',
     intake_dir: doorDirectory(DOOR_RELATIVE.intake),
     outbox_dir: doorDirectory(DOOR_RELATIVE.outbox),
     trash_dir: doorDirectory(DOOR_RELATIVE.trash),
-    confidential_dir: doorDirectory(DOOR_RELATIVE.confidential),
+    confidential_dir: join(project, ...DOOR_RELATIVE.confidential),
   };
 }
 

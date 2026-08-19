@@ -10,8 +10,8 @@ import assert from 'node:assert/strict';
 import {
   DEFAULT_ALLOWED_EXTENSIONS, DEFAULT_TICKET_POLICY, MAX, TICKET_ERROR_CODES, TicketError,
   assertPrincipalRef, assertTicketId, assertTicketUsable, assertUploadFileName, foldTicketLedger,
-  mintTicketId, newTicketRecord, nextFreeName, splitFileName, ticketExpiry, ticketStateAt,
-  ticketsDueForCleanup, validateTicketPolicy, versionedFileName,
+  mintTicketId, newTicketRecord, nextFreeName, splitFileName, ticketExpiry, ticketFolderRoot,
+  ticketStateAt, ticketsDueForCleanup, validateTicketLink, validateTicketPolicy, versionedFileName,
 } from './tickets.mjs';
 
 const T0 = '2026-08-19T05:00:00.000Z';
@@ -181,4 +181,46 @@ test('a ticket record carries a pointer and a note, and refuses anything longer 
     TICKET_ERROR_CODES.TICKET_INVALID);
   assert.equal(refusalOf(() => ticket({ created_at: '2026-08-19' })).code,
     TICKET_ERROR_CODES.TICKET_INVALID);
+});
+
+test('a ticket row says which root its pointer is measured from, and an old row means project', () => {
+  assert.equal(ticket().folder_root, 'project');
+  assert.equal(ticket({ folder_root: 'nas' }).folder_root, 'nas');
+  assert.equal(refusalOf(() => ticket({ folder_root: 'somewhere' })).code,
+    TICKET_ERROR_CODES.TICKET_INVALID);
+  // Rows written before the share existed carry no field at all, and they mean what they meant.
+  assert.equal(ticketFolderRoot({ ticket_id: 'up_x' }), 'project');
+  assert.equal(ticketFolderRoot({ folder_root: 'nas' }), 'nas');
+  assert.equal(ticketFolderRoot(null), 'project');
+});
+
+test('the ledger records that a link exists, and has nowhere to put the link itself', () => {
+  const link = validateTicketLink({
+    link_kind: 'file_request',
+    link_expires_at: '2026-08-22T05:00:00.000Z',
+    dsm_link_id: 'abc123',
+  });
+  assert.deepEqual(link, {
+    link_kind: 'file_request',
+    link_expires_at: '2026-08-22T05:00:00.000Z',
+    dsm_link_id: 'abc123',
+  });
+  assert.equal(Object.hasOwn(link, 'link_url'), false);
+  assert.equal(validateTicketLink(null), null);
+
+  // A caller that hands over a URL, a password or a token believes it is being recorded. Refusing
+  // is the only answer that does not quietly make that belief false (Owner 결정 2026-08-19).
+  for (const forbidden of ['link_url', 'url', 'password', 'token', 'secret']) {
+    const error = refusalOf(() => validateTicketLink({
+      link_kind: 'file_request', [forbidden]: 'https://nas.invalid/sharing/x',
+    }));
+    assert.equal(error.code, TICKET_ERROR_CODES.TICKET_INVALID);
+    assert.equal(error.detail.field, `link.${forbidden}`);
+  }
+  assert.equal(refusalOf(() => validateTicketLink({ link_kind: 'whatever' })).code,
+    TICKET_ERROR_CODES.TICKET_INVALID);
+
+  // And the row itself carries no https anywhere, which is the property the plane rule is about.
+  const row = ticket({ link: { link_kind: 'sharing_view', dsm_link_id: 'x1' } });
+  assert.equal(JSON.stringify(row).includes('https://'), false);
 });

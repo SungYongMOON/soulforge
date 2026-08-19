@@ -23,6 +23,14 @@
 //   4. **Never overwrite.** A name already in `03_Out` is refused unless the caller says
 //      `allow_new_version`, and then the file lands as `name (v2).ext`. Silently replacing a
 //      submitted document is the one failure this whole path exists to prevent.
+//   5. **Across roots it copies, and then consumes** (Owner 결정 2026-08-19, §12.C). When the door's
+//      folders sit on the NAS share and the task folder is in the project tree, there is no move to
+//      make: the bytes are copied, the destination is hashed and checked against the source, and
+//      only then is the source **moved into the share's own trash folder** — never deleted, so a
+//      copy that turns out to be wrong is still recoverable, and never left in place, so the next
+//      person to look in the ticket folder does not find a file that has already been filed. Within
+//      one root it stays the old move. The receipt says which of the two happened
+//      (`transfer_kind: move | copy_verify`) and carries the hash from both ends.
 
 import { join } from 'node:path';
 
@@ -39,7 +47,8 @@ import {
   ENGINE_MCP_ERROR_CODES, REGISTERED_CANDIDATES_FILE, assertArgumentString, mcpFail,
 } from '../engine_context.mjs';
 import {
-  MAX, assertPrincipalRef, assertTicketId, assertTicketUsable, assertUploadFileName, nextFreeName,
+  MAX, TICKET_MARKER_FILE, assertPrincipalRef, assertTicketId, assertTicketUsable,
+  assertUploadFileName, nextFreeName, ticketFolderRoot,
 } from '../tickets.mjs';
 import { FOOTER, heading, lines, table } from '../render.mjs';
 
@@ -51,6 +60,7 @@ export const data_class = 'team_judgment';
 export const idempotent = false;
 export const confidential_fields = Object.freeze([
   'target_folder', 'registered[].file_ref', 'registered[].target',
+  'registered[].consumed_ref',
 ]);
 
 const MATURITY_VALUES = Object.freeze(Object.values(MATURITY));
@@ -138,8 +148,12 @@ export async function handler(args, ctx) {
 
   // ---- what is in the ticket folder
 
-  const ticketDir = ctx.resolveProjectRef(ticket.folder_ref, 'ticket_id');
-  const staged = await ctx.listFilesIn(ticketDir);
+  const ticketDir = ctx.resolveDoorRef(ticket.folder_ref, 'ticket_id', ticketFolderRoot(ticket));
+  // The door's own marker is not somebody's upload — it is the ticket, written into the folder so
+  // the person holding it can read their link. Filtered rather than refused: a caller should not
+  // have to delete a file the engine put there before they can register their own.
+  const staged = (await ctx.listFilesIn(ticketDir))
+    .filter((row) => row.name !== TICKET_MARKER_FILE);
   if (staged.length === 0) {
     mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID,
       'there is nothing in this ticket folder to register', { field: 'ticket_id' });
@@ -172,18 +186,43 @@ export async function handler(args, ctx) {
     planned.push({ row, chosen });
   }
 
+  // One decision for the whole registration, not one per file: the ticket folder and the task
+  // folder do not change root halfway through, and a registration that moved some files and copied
+  // others would be two stories in one receipt.
+  const sameRoot = ctx.sameRoot(ticketDir, outDir);
+  const transferKind = sameRoot ? 'move' : 'copy_verify';
+
   const moved = [];
   for (const { row, chosen } of planned) {
     const target = join(outDir, chosen.name);
-    const result = await ctx.moveCreateOnly(row.path, target, { field: 'register_target' });
+    // Both helpers hash before and after and refuse on EEXIST, so the difference below is only
+    // what happens to the source afterwards — not how carefully the bytes are checked.
+    const result = sameRoot
+      ? await ctx.moveCreateOnly(row.path, target, { field: 'register_target' })
+      : await ctx.copyCreateOnly(row.path, target, { field: 'register_target' });
+    let consumedRef = null;
+    if (!sameRoot) {
+      // The source is spent, and the engine has no tool that deletes: it goes to the trash folder
+      // on its own root, under the ticket id, where a person can find it by the name they know.
+      const consumed = join(door.trash_dir, 'consumed', ticketId, chosen.name);
+      await ctx.moveCreateOnly(row.path, consumed,
+        { field: 'consumed_source', sha256: result.sha256 });
+      consumedRef = ctx.doorRef(consumed);
+    }
     moved.push({
       name: chosen.name,
       original_name: row.name,
       version: chosen.version,
       bytes: row.bytes,
+      // Two hashes rather than one: the source as it sat in the ticket folder, and the destination
+      // as it landed. They are equal or nothing was registered — saying both is what makes that
+      // checkable from the receipt alone rather than on trust.
+      source_sha256: result.source_sha256 ?? result.sha256,
       sha256: result.sha256,
       mtime_iso: row.mtime_iso,
       file_ref: ctx.projectRef(target),
+      transfer_kind: transferKind,
+      consumed_ref: consumedRef,
     });
   }
 
@@ -274,7 +313,9 @@ export async function handler(args, ctx) {
     schema_version: 'soulforge.engine_mcp_file_operation.v0',
     logged_at: knownAt,
     tool: name,
-    operation: 'register_move',
+    operation: transferKind === 'move' ? 'register_move' : 'register_copy_verify',
+    transfer_kind: transferKind,
+    source_root: ticketFolderRoot(ticket),
     principal_ref: principalRef,
     role: ctx.view?.role ?? null,
     ticket_id: ticketId,
@@ -283,7 +324,12 @@ export async function handler(args, ctx) {
     task_number: task.task_id,
     target_ref: ctx.projectRef(outDir),
     files: moved.map((row) => ({
-      name: row.name, sha256: row.sha256, bytes: row.bytes, file_ref: row.file_ref,
+      name: row.name,
+      source_sha256: row.source_sha256,
+      sha256: row.sha256,
+      bytes: row.bytes,
+      file_ref: row.file_ref,
+      consumed_ref: row.consumed_ref,
     })),
     observations: observations.artifact_observations.length,
     awaiting_confirmation: waiting.length,
@@ -299,6 +345,8 @@ export async function handler(args, ctx) {
     artifact_type_id: token,
     task_number: task.task_id,
     target_folder: ctx.pointer(outDir),
+    transfer_kind: transferKind,
+    source_root: ticketFolderRoot(ticket),
     observation_state: observationState,
     counts: {
       moved: moved.length,
@@ -310,25 +358,32 @@ export async function handler(args, ctx) {
       name: row.name,
       version: row.version,
       bytes: row.bytes,
+      source_sha256: row.source_sha256,
       sha256: row.sha256,
       file_ref: row.file_ref,
+      transfer_kind: row.transfer_kind,
+      consumed_ref: row.consumed_ref,
       target: ctx.pointer(join(outDir, row.name)),
     })),
     note: observationState === 'observed'
       ? '자동 확정 3조건(03_Out · 업무폴더 1:1 · 파일 이름 단서)을 통과해 관측이 되었다.'
       : '이름 단서가 없어 관측이 아니라 확인 대기로 남았다(D37). 사람이 확인해야 판단에 들어간다.',
+    transfer_note: transferKind === 'move'
+      ? '같은 뿌리라 옮겼다(원본은 남지 않는다).'
+      : '다른 뿌리(공유폴더 → 과제면)라 복사하고 해시로 대조한 뒤 원본을 그 공유폴더의 휴지통으로 옮겼다. 지운 것은 없다.',
   };
 
   const markdown = lines(
     `# 등록 완료 — ${stageCode} / ${token}`,
-    table(['옮긴 파일', '관측', '확인 대기', '업무폴더 번호'], [[
-      moved.length, structured.counts.observations, waiting.length, task.task_id,
+    table(['옮긴 파일', '관측', '확인 대기', '업무폴더 번호', '옮김 방식'], [[
+      moved.length, structured.counts.observations, waiting.length, task.task_id, transferKind,
     ]]),
     heading('파일'),
     table(['이름', '판', '크기', '해시(앞 12)'], moved.map((row) => [
       row.name, row.version, row.bytes, row.sha256.slice(0, 12),
     ])),
     structured.note,
+    structured.transfer_note,
     FOOTER,
   );
 

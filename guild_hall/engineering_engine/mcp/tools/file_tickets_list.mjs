@@ -9,7 +9,7 @@
 // (`file_tickets_gc`) something they can check before they run it.
 
 import { pagingProperties, paginate } from '../paging.mjs';
-import { assertPrincipalRef, ticketStateAt } from '../tickets.mjs';
+import { assertPrincipalRef, ticketFolderRoot, ticketStateAt } from '../tickets.mjs';
 import { FOOTER, heading, lines, table } from '../render.mjs';
 
 export const name = 'file_tickets_list';
@@ -56,7 +56,13 @@ export async function handler(args, ctx) {
       expires_at: record.expires_at,
       files: Array.isArray(record.files) ? record.files.length : 0,
       folder_ref: record.folder_ref,
+      // Which root that pointer is measured from — a listing whose pointers cannot be resolved is
+      // a listing of strings. An old row has no field and means the project (12장 §12.B).
+      folder_root: ticketFolderRoot(record),
       artifact_ref: record.artifact_ref ?? null,
+      // That a link exists and when it dies, never the link. The ledger has no URL to give.
+      link_kind: record.link?.link_kind ?? null,
+      link_expires_at: record.link?.link_expires_at ?? null,
       note: record.note ?? null,
     });
   }

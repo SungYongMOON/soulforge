@@ -194,6 +194,15 @@ export async function createEngineContext(options) {
   const cache = new Map();
   let generation = 0;
 
+  /**
+   * The share this project's door stands on, or `null`.
+   *
+   * Asked through a helper rather than read as a field because a context can also be built from a
+   * profile object a test assembled by hand, and "the key is missing" has to mean the same as "the
+   * validator set it to null" — the alternative is a door that believes in a share nobody declared.
+   */
+  const nasRoot = () => profile.nas_root ?? null;
+
   const context = {
     profile,
     repo_root: repoRoot,
@@ -203,7 +212,16 @@ export async function createEngineContext(options) {
     view: options.view ?? anonymousView(profile.project_code),
     shared: options.shared ?? null,
     vocabulary: ARTIFACT_VOCABULARY_V0,
-    pointer: (absolute) => repoPointer(repoRoot, absolute),
+    // The share is asked first, and on purpose. A door folder on the share is a share pointer
+    // whatever the share happens to be mounted as — a stand-in inside the repository during a test,
+    // a UNC path in the field — and reporting the same folder two different ways depending on that
+    // would make `nas:` mean "outside the repo" rather than "on the door's root". The prefix says
+    // which root without printing the share's own name, which is the part that is ⓒ.
+    pointer: (absolute) => {
+      const onNas = nasRoot() === null ? null : relativeUnder(nasRoot(), absolute);
+      if (onNas !== null) return `nas:${onNas}`;
+      return repoPointer(repoRoot, absolute);
+    },
     now: () => new Date().toISOString(),
   };
 
@@ -497,10 +515,15 @@ export async function createEngineContext(options) {
    * rather than printing the path.
    */
   context.assertPathBudget = (absolute, kind = 'file', field = 'write_target') => {
-    const pointer = repoPointer(repoRoot, absolute);
+    // A door folder on the share is outside the repository by construction, so the budget is
+    // measured from the share root instead. It is still measured: a NAS is reached over SMB from
+    // the same Windows filesystem API as everything else, and a path too long there fails in
+    // exactly the same way (Owner 2026-08-18, long paths stay off).
+    const pointer = context.isOnNasRoot(absolute)
+      ? relativeUnder(nasRoot(), absolute) : repoPointer(repoRoot, absolute);
     if (pointer === null) {
       mcpFail(ENGINE_MCP_ERROR_CODES.PATH_BUDGET_EXCEEDED,
-        'a write target lies outside the repository root', { field });
+        'a write target lies outside every root this door may write to', { field });
     }
     const report = classifyPath(pointer, { kind });
     if (!report.ok) {
@@ -569,6 +592,10 @@ export async function createEngineContext(options) {
       trash_dir: profile.trash_dir,
       confidential_dirs: profile.confidential_dirs,
       policy: profile.ticket_policy,
+      // Which root the three folders above are on, and what a `folder_ref` is measured from.
+      nas_root: profile.nas_root ?? null,
+      root: profile.door_root,
+      root_kind: profile.door_root_kind,
       // `null` unless this project named an issuer (§12.C). The door reads only the kind and the
       // env prefix from it; the credentials, the host and the network are the child process's.
       link_issuer: profile.link_issuer ?? null,
@@ -641,6 +668,72 @@ export async function createEngineContext(options) {
 
   /** The pointer form the ledgers and answers use: project-relative, forward slashes. */
   context.projectRef = (absolute) => relativeUnder(profile.project_root, absolute);
+
+  // ------------------------------------------------------- the door's root (project or nas)
+
+  /**
+   * A relative pointer under whichever root this project's door folders live on.
+   *
+   * The ticket ledger has always held `folder_ref` as a pointer rather than a path, and that does
+   * not change when the door moves to a share — only what the pointer is measured from does. Which
+   * root a given row was written against is on the row itself (`folder_root`), so a project that
+   * gains a `nas_root` later still resolves its old tickets correctly instead of silently pointing
+   * them at a folder on the share that was never there.
+   */
+  context.doorRef = (absolute) => relativeUnder(profile.door_root ?? profile.project_root, absolute);
+
+  context.doorRootKind = () => profile.door_root_kind ?? 'project';
+
+  /**
+   * One door pointer, resolved back to an absolute path under the root the row names.
+   *
+   * @param value the stored pointer
+   * @param field the argument name a refusal should blame
+   * @param rootKind `'project'` or `'nas'` — from the row, defaulting to the pre-NAS meaning
+   */
+  context.resolveDoorRef = (value, field = 'folder_ref', rootKind = null) => {
+    const kind = rootKind ?? 'project';
+    if (kind === 'project') return context.resolveProjectRef(value, field);
+    const nas = nasRoot();
+    if (nas === null) {
+      mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID,
+        'this ticket lives on a share this profile no longer names', { field });
+    }
+    assertArgumentString(value, field, 400);
+    if (/^[A-Za-z]:[\\/]/u.test(value) || value.startsWith('/') || value.startsWith('\\')) {
+      mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID,
+        'this is a pointer under the share root, not an absolute path', { field });
+    }
+    if (value.split(/[\\/]/u).includes('..')) {
+      mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID,
+        'a pointer may not climb out of the share', { field });
+    }
+    const absolute = join(nas, ...value.split(/[\\/]/u).filter(Boolean));
+    if (!isPathUnder(absolute, nas)) {
+      mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID,
+        'this pointer resolves outside the share', { field });
+    }
+    return absolute;
+  };
+
+  /**
+   * Are these two paths on the same root, and therefore movable rather than copyable?
+   *
+   * The question the file door actually has to answer is not "same volume" — it cannot know that
+   * portably — but "same declared root". A share and a project tree are two roots by construction,
+   * and treating them as one is what would produce a `rename` across volumes that fails, or worse,
+   * a link that succeeds and leaves the share holding the project's only copy.
+   */
+  context.sameRoot = (left, right) => {
+    const nas = nasRoot();
+    if (nas === null) return true;
+    return isPathUnder(left, nas) === isPathUnder(right, nas);
+  };
+
+  context.isOnNasRoot = (absolute) => {
+    const nas = nasRoot();
+    return nas !== null && isPathUnder(absolute, nas);
+  };
 
   context.pathExists = async (absolute) => {
     try {
@@ -789,7 +882,9 @@ export async function createEngineContext(options) {
     }
     await unlink(from);
     context.invalidateAfterWrite(field);
-    return { path: to, sha256: after, linked };
+    // Both ends are reported, even though they are equal by the time this returns: a receipt that
+    // carries one hash asks a reader to trust that the check happened.
+    return { path: to, sha256: after, source_sha256: before, linked };
   };
 
   context.copyCreateOnly = async (from, to, { field = 'copy_target' } = {}) => {
@@ -813,7 +908,7 @@ export async function createEngineContext(options) {
         'the copy does not match the file it was made from', { field });
     }
     context.invalidateAfterWrite(field);
-    return { path: to, sha256: after };
+    return { path: to, sha256: after, source_sha256: before };
   };
 
   /**

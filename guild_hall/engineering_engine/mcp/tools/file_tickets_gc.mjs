@@ -14,7 +14,9 @@
 
 import { join } from 'node:path';
 
-import { assertPrincipalRef, ticketStateAt, ticketsDueForCleanup } from '../tickets.mjs';
+import {
+  assertPrincipalRef, ticketFolderRoot, ticketStateAt, ticketsDueForCleanup,
+} from '../tickets.mjs';
 import { FOOTER, heading, lines, table } from '../render.mjs';
 
 export const name = 'file_tickets_gc';
@@ -58,7 +60,12 @@ export async function handler(args, ctx) {
 
   const items = [];
   for (const row of due) {
-    const folder = ctx.resolveProjectRef(row.folder_ref, 'folder_ref');
+    // The row says which root its pointer was written against, so a ticket folder on the share and
+    // one in the project tree are swept the same way without the sweep having to guess. The trash
+    // is always on the same root as the folder, because the profile puts all three there together.
+    const record = ledger.tickets.get(row.ticket_id);
+    const rootKind = ticketFolderRoot(record);
+    const folder = ctx.resolveDoorRef(row.folder_ref, 'folder_ref', rootKind);
     const present = await ctx.pathExists(folder);
     const files = present ? (await ctx.listFilesIn(folder)).length : 0;
     const item = {
@@ -66,6 +73,7 @@ export async function handler(args, ctx) {
       purpose: row.purpose,
       state: row.state,
       folder_ref: row.folder_ref,
+      folder_root: rootKind,
       folder_present: present,
       files,
       moved: false,
@@ -76,8 +84,7 @@ export async function handler(args, ctx) {
       const target = join(door.trash_dir, row.ticket_id);
       await ctx.moveDirectoryCreateOnly(folder, target, { field: 'trash_target' });
       item.moved = true;
-      item.trash_ref = ctx.projectRef(target);
-      const record = ledger.tickets.get(row.ticket_id);
+      item.trash_ref = ctx.doorRef(target);
       await ctx.appendTicketRow({
         ...record,
         status: 'cleaned',
@@ -98,7 +105,8 @@ export async function handler(args, ctx) {
       operation: 'cleanup_to_trash',
       principal_ref: principalRef,
       role: ctx.view?.role ?? null,
-      trash_ref: ctx.projectRef(door.trash_dir),
+      trash_ref: ctx.doorRef(door.trash_dir),
+      trash_root: door.root_kind,
       tickets: items.filter((item) => item.moved).map((item) => item.ticket_id),
     });
   }
@@ -111,6 +119,7 @@ export async function handler(args, ctx) {
     dry_run: dryRun,
     cleanup_after_days: door.policy.cleanup_after_days,
     trash_folder: ctx.pointer(door.trash_dir),
+    trash_root: door.root_kind,
     counts: {
       due: due.length,
       moved: items.filter((item) => item.moved).length,

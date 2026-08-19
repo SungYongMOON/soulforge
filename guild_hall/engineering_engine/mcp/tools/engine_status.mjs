@@ -30,6 +30,9 @@ export const team_fields = Object.freeze([
   'project.status',
   'registry.projects', 'registry.default_project', 'registry.contexts_held',
   'access.roles_declared',
+  // That this project's door stands on a share rather than on the project tree is a fact about the
+  // project, so it travels with the rest of the ⓑ block (Owner 2026-08-19).
+  'allowed_roots.nas', 'file_door.root_kind',
 ]);
 
 export const inputSchema = Object.freeze({
@@ -93,10 +96,17 @@ export async function handler(args, ctx) {
     },
     receipts_root: ctx.pointer(ctx.profile.receipts_dir),
     observations_dir: ctx.pointer(ctx.profile.observations_dir),
+    // Three roots this repository owns, and — only when a project states one — the share its door
+    // folders sit on. The share's own path is never printed: that it exists is ⓑ, where it is is ⓒ.
     allowed_roots: {
       project: '_workspaces/**',
       metadata: '_workmeta/**',
       rule_assets: '.registry/skills/se_foldertree_generate/codex/assets/**',
+      ...((ctx.profile.nas_root ?? null) === null ? {} : { nas: 'nas:** (문 앞 칸 전용 공유폴더)' }),
+    },
+    file_door: {
+      enabled: ctx.profile.file_door_enabled === true,
+      root_kind: ctx.profile.door_root_kind,
     },
     access: {
       table_source: accessTable?.source ?? 'built_in_default',
@@ -135,7 +145,9 @@ export async function handler(args, ctx) {
       structured.project.prime, structured.project.quality_grade, structured.project.status,
     ]]) : '(이 역할에는 과제 신원이 표시되지 않는다 — 팀 판단 등급 ⓑ)',
     heading('허용 뿌리'),
-    Object.values(structured.allowed_roots).join(' · '),
+    Object.entries(structured.allowed_roots)
+      .filter(([key]) => key !== 'nas' || teamVisible)
+      .map(([, value]) => value).join(' · '),
     FOOTER,
   );
 
