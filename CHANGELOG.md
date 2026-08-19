@@ -71,15 +71,48 @@ Both are closed here, minimally. **The door is still off and still registered no
   protocol-level refusals — permission, class, principal, project, lane, write switch.
   `rules_layers`, `observe_status` and `judge_result` take `limit`/`cursor` and report `total` and
   `next_cursor` rather than leaving length to be inferred.
-- **Tests: 66** (`npm run validate:se-mcp`, was 28) — profile 7, registry and routing 10, access 15,
-  tools 22, protocol 12 over a real spawned process. Two new public synthetic fixtures
+- **Tests: 70** (`npm run validate:se-mcp`, was 28) — profile 7, registry and routing 10, access 15,
+  tools 22, protocol 16 over a real spawned process. Two new public synthetic fixtures
   (`project_registry_synthetic_v0.json`, `access_table_synthetic_v0.json`); no real project material
   in any of them.
+- **Review round (independent verifier, same day).** Six code findings and four documentation
+  ones, all closed on the branch before merge:
+  - *The access log had holes.* A call naming a project the registry does not carry was refused
+    before any project context existed, so it left no receipt at all — the one refusal an
+    auditor most wants to see. Those lines now land in the default project's receipts with the
+    project asked for left `null` and the principal, role and reason recorded.
+  - *Two public-class tools were telling outsiders what the projects are.* `engine_status` and
+    `rules_layers` are ⓐ as tools, but they carried the project code, its business type, prime
+    and grade, the registry counts, the access-table path and the rule *file names* — an overlay
+    file name contains the prime contractor and the project. Fields can now be narrower than the
+    tool that carries them: those are ⓑ, withheld from `external` and from a caller with no
+    principal, and the markdown hides exactly what the JSON hides. The engine version, protocol,
+    switches and rule-layer *versions* stay public, as does the envelope — except `project_code`,
+    which is now `null` for a caller who may not know a project exists.
+  - *Owner decision on write scope.* `systems` and `quality` may also walk folders
+    (`observe_scan`) and run a judgement (`judge_run`); both stay write tools behind the write
+    switch. `observe_confirm` and `access_table` remain Owner/PM. The two run tools are therefore
+    ⓑ answers whose ⓒ part is *where they wrote*, not the run itself.
+  - *Schemas are now enforced where the caller can see it.* Every tool declares
+    `additionalProperties: false`; the server now checks it, so a misspelled argument is refused
+    by name instead of surfacing as a string-length complaint from inside the profile helpers.
+    Missing required arguments say which one. Caller-argument failures use the arguments code,
+    never the profile one — a caller who mistyped a stage code was being told their project
+    profile was invalid.
+  - *Refusals stopped echoing and stopped leaking.* `rules_card` and `observe_register` bound the
+    token they were handed and no longer repeat it back; a missing profile at startup reports the
+    file and the errno rather than letting a raw `ENOENT` print the absolute path on stderr; and
+    exit 4 now prints the refusal detail, which is what makes the manual's "which file, which
+    field" troubleshooting line true.
 - **Docs:** manual chapter 12 rewritten around the registry, the principal, the access table, the
   lock, the cache and the path budget, plus a new **§12.A 등록·사용 안내** written for a
   non-developer — what to prepare, per-client registration examples with placeholder paths, the
   first five calls, what each role sees, how to unlock, where the receipts are, the five refusals
-  that happen most, and what not to do. New one-page `guild_hall/engineering_engine/mcp/README.md`
+  that happen most, and what not to do. Every client example now carries `--principal` with a
+  shape rule beside the placeholder (`^[A-Za-z0-9][A-Za-z0-9_.@-]{0,63}$` — no Korean, no spaces),
+  quoting guidance for TOML/JSON/shell and doubled backslashes on Windows, `--access-table` in the
+  preparation table with what it means in `--profile` mode, and a role table that marks which tools
+  the write switch still gates. New one-page `guild_hall/engineering_engine/mcp/README.md`
   pointing at it.
 
 ## 2026-08-19 - Board observability: a stale quota number no longer looks like a current one

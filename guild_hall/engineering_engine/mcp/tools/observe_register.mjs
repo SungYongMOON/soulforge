@@ -11,9 +11,9 @@ import { join } from 'node:path';
 import { MATURITY } from '../../observation/artifact_observation_candidates.mjs';
 import { isKnownArtifactType } from '../../stage_rules/artifact_vocabulary.mjs';
 import {
-  ENGINE_MCP_ERROR_CODES, REGISTERED_CANDIDATES_FILE, assertInstant, mcpFail,
+  ENGINE_MCP_ERROR_CODES, REGISTERED_CANDIDATES_FILE, assertArgumentString, assertInstant, mcpFail,
 } from '../engine_context.mjs';
-import { assertSafeString, hasControlCharacter } from '../project_profile.mjs';
+import { hasControlCharacter } from '../project_profile.mjs';
 import { FOOTER, lines, table } from '../render.mjs';
 
 export const name = 'observe_register';
@@ -41,7 +41,7 @@ export const inputSchema = Object.freeze({
 
 /** A project-relative pointer, never an absolute path and never a climb. */
 function assertFileRef(value) {
-  assertSafeString(value, 'file_ref', 512);
+  assertArgumentString(value, 'file_ref', 512);
   if (/^[A-Za-z]:[\\/]/u.test(value) || value.startsWith('/') || value.startsWith('\\')) {
     mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID,
       'file_ref is a project-relative pointer, not an absolute path', {});
@@ -56,14 +56,17 @@ export async function handler(args, ctx) {
   ctx.requireWrite(name);
   const stageCode = await ctx.assertKnownStage(args.stage_code);
   const fileRef = assertFileRef(args.file_ref);
-  const token = String(args.artifact_type_id ?? '');
+  const token = assertArgumentString(args.artifact_type_id, 'artifact_type_id', 64);
   if (!isKnownArtifactType(token)) {
+    // Not echoed back: the caller knows what they sent, and a refusal is not a mirror.
     mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID,
-      'this token is not in the artifact vocabulary', { artifact_type_id: token });
+      'this token is not in the artifact vocabulary', { field: 'artifact_type_id' });
   }
-  const maturity = args.maturity === undefined ? null : String(args.maturity);
+  const maturity = args.maturity === undefined ? null
+    : assertArgumentString(args.maturity, 'maturity', 64);
   if (maturity !== null && !MATURITY_VALUES.includes(maturity)) {
-    mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID, 'unknown maturity', { maturity });
+    mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID, 'unknown maturity',
+      { field: 'maturity', allowed: [...MATURITY_VALUES] });
   }
   const note = args.note === undefined ? null : String(args.note);
   if (note !== null && (note.length > 512 || hasControlCharacter(note))) {

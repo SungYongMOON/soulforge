@@ -28,8 +28,8 @@
         "tools": [
           "whoami", "engine_status", "projects_list",
           "rules_layers", "rules_stage", "rules_card", "rules_version",
-          "observe_status", "observe_register",
-          "judge_result", "judge_diff", "next_steps", "project_status"
+          "observe_status", "observe_register", "observe_scan",
+          "judge_run", "judge_result", "judge_diff", "next_steps", "project_status"
         ],
         "classes": ["public_rules", "team_judgment"],
         "capabilities": ["systems_engineering"]
@@ -58,8 +58,8 @@
         "tools": [
           "whoami", "engine_status", "projects_list",
           "rules_layers", "rules_stage", "rules_card", "rules_version",
-          "observe_status", "observe_register",
-          "judge_result", "judge_diff", "next_steps", "project_status"
+          "observe_status", "observe_register", "observe_scan",
+          "judge_run", "judge_result", "judge_diff", "next_steps", "project_status"
         ],
         "classes": ["public_rules", "team_judgment"],
         "capabilities": ["verification_review", "configuration_management", "risk_management"]

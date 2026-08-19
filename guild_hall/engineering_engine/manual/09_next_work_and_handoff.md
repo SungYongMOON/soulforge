@@ -209,7 +209,7 @@ MCP는 문일 뿐이고, 아래 답은 오늘 KVDS(P26-014)에 실제로 돌린 
 
 **만드는 순서**: B1 후속에서 `principal` 인자 + 영수증 + 과제 명부 옆 접근표(최소: 역할→허용 도구·허용 등급) → 도구 결과 필터 → 규칙 행·문서 등급 태그(계약문서 기본 기밀) → 비서/게이트웨이 층 로그인(원격)은 비서 층 착수 때.
 
-**착지(2026-08-19, B1 후속)**: 앞 두 칸이 끝났다 — `--principal`, 접근표 파일(+코드 기본표), 도구 결과 필터(도구 거절·ⓒ 필드 가림·역할별 지시서), `whoami`·`access_table`·`engine_status` 셋, 영수증의 접근 로그 칸(`principal_ref`·`role`·`access_decision`·`access_reason`), 거절 사유 코드 넷. 시험 66(`validate:se-mcp`). 남은 것: 규칙 행·문서 단위 등급 태그, 항목 보기(`artifact_get`) 같은 세부 필터, 원격 로그인(비서 층). 자세히는 [12장 §12.2B](12_mcp_door.md).
+**착지(2026-08-19, B1 후속)**: 앞 두 칸이 끝났다 — `--principal`, 접근표 파일(+코드 기본표), 도구 결과 필터(도구 거절·ⓒ 필드 가림·역할별 지시서), `whoami`·`access_table`·`engine_status` 셋, 영수증의 접근 로그 칸(`principal_ref`·`role`·`access_decision`·`access_reason`), 거절 사유 코드 넷. 시험 70(`validate:se-mcp`). 남은 것: 규칙 행·문서 단위 등급 태그, 항목 보기(`artifact_get`) 같은 세부 필터, 원격 로그인(비서 층). 자세히는 [12장 §12.2B](12_mcp_door.md).
 
 ## 9.2 새 작업자(LLM 포함) 시작 체크리스트
 

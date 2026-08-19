@@ -174,7 +174,10 @@ export const projectRow = (registry, projectCode) =>
  * same way a bad profile has always failed. Serving four of five projects and staying quiet about
  * the fifth is how a caller ends up believing a project is empty rather than absent.
  */
-export async function loadRegistryProfiles(registry, { repo_root: repoRoot }) {
+export async function loadRegistryProfiles(registry, { repo_root: repoRoot, single_profile = false }) {
+  // The same loader serves `--registry` and `--profile`; only the wording differs, because
+  // "a registry row" is a confusing thing to be told when you passed one profile and no registry.
+  const source = single_profile ? 'the profile' : 'a registry row';
   const profiles = new Map();
   for (const row of registry.projects) {
     let raw;
@@ -182,7 +185,7 @@ export async function loadRegistryProfiles(registry, { repo_root: repoRoot }) {
       raw = JSON.parse(await readFile(row.profile, 'utf8'));
     } catch (error) {
       fail(REGISTRY_ERROR_CODES.REGISTRY_PROFILE_REFUSED,
-        'a registry row names a profile that cannot be read',
+        `${source} could not be read`,
         { project_code: row.project_code, code: error?.code ?? 'INVALID_JSON' });
     }
     let profile;
@@ -190,12 +193,12 @@ export async function loadRegistryProfiles(registry, { repo_root: repoRoot }) {
       profile = validateProjectProfile(raw, { repo_root: repoRoot });
     } catch (error) {
       fail(REGISTRY_ERROR_CODES.REGISTRY_PROFILE_REFUSED,
-        'a registry row names a profile the door refuses',
-        { project_code: row.project_code, code: error?.code ?? null, detail: error?.detail ?? null });
+        `${source} does not pass the profile contract`,
+        { project_code: row.project_code, code: error?.code ?? null, ...(error?.detail ?? {}) });
     }
     if (profile.project_code !== row.project_code) {
       fail(REGISTRY_ERROR_CODES.REGISTRY_PROFILE_REFUSED,
-        'a registry row and its profile disagree about the project code',
+        `${source} and its profile disagree about the project code`,
         { registry_project_code: row.project_code, profile_project_code: profile.project_code });
     }
     profiles.set(row.project_code, profile);

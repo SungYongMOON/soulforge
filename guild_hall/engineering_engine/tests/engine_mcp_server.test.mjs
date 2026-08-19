@@ -97,6 +97,13 @@ test('a profile it cannot accept stops the process rather than starting a half-b
     });
     assert.equal(refused.status, 4);
     assert.match(refused.stderr, /refused/u);
+    // The line names the file and the reason, so the manual's troubleshooting row is true — and it
+    // does not print the path it failed on, which is what a raw fs error would have done.
+    assert.match(refused.stderr, /project_profile/u);
+    assert.match(refused.stderr, /ENOENT/u);
+    assert.equal(/[A-Za-z]:[\/]/u.test(refused.stderr), false, 'no local path on stderr');
+    assert.equal(refused.stderr.includes('registry row'), false,
+      'a --profile start is not told about registry rows');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -436,7 +443,50 @@ test('a registry serves several projects from one process, by project code', asy
     const first = readReceipts(staged.by_code.get('SYN-000').receipts_dir);
     const second = readReceipts(staged.by_code.get('SYN-001').receipts_dir);
     assert.deepEqual(second.map((row) => row.tool), ['observe_status']);
-    assert.ok(first.every((row) => row.project_code === 'SYN-000'));
+    assert.ok(first.every((row) => row.receipts_of_project === 'SYN-000'));
+    // The call that named no known project still left a line — in the default project's receipts,
+    // where an auditor is already looking — with the project it asked for left null.
+    const unresolved = first.filter((row) => row.project_code === null);
+    assert.equal(unresolved.length, 1);
+    assert.equal(unresolved[0].error_code, 'SE_MCP_PROJECT_UNKNOWN');
+    assert.equal(unresolved[0].access_decision, 'refused');
+    assert.equal(unresolved[0].role, 'owner');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a refusal that never reached a project is still one line per call', async () => {
+  const { root, staged } = stageRegistry({ project_codes: ['SYN-000'] });
+  try {
+    const session = await runServer({
+      root,
+      registryPath: staged.registry_path,
+      principal: HW,
+      env: { ...ON, ...OFF_WRITE },
+      requests: [1, 2, 3, 4].map((id) => ({
+        jsonrpc: '2.0',
+        id,
+        method: 'tools/call',
+        params: { name: 'observe_status', arguments: { project_code: `SYN-40${id}` } },
+      })),
+    });
+    assert.equal(session.status, 0, session.stderr);
+    for (const response of session.responses) {
+      assert.equal(response.error.data.code, 'SE_MCP_PROJECT_UNKNOWN');
+    }
+    const receipts = readReceipts(staged.by_code.get('SYN-000').receipts_dir);
+    assert.equal(receipts.length, 4, 'an access log with holes in it is not an access log');
+    for (const row of receipts) {
+      assert.equal(row.tool, 'observe_status');
+      assert.equal(row.status, 'REFUSED');
+      assert.equal(row.access_decision, 'refused');
+      assert.equal(row.error_code, 'SE_MCP_PROJECT_UNKNOWN');
+      assert.equal(row.principal_ref, 'hw_test');
+      assert.equal(row.role, 'hw');
+      assert.equal(row.project_code, null);
+      assert.equal(row.receipts_of_project, 'SYN-000');
+    }
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -497,6 +547,128 @@ test('a discipline role is shown no confidential field and cannot confirm observ
     assert.deepEqual(refused.map((row) => row.access_reason),
       ['PERMISSION_DENIED', 'PERMISSION_DENIED']);
     assert.ok(receipts.every((row) => row.role === 'hw' && row.principal_ref === 'hw_test'));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a caller with no principal is told the engine, not the projects behind it', async () => {
+  const { root, staged } = stageRegistry({ project_codes: ['SYN-000', 'SYN-001'] });
+  try {
+    const session = await runServer({
+      root,
+      registryPath: staged.registry_path,
+      env: { ...ON, ...OFF_WRITE },
+      requests: [
+        { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'engine_status', arguments: {} } },
+        { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'rules_layers', arguments: {} } },
+      ],
+    });
+    assert.equal(session.status, 0, session.stderr);
+
+    const status = session.responses[0].result.structuredContent;
+    // What the engine is stays public: version, protocol, switches, rule-layer versions.
+    assert.equal(status.engine_version, ENGINE_VERSION);
+    assert.equal(status.protocol.version, PROTOCOL_VERSION);
+    assert.equal(status.switches.write_enabled, false);
+    assert.ok(status.release.rule_layers.length > 0);
+    assert.ok(status.release.rule_layers.every((row) => typeof row.spec_version === 'string'));
+    // What the projects are does not.
+    assert.equal(status.project.project_code, null);
+    assert.equal(status.project.prime, null);
+    assert.equal(status.project.business_type, null);
+    assert.equal(status.project.quality_grade, null);
+    assert.equal(status.registry.projects, null);
+    assert.equal(status.registry.default_project, null);
+    assert.equal(status.access.table_path, null);
+    assert.equal(status.project_code, null, 'not even in the envelope');
+    assert.deepEqual(status._redacted.data_classes, ['team_judgment', 'confidential_contract']);
+    assert.ok(status._redacted.fields.includes('project.project_code'));
+    assert.equal(session.responses[0].result.content[0].text.includes('SYN-000'), false);
+
+    const layers = session.responses[1].result.structuredContent;
+    assert.equal(layers.project_code, null);
+    assert.equal(layers.prime, null);
+    assert.ok(layers.layers.length > 0);
+    assert.equal(layers.layers[0].file_name, null, 'a rule file name names the project');
+    assert.equal(typeof layers.layers[0].spec_version, 'string', 'the version stays public');
+    assert.equal(session.responses[1].result.content[0].text.includes('SYN-000'), false);
+    assert.equal(session.responses[1].result.content[0].text.includes('compiled_variant.json'),
+      false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a team role still sees the project identity those two tools carry', async () => {
+  const { root, staged } = stageRegistry({ project_codes: ['SYN-000'] });
+  try {
+    const session = await runServer({
+      root,
+      registryPath: staged.registry_path,
+      principal: HW,
+      env: { ...ON, ...OFF_WRITE },
+      requests: [
+        { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'engine_status', arguments: {} } },
+        { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'rules_layers', arguments: {} } },
+      ],
+    });
+    const status = session.responses[0].result.structuredContent;
+    assert.equal(status.project.project_code, 'SYN-000');
+    assert.equal(status.registry.projects, 1);
+    assert.equal(status.project_code, 'SYN-000');
+    // ⓒ is still withheld from a team role: where the material lives is Owner/PM.
+    assert.equal(status.receipts_root, null);
+    assert.equal(status.access.table_path, null);
+    assert.deepEqual(status._redacted.data_classes, ['confidential_contract']);
+
+    const layers = session.responses[1].result.structuredContent;
+    assert.equal(layers.project_code, 'SYN-000');
+    assert.equal(typeof layers.layers[0].file_name, 'string');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('an argument the schema does not declare is refused by name, as a tool result', async () => {
+  const { root, staged } = stage();
+  try {
+    const session = await runServer({
+      root,
+      profilePath: staged.profile_path,
+      principal: OWNER,
+      env: { ...ON, ...OFF_WRITE },
+      requests: [
+        {
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'tools/call',
+          params: { name: 'rules_stage', arguments: { stage_code: '030_SRR', stage: '030_SRR' } },
+        },
+        { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'next_steps', arguments: {} } },
+        { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'rules_stage', arguments: [] } },
+      ],
+    });
+    assert.equal(session.status, 0, session.stderr);
+
+    const unknown = session.responses[0].result;
+    assert.equal(unknown.isError, true);
+    assert.equal(unknown.structuredContent.error_code, 'ENGINE_MCP_ARGUMENTS_INVALID');
+    assert.deepEqual(unknown.structuredContent.detail.unknown, ['stage']);
+
+    // A missing required argument says which one, in the arguments vocabulary — not in the
+    // profile's, which is what a caller used to be told.
+    const missing = session.responses[1].result;
+    assert.equal(missing.isError, true);
+    assert.equal(missing.structuredContent.error_code, 'ENGINE_MCP_ARGUMENTS_INVALID');
+    assert.deepEqual(missing.structuredContent.detail.missing, ['stage_code']);
+
+    // Arguments that are not an object at all stay a protocol error.
+    assert.equal(session.responses[2].error.code, -32602);
+
+    const receipts = readReceipts(staged.receipts_dir);
+    assert.equal(receipts.length, 2, 'both tool-level refusals are logged');
+    assert.ok(receipts.every((row) => row.error_code === 'ENGINE_MCP_ARGUMENTS_INVALID'));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

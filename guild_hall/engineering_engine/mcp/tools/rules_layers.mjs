@@ -11,6 +11,11 @@ export const title_ko = '적용 층 보기';
 export const description_ko = '이 과제에 붙는 규칙 층(사업유형 스펙·발주처 덧씌움·과제 덧씌움)과 그 판을 보여준다.';
 export const write = false;
 export const data_class = 'public_rules';
+// Which rules apply is ⓐ; which project they apply *to*, and the names of the files it stands on,
+// are ⓑ. An overlay file name carries the prime contractor and the project, so it is identity.
+export const team_fields = Object.freeze([
+  'project_code', 'business_type', 'prime', 'quality_grade', 'layers[].file_name',
+]);
 
 const DEFAULT_LIMIT = 32;
 
@@ -65,12 +70,15 @@ export async function handler(args, ctx) {
     page: paged.page,
   };
 
+  // The markdown hides what the JSON hides, for the same reader.
+  const teamVisible = ctx.canSeeClass('team_judgment');
+
   const markdown = lines(
-    `# ${ctx.profile.project_code} — 붙는 규칙 층`,
+    teamVisible ? `# ${ctx.profile.project_code} — 붙는 규칙 층` : '# 붙는 규칙 층',
     table(['층', '파일', '판', 'op 수', '게이트 수'],
       paged.items.map((row) => [
         row.layer === 'variant' ? `사업유형 스펙 (${row.support_key ?? '—'})` : '덧씌움',
-        row.file_name, row.spec_version, row.ops, row.gates,
+        teamVisible ? row.file_name : null, row.spec_version, row.ops, row.gates,
       ])),
     heading('켜진 조건'),
     structured.overlay_conditions.length === 0 ? '(없음)' : structured.overlay_conditions.join(', '),

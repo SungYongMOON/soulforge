@@ -20,7 +20,16 @@ export const description_ko = '엔진 판·규칙 층 지문·프로토콜·스�
 export const write = false;
 export const data_class = 'public_rules';
 export const confidential_fields = Object.freeze([
-  'registry.path', 'receipts_root', 'observations_dir',
+  'registry.path', 'receipts_root', 'observations_dir', 'access.table_path',
+]);
+// What the project *is* — its code and its three labels — and how many projects this door serves
+// are ⓑ: a public-class answer about the engine should not tell an outsider which projects exist.
+// The engine version, the protocol, the switches and the rule-layer versions stay ⓐ.
+export const team_fields = Object.freeze([
+  'project.project_code', 'project.business_type', 'project.prime', 'project.quality_grade',
+  'project.status',
+  'registry.projects', 'registry.default_project', 'registry.contexts_held',
+  'access.roles_declared',
 ]);
 
 export const inputSchema = Object.freeze({
@@ -105,20 +114,26 @@ export async function handler(args, ctx) {
     cache: ctx.cacheStats(),
   };
 
+  // The markdown says the same thing as the JSON, so it hides the same fields: a reader without
+  // the team class sees the engine, not the projects behind it.
+  const teamVisible = ctx.canSeeClass('team_judgment');
+  const shown = (value) => (teamVisible ? value : null);
+
   const markdown = lines(
     `# 엔진 상태 — ${structured.engine_version} (${structured.release?.status ?? '판 없음'})`,
     table(['프로토콜', '읽기 스위치', '쓰기 스위치', '과제 수', '기본 과제', '도구'], [[
       structured.protocol.version, '켜짐', structured.switches.write_enabled,
-      structured.registry.projects, structured.registry.default_project, structured.tools.total,
+      shown(structured.registry.projects), shown(structured.registry.default_project),
+      structured.tools.total,
     ]]),
     heading('규칙 층'),
     table(['키', '스펙 판', 'compiled sha'],
       ruleLayers.map((row) => [row.key, row.spec_version, row.compiled_sha256_12])),
     heading('이 과제'),
-    table(['과제', '사업유형', '발주처', '등급', '상태'], [[
+    teamVisible ? table(['과제', '사업유형', '발주처', '등급', '상태'], [[
       structured.project.project_code, structured.project.business_type,
       structured.project.prime, structured.project.quality_grade, structured.project.status,
-    ]]),
+    ]]) : '(이 역할에는 과제 신원이 표시되지 않는다 — 팀 판단 등급 ⓑ)',
     heading('허용 뿌리'),
     Object.values(structured.allowed_roots).join(' · '),
     FOOTER,

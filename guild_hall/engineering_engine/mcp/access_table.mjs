@@ -92,12 +92,14 @@ export const DEFAULT_ACCESS_TABLE_V0 = Object.freeze({
       classes: Object.freeze([...DATA_CLASSES]),
       capabilities: Object.freeze([WILDCARD]),
     }),
+    // Owner decision 2026-08-19: the two roles that run the engineering process may also walk the
+    // folders and run a judgement. Both stay write tools, so the write switch still gates them.
     systems: Object.freeze({
       tools: Object.freeze([
         'whoami', 'engine_status', 'projects_list',
         'rules_layers', 'rules_stage', 'rules_card', 'rules_version',
-        'observe_status', 'observe_register',
-        'judge_result', 'judge_diff', 'next_steps', 'project_status',
+        'observe_status', 'observe_register', 'observe_scan',
+        'judge_run', 'judge_result', 'judge_diff', 'next_steps', 'project_status',
       ]),
       classes: Object.freeze(['public_rules', 'team_judgment']),
       capabilities: Object.freeze(['systems_engineering']),
@@ -126,8 +128,8 @@ export const DEFAULT_ACCESS_TABLE_V0 = Object.freeze({
       tools: Object.freeze([
         'whoami', 'engine_status', 'projects_list',
         'rules_layers', 'rules_stage', 'rules_card', 'rules_version',
-        'observe_status', 'observe_register',
-        'judge_result', 'judge_diff', 'next_steps', 'project_status',
+        'observe_status', 'observe_register', 'observe_scan',
+        'judge_run', 'judge_result', 'judge_diff', 'next_steps', 'project_status',
       ]),
       classes: Object.freeze(['public_rules', 'team_judgment']),
       capabilities: Object.freeze([

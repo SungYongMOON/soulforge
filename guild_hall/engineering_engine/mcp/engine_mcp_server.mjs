@@ -169,7 +169,17 @@ export async function loadServedRegistry({ registryPath, profilePath, repoRoot }
     });
     return { registry, profiles, source: 'registry' };
   }
-  const raw = JSON.parse(await readFile(profilePath, 'utf8'));
+  // Read here rather than letting the fs error escape: a raw ENOENT message carries the absolute
+  // path it failed on, and stderr is not a place to print one.
+  let raw;
+  try {
+    raw = JSON.parse(await readFile(profilePath, 'utf8'));
+  } catch (error) {
+    const refusal = new Error('the profile this door was started with could not be read');
+    refusal.code = REGISTRY_ERROR_CODES.REGISTRY_PROFILE_REFUSED;
+    refusal.detail = { file: 'project_profile', code: error?.code ?? 'INVALID_JSON' };
+    throw refusal;
+  }
   const single = validateProjectRegistry(registryOfOne({
     project_code: typeof raw?.project_code === 'string' ? raw.project_code : 'unknown',
     profile_path: profilePath,
@@ -193,6 +203,57 @@ export async function loadAccessTable({ accessTablePath, registryPath }) {
     return { table: DEFAULT_ACCESS_TABLE_V0, path: null };
   }
   return { table: validateAccessTable(JSON.parse(text)), path };
+}
+
+/**
+ * Blanks the fields a tool declares for every class this caller does not hold.
+ *
+ * Two passes rather than one list, because the two classes mean different things: ⓑ hides what a
+ * project *is* (its code, its prime, the names of the rule files it stands on) from anyone outside
+ * the team, and ⓒ hides where its material *lives* from anyone outside Owner/PM.
+ */
+export function filterForView(structured, tool, view) {
+  let value = structured;
+  const redacted = [];
+  const classes = [];
+  for (const dataClass of ['team_judgment', 'confidential_contract']) {
+    if (viewSeesClass(view, dataClass)) continue;
+    const fields = tool.restricted_fields?.[dataClass] ?? [];
+    if (fields.length === 0) continue;
+    const pass = redactFields(value, fields);
+    if (pass.redacted.length === 0) continue;
+    value = pass.value;
+    redacted.push(...pass.redacted);
+    classes.push(dataClass);
+  }
+  return { value, redacted, classes };
+}
+
+/**
+ * The declared key set, enforced where the client can see the answer.
+ *
+ * Every tool schema says `additionalProperties: false`, but a schema is a description until
+ * something checks it: a caller who misspells `stage_code` was getting "a field must be a short
+ * non-empty string" from deep inside the profile helpers, which named neither the tool nor the
+ * key. This refuses the call and says which key.
+ */
+export function assertArgumentKeys(tool, args) {
+  const declared = Object.keys(tool.inputSchema?.properties ?? {});
+  const unknown = Object.keys(args).filter((key) => !declared.includes(key));
+  if (unknown.length > 0) {
+    const error = new Error('this tool does not take that argument');
+    error.code = ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID;
+    error.detail = { tool: tool.name, unknown, declared };
+    throw error;
+  }
+  const missing = (tool.inputSchema?.required ?? []).filter((key) => args[key] === undefined);
+  if (missing.length > 0) {
+    const error = new Error('this tool needs an argument the call did not state');
+    error.code = ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID;
+    error.detail = { tool: tool.name, missing };
+    throw error;
+  }
+  return true;
 }
 
 // ---------------------------------------------------------------- the door
@@ -289,6 +350,7 @@ export function createMessageHandler(runtime) {
     let errorCode = null;
 
     try {
+      assertArgumentKeys(tool, args);
       projectCode = projects.resolveProjectCode(args.project_code);
       context = await projects.get(projectCode);
       const decision = decideToolAccess({
@@ -312,24 +374,25 @@ export function createMessageHandler(runtime) {
         ? await context.withWriteLock(tool.name, run)
         : await run();
 
-      const shownStructured = viewSeesClass(context.view, 'confidential_contract')
-        ? { value: result.structured, redacted: [] }
-        : redactFields(result.structured, tool.confidential_fields);
+      const shown = filterForView(result.structured, tool, context.view);
+      // The project code is itself ⓑ: a caller who may not be told which projects exist should
+      // not learn one from the envelope of a public rules answer.
+      const codeVisible = viewSeesClass(context.view, 'team_judgment');
       outcome = {
         content: [{ type: 'text', text: result.markdown }],
         structuredContent: {
           engine_version: engineVersion,
-          project_code: projectCode,
-          ...shownStructured.value,
-          ...(shownStructured.redacted.length === 0 ? {} : {
+          project_code: codeVisible ? projectCode : null,
+          ...shown.value,
+          ...(shown.redacted.length === 0 ? {} : {
             _redacted: {
-              data_class: 'confidential_contract',
-              fields: [...shownStructured.redacted],
+              fields: [...shown.redacted],
+              data_classes: [...shown.classes],
               role: context.view.role,
             },
           }),
         },
-        _meta: { engine_version: engineVersion, project_code: projectCode },
+        _meta: { engine_version: engineVersion, project_code: codeVisible ? projectCode : null },
       };
     } catch (error) {
       errorCode = error?.code ?? ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID;
@@ -348,17 +411,22 @@ export function createMessageHandler(runtime) {
       }
     }
 
-    await appendReceipt(context, {
+    // A refusal that never reached a project still happened, and an access log with holes in it is
+    // not an access log. When the project could not be resolved the line goes to the default
+    // project's receipts, which is where an auditor is already looking.
+    const receiptContext = context ?? await defaultContext().catch(() => null);
+    await appendReceipt(receiptContext, {
       schema_version: TOOL_CALL_RECEIPT_SCHEMA,
       logged_at: new Date().toISOString(),
       engine_version: engineVersion,
-      project_code: projectCode ?? (context?.profile?.project_code ?? null),
+      project_code: projectCode,
+      receipts_of_project: receiptContext?.profile?.project_code ?? null,
       tool: tool.name,
       write: tool.write,
       write_enabled: writeEnabled,
       data_class: tool.data_class,
-      principal_ref: context?.view?.principal_ref ?? shared.principal?.principal_ref ?? null,
-      role: context?.view?.role ?? shared.principal?.role ?? null,
+      principal_ref: shared.principal?.principal_ref ?? null,
+      role: shared.principal?.role ?? null,
       access_decision: outcome === null ? 'refused' : 'allowed',
       access_reason: decisionReason,
       status: outcome === null ? 'REFUSED' : 'OK',
@@ -498,8 +566,14 @@ async function main() {
       await projects.get(served.registry.default_project);
     }
   } catch (error) {
+    // The detail is the half a person needs to fix it: which project, which field, which key.
+    // It carries no path — the validators report field names — so it is safe on stderr, and the
+    // troubleshooting table in the manual can honestly promise "어느 파일·어느 칸".
+    const detail = error?.detail ?? null;
+    const where = detail === null || Object.keys(detail).length === 0
+      ? '' : ` — ${stableStringify(detail)}`;
     process.stderr.write(
-      `engine-mcp: refused (${error?.code ?? 'unknown'}): ${error?.message ?? error}\n`);
+      `engine-mcp: refused (${error?.code ?? 'unknown'}): ${error?.message ?? error}${where}\n`);
     process.exitCode = EXIT.PROFILE_REFUSED;
     return;
   }

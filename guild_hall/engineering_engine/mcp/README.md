@@ -13,9 +13,17 @@ elsewhere in this engine and returns the answer as markdown plus JSON.
 
 ```text
 node engine_mcp_server.mjs --registry <abs project_registry.json> [--repo-root <abs>]
-                           [--principal '{"principal_ref":"…","role":"…"}'] [--access-table <abs>]
+                           [--principal '{"principal_ref":"owner_msy","role":"owner"}']
+                           [--access-table <abs>]
 node engine_mcp_server.mjs --profile  <abs project_profile.json>   # a registry of one
 ```
+
+`--registry` and `--profile` are alternatives (both or neither is exit 64). Without `--principal`
+the door answers the public rule class only — and without the project identity inside it. A
+`principal_ref` is `^[A-Za-z0-9][A-Za-z0-9_.@-]{0,63}$`: no Korean, no spaces, no quotes
+(`owner_msy`, `pm_01`, `hong.gd@example.com`). Roles are owner · pm · systems · hw · sw · quality ·
+external. In `--profile` mode there is no registry to sit beside, so an access table has to be
+named with `--access-table`; otherwise the built-in default applies.
 
 | Switch | Off | On |
 | --- | --- | --- |
@@ -39,7 +47,7 @@ undeclared role means nothing, an unclassed answer is treated as confidential. *
 every write refuses rather than replaces, on every plane, inside the repository path budget.
 
 ```text
-npm run validate:se-mcp     # 66 tests: profile 7 · registry 10 · access 15 · tools 22 · protocol 12
+npm run validate:se-mcp     # 70 tests: profile 7 · registry 10 · access 15 · tools 22 · protocol 16
 ```
 
 Never put a real project path, project code, or person into a file in this directory: the tests run

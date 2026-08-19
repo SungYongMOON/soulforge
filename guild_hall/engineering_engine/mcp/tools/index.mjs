@@ -10,7 +10,9 @@
 //   * `project_code`, optional, on every input schema. One server serves many projects (부록 B),
 //     and the argument that says which one belongs to all tools, not to some of them.
 //   * a data class, defaulting to ⓒ confidential. A tool whose author did not state a class is
-//     treated as the most restricted one, which is the fail-closed direction (9.1F).
+//     treated as the most restricted one, which is the fail-closed direction (9.1F). A module may
+//     also name fields that are narrower than its own class (`team_fields`, `confidential_fields`);
+//     those are blanked for a caller without the class rather than refusing the whole answer.
 
 import * as whoami from './whoami.mjs';
 import * as engineStatus from './engine_status.mjs';
@@ -61,7 +63,13 @@ function asTool(module) {
     inputSchema,
     write: module.write,
     data_class: module.data_class ?? DEFAULT_DATA_CLASS,
-    confidential_fields: Object.freeze([...(module.confidential_fields ?? [])]),
+    // Fields inside an answer can be narrower than the answer's own class. A tool that is ⓐ as a
+    // whole may still carry a project code or a file name, and those are withheld from a caller
+    // who does not hold that class rather than the whole answer being refused.
+    restricted_fields: Object.freeze({
+      team_judgment: Object.freeze([...(module.team_fields ?? [])]),
+      confidential_contract: Object.freeze([...(module.confidential_fields ?? [])]),
+    }),
     // Read tools are idempotent by nature; a write tool says so for itself, because "calling this
     // twice is harmless" is a claim about what it writes, not about whether it writes.
     idempotent: module.idempotent ?? module.write !== true,

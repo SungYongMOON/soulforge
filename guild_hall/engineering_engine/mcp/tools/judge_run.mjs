@@ -28,7 +28,9 @@ export const name = 'judge_run';
 export const title_ko = '판단 실행';
 export const description_ko = '단계별로 규칙을 컴파일하고 packet을 만들어 엔진을 1회 돌린다(엔진 쓰기 0). 영수증은 실행 폴더에 create-only로 남는다.';
 export const write = true;
-export const data_class = 'confidential_contract';
+// ⓑ, not ⓒ: a judgement run is team work (Owner 2026-08-19 opened it to 체계·품질). What is ⓒ is
+// *where* it wrote — those fields are named below and blanked for a role without that class.
+export const data_class = 'team_judgment';
 // Create-only: the same revision_label twice refuses instead of writing a second run.
 export const idempotent = true;
 export const confidential_fields = Object.freeze([

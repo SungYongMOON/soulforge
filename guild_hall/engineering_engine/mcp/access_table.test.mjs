@@ -57,10 +57,14 @@ test('the documented access table validates and covers the roles the design name
   assert.equal(ACCESS_TABLE_FIXTURE.default_data_class, DEFAULT_DATA_CLASS);
   assert.deepEqual(Object.keys(ACCESS_TABLE_FIXTURE.refusal_reasons).sort(),
     Object.values(ACCESS_REASONS).sort());
-  // The built-in default and the documented table say the same thing about who holds ⓒ.
+  // The built-in default and the documented table say the same thing about who holds ⓒ, and about
+  // which tools each role may call: the fixture is the table a reader learns the model from.
   for (const role of ROLES) {
     assert.deepEqual(TABLE.roles[role].classes, DEFAULT_ACCESS_TABLE_V0.roles[role].classes,
       `${role} classes drifted from the built-in default`);
+    assert.deepEqual([...TABLE.roles[role].tools].sort(),
+      [...DEFAULT_ACCESS_TABLE_V0.roles[role].tools].sort(),
+      `${role} tools drifted from the built-in default`);
   }
 });
 
@@ -139,6 +143,29 @@ test('the decision order is naming, then permission, then class, then the write 
   assert.equal(decideToolAccess({
     view: hw, tool: toolNamed('observe_register'), write_enabled: true,
   }).allowed, true);
+  // Owner decision 2026-08-19: 체계·품질 also walk and judge; hw and sw do not.
+  for (const role of ['systems', 'quality']) {
+    for (const name of ['judge_run', 'observe_scan']) {
+      assert.equal(decideToolAccess({
+        view: viewFor(role), tool: toolNamed(name), write_enabled: true,
+      }).allowed, true, `${role} should be allowed ${name}`);
+      // Still a write tool: the switch, not the table, is what is off by default.
+      assert.equal(decideToolAccess({
+        view: viewFor(role), tool: toolNamed(name), write_enabled: false,
+      }).reason, ACCESS_REASONS.WRITE_DISABLED);
+    }
+    assert.equal(decideToolAccess({
+      view: viewFor(role), tool: toolNamed('observe_confirm'), write_enabled: true,
+    }).reason, ACCESS_REASONS.PERMISSION_DENIED);
+    assert.equal(decideToolAccess({
+      view: viewFor(role), tool: toolNamed('access_table'), write_enabled: true,
+    }).reason, ACCESS_REASONS.PERMISSION_DENIED);
+  }
+  for (const role of ['hw', 'sw']) {
+    assert.equal(decideToolAccess({
+      view: viewFor(role), tool: toolNamed('judge_run'), write_enabled: true,
+    }).reason, ACCESS_REASONS.PERMISSION_DENIED);
+  }
   assert.equal(decideToolAccess({
     view: hw, tool: toolNamed('observe_confirm'), write_enabled: true,
   }).reason, ACCESS_REASONS.PERMISSION_DENIED);

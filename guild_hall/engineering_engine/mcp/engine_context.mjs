@@ -36,7 +36,7 @@ import {
   DEFAULT_ACCESS_TABLE_V0, resolveAccessView, viewSeesCapability, viewSeesClass,
 } from './access_table.mjs';
 import {
-  assertPathUnderRoots, assertSafeString, isPathUnder, repoPointer, validateProjectProfile,
+  assertPathUnderRoots, hasControlCharacter, isPathUnder, repoPointer, validateProjectProfile,
 } from './project_profile.mjs';
 
 export const ENGINE_MCP_ERROR_CODES = Object.freeze({
@@ -90,9 +90,27 @@ export const STALE_LOCK_MINUTES = 30;
 /** The revision the cache keys bind to, so a code change cannot serve entries built before it. */
 export const MCP_MODULE_BINDING_REVISION = 'soulforge.engine_mcp_door.v0';
 
+/**
+ * A short string a caller supplied.
+ *
+ * The profile module has the same check, but it fails with a *profile* code, and a caller who
+ * mistyped an argument should not be told their project profile is invalid. Same rule, right code.
+ */
+export function assertArgumentString(value, field, max = 64) {
+  if (typeof value !== 'string' || value.length === 0 || value.length > max) {
+    mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID,
+      'this argument must be a short non-empty string', { field, max });
+  }
+  if (hasControlCharacter(value)) {
+    mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID,
+      'this argument carries a control character', { field });
+  }
+  return value;
+}
+
 /** A safe folder or run name: lowercase, underscore, no separator, no dot, no climb. */
 export function assertSafeName(value, field, pattern = SAFE_DIR_NAME) {
-  assertSafeString(value, field, 64);
+  assertArgumentString(value, field, 64);
   if (!pattern.test(value)) {
     mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID,
       'a name must be lowercase letters, digits and underscores', { field });
@@ -101,7 +119,7 @@ export function assertSafeName(value, field, pattern = SAFE_DIR_NAME) {
 }
 
 export function assertStageCodeShape(value, field = 'stage_code') {
-  assertSafeString(value, field, 64);
+  assertArgumentString(value, field, 64);
   if (!STAGE_CODE.test(value)) {
     mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID, 'a stage code looks like 120_CDR', { field });
   }
@@ -121,7 +139,7 @@ export const compactInstant = (instant) => String(instant)
   .replace(/\.[0-9]+Z$/u, 'Z');
 
 export function assertInstant(value, field = 'known_at') {
-  assertSafeString(value, field, 64);
+  assertArgumentString(value, field, 64);
   if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,9})?Z$/u.test(value)) {
     mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID,
       'an instant must be a UTC ISO-8601 timestamp', { field });

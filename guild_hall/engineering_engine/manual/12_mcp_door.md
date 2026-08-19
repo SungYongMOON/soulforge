@@ -113,12 +113,25 @@ Owner가 따로 내린다. **꺼진 쓰기 도구를 숨기는 쪽으로 바꿨�
 **권한을 바꾸는 도구는 없다.** 접근표는 파일이고 고치는 사람은 Owner다(9.1F). `access_table` 도구는 읽기
 전용이며 Owner·PM만 볼 수 있다.
 
-**엔진이 실제로 거르는 자리 셋**
+**등급은 도구 단위이자 칸 단위다.** 도구 하나가 통째로 한 등급인 것이 아니라 **답 안의 칸이 도구보다
+좁을 수 있다.** `engine_status`는 ⓐ지만 그 안의 과제 코드·사업유형·발주처·등급과 명부 과제 수는 ⓑ이고,
+영수증 경로·접근표 경로는 ⓒ다. `rules_layers`도 ⓐ지만 과제 신원과 **규칙 파일 이름**은 ⓑ다(덧씌움 파일
+이름에는 발주처와 과제가 들어 있다). 반대로 `judge_run`·`observe_scan`은 ⓑ이고 그 답이 가리키는
+**쓴 자리**만 ⓒ다. 그래서 "규칙 판은 누구나, 어느 과제인지는 팀만, 어디에 있는지는 Owner·PM만"이 한
+도구 안에서 동시에 성립한다.
+
+**엔진이 실제로 거르는 자리 넷**
 1. 도구 자체 — 허용 목록 밖이면 호출이 안 된다(그리고 `tools/list`에도 안 나온다).
-2. 필드 — ⓒ를 볼 수 없는 역할에게는 도구가 선언한 ⓒ 필드(경로·파일 이름)를 `null`로 가리고
-   `_redacted`에 **무엇을 가렸는지** 남긴다. 판정 수치(ⓑ)는 그대로 간다 — 가리는 것은 이름이지 판단이 아니다.
-3. 지시서 — `next_steps`는 Owner·PM이 아니면 자기 역할 역량(capability)의 지시서만 내고,
+2. 칸 — 볼 수 없는 등급의 칸은 `null`로 가리고 `_redacted`에 **무엇을·어느 등급을** 가렸는지 남긴다.
+   판정 수치(ⓑ)는 그대로 간다 — 가리는 것은 이름이지 판단이 아니다. 답 봉투에 붙는 `project_code`도 ⓑ라서
+   신원 없는 호출자에게는 `null`로 나간다.
+3. 마크다운 — 사람이 읽는 표도 JSON과 같은 칸을 가린다(둘이 다르면 가린 의미가 없다).
+4. 지시서 — `next_steps`는 Owner·PM이 아니면 자기 역할 역량(capability)의 지시서만 내고,
    `instructions_withheld_by_role`로 몇 장을 뺐는지 말한다(조용히 짧아진 목록은 "할 일 없음"으로 읽힌다).
+
+**기본표의 쓰기 권한(Owner 결정 2026-08-19)**: 등록 `observe_register`는 팀 역할 전부, 훑기
+`observe_scan`과 판단 실행 `judge_run`은 거기에 더해 **체계·품질**까지. 확정 `observe_confirm`과 권한표
+`access_table`은 Owner·PM만. 셋 다 쓰기 도구라 쓰기 스위치가 꺼져 있으면 목록에도 안 보인다.
 
 ## 12.3 프로필 — 과제 하나당 파일 하나
 
@@ -170,18 +183,18 @@ public 예시는 `docs/architecture/workspace/examples/se_stage_rules/project_pr
 | # | 이름 | 사람이 묻는 말 | 부르는 것 | 쓰기 | 등급 |
 | --- | --- | --- | --- | --- | --- |
 | 0a | `whoami` | "나는 뭘 할 수 있어?" | 접근표 + 도구 목록 대조 | 읽기 | ⓐ |
-| 0b | `engine_status` | "엔진 지금 어떤 상태야?" | 판·규칙 지문·스위치·명부·영수증 위치 | 읽기 | ⓐ |
+| 0b | `engine_status` | "엔진 지금 어떤 상태야?" | 판·규칙 지문·스위치·명부·영수증 위치 | 읽기 | ⓐ(과제 신원·명부 수 ⓑ, 경로 ⓒ) |
 | 0c | `access_table` | "누가 무엇을 볼 수 있게 되어 있어?" | 접근표 그대로(Owner·PM 전용, 읽기만) | 읽기 | ⓒ |
 | 0d | `projects_list` | "어떤 과제를 물어볼 수 있어?" | 명부 + 각 프로필의 표시 라벨 | 읽기 | ⓑ |
-| 1 | `rules_layers` | "이 과제엔 무슨 규칙이 붙어?" | compiled 스펙·overlay 신원(컴파일 안 함) | 읽기 | ⓐ |
+| 1 | `rules_layers` | "이 과제엔 무슨 규칙이 붙어?" | compiled 스펙·overlay 신원(컴파일 안 함) | 읽기 | ⓐ(과제 신원·파일 이름 ⓑ) |
 | 2 | `rules_stage` | "CDR에 뭐가 있어야 해? 순서는?" | `compileStageRules` + `orderStageWork` | 읽기 | ⓐ |
 | 3 | `rules_card` | "SEMP는 왜·언제·어떻게 만들어?" | `buildGuideCards` 중 한 장 | 읽기 | ⓐ |
 | 4 | `rules_version` | "이 규칙은 어느 판이야?" | `topology/engine_release.json` 그대로 | 읽기 | ⓐ |
-| 5 | `observe_scan` | "폴더 한번 훑어봐" | `artifact_observation_inventory_runner` spawn | **쓰기** | ⓒ |
+| 5 | `observe_scan` | "폴더 한번 훑어봐" | `artifact_observation_inventory_runner` spawn | **쓰기** | ⓑ(쓴 자리 ⓒ) |
 | 6 | `observe_register` | "이 파일이 HDD 최종본이야" | 후보 한 줄 append(관측 아님) | **쓰기** | ⓑ |
 | 7 | `observe_confirm` | "이 폴더는 맞아 / 이건 아니야" | `applyConfirmationSheet` + `buildArtifactObservationsFromConfirmed` | **쓰기** | ⓒ |
 | 8 | `observe_status` | "지금 관측된 게 뭐야?" | 관측 실행 파일 수치 | 읽기 | ⓑ |
-| 9 | `judge_run` | "지금 판단해줘" | 컴파일 → `generatePilotPacketFromStageRules` → 판단 runner 1회 | **쓰기** | ⓒ |
+| 9 | `judge_run` | "지금 판단해줘" | 컴파일 → `generatePilotPacketFromStageRules` → 판단 runner 1회 | **쓰기** | ⓑ(쓴 자리 ⓒ) |
 | 10 | `judge_result` | "그때 그 판단 다시 보여줘" | 저장된 영수증 요약 | 읽기 | ⓑ |
 | 11 | `judge_diff` | "지난번이랑 뭐 달라졌어?" | 영수증 둘 비교 | 읽기 | ⓑ |
 | 12 | `next_steps` | **"이제 뭐 해야 해?"** | `orderStageWork`→`buildGuideCards`→`buildInstructionPackets`→`renderNextStepsAnswer` | 읽기 | ⓑ |
@@ -284,9 +297,9 @@ public 예시는 `docs/architecture/workspace/examples/se_stage_rules/project_pr
 
 ## 12.8 시험과 실측
 
-`npm run validate:se-mcp` — 2026-08-19: **66**(2026-08-18: 28).
+`npm run validate:se-mcp` — 2026-08-19: **70**(2026-08-18: 28).
 프로필 검증 7 · 명부·라우팅 10 · 접근 모델 15 · 도구 22(합성 fixture 대조·결정론·쓰기 거절·경로 예산·
-잠금·캐시 무효화·쪽 나누기) · 프로토콜 12(자식 프로세스로 실제 stdio 왕복).
+잠금·캐시 무효화·쪽 나누기) · 프로토콜 16(자식 프로세스로 실제 stdio 왕복).
 fixture는 `project_profile_synthetic_v0.json`(프로필 모양 + 합성 관측 실행), `next_steps_synthetic_v0.json`
 (규칙 + 합성 판정), `project_registry_synthetic_v0.json`(명부 모양), `access_table_synthetic_v0.json`
 (접근표 실물)이며, `fixtures/engine_mcp_synthetic_project.mjs`가 그것들을 임시 폴더에 과제 하나 또는
@@ -382,9 +395,15 @@ fixture는 `project_profile_synthetic_v0.json`(프로필 모양 + 합성 관측 
 | Node | 서버가 도는 런타임(이 저장소가 쓰는 판) | `node --version` |
 | 과제 프로필 | 과제 하나당 JSON 한 장(§12.3) | 과제면 `06_validation/project_profile.json` 자리 |
 | 과제 명부 | 어떤 과제를 서빙할지 적은 파일(§12.2A) | private `_workmeta/system/engine/project_registry.json` |
-| 접근표 | 역할별 허용 도구·등급(§12.2B) | 명부 옆 `access_table.json`(없으면 코드 기본표) |
+| 접근표 | 역할별 허용 도구·등급(§12.2B) | 명부 옆 `access_table.json`, 또는 `--access-table <abs>`로 직접 지정. 둘 다 없으면 코드 기본표 |
+| 접근표 (`--profile`로 띄울 때) | 명부가 없으니 "옆에 둘 자리"도 없다 | `--access-table <abs>`를 주지 않으면 **무조건 코드 기본표**다 |
 | 스위치 둘 | `SOULFORGE_ENGINE_MCP=on`(문 열기) · `SOULFORGE_ENGINE_MCP_WRITE=on`(쓰기 열기) | 클라이언트 설정의 `env`에 적는다 |
 | 신원 | `--principal '{"principal_ref":"<사람 표시>","role":"<역할>"}'` | 역할은 owner·pm·systems·hw·sw·quality·external |
+
+**`principal_ref` 모양 규칙**: `^[A-Za-z0-9][A-Za-z0-9_.@-]{0,63}$` — 영문·숫자로 시작하고 그 뒤는
+영문·숫자와 `_` `.` `@` `-`만 쓴다. **한글·공백·따옴표는 안 된다**(어긋나면 서버가 뜨지 않고 exit 64).
+쓸 만한 모양: `owner_msy` · `pm_01` · `hong.gd@example.com`. 이 값은 엔진이 해석하지 않는 **표식**이고
+권한은 오직 `role`과 접근표에서 나온다. 영수증에 남는 것이 이 값이므로 사람을 알아볼 수 있게 짓는다.
 
 명부와 접근표를 `_workmeta` 아래에 만들기 전에는 반드시
 `npm run guard:workmeta-write -- --assert-write-target "<target>"`를 먼저 돌린다(거부되면 만들지 않는다).
@@ -400,7 +419,7 @@ args = [
   "<abs>/guild_hall/engineering_engine/mcp/engine_mcp_server.mjs",
   "--registry", "<abs>/_workmeta/system/engine/project_registry.json",
   "--repo-root", "<abs>",
-  "--principal", "{\"principal_ref\":\"<사람 표시>\",\"role\":\"owner\"}",
+  "--principal", "{\"principal_ref\":\"owner_msy\",\"role\":\"owner\"}",
 ]
 env = { SOULFORGE_ENGINE_MCP = "on" }
 ```
@@ -408,7 +427,7 @@ env = { SOULFORGE_ENGINE_MCP = "on" }
 **Claude Code** — 명령 한 줄, 또는 프로젝트의 `.mcp.json`
 
 ```text
-claude mcp add soulforge-engine --env SOULFORGE_ENGINE_MCP=on -- node <abs>/guild_hall/engineering_engine/mcp/engine_mcp_server.mjs --registry <abs>/_workmeta/system/engine/project_registry.json --repo-root <abs>
+claude mcp add soulforge-engine --env SOULFORGE_ENGINE_MCP=on -- node <abs>/guild_hall/engineering_engine/mcp/engine_mcp_server.mjs --registry <abs>/_workmeta/system/engine/project_registry.json --repo-root <abs> --principal '{"principal_ref":"owner_msy","role":"owner"}'
 ```
 
 ```json
@@ -419,7 +438,8 @@ claude mcp add soulforge-engine --env SOULFORGE_ENGINE_MCP=on -- node <abs>/guil
       "args": [
         "<abs>/guild_hall/engineering_engine/mcp/engine_mcp_server.mjs",
         "--registry", "<abs>/_workmeta/system/engine/project_registry.json",
-        "--repo-root", "<abs>"
+        "--repo-root", "<abs>",
+        "--principal", "{\"principal_ref\":\"owner_msy\",\"role\":\"owner\"}"
       ],
       "env": { "SOULFORGE_ENGINE_MCP": "on" }
     }
@@ -437,7 +457,9 @@ claude mcp add soulforge-engine --env SOULFORGE_ENGINE_MCP=on -- node <abs>/guil
       "args": [
         "<abs>/guild_hall/engineering_engine/mcp/engine_mcp_server.mjs",
         "--profile", "<abs>/_workspaces/<과제>/…/06_validation/project_profile.json",
-        "--repo-root", "<abs>"
+        "--repo-root", "<abs>",
+        "--principal", "{\"principal_ref\":\"owner_msy\",\"role\":\"owner\"}",
+        "--access-table", "<abs>/_workmeta/system/engine/access_table.json"
       ],
       "env": { "SOULFORGE_ENGINE_MCP": "on" }
     }
@@ -447,6 +469,13 @@ claude mcp add soulforge-engine --env SOULFORGE_ENGINE_MCP=on -- node <abs>/guil
 
 쓰기까지 열려면 `env`에 `"SOULFORGE_ENGINE_MCP_WRITE": "on"`을 **한 줄 더** 넣는다. 넣지 않으면 쓰기 도구는
 목록에 아예 안 보인다(그게 정상이다).
+
+**따옴표와 역슬래시 세 줄.**
+1. `--principal`의 값은 JSON 한 덩어리이고 **공백이 없어야** 한 인자로 들어간다.
+2. 설정 파일(JSON·TOML) 안에서는 안쪽 큰따옴표를 `\"`로 이스케이프한다(위 예시 그대로). 셸에서 직접
+   칠 때는 바깥을 작은따옴표로 감싸는 편이 쉽다: `--principal '{"principal_ref":"owner_msy","role":"owner"}'`.
+3. Windows 경로를 JSON에 적을 때는 역슬래시를 **두 번** 쓴다. 슬래시로 적으면 그럴 일이 없으니 위 예시처럼
+   슬래시를 권한다.
 
 ### 3. 첫 호출 순서
 
@@ -462,9 +491,13 @@ claude mcp add soulforge-engine --env SOULFORGE_ENGINE_MCP=on -- node <abs>/guil
 | 역할 | 보이는 것 | 안 보이는 것 |
 | --- | --- | --- |
 | owner · pm | 전부(도구 17, 등급 ⓐ~ⓓ) | — |
-| systems · hw · sw · quality | 규칙·카드·순서(ⓐ), 판단 수치·현황(ⓑ), 자기 역할 지시서, 등록 도구 | 과제 경로·파일 이름(ⓒ) · 확정/훑기/판단 실행 · 권한표 |
-| external(발주처·협력) | 규칙·카드·순서(ⓐ)와 엔진 상태만 | 나머지 전부 |
-| 신원 없음 | ⓐ 읽기 여섯(`whoami`·`engine_status`·`rules_*`) | 나머지 전부 |
+| systems · quality | 아래 팀 역할이 보는 것 전부 + **훑기 `observe_scan`\* · 판단 실행 `judge_run`\***(Owner 결정 2026-08-19) | 과제 경로·파일 이름(ⓒ) · 확정 `observe_confirm` · 권한표 |
+| hw · sw | 규칙·카드·순서(ⓐ), 과제 신원·판단 수치·현황(ⓑ), 자기 역할 지시서, 등록 `observe_register`\* | 위 + 훑기·판단 실행 |
+| external(발주처·협력) | 규칙·카드·순서(ⓐ)와 엔진 상태만. **어느 과제인지도, 규칙 파일 이름도 안 보인다**(ⓑ) | 나머지 전부 |
+| 신원 없음 | ⓐ 읽기 여섯(`whoami`·`engine_status`·`rules_*`), 그것도 **과제 신원 없이** — 엔진 판·프로토콜·스위치·규칙 판까지만 | 나머지 전부 |
+
+표의 **\*** 표시는 **쓰기 도구**라는 뜻이다: 쓰기 스위치가 꺼져 있으면 허용된 역할에게도 목록에 안 보이고,
+불러도 `WRITE_TOOLS_DISABLED`로 거절된다.
 
 거절 코드 뜻: `SE_MCP_PRINCIPAL_REQUIRED`(누가 부르는지 안 붙었다) · `SE_MCP_PERMISSION_DENIED`(그 역할에
 그 도구가 없다, 또는 과제가 paused/closed) · `SE_MCP_CLASS_EXCEEDED`(도구가 내는 등급이 역할 밖) ·

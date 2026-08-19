@@ -6,7 +6,7 @@
 
 import { orderStageWork } from '../../stage_rules/stage_rule_compiler.mjs';
 import { buildGuideCards } from '../../guidance/guide_cards.mjs';
-import { ENGINE_MCP_ERROR_CODES, mcpFail } from '../engine_context.mjs';
+import { ENGINE_MCP_ERROR_CODES, assertArgumentString, mcpFail } from '../engine_context.mjs';
 import { FOOTER, heading, lines, table } from '../render.mjs';
 
 export const name = 'rules_card';
@@ -27,7 +27,9 @@ export const inputSchema = Object.freeze({
 
 export async function handler(args, ctx) {
   const stageCode = await ctx.assertKnownStage(args.stage_code);
-  const token = String(args.artifact_type_id ?? '');
+  // Bounded before it is used, and never echoed back: a refusal that repeats what the caller sent
+  // is a reflection channel, and the caller already knows what they typed.
+  const token = assertArgumentString(args.artifact_type_id, 'artifact_type_id', 64);
   const compiled = await ctx.compile([stageCode]);
   const observations = await ctx.loadObservations();
   const order = orderStageWork(compiled, observations.work_order);
@@ -43,7 +45,6 @@ export async function handler(args, ctx) {
   if (card === null) {
     mcpFail(ENGINE_MCP_ERROR_CODES.CARD_NOT_FOUND, 'this stage carries no card for that token', {
       stage_code: stageCode,
-      artifact_type_id: token,
       available: cards.cards.filter((row) => row.stage_code === stageCode)
         .map((row) => row.artifact_type_id),
     });
