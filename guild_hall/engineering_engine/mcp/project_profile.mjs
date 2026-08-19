@@ -86,7 +86,57 @@ export const PROFILE_FILE_DOOR_KEYS = Object.freeze([
 export const PROFILE_OPTIONAL_KEYS = Object.freeze([
   ...PROFILE_FILE_DOOR_KEYS,
   'confidential_dirs',
+  'link_issuer',
 ]);
+
+/**
+ * The link issuer beside the door (manual 12 §12.C), stated by a project whose uploaders are
+ * outside the company network.
+ *
+ * Two fields and no more. `kind` says which gateway part is spawned and `env_prefix` says where
+ * that part will look for its credentials — **names only**: no host, no account and no secret is
+ * ever written into a profile, because a profile is a file people copy between machines and read
+ * over somebody's shoulder. The engine itself makes no network call either way; this field only
+ * decides whether a child process is spawned after a ticket folder is made.
+ */
+export const LINK_ISSUER_KINDS = Object.freeze(['synology']);
+export const LINK_ISSUER_KEYS = Object.freeze(['kind', 'env_prefix']);
+
+/**
+ * The env key suffixes the issuer declares, restated here so the door can ask "does this machine
+ * carry them" without importing a module that owns a network client.
+ *
+ * A test asserts this list equals `NAS_ENV_SUFFIXES` in
+ * `guild_hall/gateway/nas_link_issuer/synology_api.mjs`, so the two cannot drift apart silently.
+ */
+export const LINK_ISSUER_ENV_SUFFIXES = Object.freeze([
+  'HOST', 'PORT', 'USER', 'PASSWORD', 'TOKEN', 'SHARE', 'UNC', 'MOCK',
+]);
+
+const ENV_PREFIX = /^[A-Z][A-Z0-9_]{2,31}$/u;
+
+export function validateLinkIssuer(raw, field = 'link_issuer') {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    fail(PROFILE_ERROR_CODES.PROFILE_INVALID, 'a link issuer is a JSON object', { field });
+  }
+  const present = Object.keys(raw).sort();
+  const expected = [...LINK_ISSUER_KEYS].sort();
+  if (present.length !== expected.length || present.some((key, index) => key !== expected[index])) {
+    fail(PROFILE_ERROR_CODES.PROFILE_INVALID,
+      'a link issuer states exactly a kind and an env prefix',
+      { field, expected, unknown: present.filter((key) => !expected.includes(key)) });
+  }
+  if (!LINK_ISSUER_KINDS.includes(raw.kind)) {
+    fail(PROFILE_ERROR_CODES.PROFILE_INVALID, 'unknown link issuer kind',
+      { field: `${field}.kind`, allowed: [...LINK_ISSUER_KINDS] });
+  }
+  assertSafeString(raw.env_prefix, `${field}.env_prefix`, 32);
+  if (!ENV_PREFIX.test(raw.env_prefix)) {
+    fail(PROFILE_ERROR_CODES.PROFILE_INVALID,
+      'an env prefix is upper-case letters, digits and underscores', { field: `${field}.env_prefix` });
+  }
+  return Object.freeze({ kind: raw.kind, env_prefix: raw.env_prefix });
+}
 
 /**
  * Which roots each path field may sit under.
@@ -375,6 +425,14 @@ export function validateProjectProfile(raw, options = {}) {
         'the intake, outbox and trash folders must be three separate places',
         { field: 'trash_dir' });
     }
+  }
+
+  // A link issuer with no door has nothing to issue a link *for*, and a profile that states one is
+  // a profile whose writer believes tickets are being handed out. Refused rather than ignored.
+  profile.link_issuer = raw.link_issuer === undefined ? null : validateLinkIssuer(raw.link_issuer);
+  if (profile.link_issuer !== null && !doorOpen) {
+    fail(PROFILE_ERROR_CODES.PROFILE_INVALID,
+      'a link issuer needs the file door this profile has not opened', { field: 'link_issuer' });
   }
 
   return Object.freeze({ ...profile, roots });

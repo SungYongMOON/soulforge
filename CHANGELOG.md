@@ -1,5 +1,42 @@
 # CHANGELOG
 
+## 2026-08-19 - A Synology link issuer beside the engine door, so an outsider can upload without a folder path
+
+The engine hands out a ticket — a folder and an expiry — and makes no network call. Turning that
+folder into something a person with no account and no synchronised PC can open is now a gateway
+part, tested entirely against canned DSM answers because no credential exists yet
+(manual `12_mcp_door.md` §12.C).
+
+- **New gateway part `guild_hall/gateway/nas_link_issuer/`** (no new npm dependency): a minimal DSM
+  Web API client (`SYNO.API.Info` capability probe, `SYNO.API.Auth` login/logout, idempotent
+  `SYNO.FileStation.CreateFolder`, `SYNO.FileStation.Sharing`, and the file-request API where the box
+  exposes one), a pure `planLinkIssue` plus the `issueLink` that executes it, a canned-DSM transport,
+  three synthetic fixtures, and the command `tools/nas_issue_link.mjs`. `npm run
+  validate:nas-link-issuer` — 59 tests.
+- **Three link kinds and a stated fallback.** Upload asks for an upload-only file request; where the
+  DSM exposes none, or refuses the probe, it falls back to an editable link on the *empty* dedicated
+  ticket folder and records **why** it fell back. A fallback link is tagged
+  `sharing_edit_permission_unverified` rather than claiming an upload permission nobody observed.
+  Download gets a view link with an expiry.
+- **Secrets are structural, not procedural.** The password/token is boxed in a `Secret` whose
+  `toString`, `toJSON` and node inspection all render `[redacted]`, so serialising the config into a
+  log cannot leak it; every call is a form-body POST so nothing sensitive reaches a URL; an `http://`
+  host is refused rather than upgraded; and `--password-from-env` takes a key **name**, never a value
+  on a command line. Tests assert no environment value appears in any output or error string.
+- **Door hook (thin).** A project profile may state
+  `link_issuer: {kind:'synology', env_prefix:'SOULFORGE_NAS'}` — two fields, with nowhere to write a
+  host or a credential. When it is present *and* the machine carries the keys, `file_ticket` spawns
+  the command as a **child process** (the engine process still opens no socket) and attaches
+  `link_url` / `link_kind` / `link_expires_at` to the ticket record and the result. Absent, or
+  without keys, or on failure: today's behaviour — the folder, and a `link_note` saying which of the
+  four reasons applies. A link failure never fails the ticket.
+- **Where the link is written.** The ticket ledger keeps the URL, kind, expiry and DSM id; the
+  operations receipt keeps only the kind, the expiry and the note. There is no field for a link
+  password anywhere on the ticket shape. The link is class ⓑ, not ⓒ: the folder path is a piece of
+  the project tree, while the link is a capability to one empty folder that says nothing about where
+  it sits — redacting it would leave the roles allowed to open a ticket nothing to hand over.
+- `npm run validate:se-mcp` — **117** (was 104).
+
 ## 2026-08-19 - Antigravity request replay retains stronger canonical metadata
 
 - Antigravity conversation-DB events now replay the persisted canonical event when the same event ID is observed again with only a weaker `unassigned` organization and/or a base model ID replacing an already recorded `low`, `medium`, `high`, or `tiered` model variant.

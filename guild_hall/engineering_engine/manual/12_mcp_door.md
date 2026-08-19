@@ -164,6 +164,7 @@ Owner가 따로 내린다. **꺼진 쓰기 도구를 숨기는 쪽으로 바꿨�
 | `trash_dir` | 정리한 칸을 옮겨 두는 곳(지우지 않는다) | 과제면, `project_root` 아래 |
 | `ticket_policy` | `{upload_ttl_hours, download_ttl_hours, cleanup_after_days, allowed_extensions?, max_file_bytes?}` (기본 72·24·30·32종·25MB) | — |
 | `confidential_dirs[]` | ⓒ로 다룰 폴더(계약·단가·발주처 원문). 이 칸만 따로 써도 된다 | 과제면, `project_root` 아래 |
+| `link_issuer` | 문 옆 링크 발급기(§12.C). `{kind:'synology', env_prefix:'SOULFORGE_NAS'}` **두 칸뿐**이고 호스트·계정·비밀은 들어갈 자리가 없다. 문 앞 칸을 연 과제만 쓸 수 있다 | — |
 
 앞 넷은 **통째로 쓰거나 아예 안 쓴다**: 넣는 칸만 있고 휴지통이 없는 문은 사람이 필요한 순간에 거절하는
 문이다. 그리고 넷은 서로 겹칠 수 없고(넣기·받기·휴지통은 세 자리), 과제 폴더 자체일 수 없으며,
@@ -324,10 +325,13 @@ public 예시는 `docs/architecture/workspace/examples/se_stage_rules/project_pr
 
 ## 12.8 시험과 실측
 
-`npm run validate:se-mcp` — 2026-08-19(2차): **102**(같은 날 1차: 70 · 2026-08-18: 28).
-프로필 검증 10 · 명부·라우팅 10 · 접근 모델 16 · 표 대장 11(순수: 기한·소유·이름·판 붙이기) ·
+`npm run validate:se-mcp` — 2026-08-19(3차, 링크 발급기 연결): **117**
+(같은 날 2차: 104 · 1차: 70 · 2026-08-18: 28). 늘어난 13은 프로필의 `link_issuer` 5와 문 옆 발급기 8이다.
+발급기 자체는 별도로 `npm run validate:nas-link-issuer` — **59**(게이트웨이 owner, §12.C).
+프로필 검증 15 · 명부·라우팅 10 · 접근 모델 16 · 표 대장 11(순수: 기한·소유·이름·판 붙이기) ·
 도구 22(합성 fixture 대조·결정론·쓰기 거절·경로 예산·잠금·캐시 무효화·쪽 나누기) ·
-파일 문 16(표·이동 등록·폴더 불일치 거절·덮어쓰기 거절·판 붙이기·해시·등급 거절·정리) ·
+파일 문 24(표·이동 등록·폴더 불일치 거절·덮어쓰기 거절·판 붙이기·해시·등급 거절·정리 ·
+링크 없음/키 없음/모의 발급/자식 실패의 네 갈래) ·
 프로토콜 17(자식 프로세스로 실제 stdio 왕복 — 파일 문 한 바퀴 포함: 표 → 등록 → 목록 → 정리 보고).
 fixture는 `project_profile_synthetic_v0.json`(프로필 모양 + 합성 관측 실행), `next_steps_synthetic_v0.json`
 (규칙 + 합성 판정), `project_registry_synthetic_v0.json`(명부 모양), `access_table_synthetic_v0.json`
@@ -623,9 +627,11 @@ D37). 그래서 파일 이름에 `BOM`·`HDD` 같은 표준어를 넣는 습관�
 
 **여기 없는 것(엔진 밖).**
 
-- **링크 발급.** OneDrive/SharePoint 공유 링크는 엔진이 만들지 않는다. 엔진은 네트워크를 부르지 않으며,
-  `file_ticket`이 돌려주는 것은 폴더 위치와 표 번호뿐이다. 지금은 Owner·PM이 그 폴더에 대해 OneDrive UI
-  에서 링크를 한 번 만들어 전달하고, 나중에 게이트웨이가 그 한 단계를 대신한다.
+- **링크 발급.** 엔진은 링크를 **만들지** 않는다. 네트워크를 부르지 않기 때문이다. 프로필에
+  `link_issuer`가 없으면 `file_ticket`이 돌려주는 것은 폴더 위치와 표 번호뿐이고
+  (`link: null` + `link_note: link_issuer_not_configured`), Owner·PM이 그 폴더에 대해 공유 UI에서
+  링크를 한 번 만들어 전달한다. `link_issuer`가 있고 그 PC에 자격 키가 있으면 문이 게이트웨이 명령을
+  **자식 프로세스로 띄워** 링크를 받아 표에 붙인다 — 엔진 프로세스는 그때도 소켓을 열지 않는다(§12.C).
 - **원격 문·로그인.** 팀원이 자기 PC에서 붙는 자리는 비서/게이트웨이 층이다(9.1F).
 - **등록 정정·취소(`observe_amend`).** 잘못 등록한 것을 고치는 도구는 아직 없다(9.1E). 지금은 Owner가
   등록 대장 줄과 파일을 보고 판단한다.
@@ -650,12 +656,66 @@ D37). 그래서 파일 이름에 `BOM`·`HDD` 같은 표준어를 넣는 습관�
 - 운영 PC `.env`(런타임 전용)에 넣기 — 키 이름(값은 AI에게 보이지 않게): `SOULFORGE_NAS_HOST`, `SOULFORGE_NAS_PORT`, `SOULFORGE_NAS_USER`, `SOULFORGE_NAS_PASSWORD`(또는 `SOULFORGE_NAS_TOKEN`), `SOULFORGE_NAS_SHARE=soulforge_intake`, `SOULFORGE_NAS_UNC=\\NAS\soulforge_intake`
 - AI에게는 DSM 버전·접속 주소 형태만 알려준다.
 
-### 만들 것(엔진 옆)
-- 시놀로지 링크 발급기: 로그인(세션) → 표 폴더 생성 확인 → 파일 요청 링크 생성(만료·암호) → 표 장부에 링크·만료 기록 → 로그아웃. 비밀은 로그·영수증·저장소에 절대 남기지 않음. 모의(mock) DSM 응답으로 시험, 실계정은 `.env`로만.
-- 엔진 문: `file_ticket`이 발급기가 설정돼 있으면 `link`·`link_expires_at`을 같이 돌려줌; 프로필의 `intake_dir`·`outbox_dir`를 NAS UNC로 두는 과제 프로필 판; `file_register`는 교차 드라이브 복사 지원(해시 재확인).
-- 시험 순서: 표 발급 → 링크 → 다른 PC 브라우저로 업로드 → "올렸어" → 등록 → OneDrive 정식 자리 → 관측 → 판단 반영 → 정리 미리보기.
+### 만든 것 (2026-08-19, 모의 DSM으로만 검증 — 실계정 없음)
+
+**발급기**: `guild_hall/gateway/nas_link_issuer/`(게이트웨이 owner, 새 npm 의존성 0).
+`synology_api.mjs`(DSM 최소 클라이언트) · `issue_link.mjs`(표 하나 → 폴더 하나 → 링크 하나) ·
+`mock_transport.mjs`(통조림 DSM) · `tools/nas_issue_link.mjs`(명령) · fixture 3벌 · 시험 59
+(`npm run validate:nas-link-issuer`). 자세히는 그 폴더의 README.
+
+```text
+node …/nas_link_issuer/tools/nas_issue_link.mjs --ticket <표> --folder <공유폴더 기준 상대경로>
+  --purpose upload|download --expires <UTC ISO> [--password-from-env NAME] [--dry-run] [--mock <fixture>]
+```
+stdout은 JSON 한 덩어리, 거절은 stderr JSON + 종료코드(`64` 인자 · `3` 설정 · `4` DSM · `5` fixture).
+
+**문에 붙인 자리**: 프로필의 선택 칸 `link_issuer: {kind:'synology', env_prefix:'SOULFORGE_NAS'}`
+(§12.3). 그 칸이 있고 **그 PC에 자격 키가 있으면** `file_ticket`이 폴더를 만든 **뒤** 위 명령을
+자식 프로세스로 띄우고 `link_url`·`link_kind`·`link_expires_at`을 답과 표 장부에 붙인다.
+링크 실패는 **표를 실패시키지 않는다** — 폴더는 이미 있고 표가 주고받기의 기록이므로 표는 그대로 쓰고
+`link_note`만 남긴다(`link_issuer_not_configured` · `…_env_missing` · `…_refused` · `…_unreadable`).
+
+| 어디에 | 무엇이 | 무엇이 아닌 |
+| --- | --- | --- |
+| 표 장부 `file_tickets.jsonl` | `link.link_url`·`link_kind`·`link_expires_at`·`dsm_link_id` | 링크 **암호**가 들어갈 칸 자체가 없다 |
+| 파일 영수증 `file_operations.jsonl` | `link_kind`·`link_expires_at`·`link_note` | URL은 안 적는다(한 자격은 한 자리) |
+| 답 | 위 넷 + `link_note` | — |
+
+**링크는 ⓑ, 자리는 ⓒ다.** 폴더 경로는 과제 폴더트리의 한 조각이라 가리지만, 링크는 그 반대로 **빈 칸
+하나에 대한 권한**이고 어디에 있는지 말하지 않는다. 표를 낼 수 있는 역할에게 링크를 가리면 기다리는
+사람에게 건네줄 것이 없는 표가 된다.
+
+**자격은 `.env` 런타임 전용**이고 프로필·저장소·영수증·로그에는 키 **이름**만 남는다. 필수 키는
+`SOULFORGE_NAS_HOST`·`_USER`·`_SHARE` + `_PASSWORD` 또는 `_TOKEN`(선택 `_PORT`·`_UNC`).
+`SOULFORGE_NAS_MOCK`에 fixture 경로를 넣으면 자격 없이 모의로 돈다 — 시연·시험용이고, 그때 문의
+답은 실제와 같은 모양이되 링크는 `nas.invalid` 자리표시자다.
+
+**대체 경로**: 파일 요청 기능은 `SYNO.API.Info`에서 찾아본다(전용 API → 없으면 `SYNO.FileStation.Sharing`
+3판 이상의 create 매개변수 → 둘 다 아니면 대체). DSM이 시도를 거절해도 대체로 내려가되 왜 내려갔는지를
+`fallback_reason`에 남기고, 대체 링크에는 `sharing_edit_permission_unverified`를 붙인다(업로드 권한이
+실제로 붙었는지는 DSM UI에서 사람이 한 번 확인한다 — 관측 안 한 것을 관측했다고 적지 않는다).
+
+### 아직 아닌 것
+
+- 표 폴더는 NAS에서 `tickets|outbox/<사람>/<표>`로 **표를 그대로 비춘다.** 프로필의 `intake_dir`은
+  아직 과제면(`_workspaces/**`) 아래여야 하므로, **링크로 올라온 파일은 NAS에 있고 문 앞 칸에는 없다.**
+  `file_register`가 그것을 집으려면 프로필이 NAS UNC를 문 앞 칸으로 지목할 수 있어야 하고
+  `file_register`가 교차 드라이브 복사(해시 재확인)를 해야 한다 — 둘 다 다음 조각이다.
+- 링크 **암호**는 발급기가 `--password-from-env`로 받을 수 있지만 문은 아직 쓰지 않는다(표에 암호 칸이 없다).
+- `date_expired` 인코딩(`YYYY-MM-DD HH:MM:SS` 기본 / `YYYY-MM-DD`)과 파일 요청 API의 실제 이름·매개변수는
+  실계정 회신 뒤 확인한다. DSM은 만료를 NAS 지역시간으로 읽으므로 표의 기한(UTC)과 최대 하루 어긋날 수
+  있고, 그래서 결과에 호출자가 준 `expires_at`과 보낸 `dsm_date_expired`를 둘 다 싣는다. 기한의 정본은 표다.
+
+### 실계정이 생긴 뒤 시험 순서
+
+1. `--dry-run`으로 계획 확인(호출 0) → 2. `--mock`으로 한 바퀴 → 3. 실키로 `--purpose upload` 1회 →
+4. 다른 PC 브라우저로 그 링크에 업로드 → 5. "올렸어" → 등록 → 정식 자리 → 관측 → 판단 반영 →
+6. 만료 뒤 링크가 닫히는지 → 7. 정리 미리보기.
 
 ### 오늘(2026-08-19) 실제 상태
-- 파일 문(표·등록·넣기/받기·정리) 병합됨(`validate:se-mcp` 104). KVDS 프로필 v2(문 앞·내려받기·휴지통·기밀 폴더·정책)와 과제 명부 갱신, KVDS 덧씌움 v2(스펙 핀 재고정, `prime_cdr_presentation_final` → 144 폴더).
+- 파일 문(표·등록·넣기/받기·정리) 병합됨. 그 위에 링크 발급기와 문 hook이 올라갔다
+  (`validate:se-mcp` 117 · `validate:nas-link-issuer` 59, 전부 모의 DSM). 실계정·실호출은 **없다**.
+  KVDS 프로필에는 아직 `link_issuer`를 넣지 않았다(Owner가 넣을 두 줄은 §12.C "만든 것" 참조).
+- 파일 문(표·등록·넣기/받기·정리) 병합 시점 상태: KVDS 프로필 v2(문 앞·내려받기·휴지통·기밀 폴더·정책)와 과제 명부 갱신, KVDS 덧씌움 v2(스펙 핀 재고정, `prime_cdr_presentation_final` → 144 폴더).
 - OneDrive 쪽 문 앞 칸으로 표 1장 발급됨(owner_msy, 3일 만료). 가짜 파일로 등록 시험은 하지 않음(실제 과제 증거 오염 방지). Owner의 실제 PPT가 들어오면 등록→이동→관측→판단까지 돌린다.
 - 규칙표 정정: 폴더 번호 144 재사용 발견 → MRA 148로, "task id append-only" 규칙 신설; 덧씌움 `add`에 `task_id`/`folder_name` 허용.

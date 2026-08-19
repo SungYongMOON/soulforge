@@ -1,0 +1,56 @@
+{
+  "fixture_id": "dsm_mock_sharing_fallback_v0",
+  "schema_version": "soulforge.nas_link_issuer_mock_dsm.v0",
+  "note": "A synthetic DSM old enough that no file-request feature is reachable: no dedicated API and a sharing API below the version worth probing. This is the SS12.C fallback path - an editable share link on the empty dedicated ticket folder. Host, account, secret and link id are placeholders in the reserved .invalid TLD.",
+  "env": {
+    "SOULFORGE_NAS_HOST": "nas.invalid",
+    "SOULFORGE_NAS_PORT": "5001",
+    "SOULFORGE_NAS_USER": "mock_account",
+    "SOULFORGE_NAS_PASSWORD": "mock-password-not-a-credential",
+    "SOULFORGE_NAS_SHARE": "soulforge_intake",
+    "SOULFORGE_NAS_UNC": "\\\\nas.invalid\\soulforge_intake"
+  },
+  "responses": [
+    {
+      "api": "SYNO.API.Info",
+      "method": "query",
+      "repeat": true,
+      "body": {
+        "success": true,
+        "data": {
+          "SYNO.API.Auth": { "path": "auth.cgi", "minVersion": 1, "maxVersion": 3 },
+          "SYNO.FileStation.CreateFolder": { "path": "entry.cgi", "minVersion": 1, "maxVersion": 2 },
+          "SYNO.FileStation.List": { "path": "entry.cgi", "minVersion": 1, "maxVersion": 2 },
+          "SYNO.FileStation.Sharing": { "path": "entry.cgi", "minVersion": 1, "maxVersion": 2 }
+        }
+      }
+    },
+    {
+      "api": "SYNO.API.Auth",
+      "method": "login",
+      "body": { "success": true, "data": { "sid": "mock-session-id" } }
+    },
+    {
+      "api": "SYNO.FileStation.CreateFolder",
+      "method": "create",
+      "body": {
+        "success": true,
+        "data": { "folders": [{ "path": "/soulforge_intake/tickets/mock_person", "name": "up_20260819t050000z_abcdef", "isdir": true }] }
+      }
+    },
+    {
+      "api": "SYNO.FileStation.Sharing",
+      "method": "create",
+      "body": {
+        "success": true,
+        "data": { "links": [{ "id": "mocksharingedit01", "url": "https://nas.invalid:5001/sharing/mocksharingedit01" }] }
+      }
+    },
+    {
+      "api": "SYNO.API.Auth",
+      "method": "logout",
+      "repeat": true,
+      "body": { "success": true }
+    }
+  ]
+}

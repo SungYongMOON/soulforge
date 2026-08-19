@@ -27,7 +27,7 @@
     "known_at_policy": "caller_supplied"
   },
   "file_door_profile": {
-    "note": "The optional block a project adds when it opens the file door (문 앞 칸, 09장 §9.1D). Absent means the project has no door and every file tool refuses with ENGINE_MCP_FILE_DOOR_DISABLED; present means all four keys are present, because a door with an intake folder and no trash refuses at the moment somebody needs it. Every path lies under project_root. confidential_dirs stands alone: a project may mark its contract folders without opening a door.",
+    "note": "The optional block a project adds when it opens the file door (문 앞 칸, 09장 §9.1D). Absent means the project has no door and every file tool refuses with ENGINE_MCP_FILE_DOOR_DISABLED; present means all four door keys are present, because a door with an intake folder and no trash refuses at the moment somebody needs it. Every path lies under project_root. confidential_dirs stands alone: a project may mark its contract folders without opening a door. link_issuer also stands alone and needs the door: it names the gateway part that turns a ticket folder into a link (12장 §12.C) and carries key NAMES only — no host, no account, no secret ever goes in a profile.",
     "intake_dir": "<abs>",
     "outbox_dir": "<abs>",
     "trash_dir": "<abs>",
@@ -38,7 +38,11 @@
     },
     "confidential_dirs": [
       "<abs>"
-    ]
+    ],
+    "link_issuer": {
+      "kind": "synology",
+      "env_prefix": "SOULFORGE_NAS"
+    }
   },
   "path_roots": {
     "note": "Which repository root each path field may sit under. `rule_assets` is .registry/skills/se_foldertree_generate/codex/assets — the compiled rule specs a project points at rather than copies.",
