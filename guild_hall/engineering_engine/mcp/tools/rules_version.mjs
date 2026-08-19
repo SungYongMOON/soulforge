@@ -13,6 +13,7 @@ export const name = 'rules_version';
 export const title_ko = '규칙·엔진 판 보기';
 export const description_ko = '엔진 판(engine_version)과 그 판이 묶은 규칙 층·컴파일러·매니페스트 지문을 그대로 보여준다.';
 export const write = false;
+export const data_class = 'public_rules';
 
 export const inputSchema = Object.freeze({
   type: 'object',

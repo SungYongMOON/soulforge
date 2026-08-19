@@ -11,15 +11,18 @@ import { join } from 'node:path';
 import { MATURITY } from '../../observation/artifact_observation_candidates.mjs';
 import { isKnownArtifactType } from '../../stage_rules/artifact_vocabulary.mjs';
 import {
-  ENGINE_MCP_ERROR_CODES, REGISTERED_CANDIDATES_FILE, assertInstant, mcpFail,
+  ENGINE_MCP_ERROR_CODES, REGISTERED_CANDIDATES_FILE, assertArgumentString, assertInstant, mcpFail,
 } from '../engine_context.mjs';
-import { assertSafeString, hasControlCharacter } from '../project_profile.mjs';
+import { hasControlCharacter } from '../project_profile.mjs';
 import { FOOTER, lines, table } from '../render.mjs';
 
 export const name = 'observe_register';
 export const title_ko = '관측 등록(확인 대기)';
 export const description_ko = '파일 하나를 어떤 단계의 어떤 산출물로 보는지 후보로 적어 둔다. 자동 확정 규칙은 적용되지 않으며 사람 확인 전에는 관측이 아니다.';
 export const write = true;
+export const data_class = 'team_judgment';
+export const idempotent = false;
+export const confidential_fields = Object.freeze(['file', 'registered.file_ref']);
 
 const MATURITY_VALUES = Object.freeze(Object.values(MATURITY));
 
@@ -38,7 +41,7 @@ export const inputSchema = Object.freeze({
 
 /** A project-relative pointer, never an absolute path and never a climb. */
 function assertFileRef(value) {
-  assertSafeString(value, 'file_ref', 512);
+  assertArgumentString(value, 'file_ref', 512);
   if (/^[A-Za-z]:[\\/]/u.test(value) || value.startsWith('/') || value.startsWith('\\')) {
     mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID,
       'file_ref is a project-relative pointer, not an absolute path', {});
@@ -53,14 +56,17 @@ export async function handler(args, ctx) {
   ctx.requireWrite(name);
   const stageCode = await ctx.assertKnownStage(args.stage_code);
   const fileRef = assertFileRef(args.file_ref);
-  const token = String(args.artifact_type_id ?? '');
+  const token = assertArgumentString(args.artifact_type_id, 'artifact_type_id', 64);
   if (!isKnownArtifactType(token)) {
+    // Not echoed back: the caller knows what they sent, and a refusal is not a mirror.
     mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID,
-      'this token is not in the artifact vocabulary', { artifact_type_id: token });
+      'this token is not in the artifact vocabulary', { field: 'artifact_type_id' });
   }
-  const maturity = args.maturity === undefined ? null : String(args.maturity);
+  const maturity = args.maturity === undefined ? null
+    : assertArgumentString(args.maturity, 'maturity', 64);
   if (maturity !== null && !MATURITY_VALUES.includes(maturity)) {
-    mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID, 'unknown maturity', { maturity });
+    mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID, 'unknown maturity',
+      { field: 'maturity', allowed: [...MATURITY_VALUES] });
   }
   const note = args.note === undefined ? null : String(args.note);
   if (note !== null && (note.length > 512 || hasControlCharacter(note))) {
@@ -80,7 +86,7 @@ export async function handler(args, ctx) {
     decision: null,
   };
   const path = join(ctx.profile.observations_dir, REGISTERED_CANDIDATES_FILE);
-  await ctx.appendLine(path, JSON.stringify(row));
+  await ctx.appendLine(path, JSON.stringify(row), { field: 'registered_candidates' });
 
   const structured = {
     registered: row,

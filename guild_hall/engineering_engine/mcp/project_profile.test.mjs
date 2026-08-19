@@ -102,6 +102,33 @@ test('an unknown key, a missing key and a foreign known_at policy are all refuse
   }
 });
 
+test('receipts and runs have to sit under the project\'s own metadata folder', () => {
+  const { root, staged } = stage();
+  try {
+    // Somewhere under `_workmeta` was never enough: two projects could name the same folder and
+    // their receipt lines would interleave with nothing to separate them afterwards (부록 B 2번).
+    const neighbour = join(root, '_workmeta', 'SYN-OTHER', 'runs');
+    const receipts = refusal({ ...staged.profile, receipts_dir: neighbour }, root);
+    assert.equal(receipts?.code, PROFILE_ERROR_CODES.PROFILE_PLANE_MISMATCH);
+    assert.equal(receipts.detail.field, 'receipts_dir');
+    assert.equal(receipts.detail.expected_under, '_workmeta/SYN-000');
+
+    const runs = refusal({
+      ...staged.profile,
+      receipts_dir: join(root, '_workmeta', 'SYN-000', 'runs', 'mcp_receipts'),
+      runs_root: join(root, '_workmeta', 'shared_runs'),
+    }, root);
+    assert.equal(runs?.code, PROFILE_ERROR_CODES.PROFILE_PLANE_MISMATCH);
+    assert.equal(runs.detail.field, 'runs_root');
+
+    // And the staged profile, which does it right, still passes.
+    const ok = validateProjectProfile(staged.profile, { repo_root: root });
+    assert.equal(repoPointer(root, ok.runs_root), '_workmeta/SYN-000/runs');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('the observation run has to sit inside the project output root', () => {
   const { root, staged } = stage();
   try {
