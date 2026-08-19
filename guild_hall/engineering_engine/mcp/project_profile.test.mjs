@@ -5,10 +5,16 @@ import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 
 import {
-  ENGINE_PROJECT_PROFILE_SCHEMA_VERSION, PROFILE_ERROR_CODES, PROFILE_OPTIONAL_KEYS,
-  PROFILE_REQUIRED_KEYS, profileRoots, repoPointer, validateProjectProfile,
+  ENGINE_PROJECT_PROFILE_SCHEMA_VERSION, LINK_ISSUER_ENV_SUFFIXES, PROFILE_ERROR_CODES,
+  PROFILE_OPTIONAL_KEYS, PROFILE_REQUIRED_KEYS, profileRoots, repoPointer, validateProjectProfile,
 } from './project_profile.mjs';
-import { PROFILE_FIXTURE, stageSyntheticProject } from '../fixtures/engine_mcp_synthetic_project.mjs';
+import {
+  LINK_ISSUER_ENV_PREFIX, PROFILE_FIXTURE, stageSyntheticProject,
+} from '../fixtures/engine_mcp_synthetic_project.mjs';
+// Test-only, and deliberately across the owner line: the door restates the issuer's env key names
+// so the engine need not import a module that owns a network client, and this import is what keeps
+// the two statements from drifting apart.
+import { NAS_ENV_SUFFIXES } from '../../gateway/nas_link_issuer/synology_api.mjs';
 
 const stage = () => {
   const root = mkdtempSync(join(tmpdir(), 'engine_mcp_profile_'));
@@ -207,4 +213,68 @@ test('a door is stated whole, inside the project, and as three separate places',
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+// ---------------------------------------------------------------- the link issuer (12장 §12.C)
+
+test('a profile without a link issuer simply has none', () => {
+  const { root, staged } = stage();
+  try {
+    assert.equal(validateProjectProfile(staged.profile, { repo_root: root }).link_issuer, null);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a link issuer carries a kind and an env prefix, and nothing that could be a secret', () => {
+  const root = mkdtempSync(join(tmpdir(), 'engine_mcp_profile_'));
+  try {
+    const staged = stageSyntheticProject(root, { link_issuer: true });
+    const profile = validateProjectProfile(staged.profile, { repo_root: root });
+    assert.deepEqual({ ...profile.link_issuer },
+      { kind: 'synology', env_prefix: LINK_ISSUER_ENV_PREFIX });
+    // The whole point of the shape: there is nowhere in it to write a host or a credential.
+    assert.deepEqual(Object.keys(profile.link_issuer).sort(), ['env_prefix', 'kind']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('an unknown kind, an extra key, or a prefix that is not one is refused', () => {
+  const { root, staged } = stage();
+  try {
+    for (const issuer of [
+      { kind: 'onedrive', env_prefix: 'SOULFORGE_NAS' },
+      { kind: 'synology', env_prefix: 'SOULFORGE_NAS', password: 'nope' },
+      { kind: 'synology' },
+      { kind: 'synology', env_prefix: 'soulforge_nas' },
+      { kind: 'synology', env_prefix: 'X' },
+      'synology',
+    ]) {
+      const error = refusal({ ...staged.profile, link_issuer: issuer }, root);
+      assert.equal(error?.code, PROFILE_ERROR_CODES.PROFILE_INVALID,
+        `${JSON.stringify(issuer)} should have been refused`);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a link issuer without a file door is refused, not quietly ignored', () => {
+  const root = mkdtempSync(join(tmpdir(), 'engine_mcp_profile_'));
+  try {
+    const staged = stageSyntheticProject(root, { file_door: false });
+    const error = refusal({
+      ...staged.profile,
+      link_issuer: { kind: 'synology', env_prefix: 'SOULFORGE_NAS' },
+    }, root);
+    assert.equal(error?.code, PROFILE_ERROR_CODES.PROFILE_INVALID);
+    assert.match(error.message, /file door/u);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('the door and the issuer name the same environment keys', () => {
+  assert.deepEqual([...LINK_ISSUER_ENV_SUFFIXES].sort(), Object.values(NAS_ENV_SUFFIXES).sort());
 });

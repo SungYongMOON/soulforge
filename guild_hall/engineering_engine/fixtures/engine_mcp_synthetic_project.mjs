@@ -11,6 +11,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 import { engineStageCodeForGate } from '../observation/artifact_observation_candidates.mjs';
 
@@ -56,6 +57,23 @@ export const DOOR_RELATIVE = Object.freeze({
   trash: ['020_MGMT', '_trash'],
   confidential: ['000_REF', 'contract'],
 });
+
+/**
+ * The env prefix a staged link issuer states (12장 §12.C).
+ *
+ * A prefix is a set of key *names*, so this constant is public-safe by construction: nothing about
+ * a host, an account or a credential is expressible here.
+ */
+export const LINK_ISSUER_ENV_PREFIX = 'SOULFORGE_NAS';
+
+/** The mock DSM fixtures the gateway issuer ships, so a door test can replay one without a NAS. */
+export const NAS_MOCK_FIXTURES = Object.freeze({
+  file_request: '../../gateway/nas_link_issuer/fixtures/dsm_mock_file_request_v0.json',
+  sharing_fallback: '../../gateway/nas_link_issuer/fixtures/dsm_mock_sharing_fallback_v0.json',
+});
+
+export const nasMockFixturePath = (key) =>
+  fileURLToPath(new URL(NAS_MOCK_FIXTURES[key], import.meta.url));
 
 /** Where the private registry and access table live by convention, inside the staged root. */
 export const REGISTRY_RELATIVE_PATH = ['_workmeta', 'system', 'engine', 'project_registry.json'];
@@ -206,6 +224,13 @@ export function stageSyntheticProject(root, options = {}) {
     profile.ticket_policy = options.ticket_policy ?? {
       upload_ttl_hours: 72, download_ttl_hours: 24, cleanup_after_days: 30,
     };
+    // The link issuer beside the door (12장 §12.C). Names only — the fixture states a kind and an
+    // env prefix, exactly as a real profile does, and no host, account or secret exists here at all.
+    if (options.link_issuer === true) {
+      profile.link_issuer = { kind: 'synology', env_prefix: LINK_ISSUER_ENV_PREFIX };
+    } else if (options.link_issuer !== undefined && options.link_issuer !== false) {
+      profile.link_issuer = options.link_issuer;
+    }
   }
   const profilePath = join(outputs, 'project_profile.json');
   writeFileSync(profilePath, asJson(profile));

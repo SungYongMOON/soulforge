@@ -1,0 +1,61 @@
+{
+  "fixture_id": "dsm_mock_request_param_refused_v0",
+  "schema_version": "soulforge.nas_link_issuer_mock_dsm.v0",
+  "note": "A synthetic DSM whose sharing API is new enough to be worth probing with a file-request parameter, but which refuses the probe. This is the branch that proves the issuer falls back on a DSM refusal rather than on a guess: the first sharing create answers error 103, the second - the plain fallback link - succeeds. Placeholders throughout, reserved .invalid TLD.",
+  "env": {
+    "SOULFORGE_NAS_HOST": "nas.invalid",
+    "SOULFORGE_NAS_PORT": "5001",
+    "SOULFORGE_NAS_USER": "mock_account",
+    "SOULFORGE_NAS_PASSWORD": "mock-password-not-a-credential",
+    "SOULFORGE_NAS_SHARE": "soulforge_intake",
+    "SOULFORGE_NAS_UNC": "\\\\nas.invalid\\soulforge_intake"
+  },
+  "responses": [
+    {
+      "api": "SYNO.API.Info",
+      "method": "query",
+      "repeat": true,
+      "body": {
+        "success": true,
+        "data": {
+          "SYNO.API.Auth": { "path": "auth.cgi", "minVersion": 1, "maxVersion": 6 },
+          "SYNO.FileStation.CreateFolder": { "path": "entry.cgi", "minVersion": 1, "maxVersion": 2 },
+          "SYNO.FileStation.List": { "path": "entry.cgi", "minVersion": 1, "maxVersion": 2 },
+          "SYNO.FileStation.Sharing": { "path": "entry.cgi", "minVersion": 1, "maxVersion": 3 }
+        }
+      }
+    },
+    {
+      "api": "SYNO.API.Auth",
+      "method": "login",
+      "body": { "success": true, "data": { "sid": "mock-session-id" } }
+    },
+    {
+      "api": "SYNO.FileStation.CreateFolder",
+      "method": "create",
+      "body": {
+        "success": true,
+        "data": { "folders": [{ "path": "/soulforge_intake/tickets/mock_person", "name": "up_20260819t050000z_abcdef", "isdir": true }] }
+      }
+    },
+    {
+      "api": "SYNO.FileStation.Sharing",
+      "method": "create",
+      "body": { "success": false, "error": { "code": 103 } }
+    },
+    {
+      "api": "SYNO.FileStation.Sharing",
+      "method": "create",
+      "body": {
+        "success": true,
+        "data": { "links": [{ "id": "mocksharingedit02", "url": "https://nas.invalid:5001/sharing/mocksharingedit02" }] }
+      }
+    },
+    {
+      "api": "SYNO.API.Auth",
+      "method": "logout",
+      "repeat": true,
+      "body": { "success": true }
+    }
+  ]
+}

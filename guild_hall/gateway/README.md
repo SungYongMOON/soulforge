@@ -68,6 +68,12 @@
   - project-local deadline_watch metadata 로 dry-run/manual-confirm reminder preview 를 만드는 helper
 - `project_mail_history_writer.mjs`
   - assigned project 가 있는 mail-derived monster 생성/갱신 이벤트를 `_workmeta/<project_code>/reports/메일_이력/` 아래 metadata CSV/일정 이벤트로 갱신하고, Excel 보기용 export 는 `_workspaces/<project_code>/reports/메일_이력/` 아래에 쓰는 private writer
+- `nas_link_issuer/`
+  - 시놀로지 NAS 링크 발급기. 엔진 MCP 문이 낸 표(ticket) 폴더를 외부 작업자가 열 수 있는 링크
+    (업로드 전용 파일 요청 · 만료 있는 공유 링크)로 바꾼다. 엔진은 네트워크를 부르지 않으므로
+    `file_ticket`이 이 명령을 **자식 프로세스로** 띄운다. 자격은 운영 PC `.env` 런타임 전용이고
+    저장소·영수증·로그에는 키 **이름**만 남는다. 모의 DSM fixture로 자격 없이 시험·시연한다.
+    정본 결정은 `guild_hall/engineering_engine/manual/12_mcp_door.md` §12.C.
 - `mail_fetch/collector/storage/mail_candidate_queue.py`
   - fresh mail event 를 업무화 검토 후보 queue 로 적재하고, monster 생성 전 수신 이력을 `_workmeta/P00-000_INBOX/reports/메일_이력/` 로 남기는 local-only writer
 

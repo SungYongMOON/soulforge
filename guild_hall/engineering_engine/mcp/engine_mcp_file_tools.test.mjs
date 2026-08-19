@@ -23,11 +23,14 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-  ACCESS_TABLE_FIXTURE, DOOR_RELATIVE, SYNTHETIC_MISMATCHED_TOKEN,
+  ACCESS_TABLE_FIXTURE, DOOR_RELATIVE, LINK_ISSUER_ENV_PREFIX, SYNTHETIC_MISMATCHED_TOKEN,
   SYNTHETIC_OVERLAY_FOLDER_NAME, SYNTHETIC_OVERLAY_TASK_ID, SYNTHETIC_OVERLAY_TOKEN,
   SYNTHETIC_OVERLAY_UNPLACED_TOKEN, SYNTHETIC_REGISTER_TOKEN,
-  SYNTHETIC_STAGE, stageSyntheticProject,
+  SYNTHETIC_STAGE, nasMockFixturePath, stageSyntheticProject,
 } from '../fixtures/engine_mcp_synthetic_project.mjs';
+import {
+  LINK_NOTES, issueTicketLink, linkIssuerArgs, linkIssuerFolderRel, linkIssuerReadiness,
+} from './link_issuer.mjs';
 import { resolveAccessView, validateAccessTable } from './access_table.mjs';
 import {
   FILE_OPERATIONS_RECEIPT_FILE, FILE_TICKETS_FILE, REGISTERED_CANDIDATES_FILE,
@@ -45,15 +48,21 @@ const TASK_FOLDER = '3004_Synthetic system requirements specification';
 
 async function stage({
   role = 'owner', write = true, now = null, file_door: fileDoor = true, overlay_add: overlayAdd = false,
+  link_issuer: linkIssuer = false, env = {},
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'engine_mcp_file_'));
-  const staged = stageSyntheticProject(root, { file_door: fileDoor, overlay_add: overlayAdd });
+  const staged = stageSyntheticProject(root, {
+    file_door: fileDoor, overlay_add: overlayAdd, link_issuer: linkIssuer,
+  });
   const context = await createEngineContext({
     profile_path: staged.profile_path,
     repo_root: root,
     engine_root: ENGINE_ROOT,
     engine_version: ENGINE_VERSION,
     write_enabled: write,
+    // The door reads the environment for the issuer's keys, so the test states one instead of
+    // depending on whatever the machine running the suite happens to carry.
+    env,
     view: resolveAccessView({
       table: ACCESS_TABLE,
       principal: { principal_ref: `test_${role}`, role },
@@ -621,5 +630,157 @@ test('an overlay addition that names no folder is still refused, as it was befor
     assert.equal(existsSync(join(staged.project_root, ...ticket.folder_ref.split('/'), 'unplaced.pdf')), true);
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------- the link issuer (12장 §12.C)
+
+const MOCK_ENV = Object.freeze({ [`${LINK_ISSUER_ENV_PREFIX}_MOCK`]: nasMockFixturePath('file_request') });
+
+test('what the door hands the child is derivable from the ticket alone', () => {
+  assert.equal(linkIssuerFolderRel({
+    purpose: 'upload', principal_ref: 'test_owner', ticket_id: 'up_20260819t050000z_abcdef',
+  }), 'tickets/test_owner/up_20260819t050000z_abcdef');
+  assert.equal(linkIssuerFolderRel({
+    purpose: 'download', principal_ref: 'test_owner', ticket_id: 'dn_20260819t050000z_abcdef',
+  }), 'outbox/test_owner/dn_20260819t050000z_abcdef');
+  assert.deepEqual(linkIssuerArgs({
+    cli_path: 'nas_issue_link.mjs',
+    ticket_id: 'up_1',
+    folder_rel: 'tickets/test_owner/up_1',
+    purpose: 'upload',
+    expires_at: '2026-08-22T05:00:00.000Z',
+  }), ['nas_issue_link.mjs', '--ticket', 'up_1', '--folder', 'tickets/test_owner/up_1',
+    '--purpose', 'upload', '--expires', '2026-08-22T05:00:00.000Z']);
+});
+
+test('readiness distinguishes "no issuer" from "issuer, but this machine has no keys"', () => {
+  assert.equal(linkIssuerReadiness(null, {}).note, LINK_NOTES.NOT_CONFIGURED);
+  const issuer = { kind: 'synology', env_prefix: LINK_ISSUER_ENV_PREFIX };
+  const bare = linkIssuerReadiness(issuer, {});
+  assert.equal(bare.ready, false);
+  assert.equal(bare.note, LINK_NOTES.ENV_MISSING);
+  assert.ok(bare.missing_keys.includes(`${LINK_ISSUER_ENV_PREFIX}_HOST`));
+  assert.ok(bare.missing_keys.some((name) => name.includes('_PASSWORD | ')));
+  assert.equal(linkIssuerReadiness(issuer, {
+    [`${LINK_ISSUER_ENV_PREFIX}_HOST`]: 'nas.invalid',
+    [`${LINK_ISSUER_ENV_PREFIX}_USER`]: 'account',
+    [`${LINK_ISSUER_ENV_PREFIX}_SHARE`]: 'soulforge_intake',
+    [`${LINK_ISSUER_ENV_PREFIX}_TOKEN`]: 'value',
+  }).ready, true);
+});
+
+test('a project with no issuer gets today\'s ticket: a folder, and a note saying why no link', async () => {
+  const { root, staged, context } = await stage();
+  try {
+    const result = await call('file_ticket', { purpose: 'upload' }, context);
+    assert.equal(result.structured.link_url, null);
+    assert.equal(result.structured.link_kind, null);
+    assert.equal(result.structured.link_expires_at, null);
+    assert.equal(result.structured.link_note, LINK_NOTES.NOT_CONFIGURED);
+    assert.match(result.markdown, /없음 — link_issuer_not_configured/u);
+    const rows = readLines(join(staged.receipts_dir, FILE_TICKETS_FILE));
+    assert.equal(rows[0].link, null);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('an issuer this machine has no keys for is a note, not a refused ticket', async () => {
+  const { root, staged, context } = await stage({ link_issuer: true, env: {} });
+  try {
+    const result = await call('file_ticket', { purpose: 'upload' }, context);
+    assert.equal(result.structured.link_note, LINK_NOTES.ENV_MISSING);
+    assert.equal(result.structured.link_url, null);
+    // The ticket itself is intact: the folder is there and the ledger has its row.
+    assert.equal(existsSync(join(staged.project_root, ...result.structured.folder_ref.split('/'))), true);
+    assert.equal(readLines(join(staged.receipts_dir, FILE_TICKETS_FILE)).length, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('with an issuer and a mock DSM the ticket comes back carrying its link', async () => {
+  const { root, staged, context } = await stage({ link_issuer: true, env: MOCK_ENV });
+  try {
+    const result = await call('file_ticket', { purpose: 'upload', note: '외부 협력사 업로드' }, context);
+    const structured = result.structured;
+    assert.equal(structured.link_kind, 'file_request');
+    assert.equal(structured.link_url, 'https://nas.invalid:5001/sharing/mockfilerequest01');
+    assert.equal(structured.link_expires_at, structured.expires_at);
+    assert.equal(structured.link_note, null);
+    assert.match(result.markdown, /https:\/\/nas\.invalid/u);
+
+    // The ledger keeps the link; the operations receipt keeps only that one exists and when it dies.
+    const ticketRow = readLines(join(staged.receipts_dir, FILE_TICKETS_FILE))[0];
+    assert.equal(ticketRow.link.link_url, structured.link_url);
+    assert.equal(ticketRow.link.link_kind, 'file_request');
+    assert.equal(ticketRow.link.dsm_link_id, 'mockfilerequest01');
+    const receipt = readLines(join(staged.receipts_dir, FILE_OPERATIONS_RECEIPT_FILE))[0];
+    assert.equal(receipt.link_kind, 'file_request');
+    assert.equal(receipt.link_expires_at, structured.expires_at);
+    assert.equal(JSON.stringify(receipt).includes('https://'), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a download ticket asks for its own link and still copies the file', async () => {
+  const { root, staged, context } = await stage({ link_issuer: true, env: MOCK_ENV });
+  try {
+    const outPath = join(staged.project_root, GATE_FOLDER, TASK_FOLDER, '03_Out');
+    mkdirSync(outPath, { recursive: true });
+    writeFileSync(join(outPath, 'SSRS_final.pdf'), 'synthetic', 'utf8');
+    const result = await call('file_ticket', {
+      purpose: 'download',
+      artifact_ref: `${GATE_FOLDER}/${TASK_FOLDER}/03_Out/SSRS_final.pdf`,
+    }, context);
+    assert.equal(result.structured.link_kind, 'sharing_view');
+    assert.equal(result.structured.copied_file, 'SSRS_final.pdf');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('an issuer that fails leaves the ticket standing and says the link was refused', async () => {
+  const { root, staged, context } = await stage({
+    link_issuer: true,
+    env: { [`${LINK_ISSUER_ENV_PREFIX}_MOCK`]: join(tmpdir(), 'there_is_no_such_nas_fixture.json') },
+  });
+  try {
+    const result = await call('file_ticket', { purpose: 'upload' }, context);
+    assert.equal(result.structured.link_note, LINK_NOTES.REFUSED);
+    assert.equal(result.structured.link_url, null);
+    assert.equal(readLines(join(staged.receipts_dir, FILE_TICKETS_FILE))[0].status, 'open');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('an answer the child described badly becomes no link, not a bad link', async () => {
+  const issuer = { kind: 'synology', env_prefix: LINK_ISSUER_ENV_PREFIX };
+  const spawnReturning = (result) => async () => result;
+  const cases = [
+    // Not JSON, an http url, an unknown kind, a non-zero exit: four ways to be told nothing usable.
+    [{ status: 0, stdout: 'not json at all' }, LINK_NOTES.UNREADABLE],
+    [{ status: 0, stdout: JSON.stringify({ link_url: 'http://nas.invalid/x', link_kind: 'file_request' }) },
+      LINK_NOTES.UNREADABLE],
+    [{ status: 0, stdout: JSON.stringify({ link_url: 'https://nas.invalid/x', link_kind: 'anything' }) },
+      LINK_NOTES.UNREADABLE],
+    [{ status: 4, stdout: '' }, LINK_NOTES.REFUSED],
+  ];
+  for (const [run, note] of cases) {
+    const link = await issueTicketLink({
+      issuer,
+      env: MOCK_ENV,
+      engine_root: ENGINE_ROOT,
+      ticket_id: 'up_20260819t050000z_abcdef',
+      principal_ref: 'test_owner',
+      purpose: 'upload',
+      expires_at: '2026-08-22T05:00:00.000Z',
+      spawn: spawnReturning(run),
+    });
+    assert.equal(link.link_url, null);
+    assert.equal(link.link_note, note);
   }
 });

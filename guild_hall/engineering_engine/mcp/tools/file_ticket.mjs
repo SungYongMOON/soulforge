@@ -10,8 +10,16 @@
 // caller who holds ⓒ, and everybody else is refused with `SE_MCP_CLASS_EXCEEDED` before anything
 // is created. That is 9.1F 겹 3 applied per item rather than per tool.
 //
-// What this tool does not do: issue a link. Turning the folder it names into something a person can
-// open from a browser is the gateway's job (OneDrive UI today); the engine makes no network call.
+// What this tool does not do: *make* a link. Turning the folder it names into something a person can
+// open from a browser is the gateway's job and the engine makes no network call. What it does do,
+// where the project profile names a `link_issuer` (§12.C), is **spawn** that gateway command as a
+// child process and record what came back. The engine process still opens no socket and holds no
+// credential; the child does, and it dies with its answer.
+//
+// The link is ⓑ, not ⓒ, and that is deliberate. The folder path is confidential because it is a
+// piece of the project tree; the link is the opposite — a capability to one empty folder that
+// discloses nothing about where that folder sits. Redacting it for the very roles allowed to open a
+// ticket would leave them a ticket they cannot hand to the person waiting for it.
 
 import { randomUUID } from 'node:crypto';
 import { basename, join } from 'node:path';
@@ -104,17 +112,31 @@ export async function handler(args, ctx) {
     await ctx.makeDirectoryCreateOnly(folder, { field: 'ticket_folder' });
   }
 
+  const expiresAt = ticketExpiry(createdAt, purpose, door.policy);
+  // After the folder exists and before the ledger row: a link to a folder that is not there yet is
+  // a link that fails in somebody's browser. A refusal here never fails the ticket — the folder is
+  // already made and the ticket is the record of the hand-over, so the ticket is written either way
+  // and `link_note` says why there is no link.
+  const link = await ctx.issueTicketLink({
+    issuer: door.link_issuer,
+    ticket_id: ticketId,
+    principal_ref: principalRef,
+    purpose,
+    expires_at: expiresAt,
+  });
+
   const record = newTicketRecord({
     ticket_id: ticketId,
     purpose,
     principal_ref: principalRef,
     role: ctx.view?.role ?? null,
     created_at: createdAt,
-    expires_at: ticketExpiry(createdAt, purpose, door.policy),
+    expires_at: expiresAt,
     folder_ref: ctx.projectRef(folder),
     artifact_ref: artifactRef,
     note,
     files: copied === null ? [] : [copied],
+    link: link.link_url === null ? null : link,
   });
   await ctx.appendTicketRow(record);
   await ctx.appendFileReceipt({
@@ -128,6 +150,11 @@ export async function handler(args, ctx) {
     folder_ref: record.folder_ref,
     artifact_ref: artifactRef,
     files: record.files,
+    // The operations receipt says a link of this kind exists and when it dies. The URL itself stays
+    // on the ticket row and is not copied here: one capability, one place.
+    link_kind: link.link_kind,
+    link_expires_at: link.link_expires_at,
+    link_note: link.link_note,
   });
 
   const structured = {
@@ -141,9 +168,11 @@ export async function handler(args, ctx) {
     copied_file: copied === null ? null : copied.name,
     allowed_extensions: door.policy.allowed_extensions.length,
     max_file_bytes: door.policy.max_file_bytes,
-    next: purpose === 'upload'
-      ? '이 폴더에 파일을 넣고 file_register로 등록한다. 링크는 이 폴더에 대해 OneDrive에서 만든다(엔진 밖).'
-      : '이 폴더에서 가져간다. 기한이 지나면 정리 도구가 휴지통으로 옮긴다(지우지 않는다).',
+    link_url: link.link_url,
+    link_kind: link.link_kind,
+    link_expires_at: link.link_expires_at,
+    link_note: link.link_note,
+    next: nextLine(purpose, link),
   };
 
   const markdown = lines(
@@ -151,9 +180,27 @@ export async function handler(args, ctx) {
     table(['표', '쓰는 사람', '기한'], [[ticketId, principalRef, record.expires_at]]),
     heading('자리'),
     structured.folder ?? '(가려짐)',
+    heading('링크'),
+    link.link_url ?? `(없음 — ${link.link_note})`,
     structured.next,
     FOOTER,
   );
 
   return { markdown, structured };
+}
+
+/**
+ * What the person holding this ticket does next — which differs entirely depending on whether a
+ * link came back, so the answer says the one thing that applies rather than listing both.
+ */
+function nextLine(purpose, link) {
+  if (purpose === 'download') {
+    return link.link_url === null
+      ? '이 폴더에서 가져간다. 기한이 지나면 정리 도구가 휴지통으로 옮긴다(지우지 않는다).'
+      : '이 링크로 받는다. 기한이 지나면 링크가 닫히고 칸은 정리 때 휴지통으로 간다(지우지 않는다).';
+  }
+  if (link.link_url === null) {
+    return '이 폴더에 파일을 넣고 file_register로 등록한다. 링크는 이 폴더에 대해 공유 UI에서 만든다(엔진 밖).';
+  }
+  return '이 링크를 올릴 사람에게 전달한다. 올라오면 file_register로 등록한다(링크는 기한이 지나면 닫힌다).';
 }

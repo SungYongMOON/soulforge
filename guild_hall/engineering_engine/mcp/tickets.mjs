@@ -12,9 +12,12 @@
 //
 // Three rules give it its shape.
 //
-//   1. **A ticket is a folder, not a link.** The engine returns a machine target and an id; issuing
-//      an actual OneDrive/SharePoint link is outside the engine (§12.B "밖에 있는 것"). So a ticket
-//      record carries no URL, no token and no secret — only who asked, what for, until when.
+//   1. **A ticket is a folder; a link is something somebody else made for it.** The engine returns
+//      a machine target and an id and issues no link itself — it makes no network call at all. Where
+//      a project names a link issuer, the gateway command beside the door creates the link and the
+//      door records the URL, the kind and the expiry on the ticket row (§12.C: 표 장부에 링크·만료
+//      기록). A **password** for that link is never recorded, and neither is a token or a session:
+//      the row says where the hand-over happens and until when, and nothing that authenticates.
 //   2. **Append, never edit.** A status change is a new row. The ledger is evidence, and evidence
 //      that can be rewritten in place is not evidence; `foldTicketLedger` is where "the latest row
 //      wins" is written down once.
@@ -243,10 +246,51 @@ export function ticketExpiry(createdAt, purpose, policy) {
  * `folder_ref` is a project-relative pointer, never an absolute path: the ledger lives on the
  * metadata plane and the metadata plane holds pointers, hashes and status (AGENTS.md).
  */
+/** The three link shapes §12.C allows, restated so the ledger validates what it records. */
+export const TICKET_LINK_KINDS = Object.freeze(['file_request', 'sharing_edit', 'sharing_view']);
+
+/**
+ * The link block on a ticket row, or `null`.
+ *
+ * Checked rather than trusted, because the values come from a separate program: an https URL, one
+ * of the three known kinds, and an expiry that is an instant or absent. No password field exists on
+ * this shape at all — the only way to keep a link password out of the ledger is to have nowhere to
+ * put one.
+ */
+export function validateTicketLink(raw, field = 'link') {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw !== 'object' || Array.isArray(raw)) {
+    fail(TICKET_ERROR_CODES.TICKET_INVALID, 'a ticket link is an object or nothing', { field });
+  }
+  if (typeof raw.link_url !== 'string' || !raw.link_url.startsWith('https://')
+    || raw.link_url.length > 500 || hasControlCharacter(raw.link_url)) {
+    fail(TICKET_ERROR_CODES.TICKET_INVALID, 'a ticket link is one https url',
+      { field: `${field}.link_url` });
+  }
+  if (!TICKET_LINK_KINDS.includes(raw.link_kind)) {
+    fail(TICKET_ERROR_CODES.TICKET_INVALID, 'unknown ticket link kind',
+      { field: `${field}.link_kind`, allowed: [...TICKET_LINK_KINDS] });
+  }
+  const expiresAt = raw.link_expires_at ?? null;
+  if (expiresAt !== null) assertInstantString(expiresAt, `${field}.link_expires_at`);
+  const linkId = raw.dsm_link_id ?? null;
+  if (linkId !== null && (typeof linkId !== 'string' || linkId.length > 64
+    || hasControlCharacter(linkId))) {
+    fail(TICKET_ERROR_CODES.TICKET_INVALID, 'a link id is a short string',
+      { field: `${field}.dsm_link_id` });
+  }
+  return {
+    link_url: raw.link_url,
+    link_kind: raw.link_kind,
+    link_expires_at: expiresAt,
+    dsm_link_id: linkId,
+  };
+}
+
 export function newTicketRecord({
   ticket_id: ticketId, purpose, principal_ref: principalRef, role,
   created_at: createdAt, expires_at: expiresAt, folder_ref: folderRef,
-  artifact_ref: artifactRef = null, note = null, files = [],
+  artifact_ref: artifactRef = null, note = null, files = [], link = null,
 }) {
   assertTicketId(ticketId);
   if (!TICKET_PURPOSES.includes(purpose)) {
@@ -276,6 +320,7 @@ export function newTicketRecord({
     artifact_ref: artifactRef,
     note,
     files: [...files],
+    link: validateTicketLink(link),
   };
 }
 

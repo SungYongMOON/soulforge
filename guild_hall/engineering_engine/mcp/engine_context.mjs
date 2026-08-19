@@ -42,6 +42,7 @@ import {
   assertPathUnderRoots, hasControlCharacter, isPathUnder, repoPointer, validateProjectProfile,
 } from './project_profile.mjs';
 import { foldTicketLedger } from './tickets.mjs';
+import { issueTicketLink } from './link_issuer.mjs';
 
 export const ENGINE_MCP_ERROR_CODES = Object.freeze({
   ARGUMENTS_INVALID: 'ENGINE_MCP_ARGUMENTS_INVALID',
@@ -568,8 +569,24 @@ export async function createEngineContext(options) {
       trash_dir: profile.trash_dir,
       confidential_dirs: profile.confidential_dirs,
       policy: profile.ticket_policy,
+      // `null` unless this project named an issuer (§12.C). The door reads only the kind and the
+      // env prefix from it; the credentials, the host and the network are the child process's.
+      link_issuer: profile.link_issuer ?? null,
     });
   };
+
+  /**
+   * A link for one ticket, made by the gateway command beside the door.
+   *
+   * A seam rather than a direct call so a test can drive the whole ticket path without spawning,
+   * and so the spawn stays in one place. The default implementation is the real child process.
+   */
+  context.issueTicketLink = (request) => issueTicketLink({
+    ...request,
+    engine_root: engineRoot,
+    env: options.env ?? process.env,
+    spawn: options.spawn_link_issuer,
+  });
 
   /**
    * The ticket ledger, folded to one row per ticket.
