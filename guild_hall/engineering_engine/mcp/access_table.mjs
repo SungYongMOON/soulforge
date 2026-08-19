@@ -71,6 +71,19 @@ const TOOL_NAME = /^[a-z][a-z0-9_]{2,63}$/u;
 const MAX = Object.freeze({ tools: 64, classes: 4, capabilities: 16, projects: 256 });
 
 /**
+ * The file door, for a team role (Owner 결정 2026-08-19).
+ *
+ * Everybody on the team may ask for a place to put a file, put one there, register it, and see the
+ * tickets they were given — that is the whole point of 등록 = 저장, and a hand-over that needs the
+ * Owner's hands is a hand-over that will happen over mail instead. What stays with Owner and PM is
+ * the sweep (`file_tickets_gc`, ⓒ), and what stays per-item is the class check inside
+ * `file_ticket(download)` and `file_get`: the tool opens, the confidential folder does not.
+ */
+const FILE_DOOR_TEAM_TOOLS = Object.freeze([
+  'file_ticket', 'file_put', 'file_register', 'file_get', 'file_tickets_list',
+]);
+
+/**
  * The table that applies when the Owner has not written one.
  *
  * It is not a placeholder: it is the reading of 9.1F that the engine falls back to, so it is as
@@ -99,6 +112,7 @@ export const DEFAULT_ACCESS_TABLE_V0 = Object.freeze({
         'whoami', 'engine_status', 'projects_list',
         'rules_layers', 'rules_stage', 'rules_card', 'rules_version',
         'observe_status', 'observe_register', 'observe_scan',
+        ...FILE_DOOR_TEAM_TOOLS,
         'judge_run', 'judge_result', 'judge_diff', 'next_steps', 'project_status',
       ]),
       classes: Object.freeze(['public_rules', 'team_judgment']),
@@ -109,6 +123,7 @@ export const DEFAULT_ACCESS_TABLE_V0 = Object.freeze({
         'whoami', 'engine_status', 'projects_list',
         'rules_layers', 'rules_stage', 'rules_card', 'rules_version',
         'observe_status', 'observe_register',
+        ...FILE_DOOR_TEAM_TOOLS,
         'judge_result', 'judge_diff', 'next_steps', 'project_status',
       ]),
       classes: Object.freeze(['public_rules', 'team_judgment']),
@@ -119,6 +134,7 @@ export const DEFAULT_ACCESS_TABLE_V0 = Object.freeze({
         'whoami', 'engine_status', 'projects_list',
         'rules_layers', 'rules_stage', 'rules_card', 'rules_version',
         'observe_status', 'observe_register',
+        ...FILE_DOOR_TEAM_TOOLS,
         'judge_result', 'judge_diff', 'next_steps', 'project_status',
       ]),
       classes: Object.freeze(['public_rules', 'team_judgment']),
@@ -129,6 +145,7 @@ export const DEFAULT_ACCESS_TABLE_V0 = Object.freeze({
         'whoami', 'engine_status', 'projects_list',
         'rules_layers', 'rules_stage', 'rules_card', 'rules_version',
         'observe_status', 'observe_register', 'observe_scan',
+        ...FILE_DOOR_TEAM_TOOLS,
         'judge_run', 'judge_result', 'judge_diff', 'next_steps', 'project_status',
       ]),
       classes: Object.freeze(['public_rules', 'team_judgment']),

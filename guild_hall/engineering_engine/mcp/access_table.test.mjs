@@ -68,6 +68,25 @@ test('the documented access table validates and covers the roles the design name
   }
 });
 
+test('the file door is open to every team role, and the sweep is not', () => {
+  const door = ['file_ticket', 'file_put', 'file_register', 'file_get', 'file_tickets_list'];
+  for (const role of ['systems', 'hw', 'sw', 'quality']) {
+    for (const tool of door) {
+      assert.ok(DEFAULT_ACCESS_TABLE_V0.roles[role].tools.includes(tool),
+        `${role} should be able to call ${tool} — 등록 = 저장 (9.1D)`);
+    }
+    // Housekeeping moves folders and is ⓒ; a team role is refused by the table as well as by the
+    // class, so neither check is the only one standing.
+    assert.equal(DEFAULT_ACCESS_TABLE_V0.roles[role].tools.includes('file_tickets_gc'), false);
+    assert.equal(DEFAULT_ACCESS_TABLE_V0.roles[role].classes.includes('confidential_contract'),
+      false);
+  }
+  for (const tool of [...door, 'file_tickets_gc']) {
+    assert.equal(DEFAULT_ACCESS_TABLE_V0.roles.external.tools.includes(tool), false,
+      'an outside party holds no part of the file door');
+  }
+});
+
 test('an access table with an unknown role, class or key is refused', () => {
   const refusal = (raw) => {
     try {

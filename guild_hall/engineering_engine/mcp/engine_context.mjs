@@ -22,8 +22,11 @@
 //
 // This is the layer allowed to read the disk and the clock. The pure functions it calls are not.
 
-import { appendFile, mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises';
-import { randomUUID } from 'node:crypto';
+import {
+  appendFile, copyFile, link, lstat, mkdir, readFile, readdir, rename, unlink, writeFile,
+} from 'node:fs/promises';
+import { constants as FS, createReadStream } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
 import { basename, dirname, join } from 'node:path';
 
 import { compileStageRules } from '../stage_rules/stage_rule_compiler.mjs';
@@ -38,6 +41,7 @@ import {
 import {
   assertPathUnderRoots, hasControlCharacter, isPathUnder, repoPointer, validateProjectProfile,
 } from './project_profile.mjs';
+import { foldTicketLedger } from './tickets.mjs';
 
 export const ENGINE_MCP_ERROR_CODES = Object.freeze({
   ARGUMENTS_INVALID: 'ENGINE_MCP_ARGUMENTS_INVALID',
@@ -53,6 +57,12 @@ export const ENGINE_MCP_ERROR_CODES = Object.freeze({
   WRITE_TOOLS_DISABLED: 'WRITE_TOOLS_DISABLED',
   RUNNER_REFUSED: 'ENGINE_MCP_RUNNER_REFUSED',
   LANE_BUSY: 'SE_MCP_LANE_BUSY',
+  // ---- the file door (문 앞 칸)
+  FILE_DOOR_DISABLED: 'ENGINE_MCP_FILE_DOOR_DISABLED',
+  FILE_UNREADABLE: 'ENGINE_MCP_FILE_UNREADABLE',
+  FILE_TOO_LARGE: 'ENGINE_MCP_FILE_TOO_LARGE',
+  HASH_MISMATCH: 'ENGINE_MCP_FILE_HASH_MISMATCH',
+  TASK_FOLDER_UNRESOLVED: 'ENGINE_MCP_TASK_FOLDER_UNRESOLVED',
 });
 
 export class EngineMcpError extends Error {
@@ -81,6 +91,19 @@ const CONFIRMED_PREFIX = 'confirmed_observations_';
 export const REGISTERED_CANDIDATES_FILE = 'registered_candidates.jsonl';
 export const TOOL_CALL_RECEIPT_FILE = 'mcp_tool_calls.jsonl';
 export const RUNS_INDEX_FILE = 'runs_index.jsonl';
+
+/**
+ * The two ledgers the file door keeps, and the receipt it writes beside them.
+ *
+ * `registered_observations.jsonl` sits with the other observation files, on the project plane,
+ * because it *is* observation material: 9.1D's rule is 등록 = 저장, so a registration that passed
+ * the same automatic-confirmation rule the walk uses is an observation and `loadObservations`
+ * reads it. The ticket ledger and the file receipt are metadata — who asked, which hash, which
+ * pointer — so they live on the metadata plane with the tool-call receipts.
+ */
+export const REGISTERED_OBSERVATIONS_FILE = 'registered_observations.jsonl';
+export const FILE_TICKETS_FILE = 'file_tickets.jsonl';
+export const FILE_OPERATIONS_RECEIPT_FILE = 'file_operations.jsonl';
 
 /** Where a per-project write lock lives, and what it is. */
 export const WRITE_LOCK_DIR = 'locks';
@@ -320,6 +343,15 @@ export async function createEngineContext(options) {
     const confirmed = confirmedName === null ? null
       : await readJsonIfPresent(join(profile.observations_dir, confirmedName), 'confirmed_observations');
 
+    // 등록 = 저장 (9.1D): a file registered through the door, in the task folder the rules
+    // resolved, under a name that says what it is, is an observation — the same three conditions
+    // the walk auto-confirms on. It is read last because it is the most recent and most specific
+    // statement anybody made about that artifact: a person put this file there, on purpose, and
+    // the door recorded who and when. Rows that did not pass the rule never reach this file; they
+    // wait in `registered_candidates.jsonl` for a person, which is what keeps D37 intact.
+    const registered = await readJsonLines(
+      join(profile.observations_dir, REGISTERED_OBSERVATIONS_FILE));
+
     const byToken = new Map();
     const take = (file, source) => {
       for (const row of file?.artifact_observations ?? []) {
@@ -329,6 +361,8 @@ export async function createEngineContext(options) {
     };
     take(auto, 'auto');
     take(confirmed, 'confirmed');
+    take({ artifact_observations: registered.map((row) => row?.observation).filter(
+      (row) => row !== null && typeof row === 'object') }, 'registered');
 
     const rows = [...byToken.values()].map((entry) => entry.row);
     return {
@@ -339,8 +373,10 @@ export async function createEngineContext(options) {
       sources: {
         auto_file: auto === null ? null : 'artifact_observations_auto.json',
         confirmed_file: confirmedName,
+        registered_file: registered.length === 0 ? null : REGISTERED_OBSERVATIONS_FILE,
         auto_rows: auto?.artifact_observations?.length ?? 0,
         confirmed_rows: confirmed?.artifact_observations?.length ?? 0,
+        registered_rows: registered.length,
         merged_rows: rows.length,
       },
     };
@@ -412,6 +448,25 @@ export async function createEngineContext(options) {
         { tool: toolName });
     }
   };
+
+  /**
+   * The caller's own reference, or a refusal.
+   *
+   * The server already refuses an unnamed caller for every tool but the public ones, so this is
+   * belt and braces — except for the file door, where it is the load-bearing check: a ticket
+   * belongs to a person, and a ticket folder named after nobody is a folder anybody may use.
+   */
+  context.requirePrincipal = (toolName) => {
+    const ref = context.view?.principal_ref ?? null;
+    if (ref === null) {
+      mcpFail('SE_MCP_PRINCIPAL_REQUIRED',
+        'this tool acts on behalf of a person, so the call has to say who', { tool: toolName });
+    }
+    return ref;
+  };
+
+  /** Owner and PM act for the whole project; everybody else acts for themselves. */
+  context.mayActForOthers = () => context.view?.role === 'owner' || context.view?.role === 'pm';
 
   /** What this caller may be shown, asked as a question rather than read as a field. */
   context.canSeeClass = (dataClass) => viewSeesClass(context.view, dataClass);
@@ -490,6 +545,276 @@ export async function createEngineContext(options) {
     await appendFile(absolute, `${line}\n`, 'utf8');
     if (invalidate) context.invalidateAfterWrite(field);
     return absolute;
+  };
+
+  // ------------------------------------------------------------ the file door (문 앞 칸)
+
+  /**
+   * The door's four settings, or a refusal that names the field to add.
+   *
+   * A project that never stated an intake folder has no door, and that is a normal state rather
+   * than a broken one — so the refusal points at the profile rather than pretending the tool is
+   * missing.
+   */
+  context.fileDoor = () => {
+    if (profile.file_door_enabled !== true) {
+      mcpFail(ENGINE_MCP_ERROR_CODES.FILE_DOOR_DISABLED,
+        'this project profile states no file door, so nothing can be put in or taken out',
+        { field: 'intake_dir' });
+    }
+    return Object.freeze({
+      intake_dir: profile.intake_dir,
+      outbox_dir: profile.outbox_dir,
+      trash_dir: profile.trash_dir,
+      confidential_dirs: profile.confidential_dirs,
+      policy: profile.ticket_policy,
+    });
+  };
+
+  /**
+   * The ticket ledger, folded to one row per ticket.
+   *
+   * Read every time rather than cached: the cache is keyed by a generation that only writes bump,
+   * and a ticket the *other* lane just used is exactly the row a stale answer would miss.
+   */
+  context.readTicketLedger = async () => foldTicketLedger(
+    await readJsonLines(join(profile.receipts_dir, FILE_TICKETS_FILE)));
+
+  context.appendTicketRow = (row) => context.appendLine(
+    join(profile.receipts_dir, FILE_TICKETS_FILE), JSON.stringify(row),
+    { field: 'file_tickets', invalidate: false });
+
+  /** 영수증: which principal moved which bytes where, with the digests. Metadata, never payload. */
+  context.appendFileReceipt = (row) => context.appendLine(
+    join(profile.receipts_dir, FILE_OPERATIONS_RECEIPT_FILE), JSON.stringify(row),
+    { field: 'file_operations', invalidate: false });
+
+  context.appendRegisteredObservation = (row) => context.appendLine(
+    join(profile.observations_dir, REGISTERED_OBSERVATIONS_FILE), JSON.stringify(row),
+    { field: 'registered_observations' });
+
+  /** True when this file lies inside one of the folders the profile marked ⓒ. */
+  context.isConfidentialPath = (absolute) =>
+    (profile.confidential_dirs ?? []).some((dir) => isPathUnder(absolute, dir));
+
+  /**
+   * A project-relative pointer a caller supplied, turned into one absolute path inside the project.
+   *
+   * The same shape `observe_register` accepts, resolved rather than only checked: no drive letter,
+   * no leading separator, no `..`, and the result has to land under the project root even after
+   * resolution.
+   */
+  context.resolveProjectRef = (value, field = 'artifact_ref') => {
+    assertArgumentString(value, field, 400);
+    if (/^[A-Za-z]:[\\/]/u.test(value) || value.startsWith('/') || value.startsWith('\\')) {
+      mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID,
+        'this is a project-relative pointer, not an absolute path', { field });
+    }
+    if (value.split(/[\\/]/u).includes('..')) {
+      mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID,
+        'a pointer may not climb out of the project', { field });
+    }
+    const absolute = join(profile.project_root, ...value.split(/[\\/]/u).filter(Boolean));
+    if (!isPathUnder(absolute, profile.project_root)) {
+      mcpFail(ENGINE_MCP_ERROR_CODES.ARGUMENTS_INVALID,
+        'this pointer resolves outside the project', { field });
+    }
+    return absolute;
+  };
+
+  /** The pointer form the ledgers and answers use: project-relative, forward slashes. */
+  context.projectRef = (absolute) => relativeUnder(profile.project_root, absolute);
+
+  context.pathExists = async (absolute) => {
+    try {
+      await lstat(absolute);
+      return true;
+    } catch (error) {
+      if (error?.code === 'ENOENT') return false;
+      throw error;
+    }
+  };
+
+  context.statFile = async (absolute) => {
+    let stats;
+    try {
+      stats = await lstat(absolute);
+    } catch (error) {
+      if (error?.code === 'ENOENT') return null;
+      throw error;
+    }
+    if (!stats.isFile()) return null;
+    return { bytes: stats.size, mtime_iso: stats.mtime.toISOString() };
+  };
+
+  /** The plain files directly inside one folder, by name, or `[]` when the folder is not there. */
+  context.listFilesIn = async (absolute) => {
+    let entries;
+    try {
+      entries = await readdir(absolute, { withFileTypes: true });
+    } catch (error) {
+      if (error?.code === 'ENOENT') return [];
+      throw error;
+    }
+    const rows = [];
+    for (const entry of entries.sort((left, right) => (left.name < right.name ? -1 : 1))) {
+      if (!entry.isFile()) continue;
+      const path = join(absolute, entry.name);
+      const stats = await context.statFile(path);
+      if (stats === null) continue;
+      rows.push({ name: entry.name, path, ...stats });
+    }
+    return rows;
+  };
+
+  context.listDirectoriesIn = async (absolute) => {
+    try {
+      return (await readdir(absolute, { withFileTypes: true }))
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name)
+        .sort();
+    } catch (error) {
+      if (error?.code === 'ENOENT') return [];
+      throw error;
+    }
+  };
+
+  context.hashFile = (absolute) => hashFileAt(absolute);
+
+  /** A folder that must not exist yet: a second ticket cannot be handed the first one's folder. */
+  context.makeDirectoryCreateOnly = async (absolute, { field = 'directory' } = {}) => {
+    assertWritable(absolute, 'directory', field);
+    await mkdir(dirname(absolute), { recursive: true });
+    try {
+      await mkdir(absolute);
+    } catch (error) {
+      if (error?.code === 'EEXIST') {
+        mcpFail(ENGINE_MCP_ERROR_CODES.OUTPUT_EXISTS,
+          'this folder already exists and is not reused', { field });
+      }
+      throw error;
+    }
+    return absolute;
+  };
+
+  context.writeBytesCreateOnly = async (absolute, bytes, { field = 'write_target' } = {}) => {
+    assertWritable(dirname(absolute), 'directory', `${field}.directory`);
+    assertWritable(absolute, 'file', field);
+    await mkdir(dirname(absolute), { recursive: true });
+    try {
+      await writeFile(absolute, bytes, { flag: 'wx' });
+    } catch (error) {
+      if (error?.code === 'EEXIST') {
+        mcpFail(ENGINE_MCP_ERROR_CODES.OUTPUT_EXISTS,
+          'a file of that name is already there and is not overwritten', { field });
+      }
+      throw error;
+    }
+    context.invalidateAfterWrite(field);
+    return absolute;
+  };
+
+  context.readBytes = async (absolute, maxBytes, { field = 'artifact_ref' } = {}) => {
+    const stats = await context.statFile(absolute);
+    if (stats === null) {
+      mcpFail(ENGINE_MCP_ERROR_CODES.FILE_UNREADABLE, 'there is no such file here', { field });
+    }
+    if (stats.bytes > maxBytes) {
+      mcpFail(ENGINE_MCP_ERROR_CODES.FILE_TOO_LARGE,
+        'this file is bigger than the door carries; use a link',
+        { field, bytes: stats.bytes, max_bytes: maxBytes });
+    }
+    const content = await readFile(absolute);
+    return { content, sha256: createHash('sha256').update(content).digest('hex'), ...stats };
+  };
+
+  /**
+   * Moves one file to a name nothing is using, and proves the bytes survived the move.
+   *
+   * `rename` is not used: on every platform it replaces an existing destination without a word,
+   * and "never overwrite" is the one promise this door makes about a project's folder. A hard link
+   * fails with EEXIST instead, which is the refusal we want; when the two paths are on different
+   * volumes or the filesystem has no links, the fallback is a copy that refuses on EEXIST followed
+   * by the unlink. Either way the digest is taken before and after, because a move that silently
+   * truncated is worse than one that failed.
+   */
+  context.moveCreateOnly = async (from, to, { field = 'move_target', sha256 = null } = {}) => {
+    assertWritable(dirname(to), 'directory', `${field}.directory`);
+    assertWritable(to, 'file', field);
+    const before = sha256 ?? await hashFileAt(from);
+    await mkdir(dirname(to), { recursive: true });
+    let linked = true;
+    try {
+      await link(from, to);
+    } catch (error) {
+      if (error?.code === 'EEXIST') {
+        mcpFail(ENGINE_MCP_ERROR_CODES.OUTPUT_EXISTS,
+          'a file of that name is already there and is not overwritten', { field });
+      }
+      linked = false;
+      try {
+        await copyFile(from, to, FS.COPYFILE_EXCL);
+      } catch (copyError) {
+        if (copyError?.code === 'EEXIST') {
+          mcpFail(ENGINE_MCP_ERROR_CODES.OUTPUT_EXISTS,
+            'a file of that name is already there and is not overwritten', { field });
+        }
+        throw copyError;
+      }
+    }
+    const after = await hashFileAt(to);
+    if (after !== before) {
+      // The destination is removed rather than left: a half-moved file in a task folder would be
+      // read by the next walk as evidence.
+      await unlink(to).catch(() => {});
+      mcpFail(ENGINE_MCP_ERROR_CODES.HASH_MISMATCH,
+        'the file changed while it was being moved, so nothing was registered', { field });
+    }
+    await unlink(from);
+    context.invalidateAfterWrite(field);
+    return { path: to, sha256: after, linked };
+  };
+
+  context.copyCreateOnly = async (from, to, { field = 'copy_target' } = {}) => {
+    assertWritable(dirname(to), 'directory', `${field}.directory`);
+    assertWritable(to, 'file', field);
+    const before = await hashFileAt(from);
+    await mkdir(dirname(to), { recursive: true });
+    try {
+      await copyFile(from, to, FS.COPYFILE_EXCL);
+    } catch (error) {
+      if (error?.code === 'EEXIST') {
+        mcpFail(ENGINE_MCP_ERROR_CODES.OUTPUT_EXISTS,
+          'a file of that name is already there and is not overwritten', { field });
+      }
+      throw error;
+    }
+    const after = await hashFileAt(to);
+    if (after !== before) {
+      await unlink(to).catch(() => {});
+      mcpFail(ENGINE_MCP_ERROR_CODES.HASH_MISMATCH,
+        'the copy does not match the file it was made from', { field });
+    }
+    context.invalidateAfterWrite(field);
+    return { path: to, sha256: after };
+  };
+
+  /**
+   * Moves a whole folder to a place nothing is using. Used by housekeeping and by nothing else.
+   *
+   * The engine never deletes: sweeping a finished ticket means the folder is somewhere else, with
+   * its name intact, where a person can look at it.
+   */
+  context.moveDirectoryCreateOnly = async (from, to, { field = 'trash_target' } = {}) => {
+    assertWritable(to, 'directory', field);
+    if (await context.pathExists(to)) {
+      mcpFail(ENGINE_MCP_ERROR_CODES.OUTPUT_EXISTS,
+        'something is already in that place and it is not replaced', { field });
+    }
+    await mkdir(dirname(to), { recursive: true });
+    await rename(from, to);
+    context.invalidateAfterWrite(field);
+    return to;
   };
 
   // ------------------------------------------------------------ the write lock
@@ -598,6 +923,44 @@ export async function readJsonIfPresent(absolute, label) {
       { label, code: error?.code ?? null });
   }
   return null;
+}
+
+/** Every JSON object on its own line, skipping blanks and lines that will not parse. */
+export async function readJsonLines(absolute) {
+  const text = await readTextIfPresent(absolute);
+  if (text === null) return [];
+  const rows = [];
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed.length === 0) continue;
+    try {
+      rows.push(JSON.parse(trimmed));
+    } catch {
+      // A ledger with one torn line still has to answer for the others.
+    }
+  }
+  return rows;
+}
+
+/**
+ * sha256 of a file, read in chunks.
+ *
+ * Streamed rather than `readFile`d because the move path carries no size cap — a registration is a
+ * move on one volume, and a 400 MB drawing set has no business being held in memory to be hashed.
+ */
+export async function hashFileAt(absolute) {
+  const digest = createHash('sha256');
+  const stream = createReadStream(absolute);
+  for await (const chunk of stream) digest.update(chunk);
+  return digest.digest('hex');
+}
+
+/** `<root>/a/b.txt` → `a/b.txt`, forward slashes, or `null` when it is not under the root. */
+export function relativeUnder(root, absolute) {
+  const left = String(absolute).split('\\').join('/');
+  const right = String(root).split('\\').join('/').replace(/\/$/u, '');
+  return left.toLowerCase().startsWith(`${right.toLowerCase()}/`)
+    ? left.slice(right.length + 1) : null;
 }
 
 export async function readTextIfPresent(absolute) {

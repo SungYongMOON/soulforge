@@ -15,66 +15,182 @@
     "schema_version": "soulforge.engine_access_table.v0",
     "roles": {
       "owner": {
-        "tools": ["*"],
-        "classes": ["public_rules", "team_judgment", "confidential_contract", "personal"],
-        "capabilities": ["*"]
+        "tools": [
+          "*"
+        ],
+        "classes": [
+          "public_rules",
+          "team_judgment",
+          "confidential_contract",
+          "personal"
+        ],
+        "capabilities": [
+          "*"
+        ]
       },
       "pm": {
-        "tools": ["*"],
-        "classes": ["public_rules", "team_judgment", "confidential_contract", "personal"],
-        "capabilities": ["*"]
+        "tools": [
+          "*"
+        ],
+        "classes": [
+          "public_rules",
+          "team_judgment",
+          "confidential_contract",
+          "personal"
+        ],
+        "capabilities": [
+          "*"
+        ]
       },
       "systems": {
         "tools": [
-          "whoami", "engine_status", "projects_list",
-          "rules_layers", "rules_stage", "rules_card", "rules_version",
-          "observe_status", "observe_register", "observe_scan",
-          "judge_run", "judge_result", "judge_diff", "next_steps", "project_status"
+          "whoami",
+          "engine_status",
+          "projects_list",
+          "rules_layers",
+          "rules_stage",
+          "rules_card",
+          "rules_version",
+          "observe_status",
+          "observe_register",
+          "observe_scan",
+          "file_ticket",
+          "file_put",
+          "file_register",
+          "file_get",
+          "file_tickets_list",
+          "judge_run",
+          "judge_result",
+          "judge_diff",
+          "next_steps",
+          "project_status"
         ],
-        "classes": ["public_rules", "team_judgment"],
-        "capabilities": ["systems_engineering"]
+        "classes": [
+          "public_rules",
+          "team_judgment"
+        ],
+        "capabilities": [
+          "systems_engineering"
+        ]
       },
       "hw": {
         "tools": [
-          "whoami", "engine_status", "projects_list",
-          "rules_layers", "rules_stage", "rules_card", "rules_version",
-          "observe_status", "observe_register",
-          "judge_result", "judge_diff", "next_steps", "project_status"
+          "whoami",
+          "engine_status",
+          "projects_list",
+          "rules_layers",
+          "rules_stage",
+          "rules_card",
+          "rules_version",
+          "observe_status",
+          "observe_register",
+          "file_ticket",
+          "file_put",
+          "file_register",
+          "file_get",
+          "file_tickets_list",
+          "judge_result",
+          "judge_diff",
+          "next_steps",
+          "project_status"
         ],
-        "classes": ["public_rules", "team_judgment"],
-        "capabilities": ["hw_engineering", "mechanical_design"]
+        "classes": [
+          "public_rules",
+          "team_judgment"
+        ],
+        "capabilities": [
+          "hw_engineering",
+          "mechanical_design"
+        ]
       },
       "sw": {
         "tools": [
-          "whoami", "engine_status", "projects_list",
-          "rules_layers", "rules_stage", "rules_card", "rules_version",
-          "observe_status", "observe_register",
-          "judge_result", "judge_diff", "next_steps", "project_status"
+          "whoami",
+          "engine_status",
+          "projects_list",
+          "rules_layers",
+          "rules_stage",
+          "rules_card",
+          "rules_version",
+          "observe_status",
+          "observe_register",
+          "file_ticket",
+          "file_put",
+          "file_register",
+          "file_get",
+          "file_tickets_list",
+          "judge_result",
+          "judge_diff",
+          "next_steps",
+          "project_status"
         ],
-        "classes": ["public_rules", "team_judgment"],
-        "capabilities": ["sw_engineering"]
+        "classes": [
+          "public_rules",
+          "team_judgment"
+        ],
+        "capabilities": [
+          "sw_engineering"
+        ]
       },
       "quality": {
         "tools": [
-          "whoami", "engine_status", "projects_list",
-          "rules_layers", "rules_stage", "rules_card", "rules_version",
-          "observe_status", "observe_register", "observe_scan",
-          "judge_run", "judge_result", "judge_diff", "next_steps", "project_status"
+          "whoami",
+          "engine_status",
+          "projects_list",
+          "rules_layers",
+          "rules_stage",
+          "rules_card",
+          "rules_version",
+          "observe_status",
+          "observe_register",
+          "observe_scan",
+          "file_ticket",
+          "file_put",
+          "file_register",
+          "file_get",
+          "file_tickets_list",
+          "judge_run",
+          "judge_result",
+          "judge_diff",
+          "next_steps",
+          "project_status"
         ],
-        "classes": ["public_rules", "team_judgment"],
-        "capabilities": ["verification_review", "configuration_management", "risk_management"]
+        "classes": [
+          "public_rules",
+          "team_judgment"
+        ],
+        "capabilities": [
+          "verification_review",
+          "configuration_management",
+          "risk_management"
+        ]
       },
       "external": {
-        "tools": ["whoami", "engine_status", "rules_layers", "rules_stage", "rules_card", "rules_version"],
-        "classes": ["public_rules"],
+        "tools": [
+          "whoami",
+          "engine_status",
+          "rules_layers",
+          "rules_stage",
+          "rules_card",
+          "rules_version"
+        ],
+        "classes": [
+          "public_rules"
+        ],
         "capabilities": []
       }
     },
     "project_overrides": {
       "SYN-001": {
         "hw": {
-          "tools": ["whoami", "engine_status", "rules_stage"],
-          "classes": ["public_rules"],
+          "tools": [
+            "whoami",
+            "engine_status",
+            "rules_stage"
+          ],
+          "classes": [
+            "public_rules"
+          ],
           "capabilities": []
         }
       }
@@ -86,5 +202,6 @@
     "PERMISSION_DENIED": "역할에 그 도구가 없음(또는 과제가 paused/closed)",
     "CLASS_EXCEEDED": "도구가 내는 자료 등급이 그 역할이 볼 수 있는 등급 밖",
     "WRITE_DISABLED": "쓰기 스위치가 꺼져 있음"
-  }
+  },
+  "file_door_note": "문 앞 칸(파일 넣기·받기) 도구는 팀 역할 전부에게 열려 있다(Owner 결정 2026-08-19: 등록 = 저장). 정리 도구 file_tickets_gc는 ⓒ라 Owner·PM만이며, 기밀 폴더의 파일은 도구가 열려 있어도 file_ticket(download)·file_get 안에서 항목 단위로 SE_MCP_CLASS_EXCEEDED로 막힌다."
 }

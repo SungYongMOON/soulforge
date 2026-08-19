@@ -334,6 +334,149 @@ function leadingNumber(folderName) {
   return match === null ? Number.NaN : Number(match[1]);
 }
 
+// ---------------------------------------------------------------- the folder a file belongs in
+
+/**
+ * Why a target folder could not be named. One reason per refusal, in the caller's vocabulary.
+ *
+ * `task_folder_names_a_different_task` is the interesting one and the reason this resolution is
+ * not "take the task id and go": a folder tree generated from an older rule revision can carry the
+ * same number for a different task, and moving a file into a folder because the number matched
+ * would file it under whatever that folder is now. The number has to agree with the name.
+ */
+export const TASK_FOLDER_REFUSALS = Object.freeze({
+  STAGE_UNKNOWN: 'stage_not_in_variant',
+  ARTIFACT_NOT_AT_STAGE: 'artifact_not_declared_at_this_stage',
+  ARTIFACT_AMBIGUOUS: 'artifact_declared_twice_at_this_stage',
+  GATE_FOLDER_MISSING: 'gate_folder_missing',
+  GATE_FOLDER_AMBIGUOUS: 'gate_folder_ambiguous',
+  TASK_FOLDER_MISSING: 'task_folder_missing',
+  TASK_FOLDER_MISMATCH: 'task_folder_names_a_different_task',
+});
+
+/** Letters and digits only, folded, maturity suffix dropped: two spellings of one folder name. */
+function normaliseFolderName(name) {
+  return fold(String(name)).replace(/_(?:d|u|f)$/u, '').replace(/[^\p{L}\p{N}]/gu, '');
+}
+
+const gateCodeForStage = (stageCode) => {
+  for (const [code, stage] of STAGE_CODE_BY_GATE_CODE) if (stage === stageCode) return code;
+  return null;
+};
+
+/**
+ * Which folder under the project root is this stage's gate folder.
+ *
+ * @param request `{ compiled_variant, stage_code, folder_names }` — `folder_names` is what a caller
+ *   read from the disk, so this stays pure and the caller owns the directory listing.
+ */
+export function resolveGateFolder({ compiled_variant: variant, stage_code: stageCode, folder_names: folderNames }) {
+  const gateCode = gateCodeForStage(stageCode);
+  const gate = gateCode === null ? undefined
+    : (variant?.gates ?? []).find((row) => row.code === gateCode);
+  if (gate === undefined) {
+    return { ok: false, reason: TASK_FOLDER_REFUSALS.STAGE_UNKNOWN, detail: { stage_code: stageCode } };
+  }
+  const matches = (folderNames ?? []).filter((name) => leadingNumber(name) === gateCode);
+  if (matches.length === 0) {
+    return { ok: false, reason: TASK_FOLDER_REFUSALS.GATE_FOLDER_MISSING, detail: { gate_code: gateCode } };
+  }
+  if (matches.length > 1) {
+    return {
+      ok: false,
+      reason: TASK_FOLDER_REFUSALS.GATE_FOLDER_AMBIGUOUS,
+      detail: { gate_code: gateCode, folders: matches.length },
+    };
+  }
+  return { ok: true, gate_code: gateCode, gate_folder: matches[0] };
+}
+
+/**
+ * Which task folder inside that gate folder holds this artifact's finished output.
+ *
+ * Two answers have to agree before a file is moved anywhere: the rules have to declare exactly one
+ * task at this stage for this artifact type, and the folder carrying that task's number has to
+ * carry that task's name. When they disagree the answer is a refusal naming the number — never a
+ * guess, and never a folder created to make the guess true (9.1D: 사람은 폴더를 만지지 않는다, and
+ * neither does the engine invent one).
+ *
+ * @param request `{ compiled_variant, stage_code, artifact_type_id, folder_names }`
+ */
+export function resolveTaskFolder({
+  compiled_variant: variant, stage_code: stageCode, artifact_type_id: artifactTypeId,
+  folder_names: folderNames,
+}) {
+  const gateCode = gateCodeForStage(stageCode);
+  const gate = gateCode === null ? undefined
+    : (variant?.gates ?? []).find((row) => row.code === gateCode);
+  if (gate === undefined) {
+    return { ok: false, reason: TASK_FOLDER_REFUSALS.STAGE_UNKNOWN, detail: { stage_code: stageCode } };
+  }
+  const tasks = (gate.tasks ?? []).filter((task) => task.artifact_type_id === artifactTypeId
+    && task.is_fixed !== true && task.is_virtual !== true
+    && (!Object.hasOwn(task, 'node_kind') || task.node_kind === OBSERVABLE_NODE_KIND)
+    && Number.isSafeInteger(task.id));
+  if (tasks.length === 0) {
+    return { ok: false, reason: TASK_FOLDER_REFUSALS.ARTIFACT_NOT_AT_STAGE, detail: { gate_code: gateCode } };
+  }
+  if (tasks.length > 1) {
+    return {
+      ok: false,
+      reason: TASK_FOLDER_REFUSALS.ARTIFACT_AMBIGUOUS,
+      detail: { gate_code: gateCode, tasks: tasks.length },
+    };
+  }
+  const [task] = tasks;
+  const matches = (folderNames ?? []).filter((name) => leadingNumber(name) === task.id);
+  if (matches.length !== 1) {
+    return {
+      ok: false,
+      reason: TASK_FOLDER_REFUSALS.TASK_FOLDER_MISSING,
+      detail: { task_number: task.id, folders: matches.length },
+    };
+  }
+  const onDisk = matches[0].replace(/^\d{1,6}_/u, '');
+  if (normaliseFolderName(onDisk) !== normaliseFolderName(task.name ?? '')) {
+    return {
+      ok: false,
+      reason: TASK_FOLDER_REFUSALS.TASK_FOLDER_MISMATCH,
+      detail: { task_number: task.id },
+    };
+  }
+  return {
+    ok: true,
+    gate_code: gateCode,
+    task_id: task.id,
+    task_folder: matches[0],
+    task_name: task.name ?? null,
+    out_folder: OUT_FOLDER,
+  };
+}
+
+/**
+ * The cue material an overlay carries: what this project calls an artifact the standard names, and
+ * the label of an item the standard does not carry at all.
+ *
+ * Lives here rather than in the walk runner because two callers need it now — the runner and the
+ * file door — and two copies of "what counts as a cue" is one copy too many.
+ */
+export function overlayAliasCues(overlay) {
+  const rows = [];
+  for (const op of overlay?.ops ?? []) {
+    if (op?.op === 'alias' && typeof op.alias === 'string') {
+      rows.push({ stage_code: op.stage_code, artifact_type_id: op.artifact_type_id, alias: op.alias });
+    } else if (op?.op === 'add' && typeof op.label === 'string') {
+      rows.push({
+        stage_code: op.stage_code,
+        artifact_type_id: op.artifact_type_id,
+        alias: op.artifact_type_id,
+        label: op.label,
+      });
+    }
+  }
+  return rows;
+}
+
 /**
  * Cue terms carried by one spec task name.
  *

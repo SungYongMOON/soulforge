@@ -17,6 +17,8 @@
 
 import { sep as PATH_SEP, isAbsolute, relative, resolve } from 'node:path';
 
+import { validateTicketPolicy } from './tickets.mjs';
+
 export const ENGINE_PROJECT_PROFILE_SCHEMA_VERSION = 'soulforge.engine_project_profile.v0';
 
 export const PROFILE_ERROR_CODES = Object.freeze({
@@ -65,6 +67,28 @@ export const PROFILE_REQUIRED_KEYS = Object.freeze([
 ]);
 
 /**
+ * The file door (문 앞 칸), stated only by a project that opens one.
+ *
+ * These are the one exception to "the key set is exact", and they are an exception in the safe
+ * direction: a profile written before the door existed stays valid and the door simply refuses,
+ * while an unknown key is still refused rather than ignored. `confidential_dirs` stands alone
+ * because a project may want to mark its contract folders without opening a door at all; the other
+ * four are all-or-nothing, because a door with an intake folder and no trash is a door that refuses
+ * at the moment somebody needs it to work (`PROFILE_REQUIRED_KEYS` + these, and nothing else).
+ */
+export const PROFILE_FILE_DOOR_KEYS = Object.freeze([
+  'intake_dir',
+  'outbox_dir',
+  'trash_dir',
+  'ticket_policy',
+]);
+
+export const PROFILE_OPTIONAL_KEYS = Object.freeze([
+  ...PROFILE_FILE_DOOR_KEYS,
+  'confidential_dirs',
+]);
+
+/**
  * Which roots each path field may sit under.
  *
  * `rule_assets` is the public rule-spec export directory. It is here because the compiled variant
@@ -84,6 +108,12 @@ export const PROFILE_PATH_ROOTS = Object.freeze({
   observations_dir: Object.freeze(['project']),
   receipts_dir: Object.freeze(['metadata']),
   runs_root: Object.freeze(['metadata']),
+  // The file door writes only into the project's own folder tree: the bytes are project material
+  // and the metadata plane holds pointers, not payload (AGENTS.md).
+  intake_dir: Object.freeze(['project']),
+  outbox_dir: Object.freeze(['project']),
+  trash_dir: Object.freeze(['project']),
+  confidential_dirs: Object.freeze(['project']),
 });
 
 export const MAX = Object.freeze({
@@ -91,6 +121,7 @@ export const MAX = Object.freeze({
   path: 4096,
   overlays: 16,
   conditions: 64,
+  confidential_dirs: 32,
 });
 
 const SAFE_TOKEN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/u;
@@ -201,10 +232,17 @@ export function validateProjectProfile(raw, options = {}) {
   const present = Object.keys(raw).sort();
   const required = [...PROFILE_REQUIRED_KEYS].sort();
   const missing = required.filter((key) => !present.includes(key));
-  const unknown = present.filter((key) => !required.includes(key));
+  const unknown = present.filter((key) =>
+    !required.includes(key) && !PROFILE_OPTIONAL_KEYS.includes(key));
   if (missing.length > 0 || unknown.length > 0) {
     fail(PROFILE_ERROR_CODES.PROFILE_INVALID,
       'a profile must carry exactly the declared keys', { missing, unknown });
+  }
+  const doorKeysPresent = PROFILE_FILE_DOOR_KEYS.filter((key) => present.includes(key));
+  if (doorKeysPresent.length > 0 && doorKeysPresent.length !== PROFILE_FILE_DOOR_KEYS.length) {
+    fail(PROFILE_ERROR_CODES.PROFILE_INVALID,
+      'the file door is stated whole or not at all',
+      { missing: PROFILE_FILE_DOOR_KEYS.filter((key) => !present.includes(key)) });
   }
   if (raw.schema_version !== ENGINE_PROJECT_PROFILE_SCHEMA_VERSION) {
     fail(PROFILE_ERROR_CODES.PROFILE_INVALID, 'unexpected profile schema_version',
@@ -295,7 +333,68 @@ export function validateProjectProfile(raw, options = {}) {
     }
   }
 
+  // ---- the file door (문 앞 칸), if this project opened one
+
+  profile.confidential_dirs = Object.freeze((raw.confidential_dirs === undefined
+    ? [] : assertDirList(raw.confidential_dirs, 'confidential_dirs'))
+    .map((value, index) => underProject(pathField('confidential_dirs', value),
+      profile.project_root, `confidential_dirs[${index}]`)));
+
+  const doorOpen = raw.intake_dir !== undefined;
+  profile.file_door_enabled = doorOpen;
+  profile.ticket_policy = doorOpen ? validateTicketPolicy(raw.ticket_policy) : null;
+  for (const field of PROFILE_FILE_DOOR_KEYS) {
+    if (field === 'ticket_policy') continue;
+    profile[field] = doorOpen
+      ? underProject(pathField(field, raw[field]), profile.project_root, field) : null;
+  }
+
+  if (doorOpen) {
+    // Four containment rules, each closing one way the door could hand material to the wrong
+    // place. A ticket folder inside a contract folder would give an uploader a listing of the
+    // contract folder; a trash folder inside the intake folder would sweep tickets into a place
+    // the next sweep walks again; and a door pointed at the project root would make every write a
+    // write to the whole project.
+    for (const field of ['intake_dir', 'outbox_dir', 'trash_dir']) {
+      if (isPathUnder(profile.project_root, profile[field])) {
+        fail(PROFILE_ERROR_CODES.PROFILE_INVALID,
+          'a door folder must be a folder inside the project, not the project itself', { field });
+      }
+      for (const confidential of profile.confidential_dirs) {
+        if (isPathUnder(profile[field], confidential)) {
+          fail(PROFILE_ERROR_CODES.PROFILE_INVALID,
+            'a door folder may not sit inside a confidential folder', { field });
+        }
+      }
+    }
+    if (isPathUnder(profile.trash_dir, profile.intake_dir)
+      || isPathUnder(profile.trash_dir, profile.outbox_dir)
+      || isPathUnder(profile.intake_dir, profile.outbox_dir)
+      || isPathUnder(profile.outbox_dir, profile.intake_dir)) {
+      fail(PROFILE_ERROR_CODES.PROFILE_INVALID,
+        'the intake, outbox and trash folders must be three separate places',
+        { field: 'trash_dir' });
+    }
+  }
+
   return Object.freeze({ ...profile, roots });
+}
+
+function assertDirList(value, field) {
+  if (!Array.isArray(value) || value.length > MAX.confidential_dirs) {
+    fail(PROFILE_ERROR_CODES.PROFILE_INVALID,
+      'this field must be an array of at most 32 paths', { field });
+  }
+  return value;
+}
+
+/** Every door folder is inside the project folder — the roots check alone allows a sibling. */
+function underProject(absolute, projectRoot, field) {
+  if (!isPathUnder(absolute, projectRoot)) {
+    fail(PROFILE_ERROR_CODES.PROFILE_PATH_OUTSIDE_ROOTS,
+      'this path must lie under the project root', { field });
+  }
+  return absolute;
 }
 
 /** A repo-relative pointer for a result: the door never prints an absolute local path. */

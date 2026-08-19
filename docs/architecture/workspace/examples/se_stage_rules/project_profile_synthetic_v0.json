@@ -9,8 +9,12 @@
     "prime": "synthetic_prime",
     "quality_grade": "grade_a",
     "compiled_variant": "<abs>",
-    "overlays": ["<abs>"],
-    "overlay_conditions": ["sw_included"],
+    "overlays": [
+      "<abs>"
+    ],
+    "overlay_conditions": [
+      "sw_included"
+    ],
     "project_binding": "<abs or inline object>",
     "base_packet": "<abs>",
     "base_launch": "<abs or null>",
@@ -21,6 +25,20 @@
     "receipts_dir": "<abs>",
     "runs_root": "<abs>",
     "known_at_policy": "caller_supplied"
+  },
+  "file_door_profile": {
+    "note": "The optional block a project adds when it opens the file door (문 앞 칸, 09장 §9.1D). Absent means the project has no door and every file tool refuses with ENGINE_MCP_FILE_DOOR_DISABLED; present means all four keys are present, because a door with an intake folder and no trash refuses at the moment somebody needs it. Every path lies under project_root. confidential_dirs stands alone: a project may mark its contract folders without opening a door.",
+    "intake_dir": "<abs>",
+    "outbox_dir": "<abs>",
+    "trash_dir": "<abs>",
+    "ticket_policy": {
+      "upload_ttl_hours": 72,
+      "download_ttl_hours": 24,
+      "cleanup_after_days": 30
+    },
+    "confidential_dirs": [
+      "<abs>"
+    ]
   },
   "path_roots": {
     "note": "Which repository root each path field may sit under. `rule_assets` is .registry/skills/se_foldertree_generate/codex/assets — the compiled rule specs a project points at rather than copies.",
@@ -56,7 +74,9 @@
     "receipt": {
       "schema_version": "soulforge.artifact_observation_inventory_runner.v0",
       "known_at": "2026-08-18T15:00:00.000Z",
-      "walk": { "files_inventoried": 12 },
+      "walk": {
+        "files_inventoried": 12
+      },
       "candidates": {
         "counts": {
           "candidates": 5,
@@ -68,16 +88,31 @@
       "housekeeping": {
         "counts": {
           "items": 2,
-          "by_kind": { "wrong_material": 1, "out_folder_empty": 1 }
+          "by_kind": {
+            "wrong_material": 1,
+            "out_folder_empty": 1
+          }
         }
       }
     }
   },
   "expected": {
-    "note": "Hand-written. The tool set is fixed at seventeen with four write tools (thirteen since 2026-08-18, plus whoami · engine_status · access_table · projects_list); the synthetic project stands on two gates and one observation.",
-    "tool_count": 17,
-    "write_tool_names": ["observe_scan", "observe_register", "observe_confirm", "judge_run"],
-    "engine_stage_codes": ["030_SRR", "090_PDR"],
+    "note": "Hand-written. The tool set is fixed at twenty-three with eight write tools (thirteen since 2026-08-18, plus whoami · engine_status · access_table · projects_list, plus the six file-door tools of 2026-08-19); the synthetic project stands on two gates and one observation.",
+    "tool_count": 23,
+    "write_tool_names": [
+      "observe_scan",
+      "observe_register",
+      "observe_confirm",
+      "file_ticket",
+      "file_put",
+      "file_register",
+      "file_tickets_gc",
+      "judge_run"
+    ],
+    "engine_stage_codes": [
+      "030_SRR",
+      "090_PDR"
+    ],
     "observations_supplied": 1,
     "housekeeping_items": 2,
     "candidates": 5,

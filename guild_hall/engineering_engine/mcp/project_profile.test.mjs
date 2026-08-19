@@ -5,8 +5,8 @@ import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 
 import {
-  ENGINE_PROJECT_PROFILE_SCHEMA_VERSION, PROFILE_ERROR_CODES, PROFILE_REQUIRED_KEYS,
-  profileRoots, repoPointer, validateProjectProfile,
+  ENGINE_PROJECT_PROFILE_SCHEMA_VERSION, PROFILE_ERROR_CODES, PROFILE_OPTIONAL_KEYS,
+  PROFILE_REQUIRED_KEYS, profileRoots, repoPointer, validateProjectProfile,
 } from './project_profile.mjs';
 import { PROFILE_FIXTURE, stageSyntheticProject } from '../fixtures/engine_mcp_synthetic_project.mjs';
 
@@ -138,6 +138,72 @@ test('the observation run has to sit inside the project output root', () => {
     }, root);
     assert.equal(elsewhere?.code, PROFILE_ERROR_CODES.PROFILE_INVALID);
     assert.match(elsewhere.message, /outputs_root/u);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------- the file door (문 앞 칸)
+
+test('the documented file-door block carries exactly the optional keys the validator allows', () => {
+  const documented = Object.keys(PROFILE_FIXTURE.file_door_profile)
+    .filter((key) => key !== 'note').sort();
+  assert.deepEqual(documented, [...PROFILE_OPTIONAL_KEYS].sort());
+});
+
+test('a profile without a door is valid and simply has no door', () => {
+  const root = mkdtempSync(join(tmpdir(), 'engine_mcp_profile_'));
+  try {
+    const staged = stageSyntheticProject(root, { file_door: false });
+    const profile = validateProjectProfile(staged.profile, { repo_root: root });
+    assert.equal(profile.file_door_enabled, false);
+    assert.equal(profile.intake_dir, null);
+    assert.equal(profile.ticket_policy, null);
+    assert.deepEqual([...profile.confidential_dirs], []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a door is stated whole, inside the project, and as three separate places', () => {
+  const { root, staged } = stage();
+  try {
+    const profile = validateProjectProfile(staged.profile, { repo_root: root });
+    assert.equal(profile.file_door_enabled, true);
+    assert.equal(profile.ticket_policy.cleanup_after_days, 30);
+    assert.equal(profile.confidential_dirs.length, 1);
+    assert.ok(profile.intake_dir.startsWith(profile.project_root));
+
+    const half = { ...staged.profile };
+    delete half.trash_dir;
+    const missing = refusal(half, root);
+    assert.equal(missing?.code, PROFILE_ERROR_CODES.PROFILE_INVALID);
+    assert.deepEqual(missing.detail.missing, ['trash_dir']);
+
+    // Outside the project, inside a confidential folder, and the project root itself: three ways a
+    // door would hand somebody more than the folder they were promised.
+    const outside = refusal({
+      ...staged.profile,
+      intake_dir: join(root, '_workspaces', 'SYN-999', 'tickets'),
+    }, root);
+    assert.equal(outside?.code, PROFILE_ERROR_CODES.PROFILE_PATH_OUTSIDE_ROOTS);
+
+    const inConfidential = refusal({
+      ...staged.profile,
+      intake_dir: join(staged.confidential_dir, 'tickets'),
+    }, root);
+    assert.equal(inConfidential?.code, PROFILE_ERROR_CODES.PROFILE_INVALID);
+    assert.match(inConfidential.message, /confidential/u);
+
+    const wholeProject = refusal({ ...staged.profile, outbox_dir: staged.project_root }, root);
+    assert.equal(wholeProject?.code, PROFILE_ERROR_CODES.PROFILE_INVALID);
+
+    const nested = refusal({
+      ...staged.profile,
+      trash_dir: join(staged.intake_dir, '_trash'),
+    }, root);
+    assert.equal(nested?.code, PROFILE_ERROR_CODES.PROFILE_INVALID);
+    assert.match(nested.message, /three separate places/u);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

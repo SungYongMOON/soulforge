@@ -28,7 +28,7 @@ import { basename, extname, join, resolve, sep } from 'node:path';
 import process from 'node:process';
 
 import {
-  buildArtifactObservationCandidates,
+  buildArtifactObservationCandidates, overlayAliasCues,
 } from '../observation/artifact_observation_candidates.mjs';
 import {
   applyConfirmationSheet, buildObservationConfirmationSheet,
@@ -271,23 +271,11 @@ async function readJson(path) {
  * item the standard spec does not carry, and its label is exactly the words the project puts in
  * the folder name, so both become cues. Nothing else in an overlay is read here: this module
  * classifies documents, it does not compile rules.
+ *
+ * The rule itself lives in `observation/artifact_observation_candidates.mjs` because the MCP file
+ * door needs the same reading; this is the walk's name for it.
  */
-function overlayCues(overlay) {
-  const rows = [];
-  for (const op of overlay?.ops ?? []) {
-    if (op?.op === 'alias' && typeof op.alias === 'string') {
-      rows.push({ stage_code: op.stage_code, artifact_type_id: op.artifact_type_id, alias: op.alias });
-    } else if (op?.op === 'add' && typeof op.label === 'string') {
-      rows.push({
-        stage_code: op.stage_code,
-        artifact_type_id: op.artifact_type_id,
-        alias: op.artifact_type_id,
-        label: op.label,
-      });
-    }
-  }
-  return rows;
-}
+const overlayCues = (overlay) => overlayAliasCues(overlay);
 
 // ---------------------------------------------------------------- output
 
