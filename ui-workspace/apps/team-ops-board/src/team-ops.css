@@ -6439,7 +6439,8 @@ a:focus-visible {
 .usage-trend-req-line.is-ag_gemini { stroke: #2dd4bf; }
 .usage-trend-req-line.is-ag_claude_gpt { stroke: #fb923c; stroke-dasharray: 4 3; }
 .usage-trend-req-dot { vector-effect: non-scaling-stroke; }
-.usage-trend-hit-grid { position: absolute; inset: 6% 4.8% 13% 5.8%; display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); }
+.usage-trend-hit-grid { position: absolute; inset: 6% 1.2% 13% 5.8%; display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); }
+.usage-trend.has-req-overlay .usage-trend-hit-grid { inset: 6% 4.8% 13% 5.8%; }
 .usage-trend-hit-grid button { min-width: 0; border: 0; padding: 0; background: transparent; cursor: crosshair; }
 .usage-trend-tooltip line { stroke: #a7b5c5; stroke-width: 1; stroke-dasharray: 3 3; }
 .usage-trend-tooltip rect { fill: #11161c; fill-opacity: .97; stroke: #4c5662; }

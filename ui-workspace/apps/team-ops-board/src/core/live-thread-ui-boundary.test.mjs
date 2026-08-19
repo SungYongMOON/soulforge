@@ -202,7 +202,7 @@ test("usage distribution paints every declared column tone", () => {
       new RegExp(`\\.ledger-distribution-column\\.is-${tone} \\.ledger-bar > span\\s*\\{[^}]*background:`, "u"),
     );
   }
-  assert.match(source, /title: "AG 모델별 요청", meta: "토큰 미측정"/u);
+  assert.match(source, /title: "AG 모델별 요청", meta: "토큰 미측정 · 최근 30일"/u);
 });
 
 test("thirty-day usage chart separates exact provider tokens with readable responsive controls", () => {
@@ -250,7 +250,7 @@ test("thirty-day usage chart separates exact provider tokens with readable respo
   assert.match(source, /AG·Claude\+GPT/u);
   assert.match(source, /AG 요청 \(회 · 토큰 미측정\)/u);
   assert.match(source, /── AG 요청 \(토큰 미측정\) ──/u);
-  assert.match(source, /Antigravity 요청 \(토큰 미측정 · 최근 7일\)/u);
+  assert.match(source, /Antigravity 요청 \(토큰 미측정 · KST 달력일 최근 7일\)/u);
   assert.match(css, /\.usage-trend-req-line\.is-ag_gemini/u);
   assert.match(css, /\.usage-trend-req-line\.is-ag_claude_gpt/u);
   assert.match(css, /\.fleet-model-dot\.is-ag_gemini/u);
@@ -321,6 +321,32 @@ test("usage trend defaults to exact model data and exposes accessible provider a
   assert.match(css, /\.usage-trend-legend\s*\{/u);
   assert.match(css, /\.usage-trend-hit-grid\s*\{/u);
   assert.match(css, /@media \(max-width: 700px\)[\s\S]*\.usage-trend-header/u);
+});
+
+test("usage trend gates Antigravity request overlay chrome strictly on valid non-zero data and provides clean v2 fallback", () => {
+  const source = readFileSync(APP_PATH, "utf8");
+  const css = readFileSync(CSS_PATH, "utf8");
+
+  // buildModelTokenSeries retains baseline iteration over all models without zero-token exclusion
+  assert.match(source, /for \(const row of day\.models \?\? \[\]\) totals\.set\(row\.model_id, \(totals\.get\(row\.model_id\) \?\? 0\) \+ row\.total_tokens\);/u);
+  assert.doesNotMatch(source, /if \(\(row\.total_tokens \?\? 0\) > 0\) totals\.set/u);
+
+  // showAgOverlay is gated on valid 30-day unmeasured data and non-zero total requests
+  assert.match(source, /const unmeasuredDaily = Array\.isArray\(usage\?\.history\?\.unmeasured_request_daily\) && usage\.history\.unmeasured_request_daily\.length === 30/u);
+  assert.match(source, /const showAgOverlay = hasValidAgDaily && totalAgRequests > 0;/u);
+
+  // Gated className for overlay styling
+  assert.match(source, /className=\{`usage-trend\$\{showAgOverlay \? " has-req-overlay" : ""\}`\}/u);
+  assert.match(css, /\.usage-trend-hit-grid\s*\{\s*position:\s*absolute;\s*inset:\s*6%\s+1\.2%\s+13%\s+5\.8%;/u);
+  assert.match(css, /\.usage-trend\.has-req-overlay\s+\.usage-trend-hit-grid\s*\{\s*inset:\s*6%\s+4\.8%\s+13%\s+5\.8%;\s*\}/u);
+
+  // Clean aria-label fallback for v2/absent unmeasured_request_daily (no undefined, no dead AG description)
+  assert.match(source, /const ariaLabel = showAgOverlay\s*\?\s*`\$\{day\.date\},\s*\$\{tokenDesc\},\s*\$\{agDesc\}\s*\(토큰 미측정\)`\s*:\s*`\$\{day\.date\},\s*\$\{tokenDesc\}`;/su);
+  assert.match(source, /aria-label=\{showAgOverlay \? "날짜별 토큰 및 Antigravity 요청 상세" : "날짜별 토큰 상세"\}/u);
+
+  // Fleet caption explicitly uses KST calendar-day recent 7 days
+  assert.match(source, /<p className="fleet-model-caption">Antigravity 요청 \(토큰 미측정 · KST 달력일 최근 7일\)<\/p>/u);
+  assert.match(source, /rolling 7일 토큰.*KST 달력일 7일 AG.*토큰 미측정/su);
 });
 
 test("mobile detail restores focus by exact logical thread before using a stable control", () => {

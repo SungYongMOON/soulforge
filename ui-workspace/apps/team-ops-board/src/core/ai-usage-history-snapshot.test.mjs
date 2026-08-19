@@ -437,3 +437,43 @@ test("AI usage history projection keeps a validated last-good snapshot while ref
   assert.equal(hold.state, "unmeasured");
   assert.equal(hold.refresh_state, "hold");
 });
+
+test("AI usage history projection accepts absent, zero-total, and populated unmeasured_request_daily correctly", () => {
+  // Absent field in v3 snapshot
+  const withoutUnmeasured = historyFixture();
+  delete withoutUnmeasured.unmeasured_request_daily;
+  const projWithout = normalizeAiUsageHistoryProjection(withoutUnmeasured);
+  assert.equal(projWithout.state, "ready");
+  assert.equal("unmeasured_request_daily" in (projWithout.history ?? {}), false);
+  assert.equal(projWithout.history?.model_daily?.length, 30);
+  assert.equal(projWithout.history?.provider_daily?.length, 30);
+
+  // Zero-total 30-day rows
+  const zeroUnmeasured = historyFixture();
+  const zeroDaily = Array.from({ length: 30 }, (_, index) => ({
+    date: zeroUnmeasured.provider_daily[index].date,
+    total_requests: 0,
+    families: [
+      { family_id: "ag_gemini", requests: 0, models: [] },
+      { family_id: "ag_claude_gpt", requests: 0, models: [] },
+    ],
+  }));
+  zeroUnmeasured.unmeasured_request_daily = zeroDaily;
+  // Update provider_daily to have 0 unknown turns for antigravity to maintain reconciliation
+  for (const day of zeroUnmeasured.provider_daily) {
+    const ag = day.providers.find((p) => p.provider === "antigravity");
+    if (ag) ag.token_unknown_turns = 0;
+  }
+  const projZero = normalizeAiUsageHistoryProjection(zeroUnmeasured);
+  assert.equal(projZero.state, "ready");
+  assert.equal(projZero.history?.unmeasured_request_daily?.length, 30);
+  assert.equal(projZero.history.unmeasured_request_daily.every((d) => d.total_requests === 0), true);
+
+  // Populated data
+  const populated = historyFixture();
+  const projPopulated = normalizeAiUsageHistoryProjection(populated);
+  assert.equal(projPopulated.state, "ready");
+  assert.equal(projPopulated.history?.unmeasured_request_daily?.length, 30);
+  const totalPopulatedRequests = projPopulated.history.unmeasured_request_daily.reduce((sum, d) => sum + d.total_requests, 0);
+  assert.equal(totalPopulatedRequests > 0, true);
+});

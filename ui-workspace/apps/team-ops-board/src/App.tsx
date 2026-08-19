@@ -2679,9 +2679,7 @@ const USAGE_TREND_COLORS = ["#d7e9ff", "#64aaf7", "#317fdf", "#23599f", "#c7a8f4
 function buildModelTokenSeries(modelDaily: any[]) {
   const totals = new Map<string, number>();
   for (const day of modelDaily) {
-    for (const row of day.models ?? []) {
-      if ((row.total_tokens ?? 0) > 0) totals.set(row.model_id, (totals.get(row.model_id) ?? 0) + row.total_tokens);
-    }
+    for (const row of day.models ?? []) totals.set(row.model_id, (totals.get(row.model_id) ?? 0) + row.total_tokens);
   }
   const ordered = [...totals].sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], "en"));
   const ids = ordered.slice(0, 7).map(([id]) => id);
@@ -2707,20 +2705,21 @@ function buildProviderTokenSeries(providerDaily: any[]) {
 
 function buildUsageTrendChart(days: any[], series: any[], requestSeries: any[] = []) {
   if (days.length !== 30 || series.length === 0) return null;
-  const width = 1000, height = 238, left = 58, right = 48, top = 16, bottom = 34;
+  const hasAgOverlay = requestSeries.length > 0 && requestSeries.some((s: any) => (s.totalRequests ?? 0) > 0);
+  const width = 1000, height = 238, left = 58, right = hasAgOverlay ? 48 : 12, top = 16, bottom = 34;
   const plotWidth = width - left - right, plotHeight = height - top - bottom;
   const totals = days.map((_: any, index: number) => series.reduce((sum: number, item: any) => sum + (item.values[index] ?? 0), 0));
   const rawMax = Math.max(...totals, 1);
   const magnitude = 10 ** Math.floor(Math.log10(rawMax));
   const maxToken = Math.ceil(rawMax / magnitude) * magnitude;
 
-  const rawMaxReq = Math.max(...requestSeries.flatMap((s: any) => s.values ?? []), 1);
-  const magnitudeReq = 10 ** Math.floor(Math.log10(rawMaxReq));
-  const maxRequests = Math.max(1, Math.ceil(rawMaxReq / magnitudeReq) * magnitudeReq);
+  const rawMaxReq = hasAgOverlay ? Math.max(...requestSeries.flatMap((s: any) => s.values ?? []), 1) : 0;
+  const magnitudeReq = hasAgOverlay ? 10 ** Math.floor(Math.log10(rawMaxReq)) : 1;
+  const maxRequests = hasAgOverlay ? Math.max(1, Math.ceil(rawMaxReq / magnitudeReq) * magnitudeReq) : 0;
 
   const x = (index: number) => left + (index * plotWidth) / 29;
   const y = (value: number) => top + plotHeight - (value / maxToken) * plotHeight;
-  const yReq = (value: number) => top + plotHeight - (value / maxRequests) * plotHeight;
+  const yReq = (value: number) => top + plotHeight - (maxRequests > 0 ? (value / maxRequests) * plotHeight : 0);
 
   const cumulative = days.map(() => 0);
   const areas = series.map((item: any) => {
@@ -2733,17 +2732,19 @@ function buildUsageTrendChart(days: any[], series: any[], requestSeries: any[] =
     };
   });
 
-  const requestOverlays = requestSeries.map((fam: any) => {
-    const points = fam.values.map((val: number, index: number) => ({ x: x(index), y: yReq(val) }));
-    return {
-      id: fam.id,
-      label: fam.label,
-      color: fam.color,
-      values: fam.values,
-      points,
-      path: monotoneLinePath(points),
-    };
-  });
+  const requestOverlays = hasAgOverlay
+    ? requestSeries.map((fam: any) => {
+        const points = fam.values.map((val: number, index: number) => ({ x: x(index), y: yReq(val) }));
+        return {
+          id: fam.id,
+          label: fam.label,
+          color: fam.color,
+          values: fam.values,
+          points,
+          path: monotoneLinePath(points),
+        };
+      })
+    : [];
 
   return {
     width,
@@ -2756,6 +2757,7 @@ function buildUsageTrendChart(days: any[], series: any[], requestSeries: any[] =
     plotHeight,
     maxToken,
     maxRequests,
+    hasAgOverlay,
     totals,
     areas,
     requestOverlays,
@@ -2772,71 +2774,85 @@ function UsageTrendChart({ usage }: { usage: any }) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const modelDaily = Array.isArray(usage?.history?.model_daily) ? usage.history.model_daily : [];
   const providerDaily = Array.isArray(usage?.history?.provider_daily) ? usage.history.provider_daily : [];
-  const unmeasuredDaily = Array.isArray(usage?.history?.unmeasured_request_daily) ? usage.history.unmeasured_request_daily : [];
+  const unmeasuredDaily = Array.isArray(usage?.history?.unmeasured_request_daily) && usage.history.unmeasured_request_daily.length === 30
+    ? usage.history.unmeasured_request_daily
+    : [];
 
   const days = view === "model" ? modelDaily : providerDaily;
   const series = view === "model" ? buildModelTokenSeries(modelDaily) : buildProviderTokenSeries(providerDaily);
 
-  const requestSeries = [
-    {
-      id: "ag_gemini",
-      label: "AG·Gemini",
-      color: "#2dd4bf",
-      values: unmeasuredDaily.map((d: any) => d.families?.find((f: any) => f.family_id === "ag_gemini")?.requests ?? 0),
-      models: unmeasuredDaily.map((d: any) => d.families?.find((f: any) => f.family_id === "ag_gemini")?.models ?? []),
-      totalRequests: unmeasuredDaily.reduce((sum: number, d: any) => sum + (d.families?.find((f: any) => f.family_id === "ag_gemini")?.requests ?? 0), 0),
-    },
-    {
-      id: "ag_claude_gpt",
-      label: "AG·Claude+GPT",
-      color: "#fb923c",
-      values: unmeasuredDaily.map((d: any) => d.families?.find((f: any) => f.family_id === "ag_claude_gpt")?.requests ?? 0),
-      models: unmeasuredDaily.map((d: any) => d.families?.find((f: any) => f.family_id === "ag_claude_gpt")?.models ?? []),
-      totalRequests: unmeasuredDaily.reduce((sum: number, d: any) => sum + (d.families?.find((f: any) => f.family_id === "ag_claude_gpt")?.requests ?? 0), 0),
-    },
-  ];
-  const totalAgRequests = requestSeries[0].totalRequests + requestSeries[1].totalRequests;
+  const hasValidAgDaily = unmeasuredDaily.length === 30;
+  const requestSeries = hasValidAgDaily
+    ? [
+        {
+          id: "ag_gemini",
+          label: "AG·Gemini",
+          color: "#2dd4bf",
+          values: unmeasuredDaily.map((d: any) => d.families?.find((f: any) => f.family_id === "ag_gemini")?.requests ?? 0),
+          models: unmeasuredDaily.map((d: any) => d.families?.find((f: any) => f.family_id === "ag_gemini")?.models ?? []),
+          totalRequests: unmeasuredDaily.reduce((sum: number, d: any) => sum + (d.families?.find((f: any) => f.family_id === "ag_gemini")?.requests ?? 0), 0),
+        },
+        {
+          id: "ag_claude_gpt",
+          label: "AG·Claude+GPT",
+          color: "#fb923c",
+          values: unmeasuredDaily.map((d: any) => d.families?.find((f: any) => f.family_id === "ag_claude_gpt")?.requests ?? 0),
+          models: unmeasuredDaily.map((d: any) => d.families?.find((f: any) => f.family_id === "ag_claude_gpt")?.models ?? []),
+          totalRequests: unmeasuredDaily.reduce((sum: number, d: any) => sum + (d.families?.find((f: any) => f.family_id === "ag_claude_gpt")?.requests ?? 0), 0),
+        },
+      ]
+    : [];
+  const totalAgRequests = requestSeries.reduce((sum, item) => sum + item.totalRequests, 0);
+  const showAgOverlay = hasValidAgDaily && totalAgRequests > 0;
 
-  const chart = buildUsageTrendChart(days, series, requestSeries);
+  const chart = buildUsageTrendChart(days, series, showAgOverlay ? requestSeries : []);
   const knownTokens = series.reduce((sum: number, item: any) => sum + item.values.reduce((local: number, value: number) => local + value, 0), 0);
   const dailyTurns = modelDaily.reduce((sum: number, day: any) => sum + (day.models ?? []).reduce((local: number, row: any) => local + row.turns, 0), 0);
   const unknownTurns = series.reduce((sum: number, item: any) => sum + item.unknownTurns.reduce((local: number, value: number) => local + value, 0), 0);
   const chooseView = (next: "model" | "provider") => { setView(next); setSelectedSeries(null); setSelectedReqFamily(null); setActiveIndex(null); };
   if (chart === null) return <p className="usage-trend-empty">최근 30일의 정확한 로컬 토큰 시계열이 없습니다.</p>;
   return (
-    <div className="usage-trend" data-testid="usage-trend-chart" data-view={view}>
+    <div className={`usage-trend${showAgOverlay ? " has-req-overlay" : ""}`} data-testid="usage-trend-chart" data-view={view}>
       <header className="usage-trend-header">
         <div>
           <span>토큰</span>
           <strong>{formatUsageNumber(knownTokens)}</strong>
-          <small>{formatUsageNumber(dailyTurns)}회 (측정 원장) · KST 최근 30일{totalAgRequests > 0 ? ` · AG ${formatUsageNumber(totalAgRequests)}회 (토큰 미측정)` : ""}</small>
+          <small>{formatUsageNumber(dailyTurns)}회{showAgOverlay ? " (측정 원장)" : ""} · KST 최근 30일{showAgOverlay ? ` · AG ${formatUsageNumber(totalAgRequests)}회 (토큰 미측정)` : ""}</small>
         </div>
         <div className="usage-trend-tabs" role="tablist" aria-label="사용량 분류">
           <button type="button" role="tab" aria-selected={view === "model"} onClick={() => chooseView("model")}>모델별</button>
           <button type="button" role="tab" aria-selected={view === "provider"} onClick={() => chooseView("provider")}>제공자별</button>
         </div>
       </header>
-      <p className="usage-trend-note">사용 경로는 현재 원장에 기록되지 않아 표시하지 않습니다. Antigravity 요청(회)은 우측 축에 표시되며 토큰 미측정으로 토큰 합계에 합산되지 않습니다.{unknownTurns > 0 ? ` 토큰 미기록 ${formatUsageNumber(unknownTurns)}회는 토큰 합계에서 제외됩니다.` : ""}</p>
+      <p className="usage-trend-note">
+        {showAgOverlay
+          ? `사용 경로는 현재 원장에 기록되지 않아 표시하지 않습니다. Antigravity 요청(회)은 우측 축에 표시되며 토큰 미측정으로 토큰 합계에 합산되지 않습니다.${unknownTurns > 0 ? ` 토큰 미기록 ${formatUsageNumber(unknownTurns)}회는 토큰 합계에서 제외됩니다.` : ""}`
+          : `사용 경로는 현재 원장에 기록되지 않아 표시하지 않습니다.${unknownTurns > 0 ? ` 토큰 미기록 ${formatUsageNumber(unknownTurns)}회는 합계에서 제외됩니다.` : ""}`}
+      </p>
       <div className="usage-trend-plot">
-        <svg viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" aria-label={`최근 30일 ${view === "model" ? "모델별" : "제공자별"} 로컬 토큰 및 Antigravity 요청 사용량`}>
-          <text className="usage-trend-axis-title is-left" x={chart.left} y={11}>토큰 (tok)</text>
-          <text className="usage-trend-axis-title is-right" x={chart.width - chart.right} y={11} textAnchor="end">AG 요청 (회 · 토큰 미측정)</text>
+        <svg viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" aria-label={`최근 30일 ${view === "model" ? "모델별" : "제공자별"} 로컬 토큰${showAgOverlay ? " 및 Antigravity 요청" : ""} 사용량`}>
+          {showAgOverlay && (
+            <>
+              <text className="usage-trend-axis-title is-left" x={chart.left} y={11}>토큰 (tok)</text>
+              <text className="usage-trend-axis-title is-right" x={chart.width - chart.right} y={11} textAnchor="end">AG 요청 (회 · 토큰 미측정)</text>
+            </>
+          )}
           {[0, 0.5, 1].map((ratio) => {
             const value = chart.maxToken * ratio;
             const y = chart.y(value);
-            const reqVal = Math.round(chart.maxRequests * ratio);
+            const reqVal = showAgOverlay ? Math.round(chart.maxRequests * ratio) : 0;
             return (
               <g key={ratio}>
                 <line className="usage-trend-grid" x1={chart.left} x2={chart.width - chart.right} y1={y} y2={y} />
                 <text className="usage-trend-axis" x={chart.left - 8} y={y + 4} textAnchor="end">{fleetAxisTokenLabel(value)}</text>
-                <text className="usage-trend-axis is-req" x={chart.width - chart.right + 8} y={y + 4} textAnchor="start">{reqVal}회</text>
+                {showAgOverlay && <text className="usage-trend-axis is-req" x={chart.width - chart.right + 8} y={y + 4} textAnchor="start">{reqVal}회</text>}
               </g>
             );
           })}
           {chart.areas.filter((area: any) => selectedSeries === null || area.id === selectedSeries).map((area: any, index: number) => (
             <path key={area.id} className="usage-trend-area" style={{ color: USAGE_TREND_COLORS[series.findIndex((item: any) => item.id === area.id) % USAGE_TREND_COLORS.length] }} d={selectedSeries === null ? area.stacked : area.isolated} />
           ))}
-          {chart.requestOverlays.filter((ov: any) => selectedReqFamily === null || ov.id === selectedReqFamily).map((ov: any) => (
+          {showAgOverlay && chart.requestOverlays.filter((ov: any) => selectedReqFamily === null || ov.id === selectedReqFamily).map((ov: any) => (
             <g key={ov.id} className={`usage-trend-req-group is-${ov.id}`}>
               {ov.path && <path className={`usage-trend-req-line is-${ov.id}`} d={ov.path} style={{ stroke: ov.color }} />}
               {ov.points.map((pt: any, i: number) => (
@@ -2859,7 +2875,9 @@ function UsageTrendChart({ usage }: { usage: any }) {
           {activeIndex !== null && (() => {
             const x = chart.x(activeIndex);
             const visibleTokens = selectedSeries === null ? series : series.filter((item: any) => item.id === selectedSeries);
-            const visibleReqs = selectedReqFamily === null ? requestSeries : requestSeries.filter((item: any) => item.id === selectedReqFamily);
+            const visibleReqs = showAgOverlay
+              ? (selectedReqFamily === null ? requestSeries : requestSeries.filter((item: any) => item.id === selectedReqFamily))
+              : [];
             const activeReqModels: { model_id: string; requests: number; color: string; familyLabel: string }[] = [];
             for (const fam of visibleReqs) {
               const dayModels = fam.models[activeIndex] ?? [];
@@ -2867,7 +2885,7 @@ function UsageTrendChart({ usage }: { usage: any }) {
                 activeReqModels.push({ model_id: m.model_id, requests: m.requests, color: fam.color, familyLabel: fam.label });
               }
             }
-            const hasAg = visibleReqs.some((fam) => fam.values[activeIndex] > 0);
+            const hasAg = showAgOverlay && visibleReqs.some((fam) => (fam.values[activeIndex] ?? 0) > 0);
             const totalLines = visibleTokens.length + (hasAg ? 1 + activeReqModels.length : 0);
             const boxHeight = 44 + totalLines * 16;
             const maxNameLen = Math.max(14, ...visibleTokens.map((t: any) => t.label.length), ...activeReqModels.map((m) => m.model_id.length));
@@ -2909,16 +2927,21 @@ function UsageTrendChart({ usage }: { usage: any }) {
             );
           })()}
         </svg>
-        <div className="usage-trend-hit-grid" aria-label="날짜별 토큰 및 Antigravity 요청 상세">
+        <div className="usage-trend-hit-grid" aria-label={showAgOverlay ? "날짜별 토큰 및 Antigravity 요청 상세" : "날짜별 토큰 상세"}>
           {days.map((day: any, index: number) => {
             const tokenDesc = (selectedSeries === null ? series : series.filter((item: any) => item.id === selectedSeries))
               .map((item: any) => `${item.label} ${formatUsageNumber(item.values[index])} 토큰`).join(", ");
-            const agDesc = requestSeries.map((fam) => `${fam.label} ${fam.values[index]}회`).join(", ");
+            const agDesc = showAgOverlay
+              ? requestSeries.map((fam) => `${fam.label} ${fam.values[index] ?? 0}회`).join(", ")
+              : "";
+            const ariaLabel = showAgOverlay
+              ? `${day.date}, ${tokenDesc}, ${agDesc} (토큰 미측정)`
+              : `${day.date}, ${tokenDesc}`;
             return (
               <button
                 key={day.date}
                 type="button"
-                aria-label={`${day.date}, ${tokenDesc}, ${agDesc} (토큰 미측정)`}
+                aria-label={ariaLabel}
                 onFocus={() => setActiveIndex(index)}
                 onBlur={() => setActiveIndex(null)}
                 onMouseEnter={() => setActiveIndex(index)}
@@ -2940,7 +2963,7 @@ function UsageTrendChart({ usage }: { usage: any }) {
           })}
         </div>
       </div>
-      <div className="usage-trend-legend" aria-label={`${view === "model" ? "모델" : "제공자"} 및 Antigravity 범례`}>
+      <div className="usage-trend-legend" aria-label={`${view === "model" ? "모델" : "제공자"}${showAgOverlay ? " 및 Antigravity" : ""} 범례`}>
         {series.map((item: any, index: number) => (
           <button
             key={item.id}
@@ -2953,20 +2976,24 @@ function UsageTrendChart({ usage }: { usage: any }) {
             {item.label}
           </button>
         ))}
-        <span className="usage-trend-legend-divider" aria-hidden="true">|</span>
-        {requestSeries.map((fam) => (
-          <button
-            key={fam.id}
-            type="button"
-            aria-pressed={selectedReqFamily === fam.id}
-            className={`usage-trend-req-toggle is-${fam.id}${selectedReqFamily !== null && selectedReqFamily !== fam.id ? " is-muted" : ""}`}
-            onClick={() => setSelectedReqFamily((current) => current === fam.id ? null : fam.id)}
-          >
-            <span className="usage-trend-req-indicator" style={{ background: fam.color }} />
-            <b>{fam.label}</b>
-            <small>({fam.totalRequests.toLocaleString("en-US")}회 · 토큰 미측정)</small>
-          </button>
-        ))}
+        {showAgOverlay && (
+          <>
+            <span className="usage-trend-legend-divider" aria-hidden="true">|</span>
+            {requestSeries.map((fam) => (
+              <button
+                key={fam.id}
+                type="button"
+                aria-pressed={selectedReqFamily === fam.id}
+                className={`usage-trend-req-toggle is-${fam.id}${selectedReqFamily !== null && selectedReqFamily !== fam.id ? " is-muted" : ""}`}
+                onClick={() => setSelectedReqFamily((current) => current === fam.id ? null : fam.id)}
+              >
+                <span className="usage-trend-req-indicator" style={{ background: fam.color }} />
+                <b>{fam.label}</b>
+                <small>({fam.totalRequests.toLocaleString("en-US")}회 · 토큰 미측정)</small>
+              </button>
+            ))}
+          </>
+        )}
       </div>
     </div>
   );
@@ -3319,7 +3346,7 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
         )}
         {topRequestRows.length > 0 && (
           <>
-            <p className="fleet-model-caption">Antigravity 요청 (토큰 미측정 · 최근 7일)</p>
+            <p className="fleet-model-caption">Antigravity 요청 (토큰 미측정 · KST 달력일 최근 7일)</p>
             <ul className="fleet-model-rows is-requests">
               {topRequestRows.map((row) => (
                 <li key={row.model}>
@@ -3334,7 +3361,7 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
             </ul>
           </>
         )}
-        <p className="fleet-panel-foot">{meterTokens > 0 ? `기록 ${fleetTokenLabel(meterTokens)} tok` : ""}{totalRequestTurns > 0 ? ` · AG ${totalRequestTurns.toLocaleString("en-US")}회 (토큰 미측정)` : ""}</p>
+        <p className="fleet-panel-foot">{meterTokens > 0 ? `rolling 7일 토큰 ${fleetTokenLabel(meterTokens)} tok` : ""}{totalRequestTurns > 0 ? ` · KST 달력일 7일 AG ${totalRequestTurns.toLocaleString("en-US")}회 (토큰 미측정)` : ""}</p>
         <p className={`fleet-panel-foot fleet-claude-ledger-evidence ${claudeLedgerTone}`} data-testid="claude-ledger-evidence" data-ledger-freshness={claudeEvidence?.ledger_freshness ?? "unknown"}>{claudeLedgerSummary}</p>
         </CollapsiblePanelBody>
       </article>
@@ -3497,7 +3524,7 @@ function LedgerDistribution({ usage, exactTaskLabels }: { usage: any; exactTaskL
   const columns = [
     { key: "org", tone: "amber", title: "프로젝트별 토큰", meta: "조직 라벨 기준", rows: orgRows },
     { key: "models", tone: "teal", title: "모델별 토큰", meta: "전체 누적", rows: topRows("models") },
-    { key: "ag_requests", tone: "cyan", title: "AG 모델별 요청", meta: "토큰 미측정", rows: agRequestRows, isRequest: true },
+    { key: "ag_requests", tone: "cyan", title: "AG 모델별 요청", meta: "토큰 미측정 · 최근 30일", rows: agRequestRows, isRequest: true },
     { key: "tasks", tone: "purple", title: "task별 토큰", meta: null, rows: topRows("tasks") },
     { key: "projects", tone: "green", title: "프로젝트 코드별 토큰", meta: "세션 귀속 기준", rows: topRows("projects") },
   ];
