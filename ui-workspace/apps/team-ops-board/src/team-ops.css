@@ -6357,6 +6357,7 @@ a:focus-visible {
 }
 .ledger-distribution-column.is-amber .ledger-bar > span { background: linear-gradient(90deg, #b97f1f, var(--live-amber, #f5b849)); }
 .ledger-distribution-column.is-teal .ledger-bar > span { background: linear-gradient(90deg, #2b5a55, #65d8d0); }
+.ledger-distribution-column.is-cyan .ledger-bar > span { background: linear-gradient(90deg, #137e73, #2dd4bf); }
 .ledger-distribution-column.is-green .ledger-bar > span { background: linear-gradient(90deg, #2f7a4b, var(--live-green, #70d98c)); }
 .ledger-distribution-column.is-purple .ledger-bar > span { background: linear-gradient(90deg, #6a4fb8, #a68bff); }
 .ledger-distribution-empty { font-size: 11px; color: #5b6a74; }
@@ -6429,18 +6430,34 @@ a:focus-visible {
 .ledger-activity-panel .usage-trend-plot svg { width: 100%; height: auto; min-height: 220px; overflow: visible; }
 .usage-trend-grid { stroke: #222a33; stroke-width: 1; stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
 .usage-trend-axis { fill: #778693; font: 10px Consolas, ui-monospace, monospace; }
+.usage-trend-axis.is-req { fill: #2dd4bf; }
+.usage-trend-axis-title { font: 9px Consolas, ui-monospace, monospace; letter-spacing: 0.04em; }
+.usage-trend-axis-title.is-left { fill: #8da4b8; }
+.usage-trend-axis-title.is-right { fill: #2dd4bf; }
 .usage-trend-area { fill: currentColor; fill-opacity: .78; stroke: currentColor; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
-.usage-trend-hit-grid { position: absolute; inset: 6% 1.2% 13% 5.8%; display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); }
+.usage-trend-req-line { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+.usage-trend-req-line.is-ag_gemini { stroke: #2dd4bf; }
+.usage-trend-req-line.is-ag_claude_gpt { stroke: #fb923c; stroke-dasharray: 4 3; }
+.usage-trend-req-dot { vector-effect: non-scaling-stroke; }
+.usage-trend-hit-grid { position: absolute; inset: 6% 4.8% 13% 5.8%; display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); }
 .usage-trend-hit-grid button { min-width: 0; border: 0; padding: 0; background: transparent; cursor: crosshair; }
 .usage-trend-tooltip line { stroke: #a7b5c5; stroke-width: 1; stroke-dasharray: 3 3; }
 .usage-trend-tooltip rect { fill: #11161c; fill-opacity: .97; stroke: #4c5662; }
 .usage-trend-tooltip text { fill: #c7d0da; font: 10px Consolas, ui-monospace, monospace; }
 .usage-trend-tooltip text.is-title { fill: #fff; font-weight: 700; }
-.usage-trend-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 12px; }
+.usage-trend-tooltip text.is-req-header { fill: #2dd4bf; font-weight: 600; font-size: 9.5px; }
+.usage-trend-legend { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px 12px; }
 .usage-trend-legend button { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 4px 8px; border: 1px solid transparent; border-radius: 999px; color: #c9d2dc; background: transparent; font: 10.5px Consolas, ui-monospace, monospace; cursor: pointer; }
 .usage-trend-legend button:hover, .usage-trend-legend button[aria-pressed="true"] { border-color: #4c525a; background: #30343a; color: #fff; }
 .usage-trend-legend button.is-muted { opacity: .32; }
 .usage-trend-legend button span { width: 9px; height: 9px; border-radius: 50%; }
+.usage-trend-legend-divider { color: #3b444e; font-size: 13px; align-self: center; user-select: none; margin: 0 4px; }
+.usage-trend-req-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 4px 10px; border: 1px solid #23303d; border-radius: 999px; color: #cbd6e2; background: rgba(20, 30, 40, 0.6); font: 10.5px Consolas, ui-monospace, monospace; cursor: pointer; transition: all .15s ease; }
+.usage-trend-req-toggle:hover, .usage-trend-req-toggle[aria-pressed="true"] { border-color: #38bdf8; background: #1a2936; color: #fff; }
+.usage-trend-req-toggle.is-muted { opacity: .32; }
+.usage-trend-req-indicator { width: 8px; height: 8px; border-radius: 2px; }
+.usage-trend-req-toggle b { font-weight: 600; }
+.usage-trend-req-toggle small { color: #8da0b0; font-size: 9.5px; }
 .usage-trend-empty { margin: 0; padding: 24px; color: #8e9ba8; }
 @media (max-width: 700px) {
   .usage-trend { padding: 14px 12px 12px; }
@@ -6711,6 +6728,11 @@ a:focus-visible {
 }
 .fleet-model-dot.is-gemini { background: #f5b849; }
 .fleet-model-bar > span.is-gemini { background: linear-gradient(90deg, #6b5424, #f5b849); }
+.fleet-model-dot.is-ag_gemini { background: #2dd4bf; }
+.fleet-model-bar > span.is-ag_gemini { background: linear-gradient(90deg, #137e73, #2dd4bf); }
+.fleet-model-dot.is-ag_claude_gpt { background: #fb923c; }
+.fleet-model-bar > span.is-ag_claude_gpt { background: linear-gradient(90deg, #c2410c, #fb923c); }
+.fleet-model-family-tag { font-size: 10px; color: #8a99a3; margin-left: 4px; }
 
 /* AX declared-structure federation lens. Intentionally monochrome: this surface
    carries declared contract structure, never W1 live health tones. */

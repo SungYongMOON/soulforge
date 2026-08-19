@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { monotoneAreaPath, monotoneCurveCommands } from "./monotone-area.mjs";
+import { monotoneAreaPath, monotoneCurveCommands, monotoneLinePath } from "./monotone-area.mjs";
 
 test("monotone curve preserves exact daily points and clamps controls within adjacent values", () => {
   const points = [{ x: 0, y: 10 }, { x: 10, y: 0 }, { x: 20, y: 20 }, { x: 30, y: 5 }];
@@ -25,4 +25,13 @@ test("monotone stacked area closes exact upper and lower daily boundaries withou
   assert.match(path, /20,4 L 20,9 C/u);
   assert.match(path, /0,10 Z$/u);
   assert.equal(monotoneAreaPath([{ x: 0, y: 0 }], [{ x: 0, y: 1 }]), null);
+});
+
+test("monotone line path connects points with smooth cubic bezier curve without closing path", () => {
+  const points = [{ x: 0, y: 10 }, { x: 10, y: 5 }, { x: 20, y: 15 }];
+  const line = monotoneLinePath(points);
+  assert.match(line, /^M 0,10 C /u);
+  assert.match(line, /20,15$/u);
+  assert.equal(line.includes(" Z"), false);
+  assert.equal(monotoneLinePath([]), null);
 });

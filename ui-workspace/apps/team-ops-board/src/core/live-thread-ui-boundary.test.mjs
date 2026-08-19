@@ -195,13 +195,14 @@ test("AI usage breakdown rows stay top-aligned when sibling tables have differen
 test("usage distribution paints every declared column tone", () => {
   const source = readFileSync(APP_PATH, "utf8");
   const css = readFileSync(CSS_PATH, "utf8");
-  for (const tone of ["amber", "teal", "purple", "green"]) {
+  for (const tone of ["amber", "teal", "cyan", "purple", "green"]) {
     assert.match(source, new RegExp(`tone: "${tone}"`, "u"));
     assert.match(
       css,
       new RegExp(`\\.ledger-distribution-column\\.is-${tone} \\.ledger-bar > span\\s*\\{[^}]*background:`, "u"),
     );
   }
+  assert.match(source, /title: "AG 모델별 요청", meta: "토큰 미측정"/u);
 });
 
 test("thirty-day usage chart separates exact provider tokens with readable responsive controls", () => {
@@ -216,6 +217,7 @@ test("thirty-day usage chart separates exact provider tokens with readable respo
   assert.match(source, /providerDaily\.length !== 30/u);
   assert.match(source, /function buildProviderTokenChart/u);
   assert.match(source, /monotoneAreaPath\(/u);
+  assert.match(source, /monotoneLinePath\(/u);
   assert.match(source, /fleetAxisTokenLabel\(value\)/u);
   assert.match(source, /index % 5 === 0/u);
   assert.match(source, /index % 3 === 0/u);
@@ -244,6 +246,15 @@ test("thirty-day usage chart separates exact provider tokens with readable respo
   assert.match(source, /프로젝트 코드별 토큰/u);
   assert.match(source, /세션 귀속 기준/u);
   assert.match(source, /title: "모델별 토큰", meta: "전체 누적"/u);
+  assert.match(source, /AG·Gemini/u);
+  assert.match(source, /AG·Claude\+GPT/u);
+  assert.match(source, /AG 요청 \(회 · 토큰 미측정\)/u);
+  assert.match(source, /── AG 요청 \(토큰 미측정\) ──/u);
+  assert.match(source, /Antigravity 요청 \(토큰 미측정 · 최근 7일\)/u);
+  assert.match(css, /\.usage-trend-req-line\.is-ag_gemini/u);
+  assert.match(css, /\.usage-trend-req-line\.is-ag_claude_gpt/u);
+  assert.match(css, /\.fleet-model-dot\.is-ag_gemini/u);
+  assert.match(css, /\.fleet-model-dot\.is-ag_claude_gpt/u);
   for (const provider of ["codex", "claude", "antigravity"]) {
     assert.match(source, new RegExp(`provider-credit-\\$\\{item\\.id\\}`, "u"));
     assert.match(css, new RegExp(`\\.provider-credit-${provider}\\s*\\{[^}]*stroke:`, "u"));

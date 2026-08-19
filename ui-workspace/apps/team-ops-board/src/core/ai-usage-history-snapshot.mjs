@@ -17,11 +17,30 @@ export const AI_USAGE_HISTORY_WINDOWS = Object.freeze([
   "rolling_30d",
   "all_time"
 ]);
+export const UNMEASURED_REQUEST_FAMILY_CONTRACT_VERSION = "soulforge.ai_usage_unmeasured_family.v1";
+export const UNMEASURED_REQUEST_FAMILIES = Object.freeze(["ag_gemini", "ag_claude_gpt"]);
+export const UNMEASURED_REQUEST_FAMILY_LABELS = Object.freeze({
+  ag_gemini: "AG·Gemini",
+  ag_claude_gpt: "AG·Claude+GPT",
+});
+
+export function antigravityQuotaFamilyForModel(modelId, { failClosed = true } = {}) {
+  const normalized = typeof modelId === "string" ? modelId.toLowerCase().trim() : "";
+  if (normalized.startsWith("gemini")) return "ag_gemini";
+  if (normalized.startsWith("claude") || normalized.startsWith("gpt") || normalized.startsWith("chatgpt")) return "ag_claude_gpt";
+  if (failClosed) {
+    const error = new Error("board_usage_history_antigravity_model_unknown");
+    error.code = "board_usage_history_antigravity_model_unknown";
+    throw error;
+  }
+  return null;
+}
 
 const V2_ROOT_KEYS = ["schema_version", "generated_at", "timezone", "reference_at", "top_n", "current", "windows", "activity", "rate_limit"];
 const V3_ROOT_KEYS = [...V2_ROOT_KEYS, "provider_rows", "claude_collection"];
 const V3_PROVIDER_DAILY_ROOT_KEYS = [...V3_ROOT_KEYS, "provider_daily"];
 const V3_DAILY_SERIES_ROOT_KEYS = [...V3_PROVIDER_DAILY_ROOT_KEYS, "model_daily"];
+const V3_UNMEASURED_DAILY_ROOT_KEYS = [...V3_DAILY_SERIES_ROOT_KEYS, "unmeasured_request_daily"];
 const WINDOW_KEYS = ["start_at", "end_at", "totals", "breakdowns"];
 const BREAKDOWN_KEYS = ["projects", "works", "tasks", "models"];
 const BREAKDOWN_GROUP_KEYS = ["top", "other"];
@@ -50,6 +69,10 @@ const PROVIDER_DAILY_ROW_KEYS = ["date", "providers"];
 const PROVIDER_DAILY_VALUE_KEYS = ["provider", "total_tokens", "token_unknown_turns", "credits", "credit_unknown_turns"];
 const MODEL_DAILY_ROW_KEYS = ["date", "models"];
 const MODEL_DAILY_VALUE_KEYS = ["model_id", "turns", "total_tokens", "token_unknown_turns"];
+const UNMEASURED_REQUEST_DAILY_ROW_KEYS = ["date", "total_requests", "families"];
+const UNMEASURED_REQUEST_FAMILY_VALUE_KEYS = ["family_id", "requests", "models"];
+const UNMEASURED_REQUEST_MODEL_VALUE_KEYS = ["model_id", "requests"];
+const UNMEASURED_REQUEST_FAMILY_IDS = ["ag_gemini", "ag_claude_gpt"];
 const CLAUDE_COLLECTION_KEYS = [
   "schema_version",
   "state",
@@ -414,9 +437,11 @@ function normalizeHistorySnapshot(input) {
   if (legacy.state === "ready" || input === null || input === undefined) return noHistoryProjection(legacy);
   const isV2 = input?.schema_version === AI_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA;
   const isV3 = input?.schema_version === AI_USAGE_HISTORY_SNAPSHOT_SCHEMA;
-  const rootKeys = isV3 && Object.hasOwn(input ?? {}, "model_daily")
-    ? V3_DAILY_SERIES_ROOT_KEYS
-    : isV3 && Object.hasOwn(input ?? {}, "provider_daily") ? V3_PROVIDER_DAILY_ROOT_KEYS : isV3 ? V3_ROOT_KEYS : V2_ROOT_KEYS;
+  const rootKeys = isV3 && Object.hasOwn(input ?? {}, "unmeasured_request_daily")
+    ? V3_UNMEASURED_DAILY_ROOT_KEYS
+    : isV3 && Object.hasOwn(input ?? {}, "model_daily")
+      ? V3_DAILY_SERIES_ROOT_KEYS
+      : isV3 && Object.hasOwn(input ?? {}, "provider_daily") ? V3_PROVIDER_DAILY_ROOT_KEYS : isV3 ? V3_ROOT_KEYS : V2_ROOT_KEYS;
   if ((!isV2 && !isV3) || !hasExactKeys(input, rootKeys) || hasForbiddenKey(input)) return invalidProjection();
   if (
     input.timezone !== AI_USAGE_HISTORY_TIMEZONE
@@ -516,6 +541,54 @@ function normalizeHistorySnapshot(input) {
         || day.models.reduce((sum, row) => sum + row.turns, 0) !== activity[index]?.turns
         || day.models.reduce((sum, row) => sum + row.total_tokens, 0) !== activity[index]?.total_tokens)) return invalidProjection();
       history.model_daily = daily;
+    }
+    if (Object.hasOwn(input, "unmeasured_request_daily")) {
+      if (!Array.isArray(input.unmeasured_request_daily) || input.unmeasured_request_daily.length !== 30) return invalidProjection();
+      let priorDate = "";
+      const daily = input.unmeasured_request_daily.map((row) => {
+        if (!hasExactKeys(row, UNMEASURED_REQUEST_DAILY_ROW_KEYS) || !KST_DATE.test(row.date) || row.date <= priorDate
+          || !Number.isSafeInteger(row.total_requests) || row.total_requests < 0
+          || !Array.isArray(row.families) || row.families.length !== UNMEASURED_REQUEST_FAMILY_IDS.length) return null;
+        priorDate = row.date;
+        let computedTotal = 0;
+        const families = row.families.map((fam, famIndex) => {
+          if (!hasExactKeys(fam, UNMEASURED_REQUEST_FAMILY_VALUE_KEYS)
+            || fam.family_id !== UNMEASURED_REQUEST_FAMILY_IDS[famIndex]
+            || !Number.isSafeInteger(fam.requests) || fam.requests < 0
+            || !Array.isArray(fam.models)) return null;
+          const seen = new Set();
+          let famSum = 0;
+          const models = fam.models.map((m) => {
+            if (!hasExactKeys(m, UNMEASURED_REQUEST_MODEL_VALUE_KEYS)
+              || typeof m.model_id !== "string" || !SAFE_ID.test(m.model_id) || seen.has(m.model_id)
+              || !Number.isSafeInteger(m.requests) || m.requests < 1) return null;
+            let mappedFamily = null;
+            try {
+              mappedFamily = antigravityQuotaFamilyForModel(m.model_id, { failClosed: true });
+            } catch {
+              return null;
+            }
+            if (mappedFamily !== fam.family_id) return null;
+            seen.add(m.model_id);
+            famSum += m.requests;
+            return { model_id: m.model_id, requests: m.requests };
+          });
+          if (models.some((m) => m === null) || fam.requests !== famSum) return null;
+          computedTotal += fam.requests;
+          return { family_id: fam.family_id, requests: fam.requests, models };
+        });
+        if (families.some((f) => f === null) || row.total_requests !== computedTotal) return null;
+        return { date: row.date, total_requests: row.total_requests, families };
+      });
+      if (daily.some((row) => row === null)) return invalidProjection();
+      if (history.provider_daily) {
+        for (const [index, day] of daily.entries()) {
+          const agProvider = history.provider_daily[index]?.providers?.find((p) => p.provider === "antigravity");
+          const agUnknown = agProvider?.token_unknown_turns ?? 0;
+          if (day.total_requests !== agUnknown || day.date !== history.provider_daily[index]?.date) return invalidProjection();
+        }
+      }
+      history.unmeasured_request_daily = daily;
     }
     history.claude_collection = collection;
     providerEvidence = { claude: evidence };
