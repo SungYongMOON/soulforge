@@ -629,3 +629,33 @@ D37). 그래서 파일 이름에 `BOM`·`HDD` 같은 표준어를 넣는 습관�
 - **원격 문·로그인.** 팀원이 자기 PC에서 붙는 자리는 비서/게이트웨이 층이다(9.1F).
 - **등록 정정·취소(`observe_amend`).** 잘못 등록한 것을 고치는 도구는 아직 없다(9.1E). 지금은 Owner가
   등록 대장 줄과 파일을 보고 판단한다.
+
+## 12.C 외부 업로드 통로 — 시놀로지 NAS 문 앞 칸과 링크 발급 (Owner 결정 2026-08-19, 전산팀 회신 대기)
+
+### 결정
+- 외부 작업자(동기화 없는 PC, 계정 없는 협력사)도 올릴 수 있게 **링크 방식**으로 간다. 폴더를 몰라도 링크만 열면 올린다.
+- 저장소: **문 앞 칸(INBOX/티켓·내려받기 칸)은 회사 시놀로지 NAS의 새 공유폴더 `soulforge_intake`** 에, **정식 자리(과제 폴더트리)는 지금처럼 Owner의 OneDrive**에 둔다. 기존 NAS 백업 폴더(`개발1팀/Soulforge_Project_Backup`, `ERP_DB_DEVTEAM1`)와 분리한다.
+- 등록 = 엔진이 NAS 칸 → OneDrive 정식 자리로 **해시 확인 복사**(드라이브가 달라 이동 대신 복사), NAS 사본은 정리 규칙(사용됨/만료 뒤 N일 → 휴지통 폴더)으로 치운다. 다운로드·수동 삭제 없음.
+- 링크는 엔진이 만들지 않는다(엔진은 네트워크 0). **링크 발급기**(게이트웨이 층의 첫 부품, `guild_hall/gateway/` 아래 또는 엔진 옆 sidecar)가 시놀로지 File Station API로 표 폴더에 **"파일 요청" 링크**(업로드 전용·만료·암호)를 만들어 표 장부에 붙인다. DSM 판에서 파일 요청이 API로 안 되면 "빈 전용 폴더 + 편집 공유 링크"로 대체(노출 내용 없음).
+- 운영 PC의 NAS 접근은 드라이브 문자(Z:, RaiDrive·로그인 세션 종속)가 아니라 **UNC 경로 + 전용 계정**으로 잡는다(백업 컨트롤러와 같은 이유).
+- M365(Graph) 링크 발급은 차선으로 남긴다(앱 등록·동의 필요, 개인 365 계정이면 기기 코드 로그인).
+
+### 전산팀 요청 내용(2026-08-19 발송 예정, 비밀 없음)
+1. 공유폴더 `soulforge_intake` (하위 `tickets`·`outbox`·`_trash`, 휴지통 30일) — 새 공유폴더가 어려우면 `개발1팀` 하위폴더에 별도 권한
+2. 전용 계정 `soulforge_engine`: 그 폴더만 읽기/쓰기, 관리자 아님, File Station 사용 + 공유 링크·파일 요청 링크 생성 권한, 2FA 제외 또는 앱 비밀번호, 아이디·비밀번호는 Owner에게만
+3. 회신: 외부 접속(QuickConnect ID 또는 DDNS/HTTPS), DSM·File Station 버전, UNC `\\NAS\soulforge_intake` SMB 접근 가능 여부
+4. (선택) 공유 링크 기본 정책(만료 3일, 용량 상한), 로그 센터에 링크 사용 기록
+
+### Owner가 할 것(회신 뒤)
+- 운영 PC `.env`(런타임 전용)에 넣기 — 키 이름(값은 AI에게 보이지 않게): `SOULFORGE_NAS_HOST`, `SOULFORGE_NAS_PORT`, `SOULFORGE_NAS_USER`, `SOULFORGE_NAS_PASSWORD`(또는 `SOULFORGE_NAS_TOKEN`), `SOULFORGE_NAS_SHARE=soulforge_intake`, `SOULFORGE_NAS_UNC=\\NAS\soulforge_intake`
+- AI에게는 DSM 버전·접속 주소 형태만 알려준다.
+
+### 만들 것(엔진 옆)
+- 시놀로지 링크 발급기: 로그인(세션) → 표 폴더 생성 확인 → 파일 요청 링크 생성(만료·암호) → 표 장부에 링크·만료 기록 → 로그아웃. 비밀은 로그·영수증·저장소에 절대 남기지 않음. 모의(mock) DSM 응답으로 시험, 실계정은 `.env`로만.
+- 엔진 문: `file_ticket`이 발급기가 설정돼 있으면 `link`·`link_expires_at`을 같이 돌려줌; 프로필의 `intake_dir`·`outbox_dir`를 NAS UNC로 두는 과제 프로필 판; `file_register`는 교차 드라이브 복사 지원(해시 재확인).
+- 시험 순서: 표 발급 → 링크 → 다른 PC 브라우저로 업로드 → "올렸어" → 등록 → OneDrive 정식 자리 → 관측 → 판단 반영 → 정리 미리보기.
+
+### 오늘(2026-08-19) 실제 상태
+- 파일 문(표·등록·넣기/받기·정리) 병합됨(`validate:se-mcp` 104). KVDS 프로필 v2(문 앞·내려받기·휴지통·기밀 폴더·정책)와 과제 명부 갱신, KVDS 덧씌움 v2(스펙 핀 재고정, `prime_cdr_presentation_final` → 144 폴더).
+- OneDrive 쪽 문 앞 칸으로 표 1장 발급됨(owner_msy, 3일 만료). 가짜 파일로 등록 시험은 하지 않음(실제 과제 증거 오염 방지). Owner의 실제 PPT가 들어오면 등록→이동→관측→판단까지 돌린다.
+- 규칙표 정정: 폴더 번호 144 재사용 발견 → MRA 148로, "task id append-only" 규칙 신설; 덧씌움 `add`에 `task_id`/`folder_name` 허용.
