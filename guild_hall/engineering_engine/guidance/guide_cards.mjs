@@ -71,7 +71,17 @@ export const MAX = Object.freeze({
 // and is always filled with a value copied off a rule row, a compiled count, or a vocabulary
 // label — never with prose composed for the occasion.
 export const GUIDE_CARD_TEMPLATES = Object.freeze({
-  // --- why
+  // --- why: what the thing is for, and what stops without it. These come first because the three
+  // sentences below them answer "on whose authority" and not "what for", and a reader who only
+  // gets the authority sentences learns that somebody requires the document and nothing else.
+  why_purpose_stated: '목적: {purpose}',
+  why_purpose_absent: '정본에 목적 문장 없음',
+  why_used_by_named: '이것이 없으면 뒤의 {dependents}가 막힌다.',
+  why_used_by_named_more: '이것이 없으면 뒤의 {dependents} 등 {dependent_count}건이 막힌다.',
+  why_used_by_none: '이것을 입력으로 적은 뒤 항목은 규칙표에 없다.',
+  why_gate_role_core: '이 검토회의가 내놓기로 되어 있는 핵심 산출물이다.',
+  why_gate_role_entry: '이 검토회의에 들어가기 전에 있어야 할 진입 자료다.',
+  // --- why: on whose authority
   why_evidence_regulation_mandated: '규정이 요구하는 항목이다.',
   why_evidence_guidebook_recommended: '정부 가이드북이 권고하는 항목이다.',
   why_evidence_prime_contract: '발주처(주계약사) 계약이 요구하는 항목이다.',
@@ -93,10 +103,16 @@ export const GUIDE_CARD_TEMPLATES = Object.freeze({
   // --- how
   how_template_stated: '양식: {template}',
   how_template_absent: '양식 없음',
+  how_template_library_found: '양식 파일이 라이브러리에 있다: {template_ref}',
+  how_template_library_found_versioned: '양식 파일이 라이브러리에 있다: {template_ref} ({template_version})',
+  how_template_library_absent: '양식 파일이 라이브러리에 없다',
+  how_template_library_unknown: '양식 라이브러리 미조회',
   how_inputs_none: '선행 입력 없음',
   how_inputs_listed: '선행 입력 {input_count}건이 먼저 있어야 한다.',
+  how_inputs_state: '선행 입력 {input_count}건 — 있음 {present_count} · 없음 {absent_count} · 불명 {unknown_count}.',
   how_method_absent: '근거 미표기',
   how_method_listed: '근거 인용 {ref_count}건이 이 행에 붙어 있다.',
+  how_method_family: '{family_label} {ref_count}건',
   // --- who
   who_capability: '기본 담당 capability는 {capability}다.',
   who_capability_absent: '기본 담당 capability 미지정',
@@ -260,11 +276,54 @@ const NODE_KIND_TEMPLATE = Object.freeze({
   decision: 'why_node_decision',
 });
 
+// What the row is to the gate it sits in (compiler `gate_role`, manual 02 §2.7). `supporting` is
+// the default and the canon says nothing about it, so it gets no sentence.
+const GATE_ROLE_TEMPLATE = Object.freeze({
+  core: 'why_gate_role_core',
+  entry: 'why_gate_role_entry',
+});
+
+// How many later items a card names before it stops naming them. Past three the sentence stops
+// being a reason and becomes a list, and the structured `used_by` carries the rest anyway.
+const USED_BY_NAMED_LIMIT = 3;
+
+// The observation the work order recorded for an input token, said the way a person reads it.
+// `unobserved` and `unknown` both land on 불명 on purpose: "nobody looked" and "somebody looked and
+// could not tell" are both "we do not know", and the raw state stays on the input for whoever
+// needs the difference.
+const INPUT_STATE_BY_OBSERVATION = Object.freeze({
+  present: 'present',
+  absence_confirmed: 'absent',
+  unknown: 'unknown',
+  unobserved: 'unknown',
+});
+
+// Display vocabulary for the source families a citation can belong to. The family itself is not
+// decided here — it arrives on the source catalogue entry, because which family a canonical text
+// belongs to is a fact about that text and not about this renderer.
+export const SOURCE_FAMILIES = Object.freeze(['regulation', 'guidebook', 'practice_guide', 'general_se',
+  'prime_contract', 'unknown']);
+const SOURCE_FAMILY_LABEL_KO = Object.freeze({
+  regulation: '규정',
+  guidebook: '가이드북',
+  practice_guide: '실무지침서',
+  general_se: '일반SE',
+  prime_contract: '발주처 계약',
+  unknown: '출처 계열 미표기',
+});
+const SOURCE_FAMILY_RANK = Object.freeze(
+  Object.fromEntries(SOURCE_FAMILIES.map((family, index) => [family, index])),
+);
+
 const REQUEST_FIELDS = Object.freeze(['compile_result', 'vocabulary']);
-const REQUEST_OPTIONAL_FIELDS = Object.freeze(['compiled_variant', 'source_catalog', 'work_order']);
+const REQUEST_OPTIONAL_FIELDS = Object.freeze(['compiled_variant', 'source_catalog', 'work_order',
+  'template_library']);
 const VOCABULARY_FIELDS = Object.freeze(['artifact_type_id', 'family', 'label_ko', 'label_en', 'capability_default']);
 const CATALOGUE_ENTRY_REQUIRED = Object.freeze(['source_key']);
-const CATALOGUE_ENTRY_OPTIONAL = Object.freeze(['title', 'edition', 'locator_kind']);
+const CATALOGUE_ENTRY_OPTIONAL = Object.freeze(['title', 'edition', 'locator_kind', 'source_family']);
+const TEMPLATE_LIBRARY_FIELDS = Object.freeze(['library_id', 'entries']);
+const TEMPLATE_LIBRARY_ENTRY_REQUIRED = Object.freeze(['template_ref']);
+const TEMPLATE_LIBRARY_ENTRY_OPTIONAL = Object.freeze(['artifact_type_id', 'name', 'term', 'version']);
 
 // ---------------------------------------------------------------- input readers
 
@@ -292,9 +351,70 @@ function sourceCatalogueIndex(catalogue) {
     for (const field of CATALOGUE_ENTRY_OPTIONAL) {
       if (row[field] !== undefined && row[field] !== null) assertSafeString(row[field], `${where}.${field}`);
     }
+    if (row.source_family !== undefined && row.source_family !== null
+      && !SOURCE_FAMILIES.includes(row.source_family)) {
+      guidanceFail(GUIDANCE_ERROR_CODES.REQUEST_INVALID, 'a source family is not one of the declared families',
+        { where: `${where}.source_family`, declared: [...SOURCE_FAMILIES] });
+    }
     index.set(row.source_key, row);
   });
   return index;
+}
+
+// A form the project already holds, addressed the way the library addresses it. The reference is
+// required to be relative: the library lives in a private worksite and its absolute location is
+// the caller's business, so a card carries a path inside the library and never the path to it.
+function templateLibraryIndex(library) {
+  if (library === null || library === undefined) return null;
+  assertExactKeys(library, TEMPLATE_LIBRARY_FIELDS, [], 'request.template_library');
+  assertSafeString(library.library_id, 'request.template_library.library_id');
+  const rows = assertArray(library.entries, 'request.template_library.entries', MAX.rows);
+  const byToken = new Map();
+  const byName = new Map();
+  const byTerm = new Map();
+  rows.forEach((row, position) => {
+    const where = `request.template_library.entries[${position}]`;
+    assertExactKeys(row, TEMPLATE_LIBRARY_ENTRY_REQUIRED, TEMPLATE_LIBRARY_ENTRY_OPTIONAL, where);
+    assertSafeString(row.template_ref, `${where}.template_ref`);
+    if (/^(?:[A-Za-z]:|[\\/])/u.test(row.template_ref) || row.template_ref.split(/[\\/]/u).includes('..')) {
+      guidanceFail(GUIDANCE_ERROR_CODES.REQUEST_INVALID,
+        'a template reference must be relative to the library root and must not climb out of it',
+        { where: `${where}.template_ref` });
+    }
+    for (const field of TEMPLATE_LIBRARY_ENTRY_OPTIONAL) {
+      if (row[field] !== undefined && row[field] !== null) assertSafeString(row[field], `${where}.${field}`);
+    }
+    const entry = {
+      library_id: library.library_id,
+      artifact_type_id: row.artifact_type_id ?? null,
+      name: row.name ?? null,
+      term: row.term ?? null,
+      template_ref: row.template_ref,
+      version: row.version ?? null,
+    };
+    // First writer wins in every map, so a library listing two forms for one artifact resolves the
+    // same way on every run rather than by whichever entry happened to be read last.
+    if (entry.artifact_type_id !== null && !byToken.has(entry.artifact_type_id)) {
+      byToken.set(entry.artifact_type_id, entry);
+    }
+    if (entry.name !== null && !byName.has(entry.name)) byName.set(entry.name, entry);
+    if (entry.term !== null && !byTerm.has(entry.term)) byTerm.set(entry.term, entry);
+  });
+  return { library_id: library.library_id, byToken, byName, byTerm, size: rows.length };
+}
+
+/** Token, then spec row name, then term — most specific match first, and the match kind is kept. */
+function lookupTemplate(library, token, specRow) {
+  if (library === null) return { looked_up: false, found: false, match_kind: null, entry: null };
+  const attempts = [
+    ['artifact_type_id', library.byToken.get(token) ?? null],
+    ['name', specRow?.name === undefined || specRow?.name === null ? null : library.byName.get(specRow.name) ?? null],
+    ['term', specRow?.term === undefined || specRow?.term === null ? null : library.byTerm.get(specRow.term) ?? null],
+  ];
+  for (const [matchKind, entry] of attempts) {
+    if (entry !== null) return { looked_up: true, found: true, match_kind: matchKind, entry };
+  }
+  return { looked_up: true, found: false, match_kind: null, entry: null };
 }
 
 // (stage_code, task_id) -> the spec row the compiler graded. The mapping table keeps the grade and
@@ -360,6 +480,7 @@ function citationsOf(row, catalogue) {
       catalog_known: catalogue === null ? null : known !== null,
       title: known?.title ?? null,
       edition: known?.edition ?? null,
+      source_family: known?.source_family ?? null,
     });
   };
   for (const ref of row.source_refs ?? []) push(ref, 'row');
@@ -367,8 +488,47 @@ function citationsOf(row, catalogue) {
   return refs;
 }
 
-function whySentences(row, specRow) {
+// The purpose the canonical text itself states for this artifact, carried on the spec row as
+// `purpose_ko` with its own locators (`purpose_refs`). It is extracted at spec-authoring time by a
+// reader from the canon's own description of the product, exactly the way `desc` and the citations
+// were (manual 03 §3.10); this module copies it and never composes one. Where the canon says
+// nothing, the card says so rather than filling the gap from general knowledge.
+function purposeOf(specRow) {
+  const stated = specRow ?? null;
+  const text = typeof stated?.purpose_ko === 'string' && stated.purpose_ko.length > 0
+    ? stated.purpose_ko : null;
+  const refs = text === null ? [] : (stated?.purpose_refs ?? []).map((ref) => ({
+    source_key: ref.source_key, locator: ref.locator,
+  }));
+  return {
+    stated: text !== null,
+    purpose_ko: text,
+    purpose_refs: refs,
+    note: text === null
+      ? guidanceSentence('why_purpose_absent')
+      : guidanceSentence('why_purpose_stated', { purpose: text }),
+  };
+}
+
+// Which later rows named this artifact as an input. This is the reason a person actually needs:
+// not "a rule requires it" but "these are the things that cannot start until it exists". The
+// relation is computed from the rule table's own edges, so it says nothing the table did not say.
+function usedBySentence(usedBy) {
+  if (usedBy.length === 0) return guidanceSentence('why_used_by_none');
+  const named = usedBy.slice(0, USED_BY_NAMED_LIMIT)
+    .map((row) => row.label_ko ?? row.artifact_type_id)
+    .join('·');
+  return usedBy.length <= USED_BY_NAMED_LIMIT
+    ? guidanceSentence('why_used_by_named', { dependents: named })
+    : guidanceSentence('why_used_by_named_more', { dependents: named, dependent_count: usedBy.length });
+}
+
+function whySentences(row, specRow, purpose, usedBy) {
   const why = [];
+  why.push({ ...purpose.note, source_refs: purpose.purpose_refs.map((ref) => ({ ...ref })) });
+  why.push({ ...usedBySentence(usedBy), source_refs: [] });
+  const gateRoleTemplate = GATE_ROLE_TEMPLATE[row.gate_role];
+  if (gateRoleTemplate !== undefined) why.push({ ...guidanceSentence(gateRoleTemplate), source_refs: [] });
   const evidenceTemplate = EVIDENCE_TEMPLATE[row.evidence_level] ?? 'why_evidence_unstated';
   why.push({ ...guidanceSentence(evidenceTemplate), source_refs: (row.source_refs ?? []).map((ref) => ({ ...ref })) });
   const presenceTemplate = PRESENCE_TEMPLATE[row.minimum_presence_rule];
@@ -391,15 +551,30 @@ function whySentences(row, specRow) {
   return why;
 }
 
-function howBlock(row, specRow, workItem, producesFor, vocabulary) {
+function howBlock(row, specRow, workItem, producesFor, vocabulary, templateMatch, observationByToken, catalogue) {
   const templateValue = specRow?.template ?? null;
-  const templateStated = typeof templateValue === 'string' && templateValue.length > 0;
+  // The 체계개발 spec writes "없음" where a row has no form. Treating that as a stated form would
+  // put the word 없음 in the 양식 line of an instruction, which reads as a form called "없음".
+  const templateStated = typeof templateValue === 'string' && templateValue.length > 0
+    && templateValue !== '없음';
   const inputs = (row.depends_on ?? []).map((token) => {
     const resolution = row.dependency_resolution ?? { in_scope: [], out_of_scope: [], unresolved: [] };
     const scope = (resolution.in_scope ?? []).includes(token) ? 'in_scope'
       : (resolution.out_of_scope ?? []).includes(token) ? 'out_of_scope' : 'unresolved';
-    return { ...tokenLabel(token, vocabulary), scope };
+    // What the eye said about this input, if anybody supplied observations. An input nobody looked
+    // at is 불명 and never 없음: the difference is whether somebody looked, and this layer is not
+    // the one that decides that.
+    const observationState = observationByToken.get(token) ?? null;
+    return {
+      ...tokenLabel(token, vocabulary),
+      scope,
+      observation_state: observationState,
+      input_state: observationState === null ? 'unknown'
+        : INPUT_STATE_BY_OBSERVATION[observationState] ?? 'unknown',
+    };
   });
+  const stateCounts = { present: 0, absent: 0, unknown: 0 };
+  for (const input of inputs) stateCounts[input.input_state] += 1;
   const methodRefs = [];
   if ((row.source_refs ?? []).length > 0) {
     methodRefs.push({
@@ -416,6 +591,40 @@ function howBlock(row, specRow, workItem, producesFor, vocabulary) {
     });
   }
   const refCount = methodRefs.reduce((total, entry) => total + entry.source_refs.length, 0);
+  // The same citations again, grouped by which canonical family they come from, because "규정 2건 ·
+  // 가이드북 3건" is the shape of "how do I do this properly" and a flat locator list is not. The
+  // family is whatever the catalogue said; with no catalogue every citation is honestly `unknown`.
+  const familyOf = (sourceKey) => (catalogue === null ? 'unknown'
+    : catalogue.get(sourceKey)?.source_family ?? 'unknown');
+  const families = new Map();
+  for (const entry of methodRefs) {
+    for (const ref of entry.source_refs) {
+      const family = familyOf(ref.source_key);
+      if (!families.has(family)) families.set(family, []);
+      families.get(family).push({ ...ref, ref_kind: entry.ref_kind, evidence_level: entry.evidence_level });
+    }
+  }
+  const methodFamilies = [...families.entries()]
+    .sort((left, right) => (SOURCE_FAMILY_RANK[left[0]] ?? 9) - (SOURCE_FAMILY_RANK[right[0]] ?? 9))
+    .map(([family, refs]) => ({
+      family,
+      label_ko: SOURCE_FAMILY_LABEL_KO[family] ?? SOURCE_FAMILY_LABEL_KO.unknown,
+      ref_count: refs.length,
+      source_refs: refs,
+      note: guidanceSentence('how_method_family', {
+        family_label: SOURCE_FAMILY_LABEL_KO[family] ?? SOURCE_FAMILY_LABEL_KO.unknown,
+        ref_count: refs.length,
+      }),
+    }));
+  const libraryNote = () => {
+    if (!templateMatch.looked_up) return guidanceSentence('how_template_library_unknown');
+    if (!templateMatch.found) return guidanceSentence('how_template_library_absent');
+    return templateMatch.entry.version === null
+      ? guidanceSentence('how_template_library_found', { template_ref: templateMatch.entry.template_ref })
+      : guidanceSentence('how_template_library_found_versioned', {
+        template_ref: templateMatch.entry.template_ref, template_version: templateMatch.entry.version,
+      });
+  };
   return {
     template: {
       stated: templateStated,
@@ -423,13 +632,32 @@ function howBlock(row, specRow, workItem, producesFor, vocabulary) {
       note: templateStated
         ? guidanceSentence('how_template_stated', { template: templateValue })
         : guidanceSentence('how_template_absent'),
+      // The form the spec names is a locator into a canonical text ("p.131 (서식)"); this is the
+      // file the project actually holds, if the caller pointed at a template library.
+      library: {
+        looked_up: templateMatch.looked_up,
+        found: templateMatch.found,
+        match_kind: templateMatch.match_kind,
+        library_id: templateMatch.entry?.library_id ?? null,
+        template_ref: templateMatch.entry?.template_ref ?? null,
+        version: templateMatch.entry?.version ?? null,
+        note: libraryNote(),
+      },
     },
     inputs,
     inputs_note: inputs.length === 0
       ? guidanceSentence('how_inputs_none')
       : guidanceSentence('how_inputs_listed', { input_count: inputs.length }),
+    input_state_counts: { ...stateCounts },
+    input_state_note: inputs.length === 0 ? null : guidanceSentence('how_inputs_state', {
+      input_count: inputs.length,
+      present_count: stateCounts.present,
+      absent_count: stateCounts.absent,
+      unknown_count: stateCounts.unknown,
+    }),
     produces_for: producesFor,
     method_refs: methodRefs,
+    method_families: methodFamilies,
     method_note: refCount === 0
       ? guidanceSentence('how_method_absent')
       : guidanceSentence('how_method_listed', { ref_count: refCount }),
@@ -453,6 +681,19 @@ export function buildGuideCards(request) {
   const catalogue = sourceCatalogueIndex(request.source_catalog ?? null);
   const specRows = specRowIndex(request.compiled_variant ?? null);
   const workItems = workOrderIndex(request.work_order ?? null);
+  const templateLibrary = templateLibraryIndex(request.template_library ?? null);
+
+  // What the eye saw, by token rather than by (stage, token): an input usually lives in an earlier
+  // gate than the row that needs it, and its observation is a fact about the artifact, not about
+  // the gate the question was asked from.
+  const observationByToken = new Map();
+  for (const stage of request.work_order?.stages ?? []) {
+    for (const item of stage.work_items ?? []) {
+      if (!observationByToken.has(item.artifact_type_id) && item.observation_state !== undefined) {
+        observationByToken.set(item.artifact_type_id, item.observation_state);
+      }
+    }
+  }
 
   const stageSequence = new Map();
   const declarations = compileResult.needs_stage_declarations?.stages ?? [];
@@ -500,8 +741,15 @@ export function buildGuideCards(request) {
     cards_without_template: 0,
     cards_without_source: 0,
     cards_with_unresolved_input: 0,
+    cards_with_purpose: 0,
+    cards_without_purpose: 0,
+    cards_with_used_by: 0,
+    cards_with_template_ref: 0,
+    template_library_lookups: 0,
+    by_gate_role: { core: 0, entry: 0, supporting: 0 },
     citations: 0,
     citations_unknown_source: 0,
+    citations_unknown_family: 0,
     skipped_context_rows: 0,
   };
 
@@ -532,8 +780,17 @@ export function buildGuideCards(request) {
         `${right.stage_code}\u001f${right.artifact_type_id}`,
       ));
 
-    const how = howBlock(governing, specRow, workItem, dependents, vocabulary);
-    const why = whySentences(governing, specRow);
+    // Only what comes after this row: a later item that names this artifact as an input is the
+    // thing that stops without it. An item in an earlier gate that happens to name it is a forward
+    // edge and not a consequence of this row being missing.
+    const ownSequence = stageSequence.get(stageCode) ?? 0;
+    const usedBy = dependents.filter((row) => (stageSequence.get(row.stage_code) ?? 0) >= ownSequence
+      && !(row.stage_code === stageCode && row.artifact_type_id === governing.artifact_type_id));
+    const templateMatch = lookupTemplate(templateLibrary, governing.artifact_type_id, specRow);
+    const purpose = purposeOf(specRow);
+    const how = howBlock(governing, specRow, workItem, dependents, vocabulary, templateMatch,
+      observationByToken, catalogue);
+    const why = whySentences(governing, specRow, purpose, usedBy);
     const citations = citationsOf(governing, catalogue);
     const maturity = governing.maturity ?? null;
     const sameStage = how.same_stage_inputs.length;
@@ -547,8 +804,15 @@ export function buildGuideCards(request) {
       is_virtual: governing.is_virtual === true,
       engine_requirement_id: isEngineRequirement ? governing.engine_requirement_id : null,
       alias: governing.alias ?? null,
+      gate_role: governing.gate_role ?? null,
       title_ko: entry === null ? null : entry.label_ko,
       title_en: entry === null ? null : entry.label_en,
+      purpose: {
+        stated: purpose.stated,
+        purpose_ko: purpose.purpose_ko,
+        purpose_refs: purpose.purpose_refs,
+      },
+      used_by: usedBy.map((row) => ({ ...row })),
       why,
       when: {
         stage_code: stageCode,
@@ -592,8 +856,16 @@ export function buildGuideCards(request) {
     if (!how.template.stated) counts.cards_without_template += 1;
     if (citations.length === 0) counts.cards_without_source += 1;
     if (how.inputs.some((input) => input.scope === 'unresolved')) counts.cards_with_unresolved_input += 1;
+    if (purpose.stated) counts.cards_with_purpose += 1; else counts.cards_without_purpose += 1;
+    if (usedBy.length > 0) counts.cards_with_used_by += 1;
+    if (templateMatch.looked_up) counts.template_library_lookups += 1;
+    if (templateMatch.found) counts.cards_with_template_ref += 1;
+    if (Object.hasOwn(counts.by_gate_role, body.gate_role)) counts.by_gate_role[body.gate_role] += 1;
     counts.citations += citations.length;
     counts.citations_unknown_source += citations.filter((ref) => ref.catalog_known === false).length;
+    counts.citations_unknown_family += how.method_families
+      .filter((family) => family.family === 'unknown')
+      .reduce((total, family) => total + family.ref_count, 0);
   }
 
   cards.sort((left, right) => compareCodePoints(
@@ -613,6 +885,8 @@ export function buildGuideCards(request) {
     claim_ceiling: 'observed',
     judgment_changed: false,
     template_ids: Object.keys(GUIDE_CARD_TEMPLATES).sort(compareCodePoints),
+    template_library_id: templateLibrary === null ? null : templateLibrary.library_id,
+    source_families: [...SOURCE_FAMILIES],
     input_digests: {
       mapping_table: guidanceDigest(`${GUIDE_CARD_SET_SCHEMA_VERSION}.mapping_table`, mappingTable),
       compiled_variant: specRows === null ? null
@@ -621,6 +895,8 @@ export function buildGuideCards(request) {
         : guidanceDigest(`${GUIDE_CARD_SET_SCHEMA_VERSION}.work_order`, request.work_order),
       source_catalog: catalogue === null ? null
         : guidanceDigest(`${GUIDE_CARD_SET_SCHEMA_VERSION}.source_catalog`, request.source_catalog),
+      template_library: templateLibrary === null ? null
+        : guidanceDigest(`${GUIDE_CARD_SET_SCHEMA_VERSION}.template_library`, request.template_library),
     },
     output_digests: {
       cards: guidanceDigest(`${GUIDE_CARD_SET_SCHEMA_VERSION}.cards`, cards),

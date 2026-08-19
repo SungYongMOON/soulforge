@@ -48,6 +48,13 @@ const FINDING_LABEL_KO = Object.freeze({
   not_yet_observed: '아직 관측 안 됨',
 });
 
+// 있음 / 없음 / 불명 — what the eye said about an input, said the way a person reads it.
+const INPUT_STATE_LABEL_KO = Object.freeze({
+  present: '있음',
+  absent: '없음',
+  unknown: '불명',
+});
+
 const code = (value) => `${BACKTICK}${value}${BACKTICK}`;
 const orDash = (value) => (value === null || value === undefined || value === '' ? '—' : String(value));
 
@@ -80,8 +87,17 @@ function stageWorkItems(workOrder, stageCode) {
 }
 
 function citationLine(instruction) {
-  // Deduplicated: one locator can arrive twice, once as the row's own citation and once as the
-  // citation behind an edge into it. Printing it twice would read as two independent sources.
+  // Grouped by canonical family, and deduplicated inside each: one locator can arrive twice, once
+  // as the row's own citation and once as the citation behind an edge into it, and printing it
+  // twice would read as two independent sources. The family label is what turns a locator list
+  // into "how is this done properly" — 규정 first, then 가이드북, then the rest.
+  const families = instruction.how?.method_families ?? [];
+  if (families.length > 0) {
+    return families.map((family) => {
+      const refs = new Set((family.source_refs ?? []).map((ref) => `${ref.source_key} ${ref.locator}`));
+      return `${family.label_ko}: ${[...refs].join('; ')}`;
+    }).join(' | ');
+  }
   const refs = new Set();
   for (const entry of instruction.how?.method_refs ?? []) {
     for (const ref of entry.source_refs ?? []) refs.add(`${ref.source_key} ${ref.locator}`);
@@ -94,16 +110,50 @@ function inputLine(instruction) {
   if (inputs.length === 0) return '선행 입력 없음';
   return inputs.map((input) => {
     const label = input.label_ko === null || input.label_ko === undefined ? '' : `(${input.label_ko})`;
-    return `${code(input.artifact_type_id)}${label} — ${input.input_state}`;
+    const state = INPUT_STATE_LABEL_KO[input.input_state] ?? orDash(input.input_state);
+    return `${code(input.artifact_type_id)}${label} — ${state}`;
   }).join(', ');
 }
 
+// 양식: what the canonical text calls the form, and — when the caller pointed at a template
+// library — whether the project actually holds a file for it.
+function howLine(instruction) {
+  const template = instruction.how?.template ?? null;
+  const stated = template?.note?.text_ko ?? '양식 없음';
+  const library = template?.library ?? null;
+  if (library === null || library.looked_up !== true) return stated;
+  return `${stated} · ${library.note.text_ko}`;
+}
+
 function whyLine(instruction) {
+  const guidance = (instruction.why?.guidance ?? []).map((sentence) => sentence.text_ko);
+  return [findingHead(instruction), ...guidance].join(' ');
+}
+
+const findingHead = (instruction) => {
   const finding = FINDING_LABEL_KO[instruction.why?.engine_finding] ?? orDash(instruction.why?.engine_finding);
   const reason = instruction.why?.reason_code ?? null;
-  const guidance = (instruction.why?.guidance ?? []).map((sentence) => sentence.text_ko);
-  const head = reason === null ? `엔진 판정: ${finding}.` : `엔진 판정: ${finding}(${reason}).`;
-  return [head, ...guidance].join(' ');
+  return reason === null ? `엔진 판정: ${finding}.` : `엔진 판정: ${finding}(${reason}).`;
+};
+
+// "왜"는 세 부분이다: 목적, 뒤에 무엇이 막히나, 그리고 누가 요구하는가. 셋을 한 줄에 이어 붙이면
+// 읽는 사람은 맨 앞 문장만 읽고 나머지를 규칙 상투구로 넘긴다. 그래서 줄을 나눈다.
+const purposeLine = (instruction) => instruction.why?.purpose?.purpose_ko ?? '정본에 목적 문장 없음';
+
+function usedByLine(instruction) {
+  const rows = instruction.why?.used_by ?? [];
+  if (rows.length === 0) return '이것을 입력으로 적은 뒤 항목은 규칙표에 없다';
+  return rows.map((row) => `${code(row.artifact_type_id)}${row.label_ko === null || row.label_ko === undefined ? '' : `(${row.label_ko})`}`).join(', ');
+}
+
+// The engine's finding plus the sentences that say on whose authority the row exists — purpose and
+// used_by have their own lines above, so they are not repeated here.
+function judgementLine(instruction) {
+  const guidance = (instruction.why?.guidance ?? [])
+    .filter((sentence) => !String(sentence.template_id).startsWith('why_purpose')
+      && !String(sentence.template_id).startsWith('why_used_by'))
+    .map((sentence) => sentence.text_ko);
+  return [findingHead(instruction), ...guidance].join(' ');
 }
 
 /**
@@ -170,12 +220,17 @@ export function renderNextStepsAnswer(request) {
     title_ko: instruction.what?.title_ko ?? null,
     what: instruction.what?.desc ?? null,
     why: whyLine(instruction),
+    purpose: instruction.why?.purpose?.purpose_ko ?? null,
+    used_by: (instruction.why?.used_by ?? []).map((row) => row.label_ko ?? row.artifact_type_id),
+    gate_role: instruction.why?.gate_role ?? null,
+    why_judgement: judgementLine(instruction),
     inputs: inputLine(instruction),
     output: [
       orDash(instruction.output?.title_ko ?? instruction.output?.artifact_type_id),
       orDash(instruction.output?.maturity_expected),
     ].join(' / '),
-    how: instruction.how?.template?.note?.text_ko ?? '양식 없음',
+    how: howLine(instruction),
+    template_ref: instruction.how?.template?.library?.template_ref ?? null,
     citations: citationLine(instruction),
     who: [
       orDash(instruction.who?.capability_default),
@@ -239,16 +294,18 @@ export function renderNextStepsAnswer(request) {
   if (nextSteps.length === 0) {
     lines.push('- 지시서 없음');
   }
-  for (const step of nextSteps) {
+  for (const [position, step] of nextSteps.entries()) {
     lines.push('');
     lines.push(`### ${step.order}) ${orDash(step.title_ko)} (${code(orDash(step.artifact_type_id))})`);
     lines.push(`- 무엇을: ${orDash(step.what)}`);
-    lines.push(`- 왜: ${step.why}`);
-    lines.push(`- 입력: ${step.inputs}`);
+    lines.push(`- 왜 · 목적: ${purposeLine(instructions[position])}`);
+    lines.push(`- 왜 · 없으면 막히는 것: ${usedByLine(instructions[position])}`);
+    lines.push(`- 왜 · 판정과 근거: ${step.why_judgement}`);
+    lines.push(`- 어떻게 · 입력: ${step.inputs}`);
+    lines.push(`- 어떻게 · 양식: ${step.how}`);
+    lines.push(`- 어떻게 · 방법 근거: ${step.citations}`);
+    lines.push(`- 어떻게 · 담당(capability / 논리역할 / 사람): ${step.who}`);
     lines.push(`- 산출: ${step.output}`);
-    lines.push(`- 어떻게: ${step.how}`);
-    lines.push(`- 근거: ${step.citations}`);
-    lines.push(`- 담당(capability / 논리역할 / 사람): ${step.who}`);
     lines.push(`- 기한: ${orDash(step.due)}`);
   }
   lines.push('');

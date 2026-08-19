@@ -279,6 +279,9 @@ const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/u;
 // bounded call whatever the input claims about itself.
 const MAX = Object.freeze({
   string: 512, gates: 64, tasks: 512, ops: 512, refs: 128, conditions: 128, documents: 128,
+  // A row's purpose sentence, in characters rather than UTF-16 units so the cap means the same
+  // thing in Korean as it does in English.
+  purposeChars: 200,
 });
 
 // ---------------------------------------------------------------- shape assertions
@@ -454,6 +457,10 @@ const TASK_OPTIONAL_FIELDS = Object.freeze([
   'is_virtual',
   // What this row is to its gate, and where its declared inputs came from.
   'gate_role', 'depends_on_origin',
+  // What the canonical text says the artifact is FOR, and the locators that sentence was read at.
+  // The compiler does not read either — a purpose changes no judgement — but a spec row is
+  // validated key by key, so a field the guidance layer reads has to be declared here too.
+  'purpose_ko', 'purpose_refs',
 ]);
 const SOURCE_REF_FIELDS = Object.freeze(['source_key', 'locator']);
 const PROJECT_BINDING_FIELDS = Object.freeze([
@@ -615,6 +622,30 @@ function validateCompiledVariant(variant) {
           assertSafeString(ref.source_key, `${refWhere}.source_key`, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
           assertSafeString(ref.locator, `${refWhere}.locator`, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
         });
+      }
+      // What the canon says the artifact is for. Bounded at 200 characters because a purpose is a
+      // sentence a person reads on a card, and a longer one would be the canonical text itself
+      // copied into a public spec rather than a condensation of it with a locator beside it.
+      if (task.purpose_ko !== undefined) {
+        assertSafeString(task.purpose_ko, `${taskWhere}.purpose_ko`, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
+        if ([...task.purpose_ko].length > MAX.purposeChars) {
+          fail(STAGE_RULE_ERROR_CODES.VARIANT_INVALID, 'purpose_ko is longer than a card sentence may be',
+            { where: `${taskWhere}.purpose_ko`, limit: MAX.purposeChars });
+        }
+      }
+      if (task.purpose_refs !== undefined) {
+        assertArray(task.purpose_refs, `${taskWhere}.purpose_refs`, MAX.refs, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
+        task.purpose_refs.forEach((ref, refIndex) => {
+          const refWhere = `${taskWhere}.purpose_refs[${refIndex}]`;
+          assertExactKeys(ref, SOURCE_REF_FIELDS, [], refWhere, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
+          assertSafeString(ref.source_key, `${refWhere}.source_key`, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
+          assertSafeString(ref.locator, `${refWhere}.locator`, STAGE_RULE_ERROR_CODES.VARIANT_INVALID);
+        });
+      }
+      // A purpose without a locator is somebody's opinion in a table of cited rules.
+      if (task.purpose_ko !== undefined && (task.purpose_refs ?? []).length === 0) {
+        fail(STAGE_RULE_ERROR_CODES.VARIANT_INVALID, 'a stated purpose must name where it was read',
+          { where: `${taskWhere}.purpose_refs` });
       }
       // ---- D46 fields.
       if (task.node_kind !== undefined) {

@@ -46,6 +46,14 @@
               "node_kind": "artifact",
               "evidence_level": "regulation_mandated",
               "verification_status": "source_supported",
+              "gate_role": "entry",
+              "purpose_ko": "합성 정본이 말하는 목적: 운용 시나리오를 적어 두어야 요구사항을 뽑을 수 있다.",
+              "purpose_refs": [
+                {
+                  "source_key": "synthetic_rule_book_v0",
+                  "locator": "article 11"
+                }
+              ],
               "source_refs": [
                 {
                   "source_key": "synthetic_rule_book_v0",
@@ -90,6 +98,14 @@
               "node_kind": "artifact",
               "evidence_level": "regulation_mandated",
               "verification_status": "source_supported",
+              "gate_role": "core",
+              "purpose_ko": "합성 정본이 말하는 목적: 이해관계자 기대를 기술 요구로 바꿔 이후 설계와 시험의 기준을 만든다.",
+              "purpose_refs": [
+                {
+                  "source_key": "synthetic_rule_book_v0",
+                  "locator": "article 12"
+                }
+              ],
               "depends_on": [
                 "act_stakeholder_expectations"
               ],
@@ -115,6 +131,13 @@
               "node_kind": "artifact",
               "evidence_level": "guidebook_recommended",
               "verification_status": "source_supported",
+              "purpose_ko": "합성 정본이 말하는 목적: 기술 관리 방식을 미리 합의해 두는 계획서다.",
+              "purpose_refs": [
+                {
+                  "source_key": "synthetic_guidebook_v0",
+                  "locator": "table 2-2"
+                }
+              ],
               "source_refs": [
                 {
                   "source_key": "synthetic_guidebook_v0",
@@ -216,9 +239,18 @@
               "name": "Synthetic system design description",
               "desc": "What the architecture activity produces.",
               "artifact_type_id": "ssdd",
+              "term": "SSDD",
               "node_kind": "artifact",
               "evidence_level": "regulation_mandated",
               "verification_status": "source_supported",
+              "gate_role": "core",
+              "purpose_ko": "합성 정본이 말하는 목적: 요구를 만족하는 설계 구조를 확정해 상세 설계의 바탕으로 삼는다.",
+              "purpose_refs": [
+                {
+                  "source_key": "synthetic_rule_book_v0",
+                  "locator": "article 21"
+                }
+              ],
               "depends_on": [
                 "act_architecture_design"
               ],
@@ -245,6 +277,13 @@
               "is_virtual": true,
               "evidence_level": "regulation_mandated",
               "verification_status": "source_supported",
+              "purpose_ko": "합성 정본이 말하는 목적: 할당된 기준선을 확정해야 이후 변경이 형상관리 아래로 들어온다.",
+              "purpose_refs": [
+                {
+                  "source_key": "synthetic_rule_book_v0",
+                  "locator": "article 22"
+                }
+              ],
               "depends_on": [
                 "ssdd"
               ],
@@ -359,7 +398,27 @@
       {
         "source_key": "synthetic_rule_book_v0",
         "title": "Synthetic rule book",
-        "edition": "v0"
+        "edition": "v0",
+        "source_family": "regulation"
+      }
+    ]
+  },
+  "template_library": {
+    "library_id": "SYNTHETIC_TEMPLATE_LIBRARY",
+    "entries": [
+      {
+        "artifact_type_id": "ssrs",
+        "template_ref": "030_SRR/3004_synthetic_system_requirements_specification/00_Temp/templates_or_forms/Rev3/synthetic_ssrs_form.md",
+        "version": "Rev3"
+      },
+      {
+        "name": "Synthetic engineering management plan",
+        "template_ref": "030_SRR/3005_synthetic_engineering_management_plan/00_Temp/templates_or_forms/synthetic_semp_form.md"
+      },
+      {
+        "term": "SSDD",
+        "template_ref": "090_PDR/9003_synthetic_system_design_description/00_Temp/templates_or_forms/Rev1/synthetic_ssdd_form.md",
+        "version": "Rev1"
       }
     ]
   },
@@ -581,7 +640,7 @@
     }
   },
   "expected": {
-    "note": "Derived by hand from the rows above. Eleven cards: every engine requirement of the two gates. The two inbox rows and the unstated rtm row are context artifacts and get no card; the activity and decision rows do, because they are the rows that say what work has to happen. Only the semp row states a form, and only the wbs row states no citation at all. The stp row names an input no token owns, which is the one unresolved input.",
+    "note": "Derived by hand from the rows above. Eleven cards: every engine requirement of the two gates. The two inbox rows and the unstated rtm row are context artifacts and get no card; the activity and decision rows do, because they are the rows that say what work has to happen. Only the semp row states a form, and only the wbs row states no citation at all. The stp row names an input no token owns, which is the one unresolved input. Five rows carry a purpose sentence (conops, ssrs, semp, ssdd, dec_allocated_baseline) and six deliberately do not, so the card can be checked for saying '정본에 목적 문장 없음' rather than filling one in. Six cards have something later that names them as an input. The template library answers for three artifacts and by three different match kinds — token, spec row name, term.",
     "card_counts": {
       "cards": 11,
       "engine_requirement_cards": 11,
@@ -591,10 +650,38 @@
         "activity": 2,
         "decision": 1
       },
+      "by_gate_role": {
+        "core": 2,
+        "entry": 1,
+        "supporting": 8
+      },
       "cards_without_template": 10,
       "cards_without_source": 1,
       "cards_with_unresolved_input": 1,
+      "cards_with_purpose": 5,
+      "cards_without_purpose": 6,
+      "cards_with_used_by": 6,
+      "cards_with_template_ref": 3,
+      "template_library_lookups": 11,
       "skipped_context_rows": 3
+    },
+    "used_by_counts": {
+      "conops": 1,
+      "act_stakeholder_expectations": 1,
+      "ssrs": 3,
+      "semp": 0,
+      "review_minutes_srr": 0,
+      "wbs": 0,
+      "act_architecture_design": 1,
+      "ssdd": 1,
+      "dec_allocated_baseline": 1,
+      "review_minutes_pdr": 0,
+      "stp": 0
+    },
+    "template_matches": {
+      "ssrs": "artifact_type_id",
+      "semp": "name",
+      "ssdd": "term"
     },
     "srr_card_tokens": [
       "conops",

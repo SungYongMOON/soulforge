@@ -18,10 +18,11 @@
 //   node tools/engine_next_steps_runner.mjs \
 //     --compile-dir <abs dir> --assessment <abs json> --stage <stage code> --out <abs dir> \
 //     [--compiled-variant <abs json>] [--observations <abs json>] [--source-catalog <abs json>] \
-//     [--context-fill <abs json>] [--top N] [--known-at <instant>]
+//     [--context-fill <abs json>] [--template-library <abs json>] [--template-library-root <abs dir>] \
+//     [--top N] [--known-at <instant>]
 
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { basename, join, relative, resolve, sep } from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
@@ -83,6 +84,8 @@ function parseArgs(argv) {
     observationsPath: flags.has('observations') ? resolve(flags.get('observations')) : null,
     sourceCatalogPath: flags.has('source-catalog') ? resolve(flags.get('source-catalog')) : null,
     contextFillPath: flags.has('context-fill') ? resolve(flags.get('context-fill')) : null,
+    templateLibraryPath: flags.has('template-library') ? resolve(flags.get('template-library')) : null,
+    templateLibraryRoot: flags.has('template-library-root') ? resolve(flags.get('template-library-root')) : null,
     knownAt: flags.get('known-at') ?? null,
     top,
   };
@@ -125,6 +128,86 @@ function toWorkOrderObservations(loaded) {
   return out;
 }
 
+// ---------------------------------------------------------------- template library scan
+//
+// The forms a project already holds live in a private worksite whose location is the caller's
+// business. This function turns that directory into the small relative index the pure layer reads:
+// no absolute path leaves here, and nothing is read out of the files themselves — only that a form
+// exists for an artifact, where inside the library it sits, and which revision it is.
+//
+// Shape assumed of the library root, which is the SE folder tree's own shape:
+//   <root>/<NNN_STAGE>/<NNN_아티팩트이름(약어)_상태>/00_Temp/templates_or_forms/**/<file>
+export const TEMPLATE_MATERIALS_SEGMENTS = Object.freeze(['00_Temp', 'templates_or_forms']);
+const TEMPLATE_LIBRARY_LIMITS = Object.freeze({ stages: 64, artifacts: 512, files: 4096, depth: 6 });
+const STAGE_DIR_PATTERN = /^\d{3}_/u;
+const ARTIFACT_DIR_PATTERN = /^(\d+)_(.+)$/u;
+const REVISION_SEGMENT_PATTERN = /^(?:Rev\d+[A-Za-z]?|v\d+(?:\.\d+)*)$/u;
+
+const posix = (value) => value.split(sep).join('/');
+
+async function listDirectory(path) {
+  try {
+    return await readdir(path, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+}
+
+/** First file under `dir`, in sorted walk order, with the revision segment of its path if any. */
+async function firstMaterial(dir, root, depth, budget) {
+  const entries = (await listDirectory(dir)).sort((left, right) => (left.name < right.name ? -1 : 1));
+  for (const entry of entries) {
+    if (entry.isFile()) {
+      budget.files += 1;
+      if (budget.files > TEMPLATE_LIBRARY_LIMITS.files) return null;
+      const rel = posix(relative(root, join(dir, entry.name)));
+      const version = rel.split('/').findLast((segment) => REVISION_SEGMENT_PATTERN.test(segment)) ?? null;
+      return { template_ref: rel, version };
+    }
+  }
+  if (depth >= TEMPLATE_LIBRARY_LIMITS.depth) return null;
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const found = await firstMaterial(join(dir, entry.name), root, depth + 1, budget);
+    if (found !== null) return found;
+  }
+  return null;
+}
+
+export async function scanTemplateLibrary(root) {
+  const budget = { files: 0 };
+  const entries = [];
+  const stages = (await listDirectory(root))
+    .filter((entry) => entry.isDirectory() && STAGE_DIR_PATTERN.test(entry.name))
+    .sort((left, right) => (left.name < right.name ? -1 : 1))
+    .slice(0, TEMPLATE_LIBRARY_LIMITS.stages);
+  for (const stage of stages) {
+    const artifacts = (await listDirectory(join(root, stage.name)))
+      .filter((entry) => entry.isDirectory() && ARTIFACT_DIR_PATTERN.test(entry.name))
+      .sort((left, right) => (left.name < right.name ? -1 : 1))
+      .slice(0, TEMPLATE_LIBRARY_LIMITS.artifacts);
+    for (const artifact of artifacts) {
+      const materials = join(root, stage.name, artifact.name, ...TEMPLATE_MATERIALS_SEGMENTS);
+      const material = await firstMaterial(materials, root, 0, budget);
+      if (material === null) continue;
+      const name = ARTIFACT_DIR_PATTERN.exec(artifact.name)[2];
+      // 체계요구사항명세서(SSRS)_D -> term SSRS. The spec row's `term` is the same abbreviation, so a
+      // library folder named for one revision state still answers for the artifact.
+      const term = /\(([^()]+)\)/u.exec(name)?.[1] ?? null;
+      entries.push({
+        name,
+        ...(term === null ? {} : { term }),
+        template_ref: material.template_ref,
+        ...(material.version === null ? {} : { version: material.version }),
+      });
+    }
+  }
+  entries.sort((left, right) => (left.template_ref < right.template_ref ? -1 : 1));
+  // The library id is the directory's own name, never its path: the answer is read by people who
+  // must not be handed a private absolute location, and the name is enough to say which library.
+  return { library_id: basename(root), entries };
+}
+
 async function writeCreateOnly(path, bytes) {
   try {
     await writeFile(path, bytes, { flag: 'wx' });
@@ -145,6 +228,11 @@ export async function runNextSteps(options) {
   const sourceCatalog = await readOptionalJson(options.sourceCatalogPath, 'source_catalog');
   const contextFill = await readOptionalJson(options.contextFillPath, 'context_fill');
   const observationsFile = await readOptionalJson(options.observationsPath, 'observations');
+  // Either a prepared index or a directory to scan; a caller that supplies both is telling us two
+  // different things about the same library, so the file wins and the root is not scanned.
+  const templateLibrary = options.templateLibraryPath !== null
+    ? await readJson(options.templateLibraryPath, 'template_library')
+    : options.templateLibraryRoot === null ? null : await scanTemplateLibrary(options.templateLibraryRoot);
 
   const compileResult = {
     mapping_table: mappingTable,
@@ -158,6 +246,7 @@ export async function runNextSteps(options) {
     vocabulary: ARTIFACT_VOCABULARY_V0,
     ...(compiledVariant === null ? {} : { compiled_variant: compiledVariant }),
     ...(sourceCatalog === null ? {} : { source_catalog: sourceCatalog }),
+    ...(templateLibrary === null ? {} : { template_library: templateLibrary }),
     work_order: workOrder,
   });
 
@@ -207,6 +296,10 @@ export async function runNextSteps(options) {
       compiled_variant_supplied: compiledVariant !== null,
       source_catalog_supplied: sourceCatalog !== null,
       context_fill_supplied: contextFill !== null,
+      template_library_supplied: templateLibrary !== null,
+      template_library_id: templateLibrary === null ? null : templateLibrary.library_id,
+      template_library_entries: templateLibrary === null ? 0 : templateLibrary.entries.length,
+      template_library_scanned: options.templateLibraryPath === null && options.templateLibraryRoot !== null,
     },
     work_order_receipt: workOrder.receipt,
     guide_card_receipt: cards.receipt,

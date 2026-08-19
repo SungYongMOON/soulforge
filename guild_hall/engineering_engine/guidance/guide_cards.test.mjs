@@ -30,6 +30,7 @@ const buildFromFixture = (overrides = {}) => {
     vocabulary: ARTIFACT_VOCABULARY_V0,
     compiled_variant: compileRequest().compiled_variant,
     source_catalog: structuredClone(FIXTURE.source_catalog),
+    template_library: structuredClone(FIXTURE.template_library),
     work_order: workOrderOf(result),
     ...overrides,
   });
@@ -74,6 +75,9 @@ test('context artifact rows get no card, and activity and decision rows do', () 
 test('every sentence on every card re-renders from its declared template and row-derived slots', () => {
   const built = buildFromFixture();
   for (const card of built.cards) {
+    // Every slot value a card may carry, and where it came from: a field copied off the rule row,
+    // a label the vocabulary published, a count of a computed relation, or the library's own
+    // reference. Nothing else is admissible, which is what "no invented text" means here.
     const allowed = new Set([
       card.stage_code,
       String(card.evidence.verification_status),
@@ -84,14 +88,32 @@ test('every sentence on every card re-renders from its declared template and row
       String(card.how.same_stage_inputs.length),
       String(card.how.earlier_stage_inputs.length),
       String(card.how.method_refs.reduce((total, entry) => total + entry.source_refs.length, 0)),
+      // purpose: the spec row's own sentence, never composed here
+      String(card.purpose.purpose_ko),
+      // used_by: vocabulary labels of the rows that name this one as an input, and their count
+      card.used_by.slice(0, 3).map((row) => row.label_ko ?? row.artifact_type_id).join('·'),
+      String(card.used_by.length),
+      // the form the project holds
+      String(card.how.template.library.template_ref),
+      String(card.how.template.library.version),
+      // input states, counted
+      String(card.how.input_state_counts.present),
+      String(card.how.input_state_counts.absent),
+      String(card.how.input_state_counts.unknown),
+      // declared source-family labels and their per-family counts
+      ...card.how.method_families.map((family) => family.label_ko),
+      ...card.how.method_families.map((family) => String(family.ref_count)),
     ]);
     const sentences = [
       ...card.why,
       card.when.stage_sequence_note,
       card.when.maturity_note,
       card.how.template.note,
+      card.how.template.library.note,
       card.how.inputs_note,
+      card.how.input_state_note,
       card.how.method_note,
+      ...card.how.method_families.map((family) => family.note),
       card.who.note,
     ].filter((sentence) => sentence !== null && sentence !== undefined);
     assert.ok(sentences.length > 0);
@@ -103,9 +125,145 @@ test('every sentence on every card re-renders from its declared template and row
         assert.ok(allowed.has(String(value)),
           `slot value "${value}" on ${card.artifact_type_id} traces to no row field`);
       }
-      assert.ok(sentence.text_ko.length <= 200, 'a card sentence stays short');
+      assert.ok(sentence.text_ko.length <= 260, 'a card sentence stays short');
       assert.equal(sentence.text_ko.normalize('NFC'), sentence.text_ko);
     }
+  }
+});
+
+// ---------------------------------------------------------------- 2A. the "왜" a person asked for
+
+test('a purpose sentence is the spec row\'s own, and its absence is stated rather than filled in', () => {
+  const built = buildFromFixture();
+  const ssrs = cardOf(built, '030_SRR', 'ssrs');
+  const specSsrs = compileRequest().compiled_variant.gates
+    .find((gate) => gate.code === 30).tasks.find((task) => task.artifact_type_id === 'ssrs');
+  assert.equal(ssrs.purpose.stated, true);
+  assert.equal(ssrs.purpose.purpose_ko, specSsrs.purpose_ko);
+  assert.deepEqual(ssrs.purpose.purpose_refs, specSsrs.purpose_refs);
+  assert.equal(ssrs.why[0].template_id, 'why_purpose_stated');
+  assert.deepEqual(ssrs.why[0].source_refs, specSsrs.purpose_refs);
+
+  const wbs = cardOf(built, '030_SRR', 'wbs');
+  assert.equal(wbs.purpose.stated, false);
+  assert.equal(wbs.purpose.purpose_ko, null);
+  assert.deepEqual(wbs.purpose.purpose_refs, []);
+  assert.equal(wbs.why[0].template_id, 'why_purpose_absent');
+  assert.equal(wbs.why[0].text_ko, '정본에 목적 문장 없음');
+});
+
+test('a card names what stops without it, counted from the rule table\'s own edges', () => {
+  const built = buildFromFixture();
+  for (const [token, count] of Object.entries(FIXTURE.expected.used_by_counts)) {
+    const card = built.cards.find((row) => row.artifact_type_id === token);
+    assert.equal(card.used_by.length, count, `used_by count for ${token}`);
+  }
+  const ssrs = cardOf(built, '030_SRR', 'ssrs');
+  assert.deepEqual(ssrs.used_by.map((row) => `${row.stage_code}/${row.artifact_type_id}`),
+    ['030_SRR/review_minutes_srr', '030_SRR/rtm', '090_PDR/act_architecture_design']);
+  assert.equal(ssrs.why[1].template_id, 'why_used_by_named');
+  assert.equal(ssrs.why[1].slots.dependents,
+    ssrs.used_by.map((row) => row.label_ko ?? row.artifact_type_id).join('·'));
+  assert.ok(ssrs.why[1].text_ko.endsWith('가 막힌다.'));
+
+  // Nothing in the table names the plan as an input, and the card says that rather than staying
+  // silent — "no later item needs this" is itself an answer to "why now".
+  const semp = cardOf(built, '030_SRR', 'semp');
+  assert.deepEqual(semp.used_by, []);
+  assert.equal(semp.why[1].template_id, 'why_used_by_none');
+});
+
+test('the gate role speaks only when the canon marked one', () => {
+  const built = buildFromFixture();
+  assert.equal(cardOf(built, '030_SRR', 'ssrs').gate_role, 'core');
+  assert.ok(cardOf(built, '030_SRR', 'ssrs').why.some((row) => row.template_id === 'why_gate_role_core'));
+  assert.equal(cardOf(built, '030_SRR', 'conops').gate_role, 'entry');
+  assert.ok(cardOf(built, '030_SRR', 'conops').why.some((row) => row.template_id === 'why_gate_role_entry'));
+  // `supporting` is the compiler's default and the canon said nothing, so nothing is said.
+  const semp = cardOf(built, '030_SRR', 'semp');
+  assert.equal(semp.gate_role, 'supporting');
+  assert.ok(!semp.why.some((row) => String(row.template_id).startsWith('why_gate_role')));
+});
+
+// ---------------------------------------------------------------- 2B. the "어떻게" a person asked for
+
+test('a form the project holds is found by token, by spec row name, or by term', () => {
+  const built = buildFromFixture();
+  for (const [token, matchKind] of Object.entries(FIXTURE.expected.template_matches)) {
+    const card = built.cards.find((row) => row.artifact_type_id === token);
+    assert.equal(card.how.template.library.found, true, `${token} should find a form`);
+    assert.equal(card.how.template.library.match_kind, matchKind);
+    assert.equal(card.how.template.library.library_id, FIXTURE.template_library.library_id);
+    assert.ok(!card.how.template.library.template_ref.startsWith('/'));
+    assert.ok(!/^[A-Za-z]:/u.test(card.how.template.library.template_ref),
+      'a card never carries the absolute location of a private library');
+  }
+  const ssrs = cardOf(built, '030_SRR', 'ssrs');
+  assert.equal(ssrs.how.template.library.version, 'Rev3');
+  assert.equal(ssrs.how.template.library.note.template_id, 'how_template_library_found_versioned');
+  const semp = cardOf(built, '030_SRR', 'semp');
+  assert.equal(semp.how.template.library.version, null);
+  assert.equal(semp.how.template.library.note.template_id, 'how_template_library_found');
+
+  const wbs = cardOf(built, '030_SRR', 'wbs');
+  assert.equal(wbs.how.template.library.found, false);
+  assert.equal(wbs.how.template.library.note.text_ko, '양식 파일이 라이브러리에 없다');
+});
+
+test('with no library a card says it did not look rather than that nothing is there', () => {
+  const built = buildFromFixture({ template_library: undefined });
+  assert.equal(built.receipt.input_digests.template_library, null);
+  assert.equal(built.receipt.template_library_id, null);
+  for (const card of built.cards) {
+    assert.equal(card.how.template.library.looked_up, false);
+    assert.equal(card.how.template.library.found, false);
+    assert.equal(card.how.template.library.note.text_ko, '양식 라이브러리 미조회');
+  }
+});
+
+test('an absolute or climbing template reference is refused', () => {
+  const bad = (ref) => () => buildFromFixture({
+    template_library: { library_id: 'X', entries: [{ artifact_type_id: 'ssrs', template_ref: ref }] },
+  });
+  // Assembled rather than written out: a literal drive-letter path in a tracked file is itself a
+  // policy violation, and this test is about the refusal, not about naming anybody's disk.
+  const driveRooted = `${String.fromCharCode(67)}:/private/library/form.md`;
+  assert.throws(bad(driveRooted), throwsWith(GUIDANCE_ERROR_CODES.REQUEST_INVALID));
+  assert.throws(bad('/library/form.md'), throwsWith(GUIDANCE_ERROR_CODES.REQUEST_INVALID));
+  assert.throws(bad('../outside/form.md'), throwsWith(GUIDANCE_ERROR_CODES.REQUEST_INVALID));
+});
+
+test('an input carries what the eye said about it, and 없음 never stands in for 불명', () => {
+  const built = buildFromFixture();
+  // The fixture observes conops present and nothing else, so the activity that needs it reads 있음.
+  const activity = cardOf(built, '030_SRR', 'act_stakeholder_expectations');
+  assert.deepEqual(activity.how.inputs.map((input) => input.input_state), ['present']);
+  assert.deepEqual(activity.how.inputs.map((input) => input.observation_state), ['present']);
+  assert.deepEqual(activity.how.input_state_counts, { present: 1, absent: 0, unknown: 0 });
+  assert.equal(activity.how.input_state_note.template_id, 'how_inputs_state');
+
+  const ssrs = cardOf(built, '030_SRR', 'ssrs');
+  assert.deepEqual(ssrs.how.inputs.map((input) => input.input_state), ['unknown']);
+  assert.equal(ssrs.how.inputs[0].observation_state, 'unobserved');
+
+  const semp = cardOf(built, '030_SRR', 'semp');
+  assert.deepEqual(semp.how.inputs, []);
+  assert.equal(semp.how.input_state_note, null);
+});
+
+test('method citations are grouped by the family the catalogue named, unknown families included', () => {
+  const built = buildFromFixture();
+  const ssrs = cardOf(built, '030_SRR', 'ssrs');
+  assert.deepEqual(ssrs.how.method_families.map((family) => family.family), ['regulation', 'unknown']);
+  assert.deepEqual(ssrs.how.method_families.map((family) => family.label_ko), ['규정', '출처 계열 미표기']);
+  assert.equal(ssrs.how.method_families.reduce((total, family) => total + family.ref_count, 0),
+    ssrs.how.method_refs.reduce((total, entry) => total + entry.source_refs.length, 0));
+
+  // Without a catalogue nobody has said which family anything belongs to, so everything is unknown
+  // rather than being sorted into a family this layer guessed.
+  const blind = buildFromFixture({ source_catalog: undefined });
+  for (const card of blind.cards) {
+    for (const family of card.how.method_families) assert.equal(family.family, 'unknown');
   }
 });
 
@@ -141,7 +299,7 @@ test('every declared template renders, and an undeclared one or a missing slot r
 
 test('a citation is a locator and never a quotation', () => {
   const built = buildFromFixture();
-  const fields = ['ref_kind', 'source_key', 'locator', 'catalog_known', 'title', 'edition'];
+  const fields = ['ref_kind', 'source_key', 'locator', 'catalog_known', 'title', 'edition', 'source_family'];
   for (const card of built.cards) {
     for (const citation of card.citations) {
       assert.deepEqual(Object.keys(citation).sort(), [...fields].sort());

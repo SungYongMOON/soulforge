@@ -1082,12 +1082,16 @@ public-safe 합성 fixture는 `docs/architecture/workspace/examples/se_stage_rul
 이 층의 존재 이유이므로 수·판정·정책 ref는 전부 **복사**해 오고 다시 계산하지 않는다.
 세 모듈 모두 순수 함수이며 fs·clock·random·env·network를 쓰지 않는다(정적 effect pin 시험).
 
-- `guide_cards.mjs` — `buildGuideCards({compile_result, vocabulary, compiled_variant?, source_catalog?, work_order?})`:
+- `guide_cards.mjs` — `buildGuideCards({compile_result, vocabulary, compiled_variant?, source_catalog?, work_order?, template_library?})`:
   (단계, 산출물 종류)마다 카드 하나. 엔진 요구가 된 행 전부와, 요구가 되지 않았어도 활동·결정 행은
   카드를 받는다(그 행들이 "무슨 일을 해야 하는지"를 말하는 행이기 때문). 카드는
-  `why`(근거 등급·기대 상태·행 종류) · `when`(단계·기대 성숙도·앞뒤 입력 수) · `what`(스펙의 이름·설명·
-  증거 기록) · `how`(양식·입력 토큰과 표시명·이 항목을 입력으로 쓰는 항목·근거 인용) · `who`(기본 담당
-  capability) · `evidence`(근거 등급·정본 대조 결과·SE 바닥) · `citations`(인용 위치)로 이루어진다.
+  `purpose`(정본이 말한 목적 + 그 위치) · `used_by`(같은/뒤 게이트에서 이것을 입력으로 적은 행) ·
+  `gate_role`(핵심·진입·보조) · `why`(목적 → 없으면 막히는 것 → 게이트 역할 → 근거 등급·기대 상태·행 종류) ·
+  `when`(단계·기대 성숙도·앞뒤 입력 수) · `what`(스펙의 이름·설명·증거 기록) ·
+  `how`(양식과 라이브러리 파일 참조·입력 토큰과 관측 상태(있음/없음/불명)·이 항목을 입력으로 쓰는 항목·
+  근거 인용과 계열) · `who`(기본 담당 capability) · `evidence`(근거 등급·정본 대조 결과·SE 바닥) ·
+  `citations`(인용 위치)로 이루어진다. 목적 문장은 스펙 행의 `purpose_ko`를 **복사**한 것이고 이 층이 짓지 않는다
+  (도출은 매뉴얼 03장 §3.10).
 - `instruction_packet.mjs` — `buildInstructionPackets({assessment, work_order, guide_cards, known_at, role_roster?, context_fill?, include_next_ready?, top_n?})`:
   mission 후보마다 지시서 하나(`soulforge.engine_instruction_packet.v0`). 무엇을·왜(엔진 판정 +
   카드) · 입력(과 관측 기준 상태) · 산출 · 어떻게 · 근거 · 담당 · 기한 · `judgment_ref`(policy_ref,
@@ -1121,12 +1125,15 @@ public-safe 합성 fixture는 `docs/architecture/workspace/examples/se_stage_rul
 node guild_hall/engineering_engine/tools/engine_next_steps_runner.mjs \
   --compile-dir <abs dir> --assessment <abs json> --stage <code> --out <abs dir> \
   [--compiled-variant <abs json>] [--observations <abs json>] [--source-catalog <abs json>] \
-  [--context-fill <abs json>] [--top N] [--known-at <instant>]
+  [--context-fill <abs json>] [--template-library <abs json>] [--template-library-root <abs dir>] \
+  [--top N] [--known-at <instant>]
 ```
 
 `--compile-dir`는 드라이버가 이미 쓴 `mapping_table.json`과 `needs_stage_declarations.json`을 읽는다.
 `--out` 아래에만 쓰고 이미 있는 답은 덮어쓰지 않고 거부한다(답은 그 시점 기록이다).
-`--compiled-variant`를 주면 스펙 행의 설명·양식·정본 대조 결과가 카드에 실린다.
+`--compiled-variant`를 주면 스펙 행의 설명·양식·목적·정본 대조 결과가 카드에 실린다.
+`--template-library-root`는 양식 라이브러리를 읽기 전용으로 훑어 산출물마다 양식 파일 하나를 찾는다 —
+답에는 라이브러리 이름과 **라이브러리 안쪽 상대 경로**만 실리고 private worksite의 절대 위치는 나가지 않는다.
 
 범위 검증:
 
