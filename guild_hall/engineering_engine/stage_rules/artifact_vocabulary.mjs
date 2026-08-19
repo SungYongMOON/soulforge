@@ -347,25 +347,17 @@ export const CROSS_LAYER_TOKEN_EQUIVALENCE = Object.freeze([
     kind: 'synonym',
     basis: 'national row 예비시험평가기본계획서(P-TEMP), term P-TEMP, described as growing into the TEMP after SFR; the same spec also carries temp rows',
   }),
-  Object.freeze({
-    generic_token: 'vcrm',
-    national_token: 'spec_linkage_table',
-    kind: 'national_row_assignment',
-    basis: 'national row 요구사항검증매트릭스(VCRM)_F, term VCRM; the 국방규격화 연계표 the token is named for sits on the defense_spec_draft row instead',
-  }),
-  Object.freeze({
-    generic_token: 'vdd',
-    national_token: 'sps',
-    kind: 'national_row_assignment',
-    basis: 'national row SW산출물명세서(SPS_VDD), term SPS/VDD; the vocabulary reads sps as 체계성능시방서, and the generic layer already chose vdd for this row',
-  }),
-  Object.freeze({
-    generic_token: 'conops',
-    national_token: 'ord',
-    kind: 'national_row_assignment',
-    basis: 'national row 운용개념(CONOPS), term CONOPS; the generic layer keeps ord (소요-작전운용성능참조문서) and conops as separate rows',
-  }),
 ]);
+
+// D44, Owner decision 2026-08-19: the three `national_row_assignment` entries that used to sit
+// here are gone, because the rows they worked around were corrected instead. The national spec's
+// 운용개념(CONOPS) row now carries `conops`, its SW산출물명세서(SPS_VDD) row carries `vdd`, and its
+// 요구사항검증매트릭스(VCRM)_F row carries `vcrm`. The two layers meet on the shared token directly,
+// which is what the design said should happen, and this table is back to what it claims to be: a
+// record of real synonymy, not a patch over a naming mistake.
+//
+// `spec_linkage_table` keeps its own meaning and is still the right token for a 국방규격화 연계표;
+// the national spec carries that document on its 국방규격(안)및국방규격화연계표 row instead.
 
 // Two rejected hypotheses, kept so they are not re-proposed:
 //

@@ -150,6 +150,25 @@ Second pass (2026-08-18), after reviewing the real output:
 - Regulation-grade ordering candidates (60) stay in the private worksite behind an Owner
   confirmation sheet; none is written into a spec.
 
+D44 correction (Owner decision 2026-08-19), `SE_FolderTree_Guide.md` **v0.11**:
+
+- Three rows carried a token whose vocabulary meaning is a different document than the row plainly
+  is, and the rows were corrected rather than worked around by an alias:
+  운용개념(CONOPS) `ord` → `conops`, SW산출물명세서(SPS_VDD) `sps` → `vdd`,
+  요구사항검증매트릭스(VCRM)_F `spec_linkage_table` → `vcrm`. The 12 `depends_on` /
+  `evidence_record` entries elsewhere in the spec that named the old tokens moved with them.
+- No token was renamed. `ord`, `sps` and `spec_linkage_table` keep their own meanings, and the
+  국방규격화 연계표 that `spec_linkage_table` is named for is still carried, on the
+  국방규격(안)및국방규격화연계표 row.
+- Blast radius: exactly one engine requirement id moved (`150_TRR_DT_sps` → `150_TRR_DT_vdd`); the
+  other two rows are `unstated` and were never engine requirements. Three
+  `national_row_assignment` entries left `CROSS_LAYER_TOKEN_EQUIVALENCE`, which now holds only the
+  one true synonym. The generic→national projection is unchanged at 52 edges over 20 rows and no
+  longer goes through an equivalence.
+- `gate_role` entry rows in this spec fell from 4 to 2, which is the same correction: two of them
+  existed only because a mis-assigned token was catching the guidebook's references to a
+  different document.
+
 ## Layered outputs (2026-08-18)
 
 - `export_variant_json.py` derives, from a spec that carries `evidence_level: prime_contract` tasks, two more files: `compiled/<common_key>.json` (the common baseline: every task except prime_contract ones; `support_key` mapped via `COMMON_KEY_BY_SUPPORT_KEY`, currently `system_dev_lig_grade_a → system_dev_common_no_grade`; carries `derived_from`) and `compiled/overlays/<support_key>.prime.overlay.json` (`soulforge.se_stage_rule_overlay.v0`, one `add` op per prime task, `extends` = common key + spec sha, `source_ref` = the spec md by exact ref, `overlay_identity` provenance).

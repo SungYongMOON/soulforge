@@ -1,6 +1,6 @@
 ---
 title: 'SE 기반 폴더 트리 생성 지침 (000_REF/020_MGMT/단계별 게이트)'
-version: '0.10'
+version: '0.11'
 owner_team: 개발1팀
 variant_binding:
   support_key: system_dev_lig_grade_a
@@ -201,7 +201,7 @@ gates:
     term: CONOPS
     source: 방사청 가이드북 7
     template: p.119 (함정사례) 8
-    artifact_type_id: ord
+    artifact_type_id: conops
     evidence_level: unstated
     source_refs:
     - source_key: dapa_se_technical_management_practice_guide
@@ -231,7 +231,7 @@ gates:
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.66-75 (printed p.53-62) §4.1.1.1/§4.1.1.3, Figure 4.1-1
     depends_on_origin: mixed
-    gate_role: entry
+    gate_role: supporting
   - id: 40
     name: 체계요구사항명세서(SSRS)_D
     desc: (Draft) 기술적 요구사항 변환 초안
@@ -383,7 +383,7 @@ gates:
     applies_when:
     - exploratory_skipped
     depends_on:
-    - ord
+    - conops
     depends_on_evidence: general_se_guidance
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
@@ -591,7 +591,7 @@ gates:
       locator: 표 26 (p.144); 그림 33 (p.141)
     verification_status: partially_supported
     evidence_record:
-    - ord
+    - conops
     added_by_verification: '2026-08-18'
     gate_role: supporting
   - id: 58
@@ -612,7 +612,7 @@ gates:
     - review_minutes_srr
     added_by_verification: '2026-08-18'
     depends_on:
-    - ord
+    - conops
     depends_on_evidence: guidebook_recommended
     depends_on_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -695,7 +695,7 @@ gates:
       locator: p.53-54
     verification_status: source_supported
     depends_on:
-    - ord
+    - conops
     depends_on_evidence: general_se_guidance
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
@@ -729,7 +729,7 @@ gates:
       locator: §5.8
     verification_status: partially_supported
     depends_on:
-    - ord
+    - conops
     depends_on_evidence: general_se_guidance
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
@@ -830,7 +830,7 @@ gates:
       locator: pdf p.47
     verification_status: source_supported
     depends_on:
-    - ord
+    - conops
     depends_on_evidence: general_se_guidance
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
@@ -900,8 +900,8 @@ gates:
     - review_minutes_sfr
     added_by_verification: '2026-08-18'
     depends_on:
+    - conops
     - icd
-    - ord
     - ssrs
     depends_on_evidence: guidebook_recommended
     depends_on_refs:
@@ -1077,7 +1077,7 @@ gates:
       locator: p.72-73
     verification_status: partially_supported
     depends_on:
-    - ord
+    - conops
     depends_on_evidence: general_se_guidance
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
@@ -1545,7 +1545,7 @@ gates:
       locator: p.86
     verification_status: partially_supported
     depends_on:
-    - ord
+    - conops
     depends_on_evidence: general_se_guidance
     depends_on_refs:
     - source_key: dod_se_guidebook_2022
@@ -1856,7 +1856,7 @@ gates:
     term: SPS/VDD
     source: 방사청 가이드북 39
     template: p.89 (산출물) 39
-    artifact_type_id: sps
+    artifact_type_id: vdd
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -2207,7 +2207,7 @@ gates:
     verification_status: source_supported
     depends_on:
     - drawings
-    - spec_linkage_table
+    - vcrm
     depends_on_evidence: guidebook_recommended
     depends_on_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -2220,7 +2220,7 @@ gates:
     term: VCRM
     source: 방사청 가이드북 17
     template: p.112 (추적성) 17
-    artifact_type_id: spec_linkage_table
+    artifact_type_id: vcrm
     evidence_level: unstated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -2244,7 +2244,7 @@ gates:
     - source_key: nasa_se_handbook_rev2
       locator: pdf p.118-127 (printed p.105-114) §5.3.1.1/§5.3.1.3, Figure 5.3-1
     depends_on_origin: generic_layer_projection
-    gate_role: entry
+    gate_role: supporting
   - id: 191
     name: 운용시험평가지원자료(OT)
     desc: OT 수행 지원 및 기록
@@ -2402,7 +2402,7 @@ gates:
     added_by_verification: '2026-08-18'
     depends_on:
     - drawings
-    - spec_linkage_table
+    - vcrm
     depends_on_evidence: guidebook_recommended
     depends_on_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -2467,7 +2467,7 @@ gates:
     verification_status: source_supported
     depends_on:
     - drawings
-    - spec_linkage_table
+    - vcrm
     depends_on_evidence: guidebook_recommended
     depends_on_refs:
     - source_key: dapa_se_technical_review_guidebook_2017

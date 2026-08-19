@@ -1316,13 +1316,15 @@ test('the corrected 체계개발 table offers the requirements specification fir
     }
   }
   // The review's input list is now a gate role rather than an edge between artifacts. The
-  // operations concept is listed as material the first review expects on the table and by nothing
-  // as a product, so it is `entry`; the row is context there, so it is read off the mapping table
-  // rather than the work list.
-  const entry = result.mapping_table
-    .find((row) => row.stage_code === '030_SRR' && row.artifact_type_id === 'ord');
-  assert.equal(entry.gate_role, 'entry');
-  assert.equal(entry.minimum_presence_rule, PRESENCE_RULE.OPTIONAL_CONTEXT);
+  // hardware and software requirement specifications are listed as material the critical design
+  // review expects on the table and by nothing as its product, so they are `entry`; those rows
+  // are context there, so they are read off the mapping table rather than the work list.
+  for (const token of ['hrs', 'srs']) {
+    const entry = result.mapping_table
+      .find((row) => row.stage_code === '120_CDR' && row.artifact_type_id === token);
+    assert.equal(entry.gate_role, 'entry', token);
+    assert.equal(entry.minimum_presence_rule, PRESENCE_RULE.OPTIONAL_CONTEXT, token);
+  }
   // A row can be entry material at one gate and the next review's own product at the next: the
   // requirements specification is brought to the SFR and is also listed among what the SFR is
   // completed by, and the stronger role speaks for the row.
@@ -1334,31 +1336,115 @@ test('the corrected 체계개발 table offers the requirements specification fir
 
 // ---------------------------------------------------------------- 13h. cross-layer projection
 
-test('the vocabulary separates a true synonym from a national row assignment', () => {
+test('the equivalence table holds only real synonyms once the row assignments are corrected', () => {
   assert.deepEqual(ARTIFACT_TYPE_ALIASES, { p_temp: 'temp' });
   assert.equal(canonicalArtifactType('p_temp'), 'temp');
   assert.equal(canonicalArtifactType('temp'), 'temp');
-  assert.equal(canonicalArtifactType('ord'), 'ord', 'a row assignment is not a global synonym');
   assert.equal(canonicalArtifactType(undefined), null);
 
-  // Both sides of every equivalence are tokens the vocabulary owns, and no entry is a loop.
+  // D44 (2026-08-19): the three `national_row_assignment` entries are gone, because the rows they
+  // worked around were corrected. What is left is synonymy, which is what this table claims to be.
+  assert.deepEqual(CROSS_LAYER_TOKEN_EQUIVALENCE.map((row) => row.kind), ['synonym']);
   for (const row of CROSS_LAYER_TOKEN_EQUIVALENCE) {
     assert.ok(artifactTypeEntry(row.generic_token), row.generic_token);
     assert.ok(artifactTypeEntry(row.national_token), row.national_token);
     assert.notEqual(row.generic_token, row.national_token);
-    assert.ok(['synonym', 'national_row_assignment'].includes(row.kind), row.kind);
     assert.ok(row.basis.length > 20, `${row.generic_token} needs a basis a reader can check`);
     assert.equal(nationalTokenFor(row.generic_token), row.national_token);
     assert.equal(genericTokenFor(row.national_token), row.generic_token);
   }
-  // The hypothesis that the defence-specification linkage table is the traceability matrix was
-  // refused: the national spec carries `rtm` rows of its own.
-  assert.equal(nationalTokenFor('rtm'), 'rtm');
-  assert.notEqual(genericTokenFor('spec_linkage_table'), 'rtm');
-  assert.equal(genericTokenFor('spec_linkage_table'), 'vcrm');
-  // An unlisted token passes straight through in both directions.
-  assert.equal(nationalTokenFor('srs'), 'srs');
-  assert.equal(genericTokenFor('srs'), 'srs');
+
+  // The corrected tokens now mean only themselves, in both directions. `spec_linkage_table` in
+  // particular is free again for the document it is named after — the defence specification
+  // linkage table — and was never the traceability matrix the first reading proposed.
+  for (const token of ['conops', 'vdd', 'vcrm', 'ord', 'sps', 'spec_linkage_table', 'rtm', 'srs']) {
+    assert.equal(nationalTokenFor(token), token, token);
+    assert.equal(genericTokenFor(token), token, token);
+  }
+});
+
+test('the corrected national rows carry the token their own name and term state', () => {
+  const national = JSON.parse(readFileSync(new URL(
+    '../../../.registry/skills/se_foldertree_generate/codex/assets/compiled/system_dev_lig_grade_a.json',
+    import.meta.url), 'utf8'));
+  const rows = national.gates.flatMap((gate) => gate.tasks.map((task) => ({ gate: gate.code, ...task })));
+  const rowFor = (token) => rows.filter((row) => row.artifact_type_id === token);
+
+  // Each correction is one row, and the row says what it is.
+  const conops = rowFor('conops');
+  assert.equal(conops.length, 1);
+  assert.equal(conops[0].term, 'CONOPS');
+  const vdd = rowFor('vdd');
+  assert.equal(vdd.length, 1);
+  assert.equal(vdd[0].term, 'SPS/VDD');
+  const vcrm = rowFor('vcrm');
+  assert.equal(vcrm.length, 1);
+  assert.equal(vcrm[0].term, 'VCRM');
+
+  // The old tokens are gone from this spec entirely — including from every declared input, so no
+  // row is left pointing at something the spec no longer produces.
+  for (const token of ['ord', 'sps', 'spec_linkage_table']) {
+    assert.equal(rowFor(token).length, 0, `${token} must no longer name a row here`);
+    for (const row of rows) {
+      assert.ok(!(row.depends_on ?? []).includes(token), `${row.artifact_type_id} still needs ${token}`);
+      assert.ok(!(row.evidence_record ?? []).includes(token), `${row.artifact_type_id} still cites ${token}`);
+    }
+  }
+  // And the document `spec_linkage_table` is named for is still carried, on the row that is
+  // actually it.
+  assert.ok(rows.some((row) => row.artifact_type_id === 'defense_spec_draft'
+    && row.name.includes('국방규격화연계표')));
+});
+
+test('an overlay naming a rule the spec no longer has is refused, not quietly reported', () => {
+  // The consequence of a token correction for a project overlay written against the old spec.
+  // Worth pinning: `unresolved_dependencies` and the generator's `unbound_observations` are soft
+  // reports, and it would be easy to assume this is one too. It is not — an alias asserts
+  // something about a rule, and if the rule is absent the assertion has already failed.
+  const national = JSON.parse(readFileSync(new URL(
+    '../../../.registry/skills/se_foldertree_generate/codex/assets/compiled/system_dev_lig_grade_a.json',
+    import.meta.url), 'utf8'));
+  const request = (ops, spec_sha256) => ({
+    compiled_variant: national,
+    overlay: {
+      schema_version: STAGE_RULE_OVERLAY_SCHEMA_VERSION,
+      extends: { support_key: national.support_key, spec_sha256: spec_sha256 ?? national.spec_sha256 },
+      ops,
+    },
+    project_binding: {
+      document_refs: [{
+        artifact_type_ids_covered: [],
+        requirement_ref: syntheticRef('stale_overlay_probe_document'),
+      }],
+      valid_at: '2026-05-04T00:00:00.000Z',
+      known_at: '2026-05-11T00:00:00.000Z',
+      authority_family: 'project_contract_baseline',
+      applicability_default: true,
+    },
+    target_stage_codes: ['180_FCA_OT'],
+    overlay_conditions: ['exploratory_skipped', 'sw_included'],
+  });
+
+  for (const op of [
+    { op: 'alias', stage_code: '180_FCA_OT', artifact_type_id: 'spec_linkage_table', alias: 'synthetic project slot' },
+    { op: 'mark_not_applicable', stage_code: '180_FCA_OT', artifact_type_id: 'spec_linkage_table', basis: 'synthetic_probe' },
+  ]) {
+    assert.throws(() => compileStageRules(request([op])), (error) => {
+      assert.equal(error.code, STAGE_RULE_ERROR_CODES.OVERLAY_INVALID);
+      assert.equal(error.detail.artifact_type_id, 'spec_linkage_table');
+      assert.equal(error.detail.stage_code, '180_FCA_OT');
+      return true;
+    });
+  }
+  // Re-pointed at the corrected token it compiles.
+  assert.ok(compileStageRules(request([
+    { op: 'alias', stage_code: '180_FCA_OT', artifact_type_id: 'vcrm', alias: 'synthetic project slot' },
+  ])).mapping_table.some((row) => row.alias === 'synthetic project slot'));
+
+  // An overlay pinned to an older spec revision never even reaches that check.
+  assert.throws(() => compileStageRules(request([
+    { op: 'alias', stage_code: '180_FCA_OT', artifact_type_id: 'vcrm', alias: 'synthetic project slot' },
+  ], 'a'.repeat(64))), throwsWith(STAGE_RULE_ERROR_CODES.OVERLAY_BASE_MISMATCH));
 });
 
 test('generic-layer relations project onto the national layer, composed and never upgraded', () => {

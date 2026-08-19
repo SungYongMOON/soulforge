@@ -1,5 +1,47 @@
 # CHANGELOG
 
+## 2026-08-19 - D44 decided: three national rule rows now carry the token they actually are
+
+The previous slice found that three rows of the 체계개발 rule table carried a token whose meaning
+in the shared vocabulary is a different document than the row plainly is, and worked around it with
+a cross-layer equivalence table. Owner decided the rows should be corrected instead.
+
+- `SE_FolderTree_Guide.md` v0.10 → **v0.11**. Each row was checked against its own name, desc and
+  term before being touched: 운용개념(CONOPS) / term CONOPS `ord` → `conops`;
+  SW산출물명세서(SPS_VDD) / term SPS/VDD `sps` → `vdd`; 요구사항검증매트릭스(VCRM)_F / term VCRM
+  `spec_linkage_table` → `vcrm`. The 12 `depends_on` and `evidence_record` entries elsewhere in the
+  spec that named the old tokens moved with the rows, so nothing is left pointing at a token the
+  spec no longer produces.
+- **No token was renamed.** `ord` (소요-작전운용성능참조문서), `sps` (체계성능시방서) and
+  `spec_linkage_table` (국방규격화 연계표) keep their meanings and stay in the vocabulary; only the
+  row-to-token assignment changed. The 국방규격화 연계표 itself was never lost — it rides on the
+  국방규격(안)및국방규격화연계표 row, which is why `spec_linkage_table` was free to leave the VCRM row.
+- **Blast radius, measured rather than estimated**: exactly one engine requirement id moved,
+  `150_TRR_DT_sps` → `150_TRR_DT_vdd`. The other two rows are `unstated`, so they compile to
+  optional context and were never engine requirements at all.
+- Three `national_row_assignment` entries left `CROSS_LAYER_TOKEN_EQUIVALENCE`, which is now back
+  to what it claims to be: one real synonym (`temp` ↔ `p_temp`). The two rule layers meet on the
+  shared token directly, and the generic→national projection is unchanged at 52 edges over 20 rows
+  while no longer going through an equivalence at all.
+- `gate_role` entry rows in the national spec fell from 4 to 2. That is the same correction rather
+  than a loss: two of them existed only because a mis-assigned token was catching the guidebook's
+  references to a different document (the 소요요구서 as an SRR input, the 국방규격화 연계표 as an FCA
+  input).
+- **Project overlay impact: none.** The KVDS (P26-014) overlay's 24 ops reference none of the three
+  tokens — the seven aliases that look unresolved against the base spec are each paired with an
+  `add` in the same overlay and resolve in order. Reported for the Owner rather than edited: that
+  overlay's `extends.spec_sha256` still pins spec v0.8, so it has been failing
+  `OVERLAY_BASE_MISMATCH` since well before this change and needs re-pinning.
+- Compiler note added at the refusal site, because the two behaviours look alike from a distance:
+  an overlay `alias` or `mark_not_applicable` naming a rule that does not exist at that stage is
+  **refused** with `SE_STAGE_RULE_OVERLAY_INVALID` (detail carries op, stage and token) — it is not
+  a soft report like `receipt.unresolved_dependencies` or the generator's `unbound_observations`.
+  A project asserting something about a rule that is not there has already made a false assertion,
+  so continuing would apply an overlay that means less than it says. Pinned by a new test.
+- Verification: `export_variant_json.py --check` PASS, `validate:se-stage-rules` 52/52 (three new
+  cases, two updated), `validate:canon`, `validate:path-length`, the local absolute path policy,
+  the engine manifest/topology and the guidance / observation / MCP suites all PASS.
+
 ## 2026-08-18 - The engine's MCP door, built and left switched off
 
 The Owner decision (plan 9.1A) is that the one way in from outside is MCP: no terminal CLI product,

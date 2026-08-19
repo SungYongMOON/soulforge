@@ -141,12 +141,14 @@ S5 검증        export --check, validate:se-stage-rules(45), dry-run 폴더 수
 
 **대응표**(어휘 `CROSS_LAYER_TOKEN_EQUIVALENCE`, 근거는 두 스펙의 행 이름·용어):
 
-| ① | ② | 종류 | 근거 |
-| --- | --- | --- | --- |
-| `temp` | `p_temp` | 동의어(성숙도) | ② 행 '예비시험평가기본계획서(P-TEMP)'가 SFR 이후 TEMP로 발전한다고 스스로 적음. ②는 `temp` 행도 따로 갖는다 |
-| `vcrm` | `spec_linkage_table` | ② 행 토큰 배정 | ② 행 이름 '요구사항검증매트릭스(VCRM)_F', 용어 VCRM. 토큰 이름이 가리키는 국방규격화 연계표는 `defense_spec_draft` 행에 있다 |
-| `vdd` | `sps` | ② 행 토큰 배정 | ② 행 이름 'SW산출물명세서(SPS_VDD)', 용어 SPS/VDD. 어휘의 `sps`는 체계성능시방서이고 ①은 같은 행에 이미 `vdd`를 골랐다 |
-| `conops` | `ord` | ② 행 토큰 배정 | ② 행 이름 '운용개념(CONOPS)', 용어 CONOPS. ①은 `ord`(소요-작전운용성능참조문서)와 `conops`를 따로 둔다 |
+| ① | ② | 종류 | 근거 | 현재 |
+| --- | --- | --- | --- | --- |
+| `temp` | `p_temp` | 동의어(성숙도) | ② 행 '예비시험평가기본계획서(P-TEMP)'가 SFR 이후 TEMP로 발전한다고 스스로 적음. ②는 `temp` 행도 따로 갖는다 | 유지 |
+| `vcrm` | `spec_linkage_table` | ② 행 토큰 배정 | ② 행 이름 '요구사항검증매트릭스(VCRM)_F', 용어 VCRM. 토큰 이름이 가리키는 국방규격화 연계표는 `defense_spec_draft` 행에 있다 | **D44로 ② 행을 `vcrm`으로 고침, 대응 제거** |
+| `vdd` | `sps` | ② 행 토큰 배정 | ② 행 이름 'SW산출물명세서(SPS_VDD)', 용어 SPS/VDD. 어휘의 `sps`는 체계성능시방서이고 ①은 같은 행에 이미 `vdd`를 골랐다 | **D44로 ② 행을 `vdd`로 고침, 대응 제거** |
+| `conops` | `ord` | ② 행 토큰 배정 | ② 행 이름 '운용개념(CONOPS)', 용어 CONOPS. ①은 `ord`(소요-작전운용성능참조문서)와 `conops`를 따로 둔다 | **D44로 ② 행을 `conops`로 고침, 대응 제거** |
+
+**D44 확정(2026-08-19)**: Owner는 대응표로 우회하지 말고 ② 행의 토큰 배정을 고치라고 확정했다(08장 §8.3). 토큰 자체는 하나도 바뀌지 않았고 `ord`·`sps`·`spec_linkage_table`은 각자의 뜻을 지킨다. 같은 스펙 안에서 그 토큰을 가리키던 `depends_on`·`evidence_record` 12건도 함께 옮겼다. 영향은 엔진 요구 id 1개(`150_TRR_DT_sps` → `150_TRR_DT_vdd`)뿐이고, ①→② 투영은 52간선/20행으로 수치가 같으며 이제 대응표를 거치지 않는다. ② `entry` 행은 4 → 2로 줄었는데, 줄어든 둘은 가이드북이 **다른 문서**(소요요구서·국방규격화연계표)를 회의 입력으로 적은 것을 잘못 배정된 토큰이 받아 가던 자리라 사라진 것이 정정이다.
 
 **기각한 가설**: `spec_linkage_table` ↔ `rtm`. ②는 요구사항추적표 행 3개를 이미 `rtm`으로 갖고 있고, ②의 `spec_linkage_table` 행은 VCRM이다. 묶음 대응(`fca_plan`+`fca_checklist`+`pca_plan`+`pca_checklist` ↔ `fca_pca_plan_checklist`, 시험문서류 ↔ `test_docs`)은 다대일이라 토큰 대 토큰으로 적을 수 없어 미결로 둔다.
 
@@ -187,7 +189,7 @@ S5 검증        export --check, validate:se-stage-rules(45), dry-run 폴더 수
 
 1. **기술관리 8종의 행** — 간선은 있고 규칙 행이 없다(§5의 3). 게이트별 반복이 아니라 "과제 전체에 한 번" 같은 다른 모양이 필요할 수 있다.
 2. **규정 근거 간선 0** — 후보 60건은 뽑았으나(§6B) Owner 확인 전이라 규칙표에는 아직 없다. 확인되면 `regulation_mandated` 간선이 처음 생긴다.
-2A. **② 행의 토큰 배정 3건**(`spec_linkage_table`=VCRM, `sps`=VDD, `ord`=CONOPS) — 지금은 대응표로 우회하고 있다. 행의 토큰을 바로잡는 것이 더 깨끗하지만 engine requirement id가 바뀌므로 과제 덧씌움에 영향이 있다. D44와 함께 판단.
+2A. ~~**② 행의 토큰 배정 3건**~~ — **닫힘(D44, 2026-08-19)**: 대응표 우회 대신 ② 행을 고쳤다(§6A(3)). 실제 영향은 엔진 요구 id 1개뿐이었고, KVDS overlay 24 op 중 그 토큰을 가리키는 것은 0건이었다. 남은 후속: 그 overlay의 `extends.spec_sha256`이 v0.8을 가리켜 D44 이전부터 `OVERLAY_BASE_MISMATCH` 상태이므로 다시 pin해야 한다(Owner).
 2B. **묶음 대응** — `fca_pca_plan_checklist`·`test_docs`처럼 ②가 여러 ① 산출물을 한 행에 묶은 자리는 다대일이라 토큰 대응으로 적을 수 없어 투영에서 빠진다.
 2C. **투영 잡음 1건** — `ord ← p_temp`(030_SRR, 활동 `act_validation` 경유)는 합성 규칙상 나오지만 읽기에 어색하다. 그 행은 `unstated`라 엔진 요구가 아니어서 조언에는 나오지 않는다. 검토 대상.
 3. **DoD SEG §3** — 검토회의별 `Inputs and Review Criteria` / `Outputs and Products` 표가 §3에 있다(이번 읽기 범위는 §4). ① 층의 게이트 입력을 크게 보강할 수 있는 가장 가까운 다음 정본.

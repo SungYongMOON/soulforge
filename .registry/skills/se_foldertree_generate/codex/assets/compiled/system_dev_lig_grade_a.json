@@ -214,7 +214,7 @@
           "applies_when": [
             "exploratory_skipped"
           ],
-          "artifact_type_id": "ord",
+          "artifact_type_id": "conops",
           "depends_on": [
             "act_stakeholder_expectations",
             "p_temp"
@@ -249,7 +249,7 @@
           ],
           "desc": "운용 시나리오 및 사용자 요구사항 분석",
           "evidence_level": "unstated",
-          "gate_role": "entry",
+          "gate_role": "supporting",
           "id": 39,
           "name": "운용개념(CONOPS)",
           "node_kind": "artifact",
@@ -485,7 +485,7 @@
           ],
           "artifact_type_id": "fci",
           "depends_on": [
-            "ord"
+            "conops"
           ],
           "depends_on_evidence": "general_se_guidance",
           "depends_on_origin": "generic_layer_projection",
@@ -816,7 +816,7 @@
           "desc": "Stakeholder expectations definition — activity node (no folder); evidenced by the records it produces",
           "evidence_level": "guidebook_recommended",
           "evidence_record": [
-            "ord"
+            "conops"
           ],
           "gate_role": "supporting",
           "id": 57,
@@ -838,7 +838,7 @@
           "added_by_verification": "2026-08-18",
           "artifact_type_id": "act_technical_review",
           "depends_on": [
-            "ord"
+            "conops"
           ],
           "depends_on_evidence": "guidebook_recommended",
           "depends_on_origin": "canonical",
@@ -951,7 +951,7 @@
         {
           "artifact_type_id": "functional_analysis",
           "depends_on": [
-            "ord"
+            "conops"
           ],
           "depends_on_evidence": "general_se_guidance",
           "depends_on_origin": "generic_layer_projection",
@@ -1009,7 +1009,7 @@
         {
           "artifact_type_id": "rtm",
           "depends_on": [
-            "ord"
+            "conops"
           ],
           "depends_on_evidence": "general_se_guidance",
           "depends_on_origin": "generic_layer_projection",
@@ -1170,7 +1170,7 @@
         {
           "artifact_type_id": "fci",
           "depends_on": [
-            "ord"
+            "conops"
           ],
           "depends_on_evidence": "general_se_guidance",
           "depends_on_origin": "generic_layer_projection",
@@ -1281,8 +1281,8 @@
           "added_by_verification": "2026-08-18",
           "artifact_type_id": "act_technical_review",
           "depends_on": [
+            "conops",
             "icd",
-            "ord",
             "ssrs"
           ],
           "depends_on_evidence": "guidebook_recommended",
@@ -1540,7 +1540,7 @@
         {
           "artifact_type_id": "rtm",
           "depends_on": [
-            "ord"
+            "conops"
           ],
           "depends_on_evidence": "general_se_guidance",
           "depends_on_origin": "generic_layer_projection",
@@ -2244,7 +2244,7 @@
         {
           "artifact_type_id": "rtm",
           "depends_on": [
-            "ord"
+            "conops"
           ],
           "depends_on_evidence": "general_se_guidance",
           "depends_on_origin": "generic_layer_projection",
@@ -2701,7 +2701,7 @@
           "applies_when": [
             "sw_included"
           ],
-          "artifact_type_id": "sps",
+          "artifact_type_id": "vdd",
           "desc": "SW 바이너리, 소스코드 및 버전 정의",
           "evidence_level": "guidebook_recommended",
           "gate_role": "supporting",
@@ -3202,7 +3202,7 @@
           "artifact_type_id": "fca_report",
           "depends_on": [
             "drawings",
-            "spec_linkage_table"
+            "vcrm"
           ],
           "depends_on_evidence": "guidebook_recommended",
           "depends_on_origin": "canonical",
@@ -3242,7 +3242,7 @@
           "verification_status": "source_supported"
         },
         {
-          "artifact_type_id": "spec_linkage_table",
+          "artifact_type_id": "vcrm",
           "depends_on": [
             "dci",
             "fci",
@@ -3263,7 +3263,7 @@
           ],
           "desc": "(Final) 요구사항 검증 입증",
           "evidence_level": "unstated",
-          "gate_role": "entry",
+          "gate_role": "supporting",
           "id": 190,
           "name": "요구사항검증매트릭스(VCRM)_F",
           "node_kind": "artifact",
@@ -3509,7 +3509,7 @@
           "artifact_type_id": "act_technical_review",
           "depends_on": [
             "drawings",
-            "spec_linkage_table"
+            "vcrm"
           ],
           "depends_on_evidence": "guidebook_recommended",
           "depends_on_origin": "canonical",
@@ -3596,7 +3596,7 @@
           "artifact_type_id": "pca_report",
           "depends_on": [
             "drawings",
-            "spec_linkage_table"
+            "vcrm"
           ],
           "depends_on_evidence": "guidebook_recommended",
           "depends_on_origin": "canonical",
@@ -4250,8 +4250,8 @@
   "quality_grade": "A",
   "schema_version": "soulforge.se_foldertree_compiled_variant.v0",
   "spec_file": "assets/SE_FolderTree_Guide.md",
-  "spec_sha256": "1d740256fbe94a436f790256a1e4ae310171b9432067f50ca02d0c43ae01ee58",
-  "spec_version": "0.10",
+  "spec_sha256": "87c504418cfded8ecbc4956aad013cade1a9c1ea1ad46dd72756cd538dd4ad36",
+  "spec_version": "0.11",
   "special_folders": {
     "management": {
       "code": 20,

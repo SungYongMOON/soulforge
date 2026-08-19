@@ -1281,6 +1281,20 @@ export function compileStageRules(request) {
     }
     const targeted = rowIndex.get(key);
     if (targeted === undefined) {
+      // This is a REFUSAL, not a soft report, and it is worth being explicit about because the
+      // two look similar from a distance. `receipt.unresolved_dependencies` names inputs that
+      // resolve to nothing, and the packet generator's `unbound_observations` names observations
+      // that reach no requirement; both are recorded because losing them silently would only
+      // cost information. An `alias` or `mark_not_applicable` is different: it is a project
+      // asserting something about a rule, and if that rule is not there the assertion has already
+      // failed. Continuing would apply an overlay that means less than it says.
+      //
+      // The practical consequence (D44, 2026-08-19): correcting a token assignment on a spec row
+      // breaks any project overlay that named the old token at that stage, loudly and at compile
+      // time. The detail below carries the op, the stage and the token so the overlay can be
+      // re-pointed. A stale `extends.spec_sha256` is caught even earlier, by
+      // OVERLAY_BASE_MISMATCH, so an overlay written against an older spec revision never reaches
+      // this check at all.
       fail(STAGE_RULE_ERROR_CODES.OVERLAY_INVALID, 'an overlay operation names a rule that does not exist',
         { op: op.op, stage_code: op.stage_code, artifact_type_id: op.artifact_type_id });
     }
