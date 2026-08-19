@@ -14,7 +14,9 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 
 import { ENGINE_MCP_ERROR_CODES, assertArgumentString, mcpFail } from '../engine_context.mjs';
-import { assertPrincipalRef, assertTicketId, assertTicketUsable, assertUploadFileName } from '../tickets.mjs';
+import {
+  assertPrincipalRef, assertTicketId, assertTicketUsable, assertUploadFileName, ticketFolderRoot,
+} from '../tickets.mjs';
 import { FOOTER, lines, table } from '../render.mjs';
 
 export const name = 'file_put';
@@ -84,7 +86,7 @@ export async function handler(args, ctx) {
       'the bytes that arrived are not the bytes the caller hashed', { field: 'sha256' });
   }
 
-  const folder = ctx.resolveProjectRef(ticket.folder_ref, 'ticket_id');
+  const folder = ctx.resolveDoorRef(ticket.folder_ref, 'ticket_id', ticketFolderRoot(ticket));
   const target = join(folder, file.name);
   await ctx.writeBytesCreateOnly(target, bytes, { field: 'ticket_file' });
 

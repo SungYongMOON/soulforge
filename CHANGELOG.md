@@ -1,5 +1,39 @@
 # CHANGELOG
 
+## 2026-08-19 - The intake round trip closes: the file door can stand on a NAS share, and registration crosses roots
+
+A file uploaded through a link landed on the share and the engine could not reach it, because a
+profile's door folders had to sit in the project tree. Three changes close that
+(manual `12_mcp_door.md` §12.B/§12.C).
+
+- **A fourth root, `nas_root`.** A profile may declare one absolute share — a UNC path in the
+  `\\server\share` form specifically, or a mapped absolute path — and it moves **only** the door's
+  three folders (`intake_dir`, `outbox_dir`, `trash_dir`). Observations, receipts, runs and
+  `confidential_dirs` do not move. A drive letter cannot be a root: it is a per-login mapping and an
+  unattended door that resolves through one breaks when nobody is signed in. Refused: a share on the
+  metadata plane, a door folder outside the stated share, the share root itself as a door folder, a
+  door folder that resolves back inside the project tree, and a `nas_root` on a profile with no door.
+  The path budget is still measured, from the share root instead of the repo root.
+- **`file_register` crosses roots by copying, verifying and consuming.** Within one root it is still
+  a move. Across roots there is no move to make, so the bytes are copied, both ends are hashed and
+  compared, and only then is the source **moved into the share's own trash**
+  (`_trash/consumed/<ticket>/`) — never deleted, so a wrong copy is recoverable, and never left in
+  place, so nobody registers the same file twice. Receipts carry `transfer_kind: move | copy_verify`
+  and both hashes. Download tickets copy into the share's outbox; the sweep takes share tickets to
+  the share's trash. A ticket row now records `folder_root`, so rows written before the share still
+  resolve against the project.
+- **Three Owner-reviewable defaults, recorded in §12.C.** (a) An upload link stays class ⓑ — it is a
+  capability to one empty folder — while a **download link takes the class of the file it reaches**,
+  so a link to a confidential artifact is ⓒ. (b) The live URL does not go into `_workmeta`: the
+  ticket ledger keeps `link_kind`, `link_expires_at` and `dsm_link_id` and has no field for a URL at
+  all (passing one is refused, not stripped), while the URL goes to the caller's answer and to one
+  create-only `.soulforge_ticket.json` inside the ticket folder — where being able to read it means
+  you could already open the folder it points at. It is filtered out of registration rather than
+  requiring anybody to delete it. (c) No link password for now: the issuer can take one from an env
+  key, but there is no second channel to deliver it on, and a password written beside the link is
+  not a password.
+- `npm run validate:se-mcp` — **135** (was 117).
+
 ## 2026-08-19 - A guide card's "왜" now says what the artifact is for, and its "어떻게" says with what
 
 The first answer the guidance layer produced had citations but no reason. Its "왜" was three
@@ -55,6 +89,7 @@ relations. Nothing here is written by a model, and no judgement moved.
   `100% 남음` reading while preserving normal adoption after the real reset.
 - Focused regressions cover 429 classification, no-I/O backoff, fixed safe
   attempt labels, current-window preference, and post-reset acceptance.
+
 
 ## 2026-08-19 - A Synology link issuer beside the engine door, so an outsider can upload without a folder path
 

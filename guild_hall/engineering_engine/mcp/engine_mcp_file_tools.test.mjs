@@ -48,11 +48,11 @@ const TASK_FOLDER = '3004_Synthetic system requirements specification';
 
 async function stage({
   role = 'owner', write = true, now = null, file_door: fileDoor = true, overlay_add: overlayAdd = false,
-  link_issuer: linkIssuer = false, env = {},
+  link_issuer: linkIssuer = false, env = {}, nas_root: nasRoot = false,
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'engine_mcp_file_'));
   const staged = stageSyntheticProject(root, {
-    file_door: fileDoor, overlay_add: overlayAdd, link_issuer: linkIssuer,
+    file_door: fileDoor, overlay_add: overlayAdd, link_issuer: linkIssuer, nas_root: nasRoot,
   });
   const context = await createEngineContext({
     profile_path: staged.profile_path,
@@ -103,7 +103,9 @@ const readLines = (path) => {
 /** One upload ticket with one file already sitting in it, the way a person would have left it. */
 async function stagedTicket(context, staged, name = 'SSRS_draft_v1.pdf', body = 'synthetic') {
   const ticket = await call('file_ticket', { purpose: 'upload' }, context);
-  const folder = join(staged.project_root, ...ticket.structured.folder_ref.split('/'));
+  // Resolved against the door's own root: the pointer means the same thing either way, but what it
+  // is measured from moves with the door (12장 §12.B).
+  const folder = join(staged.door_root, ...ticket.structured.folder_ref.split('/'));
   writeFileSync(join(folder, name), body, 'utf8');
   return { ticket: ticket.structured, folder };
 }
@@ -711,15 +713,26 @@ test('with an issuer and a mock DSM the ticket comes back carrying its link', as
     assert.equal(structured.link_note, null);
     assert.match(result.markdown, /https:\/\/nas\.invalid/u);
 
-    // The ledger keeps the link; the operations receipt keeps only that one exists and when it dies.
+    // The metadata plane learns that a link exists and when it dies — never the link itself
+    // (Owner 결정 2026-08-19). The URL lives in the answer and in the folder's own marker file.
     const ticketRow = readLines(join(staged.receipts_dir, FILE_TICKETS_FILE))[0];
-    assert.equal(ticketRow.link.link_url, structured.link_url);
     assert.equal(ticketRow.link.link_kind, 'file_request');
     assert.equal(ticketRow.link.dsm_link_id, 'mockfilerequest01');
+    assert.equal(ticketRow.link.link_url, undefined);
+    assert.equal(JSON.stringify(ticketRow).includes('https://'), false);
     const receipt = readLines(join(staged.receipts_dir, FILE_OPERATIONS_RECEIPT_FILE))[0];
     assert.equal(receipt.link_kind, 'file_request');
     assert.equal(receipt.link_expires_at, structured.expires_at);
     assert.equal(JSON.stringify(receipt).includes('https://'), false);
+
+    // The marker is create-only, inside the folder the link points at, and carries no secret.
+    const markerPath = join(staged.door_root, ...structured.ticket_marker_ref.split('/'));
+    const marker = JSON.parse(readFileSync(markerPath, 'utf8'));
+    assert.equal(marker.link_url, structured.link_url);
+    assert.equal(marker.ticket_id, structured.ticket_id);
+    assert.equal(marker.password, undefined);
+    assert.equal(structured.link_data_class, 'team_judgment');
+    assert.equal(structured.link_withheld, false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -754,6 +767,254 @@ test('an issuer that fails leaves the ticket standing and says the link was refu
     assert.equal(readLines(join(staged.receipts_dir, FILE_TICKETS_FILE))[0].status, 'open');
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// ------------------------------------------------- the share as the door's root (12장 §12.B)
+
+test('a ticket on the share is a ticket like any other, and says which root it is on', async () => {
+  const { root, staged, context } = await stage({ nas_root: true });
+  try {
+    const result = await call('file_ticket', { purpose: 'upload' }, context);
+    const structured = result.structured;
+    assert.equal(structured.folder_root, 'nas');
+    assert.ok(structured.folder.startsWith('nas:'), structured.folder);
+    // The pointer resolves under the share, and the folder is really there.
+    assert.equal(existsSync(join(staged.nas_root, ...structured.folder_ref.split('/'))), true);
+    // And nothing was created inside the project tree for it.
+    assert.equal(existsSync(join(staged.project_root, ...structured.folder_ref.split('/'))), false);
+    assert.equal(readLines(join(staged.receipts_dir, FILE_TICKETS_FILE))[0].folder_root, 'nas');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('registering across roots copies, checks both hashes, and consumes the source to the share trash', async () => {
+  const { root, staged, context } = await stage({ nas_root: true });
+  try {
+    const { ticket, folder } = await stagedTicket(context, staged);
+    const result = await call('file_register', {
+      ticket_id: ticket.ticket_id,
+      artifact_type_id: SYNTHETIC_REGISTER_TOKEN,
+      stage_code: SYNTHETIC_STAGE,
+    }, context);
+    const structured = result.structured;
+
+    assert.equal(structured.transfer_kind, 'copy_verify');
+    assert.equal(structured.source_root, 'nas');
+    assert.equal(structured.observation_state, 'observed');
+
+    // The bytes are in the task folder, verified from both ends.
+    const landed = join(staged.project_root, GATE_FOLDER, TASK_FOLDER, '03_Out', 'SSRS_draft_v1.pdf');
+    assert.equal(readFileSync(landed, 'utf8'), 'synthetic');
+    assert.equal(structured.registered[0].sha256, sha256('synthetic'));
+    assert.equal(structured.registered[0].source_sha256, structured.registered[0].sha256);
+
+    // The source is gone from the ticket folder and is in the share's trash — never deleted.
+    assert.equal(existsSync(join(folder, 'SSRS_draft_v1.pdf')), false);
+    const consumed = join(staged.trash_dir, 'consumed', ticket.ticket_id, 'SSRS_draft_v1.pdf');
+    assert.equal(readFileSync(consumed, 'utf8'), 'synthetic');
+    assert.ok(structured.registered[0].consumed_ref.endsWith(
+      `consumed/${ticket.ticket_id}/SSRS_draft_v1.pdf`));
+
+    const receipt = readLines(join(staged.receipts_dir, FILE_OPERATIONS_RECEIPT_FILE))
+      .find((row) => row.tool === 'file_register');
+    assert.equal(receipt.operation, 'register_copy_verify');
+    assert.equal(receipt.transfer_kind, 'copy_verify');
+    assert.equal(receipt.source_root, 'nas');
+    assert.equal(receipt.files[0].source_sha256, receipt.files[0].sha256);
+    assert.ok(receipt.files[0].consumed_ref.startsWith('020_MGMT/_trash/consumed/'));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('registering within one root is still a move, with nothing left in a trash', async () => {
+  const { root, staged, context } = await stage();
+  try {
+    const { ticket } = await stagedTicket(context, staged);
+    const result = await call('file_register', {
+      ticket_id: ticket.ticket_id,
+      artifact_type_id: SYNTHETIC_REGISTER_TOKEN,
+      stage_code: SYNTHETIC_STAGE,
+    }, context);
+    assert.equal(result.structured.transfer_kind, 'move');
+    assert.equal(result.structured.source_root, 'project');
+    assert.equal(result.structured.registered[0].consumed_ref, null);
+    assert.equal(result.structured.registered[0].source_sha256, sha256('synthetic'));
+    assert.equal(existsSync(join(staged.trash_dir, 'consumed')), false);
+    const receipt = readLines(join(staged.receipts_dir, FILE_OPERATIONS_RECEIPT_FILE))
+      .find((row) => row.tool === 'file_register');
+    assert.equal(receipt.operation, 'register_move');
+    assert.equal(receipt.transfer_kind, 'move');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a download ticket copies into the share outbox and leaves the project copy alone', async () => {
+  const { root, staged, context } = await stage({ nas_root: true });
+  try {
+    const outPath = join(staged.project_root, GATE_FOLDER, TASK_FOLDER, '03_Out');
+    mkdirSync(outPath, { recursive: true });
+    writeFileSync(join(outPath, 'SSRS_final.pdf'), 'synthetic', 'utf8');
+    const result = await call('file_ticket', {
+      purpose: 'download',
+      artifact_ref: `${GATE_FOLDER}/${TASK_FOLDER}/03_Out/SSRS_final.pdf`,
+    }, context);
+    assert.equal(result.structured.folder_root, 'nas');
+    const copy = join(staged.nas_root, ...result.structured.folder_ref.split('/'), 'SSRS_final.pdf');
+    assert.equal(readFileSync(copy, 'utf8'), 'synthetic');
+    assert.equal(existsSync(join(outPath, 'SSRS_final.pdf')), true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('the sweep takes a share ticket folder to the share trash, and deletes nothing', async () => {
+  const { root, staged, context } = await stage({ nas_root: true, now: '2026-08-19T00:00:00.000Z' });
+  try {
+    const ticket = (await call('file_ticket', { purpose: 'upload' }, context)).structured;
+    // Long enough after the ticket expired that the grace period has passed too.
+    context.now = () => '2026-12-01T00:00:00.000Z';
+    const swept = await call('file_tickets_gc', { dry_run: false }, context);
+    assert.equal(swept.structured.trash_root, 'nas');
+    assert.equal(swept.structured.counts.moved, 1);
+    assert.equal(swept.structured.items[0].folder_root, 'nas');
+    assert.equal(existsSync(join(staged.trash_dir, ticket.ticket_id)), true);
+    assert.equal(existsSync(join(staged.nas_root, ...ticket.folder_ref.split('/'))), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a ledger row written before the share still resolves against the project', async () => {
+  const { root, staged, context } = await stage({ nas_root: true });
+  try {
+    // A row with no `folder_root` is a row from before the share existed, and it means project.
+    const legacyFolder = join(staged.project_root, '020_MGMT', 'legacy_ticket');
+    mkdirSync(legacyFolder, { recursive: true });
+    writeFileSync(join(legacyFolder, 'SSRS_draft_v1.pdf'), 'synthetic', 'utf8');
+    writeFileSync(join(staged.receipts_dir, FILE_TICKETS_FILE), `${JSON.stringify({
+      schema_version: 'soulforge.engine_mcp_file_ticket.v0',
+      ticket_id: 'up_20260819t050000z_aaaaaa',
+      purpose: 'upload',
+      principal_ref: 'test_owner',
+      role: 'owner',
+      status: 'open',
+      created_at: '2026-08-19T05:00:00.000Z',
+      expires_at: '2099-01-01T00:00:00.000Z',
+      logged_at: '2026-08-19T05:00:00.000Z',
+      folder_ref: '020_MGMT/legacy_ticket',
+      files: [],
+    })}\n`, 'utf8');
+    const result = await call('file_register', {
+      ticket_id: 'up_20260819t050000z_aaaaaa',
+      artifact_type_id: SYNTHETIC_REGISTER_TOKEN,
+      stage_code: SYNTHETIC_STAGE,
+    }, context);
+    // Project to project: the old behaviour, unchanged, on a profile that now names a share.
+    assert.equal(result.structured.source_root, 'project');
+    assert.equal(result.structured.transfer_kind, 'move');
+    assert.equal(existsSync(join(legacyFolder, 'SSRS_draft_v1.pdf')), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('the door\'s own marker is not registered as somebody\'s upload', async () => {
+  const { root, staged, context } = await stage({
+    nas_root: true, link_issuer: true, env: MOCK_ENV,
+  });
+  try {
+    const ticket = (await call('file_ticket', { purpose: 'upload' }, context)).structured;
+    assert.notEqual(ticket.ticket_marker_ref, null);
+    const folder = join(staged.nas_root, ...ticket.folder_ref.split('/'));
+    writeFileSync(join(folder, 'SSRS_draft_v1.pdf'), 'synthetic', 'utf8');
+    const result = await call('file_register', {
+      ticket_id: ticket.ticket_id,
+      artifact_type_id: SYNTHETIC_REGISTER_TOKEN,
+      stage_code: SYNTHETIC_STAGE,
+    }, context);
+    // One file registered, not two, and the marker is still where the door put it.
+    assert.equal(result.structured.counts.moved, 1);
+    assert.equal(result.structured.registered[0].name, 'SSRS_draft_v1.pdf');
+    assert.equal(existsSync(join(folder, '.soulforge_ticket.json')), true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('the ticket listing says which root a pointer means and whether a link is alive', async () => {
+  const { root, context } = await stage({ nas_root: true, link_issuer: true, env: MOCK_ENV });
+  try {
+    const ticket = (await call('file_ticket', { purpose: 'upload' }, context)).structured;
+    const listed = await call('file_tickets_list', {}, context);
+    const row = listed.structured.rows.find((entry) => entry.ticket_id === ticket.ticket_id);
+    assert.equal(row.folder_root, 'nas');
+    assert.equal(row.link_kind, 'file_request');
+    assert.equal(row.link_expires_at, ticket.expires_at);
+    // The listing reads the ledger, and the ledger has no URL to give it.
+    assert.equal(JSON.stringify(listed.structured).includes('https://'), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a download link takes the class of the file it reaches', async () => {
+  const { root, staged, context } = await stage({ link_issuer: true, env: MOCK_ENV });
+  try {
+    mkdirSync(staged.confidential_dir, { recursive: true });
+    writeFileSync(join(staged.confidential_dir, 'contract.pdf'), 'synthetic', 'utf8');
+    const confidential = await call('file_ticket', {
+      purpose: 'download',
+      artifact_ref: `${DOOR_RELATIVE.confidential.join('/')}/contract.pdf`,
+    }, context);
+    assert.equal(confidential.structured.link_data_class, 'confidential_contract');
+    assert.equal(confidential.structured.link_withheld, false);
+
+    const outPath = join(staged.project_root, GATE_FOLDER, TASK_FOLDER, '03_Out');
+    mkdirSync(outPath, { recursive: true });
+    writeFileSync(join(outPath, 'SSRS_final.pdf'), 'synthetic', 'utf8');
+    const ordinary = await call('file_ticket', {
+      purpose: 'download',
+      artifact_ref: `${GATE_FOLDER}/${TASK_FOLDER}/03_Out/SSRS_final.pdf`,
+    }, context);
+    assert.equal(ordinary.structured.link_data_class, 'team_judgment');
+
+    // An upload link reaches an empty folder, so it stays ⓑ whatever the project holds.
+    const upload = await call('file_ticket', { purpose: 'upload' }, context);
+    assert.equal(upload.structured.link_data_class, 'team_judgment');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('the share shows up as a root for the team and not for anybody else', async () => {
+  const owner = await stage({ nas_root: true });
+  try {
+    const status = await call('engine_status', {}, owner.context);
+    assert.equal(status.structured.allowed_roots.nas !== undefined, true);
+    assert.equal(status.structured.file_door.root_kind, 'nas');
+    assert.ok(status.markdown.includes('문 앞 칸 전용 공유폴더'));
+    const me = await call('whoami', {}, owner.context);
+    assert.deepEqual(me.structured.allowed_roots,
+      ['project', 'metadata', 'rule_assets', 'nas']);
+    // No path: that the share exists is ⓑ, where it is stays ⓒ and is never printed.
+    assert.equal(JSON.stringify(status.structured).includes(owner.staged.nas_root), false);
+  } finally {
+    rmSync(owner.root, { recursive: true, force: true });
+  }
+
+  const plain = await stage();
+  try {
+    const status = await call('engine_status', {}, plain.context);
+    assert.equal(status.structured.allowed_roots.nas, undefined);
+    assert.equal(status.structured.file_door.root_kind, 'project');
+    const me = await call('whoami', {}, plain.context);
+    assert.deepEqual(me.structured.allowed_roots, ['project', 'metadata', 'rule_assets']);
+  } finally {
+    rmSync(plain.root, { recursive: true, force: true });
   }
 });
 

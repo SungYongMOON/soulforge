@@ -72,6 +72,13 @@ node guild_hall/gateway/nas_link_issuer/tools/nas_issue_link.mjs \
 있어서, 업로드 권한이 실제로 붙었는지는 DSM UI에서 사람이 한 번 확인한다. 관측하지 않은 것을
 관측했다고 적지 않는다.
 
+## 발급한 링크는 어디에 적히나
+
+발급기는 링크를 **돌려주기만** 한다. 어디에 적을지는 엔진 문이 정하고, 규칙은 하나다 — **살아 있는 URL은
+`_workmeta`에 넣지 않는다**(메타면은 포인터·해시·상태만 담는다). 표 장부에는 `link_kind`·
+`link_expires_at`·`dsm_link_id`만 남고, URL은 호출자의 답과 표 폴더 안 `.soulforge_ticket.json`에만
+간다. 자세히는 매뉴얼 12장 §12.B "링크는 어디에 적히나".
+
 ## 아직 확인 못 한 것 (실계정 회신 뒤)
 
 - `date_expired` 인코딩: `YYYY-MM-DD HH:MM:SS`(기본)인지 `YYYY-MM-DD`인지. `--expiry-format`으로 바꾼다.

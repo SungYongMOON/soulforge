@@ -6,7 +6,8 @@ import { join, sep } from 'node:path';
 
 import {
   ENGINE_PROJECT_PROFILE_SCHEMA_VERSION, LINK_ISSUER_ENV_SUFFIXES, PROFILE_ERROR_CODES,
-  PROFILE_OPTIONAL_KEYS, PROFILE_REQUIRED_KEYS, profileRoots, repoPointer, validateProjectProfile,
+  PROFILE_OPTIONAL_KEYS, PROFILE_REQUIRED_KEYS, isPathUnder, profileRoots, repoPointer,
+  validateProjectProfile,
 } from './project_profile.mjs';
 import {
   LINK_ISSUER_ENV_PREFIX, PROFILE_FIXTURE, stageSyntheticProject,
@@ -277,4 +278,124 @@ test('a link issuer without a file door is refused, not quietly ignored', () => 
 
 test('the door and the issuer name the same environment keys', () => {
   assert.deepEqual([...LINK_ISSUER_ENV_SUFFIXES].sort(), Object.values(NAS_ENV_SUFFIXES).sort());
+});
+
+// ---------------------------------------------------------------- the nas root (12장 §12.B)
+
+test('without a nas root the door is on the project, as it always was', () => {
+  const { root, staged } = stage();
+  try {
+    const profile = validateProjectProfile(staged.profile, { repo_root: root });
+    assert.equal(profile.nas_root, null);
+    assert.equal(profile.door_root_kind, 'project');
+    assert.equal(profile.door_root, profile.project_root);
+    assert.ok(profile.intake_dir.startsWith(profile.project_root));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a nas root moves the three door folders and nothing else', () => {
+  const root = mkdtempSync(join(tmpdir(), 'engine_mcp_profile_'));
+  try {
+    const staged = stageSyntheticProject(root, { nas_root: true });
+    const profile = validateProjectProfile(staged.profile, { repo_root: root });
+    assert.equal(profile.door_root_kind, 'nas');
+    assert.equal(profile.door_root, profile.nas_root);
+    for (const field of ['intake_dir', 'outbox_dir', 'trash_dir']) {
+      assert.ok(isPathUnder(profile[field], profile.nas_root), field);
+      assert.equal(isPathUnder(profile[field], profile.project_root), false, field);
+    }
+    // Everything else is exactly where it was: the share moves the door, not the project.
+    const roots = profileRoots(root);
+    assert.ok(profile.observations_dir.startsWith(roots.project));
+    assert.ok(profile.receipts_dir.startsWith(roots.metadata));
+    assert.ok(profile.confidential_dirs[0].startsWith(profile.project_root));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a UNC nas root is accepted only in the \\\\server\\share form', () => {
+  const { root, staged } = stage();
+  try {
+    const accepted = validateProjectProfile({
+      ...staged.profile,
+      nas_root: '\\\\nas-host\\soulforge_intake',
+      intake_dir: '\\\\nas-host\\soulforge_intake\\tickets',
+      outbox_dir: '\\\\nas-host\\soulforge_intake\\outbox',
+      trash_dir: '\\\\nas-host\\soulforge_intake\\_trash',
+    }, { repo_root: root });
+    assert.equal(accepted.door_root_kind, 'nas');
+    assert.match(accepted.nas_root, /^\\\\nas-host/u);
+
+    for (const bad of [
+      '//nas-host/soulforge_intake',
+      '\\\\nas-host',
+      '\\\\nas-host\\',
+      'nas-host\\soulforge_intake',
+      '\\\\nas-host\\share\\..\\other',
+    ]) {
+      const error = refusal({ ...staged.profile, nas_root: bad }, root);
+      assert.ok(error !== null, `"${bad}" should have been refused`);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a nas root needs the door, may not be the metadata plane, and may not swallow the project', () => {
+  const root = mkdtempSync(join(tmpdir(), 'engine_mcp_profile_'));
+  try {
+    const doorless = stageSyntheticProject(root, { file_door: false, project_code: 'SYN-002' });
+    const noDoor = refusal({ ...doorless.profile, nas_root: join(root, 'share') }, root);
+    assert.equal(noDoor?.code, PROFILE_ERROR_CODES.PROFILE_INVALID);
+    assert.match(noDoor.message, /file door/u);
+
+    const staged = stageSyntheticProject(root, { nas_root: true });
+    const onMetadata = refusal({
+      ...staged.profile, nas_root: join(root, '_workmeta', 'share'),
+    }, root);
+    assert.equal(onMetadata?.code, PROFILE_ERROR_CODES.PROFILE_PLANE_MISMATCH);
+
+    // A share root that contains the project would put ticket folders inside the project tree
+    // while every cross-root rule believed they were somewhere else.
+    const swallowing = refusal({
+      ...staged.profile,
+      nas_root: root,
+      intake_dir: join(staged.project_root, 'tickets'),
+      outbox_dir: join(staged.project_root, 'outbox'),
+      trash_dir: join(staged.project_root, 'trash'),
+    }, root);
+    assert.equal(swallowing?.code, PROFILE_ERROR_CODES.PROFILE_INVALID);
+    assert.match(swallowing.message, /project tree/u);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a door folder that is not under the stated nas root is refused', () => {
+  const root = mkdtempSync(join(tmpdir(), 'engine_mcp_profile_'));
+  try {
+    const staged = stageSyntheticProject(root, { nas_root: true });
+    const error = refusal({
+      ...staged.profile, outbox_dir: join(root, 'somewhere_else', 'outbox'),
+    }, root);
+    assert.equal(error?.code, PROFILE_ERROR_CODES.PROFILE_PATH_OUTSIDE_ROOTS);
+    assert.equal(error.detail.field, 'outbox_dir');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('the nas root itself cannot be a door folder', () => {
+  const root = mkdtempSync(join(tmpdir(), 'engine_mcp_profile_'));
+  try {
+    const staged = stageSyntheticProject(root, { nas_root: true });
+    const error = refusal({ ...staged.profile, intake_dir: staged.nas_root }, root);
+    assert.equal(error?.code, PROFILE_ERROR_CODES.PROFILE_INVALID);
+    assert.match(error.message, /not the root itself/u);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

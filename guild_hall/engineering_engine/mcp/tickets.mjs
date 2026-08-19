@@ -249,23 +249,45 @@ export function ticketExpiry(createdAt, purpose, policy) {
 /** The three link shapes §12.C allows, restated so the ledger validates what it records. */
 export const TICKET_LINK_KINDS = Object.freeze(['file_request', 'sharing_edit', 'sharing_view']);
 
+/** Which root a ticket's `folder_ref` is measured from. Rows written before the share say project. */
+export const TICKET_FOLDER_ROOTS = Object.freeze(['project', 'nas']);
+
 /**
- * The link block on a ticket row, or `null`.
+ * The one file the door puts inside a ticket folder: the ticket, and its link, for the person who
+ * already has the folder open (Owner 결정 2026-08-19).
  *
- * Checked rather than trusted, because the values come from a separate program: an https URL, one
- * of the three known kinds, and an expiry that is an instant or absent. No password field exists on
- * this shape at all — the only way to keep a link password out of the ledger is to have nowhere to
- * put one.
+ * The live URL is deliberately not on the ledger row — see `validateTicketLink`. It has to live
+ * somewhere a person can read it, and the only place that discloses nothing new is the folder the
+ * link already points at: whoever can open this file could already open the folder. The leading dot
+ * also keeps it out of registration, because `assertUploadFileName` refuses a name starting with one.
+ */
+export const TICKET_MARKER_FILE = '.soulforge_ticket.json';
+export const TICKET_MARKER_SCHEMA_VERSION = 'soulforge.engine_mcp_ticket_marker.v0';
+
+/**
+ * The link block on a ticket row, or `null` — **and it carries no URL** (Owner 결정 2026-08-19).
+ *
+ * The ledger lives on the metadata plane, which holds pointers, hashes and status and never
+ * payload (AGENTS.md). A share URL is not a pointer: it is a working capability, and anybody who
+ * can read `_workmeta` could use it. So the row keeps the three facts an auditor needs — which kind
+ * of link exists, when it dies, and which DSM object it is — and the URL itself goes only to the
+ * caller's answer and to the marker file inside the ticket folder.
+ *
+ * There is no password field either, and there is no URL field: the only reliable way to keep a
+ * value out of a ledger is to give it nowhere to go. A block that carries one is refused, rather
+ * than quietly stripped, because a caller that passes one believes it is being recorded.
  */
 export function validateTicketLink(raw, field = 'link') {
   if (raw === null || raw === undefined) return null;
   if (typeof raw !== 'object' || Array.isArray(raw)) {
     fail(TICKET_ERROR_CODES.TICKET_INVALID, 'a ticket link is an object or nothing', { field });
   }
-  if (typeof raw.link_url !== 'string' || !raw.link_url.startsWith('https://')
-    || raw.link_url.length > 500 || hasControlCharacter(raw.link_url)) {
-    fail(TICKET_ERROR_CODES.TICKET_INVALID, 'a ticket link is one https url',
-      { field: `${field}.link_url` });
+  for (const forbidden of ['link_url', 'url', 'password', 'token', 'secret']) {
+    if (raw[forbidden] !== undefined) {
+      fail(TICKET_ERROR_CODES.TICKET_INVALID,
+        'the ticket ledger records that a link exists, never the link itself',
+        { field: `${field}.${forbidden}` });
+    }
   }
   if (!TICKET_LINK_KINDS.includes(raw.link_kind)) {
     fail(TICKET_ERROR_CODES.TICKET_INVALID, 'unknown ticket link kind',
@@ -280,7 +302,6 @@ export function validateTicketLink(raw, field = 'link') {
       { field: `${field}.dsm_link_id` });
   }
   return {
-    link_url: raw.link_url,
     link_kind: raw.link_kind,
     link_expires_at: expiresAt,
     dsm_link_id: linkId,
@@ -290,8 +311,13 @@ export function validateTicketLink(raw, field = 'link') {
 export function newTicketRecord({
   ticket_id: ticketId, purpose, principal_ref: principalRef, role,
   created_at: createdAt, expires_at: expiresAt, folder_ref: folderRef,
+  folder_root: folderRoot = 'project',
   artifact_ref: artifactRef = null, note = null, files = [], link = null,
 }) {
+  if (!TICKET_FOLDER_ROOTS.includes(folderRoot)) {
+    fail(TICKET_ERROR_CODES.TICKET_INVALID, 'unknown ticket folder root',
+      { field: 'folder_root', allowed: [...TICKET_FOLDER_ROOTS] });
+  }
   assertTicketId(ticketId);
   if (!TICKET_PURPOSES.includes(purpose)) {
     fail(TICKET_ERROR_CODES.TICKET_INVALID, 'unknown ticket purpose', { field: 'purpose' });
@@ -317,12 +343,17 @@ export function newTicketRecord({
     expires_at: expiresAt,
     logged_at: createdAt,
     folder_ref: folderRef,
+    folder_root: folderRoot,
     artifact_ref: artifactRef,
     note,
     files: [...files],
     link: validateTicketLink(link),
   };
 }
+
+/** Which root a stored row's pointer is measured from — an old row has no field and means project. */
+export const ticketFolderRoot = (record) =>
+  (TICKET_FOLDER_ROOTS.includes(record?.folder_root) ? record.folder_root : 'project');
 
 /**
  * The current row for every ticket the ledger has ever carried.
