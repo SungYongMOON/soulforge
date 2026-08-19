@@ -39,20 +39,24 @@ export function createProjectContexts(options) {
   /**
    * A caller may name a project or leave it out; leaving it out means the registry's default.
    * A registry of several projects with no default refuses rather than picking the first row.
+   *
+   * The refusal counts the projects rather than listing them. Resolution happens before the access
+   * decision — it has to, because the decision is made against the project's own view — so a
+   * refusal that named every project code would let a caller with no principal at all enumerate
+   * the registry by guessing.
    */
   const resolveProjectCode = (requested) => {
     if (requested === undefined || requested === null) {
       if (registry.default_project === null) {
         throw new EngineMcpError(REGISTRY_ERROR_CODES.PROJECT_UNKNOWN,
           'this registry names no default project, so a call must state project_code',
-          { known: registry.projects.map((row) => row.project_code) });
+          { known_count: registry.projects.length });
       }
       return registry.default_project;
     }
     if (typeof requested !== 'string' || projectRow(registry, requested) === null) {
       throw new EngineMcpError(REGISTRY_ERROR_CODES.PROJECT_UNKNOWN,
-        'this registry carries no such project',
-        { known: registry.projects.map((row) => row.project_code) });
+        'this registry carries no such project', { known_count: registry.projects.length });
     }
     return requested;
   };
@@ -69,7 +73,7 @@ export function createProjectContexts(options) {
     const profile = profiles.get(projectCode);
     if (profile === undefined) {
       throw new EngineMcpError(REGISTRY_ERROR_CODES.PROJECT_UNKNOWN,
-        'this registry carries no such project', { known: [...profiles.keys()] });
+        'this registry carries no such project', { known_count: profiles.size });
     }
     const context = await createEngineContext({
       profile,

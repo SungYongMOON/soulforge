@@ -2,12 +2,12 @@
   "schema_version": "soulforge.engine_release_manifest.v0",
   "engine_version": "0.0.0",
   "status": "under_construction",
-  "generated_at": "2026-08-19T05:21:54.809Z",
-  "git_commit": "1544abbb0521a4de299ccb85e737a86d5940ac21",
+  "generated_at": "2026-08-19T05:30:16.780Z",
+  "git_commit": "305031f21ea6f49fac559f2374fd330f3000577c",
   "components": {
     "engine_code_manifest": {
       "file": "guild_hall/engineering_engine/topology/engine_manifest.sha256",
-      "sha256": "9f49af32c39a41468d8bb31b0dbb38e41db53345fe268c1ed0ca2257a9023416"
+      "sha256": "020c7bca3bb781342dd143e0d24380e9de66efd50e318fa4df0c34d83feb4398"
     },
     "stage_rule_compiler": {
       "version": "v0",

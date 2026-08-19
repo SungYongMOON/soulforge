@@ -422,6 +422,10 @@ test('a registry serves several projects from one process, by project code', asy
 
     assert.equal(session.responses[3].error.code, -32000);
     assert.equal(session.responses[3].error.data.code, 'SE_MCP_PROJECT_UNKNOWN');
+    // The refusal counts the registry rather than listing it: project resolution happens before
+    // the access decision, so a listed refusal would be an enumeration channel.
+    assert.equal(session.responses[3].error.data.detail.known_count, 2);
+    assert.equal(Object.hasOwn(session.responses[3].error.data.detail, 'known'), false);
 
     const status = session.responses[4].result.structuredContent;
     assert.equal(status.registry.source, 'registry');
