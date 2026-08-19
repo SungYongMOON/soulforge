@@ -1,0 +1,207 @@
+{
+  "schema_version": "soulforge.slack_archive.synthetic_fixture.v1",
+  "binding": {
+    "schema_version": "soulforge.slack_history.binding.v1",
+    "binding_id": "binding:synthetic-slack-archive-v1",
+    "binding_origin": "synthetic",
+    "owner_approval_ref": "approval:synthetic-archive-query",
+    "workspace_id": "T00000001",
+    "channel_id": "C00000001",
+    "project_code": "P00-SYNTH",
+    "effective_from": "2026-07-01T00:00:00.000Z",
+    "effective_to": null,
+    "allowed_exceptions": []
+  },
+  "coverage": {
+    "schema_version": "soulforge.slack_history.coverage.v1",
+    "workspace_id": "T00000001",
+    "channel_id": "C00000001",
+    "binding_id": "binding:synthetic-slack-archive-v1",
+    "project_code": "P00-SYNTH",
+    "window_start": "2026-07-01T00:00:00.000Z",
+    "window_end": "2026-07-31T00:00:00.000Z",
+    "state": "partial",
+    "event_count": 8,
+    "gap_codes": [
+      "deletions_unproven",
+      "thread_replies_not_collected",
+      "unallowlisted_channels_omitted"
+    ],
+    "applicability_ref": null,
+    "revision_refs": [
+      "slack-rev:5b800918977160d59f7fd460b0502add756623649ca743c4f95f79288f3d08c4",
+      "slack-rev:7852d8237864bab08617a31c333717a452f5eda0b3cc695de2c4b990f6887708",
+      "slack-rev:8ddb17a80efacd64624631d8eed07b0c51b4b5d8bad2c2ccd35cbe4516cc6d44",
+      "slack-rev:aac39df496e75dcea5c1e467a1ca6cf39292169d96e82f4accd8fdbfcd60f1a9",
+      "slack-rev:b10031be768ce370a3bb0b9ccc76073f9706c608a7bed624b6348a2214bcbc17",
+      "slack-rev:b3f2149b92db4ce16d685ee0334680f33db8508b03f2daa01c797731a12d4adf",
+      "slack-rev:de652961362d2cbe73676dd4b5a9fd2b770560fcc073d37dea08c1df0da3ce10",
+      "slack-rev:f7a9581629ecf4ec3fa73aacb8c5afec0b8333990f8e1c6a103248dfdefe5c1b"
+    ],
+    "ordered_revision_digest": "sha256:8c14469fd1554d2367fe56188964cc22205f0f6dadbaef42fd9c4be79b1c410d",
+    "metadata_digest": "sha256:9c5ecd4624f779a6384c51b9486c9c7ba10ab254f6b968197836274c6e8ac83c",
+    "raw_payload_copied": false
+  },
+  "records": [
+    {
+      "revision_alias": "msg-1",
+      "supersedes_alias": null,
+      "revision_kind": "message",
+      "workspace_id": "T00000001",
+      "channel_id": "C00000001",
+      "message_ts": "1720000000.000100",
+      "thread_ts": null,
+      "revision_ts": "1720000000.000100",
+      "actor": {
+        "slack_user_id": "U00000001",
+        "erp_account_ref": null
+      },
+      "source_metadata_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "text": "Synthetic kickoff message for project alpha",
+      "attachment_pointers": [],
+      "supersedes_revision_ref": null,
+      "received_at": "2026-07-03T12:00:00.000Z"
+    },
+    {
+      "revision_alias": "msg-2",
+      "supersedes_alias": null,
+      "revision_kind": "message",
+      "workspace_id": "T00000001",
+      "channel_id": "C00000001",
+      "message_ts": "1720000000.000200",
+      "thread_ts": null,
+      "revision_ts": "1720000000.000200",
+      "actor": {
+        "slack_user_id": "U00000002",
+        "erp_account_ref": "account:synthetic-member"
+      },
+      "source_metadata_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "text": "Synthetic architecture draft discussion",
+      "attachment_pointers": [],
+      "supersedes_revision_ref": null,
+      "received_at": "2026-07-03T01:00:00.000Z"
+    },
+    {
+      "revision_alias": "msg-2-edit",
+      "supersedes_alias": "msg-2",
+      "revision_kind": "edit",
+      "workspace_id": "T00000001",
+      "channel_id": "C00000001",
+      "message_ts": "1720000000.000200",
+      "thread_ts": null,
+      "revision_ts": "1720000000.000250",
+      "actor": {
+        "slack_user_id": "U00000002",
+        "erp_account_ref": "account:synthetic-member"
+      },
+      "source_metadata_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222223",
+      "text": "Synthetic architecture draft discussion updated with review comments",
+      "attachment_pointers": [],
+      "supersedes_revision_ref": null,
+      "received_at": "2026-07-03T02:00:00.000Z"
+    },
+    {
+      "revision_alias": "thread-root",
+      "supersedes_alias": null,
+      "revision_kind": "message",
+      "workspace_id": "T00000001",
+      "channel_id": "C00000001",
+      "message_ts": "1720000000.000300",
+      "thread_ts": null,
+      "revision_ts": "1720000000.000300",
+      "actor": {
+        "slack_user_id": "U00000001",
+        "erp_account_ref": null
+      },
+      "source_metadata_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "text": "Synthetic question regarding interface specifications",
+      "attachment_pointers": [
+        {
+          "file_id": "F00000001",
+          "pointer_ref": "slack-file:F00000001",
+          "content_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size_bytes": 1024,
+          "mime_type": "image/png"
+        }
+      ],
+      "supersedes_revision_ref": null,
+      "received_at": "2026-07-03T03:00:00.000Z"
+    },
+    {
+      "revision_alias": "thread-reply-1",
+      "supersedes_alias": null,
+      "revision_kind": "reply",
+      "workspace_id": "T00000001",
+      "channel_id": "C00000001",
+      "message_ts": "1720000000.000400",
+      "thread_ts": "1720000000.000300",
+      "revision_ts": "1720000000.000400",
+      "actor": {
+        "slack_user_id": "U00000002",
+        "erp_account_ref": "account:synthetic-member"
+      },
+      "source_metadata_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "text": "Synthetic answer: interface specs follow standard v0",
+      "attachment_pointers": [],
+      "supersedes_revision_ref": null,
+      "received_at": "2026-07-03T04:00:00.000Z"
+    },
+    {
+      "revision_alias": "thread-reply-2",
+      "supersedes_alias": null,
+      "revision_kind": "reply",
+      "workspace_id": "T00000001",
+      "channel_id": "C00000001",
+      "message_ts": "1720000000.000500",
+      "thread_ts": "1720000000.000300",
+      "revision_ts": "1720000000.000500",
+      "actor": {
+        "slack_user_id": "U00000003",
+        "erp_account_ref": null
+      },
+      "source_metadata_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "text": "Synthetic confirmation: agreement reached on interface",
+      "attachment_pointers": [],
+      "supersedes_revision_ref": null,
+      "received_at": "2026-07-03T05:00:00.000Z"
+    },
+    {
+      "revision_alias": "msg-to-delete",
+      "supersedes_alias": null,
+      "revision_kind": "message",
+      "workspace_id": "T00000001",
+      "channel_id": "C00000001",
+      "message_ts": "1720000000.000600",
+      "thread_ts": null,
+      "revision_ts": "1720000000.000600",
+      "actor": {
+        "slack_user_id": "U00000001",
+        "erp_account_ref": null
+      },
+      "source_metadata_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+      "text": "Synthetic temporary announcement",
+      "attachment_pointers": [],
+      "supersedes_revision_ref": null,
+      "received_at": "2026-07-03T06:00:00.000Z"
+    },
+    {
+      "revision_alias": "msg-delete",
+      "supersedes_alias": "msg-to-delete",
+      "revision_kind": "delete",
+      "workspace_id": "T00000001",
+      "channel_id": "C00000001",
+      "message_ts": "1720000000.000600",
+      "thread_ts": null,
+      "revision_ts": "1720000000.000700",
+      "actor": {
+        "slack_user_id": "U00000001",
+        "erp_account_ref": null
+      },
+      "source_metadata_digest": null,
+      "text": null,
+      "attachment_pointers": [],
+      "supersedes_revision_ref": null,
+      "received_at": "2026-07-03T07:00:00.000Z"
+    }
+  ]
+}

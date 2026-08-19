@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## 2026-08-19 - Slack Archive Query MCP v0: safe read model and stdio MCP adapter
+
+Chat and downstream query surfaces needed a way to query retained Slack history after Slack itself no longer exposes it. This slice builds the first safe v0 read model and stdio JSON-RPC MCP adapter in `guild_hall/slack_history`.
+
+- **Pure read model over validated archive records.** `slack_archive_query.mjs` consumes validated Slack history archive records (binding, channel facts, revisions, coverage receipt) and builds deterministic in-memory lookup indices. It has zero mutating methods and never touches custody, collection, or disk writes.
+- **Multiple distinct time dimensions preserved.** Slack original message time (`message_ts`), revision time (`revision_ts`), thread linkage (`thread_ts`), and collection/received time (`received_at`) remain separate, unconflated fields. Timeline chronological ordering is strictly determined by actual message time (`message_ts`), not backup arrival time.
+- **Deterministic read-only query operations.** Implements 5 bounded operations: `slack_archive_status`, `slack_archive_search`, `slack_archive_thread`, `slack_archive_timeline`, and `slack_archive_attachment_metadata`. Every query result is strictly bounded (max limit 100/200) and sanitized via `assertSafeArchiveOutput`.
+- **Zero leakage of raw paths, URLs, secrets, or bytes.** The output layer strictly forbids local filesystem paths, authenticated download locators/URLs (`files.slack.com`), bearer/secret tokens, and attachment byte payloads. Attachments return safe metadata descriptors (`file_id`, `pointer_ref`, `mime_type`, `size_bytes`, `content_sha256`) only. Ordinary public documentation URLs in text are allowed.
+- **Partial archive posture & honest content boundary.** Status is `PUBLIC_SYNTHETIC_IMPLEMENTED / NOT_BOUND_TO_REAL_ARCHIVE / PARTIAL/HOLD`. Current live collector custody is metadata/digest-only without a custody→archive projector; live text search is unavailable until a separately reviewed projector and content-retention policy decision. Message text in this slice exists solely for synthetic fixture research.
+- **Coverage fail-closed.** Accepted coverage state in v0 must be explicitly `partial` with non-empty `gap_codes`; any complete, missing, or malformed coverage state fails closed as unsupported or forgery.
+- **Runtime binding envelope & exact scope check.** The Archive Query MCP uses a separate strict runtime binding envelope (`soulforge.slack_archive_mcp.binding.v0`) with bounded regular file reading and SHA-256 digest pinning. Exact scope is matched against the embedded canonical Slack binding (`soulforge.slack_history.binding.v1`) without leaking identifiers.
+- **Local stdio JSON-RPC MCP adapter.** `slack_archive_mcp_adapter.mjs` and `slack_archive_mcp_server.mjs` provide a standard MCP interface over stdio JSON-RPC 2.0. Per-call durable receipts are not implemented; runtime activation remains `HOLD`.
+- **Comprehensive synthetic tests.** `slack_archive_query.test.mjs` proves message time vs backup time ordering, separate time filters, edit/delete lineage, thread grouping, result bounds, coverage fail-closed, output safety rejection, attachment metadata boundaries, and MCP JSON-RPC protocol methods without live calls or private data.
+
+운영 영향: 이 변경은 Slack 수집기 정책이나 live runtime을 변경하지 않으며, `conversations.replies` 또는 delete capture를 구현하지 않는다. 수집/custody와 MCP 쿼리 책임은 완전히 분리된다. 현재 live 수집 custody는 metadata/digest-only이며 live 텍스트 검색은 custody→archive projector 결정 전까지 미제공된다. MCP 준비도는 `PARTIAL/HOLD`다.
+
+관련 경로: `guild_hall/slack_history/slack_archive_query.mjs`,
+`guild_hall/slack_history/slack_archive_mcp_adapter.mjs`,
+`guild_hall/slack_history/slack_archive_mcp_server.mjs`,
+`guild_hall/slack_history/slack_archive_query.schema.json`,
+`guild_hall/slack_history/fixtures/synthetic_slack_archive.json`,
+`guild_hall/slack_history/slack_archive_query.test.mjs`,
+`guild_hall/slack_history/README.md`,
+`ui-workspace/apps/dev-erp/docs/TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md`,
+`package.json`
+
 ## 2026-08-19 - Slack batch: a blocked writer lease no longer fails silently
 
 An abandoned batch writer lease stopped the scheduled Slack collector across repeated runs while

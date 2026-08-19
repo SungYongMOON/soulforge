@@ -215,6 +215,26 @@ decisions remain downstream candidates. A message, reply, reaction, pin,
 delete, or bot action cannot create or complete an ERP task and cannot promote
 content into RAG or Wiki knowledge.
 
+## Slack Archive Query read model and MCP adapter
+
+The query layer (`slack_archive_query.mjs`, `slack_archive_mcp_adapter.mjs`, and `slack_archive_mcp_server.mjs`) is a pure, read-only consumer over validated Slack history archive records:
+
+- **Strict role separation.** The MCP query layer is strictly read-only (`readOnlyHint: true`, zero mutation). It never owns collection, repair, deletion, custody writes, or backup.
+- **Pure read model.** Ingests validated archive records (binding, channel facts, revisions, delivery evidence, coverage receipt) and computes a deterministic in-memory index.
+- **Multiple distinct time dimensions.** Preserves actual Slack message time (`message_ts`), revision time (`revision_ts`), thread linkage (`thread_ts`), and collection/received time (`received_at`) as distinct, unconflated fields. Chronological timeline ordering is strictly determined by `message_ts`, not by backup or arrival timestamp.
+- **Deterministic read-only query operations:**
+  - `slack_archive_status`: reports archive coverage state, gap codes, message/thread/revision/attachment counts, and time bounds.
+  - `slack_archive_search`: bounded, filtered search across retained messages by actor, query, explicit time range (`since_message_ts`, `until_message_ts`, `since_message_time`, `until_message_time`, `since_received_at`, `until_received_at`), attachment filter, or deleted inclusion.
+  - `slack_archive_thread`: resolves a complete conversation thread by root `thread_ts`, returning root message and replies in chronological order.
+  - `slack_archive_timeline`: provides a chronological message timeline ordered strictly by `message_ts`.
+  - `slack_archive_attachment_metadata`: queries attachment metadata (file ID, pointer ref, MIME type, size, SHA-256) without returning raw bytes, download URLs, or local paths.
+- **Partial archive posture & honest content boundary.** Status is `PUBLIC_SYNTHETIC_IMPLEMENTED / NOT_BOUND_TO_REAL_ARCHIVE / PARTIAL/HOLD`. Current live collector custody is metadata/digest-only without a custody→archive projector. Live text search is unavailable until a separately reviewed custody→archive projector and content-retention policy decision. Message text in this slice exists solely for synthetic optional fixture research.
+- **Coverage fail-closed.** Accepted coverage state in v0 must be explicitly `partial` with non-empty `gap_codes`; any complete, missing, or malformed coverage state fails closed as unsupported or forgery.
+- **Safety and output bounds.** All queries are strictly clamped. The output sanitizer (`assertSafeArchiveOutput`) allows ordinary public documentation URLs in text while strictly forbidding authenticated Slack locators (`files.slack.com`), local filesystem paths, secrets/tokens, or binary bytes.
+- **Runtime binding envelope & exact scope check.** The Archive Query MCP uses a separate strict runtime binding envelope (`soulforge.slack_archive_mcp.binding.v0`) requiring exact keys: `schema_version`, `feature_enabled: true`, absolute `private_root`, strict-child `archive_path`, pinned `archive_sha256`, bounded `max_archive_bytes`, and exact `scope` (`binding_id`, `workspace_id`, `channel_id`, `project_code`). The archive's embedded canonical Slack project binding (`soulforge.slack_history.binding.v1`) is validated separately with `validateSlackBinding`, and the exact scopes are matched without identifier leakage.
+- **Local stdio JSON-RPC MCP adapter.** Exposes the 5 query tools over newline-delimited JSON-RPC 2.0 stdio with owner-supplied runtime binding scope verification. Fails closed on scope mismatch, corrupt timestamps, or unknown tools. No discovery, network, or provider calls are made. Per-call durable receipts are not implemented; runtime activation remains `HOLD`.
+- **Next work.** Collector policy is unchanged in this slice. Capturing `conversations.replies` thread history, live delete events via Events API/Socket Mode, custody→archive projector implementation, quarantine metadata handling, shared MCP dispatcher integration, and automated archive export are separate future next work.
+
 ## Validation
 
 Run the package without any live binding:
@@ -231,14 +251,20 @@ node --check guild_hall/slack_history/slack_live_cli.mjs
 node --check guild_hall/slack_history/slack_batch_live_runner.mjs
 node --check guild_hall/slack_history/slack_batch_live_launcher.mjs
 node --check guild_hall/slack_history/slack_batch_live_cli.mjs
-node --test guild_hall/slack_history/slack_history.test.mjs guild_hall/slack_history/slack_source_inventory.test.mjs guild_hall/slack_history/slack_continuous.test.mjs guild_hall/slack_history/slack_batch_live.test.mjs
+node --check guild_hall/slack_history/slack_archive_query.mjs
+node --check guild_hall/slack_history/slack_archive_mcp_adapter.mjs
+node --check guild_hall/slack_history/slack_archive_mcp_server.mjs
+node --test guild_hall/slack_history/slack_history.test.mjs guild_hall/slack_history/slack_source_inventory.test.mjs guild_hall/slack_history/slack_continuous.test.mjs guild_hall/slack_history/slack_batch_live.test.mjs guild_hall/slack_history/slack_archive_query.test.mjs
 ```
 
 The tests compile the schemas, validate synthetic fixtures, exercise
 retry/replay and append-only lineage, verify bounded cursor behavior, cover all
 six coverage states, enforce exact metadata-only input fields, verify private
-custody/lease/restart behavior, and prove that live activation and embedded
-secrets fail closed. Hosted-file fixtures cover PNG/DOCX, duplicate content,
+custody/lease/restart behavior, prove that live activation and embedded
+secrets fail closed, and verify the pure archive read model, deterministic query
+operations, timeline ordering by message_ts vs backup time, edit/delete handling, thread
+grouping, result clamping, attachment metadata bounds, and stdio MCP adapter.
+Hosted-file fixtures cover PNG/DOCX, duplicate content,
 file-ID retry/conflict, framing and byte caps, timeout/network/429 behavior,
 redirect isolation, locator/secret nonpersistence, unsafe file states, reparse
 escape, tamper detection, partial-message HOLD, and restart dedupe without a
