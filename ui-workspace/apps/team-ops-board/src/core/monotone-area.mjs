@@ -39,3 +39,9 @@ export function monotoneAreaPath(upper, lower) {
   if (upperCommands === null || lowerCommands === null || upper.length !== lower.length) return null;
   return `M ${upper[0].x},${upper[0].y} ${upperCommands.join(" ")} L ${reversedLower[0].x},${reversedLower[0].y} ${lowerCommands.join(" ")} Z`;
 }
+
+export function monotoneLinePath(points) {
+  const commands = monotoneCurveCommands(points);
+  if (commands === null || !Array.isArray(points) || points.length === 0) return null;
+  return `M ${points[0].x},${points[0].y} ${commands.join(" ")}`;
+}

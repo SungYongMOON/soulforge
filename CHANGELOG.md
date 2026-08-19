@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2026-08-19 - Antigravity request replay retains stronger canonical metadata
+
+- Antigravity conversation-DB events now replay the persisted canonical event when the same event ID is observed again with only a weaker `unassigned` organization and/or a base model ID replacing an already recorded `low`, `medium`, `high`, or `tiered` model variant.
+- The rule is limited to exact `antigravity_conversation_db` events. After the two allowlisted fields are normalized, every other field must remain canonically identical; token, time, credit, source, attribution, privacy, and unrelated known-model differences still fail closed as `usage_event_conflict`.
+- Focused regressions cover organization-only, model-tier-only, combined, reverse, unrelated, source-kind, token/time/source, and bounded multi-event replay cases. Existing canonical bytes are replayed without a duplicate event or revision.
+
+## 2026-08-19 - Team Ops Board adds Antigravity unmeasured request activity overlay and exact quota family classification
+
+Adds Antigravity request-count-only activity to both realtime Fleet usage cards and work-history Ledger usage trend charts with cumulative distribution.
+
+- **V3 snapshot schema and validator extension (`unmeasured_request_daily`).** `soulforge.ai_usage_board_history_snapshot.v3` schema and runtime validator gain a backward-compatible 30-day fixed KST series `unmeasured_request_daily`. The series groups exact unmeasured Antigravity requests into two quota families (`AG·Gemini` and `AG·Claude+GPT`) with per-model drilldowns (`model_id`, `requests`).
+- **Exact provider evidence gating and fail-closed family classification.** Producer gating checks `source.kind -> provider=antigravity` rather than inferring from model name alone. Within Antigravity events, exact identifiers are classified (`gemini*` -> `ag_gemini`, `claude*`/`gpt*`/`chatgpt*` -> `ag_claude_gpt`), while unknown model identifiers fail closed with fixed code `board_usage_history_antigravity_model_unknown` without silent fallback. Both Meter and Board modules maintain verified contract version `soulforge.ai_usage_unmeasured_family.v1` and parity.
+- **Dual-axis usage trend chart & legend controls.** 30-day usage trend chart displays exact token areas on the left axis and Antigravity request overlays on the right axis (`yReq`), preserving token sums. Interactive legend provides toggle controls for request quota families with accessible `aria-pressed` states, keyboard navigation, and detailed model drilldown in tooltips.
+- **Realtime Fleet cards & cumulative distribution.** Fleet usage cards separate Antigravity 7-day request rows from generic token-unknown turns using exact `unmeasured_request_daily` slice, showing quota family tags and distinct color dots/bars. Ledger distribution adds a dedicated cyan `AG 모델별 요청` column with explicit `(토큰 미측정)` labeling.
+
 ## 2026-08-19 - Task ids are append-only, and an overlay addition can say which folder it lives in
 
 Two fixes found while getting a real project ready for file registration.

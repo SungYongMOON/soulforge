@@ -292,6 +292,12 @@ freshness. `provider_daily` is a fixed 30-day KST series. Each provider entry
 carries nullable exact `total_tokens` separately from nullable Meter `credits`.
 `token_unknown_turns` distinguishes request-count-only events from a date with
 no provider event; neither state is projected as zero exact tokens.
+`unmeasured_request_daily` is a fixed 30-day KST series grouping exact
+Antigravity unmeasured request counts into quota families (`AG·Gemini` and
+`AG·Claude+GPT`) with per-model drilldowns, reconciling daily against
+`provider_daily.antigravity.token_unknown_turns` without affecting token sums.
+Unknown Antigravity model identifiers fail closed with code
+`board_usage_history_antigravity_model_unknown` rather than silently defaulting to a family.
 Aggregate `generated_at` is not Claude collection/value freshness. A valid v3
 Claude provider row remains last-known ledger evidence
 even when the separate collection attempt is missing, partial, error, stale,

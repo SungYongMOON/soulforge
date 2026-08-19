@@ -27,6 +27,12 @@ export const BOARD_USAGE_PROVIDER_BY_SOURCE_KIND = Object.freeze({
   antigravity_conversation_db: "antigravity",
 });
 export const BOARD_USAGE_PROVIDERS = Object.freeze(["codex", "claude", "antigravity"]);
+export const UNMEASURED_REQUEST_FAMILY_CONTRACT_VERSION = "soulforge.ai_usage_unmeasured_family.v1";
+export const UNMEASURED_REQUEST_FAMILIES = Object.freeze(["ag_gemini", "ag_claude_gpt"]);
+export const UNMEASURED_REQUEST_FAMILY_LABELS = Object.freeze({
+  ag_gemini: "AG·Gemini",
+  ag_claude_gpt: "AG·Claude+GPT",
+});
 export const READ_ONLY_BOARD_USAGE_PROJECTION_SCHEMA = "soulforge.ai_usage_board_read_only_projection.v1";
 export const DEFAULT_READ_ONLY_BOARD_USAGE_PROVIDERS = Object.freeze([
   CLAUDE_USAGE_SOURCE_KIND,
@@ -51,6 +57,7 @@ const V2_ROOT_KEYS = new Set([
 const V3_ROOT_KEYS = new Set([...V2_ROOT_KEYS, "provider_rows", "claude_collection"]);
 const V3_PROVIDER_DAILY_ROOT_KEYS = new Set([...V3_ROOT_KEYS, "provider_daily"]);
 const V3_DAILY_SERIES_ROOT_KEYS = new Set([...V3_PROVIDER_DAILY_ROOT_KEYS, "model_daily"]);
+const V3_UNMEASURED_DAILY_ROOT_KEYS = new Set([...V3_DAILY_SERIES_ROOT_KEYS, "unmeasured_request_daily"]);
 const WINDOW_NAMES = [
   "calendar_day",
   "calendar_week",
@@ -81,6 +88,9 @@ const PROVIDER_DAILY_ROW_KEYS = new Set(["date", "providers"]);
 const PROVIDER_DAILY_VALUE_KEYS = new Set(["provider", "total_tokens", "token_unknown_turns", "credits", "credit_unknown_turns"]);
 const MODEL_DAILY_ROW_KEYS = new Set(["date", "models"]);
 const MODEL_DAILY_VALUE_KEYS = new Set(["model_id", "turns", "total_tokens", "token_unknown_turns"]);
+const UNMEASURED_REQUEST_DAILY_ROW_KEYS = new Set(["date", "total_requests", "families"]);
+const UNMEASURED_REQUEST_FAMILY_VALUE_KEYS = new Set(["family_id", "requests", "models"]);
+const UNMEASURED_REQUEST_MODEL_VALUE_KEYS = new Set(["model_id", "requests"]);
 const READ_ONLY_PROJECTION_KEYS = new Set(["schema_version", "read_only", "snapshot"]);
 const SAFE_COLLECTION_COUNT_KEYS = new Set([
   "session_file_count",
@@ -361,6 +371,133 @@ function parseModelDaily(value) {
       return { ...entry };
     });
     return { date: row.date, models };
+  });
+}
+
+export function antigravityQuotaFamilyForModel(modelId, { failClosed = true } = {}) {
+  const normalized = typeof modelId === "string" ? modelId.toLowerCase().trim() : "";
+  if (normalized.startsWith("gemini")) return "ag_gemini";
+  if (normalized.startsWith("claude") || normalized.startsWith("gpt") || normalized.startsWith("chatgpt")) return "ag_claude_gpt";
+  if (failClosed) {
+    fail("board_usage_history_antigravity_model_unknown");
+  }
+  return null;
+}
+
+export function buildUnmeasuredRequestDaily(observations, referenceAt) {
+  const end = addKstDays(calendarDayStart(referenceAt), 1);
+  const start = addKstDays(end, -30);
+  const dates = Array.from({ length: 30 }, (_, index) => kstDateKey(addKstDays(start, index)));
+  return dates.map((date) => {
+    const geminiModels = new Map();
+    const claudeGptModels = new Map();
+    let totalRequests = 0;
+    for (const row of observations) {
+      if (row.provider !== "antigravity" || kstDateKey(row.started_at) !== date) continue;
+      totalRequests += 1;
+      const family = antigravityQuotaFamilyForModel(row.model_id);
+      const targetMap = family === "ag_gemini" ? geminiModels : claudeGptModels;
+      targetMap.set(row.model_id, (targetMap.get(row.model_id) ?? 0) + 1);
+    }
+    const geminiList = [...geminiModels.entries()]
+      .map(([model_id, requests]) => ({ model_id, requests }))
+      .sort((left, right) => right.requests - left.requests || left.model_id.localeCompare(right.model_id, "en"));
+    const claudeGptList = [...claudeGptModels.entries()]
+      .map(([model_id, requests]) => ({ model_id, requests }))
+      .sort((left, right) => right.requests - left.requests || left.model_id.localeCompare(right.model_id, "en"));
+    const geminiRequests = geminiList.reduce((sum, item) => sum + item.requests, 0);
+    const claudeGptRequests = claudeGptList.reduce((sum, item) => sum + item.requests, 0);
+
+    return {
+      date,
+      total_requests: totalRequests,
+      families: [
+        {
+          family_id: "ag_gemini",
+          requests: geminiRequests,
+          models: geminiList,
+        },
+        {
+          family_id: "ag_claude_gpt",
+          requests: claudeGptRequests,
+          models: claudeGptList,
+        },
+      ],
+    };
+  });
+}
+
+export function parseUnmeasuredRequestDaily(value) {
+  if (!Array.isArray(value) || value.length !== 30) fail("board_usage_history_unmeasured_request_daily_invalid");
+  let priorDate = "";
+  return value.map((row) => {
+    if (!hasExactKeys(row, UNMEASURED_REQUEST_DAILY_ROW_KEYS)
+      || !KST_DATE.test(row.date)
+      || row.date <= priorDate
+      || !Number.isSafeInteger(row.total_requests)
+      || row.total_requests < 0
+      || !Array.isArray(row.families)
+      || row.families.length !== UNMEASURED_REQUEST_FAMILIES.length) {
+      fail("board_usage_history_unmeasured_request_daily_invalid");
+    }
+    priorDate = row.date;
+    let computedTotal = 0;
+    const families = row.families.map((fam, famIndex) => {
+      if (!hasExactKeys(fam, UNMEASURED_REQUEST_FAMILY_VALUE_KEYS)
+        || fam.family_id !== UNMEASURED_REQUEST_FAMILIES[famIndex]
+        || !Number.isSafeInteger(fam.requests)
+        || fam.requests < 0
+        || !Array.isArray(fam.models)) {
+        fail("board_usage_history_unmeasured_request_daily_invalid");
+      }
+      const seen = new Set();
+      let familySum = 0;
+      const models = fam.models.map((m) => {
+        if (!hasExactKeys(m, UNMEASURED_REQUEST_MODEL_VALUE_KEYS)
+          || typeof m.model_id !== "string"
+          || !SAFE_ID.test(m.model_id)
+          || seen.has(m.model_id)
+          || !Number.isSafeInteger(m.requests)
+          || m.requests < 1) {
+          fail("board_usage_history_unmeasured_request_daily_invalid");
+        }
+        let mappedFamily = null;
+        try {
+          mappedFamily = antigravityQuotaFamilyForModel(m.model_id, { failClosed: true });
+        } catch {
+          fail("board_usage_history_unmeasured_request_daily_invalid");
+        }
+        if (mappedFamily !== fam.family_id) {
+          fail("board_usage_history_unmeasured_request_daily_invalid");
+        }
+        seen.add(m.model_id);
+        familySum += m.requests;
+        return { model_id: m.model_id, requests: m.requests };
+      });
+      const sortedModels = [...models].sort((left, right) => (
+        right.requests - left.requests || left.model_id.localeCompare(right.model_id, "en")
+      ));
+      if (canonicalJson(models) !== canonicalJson(sortedModels)) {
+        fail("board_usage_history_unmeasured_request_daily_invalid");
+      }
+      if (fam.requests !== familySum) {
+        fail("board_usage_history_unmeasured_request_daily_reconciliation_invalid");
+      }
+      computedTotal += fam.requests;
+      return {
+        family_id: fam.family_id,
+        requests: fam.requests,
+        models,
+      };
+    });
+    if (row.total_requests !== computedTotal) {
+      fail("board_usage_history_unmeasured_request_daily_reconciliation_invalid");
+    }
+    return {
+      date: row.date,
+      total_requests: row.total_requests,
+      families,
+    };
   });
 }
 
@@ -762,9 +899,11 @@ export function validateBoardUsageHistorySnapshot(snapshot) {
   }
   const base = validateHistorySnapshotBase(snapshot, {
     schemaVersion: BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA,
-    rootKeys: Object.hasOwn(snapshot, "model_daily")
-      ? V3_DAILY_SERIES_ROOT_KEYS
-      : Object.hasOwn(snapshot, "provider_daily") ? V3_PROVIDER_DAILY_ROOT_KEYS : V3_ROOT_KEYS,
+    rootKeys: Object.hasOwn(snapshot, "unmeasured_request_daily")
+      ? V3_UNMEASURED_DAILY_ROOT_KEYS
+      : Object.hasOwn(snapshot, "model_daily")
+        ? V3_DAILY_SERIES_ROOT_KEYS
+        : Object.hasOwn(snapshot, "provider_daily") ? V3_PROVIDER_DAILY_ROOT_KEYS : V3_ROOT_KEYS,
   });
   const providerRows = parseProviderRows(snapshot.provider_rows, base.reference_at);
   const claudeCollection = validateClaudeCollectionEnvelope(snapshot.claude_collection, {
@@ -773,7 +912,11 @@ export function validateBoardUsageHistorySnapshot(snapshot) {
   if (claudeCollection.schema_version !== CLAUDE_COLLECTION_ENVELOPE_SCHEMA) {
     fail("board_usage_history_claude_collection_invalid");
   }
+  const providerDaily = Object.hasOwn(snapshot, "provider_daily") ? parseProviderDaily(snapshot.provider_daily) : null;
   const modelDaily = Object.hasOwn(snapshot, "model_daily") ? parseModelDaily(snapshot.model_daily) : null;
+  const unmeasuredRequestDaily = Object.hasOwn(snapshot, "unmeasured_request_daily")
+    ? parseUnmeasuredRequestDaily(snapshot.unmeasured_request_daily)
+    : null;
   if (modelDaily !== null) {
     const activity = base.activity.daily.slice(-30);
     for (const [index, day] of modelDaily.entries()) {
@@ -784,11 +927,21 @@ export function validateBoardUsageHistorySnapshot(snapshot) {
       }
     }
   }
+  if (unmeasuredRequestDaily !== null && providerDaily !== null) {
+    for (const [index, day] of unmeasuredRequestDaily.entries()) {
+      const agProvider = providerDaily[index]?.providers?.find((p) => p.provider === "antigravity");
+      const agUnknown = agProvider?.token_unknown_turns ?? 0;
+      if (day.total_requests !== agUnknown || day.date !== providerDaily[index]?.date) {
+        fail("board_usage_history_unmeasured_request_daily_reconciliation_invalid");
+      }
+    }
+  }
   return {
     ...base,
     provider_rows: providerRows,
-    ...(Object.hasOwn(snapshot, "provider_daily") ? { provider_daily: parseProviderDaily(snapshot.provider_daily) } : {}),
+    ...(providerDaily !== null ? { provider_daily: providerDaily } : {}),
     ...(modelDaily !== null ? { model_daily: modelDaily } : {}),
+    ...(unmeasuredRequestDaily !== null ? { unmeasured_request_daily: unmeasuredRequestDaily } : {}),
     claude_collection: claudeCollection,
   };
 }
@@ -841,6 +994,7 @@ export function createBoardUsageHistorySnapshot(events, {
     provider_rows: buildProviderRows(observations),
     provider_daily: buildProviderDaily(observations, normalizedReferenceAt),
     model_daily: buildModelDaily(observations, normalizedReferenceAt),
+    unmeasured_request_daily: buildUnmeasuredRequestDaily(observations, normalizedReferenceAt),
     claude_collection: normalizedClaudeCollection,
   };
   return validateBoardUsageHistorySnapshot(snapshot);

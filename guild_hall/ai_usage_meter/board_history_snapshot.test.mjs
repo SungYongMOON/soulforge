@@ -8,6 +8,10 @@ import Ajv2020 from "ajv/dist/2020.js";
 import {
   BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA,
   BOARD_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA,
+  UNMEASURED_REQUEST_FAMILY_CONTRACT_VERSION,
+  UNMEASURED_REQUEST_FAMILIES,
+  UNMEASURED_REQUEST_FAMILY_LABELS,
+  antigravityQuotaFamilyForModel,
   createBoardUsageHistorySnapshot,
   loadBoardUsageHistorySnapshot,
   loadReadOnlyBoardUsageProjection,
@@ -15,6 +19,12 @@ import {
   validateReadOnlyBoardUsageProjection,
   writeBoardUsageHistorySnapshot,
 } from "./board_history_snapshot.mjs";
+import {
+  UNMEASURED_REQUEST_FAMILY_CONTRACT_VERSION as UI_CONTRACT_VERSION,
+  UNMEASURED_REQUEST_FAMILIES as UI_FAMILIES,
+  UNMEASURED_REQUEST_FAMILY_LABELS as UI_LABELS,
+  antigravityQuotaFamilyForModel as uiAntigravityQuotaFamilyForModel,
+} from "../../ui-workspace/apps/team-ops-board/src/core/ai-usage-history-snapshot.mjs";
 import { runCli } from "./cli.mjs";
 import { loadPersistedUsageEvents, persistUsageEvents } from "./usage_meter.mjs";
 
@@ -584,11 +594,214 @@ test("Board history v2 remains accepted without v3 provider evidence", () => {
   delete v2.provider_rows;
   delete v2.provider_daily;
   delete v2.model_daily;
+  delete v2.unmeasured_request_daily;
   delete v2.claude_collection;
   const accepted = validateBoardUsageHistorySnapshot(v2);
   assert.equal(accepted.schema_version, BOARD_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA);
   assert.equal("provider_rows" in accepted, false);
   assert.equal("claude_collection" in accepted, false);
+  assert.equal("unmeasured_request_daily" in accepted, false);
+});
+
+test("Board history v3 includes reconciled unmeasured_request_daily grouping exact AG families and drilldown", async () => {
+  const schemaPath = path.resolve("guild_hall/ai_usage_meter/ai_usage_board_history_snapshot.v3.schema.json");
+  const schema = JSON.parse(await readFile(schemaPath, "utf8"));
+  const ajv = new Ajv2020({ allErrors: true, strict: false });
+  const validateSchema = ajv.compile(schema);
+
+  const snapshot = createBoardUsageHistorySnapshot([
+    persistedUsageEvent({
+      eventId: "codex-1", threadId: "task-c1", turnId: "turn-c1",
+      startedAt: "2026-08-03T00:00:00.000Z", sourceKind: "codex_session_jsonl", model: "gpt-5.6-terra",
+    }),
+    persistedUsageEvent({
+      eventId: "claude-code-1", threadId: "task-cl1", turnId: "turn-cl1",
+      startedAt: "2026-08-03T00:10:00.000Z", sourceKind: "claude_session_jsonl", model: "claude-3-5-haiku",
+    }),
+    persistedUsageEvent({
+      eventId: "ag-gemini-pro-1", threadId: "conv-ag1", turnId: "conv-ag1.0",
+      startedAt: "2026-08-03T00:20:00.000Z", sourceKind: "antigravity_conversation_db", model: "gemini-2.5-pro",
+    }),
+    persistedUsageEvent({
+      eventId: "ag-gemini-pro-2", threadId: "conv-ag1", turnId: "conv-ag1.1",
+      startedAt: "2026-08-03T00:25:00.000Z", sourceKind: "antigravity_conversation_db", model: "gemini-2.5-pro",
+    }),
+    persistedUsageEvent({
+      eventId: "ag-gemini-flash-1", threadId: "conv-ag2", turnId: "conv-ag2.0",
+      startedAt: "2026-08-03T00:30:00.000Z", sourceKind: "antigravity_conversation_db", model: "gemini-2.5-flash",
+    }),
+    persistedUsageEvent({
+      eventId: "ag-claude-sonnet-1", threadId: "conv-ag3", turnId: "conv-ag3.0",
+      startedAt: "2026-08-03T00:40:00.000Z", sourceKind: "antigravity_conversation_db", model: "claude-3-5-sonnet",
+    }),
+    persistedUsageEvent({
+      eventId: "ag-gpt-4o-1", threadId: "conv-ag4", turnId: "conv-ag4.0",
+      startedAt: "2026-08-03T00:50:00.000Z", sourceKind: "antigravity_conversation_db", model: "gpt-4o",
+    }),
+  ], {
+    generatedAt: "2026-08-03T02:00:00.000Z",
+    referenceAt: "2026-08-03T02:00:00.000Z",
+  });
+
+  assert.equal(validateSchema(snapshot), true);
+  assert.equal(snapshot.unmeasured_request_daily.length, 30);
+
+  const lastDay = snapshot.unmeasured_request_daily.at(-1);
+  assert.equal(lastDay.date, "2026-08-03");
+  assert.equal(lastDay.total_requests, 5);
+  assert.equal(lastDay.families.length, 2);
+
+  const agGemini = lastDay.families.find((f) => f.family_id === "ag_gemini");
+  assert.equal(agGemini.requests, 3);
+  assert.deepEqual(agGemini.models, [
+    { model_id: "gemini-2.5-pro", requests: 2 },
+    { model_id: "gemini-2.5-flash", requests: 1 },
+  ]);
+
+  const agClaudeGpt = lastDay.families.find((f) => f.family_id === "ag_claude_gpt");
+  assert.equal(agClaudeGpt.requests, 2);
+  assert.deepEqual(agClaudeGpt.models, [
+    { model_id: "claude-3-5-sonnet", requests: 1 },
+    { model_id: "gpt-4o", requests: 1 },
+  ]);
+
+  // Reconciled with provider_daily
+  const providerDay = snapshot.provider_daily.find((row) => row.date === "2026-08-03");
+  const agProvider = providerDay.providers.find((p) => p.provider === "antigravity");
+  assert.equal(agProvider.token_unknown_turns, 5);
+
+  // Mismatch in family total fails validation
+  const badFamily = structuredClone(snapshot);
+  badFamily.unmeasured_request_daily.at(-1).families[0].requests = 99;
+  assert.throws(
+    () => validateBoardUsageHistorySnapshot(badFamily),
+    (error) => error?.code === "board_usage_history_unmeasured_request_daily_reconciliation_invalid",
+  );
+
+  // Mismatch with provider_daily fails validation
+  const badProviderReconcile = structuredClone(snapshot);
+  badProviderReconcile.unmeasured_request_daily.at(-1).total_requests = 99;
+  badProviderReconcile.unmeasured_request_daily.at(-1).families[0].requests = 97;
+  badProviderReconcile.unmeasured_request_daily.at(-1).families[0].models[0].requests = 96;
+  assert.throws(
+    () => validateBoardUsageHistorySnapshot(badProviderReconcile),
+    (error) => error?.code === "board_usage_history_unmeasured_request_daily_reconciliation_invalid",
+  );
+
+  // Model in wrong family fails validation
+  const wrongFamilyModel = structuredClone(snapshot);
+  wrongFamilyModel.unmeasured_request_daily.at(-1).families[0].models.push({ model_id: "claude-3-5-sonnet", requests: 1 });
+  wrongFamilyModel.unmeasured_request_daily.at(-1).families[0].requests += 1;
+  wrongFamilyModel.unmeasured_request_daily.at(-1).total_requests += 1;
+  assert.throws(
+    () => validateBoardUsageHistorySnapshot(wrongFamilyModel),
+    (error) => error?.code === "board_usage_history_unmeasured_request_daily_invalid",
+  );
+});
+
+test("Antigravity quota family classification enforces exact Gemini and Claude/GPT identifiers and fails closed on unknown", () => {
+  assert.equal(UNMEASURED_REQUEST_FAMILY_CONTRACT_VERSION, "soulforge.ai_usage_unmeasured_family.v1");
+  assert.deepEqual(UNMEASURED_REQUEST_FAMILIES, ["ag_gemini", "ag_claude_gpt"]);
+  assert.deepEqual(UNMEASURED_REQUEST_FAMILY_LABELS, {
+    ag_gemini: "AG·Gemini",
+    ag_claude_gpt: "AG·Claude+GPT",
+  });
+
+  // Explicit Gemini identifiers -> ag_gemini
+  assert.equal(antigravityQuotaFamilyForModel("gemini-2.5-pro"), "ag_gemini");
+  assert.equal(antigravityQuotaFamilyForModel("gemini-2.5-flash"), "ag_gemini");
+  assert.equal(antigravityQuotaFamilyForModel("gemini-1.5-pro"), "ag_gemini");
+  assert.equal(antigravityQuotaFamilyForModel("GEMINI-2.0-FLASH"), "ag_gemini");
+  assert.equal(antigravityQuotaFamilyForModel("  gemini-exp-1206  "), "ag_gemini");
+
+  // Explicit Claude / GPT / GPT-OSS identifiers -> ag_claude_gpt
+  assert.equal(antigravityQuotaFamilyForModel("claude-3-5-sonnet"), "ag_claude_gpt");
+  assert.equal(antigravityQuotaFamilyForModel("claude-3-5-haiku"), "ag_claude_gpt");
+  assert.equal(antigravityQuotaFamilyForModel("claude-opus-4.6"), "ag_claude_gpt");
+  assert.equal(antigravityQuotaFamilyForModel("gpt-4o"), "ag_claude_gpt");
+  assert.equal(antigravityQuotaFamilyForModel("gpt-5"), "ag_claude_gpt");
+  assert.equal(antigravityQuotaFamilyForModel("gpt-oss-120b"), "ag_claude_gpt");
+  assert.equal(antigravityQuotaFamilyForModel("chatgpt-4o"), "ag_claude_gpt");
+  assert.equal(antigravityQuotaFamilyForModel("  CLAUDE-3-OPUS  "), "ag_claude_gpt");
+
+  // Unknown models fail closed by default with fixed safe error code
+  const unknownModels = ["llama-3", "mistral-large", "deepseek-r1", "o3-mini", "dall-e-3", "whisper", "unknown", "custom-model", "", "   ", null, undefined];
+  for (const model of unknownModels) {
+    assert.throws(
+      () => antigravityQuotaFamilyForModel(model),
+      (error) => error?.code === "board_usage_history_antigravity_model_unknown",
+    );
+    assert.equal(antigravityQuotaFamilyForModel(model, { failClosed: false }), null);
+  }
+});
+
+test("Meter and Board unmeasured quota family modules maintain exact contract and classification parity", () => {
+  assert.equal(UNMEASURED_REQUEST_FAMILY_CONTRACT_VERSION, UI_CONTRACT_VERSION);
+  assert.deepEqual(UNMEASURED_REQUEST_FAMILIES, UI_FAMILIES);
+  assert.deepEqual(UNMEASURED_REQUEST_FAMILY_LABELS, UI_LABELS);
+
+  const testMatrix = [
+    "gemini-2.5-pro",
+    "gemini-2.5-flash",
+    "gemini-1.5-pro",
+    "GEMINI-2.0-FLASH",
+    "claude-3-5-sonnet",
+    "claude-3-5-haiku",
+    "claude-opus-4.6",
+    "gpt-4o",
+    "gpt-5",
+    "gpt-oss-120b",
+    "chatgpt-4o",
+    "llama-3",
+    "mistral-large",
+    "deepseek-r1",
+    "unknown",
+    "",
+    null,
+    undefined,
+  ];
+
+  for (const model of testMatrix) {
+    let meterResult = null;
+    let meterError = null;
+    try {
+      meterResult = antigravityQuotaFamilyForModel(model);
+    } catch (err) {
+      meterError = err?.code ?? err?.message;
+    }
+
+    let uiResult = null;
+    let uiError = null;
+    try {
+      uiResult = uiAntigravityQuotaFamilyForModel(model);
+    } catch (err) {
+      uiError = err?.code ?? err?.message;
+    }
+
+    assert.equal(meterResult, uiResult);
+    assert.equal(meterError, uiError);
+
+    // Also compare failClosed = false
+    assert.equal(
+      antigravityQuotaFamilyForModel(model, { failClosed: false }),
+      uiAntigravityQuotaFamilyForModel(model, { failClosed: false }),
+    );
+  }
+});
+
+test("Board history snapshot creation fails closed on unknown Antigravity model identifiers", () => {
+  assert.throws(
+    () => createBoardUsageHistorySnapshot([
+      persistedUsageEvent({
+        eventId: "ag-unknown-1", threadId: "conv-u1", turnId: "conv-u1.0",
+        startedAt: "2026-08-03T00:20:00.000Z", sourceKind: "antigravity_conversation_db", model: "llama-3-70b",
+      }),
+    ], {
+      generatedAt: "2026-08-03T02:00:00.000Z",
+      referenceAt: "2026-08-03T02:00:00.000Z",
+    }),
+    (error) => error?.code === "board_usage_history_antigravity_model_unknown",
+  );
 });
 
 test("read-only Board usage projection only validates existing ledger data", async () => {

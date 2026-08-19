@@ -8,6 +8,10 @@ import {
   AI_USAGE_HISTORY_WINDOWS,
   AI_USAGE_PROJECTION_ENVELOPE_SCHEMA,
   AI_USAGE_READ_ONLY_PROJECTION_SCHEMA,
+  UNMEASURED_REQUEST_FAMILY_CONTRACT_VERSION,
+  UNMEASURED_REQUEST_FAMILIES,
+  UNMEASURED_REQUEST_FAMILY_LABELS,
+  antigravityQuotaFamilyForModel,
   normalizeAiUsageHistoryProjection
 } from "./ai-usage-history-snapshot.mjs";
 
@@ -151,6 +155,22 @@ function historyFixture() {
         ? [{ model_id: "claude-opus-5", turns: 1, total_tokens: 50, token_unknown_turns: 0 }]
         : [],
     })),
+    unmeasured_request_daily: Array.from({ length: 30 }, (_, index) => ({
+      date: new Date(Date.parse("2026-07-06T00:00:00Z") + index * 86_400_000).toISOString().slice(0, 10),
+      total_requests: index === 28 ? 3 : 0,
+      families: [
+        {
+          family_id: "ag_gemini",
+          requests: index === 28 ? 2 : 0,
+          models: index === 28 ? [{ model_id: "gemini-2.5-pro", requests: 2 }] : [],
+        },
+        {
+          family_id: "ag_claude_gpt",
+          requests: index === 28 ? 1 : 0,
+          models: index === 28 ? [{ model_id: "claude-3-5-sonnet", requests: 1 }] : [],
+        },
+      ],
+    })),
     claude_collection: claudeCollectionFixture()
   };
 }
@@ -166,6 +186,10 @@ test("AI usage history projection accepts strict KST windows and reconciled exac
   assert.equal(projection.history?.provider_daily.at(-1).providers[1].total_tokens, 50);
   assert.equal(projection.history?.provider_daily.at(-2).providers[2].token_unknown_turns, 3);
   assert.equal(projection.history?.model_daily.at(-1).models[0].model_id, "claude-opus-5");
+  assert.equal(projection.history?.unmeasured_request_daily.length, 30);
+  assert.equal(projection.history?.unmeasured_request_daily.at(-2).total_requests, 3);
+  assert.equal(projection.history?.unmeasured_request_daily.at(-2).families[0].requests, 2);
+  assert.equal(projection.history?.unmeasured_request_daily.at(-2).families[1].requests, 1);
   assert.deepEqual(projection.history?.windows.all_time.totals, METRICS);
   assert.equal(projection.history?.activity.daily.at(-1).date, "2026-08-04");
   assert.equal(projection.history?.activity.hourly[10].turns, 1);
@@ -199,11 +223,63 @@ test("AI usage history projection rejects non-reconciled or protected history in
   mismatch.windows.all_time.breakdowns.projects.top[0].total_tokens = 49;
   assert.equal(normalizeAiUsageHistoryProjection(mismatch).state, "invalid");
 
+  const badUnmeasured = historyFixture();
+  badUnmeasured.unmeasured_request_daily.at(-2).total_requests = 99;
+  assert.equal(normalizeAiUsageHistoryProjection(badUnmeasured).state, "invalid");
+
+  const wrongFamilyModel = historyFixture();
+  wrongFamilyModel.unmeasured_request_daily.at(-2).families[0].models.push({ model_id: "claude-3-5-sonnet", requests: 1 });
+  wrongFamilyModel.unmeasured_request_daily.at(-2).families[0].requests += 1;
+  wrongFamilyModel.unmeasured_request_daily.at(-2).total_requests += 1;
+  assert.equal(normalizeAiUsageHistoryProjection(wrongFamilyModel).state, "invalid");
+
+  const unknownModel = historyFixture();
+  unknownModel.unmeasured_request_daily.at(-2).families[0].models.push({ model_id: "llama-3-70b", requests: 1 });
+  unknownModel.unmeasured_request_daily.at(-2).families[0].requests += 1;
+  unknownModel.unmeasured_request_daily.at(-2).total_requests += 1;
+  assert.equal(normalizeAiUsageHistoryProjection(unknownModel).state, "invalid");
+
   const protectedInput = historyFixture();
   protectedInput.windows.all_time.breakdowns.tasks.top[0].raw_path = "RAW_HISTORY_MUST_NOT_PROJECT";
   const result = normalizeAiUsageHistoryProjection(protectedInput);
   assert.equal(result.state, "invalid");
   assert.equal(JSON.stringify(result).includes("RAW_HISTORY_MUST_NOT_PROJECT"), false);
+});
+
+test("Antigravity quota family classification enforces exact Gemini and Claude/GPT identifiers and fails closed on unknown", () => {
+  assert.equal(UNMEASURED_REQUEST_FAMILY_CONTRACT_VERSION, "soulforge.ai_usage_unmeasured_family.v1");
+  assert.deepEqual(UNMEASURED_REQUEST_FAMILIES, ["ag_gemini", "ag_claude_gpt"]);
+  assert.deepEqual(UNMEASURED_REQUEST_FAMILY_LABELS, {
+    ag_gemini: "AG·Gemini",
+    ag_claude_gpt: "AG·Claude+GPT",
+  });
+
+  // Explicit Gemini identifiers -> ag_gemini
+  assert.equal(antigravityQuotaFamilyForModel("gemini-2.5-pro"), "ag_gemini");
+  assert.equal(antigravityQuotaFamilyForModel("gemini-2.5-flash"), "ag_gemini");
+  assert.equal(antigravityQuotaFamilyForModel("gemini-1.5-pro"), "ag_gemini");
+  assert.equal(antigravityQuotaFamilyForModel("GEMINI-2.0-FLASH"), "ag_gemini");
+  assert.equal(antigravityQuotaFamilyForModel("  gemini-exp-1206  "), "ag_gemini");
+
+  // Explicit Claude / GPT / GPT-OSS identifiers -> ag_claude_gpt
+  assert.equal(antigravityQuotaFamilyForModel("claude-3-5-sonnet"), "ag_claude_gpt");
+  assert.equal(antigravityQuotaFamilyForModel("claude-3-5-haiku"), "ag_claude_gpt");
+  assert.equal(antigravityQuotaFamilyForModel("claude-opus-4.6"), "ag_claude_gpt");
+  assert.equal(antigravityQuotaFamilyForModel("gpt-4o"), "ag_claude_gpt");
+  assert.equal(antigravityQuotaFamilyForModel("gpt-5"), "ag_claude_gpt");
+  assert.equal(antigravityQuotaFamilyForModel("gpt-oss-120b"), "ag_claude_gpt");
+  assert.equal(antigravityQuotaFamilyForModel("chatgpt-4o"), "ag_claude_gpt");
+  assert.equal(antigravityQuotaFamilyForModel("  CLAUDE-3-OPUS  "), "ag_claude_gpt");
+
+  // Unknown models fail closed by default with fixed safe error code
+  const unknownModels = ["llama-3", "mistral-large", "deepseek-r1", "o3-mini", "dall-e-3", "whisper", "unknown", "custom-model", "", "   ", null, undefined];
+  for (const model of unknownModels) {
+    assert.throws(
+      () => antigravityQuotaFamilyForModel(model),
+      (error) => error?.code === "board_usage_history_antigravity_model_unknown",
+    );
+    assert.equal(antigravityQuotaFamilyForModel(model, { failClosed: false }), null);
+  }
 });
 
 test("v2 history accepts aggregate fields but normalizes Claude provider evidence to UNKNOWN", () => {
@@ -212,6 +288,7 @@ test("v2 history accepts aggregate fields but normalizes Claude provider evidenc
   delete v2.provider_rows;
   delete v2.provider_daily;
   delete v2.model_daily;
+  delete v2.unmeasured_request_daily;
   delete v2.claude_collection;
   const projection = normalizeAiUsageHistoryProjection(v2);
   assert.equal(projection.state, "ready");
@@ -359,4 +436,44 @@ test("AI usage history projection keeps a validated last-good snapshot while ref
   });
   assert.equal(hold.state, "unmeasured");
   assert.equal(hold.refresh_state, "hold");
+});
+
+test("AI usage history projection accepts absent, zero-total, and populated unmeasured_request_daily correctly", () => {
+  // Absent field in v3 snapshot
+  const withoutUnmeasured = historyFixture();
+  delete withoutUnmeasured.unmeasured_request_daily;
+  const projWithout = normalizeAiUsageHistoryProjection(withoutUnmeasured);
+  assert.equal(projWithout.state, "ready");
+  assert.equal("unmeasured_request_daily" in (projWithout.history ?? {}), false);
+  assert.equal(projWithout.history?.model_daily?.length, 30);
+  assert.equal(projWithout.history?.provider_daily?.length, 30);
+
+  // Zero-total 30-day rows
+  const zeroUnmeasured = historyFixture();
+  const zeroDaily = Array.from({ length: 30 }, (_, index) => ({
+    date: zeroUnmeasured.provider_daily[index].date,
+    total_requests: 0,
+    families: [
+      { family_id: "ag_gemini", requests: 0, models: [] },
+      { family_id: "ag_claude_gpt", requests: 0, models: [] },
+    ],
+  }));
+  zeroUnmeasured.unmeasured_request_daily = zeroDaily;
+  // Update provider_daily to have 0 unknown turns for antigravity to maintain reconciliation
+  for (const day of zeroUnmeasured.provider_daily) {
+    const ag = day.providers.find((p) => p.provider === "antigravity");
+    if (ag) ag.token_unknown_turns = 0;
+  }
+  const projZero = normalizeAiUsageHistoryProjection(zeroUnmeasured);
+  assert.equal(projZero.state, "ready");
+  assert.equal(projZero.history?.unmeasured_request_daily?.length, 30);
+  assert.equal(projZero.history.unmeasured_request_daily.every((d) => d.total_requests === 0), true);
+
+  // Populated data
+  const populated = historyFixture();
+  const projPopulated = normalizeAiUsageHistoryProjection(populated);
+  assert.equal(projPopulated.state, "ready");
+  assert.equal(projPopulated.history?.unmeasured_request_daily?.length, 30);
+  const totalPopulatedRequests = projPopulated.history.unmeasured_request_daily.reduce((sum, d) => sum + d.total_requests, 0);
+  assert.equal(totalPopulatedRequests > 0, true);
 });
