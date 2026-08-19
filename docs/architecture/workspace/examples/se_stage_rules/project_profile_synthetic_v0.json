@@ -74,8 +74,8 @@
     }
   },
   "expected": {
-    "note": "Hand-written. The tool set is fixed at thirteen with four write tools; the synthetic project stands on two gates and one observation.",
-    "tool_count": 13,
+    "note": "Hand-written. The tool set is fixed at seventeen with four write tools (thirteen since 2026-08-18, plus whoami · engine_status · access_table · projects_list); the synthetic project stands on two gates and one observation.",
+    "tool_count": 17,
     "write_tool_names": ["observe_scan", "observe_register", "observe_confirm", "judge_run"],
     "engine_stage_codes": ["030_SRR", "090_PDR"],
     "observations_supplied": 1,

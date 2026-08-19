@@ -1136,7 +1136,7 @@ npm run validate:se-guidance
 
 public-safe 합성 fixture는 `docs/architecture/workspace/examples/se_stage_rules/next_steps_synthetic_v0.json`이다.
 
-## MCP 문 (`mcp/`) — 만들어졌고 꺼져 있다
+## MCP 문 (`mcp/`) — 만들어졌고 꺼져 있다 (과제 명부 · 신원 · 잠금 착지 2026-08-19)
 
 Owner 결정(계획 9.1A): **밖에서 엔진을 부르는 정문은 MCP 하나다.** `mcp/`는 그 문이며 dev-ERP가 아니라
 엔진 owner 아래에 독립으로 산다. 도구는 **로직을 갖지 않는다** — 프로필이 지정한 파일을 읽고, 이미 있는
@@ -1144,37 +1144,61 @@ Owner 결정(계획 9.1A): **밖에서 엔진을 부르는 정문은 MCP 하나�
 [12장](manual/12_mcp_door.md).
 
 ```text
-node guild_hall/engineering_engine/mcp/engine_mcp_server.mjs --profile <abs project_profile.json> [--repo-root <abs>]
+node guild_hall/engineering_engine/mcp/engine_mcp_server.mjs --registry <abs project_registry.json>
+node guild_hall/engineering_engine/mcp/engine_mcp_server.mjs --profile  <abs project_profile.json>
+  [--repo-root <abs>] [--principal '{"principal_ref":"…","role":"…"}'] [--access-table <abs>]
 ```
 
 - **스위치 둘.** `SOULFORGE_ENGINE_MCP=on`이 없으면 한 줄 거절 후 exit 3. `SOULFORGE_ENGINE_MCP_WRITE=on`이
-  없으면 쓰기 도구는 목록에 **보이되** 호출이 `WRITE_TOOLS_DISABLED`로 거절된다. 켜는 것은 Owner 결정이며
-  이 저장소는 어떤 클라이언트에도 이 서버를 등록하지 않았다.
+  없으면 쓰기 도구는 `tools/list`에서 **숨겨지고** 직접 호출은 `WRITE_TOOLS_DISABLED`로 거절된다(2026-08-19
+  변경, 9.1E ⑪ — 목록 응답이 `tools_total`·`tools_hidden`으로 "없음"이 아니라 "지금 안 보임"임을 말한다).
+  켜는 것은 Owner 결정이며 이 저장소는 어떤 클라이언트에도 이 서버를 등록하지 않았다.
 - **프로토콜.** stdio 위의 줄 단위 JSON-RPC 2.0을 직접 구현했다(`initialize` · `notifications/initialized` ·
   `ping` · `tools/list` · `tools/call`, `protocolVersion` `2025-06-18`). 새 npm 의존성은 없다. 결과는
-  `content:[{type:'text'}]` + `structuredContent` + `_meta.engine_version`이다.
+  `content:[{type:'text'}]` + `structuredContent` + `_meta.engine_version`이다. 인자 오류는 `isError`
+  도구 결과이고, `-32000`은 권한·잠금·스위치 같은 프로토콜 층 거절에만 쓴다.
+- **과제 명부.** `mcp/project_registry.mjs`가 `soulforge.engine_project_registry.v0`(코드 → 프로필 경로 ·
+  상태 `active|paused|closed` · 기본 과제)을 검증한다. 실체는 private
+  `_workmeta/system/engine/project_registry.json`, public에는 `<abs>` 자리표시자 합성 예시만 둔다.
+  모든 도구가 `project_code`를 선택 인자로 받고, 과제별 컨텍스트는 LRU 8개까지 캐시된다.
+  `--profile`은 "명부가 한 줄인 경우"로 남았다.
 - **프로필.** `mcp/project_profile.mjs`가 과제당 private JSON 한 장(`soulforge.engine_project_profile.v0`)을
   검증한다. 모든 경로는 절대경로이고 `..`을 담지 않으며 `_workspaces/**` · `_workmeta/**` ·
-  `.registry/skills/se_foldertree_generate/codex/assets/**` 세 뿌리 안에만 있을 수 있다. 키 집합은 정확히
-  일치해야 하고 모르는 키는 무시가 아니라 거절이다. 호출자가 경로를 대는 자리는 확인표 하나뿐이며 그것도
-  프로필이 지정한 관측 폴더 아래여야 한다.
-- **도구 13종** (읽기 9 · 쓰기 4): `rules_layers` · `rules_stage` · `rules_card` · `rules_version` ·
-  `observe_scan`\* · `observe_register`\* · `observe_confirm`\* · `observe_status` · `judge_run`\* ·
-  `judge_result` · `judge_diff` · `next_steps` · `project_status` (\* = 쓰기).
+  `.registry/skills/se_foldertree_generate/codex/assets/**` 세 뿌리 안에만 있을 수 있다.
+  `receipts_dir`·`runs_root`는 그 위에 **`_workmeta/<project_code>/` 아래**여야 한다(두 과제의 영수증이
+  섞이는 것을 구조로 막는다). 키 집합은 정확히 일치해야 하고 모르는 키는 무시가 아니라 거절이다.
+  호출자가 경로를 대는 자리는 확인표 하나뿐이며 그것도 프로필이 지정한 관측 폴더 아래여야 한다.
+- **신원과 접근표.** 문은 인증하지 않는다. 위층(비서·게이트웨이)이 댄 `--principal {principal_ref, role}`을
+  믿되 영수증에 적고 접근표(`soulforge.engine_access_table.v0`, 명부 옆; 없으면 코드 기본표)대로 거른다.
+  신원이 없으면 공개 규칙 등급 ⓐ 읽기 도구만 열리고 나머지는 `SE_MCP_PRINCIPAL_REQUIRED`다. 표에 없는
+  역할은 아무 권한도 없고, 등급이 안 붙은 것은 ⓒ로 다룬다(fail-closed). **권한을 바꾸는 도구는 없다.**
+- **도구 17종** (읽기 13 · 쓰기 4): `whoami` · `engine_status` · `access_table` · `projects_list` ·
+  `rules_layers` · `rules_stage` · `rules_card` · `rules_version` · `observe_scan`\* ·
+  `observe_register`\* · `observe_confirm`\* · `observe_status` · `judge_run`\* · `judge_result` ·
+  `judge_diff` · `next_steps` · `project_status` (\* = 쓰기).
   `observe_register`는 관측이 아니라 **확인 대기 후보**를 남긴다(자동 확정 3조건은 채팅 발언을 포함하지
   않는다, D37). `next_steps`는 저장된 판정을 인용만 하고 파일을 쓰지 않는다.
-- **영수증.** 도구에 닿은 호출마다 `receipts_dir/mcp_tool_calls.jsonl`에 한 줄 — 도구 이름, 인자·결과
-  digest, 소요 시간, engine_version, 거절 코드. **원문·경로·파일 이름은 들어가지 않는다.** `_workmeta`에
-  쓰기 전 저장소의 `guard:workmeta-write`와 같은 정책 함수를 문이 직접 부른다.
-- 잠금은 새로 만들지 않았다: launch + sha 핀, Owner 동결 grant, zero-write, create-only 출력.
+- **영수증.** 도구에 닿은 호출마다 `receipts_dir/mcp_tool_calls.jsonl`에 한 줄 — 도구 이름, 과제 코드,
+  누가(`principal_ref`·`role`), 허용/거절과 사유, 인자·결과 digest, 소요 시간, engine_version.
+  **원문·경로·파일 이름은 들어가지 않는다.** `_workmeta`에 쓰기 전 저장소의 `guard:workmeta-write`와 같은
+  정책 함수를 문이 직접 부른다.
+- **잠금·캐시·경로 예산.** 쓰기 도구는 과제·도구별 create-only 잠금(`runs_root/locks/<tool>.lock.json`)을
+  잡고, 이미 잡혀 있으면 대기가 아니라 `SE_MCP_LANE_BUSY`로 거절한다(계약 `lane_1d` §4.3). 오래된 잠금은
+  알려주되 엔진이 지우지 않는다. 쓰기가 성공하면 그 과제의 캐시 세대를 올려 이전 항목을 못 쓰게 만든다
+  (확정 뒤 판단이 옛 관측을 쓰던 문제). 모든 평면의 쓰기 대상에 경로 예산(200/60/60)을 적용하고
+  `run_id`·`revision_label`은 24자다. 그 밖의 잠금은 그대로다: launch + sha 핀, Owner 동결 grant,
+  zero-write, create-only 출력.
 
 ```text
 npm run validate:se-mcp
 ```
 
-public-safe 합성 fixture는 `docs/architecture/workspace/examples/se_stage_rules/project_profile_synthetic_v0.json`이며
-`fixtures/engine_mcp_synthetic_project.mjs`가 그것과 `next_steps_synthetic_v0.json`을 임시 폴더에 과제
-모양으로 깔아 준다. 실제 과제 자료는 시험에 들어가지 않는다.
+public-safe 합성 fixture는 `docs/architecture/workspace/examples/se_stage_rules/`의
+`project_profile_synthetic_v0.json` · `project_registry_synthetic_v0.json` ·
+`access_table_synthetic_v0.json`이며 `fixtures/engine_mcp_synthetic_project.mjs`가 그것들과
+`next_steps_synthetic_v0.json`을 임시 폴더에 과제 하나 또는 여러 개 모양으로 깔아 준다. 실제 과제 자료는
+시험에 들어가지 않는다. 사람이 클라이언트에 등록하는 절차는 매뉴얼 [12장 §12.A](manual/12_mcp_door.md#12a-등록사용-안내-사람용)와
+[`mcp/README.md`](mcp/README.md)에 있다.
 
 ## AX·SE 프로젝트 평가 subject (active slice)
 

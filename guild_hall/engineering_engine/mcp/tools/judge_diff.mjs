@@ -13,6 +13,7 @@ export const name = 'judge_diff';
 export const title_ko = '판단 차이';
 export const description_ko = '같은 단계의 판단 영수증 둘을 비교해 요구 수 변화와 요구별 판정 변화를 낸다.';
 export const write = false;
+export const data_class = 'team_judgment';
 
 export const inputSchema = Object.freeze({
   type: 'object',

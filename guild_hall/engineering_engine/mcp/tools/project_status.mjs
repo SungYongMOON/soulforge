@@ -14,6 +14,10 @@ export const name = 'project_status';
 export const title_ko = '과제 현황';
 export const description_ko = '전 단계 한눈에 — 단계별 최근 판정 수치, 순서 목록에서 막힌 수, 그리고 마지막 훑기의 청소 알림 총계.';
 export const write = false;
+export const data_class = 'team_judgment';
+export const confidential_fields = Object.freeze([
+  'observations.sources.auto_file', 'observations.sources.confirmed_file',
+]);
 
 export const inputSchema = Object.freeze({
   type: 'object',

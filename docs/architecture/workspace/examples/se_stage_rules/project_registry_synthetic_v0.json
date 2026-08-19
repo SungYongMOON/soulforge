@@ -1,0 +1,50 @@
+{
+  "fixture_id": "project_registry_synthetic_v0",
+  "schema_version": "soulforge.engine_project_registry_fixture.v0",
+  "note": "Public-safe synthetic fixture for the engine MCP door's project registry (과제 명부, 부록 B 최소 변경 1번). The `registry` block below is the documentation copy: every profile path is the placeholder <abs> because a real registry is a private file whose rows point at profiles under _workspaces/** or _workmeta/**, and this repository holds no such path. A test builds a temporary registry with real temporary paths and asserts this block's key set against the validator, so the documented shape cannot drift from the code. No real project code, contract, organisation or person appears here.",
+  "instance_path_convention": "_workmeta/system/engine/project_registry.json",
+  "instance_note": "The private instance is created only after `npm run guard:workmeta-write -- --assert-write-target \"<target>\"` accepts the path. The registry is metadata only: a project code, the absolute path of that project's profile, a status, and an optional label and creation instant.",
+  "registry": {
+    "schema_version": "soulforge.engine_project_registry.v0",
+    "projects": [
+      {
+        "project_code": "SYN-000",
+        "profile": "<abs>",
+        "display_label": "합성 과제 0",
+        "status": "active",
+        "added_at": "2026-08-19T00:00:00.000Z"
+      },
+      {
+        "project_code": "SYN-001",
+        "profile": "<abs>",
+        "display_label": "합성 과제 1",
+        "status": "paused",
+        "added_at": "2026-08-19T00:00:00.000Z"
+      },
+      {
+        "project_code": "SYN-002",
+        "profile": "<abs>",
+        "display_label": "합성 과제 2",
+        "status": "closed",
+        "added_at": "2026-08-19T00:00:00.000Z"
+      }
+    ],
+    "default_project": "SYN-000"
+  },
+  "statuses": {
+    "active": "reads and writes, subject to the access table",
+    "paused": "reads only; every write tool is refused",
+    "closed": "every tool is refused for this project"
+  },
+  "profile_path_roots": {
+    "note": "A registry row's `profile` may sit on either private plane. Everything inside that profile is checked again by the profile validator.",
+    "project": "_workspaces/**",
+    "metadata": "_workmeta/**"
+  },
+  "refusals": {
+    "ENGINE_MCP_REGISTRY_INVALID": "unknown key, wrong schema_version, unknown status, relative or out-of-root profile path, default_project naming a row that is not there",
+    "ENGINE_MCP_REGISTRY_DUPLICATE_PROJECT": "two rows name the same project_code",
+    "ENGINE_MCP_REGISTRY_PROFILE_REFUSED": "a row's profile cannot be read, does not validate, or states a different project_code",
+    "SE_MCP_PROJECT_UNKNOWN": "a call names a project_code the registry does not carry, or omits it when there is no default"
+  }
+}

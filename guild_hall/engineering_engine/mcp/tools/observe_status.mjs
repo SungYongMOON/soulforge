@@ -7,16 +7,24 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { REGISTERED_CANDIDATES_FILE, latestConfirmedName } from '../engine_context.mjs';
+import { paginate, pagingProperties } from '../paging.mjs';
 import { FOOTER, heading, lines, table } from '../render.mjs';
 
 export const name = 'observe_status';
 export const title_ko = '관측 현황';
 export const description_ko = '프로필이 가리키는 관측 실행의 현재 상태 — 단계별 관측 수, 확인 대기 수, 등록 대기 줄, 청소 알림 수.';
 export const write = false;
+export const data_class = 'team_judgment';
+// The observation run's folder and file names are ⓒ: they carry the project's own naming.
+export const confidential_fields = Object.freeze([
+  'observations_dir', 'files.auto', 'files.confirmed', 'files.registered_candidates',
+]);
+
+const DEFAULT_LIMIT = 64;
 
 export const inputSchema = Object.freeze({
   type: 'object',
-  properties: {},
+  properties: { ...pagingProperties(DEFAULT_LIMIT) },
   additionalProperties: false,
 });
 
@@ -37,6 +45,9 @@ export async function handler(args, ctx) {
     byStage[stage] = Math.max(byStage[stage] ?? 0, rows.length);
   }
 
+  const paged = paginate(Object.entries(byStage).sort(), args,
+    { field: 'observations_by_stage', default_limit: DEFAULT_LIMIT });
+
   const structured = {
     observations_dir: ctx.pointer(directory),
     files: {
@@ -56,7 +67,8 @@ export async function handler(args, ctx) {
         receipt?.candidates?.counts?.auto_confirm_withheld_no_own_cue ?? null,
       housekeeping_items: receipt?.housekeeping?.counts?.items ?? null,
     },
-    observations_by_stage: byStage,
+    observations_by_stage: Object.fromEntries(paged.items),
+    page: paged.page,
   };
 
   const markdown = lines(
@@ -67,7 +79,9 @@ export async function handler(args, ctx) {
       structured.counts.needs_owner_confirmation, structured.counts.housekeeping_items,
     ]]),
     heading('단계별 관측'),
-    table(['단계', '수'], Object.entries(byStage).sort()),
+    table(['단계', '수'], paged.items),
+    paged.page.next_cursor === null ? ''
+      : `다음 쪽 커서: ${paged.page.next_cursor} (전체 ${paged.page.total})`,
     FOOTER,
   );
 

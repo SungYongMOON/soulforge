@@ -11,6 +11,7 @@ export const name = 'rules_stage';
 export const title_ko = '단계 기대 목록과 순서';
 export const description_ko = '한 단계(예: 120_CDR)에서 이 과제가 갖춰야 할 항목과 무엇부터 할지의 순서를, 게이트 역할·막힌 입력·근거와 함께 낸다.';
 export const write = false;
+export const data_class = 'public_rules';
 
 export const inputSchema = Object.freeze({
   type: 'object',
