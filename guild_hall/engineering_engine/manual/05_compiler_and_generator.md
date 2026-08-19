@@ -26,6 +26,7 @@ gap scan 정책의 `expected_inputs`는 지금까지 빈 배열이었다 — 어
 4. `applies_when`(토큰 또는 목록, 목록이면 전부 참이어야 함)이 `overlay_conditions`에 없으면 그 행은 이 컴파일에서 빠진다.
 4A. `node_kind`가 `activity`·`decision`이고 evidence level이 `regulation_mandated`가 아니면 `present_or_not_applicable`이 상한이다(D46). 활동·결정의 증거는 기록이고, 기록은 근거를 대고 "해당 없음"이라 답할 수 있어야 한다.
 5. overlay op 적용: `add`(표준 행이 `optional_context`일 때만 옆에 추가 가능 → `overlay_strengthened`; 표준이 이미 요구하면 거부) · `alias`(과제 이름→토큰) · `mark_not_applicable`(basis 필수) · `condition`(조건 토큰 선언) · `add_dependency`(입력 추가, exact `source_ref`+`basis` 필수, 합집합으로만; 표준 행이 없으면 거부). `override_evidence`·`remove_dependency`는 금지(D45·D46).
+   `add`의 선택 필드 `task_id`(양의 정수)·`folder_name`(디스크 폴더 이름)은 둘 다 있거나 둘 다 없어야 하며, mapping row의 `task_id`·`folder_name`으로 실려 나간다. 스펙 행은 `folder_name`이 null이다 — 행의 `name`이 곧 폴더 이름이기 때문이다.
 5A. 입력 토큰 해석: 이번 컴파일이 만드는 토큰이면 간선, 어휘는 아는데 이번에 안 만들면 범위 밖, 둘 다 아니면 `unresolved_dependency`로 **세고 이름을 남기되 컴파일을 거부하지 않는다**.
 6. `optional_context` 행과 고정 내부 폴더는 엔진 requirement로 내보내지 않는다(gap scan 정책·mapping table에는 남는다). 나머지 행마다 결정론적 `engine_requirement_id`를 발행한다.
 7. 어휘 밖 토큰은 unmapped context로 남긴다(거부하지 않음). 검토 회의록 등 어휘가 없는 행도 마찬가지.

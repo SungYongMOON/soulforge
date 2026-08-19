@@ -2,8 +2,8 @@
   "schema_version": "soulforge.engine_release_manifest.v0",
   "engine_version": "0.0.0",
   "status": "under_construction",
-  "generated_at": "2026-08-19T07:19:31.334Z",
-  "git_commit": "2f98ca9d7a78e5ae457c764a1a9d033d421d829e",
+  "generated_at": "2026-08-19T07:37:56.907Z",
+  "git_commit": "072eebf9a2ead2033b9999d3eb50f2fefcc4f4a4",
   "components": {
     "engine_code_manifest": {
       "file": "guild_hall/engineering_engine/topology/engine_manifest.sha256",
@@ -12,7 +12,7 @@
     "stage_rule_compiler": {
       "version": "v0",
       "schema": "soulforge.se_stage_rule_compiler.v0",
-      "sha256": "6cbfd3c606d7651c7aade27cf728f888869dd2ff487dfd130dfeb75f3e2773ea"
+      "sha256": "64407b4b5f2da0176077537509883c36d1f6cf0972831edcd2c2ac73983fa5ba"
     },
     "pilot_packet_generator": {
       "version": "v0",
@@ -49,21 +49,21 @@
       },
       "system_dev_common_no_grade": {
         "file": ".registry/skills/se_foldertree_generate/codex/assets/compiled/system_dev_common_no_grade.json",
-        "spec_version": "0.11",
-        "spec_sha256": "87c504418cfded8ecbc4956aad013cade1a9c1ea1ad46dd72756cd538dd4ad36",
-        "compiled_sha256": "1ad68a1a3577b30d85f77acebdf4b65d2407927d9ddac662d15d48b8986fd3fe"
+        "spec_version": "0.12",
+        "spec_sha256": "f7fc4e6228fc2fc30d6ea9115f0815582e88e7f81cc3f6ea66e2cb6d5101784d",
+        "compiled_sha256": "4357f59cf5acf1ccfe6f0d1501753bd0f90a690e6b88fa42fcb48cc826688200"
       },
       "system_dev_lig_grade_a": {
         "file": ".registry/skills/se_foldertree_generate/codex/assets/compiled/system_dev_lig_grade_a.json",
-        "spec_version": "0.11",
-        "spec_sha256": "87c504418cfded8ecbc4956aad013cade1a9c1ea1ad46dd72756cd538dd4ad36",
-        "compiled_sha256": "d1a9a622d98e170651d77673d75c32c8814edd01f77f7a71f32e113dbfcbe718"
+        "spec_version": "0.12",
+        "spec_sha256": "f7fc4e6228fc2fc30d6ea9115f0815582e88e7f81cc3f6ea66e2cb6d5101784d",
+        "compiled_sha256": "c496a26cde9ea22e7112184d66269307faddf6f309ed5d17e283dbb649d01f97"
       }
     },
     "prime_overlays": {
       "system_dev_lig_grade_a.prime.overlay.json": {
         "file": ".registry/skills/se_foldertree_generate/codex/assets/compiled/overlays/system_dev_lig_grade_a.prime.overlay.json",
-        "sha256": "0f31c9c30936b8b65091496b77d77a658400a384e84264edda57e97a4f91e94a"
+        "sha256": "eac6c35a3096d1c37e8116da99609448d36fc54e6f9abe33dc486edf7d6511ee"
       }
     }
   },

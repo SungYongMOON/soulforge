@@ -99,6 +99,13 @@ Vocabulary notes:
 - Tokens used that are not yet in design §4 and need the `artifact_vocabulary.v0` owner decision (D44): `cdrl`, `rtm`, `functional_analysis`, `vv_strategy`, `trade_study`, `standard_parts_review`, `wps`, `manufacturing_design_review`, `manufacturing_process_flow`, `ram_analysis_report`, `build_record`, `atp`, `delivery_acceptance_record`, `sat_report`, `integration_test_support`, `defect_action_report`, `ncr`, `defense_spec_drawings`, `development_history`, `lessons_learned_workshop`, `review_minutes_kickoff`, `cm_plan`, `technical_review_package`, `critical_parts_test_report`, `fca_pca_plan_checklist`, `production_transition_package`.
 - `unmapped_41` (가정및제약사항) has no sensible token: canon treats it as a section of the SSRS, not a deliverable.
 - `artifact_type_id` is unique inside a gate, so a compiled `(gate, artifact_type_id)` pair identifies one slot.
+- **Task ids are append-only.** A task id that has been used is never reused, even after its row
+  leaves the spec. Generated project trees keep the folder on disk as `{id:03d}_{name}`, so
+  reusing the number silently re-points an existing folder at a different artifact — and the file
+  intake door resolves folders by id plus name. A new row takes the lowest number that gate has
+  never used. Retired ids are listed in each spec's human section (체계개발: 144, the v0.7
+  `CDR_발표자료_F` row that moved to the project overlay; 제조성숙도평가(MRA) was moved off it to
+  148 on 2026-08-19).
 
 
 ## Generic SE baseline (layer ①, 2026-08-18)

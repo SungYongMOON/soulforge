@@ -1517,6 +1517,50 @@ test('generic-layer relations project onto the national layer, composed and neve
   }
 });
 
+test('an overlay addition may say which folder it lives in, and must say both halves or neither', () => {
+  // An added rule normally has no folder, because nothing generated one for it. When a project
+  // does have one — typically a slot that used to be a spec row and moved into the overlay — the
+  // op carries the number and the name so the file door can check them against each other the way
+  // it checks a spec row.
+  const plain = compileStageRules(overlayRequest());
+  const added = overlayRowOf(plain, 'spec_linkage_table');
+  assert.equal(added.task_id, null);
+  assert.equal(added.folder_name, null);
+
+  const placed = overlayRequest();
+  placed.overlay.ops[1] = {
+    ...placed.overlay.ops[1], task_id: 12099, folder_name: 'Synthetic overlay slot',
+  };
+  const row = overlayRowOf(compileStageRules(placed), 'spec_linkage_table');
+  assert.equal(row.task_id, 12099);
+  assert.equal(row.folder_name, 'Synthetic overlay slot');
+  // It is placement, not a rule change: the addition still grades and binds exactly as before.
+  assert.equal(row.evidence_level, 'prime_contract');
+  assert.equal(row.origin, 'overlay');
+  assert.equal(overlayRowOf(compileStageRules(placed), 'spec_linkage_table').engine_requirement_id,
+    added.engine_requirement_id);
+
+  // A number with no name would turn "the number and the name agree" into a bare number match,
+  // which is exactly the check that stops a file landing in a folder an older revision generated.
+  for (const half of [{ task_id: 12099 }, { folder_name: 'Synthetic overlay slot' }]) {
+    const lopsided = overlayRequest();
+    lopsided.overlay.ops[1] = { ...lopsided.overlay.ops[1], ...half };
+    assert.throws(() => compileStageRules(lopsided), throwsWith(STAGE_RULE_ERROR_CODES.OVERLAY_INVALID));
+  }
+  for (const bad of [0, -3, 1.5, '12099']) {
+    const invalid = overlayRequest();
+    invalid.overlay.ops[1] = {
+      ...invalid.overlay.ops[1], task_id: bad, folder_name: 'Synthetic overlay slot',
+    };
+    assert.throws(() => compileStageRules(invalid), throwsWith(STAGE_RULE_ERROR_CODES.OVERLAY_INVALID));
+  }
+
+  // A spec row's folder name is its own `name`, which the folder tree generated from, so the
+  // mapping table carries none for it.
+  assert.equal(rowOf(plain, 12001).folder_name, null);
+  assert.equal(rowOf(plain, 12001).task_id, 12001);
+});
+
 // ---------------------------------------------------------------- 14. static effect pin
 
 test('the module and everything it imports read no file, clock, network, or model', () => {

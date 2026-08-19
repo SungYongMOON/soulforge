@@ -38,6 +38,15 @@ export const SYNTHETIC_STAGE = '030_SRR';
 export const SYNTHETIC_REGISTER_TOKEN = 'ssrs';
 export const SYNTHETIC_MISMATCHED_TOKEN = 'semp';
 export const SYNTHETIC_MISMATCHED_FOLDER_NAME = 'A folder generated from an older rule revision';
+
+// An artifact only a project overlay carries, of the shape a slot that used to be a spec row and
+// moved into the overlay takes. The folder for it exists on disk because an older rule revision
+// generated it; the overlay is the only thing that can still say which folder that is.
+export const SYNTHETIC_OVERLAY_TOKEN = 'prime_synthetic_review_pack';
+export const SYNTHETIC_OVERLAY_TASK_ID = 3099;
+export const SYNTHETIC_OVERLAY_FOLDER_NAME = 'Synthetic overlay review pack';
+// A second one that names no folder at all, so a test can watch the door refuse it.
+export const SYNTHETIC_OVERLAY_UNPLACED_TOKEN = 'prime_synthetic_unplaced_item';
 export const OUT_FOLDER = '03_Out';
 
 /** Where the door's three folders sit inside a project. Kept away from the gate folders. */
@@ -113,6 +122,55 @@ export function stageSyntheticProject(root, options = {}) {
       mkdirSync(join(project, gateFolder, folderName, OUT_FOLDER), { recursive: true });
     }
   }
+  // A project overlay, staged only when a test asks for one. It adds two rules the standard table
+  // does not carry: one that says which folder it lives in, and one that says nothing — which is
+  // the ordinary case and the one the door has to refuse.
+  const overlayPaths = [];
+  if (options.overlay_add === true) {
+    const srrGate = gateFolders.get(30) ?? '030_SRR';
+    mkdirSync(join(project, srrGate,
+      `${SYNTHETIC_OVERLAY_TASK_ID}_${SYNTHETIC_OVERLAY_FOLDER_NAME}`, OUT_FOLDER), { recursive: true });
+    const sourceRef = {
+      entity_id: 'synthetic_project_request_letter',
+      revision_id: 'rev_1',
+      content_id: `sha256:${'b'.repeat(64)}`,
+      content_hash_alg: 'sha256',
+    };
+    const overlayPath = join(rules, 'project_overlay.json');
+    writeFileSync(overlayPath, asJson({
+      schema_version: 'soulforge.se_stage_rule_overlay.v0',
+      extends: {
+        support_key: request.compiled_variant.support_key,
+        spec_sha256: request.compiled_variant.spec_sha256,
+      },
+      ops: [
+        {
+          op: 'add',
+          stage_code: SYNTHETIC_STAGE,
+          artifact_type_id: SYNTHETIC_OVERLAY_TOKEN,
+          label: 'Synthetic overlay review pack',
+          evidence_level: 'prime_contract',
+          source_ref: sourceRef,
+          basis: 'synthetic_project_request',
+          task_id: SYNTHETIC_OVERLAY_TASK_ID,
+          // Written the way a person copies it off disk, prefix included: the resolver drops the
+          // redundant number before comparing names, and checks the number on its own.
+          folder_name: `${SYNTHETIC_OVERLAY_TASK_ID}_${SYNTHETIC_OVERLAY_FOLDER_NAME}`,
+        },
+        {
+          op: 'add',
+          stage_code: SYNTHETIC_STAGE,
+          artifact_type_id: SYNTHETIC_OVERLAY_UNPLACED_TOKEN,
+          label: 'Synthetic overlay item nobody placed',
+          evidence_level: 'prime_contract',
+          source_ref: sourceRef,
+          basis: 'synthetic_project_request',
+        },
+      ],
+    }));
+    overlayPaths.push(overlayPath);
+  }
+
   const doorDirectory = (parts) => join(project, ...parts);
   for (const parts of Object.values(DOOR_RELATIVE)) {
     mkdirSync(doorDirectory(parts), { recursive: true });
@@ -125,7 +183,7 @@ export function stageSyntheticProject(root, options = {}) {
     prime: PROFILE_FIXTURE.profile.prime,
     quality_grade: PROFILE_FIXTURE.profile.quality_grade,
     compiled_variant: compiledVariant,
-    overlays: [],
+    overlays: overlayPaths,
     overlay_conditions: [],
     project_binding: request.project_binding,
     base_packet: basePacket,

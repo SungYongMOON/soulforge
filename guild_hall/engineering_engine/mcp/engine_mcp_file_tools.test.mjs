@@ -23,7 +23,9 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-  ACCESS_TABLE_FIXTURE, DOOR_RELATIVE, SYNTHETIC_MISMATCHED_TOKEN, SYNTHETIC_REGISTER_TOKEN,
+  ACCESS_TABLE_FIXTURE, DOOR_RELATIVE, SYNTHETIC_MISMATCHED_TOKEN,
+  SYNTHETIC_OVERLAY_FOLDER_NAME, SYNTHETIC_OVERLAY_TASK_ID, SYNTHETIC_OVERLAY_TOKEN,
+  SYNTHETIC_OVERLAY_UNPLACED_TOKEN, SYNTHETIC_REGISTER_TOKEN,
   SYNTHETIC_STAGE, stageSyntheticProject,
 } from '../fixtures/engine_mcp_synthetic_project.mjs';
 import { resolveAccessView, validateAccessTable } from './access_table.mjs';
@@ -41,9 +43,11 @@ const ACCESS_TABLE = validateAccessTable(ACCESS_TABLE_FIXTURE.access_table);
 const GATE_FOLDER = '030_SRR';
 const TASK_FOLDER = '3004_Synthetic system requirements specification';
 
-async function stage({ role = 'owner', write = true, now = null, file_door: fileDoor = true } = {}) {
+async function stage({
+  role = 'owner', write = true, now = null, file_door: fileDoor = true, overlay_add: overlayAdd = false,
+} = {}) {
   const root = mkdtempSync(join(tmpdir(), 'engine_mcp_file_'));
-  const staged = stageSyntheticProject(root, { file_door: fileDoor });
+  const staged = stageSyntheticProject(root, { file_door: fileDoor, overlay_add: overlayAdd });
   const context = await createEngineContext({
     profile_path: staged.profile_path,
     repo_root: root,
@@ -568,6 +572,53 @@ test('the write switch gates every file tool that writes, and only those', async
     // Reading is not writing: the read tools answer with the switch off.
     const listed = await call('file_tickets_list', {}, context);
     assert.equal(listed.structured.counts.total, 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('an overlay-added artifact registers when the overlay says which folder it lives in', async () => {
+  // The case the door could not serve before: a slot that used to be a spec row and moved into
+  // the project overlay. The rules still require it, the folder is still on disk, and the overlay
+  // is now the only thing that can connect the two.
+  const { root, staged, context } = await stage({ overlay_add: true });
+  try {
+    const { ticket } = await stagedTicket(context, staged, 'review_pack_F.pdf', 'overlay-synthetic');
+    const result = await call('file_register', {
+      ticket_id: ticket.ticket_id,
+      artifact_type_id: SYNTHETIC_OVERLAY_TOKEN,
+      stage_code: SYNTHETIC_STAGE,
+    }, context);
+    const structured = result.structured;
+
+    assert.equal(structured.counts.moved, 1);
+    assert.equal(structured.task_number, SYNTHETIC_OVERLAY_TASK_ID);
+    const folderName = `${SYNTHETIC_OVERLAY_TASK_ID}_${SYNTHETIC_OVERLAY_FOLDER_NAME}`;
+    assert.equal(structured.registered[0].file_ref,
+      `${GATE_FOLDER}/${folderName}/03_Out/review_pack_F.pdf`);
+    const landed = join(staged.project_root, GATE_FOLDER, folderName, '03_Out', 'review_pack_F.pdf');
+    assert.equal(readFileSync(landed, 'utf8'), 'overlay-synthetic');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('an overlay addition that names no folder is still refused, as it was before', async () => {
+  // An `add` op without task_id and folder_name adds a requirement and says nothing about where
+  // its files go. The honest answer is the same refusal as for any artifact the stage does not
+  // place — not a folder invented to make the call succeed.
+  const { root, staged, context } = await stage({ overlay_add: true });
+  try {
+    const { ticket } = await stagedTicket(context, staged, 'unplaced.pdf', 'overlay-synthetic');
+    const error = await refusalOf(() => call('file_register', {
+      ticket_id: ticket.ticket_id,
+      artifact_type_id: SYNTHETIC_OVERLAY_UNPLACED_TOKEN,
+      stage_code: SYNTHETIC_STAGE,
+    }, context));
+    assert.equal(error.code, 'ENGINE_MCP_TASK_FOLDER_UNRESOLVED');
+    assert.equal(error.detail.reason, 'artifact_not_declared_at_this_stage');
+    // Nothing moved: the file is still where the person left it.
+    assert.equal(existsSync(join(staged.project_root, ...ticket.folder_ref.split('/'), 'unplaced.pdf')), true);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

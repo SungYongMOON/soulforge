@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## 2026-08-19 - Task ids are append-only, and an overlay addition can say which folder it lives in
+
+Two fixes found while getting a real project ready for file registration.
+
+- **A reused task id.** `SE_FolderTree_Guide.md` had given 제조성숙도평가(MRA) the id 144, which in
+  v0.7 belonged to `CDR_발표자료_F` — a row that later moved out of the spec into the project
+  overlay. Project trees generated from v0.7 still have a `144_CDR_발표자료_F` folder on disk, and
+  the file door resolves folders by number **and** name, so the reuse would have pointed
+  registration at a folder that is something else. MRA moved to **148** (145-147 were taken, 148-150
+  were free). 144 is retired: the spec's human section now carries a retired-id table saying where
+  it went and that it must not be reused.
+- **The rule itself is now written down**, in the spec's `principles` and in
+  `references/variants.md`: a task id is never reused, even after its row leaves the spec, and a new
+  row takes the lowest number that gate has never used. Generated folders outlive spec revisions,
+  which is what makes id reuse a silent data error rather than a cosmetic one.
+- **Overlay additions can now be placed.** An `add` op adds a rule the standard table does not
+  carry, so nothing generated a folder for it and `file_register` had no way to place e.g.
+  `prime_cdr_presentation_final`. The op gains two OPTIONAL fields, `task_id` and `folder_name`,
+  which must be given together or not at all — a number with no name would reduce the door's
+  "number and name agree" check to a bare number match, which is the check that stops a file
+  landing in a folder an older revision generated. The compiler carries both into mapping rows
+  (`folder_name` is null for spec rows, whose folder name is the row's own `name`), and the door
+  accepts an overlay-added artifact on exactly the same terms as a spec row. An addition without
+  them is still refused with `artifact_not_declared_at_this_stage`, which is the honest answer:
+  the rules require it and nobody has said where it goes.
+- `folder_name` may be written the way a person copies it off disk, prefix included
+  (`144_CDR_발표자료_F`), or without the number; the redundant prefix is dropped before the names are
+  compared and the number is checked on its own.
+- Verification: `export_variant_json.py --check` PASS, `validate:se-stage-rules` 53/53 (one new
+  case), `validate:se-mcp` 104/104 (two new cases), `validate:se-observation` 67/67,
+  `validate:se-guidance` 42/42, `validate:canon`, `validate:path-length`, the local absolute path
+  policy, and the engine manifest / topology / release manifest all PASS.
+
 ## 2026-08-19 - The engine door takes files in and gives them back: tickets, register-by-move, cleanup to the trash
 
 등록 = 저장 (Owner decision 2026-08-19, engine manual §9.1D): a person should never open the project

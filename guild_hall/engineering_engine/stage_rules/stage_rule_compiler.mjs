@@ -472,7 +472,14 @@ const OP_ADD_REQUIRED = Object.freeze([
 // token is not one the vocabulary owns. Without them an unknown token has no `requirement_kind`
 // and no capability, and the engine requirement built from it would name a capability no role
 // can hold. Design section 5 says the overlay may set the capability; this is where.
-const OP_ADD_OPTIONAL = Object.freeze(['family', 'required_capability']);
+// `task_id` and `folder_name` say where this addition lives on disk, and they are optional because
+// most additions do not have a folder of their own. An `add` op invents a rule the standard table
+// does not carry, so nothing generated the folder for it; when a project HAS made one — typically
+// a slot that used to be a spec row and moved into the overlay — these two carry the number and
+// the name so the file door can resolve it the same way it resolves a spec row: number and name
+// must agree. Without them the addition still compiles, and the door still refuses to place files
+// for it, which is the honest answer when nobody has said where they go.
+const OP_ADD_OPTIONAL = Object.freeze(['family', 'required_capability', 'task_id', 'folder_name']);
 const OP_MARK_NA_REQUIRED = Object.freeze(['op', 'stage_code', 'artifact_type_id', 'basis']);
 const OP_MARK_NA_OPTIONAL = Object.freeze(['decision_ref']);
 const OP_ALIAS_FIELDS = Object.freeze(['op', 'stage_code', 'artifact_type_id', 'alias']);
@@ -821,6 +828,22 @@ function validateOverlay(overlay, variant) {
       fail(STAGE_RULE_ERROR_CODES.OVERLAY_INVALID, 'overlay addition family or capability is unregistered',
         { where });
     }
+    // Where this addition sits on disk, when the project has a folder for it. Both or neither:
+    // the file door checks that the number and the name agree before it moves anything, and a
+    // number with no name to check against would turn that agreement into a bare number match.
+    if ((op.task_id === undefined) !== (op.folder_name === undefined)) {
+      fail(STAGE_RULE_ERROR_CODES.OVERLAY_INVALID,
+        'an overlay addition must declare task_id and folder_name together or declare neither',
+        { where, artifact_type_id: op.artifact_type_id });
+    }
+    if (op.task_id !== undefined) {
+      assertSafeInteger(op.task_id, `${where}.task_id`, STAGE_RULE_ERROR_CODES.OVERLAY_INVALID);
+      if (op.task_id <= 0) {
+        fail(STAGE_RULE_ERROR_CODES.OVERLAY_INVALID, 'an overlay addition task_id must be positive',
+          { where: `${where}.task_id` });
+      }
+      assertSafeString(op.folder_name, `${where}.folder_name`, STAGE_RULE_ERROR_CODES.OVERLAY_INVALID);
+    }
     return Object.freeze({
       op: 'add',
       stage_code: op.stage_code,
@@ -831,6 +854,8 @@ function validateOverlay(overlay, variant) {
       basis: op.basis,
       family,
       required_capability: capability,
+      task_id: op.task_id ?? null,
+      folder_name: op.folder_name ?? null,
     });
   });
 }
@@ -939,7 +964,10 @@ function overlayAddRow(op, sequence) {
   return {
     stage_code: op.stage_code,
     sequence,
-    task_id: null,
+    // Null unless the overlay said where this addition lives: an added rule usually has no folder,
+    // because nothing generated one for it.
+    task_id: op.task_id ?? null,
+    folder_name: op.folder_name ?? null,
     artifact_type_id: op.artifact_type_id,
     family: op.family,
     capability: op.required_capability,
@@ -1389,6 +1417,10 @@ export function compileStageRules(request) {
     return {
       stage_code: row.stage_code,
       task_id: row.task_id,
+      // Only an overlay addition carries this: a spec row's folder name is the row's own `name`,
+      // which the folder tree already generated from. An added rule has no spec row, so when a
+      // project has a folder for it the overlay is the only place that can say which one.
+      folder_name: row.folder_name ?? null,
       artifact_type_id: row.artifact_type_id,
       origin: row.origin,
       node_kind: row.node_kind,

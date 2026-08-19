@@ -105,6 +105,11 @@ export async function handler(args, ctx) {
   // ---- where the rules say this belongs
 
   const variant = await ctx.loadVariant();
+  // Loaded before the folder is resolved, not only for the alias cues further down: an overlay
+  // that carries `task_id` + `folder_name` on an `add` op is the only thing that can say where a
+  // rule the standard table never had lives on disk.
+  const overlayFiles = await ctx.loadOverlayFiles();
+  const overlays = overlayFiles.map((row) => row.overlay);
   const gate = resolveGateFolder({
     compiled_variant: variant,
     stage_code: stageCode,
@@ -120,6 +125,7 @@ export async function handler(args, ctx) {
     stage_code: stageCode,
     artifact_type_id: token,
     folder_names: await ctx.listDirectoriesIn(gateDir),
+    overlays,
   });
   if (!task.ok) {
     // The reason travels, the folder name does not: a refusal is read by whoever called, and where
@@ -194,9 +200,7 @@ export async function handler(args, ctx) {
     task_folder_hint: task.task_folder,
   }));
   const overlayAliases = [];
-  for (const overlay of await ctx.loadOverlayFiles()) {
-    overlayAliases.push(...overlayAliasCues(overlay.overlay));
-  }
+  for (const overlay of overlays) overlayAliases.push(...overlayAliasCues(overlay));
   const proposed = buildArtifactObservationCandidates({
     inventory,
     compiled_variants: [variant],

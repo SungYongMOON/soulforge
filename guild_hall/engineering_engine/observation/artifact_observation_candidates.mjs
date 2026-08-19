@@ -400,11 +400,18 @@ export function resolveGateFolder({ compiled_variant: variant, stage_code: stage
  * guess, and never a folder created to make the guess true (9.1D: 사람은 폴더를 만지지 않는다, and
  * neither does the engine invent one).
  *
- * @param request `{ compiled_variant, stage_code, artifact_type_id, folder_names }`
+ * An overlay can also place an artifact the standard table does not carry, but only when it says
+ * where: an `add` op with `task_id` and `folder_name` contributes a candidate on exactly the same
+ * terms as a spec row, number and name both checked. An addition without them contributes nothing
+ * and the answer stays `artifact_not_declared_at_this_stage`, which is the honest reading — the
+ * rules added a requirement, nobody said which folder it lands in.
+ *
+ * @param request `{ compiled_variant, stage_code, artifact_type_id, folder_names, overlays }`
+ *   — `overlays` is optional and holds overlay objects (`{ops: [...]}`).
  */
 export function resolveTaskFolder({
   compiled_variant: variant, stage_code: stageCode, artifact_type_id: artifactTypeId,
-  folder_names: folderNames,
+  folder_names: folderNames, overlays,
 }) {
   const gateCode = gateCodeForStage(stageCode);
   const gate = gateCode === null ? undefined
@@ -416,6 +423,17 @@ export function resolveTaskFolder({
     && task.is_fixed !== true && task.is_virtual !== true
     && (!Object.hasOwn(task, 'node_kind') || task.node_kind === OBSERVABLE_NODE_KIND)
     && Number.isSafeInteger(task.id));
+  for (const overlay of overlays ?? []) {
+    for (const op of overlay?.ops ?? []) {
+      if (op?.op !== 'add' || op.stage_code !== stageCode || op.artifact_type_id !== artifactTypeId) continue;
+      if (!Number.isSafeInteger(op.task_id) || typeof op.folder_name !== 'string' || op.folder_name === '') continue;
+      // A person naming the folder will usually copy what is on disk, prefix and all. The number
+      // is checked separately, so a leading `{number}_` here is redundant rather than wrong and is
+      // dropped before the names are compared.
+      const name = op.folder_name.replace(/^\d{1,6}_/u, '');
+      tasks.push({ id: op.task_id, name, artifact_type_id: artifactTypeId });
+    }
+  }
   if (tasks.length === 0) {
     return { ok: false, reason: TASK_FOLDER_REFUSALS.ARTIFACT_NOT_AT_STAGE, detail: { gate_code: gateCode } };
   }
