@@ -1,5 +1,34 @@
 # CHANGELOG
 
+## 2026-08-19 - Slack batch: a blocked writer lease no longer fails silently
+
+An abandoned batch writer lease stopped the scheduled Slack collector across repeated runs while
+every health surface simply aged. `runSlackBatchLive` acquired `leases/slack-batch-live.lock` *outside*
+its try block, so `batch_lease_unavailable` was thrown before any receipt was written: the run
+exited `1` with no machine-readable reason, `state/slack-batch-live.json` was never refreshed, and
+the Watchtower `slack_batch` and `store_slack_custody` heartbeats only went stale. Nothing in the
+public tree said which of the launcher, manifest, binding, credential or lease gates had failed.
+
+- **The blocked path now publishes its exact blocker.** Before rethrowing, the runner writes
+  `health/store_slack_custody.json` with `status: "error"` and `error_codes: ["batch_lease_unavailable"]`,
+  preserving the prior `last_success_at`, `validation_digest` and `validated_count`. The
+  `store_slack_custody` lane therefore reports a named blocker instead of an unexplained gap.
+- **Fail-closed behaviour is unchanged.** The error is still rethrown, the exit code is still `1`,
+  the lock is never inspected for staleness, deleted or rewritten, no transport or provider call is
+  created, the lease-guarded custody store is not read, and `state/slack-batch-live.json` is left
+  untouched so a blocked run cannot green-wash the collector lane.
+- **Regression coverage.** A new test drives a run against a pre-existing lock and asserts the
+  thrown code, zero transport factory calls, byte-identical lock and batch state, the published
+  blocker code, the preserved last-good fields, and that no channel or workspace identity reaches
+  the receipt.
+
+운영 영향: 이 변경은 이미 남아 있는 lock 을 지우지 않는다. 실제 수집 복구는 여전히 owner/operator
+가 살아 있는 writer 가 없음을 먼저 증명한 뒤 승인된 private runtime 절차로만 lock 을 제거하는 별도
+행동을 요구한다. 그 뒤 첫 예약 실행부터 두 heartbeat 가 다시 갱신된다.
+
+관련 경로: `guild_hall/slack_history/slack_batch_live_runner.mjs`,
+`guild_hall/slack_history/slack_batch_live.test.mjs`, `guild_hall/slack_history/README.md`
+
 ## 2026-08-19 - Board observability: a stale quota number no longer looks like a current one
 
 The Board could not tell an Owner whether usage/quota collection was alive, stopped, slow, failed or

@@ -364,6 +364,57 @@ test("provider failure leaves a valid unchanged Slack custody store healthy idle
   assert.deepEqual(storeHealth.error_codes, []);
 });
 
+test("a blocking batch lease publishes its exact blocker to the custody health lane", async () => {
+  const fixture = await createBatchFixture({
+    bindingSpecs: [{ bindingId: "binding-a", workspaceId: "TAAA", channelId: "CAAA" }],
+  });
+  await runSlackBatchLive({
+    ...fixture.options,
+    transport_factory: async ({ binding }) => onePageTransport(binding, []),
+  });
+  const healthPath = path.join(fixture.stateRoot, "health", "store_slack_custody.json");
+  const batchStatePath = path.join(fixture.stateRoot, "state", "slack-batch-live.json");
+  const before = JSON.parse(await readFile(healthPath, "utf8"));
+  const batchStateBefore = await readFile(batchStatePath, "utf8");
+  const leasePath = path.join(fixture.stateRoot, "leases", "slack-batch-live.lock");
+  const abandonedLease = `${JSON.stringify({
+    schema_version: "soulforge.slack_batch_live.state.v1",
+    batch_binding_sha256: fixture.batchSha256,
+    writer_authority_id: "hpp-slack-batch-writer",
+    writer_epoch: 1,
+    pid: 1,
+  })}
+`;
+  await mkdir(path.dirname(leasePath), { recursive: true });
+  await writeFile(leasePath, abandonedLease);
+  let factoryCalls = 0;
+  await assert.rejects(
+    runSlackBatchLive({
+      ...fixture.options,
+      transport_factory: async ({ binding }) => {
+        factoryCalls += 1;
+        return onePageTransport(binding, []);
+      },
+    }),
+    (error) => error instanceof SlackBatchLiveError
+      && error.code === "batch_lease_unavailable",
+  );
+  assert.equal(factoryCalls, 0);
+  assert.equal(await readFile(leasePath, "utf8"), abandonedLease);
+  assert.equal(await readFile(batchStatePath, "utf8"), batchStateBefore);
+  const after = JSON.parse(await readFile(healthPath, "utf8"));
+  assert.equal(after.status, "error");
+  assert.deepEqual(after.error_codes, ["batch_lease_unavailable"]);
+  assert.equal(after.last_success_at, before.last_success_at);
+  assert.equal(after.validation_digest, before.validation_digest);
+  assert.equal(after.validated_count, before.validated_count);
+  assert.ok(Date.parse(after.completed_at) >= Date.parse(before.completed_at));
+  const serialized = JSON.stringify(after);
+  for (const forbidden of ["CAAA", "TAAA", "binding-a", fixture.privateRoot]) {
+    assert.equal(serialized.includes(forbidden), false);
+  }
+});
+
 test("corrupt Slack custody state fails store validation and preserves last-good", async () => {
   const fixture = await createBatchFixture({
     bindingSpecs: [{ bindingId: "binding-a", workspaceId: "TAAA", channelId: "CAAA" }],

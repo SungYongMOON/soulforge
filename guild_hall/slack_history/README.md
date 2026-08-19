@@ -180,10 +180,21 @@ rejects either direction of overlap with every forbidden root. Absolute path
 syntax alone is not a custody boundary.
 
 The writer lease is fail-closed. A process crash can leave
-`leases/slack-continuous.lock`; the harness does not guess that it is stale or
-auto-delete it. That lock is a manual recovery blocker: an owner/operator must
-first prove that no writer is live, then remove it only through the approved
-private runtime procedure. It does not authorize live Slack activation.
+`leases/slack-continuous.lock` or the batch `leases/slack-batch-live.lock`; the
+harness does not guess that either is stale or auto-delete it. That lock is a
+manual recovery blocker: an owner/operator must first prove that no writer is
+live, then remove it only through the approved private runtime procedure. It
+does not authorize live Slack activation.
+
+A blocked batch lease stays fail-closed but is no longer silent. Before
+rethrowing, `runSlackBatchLive` publishes `health/store_slack_custody.json`
+with `status: "error"` and the exact `batch_lease_unavailable` code, preserving
+the prior `last_success_at`, `validation_digest` and `validated_count`. It does
+not read the lease-guarded custody store, does not touch the lock, does not
+rewrite `state/slack-batch-live.json`, and creates no transport. Without that
+receipt an abandoned lock only stops the health lane from being refreshed, so
+every later scheduled run exits `1` with no machine-readable reason and the
+Watchtower `slack_batch` and `store_slack_custody` heartbeats merely age.
 
 Coverage uses the shared six states:
 

@@ -728,7 +728,22 @@ export async function runSlackBatchLive({
   const aggregate = baseAggregate("apply", context.batch_binding.bindings.length);
   const failures = new Map();
   const prepared = await prepareChannelBindings(context);
-  const lease = await acquireBatchLease(context);
+  let lease;
+  try {
+    lease = await acquireBatchLease(context);
+  } catch (error) {
+    // A blocked writer lease must stay fail-closed, but it cannot leave the
+    // custody health lane silent: publish the exact blocker code without
+    // reading the lease-guarded channel custody store and without touching the
+    // lease, then rethrow. Only the prior sanitized health receipt is read, so
+    // the last-good success time, digest and count survive the blocked cycle.
+    await writeSlackStoreValidity(context.state_root, {
+      attemptedAt,
+      succeeded: false,
+      errorCodes: [safeFailureCode(error)],
+    }).catch(() => {});
+    throw error;
+  }
   try {
     for (let index = 0; index < context.batch_binding.bindings.length; index += 1) {
       const reference = context.batch_binding.bindings[index];
