@@ -181,6 +181,8 @@ MCP는 문일 뿐이고, 아래 답은 오늘 KVDS(P26-014)에 실제로 돌린 
 | 엔진 질문 목록 `context_requests` | 엔진이 답을 기다리는 항목(불명 = 질문) | 없음(영수증에서 조립 가능) |
 | 영수증 재현 `audit_replay` | 같은 입력 → 같은 바이트 | 수동만 |
 
+**벤치마크로 더 넣기로 한 것(2026-08-19, 부록 A; 엔진 입장, 순위순)**: ① 엔진 상태 `engine_status`(버전·규칙판·스위치·프로필·영수증 경로·허용 폴더, 인자 없음) ② 변경 이후 `changes_since`(시각/run 이후 등록·확정·철회·판정 변화·해시 변화; 엔진은 훑은 시점만 앎) ③ `project_status` 보강(현재 단계 한 줄+근거, 단계별 개수·비율, 다음 단계로 못 가는 이유) ④ 항목 보기 `artifact_get` ⑤ 찾기 `rules_find`/`ledger_find`(키워드·단계·updated_since) ⑥ 리소스(`engine://rules/{stage}`·card·manual·profile·release·changelog + subscribe/list_changed) ⑦ 표준 질문 프롬프트 4개 ⑧ 계획 도구 같은 규격(`audit_replay`·`answer_record`·`context_requests`·`observe_amend` dry_run·destructiveHint) ⑨ 기준선 `baseline_set/get`(나중) ⑩ `binding_set`+흔들림 표시(나중) ⑪ 위생: 주석 정직화, 쓰기 꺼짐이면 쓰기 도구 숨김+list_changed, 인자 오류는 isError, 큰 결과 cursor/limit, 모든 결과에 schema_version. 넣지 않는 것: 사람 알림 발송·자유 코멘트·자연어 검색·일정·결재 흐름·문서 저술·삭제 도구·원격 멀티유저 문(비서 층 또는 밖).
+
 **폴더 정리의 원칙(엔진이 폴더를 관리할 때)**: 사람은 폴더를 직접 만지지 않는다. 잘못 저장 = 잘못 등록이므로 **등록 정정**으로 고치고, 파일 이동은 엔진 writer가 대장 기준으로 한다(권한·영수증). 훑기가 낸 미등록·청소 알림도 사람이 폴더에서 처리하는 게 아니라 등록/정정/삭제 요청으로 처리한다. 대량 잘못 저장이 나면 정정 목록을 한 번에 승인한다. 후보 확인표는 규칙 없이 쌓인 과거 자료의 첫 적재 1회용이다.
 
 ## 9.2 새 작업자(LLM 포함) 시작 체크리스트
