@@ -1,5 +1,48 @@
 # CHANGELOG
 
+## 2026-08-19 - A guide card's "왜" now says what the artifact is for, and its "어떻게" says with what
+
+The first answer the guidance layer produced had citations but no reason. Its "왜" was three
+template sentences — evidence grade, expected presence, verification status — and its "어떻게" was a
+form name and a citation count. This change fills both from the canon and from the rule table's own
+relations. Nothing here is written by a model, and no judgement moved.
+
+- **A new spec field `purpose_ko` (≤ 200 characters) with its own `purpose_refs` locators**, on the
+  rule rows of `SE_FolderTree_Guide.md` (v0.12 → **v0.13**, 71 of 100 tokens, 110 rows) and
+  `SE_FolderTree_GenericSE_Base.md` (v0.3 → **v0.4**, 79 of 115 tokens, 171 rows). Six readers in
+  parallel extracted, from their own canonical text only, the sentence in which that text says what
+  the artifact is for; a token is left empty where the canon only lists it. An independent critic
+  re-read a stratified sample of ten citations: 10/10 confirmed, no locator corrections. Method,
+  per-token locator table, coverage and open questions:
+  `.registry/skills/se_foldertree_generate/codex/references/artifact_purpose_derivation_v0.md`.
+- **The compiler validates the two new keys and reads neither.** A purpose changes no judgement, so
+  the rows carry it through to the compiled variant and nothing else in the compiler sees it. A
+  stated purpose without a locator is refused.
+- **`guide_cards.mjs` computes two more reasons.** `used_by` — which rows at the same or a later
+  gate name this artifact as an input — renders as "이것이 없으면 뒤의 X·Y가 막힌다", and `gate_role`
+  says whether the row is what a review is meant to produce or what it needs to start. The three
+  earlier sentences stay, now behind these.
+- **"어떻게" gains four things**: each input's observed state as 있음 / 없음 / 불명 (nobody looked is
+  불명 and never 없음); the form file the project actually holds, looked up read-only in a template
+  library by token, spec-row name, or abbreviation; citations grouped by canonical family
+  (규정 · 가이드북 · 실무지침서 · 일반SE), which the source catalogue names rather than the renderer;
+  and the owner capability as before.
+- **`template: 없음` is no longer read as a form called 없음.** Ten SRR rows and four CDR rows now
+  honestly say 양식 없음.
+- **The one-page answer splits its 왜 and 어떻게** into 목적 / 없으면 막히는 것 / 판정과 근거 and
+  입력 / 양식 / 방법 근거 / 담당, because a single joined line gets read as boilerplate after its
+  first clause.
+- **The runner takes `--template-library-root` (or a prepared `--template-library`).** It scans the
+  library read-only and emits library-relative references; a reference that is absolute or climbs
+  out of the library is refused by the pure layer, so a private worksite's location never reaches an
+  answer.
+- Tests: `validate:se-guidance` 42 → **55**, `validate:se-stage-rules` 53. The "no invented text"
+  test now checks that every slot value traces to a row field, a vocabulary label, a declared family
+  label, a counted relation, or the library reference.
+- Docs: manual §11.10 (how the two were filled, with the measured KVDS numbers), §11.2/§11.3/§11.5/
+  §11.6/§11.8 updated, manual §3.10 (how the purpose sentences were derived), engine README, the
+  manual reading-order table's 가이드 카드 row, and one line under the design's §5.
+
 ## 2026-08-19 - Team Ops Board explains Claude quota throttling and blocks premature Codex reset samples
 
 - Claude official-quota HTTP 429 responses now become the sanitized
@@ -49,6 +92,7 @@ part, tested entirely against canned DSM answers because no credential exists ye
   the project tree, while the link is a capability to one empty folder that says nothing about where
   it sits — redacting it would leave the roles allowed to open a ticket nothing to hand over.
 - `npm run validate:se-mcp` — **117** (was 104).
+
 
 ## 2026-08-19 - Antigravity request replay retains stronger canonical metadata
 

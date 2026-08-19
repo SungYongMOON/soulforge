@@ -183,15 +183,19 @@ function indexCards(cardSet) {
 }
 
 function inputsOf(card, workItem) {
-  // The work order records one thing about an input: whether an observation put it present. Any
-  // other input is `unknown` and never `missing` — the difference is whether anybody looked, and
-  // this layer is not the one that decides that.
+  // The card already read the observation for each input token (있음 / 없음 / 불명). Where a card
+  // could not be built, the work order still knows which inputs an observation put present, so the
+  // fallback keeps saying something true rather than nothing. An input nobody looked at is
+  // `unknown` and never `absent`: the difference is whether anybody looked, and this layer is not
+  // the one that decides that.
   const satisfied = new Set(workItem?.satisfied_inputs ?? []);
   return (card?.how?.inputs ?? []).map((input) => ({
     artifact_type_id: input.artifact_type_id,
     label_ko: input.label_ko ?? null,
     scope: input.scope,
-    input_state: satisfied.has(input.artifact_type_id) ? 'present' : 'unknown',
+    input_state: input.input_state
+      ?? (satisfied.has(input.artifact_type_id) ? 'present' : 'unknown'),
+    observation_state: input.observation_state ?? null,
   }));
 }
 
@@ -237,6 +241,11 @@ function buildInstruction(parameters) {
       reason_code: issue?.reason_code ?? null,
       blocked_by: [...(workItem?.blocked_by ?? [])],
       ready: workItem?.ready ?? null,
+      // 목적 · 뒤에 무엇이 막히나 · 어느 게이트의 무엇인가 — the three answers a person asks for
+      // before "on whose authority", which is what `guidance` carries.
+      purpose: card === undefined || card === null ? null : { ...card.purpose },
+      used_by: (card?.used_by ?? []).map((row) => ({ ...row })),
+      gate_role: card?.gate_role ?? workItem?.gate_role ?? null,
       guidance: (card?.why ?? []).map((sentence) => ({ ...sentence })),
     },
     inputs: inputsOf(card, workItem),
@@ -251,10 +260,20 @@ function buildInstruction(parameters) {
     how: {
       template: card === undefined || card === null ? null : { ...card.how.template },
       inputs_note: card?.how?.inputs_note ?? null,
+      input_state_note: card?.how?.input_state_note ?? null,
       method_refs: (card?.how?.method_refs ?? []).map((entry) => ({
         ref_kind: entry.ref_kind,
         evidence_level: entry.evidence_level,
         source_refs: entry.source_refs.map((ref) => ({ ...ref })),
+      })),
+      // The same citations grouped by canonical family (규정 · 가이드북 · 실무지침서 · 일반SE), which
+      // is the shape of "how is this done properly" that a flat locator list does not have.
+      method_families: (card?.how?.method_families ?? []).map((entry) => ({
+        family: entry.family,
+        label_ko: entry.label_ko,
+        ref_count: entry.ref_count,
+        source_refs: entry.source_refs.map((ref) => ({ ...ref })),
+        note: { ...entry.note },
       })),
       method_note: card?.how?.method_note ?? null,
       produces_for: (card?.how?.produces_for ?? []).map((row) => ({ ...row })),
@@ -338,6 +357,9 @@ export function buildInstructionPackets(request) {
     without_work_item: 0,
     with_due_date: 0,
     with_principal: 0,
+    with_purpose: 0,
+    with_used_by: 0,
+    with_template_ref: 0,
   };
   const instructions = [];
   const coveredRequirements = new Set();
@@ -399,6 +421,9 @@ export function buildInstructionPackets(request) {
     counts.by_engine_finding[finding] = (counts.by_engine_finding[finding] ?? 0) + 1;
     if (instruction.due !== null) counts.with_due_date += 1;
     if (instruction.who.principal_ref !== null) counts.with_principal += 1;
+    if (instruction.why.purpose?.stated === true) counts.with_purpose += 1;
+    if (instruction.why.used_by.length > 0) counts.with_used_by += 1;
+    if (instruction.how.template?.library?.found === true) counts.with_template_ref += 1;
   }
 
   const receipt = {

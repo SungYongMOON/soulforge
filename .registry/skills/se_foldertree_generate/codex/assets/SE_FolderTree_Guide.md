@@ -1,6 +1,6 @@
 ---
 title: 'SE 기반 폴더 트리 생성 지침 (000_REF/020_MGMT/단계별 게이트)'
-version: '0.12'
+version: '0.13'
 owner_team: 개발1팀
 variant_binding:
   support_key: system_dev_lig_grade_a
@@ -97,6 +97,12 @@ gates:
     template: 없음
     is_fixed: true
     artifact_type_id: tdp_exchange
+    purpose_ko: '제작·구현·생산 및 조달에 적합하도록 장비 품목의 기술적 특성과 필수사항을 묘사한 기술자료 묶음으로, 규격서·도면·SW 기술자료·품질보증요구서·자료목록 등을 포함.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§5.9.2 (p.152)'
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '부록A 24 (p.177)'
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
@@ -121,6 +127,12 @@ gates:
     source: LIG 개발품질 3
     template: Q2 승인 양식
     artifact_type_id: prime_q2_development_execution_plan
+    purpose_ko: '연구개발주관업체가 탐색개발 또는 체계개발 단계의 수행계획을 문서화한 개발실행계획서로, 승인 절차를 거쳐 확정·통보되며 체계공학관리계획(SEMP)을 부록으로 포함.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '부록A 2 (p.173)'
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§5.1.3.4 (p.103)'
     evidence_level: prime_contract
     source_refs:
     - source_key: dapa_program_management_rule_law_20260811
@@ -142,6 +154,12 @@ gates:
     source: 방사청 가이드북 4
     template: p.129 (부록 F) 4
     artifact_type_id: semp
+    purpose_ko: '해당 획득사업에서 요구되는 모든 공학적 활동의 관리 방안과 수행 방안을 정의한 포괄적 문서로, 발주기관의 체계공학계획에 의거하여 연구개발주관기관이 작성.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.120'
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.133'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_management_practice_guide
@@ -167,6 +185,14 @@ gates:
     source: 방사청 가이드북 5
     template: p.30 (진입기준) 5
     artifact_type_id: qa_plan
+    purpose_ko: '획득사업의 기술적 진척을 위해 단계별 주요승인문서에 들어가는 기술계획문서의 하나로, 개발품의 품질특성과 구성품·부품별 품질보증 활동 절차를 정함.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.116'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.47'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.85'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -188,6 +214,10 @@ gates:
     source: LIG 개발품질 6
     template: 착수회의록 양식
     artifact_type_id: review_minutes_kickoff
+    purpose_ko: '사업 승인 후 이해관계자가 사업의 목표·의사결정체제·추진 일정·기관별 역할과 책임 등을 합의하기 위해 수행하는 사업착수회의의 기록.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§4.10.1.1 (p.93)'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_management_practice_guide
@@ -203,6 +233,12 @@ gates:
     source: 방사청 가이드북 7
     template: p.119 (함정사례) 8
     artifact_type_id: conops
+    purpose_ko: '최상위 수준에서 무기체계가 임무 달성을 위해 운용되는 거동·기능과 성취할 효과를 사용자 관점에서 정의한 것으로, 체계 기능 요구사항 및 제약사항을 식별하는 체계요구사항 분석에 활용.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '부록A 84 (p.188)'
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§3.2.1 (p.47)'
     evidence_level: unstated
     source_refs:
     - source_key: dapa_se_technical_management_practice_guide
@@ -240,6 +276,10 @@ gates:
     source: 방사청 가이드북 9
     template: p.131 (서식) 10
     artifact_type_id: ssrs
+    purpose_ko: '연구개발주관기관은 운용요구서를 토대로 체계요구사항명세서를 작성한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제78조④'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -278,6 +318,12 @@ gates:
     source: 방사청 가이드북 5
     template: p.30 (진입기준) 5
     artifact_type_id: risk_register
+    purpose_ko: '획득과정에서 발생할 수 있는 잠재적 위험을 비용·일정·성능 등 여러 측면에서 분석·평가한 결과와, 위험을 사전에 식별·처리하기 위한 위험관리계획서 등을 포함하는 문서.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.116'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.40'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -297,6 +343,12 @@ gates:
     source: 방사청 가이드북 11
     template: p.38 (종료기준) 11
     artifact_type_id: review_minutes_srr
+    purpose_ko: '연구개발주관기관은 체계요구조건검토를 수행하고 그 결과를 통합사업관리팀장에게 제출하며, 체계요구조건검토는 탐색개발을 생략하는 경우에만 수행한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제79조②'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제56조④'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -316,6 +368,10 @@ gates:
     source: 계약서 12
     template: 계약 요구사항 12
     artifact_type_id: cdrl
+    purpose_ko: '소프트웨어 개발과 유지보수를 위해 납품해야 할 산출물 항목을 식별하여 반영한 목록.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.47'
     evidence_level: unstated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -333,6 +389,10 @@ gates:
     source: 방사청 가이드북 13
     template: p.39 (산출물) 13
     artifact_type_id: sdp
+    purpose_ko: '통합사업관리팀장은 연구개발주관기관이 작성한 소프트웨어개발계획서를 검토하고 승인한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제49조①'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -353,6 +413,12 @@ gates:
     source: 방사청 가이드북 14
     template: p.35 (기술계획) 14
     artifact_type_id: temp
+    purpose_ko: '시험평가기본계획서는 연구개발 무기체계의 시험평가계획을 종합적으로 명시한 문서로서 개발시험평가계획서와 운용시험평가계획서 수립의 기준이 되며, 상세설계검토 종료 후 3개월 이내에 확정·통보된다.'
+    purpose_refs:
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제60조②'
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제63조③'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -372,6 +438,12 @@ gates:
     source: 방사청 가이드북 5
     template: p.30 (진입기준) 5
     artifact_type_id: fci
+    purpose_ko: '체계요구조건검토 이후 개발품목의 기능적 특성을 식별하여 기술하는 문서로, 기능기준선의 대상.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.117'
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.26'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -400,6 +472,10 @@ gates:
     source: 방사청 가이드북 13
     template: 산출물 목록 참조 13
     artifact_type_id: icd
+    purpose_ko: '연동통제문서는 소요결정문서의 연동합의문서를 근거로 연동대상체계 운용·개발기관과 협의하여 작성하고 상세설계 완료 전까지 확정하며, 체계 간 상호운용성 관리를 위한 문서이다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제43조①'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -426,6 +502,14 @@ gates:
     source: 국방전력발전업무훈령 제63조①
     template: 없음
     artifact_type_id: p_temp
+    purpose_ko: '예비시험평가기본계획서는 시험평가기본계획서 작성지침을 준용해 작성하여 통합사업관리팀 검토를 거쳐 합참에 제출하며, 합참이 시험평가기본계획서(안)을 작성하는 근거자료가 된다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제73조②'
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제63조①'
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제63조②'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_program_management_rule_law_20260811
@@ -446,6 +530,10 @@ gates:
     source: 방위사업관리규정 제64조①
     template: 없음
     artifact_type_id: ms_plan
+    purpose_ko: '무기체계 연구개발의 일정·비용·성능을 과학적으로 검증·예측하여 합리적·경제적으로 관리하기 위해 수명주기 단계별 M&S 활용계획을 수립·적용하고, 그 결과를 결과보고서 제출 전 SBA체계에 등록한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제64조①'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_program_management_rule_law_20260811
@@ -466,6 +554,10 @@ gates:
     source: 방위사업관리규정 제41조·제42조
     template: 없음
     artifact_type_id: interop_plan
+    purpose_ko: '무기체계 획득 전 단계에 걸친 상호운용성 보장 활동에서 일관된 상호운용성을 확보하기 위하여 획득단계별 상호운용성 확보계획을 수립하여야 한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제41조①'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_program_management_rule_law_20260811
@@ -486,6 +578,10 @@ gates:
     source: 방위사업관리규정 제76조⑤
     template: 없음
     artifact_type_id: ram_plan
+    purpose_ko: 'RAM 분석자료는 총수명주기체계관리를 위한 최적군수지원 소요판단자료로서 체계개발 간 소요군에 제출하며, 신뢰도성장 계획과 조치결과를 포함한 분석결과 보고서는 소요군 검토를 받아야 한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제76조⑤'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_program_management_rule_law_20260811
@@ -506,6 +602,12 @@ gates:
     source: 방위사업관리규정 제78조⑨
     template: 없음
     artifact_type_id: wbs
+    purpose_ko: '사업성과관리체계 적용사업은 사업의 투명성 확보와 사업 위험도 분석을 목표로 하는 업무분할구조 관리방안을 수립·시행하여야 하며, 적용사업이 아닌 경우에도 이를 위한 대안을 마련하여야 한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제78조⑨'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제63조①'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_program_management_rule_law_20260811
@@ -524,6 +626,12 @@ gates:
     source: SE기반 기술검토회의 가이드북 p.45
     template: 없음
     artifact_type_id: cm_plan
+    purpose_ko: '형상관리는 품목의 전체 수명주기 동안 경제적인 운영을 목적으로 하며, 형상식별 및 문서화, 형상통제, 형상확인, 기술자료 관리로 구분된다.'
+    purpose_refs:
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제158조①'
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제158조②'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -544,6 +652,12 @@ gates:
     source: 방위사업관리규정 제70조③
     template: 없음
     artifact_type_id: technical_review_package
+    purpose_ko: '업체주관 연구개발사업은 공식기술검토회의 자료를 개최 2주일 전에 통합사업관리팀과 신속원에 제출하고, 신속원이 진입조건 충족 여부를 검토·통보하면 통합사업관리팀이 회의 개최 여부를 결정한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제70조③'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제78조⑧'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_program_management_rule_law_20260811
@@ -564,6 +678,14 @@ gates:
     source: 방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력
     template: 없음
     artifact_type_id: act_functional_analysis_allocation
+    purpose_ko: '체계 최상위 수준의 기능을 정의하고 이를 만족하는 세부기능으로 분해·기능 아키텍처에 할당하는 과정으로, 외부 체계 인터페이스를 포함하며 확정된 체계 기능은 물리적 아키텍처의 구성품에 할당되어 설계 수행의 기준이 됨.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '부록A 18 (p.176)'
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§3.5.1 (p.54)'
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§3.5.2 (p.54)'
     node_kind: activity
     is_virtual: true
     evidence_level: guidebook_recommended
@@ -584,6 +706,10 @@ gates:
     source: 방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력
     template: 없음
     artifact_type_id: act_stakeholder_expectations
+    purpose_ko: '사업 이해관계자의 요구·기대·제약사항을 수집·조정해 사용자 요구사항을 정립하고, 제작·시험·운영 등 수명주기 전반의 체계요구사항을 정의·분석·승인받아 연구개발의 기준을 정립하는 활동.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§5.7.1 (p.140)'
     node_kind: activity
     is_virtual: true
     evidence_level: guidebook_recommended
@@ -602,6 +728,12 @@ gates:
     source: 방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력
     template: 없음
     artifact_type_id: act_technical_review
+    purpose_ko: '연구개발주관기관은 체계요구조건검토·체계기능검토·기본설계검토·상세설계검토·시험준비상태검토와 체계기능형상확인, 양산기준설정 등을 위한 물리적 형상확인을 수행하고 그 결과를 통합사업관리팀장에게 제출한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제79조②'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제56조④'
     node_kind: activity
     is_virtual: true
     evidence_level: guidebook_recommended
@@ -656,6 +788,12 @@ gates:
     template: 없음
     is_fixed: true
     artifact_type_id: tdp_exchange
+    purpose_ko: '제작·구현·생산 및 조달에 적합하도록 장비 품목의 기술적 특성과 필수사항을 묘사한 기술자료 묶음으로, 규격서·도면·SW 기술자료·품질보증요구서·자료목록 등을 포함.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§5.9.2 (p.152)'
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '부록A 24 (p.177)'
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
@@ -667,6 +805,10 @@ gates:
     source: 방사청 가이드북 15
     template: p.22 (기준선 정의) 15
     artifact_type_id: ssrs
+    purpose_ko: '연구개발주관기관은 운용요구서를 토대로 체계요구사항명세서를 작성한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제78조④'
     evidence_level: unstated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -684,6 +826,14 @@ gates:
     source: 방사청 가이드북 16
     template: p.40 (개요) 16
     artifact_type_id: functional_analysis
+    purpose_ko: '체계요구사항을 기준으로 체계가 보유해야 할 기능을 도출·분석하고 부체계·구성품에 요구사항과 기능을 할당한 결과 자료로, 확정된 체계 기능은 설계 수행의 기준이 됨.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§3.5.1 (p.54)'
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§3.5.3 (p.54)'
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '부록A 18 (p.176)'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_management_practice_guide
@@ -718,6 +868,10 @@ gates:
     source: 방사청 가이드북 17
     template: p.112 (추적성) 17
     artifact_type_id: rtm
+    purpose_ko: '사용자 요구사항부터 체계·구성품 요구사항과 작업 산출물까지 양방향 추적성을 유지하는 매트릭스로, 요구사항 변경 요청 시 그 변경이 체계에 미치는 영향을 판단하는 기초 자료로 활용.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§5.8.3.4 (p.149)'
     evidence_level: unstated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -748,6 +902,10 @@ gates:
     source: 방사청 가이드북 18
     template: p.50 (산출물) 18
     artifact_type_id: icd
+    purpose_ko: '연동통제문서는 소요결정문서의 연동합의문서를 근거로 연동대상체계 운용·개발기관과 협의하여 작성하고 상세설계 완료 전까지 확정하며, 체계 간 상호운용성 관리를 위한 문서이다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제43조①'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -770,6 +928,12 @@ gates:
     source: 시험평가 19
     template: 기본전략 참조 19
     artifact_type_id: vv_strategy
+    purpose_ko: '체계요구조건 및 작전운용성능에 대한 검사와 타당성 확인으로, 검증은 요구조건·규격의 준수 여부를, 확인은 작전운용성능을 충족하여 실제 체계 모습대로 만들어졌는지를 검토.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.118'
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.110'
     evidence_level: unstated
     source_refs:
     - source_key: dapa_se_technical_management_practice_guide
@@ -789,6 +953,12 @@ gates:
     source: 방사청 가이드북 8
     template: p.119 (분석절차) 20
     artifact_type_id: trade_study
+    purpose_ko: '대안 체계 개념의 운용효과성·운용적합성과 예상 비용·위험을 평가해 각 대안의 장단점을 분석하는 활동으로, 작성된 선정기준에 따라 최적의 설계대안을 선정하기 위해 수행.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '부록A 28 (p.179)'
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§5.9.3.1 (p.152)'
     evidence_level: unstated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -804,6 +974,10 @@ gates:
     source: LIG 개발품질 21
     template: G1 Gate 양식 21
     artifact_type_id: review_minutes_sfr
+    purpose_ko: '연구개발주관기관은 체계기능검토를 수행하고 그 결과를 통합사업관리팀장에게 제출한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제79조②'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -819,6 +993,12 @@ gates:
     source: 방사청 가이드북 18
     template: p.50 (산출물) 18
     artifact_type_id: fci
+    purpose_ko: '체계요구조건검토 이후 개발품목의 기능적 특성을 식별하여 기술하는 문서로, 기능기준선의 대상.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.117'
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.26'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -847,6 +1027,12 @@ gates:
     source: 방사청 가이드북 22
     template: p.132 (서식) 22
     artifact_type_id: hrs
+    purpose_ko: '하드웨어에 대한 요구조건과 각 요구조건의 충족을 검증하기 위한 방법을 기술하는 문서.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.126'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.120'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -862,6 +1048,12 @@ gates:
     source: 방사청 가이드북 18
     template: 산출물 목록 참조
     artifact_type_id: srs
+    purpose_ko: '소프트웨어 형상품목(CSCI)에 대한 요구조건과 각 요구조건의 충족을 검증하기 위한 방법을 기술하는 문서.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.120'
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.112'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -877,6 +1069,14 @@ gates:
     source: 방사청 가이드북 18
     template: p.50 (산출물) 18
     artifact_type_id: ssdd
+    purpose_ko: '체계·부체계 형상품목에 대한 구조설계 및 기본설계 내용을 기술하는 문서로, 할당기준선 설정의 대상.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.127'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.121'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.31'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -890,6 +1090,12 @@ gates:
     source: 방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력
     template: 없음
     artifact_type_id: act_technical_review
+    purpose_ko: '연구개발주관기관은 체계요구조건검토·체계기능검토·기본설계검토·상세설계검토·시험준비상태검토와 체계기능형상확인, 양산기준설정 등을 위한 물리적 형상확인을 수행하고 그 결과를 통합사업관리팀장에게 제출한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제79조②'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제56조④'
     node_kind: activity
     is_virtual: true
     evidence_level: guidebook_recommended
@@ -948,6 +1154,12 @@ gates:
     template: 없음
     is_fixed: true
     artifact_type_id: tdp_exchange
+    purpose_ko: '제작·구현·생산 및 조달에 적합하도록 장비 품목의 기술적 특성과 필수사항을 묘사한 기술자료 묶음으로, 규격서·도면·SW 기술자료·품질보증요구서·자료목록 등을 포함.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§5.9.2 (p.152)'
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '부록A 24 (p.177)'
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
@@ -970,6 +1182,12 @@ gates:
     source: 방사청 가이드북 23
     template: 산출물 목록 참조
     artifact_type_id: dci
+    purpose_ko: '기본설계검토 이후 개발품목의 기능적·물리적 특성을 식별하여 기술하는 문서로, 할당기준선의 대상.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.117'
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.27'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -991,6 +1209,14 @@ gates:
     source: 방사청 가이드북 24
     template: p.133 (서식) 25
     artifact_type_id: ssdd
+    purpose_ko: '체계·부체계 형상품목에 대한 구조설계 및 기본설계 내용을 기술하는 문서로, 할당기준선 설정의 대상.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.127'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.121'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.31'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1006,6 +1232,12 @@ gates:
     source: 방사청 가이드북 26
     template: p.53 (진입기준) 26
     artifact_type_id: hrs
+    purpose_ko: '하드웨어에 대한 요구조건과 각 요구조건의 충족을 검증하기 위한 방법을 기술하는 문서.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.126'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.120'
     evidence_level: unstated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1021,6 +1253,12 @@ gates:
     source: 방사청 가이드북 26
     template: p.53 (진입기준) 26
     artifact_type_id: srs
+    purpose_ko: '소프트웨어 형상품목(CSCI)에 대한 요구조건과 각 요구조건의 충족을 검증하기 위한 방법을 기술하는 문서.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.120'
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.112'
     evidence_level: unstated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1036,6 +1274,12 @@ gates:
     source: 방사청 가이드북 24
     template: p.64 (산출물) 24
     artifact_type_id: idd
+    purpose_ko: '내·외부 인터페이스의 구조설계 및 상세설계 내용을 기술하는 문서.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.121'
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.113'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1049,6 +1293,10 @@ gates:
     source: 방사청 가이드북 24
     template: 산출물 목록 참조
     artifact_type_id: icd
+    purpose_ko: '연동통제문서는 소요결정문서의 연동합의문서를 근거로 연동대상체계 운용·개발기관과 협의하여 작성하고 상세설계 완료 전까지 확정하며, 체계 간 상호운용성 관리를 위한 문서이다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제43조①'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1072,6 +1320,10 @@ gates:
     source: 방사청 가이드북 17
     template: 추적표 양식
     artifact_type_id: rtm
+    purpose_ko: '사용자 요구사항부터 체계·구성품 요구사항과 작업 산출물까지 양방향 추적성을 유지하는 매트릭스로, 요구사항 변경 요청 시 그 변경이 체계에 미치는 영향을 판단하는 기초 자료로 활용.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§5.8.3.4 (p.149)'
     evidence_level: unstated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1096,6 +1348,12 @@ gates:
     source: 방사청 가이드북 27
     template: 산출물 목록 참조
     artifact_type_id: temp
+    purpose_ko: '시험평가기본계획서는 연구개발 무기체계의 시험평가계획을 종합적으로 명시한 문서로서 개발시험평가계획서와 운용시험평가계획서 수립의 기준이 되며, 상세설계검토 종료 후 3개월 이내에 확정·통보된다.'
+    purpose_refs:
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제60조②'
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제63조③'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1113,6 +1371,12 @@ gates:
     source: LIG 개발품질 21
     template: G2 Gate 양식 21
     artifact_type_id: review_minutes_pdr
+    purpose_ko: '연구개발주관기관은 기본설계검토를 수행하고 그 결과를 통합사업관리팀장에게 제출하며, 이 회의에는 소요군·국과연·기품원 등 전문인력이 참여하여 검토하도록 하여야 한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제79조②'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제56조④'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1130,6 +1394,14 @@ gates:
     source: 방사청 가이드북 24
     template: p.64 (산출물) 24
     artifact_type_id: hdd
+    purpose_ko: '하드웨어 형상품목에 대한 구조설계 및 상세설계 내용을 기술하는 문서로, 제품기준선 설정의 대상.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.128'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.121'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.31'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1150,6 +1422,12 @@ gates:
     source: 방사청 가이드북 24
     template: 산출물 목록 참조
     artifact_type_id: sdd
+    purpose_ko: '소프트웨어 형상품목에 대한 구조설계 및 상세설계 내용을 기술하는 문서로, 제품기준선 설정의 대상.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.121'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.31'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1165,6 +1443,12 @@ gates:
     source: 방사청 가이드북 24
     template: 산출물 목록 참조
     artifact_type_id: dbdd
+    purpose_ko: '데이터베이스에 대한 구조설계 및 상세설계 내용을 기술하는 문서.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.121'
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.111'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2024
@@ -1184,6 +1468,12 @@ gates:
     source: 방사청 가이드북
     template: 산출물 목록 참조
     artifact_type_id: drawings
+    purpose_ko: '제품기준선을 이루는 설계문서로, 물리적 형상확인에서 시제품의 조립형상과 치수·공차·재질이 도면과 일치하는지 판단하는 기준.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.31'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.131'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_management_practice_guide
@@ -1211,6 +1501,10 @@ gates:
     source: LIG 개발품질 28
     template: 산출물 목록 참조
     artifact_type_id: bom
+    purpose_ko: '부품목록·자재명세서는 국방규격서·도면 등과 함께 국방규격 제정현황 및 목록에 포함되어, 운영유지단계 형상관리를 위해 사업종료 1개월 전까지 사업지원부·기품원·국기연에 제출된다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제55조④'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1224,6 +1518,14 @@ gates:
     source: 방위사업관리규정 제79조④
     template: 없음
     artifact_type_id: registered_parts_plan
+    purpose_ko: '등록부품활용계획은 등록된 부품의 체계 활용성을 검토하여 사용 여부와 미사용 사유 등을 담아 제출하는 자료로, 국산화기본계획에 포함하여 작성하고 기본설계검토회의에서 반영하여야 한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제27조⑧'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제76조⑥'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제79조④'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_program_management_rule_law_20260811
@@ -1242,6 +1544,12 @@ gates:
     source: 방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력
     template: 없음
     artifact_type_id: act_technical_review
+    purpose_ko: '연구개발주관기관은 체계요구조건검토·체계기능검토·기본설계검토·상세설계검토·시험준비상태검토와 체계기능형상확인, 양산기준설정 등을 위한 물리적 형상확인을 수행하고 그 결과를 통합사업관리팀장에게 제출한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제79조②'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제56조④'
     node_kind: activity
     is_virtual: true
     evidence_level: guidebook_recommended
@@ -1301,6 +1609,12 @@ gates:
     template: 없음
     is_fixed: true
     artifact_type_id: tdp_exchange
+    purpose_ko: '제작·구현·생산 및 조달에 적합하도록 장비 품목의 기술적 특성과 필수사항을 묘사한 기술자료 묶음으로, 규격서·도면·SW 기술자료·품질보증요구서·자료목록 등을 포함.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§5.9.2 (p.152)'
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '부록A 24 (p.177)'
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
@@ -1323,6 +1637,14 @@ gates:
     source: 방사청 가이드북 29
     template: p.134 (서식) 30
     artifact_type_id: hdd
+    purpose_ko: '하드웨어 형상품목에 대한 구조설계 및 상세설계 내용을 기술하는 문서로, 제품기준선 설정의 대상.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.128'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.121'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.31'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1345,6 +1667,12 @@ gates:
     source: 방사청 가이드북 29
     template: p.67 (진입기준) 29
     artifact_type_id: sdd
+    purpose_ko: '소프트웨어 형상품목에 대한 구조설계 및 상세설계 내용을 기술하는 문서로, 제품기준선 설정의 대상.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.121'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.31'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1362,6 +1690,12 @@ gates:
     source: 방사청 가이드북 31
     template: 산출물 목록 참조
     artifact_type_id: dbdd
+    purpose_ko: '데이터베이스에 대한 구조설계 및 상세설계 내용을 기술하는 문서.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.121'
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.111'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1381,6 +1715,12 @@ gates:
     source: 방사청 가이드북 31
     template: p.78 (산출물) 31
     artifact_type_id: idd
+    purpose_ko: '내·외부 인터페이스의 구조설계 및 상세설계 내용을 기술하는 문서.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.121'
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.113'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1394,6 +1734,10 @@ gates:
     source: 방사청 가이드북 31
     template: 산출물 목록 참조
     artifact_type_id: icd
+    purpose_ko: '연동통제문서는 소요결정문서의 연동합의문서를 근거로 연동대상체계 운용·개발기관과 협의하여 작성하고 상세설계 완료 전까지 확정하며, 체계 간 상호운용성 관리를 위한 문서이다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제43조①'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1419,6 +1763,12 @@ gates:
     source: 방사청 가이드북 29
     template: p.67 (진입기준) 29
     artifact_type_id: drawings
+    purpose_ko: '제품기준선을 이루는 설계문서로, 물리적 형상확인에서 시제품의 조립형상과 치수·공차·재질이 도면과 일치하는지 판단하는 기준.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.31'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.131'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_management_practice_guide
@@ -1448,6 +1798,10 @@ gates:
     source: LIG 개발품질 28
     template: Q4 점검항목
     artifact_type_id: bom
+    purpose_ko: '부품목록·자재명세서는 국방규격서·도면 등과 함께 국방규격 제정현황 및 목록에 포함되어, 운영유지단계 형상관리를 위해 사업종료 1개월 전까지 사업지원부·기품원·국기연에 제출된다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제55조④'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1493,6 +1847,10 @@ gates:
     source: LIG 개발품질 32
     template: 첨부2 (발주문서) 32
     artifact_type_id: wps
+    purpose_ko: '구성품·부품의 제조 및 조립 공정에서 요구되는 용접·열처리·도금·세척 등 제반 특수처리 공정과 제조 표준, 시험절차에 대한 적용기준을 명시하는 공정규격서.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '부록D (p.320)'
     evidence_level: unstated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1508,6 +1866,10 @@ gates:
     source: LIG 개발품질 33
     template: 검토보고서 양식
     artifact_type_id: manufacturing_design_review
+    purpose_ko: '기본설계검토·상세설계검토회의에는 소요군·국과연·기품원 등 전문인력이 참여하여 검토하며, 이때 기품원은 RAM 자료 분석결과와 품질자료를 수집하고 양산관점의 품질보증의견을 제시하여야 한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제56조④'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_program_management_rule_law_20260811
@@ -1523,6 +1885,12 @@ gates:
     source: LIG 개발품질 28
     template: Q4 점검항목
     artifact_type_id: manufacturing_process_flow
+    purpose_ko: '체계 생산을 위한 제조공정이 적절하게 계획되고 추적·통제됨을 보이는 제조기술문서로, 작업 공정표·작업지도서·검사 표준서의 적절성을 물리적 형상확인에서 검토.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.108'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.132'
     evidence_level: unstated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1540,6 +1908,10 @@ gates:
     source: 방사청 가이드북 34
     template: 추적표 양식
     artifact_type_id: rtm
+    purpose_ko: '사용자 요구사항부터 체계·구성품 요구사항과 작업 산출물까지 양방향 추적성을 유지하는 매트릭스로, 요구사항 변경 요청 시 그 변경이 체계에 미치는 영향을 판단하는 기초 자료로 활용.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§5.8.3.4 (p.149)'
     evidence_level: unstated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1564,6 +1936,12 @@ gates:
     source: 방사청 가이드북 34
     template: p.75 (점검항목) 34
     artifact_type_id: ram_analysis_report
+    purpose_ko: '신뢰도성장을 위한 계획과 조치결과를 포함한 RAM 분석결과 보고서를 소요군에 통보하여 검토를 받아야 하며, 기본설계·상세설계검토회의에서는 기품원이 RAM 자료 분석결과를 수집한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제76조⑤'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제56조④'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1579,6 +1957,12 @@ gates:
     source: LIG 개발품질 21
     template: G3 Gate 양식 21
     artifact_type_id: review_minutes_cdr
+    purpose_ko: '연구개발주관기관은 상세설계검토를 수행하고 그 결과를 통합사업관리팀장에게 제출하며, 이 회의에는 소요군·국과연·기품원 등 전문인력이 참여하여 검토하도록 하여야 한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제79조②'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제56조④'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1594,6 +1978,12 @@ gates:
     source: 방사청 가이드북 35
     template: 산출물 목록 참조
     artifact_type_id: hrs
+    purpose_ko: '하드웨어에 대한 요구조건과 각 요구조건의 충족을 검증하기 위한 방법을 기술하는 문서.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.126'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.120'
     evidence_level: unstated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1609,6 +1999,12 @@ gates:
     source: 방사청 가이드북 35
     template: 산출물 목록 참조
     artifact_type_id: srs
+    purpose_ko: '소프트웨어 형상품목(CSCI)에 대한 요구조건과 각 요구조건의 충족을 검증하기 위한 방법을 기술하는 문서.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.120'
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.112'
     evidence_level: unstated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1643,6 +2039,14 @@ gates:
     source: 방사청 가이드북 35
     template: 산출물 목록 참조
     artifact_type_id: pci
+    purpose_ko: '개발 및 운용시험평가 이후 초도생산기준 설정 등을 위해 기능적·물리적 특성을 식별하여 기술하는 문서로, 제품기준선의 대상.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.117'
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.27'
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.107'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1660,6 +2064,14 @@ gates:
     source: 방위사업관리규정 제78조③
     template: 없음
     artifact_type_id: mra_report
+    purpose_ko: '제조성숙도평가 결과는 양산단계 진입 여부 결정과 다음 단계 사업추진 여부 심의에 반영되며, 연구개발주관기관은 목표 성숙도 수준인 제조성숙도수준 8을 달성하여야 한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제56조④'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제79조③'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제78조③'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_program_management_rule_law_20260811
@@ -1680,6 +2092,12 @@ gates:
     source: 방위사업관리규정 제65조①
     template: 없음
     artifact_type_id: mid_check_report
+    purpose_ko: '사업중간점검은 상세설계검토 종료 이전에 소요·사업비용·일정 등 사업관리 위험요소를 점검하는 것이며, 그 점검결과에 따라 국방부·합참·소요군 등과 협의를 거쳐 후속조치를 취하여야 한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제65조①'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제65조④'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_program_management_rule_law_20260811
@@ -1696,6 +2114,12 @@ gates:
     source: 방위사업관리규정 제79조①
     template: 없음
     artifact_type_id: critical_parts_test_report
+    purpose_ko: '선정된 핵심부품·구성품 시험은 공인시험기관 또는 청이 승인한 기관에서 수행하고 그 시험성적서를 개발시험평가 결과에 포함하여 제출하여야 하며, 시험대상은 상세설계검토 시까지 선정한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제79조⑤'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제79조①'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_program_management_rule_law_20260811
@@ -1712,6 +2136,12 @@ gates:
     source: 방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력
     template: 없음
     artifact_type_id: act_technical_review
+    purpose_ko: '연구개발주관기관은 체계요구조건검토·체계기능검토·기본설계검토·상세설계검토·시험준비상태검토와 체계기능형상확인, 양산기준설정 등을 위한 물리적 형상확인을 수행하고 그 결과를 통합사업관리팀장에게 제출한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제79조②'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제56조④'
     node_kind: activity
     is_virtual: true
     evidence_level: guidebook_recommended
@@ -1775,6 +2205,12 @@ gates:
     template: 없음
     is_fixed: true
     artifact_type_id: tdp_exchange
+    purpose_ko: '제작·구현·생산 및 조달에 적합하도록 장비 품목의 기술적 특성과 필수사항을 묘사한 기술자료 묶음으로, 규격서·도면·SW 기술자료·품질보증요구서·자료목록 등을 포함.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§5.9.2 (p.152)'
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '부록A 24 (p.177)'
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
@@ -1858,6 +2294,10 @@ gates:
     source: 방사청 가이드북 39
     template: p.89 (산출물) 39
     artifact_type_id: vdd
+    purpose_ko: '소프트웨어 산출물명세서에는 유지보수 및 재사용을 위한 소스코드·라이브러리·오브젝트코드·실행파일 등 각종 컴퓨터화일이 포함되며, 형상통제 대상 기술문서와 함께 규격화 대상 소프트웨어 기술자료를 이룬다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제50조①'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1909,6 +2349,12 @@ gates:
     source: LIG 개발품질 40
     template: Q6 검사 양식 40
     artifact_type_id: prime_q6_sw_reliability_test
+    purpose_ko: '소프트웨어 신뢰성시험은 개발시험평가 항목의 하나이며, 소요기간과 시험시설 이용 여건을 고려해 필요성이 인정되면 시험평가기본계획서에 반영하여 개발시험평가 이전에 수행할 수 있다.'
+    purpose_refs:
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제64조③'
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제64조④'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1928,6 +2374,14 @@ gates:
     source: LIG 개발품질 40
     template: 검사절차서 양식
     artifact_type_id: atp
+    purpose_ko: '품질보증 활동에 의한 생산단위별 형상품목 수락에 적절하도록 수락시험의 절차와 요구조건을 정한 자료로, 품질보증요구서에 포함되어 물리적 형상확인 시 확인.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.110'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.108'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.106'
     evidence_level: unstated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1945,6 +2399,12 @@ gates:
     source: 방사청 가이드북 39
     template: p.89 (산출물) 39
     artifact_type_id: temp
+    purpose_ko: '시험평가기본계획서는 연구개발 무기체계의 시험평가계획을 종합적으로 명시한 문서로서 개발시험평가계획서와 운용시험평가계획서 수립의 기준이 되며, 상세설계검토 종료 후 3개월 이내에 확정·통보된다.'
+    purpose_refs:
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제60조②'
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제63조③'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: mnd_force_development_directive_law_20260701
@@ -1979,6 +2439,10 @@ gates:
     source: LIG 개발품질 45
     template: Q7 검사 양식 40
     artifact_type_id: prime_q7_factory_acceptance_test
+    purpose_ko: '제작 및 구현 결과를 각 구성품 또는 부체계 차원에서 확인하기 위해 수행하는 공장수락시험(FAT)의 성적 기록.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§3.8.2 (p.57)'
     evidence_level: prime_contract
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -1994,6 +2458,14 @@ gates:
     source: 방사청 가이드북 41
     template: p.79 (수행시기) 41
     artifact_type_id: review_minutes_trr
+    purpose_ko: '시험준비검토회의는 개발시험평가 수행 15일 전 및 운용시험평가 착수 15일 전까지 개최함을 원칙으로 하며, 회의에서 확인된 시험준비 상태를 합참에 통보한다.'
+    purpose_refs:
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제65조①'
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제68조①'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제79조②'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -2015,6 +2487,12 @@ gates:
     source: 방사청 가이드북 42
     template: 산출물 목록 참조
     artifact_type_id: dt_report
+    purpose_ko: '개발시험평가 종료일부터 1개월 이내에 개발시험평가결과보고서를 작성해 방사청에 제출하고, 합참은 이를 검토하여 판정 절차를 거쳐 그 결과를 방사청·연구개발주관기관·소요제기기관 등에 통보한다.'
+    purpose_refs:
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제66조①'
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제66조②'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: mnd_force_development_directive_law_20260701
@@ -2042,6 +2520,14 @@ gates:
     source: 국방전력발전업무훈령 제64조①
     template: 없음
     artifact_type_id: dt_plan
+    purpose_ko: '개발시험평가계획서는 개발장비 시제품이 개발목표·기준, 군 요구사항 및 체계규격 등을 충족하는지 확인하기 위해 수립하며, 착수 2개월 전까지 제출되어 착수 1개월 전까지 확정·통보된다.'
+    purpose_refs:
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제60조②'
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제64조①'
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제64조②'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: mnd_force_development_directive_law_20260701
@@ -2062,6 +2548,12 @@ gates:
     source: 방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력
     template: 없음
     artifact_type_id: act_technical_review
+    purpose_ko: '연구개발주관기관은 체계요구조건검토·체계기능검토·기본설계검토·상세설계검토·시험준비상태검토와 체계기능형상확인, 양산기준설정 등을 위한 물리적 형상확인을 수행하고 그 결과를 통합사업관리팀장에게 제출한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제79조②'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제56조④'
     node_kind: activity
     is_virtual: true
     evidence_level: guidebook_recommended
@@ -2119,6 +2611,12 @@ gates:
     template: 없음
     is_fixed: true
     artifact_type_id: tdp_exchange
+    purpose_ko: '제작·구현·생산 및 조달에 적합하도록 장비 품목의 기술적 특성과 필수사항을 묘사한 기술자료 묶음으로, 규격서·도면·SW 기술자료·품질보증요구서·자료목록 등을 포함.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§5.9.2 (p.152)'
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '부록A 24 (p.177)'
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
@@ -2195,6 +2693,12 @@ gates:
     source: 방사청 가이드북 45
     template: p.90 (개요) 45
     artifact_type_id: fca_report
+    purpose_ko: '연구개발주관기관은 체계기능형상확인을 수행하고 그 결과를 통합사업관리팀장에게 제출하며, 이는 체계개발단계의 주요 수행내역에 해당한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제79조②'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제56조④'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -2253,6 +2757,10 @@ gates:
     source: 방사청 가이드북 46
     template: 지원 자료 양식
     artifact_type_id: ot_report
+    purpose_ko: '연구개발주관기관은 운용시험평가에 필요한 각종 자료 및 기술지원 등을 제공하며, 소요제기기관은 운용시험평가 시 방사청과 연구개발주관기관이 참관하여 자료를 공유·확인할 수 있도록 한다.'
+    purpose_refs:
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제68조⑤'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: mnd_force_development_directive_law_20260701
@@ -2279,6 +2787,12 @@ gates:
     source: 방사청 가이드북 47
     template: p.96 (산출물) 47
     artifact_type_id: review_minutes_fca
+    purpose_ko: '체계가 초도생산·후속양산으로 진행할 수 있는지 결정하고 형상항목 성능의 규격 부합을 확인하는 체계검증검토/기능적형상확인의 회의록과 조치항목 정리 결과로, 검토 결과 인정과 후속조치 추적의 근거.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§4.1.3 (p.63)'
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§4.7.1 (p.85)'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -2296,6 +2810,12 @@ gates:
     source: 방사청 가이드북 47
     template: 보고서 양식
     artifact_type_id: dt_report
+    purpose_ko: '개발시험평가 종료일부터 1개월 이내에 개발시험평가결과보고서를 작성해 방사청에 제출하고, 합참은 이를 검토하여 판정 절차를 거쳐 그 결과를 방사청·연구개발주관기관·소요제기기관 등에 통보한다.'
+    purpose_refs:
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제66조①'
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제66조②'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: mnd_force_development_directive_law_20260701
@@ -2323,6 +2843,12 @@ gates:
     source: LIG 개발품질 48
     template: 결함보고서 양식 48
     artifact_type_id: defect_action_report
+    purpose_ko: '전투용 조건부 적합 판정 시 보완계획의 조치 여부를 양산계약 이전에 확인받아야 하며, 그 조치결과를 국방부·합참에 통보하되 양산계약 이전에 보완사항이 해소되지 않으면 후속 심의 절차로 넘어간다.'
+    purpose_refs:
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제69조⑤'
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제69조⑥'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -2342,6 +2868,14 @@ gates:
     source: 방사청 가이드북 47
     template: p.96 (산출물) 47
     artifact_type_id: pci
+    purpose_ko: '개발 및 운용시험평가 이후 초도생산기준 설정 등을 위해 기능적·물리적 특성을 식별하여 기술하는 문서로, 제품기준선의 대상.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.117'
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.27'
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.107'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -2357,6 +2891,14 @@ gates:
     source: 국방전력발전업무훈령 제67조②
     template: 없음
     artifact_type_id: ot_plan
+    purpose_ko: '운용시험평가계획서는 체계개발 시제품의 작전운용성능 충족, 소요제기기관 운용적합 여부 및 전력화지원요소 실용성을 확인하기 위해 수립하며, 착수 2개월 전 제출되어 1개월 전까지 확정·통보된다.'
+    purpose_refs:
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제60조②'
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제67조②'
+    - source_key: mnd_force_development_directive_law_20260701
+      locator: '제67조⑤'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: mnd_force_development_directive_law_20260701
@@ -2373,6 +2915,14 @@ gates:
     source: SE기반 기술검토회의 가이드북 p.99
     template: 없음
     artifact_type_id: fca_pca_plan_checklist
+    purpose_ko: '형상품목별로 점검할 문서와 완료해야 할 업무를 명시하여 기능적·물리적 형상확인을 수행하고 그 결과를 확인하기 위해 준비하는 형상확인 계획과 점검표.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.99'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.103'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.110'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -2391,6 +2941,12 @@ gates:
     source: 방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력
     template: 없음
     artifact_type_id: act_technical_review
+    purpose_ko: '연구개발주관기관은 체계요구조건검토·체계기능검토·기본설계검토·상세설계검토·시험준비상태검토와 체계기능형상확인, 양산기준설정 등을 위한 물리적 형상확인을 수행하고 그 결과를 통합사업관리팀장에게 제출한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제79조②'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제56조④'
     node_kind: activity
     is_virtual: true
     evidence_level: guidebook_recommended
@@ -2446,6 +3002,12 @@ gates:
     template: 없음
     is_fixed: true
     artifact_type_id: tdp_exchange
+    purpose_ko: '제작·구현·생산 및 조달에 적합하도록 장비 품목의 기술적 특성과 필수사항을 묘사한 기술자료 묶음으로, 규격서·도면·SW 기술자료·품질보증요구서·자료목록 등을 포함.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§5.9.2 (p.152)'
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '부록A 24 (p.177)'
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management
@@ -2457,6 +3019,12 @@ gates:
     source: 방사청 가이드북 49
     template: p.97 (개요) 49
     artifact_type_id: pca_report
+    purpose_ko: '양산기준설정 등을 위하여 물리적 형상확인을 수행하고 그 결과를 통합사업관리팀장에게 제출하며, 이는 체계개발단계의 주요 수행내역에 해당한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제79조②'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제56조④'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -2482,6 +3050,12 @@ gates:
     source: 방사청 가이드북 50
     template: p.98 (진입기준) 50
     artifact_type_id: drawings
+    purpose_ko: '제품기준선을 이루는 설계문서로, 물리적 형상확인에서 시제품의 조립형상과 치수·공차·재질이 도면과 일치하는지 판단하는 기준.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.31'
+    - source_key: dapa_se_technical_review_guidebook_2017
+      locator: 'p.131'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -2512,6 +3086,10 @@ gates:
     source: LIG 개발품질 28
     template: BOM 양식
     artifact_type_id: bom
+    purpose_ko: '부품목록·자재명세서는 국방규격서·도면 등과 함께 국방규격 제정현황 및 목록에 포함되어, 운영유지단계 형상관리를 위해 사업종료 1개월 전까지 사업지원부·기품원·국기연에 제출된다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제55조④'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -2542,6 +3120,14 @@ gates:
     source: LIG 개발품질 48
     template: nISP 결함관리
     artifact_type_id: ncr
+    purpose_ko: '품질점검 결과 식별된 부적합 사항의 개선방안을 식별해 담당자·개발책임자에게 시정조치를 요청하는 문서이며, 규격완화·규격면제는 문서 절차에 의해 허용 또는 합격 인정으로 처리.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§5.6.3.4 (p.138)'
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '부록A 16 (p.175)'
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '부록A 14 (p.175)'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -2568,6 +3154,10 @@ gates:
     source: 방사청 가이드북 15
     template: p.22 (주석 11) 15
     artifact_type_id: tdp
+    purpose_ko: '체계개발 완료 후 2개월 이내에 체계개발결과보고서와 함께 필요한 기술자료 묶음을 통합사업관리팀·기품원·국기연에 제출하며, 제출대상자료와 세부절차는 국방과학기술 정보관리 업무지침을 따른다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제81조②'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_program_management_rule_law_20260811
@@ -2594,6 +3184,12 @@ gates:
     source: 방사청 가이드북 51
     template: 회의록 양식
     artifact_type_id: review_minutes_pca
+    purpose_ko: '생산 중 형상항목의 실제 형상과 설계문서의 일치를 공식 확인해 제품 기준선을 설정하는 물리적형상확인의 회의록과 조치 결과 기록으로, 검토 결과 인정과 후속조치 추적의 근거.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§4.1.3 (p.63)'
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§4.9.1 (p.90)'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -2609,6 +3205,10 @@ gates:
     source: 방사청 가이드북 51
     template: 산출물 목록 참조
     artifact_type_id: icd
+    purpose_ko: '연동통제문서는 소요결정문서의 연동합의문서를 근거로 연동대상체계 운용·개발기관과 협의하여 작성하고 상세설계 완료 전까지 확정하며, 체계 간 상호운용성 관리를 위한 문서이다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제43조①'
     evidence_level: unstated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -2634,6 +3234,14 @@ gates:
     source: 방사청 가이드북 51
     template: p.103 (산출물) 51
     artifact_type_id: pci
+    purpose_ko: '개발 및 운용시험평가 이후 초도생산기준 설정 등을 위해 기능적·물리적 특성을 식별하여 기술하는 문서로, 제품기준선의 대상.'
+    purpose_refs:
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.117'
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.27'
+    - source_key: dapa_se_technical_review_guidebook_2024
+      locator: 'pdf p.107'
     evidence_level: guidebook_recommended
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -2651,6 +3259,10 @@ gates:
     source: 방사청 가이드북 50
     template: 규격 양식
     artifact_type_id: defense_spec_drawings
+    purpose_ko: '도면은 국방규격서·부품목록·품질보증요구서 등과 함께 국방규격 제정현황 및 목록을 구성하여, 운영유지단계 형상관리를 위해 사업종료 1개월 전까지 사업지원부·기품원·국기연에 제출된다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제55조④'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_se_technical_review_guidebook_2017
@@ -2666,6 +3278,10 @@ gates:
     source: 방위사업관리규정 제80조①
     template: 없음
     artifact_type_id: defense_spec_draft
+    purpose_ko: '국방규격(안)은 개발시험으로 검증하고 운용시험평가에 의한 전투용 적합 또는 보완사항이 해소된 조건부 적합 판정을 받은 뒤에야 표준화 업무규정의 제정절차에 따라 국방규격 제정을 건의할 수 있다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제80조①'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_program_management_rule_law_20260811
@@ -2686,6 +3302,10 @@ gates:
     source: 방위사업관리규정 제81조②
     template: 없음
     artifact_type_id: dev_result_report
+    purpose_ko: '체계개발 수행을 완료한 후 2개월 이내에 체계개발결과보고서와 필요한 기술자료 묶음을 통합사업관리팀·기품원·국기연에 제출하며, 통합사업관리팀장은 결과보고서의 DTiMS 탑재결과를 확인한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제81조②'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_program_management_rule_law_20260811
@@ -2702,6 +3322,12 @@ gates:
     source: 방위사업관리규정 제81조③
     template: 없음
     artifact_type_id: production_transition_package
+    purpose_ko: '양산단계 계약체결 이전에 연구개발보고서·시험절차서·국산화 이행현황·보완요구사항 조치계획·기술교범·양산 품질보증 관련 기술분석자료를 제출·검토하여 기품원과 국기연에 넘기고, 양산에 필요한 자료를 지원한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제81조③'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제81조④'
     evidence_level: regulation_mandated
     source_refs:
     - source_key: dapa_program_management_rule_law_20260811
@@ -2718,6 +3344,12 @@ gates:
     source: 방사청 SE 기술검토회의 가이드북 INPUT 표 / SE 기술관리 실무지침서 활동 입출력
     template: 없음
     artifact_type_id: act_technical_review
+    purpose_ko: '연구개발주관기관은 체계요구조건검토·체계기능검토·기본설계검토·상세설계검토·시험준비상태검토와 체계기능형상확인, 양산기준설정 등을 위한 물리적 형상확인을 수행하고 그 결과를 통합사업관리팀장에게 제출한다.'
+    purpose_refs:
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제79조②'
+    - source_key: dapa_program_management_rule_law_20260811
+      locator: '제56조④'
     node_kind: activity
     is_virtual: true
     evidence_level: guidebook_recommended
@@ -2772,6 +3404,12 @@ gates:
     template: 없음
     is_fixed: true
     artifact_type_id: tdp_exchange
+    purpose_ko: '제작·구현·생산 및 조달에 적합하도록 장비 품목의 기술적 특성과 필수사항을 묘사한 기술자료 묶음으로, 규격서·도면·SW 기술자료·품질보증요구서·자료목록 등을 포함.'
+    purpose_refs:
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '§5.9.2 (p.152)'
+    - source_key: dapa_se_technical_management_practice_guide
+      locator: '부록A 24 (p.177)'
     evidence_level: internal_management
     source_refs: []
     verification_status: internal_management

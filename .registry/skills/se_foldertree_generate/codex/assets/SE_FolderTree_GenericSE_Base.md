@@ -1,6 +1,6 @@
 ---
 title: 일반 체계공학 기준선 폴더 트리 생성 지침 (발주처·국가 무관)
-version: '0.3'
+version: '0.4'
 owner_team: Soulforge
 variant_binding:
   support_key: generic_se_base
@@ -105,6 +105,10 @@ gates:
     source: NASA NPR 7123.1D Table G-3, p.37 §5.2.2.2.a [SE-35..SE-37]; DoD SE Guidebook 2022 Table 3-1 p.69, Table 3-4 p.81
     template: 없음
     artifact_type_id: ord
+    purpose_ko: '이해관계자 요구의 권위 있는 출처가 되는 소요 문서로, 기존·미래 작전의 능력 공백 분석을 거쳐 검증되고 우선순위가 정해진 능력 소요를 담는다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.2.1 (p.143)'
     evidence_level: general_se_guidance
     se_floor: context
     maturity: baseline
@@ -126,6 +130,12 @@ gates:
     source: NASA NPR 7123.1D Table G-3, Table G-4; DoD SE Guidebook 2022 p.68, Table 3-1 p.69
     template: 없음
     artifact_type_id: conops
+    purpose_ko: '운용개념서는 시스템이 이해관계자 기대를 충족하도록 어떻게 사용될지를 시간 순으로 기술해 시스템 목표 이해를 돕고, 사용자 관련 요구사항과 아키텍처 개발을 촉발하며, 후속 정의문서의 기초이자 장기 운용계획의 토대가 된다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.222 (printed p.209) App B Glossary ''Concept of Operations'''
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.71 (printed p.58) §4.1.1.2.4'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: preliminary
@@ -147,6 +157,12 @@ gates:
     source: NASA NPR 7123.1D Table G-3; DoD SE Guidebook 2022 p.68, Table 3-1 p.69
     template: 없음
     artifact_type_id: trade_study
+    purpose_ko: '체계 아키텍처와 운용개념, 설계 결정이 가용 자원으로 달성 가능한 최선의 해로 나아가게 하는 것이 목적이며, 보고서에는 대안·측도·자료원·계산결과·선정규칙과 권고 대안을 담는다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.94 (printed p.81) §4.4.1.2.3'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.247 (printed p.234) App B Glossary (Trade Study Report)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: preliminary
@@ -166,6 +182,10 @@ gates:
     source: NASA NPR 7123.1D Table G-3, p.36 §5.1.6; DoD SE Guidebook 2022 Table 3-1 p.69
     template: 없음
     artifact_type_id: tra_report
+    purpose_ko: '체계·부체계·구성품에 요구되는 기술 성숙도를 시험과 해석으로 입증해 기록하는 보고서로, 그 성숙도평가 결과는 기술개발계획 수립과 대안 경로·대체안·성능 축소안 식별에 쓰인다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.260 (printed p.247) App G §G.1'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: preliminary
@@ -225,6 +245,12 @@ gates:
     source: NASA NPR 7123.1D Table G-4, p.38 §5.2.2.2.b [SE-39]; DoD SE Guidebook 2022 Table 3-2 p.72
     template: 없음
     artifact_type_id: sss
+    purpose_ko: '요구사항 분석 결과와 배분된 요구를 담아 계약에 반영되는 체계 성능 규격으로, 요구가 현실적임을 확인받아 예비설계의 건전한 기술적 토대를 제공한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§3.3 (p.74)'
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.2.2 (p.143)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -251,6 +277,12 @@ gates:
     source: NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 Table 3-1 p.69, p.68
     template: 없음
     artifact_type_id: conops
+    purpose_ko: '운용개념서는 시스템이 이해관계자 기대를 충족하도록 어떻게 사용될지를 시간 순으로 기술해 시스템 목표 이해를 돕고, 사용자 관련 요구사항과 아키텍처 개발을 촉발하며, 후속 정의문서의 기초이자 장기 운용계획의 토대가 된다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.222 (printed p.209) App B Glossary ''Concept of Operations'''
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.71 (printed p.58) §4.1.1.2.4'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -284,6 +316,12 @@ gates:
     source: NASA NPR 7123.1D Table G-4, p.37 §5.2.2.2.b [SE-38]; DoD SE Guidebook 2022 Table 3-2 p.72, p.17
     template: 없음
     artifact_type_id: semp
+    purpose_ko: '프로젝트 기술·공학 활동의 기반 문서로, 어떤 기술과정을 어떻게 적용하고 조직과 자원을 어떻게 갖출지 규정하며 각 수명주기 단계의 진입·성공 기준을 충족하는 작업산출물 실현의 틀을 제공한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.282 (printed p.269) App J §J.1'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.155 (printed p.142) §6.1.1.2.4'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -307,6 +345,12 @@ gates:
     source: NASA NPR 7123.1D Table G-4, Table G-1; DoD SE Guidebook 2022 Table 3-2 p.72, p.71
     template: 없음
     artifact_type_id: rtm
+    purpose_ko: '요구사항의 양방향 추적성을 기록하는 표로, 각 요구가 상위 요구를 온전히 충족하는지 점검하고 충족되지 않은 부분을 보완해 넣으며 부모 없는 요구를 걸러내는 데 쓰인다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.165 (printed p.152) §6.2.1.2.3'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.163 (printed p.150) §6.2'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: preliminary
@@ -338,6 +382,12 @@ gates:
     source: NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 Table 3-2 p.72
     template: 없음
     artifact_type_id: icd
+    purpose_ko: '인터페이스 통제문서는 인터페이스 정보와 승인된 인터페이스 변경요청을 식별·수록하는 문서로, 형상관리로 유지·승인되어 기술자료묶음의 일부가 되며 제품검증·확인 과정의 입력으로 쓰인다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.172 (printed p.159) §6.3.1.3'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.171 (printed p.158) §6.3.1.2.3'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: preliminary
@@ -389,6 +439,10 @@ gates:
     source: NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 p.17, Table 3-2 p.72
     template: 없음
     artifact_type_id: risk_management_plan
+    purpose_ko: '기술기획 과정에서 작성하는 문서로, 프로젝트 안에서 위험을 어떻게 식별·완화·감시·통제할지를 규정하며 기술위험관리 과정의 입력이 된다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.176 (printed p.163) §6.4.1.1'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -408,6 +462,12 @@ gates:
     source: NASA NPR 7123.1D Table G-4, Table G-1; DoD SE Guidebook 2022 Table 3-2 p.72
     template: 없음
     artifact_type_id: risk_register
+    purpose_ko: '발주 측과 계약자가 공통으로 사용해 프로그램의 위험·이슈·기회를 함께 식별·분석·완화·감시하기 위한 도구의 예로, 일정 추정 오차의 영향 같은 지식도 여기에 기록해 추적한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.5 (p.123)'
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.109)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -427,6 +487,10 @@ gates:
     source: NASA NPR 7123.1D Table G-4, Table G-1; DoD SE Guidebook 2022 Table 3-2 p.73, p.134
     template: 없음
     artifact_type_id: cm_plan
+    purpose_ko: '형상관리계획서는 사업 전체 형상관리 절차의 전략계획으로, 내부적으로는 CM 활동과 일정을 안내·감시·측정하고 외부적으로는 계약자에게 CM 절차를 전달해 일관된 절차와 협업관계를 세우며, 각 기술 기준선 생성·기술승인·감사의 기준을 기술한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.182 (printed p.169) §6.5.1.2.1'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -448,6 +512,10 @@ gates:
     source: NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 Table 3-2 p.73
     template: 없음
     artifact_type_id: tra_report
+    purpose_ko: '체계·부체계·구성품에 요구되는 기술 성숙도를 시험과 해석으로 입증해 기록하는 보고서로, 그 성숙도평가 결과는 기술개발계획 수립과 대안 경로·대체안·성능 축소안 식별에 쓰인다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.260 (printed p.247) App G §G.1'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -465,6 +533,12 @@ gates:
     source: NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 Table 3-2 p.72-73, p.108-109
     template: 없음
     artifact_type_id: ims
+    purpose_ko: '발주·계약자·하도급 활동을 포함한 전체 작업 범위를 일정·기간·선후관계로 기술한 문서로, 주공정과 이정표를 식별하고 계획 대비 진척 비교, 자원 분석, 위험 완화 추적의 기준을 제공한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.106-107)'
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.109)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: preliminary
@@ -503,6 +577,10 @@ gates:
     source: NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 Table 3-1 p.69, Table 3-2 p.73
     template: 없음
     artifact_type_id: system_safety_analysis
+    purpose_ko: '운용자·체계·환경·공중에 미치는 위험을 평가하기 위해 안전해석을 수행하며, 그 접근법과 방법은 체계공학관리계획의 체계안전 항목에 기술한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.290 (printed p.277) App J §7.1'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: preliminary
@@ -522,6 +600,12 @@ gates:
     source: NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 Table 3-2 p.72-73, p.195-197
     template: 없음
     artifact_type_id: ram_plan
+    purpose_ko: '신뢰도·정비도 공학이 체계공학 활동에 통합되도록 수명주기 전체를 다루는 계획으로, 각 요소가 비용효과적으로 수행·평가·보고되고 설계·해석·개발·시험·제조에 제때 통합되게 한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: 'Table 5-6 (p.196)'
+    - source_key: dod_se_guidebook_2022
+      locator: '§5.18 (p.194)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -541,6 +625,12 @@ gates:
     source: NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 Table 3-2 p.72, p.83
     template: 없음
     artifact_type_id: tpm_list
+    purpose_ko: '임무성공에 결정적인 체계의 물리·기능 특성으로, 구현 중 실제 달성값을 그 시점의 기대값과 비교해 진척을 확인하고 핵심 요구 충족이나 비용·일정을 위협할 결함을 드러내는 데 쓰인다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.84 (printed p.71) §4.2.1.2.5'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.290 (printed p.277) App J §7.4'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: preliminary
@@ -589,6 +679,10 @@ gates:
     source: NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 Table 3-2 p.73
     template: 없음
     artifact_type_id: ils_plan
+    purpose_ko: '종합군수지원은 설계요구 정의, 자재 조달·배분, 정비, 보급 교체, 수송, 폐기와 관련된 관리·공학 활동과 분석, 정보관리를 포괄하며, 비행·지상체계 지원성 목표에 따라 식별된다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.230 (printed p.217) App B Glossary ''Integrated Logistics Support'''
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: preliminary
@@ -616,6 +710,10 @@ gates:
     source: NASA NPR 7123.1D Table G-3; DoD SE Guidebook 2022 Table 3-2 p.73, Table 3-1 p.69
     template: 없음
     artifact_type_id: manufacturing_plan
+    purpose_ko: '회사와 생산 시설이 계약 요구를 어떻게 충족하고 제품을 인도할지 상세히 다루는 계획으로, 작업분해구조·자재명세서와 연결되고 최종품 제작·조립에 필요한 단계를 기술한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§5.14 (p.178)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: preliminary
@@ -642,6 +740,12 @@ gates:
     source: NASA NPR 7123.1D Table G-4, p.37 §5.2.1.3; DoD SE Guidebook 2022 Table 3-2 p.73
     template: 없음
     artifact_type_id: hsi_plan
+    purpose_ko: '인간체계통합계획서는 수명주기 전반의 HSI 전략과 이행계획을 문서화하며, 인간 요소를 하드웨어·소프트웨어와 효과적으로 통합하고, 개발·운용 인력을 수명주기 비용에 반영하며, 사용자 집단 특성에 맞게 시스템이 만들어지도록 하는 데 목적이 있다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.305 (printed p.292) App R.1'
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.1.3 (p.37)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: baseline
@@ -670,6 +774,10 @@ gates:
     source: NASA NPR 7123.1D Table G-4, Table G-1; DoD SE Guidebook 2022 Table 3-2 p.72, p.216
     template: 없음
     artifact_type_id: security_plan
+    purpose_ko: '체계보안공학 분석의 종합적 접근과 그 결과를 문서화해 프로그램과 관련자의 활동을 이끄는 계획으로, 각 기술검토·감사에 제출되어 검토 평가 기준과 기능·할당·제품 기준선에 반영된다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§5.24 (p.216)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: preliminary
@@ -693,6 +801,12 @@ gates:
     source: NASA NPR 7123.1D Table G-4; DoD SE Guidebook 2022 Table 2-4 p.59, Table 3-4 p.81
     template: 없음
     artifact_type_id: cdrl
+    purpose_ko: '계약에서 요구되는 기술자료·디지털 산출물·소프트웨어의 인도를 주문하는 목록으로, 잘 정의되면 개발자가 적절한 설계 고려사항을 구현하고 필요한 객관적 품질 증거를 산출하도록 보장한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.7 (p.136)'
+    - source_key: dod_se_guidebook_2022
+      locator: 'p.56'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: baseline
@@ -731,6 +845,12 @@ gates:
     source: NASA NPR 7123.1D p.40 §5.2.3.1; DoD SE Guidebook 2022 p.75
     template: 없음
     artifact_type_id: review_minutes_srr
+    purpose_ko: '검토에서 내려진 결정을 뒷날 참조할 수 있는 이력 기록으로 남기며, 모든 RID·RFA 처리에 대한 합의와 함께 완성·배포되어야 해당 수명주기 검토가 완료로 인정된다.'
+    purpose_refs:
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.2.9 (p.40)'
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.3.1 (p.40)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -748,6 +868,10 @@ gates:
     source: NASA NPR 7123.1D p.40 §5.2.3.1, Table G-4; DoD SE Guidebook 2022 p.74
     template: 없음
     artifact_type_id: review_result_report_srr
+    purpose_ko: '검토위원회 보고서로, 검토 성공기준 대비 미흡한 성과의 문제·우려를 담아 관리조직에 보고되며, 검토의 성공적 완료를 문서화하는 결정 메모와 함께 수명주기 검토 완료 요건을 이룬다.'
+    purpose_refs:
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.3.1 (p.40)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -767,6 +891,12 @@ gates:
     source: NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력
     template: 없음
     artifact_type_id: act_architecture_design
+    purpose_ko: '설계해 정의는 상위 요구사항과 논리분해 결과를 대안 설계로 바꾸고 절충연구로 선호안을 선정해 최종 설계해로 확정하는 활동이며, 그 결과는 제품 생산과 제품검증에 쓰이는 최종산품 규격을 만드는 근거가 된다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.90 (printed p.77) §4.4'
+    - source_key: nasa_npr_7123_1d
+      locator: '§3.2.5.2-§3.2.5.3 (p.25)'
     node_kind: activity
     is_virtual: true
     evidence_level: general_se_guidance
@@ -793,6 +923,12 @@ gates:
     source: NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력
     template: 없음
     artifact_type_id: act_implementation
+    purpose_ko: '구현은 구매·제작(코딩)·재사용으로 해당 제품계층의 규정된 산품을 만들어 설계해 정의와 규정 요구사항을 충족시키는 활동으로, 계획과 설계를 실제 산품으로 옮기는 단계다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.104 (printed p.91) §5.1'
+    - source_key: nasa_npr_7123_1d
+      locator: '§3.2.6.2 (p.25)'
     node_kind: activity
     is_virtual: true
     evidence_level: general_se_guidance
@@ -819,6 +955,12 @@ gates:
     source: NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력
     template: 없음
     artifact_type_id: act_integration
+    purpose_ko: '통합은 검증·확인된 하위 산품을 조립·통합해 상위 계층의 최종산품으로 만드는 활동이며, 궁극적 목적은 시스템 구성요소들이 하나의 전체로 기능하도록 보장하는 것이다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.111 (printed p.98) §5.2'
+    - source_key: nasa_npr_7123_1d
+      locator: '§3.2.7.2 (p.26)'
     node_kind: activity
     is_virtual: true
     evidence_level: general_se_guidance
@@ -845,6 +987,12 @@ gates:
     source: NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력
     template: 없음
     artifact_type_id: act_requirements_analysis
+    purpose_ko: '기술요구사항 정의는 기준선화된 이해관계자 기대를 고유하고 정량적·측정가능한 ''shall'' 요구사항으로 바꾸어 설계해 정의의 근거로 삼는 활동이며, 요구사항 문서는 이를 고객·이해관계자·기술조직에 정리해 전달한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.76 (printed p.63) §4.2'
+    - source_key: nasa_npr_7123_1d
+      locator: '§3.2.3.2 (p.24-25)'
     node_kind: activity
     is_virtual: true
     evidence_level: general_se_guidance
@@ -874,6 +1022,12 @@ gates:
     source: NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력
     template: 없음
     artifact_type_id: act_stakeholder_expectations
+    purpose_ko: '이해관계자 기대 정의는 이해관계자가 누구이고 제품을 어떻게 쓸 것인지를 사용사례와 운용개념으로 식별하는 활동이며, 기준선화된 기대는 제품실현 단계에서 최종산품 확인의 기준이 된다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.66 (printed p.53) §4.1'
+    - source_key: nasa_npr_7123_1d
+      locator: '§3.2.2.3 (p.24)'
     node_kind: activity
     is_virtual: true
     evidence_level: general_se_guidance
@@ -898,6 +1052,12 @@ gates:
     source: NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력
     template: 없음
     artifact_type_id: act_transition
+    purpose_ko: '인도·전환은 검증·확인을 마친 최종산품을 상위 계층 고객에게 넘겨 통합되게 하거나 최상위 산품의 경우 실사용자에게 인도하는 활동으로, 한 계층에서 다음 계층으로 잇는 다리 역할을 한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.137 (printed p.124) §5.5'
+    - source_key: nasa_npr_7123_1d
+      locator: '§3.2.10.2 (p.26)'
     node_kind: activity
     is_virtual: true
     evidence_level: general_se_guidance
@@ -925,6 +1085,12 @@ gates:
     source: NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력
     template: 없음
     artifact_type_id: act_validation
+    purpose_ko: '확인은 검증을 마친 최종산품이 의도한 환경에서 의도한 용도를 충족하는지를 기준선화된 이해관계자 기대(MOE·운용개념)에 비추어 확증하고, 발견된 이상을 인도나 상위 통합 전에 해결하도록 하는 활동이다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.129 (printed p.116) §5.4'
+    - source_key: nasa_npr_7123_1d
+      locator: '§3.2.9.2 (p.26)'
     node_kind: activity
     is_virtual: true
     evidence_level: general_se_guidance
@@ -991,6 +1157,12 @@ gates:
     source: NASA NPR 7123.1D p.38 §5.2.2.2.c [SE-41] [SE-42]; DoD SE Guidebook 2022 p.74, p.132
     template: 없음
     artifact_type_id: fci
+    purpose_ko: '기능 기준선은 시스템 또는 최상위 형상항목의 성능(기능·상호운용·인터페이스) 요구사항과 그 특성 달성을 입증하는 데 필요한 검증사항을 기술한 승인된 형상문서다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.183 (printed p.170) §6.5.1.2.2'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.229 (printed p.216) App B Glossary ''Functional Baseline'''
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -1017,6 +1189,12 @@ gates:
     source: NASA NPR 7123.1D Table G-2, Table G-5; DoD SE Guidebook 2022 Table 3-3 p.76
     template: 없음
     artifact_type_id: sss
+    purpose_ko: '요구사항 분석 결과와 배분된 요구를 담아 계약에 반영되는 체계 성능 규격으로, 요구가 현실적임을 확인받아 예비설계의 건전한 기술적 토대를 제공한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§3.3 (p.74)'
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.2.2 (p.143)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -1043,6 +1221,10 @@ gates:
     source: NASA NPR 7123.1D Table G-5; DoD SE Guidebook 2022 Table 3-3 p.76
     template: 없음
     artifact_type_id: functional_analysis
+    purpose_ko: '기능분석은 시스템이 목표를 이루기 위해 수행해야 할 기능을 체계적으로 식별·기술·연관짓는 활동으로, 시스템 기능과 절충연구·인터페이스 특성·근거를 요구사항에 연결하며 아키텍처 개발과 기능요구 분해의 주된 방법이다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.88 (printed p.75) §4.3.1.2.2'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -1094,6 +1276,10 @@ gates:
     source: NASA NPR 7123.1D Table G-5, Table G-4; DoD SE Guidebook 2022 Table 3-3 p.76
     template: 없음
     artifact_type_id: vcrm
+    purpose_ko: '모든 요구사항을 어떻게 검증할지 규정하는 표로, ''shall'' 요구를 고유 식별자와 출처 문서로 특정하고 성공기준·검증방법·수행조직과 충족 증거 문서를 함께 기록한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.253 (printed p.240) App D'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: preliminary
@@ -1120,6 +1306,12 @@ gates:
     source: NASA NPR 7123.1D Table G-5, p.38 [SE-40] [SE-43]; DoD SE Guidebook 2022 p.83, p.89
     template: 없음
     artifact_type_id: tpm_list
+    purpose_ko: '임무성공에 결정적인 체계의 물리·기능 특성으로, 구현 중 실제 달성값을 그 시점의 기대값과 비교해 진척을 확인하고 핵심 요구 충족이나 비용·일정을 위협할 결함을 드러내는 데 쓰인다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.84 (printed p.71) §4.2.1.2.5'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.290 (printed p.277) App J §7.4'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -1155,6 +1347,12 @@ gates:
     source: NASA NPR 7123.1D Table G-5; DoD SE Guidebook 2022 Table 3-3 p.76
     template: 없음
     artifact_type_id: trade_study
+    purpose_ko: '체계 아키텍처와 운용개념, 설계 결정이 가용 자원으로 달성 가능한 최선의 해로 나아가게 하는 것이 목적이며, 보고서에는 대안·측도·자료원·계산결과·선정규칙과 권고 대안을 담는다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.94 (printed p.81) §4.4.1.2.3'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.247 (printed p.234) App B Glossary (Trade Study Report)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -1181,6 +1379,12 @@ gates:
     source: NASA NPR 7123.1D Table G-5, Table G-2; DoD SE Guidebook 2022 p.132-133, Table 3-2 p.72
     template: 없음
     artifact_type_id: icd
+    purpose_ko: '인터페이스 통제문서는 인터페이스 정보와 승인된 인터페이스 변경요청을 식별·수록하는 문서로, 형상관리로 유지·승인되어 기술자료묶음의 일부가 되며 제품검증·확인 과정의 입력으로 쓰인다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.172 (printed p.159) §6.3.1.3'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.171 (printed p.158) §6.3.1.2.3'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: preliminary
@@ -1212,6 +1416,12 @@ gates:
     source: NASA NPR 7123.1D Table G-2, Table G-5; DoD SE Guidebook 2022 Table 3-3 p.76
     template: 없음
     artifact_type_id: rtm
+    purpose_ko: '요구사항의 양방향 추적성을 기록하는 표로, 각 요구가 상위 요구를 온전히 충족하는지 점검하고 충족되지 않은 부분을 보완해 넣으며 부모 없는 요구를 걸러내는 데 쓰인다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.165 (printed p.152) §6.2.1.2.3'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.163 (printed p.150) §6.2'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -1241,6 +1451,12 @@ gates:
     source: NASA NPR 7123.1D Table G-5; DoD SE Guidebook 2022 Table 3-3 p.76
     template: 없음
     artifact_type_id: risk_register
+    purpose_ko: '발주 측과 계약자가 공통으로 사용해 프로그램의 위험·이슈·기회를 함께 식별·분석·완화·감시하기 위한 도구의 예로, 일정 추정 오차의 영향 같은 지식도 여기에 기록해 추적한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.5 (p.123)'
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.109)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -1258,6 +1474,12 @@ gates:
     source: NASA NPR 7123.1D Table G-5, Table G-2; DoD SE Guidebook 2022 p.15-18
     template: 없음
     artifact_type_id: semp
+    purpose_ko: '프로젝트 기술·공학 활동의 기반 문서로, 어떤 기술과정을 어떻게 적용하고 조직과 자원을 어떻게 갖출지 규정하며 각 수명주기 단계의 진입·성공 기준을 충족하는 작업산출물 실현의 틀을 제공한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.282 (printed p.269) App J §J.1'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.155 (printed p.142) §6.1.1.2.4'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -1277,6 +1499,12 @@ gates:
     source: NASA NPR 7123.1D Table G-5; DoD SE Guidebook 2022 Table 3-3 p.76
     template: 없음
     artifact_type_id: ram_plan
+    purpose_ko: '신뢰도·정비도 공학이 체계공학 활동에 통합되도록 수명주기 전체를 다루는 계획으로, 각 요소가 비용효과적으로 수행·평가·보고되고 설계·해석·개발·시험·제조에 제때 통합되게 한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: 'Table 5-6 (p.196)'
+    - source_key: dod_se_guidebook_2022
+      locator: '§5.18 (p.194)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -1294,6 +1522,10 @@ gates:
     source: NASA NPR 7123.1D Table G-5; DoD SE Guidebook 2022 Table 3-3 p.76
     template: 없음
     artifact_type_id: system_safety_analysis
+    purpose_ko: '운용자·체계·환경·공중에 미치는 위험을 평가하기 위해 안전해석을 수행하며, 그 접근법과 방법은 체계공학관리계획의 체계안전 항목에 기술한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.290 (printed p.277) App J §7.1'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -1311,6 +1543,12 @@ gates:
     source: NASA NPR 7123.1D Table G-5; DoD SE Guidebook 2022 Table 3-3 p.76
     template: 없음
     artifact_type_id: ims
+    purpose_ko: '발주·계약자·하도급 활동을 포함한 전체 작업 범위를 일정·기간·선후관계로 기술한 문서로, 주공정과 이정표를 식별하고 계획 대비 진척 비교, 자원 분석, 위험 완화 추적의 기준을 제공한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.106-107)'
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.109)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -1328,6 +1566,12 @@ gates:
     source: NASA NPR 7123.1D Table G-5, Table G-2
     template: 없음
     artifact_type_id: integration_plan
+    purpose_ko: '통합계획서는 조율된 통합 노력을 기술해 구현전략을 뒷받침하고, 각 통합 단계에서 참여자가 무엇을 해야 하는지 기술하며, 필요한 자원과 그 시기·장소를 식별하는 데 주된 목적이 있다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.269 (printed p.256) App H.1'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.111 (printed p.98) §5.2'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: preliminary
@@ -1345,6 +1589,10 @@ gates:
     source: NASA NPR 7123.1D Table G-5; DoD SE Guidebook 2022 Table 3-3 p.76
     template: 없음
     artifact_type_id: ils_plan
+    purpose_ko: '종합군수지원은 설계요구 정의, 자재 조달·배분, 정비, 보급 교체, 수송, 폐기와 관련된 관리·공학 활동과 분석, 정보관리를 포괄하며, 비행·지상체계 지원성 목표에 따라 식별된다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.230 (printed p.217) App B Glossary ''Integrated Logistics Support'''
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: preliminary
@@ -1372,6 +1620,10 @@ gates:
     source: NASA NPR 7123.1D Table G-5, Table G-6
     template: 없음
     artifact_type_id: resource_budget
+    purpose_ko: '여유(margin)는 불확실성과 위험에 대비해 예산·일정·기술성능 파라미터(중량·전력·메모리 등)에 갖고 가는 허용분으로, 형성 단계에서 위험평가에 근거해 배분되고 수명주기가 진행되며 소모된다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.232 (printed p.219) App B Glossary (Margin)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: preliminary
@@ -1389,6 +1641,10 @@ gates:
     source: NASA NPR 7123.1D Table G-5
     template: 없음
     artifact_type_id: tra_report
+    purpose_ko: '체계·부체계·구성품에 요구되는 기술 성숙도를 시험과 해석으로 입증해 기록하는 보고서로, 그 성숙도평가 결과는 기술개발계획 수립과 대안 경로·대체안·성능 축소안 식별에 쓰인다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.260 (printed p.247) App G §G.1'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: updated
@@ -1404,6 +1660,12 @@ gates:
     source: NASA NPR 7123.1D Table G-5
     template: 없음
     artifact_type_id: conops
+    purpose_ko: '운용개념서는 시스템이 이해관계자 기대를 충족하도록 어떻게 사용될지를 시간 순으로 기술해 시스템 목표 이해를 돕고, 사용자 관련 요구사항과 아키텍처 개발을 촉발하며, 후속 정의문서의 기초이자 장기 운용계획의 토대가 된다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.222 (printed p.209) App B Glossary ''Concept of Operations'''
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.71 (printed p.58) §4.1.1.2.4'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: updated
@@ -1433,6 +1695,10 @@ gates:
     source: NASA NPR 7123.1D Table G-5, Table G-2; DoD SE Guidebook 2022 Table 3-3 p.76
     template: 없음
     artifact_type_id: security_plan
+    purpose_ko: '체계보안공학 분석의 종합적 접근과 그 결과를 문서화해 프로그램과 관련자의 활동을 이끄는 계획으로, 각 기술검토·감사에 제출되어 검토 평가 기준과 기능·할당·제품 기준선에 반영된다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§5.24 (p.216)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: preliminary
@@ -1471,6 +1737,12 @@ gates:
     source: NASA NPR 7123.1D p.40 §5.2.3.1; DoD SE Guidebook 2022 p.76
     template: 없음
     artifact_type_id: review_minutes_sfr
+    purpose_ko: '검토에서 내려진 결정을 뒷날 참조할 수 있는 이력 기록으로 남기며, 모든 RID·RFA 처리에 대한 합의와 함께 완성·배포되어야 해당 수명주기 검토가 완료로 인정된다.'
+    purpose_refs:
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.2.9 (p.40)'
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.3.1 (p.40)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -1488,6 +1760,10 @@ gates:
     source: NASA NPR 7123.1D p.40 §5.2.3.1, p.38 §5.2.2.2.c; DoD SE Guidebook 2022 p.74, p.76
     template: 없음
     artifact_type_id: review_result_report_sfr
+    purpose_ko: '검토위원회 보고서로, 검토 성공기준 대비 미흡한 성과의 문제·우려를 담아 관리조직에 보고되며, 검토의 성공적 완료를 문서화하는 결정 메모와 함께 수명주기 검토 완료 요건을 이룬다.'
+    purpose_refs:
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.3.1 (p.40)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -1509,6 +1785,12 @@ gates:
     source: NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력
     template: 없음
     artifact_type_id: act_integration
+    purpose_ko: '통합은 검증·확인된 하위 산품을 조립·통합해 상위 계층의 최종산품으로 만드는 활동이며, 궁극적 목적은 시스템 구성요소들이 하나의 전체로 기능하도록 보장하는 것이다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.111 (printed p.98) §5.2'
+    - source_key: nasa_npr_7123_1d
+      locator: '§3.2.7.2 (p.26)'
     node_kind: activity
     is_virtual: true
     evidence_level: general_se_guidance
@@ -1536,6 +1818,12 @@ gates:
     source: NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력
     template: 없음
     artifact_type_id: act_logical_decomposition
+    purpose_ko: '논리적 분해는 기술요구사항과 그 관계에 대한 이해를 높이고, 상위 요구사항을 논리분해 모델과 그에 딸린 파생 기술요구사항으로 바꾸어 하위 계층과 설계해 정의 과정의 입력으로 넘기는 활동이다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.86 (printed p.73) §4.3'
+    - source_key: nasa_npr_7123_1d
+      locator: '§3.2.4.2 (p.25)'
     node_kind: activity
     is_virtual: true
     evidence_level: general_se_guidance
@@ -1557,6 +1845,12 @@ gates:
     source: NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력
     template: 없음
     artifact_type_id: act_verification
+    purpose_ko: '검증은 구현 또는 통합으로 만든 최종산품이 규정된 요구사항·규격에 부합함을 증명해 ''제품을 올바르게 만들었는가''에 답하는 활동이며, 그 규격과 설계기술문서가 해당 산품의 형상 기준선을 이룬다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.116 (printed p.103) §5.3'
+    - source_key: nasa_npr_7123_1d
+      locator: '§3.2.8.2 (p.26)'
     node_kind: activity
     is_virtual: true
     evidence_level: general_se_guidance
@@ -1587,6 +1881,10 @@ gates:
     source: DoD SE Guidebook 2022 §4.1.6 (baseline definitions)
     template: 없음
     artifact_type_id: dec_functional_baseline
+    purpose_ko: '기능 기준선 확정은 시스템·최상위 형상항목의 성능(기능·상호운용·인터페이스) 요구사항과 그 검증사항을 승인된 형상문서로 고정하는 것으로, 이후 변경이 대비되는 합의된 형상을 정한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.183 (printed p.170) §6.5.1.2.2'
     node_kind: decision
     is_virtual: true
     evidence_level: general_se_guidance
@@ -1654,6 +1952,12 @@ gates:
     source: NASA NPR 7123.1D Table G-6, p.38 [SE-45]; DoD SE Guidebook 2022 p.78, p.83
     template: 없음
     artifact_type_id: dci
+    purpose_ko: '할당 기준선은 상위 요구문서나 형상항목에서 할당된 기능·성능·인터페이스 특성과 그 달성을 입증할 검증사항을 규정한 승인된 성능지향 형상문서로, 기능 기준선을 형상항목 상세설계 착수에 충분한 수준까지 구체화한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.183 (printed p.170) §6.5.1.2.2'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.220 (printed p.207) App B Glossary ''Allocated Baseline'''
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -1725,6 +2029,10 @@ gates:
     source: NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81-82
     template: 없음
     artifact_type_id: sdd
+    purpose_ko: '최초 제품 기준선에 포함되는 소프트웨어 모듈 설계, 즉 코딩용(code-to) 규격으로, 상세설계검토 시점에 형상통제 아래 확정되어 소프트웨어 구현의 근거가 된다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.6 (p.133)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: preliminary
@@ -1778,6 +2086,10 @@ gates:
     source: NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81
     template: 없음
     artifact_type_id: irs
+    purpose_ko: '인터페이스 요구사항 문서는 정해진 당사자·구성품 사이의 인터페이스 요구사항을 정의하고 통제하며, 다른 문서와의 우선순위 및 인터페이스 조직의 개발책임·변경승인 권한을 함께 규정한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.297 (printed p.284) App L §1.1-1.3'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -1802,6 +2114,12 @@ gates:
     source: NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 p.78, Table 3-4 p.81
     template: 없음
     artifact_type_id: icd
+    purpose_ko: '인터페이스 통제문서는 인터페이스 정보와 승인된 인터페이스 변경요청을 식별·수록하는 문서로, 형상관리로 유지·승인되어 기술자료묶음의 일부가 되며 제품검증·확인 과정의 입력으로 쓰인다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.172 (printed p.159) §6.3.1.3'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.171 (printed p.158) §6.3.1.2.3'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -1850,6 +2168,12 @@ gates:
     source: NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81
     template: 없음
     artifact_type_id: rtm
+    purpose_ko: '요구사항의 양방향 추적성을 기록하는 표로, 각 요구가 상위 요구를 온전히 충족하는지 점검하고 충족되지 않은 부분을 보완해 넣으며 부모 없는 요구를 걸러내는 데 쓰인다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.165 (printed p.152) §6.2.1.2.3'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.163 (printed p.150) §6.2'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -1877,6 +2201,10 @@ gates:
     source: NASA NPR 7123.1D Table G-6, p.38 [SE-68]; DoD SE Guidebook 2022 Table 3-4 p.80, p.82
     template: 없음
     artifact_type_id: temp
+    purpose_ko: '검증·확인(V&V) 계획으로, 요구사항 충족을 입증할 활동(검증)과 체계가 고객 기대를 충족함을 확인할 활동(확인)을 식별하는 것이 목적이며 PDR 지적사항 반영 뒤 기준선화한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.272 (printed p.259) App I §1.1'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -1898,6 +2226,10 @@ gates:
     source: NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 p.78, Table 3-4 p.81
     template: 없음
     artifact_type_id: vcrm
+    purpose_ko: '모든 요구사항을 어떻게 검증할지 규정하는 표로, ''shall'' 요구를 고유 식별자와 출처 문서로 특정하고 성공기준·검증방법·수행조직과 충족 증거 문서를 함께 기록한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.253 (printed p.240) App D'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -1924,6 +2256,12 @@ gates:
     source: NASA NPR 7123.1D Table G-6, p.38 [SE-67]; DoD SE Guidebook 2022 Table 3-4 p.82
     template: 없음
     artifact_type_id: integration_plan
+    purpose_ko: '통합계획서는 조율된 통합 노력을 기술해 구현전략을 뒷받침하고, 각 통합 단계에서 참여자가 무엇을 해야 하는지 기술하며, 필요한 자원과 그 시기·장소를 식별하는 데 주된 목적이 있다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.269 (printed p.256) App H.1'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.111 (printed p.98) §5.2'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -1943,6 +2281,12 @@ gates:
     source: NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.82
     template: 없음
     artifact_type_id: trade_study
+    purpose_ko: '체계 아키텍처와 운용개념, 설계 결정이 가용 자원으로 달성 가능한 최선의 해로 나아가게 하는 것이 목적이며, 보고서에는 대안·측도·자료원·계산결과·선정규칙과 권고 대안을 담는다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.94 (printed p.81) §4.4.1.2.3'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.247 (printed p.234) App B Glossary (Trade Study Report)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -1969,6 +2313,12 @@ gates:
     source: NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.80, p.83
     template: 없음
     artifact_type_id: risk_register
+    purpose_ko: '발주 측과 계약자가 공통으로 사용해 프로그램의 위험·이슈·기회를 함께 식별·분석·완화·감시하기 위한 도구의 예로, 일정 추정 오차의 영향 같은 지식도 여기에 기록해 추적한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.5 (p.123)'
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.109)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -1988,6 +2338,12 @@ gates:
     source: NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 p.83-84
     template: 없음
     artifact_type_id: tpm_list
+    purpose_ko: '임무성공에 결정적인 체계의 물리·기능 특성으로, 구현 중 실제 달성값을 그 시점의 기대값과 비교해 진척을 확인하고 핵심 요구 충족이나 비용·일정을 위협할 결함을 드러내는 데 쓰인다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.84 (printed p.71) §4.2.1.2.5'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.290 (printed p.277) App J §7.4'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -2017,6 +2373,10 @@ gates:
     source: NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 p.112, Table 3-4
     template: 없음
     artifact_type_id: tra_report
+    purpose_ko: '체계·부체계·구성품에 요구되는 기술 성숙도를 시험과 해석으로 입증해 기록하는 보고서로, 그 성숙도평가 결과는 기술개발계획 수립과 대안 경로·대체안·성능 축소안 식별에 쓰인다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.260 (printed p.247) App G §G.1'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -2036,6 +2396,10 @@ gates:
     source: NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 p.86
     template: 없음
     artifact_type_id: drawings
+    purpose_ko: '기술자료묶음은 단계가 진행되며 개념 스케치나 모델에서 시작해, 제품 구현과 통합에 필요한 완성 도면·부품목록·상세자료로 마무리된다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.98 (printed p.85) §4.4.1.2.6'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: preliminary
@@ -2063,6 +2427,10 @@ gates:
     source: NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81-82
     template: 없음
     artifact_type_id: registered_parts_plan
+    purpose_ko: '부품·재료·공정이 체계 요구를 충족함을 확인하기 위한 관리 계획으로, 의도한 사용 수명에 대한 신뢰도 위험 고려사항과 평가 전략을 담고 요구를 협력업체·공급자까지 전개한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: 'Table 5-6 (p.198)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -2080,6 +2448,12 @@ gates:
     source: NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81
     template: 없음
     artifact_type_id: fmeca
+    purpose_ko: '인명 피해나 임무 손실로 이어질 수 있는 고장 모드와 그 탐지 방법을 식별해 설계에서 완화되도록 하는 분석으로, 생산·운용 자료에 따라 갱신되어 정비·예비품·가용도 영향 평가에 쓰인다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: 'Table 5-6 (p.197)'
+    - source_key: dod_se_guidebook_2022
+      locator: 'Table 5-6 (p.198)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: preliminary
@@ -2097,6 +2471,10 @@ gates:
     source: NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81
     template: 없음
     artifact_type_id: system_safety_analysis
+    purpose_ko: '운용자·체계·환경·공중에 미치는 위험을 평가하기 위해 안전해석을 수행하며, 그 접근법과 방법은 체계공학관리계획의 체계안전 항목에 기술한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.290 (printed p.277) App J §7.1'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -2114,6 +2492,10 @@ gates:
     source: NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81-82
     template: 없음
     artifact_type_id: manufacturing_plan
+    purpose_ko: '회사와 생산 시설이 계약 요구를 어떻게 충족하고 제품을 인도할지 상세히 다루는 계획으로, 작업분해구조·자재명세서와 연결되고 최종품 제작·조립에 필요한 단계를 기술한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§5.14 (p.178)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: preliminary
@@ -2138,6 +2520,10 @@ gates:
     source: NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81
     template: 없음
     artifact_type_id: qa_plan
+    purpose_ko: '품질보증은 실제로 생산·인도된 체계가 기능·성능·설계 요구에 부합한다는 확신을 얻기 위해 제품 수명주기 전반에 걸쳐 수행하는 독립적 평가다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.239 (printed p.226) App B Glossary (Quality Assurance)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: baseline
@@ -2177,6 +2563,10 @@ gates:
     source: NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.82-83
     template: 없음
     artifact_type_id: ils_plan
+    purpose_ko: '종합군수지원은 설계요구 정의, 자재 조달·배분, 정비, 보급 교체, 수송, 폐기와 관련된 관리·공학 활동과 분석, 정보관리를 포괄하며, 비행·지상체계 지원성 목표에 따라 식별된다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.230 (printed p.217) App B Glossary ''Integrated Logistics Support'''
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -2204,6 +2594,12 @@ gates:
     source: NASA NPR 7123.1D Table G-6
     template: 없음
     artifact_type_id: conops
+    purpose_ko: '운용개념서는 시스템이 이해관계자 기대를 충족하도록 어떻게 사용될지를 시간 순으로 기술해 시스템 목표 이해를 돕고, 사용자 관련 요구사항과 아키텍처 개발을 촉발하며, 후속 정의문서의 기초이자 장기 운용계획의 토대가 된다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.222 (printed p.209) App B Glossary ''Concept of Operations'''
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.71 (printed p.58) §4.1.1.2.4'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: baseline
@@ -2233,6 +2629,12 @@ gates:
     source: NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.82, p.83
     template: 없음
     artifact_type_id: ims
+    purpose_ko: '발주·계약자·하도급 활동을 포함한 전체 작업 범위를 일정·기간·선후관계로 기술한 문서로, 주공정과 이정표를 식별하고 계획 대비 진척 비교, 자원 분석, 위험 완화 추적의 기준을 제공한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.106-107)'
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.109)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -2252,6 +2654,10 @@ gates:
     source: NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.82
     template: 없음
     artifact_type_id: security_plan
+    purpose_ko: '체계보안공학 분석의 종합적 접근과 그 결과를 문서화해 프로그램과 관련자의 활동을 이끄는 계획으로, 각 기술검토·감사에 제출되어 검토 평가 기준과 기능·할당·제품 기준선에 반영된다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§5.24 (p.216)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -2269,6 +2675,12 @@ gates:
     source: NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81
     template: 없음
     artifact_type_id: semp
+    purpose_ko: '프로젝트 기술·공학 활동의 기반 문서로, 어떤 기술과정을 어떻게 적용하고 조직과 자원을 어떻게 갖출지 규정하며 각 수명주기 단계의 진입·성공 기준을 충족하는 작업산출물 실현의 틀을 제공한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.282 (printed p.269) App J §J.1'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.155 (printed p.142) §6.1.1.2.4'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -2303,6 +2715,10 @@ gates:
     source: NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-2 p.73, Table 3-4
     template: 없음
     artifact_type_id: engineering_analysis_report
+    purpose_ko: '계산 모델을 포함한 공인된 해석 기법으로 체계요소의 거동·성능을 해석하거나 설명한 결과로, 시험자료나 설계자료 분석을 통해 요구사항을 검증하는 데 쓰인다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.2.6 (p.150)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: preliminary
@@ -2329,6 +2745,12 @@ gates:
     source: NASA NPR 7123.1D Table G-6; DoD SE Guidebook 2022 Table 3-4 p.81
     template: 없음
     artifact_type_id: hsi_plan
+    purpose_ko: '인간체계통합계획서는 수명주기 전반의 HSI 전략과 이행계획을 문서화하며, 인간 요소를 하드웨어·소프트웨어와 효과적으로 통합하고, 개발·운용 인력을 수명주기 비용에 반영하며, 사용자 집단 특성에 맞게 시스템이 만들어지도록 하는 데 목적이 있다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.305 (printed p.292) App R.1'
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.1.3 (p.37)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: updated
@@ -2372,6 +2794,12 @@ gates:
     source: NASA NPR 7123.1D p.40 §5.2.3.1; DoD SE Guidebook 2022 p.83
     template: 없음
     artifact_type_id: review_minutes_pdr
+    purpose_ko: '검토에서 내려진 결정을 뒷날 참조할 수 있는 이력 기록으로 남기며, 모든 RID·RFA 처리에 대한 합의와 함께 완성·배포되어야 해당 수명주기 검토가 완료로 인정된다.'
+    purpose_refs:
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.2.9 (p.40)'
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.3.1 (p.40)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -2389,6 +2817,10 @@ gates:
     source: NASA NPR 7123.1D p.40 §5.2.3.1, p.38 §5.2.2.2.d; DoD SE Guidebook 2022 p.83-84
     template: 없음
     artifact_type_id: review_result_report_pdr
+    purpose_ko: '검토위원회 보고서로, 검토 성공기준 대비 미흡한 성과의 문제·우려를 담아 관리조직에 보고되며, 검토의 성공적 완료를 문서화하는 결정 메모와 함께 수명주기 검토 완료 요건을 이룬다.'
+    purpose_refs:
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.3.1 (p.40)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -2408,6 +2840,12 @@ gates:
     source: NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력
     template: 없음
     artifact_type_id: act_implementation
+    purpose_ko: '구현은 구매·제작(코딩)·재사용으로 해당 제품계층의 규정된 산품을 만들어 설계해 정의와 규정 요구사항을 충족시키는 활동으로, 계획과 설계를 실제 산품으로 옮기는 단계다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.104 (printed p.91) §5.1'
+    - source_key: nasa_npr_7123_1d
+      locator: '§3.2.6.2 (p.25)'
     node_kind: activity
     is_virtual: true
     evidence_level: general_se_guidance
@@ -2439,6 +2877,12 @@ gates:
     source: NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력
     template: 없음
     artifact_type_id: act_integration
+    purpose_ko: '통합은 검증·확인된 하위 산품을 조립·통합해 상위 계층의 최종산품으로 만드는 활동이며, 궁극적 목적은 시스템 구성요소들이 하나의 전체로 기능하도록 보장하는 것이다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.111 (printed p.98) §5.2'
+    - source_key: nasa_npr_7123_1d
+      locator: '§3.2.7.2 (p.26)'
     node_kind: activity
     is_virtual: true
     evidence_level: general_se_guidance
@@ -2467,6 +2911,12 @@ gates:
     source: NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력
     template: 없음
     artifact_type_id: act_validation
+    purpose_ko: '확인은 검증을 마친 최종산품이 의도한 환경에서 의도한 용도를 충족하는지를 기준선화된 이해관계자 기대(MOE·운용개념)에 비추어 확증하고, 발견된 이상을 인도나 상위 통합 전에 해결하도록 하는 활동이다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.129 (printed p.116) §5.4'
+    - source_key: nasa_npr_7123_1d
+      locator: '§3.2.9.2 (p.26)'
     node_kind: activity
     is_virtual: true
     evidence_level: general_se_guidance
@@ -2496,6 +2946,12 @@ gates:
     source: NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력
     template: 없음
     artifact_type_id: act_verification
+    purpose_ko: '검증은 구현 또는 통합으로 만든 최종산품이 규정된 요구사항·규격에 부합함을 증명해 ''제품을 올바르게 만들었는가''에 답하는 활동이며, 그 규격과 설계기술문서가 해당 산품의 형상 기준선을 이룬다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.116 (printed p.103) §5.3'
+    - source_key: nasa_npr_7123_1d
+      locator: '§3.2.8.2 (p.26)'
     node_kind: activity
     is_virtual: true
     evidence_level: general_se_guidance
@@ -2527,6 +2983,10 @@ gates:
     source: DoD SE Guidebook 2022 §4.1.6 (baseline definitions)
     template: 없음
     artifact_type_id: dec_allocated_baseline
+    purpose_ko: '할당 기준선 확정은 통상 PDR 성공적 완료 시점에 이루어지며, 형상항목의 특성을 합의·문서화해 상세설계 착수 기준과 이후 변경이 대비되는 알려진 형상을 제공한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.183 (printed p.170) §6.5.1.2.2'
     node_kind: decision
     is_virtual: true
     evidence_level: general_se_guidance
@@ -2594,6 +3054,12 @@ gates:
     source: NASA NPR 7123.1D p.38 §5.2.2.2.e [SE-46], Table G-7; DoD SE Guidebook 2022 p.84, p.88
     template: 없음
     artifact_type_id: pci
+    purpose_ko: '제품기준선은 생산·배치·운용지원 단계에서 형상항목의 형상을 기술하는 승인된 기술문서로, 형상항목의 물리적 형태·적합·기능 특성과 생산수락시험 대상 기능특성 및 그 시험요구를 규정한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.183 (printed p.170) §6.5.1.2.2'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.236 (printed p.223) App B Glossary (Product Baseline)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -2658,6 +3124,10 @@ gates:
     source: NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.86-87
     template: 없음
     artifact_type_id: sdd
+    purpose_ko: '최초 제품 기준선에 포함되는 소프트웨어 모듈 설계, 즉 코딩용(code-to) 규격으로, 상세설계검토 시점에 형상통제 아래 확정되어 소프트웨어 구현의 근거가 된다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.6 (p.133)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -2709,6 +3179,10 @@ gates:
     source: NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 p.86, p.89
     template: 없음
     artifact_type_id: drawings
+    purpose_ko: '기술자료묶음은 단계가 진행되며 개념 스케치나 모델에서 시작해, 제품 구현과 통합에 필요한 완성 도면·부품목록·상세자료로 마무리된다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.98 (printed p.85) §4.4.1.2.6'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -2774,6 +3248,12 @@ gates:
     source: NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.86
     template: 없음
     artifact_type_id: rtm
+    purpose_ko: '요구사항의 양방향 추적성을 기록하는 표로, 각 요구가 상위 요구를 온전히 충족하는지 점검하고 충족되지 않은 부분을 보완해 넣으며 부모 없는 요구를 걸러내는 데 쓰인다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.165 (printed p.152) §6.2.1.2.3'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.163 (printed p.150) §6.2'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -2801,6 +3281,10 @@ gates:
     source: NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.86, p.96
     template: 없음
     artifact_type_id: tdp
+    purpose_ko: '획득전략·생산·공학·군수지원을 뒷받침하기에 충분한 품목의 기술적 기술서로, 요구되는 설계 형상과 성능 적합성을 보장할 절차를 규정하며 도면·목록·규격·표준·품질보증 조항 등을 포함한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.191 (printed p.178) §6.6.1.2.1'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: preliminary
@@ -2827,6 +3311,10 @@ gates:
     source: NASA NPR 7123.1D Table G-6, Table G-7; DoD SE Guidebook 2022 Table 3-5 p.86-87
     template: 없음
     artifact_type_id: manufacturing_plan
+    purpose_ko: '회사와 생산 시설이 계약 요구를 어떻게 충족하고 제품을 인도할지 상세히 다루는 계획으로, 작업분해구조·자재명세서와 연결되고 최종품 제작·조립에 필요한 단계를 기술한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§5.14 (p.178)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -2887,6 +3375,10 @@ gates:
     source: NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-7 p.94
     template: 없음
     artifact_type_id: atp
+    purpose_ko: '수락시험은 검증 프로그램에서 선별한 축소 항목을 제작·인도되는 비행품마다 수행하며, 그 시험·해석 기준은 해당 호기의 제작과 기량이 앞서 검증·인정된 설계에 부합함을 보이도록 선정한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.117 (printed p.104) §5.3 (Verification/Qualification/Acceptance/Certification box)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -2904,6 +3396,10 @@ gates:
     source: NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.87
     template: 없음
     artifact_type_id: temp
+    purpose_ko: '검증·확인(V&V) 계획으로, 요구사항 충족을 입증할 활동(검증)과 체계가 고객 기대를 충족함을 확인할 활동(확인)을 식별하는 것이 목적이며 PDR 지적사항 반영 뒤 기준선화한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.272 (printed p.259) App I §1.1'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -2921,6 +3417,10 @@ gates:
     source: NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.87
     template: 없음
     artifact_type_id: vcrm
+    purpose_ko: '모든 요구사항을 어떻게 검증할지 규정하는 표로, ''shall'' 요구를 고유 식별자와 출처 문서로 특정하고 성공기준·검증방법·수행조직과 충족 증거 문서를 함께 기록한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.253 (printed p.240) App D'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -2962,6 +3462,12 @@ gates:
     source: NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.87
     template: 없음
     artifact_type_id: integration_plan
+    purpose_ko: '통합계획서는 조율된 통합 노력을 기술해 구현전략을 뒷받침하고, 각 통합 단계에서 참여자가 무엇을 해야 하는지 기술하며, 필요한 자원과 그 시기·장소를 식별하는 데 주된 목적이 있다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.269 (printed p.256) App H.1'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.111 (printed p.98) §5.2'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -2979,6 +3485,12 @@ gates:
     source: NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.87
     template: 없음
     artifact_type_id: fmeca
+    purpose_ko: '인명 피해나 임무 손실로 이어질 수 있는 고장 모드와 그 탐지 방법을 식별해 설계에서 완화되도록 하는 분석으로, 생산·운용 자료에 따라 갱신되어 정비·예비품·가용도 영향 평가에 쓰인다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: 'Table 5-6 (p.197)'
+    - source_key: dod_se_guidebook_2022
+      locator: 'Table 5-6 (p.198)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -2996,6 +3508,10 @@ gates:
     source: NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.87
     template: 없음
     artifact_type_id: system_safety_analysis
+    purpose_ko: '운용자·체계·환경·공중에 미치는 위험을 평가하기 위해 안전해석을 수행하며, 그 접근법과 방법은 체계공학관리계획의 체계안전 항목에 기술한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.290 (printed p.277) App J §7.1'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -3013,6 +3529,12 @@ gates:
     source: NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.87, p.88
     template: 없음
     artifact_type_id: risk_register
+    purpose_ko: '발주 측과 계약자가 공통으로 사용해 프로그램의 위험·이슈·기회를 함께 식별·분석·완화·감시하기 위한 도구의 예로, 일정 추정 오차의 영향 같은 지식도 여기에 기록해 추적한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.5 (p.123)'
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.109)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -3032,6 +3554,12 @@ gates:
     source: NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 p.89
     template: 없음
     artifact_type_id: tpm_list
+    purpose_ko: '임무성공에 결정적인 체계의 물리·기능 특성으로, 구현 중 실제 달성값을 그 시점의 기대값과 비교해 진척을 확인하고 핵심 요구 충족이나 비용·일정을 위협할 결함을 드러내는 데 쓰인다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.84 (printed p.71) §4.2.1.2.5'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.290 (printed p.277) App J §7.4'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -3061,6 +3589,10 @@ gates:
     source: NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 p.112
     template: 없음
     artifact_type_id: tra_report
+    purpose_ko: '체계·부체계·구성품에 요구되는 기술 성숙도를 시험과 해석으로 입증해 기록하는 보고서로, 그 성숙도평가 결과는 기술개발계획 수립과 대안 경로·대체안·성능 축소안 식별에 쓰인다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.260 (printed p.247) App G §G.1'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -3078,6 +3610,10 @@ gates:
     source: NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.88
     template: 없음
     artifact_type_id: registered_parts_plan
+    purpose_ko: '부품·재료·공정이 체계 요구를 충족함을 확인하기 위한 관리 계획으로, 의도한 사용 수명에 대한 신뢰도 위험 고려사항과 평가 전략을 담고 요구를 협력업체·공급자까지 전개한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: 'Table 5-6 (p.198)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -3112,6 +3648,10 @@ gates:
     source: NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.88
     template: 없음
     artifact_type_id: engineering_analysis_report
+    purpose_ko: '계산 모델을 포함한 공인된 해석 기법으로 체계요소의 거동·성능을 해석하거나 설명한 결과로, 시험자료나 설계자료 분석을 통해 요구사항을 검증하는 데 쓰인다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.2.6 (p.150)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: final
@@ -3136,6 +3676,10 @@ gates:
     source: DoD SE Guidebook 2022 Table 3-5 p.86-87; NASA NPR 7123.1D Table G-7
     template: 없음
     artifact_type_id: critical_items_list
+    purpose_ko: '설계·개발 단계에서 핵심안전품목을 식별·문서화한 목록으로, 초도 예비품 산정·보급 지원·제조 계획 같은 후속 공정에 영향을 주어 운용지원 단계까지 적절한 관리를 보장한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§5.6 (p.167)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: baseline
@@ -3153,6 +3697,12 @@ gates:
     source: NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.88
     template: 없음
     artifact_type_id: trade_study
+    purpose_ko: '체계 아키텍처와 운용개념, 설계 결정이 가용 자원으로 달성 가능한 최선의 해로 나아가게 하는 것이 목적이며, 보고서에는 대안·측도·자료원·계산결과·선정규칙과 권고 대안을 담는다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.94 (printed p.81) §4.4.1.2.3'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.247 (printed p.234) App B Glossary (Trade Study Report)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -3179,6 +3729,10 @@ gates:
     source: DoD SE Guidebook 2022 Table 5-5 p.187-189, Table 3-5; NASA NPR 7123.1D Table G-7
     template: 없음
     artifact_type_id: mra_report
+    purpose_ko: '제조 위험을 평가하는 수단으로, 획득 수명주기 전반의 기존 프로그램 평가와 통합되어 지속 수행되며 각 기술검토와 이정표 결정 전에 제조 준비 상태와 진척을 보고하는 근거가 된다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§5.14.5 (p.185)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: preliminary
@@ -3198,6 +3752,10 @@ gates:
     source: NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.86-87
     template: 없음
     artifact_type_id: qa_plan
+    purpose_ko: '품질보증은 실제로 생산·인도된 체계가 기능·성능·설계 요구에 부합한다는 확신을 얻기 위해 제품 수명주기 전반에 걸쳐 수행하는 독립적 평가다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.239 (printed p.226) App B Glossary (Quality Assurance)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: updated
@@ -3244,6 +3802,12 @@ gates:
     source: NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.87
     template: 없음
     artifact_type_id: semp
+    purpose_ko: '프로젝트 기술·공학 활동의 기반 문서로, 어떤 기술과정을 어떻게 적용하고 조직과 자원을 어떻게 갖출지 규정하며 각 수명주기 단계의 진입·성공 기준을 충족하는 작업산출물 실현의 틀을 제공한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.282 (printed p.269) App J §J.1'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.155 (printed p.142) §6.1.1.2.4'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -3261,6 +3825,12 @@ gates:
     source: NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.88
     template: 없음
     artifact_type_id: ims
+    purpose_ko: '발주·계약자·하도급 활동을 포함한 전체 작업 범위를 일정·기간·선후관계로 기술한 문서로, 주공정과 이정표를 식별하고 계획 대비 진척 비교, 자원 분석, 위험 완화 추적의 기준을 제공한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.106-107)'
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.109)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -3278,6 +3848,10 @@ gates:
     source: NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.88
     template: 없음
     artifact_type_id: ils_plan
+    purpose_ko: '종합군수지원은 설계요구 정의, 자재 조달·배분, 정비, 보급 교체, 수송, 폐기와 관련된 관리·공학 활동과 분석, 정보관리를 포괄하며, 비행·지상체계 지원성 목표에 따라 식별된다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.230 (printed p.217) App B Glossary ''Integrated Logistics Support'''
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -3305,6 +3879,10 @@ gates:
     source: NASA NPR 7123.1D Table G-7; DoD SE Guidebook 2022 Table 3-5 p.87-88
     template: 없음
     artifact_type_id: security_plan
+    purpose_ko: '체계보안공학 분석의 종합적 접근과 그 결과를 문서화해 프로그램과 관련자의 활동을 이끄는 계획으로, 각 기술검토·감사에 제출되어 검토 평가 기준과 기능·할당·제품 기준선에 반영된다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§5.24 (p.216)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: baseline
@@ -3339,6 +3917,12 @@ gates:
     source: NASA NPR 7123.1D p.40 §5.2.3.1; DoD SE Guidebook 2022 p.88
     template: 없음
     artifact_type_id: review_minutes_cdr
+    purpose_ko: '검토에서 내려진 결정을 뒷날 참조할 수 있는 이력 기록으로 남기며, 모든 RID·RFA 처리에 대한 합의와 함께 완성·배포되어야 해당 수명주기 검토가 완료로 인정된다.'
+    purpose_refs:
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.2.9 (p.40)'
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.3.1 (p.40)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -3356,6 +3940,10 @@ gates:
     source: NASA NPR 7123.1D p.40 §5.2.3.1, p.38 §5.2.2.2.e; DoD SE Guidebook 2022 p.88-89
     template: 없음
     artifact_type_id: review_result_report_cdr
+    purpose_ko: '검토위원회 보고서로, 검토 성공기준 대비 미흡한 성과의 문제·우려를 담아 관리조직에 보고되며, 검토의 성공적 완료를 문서화하는 결정 메모와 함께 수명주기 검토 완료 요건을 이룬다.'
+    purpose_refs:
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.3.1 (p.40)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -3375,6 +3963,12 @@ gates:
     source: NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력
     template: 없음
     artifact_type_id: act_implementation
+    purpose_ko: '구현은 구매·제작(코딩)·재사용으로 해당 제품계층의 규정된 산품을 만들어 설계해 정의와 규정 요구사항을 충족시키는 활동으로, 계획과 설계를 실제 산품으로 옮기는 단계다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.104 (printed p.91) §5.1'
+    - source_key: nasa_npr_7123_1d
+      locator: '§3.2.6.2 (p.25)'
     node_kind: activity
     is_virtual: true
     evidence_level: general_se_guidance
@@ -3407,6 +4001,12 @@ gates:
     source: NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력
     template: 없음
     artifact_type_id: act_transition
+    purpose_ko: '인도·전환은 검증·확인을 마친 최종산품을 상위 계층 고객에게 넘겨 통합되게 하거나 최상위 산품의 경우 실사용자에게 인도하는 활동으로, 한 계층에서 다음 계층으로 잇는 다리 역할을 한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.137 (printed p.124) §5.5'
+    - source_key: nasa_npr_7123_1d
+      locator: '§3.2.10.2 (p.26)'
     node_kind: activity
     is_virtual: true
     evidence_level: general_se_guidance
@@ -3436,6 +4036,12 @@ gates:
     source: DoD SE Guidebook 2022 §4.1.6 (baseline definitions)
     template: 없음
     artifact_type_id: dec_product_baseline
+    purpose_ko: '제품 기준선 확정은 생산·배치·운용지원 단계의 형상항목 형상을 기술하는 승인된 기술문서를 고정하는 것으로, 상세 형상적합기능 특성과 생산 수락시험 대상 기능특성 및 수락시험 요구사항을 규정한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.183 (printed p.170) §6.5.1.2.2'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.236 (printed p.223) App B Glossary ''Product Baseline'''
     node_kind: decision
     is_virtual: true
     evidence_level: general_se_guidance
@@ -3582,6 +4188,12 @@ gates:
     source: NASA NPR 7123.1D Table G-9, p.38 [SE-47]
     template: 없음
     artifact_type_id: integration_plan
+    purpose_ko: '통합계획서는 조율된 통합 노력을 기술해 구현전략을 뒷받침하고, 각 통합 단계에서 참여자가 무엇을 해야 하는지 기술하며, 필요한 자원과 그 시기·장소를 식별하는 데 주된 목적이 있다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.269 (printed p.256) App H.1'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.111 (printed p.98) §5.2'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: updated
@@ -3599,6 +4211,10 @@ gates:
     source: NASA NPR 7123.1D Table G-9, p.38 [SE-48]; DoD SE Guidebook 2022 Table 3-6 p.91
     template: 없음
     artifact_type_id: dt_report
+    purpose_ko: '개발시험·수락시험·인정시험으로 수행한 검증 활동과 그 결과를 문서화한 것으로, 기능형상감사와 체계검증검토의 산출물에 포함되어 요구 충족의 근거가 된다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.2.6 (p.151)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: preliminary
@@ -3659,6 +4275,10 @@ gates:
     source: NASA NPR 7123.1D Table G-9
     template: 없음
     artifact_type_id: vcrm
+    purpose_ko: '모든 요구사항을 어떻게 검증할지 규정하는 표로, ''shall'' 요구를 고유 식별자와 출처 문서로 특정하고 성공기준·검증방법·수행조직과 충족 증거 문서를 함께 기록한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.253 (printed p.240) App D'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: updated
@@ -3681,6 +4301,14 @@ gates:
     source: NASA NPR 7123.1D Table G-9, Table G-10; DoD SE Guidebook 2022 p.95-96
     template: 없음
     artifact_type_id: discrepancy_log
+    purpose_ko: '불일치가 관측되면 검증을 멈추고 불일치보고를 작성하며, 불일치와 부적합품은 후속조치와 종결을 위해 기록·보고한다. 모든 불일치·부적합 보고의 종결은 제품검증 완료 판정 기준의 하나다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.125 (printed p.112) §5.3.1.2.2'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.126 (printed p.113) §5.3.1.2.3'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.128 (printed p.115) §5.3.1.3'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -3713,6 +4341,10 @@ gates:
     source: NASA NPR 7123.1D Table G-10, Table G-9
     template: 없음
     artifact_type_id: system_safety_analysis
+    purpose_ko: '운용자·체계·환경·공중에 미치는 위험을 평가하기 위해 안전해석을 수행하며, 그 접근법과 방법은 체계공학관리계획의 체계안전 항목에 기술한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.290 (printed p.277) App J §7.1'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: updated
@@ -3747,6 +4379,10 @@ gates:
     source: NASA NPR 7123.1D Table G-9
     template: 없음
     artifact_type_id: temp
+    purpose_ko: '검증·확인(V&V) 계획으로, 요구사항 충족을 입증할 활동(검증)과 체계가 고객 기대를 충족함을 확인할 활동(확인)을 식별하는 것이 목적이며 PDR 지적사항 반영 뒤 기준선화한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.272 (printed p.259) App I §1.1'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: updated
@@ -3762,6 +4398,12 @@ gates:
     source: NASA NPR 7123.1D Table G-10, Table G-9
     template: 없음
     artifact_type_id: risk_register
+    purpose_ko: '발주 측과 계약자가 공통으로 사용해 프로그램의 위험·이슈·기회를 함께 식별·분석·완화·감시하기 위한 도구의 예로, 일정 추정 오차의 영향 같은 지식도 여기에 기록해 추적한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.5 (p.123)'
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.109)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: updated
@@ -3779,6 +4421,10 @@ gates:
     source: NASA NPR 7123.1D Table G-9
     template: 없음
     artifact_type_id: handling_transport_plan
+    purpose_ko: '군수·운용 절차 문서는 해당 설계해에 대한 취급, 수송, 정비, 장기보관, 운용상 고려사항을 기술한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.101 (printed p.88) §4.4.1.3'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: final
@@ -3794,6 +4440,12 @@ gates:
     source: NASA NPR 7123.1D Table G-9
     template: 없음
     artifact_type_id: icd
+    purpose_ko: '인터페이스 통제문서는 인터페이스 정보와 승인된 인터페이스 변경요청을 식별·수록하는 문서로, 형상관리로 유지·승인되어 기술자료묶음의 일부가 되며 제품검증·확인 과정의 입력으로 쓰인다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.172 (printed p.159) §6.3.1.3'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.171 (printed p.158) §6.3.1.2.3'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: updated
@@ -3819,6 +4471,12 @@ gates:
     source: NASA NPR 7123.1D Table G-9
     template: 없음
     artifact_type_id: ims
+    purpose_ko: '발주·계약자·하도급 활동을 포함한 전체 작업 범위를 일정·기간·선후관계로 기술한 문서로, 주공정과 이정표를 식별하고 계획 대비 진척 비교, 자원 분석, 위험 완화 추적의 기준을 제공한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.106-107)'
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.109)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: updated
@@ -3834,6 +4492,10 @@ gates:
     source: NASA NPR 7123.1D Table G-10
     template: 없음
     artifact_type_id: lessons_learned
+    purpose_ko: '유사 프로그램의 성공·실패·문제와 해결책을 정리한 기록으로, 위험·불확실성·기회에 대한 통찰을 주며 현재 프로그램에 맞게 선별·조정해 적용할 때 가장 큰 이익을 준다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§2.2.8 (p.46)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: preliminary
@@ -3849,6 +4511,12 @@ gates:
     source: NASA NPR 7123.1D p.40 §5.2.3.1, Table G-10
     template: 없음
     artifact_type_id: review_minutes_trr
+    purpose_ko: '검토에서 내려진 결정을 뒷날 참조할 수 있는 이력 기록으로 남기며, 모든 RID·RFA 처리에 대한 합의와 함께 완성·배포되어야 해당 수명주기 검토가 완료로 인정된다.'
+    purpose_refs:
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.2.9 (p.40)'
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.3.1 (p.40)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: final
@@ -3866,6 +4534,10 @@ gates:
     source: NASA NPR 7123.1D p.40 §5.2.3.1
     template: 없음
     artifact_type_id: review_result_report_trr
+    purpose_ko: '검토위원회 보고서로, 검토 성공기준 대비 미흡한 성과의 문제·우려를 담아 관리조직에 보고되며, 검토의 성공적 완료를 문서화하는 결정 메모와 함께 수명주기 검토 완료 요건을 이룬다.'
+    purpose_refs:
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.3.1 (p.40)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: final
@@ -3881,6 +4553,12 @@ gates:
     source: NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력
     template: 없음
     artifact_type_id: act_transition
+    purpose_ko: '인도·전환은 검증·확인을 마친 최종산품을 상위 계층 고객에게 넘겨 통합되게 하거나 최상위 산품의 경우 실사용자에게 인도하는 활동으로, 한 계층에서 다음 계층으로 잇는 다리 역할을 한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.137 (printed p.124) §5.5'
+    - source_key: nasa_npr_7123_1d
+      locator: '§3.2.10.2 (p.26)'
     node_kind: activity
     is_virtual: true
     evidence_level: general_se_guidance
@@ -3910,6 +4588,12 @@ gates:
     source: NASA SE Handbook Rev2 4-6장 / DoD SE Guidebook 2022 §4 프로세스 입출력
     template: 없음
     artifact_type_id: act_validation
+    purpose_ko: '확인은 검증을 마친 최종산품이 의도한 환경에서 의도한 용도를 충족하는지를 기준선화된 이해관계자 기대(MOE·운용개념)에 비추어 확증하고, 발견된 이상을 인도나 상위 통합 전에 해결하도록 하는 활동이다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.129 (printed p.116) §5.4'
+    - source_key: nasa_npr_7123_1d
+      locator: '§3.2.9.2 (p.26)'
     node_kind: activity
     is_virtual: true
     evidence_level: general_se_guidance
@@ -3980,6 +4664,10 @@ gates:
     source: NASA NPR 7123.1D Table G-11, Table G-12 [SE-69]; DoD SE Guidebook 2022 Table 3-6 p.91
     template: 없음
     artifact_type_id: dt_report
+    purpose_ko: '개발시험·수락시험·인정시험으로 수행한 검증 활동과 그 결과를 문서화한 것으로, 기능형상감사와 체계검증검토의 산출물에 포함되어 요구 충족의 근거가 된다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.2.6 (p.151)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -4023,6 +4711,10 @@ gates:
     source: NASA NPR 7123.1D Table G-11; DoD SE Guidebook 2022 Table 3-6 p.91, p.90
     template: 없음
     artifact_type_id: vcrm
+    purpose_ko: '모든 요구사항을 어떻게 검증할지 규정하는 표로, ''shall'' 요구를 고유 식별자와 출처 문서로 특정하고 성공기준·검증방법·수행조직과 충족 증거 문서를 함께 기록한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.253 (printed p.240) App D'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -4049,6 +4741,12 @@ gates:
     source: NASA NPR 7123.1D Table G-11; DoD SE Guidebook 2022 Table 3-6 p.91
     template: 없음
     artifact_type_id: rtm
+    purpose_ko: '요구사항의 양방향 추적성을 기록하는 표로, 각 요구가 상위 요구를 온전히 충족하는지 점검하고 충족되지 않은 부분을 보완해 넣으며 부모 없는 요구를 걸러내는 데 쓰인다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.165 (printed p.152) §6.2.1.2.3'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.163 (printed p.150) §6.2'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -4076,6 +4774,10 @@ gates:
     source: DoD SE Guidebook 2022 §3.6, p.89-91
     template: 없음
     artifact_type_id: fca_plan
+    purpose_ko: '정량화된 검토 기준을 세워 프로그램 목표에 맞게 조정한 감사 수행 계획으로, 그 기준은 체계공학계획에 문서화되며 기준이 충족되기 전에는 감사를 시작하지 않는다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§3.6 (p.90-91)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: final
@@ -4108,6 +4810,10 @@ gates:
     source: DoD SE Guidebook 2022 p.91; NASA NPR 7123.1D Table G-11
     template: 없음
     artifact_type_id: fca_report
+    purpose_ko: '기능형상감사는 형상화된 산품의 기능 특성을 조사해 PDR·CDR에서 승인된 기능 기준선 문서와 이후 승인된 변경의 요구사항을 시험결과로 충족했는지 검증하며, 하드웨어·소프트웨어 모두에 대해 PCA에 앞서 수행한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.229 (printed p.216) App B Glossary ''Functional Configuration Audit (FCA)'''
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -4142,6 +4848,10 @@ gates:
     source: NASA NPR 7123.1D Table G-11; DoD SE Guidebook 2022 Table 3-6 p.91, p.95
     template: 없음
     artifact_type_id: ot_report
+    purpose_ko: '확인(validation) 결과 보고서로, 해당 계층 제품이 확인 대상으로 식별된 이해관계자 기대에 부합한다는 증거를 제시하며 부적합·이상과 그에 대해 취한 시정조치를 함께 담는다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.136 (printed p.123) §5.4.1.3'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: final
@@ -4202,6 +4912,10 @@ gates:
     source: NASA NPR 7123.1D Table G-11; DoD SE Guidebook 2022 p.90
     template: 없음
     artifact_type_id: tdp
+    purpose_ko: '획득전략·생산·공학·군수지원을 뒷받침하기에 충분한 품목의 기술적 기술서로, 요구되는 설계 형상과 성능 적합성을 보장할 절차를 규정하며 도면·목록·규격·표준·품질보증 조항 등을 포함한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.191 (printed p.178) §6.6.1.2.1'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -4226,6 +4940,10 @@ gates:
     source: NASA NPR 7123.1D Table G-11; DoD SE Guidebook 2022 Table 3-7 p.94, p.91
     template: 없음
     artifact_type_id: acceptance_data_package
+    purpose_ko: '수락시험 항목은 검증 프로그램에서 축소 선별해 제작·인도되는 비행품마다 수행하며, 그 결과를 담은 수락자료묶음을 호기마다 작성해 제품과 함께 인도한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.117 (printed p.104) §5.3 (Verification/Qualification/Acceptance/Certification box)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -4245,6 +4963,14 @@ gates:
     source: NASA NPR 7123.1D Table G-11, Table G-12; DoD SE Guidebook 2022 p.95-96
     template: 없음
     artifact_type_id: discrepancy_log
+    purpose_ko: '불일치가 관측되면 검증을 멈추고 불일치보고를 작성하며, 불일치와 부적합품은 후속조치와 종결을 위해 기록·보고한다. 모든 불일치·부적합 보고의 종결은 제품검증 완료 판정 기준의 하나다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.125 (printed p.112) §5.3.1.2.2'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.126 (printed p.113) §5.3.1.2.3'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.128 (printed p.115) §5.3.1.3'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: updated
@@ -4277,6 +5003,12 @@ gates:
     source: NASA NPR 7123.1D Table G-11; DoD SE Guidebook 2022 Table 3-6 p.91
     template: 없음
     artifact_type_id: risk_register
+    purpose_ko: '발주 측과 계약자가 공통으로 사용해 프로그램의 위험·이슈·기회를 함께 식별·분석·완화·감시하기 위한 도구의 예로, 일정 추정 오차의 영향 같은 지식도 여기에 기록해 추적한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.5 (p.123)'
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.109)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -4347,6 +5079,10 @@ gates:
     source: NASA NPR 7123.1D Table G-11
     template: 없음
     artifact_type_id: handling_transport_plan
+    purpose_ko: '군수·운용 절차 문서는 해당 설계해에 대한 취급, 수송, 정비, 장기보관, 운용상 고려사항을 기술한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.101 (printed p.88) §4.4.1.3'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: final
@@ -4362,6 +5098,12 @@ gates:
     source: DoD SE Guidebook 2022 Table 3-6 p.91
     template: 없음
     artifact_type_id: ims
+    purpose_ko: '발주·계약자·하도급 활동을 포함한 전체 작업 범위를 일정·기간·선후관계로 기술한 문서로, 주공정과 이정표를 식별하고 계획 대비 진척 비교, 자원 분석, 위험 완화 추적의 기준을 제공한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.106-107)'
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.109)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: updated
@@ -4377,6 +5119,10 @@ gates:
     source: NASA NPR 7123.1D Table G-11
     template: 없음
     artifact_type_id: lessons_learned
+    purpose_ko: '유사 프로그램의 성공·실패·문제와 해결책을 정리한 기록으로, 위험·불확실성·기회에 대한 통찰을 주며 현재 프로그램에 맞게 선별·조정해 적용할 때 가장 큰 이익을 준다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§2.2.8 (p.46)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: updated
@@ -4409,6 +5155,12 @@ gates:
     source: NASA NPR 7123.1D p.40 §5.2.3.1; DoD SE Guidebook 2022 Table 3-7 p.94
     template: 없음
     artifact_type_id: review_minutes_fca
+    purpose_ko: '검토에서 내려진 결정을 뒷날 참조할 수 있는 이력 기록으로 남기며, 모든 RID·RFA 처리에 대한 합의와 함께 완성·배포되어야 해당 수명주기 검토가 완료로 인정된다.'
+    purpose_refs:
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.2.9 (p.40)'
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.3.1 (p.40)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -4426,6 +5178,10 @@ gates:
     source: NASA NPR 7123.1D Table G-11, p.40 §5.2.3.1; DoD SE Guidebook 2022 p.91
     template: 없음
     artifact_type_id: review_result_report_fca
+    purpose_ko: '검토위원회 보고서로, 검토 성공기준 대비 미흡한 성과의 문제·우려를 담아 관리조직에 보고되며, 검토의 성공적 완료를 문서화하는 결정 메모와 함께 수명주기 검토 완료 요건을 이룬다.'
+    purpose_refs:
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.3.1 (p.40)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -4485,6 +5241,10 @@ gates:
     source: DoD SE Guidebook 2022 §3.8, p.95-97
     template: 없음
     artifact_type_id: pca_plan
+    purpose_ko: '정량화된 검토 기준을 세워 프로그램 목표에 맞게 조정한 감사 수행 계획으로, 그 기준은 체계공학계획에 문서화되고 감사는 기준이 충족되었다고 판단될 때 수행한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§3.8 (p.96-97)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: final
@@ -4517,6 +5277,12 @@ gates:
     source: DoD SE Guidebook 2022 p.97; NASA NPR 7123.1D Table G-12
     template: 없음
     artifact_type_id: pca_report
+    purpose_ko: '물리형상감사는 형상화된 제품의 물리적 형상을 검사해 CDR에서 승인된 제작·코딩 기준 제품기준선 문서와 이후 승인된 변경에 제품이 일치하는지 확인하며, 하드웨어와 소프트웨어 모두에 수행한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.235 (printed p.222) App B Glossary (Physical Configuration Audits)'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.187 (printed p.174) §6.4.1.2.5 (Conduct Configuration Audits)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -4534,6 +5300,12 @@ gates:
     source: DoD SE Guidebook 2022 Table 3-8 p.97, p.133; NASA NPR 7123.1D Table G-12, Table G-11
     template: 없음
     artifact_type_id: pci
+    purpose_ko: '제품기준선은 생산·배치·운용지원 단계에서 형상항목의 형상을 기술하는 승인된 기술문서로, 형상항목의 물리적 형태·적합·기능 특성과 생산수락시험 대상 기능특성 및 그 시험요구를 규정한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.183 (printed p.170) §6.5.1.2.2'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.236 (printed p.223) App B Glossary (Product Baseline)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -4555,6 +5327,10 @@ gates:
     source: NASA NPR 7123.1D Table G-8; DoD SE Guidebook 2022 p.95-96
     template: 없음
     artifact_type_id: drawings
+    purpose_ko: '기술자료묶음은 단계가 진행되며 개념 스케치나 모델에서 시작해, 제품 구현과 통합에 필요한 완성 도면·부품목록·상세자료로 마무리된다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.98 (printed p.85) §4.4.1.2.6'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -4599,6 +5375,10 @@ gates:
     source: DoD SE Guidebook 2022 p.96; NASA NPR 7123.1D Table G-8
     template: 없음
     artifact_type_id: tdp
+    purpose_ko: '획득전략·생산·공학·군수지원을 뒷받침하기에 충분한 품목의 기술적 기술서로, 요구되는 설계 형상과 성능 적합성을 보장할 절차를 규정하며 도면·목록·규격·표준·품질보증 조항 등을 포함한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.191 (printed p.178) §6.6.1.2.1'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -4623,6 +5403,10 @@ gates:
     source: NASA NPR 7123.1D Table G-8; DoD SE Guidebook 2022 Table 3-7 p.93-94
     template: 없음
     artifact_type_id: manufacturing_plan
+    purpose_ko: '회사와 생산 시설이 계약 요구를 어떻게 충족하고 제품을 인도할지 상세히 다루는 계획으로, 작업분해구조·자재명세서와 연결되고 최종품 제작·조립에 필요한 단계를 기술한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§5.14 (p.178)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -4647,6 +5431,10 @@ gates:
     source: DoD SE Guidebook 2022 Table 3-7 p.94; NASA NPR 7123.1D Table G-8
     template: 없음
     artifact_type_id: atp
+    purpose_ko: '수락시험은 검증 프로그램에서 선별한 축소 항목을 제작·인도되는 비행품마다 수행하며, 그 시험·해석 기준은 해당 호기의 제작과 기량이 앞서 검증·인정된 설계에 부합함을 보이도록 선정한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.117 (printed p.104) §5.3 (Verification/Qualification/Acceptance/Certification box)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -4664,6 +5452,10 @@ gates:
     source: NASA NPR 7123.1D Table G-8; DoD SE Guidebook 2022 Table 3-7 p.94, Table 3-8 p.97
     template: 없음
     artifact_type_id: qa_plan
+    purpose_ko: '품질보증은 실제로 생산·인도된 체계가 기능·성능·설계 요구에 부합한다는 확신을 얻기 위해 제품 수명주기 전반에 걸쳐 수행하는 독립적 평가다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.239 (printed p.226) App B Glossary (Quality Assurance)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -4690,6 +5482,10 @@ gates:
     source: DoD SE Guidebook 2022 p.94, Table 5-5 p.187-189; NASA NPR 7123.1D Table G-8
     template: 없음
     artifact_type_id: mra_report
+    purpose_ko: '제조 위험을 평가하는 수단으로, 획득 수명주기 전반의 기존 프로그램 평가와 통합되어 지속 수행되며 각 기술검토와 이정표 결정 전에 제조 준비 상태와 진척을 보고하는 근거가 된다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§5.14.5 (p.185)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -4709,6 +5505,12 @@ gates:
     source: DoD SE Guidebook 2022 Table 3-7 p.94; NASA NPR 7123.1D Table G-8
     template: 없음
     artifact_type_id: fracas_report
+    purpose_ko: '시험 중 고장 자료가 되먹임되도록 하고 시정조치를 적용·추적하기 위한 폐회로 기록 체계로, 생산과 운용지원 단계에서 문제 영역을 찾아 개선하는 데 쓰인다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: 'Table 5-6 (p.197)'
+    - source_key: dod_se_guidebook_2022
+      locator: 'Table 5-6 (p.198)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: baseline
@@ -4743,6 +5545,10 @@ gates:
     source: NASA NPR 7123.1D Table G-12; DoD SE Guidebook 2022 p.96, Table 3-5 p.88
     template: 없음
     artifact_type_id: tech_manual
+    purpose_ko: '최종산출물에 동반해 인도되는 문서로, 제품의 내력과 현재 상태를 밝히고 검증·확인 적합성 증거를 포함하며 운용설명서·설치지침 등이 여기에 속한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.139 (printed p.126) §5.5.1.1'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -4815,6 +5621,10 @@ gates:
     source: NASA NPR 7123.1D Table G-11, Table G-12; DoD SE Guidebook 2022 Table 3-8 p.97
     template: 없음
     artifact_type_id: ils_plan
+    purpose_ko: '종합군수지원은 설계요구 정의, 자재 조달·배분, 정비, 보급 교체, 수송, 폐기와 관련된 관리·공학 활동과 분석, 정보관리를 포괄하며, 비행·지상체계 지원성 목표에 따라 식별된다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.230 (printed p.217) App B Glossary ''Integrated Logistics Support'''
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -4844,6 +5654,12 @@ gates:
     source: NASA NPR 7123.1D Table G-8; DoD SE Guidebook 2022 Table 3-7 p.94, Table 3-8 p.97
     template: 없음
     artifact_type_id: ims
+    purpose_ko: '발주·계약자·하도급 활동을 포함한 전체 작업 범위를 일정·기간·선후관계로 기술한 문서로, 주공정과 이정표를 식별하고 계획 대비 진척 비교, 자원 분석, 위험 완화 추적의 기준을 제공한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.106-107)'
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.109)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -4863,6 +5679,12 @@ gates:
     source: NASA NPR 7123.1D Table G-8, Table G-12; DoD SE Guidebook 2022 Table 3-7 p.93, Table 3-8 p.97
     template: 없음
     artifact_type_id: risk_register
+    purpose_ko: '발주 측과 계약자가 공통으로 사용해 프로그램의 위험·이슈·기회를 함께 식별·분석·완화·감시하기 위한 도구의 예로, 일정 추정 오차의 영향 같은 지식도 여기에 기록해 추적한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.5 (p.123)'
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.109)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: updated
@@ -4901,6 +5723,10 @@ gates:
     source: NASA NPR 7123.1D Table G-12
     template: 없음
     artifact_type_id: sat_report
+    purpose_ko: '인도·설치 이후 수행하는 기능시험·수락시험의 기록으로, 운송·취급 과정에서 손상이 없었고 제품이 지원 개시 준비가 되었음을 확인한다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.142 (printed p.129) §5.5.1.2.4'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: final
@@ -4916,6 +5742,10 @@ gates:
     source: NASA NPR 7123.1D Table G-12; DoD SE Guidebook 2022 p.216
     template: 없음
     artifact_type_id: security_plan
+    purpose_ko: '체계보안공학 분석의 종합적 접근과 그 결과를 문서화해 프로그램과 관련자의 활동을 이끄는 계획으로, 각 기술검토·감사에 제출되어 검토 평가 기준과 기능·할당·제품 기준선에 반영된다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§5.24 (p.216)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: updated
@@ -4971,6 +5801,12 @@ gates:
     source: NASA NPR 7123.1D p.40 §5.2.3.1; DoD SE Guidebook 2022 p.94, p.97
     template: 없음
     artifact_type_id: review_minutes_pca
+    purpose_ko: '검토에서 내려진 결정을 뒷날 참조할 수 있는 이력 기록으로 남기며, 모든 RID·RFA 처리에 대한 합의와 함께 완성·배포되어야 해당 수명주기 검토가 완료로 인정된다.'
+    purpose_refs:
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.2.9 (p.40)'
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.3.1 (p.40)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -4990,6 +5826,10 @@ gates:
     source: NASA NPR 7123.1D Table G-8, p.40 §5.2.3.1; DoD SE Guidebook 2022 p.94, p.97
     template: 없음
     artifact_type_id: review_result_report_pca
+    purpose_ko: '검토위원회 보고서로, 검토 성공기준 대비 미흡한 성과의 문제·우려를 담아 관리조직에 보고되며, 검토의 성공적 완료를 문서화하는 결정 메모와 함께 수명주기 검토 완료 요건을 이룬다.'
+    purpose_refs:
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.3.1 (p.40)'
     evidence_level: general_se_guidance
     se_floor: must_have
     maturity: final
@@ -5051,6 +5891,10 @@ gates:
     source: NASA NPR 7123.1D Table G-4, Table G-10
     template: 없음
     artifact_type_id: lessons_learned
+    purpose_ko: '유사 프로그램의 성공·실패·문제와 해결책을 정리한 기록으로, 위험·불확실성·기회에 대한 통찰을 주며 현재 프로그램에 맞게 선별·조정해 적용할 때 가장 큰 이익을 준다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§2.2.8 (p.46)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: final
@@ -5070,6 +5914,10 @@ gates:
     source: NASA NPR 7123.1D p.40 §5.2.3.1; DoD SE Guidebook 2022 p.75, p.87
     template: 없음
     artifact_type_id: action_item_log
+    purpose_ko: '수명주기 검토는 모든 RID·RFA 처리와 조치계획에 합의하고, 검토에서 도출된 모든 조치가 이행·확인을 거쳐 종결되도록 하는 절차와 통제가 마련되었을 때 완료로 본다.'
+    purpose_refs:
+    - source_key: nasa_npr_7123_1d
+      locator: '§5.2.3.1 (p.40)'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: final
@@ -5091,6 +5939,12 @@ gates:
     source: DoD SE Guidebook 2022 p.96; NASA NPR 7123.1D Table G-11
     template: 없음
     artifact_type_id: cdrl
+    purpose_ko: '계약에서 요구되는 기술자료·디지털 산출물·소프트웨어의 인도를 주문하는 목록으로, 잘 정의되면 개발자가 적절한 설계 고려사항을 구현하고 필요한 객관적 품질 증거를 산출하도록 보장한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.7 (p.136)'
+    - source_key: dod_se_guidebook_2022
+      locator: 'p.56'
     evidence_level: general_se_guidance
     se_floor: should_have
     maturity: final
@@ -5108,6 +5962,12 @@ gates:
     source: NASA NPR 7123.1D Tables G-1..G-12; DoD SE Guidebook 2022 p.17
     template: 없음
     artifact_type_id: risk_register
+    purpose_ko: '발주 측과 계약자가 공통으로 사용해 프로그램의 위험·이슈·기회를 함께 식별·분석·완화·감시하기 위한 도구의 예로, 일정 추정 오차의 영향 같은 지식도 여기에 기록해 추적한다.'
+    purpose_refs:
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.5 (p.123)'
+    - source_key: dod_se_guidebook_2022
+      locator: '§4.1.1 (p.109)'
     evidence_level: general_se_guidance
     se_floor: context
     maturity: final
@@ -5125,6 +5985,12 @@ gates:
     source: NASA NPR 7123.1D Tables G-2, G-5..G-9; DoD SE Guidebook 2022 p.83, p.89
     template: 없음
     artifact_type_id: tpm_list
+    purpose_ko: '임무성공에 결정적인 체계의 물리·기능 특성으로, 구현 중 실제 달성값을 그 시점의 기대값과 비교해 진척을 확인하고 핵심 요구 충족이나 비용·일정을 위협할 결함을 드러내는 데 쓰인다.'
+    purpose_refs:
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.84 (printed p.71) §4.2.1.2.5'
+    - source_key: nasa_se_handbook_rev2
+      locator: 'pdf p.290 (printed p.277) App J §7.4'
     evidence_level: general_se_guidance
     se_floor: context
     maturity: final

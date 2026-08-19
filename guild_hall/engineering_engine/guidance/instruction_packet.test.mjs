@@ -31,6 +31,7 @@ function pipeline(overrides = {}) {
     vocabulary: ARTIFACT_VOCABULARY_V0,
     compiled_variant: structuredClone(FIXTURE.compile_request.compiled_variant),
     source_catalog: structuredClone(FIXTURE.source_catalog),
+    template_library: structuredClone(FIXTURE.template_library),
     work_order: workOrder,
   });
   const request = {
@@ -169,11 +170,46 @@ test('an input state is read from the work order and never invented', () => {
     label_ko: '운용개념서',
     scope: 'in_scope',
     input_state: 'present',
+    observation_state: 'present',
   }]);
   const ssrs = built.instructions[2];
   assert.deepEqual(ssrs.inputs.map((input) => input.input_state), ['unknown']);
+  // Nobody looked at this one. That is 불명, and it stays distinguishable from 없음.
+  assert.deepEqual(ssrs.inputs.map((input) => input.observation_state), ['unobserved']);
   assert.deepEqual(ssrs.why.blocked_by, ['act_stakeholder_expectations']);
   assert.equal(ssrs.why.ready, false);
+});
+
+test('an instruction carries the purpose, what stops without it, and the gate role', () => {
+  const { built, cards } = pipeline();
+  const ssrs = built.instructions[2];
+  const card = cards.cards.find((row) => row.card_id === ssrs.guidance_ref);
+  assert.deepEqual(ssrs.why.purpose, card.purpose);
+  assert.equal(ssrs.why.purpose.stated, true);
+  assert.deepEqual(ssrs.why.used_by, card.used_by);
+  assert.equal(ssrs.why.gate_role, 'core');
+  // The three template sentences the card already carried are still there, and behind the purpose.
+  assert.equal(ssrs.why.guidance[0].template_id, 'why_purpose_stated');
+  assert.ok(ssrs.why.guidance.some((row) => row.template_id === 'why_evidence_regulation_mandated'));
+
+  const wbs = built.instructions[3];
+  assert.equal(wbs.why.purpose.stated, false);
+  assert.deepEqual(wbs.why.used_by, []);
+  assert.equal(wbs.why.gate_role, 'supporting');
+});
+
+test('an instruction carries the form the project holds and the citations by family', () => {
+  const { built, cards } = pipeline();
+  const ssrs = built.instructions[2];
+  const card = cards.cards.find((row) => row.card_id === ssrs.guidance_ref);
+  assert.equal(ssrs.how.template.library.found, true);
+  assert.equal(ssrs.how.template.library.template_ref, card.how.template.library.template_ref);
+  assert.deepEqual(ssrs.how.method_families.map((family) => family.family), ['regulation', 'unknown']);
+  assert.equal(ssrs.how.input_state_note.template_id, 'how_inputs_state');
+  // semp and ssrs state a purpose; the activity and the wbs row do not.
+  assert.equal(built.receipt.counts.with_purpose, 2);
+  assert.equal(built.receipt.counts.with_used_by, 2);
+  assert.equal(built.receipt.counts.with_template_ref, 2);
 });
 
 test('the expected output repeats the rule row rather than restating it', () => {
