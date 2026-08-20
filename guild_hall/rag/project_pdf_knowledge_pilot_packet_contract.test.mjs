@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { resolve } from "node:path";
 import test from "node:test";
 
 import {
@@ -53,7 +54,7 @@ test("packet contract exports canonical schemas, constants, and hash domains", (
 test("builds and validates a canonical authority packet v0", () => {
   const authorityRefIdentity = identity(11);
   const launch = {
-    absolutePath: process.platform === "win32" ? "C:\\work\\launch.json" : "/work/launch.json",
+    absolutePath: resolve("synthetic", "launch.json"),
     sha256: "a".repeat(64),
     byteCount: 1234,
   };
@@ -63,7 +64,7 @@ test("builds and validates a canonical authority packet v0", () => {
     trustedSourceReceiptSha256: "sha256:" + "b".repeat(64),
   };
   const output = {
-    absoluteRootPath: process.platform === "win32" ? "C:\\work\\output" : "/work/output",
+    absoluteRootPath: resolve("synthetic", "output"),
     candidateFilename: CANDIDATE_FILENAME,
     receiptFilename: RECEIPT_FILENAME,
   };

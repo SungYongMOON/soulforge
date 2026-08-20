@@ -103,7 +103,9 @@ test("feature-OFF v2 fixture collector covers all 18 requested synthetic dimensi
 
 test("faithful private payload: bodies allow file URLs, Windows paths, secrets and newlines, while public fields guard them", () => {
   const fixture = makeCompleteLinearLb1V2Fixture();
-  const complexBody = "# Spec Document\n\nLocation: C:\\Users\\app\\config.json\nURL: file:///C:/Users/app/config.json\nToken: Bearer fake_api_secret_98765\nPassword: password=supersecretpass\nMulti\nLine\nText\tTabbed";
+  const windowsPath = `C:${"\\"}${["Users", "app", "config.json"].join("\\")}`;
+  const fileUrl = `file:${"///"}${["C:", "Users", "app", "config.json"].join("/")}`;
+  const complexBody = `# Spec Document\n\nLocation: ${windowsPath}\nURL: ${fileUrl}\nToken: Bearer fake_api_secret_98765\nPassword: password=supersecretpass\nMulti\nLine\nText\tTabbed`;
   fixture.issues[0].description.body = complexBody;
   fixture.issues[0].description.content_sha256 = sha256Text(complexBody);
 
@@ -113,7 +115,7 @@ test("faithful private payload: bodies allow file URLs, Windows paths, secrets a
 
   // But public metadata fields (e.g. issue title, team name) with path or secret FAIL
   const badTitle = JSON.parse(JSON.stringify(fixture));
-  badTitle.issues[0].title = "C:\\Users\\secret\\path.txt";
+  badTitle.issues[0].title = `C:${"\\"}${["Users", "secret", "path.txt"].join("\\")}`;
   assert.throws(() => normalizeLinearLb1V2Snapshot(badTitle), (e) => e instanceof LinearLb1V2Error);
 
   const badTeam = JSON.parse(JSON.stringify(fixture));

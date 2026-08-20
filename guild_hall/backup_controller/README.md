@@ -240,9 +240,35 @@ credential refs, exact Drive target and write-authority refs, and human restore
 reviewer ref are supplied and independently pinned. No live Linear or Drive
 access is performed by this Module.
 
+### Linear LB1 v2 feature-OFF Bound Runner
+
+The v2 Modules preserve v1 as a historical synthetic contract and add the
+restore shape needed for a future whole-workspace one-shot. The exact v2
+snapshot carries bounded Description and Comment bodies, multi-team/project
+catalogs, nullable associations, state/assignee/project/due history, structured
+Waiting/Completion/Evidence records, and cutoff/pagination completeness. Its
+canonical immutable generation and restore check cover 18 dimensions; private
+payload content may contain paths or secret-shaped source text, while every
+public result and receipt remains body-free and payload-free.
+
+`createLinearLb1OneShotRunner(runtimeBinding).execute(request, trustedPin)` is
+the feature-OFF Bound Runner Interface. The full pin binds the Owner policy,
+writer/epoch, claim store, exact synthetic Adapter refs, artifact layout,
+resource limits, and expiry. Execution is gate-before-effects, claim-before-
+read, create-only synthetic storage, exact-byte readback, and independent
+restore. Every failure after a successful claim is `HOLD_CONSUMED`; async
+adapter errors, clock drift, result accessors, caller mutation, resource-limit
+bypass, and substituted envelopes fail closed without raw error text.
+
+Only in-memory and fixed-HOLD Adapters exist. External Linear/Drive Adapters,
+credentials, provider/network calls, filesystem backup writes, human restore
+acceptance, scheduling, and technical cross-process single-use enforcement are
+still absent and `HOLD`.
+
 ## Validation
 
 ```powershell
 npm.cmd run validate:backup-controller
 npm.cmd run validate:linear-lb1-owner-gate
+npm.cmd run validate:linear-lb1-v2
 ```

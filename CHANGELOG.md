@@ -17,6 +17,39 @@ Recovery cycle had previously treated a changed `last_run_at` or `running` state
 - **Continuous ingress supervisor failure heartbeats**: Persists sanitized failure heartbeats on `cycle_failed` (`status: "failed"`, `error_codes`, `mail_status: null`).
 - **Wire & supervision contract bump (Supervision v2, Cycle v3, History v2, Projection v3)**: Bumped recovery supervision state schema to `soulforge.watchtower.recovery_supervision.v2`, recovery cycle schema to `soulforge.watchtower.recovery_cycle.v3`, history schema to `soulforge.watchtower.recovery_history.v2` (persisting `diagnostic_code`), and projection schema to `soulforge.team_ops_board.topology_recovery_projection.v3`. For deployment compatibility, the local companion transparently migrates valid legacy v1 supervision and history records on read without row loss while clearing untrustworthy legacy `last_verified_repair_at` timestamps, writing exact v2 on subsequent persist, while the Board adapter strictly rejects legacy wire schemas. Contradictory outcome/attempt/verification rows fail closed.
 - **Board UI truth & Korean diagnostic labels**: Fixed interaction handler in `App.tsx` to require exact `outcome_code === "verified_repair"` before rendering completed repair. Recovery view and supervision panel visibly render fixed Korean diagnostic labels for non-repairable codes (e.g. `writer_authority_expired` -> "작성자 권한 만료 · 수동 갱신 필요") without leaking raw output.
+## 2026-08-21 - P4 gains a direct-path preparation gate without opening the PDF
+
+- Added a read-only P4 Preparation Module and shared authority-packet contract.
+  One exact request authenticates the pinned launch, derives its source path,
+  rejects root/ancestor/leaf/output reparse ambiguity, and emits canonical
+  existing authority-packet-v0 bytes or a payload-free `HOLD`.
+- The preparation path never opens the project PDF body, writes a file, creates
+  an authority identity, or claims Owner approval/source truth. The existing
+  runner keeps its one-attempt claim-before-admission behavior and blocker
+  taxonomy while consuming the shared packet validators.
+- Flash 3.7 High built the isolated candidate; fresh Opus 5 reviews found and
+  closed weak launch validation, accessor rebinding, fail-open fsutil parsing,
+  request aliases, shared-contract drift, and launch-read accounting. Focused
+  preparation/contract tests pass 18/18; actual project execution remains HOLD.
+
+## 2026-08-21 - Linear LB1 v2 proves a bounded stored-byte restore loop
+
+- Added a separate v2 immutable snapshot/manifest/restore contract and a
+  feature-OFF Bound Runner without changing v1. The v2 shape preserves bounded
+  Description/Comment bodies and 18 reconstruction dimensions, including
+  catalogs, histories, Waiting, Completion, Evidence, and cutoff completeness.
+- The full-packet Gate v2 binds writer/epoch, claim store, synthetic Adapter
+  identities, artifact layout, resource limits, and execution expiry. The
+  Runner claims before read, creates one in-memory generation, verifies exact
+  stored bytes and envelope identity, and returns only a body-free human-review
+  candidate; every post-claim failure is terminal `HOLD_CONSUMED`.
+- Flash 3.7 High built and corrected the isolated candidate; fresh Opus 5
+  executable reviews closed adapter/pin drift, raw-error/token leakage, async
+  escape, mutable-request, clock, resource-limit, payload-restore, locale-sort,
+  and substituted-envelope gaps. Focused v2 tests pass 44/44. Actual Linear,
+  Drive, filesystem backup, webhook, scheduler, and human acceptance effects
+  remain zero and HOLD.
+
 ## 2026-08-20 - Linear LB1 now has an exact Owner start Gate
 
 - Added a pure, feature-OFF LB1 Owner Gate Module in front of any future one-shot collector. Its

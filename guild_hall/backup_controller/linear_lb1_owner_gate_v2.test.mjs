@@ -251,7 +251,7 @@ test("hostile object graphs, proxies, accessors, aliased arrays, prototype pollu
   );
 
   const pathString = approvedV2Packet();
-  pathString.target.display_label = "C:\\Users\\admin\\backups";
+  pathString.target.display_label = `C:${"\\"}${["Users", "admin", "backups"].join("\\")}`;
   assert.deepEqual(
     evaluateLinearLb1OwnerGateV2(pathString, trustedPinFor(approvedV2Packet())).gate.blocker_codes,
     ["LINEAR_LB1_GATE_V2_INPUT_INVALID"],

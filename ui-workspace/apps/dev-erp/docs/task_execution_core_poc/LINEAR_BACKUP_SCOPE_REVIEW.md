@@ -1,11 +1,12 @@
 # Linear 업무 백업 범위 검토
 
-- 상태: `offline_contract_implemented / owner_gate_contract_implemented / no_live_automation / actual_lb1_owner_binding_pending`
-- 기준일: 2026-08-20
+- 상태: `offline_v1_and_v2_contracts_implemented / synthetic_bound_runner_implemented / no_live_automation / actual_lb1_owner_binding_pending`
+- 기준일: 2026-08-21
 - 목적: Linear 원본 장애·이관·과거 조회 시 업무 정체성, 현재 상태, 상태 이력, Waiting,
   완료 결과와 Evidence를 어느 수준까지 복원할지 데이터 범위를 정한다.
-- 경계: public-synthetic offline manifest/restore contract와 pure Owner start Gate만 구현됐다. live Linear·Drive·Sheets 접근,
-  webhook 설치, API 수집기, scheduler, storage writer는 구현하지 않는다.
+- 경계: public-synthetic offline manifest/restore contract, pure Owner start
+  Gate, v2 in-memory Bound Runner만 구현됐다. live Linear·Drive·Sheets 접근,
+  webhook 설치, API 수집기, scheduler, external storage writer는 구현하지 않는다.
 
 ## 1. 결론
 
@@ -32,8 +33,10 @@ restore completeness를 합성 입력으로 검증하지만 실제 데이터를 
 호출하지 않는다. 제안 기본안(전체 workspace, Drive `Soulforge Linear Backup`, 일별 30·월별
 12, RPO 24시간)은 Owner decision과 exact workspace/read-only credential·target/write-authority·
 human reviewer refs가 없으므로 현재 `HOLD`다.
-Linear API collector, CSV 자동 export, Google Drive writer, webhook, scheduler와 actual restore
-runner는 아직 없다. Task Execution Core의 POC SQLite도 Linear 백업 DB가 아니다.
+별도 v2 합성 계약과 Bound Runner는 full body·history를 포함한 18개 복원 차원,
+claim-before-read, in-memory create-only generation, exact-byte readback과 restore review candidate를
+검증한다. 그러나 Linear API collector, CSV 자동 export, Google Drive writer, webhook, scheduler와
+actual restore runner는 아직 없다. Task Execution Core의 POC SQLite도 Linear 백업 DB가 아니다.
 
 백업은 Task 실행과 독립된 read-only support lane이므로 P5 accepted Context까지 기다릴 필요는 없다.
 다만 정확한 시작 조건은 Task Engine 마스터플랜 §12의

@@ -486,6 +486,22 @@ payloads, and keeps stronger permissions false until owner review.
   not alter the checked view. Both interfaces are deep-frozen,
   parser/model/network/filesystem-write free, and leave persistent RAG/Wiki
   storage and actual P5 acceptance `HOLD`.
+- `project_pdf_knowledge_pilot_preparation.mjs` is the read-only preparation
+  Module in front of the bounded P4 runner. Its one exact snake-case request
+  binds an externally issued authority identity and expiry, one pinned launch,
+  exact project/document/source-receipt refs, and one existing output root.
+  It authenticates the launch through the existing admission inspection,
+  derives the source path from the pinned root and locator, and checks the
+  launch, containment/project roots, every locator ancestor, source leaf, and
+  output root as direct non-reparse paths. It reads the launch twice by design
+  (preparation pin plus authentic inspection), never opens the PDF body, and
+  returns only canonical existing authority-packet-v0 bytes or a payload-free
+  `HOLD`. It does not issue Owner identity, approve the source, or authorize an
+  execution.
+- `project_pdf_knowledge_pilot_packet_contract.mjs` is the owner-local packet
+  contract shared by preparation and the runner. It centralizes the exact
+  packet fields, digest material, output commitment, and validators while the
+  runner preserves its existing blocker taxonomy and one-attempt semantics.
 - project_pdf_knowledge_pilot_runner.mjs is the bounded P4 persistence runner.
   Its closed request contains only an absolute Owner-authority packet path and
   that packet's raw-byte SHA-256 pin. The packet itself must be feature-OFF and

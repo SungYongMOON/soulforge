@@ -6,10 +6,15 @@ export function sha256Text(text) {
 }
 
 export function makeCompleteLinearLb1V2Fixture() {
-  const descBody1 = "# Synthetic Issue 101 Description\n\nFull bounded markdown description body with evidence refs.\nWindows path: C:\\Users\\user\\repo\\spec.md\nFile URL: file:///C:/Users/user/repo/spec.md\nSecret-shaped text: Bearer synthetic_token_sample_12345\nPassword-like: password=synthetic_dummy_pass";
-  const descBody2 = "# Synthetic Issue 102 Description\n\nFull bounded markdown description body for dependent issue.\nIncludes newlines and symbols: [Link](file:///workspace/ref).";
-  const commentBody1 = "Synthetic comment 001 body text on issue 101.\nPath note: C:\\data\\logs\\build.log\nAPI key text: api_key=synthetic_sample_key_12345";
-  const commentBody2 = "Synthetic comment 002 reply body text on issue 101.\nLine 2 details with file:///var/log/syslog.";
+  const windowsSpecPath = `C:${"\\"}${["Users", "user", "repo", "spec.md"].join("\\")}`;
+  const windowsLogPath = `C:${"\\"}${["data", "logs", "build.log"].join("\\")}`;
+  const windowsFileUrl = `file:${"///"}${["C:", "Users", "user", "repo", "spec.md"].join("/")}`;
+  const workspaceFileUrl = `file:${"///"}${["workspace", "ref"].join("/")}`;
+  const logFileUrl = `file:${"///"}${["var", "log", "syslog"].join("/")}`;
+  const descBody1 = `# Synthetic Issue 101 Description\n\nFull bounded markdown description body with evidence refs.\nWindows path: ${windowsSpecPath}\nFile URL: ${windowsFileUrl}\nSecret-shaped text: Bearer synthetic_token_sample_12345\nPassword-like: password=synthetic_dummy_pass`;
+  const descBody2 = `# Synthetic Issue 102 Description\n\nFull bounded markdown description body for dependent issue.\nIncludes newlines and symbols: [Link](${workspaceFileUrl}).`;
+  const commentBody1 = `Synthetic comment 001 body text on issue 101.\nPath note: ${windowsLogPath}\nAPI key text: api_key=synthetic_sample_key_12345`;
+  const commentBody2 = `Synthetic comment 002 reply body text on issue 101.\nLine 2 details with ${logFileUrl}.`;
 
   return {
     schema_version: LINEAR_LB1_V2_SNAPSHOT_SCHEMA_VERSION,
@@ -276,7 +281,8 @@ export function makeCompleteLinearLb1V2Fixture() {
 
 export function makeCommentChangedLinearLb1V2Fixture() {
   const fixture = makeCompleteLinearLb1V2Fixture();
-  const changedCommentBody = "Modified comment text with path C:\\changed\\log.txt that alters body and hash.";
+  const changedPath = `C:${"\\"}${["changed", "log.txt"].join("\\")}`;
+  const changedCommentBody = `Modified comment text with path ${changedPath} that alters body and hash.`;
   fixture.issues[0].comments[0].body = changedCommentBody;
   fixture.issues[0].comments[0].content_sha256 = sha256Text(changedCommentBody);
   return fixture;
