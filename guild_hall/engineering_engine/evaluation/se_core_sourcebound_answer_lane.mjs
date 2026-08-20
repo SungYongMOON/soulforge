@@ -7,20 +7,26 @@
 // The split of responsibility is the whole point of the module:
 //
 //   deterministic side (here)  corpus pinning, derived-text parsing, corpus-wide retrieval,
-//                             evidence selection, citation binding, output schema validation,
+//                             statement ownership, exact-excerpt rendering, citation binding,
 //                             claim ceiling, and the payload-free receipt.
-//   learned side (injected)    one bounded prose renderer, and optionally one advisory query
-//                             expansion that is declared shadow and never authoritative.
+//   learned side (injected)    one bounded statement-and-relation selection, and optionally one
+//                             advisory query expansion that is declared shadow and never authoritative.
 //
-// The injected model receives only the exact question text, the selected evidence capsules, and
-// a closed output policy. It receives no filesystem, network, browser, or tool access, cannot
-// create a source or a citation, and cannot set the claim ceiling. This module itself performs
-// no filesystem, network, write, or ERP operation, and is provider-independent: nothing here
-// knows which runtime serves the model.
+// The injected model receives only the exact question text, host statement ids and entire exact
+// normalized chunks, plus a closed selection policy. Citation metadata fields (evidence id, title,
+// revision, page, chunk id, byte commitments) never cross that seam: they stay here and are bound
+// back to the host statement ids the model selected.
+// Exact question/evidence prose is not semantically scrubbed and may naturally mention such terms.
+// The model receives no filesystem, network,
+// browser, or tool access, cannot create a source or a citation, and cannot set the claim ceiling.
+// This module itself performs no filesystem, network, write, or ERP operation, and is
+// provider-independent: nothing here knows which runtime serves the model.
 //
-// Build provenance is Claude Code; that is not a runtime dependency and not an authority.
+// Initial v4 build provenance is Claude Code with Codex review corrections; neither is a runtime
+// dependency or an authority.
 
 import { createHash } from 'node:crypto';
+import { types } from 'node:util';
 
 import { canonicalise, compareCodePoints, daysInMonth } from '../kernel/canonical.mjs';
 import { ContractError } from '../kernel/errors.mjs';
@@ -31,15 +37,15 @@ import {
 
 export const ANSWER_LANE_ID = 'soulforge.engineering_answer_lane.se_core_sourcebound.v0';
 export const ANSWER_LANE_KIND = 'evaluation_only_sourcebound_answer_lane';
-export const ANSWER_LANE_POLICY_REVISION = 'soulforge.se_core_sourcebound_answer_lane.v0';
-export const ANSWER_SCHEMA_VERSION = 'soulforge.se_core_sourcebound_answer.v0';
-// v1, because the receipt's shape grew `output_safety_reason`. The shape is result-discriminated
-// rather than one identical key set: the key is present exactly on an output-safety HOLD and
-// absent otherwise. The lane *policy* revision above is deliberately unchanged: the instruction,
-// the output schema, and every acceptance rule the model is held to are byte-identical, and that
-// revision salts the prompt, adapter, and expansion commitments, so moving it would claim a change
-// to material that did not change.
-export const RECEIPT_SCHEMA_VERSION = 'soulforge.se_core_sourcebound_answer_receipt.v1';
+// v2 removes model-authored answer prose. The model can emit only a closed statement-selection
+// object; the host renders fixed Korean labels plus exact retrieved chunks.
+export const ANSWER_LANE_POLICY_REVISION = 'soulforge.se_core_sourcebound_answer_lane.v2';
+export const ANSWER_SCHEMA_VERSION = 'soulforge.se_core_sourcebound_answer.v1';
+export const STATEMENT_SELECTION_SCHEMA_VERSION =
+  'soulforge.se_core_sourcebound_statement_selection.v0';
+export const HOST_RENDERING_REVISION = 'soulforge.se_core_sourcebound_host_korean_rendering.v0';
+// v2 records host statement commitments and exact-evidence projection instead of free-text checks.
+export const RECEIPT_SCHEMA_VERSION = 'soulforge.se_core_sourcebound_answer_receipt.v2';
 export const SOURCE_SET_CONTRACT_SCHEMA_VERSION = 'soulforge.se_core_sourcebound_source_set.v0';
 export const SOURCE_COHORT_COMMITMENT_SCHEMA_VERSION = 'soulforge.se_core_sourcebound_source_cohort.v0';
 export const RESULT_CLAIM_CEILING = 'observed';
@@ -161,8 +167,8 @@ const MODEL_CONTEXT_FIELDS = Object.freeze(['answerModel']);
 const MODEL_DESCRIPTOR_FIELDS = Object.freeze([
   'adapter_id', 'adapter_revision', 'stateless', 'tools_enabled', 'history_enabled',
 ]);
-const MODEL_OUTPUT_FIELDS = Object.freeze(['sections']);
-const MODEL_SECTION_FIELDS = Object.freeze(['heading', 'text', 'evidence_ids']);
+const MODEL_OUTPUT_FIELDS = Object.freeze(['schema_version', 'result', 'propositions']);
+const MODEL_PROPOSITION_FIELDS = Object.freeze(['statement_id', 'relation']);
 const MODEL_EXPANSION_FIELDS = Object.freeze(['terms']);
 // The exact statuses an operator may declare for a source in this lane. `official_public_source`
 // records what the document is; `owner_approved_*` records that the owner cleared it for this
@@ -193,10 +199,7 @@ const MAX = Object.freeze({
   chunk_chars: 900,
   evidence: 24,
   per_source: 8,
-  sections: 8,
-  section_heading: 120,
-  section_text: 4000,
-  section_evidence_ids: 8,
+  propositions: 8,
   expansion_terms: 12,
   expansion_term_chars: 60,
 });
@@ -225,7 +228,6 @@ const HTML_LIKE = /<\s*\/?\s*[A-Za-z!]/u;
 // an unenforced instruction would let a fabricated reference ride into a published answer whose
 // whole claim is that every block is bound to a retrieved capsule.
 const URL_LIKE = /(?:^|[^A-Za-z0-9+.-])[A-Za-z][A-Za-z0-9+.-]*:\/\/|(?:^|[^A-Za-z0-9.-])www\.[A-Za-z0-9-]+\.[A-Za-z]{2,}/u;
-const HANGUL = /[\p{Script=Hangul}]/u;
 // The two derived-text control characters replaced with SPACE in memory. After that replacement
 // the set that remains disallowed is exactly `FORBIDDEN_CONTROL` below.
 const REPLACED_DERIVED_CONTROL = new RegExp('[\\u0000\\u001f]', 'u');
@@ -269,106 +271,120 @@ const FORBIDDEN_STRINGS = Object.freeze([
   /\beyJ[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\b/u,
   /\b(?:password|passwd|api[_-]?key|access[_-]?token|refresh[_-]?token)\s*[:=]/iu,
 ]);
-// Self-attributed authority, not discussion of approval as an engineering artefact. A section
-// that describes what an approval record contains stays legal; a section that claims to have
-// granted one does not.
-const FORBIDDEN_AUTHORITY_CLAIMS = Object.freeze([
-  /\b(?:canon)\s*(?:promotion|entry)\s*(?:granted|complete|approved)/iu,
-  /\bowner\s+approval\s+(?:granted|complete|obtained)/iu,
-  /\bI\s+(?:hereby\s+)?(?:approve|authorise|authorize|promote)\b/iu,
-  /\bthis\s+(?:answer|result)\s+is\s+(?:approved|authoritative|canon|final\s+authority)\b/iu,
-  /정본\s*(?:등록|승격)(?:을)?\s*(?:완료|허가|승인)/u,
-  /승인(?:을)?\s*(?:완료했|부여했|허가했|합니다)/u,
-  /(?:작업|과제|태스크)(?:를|을)?\s*(?:생성|등록)(?:했습니다|합니다|함)/u,
+// -------------------------------------------------------------- statement-selection contract
+//
+// The model cannot author answer prose. It can only select up to eight host-owned statements and
+// label each selection with one closed relation. The host keeps source metadata, renders fixed
+// Korean labels, and projects the exact retrieved chunk. This removes semantic phrase
+// classification from the safety boundary: no free-prose authority parser exists in this lane.
+export const STATEMENT_RELATIONS = Object.freeze([
+  'direct', 'support', 'qualification', 'contrast',
 ]);
+const STATEMENT_RELATION_SET = new Set(STATEMENT_RELATIONS);
+const STATEMENT_ID = /^S(?:[1-9]|1[0-9]|2[0-4])$/u;
+const NO_STATEMENT_SENTINEL = '__NO_RETRIEVED_STATEMENT__';
 
-// ---------------------------------------------------------------- model-block output filters
-//
-// These apply to model-authored headings and bodies only, never to evidence prose. That split is
-// deliberate. A real systems-engineering page legitimately says "approval", "official", "page 12",
-// or "rev 3"; a *rendered block* has no reason to, because every citation, source, revision, and
-// page row in the answer is machine-generated from the selected evidence. So the model's own text
-// is held to a much narrower vocabulary than the corpus it is grounded on, and applying the broad
-// list to evidence text would refuse correct runs over the real corpus for no safety gain.
-//
-// What this is: a conservative *structural and forbidden-claim* filter. It refuses markup, foreign
-// identifiers, contact details, paths, and self-attributed authority.
-//
-// What this is NOT: a semantic entailment proof. A grammatical Korean sentence that no selected
-// capsule supports passes every check here. Correctness of arbitrary free text in this lane is
-// UNKNOWN, is not claimed by the receipt, and cannot be inferred from a PASS result.
-const MODEL_BLOCK_MARKUP = Object.freeze([
-  /\*\*/u,
-  /(?:^|\n)[ \t]{0,3}#{1,6}[ \t]/u,
-  /(?:^|\n)[ \t]{0,3}(?:```|~~~)/u,
-  /`/u,
-  /\[[^\]\n]{0,300}\]\([^)\n]{0,300}\)/u,
-  /&(?:#\d{1,6}|#x[0-9a-fA-F]{1,6}|[a-zA-Z]{2,12});/u,
-]);
-// A rendered block that names a page, an evidence id, a chunk id, a revision, a digest, or another
-// source is naming a citation the lane did not bind. The citation rows are the only place any of
-// those may appear, and they are generated from selected evidence rather than from prose.
-const MODEL_BLOCK_IDENTIFIERS = Object.freeze([
-  /\d+\s*(?:페이지|쪽|면)/u,
-  /(?:^|[^A-Za-z])(?:pp?\.|pages?)\s*\d/iu,
-  /(?:^|[^A-Za-z0-9_])E\d{1,4}(?![A-Za-z0-9_])/u,
-  /_p\d+_c\d+/u,
-  /\b[0-9a-f]{40,}\b/iu,
-  /(?:^|[^A-Za-z])(?:rev|revision)\s*\.?\s*\d/iu,
-  /개정\s*\d/u,
-  /(?:새|다른|추가|별도|외부)\s*출처/u,
-  /출처\s*[:：]/u,
-  /\b(?:new|another|additional|external|outside)\s+source\b/iu,
-  /\b[A-Z][A-Za-z0-9-]*\s+(?:Manual|Handbook|Standard|Guide|Specification|Spec)\b/u,
-]);
-// Self-attributed authority, project-use direction, and outcome claims, in the two languages this
-// lane renders. Discussing approval as an engineering artefact belongs in the corpus, not in a
-// block this lane publishes as its own judgement.
-const MODEL_BLOCK_CLAIMS = Object.freeze([
-  /(?:owner|오너|책임자)\s*(?:의\s*)?승인/iu,
-  /\bowner\s+approval\b/iu,
-  /승인(?:은|는|이|가|을|를|도)?\s*(?:이미\s*)?(?:완료|획득|취득|부여|허가|끝났|받았|되었|됐)/u,
-  /\bapprov(?:al|als|ed|es)\b/iu,
-  /\bauthoris(?:ed|ation)\b|\bauthoriz(?:ed|ation)\b/iu,
-  /정본/u,
-  /\bcanon(?:ical)?\b/iu,
-  /\bofficial(?:ly)?\b/iu,
-  /공식\s*(?:승인|자료|출처|문서|채택|입장|기록)/u,
-  /실제\s*(?:프로젝트|과제|업무)\s*(?:에|적용|사용)/u,
-  /\b(?:project|production)\s+use\b/iu,
-  /현업\s*적용/u,
-  /\bwinner\b/iu,
-  /우승|최우수|1위/u,
-  /(?:최종\s*)?채택(?:되었|했|합니다|됐)/u,
-  /권한(?:을|이)?\s*(?:부여|승격|확대|획득)/u,
-  /\bauthority\s+(?:granted|escalat)/iu,
-  /\bfull\s+authority\b/iu,
-]);
+const RELATION_RENDERING = Object.freeze({
+  direct: Object.freeze({
+    heading: '직접 근거',
+    prefix: '모델이 직접 관련 근거로 선택한 원문: ',
+  }),
+  support: Object.freeze({
+    heading: '보조 근거',
+    prefix: '모델이 보조 근거로 선택한 원문: ',
+  }),
+  qualification: Object.freeze({
+    heading: '조건·제약 근거',
+    prefix: '모델이 조건 또는 제약 근거로 선택한 원문: ',
+  }),
+  contrast: Object.freeze({
+    heading: '대조 근거',
+    prefix: '모델이 대조 근거로 선택한 원문: ',
+  }),
+});
+const ABSTAIN_RENDERING = Object.freeze({
+  relation: 'abstain',
+  heading: '답변 보류',
+  text: '모델이 직접 관련 근거를 선택하지 않아 답변을 보류합니다.',
+  citations: Object.freeze([]),
+});
 
 const ANSWER_INSTRUCTION = [
-  '당신은 Soulforge 평가 전용 답변 레인의 문장 렌더러다. 아래 제공된 근거 캡슐만 사용해 한국어로 답한다.',
-  '근거에 없는 사실, 새 출처, 새 페이지 번호, URL, 파일 경로는 만들지 않는다.',
-  '모든 절에는 제공된 evidence_id 중 최소 하나를 evidence_ids 로 붙인다. 근거 없는 절은 쓰지 않는다.',
-  '승인, 정본 등록, 작업 생성, 권한 부여를 주장하지 않는다. 판단은 관찰 수준의 외부 자문 후보다.',
-  'HTML, 마크업, 코드 블록, 비밀값, 계정 정보, 로컬 경로를 출력하지 않는다.',
-  'You render prose only. Citations, authority, and the claim ceiling are set outside this call.',
+  '당신은 Soulforge 평가 전용 근거 선택기다. 답변 문장을 작성하지 않는다.',
+  '아래 host 소유 statements 중 질문에 관련된 항목만 선택한다.',
+  'answer이면 1~8개의 서로 다른 statement_id를 고르고, relation은 direct, support, qualification, contrast 중 하나만 쓴다.',
+  'answer에는 direct relation이 최소 하나 있어야 한다. 적절한 직접 근거가 없으면 abstain과 빈 propositions를 반환한다.',
+  '제공되지 않은 statement_id나 다른 키, 자유 문장, 설명, 출처, 페이지, 권한 판단을 출력하지 않는다.',
+  'Return exactly one JSON object matching output_schema. No prose and no extra keys.',
 ].join('\n');
 
+/**
+ * One closed provider schema whose statement-id vocabulary is bound to this retrieval.
+ *
+ * Invalid public calls receive a sentinel enum that the lane never accepts. The production path
+ * always supplies S1..S24 from the retrieved statement list, so its enum is exactly that allowlist.
+ */
+export function statementSelectionResponseJsonSchema(statementIds) {
+  const valid = Array.isArray(statementIds)
+    && statementIds.length >= 1
+    && statementIds.length <= MAX.evidence
+    && statementIds.every((id, index) => typeof id === 'string'
+      && STATEMENT_ID.test(id) && statementIds.indexOf(id) === index);
+  const ids = valid ? [...statementIds] : [NO_STATEMENT_SENTINEL];
+  const proposition = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['statement_id', 'relation'],
+    properties: {
+      statement_id: { type: 'string', enum: ids },
+      relation: { type: 'string', enum: [...STATEMENT_RELATIONS] },
+    },
+  };
+  return {
+    type: 'object',
+    additionalProperties: false,
+    required: ['schema_version', 'result', 'propositions'],
+    properties: {
+      schema_version: { type: 'string', const: STATEMENT_SELECTION_SCHEMA_VERSION },
+      result: { type: 'string', enum: ['answer', 'abstain'] },
+      propositions: {
+        type: 'array',
+        maxItems: MAX.propositions,
+        uniqueItems: true,
+        items: proposition,
+      },
+    },
+    oneOf: [
+      {
+        properties: {
+          result: { const: 'answer' },
+          propositions: {
+            minItems: 1,
+            maxItems: MAX.propositions,
+            uniqueItems: true,
+            contains: {
+              type: 'object',
+              required: ['relation'],
+              properties: { relation: { const: 'direct' } },
+            },
+            minContains: 1,
+          },
+        },
+      },
+      {
+        properties: {
+          result: { const: 'abstain' },
+          propositions: { maxItems: 0 },
+        },
+      },
+    ],
+  };
+}
 const EXPANSION_INSTRUCTION = [
   '아래 질문을 영어 공개 자료에서 어휘 검색하기 위한 보조 검색어만 제안한다.',
   '이 출력은 자문(shadow)이며 정본 검색을 대체하지 않는다. 답변, 결론, 출처, 페이지를 쓰지 않는다.',
   'Return only short search terms. No sentence, no answer, no citation, no page number.',
 ].join('\n');
-
-const OUTPUT_SCHEMA = Object.freeze({
-  root: 'one plain object whose only key is sections',
-  sections: 'array of 1 to 8 plain objects, in reading order',
-  'sections[].heading': 'short Korean heading string',
-  'sections[].text': 'Korean prose, at most 4000 characters',
-  'sections[].evidence_ids': 'array of 1 to 8 evidence_id strings taken from the supplied evidence',
-  forbidden: 'any other key, any new source, any page number, any URL, any file path, any HTML, '
-    + 'any approval or authority claim, any claim ceiling',
-});
 
 const EXPANSION_OUTPUT_SCHEMA = Object.freeze({
   root: 'one plain object whose only key is terms',
@@ -378,7 +394,7 @@ const EXPANSION_OUTPUT_SCHEMA = Object.freeze({
 
 const ANSWER_BOUNDARY_NOTE = [
   '경계: 이 답변은 고정된 4종 공개 체계공학 자료에 대한 평가 전용 source-bound 결과입니다.',
-  '결정론 Engine 기준선도, 일반 개방형 QA도 아니며 문장 표현에는 로컬 학습 모델이 관여했습니다.',
+  '결정론 Engine 기준선도, 일반 개방형 QA도 아니며 근거 선택에는 로컬 학습 모델이 관여했습니다.',
   '실제 프로젝트 적합성, 출처 진리, 승인, 정본 등록, 작업 생성을 의미하지 않습니다.',
 ].join(' ');
 
@@ -393,8 +409,18 @@ const RECEIPT_ORDER_RULES = Object.freeze({
   'retrieval.per_source': 'insertion_ordered',
   'prompt_commitment.evidence_ids': 'insertion_ordered',
   'prompt_commitment.evidence_commitments': 'insertion_ordered',
+  'prompt_commitment.statement_commitments': 'insertion_ordered',
 });
-const MODEL_REQUEST_ORDER_RULES = Object.freeze({ evidence: 'insertion_ordered' });
+const MODEL_REQUEST_ORDER_RULES = Object.freeze({
+  statements: 'insertion_ordered',
+  'output_schema.required': 'insertion_ordered',
+  'output_schema.properties.result.enum': 'insertion_ordered',
+  'output_schema.properties.propositions.items.required': 'insertion_ordered',
+  'output_schema.properties.propositions.items.properties.statement_id.enum': 'insertion_ordered',
+  'output_schema.properties.propositions.items.properties.relation.enum': 'insertion_ordered',
+  'output_schema.oneOf': 'insertion_ordered',
+  'output_schema.oneOf[].properties.propositions.contains.required': 'insertion_ordered',
+});
 
 const sha256Hex = (value) => createHash('sha256').update(value).digest('hex');
 
@@ -445,10 +471,9 @@ function assertSafeString(value, code, maxLength = MAX.string) {
     fail(code, 'a metadata string must be bounded NFC text without control characters');
   }
   if (FORBIDDEN_STRINGS.some((pattern) => pattern.test(value))) {
-    // The family token is carried for the runs where this scan is reached on the way *out* — a
-    // model-authored string is snapshotted through here before any block filter sees it. On the way
-    // *in* the run ends at `FORBIDDEN_PARTICIPANT_INPUT`, which is not an output-safety refusal, so
-    // the receipt reports no reason for it.
+    // This shared string gate is used for caller metadata and for closed model-selection fields.
+    // Caller input ends at `FORBIDDEN_PARTICIPANT_INPUT`; a forbidden model-response field is
+    // translated by the structured-response validator into one fixed output-safety family token.
     fail(CODES.FORBIDDEN_PARTICIPANT_INPUT,
       'a path, secret, account, or runtime identifier is forbidden in public-safe metadata',
       { output_safety_reason: OUTPUT_SAFETY_REASONS.SENSITIVE_PATTERN });
@@ -470,10 +495,10 @@ function assertIdentifier(value, code) {
  * byte positions; anywhere else the prototype check refuses them.
  */
 function snapshotPlainOwnData(root, options = {}) {
-  // Metadata strings and rendered prose have different legitimate lengths, so the caller states
-  // which bound applies rather than one cap silently truncating a real answer. An advisory term
-  // list is bounded the same way: its declared ceiling is larger than the invocation's array cap,
-  // and a generic cap below a declared ceiling would refuse a model that obeyed its budget.
+  // Metadata strings, selection identifiers, and advisory terms have different legitimate bounds,
+  // so the caller states which bound applies rather than one cap silently refusing a valid closed
+  // value. An advisory term list is bounded the same way: its declared ceiling is larger than the
+  // invocation's array cap, and a generic cap below it would refuse a model obeying its budget.
   const maxString = options.maxString ?? MAX.string;
   const maxArray = options.maxArray ?? MAX.array;
   const seen = new WeakSet();
@@ -494,6 +519,11 @@ function snapshotPlainOwnData(root, options = {}) {
     }
     if (value === null || typeof value !== 'object') {
       fail(CODES.INPUT_INVALID, 'only non-null plain JSON values and declared Buffers are accepted');
+    }
+    // A Proxy can answer each reflection with a different surface. Refuse it before any trap can
+    // run; otherwise an exact-key precheck and the snapshot could validate two different objects.
+    if (types.isProxy(value)) {
+      fail(CODES.INPUT_INVALID, 'proxy-backed values are not accepted at this boundary');
     }
     if (Buffer.isBuffer(value)) {
       if (!BUFFER_PATHS.has(path)) {
@@ -575,7 +605,7 @@ function childPath(path, key) {
 
 function snapshotInvocation(input) {
   if (input === null || typeof input !== 'object' || Array.isArray(input)
-      || Object.getPrototypeOf(input) !== Object.prototype) {
+      || types.isProxy(input) || Object.getPrototypeOf(input) !== Object.prototype) {
     fail(CODES.INPUT_INVALID, 'the lane invocation must be one plain object');
   }
   if (!exactKeys(input, INPUT_FIELDS)) {
@@ -1179,17 +1209,19 @@ function ownDataSlot(target, key) {
  */
 function validateModelContext(context) {
   if (context === null || typeof context !== 'object' || Array.isArray(context)
-      || Object.getPrototypeOf(context) !== Object.prototype || !exactKeys(context, MODEL_CONTEXT_FIELDS)) {
+      || types.isProxy(context) || Object.getPrototypeOf(context) !== Object.prototype
+      || !exactKeys(context, MODEL_CONTEXT_FIELDS)) {
     fail(CODES.MODEL_ADAPTER_INVALID, 'the lane takes one closed model context with an answerModel');
   }
   const adapterSlot = ownDataSlot(context, 'answerModel');
   const answerModel = adapterSlot === null ? null : adapterSlot.value;
   if (answerModel === null || typeof answerModel !== 'object' || Array.isArray(answerModel)
-      || Object.getPrototypeOf(answerModel) !== Object.prototype) {
+      || types.isProxy(answerModel) || Object.getPrototypeOf(answerModel) !== Object.prototype) {
     fail(CODES.MODEL_ADAPTER_INVALID, 'answerModel must be one plain own-data adapter object');
   }
   const composeSlot = ownDataSlot(answerModel, 'composeAnswer');
-  if (composeSlot === null || typeof composeSlot.value !== 'function') {
+  if (composeSlot === null || typeof composeSlot.value !== 'function'
+      || types.isProxy(composeSlot.value)) {
     fail(CODES.MODEL_ADAPTER_INVALID,
       'answerModel must expose composeAnswer as one own enumerable data function');
   }
@@ -1198,14 +1230,14 @@ function validateModelContext(context) {
   const expansionSlot = ownDataSlot(answerModel, 'proposeQueryExpansion');
   if (expansionSlot === null
       ? Object.hasOwn(answerModel, 'proposeQueryExpansion')
-      : typeof expansionSlot.value !== 'function') {
+      : typeof expansionSlot.value !== 'function' || types.isProxy(expansionSlot.value)) {
     fail(CODES.MODEL_ADAPTER_INVALID,
       'proposeQueryExpansion, when present, must be one own enumerable data function');
   }
   const descriptorSlot = ownDataSlot(answerModel, 'descriptor');
   const descriptor = descriptorSlot === null ? null : descriptorSlot.value;
   if (descriptor === null || typeof descriptor !== 'object' || Array.isArray(descriptor)
-      || Object.getPrototypeOf(descriptor) !== Object.prototype
+      || types.isProxy(descriptor) || Object.getPrototypeOf(descriptor) !== Object.prototype
       || !exactKeys(descriptor, MODEL_DESCRIPTOR_FIELDS)) {
     fail(CODES.MODEL_ADAPTER_INVALID, 'answerModel.descriptor uses one closed plain field set');
   }
@@ -1315,57 +1347,17 @@ async function advisoryQueryExpansion({ seams, questionText, queryExpansion, cou
   return { posture: 'model_advisory_shadow', terms, offered: snapshot.terms.length };
 }
 
-// ------------------------------------------------------------------ model answer validation
+// ------------------------------------------------------------------ model selection validation
 
-/**
- * Fails closed on one model-authored block, echoing nothing of what it refused.
- *
- * Every refusal message below is fixed text. The offending value is never interpolated into the
- * error, the receipt, or the log, because a refusal that quoted the refused string back would be
- * exactly the leak this check exists to prevent.
- *
- * Each refusal additionally names the *family* of check it failed, from the closed table at the top
- * of this module. The family is a fixed literal chosen by which branch was taken; it says nothing
- * about the value, the location within it, or the pattern that matched, so naming it adds no new
- * channel out of this function. The checks themselves — which patterns, in which order, accepting
- * exactly what they accepted before — are unchanged.
- */
-function assertModelBlockSafe(value) {
-  if (HTML_LIKE.test(value) || MODEL_BLOCK_MARKUP.some((pattern) => pattern.test(value))) {
-    failOutputSafety(OUTPUT_SAFETY_REASONS.MARKUP,
-      'the model returned markup where only prose is accepted');
-  }
-  if (URL_LIKE.test(value)) {
-    failOutputSafety(OUTPUT_SAFETY_REASONS.URL,
-      'the model named a URL, which would be a source this lane never retrieved');
-  }
-  if (FORBIDDEN_STRINGS.some((pattern) => pattern.test(value))) {
-    failOutputSafety(OUTPUT_SAFETY_REASONS.SENSITIVE_PATTERN,
-      'the model returned a path, secret, account, or runtime identifier; it is not echoed');
-  }
-  if (MODEL_BLOCK_IDENTIFIERS.some((pattern) => pattern.test(value))) {
-    failOutputSafety(OUTPUT_SAFETY_REASONS.CITATION_IDENTIFIER,
-      'the model named a source, page, revision, or evidence identifier the lane never bound');
-  }
-  if (FORBIDDEN_AUTHORITY_CLAIMS.some((pattern) => pattern.test(value))
-      || MODEL_BLOCK_CLAIMS.some((pattern) => pattern.test(value))) {
-    failOutputSafety(OUTPUT_SAFETY_REASONS.AUTHORITY_CLAIM,
-      'the model claimed approval, canon, project use, or authority this lane cannot hold');
-  }
-}
-
-function validateModelSections(response, allowedEvidenceIds) {
+function validateModelSelection(response, statementById) {
   let snapshot;
   try {
-    snapshot = snapshotPlainOwnData(response, { maxString: MAX.section_text });
+    snapshot = snapshotPlainOwnData(response, {
+      maxArray: MAX.propositions,
+      maxString: MAX.identifier,
+    });
   } catch (error) {
-    // A path, secret, or forbidden field arriving *from* the model is an output-safety failure,
-    // not merely a malformed shape.
     if (error instanceof ContractError && error.code === CODES.FORBIDDEN_PARTICIPANT_INPUT) {
-      // A forbidden *field name* and a forbidden *string value* both arrive here, and they are two
-      // different families, so the token is taken from the refusal that happened rather than
-      // flattened into one. The snapshot is plain-data reflection over an already parsed response:
-      // no model code runs inside it, so the token it carries is still this module's own.
       failOutputSafety(
         outputSafetyReasonToken(error.detail, OUTPUT_SAFETY_REASONS.MODEL_PAYLOAD_FIELD),
         'the model response carries a forbidden path, secret, or field family; it is not echoed',
@@ -1373,97 +1365,116 @@ function validateModelSections(response, allowedEvidenceIds) {
     }
     fail(CODES.MODEL_OUTPUT_INVALID, 'the model response is not bounded plain own data');
   }
-  if (!exactKeys(snapshot, MODEL_OUTPUT_FIELDS) || !Array.isArray(snapshot.sections)
-      || snapshot.sections.length === 0 || snapshot.sections.length > MAX.sections) {
+  if (!exactKeys(snapshot, MODEL_OUTPUT_FIELDS)
+      || snapshot.schema_version !== STATEMENT_SELECTION_SCHEMA_VERSION
+      || (snapshot.result !== 'answer' && snapshot.result !== 'abstain')
+      || !Array.isArray(snapshot.propositions)) {
     fail(CODES.MODEL_OUTPUT_INVALID,
-      'the model may return only one bounded sections array and no other field');
+      'the model must return the exact closed statement-selection shape');
   }
-  const sections = snapshot.sections.map((section) => {
-    if (!exactKeys(section, MODEL_SECTION_FIELDS)) {
-      fail(CODES.MODEL_OUTPUT_INVALID, 'a model section uses one closed field set');
+  if (snapshot.result === 'abstain') {
+    if (snapshot.propositions.length !== 0) {
+      fail(CODES.MODEL_OUTPUT_INVALID, 'an abstention must carry an empty propositions array');
     }
-    const { heading, text } = section;
-    if (typeof heading !== 'string' || heading.trim().length === 0
-        || heading.length > MAX.section_heading || heading.normalize('NFC') !== heading
-        || FORBIDDEN_CONTROL.test(heading)) {
-      fail(CODES.MODEL_OUTPUT_INVALID, 'a model section heading is malformed');
+    return { result: 'abstain', propositions: [] };
+  }
+  if (snapshot.propositions.length < 1 || snapshot.propositions.length > MAX.propositions) {
+    fail(CODES.MODEL_OUTPUT_INVALID,
+      'an answer must select between one and eight propositions');
+  }
+  const seen = new Set();
+  const propositions = snapshot.propositions.map((proposition) => {
+    if (!exactKeys(proposition, MODEL_PROPOSITION_FIELDS)
+        || typeof proposition.statement_id !== 'string'
+        || typeof proposition.relation !== 'string'
+        || !STATEMENT_RELATION_SET.has(proposition.relation)) {
+      fail(CODES.MODEL_OUTPUT_INVALID, 'a proposition uses one closed relation-labelled field set');
     }
-    if (typeof text !== 'string' || text.trim().length === 0 || text.length > MAX.section_text
-        || text.normalize('NFC') !== text || FORBIDDEN_CONTROL.test(text)) {
-      fail(CODES.MODEL_OUTPUT_INVALID, 'a model section body is malformed, empty, or oversize');
-    }
-    for (const value of [heading, text]) assertModelBlockSafe(value);
-    if (!Array.isArray(section.evidence_ids) || section.evidence_ids.length === 0
-        || section.evidence_ids.length > MAX.section_evidence_ids) {
+    if (!statementById.has(proposition.statement_id)) {
       fail(CODES.CITATION_UNBOUND,
-        'every substantive block must cite between one and eight retrieved evidence ids');
+        'a proposition names a statement outside the retrieved allowlist');
     }
-    const ids = [];
-    for (const id of section.evidence_ids) {
-      if (typeof id !== 'string' || !allowedEvidenceIds.has(id)) {
-        fail(CODES.CITATION_UNBOUND,
-          'a citation names an unknown or foreign evidence id outside the retrieved allowlist');
-      }
-      if (ids.includes(id)) {
-        fail(CODES.CITATION_UNBOUND, 'a section repeats one evidence id');
-      }
-      ids.push(id);
+    if (seen.has(proposition.statement_id)) {
+      fail(CODES.CITATION_UNBOUND, 'a model response repeats one statement id');
     }
-    return { heading: heading.trim(), text, evidence_ids: ids };
+    seen.add(proposition.statement_id);
+    return {
+      statement_id: proposition.statement_id,
+      relation: proposition.relation,
+    };
   });
-  if (!sections.some((section) => HANGUL.test(section.text))) {
-    fail(CODES.MODEL_OUTPUT_INVALID, 'the Korean lane requires Korean prose in the rendered answer');
+  if (!propositions.some(({ relation }) => relation === 'direct')) {
+    fail(CODES.MODEL_OUTPUT_INVALID, 'an answer requires at least one direct proposition');
   }
-  return sections;
+  return { result: 'answer', propositions };
 }
 
 // ------------------------------------------------------------------ rendering and receipts
 
-function renderAnswer({ question, sourceSet, evidence, sections }) {
-  const byId = new Map(evidence.map((item) => [item.evidence_id, item]));
-  const renderedSections = sections.map((section) => ({
-    heading: section.heading,
-    text: section.text,
-    citations: section.evidence_ids.map((id) => {
-      const item = byId.get(id);
-      if (item === undefined) {
-        fail(CODES.CITATION_UNBOUND, 'a citation could not be bound to selected evidence');
-      }
+function hostCitation(statement) {
+  const item = statement.evidence;
+  return {
+    evidence_id: item.evidence_id,
+    source_id: item.source_id,
+    title: item.title,
+    revision: item.revision,
+    page_number: item.page_number,
+  };
+}
+
+function renderAnswer({ question, sourceSet, statements, selection }) {
+  const statementById = new Map(statements.map((statement) => [
+    statement.statement_id, statement,
+  ]));
+  const selectedStatements = selection.propositions.map((proposition) => {
+    const statement = statementById.get(proposition.statement_id);
+    if (statement === undefined) {
+      fail(CODES.CITATION_UNBOUND, 'a selected statement could not be host-bound');
+    }
+    return { proposition, statement };
+  });
+  const renderedSections = selection.result === 'abstain'
+    ? [{
+      relation: ABSTAIN_RENDERING.relation,
+      heading: ABSTAIN_RENDERING.heading,
+      text: ABSTAIN_RENDERING.text,
+      citations: [],
+    }]
+    : selectedStatements.map(({ proposition, statement }) => {
+      const rendering = RELATION_RENDERING[proposition.relation];
       return {
-        evidence_id: item.evidence_id,
-        source_id: item.source_id,
-        title: item.title,
-        revision: item.revision,
-        page_number: item.page_number,
+        relation: proposition.relation,
+        heading: rendering.heading,
+        text: `${rendering.prefix}${statement.excerpt}`,
+        citations: [hostCitation(statement)],
       };
-    }),
-  }));
-  const citedIds = new Set(renderedSections.flatMap(
-    (section) => section.citations.map((citation) => citation.evidence_id),
-  ));
+    });
+  const selectedEvidence = selectedStatements.map(({ statement }) => statement.evidence);
   return {
     schema_version: ANSWER_SCHEMA_VERSION,
     lane_id: ANSWER_LANE_ID,
     lane_kind: ANSWER_LANE_KIND,
     policy_revision: ANSWER_LANE_POLICY_REVISION,
     structural_limit: STRUCTURAL_LIMIT,
-    language: 'ko',
+    result: selection.result,
+    rendering_mode: 'host_korean_labels_exact_source_excerpts',
+    model_output_contract: STATEMENT_SELECTION_SCHEMA_VERSION,
+    model_authored_prose_present: false,
+    language: 'ko+source-original',
     question_sha256: question.sha256,
     question_bytes: question.bytes,
     source_set_id: sourceSet.source_set_id,
     source_set_sha256: sourceSet.source_set_sha256,
     sections: renderedSections,
-    evidence: evidence
-      .filter((item) => citedIds.has(item.evidence_id))
-      .map((item) => ({
-        evidence_id: item.evidence_id,
-        source_id: item.source_id,
-        title: item.title,
-        revision: item.revision,
-        page_number: item.page_number,
-        source_pdf_sha256: item.source_pdf_sha256,
-        derived_text_sha256: item.derived_text_sha256,
-      })),
+    evidence: selectedEvidence.map((item) => ({
+      evidence_id: item.evidence_id,
+      source_id: item.source_id,
+      title: item.title,
+      revision: item.revision,
+      page_number: item.page_number,
+      source_pdf_sha256: item.source_pdf_sha256,
+      derived_text_sha256: item.derived_text_sha256,
+    })),
     boundary_note: ANSWER_BOUNDARY_NOTE,
     claim_ceiling: RESULT_CLAIM_CEILING,
     candidate_disposition: CANDIDATE_DISPOSITION,
@@ -1479,11 +1490,10 @@ function canonicalAnswerJson(answer) {
     failOutputSafety(OUTPUT_SAFETY_REASONS.ANSWER_CANONICALISATION,
       'the rendered answer could not be canonicalised');
   }
-  // One scan over the whole rendering, so the family is the scan itself rather than which of its
-  // four patterns matched: this is where a value no block filter ever sees — an operator-curated
-  // title or revision, for instance — is refused, and naming the pattern would start to describe it.
+  // One final scan covers host labels, exact selected excerpts, and machine-owned metadata. The
+  // family is the scan itself rather than the particular pattern: naming that pattern would start
+  // to describe the refused source or operator-curated value.
   if (FORBIDDEN_STRINGS.some((pattern) => pattern.test(serialised))
-      || FORBIDDEN_AUTHORITY_CLAIMS.some((pattern) => pattern.test(serialised))
       || URL_LIKE.test(serialised)
       || HTML_LIKE.test(serialised.replace(/\\u003c/gu, ''))) {
     failOutputSafety(OUTPUT_SAFETY_REASONS.RENDERED_ANSWER_SCAN,
@@ -1695,19 +1705,24 @@ async function executeAnswerLane(input, context, pinRequest) {
       };
     });
 
+    // One retrieved chunk becomes one host-owned statement in evidence order. The excerpt is the
+    // entire exact normalized chunk; the model can select its S-id but cannot author a span.
+    const statements = evidence.map((item, index) => ({
+      statement_id: `S${index + 1}`,
+      excerpt: item.text,
+      evidence: item,
+    }));
+    const statementIds = statements.map(({ statement_id: statementId }) => statementId);
     const modelRequest = deepFreeze({
       policy_revision: ANSWER_LANE_POLICY_REVISION,
-      language: 'ko',
+      language: 'ko+source-original',
       instruction: ANSWER_INSTRUCTION,
       question_text: question.text,
-      evidence: evidence.map((item) => ({
-        evidence_id: item.evidence_id,
-        source_title: item.title,
-        source_revision: item.revision,
-        page_number: item.page_number,
-        text: item.text,
+      statements: statements.map((statement) => ({
+        statement_id: statement.statement_id,
+        excerpt: statement.excerpt,
       })),
-      output_schema: { ...OUTPUT_SCHEMA },
+      output_schema: statementSelectionResponseJsonSchema(statementIds),
     });
     let promptSha256;
     try {
@@ -1719,15 +1734,15 @@ async function executeAnswerLane(input, context, pinRequest) {
     }
 
     const response = await callModel(seams, 'composeAnswer', modelRequest, counters, 'answer');
-    const sections = validateModelSections(
+    const selection = validateModelSelection(
       response,
-      new Set(evidence.map((item) => item.evidence_id)),
+      new Map(statements.map((statement) => [statement.statement_id, statement])),
     );
     const sourceSet = {
       source_set_id: snapshot.corpus.sourceSetContract.source_set_id,
       source_set_sha256: snapshot.corpus.expectedSourceSetSha256,
     };
-    const answer = renderAnswer({ question, sourceSet, evidence, sections });
+    const answer = renderAnswer({ question, sourceSet, statements, selection });
     const answerJson = canonicalAnswerJson(answer);
     const citationCount = answer.sections.reduce(
       (total, section) => total + section.citations.length, 0,
@@ -1829,6 +1844,12 @@ async function executeAnswerLane(input, context, pinRequest) {
           chunk_id: item.chunk_id,
           chunk_sha256: item.chunk_sha256,
         })),
+        statement_commitments: statements.map((statement) => ({
+          statement_id: statement.statement_id,
+          evidence_id: statement.evidence.evidence_id,
+          excerpt_sha256: sha256Hex(statement.excerpt),
+          excerpt_byte_length: Buffer.byteLength(statement.excerpt, 'utf8'),
+        })),
       },
       model_adapter: { ...adapter },
       model: {
@@ -1841,15 +1862,17 @@ async function executeAnswerLane(input, context, pinRequest) {
         section_count: answer.sections.length,
         citation_count: citationCount,
         cited_evidence_count: answer.evidence.length,
-        selected_evidence_count: evidence.length,
-        uncited_section_count: 0,
+        retrieved_evidence_count: evidence.length,
+        selected_statement_count: selection.propositions.length,
+        evidence_section_count: selection.propositions.length,
+        uncited_evidence_section_count: 0,
         html_present: false,
-        // Naming the ceiling is part of the contract. Every rendered block passed a conservative
-        // structural and forbidden-claim filter; nothing here checked whether the prose follows
-        // from the cited capsules, so free-text correctness stays UNKNOWN in this lane.
-        free_text_verification: 'structural_and_forbidden_claim_filter_only',
+        model_authored_prose_present: false,
+        rendering_revision: HOST_RENDERING_REVISION,
+        excerpt_binding: 'exact_host_chunk',
+        content_verification: 'exact_host_evidence_projection',
         semantic_entailment_verified: false,
-        free_text_correctness: 'unknown',
+        selection_correctness: 'unknown',
       },
       writes: { ...ZERO_WRITES },
       boundary: { ...RECEIPT_BOUNDARY },

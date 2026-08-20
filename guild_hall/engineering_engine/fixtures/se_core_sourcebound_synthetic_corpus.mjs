@@ -229,19 +229,13 @@ export function benchmarkPin({ cohort, input, pinId = SYNTHETIC_BENCHMARK_PIN_ID
 /** One single-page derived-text stream, so a test can pin exact bytes without page bookkeeping. */
 export const singlePageDerivedText = (body) => Buffer.from(`## Page 1\n\n${body}\n`, 'utf8');
 
-export const KOREAN_SECTIONS = (evidenceIds) => ({
-  sections: [
-    {
-      heading: '핵심 판단',
-      text: '검증 활동은 실행 전에 측정 가능한 합격·불합격 기준을 선언해야 합니다.',
-      evidence_ids: [evidenceIds[0]],
-    },
-    {
-      heading: '근거 정리',
-      text: '기준 기록에는 책임 역할과 적용 개정이 함께 남아야 합니다.',
-      evidence_ids: evidenceIds.slice(0, 2),
-    },
-  ],
+export const STATEMENT_SELECTION = (statementIds) => ({
+  schema_version: 'soulforge.se_core_sourcebound_statement_selection.v0',
+  result: 'answer',
+  propositions: statementIds.slice(0, 2).map((statement_id, index) => ({
+    statement_id,
+    relation: index === 0 ? 'direct' : 'support',
+  })),
 });
 
 /** An in-memory bounded answer model. `behaviour` overrides either seam per test. */
@@ -258,7 +252,7 @@ export function fakeAnswerModel(behaviour = {}) {
     async composeAnswer(request) {
       model.calls.push({ kind: 'compose', request });
       if (behaviour.compose) return behaviour.compose(request, model);
-      return KOREAN_SECTIONS(request.evidence.map((item) => item.evidence_id));
+      return STATEMENT_SELECTION(request.statements.map((item) => item.statement_id));
     },
     async proposeQueryExpansion(request) {
       model.calls.push({ kind: 'expand', request });

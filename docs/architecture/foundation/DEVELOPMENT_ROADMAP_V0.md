@@ -60,6 +60,40 @@ the 2026-08-14 M2 Project Context and Knowledge View vertical described below.
   output-safety acceptance behaviour and is covered by synthetic probes only, so
   it makes an eventual hold readable and does not by itself move the benchmark
   attempt any closer to a result.
+- A structural correction on 2026-08-13 removed model-authored answer prose from
+  this lane. A candidate token/proposition authority parser was explicitly stopped
+  after independent public-synthetic attacks kept finding the same class of scope
+  error: a negative or condition attached to one clause could suppress a positive
+  action in another, or a condition about another draft could be inherited by the
+  current answer. No further phrase exceptions are allowed on this slice.
+- The replacement model response is one closed statement-selection contract. The
+  model sees exact host chunks as `{ statement_id, excerpt }` and returns only
+  `answer|abstain` plus up to eight statement-id/relation pairs. The host renders
+  fixed Korean labels, the exact selected public-source excerpt, and one
+  machine-bound citation per selection. A model-authored heading, answer sentence,
+  quotation, citation, authority state, project-use direction, Task, or winner is
+  not representable. Selection relevance and semantic entailment remain unknown
+  until independent review.
+- That moves the answer-lane policy to
+  `soulforge.se_core_sourcebound_answer_lane.v2`, the loopback adapter to
+  `soulforge.se_core_sourcebound_answer_ollama_adapter.v3`, the final answer to
+  `soulforge.se_core_sourcebound_answer.v1`, and the lane receipt to
+  `soulforge.se_core_sourcebound_answer_receipt.v2`. The command receipt stays v2
+  because its closed field set is unchanged. This slice is covered by public
+  synthetic tests only and executes no benchmark while the public gate is open.
+- Any question set this lane has already been run against, the earlier homefield
+  set included, is seen material from here on. It may be re-run only as post-hoc
+  diagnostic regression. No score, ranking, winner, NotebookLM comparison, parity,
+  or production-readiness claim may rest on it; that requires a fresh unseen
+  frozen set pinned before the run, with its own cohort pin and receipts. No such
+  set is claimed to exist or to have been executed.
+- The public-synthetic loopback compatibility gate is now closed as `HOLD`, not
+  `PASS`: one no-expansion `qwen3.5:9b` call reached model output and the lane
+  refused its object as `SE_CORE_SOURCEBOUND_ANSWER_MODEL_OUTPUT_INVALID`. It
+  rendered no answer and exposed no provider payload. The no-retry/no-tuning stop
+  condition therefore seals this v4 attempt; private 7x3 execution is not allowed.
+  Any future compatibility change must be a separately scoped successor, not an
+  in-place retry or a reinterpretation of this result.
 - The fixed seven-case structured Engine runner stays distinct and historical.
   It is model-free, the two lanes are not comparable, and its recorded outputs
   are not reused as the new lane's results.

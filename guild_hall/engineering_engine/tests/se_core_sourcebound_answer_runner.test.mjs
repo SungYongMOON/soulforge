@@ -41,7 +41,7 @@ import {
   CLI_CODES,
   COMMAND_RECEIPT_SCHEMA_VERSION,
   EXACT_ANSWER_MODEL,
-  MAX_ANSWER_SECTIONS,
+  MAX_ANSWER_PROPOSITIONS,
   MAX_BENCHMARK_PIN_BYTES,
   MAX_DERIVED_TEXT_BYTES,
   MAX_EXPANSION_TERMS,
@@ -50,11 +50,9 @@ import {
   MAX_MESSAGE_CONTENT_CHARS,
   MAX_PROVIDER_RESPONSE_BYTES,
   MAX_QUESTION_BYTES,
-  MAX_SECTION_EVIDENCE_IDS,
-  MAX_SECTION_HEADING_CHARS,
-  MAX_SECTION_TEXT_CHARS,
   MAX_SOURCE_SET_CONTRACT_BYTES,
   MAX_TIMEOUT_MS,
+  OLLAMA_ADAPTER_REVISION,
   OLLAMA_KEEP_ALIVE,
   MODEL_REFUSAL_REASONS,
   OLLAMA_NUM_CTX,
@@ -172,9 +170,12 @@ const jsonResponder = (payload) => async () => bodyResponse(
 );
 
 /** One valid rendered answer, as the injected model would return it. */
-const OK_SECTIONS = {
-  sections: [{ heading: '판단', text: '검증 기준이 필요합니다.', evidence_ids: ['E1'] }],
+const OK_SELECTION = {
+  schema_version: 'soulforge.se_core_sourcebound_statement_selection.v0',
+  result: 'answer',
+  propositions: [{ statement_id: 'S1', relation: 'direct' }],
 };
+const OK_SECTIONS = OK_SELECTION;
 
 /** Pads one JSON document with insignificant whitespace to an exact byte length. */
 function padJsonTo(json, targetBytes) {
@@ -1027,35 +1028,88 @@ test('a malformed provider reply is never completed into an answer', async () =>
   }
   // The well-formed shape still passes, so the guard above is not simply refusing everything.
   const ok = createLoopbackOllamaAnswerModel({
-    fetchImpl: jsonResponder({
-      sections: [{ heading: '판단', text: '검증 기준이 필요합니다.', evidence_ids: ['E1'] }],
-    }),
+    fetchImpl: jsonResponder(OK_SELECTION),
     timeoutMs: 5000,
   });
   const run = await runSeCoreSourceboundAnswerCli(fixture().argv, captureIo(ok).io);
   assert.equal(run.receipt.result, 'PASS');
 });
 
-test('the rendered prompt text carries the question and evidence but never a schema key leak', () => {
+test('the rendered prompt carries only question and host statements', () => {
   const request = {
     instruction: 'INSTRUCTION',
     question_text: SYNTHETIC_QUESTION,
-    evidence: [{
-      evidence_id: 'E1',
-      source_title: 'Synthetic Systems Engineering Practice Guide',
-      source_revision: 'SYN-A rev 1',
-      page_number: 1,
-      text: 'Each verification activity declares measurable pass and fail criteria.',
+    statements: [{
+      statement_id: 'S1',
+      excerpt: 'Each verification activity declares measurable pass and fail criteria.',
     }],
-    output_schema: { root: 'one plain object whose only key is sections' },
+    output_schema: { type: 'object' },
   };
   const prompt = renderPromptText(request);
   assert.ok(prompt.includes(SYNTHETIC_QUESTION));
-  assert.ok(prompt.includes('E1'));
-  assert.ok(prompt.includes('page 1'));
+  assert.ok(prompt.includes('S1'));
   assert.ok(prompt.includes('Each verification activity'));
+  assert.equal(prompt.includes('page'), false);
   assert.equal(prompt.includes('_workspaces'), false);
   assert.equal(prompt.endsWith('\n'), true);
+
+  // The renderer reads the two model-visible fields and ignores stray host metadata.
+  const stray = renderPromptText({
+    ...request,
+    statements: [{
+      ...request.statements[0],
+      source_title: 'Synthetic Systems Engineering Practice Guide',
+      source_revision: 'SYN-A rev 1',
+      page_number: 12,
+    }],
+  });
+  assert.equal(stray.includes('Synthetic Systems Engineering Practice Guide'), false);
+  assert.equal(stray.includes('SYN-A rev 1'), false);
+  assert.equal(stray.includes('12'), false);
+});
+
+test('the loopback statement shape is opaque while the answer still cites full metadata', async () => {
+  const bodies = [];
+  const fetchImpl = async (url, init) => {
+    bodies.push(JSON.parse(init.body));
+    return bodyResponse(envelopeFor(JSON.stringify(OK_SECTIONS)));
+  };
+  const model = createLoopbackOllamaAnswerModel({ fetchImpl, timeoutMs: 5000 });
+  const { argv, descriptors } = fixture();
+  const run = await runSeCoreSourceboundAnswerCli(argv, captureIo(model).io);
+  assert.equal(run.receipt.result, 'PASS');
+  assert.equal(bodies.length, 1);
+
+  const prompt = bodies[0].messages[0].content;
+  assert.ok(prompt.includes('S1'));
+  for (const descriptor of descriptors) {
+    for (const owned of [descriptor.title, descriptor.revision, descriptor.source_id]) {
+      assert.equal(prompt.includes(owned), false, `${descriptor.source_id}: ${owned}`);
+    }
+  }
+  assert.equal(/page\s*\d/iu.test(prompt), false, 'no page metadata is rendered into the prompt');
+
+  // Machine-owned metadata is still bound to every citation the answer publishes.
+  const titles = new Set(descriptors.map((descriptor) => descriptor.title));
+  const revisions = new Set(descriptors.map((descriptor) => descriptor.revision));
+  let bound = 0;
+  for (const section of run.answer.sections) {
+    for (const citation of section.citations) {
+      assert.equal(titles.has(citation.title), true);
+      assert.equal(revisions.has(citation.revision), true);
+      assert.ok(Number.isSafeInteger(citation.page_number) && citation.page_number >= 1);
+      bound += 1;
+    }
+  }
+  assert.ok(bound >= 1);
+});
+
+test('the adapter revision moves with the prompt rendering it produces', () => {
+  assert.equal(
+    OLLAMA_ADAPTER_REVISION, 'soulforge.se_core_sourcebound_answer_ollama_adapter.v3',
+  );
+  const model = createLoopbackOllamaAnswerModel({ fetchImpl: async () => bodyResponse('{}') });
+  assert.equal(model.descriptor.adapter_revision, OLLAMA_ADAPTER_REVISION);
 });
 
 test('the CLI argument surface stays closed and explicit', () => {
@@ -1707,7 +1761,7 @@ test('a stream step this adapter cannot read as own data is cancelled, refused, 
       // Called directly at the adapter seam: one fixed contract error and nothing else.
       await assert.rejects(
         () => model.composeAnswer({
-          instruction: 'i', question_text: 'q', evidence: [], output_schema: {},
+          instruction: 'i', question_text: 'q', statements: [], output_schema: {},
         }),
         (error) => error.code === CLI_CODES.MODEL_CALL_REFUSED
           && error.message.endsWith('the loopback model response body could not be read')
@@ -1802,7 +1856,7 @@ test('a chunk that could answer through provider code is refused, cancelled once
       // Called directly at the adapter seam: one fixed contract error and nothing else.
       await assert.rejects(
         () => model.composeAnswer({
-          instruction: 'i', question_text: 'q', evidence: [], output_schema: {},
+          instruction: 'i', question_text: 'q', statements: [], output_schema: {},
         }),
         (error) => error.code === CLI_CODES.MODEL_CALL_REFUSED
           && error.message.endsWith('the loopback model response body could not be read')
@@ -2016,8 +2070,8 @@ test('the loopback request pins the reasoning channel, the window, and the exact
   // The reply shape constrains generation instead of being a request graded afterwards.
   assert.notEqual(body.format, 'json');
   assert.equal(body.format.additionalProperties, false);
-  assert.deepEqual(body.format.required, ['sections']);
-  assert.equal(body.format.properties.sections.maxItems, MAX_ANSWER_SECTIONS);
+  assert.deepEqual(body.format.required, ['schema_version', 'result', 'propositions']);
+  assert.equal(body.format.properties.propositions.maxItems, MAX_ANSWER_PROPOSITIONS);
 
   // Pinning a shape must not have opened a channel the stateless contract closed.
   for (const forbidden of [
@@ -2209,7 +2263,7 @@ test('a refusal belongs to the run that took it, not to the adapter that outlive
   assert.notEqual(scope.answerModel, shared, 'an invocation is served by its own adapter');
   await assert.rejects(
     () => shared.composeAnswer({
-      instruction: 'i', question_text: 'q', evidence: [], output_schema: {},
+      instruction: 'i', question_text: 'q', statements: [], output_schema: {},
     }),
     (error) => error.code === CLI_CODES.MODEL_CALL_REFUSED,
   );
@@ -2255,7 +2309,7 @@ function gatedAnswerModel(gates) {
 }
 
 const REQUEST = Object.freeze({
-  instruction: 'i', question_text: 'q', evidence: [], output_schema: {}, max_terms: 4,
+  instruction: 'i', question_text: 'q', statements: [], output_schema: {}, max_terms: 4,
 });
 const NON_SUCCESS = Object.freeze({ ok: false, status: 500 });
 const BUDGET_STOPPED = () => bodyResponse(
@@ -2589,7 +2643,7 @@ test('a response slot this adapter cannot read is its own refusal, never the pro
   });
   await assert.rejects(
     () => direct.composeAnswer({
-      instruction: 'i', question_text: 'q', evidence: [], output_schema: {},
+      instruction: 'i', question_text: 'q', statements: [], output_schema: {},
     }),
     (error) => error.code === CLI_CODES.MODEL_CALL_REFUSED
       && !error.message.includes('surface-secret-detail'),
@@ -2620,72 +2674,42 @@ test('every consumed response slot is read exactly once', async () => {
   for (const [key, count] of Object.entries(reads)) assert.equal(count, 1, key);
 });
 
-test('the requested answer shape binds citations to exactly the retrieved evidence ids', () => {
+test('the provider shape closes fields and enums while the lane enforces cross-item id uniqueness', () => {
   const schema = answerResponseJsonSchema({
-    evidence: [{ evidence_id: 'E1' }, { evidence_id: 'E2' }],
+    statements: [{ statement_id: 'S1' }, { statement_id: 'S2' }],
   });
-  const section = schema.properties.sections.items;
+  const proposition = schema.properties.propositions.items;
   assert.deepEqual(
-    section.properties.evidence_ids.items.enum, ['E1', 'E2'],
-    'a source this run never retrieved has no spelling the grammar can produce',
+    proposition.properties.statement_id.enum, ['S1', 'S2'],
+    'a statement this run never supplied has no spelling the grammar can produce',
   );
-  assert.equal(section.additionalProperties, false);
-  assert.deepEqual(section.required.slice().sort(), ['evidence_ids', 'heading', 'text']);
-  assert.equal(section.properties.heading.maxLength, MAX_SECTION_HEADING_CHARS);
-  assert.equal(section.properties.text.maxLength, MAX_SECTION_TEXT_CHARS);
-  assert.equal(section.properties.evidence_ids.maxItems, MAX_SECTION_EVIDENCE_IDS);
+  assert.equal(proposition.additionalProperties, false);
+  assert.deepEqual(proposition.required.slice().sort(), ['relation', 'statement_id']);
+  assert.deepEqual(proposition.properties.relation.enum,
+    ['direct', 'support', 'qualification', 'contrast']);
+  assert.equal(schema.properties.propositions.maxItems, MAX_ANSWER_PROPOSITIONS);
+  // JSON Schema uniqueItems compares whole objects: S1/direct plus S1/support is representable
+  // here, then deterministically refused by the lane's statement-id allowlist validator.
+  assert.equal(schema.properties.propositions.uniqueItems, true);
 
-  // A request naming no usable id still yields one valid schema. The lane's allowlist stays the
-  // authority for citations either way, which is exactly where it already was.
-  for (const request of [{ evidence: [] }, {}, { evidence: [{ evidence_id: 1 }] }]) {
+  for (const request of [{ statements: [] }, {}, { statements: [{ statement_id: 1 }] }]) {
     const bare = answerResponseJsonSchema(request);
-    const items = bare.properties.sections.items.properties.evidence_ids.items;
-    assert.equal(Object.hasOwn(items, 'enum'), false);
-    assert.equal(items.type, 'string');
+    assert.deepEqual(
+      bare.properties.propositions.items.properties.statement_id.enum,
+      ['__NO_RETRIEVED_STATEMENT__'],
+    );
   }
 });
 
-test('the requested shape bounds are the lane bounds, pinned from both sides', async () => {
-  // The shape is sent to the provider, so a bound written here that disagrees with the lane would
-  // either forbid a legal answer or ask for one the lane then rejects. Each is pinned to the
-  // lane's own boundary from both sides so the two cannot drift apart silently.
-  const withText = (chars) => ({
-    sections: [{ heading: '판단', text: '가'.repeat(chars), evidence_ids: ['E1'] }],
-  });
-  const exact = createLoopbackOllamaAnswerModel({
-    fetchImpl: jsonResponder(withText(MAX_SECTION_TEXT_CHARS)), timeoutMs: 5000,
-  });
-  assert.equal(
-    (await runSeCoreSourceboundAnswerCli(fixture().argv, captureIo(exact).io)).receipt.result,
-    'PASS', 'the requested bound is not below the lane bound',
-  );
-  const over = createLoopbackOllamaAnswerModel({
-    fetchImpl: jsonResponder(withText(MAX_SECTION_TEXT_CHARS + 1)), timeoutMs: 5000,
-  });
-  assert.equal(
-    (await runSeCoreSourceboundAnswerCli(fixture().argv, captureIo(over).io)).receipt.result,
-    'HOLD', 'the requested bound is not above the lane bound',
-  );
-
-  const withSections = (count) => ({
-    sections: Array.from({ length: count }, () => ({
-      heading: '판단', text: '검증 기준이 필요합니다.', evidence_ids: ['E1'],
+test('the requested proposition bound is exactly eight', () => {
+  const schema = answerResponseJsonSchema({
+    statements: Array.from({ length: MAX_ANSWER_PROPOSITIONS }, (_, index) => ({
+      statement_id: `S${index + 1}`,
     })),
   });
-  const full = createLoopbackOllamaAnswerModel({
-    fetchImpl: jsonResponder(withSections(MAX_ANSWER_SECTIONS)), timeoutMs: 5000,
-  });
-  assert.equal(
-    (await runSeCoreSourceboundAnswerCli(fixture().argv, captureIo(full).io)).receipt.result,
-    'PASS',
-  );
-  const overflow = createLoopbackOllamaAnswerModel({
-    fetchImpl: jsonResponder(withSections(MAX_ANSWER_SECTIONS + 1)), timeoutMs: 5000,
-  });
-  assert.equal(
-    (await runSeCoreSourceboundAnswerCli(fixture().argv, captureIo(overflow).io)).receipt.result,
-    'HOLD',
-  );
+  assert.equal(MAX_ANSWER_PROPOSITIONS, 8);
+  assert.equal(schema.properties.propositions.maxItems, 8);
+  assert.equal(schema.oneOf[0].properties.propositions.maxItems, 8);
 });
 
 test('a pinned request shape adds no retry, no fallback, and no second answer call', async () => {
@@ -2927,61 +2951,51 @@ test('no named input is read with a whole-file convenience call', () => {
 // *which* output-safety check refused a run. These tests pin that it carries the lane's closed
 // family token, that it carries nothing else, and that the token belongs to one invocation.
 
-const MARKUP_SECTIONS = {
-  sections: [{ heading: '판단', text: '**강조** 된 기준입니다.', evidence_ids: ['E1'] }],
-};
-
-/** One in-memory model that renders exactly the given prose, cited to the first retrieved id. */
-const proseModel = (text) => fakeAnswerModel({
-  compose: (request) => ({
-    sections: [{ heading: '판단', text, evidence_ids: [request.evidence[0].evidence_id] }],
-  }),
+const payloadFieldModel = (text) => fakeAnswerModel({
+  compose: () => ({ ...OK_SELECTION, completion: text }),
 });
 
-test('an output-safety hold names its family on the command receipt and echoes no prose', async () => {
-  const probe = '문의는 owner@example.com 으로 하십시오.';
+test('a model payload-field hold reaches the command receipt without echoing prose', async () => {
+  const probe = 'provider prose that must never escape';
   const { root, argv } = fixture();
   const receiptPath = join(root, 'receipt.json');
-  const { io, out, err } = captureIo(proseModel(probe));
+  const { io, out, err } = captureIo(payloadFieldModel(probe));
   const run = await runSeCoreSourceboundAnswerCli([...argv, '--receipt-out', receiptPath], io);
 
   assert.equal(run.receipt.result, 'HOLD');
   assert.equal(run.receipt.blocker_code, LANE_CODES.OUTPUT_SAFETY_FAILED);
-  // The lane receipt is not written anywhere on a hold, which is why the command receipt carries
-  // the reason at all.
   assert.equal(out.length, 0);
   assert.equal(err.length, 1);
   assert.equal(existsSync(receiptPath), false);
 
   const command = commandReceipt(err);
-  assert.equal(command.output_safety_reason, 'sensitive_pattern_detected');
-  assert.equal(command.model_refusal_reason, null, 'no provider refusal happened on this run');
+  assert.equal(command.output_safety_reason, 'model_payload_field_forbidden');
+  assert.equal(command.model_refusal_reason, null);
   assert.equal(command.blocker_code, LANE_CODES.OUTPUT_SAFETY_FAILED);
   assert.equal(command.blocker_stage, 'output_safety');
   assert.deepEqual(Object.keys(command).sort(), [...COMMAND_RECEIPT_FIELDS]);
   assert.equal(err[0].includes(probe), false);
-  assert.equal(err[0].includes('owner@example.com'), false);
-  assert.equal(/[\p{Script=Hangul}]/u.test(err[0]), false, 'a command receipt carries no prose');
 });
 
-test('each output-safety family reaches the command receipt as its own token', async () => {
-  for (const [text, expected] of [
-    ['**강조** 된 기준입니다.', 'markup_detected'],
-    ['https://example.org/handbook 에서 확인하십시오.', 'url_detected'],
-    [`${'/tmp'}/private-evidence.txt 에서 확인했습니다.`, 'sensitive_pattern_detected'],
-    ['E9 근거에 따르면 기준이 다릅니다.', 'citation_identifier_in_prose'],
-    ['Owner approval has been obtained.', 'authority_claim_pattern'],
-  ]) {
-    const { argv } = fixture();
-    const { io, out, err } = captureIo(proseModel(text));
-    const run = await runSeCoreSourceboundAnswerCli(argv, io);
-    assert.equal(run.receipt.blocker_code, LANE_CODES.OUTPUT_SAFETY_FAILED, text);
-    assert.equal(commandReceipt(err).output_safety_reason, expected, text);
-    assert.equal(out.length, 0, text);
-    assert.equal(err[err.length - 1].includes(text), false, text);
-  }
+test('a selected unsafe source excerpt reaches the rendered-answer scan token', async () => {
+  const { argv, descriptors } = fixture();
+  const body = Buffer.from('## Page 1\n\nVerification location https://example.org/source\n', 'utf8');
+  const descriptor = descriptors[0];
+  const digest = sha256(body);
+  descriptor.derived_text_bytes = body;
+  descriptor.derived_text_sha256 = digest;
+  const input = laneInput({ commitment: seCoreSourceSetContractSha256 });
+  input.corpus.sources[0] = descriptor;
+  input.corpus.sourceSetContract = sourceSetContract(input.corpus.sources);
+  input.corpus.expectedSourceSetSha256 =
+    seCoreSourceSetContractSha256(input.corpus.sourceSetContract);
+  const run = await runSeCoreSourceboundAnswerLane(input, {
+    answerModel: fakeAnswerModel(),
+  });
+  assert.equal(run.receipt.blocker_code, LANE_CODES.OUTPUT_SAFETY_FAILED);
+  assert.equal(run.receipt.output_safety_reason, 'rendered_answer_scan_failed');
+  assert.equal(argv.length > 0, true);
 });
-
 test('a pass and a non-output-safety hold both report a null output-safety reason', async () => {
   const { root, argv } = fixture();
   const passing = captureIo(fakeAnswerModel());
@@ -3025,25 +3039,24 @@ test('a caller cannot put an output-safety reason on the io surface', async () =
 test('one adapter reused by two sequential commands never inherits the earlier reason', async () => {
   let call = 0;
   const shared = fakeAnswerModel({
-    compose: (request) => {
+    compose: () => {
       call += 1;
-      const evidence_ids = [request.evidence[0].evidence_id];
       return call === 1
-        ? { sections: [{ heading: '판단', text: '**강조** 된 기준입니다.', evidence_ids }] }
-        : { sections: [{ heading: '판단', text: '검증 기준이 필요합니다.', evidence_ids }] };
+        ? { ...OK_SELECTION, completion: 'provider prose' }
+        : OK_SELECTION;
     },
   });
   const held = captureIo(shared);
   const first = await runSeCoreSourceboundAnswerCli(fixture().argv, held.io);
   assert.equal(first.receipt.blocker_code, LANE_CODES.OUTPUT_SAFETY_FAILED);
-  assert.equal(commandReceipt(held.err).output_safety_reason, 'markup_detected');
+  assert.equal(commandReceipt(held.err).output_safety_reason, 'model_payload_field_forbidden');
 
   const passing = captureIo(shared);
   const second = await runSeCoreSourceboundAnswerCli(fixture().argv, passing.io);
   assert.equal(second.receipt.result, 'PASS');
   assert.equal(commandReceipt(passing.err).output_safety_reason, null);
   assert.equal(
-    commandReceipt(held.err).output_safety_reason, 'markup_detected',
+    commandReceipt(held.err).output_safety_reason, 'model_payload_field_forbidden',
     'the receipt already written is not the one a later run rewrites',
   );
 });
@@ -3065,10 +3078,12 @@ test('two overlapping commands on one adapter each report only their own output 
   assert.equal((await passingRun).receipt.result, 'PASS');
   assert.equal(commandReceipt(passing.err).output_safety_reason, null);
 
-  gates[0].resolve(bodyResponse(envelopeFor(JSON.stringify(MARKUP_SECTIONS))));
+  gates[0].resolve(bodyResponse(envelopeFor(JSON.stringify({
+    ...OK_SELECTION, completion: 'provider prose',
+  }))));
   const refused = await heldRun;
   assert.equal(refused.receipt.blocker_code, LANE_CODES.OUTPUT_SAFETY_FAILED);
-  assert.equal(commandReceipt(held.err).output_safety_reason, 'markup_detected');
+  assert.equal(commandReceipt(held.err).output_safety_reason, 'model_payload_field_forbidden');
   assert.equal(
     commandReceipt(passing.err).output_safety_reason, null,
     'a run that answered names no output-safety refusal another run took',

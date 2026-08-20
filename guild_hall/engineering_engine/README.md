@@ -271,19 +271,51 @@ ceiling is `observed` and the disposition is `external_advisory_candidate`.
 ### Split of responsibility
 
 The deterministic side owns corpus validation, derived-text parsing, retrieval,
-evidence selection, citation binding, output schema validation, the claim
-ceiling, and the receipt. The learned model is only a bounded prose renderer.
+statement cataloguing, citation binding, fixed Korean rendering, the claim
+ceiling, and the receipt. The learned model is only a bounded **statement
+selector**. It authors no answer prose.
 
-The injected `answerModel` receives the exact question text, the selected
-evidence capsules, and a closed output policy — nothing else. It has no
-filesystem, network, browser, or tool access, and it cannot create a source, a
-citation, an authority, or a claim ceiling. It may return only
-`{ sections: [{ heading, text, evidence_ids }] }`. Every substantive block must
-cite at least one retrieved evidence id; an unknown or foreign citation, an
-uncited block, an extra field, markup, a URL — which would name a source this
-lane never retrieved — a leaked path or secret, an authority claim, a throw, a
-timeout, or a malformed response all fail closed to a `HOLD` receipt with
-`answer: null`. Nothing is invented to fill a gap.
+The injected `answerModel` receives the exact question text, a closed output
+policy, and statement capsules whose only fields are `statement_id` and
+`excerpt`. It may return only:
+
+```json
+{
+  "schema_version": "soulforge.se_core_sourcebound_statement_selection.v0",
+  "result": "answer",
+  "propositions": [
+    { "statement_id": "S1", "relation": "direct" }
+  ]
+}
+```
+
+`result` is `answer` or `abstain`; `relation` is `direct`, `support`,
+`qualification`, or `contrast`. An answer has one to eight unique statement ids
+and at least one `direct` relation. An abstention has an empty proposition list.
+There is no heading, body, quotation, citation, authority, winner, or free-text
+field for the model to fill. The former `{ sections: [...] }` response is rejected,
+not adapted.
+
+This is a two-stage contract. The provider JSON Schema closes the fields, enums,
+bounds, and answer/abstain alternatives. Its `uniqueItems` compares whole
+proposition objects, so the lane separately rejects the same `statement_id` used
+twice with different relations. Provider shaping reduces invalid generations;
+the lane's own validator remains the final authority for cross-item uniqueness.
+
+#### What the model is shown: `{ statement_id, excerpt }`
+
+Each statement is one complete retrieved chunk already bounded by the lane. The
+excerpt is exact normalized source text; the model cannot select, shorten, edit,
+or extend it. The lane adds no separate source title, revision, page number,
+source id, chunk id, digest, or path field. Source prose may naturally contain
+those terms because it is evidence, not an Engine-authored assertion.
+
+The host retains `statement_id -> evidence_id -> source/page/chunk` metadata and
+binds a selected statement back to it. It renders a fixed Korean relation label,
+a fixed Korean prefix, the exact source excerpt, and exactly one machine-owned
+citation. Retrieved-but-unselected statements never become citations. Unknown or
+duplicate ids, an answer without `direct`, a nonempty abstention, an extra key,
+or any attempted prose field fails closed with `answer: null`.
 
 The lane module performs no filesystem, network, write, or ERP operation, and is
 provider-independent: it does not know which runtime serves the model.
@@ -300,18 +332,27 @@ time is the function that actually runs, and `model.invocation_count`,
 `answer_invocation_count`, and `expansion_invocation_count` stay truthful — a
 refused adapter costs zero invocations.
 
-### Rendered-block output filter, and what it does not prove
+### Host-rendered output, and what it does not prove
 
-Model-authored headings and bodies pass a **conservative structural and
-forbidden-claim filter**. It refuses markup (Markdown emphasis, headings, links,
-code fences, HTML, entities), URLs, absolute Windows/POSIX/UNC paths, private
-planes, secrets, project codes, email addresses, foreign source, page, revision,
-chunk, digest, or evidence identifiers, and self-attributed authority — approval,
-canon, official standing, project-use direction, winner claims, and authority
-escalation. Every refusal is a `HOLD` with `answer: null` and fixed message text:
-the refused string is never interpolated into the error, the receipt, or a log,
-because a refusal that quoted it back would be the leak the check exists to
-prevent.
+The model never supplies a rendered block. The host owns every Korean label and
+prefix, then appends the exact selected source excerpt. That makes model-authored
+approval, canon, project-use, winner, Task, and authority claims structurally
+unrepresentable instead of trying to recognize every English or Korean sentence
+that might express one.
+
+A candidate free-prose authority parser was intentionally discarded. Repeated
+independent public-synthetic review found scope errors even after sentence-level
+tests passed: a denied approval condition could negate the wrong action, a gate
+about another draft could attach to the current answer, and Korean negative or
+exclusive forms could invert a decision. The stop condition was applied, so this
+slice must not add another phrase-shaped exception.
+
+The fixed rendering and exact source excerpt are still subjected to canonicalization
+and must pass the whole-answer path/secret/URL/HTML scan. `authority_actions` is always empty, and
+the boundary note states that a quoted source does not grant approval, project
+use, canon status, Task authority, or a winner. The reserved
+`authority_claim_pattern` reason remains readable for older receipts but has no
+model-prose path in this contract.
 
 #### Which check refused, without what it refused
 
@@ -320,16 +361,16 @@ so markup, a URL, a leaked path, a fabricated citation identifier, and an
 authority claim were one opaque hold. Every output-safety refusal now also
 carries `output_safety_reason`, one token from a closed set:
 
-| token | what refused |
+| token | v2 status and meaning |
 | --- | --- |
-| `markup_detected` | HTML, Markdown emphasis, a heading, a link, a code fence, or an entity in a model block |
-| `url_detected` | a URL or a bare host in a model block |
-| `sensitive_pattern_detected` | a path, private plane, secret, credential, project code, or address in model-authored material |
-| `citation_identifier_in_prose` | a source, page, revision, chunk, digest, or evidence identifier the lane never bound |
-| `authority_claim_pattern` | approval, canon, official standing, project-use direction, a winner claim, or authority escalation |
+| `markup_detected` | reserved for historical free-prose receipts; unreachable from statement selection |
+| `url_detected` | reserved for historical free-prose receipts; current whole-answer URL refusal uses the rendered-answer scan token |
+| `sensitive_pattern_detected` | a forbidden path, private-plane, secret, credential, project-code, or address string reached the structured boundary |
+| `citation_identifier_in_prose` | reserved for historical free-prose receipts; the model has no prose field in v2 |
+| `authority_claim_pattern` | reserved for historical free-prose receipts; the model has no authority-claim field in v2 |
 | `model_payload_field_forbidden` | a forbidden field name in the model response |
-| `answer_canonicalisation_failed` | the rendered answer could not be canonically serialised |
-| `rendered_answer_scan_failed` | the whole-answer scan refused the rendering |
+| `answer_canonicalisation_failed` | the host-rendered answer could not be canonically serialised |
+| `rendered_answer_scan_failed` | the whole-answer path/secret/URL/HTML scan refused the host rendering |
 | `unspecified_internal` | exhaustiveness backstop, not a family; no reachable refusal produces it |
 
 The token names a **family of check and nothing else**. It is a fixed literal
@@ -339,40 +380,27 @@ path, no account, and no provider value — the diagnostic is which door closed,
 never what was behind it. The backstop exists so an output-safety hold can never
 report *no* reason, which is the one answer this field must never give.
 
-**Acceptance behaviour is unchanged.** The same patterns, in the same order,
-refuse and accept exactly what they refused and accepted before; nothing was
-relaxed, added, removed, or reordered to make a reason nameable.
+For the historical diagnostic-reason change, acceptance behaviour was unchanged:
+it only named the check that had already refused. The later statement-selection
+contract is an intentional acceptance change and is versioned separately below.
 
-The lane receipt carries the field exactly when it has something to say: the
-token on an output-safety `HOLD`, and **no key at all** on every other hold and
-on a `PASS`. That is the canonical kernel's own rule — `null` is forbidden, omit
-the key instead — so the receipt object and its canonical bytes say the same
-thing and serialisation needs no special case for it. The receipt shape is
-therefore *result-discriminated*, not one identical key set across every result:
-a reader keys on `result` and `blocker_code` first and asks for the token only
-where the result is an output-safety hold. Naming it changed the receipt's shape,
-so the lane receipt schema is
-`soulforge.se_core_sourcebound_answer_receipt.v1`. The lane **policy** revision
-deliberately stays `soulforge.se_core_sourcebound_answer_lane.v0`: the
-instruction, the output schema, and every acceptance rule the model is held to
-are byte-identical, and that revision salts the prompt, adapter, and expansion
-commitments, so moving it would claim a change to material that did not change.
+The lane receipt carries an output-safety reason only when that older
+result-discriminated field has something to say. The statement-selection change
+also adds statement commitments and host-rendering facts, so its schema is
+`soulforge.se_core_sourcebound_answer_receipt.v2`. The command receipt remains
+v2 because its own closed top-level field set did not change.
 
-That filter applies to **model-authored blocks only, never to evidence prose**.
-A real systems-engineering page legitimately says "approval", "official",
-"page 12", or "rev 3"; a rendered block has no reason to, because every citation,
-source, revision, and page row in the answer is machine-generated from the
-selected evidence. Applying the broad list to evidence text would refuse correct
-runs over the real corpus for no safety gain.
+The lane policy is `soulforge.se_core_sourcebound_answer_lane.v2`; it salts the
+statement request, adapter descriptor, and expansion commitments. The final answer
+is `soulforge.se_core_sourcebound_answer.v1`, and the Ollama adapter is
+`soulforge.se_core_sourcebound_answer_ollama_adapter.v3`.
 
-**This is not a semantic entailment proof.** A grammatical Korean sentence that no
-selected capsule supports passes every check above. Correctness of arbitrary free
-text in this lane is **UNKNOWN**; it is not claimed by the receipt and cannot be
-inferred from a `PASS`. The receipt states the ceiling itself:
-`output.free_text_verification: structural_and_forbidden_claim_filter_only`,
-`output.semantic_entailment_verified: false`, and
-`output.free_text_correctness: unknown`. A caller that needs entailment must add
-its own check outside this lane.
+**This is not a semantic entailment proof.** The excerpt is byte-bound source text,
+but the model still chooses which statements are relevant and how they relate to
+the question. A `PASS` proves exact host projection and citation binding, not that
+the selection is correct. The receipt therefore records exact-host-evidence
+projection, `semantic_entailment_verified: false`, and selection correctness
+`unknown`. Independent review is still required.
 
 ### Corpus pinning
 
@@ -578,24 +606,23 @@ session reuse, no external egress. Every generation parameter that decides wheth
 a reply can arrive at all is pinned in the request rather than inherited from the
 daemon: temperature and seed at 0, the reasoning channel off, a 32768-token
 context window, a prompt that the daemon must refuse rather than trim, and
-`format` bound to the exact closed JSON shape this lane accepts, with each
-citation slot bound to the evidence ids this run actually retrieved. Each default
+`format` bound to the closed fields, enums, bounds, and answer/abstain alternatives,
+with each statement slot bound to the statement ids this run actually catalogued.
+The lane then adds cross-item statement-id uniqueness and all final checks. Each default
 is a failure mode rather than a preference. A thinking-capable model left at its
 default spends the window on a channel this lane never reads and returns empty
 content with `done: true`; an inherited window silently drops the front of an
 oversize prompt and answers from the remainder, which would leave the receipt
 committing to evidence the model was never shown.
 
-The window is the smallest power-of-two value measured to hold this lane's widest
-legal prompt. That prompt is the lane's own ceilings rendered at once — 24
-evidence capsules of 900 characters, each with a title and a revision at the
-400-character metadata ceiling, and a question at the 8192-byte ceiling — and it
-measures 31 939 prompt tokens on `qwen3.5:9b`; 16 384 does not hold it. What
-32 768 does not also hold is that widest prompt *and* the widest legal reply of
-8 sections of 4000 characters, so a run configured at the lane's retrieval
-ceiling has a few hundred tokens of reply budget and a longer reply stops on the
-token budget and is refused. That is the fail-closed direction, and the lane's
-default retrieval of 6 capsules is far below the ceiling the bound is sized for.
+The 32768-token window retains the conservative bound measured against an older,
+strictly larger legal prompt: 24 900-character capsules plus title/revision
+metadata and the maximum question measured 31 939 tokens on `qwen3.5:9b`. The
+current statement capsule carries only id and excerpt, and its reply contains at
+most eight id/relation pairs, so that historical measurement is an upper bound,
+not a fresh claim that the current prompt is minimal. The default retrieval of six
+statements is far below the ceiling. A provider-side length stop is still refused;
+the runner never guesses or completes a truncated selection.
 The prompt side is not diagnosed from the reply at all: a trimmed prompt comes
 back `200` with a `prompt_eval_count` *below* the window it was trimmed to, so
 the request asks the daemon to refuse an oversize prompt instead, and that
@@ -647,7 +674,7 @@ request. The model name is *declared* — `qwen3.5:9b` is matched on the way out
 and sent in the request body. If the reply carries a `model` field it must name
 that same model or the run holds; if it omits the field the reply is still
 accepted, because the request already pinned the model and a silent reply is not
-evidence either way. Neither case is provider-side verification: "the prose came
+evidence either way. Neither case is provider-side verification: "the selection came
 from `qwen3.5:9b`" remains an operator-side fact about the local runtime, not
 something this runner verifies or either receipt proves.
 
@@ -716,9 +743,9 @@ identified by device and inode — so a file that replaced ours between the clai
 and the rollback is left untouched and counted `unknown`. No caller sink is
 invoked while any output is still rollback-eligible.
 
-Claude Code is build provenance for this lane's implementation only. It is not a
-runtime dependency, not a reviewer, and not an authority. The runtime model is
-the local `qwen3.5:9b` above.
+Claude Code produced the initial v4 implementation and Codex applied review
+corrections. Neither is a runtime dependency, benchmark reviewer, or authority.
+The runtime model is the local `qwen3.5:9b` above.
 
 ### Choosing the route: generic or pinned
 
@@ -791,8 +818,10 @@ and zero artifacts, which is the property that matters.
 Authoring a pin is therefore an **owner setup step, out of band and once**, not a
 per-run step: the owner computes the commitment over a cohort they have reviewed,
 using `seCoreSourceCohortSha256` (exported by the lane and re-exported here), and
-freezes the result. Running the 7×3 sweep afterwards needs only the command
-above — no JS import, no harness, no recomputation.
+freezes the result. A controller can run the command without a JS import or pin
+recomputation. Re-running the already-seen homefield 7×3 after a code change is
+only a post-hoc diagnostic regression; any score, winner, parity, or
+generalisation claim requires a separately frozen unseen question set.
 
 ### Resource ceilings
 
@@ -854,14 +883,14 @@ Every byte this command takes from outside is bounded before it is interpreted.
 
   | ceiling | value | why |
   | --- | --- | --- |
-  | whole HTTP response | 262144 B | the widest legal reply plus envelope, with margin |
-  | `message.content` bytes | 131072 B | ~99 KB is the widest legal rendering at 3 bytes/char |
-  | `message.content` characters | 49152 units | ~33 000 units is the widest legal rendering |
+  | whole HTTP response | 262144 B | bounded provider envelope, with conservative historical margin |
+  | `message.content` bytes | 131072 B | conservative cap retained above the much smaller selection object |
+  | `message.content` characters | 49152 units | conservative cap retained above the closed selection object |
 
-  The two content ceilings are both live: bytes bound multi-byte prose, characters
-  bound ASCII-heavy prose, and neither implies the other. All three are derived
-  from the closed output schema — at most 8 sections, each with a 120-character
-  heading, 4000 characters of prose, and 8 evidence ids — not guessed.
+  The two content ceilings remain live: bytes and characters bound different
+  encodings. They intentionally retain the earlier, larger safety margins even
+  though the new closed response contains only a result token and up to eight
+  statement-id/relation pairs.
 
   An oversized, malformed, non-object, or undecodable reply is a `HOLD` with
   `answer: null` and fixed message text. No provider byte is echoed into an
@@ -888,6 +917,37 @@ identifiers, or provider response bodies.
 Public code, fixtures, and tests contain only synthetic material. The synthetic
 four-source corpus lives in
 `fixtures/se_core_sourcebound_synthetic_corpus.mjs`.
+
+### The old homefield set is a regression probe, not a benchmark
+
+Any question set this lane has already been run against — the earlier homefield
+set included — is now **seen material**. It may be re-run for one purpose only:
+**post-hoc diagnostic regression**, to check that a change moved the failure modes
+it was meant to move and broke nothing else. A diagnostic re-run is a statement
+about this lane's own behaviour on inputs it has already met.
+
+It is **not** evidence of performance, generalisation, or comparison. A result on
+seen material cannot support a score, a ranking, a winner, a pass rate presented
+as capability, a NotebookLM comparison, a parity claim, or a production-readiness
+claim, because the lane was changed with those failures in view. Any such claim
+requires a **fresh, unseen, frozen** question set, pinned before the run and not
+consulted while changing the lane, plus its own pinned cohort and its own
+receipts. Nothing in this repository asserts that such a set exists or has been
+executed.
+
+### Current operational status: public smoke HOLD
+
+The deterministic public contract and synthetic test suite pass, but this v4 is
+**not operationally accepted**. One bounded public-synthetic loopback smoke called
+`qwen3.5:9b` exactly once with advisory expansion disabled. The adapter completed
+one answer invocation, but the lane refused the returned object at `model_output`
+with `SE_CORE_SOURCEBOUND_ANSWER_MODEL_OUTPUT_INVALID`. No answer or source
+selection was accepted, and no provider response body was printed or persisted.
+
+That smoke was the declared stop gate. It was not retried, repaired, or used to
+tune this question set, and the private 7x3 run did not start. A later attempt to
+change provider compatibility must use a separately scoped successor and a new
+run record; this v4 result remains a fail-closed diagnostic HOLD.
 
 ## 목적
 
