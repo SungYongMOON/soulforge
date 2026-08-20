@@ -523,9 +523,8 @@ function bind(outer, p4, m2, timeline, owner, blockers) {
   temporalGate(blockers, owner.cutoff, [outer, p4, m2, timeline, owner.cross, owner.writer, owner.lineage.prior, owner.lineage.current, owner.sources.rows, owner.memberships.rows, owner.evidence, owner.coverage, owner.reviews]);
 }
 
-function material(outer, p4, m2, timeline, owner) {
-  return { project: outer.projectRef, p4: p4, m2: m2, timeline: timeline, owner_contract_ref: owner.contractRef, crosswalk: owner.cross, sources: owner.sources.rows, memberships: owner.memberships.rows, evidence: owner.evidence, coverage: owner.coverage, reviews: owner.reviews, writer: owner.writer, lineage: owner.lineage, cutoff: owner.cutoff };
-}
+function authority() { return { accepted: false, acceptance_allowed: false, generation_advanced: false, source_truth_accepted: false, writer_called: false }; }
+function effects() { return { persistent_writes: 0, model_calls: 0, network_calls: 0, erp_writes: 0, taskdriver_activations: 0, writer_calls: 0, legacy_csv_writer_calls: 0 }; }
 function clean(value) {
   if (Array.isArray(value)) return value.map(clean);
   if (value !== null && typeof value === 'object') {
@@ -537,8 +536,6 @@ function clean(value) {
   }
   return value;
 }
-function authority() { return { accepted: false, acceptance_allowed: false, generation_advanced: false, source_truth_accepted: false, writer_called: false }; }
-function effects() { return { persistent_writes: 0, model_calls: 0, network_calls: 0, erp_writes: 0, taskdriver_activations: 0, writer_calls: 0, legacy_csv_writer_calls: 0 }; }
 function makeReceipt(status, blockers, observed) {
   const value = { schema_version: PROJECT_CONTEXT_GENERATION_CANDIDATE_RECEIPT_SCHEMA, kind: 'project_context_generation_candidate_receipt', status: status, blocker_codes: Array.from(blockers).sort(compareCodePoints), authority: authority(), effects: effects() };
   if (observed) value.observed_material_sha256 = observed;
@@ -562,7 +559,10 @@ export function buildProjectContextGenerationCandidate(request, trustedExpectedP
   if (outer && p4 && m2 && timeline && owner) {
     bind(outer, p4, m2, timeline, owner, blockers);
     try {
-      observed = sha256Canonical(clean({ domain: 'soulforge.project_context_generation.whole_material.v1', material: material(outer, p4, m2, timeline, owner) }));
+      observed = sha256Canonical({
+        domain: 'soulforge.project_context_generation.accepted_request.v1',
+        request: safe,
+      });
       if (observed !== outer.expected) blockers.add(C.OUTER_MATERIAL_MISMATCH);
     } catch { blockers.add(C.OUTER_MATERIAL_MISMATCH); }
   }

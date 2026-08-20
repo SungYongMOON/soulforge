@@ -405,6 +405,23 @@ test('holds coherently re-pinned request material against an unchanged trusted e
   assert.notEqual(candidate.candidate.accepted_input_set_candidate.digest_sha256, buildProjectContextGenerationCandidate(bundle.request, bundle.pin).candidate.accepted_input_set_candidate.digest_sha256);
 });
 
+test('commits the complete snapshotted request, including P4 receipt and every lineage field', () => {
+  const cases = [
+    function (request) { request.producer_outputs.p4.result.receipt.source_count = 2; },
+    function (request) {
+      request.owner_context_contract.lineage.prior_generation.generation = 2;
+      request.owner_context_contract.lineage.current_generation.generation = 3;
+    },
+    function (request) { request.owner_context_contract.lineage.prior_generation.accepted_input_set_digest_sha256 = hash('changed-prior-input'); },
+  ];
+  for (const mutate of cases) {
+    const bundle = fixture();
+    const request = copy(bundle.request);
+    mutate(request);
+    assertHold(buildProjectContextGenerationCandidate(request, bundle.pin), 'P5_CONTEXT_OUTER_MATERIAL_MISMATCH');
+  }
+});
+
 test('has no acceptance, advance, writer, filesystem, network, or legacy CSV import surface', () => {
   const source = readFileSync(MODULE_URL, 'utf8');
   [

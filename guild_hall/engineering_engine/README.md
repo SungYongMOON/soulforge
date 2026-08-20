@@ -1404,9 +1404,17 @@ Owner-frozen/manual exact packet·roster pin을 결속하는 zero-write pilot co
 `kernel/project_context_generation_candidate.mjs`는 P4의 exact knowledge input,
 M2-2 observed assessment, 그리고 P5A-0 timeline metadata를 하나의 deterministic
 pre-acceptance candidate로 조합한다. 이 Module의 단일 Interface는
-`buildProjectContextGenerationCandidate(request)`이며, P4/M2/timeline producer나
+`buildProjectContextGenerationCandidate(request, trustedExpectedPin)`이며, P4/M2/timeline producer나
 P5 acceptance·generation-advance boundary를 import하지 않는다.
 
+- request의 exact root는 `producer_outputs`와 `owner_context_contract`뿐이며,
+  `whole_material_pin`을 중복 보관하지 않는다. `trustedExpectedPin`은 별도로 supplied되는
+  `{material_ref, expected_material_sha256, expected_project_binding_ref, valid_at, known_at}`의
+  exact closed record다.
+- Module은 accepted된 **전체 snapshotted request**(P4 result receipt와 모든 owner lineage
+  field 포함)를 domain-separated canonical form으로 hash하여 두 번째 인자의 expected hash와
+  비교한다. 이 비교는 supplied pin의 무결성 확인일 뿐, pin의 외부 provenance·인증을
+  이 Module이 주장하는 것은 아니다.
 - request는 body-free exact refs/digests, externally pinned project crosswalk,
   complete source/common membership, independent `valid_at`·`known_at` cutoffs,
   review states, HPP sole-writer epoch, prior/current generation proposal만 받는다.
