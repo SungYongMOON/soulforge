@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2026-08-20 - Watchtower recovery truth: deduplicated task starts, evidence causality verification, durable diagnostics, and safe group gating
+
+Recovery cycle had previously treated a changed `last_run_at` or `running` state as verified repair, leading to false-positive verification when scheduled tasks failed with non-zero exit codes.
+
+- **Strict post-verification & evidence causality**: Task invocation acceptance, running status, or changed timestamps alone are never verification. Verification requires causal fresh independent Watchtower probe evidence newer than the attempt start (within a 5000ms clock tolerance) alongside a zero task exit code (`last_task_result === 0`). When a task is currently executing in background, prior nonzero exit codes do not fail verification; the node is recorded as `not_verified` pending fresh producer evidence.
+- **Deterministic pending lifecycle resolution**: In subsequent cycles, pending `not_verified` nodes resolve cleanly: fresh post-attempt evidence resolves to `verified_repair` with zero restarts; completed failed tasks resolve to `postverify_failed`; still-running tasks remain pending without restarts.
+- **Shared task group diagnostic propagation**: A non-auto-repairable diagnostic reason (such as `writer_authority_expired`, credentials, tokens, passwords, and permissions) on ANY bound node in a shared task group gates the entire group as `owner_action_required`, surfacing all bound nodes (including degraded primaries) in recovery receipts with the explicit `diagnostic_code` and zero task starts.
+- **Continuous ingress supervisor failure heartbeats**: Persists sanitized failure heartbeats on `cycle_failed` (`status: "failed"`, `error_codes`, `mail_status: null`).
+- **Wire contract bump (Cycle v3, History v2, Projection v3)**: Bumped recovery cycle schema to `soulforge.watchtower.recovery_cycle.v3`, history schema to `soulforge.watchtower.recovery_history.v2` (persisting `diagnostic_code`), and projection schema to `soulforge.team_ops_board.topology_recovery_projection.v3`. Contradictory outcome/attempt/verification rows and legacy schemas fail closed.
+- **Board UI truth & Korean diagnostic labels**: Fixed interaction handler in `App.tsx` to require exact `outcome_code === "verified_repair"` before rendering completed repair. Recovery view renders fixed Korean diagnostic labels for non-repairable codes (e.g. `writer_authority_expired` -> "작성자 권한 만료 · 수동 갱신 필요") without leaking raw output.
+
 ## 2026-08-19 - The intake round trip closes: the file door can stand on a NAS share, and registration crosses roots
 
 A file uploaded through a link landed on the share and the engine could not reach it, because a

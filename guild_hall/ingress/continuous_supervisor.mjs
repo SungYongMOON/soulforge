@@ -105,18 +105,25 @@ export function createSupervisorHeartbeatRecorder(options = {}) {
   const now = options.now || (() => new Date());
 
   return async (cycleEvent) => {
-    if (cycleEvent?.event !== "cycle_completed") {
+    if (cycleEvent?.event !== "cycle_completed" && cycleEvent?.event !== "cycle_failed") {
       fail("continuous_supervisor_heartbeat_event_invalid");
     }
+    const isFailed = cycleEvent.event === "cycle_failed";
+    const errorCode = isFailed
+      ? safeSupervisorErrorCode({ code: cycleEvent.code })
+      : null;
+    const errorCodes = isFailed
+      ? (errorCode ? [errorCode] : ["continuous_supervisor_failed"])
+      : (Array.isArray(cycleEvent.error_codes) ? cycleEvent.error_codes : []);
     const heartbeat = {
       schema_version: CONTINUOUS_SUPERVISOR_HEARTBEAT_SCHEMA,
       observed_at: now().toISOString(),
       instance_id: instanceId,
       cycle: cycleEvent.cycle,
-      status: cycleEvent.status,
-      error_count: cycleEvent.error_count,
-      error_codes: Array.isArray(cycleEvent.error_codes) ? cycleEvent.error_codes : [],
-      mail_status: cycleEvent.mail_status,
+      status: isFailed ? "failed" : cycleEvent.status,
+      error_count: isFailed ? 1 : cycleEvent.error_count,
+      error_codes: errorCodes,
+      mail_status: isFailed ? null : cycleEvent.mail_status,
     };
     await mkdir(path.dirname(ledgerPath), { recursive: true });
     await appendFile(ledgerPath, `${JSON.stringify(heartbeat)}\n`, "utf8");
@@ -162,10 +169,12 @@ export async function runContinuousSupervisor(options = {}) {
         apply: true,
       });
     } catch (error) {
-      emit(supervisorEvent("cycle_failed", {
+      const failedEvent = supervisorEvent("cycle_failed", {
         cycle: cyclesCompleted + 1,
         code: safeSupervisorErrorCode(error),
-      }));
+      });
+      emit(failedEvent);
+      await recordHeartbeat(failedEvent);
       throw error;
     }
 

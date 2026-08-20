@@ -3993,7 +3993,13 @@ function SystemTopologySurface({ projection, refreshing, providerSnapshots = nul
       let text = `자동 조치 대상 아님 · ${item.repairabilityLabel}`;
       if (next?.state === "unavailable") {
         text = "조치 기록 없음 · 자동 조치 가능 여부를 확인하지 못했습니다.";
-      } else if (row?.attempt === "succeeded" && row?.verification === "passed") {
+      } else if (row?.outcome_code === "owner_action_required") {
+        text = "책임자 직접 조치 필요 · 자동 조치 불가";
+      } else if (row?.outcome_code === "not_verified") {
+        text = "조치 후 검증 대기 · 사후 근거 미확인";
+      } else if (row?.outcome_code === "postverify_failed") {
+        text = "사후 검증 실패 · 안전 조치 미완료";
+      } else if (row?.outcome_code === "verified_repair") {
         text = "안전 조치 완료 · 사후 검증 통과";
       } else if (row?.attempt === "denied") {
         text = row?.verification === "failed"

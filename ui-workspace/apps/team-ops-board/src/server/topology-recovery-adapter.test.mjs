@@ -28,6 +28,7 @@ function cycle(overrides = {}) {
     recovery: [{
       node_id: "usage_codex_collector",
       reason: "processing_failed",
+      diagnostic_code: null,
       repairability: "allowlisted",
       repair_action: "restart_owned_task",
       attempt: "denied",
@@ -52,6 +53,7 @@ function historyDoc(overrides = {}) {
       at: "2026-08-14T08:03:00.000Z",
       node_id: "usage_codex_collector",
       reason: "processing_failed",
+      diagnostic_code: null,
       action: "restart_owned_task",
       attempt: "denied",
       verification: "failed",
@@ -76,7 +78,7 @@ function supervisorDoc(overrides = {}) {
   };
 }
 
-test("recovery projection exposes the full v2 supervision receipt", () => {
+test("recovery projection exposes the full v3 supervision receipt", () => {
   const projected = validateTopologyRecoveryCycle(cycle(), { now: NOW });
   assert.deepEqual(Object.keys(projected), [
     "schema_version", "attempted_at", "completed_at", "mode", "status",
@@ -84,12 +86,28 @@ test("recovery projection exposes the full v2 supervision receipt", () => {
   ]);
   assert.equal(projected.state_revalidated, true);
   assert.deepEqual(Object.keys(projected.recovery[0]), [
-    "node_id", "reason", "repairability", "repair_action", "attempt", "verification",
+    "node_id", "reason", "diagnostic_code", "repairability", "repair_action", "attempt", "verification",
     "escalation", "outcome_code", "circuit_state", "consecutive_failures",
     "last_attempt_at", "last_verified_repair_at", "next_retry_at",
   ]);
   assert.equal(projected.recovery[0].outcome_code, "precondition_unmet");
+  assert.equal(projected.recovery[0].diagnostic_code, null);
   assert.equal(Object.hasOwn(projected, "evidence"), false);
+
+  const ownerAction = cycle({
+    recovery: [{
+      ...cycle().recovery[0],
+      outcome_code: "owner_action_required",
+      repair_action: "none",
+      verification: "not_run",
+      diagnostic_code: "writer_authority_expired",
+    }],
+  });
+  const validatedOwnerAction = validateTopologyRecoveryCycle(ownerAction, { now: NOW });
+  assert.equal(validatedOwnerAction.recovery[0].outcome_code, "owner_action_required");
+  assert.equal(validatedOwnerAction.recovery[0].repair_action, "none");
+  assert.equal(validatedOwnerAction.recovery[0].verification, "not_run");
+  assert.equal(validatedOwnerAction.recovery[0].diagnostic_code, "writer_authority_expired");
 });
 
 test("unsafe, duplicate, malformed, and future recovery rows fail closed", () => {
@@ -100,6 +118,10 @@ test("unsafe, duplicate, malformed, and future recovery rows fail closed", () =>
   const badOutcome = cycle();
   badOutcome.recovery[0].outcome_code = "restarted";
   assert.throws(() => validateTopologyRecoveryCycle(badOutcome, { now: NOW }), /topology_recovery_row_invalid/u);
+
+  const badDiagnostic = cycle();
+  badDiagnostic.recovery[0].diagnostic_code = 123;
+  assert.throws(() => validateTopologyRecoveryCycle(badDiagnostic, { now: NOW }), /topology_recovery_row_invalid/u);
 
   const badCircuit = cycle();
   badCircuit.recovery[0].circuit_state = "tripped";
@@ -124,7 +146,7 @@ test("unsafe, duplicate, malformed, and future recovery rows fail closed", () =>
   assert.throws(() => validateTopologyRecoveryCycle(nonBoolean, { now: NOW }), /topology_recovery_cycle_invalid/u);
 });
 
-test("a v1 cycle receipt is never reinterpreted as v2 and fails closed", () => {
+test("legacy v1 and v2 cycle receipts are never reinterpreted as v3 and fail closed", () => {
   const v1 = cycle();
   delete v1.state_revalidated;
   v1.schema_version = "soulforge.watchtower.recovery_cycle.v1";
@@ -139,17 +161,16 @@ test("a v1 cycle receipt is never reinterpreted as v2 and fails closed", () => {
   };
   assert.throws(() => validateTopologyRecoveryCycle(v1, { now: NOW }), /topology_recovery_cycle_invalid/u);
 
-  // A v2 schema string with the v1 root key set (missing state_revalidated) is
-  // equally rejected; the schema tag alone does not grant trust.
-  const mislabeled = cycle();
-  delete mislabeled.state_revalidated;
-  assert.throws(() => validateTopologyRecoveryCycle(mislabeled, { now: NOW }), /topology_recovery_cycle_invalid/u);
+  const v2 = cycle();
+  v2.schema_version = "soulforge.watchtower.recovery_cycle.v2";
+  delete v2.recovery[0].diagnostic_code;
+  assert.throws(() => validateTopologyRecoveryCycle(v2, { now: NOW }), /topology_recovery_cycle_invalid/u);
 });
 
 test("history rows validate the exact key set, bounded enums, and reject duplicates", () => {
   const valid = validateTopologyRecoveryHistory(historyDoc(), { now: NOW });
   assert.deepEqual(Object.keys(valid.entries[0]), [
-    "at", "node_id", "reason", "action", "attempt", "verification",
+    "at", "node_id", "reason", "diagnostic_code", "action", "attempt", "verification",
     "circuit_state", "next_retry_at", "outcome_code",
   ]);
 
@@ -180,10 +201,82 @@ test("history rows validate the exact key set, bounded enums, and reject duplica
   );
   assert.throws(
     () => validateTopologyRecoveryHistory(historyDoc({
-      schema_version: "soulforge.watchtower.recovery_history.v0",
+      schema_version: "soulforge.watchtower.recovery_history.v1",
     }), { now: NOW }),
     /topology_recovery_history_invalid/u,
   );
+});
+
+test("regression P1-7: poisoned cycle rows with contradictory attempt, verification, or diagnostic_code fail closed", () => {
+  const base = cycle().recovery[0];
+
+  // verified_repair requires succeeded + passed + null diagnostic
+  assert.throws(() => validateTopologyRecoveryCycle(cycle({
+    recovery: [{ ...base, outcome_code: "verified_repair", attempt: "failed", verification: "passed", diagnostic_code: null }],
+  }), { now: NOW }), /topology_recovery_row_invalid/u);
+
+  assert.throws(() => validateTopologyRecoveryCycle(cycle({
+    recovery: [{ ...base, outcome_code: "verified_repair", attempt: "succeeded", verification: "failed", diagnostic_code: null }],
+  }), { now: NOW }), /topology_recovery_row_invalid/u);
+
+  assert.throws(() => validateTopologyRecoveryCycle(cycle({
+    recovery: [{ ...base, outcome_code: "verified_repair", attempt: "succeeded", verification: "passed", diagnostic_code: "writer_authority_expired" }],
+  }), { now: NOW }), /topology_recovery_row_invalid/u);
+
+  // not_verified requires succeeded + (failed or not_run) + null diagnostic
+  assert.throws(() => validateTopologyRecoveryCycle(cycle({
+    recovery: [{ ...base, outcome_code: "not_verified", attempt: "denied", verification: "failed", diagnostic_code: null }],
+  }), { now: NOW }), /topology_recovery_row_invalid/u);
+
+  assert.throws(() => validateTopologyRecoveryCycle(cycle({
+    recovery: [{ ...base, outcome_code: "not_verified", attempt: "succeeded", verification: "failed", diagnostic_code: "writer_authority_expired" }],
+  }), { now: NOW }), /topology_recovery_row_invalid/u);
+
+  // owner_action_required requires denied/not_attempted + verification not_run + action none + non-null diagnostic
+  assert.throws(() => validateTopologyRecoveryCycle(cycle({
+    recovery: [{ ...base, outcome_code: "owner_action_required", attempt: "succeeded", verification: "not_run", repair_action: "none", diagnostic_code: "writer_authority_expired" }],
+  }), { now: NOW }), /topology_recovery_row_invalid/u);
+
+  assert.throws(() => validateTopologyRecoveryCycle(cycle({
+    recovery: [{ ...base, outcome_code: "owner_action_required", attempt: "denied", verification: "failed", repair_action: "none", diagnostic_code: "writer_authority_expired" }],
+  }), { now: NOW }), /topology_recovery_row_invalid/u);
+
+  assert.throws(() => validateTopologyRecoveryCycle(cycle({
+    recovery: [{ ...base, outcome_code: "owner_action_required", attempt: "denied", verification: "not_run", repair_action: "restart_owned_task", diagnostic_code: "writer_authority_expired" }],
+  }), { now: NOW }), /topology_recovery_row_invalid/u);
+
+  assert.throws(() => validateTopologyRecoveryCycle(cycle({
+    recovery: [{ ...base, outcome_code: "owner_action_required", attempt: "denied", verification: "not_run", repair_action: "none", diagnostic_code: null }],
+  }), { now: NOW }), /topology_recovery_row_invalid/u);
+
+  // precondition_unmet requires denied + failed + null diagnostic
+  assert.throws(() => validateTopologyRecoveryCycle(cycle({
+    recovery: [{ ...base, outcome_code: "precondition_unmet", attempt: "denied", verification: "failed", diagnostic_code: "writer_authority_expired" }],
+  }), { now: NOW }), /topology_recovery_row_invalid/u);
+});
+
+test("regression P1-7: poisoned history rows with contradictory attempt, verification, or diagnostic_code fail closed", () => {
+  const base = historyDoc().entries[0];
+
+  assert.throws(() => validateTopologyRecoveryHistory(historyDoc({
+    entries: [{ ...base, outcome_code: "verified_repair", attempt: "failed", verification: "passed", diagnostic_code: null }],
+  }), { now: NOW }), /topology_recovery_history_row_invalid/u);
+
+  assert.throws(() => validateTopologyRecoveryHistory(historyDoc({
+    entries: [{ ...base, outcome_code: "owner_action_required", attempt: "succeeded", verification: "not_run", action: "none", diagnostic_code: "writer_authority_expired" }],
+  }), { now: NOW }), /topology_recovery_history_row_invalid/u);
+
+  assert.throws(() => validateTopologyRecoveryHistory(historyDoc({
+    entries: [{ ...base, outcome_code: "owner_action_required", attempt: "denied", verification: "failed", action: "none", diagnostic_code: "writer_authority_expired" }],
+  }), { now: NOW }), /topology_recovery_history_row_invalid/u);
+
+  assert.throws(() => validateTopologyRecoveryHistory(historyDoc({
+    entries: [{ ...base, outcome_code: "owner_action_required", attempt: "denied", verification: "not_run", action: "restart_owned_task", diagnostic_code: "writer_authority_expired" }],
+  }), { now: NOW }), /topology_recovery_history_row_invalid/u);
+
+  assert.throws(() => validateTopologyRecoveryHistory(historyDoc({
+    entries: [{ ...base, outcome_code: "owner_action_required", attempt: "denied", verification: "not_run", action: "none", diagnostic_code: null }],
+  }), { now: NOW }), /topology_recovery_history_row_invalid/u);
 });
 
 test("supervisor receipt validates the exact key set, time order, and status enum", () => {
@@ -279,8 +372,8 @@ test("a present-but-invalid history or supervisor receipt fails closed without a
   assert.equal(projection.supervisor, null);
 });
 
-test("a v1 cycle receipt on disk is never reinterpreted as v2 and reads unavailable", async () => {
-  const ownerRoot = path.join(tmpdir(), `topology-recovery-v1-${process.pid}-${Date.now()}`);
+test("legacy v1 and v2 cycle receipts on disk are never reinterpreted as v3 and read unavailable", async () => {
+  const ownerRoot = path.join(tmpdir(), `topology-recovery-legacy-${process.pid}-${Date.now()}`);
   const receiptDirectory = path.join(
     ownerRoot, "guild_hall", "state", "operations", "watchtower", "external_evidence",
   );
@@ -299,7 +392,16 @@ test("a v1 cycle receipt on disk is never reinterpreted as v2 and reads unavaila
   };
   await writeFile(path.join(receiptDirectory, "recovery_cycle.json"), JSON.stringify(v1Cycle), "utf8");
 
-  const projection = await readTopologyRecoveryProjection({ ownerRoot, now: () => NOW });
-  assert.equal(projection.state, "unavailable");
-  assert.equal(projection.cycle, null);
+  const p1 = await readTopologyRecoveryProjection({ ownerRoot, now: () => NOW });
+  assert.equal(p1.state, "unavailable");
+  assert.equal(p1.cycle, null);
+
+  const v2Cycle = cycle();
+  v2Cycle.schema_version = "soulforge.watchtower.recovery_cycle.v2";
+  delete v2Cycle.recovery[0].diagnostic_code;
+  await writeFile(path.join(receiptDirectory, "recovery_cycle.json"), JSON.stringify(v2Cycle), "utf8");
+
+  const p2 = await readTopologyRecoveryProjection({ ownerRoot, now: () => NOW });
+  assert.equal(p2.state, "unavailable");
+  assert.equal(p2.cycle, null);
 });

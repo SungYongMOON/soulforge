@@ -189,6 +189,48 @@ test("fatal cycle errors are sanitized, logged once, and terminate for Windows r
   assert.equal(safeSupervisorErrorCode({ code: "writer_authority_expired" }), "writer_authority_expired");
 });
 
+test("failed cycles append a sanitized failure heartbeat to the ledger", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "soulforge-supervisor-failed-heartbeat-"));
+  const bindingPath = path.join(root, "continuous-binding.json");
+  const ledgerPath = resolveSupervisorHeartbeatLedger(bindingPath);
+  const recordHeartbeat = createSupervisorHeartbeatRecorder({
+    bindingPath,
+    instanceId: "test-instance",
+    now: () => new Date("2026-08-06T00:00:00.000Z"),
+  });
+
+  const failure = new Error("writer_authority_expired");
+  failure.code = "writer_authority_expired";
+
+  await assert.rejects(runContinuousSupervisor({
+    bindingPath,
+    bindingDigest: DIGEST,
+    apply: true,
+    loadBindingImpl: async () => binding(),
+    runCycleImpl: async () => { throw failure; },
+    recordHeartbeat,
+  }), failure);
+
+  const lines = (await readFile(ledgerPath, "utf8")).trim().split("\n").map(JSON.parse);
+  assert.equal(lines.length, 1);
+  assert.equal(lines[0].schema_version, CONTINUOUS_SUPERVISOR_HEARTBEAT_SCHEMA);
+  assert.equal(lines[0].status, "failed");
+  assert.equal(lines[0].error_count, 1);
+  assert.deepEqual(lines[0].error_codes, ["writer_authority_expired"]);
+  assert.equal(lines[0].mail_status, null);
+  assert.equal(lines[0].cycle, 1);
+  assert.deepEqual(Object.keys(lines[0]), [
+    "schema_version",
+    "observed_at",
+    "instance_id",
+    "cycle",
+    "status",
+    "error_count",
+    "error_codes",
+    "mail_status",
+  ]);
+});
+
 test("disabled bindings, disabled scheduler state, and non-apply mode fail closed", async () => {
   await assert.rejects(runContinuousSupervisor({
     bindingPath: "private-binding.json",

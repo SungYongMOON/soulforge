@@ -12,6 +12,8 @@ export const RECOVERY_SUPERVISION_STATE_LABELS = Object.freeze({
 
 export const RECOVERY_OUTCOME_LABELS = Object.freeze({
   verified_repair: "안전 조치 완료 · 사후 검증 통과",
+  not_verified: "조치 후 검증 대기 · 사후 근거 미확인",
+  owner_action_required: "책임자 직접 조치 필요 · 자동 조치 불가",
   precondition_unmet: "사전 조건 불충족 · 실행 안 함",
   execution_failed: "조치 실행 실패",
   postverify_failed: "사후 검증 실패",
@@ -30,6 +32,10 @@ export const RECOVERY_CIRCUIT_LABELS = Object.freeze({
   half_open: "1회 시험",
 });
 
+export const RECOVERY_DIAGNOSTIC_LABELS = Object.freeze({
+  writer_authority_expired: "작성자 권한 만료 · 수동 갱신 필요",
+});
+
 const SUPERVISOR_ERROR_LABELS = Object.freeze({
   recovery_cycle_failed: "복구 주기 실행 실패",
   recovery_binding_invalid: "복구 바인딩 무효",
@@ -39,7 +45,7 @@ const SUPERVISOR_ERROR_LABELS = Object.freeze({
 });
 
 const BLOCKED_OUTCOMES = new Set([
-  "suppressed_circuit_open", "running_but_stale", "forbidden", "supervision_unavailable",
+  "suppressed_circuit_open", "running_but_stale", "forbidden", "supervision_unavailable", "owner_action_required",
 ]);
 const NOT_TARGETED_OUTCOMES = new Set(["not_eligible", "observe_only"]);
 const ATTEMPTED_OUTCOMES = new Set([
@@ -58,7 +64,7 @@ function stateKey(row) {
   if (ATTEMPTED_OUTCOMES.has(row.outcome_code)) {
     return row.circuit_state === "open" ? "blocked" : "waiting";
   }
-  if (row.outcome_code === "suppressed_backoff") return "waiting";
+  if (row.outcome_code === "suppressed_backoff" || row.outcome_code === "not_verified") return "waiting";
   return "not_targeted";
 }
 
@@ -95,6 +101,8 @@ export function buildTopologyRecoverySupervision({ projection, nodeId } = {}) {
       .map((entry) => ({
         at: entry.at,
         outcomeLabel: RECOVERY_OUTCOME_LABELS[entry.outcome_code],
+        diagnosticCode: entry.diagnostic_code ?? null,
+        diagnosticLabel: entry.diagnostic_code ? (RECOVERY_DIAGNOSTIC_LABELS[entry.diagnostic_code] ?? "원인 확인 필요") : null,
         circuitLabel: RECOVERY_CIRCUIT_LABELS[entry.circuit_state],
         nextRetryAt: entry.next_retry_at,
       }))
@@ -106,6 +114,8 @@ export function buildTopologyRecoverySupervision({ projection, nodeId } = {}) {
     stateKey: key,
     stateLabel: RECOVERY_SUPERVISION_STATE_LABELS[key],
     outcomeLabel: row === null ? null : RECOVERY_OUTCOME_LABELS[row.outcome_code],
+    diagnosticCode: row?.diagnostic_code ?? null,
+    diagnosticLabel: row?.diagnostic_code ? (RECOVERY_DIAGNOSTIC_LABELS[row.diagnostic_code] ?? "원인 확인 필요") : null,
     circuitLabel: row === null ? null : RECOVERY_CIRCUIT_LABELS[row.circuit_state],
     consecutiveFailures: row === null ? 0 : row.consecutive_failures,
     lastAttemptAt: row?.last_attempt_at ?? null,

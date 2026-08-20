@@ -5,7 +5,7 @@ import process from "node:process";
 export const RECOVERY_SUPERVISION_SCHEMA_VERSION =
   "soulforge.watchtower.recovery_supervision.v1";
 export const RECOVERY_HISTORY_SCHEMA_VERSION =
-  "soulforge.watchtower.recovery_history.v1";
+  "soulforge.watchtower.recovery_history.v2";
 export const RECOVERY_SUPERVISOR_SCHEMA_VERSION =
   "soulforge.watchtower.recovery_supervisor.v1";
 
@@ -27,6 +27,8 @@ export const RECOVERY_MAX_CONSECUTIVE_FAILURES = 99;
 
 export const RECOVERY_OUTCOME_CODES = Object.freeze([
   "verified_repair",
+  "not_verified",
+  "owner_action_required",
   "precondition_unmet",
   "execution_failed",
   "postverify_failed",
@@ -48,7 +50,9 @@ const CIRCUIT_SET = new Set(RECOVERY_CIRCUIT_STATES);
 const COUNTED_FAILURE_CODES = new Set([
   "precondition_unmet", "execution_failed", "postverify_failed",
 ]);
-const ALWAYS_RECORDED_CODES = new Set([...COUNTED_FAILURE_CODES, "verified_repair"]);
+const ALWAYS_RECORDED_CODES = new Set([
+  ...COUNTED_FAILURE_CODES, "verified_repair", "not_verified", "owner_action_required",
+]);
 
 const SAFE_NODE = /^[a-z][a-z0-9_]{0,127}$/u;
 const SAFE_CODE = /^[a-z][a-z0-9_]{0,63}$/u;
@@ -60,7 +64,7 @@ const STATE_ROW_KEYS = [
   "last_verified_repair_at", "last_failure_code", "next_retry_at",
 ];
 const HISTORY_ROW_KEYS = [
-  "at", "node_id", "reason", "action", "attempt", "verification",
+  "at", "node_id", "reason", "diagnostic_code", "action", "attempt", "verification",
   "circuit_state", "next_retry_at", "outcome_code",
 ];
 const SUPERVISOR_KEYS = [
@@ -193,6 +197,7 @@ export function validateRecoveryHistory(value) {
       || seen.has(`${row.node_id} ${row.at}`)
       || !SAFE_NODE.test(row.node_id)
       || !SAFE_CODE.test(row.reason)
+      || (row.diagnostic_code !== null && (typeof row.diagnostic_code !== "string" || !SAFE_CODE.test(row.diagnostic_code)))
       || !SAFE_CODE.test(row.action)
       || !SAFE_CODE.test(row.attempt)
       || !SAFE_CODE.test(row.verification)
@@ -272,6 +277,19 @@ export function applyAttemptOutcome(row, { outcomeCode, atMs } = {}) {
       next_retry_at: null,
     };
   }
+  if (outcomeCode === "not_verified") {
+    return {
+      ...base,
+      last_attempt_at: at,
+      last_failure_code: "not_verified",
+    };
+  }
+  if (outcomeCode === "owner_action_required") {
+    return {
+      ...base,
+      last_attempt_at: at,
+    };
+  }
   if (!COUNTED_FAILURE_CODES.has(outcomeCode)) return { ...base };
   const failures = Math.min(base.consecutive_failures + 1, RECOVERY_MAX_CONSECUTIVE_FAILURES);
   const open = failures >= RECOVERY_CIRCUIT_OPEN_FAILURES;
@@ -299,11 +317,12 @@ export function classifyOwnedTaskGate(task, actionDigest) {
   return "precondition_unmet";
 }
 
-export function buildHistoryRow({ at, nodeId, reason, action, attempt, verification, row, outcomeCode }) {
+export function buildHistoryRow({ at, nodeId, reason, diagnosticCode = null, action, attempt, verification, row, outcomeCode }) {
   return {
     at,
     node_id: nodeId,
     reason,
+    diagnostic_code: diagnosticCode ?? null,
     action,
     attempt,
     verification,

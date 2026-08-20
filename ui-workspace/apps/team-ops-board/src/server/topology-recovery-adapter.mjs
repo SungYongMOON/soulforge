@@ -2,14 +2,14 @@ import { lstat, readFile } from "node:fs/promises";
 import path from "node:path";
 
 export const TOPOLOGY_RECOVERY_PATH = "/topology-recovery.snapshot.json";
-// v2 carries the supervision fields, the bounded sanitized history, and the
-// supervisor attempt receipt. A v1 cycle receipt is never reinterpreted as v2.
+// v3 carries the supervision fields, the bounded sanitized history (v2), the
+// supervisor attempt receipt, and diagnostic gating. A v1 or v2 cycle receipt is never reinterpreted as v3.
 export const TOPOLOGY_RECOVERY_PROJECTION_SCHEMA =
-  "soulforge.team_ops_board.topology_recovery_projection.v2";
+  "soulforge.team_ops_board.topology_recovery_projection.v3";
 export const TOPOLOGY_RECOVERY_CYCLE_SCHEMA =
-  "soulforge.watchtower.recovery_cycle.v2";
+  "soulforge.watchtower.recovery_cycle.v3";
 export const TOPOLOGY_RECOVERY_HISTORY_SCHEMA =
-  "soulforge.watchtower.recovery_history.v1";
+  "soulforge.watchtower.recovery_history.v2";
 export const TOPOLOGY_RECOVERY_SUPERVISOR_SCHEMA =
   "soulforge.watchtower.recovery_supervisor.v1";
 
@@ -29,7 +29,8 @@ const REPAIRABILITY_SET = new Set([
 const ATTEMPT_SET = new Set(["not_attempted", "denied", "succeeded", "failed"]);
 const VERIFICATION_SET = new Set(["not_run", "passed", "failed"]);
 const OUTCOME_SET = new Set([
-  "verified_repair", "precondition_unmet", "execution_failed", "postverify_failed",
+  "verified_repair", "not_verified", "owner_action_required",
+  "precondition_unmet", "execution_failed", "postverify_failed",
   "running_but_stale", "suppressed_backoff", "suppressed_circuit_open",
   "supervision_unavailable", "not_eligible", "forbidden", "observe_only",
 ]);
@@ -39,19 +40,44 @@ const ROOT_KEYS = [
   "state_revalidated", "evidence", "recovery",
 ];
 const RECOVERY_KEYS = [
-  "node_id", "reason", "repairability", "repair_action", "attempt", "verification",
+  "node_id", "reason", "diagnostic_code", "repairability", "repair_action", "attempt", "verification",
   "escalation", "outcome_code", "circuit_state", "consecutive_failures",
   "last_attempt_at", "last_verified_repair_at", "next_retry_at",
 ];
 const HISTORY_ROOT_KEYS = ["schema_version", "updated_at", "entries"];
 const HISTORY_ROW_KEYS = [
-  "at", "node_id", "reason", "action", "attempt", "verification",
+  "at", "node_id", "reason", "diagnostic_code", "action", "attempt", "verification",
   "circuit_state", "next_retry_at", "outcome_code",
 ];
 const SUPERVISOR_KEYS = [
   "schema_version", "attempted_at", "completed_at", "status",
   "last_success_at", "error_code", "consecutive_errors",
 ];
+
+function validateOutcomeConsistency(row) {
+  const { outcome_code, attempt, verification, diagnostic_code } = row;
+  const action = row.repair_action ?? row.action;
+  if (outcome_code === "verified_repair") {
+    if (attempt !== "succeeded" || verification !== "passed" || diagnostic_code !== null) return false;
+  } else if (outcome_code === "not_verified") {
+    if (attempt !== "succeeded" || !["failed", "not_run"].includes(verification) || diagnostic_code !== null) return false;
+  } else if (outcome_code === "postverify_failed") {
+    if (attempt !== "succeeded" || verification !== "failed" || diagnostic_code !== null) return false;
+  } else if (outcome_code === "owner_action_required") {
+    if (!["denied", "not_attempted"].includes(attempt)
+      || verification !== "not_run"
+      || (action !== undefined && action !== "none")
+      || typeof diagnostic_code !== "string"
+      || !SAFE_IDENTIFIER.test(diagnostic_code)) return false;
+  } else if (outcome_code === "precondition_unmet") {
+    if (attempt !== "denied" || verification !== "failed" || diagnostic_code !== null) return false;
+  } else if (outcome_code === "execution_failed") {
+    if (attempt !== "failed" || diagnostic_code !== null) return false;
+  } else {
+    if (!["denied", "not_attempted"].includes(attempt) || diagnostic_code !== null) return false;
+  }
+  return true;
+}
 
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -120,6 +146,7 @@ export function validateTopologyRecoveryCycle(value, { now = Date.now() } = {}) 
     if (!hasExactKeys(row, RECOVERY_KEYS)
       || !SAFE_IDENTIFIER.test(row.node_id)
       || !SAFE_IDENTIFIER.test(row.reason)
+      || (row.diagnostic_code !== null && (typeof row.diagnostic_code !== "string" || !SAFE_IDENTIFIER.test(row.diagnostic_code)))
       || !REPAIRABILITY_SET.has(row.repairability)
       || !SAFE_IDENTIFIER.test(row.repair_action)
       || !ATTEMPT_SET.has(row.attempt)
@@ -132,6 +159,7 @@ export function validateTopologyRecoveryCycle(value, { now = Date.now() } = {}) 
       || !optionalObservedTimestamp(row.last_attempt_at, now)
       || !optionalObservedTimestamp(row.last_verified_repair_at, now)
       || !optionalTimestamp(row.next_retry_at)
+      || !validateOutcomeConsistency(row)
       || nodeIds.has(row.node_id)) {
       throw new TypeError("topology_recovery_row_invalid");
     }
@@ -170,12 +198,14 @@ export function validateTopologyRecoveryHistory(value, { now = Date.now() } = {}
       || !observedTimestamp(row.at, now)
       || !SAFE_IDENTIFIER.test(row.node_id)
       || !SAFE_IDENTIFIER.test(row.reason)
+      || (row.diagnostic_code !== null && (typeof row.diagnostic_code !== "string" || !SAFE_IDENTIFIER.test(row.diagnostic_code)))
       || !SAFE_IDENTIFIER.test(row.action)
       || !ATTEMPT_SET.has(row.attempt)
       || !VERIFICATION_SET.has(row.verification)
       || !CIRCUIT_SET.has(row.circuit_state)
       || !optionalTimestamp(row.next_retry_at)
       || !OUTCOME_SET.has(row.outcome_code)
+      || !validateOutcomeConsistency(row)
       || seen.has(JSON.stringify([row.node_id, row.at]))) {
       throw new TypeError("topology_recovery_history_row_invalid");
     }

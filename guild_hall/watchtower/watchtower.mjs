@@ -392,7 +392,13 @@ export async function runProbe(probe, { now, run_schtasks: runSchtasks }) {
   const ageSeconds = Math.max(0, Math.round((now - observedAtMs) / 1000));
   const window = judgeWindow(ageSeconds, probe);
   if (window === "stale") {
-    const result = { state: "stale", reasons: ["heartbeat_stale"], age_seconds: ageSeconds };
+    const staleReasons = ["heartbeat_stale"];
+    if (record !== null && Array.isArray(record.error_codes)) {
+      for (const code of record.error_codes) {
+        if (typeof code === "string" && SAFE_ERROR_CODE.test(code)) staleReasons.push(code);
+      }
+    }
+    const result = { state: "stale", reasons: staleReasons, age_seconds: ageSeconds };
     return result;
   }
   if (window === "late") reasons.push("heartbeat_late");

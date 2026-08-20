@@ -32,9 +32,30 @@ function projection(row = recoveryRow(), overrides = {}) {
 }
 
 test("recovery supervision maps verified, waiting, blocked, and untargeted states", () => {
-  assert.equal(buildTopologyRecoverySupervision({
+  const verified = buildTopologyRecoverySupervision({
     projection: projection(), nodeId: "consumer_board",
-  }).stateLabel, "복구 중");
+  });
+  assert.equal(verified.stateLabel, "복구 중");
+  assert.equal(verified.outcomeLabel, "안전 조치 완료 · 사후 검증 통과");
+
+  const notVerified = buildTopologyRecoverySupervision({
+    projection: projection(recoveryRow({
+      outcome_code: "not_verified", consecutive_failures: 0,
+    })),
+    nodeId: "consumer_board",
+  });
+  assert.equal(notVerified.stateLabel, "재시도 대기");
+  assert.equal(notVerified.outcomeLabel, "조치 후 검증 대기 · 사후 근거 미확인");
+
+  const ownerAction = buildTopologyRecoverySupervision({
+    projection: projection(recoveryRow({
+      outcome_code: "owner_action_required", consecutive_failures: 0,
+    })),
+    nodeId: "consumer_board",
+  });
+  assert.equal(ownerAction.stateLabel, "회로 차단/승인 필요");
+  assert.equal(ownerAction.outcomeLabel, "책임자 직접 조치 필요 · 자동 조치 불가");
+
   assert.equal(buildTopologyRecoverySupervision({
     projection: projection(recoveryRow({
       outcome_code: "execution_failed", consecutive_failures: 1,
@@ -87,4 +108,30 @@ test("history is node-scoped, newest-first, and capped for display", () => {
   assert.equal(view.history.length, RECOVERY_HISTORY_VIEW_MAX);
   assert.equal(view.history[0].at, entries.at(-2).at);
   assert.match(view.supervisorNotice, /감시 주기 실패 2회/u);
+});
+
+test("recovery view renders fixed Korean diagnostic label for writer_authority_expired without raw text leak", () => {
+  const view = buildTopologyRecoverySupervision({
+    projection: projection(recoveryRow({
+      outcome_code: "owner_action_required",
+      diagnostic_code: "writer_authority_expired",
+    }), {
+      history: {
+        state: "ready",
+        entries: [{
+          node_id: "consumer_board",
+          at: NOW,
+          outcome_code: "owner_action_required",
+          diagnostic_code: "writer_authority_expired",
+          circuit_state: "closed",
+          next_retry_at: null,
+        }],
+      },
+    }),
+    nodeId: "consumer_board",
+  });
+  assert.equal(view.diagnosticCode, "writer_authority_expired");
+  assert.equal(view.diagnosticLabel, "작성자 권한 만료 · 수동 갱신 필요");
+  assert.equal(view.history[0].diagnosticCode, "writer_authority_expired");
+  assert.equal(view.history[0].diagnosticLabel, "작성자 권한 만료 · 수동 갱신 필요");
 });

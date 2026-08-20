@@ -150,9 +150,28 @@ npm run guild-hall:watchtower:probe
   acknowledgement, route, account, upload, and external-send actions are denied.
 - `recovery_runtime.mjs` binds that contract only to local scheduled tasks whose
   exact action digest is registered in ignored local state. A candidate must be
-  `stale` or `down`, the task must be safely startable, and independent pre/post
-  checks must pass. Provider login, message deletion, acknowledgement, upload,
-  route changes, external send, and partial mail backlog are never auto-repaired.
+  `stale`, `down`, or pending verification from a previous cycle; the task must be safely startable,
+  and independent pre/post checks must pass. Candidate nodes sharing the same
+  `task_name` + `action_digest` are deduplicated and started at most once per recovery cycle.
+- A non-auto-repairable diagnostic reason (such as `writer_authority_expired`, credentials,
+  tokens, passwords, logins, and permissions) on ANY bound node in a shared task group gates
+  the entire group as `owner_action_required`, surfacing all bound nodes (including degraded
+  primaries) in recovery receipts with the explicit `diagnostic_code` and zero task starts.
+- Post-verification requires causal fresh producer/Watchtower evidence (where evidence
+  observation timestamp is newer than the attempt start, bounded by a 5000ms clock tolerance)
+  and zero task exit code (`last_task_result === 0`). A changed `last_run_at`,
+  task `running` state, or `Start-ScheduledTask` invocation acceptance alone is
+  never considered verified. When a newly started task is running in background, any nonzero
+  exit code belonging to the previous run does not fail verification; the node is recorded
+  as `not_verified` pending fresh producer evidence.
+- Multi-cycle pending verification: on the subsequent cycle, a pending `not_verified` node
+  is deterministically resolved: fresh post-attempt evidence closes to `verified_repair`
+  with zero restarts; a completed failed task closes to `postverify_failed`; and a still-running
+  task remains pending with zero restarts.
+- Recovery cycle wire schema is v3 (`soulforge.watchtower.recovery_cycle.v3`),
+  recovery history wire schema is bumped to v2 (`soulforge.watchtower.recovery_history.v2`)
+  to durably persist `diagnostic_code`, and projection is v3
+  (`soulforge.team_ops_board.topology_recovery_projection.v3`). Legacy schemas fail closed.
 - Recovery supervision persists only bounded sanitized state and the latest 200
   material events. Failed eligible attempts back off for 5 minutes, 15 minutes,
   then 60 minutes; the third consecutive failure opens a 60-minute circuit and
@@ -165,7 +184,8 @@ npm run guild-hall:watchtower:probe
 - The Board exposes the cycle, retry state, circuit state, supervisor receipt,
   and recent sanitized history through the existing loopback GET-only recovery
   projection. This projection cannot execute repair or change topology health,
-  colors, edge delivery, provider state, or account state.
+  colors, edge delivery, provider state, or account state. Board interaction labels
+  require exact `verified_repair` outcome before indicating completed repair.
 
 ### AI usage producer heartbeat
 

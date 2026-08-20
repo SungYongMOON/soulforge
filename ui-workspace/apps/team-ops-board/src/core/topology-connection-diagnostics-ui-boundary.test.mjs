@@ -146,3 +146,10 @@ test("allowlist 는 9개 미감시 노드 그대로이며 UI 가 별도 목록�
     assert.equal(surface.includes(`"${nodeId}"`), false, `${nodeId} 목록이 화면 코드에 복제되었습니다`);
   }
 });
+
+test("regression P1-5: App.tsx requires exact verified_repair outcome_code before rendering completed", () => {
+  const source = readFileSync(APP_PATH, "utf8");
+  assert.match(source, /else if \(row\?\.outcome_code === "verified_repair"\) \{\s*text = "안전 조치 완료 · 사후 검증 통과";/u);
+  assert.doesNotMatch(source, /row\?\.outcome_code === "verified_repair" \|\|/u);
+  assert.doesNotMatch(source, /row\?\.attempt === "succeeded" && row\?\.verification === "passed"/u);
+});

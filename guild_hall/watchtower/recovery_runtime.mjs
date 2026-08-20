@@ -32,16 +32,18 @@ import {
 
 export const RECOVERY_BINDING_SCHEMA_VERSION =
   "soulforge.watchtower.recovery_binding.v1";
-// v2 adds per-node retry supervision fields and the fresh-state revalidation
-// flag. v1 receipts are not reinterpreted as v2; readers fail closed.
+// v3 adds explicit diagnostic_code, deduplicates shared tasks, requires fresh
+// producer evidence for verification, and surfaces non-auto-repairable authority
+// issues as owner_action_required. v1/v2 receipts fail closed.
 export const RECOVERY_CYCLE_SCHEMA_VERSION =
-  "soulforge.watchtower.recovery_cycle.v2";
+  "soulforge.watchtower.recovery_cycle.v3";
 export const DEFAULT_RECOVERY_INTERVAL_MS = RECOVERY_NORMAL_CYCLE_MS;
 
 const execFileAsync = promisify(execFile);
 const SAFE_TASK = /^[A-Za-z0-9][A-Za-z0-9 _.-]{0,119}$/u;
 const SAFE_NODE = /^[a-z][a-z0-9_]{0,127}$/u;
 const SHA256 = /^[0-9a-f]{64}$/u;
+const OWNER_ACTION_REASONS = /^(writer_authority_expired|.*(authority|credential|password|secret|token|cookie|login|account|permission).*)$/iu;
 const RESTARTABLE_NODES = new Set([
   "ingress_supervisor",
   "store_mail_events",
@@ -112,12 +114,12 @@ async function defaultInspectTask(taskName) {
     "$ErrorActionPreference='Stop'",
     `$n=${quoted}`,
     "$t=Get-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue",
-    "if($null -eq $t){[pscustomobject]@{exists=$false;enabled=$false;state='missing';action_digest=$null;last_run_at=$null}|ConvertTo-Json -Compress;exit 0}",
+    "if($null -eq $t){[pscustomobject]@{exists=$false;enabled=$false;state='missing';action_digest=$null;last_run_at=$null;last_task_result=$null}|ConvertTo-Json -Compress;exit 0}",
     "$a=@($t.Actions)",
     "$i=Get-ScheduledTaskInfo -TaskName $n -ErrorAction SilentlyContinue",
     "$d=$null",
     "if($a.Count -eq 1){$sha=[Security.Cryptography.SHA256]::Create();$bytes=[Text.Encoding]::UTF8.GetBytes(([string]$a[0].Execute)+[char]0+([string]$a[0].Arguments));$d=([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-','').ToLowerInvariant()}",
-    "[pscustomobject]@{exists=$true;enabled=([bool]$t.Settings.Enabled);state=([string]$t.State).ToLowerInvariant();action_digest=$d;last_run_at=$(if($null -ne $i -and $i.LastRunTime -gt [datetime]::MinValue){$i.LastRunTime.ToUniversalTime().ToString('o')}else{$null})}|ConvertTo-Json -Compress",
+    "[pscustomobject]@{exists=$true;enabled=([bool]$t.Settings.Enabled);state=([string]$t.State).ToLowerInvariant();action_digest=$d;last_run_at=$(if($null -ne $i -and $i.LastRunTime -gt [datetime]::MinValue){$i.LastRunTime.ToUniversalTime().ToString('o')}else{$null});last_task_result=$(if($null -ne $i){$i.LastTaskResult}else{$null})}|ConvertTo-Json -Compress",
   ].join(";");
   const { stdout } = await execFileAsync(
     systemPowerShellPath(),
@@ -170,14 +172,37 @@ function executedOutcomeCode(receipt) {
   return "not_eligible";
 }
 
-function publicRecoveryReceipt(receipt, outcomeCode, row) {
+function publicRecoveryReceipt(receipt, outcomeCode, row, diagnosticCode = null) {
+  let attempt = receipt.attempt;
+  let verification = receipt.verification;
+  let repairability = receipt.repairability;
+  let repairAction = receipt.repair_action;
+  if (outcomeCode === "verified_repair") {
+    attempt = "succeeded";
+    verification = "passed";
+    repairability = "allowlisted";
+  } else if (outcomeCode === "postverify_failed") {
+    attempt = "succeeded";
+    verification = "failed";
+    repairability = "allowlisted";
+  } else if (outcomeCode === "not_verified") {
+    attempt = "succeeded";
+    verification = "failed";
+    repairability = "allowlisted";
+  } else if (outcomeCode === "owner_action_required") {
+    attempt = "denied";
+    verification = "not_run";
+    repairability = "forbidden";
+    repairAction = "none";
+  }
   return {
     node_id: receipt.node_id,
     reason: receipt.reason,
-    repairability: receipt.repairability,
-    repair_action: receipt.repair_action,
-    attempt: receipt.attempt,
-    verification: receipt.verification,
+    diagnostic_code: diagnosticCode ?? receipt.diagnostic_code ?? null,
+    repairability,
+    repair_action: repairAction,
+    attempt,
+    verification,
     escalation: receipt.escalation,
     outcome_code: outcomeCode,
     circuit_state: row.circuit_state,
@@ -250,72 +275,234 @@ export async function runRecoveryCycle({
   }
   const decidedAt = now().toISOString();
   const decidedAtMs = Date.parse(decidedAt);
-  const candidates = stateRevalidated && Array.isArray(currentSnapshot?.nodes)
-    ? currentSnapshot.nodes.filter((node) => ["stale", "down"].includes(node?.health?.state)
-      && Object.hasOwn(validatedBinding.task_bindings, node.id))
-    : [];
 
   const supervisionRead = await readSupervisionState({ evidenceRoot });
   const priorHistory = await readRecoveryHistory({ evidenceRoot });
   const supervisionRows = new Map(supervisionRead.rows.map((row) => [row.node_id, row]));
+
+  // Group all bound nodes in the topology by their exact task_name + action_digest
+  const taskGroups = new Map();
+  for (const node of currentSnapshot?.nodes ?? []) {
+    const bindingRow = validatedBinding.task_bindings[node.id];
+    if (!bindingRow) continue;
+    const taskKey = `${bindingRow.task_name}\0${bindingRow.action_digest}`;
+    if (!taskGroups.has(taskKey)) {
+      taskGroups.set(taskKey, {
+        taskName: bindingRow.task_name,
+        actionDigest: bindingRow.action_digest,
+        boundNodes: [],
+        ownerActionReason: null,
+      });
+    }
+    const group = taskGroups.get(taskKey);
+    group.boundNodes.push(node);
+    const nodeReasons = Array.isArray(node?.health?.reasons) ? node.health.reasons : [];
+    const reason = nodeReasons.find(
+      (r) => typeof r === "string" && OWNER_ACTION_REASONS.test(r),
+    );
+    if (reason && !group.ownerActionReason) {
+      group.ownerActionReason = reason;
+    }
+  }
+
+  const candidateMap = new Map();
+  if (stateRevalidated && Array.isArray(currentSnapshot?.nodes)) {
+    for (const node of currentSnapshot.nodes) {
+      if (!Object.hasOwn(validatedBinding.task_bindings, node.id)) continue;
+      const isStaleOrDown = ["stale", "down"].includes(node?.health?.state);
+      const nodeReasons = Array.isArray(node?.health?.reasons) ? node.health.reasons : [];
+      const isOwnerActionDegraded = node?.health?.state === "degraded"
+        && nodeReasons.some((r) => typeof r === "string" && OWNER_ACTION_REASONS.test(r));
+      const isPendingVerification = supervisionRows.get(node.id)?.last_failure_code === "not_verified";
+      if (isStaleOrDown || isOwnerActionDegraded || isPendingVerification) {
+        candidateMap.set(node.id, node);
+      }
+    }
+  }
+  const candidates = [...candidateMap.values()];
+
   const plans = new Map();
-  // The gate-classification fetch below is also the verifier's pre-start
-  // snapshot; it is cached and reused instead of re-inspecting the task, so an
-  // owned task cannot be observed to change state between gate and verifier.
   const taskCache = new Map();
+  const CLOCK_TOLERANCE_MS = 5_000;
+
   for (const node of candidates) {
     const row = supervisionRows.get(node.id) ?? defaultSupervisionRow(node.id);
+    const bindingRow = validatedBinding.task_bindings[node.id];
+    const taskKey = `${bindingRow.task_name}\0${bindingRow.action_digest}`;
+    const group = taskGroups.get(taskKey);
+
     if (!supervisionRead.ok || !priorHistory.ok) {
-      plans.set(node.id, { row, outcomeCode: "supervision_unavailable" });
+      plans.set(node.id, { row, outcomeCode: "supervision_unavailable", diagnosticCode: null });
       continue;
     }
+
+    // P1-4: Safe non-auto-repairable diagnostic on ANY bound node in the task group gates the whole group
+    if (group?.ownerActionReason) {
+      plans.set(node.id, {
+        row,
+        outcomeCode: "owner_action_required",
+        diagnosticCode: group.ownerActionReason,
+      });
+      continue;
+    }
+
     if (validatedBinding.mode !== "safe-repair") {
-      plans.set(node.id, { row, outcomeCode: "observe_only" });
+      plans.set(node.id, { row, outcomeCode: "observe_only", diagnosticCode: null });
       continue;
     }
+
+    // P1-3: Pending verification lifecycle resolution from previous cycle
+    if (row.last_failure_code === "not_verified") {
+      if (node?.health?.state === "ok") {
+        // Causality check (P1-2)
+        const snapshotObservedMs = Date.parse(currentSnapshot.observed_at);
+        const ageSeconds = Number.isFinite(node.health.age_seconds) ? node.health.age_seconds : 0;
+        const evidenceObservedMs = snapshotObservedMs - ageSeconds * 1000;
+        const attemptMs = row.last_attempt_at ? Date.parse(row.last_attempt_at) : 0;
+        if (evidenceObservedMs >= attemptMs - CLOCK_TOLERANCE_MS) {
+          plans.set(node.id, {
+            row,
+            outcomeCode: "verified_repair",
+            diagnosticCode: null,
+            resolvedPending: true,
+          });
+          continue;
+        }
+      } else {
+        let pendingTask = null;
+        try {
+          pendingTask = await inspectTask(bindingRow.task_name);
+        } catch {
+          pendingTask = null;
+        }
+        if (pendingTask?.state === "running") {
+          plans.set(node.id, {
+            row,
+            outcomeCode: "running_but_stale",
+            diagnosticCode: null,
+          });
+          continue;
+        }
+        if (pendingTask?.state !== "running") {
+          plans.set(node.id, {
+            row,
+            outcomeCode: "postverify_failed",
+            diagnosticCode: null,
+            resolvedPending: true,
+          });
+          continue;
+        }
+      }
+    }
+
+    if (node?.health?.state === "ok") {
+      continue;
+    }
+
     const plan = planNodeAttempt(row, decidedAtMs);
     if (!plan.eligible) {
       plans.set(node.id, {
         row,
         outcomeCode: plan.gate === "circuit_open" ? "suppressed_circuit_open" : "suppressed_backoff",
+        diagnosticCode: null,
       });
       continue;
     }
+
     let task = null;
     try {
-      task = await inspectTask(validatedBinding.task_bindings[node.id].task_name);
+      task = await inspectTask(bindingRow.task_name);
     } catch {
       task = null;
     }
-    const gate = classifyOwnedTaskGate(task, validatedBinding.task_bindings[node.id].action_digest);
-    plans.set(node.id, { row, outcomeCode: gate === "startable" ? null : gate });
+    const gate = classifyOwnedTaskGate(task, bindingRow.action_digest);
+    plans.set(node.id, { row, outcomeCode: gate === "startable" ? null : gate, diagnosticCode: null });
     if (gate === "startable") taskCache.set(node.id, task);
   }
-  const executable = candidates.filter((node) => plans.get(node.id).outcomeCode === null);
+
+  const plannedCandidates = candidates.filter((node) => plans.has(node.id));
+  const executable = plannedCandidates.filter((node) => plans.get(node.id).outcomeCode === null);
 
   const preState = new Map();
+  const postTasks = new Map();
+  let postWatchtowerSnapshot = null;
+  let postWatchtowerEvaluated = false;
+  const getPostWatchtowerSnapshot = async () => {
+    if (!postWatchtowerEvaluated) {
+      postWatchtowerEvaluated = true;
+      try {
+        const candidate = await runWatchtower();
+        if (validateWatchtowerExecution(candidate).ok === true) {
+          postWatchtowerSnapshot = candidate;
+        }
+      } catch {
+        postWatchtowerSnapshot = null;
+      }
+    }
+    return postWatchtowerSnapshot;
+  };
+
+  const executedTasks = new Map();
+  const executor = async ({ nodeId }) => {
+    const row = validatedBinding.task_bindings[nodeId];
+    if (row === undefined) return false;
+    const key = `${row.task_name}\0${row.action_digest}`;
+    if (!executedTasks.has(key)) {
+      try {
+        const res = await startTask(row.task_name);
+        executedTasks.set(key, res === true || Boolean(res && typeof res === "object" && res.ok === true));
+      } catch {
+        executedTasks.set(key, false);
+      }
+    }
+    return executedTasks.get(key);
+  };
+
   const verifier = async ({ nodeId }) => {
     const row = validatedBinding.task_bindings[nodeId];
     if (row === undefined) return false;
-    const task = preState.has(nodeId) ? await inspectTask(row.task_name)
-      : taskCache.get(nodeId) ?? await inspectTask(row.task_name);
-    if (task?.exists !== true || task.enabled !== true || task.action_digest !== row.action_digest) return false;
     if (!preState.has(nodeId)) {
+      const task = taskCache.get(nodeId) ?? await inspectTask(row.task_name);
+      if (task?.exists !== true || task.enabled !== true || task.action_digest !== row.action_digest) return false;
       if (!new Set(["ready", "queued"]).has(task.state)) return false;
       preState.set(nodeId, task.last_run_at ?? null);
       return true;
     }
-    return task.state === "running" || (task.last_run_at ?? null) !== preState.get(nodeId);
+    const key = `${row.task_name}\0${row.action_digest}`;
+    let task = postTasks.get(key);
+    if (task === undefined) {
+      try {
+        task = await inspectTask(row.task_name);
+      } catch {
+        task = null;
+      }
+      postTasks.set(key, task);
+    }
+    if (task?.exists !== true || task.enabled !== true || task.action_digest !== row.action_digest) return false;
+    // P1-1: If task is running, nonzero last_task_result belongs to previous run.
+    if (task.state !== "running" && task.last_task_result !== null && task.last_task_result !== undefined && task.last_task_result !== 0) {
+      return false;
+    }
+    const postSnapshot = await getPostWatchtowerSnapshot();
+    const postNode = postSnapshot?.nodes?.find((n) => n.id === nodeId);
+    const isHealthy = postNode?.health?.state === "ok"
+      && (!Array.isArray(postNode?.health?.reasons) || postNode.health.reasons.length === 0);
+    if (!isHealthy) return false;
+
+    // P1-2: Causality check
+    const snapshotObservedMs = Date.parse(postSnapshot.observed_at);
+    const ageSeconds = Number.isFinite(postNode.health.age_seconds) ? postNode.health.age_seconds : 0;
+    const evidenceObservedMs = snapshotObservedMs - ageSeconds * 1000;
+    if (evidenceObservedMs < decidedAtMs - CLOCK_TOLERANCE_MS) {
+      return false;
+    }
+    return true;
   };
-  const executor = async ({ nodeId }) => {
-    const row = validatedBinding.task_bindings[nodeId];
-    if (row === undefined) return false;
-    return startTask(row.task_name);
-  };
-  const recovery = candidates.length === 0 ? { mode: validatedBinding.mode, status: "healthy", receipts: [] }
+
+  const recovery = plannedCandidates.length === 0 ? { mode: validatedBinding.mode, status: "healthy", receipts: [] }
     : await reconcile({
       mode: validatedBinding.mode,
-      nodes: candidates.map((node) => restartObservation(node, decidedAtMs)),
+      nodes: plannedCandidates.map((node) => restartObservation(node, decidedAtMs)),
     }, {
       // Supervision suppression is expressed as an empty allowlist entry, so a
       // suppressed node is denied inside the coordinator instead of executed.
@@ -329,19 +516,42 @@ export async function runRecoveryCycle({
   for (const receipt of recovery.receipts) {
     const plan = plans.get(receipt.node_id);
     if (plan === undefined) continue;
-    const outcomeCode = plan.outcomeCode ?? executedOutcomeCode(receipt);
+    let outcomeCode = plan.outcomeCode;
+    if (outcomeCode === null) {
+      if (receipt.repairability === "forbidden") outcomeCode = "forbidden";
+      else if (receipt.attempt === "failed") outcomeCode = "execution_failed";
+      else if (receipt.attempt === "denied" && receipt.verification === "failed") outcomeCode = "precondition_unmet";
+      else if (receipt.attempt === "succeeded") {
+        if (receipt.verification === "passed") {
+          outcomeCode = "verified_repair";
+        } else {
+          const bindingRow = validatedBinding.task_bindings[receipt.node_id];
+          const taskKey = bindingRow ? `${bindingRow.task_name}\0${bindingRow.action_digest}` : null;
+          const postTask = taskKey ? postTasks.get(taskKey) : null;
+          if (postTask?.state !== "running" && postTask?.last_task_result !== null && postTask?.last_task_result !== undefined && postTask?.last_task_result !== 0) {
+            outcomeCode = "postverify_failed";
+          } else {
+            outcomeCode = "not_verified";
+          }
+        }
+      } else {
+        outcomeCode = "not_eligible";
+      }
+    }
     // A half-open probe is transient: its outcome resolves the circuit to
     // closed (verified) or open (failed) inside the same cycle.
     const nextRow = applyAttemptOutcome(plan.row, { outcomeCode, atMs: decidedAtMs });
     supervisionRows.set(receipt.node_id, nextRow);
-    recoveryRows.push(publicRecoveryReceipt(receipt, outcomeCode, nextRow));
+    const pubReceipt = publicRecoveryReceipt(receipt, outcomeCode, nextRow, plan.diagnosticCode);
+    recoveryRows.push(pubReceipt);
     historyCandidates.push(buildHistoryRow({
       at: decidedAt,
       nodeId: receipt.node_id,
       reason: receipt.reason,
-      action: receipt.repair_action,
-      attempt: receipt.attempt,
-      verification: receipt.verification,
+      diagnosticCode: plan.diagnosticCode,
+      action: pubReceipt.repair_action,
+      attempt: pubReceipt.attempt,
+      verification: pubReceipt.verification,
       row: nextRow,
       outcomeCode,
     }));

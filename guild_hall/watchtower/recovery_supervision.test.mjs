@@ -48,6 +48,7 @@ function historyRow(overrides = {}) {
     at: new Date(T0).toISOString(),
     node_id: "consumer_board",
     reason: "process_stopped",
+    diagnostic_code: null,
     action: "restart_owned_task",
     attempt: "denied",
     verification: "not_run",
@@ -115,7 +116,7 @@ test("history rows reject unknown codes, raw text, duplicates, and unbounded siz
     entries: [historyRow()],
   });
   assert.deepEqual(Object.keys(valid.entries[0]), [
-    "at", "node_id", "reason", "action", "attempt", "verification",
+    "at", "node_id", "reason", "diagnostic_code", "action", "attempt", "verification",
     "circuit_state", "next_retry_at", "outcome_code",
   ]);
 
@@ -123,6 +124,7 @@ test("history rows reject unknown codes, raw text, duplicates, and unbounded siz
     schema_version: RECOVERY_HISTORY_SCHEMA_VERSION, updated_at: updatedAt, entries,
   });
   assert.throws(() => invalid([historyRow({ outcome_code: "restarted" })]), /recovery_history_row_invalid/u);
+  assert.throws(() => invalid([historyRow({ diagnostic_code: "invalid code with spaces" })]), /recovery_history_row_invalid/u);
   assert.throws(() => invalid([historyRow({ action: "Start-ScheduledTask -TaskName x" })]), /recovery_history_row_invalid/u);
   assert.throws(() => invalid([historyRow({
     reason: path.resolve("test-fixtures", "state"),
@@ -135,6 +137,13 @@ test("history rows reject unknown codes, raw text, duplicates, and unbounded siz
     }))),
     /recovery_history_invalid/u,
   );
+
+  const withDiagnostic = validateRecoveryHistory({
+    schema_version: RECOVERY_HISTORY_SCHEMA_VERSION,
+    updated_at: new Date(T0).toISOString(),
+    entries: [historyRow({ diagnostic_code: "writer_authority_expired", outcome_code: "owner_action_required", action: "none", verification: "not_run" })],
+  });
+  assert.equal(withDiagnostic.entries[0].diagnostic_code, "writer_authority_expired");
 
   // The same node at two different times is real history, not a duplicate.
   assert.equal(invalid([historyRow(), historyRow({ at: new Date(T0 + 1_000).toISOString() })]).entries.length, 2);
