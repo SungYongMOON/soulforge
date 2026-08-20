@@ -52,10 +52,18 @@ const P4_EFFECT = ['persistent_writes', 'network_calls', 'model_calls', 'rag_ind
 const M2_AUTH = ['candidate_only', 'engine_input_general_authority', 'owner_decision_made', 'stage_cleared', 'assignment_made', 'task_intent_created', 'canon_promotion_allowed', 'live_current_claimed'];
 const M2_GATES = ['actual_project_activation_allowed', 'stage_clear_allowed', 'taskdriver_activation_allowed', 'erp_write_allowed', 'wiki_write_allowed', 'rag_write_allowed', 'llm_activation_allowed'];
 const M2_EFFECT = ['filesystem_writes', 'explicit_network_calls', 'model_calls', 'rag_calls', 'wiki_calls', 'erp_writes', 'taskdriver_activations'];
-const ROOT = ['schema_version', 'producer_outputs', 'owner_context_contract', 'whole_material_pin'];
+const P4_TOP = ['schema_version', 'kind', 'status', 'feature_state', 'route', 'project_binding_ref', 'document_revision_ref', 'source_revision_receipt', 'rag_candidate', 'thin_wiki_candidate', 'p5_input_candidate', 'authority', 'effects', 'candidate_sha256'];
+const P4_RECEIPT = ['schema_version', 'kind', 'operation', 'status', 'feature_state', 'route', 'blocker', 'source_count', 'project_count', 'retrieval_unit_count', 'searched_unit_count', 'selected_citation_count', 'provenance', 'effects'];
+const M2_TOP = ['schema_version', 'pilot_policy_revision', 'feature_state', 'mode', 'status', 'claim_ceiling', 'pilot_grant_ref', 'project_binding_ref', 'knowledge_view', 'project_source_binding', 'current_stage_code', 'role_bound_assessment', 'authority', 'gates', 'effects'];
+const M2_VIEW = ['authority_grant_ref', 'policy_ref', 'common_revision_refs', 'knowledge_scope_fingerprint_sha256', 'common_projection_bindings_fingerprint_sha256', 'project_count', 'common_revision_count', 'common_projection_binding_count', 'exact_project_binding_verified', 'policy_binding_verified', 'common_projection_binding_verified', 'engine_input_binding_verified', 'root_metadata_revalidated', 'root_relation', 'body_loaded', 'retrieval_performed', 'enumeration_performed', 'foreign_lookup_performed'];
+const M2_BINDING = ['manifest_ref', 'manifest_binding_verified', 'exact_partition_verified', 'project_material_revision_count', 'source_bodies_opened', 'source_content_membership_verified', 'source_truth_validated', 'freshness_validated', 'terminal_provenance_validated'];
+const TL_TOP = ['schema_version', 'generation_id', 'generated_at', 'system_receipts', 'project_timelines', 'routing', 'projection_digest', 'boundaries'];
+const TL_PROJECT = ['project_ref', 'entries', 'ordered_entry_digest'];
+const TL_BOUNDARIES = ['raw_body_copied', 'official_task_mutated', 'official_project_assignment_mutated', 'source_annotations_mutated'];
+const ROOT = ['schema_version', 'producer_outputs', 'owner_context_contract'];
 const PRODUCERS = ['p4', 'm2', 'timeline'];
 const OWNER = ['contract_ref', 'crosswalk', 'bitemporal_cutoffs', 'source_ref_crosswalk', 'memberships', 'provenance_evidence', 'coverage', 'reviews', 'writer', 'lineage'];
-const WHOLE = ['schema_version', 'anchor_kind', 'material_ref', 'expected_material_sha256', 'expected_project_binding_ref', 'p4_result_ref', 'expected_p4_candidate_sha256', 'm2_assessment_ref', 'expected_m2_assessment_sha256', 'timeline_projection_ref', 'expected_timeline_projection_sha256', 'reviewer_authority_ref', 'reviewer_epoch_ref', 'reviewer_epoch', 'hpp_writer_ref', 'hpp_writer_epoch_ref', 'hpp_writer_epoch', 'prior_generation_ref', 'prior_cas_fingerprint_sha256', 'valid_at', 'known_at'];
+const WHOLE = ['material_ref', 'expected_material_sha256', 'expected_project_binding_ref', 'valid_at', 'known_at'];
 const CROSS = ['project_binding_ref', 'timeline_project_ref', 'project_context_ref', 'm2_manifest_ref', 'reviewer_authority_ref', 'reviewer_epoch_ref', 'reviewer_epoch', 'valid_at', 'known_at'];
 const TIME = ['valid_at', 'known_at'];
 
@@ -168,6 +176,7 @@ function parseP4(value, blockers) {
   const receipt = result && result.receipt;
   if (!keys(value, ['result', 'material_pin']) || !keys(pin, ['result_ref', 'expected_candidate_sha256', 'valid_at', 'known_at'])
       || !ref(pin.result_ref) || !hash(pin.expected_candidate_sha256) || pin.result_ref.content_id !== pin.expected_candidate_sha256
+      || !keys(candidate, P4_TOP) || !keys(receipt, P4_RECEIPT)
       || !candidate || candidate.schema_version !== 'soulforge.project_pdf_knowledge_candidate.v0'
       || candidate.kind !== 'project_pdf_knowledge_candidate' || candidate.status !== 'candidate'
       || candidate.feature_state !== 'off' || candidate.route !== 'project_local_candidate_only'
@@ -217,14 +226,15 @@ function parseM2(value, blockers) {
   const pin = value && value.material_pin;
   if (!keys(value, ['assessment', 'material_pin']) || !keys(pin, ['assessment_ref', 'expected_assessment_sha256', 'valid_at', 'known_at'])
       || !ref(pin.assessment_ref) || !hash(pin.expected_assessment_sha256) || pin.assessment_ref.content_id !== pin.expected_assessment_sha256
+      || !keys(assessment, M2_TOP)
       || !assessment || assessment.schema_version !== 'soulforge.ax_se_project_context_pilot_assessment.v0'
       || assessment.feature_state !== 'off' || assessment.mode !== 'owner_frozen_manual_zero_write'
       || assessment.status !== 'assessed' || assessment.claim_ceiling !== 'observed'
       || !ref(assessment.pilot_grant_ref) || !ref(assessment.project_binding_ref)
-      || !assessment.knowledge_view || assessment.knowledge_view.body_loaded !== false
+      || !keys(assessment.knowledge_view, M2_VIEW) || assessment.knowledge_view.body_loaded !== false
       || !Array.isArray(assessment.knowledge_view.common_revision_refs)
       || assessment.knowledge_view.common_revision_refs.some(function (entry) { return !ref(entry); })
-      || !assessment.project_source_binding || !ref(assessment.project_source_binding.manifest_ref)
+      || !keys(assessment.project_source_binding, M2_BINDING) || !ref(assessment.project_source_binding.manifest_ref)
       || assessment.project_source_binding.source_content_membership_verified !== false
       || assessment.project_source_binding.source_truth_validated !== false
       || assessment.project_source_binding.freshness_validated !== false
@@ -249,9 +259,14 @@ function parseTimeline(value, blockers) {
   const pin = value && value.projection_pin;
   if (!keys(value, ['projection', 'projection_pin', 'selected_project_ref']) || !keys(pin, ['projection_ref', 'expected_projection_sha256', 'valid_at', 'known_at'])
       || !ref(pin.projection_ref) || !hash(pin.expected_projection_sha256) || pin.projection_ref.content_id !== pin.expected_projection_sha256
+      || !keys(projection, TL_TOP)
       || !token(value.selected_project_ref) || !projection || projection.schema_version !== 'soulforge.project_timeline_projection.v1'
       || !token(projection.generation_id) || !instant(projection.generated_at) || !Array.isArray(projection.project_timelines)
-      || !hash(projection.projection_digest) || projection.boundaries && projection.boundaries.raw_body_copied !== false) {
+      || !hash(projection.projection_digest) || !keys(projection.boundaries, TL_BOUNDARIES)
+      || projection.boundaries.raw_body_copied !== false || projection.boundaries.official_task_mutated !== false
+      || projection.boundaries.official_project_assignment_mutated !== false || projection.boundaries.source_annotations_mutated !== false
+      || !keys(projection.routing, ['candidate', 'unassigned', 'common', 'restricted', 'conflict'])
+      || !Object.values(projection.routing).every(Array.isArray)) {
     blockers.add(C.TIMELINE_PRODUCER_INVALID); return null;
   }
   const material = Object.assign({}, projection);
@@ -262,7 +277,7 @@ function parseTimeline(value, blockers) {
     blockers.add(C.TIMELINE_DIGEST_MISMATCH); return null;
   }
   const matches = projection.project_timelines.filter(function (timeline) { return timeline && timeline.project_ref === value.selected_project_ref; });
-  if (matches.length !== 1 || !Array.isArray(matches[0].entries) || !hash(matches[0].ordered_entry_digest)
+  if (matches.length !== 1 || !keys(matches[0], TL_PROJECT) || !Array.isArray(matches[0].entries) || !hash(matches[0].ordered_entry_digest)
       || sha256Canonical(matches[0].entries) !== matches[0].ordered_entry_digest) {
     blockers.add(C.TIMELINE_PRODUCER_INVALID); return null;
   }
@@ -449,16 +464,13 @@ function parseOwner(value, blockers) {
 }
 
 function parseWhole(value, blockers) {
-  if (!keys(value, WHOLE) || value.schema_version !== 'soulforge.project_context_generation_whole_material_pin.v1'
-      || value.anchor_kind !== 'externally_pinned_expected_material' || !ref(value.material_ref)
+  if (!keys(value, WHOLE) || !ref(value.material_ref)
       || !hash(value.expected_material_sha256) || value.material_ref.content_id !== value.expected_material_sha256
-      || !ref(value.expected_project_binding_ref) || !ref(value.p4_result_ref) || !hash(value.expected_p4_candidate_sha256)
-      || !ref(value.m2_assessment_ref) || !hash(value.expected_m2_assessment_sha256)
-      || !ref(value.timeline_projection_ref) || !hash(value.expected_timeline_projection_sha256)
-      || !ref(value.reviewer_authority_ref) || !ref(value.reviewer_epoch_ref) || !Number.isSafeInteger(value.reviewer_epoch) || value.reviewer_epoch < 1
-      || !ref(value.hpp_writer_ref) || !ref(value.hpp_writer_epoch_ref) || !Number.isSafeInteger(value.hpp_writer_epoch) || value.hpp_writer_epoch < 1
-      || !ref(value.prior_generation_ref) || !hash(value.prior_cas_fingerprint_sha256)) { blockers.add(C.OUTER_ANCHOR_INVALID); return null; }
-  return { materialRef: clone(value.material_ref), expected: value.expected_material_sha256, projectRef: clone(value.expected_project_binding_ref), p4Ref: clone(value.p4_result_ref), p4Digest: value.expected_p4_candidate_sha256, m2Ref: clone(value.m2_assessment_ref), m2Digest: value.expected_m2_assessment_sha256, timelineRef: clone(value.timeline_projection_ref), timelineDigest: value.expected_timeline_projection_sha256, reviewerRef: clone(value.reviewer_authority_ref), reviewerEpochRef: clone(value.reviewer_epoch_ref), reviewerEpoch: value.reviewer_epoch, writerRef: clone(value.hpp_writer_ref), writerEpochRef: clone(value.hpp_writer_epoch_ref), writerEpoch: value.hpp_writer_epoch, priorRef: clone(value.prior_generation_ref), priorCas: value.prior_cas_fingerprint_sha256, validAt: value.valid_at, knownAt: value.known_at };
+      || !ref(value.expected_project_binding_ref)) {
+    blockers.add(C.OUTER_ANCHOR_INVALID); return null;
+  }
+  return { materialRef: clone(value.material_ref), expected: value.expected_material_sha256,
+    projectRef: clone(value.expected_project_binding_ref), validAt: value.valid_at, knownAt: value.known_at };
 }
 
 function temporalGate(blockers, cutoff, records) {
@@ -471,13 +483,8 @@ function temporalGate(blockers, cutoff, records) {
 
 function bind(outer, p4, m2, timeline, owner, blockers) {
   if (!sameExactRef(outer.projectRef, owner.cross.projectRef) || !sameExactRef(outer.projectRef, p4.projectRef) || !sameExactRef(outer.projectRef, m2.projectRef)
-      || outer.p4Digest !== p4.candidateDigest || !sameExactRef(outer.p4Ref, p4.resultRef)
-      || outer.m2Digest !== m2.digest || !sameExactRef(outer.m2Ref, m2.assessmentRef)
-      || outer.timelineDigest !== timeline.digest || !sameExactRef(outer.timelineRef, timeline.projectionRef)
       || owner.cross.timelineProject !== timeline.projectRef || !sameExactRef(owner.cross.manifestRef, m2.manifestRef)
-      || !sameExactRef(owner.cross.reviewerRef, outer.reviewerRef) || !sameExactRef(owner.cross.reviewerEpochRef, outer.reviewerEpochRef) || owner.cross.reviewerEpoch !== outer.reviewerEpoch
-      || !sameExactRef(owner.writer.ref, outer.writerRef) || !sameExactRef(owner.writer.epochRef, outer.writerEpochRef) || owner.writer.epoch !== outer.writerEpoch
-      || !sameExactRef(owner.writer.projectRef, outer.projectRef) || !sameExactRef(owner.lineage.prior.ref, outer.priorRef) || owner.lineage.prior.cas !== outer.priorCas) blockers.add(C.CROSSWALK_MISMATCH);
+      || !sameExactRef(owner.writer.projectRef, outer.projectRef)) blockers.add(C.CROSSWALK_MISMATCH);
   const p4Rows = owner.sources.rows.filter(function (row) { return row.kind === 'p4'; });
   if (p4Rows.length !== 1 || p4Rows[0].inclusion !== 'included' || !sameExactRef(p4Rows[0].ref, p4.documentRef) || p4Rows[0].receipt !== p4.sourceReceipt) blockers.add(C.CROSSWALK_MISMATCH);
   const commonRows = owner.sources.rows.filter(function (row) { return row.kind === 'm2_common'; });
@@ -538,13 +545,14 @@ function makeReceipt(status, blockers, observed) {
   return freeze(value);
 }
 
-export function buildProjectContextGenerationCandidate(request) {
+export function buildProjectContextGenerationCandidate(request, trustedExpectedPin) {
   const safe = snapshot(request);
   if (!safe || !keys(safe, ROOT) || safe.schema_version !== PROJECT_CONTEXT_GENERATION_CANDIDATE_REQUEST_SCHEMA || !keys(safe.producer_outputs, PRODUCERS)) {
     return freeze({ candidate: null, receipt: makeReceipt('HOLD', [C.INPUT_INVALID]) });
   }
   const blockers = new Set();
-  const outer = parseWhole(safe.whole_material_pin, blockers);
+  const safePin = snapshot(trustedExpectedPin);
+  const outer = safePin === null ? null : parseWhole(safePin, blockers);
   if (!outer) blockers.add(C.OUTER_ANCHOR_REQUIRED);
   const p4 = parseP4(safe.producer_outputs.p4, blockers);
   const m2 = parseM2(safe.producer_outputs.m2, blockers);

@@ -255,35 +255,35 @@ function rawFixture() {
       writer: { schema_version: 'soulforge.project_context_generation_writer_witness.v0', hpp_writer_ref: copy(writerRef), sole_writer: true, writer_epoch_ref: copy(writerEpochRef), writer_epoch: 7, project_binding_ref: copy(projectBindingRef), status: 'bound', valid_at: VALID, known_at: KNOWN },
       lineage: { schema_version: 'soulforge.project_context_generation_lineage.v0', prior_generation: { generation: 3, generation_ref: copy(priorRef), accepted_input_set_digest_sha256: hash('prior-input'), cas_fingerprint_sha256: hash('prior-cas'), supersession_state: 'superseded_by_current_proposal', valid_at: VALID, known_at: KNOWN }, current_generation: { generation: 4, generation_ref: copy(currentRef), supersedes_generation_ref: copy(priorRef), valid_at: VALID, known_at: KNOWN }, observed_prior_cas_fingerprint_sha256: hash('prior-cas'), generation_cutoff: { valid_at: CUTOFF_VALID, known_at: CUTOFF_KNOWN } },
     },
-    whole_material_pin: {
-      schema_version: 'soulforge.project_context_generation_whole_material_pin.v1',
-      anchor_kind: 'externally_pinned_expected_material',
-      material_ref: ref(24, wholePlaceholder), expected_material_sha256: wholePlaceholder,
-      expected_project_binding_ref: copy(projectBindingRef),
-      p4_result_ref: ref(20, p4Digest), expected_p4_candidate_sha256: p4Digest,
-      m2_assessment_ref: ref(21, m2Digest), expected_m2_assessment_sha256: m2Digest,
-      timeline_projection_ref: ref(22, timelineDigest), expected_timeline_projection_sha256: timelineDigest,
-      reviewer_authority_ref: copy(reviewerRef), reviewer_epoch_ref: copy(reviewerEpochRef), reviewer_epoch: 3,
-      hpp_writer_ref: copy(writerRef), hpp_writer_epoch_ref: copy(writerEpochRef), hpp_writer_epoch: 7,
-      prior_generation_ref: copy(priorRef), prior_cas_fingerprint_sha256: hash('prior-cas'),
-      valid_at: VALID, known_at: KNOWN,
-    },
+  };
+}
+
+function expectedPin(request, expected) {
+  return {
+    material_ref: ref(24, expected),
+    expected_material_sha256: expected,
+    expected_project_binding_ref: copy(request.owner_context_contract.crosswalk.project_binding_ref),
+    valid_at: VALID,
+    known_at: KNOWN,
   };
 }
 
 function fixture() {
   const value = rawFixture();
-  const preview = buildProjectContextGenerationCandidate(copy(value));
+  const pin = expectedPin(value, hash('whole-placeholder'));
+  const preview = buildProjectContextGenerationCandidate(copy(value), copy(pin));
   assert.equal(preview.receipt.status, 'HOLD');
   const material = preview.receipt.observed_material_sha256;
   assert.match(material, /^sha256:[0-9a-f]{64}$/u, JSON.stringify(preview.receipt));
-  value.whole_material_pin.expected_material_sha256 = material;
-  value.whole_material_pin.material_ref.content_id = material;
-  return freeze(value);
+  pin.expected_material_sha256 = material;
+  pin.material_ref.content_id = material;
+  return { request: freeze(value), pin: freeze(pin) };
 }
 
 test('normalizes authentic P4, M2, and timeline outputs under one pinned owner contract', () => {
-  const result = buildProjectContextGenerationCandidate(fixture());
+  const bundle = fixture();
+  assert.equal(Object.hasOwn(bundle.request, 'whole_material_pin'), false);
+  const result = buildProjectContextGenerationCandidate(bundle.request, bundle.pin);
   assert.equal(result.candidate.status, 'ready_for_registered_human_review');
   assert.equal(result.receipt.status, 'ready_for_registered_human_review');
   assert.equal(result.candidate.authority.accepted, false);
@@ -303,7 +303,6 @@ test('holds legacy caller-assembled P4 witness and a missing whole material pin'
   assertHold(legacyResult, 'P5_CONTEXT_P4_PRODUCER_INVALID');
 
   const missingPin = rawFixture();
-  delete missingPin.whole_material_pin;
   assert.equal(buildProjectContextGenerationCandidate(missingPin).receipt.status, 'HOLD');
 });
 
@@ -315,20 +314,23 @@ test('holds unchanged external pin when any producer or owner material changes',
     function (input) { input.owner_context_contract.lineage.observed_prior_cas_fingerprint_sha256 = hash('wrong-cas'); },
   ];
   for (const mutate of cases) {
-    const input = copy(fixture());
+    const bundle = fixture();
+    const input = copy(bundle.request);
     mutate(input);
-    assert.equal(buildProjectContextGenerationCandidate(input).receipt.status, 'HOLD');
+    assert.equal(buildProjectContextGenerationCandidate(input, bundle.pin).receipt.status, 'HOLD');
   }
 });
 
 test('requires included sources for membership, timeline mapping, and M2 evidence', () => {
-  const input = copy(fixture());
+  const bundle = fixture();
+  const input = copy(bundle.request);
   input.owner_context_contract.source_ref_crosswalk[2].inclusion_state = 'gap';
-  assertHold(buildProjectContextGenerationCandidate(input), 'P5_CONTEXT_SOURCE_NOT_INCLUDED');
+  assertHold(buildProjectContextGenerationCandidate(input, bundle.pin), 'P5_CONTEXT_SOURCE_NOT_INCLUDED');
 });
 
 test('rejects supersession valid_at or known_at inversion and active predecessors', () => {
-  const input = copy(fixture());
+  const bundle = fixture();
+  const input = copy(bundle.request);
   const predecessor = input.owner_context_contract.memberships[2];
   predecessor.membership_state = 'active';
   const successor = copy(predecessor);
@@ -338,9 +340,9 @@ test('rejects supersession valid_at or known_at inversion and active predecessor
   successor.predecessor_source_span_ref = predecessor.source_span_ref;
   successor.valid_at = '2026-07-31T00:00:00.000Z';
   input.owner_context_contract.memberships.push(successor);
-  assertHold(buildProjectContextGenerationCandidate(input), 'P5_CONTEXT_SUPERSESSION_INVALID');
+  assertHold(buildProjectContextGenerationCandidate(input, bundle.pin), 'P5_CONTEXT_SUPERSESSION_INVALID');
 
-  const cycle = copy(fixture());
+  const cycle = copy(bundle.request);
   const first = cycle.owner_context_contract.memberships[0];
   const second = copy(first);
   second.source_span_ref = 'membership-cycle-second';
@@ -351,33 +353,56 @@ test('rejects supersession valid_at or known_at inversion and active predecessor
   second.correction_state = 'corrected';
   second.predecessor_source_span_ref = first.source_span_ref;
   cycle.owner_context_contract.memberships.push(second);
-  assertHold(buildProjectContextGenerationCandidate(cycle), 'P5_CONTEXT_SUPERSESSION_INVALID');
+  assertHold(buildProjectContextGenerationCandidate(cycle, bundle.pin), 'P5_CONTEXT_SUPERSESSION_INVALID');
 });
 
 test('rejects JWT/token-shaped producer metadata without echoing it', () => {
-  const input = copy(fixture());
+  const bundle = fixture();
+  const input = copy(bundle.request);
   const marker = 'eyJhbGciOiJub25lIn0.eyJzdWIiOiJwdWJsaWMifQ.detached';
   input.producer_outputs.m2.assessment.pilot_grant_ref.entity_id = marker;
-  const result = buildProjectContextGenerationCandidate(input);
+  const result = buildProjectContextGenerationCandidate(input, bundle.pin);
   assert.equal(result.receipt.status, 'HOLD');
   assert.equal(JSON.stringify(result).includes(marker), false);
 });
 
 test('rejects opaque timeline crosswalk swaps and non-hash source body metadata', () => {
-  const input = copy(fixture());
+  const bundle = fixture();
+  const input = copy(bundle.request);
   const first = input.owner_context_contract.source_ref_crosswalk[2];
   const second = input.owner_context_contract.source_ref_crosswalk[3];
   const saved = first.timeline_entry_id;
   first.timeline_entry_id = second.timeline_entry_id;
   second.timeline_entry_id = saved;
-  assertHold(buildProjectContextGenerationCandidate(input), 'P5_CONTEXT_CROSSWALK_MISMATCH');
+  assertHold(buildProjectContextGenerationCandidate(input, bundle.pin), 'P5_CONTEXT_CROSSWALK_MISMATCH');
 
-  const badHash = copy(fixture());
+  const badHash = copy(bundle.request);
   const marker = 'token:opaque-private-marker';
   badHash.producer_outputs.timeline.projection.project_timelines[0].entries[0].source_body_sha256 = marker;
-  const result = buildProjectContextGenerationCandidate(badHash);
+  const result = buildProjectContextGenerationCandidate(badHash, bundle.pin);
   assert.equal(result.receipt.status, 'HOLD');
   assert.equal(JSON.stringify(result).includes(marker), false);
+});
+
+test('holds coherently re-pinned request material against an unchanged trusted expected pin', () => {
+  const bundle = fixture();
+  const request = copy(bundle.request);
+  const assessment = request.producer_outputs.m2.assessment;
+  const changedManifestRef = ref(401);
+  assessment.project_source_binding.manifest_ref = copy(changedManifestRef);
+  request.owner_context_contract.crosswalk.m2_manifest_ref = copy(changedManifestRef);
+  const digest = sha256Canonical({ domain: 'soulforge.project_context_generation.m2_assessment.v1', assessment: assessment });
+  request.producer_outputs.m2.material_pin.expected_assessment_sha256 = digest;
+  request.producer_outputs.m2.material_pin.assessment_ref.content_id = digest;
+  const held = buildProjectContextGenerationCandidate(request, bundle.pin);
+  assertHold(held, 'P5_CONTEXT_OUTER_MATERIAL_MISMATCH');
+
+  const changedPin = copy(bundle.pin);
+  changedPin.expected_material_sha256 = held.receipt.observed_material_sha256;
+  changedPin.material_ref.content_id = held.receipt.observed_material_sha256;
+  const candidate = buildProjectContextGenerationCandidate(request, changedPin);
+  assert.equal(candidate.candidate.status, 'ready_for_registered_human_review');
+  assert.notEqual(candidate.candidate.accepted_input_set_candidate.digest_sha256, buildProjectContextGenerationCandidate(bundle.request, bundle.pin).candidate.accepted_input_set_candidate.digest_sha256);
 });
 
 test('has no acceptance, advance, writer, filesystem, network, or legacy CSV import surface', () => {
