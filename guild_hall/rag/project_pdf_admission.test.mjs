@@ -29,6 +29,7 @@ import {
 
 import {
   extractAdmittedProjectPdfCandidate,
+  inspectPinnedProjectPdfAdmissionLaunch,
   runProjectPdfAdmissionCli,
 } from "./project_pdf_admission.mjs";
 
@@ -395,6 +396,30 @@ test("admits one pinned launch and returns the exact closed admitted project pdf
     ]);
 
     assertDeeplyFrozen(admitted, "admitted_project_pdf_candidate");
+  } finally {
+    state.cleanup();
+  }
+});
+
+test("stable-inspects one pinned launch binding without opening the project document", () => {
+  const state = admissionFixture();
+  try {
+    rmSync(state.documentPath, { force: true });
+    const inspection = inspectPinnedProjectPdfAdmissionLaunch({
+      launchPath: state.launchPath,
+      expectedLaunchSha256: state.expectedLaunchSha256,
+    });
+    assert.deepEqual(inspection, {
+      schema_version: "soulforge.project_pdf_admission_launch_inspection.v0",
+      kind: "project_pdf_admission_launch_inspection",
+      status: "inspected",
+      feature_state: "off",
+      launch_sha256: state.expectedLaunchSha256,
+      launch_byte_count: readFileSync(state.launchPath).byteLength,
+      project_binding_ref: state.projectRef,
+      document_revision_ref: state.readGrant.document_revision_ref,
+      document_read_grant_ref: state.readGrant.grant_ref,
+    });
   } finally {
     state.cleanup();
   }

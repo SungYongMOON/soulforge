@@ -486,6 +486,47 @@ payloads, and keeps stronger permissions false until owner review.
   not alter the checked view. Both interfaces are deep-frozen,
   parser/model/network/filesystem-write free, and leave persistent RAG/Wiki
   storage and actual P5 acceptance `HOLD`.
+- project_pdf_knowledge_pilot_runner.mjs is the bounded P4 persistence runner.
+  Its closed request contains only an absolute Owner-authority packet path and
+  that packet's raw-byte SHA-256 pin. The packet itself must be feature-OFF and
+  bind a newly issued, unconsumed, one-attempt authority ref and digest,
+  canonical future expiry, one exact launch path/SHA-256/byte count, exact
+  project and document refs, an independently supplied trusted
+  source-revision-receipt digest, and one pre-existing empty output root
+  commitment with exactly the two seam-owned filenames. The authority digest
+  and ref commit to all of that packet material, not only the authority-local
+  fields. The runner verifies byte and content bindings, not the identity of the
+  packet issuer or an Owner approval claim.
+- Before any PDF body read, the runner stable-opens and pins the packet,
+  validates the authority and empty output root, then stable-inspects the
+  pinned launch and compares its project/document refs. Only then does it call
+  the existing admission seam once and the pure projection seam once. It writes
+  only the existing body-free candidate and a metadata-only storage receipt via
+  exclusive create, then reads both back. It never writes the admitted source,
+  page text, a query, a locator, a root path, a RAG index, Wiki, Engine, ERP,
+  TaskDriver, or retrieval result.
+- The process entrypoint accepts exactly --authority-packet <absolute path>
+  --authority-packet-sha256 <lowercase hex>; stdout stays empty and stderr
+  emits exactly one payload-free command receipt. Run it with npm.cmd run
+  project-pdf-knowledge-pilot-runner -- --authority-packet <absolute-path>
+  --authority-packet-sha256 <sha256>.
+- The output root must already exist and be empty. There is no overwrite,
+  retry, fallback, deletion, temporary file, or automatic cleanup path. A
+  create/readback failure remains terminal HOLD; any partial final file blocks
+  reuse of that root, so a later attempt needs a newly issued Owner packet and
+  root. This two-file contract is not a durable cross-process authority
+  consumption registry. The stored receipt is intentionally nonterminal about
+  its own creation; only the separately emitted command receipt reports a PASS
+  after its readback.
+- The output-root checks assume the Owner-controlled single-writer condition:
+  no other process may replace, junction-link, or mutate the approved root from
+  preflight through completion. Node does not expose descriptor-relative child
+  creation across the supported platforms, so concurrent root replacement is
+  unsupported rather than silently treated as a safe retry case.
+- This runnable public boundary does not authorize an actual private project
+  attempt. An expired or consumed historical authority cannot be reused; actual
+  execution remains HOLD pending independent code review and a new private
+  Owner packet.
 - `HOLD`: actual project launch, read grant, and project-root execution, actual
   project, live, and persistent tracer answering, actual project requirement
   indexing, RTM/coverage claims and Engine policy-requirement packet supply from

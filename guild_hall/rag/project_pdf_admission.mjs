@@ -38,6 +38,7 @@ const LAUNCH_SCHEMA_VERSION = "soulforge.project_pdf_admission_launch.v0";
 const READ_GRANT_SCHEMA_VERSION = "soulforge.project_pdf_read_grant.v0";
 const ADMITTED_CANDIDATE_SCHEMA_VERSION = "soulforge.admitted_project_pdf_candidate.v0";
 const COMMAND_RECEIPT_SCHEMA_VERSION = "soulforge.project_pdf_admission_command_receipt.v0";
+const LAUNCH_INSPECTION_SCHEMA_VERSION = "soulforge.project_pdf_admission_launch_inspection.v0";
 
 // Three separate hash domains. The grant binding, the machine independent
 // commitment and the locator commitment answer different questions, so none of
@@ -283,6 +284,44 @@ export async function extractAdmittedProjectPdfCandidate(request) {
   const outcome = await admitOnce(launchPath, expectedLaunchSha256);
   if (outcome.refusal !== null) throw admissionError(REFUSALS[outcome.refusal].error);
   return outcome.candidate;
+}
+
+/**
+ * Stable-opens one pinned launch and exposes only its ref bindings.
+ *
+ * This is deliberately not admission: it never opens the project document or
+ * invokes the extractor.  A bounded persistent runner uses it to compare an
+ * Owner packet with the exact launch before it calls the one body-reading
+ * admission seam.
+ */
+export function inspectPinnedProjectPdfAdmissionLaunch(request) {
+  const { launchPath, expectedLaunchSha256 } = prepareRequest(request);
+  const evidence = freshEvidence();
+  let fallback = "launch_unreadable";
+  try {
+    const launchBytes = readPinnedLaunchBytes(launchPath, expectedLaunchSha256, evidence);
+    fallback = "launch_not_json";
+    const launch = parseLaunchDocument(launchBytes);
+    fallback = "launch_contract_refused";
+    const readGrant = admitLaunchContract(launch);
+    fallback = "knowledge_view_refused";
+    const view = selectView(launch);
+    fallback = "admission_binding_refused";
+    admitKnowledgeView(view, readGrant, evidence);
+    return deepFreeze({
+      schema_version: LAUNCH_INSPECTION_SCHEMA_VERSION,
+      kind: "project_pdf_admission_launch_inspection",
+      status: "inspected",
+      feature_state: FEATURE_STATE,
+      launch_sha256: expectedLaunchSha256,
+      launch_byte_count: launchBytes.byteLength,
+      project_binding_ref: cloneRef(readGrant.project_binding_ref),
+      document_revision_ref: cloneRef(readGrant.document_revision_ref),
+      document_read_grant_ref: cloneRef(readGrant.grant_ref),
+    });
+  } catch (error) {
+    throw admissionError(REFUSALS[refusalKeyOf(error, fallback)].error);
+  }
 }
 
 // One execution of the safe sequence. The launch file is read once, the single
