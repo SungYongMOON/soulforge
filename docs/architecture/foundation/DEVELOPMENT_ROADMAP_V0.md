@@ -310,6 +310,52 @@ read-only snapshot
   -> [optional] LLM 설명 (advisory only, 판단 authority 아님)
   -> [later gate] ERP 기록
 ```
+
+### 2026-08-21 Owner 완료 지도 — 현재 위치·남은 Gate·종료선
+
+한 줄 결론: **판단 Engine과 P4/P5/Linear의 feature-OFF 기반 코드는 통합됐지만,
+실제 프로젝트 지식·실제 Linear 백업·accepted context·Task mutation을 끝까지 증명한
+운영 폐루프는 아직 없다.** 아래 `C0~C6`은 이 절에서만 쓰는 완료 조각 이름이며 기존
+P0~P10 또는 Knowledge P4/P5 단계 번호를 바꾸지 않는다.
+
+```text
+판단 Engine                    [구현·검증됨]
+  ├─ P4 지식/RAG·Thin Wiki     [기반 코드 완료] ── actual one-shot HOLD ─┐
+  └─ Linear LB1 백업           [기반 코드 완료] ── actual backup HOLD     ├─ 병렬 가능
+                                                                        │
+actual P4 evidence ──> P5 accepted context [builder만 완료 / acceptance HOLD]
+                         └─> TaskIntent·TaskDriver·Official Task·AgentRun [운영 HOLD]
+```
+
+| 완료 조각 | 지금까지 된 것 | 정확히 남은 것 | 완료 증거 | 병렬성 |
+| --- | --- | --- | --- | --- |
+| `C0` Task mutation 기본 차단 | actual Task 실행 route의 activation·write receipt는 0 | 재시작 시 auto-intake/autosync가 암묵적으로 켜지지 않도록 기본 OFF guard와 회귀시험 고정 | 기본 실행에서 mutation route 0인 합성 재시작 시험 | 즉시 독립 수행 가능 |
+| `C1` actual P4 지식 vertical | PDF admission·추출·RAG/Thin Wiki candidate·Preparation·bounded runner 구현 | Owner 승인 fully-local copy-only staging, fresh authority/launch/output, actual one-document one-shot | exact revision/hash/citation을 가진 body-free candidate와 receipt, raw body persistence 0 | `C2`와 병렬 가능 |
+| `C2` actual Linear LB1 | v2 snapshot/manifest/restore·Owner Gate·Bound Runner 합성 검증 | actual read-only Linear adapter, approved backup target writer, durable claim store, exact credential/target/reviewer refs, one-shot restore review | immutable stored bytes+manifest+coverage+human restore receipt, Linear mutation 0 | `C1`과 병렬 가능 |
+| `C3` Decision/NO_ACTION ledger | 설계 근거와 Task Event/receipt 계약 후보 존재 | 1시간 단위 decision observation, `NO_ACTION` 포함 append-only projection과 품질 기준 | 중복·누락·시간 역전 없이 재생되는 shadow ledger | `C1~C2` 뒤 또는 독립 준비 가능 |
+| `C4` actual P5 accepted generation | authentic-producer candidate builder 구현 | actual P4/M2/timeline packet, registered reviewer, HPP writer/epoch, freshness·supersession·acceptance receipt | accepted generation 1개와 exact input digest; ERP/P6 effect 0 | `C1` 완료에 의존 |
+| `C5` Reactive+SE proposal shadow | Engine·Task Core POC의 순수 계약 존재 | accepted generation을 읽는 proposal-only route, 사람 결정 대비 precision/recall·NO_ACTION 관찰 | 일정 기간 shadow receipt; Official Task mutation 0 | `C3+C4`에 의존 |
+| `C6` 첫 bounded mutation canary | 후보 생성·authority/idempotency 계약은 존재 | 하나의 capability·한 과제·한 writer에만 허용한 canary, rollback·sole-writer·Owner 승인 | create-only canary receipt와 rollback rehearsal | `C0~C5` 및 별도 Owner 승인 뒤 |
+
+지식·Wiki·맥락·메모리는 같은 저장소나 같은 승인 상태가 아니다. P4의 RAG와 Thin Wiki는
+exact source revision을 찾고 안내하는 지식 투영이며, P5 human acceptance를 통과해야 비로소
+accepted Project Context가 된다. 개인 memory와 reviewed `memory_candidate`는 이 흐름과
+분리하고 Wiki/RAG/canon으로 자동 승격하지 않는다.
+
+종료선은 하나로 뭉뚱그리지 않는다.
+
+1. **현재 목표 종료 — 실제 지식·백업·맥락 증거 폐루프**: `C0+C1+C2+C4`.
+   승인과 exact ref/credential이 즉시 제공되고 한 과제·한 문서·한 Linear workspace로
+   고정된다는 가정에서 병렬 **약 1~2 작업주**, 순차 **약 2~3 작업주**다.
+2. **안전한 shadow pilot 종료**: 위 종료선 뒤 `C3+C5`. 관찰 기간을 포함해 추가
+   **약 2~4 작업주**다. 이때도 Official Task write는 0이다.
+3. **첫 제한적 운영 canary 종료**: shadow 근거와 별도 Owner 승인 뒤 `C6`. rollback
+   rehearsal을 포함해 추가 **약 2~4 작업주**다.
+
+위 기간은 개발 난이도 추정이며 약속된 일정이 아니다. Owner 승인, Linear/Drive 계정과
+저장 authority, 실제 파일 상태, 독립검토 대기시간은 제외한다. 다과제 완전자율 운영의
+종료 시점은 A/B writer 선택, 운영 품질 근거와 보안정책이 아직 미정이므로 `UNKNOWN`이다.
+
 - ERP position: dev-ERP는 mail, voice, schedule, artifact, skill, 발주 이력, task,
   project memory를 연결할 장기 통합 자산·운영 표면이다. 전면 개편은 위 판단 Engine과
   source-bound context gate 이후로 유예한다. 아래 dev-ERP 중심 기록과
@@ -1146,6 +1192,7 @@ raw 산출물·private 수치는 `_workmeta` 영수증을 가리키고 여기엔
 | 2026-08-20 | Linear LB1 exact Owner start Gate | LB1 시작 조건은 문서 표에만 있고 Owner 결정·workspace/credential·Drive target·보존/복원 정책을 기계적으로 결속하지 못함 | `evaluateLinearLb1OwnerGate(packet, trustedExpectedPin)` pure Module로 full packet pin, pending/approved 결정, read-only scope, create-only Drive target, retention/RPO, partial HOLD와 human restore acceptance를 fail-close. 제안 기본안은 ref·Owner 승인 부재로 명시 HOLD | focused 8/8, backup-controller 63/63. provider/storage/network/filesystem/scheduler effect 0; 실제 Linear/Drive access·LB1 run은 exact Owner 승인 전 HOLD | `guild_hall/backup_controller/linear_lb1_owner_gate*.mjs`, CHANGELOG 08-20 |
 | 2026-08-21 | P4 direct-path preparation gate | 실제 P4 시도가 OneDrive reparse 가능성 아래 admission HOLD로 소비됐고, 새 authority packet 생성 전 direct/non-reparse 사전검사와 정본 packet builder가 없었음 | authentic admission launch inspection을 재사용해 launch/root/ancestor/leaf/output을 metadata-only 검사하고 기존 authority-packet-v0만 canonical 생성하는 Preparation Module 통합. request/accessor·forged grant·fsutil 4390/path 혼동·packet drift를 fail-close | Flash 3.7 High builder + Opus 5 반복 executable review 최종 ACCEPT; main preparation 18/18, runner 13/13 PASS. PDF body/copy/write 0; actual new authority·local staging·P4 실행은 Owner gate HOLD | `guild_hall/rag/project_pdf_knowledge_pilot_{packet_contract,preparation}.mjs`, CHANGELOG 08-21 |
 | 2026-08-21 | Linear LB1 v2 feature-OFF Bound Runner | v1은 metadata/hash 중심 합성 계약이라 whole-workspace body/history와 stored-byte restore, durable claim ordering을 표현하지 못했고 Gate도 실제 실행 Adapter와 결속되지 않았음 | v1을 보존한 별도 v2 18차원 snapshot/manifest/restore + full-packet Gate v2 + async Bound Runner 통합. claim-before-read, exact synthetic Adapter refs, limits/expiry, create-only memory store, exact-byte readback, body-free result와 post-claim `HOLD_CONSUMED` 고정 | Flash 3.7 High builder + Opus 5 반복 executable review 최종 ACCEPT; main v2 44/44, backup-controller 107/107 PASS. 실제 Linear/Drive/provider/storage/filesystem/scheduler effect 0; external Adapters·Owner binding·human restore는 HOLD | `guild_hall/backup_controller/linear_lb1_{v2,owner_gate_v2,one_shot_runner,synthetic_adapters}.mjs`, CHANGELOG 08-21 |
+| 2026-08-21 | Owner 완료 지도와 예상 기간 고정 | 기반 코드 완료와 actual evidence·운영 activation이 한 문장에 섞여 전체 진행도를 오해하기 쉬웠음 | `C0~C6`으로 code foundation→actual P4/Linear→accepted P5→proposal shadow→bounded mutation canary의 의존관계와 세 종료선을 명시 | 현재 목표는 병렬 1~2 작업주 추정(외부 승인·계정 대기 제외). plan-only이며 runtime·authority·write activation 0 | 이 문서의 `Owner 완료 지도`, Task Engine 마스터플랜의 owner-facing completion horizon |
 
 ## 갱신 규칙
 

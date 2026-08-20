@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 2026-08-21 - Owner completion map separates code, evidence, shadow, and activation
+
+- Updated the authoritative Roadmap and Task Engine master plan with one owner-facing
+  `C0~C6` dependency map. It distinguishes integrated feature-OFF foundations from
+  actual P4/Linear evidence, accepted P5 context, proposal-only shadow operation, and
+  the later separately approved bounded mutation canary.
+- Defined three finish lines instead of one ambiguous “done”: the current actual
+  knowledge/backup/context evidence loop, the safe proposal shadow pilot, and the
+  first bounded mutation canary. Conditional engineering estimates are recorded as
+  1–2 parallel work weeks, then 2–4 weeks, then 2–4 weeks respectively; external
+  approval, credentials, storage authority, and review waits are explicitly excluded.
+- This is a plan-only truth synchronization. It enables no runtime, provider, storage,
+  scheduler, Task, AgentRun, RAG/Wiki writer, or mutation authority.
+
 ## 2026-08-21 - P4 gains a direct-path preparation gate without opening the PDF
 
 - Added a read-only P4 Preparation Module and shared authority-packet contract.

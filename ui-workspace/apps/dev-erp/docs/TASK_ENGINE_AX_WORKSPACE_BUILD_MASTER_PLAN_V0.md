@@ -128,6 +128,42 @@ accepted project history, accepted context, production TaskDriver readiness는 �
 [`SHARED_GLOSSARY_V0.md`](../../../../docs/architecture/foundation/SHARED_GLOSSARY_V0.md#task-engine--ax-업무증거-용어)
 를 따른다. 이 이름 보정은 runtime·schema·path·운영 상태 migration이 아니다.
 
+### 2026-08-21 Owner-facing completion horizon
+
+이 절은 새 phase 번호가 아니다. 기존 P0~P10과 Knowledge P4/P5를 바꾸지 않고,
+Owner가 “기반 코드가 있는가 / 실제로 한 번 통과했는가 / 운영 write가 열렸는가”를
+구분해 보기 위한 `C0~C6` 완료 지도다.
+
+| 완료 조각 | CURRENT | 다음 실행 | 허용 effect | acceptance | 개발 추정(외부 대기 제외) |
+| --- | --- | --- | --- | --- | --- |
+| `C0` mutation default-OFF guard | actual Task 실행 route activation·write receipt 0; launcher의 암묵적 auto-intake/autosync 기본값은 latent risk | 기본 OFF 고정+재시작 회귀시험 | 합성 fixture만 | 기본 실행 mutation route 0 | `0.5~1일` |
+| `C1` actual P4 | Preparation/runner/RAG·Thin Wiki candidate 검증 완료 | fully-local copy-only staging과 fresh authority로 actual one-shot | 승인된 local copy+private metadata receipt만 | exact revision/hash/citation candidate 1개, body persistence 0 | 승인 뒤 `1~2일` |
+| `C2` actual Linear LB1 | v2 Gate/Runner/stored-byte restore 합성 검증 완료 | actual read-only Linear reader+approved Drive writer+durable claim store로 one-shot | Linear read+승인 target create-only write | manifest/coverage/stored-byte/human restore receipt | `4~7일` |
+| `C3` decision ledger | 계약·검토안만 있음 | 1시간 단위 append-only decision/`NO_ACTION` shadow projection | private metadata shadow write만 | idempotent replay+coverage receipt | `3~5일` |
+| `C4` actual P5 | authentic-producer review candidate builder 완료 | actual P4/M2/timeline packet+reviewer+writer epoch로 generation 1개 human acceptance | accepted-context sole-writer만; ERP/P6 0 | accepted generation exact digest+freshness receipt | `2~4일`, `C1` 뒤 |
+| `C5` proposal shadow | Engine/Task Core의 pure contract만 있음 | accepted generation 기반 Reactive+SE proposal-only route와 품질 관찰 | Official Task/Linear mutation 0 | shadow precision/recall·NO_ACTION·hold receipt | `1~2주`, `C3+C4` 뒤 |
+| `C6` mutation canary | 미착수 | 한 capability·한 project·한 writer의 create-only canary+rollback rehearsal | 별도 Owner가 승인한 exact mutation만 | sole-writer/idempotency/rollback/official completion 분리 receipt | `1~2주`, `C0~C5` 뒤 |
+
+의존관계는 다음과 같다.
+
+```text
+C0 ───────────────────────────────────────────────┐
+C1 actual P4 ──> C4 actual P5 ──┐                 │
+C2 actual Linear (C1과 병렬)     ├─> C5 shadow ──> C6 bounded canary
+C3 decision/NO_ACTION ledger ────┘                 │
+Owner의 별도 mutation 승인 ────────────────────────┘
+```
+
+- **현재 목표**는 `C0+C1+C2+C4`이며, 한 project·한 document·한 Linear workspace와
+  당일 Owner 승인·exact refs·credential availability를 가정하면 병렬 `1~2 작업주`, 순차
+  `2~3 작업주`다.
+- **안전한 shadow pilot**은 그 뒤 `C3+C5`로 추가 `2~4 작업주`다.
+- **첫 제한적 운영 canary**는 shadow 근거와 별도 승인을 받은 뒤 `C6`로 추가
+  `2~4 작업주`다.
+- 기간은 engineering estimate이며 일정 약속이 아니다. 외부 승인·계정·Drive/NAS 상태,
+  실제 자료 drift와 독립검토 대기는 포함하지 않는다. 다과제 완전자율 운영은 아직
+  결정되지 않은 writer·governance·품질 gate 때문에 `UNKNOWN`이다.
+
 ### 상태표 유지 지침
 
 1. collector·scheduler·binding·custody·timeline·context·TaskDriver 중 하나라도
