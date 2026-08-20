@@ -58,7 +58,7 @@ async function holdFor(mutate, behaviour = {}) {
   return { code: receipt.blocker_code, receipt, answerModel };
 }
 
-const composeWith = (sections) => ({ compose: () => sections });
+const composeWith = (response) => ({ compose: () => response });
 
 /** A duplicate descriptor with no object shared with its original: an alias is refused input. */
 const copyDescriptor = (descriptor) => ({
@@ -68,17 +68,40 @@ const copyDescriptor = (descriptor) => ({
   permissions: { ...descriptor.permissions },
 });
 
+test('the model selects bounded host statements instead of authoring answer prose', async () => {
+  const answerModel = fakeAnswerModel({
+    compose: (request) => ({
+      schema_version: 'soulforge.se_core_sourcebound_statement_selection.v0',
+      result: 'answer',
+      propositions: [{ statement_id: request.statements[0].statement_id, relation: 'direct' }],
+    }),
+  });
+  const run = await runSeCoreSourceboundAnswerLane(laneInput(), { answerModel });
+
+  assert.equal(run.receipt.result, 'PASS');
+  assert.deepEqual(Object.keys(answerModel.calls[0].request.statements[0]).sort(), [
+    'excerpt', 'statement_id',
+  ]);
+  assert.equal(run.answer.model_authored_prose_present, false);
+  assert.equal(run.answer.sections[0].text.endsWith(
+    answerModel.calls[0].request.statements[0].excerpt,
+  ), true);
+});
+
 test('an exact four-source Korean question renders a cited Korean structured answer', async () => {
   const answerModel = fakeAnswerModel();
   const run = await runSeCoreSourceboundAnswerLane(laneInput(), { answerModel });
   const { answer, receipt } = run;
 
   assert.equal(receipt.result, 'PASS');
+  assert.equal(receipt.schema_version, RECEIPT_SCHEMA_VERSION);
   assert.equal(receipt.lane_id, ANSWER_LANE_ID);
   assert.equal(receipt.lane_kind, 'evaluation_only_sourcebound_answer_lane');
   assert.equal(receipt.policy_revision, ANSWER_LANE_POLICY_REVISION);
   assert.equal(receipt.structural_limit, STRUCTURAL_LIMIT);
-  assert.equal(answer.language, 'ko');
+  assert.equal(answer.language, 'ko+source-original');
+  assert.equal(answer.model_authored_prose_present, false);
+  assert.equal(answer.rendering_mode, 'host_korean_labels_exact_source_excerpts');
   assert.equal(answer.claim_ceiling, 'observed');
   assert.equal(answer.candidate_disposition, 'external_advisory_candidate');
   assert.deepEqual(answer.authority_actions, []);
@@ -120,8 +143,25 @@ test('an exact four-source Korean question renders a cited Korean structured ans
     receipt.prompt_commitment.evidence_commitments.length,
     receipt.prompt_commitment.evidence_ids.length,
   );
-  assert.equal(receipt.output.uncited_section_count, 0);
+  assert.equal(
+    receipt.prompt_commitment.statement_commitments.length,
+    receipt.prompt_commitment.evidence_ids.length,
+  );
+  for (const commitment of receipt.prompt_commitment.statement_commitments) {
+    assert.deepEqual(Object.keys(commitment).sort(), [
+      'evidence_id', 'excerpt_byte_length', 'excerpt_sha256', 'statement_id',
+    ]);
+    assert.match(commitment.statement_id, /^S[1-9][0-9]*$/u);
+    assert.match(commitment.excerpt_sha256, /^[0-9a-f]{64}$/u);
+    assert.ok(commitment.excerpt_byte_length >= 1 && commitment.excerpt_byte_length <= 2700);
+    assert.equal(Object.hasOwn(commitment, 'excerpt'), false);
+  }
+  assert.equal(receipt.output.evidence_section_count, answer.sections.length);
+  assert.equal(receipt.output.uncited_evidence_section_count, 0);
   assert.equal(receipt.output.html_present, false);
+  assert.equal(receipt.output.model_authored_prose_present, false);
+  assert.equal(receipt.output.content_verification, 'exact_host_evidence_projection');
+  assert.equal(receipt.output.selection_correctness, 'unknown');
   assert.equal(canonicalSeCoreSourceboundAnswerJson(run).endsWith('\n'), true);
   assert.equal(receipt.output.answer_sha256, sha256(canonicalSeCoreSourceboundAnswerJson(run)));
 });
@@ -139,23 +179,90 @@ test('the same exact inputs render byte-identical answer and receipt commitments
   );
 });
 
-test('the model sees only the exact question, bounded evidence, and the closed policy', async () => {
+test('the model sees only the exact question, host excerpts, and the closed policy', async () => {
   const answerModel = fakeAnswerModel();
   await runSeCoreSourceboundAnswerLane(laneInput(), { answerModel });
   const { request } = answerModel.calls[0];
   assert.deepEqual(
     Object.keys(request).sort(),
-    ['evidence', 'instruction', 'language', 'output_schema', 'policy_revision', 'question_text'],
+    ['instruction', 'language', 'output_schema', 'policy_revision', 'question_text', 'statements'],
   );
   assert.equal(request.question_text, SYNTHETIC_QUESTION);
-  assert.ok(request.evidence.length >= 1 && request.evidence.length <= 6);
-  for (const capsule of request.evidence) {
-    assert.deepEqual(
-      Object.keys(capsule).sort(),
-      ['evidence_id', 'page_number', 'source_revision', 'source_title', 'text'],
-    );
+  assert.ok(request.statements.length >= 1 && request.statements.length <= 6);
+  for (const statement of request.statements) {
+    assert.deepEqual(Object.keys(statement).sort(), ['excerpt', 'statement_id']);
+    assert.equal(Object.getPrototypeOf(statement), Object.prototype);
+    assert.match(statement.statement_id, /^S[1-9][0-9]*$/u);
+    assert.equal(typeof statement.excerpt, 'string');
+    assert.equal(Object.isFrozen(statement), true);
   }
   assert.equal(Object.isFrozen(request), true);
+  assert.equal(Object.isFrozen(request.statements), true);
+  assert.equal(Object.isFrozen(request.output_schema), true);
+});
+
+// The citation metadata is the machine's, not the model's. The model sees exact source excerpts
+// under opaque ids; the host binds each selected id back to the title, revision, page, and byte
+// commitments it kept. Those separate metadata fields buy the selector nothing and stay outside
+// its request even when the exact source prose naturally mentions a title, revision, or page.
+test('no separate machine-owned citation metadata field reaches the model, and host binding is unchanged', async () => {
+  const answerModel = fakeAnswerModel();
+  const input = laneInput();
+  const run = await runSeCoreSourceboundAnswerLane(input, { answerModel });
+  const visible = JSON.stringify(answerModel.calls[0].request);
+  for (const source of input.corpus.sources) {
+    for (const owned of [
+      source.title, source.revision, source.source_id,
+      source.source_pdf_sha256, source.derived_text_sha256,
+    ]) {
+      assert.equal(visible.includes(owned), false, `${source.source_id}: ${owned.slice(0, 24)}`);
+    }
+  }
+  for (const key of [
+    'source_title', 'source_revision', 'page_number', 'source_id', 'title', 'revision',
+    'chunk_id', 'chunk_sha256', 'source_pdf_sha256', 'derived_text_sha256',
+  ]) {
+    assert.equal(visible.includes(`"${key}"`), false, key);
+  }
+
+  const byId = new Map(input.corpus.sources.map((source) => [source.source_id, source]));
+  const cited = new Map(run.answer.evidence.map((item) => [item.evidence_id, item]));
+  const commitments = new Map(run.receipt.prompt_commitment.evidence_commitments.map(
+    (commitment) => [commitment.evidence_id, commitment],
+  ));
+  let bound = 0;
+  for (const section of run.answer.sections) {
+    for (const citation of section.citations) {
+      const source = byId.get(citation.source_id);
+      assert.ok(source !== undefined, citation.evidence_id);
+      assert.equal(citation.title, source.title);
+      assert.equal(citation.revision, source.revision);
+      assert.equal(citation.page_number, commitments.get(citation.evidence_id).page_number);
+      assert.equal(cited.get(citation.evidence_id).source_pdf_sha256, source.source_pdf_sha256);
+      assert.equal(cited.get(citation.evidence_id).derived_text_sha256, source.derived_text_sha256);
+      bound += 1;
+    }
+  }
+  assert.ok(bound >= 1, 'the run must actually bind at least one citation');
+  assert.equal(run.answer.evidence.length <= run.receipt.output.retrieved_evidence_count, true,
+    'retrieved-but-uncited evidence is never auto-cited');
+});
+
+test('a host statement id is the only selection currency the model can spend', async () => {
+  for (const [label, propositions, code] of [
+    ['a foreign statement id', [{ statement_id: 'S99', relation: 'direct' }],
+      LANE_CODES.CITATION_UNBOUND],
+    ['a chunk id', [{ statement_id: 'syn_alpha_practice_guide_p1_c1', relation: 'direct' }],
+      LANE_CODES.CITATION_UNBOUND],
+    ['a repeated id', [
+      { statement_id: 'S1', relation: 'direct' },
+      { statement_id: 'S1', relation: 'support' },
+    ], LANE_CODES.CITATION_UNBOUND],
+    ['no id at all', [], LANE_CODES.MODEL_OUTPUT_INVALID],
+  ]) {
+    const refused = await holdFor(() => {}, composeWith(answerSelection(propositions)));
+    assert.equal(refused.code, code, label);
+  }
 });
 
 test('source-set ambiguity is refused: missing, extra, duplicate, and reordered members', async () => {
@@ -399,6 +506,91 @@ test('closed schemas, prototypes, accessors, sparse arrays, aliases, and cycles 
   assert.equal(notAnObject.answer, null);
 });
 
+test('proxy-backed inputs, adapters, and model responses are refused before traps can run', async () => {
+  const proxyOf = (target, trapCounter) => new Proxy(target, {
+    getPrototypeOf(value) { trapCounter.count += 1; return Reflect.getPrototypeOf(value); },
+    ownKeys(value) { trapCounter.count += 1; return Reflect.ownKeys(value); },
+    getOwnPropertyDescriptor(value, key) {
+      trapCounter.count += 1;
+      return Reflect.getOwnPropertyDescriptor(value, key);
+    },
+    apply(value, receiver, args) {
+      trapCounter.count += 1;
+      return Reflect.apply(value, receiver, args);
+    },
+  });
+
+  for (const [label, build] of [
+    ['root invocation', () => {
+      const counter = { count: 0 };
+      const answerModel = fakeAnswerModel();
+      return {
+        counter,
+        answerModel,
+        run: () => runSeCoreSourceboundAnswerLane(proxyOf(laneInput(), counter), { answerModel }),
+      };
+    }],
+    ['nested invocation value', () => {
+      const counter = { count: 0 };
+      const input = laneInput();
+      input.retrieval = proxyOf(input.retrieval, counter);
+      const answerModel = fakeAnswerModel();
+      return { counter, answerModel, run: () => runSeCoreSourceboundAnswerLane(input, { answerModel }) };
+    }],
+    ['model context', () => {
+      const counter = { count: 0 };
+      const answerModel = fakeAnswerModel();
+      return {
+        counter,
+        answerModel,
+        run: () => runSeCoreSourceboundAnswerLane(
+          laneInput(), proxyOf({ answerModel }, counter),
+        ),
+      };
+    }],
+    ['answer model', () => {
+      const counter = { count: 0 };
+      const answerModel = fakeAnswerModel();
+      return {
+        counter,
+        answerModel,
+        run: () => runSeCoreSourceboundAnswerLane(
+          laneInput(), { answerModel: proxyOf(answerModel, counter) },
+        ),
+      };
+    }],
+    ['adapter descriptor', () => {
+      const counter = { count: 0 };
+      const answerModel = fakeAnswerModel();
+      answerModel.descriptor = proxyOf(answerModel.descriptor, counter);
+      return { counter, answerModel, run: () => runSeCoreSourceboundAnswerLane(laneInput(), { answerModel }) };
+    }],
+    ['adapter function', () => {
+      const counter = { count: 0 };
+      const answerModel = fakeAnswerModel();
+      answerModel.composeAnswer = proxyOf(answerModel.composeAnswer, counter);
+      return { counter, answerModel, run: () => runSeCoreSourceboundAnswerLane(laneInput(), { answerModel }) };
+    }],
+  ]) {
+    const { counter, answerModel, run } = build();
+    const result = await run();
+    assert.equal(result.receipt.result, 'HOLD', label);
+    assert.equal(result.receipt.model.invocation_count, 0, label);
+    assert.equal(composeCalls(answerModel), 0, label);
+    assert.equal(counter.count, 0, `${label}: no proxy trap may run`);
+  }
+
+  const responseCounter = { count: 0 };
+  const proxiedResponse = proxyOf(answerSelection(), responseCounter);
+  const responseModel = fakeAnswerModel({ compose: () => proxiedResponse });
+  const responseRun = await runSeCoreSourceboundAnswerLane(laneInput(), {
+    answerModel: responseModel,
+  });
+  assert.equal(responseRun.receipt.blocker_code, LANE_CODES.MODEL_OUTPUT_INVALID);
+  assert.equal(responseRun.receipt.model.answer_invocation_count, 1);
+  assert.equal(responseCounter.count, 0, 'model response proxy traps never run');
+});
+
 test('a canonical own __proto__ data property is a plain key, not a prototype write', async () => {
   const injected = JSON.parse(
     '{"__proto__":{"polluted":true},"evaluation_only":true,"point_in_time":"2026-08-13",'
@@ -525,9 +717,9 @@ test('a real-format metadata preamble is accepted and never indexed as evidence'
       (commitment) => [commitment.chunk_id, commitment.page_number, commitment.chunk_sha256],
     ),
   );
-  for (const capsule of answerModel.calls[0].request.evidence) {
-    assert.equal(capsule.text.includes(SYNTHETIC_EXTRACTION), false);
-    assert.equal(/source_pdf_sha256|page_count/u.test(capsule.text), false);
+  for (const statement of answerModel.calls[0].request.statements) {
+    assert.equal(statement.excerpt.includes(SYNTHETIC_EXTRACTION), false);
+    assert.equal(/source_pdf_sha256|page_count/u.test(statement.excerpt), false);
   }
   const receiptJson = canonicalSeCoreSourceboundReceiptJson(run);
   assert.equal(receiptJson.includes(SYNTHETIC_EXTRACTION), false);
@@ -647,7 +839,7 @@ test('retrieval budgets stay bounded and every source is searched', async () => 
   assert.equal(receipt.retrieval.per_source.length, 4);
   assert.ok(receipt.retrieval.selected_count <= 3);
   assert.ok(receipt.retrieval.per_source.every((entry) => entry.selected_count <= 1));
-  assert.equal(receipt.output.selected_evidence_count, receipt.retrieval.selected_count);
+  assert.equal(receipt.output.retrieved_evidence_count, receipt.retrieval.selected_count);
   assert.ok(receipt.retrieval.searched_chunk_count >= receipt.retrieval.hit_count);
 
   const unbounded = await holdFor((request) => {
@@ -746,126 +938,61 @@ test('a malformed or overreaching query expansion is rejected', async () => {
   assert.equal(unboundedBudget.code, LANE_CODES.QUERY_EXPANSION_REFUSED);
 });
 
-test('foreign, unknown, repeated, and absent citations are all refused', async () => {
-  const foreign = await holdFor(() => {}, composeWith({
-    sections: [{ heading: '판단', text: '검증 기준이 필요합니다.', evidence_ids: ['E99'] }],
-  }));
-  assert.equal(foreign.code, LANE_CODES.CITATION_UNBOUND);
-
-  const external = await holdFor(() => {}, composeWith({
-    sections: [{ heading: '판단', text: '검증 기준이 필요합니다.', evidence_ids: ['NASA_SP_p12'] }],
-  }));
-  assert.equal(external.code, LANE_CODES.CITATION_UNBOUND);
-
-  const uncited = await holdFor(() => {}, composeWith({
-    sections: [{ heading: '판단', text: '검증 기준이 필요합니다.', evidence_ids: [] }],
-  }));
-  assert.equal(uncited.code, LANE_CODES.CITATION_UNBOUND);
-
-  const partiallyCited = await holdFor(() => {}, composeWith({
-    sections: [
-      { heading: '판단', text: '검증 기준이 필요합니다.', evidence_ids: ['E1'] },
-      { heading: '보충', text: '추가 설명입니다.', evidence_ids: [] },
-    ],
-  }));
-  assert.equal(partiallyCited.code, LANE_CODES.CITATION_UNBOUND);
-
-  const repeated = await holdFor(() => {}, composeWith({
-    sections: [{ heading: '판단', text: '검증 기준이 필요합니다.', evidence_ids: ['E1', 'E1'] }],
-  }));
-  assert.equal(repeated.code, LANE_CODES.CITATION_UNBOUND);
-});
-
-test('the model cannot add a source, an authority field, or any extra key', async () => {
-  const addedSource = await holdFor(() => {}, composeWith({
-    sections: [{ heading: '판단', text: '검증 기준이 필요합니다.', evidence_ids: ['E1'] }],
-    sources: [{ title: 'Invented Handbook', revision: 'rev 9' }],
-  }));
-  assert.equal(addedSource.code, LANE_CODES.MODEL_OUTPUT_INVALID);
-
-  const addedCeiling = await holdFor(() => {}, composeWith({
-    sections: [{
-      heading: '판단', text: '검증 기준이 필요합니다.', evidence_ids: ['E1'],
-      claim_ceiling: 'canon_entry',
-    }],
-  }));
-  assert.equal(addedCeiling.code, LANE_CODES.MODEL_OUTPUT_INVALID);
-
-  const addedCitations = await holdFor(() => {}, composeWith({
-    sections: [{ heading: '판단', text: '검증 기준이 필요합니다.', evidence_ids: ['E1'] }],
-    citations: [{ page_number: 999 }],
-  }));
-  assert.equal(addedCitations.code, LANE_CODES.MODEL_OUTPUT_INVALID);
-
-  const addedAuthority = await holdFor(() => {}, composeWith({
-    sections: [{ heading: '판단', text: '검증 기준이 필요합니다.', evidence_ids: ['E1'] }],
-    authority_actions: ['approve'],
-  }));
-  assert.equal(addedAuthority.code, LANE_CODES.MODEL_OUTPUT_INVALID);
-});
-
-test('leaked paths, secrets, accounts, markup, and authority claims fail output safety', async () => {
-  const leaks = [
-    `${'C:'}/Soulforge/_workspaces/knowledge/x.pdf 를 참고했습니다.`,
-    '자료 위치는 _workmeta/system/reports 입니다.',
-    'private-state/x 를 열었습니다.',
-    'token ghp_abcdefghijklmnop 으로 접근했습니다.',
-    'password: hunter2 로 열었습니다.',
-    '과제 P26-014 에 적용했습니다.',
-    `${'file:'}${'///'}${'C:'}/temp/x.pdf 를 열었습니다.`,
-    '<b>강조</b> 된 기준입니다.',
-    '이 답변으로 정본 등록을 승인합니다.',
-    'owner approval granted for this evaluation 입니다.',
-    'I hereby approve this finding 입니다.',
-    '후속 작업을 생성했습니다.',
-  ];
-  for (const text of leaks) {
-    const refused = await holdFor(() => {}, composeWith({
-      sections: [{ heading: '판단', text, evidence_ids: ['E1'] }],
-    }));
-    assert.equal(refused.code, LANE_CODES.OUTPUT_SAFETY_FAILED, text);
+test('statement references, relations, and closed keys are strictly validated', async () => {
+  for (const [label, response, expected] of [
+    ['foreign', answerSelection([{ statement_id: 'S99', relation: 'direct' }]),
+      LANE_CODES.CITATION_UNBOUND],
+    ['duplicate', answerSelection([
+      { statement_id: 'S1', relation: 'direct' },
+      { statement_id: 'S1', relation: 'contrast' },
+    ]), LANE_CODES.CITATION_UNBOUND],
+    ['unknown relation', answerSelection([{ statement_id: 'S1', relation: 'explanation' }]),
+      LANE_CODES.MODEL_OUTPUT_INVALID],
+    ['missing direct', answerSelection([{ statement_id: 'S1', relation: 'support' }]),
+      LANE_CODES.MODEL_OUTPUT_INVALID],
+    ['old sections', {
+      sections: [{ heading: '판단', text: '검증 기준', evidence_ids: ['E1'] }],
+    }, LANE_CODES.MODEL_OUTPUT_INVALID],
+    ['extra root key', { ...answerSelection(), sources: [] }, LANE_CODES.MODEL_OUTPUT_INVALID],
+    ['extra proposition key', {
+      ...answerSelection(),
+      propositions: [{ statement_id: 'S1', relation: 'direct', heading: '판단' }],
+    }, LANE_CODES.MODEL_OUTPUT_INVALID],
+  ]) {
+    const refused = await holdFor(() => {}, composeWith(response));
+    assert.equal(refused.code, expected, label);
   }
-  const markupHeading = await holdFor(() => {}, composeWith({
-    sections: [{ heading: '<h1>판단</h1>', text: '검증 기준입니다.', evidence_ids: ['E1'] }],
-  }));
-  assert.equal(markupHeading.code, LANE_CODES.OUTPUT_SAFETY_FAILED);
 });
 
-test('a URL is a source this lane never retrieved, so it fails output safety', async () => {
-  for (const text of [
-    '자세한 내용은 https://example.org/se-handbook 에서 확인할 수 있습니다.',
-    '출처: http://127.0.0.1:8080/doc 입니다.',
-    'ftp://files.example.org/spec.pdf 에서 내려받은 기준입니다.',
-    '참고 자료는 www.example.org 입니다.',
+test('provider prose, URLs, paths, markup, and authority sentences have no output field', async () => {
+  for (const prose of [
+    '<b>강조</b>',
+    'https://example.org/source',
+    `${'C:'}/private/source.txt`,
+    'This answer is owner approved.',
+    '이 답변을 정본으로 등록하십시오.',
   ]) {
     const refused = await holdFor(() => {}, composeWith({
-      sections: [{ heading: '판단', text, evidence_ids: ['E1'] }],
+      ...answerSelection(),
+      prose,
     }));
-    assert.equal(refused.code, LANE_CODES.OUTPUT_SAFETY_FAILED, text);
+    assert.equal(
+      [LANE_CODES.MODEL_OUTPUT_INVALID, LANE_CODES.OUTPUT_SAFETY_FAILED]
+        .includes(refused.code),
+      true,
+      prose,
+    );
+    assert.equal(
+      canonicalSeCoreSourceboundReceiptJson({ receipt: refused.receipt }).includes(prose),
+      false,
+    );
   }
-  const urlHeading = await holdFor(() => {}, composeWith({
-    sections: [{ heading: 'https://example.org 요약', text: '검증 기준입니다.', evidence_ids: ['E1'] }],
-  }));
-  assert.equal(urlHeading.code, LANE_CODES.OUTPUT_SAFETY_FAILED);
 
   const urlTerm = await holdFor((input) => {
     input.queryExpansion = { requested: true, max_terms: 6 };
   }, { expand: () => ({ terms: ['https://example.org/handbook'] }) });
   assert.equal(urlTerm.code, LANE_CODES.QUERY_EXPANSION_REFUSED);
-
-  // Prose that merely contains a colon, a slash, or a hyphenated Latin term is not a URL.
-  const plainProse = await runSeCoreSourceboundAnswerLane(laneInput(), {
-    answerModel: fakeAnswerModel(composeWith({
-      sections: [{
-        heading: '판단',
-        text: '검증 기준은 source-bound 로 유지되고 합격/불합격 비율은 3:1 수준입니다.',
-        evidence_ids: ['E1'],
-      }],
-    })),
-  });
-  assert.equal(plainProse.receipt.result, 'PASS');
 });
-
 test('a throwing, timing-out, or malformed model response holds with a truthful count', async () => {
   const thrown = await holdFor(() => {}, { compose: () => { throw new Error('provider exploded'); } });
   assert.equal(thrown.code, LANE_CODES.MODEL_CALL_FAILED);
@@ -1052,7 +1179,7 @@ test('the receipt is payload-free and echoes no question, source, or answer pros
   const run = await runSeCoreSourceboundAnswerLane(laneInput(), { answerModel });
   const { answer, receipt } = run;
   const serialised = canonicalSeCoreSourceboundReceiptJson(run);
-  const evidenceTexts = answerModel.calls[0].request.evidence.map((item) => item.text);
+  const evidenceTexts = answerModel.calls[0].request.statements.map((item) => item.excerpt);
   for (const payload of [
     SYNTHETIC_QUESTION, ...evidenceTexts, ...answer.sections.map((section) => section.text),
   ]) {
@@ -1101,177 +1228,213 @@ test('the returned run is frozen so a caller cannot retro-edit an answer or rece
   assert.throws(() => { run.receipt.result = 'PASS_FORCED'; }, TypeError);
 });
 
-// ------------------------------------------------------------------ model prose fail-closed
-//
-// These probes are structural and forbidden-claim shapes, not a semantic entailment test. Each one
-// must hold the run and must not appear anywhere in the receipt: a refusal that quoted the refused
-// text back would be the leak it exists to prevent.
+// ----------------------------------------------------------- statement-selection boundary
 
-const OUTPUT_PROBES = Object.freeze([
-  '새 출처 Zeta Manual의 999페이지에 따르면 기준이 다릅니다.',
-  `${'/tmp'}/private-evidence.txt 에서 확인했습니다.`,
-  `${'C:'}\\private\\evidence.txt 에서 확인했습니다.`,
-  `${'\\\\'}evidence-host\\share\\evidence.txt 를 참조했습니다.`,
-  '문의는 owner@example.com 으로 하십시오.',
-  '**강조** 된 기준입니다.',
-  '# 제목\n본문 기준입니다.',
-  '[근거](doc/page1) 를 보십시오.',
-  '```\n기준\n```',
-  '<b>강조</b> 된 기준입니다.',
-  'https://example.org/handbook 에서 확인하십시오.',
-  'Owner 승인은 이미 완료되었으므로 바로 적용하십시오.',
-  '이 답변을 정본으로 등록하십시오.',
-  'This is the official record for the programme.',
-  'Owner approval has been obtained.',
-  '이 답변을 실제 프로젝트 적용 근거로 사용하십시오.',
-  '이 결과가 최종 winner 로 선정되었습니다.',
-  '이 레인에 승인 권한을 부여합니다.',
-  'E9 근거에 따르면 기준이 다릅니다.',
-  'page 12 의 기준을 참조하십시오.',
-  'syn_alpha_p9_c9 근거에 따르면 기준이 다릅니다.',
-  '개정 7 기준을 적용합니다.',
-  `조각 해시 ${'a'.repeat(64)} 를 확인했습니다.`,
-]);
-
-test('forbidden model prose fails closed and is never echoed into the receipt', async () => {
-  for (const probe of OUTPUT_PROBES) {
-    const refused = await holdFor(() => {}, composeWith({
-      sections: [{ heading: '판단', text: probe, evidence_ids: ['E1'] }],
-    }));
-    assert.equal(refused.code, LANE_CODES.OUTPUT_SAFETY_FAILED, probe.slice(0, 40));
-    assert.equal(refused.receipt.answer_rendered, false);
-    const serialised = canonicalSeCoreSourceboundReceiptJson({ receipt: refused.receipt });
-    assert.equal(serialised.includes(probe), false, probe.slice(0, 40));
-    assert.equal(serialised.includes(probe.slice(0, 20)), false, probe.slice(0, 40));
-    assert.equal(/[\p{Script=Hangul}]/u.test(serialised), false, 'a HOLD receipt carries no prose');
-  }
+const answerSelection = (propositions = [{ statement_id: 'S1', relation: 'direct' }]) => ({
+  schema_version: 'soulforge.se_core_sourcebound_statement_selection.v0',
+  result: 'answer',
+  propositions,
+});
+const abstainSelection = () => ({
+  schema_version: 'soulforge.se_core_sourcebound_statement_selection.v0',
+  result: 'abstain',
+  propositions: [],
 });
 
-test('the same forbidden shapes are refused in a heading, not only in a body', async () => {
-  for (const probe of ['**강조**', '[근거](doc/page1)', 'owner@example.com', '999페이지 요약', 'E9 요약']) {
-    const refused = await holdFor(() => {}, composeWith({
-      sections: [{ heading: probe, text: '검증 기준입니다.', evidence_ids: ['E1'] }],
-    }));
-    assert.equal(refused.code, LANE_CODES.OUTPUT_SAFETY_FAILED, probe);
-  }
-});
-
-// ------------------------------------------------------------------ output-safety reason seam
-//
-// `OUTPUT_SAFETY_FAILED` says a run was refused; on its own it never said which check refused it,
-// so markup, a URL, a leaked path, a fabricated citation identifier, and a self-attributed
-// authority claim were one opaque hold. These probes pin the family token each path attaches — and
-// pin just as hard that a token is *all* it attaches.
-
-const REASON_FAMILY_PROBES = Object.freeze([
-  ['markdown emphasis', '**강조** 된 기준입니다.', OUTPUT_SAFETY_REASONS.MARKUP],
-  ['html', '<b>강조</b> 된 기준입니다.', OUTPUT_SAFETY_REASONS.MARKUP],
-  ['code fence', '```\n기준\n```', OUTPUT_SAFETY_REASONS.MARKUP],
-  ['link', '[근거](doc/page1) 를 보십시오.', OUTPUT_SAFETY_REASONS.MARKUP],
-  ['url', 'https://example.org/handbook 에서 확인하십시오.', OUTPUT_SAFETY_REASONS.URL],
-  ['bare host', '참고 자료는 www.example.org 입니다.', OUTPUT_SAFETY_REASONS.URL],
-  ['email', '문의는 owner@example.com 으로 하십시오.', OUTPUT_SAFETY_REASONS.SENSITIVE_PATTERN],
-  ['posix path', `${'/tmp'}/private-evidence.txt 에서 확인했습니다.`,
-    OUTPUT_SAFETY_REASONS.SENSITIVE_PATTERN],
-  ['private plane', '자료 위치는 _workmeta/system/reports 입니다.',
-    OUTPUT_SAFETY_REASONS.SENSITIVE_PATTERN],
-  ['project code', '과제 P26-014 에 적용했습니다.', OUTPUT_SAFETY_REASONS.SENSITIVE_PATTERN],
-  ['evidence id', 'E9 근거에 따르면 기준이 다릅니다.', OUTPUT_SAFETY_REASONS.CITATION_IDENTIFIER],
-  ['page number', 'page 12 의 기준을 참조하십시오.', OUTPUT_SAFETY_REASONS.CITATION_IDENTIFIER],
-  ['chunk id', 'syn_alpha_p9_c9 근거에 따르면 기준이 다릅니다.',
-    OUTPUT_SAFETY_REASONS.CITATION_IDENTIFIER],
-  ['approval claim', 'Owner approval has been obtained.', OUTPUT_SAFETY_REASONS.AUTHORITY_CLAIM],
-  ['canon claim', '이 답변을 정본으로 등록하십시오.', OUTPUT_SAFETY_REASONS.AUTHORITY_CLAIM],
-]);
-
-test('the output-safety reason vocabulary is one closed payload-free set', () => {
-  assert.deepEqual(Object.values(OUTPUT_SAFETY_REASONS), [
-    'markup_detected',
-    'url_detected',
-    'sensitive_pattern_detected',
-    'citation_identifier_in_prose',
-    'authority_claim_pattern',
-    'model_payload_field_forbidden',
-    'answer_canonicalisation_failed',
-    'rendered_answer_scan_failed',
-    'unspecified_internal',
-  ]);
-  // Naming the reason changed the lane receipt's shape, so the receipt schema is v1: the shape is
-  // result-discriminated, with the key present exactly on an output-safety HOLD. The lane
-  // *policy* — the instruction, the output schema, and every acceptance rule the model is held to —
-  // is byte-identical, and it salts the prompt, adapter, and expansion commitments, so bumping it
-  // would claim a change to material that did not change.
-  assert.equal(RECEIPT_SCHEMA_VERSION, 'soulforge.se_core_sourcebound_answer_receipt.v1');
-  assert.equal(ANSWER_LANE_POLICY_REVISION, 'soulforge.se_core_sourcebound_answer_lane.v0');
-});
-
-test('each output-safety family attaches exactly one closed reason token', async () => {
-  for (const [label, text, expected] of REASON_FAMILY_PROBES) {
-    const refused = await holdFor(() => {}, composeWith({
-      sections: [{ heading: '판단', text, evidence_ids: ['E1'] }],
-    }));
-    assert.equal(refused.code, LANE_CODES.OUTPUT_SAFETY_FAILED, label);
-    assert.equal(refused.receipt.output_safety_reason, expected, label);
-  }
-  // The same families are refused from a heading, and name the same reason there.
-  for (const [label, text, expected] of REASON_FAMILY_PROBES.filter(
-    ([, probe]) => !probe.includes('\n'),
-  )) {
-    const refused = await holdFor(() => {}, composeWith({
-      sections: [{ heading: text, text: '검증 기준입니다.', evidence_ids: ['E1'] }],
-    }));
-    assert.equal(refused.code, LANE_CODES.OUTPUT_SAFETY_FAILED, label);
-    assert.equal(refused.receipt.output_safety_reason, expected, label);
-  }
-});
-
-test('a forbidden field family arriving from the model is its own output-safety reason', async () => {
-  const refused = await holdFor(() => {}, {
-    compose: (request) => ({
-      sections: [{
-        heading: '판단',
-        text: '검증 기준이 필요합니다.',
-        evidence_ids: [request.evidence[0].evidence_id],
-      }],
-      api_key: 'a value this lane never reads and never echoes',
-    }),
-  });
-  assert.equal(refused.code, LANE_CODES.OUTPUT_SAFETY_FAILED);
-  assert.equal(refused.receipt.output_safety_reason, OUTPUT_SAFETY_REASONS.MODEL_PAYLOAD_FIELD);
-});
-
-test('the rendered-answer scan and its canonicalisation are two distinct reasons', async () => {
-  // A source title is operator-curated metadata that no block filter ever sees, so a URL there
-  // reaches the whole-answer scan rather than a model block.
-  const scanned = await holdFor((input) => {
-    for (const source of [...input.corpus.sources, ...input.corpus.sourceSetContract.sources]) {
-      source.title = `${source.title} https://example.org`;
-    }
-    input.corpus.expectedSourceSetSha256 = seCoreSourceSetContractSha256(
-      input.corpus.sourceSetContract,
+test('old prose sections and every model-authored prose slot are unrepresentable', async () => {
+  const cases = [
+    {
+      response: {
+        sections: [{ heading: '판단', text: '모델 문장', evidence_ids: ['E1'] }],
+      },
+      code: LANE_CODES.MODEL_OUTPUT_INVALID,
+    },
+    {
+      response: { ...answerSelection(), prose: '모델 문장' },
+      code: LANE_CODES.MODEL_OUTPUT_INVALID,
+    },
+    {
+      response: {
+        ...answerSelection(),
+        propositions: [{ statement_id: 'S1', relation: 'direct', text: '모델 문장' }],
+      },
+      code: LANE_CODES.MODEL_OUTPUT_INVALID,
+    },
+    {
+      response: answerSelection([{ statement_id: 'S1', relation: '모델 문장' }]),
+      code: LANE_CODES.MODEL_OUTPUT_INVALID,
+    },
+  ];
+  for (const { response, code } of cases) {
+    const refused = await holdFor(() => {}, composeWith(response));
+    assert.equal(refused.code, code);
+    assert.equal(
+      canonicalSeCoreSourceboundReceiptJson({ receipt: refused.receipt }).includes('모델 문장'),
+      false,
     );
-  });
-  assert.equal(scanned.code, LANE_CODES.OUTPUT_SAFETY_FAILED);
-  assert.equal(scanned.receipt.output_safety_reason, OUTPUT_SAFETY_REASONS.RENDERED_ANSWER_SCAN);
+  }
+});
 
-  // A heading the canonical kernel refuses as a malformed instant passes every block filter and
-  // then fails serialisation, which is a different failure from a scan that found something.
-  const uncanonical = await holdFor(() => {}, {
-    compose: (request) => ({
-      sections: [{
-        heading: '2026-08-13Trev',
-        text: '검증 기준이 필요합니다.',
-        evidence_ids: [request.evidence[0].evidence_id],
-      }],
-    }),
-  });
-  assert.equal(uncanonical.code, LANE_CODES.OUTPUT_SAFETY_FAILED);
+test('answer and abstain invariants are closed and fail without retry', async () => {
+  for (const [label, response, expected] of [
+    ['unknown statement', answerSelection([{ statement_id: 'S99', relation: 'direct' }]),
+      LANE_CODES.CITATION_UNBOUND],
+    ['duplicate statement', answerSelection([
+      { statement_id: 'S1', relation: 'direct' },
+      { statement_id: 'S1', relation: 'support' },
+    ]), LANE_CODES.CITATION_UNBOUND],
+    ['no direct relation', answerSelection([{ statement_id: 'S1', relation: 'support' }]),
+      LANE_CODES.MODEL_OUTPUT_INVALID],
+    ['empty answer', answerSelection([]), LANE_CODES.MODEL_OUTPUT_INVALID],
+    ['nonempty abstain', {
+      ...abstainSelection(),
+      propositions: [{ statement_id: 'S1', relation: 'direct' }],
+    }, LANE_CODES.MODEL_OUTPUT_INVALID],
+    ['wrong schema version', {
+      ...answerSelection(),
+      schema_version: 'soulforge.se_core_sourcebound_statement_selection.v999',
+    }, LANE_CODES.MODEL_OUTPUT_INVALID],
+    ['extra root key', { ...answerSelection(), explanation: 'x' },
+      LANE_CODES.MODEL_OUTPUT_INVALID],
+    ['extra proposition key', {
+      ...answerSelection(),
+      propositions: [{ statement_id: 'S1', relation: 'direct', extra: 'x' }],
+    }, LANE_CODES.MODEL_OUTPUT_INVALID],
+  ]) {
+    const refused = await holdFor(() => {}, composeWith(response));
+    assert.equal(refused.code, expected, label);
+    assert.equal(refused.receipt.model.answer_invocation_count, 1, label);
+    assert.equal(refused.receipt.model.invocation_count, 1, label);
+  }
+
+  const answerModel = fakeAnswerModel({ compose: () => abstainSelection() });
+  const abstained = await runSeCoreSourceboundAnswerLane(laneInput(), { answerModel });
+  assert.equal(abstained.receipt.result, 'PASS');
+  assert.equal(composeCalls(answerModel), 1);
+  assert.equal(abstained.answer.result, 'abstain');
+  assert.deepEqual(abstained.answer.sections, [{
+    relation: 'abstain',
+    heading: '답변 보류',
+    text: '모델이 직접 관련 근거를 선택하지 않아 답변을 보류합니다.',
+    citations: [],
+  }]);
+  assert.deepEqual(abstained.answer.evidence, []);
+  assert.equal(abstained.receipt.output.selected_statement_count, 0);
   assert.equal(
-    uncanonical.receipt.output_safety_reason, OUTPUT_SAFETY_REASONS.ANSWER_CANONICALISATION,
+    abstained.receipt.output.retrieved_evidence_count,
+    abstained.receipt.retrieval.selected_count,
+  );
+  assert.equal(abstained.receipt.output.cited_evidence_count, 0);
+  assert.equal(abstained.receipt.output.evidence_section_count, 0);
+  assert.equal(abstained.receipt.output.uncited_evidence_section_count, 0);
+});
+
+test('host rendering binds every relation to one fixed Korean label and one exact chunk', async () => {
+  const answerModel = fakeAnswerModel({
+    compose: (request) => answerSelection([
+      { statement_id: request.statements[0].statement_id, relation: 'direct' },
+      { statement_id: request.statements[1].statement_id, relation: 'support' },
+      { statement_id: request.statements[2].statement_id, relation: 'qualification' },
+      { statement_id: request.statements[3].statement_id, relation: 'contrast' },
+    ]),
+  });
+  const run = await runSeCoreSourceboundAnswerLane(laneInput(), { answerModel });
+  assert.equal(run.receipt.result, 'PASS');
+  const request = answerModel.calls[0].request;
+  const expected = [
+    ['direct', '직접 근거', '모델이 직접 관련 근거로 선택한 원문: '],
+    ['support', '보조 근거', '모델이 보조 근거로 선택한 원문: '],
+    ['qualification', '조건·제약 근거', '모델이 조건 또는 제약 근거로 선택한 원문: '],
+    ['contrast', '대조 근거', '모델이 대조 근거로 선택한 원문: '],
+  ];
+  for (let index = 0; index < expected.length; index += 1) {
+    const [relation, heading, prefix] = expected[index];
+    const section = run.answer.sections[index];
+    assert.equal(section.relation, relation);
+    assert.equal(section.heading, heading);
+    assert.equal(section.text, `${prefix}${request.statements[index].excerpt}`);
+    assert.equal(section.citations.length, 1);
+  }
+  assert.equal(run.answer.result, 'answer');
+  assert.equal(run.answer.rendering_mode, 'host_korean_labels_exact_source_excerpts');
+  assert.equal(
+    run.answer.model_output_contract,
+    'soulforge.se_core_sourcebound_statement_selection.v0',
+  );
+  assert.equal(run.answer.model_authored_prose_present, false);
+  assert.equal(run.answer.language, 'ko+source-original');
+  assert.deepEqual(run.answer.authority_actions, []);
+});
+
+test('authority words in a selected source excerpt remain attributed host evidence', async () => {
+  const input = laneInput('official owner approval production evidence');
+  const sourceText = 'The source says this result is official and owner approved for production use.';
+  repinDerivedText(input, 0, singlePageDerivedText(sourceText));
+  const answerModel = fakeAnswerModel({
+    compose: (request) => {
+      const selected = request.statements.find((statement) => statement.excerpt === sourceText);
+      return answerSelection([{ statement_id: selected.statement_id, relation: 'direct' }]);
+    },
+  });
+  const run = await runSeCoreSourceboundAnswerLane(input, { answerModel });
+  assert.equal(run.receipt.result, 'PASS', run.receipt.blocker_code);
+  assert.equal(
+    run.answer.sections[0].text,
+    `모델이 직접 관련 근거로 선택한 원문: ${sourceText}`,
+  );
+  assert.equal(run.answer.sections[0].citations.length, 1);
+  assert.equal(run.answer.model_authored_prose_present, false);
+  assert.equal(Object.hasOwn(run.receipt, 'output_safety_reason'), false);
+});
+
+test('a forbidden payload field from the model keeps its closed no-echo safety reason', async () => {
+  const probe = 'provider prose that must not escape';
+  const response = { ...answerSelection(), completion: probe };
+  const refused = await holdFor(() => {}, composeWith(response));
+  assert.equal(refused.code, LANE_CODES.OUTPUT_SAFETY_FAILED);
+  assert.equal(
+    refused.receipt.output_safety_reason,
+    OUTPUT_SAFETY_REASONS.MODEL_PAYLOAD_FIELD,
+  );
+  const serialised = canonicalSeCoreSourceboundReceiptJson({ receipt: refused.receipt });
+  assert.equal(serialised.includes(probe), false);
+});
+
+test('the final canonical safety scan still refuses a selected unsafe source chunk', async () => {
+  const input = laneInput('verification evidence location');
+  const sourceText = 'Verification evidence location is https://example.org/private-record.';
+  repinDerivedText(input, 0, singlePageDerivedText(sourceText));
+  const answerModel = fakeAnswerModel({
+    compose: (request) => {
+      const selected = request.statements.find((statement) => statement.excerpt === sourceText);
+      return answerSelection([{ statement_id: selected.statement_id, relation: 'direct' }]);
+    },
+  });
+  const run = await runSeCoreSourceboundAnswerLane(input, { answerModel });
+  assert.equal(run.answer, null);
+  assert.equal(run.receipt.result, 'HOLD');
+  assert.equal(run.receipt.blocker_code, LANE_CODES.OUTPUT_SAFETY_FAILED);
+  assert.equal(
+    run.receipt.output_safety_reason,
+    OUTPUT_SAFETY_REASONS.RENDERED_ANSWER_SCAN,
+  );
+  assert.equal(run.receipt.model.invocation_count, 1);
+  assert.equal(
+    canonicalSeCoreSourceboundReceiptJson(run).includes(sourceText),
+    false,
   );
 });
 
-test('a hold that is not an output-safety refusal, and a pass, carry no reason key', async () => {
+test('the authority-claim reason is reserved and unreachable from selection output', async () => {
+  assert.equal(OUTPUT_SAFETY_REASONS.AUTHORITY_CLAIM, 'authority_claim_pattern');
+  const run = await runSeCoreSourceboundAnswerLane(laneInput(), {
+    answerModel: fakeAnswerModel(),
+  });
+  assert.equal(run.receipt.result, 'PASS');
+  assert.equal(Object.hasOwn(run.receipt, 'output_safety_reason'), false);
+  assert.equal(run.answer.model_authored_prose_present, false);
+});
+test('non-output-safety holds and passes carry no output-safety reason', async () => {
   const passed = await runSeCoreSourceboundAnswerLane(laneInput(), {
     answerModel: fakeAnswerModel(),
   });
@@ -1282,19 +1445,11 @@ test('a hold that is not an output-safety refusal, and a pass, carry no reason k
     ['input', () => holdFor((input) => { delete input.scope; })],
     ['scope', () => holdFor((input) => { input.scope.authority_to_approve = true; })],
     ['question pin', () => holdFor((input) => { input.expectedQuestionBytes += 1; })],
-    ['source set pin', () => holdFor((input) => {
-      input.corpus.expectedSourceSetSha256 = sha256('another source set entirely');
-    })],
-    // The same forbidden-string scan that names `sensitive_pattern_detected` on the way *out* is
-    // not an output-safety refusal on the way *in*, and the receipt must carry no reason for it.
-    ['forbidden participant input', () => holdFor((input) => {
-      input.corpus.sourceSetContract.sources[0].title = 'guide owner@example.com';
-    })],
     ['model call', () => holdFor(() => {}, { compose: () => { throw new Error('provider'); } })],
     ['model output', () => holdFor(() => {}, { compose: () => ({ sections: [] }) })],
-    ['citation binding', () => holdFor(() => {}, composeWith({
-      sections: [{ heading: '판단', text: '검증 기준입니다.', evidence_ids: ['E4096'] }],
-    }))],
+    ['citation binding', () => holdFor(() => {}, composeWith(
+      answerSelection([{ statement_id: 'S99', relation: 'direct' }]),
+    ))],
   ];
   for (const [label, run] of holds) {
     const held = await run();
@@ -1303,131 +1458,64 @@ test('a hold that is not an output-safety refusal, and a pass, carry no reason k
   }
 });
 
-test('an output-safety reason cannot be injected by a caller or by the model', async () => {
+test('output-safety reason cannot be injected and cannot survive between runs', async () => {
   const injectedInput = await holdFor((input) => {
     input.output_safety_reason = OUTPUT_SAFETY_REASONS.MARKUP;
   });
   assert.equal(injectedInput.code, LANE_CODES.INPUT_INVALID);
   assert.equal(Object.hasOwn(injectedInput.receipt, 'output_safety_reason'), false);
 
-  const injectedResponse = await holdFor(() => {}, {
-    compose: (request) => ({
-      sections: [{
-        heading: '판단',
-        text: '검증 기준입니다.',
-        evidence_ids: [request.evidence[0].evidence_id],
-      }],
-      output_safety_reason: OUTPUT_SAFETY_REASONS.URL,
-    }),
-  });
+  const injectedResponse = await holdFor(() => {}, composeWith({
+    ...answerSelection(),
+    output_safety_reason: OUTPUT_SAFETY_REASONS.URL,
+  }));
   assert.equal(injectedResponse.code, LANE_CODES.MODEL_OUTPUT_INVALID);
   assert.equal(Object.hasOwn(injectedResponse.receipt, 'output_safety_reason'), false);
 
-  const injectedSection = await holdFor(() => {}, composeWith({
-    sections: [{
-      heading: '판단',
-      text: '검증 기준입니다.',
-      evidence_ids: ['E1'],
-      output_safety_reason: OUTPUT_SAFETY_REASONS.AUTHORITY_CLAIM,
-    }],
-  }));
-  assert.equal(injectedSection.code, LANE_CODES.MODEL_OUTPUT_INVALID);
-  assert.equal(Object.hasOwn(injectedSection.receipt, 'output_safety_reason'), false);
-
-  // Every adapter throw becomes one MODEL_CALL_FAILED, so an adapter that throws this lane's own
-  // error type, with this lane's own output-safety code and a legal token, reaches nothing.
-  const injectedThrow = await holdFor(() => {}, {
-    compose: () => {
-      throw new ContractError(LANE_CODES.OUTPUT_SAFETY_FAILED, 'injected by the adapter', {
-        output_safety_reason: OUTPUT_SAFETY_REASONS.CITATION_IDENTIFIER,
-      });
-    },
-  });
-  assert.equal(injectedThrow.code, LANE_CODES.MODEL_CALL_FAILED);
-  assert.equal(Object.hasOwn(injectedThrow.receipt, 'output_safety_reason'), false);
-});
-
-test('one adapter reused across runs never carries a reason from an earlier run', async () => {
   let call = 0;
   const answerModel = fakeAnswerModel({
-    compose: (request) => {
+    compose: () => {
       call += 1;
-      const evidence_ids = [request.evidence[0].evidence_id];
-      if (call === 1) {
-        return { sections: [{ heading: '판단', text: '**강조** 된 기준입니다.', evidence_ids }] };
-      }
-      if (call === 2) {
-        return { sections: [{ heading: '판단', text: '검증 기준이 필요합니다.', evidence_ids }] };
-      }
-      return { sections: [] };
+      return call === 1
+        ? { ...answerSelection(), completion: 'provider text' }
+        : answerSelection();
     },
   });
   const first = await runSeCoreSourceboundAnswerLane(laneInput(), { answerModel });
   assert.equal(first.receipt.blocker_code, LANE_CODES.OUTPUT_SAFETY_FAILED);
-  assert.equal(first.receipt.output_safety_reason, OUTPUT_SAFETY_REASONS.MARKUP);
-
+  assert.equal(
+    first.receipt.output_safety_reason,
+    OUTPUT_SAFETY_REASONS.MODEL_PAYLOAD_FIELD,
+  );
   const second = await runSeCoreSourceboundAnswerLane(laneInput(), { answerModel });
   assert.equal(second.receipt.result, 'PASS');
   assert.equal(Object.hasOwn(second.receipt, 'output_safety_reason'), false);
-
-  const third = await runSeCoreSourceboundAnswerLane(laneInput(), { answerModel });
-  assert.equal(third.receipt.blocker_code, LANE_CODES.MODEL_OUTPUT_INVALID);
-  assert.equal(Object.hasOwn(third.receipt, 'output_safety_reason'), false);
 });
 
-test('every refused probe still holds, names a family, and echoes nothing it refused', async () => {
-  const families = new Set(Object.values(OUTPUT_SAFETY_REASONS));
-  for (const probe of OUTPUT_PROBES) {
-    const refused = await holdFor(() => {}, composeWith({
-      sections: [{ heading: '판단', text: probe, evidence_ids: ['E1'] }],
-    }));
-    // The decision itself is unchanged by naming its reason.
-    assert.equal(refused.code, LANE_CODES.OUTPUT_SAFETY_FAILED, probe.slice(0, 40));
-    const reason = refused.receipt.output_safety_reason;
-    assert.equal(families.has(reason), true, probe.slice(0, 40));
-    assert.notEqual(
-      reason, OUTPUT_SAFETY_REASONS.UNSPECIFIED_INTERNAL,
-      'every reachable refusal names a family; the backstop is not a family',
-    );
-    const serialised = canonicalSeCoreSourceboundReceiptJson({ receipt: refused.receipt });
-    assert.equal(serialised.includes(probe), false, probe.slice(0, 40));
-    assert.equal(serialised.includes(probe.slice(0, 20)), false, probe.slice(0, 40));
-    assert.equal(/[\p{Script=Hangul}]/u.test(serialised), false, 'a HOLD receipt carries no prose');
-    assert.equal(serialised.includes(reason), true, 'the canonical receipt carries the token');
-  }
-});
-
-test('the canonical receipt carries the reason key only on an output-safety hold', async () => {
+test('canonical receipt includes a reason only for an output-safety hold', async () => {
   const passed = await runSeCoreSourceboundAnswerLane(laneInput(), {
     answerModel: fakeAnswerModel(),
   });
   assert.equal(
-    canonicalSeCoreSourceboundReceiptJson(passed).includes('output_safety_reason'), false,
+    canonicalSeCoreSourceboundReceiptJson(passed).includes('output_safety_reason'),
+    false,
   );
-
   const otherHold = await holdFor((input) => { input.expectedQuestionBytes += 1; });
-  assert.notEqual(otherHold.code, LANE_CODES.OUTPUT_SAFETY_FAILED);
   assert.equal(
     canonicalSeCoreSourceboundReceiptJson({ receipt: otherHold.receipt })
       .includes('output_safety_reason'),
     false,
   );
-
   const refused = await holdFor(() => {}, composeWith({
-    sections: [{ heading: '판단', text: '**강조** 된 기준입니다.', evidence_ids: ['E1'] }],
+    ...answerSelection(),
+    completion: 'provider text',
   }));
   assert.equal(
     canonicalSeCoreSourceboundReceiptJson({ receipt: refused.receipt })
-      .includes('"output_safety_reason":"markup_detected"'),
+      .includes('"output_safety_reason":"model_payload_field_forbidden"'),
     true,
   );
 });
-
-// The lane omits the key rather than stating it as null, which is the canonical kernel's own rule,
-// so serialisation needs no special case for it and has none: every null is refused, this key
-// included. A receipt that states `output_safety_reason: null` is malformed for exactly the same
-// reason any other null is, and quietly dropping it would accept the malformed receipt and emit
-// bytes that no longer say what was wrong with it.
 test('an unexpected top-level null still refuses canonical receipt serialisation', () => {
   const refusesNull = (error) => error instanceof ContractError
     && error.code === LANE_CODES.RECEIPT_NOT_PAYLOAD_FREE;
@@ -1696,48 +1784,41 @@ test('a hostile receipt proxy is refused by the lane, not by a raw trap error', 
   assertMatchesDirectCanonicalise('a proxy whose descriptor understates a null', servesNull);
 });
 
-// The citation, source, revision, and page rows are machine-generated from selected evidence, so
-// prose that names none of them still renders — and the rows are still exactly the retrieved ones.
-test('citation, source, revision, and page rows stay machine-generated from selected evidence', async () => {
+test('citation metadata stays host-only and binds through statement commitments', async () => {
   const answerModel = fakeAnswerModel();
-  const run = await runSeCoreSourceboundAnswerLane(laneInput(), { answerModel });
-  const capsules = new Map(
-    answerModel.calls[0].request.evidence.map((item) => [item.evidence_id, item]),
-  );
+  const input = laneInput();
+  const run = await runSeCoreSourceboundAnswerLane(input, { answerModel });
+  const statements = new Map(answerModel.calls[0].request.statements.map(
+    (item) => [item.statement_id, item],
+  ));
+  const sources = new Map(input.corpus.sources.map((source) => [source.source_id, source]));
+  const commitments = new Map(run.receipt.prompt_commitment.evidence_commitments.map(
+    (commitment) => [commitment.evidence_id, commitment],
+  ));
+  const statementCommitments = new Map(run.receipt.prompt_commitment.statement_commitments.map(
+    (commitment) => [commitment.evidence_id, commitment],
+  ));
   for (const section of run.answer.sections) {
     for (const citation of section.citations) {
-      const capsule = capsules.get(citation.evidence_id);
-      assert.notEqual(capsule, undefined);
-      assert.equal(citation.title, capsule.source_title);
-      assert.equal(citation.revision, capsule.source_revision);
-      assert.equal(citation.page_number, capsule.page_number);
+      const statementCommitment = statementCommitments.get(citation.evidence_id);
+      const statement = statements.get(statementCommitment.statement_id);
+      assert.deepEqual(Object.keys(statement).sort(), ['excerpt', 'statement_id']);
+      const source = sources.get(citation.source_id);
+      assert.notEqual(source, undefined);
+      assert.equal(citation.title, source.title);
+      assert.equal(citation.revision, source.revision);
+      assert.equal(citation.page_number, commitments.get(citation.evidence_id).page_number);
     }
   }
 });
 
-// Naming the ceiling honestly is part of the contract: the filter above is structural, so a
-// grammatical sentence no evidence supports is still rendered. Correctness of arbitrary free text
-// is UNKNOWN in this lane and is not claimed anywhere in the receipt.
-test('free-text safety is structural filtering, not a semantic entailment proof', async () => {
+test('receipt reports exact host projection while selection correctness stays unknown', async () => {
   const run = await runSeCoreSourceboundAnswerLane(laneInput(), { answerModel: fakeAnswerModel() });
-  assert.equal(run.receipt.output.free_text_verification, 'structural_and_forbidden_claim_filter_only');
+  assert.equal(run.receipt.output.content_verification, 'exact_host_evidence_projection');
   assert.equal(run.receipt.output.semantic_entailment_verified, false);
-  assert.equal(run.receipt.output.free_text_correctness, 'unknown');
-
-  const unsupported = await runSeCoreSourceboundAnswerLane(laneInput(), {
-    answerModel: fakeAnswerModel(composeWith({
-      sections: [{
-        heading: '판단',
-        text: '검증 활동은 화요일에만 수행되며 담당 인원은 두 명입니다.',
-        evidence_ids: ['E1'],
-      }],
-    })),
-  });
-  assert.equal(
-    unsupported.receipt.result, 'PASS',
-    'a structural filter cannot decide entailment, and the receipt must not pretend it did',
-  );
-  assert.equal(unsupported.receipt.output.semantic_entailment_verified, false);
+  assert.equal(run.receipt.output.selection_correctness, 'unknown');
+  assert.equal(run.receipt.output.model_authored_prose_present, false);
+  assert.equal(run.receipt.output.excerpt_binding, 'exact_host_chunk');
 });
 
 // ------------------------------------------------------------------ pinned benchmark cohort
@@ -1985,14 +2066,14 @@ test('an oversized word is split on code points, never inside a surrogate pair',
     input, { answerModel },
     );
   assert.equal(receipt.result, 'PASS', `unexpected ${receipt.blocker_code}`);
-  const capsules = answerModel.calls[0].request.evidence;
+  const capsules = answerModel.calls[0].request.statements;
   assert.ok(
-    capsules.some((capsule) => capsule.text.includes('\u{1D6FC}')),
+    capsules.some((capsule) => capsule.excerpt.includes('\u{1D6FC}')),
     'the oversized astral run must actually reach the evidence for this to prove anything',
   );
   for (const capsule of capsules) {
     assert.equal(
-      /\p{Surrogate}/u.test(capsule.text), false,
+      /\p{Surrogate}/u.test(capsule.excerpt), false,
       'a chunk boundary must never fall inside a surrogate pair',
     );
   }

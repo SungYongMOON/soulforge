@@ -1,5 +1,58 @@
 # CHANGELOG
 
+## 2026-08-13 - Source-bound answer lane: host-rendered statement selection
+
+- Removed model-authored answer prose from the evaluation-only source-bound lane.
+  The model now returns one closed statement-selection object only: a result
+  (`answer` or `abstain`) and up to eight pairs of an opaque host statement id and
+  one relation from `direct`, `support`, `qualification`, or `contrast`. It cannot
+  author a heading, answer sentence, quotation, citation, approval state, canon
+  state, project-use direction, winner, Task, or authority field.
+- Each statement is one complete retrieved chunk already bounded by the lane. The
+  prompt shows `{ statement_id, excerpt }` and no source title, revision, page,
+  source id, chunk id, digest, or path. The host retains that metadata, validates
+  the model's ids against a dynamic allowlist, and renders fixed Korean labels plus
+  the exact selected public-source excerpt and one machine-bound citation. An
+  `abstain` result renders one fixed Korean insufficiency notice and no invented
+  source claim.
+- This replaces, rather than extends, the discarded bilingual free-prose authority
+  classifier. Independent public-synthetic attacks repeatedly found that a prose
+  parser could confuse a denied approval condition with the action it governed,
+  another draft with the current answer, or a Korean negative with an exclusive
+  positive. The stop criterion was therefore applied: no more phrase-shaped
+  exceptions were added. Authority language is now unrepresentable in the model
+  response schema; source text may of course contain authority vocabulary because
+  it is displayed as exact source evidence, not as an Engine action.
+- Citation and corpus integrity remain host-owned. Unknown or duplicate statement
+  ids, a nonempty abstention, an answer without a `direct` proposition, extra keys,
+  old `sections` output, and any model-authored prose field all fail closed. The
+  receipt records statement/excerpt commitments and counts, never the excerpt.
+  Selection relevance and semantic entailment remain `UNKNOWN` pending independent
+  review; exact quotation is not a correctness claim.
+- Bumped the answer schema to `soulforge.se_core_sourcebound_answer.v1`, lane
+  receipt to `soulforge.se_core_sourcebound_answer_receipt.v2`, answer-lane policy
+  to `soulforge.se_core_sourcebound_answer_lane.v2`, and Ollama adapter to
+  `soulforge.se_core_sourcebound_answer_ollama_adapter.v3`. The command receipt
+  remains `...answer_command_receipt.v2` because its closed field set did not
+  change.
+- No retry, repair, fallback, second answer call, external write, authority action,
+  or claim promotion was added. Query expansion remains one optional advisory call;
+  answer selection remains exactly one call. The response/resource/TypedArray,
+  output transaction, no-echo, cohort-pin, and concurrency safeguards remain.
+- Any question set already used while developing this lane — the earlier homefield
+  set included — is seen material and may be re-run only as a post-hoc diagnostic.
+  It cannot support a score, ranking, winner, NotebookLM comparison, parity, or
+  production-readiness claim. Those require a fresh unseen frozen set pinned before
+  the run. No such result is claimed by this change.
+- This frozen structural-correction phase used public synthetic material only and
+  read no private payload. One bounded loopback smoke invoked `qwen3.5:9b` exactly
+  once with query expansion off. It returned an object the lane refused at
+  `model_output` as `SE_CORE_SOURCEBOUND_ANSWER_MODEL_OUTPUT_INVALID`; no answer
+  was rendered, no private 7x3 run started, and the provider payload was neither
+  printed nor persisted. Per the declared stop condition there was no retry or
+  compatibility tuning. The earlier homefield set is also seen material because
+  it informed the preceding development cycle, so no benchmark result is claimed.
+
 ## 2026-08-13 - Source-bound answer lane: output-safety reason seam
 
 - Added a diagnostic-only reason to the evaluation-only source-bound answer lane

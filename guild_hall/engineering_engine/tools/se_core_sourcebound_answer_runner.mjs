@@ -50,12 +50,15 @@ import {
   runSeCoreSourceboundAnswerLane,
   seCoreSourceCohortSha256,
   seCoreSourceSetContractSha256,
+  statementSelectionResponseJsonSchema,
 } from '../evaluation/se_core_sourcebound_answer_lane.mjs';
 import { ContractError } from '../kernel/errors.mjs';
 
 export const EXACT_ANSWER_MODEL = 'qwen3.5:9b';
 export const DEFAULT_OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
-export const OLLAMA_ADAPTER_REVISION = 'soulforge.se_core_sourcebound_answer_ollama_adapter.v1';
+// v3: the prompt carries host-owned S-ids and entire exact chunks, while the response schema
+// permits only statement ids and relation labels. No provider-authored answer prose exists.
+export const OLLAMA_ADAPTER_REVISION = 'soulforge.se_core_sourcebound_answer_ollama_adapter.v3';
 export const OLLAMA_KEEP_ALIVE = '5m';
 export const OLLAMA_CHAT_PATH = '/api/chat';
 // The reasoning channel, pinned off rather than inherited.
@@ -75,18 +78,20 @@ export const OLLAMA_THINK = false;
 // would make that commitment false.
 //
 // The value is the smallest power-of-two window measured to hold this lane's widest legal
-// prompt. That prompt is the lane's own ceilings rendered at once - 24 evidence capsules of 900
+// prompt. That prompt was the lane's own ceilings rendered at once - 24 evidence capsules of 900
 // characters, each carrying a title and a revision at the 400-character metadata ceiling, and a
-// question at the 8192-byte ceiling - and it measures 31 939 prompt tokens on the served model.
-// The same prompt reports the same count against a 65 536 window, so that figure is a true
-// length and not itself a trimmed one. 16 384 does not hold it; 32 768 does.
+// question at the 8192-byte ceiling - and it measured 31 939 prompt tokens on the served model.
+// The same prompt reported the same count against a 65 536 window, so that figure is a true
+// length and not itself a trimmed one. 16 384 does not hold it; 32 768 does. The model-visible
+// capsule has since lost its title and revision lines, so the same ceilings now render strictly
+// fewer tokens: 31 939 stands as a measured upper bound on the widest legal prompt rather than a
+// fresh measurement of it, and the window that held the larger prompt holds the smaller one.
 //
-// What 32 768 does not hold is that widest prompt *and* the lane's widest legal reply of 8
-// sections of 4000 characters. A run configured at the lane's retrieval ceiling therefore has a
-// few hundred tokens of reply budget, and a reply that needs more stops on the token budget,
-// which the stop-reason guard below refuses. That is a refusal rather than a short answer
-// presented as a whole one, which is the direction this lane fails in. The lane's own default
-// retrieval is 6 capsules, well under the ceiling this bound is sized for.
+// The current reply is much smaller than the historical free-prose reply: it contains one result
+// token and at most eight statement-id/relation pairs. The 32 768 window is therefore retained as
+// a conservative prompt bound, not as a fresh claim that the current prompt and reply fill it. A
+// provider-side length stop is still refused rather than presented as a complete selection. The
+// lane's own default retrieval is 6 statements, well under the ceiling this bound is sized for.
 export const OLLAMA_NUM_CTX = 32768;
 // Prompt truncation, refused by the daemon rather than inferred from the reply.
 //
@@ -540,18 +545,18 @@ export function assertLoopbackOllamaTarget(baseUrl) {
   return `http://${host}:${port}`;
 }
 
-/** One deterministic prompt text. The lane commits to the request object, not to this rendering. */
+/**
+ * One deterministic prompt text. The lane commits to the request object, not to this rendering.
+ *
+ * A statement renders as its host id and its entire exact normalized chunk. Citation metadata
+ * stays behind the lane seam. The model selects ids and relations; it never writes answer prose.
+ */
 export function renderPromptText(request) {
-  const lines = [request.instruction, '', '## 질문', request.question_text, '', '## 근거'];
-  for (const capsule of request.evidence) {
-    lines.push(
-      `- ${capsule.evidence_id} | ${capsule.source_title} | ${capsule.source_revision} `
-      + `| page ${capsule.page_number}`,
-      capsule.text,
-    );
+  const lines = [request.instruction, '', '## 질문', request.question_text, '', '## Host statements'];
+  for (const statement of request.statements) {
+    lines.push(`- ${statement.statement_id}`, statement.excerpt);
   }
-  lines.push('', '## 출력 형식(JSON only)');
-  for (const [key, value] of Object.entries(request.output_schema)) lines.push(`- ${key}: ${value}`);
+  lines.push('', '## 출력 형식(JSON Schema)', JSON.stringify(request.output_schema));
   return `${lines.join('\n')}\n`;
 }
 
@@ -573,37 +578,32 @@ const plainObject = (value) => value !== null && typeof value === 'object' && !A
 
 // ------------------------------------------------------------------ the requested reply shape
 //
-// The lane already declares its two closed output shapes, but it declares them as prose inside
-// the prompt, which a model is free to disregard. These are the same two shapes written as the
-// JSON Schema Ollama accepts, so the shape constrains generation instead of being a request the
-// reply is graded against afterwards. Nothing here relaxes the lane's own validation: every
-// reply still passes exactly the checks it always did, and a schema-shaped reply that fails one
-// is still refused.
+// The lane declares its two closed output shapes both in the prompt and as JSON Schema Ollama can
+// apply while generating. The provider schema closes fields, enums, bounds, and answer/abstain
+// structure. The lane then performs the exact final contract checks, including uniqueness of the
+// statement_id property across proposition objects — something JSON Schema `uniqueItems` alone
+// does not express. A schema-shaped reply that fails that second stage is still refused.
 //
 // The bounds are the lane's, restated here for the same reason the byte ceilings above are: a
 // bound applied after a reply has already been built is not a bound on how it was built. The
 // suite pins each one to the lane's own boundary from both sides, so the two cannot drift apart
 // silently.
-export const MAX_ANSWER_SECTIONS = 8;
-export const MAX_SECTION_HEADING_CHARS = 120;
-export const MAX_SECTION_TEXT_CHARS = 4000;
-export const MAX_SECTION_EVIDENCE_IDS = 8;
+export const MAX_ANSWER_PROPOSITIONS = 8;
 export const MAX_EXPANSION_TERMS = 12;
 export const MAX_EXPANSION_TERM_CHARS = 60;
 const MIN_EXPANSION_TERM_CHARS = 2;
-// Not a lane bound: the lane authorises a citation by allowlist membership, not by length. This
-// is only the cap on the fallback item below, which exists so that a request naming no usable id
-// still produces one valid schema instead of an empty enum.
-const MAX_EVIDENCE_ID_CHARS = 64;
+// Mirrors the lane's S1..S24 vocabulary. An invalid request receives a closed sentinel enum which
+// the lane never accepts; this cap is not an open-string fallback or a citation authority.
+const MAX_STATEMENT_ID_CHARS = 3;
 
-/** The evidence ids this request actually retrieved, or `null` when it names none usable. */
-function retrievedEvidenceIds(request) {
-  const evidence = plainObject(request) ? request.evidence : undefined;
-  if (!Array.isArray(evidence) || evidence.length === 0) return null;
+/** The statement ids this request actually carries, or `null` when it names none usable. */
+function retrievedStatementIds(request) {
+  const statements = plainObject(request) ? request.statements : undefined;
+  if (!Array.isArray(statements) || statements.length === 0) return null;
   const ids = [];
-  for (const capsule of evidence) {
-    const id = plainObject(capsule) ? capsule.evidence_id : undefined;
-    if (typeof id !== 'string' || id.length === 0 || id.length > MAX_EVIDENCE_ID_CHARS
+  for (const statement of statements) {
+    const id = plainObject(statement) ? statement.statement_id : undefined;
+    if (typeof id !== 'string' || id.length === 0 || id.length > MAX_STATEMENT_ID_CHARS
         || ids.includes(id)) {
       return null;
     }
@@ -615,43 +615,13 @@ function retrievedEvidenceIds(request) {
 /**
  * The answer shape this run asks for, bound to the ids this run actually retrieved.
  *
- * Citations are why this is worth binding at the provider rather than only checking afterwards:
- * an `enum` of exactly the retrieved ids leaves no spelling for a source the run never showed the
- * model, so a fabricated citation is unrepresentable instead of merely rejected. When a request
- * names no usable id the item falls back to a bounded string, and the lane's allowlist remains
- * the only authority for a citation, which is exactly where it already was.
+ * Selection ids are why this is worth binding at the provider rather than only checking later: an
+ * `enum` of exactly the retrieved ids leaves no spelling for a statement the run never showed the
+ * model. When a request names no usable id, the enum contains one closed sentinel which the lane
+ * never accepts; there is no open-string fallback. Cross-item id uniqueness remains a lane check.
  */
 export function answerResponseJsonSchema(request) {
-  const ids = retrievedEvidenceIds(request);
-  return {
-    type: 'object',
-    additionalProperties: false,
-    required: ['sections'],
-    properties: {
-      sections: {
-        type: 'array',
-        minItems: 1,
-        maxItems: MAX_ANSWER_SECTIONS,
-        items: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['heading', 'text', 'evidence_ids'],
-          properties: {
-            heading: { type: 'string', minLength: 1, maxLength: MAX_SECTION_HEADING_CHARS },
-            text: { type: 'string', minLength: 1, maxLength: MAX_SECTION_TEXT_CHARS },
-            evidence_ids: {
-              type: 'array',
-              minItems: 1,
-              maxItems: MAX_SECTION_EVIDENCE_IDS,
-              items: ids === null
-                ? { type: 'string', minLength: 1, maxLength: MAX_EVIDENCE_ID_CHARS }
-                : { type: 'string', enum: ids },
-            },
-          },
-        },
-      },
-    },
-  };
+  return statementSelectionResponseJsonSchema(retrievedStatementIds(request));
 }
 
 /**
@@ -690,11 +660,9 @@ export function expansionResponseJsonSchema(request) {
 // body of unbounded length into this process before a single check could run, so it is never used:
 // the bytes are counted first, the decode is fatal, and the parse happens last.
 //
-// The ceilings below are derived from the closed output schema this lane accepts, not guessed. At
-// most 8 sections, each with a 120-character heading, 4000 characters of prose, and 8 evidence
-// ids, is about 33 000 UTF-16 units; at three bytes per character — the worst UTF-8 case for the
-// Korean and Latin text this lane renders — that is under 100 000 bytes. Each bound sits above the
-// widest legal reply with margin and far below a size that could exhaust this process.
+// The v3 selection reply is far smaller than these inherited hard caps. Retaining the lower-level
+// byte and character ceilings preserves the established bounded reader while the dynamic JSON
+// schema and lane validator impose the much narrower eight-proposition selection contract.
 export const MAX_PROVIDER_RESPONSE_BYTES = 262144;
 export const MAX_MESSAGE_CONTENT_BYTES = 131072;
 export const MAX_MESSAGE_CONTENT_CHARS = 49152;
