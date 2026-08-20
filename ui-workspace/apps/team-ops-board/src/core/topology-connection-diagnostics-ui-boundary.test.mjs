@@ -153,3 +153,13 @@ test("regression P1-5: App.tsx requires exact verified_repair outcome_code befor
   assert.doesNotMatch(source, /row\?\.outcome_code === "verified_repair" \|\|/u);
   assert.doesNotMatch(source, /row\?\.attempt === "succeeded" && row\?\.verification === "passed"/u);
 });
+
+test("UI boundary: recovery supervision panel renders diagnosticLabel and history diagnostic without raw code", () => {
+  const surface = systemTopologySurface();
+  assert.match(surface, /trackingInteraction\.supervision\.diagnosticLabel && \(\s*<div><dt>진단 원인<\/dt><dd>\{trackingInteraction\.supervision\.diagnosticLabel\}<\/dd><\/div>/u);
+  assert.match(surface, /entry\.diagnosticLabel && <span className="watchtower-history-diagnostic">\{entry\.diagnosticLabel\}<\/span>/u);
+  // Never expose raw diagnosticCode directly in the UI
+  assert.doesNotMatch(surface, /\{trackingInteraction\.supervision\.diagnosticCode\}/u);
+  assert.doesNotMatch(surface, /\{entry\.diagnosticCode\}/u);
+  assert.match(surface, /<div><dt>마지막 복구 성공<\/dt><dd>\{watchtowerTrackingTime\(trackingInteraction\.supervision\.lastVerifiedRepairAt\)\}<\/dd><\/div>/u);
+});

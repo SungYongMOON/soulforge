@@ -11,6 +11,7 @@ import {
   RECOVERY_HISTORY_SCHEMA_VERSION,
   RECOVERY_HISTORY_SCHEMA_VERSION_V1,
   RECOVERY_SUPERVISION_SCHEMA_VERSION,
+  RECOVERY_SUPERVISION_SCHEMA_VERSION_V1,
   RECOVERY_SUPERVISOR_SCHEMA_VERSION,
   appendRecoveryHistory,
   applyAttemptOutcome,
@@ -27,6 +28,7 @@ import {
   recoverySupervisionPaths,
   safeSupervisorErrorCode,
   validateLegacyRecoveryHistoryV1,
+  validateLegacySupervisionStateV1,
   validateRecoveryHistory,
   validateSupervisionState,
 } from "./recovery_supervision.mjs";
@@ -565,4 +567,111 @@ test("deployment compatibility: valid v2 history reads unchanged", async () => {
   assert.equal(res.ok, true);
   assert.equal(res.entries.length, 1);
   assert.equal(res.entries[0].diagnostic_code, "writer_authority_expired");
+});
+
+test("deployment compatibility: valid v1 supervision migrates to v2 on read and clears last_verified_repair_at", async () => {
+  const root = await evidenceRoot();
+  const v1State = {
+    schema_version: RECOVERY_SUPERVISION_SCHEMA_VERSION_V1,
+    updated_at: new Date(T0).toISOString(),
+    nodes: [{
+      node_id: "ingress_supervisor",
+      consecutive_failures: 2,
+      circuit_state: "closed",
+      last_attempt_at: new Date(T0 - 300_000).toISOString(),
+      last_verified_repair_at: new Date(T0 - 600_000).toISOString(), // old untrustworthy repair timestamp
+      last_failure_code: "postverify_failed",
+      next_retry_at: new Date(T0 + 900_000).toISOString(),
+    }],
+  };
+  await writeFile(recoverySupervisionPaths(root).state, JSON.stringify(v1State), "utf8");
+
+  const res = await readSupervisionState({ evidenceRoot: root });
+  assert.equal(res.ok, true);
+  assert.equal(res.present, true);
+  assert.equal(res.rows.length, 1);
+  assert.equal(res.rows[0].node_id, "ingress_supervisor");
+  assert.equal(res.rows[0].consecutive_failures, 2);
+  assert.equal(res.rows[0].circuit_state, "closed");
+  assert.equal(res.rows[0].last_attempt_at, new Date(T0 - 300_000).toISOString());
+  assert.equal(res.rows[0].last_verified_repair_at, null); // cleared!
+  assert.equal(res.rows[0].last_failure_code, "postverify_failed");
+  assert.equal(res.rows[0].next_retry_at, new Date(T0 + 900_000).toISOString());
+});
+
+test("deployment compatibility: invalid v1 supervision fails closed and causes suppression", async () => {
+  const root = await evidenceRoot();
+  const invalidV1State = {
+    schema_version: RECOVERY_SUPERVISION_SCHEMA_VERSION_V1,
+    updated_at: new Date(T0).toISOString(),
+    nodes: [{
+      node_id: "ingress_supervisor",
+      consecutive_failures: 2,
+      circuit_state: "tripped", // invalid circuit enum
+      last_attempt_at: null,
+      last_verified_repair_at: null,
+      last_failure_code: null,
+      next_retry_at: null,
+    }],
+  };
+  await writeFile(recoverySupervisionPaths(root).state, JSON.stringify(invalidV1State), "utf8");
+
+  const res = await readSupervisionState({ evidenceRoot: root });
+  assert.equal(res.ok, false);
+  assert.equal(res.present, true);
+  assert.deepEqual(res.rows, []);
+});
+
+test("deployment compatibility: normal persist after supervision migration writes v2 schema", async () => {
+  const root = await evidenceRoot();
+  const v1State = {
+    schema_version: RECOVERY_SUPERVISION_SCHEMA_VERSION_V1,
+    updated_at: new Date(T0).toISOString(),
+    nodes: [{
+      node_id: "ingress_supervisor",
+      consecutive_failures: 1,
+      circuit_state: "closed",
+      last_attempt_at: new Date(T0).toISOString(),
+      last_verified_repair_at: new Date(T0).toISOString(),
+      last_failure_code: "postverify_failed",
+      next_retry_at: null,
+    }],
+  };
+  await writeFile(recoverySupervisionPaths(root).state, JSON.stringify(v1State), "utf8");
+
+  const readRes = await readSupervisionState({ evidenceRoot: root });
+  assert.equal(readRes.ok, true);
+
+  await persistSupervisionState({
+    evidenceRoot: root,
+    rows: readRes.rows,
+    keepNodeIds: ["ingress_supervisor"],
+    updatedAt: new Date(T0 + 60_000).toISOString(),
+  });
+
+  const reRead = await readSupervisionState({ evidenceRoot: root });
+  assert.equal(reRead.ok, true);
+  assert.equal(reRead.rows[0].last_verified_repair_at, null);
+});
+
+test("deployment compatibility: valid v2 supervision reads unchanged", async () => {
+  const root = await evidenceRoot();
+  const v2State = {
+    schema_version: RECOVERY_SUPERVISION_SCHEMA_VERSION,
+    updated_at: new Date(T0).toISOString(),
+    nodes: [{
+      node_id: "ingress_supervisor",
+      consecutive_failures: 0,
+      circuit_state: "closed",
+      last_attempt_at: new Date(T0).toISOString(),
+      last_verified_repair_at: new Date(T0).toISOString(),
+      last_failure_code: null,
+      next_retry_at: null,
+    }],
+  };
+  await writeFile(recoverySupervisionPaths(root).state, JSON.stringify(v2State), "utf8");
+
+  const res = await readSupervisionState({ evidenceRoot: root });
+  assert.equal(res.ok, true);
+  assert.equal(res.rows[0].last_verified_repair_at, new Date(T0).toISOString());
 });

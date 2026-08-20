@@ -4259,6 +4259,9 @@ function SystemTopologySurface({ projection, refreshing, providerSnapshots = nul
                   >
                     <dl>
                       <div><dt>복구 상태</dt><dd>{trackingInteraction.supervision.stateLabel}</dd></div>
+                      {trackingInteraction.supervision.diagnosticLabel && (
+                        <div><dt>진단 원인</dt><dd>{trackingInteraction.supervision.diagnosticLabel}</dd></div>
+                      )}
                       <div><dt>마지막 시도</dt><dd>{watchtowerTrackingTime(trackingInteraction.supervision.lastAttemptAt)}</dd></div>
                       <div><dt>다음 재시도</dt><dd>{watchtowerTrackingTime(trackingInteraction.supervision.nextRetryAt)}</dd></div>
                       <div><dt>연속 실패</dt><dd>{trackingInteraction.supervision.consecutiveFailures}회</dd></div>
@@ -4273,6 +4276,7 @@ function SystemTopologySurface({ projection, refreshing, providerSnapshots = nul
                           <li key={entry.at}>
                             <span>{watchtowerTrackingTime(entry.at)}</span>
                             <b>{entry.outcomeLabel}</b>
+                            {entry.diagnosticLabel && <span className="watchtower-history-diagnostic">{entry.diagnosticLabel}</span>}
                             <small>회로 {entry.circuitLabel}</small>
                           </li>
                         ))}

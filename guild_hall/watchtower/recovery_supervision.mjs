@@ -2,8 +2,10 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
-export const RECOVERY_SUPERVISION_SCHEMA_VERSION =
+export const RECOVERY_SUPERVISION_SCHEMA_VERSION_V1 =
   "soulforge.watchtower.recovery_supervision.v1";
+export const RECOVERY_SUPERVISION_SCHEMA_VERSION =
+  "soulforge.watchtower.recovery_supervision.v2";
 export const RECOVERY_HISTORY_SCHEMA_VERSION_V1 =
   "soulforge.watchtower.recovery_history.v1";
 export const RECOVERY_HISTORY_SCHEMA_VERSION =
@@ -145,6 +147,33 @@ function validSupervisionRow(row) {
     && optionalTimestamp(row.next_retry_at);
 }
 
+export function validateLegacySupervisionStateV1(value) {
+  if (!hasExactKeys(value, ["schema_version", "updated_at", "nodes"])
+    || value.schema_version !== RECOVERY_SUPERVISION_SCHEMA_VERSION_V1
+    || !exactTimestamp(value.updated_at)
+    || !Array.isArray(value.nodes)
+    || value.nodes.length > RECOVERY_SUPERVISION_MAX_NODES) {
+    throw new TypeError("recovery_supervision_invalid");
+  }
+  const seen = new Set();
+  const nodes = value.nodes.map((row) => {
+    if (!validSupervisionRow(row) || seen.has(row.node_id)) {
+      throw new TypeError("recovery_supervision_row_invalid");
+    }
+    seen.add(row.node_id);
+    return {
+      node_id: row.node_id,
+      consecutive_failures: row.consecutive_failures,
+      circuit_state: row.circuit_state,
+      last_attempt_at: row.last_attempt_at,
+      last_verified_repair_at: null,
+      last_failure_code: row.last_failure_code,
+      next_retry_at: row.next_retry_at,
+    };
+  });
+  return { schema_version: RECOVERY_SUPERVISION_SCHEMA_VERSION, updated_at: value.updated_at, nodes };
+}
+
 export function validateSupervisionState(value) {
   if (!hasExactKeys(value, ["schema_version", "updated_at", "nodes"])
     || value.schema_version !== RECOVERY_SUPERVISION_SCHEMA_VERSION
@@ -180,7 +209,11 @@ export async function readSupervisionState({ evidenceRoot } = {}) {
   }
   if (Buffer.byteLength(text, "utf8") > MAX_STATE_BYTES) return { ok: false, present: true, rows: [] };
   try {
-    return { ok: true, present: true, rows: validateSupervisionState(JSON.parse(text)).nodes };
+    const parsed = JSON.parse(text);
+    if (parsed?.schema_version === RECOVERY_SUPERVISION_SCHEMA_VERSION_V1) {
+      return { ok: true, present: true, rows: validateLegacySupervisionStateV1(parsed).nodes };
+    }
+    return { ok: true, present: true, rows: validateSupervisionState(parsed).nodes };
   } catch {
     return { ok: false, present: true, rows: [] };
   }
