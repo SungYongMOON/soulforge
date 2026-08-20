@@ -1459,7 +1459,7 @@ derived artifacts는 별도 root integration owner가 갱신한다.
 
 | lane | field group | 구현 | 계약문 |
 |---|---|---|---|
-| substrate | Phase 1-0 공통 계약 11항목 | `kernel/` 최초 9 모듈 (현재 커널 전체 22) | 동결 bundle |
+| substrate | Phase 1-0 공통 계약 11항목 | `kernel/` 최초 9 모듈 (현재 커널 전체 23) | 동결 bundle |
 | 1A | snapshot envelope · state axes · Finding · Context Request · P5–P8 | `snapshot.mjs`, `pipeline.mjs` | `contracts/lane_1a_snapshot_and_pipeline_v0.md` |
 | 1B | inventory · custody · eligibility · lineage | `custody.mjs`, `lineage.mjs` | `contracts/lane_1b_custody_and_lineage_v0.md` |
 | 1C | typed graph · bounded capsule | `graph.mjs`, `capsule.mjs` | `contracts/lane_1c_graph_and_capsule_v0.md` |

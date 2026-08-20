@@ -609,6 +609,19 @@
       "line_count": 1048
     },
     {
+      "module": "project_context_generation_candidate",
+      "area": "kernel",
+      "exports": [
+        "PROJECT_CONTEXT_GENERATION_CANDIDATE_CODES",
+        "PROJECT_CONTEXT_GENERATION_CANDIDATE_RECEIPT_SCHEMA",
+        "PROJECT_CONTEXT_GENERATION_CANDIDATE_REQUEST_SCHEMA",
+        "PROJECT_CONTEXT_GENERATION_CANDIDATE_SCHEMA",
+        "buildProjectContextGenerationCandidate"
+      ],
+      "export_count": 5,
+      "line_count": 587
+    },
+    {
       "module": "registration",
       "area": "kernel",
       "exports": [
@@ -793,7 +806,7 @@
       "line_count": 394
     }
   ],
-  "module_count": 33,
+  "module_count": 34,
   "module_edges": [
     {
       "from": "authority",
@@ -1664,6 +1677,20 @@
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
+      "from": "project_context_generation_candidate",
+      "to": "canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "project_context_generation_candidate",
+      "to": "identity",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
       "from": "registration",
       "to": "authority",
       "relation": "imports",
@@ -1853,7 +1880,7 @@
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 151,
+  "module_edge_count": 153,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -2204,5 +2231,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "6c1b826d2438eace528f971d4ee021fe53f5b3e5c63fa98c920481de560fac5b"
+  "topology_digest": "eb1e002c104288a70d168201538fad1b5279282c5a0de5d8b8e555a3c907fa7a"
 }

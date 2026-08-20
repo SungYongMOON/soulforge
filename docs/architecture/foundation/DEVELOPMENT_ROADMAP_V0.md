@@ -233,10 +233,21 @@ read-only snapshot
        admitted project PDF 하나를 고정 profile `kr_defense_spec_v0`의 정규식으로만 읽어
        요구항목 색인과 payload-free 영수증을 만든다. 이는 나중 engine packet과 RTM 커버리지의
        원료 후보일 뿐이며 persistent RAG/Wiki 부착, 실제 과제 실행, RTM 주장은 여전히 `HOLD`다.
+     - P4 실행 기반(2026-08-20): exact admitted revision을 project-local RAG·citation-only Thin Wiki
+       sibling candidate로 투영하는 pure Module과, 새 authority packet을 create-only attempt claim으로
+       먼저 소비한 뒤 admission/projection을 각각 한 번만 호출하는 bounded runner를 통합했다.
+       public main의 synthetic extractor까지 검증했지만 actual KVDS run, source-body persistence,
+       operational RAG index/Wiki writer와 accepted-context 공급은 새 private packet·독립검토 전까지
+       `HOLD`다.
   5. **P5 accepted context generation/freshness**: M2-3 exact revision receipt 위에서 accepted
      context generation과 freshness를 닫는다. accepted generation 최소조건은
      `PROJECT_CONTEXT_GRAPH_MODEL_V0.md`의 `M2-3A Knowledge→Context Gate Crosswalk`가 소유하며,
      그 전에는 live current-state를 주장하지 않는다.
+     - P5 사전조립 기반(2026-08-20): authentic P4/M2-2/timeline output과 별도 Owner context
+       contract를 하나의 body-free generation candidate로 정규화하는 pure Module을 통합했다.
+       trusted expected pin은 request 밖의 두 번째 인자이며 complete snapshotted request를 결속한다.
+       출력의 `ready_for_registered_human_review`는 입력 완전성만 뜻하고 human acceptance,
+       generation advance, HPP writer/ERP/P6 authority는 모두 false/0으로 남는다.
    6. **P6 TaskIntent**: accepted context generation이 닫힌 뒤에만 TaskIntent 후보를 만든다.
       이 순서를 앞당기거나 runtime activation을 주장하지 않는다.
    7. **병렬 support lane — Linear 업무 백업**: 백업 범위·데이터 모델과
@@ -1093,6 +1104,8 @@ raw 산출물·private 수치는 `_workmeta` 영수증을 가리키고 여기엔
 | 2026-08-20 | Linear 백업 support-lane 시작 순서 확정 | 백업은 Task 실행과 별도라는 구조만 있었고 시작 Gate가 없었음 | 실제 기능은 여전히 0. Task Engine 마스터플랜 §12 `LB1`의 단일 exact start Gate 뒤 one-shot read-only snapshot/API pilot을 P5 전 병렬 지원선으로 시작하고, restore 검증 뒤에만 예약 자동화를 별도 승인한다 | 백업 성공은 accepted Context·TaskIntent·TaskDriver·AgentRun 또는 Linear writer 준비 완료를 뜻하지 않음. live Task 실행은 P5→P10 순서 유지 | `LINEAR_BACKUP_SCOPE_REVIEW.md`, Task Engine 마스터플랜 §12 split lanes |
 | 2026-08-20 | Engineering Engine release manifest 안전보정 | 새 `mcp/stage_rules/observation/guidance`가 release manifest 범위 밖이었음 | Git-index exact 184-file allowlist, untracked·omission·duplicate·malformed-NUL fail-close, explicit generation-base provenance와 MCP compatibility consumer를 구현·통합. fresh 독립검토 ACCEPT | manifest 28/28, MCP 135/135, stage 53/53, observation 67/67, guidance 55/55. MCP 등록·runtime·write authority는 계속 OFF | `guild_hall/engineering_engine/{tools,tests,topology,mcp}`, CHANGELOG 08-20 |
 | 2026-08-20 | P4 project PDF RAG·Thin Wiki projection candidate | P4 첫 조각은 요구 ID zero-write 색인뿐이고 trusted retrieval/Wiki/P5 input seam 없음 | 이미 admitted된 PDF revision 하나에서 exact trusted digest를 요구하는 project-local RAG·Thin Wiki sibling candidate와 P5 non-accepted input을 생성·조회하는 public feature-OFF Module 통합. recomputed forgery·getter/alias·supersession-gap 방어, fresh+Opus 검토 후 기술 ACCEPT | main 환경에서 focused 13/13, root isolation 21/21, 기존 PDF ingest/launch/admission/tracer/index 전부 PASS. 실제 project persistence·KVDS body pilot·P5 acceptance는 HOLD | `guild_hall/rag/project_pdf_knowledge_projection.mjs`, focused validator, CHANGELOG 08-20 |
+| 2026-08-20 | P4 bounded actual-pilot runner foundation | projection candidate는 있었지만 actual launch/authority/output을 한 번의 create-only 시도로 묶는 executor가 없었음 | raw-byte-pinned authority packet을 body-free attempt claim으로 admission 전에 소비하고 admission/projection 각 1회, exact candidate+claim 두 파일만 허용하는 feature-OFF runner/CLI 통합. pre-write HOLD replay·partial publish·foreign binding·payload echo를 fail-close | fresh Level-2 재검토 ACCEPT; main runner 13/13, admission 17/17, projection 13/13. actual KVDS 실행·운영 RAG/Wiki writer·P5 acceptance는 HOLD | `guild_hall/rag/project_pdf_knowledge_pilot_runner*.mjs`, CHANGELOG 08-20 |
+| 2026-08-20 | P5 authentic-producer generation candidate foundation | acceptance gate는 이미-built input set만 검사했고 P4/M2-2/timeline을 조립하는 deep Module이 없었음 | authentic producer outputs + Owner context contract를 complete request pin에 결속하는 pure candidate builder 통합. gap/supersession/time/crosswalk/secret/coherent-repin을 fail-close하고 review-ready 또는 exhaustive HOLD만 반환 | fresh Level-2 폐루프 ACCEPT; main P5 10/10, P4 13/13, M2-2 42 pass/1 platform skip, timeline 24/24. registered-human acceptance·writer epoch 실바인딩·generation advance·ERP/P6는 HOLD | `guild_hall/engineering_engine/kernel/project_context_generation_candidate.mjs`, CHANGELOG 08-20 |
 | 2026-08-20 | Linear LB1 offline backup contract candidate | 백업 범위·시작 Gate만 있고 collector/manifest/restore contract 0 | `backup_controller` 아래 feature-OFF 순수 Module로 immutable run/revision, deterministic coverage, duplicate/conflict, partial/failure, forged coverage와 restore completeness를 합성 검증. fresh 독립검토 ACCEPT | LB1 11/11, backup-controller 55/55; raw/path-like error code, deterministic revision ID와 status consistency hostile-run controls PASS. provider/storage/network/scheduler/Task/P5 effect 0; actual Linear/Drive/NAS와 LB1 Gate는 HOLD | `guild_hall/backup_controller/linear_lb1*.mjs`, CHANGELOG 08-20 |
 
 ## 갱신 규칙

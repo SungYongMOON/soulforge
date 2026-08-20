@@ -13,7 +13,7 @@
 - `run_root_acceptance.mjs`
   - root `validate` / `done:check` 단계 실행기
   - path-policy, role-boundary, canon, snapshot, activity, knowledge-access, town_crier, UI, gateway harness 를 한 entrypoint 로 묶음
-  - Watchtower의 선언 토폴로지 federation을 Team Ops Board 소비자보다 먼저 검증하여 생성물 drift를 fail-closed 처리
+  - AX·SE와 P5 context-generation candidate Engine gate를 먼저 실행한 뒤 Watchtower federation과 Team Ops Board 소비자를 검증하여 생성물 drift를 fail-closed 처리
 - `local_absolute_path_policy.mjs`
   - concrete local absolute paths such as Windows drive-root paths, POSIX user-volume paths, and local file URI paths 를 차단
   - 기본 `changed` scope 는 현재 변경분만 검사해서 새 upload 후보에 절대경로가 섞이는 것을 막음
@@ -54,6 +54,7 @@
   - `npm run validate:activity`
   - `npm run validate:knowledge-access`
   - `npm run validate:town-crier`
+  - `npm run validate:engineering-engine-p5-context-generation-candidate`
   - `npm run validate:watchtower`
   - `npm run validate:gateway`
 

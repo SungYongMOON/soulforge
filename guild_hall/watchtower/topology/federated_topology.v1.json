@@ -1242,6 +1242,26 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::project_context_generation_candidate",
+      "id": "engineering_engine::imports.project_context_generation_candidate.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::project_context_generation_candidate",
+      "id": "engineering_engine::imports.project_context_generation_candidate.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::registration",
       "id": "engineering_engine::imports.registration.authority",
       "label": "imports",
@@ -2295,6 +2315,17 @@
       "id": "engineering_engine::pipeline",
       "kind": "module",
       "label": "pipeline",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::project_context_generation_candidate",
+      "kind": "module",
+      "label": "project_context_generation_candidate",
       "layer": "module",
       "parent_id": null,
       "provider_id": "engineering_engine",
@@ -3918,6 +3949,24 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "project_context_generation_candidate",
+          "id": "imports.project_context_generation_candidate.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "project_context_generation_candidate",
+          "id": "imports.project_context_generation_candidate.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "registration",
           "id": "imports.registration.authority",
           "label": "imports",
@@ -4445,6 +4494,16 @@
         {
           "diagnostic_state": "validator_backed",
           "group": "kernel",
+          "id": "project_context_generation_candidate",
+          "kind": "module",
+          "label": "project_context_generation_candidate",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
           "id": "registration",
           "kind": "module",
           "label": "registration",
@@ -4499,7 +4558,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "e0795a99c6f101e46e9868e077235ae64b599b383befb13d5184ca911ed91832",
+        "digest": "eca73dd4494de6cf4013f147f7c66548e15bef0a7b2bf9d92d2d5961007803a0",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -4696,7 +4755,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "51fbb7a52637d9bc865eea718fd8ef4e0f913ea3d36ebd8b3a569f6beea2f83c",
+        "digest": "20687c9f015977819dd9d5f5fea07d8ccc070a576b38d09eba1929c2191bccea",
         "revision": "knowledge_stack_topology.v1",
         "schema_version": "knowledge_stack_owner_contracts.v1",
         "source_id": "knowledge_stack_owner_contracts"
@@ -5465,13 +5524,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "5920fe5ad9a1ebe01983429f29d07d1bcb4662b422b2890e45d3cbe1b30b1093",
+  "source_set_digest": "274a3940e382e0d37eda41b6531b8953e847daf51458a6af749142d19b99b387",
   "summary": {
-    "edge_count": 199,
-    "node_count": 71,
+    "edge_count": 201,
+    "node_count": 72,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "8385246537535c5b05b4eb33748e78c65ce2e76a4c6f4287d887399707a46c49"
+  "topology_digest": "4ce7ad8243063e1a5aba5752df9e31ae5814ad3519261f448f4c5d98f9649584"
 }

@@ -17,6 +17,37 @@ Recovery cycle had previously treated a changed `last_run_at` or `running` state
 - **Continuous ingress supervisor failure heartbeats**: Persists sanitized failure heartbeats on `cycle_failed` (`status: "failed"`, `error_codes`, `mail_status: null`).
 - **Wire & supervision contract bump (Supervision v2, Cycle v3, History v2, Projection v3)**: Bumped recovery supervision state schema to `soulforge.watchtower.recovery_supervision.v2`, recovery cycle schema to `soulforge.watchtower.recovery_cycle.v3`, history schema to `soulforge.watchtower.recovery_history.v2` (persisting `diagnostic_code`), and projection schema to `soulforge.team_ops_board.topology_recovery_projection.v3`. For deployment compatibility, the local companion transparently migrates valid legacy v1 supervision and history records on read without row loss while clearing untrustworthy legacy `last_verified_repair_at` timestamps, writing exact v2 on subsequent persist, while the Board adapter strictly rejects legacy wire schemas. Contradictory outcome/attempt/verification rows fail closed.
 - **Board UI truth & Korean diagnostic labels**: Fixed interaction handler in `App.tsx` to require exact `outcome_code === "verified_repair"` before rendering completed repair. Recovery view and supervision panel visibly render fixed Korean diagnostic labels for non-repairable codes (e.g. `writer_authority_expired` -> "작성자 권한 만료 · 수동 갱신 필요") without leaking raw output.
+## 2026-08-20 - P5 can assemble authentic producer outputs into a pinned review candidate
+
+- Added a pure, public-synthetic Project Context generation Module whose deep Interface accepts
+  authentic P4 knowledge, M2-2 assessment, and native timeline outputs plus one explicit Owner
+  context contract. Missing crosswalk, bitemporal, coverage, provenance, review, writer-epoch,
+  or lineage material remains `HOLD`; the Module never accepts or advances a generation.
+- Moved the trusted whole-request pin outside the request payload. The second argument binds the
+  complete snapshotted exact-root request, including producer receipts and every lineage field, so
+  coherent request-side re-pinning cannot manufacture `ready_for_registered_human_review`.
+- Gap revisions, supersession cycles/forks/active predecessors/time inversions, foreign or opaque
+  crosswalk swaps, proxies/getters/aliases, and secret-shaped identifiers fail closed. Authority is
+  false and filesystem, model, network, writer, ERP, and Task effects remain zero.
+- Main integration passed the focused P5 suite 10/10, P4 projection 13/13, M2-2 42 pass with one
+  platform skip, and timeline 24/24. Actual P5 human acceptance, HPP writer execution, generation
+  advance, ERP projection, and P6 release remain `HOLD`.
+
+## 2026-08-20 - A bounded P4 runner consumes one authority before opening one project PDF
+
+- Added a feature-OFF runner and stderr-only CLI around the admitted-PDF knowledge projection.
+  A raw-byte-pinned authority packet binds the exact launch, project/document refs, trusted source
+  receipt, direct empty output root, and the only two allowed output filenames.
+- The runner create-only writes, fsyncs, and reads back a body-free nonterminal attempt claim before
+  admission. An admission `HOLD`, crash, or partial publish therefore consumes that packet/root and
+  cannot reopen the document on replay; cleanup, overwrite, fallback, and retry remain forbidden.
+- One successful call performs exactly one admission and one projection, persists one body-free
+  candidate beside the claim, and never persists source text, query, excerpt, local path, or private
+  refs. Network, model, retrieval, Engine, ERP, TaskDriver, and accepted-context effects remain zero.
+- Fresh Level-2 re-review accepted the correction. Main integration passed runner 13/13,
+  admission 17/17, and knowledge projection 13/13. No actual KVDS attempt or P5 acceptance is
+  claimed by this public integration.
+
 ## 2026-08-20 - The Engine release manifest now binds the exact Git-index source set
 
 - Extended the Engineering Engine release surface to include `mcp`, `stage_rules`, `observation`,
@@ -90,6 +121,7 @@ Recovery cycle had previously treated a changed `last_run_at` or `running` state
   unlock Context, TaskIntent, TaskDriver, AgentRun, or a Linear writer.
   This entry changes plan state only: collector, credential binding, Drive writer, webhook, scheduler,
   live Task provider, and Linear mutation remain `0`.
+
 ## 2026-08-19 - The intake round trip closes: the file door can stand on a NAS share, and registration crosses roots
 
 A file uploaded through a link landed on the share and the engine could not reach it, because a
