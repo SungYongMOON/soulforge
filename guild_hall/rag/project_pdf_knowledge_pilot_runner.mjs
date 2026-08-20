@@ -3,7 +3,6 @@
 // digest, and one pre-existing empty output root.  This module never receives a
 // body, query, locator, root override, writer hook, or retrieval surface from a
 // caller.  It verifies those bindings before it invokes the admission seam once.
-import { createHash } from "node:crypto";
 import {
   closeSync,
   constants,
@@ -16,12 +15,11 @@ import {
   realpathSync,
   writeSync,
 } from "node:fs";
-import { isAbsolute, join, resolve, sep } from "node:path";
+import { join, sep } from "node:path";
 import process from "node:process";
 import { types } from "node:util";
 
-import { canonicalise, compareCodePoints } from "../engineering_engine/kernel/canonical.mjs";
-import { inspectIdentifierOpacity, isWellFormedRef, sameExactRef } from "../engineering_engine/kernel/identity.mjs";
+import { compareCodePoints } from "../engineering_engine/kernel/canonical.mjs";
 import { comparablePathIdentity } from "../shared/physical_path_identity.mjs";
 import {
   extractAdmittedProjectPdfCandidate,
@@ -29,29 +27,37 @@ import {
 } from "./project_pdf_admission.mjs";
 import { buildProjectPdfKnowledgeCandidate } from "./project_pdf_knowledge_projection.mjs";
 
-export const PROJECT_PDF_KNOWLEDGE_PILOT_COMMAND_RECEIPT_SCHEMA_VERSION =
-  "soulforge.project_pdf_knowledge_pilot_command_receipt.v0";
+import {
+  ATTEMPT_CLAIM_RECEIPT_SCHEMA_VERSION,
+  CANDIDATE_FILENAME,
+  FEATURE_STATE,
+  MAX_OUTPUT_FILE_BYTES,
+  MAX_PACKET_BYTES,
+  PACKET_FIELDS,
+  PACKET_SCHEMA_VERSION,
+  PROJECT_PDF_KNOWLEDGE_PILOT_COMMAND_RECEIPT_SCHEMA_VERSION,
+  RECEIPT_FILENAME,
+  SHA256_HEX,
+  authorityOff,
+  bodyFreeCandidate,
+  canonicalBytes,
+  deepFreeze,
+  exactKeys,
+  ordinaryDataObject,
+  recomputeCandidateDigest,
+  safeAbsolutePath,
+  sameRef,
+  sha256Hex,
+  snapshotOwnDataObject,
+  validateLaunch,
+  validateOutput,
+  validateRunAuthorityBinding,
+  validateRunAuthorityShape,
+  validateSourceBinding,
+} from "./project_pdf_knowledge_pilot_packet_contract.mjs";
 
-const PACKET_SCHEMA_VERSION = "soulforge.project_pdf_knowledge_pilot_authority_packet.v0";
-const RUN_AUTHORITY_SCHEMA_VERSION = "soulforge.project_pdf_knowledge_pilot_run_authority.v0";
-const ATTEMPT_CLAIM_RECEIPT_SCHEMA_VERSION =
-  "soulforge.project_pdf_knowledge_pilot_attempt_claim_receipt.v0";
-const FEATURE_STATE = "off";
-const CANDIDATE_FILENAME = "project_pdf_knowledge_candidate.json";
-const RECEIPT_FILENAME = "project_pdf_knowledge_persistence_receipt.json";
-const MAX_PACKET_BYTES = 512 * 1024;
-const MAX_LAUNCH_BYTES = 2 * 1024 * 1024;
-const MAX_OUTPUT_FILE_BYTES = 8 * 1024 * 1024;
-const MAX_PATH_CHARS = 4096;
-const SHA256_HEX = /^[0-9a-f]{64}$/u;
-const SHA256_CONTENT_ID = /^sha256:[0-9a-f]{64}$/u;
-const SAFE_IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/u;
-const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
-const CONTROL = /[\u0000-\u001f\u007f]/u;
-const WINDOWS_UNC_OR_DEVICE_NAMESPACE = /^[\\/]{2}/u;
-const WINDOWS_DRIVE_DESIGNATOR = /^[A-Za-z]:(?=[\\/]|$)/u;
-const WINDOWS_DEVICE_NAME = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/iu;
-const RESERVED_FLOATING_REVISION = /^(?:latest|current|head|tip|floating)$/iu;
+export { PROJECT_PDF_KNOWLEDGE_PILOT_COMMAND_RECEIPT_SCHEMA_VERSION };
+
 const UTF8 = new TextDecoder("utf-8", { fatal: true });
 
 const REQUEST_FIELDS = Object.freeze([
@@ -59,49 +65,6 @@ const REQUEST_FIELDS = Object.freeze([
   "expectedAuthorityPacketSha256",
 ]);
 const IO_KEYS = Object.freeze(["stdout", "stderr"]);
-const PACKET_FIELDS = Object.freeze([
-  "schema_version",
-  "kind",
-  "feature_state",
-  "run_authority",
-  "launch",
-  "source_binding",
-  "output",
-]);
-const RUN_AUTHORITY_FIELDS = Object.freeze([
-  "schema_version",
-  "kind",
-  "feature_state",
-  "purpose",
-  "expires_at_utc",
-  "attempt_limit",
-  "consumption_state",
-  "retry_allowed",
-  "authority_ref",
-  "authority_digest_sha256",
-]);
-const LAUNCH_FIELDS = Object.freeze(["absolute_path", "sha256", "byte_count"]);
-const SOURCE_BINDING_FIELDS = Object.freeze([
-  "project_binding_ref",
-  "document_revision_ref",
-  "trusted_source_revision_receipt_sha256",
-]);
-const OUTPUT_FIELDS = Object.freeze([
-  "absolute_root_path",
-  "root_commitment_sha256",
-  "candidate_filename",
-  "receipt_filename",
-]);
-const EXACT_REF_FIELDS = Object.freeze([
-  "entity_id",
-  "revision_id",
-  "content_id",
-  "content_hash_alg",
-]);
-
-const RUN_AUTHORITY_HASH_DOMAIN = "soulforge.project_pdf_knowledge_pilot.run_authority.v0";
-const OUTPUT_ROOT_HASH_DOMAIN = "soulforge.project_pdf_knowledge_pilot.output_root.v0";
-const CANDIDATE_HASH_DOMAIN = "soulforge.project_pdf_knowledge_candidate.v0";
 
 const O_NOFOLLOW = typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0;
 const SAFE_READ_OPEN_FLAGS = constants.O_RDONLY | O_NOFOLLOW;
@@ -415,139 +378,25 @@ function validateAuthorityPacket(packet) {
       || packet.feature_state !== FEATURE_STATE) {
     refuse("packet_refused");
   }
-  validateRunAuthorityShape(packet.run_authority);
+  if (!validateRunAuthorityShape(packet.run_authority)) {
+    refuse("run_authority_refused");
+  }
   const launch = validateLaunch(packet.launch);
+  if (launch === null) refuse("packet_refused");
   const sourceBinding = validateSourceBinding(packet.source_binding);
+  if (sourceBinding === null) refuse("packet_refused");
   const output = validateOutput(packet.output);
-  validateRunAuthorityBinding(packet);
-  return { launch, sourceBinding, output };
-}
-
-function validateRunAuthorityShape(authority) {
-  if (!ordinaryDataObject(authority) || !exactKeys(authority, RUN_AUTHORITY_FIELDS)
-      || authority.schema_version !== RUN_AUTHORITY_SCHEMA_VERSION
-      || authority.kind !== "project_pdf_knowledge_pilot_run_authority"
-      || authority.feature_state !== FEATURE_STATE
-      || authority.purpose !== "one_admitted_pdf_knowledge_candidate_persist"
-      || authority.attempt_limit !== 1
-      || authority.retry_allowed !== false
-      || !validExactRef(authority.authority_ref)
-      || typeof authority.authority_digest_sha256 !== "string"
-      || !SHA256_CONTENT_ID.test(authority.authority_digest_sha256)
-      || !canonicalUtc(authority.expires_at_utc)) {
-    refuse("run_authority_refused");
-  }
-  if (authority.consumption_state !== "unconsumed" && authority.consumption_state !== "consumed") {
-    refuse("run_authority_refused");
-  }
-}
-
-function validateRunAuthorityBinding(packet) {
-  const authority = packet.run_authority;
-  const expectedDigest = canonicalFingerprint(
-    RUN_AUTHORITY_HASH_DOMAIN,
-    runAuthorityBindingMaterial(packet),
-  );
-  if (expectedDigest === null
-      || authority.authority_digest_sha256 !== expectedDigest
-      || authority.authority_ref.content_id !== expectedDigest) {
+  if (output === null) refuse("output_refused");
+  if (!validateRunAuthorityBinding(packet)) {
     refuse("run_authority_binding_refused");
   }
-  if (authority.consumption_state === "consumed") refuse("run_authority_consumed");
-  if (Date.parse(authority.expires_at_utc) <= Date.now()) refuse("run_authority_expired");
-}
-
-function runAuthorityBindingMaterial(packet) {
-  const authority = packet.run_authority;
-  return {
-    schema_version: packet.schema_version,
-    kind: packet.kind,
-    feature_state: packet.feature_state,
-    run_authority: {
-      schema_version: authority.schema_version,
-      kind: authority.kind,
-      feature_state: authority.feature_state,
-      purpose: authority.purpose,
-      expires_at_utc: authority.expires_at_utc,
-      attempt_limit: authority.attempt_limit,
-      consumption_state: authority.consumption_state,
-      retry_allowed: authority.retry_allowed,
-      authority_ref_identity: {
-        entity_id: authority.authority_ref.entity_id,
-        revision_id: authority.authority_ref.revision_id,
-        content_hash_alg: authority.authority_ref.content_hash_alg,
-      },
-    },
-    launch: {
-      absolute_path: packet.launch.absolute_path,
-      sha256: packet.launch.sha256,
-      byte_count: packet.launch.byte_count,
-    },
-    source_binding: {
-      project_binding_ref: cloneRef(packet.source_binding.project_binding_ref),
-      document_revision_ref: cloneRef(packet.source_binding.document_revision_ref),
-      trusted_source_revision_receipt_sha256:
-        packet.source_binding.trusted_source_revision_receipt_sha256,
-    },
-    output: {
-      absolute_root_path: packet.output.absolute_root_path,
-      root_commitment_sha256: packet.output.root_commitment_sha256,
-      candidate_filename: packet.output.candidate_filename,
-      receipt_filename: packet.output.receipt_filename,
-    },
-  };
-}
-
-function validateLaunch(launch) {
-  if (!ordinaryDataObject(launch) || !exactKeys(launch, LAUNCH_FIELDS)
-      || typeof launch.absolute_path !== "string" || !safeAbsolutePath(launch.absolute_path)
-      || typeof launch.sha256 !== "string" || !SHA256_HEX.test(launch.sha256)
-      || !Number.isSafeInteger(launch.byte_count) || launch.byte_count < 1
-      || launch.byte_count > MAX_LAUNCH_BYTES) {
-    refuse("packet_refused");
+  if (packet.run_authority.consumption_state === "consumed") {
+    refuse("run_authority_consumed");
   }
-  return {
-    absolutePath: launch.absolute_path,
-    sha256: launch.sha256,
-    byteCount: launch.byte_count,
-  };
-}
-
-function validateSourceBinding(binding) {
-  if (!ordinaryDataObject(binding) || !exactKeys(binding, SOURCE_BINDING_FIELDS)
-      || !validExactRef(binding.project_binding_ref)
-      || !validExactRef(binding.document_revision_ref)
-      || typeof binding.trusted_source_revision_receipt_sha256 !== "string"
-      || !SHA256_CONTENT_ID.test(binding.trusted_source_revision_receipt_sha256)) {
-    refuse("packet_refused");
+  if (Date.parse(packet.run_authority.expires_at_utc) <= Date.now()) {
+    refuse("run_authority_expired");
   }
-  return {
-    projectRef: cloneRef(binding.project_binding_ref),
-    documentRef: cloneRef(binding.document_revision_ref),
-    trustedSourceReceiptSha256: binding.trusted_source_revision_receipt_sha256,
-  };
-}
-
-function validateOutput(output) {
-  if (!ordinaryDataObject(output) || !exactKeys(output, OUTPUT_FIELDS)
-      || typeof output.absolute_root_path !== "string" || !safeAbsolutePath(output.absolute_root_path)
-      || typeof output.root_commitment_sha256 !== "string"
-      || !SHA256_CONTENT_ID.test(output.root_commitment_sha256)
-      || output.candidate_filename !== CANDIDATE_FILENAME
-      || output.receipt_filename !== RECEIPT_FILENAME) {
-    refuse("output_refused");
-  }
-  const expectedCommitment = canonicalFingerprint(OUTPUT_ROOT_HASH_DOMAIN, {
-    absolute_root_path: output.absolute_root_path,
-  });
-  if (expectedCommitment === null || expectedCommitment !== output.root_commitment_sha256) {
-    refuse("output_refused");
-  }
-  return {
-    absoluteRootPath: output.absolute_root_path,
-    candidateFilename: output.candidate_filename,
-    receiptFilename: output.receipt_filename,
-  };
+  return { launch, sourceBinding, output };
 }
 
 function preflightOutput(output) {
@@ -777,53 +626,7 @@ function commandReceipt(state, refusalKey) {
   });
 }
 
-function authorityOff() {
-  return {
-    source_truth: false,
-    canon: false,
-    project_state: false,
-    owner_identity_verified: false,
-    owner_approval_verified: false,
-    accepted_context: false,
-    persistent_write_allowed: false,
-    activation_allowed: false,
-    engine_input_allowed: false,
-    erp_write_allowed: false,
-    taskdriver_allowed: false,
-  };
-}
 
-function bodyFreeCandidate(candidate) {
-  if (!ordinaryDataObject(candidate) || typeof candidate.candidate_sha256 !== "string"
-      || !SHA256_CONTENT_ID.test(candidate.candidate_sha256)) return false;
-  const forbidden = new Set([
-    "text", "body", "raw_query", "query", "path", "absolute_path", "relative_locator",
-    "launch_path", "document_path", "root_path", "pages_text", "excerpt",
-  ]);
-  const pending = [candidate];
-  while (pending.length > 0) {
-    const current = pending.pop();
-    if (current === null || typeof current !== "object") continue;
-    if (Array.isArray(current)) {
-      for (const item of current) pending.push(item);
-      continue;
-    }
-    for (const [key, value] of Object.entries(current)) {
-      if (forbidden.has(key)) return false;
-      pending.push(value);
-    }
-  }
-  return true;
-}
-
-function recomputeCandidateDigest(candidate) {
-  if (!ordinaryDataObject(candidate) || !Object.hasOwn(candidate, "candidate_sha256")) return null;
-  const material = {};
-  for (const [key, value] of Object.entries(candidate)) {
-    if (key !== "candidate_sha256") material[key] = value;
-  }
-  return canonicalFingerprint(CANDIDATE_HASH_DOMAIN, material);
-}
 
 function stableReadFile(path, maxBytes) {
   if (!safeAbsolutePath(path) || !SAFE_OPEN_AVAILABLE) return null;
@@ -885,135 +688,6 @@ function boundedOutputPath(root, filename) {
   return path.startsWith(root + sep) ? path : null;
 }
 
-function safeAbsolutePath(value) {
-  if (typeof value !== "string" || value.length === 0 || value.length > MAX_PATH_CHARS
-      || value.normalize("NFC") !== value || CONTROL.test(value)
-      || !isAbsolute(value) || resolve(value) !== value
-      || WINDOWS_UNC_OR_DEVICE_NAMESPACE.test(value)) return false;
-  const colonStart = WINDOWS_DRIVE_DESIGNATOR.test(value) ? 2 : 0;
-  if (value.includes(":", colonStart)) return false;
-  if (process.platform !== "win32") return true;
-  return !value.split(/[\\/]/u).filter(Boolean).some((segment) => WINDOWS_DEVICE_NAME.test(segment)
-    || /[. ]$/u.test(segment));
-}
-
-function canonicalUtc(value) {
-  if (typeof value !== "string" || !ISO_UTC.test(value)) return false;
-  const milliseconds = Date.parse(value);
-  return Number.isFinite(milliseconds) && new Date(milliseconds).toISOString() === value;
-}
-
-function validExactRef(ref) {
-  if (!ordinaryDataObject(ref) || !exactKeys(ref, EXACT_REF_FIELDS)
-      || typeof ref.entity_id !== "string" || typeof ref.revision_id !== "string"
-      || !SAFE_IDENTIFIER.test(ref.entity_id) || !SAFE_IDENTIFIER.test(ref.revision_id)
-      || inspectIdentifierOpacity(ref.entity_id).opaque !== true
-      || inspectIdentifierOpacity(ref.revision_id).opaque !== true
-      || RESERVED_FLOATING_REVISION.test(ref.revision_id)
-      || ref.content_hash_alg !== "sha256"
-      || typeof ref.content_id !== "string" || !SHA256_CONTENT_ID.test(ref.content_id)) {
-    return false;
-  }
-  try {
-    return isWellFormedRef(ref);
-  } catch {
-    return false;
-  }
-}
-
-function sameRef(left, right) {
-  try {
-    return sameExactRef(left, right);
-  } catch {
-    return false;
-  }
-}
-
-function cloneRef(ref) {
-  return {
-    entity_id: ref.entity_id,
-    revision_id: ref.revision_id,
-    content_id: ref.content_id,
-    content_hash_alg: ref.content_hash_alg,
-  };
-}
-
-function deepFreeze(value) {
-  if (value === null || typeof value !== "object" || Object.isFrozen(value)) return value;
-  for (const child of Object.values(value)) deepFreeze(child);
-  return Object.freeze(value);
-}
-
-function ordinaryDataObject(value) {
-  try {
-    return value !== null && typeof value === "object" && !types.isProxy(value) && !Array.isArray(value)
-      && Object.getPrototypeOf(value) === Object.prototype;
-  } catch {
-    return false;
-  }
-}
-
-function snapshotOwnDataObject(value, expected) {
-  try {
-    if (!ordinaryDataObject(value)) return null;
-    const keys = Reflect.ownKeys(value);
-    if (keys.length !== expected.length || keys.some((key) => typeof key !== "string")) return null;
-    const expectedKeys = [...expected].sort(compareCodePoints);
-    const actualKeys = keys.sort(compareCodePoints);
-    if (actualKeys.some((key, index) => key !== expectedKeys[index])) return null;
-    const snapshot = {};
-    for (const key of expected) {
-      const descriptor = Object.getOwnPropertyDescriptor(value, key);
-      if (descriptor === undefined || !Object.hasOwn(descriptor, "value")
-          || descriptor.enumerable !== true) return null;
-      snapshot[key] = descriptor.value;
-    }
-    return snapshot;
-  } catch {
-    return null;
-  }
-}
-
-function exactKeys(value, expected) {
-  if (!ordinaryDataObject(value)) return false;
-  const actual = Object.keys(value).sort(compareCodePoints);
-  const required = [...expected].sort(compareCodePoints);
-  return actual.length === required.length
-    && actual.every((key, index) => key === required[index]);
-}
-
-function insertionOrderRules(value) {
-  const rules = {};
-  const visit = (node, path = "") => {
-    if (Array.isArray(node)) {
-      rules[path] = "insertion_ordered";
-      for (const child of node) visit(child, path + "[]");
-    } else if (node !== null && typeof node === "object") {
-      for (const [key, child] of Object.entries(node)) visit(
-        child,
-        path ? path + "." + key : key,
-      );
-    }
-  };
-  visit(value);
-  return rules;
-}
-
-function canonicalFingerprint(domain, material) {
-  try {
-    return "sha256:" + sha256Hex(domain + "\0" + canonicalise(material, insertionOrderRules(material)));
-  } catch {
-    return null;
-  }
-}
-
-function canonicalBytes(value) {
-  return Buffer.from(canonicalise(value, insertionOrderRules(value)) + "\n", "utf8");
-}
-
-function sha256Hex(value) {
-  return createHash("sha256").update(value).digest("hex");
-}
 
 function parseCliRequest(argv) {
   const snapshot = snapshotArgv(argv);
