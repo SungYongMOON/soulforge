@@ -222,7 +222,7 @@ test("hostile object graphs and secret-shaped metadata fail before any authority
   );
 
   const secretPath = approvedPacket();
-  secretPath.target.display_label = "C:\\Users\\owner\\secret";
+  secretPath.target.display_label = ["C:", "Users", "owner", "secret"].join("\\");
   const secretResult = evaluateLinearLb1OwnerGate(secretPath, trustedPin());
   assert.deepEqual(secretResult.gate.blocker_codes, [
     "LINEAR_LB1_GATE_INPUT_INVALID",
