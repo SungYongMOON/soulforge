@@ -34,7 +34,8 @@ export const PROJECT_PDF_KNOWLEDGE_PILOT_COMMAND_RECEIPT_SCHEMA_VERSION =
 
 const PACKET_SCHEMA_VERSION = "soulforge.project_pdf_knowledge_pilot_authority_packet.v0";
 const RUN_AUTHORITY_SCHEMA_VERSION = "soulforge.project_pdf_knowledge_pilot_run_authority.v0";
-const STORED_RECEIPT_SCHEMA_VERSION = "soulforge.project_pdf_knowledge_pilot_storage_receipt.v0";
+const ATTEMPT_CLAIM_RECEIPT_SCHEMA_VERSION =
+  "soulforge.project_pdf_knowledge_pilot_attempt_claim_receipt.v0";
 const FEATURE_STATE = "off";
 const CANDIDATE_FILENAME = "project_pdf_knowledge_candidate.json";
 const RECEIPT_FILENAME = "project_pdf_knowledge_persistence_receipt.json";
@@ -185,6 +186,7 @@ function initialState() {
     candidateBodyFreeVerified: false,
     candidateFileReadbackVerified: false,
     receiptFileReadbackVerified: false,
+    attemptClaimPersisted: false,
     candidate: null,
     receiptFile: null,
   };
@@ -238,6 +240,30 @@ async function runProjectPdfKnowledgePilotWithOperations(request, operations) {
     }
     state.launchBindingVerified = true;
 
+    const attemptClaim = buildAttemptClaimReceipt(preparedRequest, packet);
+    const receiptBytes = canonicalBytes(attemptClaim);
+    if (receiptBytes.byteLength > MAX_OUTPUT_FILE_BYTES) refuse("receipt_write_refused");
+    const receiptFileSha256 = "sha256:" + sha256Hex(receiptBytes);
+    const receiptWrite = createOnlyFile(
+      output,
+      output.receiptPath,
+      receiptBytes,
+      [],
+    );
+    state.outputFileCreations += receiptWrite.created ? 1 : 0;
+    if (!receiptWrite.complete) refuse("receipt_write_refused");
+
+    state.outputFileReadbacks += 1;
+    if (!verifyExactReadback(output.receiptPath, receiptBytes, receiptFileSha256)) {
+      refuse("receipt_readback_refused");
+    }
+    state.receiptFileReadbackVerified = true;
+    state.attemptClaimPersisted = true;
+    state.receiptFile = {
+      fileSha256: receiptFileSha256,
+      fileByteCount: receiptBytes.byteLength,
+    };
+
     let admitted;
     try {
       state.admissionAttempts += 1;
@@ -287,7 +313,12 @@ async function runProjectPdfKnowledgePilotWithOperations(request, operations) {
     const candidateBytes = canonicalBytes(candidate);
     if (candidateBytes.byteLength > MAX_OUTPUT_FILE_BYTES) refuse("candidate_refused");
     const candidateFileSha256 = "sha256:" + sha256Hex(candidateBytes);
-    const candidateWrite = createOnlyFile(output, output.candidatePath, candidateBytes, []);
+    const candidateWrite = createOnlyFile(
+      output,
+      output.candidatePath,
+      candidateBytes,
+      [output.receiptFilename],
+    );
     state.outputFileCreations += candidateWrite.created ? 1 : 0;
     if (!candidateWrite.complete) refuse("candidate_write_refused");
 
@@ -307,29 +338,7 @@ async function runProjectPdfKnowledgePilotWithOperations(request, operations) {
       fileByteCount: candidateBytes.byteLength,
     };
 
-    const storedReceipt = buildStoredReceipt(state, candidate);
-    const receiptBytes = canonicalBytes(storedReceipt);
-    if (receiptBytes.byteLength > MAX_OUTPUT_FILE_BYTES) refuse("receipt_write_refused");
-    const receiptFileSha256 = "sha256:" + sha256Hex(receiptBytes);
-    const receiptWrite = createOnlyFile(
-      output,
-      output.receiptPath,
-      receiptBytes,
-      [output.candidateFilename],
-    );
-    state.outputFileCreations += receiptWrite.created ? 1 : 0;
-    if (!receiptWrite.complete) refuse("receipt_write_refused");
-
-    state.outputFileReadbacks += 1;
-    if (!verifyExactReadback(output.receiptPath, receiptBytes, receiptFileSha256)) {
-      refuse("receipt_readback_refused");
-    }
-    state.receiptFileReadbackVerified = true;
     if (!exactOutputPostcondition(output)) refuse("output_postcondition_refused");
-    state.receiptFile = {
-      fileSha256: receiptFileSha256,
-      fileByteCount: receiptBytes.byteLength,
-    };
     return commandReceipt(state, null);
   } catch (error) {
     const key = error instanceof RunnerRefusal && Object.hasOwn(BLOCKERS, error.key)
@@ -662,19 +671,24 @@ function verifyExactReadback(path, expectedBytes, expectedFileSha256) {
     && read.bytes.equals(expectedBytes);
 }
 
-function buildStoredReceipt(state, candidate) {
+function buildAttemptClaimReceipt(request, packet) {
   return deepFreeze({
-    schema_version: STORED_RECEIPT_SCHEMA_VERSION,
-    kind: "project_pdf_knowledge_pilot_storage_receipt",
-    status: "candidate_persisted_receipt_unverified",
+    schema_version: ATTEMPT_CLAIM_RECEIPT_SCHEMA_VERSION,
+    kind: "project_pdf_knowledge_pilot_attempt_claim_receipt",
+    status: "attempt_claimed_pre_admission",
     feature_state: FEATURE_STATE,
+    terminal_result_claimed: false,
     receipt_file_self_verification: "not_claimed",
-    candidate: {
-      logical_candidate_sha256: state.candidate.logicalCandidateSha256,
-      file_sha256: state.candidate.fileSha256,
-      file_byte_count: state.candidate.fileByteCount,
-      source_revision_receipt_sha256:
-        candidate.source_revision_receipt.source_revision_receipt_sha256,
+    binding_commitments: {
+      authority_packet_sha256: "sha256:" + request.expectedAuthorityPacketSha256,
+      run_authority_digest_sha256: packet.run_authority.authority_digest_sha256,
+      launch_sha256: "sha256:" + packet.launch.sha256,
+      launch_byte_count: packet.launch.byte_count,
+      project_binding_content_sha256: packet.source_binding.project_binding_ref.content_id,
+      document_revision_content_sha256: packet.source_binding.document_revision_ref.content_id,
+      trusted_source_revision_receipt_sha256:
+        packet.source_binding.trusted_source_revision_receipt_sha256,
+      output_root_commitment_sha256: packet.output.root_commitment_sha256,
     },
     verification: {
       authority_packet_pin_verified: true,
@@ -684,21 +698,20 @@ function buildStoredReceipt(state, candidate) {
       durable_consumption_verified: false,
       launch_pin_verified: true,
       launch_binding_verified: true,
-      admission_executed_once: true,
-      projection_built_once: true,
-      trusted_source_receipt_verified: true,
-      body_free_candidate_verified: true,
-      candidate_file_readback_verified: true,
+      admission_started_before_claim: false,
+      source_body_read_before_claim: false,
+      projection_built_before_claim: false,
+      candidate_file_created_before_claim: false,
     },
     counts: {
-      source_count: 1,
-      project_count: 1,
-      retrieval_unit_count: candidate.rag_candidate.retrieval_units.length,
-      thin_wiki_page_count: candidate.thin_wiki_candidate.page_count,
+      source_count: 0,
+      project_count: 0,
+      retrieval_unit_count: 0,
+      thin_wiki_page_count: 0,
     },
     authority: authorityOff(),
     effects: {
-      filesystem_file_creations: 1,
+      output_file_creations_before_claim: 0,
       persistent_rag_writes: 0,
       wiki_writes: 0,
       network_calls: 0,
@@ -734,6 +747,7 @@ function commandReceipt(state, refusalKey) {
       body_free_candidate_verified: state.candidateBodyFreeVerified,
       candidate_file_readback_verified: state.candidateFileReadbackVerified,
       receipt_file_readback_verified: state.receiptFileReadbackVerified,
+      attempt_claim_persisted: state.attemptClaimPersisted,
     },
     candidate: {
       logical_candidate_sha256: state.candidate?.logicalCandidateSha256 ?? null,

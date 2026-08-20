@@ -438,6 +438,17 @@ function syntheticOperations(state, counts) {
   };
 }
 
+function holdingAdmissionOperations(state, counts) {
+  const operations = syntheticOperations(state, counts);
+  return {
+    ...operations,
+    async admit() {
+      counts.admissions += 1;
+      throw new Error("synthetic admission hold");
+    },
+  };
+}
+
 async function loadRunnerTestHarness() {
   const runnerUrl = new URL("./project_pdf_knowledge_pilot_runner.mjs", import.meta.url);
   const source = readFileSync(runnerUrl, "utf8")
@@ -524,9 +535,22 @@ test("persists exactly one body-free candidate and one metadata-only receipt in 
       join(state.outputRoot, state.packet.output.receipt_filename), "utf8",
     ));
     assert.equal(candidate.candidate_sha256, result.candidate.logical_candidate_sha256);
-    assert.equal(receipt.candidate.logical_candidate_sha256, candidate.candidate_sha256);
-    assert.equal(receipt.candidate.file_sha256, result.candidate.file_sha256);
-    assert.equal(receipt.candidate.file_byte_count, result.candidate.file_byte_count);
+    assert.equal(receipt.status, "attempt_claimed_pre_admission");
+    assert.equal(receipt.terminal_result_claimed, false);
+    assert.equal(Object.hasOwn(receipt, "candidate"), false);
+    assert.equal(receipt.verification.admission_started_before_claim, false);
+    assert.equal(receipt.verification.source_body_read_before_claim, false);
+    assert.deepEqual(receipt.binding_commitments, {
+      authority_packet_sha256: "sha256:" + state.request.expectedAuthorityPacketSha256,
+      run_authority_digest_sha256: state.packet.run_authority.authority_digest_sha256,
+      launch_sha256: "sha256:" + state.packet.launch.sha256,
+      launch_byte_count: state.packet.launch.byte_count,
+      project_binding_content_sha256: state.packet.source_binding.project_binding_ref.content_id,
+      document_revision_content_sha256: state.packet.source_binding.document_revision_ref.content_id,
+      trusted_source_revision_receipt_sha256:
+        state.packet.source_binding.trusted_source_revision_receipt_sha256,
+      output_root_commitment_sha256: state.packet.output.root_commitment_sha256,
+    });
     assertNoRawBody(candidate);
     assertNoRawBody(receipt);
     assert.equal(candidate.rag_candidate.body_included, false);
@@ -642,6 +666,37 @@ test("requires the raw-byte authority-packet pin before decode or admission", as
     });
     assertPreAdmissionHold(result, "PROJECT_PDF_KNOWLEDGE_PILOT_AUTHORITY_PACKET_PIN_REFUSED");
     assert.deepEqual(readdirSync(state.outputRoot), []);
+  } finally {
+    state.cleanup();
+  }
+});
+
+test("claims the sole attempt before admission so an admission HOLD cannot be replayed", async () => {
+  const state = fixture();
+  try {
+    const counts = { inspections: 0, admissions: 0 };
+    const harness = await loadRunnerTestHarness();
+    const operations = holdingAdmissionOperations(state, counts);
+    const first = await harness.run(state.request, operations);
+    assert.equal(first.result, "HOLD");
+    assert.equal(first.blocker_code, "PROJECT_PDF_KNOWLEDGE_PILOT_ADMISSION_REFUSED");
+    assert.equal(first.effects.admission_attempts, 1);
+    assert.equal(first.effects.output_file_creations, 1);
+    assert.equal(first.effects.output_file_readbacks, 1);
+    assert.equal(first.verification.attempt_claim_persisted, true);
+    assert.deepEqual(counts, { inspections: 1, admissions: 1 });
+    assert.deepEqual(readdirSync(state.outputRoot), [state.packet.output.receipt_filename]);
+    const attemptReceipt = JSON.parse(readFileSync(
+      join(state.outputRoot, state.packet.output.receipt_filename),
+      "utf8",
+    ));
+    assert.equal(attemptReceipt.status, "attempt_claimed_pre_admission");
+    assert.equal(attemptReceipt.terminal_result_claimed, false);
+    assertNoRawBody(attemptReceipt);
+
+    const replay = await harness.run(state.request, operations);
+    assertPreAdmissionHold(replay, "PROJECT_PDF_KNOWLEDGE_PILOT_OUTPUT_EXISTS");
+    assert.deepEqual(counts, { inspections: 1, admissions: 1 });
   } finally {
     state.cleanup();
   }
@@ -772,16 +827,17 @@ test("requires the independently supplied source-receipt digest before publicati
     assert.equal(result.blocker_code, "PROJECT_PDF_KNOWLEDGE_PILOT_PROJECTION_REFUSED");
     assert.equal(result.effects.admission_attempts, 1);
     assert.equal(result.effects.projection_builds, 1);
-    assert.equal(result.effects.output_file_creations, 0);
+    assert.equal(result.effects.output_file_creations, 1);
+    assert.equal(result.effects.output_file_readbacks, 1);
     assert.deepEqual(counts, { inspections: 1, admissions: 1 });
-    assert.deepEqual(readdirSync(state.outputRoot), []);
+    assert.deepEqual(readdirSync(state.outputRoot), [state.packet.output.receipt_filename]);
     assertClosedCommandReceipt(result);
   } finally {
     state.cleanup();
   }
 });
 
-test("keeps partial create-only publication at HOLD without retry, cleanup, or a terminal PASS", async () => {
+test("keeps a partial pre-admission attempt claim at HOLD without reading the body", async () => {
   const state = fixture();
   const originalFsync = commonFs.fsyncSync;
   let fsyncCalls = 0;
@@ -799,11 +855,17 @@ test("keeps partial create-only publication at HOLD without retry, cleanup, or a
       syntheticOperations(state, counts),
     );
     assert.equal(result.result, "HOLD");
-    assert.equal(result.blocker_code, "PROJECT_PDF_KNOWLEDGE_PILOT_CANDIDATE_WRITE_REFUSED");
+    assert.equal(result.blocker_code, "PROJECT_PDF_KNOWLEDGE_PILOT_RECEIPT_WRITE_REFUSED");
     assert.equal(result.effects.output_file_creations, 1);
     assert.equal(result.effects.output_file_readbacks, 0);
-    assert.deepEqual(counts, { inspections: 1, admissions: 1 });
-    assert.deepEqual(readdirSync(state.outputRoot), [state.packet.output.candidate_filename]);
+    assert.deepEqual(counts, { inspections: 1, admissions: 0 });
+    assert.deepEqual(readdirSync(state.outputRoot), [state.packet.output.receipt_filename]);
+    const retainedAttempt = JSON.parse(readFileSync(
+      join(state.outputRoot, state.packet.output.receipt_filename),
+      "utf8",
+    ));
+    assert.equal(retainedAttempt.status, "attempt_claimed_pre_admission");
+    assert.equal(retainedAttempt.terminal_result_claimed, false);
     assertClosedCommandReceipt(result);
   } finally {
     commonFs.fsyncSync = originalFsync;
@@ -812,14 +874,14 @@ test("keeps partial create-only publication at HOLD without retry, cleanup, or a
   }
 });
 
-test("does not let a retained receipt-write partial claim terminal publication", async () => {
+test("keeps a candidate-write partial at HOLD after the nonterminal attempt claim", async () => {
   const state = fixture();
   const originalFsync = commonFs.fsyncSync;
   let fsyncCalls = 0;
   try {
     commonFs.fsyncSync = (...args) => {
       fsyncCalls += 1;
-      if (fsyncCalls === 2) throw new Error("synthetic receipt fsync failure");
+      if (fsyncCalls === 2) throw new Error("synthetic candidate fsync failure");
       return originalFsync(...args);
     };
     syncBuiltinESMExports();
@@ -830,7 +892,7 @@ test("does not let a retained receipt-write partial claim terminal publication",
       syntheticOperations(state, counts),
     );
     assert.equal(result.result, "HOLD");
-    assert.equal(result.blocker_code, "PROJECT_PDF_KNOWLEDGE_PILOT_RECEIPT_WRITE_REFUSED");
+    assert.equal(result.blocker_code, "PROJECT_PDF_KNOWLEDGE_PILOT_CANDIDATE_WRITE_REFUSED");
     assert.equal(result.effects.output_file_creations, 2);
     assert.equal(result.effects.output_file_readbacks, 1);
     assert.deepEqual(counts, { inspections: 1, admissions: 1 });
@@ -842,9 +904,10 @@ test("does not let a retained receipt-write partial claim terminal publication",
       join(state.outputRoot, state.packet.output.receipt_filename),
       "utf8",
     ));
-    assert.equal(retainedReceipt.status, "candidate_persisted_receipt_unverified");
+    assert.equal(retainedReceipt.status, "attempt_claimed_pre_admission");
+    assert.equal(retainedReceipt.terminal_result_claimed, false);
     assert.equal(retainedReceipt.receipt_file_self_verification, "not_claimed");
-    assert.equal(retainedReceipt.effects.filesystem_file_creations, 1);
+    assert.equal(retainedReceipt.effects.output_file_creations_before_claim, 0);
     assertClosedCommandReceipt(result);
   } finally {
     commonFs.fsyncSync = originalFsync;
@@ -863,6 +926,11 @@ test("keeps the production runner on one admission, one projection, and no retri
   assert.equal(count(/operations\.admit\(/gu), 1);
   assert.equal(count(/operations\.project\(/gu), 1);
   assert.equal(
+    source.indexOf("const attemptClaim = buildAttemptClaimReceipt")
+      < source.indexOf("operations.admit("),
+    true,
+  );
+  assert.equal(
     source.includes("admit: extractAdmittedProjectPdfCandidate"),
     true,
   );
@@ -871,6 +939,7 @@ test("keeps the production runner on one admission, one projection, and no retri
     true,
   );
   assert.equal(source.includes("__testOnly"), false);
+  assert.equal(source.includes("buildStoredReceipt"), false);
   for (const forbidden of [
     "retrieveProjectPdfKnowledgeCandidate",
     "node:child_process",
