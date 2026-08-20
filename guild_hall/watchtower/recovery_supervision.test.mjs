@@ -9,6 +9,7 @@ import {
   RECOVERY_CIRCUIT_OPEN_MS,
   RECOVERY_HISTORY_MAX_ENTRIES,
   RECOVERY_HISTORY_SCHEMA_VERSION,
+  RECOVERY_HISTORY_SCHEMA_VERSION_V1,
   RECOVERY_SUPERVISION_SCHEMA_VERSION,
   RECOVERY_SUPERVISOR_SCHEMA_VERSION,
   appendRecoveryHistory,
@@ -17,6 +18,7 @@ import {
   buildHistoryRow,
   classifyOwnedTaskGate,
   defaultSupervisionRow,
+  persistRecoveryHistory,
   persistRecoverySupervisorReceipt,
   persistSupervisionState,
   planNodeAttempt,
@@ -24,6 +26,7 @@ import {
   readSupervisionState,
   recoverySupervisionPaths,
   safeSupervisorErrorCode,
+  validateLegacyRecoveryHistoryV1,
   validateRecoveryHistory,
   validateSupervisionState,
 } from "./recovery_supervision.mjs";
@@ -428,4 +431,138 @@ test("supervisor error codes never echo raw exception text, paths, or task names
   }
   assert.equal(safeSupervisorErrorCode(null), "recovery_cycle_failed");
   assert.equal(safeSupervisorErrorCode({ message: { toString: () => "leak" } }), "recovery_cycle_failed");
+});
+
+test("deployment compatibility: valid full v1 history migrates to v2 on read without row loss or order change", async () => {
+  const root = await evidenceRoot();
+  const v1Entries = Array.from({ length: 200 }, (_, index) => ({
+    at: new Date(T0 + index * 1_000).toISOString(),
+    node_id: `node_${index % 10}`,
+    reason: "process_stopped",
+    action: "restart_owned_task",
+    attempt: "denied",
+    verification: "not_run",
+    circuit_state: "closed",
+    next_retry_at: null,
+    outcome_code: "suppressed_backoff",
+  }));
+  const v1Doc = {
+    schema_version: RECOVERY_HISTORY_SCHEMA_VERSION_V1,
+    updated_at: new Date(T0 + 200 * 1_000).toISOString(),
+    entries: v1Entries,
+  };
+  await writeFile(recoverySupervisionPaths(root).history, JSON.stringify(v1Doc), "utf8");
+
+  const res = await readRecoveryHistory({ evidenceRoot: root });
+  assert.equal(res.ok, true);
+  assert.equal(res.present, true);
+  assert.equal(res.entries.length, 200);
+  for (let i = 0; i < 200; i++) {
+    assert.equal(res.entries[i].at, v1Entries[i].at);
+    assert.equal(res.entries[i].node_id, v1Entries[i].node_id);
+    assert.equal(res.entries[i].diagnostic_code, null);
+    assert.equal(res.entries[i].outcome_code, v1Entries[i].outcome_code);
+  }
+});
+
+test("deployment compatibility: invalid v1 history fails closed and causes suppression", async () => {
+  const root = await evidenceRoot();
+  const invalidV1Doc = {
+    schema_version: RECOVERY_HISTORY_SCHEMA_VERSION_V1,
+    updated_at: new Date(T0).toISOString(),
+    entries: [{
+      at: new Date(T0).toISOString(),
+      node_id: "consumer_board",
+      reason: "process_stopped",
+      action: "restart_owned_task",
+      attempt: "denied",
+      verification: "not_run",
+      circuit_state: "closed",
+      next_retry_at: null,
+      outcome_code: "restarted", // invalid outcome enum in v1
+    }],
+  };
+  await writeFile(recoverySupervisionPaths(root).history, JSON.stringify(invalidV1Doc), "utf8");
+
+  const res = await readRecoveryHistory({ evidenceRoot: root });
+  assert.equal(res.ok, false);
+  assert.equal(res.present, true);
+  assert.deepEqual(res.entries, []);
+});
+
+test("deployment compatibility: normal persist after migration writes v2 schema and preserves all rows", async () => {
+  const root = await evidenceRoot();
+  const v1Doc = {
+    schema_version: RECOVERY_HISTORY_SCHEMA_VERSION_V1,
+    updated_at: new Date(T0).toISOString(),
+    entries: [{
+      at: new Date(T0).toISOString(),
+      node_id: "consumer_board",
+      reason: "process_stopped",
+      action: "restart_owned_task",
+      attempt: "denied",
+      verification: "not_run",
+      circuit_state: "closed",
+      next_retry_at: null,
+      outcome_code: "suppressed_backoff",
+    }],
+  };
+  await writeFile(recoverySupervisionPaths(root).history, JSON.stringify(v1Doc), "utf8");
+
+  const readRes = await readRecoveryHistory({ evidenceRoot: root });
+  assert.equal(readRes.ok, true);
+
+  const newEntry = buildHistoryRow({
+    at: new Date(T0 + 60_000).toISOString(),
+    nodeId: "ingress_supervisor",
+    reason: "heartbeat_stale",
+    diagnosticCode: "writer_authority_expired",
+    action: "none",
+    attempt: "denied",
+    verification: "not_run",
+    row: defaultSupervisionRow("ingress_supervisor"),
+    outcomeCode: "owner_action_required",
+  });
+
+  const merged = appendRecoveryHistory(readRes.entries, [newEntry]);
+  await persistRecoveryHistory({
+    evidenceRoot: root,
+    entries: merged,
+    updatedAt: new Date(T0 + 60_000).toISOString(),
+  });
+
+  // Verify on-disk file is now exact v2
+  const reRead = await readRecoveryHistory({ evidenceRoot: root });
+  assert.equal(reRead.ok, true);
+  assert.equal(reRead.entries.length, 2);
+  assert.equal(reRead.entries[0].node_id, "consumer_board");
+  assert.equal(reRead.entries[0].diagnostic_code, null);
+  assert.equal(reRead.entries[1].node_id, "ingress_supervisor");
+  assert.equal(reRead.entries[1].diagnostic_code, "writer_authority_expired");
+});
+
+test("deployment compatibility: valid v2 history reads unchanged", async () => {
+  const root = await evidenceRoot();
+  const v2Doc = {
+    schema_version: RECOVERY_HISTORY_SCHEMA_VERSION,
+    updated_at: new Date(T0).toISOString(),
+    entries: [{
+      at: new Date(T0).toISOString(),
+      node_id: "ingress_supervisor",
+      reason: "heartbeat_stale",
+      diagnostic_code: "writer_authority_expired",
+      action: "none",
+      attempt: "denied",
+      verification: "not_run",
+      circuit_state: "closed",
+      next_retry_at: null,
+      outcome_code: "owner_action_required",
+    }],
+  };
+  await writeFile(recoverySupervisionPaths(root).history, JSON.stringify(v2Doc), "utf8");
+
+  const res = await readRecoveryHistory({ evidenceRoot: root });
+  assert.equal(res.ok, true);
+  assert.equal(res.entries.length, 1);
+  assert.equal(res.entries[0].diagnostic_code, "writer_authority_expired");
 });

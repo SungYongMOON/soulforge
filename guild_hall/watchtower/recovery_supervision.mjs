@@ -4,6 +4,8 @@ import process from "node:process";
 
 export const RECOVERY_SUPERVISION_SCHEMA_VERSION =
   "soulforge.watchtower.recovery_supervision.v1";
+export const RECOVERY_HISTORY_SCHEMA_VERSION_V1 =
+  "soulforge.watchtower.recovery_history.v1";
 export const RECOVERY_HISTORY_SCHEMA_VERSION =
   "soulforge.watchtower.recovery_history.v2";
 export const RECOVERY_SUPERVISOR_SCHEMA_VERSION =
@@ -62,6 +64,10 @@ const MAX_STATE_BYTES = 256 * 1024;
 const STATE_ROW_KEYS = [
   "node_id", "consecutive_failures", "circuit_state", "last_attempt_at",
   "last_verified_repair_at", "last_failure_code", "next_retry_at",
+];
+const HISTORY_ROW_KEYS_V1 = [
+  "at", "node_id", "reason", "action", "attempt", "verification",
+  "circuit_state", "next_retry_at", "outcome_code",
 ];
 const HISTORY_ROW_KEYS = [
   "at", "node_id", "reason", "diagnostic_code", "action", "attempt", "verification",
@@ -180,6 +186,46 @@ export async function readSupervisionState({ evidenceRoot } = {}) {
   }
 }
 
+export function validateLegacyRecoveryHistoryV1(value) {
+  if (!hasExactKeys(value, ["schema_version", "updated_at", "entries"])
+    || value.schema_version !== RECOVERY_HISTORY_SCHEMA_VERSION_V1
+    || !exactTimestamp(value.updated_at)
+    || !Array.isArray(value.entries)
+    || value.entries.length > RECOVERY_HISTORY_MAX_ENTRIES) {
+    throw new TypeError("recovery_history_invalid");
+  }
+  const seen = new Set();
+  const entries = value.entries.map((row) => {
+    if (!hasExactKeys(row, HISTORY_ROW_KEYS_V1)
+      || !exactTimestamp(row.at)
+      || seen.has(`${row.node_id} ${row.at}`)
+      || !SAFE_NODE.test(row.node_id)
+      || !SAFE_CODE.test(row.reason)
+      || !SAFE_CODE.test(row.action)
+      || !SAFE_CODE.test(row.attempt)
+      || !SAFE_CODE.test(row.verification)
+      || !CIRCUIT_SET.has(row.circuit_state)
+      || !optionalTimestamp(row.next_retry_at)
+      || !OUTCOME_SET.has(row.outcome_code)) {
+      throw new TypeError("recovery_history_row_invalid");
+    }
+    seen.add(`${row.node_id} ${row.at}`);
+    return {
+      at: row.at,
+      node_id: row.node_id,
+      reason: row.reason,
+      diagnostic_code: null,
+      action: row.action,
+      attempt: row.attempt,
+      verification: row.verification,
+      circuit_state: row.circuit_state,
+      next_retry_at: row.next_retry_at,
+      outcome_code: row.outcome_code,
+    };
+  });
+  return { schema_version: RECOVERY_HISTORY_SCHEMA_VERSION, updated_at: value.updated_at, entries };
+}
+
 export function validateRecoveryHistory(value) {
   if (!hasExactKeys(value, ["schema_version", "updated_at", "entries"])
     || value.schema_version !== RECOVERY_HISTORY_SCHEMA_VERSION
@@ -225,7 +271,11 @@ export async function readRecoveryHistory({ evidenceRoot } = {}) {
     return { ok: false, present: true, entries: [] };
   }
   try {
-    return { ok: true, present: true, entries: validateRecoveryHistory(JSON.parse(text)).entries };
+    const parsed = JSON.parse(text);
+    if (parsed?.schema_version === RECOVERY_HISTORY_SCHEMA_VERSION_V1) {
+      return { ok: true, present: true, entries: validateLegacyRecoveryHistoryV1(parsed).entries };
+    }
+    return { ok: true, present: true, entries: validateRecoveryHistory(parsed).entries };
   } catch {
     return { ok: false, present: true, entries: [] };
   }

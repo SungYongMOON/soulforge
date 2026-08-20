@@ -171,7 +171,9 @@ npm run guild-hall:watchtower:probe
 - Recovery cycle wire schema is v3 (`soulforge.watchtower.recovery_cycle.v3`),
   recovery history wire schema is bumped to v2 (`soulforge.watchtower.recovery_history.v2`)
   to durably persist `diagnostic_code`, and projection is v3
-  (`soulforge.team_ops_board.topology_recovery_projection.v3`). Legacy schemas fail closed.
+  (`soulforge.team_ops_board.topology_recovery_projection.v3`). For deployment compatibility,
+  the local companion transparently migrates valid legacy v1 history records on read without row loss,
+  persisting v2 on subsequent cycles, while the Board adapter continues to reject v1 on the wire.
 - Recovery supervision persists only bounded sanitized state and the latest 200
   material events. Failed eligible attempts back off for 5 minutes, 15 minutes,
   then 60 minutes; the third consecutive failure opens a 60-minute circuit and
