@@ -1,10 +1,10 @@
 # Linear 업무 백업 범위 검토
 
-- 상태: `offline_contract_implemented / no_live_automation / start_order_confirmed / actual_lb1_gate_pending`
+- 상태: `offline_contract_implemented / owner_gate_contract_implemented / no_live_automation / actual_lb1_owner_binding_pending`
 - 기준일: 2026-08-20
 - 목적: Linear 원본 장애·이관·과거 조회 시 업무 정체성, 현재 상태, 상태 이력, Waiting,
   완료 결과와 Evidence를 어느 수준까지 복원할지 데이터 범위를 정한다.
-- 경계: public-synthetic offline manifest/restore contract만 구현됐다. live Linear·Drive·Sheets 접근,
+- 경계: public-synthetic offline manifest/restore contract와 pure Owner start Gate만 구현됐다. live Linear·Drive·Sheets 접근,
   webhook 설치, API 수집기, scheduler, storage writer는 구현하지 않는다.
 
 ## 1. 결론
@@ -28,6 +28,10 @@ Linear current snapshot
 현재 `guild_hall/backup_controller`에는 **public-synthetic feature-OFF offline LB1 contract**가
 있다. 불변 revision, deterministic manifest·coverage, duplicate/conflict, partial/failure와
 restore completeness를 합성 입력으로 검증하지만 실제 데이터를 수집·저장·복원하지 않는다.
+`linear_lb1_owner_gate.mjs`는 시작 조건을 full-packet pin으로 검증하지만 provider·Drive를
+호출하지 않는다. 제안 기본안(전체 workspace, Drive `Soulforge Linear Backup`, 일별 30·월별
+12, RPO 24시간)은 Owner decision과 exact workspace/read-only credential·target/write-authority·
+human reviewer refs가 없으므로 현재 `HOLD`다.
 Linear API collector, CSV 자동 export, Google Drive writer, webhook, scheduler와 actual restore
 runner는 아직 없다. Task Execution Core의 POC SQLite도 Linear 백업 DB가 아니다.
 

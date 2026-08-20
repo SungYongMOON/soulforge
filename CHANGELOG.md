@@ -17,6 +17,22 @@ Recovery cycle had previously treated a changed `last_run_at` or `running` state
 - **Continuous ingress supervisor failure heartbeats**: Persists sanitized failure heartbeats on `cycle_failed` (`status: "failed"`, `error_codes`, `mail_status: null`).
 - **Wire & supervision contract bump (Supervision v2, Cycle v3, History v2, Projection v3)**: Bumped recovery supervision state schema to `soulforge.watchtower.recovery_supervision.v2`, recovery cycle schema to `soulforge.watchtower.recovery_cycle.v3`, history schema to `soulforge.watchtower.recovery_history.v2` (persisting `diagnostic_code`), and projection schema to `soulforge.team_ops_board.topology_recovery_projection.v3`. For deployment compatibility, the local companion transparently migrates valid legacy v1 supervision and history records on read without row loss while clearing untrustworthy legacy `last_verified_repair_at` timestamps, writing exact v2 on subsequent persist, while the Board adapter strictly rejects legacy wire schemas. Contradictory outcome/attempt/verification rows fail closed.
 - **Board UI truth & Korean diagnostic labels**: Fixed interaction handler in `App.tsx` to require exact `outcome_code === "verified_repair"` before rendering completed repair. Recovery view and supervision panel visibly render fixed Korean diagnostic labels for non-repairable codes (e.g. `writer_authority_expired` -> "작성자 권한 만료 · 수동 갱신 필요") without leaking raw output.
+## 2026-08-20 - Linear LB1 now has an exact Owner start Gate
+
+- Added a pure, feature-OFF LB1 Owner Gate Module in front of any future one-shot collector. Its
+  single Interface binds the Owner decision, exact Linear workspace/read-only credential scope,
+  Google Drive target and storage-write authority, retention/RPO, partial-failure policy, human
+  restore acceptance, and the one-shot no-mutation/no-webhook/no-scheduler ceiling.
+- The independently trusted second argument pins the complete gate packet. Any coherent packet
+  change under the old pin remains `HOLD`; proxies, accessors, aliases, secret-shaped metadata,
+  write-capable credentials, overwrite, tabular-only restore, and scheduler activation fail closed.
+- The proposed entire-workspace / `Soulforge Linear Backup` / daily 30 / monthly 12 / 24-hour RPO
+  policy now produces an explicit pending `HOLD` until Owner approval and exact Linear, Drive,
+  storage-authority, and human-review refs are bound. No Linear or Drive access occurs in this slice.
+- Validation passed the focused gate suite 8/8 and full backup-controller 63/63. Actual LB1
+  collection, storage write, restore, webhook, scheduler, Linear mutation, Task/AgentRun, and P5
+  effects remain zero and `HOLD`.
+
 ## 2026-08-20 - P5 can assemble authentic producer outputs into a pinned review candidate
 
 - Added a pure, public-synthetic Project Context generation Module whose deep Interface accepts

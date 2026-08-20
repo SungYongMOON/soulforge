@@ -251,7 +251,9 @@ read-only snapshot
    6. **P6 TaskIntent**: accepted context generation이 닫힌 뒤에만 TaskIntent 후보를 만든다.
       이 순서를 앞당기거나 runtime activation을 주장하지 않는다.
    7. **병렬 support lane — Linear 업무 백업**: 백업 범위·데이터 모델과
-      public-synthetic feature-OFF offline LB1 manifest/restore contract까지 구현됐다.
+      public-synthetic feature-OFF offline LB1 manifest/restore contract, 그리고 exact Owner
+      decision·Linear read scope·Drive target·retention/RPO·restore reviewer를 하나의 trusted
+      packet으로 결속하는 pure start Gate까지 구현됐다.
       실제 Linear API collector, Drive writer, webhook, scheduler와 actual restore runner는 없다.
       Task Engine 마스터플랜 §12의 `LB1` exact start Gate가 통과되면 P5 전에도 one-shot
       read-only backup pilot을 병렬로 시작할 수 있다. 첫 pilot은 Linear mutation·webhook 등록·예약 실행 없이 bounded
@@ -1107,6 +1109,7 @@ raw 산출물·private 수치는 `_workmeta` 영수증을 가리키고 여기엔
 | 2026-08-20 | P4 bounded actual-pilot runner foundation | projection candidate는 있었지만 actual launch/authority/output을 한 번의 create-only 시도로 묶는 executor가 없었음 | raw-byte-pinned authority packet을 body-free attempt claim으로 admission 전에 소비하고 admission/projection 각 1회, exact candidate+claim 두 파일만 허용하는 feature-OFF runner/CLI 통합. pre-write HOLD replay·partial publish·foreign binding·payload echo를 fail-close | fresh Level-2 재검토 ACCEPT; main runner 13/13, admission 17/17, projection 13/13. actual KVDS 실행·운영 RAG/Wiki writer·P5 acceptance는 HOLD | `guild_hall/rag/project_pdf_knowledge_pilot_runner*.mjs`, CHANGELOG 08-20 |
 | 2026-08-20 | P5 authentic-producer generation candidate foundation | acceptance gate는 이미-built input set만 검사했고 P4/M2-2/timeline을 조립하는 deep Module이 없었음 | authentic producer outputs + Owner context contract를 complete request pin에 결속하는 pure candidate builder 통합. gap/supersession/time/crosswalk/secret/coherent-repin을 fail-close하고 review-ready 또는 exhaustive HOLD만 반환 | fresh Level-2 폐루프 ACCEPT; main P5 10/10, P4 13/13, M2-2 42 pass/1 platform skip, timeline 24/24. registered-human acceptance·writer epoch 실바인딩·generation advance·ERP/P6는 HOLD | `guild_hall/engineering_engine/kernel/project_context_generation_candidate.mjs`, CHANGELOG 08-20 |
 | 2026-08-20 | Linear LB1 offline backup contract candidate | 백업 범위·시작 Gate만 있고 collector/manifest/restore contract 0 | `backup_controller` 아래 feature-OFF 순수 Module로 immutable run/revision, deterministic coverage, duplicate/conflict, partial/failure, forged coverage와 restore completeness를 합성 검증. fresh 독립검토 ACCEPT | LB1 11/11, backup-controller 55/55; raw/path-like error code, deterministic revision ID와 status consistency hostile-run controls PASS. provider/storage/network/scheduler/Task/P5 effect 0; actual Linear/Drive/NAS와 LB1 Gate는 HOLD | `guild_hall/backup_controller/linear_lb1*.mjs`, CHANGELOG 08-20 |
+| 2026-08-20 | Linear LB1 exact Owner start Gate | LB1 시작 조건은 문서 표에만 있고 Owner 결정·workspace/credential·Drive target·보존/복원 정책을 기계적으로 결속하지 못함 | `evaluateLinearLb1OwnerGate(packet, trustedExpectedPin)` pure Module로 full packet pin, pending/approved 결정, read-only scope, create-only Drive target, retention/RPO, partial HOLD와 human restore acceptance를 fail-close. 제안 기본안은 ref·Owner 승인 부재로 명시 HOLD | focused 8/8, backup-controller 63/63. provider/storage/network/filesystem/scheduler effect 0; 실제 Linear/Drive access·LB1 run은 exact Owner 승인 전 HOLD | `guild_hall/backup_controller/linear_lb1_owner_gate*.mjs`, CHANGELOG 08-20 |
 
 ## 갱신 규칙
 

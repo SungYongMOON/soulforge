@@ -213,8 +213,36 @@ read-only Linear scope, retention/RPO and partial-failure policy, and human
 restore acceptance. This POC does not imply Task execution, AgentRun, P5, or
 automation readiness.
 
+### Linear LB1 Owner Gate
+
+`linear_lb1_owner_gate.mjs` is the pure policy-and-runtime binding Module for a
+future one-shot collector; no collector or storage adapter is wired to it. Its one Interface is
+`evaluateLinearLb1OwnerGate(packet, trustedExpectedPin)`. The request binds the
+Owner decision, exact Linear workspace scope and read-only credential ref,
+Google Drive folder and storage-write authority refs, retention/RPO,
+partial-failure policy, human restore acceptance, and one-shot prohibitions.
+The second argument is the independently trusted full-packet pin; changing any
+request field under an unchanged pin returns `HOLD`.
+
+`READY_FOR_ONE_SHOT` verifies a policy that permits at most one bounded Linear
+read and one create-only backup revision write. The receipt carries the trusted
+pin, expiry, run limit, and create-only/restore flags, but explicitly reports
+`technical_single_use_enforced: false` and `consumption_state: not_consumed_by_gate`;
+the future executor must own durable one-shot consumption. The Gate never authorizes Linear mutation,
+webhooks, scheduling, Task/AgentRun execution, P5 acceptance, overwrite,
+cleanup, or public sharing. Gate evaluation itself has zero provider, storage,
+network, filesystem, and scheduler effects.
+
+The proposed policy — entire workspace, Google Drive folder label
+`Soulforge Linear Backup`, 30 daily generations, 12 monthly generations, and a
+24-hour RPO — remains `HOLD` until the Owner decision, exact workspace and
+credential refs, exact Drive target and write-authority refs, and human restore
+reviewer ref are supplied and independently pinned. No live Linear or Drive
+access is performed by this Module.
+
 ## Validation
 
 ```powershell
 npm.cmd run validate:backup-controller
+npm.cmd run validate:linear-lb1-owner-gate
 ```
