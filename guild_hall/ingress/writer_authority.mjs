@@ -33,7 +33,7 @@ const SHA256 = /^[a-f0-9]{64}$/;
 const UTC_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 const ACTIVE_MODES = new Set(["primary", "fallback"]);
 const MODES = new Set(["off", ...ACTIVE_MODES]);
-const TRANSITIONS = new Set(["initialize", "freeze", "revoke", "promote", "failback"]);
+const TRANSITIONS = new Set(["initialize", "freeze", "revoke", "promote", "failback", "renew"]);
 const RECORD_FIELDS = [
   "schema_version",
   "authority_id",
@@ -477,7 +477,7 @@ function normalizeTransitionRequest(current, options) {
   const approvalRef = ownerApprovalRef(options.ownerApprovalRef);
   let targetMode = options.targetMode ?? null;
   let targetNodeId = options.targetNodeId ?? null;
-  if (["initialize", "freeze", "revoke"].includes(action)) {
+  if (["initialize", "freeze", "revoke", "renew"].includes(action)) {
     if (targetMode !== null || targetNodeId !== null) fail("writer_authority_transition_target_forbidden");
   } else if (action === "promote") {
     if (!ACTIVE_MODES.has(targetMode)) fail("writer_authority_invalid_target_mode");
@@ -553,6 +553,10 @@ function buildRecord(current, request) {
   if (request.action === "initialize") {
     mode = "off";
     nodeId = request.primaryNodeId;
+  } else if (request.action === "renew") {
+    if (!ACTIVE_MODES.has(current.mode)) fail("writer_authority_transition_forbidden");
+    mode = current.mode;
+    nodeId = current.node_id;
   } else if (["freeze", "revoke"].includes(request.action)) {
     if (!ACTIVE_MODES.has(current.mode)) fail("writer_authority_transition_forbidden");
     mode = "off";
@@ -842,6 +846,25 @@ export async function transitionWriterAuthority(options = {}) {
     await atomicReplaceRecord(paths, current, record, options.testHooks);
     return sanitizedTransitionResult(record, request, { apply: true, status: "updated", writesPerformed: 1 });
   });
+}
+
+export async function inspectWriterAuthority(options = {}) {
+  const paths = await normalizePaths(options);
+  const record = await readRecord(paths);
+  return {
+    schema_version: record.schema_version,
+    authority_id: record.authority_id,
+    authority_scope: record.authority_scope,
+    epoch: record.epoch,
+    mode: record.mode,
+    node_id: record.node_id,
+    primary_node_id: record.primary_node_id,
+    fallback_node_id: record.fallback_node_id,
+    lanes: [...record.lanes],
+    not_before: record.not_before,
+    expires_at: record.expires_at,
+    record_digest: record.record_digest,
+  };
 }
 
 function leaseInputs(options) {

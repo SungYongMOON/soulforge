@@ -3,6 +3,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 
 import { loadContinuousBinding, runContinuousIngress } from "./continuous_runner.mjs";
+import { runWriterAuthorityRenewal } from "./writer_authority_renewal.mjs";
 
 export const CONTINUOUS_SUPERVISOR_EVENT_SCHEMA = "soulforge.ingress.continuous_supervisor_event.v1";
 export const CONTINUOUS_SUPERVISOR_RESULT_SCHEMA = "soulforge.ingress.continuous_supervisor_result.v1";
@@ -142,6 +143,11 @@ export async function runContinuousSupervisor(options = {}) {
 
   const loadBindingImpl = options.loadBindingImpl || loadContinuousBinding;
   const runCycleImpl = options.runCycleImpl || runContinuousIngress;
+  const renewAuthorityImpl = options.renewAuthorityImpl || (async (renewalOptions) => (
+    path.isAbsolute(renewalOptions.bindingPath)
+      ? runWriterAuthorityRenewal(renewalOptions)
+      : { status: "disabled", renewed: false }
+  ));
   const delayImpl = options.delayImpl || abortableDelay;
   const emit = options.emit || (() => {});
   const recordHeartbeat = options.recordHeartbeat || (async () => {});
@@ -163,6 +169,19 @@ export async function runContinuousSupervisor(options = {}) {
 
     let result;
     try {
+      const renewal = await renewAuthorityImpl({
+        bindingPath: options.bindingPath,
+        bindingDigest: options.bindingDigest,
+        binding,
+      });
+      if (renewal?.status === "renewed") {
+        emit(supervisorEvent("writer_authority_renewed", {
+          epoch: renewal.epoch,
+          expires_at: renewal.expires_at,
+        }));
+      } else if (!new Set(["disabled", "not_due"]).has(renewal?.status)) {
+        fail("writer_authority_renewal_result_invalid");
+      }
       result = await runCycleImpl({
         bindingPath: options.bindingPath,
         bindingDigest: options.bindingDigest,

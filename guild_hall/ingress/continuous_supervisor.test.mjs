@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -170,6 +170,78 @@ test("heartbeat persistence failure terminates the supervisor for bounded OS res
     runCycleImpl: async () => ({ status: "ok", errors: [], mail: { status: "ok" } }),
     recordHeartbeat: async () => { throw failure; },
   }), failure);
+});
+
+test("conditional writer authority renewal runs before payload and emits only a sanitized success event", async () => {
+  const events = [];
+  const order = [];
+  await runContinuousSupervisor({
+    bindingPath: "private-binding.json",
+    bindingDigest: DIGEST,
+    apply: true,
+    maxCycles: 1,
+    loadBindingImpl: async () => binding(),
+    renewAuthorityImpl: async (options) => {
+      order.push("renewal");
+      assert.equal(options.bindingDigest, DIGEST);
+      return {
+        status: "renewed",
+        renewed: true,
+        epoch: 11,
+        expires_at: "2026-09-19T00:00:00.000Z",
+      };
+    },
+    runCycleImpl: async () => {
+      order.push("payload");
+      return { status: "ok", errors: [], writes_performed: 0 };
+    },
+    emit: (event) => events.push(event),
+  });
+  assert.deepEqual(order, ["renewal", "payload"]);
+  assert.deepEqual(events.map((event) => event.event), [
+    "supervisor_started",
+    "writer_authority_renewed",
+    "cycle_completed",
+    "supervisor_stopped",
+  ]);
+  assert.deepEqual(events[1], {
+    schema_version: CONTINUOUS_SUPERVISOR_EVENT_SCHEMA,
+    event: "writer_authority_renewed",
+    epoch: 11,
+    expires_at: "2026-09-19T00:00:00.000Z",
+  });
+});
+
+test("renewal failure records a sanitized failure heartbeat and never starts payload work", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "soulforge-supervisor-renewal-failure-"));
+  const bindingPath = path.join(root, "continuous-binding.json");
+  const ledgerPath = resolveSupervisorHeartbeatLedger(bindingPath);
+  let payloadCalls = 0;
+  try {
+    const error = new Error("private renewal detail");
+    error.code = "writer_authority_renewal_policy_expired";
+    await assert.rejects(runContinuousSupervisor({
+      bindingPath,
+      bindingDigest: DIGEST,
+      apply: true,
+      maxCycles: 1,
+      loadBindingImpl: async () => binding(),
+      renewAuthorityImpl: async () => { throw error; },
+      runCycleImpl: async () => { payloadCalls += 1; return { status: "ok", errors: [] }; },
+      recordHeartbeat: createSupervisorHeartbeatRecorder({
+        bindingPath,
+        instanceId: "renewal-test",
+        now: () => new Date("2026-08-20T00:00:00.000Z"),
+      }),
+    }), error);
+    assert.equal(payloadCalls, 0);
+    const heartbeat = JSON.parse((await readFile(ledgerPath, "utf8")).trim());
+    assert.equal(heartbeat.status, "failed");
+    assert.deepEqual(heartbeat.error_codes, ["writer_authority_renewal_policy_expired"]);
+    assert.doesNotMatch(JSON.stringify(heartbeat), /private|detail/u);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("fatal cycle errors are sanitized, logged once, and terminate for Windows restart", async () => {

@@ -24,6 +24,7 @@ import {
   WRITER_AUTHORITY_SCOPE,
   acquireWriterLease,
   transitionWriterAuthority,
+  inspectWriterAuthority,
   validateWriterLease,
 } from "./writer_authority.mjs";
 
@@ -605,6 +606,69 @@ test("active-to-active switches, wrong lease claims, and expired leases are forb
   }
 });
 
+test("renew atomically extends the same active writer without an off-mode gap", async () => {
+  const f = await fixture("writer-authority-renew-");
+  try {
+    const initialized = await initialize(f);
+    const primary = await transition(f, initialized, {
+      action: "promote",
+      targetMode: "primary",
+      targetNodeId: HPP,
+    });
+    const renewed = await transition(f, primary, {
+      action: "renew",
+      notBefore: "2026-07-21T00:00:00.000Z",
+      expiresAt: "2026-08-20T00:00:00.000Z",
+      now: Date.parse("2026-07-21T00:00:00.000Z"),
+    });
+    assert.equal(renewed.action, "renew");
+    assert.equal(renewed.epoch, primary.epoch + 1);
+    assert.equal(renewed.authority_mode, "primary");
+    assert.equal(renewed.node_id, HPP);
+    assert.equal(renewed.previous_digest, primary.authority_digest);
+    assert.equal(renewed.writes_performed, 1);
+    const inspected = await inspectWriterAuthority({ stateRoot: f.root, recordPath: f.recordPath });
+    assert.equal(inspected.mode, "primary");
+    assert.equal(inspected.node_id, HPP);
+    assert.equal(inspected.epoch, renewed.epoch);
+    assert.equal(inspected.expires_at, "2026-08-20T00:00:00.000Z");
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("renew refuses off authority and remains CAS and lease fenced", async () => {
+  const f = await fixture("writer-authority-renew-guard-");
+  try {
+    const initialized = await initialize(f);
+    await assert.rejects(transition(f, initialized, { action: "renew" }), {
+      code: "writer_authority_transition_forbidden",
+    });
+    const primary = await transition(f, initialized, {
+      action: "promote",
+      targetMode: "primary",
+      targetNodeId: HPP,
+    });
+    const continuousLeaseRoot = join(f.root, "state", "leases", "continuous_ingress");
+    await mkdir(continuousLeaseRoot, { recursive: true });
+    await writeFile(join(continuousLeaseRoot, "active.lock.json"), `${JSON.stringify({
+      schema_version: "soulforge.ingress.continuous_lease.v1",
+      node_id: HPP,
+      owner_host: hostname(),
+      owner_pid: process.pid,
+      lease_epoch: 1,
+      fence_token: "synthetic-renewal-live-owner",
+      acquired_at: new Date(NOW).toISOString(),
+      expires_at: new Date(NOW + 60_000).toISOString(),
+    })}\n`);
+    await assert.rejects(transition(f, primary, { action: "renew", now: NOW + 1 }), {
+      code: "writer_authority_continuous_lease_active",
+    });
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
 test("authority paths fail closed on lexical escape and symlink or junction traversal", async (t) => {
   const f = await fixture("writer-authority-path-");
   const outside = await fixture("writer-authority-outside-");
@@ -644,6 +708,7 @@ test("the public schema fixes the single mode and exact five-lane contract", asy
   assert.equal(schema.$id, WRITER_AUTHORITY_SCHEMA);
   assert.equal(schema.properties.authority_scope.const, WRITER_AUTHORITY_SCOPE);
   assert.deepEqual(schema.properties.mode.enum, ["off", "primary", "fallback"]);
+  assert.ok(schema.properties.transition.enum.includes("renew"));
   assert.deepEqual(schema.properties.lanes.const, WRITER_AUTHORITY_LANES);
   assert.equal(schema.additionalProperties, false);
 });

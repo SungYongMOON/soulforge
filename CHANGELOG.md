@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-20 - Conditional Ingress writer-authority renewal removes routine Owner bottlenecks
+
+- Added an atomic `renew` writer-authority transition that preserves the exact active mode, node, scope, and five lanes while advancing the fenced epoch and digest. It remains blocked by active continuous leases, CAS drift, and every existing path/identity guard.
+- Added a strict ignored-local standing policy with exact binding digest, primary/fallback identities, 72-hour renewal threshold, bounded 30-day authority window, policy expiry, and Owner approval reference. Missing or disabled policy changes nothing.
+- The continuous supervisor checks renewal before each payload cycle. A valid due policy renews once and continues; policy expiry, configuration drift, fallback mode, lease contention, or renewal failure stops before payload work and emits only a sanitized failure heartbeat for Watchtower.
+- No credential, login, route, project authority, provider call, deletion, or external transport authority was added.
+
 ## 2026-08-20 - Watchtower recovery truth: deduplicated task starts, evidence causality verification, durable diagnostics, and safe group gating
 
 Recovery cycle had previously treated a changed `last_run_at` or `running` state as verified repair, leading to false-positive verification when scheduled tasks failed with non-zero exit codes.

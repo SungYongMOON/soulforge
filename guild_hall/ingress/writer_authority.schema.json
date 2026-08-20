@@ -32,7 +32,7 @@
     "authority_scope": { "const": "raw_ingress_custody_only" },
     "epoch": { "type": "integer", "minimum": 1 },
     "transition": {
-      "enum": ["initialize", "freeze", "revoke", "promote", "failback"]
+      "enum": ["initialize", "freeze", "revoke", "promote", "failback", "renew"]
     },
     "mode": { "enum": ["off", "primary", "fallback"] },
     "node_id": { "$ref": "#/$defs/nodeId" },
@@ -93,6 +93,10 @@
     },
     {
       "if": { "properties": { "transition": { "const": "promote" } } },
+      "then": { "properties": { "mode": { "enum": ["primary", "fallback"] } } }
+    },
+    {
+      "if": { "properties": { "transition": { "const": "renew" } } },
       "then": { "properties": { "mode": { "enum": ["primary", "fallback"] } } }
     },
     {

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.ingress.writer_authority_renewal_policy.v1",
+  "title": "Soulforge conditional writer authority renewal policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "enabled",
+    "expected_binding_digest",
+    "expected_authority_id",
+    "expected_authority_scope",
+    "expected_primary_node_id",
+    "expected_fallback_node_id",
+    "renew_before_seconds",
+    "validity_seconds",
+    "policy_expires_at",
+    "owner_approval_ref"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.ingress.writer_authority_renewal_policy.v1" },
+    "enabled": { "type": "boolean" },
+    "expected_binding_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "expected_authority_id": { "const": "task-engine-hpp-production-ingress" },
+    "expected_authority_scope": { "const": "raw_ingress_custody_only" },
+    "expected_primary_node_id": { "$ref": "#/$defs/nodeId" },
+    "expected_fallback_node_id": { "$ref": "#/$defs/nodeId" },
+    "renew_before_seconds": { "type": "integer", "minimum": 3600, "maximum": 604800 },
+    "validity_seconds": { "type": "integer", "minimum": 86400, "maximum": 2678400 },
+    "policy_expires_at": { "type": "string", "format": "date-time" },
+    "owner_approval_ref": { "type": "string", "minLength": 1, "maxLength": 512 }
+  },
+  "$defs": {
+    "nodeId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$"
+    }
+  }
+}

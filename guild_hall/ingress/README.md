@@ -285,6 +285,21 @@ use the same expired-plus-same-host-plus-dead-PID recovery rule; cross-host
 recovery is never inferred from a timestamp alone. This authority covers only
 RAW ingress custody. It does not grant project classification, history
 projection, ERP acceptance, TaskDriver, or knowledge-promotion authority.
+
+An optional ignored local `writer-authority-renewal.policy.v1.json` beside the
+continuous binding may grant conditional renewal without an Owner being online
+for every expiry. The supervisor reads that policy before each payload cycle.
+It renews only the same active primary node and exact five lanes, with the exact
+pinned binding digest, no continuous payload lease or authority CAS transition,
+an unexpired standing approval policy, and a bounded 1–31 day validity window.
+The default operating profile renews when at most 72 hours remain and grants a
+new 30-day window. Renewal is one atomic `renew` transition: mode and node never
+pass through `off`, while epoch and digest advance monotonically. Missing or
+disabled policy is a no-op. Policy expiry, binding/node drift, fallback mode,
+active lease, CAS race, or malformed policy fails before payload work and writes
+only a sanitized failure heartbeat for Watchtower. It never changes credentials,
+accounts, routes, project authority, or external transport.
+
 The record is local to one data root and is not a cross-host authority
 transport. Mac source-local emergency spool remains a manually opened HOLD
 window unless a separate authenticated epoch/revoke transport is implemented.
