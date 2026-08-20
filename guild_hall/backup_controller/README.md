@@ -190,6 +190,29 @@ classification is committed, an unknown surface is not opened or copied: it is
 counted as `unclassified_entries`, while all already-declared HPP custody and
 the independent ERP, metadata, restore, and workspace stages continue.
 
+## Linear LB1 public-synthetic POC
+
+linear_lb1.mjs is an in-memory, feature-OFF contract owned by this backup
+surface. It has no Linear provider, filesystem, network, storage, scheduler,
+or controller-stage binding. Its fixture labels are local synthetic dimensions,
+not a claim about a live Linear API field mapping.
+
+The POC builds immutable synthetic runs and revisions, including a deterministic
+snapshot hash and coverage manifest with counts, timestamp min/max, missing
+dimensions, and metadata-only error codes. A pure registry reports create,
+duplicate, or conflict outcomes for the same run key without mutating a caller
+array. The restore check reports reconstructable versus missing dimensions; a
+Sheet or CSV artifact by itself is always incomplete.
+
+Schema-valid snapshot record and reference collections are canonicalized by
+their stable IDs before snapshot and manifest hashing. Reordering those
+collections cannot create a distinct revision or manifest identity.
+
+Actual LB1 remains HOLD pending explicit storage-write authority, a minimum
+read-only Linear scope, retention/RPO and partial-failure policy, and human
+restore acceptance. This POC does not imply Task execution, AgentRun, P5, or
+automation readiness.
+
 ## Validation
 
 ```powershell

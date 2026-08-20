@@ -52,7 +52,7 @@ Owner 지시(2026-08-18): "하기로 한 것이 그림에서 빠지면 누락된
 | 비서 층(엔진 MCP 위, 맥락 채움·표시) | 사람이 말 거는 상대; 엔진 판단 + 맥락(기한·담당·발주처 요청·결정) 조립, 판단/맥락 구분 표시 | 문 위 | 없음(합의 2026-08-19, 09장 9.1D) |
 | 접근 권한 모델(신원·권한표·집행·파일 권한) | 부르는 사람(역할) × 자료 등급(공개 규칙·팀 판단·기밀 계약·개인) × 동작; 엔진 문은 로컬, 원격은 비서/게이트웨이 층 로그인; 태그 없는 문서는 기밀(fail-closed) | 문 | **최소형 있음(2026-08-19, B1 후속)** — `--principal{principal_ref, role}` · 접근표 파일 `soulforge.engine_access_table.v0`(없으면 코드 기본표) · 도구 거절과 목록 숨김 · ⓒ 필드 가림 · 역할별 지시서 · 영수증 접근 로그 · 도구 `whoami`/`access_table`. 신원 없으면 ⓐ만(`SE_MCP_PRINCIPAL_REQUIRED`). 남은 것: 규칙 행·문서 단위 등급 태그, 원격 로그인(비서 층), 파일 권한(운영) |
 | 링크 발급기(시놀로지 NAS 파일 요청 링크) + NAS 문 앞 칸 프로필 | 외부 작업자가 링크만으로 올리게; 엔진은 칸·표·등록만, 링크는 엔진 옆 발급기(전산팀 계정·공유폴더 회신 대기) | 문 옆 | 없음(결정 2026-08-19, 12장 §12.C) |
-| 엔진 버전·판 매니페스트 | 엔진 버전 라벨 하나에 규칙 층 스펙 sha·덧씌움·어휘·컴파일러·코드 매니페스트·git 커밋을 묶어, 영수증의 policy_ref가 어느 판에 귀속되는지 한 번에 읽히게 | 출시 | **자리 착지(2026-08-18)**: `topology/ENGINE_VERSION` = `0.0.0`(만드는 중; Owner: 정본 승격 때 실제 번호 시작) + `topology/engine_release.json`(`tools/emit_release_manifest.mjs --out/--check`, `npm run validate:engine-release`). MCP 문의 모든 결과와 영수증 줄에 engine_version이 찍힌다(B1 착지) |
+| 엔진 버전·판 매니페스트 | 엔진 버전 라벨 하나에 규칙 층 스펙 sha·덧씌움·어휘·컴파일러·코드 매니페스트·생성 기준 commit을 묶어, 영수증의 policy_ref가 어느 판에 귀속되는지 한 번에 읽히게 | 출시 | **자리 착지(2026-08-18)**: `topology/ENGINE_VERSION` = `0.0.0`(만드는 중; Owner: 정본 승격 때 실제 번호 시작) + `topology/engine_release.json`(`generated_from_commit` = emit 시 base HEAD, 뒤의 self commit 아님; `git_commit`은 호환 alias; `tools/emit_release_manifest.mjs --out/--check`, `npm run validate:engine-release`). MCP 문의 모든 결과와 영수증 줄에 engine_version이 찍힌다(B1 착지) |
 
 ## 정본 위치 (매뉴얼이 가리키는 곳)
 

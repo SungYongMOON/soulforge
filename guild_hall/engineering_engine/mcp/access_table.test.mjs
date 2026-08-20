@@ -364,6 +364,8 @@ test('engine_status folds the release manifest in beside the switches and the sc
     const version = await call('rules_version', {}, context);
     assert.equal(version.structured.engine_release.engine_version,
       answer.structured.engine_version);
+    assert.equal(answer.structured.release.generated_from_commit_12,
+      version.structured.engine_release.git_commit.slice(0, 12));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

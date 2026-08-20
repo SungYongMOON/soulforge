@@ -55,13 +55,17 @@ export async function handler(args, ctx) {
       spec_version: row.spec_version ?? null,
       compiled_sha256_12: (row.compiled_sha256 ?? '').slice(0, 12) || null,
     }));
+  const generatedFromCommit = release?.generated_from_commit ?? release?.git_commit ?? '';
 
   const structured = {
     schema_version: 'soulforge.engine_mcp_engine_status.v0',
     engine_version: ctx.engine_version,
     release: release === null ? null : {
       status: release.status ?? null,
-      git_commit_12: (release.git_commit ?? '').slice(0, 12) || null,
+      generated_from_commit_12: generatedFromCommit.slice(0, 12) || null,
+      // Compatibility alias for callers that used the v0 field before generation-base semantics
+      // were named explicitly.
+      git_commit_12: (release.git_commit ?? generatedFromCommit).slice(0, 12) || null,
       stage_rule_compiler: release.components?.stage_rule_compiler?.version ?? null,
       pilot_packet_generator: release.components?.pilot_packet_generator?.version ?? null,
       rule_layers: ruleLayers,

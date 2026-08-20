@@ -24,38 +24,74 @@
 
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ENGINE = join(HERE, '..');
 
-const INCLUDED_DIRS = ['kernel', 'assembly', 'subjects', 'evaluation', 'tools', 'tests', 'contracts', 'fixtures', 'topology'];
+const INCLUDED_DIRS = [
+  'kernel', 'assembly', 'subjects', 'evaluation', 'tools', 'tests', 'contracts', 'fixtures', 'topology',
+  'mcp', 'stage_rules', 'observation', 'guidance',
+];
 const INCLUDED_ROOT_FILES = ['README.md'];
 
 // The receipt records the result of a run, so it changes on every run and cannot be part of the
 // manifest that a run verifies against. Listing it would make the manifest self-invalidating.
-const EXCLUDED = new Set(['phase_1_integration_receipt.json', 'engine_manifest.sha256', 'engine_release.json']);
+const EXCLUDED_PATHS = new Set([
+  'topology/phase_1_integration_receipt.json',
+  'topology/engine_manifest.sha256',
+  'topology/engine_release.json',
+]);
 
 export const BYTE_BASIS = 'git-clean-filter-lf';
 
-const walk = (dir) => {
-  const out = [];
-  let entries = [];
-  try { entries = readdirSync(join(ENGINE, dir)); } catch { return out; }
-  for (const name of entries.sort()) {
-    const rel = `${dir}/${name}`;
-    const abs = join(ENGINE, rel);
-    if (statSync(abs).isDirectory()) out.push(...walk(rel));
-    else if (!EXCLUDED.has(name)) out.push(rel);
-  }
-  return out;
-};
+const inManifestScope = (file) => file === 'README.md'
+  || INCLUDED_DIRS.some((dir) => file.startsWith(`${dir}/`));
 
-export const manifestFiles = () => [...INCLUDED_ROOT_FILES, ...INCLUDED_DIRS.flatMap((d) => walk(d))]
-  .map((p) => p.split(sep).join('/'))
-  .sort();
+/**
+ * Parses the Git index's NUL-delimited path list. A filesystem walk is deliberately not used:
+ * an untracked scratch file under an allowed directory is not source the manifest may attest.
+ */
+export function parseTrackedPathList(output) {
+  if (!Buffer.isBuffer(output) || output.length === 0 || output.at(-1) !== 0) {
+    throw new Error('Git index path list is not a complete NUL-delimited stream');
+  }
+  const seen = new Set();
+  const files = [];
+  for (const file of output.subarray(0, -1).toString('utf8').split('\0')) {
+    const segments = file.split('/');
+    if (!file || file.includes('\\') || file.startsWith('/')
+      || segments.some((segment) => !segment || segment === '.' || segment === '..')
+      || !inManifestScope(file) || seen.has(file)) {
+      throw new Error('Git index path list is ambiguous or outside the manifest scope');
+    }
+    seen.add(file);
+    if (!EXCLUDED_PATHS.has(file)) files.push(file);
+  }
+  if (!files.includes('README.md')) throw new Error('Git index path list omitted engine README.md');
+  for (const dir of ['mcp', 'stage_rules', 'observation', 'guidance']) {
+    if (!files.some((file) => file.startsWith(`${dir}/`))) {
+      throw new Error(`Git index path list omitted required source root ${dir}/`);
+    }
+  }
+  return files.sort();
+}
+
+export function manifestFilesAt(engineRoot) {
+  const listed = spawnSync('git', ['ls-files', '--cached', '-z', '--', ...INCLUDED_ROOT_FILES, ...INCLUDED_DIRS], {
+    cwd: engineRoot,
+    encoding: null,
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (listed.status !== 0 || listed.error || !Buffer.isBuffer(listed.stdout)) {
+    throw new Error('could not read the Git index manifest allowlist');
+  }
+  return parseTrackedPathList(listed.stdout);
+}
+
+export const manifestFiles = () => manifestFilesAt(ENGINE);
 
 /**
  * The bytes Git stores for this content.
@@ -85,9 +121,8 @@ const blobIdOf = (bytes) => createHash('sha1')
  * treats as "cannot verify" rather than "verified".
  */
 function gitBlobIds(files) {
-  const r = spawnSync('git', ['hash-object', '--stdin-paths'], {
+  const r = spawnSync('git', ['hash-object', '--filters', '--', ...files], {
     cwd: ENGINE,
-    input: `${files.map((f) => join(ENGINE, f)).join('\n')}\n`,
     encoding: 'utf8',
   });
   if (r.status !== 0 || typeof r.stdout !== 'string') return null;
@@ -129,15 +164,20 @@ export function buildManifest() {
 /** Parses a manifest into its declared header values and rows. */
 export function parseManifest(text) {
   const rows = new Map();
+  const duplicate_paths = [];
   for (const line of text.split('\n')) {
     const m = /^([0-9a-f]{64})\s+(.+)$/.exec(line.trim());
-    if (m) rows.set(m[2], m[1]);
+    if (m) {
+      if (rows.has(m[2])) duplicate_paths.push(m[2]);
+      else rows.set(m[2], m[1]);
+    }
   }
   return {
     path_base: /^#\s*path_base:\s*(\S+)\s*$/m.exec(text)?.[1] ?? null,
     byte_basis: /^#\s*byte_basis:\s*(\S+)\s*$/m.exec(text)?.[1] ?? null,
     file_count: Number(/^#\s*file_count:\s*(\d+)\s*$/m.exec(text)?.[1] ?? NaN),
     rows,
+    duplicate_paths,
   };
 }
 
@@ -160,11 +200,13 @@ if (isMain) {
     const fresh = parseManifest(built.text);
     const mismatched = [...fresh.rows.entries()].filter(([f, h]) => declared.rows.get(f) !== h).map(([f]) => f);
     const extra = [...declared.rows.keys()].filter((f) => !fresh.rows.has(f));
-    const ok = mismatched.length === 0 && extra.length === 0 && declared.file_count === fresh.rows.size;
+    const ok = mismatched.length === 0 && extra.length === 0 && declared.file_count === fresh.rows.size
+      && declared.duplicate_paths.length === 0;
     console.log(JSON.stringify({
       verified: verify, result: ok ? 'PASS' : 'FAIL',
       file_count: fresh.rows.size, declared_file_count: declared.file_count,
       mismatched, missing_from_manifest: mismatched.filter((f) => !declared.rows.has(f)), extra,
+      duplicate_row_count: declared.duplicate_paths.length,
       byte_basis: fresh.byte_basis, blob_identity_verified: built.blobIdentityChecked,
     }, null, 2));
     process.exit(ok ? 0 : 1);

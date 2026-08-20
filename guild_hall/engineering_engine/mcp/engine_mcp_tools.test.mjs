@@ -166,6 +166,10 @@ test('rules_version returns the release manifest and the version the file states
     const answer = await call('rules_version', {}, context);
     assert.equal(answer.structured.engine_release.engine_version, ENGINE_VERSION);
     assert.ok(answer.structured.engine_release.components.rule_layers !== undefined);
+    assert.match(answer.structured.engine_release.generated_from_commit, /^[0-9a-f]{40}$/);
+    assert.equal(answer.structured.engine_release.generated_from_commit,
+      answer.structured.engine_release.git_commit);
+    assert.match(answer.markdown, /생성 기준/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

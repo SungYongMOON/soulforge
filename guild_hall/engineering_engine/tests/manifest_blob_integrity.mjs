@@ -18,20 +18,73 @@
 
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { buildManifest, parseManifest, canonicalBytes, BYTE_BASIS } from '../tools/emit_manifest.mjs';
+import * as manifestTool from '../tools/emit_manifest.mjs';
+
+const { buildManifest, parseManifest, canonicalBytes, BYTE_BASIS, manifestFilesAt } = manifestTool;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ENGINE = join(HERE, '..');
 const MANIFEST_PATH = join(ENGINE, 'topology', 'engine_manifest.sha256');
+const RELEASE_EMITTER = join(ENGINE, 'tools', 'emit_release_manifest.mjs');
 
 const results = [];
 const record = (id, ok, note = '') => results.push({ id, ok: ok === true, note });
 
 const git = (args, opts = {}) => spawnSync('git', args, { cwd: ENGINE, encoding: 'utf8', ...opts });
+const gitBytes = (args, opts = {}) => spawnSync('git', args, { cwd: ENGINE, encoding: null, ...opts });
+
+// This allowlist deliberately does not import the emitter's constants or output. It proves the
+// committed rows cover the Git index's exact tracked set rather than merely agreeing with the
+// emitter's own walk.
+const EXPECTED_ROOT_FILES = ['README.md'];
+const EXPECTED_DIRS = [
+  'kernel', 'assembly', 'subjects', 'evaluation', 'tools', 'tests', 'contracts', 'fixtures', 'topology',
+  'mcp', 'stage_rules', 'observation', 'guidance',
+];
+const EXPECTED_EXCLUDED = new Set([
+  'topology/phase_1_integration_receipt.json',
+  'topology/engine_manifest.sha256',
+  'topology/engine_release.json',
+]);
+const expectedPath = (file) => file === 'README.md'
+  || EXPECTED_DIRS.some((dir) => file.startsWith(`${dir}/`));
+
+const readExpectedIndex = () => {
+  const listed = gitBytes(['ls-files', '--cached', '--stage', '-z', '--', ...EXPECTED_ROOT_FILES, ...EXPECTED_DIRS], {
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (listed.status !== 0 || listed.error || !Buffer.isBuffer(listed.stdout)
+    || listed.stdout.length === 0 || listed.stdout.at(-1) !== 0) {
+    throw new Error('could not read a complete NUL-delimited Git index allowlist');
+  }
+  const entries = new Map();
+  for (const row of listed.stdout.subarray(0, -1).toString('utf8').split('\0')) {
+    const tab = row.indexOf('\t');
+    const match = /^\d+ ([0-9a-f]{40,64}) ([0-3])$/.exec(row.slice(0, tab));
+    const file = row.slice(tab + 1);
+    if (tab <= 0 || !match || match[2] !== '0' || !expectedPath(file) || entries.has(file)) {
+      throw new Error('Git index allowlist is ambiguous or outside the engine manifest scope');
+    }
+    if (!EXPECTED_EXCLUDED.has(file)) entries.set(file, match[1]);
+  }
+  if (!entries.has('README.md')) throw new Error('Git index allowlist omitted README.md');
+  for (const dir of ['mcp', 'stage_rules', 'observation', 'guidance']) {
+    if (![...entries.keys()].some((file) => file.startsWith(`${dir}/`))) {
+      throw new Error(`Git index allowlist omitted required root ${dir}/`);
+    }
+  }
+  return entries;
+};
+
+const compareRowSet = (rows, expectedFiles) => ({
+  missing: expectedFiles.filter((file) => !rows.has(file)),
+  extra: [...rows.keys()].filter((file) => !expectedFiles.includes(file)),
+});
 
 {
   // Harness self test: the comparison used below has to be able to fail.
@@ -44,6 +97,101 @@ const built = buildManifest();
 const declaredText = readFileSync(MANIFEST_PATH, 'utf8');
 const declared = parseManifest(declaredText);
 const fresh = parseManifest(built.text);
+let expectedIndex = new Map();
+try {
+  expectedIndex = readExpectedIndex();
+  record('MANIFEST/index_allowlist_is_nul_delimited_and_unambiguous', true);
+} catch (error) {
+  record('MANIFEST/index_allowlist_is_nul_delimited_and_unambiguous', false, error.message);
+}
+const expectedFiles = [...expectedIndex.keys()].sort();
+
+for (const root of ['mcp', 'stage_rules', 'observation', 'guidance']) {
+  record(`MANIFEST/required_source_root/${root}`,
+    expectedFiles.some((file) => file.startsWith(`${root}/`)),
+    `required tracked source root is absent: ${root}/`);
+}
+
+const declaredSet = compareRowSet(declared.rows, expectedFiles);
+record('MANIFEST/declared_rows_exactly_match_the_index_allowlist',
+  declaredSet.missing.length === 0 && declaredSet.extra.length === 0,
+  `missing: ${declaredSet.missing.join(', ') || 'none'}; extra: ${declaredSet.extra.join(', ') || 'none'}`);
+const freshSet = compareRowSet(fresh.rows, expectedFiles);
+record('MANIFEST/fresh_rows_exactly_match_the_index_allowlist',
+  freshSet.missing.length === 0 && freshSet.extra.length === 0,
+  `missing: ${freshSet.missing.join(', ') || 'none'}; extra: ${freshSet.extra.join(', ') || 'none'}`);
+
+const omittedProbe = new Map(declared.rows);
+const omittedTracked = expectedFiles.find((file) => omittedProbe.has(file)) ?? null;
+if (omittedTracked !== null) omittedProbe.delete(omittedTracked);
+const omittedSet = compareRowSet(omittedProbe, expectedFiles);
+record('MANIFEST/harness/tracked_allowed_omission_is_detected',
+  omittedTracked !== null && omittedSet.missing.includes(omittedTracked),
+  omittedTracked === null ? 'no tracked manifest row was available for the omission control' : omittedTracked);
+
+const firstManifestRow = declaredText.split('\n').find((line) => /^[0-9a-f]{64}\s+/.test(line)) ?? null;
+const duplicatedProbe = firstManifestRow === null ? null : parseManifest(`${declaredText}${firstManifestRow}\n`);
+record('MANIFEST/harness/duplicate_manifest_row_is_detected',
+  duplicatedProbe !== null && Array.isArray(duplicatedProbe.duplicate_paths)
+    && duplicatedProbe.duplicate_paths.includes(firstManifestRow.replace(/^[0-9a-f]{64}\s+/, '')),
+  firstManifestRow === null ? 'manifest had no data row for duplicate control' : 'duplicate row was not rejected');
+
+let malformedListRefused = false;
+if (typeof manifestTool.parseTrackedPathList === 'function') {
+  try { manifestTool.parseTrackedPathList(Buffer.from('mcp/unterminated', 'utf8')); } catch { malformedListRefused = true; }
+}
+record('MANIFEST/truncated_index_list_is_refused', malformedListRefused);
+
+{
+  const fixtureRoot = mkdtempSync(join(tmpdir(), 'engine_manifest_index_'));
+  try {
+    const initialized = spawnSync('git', ['init', '--quiet'], { cwd: fixtureRoot, encoding: 'utf8' });
+    for (const dir of ['mcp', 'stage_rules', 'observation', 'guidance']) {
+      mkdirSync(join(fixtureRoot, dir), { recursive: true });
+      writeFileSync(join(fixtureRoot, dir, 'tracked.mjs'), `// ${dir}\n`, 'utf8');
+    }
+    writeFileSync(join(fixtureRoot, 'README.md'), '# synthetic engine\n', 'utf8');
+    const added = initialized.status === 0
+      ? spawnSync('git', ['add', '--', 'README.md', 'mcp', 'stage_rules', 'observation', 'guidance'], { cwd: fixtureRoot, encoding: 'utf8' })
+      : null;
+    const transientPath = join(fixtureRoot, 'mcp', 'transient', 'not-indexed.txt');
+    mkdirSync(dirname(transientPath), { recursive: true });
+    writeFileSync(transientPath, 'untracked transient fixture\n', 'utf8');
+    const files = typeof manifestFilesAt === 'function' ? manifestFilesAt(fixtureRoot) : null;
+    record('MANIFEST/untracked_transient_file_is_excluded',
+      added?.status === 0 && Array.isArray(files) && !files.includes('mcp/transient/not-indexed.txt'));
+  } finally {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+}
+
+{
+  const releaseDir = mkdtempSync(join(tmpdir(), 'engine_release_manifest_'));
+  const releasePath = join(releaseDir, 'release.json');
+  try {
+    const emitted = spawnSync(process.execPath, [RELEASE_EMITTER, '--out', releasePath], { cwd: ENGINE, encoding: 'utf8' });
+    const release = emitted.status === 0 ? JSON.parse(readFileSync(releasePath, 'utf8')) : null;
+    const commit = release?.generated_from_commit ?? null;
+    record('RELEASE/generated_from_commit_is_explicit_and_aliases_legacy_git_commit',
+      /^[0-9a-f]{40}$/.test(commit ?? '') && release?.git_commit === commit,
+      emitted.status === 0 ? '' : 'release emitter did not produce a readable synthetic manifest');
+
+    if (release !== null) {
+      const mismatched = { ...release, git_commit: '0'.repeat(40) };
+      writeFileSync(releasePath, JSON.stringify(mismatched), 'utf8');
+      const mismatchCheck = spawnSync(process.execPath, [RELEASE_EMITTER, '--check', releasePath], { cwd: ENGINE, encoding: 'utf8' });
+      record('RELEASE/mismatched_legacy_git_commit_alias_is_refused', mismatchCheck.status !== 0);
+
+      const legacy = { ...release };
+      delete legacy.generated_from_commit;
+      writeFileSync(releasePath, JSON.stringify(legacy), 'utf8');
+      const legacyCheck = spawnSync(process.execPath, [RELEASE_EMITTER, '--check', releasePath], { cwd: ENGINE, encoding: 'utf8' });
+      record('RELEASE/legacy_git_commit_only_manifest_remains_checkable', legacyCheck.status === 0);
+    }
+  } finally {
+    rmSync(releaseDir, { recursive: true, force: true });
+  }
+}
 
 // ---------------------------------------------------------------- 1. not stale
 
@@ -52,6 +200,8 @@ record('MANIFEST/header/byte_basis', declared.byte_basis === BYTE_BASIS,
   `declared ${declared.byte_basis}, expected ${BYTE_BASIS}`);
 record('MANIFEST/header/file_count_matches_rows', declared.file_count === declared.rows.size,
   `header says ${declared.file_count}, ${declared.rows.size} rows present`);
+record('MANIFEST/no_duplicate_rows', declared.duplicate_paths.length === 0,
+  `${declared.duplicate_paths.length} duplicate manifest row(s)`);
 
 const staleRows = [...fresh.rows.entries()].filter(([f, h]) => declared.rows.get(f) !== h).map(([f]) => f);
 const removedRows = [...declared.rows.keys()].filter((f) => !fresh.rows.has(f));

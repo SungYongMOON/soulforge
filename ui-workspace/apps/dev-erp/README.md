@@ -1,5 +1,23 @@
 # dev-erp — 개발팀 운영 콕핏 (P1: 읽기 전용)
 
+## Task Execution Core 최소 POC
+
+`src/task_execution_core.mjs`는 Linear Official Task를 변경하지 않고 합성 fixture에서만
+eligibility, 단일 AgentRun claim, append-only Task/Run event, Waiting·terminal receipt와
+idempotent replay를 검증하는 feature-OFF Module이다. 실제 Linear, `core_item`, 기존
+`event_log`, server, MCP, scheduler에는 연결하지 않는다.
+
+- 계획·경계: [`docs/task_execution_core_poc/IMPLEMENTATION_PLAN.md`](docs/task_execution_core_poc/IMPLEMENTATION_PLAN.md)
+- 구조: [`docs/task_execution_core_poc/ARCHITECTURE.md`](docs/task_execution_core_poc/ARCHITECTURE.md)
+- Linear 백업 범위 검토: [`docs/task_execution_core_poc/LINEAR_BACKUP_SCOPE_REVIEW.md`](docs/task_execution_core_poc/LINEAR_BACKUP_SCOPE_REVIEW.md)
+- 남은 결정: [`docs/task_execution_core_poc/NEXT_DECISIONS.md`](docs/task_execution_core_poc/NEXT_DECISIONS.md)
+
+```bash
+npm --prefix ui-workspace/apps/dev-erp run validate:task-execution-core-poc
+```
+
+`AgentRun succeeded`는 Official Task Done이 아니며 모든 외부 effect와 Official Task mutation은 0이다.
+
 ## Task Engine A8-SYNTH secure-access source foundation
 
 `tools/a8_synth_secure_access.mjs` is a public, pathless, feature-OFF pure

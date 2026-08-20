@@ -14,6 +14,11 @@ ENGINE-12 read model 연결을 한 vertical loop로 닫는다.
 
 ## current facts / no-claims
 
+- 2026-08-20 public-synthetic Task Execution Core POC가 Linear fixture → eligibility → 단일
+  AgentRun claim → Mock Executor → Waiting/terminal receipt를 검증했다. 격리 SQLite `_poc`
+  table만 사용하며 TaskDriver apply, live AgentRun control plane, actual Linear/dev-ERP writer,
+  P5~P8 acceptance와 activation은 모두 0이다.
+
 - dev-ERP current task enum은 `unclassified|open|doing|waiting|blocked|done|archived`다.
 - ENGINE-12는 source-local ledgers의 read-only event/life-tree projection이다.
 - current project RAG docs/runtime 일부는 legacy common root와 prefix 격리를 쓴다.

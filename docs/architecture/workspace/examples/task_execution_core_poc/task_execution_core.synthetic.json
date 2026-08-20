@@ -1,0 +1,300 @@
+{
+  "schema_version": "soulforge.task_execution_core.synthetic_fixture.v0",
+  "fixture_id": "task-core-public-success-001",
+  "clock": {
+    "instant": "2026-08-20T00:00:03.000Z"
+  },
+  "task": {
+    "task_ref": {
+      "provider": "linear",
+      "task_id": "SYN-101"
+    },
+    "project_ref": {
+      "provider": "linear",
+      "project_id": "SYN-PROJECT"
+    },
+    "task_class": "official",
+    "status": "Todo",
+    "executor_ref": "mock:public-success",
+    "work_brief": {
+      "revision_ref": {
+        "provider": "linear",
+        "task_id": "SYN-101",
+        "revision_id": "wb-rev-001",
+        "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "purpose": "Validate one public-synthetic Task Execution Core success path.",
+      "background": "A fixture-backed Official Todo is ready for a bounded local mock execution.",
+      "inputs": [
+        {
+          "source_ref": {
+            "source_type": "synthetic_fixture",
+            "source_id": "source-public-001",
+            "revision_id": "rev-001"
+          }
+        }
+      ],
+      "instructions": [
+        "Return a synthetic success result without external side effects."
+      ],
+      "constraints": [
+        "Do not write to Linear or any external service."
+      ],
+      "completion_conditions": [
+        "A synthetic execution receipt is recorded."
+      ],
+      "expected_artifacts": [
+        "artifact:synthetic:execution-summary-001"
+      ],
+      "reporting": "Return a structured ExecutionReceipt only.",
+      "source_refs": [
+        {
+          "source_type": "synthetic_fixture",
+          "source_id": "source-public-001",
+          "revision_id": "rev-001"
+        }
+      ],
+      "handoff": "No external handoff is permitted in this POC."
+    },
+    "policy_gate": {
+      "status": "approved",
+      "authority_ref": "policy:public-synthetic-poc-v0"
+    }
+  },
+  "provider_event": {
+    "provider": "linear",
+    "provider_event_id": "linear-event-public-001",
+    "idempotency_key": "linear:linear-event-public-001",
+    "event_type": "official_task_observed",
+    "task_ref": {
+      "provider": "linear",
+      "task_id": "SYN-101"
+    },
+    "occurred_at": "2026-08-20T00:00:00.000Z",
+    "received_at": "2026-08-20T00:00:01.000Z",
+    "ingested_at": "2026-08-20T00:00:02.000Z",
+    "payload_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "provider_event_conflict": {
+    "provider": "linear",
+    "provider_event_id": "linear-event-public-001",
+    "idempotency_key": "linear:linear-event-public-001",
+    "event_type": "official_task_observed",
+    "task_ref": {
+      "provider": "linear",
+      "task_id": "SYN-101"
+    },
+    "occurred_at": "2026-08-20T00:00:00.000Z",
+    "received_at": "2026-08-20T00:00:01.000Z",
+    "ingested_at": "2026-08-20T00:00:02.000Z",
+    "payload_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+  },
+  "executor": {
+    "executor_ref": "mock:public-success",
+    "outcome": {
+      "status": "succeeded",
+      "result": {
+        "summary": "Synthetic work brief completed."
+      },
+      "artifact_refs": [
+        "artifact:synthetic:execution-summary-001"
+      ],
+      "evidence_refs": [
+        {
+          "evidence_type": "synthetic_execution",
+          "evidence_id": "evidence-public-001"
+        }
+      ],
+      "completion_criteria_met": true
+    }
+  },
+  "dispatch": {
+    "idempotency_key": "dispatch:linear:SYN-101:wb-rev-001"
+  },
+  "waiting_case": {
+    "clock": {
+      "instant": "2026-08-20T00:01:03.000Z"
+    },
+    "task": {
+      "task_ref": {
+        "provider": "linear",
+        "task_id": "SYN-102"
+      },
+      "project_ref": {
+        "provider": "linear",
+        "project_id": "SYN-PROJECT"
+      },
+      "task_class": "official",
+      "status": "Todo",
+      "executor_ref": "mock:public-waiting",
+      "work_brief": {
+        "revision_ref": {
+          "provider": "linear",
+          "task_id": "SYN-102",
+          "revision_id": "wb-rev-001",
+          "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "purpose": "Validate one public-synthetic Waiting result.",
+        "background": "The executor needs an explicit owner input before it can finish.",
+        "inputs": [
+          {
+            "source_ref": {
+              "source_type": "synthetic_fixture",
+              "source_id": "source-public-002",
+              "revision_id": "rev-001"
+            }
+          }
+        ],
+        "instructions": [
+          "Stop and return WaitingInfo when the required decision is absent."
+        ],
+        "constraints": [
+          "Do not infer the missing decision or mutate the Official Task."
+        ],
+        "completion_conditions": [
+          "The owner supplies the bounded synthetic decision."
+        ],
+        "expected_artifacts": [
+          "artifact:synthetic:waiting-note-001"
+        ],
+        "reporting": "Return structured WaitingInfo in an ExecutionReceipt.",
+        "source_refs": [
+          {
+            "source_type": "synthetic_fixture",
+            "source_id": "source-public-002",
+            "revision_id": "rev-001"
+          }
+        ],
+        "handoff": "Return the next action to the synthetic Owner role."
+      },
+      "policy_gate": {
+        "status": "approved",
+        "authority_ref": "policy:public-synthetic-poc-v0"
+      }
+    },
+    "executor": {
+      "executor_ref": "mock:public-waiting",
+      "outcome": {
+        "status": "waiting",
+        "waiting_info": {
+          "reason": "A required synthetic decision is missing.",
+          "required_input": "Select the approved synthetic option.",
+          "next_action_owner": "owner:synthetic",
+          "reply_or_due_date": "2026-08-21",
+          "manager_decision_required": true
+        },
+        "artifact_refs": [],
+        "evidence_refs": [],
+        "completion_criteria_met": false
+      }
+    },
+    "dispatch": {
+      "idempotency_key": "dispatch:linear:SYN-102:wb-rev-001",
+      "second_idempotency_key": "dispatch:linear:SYN-102:wb-rev-001:second-claim"
+    }
+  },
+  "crash_case": {
+    "clock": {
+      "instant": "2026-08-20T00:02:03.000Z"
+    },
+    "task": {
+      "task_ref": {
+        "provider": "linear",
+        "task_id": "SYN-103"
+      },
+      "project_ref": {
+        "provider": "linear",
+        "project_id": "SYN-PROJECT"
+      },
+      "task_class": "official",
+      "status": "Todo",
+      "executor_ref": "mock:public-crash",
+      "work_brief": {
+        "revision_ref": {
+          "provider": "linear",
+          "task_id": "SYN-103",
+          "revision_id": "wb-rev-001",
+          "digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+        },
+        "purpose": "Validate one public-synthetic executor crash and held retry.",
+        "background": "A crash after claim must not trigger an automatic second execution.",
+        "inputs": [
+          {
+            "source_ref": {
+              "source_type": "synthetic_fixture",
+              "source_id": "source-public-003",
+              "revision_id": "rev-001"
+            }
+          }
+        ],
+        "instructions": [
+          "Expose only the stable executor-crash code and require recovery."
+        ],
+        "constraints": [
+          "Do not retry automatically or expose the raw executor message."
+        ],
+        "completion_conditions": [
+          "The crashed run remains available for explicit recovery."
+        ],
+        "expected_artifacts": [
+          "artifact:synthetic:recovery-note-001"
+        ],
+        "reporting": "Return a stable error code, then hold the repeated dispatch.",
+        "source_refs": [
+          {
+            "source_type": "synthetic_fixture",
+            "source_id": "source-public-003",
+            "revision_id": "rev-001"
+          }
+        ],
+        "handoff": "A recovery owner must decide whether a new run is authorized."
+      },
+      "policy_gate": {
+        "status": "approved",
+        "authority_ref": "policy:public-synthetic-poc-v0"
+      }
+    },
+    "executor": {
+      "executor_ref": "mock:public-crash",
+      "outcome": {
+        "status": "crash",
+        "raw_message": "Synthetic executor transport exploded."
+      }
+    },
+    "dispatch": {
+      "idempotency_key": "dispatch:linear:SYN-103:wb-rev-001"
+    }
+  },
+  "candidate_case": {
+    "task": {
+      "task_ref": {
+        "provider": "candidate",
+        "task_id": "CAND-201",
+        "task_class": "candidate"
+      },
+      "project_ref": {
+        "provider": "linear",
+        "project_id": "SYN-PROJECT"
+      },
+      "task_class": "candidate",
+      "status": "Candidate",
+      "executor_ref": "mock:must-not-run",
+      "proposal_summary": "A public-synthetic candidate that has not been approved as an Official Task."
+    },
+    "executor": {
+      "executor_ref": "mock:must-not-run",
+      "outcome": {
+        "status": "succeeded",
+        "result": {
+          "summary": "This outcome must never be requested."
+        },
+        "artifact_refs": [],
+        "evidence_refs": [],
+        "completion_criteria_met": true
+      }
+    },
+    "dispatch": {
+      "idempotency_key": "dispatch:candidate:CAND-201:must-not-run"
+    }
+  }
+}

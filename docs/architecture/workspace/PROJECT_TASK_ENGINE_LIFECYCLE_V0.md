@@ -43,6 +43,12 @@ TaskDriver를 "왜 이 할일 또는 상태 전이가 존재하는가, 왜 지�
 현재 runtime에는 이 통합 TaskDriver contract가 구현되어 있지 않다. 현행 schema와
 writer drift, 실제 task/ledger crosswalk는 고성능 PC에서 read-only inventory로 확인한다.
 
+2026-08-20에는 이 TARGET을 활성화하지 않는 `public-synthetic / feature-OFF` Task Execution
+Core POC가 dev-ERP 아래에 착지했다. Drive 운영지침 v3.1을 우선해 Linear를 Official Task
+상태 정본으로 읽고, 격리 SQLite에는 AgentRun·TaskEvent·ExecutionReceipt만 기록한다.
+`core_item`, 기존 `event_log`, 실제 Linear, server/MCP/scheduler와의 연결 및 P5~P8 수락은 0이다.
+따라서 이 POC는 이 문서의 통합 TaskDriver runtime 구현 완료나 owner migration 결정을 뜻하지 않는다.
+
 ## 2. TaskDriver 최소 계약
 
 TaskDriver는 source body나 LLM reasoning 원문이 아니라 metadata-only causal record다.

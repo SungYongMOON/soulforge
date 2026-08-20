@@ -11,6 +11,10 @@
 
 ## 적용 원칙
 
+2026-08-20 Task Execution Core POC는 이 장의 operational TaskDriver를 구현한 것이 아니다.
+Linear Official Task read-only fixture와 격리 SQLite로 AgentRun/Event/Receipt 폐루프만 합성 검증하며,
+P5~P8 phase acceptance, `core_item` writer, actual Linear mutation과 runtime activation은 계속 `HOLD`다.
+
 TaskDriver는 할일 자체가 아니라 할일 생성·변경의 인과 record다. 최소 필드, typed refs,
 relation, 상태값은 owner contract §2~3을 그대로 사용하고 여기서 별도 enum을 만들지 않는다.
 

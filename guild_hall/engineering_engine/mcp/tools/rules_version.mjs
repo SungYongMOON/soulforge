@@ -2,8 +2,9 @@
 //
 // The manifest (`topology/engine_release.json`) is what a run receipt's `policy_ref` is derived
 // from: rule-layer digests, overlays, vocabulary, compiler and generator versions, the code
-// manifest and the git commit. This tool hands it over unchanged rather than summarising it into a
-// second, disagreeing version label.
+// manifest and the commit checked out when the manifest was generated. That is a generation base,
+// not a claim that this generated file binds the later commit that contains it. This tool hands the
+// manifest over unchanged rather than summarising it into a second, disagreeing version label.
 
 import { join } from 'node:path';
 
@@ -29,12 +30,13 @@ export async function handler(args, ctx) {
     .map(([key, row]) => [key, row.spec_version, (row.compiled_sha256 ?? '').slice(0, 12)]);
   const overlays = Object.entries(release.components?.prime_overlays ?? {})
     .map(([key, row]) => [key, (row.sha256 ?? '').slice(0, 12)]);
+  const generatedFromCommit = release.generated_from_commit ?? release.git_commit ?? '';
 
   const markdown = lines(
     `# 엔진 판 ${release.engine_version} (${release.status})`,
     `컴파일러 ${release.components?.stage_rule_compiler?.version ?? '—'}`
     + ` · 생성기 ${release.components?.pilot_packet_generator?.version ?? '—'}`
-    + ` · git ${(release.git_commit ?? '').slice(0, 12) || '—'}`,
+    + ` · 생성 기준 git ${generatedFromCommit.slice(0, 12) || '—'}`,
     heading('규칙 층'),
     table(['키', '스펙 판', 'compiled sha'], layers),
     heading('발주처 덧씌움'),

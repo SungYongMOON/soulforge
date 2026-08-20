@@ -17,7 +17,79 @@ Recovery cycle had previously treated a changed `last_run_at` or `running` state
 - **Continuous ingress supervisor failure heartbeats**: Persists sanitized failure heartbeats on `cycle_failed` (`status: "failed"`, `error_codes`, `mail_status: null`).
 - **Wire & supervision contract bump (Supervision v2, Cycle v3, History v2, Projection v3)**: Bumped recovery supervision state schema to `soulforge.watchtower.recovery_supervision.v2`, recovery cycle schema to `soulforge.watchtower.recovery_cycle.v3`, history schema to `soulforge.watchtower.recovery_history.v2` (persisting `diagnostic_code`), and projection schema to `soulforge.team_ops_board.topology_recovery_projection.v3`. For deployment compatibility, the local companion transparently migrates valid legacy v1 supervision and history records on read without row loss while clearing untrustworthy legacy `last_verified_repair_at` timestamps, writing exact v2 on subsequent persist, while the Board adapter strictly rejects legacy wire schemas. Contradictory outcome/attempt/verification rows fail closed.
 - **Board UI truth & Korean diagnostic labels**: Fixed interaction handler in `App.tsx` to require exact `outcome_code === "verified_repair"` before rendering completed repair. Recovery view and supervision panel visibly render fixed Korean diagnostic labels for non-repairable codes (e.g. `writer_authority_expired` -> "작성자 권한 만료 · 수동 갱신 필요") without leaking raw output.
+## 2026-08-20 - The Engine release manifest now binds the exact Git-index source set
 
+- Extended the Engineering Engine release surface to include `mcp`, `stage_rules`, `observation`,
+  and `guidance`, and replaced directory walking with a NUL-safe `git ls-files --cached -z`
+  allowlist. Untracked/transient files, tracked omissions, malformed lists, duplicate manifest rows,
+  unsafe paths, and payload-bearing failure notes now fail closed.
+- Added truthful generation-base provenance: `generated_from_commit` names the commit used to
+  generate the release while `git_commit` remains a validated compatibility alias. MCP status and
+  rules-version consumers preserve both fields without claiming self-binding to the containing commit.
+- Integrated independent negative controls and regenerated the 184-row manifest/release artifacts.
+  Main integration validation passed manifest 28/28, MCP 135/135, stage rules 53/53,
+  observation 67/67, and guidance 55/55. MCP registration, runtime activation, and write authority
+  remain unchanged and OFF.
+
+## 2026-08-20 - One admitted project PDF can produce a trusted RAG and Thin Wiki candidate
+
+- Added a feature-OFF, model-free knowledge projection Module with two bounded operations: build
+  sibling metadata-only project RAG/Thin Wiki candidates from one already-admitted PDF revision,
+  and retrieve citation-bound evidence from that exact candidate.
+- Retrieval now requires independent trusted candidate and source-receipt digests; source receipts
+  bind upstream admission commitments. Descriptor-only snapshots reject proxies, getters, aliases,
+  TOCTOU inputs, and self-consistent recomputed citation forgeries before search.
+- P5 output remains `candidate_not_accepted` and explicitly carries bitemporal, coverage/gap,
+  unresolved-supersession, reviewer, and writer-epoch gaps. Filesystem, network, model, project-write,
+  Engine, ERP, TaskDriver, and AgentRun effects remain zero.
+- Added the focused validator to the canonical RAG command. Main integration validation passed the
+  new 13/13 suite, project root/view isolation 21/21, and the existing ingest/launch/admission/tracer/
+  requirement-index suites. Actual project persistence and P5 acceptance remain HOLD.
+
+## 2026-08-20 - Linear LB1 gets an offline restore-checked backup contract
+
+- Added a public-synthetic, feature-OFF Linear-like backup candidate under `backup_controller`.
+  It normalizes issue/project/assignee/status/time/relation/description/comment/history and structured
+  Waiting/Completion/Evidence metadata into immutable revisions and deterministic coverage manifests.
+- Duplicate versus conflict replay, partial/failed coverage, tabular-only incompleteness, forged
+  coverage, reordered input collections, and corrupt duplicate run registries are fail-closed.
+  Restore checks re-derive coverage from the revision instead of trusting a self-hashed manifest.
+- The Module depends only on `node:crypto` and exposes no provider, filesystem, network, storage,
+  scheduler, Task, AgentRun, or P5 execution surface. Main integration validation passed LB1 11/11
+  and the full backup-controller 55/55, including hostile error-code, deterministic revision-ID,
+  and status-consistency controls. Actual Linear/Drive/NAS LB1 remains behind its exact Owner Gate.
+
+## 2026-08-20 - A feature-OFF Task Execution Core proves one safe Official Task execution loop
+
+- Added a public-synthetic dev-ERP Module with three Interfaces: provider-event ingest,
+  one-Task dispatch, and execution readback. It treats Linear as the current Official Task
+  state owner, is wired only to a memory-only POC EventStore and MockExecutor fixtures, and
+  has no route to Linear, `core_item`, existing `event_log`, MCP, scheduler, mail, Slack,
+  files, or sharing permissions.
+- Modeled TaskRef, ProjectRef, WorkBriefRevisionRef, SourceRef, EvidenceRef, TaskEvent,
+  AgentRun, ExecutionReceipt, and WaitingInfo. Candidate refs are refused before provider read;
+  Official execution requires exact Todo, a complete Work Brief, assigned Executor, passed
+  authority gate, and no active run.
+- Added an isolated `node:sqlite` EventStore: provider and AgentRun events plus receipts are
+  append-only; current AgentRun is a projection; claim and state events use `BEGIN IMMEDIATE`;
+  task-active-run, provider-event, dispatch, and execution identities are unique.
+- The POC EventStore now refuses every filename except `:memory:`. Receipt `external_effects=0`
+  describes the supplied MockExecutor contract and is not a technical sandbox proof for an
+  arbitrary future Executor.
+- Added deterministic success, Waiting, duplicate claim, crash/recovery HOLD, provider event
+  dedupe/conflict, Candidate, eligibility, terminal replay, run-history, failed/cancelled,
+  domain-binding, and cross-Task idempotency tests. `AgentRun succeeded` remains distinct from
+  Official Task Done.
+- Added the source-priority implementation plan, architecture, five owner decisions, and a
+  no-automation Linear backup scope review separating CSV/Sheets snapshots from API comments,
+  status history, webhook events, reconciliation, Waiting, completion, and Evidence data.
+- This is not P5~P8 acceptance, operational Dispatcher/AgentRun activation, live Linear backup,
+  TaskDriver migration, or production readiness.
+- Clarified the two independent follow-up lanes. A one-shot read-only Linear backup pilot may run
+  before P5 only after the Task Engine master plan's single exact `LB1` start Gate; it does not
+  unlock Context, TaskIntent, TaskDriver, AgentRun, or a Linear writer.
+  This entry changes plan state only: collector, credential binding, Drive writer, webhook, scheduler,
+  live Task provider, and Linear mutation remain `0`.
 ## 2026-08-19 - The intake round trip closes: the file door can stand on a NAS share, and registration crosses roots
 
 A file uploaded through a link landed on the share and the engine could not reach it, because a

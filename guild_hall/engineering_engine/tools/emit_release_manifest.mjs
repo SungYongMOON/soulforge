@@ -6,8 +6,10 @@
 // The version label lives in topology/ENGINE_VERSION (plain text). While the engine is under construction it is
 // 0.0.0 (Owner 2026-08-18); real numbering starts when the engine is promoted to canon. The manifest records, next to
 // that label, the identity of every piece a run receipt's policy_ref is derived from: rule specs (sha per compiled
-// layer file), overlays, vocabulary, compiler/generator versions, the engine code manifest, and the git commit.
-// `--check` recomputes everything except `git_commit`/`generated_at` and fails on any drift.
+// layer file), overlays, vocabulary, compiler/generator versions, the engine code manifest, and the commit checked
+// out when this file was generated. That base commit is not, and cannot be, the later commit that contains this
+// generated file. `git_commit` remains a compatibility alias for `generated_from_commit`.
+// `--check` recomputes everything except generation metadata and fails on any drift or alias disagreement.
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -42,6 +44,7 @@ const manifest = {
   engine_version: version,
   status: version === '0.0.0' ? 'under_construction' : 'released',
   generated_at: null,
+  generated_from_commit: null,
   git_commit: null,
   components: {
     engine_code_manifest: { file: rel(path.join(ENGINE, 'topology', 'engine_manifest.sha256')), sha256: sha(path.join(ENGINE, 'topology', 'engine_manifest.sha256')) },
@@ -51,16 +54,48 @@ const manifest = {
     rule_layers: layers,
     prime_overlays: overlays,
   },
-  note: 'engine_version 0.0.0 = 만드는 중(Owner 2026-08-18). 정본 승격 시 실제 번호 시작. run receipts의 policy_ref는 이 매니페스트의 rule_layers/compiler 지문에서 나온다.',
+  note: 'engine_version 0.0.0 = 만드는 중(Owner 2026-08-18). 정본 승격 시 실제 번호 시작. run receipts의 policy_ref는 이 매니페스트의 rule_layers/compiler 지문에서 나온다. generated_from_commit은 emit 시점 base HEAD이며 이 파일을 담는 후속 commit을 self-bind하지 않고, git_commit은 호환 alias다.',
 };
-const stamp = (m) => { const copy = structuredClone(m); copy.generated_at = new Date().toISOString(); try { copy.git_commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO, encoding: 'utf8' }).trim(); } catch { copy.git_commit = null; } return copy; };
-const strip = (m) => { const c = structuredClone(m); delete c.generated_at; delete c.git_commit; return c; };
+const generationCommit = () => {
+  try { return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO, encoding: 'utf8' }).trim(); } catch { return null; }
+};
+const stamp = (m) => {
+  const copy = structuredClone(m);
+  const commit = generationCommit();
+  copy.generated_at = new Date().toISOString();
+  copy.generated_from_commit = commit;
+  copy.git_commit = commit;
+  return copy;
+};
+const strip = (m) => {
+  const c = structuredClone(m);
+  delete c.generated_at;
+  delete c.generated_from_commit;
+  delete c.git_commit;
+  return c;
+};
+const has = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
+const releaseIdentity = (stored) => {
+  const generated = has(stored, 'generated_from_commit') ? stored.generated_from_commit : (stored.git_commit ?? null);
+  const validCommit = generated === null || /^[0-9a-f]{40}$/.test(generated);
+  const aliasesAgree = !has(stored, 'generated_from_commit') || !has(stored, 'git_commit')
+    || stored.generated_from_commit === stored.git_commit;
+  return { generated, valid: validCommit && aliasesAgree };
+};
 if (checkPath) {
   const stored = JSON.parse(readFileSync(path.resolve(REPO, checkPath), 'utf8'));
+  const identity = releaseIdentity(stored);
   const same = JSON.stringify(strip(stored)) === JSON.stringify(strip(manifest));
-  console.log(JSON.stringify({ ok: same, engine_version: manifest.engine_version, stored_version: stored.engine_version }, null, 2));
-  process.exit(same ? 0 : 1);
+  const ok = same && identity.valid;
+  console.log(JSON.stringify({
+    ok, engine_version: manifest.engine_version, stored_version: stored.engine_version,
+    generated_from_commit: identity.generated, identity_valid: identity.valid,
+  }, null, 2));
+  process.exit(ok ? 0 : 1);
 }
 const stamped = stamp(manifest);
 writeFileSync(path.resolve(REPO, outPath), JSON.stringify(stamped, null, 2) + '\n', 'utf8');
-console.log(JSON.stringify({ written: outPath, engine_version: stamped.engine_version, layers: Object.keys(layers).length, overlays: Object.keys(overlays).length, git_commit: stamped.git_commit }, null, 2));
+console.log(JSON.stringify({
+  written: outPath, engine_version: stamped.engine_version, layers: Object.keys(layers).length,
+  overlays: Object.keys(overlays).length, generated_from_commit: stamped.generated_from_commit,
+}, null, 2));

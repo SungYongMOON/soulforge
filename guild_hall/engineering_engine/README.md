@@ -910,7 +910,7 @@ engine 이 소비하는 knowledge-supply provider 가 이미 같은 root 에 있
 - `kernel/`: 결정론 kernel. 학습모델을 호출하지 않고, 공급된 값에 대한 순수 함수만 노출한다
 - `stage_rules/`: 단계 규칙 컴파일러. 폴더트리 variant(L1)와 과제 overlay(L2)를 세 소비자 표면으로 바꾸는 순수 함수만 둔다
 - `observation/`: 관측 후보 공급자. 과제 자료 목록을 산출물 관측 **후보**로 바꾸고, 사람 확인을 거쳐 생성기가 받는 `artifact_observations`로 만드는 순수 함수만 둔다
-- `topology/ENGINE_VERSION` + `topology/engine_release.json`: 엔진 버전 라벨(만드는 중에는 `0.0.0`)과 그 판이 묶는 조각들의 지문(규칙 층 스펙 sha·덧씌움·어휘·컴파일러/생성기 판·코드 매니페스트·git 커밋). `tools/emit_release_manifest.mjs --out|--check`, `npm run validate:engine-release`. 실제 번호는 정본 승격 때 시작한다
+- `topology/ENGINE_VERSION` + `topology/engine_release.json`: 엔진 버전 라벨(만드는 중에는 `0.0.0`)과 그 판이 묶는 조각들의 지문(규칙 층 스펙 sha·덧씌움·어휘·컴파일러/생성기 판·코드 매니페스트·생성 기준 commit). `generated_from_commit`은 emit 시점의 base HEAD이며, 이 생성 파일을 담는 후속 commit을 self-bind하지 않는다. `git_commit`은 호환 alias다. `tools/emit_release_manifest.mjs --out|--check`, `npm run validate:engine-release`. 실제 번호는 정본 승격 때 시작한다
 - `manual/`: 엔진 개발 매뉴얼(책 형태, v0). 규칙 4층·항목 도출 방법·어휘·컴파일러·요구 추적·실행 기록·결정·다음 작업을 다른 작업자(사람·LLM)가 이어받을 수 있게 정리한다. 정본이 아니라 정본들의 지도이며, 관련 변경마다 해당 장을 같이 고친다. 읽는 순서는 `manual/README.md`
 - 영수증은 4종을 구분해 쓴다: topology delivery(간선 통과) · MCP idempotency 응답(재시도) · Context Request 영수증 · Context Response 영수증. 서로 대신하지 못하며 소유 모듈이 다르다
 - `contracts/`: Phase 1-0 공통 계약과 lane 계약

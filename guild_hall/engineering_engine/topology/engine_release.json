@@ -2,12 +2,13 @@
   "schema_version": "soulforge.engine_release_manifest.v0",
   "engine_version": "0.0.0",
   "status": "under_construction",
-  "generated_at": "2026-08-19T12:15:17.566Z",
-  "git_commit": "72d0600905fc0bc752ac24881585485afe73bb73",
+  "generated_at": "2026-08-20T10:41:34.003Z",
+  "generated_from_commit": "d9b7ab836c3688459f3538cf10f064abd56c7772",
+  "git_commit": "d9b7ab836c3688459f3538cf10f064abd56c7772",
   "components": {
     "engine_code_manifest": {
       "file": "guild_hall/engineering_engine/topology/engine_manifest.sha256",
-      "sha256": "c3f1dba18a458f39100d43880acc156ab30ea3f997cf3358edec2acc08ad786f"
+      "sha256": "76c62dc3378029d45b396b235ccb19c0937d39015b3b9ba76853101922ef7f06"
     },
     "stage_rule_compiler": {
       "version": "v0",
@@ -67,5 +68,5 @@
       }
     }
   },
-  "note": "engine_version 0.0.0 = 만드는 중(Owner 2026-08-18). 정본 승격 시 실제 번호 시작. run receipts의 policy_ref는 이 매니페스트의 rule_layers/compiler 지문에서 나온다."
+  "note": "engine_version 0.0.0 = 만드는 중(Owner 2026-08-18). 정본 승격 시 실제 번호 시작. run receipts의 policy_ref는 이 매니페스트의 rule_layers/compiler 지문에서 나온다. generated_from_commit은 emit 시점 base HEAD이며 이 파일을 담는 후속 commit을 self-bind하지 않고, git_commit은 호환 alias다."
 }

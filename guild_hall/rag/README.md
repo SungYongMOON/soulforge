@@ -458,6 +458,34 @@ payloads, and keeps stronger permissions false until owner review.
   `ids_sha256`. The seam performs zero filesystem writes, persistence, network,
   model, RAG-index, Wiki, Engineering Engine, ERP, and TaskDriver effects and
   holds none of their authority.
+- `project_pdf_knowledge_projection.mjs` is the next public-synthetic P4/M2-3
+  candidate seam. Its `buildProjectPdfKnowledgeCandidate` interface takes only
+  one already-admitted PDF candidate and separately expected exact project and
+  document-revision refs plus an independently supplied trusted expected
+  source-revision-receipt digest; it has no root, locator, collection,
+  common-source, writer, or fallback input. A ref or trusted-digest mismatch is
+  held before any projection is produced.
+- A successful build makes three sibling materials from one exact source-revision
+  receipt: a project-local deterministic hashed-page RAG candidate, a two-page
+  metadata/citation Thin Wiki candidate, and a P5 input candidate. The RAG and
+  Wiki carry page/spans/digests and exact refs, never page text; the Wiki is not
+  source truth or canon. The build receipt binds the trusted source-receipt
+  digest and the upstream portable/local/relative admission commitments. The P5
+  candidate remains
+  `candidate_not_accepted`, with its P5 minimum gaps (including unresolved
+  supersession) explicit and every
+  acceptance/write/activation authority false.
+- `retrieveProjectPdfKnowledgeCandidate` takes only one built candidate, the
+  same two expected exact refs, independently supplied trusted candidate and
+  source-receipt digests, and a query. It rejects a self-consistent but untrusted
+  candidate before searching, then ranks only the candidate's own hashed page
+  units and returns revision-bound citations. A foreign-project or revision
+  mismatch is held before searching, with no fallback, root enumeration, or
+  foreign existence signal. Structured inputs are descriptor-snapshotted once
+  before validation so getters, proxies, aliases, and later caller mutation do
+  not alter the checked view. Both interfaces are deep-frozen,
+  parser/model/network/filesystem-write free, and leave persistent RAG/Wiki
+  storage and actual P5 acceptance `HOLD`.
 - `HOLD`: actual project launch, read grant, and project-root execution, actual
   project, live, and persistent tracer answering, actual project requirement
   indexing, RTM/coverage claims and Engine policy-requirement packet supply from

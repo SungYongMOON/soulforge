@@ -237,9 +237,18 @@ read-only snapshot
      context generation과 freshness를 닫는다. accepted generation 최소조건은
      `PROJECT_CONTEXT_GRAPH_MODEL_V0.md`의 `M2-3A Knowledge→Context Gate Crosswalk`가 소유하며,
      그 전에는 live current-state를 주장하지 않는다.
-  6. **P6 TaskIntent**: accepted context generation이 닫힌 뒤에만 TaskIntent 후보를 만든다.
-     이 순서를 앞당기거나 runtime activation을 주장하지 않는다.
-  title/summary만으로 상태를 추론하거나 raw content를 Wiki/RAG/canon으로 자동 승격하지 않는다.
+   6. **P6 TaskIntent**: accepted context generation이 닫힌 뒤에만 TaskIntent 후보를 만든다.
+      이 순서를 앞당기거나 runtime activation을 주장하지 않는다.
+   7. **병렬 support lane — Linear 업무 백업**: 백업 범위·데이터 모델과
+      public-synthetic feature-OFF offline LB1 manifest/restore contract까지 구현됐다.
+      실제 Linear API collector, Drive writer, webhook, scheduler와 actual restore runner는 없다.
+      Task Engine 마스터플랜 §12의 `LB1` exact start Gate가 통과되면 P5 전에도 one-shot
+      read-only backup pilot을 병렬로 시작할 수 있다. 첫 pilot은 Linear mutation·webhook 등록·예약 실행 없이 bounded
+      snapshot/API read를 승인된 private backup target에 새 revision으로 저장하고 manifest/hash/
+      coverage와 restore check를 남긴다. 이 support lane은 P4/P5/P6/P7/P8 acceptance를 증명하거나
+      unlock하지 않으며 실제 Task 실행·Linear writer는 P5→P6→P7→P8 receipt, P9 canary,
+      P10 capability별 Owner activation 순서를 그대로 따른다.
+   title/summary만으로 상태를 추론하거나 raw content를 Wiki/RAG/canon으로 자동 승격하지 않는다.
   실제 project write, live-current 주장, cross-project body retrieval, LLM/project write
   activation은 별도 계획·검토·Owner gate 전까지 `HOLD`다.
 - target flow(방향 요약): 공통 SE 지식과 격리된 project context는 각각 별도로 유지하고,
@@ -1080,6 +1089,11 @@ raw 산출물·private 수치는 `_workmeta` 영수증을 가리키고 여기엔
 | 2026-08-18 | ① 일반 SE 바닥층(Owner: "체계공학이면 최소 이건 있어야") | 로드맵에 없음(공통 스타터 45줄뿐, 체크리스트 행 0) | 공개 원문 3종(NASA NPR 7123.1D·DoD SE Guidebook 2022·NASA SE Handbook) 확보·추출 → 스펙 `generic_se_base`(9게이트 229 task, must_have 132) + compiled JSON + 컴파일러 등급 `general_se_guidance`·어휘 30 + 테스트 35/35 (`main@77e53af2`); CDR 비교 ① 38 / ② 16 / KVDS 27, 공유 9 | 4층(일반SE·방사청·발주처·과제)이 전부 실체를 가짐; ①↔② 토큰 별칭 정합은 다음 | private intake `generic_se_sources_intake_20260818`, compare receipt `se_stage_rules/generic_layer_cdr_compare_20260818` |
 | 2026-08-18 | 엔진 개발 매뉴얼(Owner: "항목을 어떻게 구했는지 기록에 있어야, 다른 LLM이 이어받게, 책처럼") | 로드맵에 없음(설계 문서·README·CHANGELOG에 흩어져 있음) | `guild_hall/engineering_engine/manual/` 9장(목적·4층·항목 도출 방법·어휘·컴파일러·요구추적·실행기록·결정·다음 작업) + ① 도출 기록 `references/generic_se_base_derivation_v0.md`(행별 인용·정정·미결, 스크립트 생성) + 도출 작업 파일 private 보관·영수증; 출처 정정(① 행은 NPR·DoD SEG만 인용, Handbook은 추출만·미반영) | 정본이 아니라 정본의 지도; 202행 = 셀 수(산출물 종류 100), must_have 124(합성 132→critic 정정) | receipt `se_stage_rules/generic_se_base_derivation_20260818` |
 | 2026-08-18 | 엔진 판단 전 단계 확대(Owner: "엔진 판단 단계를 전부 다 만들자") | R3: CDR 1단계 packet→runner 1회 | P26-014 SRR·SFR·PDR·CDR·TRR·FCA·PCA 7단계 각각 ②+③+④ 컴파일→packet→zero-write runner 1회(재실행 바이트 동일): 요구 104 = 충족 5/결손 4/불명 95; CDR 27 정책 재실행(5/4/18) | 다른 단계는 관측을 아직 안 넣어 불명; 로컬 폴더 03_Out 스캔은 산출물 0. 관측 확대(문서 색인·메일 첨부→artifact_observations, 자동 분류는 candidate)가 다음 조각. 000_REF 비엔진 단계, 240_LL 정본 필수 없음 | private run `ax_se_project_context_pilot_20260818_04`, compile `stage_rules_20260818_02` |
+| 2026-08-20 | Task Execution Core 최소 POC + Linear 백업 범위 검토 | P5→P6→P7→P8 뒤 승인된 TaskDriver/TaskEngine writer와 AgentRun 후속 gate | Drive v3.1을 우선해 Linear Official Todo를 읽기만 하는 feature-OFF Module을 dev-ERP에 격리 구현: Candidate 차단, Work Brief·Executor·authority gate, task별 active AgentRun 1개, append-only provider/run event, Waiting/terminal receipt, crash/retry HOLD, idempotent replay. CSV/Sheets/API/webhook의 Linear 백업 데이터 범위를 문서로 검토 | phase를 앞당긴 operational activation이 아니라 public-synthetic contract harness. `core_item`·Linear·MCP·scheduler·외부 effect·live backup 0, P5~P8 acceptance 0 | `ui-workspace/apps/dev-erp/docs/task_execution_core_poc/`, `validate:task-execution-core-poc` |
+| 2026-08-20 | Linear 백업 support-lane 시작 순서 확정 | 백업은 Task 실행과 별도라는 구조만 있었고 시작 Gate가 없었음 | 실제 기능은 여전히 0. Task Engine 마스터플랜 §12 `LB1`의 단일 exact start Gate 뒤 one-shot read-only snapshot/API pilot을 P5 전 병렬 지원선으로 시작하고, restore 검증 뒤에만 예약 자동화를 별도 승인한다 | 백업 성공은 accepted Context·TaskIntent·TaskDriver·AgentRun 또는 Linear writer 준비 완료를 뜻하지 않음. live Task 실행은 P5→P10 순서 유지 | `LINEAR_BACKUP_SCOPE_REVIEW.md`, Task Engine 마스터플랜 §12 split lanes |
+| 2026-08-20 | Engineering Engine release manifest 안전보정 | 새 `mcp/stage_rules/observation/guidance`가 release manifest 범위 밖이었음 | Git-index exact 184-file allowlist, untracked·omission·duplicate·malformed-NUL fail-close, explicit generation-base provenance와 MCP compatibility consumer를 구현·통합. fresh 독립검토 ACCEPT | manifest 28/28, MCP 135/135, stage 53/53, observation 67/67, guidance 55/55. MCP 등록·runtime·write authority는 계속 OFF | `guild_hall/engineering_engine/{tools,tests,topology,mcp}`, CHANGELOG 08-20 |
+| 2026-08-20 | P4 project PDF RAG·Thin Wiki projection candidate | P4 첫 조각은 요구 ID zero-write 색인뿐이고 trusted retrieval/Wiki/P5 input seam 없음 | 이미 admitted된 PDF revision 하나에서 exact trusted digest를 요구하는 project-local RAG·Thin Wiki sibling candidate와 P5 non-accepted input을 생성·조회하는 public feature-OFF Module 통합. recomputed forgery·getter/alias·supersession-gap 방어, fresh+Opus 검토 후 기술 ACCEPT | main 환경에서 focused 13/13, root isolation 21/21, 기존 PDF ingest/launch/admission/tracer/index 전부 PASS. 실제 project persistence·KVDS body pilot·P5 acceptance는 HOLD | `guild_hall/rag/project_pdf_knowledge_projection.mjs`, focused validator, CHANGELOG 08-20 |
+| 2026-08-20 | Linear LB1 offline backup contract candidate | 백업 범위·시작 Gate만 있고 collector/manifest/restore contract 0 | `backup_controller` 아래 feature-OFF 순수 Module로 immutable run/revision, deterministic coverage, duplicate/conflict, partial/failure, forged coverage와 restore completeness를 합성 검증. fresh 독립검토 ACCEPT | LB1 11/11, backup-controller 55/55; raw/path-like error code, deterministic revision ID와 status consistency hostile-run controls PASS. provider/storage/network/scheduler/Task/P5 effect 0; actual Linear/Drive/NAS와 LB1 Gate는 HOLD | `guild_hall/backup_controller/linear_lb1*.mjs`, CHANGELOG 08-20 |
 
 ## 갱신 규칙
 
