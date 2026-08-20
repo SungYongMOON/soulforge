@@ -1399,6 +1399,36 @@ Owner-frozen/manual exact packet·roster pin을 결속하는 zero-write pilot co
 고정할 때까지 `HOLD`다. accepted-context generation/freshness와 terminal provenance는 그
 이후의 별도 gate로 남으며, 그 전에는 issue-free stage도 `active`다.
 
+### P5 Project Context generation candidate (public-synthetic foundation)
+
+`kernel/project_context_generation_candidate.mjs`는 P4의 exact knowledge input,
+M2-2 observed assessment, 그리고 P5A-0 timeline metadata를 하나의 deterministic
+pre-acceptance candidate로 조합한다. 이 Module의 단일 Interface는
+`buildProjectContextGenerationCandidate(request)`이며, P4/M2/timeline producer나
+P5 acceptance·generation-advance boundary를 import하지 않는다.
+
+- request는 body-free exact refs/digests, externally pinned project crosswalk,
+  complete source/common membership, independent `valid_at`·`known_at` cutoffs,
+  review states, HPP sole-writer epoch, prior/current generation proposal만 받는다.
+  각 asserted record는 canonical instant이며 `known_at`이 `valid_at`보다 앞서면 거부한다.
+- opaque timeline project ref는 typed P4/M2 project ref와 crosswalk ref/digest로만
+  연결된다. source body, query, explanation, local path, secret은 입력·출력 모두 거부한다.
+- output은 deep-frozen `ready_for_registered_human_review` 또는 `HOLD` candidate와
+  payload-free receipt다. P5 acceptance, generation advance, HPP writer, legacy CSV
+  writer, model/network/ERP/Task effect는 모두 false/0이다.
+- M2-2의 source membership/source truth/freshness/terminal provenance false value는
+  exact in-membership evidence가 있을 때만 pre-review candidate에서 해소될 수 있으며,
+  이것은 source truth나 human approval을 만들지 않는다.
+
+```text
+npm run validate:engineering-engine-p5-context-generation-candidate
+```
+
+이 focused validator는 Module/test syntax, deterministic replay, bitemporal cutoff,
+cross-project·duplicate·CAS·writer·provenance HOLD, unsafe getter/proxy/alias/cycle 거부,
+그리고 forbidden acceptance/writer/effect import scan을 검증한다. Engine topology/manifest
+derived artifacts는 별도 root integration owner가 갱신한다.
+
 ## kernel 이 하지 않는 것
 
 `kernel/index.mjs` 의 `NON_CAPABILITIES` 가 코드로 선언한다.
