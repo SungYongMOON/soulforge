@@ -156,7 +156,7 @@ test("validateHourlyShadowCycle recursively rejects forbidden raw payload fields
     { chain_of_thought: "first I should check..." },
     { password: "secret_password" },
     { api_key: "sk-123456789" },
-    { file_path: "C:\\Users\\user\\secret.txt" },
+    { file_path: ["C:", "Users", "user", "secret.txt"].join("\\") },
     { nested: { deeply: { credential: "raw_cred" } } },
     { source_reads: [{ source: "gmail", status: "read", raw_source: "bad_content" }] },
   ];

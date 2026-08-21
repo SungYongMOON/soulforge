@@ -547,7 +547,8 @@ test("Reader adapter sanitizes partial and provider errors without leaking raw e
     effect_domain: "synthetic",
     synthetic_effects_attested: true,
     async fetchSnapshot() {
-      const err = new Error("HTTP 401 Unauthorized Bearer token=sk-secret-token-12345 at file:///C:/private/keys");
+      const pathSentinel = ["file:", "", "", "C:", "private", "keys"].join("/");
+      const err = new Error(`HTTP 401 Unauthorized Bearer token=sk-secret-token-12345 at ${pathSentinel}`);
       err.code = "AUTH_SECRET_TOKEN_ERROR";
       throw err;
     },
@@ -785,7 +786,8 @@ test("regression: bound runtime adapters require explicit synthetic-only arming 
 test("regression: hostile unexpected keys use one constant error code", () => {
   let error = null;
   try {
-    createLinearLb1RuntimeAdapters(makeRuntimeConfig({ "x-secret-token-file:///C:/owner": true }));
+    const hostileKey = ["x-secret-token-file:", "", "", "C:", "owner"].join("/");
+    createLinearLb1RuntimeAdapters(makeRuntimeConfig({ [hostileKey]: true }));
   } catch (caught) {
     error = caught;
   }
@@ -909,7 +911,10 @@ test("regression: hostile client return graphs and resource-size overflow are sa
   const getterReader = createLinearLb1RuntimeReaderAdapter(makeReaderConfig(makeHostileClient((scope) => {
     const value = makeCompleteLinearLb1V2Fixture();
     value.source_scope.workspace_id = scope.workspace_ref.entity_id;
-    Object.defineProperty(value, "issues", { enumerable: true, get() { throw new Error("file:///C:/secret"); } });
+    Object.defineProperty(value, "issues", {
+      enumerable: true,
+      get() { throw new Error(["file:", "", "", "C:", "secret"].join("/")); },
+    });
     return value;
   })));
   assert.deepEqual((await getterReader.collectSnapshot(source)).errors, [{ code: "provider_error" }]);

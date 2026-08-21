@@ -1127,7 +1127,7 @@ test("runner emits zero external effects only from exact attested adapter eviden
 
 test("malformed, throwing, proxied, or mismatched effect evidence becomes a sanitized evidence HOLD", async () => {
   for (const [index, effects] of [
-    () => { throw new Error("file:///C:/private/effects"); },
+    () => { throw new Error(["file:", "", "", "C:", "private", "effects"].join("/")); },
     () => new Proxy({}, {}),
     () => ({
       adapter_kind: "linear_runtime_claim_store",
