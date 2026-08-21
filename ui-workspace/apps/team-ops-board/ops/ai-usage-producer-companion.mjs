@@ -588,17 +588,20 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
           collectResult = null;
         }
         if (collectResult !== null) {
-          const hasConflict = Array.isArray(collectResult.issues)
-            && collectResult.issues.some((i) => i?.code === "usage_event_duplicate_conflict");
-          if (hasConflict) {
+          const conflictIssue = Array.isArray(collectResult.issues)
+            && collectResult.issues.find((i) =>
+              i?.code === "usage_event_duplicate_conflict" || i?.code === "usage_event_conflict"
+            );
+          if (conflictIssue) {
+            const conflictCode = conflictIssue.code;
             projectionCommandSucceeded = true;
-            observeLane("codex", "error", "usage_event_duplicate_conflict");
+            observeLane("codex", "error", conflictCode);
             await persistLaneHealth(persistHeartbeat, {
               stateRoot,
               lane: "codex",
               attemptedAt,
               succeeded: false,
-              errorCode: "usage_event_duplicate_conflict",
+              errorCode: conflictCode,
               now,
             });
           } else {

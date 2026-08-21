@@ -1021,7 +1021,7 @@ export function retainCanonicalAntigravityObservation(existing, incoming) {
   return existing;
 }
 
-export function collapseUsageEventObservations(events, { rateCard = null, isolateConflicts = false } = {}) {
+function collapseUsageEventObservations(events, { rateCard = null, isolateConflicts = false } = {}) {
   const current = new Map();
   const conflictIds = new Set();
   const conflictIssues = [];
@@ -1097,6 +1097,7 @@ export function collapseUsageEventObservations(events, { rateCard = null, isolat
     )),
     duplicate_count: duplicateCount,
     issues: conflictIssues,
+    conflict_event_ids: conflictIds,
   };
 }
 
@@ -1647,11 +1648,12 @@ async function writePendingUsageEvents(root, events) {
 
 async function loadPendingUsageEvents(root) {
   const files = await walk(path.join(root, "pending"), (file) => file.endsWith(".json"));
-  const events = [];
+  const entries = [];
   for (const file of files) {
-    events.push(validateUsageEvent(JSON.parse(await readFile(file, "utf8"))));
+    const event = validateUsageEvent(JSON.parse(await readFile(file, "utf8")));
+    entries.push({ file, event });
   }
-  return { files, events };
+  return { files, events: entries.map((e) => e.event), entries };
 }
 
 async function loadLedgerEventIndex(root) {
@@ -1665,31 +1667,71 @@ async function loadLedgerEventIndex(root) {
   return index;
 }
 
-export async function persistUsageEvents(stateRoot, events) {
+export async function persistUsageEvents(stateRoot, events, options = {}) {
+  const isolateConflicts = options?.isolateConflicts === true;
   const root = path.resolve(stateRoot);
   if (!Array.isArray(events)) fail("usage_events_invalid");
   const acceptedEvents = events.map((event) => validateUsageEvent(event));
   return withLedgerLock(root, async () => {
     const pending = await loadPendingUsageEvents(root);
-    const observations = collapseUsageEventObservations([...pending.events, ...acceptedEvents]).events;
+    const collapseResult = collapseUsageEventObservations(
+      [...pending.events, ...acceptedEvents],
+      isolateConflicts ? { isolateConflicts: true } : {}
+    );
+    const observations = collapseResult.events;
+    const issues = [...(collapseResult.issues ?? [])];
+    const conflictedEventIds = new Set(collapseResult.conflict_event_ids ?? []);
     const ledgerIndex = await loadLedgerEventIndex(root);
-    const effectiveObservations = observations.map((event) => {
+    const effectiveObservations = [];
+    for (const event of observations) {
       const indexed = ledgerIndex.get(event.event_id);
-      if (!indexed || canonicalJson(indexed.event) === canonicalJson(event)) return event;
-      if (usageEventUpgradeAllowed(indexed.event, event)) return event;
+      if (!indexed || canonicalJson(indexed.event) === canonicalJson(event)) {
+        effectiveObservations.push(event);
+        continue;
+      }
+      if (usageEventUpgradeAllowed(indexed.event, event)) {
+        effectiveObservations.push(event);
+        continue;
+      }
       const lineageMerged = mergeAncestorPreservingSelfRootUpgrade(indexed.event, event);
-      if (lineageMerged) return lineageMerged;
+      if (lineageMerged) {
+        effectiveObservations.push(lineageMerged);
+        continue;
+      }
       const stableLineage = mergePreservingCanonicalDerivedLineage(indexed.event, event);
-      if (stableLineage) return stableLineage;
+      if (stableLineage) {
+        effectiveObservations.push(stableLineage);
+        continue;
+      }
       const retainedCanonical = retainStrongerCanonicalModelObservation(indexed.event, event);
-      if (retainedCanonical) return retainedCanonical;
+      if (retainedCanonical) {
+        effectiveObservations.push(retainedCanonical);
+        continue;
+      }
       const retainedAntigravity = retainCanonicalAntigravityObservation(indexed.event, event);
-      if (retainedAntigravity) return retainedAntigravity;
+      if (retainedAntigravity) {
+        effectiveObservations.push(retainedAntigravity);
+        continue;
+      }
       if (selfRootToAncestorUpgrade(event, indexed.event)
-        && usageEventUpgradeAllowed(event, indexed.event)) return indexed.event;
+        && usageEventUpgradeAllowed(event, indexed.event)) {
+        effectiveObservations.push(indexed.event);
+        continue;
+      }
+      if (isolateConflicts) {
+        conflictedEventIds.add(event.event_id);
+        const sourceRef = event?.source?.source_ref
+          ? path.basename(String(event.source.source_ref))
+          : (event?.source_ref ? path.basename(String(event.source_ref)) : "session");
+        issues.push({ source_ref: sourceRef, code: "usage_event_conflict" });
+        continue;
+      }
       fail("usage_event_conflict");
-    });
+    }
     const receipt = { created: 0, updated: 0, replayed: 0, event_ids: [] };
+    if (isolateConflicts) {
+      receipt.issues = issues;
+    }
     for (const event of effectiveObservations) {
       const month = (event.time.started_at ?? "unknown").slice(0, 7);
       const indexed = ledgerIndex.get(event.event_id);
@@ -1709,11 +1751,16 @@ export async function persistUsageEvents(stateRoot, events) {
       events_digest: sha256(canonicalJson(all.map((event) => event.event_id))),
       summary,
     });
-    await Promise.all(pending.files.map((file) => rm(file, { force: true })));
+    const filesToRemove = pending.entries
+      ? pending.entries
+          .filter(({ event }) => !isolateConflicts || !conflictedEventIds.has(event.event_id))
+          .map(({ file }) => file)
+      : pending.files;
+    await Promise.all(filesToRemove.map((file) => rm(file, { force: true })));
     return { ...receipt, total_event_count: all.length, state_root: root };
   }, async () => {
     const pendingFiles = await writePendingUsageEvents(root, acceptedEvents);
-    return {
+    const pendingReceipt = {
       created: 0,
       updated: 0,
       replayed: 0,
@@ -1722,6 +1769,10 @@ export async function persistUsageEvents(stateRoot, events) {
       total_event_count: null,
       state_root: root,
     };
+    if (isolateConflicts) {
+      pendingReceipt.issues = [];
+    }
+    return pendingReceipt;
   });
 }
 

@@ -2087,3 +2087,197 @@ test("regression: duplicate conflict is quarantined while clean events persist w
     ]);
   }
 });
+
+test("regression: canonical ledger conflict skips incoming conflict, preserves canonical bytes, and persists clean events", async () => {
+  const sessions = await mkdtemp(path.join(os.tmpdir(), "sf-usage-canonical-conflict-sessions-"));
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-usage-canonical-conflict-state-"));
+
+  // 1. Initial run: persist canonical event A (turn-a)
+  await writeSession(sessions, "canonical-session", [
+    sessionMeta({ id: "canonical-session" }),
+    taskStarted("turn-a"),
+    turnContext("turn-a"),
+    tokenCount(usage(100, 50, 10), "2026-08-04T00:00:01.000Z"),
+    taskComplete("turn-a"),
+  ]);
+
+  const initCollect = await runCli(["collect", "--sessions-root", sessions, "--state-root", state, "--apply"]);
+  assert.equal(initCollect.code, 0, initCollect.stderr);
+  const initParsed = JSON.parse(initCollect.stdout);
+  assert.equal(initParsed.event_count, 1);
+  assert.equal(initParsed.issue_count, 0);
+
+  const initialPersisted = await loadPersistedUsageEvents(state);
+  assert.equal(initialPersisted.length, 1);
+  const canonicalEventA = initialPersisted[0];
+  const canonicalEventABytes = JSON.stringify(canonicalEventA);
+
+  // 2. Prepare new incoming batch:
+  // - Conflicting incoming A (incompatible tokens for same turn)
+  // - Clean incoming B (turn-b)
+  const incomingSessions = await mkdtemp(path.join(os.tmpdir(), "sf-usage-incoming-conflict-sessions-"));
+  const fileA = await writeSession(incomingSessions, "conflicting-a-session", [
+    sessionMeta({ id: "canonical-session" }),
+    taskStarted("turn-a"),
+    turnContext("turn-a"),
+    tokenCount(usage(50, 50, 10), "2026-08-04T00:00:01.000Z"),
+    taskComplete("turn-a"),
+  ]);
+  const fileB = await writeSession(incomingSessions, "clean-b-session", [
+    sessionMeta({ id: "clean-b-session" }),
+    taskStarted("turn-b"),
+    turnContext("turn-b"),
+    tokenCount(usage(300, 150, 30), "2026-08-04T00:02:01.000Z"),
+    taskComplete("turn-b"),
+  ]);
+
+  const [conflictingEventA, cleanEventB] = await buildUsageEvents({
+    sessionFiles: [fileA, fileB],
+    config: { organization_id: "soulforge", node_id: "test-node" },
+    rateCard: await loadRateCard(RATE_CARD),
+    sourceRoot: incomingSessions,
+  });
+
+  // 3. Verify default persistUsageEvents (without isolateConflicts) rejects with usage_event_conflict
+  await assert.rejects(
+    persistUsageEvents(state, [conflictingEventA, cleanEventB]),
+    { code: "usage_event_conflict" }
+  );
+
+  // 4. CLI collect --apply runs with isolateConflicts: true
+  const collect = await runCli(["collect", "--sessions-root", incomingSessions, "--state-root", state, "--apply"]);
+  assert.equal(collect.code, 0, collect.stderr);
+  const parsed = JSON.parse(collect.stdout);
+  assert.equal(parsed.event_count, 2);
+  assert.equal(parsed.issue_count, 1);
+  assert.equal(parsed.issues[0].code, "usage_event_conflict");
+
+  // Verify canonical A bytes are untouched, clean B is persisted
+  const afterPersisted = await loadPersistedUsageEvents(state);
+  assert.equal(afterPersisted.length, 2);
+  const eventAAfter = afterPersisted.find((e) => e.root_turn_id === "turn-a");
+  const eventBAfter = afterPersisted.find((e) => e.root_turn_id === "turn-b");
+  assert.equal(JSON.stringify(eventAAfter), canonicalEventABytes);
+  assert.equal(eventBAfter.usage.input_tokens, 300);
+
+  // Snapshot current.json is valid
+  const currentSnapshot = JSON.parse(await readFile(path.join(state, "current.json"), "utf8"));
+  assert.equal(currentSnapshot.event_count, 2);
+  assert.equal(currentSnapshot.summary.totals.turns, 2);
+
+  // 5. Rerun is idempotent: never rewrites A, clean B replayed, one usage_event_conflict issue emitted
+  const rerun = await runCli(["collect", "--sessions-root", incomingSessions, "--state-root", state, "--apply"]);
+  assert.equal(rerun.code, 0, rerun.stderr);
+  const rerunParsed = JSON.parse(rerun.stdout);
+  assert.equal(rerunParsed.event_count, 2);
+  assert.equal(rerunParsed.issue_count, 1);
+  assert.equal(rerunParsed.issues[0].code, "usage_event_conflict");
+
+  const rerunPersisted = await loadPersistedUsageEvents(state);
+  assert.equal(rerunPersisted.length, 2);
+  const eventARerun = rerunPersisted.find((e) => e.root_turn_id === "turn-a");
+  assert.equal(JSON.stringify(eventARerun), canonicalEventABytes);
+
+  await Promise.all([
+    rm(sessions, { recursive: true, force: true }),
+    rm(incomingSessions, { recursive: true, force: true }),
+    rm(state, { recursive: true, force: true }),
+  ]);
+});
+
+test("regression: isolated persistence preserves conflicted pending files and consumes clean pending files", async () => {
+  const sessions = await mkdtemp(path.join(os.tmpdir(), "sf-usage-pending-conflict-sessions-"));
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-usage-pending-conflict-state-"));
+
+  // 1. Initial run: persist canonical event A (turn-a)
+  const canonicalFile = await writeSession(sessions, "canonical-session", [
+    sessionMeta({ id: "canonical-session" }),
+    taskStarted("turn-a"),
+    turnContext("turn-a"),
+    tokenCount(usage(100, 50, 10), "2026-08-04T00:00:01.000Z"),
+    taskComplete("turn-a"),
+  ]);
+
+  const [canonicalEventA] = await buildUsageEvents({
+    sessionFiles: [canonicalFile],
+    config: { organization_id: "soulforge", node_id: "test-node" },
+    rateCard: await loadRateCard(RATE_CARD),
+    sourceRoot: sessions,
+  });
+
+  await persistUsageEvents(state, [canonicalEventA]);
+  const canonicalEventABytes = JSON.stringify((await loadPersistedUsageEvents(state))[0]);
+
+  // 2. Prepare pending events:
+  // - Conflicting pending A (incompatible tokens for turn-a)
+  // - Clean pending B (turn-b)
+  const incomingSessions = await mkdtemp(path.join(os.tmpdir(), "sf-usage-pending-incoming-"));
+  const fileA = await writeSession(incomingSessions, "conflicting-a", [
+    sessionMeta({ id: "canonical-session" }),
+    taskStarted("turn-a"),
+    turnContext("turn-a"),
+    tokenCount(usage(50, 50, 10), "2026-08-04T00:00:01.000Z"),
+    taskComplete("turn-a"),
+  ]);
+  const fileB = await writeSession(incomingSessions, "clean-b", [
+    sessionMeta({ id: "clean-b-session" }),
+    taskStarted("turn-b"),
+    turnContext("turn-b"),
+    tokenCount(usage(300, 150, 30), "2026-08-04T00:02:01.000Z"),
+    taskComplete("turn-b"),
+  ]);
+
+  const builtEvents = await buildUsageEvents({
+    sessionFiles: [fileA, fileB],
+    config: { organization_id: "soulforge", node_id: "test-node" },
+    rateCard: await loadRateCard(RATE_CARD),
+    sourceRoot: incomingSessions,
+  });
+  const conflictingEventA = builtEvents.find((e) => e.turn_id === "turn-a");
+  const cleanEventB = builtEvents.find((e) => e.turn_id === "turn-b");
+
+  // Write pending files
+  const pendingDirA = path.join(state, "pending", conflictingEventA.event_id);
+  await mkdir(pendingDirA, { recursive: true });
+  const pendingFileA = path.join(pendingDirA, "pending-a.json");
+  const pendingAContent = JSON.stringify(conflictingEventA, null, 2);
+  await writeFile(pendingFileA, pendingAContent, "utf8");
+
+  const pendingDirB = path.join(state, "pending", cleanEventB.event_id);
+  await mkdir(pendingDirB, { recursive: true });
+  const pendingFileB = path.join(pendingDirB, "pending-b.json");
+  await writeFile(pendingFileB, JSON.stringify(cleanEventB, null, 2), "utf8");
+
+  // 3. Persist with isolateConflicts: true and empty new events array (draining pending)
+  const receipt = await persistUsageEvents(state, [], { isolateConflicts: true });
+  assert.equal(receipt.created, 1); // cleanEventB created
+  assert.equal(receipt.issues.length, 1);
+  assert.equal(receipt.issues[0].code, "usage_event_conflict");
+
+  // Verify:
+  // - Pending file A is preserved byte-for-byte at exact path
+  const preservedPendingA = await readFile(pendingFileA, "utf8");
+  assert.equal(preservedPendingA, pendingAContent);
+
+  // - Pending file B is removed
+  await assert.rejects(readFile(pendingFileB, "utf8"), { code: "ENOENT" });
+
+  // - Canonical A is unchanged, clean B is persisted
+  const persisted = await loadPersistedUsageEvents(state);
+  assert.equal(persisted.length, 2);
+  assert.equal(JSON.stringify(persisted.find((e) => e.root_turn_id === "turn-a")), canonicalEventABytes);
+  assert.equal(persisted.find((e) => e.root_turn_id === "turn-b").usage.input_tokens, 300);
+
+  // 4. Rerun is idempotent: pending A still preserved, clean B not re-added, snapshot stays valid
+  const rerunReceipt = await persistUsageEvents(state, [], { isolateConflicts: true });
+  assert.equal(rerunReceipt.created, 0);
+  assert.equal(rerunReceipt.issues.length, 1);
+  assert.equal(rerunReceipt.issues[0].code, "usage_event_conflict");
+  assert.equal(await readFile(pendingFileA, "utf8"), pendingAContent);
+
+  await Promise.all([
+    rm(sessions, { recursive: true, force: true }),
+    rm(incomingSessions, { recursive: true, force: true }),
+    rm(state, { recursive: true, force: true }),
+  ]);
+});

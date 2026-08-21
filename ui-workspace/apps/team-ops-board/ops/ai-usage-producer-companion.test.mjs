@@ -882,6 +882,54 @@ test("Codex collection with duplicate conflict issue records degraded heartbeat 
   assert.equal(completed.lanes.find((lane) => lane.lane === "antigravity").status, "ok");
 });
 
+test("Codex collection with ledger merge conflict issue records degraded heartbeat and cycle error while sibling lanes succeed", async () => {
+  const cycle = cycleCollector();
+  const heartbeats = [];
+  let tick = 0;
+  const result = await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    projectRoot: PROJECT_ROOT,
+    stateRoot: STATE_ROOT,
+    watchtowerPointerPath: WATCHTOWER_POINTER,
+    run: async (_node, args) => {
+      if (args[1] === "collect") {
+        return codexCollectResult({
+          sessionFileCount: 1,
+          parsedSessionCount: 1,
+          issueCount: 1,
+          issues: [{ source_ref: "session-canonical-conflict", code: "usage_event_conflict" }],
+          observedEventCount: 5,
+          duplicateEventObservationCount: 0,
+          eventCount: 5,
+        });
+      }
+      return successfulRun(args);
+    },
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 5 }),
+    persistHeartbeat: async (value) => { heartbeats.push(value); },
+    persistCycle: cycle.persistCycle,
+    now: () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000),
+  });
+
+  assert.equal(result.status, "observed");
+  const codexHeartbeat = heartbeats.find(({ lane }) => lane === "codex");
+  assert.equal(codexHeartbeat.succeeded, false);
+  assert.equal(codexHeartbeat.errorCode, "usage_event_conflict");
+
+  const claudeHeartbeat = heartbeats.find(({ lane }) => lane === "claude");
+  assert.equal(claudeHeartbeat.succeeded, true);
+
+  const antigravityHeartbeat = heartbeats.find(({ lane }) => lane === "antigravity");
+  assert.equal(antigravityHeartbeat.succeeded, true);
+
+  const completed = cycle.records.at(-1);
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").status, "error");
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").error_code, "usage_event_conflict");
+  assert.equal(completed.lanes.find((lane) => lane.lane === "claude").status, "ok");
+  assert.equal(completed.lanes.find((lane) => lane.lane === "antigravity").status, "ok");
+});
+
 test("Codex collection with malformed stdout fails closed with collector_result_invalid", async () => {
   const cycle = cycleCollector();
   const heartbeats = [];

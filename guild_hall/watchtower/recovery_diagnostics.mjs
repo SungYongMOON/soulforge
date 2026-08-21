@@ -7,7 +7,7 @@ export const RECOVERY_FAILURE_FAMILIES = Object.freeze([
 ]);
 
 export const RECOVERY_DIAGNOSTIC_CODES = Object.freeze([
-  "task_action_path_drift", "usage_event_duplicate_conflict", "quarantine_applied",
+  "task_action_path_drift", "usage_event_duplicate_conflict", "usage_event_conflict", "quarantine_applied",
   "cutover_receipt_expired", "writer_authority_expired", "backup_activation_expired",
   "auth_invalid_grant", "auth_token_revoked", "auth_mfa_required",
   "auth_consent_required", "auth_invalid_client", "auth_transient_retry",

@@ -453,7 +453,10 @@ async function collectCommand(options) {
     const stateRoot = value(options, "state-root");
     if (!stateRoot) fail("state_root_required_for_apply");
     const resolvedStateRoot = path.resolve(String(stateRoot));
-    persistence = await persistUsageEvents(resolvedStateRoot, events);
+    persistence = await persistUsageEvents(resolvedStateRoot, events, { isolateConflicts: true });
+    if (Array.isArray(persistence?.issues) && persistence.issues.length > 0) {
+      collected.issues.push(...persistence.issues);
+    }
     coverage = {
       schema_version: "soulforge.ai_usage_meter_coverage.v1",
       observed_at: new Date().toISOString(),

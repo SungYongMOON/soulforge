@@ -36,6 +36,7 @@ export const RECOVERY_DIAGNOSTIC_LABELS = Object.freeze({
   writer_authority_expired: "작성자 권한 만료 · 수동 갱신 필요",
   task_action_path_drift: "작업 실행 경로 불일치 · 소유자 재바인딩 필요",
   usage_event_duplicate_conflict: "사용량 중복 충돌 · 격리 후 관측 계속",
+  usage_event_conflict: "사용량 원장 충돌 · 격리 후 관측 계속",
   quarantine_applied: "격리 적용 완료 · 잔여 이벤트 계속",
   cutover_receipt_expired: "전환 영수증 만료 · 소유자 재검증 필요",
   backup_activation_expired: "백업 활성화 만료 · 소유자 승인 필요",
