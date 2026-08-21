@@ -379,7 +379,7 @@ source와 exact version을 고정하고 Soulforge sole-writer authority를 부�
 | `VF-2` | 현재 Chat Bot Prompt freeze·B0/B1/B2 계측 — `FOUNDATION_DONE / ACTUAL_TASK_HOLD 2026-08-21` | required-source/A0/payload-bounded Cycle Contract와 hostile fixture GREEN; actual Chat prompt digest·app binding은 `HB-D1` 전 `UNKNOWN/HOLD` |
 | `VF-3` | C3 Project Decision Ledger·Portfolio Projection·ShadowEvaluator — `DONE_FOR_PUBLIC_SYNTHETIC_SCOPE 2026-08-21` | in-memory append/replay/NO_OP/correction/digest chain, identical-horizon portfolio, live-only synthetic quality receipt; persistent private writer는 `HB-D2` 전 0 |
 | `VF-4` | C1 actual P4 + C2 actual Linear backup 병렬 — `C2_RUNTIME_ADAPTER_FOUNDATION_DONE / ACTUAL_RUN_HOLD 2026-08-22` | Linear runtime 22/22·LB1 50/50·Backup 135/135; actual project/source/stored-byte/human restore receipts는 Owner binding 뒤 |
-| `VF-5` | C4 Accepted Generation + read-only Context Query | one accepted generation, ACL/generation/no-fallback receipt |
+| `VF-5` | C4 Accepted Generation + read-only Context Query — `FOUNDATION_DONE / ACTUAL_ACCEPTANCE_HOLD 2026-08-22` | synthetic acceptance/query 30/30 + candidate 12/12; actual registered-human/HPP writer/private generation은 0, live query는 actual acceptance 뒤 |
 | `VF-6` | Hermes 격리 install + read-only Proposal canary | doctor, exact version, no credential/write/memory promotion |
 | `VF-7` | Grok Build/Flash/Codex Worker comparison | same Work Unit quality·time·correction·receipt comparison |
 | `VF-8` | C5 Shadow evidence 뒤 first `Project×TaskType×Action` canary | Owner approval, readback, rollback, sole writer; other scopes A0 |

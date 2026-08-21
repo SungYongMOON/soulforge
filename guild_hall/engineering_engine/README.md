@@ -1497,6 +1497,35 @@ cross-project·duplicate·CAS·writer·provenance HOLD, unsafe getter/proxy/alia
 그리고 forbidden acceptance/writer/effect import scan을 검증한다. Engine topology/manifest
 derived artifacts는 별도 root integration owner가 갱신한다.
 
+### P5 accepted generation gate and query (public-synthetic foundation)
+
+`kernel/project_context_acceptance_gate.mjs`는 candidate가 export한 exact public-safe
+content digest, membership/source-set digests, coverage-gap receipt, registered-human
+reviewed membership set, store-bound reviewer/writer anchors, writer epoch와 prior/current
+pointer CAS를 재검증한다. in-memory store는 append-only generation·receipt를 보존하고
+exact submission replay만 idempotent하게 허용한다. duplicate generation, pointer rollback,
+stale epoch, incomplete review/coverage, unresolved supersession과 tampered manifest는 `HOLD`다.
+
+accepted manifest는 HPP writer가 호출됐거나 actual generation이 전진했다고 주장하지 않는다.
+`writer_called=false`, `generation_advanced=false`, `writer_calls=0`을 유지하고 별도의
+`execution_evidence`에 `writer_witness_verified`, `in_memory_pointer_advanced`,
+`synthetic_store_write`만 기록한다. opaque owner-row lineage digest는
+`owner_contract_input_digests` 아래에 두고, served memberships와 source revision set은
+별도 recomputable exported digest로 검증한다.
+
+dev-ERP의 `accepted_context_query.mjs`는 mandatory exact ACL을 먼저 확인한 뒤 current
+accepted pointer·manifest·receipt digest를 매 query 재검증한다. unauthorized, revoked,
+foreign, absent, wrong-generation, stale-generation은 동일한 `NOT_AVAILABLE` envelope로
+수렴하며 project/common implicit fallback과 existence leak을 금지한다. cursor는 generation,
+actor, grant revision, scope, purpose, `as_of`에 pin되고 query는 store·Task·ERP를 쓰지 않는다.
+
+```text
+npm run validate:voice-first-accepted-context
+```
+
+이 foundation은 실제 human acceptance, private persistence, HPP fenced writer 호출,
+ERP/P6 projection 또는 live query activation을 뜻하지 않는다.
+
 ## kernel 이 하지 않는 것
 
 `kernel/index.mjs` 의 `NON_CAPABILITIES` 가 코드로 선언한다.

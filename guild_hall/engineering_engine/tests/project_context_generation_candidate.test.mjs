@@ -6,7 +6,13 @@ import test from 'node:test';
 import { canonicalise } from '../kernel/canonical.mjs';
 import { sha256Canonical } from '../../shared/project_history_envelope.mjs';
 import { buildProjectPdfKnowledgeCandidate } from '../../rag/project_pdf_knowledge_projection.mjs';
-import { buildProjectContextGenerationCandidate } from '../kernel/project_context_generation_candidate.mjs';
+import {
+  buildProjectContextGenerationCandidate,
+  computeProjectContextReviewContentDigest,
+  computeProjectContextExportedMembershipDigest,
+  computeProjectContextExportedSourceRevisionSetDigest,
+  canonicalInstantEpoch,
+} from '../kernel/project_context_generation_candidate.mjs';
 
 const VALID = '2026-08-01T00:00:00.000Z';
 const KNOWN = '2026-08-02T00:00:00.000Z';
@@ -290,7 +296,33 @@ test('normalizes authentic P4, M2, and timeline outputs under one pinned owner c
   assert.equal(result.candidate.authority.generation_advanced, false);
   assert.equal(result.candidate.effects.writer_calls, 0);
   assert.match(result.candidate.accepted_input_set_candidate.digest_sha256, /^sha256:[0-9a-f]{64}$/u);
+  assert.match(result.candidate.review_content_digest_sha256, /^sha256:[0-9a-f]{64}$/u);
+  assert.deepEqual(result.candidate.bitemporal_cutoff, { valid_at: CUTOFF_VALID, known_at: CUTOFF_KNOWN });
+  assert.equal(result.candidate.generation_proposal.prior_generation_number, 3);
+  assert.equal(result.candidate.generation_proposal.current_generation_number, 4);
+  assert.ok(result.candidate.project_context.memberships.every(function (member) { return member.scope === 'project' || member.scope === 'common'; }));
+  assert.equal(result.candidate.project_context.exported_membership_digest_sha256, computeProjectContextExportedMembershipDigest(result.candidate.project_context.memberships));
+  assert.equal(result.candidate.project_context.exported_source_revision_set_digest_sha256, computeProjectContextExportedSourceRevisionSetDigest(result.candidate.project_context.memberships));
+  assert.equal(result.candidate.coverage_gap_receipt.coverage_complete, true);
+  assert.deepEqual(result.candidate.coverage_gap_receipt.unresolved_gap_codes, []);
   assertFrozen(result);
+});
+
+test('binds the reviewer digest to exported candidate content, including normalized memberships', () => {
+  const bundle = fixture();
+  const result = buildProjectContextGenerationCandidate(bundle.request, bundle.pin);
+  const tampered = copy(result.candidate);
+  tampered.project_context.memberships[0].context_branch_ref = 'branch:tampered';
+  assert.notEqual(computeProjectContextReviewContentDigest(tampered), result.candidate.review_content_digest_sha256);
+});
+
+test('uses one canonical UTC epoch rule and rejects offset-form bitemporal values', () => {
+  assert.equal(canonicalInstantEpoch(VALID), Date.parse(VALID));
+  assert.equal(canonicalInstantEpoch('2026-08-01T09:00:00.000+09:00'), null);
+  const bundle = fixture();
+  const request = copy(bundle.request);
+  request.owner_context_contract.bitemporal_cutoffs.valid_at = '2026-08-01T09:00:00.000+09:00';
+  assertHold(buildProjectContextGenerationCandidate(request, bundle.pin), 'P5_CONTEXT_BITEMPORAL_INVALID');
 });
 
 test('holds legacy caller-assembled P4 witness and a missing whole material pin', () => {

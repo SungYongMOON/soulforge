@@ -87,8 +87,12 @@ function ref(value) {
   };
 }
 function clone(value) { return { entity_id: value.entity_id, revision_id: value.revision_id, content_id: value.content_id, content_hash_alg: value.content_hash_alg }; }
-function instant(value) { return inspectInstant(value).valid; }
-function temporal(value) { return instant(value && value.validAt) && instant(value && value.knownAt) && compareCodePoints(value.validAt, value.knownAt) <= 0; }
+// Canonical UTC only: offset forms are rejected rather than normalised.
+export function canonicalInstantEpoch(value) {
+  return inspectInstant(value).valid ? Date.parse(value) : null;
+}
+function instant(value) { return canonicalInstantEpoch(value) !== null; }
+function temporal(value) { return instant(value && value.validAt) && instant(value && value.knownAt) && canonicalInstantEpoch(value.validAt) <= canonicalInstantEpoch(value.knownAt); }
 function allFalse(value, fields) { return keys(value, fields) && fields.every(function (field) { return value[field] === false; }); }
 function allZero(value, fields) { return keys(value, fields) && fields.every(function (field) { return value[field] === 0; }); }
 function arrays(value, path, output) {
@@ -102,6 +106,42 @@ function arrays(value, path, output) {
 }
 function digest(domain, value) {
   return 'sha256:' + createHash('sha256').update(domain + '\0' + canonicalise(value, arrays(value, '', {})), 'utf8').digest('hex');
+}
+
+// This is the public-safe candidate content that a registered human actually reviews.
+// Writer/reviewer anchors deliberately stay outside this digest: they are bound by the
+// accepting store, not trusted from the candidate being reviewed.
+export function computeProjectContextReviewContentDigest(candidate) {
+  return digest('soulforge.project_context_generation_candidate.review_content.v1', {
+    schema_version: candidate.schema_version,
+    kind: candidate.kind,
+    candidate_only: candidate.candidate_only,
+    status: candidate.status,
+    claim_ceiling: candidate.claim_ceiling,
+    project_binding_ref: candidate.project_binding_ref,
+    whole_material_pin: candidate.whole_material_pin,
+    producer_refs: candidate.producer_refs,
+    accepted_input_set_candidate: candidate.accepted_input_set_candidate,
+    generation_proposal: candidate.generation_proposal,
+    project_context: candidate.project_context,
+    bitemporal_cutoff: candidate.bitemporal_cutoff,
+    coverage_gap_receipt: {
+      exported_source_revision_set_digest_sha256: candidate.coverage_gap_receipt.exported_source_revision_set_digest_sha256,
+      coverage_complete: candidate.coverage_gap_receipt.coverage_complete,
+      unresolved_gap_codes: candidate.coverage_gap_receipt.unresolved_gap_codes,
+    },
+    authority: candidate.authority,
+    effects: candidate.effects,
+    blocker_codes: candidate.blocker_codes,
+  });
+}
+export function computeProjectContextExportedMembershipDigest(memberships) {
+  return sha256Canonical({ domain: 'soulforge.project_context_generation.exported_memberships.v1', memberships: memberships });
+}
+export function computeProjectContextExportedSourceRevisionSetDigest(memberships) {
+  const refs = memberships.map(function (member) { return { scope: member.scope, source_revision_ref: member.source_revision_ref }; })
+    .sort(function (left, right) { return compareCodePoints(exactRefIdentityKey(left.source_revision_ref), exactRefIdentityKey(right.source_revision_ref)); });
+  return sha256Canonical({ domain: 'soulforge.project_context_generation.exported_source_revision_set.v1', source_revision_refs: refs });
 }
 function freeze(value) {
   if (value !== null && typeof value === 'object') {
@@ -331,7 +371,7 @@ function parseSources(value, blockers) {
     const key = exactRefIdentityKey(row.predecessor);
     const prior = byRef.get(key);
     if (!prior || prior.inclusion !== 'superseded' || !temporal(row) || !temporal(prior)
-        || compareCodePoints(row.validAt, prior.validAt) < 0 || compareCodePoints(row.knownAt, prior.knownAt) < 0
+        || canonicalInstantEpoch(row.validAt) < canonicalInstantEpoch(prior.validAt) || canonicalInstantEpoch(row.knownAt) < canonicalInstantEpoch(prior.knownAt)
         || successor.has(key)) blockers.add(C.SUPERSESSION_INVALID);
     else successor.set(key, exactRefIdentityKey(row.ref));
   });
@@ -371,7 +411,7 @@ function parseMemberships(value, blockers) {
     const row = { span: entry.source_span_ref, ref: clone(entry.source_revision_ref), lane: entry.source_lane, evidence: clone(entry.evidence_ref),
       event: entry.context_event_ref, unit: entry.context_unit_ref, branch: entry.context_branch_ref, project: entry.project_context_ref,
       state: entry.membership_state, correction: entry.correction_state, predecessor: corrected ? entry.predecessor_source_span_ref : undefined,
-      review: review ? clone(entry.review_proposal_ref) : undefined, entryId: timeline ? entry.timeline_entry_id : undefined,
+      review: review ? clone(entry.review_proposal_ref) : undefined, reviewRequirement: entry.review_requirement, entryId: timeline ? entry.timeline_entry_id : undefined,
       opaqueRef: timeline ? entry.timeline_source_revision_ref : undefined, validAt: entry.valid_at, knownAt: entry.known_at };
     rows.push(row); bySpan.set(row.span, row);
   }
@@ -379,7 +419,7 @@ function parseMemberships(value, blockers) {
     if (row.correction !== 'corrected') return;
     const prior = bySpan.get(row.predecessor);
     if (!prior || prior.state !== 'superseded' || !temporal(row) || !temporal(prior)
-        || compareCodePoints(row.validAt, prior.validAt) < 0 || compareCodePoints(row.knownAt, prior.knownAt) < 0
+        || canonicalInstantEpoch(row.validAt) < canonicalInstantEpoch(prior.validAt) || canonicalInstantEpoch(row.knownAt) < canonicalInstantEpoch(prior.knownAt)
         || successor.has(row.predecessor)) blockers.add(C.SUPERSESSION_INVALID);
     else successor.set(row.predecessor, row.span);
   });
@@ -444,7 +484,7 @@ function parseSimple(value, blockers) {
       || prior.supersession_state !== 'superseded_by_current_proposal'
       || value.lineage.observed_prior_cas_fingerprint_sha256 !== prior.cas_fingerprint_sha256) { blockers.add(C.LINEAGE_INVALID); return null; }
   return { coverage: coverage, reviews: reviews, writer: { ref: clone(writer.hpp_writer_ref), epochRef: clone(writer.writer_epoch_ref), epoch: writer.writer_epoch, projectRef: clone(writer.project_binding_ref), validAt: writer.valid_at, knownAt: writer.known_at },
-    lineage: { prior: { ref: clone(prior.generation_ref), cas: prior.cas_fingerprint_sha256, validAt: prior.valid_at, knownAt: prior.known_at }, current: { ref: clone(current.generation_ref), validAt: current.valid_at, knownAt: current.known_at }, cutoff: { validAt: value.lineage.generation_cutoff.valid_at, knownAt: value.lineage.generation_cutoff.known_at } } };
+    lineage: { prior: { number: prior.generation, ref: clone(prior.generation_ref), cas: prior.cas_fingerprint_sha256, validAt: prior.valid_at, knownAt: prior.known_at }, current: { number: current.generation, ref: clone(current.generation_ref), validAt: current.valid_at, knownAt: current.known_at }, cutoff: { validAt: value.lineage.generation_cutoff.valid_at, knownAt: value.lineage.generation_cutoff.known_at } } };
 }
 
 function parseOwner(value, blockers) {
@@ -477,7 +517,7 @@ function temporalGate(blockers, cutoff, records) {
   if (!temporal(cutoff)) { blockers.add(C.BITEMPORAL_INVALID); return; }
   records.flat().forEach(function (record) {
     if (!temporal(record)) { blockers.add(C.BITEMPORAL_INVALID); return; }
-    if (compareCodePoints(record.validAt, cutoff.validAt) > 0 || compareCodePoints(record.knownAt, cutoff.knownAt) > 0) blockers.add(C.BITEMPORAL_STALE);
+    if (canonicalInstantEpoch(record.validAt) > canonicalInstantEpoch(cutoff.validAt) || canonicalInstantEpoch(record.knownAt) > canonicalInstantEpoch(cutoff.knownAt)) blockers.add(C.BITEMPORAL_STALE);
   });
 }
 
@@ -519,7 +559,7 @@ function bind(outer, p4, m2, timeline, owner, blockers) {
   owner.memberships.rows.filter(function (row) { return row.review; }).forEach(function (row) {
     if (!owner.reviews.some(function (review) { return sameExactRef(review.ref, row.review); })) blockers.add(C.REVIEW_INVALID);
   });
-  if (!temporal(owner.lineage.prior) || !temporal(owner.lineage.current) || compareCodePoints(owner.lineage.current.validAt, owner.lineage.prior.validAt) < 0 || compareCodePoints(owner.lineage.current.knownAt, owner.lineage.prior.knownAt) < 0) blockers.add(C.SUPERSESSION_INVALID);
+  if (!temporal(owner.lineage.prior) || !temporal(owner.lineage.current) || canonicalInstantEpoch(owner.lineage.current.validAt) < canonicalInstantEpoch(owner.lineage.prior.validAt) || canonicalInstantEpoch(owner.lineage.current.knownAt) < canonicalInstantEpoch(owner.lineage.prior.knownAt)) blockers.add(C.SUPERSESSION_INVALID);
   temporalGate(blockers, owner.cutoff, [outer, p4, m2, timeline, owner.cross, owner.writer, owner.lineage.prior, owner.lineage.current, owner.sources.rows, owner.memberships.rows, owner.evidence, owner.coverage, owner.reviews]);
 }
 
@@ -569,6 +609,21 @@ export function buildProjectContextGenerationCandidate(request, trustedExpectedP
   if (blockers.size !== 0) {
     return freeze({ candidate: { schema_version: PROJECT_CONTEXT_GENERATION_CANDIDATE_SCHEMA, kind: 'project_context_generation_candidate', candidate_only: true, status: 'HOLD', claim_ceiling: 'observed', blocker_codes: Array.from(blockers).sort(compareCodePoints), authority: authority(), effects: effects() }, receipt: makeReceipt('HOLD', blockers, observed) });
   }
+  const exportedMemberships = owner.memberships.rows.map(function (row) {
+    const source = owner.sources.byRef.get(exactRefIdentityKey(row.ref));
+    const review = row.review && owner.reviews.find(function (item) { return sameExactRef(item.ref, row.review); });
+    return {
+      source_span_ref: row.span, source_revision_ref: clone(row.ref), source_lane: row.lane, scope: source.scope,
+      context_event_ref: row.event, context_unit_ref: row.unit, context_branch_ref: row.branch,
+      membership_state: row.state, correction_state: row.correction, review_requirement: row.reviewRequirement,
+      reviewer_state: review ? review.state : 'not_required',
+      supersession: { state: row.correction === 'corrected' ? 'resolved_successor' : (row.state === 'superseded' ? 'superseded' : 'root'), predecessor_source_span_refs: row.predecessor ? [row.predecessor] : [] },
+      valid_at: row.validAt, known_at: row.knownAt,
+    };
+  }).sort(function (left, right) { return compareCodePoints(left.source_span_ref, right.source_span_ref); });
+  const exportedMembershipDigest = computeProjectContextExportedMembershipDigest(exportedMemberships);
+  const exportedSourceDigest = computeProjectContextExportedSourceRevisionSetDigest(exportedMemberships);
+  const coverageComplete = owner.coverage.every(function (row) { return row.state === 'covered'; });
   const candidate = {
     schema_version: PROJECT_CONTEXT_GENERATION_CANDIDATE_SCHEMA, kind: 'project_context_generation_candidate',
     candidate_only: true, status: 'ready_for_registered_human_review', claim_ceiling: 'observed',
@@ -578,9 +633,13 @@ export function buildProjectContextGenerationCandidate(request, trustedExpectedP
     reviewer_anchor: { authority_ref: clone(owner.cross.reviewerRef), epoch_ref: clone(owner.cross.reviewerEpochRef), epoch: owner.cross.reviewerEpoch },
     writer_anchor: { hpp_writer_ref: clone(owner.writer.ref), writer_epoch_ref: clone(owner.writer.epochRef), writer_epoch: owner.writer.epoch },
     accepted_input_set_candidate: { candidate_ref: observed, digest_sha256: observed, acceptance_allowed: false },
-    generation_proposal: { prior_generation_ref: clone(owner.lineage.prior.ref), current_generation_ref: clone(owner.lineage.current.ref), cas_fingerprint_sha256: sha256Canonical({ material_sha256: observed, prior_cas: owner.lineage.prior.cas }) },
-    project_context: { project_context_ref: owner.cross.projectContext, memberships: owner.memberships.rows.map(function (row) { return { source_span_ref: row.span, source_revision_ref: clone(row.ref), source_lane: row.lane, context_event_ref: row.event, context_unit_ref: row.unit, context_branch_ref: row.branch, membership_state: row.state, correction_state: row.correction, valid_at: row.validAt, known_at: row.knownAt }; }), source_revision_set_digest_sha256: sha256Canonical(clean(owner.sources.rows)), membership_digest_sha256: sha256Canonical(clean(owner.memberships.rows)) },
+    generation_proposal: { prior_generation_ref: clone(owner.lineage.prior.ref), current_generation_ref: clone(owner.lineage.current.ref), prior_generation_number: owner.lineage.prior.number, current_generation_number: owner.lineage.current.number, cas_fingerprint_sha256: sha256Canonical({ material_sha256: observed, prior_cas: owner.lineage.prior.cas }) },
+    project_context: { project_context_ref: owner.cross.projectContext, memberships: exportedMemberships, source_revision_set_digest_sha256: sha256Canonical(clean(owner.sources.rows)), membership_digest_sha256: sha256Canonical(clean(owner.memberships.rows)), exported_source_revision_set_digest_sha256: exportedSourceDigest, exported_membership_digest_sha256: exportedMembershipDigest },
+    bitemporal_cutoff: { valid_at: owner.cutoff.validAt, known_at: owner.cutoff.knownAt },
+    coverage_gap_receipt: { review_content_digest_sha256: '', exported_source_revision_set_digest_sha256: exportedSourceDigest, coverage_complete: coverageComplete, unresolved_gap_codes: owner.coverage.filter(function (row) { return row.state === 'gap'; }).map(function (row) { return 'lane:' + row.lane; }) },
     authority: authority(), effects: effects(), blocker_codes: [],
   };
+  candidate.review_content_digest_sha256 = computeProjectContextReviewContentDigest(candidate);
+  candidate.coverage_gap_receipt.review_content_digest_sha256 = candidate.review_content_digest_sha256;
   return freeze({ candidate: candidate, receipt: makeReceipt('ready_for_registered_human_review', [], observed) });
 }

@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## 2026-08-22 - VF-5 accepted-generation and query foundation
+
+- Revision `working`.
+- Extended the authentic P5 candidate with a canonical digest over the exact public-safe content
+  a reviewer accepts, including explicit membership scope/review/supersession metadata and
+  recomputable exported membership/source-set digests.
+- Added a public-synthetic registered-human acceptance gate and in-memory append-only generation
+  store with exact submission replay, writer-epoch/current-pointer CAS, coverage and reviewed-set
+  binding, duplicate-generation prevention, immutable manifest/receipt verification, and truthful
+  synthetic execution evidence (`writer_called=false`, actual generation advance false).
+- Added a mandatory-ACL, generation-pinned read-only Accepted Context Query. Unauthorized, revoked,
+  foreign, absent, wrong-generation, and stale-generation cases use one uniform `NOT_AVAILABLE`
+  envelope; project/common fallback and store/Task/ERP mutation are absent.
+- Validation: acceptance/query 30/30, P5 candidate 12/12, project-history readiness 34/34, Task
+  Core 28/28, fresh exact Opus 5 review `ACCEPT`.
+- Actual registered-human acceptance, HPP fenced writer/private persistence, accepted generation,
+  live query activation, ERP projection, and P6 effects remain `0/HOLD`.
+
 ## 2026-08-22 - VF-4/C2 Linear LB1 runtime adapter and effect-evidence foundation
 
 - Revision `working`.

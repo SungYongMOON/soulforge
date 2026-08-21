@@ -32,6 +32,8 @@ test("루트 게이트: 앱 테스트 스텝이 validate·done-check 양 모드�
       "npm run validate:engineering-engine-ax-se-project-assessment"],
     ['"engineering-engine-p5-context-generation-candidate"',
       "npm run validate:engineering-engine-p5-context-generation-candidate"],
+    ['"voice-first-accepted-context"',
+      "npm run validate:voice-first-accepted-context"],
     ['"watchtower"', "npm run validate:watchtower"],
   ];
   for (const [stepId, command] of requiredSteps) {
@@ -54,10 +56,14 @@ test("root gates validate AX-SE before Watchtower and Watchtower before its cons
       '["engineering-engine-p5-context-generation-candidate", '
       + '"npm run validate:engineering-engine-p5-context-generation-candidate"]',
     );
+    const acceptedContext = block.indexOf(
+      '["voice-first-accepted-context", "npm run validate:voice-first-accepted-context"]',
+    );
     const board = block.indexOf('["team-ops-app", "npm run validate:team-ops-app"]');
     assert.ok(axSe >= 0, "AX-SE focused validator step is missing");
     assert.ok(p5Candidate > axSe, "P5 candidate validation must follow its AX-SE producer gate");
-    assert.ok(watchtower > p5Candidate, "Watchtower must follow the Engine gates it projects");
+    assert.ok(acceptedContext > p5Candidate, "accepted-context validation must follow its P5 candidate gate");
+    assert.ok(watchtower > acceptedContext, "Watchtower must follow the Engine gates it projects");
     assert.ok(watchtower >= 0, "watchtower step is missing");
     assert.ok(board > watchtower, "the consumer must follow its topology producer gate");
   }
