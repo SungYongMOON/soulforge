@@ -33,9 +33,9 @@ function trackedProjection(overrides = {}) {
   };
 }
 
-test("classic engine view preserves all 33 modules and 151 provider-local import edges", () => {
+test("classic engine view preserves all 34 modules and 153 provider-local import edges", () => {
   // 추적 artifact 가 실제로 이 규모인지 한 자리에서만 고정한다.
-  assert.deepEqual({ nodes: ENGINE_NODE_COUNT, edges: ENGINE_EDGE_COUNT }, { nodes: 33, edges: 151 });
+  assert.deepEqual({ nodes: ENGINE_NODE_COUNT, edges: ENGINE_EDGE_COUNT }, { nodes: 34, edges: 153 });
   const model = buildEngineeringClassicTopologyViewModel(trackedProjection());
   assert.equal(model.available, true);
   assert.deepEqual(model.source, {

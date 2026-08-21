@@ -162,13 +162,14 @@ export async function runContinuousSupervisor(options = {}) {
   emit(supervisorEvent("supervisor_started"));
 
   while (!signal?.aborted && cyclesCompleted < maxCycles) {
-    const binding = await loadBindingImpl(options.bindingPath, {
-      bindingDigest: options.bindingDigest,
-    });
-    assertRunnableBinding(binding);
-
+    let binding;
     let result;
     try {
+      binding = await loadBindingImpl(options.bindingPath, {
+        bindingDigest: options.bindingDigest,
+      });
+      assertRunnableBinding(binding);
+
       const renewal = await renewAuthorityImpl({
         bindingPath: options.bindingPath,
         bindingDigest: options.bindingDigest,

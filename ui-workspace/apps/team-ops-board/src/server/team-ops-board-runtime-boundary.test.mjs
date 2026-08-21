@@ -1357,3 +1357,26 @@ test("lifecycle history classification preserves any present-but-invalid record"
     assert.equal(plan.outcome, "preserved");
   }
 });
+
+test("Vite config registers GET-only /receipt-expiry.snapshot.json with stable owner-root binding and read-only authority boundary", async () => {
+  const viteConfigPath = path.resolve(HERE, "..", "..", "vite.config.ts");
+  const configSource = await readFile(viteConfigPath, "utf8");
+
+  assert.match(
+    configSource,
+    /import\s+\{\s*createReceiptExpiryServerAdapter\s*\}\s+from\s+"\.\/src\/server\/receipt-expiry-adapter\.mjs";/u,
+  );
+  assert.match(
+    configSource,
+    /createReceiptExpiryServerAdapter\(\{\s*bindingPath:\s*receiptExpiryBindingPath,\s*ownerRoot\s*\}\)/u,
+  );
+  assert.match(
+    configSource,
+    /const receiptExpiryBindingPath = path\.join\(/u,
+  );
+  assert.match(
+    configSource,
+    /"receipt_expiry_binding\.v1\.json"/u,
+  );
+  assert.doesNotMatch(configSource, /receiptExpiry.*(?:write|repair|mutate|post)/iu);
+});

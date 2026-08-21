@@ -303,6 +303,69 @@ test("failed cycles append a sanitized failure heartbeat to the ledger", async (
   ]);
 });
 
+test("load binding failure before cycle 1 records a failure heartbeat with exact safe code", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "continuous-supervisor-startup-test-"));
+  const bindingPath = path.join(root, "continuous-binding.json");
+  const recordHeartbeat = createSupervisorHeartbeatRecorder({ bindingPath });
+  const ledgerPath = resolveSupervisorHeartbeatLedger(bindingPath);
+  const events = [];
+
+  const failure = new Error("continuous_plaud_cutover_receipt_invalid");
+  failure.code = "continuous_plaud_cutover_receipt_invalid";
+
+  await assert.rejects(runContinuousSupervisor({
+    apply: true,
+    bindingPath,
+    bindingDigest: DIGEST,
+    emit: (e) => events.push(e),
+    loadBindingImpl: async () => { throw failure; },
+    runCycleImpl: async () => assert.fail("cycle must not run"),
+    recordHeartbeat,
+  }), failure);
+
+  assert.equal(events.some((e) => e.event === "cycle_failed" && e.code === "continuous_plaud_cutover_receipt_invalid"), true);
+
+  const lines = (await readFile(ledgerPath, "utf8")).trim().split("\n").map(JSON.parse);
+  assert.equal(lines.length, 1);
+  assert.equal(lines[0].schema_version, CONTINUOUS_SUPERVISOR_HEARTBEAT_SCHEMA);
+  assert.equal(lines[0].status, "failed");
+  assert.equal(lines[0].cycle, 1);
+  assert.deepEqual(lines[0].error_codes, ["continuous_plaud_cutover_receipt_invalid"]);
+
+  await rm(root, { recursive: true, force: true });
+});
+
+test("startup failure heartbeat for an unsafe error without code records generic path-free code", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "continuous-supervisor-unsafe-error-test-"));
+  const bindingPath = path.join(root, "continuous-binding.json");
+  const recordHeartbeat = createSupervisorHeartbeatRecorder({ bindingPath });
+  const ledgerPath = resolveSupervisorHeartbeatLedger(bindingPath);
+  const events = [];
+
+  const unsafeFailure = new Error("Failed to load binding: Unsafe error message with spaces and /secret_path/binding.json");
+
+  await assert.rejects(runContinuousSupervisor({
+    apply: true,
+    bindingPath,
+    bindingDigest: DIGEST,
+    emit: (e) => events.push(e),
+    loadBindingImpl: async () => { throw unsafeFailure; },
+    runCycleImpl: async () => assert.fail("cycle must not run"),
+    recordHeartbeat,
+  }), unsafeFailure);
+
+  assert.equal(events.some((e) => e.event === "cycle_failed" && e.code === "continuous_supervisor_failed"), true);
+  assert.doesNotMatch(JSON.stringify(events), /secret_path/u);
+
+  const lines = (await readFile(ledgerPath, "utf8")).trim().split("\n").map(JSON.parse);
+  assert.equal(lines.length, 1);
+  assert.equal(lines[0].status, "failed");
+  assert.deepEqual(lines[0].error_codes, ["continuous_supervisor_failed"]);
+  assert.doesNotMatch(JSON.stringify(lines[0]), /secret_path/u);
+
+  await rm(root, { recursive: true, force: true });
+});
+
 test("disabled bindings, disabled scheduler state, and non-apply mode fail closed", async () => {
   await assert.rejects(runContinuousSupervisor({
     bindingPath: "private-binding.json",

@@ -3867,6 +3867,37 @@ function watchtowerMiniMapColor(node: any): string {
   return "#72b7ff";
 }
 
+function formatReceiptKoreanReason(reason: string | null): string {
+  if (!reason) return "";
+  if (reason === "receipt_expiry_binding_unconfigured") return "바인딩 미설정";
+  if (reason === "receipt_expiry_binding_file_unreadable") return "바인딩 파일 읽기 실패";
+  if (reason === "receipt_expiry_binding_json_invalid") return "바인딩 구문 오류";
+  if (reason === "receipt_expiry_disabled_by_binding") return "바인딩 비활성화됨";
+  if (reason === "standing_evidence_expired") return "입증 영수증 만료됨";
+  if (reason === "standing_evidence_critical") return "입증 영수증 만료 임박";
+  if (reason === "standing_evidence_warning") return "입증 영수증 만료 주의";
+  if (reason === "standing_evidence_invalid") return "입증 영수증 구조 오류";
+  if (reason === "standing_evidence_missing") return "입증 영수증 미연결";
+  if (reason === "standing_evidence_missing_or_invalid") return "일부 근거 영수증 검증 필요";
+  return "상태 확인 필요";
+}
+
+function formatReceiptKoreanStatus(receipt: any): string {
+  if (!receipt) return "미확인";
+  if (receipt.status === "invalid" || receipt.diagnostic_code === "receipt_privacy_or_path_leak_detected" || receipt.diagnostic_code === "receipt_window_bounds_invalid") return "영수증 구조 오류 · 검증 실패";
+  if (receipt.diagnostic_code === "receipt_expiring_soon") return "만료 주의 · 사전 재검증 필요";
+  if (receipt.diagnostic_code === "receipt_expiring_imminent") return "만료 임박 · 긴급 재검증 필요";
+  if (receipt.diagnostic_code === "receipt_expired") return "영수증 만료됨 · 책임자 직접 조치 필요";
+  if (receipt.diagnostic_code === "warning_window_unconfigured") return "만료 임계치 미설정 · 바인딩 설정 필요";
+  if (receipt.diagnostic_code === "receipt_evidence_missing") return "근거 미연결 · 상태 확인 필요";
+  if (receipt.status === "current") return "정상 유지 중";
+  if (receipt.status === "expired") return "영수증 만료됨";
+  if (receipt.status === "warning") return "만료 주의";
+  if (receipt.status === "critical") return "만료 임박";
+  if (receipt.status === "invalid") return "영수증 구조 오류";
+  return "미확인";
+}
+
 function SystemTopologySurface({ projection, refreshing, providerSnapshots = null, onRefreshReadOnly }: {
   projection: any;
   refreshing: boolean;
@@ -3882,7 +3913,28 @@ function SystemTopologySurface({ projection, refreshing, providerSnapshots = nul
   const [inspectorView, setInspectorView] = useState<"evidence" | "direct" | "all">("evidence");
   const [trackingInteraction, setTrackingInteraction] = useState<any>(null);
   const [connectionDiagnosis, setConnectionDiagnosis] = useState<any>(null);
+  const [receiptExpiry, setReceiptExpiry] = useState<any>(null);
   const fittedLayoutRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    async function loadReceiptExpiry() {
+      try {
+        const response = await fetch("/receipt-expiry.snapshot.json", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (active) setReceiptExpiry(data);
+      } catch {
+        // fail closed
+      }
+    }
+    void loadReceiptExpiry();
+    const interval = setInterval(loadReceiptExpiry, 300_000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, []);
   const selectedNodeTriggerRef = useRef<HTMLButtonElement | null>(null);
   const inspectorRef = useRef<HTMLElement | null>(null);
   const layoutSignature = useMemo(() => model.nodes
@@ -4167,6 +4219,49 @@ function SystemTopologySurface({ projection, refreshing, providerSnapshots = nul
         <PanelCollapseButton panelId="system.watchtower" label="Watchtower 시스템 토폴로지" collapsed={panel.collapsed} onToggle={panel.toggle} />
       </header>
       <CollapsiblePanelBody panelId="system.watchtower" collapsed={panel.collapsed}>
+        <div className="watchtower-observation-notice" role="status" data-testid="receipt-expiry-warning-card" style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <Clock3 size={15} aria-hidden="true" />
+              <strong>내부 영수증 만료 상태</strong>
+              <span style={{ opacity: 0.8 }}>(읽기 전용 · runtime_authority=false)</span>
+            </div>
+            <div style={{ display: "flex", gap: "6px" }}>
+              <span className="watchtower-chip">전체 {receiptExpiry?.summary?.total !== undefined ? receiptExpiry.summary.total : "-"}</span>
+              <span className="watchtower-chip is-ok">정상 {receiptExpiry?.summary?.current ?? 0}</span>
+              {(receiptExpiry?.summary?.warning ?? 0) > 0 && <span className="watchtower-chip is-degraded">주의 {receiptExpiry.summary.warning}</span>}
+              {(receiptExpiry?.summary?.critical ?? 0) > 0 && <span className="watchtower-chip is-stale">심각 {receiptExpiry.summary.critical}</span>}
+              {(receiptExpiry?.summary?.expired ?? 0) > 0 && <span className="watchtower-chip is-down">만료 {receiptExpiry.summary.expired}</span>}
+              {(receiptExpiry?.summary?.invalid ?? 0) > 0 && <span className="watchtower-chip is-down">오류 {receiptExpiry.summary.invalid}</span>}
+              {(receiptExpiry?.summary?.unknown ?? 0) > 0 && <span className="watchtower-chip is-unmonitored">미확인 {receiptExpiry.summary.unknown}</span>}
+            </div>
+          </div>
+          {!receiptExpiry && (
+            <div style={{ fontSize: "12px", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "4px" }}>
+              <span>영수증 감시 엔드포인트 연결 중...</span>
+            </div>
+          )}
+          {receiptExpiry?.status === "unavailable" && (
+            <div style={{ fontSize: "12px", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "4px" }}>
+              <span>영수증 감시 비활성화 또는 바인딩 미연결 ({formatReceiptKoreanReason(receiptExpiry?.reason)})</span>
+            </div>
+          )}
+          {receiptExpiry?.status === "partial" && (
+            <div style={{ fontSize: "12px", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "4px" }}>
+              <span>부분 점검 ({formatReceiptKoreanReason(receiptExpiry?.reason)})</span>
+            </div>
+          )}
+          {receiptExpiry && Array.isArray(receiptExpiry.receipts) && receiptExpiry.receipts.filter((r: any) => r.owner_action_required || r.status !== "current").length > 0 && (
+            <div style={{ fontSize: "12px", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "4px", display: "flex", flexDirection: "column", gap: "2px" }}>
+              {receiptExpiry.receipts.filter((r: any) => r.owner_action_required || r.status !== "current").map((r: any) => (
+                <div key={r.contract_id} style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>[{r.contract_id}] {formatReceiptKoreanStatus(r)}</span>
+                  <strong style={{ color: r.status === "expired" || r.status === "invalid" ? "#ff8d84" : "#f5b849" }}>{r.status.toUpperCase()}</strong>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       {summary.unmonitored > 0 && (
         <div className="watchtower-unmonitored-breakdown" data-testid="system-topology-unmonitored-breakdown">
           <span>구조 표식 {model.unmonitoredBreakdown.structuralOnly}</span>

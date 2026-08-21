@@ -167,9 +167,11 @@ production scheduler. Production uses `continuous_supervisor_cli.mjs` as one
 long-lived process. The supervisor reloads the exact digest-pinned binding,
 runs one cycle, waits `poll_interval_seconds`, and repeats until it receives a
 stop signal. It exits on a fatal cycle error so the OS can perform a bounded
-restart, while degraded lane results remain recorded cycles.
+restart, while degraded lane results remain recorded cycles. If startup binding loading
+or runnable assertions fail before cycle 1 (such as `continuous_plaud_cutover_receipt_invalid`),
+the supervisor emits `cycle_failed` and records a sanitized failure heartbeat for Watchtower before exiting.
 
-After every completed cycle, the supervisor also appends one metadata-only
+After every completed or failed cycle, the supervisor also appends one metadata-only
 heartbeat to `state/continuous-supervisor-heartbeats.jsonl` beside the private
 binding. Each line contains only its observation time, supervisor instance ID,
 cycle number, aggregate status/error count, and mail-lane status. Mail bodies,
