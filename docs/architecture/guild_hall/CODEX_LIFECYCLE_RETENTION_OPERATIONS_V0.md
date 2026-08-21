@@ -16,7 +16,8 @@
 - **Phase 1**: 스레드 수명주기 분류 및 보존 대상을 metadata-only로 판정 (보고 전용)
 - **Phase 2**: 기능 매뉴얼 및 문서 커버리지 gap 코드 스캔 (보고 전용)
 - **Phase 3**: 보존·인벤토리 결합 원샷 보고서 생성 및 승인된 activity 원장 저장 (보고 전용)
-- **Phase 4+ (Approval Gated / Feature-OFF)**: 보존, 삭제, 아카이브, 가나리 적용 등 파괴적 동작은 오너의 별도 승인 전까지 **FEATURE_OFF (0건)** 유지한다.
+- **Phase 4**: Owner 승인 영수증 바인딩, 보존 계획 수립, 합성 백업-복구 검증 게이트 (실행 환경 FEATURE_OFF 유지, 제거 권한 0)
+- **Phase 5+ (Approval Gated / Feature-OFF)**: 카나리 적용, 삭제, 아카이브 등 파괴적 동작은 오너의 별도 승인 전까지 **FEATURE_OFF (0건)** 유지한다.
 
 ## 시스템 구성 요소 (Components)
 
@@ -26,6 +27,8 @@
 | `.workflow/codex_thread_manager_v0/feature_manual_inventory.mjs` | 명시적 정적 카탈로그 대조 및 매뉴얼/검증기 갭 코드 스캔 |
 | `.workflow/codex_thread_manager_v0/codex_retention_automation.mjs` | 보존 보고서와 인벤토리 스캔을 결합한 원샷 자동화 모듈 |
 | `.workflow/codex_thread_manager_v0/codex_retention_automation_cli.mjs` | 원샷 보고서 실행 전용 CLI |
+| `.workflow/codex_thread_manager_v0/lifecycle_retention_preservation.mjs` | Phase 4 오너 승인 검증, 보존 계획 수립 및 프로덕션 FEATURE_OFF 보존 인터페이스 모듈 |
+| `guild_hall/backup_controller/retention_preservation_gate.mjs` | Backup Controller 수명주기 보존 합성 어댑터 및 프로덕션 feature-OFF 게이트 |
 | `guild_hall/night_watch/automations/soulforge-lifecycle-retention-report.spec.json` | Night Watch 수명주기 보존 보고서 추적 스펙 (기본값: `PAUSED`, 미설치/비활성) |
 | `ui-workspace/apps/team-ops-board/src/server/codex-retention-adapter.mjs` | GET loopback 백엔드 어댑터 (`/codex-retention.snapshot.json`) |
 | `ui-workspace/apps/team-ops-board/src/core/codex-retention-projection.mjs` | 안전한 읽기 전용 투영 및 시한 윈도 계산 |
@@ -68,6 +71,13 @@ Watchtower에서 `codex_retention_report` 프로브의 헬스를 관측하려면
   }
 }
 ```
+
+## Phase 4 승인 및 보존 계약 (Approve & Preserve Contract)
+
+1. **승인 영수증 (Approval Receipt)**: 오너 승인은 정확한 `candidate_id` (`cand-...`), Phase 3 보고서 해시(`report_digest`), 허용된 단일 액션(`preserve`), 발급시각(`issued_at`), 만료시각(`expires_at`), 및 보존 전략(`preservation_branch` 또는 `_local_hold`)에 바인딩된다.
+2. **합성 복구 검증 게이트 (Synthetic Restore-Check Gate)**: 별도의 읽기 어댑터를 통해 보존된 개체/바이트를 다시 읽고 해시를 재계산하여 완전한 일치가 확인된 경우에만 검증된 보존 영수증(`PRESERVED_VERIFIED`)을 발급한다.
+3. **프로덕션 FEATURE_OFF 및 제거 권한 0**: 공개 `executeRetentionPreservation` 인터페이스는 외부 어댑터 주입을 허용하지 않으며 항상 프로덕션 FEATURE_OFF (`preservation_count: 0`, `removal_count: 0`)를 반환한다. 실제 Git 브랜치 생성이나 local_hold 페이로드는 생성되지 않는다. 테스트 어댑터에 의해 생성되는 합성 영수증은 테스트용 증거 (`claim_ceiling: synthetic_evidence_only`, `evidence_kind: synthetic_test_proof`)일 뿐 실제 운영상의 보존이 아니다.
+4. **보존과 정리/제거 권한 분리**: 보고서 및 후보 대상의 액션(`lifecycle_retention_action`, `retention_action`)은 보존 단계에서 strictly `HOLD`여야 하며, 보존 계획 및 승인 절차(Preservation)는 정리/제거(Cleanup/Removal) 권한이 여전히 `HOLD`로 고정된 상태에서도 오너 승인에 따라 진행될 수 있다.
 
 ## 안전 규칙 및 데이터 위생 (Safety & Sanitization Rules)
 

@@ -14,6 +14,7 @@
     "validate:workflow-runner": "node --check guild_hall/workflow_runner/cli.mjs && node --test guild_hall/workflow_runner/*.test.mjs",
     "validate:codex-work-directory": "node --check guild_hall/codex_work_directory/directory.mjs && node --check guild_hall/codex_work_directory/cli.mjs && node --test guild_hall/codex_work_directory/directory.test.mjs",
     "validate:codex-retention-automation": "node --check .workflow/codex_thread_manager_v0/codex_retention_automation.mjs && node --check .workflow/codex_thread_manager_v0/codex_retention_automation_cli.mjs && node --test .workflow/codex_thread_manager_v0/tests/codex_retention_automation.test.mjs",
+    "validate:codex-retention-preservation": "node --check .workflow/codex_thread_manager_v0/lifecycle_retention_preservation.mjs && node --check .workflow/codex_thread_manager_v0/lifecycle_retention_preservation_internal.mjs && node --check guild_hall/backup_controller/retention_preservation_gate.mjs && node --test .workflow/codex_thread_manager_v0/tests/lifecycle_retention_preservation.test.mjs guild_hall/backup_controller/retention_preservation_gate.test.mjs",
     "guild-hall:validate:canon": "node guild_hall/validate/canon_validate.mjs",
     "canon:validate": "npm run guild-hall:validate:canon --",
     "validate:canon": "node guild_hall/validate/canon_validate.mjs",

@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2026-08-21 - Soulforge Lifecycle Retention Phase 4: Approve & Preserve module with synthetic restore-check gate
+
+- **무엇이 바뀌었는가**: Implemented Phase 4 Approve & Preserve module for Soulforge Codex Lifecycle Retention with strict Owner approval binding, deterministic preservation manifest planning, synthetic restore-check gate, and feature-OFF production baseline.
+  - Added deep preservation module `lifecycle_retention_preservation.mjs` and internal implementation `lifecycle_retention_preservation_internal.mjs` supporting exact approval receipt validation (`soulforge.codex_thread_manager.retention_approval_receipt.v1`), candidate/report digest binding (`sha256:...`), preservation manifest creation (`soulforge.codex_thread_manager.retention_preservation_manifest.v1`), and verified receipt generation (`soulforge.codex_thread_manager.retention_preservation_receipt.v1`).
+  - Added Backup Controller retention preservation gate and synthetic adapters in `guild_hall/backup_controller/retention_preservation_gate.mjs` (`HELD_PRODUCTION_PRESERVATION_ADAPTER`, `createSyntheticPreservationWriterAdapter`, `createSyntheticPreservationReaderAdapter`).
+  - Required synthetic restore-check sequence: preserved bytes/objects are read back through a separate adapter, digests and manifest identities are recomputed, and full exact match is verified before emitting a verified preservation receipt (`PRESERVED_VERIFIED`).
+  - Strict fail-closed HOLD logic: missing bindings, dirty/untracked ambiguity, index locks, operation markers, locked worktrees, unpreserved unique commits, digest mismatches, expired approvals, future timestamp skews, adapter throws, partial writes, or restore-check failures return `status: "HOLD"`.
+  - Added comprehensive test suites in `.workflow/codex_thread_manager_v0/tests/lifecycle_retention_preservation.test.mjs` and `guild_hall/backup_controller/retention_preservation_gate.test.mjs`.
+  - Updated operations manual `CODEX_LIFECYCLE_RETENTION_OPERATIONS_V0.md` and owner README `docs/architecture/guild_hall/README.md`.
+  - Added npm script `validate:codex-retention-preservation`.
+- **운영 영향**: Production execution remains feature-OFF (actual preservation count = 0, removal count = 0). Zero actual external/runtime writes or git branch operations performed in production. Phase 5 remains OFF. Removal, deletion, archive, prune, clean, reset, stash, and local_hold purge remain strictly forbidden (`removal_authorized: false`).
+- **관련 경로**: `.workflow/codex_thread_manager_v0/lifecycle_retention_preservation.mjs`, `.workflow/codex_thread_manager_v0/lifecycle_retention_preservation_internal.mjs`, `.workflow/codex_thread_manager_v0/tests/lifecycle_retention_preservation.test.mjs`, `guild_hall/backup_controller/retention_preservation_gate.mjs`, `guild_hall/backup_controller/retention_preservation_gate.test.mjs`, `docs/architecture/guild_hall/CODEX_LIFECYCLE_RETENTION_OPERATIONS_V0.md`, `docs/architecture/guild_hall/README.md`, `package.json`, `CHANGELOG.md`
+
 ## 2026-08-21 - Soulforge Lifecycle Retention Phase 3: One-shot report-only automation & read-only Team Ops Board
 
 - **무엇이 바뀌었는가**: Implemented Phase 3 report-only automation and read-only Team Ops Board visibility for Soulforge Codex Lifecycle Retention with hardened write seam, strict catalog schema validation, and dedicated Watchtower health observation.
