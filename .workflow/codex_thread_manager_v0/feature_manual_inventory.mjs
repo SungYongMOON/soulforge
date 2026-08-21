@@ -26,14 +26,20 @@ function isSafeRelativePath(target) {
   const trimmed = target.trim();
   if (!trimmed) return false;
 
-  if (trimmed.includes("\0") || trimmed.includes("\\")) return false;
+  if (/[\x00-\x1F\x7F-\x9F]/u.test(trimmed)) return false;
+  if (trimmed.includes("~") || trimmed.includes("\\")) return false;
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/u.test(trimmed)) return false;
 
-  const parts = trimmed.split("/");
-  if (parts.includes("..") || parts.includes(".")) return false;
+  const norm = trimmed.startsWith("./") ? trimmed.slice(2) : trimmed;
+  if (!norm || norm.startsWith("/")) return false;
+
+  const parts = norm.split("/");
+  for (const part of parts) {
+    if (part === "." || part === ".." || part === "") return false;
+  }
 
   if (win32.isAbsolute(trimmed) || posix.isAbsolute(trimmed)) return false;
   if (/^[a-zA-Z]:/u.test(trimmed)) return false;
-  if (trimmed.startsWith("/") || trimmed.startsWith("\\")) return false;
 
   return true;
 }
@@ -42,7 +48,9 @@ function isUnsafeValidatorStr(str) {
   if (typeof str !== "string") return true;
   const trimmed = str.trim();
   if (!trimmed || trimmed.length > 1024) return true;
-  if (trimmed.includes("\0") || trimmed.includes("\\") || trimmed.includes("..")) return true;
+  if (/[\x00-\x1F\x7F-\x9F]/u.test(trimmed)) return true;
+  if (trimmed.includes("\\") || trimmed.includes("..")) return true;
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/u.test(trimmed)) return true;
 
   const tokens = trimmed.split(/\s+/u);
   const credFlagRegex = /^(?:--?)(?:password|secret|token|api[-_]?key|credential|private[-_]?key|auth|bearer)$/iu;
@@ -50,7 +58,8 @@ function isUnsafeValidatorStr(str) {
 
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
-    if (token.includes("~") || token.includes("\0") || token.includes("\\") || token.includes("..")) return true;
+    if (token.includes("~") || token.includes("\\") || token.includes("..")) return true;
+    if (/[\x00-\x1F\x7F-\x9F]/u.test(token)) return true;
     if (win32.isAbsolute(token) || posix.isAbsolute(token)) return true;
     if (/(?:^|\/|\\)[a-zA-Z]:/u.test(token) || /:[/\\]/u.test(token)) return true;
     if (/(?:^|=)\//u.test(token) || /(?:^|=)\\ /u.test(token)) return true;
@@ -426,24 +435,38 @@ export async function scanFeatureManualInventory(featuresOrOptions, options = {}
             lastValidationState = "unvalidated";
           }
         } else {
-          const pathMatches = outputValidatorRef.match(/[a-zA-Z0-9_./-]+\.(mjs|js|ts|py|json|yaml|yml)/gu) ?? [];
-          if (pathMatches.length === 0) {
-            if (callerSuppliedValidationState === "passed") {
-              lastValidationState = "passed";
-            } else {
-              lastValidationState = callerSuppliedValidationState || "not_run";
+          // Non-npm validator ref analysis
+          const tokens = outputValidatorRef.split(/\s+/u);
+          const fileTokens = [];
+          let hasGlob = false;
+
+          for (const t of tokens) {
+            if (t.includes("*") || t.includes("?") || t.includes("{")) {
+              hasGlob = true;
+              break;
             }
+            if (/[a-zA-Z0-9_./-]+\.(mjs|js|ts|py|json|yaml|yml|sh|cmd|bat)/iu.test(t)) {
+              fileTokens.push(t);
+            }
+          }
+
+          if (hasGlob || fileTokens.length === 0) {
+            gaps.add("missing_validator_ref");
+            lastValidationState = "unvalidated";
           } else {
             let allExist = true;
-            for (const relP of pathMatches) {
-              if (relP.includes("*")) continue;
-              if (isSafeRelativePath(relP)) {
-                if (!(await pathExistsFn(join(repoRoot, relP)))) {
-                  allExist = false;
-                  break;
-                }
+            for (const token of fileTokens) {
+              if (!isSafeRelativePath(token)) {
+                allExist = false;
+                break;
+              }
+              const relP = token.startsWith("./") ? token.slice(2) : token;
+              if (!(await pathExistsFn(join(repoRoot, relP)))) {
+                allExist = false;
+                break;
               }
             }
+
             if (allExist) {
               if (callerSuppliedValidationState === "passed") {
                 lastValidationState = "passed";

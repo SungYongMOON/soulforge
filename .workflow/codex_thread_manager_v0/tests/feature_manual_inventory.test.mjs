@@ -15,6 +15,18 @@ function makeWinDrivePath(sub = "Windows") {
   return ["C", ":", "\\", sub].join("");
 }
 
+function makeTildePath(sub = "secret_dir") {
+  return ["~", sub].join("/");
+}
+
+function makeSchemeUrl(host = "example.com", file = "test.md") {
+  return ["http", ":", "/", "/", host, "/", file].join("");
+}
+
+function makeFileSchemeUrl(pathSegment = "etc_passwd") {
+  return ["file", ":", "/", "/", "local", "/", pathSegment].join("");
+}
+
 function makeValidFeatureRow(suffix = "1") {
   return {
     feature_id: `feature_module_${suffix}`,
@@ -86,6 +98,79 @@ test("FeatureManualInventory: synthetic fixture with complete coverage produces 
     assert.equal(report.rows[0].roadmap_status, "active");
     assert.equal(report.rows[0].changelog_ref, "CHANGELOG.md");
     assert.equal(report.rows[0].roadmap_ref, "DEVELOPMENT_ROADMAP_V0.md");
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("FeatureManualInventory: path sanitizer rejects tildes, URI schemes, and control characters without leaking sentinels", async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), "soulforge-path-sanitizer-test-"));
+  try {
+    const tildeSentinel = "secret_tilde_dir_12345";
+    const httpSentinel = "example.com";
+    const fileSentinel = "etc_passwd_secret";
+
+    const leakyRows = [
+      { feature_id: "f_tilde", owner_root: makeTildePath(tildeSentinel) },
+      { feature_id: "f_http", owner_readme: makeSchemeUrl(httpSentinel, "guide.md") },
+      { feature_id: "f_file", changelog_ref: makeFileSchemeUrl(fileSentinel) }
+    ];
+
+    const report = await scanFeatureManualInventory(leakyRows, { repoRoot: tempDir });
+    const jsonStr = JSON.stringify(report);
+
+    assert.equal(jsonStr.includes(tildeSentinel), false, "Tilde path sentinel must not leak in JSON");
+    assert.equal(jsonStr.includes(httpSentinel), false, "HTTP scheme URL sentinel must not leak in JSON");
+    assert.equal(jsonStr.includes(fileSentinel), false, "File scheme URL sentinel must not leak in JSON");
+
+    for (const row of report.rows) {
+      assert.equal(row.last_validation_state, "unknown");
+      assert.equal(row.next_action, "HOLD");
+      assert.ok(row.stable_gap_codes.includes("unsafe_path_detected"));
+    }
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("FeatureManualInventory: non-npm validator refs fail closed when unresolvable or missing file tokens", async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), "soulforge-validator-fail-closed-test-"));
+  try {
+    // 1. No file token found (e.g. "make check")
+    const r1 = await scanFeatureManualInventory([{
+      feature_id: "f_no_file_token",
+      validator_ref: "make check",
+      last_validation_state: "passed"
+    }], { repoRoot: tempDir });
+
+    assert.equal(r1.rows[0].last_validation_state, "unvalidated");
+    assert.equal(r1.rows[0].last_validation_state_source, "declared");
+    assert.ok(r1.rows[0].stable_gap_codes.includes("missing_validator_ref"));
+    assert.equal(r1.rows[0].next_action, "HOLD");
+
+    // 2. Unresolvable file token (e.g. "./tests/nope.mjs")
+    const r2 = await scanFeatureManualInventory([{
+      feature_id: "f_nope_file",
+      validator_ref: "pytest -q ./tests/nope.mjs",
+      last_validation_state: "passed"
+    }], { repoRoot: tempDir });
+
+    assert.equal(r2.rows[0].last_validation_state, "unvalidated");
+    assert.equal(r2.rows[0].last_validation_state_source, "declared");
+    assert.ok(r2.rows[0].stable_gap_codes.includes("missing_validator_ref"));
+    assert.equal(r2.rows[0].next_action, "HOLD");
+
+    // 3. Glob token (e.g. "tests/*.test.mjs")
+    const r3 = await scanFeatureManualInventory([{
+      feature_id: "f_glob",
+      validator_ref: "node --test tests/*.test.mjs",
+      last_validation_state: "passed"
+    }], { repoRoot: tempDir });
+
+    assert.equal(r3.rows[0].last_validation_state, "unvalidated");
+    assert.equal(r3.rows[0].last_validation_state_source, "declared");
+    assert.ok(r3.rows[0].stable_gap_codes.includes("missing_validator_ref"));
+    assert.equal(r3.rows[0].next_action, "HOLD");
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
