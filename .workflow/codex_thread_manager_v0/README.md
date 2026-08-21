@@ -360,8 +360,8 @@ instead of inventing a project or project responsibility lane.
    side-effect limits, execution-contract claim ceiling, stop conditions, and
    conflict protocol.
 10. Prepare verifier or judge packets from minimal evidence: objective, changed
-   refs, acceptance criteria, validators, claims, and risk areas; exclude raw
-   transcript and avoid leaking the intended fix except where necessary.
+    refs, acceptance criteria, validators, claims, and risk areas; exclude raw
+    transcript and avoid leaking the intended fix except where necessary.
 11. Observe thread ids/titles and acceptance results.
 12. Apply the change gate when scope or decision inputs change.
 13. Route bounded result packets between workers when useful.
@@ -388,3 +388,13 @@ subagent fan-out, multi-worker team execution, or worktree worker execution has
 been proven. The project responsibility-assignment and TASK-gate addition is a
 source-supported operating synthesis and has not executed a live assignment or
 TASK pilot. It is not an ISO or other standards-conformity claim.
+
+## Lifecycle Retention (Phase 1 Report-Only)
+
+- **Module**: `lifecycle_retention.mjs` implements the core `LifecycleRetention` module interface, hiding lifecycle classification, exact task-worktree binding validation, opaque candidate construction, canonical SHA-256 report digest generation, and fail-closed `HOLD` reason codes.
+- **Compatibility Wrapper**: `lifecycle_retention_report.mjs` serves as a backward-compatible wrapper preserving legacy imports, legacy report structures (`threads` array), and existing CLI behavior. Field and report shape compatibility with legacy reports is maintained. When no active binding is present, preflight uses legacy positional worktree IDs (`worktree-1`, `worktree-2`).
+- **Explicit CLI**: `lifecycle_retention_cli.mjs` provides the Phase 1 `report --json` command surface. Exit code 3 is returned when `--expected-digest` (or `--prior-digest` alias) is provided and does not match the computed report digest. Destructive options (`--apply`, `--delete`, `--archive`, `--remove`, `--prune`, `--branch-delete`) and non-Phase-1 mutation subcommands (`approve`, `apply`, `verify`) are strictly rejected.
+- **Ignored-Local Task-Worktree Binding**: The default task-worktree binding registry (`guild_hall/state/operations/team_ops_board/task_worktree_binding.v1.json`) resides under tracked `.gitignore` rule `guild_hall/state/**` and must remain ignored-local. Its root schema exact keys are `{schema_version, registry_revision, updated_at, disabled, worktree_nonce, bindings}`. Stale (age > 24h) or disabled bindings create zero candidates, set source health (`stale` or `disabled`), and keep report action `HOLD`.
+- **Salted Pseudonymous Worktree IDs & Nonce**: Local binding entries use exact keys `{task_id, worktree_path, candidate_nonce}` with a 32-hex `candidate_nonce`. When an active valid binding is present, `worktree_nonce` (32-hex local secret salt) derives salted stable worktree IDs `worktree-${sha256("soulforge:lifecycle_retention:worktree_nonce:" + nonce + ":" + canonicalPath).slice(0, 32)}`. Raw paths and raw nonces remain strictly omitted in public output. When the binding registry is absent, disabled, stale, or invalid, preflight falls back to legacy positional IDs (`worktree-1`, etc.).
+- **Entrypoint-Scoped Report Digests**: Report digests are computed over canonicalized output. Digests are entrypoint-scoped: the legacy report digest includes the `threads` array, whereas the explicit CLI report digest omits `threads`. They are not cross-comparable between entrypoints.
+- **No Mutation Authority / Plan-Only Integration**: Phase 1 is strictly report-only core. Automatic reporting integration, Night Watch, AX Board, Watchtower, Backup Controller, Activity, Task Engine integration, scheduling, polling, and mutation operations (archive/remove/apply/approve/verify) remain plan-only/backlog and are not implemented.

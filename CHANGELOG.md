@@ -9,6 +9,21 @@
 - Added Team Ops Board read-only receipt expiry projection (`ui-workspace/apps/team-ops-board/src/server/receipt-expiry-adapter.mjs`) summarizing total, current, warning, critical, expired, unknown, and owner-action-required counts while preserving `read_only: true` and zero runtime/repair authority.
 - Regenerated canonical Watchtower federated topology (`guild_hall/watchtower/topology/federated_topology.v1.json`) from tracked provider sources, synchronizing current Engineering Engine 34/153 source state and Knowledge source digest; no new topology declaration, provider, or authority was introduced.
 
+## 2026-08-21 - Plan Chat's hourly shadow lane separately from Soulforge's durable control plane
+
+- Recorded the Owner-observed Chat Scheduled Task as an existing shadow experiment while keeping
+  its exact prompt, model, app permissions, run history, and external effects unverified by the
+  repository. This does not promote Chat task memory into a durable Decision Ledger or accepted
+  project context.
+- Added B0-B5 gates that measure retrieval coverage, reasoning quality, and external effects
+  separately. The plan now includes order/noise/missing-source/contradiction/injection fixtures,
+  human verdict and later-outcome evaluation, Accepted Context A/B, and capability-scoped
+  Slack/Calendar/Drive canaries while Gmail send and Linear mutation remain zero.
+- Added owner-local deep Module proposals for the Hourly Shadow Cycle Contract, Decision Ledger,
+  Shadow Evaluator, and Accepted Context Query, plus a Flash-ready/owner-decision register.
+  This is plan-only: no Scheduled Task, app permission, external account, runtime, writer,
+  provider, storage, or C6 route was changed or activated.
+
 ## 2026-08-21 - Owner completion map separates code, evidence, shadow, and activation
 
 - Updated the authoritative Roadmap and Task Engine master plan with one owner-facing
