@@ -382,7 +382,7 @@ source와 exact version을 고정하고 Soulforge sole-writer authority를 부�
 | `VF-5` | C4 Accepted Generation + read-only Context Query — `FOUNDATION_DONE / ACTUAL_ACCEPTANCE_HOLD 2026-08-22` | synthetic acceptance/query 30/30 + candidate 12/12; actual registered-human/HPP writer/private generation은 0, live query는 actual acceptance 뒤 |
 | `VF-6` | Hermes 격리 install + read-only Proposal canary — `TRIAL_GATE_FOUNDATION_DONE / INSTALL_HOLD 2026-08-22` | exact version/host/isolation digests, one-seat/project/tool/memory/custody/rollback packet gate 10/10; install·doctor·MCP registration 0 |
 | `VF-7` | Grok Build/Flash/Codex Worker comparison — `COMPARISON_FOUNDATION_DONE / ACTUAL_COHORT_HOLD 2026-08-22` | same Work Unit/run/validator/review/comparison-basis receipt 14/14; actual three-provider runs·transferable ranking 0 |
-| `VF-8` | C5 Shadow evidence 뒤 first `Project×TaskType×Action` canary | Owner approval, readback, rollback, sole writer; other scopes A0 |
+| `VF-8` | C5 Shadow evidence 뒤 first `Project×TaskType×Action` canary — `GATE_FOUNDATION_DONE / ACTUAL_CANARY_HOLD 2026-08-22` | synthetic gate 17/17: trusted pins·tuple rate cap·CAS/fencing·readback·voided compensation; actual tuple/Owner approval/live adapter는 0 |
 
 ## 13. Stop Conditions
 

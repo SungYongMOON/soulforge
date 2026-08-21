@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 2026-08-22 - VF-8 bounded mutation canary gate foundation
+
+- Revision `working`.
+- Added a synthetic-only canary gate for one exact
+  `Project × TaskType × Action × Authority × PolicyRevision` tuple. The gate requires externally
+  trusted Owner-approval and C5 pins, a mandatory injected clock, a sole writer/coordinator basis,
+  CAS/fencing, exact absent pre-state and tuple-bound digest readback, and a per-window tuple claim.
+- Success and terminal failure both consume and replay one claim. Compensation is non-destructive:
+  the created synthetic object transitions idempotently to `voided` or `superseded`; delete/archive
+  is forbidden and no pre-state restoration claim is made.
+- Validation: canary 17/17, Task Core 28/28, Shadow 53/53, Accepted Context 30/30 + P5 12/12,
+  fresh exact Opus 5 review `ACCEPT`.
+- Claim ceiling is synthetic trusted-pin consistency only. `actual_canary_readiness=false`; no live
+  Linear/Gmail/Slack/Calendar/Drive mutation, owner authority, official completion, or C6 activation
+  is created by this foundation.
+
 ## 2026-08-22 - VF-6/VF-7 Hermes trial and worker-comparison foundations
 
 - Revision `working`.
