@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## 2026-08-21 - VF-2/VF-3 public-synthetic Shadow foundation
+
+- Revision `working`.
+- Added four pure dev-ERP modules for a pinned required-source/A0 hourly cycle contract,
+  per-project in-memory append-only decision ledger, identical-horizon typed portfolio projection,
+  and live-only shadow quality receipt generation.
+- The contract closes packet/source/effect shapes, bounds graph and token sizes, rejects raw/secret
+  field names, pins policy/schema/source manifest refs, and brands only deep-cloned validated cycles.
+  The ledger adds project-scoped cursor CAS, replay/NO_OP/supersession, and chained record digests.
+- Added `validate:voice-first-shadow`; the final focused suite is 53/53 and adjacent Task Execution
+  Core remains 28/28. Fresh exact Opus 5 review required four revision rounds and ended `ACCEPT`.
+- This is public-synthetic/in-memory foundation only: no Chat Scheduled Task read/edit, no private
+  ledger writer, no accepted-context query, no live precision/recall claim, and no external effect.
+- Related paths: `ui-workspace/apps/dev-erp/src/hourly_shadow_cycle_contract.mjs`,
+  `project_decision_ledger.mjs`, `portfolio_decision_projection.mjs`, `shadow_evaluator.mjs`,
+  `test/voice_first_shadow.test.mjs`, Roadmap, Voice-First model, and Task Engine master plan.
+
 ## 2026-08-21 - VF-1/C0 mutation defaults are OFF
 
 - Revision `working`.

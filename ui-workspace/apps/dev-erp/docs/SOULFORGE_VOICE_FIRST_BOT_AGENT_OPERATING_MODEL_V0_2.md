@@ -373,8 +373,8 @@ source와 exact version을 고정하고 Soulforge sole-writer authority를 부�
 | --- | --- | --- |
 | `VF-0` | 운영모델 정본·Owner decision·Stop condition 고정 | 이 문서+Roadmap/Master Plan sync |
 | `VF-1` | C0 mutation default-OFF — `DONE_FOR_SYNTHETIC_SCOPE 2026-08-21` | pre-fix RED 뒤 synthetic restart/launcher·core GREEN, explicit opt-in 보존, implicit enable 0; live runtime posture는 별도 승인 restart 전 미검증 |
-| `VF-2` | 현재 Chat Bot Prompt freeze·B0/B1/B2 계측 | exact prompt digest, all-project Project-isolated Cycle Receipt |
-| `VF-3` | C3 Project Decision Ledger·Portfolio Projection·ShadowEvaluator | append/replay/correction/coverage/quality receipt |
+| `VF-2` | 현재 Chat Bot Prompt freeze·B0/B1/B2 계측 — `FOUNDATION_DONE / ACTUAL_TASK_HOLD 2026-08-21` | required-source/A0/payload-bounded Cycle Contract와 hostile fixture GREEN; actual Chat prompt digest·app binding은 `HB-D1` 전 `UNKNOWN/HOLD` |
+| `VF-3` | C3 Project Decision Ledger·Portfolio Projection·ShadowEvaluator — `DONE_FOR_PUBLIC_SYNTHETIC_SCOPE 2026-08-21` | in-memory append/replay/NO_OP/correction/digest chain, identical-horizon portfolio, live-only synthetic quality receipt; persistent private writer는 `HB-D2` 전 0 |
 | `VF-4` | C1 actual P4 + C2 actual Linear backup 병렬 | exact project/source/restore receipts |
 | `VF-5` | C4 Accepted Generation + read-only Context Query | one accepted generation, ACL/generation/no-fallback receipt |
 | `VF-6` | Hermes 격리 install + read-only Proposal canary | doctor, exact version, no credential/write/memory promotion |
@@ -424,11 +424,11 @@ source와 exact version을 고정하고 Soulforge sole-writer authority를 부�
 
 ## 15. 현재 바로 다음 행동
 
-1. `VF-1` C0 default-OFF 구현·회귀시험
-2. `VF-2` 기존 Chat 1시간 Bot exact Prompt 보존·최종 Prompt 적용·B0/B1/B2 시작
-3. `VF-3` Project Decision Ledger·Portfolio Projection·ShadowEvaluator public-synthetic 구현
-4. `VF-4` actual P4·Linear backup Evidence 병렬
-5. `VF-6` Hermes exact install packet·격리 host·rollback 확정 후 설치
+1. `VF-1` C0 default-OFF 구현·회귀시험 — synthetic 완료
+2. `VF-2` B0/B1/B2 public-synthetic foundation 완료; actual Chat 1시간 Bot exact Prompt 보존·적용은 `HB-D1` 전 `HOLD`
+3. `VF-3` in-memory Ledger·Portfolio·ShadowEvaluator 완료; private persistent writer는 `HB-D2` 전 `HOLD`
+4. `VF-4` actual P4·Linear backup adapter/Evidence 병렬
+5. `VF-6` Hermes exact install packet·격리 host·rollback 확정 전 offline gate부터 구현
 
 ## Source refs
 
