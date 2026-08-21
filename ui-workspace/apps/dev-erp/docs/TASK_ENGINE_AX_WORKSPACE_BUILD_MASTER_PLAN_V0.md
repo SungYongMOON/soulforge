@@ -167,6 +167,10 @@ Owner의 별도 mutation 승인 ────────────────
 
 ### 2026-08-21 Chat 1-hour Shadow Bot lane
 
+Voice·Project Agent·Portfolio·Decision Ledger·Meaningful Work Unit·Worker 권한의 최종 정본은
+[`SOULFORGE_VOICE_FIRST_BOT_AGENT_OPERATING_MODEL_V0_2.md`](SOULFORGE_VOICE_FIRST_BOT_AGENT_OPERATING_MODEL_V0_2.md)다.
+이 절은 CURRENT와 구현 backlog를 소유하고, 최종 운영원칙과 충돌하면 위 문서를 따른다.
+
 #### CURRENT와 역할
 
 - Owner 관찰: Chat Scheduled Task가 1시간 주기로 연결 앱의 live 사건을 읽고 판단한다.
@@ -178,6 +182,9 @@ Owner의 별도 mutation 승인 ────────────────
   Task가 직접 읽지 못하므로 Accepted Context는 app 또는 read-only MCP/App Interface로 제공한다.
 - Chat은 의미·관계·제안과 실제 오류 표본을 만들고, Worker는 저장·복원·coverage·cursor·
   idempotency·평가·권한·receipt를 만든다. Chat의 비공개 추론 원문은 저장하지 않는다.
+- Owner decision `HB-DEC-01`: 최종 방향은 점진 실행 `C`다. 모든 연결 업무의 read/judgment
+  Shadow는 계속하되 실제 mutation은 검증된 저위험 task type부터 capability별로 하나씩 연다.
+  월간 부서장회의 자료수합은 첫 후보 예시이지 전체 업무범위 제한이 아니다.
 
 ```text
 connected apps -> deterministic read-set/coverage -> LLM disposition
@@ -196,7 +203,7 @@ connected apps -> deterministic read-set/coverage -> LLM disposition
 | `B2 reasoning quality` | `NO_ACTION|HOLD|PROPOSAL|MANAGER_DECISION`, evidence refs, missing context, next action owner | 50건 human-adjudicated set; evidence order shuffle, relevant-middle, noise, contradiction, prompt injection, cross-project, stale generation | retrieval miss와 reasoning miss를 합쳐 집계 금지 |
 | `B3 accepted-context A/B` | 같은 사건을 live-only와 live+P5 Accepted Context로 비교 | Task match, recall, precision, HOLD, context depth·noise delta | exact generation·ACL·scope·claim ceiling 없는 조회 금지 |
 | `B4 safe app effects` | Slack allowlist post, Bot-owned Calendar event, approved Drive save를 capability별로 하나씩 canary | idempotency, readback, self-echo exclusion, duplicate 0, application receipt | Gmail send·Linear mutation 0; overwrite/delete/share 0 |
-| `B5 C6 readiness` | quality receipt로 한 capability 후보만 선정 | sole writer, expected revision, rate cap, rollback rehearsal, separate Owner approval | C5 품질근거와 별도 승인 전 구현 활성화 금지 |
+| `B5 C6 readiness` | quality receipt로 한 safe task type·capability 후보만 선정하고 다른 업무는 Shadow 유지 | sole writer, expected revision, rate cap, rollback rehearsal, separate Owner approval | C5 품질근거와 별도 승인 전 구현 활성화 금지 |
 
 초기 품질 Gate 제안값은 Owner 확정 전 `PROPOSED`다: evidence refs 100%, coverage 상태
 100%, 같은 identity+digest의 `NO_ACTION` 안정성 100%, duplicate proposal 0, proposal
@@ -232,13 +239,24 @@ storage Seam은 in-memory fixture Adapter와 Owner-approved persistent Adapter�
 | `HB-F1` | Cycle Contract+hostile fixture | `READY_FOR_PUBLIC_SYNTHETIC` | exact schema validator와 순서·누락·모순·중복·injection·stale/cross-project fixture, external effect 0 |
 | `HB-F2` | Shadow Evaluator | `READY_FOR_PUBLIC_SYNTHETIC` | retrieval/reasoning/effect 분리 metrics와 human verdict/later outcome receipt |
 | `HB-D1` | actual Scheduled Task snapshot | `OWNER_DECISION_PENDING` | exact Prompt·model·project·app permission·task history를 private metadata로 고정 |
-| `HB-D2` | C3 persistent owner/store | `OWNER_DECISION_PENDING` | Drive cycle file, Sheet append, HPP/private ledger 중 owner·retention·append authority 선택 |
+| `HB-D2` | C3 persistent owner/store | `OWNER_MODEL_SELECTED / PHYSICAL_BINDING_PENDING` | Project private Decision Ledger가 정본, Portfolio는 typed projection. Drive/Sheet는 projection; exact path·writer epoch·retention은 구현 packet에서 고정 |
 | `HB-D3` | Chat→Worker handoff | `OWNER_DECISION_PENDING` | exact receipt transport, schema version, duplicate/conflict와 replay owner 선택 |
-| `HB-D4` | Pilot source/action scope | `OWNER_DECISION_PENDING` | 첫 project, Gmail/Slack/Linear/Plaud/Calendar 범위, Slack channel·Calendar·Drive allowlist |
+| `HB-D4` | Project source/action scope | `ARCHITECTURE_SELECTED / BINDING_PENDING` | all-project 관찰 뒤 Project scope를 먼저 확정하고 deep reasoning. Project별 Gmail/Slack/Linear/Files/Calendar/PLAUD binding과 cross-project request exact ref는 구현 packet에서 고정 |
 | `HB-D5` | C5 Query binding | `OWNER_DECISION_PENDING` | exact Accepted Generation owner/pointer, ACL, explicit project/common, MCP/App 제공 방식 |
-| `HB-D6` | quality thresholds | `OWNER_DECISION_PENDING` | 제안 기본값 채택·수정, severity weight와 C6 진입 표본 수 |
+| `HB-D6` | quality thresholds | `OWNER_ACCEPTED_INITIAL` | 10건 taxonomy correction, 50건 Shadow, 마지막 20건 stability; evidence/coverage/NO_ACTION 100%, duplicate·cross-project·unauthorized effect 0, precision 85%, recall 90% |
 | `HB-D7` | actual C1/C2/C4 | `EXACT_GATE_PENDING` | P4 authority packet, Linear/Drive refs·reviewer, P5 reviewer·HPP writer/epoch |
-| `HB-D8` | C6 mutation capability | `BLOCKED_BY_B5` | Slack/Calendar/Drive/Linear 후보 중 하나를 C5 evidence 뒤 별도 승인; 현재 구현·activation 0 |
+| `HB-D8` | C6 mutation capability | `DIRECTION_SELECTED / EXACT_TASK_TYPE_PENDING` | `HB-DEC-01`로 점진 확대 C를 채택. 첫 safe task type과 Slack/Calendar/Drive/Linear capability는 C5 evidence 뒤 별도 승인; 현재 구현·activation 0 |
+
+#### Grill Me decision register
+
+| Decision | 상태 | 확정 내용 | 기각·보류 |
+| --- | --- | --- | --- |
+| `HB-DEC-01` automation authority direction | `OWNER_ACCEPTED` | 연결 업무 전반의 Shadow 판단은 유지하고, 실제 실행은 검증된 저위험 task type·capability부터 단계적으로 확대한다 | 장기 Shadow-only `A` 기각; 전면 자동화 `B` 기각; 월간 자료수합 하나로 전체 범위를 제한하지 않음. exact first task type·Source/effect scope는 후속 Grill Me |
+| `HB-DEC-02` judgment vs authority | `OWNER_ACCEPTED` | 높은 `JM6(C6)` 판단능력과 `A0~A6` 실행권한을 분리한다. Shadow는 낮은 지능이 아니라 A0 상태다 | capability가 permission을 만들지 않음; Permanent Owner Authority는 Human Gate |
+| `HB-DEC-03` hierarchical project isolation | `OWNER_ACCEPTED` | Project Agent가 scoped Source·Context로 판단하고 Portfolio는 Project State Capsule/typed projection만 본다 | raw all-project deep context와 cross-project implicit fallback 금지 |
+| `HB-DEC-04` voice provenance and routing | `OWNER_ACCEPTED` | Voice는 Thin Context의 비서실·Dispatcher이며 raw→intent→accepted instruction→execution receipt를 연결한다 | Voice AI를 authority로 기록하거나 모든 회의발화를 Task로 승격하지 않음 |
+| `HB-DEC-05` meaningful work and learning | `OWNER_ACCEPTED` | Soulforge는 Meaningful/Skillable Work Unit을 주고 Worker가 내부 분해한다. 반복 성공은 Skill→Workflow→Party 후보로 승격한다 | micro-step orchestration과 skill self-promotion/auto-deploy 금지 |
+| `HB-DEC-06` decision memory | `OWNER_ACCEPTED` | Project Decision Ledger가 해석·정정·승인 history를 소유하고 Portfolio Projection이 요약한다 | Linear Task state·Chat memory·Agent memory와 혼합 금지 |
 
 Source refs:
 

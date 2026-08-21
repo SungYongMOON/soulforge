@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 2026-08-21 - Freeze the Voice-First Bot/Agent operating model v0.2
+
+- Added the Owner-confirmed Voice-First operating model that joins Thin Voice Context, Voice
+  provenance, Project-scoped Manager/Agent reasoning, Portfolio typed projections, Project
+  Decision Ledgers, and Linear as the sole current Official Task State Owner.
+- Split judgment maturity (`JM0~JM6`, display alias C-level) from execution authority (`A0~A6`).
+  The current hourly Chat Bot targets high judgment at A0, while each mutation opens only for one
+  reviewed `Project × Task Type × Action × Authority × Policy Revision` canary.
+- Made Meaningful/Skillable Work Unit the managed work granularity. Workers decompose atomic tool
+  actions internally; repeated successful execution patterns may become Skill, Workflow, and Party
+  candidates only through review rather than self-promotion.
+- Recorded the VF-0~VF-8 implementation sequence and provisional roles for Hermes, Codex, Gemini
+  Flash, Grok Build, and Claude/Fable. Buzz and Grok Bot remain HOLD.
+- This plan finalization changed no Chat Scheduled Task, connected app permission, external account,
+  Agent runtime, model subscription, provider, storage writer, Linear state, or C6 activation.
+
 ## 2026-08-21 - Soulforge Lifecycle Retention Phase 4: Approve & Preserve module with synthetic restore-check gate
 
 - **무엇이 바뀌었는가**: Implemented Phase 4 Approve & Preserve module for Soulforge Codex Lifecycle Retention with strict Owner approval binding, deterministic preservation manifest planning, synthetic restore-check gate, and feature-OFF production baseline.
@@ -24,7 +40,17 @@
   - Added operating manual `CODEX_LIFECYCLE_RETENTION_OPERATIONS_V0.md`, updated owner READMEs, added npm script `validate:codex-retention-automation`.
 - **운영 영향**: Report-only, zero destructive authority (destructive action count = 0, local automation install count = 0). Zero mutation endpoints, read-only GET-only loopback.
 - **관련 경로**: `.workflow/codex_thread_manager_v0/codex_retention_automation.mjs`, `.workflow/codex_thread_manager_v0/codex_retention_automation_cli.mjs`, `.workflow/codex_thread_manager_v0/tests/codex_retention_automation.test.mjs`, `guild_hall/night_watch/automations/soulforge-lifecycle-retention-report.spec.json`, `guild_hall/night_watch/automations/soulforge-lifecycle-retention-report.prompt.txt`, `guild_hall/night_watch/render_local_automation.mjs`, `guild_hall/night_watch/render_local_automation.test.mjs`, `ui-workspace/apps/team-ops-board/src/core/codex-retention-projection.mjs`, `ui-workspace/apps/team-ops-board/src/core/codex-retention-projection.test.mjs`, `ui-workspace/apps/team-ops-board/src/server/codex-retention-adapter.mjs`, `ui-workspace/apps/team-ops-board/src/server/codex-retention-adapter.test.mjs`, `ui-workspace/apps/team-ops-board/vite.config.ts`, `ui-workspace/apps/team-ops-board/src/App.tsx`, `guild_hall/watchtower/topology.mjs`, `guild_hall/watchtower/topology/federated_topology.v1.json`, `guild_hall/watchtower/watchtower.test.mjs`, `docs/architecture/guild_hall/CODEX_LIFECYCLE_RETENTION_OPERATIONS_V0.md`, `package.json`, `CHANGELOG.md`
+## 2026-08-21 - Owner selects progressive task-type automation after shadow evidence
 
+- Recorded Grill Me decision `HB-DEC-01`: the Chat hourly Bot continues to read and judge work
+  across its connected scope, while actual mutations open one validated low-risk task type and
+  capability at a time. Monthly management-meeting material collection remains an example first
+  candidate rather than the Bot's permanent or exclusive scope.
+- Rejected both shadow-only as the final destination and immediate broad automation. The exact
+  first task type, source scope, app effects, prompt snapshot, ledger binding, and quality threshold
+  remain explicit follow-up decisions; Linear mutation and C6 activation remain zero.
+- This is a plan/decision synchronization only. It changes no Chat Scheduled Task, connected app,
+  permission, external account, runtime, provider, storage, writer, or task state.
 ## 2026-08-21 - Soulforge Lifecycle Retention Phase 2: FeatureManualInventory deep module
 
 - **Revision pending**

@@ -335,7 +335,7 @@ actual P4 evidence ──> P5 accepted context [builder만 완료 / acceptance H
 | `C3` Decision/NO_ACTION ledger | Owner는 연결 앱을 읽는 Chat 1시간 Scheduled Task가 이미 Shadow 판단을 수행 중이라고 확인했다. exact Prompt·모델·앱 권한·run receipt는 이 repo에서 독립 확인하지 못했고 durable ledger Module은 없음 | retrieval read-set/coverage/cursor와 `NO_ACTION`·correction/supersession을 분리하는 append-only Cycle Ledger, replay와 품질 receipt | 같은 identity+digest의 안정성, 누락·중복·시간 역전·cross-project 혼입 없이 재생되는 shadow ledger | `C1~C2` 뒤 또는 독립 준비 가능 |
 | `C4` actual P5 accepted generation | authentic-producer candidate builder 구현 | actual P4/M2/timeline packet, registered reviewer, HPP writer/epoch, freshness·supersession·acceptance receipt | accepted generation 1개와 exact input digest; ERP/P6 effect 0 | `C1` 완료에 의존 |
 | `C5` Reactive+SE proposal shadow | Chat 1시간 Bot의 live-source 판단 실험은 Owner 관찰상 진행 중이나 accepted-generation query·고정 평가셋·retrieval/reasoning 분리 지표가 없음 | exact generation·ACL·scope·claim ceiling을 반환하는 read-only Accepted Context Query, 사람 결정 대비 precision/recall·NO_ACTION·coverage 관찰 | retrieval miss와 reasoning miss를 분리한 shadow receipt; Official Task mutation 0 | `C3+C4`에 의존 |
-| `C6` 첫 bounded mutation canary | 후보 생성·authority/idempotency 계약은 존재 | 하나의 capability·한 과제·한 writer에만 허용한 canary, rollback·sole-writer·Owner 승인 | create-only canary receipt와 rollback rehearsal | `C0~C5` 및 별도 Owner 승인 뒤 |
+| `C6` 첫 bounded mutation canary | 후보 생성·authority/idempotency 계약은 존재 | 한 번에 하나의 검증된 task type·capability·writer에만 허용한 canary, rollback·sole-writer·Owner 승인. 다른 업무는 계속 Shadow | create-only canary receipt와 rollback rehearsal | `C0~C5` 및 별도 Owner 승인 뒤 |
 
 지식·Wiki·맥락·메모리는 같은 저장소나 같은 승인 상태가 아니다. P4의 RAG와 Thin Wiki는
 exact source revision을 찾고 안내하는 지식 투영이며, P5 human acceptance를 통과해야 비로소
@@ -348,6 +348,17 @@ coverage·cursor·idempotency·권한·외부 effect·receipt는 결정론적 �
 성공률 하나로 합치지 않고 `retrieval coverage`, `reasoning quality`, `external effect`를 각각
 평가한다. ChatGPT Scheduled Task의 exact 설정과 실제 app 권한은 Owner 관찰값이며 repo의
 operational truth로 승격하지 않는다.
+
+Owner decision `HB-DEC-01`(2026-08-21): 장기 방향은 **점진 실행 C**다. Chat Bot은 연결된
+업무 전반을 계속 읽고 판단하지만 실제 mutation은 검증된 저위험 task type부터 하나씩 연다.
+월간 부서장회의 자료수합은 첫 후보 예시일 뿐 Bot의 전체 업무범위를 제한하지 않는다.
+전면 Shadow-only를 최종 상태로 두는 안과 대부분 업무를 한꺼번에 자동 실행하는 안은 채택하지
+않았다. exact 첫 task type·Source scope·effect 권한은 후속 Grill Me 결정 전까지 `HOLD`다.
+
+후속 Owner 대화로 Voice provenance, Thin Voice Context→Project Manager routing, Hierarchical
+Project Isolation, 판단 성숙도 `JM0~JM6`와 실행권한 `A0~A6` 분리, Project Decision Ledger+
+Portfolio Projection, Meaningful/Skillable Work Unit과 Capability Learning Loop를 확정했다.
+정본은 `ui-workspace/apps/dev-erp/docs/SOULFORGE_VOICE_FIRST_BOT_AGENT_OPERATING_MODEL_V0_2.md`다.
 
 종료선은 하나로 뭉뚱그리지 않는다.
 
@@ -1201,6 +1212,8 @@ raw 산출물·private 수치는 `_workmeta` 영수증을 가리키고 여기엔
 | 2026-08-21 | Linear LB1 v2 feature-OFF Bound Runner | v1은 metadata/hash 중심 합성 계약이라 whole-workspace body/history와 stored-byte restore, durable claim ordering을 표현하지 못했고 Gate도 실제 실행 Adapter와 결속되지 않았음 | v1을 보존한 별도 v2 18차원 snapshot/manifest/restore + full-packet Gate v2 + async Bound Runner 통합. claim-before-read, exact synthetic Adapter refs, limits/expiry, create-only memory store, exact-byte readback, body-free result와 post-claim `HOLD_CONSUMED` 고정 | Flash 3.7 High builder + Opus 5 반복 executable review 최종 ACCEPT; main v2 44/44, backup-controller 107/107 PASS. 실제 Linear/Drive/provider/storage/filesystem/scheduler effect 0; external Adapters·Owner binding·human restore는 HOLD | `guild_hall/backup_controller/linear_lb1_{v2,owner_gate_v2,one_shot_runner,synthetic_adapters}.mjs`, CHANGELOG 08-21 |
 | 2026-08-21 | Owner 완료 지도와 예상 기간 고정 | 기반 코드 완료와 actual evidence·운영 activation이 한 문장에 섞여 전체 진행도를 오해하기 쉬웠음 | `C0~C6`으로 code foundation→actual P4/Linear→accepted P5→proposal shadow→bounded mutation canary의 의존관계와 세 종료선을 명시 | 현재 목표는 병렬 1~2 작업주 추정(외부 승인·계정 대기 제외). plan-only이며 runtime·authority·write activation 0 | 이 문서의 `Owner 완료 지도`, Task Engine 마스터플랜의 owner-facing completion horizon |
 | 2026-08-21 | Chat 1시간 Shadow Bot 검증·Worker 접점 계획 | Chat Scheduled Task의 live-source 추론과 Soulforge C3/C5 제품 기반이 같은 완료 상태처럼 보였음 | Owner-observed Bot은 실제 판단·오류 표본을 만들고 Worker는 Cycle Contract·Decision Ledger·Shadow Evaluator·Accepted Context Query를 제공하도록 역할을 분리. retrieval/reasoning/effect 세 지표와 B0~B5 gate, Flash-ready/미결정 항목을 Task Engine 마스터플랜에 고정 | plan-only. 실제 Scheduled Task 설정·app 권한·run history는 독립 미확인이고 Gmail/Linear mutation·C6 activation 0 | Task Engine 마스터플랜 `Chat 1-hour Shadow Bot lane`, CHANGELOG 08-21 |
+| 2026-08-21 | Grill Me `HB-DEC-01` 점진 실행 C 채택 | Shadow-only 유지와 전면 자동 실행 사이의 장기 권한 방향이 미결이었음 | 연결된 업무 전반은 계속 Shadow 판단하되 실제 mutation은 C5 품질근거를 통과한 저위험 task type·capability부터 하나씩 확대. 월간 자료수합은 첫 후보 예시이며 전체 Bot 범위가 아님 | 방향만 확정. 첫 task type, Source scope, app effect, ledger, Prompt, threshold는 후속 결정이며 현재 Linear mutation·C6 activation 0 | Task Engine 마스터플랜 Grill Me decision register, Owner conversation decision 2026-08-21 |
+| 2026-08-21 | Voice-First Bot/Agent 운영모델 v0.2 확정 | Voice·Project Agent·Portfolio·Worker·Skill 학습과 권한 사다리가 여러 대화·초안에 흩어져 있었음 | Thin Voice Context+Deep Project Context, Project 격리/Portfolio projection, `JM6×A0~A6`, Project×TaskType×Action Canary, Voice receipt 4층, Decision Ledger, Meaningful Work Unit→Skill/Workflow/Party 승격과 VF-0~VF-8 실행순서를 하나의 Owner-confirmed 정본으로 고정 | plan finalization이며 실제 Chat task, app permission, Hermes/Grok install, external account, runtime, Linear mutation은 0. exact runtime binding은 각 실행 packet에서 별도 승인 | `SOULFORGE_VOICE_FIRST_BOT_AGENT_OPERATING_MODEL_V0_2.md`, Task Engine master plan, CHANGELOG 08-21 |
 
 ## 갱신 규칙
 

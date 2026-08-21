@@ -11,6 +11,7 @@ idempotent replay를 검증하는 feature-OFF Module이다. 실제 Linear, `core
 - 구조: [`docs/task_execution_core_poc/ARCHITECTURE.md`](docs/task_execution_core_poc/ARCHITECTURE.md)
 - Linear 백업 범위 검토: [`docs/task_execution_core_poc/LINEAR_BACKUP_SCOPE_REVIEW.md`](docs/task_execution_core_poc/LINEAR_BACKUP_SCOPE_REVIEW.md)
 - 남은 결정: [`docs/task_execution_core_poc/NEXT_DECISIONS.md`](docs/task_execution_core_poc/NEXT_DECISIONS.md)
+- Voice·Chat Bot·Project Agent·Worker 최종 운영모델: [`docs/SOULFORGE_VOICE_FIRST_BOT_AGENT_OPERATING_MODEL_V0_2.md`](docs/SOULFORGE_VOICE_FIRST_BOT_AGENT_OPERATING_MODEL_V0_2.md)
 
 ```bash
 npm --prefix ui-workspace/apps/dev-erp run validate:task-execution-core-poc
