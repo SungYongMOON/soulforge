@@ -332,15 +332,22 @@ actual P4 evidence ──> P5 accepted context [builder만 완료 / acceptance H
 | `C0` Task mutation 기본 차단 | actual Task 실행 route의 activation·write receipt는 0 | 재시작 시 auto-intake/autosync가 암묵적으로 켜지지 않도록 기본 OFF guard와 회귀시험 고정 | 기본 실행에서 mutation route 0인 합성 재시작 시험 | 즉시 독립 수행 가능 |
 | `C1` actual P4 지식 vertical | PDF admission·추출·RAG/Thin Wiki candidate·Preparation·bounded runner 구현 | Owner 승인 fully-local copy-only staging, fresh authority/launch/output, actual one-document one-shot | exact revision/hash/citation을 가진 body-free candidate와 receipt, raw body persistence 0 | `C2`와 병렬 가능 |
 | `C2` actual Linear LB1 | v2 snapshot/manifest/restore·Owner Gate·Bound Runner 합성 검증 | actual read-only Linear adapter, approved backup target writer, durable claim store, exact credential/target/reviewer refs, one-shot restore review | immutable stored bytes+manifest+coverage+human restore receipt, Linear mutation 0 | `C1`과 병렬 가능 |
-| `C3` Decision/NO_ACTION ledger | 설계 근거와 Task Event/receipt 계약 후보 존재 | 1시간 단위 decision observation, `NO_ACTION` 포함 append-only projection과 품질 기준 | 중복·누락·시간 역전 없이 재생되는 shadow ledger | `C1~C2` 뒤 또는 독립 준비 가능 |
+| `C3` Decision/NO_ACTION ledger | Owner는 연결 앱을 읽는 Chat 1시간 Scheduled Task가 이미 Shadow 판단을 수행 중이라고 확인했다. exact Prompt·모델·앱 권한·run receipt는 이 repo에서 독립 확인하지 못했고 durable ledger Module은 없음 | retrieval read-set/coverage/cursor와 `NO_ACTION`·correction/supersession을 분리하는 append-only Cycle Ledger, replay와 품질 receipt | 같은 identity+digest의 안정성, 누락·중복·시간 역전·cross-project 혼입 없이 재생되는 shadow ledger | `C1~C2` 뒤 또는 독립 준비 가능 |
 | `C4` actual P5 accepted generation | authentic-producer candidate builder 구현 | actual P4/M2/timeline packet, registered reviewer, HPP writer/epoch, freshness·supersession·acceptance receipt | accepted generation 1개와 exact input digest; ERP/P6 effect 0 | `C1` 완료에 의존 |
-| `C5` Reactive+SE proposal shadow | Engine·Task Core POC의 순수 계약 존재 | accepted generation을 읽는 proposal-only route, 사람 결정 대비 precision/recall·NO_ACTION 관찰 | 일정 기간 shadow receipt; Official Task mutation 0 | `C3+C4`에 의존 |
+| `C5` Reactive+SE proposal shadow | Chat 1시간 Bot의 live-source 판단 실험은 Owner 관찰상 진행 중이나 accepted-generation query·고정 평가셋·retrieval/reasoning 분리 지표가 없음 | exact generation·ACL·scope·claim ceiling을 반환하는 read-only Accepted Context Query, 사람 결정 대비 precision/recall·NO_ACTION·coverage 관찰 | retrieval miss와 reasoning miss를 분리한 shadow receipt; Official Task mutation 0 | `C3+C4`에 의존 |
 | `C6` 첫 bounded mutation canary | 후보 생성·authority/idempotency 계약은 존재 | 하나의 capability·한 과제·한 writer에만 허용한 canary, rollback·sole-writer·Owner 승인 | create-only canary receipt와 rollback rehearsal | `C0~C5` 및 별도 Owner 승인 뒤 |
 
 지식·Wiki·맥락·메모리는 같은 저장소나 같은 승인 상태가 아니다. P4의 RAG와 Thin Wiki는
 exact source revision을 찾고 안내하는 지식 투영이며, P5 human acceptance를 통과해야 비로소
 accepted Project Context가 된다. 개인 memory와 reviewed `memory_candidate`는 이 흐름과
 분리하고 Wiki/RAG/canon으로 자동 승격하지 않는다.
+
+Chat 1시간 Bot은 Worker가 다시 구현할 제품 기능이 아니라 C3/C5가 필요한 실제 오류·누락·
+`NO_ACTION` 근거를 만드는 Shadow 실험면이다. LLM은 의미·관계·제안을 담당하고, read-set·
+coverage·cursor·idempotency·권한·외부 effect·receipt는 결정론적 계약이 담당한다. 같은 Cycle의
+성공률 하나로 합치지 않고 `retrieval coverage`, `reasoning quality`, `external effect`를 각각
+평가한다. ChatGPT Scheduled Task의 exact 설정과 실제 app 권한은 Owner 관찰값이며 repo의
+operational truth로 승격하지 않는다.
 
 종료선은 하나로 뭉뚱그리지 않는다.
 
@@ -1193,6 +1200,7 @@ raw 산출물·private 수치는 `_workmeta` 영수증을 가리키고 여기엔
 | 2026-08-21 | P4 direct-path preparation gate | 실제 P4 시도가 OneDrive reparse 가능성 아래 admission HOLD로 소비됐고, 새 authority packet 생성 전 direct/non-reparse 사전검사와 정본 packet builder가 없었음 | authentic admission launch inspection을 재사용해 launch/root/ancestor/leaf/output을 metadata-only 검사하고 기존 authority-packet-v0만 canonical 생성하는 Preparation Module 통합. request/accessor·forged grant·fsutil 4390/path 혼동·packet drift를 fail-close | Flash 3.7 High builder + Opus 5 반복 executable review 최종 ACCEPT; main preparation 18/18, runner 13/13 PASS. PDF body/copy/write 0; actual new authority·local staging·P4 실행은 Owner gate HOLD | `guild_hall/rag/project_pdf_knowledge_pilot_{packet_contract,preparation}.mjs`, CHANGELOG 08-21 |
 | 2026-08-21 | Linear LB1 v2 feature-OFF Bound Runner | v1은 metadata/hash 중심 합성 계약이라 whole-workspace body/history와 stored-byte restore, durable claim ordering을 표현하지 못했고 Gate도 실제 실행 Adapter와 결속되지 않았음 | v1을 보존한 별도 v2 18차원 snapshot/manifest/restore + full-packet Gate v2 + async Bound Runner 통합. claim-before-read, exact synthetic Adapter refs, limits/expiry, create-only memory store, exact-byte readback, body-free result와 post-claim `HOLD_CONSUMED` 고정 | Flash 3.7 High builder + Opus 5 반복 executable review 최종 ACCEPT; main v2 44/44, backup-controller 107/107 PASS. 실제 Linear/Drive/provider/storage/filesystem/scheduler effect 0; external Adapters·Owner binding·human restore는 HOLD | `guild_hall/backup_controller/linear_lb1_{v2,owner_gate_v2,one_shot_runner,synthetic_adapters}.mjs`, CHANGELOG 08-21 |
 | 2026-08-21 | Owner 완료 지도와 예상 기간 고정 | 기반 코드 완료와 actual evidence·운영 activation이 한 문장에 섞여 전체 진행도를 오해하기 쉬웠음 | `C0~C6`으로 code foundation→actual P4/Linear→accepted P5→proposal shadow→bounded mutation canary의 의존관계와 세 종료선을 명시 | 현재 목표는 병렬 1~2 작업주 추정(외부 승인·계정 대기 제외). plan-only이며 runtime·authority·write activation 0 | 이 문서의 `Owner 완료 지도`, Task Engine 마스터플랜의 owner-facing completion horizon |
+| 2026-08-21 | Chat 1시간 Shadow Bot 검증·Worker 접점 계획 | Chat Scheduled Task의 live-source 추론과 Soulforge C3/C5 제품 기반이 같은 완료 상태처럼 보였음 | Owner-observed Bot은 실제 판단·오류 표본을 만들고 Worker는 Cycle Contract·Decision Ledger·Shadow Evaluator·Accepted Context Query를 제공하도록 역할을 분리. retrieval/reasoning/effect 세 지표와 B0~B5 gate, Flash-ready/미결정 항목을 Task Engine 마스터플랜에 고정 | plan-only. 실제 Scheduled Task 설정·app 권한·run history는 독립 미확인이고 Gmail/Linear mutation·C6 activation 0 | Task Engine 마스터플랜 `Chat 1-hour Shadow Bot lane`, CHANGELOG 08-21 |
 
 ## 갱신 규칙
 

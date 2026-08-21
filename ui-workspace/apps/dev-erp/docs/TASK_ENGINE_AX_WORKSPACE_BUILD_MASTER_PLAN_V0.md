@@ -114,6 +114,7 @@
 | NAS 통합 백업·복구 | `LIVE_DAILY_AUTOMATION / HPP_V3_RUNTIME_DEPLOYED / CURRENT_CYCLE_PARTIAL` | Codex 자동화 1개가 매일 KST 02:00 실행된다. 2026-07-28 HPP snapshot은 선언된 custody 11,328파일을 NAS에 commit했고 external receipt SHA-256 `160eaa28…`, manifest SHA-256 `5129a353…`로 검증됐다. exact writer 3개를 일시 정지·실패 시에도 복구하는 wrapper와 stage별 실패 격리를 배치했으며, 신규 미분류 HPP surface를 열거나 복사하지 않으면서 기존 선언 custody를 계속 백업하는 manifest v3는 public synthetic 22/22, controller 44/44를 통과했다. public `c5aa5a14`의 recovery/executor와 D: runtime SHA-256이 일치하고 writer 3개는 04:22 KST에 재활성화됐다. 같은 cycle의 `_workmeta`와 `private-state` 복사는 수행됐지만 ERP 묶음 영수증은 30분 제한의 `fixed_child_aborted`로 미확정이며 workspace 복사는 이 관찰시각 현재 진행 중이다 | 진행 중 workspace 종료 영수증, ERP 증분 재시도·runtime 상한 보정, manifest v3 actual 신규-generation receipt, `_workspaces` OneDrive junction payload coverage, fresh Level 3 B/V |
 | ERP MCP feature-OFF 확장(agenda no-due bucket·reviewer read-only·audit token ref) | `PUBLIC_IMPLEMENTATION_FEATURE_OFF / RUNTIME_UNCHANGED` | 세 확장 모두 환경변수 flag 뒤이며 미설정이면 OFF다. `DEV_ERP_MCP_AGENDA_NO_DUE`는 담당 identity 스코프의 마감일 없는 open 항목을 `no_due_open`으로만 덧붙이고, `DEV_ERP_MCP_REVIEW_READ`는 담당자/admin read-only 항목 세션 조회와 admin 전용 pending 목록(payload·원문·절대경로 미노출)을 열며, `DEV_ERP_MCP_AUDIT_TOKEN_REF`는 `mcp_tool_call`에 opaque token id만 남긴다(평문·hash `0`, `actor_kind` 현행 유지). 승인·거부·상태변경·배정 경로 `0`, DDL/schema 변경 `0`. dev-ERP MCP 합성 테스트 13/13(기존 8 + 신규 5), sidecar 44/44(기존 43 + 신규 1)로 flag OFF 불변과 flag ON 경계를 함께 고정했다 | 운영 flag 활성화, D28/D29 결정, Owner 승인. 활성화 전에는 어떤 flag도 production-ready·team-ready로 해석하지 않는다 |
 | Task Execution Core POC | `PUBLIC_SYNTHETIC / FEATURE_OFF / NOT_OPERATIONAL` | Drive v3.1의 Linear Official Task SoR를 우선해 합성 Official Todo→eligibility→단일 AgentRun claim→Mock Executor→Waiting/terminal ExecutionReceipt 폐루프를 격리 SQLite에서 검증했다. Candidate 실행 0, provider event 멱등, crash retry 중복실행 0, succeeded≠Official Done이다. POC store는 memory-only이고 MockExecutor의 declared external effect와 Linear/dev-ERP task mutation은 0이지만 arbitrary Executor sandboxing은 구현하지 않았다. Linear CSV·Sheets snapshot과 API Comment/history/webhook/reconciliation의 백업 범위도 문서로 분리했다 | Work Brief provider revision/hash contract, Gate authority owner, Waiting resume, Done 승인, 장기 Event Ledger owner 결정. actual Linear read/write·webhook·backup·server/MCP/scheduler activation은 HOLD |
+| Chat 1-hour Shadow Bot | `OWNER_REPORTED_ACTIVE / CONFIG_AND_RECEIPT_UNVERIFIED / EXTERNAL_MUTATION_NOT_INFERRED` | Owner는 Gmail·Slack·Linear·Plaud·Calendar 등 연결 앱을 읽는 Chat Scheduled Task가 1시간마다 live 사건을 판단한다고 확인했다. 공식 제품은 앱을 사용할 수 있고 최소 주기가 1시간이지만, exact Prompt·모델·앱별 permission·cycle history·write outcome은 이 repo/Codex task에서 독립 관찰하지 않았다 | B0 exact task snapshot, per-source read-set/coverage/cursor, structured Cycle Receipt, human verdict/later outcome. Gmail send·Linear mutation과 P5 auto-accept는 0; Slack/Calendar/Drive effect는 capability별 별도 gate와 readback 전까지 완료로 해석하지 않음 |
 | P4 PDF RAG·Thin Wiki projection + bounded runner | `PUBLIC_SYNTHETIC / FEATURE_OFF / ACTUAL_P4_HOLD / P5_NOT_ACCEPTED` | admitted PDF revision 하나를 exact trusted candidate/source-receipt digest와 upstream admission commitments에 결속해 project-local RAG·citation-only Thin Wiki sibling candidate 및 P5 input candidate를 만든다. 별도 runner는 raw-byte-pinned authority packet을 body-free nonterminal claim으로 admission 전에 소비하고 admission/projection 각 1회, exact claim+candidate 두 파일만 허용한다. main projection 13/13, runner 13/13, admission 17/17 PASS | 새 private authority packet·independent review 뒤 actual KVDS one-shot. source-body/operational RAG index/Wiki writer, P5 acceptance, Engine/ERP/Task effect·model/network은 계속 0/HOLD |
 | P4 direct-path preparation gate | `PUBLIC_SYNTHETIC / FEATURE_OFF / PREPARATION_ACCEPTED / ACTUAL_COPY_AND_RUN_HOLD` | exact pinned launch를 authentic admission inspection으로 검증하고 source path를 내부 유도해 containment/project/locator ancestor/leaf/output의 direct·non-reparse 상태를 metadata-only 확인한다. 외부 authority identity를 기존 packet v0에 결속할 뿐 발급·승인하지 않으며 body/write/model/network 0. main preparation 18/18, runner 13/13 PASS, fresh Opus 최종 ACCEPT | Owner 승인된 fully-local copy-only staging, fresh authority/launch/empty output과 actual P4 one-shot. 기존 consumed run 재사용 금지 |
 | P5 authentic-producer context candidate | `PUBLIC_SYNTHETIC / FEATURE_OFF / READY_FOR_HUMAN_REVIEW_ONLY` | actual P4 `{candidate,receipt}`, M2-2 assessment, native project timeline과 별도 Owner context contract를 하나의 deep Interface에서 정규화한다. request 밖 trusted expected pin이 complete snapshotted request(P4 receipt·모든 lineage 포함)를 결속하며 gap/source omission, supersession cycle·fork·time inversion, crosswalk swap, token/path marker와 coherent request-side repin을 HOLD한다. main P5 10/10, P4 13/13, M2-2 42 pass/1 platform skip, timeline 24/24 | registered-human approver와 HPP writer/epoch 실바인딩, actual input packet/freshness, acceptance receipt, generation advance, ERP projection/P6. candidate는 authority false·effects 0이며 accepted context가 아님 |
@@ -163,6 +164,88 @@ Owner의 별도 mutation 승인 ────────────────
 - 기간은 engineering estimate이며 일정 약속이 아니다. 외부 승인·계정·Drive/NAS 상태,
   실제 자료 drift와 독립검토 대기는 포함하지 않는다. 다과제 완전자율 운영은 아직
   결정되지 않은 writer·governance·품질 gate 때문에 `UNKNOWN`이다.
+
+### 2026-08-21 Chat 1-hour Shadow Bot lane
+
+#### CURRENT와 역할
+
+- Owner 관찰: Chat Scheduled Task가 1시간 주기로 연결 앱의 live 사건을 읽고 판단한다.
+- repo 검증: P4 Preparation 18/18·Runner 13/13, Linear LB1 v2 44/44,
+  P5 candidate 10/10, Task Core POC 28/28 PASS. C0 default-OFF, C3 durable
+  Decision Ledger, C5 Accepted Context Query는 아직 없다.
+- 제품 제약: Scheduled Tasks는 1시간보다 자주 실행할 수 없고 webhook을 지원하지 않으며,
+  연결 앱 사용은 plan·workspace·model·permission에 의존한다. Project에 올린 파일은 Scheduled
+  Task가 직접 읽지 못하므로 Accepted Context는 app 또는 read-only MCP/App Interface로 제공한다.
+- Chat은 의미·관계·제안과 실제 오류 표본을 만들고, Worker는 저장·복원·coverage·cursor·
+  idempotency·평가·권한·receipt를 만든다. Chat의 비공개 추론 원문은 저장하지 않는다.
+
+```text
+connected apps -> deterministic read-set/coverage -> LLM disposition
+  -> human accept/correct/reject -> allowed effect -> readback receipt
+
+오류 분류: SOURCE_UNAVAILABLE | RETRIEVAL_MISS | CONTEXT_NOISE |
+          REASONING_MISS | POLICY_AMBIGUITY | EFFECT_FAILURE | NO_ERROR
+```
+
+#### B0~B5 확장 Gate
+
+| Gate | 확장 내용 | 최소 시험·증거 | 중단선 |
+| --- | --- | --- | --- |
+| `B0 task freeze` | exact Prompt revision, model 또는 `UNKNOWN`, project, KST cutoff, app permission matrix, output schema 고정 | task snapshot+첫 10개 사건의 cycle receipt | actual task 설정을 독립 확인하지 못하면 Owner-observed 이상 주장 금지 |
+| `B1 retrieval coverage` | Source별 read-set, cursor before/after, `read|empty|partial|unavailable`, result count, coverage gap 선출력 | missing thread/task/revision, permission failure, duplicate source, late event fixture | 필요한 Source 미조회 시 `PROPOSAL` 금지, `HOLD/COVERAGE_GAP` |
+| `B2 reasoning quality` | `NO_ACTION|HOLD|PROPOSAL|MANAGER_DECISION`, evidence refs, missing context, next action owner | 50건 human-adjudicated set; evidence order shuffle, relevant-middle, noise, contradiction, prompt injection, cross-project, stale generation | retrieval miss와 reasoning miss를 합쳐 집계 금지 |
+| `B3 accepted-context A/B` | 같은 사건을 live-only와 live+P5 Accepted Context로 비교 | Task match, recall, precision, HOLD, context depth·noise delta | exact generation·ACL·scope·claim ceiling 없는 조회 금지 |
+| `B4 safe app effects` | Slack allowlist post, Bot-owned Calendar event, approved Drive save를 capability별로 하나씩 canary | idempotency, readback, self-echo exclusion, duplicate 0, application receipt | Gmail send·Linear mutation 0; overwrite/delete/share 0 |
+| `B5 C6 readiness` | quality receipt로 한 capability 후보만 선정 | sole writer, expected revision, rate cap, rollback rehearsal, separate Owner approval | C5 품질근거와 별도 승인 전 구현 활성화 금지 |
+
+초기 품질 Gate 제안값은 Owner 확정 전 `PROPOSED`다: evidence refs 100%, coverage 상태
+100%, 같은 identity+digest의 `NO_ACTION` 안정성 100%, duplicate proposal 0, proposal
+precision 85% 이상, actionable recall 90% 이상, 마지막 20건의 critical false positive/
+negative 0. 일정이 아니라 사건 수로 승격한다.
+
+#### Worker deep Module 제안
+
+```text
+HourlyShadowCycleContract.validate(cyclePacket) -> ValidatedCycle | HOLD
+
+DecisionLedger
+  appendCycle(cyclePacket, expectedCursor) -> AppendReceipt
+  inspectProject(projectRef, asOf) -> DecisionProjection
+
+ShadowEvaluator
+  evaluate(cyclePacket, humanVerdict, laterOutcome) -> QualityReceipt
+
+AcceptedContextQuery
+  query(projectRef, generationRef, asOf, purpose, budget)
+    -> AcceptedContextPacket
+```
+
+`AcceptedContextPacket`과 live app read-set은 서로 다른 trust state로 유지한다. persistent
+storage Seam은 in-memory fixture Adapter와 Owner-approved persistent Adapter가 둘 다 있을 때만
+실재한다. 새 top-level root를 만들지 않고 Task Engine owner-local Module로 둔다.
+
+#### Flash-ready와 미결정 register
+
+| ID | 항목 | 상태 | Flash 허용 범위 / 필요한 결정 |
+| --- | --- | --- | --- |
+| `HB-F0` | C0 default-OFF | `READY` | `start-windows.bat`의 implicit ON 제거, explicit opt-in 보존, core/background launcher 회귀시험 |
+| `HB-F1` | Cycle Contract+hostile fixture | `READY_FOR_PUBLIC_SYNTHETIC` | exact schema validator와 순서·누락·모순·중복·injection·stale/cross-project fixture, external effect 0 |
+| `HB-F2` | Shadow Evaluator | `READY_FOR_PUBLIC_SYNTHETIC` | retrieval/reasoning/effect 분리 metrics와 human verdict/later outcome receipt |
+| `HB-D1` | actual Scheduled Task snapshot | `OWNER_DECISION_PENDING` | exact Prompt·model·project·app permission·task history를 private metadata로 고정 |
+| `HB-D2` | C3 persistent owner/store | `OWNER_DECISION_PENDING` | Drive cycle file, Sheet append, HPP/private ledger 중 owner·retention·append authority 선택 |
+| `HB-D3` | Chat→Worker handoff | `OWNER_DECISION_PENDING` | exact receipt transport, schema version, duplicate/conflict와 replay owner 선택 |
+| `HB-D4` | Pilot source/action scope | `OWNER_DECISION_PENDING` | 첫 project, Gmail/Slack/Linear/Plaud/Calendar 범위, Slack channel·Calendar·Drive allowlist |
+| `HB-D5` | C5 Query binding | `OWNER_DECISION_PENDING` | exact Accepted Generation owner/pointer, ACL, explicit project/common, MCP/App 제공 방식 |
+| `HB-D6` | quality thresholds | `OWNER_DECISION_PENDING` | 제안 기본값 채택·수정, severity weight와 C6 진입 표본 수 |
+| `HB-D7` | actual C1/C2/C4 | `EXACT_GATE_PENDING` | P4 authority packet, Linear/Drive refs·reviewer, P5 reviewer·HPP writer/epoch |
+| `HB-D8` | C6 mutation capability | `BLOCKED_BY_B5` | Slack/Calendar/Drive/Linear 후보 중 하나를 C5 evidence 뒤 별도 승인; 현재 구현·activation 0 |
+
+Source refs:
+
+- OpenAI Scheduled Tasks: `https://help.openai.com/en/articles/10291617-scheduled-tasks-in-chatgpt`
+- OpenAI Apps: `https://help.openai.com/en/articles/11487775-connectors-in-chatgpt`
+- Lost in the Middle: `https://arxiv.org/abs/2307.03172`
+- RAGChecker: `https://arxiv.org/abs/2408.08067`
 
 ### 상태표 유지 지침
 
