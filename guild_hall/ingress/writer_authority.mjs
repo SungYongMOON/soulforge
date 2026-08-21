@@ -233,6 +233,10 @@ function validateRevocation(record) {
   if (record.revoked_node_id !== expected) fail("writer_authority_invalid_record");
 }
 
+export function validateWriterAuthorityRecord(record) {
+  return validateRecord(record);
+}
+
 function validateRecord(record) {
   exactFields(record, RECORD_FIELDS, "writer_authority_invalid_record");
   if (record.schema_version !== WRITER_AUTHORITY_SCHEMA

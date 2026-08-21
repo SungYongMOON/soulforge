@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-08-21 - Watchtower internal receipt contract catalog, pre-cycle ingress diagnostic heartbeats, and read-only expiry projection
+
+- Added a pure, public-safe Watchtower Internal Receipt Catalog (`guild_hall/watchtower/internal_receipt_catalog.mjs`) with exact 4-category classification (`same_authority_local_auto_renew`, `owner_revalidation_required`, `on_demand_ephemeral_excluded`, `external_auth_excluded`) covering the 14 audited time-bound schema contracts across Soulforge.
+- Standing runtime-blocking receipts (ingress writer authority, PLAUD cutover, backup controller activation) are evaluated into sanitized health states (`current`, `warning`, `critical`, `expired`, `invalid`, `unknown`) with deterministic owner-specific pre-expiry windows and owner action guidance before outages.
+- Fixed continuous ingress supervisor startup diagnostics so binding load and runnable assertion failures occurring before cycle 1 (such as `continuous_plaud_cutover_receipt_invalid`) emit `cycle_failed` and persist a sanitized failure heartbeat with the exact safe code to the heartbeat ledger for Watchtower.
+- Locked PLAUD cutover receipt as `owner_revalidation_required`: expired cutover receipts are never auto-renewed from old bytes and require fresh source-owner observation or explicit Owner revalidation. Writer-authority conditional renewal remains strictly preserved.
+- Added Team Ops Board read-only receipt expiry projection (`ui-workspace/apps/team-ops-board/src/server/receipt-expiry-adapter.mjs`) summarizing total, current, warning, critical, expired, unknown, and owner-action-required counts while preserving `read_only: true` and zero runtime/repair authority.
+- Regenerated canonical Watchtower federated topology (`guild_hall/watchtower/topology/federated_topology.v1.json`) from tracked provider sources, synchronizing current Engineering Engine 34/153 source state and Knowledge source digest; no new topology declaration, provider, or authority was introduced.
+
 ## 2026-08-21 - Owner completion map separates code, evidence, shadow, and activation
 
 - Updated the authoritative Roadmap and Task Engine master plan with one owner-facing

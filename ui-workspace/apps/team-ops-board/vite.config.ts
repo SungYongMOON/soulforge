@@ -12,6 +12,7 @@ import { createProviderLimitsAdapterPlugin } from "./src/server/provider-limits-
 import { createTopologyAdapterPlugin } from "./src/server/topology-adapter.mjs";
 import { createTopologyFederationAdapterPlugin } from "./src/server/topology-federation-adapter.mjs";
 import { createTopologyRecoveryAdapterPlugin } from "./src/server/topology-recovery-adapter.mjs";
+import { createReceiptExpiryServerAdapter } from "./src/server/receipt-expiry-adapter.mjs";
 import {
   createTeamOpsBoardRuntimeEnvironment,
   createTeamOpsBoardTopologyOptions,
@@ -37,6 +38,14 @@ const providerQuotaReceiptPath = path.join(
   "statusline",
   "provider_quota.receipt.v1.json",
 );
+const receiptExpiryBindingPath = path.join(
+  ownerRoot,
+  "guild_hall",
+  "state",
+  "operations",
+  "team_ops_board",
+  "receipt_expiry_binding.v1.json",
+);
 
 export default defineConfig({
   plugins: [
@@ -46,6 +55,7 @@ export default defineConfig({
     createTopologyAdapterPlugin(boardTopologyOptions),
     createTopologyFederationAdapterPlugin(),
     createTopologyRecoveryAdapterPlugin({ ownerRoot }),
+    createReceiptExpiryServerAdapter({ bindingPath: receiptExpiryBindingPath, ownerRoot }),
     createHostStatsAdapterPlugin(),
     createClaudeUsageAdapterPlugin(),
     createAntigravityUsageAdapterPlugin(),

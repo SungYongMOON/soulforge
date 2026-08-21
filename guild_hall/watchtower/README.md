@@ -28,6 +28,7 @@
 | `tools/emit_federated_topology.mjs` | 고정된 tracked source allowlist만 읽어 단일 derived projection을 생성하거나 byte parity를 검사하는 도구 |
 | `topology/federated_topology.v1.json` | UI가 읽을 수 있는 tracked public-safe 선언 구조 projection; runtime truth가 아님 |
 | `watchtower.mjs` | binding 검증, probe 4종(jsonl_tail/json_file/dir_latest_mtime/schtask), 판정, 스냅샷 |
+| `internal_receipt_catalog.mjs` | 내부 시한성 영수증 계약 카탈로그, 4분류(same_authority_local_auto_renew/owner_revalidation_required/on_demand_ephemeral_excluded/external_auth_excluded) 검증 및 순수 평가기 |
 | `local_evidence.mjs` | Watchtower 실행 계약, five-field metadata 원장, `_workmeta` payload policy의 독립 검증 receipt |
 | `recovery_runtime.mjs` | ignored local binding을 읽는 5분 evidence/recovery companion; exact task digest와 사전·사후 검증 없이는 실행 거부 |
 | `cli.mjs` | `probe [--binding <path>\|--pointer <path>] [--json] [--no-write]`, `init-binding --output <path>` |

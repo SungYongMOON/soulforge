@@ -22,9 +22,10 @@ import {
 } from "./mail_bridge.mjs";
 import { acquireWriterLease, validateWriterLease } from "./writer_authority.mjs";
 import {
-  syncCopyOnlyMirror,
   validateCopyOnlyCustodyStore,
+  syncCopyOnlyMirror,
 } from "../voice_capture/copy_only_mirror.mjs";
+import { validatePlaudCutoverReceipt } from "../voice_capture/plaud_writer_cutover_receipt.mjs";
 import {
   plaudSyncProfileSchemaVersion,
   runPlaudCommand,
@@ -662,28 +663,14 @@ async function normalizePlaud(value, targetNodeId, testHooks = {}) {
     } catch {
       fail("continuous_plaud_cutover_receipt_invalid");
     }
-    exactFields(cutoverReceipt, PLAUD_CUTOVER_RECEIPT_FIELDS, "continuous_plaud_cutover_receipt_invalid");
-    const observedAt = Date.parse(cutoverReceipt.observed_at);
-    const validUntil = Date.parse(cutoverReceipt.valid_until);
-    if (cutoverReceipt.schema_version !== "soulforge.voice.plaud_writer_cutover_receipt.v1"
-      || safeId(cutoverReceipt.source_node_id, "continuous_plaud_cutover_receipt_invalid") === targetNodeId
-      || safeId(cutoverReceipt.source_collector_label, "continuous_plaud_cutover_receipt_invalid") !== "ai.soulforge.plaud-ingest"
-      || cutoverReceipt.source_writer_status !== "stopped"
-      || cutoverReceipt.source_process_count !== 0
-      || cutoverReceipt.source_service_state !== "disabled_unloaded"
-      || cutoverReceipt.source_restart_policy_enabled !== false
-      || safeId(cutoverReceipt.target_node_id, "continuous_plaud_cutover_receipt_invalid") !== targetNodeId
-      || cutoverReceipt.target_mode !== "primary_writer"
-      || sha256(cutoverReceipt.profile_sha256, "continuous_plaud_cutover_receipt_invalid") !== profileSha256
-      || !STRICT_UTC_TIMESTAMP.test(cutoverReceipt.observed_at)
-      || !STRICT_UTC_TIMESTAMP.test(cutoverReceipt.valid_until)
-      || !Number.isFinite(observedAt)
-      || !Number.isFinite(validUntil)
-      || validUntil <= observedAt
-      || validUntil - observedAt > 30 * 24 * 60 * 60 * 1000
-      || observedAt > Date.now() + 5 * 60 * 1000
-      || validUntil <= Date.now()
-      || !SAFE_ID.test(cutoverReceipt.owner_approval_ref)) {
+    try {
+      validatePlaudCutoverReceipt(cutoverReceipt, {
+        targetNodeId,
+        profileSha256,
+        allowExpired: false,
+        errorCode: "continuous_plaud_cutover_receipt_invalid",
+      });
+    } catch {
       fail("continuous_plaud_cutover_receipt_invalid");
     }
   } else if (hasCutoverFields
