@@ -50,12 +50,9 @@ REM   creds 미설정이면 주기마다 빈 동작/에러 로그만 남고 새 
 REM   끄려면 이 값을 0 으로: set "DEV_ERP_MAIL_COLLECT_SEC=0"
 if not defined DEV_ERP_MAIL_COLLECT_SEC set "DEV_ERP_MAIL_COLLECT_SEC=900"
 if not defined DEV_ERP_MAIL_ROUTE_BACKFILL_INCLUDE_HIDDEN set "DEV_ERP_MAIL_ROUTE_BACKFILL_INCLUDE_HIDDEN=1"
-REM ── 메일→할일 자동 인입(2026-07-03 owner 활성화, 운영 4300 에서만 기본 ON) ──────
-REM   개발본(4310)은 기본 OFF 유지 — dev _workmeta 에 자동 쓰기 방지.
-REM 다중행 괄호 블록 제거 — 단일행 중첩 if(운영 4300에서만 ON). 개발본(4310)은 기본 OFF.
-if "%DEV_ERP_PORT%"=="4300" if not defined DEV_ERP_AUTO_INTAKE set "DEV_ERP_AUTO_INTAKE=1"
+REM ── 메일→할일 자동 인입 및 동기화(기본 OFF, 명시 opt-in 유지) ──────────────────────
+REM   운영(4300)·개발본(4310) 모두 기본 OFF — C0 원칙에 따라 암묵적 Task mutation 방지.
 if "%DEV_ERP_PORT%"=="4300" set "DEV_ERP_INTAKE_LLM=none"
-if "%DEV_ERP_PORT%"=="4300" if not defined DEV_ERP_AUTOSYNC set "DEV_ERP_AUTOSYNC=1"
 REM 아침 브리핑(메일 자동발송) 기본값은 이 bat 에 두지 않는다 — 운영 정경로 ops/run-dev-erp-background.ps1 만.
 REM (발송류 단일 진실원 = ps1. 이 bat 인코딩/줄바꿈은 2026-07-05 CRLF 로 수리됨: .gitattributes eol=crlf,
 REM  다중행 괄호 블록 제거, cp949 초기 콘솔 실측 검증. 그래도 발송류는 ps1 에만 두어 이중 기본값 회피.)

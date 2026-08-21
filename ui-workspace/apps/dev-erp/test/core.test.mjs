@@ -5250,6 +5250,12 @@ test("server: 운영 4300은 runtime checkout 전용이고 개발 기본 포트�
   assert.match(startBat, /Soulforge-runtime/);
   assert.match(startBat, /ERP_CHAT_PROVIDER=stub/);
   assert.match(startBat, /DEV_ERP_INTAKE_LLM=none/);
+  const activeStartBat = startBat
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*@?(?:REM\b|::)/i.test(line))
+    .join("\n");
+  assert.doesNotMatch(activeStartBat, /\bset\s+"?DEV_ERP_AUTO_INTAKE=/i);
+  assert.doesNotMatch(activeStartBat, /\bset\s+"?DEV_ERP_AUTOSYNC=/i);
   assert.match(startBat, /ERP_CHAT_THINK=0/);
   assert.match(startBat, /--port %DEV_ERP_PORT%/);
   assert.match(watchdog, /\$ChatThink = 0/);

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, mkdir, copyFile, readFile, rm, writeFile } from "node:fs/promises";
 import { request } from "node:http";
@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SOURCE_LAUNCHER = path.resolve(HERE, "..", "ops", "run-dev-erp-background.ps1");
+const SOURCE_START_BAT = path.resolve(HERE, "..", "start-windows.bat");
 const PROTECTED_RUNTIME_PORT = 4300;
 const WINDOWS_ROOT = process.env.SystemRoot || process.env.WINDIR || path.parse(process.execPath).root;
 const POWERSHELL = path.join(
@@ -20,6 +21,8 @@ const POWERSHELL = path.join(
   "v1.0",
   "powershell.exe",
 );
+const CMD = path.join(WINDOWS_ROOT, "System32", "cmd.exe");
+const TASKKILL = path.join(WINDOWS_ROOT, "System32", "taskkill.exe");
 
 function sensitiveEnvironmentName(name) {
   return /^(DEV_ERP_|ERP_|CODEX_|OLLAMA_|OPENAI_|ANTHROPIC_|AZURE_|AWS_|GOOGLE_|GEMINI_|GH_|GITHUB_|GIT_|NPM_|YARN_|PNPM_|SLACK_|TELEGRAM_|SMTP_|IMAP_|MAIL_|NODE_)/i.test(name)
@@ -772,6 +775,301 @@ test("background launcher attests the spawned PID and cleans only its retained h
     await waitForHttp(port);
   } finally {
     await shutdownFixture(port, fixture.shutdownToken);
+    await removeFixtureRoot(fixture.root);
+  }
+});
+
+function parseLauncherIntegrations(stdout) {
+  const match = stdout.match(/(?:^|\s)integrations=([^\s]+)/);
+  assert.ok(match, "launcher must emit integrations= summary");
+  const raw = match[1].trim();
+  if (raw === "none") return new Set();
+  return new Set(raw.split(",").map((s) => s.trim()).filter(Boolean));
+}
+
+async function stopChildProcessTree(child, timeoutMs = 5_000) {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  if (process.platform === "win32" && child.pid) {
+    try {
+      execFileSync(TASKKILL, ["/T", "/F", "/PID", String(child.pid)], { stdio: "ignore" });
+    } catch {}
+  }
+  await stopChildProcess(child, timeoutMs).catch(() => {});
+}
+
+function runCmd(cwd, scriptName, env = testEnvironment(), timeoutMs = 15_000) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(CMD, ["/d", "/c", scriptName], {
+      cwd,
+      windowsHide: true,
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    let timer = null;
+    let settled = false;
+
+    const cleanupTimer = () => {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    };
+
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+
+    child.on("error", async (err) => {
+      if (settled) return;
+      settled = true;
+      cleanupTimer();
+      await stopChildProcessTree(child).catch(() => {});
+      reject(err);
+    });
+
+    child.on("exit", (code, signal) => {
+      if (settled) return;
+      settled = true;
+      cleanupTimer();
+      if (code === null) {
+        reject(new Error(`runCmd process terminated abnormally without exit code (signal=${signal})`));
+        return;
+      }
+      resolve({ code, stdout, stderr });
+    });
+
+    timer = setTimeout(async () => {
+      if (settled) return;
+      settled = true;
+      await stopChildProcessTree(child).catch(() => {});
+      reject(new Error(`runCmd timed out after ${timeoutMs}ms (script=${scriptName})`));
+    }, timeoutMs);
+  });
+}
+
+async function readJsonFileWithRetry(filePath, timeoutMs = 5_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const content = await readFile(filePath, "utf8");
+      if (content && content.trim().length > 0) {
+        return JSON.parse(content);
+      }
+    } catch (err) {
+      if (err?.code !== "ENOENT" && !(err instanceof SyntaxError)) {
+        throw err;
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`Timed out waiting for parseable JSON at ${filePath}`);
+}
+
+async function createStartBatFixture({ runtimeFolder = true } = {}) {
+  const root = await mkdtemp(path.join(os.tmpdir(), "dev-erp-bat-"));
+  const app = runtimeFolder
+    ? path.join(root, "Soulforge-runtime", "ui-workspace", "apps", "dev-erp")
+    : path.join(root, "Soulforge-dev", "ui-workspace", "apps", "dev-erp");
+  await mkdir(app, { recursive: true });
+  const batPath = path.join(app, "start-windows.bat");
+  await copyFile(SOURCE_START_BAT, batPath);
+  const serverPath = path.join(app, "server.mjs");
+  await writeFile(serverPath, `
+import { writeFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const outputFile = process.env.DEV_ERP_FIXTURE_OUTPUT_FILE || "bat_fixture.env.json";
+writeFileSync(path.join(here, outputFile), JSON.stringify({
+  port: process.env.DEV_ERP_PORT || null,
+  host: process.env.DEV_ERP_HOST || null,
+  auto_intake: process.env.DEV_ERP_AUTO_INTAKE || null,
+  autosync: process.env.DEV_ERP_AUTOSYNC || null,
+  intake_llm: process.env.DEV_ERP_INTAKE_LLM || null,
+  mail_collect: process.env.DEV_ERP_MAIL_COLLECT_SEC || null,
+}));
+process.exit(0);
+`, "utf8");
+  return {
+    root,
+    app,
+    batPath,
+    envFile: path.join(app, "bat_fixture.env.json"),
+  };
+}
+
+test("start-windows.bat does not default DEV_ERP_AUTO_INTAKE and DEV_ERP_AUTOSYNC on port 4300 and preserves explicit opt-in", {
+  skip: process.platform !== "win32",
+}, async () => {
+  const fixture = await createStartBatFixture({ runtimeFolder: true });
+  // Synthetic dummy values satisfy start-windows.bat lines 16-27 fail-closed validation on port 4300 without inspecting real env/credentials.
+  const runtimeEnv = testEnvironment({
+    DEV_ERP_CODEX_WORKER_URL: "https://worker.invalid",
+    DEV_ERP_CODEX_WORKER_TOKEN: "synthetic-token",
+    DEV_ERP_CODEX_WORKER_EXPECTED_IDENTITY_HASH: "synthetic-hash",
+    DEV_ERP_CODEX_WORKER_EXPECTED_RUNTIME_IDENTITY_SHA256: "synthetic-sha256",
+    DEV_ERP_CODEX_WORKER_ATTEST_PUBLIC_KEY_FILE: "synthetic-attest-file",
+    DEV_ERP_CODEX_WORKER_EXPECTED_ATTESTATION_KEY_ID: "synthetic-key-id",
+    DEV_ERP_BACKEND_ROOT: fixture.root,
+    DEV_ERP_CODEX_TURN_PROJECTION_ROOT: path.join(fixture.root, "turn"),
+    DEV_ERP_CODEX_WORKSPACE_REGISTRY: path.join(fixture.root, "workspaces.json"),
+    DEV_ERP_CODEX_TRUST_DOMAIN: "synthetic-domain",
+    DEV_ERP_CODEX_TASK_ATTACHMENT_ROOT: path.join(fixture.root, "attachments"),
+    DEV_ERP_CODEX_MESSAGE_PAYLOAD_ROOT: path.join(fixture.root, "payload"),
+  });
+  try {
+    // Case 1: absent flags -> both flags remain un-defaulted (null)
+    const out1 = path.join(fixture.app, "bat_fixture.case1.env.json");
+    const defaultResult = await runCmd(fixture.app, "start-windows.bat", {
+      ...runtimeEnv,
+      DEV_ERP_FIXTURE_OUTPUT_FILE: "bat_fixture.case1.env.json",
+    });
+    assert.equal(defaultResult.code, 0, `${defaultResult.stdout}\n${defaultResult.stderr}`);
+    const defaultEnv = await readJsonFileWithRetry(out1);
+    assert.equal(defaultEnv.port, "4300");
+    assert.equal(defaultEnv.intake_llm, "none");
+    assert.equal(defaultEnv.auto_intake, null, "DEV_ERP_AUTO_INTAKE must not be defaulted by start-windows.bat on port 4300");
+    assert.equal(defaultEnv.autosync, null, "DEV_ERP_AUTOSYNC must not be defaulted by start-windows.bat on port 4300");
+
+    // Case 2: explicit DEV_ERP_AUTO_INTAKE only -> auto_intake="1", autosync stays un-defaulted (null)
+    const out2 = path.join(fixture.app, "bat_fixture.case2.env.json");
+    const autoIntakeOnlyResult = await runCmd(fixture.app, "start-windows.bat", {
+      ...runtimeEnv,
+      DEV_ERP_AUTO_INTAKE: "1",
+      DEV_ERP_FIXTURE_OUTPUT_FILE: "bat_fixture.case2.env.json",
+    });
+    assert.equal(autoIntakeOnlyResult.code, 0, `${autoIntakeOnlyResult.stdout}\n${autoIntakeOnlyResult.stderr}`);
+    const autoIntakeOnlyEnv = await readJsonFileWithRetry(out2);
+    assert.equal(autoIntakeOnlyEnv.port, "4300");
+    assert.equal(autoIntakeOnlyEnv.auto_intake, "1");
+    assert.equal(autoIntakeOnlyEnv.autosync, null, "DEV_ERP_AUTOSYNC must not be defaulted when only DEV_ERP_AUTO_INTAKE is set");
+
+    // Case 3: explicit DEV_ERP_AUTOSYNC only -> autosync="1", auto_intake stays un-defaulted (null)
+    const out3 = path.join(fixture.app, "bat_fixture.case3.env.json");
+    const autosyncOnlyResult = await runCmd(fixture.app, "start-windows.bat", {
+      ...runtimeEnv,
+      DEV_ERP_AUTOSYNC: "1",
+      DEV_ERP_FIXTURE_OUTPUT_FILE: "bat_fixture.case3.env.json",
+    });
+    assert.equal(autosyncOnlyResult.code, 0, `${autosyncOnlyResult.stdout}\n${autosyncOnlyResult.stderr}`);
+    const autosyncOnlyEnv = await readJsonFileWithRetry(out3);
+    assert.equal(autosyncOnlyEnv.port, "4300");
+    assert.equal(autosyncOnlyEnv.auto_intake, null, "DEV_ERP_AUTO_INTAKE must not be defaulted when only DEV_ERP_AUTOSYNC is set");
+    assert.equal(autosyncOnlyEnv.autosync, "1");
+
+    // Case 4: both explicit opt-ins -> both preserved
+    const out4 = path.join(fixture.app, "bat_fixture.case4.env.json");
+    const optInResult = await runCmd(fixture.app, "start-windows.bat", {
+      ...runtimeEnv,
+      DEV_ERP_AUTO_INTAKE: "1",
+      DEV_ERP_AUTOSYNC: "1",
+      DEV_ERP_FIXTURE_OUTPUT_FILE: "bat_fixture.case4.env.json",
+    });
+    assert.equal(optInResult.code, 0, `${optInResult.stdout}\n${optInResult.stderr}`);
+    const optInEnv = await readJsonFileWithRetry(out4);
+    assert.equal(optInEnv.port, "4300");
+    assert.equal(optInEnv.auto_intake, "1");
+    assert.equal(optInEnv.autosync, "1");
+  } finally {
+    await removeFixtureRoot(fixture.root);
+  }
+});
+
+test("start-windows.bat does not default DEV_ERP_AUTO_INTAKE and DEV_ERP_AUTOSYNC on dev port 4310 and preserves explicit opt-in", {
+  skip: process.platform !== "win32",
+}, async () => {
+  const fixture = await createStartBatFixture({ runtimeFolder: false });
+  const devEnv = testEnvironment({
+    DEV_ERP_BACKEND_ROOT: fixture.root,
+    DEV_ERP_CODEX_TURN_PROJECTION_ROOT: path.join(fixture.root, "turn"),
+    DEV_ERP_CODEX_WORKSPACE_REGISTRY: path.join(fixture.root, "workspaces.json"),
+    DEV_ERP_CODEX_TASK_ATTACHMENT_ROOT: path.join(fixture.root, "attachments"),
+    DEV_ERP_CODEX_MESSAGE_PAYLOAD_ROOT: path.join(fixture.root, "payload"),
+  });
+  try {
+    // Case 1: absent flags -> both flags remain un-defaulted (null)
+    const out1 = path.join(fixture.app, "bat_fixture.dev1.env.json");
+    const defaultResult = await runCmd(fixture.app, "start-windows.bat", {
+      ...devEnv,
+      DEV_ERP_FIXTURE_OUTPUT_FILE: "bat_fixture.dev1.env.json",
+    });
+    assert.equal(defaultResult.code, 0, `${defaultResult.stdout}\n${defaultResult.stderr}`);
+    const defaultEnv = await readJsonFileWithRetry(out1);
+    assert.equal(defaultEnv.port, "4310");
+    assert.equal(defaultEnv.intake_llm, null);
+    assert.equal(defaultEnv.auto_intake, null, "DEV_ERP_AUTO_INTAKE must not be defaulted by start-windows.bat on port 4310");
+    assert.equal(defaultEnv.autosync, null, "DEV_ERP_AUTOSYNC must not be defaulted by start-windows.bat on port 4310");
+
+    // Case 2: explicit opt-in -> preserved
+    const out2 = path.join(fixture.app, "bat_fixture.dev2.env.json");
+    const optInResult = await runCmd(fixture.app, "start-windows.bat", {
+      ...devEnv,
+      DEV_ERP_AUTO_INTAKE: "1",
+      DEV_ERP_AUTOSYNC: "1",
+      DEV_ERP_FIXTURE_OUTPUT_FILE: "bat_fixture.dev2.env.json",
+    });
+    assert.equal(optInResult.code, 0, `${optInResult.stdout}\n${optInResult.stderr}`);
+    const optInEnv = await readJsonFileWithRetry(out2);
+    assert.equal(optInEnv.port, "4310");
+    assert.equal(optInEnv.auto_intake, "1");
+    assert.equal(optInEnv.autosync, "1");
+  } finally {
+    await removeFixtureRoot(fixture.root);
+  }
+});
+
+test("background launcher defaults to mutation routes OFF on port 4300 when flags are absent", {
+  skip: process.platform !== "win32",
+}, async () => {
+  const fixture = await createLauncherFixture();
+  try {
+    const base = ["-Port", "4300", "-BackendRoot", fixture.root, "-DryRun"];
+    const safe = await runPowerShell(fixture.launcher, base);
+    assert.equal(safe.code, 0, safe.stderr);
+    assert.match(safe.stdout, /port=4300/);
+    const safeIntegrations = parseLauncherIntegrations(safe.stdout);
+    assert.equal(safeIntegrations.has("auto-intake"), false);
+    assert.equal(safeIntegrations.has("autosync"), false);
+
+    // -EnableAutosync alone does not require -EnableMailCollect
+    const autosyncOnly = await runPowerShell(fixture.launcher, [
+      ...base,
+      "-EnableAutosync",
+    ]);
+    assert.equal(autosyncOnly.code, 0, autosyncOnly.stderr);
+    const autosyncIntegrations = parseLauncherIntegrations(autosyncOnly.stdout);
+    assert.equal(autosyncIntegrations.has("autosync"), true);
+    assert.equal(autosyncIntegrations.has("auto-intake"), false);
+
+    // -EnableAutoIntake requires -EnableMailCollect per launcher parameter contract
+    const autoIntake = await runPowerShell(fixture.launcher, [
+      ...base,
+      "-EnableMailCollect",
+      "-EnableAutoIntake",
+    ]);
+    assert.equal(autoIntake.code, 0, autoIntake.stderr);
+    const autoIntakeIntegrations = parseLauncherIntegrations(autoIntake.stdout);
+    assert.equal(autoIntakeIntegrations.has("auto-intake"), true);
+    assert.equal(autoIntakeIntegrations.has("mail-collect"), true);
+    assert.equal(autoIntakeIntegrations.has("autosync"), false);
+
+    // Both flags opted in
+    const bothOptedIn = await runPowerShell(fixture.launcher, [
+      ...base,
+      "-EnableMailCollect",
+      "-EnableAutoIntake",
+      "-EnableAutosync",
+    ]);
+    assert.equal(bothOptedIn.code, 0, bothOptedIn.stderr);
+    const bothIntegrations = parseLauncherIntegrations(bothOptedIn.stdout);
+    assert.equal(bothIntegrations.has("auto-intake"), true);
+    assert.equal(bothIntegrations.has("autosync"), true);
+    assert.equal(bothIntegrations.has("mail-collect"), true);
+  } finally {
     await removeFixtureRoot(fixture.root);
   }
 });

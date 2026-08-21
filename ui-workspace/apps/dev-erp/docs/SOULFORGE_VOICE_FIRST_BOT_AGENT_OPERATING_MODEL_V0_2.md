@@ -372,7 +372,7 @@ source와 exact version을 고정하고 Soulforge sole-writer authority를 부�
 | Slice | 작업 | 완료 증거 |
 | --- | --- | --- |
 | `VF-0` | 운영모델 정본·Owner decision·Stop condition 고정 | 이 문서+Roadmap/Master Plan sync |
-| `VF-1` | C0 mutation default-OFF | restart regression, implicit Task mutation 0 |
+| `VF-1` | C0 mutation default-OFF — `DONE_FOR_SYNTHETIC_SCOPE 2026-08-21` | pre-fix RED 뒤 synthetic restart/launcher·core GREEN, explicit opt-in 보존, implicit enable 0; live runtime posture는 별도 승인 restart 전 미검증 |
 | `VF-2` | 현재 Chat Bot Prompt freeze·B0/B1/B2 계측 | exact prompt digest, all-project Project-isolated Cycle Receipt |
 | `VF-3` | C3 Project Decision Ledger·Portfolio Projection·ShadowEvaluator | append/replay/correction/coverage/quality receipt |
 | `VF-4` | C1 actual P4 + C2 actual Linear backup 병렬 | exact project/source/restore receipts |

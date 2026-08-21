@@ -58,12 +58,16 @@
   → autosync 가 core_item 반영 (기존 경로)
 ```
 
-env 자체의 기본값은 OFF다. 다만 Windows 기본 실행기(`start-windows.bat`)는
-`DEV_ERP_PORT=4300`이고 값이 미설정이면 `DEV_ERP_AUTO_INTAKE=1`을 설정한다.
+env와 Windows 기본 실행기(`start-windows.bat`) 모두 auto-intake/autosync 기본값은 OFF다.
+운영 4300에서도 명시적 env 또는 `ops/run-dev-erp-background.ps1`의
+`-EnableMailCollect -EnableAutoIntake` / `-EnableAutosync` switch로만 opt-in한다.
+메일 수집(`DEV_ERP_MAIL_COLLECT_SEC=900`) 자체는 기존 기본값을 유지하며, 여기서 OFF로
+고정한 것은 mutation 경로인 auto-intake/autosync다. 이미 실행 중인 runtime의 env는
+별도 승인된 restart 전까지 바뀌지 않으며 이 변경에서는 live restart를 수행하지 않았다.
 
 | env | 의미 | 기본 |
 | --- | --- | --- |
-| `DEV_ERP_AUTO_INTAKE=1` | 수집 후 자동 인입 사이클 실행 | off (Windows 4300 기본 실행기: on) |
+| `DEV_ERP_AUTO_INTAKE=1` | 수집 후 자동 인입 사이클 실행 | off |
 | `DEV_ERP_AUTO_INTAKE_ALWAYS=1` | 신규 유입 없어도 매 수집마다 실행(재판단 LLM 비용 증가) | off |
 | `DEV_ERP_INTAKE_LLM` | owner policy에 따라 `none` 고정. 후보 없이 격리 유지 + 줄기 갱신만 | none |
 | `DEV_ERP_INTAKE_MODEL` | 분류 전용 모델 오버라이드 (기본 ERP_CHAT_MODEL) | - |

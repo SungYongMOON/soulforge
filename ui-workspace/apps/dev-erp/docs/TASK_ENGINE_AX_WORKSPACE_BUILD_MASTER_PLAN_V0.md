@@ -137,7 +137,7 @@ Owner가 “기반 코드가 있는가 / 실제로 한 번 통과했는가 / 운
 
 | 완료 조각 | CURRENT | 다음 실행 | 허용 effect | acceptance | 개발 추정(외부 대기 제외) |
 | --- | --- | --- | --- | --- | --- |
-| `C0` mutation default-OFF guard | actual Task 실행 route activation·write receipt 0; launcher의 암묵적 auto-intake/autosync 기본값은 latent risk | 기본 OFF 고정+재시작 회귀시험 | 합성 fixture만 | 기본 실행 mutation route 0 | `0.5~1일` |
+| `C0` mutation default-OFF guard | `DONE_FOR_SYNTHETIC_SCOPE`: launcher의 4300 기반 auto-intake/autosync 암묵 기본값 제거; explicit opt-in 보존; actual Task 실행 route activation·write receipt 0 | 유지 회귀만; `VF-2`는 별도 Goal 전 미착수 | 합성 fixture만; live restart·외부 mutation 0 | RED 1/2→focused 2/2, launcher 13/13, core 290/290, fresh independent review `ACCEPT` | 완료 |
 | `C1` actual P4 | Preparation/runner/RAG·Thin Wiki candidate 검증 완료 | fully-local copy-only staging과 fresh authority로 actual one-shot | 승인된 local copy+private metadata receipt만 | exact revision/hash/citation candidate 1개, body persistence 0 | 승인 뒤 `1~2일` |
 | `C2` actual Linear LB1 | v2 Gate/Runner/stored-byte restore 합성 검증 완료 | actual read-only Linear reader+approved Drive writer+durable claim store로 one-shot | Linear read+승인 target create-only write | manifest/coverage/stored-byte/human restore receipt | `4~7일` |
 | `C3` decision ledger | 계약·검토안만 있음 | 1시간 단위 append-only decision/`NO_ACTION` shadow projection | private metadata shadow write만 | idempotent replay+coverage receipt | `3~5일` |

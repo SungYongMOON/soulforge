@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## 2026-08-21 - VF-1/C0 mutation defaults are OFF
+
+- Revision `working`.
+- Removed the two port-4300-derived defaults that implicitly set
+  `DEV_ERP_AUTO_INTAKE=1` and `DEV_ERP_AUTOSYNC=1` in `start-windows.bat`.
+  Explicit environment and `run-dev-erp-background.ps1` switch opt-ins remain available.
+- Added a Windows synthetic launcher/restart fixture that proves 4300 and 4310 do not default
+  either flag, independently preserves each 4300 opt-in, bounds child processes, and leaves no temp
+  fixture behind. The pre-fix focused regression was RED (1/2); the integrated focused suite is
+  2/2, the launcher suite is 13/13, and dev-ERP core is 290/290.
+- Reversed the historical 2026-07-03 runtime-launcher default-ON posture in current operator docs
+  and C0/VF-1 status rows. This change does not restart a live runtime, edit a Scheduled Task,
+  activate an Official Task writer, or open `VF-2`/`C6` authority.
+- Related paths: `ui-workspace/apps/dev-erp/start-windows.bat`,
+  `ui-workspace/apps/dev-erp/test/run_dev_erp_background_launcher.test.mjs`,
+  `ui-workspace/apps/dev-erp/test/core.test.mjs`, `ui-workspace/apps/dev-erp/docs/MAIL_TO_TASK_INTAKE.md`,
+  `ui-workspace/apps/dev-erp/docs/TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md`,
+  `ui-workspace/apps/dev-erp/docs/SOULFORGE_VOICE_FIRST_BOT_AGENT_OPERATING_MODEL_V0_2.md`,
+  `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md`.
+
 ## 2026-08-21 - Watchtower self-heal deep diagnostic integration and failure classification
 
 - Added pure, public-safe diagnostic classifier module `recovery_diagnostics.mjs` (`guild_hall/watchtower/recovery_diagnostics.mjs`) implementing `classifyRecoveryDiagnostic(sanitizedEvidence)` with exact input/output-key validation across four closed failure families (`scheduled_task_action_drift`, `usage_event_duplicate_conflict`, `standing_receipt_expired`, `auth_refresh`). This is pure classification only; runtime execution remains strictly with the existing recovery coordinator.
