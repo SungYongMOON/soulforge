@@ -10,6 +10,57 @@
 - Gmail connector (`gmail.py`) classifies OAuth errors to distinguish terminal classes (`auth_invalid_grant`, `auth_token_revoked`, `auth_consent_required`, `auth_mfa_required`, `auth_invalid_client`) from transient retryable classes (`auth_transient_retry`) without logging or leaking raw provider bodies or tokens.
 - Team Ops Board recovery presentation (`topology-recovery-view.mjs` and `App.tsx`) renders closed Korean labels via safe bounded lookups and updates `진단` to perform GET-only fresh health + matching recovery snapshot row inspection (strictly requiring `ready` state and refusing stale recovery evidence) without POST, repair, or state mutation.
 
+## 2026-08-21 - Freeze the Voice-First Bot/Agent operating model v0.2
+
+- Added the Owner-confirmed Voice-First operating model that joins Thin Voice Context, Voice
+  provenance, Project-scoped Manager/Agent reasoning, Portfolio typed projections, Project
+  Decision Ledgers, and Linear as the sole current Official Task State Owner.
+- Split judgment maturity (`JM0~JM6`, display alias C-level) from execution authority (`A0~A6`).
+  The current hourly Chat Bot targets high judgment at A0, while each mutation opens only for one
+  reviewed `Project × Task Type × Action × Authority × Policy Revision` canary.
+- Made Meaningful/Skillable Work Unit the managed work granularity. Workers decompose atomic tool
+  actions internally; repeated successful execution patterns may become Skill, Workflow, and Party
+  candidates only through review rather than self-promotion.
+- Recorded the VF-0~VF-8 implementation sequence and provisional roles for Hermes, Codex, Gemini
+  Flash, Grok Build, and Claude/Fable. Buzz and Grok Bot remain HOLD.
+- This plan finalization changed no Chat Scheduled Task, connected app permission, external account,
+  Agent runtime, model subscription, provider, storage writer, Linear state, or C6 activation.
+
+## 2026-08-21 - Soulforge Lifecycle Retention Phase 4: Approve & Preserve module with synthetic restore-check gate
+
+- **무엇이 바뀌었는가**: Implemented Phase 4 Approve & Preserve module for Soulforge Codex Lifecycle Retention with strict Owner approval binding, deterministic preservation manifest planning, synthetic restore-check gate, and feature-OFF production baseline.
+  - Added deep preservation module `lifecycle_retention_preservation.mjs` and internal implementation `lifecycle_retention_preservation_internal.mjs` supporting exact approval receipt validation (`soulforge.codex_thread_manager.retention_approval_receipt.v1`), candidate/report digest binding (`sha256:...`), preservation manifest creation (`soulforge.codex_thread_manager.retention_preservation_manifest.v1`), and verified receipt generation (`soulforge.codex_thread_manager.retention_preservation_receipt.v1`).
+  - Added Backup Controller retention preservation gate and synthetic adapters in `guild_hall/backup_controller/retention_preservation_gate.mjs` (`HELD_PRODUCTION_PRESERVATION_ADAPTER`, `createSyntheticPreservationWriterAdapter`, `createSyntheticPreservationReaderAdapter`).
+  - Required synthetic restore-check sequence: preserved bytes/objects are read back through a separate adapter, digests and manifest identities are recomputed, and full exact match is verified before emitting a verified preservation receipt (`PRESERVED_VERIFIED`).
+  - Strict fail-closed HOLD logic: missing bindings, dirty/untracked ambiguity, index locks, operation markers, locked worktrees, unpreserved unique commits, digest mismatches, expired approvals, future timestamp skews, adapter throws, partial writes, or restore-check failures return `status: "HOLD"`.
+  - Added comprehensive test suites in `.workflow/codex_thread_manager_v0/tests/lifecycle_retention_preservation.test.mjs` and `guild_hall/backup_controller/retention_preservation_gate.test.mjs`.
+  - Updated operations manual `CODEX_LIFECYCLE_RETENTION_OPERATIONS_V0.md` and owner README `docs/architecture/guild_hall/README.md`.
+  - Added npm script `validate:codex-retention-preservation`.
+- **운영 영향**: Production execution remains feature-OFF (actual preservation count = 0, removal count = 0). Zero actual external/runtime writes or git branch operations performed in production. Phase 5 remains OFF. Removal, deletion, archive, prune, clean, reset, stash, and local_hold purge remain strictly forbidden (`removal_authorized: false`).
+- **관련 경로**: `.workflow/codex_thread_manager_v0/lifecycle_retention_preservation.mjs`, `.workflow/codex_thread_manager_v0/lifecycle_retention_preservation_internal.mjs`, `.workflow/codex_thread_manager_v0/tests/lifecycle_retention_preservation.test.mjs`, `guild_hall/backup_controller/retention_preservation_gate.mjs`, `guild_hall/backup_controller/retention_preservation_gate.test.mjs`, `docs/architecture/guild_hall/CODEX_LIFECYCLE_RETENTION_OPERATIONS_V0.md`, `docs/architecture/guild_hall/README.md`, `package.json`, `CHANGELOG.md`
+
+## 2026-08-21 - Soulforge Lifecycle Retention Phase 3: One-shot report-only automation & read-only Team Ops Board
+
+- **무엇이 바뀌었는가**: Implemented Phase 3 report-only automation and read-only Team Ops Board visibility for Soulforge Codex Lifecycle Retention with hardened write seam, strict catalog schema validation, and dedicated Watchtower health observation.
+  - Added deep reporting module `codex_retention_automation.mjs` and CLI `codex_retention_automation_cli.mjs` combining real Phase 1 retention counts and Phase 2 feature manual inventory scans into a single sanitized envelope (`soulforge.codex_thread_manager.codex_retention_automation_report.v1`).
+  - Hardened write seam using `open(..., "wx")` atomic create-only temp file and lstat/realpath symlink/reparse checks. Atomically writes report under approved activity root (`reports/codex_retention/current.json`), preserves existing report files on write failure, and appends sanitized Activity event. `--expected-digest` is validated before any write/event, exiting code 3 on mismatch.
+  - Added Night Watch tracked spec `soulforge-lifecycle-retention-report.spec.json` (defaults to `PAUSED`, tracked but not installed/activated locally without explicit owner action) and prompt template `soulforge-lifecycle-retention-report.prompt.txt`. Generalized `render_local_automation.mjs` with strict allowlisted spec selector.
+  - Added Team Ops Board read-only projection module (`codex-retention-projection.mjs`) with envelope digest recomputation, GET-only loopback Vite server adapter (`codex-retention-adapter.mjs`), and compact UI card in `App.tsx` (clears retention state to `null` on fetch error/non-OK).
+  - Connected Watchtower dedicated topology node `codex_retention_report` and observation edges to federated topology (`federated_topology.v1.json`) with strict health-only observation.
+  - Added operating manual `CODEX_LIFECYCLE_RETENTION_OPERATIONS_V0.md`, updated owner READMEs, added npm script `validate:codex-retention-automation`.
+- **운영 영향**: Report-only, zero destructive authority (destructive action count = 0, local automation install count = 0). Zero mutation endpoints, read-only GET-only loopback.
+- **관련 경로**: `.workflow/codex_thread_manager_v0/codex_retention_automation.mjs`, `.workflow/codex_thread_manager_v0/codex_retention_automation_cli.mjs`, `.workflow/codex_thread_manager_v0/tests/codex_retention_automation.test.mjs`, `guild_hall/night_watch/automations/soulforge-lifecycle-retention-report.spec.json`, `guild_hall/night_watch/automations/soulforge-lifecycle-retention-report.prompt.txt`, `guild_hall/night_watch/render_local_automation.mjs`, `guild_hall/night_watch/render_local_automation.test.mjs`, `ui-workspace/apps/team-ops-board/src/core/codex-retention-projection.mjs`, `ui-workspace/apps/team-ops-board/src/core/codex-retention-projection.test.mjs`, `ui-workspace/apps/team-ops-board/src/server/codex-retention-adapter.mjs`, `ui-workspace/apps/team-ops-board/src/server/codex-retention-adapter.test.mjs`, `ui-workspace/apps/team-ops-board/vite.config.ts`, `ui-workspace/apps/team-ops-board/src/App.tsx`, `guild_hall/watchtower/topology.mjs`, `guild_hall/watchtower/topology/federated_topology.v1.json`, `guild_hall/watchtower/watchtower.test.mjs`, `docs/architecture/guild_hall/CODEX_LIFECYCLE_RETENTION_OPERATIONS_V0.md`, `package.json`, `CHANGELOG.md`
+## 2026-08-21 - Owner selects progressive task-type automation after shadow evidence
+
+- Recorded Grill Me decision `HB-DEC-01`: the Chat hourly Bot continues to read and judge work
+  across its connected scope, while actual mutations open one validated low-risk task type and
+  capability at a time. Monthly management-meeting material collection remains an example first
+  candidate rather than the Bot's permanent or exclusive scope.
+- Rejected both shadow-only as the final destination and immediate broad automation. The exact
+  first task type, source scope, app effects, prompt snapshot, ledger binding, and quality threshold
+  remain explicit follow-up decisions; Linear mutation and C6 activation remain zero.
+- This is a plan/decision synchronization only. It changes no Chat Scheduled Task, connected app,
+  permission, external account, runtime, provider, storage, writer, or task state.
 ## 2026-08-21 - Soulforge Lifecycle Retention Phase 2: FeatureManualInventory deep module
 
 - **Revision pending**

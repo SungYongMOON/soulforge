@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "soulforge-lifecycle-retention-report",
+  "name": "Soulforge Lifecycle Retention Report",
+  "default_status": "PAUSED",
+  "default_rrule": "FREQ=DAILY;BYHOUR=3;BYMINUTE=0",
+  "default_execution_environment": "local",
+  "model": "gpt-5.2",
+  "reasoning_effort": "medium",
+  "prompt_template": "guild_hall/night_watch/automations/soulforge-lifecycle-retention-report.prompt.txt"
+}

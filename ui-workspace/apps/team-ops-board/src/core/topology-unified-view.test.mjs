@@ -161,17 +161,17 @@ function assertNoVisibleNodeOverlap(nodes) {
   }
 }
 
-test("tracked federation totals remain 4 providers, 72 nodes and 201 provider-local edges", () => {
+test("tracked federation totals remain 4 providers, 73 nodes and 203 provider-local edges", () => {
   const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..", "..", "guild_hall", "watchtower", "topology", "federated_topology.v1.json");
   const snapshot = JSON.parse(readFileSync(root, "utf8"));
   const model = buildUnifiedTopologyViewModel({ lens: "declared_structure", state: "ready", reason: null, snapshot }, null);
   assert.equal(model.available, true);
   assert.deepEqual(
     { providers: model.source.providerCount, nodes: model.source.nodeCount, edges: model.source.edgeCount },
-    { providers: 4, nodes: 72, edges: 201 },
+    { providers: 4, nodes: 73, edges: 203 },
   );
   assert.deepEqual(model.providers.map(({ id, nodeCount, edgeCount }) => ({ id, nodeCount, edgeCount })), [
-    { id: "watchtower", nodeCount: 27, edgeCount: 34 },
+    { id: "watchtower", nodeCount: 28, edgeCount: 36 },
     { id: "engineering_engine", nodeCount: 34, edgeCount: 153 },
     { id: "knowledge_stack", nodeCount: 7, edgeCount: 9 },
     { id: "watchtower_notebook_advisory_adapter", nodeCount: 4, edgeCount: 5 },
@@ -182,7 +182,7 @@ test("tracked federation totals remain 4 providers, 72 nodes and 201 provider-lo
   assert.equal(model.diagnostics.gapLabel, "연결 계약 미선언");
 });
 
-test("tracked Watchtower identity overlays exact 27/27 with no duplicates or invented receipts", () => {
+test("tracked Watchtower identity overlays exact 28/28 with no duplicates or invented receipts", () => {
   const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..", "..", "guild_hall", "watchtower", "topology", "federated_topology.v1.json");
   const snapshot = JSON.parse(readFileSync(root, "utf8"));
   const watchtowerNodes = snapshot.nodes.filter((entry) => entry.provider_id === "watchtower");
@@ -209,12 +209,12 @@ test("tracked Watchtower identity overlays exact 27/27 with no duplicates or inv
   };
   const model = buildUnifiedTopologyViewModel({ lens: "declared_structure", state: "ready", reason: null, snapshot }, health);
   assert.equal(model.available, true);
-  assert.equal(model.diagnostics.matchedHealthNodeCount, 27);
-  assert.equal(model.diagnostics.watchtowerDeclaredNodeCount, 27);
+  assert.equal(model.diagnostics.matchedHealthNodeCount, 28);
+  assert.equal(model.diagnostics.watchtowerDeclaredNodeCount, 28);
   assert.deepEqual(model.diagnostics.unmatchedHealthIds, []);
   assert.deepEqual(model.diagnostics.missingWatchtowerIds, []);
   assert.equal(model.source.nodeIds.length, new Set(model.source.nodeIds).size);
-  assert.equal(model.diagnostics.receiptOverlayCount, 34);
+  assert.equal(model.diagnostics.receiptOverlayCount, 36);
   assert.equal(model.diagnostics.receiptDeliveryProvenCount, 0);
   assert.equal(model.providers.filter((entry) => entry.id !== "watchtower")
     .every((entry) => entry.healthObserved === false && entry.runtimeState === "unknown"), true);
@@ -228,8 +228,8 @@ test("size-aware layout has no collisions for all-expanded and single drill-down
     groupKeys: [...new Set(snapshot.nodes.map((entry) => `${entry.provider_id}::${entry.group ?? "그룹 없음"}`))],
   };
   const expanded = buildUnifiedTopologyViewModel({ lens: "declared_structure", state: "ready", reason: null, snapshot }, null, allExpanded);
-  assert.equal(expanded.nodes.filter((entry) => entry.displayKind === "node").length, 72);
-  assert.equal(expanded.edges.length, 201);
+  assert.equal(expanded.nodes.filter((entry) => entry.displayKind === "node").length, 73);
+  assert.equal(expanded.edges.length, 203);
   assertNoVisibleNodeOverlap(expanded.nodes);
 
   const single = buildUnifiedTopologyViewModel(federationProjection(), healthProjection(), {

@@ -827,3 +827,12 @@ availability only and stays 계정 연결 `확인 불가`. `consumer_timeline` h
 account surface and no deployed consumer receipt, so it stays `해당 없음` with
 `runtime_not_deployed`. Unknown or malformed node IDs fail closed, and missing
 evidence stays `확인 불가` instead of becoming a pass or a fault.
+
+## Codex Lifecycle Retention Phase 3 Read-only Projection
+
+The Board exposes `GET /codex-retention.snapshot.json` exclusively to loopback clients (`127.0.0.1`, `::1`).
+- **Endpoint**: `/codex-retention.snapshot.json` (GET-only, non-GET returns 405 Method Not Allowed).
+- **Core Module**: `src/core/codex-retention-projection.mjs` stable-reads `<ownerRoot>/guild_hall/state/operations/soulforge_activity/reports/codex_retention/current.json`.
+- **Sanitization & Safety**: Strictly validates `soulforge.codex_thread_manager.codex_retention_automation_report.v1`, SHA-256 digest, generated_at ISO timestamp, and summary metrics. Zero raw path exposure, zero raw logs/prompts/reasoning exposure.
+- **Bounded Age Windows**: `period_seconds: 86400` (24h), `grace_seconds: 3600` (1h). Computes status: `current`, `late`, `stale`, or `unavailable`.
+- **Authority Boundary**: Enforces `{ read_only: true, runtime_authority: false, repair_authority: false, destructive_authority: false }`. Destructive action count and local automation install count are strictly 0.

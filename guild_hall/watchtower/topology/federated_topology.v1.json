@@ -1622,6 +1622,26 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "watchtower::codex_retention_report",
+      "id": "watchtower::edge.codex_retention_report.consumer_board.data",
+      "label": "보존 스냅샷",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::consumer_board"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::codex_retention_report",
+      "id": "watchtower::edge.codex_retention_report.watchtower_self.control",
+      "label": "보존 보고서 헬스 관측",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "control",
+      "to": "watchtower::watchtower_self"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "watchtower::gate_five_field",
       "id": "watchtower::edge.gate_five_field.store_activity_outbox.data",
       "label": "delta append",
@@ -2461,6 +2481,17 @@
       "layer": "subsystem",
       "parent_id": "knowledge_stack::knowledge_stack",
       "provider_id": "knowledge_stack",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "관측",
+      "id": "watchtower::codex_retention_report",
+      "kind": "worker",
+      "label": "Codex 수명주기 보존 보고서",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
       "repair_state": "none"
     },
     {
@@ -4793,6 +4824,24 @@
       "edges": [
         {
           "evidence_mode": "structural_only",
+          "from": "codex_retention_report",
+          "id": "edge.codex_retention_report.consumer_board.data",
+          "label": "보존 스냅샷",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "consumer_board"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "codex_retention_report",
+          "id": "edge.codex_retention_report.watchtower_self.control",
+          "label": "보존 보고서 헬스 관측",
+          "layer": "subsystem",
+          "relation": "control",
+          "to": "watchtower_self"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "gate_five_field",
           "id": "edge.gate_five_field.store_activity_outbox.data",
           "label": "delta append",
@@ -5102,6 +5151,16 @@
       "nodes": [
         {
           "diagnostic_state": "validator_backed",
+          "group": "관측",
+          "id": "codex_retention_report",
+          "kind": "worker",
+          "label": "Codex 수명주기 보존 보고서",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
           "group": "소비",
           "id": "consumer_board",
           "kind": "consumer",
@@ -5377,7 +5436,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "8fece1eaf9dd9f62486bed1c7d38983209283b5b84b010633c9b87318911d3a0",
+        "digest": "94295ffa241917e6e552c299a483f9606d7041fe1c2ca51d1ef667788b82a393",
         "revision": "watchtower_topology.v1",
         "schema_version": "soulforge.watchtower.topology.v1",
         "source_id": "watchtower_topology_source"
@@ -5524,13 +5583,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "d81ab9a6ab9bc5974ce19342d2423589b4158bb8a4e026b3009574220a580ba6",
+  "source_set_digest": "5e1801ac2eff4a6b779b23d8460ef4a538df7ccf5925725ae5460569c56374fe",
   "summary": {
-    "edge_count": 201,
-    "node_count": 72,
+    "edge_count": 203,
+    "node_count": 73,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "4851184293bec6ea8b42e232264fc92d2c7b88bc357827501ba502f063aa1ccc"
+  "topology_digest": "33fbfe180f37850f613b8ba6afb8370d7ab5b51ba68c11ad620a7812cd2270c7"
 }

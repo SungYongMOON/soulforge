@@ -54,6 +54,7 @@
 | [`GUILD_HALL_MODEL_V0.md`](GUILD_HALL_MODEL_V0.md) | `guild_hall` 이 gateway, notify, assignment, operation state 를 어떻게 소유하는지 고정한다. |
 | [`AUTOMATION_PARTY_OPERATING_MODEL_V0.md`](AUTOMATION_PARTY_OPERATING_MODEL_V0.md) | 반복 자동화 세계관: workflow, party, cadence party, local scheduler, ledger, report 경계다. |
 | [`CODEX_APP_AUTOMATION_CATALOG_V0.md`](CODEX_APP_AUTOMATION_CATALOG_V0.md) | Codex app 자동화 카탈로그, source-of-truth 분리, reader tier, 현재 기본 자동화 개념이다. |
+| [`CODEX_LIFECYCLE_RETENTION_OPERATIONS_V0.md`](CODEX_LIFECYCLE_RETENTION_OPERATIONS_V0.md) | Codex 스레드 수명주기 보존, 기능·매뉴얼 인벤토리, Phase 3 원샷 보고 자동화, 및 Phase 4 보존 승인·복구 검증 운영 매뉴얼이다. |
 | [`NIGHT_WATCH_AUTOMATION_V0.md`](NIGHT_WATCH_AUTOMATION_V0.md) | 항상 켜 두는 node 에서만 ACTIVE 로 둘 점검 자동화와 경계다. |
 | [`ALWAYS_ON_STRATEGIC_REVIEW_V0.md`](ALWAYS_ON_STRATEGIC_REVIEW_V0.md) | 24시간 node 에서 healer, night_watch, strategic review 를 어떻게 나누어 pull/run 할지다. |
 | [`DEV_WORKER_AUTOMATION_V0.md`](DEV_WORKER_AUTOMATION_V0.md) | task packet 을 받아 reviewable branch 를 만드는 bounded development worker lane 이다. |

@@ -2,18 +2,24 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..", "..");
-const specPath = path.join(
-  repoRoot,
-  "guild_hall",
-  "night_watch",
-  "automations",
-  "soulforge-night-watch-pipeline.spec.json"
-);
+
+export const ALLOWLISTED_SPECS = Object.freeze({
+  "soulforge-night-watch-pipeline": "guild_hall/night_watch/automations/soulforge-night-watch-pipeline.spec.json",
+  "soulforge-lifecycle-retention-report": "guild_hall/night_watch/automations/soulforge-lifecycle-retention-report.spec.json"
+});
+
+export function resolveSpecPath(specName = "soulforge-night-watch-pipeline", repoRootPath = repoRoot) {
+  const normName = String(specName ?? "soulforge-night-watch-pipeline").trim().replace(/\.spec\.json$/u, "");
+  if (!Object.hasOwn(ALLOWLISTED_SPECS, normName)) {
+    throw new Error(`Unknown or forbidden spec selector: ${specName}`);
+  }
+  return path.join(repoRootPath, ALLOWLISTED_SPECS[normName]);
+}
 
 function parseArgs(argv) {
   const args = {};
@@ -97,6 +103,9 @@ function renderToml(spec, prompt, args, outputPath) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
+  const selectedSpecName = args.spec || "soulforge-night-watch-pipeline";
+  const specPath = resolveSpecPath(selectedSpecName, repoRoot);
+
   const spec = JSON.parse(fs.readFileSync(specPath, "utf8"));
   const promptTemplatePath = path.join(repoRoot, spec.prompt_template);
   const promptTemplate = fs.readFileSync(promptTemplatePath, "utf8").trim();
@@ -126,9 +135,12 @@ function main() {
   process.stdout.write(toml);
 }
 
-try {
-  main();
-} catch (error) {
-  process.stderr.write(`${error.message}\n`);
-  process.exitCode = 1;
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
+if (isDirectRun) {
+  try {
+    main();
+  } catch (error) {
+    process.stderr.write(`${error.message}\n`);
+    process.exitCode = 1;
+  }
 }

@@ -13,6 +13,7 @@ import { createTopologyAdapterPlugin } from "./src/server/topology-adapter.mjs";
 import { createTopologyFederationAdapterPlugin } from "./src/server/topology-federation-adapter.mjs";
 import { createTopologyRecoveryAdapterPlugin } from "./src/server/topology-recovery-adapter.mjs";
 import { createReceiptExpiryServerAdapter } from "./src/server/receipt-expiry-adapter.mjs";
+import { createCodexRetentionServerAdapter } from "./src/server/codex-retention-adapter.mjs";
 import {
   createTeamOpsBoardRuntimeEnvironment,
   createTeamOpsBoardTopologyOptions,
@@ -56,6 +57,7 @@ export default defineConfig({
     createTopologyFederationAdapterPlugin(),
     createTopologyRecoveryAdapterPlugin({ ownerRoot }),
     createReceiptExpiryServerAdapter({ bindingPath: receiptExpiryBindingPath, ownerRoot }),
+    createCodexRetentionServerAdapter({ ownerRoot }),
     createHostStatsAdapterPlugin(),
     createClaudeUsageAdapterPlugin(),
     createAntigravityUsageAdapterPlugin(),
