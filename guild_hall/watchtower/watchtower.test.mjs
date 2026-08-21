@@ -28,8 +28,8 @@ const NOW = Date.parse("2026-08-07T12:00:00.000Z");
 test("topology models scheduled local usage producers and structural routes", () => {
   const nodesById = new Map(TOPOLOGY_NODES.map((node) => [node.id, node]));
   assert.equal(nodesById.size, TOPOLOGY_NODES.length);
-  assert.equal(TOPOLOGY_NODES.length, 27);
-  assert.equal(TOPOLOGY_EDGES.length, 34);
+  assert.equal(TOPOLOGY_NODES.length, 28);
+  assert.equal(TOPOLOGY_EDGES.length, 36);
   assert.equal(validateTopologyDefinition().nodes, TOPOLOGY_NODES);
   for (const edge of TOPOLOGY_EDGES) {
     assert.ok(nodesById.has(edge.from), `missing source ${edge.from}`);
@@ -85,7 +85,7 @@ test("topology models scheduled local usage producers and structural routes", ()
 
   const watchtowerInputs = TOPOLOGY_EDGES.filter((edge) => edge.to === "watchtower_self");
   const watchtowerOutputs = TOPOLOGY_EDGES.filter((edge) => edge.from === "watchtower_self");
-  assert.equal(watchtowerInputs.length, 9);
+  assert.equal(watchtowerInputs.length, 10);
   assert.ok(watchtowerInputs.every((edge) => edge.flow === "control" && typeof edge.scope === "string"));
   assert.deepEqual(watchtowerOutputs.map(({ from, to, label, flow }) => ({ from, to, label, flow })), [
     { from: "watchtower_self", to: "consumer_board", label: "판정 스냅샷", flow: "data" },
@@ -639,7 +639,7 @@ test("tracking covers remaining structural absences plus one degraded probe with
   assert.equal(snapshot.summary.unmonitored, 9);
   assert.equal(snapshot.summary.degraded, 1);
   assert.equal(tracked.length, 10);
-  assert.equal(healthy.length, 17);
+  assert.equal(healthy.length, 18);
   assert.ok(healthy.every((node) => !Object.hasOwn(node, "tracking")));
   assert.ok(tracked.every((node) => node.tracking.node_id === node.id && node.tracking.repair_action === null));
 
@@ -837,4 +837,55 @@ test("the current definition claims no proven delivery, because no receipt chann
   assert.equal(summary.counts.unreceipted, TOPOLOGY_EDGES.length);
   assert.match(summary.claim, /전달이 증명된 것은 없습니다/);
   for (const state of EDGE_DELIVERY_STATES) assert.ok(Object.hasOwn(summary.counts, state));
+});
+
+test("codex retention report probe contract evaluates missing as unmonitored, PASS/HOLD as ok, and stale accurately", async () => {
+  const root = await tempRoot();
+  const reportPath = path.join(root, "reports", "codex_retention", "current.json");
+  const probe = {
+    kind: "json_file",
+    path: reportPath,
+    expected_schema_version: "soulforge.codex_thread_manager.codex_retention_automation_report.v1",
+    timestamp_field: "generated_at",
+    status_field: "status",
+    ok_values: ["PASS", "HOLD"],
+    period_seconds: 86400,
+    grace_seconds: 3600,
+    missing_is_unmonitored: true,
+  };
+
+  // Missing file => unmonitored (never healthy)
+  const missing = await runProbe(probe, { now: NOW });
+  assert.equal(missing.state, "unmonitored");
+  assert.deepEqual(missing.reasons, ["heartbeat_receipt_unavailable", "source_missing"]);
+
+  // Fresh report with PASS status => ok
+  await mkdir(path.dirname(reportPath), { recursive: true });
+  await writeFile(reportPath, JSON.stringify({
+    schema_version: "soulforge.codex_thread_manager.codex_retention_automation_report.v1",
+    generated_at: new Date(NOW - 60_000).toISOString(),
+    status: "PASS",
+  }));
+  const freshPass = await runProbe(probe, { now: NOW });
+  assert.equal(freshPass.state, "ok");
+  assert.equal(freshPass.age_seconds, 60);
+
+  // Fresh report with HOLD status => ok (report generated cleanly with HOLD retention status)
+  await writeFile(reportPath, JSON.stringify({
+    schema_version: "soulforge.codex_thread_manager.codex_retention_automation_report.v1",
+    generated_at: new Date(NOW - 120_000).toISOString(),
+    status: "HOLD",
+  }));
+  const freshHold = await runProbe(probe, { now: NOW });
+  assert.equal(freshHold.state, "ok");
+
+  // Stale report file => stale
+  await writeFile(reportPath, JSON.stringify({
+    schema_version: "soulforge.codex_thread_manager.codex_retention_automation_report.v1",
+    generated_at: new Date(NOW - 100_000 * 1000).toISOString(),
+    status: "PASS",
+  }));
+  const stale = await runProbe(probe, { now: NOW });
+  assert.equal(stale.state, "stale");
+  assert.deepEqual(stale.reasons, ["heartbeat_stale"]);
 });

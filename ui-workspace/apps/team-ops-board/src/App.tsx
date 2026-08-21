@@ -3914,6 +3914,7 @@ function SystemTopologySurface({ projection, refreshing, providerSnapshots = nul
   const [trackingInteraction, setTrackingInteraction] = useState<any>(null);
   const [connectionDiagnosis, setConnectionDiagnosis] = useState<any>(null);
   const [receiptExpiry, setReceiptExpiry] = useState<any>(null);
+  const [codexRetention, setCodexRetention] = useState<any>(null);
   const fittedLayoutRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -3928,8 +3929,25 @@ function SystemTopologySurface({ projection, refreshing, providerSnapshots = nul
         // fail closed
       }
     }
+    async function loadCodexRetention() {
+      try {
+        const response = await fetch("/codex-retention.snapshot.json", { cache: "no-store" });
+        if (!response.ok) {
+          if (active) setCodexRetention(null);
+          return;
+        }
+        const data = await response.json();
+        if (active) setCodexRetention(data);
+      } catch {
+        if (active) setCodexRetention(null);
+      }
+    }
     void loadReceiptExpiry();
-    const interval = setInterval(loadReceiptExpiry, 300_000);
+    void loadCodexRetention();
+    const interval = setInterval(() => {
+      void loadReceiptExpiry();
+      void loadCodexRetention();
+    }, 300_000);
     return () => {
       active = false;
       clearInterval(interval);
@@ -4261,6 +4279,27 @@ function SystemTopologySurface({ projection, refreshing, providerSnapshots = nul
               ))}
             </div>
           )}
+        </div>
+        <div className="watchtower-observation-notice" role="status" data-testid="codex-retention-summary-card" style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "6px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <ArchiveRestore size={15} aria-hidden="true" />
+              <strong>Codex 보존·재사용 관측 (Phase 3)</strong>
+              <span style={{ opacity: 0.8 }}>(읽기 전용 · 파괴적 권한 0 · 자동화 0)</span>
+            </div>
+            <div style={{ display: "flex", gap: "6px" }}>
+              <span className={`watchtower-chip ${codexRetention?.status === "current" ? "is-ok" : codexRetention?.status === "late" ? "is-degraded" : codexRetention?.status === "stale" ? "is-stale" : "is-unmonitored"}`}>
+                {codexRetention?.status === "current" ? "최신" : codexRetention?.status === "late" ? "지연" : codexRetention?.status === "stale" ? "만료" : "미확인"}
+              </span>
+              <span className="watchtower-chip">바인딩 {codexRetention?.summary?.bound_candidate_count ?? 0}</span>
+              <span className="watchtower-chip">미연결 {codexRetention?.summary?.unbound_active_task_count ?? 0}</span>
+              <span className="watchtower-chip">매뉴얼 갭 {codexRetention?.summary?.inventory_gap_count ?? 0}</span>
+            </div>
+          </div>
+          <div style={{ fontSize: "12px", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "4px", display: "flex", justifyContent: "space-between" }}>
+            <span>보존 근거: <strong>{codexRetention?.summary?.retention_evidence_status ?? "HOLD"}</strong> · 정리 실행: <strong>{codexRetention?.summary?.retention_action ?? "HOLD"}</strong> · 인벤토리: <strong>{codexRetention?.summary?.inventory_status ?? "UNKNOWN"}</strong> · WT 총: <strong>{codexRetention?.summary?.worktree_totals?.total ?? 0}</strong> (더티: {codexRetention?.summary?.worktree_totals?.dirty ?? 0}, 잠금: {codexRetention?.summary?.worktree_totals?.locked ?? 0}, 고유: {codexRetention?.summary?.worktree_totals?.unique_commit ?? 0})</span>
+            <span style={{ opacity: 0.7 }}>파괴 행위 {codexRetention?.summary?.destructive_action_count ?? 0} · 로컬 자동화 {codexRetention?.summary?.local_automation_install_count ?? 0}</span>
+          </div>
         </div>
       {summary.unmonitored > 0 && (
         <div className="watchtower-unmonitored-breakdown" data-testid="system-topology-unmonitored-breakdown">

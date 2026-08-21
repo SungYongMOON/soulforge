@@ -96,6 +96,7 @@ export const TOPOLOGY_NODES = Object.freeze([
   { id: "store_slack_custody", label: "Slack custody", kind: "store", group: "데이터 평면", probe: "store_slack_custody", operation_mode: "structural", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 2, row: 2.7 },
   { id: "gate_five_field", label: "five-field 원장 검증", kind: "gate", group: "게이트", probe: "gate_five_field", operation_mode: "scheduled", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 2, row: 3.5 },
   { id: "usage_meter", label: "공통 AI Usage Meter", kind: "worker", group: "관측", probe: "usage_meter", operation_mode: "on_demand", health_scope: "aggregate", unmonitored_reason: "independent_evidence_absent", col: 2, row: 5.4 },
+  { id: "codex_retention_report", label: "Codex 수명주기 보존 보고서", kind: "worker", group: "관측", probe: "codex_retention_report", operation_mode: "scheduled", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 2, row: 6.3 },
   { id: "store_workmeta", label: "_workmeta 시간장부", kind: "store", group: "데이터 평면", probe: "store_workmeta", operation_mode: "structural", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 2, row: 7.2 },
 
   // 후처리·외부 목적지·공유 원장·검사 판정
@@ -140,6 +141,8 @@ export const TOPOLOGY_EDGES = Object.freeze([
   { from: "usage_antigravity_collector", to: "usage_meter", label: "usage event", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
   { from: "usage_meter", to: "store_usage_ledger", label: "validated append", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
 
+  { from: "codex_retention_report", to: "consumer_board", label: "보존 스냅샷", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
+
   { from: "store_mail_events", to: "consumer_timeline", label: "shadow 투영", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
   { from: "voice_label_worker", to: "consumer_timeline", label: "발생 라벨", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
   { from: "store_activity_outbox", to: "consumer_timeline", label: "proxy", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
@@ -155,6 +158,7 @@ export const TOPOLOGY_EDGES = Object.freeze([
   { from: "usage_claude_collector", to: "watchtower_self", label: "Claude collector health 관찰", flow: "control", scope: "usage_collector_health_only", receipt: null, unreceipted_reason: "probe_observation_only" },
   { from: "usage_antigravity_collector", to: "watchtower_self", label: "Antigravity collector health 관찰", flow: "control", scope: "usage_collector_health_only", receipt: null, unreceipted_reason: "probe_observation_only" },
   { from: "usage_meter", to: "watchtower_self", label: "usage ledger validation health 관찰", flow: "control", scope: "usage_meter_health_only", receipt: null, unreceipted_reason: "probe_observation_only" },
+  { from: "codex_retention_report", to: "watchtower_self", label: "보존 보고서 헬스 관측", flow: "control", scope: "node_health_only", receipt: null, unreceipted_reason: "probe_observation_only" },
   { from: "watchtower_self", to: "consumer_board", label: "판정 스냅샷", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
 ]);
 

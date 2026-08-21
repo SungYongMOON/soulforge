@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-08-21 - Soulforge Lifecycle Retention Phase 3: One-shot report-only automation & read-only Team Ops Board
+
+- **무엇이 바뀌었는가**: Implemented Phase 3 report-only automation and read-only Team Ops Board visibility for Soulforge Codex Lifecycle Retention with hardened write seam, strict catalog schema validation, and dedicated Watchtower health observation.
+  - Added deep reporting module `codex_retention_automation.mjs` and CLI `codex_retention_automation_cli.mjs` combining real Phase 1 retention counts and Phase 2 feature manual inventory scans into a single sanitized envelope (`soulforge.codex_thread_manager.codex_retention_automation_report.v1`).
+  - Hardened write seam using `open(..., "wx")` atomic create-only temp file and lstat/realpath symlink/reparse checks. Atomically writes report under approved activity root (`reports/codex_retention/current.json`), preserves existing report files on write failure, and appends sanitized Activity event. `--expected-digest` is validated before any write/event, exiting code 3 on mismatch.
+  - Added Night Watch tracked spec `soulforge-lifecycle-retention-report.spec.json` (defaults to `PAUSED`, tracked but not installed/activated locally without explicit owner action) and prompt template `soulforge-lifecycle-retention-report.prompt.txt`. Generalized `render_local_automation.mjs` with strict allowlisted spec selector.
+  - Added Team Ops Board read-only projection module (`codex-retention-projection.mjs`) with envelope digest recomputation, GET-only loopback Vite server adapter (`codex-retention-adapter.mjs`), and compact UI card in `App.tsx` (clears retention state to `null` on fetch error/non-OK).
+  - Connected Watchtower dedicated topology node `codex_retention_report` and observation edges to federated topology (`federated_topology.v1.json`) with strict health-only observation.
+  - Added operating manual `CODEX_LIFECYCLE_RETENTION_OPERATIONS_V0.md`, updated owner READMEs, added npm script `validate:codex-retention-automation`.
+- **운영 영향**: Report-only, zero destructive authority (destructive action count = 0, local automation install count = 0). Zero mutation endpoints, read-only GET-only loopback.
+- **관련 경로**: `.workflow/codex_thread_manager_v0/codex_retention_automation.mjs`, `.workflow/codex_thread_manager_v0/codex_retention_automation_cli.mjs`, `.workflow/codex_thread_manager_v0/tests/codex_retention_automation.test.mjs`, `guild_hall/night_watch/automations/soulforge-lifecycle-retention-report.spec.json`, `guild_hall/night_watch/automations/soulforge-lifecycle-retention-report.prompt.txt`, `guild_hall/night_watch/render_local_automation.mjs`, `guild_hall/night_watch/render_local_automation.test.mjs`, `ui-workspace/apps/team-ops-board/src/core/codex-retention-projection.mjs`, `ui-workspace/apps/team-ops-board/src/core/codex-retention-projection.test.mjs`, `ui-workspace/apps/team-ops-board/src/server/codex-retention-adapter.mjs`, `ui-workspace/apps/team-ops-board/src/server/codex-retention-adapter.test.mjs`, `ui-workspace/apps/team-ops-board/vite.config.ts`, `ui-workspace/apps/team-ops-board/src/App.tsx`, `guild_hall/watchtower/topology.mjs`, `guild_hall/watchtower/topology/federated_topology.v1.json`, `guild_hall/watchtower/watchtower.test.mjs`, `docs/architecture/guild_hall/CODEX_LIFECYCLE_RETENTION_OPERATIONS_V0.md`, `package.json`, `CHANGELOG.md`
+
 ## 2026-08-21 - Soulforge Lifecycle Retention Phase 2: FeatureManualInventory deep module
 
 - **Revision pending**

@@ -37,8 +37,8 @@ test("allowlisted adapters map exact Watchtower and Engineering Engine inventori
   const watchtower = adaptWatchtowerTopology(topologySkeleton(), watchtowerBytes);
   const engineeringEngine = adaptEngineeringEngineTopology(engineBytes);
 
-  assert.equal(watchtower.nodes.length, 27);
-  assert.equal(watchtower.edges.length, 34);
+  assert.equal(watchtower.nodes.length, 28);
+  assert.equal(watchtower.edges.length, 36);
   assert.equal(engineeringEngine.nodes.length, 34);
   assert.equal(engineeringEngine.edges.length, 153);
   assert.equal(watchtower.source.digest, digest(watchtowerBytes));
@@ -50,8 +50,8 @@ test("allowlisted adapters map exact Watchtower and Engineering Engine inventori
   const federation = composeFederatedTopology([watchtower, engineeringEngine]);
   assert.deepEqual(federation.summary, {
     provider_count: 2,
-    node_count: 61,
-    edge_count: 187,
+    node_count: 62,
+    edge_count: 189,
     runtime_authority: false,
     repair_execution_authority: false,
   });
@@ -77,8 +77,8 @@ test("CLI emits canonical bytes only on stdout by default and --check remains re
   assert.equal(run.status, 0, run.stderr);
   const parsed = JSON.parse(run.stdout);
   assert.equal(parsed.summary.provider_count, 4);
-  assert.equal(parsed.summary.node_count, 72);
-  assert.equal(parsed.summary.edge_count, 201);
+  assert.equal(parsed.summary.node_count, 73);
+  assert.equal(parsed.summary.edge_count, 203);
   assert.equal(run.stdout, canonicalStringify(parsed));
 
   const scratch = mkdtempSync(join(tmpdir(), "soulforge-federated-topology-"));
@@ -107,8 +107,8 @@ test("CLI never writes without --out and writes only the requested output", () =
     assert.equal(emitted.status, 0, emitted.stderr);
     const parsed = JSON.parse(readFileSync(output, "utf8"));
     assert.equal(parsed.summary.provider_count, 4);
-    assert.equal(parsed.summary.node_count, 72);
-    assert.equal(parsed.summary.edge_count, 201);
+    assert.equal(parsed.summary.node_count, 73);
+    assert.equal(parsed.summary.edge_count, 203);
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }

@@ -1380,3 +1380,18 @@ test("Vite config registers GET-only /receipt-expiry.snapshot.json with stable o
   );
   assert.doesNotMatch(configSource, /receiptExpiry.*(?:write|repair|mutate|post)/iu);
 });
+
+test("Vite config registers GET-only /codex-retention.snapshot.json with stable owner-root binding and read-only authority boundary", async () => {
+  const viteConfigPath = path.resolve(HERE, "..", "..", "vite.config.ts");
+  const configSource = await readFile(viteConfigPath, "utf8");
+
+  assert.match(
+    configSource,
+    /import\s+\{\s*createCodexRetentionServerAdapter\s*\}\s+from\s+"\.\/src\/server\/codex-retention-adapter\.mjs";/u,
+  );
+  assert.match(
+    configSource,
+    /createCodexRetentionServerAdapter\(\{\s*ownerRoot\s*\}\)/u,
+  );
+  assert.doesNotMatch(configSource, /codexRetention.*(?:write|repair|mutate|post)/iu);
+});
