@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 2026-08-22 - VF-6/VF-7 Hermes trial and worker-comparison foundations
+
+- Revision `working`.
+- Added a pure Hermes proposal-runtime trial gate that requires immutable version, host, and
+  isolation digests; one-seat/account/project mapping; closed read/query/candidate tool policy;
+  delivery idempotency; memory/transcript/attachment custody; rollback; and a bounded time window.
+  It neither installs Hermes nor invokes an adapter, scheduler, credential, or MCP tool.
+- Added a pure three-worker comparison receipt for one exact Work Unit across Codex, Gemini Flash,
+  and Grok Build. Every run binds the same input/constraint/completion/validator/policy and harness
+  basis, run-specific validator and independent-review evidence, causal timestamps, complete
+  measurements, zero declared effects, and correction evidence. Any metric tie yields `NO_SELECTION`.
+- Validation: Hermes 10/10, worker comparison 14/14, canonical evidence 2/2, Task Core 28/28,
+  Shadow 53/53, fresh exact Opus 5 review `ACCEPT`.
+- Actual Hermes/Grok installation or provider runs, credentials, scheduling, selection authority,
+  transferable ranking, and auto-deploy remain `0/HOLD`.
+
 ## 2026-08-22 - VF-5 accepted-generation and query foundation
 
 - Revision `working`.
