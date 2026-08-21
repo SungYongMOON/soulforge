@@ -26,6 +26,21 @@
 - This plan finalization changed no Chat Scheduled Task, connected app permission, external account,
   Agent runtime, model subscription, provider, storage writer, Linear state, or C6 activation.
 
+## 2026-08-21 - Soulforge Lifecycle Retention Phase 5: Apply+Verify Canary Gate
+
+- **무엇이 바뀌었는가**: Implemented Phase 5 Apply+Verify Canary Gate for Soulforge Codex Lifecycle Retention with strict Owner approval binding, Phase 4 preservation receipt prerequisite, exact Git worktree clean removal adapter, detached restore probe in bounded temporary directory, and feature-OFF production baseline.
+  - Added deep canary module `lifecycle_retention_canary.mjs` and internal implementation `lifecycle_retention_canary_internal.mjs` supporting exact approval receipt validation (`soulforge.codex_thread_manager.retention_canary_approval.v1`), single-use action packet generation (`soulforge.codex_thread_manager.retention_canary_packet.v1`), and verified canary receipt emission (`soulforge.codex_thread_manager.retention_canary_receipt.v1`).
+  - Added Backup Controller retention canary gate in `guild_hall/backup_controller/retention_canary_gate.mjs` (`HELD_PRODUCTION_CANARY_GATE_ADAPTER`, `createSyntheticCanaryGateAdapter`).
+  - Added exact Git worktree canary adapter in `.workflow/codex_thread_manager_v0/git_worktree_canary_adapter.mjs` (`HELD_PRODUCTION_GIT_CANARY_ADAPTER`, `createRealGitCanaryAdapter`, `createSyntheticGitCanaryAdapter`, `createSyntheticArchiveObserverAdapter`).
+  - Implemented 4-stage canary pipeline: (1) Plan & bind single-use action packet, (2) Verify manager task archive observation (`archived`, `archive_verified: true`), (3) Remove exact clean registered Git worktree without `--force` or branch-delete flags, (4) Perform detached restore probe at target commit in OS temp dir (`sf_probe_canary_...`) to verify exact HEAD and clean state before unlinking, then emit verified receipt (`CANARY_VERIFIED`).
+  - Added manager-safe CLI `lifecycle_retention_canary_cli.mjs` supporting `prepare` and `inspect` subcommands, strictly rejecting destructive option flags (`--apply`, `--delete`, `--remove`, `--prune`, `--force`, `--branch-delete`).
+  - Addressed all 11 Phase 4 ACCEPT non-blocking prep notes across preservation and canary modules (immutable allowlists, snapshot-cycle handling, report digest verification, string type guards, production HOLD template naming, docs component mapping).
+  - Added comprehensive test suites in `.workflow/codex_thread_manager_v0/tests/lifecycle_retention_canary.test.mjs` and `guild_hall/backup_controller/retention_canary_gate.test.mjs`.
+  - Updated operations manual `CODEX_LIFECYCLE_RETENTION_OPERATIONS_V0.md` and owner README `.workflow/codex_thread_manager_v0/README.md`.
+  - Added npm script `validate:codex-retention-canary`.
+- **운영 영향**: Production execution remains feature-OFF (`archive_count: 0`, `removal_count: 0`, `restore_probe_count: 0`, `zero_forbidden_actions: true`). Real canary execution is deferred to the Codex app manager. Zero actual worktrees removed or git operations performed in builder session.
+- **관련 경로**: `.workflow/codex_thread_manager_v0/lifecycle_retention_canary.mjs`, `.workflow/codex_thread_manager_v0/lifecycle_retention_canary_internal.mjs`, `.workflow/codex_thread_manager_v0/git_worktree_canary_adapter.mjs`, `.workflow/codex_thread_manager_v0/lifecycle_retention_canary_cli.mjs`, `.workflow/codex_thread_manager_v0/tests/lifecycle_retention_canary.test.mjs`, `guild_hall/backup_controller/retention_canary_gate.mjs`, `guild_hall/backup_controller/retention_canary_gate.test.mjs`, `docs/architecture/guild_hall/CODEX_LIFECYCLE_RETENTION_OPERATIONS_V0.md`, `.workflow/codex_thread_manager_v0/README.md`, `package.json`, `CHANGELOG.md`
+
 ## 2026-08-21 - Soulforge Lifecycle Retention Phase 4: Approve & Preserve module with synthetic restore-check gate
 
 - **무엇이 바뀌었는가**: Implemented Phase 4 Approve & Preserve module for Soulforge Codex Lifecycle Retention with strict Owner approval binding, deterministic preservation manifest planning, synthetic restore-check gate, and feature-OFF production baseline.

@@ -9,13 +9,32 @@ export const RETENTION_PRESERVATION_MANIFEST_SCHEMA = "soulforge.codex_thread_ma
 export const RETENTION_PRESERVATION_RECEIPT_SCHEMA = "soulforge.codex_thread_manager.retention_preservation_receipt.v1";
 export const RETENTION_PRESERVATION_RESULT_SCHEMA = "soulforge.codex_thread_manager.retention_preservation_result.v1";
 
-export const ALLOWED_RETENTION_ACTIONS = Object.freeze(new Set(["preserve"]));
-export const ALLOWED_PRESERVATION_STRATEGIES = Object.freeze(new Set(["preservation_branch", "_local_hold"]));
+function createImmutableAllowlist(items) {
+  const arr = [...items];
+  Object.defineProperty(arr, "has", {
+    value: function (val) { return arr.includes(val); },
+    writable: false,
+    configurable: false,
+    enumerable: false
+  });
+  Object.defineProperty(arr, "size", {
+    get: function () { return arr.length; },
+    configurable: false,
+    enumerable: false
+  });
+  return Object.freeze(arr);
+}
 
-const ALLOWED_REPORT_SCHEMAS = Object.freeze(new Set([
+export const ALLOWED_RETENTION_ACTIONS = createImmutableAllowlist(["preserve"]);
+export const ALLOWED_PRESERVATION_STRATEGIES = createImmutableAllowlist([
+  "preservation_branch",
+  "_local_hold"
+]);
+
+const ALLOWED_REPORT_SCHEMAS = createImmutableAllowlist([
   LIFECYCLE_RETENTION_REPORT_SCHEMA,
   CODEX_RETENTION_AUTOMATION_REPORT_SCHEMA
-]));
+]);
 
 const APPROVAL_RECEIPT_KEYS = Object.freeze(new Set([
   "schema_version",
@@ -28,28 +47,54 @@ const APPROVAL_RECEIPT_KEYS = Object.freeze(new Set([
   "expires_at"
 ]));
 
-const SAFE_ADAPTER_ERROR_CODES = Object.freeze(new Set([
+const SAFE_ADAPTER_ERROR_CODES = createImmutableAllowlist([
   "FEATURE_OFF_PRODUCTION_EXECUTION_FORBIDDEN",
-  "ADAPTER_EXECUTION_THREW",
+  "CLOCK_INVALID",
+  "APPROVAL_INVALID_FORMAT",
+  "APPROVAL_SCHEMA_VERSION_INVALID",
+  "APPROVAL_ID_INVALID",
+  "APPROVAL_CANDIDATE_ID_INVALID",
+  "APPROVAL_REPORT_DIGEST_INVALID",
+  "APPROVAL_EXPIRED",
+  "APPROVAL_FUTURE_SKEW_REJECTED",
+  "DISALLOWED_ACTION_REJECTED",
+  "DISALLOWED_STRATEGY_REJECTED",
+  "REPORT_INVALID_FORMAT",
+  "REPORT_SCHEMA_INVALID",
+  "REPORT_DIGEST_MISMATCH",
+  "DUPLICATE_CANDIDATE_ID_REJECTED",
+  "CANDIDATE_NOT_FOUND_IN_REPORT",
+  "PRESERVATION_NOT_AUTHORIZED",
+  "SOURCE_OBJECT_INVALID",
+  "SOURCE_OBJECT_READ_FAILED",
+  "SOURCE_OBJECT_COUNT_MISMATCH",
+  "SOURCE_OBJECT_BYTE_MISMATCH",
+  "MANIFEST_NOT_FOUND",
   "PRESERVATION_WRITE_FAILED",
   "PRESERVATION_READBACK_FAILED",
   "PRESERVATION_REPLAY_CONFLICT",
-  "MANIFEST_NOT_FOUND",
+  "RESTORE_CHECK_FAILED",
+  "RESTORE_CHECK_DIGEST_MISMATCH",
+  "METADATA_COUNTS_MISSING",
+  "DIRTY_UNTRACKED_STATE_UNKNOWN",
+  "DIRTY_UNTRACKED_HOLD",
+  "INDEX_LOCK_PRESENT_OR_UNKNOWN",
+  "GIT_OPERATION_MARKER_PRESENT",
+  "WORKTREE_LOCKED",
+  "WORKTREE_LOCATION_UNAVAILABLE",
+  "MAIN_ANCESTRY_UNKNOWN",
+  "UNIQUE_COMMITS_PRESENT",
   "SOURCE_READ_FAILED",
   "SOURCE_READ_THREW",
   "SOURCE_OBJECTS_MISSING",
-  "SOURCE_OBJECT_INVALID",
-  "SOURCE_OBJECT_COUNT_MISMATCH",
   "ZERO_UNIQUE_COMMITS_BRANCH_PRESERVATION_FORBIDDEN",
-  "DUPLICATE_CANDIDATE_ID_REJECTED",
   "RETENTION_ACTION_UNSUPPORTED",
-  "METADATA_COUNTS_MISSING",
-  "RESTORE_CHECK_FAILED",
   "INVALID_MANIFEST",
   "CLAIM_FAILED",
   "CLAIM_CONSUMED",
-  "ADAPTER_ERROR_CODE_UNSAFE"
-]));
+  "ADAPTER_ERROR_CODE_UNSAFE",
+  "ADAPTER_EXECUTION_THREW"
+]);
 
 const CANDIDATE_ID_PATTERN = /^cand-[0-9a-f]{32}$/u;
 const REPORT_DIGEST_PATTERN = /^sha256:[0-9a-f]{64}$/u;
@@ -74,9 +119,8 @@ function hasExactKeys(value, keys) {
   return isPlainRecord(value) && Object.keys(value).length === keys.size && Object.keys(value).every((key) => keys.has(key));
 }
 
-function isSafeString(value) {
+export function isSafeString(value) {
   return typeof value === "string"
-    && value.length > 0
     && value.length <= 4096
     && value.normalize("NFC") === value
     && !CONTROL_CHAR_PATTERN.test(value)
@@ -107,9 +151,12 @@ export function sanitizeAdapterErrorCode(code) {
   return code;
 }
 
-export function snapshotPlainData(root) {
-  const seen = new WeakSet();
+export function snapshotPlainData(root, maxNodes = 5000) {
+  const ancestors = new Set();
+  let visitedCount = 0;
   function walk(value, depth = 0) {
+    visitedCount += 1;
+    if (visitedCount > maxNodes) throw new Error("snapshot_budget_exceeded");
     if (depth > 20) throw new Error("snapshot_depth_limit");
     if (value === null || typeof value === "boolean") return value;
     if (typeof value === "string") {
@@ -120,30 +167,34 @@ export function snapshotPlainData(root) {
       if (!Number.isSafeInteger(value)) throw new Error("snapshot_number_invalid");
       return value;
     }
-    if (typeof value !== "object" || types.isProxy(value) || seen.has(value)) {
+    if (typeof value !== "object" || types.isProxy(value) || ancestors.has(value)) {
       throw new Error("snapshot_shape_invalid");
     }
-    seen.add(value);
-    if (Array.isArray(value)) {
-      if (Object.getPrototypeOf(value) !== Array.prototype || value.length > 256) {
-        throw new Error("snapshot_array_invalid");
+    ancestors.add(value);
+    try {
+      if (Array.isArray(value)) {
+        if (Object.getPrototypeOf(value) !== Array.prototype || value.length > 1000) {
+          throw new Error("snapshot_array_invalid");
+        }
+        return value.map((entry) => walk(entry, depth + 1));
       }
-      return value.map((entry) => walk(entry, depth + 1));
-    }
-    if (!isPlainRecord(value)) throw new Error("snapshot_record_invalid");
-    const keys = Reflect.ownKeys(value);
-    if (keys.length > 64 || keys.some((key) => typeof key !== "string")) {
-      throw new Error("snapshot_keys_invalid");
-    }
-    const output = {};
-    for (const key of keys.sort()) {
-      const descriptor = Object.getOwnPropertyDescriptor(value, key);
-      if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) {
-        throw new Error("snapshot_descriptor_invalid");
+      if (!isPlainRecord(value)) throw new Error("snapshot_record_invalid");
+      const keys = Reflect.ownKeys(value);
+      if (keys.length > 128 || keys.some((key) => typeof key !== "string")) {
+        throw new Error("snapshot_keys_invalid");
       }
-      output[key] = walk(descriptor.value, depth + 1);
+      const output = {};
+      for (const key of keys.sort()) {
+        const descriptor = Object.getOwnPropertyDescriptor(value, key);
+        if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) {
+          throw new Error("snapshot_descriptor_invalid");
+        }
+        output[key] = walk(descriptor.value, depth + 1);
+      }
+      return output;
+    } finally {
+      ancestors.delete(value);
     }
-    return output;
   }
   try {
     return walk(root);
@@ -179,7 +230,8 @@ export function sanitizeAndVerifyReport(reportInput, expectedReportDigest) {
     return { valid: false, code: "REPORT_DIGEST_COMPUTATION_FAILED", report: null };
   }
 
-  if (typeof reportInput.digest === "string" && reportInput.digest !== recomputedDigest) {
+  const reportDigestFromSnapshot = typeof report.digest === "string" ? report.digest : (typeof reportInput.digest === "string" ? reportInput.digest : null);
+  if (reportDigestFromSnapshot !== null && reportDigestFromSnapshot !== recomputedDigest) {
     return { valid: false, code: "REPORT_DIGEST_MISMATCH", report: null };
   }
 
@@ -200,10 +252,22 @@ export function validateRetentionApprovalReceiptInternal(approvalInput, { now = 
   if (!approval || !hasExactKeys(approval, APPROVAL_RECEIPT_KEYS)) {
     return { valid: false, code: "APPROVAL_INVALID_FORMAT", approval: null };
   }
+  if (
+    typeof approval.schema_version !== "string"
+    || typeof approval.approval_id !== "string"
+    || typeof approval.candidate_id !== "string"
+    || typeof approval.report_digest !== "string"
+    || typeof approval.allowed_action !== "string"
+    || typeof approval.preservation_strategy !== "string"
+    || typeof approval.issued_at !== "string"
+    || typeof approval.expires_at !== "string"
+  ) {
+    return { valid: false, code: "APPROVAL_INVALID_FORMAT", approval: null };
+  }
   if (approval.schema_version !== RETENTION_APPROVAL_RECEIPT_SCHEMA) {
     return { valid: false, code: "APPROVAL_SCHEMA_VERSION_INVALID", approval: null };
   }
-  if (typeof approval.approval_id !== "string" || !/^[A-Za-z0-9._:-]{1,128}$/u.test(approval.approval_id)) {
+  if (!/^[A-Za-z0-9._:-]{1,128}$/u.test(approval.approval_id)) {
     return { valid: false, code: "APPROVAL_ID_INVALID", approval: null };
   }
   if (!CANDIDATE_ID_PATTERN.test(approval.candidate_id)) {
@@ -309,24 +373,15 @@ export function planRetentionPreservationInternal(reportInput, approvalInput, { 
     return { status: "HOLD", reason_code: "DIRTY_UNTRACKED_HOLD", manifest_template: null, candidate, approval };
   }
 
-  if (typeof metaCounts.index_lock !== "boolean") {
-    return { status: "HOLD", reason_code: "INDEX_LOCK_PRESENT_OR_UNKNOWN", manifest_template: null, candidate, approval };
-  }
-  if (metaCounts.index_lock === true) {
+  if (typeof metaCounts.index_lock !== "boolean" || metaCounts.index_lock === true) {
     return { status: "HOLD", reason_code: "INDEX_LOCK_PRESENT_OR_UNKNOWN", manifest_template: null, candidate, approval };
   }
 
-  if (typeof metaCounts.operation_markers !== "number" || !Number.isSafeInteger(metaCounts.operation_markers) || metaCounts.operation_markers < 0) {
-    return { status: "HOLD", reason_code: "GIT_OPERATION_MARKER_PRESENT", manifest_template: null, candidate, approval };
-  }
-  if (metaCounts.operation_markers > 0) {
+  if (typeof metaCounts.operation_markers !== "number" || !Number.isSafeInteger(metaCounts.operation_markers) || metaCounts.operation_markers !== 0) {
     return { status: "HOLD", reason_code: "GIT_OPERATION_MARKER_PRESENT", manifest_template: null, candidate, approval };
   }
 
-  if (typeof metaCounts.locked !== "boolean") {
-    return { status: "HOLD", reason_code: "WORKTREE_LOCKED", manifest_template: null, candidate, approval };
-  }
-  if (metaCounts.locked === true) {
+  if (typeof metaCounts.locked !== "boolean" || metaCounts.locked === true) {
     return { status: "HOLD", reason_code: "WORKTREE_LOCKED", manifest_template: null, candidate, approval };
   }
 
@@ -377,24 +432,29 @@ export function planRetentionPreservationInternal(reportInput, approvalInput, { 
 }
 
 export function verifyRetentionPreservationInternal(expectedManifest, readbackResult) {
+  const safeExpected = snapshotPlainData(expectedManifest);
+  if (!safeExpected || !isPlainRecord(safeExpected)) {
+    return { status: "FAILED", reason_code: "MANIFEST_TYPE_INVALID" };
+  }
+
   if (!isPlainRecord(readbackResult) || readbackResult.success !== true) {
     const rawCode = readbackResult?.error_code;
     return { status: "FAILED", reason_code: sanitizeAdapterErrorCode(rawCode) };
   }
 
-  const readbackManifest = readbackResult.manifest;
-  if (!isPlainRecord(readbackManifest) || !isPlainRecord(expectedManifest)) {
+  const readbackManifest = snapshotPlainData(readbackResult.manifest);
+  if (!isPlainRecord(readbackManifest)) {
     return { status: "FAILED", reason_code: "MANIFEST_TYPE_INVALID" };
   }
 
   if (
-    readbackManifest.manifest_id !== expectedManifest.manifest_id
-    || readbackManifest.manifest_digest !== expectedManifest.manifest_digest
-    || readbackManifest.candidate_id !== expectedManifest.candidate_id
-    || readbackManifest.strategy !== expectedManifest.strategy
-    || readbackManifest.portable_ref !== expectedManifest.portable_ref
-    || readbackManifest.total_objects !== expectedManifest.total_objects
-    || readbackManifest.total_bytes !== expectedManifest.total_bytes
+    readbackManifest.manifest_id !== safeExpected.manifest_id
+    || readbackManifest.manifest_digest !== safeExpected.manifest_digest
+    || readbackManifest.candidate_id !== safeExpected.candidate_id
+    || readbackManifest.strategy !== safeExpected.strategy
+    || readbackManifest.portable_ref !== safeExpected.portable_ref
+    || readbackManifest.total_objects !== safeExpected.total_objects
+    || readbackManifest.total_bytes !== safeExpected.total_bytes
   ) {
     return { status: "FAILED", reason_code: "MANIFEST_IDENTITY_MISMATCH" };
   }
@@ -406,12 +466,12 @@ export function verifyRetentionPreservationInternal(expectedManifest, readbackRe
     return { status: "FAILED", reason_code: "MANIFEST_DIGEST_MISMATCH" };
   }
 
-  if (computedReadbackDigest !== expectedManifest.manifest_digest) {
+  if (computedReadbackDigest !== safeExpected.manifest_digest) {
     return { status: "FAILED", reason_code: "MANIFEST_DIGEST_MISMATCH" };
   }
 
   const readbackObjects = Array.isArray(readbackResult.objects) ? readbackResult.objects : [];
-  const expectedObjects = Array.isArray(expectedManifest.objects) ? expectedManifest.objects : [];
+  const expectedObjects = Array.isArray(safeExpected.objects) ? safeExpected.objects : [];
 
   if (readbackObjects.length !== expectedObjects.length) {
     return { status: "FAILED", reason_code: "OBJECT_COUNT_MISMATCH" };
@@ -453,6 +513,7 @@ export function executeRetentionPreservationProductionInternal(reportInput, appr
       reason_code: "CLOCK_INVALID",
       preservation_count: 0,
       removal_count: 0,
+      manifest_template: null,
       manifest: null,
       receipt: null
     };
@@ -468,7 +529,8 @@ export function executeRetentionPreservationProductionInternal(reportInput, appr
     reason_code: prodWriteRes.error_code || "FEATURE_OFF_PRODUCTION_EXECUTION_FORBIDDEN",
     preservation_count: 0,
     removal_count: 0,
-    manifest: planResult.manifest_template ?? null,
+    manifest_template: planResult.manifest_template ?? null,
+    manifest: null,
     receipt: null
   };
 }

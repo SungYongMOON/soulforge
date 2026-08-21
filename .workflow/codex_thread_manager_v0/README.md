@@ -409,6 +409,14 @@ TASK pilot. It is not an ISO or other standards-conformity claim.
 - **Fail-Closed Sanitization & Safety**: Multi-`#` manual refs, unsafe/absolute/tilde/drive paths, credentials (e.g. `--access-token`, `--passwd`, `-p`), shell metacharacters, or malformed feature IDs fail closed with `malformed_feature_row` or `unsafe_path_detected` gap codes and action `HOLD`. `validator_ref` uses a strict allowlist grammar (`npm run <safe-script>`, `node [--test|--check] <safe-files>`, or direct safe relative file). Raw credential/path strings are sanitized and never echoed in serialized report JSON. Invalid feature IDs are sanitized to opaque placeholder `"invalid_feature_row"`.
 - **Report-Only Baseline**: Zero document mutation at runtime, zero scheduling, zero Night Watch/AX Board/Watchtower/Backup Controller/Activity/Task Engine integration, and zero destructive command surfaces. Missing coverage is reported only and never repaired automatically.
 
+## Lifecycle Retention Phase 5 (Apply+Verify Canary Gate)
+
+- **Module & Seam Isolation**: `lifecycle_retention_canary.mjs` (public entrypoint) and `lifecycle_retention_canary_internal.mjs` (internal engine) provide the Phase 5 canary planning and execution interfaces. Production execution is strictly feature-OFF (`status: HOLD`, `archive_count: 0`, `removal_count: 0`, `restore_probe_count: 0`, `zero_forbidden_actions: true`). Real canary execution is deferred to the Codex app manager.
+- **Git Worktree Canary Adapter**: `git_worktree_canary_adapter.mjs` provides the `createRealGitCanaryAdapter` for exact local Git worktree removal (without `--force` or branch-delete flags) and restore probe execution, as well as `createSyntheticGitCanaryAdapter` and `createSyntheticArchiveObserverAdapter` for synthetic testing.
+- **Two-Stage Protocol**: Stage 1 prepares a single-use action packet (`pkt-canary-...`). Stage 2 verifies manager-observed task archive status (`archived`, `archive_verified: true`), removes only the exact approved clean worktree, recreates a detached worktree at the target commit in a bounded temporary root to verify clean HEAD state, and emits a verified receipt (`rcpt-canary-...`, `CANARY_VERIFIED`).
+- **Safety Rails & Redaction**: Strict checks reject pinned tasks (`PINNED_TASK_REJECTED`), uncompleted result gates (`RESULT_GATE_NOT_COMPLETED`), dirty/untracked/locked worktrees, repo root removal, broad system dirs, symlink ambiguity, missing mainRef containment, and all forced or branch-deleting flags. Thread IDs and local absolute paths remain strictly redacted in public output.
+
+
 ## Lifecycle Retention Phase 3 (Report-Only Automation + Read-Only AX Board)
 
 - **Module**: `codex_retention_automation.mjs` combines the existing `runLifecycleRetentionReport` and `scanFeatureManualInventory` modules into one sanitized, deterministic envelope (`soulforge.codex_thread_manager.codex_retention_automation_report.v1`).

@@ -18,7 +18,8 @@ import {
   sanitizeAndVerifyReport,
   validateClockNow,
   sanitizeAdapterErrorCode,
-  canonicalizeJson
+  canonicalizeJson,
+  snapshotPlainData
 } from "../lifecycle_retention_preservation_internal.mjs";
 
 import { computeReportDigest } from "../lifecycle_retention.mjs";
@@ -623,5 +624,91 @@ describe("Soulforge Lifecycle Retention Phase 4: Approve & Preserve Module", () 
     const d2 = computeManifestDigest(manifest);
     assert.equal(d1, d2);
     assert.match(d1, /^sha256:[0-9a-f]{64}$/);
+  });
+
+  it("snapshot budget default 5000 limits deep/wide DAG node visits", () => {
+    // 1. Over-5000 fails (500 items x 12 props = ~6500 nodes)
+    const largeObj = { items: [] };
+    for (let i = 0; i < 500; i += 1) {
+      largeObj.items.push({ a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9, j: 10, k: 11, l: 12 });
+    }
+    assert.equal(snapshotPlainData(largeObj), null);
+
+    // 2. Exceeding 1000 nodes but below 5000 succeeds (200 items x 8 props = ~2000 nodes)
+    const validMidObj = { items: [] };
+    for (let i = 0; i < 200; i += 1) {
+      validMidObj.items.push({ a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8 });
+    }
+    assert.notEqual(snapshotPlainData(validMidObj), null);
+  });
+
+  it("test every still-emitted Phase4 code round-trips through Phase4 sanitizeAdapterErrorCode", () => {
+    const phase4Codes = [
+      "FEATURE_OFF_PRODUCTION_EXECUTION_FORBIDDEN",
+      "CLOCK_INVALID",
+      "APPROVAL_INVALID_FORMAT",
+      "APPROVAL_SCHEMA_VERSION_INVALID",
+      "APPROVAL_ID_INVALID",
+      "APPROVAL_CANDIDATE_ID_INVALID",
+      "APPROVAL_REPORT_DIGEST_INVALID",
+      "APPROVAL_EXPIRED",
+      "APPROVAL_FUTURE_SKEW_REJECTED",
+      "DISALLOWED_ACTION_REJECTED",
+      "DISALLOWED_STRATEGY_REJECTED",
+      "REPORT_INVALID_FORMAT",
+      "REPORT_SCHEMA_INVALID",
+      "REPORT_DIGEST_MISMATCH",
+      "DUPLICATE_CANDIDATE_ID_REJECTED",
+      "CANDIDATE_NOT_FOUND_IN_REPORT",
+      "PRESERVATION_NOT_AUTHORIZED",
+      "SOURCE_OBJECT_INVALID",
+      "SOURCE_OBJECT_READ_FAILED",
+      "SOURCE_OBJECT_COUNT_MISMATCH",
+      "SOURCE_OBJECT_BYTE_MISMATCH",
+      "MANIFEST_NOT_FOUND",
+      "PRESERVATION_WRITE_FAILED",
+      "PRESERVATION_READBACK_FAILED",
+      "PRESERVATION_REPLAY_CONFLICT",
+      "RESTORE_CHECK_FAILED",
+      "RESTORE_CHECK_DIGEST_MISMATCH",
+      "METADATA_COUNTS_MISSING",
+      "DIRTY_UNTRACKED_STATE_UNKNOWN",
+      "DIRTY_UNTRACKED_HOLD",
+      "SOURCE_READ_FAILED",
+      "SOURCE_READ_THREW",
+      "SOURCE_OBJECTS_MISSING",
+      "ZERO_UNIQUE_COMMITS_BRANCH_PRESERVATION_FORBIDDEN",
+      "RETENTION_ACTION_UNSUPPORTED",
+      "INVALID_MANIFEST",
+      "CLAIM_FAILED",
+      "CLAIM_CONSUMED"
+    ];
+
+    for (const code of phase4Codes) {
+      assert.equal(sanitizeAdapterErrorCode(code), code, `Phase 4 error code ${code} failed round-trip`);
+    }
+    assert.equal(sanitizeAdapterErrorCode("UNSAFE_UNKNOWN_CODE"), "ADAPTER_ERROR_CODE_UNSAFE");
+  });
+
+  it("proves mutation of source object Buffer after read does not alter stored object or computed manifest digest", () => {
+    const rawBuf = Buffer.from("original_test_bytes", "utf8");
+    const sourceReader = createSyntheticPreservationSourceReaderAdapter({
+      objects: [{ kind: "git_object_pack", bytes: rawBuf }]
+    });
+
+    const res1 = sourceReader.readSourceObjects("cand-11111111111111111111111111111111");
+    assert.equal(res1.success, true);
+
+    const initialObjectDigest = computeManifestDigest({ bytes: res1.objects[0].bytes });
+
+    // Mutate returned buffer copy
+    res1.objects[0].bytes[0] = 0x58; // 'X'
+
+    // Read again, original rawBuf and internal adapter output must remain pristine
+    const res2 = sourceReader.readSourceObjects("cand-11111111111111111111111111111111");
+    assert.equal(res2.objects[0].bytes.toString("utf8"), "original_test_bytes");
+
+    const recomputedObjectDigest = computeManifestDigest({ bytes: res2.objects[0].bytes });
+    assert.equal(initialObjectDigest, recomputedObjectDigest);
   });
 });

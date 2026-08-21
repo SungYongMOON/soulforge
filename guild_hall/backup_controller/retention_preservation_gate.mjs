@@ -74,12 +74,17 @@ export function createSyntheticPreservationSourceReaderAdapter(options = {}) {
         }
 
         if (objectsOverride) {
+          for (const obj of objectsOverride) {
+            if (!obj || !Buffer.isBuffer(obj.bytes)) {
+              return { success: false, error_code: "SOURCE_OBJECT_INVALID" };
+            }
+          }
           return {
             success: true,
             candidate_id: candidateId,
             objects: objectsOverride.map((obj) => ({
               kind: obj.kind ?? "git_object_pack",
-              bytes: Buffer.isBuffer(obj.bytes) ? Buffer.from(obj.bytes) : Buffer.from(String(obj.bytes ?? ""))
+              bytes: Buffer.from(obj.bytes)
             }))
           };
         }
