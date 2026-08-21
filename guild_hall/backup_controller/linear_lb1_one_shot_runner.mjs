@@ -12,7 +12,7 @@ import {
 import { evaluateLinearLb1OwnerGateV2, snapshotPlainData } from "./linear_lb1_owner_gate_v2.mjs";
 
 export const LINEAR_LB1_ONE_SHOT_RUNNER_SCHEMA_VERSION =
-  "soulforge.backup_controller.linear_lb1.one_shot_runner_result.v2";
+  "soulforge.backup_controller.linear_lb1.one_shot_runner_result.v3";
 
 const RUNNER_BINDING_FIELDS = Object.freeze([
   "claimStore",
@@ -46,7 +46,13 @@ function isPlainRecord(value) {
 
 function exactKeys(value, expected) {
   if (!isPlainRecord(value)) return false;
-  const actual = Object.keys(value).sort(codepointCompare);
+  const actual = Reflect.ownKeys(value);
+  if (actual.some((key) => typeof key !== "string")) return false;
+  for (const key of actual) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || !("value" in descriptor) || descriptor.get || descriptor.set || !descriptor.enumerable) return false;
+  }
+  actual.sort(codepointCompare);
   const wanted = [...expected].sort(codepointCompare);
   return actual.length === wanted.length && actual.every((key, index) => key === wanted[index]);
 }
@@ -140,6 +146,191 @@ function bufferEquals(a, b) {
   return bufA.length === bufB.length && bufA.equals(bufB);
 }
 
+const EFFECT_EVIDENCE_STATES = Object.freeze({
+  ATTESTED_SYNTHETIC_ZERO: "ATTESTED_SYNTHETIC_ZERO",
+  UNKNOWN: "UNKNOWN",
+  HOLD: "HOLD",
+});
+
+const EFFECT_EVIDENCE_COMMON_FIELDS = Object.freeze([
+  "adapter_kind",
+  "adapter_invocation_counts",
+  "authority_state",
+  "client_call_counts",
+  "effect_domain",
+  "external_effect_evidence",
+  "feature_state",
+]);
+
+function findDataMethod(target, name) {
+  let current = target;
+  try {
+    while (current !== null && current !== Object.prototype) {
+      if (types.isProxy(current)) return { state: EFFECT_EVIDENCE_STATES.HOLD, reason: "GET_EFFECTS_INVALID" };
+      const descriptor = Object.getOwnPropertyDescriptor(current, name);
+      if (descriptor) {
+        if (!("value" in descriptor) || descriptor.get || descriptor.set || typeof descriptor.value !== "function") {
+          return { state: EFFECT_EVIDENCE_STATES.HOLD, reason: "GET_EFFECTS_INVALID" };
+        }
+        return { state: "FOUND", method: descriptor.value };
+      }
+      current = Object.getPrototypeOf(current);
+    }
+  } catch {
+    return { state: EFFECT_EVIDENCE_STATES.HOLD, reason: "GET_EFFECTS_INVALID" };
+  }
+  return { state: EFFECT_EVIDENCE_STATES.UNKNOWN, reason: "GET_EFFECTS_MISSING" };
+}
+
+function validNonNegativeCount(value) {
+  return Number.isSafeInteger(value) && value >= 0;
+}
+
+function validateAdapterEffectEvidence(evidence, adapterType) {
+  if (!exactKeys(evidence, EFFECT_EVIDENCE_COMMON_FIELDS)
+      || evidence.feature_state !== "bound_not_activated"
+      || evidence.authority_state !== "synthetic_only"
+      || evidence.effect_domain !== "synthetic"
+      || evidence.external_effect_evidence !== "synthetic_attested_only") return false;
+  if (adapterType === "claim_store") {
+    return evidence.adapter_kind === "linear_runtime_claim_store"
+      && exactKeys(evidence.adapter_invocation_counts, ["consume_once"])
+      && validNonNegativeCount(evidence.adapter_invocation_counts.consume_once)
+      && exactKeys(evidence.client_call_counts, ["claim_calls", "revocation_calls"])
+      && validNonNegativeCount(evidence.client_call_counts.claim_calls)
+      && validNonNegativeCount(evidence.client_call_counts.revocation_calls);
+  }
+  if (adapterType === "linear_reader") {
+    return evidence.adapter_kind === "linear_runtime_reader"
+      && exactKeys(evidence.adapter_invocation_counts, ["collect_snapshot"])
+      && validNonNegativeCount(evidence.adapter_invocation_counts.collect_snapshot)
+      && exactKeys(evidence.client_call_counts, ["read_calls"])
+      && validNonNegativeCount(evidence.client_call_counts.read_calls);
+  }
+  return evidence.adapter_kind === "linear_runtime_backup_storage"
+    && exactKeys(evidence.adapter_invocation_counts, ["has_revision", "read_revision", "write_revision_create_only"])
+    && validNonNegativeCount(evidence.adapter_invocation_counts.has_revision)
+    && validNonNegativeCount(evidence.adapter_invocation_counts.read_revision)
+    && validNonNegativeCount(evidence.adapter_invocation_counts.write_revision_create_only)
+    && exactKeys(evidence.client_call_counts, ["exists_calls", "read_calls", "write_calls"])
+    && validNonNegativeCount(evidence.client_call_counts.exists_calls)
+    && validNonNegativeCount(evidence.client_call_counts.read_calls)
+    && validNonNegativeCount(evidence.client_call_counts.write_calls);
+}
+
+function captureAdapterEffectEvidence(adapter, adapterType) {
+  const method = findDataMethod(adapter, "getEffects");
+  if (method.state !== "FOUND") return { state: method.state, reason: method.reason, evidence: null };
+  try {
+    const rawEvidence = method.method.call(adapter);
+    if (rawEvidence instanceof Promise) {
+      return { state: EFFECT_EVIDENCE_STATES.HOLD, reason: "GET_EFFECTS_ASYNC", evidence: null };
+    }
+    const evidence = snapshotPlainData(rawEvidence);
+    if (!evidence || !validateAdapterEffectEvidence(evidence, adapterType)) {
+      return { state: EFFECT_EVIDENCE_STATES.HOLD, reason: "GET_EFFECTS_INVALID", evidence: null };
+    }
+    return { state: EFFECT_EVIDENCE_STATES.ATTESTED_SYNTHETIC_ZERO, reason: "ATTESTED_SYNTHETIC_ONLY", evidence };
+  } catch {
+    return { state: EFFECT_EVIDENCE_STATES.HOLD, reason: "GET_EFFECTS_INVALID", evidence: null };
+  }
+}
+
+function captureAdapterEffects({ claimStore, linearReaderAdapter, storageAdapter }) {
+  return {
+    claim: captureAdapterEffectEvidence(claimStore, "claim_store"),
+    reader: captureAdapterEffectEvidence(linearReaderAdapter, "linear_reader"),
+    storage: captureAdapterEffectEvidence(storageAdapter, "storage"),
+  };
+}
+
+function counterDelta(current, initial, collection, field) {
+  const delta = current[collection][field] - initial[collection][field];
+  return Number.isSafeInteger(delta) && delta >= 0 ? delta : null;
+}
+
+function attestedZeroExternalEffects() {
+  return { ...LINEAR_LB1_ZERO_EFFECTS };
+}
+
+function summarizeExternalEffects(adapters, initialCaptures, syntheticEffects) {
+  const { claim, reader, storage } = captureAdapterEffects(adapters);
+  const captures = [claim, reader, storage];
+  const initial = [initialCaptures.claim, initialCaptures.reader, initialCaptures.storage];
+  if (captures.some((capture) => capture.state === EFFECT_EVIDENCE_STATES.HOLD)) {
+    return { external_effects: null, external_effects_evidence_state: EFFECT_EVIDENCE_STATES.HOLD, external_effects_evidence_reason: captures.find((capture) => capture.state === EFFECT_EVIDENCE_STATES.HOLD).reason, adapter_effect_evidence: null };
+  }
+  if (initial.some((capture) => capture.state === EFFECT_EVIDENCE_STATES.HOLD)) {
+    return { external_effects: null, external_effects_evidence_state: EFFECT_EVIDENCE_STATES.HOLD, external_effects_evidence_reason: initial.find((capture) => capture.state === EFFECT_EVIDENCE_STATES.HOLD).reason, adapter_effect_evidence: null };
+  }
+  if (captures.some((capture) => capture.state === EFFECT_EVIDENCE_STATES.UNKNOWN)) {
+    return { external_effects: null, external_effects_evidence_state: EFFECT_EVIDENCE_STATES.UNKNOWN, external_effects_evidence_reason: captures.find((capture) => capture.state === EFFECT_EVIDENCE_STATES.UNKNOWN).reason, adapter_effect_evidence: null };
+  }
+  if (initial.some((capture) => capture.state === EFFECT_EVIDENCE_STATES.UNKNOWN)) {
+    return { external_effects: null, external_effects_evidence_state: EFFECT_EVIDENCE_STATES.UNKNOWN, external_effects_evidence_reason: initial.find((capture) => capture.state === EFFECT_EVIDENCE_STATES.UNKNOWN).reason, adapter_effect_evidence: null };
+  }
+  if (counterDelta(claim.evidence, initialCaptures.claim.evidence, "adapter_invocation_counts", "consume_once") !== syntheticEffects.claim_attempts
+      || counterDelta(reader.evidence, initialCaptures.reader.evidence, "adapter_invocation_counts", "collect_snapshot") !== syntheticEffects.provider_reads
+      || counterDelta(storage.evidence, initialCaptures.storage.evidence, "adapter_invocation_counts", "write_revision_create_only") !== syntheticEffects.storage_writes
+      || counterDelta(storage.evidence, initialCaptures.storage.evidence, "adapter_invocation_counts", "read_revision") !== syntheticEffects.storage_reads
+      || counterDelta(storage.evidence, initialCaptures.storage.evidence, "adapter_invocation_counts", "has_revision") !== 0
+      || counterDelta(storage.evidence, initialCaptures.storage.evidence, "client_call_counts", "exists_calls") !== 0
+      || counterDelta(claim.evidence, initialCaptures.claim.evidence, "client_call_counts", "revocation_calls") > syntheticEffects.claim_attempts) {
+    return { external_effects: null, external_effects_evidence_state: EFFECT_EVIDENCE_STATES.HOLD, external_effects_evidence_reason: "COUNTER_MISMATCH", adapter_effect_evidence: null };
+  }
+  return {
+    external_effects: attestedZeroExternalEffects(),
+    external_effects_evidence_state: EFFECT_EVIDENCE_STATES.ATTESTED_SYNTHETIC_ZERO,
+    external_effects_evidence_reason: "ATTESTED_SYNTHETIC_ONLY",
+    adapter_effect_evidence: {
+      claim_store: claim.evidence,
+      linear_reader: reader.evidence,
+      storage: storage.evidence,
+    },
+  };
+}
+
+function finalizeRunnerResult(rawResult, adapters, initialCaptures) {
+  if (!isPlainRecord(rawResult) || !isPlainRecord(rawResult.synthetic_effects)) {
+    return deepFreeze({
+      schema_version: LINEAR_LB1_ONE_SHOT_RUNNER_SCHEMA_VERSION,
+      status: "HOLD",
+      reason: "EXTERNAL_EFFECTS_EVIDENCE_HOLD",
+      claim_consumed: null,
+      gate_result: null,
+      claim_result: null,
+      write_result: null,
+      run: null,
+      restore_check: null,
+      candidate_state: null,
+      external_effects: null,
+      external_effects_evidence_state: EFFECT_EVIDENCE_STATES.HOLD,
+      external_effects_evidence_reason: "RESULT_SHAPE_INVALID",
+      adapter_effect_evidence: null,
+      synthetic_effects: { claim_attempts: 0, provider_reads: 0, storage_writes: 0, storage_reads: 0, restore_checks: 0 },
+    });
+  }
+  const result = { ...rawResult };
+  const effectSummary = initialCaptures === null
+    ? { external_effects: null, external_effects_evidence_state: EFFECT_EVIDENCE_STATES.UNKNOWN, external_effects_evidence_reason: "NOT_COLLECTED_PRE_AUTH", adapter_effect_evidence: null }
+    : summarizeExternalEffects(adapters, initialCaptures, result.synthetic_effects);
+  const output = {
+    ...result,
+    ...effectSummary,
+  };
+  if (effectSummary.external_effects_evidence_state === EFFECT_EVIDENCE_STATES.HOLD) {
+    output.origin_status = output.status;
+    output.origin_reason = output.reason;
+    output.status = output.claim_consumed === true ? "HOLD_CONSUMED" : "HOLD";
+    output.reason = "EXTERNAL_EFFECTS_EVIDENCE_HOLD";
+    output.run = null;
+    output.restore_check = null;
+    output.write_result = null;
+    output.candidate_state = null;
+  }
+  return deepFreeze(output);
+}
+
 export function createLinearLb1OneShotRunner(runtimeBinding) {
   if (!isPlainRecord(runtimeBinding) || !exactKeys(runtimeBinding, RUNNER_BINDING_FIELDS)) {
     throw new LinearLb1V2Error("linear_lb1_runner_binding_invalid");
@@ -162,6 +353,8 @@ export function createLinearLb1OneShotRunner(runtimeBinding) {
     runner_kind: "linear_lb1_v2_one_shot_runner",
     feature_state: "off",
     async execute(closedRequest, trustedExpectedRequestPin) {
+      let initialCaptures = null;
+      const rawResult = await (async () => {
       const synthetic_effects = {
         claim_attempts: 0,
         provider_reads: 0,
@@ -188,7 +381,7 @@ export function createLinearLb1OneShotRunner(runtimeBinding) {
           run: null,
           restore_check: null,
           candidate_state: null,
-          external_effects: { ...LINEAR_LB1_ZERO_EFFECTS },
+          external_effects: null,
           synthetic_effects: { ...synthetic_effects },
         });
       }
@@ -209,7 +402,7 @@ export function createLinearLb1OneShotRunner(runtimeBinding) {
           run: null,
           restore_check: null,
           candidate_state: null,
-          external_effects: { ...LINEAR_LB1_ZERO_EFFECTS },
+          external_effects: null,
           synthetic_effects: { ...synthetic_effects },
         });
       }
@@ -229,7 +422,7 @@ export function createLinearLb1OneShotRunner(runtimeBinding) {
           run: null,
           restore_check: null,
           candidate_state: null,
-          external_effects: { ...LINEAR_LB1_ZERO_EFFECTS },
+          external_effects: null,
           synthetic_effects: { ...synthetic_effects },
         });
       }
@@ -248,7 +441,7 @@ export function createLinearLb1OneShotRunner(runtimeBinding) {
           run: null,
           restore_check: null,
           candidate_state: null,
-          external_effects: { ...LINEAR_LB1_ZERO_EFFECTS },
+          external_effects: null,
           synthetic_effects: { ...synthetic_effects },
         });
       }
@@ -268,10 +461,12 @@ export function createLinearLb1OneShotRunner(runtimeBinding) {
           run: null,
           restore_check: null,
           candidate_state: null,
-          external_effects: { ...LINEAR_LB1_ZERO_EFFECTS },
+          external_effects: null,
           synthetic_effects: { ...synthetic_effects },
         });
       }
+
+      initialCaptures = captureAdapterEffects({ claimStore, linearReaderAdapter, storageAdapter });
 
       // 4. Single-use token claim before any provider read
       synthetic_effects.claim_attempts += 1;
@@ -299,7 +494,7 @@ export function createLinearLb1OneShotRunner(runtimeBinding) {
           run: null,
           restore_check: null,
           candidate_state: null,
-          external_effects: { ...LINEAR_LB1_ZERO_EFFECTS },
+          external_effects: null,
           synthetic_effects: { ...synthetic_effects },
         });
       }
@@ -322,7 +517,7 @@ export function createLinearLb1OneShotRunner(runtimeBinding) {
           run: null,
           restore_check: null,
           candidate_state: null,
-          external_effects: { ...LINEAR_LB1_ZERO_EFFECTS },
+          external_effects: null,
           synthetic_effects: { ...synthetic_effects },
         });
       }
@@ -343,7 +538,7 @@ export function createLinearLb1OneShotRunner(runtimeBinding) {
           run: null,
           restore_check: null,
           candidate_state: null,
-          external_effects: { ...LINEAR_LB1_ZERO_EFFECTS },
+          external_effects: null,
           synthetic_effects: { ...synthetic_effects },
         });
       }
@@ -365,7 +560,7 @@ export function createLinearLb1OneShotRunner(runtimeBinding) {
           run: null,
           restore_check: null,
           candidate_state: null,
-          external_effects: { ...LINEAR_LB1_ZERO_EFFECTS },
+          external_effects: null,
           synthetic_effects: { ...synthetic_effects },
         });
       }
@@ -383,7 +578,7 @@ export function createLinearLb1OneShotRunner(runtimeBinding) {
           run: null,
           restore_check: null,
           candidate_state: null,
-          external_effects: { ...LINEAR_LB1_ZERO_EFFECTS },
+          external_effects: null,
           synthetic_effects: { ...synthetic_effects },
         });
       }
@@ -412,7 +607,7 @@ export function createLinearLb1OneShotRunner(runtimeBinding) {
           run: null,
           restore_check: null,
           candidate_state: null,
-          external_effects: { ...LINEAR_LB1_ZERO_EFFECTS },
+          external_effects: null,
           synthetic_effects: { ...synthetic_effects },
         });
       }
@@ -430,7 +625,7 @@ export function createLinearLb1OneShotRunner(runtimeBinding) {
           run: null,
           restore_check: null,
           candidate_state: null,
-          external_effects: { ...LINEAR_LB1_ZERO_EFFECTS },
+          external_effects: null,
           synthetic_effects: { ...synthetic_effects },
         });
       }
@@ -450,7 +645,7 @@ export function createLinearLb1OneShotRunner(runtimeBinding) {
           run: null,
           restore_check: null,
           candidate_state: null,
-          external_effects: { ...LINEAR_LB1_ZERO_EFFECTS },
+          external_effects: null,
           synthetic_effects: { ...synthetic_effects },
         });
       }
@@ -468,7 +663,7 @@ export function createLinearLb1OneShotRunner(runtimeBinding) {
           run: null,
           restore_check: null,
           candidate_state: null,
-          external_effects: { ...LINEAR_LB1_ZERO_EFFECTS },
+          external_effects: null,
           synthetic_effects: { ...synthetic_effects },
         });
       }
@@ -486,7 +681,7 @@ export function createLinearLb1OneShotRunner(runtimeBinding) {
           run: null,
           restore_check: null,
           candidate_state: null,
-          external_effects: { ...LINEAR_LB1_ZERO_EFFECTS },
+          external_effects: null,
           synthetic_effects: { ...synthetic_effects },
         });
       }
@@ -528,7 +723,7 @@ export function createLinearLb1OneShotRunner(runtimeBinding) {
           run: makePublicRun(backupRun),
           restore_check: null,
           candidate_state: null,
-          external_effects: { ...LINEAR_LB1_ZERO_EFFECTS },
+          external_effects: null,
           synthetic_effects: { ...synthetic_effects },
         });
       }
@@ -551,7 +746,7 @@ export function createLinearLb1OneShotRunner(runtimeBinding) {
           run: makePublicRun(backupRun),
           restore_check: null,
           candidate_state: null,
-          external_effects: { ...LINEAR_LB1_ZERO_EFFECTS },
+          external_effects: null,
           synthetic_effects: { ...synthetic_effects },
         });
       }
@@ -607,7 +802,7 @@ export function createLinearLb1OneShotRunner(runtimeBinding) {
           run: makePublicRun(backupRun),
           restore_check: null,
           candidate_state: null,
-          external_effects: { ...LINEAR_LB1_ZERO_EFFECTS },
+          external_effects: null,
           synthetic_effects: { ...synthetic_effects },
         });
       }
@@ -645,9 +840,11 @@ export function createLinearLb1OneShotRunner(runtimeBinding) {
         run: makePublicRun(backupRun),
         restore_check: restoreCheck,
         candidate_state,
-        external_effects: { ...LINEAR_LB1_ZERO_EFFECTS },
+          external_effects: null,
         synthetic_effects: { ...synthetic_effects },
       });
+      })();
+      return finalizeRunnerResult(rawResult, { claimStore, linearReaderAdapter, storageAdapter }, initialCaptures);
     },
   };
 }

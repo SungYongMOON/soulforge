@@ -260,10 +260,21 @@ restore. Every failure after a successful claim is `HOLD_CONSUMED`; async
 adapter errors, clock drift, result accessors, caller mutation, resource-limit
 bypass, and substituted envelopes fail closed without raw error text.
 
-Only in-memory and fixed-HOLD Adapters exist. External Linear/Drive Adapters,
-credentials, provider/network calls, filesystem backup writes, human restore
-acceptance, scheduling, and technical cross-process single-use enforcement are
-still absent and `HOLD`.
+`linear_lb1_runtime_adapters.mjs` now supplies a capability-allowlisted,
+synthetic-only bound adapter factory for exact-scope read, create-only storage,
+durable atomic claim, injected clock, immutable target/authority/scope bindings,
+closed client-return validation, and adapter invocation evidence. The factory
+remains `bound_not_activated`; no real Linear/Drive client or credential is
+created or discovered. `linear_lb1_one_shot_runner.mjs` result v3 no longer
+hard-codes zero external effects: missing evidence is `UNKNOWN`, malformed or
+counter-mismatched evidence is `HOLD`, and zero is emitted only from exact
+synthetic-only adapter attestation reconciled with runner invocation counters.
+
+Actual authorized Linear/Drive clients, credential values, provider/network
+calls, filesystem backup writes, human restore acceptance, and the first
+one-shot remain absent and `HOLD`. A 24-hour scheduler, heartbeat, and topology
+projection belong to the post-one-shot `LB2` activation lane, not this adapter
+foundation.
 
 ## Validation
 
@@ -271,4 +282,5 @@ still absent and `HOLD`.
 npm.cmd run validate:backup-controller
 npm.cmd run validate:linear-lb1-owner-gate
 npm.cmd run validate:linear-lb1-v2
+npm.cmd run validate:linear-lb1-runtime-adapters
 ```

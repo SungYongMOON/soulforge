@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## 2026-08-22 - VF-4/C2 Linear LB1 runtime adapter and effect-evidence foundation
+
+- Revision `working`.
+- Added capability-allowlisted, synthetic-only Linear reader, create-only storage, and durable
+  atomic claim adapters with immutable scope/target/authority, injected clock, closed client return
+  validation, and distinct adapter-invocation versus client-call counters.
+- Upgraded the one-shot runner result contract to v3. It no longer hard-codes external effects to
+  zero: missing evidence is `UNKNOWN`, malformed/counter-mismatched evidence is `HOLD`, and zero is
+  emitted only from exact synthetic-only attestation reconciled with runner counters.
+- Validation: runtime adapters 22/22, LB1 v2/runner 50/50, Backup Controller 135/135, fresh exact
+  Opus 5 adapter and runner reviews `ACCEPT`.
+- Actual Linear/Drive clients, credentials, provider calls, first one-shot, human restore acceptance,
+  and the post-one-shot 24-hour scheduler/heartbeat/topology lane remain `0/HOLD`.
+
+## 2026-08-22 - Owner reports Hourly Multi-App Work Intake Bot v0.4.0 configuration
+
+- Owner reported that the existing `업무 인입 감시` reservation keeps its ID, hourly cadence, and
+  active state while enabling bounded Linear, Slack, Calendar, and Drive mutations plus Gmail
+  read/label/Draft-only behavior.
+- Gmail send/reply/forward remains forbidden with a required `gmail_sent=0` check. Each run is capped
+  at five external changes; destructive lifecycle operations and automatic contract, cost, technical
+  baseline, or external-commitment decisions remain forbidden.
+- The repo/agent did not change or independently inspect this Scheduled Task. Exact prompt digest,
+  first v0.4.0 Cycle Receipt, app-by-app readback, and prohibited-effect zero remain pending.
+
 ## 2026-08-21 - VF-2/VF-3 public-synthetic Shadow foundation
 
 - Revision `working`.

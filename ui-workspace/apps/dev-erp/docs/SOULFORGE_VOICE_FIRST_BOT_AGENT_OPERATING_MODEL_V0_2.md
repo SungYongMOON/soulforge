@@ -9,8 +9,8 @@
 | 기준일 | 2026-08-21 |
 | Official Task State Owner | Linear |
 | Context·Decision·Policy·Evidence Owner | Soulforge |
-| 현재 Chat 1시간 Bot | 높은 판단을 목표로 한 `A0 Shadow`; 기존 설정 유지, 이 문서 작성으로 변경하지 않음 |
-| 외부 mutation | capability별 별도 Gate 전 `0` |
+| 현재 Chat 1시간 Bot | Owner 보고 v0.4.0 bounded multi-app write 설정; 기존 ID·매시간·활성 유지, first run/readback pending |
+| 외부 mutation | Linear·Slack·Calendar·Drive bounded write, Gmail Draft-only; run당 최대 5. actual effect는 first run 관찰 전 `UNKNOWN/HOLD` |
 
 이 문서는 기존 설계를 갈아엎지 않는다. 실제 운영에서 드러난 병목과 Owner의 Voice 사용법을
 기준으로 **입구·맥락·판단·학습·실행권한의 순서**를 확정한다. 최종 목표는 낮은 수준의
@@ -31,7 +31,7 @@ AI 팀 운영체계다.
 | --- | --- | --- |
 | 전체 아키텍처 | `CONDITIONAL_GO` | 구조는 확정하고 actual Evidence로 단계별 검증 |
 | ChatGPT Voice | `GO_AS_HUMAN_INTERFACE` | 단일 비서·교환대·Dispatch Console; 정본 아님 |
-| Chat 1시간 Bot | `GO_AS_HIGH_JUDGMENT_A0_SHADOW` | 전체 연결업무 관찰, Project routing 뒤 격리 판단, 외부 mutation 0 |
+| Chat 1시간 Bot | `OWNER_CONFIGURED_BOUNDED_WRITE / READBACK_PENDING` | v0.4.0 permission matrix와 max-effects=5를 Owner가 설정했다고 보고. public A0 contract는 safety baseline이며 실제 first-run effect는 미검증 |
 | Project Agent | `TARGET` | Project-scoped Source·Context·Engine·Task만 사용 |
 | Portfolio Navigator | `TARGET` | Project State Capsule과 typed projection만 소비, raw 통합 금지 |
 | P4·Linear Backup·P5 | `GO_WITH_EXACT_GATES` | actual 한 번의 Evidence 폐루프가 다음 단계 |
@@ -187,9 +187,11 @@ Roadmap의 완료조각 `C0~C6`과 혼동하지 않도록 machine-facing 판단 
 | `A5` | approved Work Unit을 Worker에게 dispatch |
 | `A6` | 승인된 수신자·template·업무유형의 제한적 외부행위 |
 
-현재 Chat 1시간 Bot은 **JM5~JM6를 목표로 하는 A0**다. Shadow는 낮은 지능이 아니라 실행권한만
-잠근 상태다. 요구사항 baseline, 계약, 비용, 대외 납기·약속, 중요 기술기준은 높은 단계에서도
-Permanent Human Gate다.
+public-synthetic Cycle Contract는 **JM5~JM6를 목표로 하는 A0 baseline**을 유지한다. 실제
+`업무 인입 감시` v0.4.0은 Owner 보고상 Linear·Slack·Calendar·Drive bounded write와 Gmail
+Draft-only를 열었고 run당 외부 변경은 5건으로 제한한다. Gmail send/reply/forward,
+Done/Cancel/Archive/Delete, 계약·비용·대외 약속·중요 기술기준은 계속 Permanent Human Gate다.
+first run의 exact receipt/readback 전에는 실제 effect 성공이나 정책 준수를 주장하지 않는다.
 
 ### Canary 단위
 
@@ -212,7 +214,8 @@ Agent 전체나 Project 전체에 권한을 한꺼번에 주지 않는다. 자�
 - all-project observation, Project별 isolated decision cycle
 - KST cutoff·source cursor·coverage contract
 - output schema·policy revision·allowed effects
-- 현재 A0: app read와 Chat response만; 기존 Scheduled Task는 이 문서로 자동 변경하지 않음
+- repo contract baseline은 A0이며, 실제 task는 Owner 보고 v0.4.0 permission matrix를 별도 소유한다.
+  exact prompt digest·first-run app readback·`gmail_sent=0`·effect≤5 전에는 live acceptance `HOLD`
 
 ### B1 — Retrieval Coverage
 
@@ -375,7 +378,7 @@ source와 exact version을 고정하고 Soulforge sole-writer authority를 부�
 | `VF-1` | C0 mutation default-OFF — `DONE_FOR_SYNTHETIC_SCOPE 2026-08-21` | pre-fix RED 뒤 synthetic restart/launcher·core GREEN, explicit opt-in 보존, implicit enable 0; live runtime posture는 별도 승인 restart 전 미검증 |
 | `VF-2` | 현재 Chat Bot Prompt freeze·B0/B1/B2 계측 — `FOUNDATION_DONE / ACTUAL_TASK_HOLD 2026-08-21` | required-source/A0/payload-bounded Cycle Contract와 hostile fixture GREEN; actual Chat prompt digest·app binding은 `HB-D1` 전 `UNKNOWN/HOLD` |
 | `VF-3` | C3 Project Decision Ledger·Portfolio Projection·ShadowEvaluator — `DONE_FOR_PUBLIC_SYNTHETIC_SCOPE 2026-08-21` | in-memory append/replay/NO_OP/correction/digest chain, identical-horizon portfolio, live-only synthetic quality receipt; persistent private writer는 `HB-D2` 전 0 |
-| `VF-4` | C1 actual P4 + C2 actual Linear backup 병렬 | exact project/source/restore receipts |
+| `VF-4` | C1 actual P4 + C2 actual Linear backup 병렬 — `C2_RUNTIME_ADAPTER_FOUNDATION_DONE / ACTUAL_RUN_HOLD 2026-08-22` | Linear runtime 22/22·LB1 50/50·Backup 135/135; actual project/source/stored-byte/human restore receipts는 Owner binding 뒤 |
 | `VF-5` | C4 Accepted Generation + read-only Context Query | one accepted generation, ACL/generation/no-fallback receipt |
 | `VF-6` | Hermes 격리 install + read-only Proposal canary | doctor, exact version, no credential/write/memory promotion |
 | `VF-7` | Grok Build/Flash/Codex Worker comparison | same Work Unit quality·time·correction·receipt comparison |
@@ -408,7 +411,7 @@ source와 exact version을 고정하고 Soulforge sole-writer authority를 부�
 4. Project별 Manager/Agent와 Context Firewall을 두고 Portfolio는 projection만 본다.
 5. 현재 Linear를 Sole Official Task State Owner로 유지한다.
 6. Soulforge가 Context·Decision Ledger·Policy·Evidence·Agent Receipt를 소유한다.
-7. 현재 1시간 Bot은 all-project high-judgment `A0 Shadow`로 운용한다.
+7. 1시간 Bot public contract는 A0 baseline이고, 실제 `업무 인입 감시`는 Owner 보고 v0.4.0 bounded multi-app write다. first-run receipt/readback 전 actual acceptance는 `HOLD`다.
 8. 최종 목표는 `JM6(C6) 판단능력 × task-type별 A0~A6 가변권한`이다.
 9. Permanent Owner Authority 영역은 높은 단계에서도 Human Gate다.
 10. Canary 단위는 `Project×TaskType×Action×Authority×Policy Revision`이다.

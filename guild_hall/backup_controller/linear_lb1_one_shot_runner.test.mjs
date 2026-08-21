@@ -30,6 +30,9 @@ import {
 import {
   makeCompleteLinearLb1V2Fixture,
 } from "./linear_lb1_v2_fixture.mjs";
+import {
+  createLinearLb1RuntimeAdapters,
+} from "./linear_lb1_runtime_adapters.mjs";
 
 function hexSeed(seed) {
   return createHash("sha256").update(String(seed)).digest("hex");
@@ -192,7 +195,8 @@ test("successful async one-shot execution follows gate -> claim -> read -> seal 
   assert.equal(result.restore_check.human_accepted, false);
   assert.equal(result.candidate_state.human_accepted, false);
   assert.equal(result.candidate_state.claim_ceiling, "RESTORE_REVIEW_CANDIDATE");
-  assert.deepEqual(result.external_effects, LINEAR_LB1_ZERO_EFFECTS);
+  assert.equal(result.external_effects, null);
+  assert.equal(result.external_effects_evidence_state, "UNKNOWN");
 
   // Deterministic unique run key from packet digest + writer epoch (not target folder ID)
   const expectedKeyPrefix = `linear-lb1-v2-run-${pin.expected_packet_sha256.replace(/^sha256:/, "")}-e1`;
@@ -347,7 +351,8 @@ test("replaying same single-use claim token returns HOLD_CONSUMED with claim_con
   assert.equal(secondRun.claim_result.success, false);
   assert.equal(secondRun.run, null);
   assert.equal(linearReaderAdapter.getCallCount(), 1); // No second read!
-  assert.deepEqual(secondRun.external_effects, LINEAR_LB1_ZERO_EFFECTS);
+  assert.equal(secondRun.external_effects, null);
+  assert.equal(secondRun.external_effects_evidence_state, "UNKNOWN");
 });
 
 test("adapter rejection or throw is normalized to stable fixed code without exposing raw error object or message", async () => {
@@ -1049,4 +1054,259 @@ test("B5: storage readback detects substituted self-consistent envelope or byte 
   assert.equal(res5b.reason, "STORAGE_READBACK_FAILED");
   assert.equal(res5b.claim_consumed, true);
   assert.equal(res5b.restore_check, null);
+});
+
+function attachAttestedSyntheticEvidence({ claimStore, linearReaderAdapter, storageAdapter }) {
+  claimStore.getEffects = () => ({
+    adapter_kind: "linear_runtime_claim_store",
+    feature_state: "bound_not_activated",
+    authority_state: "synthetic_only",
+    effect_domain: "synthetic",
+    external_effect_evidence: "synthetic_attested_only",
+    adapter_invocation_counts: { consume_once: claimStore.getCallCount() },
+    client_call_counts: { claim_calls: claimStore.getCallCount(), revocation_calls: 0 },
+  });
+  linearReaderAdapter.getEffects = () => ({
+    adapter_kind: "linear_runtime_reader",
+    feature_state: "bound_not_activated",
+    authority_state: "synthetic_only",
+    effect_domain: "synthetic",
+    external_effect_evidence: "synthetic_attested_only",
+    adapter_invocation_counts: { collect_snapshot: linearReaderAdapter.getCallCount() },
+    client_call_counts: { read_calls: linearReaderAdapter.getCallCount() },
+  });
+  storageAdapter.getEffects = () => ({
+    adapter_kind: "linear_runtime_backup_storage",
+    feature_state: "bound_not_activated",
+    authority_state: "synthetic_only",
+    effect_domain: "synthetic",
+    external_effect_evidence: "synthetic_attested_only",
+    adapter_invocation_counts: {
+      write_revision_create_only: storageAdapter.getWriteCalls(),
+      read_revision: storageAdapter.getReadCalls(),
+      has_revision: 0,
+    },
+    client_call_counts: {
+      write_calls: storageAdapter.getWriteCalls(),
+      read_calls: storageAdapter.getReadCalls(),
+      exists_calls: 0,
+    },
+  });
+}
+
+test("runner emits UNKNOWN external evidence instead of a hardcoded zero claim when adapters have no evidence", async () => {
+  const runner = createLinearLb1OneShotRunner({
+    claimStore: createInMemoryClaimStore({ claim_store_ref: CLAIM_REF }),
+    linearReaderAdapter: createSyntheticLinearReaderAdapter({ adapter_ref: READER_REF }),
+    storageAdapter: createInMemoryStorageAdapter({ adapter_ref: STORAGE_REF }),
+    clock: makeTestClock(),
+  });
+  const request = makeClosedRequest("token-evidence-unknown", "target-evidence-unknown");
+  const result = await runner.execute(request, trustedPinFor(request));
+  assert.equal(result.status, "RESTORE_REVIEW_CANDIDATE");
+  assert.equal(result.external_effects, null);
+  assert.equal(result.external_effects_evidence_state, "UNKNOWN");
+  assert.equal(result.adapter_effect_evidence, null);
+});
+
+test("runner emits zero external effects only from exact attested adapter evidence and reconciled counters", async () => {
+  const claimStore = createInMemoryClaimStore({ claim_store_ref: CLAIM_REF });
+  const linearReaderAdapter = createSyntheticLinearReaderAdapter({ adapter_ref: READER_REF });
+  const storageAdapter = createInMemoryStorageAdapter({ adapter_ref: STORAGE_REF });
+  attachAttestedSyntheticEvidence({ claimStore, linearReaderAdapter, storageAdapter });
+  const runner = createLinearLb1OneShotRunner({ claimStore, linearReaderAdapter, storageAdapter, clock: makeTestClock() });
+  const request = makeClosedRequest("token-evidence-attested", "target-evidence-attested");
+  const result = await runner.execute(request, trustedPinFor(request));
+  assert.equal(result.status, "RESTORE_REVIEW_CANDIDATE");
+  assert.deepEqual(result.external_effects, LINEAR_LB1_ZERO_EFFECTS);
+  assert.equal(result.external_effects_evidence_state, "ATTESTED_SYNTHETIC_ZERO");
+  assert.deepEqual(result.adapter_effect_evidence.claim_store.client_call_counts, { claim_calls: 1, revocation_calls: 0 });
+  assert.deepEqual(result.adapter_effect_evidence.linear_reader.client_call_counts, { read_calls: 1 });
+  assert.deepEqual(result.adapter_effect_evidence.storage.client_call_counts, { write_calls: 1, read_calls: 1, exists_calls: 0 });
+});
+
+test("malformed, throwing, proxied, or mismatched effect evidence becomes a sanitized evidence HOLD", async () => {
+  for (const [index, effects] of [
+    () => { throw new Error("file:///C:/private/effects"); },
+    () => new Proxy({}, {}),
+    () => ({
+      adapter_kind: "linear_runtime_claim_store",
+      feature_state: "bound_not_activated",
+      authority_state: "synthetic_only",
+      effect_domain: "synthetic",
+      external_effect_evidence: "synthetic_attested_only",
+      adapter_invocation_counts: { consume_once: 0 },
+      client_call_counts: { claim_calls: 0, revocation_calls: 0 },
+    }),
+  ].entries()) {
+    const claimStore = createInMemoryClaimStore({ claim_store_ref: CLAIM_REF });
+    const linearReaderAdapter = createSyntheticLinearReaderAdapter({ adapter_ref: READER_REF });
+    const storageAdapter = createInMemoryStorageAdapter({ adapter_ref: STORAGE_REF });
+    attachAttestedSyntheticEvidence({ claimStore, linearReaderAdapter, storageAdapter });
+    claimStore.getEffects = effects;
+    const runner = createLinearLb1OneShotRunner({ claimStore, linearReaderAdapter, storageAdapter, clock: makeTestClock() });
+    const request = makeClosedRequest(`token-evidence-hold-${index}`, "target-evidence-hold");
+    const result = await runner.execute(request, trustedPinFor(request));
+    assert.equal(result.status, "HOLD_CONSUMED");
+    assert.equal(result.reason, "EXTERNAL_EFFECTS_EVIDENCE_HOLD");
+    assert.equal(result.external_effects, null);
+    assert.equal(result.external_effects_evidence_state, "HOLD");
+    assert.equal(result.adapter_effect_evidence, null);
+    assert.doesNotMatch(JSON.stringify(result), /private|file:\/\//iu);
+  }
+});
+
+test("runner v3 does not invoke effect evidence before owner-gate or adapter-ref authorization", async () => {
+  let getEffectsCalls = 0;
+  const evidenceSpy = () => { getEffectsCalls += 1; return {}; };
+  const claimStore = { claim_store_ref: CLAIM_REF, consumeOnce() { return { success: true }; }, getEffects: evidenceSpy };
+  const reader = { adapter_ref: READER_REF, collectSnapshot() { throw new Error("must not read"); }, getEffects: evidenceSpy };
+  const storage = { adapter_ref: STORAGE_REF, writeRevisionCreateOnly() { throw new Error("must not write"); }, readRevision() { throw new Error("must not read"); }, getEffects: evidenceSpy };
+  const runner = createLinearLb1OneShotRunner({ claimStore, linearReaderAdapter: reader, storageAdapter: storage, clock: makeTestClock() });
+  const blocked = makeClosedRequest("token-pre-gate", "target-pre-gate");
+  blocked.owner_decision = { state: "pending", decision_ref: null, approved_at_utc: null, expires_at_utc: null };
+  const blockedResult = await runner.execute(blocked, trustedPinFor(blocked));
+  assert.equal(blockedResult.reason, "OWNER_GATE_BLOCKED");
+  assert.equal(blockedResult.external_effects_evidence_state, "UNKNOWN");
+  assert.equal(getEffectsCalls, 0);
+
+  const pinned = makeClosedRequest("token-pre-pin", "target-pre-pin");
+  const mismatchRunner = createLinearLb1OneShotRunner({
+    claimStore,
+    linearReaderAdapter: { ...reader, adapter_ref: ref("mismatched-reader-ref") },
+    storageAdapter: storage,
+    clock: makeTestClock(),
+  });
+  const mismatchResult = await mismatchRunner.execute(pinned, trustedPinFor(pinned));
+  assert.equal(mismatchResult.reason, "ADAPTER_REF_MISMATCH");
+  assert.equal(getEffectsCalls, 0);
+});
+
+test("evidence HOLD preserves origin and clears success-bearing material", async () => {
+  const claimStore = createInMemoryClaimStore({ claim_store_ref: CLAIM_REF });
+  const linearReaderAdapter = createSyntheticLinearReaderAdapter({ adapter_ref: READER_REF });
+  const storageAdapter = createInMemoryStorageAdapter({ adapter_ref: STORAGE_REF });
+  attachAttestedSyntheticEvidence({ claimStore, linearReaderAdapter, storageAdapter });
+  claimStore.getEffects = () => ({
+    adapter_kind: "linear_runtime_claim_store",
+    feature_state: "bound_not_activated",
+    authority_state: "synthetic_only",
+    effect_domain: "synthetic",
+    external_effect_evidence: "synthetic_attested_only",
+    adapter_invocation_counts: { consume_once: 0 },
+    client_call_counts: { claim_calls: 0, revocation_calls: 0 },
+  });
+  const runner = createLinearLb1OneShotRunner({ claimStore, linearReaderAdapter, storageAdapter, clock: makeTestClock() });
+  const request = makeClosedRequest("token-origin-hold", "target-origin-hold");
+  const result = await runner.execute(request, trustedPinFor(request));
+  assert.equal(result.status, "HOLD_CONSUMED");
+  assert.equal(result.reason, "EXTERNAL_EFFECTS_EVIDENCE_HOLD");
+  assert.equal(result.origin_status, "RESTORE_REVIEW_CANDIDATE");
+  assert.equal(result.origin_reason, "SUCCESS");
+  assert.equal(result.external_effects_evidence_reason, "COUNTER_MISMATCH");
+  assert.equal(result.run, null);
+  assert.equal(result.restore_check, null);
+  assert.equal(result.candidate_state, null);
+});
+
+function createRuntimeFactoryBinding(request, { paginated = false, writeCollision = false } = {}) {
+  const baseFixture = makeCompleteLinearLb1V2Fixture();
+  const claimMap = new Map();
+  const storageMap = new Map();
+  const linearClient = paginated ? {
+    effect_domain: "synthetic",
+    synthetic_effects_attested: true,
+    async paginateIssues({ cursor }) {
+      if (cursor === null) {
+        return {
+          catalog: { teams: baseFixture.teams, projects: baseFixture.projects, assignees: baseFixture.assignees, statuses: baseFixture.statuses },
+          issues: [baseFixture.issues[0]], next_cursor: "page-2", has_more: true,
+        };
+      }
+      return { catalog: null, issues: [baseFixture.issues[1]], next_cursor: null, has_more: false };
+    },
+  } : {
+    effect_domain: "synthetic",
+    synthetic_effects_attested: true,
+    async fetchSnapshot(scope) {
+      const snapshot = JSON.parse(JSON.stringify(baseFixture));
+      snapshot.source_scope.workspace_id = scope.workspace_ref.entity_id;
+      return snapshot;
+    },
+  };
+  const storageClient = {
+    effect_domain: "synthetic",
+    synthetic_effects_attested: true,
+    target_ref: request.target.target_ref,
+    storage_write_authority_ref: request.target.storage_write_authority_ref,
+    overwrite_allowed: false,
+    delete_allowed: false,
+    public_share_allowed: false,
+    async writeRevisionCreateOnly(runKey, bytes, meta) {
+      if (writeCollision || storageMap.has(runKey)) {
+        return { success: false, code: "COLLISION", run_key: runKey, bytes_written: 0, target_ref: meta.target_ref, storage_write_authority_ref: meta.storage_write_authority_ref };
+      }
+      storageMap.set(runKey, { bytes: Buffer.from(bytes), manifest_sha256: meta.manifest_sha256 });
+      return { success: true, code: "STORED", run_key: runKey, bytes_written: bytes.length, target_ref: meta.target_ref, storage_write_authority_ref: meta.storage_write_authority_ref };
+    },
+    async readRevision(runKey, binding) {
+      const value = storageMap.get(runKey);
+      return value ? { run_key: runKey, bytes: Buffer.from(value.bytes), manifest_sha256: value.manifest_sha256, target_ref: binding.target_ref, storage_write_authority_ref: binding.storage_write_authority_ref } : null;
+    },
+    async hasRevision(runKey) { return storageMap.has(runKey); },
+  };
+  const claimClient = {
+    effect_domain: "synthetic",
+    synthetic_effects_attested: true,
+    durable: true,
+    async getRevocationState(tokenDigest) { return { state: "active", token_digest: tokenDigest }; },
+    async atomicClaim(tokenDigest, record) {
+      if (claimMap.has(tokenDigest)) return { success: false, code: "ALREADY_CONSUMED", existing_claim: claimMap.get(tokenDigest) };
+      claimMap.set(tokenDigest, { ...record });
+      return { success: true, code: "CLAIMED", existing_claim: null };
+    },
+  };
+  const clock = makeTestClock();
+  return createLinearLb1RuntimeAdapters({
+    linearClient,
+    storageClient,
+    claimClient,
+    clock,
+    boundedPromise: async (promise) => promise,
+    synthetic_only: true,
+    linear_reader_adapter_ref: READER_REF,
+    storage_adapter_ref: STORAGE_REF,
+    claim_store_ref: CLAIM_REF,
+    workspace_ref: request.source.workspace_ref,
+    credential_ref: request.source.credential_ref,
+    storage_target_ref: request.target.target_ref,
+    storage_write_authority_ref: request.target.storage_write_authority_ref,
+    writer_identity: request.writer_identity,
+    claim_expires_at: request.owner_decision.expires_at_utc,
+    scope: request.source,
+    resource_limits: request.resource_limits,
+  });
+}
+
+test("actual runtime-adapter factories reconcile paginated reads and ordinary HOLD paths without overridden evidence", async () => {
+  const request = makeClosedRequest("token-runtime-pagination", "target-runtime-pagination");
+  const runtimeBinding = createRuntimeFactoryBinding(request, { paginated: true });
+  const success = await createLinearLb1OneShotRunner(runtimeBinding).execute(request, trustedPinFor(request));
+  assert.equal(success.schema_version, "soulforge.backup_controller.linear_lb1.one_shot_runner_result.v3");
+  assert.equal(success.status, "RESTORE_REVIEW_CANDIDATE");
+  assert.equal(success.external_effects_evidence_state, "ATTESTED_SYNTHETIC_ZERO");
+  assert.deepEqual(success.adapter_effect_evidence.linear_reader.adapter_invocation_counts, { collect_snapshot: 1 });
+  assert.equal(success.adapter_effect_evidence.linear_reader.client_call_counts.read_calls, 2);
+
+  const heldRequest = makeClosedRequest("token-runtime-hold", "target-runtime-hold");
+  const heldBinding = createRuntimeFactoryBinding(heldRequest, { writeCollision: true });
+  const held = await createLinearLb1OneShotRunner(heldBinding).execute(heldRequest, trustedPinFor(heldRequest));
+  assert.equal(held.status, "HOLD_CONSUMED");
+  assert.equal(held.reason, "STORAGE_WRITE_FAILED");
+  assert.equal(held.external_effects_evidence_state, "ATTESTED_SYNTHETIC_ZERO");
+  assert.deepEqual(held.adapter_effect_evidence.storage.adapter_invocation_counts, {
+    write_revision_create_only: 1,
+    read_revision: 0,
+    has_revision: 0,
+  });
 });
