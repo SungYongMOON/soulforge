@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-21 - Soulforge Lifecycle Retention Phase 2: FeatureManualInventory deep module
+
+- **Revision pending**
+- **무엇이 바뀌었는가**: Added deep module `FeatureManualInventory` (`.workflow/codex_thread_manager_v0/feature_manual_inventory.mjs`) exposing a single, deterministic, metadata-only scan interface `scanFeatureManualInventory`. It compares feature rows against repository metadata surfaces (`DOCUMENT_OWNERSHIP`, root/owner `README.md`, `.workflow/index.yaml` / `.registry/index.yaml`, `package.json` scripts, `CHANGELOG.md`, `DEVELOPMENT_ROADMAP_V0.md`), producing portable repository-relative output pointers, gap codes, and a canonical SHA-256 report digest. Added comprehensive unit test suite (`.workflow/codex_thread_manager_v0/tests/feature_manual_inventory.test.mjs`).
+- **운영 영향**: Report-only baseline; zero document mutation at runtime, zero scheduling, zero Night Watch/AX Board/Watchtower/Backup Controller/Activity/Task Engine integration, and zero destructive command surface. Preserved Phase 1 behavior and test suite.
+- **관련 경로**: `.workflow/codex_thread_manager_v0/feature_manual_inventory.mjs`, `.workflow/codex_thread_manager_v0/tests/feature_manual_inventory.test.mjs`, `.workflow/codex_thread_manager_v0/README.md`, `CHANGELOG.md`
+
 ## 2026-08-21 - Plan Chat's hourly shadow lane separately from Soulforge's durable control plane
 
 - Recorded the Owner-observed Chat Scheduled Task as an existing shadow experiment while keeping
