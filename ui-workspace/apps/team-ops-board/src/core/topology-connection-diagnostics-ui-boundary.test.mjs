@@ -163,3 +163,30 @@ test("UI boundary: recovery supervision panel renders diagnosticLabel and histor
   assert.doesNotMatch(surface, /\{entry\.diagnosticCode\}/u);
   assert.match(surface, /<div><dt>마지막 복구 성공<\/dt><dd>\{watchtowerTrackingTime\(trackingInteraction\.supervision\.lastVerifiedRepairAt\)\}<\/dd><\/div>/u);
 });
+
+test("UI boundary: diagnoseTrackingItem performs GET-only calls, uses recovery row only when ready, and handles stale state", () => {
+  const surface = systemTopologySurface();
+  const diagnoseStart = surface.indexOf("async function diagnoseTrackingItem");
+  const diagnoseEnd = surface.indexOf("async function diagnoseNodeConnection", diagnoseStart);
+  assert.ok(diagnoseStart > 0 && diagnoseEnd > diagnoseStart, "diagnoseTrackingItem function not found");
+  const diagnose = surface.slice(diagnoseStart, diagnoseEnd);
+
+  // Proves read-only GET flow: calls onRefreshReadOnly and GET /topology-recovery.snapshot.json
+  assert.match(diagnose, /const nextProjection = await onRefreshReadOnly\(\);/u);
+  assert.match(diagnose, /fetch\("\/topology-recovery\.snapshot\.json", \{ cache: "no-store" \}\)/u);
+
+  // Only reads recoveryRow when recoveryState === "ready"
+  assert.match(diagnose, /recoveryState = typeof payload\?\.state === "string" \? payload\.state : "unavailable";/u);
+  assert.match(diagnose, /if \(recoveryState === "ready"\) \{\s*const rows = Array\.isArray/u);
+
+  // Combines liveness/failure state with matching recovery row diagnostic & outcome labels via safe lookups when ready
+  assert.match(diagnose, /if \(recoveryState === "ready" && recoveryRow\) \{/u);
+  assert.match(diagnose, /lookupRecoveryDiagnosticLabel\(recoveryRow\?\.diagnostic_code\)/u);
+  assert.match(diagnose, /lookupRecoveryOutcomeLabel\(recoveryRow\?\.outcome_code\)/u);
+
+  // Stale recovery state explicitly refuses to attach current recovery labels
+  assert.match(diagnose, /else if \(recoveryState === "stale"\) \{\s*recoveryEvidenceText = " · \[이전 조치 기록은 현재 진단에 사용하지 않음\]";/u);
+
+  // Proves NO POST, repair execution, state mutation or login calls in diagnosis
+  assert.doesNotMatch(diagnose, /method:\s*"POST"|POST|repair|mutation|executeRepair|rebindTask/u);
+});

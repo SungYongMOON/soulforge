@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
 import { reconcile } from "./health_recovery_coordinator.mjs";
+import { classifyRecoveryDiagnostic } from "./recovery_diagnostics.mjs";
 import {
   persistLocalEvidenceReceipt,
   validateFiveFieldLedgerSet,
@@ -414,6 +415,22 @@ export async function runRecoveryCycle({
       task = await inspectTask(bindingRow.task_name);
     } catch {
       task = null;
+    }
+    if (task?.exists === true && task.enabled === true && task.action_digest !== bindingRow.action_digest) {
+      const diag = classifyRecoveryDiagnostic({
+        kind: "scheduled_task",
+        bound_digest: bindingRow.action_digest,
+        observed_digest: task.action_digest ?? "",
+        exists: task.exists,
+        enabled: task.enabled,
+        state: task.state ?? "unknown",
+      });
+      plans.set(node.id, {
+        row,
+        outcomeCode: diag.disposition,
+        diagnosticCode: diag.diagnostic_code,
+      });
+      continue;
     }
     const gate = classifyOwnedTaskGate(task, bindingRow.action_digest);
     plans.set(node.id, { row, outcomeCode: gate === "startable" ? null : gate, diagnosticCode: null });

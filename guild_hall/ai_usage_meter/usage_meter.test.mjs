@@ -1040,8 +1040,12 @@ test("scoped collect selects exact thread sources before strict duplicate collap
   ]);
 
   const unscoped = await runCli(["collect", "--sessions-root", sessions]);
-  assert.equal(unscoped.code, 1);
-  assert.equal(JSON.parse(unscoped.stderr).error, "usage_event_duplicate_conflict");
+  assert.equal(unscoped.code, 0, unscoped.stderr);
+  const unscopedResult = JSON.parse(unscoped.stdout);
+  assert.equal(unscopedResult.event_count, 2);
+  assert.equal(unscopedResult.issue_count, 1);
+  assert.equal(unscopedResult.issues[0].code, "usage_event_duplicate_conflict");
+  assert.doesNotMatch(JSON.stringify(unscopedResult.summary), /unrelated/u);
 
   const scoped = await runCli([
     "collect", "--sessions-root", sessions,
@@ -2029,5 +2033,57 @@ test("Antigravity 47-event synthetic replay regression preserves canonical event
     await assert.rejects(readdir(path.join(state, "revisions")), { code: "ENOENT" });
   } finally {
     await rm(state, { recursive: true, force: true });
+  }
+});
+
+test("regression: duplicate conflict is quarantined while clean events persist with no conflict winner chosen", async () => {
+  const sessions = await mkdtemp(path.join(os.tmpdir(), "sf-usage-conflict-quarantine-"));
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-usage-conflict-state-"));
+  const conflictDirA = path.join(sessions, "dir-a");
+  const conflictDirB = path.join(sessions, "dir-b");
+  await Promise.all([mkdir(conflictDirA), mkdir(conflictDirB)]);
+
+  // Clean event: clean-session / clean-turn
+  await writeSession(sessions, "clean-session", [
+    sessionMeta({ id: "clean-session" }),
+    taskStarted("clean-turn"),
+    turnContext("clean-turn"),
+    tokenCount(usage(200, 100, 20), "2026-08-04T00:00:01.000Z"),
+    taskComplete("clean-turn"),
+  ]);
+
+  // Conflicted event: conflicting parent lineage for conflicted-turn
+  await writeSession(conflictDirA, "conflict-session", [
+    sessionMeta({ id: "conflict-session" }),
+    taskStarted("conflicted-turn"),
+    turnContext("conflicted-turn"),
+    tokenCount(usage(500, 300, 50), "2026-08-04T00:01:01.000Z"),
+    taskComplete("conflicted-turn"),
+  ]);
+  await writeSession(conflictDirB, "conflict-session", [
+    sessionMeta({ id: "conflict-session", parent: "other-parent-root", depth: 1 }),
+    taskStarted("conflicted-turn"),
+    turnContext("conflicted-turn"),
+    tokenCount(usage(500, 300, 50), "2026-08-04T00:01:01.000Z"),
+    taskComplete("conflicted-turn"),
+  ]);
+
+  try {
+    const collect = await runCli(["collect", "--sessions-root", sessions, "--state-root", state, "--apply"]);
+    assert.equal(collect.code, 0, collect.stderr);
+    const parsed = JSON.parse(collect.stdout);
+    assert.equal(parsed.event_count, 1);
+    assert.equal(parsed.issue_count, 1);
+    assert.equal(parsed.issues[0].code, "usage_event_duplicate_conflict");
+
+    const persisted = await loadPersistedUsageEvents(state);
+    assert.equal(persisted.length, 1);
+    assert.equal(persisted[0].root_turn_id, "clean-turn");
+    assert.doesNotMatch(JSON.stringify(persisted), /conflicted-turn/u);
+  } finally {
+    await Promise.all([
+      rm(sessions, { recursive: true, force: true }),
+      rm(state, { recursive: true, force: true }),
+    ]);
   }
 });

@@ -7,7 +7,7 @@
 
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import process from "node:process";
 
 const MODULE_ROOT = dirname(fileURLToPath(import.meta.url));
@@ -48,7 +48,7 @@ function parseArgs(argv) {
   return args;
 }
 
-const EXAMPLE_BINDING = {
+export const EXAMPLE_BINDING = {
   schema_version: WATCHTOWER_BINDING_SCHEMA_VERSION,
   state_root: "<LOCAL_STATE_ROOT>/watchtower",
   probes: {
@@ -157,7 +157,7 @@ const EXAMPLE_BINDING = {
     usage_codex_collector: {
       kind: "json_file",
       path: "<LOCAL_STATE_ROOT>/ai_usage_meter/producer_health/codex.json",
-      timestamp_field: "last_success_at",
+      timestamp_field: "completed_at",
       status_field: "status",
       ok_values: ["ok"],
       period_seconds: 300,
@@ -168,7 +168,7 @@ const EXAMPLE_BINDING = {
     usage_claude_collector: {
       kind: "json_file",
       path: "<LOCAL_STATE_ROOT>/ai_usage_meter/producer_health/claude.json",
-      timestamp_field: "last_success_at",
+      timestamp_field: "completed_at",
       status_field: "status",
       ok_values: ["ok"],
       period_seconds: 300,
@@ -179,7 +179,7 @@ const EXAMPLE_BINDING = {
     usage_antigravity_collector: {
       kind: "json_file",
       path: "<LOCAL_STATE_ROOT>/ai_usage_meter/producer_health/antigravity.json",
-      timestamp_field: "last_success_at",
+      timestamp_field: "completed_at",
       status_field: "status",
       ok_values: ["ok"],
       period_seconds: 300,
@@ -190,7 +190,7 @@ const EXAMPLE_BINDING = {
     usage_meter: {
       kind: "json_file",
       path: "<LOCAL_STATE_ROOT>/ai_usage_meter/producer_health/meter.json",
-      timestamp_field: "last_success_at",
+      timestamp_field: "completed_at",
       status_field: "status",
       ok_values: ["ok"],
       period_seconds: 300,
@@ -206,7 +206,7 @@ const EXAMPLE_BINDING = {
       required_string_fields: ["status"],
       required_timestamp_fields: ["attempted_at", "completed_at"],
       nullable_timestamp_fields: ["last_success_at"],
-      timestamp_field: "last_success_at",
+      timestamp_field: "completed_at",
       status_field: "status",
       ok_values: ["ok"],
       period_seconds: 300,
@@ -223,7 +223,7 @@ const EXAMPLE_BINDING = {
       expected_field_values: { lane: "gate_five_field", validation_scope: "five_field_ledger_set_integrity" },
       required_timestamp_fields: ["attempted_at", "completed_at"],
       nullable_timestamp_fields: ["last_success_at"],
-      timestamp_field: "last_success_at", status_field: "status", ok_values: ["ok"],
+      timestamp_field: "completed_at", status_field: "status", ok_values: ["ok"],
       period_seconds: 300, grace_seconds: 600, missing_is_unmonitored: true,
       resident_task: "Soulforge-TeamOpsBoard-ReadOnly-v1",
     },
@@ -236,7 +236,7 @@ const EXAMPLE_BINDING = {
       expected_field_values: { lane: "store_workmeta", validation_scope: "workmeta_metadata_payload_policy_validity" },
       required_timestamp_fields: ["attempted_at", "completed_at"],
       nullable_timestamp_fields: ["last_success_at"],
-      timestamp_field: "last_success_at", status_field: "status", ok_values: ["ok"],
+      timestamp_field: "completed_at", status_field: "status", ok_values: ["ok"],
       period_seconds: 300, grace_seconds: 600, missing_is_unmonitored: true,
       resident_task: "Soulforge-TeamOpsBoard-ReadOnly-v1",
     },
@@ -249,7 +249,7 @@ const EXAMPLE_BINDING = {
       expected_field_values: { lane: "watchtower_self", validation_scope: "watchtower_cli_snapshot_contract_validity" },
       required_timestamp_fields: ["attempted_at", "completed_at"],
       nullable_timestamp_fields: ["last_success_at"],
-      timestamp_field: "last_success_at", status_field: "status", ok_values: ["ok"],
+      timestamp_field: "completed_at", status_field: "status", ok_values: ["ok"],
       period_seconds: 300, grace_seconds: 600, missing_is_unmonitored: true,
       resident_task: "Soulforge-TeamOpsBoard-ReadOnly-v1",
     },
@@ -311,10 +311,12 @@ async function main() {
   return snapshot.summary.down > 0 ? 2 : 0;
 }
 
-main().then(
-  (code) => process.exit(code),
-  (error) => {
-    process.stderr.write(JSON.stringify({ ok: false, error: String(error && error.message || error) }) + "\n");
-    process.exit(1);
-  },
-);
+if (process.argv[1] && (import.meta.url === pathToFileURL(process.argv[1]).href || fileURLToPath(import.meta.url) === resolve(process.argv[1]))) {
+  main().then(
+    (code) => process.exit(code),
+    (error) => {
+      process.stderr.write(JSON.stringify({ ok: false, error: String(error && error.message || error) }) + "\n");
+      process.exit(1);
+    },
+  );
+}

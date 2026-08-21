@@ -4,6 +4,8 @@ import test from "node:test";
 import {
   RECOVERY_HISTORY_VIEW_MAX,
   buildTopologyRecoverySupervision,
+  lookupRecoveryDiagnosticLabel,
+  lookupRecoveryOutcomeLabel,
 } from "./topology-recovery-view.mjs";
 
 const NOW = "2026-08-14T18:00:00.000Z";
@@ -134,4 +136,56 @@ test("recovery view renders fixed Korean diagnostic label for writer_authority_e
   assert.equal(view.diagnosticLabel, "작성자 권한 만료 · 수동 갱신 필요");
   assert.equal(view.history[0].diagnosticCode, "writer_authority_expired");
   assert.equal(view.history[0].diagnosticLabel, "작성자 권한 만료 · 수동 갱신 필요");
+});
+
+test("recovery view renders Korean labels for drift, usage conflict, cutover expiry, and auth errors", () => {
+  for (const [code, expectedLabel] of [
+    ["task_action_path_drift", "작업 실행 경로 불일치 · 소유자 재바인딩 필요"],
+    ["usage_event_duplicate_conflict", "사용량 중복 충돌 · 격리 후 관측 계속"],
+    ["cutover_receipt_expired", "전환 영수증 만료 · 소유자 재검증 필요"],
+    ["auth_invalid_grant", "인증 토큰 무효 · 소유자 재인증 필요"],
+  ]) {
+    const view = buildTopologyRecoverySupervision({
+      projection: projection(recoveryRow({
+        outcome_code: "owner_action_required",
+        diagnostic_code: code,
+      })),
+      nodeId: "consumer_board",
+    });
+    assert.equal(view.diagnosticCode, code);
+    assert.equal(view.diagnosticLabel, expectedLabel);
+  }
+});
+
+test("lookupRecoveryDiagnosticLabel safely resolves known codes and returns null for unknown/invalid values", () => {
+  assert.equal(lookupRecoveryDiagnosticLabel("writer_authority_expired"), "작성자 권한 만료 · 수동 갱신 필요");
+  assert.equal(lookupRecoveryDiagnosticLabel("task_action_path_drift"), "작업 실행 경로 불일치 · 소유자 재바인딩 필요");
+  assert.equal(lookupRecoveryDiagnosticLabel("usage_event_duplicate_conflict"), "사용량 중복 충돌 · 격리 후 관측 계속");
+  assert.equal(lookupRecoveryDiagnosticLabel("auth_invalid_grant"), "인증 토큰 무효 · 소유자 재인증 필요");
+  assert.equal(lookupRecoveryDiagnosticLabel("auth_transient_retry"), "일시적 인증 재시도 중");
+
+  // Unknown, prototype, or invalid non-string inputs fail closed to null without leak or throw
+  assert.equal(lookupRecoveryDiagnosticLabel("unknown_diagnostic_code"), null);
+  assert.equal(lookupRecoveryDiagnosticLabel("toString"), null);
+  assert.equal(lookupRecoveryDiagnosticLabel("__proto__"), null);
+  assert.equal(lookupRecoveryDiagnosticLabel(null), null);
+  assert.equal(lookupRecoveryDiagnosticLabel(undefined), null);
+  assert.equal(lookupRecoveryDiagnosticLabel(123), null);
+  assert.equal(lookupRecoveryDiagnosticLabel({}), null);
+});
+
+test("lookupRecoveryOutcomeLabel safely resolves known codes and returns null for unknown/invalid values", () => {
+  assert.equal(lookupRecoveryOutcomeLabel("verified_repair"), "안전 조치 완료 · 사후 검증 통과");
+  assert.equal(lookupRecoveryOutcomeLabel("not_verified"), "조치 후 검증 대기 · 사후 근거 미확인");
+  assert.equal(lookupRecoveryOutcomeLabel("owner_action_required"), "책임자 직접 조치 필요 · 자동 조치 불가");
+  assert.equal(lookupRecoveryOutcomeLabel("running_but_stale"), "실행 중이나 근거 지연 · 재시작하지 않음");
+
+  // Unknown, prototype, or invalid non-string inputs fail closed to null without leak or throw
+  assert.equal(lookupRecoveryOutcomeLabel("unknown_outcome_code"), null);
+  assert.equal(lookupRecoveryOutcomeLabel("toString"), null);
+  assert.equal(lookupRecoveryOutcomeLabel("__proto__"), null);
+  assert.equal(lookupRecoveryOutcomeLabel(null), null);
+  assert.equal(lookupRecoveryOutcomeLabel(undefined), null);
+  assert.equal(lookupRecoveryOutcomeLabel(456), null);
+  assert.equal(lookupRecoveryOutcomeLabel([]), null);
 });

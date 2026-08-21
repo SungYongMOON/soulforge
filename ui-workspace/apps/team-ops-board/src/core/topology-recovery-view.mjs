@@ -34,7 +34,42 @@ export const RECOVERY_CIRCUIT_LABELS = Object.freeze({
 
 export const RECOVERY_DIAGNOSTIC_LABELS = Object.freeze({
   writer_authority_expired: "작성자 권한 만료 · 수동 갱신 필요",
+  task_action_path_drift: "작업 실행 경로 불일치 · 소유자 재바인딩 필요",
+  usage_event_duplicate_conflict: "사용량 중복 충돌 · 격리 후 관측 계속",
+  quarantine_applied: "격리 적용 완료 · 잔여 이벤트 계속",
+  cutover_receipt_expired: "전환 영수증 만료 · 소유자 재검증 필요",
+  backup_activation_expired: "백업 활성화 만료 · 소유자 승인 필요",
+  auth_invalid_grant: "인증 토큰 무효 · 소유자 재인증 필요",
+  auth_token_revoked: "인증 토큰 취소 · 소유자 재인증 필요",
+  auth_mfa_required: "MFA 추가 인증 필요 · 소유자 조치 필요",
+  auth_consent_required: "동의 갱신 필요 · 소유자 조치 필요",
+  auth_invalid_client: "인증 클라이언트 설정 오류 · 소유자 조치 필요",
+  auth_transient_retry: "일시적 인증 재시도 중",
+  auth_terminal_error: "인증 치명적 오류 · 소유자 재인증 필요",
+  auth_unknown_failure: "인증 미상 오류 · 소유자 확인 필요",
 });
+
+/**
+ * Bounded safe lookup for recovery diagnostic label.
+ * Returns the exact fixed string or null for unknown/non-string values.
+ */
+export function lookupRecoveryDiagnosticLabel(diagnosticCode) {
+  if (typeof diagnosticCode !== "string") return null;
+  return Object.hasOwn(RECOVERY_DIAGNOSTIC_LABELS, diagnosticCode)
+    ? RECOVERY_DIAGNOSTIC_LABELS[diagnosticCode]
+    : null;
+}
+
+/**
+ * Bounded safe lookup for recovery outcome label.
+ * Returns the exact fixed string or null for unknown/non-string values.
+ */
+export function lookupRecoveryOutcomeLabel(outcomeCode) {
+  if (typeof outcomeCode !== "string") return null;
+  return Object.hasOwn(RECOVERY_OUTCOME_LABELS, outcomeCode)
+    ? RECOVERY_OUTCOME_LABELS[outcomeCode]
+    : null;
+}
 
 const SUPERVISOR_ERROR_LABELS = Object.freeze({
   recovery_cycle_failed: "복구 주기 실행 실패",
@@ -100,9 +135,9 @@ export function buildTopologyRecoverySupervision({ projection, nodeId } = {}) {
       .reverse()
       .map((entry) => ({
         at: entry.at,
-        outcomeLabel: RECOVERY_OUTCOME_LABELS[entry.outcome_code],
+        outcomeLabel: lookupRecoveryOutcomeLabel(entry.outcome_code),
         diagnosticCode: entry.diagnostic_code ?? null,
-        diagnosticLabel: entry.diagnostic_code ? (RECOVERY_DIAGNOSTIC_LABELS[entry.diagnostic_code] ?? "원인 확인 필요") : null,
+        diagnosticLabel: entry.diagnostic_code ? (lookupRecoveryDiagnosticLabel(entry.diagnostic_code) ?? "원인 확인 필요") : null,
         circuitLabel: RECOVERY_CIRCUIT_LABELS[entry.circuit_state],
         nextRetryAt: entry.next_retry_at,
       }))
@@ -113,9 +148,9 @@ export function buildTopologyRecoverySupervision({ projection, nodeId } = {}) {
     freshness,
     stateKey: key,
     stateLabel: RECOVERY_SUPERVISION_STATE_LABELS[key],
-    outcomeLabel: row === null ? null : RECOVERY_OUTCOME_LABELS[row.outcome_code],
+    outcomeLabel: row === null ? null : lookupRecoveryOutcomeLabel(row.outcome_code),
     diagnosticCode: row?.diagnostic_code ?? null,
-    diagnosticLabel: row?.diagnostic_code ? (RECOVERY_DIAGNOSTIC_LABELS[row.diagnostic_code] ?? "원인 확인 필요") : null,
+    diagnosticLabel: row?.diagnostic_code ? (lookupRecoveryDiagnosticLabel(row.diagnostic_code) ?? "원인 확인 필요") : null,
     circuitLabel: row === null ? null : RECOVERY_CIRCUIT_LABELS[row.circuit_state],
     consecutiveFailures: row === null ? 0 : row.consecutive_failures,
     lastAttemptAt: row?.last_attempt_at ?? null,

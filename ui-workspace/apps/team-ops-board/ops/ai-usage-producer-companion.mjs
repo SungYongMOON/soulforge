@@ -47,13 +47,148 @@ const SAFE_THREAD_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,239}$/u;
 const SAFE_ERROR_CODE = /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/u;
 const HEARTBEAT_SCHEMA = "soulforge.ai_usage_producer_heartbeat.v1";
 const ANTIGRAVITY_RESULT_SCHEMA = "soulforge.ai_usage_meter_collect_antigravity_result.v1";
+export const CODEX_COLLECT_RESULT_SCHEMA = "soulforge.ai_usage_meter_collect_result.v1";
+
+const EXACT_COLLECT_ROOT_KEYS = Object.freeze([
+  "schema_version",
+  "mode",
+  "session_file_count",
+  "parsed_session_count",
+  "issue_count",
+  "issues",
+  "observed_event_count",
+  "duplicate_event_observation_count",
+  "event_count",
+  "summary",
+  "persistence",
+  "coverage",
+]);
+
+const EXACT_SUMMARY_ROOT_KEYS = Object.freeze([
+  "schema_version",
+  "totals",
+  "by_organization",
+  "by_team",
+  "by_project",
+  "by_work",
+  "by_model",
+  "by_agent",
+  "by_node",
+  "by_role",
+  "by_reasoning_effort",
+  "by_attribution",
+  "by_measurement",
+]);
+
+const SUMMARY_ARRAY_FIELDS = Object.freeze([
+  "by_organization",
+  "by_team",
+  "by_project",
+  "by_work",
+  "by_model",
+  "by_agent",
+  "by_node",
+  "by_role",
+  "by_reasoning_effort",
+  "by_attribution",
+  "by_measurement",
+]);
+
+function failCollect(code = "collector_result_invalid") {
+  throw Object.assign(new Error(code), { code });
+}
+
+function isPlainObject(val) {
+  return val !== null && typeof val === "object" && !Array.isArray(val);
+}
+
+function assertExactKeys(obj, expectedKeys) {
+  if (!isPlainObject(obj)) failCollect();
+  const keys = Object.keys(obj);
+  if (keys.length !== expectedKeys.length || !expectedKeys.every((k) => Object.hasOwn(obj, k))) {
+    failCollect();
+  }
+}
+
+function assertNonNegativeInt(val) {
+  if (!Number.isSafeInteger(val) || val < 0) failCollect();
+  return val;
+}
+
+function isSafeSourceRef(ref) {
+  return typeof ref === "string"
+    && ref.length >= 1
+    && ref.length <= 240
+    && /^[\x20-\x7e]+$/u.test(ref)
+    && !ref.includes("\\")
+    && !/^[a-zA-Z]:/u.test(ref)
+    && !ref.startsWith("/")
+    && !ref.includes("..")
+    && !/(?:^|\/)\.(?:\/|$)/u.test(ref)
+    && !ref.includes("@")
+    && !/(?:bearer|token|password|passwd|secret|api_key|credential)/iu.test(ref);
+}
+
+export function validateCodexCollectionResult(result) {
+  let value;
+  try {
+    value = JSON.parse(String(result?.stdout ?? ""));
+  } catch {
+    failCollect();
+  }
+
+  assertExactKeys(value, EXACT_COLLECT_ROOT_KEYS);
+
+  if (value.schema_version !== CODEX_COLLECT_RESULT_SCHEMA || value.mode !== "apply") {
+    failCollect();
+  }
+
+  const sessionFileCount = assertNonNegativeInt(value.session_file_count);
+  const parsedSessionCount = assertNonNegativeInt(value.parsed_session_count);
+  const issueCount = assertNonNegativeInt(value.issue_count);
+  const observedEventCount = assertNonNegativeInt(value.observed_event_count);
+  assertNonNegativeInt(value.duplicate_event_observation_count);
+  const eventCount = assertNonNegativeInt(value.event_count);
+
+  if (parsedSessionCount > sessionFileCount || eventCount > observedEventCount) {
+    failCollect();
+  }
+
+  if (!Array.isArray(value.issues) || value.issues.length !== issueCount || value.issues.length > 10000) {
+    failCollect();
+  }
+
+  for (const issue of value.issues) {
+    assertExactKeys(issue, ["source_ref", "code"]);
+    if (typeof issue.code !== "string" || !SAFE_ERROR_CODE.test(issue.code) || !isSafeSourceRef(issue.source_ref)) {
+      failCollect();
+    }
+  }
+
+  const summary = value.summary;
+  assertExactKeys(summary, EXACT_SUMMARY_ROOT_KEYS);
+  if (summary.schema_version !== "soulforge.ai_usage_summary.v1" || !isPlainObject(summary.totals)) {
+    failCollect();
+  }
+  if (assertNonNegativeInt(summary.totals.turns) !== eventCount) {
+    failCollect();
+  }
+  for (const field of SUMMARY_ARRAY_FIELDS) {
+    if (!Array.isArray(summary[field])) failCollect();
+  }
+
+  if (value.persistence !== null && !isPlainObject(value.persistence)) failCollect();
+  if (value.coverage !== null && !isPlainObject(value.coverage)) failCollect();
+
+  return value;
+}
 
 function validateAntigravityCollectionResult(result) {
   let value;
   try {
     value = JSON.parse(String(result?.stdout ?? ""));
   } catch {
-    throw Object.assign(new Error("antigravity_result_invalid"), { code: "antigravity_result_invalid" });
+    failCollect("antigravity_result_invalid");
   }
   if (value?.schema_version !== ANTIGRAVITY_RESULT_SCHEMA
     || value?.mode !== "apply"
@@ -63,10 +198,10 @@ function validateAntigravityCollectionResult(result) {
     || value.issue_count < 0
     || !Number.isSafeInteger(value?.event_count)
     || value.event_count < 0) {
-    throw Object.assign(new Error("antigravity_result_invalid"), { code: "antigravity_result_invalid" });
+    failCollect("antigravity_result_invalid");
   }
   if (value.issue_count > 0) {
-    throw Object.assign(new Error("antigravity_collection_partial"), { code: "antigravity_collection_partial" });
+    failCollect("antigravity_collection_partial");
   }
   return value;
 }
@@ -428,18 +563,52 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
       const result = await run(process.execPath, args, options);
       if (command === "collect-antigravity") validateAntigravityCollectionResult(result);
       completed += 1;
-      observeLane(commandLanes.get(command), "ok");
       if (command === "collect-claude") {
+        observeLane(commandLanes.get(command), "ok");
         projectionCommandSucceeded = true;
         await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "claude", attemptedAt, succeeded: true, now });
-      }
-      if (command === "collect-antigravity") {
+      } else if (command === "collect-antigravity") {
+        observeLane(commandLanes.get(command), "ok");
         projectionCommandSucceeded = true;
         await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "antigravity", attemptedAt, succeeded: true, now });
-      }
-      if (command === "collect") {
-        projectionCommandSucceeded = true;
-        await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "codex", attemptedAt, succeeded: true, now });
+      } else if (command === "collect") {
+        let collectResult;
+        try {
+          collectResult = validateCodexCollectionResult(result);
+        } catch {
+          observeLane("codex", "error", "collector_result_invalid");
+          await persistLaneHealth(persistHeartbeat, {
+            stateRoot,
+            lane: "codex",
+            attemptedAt,
+            succeeded: false,
+            errorCode: "collector_result_invalid",
+            now,
+          });
+          collectResult = null;
+        }
+        if (collectResult !== null) {
+          const hasConflict = Array.isArray(collectResult.issues)
+            && collectResult.issues.some((i) => i?.code === "usage_event_duplicate_conflict");
+          if (hasConflict) {
+            projectionCommandSucceeded = true;
+            observeLane("codex", "error", "usage_event_duplicate_conflict");
+            await persistLaneHealth(persistHeartbeat, {
+              stateRoot,
+              lane: "codex",
+              attemptedAt,
+              succeeded: false,
+              errorCode: "usage_event_duplicate_conflict",
+              now,
+            });
+          } else {
+            observeLane("codex", "ok");
+            projectionCommandSucceeded = true;
+            await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "codex", attemptedAt, succeeded: true, now });
+          }
+        }
+      } else {
+        observeLane(commandLanes.get(command), "ok");
       }
     } catch (error) {
       // A timed-out lane fails closed with its own fixed code and leaves the

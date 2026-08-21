@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { ACTIVE_CODEX_SESSION_MAX_AGE_MS, DEFAULT_USAGE_PRODUCER_CHILD_TIMEOUT_MS, USAGE_PRODUCER_CYCLE_HISTORY_LIMIT, USAGE_PRODUCER_CYCLE_HISTORY_SCHEMA, USAGE_PRODUCER_CYCLE_MAX_BYTES, USAGE_PRODUCER_CYCLE_SCHEMA, createUsageProducerCycleRecord, isUsageProducerCycleRecord, persistProducerCycleReceipt, USAGE_PRODUCER_LANES, activeCodexSessionIds, containSweepFailure, loadActiveCodexSessionFiles, persistProducerHeartbeat, runClaudeQuotaSweep, runUsageProducerSweep, startUsageProducerCompanion } from "./ai-usage-producer-companion.mjs";
+import { ACTIVE_CODEX_SESSION_MAX_AGE_MS, DEFAULT_USAGE_PRODUCER_CHILD_TIMEOUT_MS, USAGE_PRODUCER_CYCLE_HISTORY_LIMIT, USAGE_PRODUCER_CYCLE_HISTORY_SCHEMA, USAGE_PRODUCER_CYCLE_MAX_BYTES, USAGE_PRODUCER_CYCLE_SCHEMA, createUsageProducerCycleRecord, isUsageProducerCycleRecord, persistProducerCycleReceipt, USAGE_PRODUCER_LANES, activeCodexSessionIds, containSweepFailure, loadActiveCodexSessionFiles, persistProducerHeartbeat, runClaudeQuotaSweep, runUsageProducerSweep, startUsageProducerCompanion, validateCodexCollectionResult } from "./ai-usage-producer-companion.mjs";
 
 const REPO_ROOT = path.resolve("test-fixtures", "repo");
 const STATE_ROOT = path.resolve("test-fixtures", "state");
@@ -26,8 +26,60 @@ function antigravityResult({ conversationDbCount = 0, issueCount = 0, eventCount
   }) };
 }
 
+function codexSummary({ turns = 0 } = {}) {
+  return {
+    schema_version: "soulforge.ai_usage_summary.v1",
+    totals: { turns },
+    by_organization: [],
+    by_team: [],
+    by_project: [],
+    by_work: [],
+    by_model: [],
+    by_agent: [],
+    by_node: [],
+    by_role: [],
+    by_reasoning_effort: [],
+    by_attribution: [],
+    by_measurement: [],
+  };
+}
+
+function codexCollectResult({
+  sessionFileCount = 0,
+  parsedSessionCount = 0,
+  issueCount = 0,
+  issues = [],
+  observedEventCount = 0,
+  duplicateEventObservationCount = 0,
+  eventCount = 0,
+  summary = codexSummary({ turns: eventCount }),
+  persistence = null,
+  coverage = null,
+  ...overrides
+} = {}) {
+  return {
+    stdout: JSON.stringify({
+      schema_version: "soulforge.ai_usage_meter_collect_result.v1",
+      mode: "apply",
+      session_file_count: sessionFileCount,
+      parsed_session_count: parsedSessionCount,
+      issue_count: issueCount,
+      issues,
+      observed_event_count: observedEventCount,
+      duplicate_event_observation_count: duplicateEventObservationCount,
+      event_count: eventCount,
+      summary,
+      persistence,
+      coverage,
+      ...overrides,
+    }),
+  };
+}
+
 function successfulRun(args) {
-  return args?.[1] === "collect-antigravity" ? antigravityResult() : undefined;
+  if (args?.[1] === "collect-antigravity") return antigravityResult();
+  if (args?.[1] === "collect") return codexCollectResult();
+  return undefined;
 }
 
 // The sweep's default cycle writer touches the real state root, so every test
@@ -780,4 +832,206 @@ test("a malformed cycle record is never persisted as latest or history in the fi
   const malformed = { ...startedRecord(), duration_ms: 12_000 };
   assert.equal(await persistProducerCycleReceipt({ stateRoot: root, record: malformed }), null);
   await assert.rejects(() => readFile(path.join(root, "producer_health", "cycle.json"), "utf8"));
+});
+
+test("Codex collection with duplicate conflict issue records degraded heartbeat and cycle error while sibling lanes succeed", async () => {
+  const cycle = cycleCollector();
+  const heartbeats = [];
+  let tick = 0;
+  const result = await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    projectRoot: PROJECT_ROOT,
+    stateRoot: STATE_ROOT,
+    watchtowerPointerPath: WATCHTOWER_POINTER,
+    run: async (_node, args) => {
+      if (args[1] === "collect") {
+        return codexCollectResult({
+          sessionFileCount: 1,
+          parsedSessionCount: 1,
+          issueCount: 1,
+          issues: [{ source_ref: "session-a", code: "usage_event_duplicate_conflict" }],
+          observedEventCount: 5,
+          duplicateEventObservationCount: 0,
+          eventCount: 5,
+        });
+      }
+      return successfulRun(args);
+    },
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 5 }),
+    persistHeartbeat: async (value) => { heartbeats.push(value); },
+    persistCycle: cycle.persistCycle,
+    now: () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000),
+  });
+
+  assert.equal(result.status, "observed");
+  const codexHeartbeat = heartbeats.find(({ lane }) => lane === "codex");
+  assert.equal(codexHeartbeat.succeeded, false);
+  assert.equal(codexHeartbeat.errorCode, "usage_event_duplicate_conflict");
+
+  const claudeHeartbeat = heartbeats.find(({ lane }) => lane === "claude");
+  assert.equal(claudeHeartbeat.succeeded, true);
+
+  const antigravityHeartbeat = heartbeats.find(({ lane }) => lane === "antigravity");
+  assert.equal(antigravityHeartbeat.succeeded, true);
+
+  const completed = cycle.records.at(-1);
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").status, "error");
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").error_code, "usage_event_duplicate_conflict");
+  assert.equal(completed.lanes.find((lane) => lane.lane === "claude").status, "ok");
+  assert.equal(completed.lanes.find((lane) => lane.lane === "antigravity").status, "ok");
+});
+
+test("Codex collection with malformed stdout fails closed with collector_result_invalid", async () => {
+  const cycle = cycleCollector();
+  const heartbeats = [];
+  let tick = 0;
+  await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    projectRoot: PROJECT_ROOT,
+    stateRoot: STATE_ROOT,
+    watchtowerPointerPath: WATCHTOWER_POINTER,
+    run: async (_node, args) => {
+      if (args[1] === "collect") {
+        return { stdout: "not valid json" };
+      }
+      return successfulRun(args);
+    },
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 5 }),
+    persistHeartbeat: async (value) => { heartbeats.push(value); },
+    persistCycle: cycle.persistCycle,
+    now: () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000),
+  });
+
+  const codexHeartbeat = heartbeats.find(({ lane }) => lane === "codex");
+  assert.equal(codexHeartbeat.succeeded, false);
+  assert.equal(codexHeartbeat.errorCode, "collector_result_invalid");
+
+  const completed = cycle.records.at(-1);
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").status, "error");
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").error_code, "collector_result_invalid");
+});
+
+test("validateCodexCollectionResult validates exact required counts, schema, issues, summary, and persistence shape", () => {
+  const baseSummary = () => ({
+    schema_version: "soulforge.ai_usage_summary.v1",
+    totals: { turns: 10 },
+    by_organization: [],
+    by_team: [],
+    by_project: [],
+    by_work: [],
+    by_model: [],
+    by_agent: [],
+    by_node: [],
+    by_role: [],
+    by_reasoning_effort: [],
+    by_attribution: [],
+    by_measurement: [],
+  });
+
+  const baseResult = () => ({
+    schema_version: "soulforge.ai_usage_meter_collect_result.v1",
+    mode: "apply",
+    session_file_count: 3,
+    parsed_session_count: 3,
+    issue_count: 0,
+    issues: [],
+    observed_event_count: 10,
+    duplicate_event_observation_count: 0,
+    event_count: 10,
+    summary: baseSummary(),
+    persistence: null,
+    coverage: null,
+  });
+
+  // Valid clean result passes
+  const valid = validateCodexCollectionResult({ stdout: JSON.stringify(baseResult()) });
+  assert.equal(valid.schema_version, "soulforge.ai_usage_meter_collect_result.v1");
+  assert.equal(valid.event_count, 10);
+
+  // Valid conflict result passes
+  const validConflict = validateCodexCollectionResult({
+    stdout: JSON.stringify({
+      ...baseResult(),
+      issue_count: 1,
+      issues: [{ source_ref: "session-abc.jsonl", code: "usage_event_duplicate_conflict" }],
+    }),
+  });
+  assert.equal(validConflict.issue_count, 1);
+  assert.equal(validConflict.issues[0].code, "usage_event_duplicate_conflict");
+
+  // Valid plain object persistence and coverage pass
+  const validObjects = validateCodexCollectionResult({
+    stdout: JSON.stringify({
+      ...baseResult(),
+      persistence: { ledger_file: "test" },
+      coverage: { complete: true },
+    }),
+  });
+  assert.equal(validObjects.persistence.ledger_file, "test");
+
+  // Table-driven rejection mutations
+  const invalidMutations = [
+    // Missing root keys
+    ...Object.keys(baseResult()).map((key) => {
+      const copy = baseResult();
+      delete copy[key];
+      return { name: `missing root key ${key}`, payload: copy };
+    }),
+    // Extra root key
+    { name: "extra root key", payload: { ...baseResult(), forbidden_extra_key: "value" } },
+    // Negative counts
+    { name: "negative session_file_count", payload: { ...baseResult(), session_file_count: -1 } },
+    { name: "negative parsed_session_count", payload: { ...baseResult(), parsed_session_count: -1 } },
+    { name: "negative issue_count", payload: { ...baseResult(), issue_count: -1 } },
+    { name: "negative observed_event_count", payload: { ...baseResult(), observed_event_count: -1 } },
+    { name: "negative duplicate_event_observation_count", payload: { ...baseResult(), duplicate_event_observation_count: -1 } },
+    { name: "negative event_count", payload: { ...baseResult(), event_count: -1 } },
+    // Non-integer counts
+    { name: "float event_count", payload: { ...baseResult(), event_count: 1.5 } },
+    { name: "string event_count", payload: { ...baseResult(), event_count: "10" } },
+    // Invariant violations
+    { name: "parsed > session count", payload: { ...baseResult(), session_file_count: 2, parsed_session_count: 3 } },
+    { name: "event > observed count", payload: { ...baseResult(), observed_event_count: 5, event_count: 10, summary: { ...baseSummary(), totals: { turns: 10 } } } },
+    { name: "issue_count mismatch", payload: { ...baseResult(), issue_count: 1, issues: [] } },
+    // Mode != apply
+    { name: "dry_run mode", payload: { ...baseResult(), mode: "dry_run" } },
+    // Primitive / array persistence & coverage
+    { name: "string persistence", payload: { ...baseResult(), persistence: "invalid_string" } },
+    { name: "array persistence", payload: { ...baseResult(), persistence: [1, 2] } },
+    { name: "number coverage", payload: { ...baseResult(), coverage: 123 } },
+    { name: "array coverage", payload: { ...baseResult(), coverage: [] } },
+    // Issue violations (extra keys)
+    { name: "issue detail", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: "session-a", code: "usage_event_duplicate_conflict", detail: "forbidden" }] } },
+    { name: "issue reason", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: "session-a", code: "usage_event_duplicate_conflict", reason: "forbidden" }] } },
+    { name: "issue winner_turn_id", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: "session-a", code: "usage_event_duplicate_conflict", winner_turn_id: "forbidden" }] } },
+    // Issue source_ref violations
+    { name: "issue absolute path", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: "/absolute/path/session.jsonl", code: "usage_event_duplicate_conflict" }] } },
+    { name: "issue drive path", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: "C:\\path\\session.jsonl", code: "usage_event_duplicate_conflict" }] } },
+    { name: "issue slash drive path", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: "C:/path/session.jsonl", code: "usage_event_duplicate_conflict" }] } },
+    { name: "issue traversal path", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: "../traversal/session.jsonl", code: "usage_event_duplicate_conflict" }] } },
+    { name: "issue email", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: "user@example.com", code: "usage_event_duplicate_conflict" }] } },
+    { name: "issue bearer token", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: "bearer_token_abc", code: "usage_event_duplicate_conflict" }] } },
+    { name: "issue secret password", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: "secret_password", code: "usage_event_duplicate_conflict" }] } },
+    { name: "issue control char", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: "control\x00char", code: "usage_event_duplicate_conflict" }] } },
+    { name: "issue overlong text", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: "a".repeat(241), code: "usage_event_duplicate_conflict" }] } },
+    { name: "issue empty string", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: "", code: "usage_event_duplicate_conflict" }] } },
+    { name: "issue invalid code", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: "session-a", code: "invalid code with spaces" }] } },
+    // Summary violations
+    { name: "summary wrong schema", payload: { ...baseResult(), summary: { ...baseSummary(), schema_version: "wrong_schema" } } },
+    { name: "summary missing key", payload: (() => { const s = baseSummary(); delete s.by_model; return { ...baseResult(), summary: s }; })() },
+    { name: "summary extra key", payload: { ...baseResult(), summary: { ...baseSummary(), extra_key: "forbidden" } } },
+    { name: "summary turns mismatch", payload: { ...baseResult(), summary: { ...baseSummary(), totals: { turns: 999 } } } },
+    { name: "summary negative turns", payload: { ...baseResult(), summary: { ...baseSummary(), totals: { turns: -1 } } } },
+    { name: "summary non-array by_model", payload: { ...baseResult(), summary: { ...baseSummary(), by_model: { not: "array" } } } },
+  ];
+
+  for (const { name, payload } of invalidMutations) {
+    assert.throws(
+      () => validateCodexCollectionResult({ stdout: JSON.stringify(payload) }),
+      { code: "collector_result_invalid" },
+      `Expected collector_result_invalid for ${name}`
+    );
+  }
 });

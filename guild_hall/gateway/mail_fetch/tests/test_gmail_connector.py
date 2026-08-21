@@ -208,3 +208,91 @@ def test_gmail_connector_does_not_download_blocked_extension(tmp_path: Path) -> 
     assert attachment.type == "reference_attachment"
     assert attachment.local_path is None
     assert attachment.metadata["blocked_extension"] == ".exe"
+
+
+def test_gmail_oauth_error_classification_invalid_grant() -> None:
+    import io
+    import urllib.error
+    from collector.connectors.gmail import _classify_oauth_error
+
+    secret_raw = "SECRET_TOKEN_VALUE_XYZ"
+    fp = io.BytesIO(f'{{"error": "invalid_grant", "error_description": "Token has been expired or revoked: {secret_raw}"}}'.encode("utf-8"))
+    http_error = urllib.error.HTTPError(
+        url="https://oauth2.googleapis.com/token",
+        code=400,
+        msg="Bad Request",
+        hdrs={},
+        fp=fp,
+    )
+
+    code, retryable, detail = _classify_oauth_error(http_error)
+    assert code == "auth_invalid_grant"
+    assert retryable is False
+    assert detail == {"status": 400, "auth_error": "auth_invalid_grant"}
+    assert "body" not in detail
+    assert "error_description" not in detail
+    assert secret_raw not in json.dumps(detail)
+    assert "Token has been expired" not in json.dumps(detail)
+
+
+def test_gmail_oauth_error_classification_terminal_and_transient() -> None:
+    import io
+    import urllib.error
+    from collector.connectors.gmail import _classify_oauth_error
+
+    # 1. Revoked -> auth_token_revoked, retryable=False
+    fp_rev = io.BytesIO(b'{"error": "unauthorized", "error_description": "Token has been revoked"}')
+    h_rev = urllib.error.HTTPError("https://oauth2.googleapis.com/token", 400, "Bad Request", {}, fp_rev)
+    c, r, d = _classify_oauth_error(h_rev)
+    assert c == "auth_token_revoked"
+    assert r is False
+    assert d == {"status": 400, "auth_error": "auth_token_revoked"}
+
+    # 2. Consent required -> auth_consent_required, retryable=False
+    fp_con = io.BytesIO(b'{"error": "consent_required", "error_description": "User consent required"}')
+    h_con = urllib.error.HTTPError("https://oauth2.googleapis.com/token", 400, "Bad Request", {}, fp_con)
+    c, r, d = _classify_oauth_error(h_con)
+    assert c == "auth_consent_required"
+    assert r is False
+    assert d == {"status": 400, "auth_error": "auth_consent_required"}
+
+    # 3. MFA required -> auth_mfa_required, retryable=False
+    fp_mfa = io.BytesIO(b'{"error": "mfa_required", "error_description": "Two-step verification required"}')
+    h_mfa = urllib.error.HTTPError("https://oauth2.googleapis.com/token", 400, "Bad Request", {}, fp_mfa)
+    c, r, d = _classify_oauth_error(h_mfa)
+    assert c == "auth_mfa_required"
+    assert r is False
+    assert d == {"status": 400, "auth_error": "auth_mfa_required"}
+
+    # 4. Invalid client -> auth_invalid_client, retryable=False
+    fp_cli = io.BytesIO(b'{"error": "invalid_client", "error_description": "Client authentication failed"}')
+    h_cli = urllib.error.HTTPError("https://oauth2.googleapis.com/token", 401, "Unauthorized", {}, fp_cli)
+    c, r, d = _classify_oauth_error(h_cli)
+    assert c == "auth_invalid_client"
+    assert r is False
+    assert d == {"status": 401, "auth_error": "auth_invalid_client"}
+
+    # 5. 503 Service Unavailable -> auth_transient_retry, retryable=True
+    fp_503 = io.BytesIO(b"Service Unavailable")
+    h_503 = urllib.error.HTTPError("https://oauth2.googleapis.com/token", 503, "Service Unavailable", {}, fp_503)
+    c, r, d = _classify_oauth_error(h_503)
+    assert c == "auth_transient_retry"
+    assert r is True
+    assert d == {"status": 503, "auth_error": "auth_transient_retry"}
+    assert "body" not in d
+
+    # 6. 429 Rate Limit -> auth_transient_retry, retryable=True
+    fp_429 = io.BytesIO(b"Too Many Requests")
+    h_429 = urllib.error.HTTPError("https://oauth2.googleapis.com/token", 429, "Too Many Requests", {}, fp_429)
+    c, r, d = _classify_oauth_error(h_429)
+    assert c == "auth_transient_retry"
+    assert r is True
+    assert d == {"status": 429, "auth_error": "auth_transient_retry"}
+
+    # 7. Unknown 400 error -> auth_unknown_failure, retryable=False
+    fp_unk = io.BytesIO(b"Unknown client failure")
+    h_unk = urllib.error.HTTPError("https://oauth2.googleapis.com/token", 400, "Bad Request", {}, fp_unk)
+    c, r, d = _classify_oauth_error(h_unk)
+    assert c == "auth_unknown_failure"
+    assert r is False
+    assert d == {"status": 400, "auth_error": "auth_unknown_failure"}

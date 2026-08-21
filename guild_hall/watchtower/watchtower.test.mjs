@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile, mkdir, utimes, readFile } from "node:fs/promises";
+import { mkdtemp, writeFile, mkdir, utimes, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -22,6 +22,7 @@ import {
   summariseEdgeDelivery,
   EDGE_DELIVERY_STATES,
 } from "./topology.mjs";
+import { EXAMPLE_BINDING } from "./cli.mjs";
 
 const NOW = Date.parse("2026-08-07T12:00:00.000Z");
 
@@ -837,4 +838,51 @@ test("the current definition claims no proven delivery, because no receipt chann
   assert.equal(summary.counts.unreceipted, TOPOLOGY_EDGES.length);
   assert.match(summary.claim, /전달이 증명된 것은 없습니다/);
   for (const state of EDGE_DELIVERY_STATES) assert.ok(Object.hasOwn(summary.counts, state));
+});
+
+test("probe distinguishes recently attempted failed collector from dead/stale collector using completed_at in live binding", async (t) => {
+  // Assert default live probe configurations use completed_at for producer liveness
+  for (const probeKey of ["usage_codex_collector", "usage_claude_collector", "usage_antigravity_collector", "usage_meter", "store_usage_ledger"]) {
+    const liveProbe = EXAMPLE_BINDING.probes[probeKey];
+    assert.equal(liveProbe.timestamp_field, "completed_at", `${probeKey} must use completed_at for liveness`);
+  }
+
+  const root = await mkdtemp(path.join(os.tmpdir(), "sf-wt-liveness-"));
+  t.after(async () => { await rm(root, { recursive: true, force: true }); });
+  const heartbeatPath = path.join(root, "heartbeat.json");
+
+  const probe = {
+    ...EXAMPLE_BINDING.probes.usage_codex_collector,
+    path: heartbeatPath,
+  };
+
+  const nowMs = Date.parse("2026-08-21T12:00:00.000Z");
+
+  // Case 1: Fresh attempt that failed with conflict error -> degraded (alive, not green, not stale)
+  await writeFile(heartbeatPath, JSON.stringify({
+    schema_version: "soulforge.ai_usage_producer_heartbeat.v1",
+    status: "error",
+    error_codes: ["usage_event_duplicate_conflict"],
+    last_success_at: "2026-08-20T00:00:00.000Z",
+    completed_at: "2026-08-21T11:59:00.000Z",
+  }), "utf8");
+
+  const freshFailedResult = await runProbe(probe, { now: nowMs });
+  assert.equal(freshFailedResult.state, "degraded");
+  assert.ok(freshFailedResult.reasons.includes("status_error"));
+  assert.ok(freshFailedResult.reasons.includes("usage_event_duplicate_conflict"));
+  assert.equal(freshFailedResult.reasons.includes("heartbeat_stale"), false);
+
+  // Case 2: Old attempt that is beyond period + grace -> stale
+  await writeFile(heartbeatPath, JSON.stringify({
+    schema_version: "soulforge.ai_usage_producer_heartbeat.v1",
+    status: "error",
+    error_codes: ["usage_event_duplicate_conflict"],
+    last_success_at: "2026-08-20T00:00:00.000Z",
+    completed_at: "2026-08-21T11:40:00.000Z", // 20 min old (> 300+600s)
+  }), "utf8");
+
+  const staleResult = await runProbe(probe, { now: nowMs });
+  assert.equal(staleResult.state, "stale");
+  assert.ok(staleResult.reasons.includes("heartbeat_stale"));
 });

@@ -70,6 +70,45 @@ def _parse_address_list(raw: str) -> List[Address]:
     return items
 
 
+def _classify_oauth_error(exc: urllib.error.HTTPError) -> Tuple[str, bool, Dict[str, Any]]:
+    status = int(getattr(exc, "code", 0) or 0)
+    auth_error = None
+    try:
+        raw_bytes = exc.read()
+        parsed = json.loads(raw_bytes.decode("utf-8")) if raw_bytes else {}
+        if isinstance(parsed, dict):
+            err = str(parsed.get("error", "")).strip().lower()
+            desc = str(parsed.get("error_description", "")).strip().lower()
+            if err == "invalid_grant":
+                auth_error = "auth_invalid_grant"
+            elif err in {"invalid_client", "unauthorized_client"}:
+                auth_error = "auth_invalid_client"
+            elif "revoked" in desc or "revoked" in err:
+                auth_error = "auth_token_revoked"
+            elif "consent" in desc or "consent" in err:
+                auth_error = "auth_consent_required"
+            elif "mfa" in desc or "mfa" in err or "two-step" in desc:
+                auth_error = "auth_mfa_required"
+            elif err in {"unsupported_grant_type", "invalid_request"}:
+                auth_error = "auth_invalid_client"
+    except Exception:
+        pass
+
+    if auth_error:
+        code = auth_error
+        retryable = False
+    elif status in {429, 500, 502, 503, 504}:
+        code = "auth_transient_retry"
+        retryable = True
+    else:
+        code = "auth_unknown_failure"
+        retryable = False
+
+    detail: Dict[str, Any] = {"status": status, "auth_error": code}
+
+    return code, retryable, detail
+
+
 class GmailConnector(BaseConnector):
     """Gmail thin connector for P1.
 
@@ -280,24 +319,19 @@ class GmailConnector(BaseConnector):
                     return row
                 return {}
         except urllib.error.HTTPError as exc:
-            status = int(getattr(exc, "code", 0) or 0)
-            detail: Dict[str, Any] = {"status": status}
-            try:
-                detail["body"] = exc.read().decode("utf-8")
-            except Exception:
-                pass
+            code, retryable, detail = _classify_oauth_error(exc)
             raise ConnectorExecutionError(
-                code=f"token_http_{status}",
-                message=f"gmail oauth token refresh 실패 ({status})",
-                retryable=status in {429, 500, 502, 503, 504},
+                code=code,
+                message=f"gmail oauth token refresh 실패 ({detail.get('status', 0)})",
+                retryable=retryable,
                 detail=detail,
             )
         except urllib.error.URLError as exc:
             raise ConnectorExecutionError(
-                code="token_url_error",
-                message=f"gmail oauth token refresh 네트워크 오류: {exc}",
+                code="auth_transient_retry",
+                message="gmail oauth token refresh 네트워크 오류",
                 retryable=True,
-                detail={"reason": str(exc)},
+                detail={"status": 0, "auth_error": "auth_transient_retry", "network_error": True},
             )
 
     def _can_refresh(self) -> bool:
@@ -427,11 +461,6 @@ class GmailConnector(BaseConnector):
             status = int(getattr(exc, "code", 0) or 0)
             retryable = status in {429, 500, 502, 503, 504}
             detail: Dict[str, Any] = {"status": status}
-            try:
-                body_text = exc.read().decode("utf-8")
-                detail["body"] = body_text
-            except Exception:
-                pass
             raise ConnectorExecutionError(
                 code=f"http_{status}",
                 message=f"gmail api 호출 실패 ({status})",
@@ -441,9 +470,9 @@ class GmailConnector(BaseConnector):
         except urllib.error.URLError as exc:
             raise ConnectorExecutionError(
                 code="url_error",
-                message=f"gmail api 네트워크 오류: {exc}",
+                message="gmail api 네트워크 오류",
                 retryable=True,
-                detail={"reason": str(exc)},
+                detail={"network_error": True},
             )
 
     def _message_to_event(self, message: Dict[str, Any]) -> Tuple[EmailEvent, int]:

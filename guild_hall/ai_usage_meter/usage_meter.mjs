@@ -1021,17 +1021,22 @@ export function retainCanonicalAntigravityObservation(existing, incoming) {
   return existing;
 }
 
-function collapseUsageEventObservations(events, { rateCard = null } = {}) {
+export function collapseUsageEventObservations(events, { rateCard = null, isolateConflicts = false } = {}) {
   const current = new Map();
+  const conflictIds = new Set();
+  const conflictIssues = [];
   let duplicateCount = 0;
   const ordered = [...events].sort((left, right) => (
-    left.event_id.localeCompare(right.event_id, "en")
-    || left.actor.agent_depth - right.actor.agent_depth
+    (left.time.started_at ?? "").localeCompare(right.time.started_at ?? "", "en")
+    || (left.time.completed_at ?? "").localeCompare(right.time.completed_at ?? "", "en")
     || Number(right.model.id !== "unknown") - Number(left.model.id !== "unknown")
     || Number(right.model.reasoning_effort !== null) - Number(left.model.reasoning_effort !== null)
     || left.source.source_ref.localeCompare(right.source.source_ref, "en")
   ));
   for (const event of ordered) {
+    if (conflictIds.has(event.event_id)) {
+      continue;
+    }
     const existing = current.get(event.event_id);
     if (!existing) {
       current.set(event.event_id, event);
@@ -1071,7 +1076,19 @@ function collapseUsageEventObservations(events, { rateCard = null } = {}) {
       continue;
     }
     if (usageEventUpgradeAllowed(event, existing, { allowSourceRefChange: true })) continue;
+    if (isolateConflicts) {
+      conflictIds.add(event.event_id);
+      current.delete(event.event_id);
+      conflictIssues.push({
+        source_ref: event.source.source_ref,
+        code: "usage_event_duplicate_conflict",
+      });
+      continue;
+    }
     fail("usage_event_duplicate_conflict");
+  }
+  for (const id of conflictIds) {
+    current.delete(id);
   }
   return {
     events: [...current.values()].sort((a, b) => (
@@ -1079,6 +1096,7 @@ function collapseUsageEventObservations(events, { rateCard = null } = {}) {
       || a.event_id.localeCompare(b.event_id, "en")
     )),
     duplicate_count: duplicateCount,
+    issues: conflictIssues,
   };
 }
 
@@ -1124,10 +1142,11 @@ export async function collectUsageEvents(options) {
   const collected = await collectUsageObservations(options);
   const rateCard = options?.rateCard ?? null;
   const observedEvents = collected.observations;
-  const collapsed = collapseUsageEventObservations(observedEvents, { rateCard });
+  const isolateConflicts = options?.isolateConflicts ?? options?.continueOnError ?? false;
+  const collapsed = collapseUsageEventObservations(observedEvents, { rateCard, isolateConflicts });
   return {
     events: collapsed.events,
-    issues: collected.issues,
+    issues: [...collected.issues, ...(collapsed.issues ?? [])].sort((a, b) => a.source_ref.localeCompare(b.source_ref, "en")),
     parsed_session_count: collected.parsed_session_count,
     observed_event_count: observedEvents.length,
     duplicate_event_observation_count: collapsed.duplicate_count,

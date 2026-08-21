@@ -79,7 +79,11 @@ import {
 } from "./core/mobile-detail.mjs";
 import { readCollapsedPanelIds, setPanelCollapsed } from "./core/panel-collapse.mjs";
 import { buildTopologyConnectionDiagnostic, isTopologyDiagnosticNode } from "./core/topology-connection-diagnostics.mjs";
-import { buildTopologyRecoverySupervision } from "./core/topology-recovery-view.mjs";
+import {
+  buildTopologyRecoverySupervision,
+  lookupRecoveryDiagnosticLabel,
+  lookupRecoveryOutcomeLabel,
+} from "./core/topology-recovery-view.mjs";
 import { buildTopologyStructuralPaths, buildTopologyViewModel } from "./core/topology-view.mjs";
 import { buildEngineeringClassicTopologyViewModel } from "./core/topology-engine-classic-view.mjs";
 import {
@@ -3991,11 +3995,40 @@ function SystemTopologySurface({ projection, refreshing, providerSnapshots = nul
     const currentItem = nextModel.available
       ? nextModel.nonGreenQueue.find((entry: any) => entry.id === item.id)
       : null;
-    const text = !nextModel.available
-      ? "진단 실패 · 최신 Watchtower 관측을 읽지 못했습니다."
-      : currentItem
-        ? `진단 완료 · ${currentItem.stateLabel} · ${currentItem.reasonLabel}`
-        : "진단 완료 · 현재 비정상 목록에서 해제되었습니다.";
+
+    let recoveryRow: any = null;
+    let recoveryState = "unavailable";
+    try {
+      const resp = await fetch("/topology-recovery.snapshot.json", { cache: "no-store" });
+      if (resp.ok) {
+        const payload = await resp.json();
+        recoveryState = typeof payload?.state === "string" ? payload.state : "unavailable";
+        if (recoveryState === "ready") {
+          const rows = Array.isArray(payload?.cycle?.recovery) ? payload.cycle.recovery : [];
+          recoveryRow = rows.find((r: any) => r?.node_id === item.id) ?? null;
+        }
+      }
+    } catch {}
+
+    let text = "";
+    if (!nextModel.available) {
+      text = "진단 실패 · 최신 Watchtower 관측을 읽지 못했습니다.";
+    } else if (currentItem) {
+      let recoveryEvidenceText = "";
+      if (recoveryState === "ready" && recoveryRow) {
+        const diag = lookupRecoveryDiagnosticLabel(recoveryRow?.diagnostic_code);
+        const diagLabel = diag ? ` · ${diag}` : "";
+        const outcome = lookupRecoveryOutcomeLabel(recoveryRow?.outcome_code);
+        const outcomeLabel = outcome ? ` · [${outcome}]` : "";
+        recoveryEvidenceText = `${diagLabel}${outcomeLabel}`;
+      } else if (recoveryState === "stale") {
+        recoveryEvidenceText = " · [이전 조치 기록은 현재 진단에 사용하지 않음]";
+      }
+      text = `진단 완료 · ${currentItem.stateLabel} · ${currentItem.reasonLabel}${recoveryEvidenceText}`;
+    } else {
+      text = "진단 완료 · 현재 비정상 목록에서 해제되었습니다.";
+    }
+
     setTrackingInteraction({
       nodeId: item.id,
       kind: "diagnosis",

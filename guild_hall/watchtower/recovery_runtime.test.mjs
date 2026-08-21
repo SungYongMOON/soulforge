@@ -122,7 +122,7 @@ test("safe repair starts only an exact ready task and verifies the changed run",
   assert.equal(result.state_revalidated, true);
 });
 
-test("digest mismatch denies repair without starting the task", async () => {
+test("digest mismatch denies repair without starting the task and diagnoses task_action_path_drift", async () => {
   const { projectRoot, snapshot } = await fixture();
   const board = snapshot.nodes.find((node) => node.id === "consumer_board");
   board.health = { state: "down", reasons: ["resident_task_not_running"], age_seconds: null };
@@ -140,10 +140,8 @@ test("digest mismatch denies repair without starting the task", async () => {
   });
   assert.equal(starts, 0);
   assert.equal(result.recovery[0].attempt, "denied");
-  // The digest mismatch is caught by the gate check before the verifier is
-  // reached; the outcome code is what the contract guarantees, not the raw
-  // verifier field, which never runs.
-  assert.equal(result.recovery[0].outcome_code, "precondition_unmet");
+  assert.equal(result.recovery[0].outcome_code, "owner_action_required");
+  assert.equal(result.recovery[0].diagnostic_code, "task_action_path_drift");
 });
 
 test("a running owned task is never started and is reported running_but_stale", async () => {

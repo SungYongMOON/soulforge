@@ -30,6 +30,7 @@
 | `watchtower.mjs` | binding 검증, probe 4종(jsonl_tail/json_file/dir_latest_mtime/schtask), 판정, 스냅샷 |
 | `internal_receipt_catalog.mjs` | 내부 시한성 영수증 계약 카탈로그, 4분류(same_authority_local_auto_renew/owner_revalidation_required/on_demand_ephemeral_excluded/external_auth_excluded) 검증 및 순수 평가기 |
 | `local_evidence.mjs` | Watchtower 실행 계약, five-field metadata 원장, `_workmeta` payload policy의 독립 검증 receipt |
+| `recovery_diagnostics.mjs` | 4대 장애군(`scheduled_task_action_drift`, `usage_event_duplicate_conflict`, `standing_receipt_expired`, `auth_refresh`) 순수 진단 분류기 (public-safe, 경로/secret/원문 무노출) |
 | `recovery_runtime.mjs` | ignored local binding을 읽는 5분 evidence/recovery companion; exact task digest와 사전·사후 검증 없이는 실행 거부 |
 | `cli.mjs` | `probe [--binding <path>\|--pointer <path>] [--json] [--no-write]`, `init-binding --output <path>` |
 | `watchtower.test.mjs` | 합성 판정·경로 미노출·원자 기록 회귀 |
@@ -154,10 +155,16 @@ npm run guild-hall:watchtower:probe
   `stale`, `down`, or pending verification from a previous cycle; the task must be safely startable,
   and independent pre/post checks must pass. Candidate nodes sharing the same
   `task_name` + `action_digest` are deduplicated and started at most once per recovery cycle.
-- A non-auto-repairable diagnostic reason (such as `writer_authority_expired`, credentials,
-  tokens, passwords, logins, and permissions) on ANY bound node in a shared task group gates
+- A non-auto-repairable diagnostic reason (such as `writer_authority_expired`, `task_action_path_drift`,
+  credentials, tokens, passwords, logins, and permissions) on ANY bound node in a shared task group gates
   the entire group as `owner_action_required`, surfacing all bound nodes (including degraded
   primaries) in recovery receipts with the explicit `diagnostic_code` and zero task starts.
+- When an owned task exists and is enabled but its actual `action_digest` differs from the bound
+  digest in local binding state, the recovery runtime diagnoses `task_action_path_drift` and returns
+  `owner_action_required`. It never executes or rewrites the drifted task.
+- `recovery_diagnostics.mjs` provides a pure public-safe classifier `classifyRecoveryDiagnostic(sanitizedEvidence)`
+  covering 4 failure families (`scheduled_task_action_drift`, `usage_event_duplicate_conflict`, `standing_receipt_expired`, `auth_refresh`)
+  with strict closed enums, exact-key output envelopes, and zero path/secret leaks.
 - Post-verification requires causal fresh producer/Watchtower evidence (where evidence
   observation timestamp is newer than the attempt start, bounded by a 5000ms clock tolerance)
   and zero task exit code (`last_task_result === 0`). A changed `last_run_at`,
