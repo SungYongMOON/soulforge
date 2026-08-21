@@ -103,6 +103,150 @@ test("FeatureManualInventory: synthetic fixture with complete coverage produces 
   }
 });
 
+test("FeatureManualInventory: npm script inheritance Object.hasOwn regression (npm run constructor)", async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), "soulforge-proto-script-test-"));
+  try {
+    const pkgPath = join(tempDir, "package.json");
+    await writeFile(pkgPath, JSON.stringify({ scripts: { "build": "node index.js" } }));
+
+    const featureRow = {
+      feature_id: "feature_proto_script",
+      validator_ref: "npm run constructor",
+      last_validation_state: "passed"
+    };
+
+    const report = await scanFeatureManualInventory([featureRow], { repoRoot: tempDir });
+    assert.equal(report.rows[0].last_validation_state, "unvalidated");
+    assert.equal(report.rows[0].last_validation_state_source, "scanner_override");
+    assert.ok(report.rows[0].stable_gap_codes.includes("missing_validator_ref"));
+    assert.equal(report.rows[0].next_action, "HOLD");
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("FeatureManualInventory: root README coverage uses outputOwnerRoot (unsafe owner_root cannot satisfy root README)", async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), "soulforge-sanitized-root-readme-test-"));
+  try {
+    await writeFile(join(tempDir, "README.md"), `# Soulforge Root\nContains ${makeWinDrivePath("System32")} text.`);
+
+    const featureRow = {
+      feature_id: "unmentioned_feature",
+      owner_root: makeWinDrivePath("System32")
+    };
+
+    const report = await scanFeatureManualInventory([featureRow], { repoRoot: tempDir });
+    assert.equal(report.rows[0].owner_root, null);
+    assert.ok(report.rows[0].stable_gap_codes.includes("missing_root_readme_coverage"));
+    assert.ok(report.rows[0].stable_gap_codes.includes("unsafe_path_detected"));
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("FeatureManualInventory: last_validation_state_source provenance (declared vs absent vs scanner_override)", async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), "soulforge-provenance-test-"));
+  try {
+    const pkgPath = join(tempDir, "package.json");
+    await writeFile(pkgPath, JSON.stringify({ scripts: { "test:valid": "node --test" } }));
+
+    // 1. Valid script + declared "passed" => state "passed", source "declared"
+    const r1 = await scanFeatureManualInventory([{
+      feature_id: "f1",
+      validator_ref: "npm run test:valid",
+      last_validation_state: "passed"
+    }], { repoRoot: tempDir });
+    assert.equal(r1.rows[0].last_validation_state, "passed");
+    assert.equal(r1.rows[0].last_validation_state_source, "declared");
+
+    // 2. Valid script + no declared state => state "not_run", source "absent"
+    const r2 = await scanFeatureManualInventory([{
+      feature_id: "f2",
+      validator_ref: "npm run test:valid"
+    }], { repoRoot: tempDir });
+    assert.equal(r2.rows[0].last_validation_state, "not_run");
+    assert.equal(r2.rows[0].last_validation_state_source, "absent");
+
+    // 3. Unresolvable script + declared "passed" => state "unvalidated", source "scanner_override"
+    const r3 = await scanFeatureManualInventory([{
+      feature_id: "f3",
+      validator_ref: "npm run missing_script",
+      last_validation_state: "passed"
+    }], { repoRoot: tempDir });
+    assert.equal(r3.rows[0].last_validation_state, "unvalidated");
+    assert.equal(r3.rows[0].last_validation_state_source, "scanner_override");
+
+    // 4. Unsafe validator ref + declared "passed" => state "unknown", source "scanner_override"
+    const r4 = await scanFeatureManualInventory([{
+      feature_id: "f4",
+      validator_ref: "npm run test:valid --access-token SECRET",
+      last_validation_state: "passed"
+    }], { repoRoot: tempDir });
+    assert.equal(r4.rows[0].last_validation_state, "unknown");
+    assert.equal(r4.rows[0].last_validation_state_source, "scanner_override");
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("FeatureManualInventory: validator allowlist grammar rejects credentials and unknown flags without leaking", async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), "soulforge-allowlist-test-"));
+  try {
+    const tokenSecret = "SECRET_TOKEN_9999";
+    const passSecret = "SECRET_PASS_8888";
+
+    const leakyRows = [
+      { feature_id: "f_token", validator_ref: `node --test test.mjs --access-token ${tokenSecret}`, last_validation_state: "passed" },
+      { feature_id: "f_pass", validator_ref: `node --test test.mjs --passwd=${passSecret}`, last_validation_state: "passed" },
+      { feature_id: "f_short", validator_ref: `node --test test.mjs -p ${passSecret}`, last_validation_state: "passed" },
+      { feature_id: "f_unknown", validator_ref: "make check --flag", last_validation_state: "passed" }
+    ];
+
+    const report = await scanFeatureManualInventory(leakyRows, { repoRoot: tempDir });
+    const jsonStr = JSON.stringify(report);
+
+    assert.equal(jsonStr.includes(tokenSecret), false);
+    assert.equal(jsonStr.includes(passSecret), false);
+
+    for (const row of report.rows) {
+      assert.equal(row.validator_ref, null);
+      assert.equal(row.last_validation_state, "unknown");
+      assert.equal(row.last_validation_state_source, "scanner_override");
+      assert.ok(row.stable_gap_codes.includes("unsafe_path_detected"));
+    }
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("FeatureManualInventory: unsafe explicit changelog and roadmap refs emit null output without silent fallback", async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), "soulforge-explicit-unsafe-refs-test-"));
+  try {
+    const featureRow = {
+      feature_id: "f_unsafe_refs",
+      changelog_ref: makeWinDrivePath("System32"),
+      roadmap_ref: makeTildePath("secret_roadmap")
+    };
+
+    const report = await scanFeatureManualInventory([featureRow], { repoRoot: tempDir });
+    assert.equal(report.rows[0].changelog_ref, null);
+    assert.equal(report.rows[0].changelog_status, "missing");
+    assert.equal(report.rows[0].roadmap_ref, null);
+    assert.equal(report.rows[0].roadmap_status, "missing");
+    assert.ok(report.rows[0].stable_gap_codes.includes("unsafe_path_detected"));
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("FeatureManualInventory: arbitrary invalid now option falls back safely to deterministic ISO timestamp", async () => {
+  const row = makeValidFeatureRow("invalid_now");
+  const report = await scanFeatureManualInventory([row], { now: "INVALID_DATE_OBJECT_STRING" });
+
+  assert.equal(report.generated_at, "1970-01-01T00:00:00.000Z");
+  assert.ok(report.digest.startsWith("sha256:"));
+});
+
 test("FeatureManualInventory: path sanitizer rejects tildes, URI schemes, and control characters without leaking sentinels", async () => {
   const tempDir = await mkdtemp(join(tmpdir(), "soulforge-path-sanitizer-test-"));
   try {
@@ -128,49 +272,6 @@ test("FeatureManualInventory: path sanitizer rejects tildes, URI schemes, and co
       assert.equal(row.next_action, "HOLD");
       assert.ok(row.stable_gap_codes.includes("unsafe_path_detected"));
     }
-  } finally {
-    await rm(tempDir, { recursive: true, force: true });
-  }
-});
-
-test("FeatureManualInventory: non-npm validator refs fail closed when unresolvable or missing file tokens", async () => {
-  const tempDir = await mkdtemp(join(tmpdir(), "soulforge-validator-fail-closed-test-"));
-  try {
-    // 1. No file token found (e.g. "make check")
-    const r1 = await scanFeatureManualInventory([{
-      feature_id: "f_no_file_token",
-      validator_ref: "make check",
-      last_validation_state: "passed"
-    }], { repoRoot: tempDir });
-
-    assert.equal(r1.rows[0].last_validation_state, "unvalidated");
-    assert.equal(r1.rows[0].last_validation_state_source, "declared");
-    assert.ok(r1.rows[0].stable_gap_codes.includes("missing_validator_ref"));
-    assert.equal(r1.rows[0].next_action, "HOLD");
-
-    // 2. Unresolvable file token (e.g. "./tests/nope.mjs")
-    const r2 = await scanFeatureManualInventory([{
-      feature_id: "f_nope_file",
-      validator_ref: "pytest -q ./tests/nope.mjs",
-      last_validation_state: "passed"
-    }], { repoRoot: tempDir });
-
-    assert.equal(r2.rows[0].last_validation_state, "unvalidated");
-    assert.equal(r2.rows[0].last_validation_state_source, "declared");
-    assert.ok(r2.rows[0].stable_gap_codes.includes("missing_validator_ref"));
-    assert.equal(r2.rows[0].next_action, "HOLD");
-
-    // 3. Glob token (e.g. "tests/*.test.mjs")
-    const r3 = await scanFeatureManualInventory([{
-      feature_id: "f_glob",
-      validator_ref: "node --test tests/*.test.mjs",
-      last_validation_state: "passed"
-    }], { repoRoot: tempDir });
-
-    assert.equal(r3.rows[0].last_validation_state, "unvalidated");
-    assert.equal(r3.rows[0].last_validation_state_source, "declared");
-    assert.ok(r3.rows[0].stable_gap_codes.includes("missing_validator_ref"));
-    assert.equal(r3.rows[0].next_action, "HOLD");
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
@@ -272,36 +373,6 @@ test("FeatureManualInventory: operating_manual_ref multi-# leak is sanitized and
     assert.equal(jsonStr.includes(sentinel), false, "Sentinel after 2nd # must not appear in report JSON");
     assert.equal(report.rows[0].operating_manual_ref, null);
     assert.ok(report.rows[0].stable_gap_codes.includes("unsafe_path_detected"));
-  } finally {
-    await rm(tempDir, { recursive: true, force: true });
-  }
-});
-
-test("FeatureManualInventory: token-contained absolute, tilde, and non-equals credential validator_refs fail closed without leaking", async () => {
-  const tempDir = await mkdtemp(join(tmpdir(), "soulforge-validator-leak-test-"));
-  try {
-    const tokenSecret = "SECRET_TOKEN_VALUE_98765";
-    const posixPathSecret = ["", "home", "synthetic", ".secrets", "cfg.json"].join("/");
-    const tildeSecret = "~/.secret_key";
-
-    const leakyRows = [
-      { feature_id: "f_token", validator_ref: `--token ${tokenSecret}` },
-      { feature_id: "f_posix", validator_ref: `--config=${posixPathSecret}` },
-      { feature_id: "f_tilde", validator_ref: `node --test ${tildeSecret}` }
-    ];
-
-    const report = await scanFeatureManualInventory(leakyRows, { repoRoot: tempDir });
-    const jsonStr = JSON.stringify(report);
-
-    assert.equal(jsonStr.includes(tokenSecret), false, "Non-equals credential token must not leak in JSON");
-    assert.equal(jsonStr.includes(posixPathSecret), false, "Token-contained POSIX path must not leak in JSON");
-    assert.equal(jsonStr.includes(tildeSecret), false, "Tilde path must not leak in JSON");
-
-    for (const row of report.rows) {
-      assert.equal(row.validator_ref, null);
-      assert.equal(row.last_validation_state, "unknown");
-      assert.ok(row.stable_gap_codes.includes("unsafe_path_detected"));
-    }
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }

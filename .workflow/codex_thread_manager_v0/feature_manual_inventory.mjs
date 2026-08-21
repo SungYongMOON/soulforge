@@ -44,31 +44,61 @@ function isSafeRelativePath(target) {
   return true;
 }
 
-function isUnsafeValidatorStr(str) {
-  if (typeof str !== "string") return true;
-  const trimmed = str.trim();
-  if (!trimmed || trimmed.length > 1024) return true;
-  if (/[\x00-\x1F\x7F-\x9F]/u.test(trimmed)) return true;
-  if (trimmed.includes("\\") || trimmed.includes("..")) return true;
-  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/u.test(trimmed)) return true;
+function parseValidatorAllowlist(validatorRef) {
+  if (typeof validatorRef !== "string") return null;
+  const trimmed = validatorRef.trim();
+  if (!trimmed || trimmed.length > 1024) return null;
+
+  // Reject control characters, tildes, backslashes, URI schemes, quotes, shell metacharacters, globs
+  if (/[\x00-\x1F\x7F-\x9F]/u.test(trimmed)) return null;
+  if (/[~\\;&|><$`()"'`?*{}\[\]=]/u.test(trimmed)) return null;
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//u.test(trimmed)) return null;
 
   const tokens = trimmed.split(/\s+/u);
-  const credFlagRegex = /^(?:--?)(?:password|secret|token|api[-_]?key|credential|private[-_]?key|auth|bearer)$/iu;
-  const credInlineRegex = /(?:password|secret|token|api[-_]?key|credential|private[-_]?key|auth)=/iu;
 
-  for (let i = 0; i < tokens.length; i++) {
-    const token = tokens[i];
-    if (token.includes("~") || token.includes("\\") || token.includes("..")) return true;
-    if (/[\x00-\x1F\x7F-\x9F]/u.test(token)) return true;
-    if (win32.isAbsolute(token) || posix.isAbsolute(token)) return true;
-    if (/(?:^|\/|\\)[a-zA-Z]:/u.test(token) || /:[/\\]/u.test(token)) return true;
-    if (/(?:^|=)\//u.test(token) || /(?:^|=)\\ /u.test(token)) return true;
-    if (credInlineRegex.test(token)) return true;
-    if (credFlagRegex.test(token)) {
-      if (i + 1 < tokens.length) return true;
+  // Form 1: npm run <scriptName> or npm.cmd run <scriptName>
+  if (tokens.length === 3 && (tokens[0] === "npm" || tokens[0] === "npm.cmd") && tokens[1] === "run") {
+    const scriptName = tokens[2];
+    if (/^[a-zA-Z0-9_:.-]{1,64}$/u.test(scriptName)) {
+      return { kind: "npm", scriptName, cleanRef: `${tokens[0]} run ${scriptName}` };
     }
+    return null;
   }
-  return false;
+
+  // Form 2: node [--test|--check] [allowed-flags...] <file-tokens...>
+  if (tokens.length >= 2 && (tokens[0] === "node" || tokens[0] === "node.exe")) {
+    const allowedNodeFlags = new Set(["--test", "--check", "--experimental-strip-types", "--no-warnings"]);
+    let hasTestOrCheck = false;
+    const fileTokens = [];
+
+    for (let i = 1; i < tokens.length; i++) {
+      const tok = tokens[i];
+      if (tok.startsWith("-")) {
+        if (!allowedNodeFlags.has(tok)) return null; // Reject unknown flags like --access-token, -p, etc.
+        if (tok === "--test" || tok === "--check") hasTestOrCheck = true;
+      } else {
+        if (!isSafeRelativePath(tok)) return null;
+        if (!/\.(mjs|js|ts)$/iu.test(tok)) return null;
+        fileTokens.push(tok);
+      }
+    }
+
+    if (hasTestOrCheck && fileTokens.length > 0) {
+      return { kind: "node", fileTokens, cleanRef: tokens.join(" ") };
+    }
+    return null;
+  }
+
+  // Form 3: Direct safe repo-relative validator file ref
+  if (tokens.length === 1) {
+    const tok = tokens[0];
+    if (isSafeRelativePath(tok) && /\.(mjs|js|ts|py|sh|cmd|bat)$/iu.test(tok)) {
+      return { kind: "file", fileTokens: [tok], cleanRef: tok };
+    }
+    return null;
+  }
+
+  return null;
 }
 
 function defaultRepoRoot() {
@@ -149,6 +179,19 @@ function textContainsToken(content, token) {
   return false;
 }
 
+function parseSafeIsoNow(nowOption) {
+  try {
+    const val = typeof nowOption === "function" ? nowOption() : (nowOption ?? Date.now());
+    const d = new Date(val);
+    if (isNaN(d.getTime())) {
+      return new Date(0).toISOString();
+    }
+    return d.toISOString();
+  } catch {
+    return new Date(0).toISOString();
+  }
+}
+
 export async function scanFeatureManualInventory(featuresOrOptions, options = {}) {
   let features = [];
   let opts = {};
@@ -165,8 +208,7 @@ export async function scanFeatureManualInventory(featuresOrOptions, options = {}
 
   const testIo = opts._io ?? opts._testIo ?? {};
   const repoRoot = resolve(opts.repoRoot ?? defaultRepoRoot());
-  const nowVal = typeof opts.now === "function" ? opts.now() : (opts.now ?? Date.now());
-  const isoNow = typeof nowVal === "string" ? nowVal : new Date(nowVal).toISOString();
+  const isoNow = parseSafeIsoNow(opts.now);
   const readFileFn = testIo.readFile ?? opts.readFile ?? readFile;
   const accessFn = testIo.access ?? opts.access ?? access;
   const pathExistsFn = (p) => pathExists(p, accessFn);
@@ -206,10 +248,8 @@ export async function scanFeatureManualInventory(featuresOrOptions, options = {}
   };
 
   const evaluatedSourceRefs = new Set([
-    DEFAULT_CHANGELOG_REF,
-    ROOT_README_REF,
-    DEFAULT_ROADMAP_REF,
-    DOCUMENT_OWNERSHIP_REF
+    DOCUMENT_OWNERSHIP_REF,
+    ROOT_README_REF
   ]);
 
   const rows = [];
@@ -236,15 +276,15 @@ export async function scanFeatureManualInventory(featuresOrOptions, options = {}
 
     const rawValidationState = !isMalformed && typeof rawRow.last_validation_state === "string" ? rawRow.last_validation_state.trim() : null;
     let callerSuppliedValidationState = null;
-    let validationStateSource = "absent";
+    let initialValidationSource = "absent";
     if (!isMalformed && rawValidationState !== null) {
       if (VALIDATION_STATES.has(rawValidationState)) {
         callerSuppliedValidationState = rawValidationState;
-        validationStateSource = "declared";
+        initialValidationSource = "declared";
       } else {
         gaps.add("malformed_feature_row");
         callerSuppliedValidationState = null;
-        validationStateSource = "absent";
+        initialValidationSource = "absent";
       }
     }
 
@@ -261,8 +301,10 @@ export async function scanFeatureManualInventory(featuresOrOptions, options = {}
     let outputOwnerReadme = null;
     let outputOperatingManualRef = null;
     let outputValidatorRef = null;
-    let outputChangelogRef = DEFAULT_CHANGELOG_REF;
-    let outputRoadmapRef = DEFAULT_ROADMAP_REF;
+    let parsedValidator = null;
+
+    let outputChangelogRef = null;
+    let outputRoadmapRef = null;
 
     if (!isMalformed) {
       if (rawOwnerRoot !== null) {
@@ -289,7 +331,7 @@ export async function scanFeatureManualInventory(featuresOrOptions, options = {}
         } else {
           const manualPath = hashParts[0];
           const anchor = hashParts[1] ?? "";
-          const safeAnchor = !anchor || (/^[a-zA-Z0-9_-]+$/u.test(anchor) && !isUnsafeValidatorStr(anchor));
+          const safeAnchor = !anchor || (/^[a-zA-Z0-9_-]+$/u.test(anchor) && !anchor.includes(".."));
           if (isSafeRelativePath(manualPath) && safeAnchor) {
             outputOperatingManualRef = anchor ? `${manualPath}#${anchor}` : manualPath;
           } else {
@@ -300,8 +342,9 @@ export async function scanFeatureManualInventory(featuresOrOptions, options = {}
       }
 
       if (rawValidatorRef !== null) {
-        if (!isUnsafeValidatorStr(rawValidatorRef)) {
-          outputValidatorRef = rawValidatorRef;
+        parsedValidator = parseValidatorAllowlist(rawValidatorRef);
+        if (parsedValidator !== null) {
+          outputValidatorRef = parsedValidator.cleanRef;
         } else {
           gaps.add("unsafe_path_detected");
           outputValidatorRef = null;
@@ -313,8 +356,10 @@ export async function scanFeatureManualInventory(featuresOrOptions, options = {}
           outputChangelogRef = rawChangelogRef;
         } else {
           gaps.add("unsafe_path_detected");
-          outputChangelogRef = DEFAULT_CHANGELOG_REF;
+          outputChangelogRef = null;
         }
+      } else {
+        outputChangelogRef = DEFAULT_CHANGELOG_REF;
       }
 
       if (rawRoadmapRef !== null) {
@@ -322,8 +367,10 @@ export async function scanFeatureManualInventory(featuresOrOptions, options = {}
           outputRoadmapRef = rawRoadmapRef;
         } else {
           gaps.add("unsafe_path_detected");
-          outputRoadmapRef = DEFAULT_ROADMAP_REF;
+          outputRoadmapRef = null;
         }
+      } else {
+        outputRoadmapRef = DEFAULT_ROADMAP_REF;
       }
     }
 
@@ -350,10 +397,10 @@ export async function scanFeatureManualInventory(featuresOrOptions, options = {}
         }
       }
 
-      // 2. root README coverage
-      if (rawOwnerRoot || safeFeatureId) {
-        const topLevelRoot = deriveTopLevelOwnerRoot(rawOwnerRoot);
-        const rootNorm = (rawOwnerRoot ?? "").replace(/^\.\//u, "");
+      // 2. root README coverage (MUST use sanitized outputOwnerRoot, never rawOwnerRoot)
+      if (outputOwnerRoot || safeFeatureId) {
+        const topLevelRoot = deriveTopLevelOwnerRoot(outputOwnerRoot);
+        const rootNorm = (outputOwnerRoot ?? "").replace(/^\.\//u, "");
         if (
           !textContainsToken(rootReadmeContent, safeFeatureId) &&
           (!rootNorm || !textContainsToken(rootReadmeContent, rootNorm)) &&
@@ -411,14 +458,23 @@ export async function scanFeatureManualInventory(featuresOrOptions, options = {}
       } else if (outputValidatorRef === null) {
         gaps.add("unsafe_path_detected");
         lastValidationState = "unknown";
-      } else {
-        if (outputValidatorRef.startsWith("npm run ") || outputValidatorRef.startsWith("npm.cmd run ")) {
+      } else if (parsedValidator !== null) {
+        if (parsedValidator.kind === "npm") {
           evaluatedSourceRefs.add("package.json");
-          const scriptName = outputValidatorRef.replace(/^npm(\.cmd)? run /u, "").trim();
+          const scriptName = parsedValidator.scriptName;
           try {
             const pkgPath = join(repoRoot, "package.json");
             const pkgContent = JSON.parse(await readFileFn(pkgPath, "utf8"));
-            if (pkgContent?.scripts?.[scriptName]) {
+            const scripts = pkgContent?.scripts;
+            const isScriptDefined = Boolean(
+              scripts &&
+              typeof scripts === "object" &&
+              !Array.isArray(scripts) &&
+              Object.hasOwn(scripts, scriptName) &&
+              typeof scripts[scriptName] === "string"
+            );
+
+            if (isScriptDefined) {
               if (callerSuppliedValidationState === "passed") {
                 lastValidationState = "passed";
               } else if (callerSuppliedValidationState === "failed") {
@@ -434,58 +490,34 @@ export async function scanFeatureManualInventory(featuresOrOptions, options = {}
             gaps.add("missing_validator_ref");
             lastValidationState = "unvalidated";
           }
-        } else {
-          // Non-npm validator ref analysis
-          const tokens = outputValidatorRef.split(/\s+/u);
-          const fileTokens = [];
-          let hasGlob = false;
-
-          for (const t of tokens) {
-            if (t.includes("*") || t.includes("?") || t.includes("{")) {
-              hasGlob = true;
+        } else if (parsedValidator.kind === "node" || parsedValidator.kind === "file") {
+          let allExist = true;
+          for (const token of parsedValidator.fileTokens) {
+            const relP = token.startsWith("./") ? token.slice(2) : token;
+            if (!(await pathExistsFn(join(repoRoot, relP)))) {
+              allExist = false;
               break;
-            }
-            if (/[a-zA-Z0-9_./-]+\.(mjs|js|ts|py|json|yaml|yml|sh|cmd|bat)/iu.test(t)) {
-              fileTokens.push(t);
             }
           }
 
-          if (hasGlob || fileTokens.length === 0) {
+          if (allExist) {
+            if (callerSuppliedValidationState === "passed") {
+              lastValidationState = "passed";
+            } else if (callerSuppliedValidationState === "failed") {
+              lastValidationState = "failed";
+            } else {
+              lastValidationState = callerSuppliedValidationState || "not_run";
+            }
+          } else {
             gaps.add("missing_validator_ref");
             lastValidationState = "unvalidated";
-          } else {
-            let allExist = true;
-            for (const token of fileTokens) {
-              if (!isSafeRelativePath(token)) {
-                allExist = false;
-                break;
-              }
-              const relP = token.startsWith("./") ? token.slice(2) : token;
-              if (!(await pathExistsFn(join(repoRoot, relP)))) {
-                allExist = false;
-                break;
-              }
-            }
-
-            if (allExist) {
-              if (callerSuppliedValidationState === "passed") {
-                lastValidationState = "passed";
-              } else if (callerSuppliedValidationState === "failed") {
-                lastValidationState = "failed";
-              } else {
-                lastValidationState = callerSuppliedValidationState || "not_run";
-              }
-            } else {
-              gaps.add("missing_validator_ref");
-              lastValidationState = "unvalidated";
-            }
           }
         }
       }
 
       // 6. changelog_ref
       const clRef = outputChangelogRef;
-      if (isSafeRelativePath(clRef)) {
+      if (clRef !== null && isSafeRelativePath(clRef)) {
         evaluatedSourceRefs.add(clRef);
         const fullPath = join(repoRoot, clRef);
         if (await pathExistsFn(fullPath)) {
@@ -553,7 +585,7 @@ export async function scanFeatureManualInventory(featuresOrOptions, options = {}
 
       // 8. roadmap_ref / mission_ref
       const rmRef = outputRoadmapRef;
-      if (isSafeRelativePath(rmRef)) {
+      if (rmRef !== null && isSafeRelativePath(rmRef)) {
         evaluatedSourceRefs.add(rmRef);
         const fullPath = join(repoRoot, rmRef);
         if (await pathExistsFn(fullPath)) {
@@ -589,6 +621,12 @@ export async function scanFeatureManualInventory(featuresOrOptions, options = {}
 
     if (gaps.has("malformed_feature_row") || gaps.has("unsafe_path_detected")) {
       lastValidationState = "unknown";
+    }
+
+    // Determine truthful last_validation_state_source
+    let validationStateSource = initialValidationSource;
+    if (initialValidationSource === "declared" && lastValidationState !== callerSuppliedValidationState) {
+      validationStateSource = "scanner_override";
     }
 
     const sortedGaps = Array.from(gaps).sort(codePointCompare);
