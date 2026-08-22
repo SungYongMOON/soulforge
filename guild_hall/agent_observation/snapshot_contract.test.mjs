@@ -444,7 +444,7 @@ test('every hold code table is pinned to literal names, not to itself', () => {
   // cannot detect a change to the table's own values: both sides move together. Pinning the table
   // once here makes any value swap fail, whatever the per-case assertions compare against.
   const TABLES = [
-    ['OBSERVATION_HOLD_CODES', OBSERVATION_HOLD_CODES, 31],
+    ['OBSERVATION_HOLD_CODES', OBSERVATION_HOLD_CODES, 36],
     ['JOB_SHOP_HOLD_CODES', JOB_SHOP_HOLD_CODES, 30],
     ['VERTICAL_HOLD_CODES', VERTICAL_HOLD_CODES, 9],
     ['P0S2_HOLD_CODES', P0S2_HOLD_CODES, 17],

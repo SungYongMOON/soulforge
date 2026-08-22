@@ -14,7 +14,7 @@ P0-S2 three-project job shop이며 public-safe synthetic fixture만 사용한다
 | 파일 | 역할 |
 | --- | --- |
 | `guard_primitives.mjs` | 나머지 module이 공유하는 strict input 규칙: safe ID/ref/label 문법, secret 탐지, 로컬 절대경로 탐지, 깊이 한계 scan, deep freeze, canonical digest |
-| `agent_observation.mjs` | Agent Registry, Run Observation, Usage Ledger, Result/Delivery Receipt와 usage rollup projection |
+| `agent_observation.mjs` | Agent Registry, Run Observation, Usage Ledger, Result/Delivery Receipt, Delivery Edge와 usage rollup projection |
 | `resource_job_shop.mjs` | Host/Resource Registry, 3단계 priority queue, lease/fencing, capacity |
 | `p0s1_vertical.mjs` | P0-S1 smallest vertical 합성 fixture와 결정론 실행 결과 |
 | `p0s2_job_shop.mjs` | P0-S2 three-project job shop: Context Capsule 계약, 3 project 동시 제출, crash/reclaim/replay 시나리오 |
@@ -32,6 +32,7 @@ guard는 한쪽 module에만 존재할 수 없도록 `guard_primitives.mjs` 하�
 - `soulforge.agent_observation.run_record.v1`
 - `soulforge.agent_observation.usage_event.v1`
 - `soulforge.agent_observation.result_receipt.v1`
+- `soulforge.agent_observation.delivery_edge.v1`
 - `soulforge.agent_observation.host_record.v1`
 - `soulforge.agent_observation.resource_record.v1`
 - `soulforge.agent_observation.job_record.v1`
@@ -204,6 +205,30 @@ vertical의 `delivery_evidence.producer_evidence_kind`는 저장된 receipt에�
 store가 structural delivery를 애초에 거부하므로 그 경로는 store의 test가 증명하고 vertical은
 receipt가 없을 때 `none`이 되는 것만 증명한다.
 run이 시작되기 전 시각으로 관찰된 receipt는 `TEMPORAL_ORDER_INVALID`다.
+
+## Delivery Edge
+
+receipt는 한쪽 끝만 기록한다. "이 run이 이 ref들을 산출했다"고만 말하고 **누가 받았는지는
+말하지 않는다.** 그래서 Functional Agent에서 Spreadsheet Craftsman으로 가는 handoff는 fixture가
+두 ID를 짝지어 준 것일 뿐 관찰된 사실이 아니었다. delivery edge는 그 간선 자체를 record로 만들어
+양쪽 끝을 다 적고 producer의 증거를 함께 옮긴다.
+
+핵심 구분은 하나다. `structural` 간선은 두 run이 그래프에서 인접하다는 말이고, `delivery`
+간선은 실제로 무언가 건너갔다는 말이다.
+
+- `delivery`는 **producer 자신의 run**에 붙은 `receipt_kind: delivery` +
+  `producer_evidence_kind: producer_observed` receipt를 요구한다. 다른 run의 receipt를 가리키면
+  `RECEIPT_RUN_MISMATCH`다. 자기가 만들지 않은 증거를 빌려 쓸 수 없다.
+- `structural`은 receipt를 아예 가리킬 수 없다(`STRUCTURAL_EDGE_CARRIES_NO_RECEIPT`). 인접은
+  무언가 산출됐다는 증거가 아니기 때문이다.
+- 투영은 두 종류를 절대 합산하지 않는다. `delivery_edge_count`와 `structural_edge_count`가
+  따로 나가므로, 그저 인접한 consumer가 무언가 받은 consumer로 읽힐 수 없다.
+- 두 끝이 다른 project면 `PROJECT_BINDING_MISMATCH`다. run·capsule 계약과 같은 firewall이다.
+- 자기 자신에게 가는 간선은 `SELF_DELIVERY_FORBIDDEN`이다.
+- edge가 자기 증거보다, 또는 어느 한쪽 run의 시작보다 이른 시각이면 `TEMPORAL_ORDER_INVALID`다.
+
+이 record family는 store의 다섯 번째다. 나머지 넷과 똑같이 count되고 privacy 감사를 받으며
+deep freeze된다. 감사에서 빠진 family는 감사받지 않는 family이므로 예외를 두지 않는다.
 
 ## Tool Job Shop
 
@@ -401,7 +426,7 @@ Agent/Run을 쓰는 것이다. 약속이 아니라 구조로 막는다.
 npm.cmd run validate:agent-observation
 ```
 
-이 validator는 여덟 개 구현 module의 syntax check와 아홉 개 test 파일의 focused
+이 validator는 여덟 개 구현 module의 syntax check와 열 개 test 파일의 focused
 deterministic test를 실행한다.
 위 경계 문장은 각각 대응하는 test를 가지며, `guard_primitives.test.mjs`는 로컬 경로·secret·label
 규칙의 개별 alternative를 하나씩 검증한다. 개발 중 guard 제거 probe로 테스트 강도를 확인했지만
