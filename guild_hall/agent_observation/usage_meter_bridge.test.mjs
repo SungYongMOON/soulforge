@@ -14,6 +14,7 @@ import {
 import {
   BINDING_FIELDS,
   BRIDGE_HOLD_CODES as B,
+  MAX_LINEAGE_DEPTH,
   METER_PROJECTABLE_COST_BASES,
   PROVIDER_TO_METER_SOURCE_KIND,
   measureMeterProjectability,
@@ -327,6 +328,7 @@ test('projectability is measurable without projecting anything', () => {
     provider_not_meter_source_kind: 0,
     cost_basis_not_projectable: 0,
     provider_thread_identity_missing: 0,
+    meter_required_field_missing: 0,
   });
   assert.deepEqual(clean.hold_codes, []);
 
@@ -405,4 +407,79 @@ test('a lineage deeper than the bound holds instead of walking forever', () => {
   assert.equal(shallow.status, 'PROJECTED');
   assert.equal(shallow.event.actor.agent_depth, 30);
   assert.equal(shallow.event.root_thread_id, 'th-bridge-chain-0');
+});
+
+test('a foreign store handle holds at both entry points instead of throwing', () => {
+  // The list accessors return `null` for an unrecognised handle, not an empty array and not a
+  // throw. Reading that straight into a loop turned a refusal into a TypeError at the entry point,
+  // which is the failure mode the guard primitives catch for hostile proxies.
+  const foreign = Object.freeze({ kind: 'soulforge.agent_observation.store.v1' });
+  for (const [name, call] of [
+    ['projectMeterUsageEvent', () => projectMeterUsageEvent(foreign, binding())],
+    ['measureMeterProjectability', () => measureMeterProjectability(foreign)],
+  ]) {
+    const result = call();
+    assert.equal(result.status, 'HOLD', name);
+    assert.equal(result.hold_code, B.UNKNOWN_STORE, name);
+  }
+  for (const notAStore of [null, undefined, {}, [], 'store', 42]) {
+    assert.equal(projectMeterUsageEvent(notAStore, binding()).hold_code, B.UNKNOWN_STORE, String(notAStore));
+    assert.equal(measureMeterProjectability(notAStore).hold_code, B.UNKNOWN_STORE, String(notAStore));
+  }
+});
+
+test('every provider row maps to its own meter source kind and confidence', () => {
+  // Only `codex` was exercised anywhere. Swapping the other two rows produces a meter-VALID but
+  // false event: the confidence is read from the meter's table keyed by whatever kind is emitted,
+  // so an antigravity event mapped to claude_session_jsonl would claim exact per-message
+  // measurement for a collector that yields only request counts.
+  const expected = {
+    codex: ['codex_session_jsonl', 'exact_cumulative_delta'],
+    claude: ['claude_session_jsonl', 'exact_per_message'],
+    antigravity: ['antigravity_conversation_db', 'request_count_only'],
+  };
+  assert.deepEqual(Object.keys(PROVIDER_TO_METER_SOURCE_KIND).sort(), Object.keys(expected).sort());
+
+  for (const [provider, [sourceKind, confidence]] of Object.entries(expected)) {
+    assert.equal(PROVIDER_TO_METER_SOURCE_KIND[provider], sourceKind, provider);
+    const store = seededStore({
+      agent: { provider_identities: [{ provider, id_kind: 'thread_id', id_value: `th-${provider}-0001` }] },
+      run: { provider },
+      usage: { provider },
+    });
+    const result = projectMeterUsageEvent(store, binding());
+    assert.equal(result.status, 'PROJECTED', provider);
+    assert.equal(result.event.source.kind, sourceKind, provider);
+    assert.equal(result.event.measurement.token_confidence, confidence, provider);
+  }
+});
+
+test('a syntactically valid but impossible timestamp holds instead of throwing', () => {
+  // isUtcMs is a digit-count regex, so observeRun stores 2026-13-45T99:99:99.999Z. Date.parse
+  // returns NaN for it and new Date(NaN).toISOString() throws RangeError, which would escape the
+  // entry point rather than hold.
+  const store = seededStore({
+    run: { started_at: '2026-13-45T99:99:99.999Z', heartbeat_at: '2026-13-45T99:99:99.999Z', ended_at: null },
+    usage: { observed_at: '2027-01-01T00:00:00.000Z' },
+  });
+  const result = projectMeterUsageEvent(store, binding());
+  assert.equal(result.status, 'HOLD');
+  assert.equal(result.hold_code, B.RUN_TIME_INVALID);
+  assert.equal(result.detail, 'started_at');
+});
+
+test('the projectability count agrees with what the entry point actually does', () => {
+  // A run with no work unit is legal here and rejected by the meter. A health signal whose stated
+  // purpose is detecting drift must not report the drifting event as projectable.
+  const store = seededStore({ run: { work_unit_id: null } });
+  assert.equal(projectMeterUsageEvent(store, binding()).hold_code, B.METER_VALIDATION_REJECTED);
+
+  const measured = measureMeterProjectability(store);
+  assert.equal(measured.counts.projectable, 0, 'the counter must not claim an event the bridge refuses');
+  assert.equal(measured.counts.meter_required_field_missing, 1);
+  assert.deepEqual(measured.hold_codes, [B.METER_VALIDATION_REJECTED]);
+});
+
+test('the lineage bound is pinned, not merely bracketed by the fixture', () => {
+  assert.equal(MAX_LINEAGE_DEPTH, 32);
 });

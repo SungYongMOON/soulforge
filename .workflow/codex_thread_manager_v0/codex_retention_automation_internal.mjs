@@ -9,10 +9,13 @@ export const CODEX_RETENTION_AUTOMATION_REPORT_SCHEMA = "soulforge.codex_thread_
 
 /**
  * `retention.candidates` grows with the enrolled-thread count and `inventory.rows` with the feature
- * count, and neither had a bound. The readers refuse an oversized file — 512 KB in
- * `codex-retention-projection-internal.mjs` and 256 KB in `receipt-expiry-adapter.mjs` — so an
- * unbounded producer eventually publishes a report nothing can open. The repair belongs here rather
- * than in a raised limit: the limits exist to keep a reader from being handed something unbounded.
+ * count, and neither had a bound. The one reader of this report,
+ * `codex-retention-projection-internal.mjs`, refuses a file over 512 KB, so an unbounded producer
+ * eventually publishes a report nothing can open. The repair belongs here rather than in a raised
+ * limit: the limit exists to keep a reader from being handed something unbounded. The 200 KB budget
+ * below is deliberately well under that ceiling. (`receipt-expiry-adapter.mjs` has a stricter
+ * 256 KB limit but never reads this file; it reads the receipt-expiry binding and its evidence
+ * paths.)
  *
  * Neither array is read by any consumer in this repository; the projection validates the top-level
  * key set and then reads only `summary`. They are kept for a future consumer, bounded, and never
@@ -37,14 +40,27 @@ function boundReportRows(rows, limit = MAX_REPORT_ROWS) {
 }
 
 /**
- * A row count is a proxy for the thing the readers actually limit, which is bytes. After the
- * envelope is assembled its serialized size is measured, and if it still exceeds the budget both
- * lists are halved until it fits. Halving is deterministic and terminates, and each pass updates
- * the markers so the report never understates what it dropped.
+ * A row count is a proxy for the thing the readers actually limit, which is bytes.
+ *
+ * Two things this has to get right, both of which it got wrong first. It must measure the artifact
+ * that is actually written — pretty-printed UTF-8 including the digest — and not the compact UTF-16
+ * length, which understated the file by 4.2x in probing and let a 504 KB file past a 200 KB budget.
+ * And it must say so when it cannot reach the budget: only two lists here are shrinkable, so weight
+ * anywhere else (`classifications`, `source_refs`, `source_health`) can hold the report over the
+ * limit no matter how much detail is dropped. Exiting quietly there produced a 712 KB file that had
+ * discarded 100% of its candidates and reported nothing about either fact.
  */
+const PLACEHOLDER_DIGEST = `sha256:${"0".repeat(64)}`;
+
+function writtenByteLength(envelope) {
+  // The digest is assigned after this runs but is present in the file, and a sha256 hex string is
+  // always the same length, so measuring with a placeholder measures the real artifact.
+  return Buffer.byteLength(JSON.stringify({ ...envelope, digest: PLACEHOLDER_DIGEST }, null, 2), "utf8");
+}
+
 function shrinkReportToBudget(envelope, maxBytes = MAX_REPORT_BYTES) {
   let passes = 0;
-  while (JSON.stringify(envelope).length > maxBytes) {
+  while (writtenByteLength(envelope) > maxBytes) {
     const candidateCount = envelope.retention.candidates.length;
     const rowCount = envelope.inventory.rows.length;
     if (candidateCount === 0 && rowCount === 0) break;
@@ -63,6 +79,35 @@ function shrinkReportToBudget(envelope, maxBytes = MAX_REPORT_BYTES) {
       dropped_count: envelope.inventory.rows_truncation.total_count - envelope.inventory.rows.length,
       truncated: envelope.inventory.rows_truncation.total_count > envelope.inventory.rows.length
     };
+  }
+
+  // The outcome is recorded whether or not it is good news. A consumer must never have to infer
+  // from the absence of a marker that the budget was met. This lives inside `retention` because the
+  // projection enforces an exact key set at the top level and in `summary`.
+  //
+  // The marker has to count its own bytes. Measuring before inserting it understated the file by
+  // the marker's own length, which fails open: a report a few bytes over the budget would have
+  // reported `budget_met: true`. So the marker is inserted first and the count settles to a fixed
+  // point, which it reaches as soon as the digit count of `measured_bytes` stops changing.
+  envelope.retention.report_budget = {
+    max_bytes: maxBytes,
+    measured_bytes: 0,
+    budget_met: false,
+    shrink_passes: passes,
+    unshrinkable_remainder: false
+  };
+  // Every field the marker carries has to be settled inside the loop, not after it. Writing the
+  // two booleans afterwards flipped one of them from `false` to `true` and shortened the file by a
+  // byte, so the count was wrong by exactly the amount it claimed to be measuring. They are always
+  // each other's negation, so once both are present their combined length no longer changes.
+  let measuredBytes = 0;
+  for (let settle = 0; settle < 8; settle += 1) {
+    const next = writtenByteLength(envelope);
+    if (next === measuredBytes) break;
+    measuredBytes = next;
+    envelope.retention.report_budget.measured_bytes = measuredBytes;
+    envelope.retention.report_budget.budget_met = measuredBytes <= maxBytes;
+    envelope.retention.report_budget.unshrinkable_remainder = measuredBytes > maxBytes;
   }
   return passes;
 }

@@ -1,5 +1,56 @@
 # CHANGELOG
 
+## 2026-08-22 - Agent Observation P0 review fixes: fail-closed bridge, honest retention budget
+
+- Fixed both `usage_meter_bridge.mjs` entry points throwing instead of holding on an unrecognised
+  store handle. The list accessors return `null` — not an empty array and not a throw — and reading
+  that straight into a loop produced `TypeError: records is not iterable` where the module's own
+  documented contract promises a hold. The same hazard was already handled in
+  `board_health_projection.mjs` and the fix was simply not carried across. Both entry points now
+  report `UNKNOWN_STORE`, which the hold-code table previously did not even contain.
+- Fixed the retention byte budget measuring the wrong artifact. It tested the compact UTF-16 length
+  while the file is written pretty-printed as UTF-8; probing put the gap at up to 4.2x, and a
+  fixture measured at 118 KB was written at 504 KB. The budget now measures exactly what is written,
+  including the digest and the marker's own bytes, and the marker equals the file byte for byte
+  across every shape tested.
+- Fixed the shrink loop exiting silently while still over budget. Only two lists are shrinkable, so
+  weight in `classifications`, `source_refs` or `source_health` can hold a report over the limit no
+  matter how much detail is dropped — producing a 712 KB file that had discarded 100% of its
+  candidates and said nothing about either fact. Every report now carries
+  `retention.report_budget` with the measured size, whether the budget was met, how many shrink
+  passes ran, and whether an unshrinkable remainder is the reason it was not. A consumer never has
+  to infer from a marker's absence that all was well.
+- `measureMeterProjectability` no longer overstates. A run with a null `work_unit_id` is legal in
+  `observeRun` and rejected by the meter, and the counter called it projectable — leaving the health
+  signal whose stated purpose is detecting contract drift blind to the one drift the bridge's own
+  test names as proof the meter validator is load-bearing.
+- `result_gate_preparation.mjs` now checks isolation against a snapshot and appends to that same
+  snapshot. It previously validated a snapshot and then appended to the caller's object, so a Proxy
+  could show one registry to the check and hand another to the append. That is the same
+  validate-one-thing-build-from-another shape a previous review found at the store entry points.
+- The same module now passes an explicit empty `env` to the Board's append. Omitting it deferred to
+  the ambient environment, where `TEAM_OPS_BOARD_RESULT_GATES_DISABLED` could change the result of a
+  function documented as pure — and the test asserting it reads no environment works by scanning
+  source text, which a transitive default argument defeats.
+- Test gaps closed, each with the mutant that used to survive: the two hold-code tables added in
+  this stage were unpinned, so two distinct refusals could be collapsed onto one wire value with
+  every test green; `RESULT_GATE_HEALTH_VALUES` could be emptied entirely because the vocabulary
+  check only verified that present values exist; the `claude` and `antigravity` provider rows were
+  never exercised, and swapping one produces a meter-*valid* but false event that claims exact
+  per-message measurement for a request-count-only collector; the whole byte-budget mechanism was
+  dead under the suite; `board_health_projection`'s declared authority boundary was never asserted;
+  and the synthetic event-id prefix, epoch and display label were unasserted outputs.
+- Corrected three claims against the code: the module header for result-gate preparation described
+  the live registry as eighteen `result_ready` events when it is five threads' complete lifecycles;
+  the retention comment cited a 256 KB reader that never reads this report; and the owner README
+  still claimed a single external import after a second one landed.
+- 운영 영향: 새 명령 표면은 없다. `retention.report_budget`이 리포트에 추가되지만 최상위와
+  `summary`의 exact key set 밖에 있으므로 projection이 그대로 받는다. 그 사실 자체를 test가
+  확인한다. 여전히 파일 쓰기·network·provider·ERP 세계수 write·Board enrollment write·result gate
+  write는 모두 0이다.
+- 관련 경로: `guild_hall/agent_observation/**`,
+  `.workflow/codex_thread_manager_v0/codex_retention_automation_internal.mjs`.
+
 ## 2026-08-22 - Agent Observation P0 result-gate preparation, retention bound, hold-code unification
 
 - Added `guild_hall/agent_observation/result_gate_preparation.mjs`. It prepares result-gate

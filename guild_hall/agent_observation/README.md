@@ -426,7 +426,9 @@ probe가 잡지 못하는 변이를 숨기지 않고 적는다. 아래는 모두
   id로 검증되므로 저장된 값이 이를 위반할 수 없다.
 
 결과는 public deterministic candidate 수락이며 actual project, live runtime,
-provider 연결, 운영 승격 수락이 아니다. `usage_meter_bridge.mjs`가
-`guild_hall/ai_usage_meter/usage_meter.mjs`의 `validateUsageEvent`를 **순수 함수로만** 부르는
-것이 이 owner의 유일한 외부 import이며, 그 호출은 파일도 상태도 건드리지 않는다. 이 module set을
+provider 연결, 운영 승격 수락이 아니다. 이 owner의 외부 import는 두 곳뿐이다.
+`usage_meter_bridge.mjs`가 `guild_hall/ai_usage_meter/usage_meter.mjs`의 `validateUsageEvent`를,
+`result_gate_preparation.mjs`가 `live-thread-projection.mjs`의 append/derive와 schema 상수를
+부른다. 둘 다 **순수 함수 호출**이며 파일도 상태도 건드리지 않는다. `board_health_projection.mjs`는
+Board 값 집합을 소스에서 읽어 대조하는 test만 가지고 런타임 import는 하지 않는다. 이 module set을
 import하는 다른 owner는 아직 없다.

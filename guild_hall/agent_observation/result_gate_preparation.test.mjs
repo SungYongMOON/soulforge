@@ -224,3 +224,81 @@ test('this module performs no I/O and reads no clock', () => {
   assert.equal(text.includes('Math.random'), false);
   assert.equal(text.includes('setThreadResultGateDisabled'), false, 'this module must not toggle the gate');
 });
+
+test('the synthetic marker, timestamps and label are all pinned outputs', () => {
+  // These were unasserted. The `synthetic_` prefix is the only in-band signal distinguishing these
+  // ids from real gate events if the two ever share a registry, so it is contract, not cosmetics.
+  const result = prepareSyntheticResultGateActivation(seeded(), request());
+  assert.equal(result.events[0].event_id, `synthetic_started_${RUN_ID}`);
+  assert.equal(result.events[1].event_id, `synthetic_result_ready_${RUN_ID}`);
+  for (const event of result.events) {
+    assert.ok(event.event_id.startsWith('synthetic_'), 'a synthetic event must be identifiable as one');
+    assert.equal(event.thread_id, THREAD_ID);
+  }
+
+  const enrollment = result.enrollment;
+  assert.equal(enrollment.updated_at, '2026-08-22T00:00:00.000Z', 'the synthetic epoch is fixed');
+  assert.equal(enrollment.entries[0].enrolled_at, '2026-08-22T00:00:00.000Z');
+  assert.equal(enrollment.entries[0].display_label, 'task-gate-synthetic-0001', 'the label is the run task');
+  assert.equal(enrollment.entries[0].organization_group_id, ORG_ID);
+
+  // The label falls back to the run id when a run carries no task, rather than to a constant.
+  const noTask = prepareSyntheticResultGateActivation(seeded({ run: { task_id: null } }), request());
+  assert.equal(noTask.enrollment.entries[0].display_label, RUN_ID);
+});
+
+test('the organization group id is validated, not passed through', () => {
+  const store = seeded();
+  for (const bad of [null, '', 'has space', 'sk-abcdefgh12345678'.repeat(20), 42]) {
+    const result = prepareSyntheticResultGateActivation(store, request({ organization_group_id: bad }));
+    assert.equal(result.status, 'HOLD', String(bad));
+    assert.equal(result.hold_code, P.UNKNOWN_AGENT, String(bad));
+    assert.equal(result.detail, 'organization_group_id', String(bad));
+  }
+});
+
+test('a registry that lies on read cannot pass the isolation check', () => {
+  // Reading the caller's object directly let a getter answer "revision 0, no events" for the check
+  // and hold live events afterwards. The Board's derivation caught it downstream, but a refusal
+  // called structural must not lean on a second line of defence.
+  const store = seeded();
+
+  let reads = 0;
+  const lying = Object.defineProperty(createIsolatedRegistry(), 'registry_revision', {
+    enumerable: true,
+    configurable: true,
+    get() { reads += 1; return reads > 1 ? 18 : 0; },
+  });
+  const viaGetter = prepareSyntheticResultGateActivation(store, request({ registry: lying }));
+  assert.equal(viaGetter.status, 'HOLD');
+  assert.equal(viaGetter.hold_code, P.REGISTRY_NOT_ISOLATED);
+  assert.equal(reads, 0, 'a rejected accessor must never be evaluated');
+
+  let gets = 0;
+  const proxied = new Proxy(createIsolatedRegistry(), {
+    get(target, key, receiver) {
+      if (key === 'events') { gets += 1; return [{ event_id: 'system_manager_result_ready_owner_20260804' }]; }
+      return Reflect.get(target, key, receiver);
+    },
+  });
+  const viaProxy = prepareSyntheticResultGateActivation(store, request({ registry: proxied }));
+  assert.equal(gets, 0, 'the lying trap must never fire');
+  assert.equal(viaProxy.status, 'PREPARED', 'the honest target is what gets used');
+  assert.equal(viaProxy.registry.events.length, 2);
+});
+
+test('the preparation does not depend on the environment', () => {
+  // appendThreadResultGateEvent defaults its `env` to process.env, so an omitted argument let
+  // TEAM_OPS_BOARD_RESULT_GATES_DISABLED change the result of a function documented as pure.
+  const store = seeded();
+  const before = process.env.TEAM_OPS_BOARD_RESULT_GATES_DISABLED;
+  process.env.TEAM_OPS_BOARD_RESULT_GATES_DISABLED = '1';
+  try {
+    const result = prepareSyntheticResultGateActivation(store, request());
+    assert.equal(result.status, 'PREPARED', 'an environment variable must not change a pure preparation');
+    assert.equal(result.derived_state.health, 'available');
+  } finally {
+    if (before === undefined) delete process.env.TEAM_OPS_BOARD_RESULT_GATES_DISABLED;
+    else process.env.TEAM_OPS_BOARD_RESULT_GATES_DISABLED = before;
+  }
+});

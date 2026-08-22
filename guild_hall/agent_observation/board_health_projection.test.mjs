@@ -88,6 +88,9 @@ test('the projected vocabulary is the Board\'s own, not a parallel one', () => {
   assert.ok(boardSource.includes('const RESULT_GATE_HEALTH = new Set(["available", "missing", "invalid", "disabled"])'));
   assert.ok(boardSource.includes('["exact", "hold"].includes(value.binding_coverage)'));
   assert.deepEqual([...BINDING_COVERAGE_VALUES], ['exact', 'hold']);
+  // The loop above only requires each PRESENT value to appear in the Board source, so an empty
+  // list satisfies it vacuously. Pin the set itself.
+  assert.deepEqual([...RESULT_GATE_HEALTH_VALUES], ['available', 'missing', 'invalid', 'disabled']);
 });
 
 test('an empty store reports the conservative value, never a vacuous pass', () => {
@@ -184,6 +187,19 @@ test('disabled is never reported, because this store cannot observe it', () => {
 
   const text = readFileSync(new URL('./board_health_projection.mjs', import.meta.url), 'utf8');
   assert.equal(text.includes("= 'disabled'"), false, 'the module must never assign disabled');
+});
+
+test('the declared authority boundary is asserted, not merely written down', () => {
+  // A self-declared boundary that no test reads is decoration: flipping read_only to false or
+  // can_report_disabled to true changed nothing anywhere.
+  for (const store of [createObservationStore(), storeWith({ run: OBSERVED, receipt: {} })]) {
+    assert.deepEqual(projectBoardHealth(store).authority_boundary, {
+      read_only: true,
+      result_gate_writer: false,
+      board_enrollment_writer: false,
+      can_report_disabled: false,
+    });
+  }
 });
 
 test('a foreign handle holds rather than reporting a healthy empty scope', () => {
