@@ -7,14 +7,51 @@ import { BackupControllerError, loadBinding } from "./controller.mjs";
 
 export const ACTIVATION_SCHEMA_VERSION = "soulforge.backup_controller.activation.v1";
 
+export const BACKUP_ACTIVATION_ERROR_CODES = Object.freeze([
+  "activation_shape_invalid",
+  "activation_schema_invalid",
+  "activation_binding_ref_invalid",
+  "activation_binding_digest_invalid",
+  "activation_runtime_commit_invalid",
+  "activation_approval_ref_invalid",
+  "activation_writer_invalid",
+  "activation_feature_state_invalid",
+  "activation_not_before_invalid",
+  "activation_expiry_invalid",
+  "activation_window_invalid",
+  "activation_sidecar_ref_invalid",
+  "activation_sidecar_read_failed",
+  "activation_sidecar_json_invalid",
+  "activation_binding_digest_mismatch",
+  "activation_approval_ref_mismatch",
+  "activation_feature_state_mismatch",
+  "activation_not_before_mismatch",
+  "activation_writer_mismatch",
+  "observed_writer_mismatch",
+  "activation_not_yet_valid",
+  "activation_expired",
+  "now_invalid",
+  "activation_error_code_unregistered",
+]);
+
+const REGISTERED_ERROR_CODES = new Set(BACKUP_ACTIVATION_ERROR_CODES);
+
+export function normalizeActivationErrorCode(code) {
+  if (typeof code === "string" && REGISTERED_ERROR_CODES.has(code)) {
+    return code;
+  }
+  return "activation_error_code_unregistered";
+}
+
 const SAFE_ID = /^[a-z0-9][a-z0-9._-]{2,63}$/;
 const SAFE_REF = /^[A-Za-z0-9][A-Za-z0-9_.-]{7,127}$/;
 const SHA256 = /^[a-f0-9]{64}$/;
 const GIT_SHA1 = /^[a-f0-9]{40}$/;
 
 function fail(code) {
-  throw new BackupControllerError(code);
+  throw new BackupControllerError(normalizeActivationErrorCode(code));
 }
+
 
 function exactKeys(value, expected, code) {
   if (value === null || typeof value !== "object" || Array.isArray(value)) fail(code);

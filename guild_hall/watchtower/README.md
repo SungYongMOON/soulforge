@@ -150,21 +150,45 @@ npm run guild-hall:watchtower:probe
   mode never executes repairs. Safe-repair mode still requires an injected
   action allowlist, executor, and independent verifier; credential, deletion,
   acknowledgement, route, account, upload, and external-send actions are denied.
-- `recovery_runtime.mjs` binds that contract only to local scheduled tasks whose
-  exact action digest is registered in ignored local state. A candidate must be
-  `stale`, `down`, or pending verification from a previous cycle; the task must be safely startable,
-  and independent pre/post checks must pass. Candidate nodes sharing the same
+- `recovery_runtime.mjs` binds that contract only to allowlisted local scheduled tasks whose
+  exact action digest is registered in ignored local state. The restart allowlist admits only
+  safe local/internal nodes (`ingress_supervisor`, `store_mail_events`, `store_voice_custody`,
+  `voice_label_worker`, `local_activity`, `store_activity_outbox`, `usage_codex_collector`,
+  `usage_claude_collector`, `usage_meter`, `store_usage_ledger`, `consumer_board`, `slack_batch`,
+  `store_slack_custody`, `usage_antigravity_collector`, `gate_five_field`, `store_workmeta`,
+  `watchtower_self`) backed by Owner-bound local read-only/custody tasks. Provider account/source
+  mutation, external sending (`mail_forwarder`), and unbound workers (`codex_retention_report`,
+  `src_*`, `consumer_timeline`) remain strictly excluded from recovery binding.
+- A candidate must be `stale`, `down`, or pending verification from a previous cycle; the task
+  must be safely startable, and independent pre/post checks must pass. Candidate nodes sharing the same
   `task_name` + `action_digest` are deduplicated and started at most once per recovery cycle.
-- A non-auto-repairable diagnostic reason (such as `writer_authority_expired`, `task_action_path_drift`,
+- A non-auto-repairable diagnostic reason (such as terminal auth codes `auth_invalid_grant`,
+  `auth_token_revoked`, `auth_mfa_required`, `auth_consent_required`, `auth_invalid_client`,
+  `auth_terminal_error`, `auth_unknown_failure`, standing cutover receipt errors `continuous_plaud_cutover_receipt_*`
+  (`invalid`, `missing`, `unsafe`, `unstable`, `digest_mismatch`), writer authority errors (`writer_authority_expired`,
+  `continuous_writer_authority_*`, `writer_authority_mode_off`, `writer_authority_continuous_lease_active`), backup
+  activation errors (`backup_activation_expired`, `backup_controller_activation`, and all 24 exact
+  `BACKUP_ACTIVATION_ERROR_CODES` from `guild_hall/backup_controller/activation.mjs` including `now_invalid`
+  and fail-closed sentinel `activation_error_code_unregistered`), `task_action_path_drift`,
+
   credentials, tokens, passwords, logins, and permissions) on ANY bound node in a shared task group gates
-  the entire group as `owner_action_required`, surfacing all bound nodes (including degraded
-  primaries) in recovery receipts with the explicit `diagnostic_code` and zero task starts.
+  the entire group before task inspection as `owner_action_required`, surfacing all bound nodes in
+  recovery receipts with the normalized explicit `diagnostic_code`, zero task starts, and zero consumed retry attempts.
+- Usage-conflict reasons (`usage_event_duplicate_conflict`, `usage_event_conflict`, `quarantine_applied`)
+  belong to the producer-owned quarantine-and-continue lane; they suppress generic restart for that
+  node and shared task group as `observe_only` with zero starts without selecting a winner or mutating credentials.
+- Transient auth reasons (`auth_transient_retry`, timeouts, `token_http_429`, etc.) remain eligible for bounded
+  retry under the existing supervision budget/backoff/circuit and may restart exact owned safe tasks.
+
+
 - When an owned task exists and is enabled but its actual `action_digest` differs from the bound
   digest in local binding state, the recovery runtime diagnoses `task_action_path_drift` and returns
   `owner_action_required`. It never executes or rewrites the drifted task.
 - `recovery_diagnostics.mjs` provides a pure public-safe classifier `classifyRecoveryDiagnostic(sanitizedEvidence)`
-  covering 4 failure families (`scheduled_task_action_drift`, `usage_event_duplicate_conflict`, `standing_receipt_expired`, `auth_refresh`)
-  with strict closed enums, exact-key output envelopes, and zero path/secret leaks.
+  and `classifyRuntimeNodeReason(reason)` covering the 4 failure families (`scheduled_task_action_drift`,
+  `usage_event_duplicate_conflict`, `standing_receipt_expired`, `auth_refresh`) with strict closed enums,
+  exact-key output envelopes, and zero path/secret leaks.
+
 - Post-verification requires causal fresh producer/Watchtower evidence (where evidence
   observation timestamp is newer than the attempt start, bounded by a 5000ms clock tolerance)
   and zero task exit code (`last_task_result === 0`). A changed `last_run_at`,

@@ -1,7 +1,10 @@
 // recovery_diagnostics.mjs — Watchtower pure recovery diagnostic classifier.
 // Public-safe, pure module with zero path/raw/credential leaks.
 
+import { BACKUP_ACTIVATION_ERROR_CODES } from "../backup_controller/activation.mjs";
+
 export const RECOVERY_FAILURE_FAMILIES = Object.freeze([
+
   "scheduled_task_action_drift", "usage_event_duplicate_conflict",
   "standing_receipt_expired", "auth_refresh",
 ]);
@@ -116,7 +119,7 @@ const ALLOWED_INPUT_KEYS = Object.freeze({
   auth_refresh: new Set(["kind", "error_code", "status", "retryable"]),
 });
 
-const TERMINAL_AUTH_CODES = Object.freeze({
+export const TERMINAL_AUTH_CODES = Object.freeze({
   auth_invalid_grant: "auth_invalid_grant",
   invalid_grant: "auth_invalid_grant",
   auth_token_revoked: "auth_token_revoked",
@@ -129,9 +132,11 @@ const TERMINAL_AUTH_CODES = Object.freeze({
   auth_invalid_client: "auth_invalid_client",
   invalid_client: "auth_invalid_client",
   unauthorized_client: "auth_invalid_client",
+  auth_terminal_error: "auth_terminal_error",
+  auth_unknown_failure: "auth_unknown_failure",
 });
 
-const TRANSIENT_AUTH_CODES = new Set([
+export const TRANSIENT_AUTH_CODES = Object.freeze(new Set([
   "auth_transient_retry",
   "transient_network",
   "timeout",
@@ -141,7 +146,86 @@ const TRANSIENT_AUTH_CODES = new Set([
   "token_http_502",
   "token_http_503",
   "token_http_504",
-]);
+]));
+
+export const USAGE_CONFLICT_CODES = Object.freeze(new Set([
+  "usage_event_duplicate_conflict",
+  "usage_event_conflict",
+  "quarantine_applied",
+]));
+
+const BACKUP_ACTIVATION_MAP = Object.fromEntries(
+  BACKUP_ACTIVATION_ERROR_CODES.map((code) => [code, "backup_activation_expired"]),
+);
+
+
+export const STANDING_RECEIPT_CODES = Object.freeze({
+  // Cutover receipt variants
+  cutover_receipt_expired: "cutover_receipt_expired",
+  voice_plaud_writer_cutover_receipt: "cutover_receipt_expired",
+  continuous_plaud_cutover_receipt_invalid: "cutover_receipt_expired",
+  continuous_plaud_cutover_receipt_missing: "cutover_receipt_expired",
+  continuous_plaud_cutover_receipt_unsafe: "cutover_receipt_expired",
+  continuous_plaud_cutover_receipt_unstable: "cutover_receipt_expired",
+  continuous_plaud_cutover_receipt_digest_mismatch: "cutover_receipt_expired",
+
+  // Writer authority variants
+  writer_authority_expired: "writer_authority_expired",
+  continuous_writer_authority_path_invalid: "writer_authority_expired",
+  continuous_writer_authority_snapshot_changed: "writer_authority_expired",
+  continuous_writer_authority_lease_missing: "writer_authority_expired",
+  writer_authority_mode_off: "writer_authority_expired",
+  writer_authority_continuous_lease_active: "writer_authority_expired",
+
+  // Backup activation canonical descriptors and all owner-module source-emitted failure codes
+  backup_activation_expired: "backup_activation_expired",
+  backup_controller_activation: "backup_activation_expired",
+  ...BACKUP_ACTIVATION_MAP,
+});
+
+
+export function classifyRuntimeNodeReason(reason) {
+  if (typeof reason !== "string" || !reason) return null;
+  const normalized = reason.toLowerCase();
+  if (Object.hasOwn(TERMINAL_AUTH_CODES, normalized)) {
+    return {
+      category: "owner_action_required",
+      diagnostic_code: TERMINAL_AUTH_CODES[normalized],
+      disposition: "owner_action_required",
+    };
+  }
+  if (Object.hasOwn(STANDING_RECEIPT_CODES, normalized)) {
+    return {
+      category: "owner_action_required",
+      diagnostic_code: STANDING_RECEIPT_CODES[normalized],
+      disposition: "owner_action_required",
+    };
+  }
+  if (USAGE_CONFLICT_CODES.has(normalized)) {
+    return {
+      category: "usage_conflict",
+      diagnostic_code: normalized,
+      disposition: "observe_only",
+    };
+  }
+  if (TRANSIENT_AUTH_CODES.has(normalized)) {
+    return {
+      category: "transient_auth",
+      diagnostic_code: "auth_transient_retry",
+      disposition: "bounded_retry",
+    };
+  }
+  if (/.*(authority|credential|password|secret|token|cookie|login|account|permission).*/iu.test(reason)) {
+    return {
+      category: "owner_action_required",
+      diagnostic_code: "auth_terminal_error",
+      disposition: "owner_action_required",
+    };
+  }
+  return null;
+}
+
+
 
 const RECEIPT_CONTRACT_DESCRIPTORS = Object.freeze({
   voice_plaud_writer_cutover_receipt: {

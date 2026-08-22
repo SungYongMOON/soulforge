@@ -959,4 +959,14 @@ test("codex retention report probe contract evaluates missing as unmonitored, PA
   const stale = await runProbe(probe, { now: NOW });
   assert.equal(stale.state, "stale");
   assert.deepEqual(stale.reasons, ["heartbeat_stale"]);
+
+  // EXAMPLE_BINDING exposes the public probe template without task or private path
+  const exampleProbe = EXAMPLE_BINDING.probes.codex_retention_report;
+  assert.ok(exampleProbe, "EXAMPLE_BINDING must define codex_retention_report probe");
+  assert.equal(exampleProbe.kind, "json_file");
+  assert.equal(exampleProbe.expected_schema_version, "soulforge.codex_thread_manager.codex_retention_automation_report.v1");
+  assert.deepEqual(exampleProbe.ok_values, ["PASS", "HOLD"]);
+  assert.equal(exampleProbe.missing_is_unmonitored, true);
+  assert.equal(exampleProbe.resident_task, undefined, "codex_retention_report has no resident_task");
+  assert.equal(exampleProbe.scheduled_task, undefined, "codex_retention_report has no scheduled_task");
 });

@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
 import { reconcile } from "./health_recovery_coordinator.mjs";
-import { classifyRecoveryDiagnostic } from "./recovery_diagnostics.mjs";
+import { classifyRecoveryDiagnostic, classifyRuntimeNodeReason } from "./recovery_diagnostics.mjs";
 import {
   persistLocalEvidenceReceipt,
   validateFiveFieldLedgerSet,
@@ -44,7 +44,7 @@ const execFileAsync = promisify(execFile);
 const SAFE_TASK = /^[A-Za-z0-9][A-Za-z0-9 _.-]{0,119}$/u;
 const SAFE_NODE = /^[a-z][a-z0-9_]{0,127}$/u;
 const SHA256 = /^[0-9a-f]{64}$/u;
-const OWNER_ACTION_REASONS = /^(writer_authority_expired|.*(authority|credential|password|secret|token|cookie|login|account|permission).*)$/iu;
+
 const RESTARTABLE_NODES = new Set([
   "ingress_supervisor",
   "store_mail_events",
@@ -57,6 +57,12 @@ const RESTARTABLE_NODES = new Set([
   "usage_meter",
   "store_usage_ledger",
   "consumer_board",
+  "slack_batch",
+  "store_slack_custody",
+  "usage_antigravity_collector",
+  "gate_five_field",
+  "store_workmeta",
+  "watchtower_self",
 ]);
 
 function parseArgs(argv) {
@@ -178,28 +184,38 @@ function publicRecoveryReceipt(receipt, outcomeCode, row, diagnosticCode = null)
   let verification = receipt.verification;
   let repairability = receipt.repairability;
   let repairAction = receipt.repair_action;
+  let diag = diagnosticCode ?? receipt.diagnostic_code ?? null;
   if (outcomeCode === "verified_repair") {
     attempt = "succeeded";
     verification = "passed";
     repairability = "allowlisted";
+    diag = null;
   } else if (outcomeCode === "postverify_failed") {
     attempt = "succeeded";
     verification = "failed";
     repairability = "allowlisted";
+    diag = null;
   } else if (outcomeCode === "not_verified") {
     attempt = "succeeded";
     verification = "failed";
     repairability = "allowlisted";
+    diag = null;
   } else if (outcomeCode === "owner_action_required") {
     attempt = "denied";
     verification = "not_run";
     repairability = "forbidden";
     repairAction = "none";
+  } else if (outcomeCode === "observe_only") {
+    attempt = "denied";
+    verification = "not_run";
+    repairability = "observe_only";
+    repairAction = "none";
+    diag = null;
   }
   return {
     node_id: receipt.node_id,
     reason: receipt.reason,
-    diagnostic_code: diagnosticCode ?? receipt.diagnostic_code ?? null,
+    diagnostic_code: diag,
     repairability,
     repair_action: repairAction,
     attempt,
@@ -293,16 +309,20 @@ export async function runRecoveryCycle({
         actionDigest: bindingRow.action_digest,
         boundNodes: [],
         ownerActionReason: null,
+        usageConflictReason: null,
       });
     }
     const group = taskGroups.get(taskKey);
     group.boundNodes.push(node);
     const nodeReasons = Array.isArray(node?.health?.reasons) ? node.health.reasons : [];
-    const reason = nodeReasons.find(
-      (r) => typeof r === "string" && OWNER_ACTION_REASONS.test(r),
-    );
-    if (reason && !group.ownerActionReason) {
-      group.ownerActionReason = reason;
+    for (const r of nodeReasons) {
+      const classified = classifyRuntimeNodeReason(r);
+      if (classified?.category === "owner_action_required" && !group.ownerActionReason) {
+        group.ownerActionReason = classified.diagnostic_code;
+      }
+      if (classified?.category === "usage_conflict" && !group.usageConflictReason) {
+        group.usageConflictReason = classified.diagnostic_code;
+      }
     }
   }
 
@@ -312,10 +332,11 @@ export async function runRecoveryCycle({
       if (!Object.hasOwn(validatedBinding.task_bindings, node.id)) continue;
       const isStaleOrDown = ["stale", "down"].includes(node?.health?.state);
       const nodeReasons = Array.isArray(node?.health?.reasons) ? node.health.reasons : [];
-      const isOwnerActionDegraded = node?.health?.state === "degraded"
-        && nodeReasons.some((r) => typeof r === "string" && OWNER_ACTION_REASONS.test(r));
+      const hasOwnerAction = nodeReasons.some((r) => classifyRuntimeNodeReason(r)?.category === "owner_action_required");
+      const hasUsageConflict = nodeReasons.some((r) => classifyRuntimeNodeReason(r)?.category === "usage_conflict");
+      const isDegradedGated = node?.health?.state === "degraded" && (hasOwnerAction || hasUsageConflict);
       const isPendingVerification = supervisionRows.get(node.id)?.last_failure_code === "not_verified";
-      if (isStaleOrDown || isOwnerActionDegraded || isPendingVerification) {
+      if (isStaleOrDown || isDegradedGated || isPendingVerification) {
         candidateMap.set(node.id, node);
       }
     }
@@ -337,7 +358,7 @@ export async function runRecoveryCycle({
       continue;
     }
 
-    // P1-4: Safe non-auto-repairable diagnostic on ANY bound node in the task group gates the whole group
+    // Safe non-auto-repairable diagnostic on ANY bound node in the task group gates the whole group
     if (group?.ownerActionReason) {
       plans.set(node.id, {
         row,
@@ -347,10 +368,21 @@ export async function runRecoveryCycle({
       continue;
     }
 
+    // Usage conflict reason on ANY bound node in the task group suppresses generic restart for that group without selecting a winner
+    if (group?.usageConflictReason) {
+      plans.set(node.id, {
+        row,
+        outcomeCode: "observe_only",
+        diagnosticCode: null,
+      });
+      continue;
+    }
+
     if (validatedBinding.mode !== "safe-repair") {
       plans.set(node.id, { row, outcomeCode: "observe_only", diagnosticCode: null });
       continue;
     }
+
 
     // P1-3: Pending verification lifecycle resolution from previous cycle
     if (row.last_failure_code === "not_verified") {

@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## 2026-08-22 - Watchtower recovery runtime: expand safe local restart allowlist and pin diagnostic boundaries
+
+- Expanded the Watchtower deterministic recovery runtime restart allowlist (`guild_hall/watchtower/recovery_runtime.mjs`) to admit remaining safe local/internal nodes backed by Owner-bound local read-only/local-custody tasks (`slack_batch`, `store_slack_custody`, `usage_antigravity_collector`, `gate_five_field`, `store_workmeta`, `watchtower_self`).
+- Maintained exact safety rails: candidate nodes must still be validated with exact task name + SHA256 action digest, enabled state, Ready/Queued state, pre-verification, post-heartbeat causality, and bounded supervision (3 attempts, exponential backoff, 60-minute circuit).
+- Strictly excluded provider accounts/source mutations and external senders from automatic recovery (`mail_forwarder`, `src_*`, `src_gmail`, `consumer_timeline`, `codex_retention_report`).
+- Hardened runtime execution reason gating in `recovery_runtime.mjs` via shared `classifyRuntimeNodeReason`:
+  - Terminal auth reasons (`auth_invalid_grant`, `auth_token_revoked`, `auth_mfa_required`, `auth_consent_required`, `auth_invalid_client`, `auth_terminal_error`, `auth_unknown_failure`, credentials, tokens, passwords, logins, permissions) on any bound node in a shared task group gate the entire group before task inspection as `owner_action_required`, resulting in zero task starts and zero consumed retry attempts.
+  - Standing receipt aliases covering cutover errors (`continuous_plaud_cutover_receipt_*` variants `invalid`, `missing`, `unsafe`, `unstable`, `digest_mismatch`), writer authority errors (`writer_authority_expired`, `continuous_writer_authority_*`, `writer_authority_mode_off`, `writer_authority_continuous_lease_active`), and backup activation errors (`backup_activation_expired`, `backup_controller_activation`, and all 24 exact `BACKUP_ACTIVATION_ERROR_CODES` from `guild_hall/backup_controller/activation.mjs` including `now_invalid` and `activation_error_code_unregistered`) gate the task group before task inspection as `owner_action_required` with normalized diagnostic codes (`cutover_receipt_expired`, `writer_authority_expired`, `backup_activation_expired`) and zero task starts.
+  - Usage-conflict reasons (`usage_event_duplicate_conflict`, `usage_event_conflict`, `quarantine_applied`) suppress generic restart for the node/group as `observe_only` with zero starts without selecting a winner or mutating credentials, preserving producer-owned quarantine-and-continue semantics.
+
+
+  - Transient auth reasons remain bounded retries under the existing supervision budget/backoff/circuit and may restart exact owned safe tasks.
+- Pinned diagnostic classification boundaries in `guild_hall/watchtower/recovery_diagnostics.mjs`:
+  - Terminal auth cases (`auth_invalid_grant`, `auth_token_revoked`, `auth_mfa_required`, `auth_consent_required`, `auth_invalid_client`, `auth_terminal_error`, `auth_unknown_failure`) remain zero-retry `owner_action_required` / `owner_reauthorize`.
+  - Transient auth cases remain `bounded_retry` (max 3 with backoff and circuit open evidence only).
+  - Expired standing receipts (`voice_plaud_writer_cutover_receipt`, `backup_controller_activation`) remain `owner_revalidate_receipt`; only `ingress_writer_authority` with valid `same_authority_local_auto_renew` category qualifies for `revalidate_state`.
+  - AI usage duplicate conflicts remain `quarantine_and_continue` with verified non-conflicting persistence, bounded recovery receipt, and healthy-with-backlog projection.
+
+- Added public `EXAMPLE_BINDING` probe contract for `codex_retention_report` in `guild_hall/watchtower/cli.mjs` as read-only file observation with `missing_is_unmonitored: true` without inventing any task or producer.
+- Added comprehensive unit and regression tests in `recovery_runtime.test.mjs`, `recovery_diagnostics.test.mjs`, and `watchtower.test.mjs`.
+
+
+
 ## 2026-08-22 - AI usage projection: include all local provider usage in read-only aggregates
 
 - Added `codex_session_jsonl` to `DEFAULT_READ_ONLY_BOARD_USAGE_PROVIDERS` in `guild_hall/ai_usage_meter/board_history_snapshot.mjs`.

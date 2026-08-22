@@ -1,13 +1,18 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { resolveActivation } from "./activation.mjs";
+import {
+  BACKUP_ACTIVATION_ERROR_CODES,
+  normalizeActivationErrorCode,
+  resolveActivation,
+} from "./activation.mjs";
 import { runDailyAutomation } from "./automation.mjs";
 import { BackupControllerError, DAILY_CYCLE_STAGE_IDS, STAGE_COMMAND_IDS } from "./controller.mjs";
+
 
 const NOW = new Date("2026-07-20T00:15:00.000Z");
 
@@ -121,4 +126,41 @@ test("enabled automation composes preflight, fixed catalog, and one daily cycle 
   assert.equal(calls[3][0], "catalog");
   assert.equal(calls[4][1].bindingRef, ["D:", "Soulforge-control", "backup-controller", "binding.json"].join("\\"));
   assert.equal(calls[4][1].apply, true);
+});
+
+test("static source parity: every error code emitted in activation.mjs is in BACKUP_ACTIVATION_ERROR_CODES", async () => {
+  const activationSourcePath = path.join(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")), "activation.mjs");
+  const sourceCode = await readFile(activationSourcePath, "utf8");
+
+  // Extract all literal error codes passed to fail("..."), exactKeys(..., ..., "..."), or iso(..., "...")
+  const errorCallRegex = /(?:fail|exactKeys|iso)\s*\([^)]*?["']([a-z0-9_]+)["']\s*\)/g;
+  const foundCodes = new Set();
+  let match;
+  while ((match = errorCallRegex.exec(sourceCode)) !== null) {
+    foundCodes.add(match[1]);
+  }
+
+  assert.ok(foundCodes.size >= 20, `Must find emitted error codes in source, found ${foundCodes.size}`);
+
+  const vocabularySet = new Set(BACKUP_ACTIVATION_ERROR_CODES);
+  for (const code of foundCodes) {
+    assert.ok(
+      vocabularySet.has(code),
+      `Source literal error code "${code}" is missing from BACKUP_ACTIVATION_ERROR_CODES`,
+    );
+  }
+});
+
+test("normalizeActivationErrorCode maps unregistered error codes to activation_error_code_unregistered fail-closed", () => {
+  assert.equal(normalizeActivationErrorCode("fake_unregistered_code"), "activation_error_code_unregistered");
+  assert.equal(normalizeActivationErrorCode(""), "activation_error_code_unregistered");
+  assert.equal(normalizeActivationErrorCode(null), "activation_error_code_unregistered");
+  assert.equal(normalizeActivationErrorCode(undefined), "activation_error_code_unregistered");
+  assert.equal(normalizeActivationErrorCode(123), "activation_error_code_unregistered");
+  assert.equal(normalizeActivationErrorCode({}), "activation_error_code_unregistered");
+
+  // Every registered code must normalize to itself
+  for (const code of BACKUP_ACTIVATION_ERROR_CODES) {
+    assert.equal(normalizeActivationErrorCode(code), code);
+  }
 });

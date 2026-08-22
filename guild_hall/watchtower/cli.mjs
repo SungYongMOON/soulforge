@@ -218,6 +218,17 @@ export const EXAMPLE_BINDING = {
       missing_is_unmonitored: true,
       resident_task: "Soulforge-TeamOpsBoard-ReadOnly-v1",
     },
+    codex_retention_report: {
+      kind: "json_file",
+      path: "<LOCAL_ACTIVITY_ROOT>/reports/codex_retention/current.json",
+      expected_schema_version: "soulforge.codex_thread_manager.codex_retention_automation_report.v1",
+      timestamp_field: "generated_at",
+      status_field: "status",
+      ok_values: ["PASS", "HOLD"],
+      period_seconds: 86400,
+      grace_seconds: 3600,
+      missing_is_unmonitored: true,
+    },
     gate_five_field: {
       kind: "json_file",
       path: "<LOCAL_STATE_ROOT>/operations/watchtower/external_evidence/gate_five_field.json",

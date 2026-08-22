@@ -11,6 +11,8 @@ import {
   validateRecoveryBinding,
 } from "./recovery_runtime.mjs";
 import { composeTopologyHealth } from "./watchtower.mjs";
+import { BACKUP_ACTIVATION_ERROR_CODES } from "../backup_controller/activation.mjs";
+
 
 function binding(mode = "safe-repair") {
   return {
@@ -47,19 +49,169 @@ async function fixture() {
   return { projectRoot, snapshot };
 }
 
-test("recovery binding is exact and excludes provider tasks", () => {
+test("recovery binding is exact, admits newly safe local nodes, and excludes provider/external/unbound tasks", () => {
   assert.equal(validateRecoveryBinding(binding()).mode, "safe-repair");
-  assert.deepEqual(Object.keys(validateRecoveryBinding({
-    ...binding(), task_bindings: {
-      store_mail_events: { task_name: "Synthetic Ingress", action_digest: "b".repeat(64) },
-      store_voice_custody: { task_name: "Synthetic Ingress", action_digest: "b".repeat(64) },
+  // All newly safe local nodes must be accepted when valid
+  const newlySafeNodes = [
+    "slack_batch",
+    "store_slack_custody",
+    "usage_antigravity_collector",
+    "gate_five_field",
+    "store_workmeta",
+    "watchtower_self",
+  ];
+  for (const nodeId of newlySafeNodes) {
+    const res = validateRecoveryBinding({
+      ...binding(),
+      task_bindings: {
+        [nodeId]: { task_name: `Synthetic ${nodeId}`, action_digest: "c".repeat(64) },
+      },
+    });
+    assert.ok(res.task_bindings[nodeId], `${nodeId} should be accepted by validateRecoveryBinding`);
+  }
+
+  // All existing safe restartable nodes remain accepted
+  const existingSafeNodes = [
+    "ingress_supervisor",
+    "store_mail_events",
+    "store_voice_custody",
+    "voice_label_worker",
+    "local_activity",
+    "store_activity_outbox",
+    "usage_codex_collector",
+    "usage_claude_collector",
+    "usage_meter",
+    "store_usage_ledger",
+    "consumer_board",
+  ];
+  for (const nodeId of existingSafeNodes) {
+    const res = validateRecoveryBinding({
+      ...binding(),
+      task_bindings: {
+        [nodeId]: { task_name: `Synthetic ${nodeId}`, action_digest: "d".repeat(64) },
+      },
+    });
+    assert.ok(res.task_bindings[nodeId], `${nodeId} should be accepted by validateRecoveryBinding`);
+  }
+
+  // Explicit negative tests: external/mail forwarder, provider/source nodes, timeline consumer, codex retention report must be rejected
+  const rejectedNodes = [
+    "mail_forwarder",
+    "src_hiworks",
+    "src_plaud",
+    "src_slack",
+    "src_onedrive",
+    "src_codex",
+    "src_claude",
+    "src_antigravity",
+    "src_gmail",
+    "consumer_timeline",
+    "codex_retention_report",
+  ];
+  for (const nodeId of rejectedNodes) {
+    assert.throws(() => validateRecoveryBinding({
+      ...binding(),
+      task_bindings: {
+        [nodeId]: { task_name: "Synthetic", action_digest: "a".repeat(64) },
+      },
+    }), /recovery_binding_task_invalid/u, `${nodeId} must be rejected from recovery binding`);
+  }
+});
+
+
+test("newly safe nodes sharing one task execute once, produce per-node receipts, honor digest mismatch, and post-verify", async () => {
+  const { projectRoot, snapshot } = await fixture();
+  const sharedBinding = {
+    schema_version: RECOVERY_BINDING_SCHEMA_VERSION,
+    mode: "safe-repair",
+    task_bindings: {
+      slack_batch: { task_name: "Soulforge-HPP-Slack-Batch", action_digest: "e".repeat(64) },
+      store_slack_custody: { task_name: "Soulforge-HPP-Slack-Batch", action_digest: "e".repeat(64) },
     },
-  }).task_bindings).sort(), ["store_mail_events", "store_voice_custody"]);
-  assert.throws(() => validateRecoveryBinding({
-    ...binding(), task_bindings: {
-      mail_forwarder: { task_name: "Synthetic", action_digest: "a".repeat(64) },
+  };
+
+  // Case 1: Both nodes stale/down -> task starts once, verified_repair produced for each node
+  for (const id of ["slack_batch", "store_slack_custody"]) {
+    const node = snapshot.nodes.find((n) => n.id === id);
+    if (node) {
+      node.health = { state: "stale", reasons: ["heartbeat_stale"], age_seconds: 901 };
+      snapshot.summary.unmonitored -= 1;
+      snapshot.summary.stale += 1;
+    }
+  }
+
+  let starts = 0;
+  const cycleAttemptTime = "2026-08-14T00:05:00.000Z";
+  const postAttemptSnapshot = JSON.parse(JSON.stringify(snapshot));
+  for (const id of ["slack_batch", "store_slack_custody"]) {
+    const node = postAttemptSnapshot.nodes.find((n) => n.id === id);
+    if (node) {
+      node.health = { state: "ok", reasons: [], age_seconds: 10 };
+      postAttemptSnapshot.summary.stale -= 1;
+      postAttemptSnapshot.summary.ok += 1;
+    }
+  }
+  postAttemptSnapshot.observed_at = "2026-08-14T00:05:15.000Z";
+
+  let runCount = 0;
+  const result = await runRecoveryCycle({
+    repoRoot: projectRoot,
+    projectRoot,
+    binding: sharedBinding,
+    evidenceRoot: path.join(projectRoot, "evidence-shared"),
+    watchtowerPointerPath: path.join(projectRoot, "pointer-shared.json"),
+    runWatchtower: async () => {
+      runCount += 1;
+      return runCount <= 2 ? snapshot : postAttemptSnapshot;
     },
-  }), /recovery_binding_task_invalid/u);
+    inspectTask: async () => ({
+      exists: true,
+      enabled: true,
+      state: "ready",
+      action_digest: "e".repeat(64),
+      last_run_at: "2026-08-14T00:05:05.000Z",
+      last_task_result: 0,
+    }),
+    startTask: async () => { starts += 1; return { ok: true }; },
+    now: () => new Date(cycleAttemptTime),
+  });
+
+  assert.equal(starts, 1, "Shared task must be started exactly once across both nodes");
+  assert.equal(result.recovery.length, 2, "Per-node recovery receipts must be emitted for both nodes");
+  const slackBatchReceipt = result.recovery.find((r) => r.node_id === "slack_batch");
+  const storeCustodyReceipt = result.recovery.find((r) => r.node_id === "store_slack_custody");
+  assert.equal(slackBatchReceipt?.outcome_code, "verified_repair");
+  assert.equal(storeCustodyReceipt?.outcome_code, "verified_repair");
+
+  // Case 2: Digest mismatch produces owner_action_required with task_action_path_drift and zero starts
+  let mismatchStarts = 0;
+  const mismatchResult = await runRecoveryCycle({
+    repoRoot: projectRoot,
+    projectRoot,
+    binding: sharedBinding,
+    evidenceRoot: path.join(projectRoot, "evidence-mismatch"),
+    watchtowerPointerPath: path.join(projectRoot, "pointer-mismatch.json"),
+    runWatchtower: async () => snapshot,
+    inspectTask: async () => ({
+      exists: true,
+      enabled: true,
+      state: "ready",
+      action_digest: "f".repeat(64), // Drifted digest
+      last_run_at: "2026-08-14T00:00:00.000Z",
+      last_task_result: 0,
+    }),
+    startTask: async () => { mismatchStarts += 1; return { ok: true }; },
+    now: () => new Date(cycleAttemptTime),
+  });
+
+  assert.equal(mismatchStarts, 0, "No task start allowed when action digest drifts");
+  assert.equal(mismatchResult.recovery.length, 2);
+  for (const row of mismatchResult.recovery) {
+    assert.equal(row.outcome_code, "owner_action_required");
+    assert.equal(row.diagnostic_code, "task_action_path_drift");
+    assert.equal(row.repair_action, "none");
+    assert.equal(row.attempt, "denied");
+  }
 });
 
 test("cycle writes three independent evidence lanes without repair when graph is not stale/down", async () => {
@@ -664,4 +816,529 @@ test("regression: pending not_verified resolves to postverify_failed next cycle 
   assert.equal(cycle2.recovery[0].consecutive_failures, 1);
   assert.equal(cycle2.recovery[0].circuit_state, "closed");
   assert.notEqual(cycle2.recovery[0].next_retry_at, null);
+});
+
+test("runtime gates every terminal auth reason as owner_action_required with 0 starts and no retry consumption", async () => {
+  const terminalAuthCodes = [
+    "auth_invalid_grant",
+    "auth_token_revoked",
+    "auth_mfa_required",
+    "auth_consent_required",
+    "auth_invalid_client",
+    "auth_terminal_error",
+  ];
+
+  for (const authCode of terminalAuthCodes) {
+    const { projectRoot, snapshot } = await fixture();
+    const node = snapshot.nodes.find((n) => n.id === "slack_batch");
+    assert.ok(node, "slack_batch must exist in topology snapshot");
+    node.health = { state: "stale", reasons: ["heartbeat_stale", authCode], age_seconds: 901 };
+    snapshot.summary.unmonitored -= 1;
+    snapshot.summary.stale += 1;
+
+    let starts = 0;
+    let inspections = 0;
+    const testBinding = {
+      schema_version: RECOVERY_BINDING_SCHEMA_VERSION,
+      mode: "safe-repair",
+      task_bindings: {
+        slack_batch: { task_name: "Soulforge-HPP-Slack-Batch", action_digest: "e".repeat(64) },
+      },
+    };
+
+    const result = await runRecoveryCycle({
+      repoRoot: projectRoot,
+      projectRoot,
+      binding: testBinding,
+      evidenceRoot: path.join(projectRoot, `evidence-terminal-${authCode}`),
+      watchtowerPointerPath: path.join(projectRoot, `pointer-terminal-${authCode}.json`),
+      runWatchtower: async () => snapshot,
+      inspectTask: async () => {
+        inspections += 1;
+        return {
+          exists: true, enabled: true, state: "ready",
+          action_digest: "e".repeat(64), last_run_at: null, last_task_result: null,
+        };
+      },
+      startTask: async () => { starts += 1; return { ok: true }; },
+      now: () => new Date("2026-08-14T00:05:00.000Z"),
+    });
+
+    assert.equal(starts, 0, `startTask must be 0 for terminal auth code: ${authCode}`);
+    assert.equal(inspections, 0, `inspectTask must not be called when gated by terminal auth code: ${authCode}`);
+    assert.equal(result.recovery.length, 1);
+    const receipt = result.recovery[0];
+    assert.equal(receipt.outcome_code, "owner_action_required", `outcome_code for ${authCode}`);
+    assert.equal(receipt.diagnostic_code, authCode, `diagnostic_code for ${authCode}`);
+    assert.equal(receipt.repair_action, "none", `repair_action for ${authCode}`);
+    assert.equal(receipt.attempt, "denied", `attempt for ${authCode}`);
+    assert.equal(receipt.verification, "not_run", `verification for ${authCode}`);
+    assert.equal(receipt.consecutive_failures, 0, `terminal auth must not consume retry attempts for ${authCode}`);
+  }
+});
+
+test("runtime gates usage_event_duplicate_conflict, usage_event_conflict, quarantine_applied as observe_only with 0 starts", async () => {
+  const usageConflictCodes = [
+    "usage_event_duplicate_conflict",
+    "usage_event_conflict",
+    "quarantine_applied",
+  ];
+
+  for (const conflictCode of usageConflictCodes) {
+    const { projectRoot, snapshot } = await fixture();
+    const node = snapshot.nodes.find((n) => n.id === "usage_meter");
+    assert.ok(node, "usage_meter must exist in topology snapshot");
+    node.health = { state: "stale", reasons: ["heartbeat_stale", conflictCode], age_seconds: 901 };
+    snapshot.summary.unmonitored -= 1;
+    snapshot.summary.stale += 1;
+
+    let starts = 0;
+    let inspections = 0;
+    const testBinding = {
+      schema_version: RECOVERY_BINDING_SCHEMA_VERSION,
+      mode: "safe-repair",
+      task_bindings: {
+        usage_meter: { task_name: "Soulforge-Usage-Meter", action_digest: "a".repeat(64) },
+      },
+    };
+
+    const result = await runRecoveryCycle({
+      repoRoot: projectRoot,
+      projectRoot,
+      binding: testBinding,
+      evidenceRoot: path.join(projectRoot, `evidence-conflict-${conflictCode}`),
+      watchtowerPointerPath: path.join(projectRoot, `pointer-conflict-${conflictCode}.json`),
+      runWatchtower: async () => snapshot,
+      inspectTask: async () => {
+        inspections += 1;
+        return {
+          exists: true, enabled: true, state: "ready",
+          action_digest: "a".repeat(64), last_run_at: null, last_task_result: null,
+        };
+      },
+      startTask: async () => { starts += 1; return { ok: true }; },
+      now: () => new Date("2026-08-14T00:05:00.000Z"),
+    });
+
+    assert.equal(starts, 0, `startTask must be 0 for usage conflict code: ${conflictCode}`);
+    assert.equal(inspections, 0, `inspectTask must not be called when gated by usage conflict: ${conflictCode}`);
+    assert.equal(result.recovery.length, 1);
+    const receipt = result.recovery[0];
+    assert.equal(receipt.outcome_code, "observe_only", `outcome_code for ${conflictCode}`);
+    assert.equal(receipt.repairability, "observe_only", `repairability for ${conflictCode}`);
+    assert.equal(receipt.repair_action, "none", `repair_action for ${conflictCode}`);
+    assert.equal(receipt.attempt, "denied", `attempt for ${conflictCode}`);
+    assert.equal(receipt.consecutive_failures, 0, `usage conflict must not consume retry attempts`);
+  }
+});
+
+test("runtime shared task group gates entire group when any bound node has terminal auth or usage conflict", async () => {
+  // Case A: Terminal auth on slack_batch gates store_slack_custody in the same task group
+  {
+    const { projectRoot, snapshot } = await fixture();
+    const sharedBinding = {
+      schema_version: RECOVERY_BINDING_SCHEMA_VERSION,
+      mode: "safe-repair",
+      task_bindings: {
+        slack_batch: { task_name: "Soulforge-HPP-Slack-Batch", action_digest: "e".repeat(64) },
+        store_slack_custody: { task_name: "Soulforge-HPP-Slack-Batch", action_digest: "e".repeat(64) },
+      },
+    };
+    const nodeA = snapshot.nodes.find((n) => n.id === "slack_batch");
+    const nodeB = snapshot.nodes.find((n) => n.id === "store_slack_custody");
+    nodeA.health = { state: "stale", reasons: ["heartbeat_stale", "auth_invalid_grant"], age_seconds: 901 };
+    nodeB.health = { state: "stale", reasons: ["heartbeat_stale"], age_seconds: 901 };
+
+    let starts = 0;
+    const result = await runRecoveryCycle({
+      repoRoot: projectRoot,
+      projectRoot,
+      binding: sharedBinding,
+      evidenceRoot: path.join(projectRoot, "evidence-shared-terminal"),
+      watchtowerPointerPath: path.join(projectRoot, "pointer-shared-terminal.json"),
+      runWatchtower: async () => snapshot,
+      inspectTask: async () => ({
+        exists: true, enabled: true, state: "ready",
+        action_digest: "e".repeat(64), last_run_at: null, last_task_result: null,
+      }),
+      startTask: async () => { starts += 1; return { ok: true }; },
+      now: () => new Date("2026-08-14T00:05:00.000Z"),
+    });
+
+    assert.equal(starts, 0, "Terminal auth on any node in shared group must produce 0 starts");
+    assert.equal(result.recovery.length, 2);
+    for (const row of result.recovery) {
+      assert.equal(row.outcome_code, "owner_action_required");
+      assert.equal(row.diagnostic_code, "auth_invalid_grant");
+      assert.equal(row.repair_action, "none");
+      assert.equal(row.attempt, "denied");
+    }
+  }
+
+  // Case B: Usage conflict on usage_antigravity_collector suppresses generic restart for shared group
+  {
+    const { projectRoot, snapshot } = await fixture();
+    const sharedUsageBinding = {
+      schema_version: RECOVERY_BINDING_SCHEMA_VERSION,
+      mode: "safe-repair",
+      task_bindings: {
+        usage_antigravity_collector: { task_name: "Soulforge-Usage-Host", action_digest: "f".repeat(64) },
+        usage_meter: { task_name: "Soulforge-Usage-Host", action_digest: "f".repeat(64) },
+      },
+    };
+    const nodeA = snapshot.nodes.find((n) => n.id === "usage_antigravity_collector");
+    const nodeB = snapshot.nodes.find((n) => n.id === "usage_meter");
+    nodeA.health = { state: "stale", reasons: ["heartbeat_stale", "usage_event_duplicate_conflict"], age_seconds: 901 };
+    nodeB.health = { state: "stale", reasons: ["heartbeat_stale"], age_seconds: 901 };
+
+    let starts = 0;
+    const result = await runRecoveryCycle({
+      repoRoot: projectRoot,
+      projectRoot,
+      binding: sharedUsageBinding,
+      evidenceRoot: path.join(projectRoot, "evidence-shared-conflict"),
+      watchtowerPointerPath: path.join(projectRoot, "pointer-shared-conflict.json"),
+      runWatchtower: async () => snapshot,
+      inspectTask: async () => ({
+        exists: true, enabled: true, state: "ready",
+        action_digest: "f".repeat(64), last_run_at: null, last_task_result: null,
+      }),
+      startTask: async () => { starts += 1; return { ok: true }; },
+      now: () => new Date("2026-08-14T00:05:00.000Z"),
+    });
+
+    assert.equal(starts, 0, "Usage conflict on any node in shared group must produce 0 starts");
+    assert.equal(result.recovery.length, 2);
+    for (const row of result.recovery) {
+      assert.equal(row.outcome_code, "observe_only");
+      assert.equal(row.repairability, "observe_only");
+      assert.equal(row.repair_action, "none");
+      assert.equal(row.attempt, "denied");
+    }
+  }
+});
+
+test("runtime permits bounded retry on transient auth reasons and verifies terminal auth does not consume retries", async () => {
+  const { projectRoot, snapshot } = await fixture();
+  const node = snapshot.nodes.find((n) => n.id === "slack_batch");
+  assert.ok(node);
+  node.health = { state: "stale", reasons: ["heartbeat_stale", "auth_transient_retry"], age_seconds: 901 };
+  snapshot.summary.unmonitored -= 1;
+  snapshot.summary.stale += 1;
+
+  const testBinding = {
+    schema_version: RECOVERY_BINDING_SCHEMA_VERSION,
+    mode: "safe-repair",
+    task_bindings: {
+      slack_batch: { task_name: "Soulforge-HPP-Slack-Batch", action_digest: "e".repeat(64) },
+    },
+  };
+  const evidenceRoot = path.join(projectRoot, "evidence-transient-bounded");
+
+  let starts = 0;
+  let inspections = 0;
+
+  // Attempt 1: Transient auth -> eligible -> starts task -> fails verification -> consecutive_failures: 1 (backoff 5m)
+  const cycle1 = await runRecoveryCycle({
+    repoRoot: projectRoot,
+    projectRoot,
+    binding: testBinding,
+    evidenceRoot,
+    watchtowerPointerPath: path.join(projectRoot, "pointer-transient.json"),
+    runWatchtower: async () => snapshot,
+    inspectTask: async () => {
+      inspections += 1;
+      return {
+        exists: true, enabled: true, state: "ready",
+        action_digest: "e".repeat(64), last_run_at: "2026-08-14T00:05:01.000Z", last_task_result: 1,
+      };
+    },
+    startTask: async () => { starts += 1; return { ok: true }; },
+    now: () => new Date("2026-08-14T00:05:00.000Z"),
+  });
+
+  assert.equal(starts, 1, "Transient auth must attempt safe repair");
+  assert.equal(inspections, 2); // pre and post
+  assert.equal(cycle1.recovery[0].outcome_code, "postverify_failed");
+  assert.equal(cycle1.recovery[0].consecutive_failures, 1);
+
+  // Attempt 2: After 5m backoff, transient error occurs again -> starts task -> fails -> consecutive_failures: 2
+  const cycle2 = await runRecoveryCycle({
+    repoRoot: projectRoot,
+    projectRoot,
+    binding: testBinding,
+    evidenceRoot,
+    watchtowerPointerPath: path.join(projectRoot, "pointer-transient.json"),
+    runWatchtower: async () => snapshot,
+    inspectTask: async () => {
+      inspections += 1;
+      return {
+        exists: true, enabled: true, state: "ready",
+        action_digest: "e".repeat(64), last_run_at: "2026-08-14T00:10:01.000Z", last_task_result: 1,
+      };
+    },
+    startTask: async () => { starts += 1; return { ok: true }; },
+    now: () => new Date("2026-08-14T00:10:00.000Z"),
+  });
+
+  assert.equal(starts, 2);
+  assert.equal(cycle2.recovery[0].outcome_code, "postverify_failed");
+  assert.equal(cycle2.recovery[0].consecutive_failures, 2);
+
+  // Attempt 3: Node becomes terminal auth (auth_invalid_grant) -> owner_action_required -> 0 starts, consecutive_failures remains 2
+  node.health = { state: "stale", reasons: ["heartbeat_stale", "auth_invalid_grant"], age_seconds: 901 };
+  const cycle3 = await runRecoveryCycle({
+    repoRoot: projectRoot,
+    projectRoot,
+    binding: testBinding,
+    evidenceRoot,
+    watchtowerPointerPath: path.join(projectRoot, "pointer-transient.json"),
+    runWatchtower: async () => snapshot,
+    inspectTask: async () => {
+      inspections += 1;
+      return {
+        exists: true, enabled: true, state: "ready",
+        action_digest: "e".repeat(64), last_run_at: "2026-08-14T00:25:01.000Z", last_task_result: 0,
+      };
+    },
+    startTask: async () => { starts += 1; return { ok: true }; },
+    now: () => new Date("2026-08-14T00:25:00.000Z"),
+  });
+
+  assert.equal(starts, 2, "Terminal auth must NOT attempt start");
+  assert.equal(cycle3.recovery[0].outcome_code, "owner_action_required");
+  assert.equal(cycle3.recovery[0].diagnostic_code, "auth_invalid_grant");
+  assert.equal(cycle3.recovery[0].consecutive_failures, 2, "Terminal auth must NOT consume or advance failure counter");
+});
+
+test("runtime gates auth_unknown_failure with 0 inspections, 0 starts, and owner_action_required", async () => {
+  const { projectRoot, snapshot } = await fixture();
+  const node = snapshot.nodes.find((n) => n.id === "slack_batch");
+  assert.ok(node);
+  node.health = { state: "stale", reasons: ["heartbeat_stale", "auth_unknown_failure"], age_seconds: 901 };
+  snapshot.summary.unmonitored -= 1;
+  snapshot.summary.stale += 1;
+
+  let starts = 0;
+  let inspections = 0;
+  const testBinding = {
+    schema_version: RECOVERY_BINDING_SCHEMA_VERSION,
+    mode: "safe-repair",
+    task_bindings: {
+      slack_batch: { task_name: "Soulforge-HPP-Slack-Batch", action_digest: "e".repeat(64) },
+    },
+  };
+
+  const result = await runRecoveryCycle({
+    repoRoot: projectRoot,
+    projectRoot,
+    binding: testBinding,
+    evidenceRoot: path.join(projectRoot, "evidence-auth-unknown"),
+    watchtowerPointerPath: path.join(projectRoot, "pointer-auth-unknown.json"),
+    runWatchtower: async () => snapshot,
+    inspectTask: async () => {
+      inspections += 1;
+      return {
+        exists: true, enabled: true, state: "ready",
+        action_digest: "e".repeat(64), last_run_at: null, last_task_result: null,
+      };
+    },
+    startTask: async () => { starts += 1; return { ok: true }; },
+    now: () => new Date("2026-08-14T00:05:00.000Z"),
+  });
+
+  assert.equal(starts, 0, "startTask must be 0 for auth_unknown_failure");
+  assert.equal(inspections, 0, "inspectTask must not be called for auth_unknown_failure");
+  assert.equal(result.recovery.length, 1);
+  const receipt = result.recovery[0];
+  assert.equal(receipt.outcome_code, "owner_action_required");
+  assert.equal(receipt.diagnostic_code, "auth_unknown_failure");
+  assert.equal(receipt.repair_action, "none");
+  assert.equal(receipt.attempt, "denied");
+  assert.equal(receipt.consecutive_failures, 0);
+});
+
+test("runtime gates every continuous_plaud_cutover_receipt_* safe alias to cutover_receipt_expired with 0 starts", async () => {
+  const cutoverVariants = [
+    "continuous_plaud_cutover_receipt_invalid",
+    "continuous_plaud_cutover_receipt_missing",
+    "continuous_plaud_cutover_receipt_unsafe",
+    "continuous_plaud_cutover_receipt_unstable",
+    "continuous_plaud_cutover_receipt_digest_mismatch",
+  ];
+
+  for (const variant of cutoverVariants) {
+    const { projectRoot, snapshot } = await fixture();
+    const node = snapshot.nodes.find((n) => n.id === "ingress_supervisor");
+    assert.ok(node);
+    node.health = { state: "stale", reasons: ["heartbeat_stale", variant], age_seconds: 901 };
+    snapshot.summary.unmonitored -= 1;
+    snapshot.summary.stale += 1;
+
+    let starts = 0;
+    let inspections = 0;
+    const testBinding = {
+      schema_version: RECOVERY_BINDING_SCHEMA_VERSION,
+      mode: "safe-repair",
+      task_bindings: {
+        ingress_supervisor: { task_name: "Soulforge-Ingress-Host", action_digest: "a".repeat(64) },
+      },
+    };
+
+    const result = await runRecoveryCycle({
+      repoRoot: projectRoot,
+      projectRoot,
+      binding: testBinding,
+      evidenceRoot: path.join(projectRoot, `evidence-cutover-${variant}`),
+      watchtowerPointerPath: path.join(projectRoot, `pointer-cutover-${variant}.json`),
+      runWatchtower: async () => snapshot,
+      inspectTask: async () => {
+        inspections += 1;
+        return {
+          exists: true, enabled: true, state: "ready",
+          action_digest: "a".repeat(64), last_run_at: null, last_task_result: null,
+        };
+      },
+      startTask: async () => { starts += 1; return { ok: true }; },
+      now: () => new Date("2026-08-14T00:05:00.000Z"),
+    });
+
+    assert.equal(starts, 0, `startTask must be 0 for cutover alias: ${variant}`);
+    assert.equal(inspections, 0, `inspectTask must not be called for cutover alias: ${variant}`);
+    assert.equal(result.recovery.length, 1);
+    const receipt = result.recovery[0];
+    assert.equal(receipt.outcome_code, "owner_action_required", `outcome_code for ${variant}`);
+    assert.equal(receipt.diagnostic_code, "cutover_receipt_expired", `diagnostic_code for ${variant}`);
+    assert.equal(receipt.repair_action, "none", `repair_action for ${variant}`);
+    assert.equal(receipt.attempt, "denied", `attempt for ${variant}`);
+    assert.equal(receipt.consecutive_failures, 0);
+  }
+});
+
+test("runtime gates writer authority and backup activation aliases to owner_action_required with 0 starts", async () => {
+  const cases = [
+    {
+      nodeId: "ingress_supervisor",
+      taskName: "Soulforge-Ingress-Host",
+      reason: "continuous_writer_authority_lease_missing",
+      expectedDiagnostic: "writer_authority_expired",
+    },
+    {
+      nodeId: "ingress_supervisor",
+      taskName: "Soulforge-Ingress-Host",
+      reason: "writer_authority_mode_off",
+      expectedDiagnostic: "writer_authority_expired",
+    },
+    {
+      nodeId: "watchtower_self",
+      taskName: "Soulforge-Watchtower-Self",
+      reason: "activation_expired",
+      expectedDiagnostic: "backup_activation_expired",
+    },
+    {
+      nodeId: "watchtower_self",
+      taskName: "Soulforge-Watchtower-Self",
+      reason: "activation_binding_digest_mismatch",
+      expectedDiagnostic: "backup_activation_expired",
+    },
+  ];
+
+  for (const { nodeId, taskName, reason, expectedDiagnostic } of cases) {
+    const { projectRoot, snapshot } = await fixture();
+    const node = snapshot.nodes.find((n) => n.id === nodeId);
+    assert.ok(node, `${nodeId} must exist`);
+    node.health = { state: "stale", reasons: ["heartbeat_stale", reason], age_seconds: 901 };
+    snapshot.summary.unmonitored -= 1;
+    snapshot.summary.stale += 1;
+
+    let starts = 0;
+    let inspections = 0;
+    const testBinding = {
+      schema_version: RECOVERY_BINDING_SCHEMA_VERSION,
+      mode: "safe-repair",
+      task_bindings: {
+        [nodeId]: { task_name: taskName, action_digest: "a".repeat(64) },
+      },
+    };
+
+    const result = await runRecoveryCycle({
+      repoRoot: projectRoot,
+      projectRoot,
+      binding: testBinding,
+      evidenceRoot: path.join(projectRoot, `evidence-standing-${reason}`),
+      watchtowerPointerPath: path.join(projectRoot, `pointer-standing-${reason}.json`),
+      runWatchtower: async () => snapshot,
+      inspectTask: async () => {
+        inspections += 1;
+        return {
+          exists: true, enabled: true, state: "ready",
+          action_digest: "a".repeat(64), last_run_at: null, last_task_result: null,
+        };
+      },
+      startTask: async () => { starts += 1; return { ok: true }; },
+      now: () => new Date("2026-08-14T00:05:00.000Z"),
+    });
+
+    assert.equal(starts, 0, `startTask must be 0 for reason: ${reason}`);
+    assert.equal(inspections, 0, `inspectTask must not be called for reason: ${reason}`);
+    assert.equal(result.recovery.length, 1);
+    const receipt = result.recovery[0];
+    assert.equal(receipt.outcome_code, "owner_action_required", `outcome_code for ${reason}`);
+    assert.equal(receipt.diagnostic_code, expectedDiagnostic, `diagnostic_code for ${reason}`);
+    assert.equal(receipt.repair_action, "none", `repair_action for ${reason}`);
+    assert.equal(receipt.attempt, "denied", `attempt for ${reason}`);
+    assert.equal(receipt.consecutive_failures, 0);
+  }
+});
+
+test("runtime gates every exact source-emitted backup activation error to backup_activation_expired with 0 starts", async () => {
+  assert.ok(BACKUP_ACTIVATION_ERROR_CODES.length >= 24);
+
+  for (const errorCode of BACKUP_ACTIVATION_ERROR_CODES) {
+    const { projectRoot, snapshot } = await fixture();
+    const node = snapshot.nodes.find((n) => n.id === "watchtower_self");
+
+    assert.ok(node, "watchtower_self must exist");
+    node.health = { state: "stale", reasons: ["heartbeat_stale", errorCode], age_seconds: 901 };
+    snapshot.summary.unmonitored -= 1;
+    snapshot.summary.stale += 1;
+
+    let starts = 0;
+    let inspections = 0;
+    const testBinding = {
+      schema_version: RECOVERY_BINDING_SCHEMA_VERSION,
+      mode: "safe-repair",
+      task_bindings: {
+        watchtower_self: { task_name: "Soulforge-Watchtower-Self", action_digest: "a".repeat(64) },
+      },
+    };
+
+    const result = await runRecoveryCycle({
+      repoRoot: projectRoot,
+      projectRoot,
+      binding: testBinding,
+      evidenceRoot: path.join(projectRoot, `evidence-activation-${errorCode}`),
+      watchtowerPointerPath: path.join(projectRoot, `pointer-activation-${errorCode}.json`),
+      runWatchtower: async () => snapshot,
+      inspectTask: async () => {
+        inspections += 1;
+        return {
+          exists: true, enabled: true, state: "ready",
+          action_digest: "a".repeat(64), last_run_at: null, last_task_result: null,
+        };
+      },
+      startTask: async () => { starts += 1; return { ok: true }; },
+      now: () => new Date("2026-08-14T00:05:00.000Z"),
+    });
+
+    assert.equal(starts, 0, `startTask must be 0 for activation error: ${errorCode}`);
+    assert.equal(inspections, 0, `inspectTask must not be called for activation error: ${errorCode}`);
+    assert.equal(result.recovery.length, 1);
+    const receipt = result.recovery[0];
+    assert.equal(receipt.outcome_code, "owner_action_required", `outcome_code for ${errorCode}`);
+    assert.equal(receipt.diagnostic_code, "backup_activation_expired", `diagnostic_code for ${errorCode}`);
+    assert.equal(receipt.repair_action, "none", `repair_action for ${errorCode}`);
+    assert.equal(receipt.attempt, "denied", `attempt for ${errorCode}`);
+    assert.equal(receipt.consecutive_failures, 0, `consecutive_failures for ${errorCode}`);
+  }
 });
