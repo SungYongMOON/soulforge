@@ -12,15 +12,44 @@
   inferred from title, cwd, prefix, similarity, or age.
 - Child direct usage is never merged into a manager's direct usage; `self`, `child_direct`,
   and `subtree` totals are computed in a projection over the untouched event ledger.
-  An identical replay is `NO_OP`; a divergent payload under the same ID is a conflict `HOLD`.
-- A structural topology edge cannot be recorded as a delivery receipt, and an expired lease is
-  fenced out so a crashed or timed-out worker cannot double execute.
+  An identical replay is `NO_OP`, a divergent payload under the same ID is a conflict `HOLD`, and
+  the same measurement re-emitted under a fresh correlation ID is a `USAGE_CONTENT_DUPLICATE`
+  `HOLD` rather than a doubled total — including when it comes back under a different cost basis
+  or with an added evidence ref, which are excluded from the natural key for that reason.
+  A child run in a different project than its parent is refused, so another project's work cannot
+  enter this parent's subtree total.
+- A structural topology edge cannot be recorded as a delivery receipt. Lease TTL is enforced at
+  completion time as well as at acquisition, so an expired lease cannot record a result even
+  while the resource sits idle. That guarantees exactly one *recorded completion* per job and
+  counts the fenced attempt — it is deliberately not a claim that the craftsman's side effect ran
+  only once, and `capacity` is likewise a logical rather than a physical bound. Physical
+  exactly-once needs a craftsman-side idempotency contract, which is out of this slice.
+- Host and resource health are both monotonic observations that carry their own clock — resource
+  registration is itself the first health observation — so a stale or same-instant collector
+  report cannot flip an unhealthy resource back to `ok` and re-open dispatch. A clock-aware projection returns a reclaimable job to `queue_depth` rather than
+  reporting an idle shop with outstanding work.
+- Observation-store records are deeply frozen and the ledger maps are unreachable from the store
+  handle, so stored authority scope, provider identities, and delivery evidence cannot be widened
+  after the write and evidence cannot be cleared. Strict key allowlist, secret scan, and local
+  absolute-path scan run at every entry point of every module from one shared guard module, with a
+  scan depth bound so a deeply nested value fails closed instead of exhausting the stack.
+  Malformed input always returns a structured HOLD; no entry point throws. An unknown key name is
+  never echoed back into a hold detail, since key names are producer-controlled and a credential
+  can be shaped like a valid identifier.
+- A cost basis that asserts real money or credit (`billed_cost`,
+  `subscription_credit_observation`) is refused without its own evidence refs.
 - 운영 영향: 새 명령 표면은 `npm run validate:agent-observation` 하나뿐이다. 모든 module은
   pure in-memory이며 파일·network·child process·ERP 세계수·Board enrollment·result gate에
   쓰지 않는다. 실제 Excel 앱, external provider, project payload는 사용하지 않고
-  public-safe synthetic fixture만 사용한다. 이번 수락은 public deterministic candidate이며
-  actual project, live runtime, 운영 승격 수락이 아니다.
+  public-safe synthetic fixture만 사용한다. `declared_effect_boundary`의 0들은 선언이며,
+  실제 근거는 module source scan과 network global을 counter로 바꾼 runtime probe다.
+  strict priority에는 aging이 없어 긴급 job이 계속 들어오면 일반 job이 대기하며, 이 trade-off는
+  테스트로 고정했다. 이번 수락은 public deterministic candidate이고 아직 이 module set을
+  import하는 owner는 없다. actual project, live runtime, 운영 승격 수락이 아니다.
 - 관련 경로: `guild_hall/agent_observation/**`, `guild_hall/README.md`, `package.json`.
+- 기록 주의: 이 changelog 항목의 최초 본문은 동시에 진행되던 다른 세션의 `git commit`이
+  넓게 stage하면서 `refactor(skills): rename finish-work candidate` 커밋에 함께 들어갔다.
+  코드와 명령 표면은 이 항목 뒤의 별도 커밋에서 도착한다.
 
 ## 2026-08-22 - 끝까지 만들기 candidate skill
 
