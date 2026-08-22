@@ -294,7 +294,9 @@ test('two resources on one host keep their own queue and their own capacity', ()
   assert.equal(registerResource(shop, resourceInput()).status, 'REGISTERED');
   assert.equal(registerResource(shop, resourceInput({ resource_id: 'res-pdf-01', tool_kind: 'pdf', allowed_actions: ['produce_pdf'] })).status, 'REGISTERED');
 
-  assert.equal(submitJob(shop, jobInput({ job_id: 'sheet-1' })).status, 'QUEUED');
+  // The pdf job carries a lower sequence than the spreadsheet job, so a dispatcher that ignored
+  // the resource filter would pick it first and this test would fail.
+  assert.equal(submitJob(shop, jobInput({ job_id: 'sheet-1', submitted_seq: 50 })).status, 'QUEUED');
   assert.equal(submitJob(shop, jobInput({ job_id: 'pdf-1', resource_id: 'res-pdf-01', action: 'produce_pdf', submitted_seq: 1 })).status, 'QUEUED');
 
   const sheetLease = lease(shop, 'lease-sheet', T0);
@@ -487,6 +489,37 @@ test('registering a resource without a health observation clock is refused', () 
   assert.equal(registerHost(shop, hostInput()).status, 'REGISTERED');
   const { observed_at_ms: _dropped, ...withoutClock } = resourceInput();
   assert.equal(registerResource(shop, withoutClock).hold_code, C.INVALID_FIELD_VALUE);
+});
+
+test('re-registering a resource compares the clock the record actually stores', () => {
+  const shop = readyShop();
+  assert.equal(registerResource(shop, resourceInput()).status, 'NO_OP');
+
+  // Stale repeat: identical config at an older clock must not pass as idempotent.
+  const stale = registerResource(shop, resourceInput({ observed_at_ms: 1 }));
+  assert.equal(stale.status, 'HOLD');
+  assert.equal(stale.hold_code, C.HEALTH_OBSERVATION_NOT_NEWER);
+
+  // Newer clock with identical config only advances the health observation.
+  assert.equal(registerResource(shop, resourceInput({ observed_at_ms: T0 + 50 })).status, 'NO_OP');
+  assert.equal(observeResourceHealth(shop, { resource_id: 'res-spreadsheet-01', health: 'down', observed_at_ms: T0 + 20 }).hold_code, C.HEALTH_OBSERVATION_NOT_NEWER);
+  assert.equal(observeResourceHealth(shop, { resource_id: 'res-spreadsheet-01', health: 'down', observed_at_ms: T0 + 51 }).status, 'UPDATED');
+});
+
+test('a granted lease is handed out as a frozen copy of internal state', () => {
+  const shop = readyShop();
+  submitJob(shop, jobInput());
+  const granted = lease(shop, 'lease-1', T0, 1_000);
+  assert.equal(granted.status, 'GRANTED');
+  assert.equal(Object.isFrozen(granted.lease), true);
+  assert.throws(() => { granted.lease.expires_at_ms = T0 + 9_000_000; }, TypeError);
+  assert.throws(() => { granted.lease.state = 'released'; }, TypeError);
+
+  // The internal lease is untouched, so the TTL guard still fires.
+  assert.equal(completeJob(shop, {
+    lease_id: 'lease-1', job_id: 'job-synthetic-0001',
+    result_ref: 'artifact://synthetic/x', now_ms: T0 + 5_000,
+  }).hold_code, C.LEASE_FENCED_OUT);
 });
 
 test('the job shop module opens no external effect surface', () => {

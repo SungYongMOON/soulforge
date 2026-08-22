@@ -53,6 +53,7 @@ const FIXTURE_KEYS = Object.freeze([
   'organization_group_id', 'host', 'resource', 'requester', 'craftsman', 'job',
   'artifact_ref', 'delivery_receipt_id',
   'replay_usage_event', 'conflicting_usage_replay', 'unknown_parent_run', 'unknown_project',
+  'skip_delivery_receipt',
 ]);
 const PARTICIPANT_KEYS = Object.freeze([
   'agent_id', 'functional_role', 'project_id', 'run_id', 'task_id', 'work_unit_id',
@@ -62,7 +63,7 @@ const PARTICIPANT_KEYS = Object.freeze([
 const HOST_KEYS = Object.freeze(['host_id', 'capability_kinds']);
 const RESOURCE_KEYS = Object.freeze(['resource_id', 'tool_kind', 'capacity']);
 const JOB_KEYS = Object.freeze(['job_id', 'priority', 'action', 'submitted_seq', 'lease_id']);
-const FLAG_KEYS = Object.freeze(['replay_usage_event', 'conflicting_usage_replay', 'unknown_parent_run', 'unknown_project']);
+const FLAG_KEYS = Object.freeze(['replay_usage_event', 'conflicting_usage_replay', 'unknown_parent_run', 'unknown_project', 'skip_delivery_receipt']);
 
 const IDENTITY_KEYS = Object.freeze(['provider', 'id_kind', 'id_value']);
 const TOKEN_KEYS = Object.freeze(['input', 'cached_input', 'cache_write_input', 'output', 'reasoning_output']);
@@ -244,7 +245,7 @@ function emptyResult(holds) {
     counts: null,
     usage_rollup: null,
     board_rows: [],
-    delivery_evidence: { producer_evidence_kind: 'none', structural_edge_marked_as_delivery: false },
+    delivery_evidence: { producer_evidence_kind: 'none' },
     privacy: null,
     declared_effect_boundary: { ...DECLARED_EFFECT_BOUNDARY },
   };
@@ -339,7 +340,7 @@ export function runP0S1Vertical(fixture) {
       }));
     }
 
-    note('record_delivery_receipt', recordResultReceipt(store, {
+    if (fixture.skip_delivery_receipt !== true) note('record_delivery_receipt', recordResultReceipt(store, {
       receipt_id: fixture.delivery_receipt_id,
       run_id: craftsman.run_id,
       agent_id: craftsman.agent_id,
@@ -353,8 +354,9 @@ export function runP0S1Vertical(fixture) {
   const counts = projectStoreCounts(store);
   const shopView = projectJobShop(shop);
   const rollup = requesterRun.status === 'OBSERVED' ? projectUsageRollup(store, { run_id: requester.run_id }) : null;
-  // Read the delivery evidence back out of the stored receipt instead of asserting it from the
-  // fact that a receipt exists.
+  // Read the delivery evidence back out of the stored receipt so the projection reports the
+  // stored value rather than a constant. The store already refuses a structural_only delivery,
+  // so that guard is proven in the store's own tests, not here.
   const deliveryReceipt = listReceipts(store).find((r) => r.receipt_kind === 'delivery') ?? null;
   const deliveredToParent = deliveryReceipt !== null && craftsmanRun.status === 'OBSERVED';
 
@@ -394,7 +396,6 @@ export function runP0S1Vertical(fixture) {
     board_rows: boardRows,
     delivery_evidence: {
       producer_evidence_kind: deliveryReceipt === null ? 'none' : deliveryReceipt.producer_evidence_kind,
-      structural_edge_marked_as_delivery: deliveryReceipt !== null && deliveryReceipt.producer_evidence_kind === 'structural_only',
     },
     privacy: counts.privacy,
     declared_effect_boundary: { ...DECLARED_EFFECT_BOUNDARY },

@@ -35,7 +35,13 @@ const MAX_LABEL_LENGTH = 80;
 // a literal NUL would make every grep-based validator classify this module as binary and skip it.
 export const COMPOSITE_SEPARATOR = '\u0000';
 
-export const isPlainObject = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
+// The prototype must be plain too. The guards scan own enumerable properties, so a payload carried
+// on a prototype would skip every scan while still reading normally through property access.
+export function isPlainObject(value) {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
 export const isSafeId = (value) => typeof value === 'string' && SAFE_ID.test(value);
 export const isUtcMs = (value) => typeof value === 'string' && UTC_MS.test(value);
 export const isCount = (value, max) => Number.isSafeInteger(value) && value >= 0 && value <= max;
@@ -114,10 +120,22 @@ function scanKeys(value, allowedKeys, depth) {
 // not only a raw key at the top level of a record.
 export const findUnknownKeyDeep = (value, allowedKeys) => scanKeys(value, allowedKeys, 0);
 
-export const isSafeIdList = (list, maxLength) => Array.isArray(list)
+// `every` skips array holes, so a sparse list would pass and store an undefined element. Comparing
+// key count to length is not enough on its own: one extra non-index own property restores the
+// count the hole removed. Each index must actually be present.
+function isDenseArray(list) {
+  if (!Array.isArray(list)) return false;
+  // `every` and friends skip holes, so the indices have to be walked explicitly.
+  for (let index = 0; index < list.length; index += 1) {
+    if (!Object.prototype.hasOwnProperty.call(list, index)) return false;
+  }
+  return true;
+}
+
+export const isSafeIdList = (list, maxLength) => isDenseArray(list)
   && list.length > 0 && list.length <= maxLength && list.every(isSafeId);
 
-export function stableStringify(value) {
+function stableStringify(value) {
   if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null';
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
   const keys = Object.keys(value).sort();

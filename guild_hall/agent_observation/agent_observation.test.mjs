@@ -786,6 +786,77 @@ test('a record listing for an unrecognised store is null, never an empty ledger'
   }
 });
 
+test('a duplicate provider id kind is reported without echoing the caller value', () => {
+  const store = createObservationStore();
+  const result = registerAgent(store, agentInput({
+    provider_identities: [
+      { provider: 'codex', id_kind: 'AcmeProgramDeltaClassified', id_value: 'a' },
+      { provider: 'codex', id_kind: 'AcmeProgramDeltaClassified', id_value: 'b' },
+    ],
+  }));
+  assert.equal(result.hold_code, C.PROVIDER_IDENTITY_SLOT_CONFLICT);
+  assert.equal(result.detail, 'duplicate_provider_id_kind');
+  assert.equal(JSON.stringify(result).includes('AcmeProgramDeltaClassified'), false);
+});
+
+test('an authority scope list must be dense, not merely pass a per-element check', () => {
+  const sparse = ['proj-synthetic-alpha'];
+  sparse[2] = 'proj-synthetic-beta';
+  const result = registerAgent(createObservationStore(), agentInput({
+    authority_scope: { allowed_projects: sparse, allowed_actions: ['x'] },
+  }));
+  assert.equal(result.status, 'HOLD');
+  assert.equal(result.hold_code, C.INVALID_FIELD_VALUE);
+});
+
+test('the rollup request is key-checked like every other entry point', () => {
+  const store = seeded();
+  const extra = projectUsageRollup(store, { run_id: 'run-synthetic-0001', transcript: 'raw body' });
+  assert.equal(extra.status, 'HOLD');
+  assert.equal(extra.hold_code, C.RAW_OR_UNKNOWN_FIELD_FORBIDDEN);
+  const secret = projectUsageRollup(store, { run_id: 'run-synthetic-0001', ['Bearer abcdef0123456789']: 1 });
+  assert.equal(secret.hold_code, C.RAW_OR_UNKNOWN_FIELD_FORBIDDEN);
+  assert.equal(projectUsageRollup(store, { run_id: 'run-synthetic-0001' }).status, 'PROJECTED');
+});
+
+test('a payload rejected as a conflict does not claim its content key', () => {
+  const store = seeded();
+  assert.equal(recordDirectUsage(store, usageInput()).status, 'RECORDED');
+
+  const rival = { tokens: { input: 777, cached_input: 0, cache_write_input: 0, output: 111, reasoning_output: 0 } };
+  const conflict = recordDirectUsage(store, usageInput(rival));
+  assert.equal(conflict.hold_code, C.USAGE_EVENT_CONFLICT);
+
+  // The rejected content was never indexed, so a genuinely new event carrying it is still accepted.
+  const later = recordDirectUsage(store, usageInput({ event_id: 'usage-synthetic-0002', ...rival }));
+  assert.equal(later.status, 'RECORDED', 'a rejected payload must not reserve its content key');
+  assert.equal(projectStoreCounts(store).usage_events, 2);
+});
+
+test('a stored delivery receipt keeps the producer evidence kind it was written with', () => {
+  const store = seeded();
+  assert.equal(recordResultReceipt(store, receiptInput({
+    receipt_id: 'rcpt-delivery', receipt_kind: 'delivery', producer_evidence_kind: 'producer_observed',
+  })).status, 'RECORDED');
+  const stored = listReceipts(store).find((r) => r.receipt_kind === 'delivery');
+  assert.equal(stored.producer_evidence_kind, 'producer_observed');
+
+  // `structural_only` is legal on a non-delivery receipt, so the read-back must be proven with a
+  // receipt that actually carries it. Otherwise a consumer could hardcode `producer_observed` and
+  // silently relabel a structural edge.
+  assert.equal(recordResultReceipt(store, receiptInput({
+    receipt_id: 'rcpt-structural-result', receipt_kind: 'result', producer_evidence_kind: 'structural_only',
+  })).status, 'RECORDED');
+  const structural = listReceipts(store).find((r) => r.receipt_id === 'rcpt-structural-result');
+  assert.equal(structural.producer_evidence_kind, 'structural_only');
+
+  // It stays refused for a delivery.
+  assert.equal(recordResultReceipt(store, receiptInput({
+    receipt_id: 'rcpt-structural', receipt_kind: 'delivery', producer_evidence_kind: 'structural_only',
+  })).hold_code, C.STRUCTURAL_EDGE_NOT_DELIVERY);
+  assert.equal(listReceipts(store).filter((r) => r.receipt_kind === 'delivery').length, 1);
+});
+
 test('the observation module and its guards open no external effect surface', () => {
   for (const name of ['agent_observation.mjs', 'guard_primitives.mjs']) {
     const source = readFileSync(new URL(`./${name}`, import.meta.url), 'utf8');

@@ -42,7 +42,14 @@ test('every local absolute path alternative is detected, including the ones only
     unc('fileserver', 'share', 'plan.xlsx'),
     posix('Users', 'user', 'plan.xlsx'),
     posix('home', 'user', 'plan.xlsx'),
+    posix('mnt', 'disk', 'plan.xlsx'),
+    posix('opt', 'app', 'plan.xlsx'),
+    posix('srv', 'share', 'plan.xlsx'),
+    posix('etc', 'conf', 'plan.xlsx'),
+    posix('tmp', 'scratch', 'plan.xlsx'),
+    posix('root', 'plan.xlsx'),
     posix('Volumes', 'disk', 'plan.xlsx'),
+    posix('Applications', 'App', 'plan.xlsx'),
     posix('var', 'tmp', 'plan.xlsx'),
     'store:_workspaces/alpha/plan.xlsx',
     'store:_workmeta/alpha/report.json',
@@ -107,8 +114,18 @@ test('safe labels enforce NFKC normalization, trimming, length and forbidden cha
   assert.equal(isSafeLabel(123), false);
 });
 
-test('safe id lists are bounded and non-empty', () => {
+test('safe id lists are bounded, non-empty and dense', () => {
   assert.equal(isSafeIdList(['a', 'b'], 4), true);
+  // `every` skips holes, so a sparse array would otherwise pass and store a null element.
+  const sparse = ['a', 'b'];
+  sparse[4] = 'c';
+  assert.equal(isSafeIdList(sparse, 8), false, 'a sparse list must be refused');
+  // A decoy own property restores the key count the hole removed, so a key-count check alone fails.
+  const decoyed = ['a'];
+  decoyed[2] = 'b';
+  decoyed.decoy = 'x';
+  assert.equal(isSafeIdList(decoyed, 8), false, 'a hole hidden behind a decoy property must be refused');
+  assert.equal(isSafeIdList([...sparse].map((v) => v ?? 'x'), 8), true);
   assert.equal(isSafeIdList([], 4), false);
   assert.equal(isSafeIdList(['a', 'b', 'c', 'd', 'e'], 4), false);
   assert.equal(isSafeIdList(['has space'], 4), false);
@@ -178,8 +195,19 @@ test('every file in this owner stays plain text for grep-based validators', () =
 
 test('the shared entry guard reports the most specific reason in a fixed order', () => {
   assert.equal(guardEntry(null, ['a'], CODES).hold_code, CODES.unknownField);
+  // A payload carried on a prototype has no own enumerable properties, so every scan would skip it.
+  const carrier = { a: 'Bearer abcdefgh12345678' };
+  assert.equal(guardEntry(carrier, ['a'], CODES).hold_code, CODES.secret);
+  assert.equal(guardEntry(Object.create(carrier), ['a'], CODES).hold_code, CODES.unknownField);
+  assert.equal(guardEntry(Object.create(null), ['a'], CODES), null, 'a null prototype is still plain');
   assert.equal(guardEntry({ b: 1 }, ['a'], CODES).hold_code, CODES.unknownField);
   assert.equal(guardEntry({ a: 'Bearer abcdef0123456789' }, ['a'], CODES).hold_code, CODES.secret);
   assert.equal(guardEntry({ a: fileUri('C:', 'x') }, ['a'], CODES).hold_code, CODES.localPath);
   assert.equal(guardEntry({ a: 'clean-value' }, ['a'], CODES), null);
+
+  // A value that matches both scans pins the order: swapping them would report the path code.
+  const both = `Bearer abcdefgh12345678 ${fileUri('C:', 'Users', 'user', 'x')}`;
+  assert.equal(hasSecret(both), true);
+  assert.equal(hasLocalPath(both), true);
+  assert.equal(guardEntry({ a: both }, ['a'], CODES).hold_code, CODES.secret);
 });

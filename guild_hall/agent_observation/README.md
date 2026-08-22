@@ -52,9 +52,14 @@ guard는 한쪽 module에만 존재할 수 없도록 `guard_primitives.mjs` 하�
 - 원장 Map은 store handle에서 도달할 수 없다. 따라서 append-only는 규약이 아니라 구조로
   강제되며 consumer가 `clear`, `delete`, `splice`로 evidence를 지울 수 없다.
 - raw transcript, message, reasoning content, chain-of-thought, tool input/output,
-  credential은 저장하지 않는다. 각 진입점은 strict key allowlist → secret value scan →
+  credential은 저장하지 않는다. 모든 **write** 진입점은 strict key allowlist → secret value scan →
   로컬 절대경로 scan 순서를 모두 통과해야 하며, 이 세 guard는 observation store와 job shop
-  양쪽에 동일하게 적용된다.
+  양쪽에 동일하게 적용된다. read-only projection 중 `projectUsageRollup`은 같은 세 guard를 쓰고
+  `projectJobShop`은 key allowlist만 쓴다. 후자는 허용 key가 `now_ms` 하나뿐이고 `isClock`을
+  통과해야 하므로 문자열 payload 자체가 들어올 수 없다.
+- guard는 own enumerable property만 훑는다. 그래서 prototype에 얹혀 온 payload는 scan을 통째로
+  건너뛸 수 있었고, 이제 입력의 prototype이 `Object.prototype`이나 `null`이 아니면 거부한다.
+- 어떤 hold detail에도 caller가 정한 문자열을 넣지 않는다. 모든 detail은 고정 literal이다.
 - 알 수 없는 key 이름은 hold detail로 되돌려 주지 않는다. key 이름은 producer가 정하므로
   `sk-`로 시작하는 credential처럼 safe ID 문법을 통과하는 값도 있다. hold code가 이미 unknown
   field임을 알려주므로 이름 자체는 `unknown_key_name_withheld`로 가린다.
@@ -153,6 +158,9 @@ cache-write를 포함하는 provider total이고 `reasoning_output`은 `output`�
 result, delivery, artifact, approval, validation, recovery ref만 저장한다.
 `receipt_kind: delivery`인데 `producer_evidence_kind: structural_only`이면
 `STRUCTURAL_EDGE_NOT_DELIVERY`다. 구조 topology 간선은 delivery receipt가 아니다.
+vertical의 `delivery_evidence.producer_evidence_kind`는 저장된 receipt에서 되읽은 값이다.
+store가 structural delivery를 애초에 거부하므로 그 경로는 store의 test가 증명하고 vertical은
+receipt가 없을 때 `none`이 되는 것만 증명한다.
 run이 시작되기 전 시각으로 관찰된 receipt는 `TEMPORAL_ORDER_INVALID`다.
 
 ## Tool Job Shop
@@ -196,8 +204,9 @@ fencing epoch가 어긋난 lease의 완료 시도는 `LEASE_FENCED_OUT`이고 �
 
 Host/Resource는 처음부터 N-host 계약으로 분리한다. resource 설정은 등록 뒤 immutable이고
 (`RESOURCE_RECORD_CONFLICT`), health는 별도 `observeResourceHealth`로만 움직인다.
-등록 자체가 첫 health 관찰이므로 `registerResource`도 `observed_at_ms`를 요구한다. 이후 관찰은
-strictly newer일 때만 반영된다(`HEALTH_OBSERVATION_NOT_NEWER`). 따라서 `down`으로 등록한
+등록 자체가 첫 health 관찰이므로 `registerResource`도 `observed_at_ms`를 요구한다. 같은 설정을
+다시 등록해도 더 오래된 clock이면 `HEALTH_OBSERVATION_NOT_NEWER`이고, 더 새로우면 health 관찰
+clock만 전진한다. 이후 관찰도 strictly newer일 때만 반영된다(`HEALTH_OBSERVATION_NOT_NEWER`). 따라서 `down`으로 등록한
 resource를 오래된 collector 보고가 `ok`로 되돌려 dispatch를 다시 열 수 없고, null baseline을
 노리는 첫 stale 보고도 통하지 않는다.
 resource나 host의 health가 `ok`가 아니면 lease를 주지 않는다
@@ -219,7 +228,7 @@ resource나 host의 health가 `ok`가 아니면 lease를 주지 않는다
 npm.cmd run validate:agent-observation
 ```
 
-이 validator는 네 개 구현 module의 syntax check와 다섯 test 파일의 focused deterministic
+이 validator는 네 개 구현 module의 syntax check와 네 개 test 파일의 focused deterministic
 test를 실행한다.
 위 경계 문장은 각각 대응하는 test를 가지며, `guard_primitives.test.mjs`는 로컬 경로·secret·label
 규칙의 개별 alternative를 하나씩 검증한다. 개발 중 guard 제거 probe로 테스트 강도를 확인했지만

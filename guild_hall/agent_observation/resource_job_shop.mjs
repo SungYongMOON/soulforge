@@ -57,6 +57,9 @@ const ENTRY_CODES = Object.freeze({
 const FIELDS = Object.freeze({
   host: ['host_id', 'health', 'capability_kinds', 'observed_at_ms'],
   resource: ['resource_id', 'host_id', 'tool_kind', 'capacity', 'health', 'allowed_projects', 'allowed_actions', 'observed_at_ms'],
+  // The stored record names the clock `health_observed_at_ms`, so idempotency must compare the
+  // config fields explicitly rather than a list containing an input-only key name.
+  resourceConfig: ['resource_id', 'host_id', 'tool_kind', 'capacity', 'health', 'allowed_projects', 'allowed_actions'],
   resourceHealth: ['resource_id', 'health', 'observed_at_ms'],
   job: ['job_id', 'resource_id', 'priority', 'project_id', 'agent_id', 'run_id', 'action', 'submitted_seq'],
   acquire: ['resource_id', 'lease_id', 'now_ms', 'ttl_ms'],
@@ -166,9 +169,14 @@ export function registerResource(shop, input) {
   const existing = state.resources.get(input.resource_id);
   if (existing !== undefined) {
     // Configuration is immutable here on purpose; health moves through observeResourceHealth.
-    return sameFields(existing, record, FIELDS.resource)
-      ? { status: 'NO_OP', resource_id: input.resource_id }
-      : hold(H.RESOURCE_RECORD_CONFLICT);
+    if (!sameFields(existing, record, FIELDS.resourceConfig)) return hold(H.RESOURCE_RECORD_CONFLICT);
+    // Registration is a health observation, so a stale repeat is refused and a newer one only
+    // advances the clock.
+    if (input.observed_at_ms < existing.health_observed_at_ms) return hold(H.HEALTH_OBSERVATION_NOT_NEWER);
+    if (input.observed_at_ms > existing.health_observed_at_ms) {
+      state.resources.set(input.resource_id, Object.freeze({ ...existing, health_observed_at_ms: input.observed_at_ms }));
+    }
+    return { status: 'NO_OP', resource_id: input.resource_id };
   }
   state.resources.set(input.resource_id, record);
   if (!state.fencingEpoch.has(input.resource_id)) state.fencingEpoch.set(input.resource_id, 0);

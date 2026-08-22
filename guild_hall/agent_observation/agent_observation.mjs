@@ -10,6 +10,7 @@ import {
   isCount,
   isPlainObject,
   isSafeId,
+  isSafeIdList,
   isSafeRef,
   isUtcMs,
   unknownKeyIn,
@@ -96,6 +97,8 @@ const NESTED_RECORD_KEYS = Object.freeze([
   ...FIELDS.providerIdentity, ...FIELDS.authorityScope, ...FIELDS.tokens, ...FIELDS.ref,
 ]);
 
+const ROLLUP_REQUEST_FIELDS = Object.freeze(['run_id']);
+
 const MAX_TOKENS = 1_000_000_000;
 const MAX_LIST = 64;
 
@@ -165,8 +168,7 @@ export function registerAgent(store, input) {
   const scopeExtra = unknownKeyIn(scope, FIELDS.authorityScope);
   if (scopeExtra !== null) return hold(H.RAW_OR_UNKNOWN_FIELD_FORBIDDEN, scopeExtra);
   for (const key of FIELDS.authorityScope) {
-    const list = scope[key];
-    if (!Array.isArray(list) || list.length === 0 || list.length > MAX_LIST || !list.every(isSafeId)) return hold(H.INVALID_FIELD_VALUE, key);
+    if (!isSafeIdList(scope[key], MAX_LIST)) return hold(H.INVALID_FIELD_VALUE, key);
   }
   if (!scope.allowed_projects.includes(input.project_id)) return hold(H.PROJECT_BINDING_MISMATCH, 'authority_scope');
 
@@ -179,7 +181,7 @@ export function registerAgent(store, input) {
     if (extra !== null) return hold(H.RAW_OR_UNKNOWN_FIELD_FORBIDDEN, extra);
     if (!isSafeId(identity.provider) || !isSafeId(identity.id_kind) || !isSafeId(identity.id_value)) return hold(H.INVALID_FIELD_VALUE, 'provider_identity');
     const slot = `${identity.provider}${COMPOSITE_SEPARATOR}${identity.id_kind}`;
-    if (slots.has(slot)) return hold(H.PROVIDER_IDENTITY_SLOT_CONFLICT, identity.id_kind);
+    if (slots.has(slot)) return hold(H.PROVIDER_IDENTITY_SLOT_CONFLICT, 'duplicate_provider_id_kind');
     slots.add(slot);
   }
   const crosswalkKeys = identities.map((identity) => [identity.provider, identity.id_kind, identity.id_value].join(COMPOSITE_SEPARATOR));
@@ -418,6 +420,8 @@ export function projectUsageRollup(store, request) {
   const state = stateOf(store);
   if (state === undefined) return hold(H.UNKNOWN_STORE);
   if (!isPlainObject(request)) return hold(H.INVALID_FIELD_VALUE, 'request');
+  const guard = guardEntry(request, ROLLUP_REQUEST_FIELDS, ENTRY_CODES);
+  if (guard !== null) return guard;
   const runId = request.run_id;
   if (!isSafeId(runId)) return hold(H.INVALID_FIELD_VALUE, 'run_id');
   // A typo must read as unknown, never as "this manager used nothing".
@@ -475,10 +479,17 @@ export function projectStoreCounts(store) {
   if (state === undefined) return hold(H.UNKNOWN_STORE);
 
   const privacy = { raw_fields_stored: 0, secret_fields_stored: 0, local_path_fields_stored: 0 };
-  mergeCounters(privacy, auditRecordPrivacy(listAgents(store), RECORD_KEY_ALLOWLIST.agent));
-  mergeCounters(privacy, auditRecordPrivacy(listRuns(store), RECORD_KEY_ALLOWLIST.run));
-  mergeCounters(privacy, auditRecordPrivacy(listUsageEvents(store), RECORD_KEY_ALLOWLIST.usage));
-  mergeCounters(privacy, auditRecordPrivacy(listReceipts(store), RECORD_KEY_ALLOWLIST.receipt));
+  const audits = [
+    auditRecordPrivacy(listAgents(store), RECORD_KEY_ALLOWLIST.agent),
+    auditRecordPrivacy(listRuns(store), RECORD_KEY_ALLOWLIST.run),
+    auditRecordPrivacy(listUsageEvents(store), RECORD_KEY_ALLOWLIST.usage),
+    auditRecordPrivacy(listReceipts(store), RECORD_KEY_ALLOWLIST.receipt),
+  ];
+  // A HOLD-shaped audit must surface as a HOLD, never be summed into the counters as NaN.
+  for (const audit of audits) {
+    if (audit.status === 'HOLD') return audit;
+    mergeCounters(privacy, audit);
+  }
 
   return {
     status: 'PROJECTED',

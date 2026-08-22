@@ -126,6 +126,11 @@ test('a Board-facing display label carrying a path, a credential or markup is re
     assert.equal(result.status, 'HOLD', label);
     assert.deepEqual(holdCodes(result), [expected], label);
     assert.equal(result.board_rows.length, 0, label);
+    // display_label is the only caller free-text field, so its rejection must not echo it back.
+    const probe = label.slice(0, 12);
+    if (probe.length > 0) {
+      assert.equal(JSON.stringify(result).includes(probe), false, `detail must not echo ${label}`);
+    }
   }
 });
 
@@ -184,8 +189,18 @@ test('exactly one Board row is projected by exact ID and stays metadata only', (
 test('the delivery receipt is producer evidenced, and no row appears without one', () => {
   const result = runP0S1Vertical(P0S1_SYNTHETIC_FIXTURE);
   assert.equal(result.delivery_evidence.producer_evidence_kind, 'producer_observed');
-  assert.equal(result.delivery_evidence.structural_edge_marked_as_delivery, false);
   assert.equal(result.counts.receipts, 1);
+  assert.equal(result.board_rows.length, 1);
+
+  // The craftsman run is observed and the job completes, but no delivery receipt is written.
+  // The Board row must disappear on the receipt alone, not because the run also went missing.
+  const noReceipt = runP0S1Vertical({ ...P0S1_SYNTHETIC_FIXTURE, skip_delivery_receipt: true });
+  assert.equal(noReceipt.status, 'PASS');
+  assert.equal(noReceipt.counts.runs, 2, 'the craftsman run is still observed');
+  assert.equal(noReceipt.counts.recorded_completions, 1, 'the job still completed');
+  assert.equal(noReceipt.counts.receipts, 0);
+  assert.equal(noReceipt.delivery_evidence.producer_evidence_kind, 'none');
+  assert.equal(noReceipt.board_rows.length, 0, 'a Board row requires the delivery receipt');
 
   const held = runP0S1Vertical({ ...P0S1_SYNTHETIC_FIXTURE, unknown_parent_run: true });
   assert.equal(held.delivery_evidence.producer_evidence_kind, 'none');

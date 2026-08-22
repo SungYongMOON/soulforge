@@ -31,9 +31,12 @@
 - Observation-store records are deeply frozen and the ledger maps are unreachable from the store
   handle, so stored authority scope, provider identities, and delivery evidence cannot be widened
   after the write and evidence cannot be cleared. Strict key allowlist, secret scan, and local
-  absolute-path scan run at every entry point of every module from one shared guard module, with a
-  scan depth bound so a deeply nested value fails closed instead of exhausting the stack.
-  Malformed input always returns a structured HOLD; no entry point throws. An unknown key name is
+  absolute-path scan run at every write entry point of every module from one shared guard module,
+  with a scan depth bound so a deeply nested value fails closed instead of exhausting the stack.
+  An input must be a plain own-property object, so a payload carried on a prototype cannot skip the
+  scans, and a sparse list is refused rather than storing an undefined element.
+  Any JSON-representable malformed input returns a structured HOLD rather than throwing; a
+  hand-built object with a throwing accessor property is outside that claim. An unknown key name is
   never echoed back into a hold detail, since key names are producer-controlled and a credential
   can be shaped like a valid identifier.
 - A cost basis that asserts real money or credit (`billed_cost`,
