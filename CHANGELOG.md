@@ -21,7 +21,29 @@
 - Added public `EXAMPLE_BINDING` probe contract for `codex_retention_report` in `guild_hall/watchtower/cli.mjs` as read-only file observation with `missing_is_unmonitored: true` without inventing any task or producer.
 - Added comprehensive unit and regression tests in `recovery_runtime.test.mjs`, `recovery_diagnostics.test.mjs`, and `watchtower.test.mjs`.
 
+## 2026-08-22 - Agent Observation P1-1 producer-evidenced delivery edge
 
+- Added the delivery edge as a fifth record family. A result receipt is single-ended: it records
+  that a run produced these refs and says nothing about who received them, so the Functional Agent
+  to Spreadsheet Craftsman handoff existed only as a fixture pairing two ids rather than as an
+  observed fact. The edge names both ends and carries the producer evidence across.
+- The distinction the edge exists for: `structural` means two runs are adjacent in a graph,
+  `delivery` means something was actually handed over. A delivery edge requires a delivery receipt
+  on the **producer's own run** whose evidence is `producer_observed`; a receipt belonging to any
+  other run or agent is `RECEIPT_RUN_MISMATCH`, because an edge must not borrow evidence it did not
+  produce. A structural edge may not name a receipt at all, since adjacency evidences nothing.
+- The projection never sums the two kinds. `delivery_edge_count` and `structural_edge_count` are
+  reported separately, so a consumer that is merely adjacent to a producer can never be read as one
+  that received something.
+- An edge across projects is refused by the same firewall the run and capsule contracts use, an
+  edge pointing at its own run is `SELF_DELIVERY_FORBIDDEN`, and an edge observed before its own
+  evidence or before either endpoint run started is a temporal hold.
+- The new family is counted, privacy-audited and deep-frozen exactly like the other four. A family
+  left out of the audit is a family that is not audited, so no exception was made.
+- 운영 영향: 새 명령 표면은 없다. `npm run validate:agent-observation` 하나가 새 test 파일까지
+  검증한다. 여전히 pure in-memory이며 파일 쓰기, network, provider, ERP 세계수 write, Board
+  enrollment write, result gate write는 모두 0이다.
+- 관련 경로: `guild_hall/agent_observation/**`.
 
 ## 2026-08-22 - AI usage projection: include all local provider usage in read-only aggregates
 

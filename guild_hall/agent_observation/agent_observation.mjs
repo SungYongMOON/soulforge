@@ -20,6 +20,7 @@ export const AGENT_RECORD_SCHEMA = 'soulforge.agent_observation.agent_record.v1'
 export const RUN_RECORD_SCHEMA = 'soulforge.agent_observation.run_record.v1';
 export const USAGE_EVENT_SCHEMA = 'soulforge.agent_observation.usage_event.v1';
 export const RESULT_RECEIPT_SCHEMA = 'soulforge.agent_observation.result_receipt.v1';
+export const DELIVERY_EDGE_SCHEMA = 'soulforge.agent_observation.delivery_edge.v1';
 
 export const OBSERVATION_HOLD_CODES = Object.freeze({
   RAW_OR_UNKNOWN_FIELD_FORBIDDEN: 'RAW_OR_UNKNOWN_FIELD_FORBIDDEN',
@@ -45,6 +46,11 @@ export const OBSERVATION_HOLD_CODES = Object.freeze({
   USAGE_EVENT_CONFLICT: 'USAGE_EVENT_CONFLICT',
   USAGE_CONTENT_DUPLICATE: 'USAGE_CONTENT_DUPLICATE',
   RESULT_RECEIPT_CONFLICT: 'RESULT_RECEIPT_CONFLICT',
+  DELIVERY_EDGE_CONFLICT: 'DELIVERY_EDGE_CONFLICT',
+  UNKNOWN_RECEIPT: 'UNKNOWN_RECEIPT',
+  RECEIPT_RUN_MISMATCH: 'RECEIPT_RUN_MISMATCH',
+  SELF_DELIVERY_FORBIDDEN: 'SELF_DELIVERY_FORBIDDEN',
+  STRUCTURAL_EDGE_CARRIES_NO_RECEIPT: 'STRUCTURAL_EDGE_CARRIES_NO_RECEIPT',
   AGENT_RUN_MISMATCH: 'AGENT_RUN_MISMATCH',
   RUN_MODEL_MISMATCH: 'RUN_MODEL_MISMATCH',
   CHILD_USAGE_MERGE_FORBIDDEN: 'CHILD_USAGE_MERGE_FORBIDDEN',
@@ -79,6 +85,7 @@ export const RECEIPT_KINDS = Object.freeze(['result', 'delivery', 'artifact', 'a
 // drift apart as two exported constants.
 const REF_KINDS = RECEIPT_KINDS;
 export const PRODUCER_EVIDENCE_KINDS = Object.freeze(['producer_observed', 'structural_only']);
+export const DELIVERY_EDGE_KINDS = Object.freeze(['delivery', 'structural']);
 
 const FIELDS = Object.freeze({
   agent: ['agent_id', 'agent_kind', 'functional_role', 'project_id', 'provider_identities', 'authority_scope', 'memory_class', 'registered_at'],
@@ -88,6 +95,7 @@ const FIELDS = Object.freeze({
   usage: ['event_id', 'run_id', 'agent_id', 'provider', 'model_id', 'attribution_kind', 'tokens', 'cost_basis', 'cost_evidence_refs', 'observed_at'],
   tokens: ['input', 'cached_input', 'cache_write_input', 'output', 'reasoning_output'],
   receipt: ['receipt_id', 'run_id', 'agent_id', 'receipt_kind', 'producer_evidence_kind', 'refs', 'observed_at'],
+  deliveryEdge: ['edge_id', 'producer_run_id', 'producer_agent_id', 'consumer_run_id', 'consumer_agent_id', 'edge_kind', 'receipt_id', 'observed_at'],
   ref: ['ref_kind', 'ref_value'],
 });
 
@@ -96,6 +104,7 @@ export const RECORD_KEY_ALLOWLIST = Object.freeze({
   run: Object.freeze(['schema_version', ...FIELDS.run]),
   usage: Object.freeze(['schema_version', ...FIELDS.usage]),
   receipt: Object.freeze(['schema_version', ...FIELDS.receipt]),
+  deliveryEdge: Object.freeze(['schema_version', ...FIELDS.deliveryEdge]),
 });
 
 // Every key that may legally appear below the top level of a stored record.
@@ -149,6 +158,7 @@ export function createObservationStore() {
     runs: new Map(),
     usage: new Map(),
     receipts: new Map(),
+    deliveryEdges: new Map(),
     providerCrosswalk: new Map(),
     usageContentIndex: new Map(),
   });
@@ -426,6 +436,126 @@ function descendantRunIds(state, runId) {
   return seen;
 }
 
+/**
+ * Records one delivery edge between two observed runs.
+ *
+ * A result receipt is single-ended: it says a run produced these refs, and nothing about who
+ * received them. So the Functional Agent to Spreadsheet Craftsman handoff existed only as a fixture
+ * pairing two ids, never as an observed fact. This makes the edge itself a record, with both ends
+ * named and the producer's evidence carried across.
+ *
+ * The distinction that matters: a `structural` edge says two runs are adjacent in a graph, and a
+ * `delivery` edge says something was actually handed over. The second requires a delivery receipt
+ * on the producer's own run whose evidence is `producer_observed`. A structural edge may not name a
+ * receipt at all, because adjacency is not evidence of anything having been produced.
+ */
+export function recordDeliveryEdge(store, rawInput) {
+  const state = stateOf(store);
+  if (state === undefined) return hold(H.UNKNOWN_STORE);
+  const guarded = guardEntry(rawInput, FIELDS.deliveryEdge, ENTRY_CODES);
+  if (guarded.status === 'HOLD') return guarded;
+  const input = guarded.value;
+
+  if (!isSafeId(input.edge_id)) return hold(H.INVALID_FIELD_VALUE, 'edge_id');
+  if (!DELIVERY_EDGE_KINDS.includes(input.edge_kind)) return hold(H.INVALID_FIELD_VALUE, 'edge_kind');
+  if (!isUtcMs(input.observed_at)) return hold(H.INVALID_FIELD_VALUE, 'observed_at');
+
+  for (const key of ['producer_run_id', 'producer_agent_id', 'consumer_run_id', 'consumer_agent_id']) {
+    if (!isSafeId(input[key])) return hold(H.INVALID_FIELD_VALUE, key);
+  }
+  if (input.producer_run_id === input.consumer_run_id) return hold(H.SELF_DELIVERY_FORBIDDEN);
+
+  const producerRun = state.runs.get(input.producer_run_id);
+  if (producerRun === undefined) return hold(H.UNKNOWN_RUN, 'producer_run_id');
+  const consumerRun = state.runs.get(input.consumer_run_id);
+  if (consumerRun === undefined) return hold(H.UNKNOWN_RUN, 'consumer_run_id');
+  if (input.producer_agent_id !== producerRun.record.agent_id) return hold(H.AGENT_RUN_MISMATCH, 'producer');
+  if (input.consumer_agent_id !== consumerRun.record.agent_id) return hold(H.AGENT_RUN_MISMATCH, 'consumer');
+
+  // An edge across projects would carry one project's work into another's subtree, which is the
+  // same firewall the run and capsule contracts enforce.
+  if (producerRun.record.project_id !== consumerRun.record.project_id) return hold(H.PROJECT_BINDING_MISMATCH, 'edge');
+
+  if (input.edge_kind === 'structural') {
+    if (input.receipt_id !== null) return hold(H.STRUCTURAL_EDGE_CARRIES_NO_RECEIPT);
+  } else {
+    if (!isSafeId(input.receipt_id)) return hold(H.INVALID_FIELD_VALUE, 'receipt_id');
+    const receipt = state.receipts.get(input.receipt_id);
+    if (receipt === undefined) return hold(H.UNKNOWN_RECEIPT);
+    // The receipt has to belong to the producer's own run. A receipt from some other run would let
+    // an edge borrow evidence it did not produce.
+    if (receipt.record.run_id !== input.producer_run_id) return hold(H.RECEIPT_RUN_MISMATCH);
+    if (receipt.record.agent_id !== input.producer_agent_id) return hold(H.RECEIPT_RUN_MISMATCH, 'agent');
+    if (receipt.record.receipt_kind !== 'delivery') return hold(H.STRUCTURAL_EDGE_NOT_DELIVERY, 'receipt_kind');
+    if (receipt.record.producer_evidence_kind !== 'producer_observed') return hold(H.STRUCTURAL_EDGE_NOT_DELIVERY);
+    if (input.observed_at < receipt.record.observed_at) return hold(H.TEMPORAL_ORDER_INVALID, 'edge_before_receipt');
+  }
+
+  if (input.observed_at < producerRun.record.started_at) return hold(H.TEMPORAL_ORDER_INVALID, 'edge_before_producer_start');
+  if (input.observed_at < consumerRun.record.started_at) return hold(H.TEMPORAL_ORDER_INVALID, 'edge_before_consumer_start');
+
+  const record = {
+    schema_version: DELIVERY_EDGE_SCHEMA,
+    edge_id: input.edge_id,
+    producer_run_id: input.producer_run_id,
+    producer_agent_id: input.producer_agent_id,
+    consumer_run_id: input.consumer_run_id,
+    consumer_agent_id: input.consumer_agent_id,
+    edge_kind: input.edge_kind,
+    receipt_id: input.receipt_id,
+    observed_at: input.observed_at,
+  };
+
+  const written = append(state.deliveryEdges, input.edge_id, record, H.DELIVERY_EDGE_CONFLICT);
+  if (written.status === 'HOLD') return written;
+  return { status: written.status === 'NO_OP' ? 'NO_OP' : 'RECORDED', edge_id: input.edge_id, record: written.record };
+}
+
+/**
+ * Reports, per consumer run, which deliveries actually reached it and on whose evidence.
+ *
+ * Structural edges are counted separately and never folded into the delivery count, so a consumer
+ * that is merely adjacent to a producer can never be read as one that received something.
+ */
+export function projectDeliveryEdges(store) {
+  const state = stateOf(store);
+  if (state === undefined) return hold(H.UNKNOWN_STORE);
+
+  const byConsumer = new Map();
+  let structural = 0;
+  let delivered = 0;
+  for (const entry of state.deliveryEdges.values()) {
+    const edge = entry.record ?? entry;
+    const row = byConsumer.get(edge.consumer_run_id) ?? {
+      consumer_run_id: edge.consumer_run_id,
+      consumer_agent_id: edge.consumer_agent_id,
+      delivery_count: 0,
+      structural_count: 0,
+      producer_evidence_refs: [],
+    };
+    if (edge.edge_kind === 'delivery') {
+      row.delivery_count += 1;
+      delivered += 1;
+      const receipt = state.receipts.get(edge.receipt_id);
+      if (receipt !== undefined) {
+        for (const ref of receipt.record.refs) row.producer_evidence_refs.push(`${ref.ref_kind}:${ref.ref_value}`);
+      }
+    } else {
+      row.structural_count += 1;
+      structural += 1;
+    }
+    byConsumer.set(edge.consumer_run_id, row);
+  }
+
+  return {
+    status: 'PROJECTED',
+    edge_count: state.deliveryEdges.size,
+    delivery_edge_count: delivered,
+    structural_edge_count: structural,
+    consumers: [...byConsumer.values()],
+  };
+}
+
 export function projectUsageRollup(store, rawRequest) {
   const state = stateOf(store);
   if (state === undefined) return hold(H.UNKNOWN_STORE);
@@ -497,6 +627,7 @@ export function projectStoreCounts(store) {
     auditRecordPrivacy(listRuns(store), RECORD_KEY_ALLOWLIST.run),
     auditRecordPrivacy(listUsageEvents(store), RECORD_KEY_ALLOWLIST.usage),
     auditRecordPrivacy(listReceipts(store), RECORD_KEY_ALLOWLIST.receipt),
+    auditRecordPrivacy(listDeliveryEdges(store), RECORD_KEY_ALLOWLIST.deliveryEdge),
   ];
   // A HOLD-shaped audit must surface as a HOLD, never be summed into the counters as NaN.
   for (const audit of audits) {
@@ -510,6 +641,7 @@ export function projectStoreCounts(store) {
     runs: state.runs.size,
     usage_events: state.usage.size,
     receipts: state.receipts.size,
+    delivery_edges: state.deliveryEdges.size,
     privacy,
     // A declared boundary, not a measurement. What actually proves it is the absence of any
     // effectful import or global call, which the validator checks against the module source.
@@ -534,3 +666,4 @@ export const listAgents = (store) => recordsOf(store, 'agents');
 export const listRuns = (store) => recordsOf(store, 'runs');
 export const listUsageEvents = (store) => recordsOf(store, 'usage');
 export const listReceipts = (store) => recordsOf(store, 'receipts');
+export const listDeliveryEdges = (store) => recordsOf(store, 'deliveryEdges');
