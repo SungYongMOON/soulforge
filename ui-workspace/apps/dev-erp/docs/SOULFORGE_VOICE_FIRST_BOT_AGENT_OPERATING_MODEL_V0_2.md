@@ -31,7 +31,7 @@ AI 팀 운영체계다.
 | --- | --- | --- |
 | 전체 아키텍처 | `CONDITIONAL_GO` | 구조는 확정하고 actual Evidence로 단계별 검증 |
 | ChatGPT Voice | `GO_AS_HUMAN_INTERFACE` | 단일 비서·교환대·Dispatch Console; 정본 아님 |
-| Chat 1시간 Bot | `V0_4_0_FIRST_RUN_RECEIPT_OBSERVED / PROVIDER_READBACK_PENDING` | Scheduled detail에서 first receipt가 Linear 5·다른 앱 0·`gmail_sent=0`을 보고했다. 결과 채팅이 프로젝트 밖 일반 `/c/...`로 열리므로 project memory 자동 상속은 금지하고 지침 snapshot을 task prompt에 직접 고정해야 한다 |
+| Chat 1시간 Bot | `V0_4_1_PROJECT_CONTEXT_GATE_CONFIGURED / NEXT_RUN_READBACK_PENDING` | 기존 예약에 project 지침 v1.0 snapshot·`DO_NOT_ASSUME`·`HOLD_PROJECT_CONTEXT/effect=0`을 저장했다. v0.4.0 first receipt는 Linear 5·다른 앱 0·`gmail_sent=0`을 보고했지만 provider/app readback은 미검증이다 |
 | Project Agent | `TARGET` | Project-scoped Source·Context·Engine·Task만 사용 |
 | Portfolio Navigator | `TARGET` | Project State Capsule과 typed projection만 소비, raw 통합 금지 |
 | P4·Linear Backup·P5 | `GO_WITH_EXACT_GATES` | actual 한 번의 Evidence 폐루프가 다음 단계 |
@@ -411,7 +411,7 @@ source와 exact version을 고정하고 Soulforge sole-writer authority를 부�
 4. Project별 Manager/Agent와 Context Firewall을 두고 Portfolio는 projection만 본다.
 5. 현재 Linear를 Sole Official Task State Owner로 유지한다.
 6. Soulforge가 Context·Decision Ledger·Policy·Evidence·Agent Receipt를 소유한다.
-7. 1시간 Bot public contract는 A0 baseline이고, 실제 `업무 인입 감시` v0.4.0 first receipt는 Linear 5·다른 앱 0·`gmail_sent=0`을 보고했다. provider/app readback과 prohibited-action 0은 아직 독립 검증 전이며, 일반 결과 채팅은 project memory 자동 상속을 가정하지 않는다.
+7. 1시간 Bot public contract는 A0 baseline이다. 실제 `업무 인입 감시`에는 일반 결과 채팅의 project memory 자동 상속을 금지하는 v0.4.1 지침 snapshot과 fail-closed gate를 저장했다. v0.4.0 first receipt의 Linear 5·다른 앱 0·`gmail_sent=0`은 Bot 자기보고이며 provider/app readback과 prohibited-action 0은 아직 독립 검증 전이다.
 8. 최종 목표는 `JM6(C6) 판단능력 × task-type별 A0~A6 가변권한`이다.
 9. Permanent Owner Authority 영역은 높은 단계에서도 Human Gate다.
 10. Canary 단위는 `Project×TaskType×Action×Authority×Policy Revision`이다.

@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 2026-08-22 - Hourly intake task v0.4.1 project-context fail-closed update
+
+- Updated the existing `업무 인입 감시` reservation in place; its identity, hourly cadence, and
+  active monitoring state remain unchanged. No duplicate reservation was created.
+- Because Scheduled results open in a general chat, the task now carries a self-contained snapshot
+  of the `소나테크(주) 개발1팀 관리` project instructions instead of assuming project-memory or
+  project-file inheritance.
+- Added `project_scope`, an exact project-instruction revision, explicit `DO_NOT_ASSUME` memory
+  posture, and a fail-closed `HOLD_PROJECT_CONTEXT` gate. Missing, stale, conflicting, or unclear
+  required project context forces every external effect to zero.
+- Versioned the new execution origin, receipt tag, and output marker as `V041` while retaining both
+  `V040` and `V041` as application-echo inputs so the upgrade cannot re-ingest the prior Bot cycle.
+- Reopened the saved task and verified the exact v0.4.1 prompt, hourly cadence, and active state.
+  The first v0.4.1 Cycle Receipt and provider/app readback remain pending; Gmail send remains
+  forbidden and must continue to report `gmail_sent=0`.
+
 ## 2026-08-22 - Voice-First Fable revalidation repairs and first scheduled receipt
 
 - Fable 5 independently returned `REVISE` at `main@489e3812`: the Engineering Engine manifest was
