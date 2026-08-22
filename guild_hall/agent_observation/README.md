@@ -230,6 +230,23 @@ receipt는 한쪽 끝만 기록한다. "이 run이 이 ref들을 산출했다"�
 이 record family는 store의 다섯 번째다. 나머지 넷과 똑같이 count되고 privacy 감사를 받으며
 deep freeze된다. 감사에서 빠진 family는 감사받지 않는 family이므로 예외를 두지 않는다.
 
+감사에 실제로 걸렸는지는 counter만으로 증명되지 않는다. 모든 counter가 0인 것은 family가
+감사 목록에 있든 없든 참이기 때문이다. 그래서 `projectStoreCounts`는 감사를 돌리는 목록과
+같은 배열에서 `privacy_audited_families`를 만들어 함께 내보낸다. 목록에서 하나를 빼면 출력이
+바뀌므로 누락이 관측된다. 선언을 두 벌 두면 서로 어긋날 수 있어 한 배열에서 파생시킨다.
+
+`delivery` 간선은 영수증 하나를 독점한다. 두 간선이 같은 영수증을 인용하면
+`RECEIPT_ALREADY_EVIDENCED`다. 그러지 않으면 한 consumer의 전달 횟수와 증거 ref가 둘 다
+두 배가 되는데, 이는 usage 원장이 content index로 막는 것과 같은 조용한 중복이다.
+
+증거 ref에는 그것을 낸 producer가 함께 실린다. 평평한 목록은 consumer가 이 artifact들을
+받았다고만 말하고 누구에게서 받았는지는 말하지 않으므로 귀속이 아니다.
+
+영수증의 evidence kind는 여기서 다시 확인하지 않는다. `recordResultReceipt`가 `structural_only`
+를 실은 delivery 영수증을 쓰기 시점에 이미 거부하므로, 저장된 delivery 영수증은 언제나
+producer-observed다. 도달할 수 없는 guard는 없는 것보다 나쁘다 — 보호처럼 읽히는데 어떤 입력도
+그 줄을 지나갈 수 없기 때문이다. 같은 이유로 영수증의 agent 재확인도 두지 않는다.
+
 ## Tool Job Shop
 
 Resource Controller는 queue·lease·capacity만 담당하고 실제 결과물은 Craftsman이

@@ -1,5 +1,43 @@
 # CHANGELOG
 
+## 2026-08-23 - Agent Observation P1-1 review pass: guards that no test could lose
+
+- The Stage P0 + P1-1 review returned ACCEPT with no blocking findings, but reported that **six
+  delivery-edge guards could each be deleted with all 267 tests still green**. Behaviour was
+  correct; the suite was not a regression barrier for it. Every one of those mutants is now killed,
+  measured by a baseline-gated probe: 17 mutants, 0 survivors.
+- The privacy-audit wiring was the hardest of them. Asserting all-zero counters proves nothing,
+  because zero is what they read whether or not a family is on the audit list — the claim the
+  previous CHANGELOG made hardest was the one assertion that could not detect its own omission.
+  `projectStoreCounts` now derives `privacy_audited_families` from the same array that drives the
+  audits, so dropping a family changes the output. A second declaration would be free to drift, so
+  there is only one.
+- Two guards inside `recordDeliveryEdge` were unreachable and have been deleted rather than tested.
+  `recordResultReceipt` already pins a receipt's agent to its run's agent, so an agent re-check
+  after the run check could never fire; and it already refuses a `delivery` receipt carrying
+  `structural_only`, so a stored delivery receipt is always producer-observed. An unreachable guard
+  is worse than none: it reads as protection while no input can exercise it.
+- One receipt now evidences one hand-over. Two edges citing the same receipt doubled both the
+  delivery count and the evidence refs for a consumer — the same silent doubling the usage ledger
+  keeps a content index to prevent. The refusal is `RECEIPT_ALREADY_EVIDENCED`.
+- Evidence refs now name the producer that supplied them. A flat pooled list said a consumer
+  received these artifacts without saying from whom, which is not attribution.
+- The receipt-kind refusal at the edge got its own code, `EDGE_RECEIPT_NOT_DELIVERY`. It was reusing
+  `STRUCTURAL_EDGE_NOT_DELIVERY`, whose name describes a different situation, so a caller switching
+  on the code learned the wrong thing.
+- The hold-code pin now holds each table's **key set**, not just its size and value-equals-key.
+  Renaming a key while keeping the table the same size left both of those true while the store
+  shipped a hold with no code at all, and every per-case assertion compared `undefined` against
+  `undefined`. That trap applied to all seven tables and all thirty-six codes.
+- The delivery-edge fixture no longer records a hand-off to a run that had already terminated, and
+  the two endpoint runs now start at different times so each temporal bound is reachable on its own
+  end rather than being masked by the other.
+- 운영 영향: `projectStoreCounts`의 반환에 `privacy_audited_families`가 추가된다. 이를 읽는
+  consumer는 아직 없다. 새 명령 표면은 없고 `validate:agent-observation` 하나가 그대로 검증한다.
+  여전히 pure in-memory이며 파일 쓰기, network, provider, ERP 세계수 write, Board enrollment
+  write, result gate write는 모두 0이다.
+- 관련 경로: `guild_hall/agent_observation/**`.
+
 ## 2026-08-22 - Watchtower recovery runtime: expand safe local restart allowlist and pin diagnostic boundaries
 
 - Expanded the Watchtower deterministic recovery runtime restart allowlist (`guild_hall/watchtower/recovery_runtime.mjs`) to admit remaining safe local/internal nodes backed by Owner-bound local read-only/local-custody tasks (`slack_batch`, `store_slack_custody`, `usage_antigravity_collector`, `gate_five_field`, `store_workmeta`, `watchtower_self`).

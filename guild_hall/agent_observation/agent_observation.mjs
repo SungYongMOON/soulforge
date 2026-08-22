@@ -50,6 +50,8 @@ export const OBSERVATION_HOLD_CODES = Object.freeze({
   UNKNOWN_RECEIPT: 'UNKNOWN_RECEIPT',
   RECEIPT_RUN_MISMATCH: 'RECEIPT_RUN_MISMATCH',
   SELF_DELIVERY_FORBIDDEN: 'SELF_DELIVERY_FORBIDDEN',
+  EDGE_RECEIPT_NOT_DELIVERY: 'EDGE_RECEIPT_NOT_DELIVERY',
+  RECEIPT_ALREADY_EVIDENCED: 'RECEIPT_ALREADY_EVIDENCED',
   STRUCTURAL_EDGE_CARRIES_NO_RECEIPT: 'STRUCTURAL_EDGE_CARRIES_NO_RECEIPT',
   AGENT_RUN_MISMATCH: 'AGENT_RUN_MISMATCH',
   RUN_MODEL_MISMATCH: 'RUN_MODEL_MISMATCH',
@@ -483,12 +485,26 @@ export function recordDeliveryEdge(store, rawInput) {
     const receipt = state.receipts.get(input.receipt_id);
     if (receipt === undefined) return hold(H.UNKNOWN_RECEIPT);
     // The receipt has to belong to the producer's own run. A receipt from some other run would let
-    // an edge borrow evidence it did not produce.
+    // an edge borrow evidence it did not produce. Checking the run alone is sufficient and is the
+    // load-bearing line: `recordResultReceipt` already pins a receipt's agent to its run's agent,
+    // and the producer agent is pinned to the producer run above, so a matching run implies a
+    // matching agent. A second agent comparison here would be unreachable, and an unreachable guard
+    // is worse than none: it reads as protection while no input can ever exercise it.
     if (receipt.record.run_id !== input.producer_run_id) return hold(H.RECEIPT_RUN_MISMATCH);
-    if (receipt.record.agent_id !== input.producer_agent_id) return hold(H.RECEIPT_RUN_MISMATCH, 'agent');
-    if (receipt.record.receipt_kind !== 'delivery') return hold(H.STRUCTURAL_EDGE_NOT_DELIVERY, 'receipt_kind');
-    if (receipt.record.producer_evidence_kind !== 'producer_observed') return hold(H.STRUCTURAL_EDGE_NOT_DELIVERY);
+    // Likewise the evidence kind needs no check here. `recordResultReceipt` refuses a `delivery`
+    // receipt carrying `structural_only` at write time, so a stored delivery receipt is always
+    // `producer_observed` and requiring the kind below is the whole test.
+    if (receipt.record.receipt_kind !== 'delivery') return hold(H.EDGE_RECEIPT_NOT_DELIVERY);
     if (input.observed_at < receipt.record.observed_at) return hold(H.TEMPORAL_ORDER_INVALID, 'edge_before_receipt');
+
+    // One receipt evidences one hand-over. Letting two edges cite the same receipt would double
+    // both the delivery count and the evidence refs for a consumer, which is the same silent
+    // doubling `recordDirectUsage` keeps a content index to prevent.
+    for (const existing of state.deliveryEdges.values()) {
+      if (existing.record.receipt_id === input.receipt_id && existing.record.edge_id !== input.edge_id) {
+        return hold(H.RECEIPT_ALREADY_EVIDENCED);
+      }
+    }
   }
 
   if (input.observed_at < producerRun.record.started_at) return hold(H.TEMPORAL_ORDER_INVALID, 'edge_before_producer_start');
@@ -516,6 +532,9 @@ export function recordDeliveryEdge(store, rawInput) {
  *
  * Structural edges are counted separately and never folded into the delivery count, so a consumer
  * that is merely adjacent to a producer can never be read as one that received something.
+ *
+ * Each evidence ref names the producer that supplied it. A flat pooled list would say a consumer
+ * received these artifacts without saying from whom, which is not attribution.
  */
 export function projectDeliveryEdges(store) {
   const state = stateOf(store);
@@ -525,7 +544,7 @@ export function projectDeliveryEdges(store) {
   let structural = 0;
   let delivered = 0;
   for (const entry of state.deliveryEdges.values()) {
-    const edge = entry.record ?? entry;
+    const edge = entry.record;
     const row = byConsumer.get(edge.consumer_run_id) ?? {
       consumer_run_id: edge.consumer_run_id,
       consumer_agent_id: edge.consumer_agent_id,
@@ -538,7 +557,14 @@ export function projectDeliveryEdges(store) {
       delivered += 1;
       const receipt = state.receipts.get(edge.receipt_id);
       if (receipt !== undefined) {
-        for (const ref of receipt.record.refs) row.producer_evidence_refs.push(`${ref.ref_kind}:${ref.ref_value}`);
+        for (const ref of receipt.record.refs) {
+          row.producer_evidence_refs.push({
+            producer_run_id: edge.producer_run_id,
+            producer_agent_id: edge.producer_agent_id,
+            ref_kind: ref.ref_kind,
+            ref_value: ref.ref_value,
+          });
+        }
       }
     } else {
       row.structural_count += 1;
@@ -622,17 +648,24 @@ export function projectStoreCounts(store) {
   if (state === undefined) return hold(H.UNKNOWN_STORE);
 
   const privacy = { raw_fields_stored: 0, secret_fields_stored: 0, local_path_fields_stored: 0 };
-  const audits = [
-    auditRecordPrivacy(listAgents(store), RECORD_KEY_ALLOWLIST.agent),
-    auditRecordPrivacy(listRuns(store), RECORD_KEY_ALLOWLIST.run),
-    auditRecordPrivacy(listUsageEvents(store), RECORD_KEY_ALLOWLIST.usage),
-    auditRecordPrivacy(listReceipts(store), RECORD_KEY_ALLOWLIST.receipt),
-    auditRecordPrivacy(listDeliveryEdges(store), RECORD_KEY_ALLOWLIST.deliveryEdge),
+  // One list drives both the audits and the report of which families were audited. All-zero
+  // counters are true whether or not a family is on this list, so dropping one used to be
+  // invisible; naming the covered families from the same source makes the omission observable
+  // without letting a second, driftable declaration exist.
+  const COVERAGE = [
+    ['agents', listAgents, RECORD_KEY_ALLOWLIST.agent],
+    ['runs', listRuns, RECORD_KEY_ALLOWLIST.run],
+    ['usage', listUsageEvents, RECORD_KEY_ALLOWLIST.usage],
+    ['receipts', listReceipts, RECORD_KEY_ALLOWLIST.receipt],
+    ['delivery_edges', listDeliveryEdges, RECORD_KEY_ALLOWLIST.deliveryEdge],
   ];
-  // A HOLD-shaped audit must surface as a HOLD, never be summed into the counters as NaN.
-  for (const audit of audits) {
+  const auditedFamilies = [];
+  for (const [family, list, allowlist] of COVERAGE) {
+    const audit = auditRecordPrivacy(list(store), allowlist);
+    // A HOLD-shaped audit must surface as a HOLD, never be summed into the counters as NaN.
     if (audit.status === 'HOLD') return audit;
     mergeCounters(privacy, audit);
+    auditedFamilies.push(family);
   }
 
   return {
@@ -643,6 +676,7 @@ export function projectStoreCounts(store) {
     receipts: state.receipts.size,
     delivery_edges: state.deliveryEdges.size,
     privacy,
+    privacy_audited_families: auditedFamilies,
     // A declared boundary, not a measurement. What actually proves it is the absence of any
     // effectful import or global call, which the validator checks against the module source.
     declared_effect_boundary: {
