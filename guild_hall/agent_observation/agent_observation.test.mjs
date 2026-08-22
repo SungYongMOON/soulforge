@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
+import { COMPOSITE_SEPARATOR, SAFE_ID } from './guard_primitives.mjs';
+
 import {
   AGENT_RECORD_SCHEMA,
   RUN_RECORD_SCHEMA,
@@ -200,15 +202,25 @@ test('the same provider identity cannot be bound to two Soulforge agents', () =>
 });
 
 test('the crosswalk separator keeps composite keys unambiguous', () => {
-  const store = createObservationStore();
-  assert.equal(registerAgent(store, agentInput({
-    provider_identities: [{ provider: 'codex', id_kind: 'thread.id', id_value: 'x' }],
-  })).status, 'REGISTERED');
-  const other = registerAgent(store, agentInput({
-    agent_id: 'agent.kvds.other.v1',
-    provider_identities: [{ provider: 'codex.thread', id_kind: 'id', id_value: 'x' }],
-  }));
-  assert.equal(other.status, 'REGISTERED', 'a different (provider, id_kind) split must not collide');
+  // Both splits must be ones that WOULD collide under any separator drawn from the safe-id
+  // alphabet. `.` and `-` are both inside SAFE_ID, so each is tested: a separator swapped to
+  // either one merges these pairs into a single key and turns the second registration into a
+  // spurious crosswalk conflict.
+  for (const [firstKind, secondProvider] of [['thread.id', 'codex.thread'], ['thread-id', 'codex-thread']]) {
+    const store = createObservationStore();
+    assert.equal(registerAgent(store, agentInput({
+      provider_identities: [{ provider: 'codex', id_kind: firstKind, id_value: 'x' }],
+    })).status, 'REGISTERED');
+    const other = registerAgent(store, agentInput({
+      agent_id: 'agent.kvds.other.v1',
+      provider_identities: [{ provider: secondProvider, id_kind: 'id', id_value: 'x' }],
+    }));
+    assert.equal(other.status, 'REGISTERED', `${secondProvider} must not collide with codex/${firstKind}`);
+  }
+
+  // The separator itself must be outside the safe-id alphabet, or some future pair collides again.
+  assert.equal(SAFE_ID.test(COMPOSITE_SEPARATOR), false, 'the separator must not be a legal id character');
+  assert.equal(COMPOSITE_SEPARATOR.length, 1);
 });
 
 test('unknown project holds instead of inferring one', () => {

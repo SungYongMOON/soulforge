@@ -21,9 +21,10 @@
   local ledger/dashboard/CSV, and portable MCP query/binding adapter; no conversation payload capture
 - `agent_observation/`: provider-neutral durable agent identity와 provider-native ID crosswalk,
   run 관찰, direct usage 귀속과 self/child/subtree rollup, result/delivery receipt,
-  host/resource queue·lease·capacity의 Tool Job Shop 계약, 그리고 한 WorkUnit 범위의
-  비정본 Context Capsule 계약. pure in-memory deterministic module이며 token 수집기·writer가
-  아니고 장기 Project Context 정본도 아니다
+  host/resource queue·lease·capacity의 Tool Job Shop 계약, 한 WorkUnit 범위의
+  비정본 Context Capsule 계약, 그리고 관찰된 usage를 `ai_usage_meter`의 `soulforge.ai_usage_event.v1`
+  로 투영해 그 owner의 validator로 검사하는 read-only bridge. pure in-memory deterministic module이며
+  token 수집기·writer가 아니고 장기 Project Context 정본도 아니다
 - `file_activity/`: multi-PC project file observation packets, single-primary logical-file/revision reconciliation,
   monthly metadata receipts/events, checkpoint-only rebuild, bounded life-tree projection helper,
   and feature-OFF H04 project-history adapter
@@ -96,6 +97,8 @@
   observation store의 저장 record는 deep freeze하고 원장은 store handle에서 도달할 수 없어
   append-only가 구조로 강제된다. job shop의 job·lease record는 의도적으로 가변 state machine이며
   외부에는 frozen copy와 새 projection만 나간다. Agent memory는 `cache_only`이며 장기 Project Context 정본이 아니다.
+  `ai_usage_meter`로의 bridge는 순수 투영이다. meter의 `validateUsageEvent`를 함수로만 부르고
+  meter state를 읽지도 쓰지도 않으며, 투영 결과를 meter에 넘기는 것은 별도의 gated action이다.
 - `knowledge_access/` 는 명시된 ledger root/file 에만 쓰며 source payload 를 ledger row 에 저장하지 않는다.
 - `knowledge_canon/` 은 package payload를 `_workspaces/system/**`에만 만들고 `_workmeta`에는 manifest, Drive/NotebookLM binding, validation, recovery metadata refs만 남긴다. 외부 upload나 NAS write authority는 소유하지 않는다.
 - `daily_ledger/` 는 명시된 daily ledger file/ref 만 읽고 report time 에 mail, git history, system log, raw source ref, live `_workspaces` payload 를 스캔하지 않는다.

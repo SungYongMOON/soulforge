@@ -153,12 +153,21 @@ export function deepFreeze(value) {
 }
 
 export const ACCESSOR_FOUND = Symbol('soulforge.agent_observation.accessor_found');
+export const TOO_LARGE = Symbol('soulforge.agent_observation.too_large');
+export const HOSTILE_INPUT = Symbol('soulforge.agent_observation.hostile_input');
+
+// An array's `length` is a settable number decoupled from how many elements it actually holds, so
+// `[].length = 4294967294` costs nothing to construct and would otherwise buy four billion
+// iterations of the walk below. Bounded here rather than downstream, because the downstream list
+// bounds only run once the snapshot has already returned.
+export const MAX_SNAPSHOT_ITEMS = 4096;
 
 function snapshotValue(value, depth) {
   if (depth > MAX_SCAN_DEPTH) return TOO_DEEP;
   if (value === null || typeof value !== 'object') return value;
 
   if (Array.isArray(value)) {
+    if (value.length > MAX_SNAPSHOT_ITEMS) return TOO_LARGE;
     const copy = new Array(value.length);
     for (let index = 0; index < value.length; index += 1) {
       const descriptor = Object.getOwnPropertyDescriptor(value, index);
@@ -166,23 +175,28 @@ function snapshotValue(value, depth) {
       if (descriptor === undefined) continue;
       if (descriptor.get !== undefined || descriptor.set !== undefined) return ACCESSOR_FOUND;
       const copied = snapshotValue(descriptor.value, depth + 1);
-      if (copied === TOO_DEEP || copied === ACCESSOR_FOUND) return copied;
+      if (copied === TOO_DEEP || copied === ACCESSOR_FOUND || copied === TOO_LARGE) return copied;
       copy[index] = copied;
     }
     return copy;
   }
 
   if (!isPlainObject(value)) return value;
-  const copy = {};
   // Own property NAMES, not keys: a non-enumerable property is still an own property, and it would
   // otherwise be invisible to the scans while remaining readable by the record builder.
-  for (const name of Object.getOwnPropertyNames(value)) {
+  const names = Object.getOwnPropertyNames(value);
+  if (names.length > MAX_SNAPSHOT_ITEMS) return TOO_LARGE;
+  const copy = {};
+  for (const name of names) {
     const descriptor = Object.getOwnPropertyDescriptor(value, name);
     if (descriptor === undefined) continue;
     if (descriptor.get !== undefined || descriptor.set !== undefined) return ACCESSOR_FOUND;
     const copied = snapshotValue(descriptor.value, depth + 1);
-    if (copied === TOO_DEEP || copied === ACCESSOR_FOUND) return copied;
-    copy[name] = copied;
+    if (copied === TOO_DEEP || copied === ACCESSOR_FOUND || copied === TOO_LARGE) return copied;
+    // `copy[name] = copied` would not create a data property for `__proto__`: it invokes the
+    // inherited setter instead, which silently discards a primitive. The key would then be gone
+    // from the snapshot before any scan ran, turning a HOLD into a PASS.
+    Object.defineProperty(copy, name, { value: copied, writable: true, enumerable: true, configurable: true });
   }
   return copy;
 }
@@ -190,7 +204,16 @@ function snapshotValue(value, depth) {
 // Reads every own property exactly once, through its descriptor, into a fresh plain structure.
 // Validation and record building then both read that structure, so a getter or a Proxy trap cannot
 // show the guard one value and the builder another, and a non-enumerable property cannot hide.
-export const snapshotInput = (value) => snapshotValue(value, 0);
+// A hostile Proxy can throw from `getPrototypeOf`, `ownKeys` or `getOwnPropertyDescriptor`, and a
+// revoked one throws from almost everything. Letting that escape would turn a refusal into a crash
+// at every entry point, so the throw is caught here and reported as the refusal it is.
+export function snapshotInput(value) {
+  try {
+    return snapshotValue(value, 0);
+  } catch {
+    return HOSTILE_INPUT;
+  }
+}
 
 // Shared entry guard. It snapshots first, then validates the snapshot, and returns that
 // snapshot for the caller to build from. Returns `{ status: 'OK', value }` or a hold.
@@ -198,6 +221,8 @@ export function guardEntry(rawInput, allowedKeys, codes) {
   const input = snapshotInput(rawInput);
   if (input === TOO_DEEP) return hold(codes.tooDeep);
   if (input === ACCESSOR_FOUND) return hold(codes.accessor);
+  if (input === TOO_LARGE) return hold(codes.tooLarge);
+  if (input === HOSTILE_INPUT) return hold(codes.hostileInput);
   if (!isPlainObject(input)) return hold(codes.unknownField, 'input_not_object');
   const extra = unknownKeyIn(input, allowedKeys);
   if (extra !== null) return hold(codes.unknownField, extra);

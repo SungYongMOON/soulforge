@@ -21,6 +21,8 @@ export const JOB_SHOP_HOLD_CODES = Object.freeze({
   SECRET_VALUE_FORBIDDEN: 'SECRET_VALUE_FORBIDDEN',
   LOCAL_PATH_VALUE_FORBIDDEN: 'LOCAL_PATH_VALUE_FORBIDDEN',
   INPUT_TOO_DEEP: 'INPUT_TOO_DEEP',
+  INPUT_TOO_LARGE: 'INPUT_TOO_LARGE',
+  HOSTILE_INPUT_REFUSED: 'HOSTILE_INPUT_REFUSED',
   ACCESSOR_PROPERTY_FORBIDDEN: 'ACCESSOR_PROPERTY_FORBIDDEN',
   INVALID_FIELD_VALUE: 'INVALID_FIELD_VALUE',
   UNKNOWN_SHOP: 'UNKNOWN_SHOP',
@@ -53,6 +55,8 @@ const ENTRY_CODES = Object.freeze({
   secret: H.SECRET_VALUE_FORBIDDEN,
   localPath: H.LOCAL_PATH_VALUE_FORBIDDEN,
   tooDeep: H.INPUT_TOO_DEEP,
+  tooLarge: H.INPUT_TOO_LARGE,
+  hostileInput: H.HOSTILE_INPUT_REFUSED,
   accessor: H.ACCESSOR_PROPERTY_FORBIDDEN,
 });
 
@@ -293,6 +297,9 @@ function nextQueuedJob(state, resourceId) {
     if (job.resource_id !== resourceId || job.state !== 'queued') continue;
     if (best === null) { best = job; continue; }
     const rank = QUEUE_PRIORITIES.indexOf(job.priority) - QUEUE_PRIORITIES.indexOf(best.priority);
+    // The sequence comparison is deliberately redundant with the monotonic-seq guard in submitJob:
+    // together they make FIFO-inside-a-tier an explicit property rather than one that silently
+    // depends on Map insertion order. A mutant that removes it therefore survives - documented.
     if (rank < 0 || (rank === 0 && job.submitted_seq < best.submitted_seq)) best = job;
   }
   return best;

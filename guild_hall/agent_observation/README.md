@@ -60,16 +60,32 @@ guard는 한쪽 module에만 존재할 수 없도록 `guard_primitives.mjs` 하�
   양쪽에 동일하게 적용된다. read-only projection 중 `projectUsageRollup`은 같은 세 guard를 쓰고
   `projectJobShop`은 key allowlist만 쓴다. 후자는 허용 key가 `now_ms` 하나뿐이고 `isClock`을
   통과해야 하므로 문자열 payload 자체가 들어올 수 없다.
-- guard는 own enumerable property만 훑는다. 그래서 prototype에 얹혀 온 payload는 scan을 통째로
-  건너뛸 수 있었고, 이제 입력의 prototype이 `Object.prototype`이나 `null`이 아니면 거부한다.
+- 입력의 prototype이 `Object.prototype`이나 `null`이 아니면 거부한다. prototype에 얹혀 온
+  payload가 scan을 통째로 건너뛸 수 있었기 때문이다. 스캔 자체는 아래 스냅샷 위에서 돌므로
+  enumerable 여부와 무관하게 own property를 전부 본다.
 - 어떤 hold `detail`에도 caller가 정한 문자열을 넣지 않는다. 모든 detail은 고정 literal이다.
   P0-S2의 `holds[].step`은 예외로 project ID를 담는데, 이 값은 safe ID 문법과 entry guard의
   secret·경로 scan을 이미 통과한 값이다.
-- 각 진입점은 입력을 먼저 스냅샷한 뒤 그 스냅샷만 검증하고 그 스냅샷에서만 record를 만든다.
-  스냅샷은 `Object.getOwnPropertyNames`로 own property를 **한 번씩만** 읽으므로 비열거 속성이
-  숨을 수 없고, getter가 있으면 호출하지 않고 `ACCESSOR_PROPERTY_FORBIDDEN`으로 거부하며,
-  Proxy의 `get` trap은 애초에 발동하지 않는다. 따라서 guard가 본 값과 record에 들어가는 값이
-  다를 수 없다.
+- `guardEntry`를 지나는 모든 진입점은 입력을 먼저 스냅샷한 뒤 그 스냅샷만 검증하고 그
+  스냅샷에서만 record를 만든다. 스냅샷은 `Object.getOwnPropertyNames`로 own property를
+  **한 번씩만** 읽으므로 비열거 속성이 숨을 수 없고, getter가 있으면 호출하지 않고
+  `ACCESSOR_PROPERTY_FORBIDDEN`으로 거부하며, Proxy의 `get` trap은 애초에 발동하지 않는다.
+  따라서 guard가 본 값과 record에 들어가는 값이 다를 수 없다. `snapshot_contract.test.mjs`가
+  이 성질을 12개 진입점 각각에서 증명한다 — 거짓말하는 Proxy를 직접 넘기고 trap 발동 횟수가
+  0인지와 저장된 값이 정직한 값인지를 함께 확인한다.
+- 스냅샷을 거치지 않는 것은 `projectJobShop`, `auditRecordPrivacy`, `auditProjectionPrivacy`,
+  `measureProjectIsolation` 네 개다. 모두 read-only이고 각자 자기 값을 한 번만 읽으므로
+  두 번 읽어 달라지는 문제가 성립하지 않는다.
+- 스냅샷은 own property 이름을 `Object.defineProperty`로 복사본에 심는다. `copy[name] = value`는
+  `__proto__`에 대해 data property를 만들지 않고 상속된 setter를 부르며, 원시값이면 조용히
+  버려진다. 그 경로로 own enumerable `__proto__` 키가 어떤 scan에도 걸리지 않고 사라져 HOLD가
+  PASS가 된 적이 있다.
+- 배열의 `length`는 실제 원소 수와 분리된 값이라 `[].length = 4294967294`가 공짜로 만들어진다.
+  그래서 스냅샷 안에서 원소 수를 `MAX_SNAPSHOT_ITEMS`(4096)로 제한한다. 하위의 list 상한은
+  스냅샷이 반환된 뒤에야 돌기 때문에 이 자리에서 막아야 한다. 초과는 `INPUT_TOO_LARGE`다.
+- revoke된 Proxy나 `ownKeys`·`getOwnPropertyDescriptor`·`getPrototypeOf`에서 던지는 trap은
+  스냅샷 밖으로 예외를 내보내지 않고 `HOSTILE_INPUT_REFUSED`로 거부한다. 거부가 crash로 바뀌면
+  진입점의 "던지지 않는다" 계약이 깨진다.
 - P0-S2의 capsule과 Board row는 observation store의 record family가 아니므로 이 module이
   `auditProjectionPrivacy`로 따로 감사하고 그 결과를 `privacy`에 합산한다. 두 성분은
   `privacy_sources`에 나눠 실린다. 현재 fixture 집합에서는 두 성분 모두 0이지만, 이는 guard가
@@ -207,7 +223,8 @@ fencing epoch가 어긋난 lease의 완료 시도는 `LEASE_FENCED_OUT`이고 �
 
 정확히 무엇이 보장되는지 구분한다.
 
-- 보장: 같은 job에 대해 **기록된 완료(`recorded_completion_count`)는 1회를 넘지 않는다**.
+- 보장: 같은 job에 대해 **기록된 완료(`jobs[].recorded_completions`)는 1회를 넘지 않는다**.
+  `recorded_completion_count`는 shop 전체 합계라 이 job 단위 불변식의 근거가 아니다.
   timeout처럼 완료가 아예 기록되지 않는 경로도 있으므로 "정확히 1회"가 아니라 "1회 초과 없음"이
   실제 불변식이다. 같은 결과의
   재완료는 `NO_OP`, 다른 결과는 `JOB_RESULT_CONFLICT`이며 후자는
@@ -292,18 +309,95 @@ capsule은 ERP 세계수를 대체하지 않는다. 장기 Project Context 정�
   delivery receipt 조회가 receipt ID뿐 아니라 craftsman run·agent·receipt kind까지 맞추는 것은
   그 위의 defence in depth이며, 현재 입력 범위에서는 ID만으로도 결과가 같다.
 
+## 기존 owner 표면으로 나가는 두 투영
+
+이 owner는 P0-S2까지 완전한 고립 섬이었다. 자기 디렉터리와 Node 내장 모듈 외에는 아무것도
+import하지 않았고, 반대로 이 module set을 import하는 것도 validator 스크립트 하나뿐이었다.
+아래 둘은 그 경계를 넘는 유일한 지점이며 둘 다 **읽기 전용 투영**이다. 계약을 새로 만드는 것이
+아니라 이미 있는 계약에 맞추는 쪽을 택했다.
+
+### `usage_meter_bridge.mjs` — Usage Ledger를 meter 계약으로
+
+`guild_hall/ai_usage_meter`는 이미 `soulforge.ai_usage_event.v1`을 가지고 있고 거기에는
+`actor.agent_id`, `thread_id`/`turn_id`/`parent_thread_id`/`root_thread_id`, project 바인딩,
+token, credit, privacy가 **exact key set**으로 들어 있다. 이 module의 usage schema를 그 옆에
+경쟁시키는 대신 한쪽을 다른 쪽의 투영으로 만든다.
+
+- 검사는 meter 자신의 `validateUsageEvent`가 한다. 여기서 규칙을 다시 적어 두면 언젠가 원본과
+  어긋나지만, 원본을 부르면 어긋날 수 없다. 이 호출은 파일도 상태도 건드리지 않는 순수 함수다.
+- provider-side thread id는 `registerAgent`가 유지하는 crosswalk로 해석한다. run id에서 만들지
+  않는다. crosswalk가 실제로 값을 하는 지점이 여기다 — meter는 provider thread id로 말하고 이
+  module은 durable agent id로 말하는데, 어느 쪽도 상대의 어휘를 배울 필요가 없다.
+- 관찰 모델이 소유하지 않는 값은 전부 명시 binding으로 받고 빠지면 거부한다. 기본값을 만들지
+  않는다. `project_id`와 `work_id`는 binding allowlist에 아예 없어서 caller가 다른 값을 제시하는
+  것 자체가 unknown field다.
+- meter의 `source.kind`는 3값 닫힌 enum이라 그 밖의 provider는 가장 가까운 값으로 밀지 않고
+  거부한다. Hermes가 없는 것은 의도다. 넣으려면 2.29 MB 영속 상태가 뒤에 있는 검증 스키마의
+  마이그레이션이고, 그 결정은 투영 함수가 할 일이 아니다.
+- `billed_cost`와 `subscription_credit_observation`은 투영하지 않는다. 관찰 record는 청구의
+  evidence ref만 갖고 금액은 갖지 않으므로, `rate_unknown`으로 보내면 관측된 청구를 버리는 것이고
+  `calculated`로 보내면 없는 총액을 지어내는 것이다.
+
+`measureMeterProjectability`는 아무것도 투영하지 않고 몇 건이 meter에 닿을 수 있는지와 나머지가
+왜 못 닿는지를 센다. `not_projectable`이 늘어나는 것이 두 계약이 벌어지고 있다는 신호다.
+
+### `board_health_projection.mjs` — Board가 이미 게시하는 두 health
+
+`live-thread-projection.mjs`의 `scope.result_gate_health`와 `scope.binding_coverage`는 이미
+존재하고 닫힌 값 집합으로 검증되는데 agent observation 쪽에서 채우는 것이 없었다. 세 번째 health
+신호를 만들지 않고 그 두 자리를 Board 자신의 어휘로 채운다.
+
+- `disabled`은 **절대** 내보내지 않는다. 게이트를 끄는 것은 라이브 registry의 `disabled` 플래그와
+  Board를 돌리는 프로세스의 `TEAM_OPS_BOARD_RESULT_GATES_DISABLED` 둘뿐이고, 인메모리 store는
+  둘 다 관측할 수 없다. 여기서 `disabled`을 보고하면 추측을 관측인 척 내놓는 것이다. module이 그
+  문자열을 대입하지 않는다는 것 자체를 test가 소스에서 확인한다.
+- `binding_coverage`가 공허해지지 않게 조건을 하나 더 둔다. store는 미등록 agent와 project 불일치를
+  이미 쓰기 시점에 거부하므로 그 둘만 보면 비어 있지 않은 store는 언제나 `exact`가 된다. 그래서
+  **agent가 run이 실제로 쓴 provider의 crosswalk 신원을 갖고 있는가**를 함께 본다. 한 provider로
+  등록된 agent가 다른 provider에서 도는 것은 합법이고, 그런 run은 어떤 provider thread로도
+  추적되지 않는다.
+- 두 값 모두 보수적인 쪽으로 떨어진다. 빈 store는 `missing`과 `hold`이며 공허한 전칭으로
+  `available`과 `exact`가 되지 않는다. run이 여럿일 때 하나만 미바인딩이어도 전체가 `hold`다.
+- 알 수 없는 handle은 `UNKNOWN_STORE`로 거부한다. list 접근자가 빈 배열이 아니라 `null`을
+  돌려주므로 `undefined`만 확인하면 외부 handle이 빈 store로 통과해 건강한 scope로 보고된다.
+- 판정만 내보내지 않고 그 판정을 만든 count를 `evidence`에 함께 싣는다. consumer가 판정을 믿는
+  대신 이유를 볼 수 있어야 한다.
+
+두 module 모두 write authority가 없다. 투영 결과를 meter나 Board에 실제로 넘기는 것은 이 owner의
+동작이 아니라 별도의 gated action이다.
+
 ## 검증
 
 ```powershell
 npm.cmd run validate:agent-observation
 ```
 
-이 validator는 다섯 개 구현 module의 syntax check와 다섯 개 test 파일의 focused
+이 validator는 일곱 개 구현 module의 syntax check와 여덟 개 test 파일의 focused
 deterministic test를 실행한다.
 위 경계 문장은 각각 대응하는 test를 가지며, `guard_primitives.test.mjs`는 로컬 경로·secret·label
 규칙의 개별 alternative를 하나씩 검증한다. 개발 중 guard 제거 probe로 테스트 강도를 확인했지만
 그 harness는 저장소에 포함되지 않으므로 여기서 coverage 점수를 주장하지 않는다. 검증 가능한 것은
 이 validator가 실행하는 test 자체다.
 
+### 일부러 죽지 않는 변이
+
+probe가 잡지 못하는 변이를 숨기지 않고 적는다. 아래는 모두 도달 가능한 입력이 없어서 살아남는
+것이며, 테스트가 약해서가 아니다.
+
+- tier 안 FIFO의 `submitted_seq` 비교(`resource_job_shop.mjs`). `submitJob`이 resource별로
+  seq를 단조 증가시키고 `state.jobs`가 삽입 순서로 순회하므로 같은 tier의 첫 후보가 항상 최소
+  seq다. 비교문은 FIFO가 Map 순회 순서에 조용히 기대지 않게 하려고 남겨 둔 명시적 중복이다.
+- `per_project[].result_ref`를 원장 대신 spec의 `artifact_ref`에서 읽는 변이. 러너가 항상
+  `result_ref: artifactRef`로 완료를 기록하므로 두 값이 모든 입력에서 같다. 원장을 읽는 것이
+  실제로 작동하는 지점은 **값**이 아니라 **존재**다 — 기록된 완료가 없으면 행 자체가 없고,
+  그 성질은 테스트가 증명한다.
+- projection privacy 성분을 합계에서 빼는 변이. guard가 모두 버티는 한 그 성분은 항상 0이라
+  `0 === 0 + 0`이 성립한다. 감사 함수 자체가 더러운 행을 잡는다는 것은 별도로 증명되어 있다.
+- bridge의 `isSafeId(threadId)` 재확인. crosswalk의 `id_value`는 `registerAgent`에서 이미 safe
+  id로 검증되므로 저장된 값이 이를 위반할 수 없다.
+
 결과는 public deterministic candidate 수락이며 actual project, live runtime,
-provider 연결, 운영 승격 수락이 아니다. 이 module set을 import하는 다른 owner는 아직 없다.
+provider 연결, 운영 승격 수락이 아니다. `usage_meter_bridge.mjs`가
+`guild_hall/ai_usage_meter/usage_meter.mjs`의 `validateUsageEvent`를 **순수 함수로만** 부르는
+것이 이 owner의 유일한 외부 import이며, 그 호출은 파일도 상태도 건드리지 않는다. 이 module set을
+import하는 다른 owner는 아직 없다.

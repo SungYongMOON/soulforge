@@ -1,5 +1,72 @@
 # CHANGELOG
 
+## 2026-08-22 - Agent Observation P0 usage-meter bridge and two guard regressions
+
+- Fixed a guard regression the P0-S2 review found: an own **enumerable** `__proto__` key escaped all
+  three scans. The snapshot copied properties with `copy[name] = value`, which for `__proto__`
+  invokes the inherited setter instead of creating a data property and silently discards a primitive.
+  The key was therefore gone before the key allowlist, the secret scan and the local-path scan ran,
+  so `registerAgent` accepted a credential-carrying input and reported it as a clean PASS. The
+  snapshot now writes every property with `Object.defineProperty`. The previous entry's claim that
+  "a non-enumerable property cannot hide from the scans" was true; it did not cover this key, which
+  is enumerable and hid anyway.
+- Fixed a second regression from the same change: the snapshot walked an array from `0` to
+  `length - 1`, and an array's `length` is a settable number decoupled from its elements. A list with
+  `length = 4294967294` cost nothing to construct and turned a 1 ms refusal into an unbounded hang at
+  every entry point that takes an array field. Both the array and object branches are now bounded by
+  `MAX_SNAPSHOT_ITEMS` (4096) inside the snapshot, because the downstream list bounds only run once
+  the snapshot has already returned. Over the bound is `INPUT_TOO_LARGE`.
+- A revoked Proxy, or a trap that throws from `ownKeys`, `getOwnPropertyDescriptor` or
+  `getPrototypeOf`, previously escaped as a `TypeError` from every entry point. That contradicted the
+  documented "this entry point never throws". The snapshot now converts it to
+  `HOSTILE_INPUT_REFUSED`.
+- Added `guild_hall/agent_observation/snapshot_contract.test.mjs`. The property that every entry
+  point builds its record from the validated snapshot was previously unproven: rewriting ten entry
+  points to build from the raw argument left the whole suite green, and the `observeRun` variant
+  demonstrably stored a credential the privacy audit then reported as clean. Each of the twelve entry
+  points is now handed an input that lies on read, and the test asserts both that the lying trap
+  never fires and that the stored value is the honest one.
+- Added `guild_hall/agent_observation/usage_meter_bridge.mjs`. `guild_hall/ai_usage_meter` already
+  defines `soulforge.ai_usage_event.v1` with an exact key set covering agent identity, run lineage,
+  project binding, tokens, credits and privacy. Rather than let the observation module's own usage
+  schema compete with it, the bridge projects one onto the other and validates the result with the
+  meter's own `validateUsageEvent`, so the mapping cannot drift from a local restatement of the
+  rules. It writes nothing and never reads the persisted meter state.
+- The bridge invents no identity. The provider-side thread id is resolved through the agent
+  crosswalk that `registerAgent` already maintains, and everything the observation model does not own
+  arrives in an explicit binding where a missing field is a refusal rather than a default. A provider
+  outside the meter's closed three-value `source.kind` enum holds instead of being coerced to the
+  nearest member; Hermes is deliberately absent, because adding it migrates a validated schema with
+  persisted state behind it.
+- A `billed_cost` or `subscription_credit_observation` record is refused rather than projected. The
+  observation record carries evidence refs for an observed charge but not its amount, so
+  `rate_unknown` would discard the charge and `calculated` would require inventing a total.
+- Corrected four documentation claims against the code: the snapshot covers the entry points that go
+  through `guardEntry`, not the four read-only projections; the per-job completion invariant is
+  carried by `jobs[].recorded_completions`, not the shop-wide `recorded_completion_count`; the
+  "own enumerable property only" description of the guards predates the snapshot; and the mutants
+  that survive on purpose are now listed rather than left implicit.
+- Added `guild_hall/agent_observation/board_health_projection.mjs`. The Board projection already
+  publishes `scope.result_gate_health` and `scope.binding_coverage` against closed value sets and
+  nothing fed them from agent observation. This fills those two fields in the Board's own
+  vocabulary rather than adding a third health signal beside them.
+- That projection never reports `disabled`. The only two things that disable the result gate are the
+  live registry's `disabled` flag and `TEAM_OPS_BOARD_RESULT_GATES_DISABLED` in whichever process
+  runs the Board, and an in-memory store observes neither. `binding_coverage` additionally requires
+  that a run's agent carry a provider identity for the provider the run actually used, because the
+  store already refuses an unregistered agent and a project mismatch at write time and those two
+  alone would make the measurement vacuously exact.
+- Two projects that both omit a Context Capsule are no longer reported as sharing a duplicate
+  `capsule_id`. Both yielded `undefined`, which is an absence rather than a collision, so the
+  refusal named the wrong reason.
+- 운영 영향: 새 명령 표면은 없다. 기존 `npm run validate:agent-observation` 하나가 새 module과
+  두 test 파일까지 검증한다. bridge가 `guild_hall/ai_usage_meter/usage_meter.mjs`의
+  `validateUsageEvent`를 순수 함수로 부르는 것이 이 owner의 유일한 외부 import이며 파일도 상태도
+  건드리지 않는다. 실제 provider, ERP 세계수 write, Board enrollment write, result gate write,
+  파일 쓰기, network는 여전히 모두 0이다. public deterministic candidate이며 이 module set을
+  import하는 owner는 아직 없다.
+- 관련 경로: `guild_hall/agent_observation/**`, `package.json`.
+
 ## 2026-08-22 - Agent Observation P0-S2 three-project job shop
 
 - Added `guild_hall/agent_observation/p0s2_job_shop.mjs`: three different projects submit one

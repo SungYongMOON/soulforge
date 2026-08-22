@@ -423,11 +423,14 @@ test('a project that never records a completion produces no row and no artifact 
   assert.equal(result.board_rows.length, 0);
 });
 
-test('completion count and result ref come from the job ledger', () => {
+test('a project row exists only when the ledger recorded its completion', () => {
+  // Renamed from a claim about the result ref's *value*. The runner always completes a job with the
+  // spec's own artifact ref, so ledger and spec agree on the value for every reachable input and no
+  // test can separate them. What the ledger read genuinely decides is presence: no recorded
+  // completion, no row. That is what this proves.
   const result = runP0S2JobShop(F);
   for (const entry of result.per_project) {
     assert.equal(entry.completion_count, 1);
-    // The ledger stores the artifact ref the worker actually reported for that job.
     assert.equal(entry.result_ref, F.projects.find((p) => p.project_id === entry.project_id).artifact_ref);
   }
   const refs = result.per_project.map((entry) => entry.result_ref);
@@ -819,4 +822,32 @@ test('the module opens no external effect surface', () => {
   for (const pattern of [/\brequire\s*\(/u, /\bimport\s*\(/u, /\bfetch\s*\(/u, /\beval\s*\(/u, /new\s+Function\s*\(/u, /\bprocess\./u, /\bglobalThis\./u, /\bDate\.now\s*\(/u, /new\s+Date\s*\(/u]) {
     assert.equal(pattern.test(source), false, `must not use ${pattern}`);
   }
+});
+
+test('two projects that both omit a capsule are not reported as duplicate identifiers', () => {
+  // `capsule?.capsule_id` is `undefined` for a project with no capsule. Comparing those two
+  // absences as a collision named the wrong reason for the refusal: nothing was duplicated, a
+  // field was simply missing. The duplicate scan now skips absences.
+  const capsuleless = {
+    ...F,
+    projects: F.projects.map((project) => {
+      const { capsule, ...rest } = project;
+      return rest;
+    }),
+  };
+  const result = runP0S2JobShop(capsuleless);
+  const codes = result.holds.map((entry) => entry.hold_code);
+  assert.equal(codes.includes(S.DUPLICATE_PROJECT_IDENTIFIER), false, JSON.stringify(result.holds));
+
+  // A genuine collision on a present capsule id is still caught.
+  const collided = {
+    ...F,
+    projects: F.projects.map((project, index) => (index === 0 ? project : {
+      ...project,
+      capsule: { ...project.capsule, capsule_id: F.projects[0].capsule.capsule_id },
+    })),
+  };
+  const collision = runP0S2JobShop(collided);
+  assert.deepEqual(collision.holds.map((entry) => entry.hold_code), [S.DUPLICATE_PROJECT_IDENTIFIER]);
+  assert.equal(collision.holds[0].detail, 'capsule_id');
 });

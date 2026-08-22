@@ -47,6 +47,8 @@ export const P0S2_HOLD_CODES = Object.freeze({
   SECRET_VALUE_FORBIDDEN: 'SECRET_VALUE_FORBIDDEN',
   LOCAL_PATH_VALUE_FORBIDDEN: 'LOCAL_PATH_VALUE_FORBIDDEN',
   INPUT_TOO_DEEP: 'INPUT_TOO_DEEP',
+  INPUT_TOO_LARGE: 'INPUT_TOO_LARGE',
+  HOSTILE_INPUT_REFUSED: 'HOSTILE_INPUT_REFUSED',
   ACCESSOR_PROPERTY_FORBIDDEN: 'ACCESSOR_PROPERTY_FORBIDDEN',
   INVALID_FIELD_VALUE: 'INVALID_FIELD_VALUE',
   UNSAFE_DISPLAY_LABEL: 'UNSAFE_DISPLAY_LABEL',
@@ -66,6 +68,8 @@ const ENTRY_CODES = Object.freeze({
   secret: S.SECRET_VALUE_FORBIDDEN,
   localPath: S.LOCAL_PATH_VALUE_FORBIDDEN,
   tooDeep: S.INPUT_TOO_DEEP,
+  tooLarge: S.INPUT_TOO_LARGE,
+  hostileInput: S.HOSTILE_INPUT_REFUSED,
   accessor: S.ACCESSOR_PROPERTY_FORBIDDEN,
 });
 
@@ -289,6 +293,10 @@ function guardFixture(rawFixture) {
     seenReceiptIds.add(projects[index].delivery_receipt_id);
     for (const [field, seenSet] of [['artifact_ref', seenArtifacts], ['work_unit_id', seenWorkUnits], ['capsule_id', seenCapsuleIds]]) {
       const value = field === 'capsule_id' ? projects[index].capsule?.capsule_id : projects[index][field];
+      // A capsule is optional. Two projects that both omit one share `undefined`, which is an
+      // absence rather than a collision - reporting it as a duplicate identifier would name the
+      // wrong reason for a correct refusal, and there is nothing here to refuse.
+      if (value === undefined || value === null) continue;
       if (seenSet.has(value)) return hold(S.DUPLICATE_PROJECT_IDENTIFIER, field);
       seenSet.add(value);
     }
