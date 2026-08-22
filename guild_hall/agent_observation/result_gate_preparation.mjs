@@ -33,6 +33,7 @@ import {
   TOO_DEEP,
   TOO_LARGE,
   hold,
+  isPlainObject,
   isSafeId,
   isUtcMs,
   snapshotInput,
@@ -124,9 +125,12 @@ function isolationRefusal(rawRegistry) {
     || registry === TOO_LARGE || registry === HOSTILE_INPUT) {
     return { detail: 'not_an_object', registry: null };
   }
-  if (registry === null || typeof registry !== 'object' || Array.isArray(registry)) {
-    return { detail: 'not_an_object', registry: null };
-  }
+  // `isPlainObject`, not `typeof === 'object'`. `snapshotValue` returns anything that is not a
+  // plain object or array **by reference**, so a registry whose prototype is not `Object.prototype`
+  // was never copied and every later read went through the caller's live accessors — the exact
+  // thing the snapshot exists to remove. `guardEntry` already refuses on the same predicate; this
+  // was the one call site that did not.
+  if (!isPlainObject(registry)) return { detail: 'not_an_object', registry: null };
   if (registry.schema_version !== THREAD_RESULT_GATE_SCHEMA) return { detail: 'schema_version', registry: null };
   if (registry.registry_revision !== 0) return { detail: 'registry_revision_not_zero', registry: null };
   if (!Array.isArray(registry.events) || registry.events.length !== 0) return { detail: 'events_not_empty', registry: null };

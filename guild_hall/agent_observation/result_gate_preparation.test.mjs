@@ -302,3 +302,59 @@ test('the preparation does not depend on the environment', () => {
     else process.env.TEAM_OPS_BOARD_RESULT_GATES_DISABLED = before;
   }
 });
+
+test('a registry with a non-plain prototype is refused, not silently read live', () => {
+  // snapshotValue returns anything that is not a plain object or array BY REFERENCE, so a registry
+  // whose prototype is not Object.prototype was never copied and every later read went through the
+  // caller's accessors. guardEntry already refuses on isPlainObject; this call site did not, and
+  // registry_revision has no second line of defence because the Board never reads it.
+  const store = seeded();
+
+  for (const [name, registry] of [
+    ['plain-object prototype', Object.assign(Object.create({}), createIsolatedRegistry())],
+    ['class instance', Object.assign(new (class Registry {})(), createIsolatedRegistry())],
+  ]) {
+    const result = prepareSyntheticResultGateActivation(store, request({ registry }));
+    assert.equal(result.status, 'HOLD', name);
+    assert.equal(result.hold_code, P.REGISTRY_NOT_ISOLATED, name);
+    assert.equal(result.detail, 'not_an_object', name);
+  }
+
+  // A null prototype is a different case and is legitimately accepted: `isPlainObject` admits it,
+  // so the snapshot copies it like any other plain object rather than passing it through by
+  // reference. Refusing it would be a guess dressed as caution.
+  const nullProto = Object.assign(Object.create(null), createIsolatedRegistry());
+  const accepted = prepareSyntheticResultGateActivation(store, request({ registry: nullProto }));
+  assert.equal(accepted.status, 'PREPARED', 'a null-prototype registry is copied, not read live');
+  assert.equal(accepted.registry.registry_revision, 2);
+  assert.notEqual(accepted.registry, nullProto, 'the returned registry is not the caller object');
+  assert.equal(nullProto.events.length, 0, 'the caller object is left unmutated');
+
+  // The concrete escape: a getter behind a non-plain prototype answered 0 for the check and 1000
+  // afterwards, yielding a registry at revision 1002 that looked like the successor to a long
+  // history while carrying two synthetic events.
+  const lying = Object.assign(Object.create({}), {
+    schema_version: 'soulforge.team_ops_board.thread_result_gate.v1',
+    updated_at: '2026-08-22T00:00:00.000Z',
+    disabled: false,
+    events: [],
+  });
+  let reads = 0;
+  Object.defineProperty(lying, 'registry_revision', {
+    enumerable: true, configurable: true,
+    get() { reads += 1; return reads === 1 ? 0 : 1000; },
+  });
+  const escaped = prepareSyntheticResultGateActivation(store, request({ registry: lying }));
+  assert.equal(escaped.status, 'HOLD');
+  assert.equal(reads, 0, 'the caller\'s accessors must never be read');
+});
+
+test('the store hold carries no caller-supplied detail', () => {
+  // The owner echoes no caller string into a hold detail, because a key or value can itself be a
+  // credential that passes the safe-id grammar.
+  for (const notAStore of [Object.freeze({ kind: 'sk-abcdefgh12345678' }), 'sk-abcdefgh12345678', 42]) {
+    const result = prepareSyntheticResultGateActivation(notAStore, request());
+    assert.equal(result.hold_code, P.UNKNOWN_STORE);
+    assert.equal(JSON.stringify(result).includes('sk-'), false, 'a hold must not echo the caller');
+  }
+});

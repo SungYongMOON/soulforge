@@ -23,6 +23,7 @@ export const CODEX_RETENTION_AUTOMATION_REPORT_SCHEMA = "soulforge.codex_thread_
  */
 export const MAX_REPORT_ROWS = 200;
 export const MAX_REPORT_BYTES = 200 * 1024;
+export const MAX_SETTLE_ITERATIONS = 8;
 
 function boundReportRows(rows, limit = MAX_REPORT_ROWS) {
   const total = rows.length;
@@ -59,8 +60,44 @@ function writtenByteLength(envelope) {
 }
 
 function shrinkReportToBudget(envelope, maxBytes = MAX_REPORT_BYTES) {
+  // The marker is created BEFORE the loop, because the loop's own exit test has to measure the
+  // artifact that includes it. Measuring without it left a 177-byte window just under the budget in
+  // which a report was published over the limit, with `shrink_passes: 0` and the blame placed on an
+  // unshrinkable remainder, while its lists sat there untouched and plainly shrinkable.
+  envelope.retention.report_budget = {
+    max_bytes: maxBytes,
+    measured_bytes: 0,
+    budget_met: false,
+    shrink_passes: 0,
+    unshrinkable_remainder: false
+  };
+
+  /**
+   * Settles every field of the marker against the artifact that contains the marker, and returns
+   * that artifact's exact byte length.
+   *
+   * It converges: after the first iteration exactly one of the two booleans is `true` and they are
+   * exact negations, so their combined length is fixed and the map reduces to
+   * `v -> constant + digits(v)`, which is monotone and confined to a seven-value span. A cycle
+   * would need two sizes with different digit counts mapping to each other, which monotonicity
+   * forbids. The bound is a backstop, not the mechanism.
+   */
+  const settle = () => {
+    let measured = 0;
+    for (let iteration = 0; iteration < MAX_SETTLE_ITERATIONS; iteration += 1) {
+      const next = writtenByteLength(envelope);
+      if (next === measured) return measured;
+      measured = next;
+      const budget = envelope.retention.report_budget;
+      budget.measured_bytes = measured;
+      budget.budget_met = measured <= maxBytes;
+      budget.unshrinkable_remainder = measured > maxBytes;
+    }
+    return measured;
+  };
+
   let passes = 0;
-  while (writtenByteLength(envelope) > maxBytes) {
+  while (settle() > maxBytes) {
     const candidateCount = envelope.retention.candidates.length;
     const rowCount = envelope.inventory.rows.length;
     if (candidateCount === 0 && rowCount === 0) break;
@@ -79,35 +116,9 @@ function shrinkReportToBudget(envelope, maxBytes = MAX_REPORT_BYTES) {
       dropped_count: envelope.inventory.rows_truncation.total_count - envelope.inventory.rows.length,
       truncated: envelope.inventory.rows_truncation.total_count > envelope.inventory.rows.length
     };
-  }
-
-  // The outcome is recorded whether or not it is good news. A consumer must never have to infer
-  // from the absence of a marker that the budget was met. This lives inside `retention` because the
-  // projection enforces an exact key set at the top level and in `summary`.
-  //
-  // The marker has to count its own bytes. Measuring before inserting it understated the file by
-  // the marker's own length, which fails open: a report a few bytes over the budget would have
-  // reported `budget_met: true`. So the marker is inserted first and the count settles to a fixed
-  // point, which it reaches as soon as the digit count of `measured_bytes` stops changing.
-  envelope.retention.report_budget = {
-    max_bytes: maxBytes,
-    measured_bytes: 0,
-    budget_met: false,
-    shrink_passes: passes,
-    unshrinkable_remainder: false
-  };
-  // Every field the marker carries has to be settled inside the loop, not after it. Writing the
-  // two booleans afterwards flipped one of them from `false` to `true` and shortened the file by a
-  // byte, so the count was wrong by exactly the amount it claimed to be measuring. They are always
-  // each other's negation, so once both are present their combined length no longer changes.
-  let measuredBytes = 0;
-  for (let settle = 0; settle < 8; settle += 1) {
-    const next = writtenByteLength(envelope);
-    if (next === measuredBytes) break;
-    measuredBytes = next;
-    envelope.retention.report_budget.measured_bytes = measuredBytes;
-    envelope.retention.report_budget.budget_met = measuredBytes <= maxBytes;
-    envelope.retention.report_budget.unshrinkable_remainder = measuredBytes > maxBytes;
+    // The pass count is inside the measured artifact too, so it is written before the next settle
+    // rather than after the loop.
+    envelope.retention.report_budget.shrink_passes = passes;
   }
   return passes;
 }
@@ -294,6 +305,14 @@ export async function runCodexRetentionAutomationInternal(options = {}, adapters
       : (Number.isFinite(nowVal) ? nowVal : Date.now()));
 
   if (!Number.isFinite(nowMs) || nowMs <= 0 || nowMs > MAX_VALID_TIMESTAMP_MS) {
+    throw new Error("invalid_time");
+  }
+  // `canonicalizeJson` deliberately excludes `generated_at` from the digest so that identical
+  // content at two different times digests the same. `report_budget.measured_bytes` counts
+  // `generated_at`'s bytes and IS inside the digest, which reintroduces that coupling whenever the
+  // ISO string changes length — `new Date(3e14).toISOString()` is 27 characters, not 24. Refusing
+  // such a timestamp keeps the canonicalizer's promise true rather than quietly breaking it.
+  if (new Date(nowMs).toISOString().length !== 24) {
     throw new Error("invalid_time");
   }
 

@@ -11,6 +11,7 @@ import {
   DEFAULT_LIFECYCLE_RETENTION_FEATURE_CATALOG
 } from "../codex_retention_automation.mjs";
 import {
+  MAX_SETTLE_ITERATIONS,
   runCodexRetentionAutomationInternal
 } from "../codex_retention_automation_internal.mjs";
 import { cliMain } from "../codex_retention_automation_cli.mjs";
@@ -917,6 +918,163 @@ test("the budget marker does not break the projection's exact key sets", async (
     // at the top level and in summary, and the marker deliberately lives below both.
     const projection = evaluateCodexRetentionProjection(result.report, { now: 1787241600000 });
     assert.ok(projection);
+  } finally {
+    await cleanDir(root);
+  }
+});
+
+test("a report near the budget is shrunk rather than published just over it", async () => {
+  // The loop's exit test used to measure the envelope BEFORE report_budget existed, and the marker
+  // serialises to about 177 bytes. Any report landing in that window below the budget was published
+  // over it with shrink_passes 0 and the blame on an unshrinkable remainder, while its lists sat
+  // there full. This pad size reproduced exactly that: 204,801 bytes written, 5 candidates kept.
+  const root = await tempDir();
+  try {
+    const activityRoot = path.join(root, "guild_hall", "state", "operations", "soulforge_activity");
+    const adapters = {
+      runLifecycleRetentionReport: async () => ({
+        evidence_status: "PASS",
+        thread_scope: { current_or_accepted_count: 5, bound_task_count: 5, unbound_task_count: 0 },
+        classifications: { active: 5, [`${"p".repeat(197898)}`]: 1 },
+        candidates: Array.from({ length: 5 }, (_, index) => ({
+          candidate_id: `candidate-${index}`,
+          classification: "active",
+          enrollment_lifecycle: "current",
+          reason_codes: [],
+          hold_reasons: [],
+          metadata_counts: {}
+        })),
+        digest: null
+      })
+    };
+    const result = await runCodexRetentionAutomationInternal({
+      repoRoot: defaultRepoRoot(),
+      activityRoot,
+      catalog: DEFAULT_LIFECYCLE_RETENTION_FEATURE_CATALOG,
+      now: 1787241600000
+    }, adapters);
+    const written = await readFile(path.join(activityRoot, "reports", "codex_retention", "current.json"));
+    const budget = result.report.retention.report_budget;
+
+    assert.ok(written.length <= budget.max_bytes, `published ${written.length} over ${budget.max_bytes}`);
+    assert.equal(budget.budget_met, true);
+    assert.equal(budget.measured_bytes, written.length);
+
+    // If the report was over budget it must have actually tried, and if it gave up it must be
+    // because nothing droppable was left. Those two are what unshrinkable_remainder claims.
+    if (budget.unshrinkable_remainder) {
+      assert.equal(result.report.retention.candidates.length, 0, "claimed unshrinkable with candidates left");
+      assert.equal(result.report.inventory.rows.length, 0, "claimed unshrinkable with rows left");
+    }
+  } finally {
+    await cleanDir(root);
+  }
+});
+
+test("the budget counts UTF-8 bytes, not UTF-16 code units", async () => {
+  // Every earlier fixture was pure ASCII, where the two measurements coincide, so the encoding half
+  // of the fix was unproven. Korean labels are realistic in this repository and inflate the byte
+  // count by about 9% over the code-unit count.
+  const root = await tempDir();
+  try {
+    const activityRoot = path.join(root, "guild_hall", "state", "operations", "soulforge_activity");
+    const label = "과제_바인딩_완료_대기_중_상태_표시";
+    const adapters = {
+      runLifecycleRetentionReport: async () => ({
+        evidence_status: "PASS",
+        thread_scope: { current_or_accepted_count: 200, bound_task_count: 200, unbound_task_count: 0 },
+        classifications: { active: 200 },
+        candidates: Array.from({ length: 200 }, (_, index) => ({
+          candidate_id: `candidate-${index}`,
+          classification: "active",
+          enrollment_lifecycle: "current",
+          reason_codes: [label],
+          hold_reasons: [label],
+          metadata_counts: {}
+        })),
+        digest: null
+      })
+    };
+    const result = await runCodexRetentionAutomationInternal({
+      repoRoot: defaultRepoRoot(),
+      activityRoot,
+      catalog: DEFAULT_LIFECYCLE_RETENTION_FEATURE_CATALOG,
+      now: 1787241600000
+    }, adapters);
+    const written = await readFile(path.join(activityRoot, "reports", "codex_retention", "current.json"));
+
+    const codeUnits = JSON.stringify({ ...result.report, digest: `sha256:${"0".repeat(64)}` }, null, 2).length;
+    assert.ok(written.length > codeUnits, "the fixture must actually contain multi-byte characters");
+    assert.equal(
+      result.report.retention.report_budget.measured_bytes,
+      written.length,
+      "the marker must count bytes, and code units would be short here"
+    );
+  } finally {
+    await cleanDir(root);
+  }
+});
+
+test("the settle loop converges well inside its bound, and the bound is pinned", async () => {
+  assert.equal(MAX_SETTLE_ITERATIONS, 8);
+
+  // Crossing a digit boundary in measured_bytes is what makes the count re-settle at all, so the
+  // sizes below are chosen to land on both sides of one. A loop that stopped after a single pass
+  // would report a stale count on at least one of them.
+  for (const candidateCount of [1, 9, 12, 60, 140]) {
+    const root = await tempDir();
+    try {
+      const activityRoot = path.join(root, "guild_hall", "state", "operations", "soulforge_activity");
+      const adapters = {
+        runLifecycleRetentionReport: async () => ({
+          evidence_status: "PASS",
+          thread_scope: { current_or_accepted_count: candidateCount, bound_task_count: candidateCount, unbound_task_count: 0 },
+          classifications: { active: candidateCount },
+          candidates: Array.from({ length: candidateCount }, (_, index) => ({
+            candidate_id: `candidate-${index}`,
+            classification: "active",
+            enrollment_lifecycle: "current",
+            reason_codes: ["bound_to_task"],
+            hold_reasons: [],
+            metadata_counts: { a: index }
+          })),
+          digest: null
+        })
+      };
+      const result = await runCodexRetentionAutomationInternal({
+        repoRoot: defaultRepoRoot(),
+        activityRoot,
+        catalog: DEFAULT_LIFECYCLE_RETENTION_FEATURE_CATALOG,
+        now: 1787241600000
+      }, adapters);
+      const written = await readFile(path.join(activityRoot, "reports", "codex_retention", "current.json"));
+      assert.equal(
+        result.report.retention.report_budget.measured_bytes,
+        written.length,
+        `size ${candidateCount} did not settle`
+      );
+    } finally {
+      await cleanDir(root);
+    }
+  }
+});
+
+test("a timestamp whose ISO form is not the canonical length is refused", async () => {
+  // canonicalizeJson excludes generated_at from the digest so identical content at two times
+  // digests the same. measured_bytes counts generated_at's bytes and IS digested, so a
+  // different-length timestamp would silently reintroduce that coupling.
+  assert.equal(new Date(3e14).toISOString().length, 27, "the fixture must be a non-canonical length");
+  const root = await tempDir();
+  try {
+    await assert.rejects(
+      () => runCodexRetentionAutomationInternal({
+        repoRoot: defaultRepoRoot(),
+        activityRoot: path.join(root, "guild_hall", "state", "operations", "soulforge_activity"),
+        catalog: DEFAULT_LIFECYCLE_RETENTION_FEATURE_CATALOG,
+        now: 3e14
+      }),
+      /invalid_time/u
+    );
   } finally {
     await cleanDir(root);
   }

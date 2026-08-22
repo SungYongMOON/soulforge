@@ -1,5 +1,47 @@
 # CHANGELOG
 
+## 2026-08-22 - Agent Observation P0 second review pass: budget window, prototype bypass
+
+- Fixed the retention shrink loop publishing a report just over budget while its lists were still
+  full. The loop's exit test measured the envelope **before** `retention.report_budget` existed, and
+  the marker serialises to about 177 bytes, so any report landing in that window below the limit was
+  written over it with `shrink_passes: 0` and the blame placed on an unshrinkable remainder.
+  Reproduced end to end at 204,801 bytes against a 204,800 budget with all five candidates retained.
+  The marker is now created before the loop, so every measurement — including the exit test —
+  counts the artifact that contains it, and `shrink_passes` is written before the next measurement
+  rather than after the loop.
+- Swept 1,220 reports across five list sizes and the whole neighbourhood of the budget: zero cases
+  where `measured_bytes` disagreed with the file, zero where `budget_met` disagreed with the file,
+  and zero published over budget while anything droppable remained.
+- Fixed a registry with a non-plain prototype bypassing the isolation snapshot in
+  `result_gate_preparation.mjs`. `snapshotValue` returns anything that is not a plain object or
+  array **by reference**, and the isolation check tested `typeof === 'object'` rather than
+  `isPlainObject`, so the copy never happened and every later read went through the caller's live
+  accessors. Demonstrated with a getter behind `Object.create({})` answering `0` for the check and
+  `1000` afterwards: the result was `PREPARED` at revision 1002, a registry that looks like the
+  successor to a long history while carrying two synthetic events — and `registry_revision` is a
+  field the Board's own derivation never reads, so nothing downstream would have caught it.
+  `guardEntry` already refuses on `isPlainObject`; this was the one call site that did not. A null
+  prototype remains legitimately accepted, because `isPlainObject` admits it and the snapshot
+  therefore copies it like any other plain object.
+- The producer now refuses a `now` whose ISO form is not the canonical 24 characters.
+  `canonicalizeJson` deliberately excludes `generated_at` from the digest so that identical content
+  at two different times digests identically, but `measured_bytes` counts `generated_at`'s bytes and
+  is itself digested — so a timestamp such as `3e14`, whose ISO form is 27 characters, silently
+  reintroduced the coupling the canonicalizer promises to remove.
+- Test gaps closed, each with the mutant that used to survive: the encoding half of the previous
+  fix was unproven because every fixture was pure ASCII, where UTF-8 bytes and UTF-16 code units
+  coincide — a Korean-labelled report, realistic in this repository, measures 69,508 bytes against
+  63,908 code units, and the suite now contains one; the settle loop's convergence and its bound
+  were unasserted; the budget boundary and the no-echo property of the store hold were unpinned.
+- 운영 영향: 새 명령 표면은 없다. 기존 `validate:codex-retention-automation`과
+  `validate:agent-observation`이 새 test를 그대로 검증한다. 남은 경계 하나를 명시한다 — 두 목록
+  밖의 무게가 리포트를 512 KB 위로 밀어 올리면 그 파일은 유일한 reader가 열 수 없고, 이유를 담은
+  marker도 그 안에 있어 함께 읽히지 않는다. 그 경우 reader는 이제 정확히 `file_oversized`를
+  보고하므로 신호 자체는 남지만, 생산자가 기록을 거부하도록 바꾸는 것은 이 단계의 범위가 아니다.
+- 관련 경로: `.workflow/codex_thread_manager_v0/codex_retention_automation_internal.mjs`,
+  `guild_hall/agent_observation/result_gate_preparation.mjs`.
+
 ## 2026-08-22 - AI usage collector self-repair, truthful backoff, and bounded recovery retention
 
 - Added deterministic safe self-repair and bounded recovery history retention to AI usage collector companion (`ui-workspace/apps/team-ops-board/ops/ai-usage-producer-companion.mjs`). Allowlisted duplicate/merge conflicts with verified non-conflicting persistence and verified final ledger projection maintain an `ok` collector heartbeat with `retry_state: "retrying"`, advancing attempt number truthfully up to 3 consecutive budget attempts with exponential backoff before transitioning to `held`.
