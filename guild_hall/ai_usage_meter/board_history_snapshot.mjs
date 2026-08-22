@@ -35,6 +35,7 @@ export const UNMEASURED_REQUEST_FAMILY_LABELS = Object.freeze({
 });
 export const READ_ONLY_BOARD_USAGE_PROJECTION_SCHEMA = "soulforge.ai_usage_board_read_only_projection.v1";
 export const DEFAULT_READ_ONLY_BOARD_USAGE_PROVIDERS = Object.freeze([
+  "codex_session_jsonl",
   CLAUDE_USAGE_SOURCE_KIND,
   "antigravity_conversation_db",
 ]);

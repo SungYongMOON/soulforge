@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-08-22 - AI usage projection: include all local provider usage in read-only aggregates
+
+- Added `codex_session_jsonl` to `DEFAULT_READ_ONLY_BOARD_USAGE_PROVIDERS` in `guild_hall/ai_usage_meter/board_history_snapshot.mjs`.
+- The read-only diagnostics snapshot (`/ai-usage-meter.snapshot.json?read_only=1` / `loadReadOnlyBoardUsageProjection`) now aggregates all local recorded provider events (Codex, Claude, Antigravity) across total/model/provider/daily series so that local usage is comprehensively represented without omitting unregistered sessions.
+- Maintained exact enrollment registry safety: enrollment registry availability remains mandatory to open the projection, and Board display labels / organization grouping still join only on exact enrolled thread IDs (unmatched rows remain `미연결·기타` / `미등록 TASK` / exact safe ID without guessing organization or role).
+- An unavailable, disabled, or empty enrollment registry continues to fail closed to `UNMEASURED / HOLD` without exposing a projection.
+- Kept strictly read-only, loopback, no collector invocation, no writer, and no raw path/title/prompt/tool/message leakage. Does not claim official provider billing or quota completeness.
+- Added tests verifying full provider aggregation with both enrolled and unregistered Codex events, fail-closed handling for disabled/empty registries, and absence of raw fields.
+
 ## 2026-08-22 - Agent Observation P0 second review pass: budget window, prototype bypass
 
 - Fixed the retention shrink loop publishing a report just over budget while its lists were still

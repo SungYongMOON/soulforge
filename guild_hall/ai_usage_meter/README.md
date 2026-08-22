@@ -316,10 +316,14 @@ paths are not returned in the error payload. `missing` and `partial` remain
 distinct successful command results whose state still limits what they prove.
 
 `--include-provider <source.kind>` (repeatable, on `board-snapshot` and
-`board-history-snapshot`) unions ALL events of that non-Codex provider into
-the scoped set: Codex events stay gated by exact thread IDs, while local-owned
-Claude/Antigravity transcripts are included wholesale. Without the flag the
-behavior is unchanged (Codex exact scope only).
+`board-history-snapshot`) unions ALL events of that provider into the scoped
+set. The read-only diagnostics projection (`DEFAULT_READ_ONLY_BOARD_USAGE_PROVIDERS`
+and `usage-projection --read-only=1`) includes `codex_session_jsonl`,
+`claude_session_jsonl`, and `antigravity_conversation_db` by default so that
+global usage totals, model daily trends, and provider series represent all local
+provider usage recorded in the meter, while exact thread IDs remain mandatory for
+Board enrollment and task label joining. Without `--include-provider`, standalone
+`board-history-snapshot` retains its codex-only exact-thread scope.
 
 For an exact-thread projection, global meter coverage and tool retry/timeout
 observations are not borrowed into the scoped result because their records are

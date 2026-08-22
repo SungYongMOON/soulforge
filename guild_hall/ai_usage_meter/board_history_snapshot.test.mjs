@@ -8,6 +8,7 @@ import Ajv2020 from "ajv/dist/2020.js";
 import {
   BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA,
   BOARD_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA,
+  DEFAULT_READ_ONLY_BOARD_USAGE_PROVIDERS,
   UNMEASURED_REQUEST_FAMILY_CONTRACT_VERSION,
   UNMEASURED_REQUEST_FAMILIES,
   UNMEASURED_REQUEST_FAMILY_LABELS,
@@ -851,6 +852,101 @@ test("read-only Board usage projection only validates existing ledger data", asy
       (error) => error?.code === "usage_projection_option_invalid",
     );
     assert.equal(JSON.stringify(await loadPersistedUsageEvents(state)), persistedBefore);
+  } finally {
+    await rm(state, { recursive: true, force: true });
+  }
+});
+
+test("read-only Board usage projection includes all provider events including unregistered Codex events in aggregate, current, windows, provider_daily, and model_daily", async () => {
+  assert.deepEqual(DEFAULT_READ_ONLY_BOARD_USAGE_PROVIDERS, [
+    "codex_session_jsonl",
+    "claude_session_jsonl",
+    "antigravity_conversation_db",
+  ]);
+
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-board-usage-global-codex-"));
+  try {
+    await persistUsageEvents(state, [
+      persistedUsageEvent({
+        eventId: "aue-enrolled-codex",
+        threadId: "task-enrolled",
+        turnId: "turn-enrolled",
+        startedAt: "2026-08-03T00:00:00.000Z",
+        sourceKind: "codex_session_jsonl",
+        model: "gpt-5.6-terra",
+      }),
+      persistedUsageEvent({
+        eventId: "aue-unregistered-codex",
+        threadId: "task-unregistered",
+        turnId: "turn-unregistered",
+        startedAt: "2026-08-03T00:05:00.000Z",
+        sourceKind: "codex_session_jsonl",
+        model: "gpt-5.6-terra",
+      }),
+      persistedUsageEvent({
+        eventId: "aue-provider-claude",
+        threadId: "claude-session-a",
+        turnId: "msg_claude001",
+        startedAt: "2026-08-03T00:10:00.000Z",
+        sourceKind: "claude_session_jsonl",
+        model: "claude-3-7-sonnet",
+      }),
+      persistedUsageEvent({
+        eventId: "aue-provider-ag",
+        threadId: "ag-conversation-a",
+        turnId: "ag-conversation-a.0",
+        startedAt: "2026-08-03T00:15:00.000Z",
+        sourceKind: "antigravity_conversation_db",
+        model: "gemini-2.5-pro",
+      }),
+    ]);
+
+    const projection = await loadReadOnlyBoardUsageProjection(state, {
+      threadIds: ["task-enrolled"],
+      generatedAt: "2026-08-03T02:00:00.000Z",
+      referenceAt: "2026-08-03T02:00:00.000Z",
+    });
+
+    assert.equal(projection.read_only, 1);
+    // All 4 events must be included in current and windows totals
+    assert.equal(projection.snapshot.current.totals.turns, 4);
+    assert.equal(projection.snapshot.windows.all_time.totals.turns, 4);
+    assert.equal(projection.snapshot.windows.calendar_day.totals.turns, 4);
+
+    // Provider rows must reflect both codex events (2 turns, 20 tokens)
+    const codexProviderRow = projection.snapshot.provider_rows.find((row) => row.provider === "codex");
+    assert.deepEqual(codexProviderRow, {
+      provider: "codex",
+      turns: 2,
+      total_tokens: 20,
+      latest_usage_at: "2026-08-03T00:05:00.000Z",
+    });
+
+    // Provider daily must contain codex entry with 20 total tokens
+    const dayRow = projection.snapshot.provider_daily.find((day) => day.date === "2026-08-03");
+    assert.ok(dayRow);
+    const codexDaily = dayRow.providers.find((p) => p.provider === "codex");
+    assert.equal(codexDaily.total_tokens, 20);
+
+    // Model daily must aggregate both Codex turns under gpt-5.6-terra
+    const modelDayRow = projection.snapshot.model_daily.find((day) => day.date === "2026-08-03");
+    assert.ok(modelDayRow);
+    const terraModel = modelDayRow.models.find((m) => m.model_id === "gpt-5.6-terra");
+    assert.deepEqual(terraModel, {
+      model_id: "gpt-5.6-terra",
+      turns: 2,
+      total_tokens: 20,
+      token_unknown_turns: 0,
+    });
+
+    // Windows task breakdown must include both exact task IDs safely without raw fields
+    const taskIds = projection.snapshot.windows.all_time.breakdowns.tasks.top.map((row) => row.task_id);
+    assert.ok(taskIds.includes("task-enrolled"));
+    assert.ok(taskIds.includes("task-unregistered"));
+
+    // No raw prompt / message / session leakage in the serialized output
+    const serialized = JSON.stringify(projection);
+    assert.doesNotMatch(serialized, /(?:session_path|raw_prompt|message_body|bearer_token)/iu);
   } finally {
     await rm(state, { recursive: true, force: true });
   }

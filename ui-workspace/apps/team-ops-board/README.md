@@ -759,29 +759,35 @@ projection. The adapter resolves the current/accepted enrollment registry once,
 caps the exact safe IDs at 100, and validates only the existing bounded ledger
 projection. It does not spawn a CLI, invoke a collector, command, `--apply`,
 lifecycle reconciliation, writer, provider login, or network operation. It
-never scans a global Meter snapshot or derives an ID from a title, path, or
+never scans raw session trees or derives an ID from a title, path, or
 transcript.
 
-The endpoint returns only a validated metadata-only aggregate envelope. A
-failed, missing, invalid, or untrustworthy exact scope is `UNMEASURED / HOLD`,
-never a zero-usage assertion. The selected-node diagnostics refresh uses only
-this path plus the existing safe Watchtower read-only refresh.
+The endpoint returns only a validated metadata-only aggregate envelope. The
+read-only usage projection aggregates all recorded local provider usage (Codex,
+Claude, Antigravity) across total/model/provider/daily series so that local usage
+is comprehensively represented without omitting unregistered sessions, while
+enrollment registry availability remains mandatory to open the projection and
+Board display labels/organization grouping join only on exact enrolled thread IDs.
+A failed, missing, invalid, disabled, or empty enrollment registry remains
+`UNMEASURED / HOLD`, never an exposed projection or zero-usage assertion. The
+selected-node diagnostics refresh uses only this path plus the existing safe
+Watchtower read-only refresh.
 
-The Work surface alone shows the resulting KST day/week/month/all-time
-controls plus project/work/task rankings. It also renders compact horizontal
-comparisons for Meter `project_id` totals and exact-linked organization totals.
-The organization comparison joins only top TASK rows whose exact `task_id`
-matches a current/history Board enrollment; every unmatched row and bounded
-long tail remains visible as `미연결·기타`. Ranking rows contain their
-respective exact IDs and reconciled metrics. A task row may add the safe Board
-display label only when its exact `task_id` matches a current/history enrolled
-thread; unmatched rows remain their exact ID or `unassigned`. The Board does
-not infer or display guessed attribution, raw session content, paths, titles,
-prompts, or tool data.
+The Work surface shows the resulting KST day/week/month/all-time controls plus
+project/work/task rankings. It also renders compact horizontal comparisons for
+Meter `project_id` totals and exact-linked organization totals. The organization
+comparison joins only top TASK rows whose exact `task_id` matches a
+current/history Board enrollment; every unmatched row and bounded long tail
+remains visible as `미연결·기타` / `미등록 TASK`. Ranking rows contain their
+respective exact IDs and reconciled metrics. A task row adds the safe Board
+display label only when its exact `task_id` matches an enrolled thread;
+unmatched rows remain their exact ID or `unassigned`. The Board does not infer
+or display guessed attribution, raw session content, paths, titles, prompts,
+or tool data.
 
-This Board projection is validated-private local tooling. It is not a route
-resolver, Codex runtime authority, task-status authority, deployment, or
-production control surface.
+This Board projection is validated-private local tooling. It is not an official
+provider billing/quota authority, route resolver, Codex runtime authority,
+task-status authority, deployment, or production control surface.
 
 ### Claude ledger evidence and selected-node diagnostics
 
