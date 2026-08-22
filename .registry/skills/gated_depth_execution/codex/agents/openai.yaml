@@ -1,0 +1,7 @@
+interface:
+  display_name: "Gated Depth Execution"
+  short_description: "Run substantial work through safe staged gates"
+  default_prompt: "Use $soulforge-gated-depth-execution to split this substantial task into bounded gates and finish it with parent re-verification."
+
+policy:
+  allow_implicit_invocation: true

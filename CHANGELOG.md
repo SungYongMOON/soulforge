@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2026-08-22 - Gated Depth Execution candidate skill
+
+- Added the tool-neutral `gated_depth_execution` canon candidate and the installed-mirror-ready
+  `$soulforge-gated-depth-execution` Codex bridge for substantial staged work.
+- The skill freezes contracts before fan-out, keeps leaves bounded, requires repository-owned
+  validators and parent re-verification, treats blocked or owner-gated work as non-success, and
+  re-measures final numeric claims.
+- The package intentionally contains no upstream Unlazy install, dynamic shell checker, Stop hook,
+  external command parser, or second final-review workflow. Final acceptance remains owned by
+  `post_development_review_gate_v0`.
+
 ## 2026-08-22 - Hourly intake task v0.4.1 project-context fail-closed update
 
 - Updated the existing `업무 인입 감시` reservation in place; its identity, hourly cadence, and
