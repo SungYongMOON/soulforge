@@ -6,6 +6,7 @@ import {
   HOST_RECORD_SCHEMA,
   RESOURCE_RECORD_SCHEMA,
   JOB_RECORD_SCHEMA,
+  LEASE_RECORD_SCHEMA,
   QUEUE_PRIORITIES,
   JOB_SHOP_HOLD_CODES,
   createJobShop,
@@ -74,7 +75,48 @@ test('schema versions and the three-tier queue are pinned', () => {
   assert.equal(HOST_RECORD_SCHEMA, 'soulforge.agent_observation.host_record.v1');
   assert.equal(RESOURCE_RECORD_SCHEMA, 'soulforge.agent_observation.resource_record.v1');
   assert.equal(JOB_RECORD_SCHEMA, 'soulforge.agent_observation.job_record.v1');
+  // The lease schema was the one of the four that no test pinned, so its version string could
+  // change without anything failing even though a lease record is what crosses to a worker.
+  assert.equal(LEASE_RECORD_SCHEMA, 'soulforge.agent_observation.lease_record.v1');
   assert.deepEqual(QUEUE_PRIORITIES, ['urgent', 'high', 'normal']);
+
+  const shop = readyShop();
+  assert.equal(submitJob(shop, jobInput()).status, 'QUEUED');
+  const granted = acquireLease(shop, {
+    resource_id: 'res-spreadsheet-01', lease_id: 'lease-schema-0001', now_ms: T0, ttl_ms: 60_000,
+  });
+  assert.equal(granted.status, 'GRANTED');
+  assert.equal(granted.lease.schema_version, LEASE_RECORD_SCHEMA, 'the handed-out lease must carry it');
+});
+
+test('the job shop projection is guarded the same way the write entry points are', () => {
+  // This projection used to check its options with a bare key allowlist on the raw argument. The
+  // one allowed key must pass isClock, so no string payload could land in a record - but the
+  // surface still differed: a hostile Proxy threw instead of holding, and a non-enumerable own key
+  // was invisible to Object.keys.
+  const shop = readyShop();
+  assert.equal(projectJobShop(shop, { unexpected: 1 }).hold_code, C.RAW_OR_UNKNOWN_FIELD_FORBIDDEN);
+
+  const hidden = Object.defineProperty({ now_ms: T0 }, 'smuggled', {
+    value: 'sk-abcdefgh12345678', enumerable: false, configurable: true,
+  });
+  assert.equal(projectJobShop(shop, hidden).hold_code, C.RAW_OR_UNKNOWN_FIELD_FORBIDDEN);
+
+  const throwing = new Proxy({ now_ms: T0 }, { ownKeys() { throw new Error('trap'); } });
+  const trapped = projectJobShop(shop, throwing);
+  assert.equal(trapped.status, 'HOLD');
+  assert.equal(trapped.hold_code, C.HOSTILE_INPUT_REFUSED, 'a hostile proxy must hold, not throw');
+
+  let reads = 0;
+  const accessor = Object.defineProperty({}, 'now_ms', {
+    enumerable: true, configurable: true, get() { reads += 1; return T0; },
+  });
+  assert.equal(projectJobShop(shop, accessor).hold_code, C.ACCESSOR_PROPERTY_FORBIDDEN);
+  assert.equal(reads, 0);
+
+  // The honest path still works and still reads the clock it was given.
+  assert.equal(projectJobShop(shop, { now_ms: T0 }).status, 'PROJECTED');
+  assert.equal(projectJobShop(shop, {}).hosts.length, 1);
 });
 
 test('the job shop state is not reachable from the shop handle', () => {
@@ -147,10 +189,34 @@ test('host re-registration replays, advances health only on a strictly newer obs
   assert.equal(registerHost(shop, hostInput({ health: 'degraded', observed_at_ms: T0 + 11 })).status, 'NO_OP',
     'a newer clock with unchanged health is a replay, not a health update');
 
-  assert.equal(registerHost(shop, hostInput({ health: 'ok', observed_at_ms: T0 + 10 })).hold_code, C.HOST_RECORD_CONFLICT);
-  assert.equal(registerHost(shop, hostInput({ observed_at_ms: T0 - 1 })).hold_code, C.HOST_RECORD_CONFLICT);
-  assert.equal(registerHost(shop, hostInput({ capability_kinds: ['pdf'], observed_at_ms: T0 + 20 })).hold_code, C.HOST_RECORD_CONFLICT);
+  // A stale observation and an identity conflict are different refusals and must not share a code.
+  const stale = registerHost(shop, hostInput({ health: 'ok', observed_at_ms: T0 + 10 }));
+  assert.equal(stale.hold_code, C.HEALTH_OBSERVATION_NOT_NEWER);
+  assert.equal(stale.detail, 'host');
+  assert.equal(registerHost(shop, hostInput({ observed_at_ms: T0 - 1 })).hold_code, C.HEALTH_OBSERVATION_NOT_NEWER);
+  const identity = registerHost(shop, hostInput({ capability_kinds: ['pdf'], observed_at_ms: T0 + 20 }));
+  assert.equal(identity.hold_code, C.HOST_RECORD_CONFLICT);
+  assert.equal(identity.detail, 'identity');
   assert.equal(projectJobShop(shop).hosts[0].health, 'degraded');
+});
+
+test('a stale observation reports one code whichever record kind it arrives at', () => {
+  // The host path used to answer this with HOST_RECORD_CONFLICT while both resource paths answered
+  // with HEALTH_OBSERVATION_NOT_NEWER, so a caller handling a stale collector reading had to
+  // special-case the record kind for a refusal that means exactly the same thing.
+  const shop = readyShop();
+  assert.equal(
+    registerHost(shop, hostInput({ health: 'degraded', observed_at_ms: T0 - 1 })).hold_code,
+    C.HEALTH_OBSERVATION_NOT_NEWER,
+  );
+  assert.equal(
+    registerResource(shop, resourceInput({ observed_at_ms: T0 - 1 })).hold_code,
+    C.HEALTH_OBSERVATION_NOT_NEWER,
+  );
+  assert.equal(
+    observeResourceHealth(shop, { resource_id: 'res-spreadsheet-01', health: 'degraded', observed_at_ms: T0 }).hold_code,
+    C.HEALTH_OBSERVATION_NOT_NEWER,
+  );
 });
 
 test('resource configuration is immutable but health moves through its own observation call', () => {

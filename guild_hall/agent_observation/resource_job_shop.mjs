@@ -133,8 +133,10 @@ export function registerHost(shop, rawInput) {
     if (!sameFields(existing, record, ['host_id', 'capability_kinds'])) return hold(H.HOST_RECORD_CONFLICT, 'identity');
     if (sameFields(existing, record, FIELDS.host)) return { status: 'NO_OP', host_id: input.host_id };
     // Health is an observation: it may only advance on a strictly newer collector timestamp, so
-    // two collectors reporting the same instant cannot race to last-writer-wins.
-    if (input.observed_at_ms <= existing.observed_at_ms) return hold(H.HOST_RECORD_CONFLICT, 'observation_not_newer');
+    // two collectors reporting the same instant cannot race to last-writer-wins. This is the same
+    // class of refusal the two resource paths report, and it carries the same code: a caller
+    // handling a stale observation must not have to special-case the record kind.
+    if (input.observed_at_ms <= existing.observed_at_ms) return hold(H.HEALTH_OBSERVATION_NOT_NEWER, 'host');
     state.hosts.set(input.host_id, record);
     return existing.health === input.health
       ? { status: 'NO_OP', host_id: input.host_id }
@@ -418,10 +420,14 @@ export function releaseLease(shop, rawInput) {
 export function projectJobShop(shop, options = {}) {
   const state = stateOf(shop);
   if (state === undefined) return hold(H.UNKNOWN_SHOP);
-  if (!isPlainObject(options)) return hold(H.INVALID_FIELD_VALUE, 'options');
-  const extra = unknownKeyIn(options, ['now_ms']);
-  if (extra !== null) return hold(H.RAW_OR_UNKNOWN_FIELD_FORBIDDEN, extra);
-  const nowMs = options.now_ms ?? null;
+  // This used to run a bare key-allowlist check on the raw argument, on the reasoning that the one
+  // allowed key must pass `isClock` so no string payload could arrive. That was true of the value
+  // but not of the surface: a hostile Proxy threw out of `isPlainObject` instead of holding, and a
+  // non-enumerable own key was invisible to `Object.keys`. Using the same guard as every other
+  // entry point removes the special case rather than arguing it is safe.
+  const guarded = guardEntry(options, ['now_ms'], ENTRY_CODES);
+  if (guarded.status === 'HOLD') return guarded;
+  const nowMs = guarded.value.now_ms ?? null;
   if (nowMs !== null && !isClock(nowMs)) return hold(H.INVALID_FIELD_VALUE, 'now_ms');
 
   const resources = [...state.resources.values()].map((resource) => ({

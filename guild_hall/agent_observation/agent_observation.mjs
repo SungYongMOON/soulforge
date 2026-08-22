@@ -429,7 +429,10 @@ function descendantRunIds(state, runId) {
 export function projectUsageRollup(store, rawRequest) {
   const state = stateOf(store);
   if (state === undefined) return hold(H.UNKNOWN_STORE);
-  if (!isPlainObject(rawRequest)) return hold(H.INVALID_FIELD_VALUE, 'request');
+  // A non-object argument is refused by the shared guard, which reports it the same way here as at
+  // every other entry point. The local pre-check that used to sit here answered the identical
+  // question with a different code, so the same mistake had two names depending on which function
+  // the caller reached.
   const guarded = guardEntry(rawRequest, ROLLUP_REQUEST_FIELDS, ENTRY_CODES);
   if (guarded.status === 'HOLD') return guarded;
   const runId = guarded.value.run_id;

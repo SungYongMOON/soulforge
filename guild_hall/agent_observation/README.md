@@ -18,8 +18,13 @@ P0-S2 three-project job shop이며 public-safe synthetic fixture만 사용한다
 | `resource_job_shop.mjs` | Host/Resource Registry, 3단계 priority queue, lease/fencing, capacity |
 | `p0s1_vertical.mjs` | P0-S1 smallest vertical 합성 fixture와 결정론 실행 결과 |
 | `p0s2_job_shop.mjs` | P0-S2 three-project job shop: Context Capsule 계약, 3 project 동시 제출, crash/reclaim/replay 시나리오 |
+| `usage_meter_bridge.mjs` | 관찰 usage record를 `ai_usage_meter`의 `soulforge.ai_usage_event.v1`로 투영하고 그 owner의 validator로 검사 |
+| `board_health_projection.mjs` | Board가 이미 게시하는 `result_gate_health`와 `binding_coverage`를 observation store에서 채움 |
+| `result_gate_preparation.mjs` | 한 synthetic exact Agent/Run의 result gate 활성화를 격리 registry에서만 준비 |
 
 guard는 한쪽 module에만 존재할 수 없도록 `guard_primitives.mjs` 하나에서만 정의한다.
+
+뒤의 세 module만 이 owner 바깥을 향한다. 셋 다 읽기 전용 투영이며 write authority가 없다.
 
 ## Schema
 
@@ -57,9 +62,11 @@ guard는 한쪽 module에만 존재할 수 없도록 `guard_primitives.mjs` 하�
 - raw transcript, message, reasoning content, chain-of-thought, tool input/output,
   credential은 저장하지 않는다. 모든 **write** 진입점은 strict key allowlist → secret value scan →
   로컬 절대경로 scan 순서를 모두 통과해야 하며, 이 세 guard는 observation store와 job shop
-  양쪽에 동일하게 적용된다. read-only projection 중 `projectUsageRollup`은 같은 세 guard를 쓰고
-  `projectJobShop`은 key allowlist만 쓴다. 후자는 허용 key가 `now_ms` 하나뿐이고 `isClock`을
-  통과해야 하므로 문자열 payload 자체가 들어올 수 없다.
+  양쪽에 동일하게 적용된다. read-only projection인 `projectUsageRollup`과 `projectJobShop`도
+  같은 guard를 쓴다. `projectJobShop`은 한때 raw 인자에 key allowlist만 걸었는데, 허용 key가
+  `now_ms` 하나뿐이고 `isClock`을 통과해야 하니 안전하다는 논리였다. 값에 대해서는 맞았지만
+  표면에 대해서는 틀렸다 — 적대적 Proxy는 hold 대신 예외를 냈고 비열거 own key는 `Object.keys`에
+  보이지 않았다. 특례가 안전하다고 논증하는 대신 특례를 없앴다.
 - 입력의 prototype이 `Object.prototype`이나 `null`이 아니면 거부한다. prototype에 얹혀 온
   payload가 scan을 통째로 건너뛸 수 있었기 때문이다. 스캔 자체는 아래 스냅샷 위에서 돌므로
   enumerable 여부와 무관하게 own property를 전부 본다.
@@ -73,8 +80,8 @@ guard는 한쪽 module에만 존재할 수 없도록 `guard_primitives.mjs` 하�
   따라서 guard가 본 값과 record에 들어가는 값이 다를 수 없다. `snapshot_contract.test.mjs`가
   이 성질을 12개 진입점 각각에서 증명한다 — 거짓말하는 Proxy를 직접 넘기고 trap 발동 횟수가
   0인지와 저장된 값이 정직한 값인지를 함께 확인한다.
-- 스냅샷을 거치지 않는 것은 `projectJobShop`, `auditRecordPrivacy`, `auditProjectionPrivacy`,
-  `measureProjectIsolation` 네 개다. 모두 read-only이고 각자 자기 값을 한 번만 읽으므로
+- 스냅샷을 거치지 않는 것은 `auditRecordPrivacy`, `auditProjectionPrivacy`,
+  `measureProjectIsolation` 세 개다. 모두 read-only이고 각자 자기 값을 한 번만 읽으므로
   두 번 읽어 달라지는 문제가 성립하지 않는다.
 - 스냅샷은 own property 이름을 `Object.defineProperty`로 복사본에 심는다. `copy[name] = value`는
   `__proto__`에 대해 data property를 만들지 않고 상속된 setter를 부르며, 원시값이면 조용히
@@ -105,8 +112,9 @@ guard는 한쪽 module에만 존재할 수 없도록 `guard_primitives.mjs` 하�
   repo의 기존 path-policy validator 범위와 맞춘 것이다. 그 밖의 root(`usr`, `proc` 등)는 잡지
   않는다. 실제 패턴은 `guard_primitives.mjs`의 `LOCAL_PATH_VALUE`가 소유하고,
   테스트는 문자열을 조각에서 조립해 검증하므로 저장소에는 literal 절대경로가 남지 않는다.
-- read-only projection 중 `projectUsageRollup`과 `measureProjectIsolation`은 malformed 입력을
-  HOLD로 닫고, `projectJobShop`은 key allowlist만 쓴다.
+- read-only projection인 `projectUsageRollup`, `projectJobShop`, `measureProjectIsolation`,
+  `projectBoardHealth`는 malformed 입력을 모두 HOLD로 닫는다. 같은 실수가 도달한 함수에 따라
+  다른 이름으로 보고되지 않도록, 비객체 인자는 어느 진입점에서든 같은 hold code로 답한다.
 - privacy counter는 write guard와 같은 predicate를 공유한다. 따라서 guard가 놓치는 모양은
   counter도 놓친다. counter는 guard가 실제로 걸러냈음을 확인하는 값이지 독립 측정이 아니다.
 - title, cwd, prefix, similarity, age로 identity·parent·project를 추정하지 않는다. observation
@@ -366,13 +374,34 @@ token, credit, privacy가 **exact key set**으로 들어 있다. 이 module의 u
 두 module 모두 write authority가 없다. 투영 결과를 meter나 Board에 실제로 넘기는 것은 이 owner의
 동작이 아니라 별도의 gated action이다.
 
+### `result_gate_preparation.mjs` — 한 synthetic exact Agent/Run의 게이트 활성화 준비
+
+라이브 원장은 꺼져 있지 않다. `disabled: false`, revision 18, 스레드 5개의 완전한 생명주기
+18건(started 5, result_ready 5, accepted 4, closed 4)이 들어 있다. 그래서 이 module이 설계로
+막아야 하는 위험은 잠든 게이트를 실수로 켜는 것이 아니라, 이미 살아 있는 원장에 synthetic
+Agent/Run을 쓰는 것이다. 약속이 아니라 구조로 막는다.
+
+- 이 module은 I/O를 전혀 하지 않는다. 경로를 받지 않고 파일을 읽지도 쓰지도 않는다. test가
+  소스에서 모든 filesystem 호출의 부재를 확인한다.
+- 받아들이는 registry는 **비어 있어야** 한다 — revision 0, 이벤트 0, disabled 아님. 라이브
+  원장은 셋 다 아니므로 실수로도 넘길 수 없다. `createIsolatedRegistry`가 있어 caller가
+  디스크에서 원장을 가져올 이유 자체가 없다.
+- 활성화는 이벤트 한 개가 아니라 쌍이다. Board 생명주기는 `started`가 선행하지 않는
+  `result_ready`를 거부하므로, 알림만 내보내는 module은 아무것도 활성화하지 못한다.
+  `started`는 run 시작 시각, `result_ready`는 종료 시각으로 찍는다. 둘은 별개의 관측이다.
+- result를 주장한 적 없는 run, 그리고 `result`나 `delivery` 영수증이 없는 주장은 거부한다.
+  approval·validation·artifact·recovery는 run 주변의 서류이지 결과가 나왔다는 증거가 아니다.
+- 이벤트 형태와 활성화 여부의 판정은 Board 자신의 `appendThreadResultGateEvent`와
+  `deriveThreadResultGateState`가 한다. 준비된 registry를 어디에 쓸지는 이 함수의 결과가 아니라
+  별도의 action-time Owner gate이므로 `would_persist_to`는 항상 `null`이다.
+
 ## 검증
 
 ```powershell
 npm.cmd run validate:agent-observation
 ```
 
-이 validator는 일곱 개 구현 module의 syntax check와 여덟 개 test 파일의 focused
+이 validator는 여덟 개 구현 module의 syntax check와 아홉 개 test 파일의 focused
 deterministic test를 실행한다.
 위 경계 문장은 각각 대응하는 test를 가지며, `guard_primitives.test.mjs`는 로컬 경로·secret·label
 규칙의 개별 alternative를 하나씩 검증한다. 개발 중 guard 제거 probe로 테스트 강도를 확인했지만

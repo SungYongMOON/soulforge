@@ -35,7 +35,11 @@ const ALLOWLISTED_PROJECTION_REASONS = Object.freeze(new Set([
   "codex_retention_report_json_invalid",
   "codex_retention_projection_failed",
   "file_path_invalid",
-  "file_stat_invalid_or_oversized",
+  "file_absent_or_unreadable",
+  "file_not_regular",
+  "file_is_symlink",
+  "file_has_hard_links",
+  "file_oversized",
   "file_realpath_failed",
   "reparse_path_forbidden",
   "file_identity_changed",
@@ -112,16 +116,20 @@ export async function readStableFile(filePath, testHooks = {}) {
     return testHooks.readStableFileOverride(filePath);
   }
 
+  // One code used to cover six unrelated conditions, so when it fired nobody could tell whether the
+  // repair was to publish a missing file, fix a permission, replace a link, or shrink a payload. On
+  // this machine it was always the first of those and never the last, while the name said oversized.
   let beforeStat;
   try {
     beforeStat = await lstat(filePath);
   } catch {
-    throw new Error("file_stat_invalid_or_oversized");
+    throw new Error("file_absent_or_unreadable");
   }
 
-  if (!beforeStat.isFile() || beforeStat.isSymbolicLink() || beforeStat.nlink !== 1 || beforeStat.size > MAX_BYTES) {
-    throw new Error("file_stat_invalid_or_oversized");
-  }
+  if (!beforeStat.isFile()) throw new Error("file_not_regular");
+  if (beforeStat.isSymbolicLink()) throw new Error("file_is_symlink");
+  if (beforeStat.nlink !== 1) throw new Error("file_has_hard_links");
+  if (beforeStat.size > MAX_BYTES) throw new Error("file_oversized");
 
   let canonicalPath;
   try {

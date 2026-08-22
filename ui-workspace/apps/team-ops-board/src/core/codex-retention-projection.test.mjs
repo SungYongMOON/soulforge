@@ -156,7 +156,10 @@ test("readCodexRetentionProjection returns unavailable on missing file or repars
     const missingPath = path.join(root, "non_existent_sentinel_report_file.json");
     const missingRes = await readCodexRetentionProjection({ reportPath: missingPath, now: NOW_MS });
     assert.equal(missingRes.status, "unavailable");
-    assert.equal(missingRes.reason, "file_stat_invalid_or_oversized");
+    // A file that does not exist reports absence. It used to report
+    // "file_stat_invalid_or_oversized", which named a size problem for a file with no size, and
+    // that is the only condition this projection has ever actually hit on a real machine.
+    assert.equal(missingRes.reason, "file_absent_or_unreadable");
     const missingStr = JSON.stringify(missingRes);
     assert.equal(missingStr.includes("non_existent_sentinel"), false);
     assert.equal(missingStr.includes("C:"), false);

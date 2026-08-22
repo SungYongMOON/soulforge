@@ -6,6 +6,66 @@ import { scanFeatureManualInventory } from "./feature_manual_inventory.mjs";
 import { appendActivityEvent } from "../../guild_hall/activity/activity_log.mjs";
 
 export const CODEX_RETENTION_AUTOMATION_REPORT_SCHEMA = "soulforge.codex_thread_manager.codex_retention_automation_report.v1";
+
+/**
+ * `retention.candidates` grows with the enrolled-thread count and `inventory.rows` with the feature
+ * count, and neither had a bound. The readers refuse an oversized file — 512 KB in
+ * `codex-retention-projection-internal.mjs` and 256 KB in `receipt-expiry-adapter.mjs` — so an
+ * unbounded producer eventually publishes a report nothing can open. The repair belongs here rather
+ * than in a raised limit: the limits exist to keep a reader from being handed something unbounded.
+ *
+ * Neither array is read by any consumer in this repository; the projection validates the top-level
+ * key set and then reads only `summary`. They are kept for a future consumer, bounded, and never
+ * silently cut - every truncation states what it dropped.
+ */
+export const MAX_REPORT_ROWS = 200;
+export const MAX_REPORT_BYTES = 200 * 1024;
+
+function boundReportRows(rows, limit = MAX_REPORT_ROWS) {
+  const total = rows.length;
+  const included = Math.min(total, limit);
+  return {
+    rows: rows.slice(0, included),
+    marker: {
+      total_count: total,
+      included_count: included,
+      dropped_count: total - included,
+      truncated: total > included,
+      order: "producer_order_first_n"
+    }
+  };
+}
+
+/**
+ * A row count is a proxy for the thing the readers actually limit, which is bytes. After the
+ * envelope is assembled its serialized size is measured, and if it still exceeds the budget both
+ * lists are halved until it fits. Halving is deterministic and terminates, and each pass updates
+ * the markers so the report never understates what it dropped.
+ */
+function shrinkReportToBudget(envelope, maxBytes = MAX_REPORT_BYTES) {
+  let passes = 0;
+  while (JSON.stringify(envelope).length > maxBytes) {
+    const candidateCount = envelope.retention.candidates.length;
+    const rowCount = envelope.inventory.rows.length;
+    if (candidateCount === 0 && rowCount === 0) break;
+    passes += 1;
+    envelope.retention.candidates = envelope.retention.candidates.slice(0, Math.floor(candidateCount / 2));
+    envelope.inventory.rows = envelope.inventory.rows.slice(0, Math.floor(rowCount / 2));
+    envelope.retention.candidates_truncation = {
+      ...envelope.retention.candidates_truncation,
+      included_count: envelope.retention.candidates.length,
+      dropped_count: envelope.retention.candidates_truncation.total_count - envelope.retention.candidates.length,
+      truncated: envelope.retention.candidates_truncation.total_count > envelope.retention.candidates.length
+    };
+    envelope.inventory.rows_truncation = {
+      ...envelope.inventory.rows_truncation,
+      included_count: envelope.inventory.rows.length,
+      dropped_count: envelope.inventory.rows_truncation.total_count - envelope.inventory.rows.length,
+      truncated: envelope.inventory.rows_truncation.total_count > envelope.inventory.rows.length
+    };
+  }
+  return passes;
+}
 export const FEATURE_CATALOG_SCHEMA = "soulforge.codex_thread_manager.codex_retention_feature_catalog.v1";
 export const RELATIVE_REPORT_PATH = "reports/codex_retention/current.json";
 const MAX_VALID_TIMESTAMP_MS = 8640000000000000;
@@ -240,7 +300,7 @@ export async function runCodexRetentionAutomationInternal(options = {}, adapters
 
   const overallStatus = (retentionEvidenceStatus === "PASS" && inventoryStatus === "PASS") ? "PASS" : "HOLD";
 
-  const sanitizedRetentionCandidates = Array.isArray(retentionReport?.candidates)
+  const unboundedRetentionCandidates = Array.isArray(retentionReport?.candidates)
     ? retentionReport.candidates.map((c) => ({
         candidate_id: c.candidate_id,
         retention_action: "HOLD",
@@ -252,7 +312,7 @@ export async function runCodexRetentionAutomationInternal(options = {}, adapters
       }))
     : [];
 
-  const sanitizedInventoryRows = Array.isArray(inventoryReport?.rows)
+  const unboundedInventoryRows = Array.isArray(inventoryReport?.rows)
     ? inventoryReport.rows.map((r) => ({
         feature_id: r.feature_id,
         owner_root: r.owner_root,
@@ -269,6 +329,9 @@ export async function runCodexRetentionAutomationInternal(options = {}, adapters
         next_action: r.next_action
       }))
     : [];
+
+  const sanitizedRetentionCandidates = boundReportRows(unboundedRetentionCandidates);
+  const sanitizedInventoryRows = boundReportRows(unboundedInventoryRows);
 
   // Pin exact Phase 1 preflight field names ONLY
   const totalW = preflight?.total_worktrees ?? 0;
@@ -313,7 +376,8 @@ export async function runCodexRetentionAutomationInternal(options = {}, adapters
         unique_commit_worktrees: uniqueCommitW,
         prunable_worktrees: prunableW
       },
-      candidates: sanitizedRetentionCandidates,
+      candidates: sanitizedRetentionCandidates.rows,
+      candidates_truncation: sanitizedRetentionCandidates.marker,
       digest: retentionReport?.digest ?? null
     },
     inventory: {
@@ -324,7 +388,8 @@ export async function runCodexRetentionAutomationInternal(options = {}, adapters
       gap_features: inventoryReport?.gap_features ?? 0,
       summary_gap_counts: inventoryReport?.summary_gap_counts ?? {},
       source_refs: inventoryReport?.source_refs ?? [],
-      rows: sanitizedInventoryRows,
+      rows: sanitizedInventoryRows.rows,
+      rows_truncation: sanitizedInventoryRows.marker,
       digest: inventoryReport?.digest ?? null
     },
     summary: {
@@ -357,6 +422,7 @@ export async function runCodexRetentionAutomationInternal(options = {}, adapters
     }
   };
 
+  shrinkReportToBudget(envelope);
   envelope.digest = computeAutomationReportDigest(envelope);
 
   // Check expected digest BEFORE any file write and BEFORE any Activity event

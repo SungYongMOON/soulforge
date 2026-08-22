@@ -511,8 +511,18 @@ test('a rollup for an unknown run is HOLD, never a silent zero', () => {
   const result = projectUsageRollup(store, { run_id: 'run-synthetic-0001-typo' });
   assert.equal(result.status, 'HOLD');
   assert.equal(result.hold_code, C.UNKNOWN_RUN);
-  assert.equal(projectUsageRollup(store, {}).hold_code, C.INVALID_FIELD_VALUE);
-  assert.equal(projectUsageRollup(store, null).hold_code, C.INVALID_FIELD_VALUE);
+  assert.equal(projectUsageRollup(store, {}).hold_code, C.INVALID_FIELD_VALUE, 'a missing run_id is an invalid field');
+
+  // A non-object argument is the shared guard's answer, not a local one. It used to be reported
+  // here as INVALID_FIELD_VALUE and everywhere else as RAW_OR_UNKNOWN_FIELD_FORBIDDEN, so the same
+  // mistake had two names depending on which entry point the caller reached.
+  for (const notAnObject of [null, undefined, 'run-synthetic-0001', 42, [], true]) {
+    const result = projectUsageRollup(store, notAnObject);
+    assert.equal(result.status, 'HOLD', String(notAnObject));
+    assert.equal(result.hold_code, C.RAW_OR_UNKNOWN_FIELD_FORBIDDEN, String(notAnObject));
+    assert.equal(result.detail, 'input_not_object', String(notAnObject));
+  }
+  assert.equal(registerAgent(store, null).hold_code, projectUsageRollup(store, null).hold_code);
 });
 
 // ------------------------------------------------------------------------------- receipts

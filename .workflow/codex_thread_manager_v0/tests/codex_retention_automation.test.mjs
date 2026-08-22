@@ -649,3 +649,144 @@ test("CLI main handles help, destructive flags, expected digest mismatch (exit 3
     await cleanDir(root);
   }
 });
+
+test("the report is bounded at the producer and states exactly what it dropped", async () => {
+  // Both lists grew with the enrolled-thread and feature counts and neither had a bound, so the
+  // producer would eventually publish a file past the readers' 512 KB and 256 KB limits. The fix
+  // has to be here: raising a reader's limit would only move the point at which it breaks.
+  const root = await tempDir();
+  try {
+    const activityRoot = path.join(root, "guild_hall", "state", "operations", "soulforge_activity");
+    const CANDIDATES = 1500;
+    const adapters = {
+      runLifecycleRetentionReport: async () => ({
+        evidence_status: "PASS",
+        thread_scope: { current_or_accepted_count: CANDIDATES, bound_task_count: CANDIDATES, unbound_task_count: 0 },
+        counts_by_classification: { active: CANDIDATES },
+        candidates: Array.from({ length: CANDIDATES }, (_, index) => ({
+          candidate_id: `candidate-${index}`,
+          classification: "active",
+          enrollment_lifecycle: "current",
+          reason_codes: ["bound_to_task", "recent_activity", "worktree_clean"],
+          hold_reasons: ["retention_action_is_hold"],
+          metadata_counts: { events: index, receipts: index }
+        })),
+        digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      })
+    };
+
+    const result = await runCodexRetentionAutomationInternal({
+      repoRoot: defaultRepoRoot(),
+      activityRoot,
+      catalog: DEFAULT_LIFECYCLE_RETENTION_FEATURE_CATALOG,
+      now: 1787241600000
+    }, adapters);
+
+    const report = result.report;
+    const marker = report.retention.candidates_truncation;
+
+    assert.equal(marker.total_count, CANDIDATES, "the marker must state the true total, not the kept count");
+    assert.ok(marker.included_count <= 200, `kept ${marker.included_count}`);
+    assert.equal(report.retention.candidates.length, marker.included_count);
+    assert.equal(marker.dropped_count, CANDIDATES - marker.included_count);
+    assert.equal(marker.truncated, true);
+    assert.equal(marker.order, "producer_order_first_n");
+
+    // The summary still counts every candidate. Truncating the detail must not silently shrink the
+    // number a reader actually consumes, or the report would understate the work outstanding.
+    assert.equal(report.summary.bound_candidate_count, CANDIDATES);
+
+    // The written file must fit inside the stricter of the two reader limits.
+    const written = await readFile(path.join(activityRoot, "reports", "codex_retention", "current.json"), "utf8");
+    assert.ok(written.length < 256 * 1024, `written ${written.length} bytes`);
+    assert.ok(JSON.stringify(report).length <= 200 * 1024, `envelope ${JSON.stringify(report).length} bytes`);
+
+    // The digest covers what was actually written, not the pre-truncation envelope.
+    assert.equal(report.digest, computeAutomationReportDigest(report));
+  } finally {
+    await cleanDir(root);
+  }
+});
+
+test("a report already inside the bound is left alone and says so", async () => {
+  const root = await tempDir();
+  try {
+    const activityRoot = path.join(root, "guild_hall", "state", "operations", "soulforge_activity");
+    const adapters = {
+      runLifecycleRetentionReport: async () => ({
+        evidence_status: "PASS",
+        thread_scope: { current_or_accepted_count: 2, bound_task_count: 2, unbound_task_count: 0 },
+        counts_by_classification: { active: 2 },
+        candidates: [
+          { candidate_id: "candidate-0", classification: "active", enrollment_lifecycle: "current", reason_codes: [], hold_reasons: [], metadata_counts: {} },
+          { candidate_id: "candidate-1", classification: "active", enrollment_lifecycle: "current", reason_codes: [], hold_reasons: [], metadata_counts: {} }
+        ],
+        digest: null
+      })
+    };
+
+    const result = await runCodexRetentionAutomationInternal({
+      repoRoot: defaultRepoRoot(),
+      activityRoot,
+      catalog: DEFAULT_LIFECYCLE_RETENTION_FEATURE_CATALOG,
+      now: 1787241600000
+    }, adapters);
+
+    const marker = result.report.retention.candidates_truncation;
+    assert.deepEqual(marker, {
+      total_count: 2, included_count: 2, dropped_count: 0, truncated: false, order: "producer_order_first_n"
+    });
+    assert.equal(result.report.retention.candidates.length, 2);
+
+    // The inventory marker is present on every report too, so a consumer never has to guess whether
+    // an absent marker means "complete" or "an older producer".
+    const rowsMarker = result.report.inventory.rows_truncation;
+    assert.equal(rowsMarker.truncated, false);
+    assert.equal(rowsMarker.included_count, result.report.inventory.rows.length);
+    assert.equal(rowsMarker.total_count, rowsMarker.included_count);
+  } finally {
+    await cleanDir(root);
+  }
+});
+
+test("the truncated report still passes the Board projection's own validation", async () => {
+  // The projection enforces an exact top-level key set and throws report_extra_keys_forbidden on
+  // any addition, which is why the markers live inside `retention` and `inventory` rather than at
+  // the top level or in `summary`. This proves the placement is legal rather than assumed.
+  const root = await tempDir();
+  try {
+    const activityRoot = path.join(root, "guild_hall", "state", "operations", "soulforge_activity");
+    const adapters = {
+      runLifecycleRetentionReport: async () => ({
+        evidence_status: "PASS",
+        thread_scope: { current_or_accepted_count: 900, bound_task_count: 900, unbound_task_count: 0 },
+        counts_by_classification: { active: 900 },
+        candidates: Array.from({ length: 900 }, (_, index) => ({
+          candidate_id: `candidate-${index}`,
+          classification: "active",
+          enrollment_lifecycle: "current",
+          reason_codes: ["bound_to_task"],
+          hold_reasons: [],
+          metadata_counts: {}
+        })),
+        digest: null
+      })
+    };
+
+    const result = await runCodexRetentionAutomationInternal({
+      repoRoot: defaultRepoRoot(),
+      activityRoot,
+      catalog: DEFAULT_LIFECYCLE_RETENTION_FEATURE_CATALOG,
+      now: 1787241600000
+    }, adapters);
+
+    const { evaluateCodexRetentionProjection } = await import(
+      "../../../ui-workspace/apps/team-ops-board/src/core/codex-retention-projection-internal.mjs"
+    );
+    const projection = evaluateCodexRetentionProjection(result.report, { now: 1787241600000 });
+    assert.ok(projection, "the projection must accept a report carrying truncation markers");
+    assert.notEqual(projection.status, undefined);
+  } finally {
+    await cleanDir(root);
+  }
+});

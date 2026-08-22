@@ -1,5 +1,67 @@
 # CHANGELOG
 
+## 2026-08-22 - Agent Observation P0 result-gate preparation, retention bound, hold-code unification
+
+- Added `guild_hall/agent_observation/result_gate_preparation.mjs`. It prepares result-gate
+  activation for one synthetic exact Agent/Run and proves the activation with the Board's own
+  `appendThreadResultGateEvent` and `deriveThreadResultGateState`, rather than with a local
+  restatement of their rules.
+- The live registry at `guild_hall/state/operations/team_ops_board/thread_result_gate.v1.json` is
+  **not** disabled: it carries `disabled: false`, revision 18, and five threads' complete lifecycles
+  — five `started`, five `result_ready`, four `accepted`, four `closed`. So the hazard is not
+  accidentally enabling a dormant gate, it is letting a synthetic Agent/Run write into a ledger that
+  is already live. Two structural refusals prevent that. The module performs no I/O at all, which a
+  test asserts by scanning its source for every filesystem call, and it accepts only a registry that
+  is demonstrably empty — revision zero, no events, not disabled — which the live registry is not
+  and cannot be made into.
+- An activation is a pair of events, not one. The Board's lifecycle refuses a `result_ready` that no
+  `started` precedes, so a module emitting only the announcement would never activate anything. The
+  `started` event is stamped at the run's own start and the `result_ready` at its end, because the
+  two are separate observations.
+- A gate event is refused for a run that never claimed a result, and for a claimed result with no
+  `result` or `delivery` receipt behind it. Approval, validation, artifact and recovery receipts are
+  paperwork around a run, not evidence that a result was produced.
+- Bounded the retention producer. `retention.candidates` grew with the enrolled-thread count and
+  `inventory.rows` with the feature count, and neither had any limit, so the producer would
+  eventually publish a report past the readers' 512 KB and 256 KB limits. Both lists are now capped
+  at 200 entries, and the assembled envelope is measured and halved until it fits a 200 KB budget.
+  Every truncation carries a marker stating the true total, how many were kept and how many were
+  dropped, so a truncated list can never be mistaken for a complete one. The summary counts are
+  unaffected, so bounding the detail does not understate the outstanding work.
+- The markers live inside `retention` and `inventory` rather than at the top level, because the
+  projection enforces an exact top-level key set and throws `report_extra_keys_forbidden` on any
+  addition. A test drives a truncated report through that projection to prove the placement is legal.
+- Split the retention projection's `file_stat_invalid_or_oversized`, which covered six unrelated
+  conditions, into `file_absent_or_unreadable`, `file_not_regular`, `file_is_symlink`,
+  `file_has_hard_links` and `file_oversized`. The code named a size problem for what is, on this
+  machine, always a missing file: the activity root has no `reports/` subtree at all, so nothing
+  oversized has ever been observed on this path. `receipt-expiry-adapter.mjs:115` carries the same
+  conflation in a different feature and is deliberately left alone rather than have its error
+  surface changed as a side effect of this one.
+- Unified the stale-observation refusal. `registerHost` reported `HOST_RECORD_CONFLICT` while both
+  resource paths reported `HEALTH_OBSERVATION_NOT_NEWER` for the identical situation, so a caller
+  handling a stale collector reading had to special-case the record kind. All three now report
+  `HEALTH_OBSERVATION_NOT_NEWER`; a genuine identity conflict keeps `HOST_RECORD_CONFLICT`.
+- `projectUsageRollup` no longer answers "this is not an object" with its own code. It used to report
+  `INVALID_FIELD_VALUE` where every other entry point reports `RAW_OR_UNKNOWN_FIELD_FORBIDDEN`, so
+  the same mistake had two names depending on which function the caller reached.
+- `projectJobShop` now uses the same entry guard as every other entry point. It previously ran a bare
+  key-allowlist check on the raw argument, justified by the one allowed key having to pass `isClock`.
+  That held for the value but not for the surface: a hostile Proxy threw instead of holding, and a
+  non-enumerable own key was invisible to `Object.keys`. The special case is removed rather than
+  argued to be safe.
+- Pinned `LEASE_RECORD_SCHEMA`, the one of the four job-shop schemas no test held, and asserted that
+  a granted lease actually carries it.
+- 운영 영향: 새 명령 표면은 없다. 기존 `validate:agent-observation`,
+  `validate:codex-retention-automation`, `validate:team-ops-app`이 각각 새 module과 test를 그대로
+  검증한다. result gate preparation은 파일을 읽지도 쓰지도 않고 라이브 registry를 건드리지 않으며
+  gate를 활성화하지도 않는다. 준비된 registry를 어디에 쓸지는 이 함수의 결과가 아니라 별도의
+  action-time Owner gate다.
+- 관련 경로: `guild_hall/agent_observation/**`,
+  `.workflow/codex_thread_manager_v0/codex_retention_automation_internal.mjs`,
+  `ui-workspace/apps/team-ops-board/src/core/codex-retention-projection-internal.mjs`,
+  `package.json`.
+
 ## 2026-08-22 - Agent Observation P0 usage-meter bridge and two guard regressions
 
 - Fixed a guard regression the P0-S2 review found: an own **enumerable** `__proto__` key escaped all
