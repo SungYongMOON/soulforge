@@ -24,6 +24,8 @@ import {
 import { VERTICAL_HOLD_CODES } from './p0s1_vertical.mjs';
 import { P0S2_HOLD_CODES } from './p0s2_job_shop.mjs';
 import { BRIDGE_HOLD_CODES } from './usage_meter_bridge.mjs';
+import { BOARD_HEALTH_HOLD_CODES } from './board_health_projection.mjs';
+import { RESULT_GATE_PREPARATION_HOLD_CODES } from './result_gate_preparation.mjs';
 
 import {
   OBSERVATION_HOLD_CODES,
@@ -446,7 +448,9 @@ test('every hold code table is pinned to literal names, not to itself', () => {
     ['JOB_SHOP_HOLD_CODES', JOB_SHOP_HOLD_CODES, 30],
     ['VERTICAL_HOLD_CODES', VERTICAL_HOLD_CODES, 9],
     ['P0S2_HOLD_CODES', P0S2_HOLD_CODES, 17],
-    ['BRIDGE_HOLD_CODES', BRIDGE_HOLD_CODES, 17],
+    ['BRIDGE_HOLD_CODES', BRIDGE_HOLD_CODES, 18],
+    ['BOARD_HEALTH_HOLD_CODES', BOARD_HEALTH_HOLD_CODES, 1],
+    ['RESULT_GATE_PREPARATION_HOLD_CODES', RESULT_GATE_PREPARATION_HOLD_CODES, 10],
   ];
   for (const [name, table, size] of TABLES) {
     assert.equal(Object.keys(table).length, size, `${name} changed size`);

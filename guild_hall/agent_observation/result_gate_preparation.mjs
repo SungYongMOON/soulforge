@@ -2,10 +2,11 @@
  * Prepares result-gate activation for one synthetic exact Agent/Run, against an isolated registry.
  *
  * The live registry at `guild_hall/state/operations/team_ops_board/thread_result_gate.v1.json` is
- * **not disabled**: it carries `disabled: false`, revision 18 and eighteen real `result_ready`
- * events with real thread ids. So the danger this module has to design against is not accidentally
- * enabling a dormant gate — it is letting a synthetic Agent/Run write into a ledger that is already
- * live. Two structural refusals, not promises, keep that from happening:
+ * **not disabled**: it carries `disabled: false`, revision 18, and eighteen events forming five
+ * threads' complete lifecycles — five `started`, five `result_ready`, four `accepted`, four
+ * `closed` — against real thread ids. So the danger this module has to design against is not
+ * accidentally enabling a dormant gate; it is letting a synthetic Agent/Run write into a ledger
+ * that is already live. Two structural refusals, not promises, keep that from happening:
  *
  *   1. This module performs no I/O. No path is accepted, no file is read or written. The caller
  *      supplies a registry object and receives a new one; persisting it is somebody else's gated
@@ -26,7 +27,16 @@ import {
   deriveThreadResultGateState,
 } from '../../ui-workspace/apps/team-ops-board/src/core/live-thread-projection.mjs';
 
-import { hold, isSafeId, isUtcMs } from './guard_primitives.mjs';
+import {
+  ACCESSOR_FOUND,
+  HOSTILE_INPUT,
+  TOO_DEEP,
+  TOO_LARGE,
+  hold,
+  isSafeId,
+  isUtcMs,
+  snapshotInput,
+} from './guard_primitives.mjs';
 
 import { listAgents, listReceipts, listRuns } from './agent_observation.mjs';
 
@@ -100,14 +110,30 @@ export function createIsolatedEnrollment({ threadId, organizationGroupId, displa
   };
 }
 
-/** Refuses any registry that is not demonstrably empty, which the live one never is. */
-function isolationRefusal(registry) {
-  if (registry === null || typeof registry !== 'object' || Array.isArray(registry)) return 'not_an_object';
-  if (registry.schema_version !== THREAD_RESULT_GATE_SCHEMA) return 'schema_version';
-  if (registry.registry_revision !== 0) return 'registry_revision_not_zero';
-  if (!Array.isArray(registry.events) || registry.events.length !== 0) return 'events_not_empty';
-  if (registry.disabled !== false) return 'disabled_flag_set';
-  return null;
+/**
+ * Refuses any registry that is not demonstrably empty, which the live one never is.
+ *
+ * The check reads a snapshot rather than the caller's object. Reading the argument directly let a
+ * getter answer "revision 0, no events" once and hold live events afterwards. The Board's own
+ * derivation caught that downstream, but a refusal described as structural must not depend on a
+ * second line of defence.
+ */
+function isolationRefusal(rawRegistry) {
+  const registry = snapshotInput(rawRegistry);
+  if (registry === TOO_DEEP || registry === ACCESSOR_FOUND
+    || registry === TOO_LARGE || registry === HOSTILE_INPUT) {
+    return { detail: 'not_an_object', registry: null };
+  }
+  if (registry === null || typeof registry !== 'object' || Array.isArray(registry)) {
+    return { detail: 'not_an_object', registry: null };
+  }
+  if (registry.schema_version !== THREAD_RESULT_GATE_SCHEMA) return { detail: 'schema_version', registry: null };
+  if (registry.registry_revision !== 0) return { detail: 'registry_revision_not_zero', registry: null };
+  if (!Array.isArray(registry.events) || registry.events.length !== 0) return { detail: 'events_not_empty', registry: null };
+  if (registry.disabled !== false) return { detail: 'disabled_flag_set', registry: null };
+  // The snapshot is returned, not just consulted. Checking the snapshot and then appending to the
+  // caller's object would let a trap show one registry to the check and hand another to the append.
+  return { detail: null, registry };
 }
 
 function resolveThreadIdentity(agent, provider) {
@@ -136,8 +162,8 @@ export function prepareSyntheticResultGateActivation(store, request) {
   if (!isSafeId(agentId)) return hold(P.UNKNOWN_AGENT, 'agent_id');
   if (!isSafeId(organizationGroupId)) return hold(P.UNKNOWN_AGENT, 'organization_group_id');
 
-  const refusal = isolationRefusal(registry);
-  if (refusal !== null) return hold(P.REGISTRY_NOT_ISOLATED, refusal);
+  const isolated = isolationRefusal(registry);
+  if (isolated.detail !== null) return hold(P.REGISTRY_NOT_ISOLATED, isolated.detail);
 
   let runs;
   let agents;
@@ -210,9 +236,13 @@ export function prepareSyntheticResultGateActivation(store, request) {
 
   // The Board's own append decides whether each event is legal, and its own derivation decides
   // whether the gate would actually activate. Restating either here would drift from them.
-  let current = registry;
+  let current = isolated.registry;
   for (const event of events) {
-    const appended = appendThreadResultGateEvent(current, event, { now: SYNTHETIC_EPOCH });
+    // `env` is passed explicitly and empty. Omitting it lets the Board default to the ambient
+    // environment, where TEAM_OPS_BOARD_RESULT_GATES_DISABLED would change what this pure
+    // preparation returns — and the test proving this module reads no environment works by scanning
+    // source text, which a transitive default argument defeats.
+    const appended = appendThreadResultGateEvent(current, event, { now: SYNTHETIC_EPOCH, env: {} });
     if (appended.error !== null) return hold(P.BOARD_APPEND_REJECTED, appended.error);
     if (appended.changed !== true) return hold(P.BOARD_APPEND_REJECTED, 'unchanged');
     current = appended.registry;

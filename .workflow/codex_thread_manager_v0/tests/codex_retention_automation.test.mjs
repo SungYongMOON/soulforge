@@ -790,3 +790,134 @@ test("the truncated report still passes the Board projection's own validation", 
     await cleanDir(root);
   }
 });
+
+async function runWithCandidates(candidates, extra = {}) {
+  const root = await tempDir();
+  const activityRoot = path.join(root, "guild_hall", "state", "operations", "soulforge_activity");
+  const adapters = {
+    runLifecycleRetentionReport: async () => ({
+      evidence_status: "PASS",
+      thread_scope: {
+        current_or_accepted_count: candidates.length,
+        bound_task_count: candidates.length,
+        unbound_task_count: 0
+      },
+      classifications: extra.classifications ?? { active: candidates.length },
+      candidates,
+      digest: null
+    })
+  };
+  const result = await runCodexRetentionAutomationInternal({
+    repoRoot: defaultRepoRoot(),
+    activityRoot,
+    catalog: DEFAULT_LIFECYCLE_RETENTION_FEATURE_CATALOG,
+    now: 1787241600000
+  }, adapters);
+  const written = await readFile(path.join(activityRoot, "reports", "codex_retention", "current.json"));
+  return { root, result, writtenBytes: written.length };
+}
+
+const candidate = (index, metadataCounts = {}) => ({
+  candidate_id: `candidate-${index}`,
+  classification: "active",
+  enrollment_lifecycle: "current",
+  reason_codes: ["bound_to_task"],
+  hold_reasons: [],
+  metadata_counts: metadataCounts
+});
+
+test("the budget measures the artifact that is actually written, byte for byte", async () => {
+  // The guard first measured JSON.stringify(envelope).length: compact, and counting UTF-16 code
+  // units. The file is written pretty-printed as UTF-8. Probing put the gap at up to 4.2x, which
+  // let a 504 KB file past a 200 KB budget. The marker must equal the file exactly, including its
+  // own bytes and the digest.
+  const deep = (depth, width) => {
+    if (depth === 0) return 1;
+    const node = {};
+    for (let i = 0; i < width; i += 1) node[`k${i}`] = deep(depth - 1, width);
+    return node;
+  };
+  const { root, result, writtenBytes } = await runWithCandidates(
+    Array.from({ length: 200 }, (_, index) => candidate(index, deep(5, 4)))
+  );
+  try {
+    const budget = result.report.retention.report_budget;
+    assert.equal(budget.measured_bytes, writtenBytes, "the marker must count the file it describes");
+    assert.equal(budget.budget_met, true);
+    assert.ok(writtenBytes <= budget.max_bytes, `written ${writtenBytes} over budget ${budget.max_bytes}`);
+    assert.ok(writtenBytes < 512 * 1024, "and comfortably under the only reader's limit");
+    assert.ok(budget.shrink_passes > 0, "this fixture must actually exercise the shrink");
+  } finally {
+    await cleanDir(root);
+  }
+});
+
+test("a report whose weight is outside the shrinkable lists says the budget was not met", async () => {
+  // Only two lists can be shrunk. Weight anywhere else - classifications, source_refs,
+  // source_health - holds the report over the limit no matter how much detail is dropped. Exiting
+  // quietly there produced a 712 KB file that had discarded 100% of its candidates and reported
+  // neither fact.
+  const classifications = {};
+  for (let i = 0; i < 12000; i += 1) classifications[`classification_bucket_with_a_long_name_${i}`] = i;
+
+  const { root, result, writtenBytes } = await runWithCandidates(
+    Array.from({ length: 10 }, (_, index) => candidate(index)),
+    { classifications }
+  );
+  try {
+    const budget = result.report.retention.report_budget;
+    assert.equal(budget.budget_met, false, "an over-budget report must say so");
+    assert.equal(budget.unshrinkable_remainder, true);
+    assert.equal(budget.measured_bytes, writtenBytes, "even when it fails, the count must be exact");
+    assert.ok(writtenBytes > budget.max_bytes);
+    assert.ok(budget.shrink_passes > 0, "it must have tried before giving up");
+
+    // Everything droppable was dropped, and the marker says exactly that rather than implying the
+    // report is complete.
+    assert.equal(result.report.retention.candidates.length, 0);
+    assert.deepEqual(result.report.retention.candidates_truncation, {
+      total_count: 10, included_count: 0, dropped_count: 10, truncated: true, order: "producer_order_first_n"
+    });
+  } finally {
+    await cleanDir(root);
+  }
+});
+
+test("a small report reports a met budget and no shrink passes", async () => {
+  const { root, result, writtenBytes } = await runWithCandidates(
+    Array.from({ length: 3 }, (_, index) => candidate(index))
+  );
+  try {
+    const budget = result.report.retention.report_budget;
+    assert.equal(budget.budget_met, true);
+    assert.equal(budget.unshrinkable_remainder, false);
+    assert.equal(budget.shrink_passes, 0, "nothing to shrink");
+    assert.equal(budget.measured_bytes, writtenBytes);
+    assert.equal(budget.max_bytes, 200 * 1024);
+
+    // The marker is present on every report, so its absence never has to be interpreted.
+    assert.equal(typeof result.report.retention.report_budget, "object");
+  } finally {
+    await cleanDir(root);
+  }
+});
+
+test("the budget marker does not break the projection's exact key sets", async () => {
+  const classifications = {};
+  for (let i = 0; i < 12000; i += 1) classifications[`classification_bucket_with_a_long_name_${i}`] = i;
+  const { root, result } = await runWithCandidates(
+    Array.from({ length: 10 }, (_, index) => candidate(index)),
+    { classifications }
+  );
+  try {
+    const { evaluateCodexRetentionProjection } = await import(
+      "../../../ui-workspace/apps/team-ops-board/src/core/codex-retention-projection-internal.mjs"
+    );
+    // Even an over-budget report must remain structurally legal: the projection refuses extra keys
+    // at the top level and in summary, and the marker deliberately lives below both.
+    const projection = evaluateCodexRetentionProjection(result.report, { now: 1787241600000 });
+    assert.ok(projection);
+  } finally {
+    await cleanDir(root);
+  }
+});

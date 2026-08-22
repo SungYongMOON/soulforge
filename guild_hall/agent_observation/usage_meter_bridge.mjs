@@ -44,6 +44,7 @@ export const BRIDGE_HOLD_CODES = Object.freeze({
   HOSTILE_INPUT_REFUSED: 'HOSTILE_INPUT_REFUSED',
   ACCESSOR_PROPERTY_FORBIDDEN: 'ACCESSOR_PROPERTY_FORBIDDEN',
   INVALID_BINDING_FIELD: 'INVALID_BINDING_FIELD',
+  UNKNOWN_STORE: 'UNKNOWN_STORE',
   UNKNOWN_USAGE_EVENT: 'UNKNOWN_USAGE_EVENT',
   UNKNOWN_RUN: 'UNKNOWN_RUN',
   UNKNOWN_AGENT: 'UNKNOWN_AGENT',
@@ -103,7 +104,7 @@ export const BINDING_FIELDS = Object.freeze([
   'originator',
 ]);
 
-const MAX_LINEAGE_DEPTH = 32;
+export const MAX_LINEAGE_DEPTH = 32;
 const MAX_TOKENS = 1_000_000_000;
 const MAX_TEXT = 200;
 
@@ -120,6 +121,27 @@ function indexBy(records, key) {
   const index = new Map();
   for (const record of records) index.set(record[key], record);
   return index;
+}
+
+/**
+ * The list accessors return `null` for an unrecognised store handle rather than an empty array or a
+ * throw. Reading that straight into a loop turns a refusal into a `TypeError` at the entry point,
+ * which is the failure mode `guard_primitives` catches for hostile proxies and the reason
+ * `board_health_projection` tests `Array.isArray` rather than absence.
+ */
+function readStore(store) {
+  let agents;
+  let runs;
+  let usage;
+  try {
+    agents = listAgents(store);
+    runs = listRuns(store);
+    usage = listUsageEvents(store);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(agents) || !Array.isArray(runs) || !Array.isArray(usage)) return null;
+  return { agents, runs, usage };
 }
 
 /**
@@ -183,14 +205,17 @@ export function projectMeterUsageEvent(store, rawBinding) {
     if (!isCount(binding[field], MAX_TOKENS)) return hold(B.INVALID_BINDING_FIELD, field);
   }
 
-  const usageEvent = indexBy(listUsageEvents(store), 'event_id').get(binding.event_id);
+  const records = readStore(store);
+  if (records === null) return hold(B.UNKNOWN_STORE);
+
+  const usageEvent = indexBy(records.usage, 'event_id').get(binding.event_id);
   if (usageEvent === undefined) return hold(B.UNKNOWN_USAGE_EVENT);
 
-  const runIndex = indexBy(listRuns(store), 'run_id');
+  const runIndex = indexBy(records.runs, 'run_id');
   const run = runIndex.get(usageEvent.run_id);
   if (run === undefined) return hold(B.UNKNOWN_RUN);
 
-  const agentIndex = indexBy(listAgents(store), 'agent_id');
+  const agentIndex = indexBy(records.agents, 'agent_id');
   const agent = agentIndex.get(usageEvent.agent_id);
   if (agent === undefined) return hold(B.UNKNOWN_AGENT);
 
@@ -323,16 +348,20 @@ export function projectMeterUsageEvent(store, rawBinding) {
  * growing `not_projectable` count means the two contracts are drifting apart.
  */
 export function measureMeterProjectability(store) {
-  const agentIndex = indexBy(listAgents(store), 'agent_id');
+  const records = readStore(store);
+  if (records === null) return hold(B.UNKNOWN_STORE);
+  const agentIndex = indexBy(records.agents, 'agent_id');
   const counts = {
     total: 0,
     projectable: 0,
     provider_not_meter_source_kind: 0,
     cost_basis_not_projectable: 0,
     provider_thread_identity_missing: 0,
+    meter_required_field_missing: 0,
   };
+  const runIndex = indexBy(records.runs, 'run_id');
   const holdCodes = [];
-  for (const usageEvent of listUsageEvents(store)) {
+  for (const usageEvent of records.usage) {
     counts.total += 1;
     if (!Object.hasOwn(PROVIDER_TO_METER_SOURCE_KIND, usageEvent.provider)) {
       counts.provider_not_meter_source_kind += 1;
@@ -347,6 +376,15 @@ export function measureMeterProjectability(store) {
     if (resolveThreadIdentity(agentIndex.get(usageEvent.agent_id), usageEvent.provider) === null) {
       counts.provider_thread_identity_missing += 1;
       holdCodes.push(B.PROVIDER_THREAD_IDENTITY_MISSING);
+      continue;
+    }
+    // `work_unit_id` is nullable in `observeRun` and the meter rejects a null `work_id`. Counting
+    // such an event as projectable would make this signal blind to the one drift the bridge's own
+    // test names as proof the meter validator is load-bearing.
+    const run = runIndex.get(usageEvent.run_id);
+    if (run === undefined || run.work_unit_id === null) {
+      counts.meter_required_field_missing += 1;
+      holdCodes.push(B.METER_VALIDATION_REJECTED);
       continue;
     }
     counts.projectable += 1;
