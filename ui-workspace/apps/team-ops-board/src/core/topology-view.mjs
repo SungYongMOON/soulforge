@@ -289,8 +289,8 @@ export function buildTopologyViewModel(snapshot) {
       ? node.health.activity_next_at : null;
     const stateLabel = activityState === "idle" ? "정상 유휴"
       : activityState === "collecting" ? "정상 수집 중"
-        : activityState === "retrying" ? "정상 · 메일 재시도"
-          : activityState === "held" ? "정상 · 메일 보류"
+        : activityState === "retrying" ? "정상 · 재시도"
+          : activityState === "held" ? "정상 · 보류"
             : STATE_LABELS[state];
     const ageLabel = describeTopologyAge(node?.health?.age_seconds);
     const tracking = state === "ok" || node.tracking === undefined ? null : {

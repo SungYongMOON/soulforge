@@ -885,6 +885,29 @@ test("probe distinguishes recently attempted failed collector from dead/stale co
   const staleResult = await runProbe(probe, { now: nowMs });
   assert.equal(staleResult.state, "stale");
   assert.ok(staleResult.reasons.includes("heartbeat_stale"));
+
+  // Case 3: Fresh attempt that succeeded with self-repair (retry_state: retrying, backlog_count: 2) -> ok with activity
+  await writeFile(heartbeatPath, JSON.stringify({
+    schema_version: "soulforge.ai_usage_producer_heartbeat.v1",
+    lane: "codex",
+    status: "ok",
+    error_codes: [],
+    last_success_at: "2026-08-21T11:59:00.000Z",
+    completed_at: "2026-08-21T11:59:00.000Z",
+    attempted_at: "2026-08-21T11:59:00.000Z",
+    retry_state: "retrying",
+    backlog_count: 2,
+    attempt_number: 1,
+    safe_issue_codes: ["usage_event_duplicate_conflict"],
+    next_attempt_at: "2026-08-21T12:04:00.000Z",
+  }), "utf8");
+
+  const selfRepairResult = await runProbe(probe, { now: nowMs });
+  assert.equal(selfRepairResult.state, "ok");
+  assert.deepEqual(selfRepairResult.reasons, []);
+  assert.equal(selfRepairResult.activity_state, "retrying");
+  assert.equal(selfRepairResult.activity_count, 2);
+  assert.equal(selfRepairResult.activity_next_at, "2026-08-21T12:04:00.000Z");
 });
 
 test("codex retention report probe contract evaluates missing as unmonitored, PASS/HOLD as ok, and stale accurately", async () => {

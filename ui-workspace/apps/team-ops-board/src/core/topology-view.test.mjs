@@ -183,14 +183,39 @@ test("mail retry activity remains visible without turning a healthy collector or
   assert.equal(mail.activityState, "retrying");
   assert.equal(mail.activityCount, 16);
   assert.equal(mail.activityNextAt, "2026-08-14T02:00:00.000Z");
-  assert.equal(mail.stateLabel, "정상 · 메일 재시도");
+  assert.equal(mail.stateLabel, "정상 · 재시도");
   assert.deepEqual(model.advisoryQueue, [{
     id: "mail_forwarder",
     label: mail.label,
-    stateLabel: "정상 · 메일 재시도",
+    stateLabel: "정상 · 재시도",
     activityState: "retrying",
     activityCount: 16,
     activityNextAt: "2026-08-14T02:00:00.000Z",
+  }]);
+});
+
+test("token collection retry and held activity enters advisory queue with generalized labels", () => {
+  const snapshot = sampleSnapshot();
+  const node = snapshot.nodes.find(({ id }) => id === "consumer_board");
+  node.id = "usage_codex_collector";
+  node.kind = "worker";
+  node.health.activity_state = "held";
+  node.health.activity_count = 2;
+  node.health.activity_next_at = null;
+  const model = buildTopologyViewModel(snapshot);
+  const codex = model.nodes.find(({ id }) => id === "usage_codex_collector");
+  assert.equal(codex.state, "ok");
+  assert.equal(codex.activityState, "held");
+  assert.equal(codex.activityCount, 2);
+  assert.equal(codex.activityNextAt, null);
+  assert.equal(codex.stateLabel, "정상 · 보류");
+  assert.deepEqual(model.advisoryQueue, [{
+    id: "usage_codex_collector",
+    label: codex.label,
+    stateLabel: "정상 · 보류",
+    activityState: "held",
+    activityCount: 2,
+    activityNextAt: null,
   }]);
 });
 

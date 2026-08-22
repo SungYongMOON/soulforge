@@ -29,6 +29,12 @@ export const USAGE_PRODUCER_CYCLE_HISTORY_LIMIT = 50;
 // cycle, so an oversized, symlinked, or non-regular entry is refused before any
 // byte is parsed. 50 cycle rows with eight lanes each sit well under this.
 export const USAGE_PRODUCER_CYCLE_MAX_BYTES = 128 * 1024;
+export const USAGE_PRODUCER_RECOVERY_SCHEMA = "soulforge.ai_usage_producer_recovery.v1";
+export const USAGE_PRODUCER_RECOVERY_HISTORY_SCHEMA = "soulforge.ai_usage_producer_recovery_history.v1";
+export const USAGE_PRODUCER_RECOVERY_HISTORY_LIMIT = 50;
+export const USAGE_PRODUCER_RECOVERY_MAX_BYTES = 128 * 1024;
+export const MAX_CONSECUTIVE_RECOVERY_ATTEMPTS = 3;
+export const SAFE_REPAIR_ISSUE_CODES = Object.freeze(["usage_event_duplicate_conflict", "usage_event_conflict"]);
 // Fixed lane vocabulary. A cycle receipt names lanes only from this list, so it
 // can never grow a path, command line, session id, or provider payload.
 export const USAGE_PRODUCER_LANES = Object.freeze([
@@ -254,7 +260,21 @@ async function writeHeartbeat(file, value) {
   await rename(temporary, file);
 }
 
-export async function persistProducerHeartbeat({ stateRoot, lane, attemptedAt, succeeded, errorCode = null, activity = null, projectionAt = null, now = () => new Date() } = {}) {
+export async function persistProducerHeartbeat({
+  stateRoot,
+  lane,
+  attemptedAt,
+  succeeded,
+  errorCode = null,
+  activity = null,
+  projectionAt = null,
+  retryState = null,
+  backlogCount = null,
+  attemptNumber = null,
+  safeIssueCodes = null,
+  nextAttemptAt = null,
+  now = () => new Date(),
+} = {}) {
   const file = path.join(stateRoot, "producer_health", `${lane}.json`);
   const prior = await readHeartbeat(file);
   const completedAt = now().toISOString();
@@ -268,6 +288,11 @@ export async function persistProducerHeartbeat({ stateRoot, lane, attemptedAt, s
     error_codes: succeeded ? [] : [errorCode],
     activity_changed: typeof activity === "boolean" ? activity : null,
     projection_at: typeof projectionAt === "string" && Number.isFinite(Date.parse(projectionAt)) ? projectionAt : null,
+    ...(typeof retryState === "string" ? { retry_state: retryState } : {}),
+    ...(Number.isSafeInteger(backlogCount) && backlogCount >= 0 ? { backlog_count: backlogCount } : {}),
+    ...(Number.isSafeInteger(attemptNumber) && attemptNumber >= 0 ? { attempt_number: attemptNumber } : {}),
+    ...(Array.isArray(safeIssueCodes) ? { safe_issue_codes: [...new Set(safeIssueCodes)].sort((a, b) => a.localeCompare(b, "en")) } : {}),
+    ...(typeof nextAttemptAt === "string" && Number.isFinite(Date.parse(nextAttemptAt)) ? { next_attempt_at: nextAttemptAt } : (retryState === "clear" || retryState === "held" ? { next_attempt_at: null } : {})),
   };
   await writeHeartbeat(file, value);
   return value;
@@ -445,6 +470,283 @@ export async function persistProducerCycleReceipt({
   };
 }
 
+export function createUsageProducerRecoveryRecord({
+  observedAt,
+  lane,
+  safeIssueCodes = [],
+  backlogCount = 0,
+  attemptNumber = 0,
+  action = "none",
+  outcome = "cleared",
+  verificationResult = "clean",
+} = {}) {
+  const observedMs = Date.parse(observedAt ?? "");
+  if (!Number.isFinite(observedMs)
+    || !USAGE_PRODUCER_LANES.includes(lane)
+    || !Array.isArray(safeIssueCodes)
+    || !safeIssueCodes.every((code) => typeof code === "string" && SAFE_ERROR_CODE.test(code))
+    || !Number.isSafeInteger(backlogCount) || backlogCount < 0
+    || !Number.isSafeInteger(attemptNumber) || attemptNumber < 0 || attemptNumber > MAX_CONSECUTIVE_RECOVERY_ATTEMPTS
+    || !["quarantine_and_continue", "none"].includes(action)
+    || (action === "quarantine_and_continue" && !safeIssueCodes.every((code) => SAFE_REPAIR_ISSUE_CODES.includes(code)))
+    || !["retrying", "held", "cleared", "failed"].includes(outcome)
+    || typeof verificationResult !== "string" || !SAFE_ERROR_CODE.test(verificationResult)) {
+    return null;
+  }
+  const sortedCodes = [...new Set(safeIssueCodes)].sort((left, right) => left.localeCompare(right, "en")).slice(0, 50);
+  return {
+    schema_version: USAGE_PRODUCER_RECOVERY_SCHEMA,
+    observed_at: observedAt,
+    lane,
+    safe_issue_codes: sortedCodes,
+    backlog_count: backlogCount,
+    attempt_number: attemptNumber,
+    action,
+    outcome,
+    verification_result: verificationResult,
+  };
+}
+
+export function isUsageProducerRecoveryRecord(value) {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  const keys = [
+    "schema_version",
+    "observed_at",
+    "lane",
+    "safe_issue_codes",
+    "backlog_count",
+    "attempt_number",
+    "action",
+    "outcome",
+    "verification_result",
+  ];
+  if (Object.keys(value).length !== keys.length || !keys.every((key) => Object.hasOwn(value, key))) return false;
+  if (value.schema_version !== USAGE_PRODUCER_RECOVERY_SCHEMA) return false;
+  if (!Number.isFinite(Date.parse(value.observed_at ?? ""))) return false;
+  if (!USAGE_PRODUCER_LANES.includes(value.lane)) return false;
+  if (!Array.isArray(value.safe_issue_codes)
+    || value.safe_issue_codes.length > 50
+    || !value.safe_issue_codes.every((code) => typeof code === "string" && SAFE_ERROR_CODE.test(code))) {
+    return false;
+  }
+  const seenCodes = new Set(value.safe_issue_codes);
+  if (seenCodes.size !== value.safe_issue_codes.length) return false;
+  for (let i = 1; i < value.safe_issue_codes.length; i++) {
+    if (value.safe_issue_codes[i - 1].localeCompare(value.safe_issue_codes[i], "en") >= 0) return false;
+  }
+  if (!Number.isSafeInteger(value.backlog_count) || value.backlog_count < 0) return false;
+  if (!Number.isSafeInteger(value.attempt_number) || value.attempt_number < 0 || value.attempt_number > MAX_CONSECUTIVE_RECOVERY_ATTEMPTS) return false;
+  if (!["quarantine_and_continue", "none"].includes(value.action)) return false;
+  if (value.action === "quarantine_and_continue" && !value.safe_issue_codes.every((code) => SAFE_REPAIR_ISSUE_CODES.includes(code))) {
+    return false;
+  }
+  if (!["retrying", "held", "cleared", "failed"].includes(value.outcome)) return false;
+  if (typeof value.verification_result !== "string" || !SAFE_ERROR_CODE.test(value.verification_result)) return false;
+  return true;
+}
+
+export function isVerifiedRecoveryPersistenceResult(result) {
+  return result !== null
+    && typeof result === "object"
+    && !Array.isArray(result)
+    && result.latest_outcome === "written"
+    && (result.history_outcome === "created" || result.history_outcome === "appended");
+}
+
+const SAFE_PERSISTENCE_EVENT_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$/u;
+
+function isSafePersistenceEventId(id) {
+  return typeof id === "string"
+    && id.length >= 1
+    && id.length <= 120
+    && SAFE_PERSISTENCE_EVENT_ID.test(id)
+    && !/(?:bearer|token|password|passwd|secret|api_key|credential)/iu.test(id);
+}
+
+function pathsEqual(pathA, pathB) {
+  if (typeof pathA !== "string" || typeof pathB !== "string" || pathA.length === 0 || pathB.length === 0) {
+    return false;
+  }
+  if (!path.isAbsolute(pathA) || !path.isAbsolute(pathB)) {
+    return false;
+  }
+  const normA = path.resolve(pathA);
+  const normB = path.resolve(pathB);
+  if (process.platform === "win32") {
+    return normA.toLowerCase() === normB.toLowerCase();
+  }
+  return normA === normB;
+}
+
+export function isVerifiedPersistenceResult(result, expectedStateRoot) {
+  if (result === null || typeof result !== "object" || Array.isArray(result)) return false;
+  if (typeof expectedStateRoot !== "string" || expectedStateRoot.length === 0 || !path.isAbsolute(expectedStateRoot)) {
+    return false;
+  }
+
+  const hasIssues = Object.hasOwn(result, "issues");
+  const expectedKeyCount = hasIssues ? 7 : 6;
+  const keys = Object.keys(result);
+  if (keys.length !== expectedKeyCount) return false;
+
+  if (!Object.hasOwn(result, "created")
+    || !Object.hasOwn(result, "updated")
+    || !Object.hasOwn(result, "replayed")
+    || !Object.hasOwn(result, "event_ids")
+    || !Object.hasOwn(result, "total_event_count")
+    || !Object.hasOwn(result, "state_root")) {
+    return false;
+  }
+
+  if (!Number.isSafeInteger(result.created) || result.created < 0) return false;
+  if (!Number.isSafeInteger(result.updated) || result.updated < 0) return false;
+  if (!Number.isSafeInteger(result.replayed) || result.replayed < 0) return false;
+  if (!Number.isSafeInteger(result.total_event_count) || result.total_event_count < 0) return false;
+
+  if (!Array.isArray(result.event_ids)) return false;
+  if (result.created + result.updated + result.replayed !== result.event_ids.length) return false;
+  if (result.total_event_count < result.event_ids.length) return false;
+
+  for (let i = 0; i < result.event_ids.length; i++) {
+    const id = result.event_ids[i];
+    if (!isSafePersistenceEventId(id)) return false;
+    if (i > 0 && result.event_ids[i - 1].localeCompare(id, "en") >= 0) {
+      return false;
+    }
+  }
+
+  if (typeof result.state_root !== "string"
+    || result.state_root.length === 0
+    || !path.isAbsolute(result.state_root)) {
+    return false;
+  }
+
+  if (!pathsEqual(result.state_root, expectedStateRoot)) {
+    return false;
+  }
+
+  if (hasIssues) {
+    if (!Array.isArray(result.issues) || result.issues.length > 10000) return false;
+    for (const issue of result.issues) {
+      if (issue === null || typeof issue !== "object" || Array.isArray(issue)) return false;
+      const issueKeys = Object.keys(issue);
+      if (issueKeys.length !== 2 || !Object.hasOwn(issue, "source_ref") || !Object.hasOwn(issue, "code")) {
+        return false;
+      }
+      if (typeof issue.code !== "string" || !SAFE_ERROR_CODE.test(issue.code)) {
+        return false;
+      }
+      if (!isSafeSourceRef(issue.source_ref)) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+export function isConsistentCodexIssues(rootIssues, persistenceIssues) {
+  if (!Array.isArray(rootIssues)) return false;
+  const pIssues = persistenceIssues === null || persistenceIssues === undefined ? [] : persistenceIssues;
+  if (!Array.isArray(pIssues)) return false;
+  if (pIssues.length === 0) return true;
+  if (rootIssues.length < pIssues.length) return false;
+
+  const rootCounts = new Map();
+  for (const issue of rootIssues) {
+    if (issue === null || typeof issue !== "object" || Array.isArray(issue)) return false;
+    if (typeof issue.source_ref !== "string" || typeof issue.code !== "string") return false;
+    const key = `${issue.source_ref}\0${issue.code}`;
+    rootCounts.set(key, (rootCounts.get(key) ?? 0) + 1);
+  }
+
+  for (const issue of pIssues) {
+    if (issue === null || typeof issue !== "object" || Array.isArray(issue)) return false;
+    if (typeof issue.source_ref !== "string" || typeof issue.code !== "string") return false;
+    const key = `${issue.source_ref}\0${issue.code}`;
+    const remaining = rootCounts.get(key) ?? 0;
+    if (remaining <= 0) return false;
+    rootCounts.set(key, remaining - 1);
+  }
+
+  return true;
+}
+
+async function probeRecoveryHistory(file, fsOps) {
+  const readOps = { lstat, readFile, ...fsOps };
+  let info;
+  try {
+    info = await readOps.lstat(file);
+  } catch (error) {
+    return error?.code === "ENOENT"
+      ? { presence: "missing", value: null }
+      : { presence: "unreadable", value: null };
+  }
+  if (!info.isFile() || info.isSymbolicLink() || info.size > USAGE_PRODUCER_RECOVERY_MAX_BYTES) {
+    return { presence: "unreadable", value: null };
+  }
+  try {
+    return { presence: "present", value: JSON.parse(await readOps.readFile(file, "utf8")) };
+  } catch (error) {
+    return error?.code === "ENOENT"
+      ? { presence: "missing", value: null }
+      : { presence: "unreadable", value: null };
+  }
+}
+
+export async function persistProducerRecoveryReceipt({
+  stateRoot,
+  record,
+  historyLimit = USAGE_PRODUCER_RECOVERY_HISTORY_LIMIT,
+  fsOps = {},
+} = {}) {
+  if (!path.isAbsolute(stateRoot ?? "") || !isUsageProducerRecoveryRecord(record)) return null;
+  const directory = path.join(stateRoot, "producer_health");
+  const latestFile = path.join(directory, "recovery.json");
+  const historyFile = path.join(directory, "recovery-history.json");
+
+  let plan;
+  try {
+    const probe = await probeRecoveryHistory(historyFile, fsOps);
+    plan = planBoundedHistoryAppend({
+      classified: classifyBoundedHistory({
+        presence: probe.presence,
+        value: probe.value,
+        schemaVersion: USAGE_PRODUCER_RECOVERY_HISTORY_SCHEMA,
+        isEntry: isUsageProducerRecoveryRecord,
+      }),
+      entry: record,
+      schemaVersion: USAGE_PRODUCER_RECOVERY_HISTORY_SCHEMA,
+      limit: historyLimit,
+      isEntry: isUsageProducerRecoveryRecord,
+    });
+  } catch {
+    plan = { outcome: "preserved", record: null, reason: "history_plan_failed" };
+  }
+  let latestOutcome = "written";
+  try {
+    await writeHeartbeat(latestFile, record);
+  } catch {
+    latestOutcome = "latest_write_failed";
+  }
+  let historyOutcome = plan.outcome;
+  let historyReason = plan.reason;
+  if (plan.record !== null) {
+    try {
+      await writeHeartbeat(historyFile, plan.record);
+    } catch {
+      historyOutcome = "preserved";
+      historyReason = "history_write_failed";
+    }
+  }
+  return {
+    record,
+    latest_outcome: latestOutcome,
+    history_outcome: historyOutcome,
+    history_reason: historyReason,
+  };
+}
+
 export function activeCodexSessionIds(lifecycle, { now = Date.now } = {}) {
   if (!Array.isArray(lifecycle?.identities)) return [];
   const referenceAt = now();
@@ -515,7 +817,7 @@ export async function runClaudeQuotaSweep({
   }
 }
 
-export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, stateRoot, watchtowerPointerPath, threadIds = [], run = execFileAsync, loadActiveFiles = loadActiveCodexSessionFiles, loadSnapshot = async () => JSON.parse(await readFile(path.join(stateRoot, "current.json"), "utf8")), persistHeartbeat = persistProducerHeartbeat, persistCycle = persistProducerCycleReceipt, childTimeoutMs = DEFAULT_USAGE_PRODUCER_CHILD_TIMEOUT_MS, now = () => new Date() } = {}) {
+export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, stateRoot, watchtowerPointerPath, threadIds = [], run = execFileAsync, loadActiveFiles = loadActiveCodexSessionFiles, loadSnapshot = async () => JSON.parse(await readFile(path.join(stateRoot, "current.json"), "utf8")), persistHeartbeat = persistProducerHeartbeat, persistCycle = persistProducerCycleReceipt, persistRecovery = persistProducerRecoveryReceipt, childTimeoutMs = DEFAULT_USAGE_PRODUCER_CHILD_TIMEOUT_MS, now = () => new Date() } = {}) {
   if (!path.isAbsolute(repoRoot ?? "") || !path.isAbsolute(projectRoot ?? "") || !path.isAbsolute(stateRoot ?? "")) {
     return { status: "hold", completed: 0 };
   }
@@ -524,6 +826,9 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
   const options = childOptions(repoRoot, childTimeoutMs);
   let completed = 0;
   let projectionCommandSucceeded = false;
+  let pendingCodex = null;
+  let pendingClaude = null;
+  let pendingAntigravity = null;
   const attemptedAt = now().toISOString();
   const laneRows = new Map();
   const observeLane = (lane, status, errorCode = null) => {
@@ -566,48 +871,42 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
       if (command === "collect-claude") {
         observeLane(commandLanes.get(command), "ok");
         projectionCommandSucceeded = true;
-        await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "claude", attemptedAt, succeeded: true, now });
+        pendingClaude = { succeeded: true };
       } else if (command === "collect-antigravity") {
         observeLane(commandLanes.get(command), "ok");
         projectionCommandSucceeded = true;
-        await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "antigravity", attemptedAt, succeeded: true, now });
+        pendingAntigravity = { succeeded: true };
       } else if (command === "collect") {
         let collectResult;
         try {
           collectResult = validateCodexCollectionResult(result);
         } catch {
-          observeLane("codex", "error", "collector_result_invalid");
-          await persistLaneHealth(persistHeartbeat, {
-            stateRoot,
-            lane: "codex",
-            attemptedAt,
-            succeeded: false,
-            errorCode: "collector_result_invalid",
-            now,
-          });
+          pendingCodex = { valid: false, errorCode: "collector_result_invalid" };
           collectResult = null;
         }
         if (collectResult !== null) {
-          const conflictIssue = Array.isArray(collectResult.issues)
-            && collectResult.issues.find((i) =>
-              i?.code === "usage_event_duplicate_conflict" || i?.code === "usage_event_conflict"
-            );
-          if (conflictIssue) {
-            const conflictCode = conflictIssue.code;
+          const rawIssues = Array.isArray(collectResult.issues) ? collectResult.issues : [];
+          const issueCodes = [...new Set(rawIssues.map((i) => i?.code))].filter(Boolean).sort((a, b) => a.localeCompare(b, "en")).slice(0, 50);
+          const allSafeSyntax = issueCodes.every((code) => typeof code === "string" && SAFE_ERROR_CODE.test(code));
+          const allAutoRepairable = issueCodes.every((code) => SAFE_REPAIR_ISSUE_CODES.includes(code));
+          const hasPersistence = isVerifiedPersistenceResult(collectResult.persistence, stateRoot);
+          const issuesConsistent = isConsistentCodexIssues(rawIssues, collectResult.persistence?.issues);
+
+          if (!allSafeSyntax) {
+            pendingCodex = { valid: false, errorCode: "collector_failed", rawIssues, issueCodes };
+          } else if (collectResult.persistence === null) {
+            pendingCodex = { valid: false, errorCode: "persistence_missing", rawIssues, issueCodes };
+          } else if (!hasPersistence || !issuesConsistent) {
+            pendingCodex = { valid: false, errorCode: "persistence_invalid", rawIssues, issueCodes };
+          } else if (rawIssues.length === 0) {
+            pendingCodex = { valid: true, clean: true, rawIssues, issueCodes };
             projectionCommandSucceeded = true;
-            observeLane("codex", "error", conflictCode);
-            await persistLaneHealth(persistHeartbeat, {
-              stateRoot,
-              lane: "codex",
-              attemptedAt,
-              succeeded: false,
-              errorCode: conflictCode,
-              now,
-            });
+          } else if (allAutoRepairable) {
+            pendingCodex = { valid: true, clean: false, autoRepairable: true, rawIssues, issueCodes };
+            projectionCommandSucceeded = true;
           } else {
-            observeLane("codex", "ok");
+            pendingCodex = { valid: true, clean: false, autoRepairable: false, rawIssues, issueCodes };
             projectionCommandSucceeded = true;
-            await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "codex", attemptedAt, succeeded: true, now });
           }
         }
       } else {
@@ -617,11 +916,9 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
       // A timed-out lane fails closed with its own fixed code and leaves the
       // remaining lanes to run and report their own real result.
       observeLane(commandLanes.get(command), "error", safeErrorCode(error));
-      if (command === "collect-claude") await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "claude", attemptedAt, succeeded: false, errorCode: safeErrorCode(error), now });
-      if (command === "collect-antigravity") await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "antigravity", attemptedAt, succeeded: false, errorCode: safeErrorCode(error), now });
-      if (command === "collect") {
-        await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "codex", attemptedAt, succeeded: false, errorCode: safeErrorCode(error), now });
-      }
+      if (command === "collect-claude") pendingClaude = { succeeded: false, errorCode: safeErrorCode(error) };
+      if (command === "collect-antigravity") pendingAntigravity = { succeeded: false, errorCode: safeErrorCode(error) };
+      if (command === "collect") pendingCodex = { valid: false, errorCode: safeErrorCode(error) };
       // Each producer remains fail-closed and the next interval retries it.
     }
   }
@@ -639,6 +936,244 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
     projectionResult = { succeeded: true, activity, projectionAt: snapshot.generated_at };
   } catch (error) {
     projectionResult = { succeeded: false, errorCode: safeErrorCode(error) };
+  }
+
+  if (pendingCodex !== null) {
+    const priorHeartbeat = await readHeartbeat(path.join(stateRoot, "producer_health", "codex.json")).catch(() => null);
+
+    if (!projectionResult.succeeded || !pendingCodex.valid) {
+      const codexErrorCode = (!pendingCodex.valid ? pendingCodex.errorCode : null)
+        ?? projectionResult.errorCode
+        ?? "ledger_projection_invalid";
+      observeLane("codex", "error", codexErrorCode);
+      await persistLaneHealth(persistHeartbeat, {
+        stateRoot,
+        lane: "codex",
+        attemptedAt,
+        succeeded: false,
+        errorCode: codexErrorCode,
+        now,
+      });
+      await Promise.resolve(persistRecovery({
+        stateRoot,
+        record: createUsageProducerRecoveryRecord({
+          observedAt: attemptedAt,
+          lane: "codex",
+          safeIssueCodes: pendingCodex?.issueCodes ?? [],
+          backlogCount: pendingCodex?.rawIssues?.length ?? 0,
+          attemptNumber: 0,
+          action: "none",
+          outcome: "failed",
+          verificationResult: codexErrorCode,
+        }),
+      })).catch(() => null);
+    } else if (pendingCodex.clean) {
+      const priorHadBacklog = priorHeartbeat !== null && (
+        priorHeartbeat.retry_state === "retrying" ||
+        priorHeartbeat.retry_state === "held" ||
+        (Number.isSafeInteger(priorHeartbeat.backlog_count) && priorHeartbeat.backlog_count > 0) ||
+        (Array.isArray(priorHeartbeat.safe_issue_codes) && priorHeartbeat.safe_issue_codes.length > 0) ||
+        priorHeartbeat.status === "error"
+      );
+      let verified = true;
+      if (priorHadBacklog) {
+        const persistenceResult = await Promise.resolve(persistRecovery({
+          stateRoot,
+          record: createUsageProducerRecoveryRecord({
+            observedAt: attemptedAt,
+            lane: "codex",
+            safeIssueCodes: [],
+            backlogCount: 0,
+            attemptNumber: 0,
+            action: "none",
+            outcome: "cleared",
+            verificationResult: "clean",
+          }),
+        })).catch(() => null);
+        verified = isVerifiedRecoveryPersistenceResult(persistenceResult);
+      }
+      if (verified) {
+        observeLane("codex", "ok");
+        await persistLaneHealth(persistHeartbeat, {
+          stateRoot,
+          lane: "codex",
+          attemptedAt,
+          succeeded: true,
+          retryState: "clear",
+          backlogCount: 0,
+          attemptNumber: 0,
+          safeIssueCodes: [],
+          nextAttemptAt: null,
+          now,
+        });
+      } else {
+        observeLane("codex", "error", "recovery_receipt_unavailable");
+        await persistLaneHealth(persistHeartbeat, {
+          stateRoot,
+          lane: "codex",
+          attemptedAt,
+          succeeded: false,
+          errorCode: "recovery_receipt_unavailable",
+          now,
+        });
+      }
+    } else if (!pendingCodex.autoRepairable) {
+      const priorSafeCodes = Array.isArray(priorHeartbeat?.safe_issue_codes) ? priorHeartbeat.safe_issue_codes : [];
+      const sameIssueSet = priorSafeCodes.length === pendingCodex.issueCodes.length
+        && pendingCodex.issueCodes.every((c, idx) => c === priorSafeCodes[idx]);
+      const isRepeatedHeld = priorHeartbeat?.retry_state === "held" && sameIssueSet;
+      let verified = true;
+      if (!isRepeatedHeld) {
+        const persistenceResult = await Promise.resolve(persistRecovery({
+          stateRoot,
+          record: createUsageProducerRecoveryRecord({
+            observedAt: attemptedAt,
+            lane: "codex",
+            safeIssueCodes: pendingCodex.issueCodes,
+            backlogCount: pendingCodex.rawIssues.length,
+            attemptNumber: 0,
+            action: "none",
+            outcome: "held",
+            verificationResult: "unresolved_hold",
+          }),
+        })).catch(() => null);
+        verified = isVerifiedRecoveryPersistenceResult(persistenceResult);
+      }
+      if (verified) {
+        observeLane("codex", "ok");
+        await persistLaneHealth(persistHeartbeat, {
+          stateRoot,
+          lane: "codex",
+          attemptedAt,
+          succeeded: true,
+          retryState: "held",
+          backlogCount: pendingCodex.rawIssues.length,
+          attemptNumber: 0,
+          safeIssueCodes: pendingCodex.issueCodes,
+          nextAttemptAt: null,
+          now,
+        });
+      } else {
+        observeLane("codex", "error", "recovery_receipt_unavailable");
+        await persistLaneHealth(persistHeartbeat, {
+          stateRoot,
+          lane: "codex",
+          attemptedAt,
+          succeeded: false,
+          errorCode: "recovery_receipt_unavailable",
+          now,
+        });
+      }
+    } else {
+      const priorSafeCodes = Array.isArray(priorHeartbeat?.safe_issue_codes) ? priorHeartbeat.safe_issue_codes : [];
+      const sameIssueSet = priorSafeCodes.length === pendingCodex.issueCodes.length
+        && pendingCodex.issueCodes.every((c, idx) => c === priorSafeCodes[idx]);
+      const attemptedMs = Date.parse(attemptedAt);
+
+      let attemptNumber;
+      let outcome;
+      let retryState;
+      let nextAttemptAt;
+      let shouldAppendHistory = false;
+
+      if (!sameIssueSet) {
+        attemptNumber = 1;
+        outcome = "retrying";
+        retryState = "retrying";
+        nextAttemptAt = Number.isFinite(attemptedMs)
+          ? new Date(attemptedMs + 300_000).toISOString()
+          : null;
+        shouldAppendHistory = true;
+      } else if (priorHeartbeat?.retry_state === "held") {
+        attemptNumber = MAX_CONSECUTIVE_RECOVERY_ATTEMPTS;
+        outcome = "held";
+        retryState = "held";
+        nextAttemptAt = null;
+        shouldAppendHistory = false;
+      } else {
+        const priorAttempt = Number.isSafeInteger(priorHeartbeat?.attempt_number) && priorHeartbeat.attempt_number > 0
+          ? priorHeartbeat.attempt_number
+          : 1;
+        const priorNextMs = Date.parse(priorHeartbeat?.next_attempt_at ?? "");
+        const isDue = !Number.isFinite(priorNextMs) || (Number.isFinite(attemptedMs) && attemptedMs >= priorNextMs);
+
+        if (!isDue) {
+          attemptNumber = priorAttempt;
+          outcome = "retrying";
+          retryState = "retrying";
+          nextAttemptAt = priorHeartbeat.next_attempt_at ?? null;
+          shouldAppendHistory = false;
+        } else {
+          const nextAttempt = priorAttempt + 1;
+          if (nextAttempt > MAX_CONSECUTIVE_RECOVERY_ATTEMPTS) {
+            attemptNumber = MAX_CONSECUTIVE_RECOVERY_ATTEMPTS;
+            outcome = "held";
+            retryState = "held";
+            nextAttemptAt = null;
+            shouldAppendHistory = true;
+          } else {
+            attemptNumber = nextAttempt;
+            outcome = "retrying";
+            retryState = "retrying";
+            nextAttemptAt = Number.isFinite(attemptedMs)
+              ? new Date(attemptedMs + Math.min(nextAttempt * 300_000, 900_000)).toISOString()
+              : null;
+            shouldAppendHistory = true;
+          }
+        }
+      }
+
+      let verified = true;
+      if (shouldAppendHistory) {
+        const persistenceResult = await Promise.resolve(persistRecovery({
+          stateRoot,
+          record: createUsageProducerRecoveryRecord({
+            observedAt: attemptedAt,
+            lane: "codex",
+            safeIssueCodes: pendingCodex.issueCodes,
+            backlogCount: pendingCodex.rawIssues.length,
+            attemptNumber,
+            action: "quarantine_and_continue",
+            outcome,
+            verificationResult: "isolated_and_persisted",
+          }),
+        })).catch(() => null);
+        verified = isVerifiedRecoveryPersistenceResult(persistenceResult);
+      }
+
+      if (verified) {
+        observeLane("codex", "ok");
+        await persistLaneHealth(persistHeartbeat, {
+          stateRoot,
+          lane: "codex",
+          attemptedAt,
+          succeeded: true,
+          retryState,
+          backlogCount: pendingCodex.rawIssues.length,
+          attemptNumber,
+          safeIssueCodes: pendingCodex.issueCodes,
+          nextAttemptAt,
+          now,
+        });
+      } else {
+        observeLane("codex", "error", "recovery_receipt_unavailable");
+        await persistLaneHealth(persistHeartbeat, {
+          stateRoot,
+          lane: "codex",
+          attemptedAt,
+          succeeded: false,
+          errorCode: "recovery_receipt_unavailable",
+          now,
+        });
+      }
+    }
+  }
+
+  if (pendingClaude !== null) {
+    await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "claude", attemptedAt, succeeded: pendingClaude.succeeded, errorCode: pendingClaude.errorCode, now });
+  }
+  if (pendingAntigravity !== null) {
+    await persistLaneHealth(persistHeartbeat, { stateRoot, lane: "antigravity", attemptedAt, succeeded: pendingAntigravity.succeeded, errorCode: pendingAntigravity.errorCode, now });
   }
   for (const lane of ["meter", "store_usage_ledger"]) {
     // Receipt channels are independent; one failed write must not falsify the other lane.

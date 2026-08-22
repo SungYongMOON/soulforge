@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { ACTIVE_CODEX_SESSION_MAX_AGE_MS, DEFAULT_USAGE_PRODUCER_CHILD_TIMEOUT_MS, USAGE_PRODUCER_CYCLE_HISTORY_LIMIT, USAGE_PRODUCER_CYCLE_HISTORY_SCHEMA, USAGE_PRODUCER_CYCLE_MAX_BYTES, USAGE_PRODUCER_CYCLE_SCHEMA, createUsageProducerCycleRecord, isUsageProducerCycleRecord, persistProducerCycleReceipt, USAGE_PRODUCER_LANES, activeCodexSessionIds, containSweepFailure, loadActiveCodexSessionFiles, persistProducerHeartbeat, runClaudeQuotaSweep, runUsageProducerSweep, startUsageProducerCompanion, validateCodexCollectionResult } from "./ai-usage-producer-companion.mjs";
+import { ACTIVE_CODEX_SESSION_MAX_AGE_MS, DEFAULT_USAGE_PRODUCER_CHILD_TIMEOUT_MS, MAX_CONSECUTIVE_RECOVERY_ATTEMPTS, SAFE_REPAIR_ISSUE_CODES, USAGE_PRODUCER_CYCLE_HISTORY_LIMIT, USAGE_PRODUCER_CYCLE_HISTORY_SCHEMA, USAGE_PRODUCER_CYCLE_MAX_BYTES, USAGE_PRODUCER_CYCLE_SCHEMA, USAGE_PRODUCER_RECOVERY_HISTORY_LIMIT, USAGE_PRODUCER_RECOVERY_HISTORY_SCHEMA, USAGE_PRODUCER_RECOVERY_MAX_BYTES, USAGE_PRODUCER_RECOVERY_SCHEMA, activeCodexSessionIds, containSweepFailure, createUsageProducerCycleRecord, createUsageProducerRecoveryRecord, isConsistentCodexIssues, isUsageProducerCycleRecord, isUsageProducerRecoveryRecord, isVerifiedPersistenceResult, isVerifiedRecoveryPersistenceResult, loadActiveCodexSessionFiles, persistProducerCycleReceipt, persistProducerHeartbeat, persistProducerRecoveryReceipt, runClaudeQuotaSweep, runUsageProducerSweep, startUsageProducerCompanion, USAGE_PRODUCER_LANES, validateCodexCollectionResult } from "./ai-usage-producer-companion.mjs";
 
 const REPO_ROOT = path.resolve("test-fixtures", "repo");
 const STATE_ROOT = path.resolve("test-fixtures", "state");
@@ -53,10 +53,19 @@ function codexCollectResult({
   duplicateEventObservationCount = 0,
   eventCount = 0,
   summary = codexSummary({ turns: eventCount }),
-  persistence = null,
+  persistence,
+  stateRoot = STATE_ROOT,
   coverage = null,
   ...overrides
 } = {}) {
+  const resolvedPersistence = persistence !== undefined ? persistence : {
+    created: 0,
+    updated: 0,
+    replayed: eventCount,
+    total_event_count: eventCount,
+    event_ids: Array.from({ length: eventCount }, (_, i) => `e${String(i + 1).padStart(2, "0")}`),
+    state_root: stateRoot,
+  };
   return {
     stdout: JSON.stringify({
       schema_version: "soulforge.ai_usage_meter_collect_result.v1",
@@ -69,7 +78,7 @@ function codexCollectResult({
       duplicate_event_observation_count: duplicateEventObservationCount,
       event_count: eventCount,
       summary,
-      persistence,
+      persistence: resolvedPersistence,
       coverage,
       ...overrides,
     }),
@@ -78,13 +87,18 @@ function codexCollectResult({
 
 function successfulRun(args) {
   if (args?.[1] === "collect-antigravity") return antigravityResult();
-  if (args?.[1] === "collect") return codexCollectResult();
+  if (args?.[1] === "collect") {
+    const stateRootIdx = args ? args.indexOf("--state-root") : -1;
+    const stateRoot = stateRootIdx !== -1 && args[stateRootIdx + 1] ? args[stateRootIdx + 1] : STATE_ROOT;
+    return codexCollectResult({ stateRoot });
+  }
   return undefined;
 }
 
 // The sweep's default cycle writer touches the real state root, so every test
 // that does not assert on cycle evidence injects an in-memory sink.
 const noCycleReceipt = async () => null;
+const noRecoveryReceipt = async () => null;
 
 test("active Codex collection selects only fresh exact started sessions", () => {
   const now = Date.parse("2026-08-10T12:00:00.000Z");
@@ -121,6 +135,7 @@ test("producer sweep refreshes lifecycle and usage ledgers without coupling quot
   const heartbeats = [];
   const result = await runUsageProducerSweep({
     persistCycle: noCycleReceipt,
+    persistRecovery: noRecoveryReceipt,
     repoRoot: REPO_ROOT,
     projectRoot: PROJECT_ROOT,
     stateRoot: STATE_ROOT,
@@ -153,6 +168,7 @@ test("Antigravity collector failure is isolated and recorded with a sanitized la
   const heartbeats = [];
   const result = await runUsageProducerSweep({
     persistCycle: noCycleReceipt,
+    persistRecovery: noRecoveryReceipt,
     repoRoot: REPO_ROOT,
     stateRoot: STATE_ROOT,
     loadActiveFiles: async () => [],
@@ -182,6 +198,7 @@ test("Antigravity partial result cannot produce a green collector heartbeat", as
   const heartbeats = [];
   const result = await runUsageProducerSweep({
     persistCycle: noCycleReceipt,
+    persistRecovery: noRecoveryReceipt,
     repoRoot: REPO_ROOT,
     stateRoot: STATE_ROOT,
     loadActiveFiles: async () => [],
@@ -199,6 +216,7 @@ test("Antigravity zero local databases is a successful idle collector attempt, n
   const heartbeats = [];
   const result = await runUsageProducerSweep({
     persistCycle: noCycleReceipt,
+    persistRecovery: noRecoveryReceipt,
     repoRoot: REPO_ROOT,
     stateRoot: STATE_ROOT,
     loadActiveFiles: async () => [],
@@ -251,6 +269,7 @@ test("Meter heartbeat validates the final ledger independently from a provider f
   const heartbeats = [];
   await runUsageProducerSweep({
     persistCycle: noCycleReceipt,
+    persistRecovery: noRecoveryReceipt,
     repoRoot: REPO_ROOT, stateRoot: STATE_ROOT,
     loadActiveFiles: async () => [],
     loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-11T00:00:00.000Z", event_count: 12 }),
@@ -269,6 +288,7 @@ test("ledger validation receipt remains independent when the Meter receipt chann
   const heartbeats = [];
   await runUsageProducerSweep({
     persistCycle: noCycleReceipt,
+    persistRecovery: noRecoveryReceipt,
     repoRoot: REPO_ROOT, stateRoot: STATE_ROOT, loadActiveFiles: async () => [],
     loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-11T00:00:00.000Z", event_count: 12 }),
     persistHeartbeat: async (value) => {
@@ -284,6 +304,7 @@ test("collector child exit is preserved as a fixed sanitized error code", async 
   const heartbeats = [];
   await runUsageProducerSweep({
     persistCycle: noCycleReceipt,
+    persistRecovery: noRecoveryReceipt,
     repoRoot: REPO_ROOT, stateRoot: STATE_ROOT, loadActiveFiles: async () => [],
     loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-11T00:00:00.000Z", events_digest: "same" }),
     persistHeartbeat: async (value) => { heartbeats.push(value); },
@@ -296,6 +317,7 @@ test("sanitized Meter CLI error code is retained without stderr detail", async (
   const heartbeats = [];
   await runUsageProducerSweep({
     persistCycle: noCycleReceipt,
+    persistRecovery: noRecoveryReceipt,
     repoRoot: REPO_ROOT, stateRoot: STATE_ROOT, loadActiveFiles: async () => [],
     loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-11T00:00:00.000Z" }),
     persistHeartbeat: async (value) => { heartbeats.push(value); },
@@ -352,6 +374,7 @@ test("a failed lane receipt write cannot abort the sweep or falsify sibling lane
   const heartbeats = [];
   const result = await runUsageProducerSweep({
     persistCycle: noCycleReceipt,
+    persistRecovery: noRecoveryReceipt,
     repoRoot: REPO_ROOT, stateRoot: STATE_ROOT, loadActiveFiles: async () => [],
     loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-11T00:00:00.000Z", event_count: 12 }),
     persistHeartbeat: async (value) => {
@@ -478,6 +501,7 @@ test("a sweep writes a started cycle receipt before it launches any child", asyn
     loadActiveFiles: async () => [],
     loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 1 }),
     persistHeartbeat: async () => undefined,
+    persistRecovery: noRecoveryReceipt,
     persistCycle: cycle.persistCycle,
     now: () => new Date("2026-08-19T00:00:00.000Z"),
   });
@@ -506,6 +530,7 @@ test("a completed cycle receipt carries duration and one exact status per lane",
     loadActiveFiles: async () => [],
     loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 1 }),
     persistHeartbeat: async () => undefined,
+    persistRecovery: noRecoveryReceipt,
     persistCycle: cycle.persistCycle,
     now: () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000),
   });
@@ -540,6 +565,7 @@ test("a stuck child times out with a fixed code and does not falsify sibling lan
     loadActiveFiles: async () => [],
     loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 1 }),
     persistHeartbeat: async () => undefined,
+    persistRecovery: noRecoveryReceipt,
     persistCycle: cycle.persistCycle,
     now: () => new Date("2026-08-19T00:00:00.000Z"),
   });
@@ -593,6 +619,7 @@ test("idle stays healthy: no new usage is not a producer failure", async () => {
     loadActiveFiles: async () => [],
     loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "unchanged", event_count: 7 }),
     persistHeartbeat: async (options) => { heartbeats.push(options); },
+    persistRecovery: noRecoveryReceipt,
     persistCycle: cycle.persistCycle,
     now: () => new Date("2026-08-19T00:00:00.000Z"),
   });
@@ -834,9 +861,10 @@ test("a malformed cycle record is never persisted as latest or history in the fi
   await assert.rejects(() => readFile(path.join(root, "producer_health", "cycle.json"), "utf8"));
 });
 
-test("Codex collection with duplicate conflict issue records degraded heartbeat and cycle error while sibling lanes succeed", async () => {
+test("Codex collection with duplicate conflict issue performs self-repair, recording ok heartbeat with backlog metadata and recovery receipt", async () => {
   const cycle = cycleCollector();
   const heartbeats = [];
+  const recoveries = [];
   let tick = 0;
   const result = await runUsageProducerSweep({
     repoRoot: REPO_ROOT,
@@ -853,6 +881,14 @@ test("Codex collection with duplicate conflict issue records degraded heartbeat 
           observedEventCount: 5,
           duplicateEventObservationCount: 0,
           eventCount: 5,
+          persistence: {
+            created: 0,
+            updated: 0,
+            replayed: 5,
+            total_event_count: 5,
+            event_ids: ["event-1", "event-2", "event-3", "event-4", "event-5"],
+            state_root: STATE_ROOT,
+          },
         });
       }
       return successfulRun(args);
@@ -860,14 +896,19 @@ test("Codex collection with duplicate conflict issue records degraded heartbeat 
     loadActiveFiles: async () => [],
     loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 5 }),
     persistHeartbeat: async (value) => { heartbeats.push(value); },
+    persistRecovery: async ({ record }) => { recoveries.push(record); return { record, latest_outcome: "written", history_outcome: "created", history_reason: null }; },
     persistCycle: cycle.persistCycle,
     now: () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000),
   });
 
   assert.equal(result.status, "observed");
   const codexHeartbeat = heartbeats.find(({ lane }) => lane === "codex");
-  assert.equal(codexHeartbeat.succeeded, false);
-  assert.equal(codexHeartbeat.errorCode, "usage_event_duplicate_conflict");
+  assert.equal(codexHeartbeat.succeeded, true);
+  assert.equal(codexHeartbeat.retryState, "retrying");
+  assert.equal(codexHeartbeat.backlogCount, 1);
+  assert.equal(codexHeartbeat.attemptNumber, 1);
+  assert.deepEqual(codexHeartbeat.safeIssueCodes, ["usage_event_duplicate_conflict"]);
+  assert.ok(typeof codexHeartbeat.nextAttemptAt === "string");
 
   const claudeHeartbeat = heartbeats.find(({ lane }) => lane === "claude");
   assert.equal(claudeHeartbeat.succeeded, true);
@@ -876,15 +917,26 @@ test("Codex collection with duplicate conflict issue records degraded heartbeat 
   assert.equal(antigravityHeartbeat.succeeded, true);
 
   const completed = cycle.records.at(-1);
-  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").status, "error");
-  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").error_code, "usage_event_duplicate_conflict");
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").status, "ok");
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").error_code, null);
   assert.equal(completed.lanes.find((lane) => lane.lane === "claude").status, "ok");
   assert.equal(completed.lanes.find((lane) => lane.lane === "antigravity").status, "ok");
+
+  assert.equal(recoveries.length, 1);
+  assert.equal(recoveries[0].schema_version, USAGE_PRODUCER_RECOVERY_SCHEMA);
+  assert.equal(recoveries[0].lane, "codex");
+  assert.deepEqual(recoveries[0].safe_issue_codes, ["usage_event_duplicate_conflict"]);
+  assert.equal(recoveries[0].backlog_count, 1);
+  assert.equal(recoveries[0].attempt_number, 1);
+  assert.equal(recoveries[0].action, "quarantine_and_continue");
+  assert.equal(recoveries[0].outcome, "retrying");
+  assert.equal(recoveries[0].verification_result, "isolated_and_persisted");
 });
 
-test("Codex collection with ledger merge conflict issue records degraded heartbeat and cycle error while sibling lanes succeed", async () => {
+test("Codex collection with ledger merge conflict issue performs self-repair when persistence succeeds", async () => {
   const cycle = cycleCollector();
   const heartbeats = [];
+  const recoveries = [];
   let tick = 0;
   const result = await runUsageProducerSweep({
     repoRoot: REPO_ROOT,
@@ -901,6 +953,14 @@ test("Codex collection with ledger merge conflict issue records degraded heartbe
           observedEventCount: 5,
           duplicateEventObservationCount: 0,
           eventCount: 5,
+          persistence: {
+            created: 0,
+            updated: 0,
+            replayed: 5,
+            total_event_count: 5,
+            event_ids: ["event-1", "event-2", "event-3", "event-4", "event-5"],
+            state_root: STATE_ROOT,
+          },
         });
       }
       return successfulRun(args);
@@ -908,26 +968,389 @@ test("Codex collection with ledger merge conflict issue records degraded heartbe
     loadActiveFiles: async () => [],
     loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 5 }),
     persistHeartbeat: async (value) => { heartbeats.push(value); },
+    persistRecovery: async ({ record }) => { recoveries.push(record); return { record, latest_outcome: "written", history_outcome: "created", history_reason: null }; },
     persistCycle: cycle.persistCycle,
     now: () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000),
   });
 
   assert.equal(result.status, "observed");
   const codexHeartbeat = heartbeats.find(({ lane }) => lane === "codex");
+  assert.equal(codexHeartbeat.succeeded, true);
+  assert.equal(codexHeartbeat.retryState, "retrying");
+  assert.equal(codexHeartbeat.backlogCount, 1);
+  assert.equal(codexHeartbeat.attemptNumber, 1);
+  assert.deepEqual(codexHeartbeat.safeIssueCodes, ["usage_event_conflict"]);
+  assert.ok(typeof codexHeartbeat.nextAttemptAt === "string");
+
+  assert.equal(recoveries.length, 1);
+  assert.equal(recoveries[0].outcome, "retrying");
+  assert.equal(recoveries[0].action, "quarantine_and_continue");
+  assert.equal(recoveries[0].verification_result, "isolated_and_persisted");
+});
+
+test("Codex self-repair advances attempt counter up to 3 for same issue codes, then transitions to held", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "usage-codex-budget-"));
+  t.after(async () => { await rm(root, { recursive: true, force: true }); });
+  let currentTime = "2026-08-19T00:00:00.000Z";
+  const now = () => new Date(currentTime);
+
+  const mockCollectRun = async (_node, args) => {
+    if (args[1] === "collect") {
+      return codexCollectResult({
+        sessionFileCount: 1,
+        parsedSessionCount: 1,
+        issueCount: 1,
+        issues: [{ source_ref: "session-a", code: "usage_event_duplicate_conflict" }],
+        observedEventCount: 5,
+        duplicateEventObservationCount: 0,
+        eventCount: 5,
+        persistence: { created: 0, updated: 0, replayed: 5, total_event_count: 5, event_ids: ["e1", "e2", "e3", "e4", "e5"], state_root: root },
+      });
+    }
+    return successfulRun(args);
+  };
+
+  // Run 1: attempt 1 -> retrying
+  currentTime = "2026-08-19T00:00:00.000Z";
+  await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    stateRoot: root,
+    run: mockCollectRun,
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: currentTime, events_digest: "a", event_count: 5 }),
+    persistCycle: noCycleReceipt,
+    now,
+  });
+  let hb = JSON.parse(await readFile(path.join(root, "producer_health", "codex.json"), "utf8"));
+  assert.equal(hb.status, "ok");
+  assert.equal(hb.retry_state, "retrying");
+  assert.equal(hb.attempt_number, 1);
+  assert.equal(hb.backlog_count, 1);
+  assert.equal(hb.next_attempt_at, "2026-08-19T00:05:00.000Z");
+
+  // Run 2: attempt 2 -> retrying (time reaches next_attempt_at: 00:05:00.000Z)
+  currentTime = "2026-08-19T00:05:00.000Z";
+  await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    stateRoot: root,
+    run: mockCollectRun,
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: currentTime, events_digest: "a", event_count: 5 }),
+    persistCycle: noCycleReceipt,
+    now,
+  });
+  hb = JSON.parse(await readFile(path.join(root, "producer_health", "codex.json"), "utf8"));
+  assert.equal(hb.status, "ok");
+  assert.equal(hb.retry_state, "retrying");
+  assert.equal(hb.attempt_number, 2);
+  assert.equal(hb.backlog_count, 1);
+  assert.equal(hb.next_attempt_at, "2026-08-19T00:15:00.000Z");
+
+  // Run 3: attempt 3 -> retrying (time reaches next_attempt_at: 00:15:00.000Z)
+  currentTime = "2026-08-19T00:15:00.000Z";
+  await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    stateRoot: root,
+    run: mockCollectRun,
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: currentTime, events_digest: "a", event_count: 5 }),
+    persistCycle: noCycleReceipt,
+    now,
+  });
+  hb = JSON.parse(await readFile(path.join(root, "producer_health", "codex.json"), "utf8"));
+  assert.equal(hb.status, "ok");
+  assert.equal(hb.retry_state, "retrying");
+  assert.equal(hb.attempt_number, 3);
+  assert.equal(hb.backlog_count, 1);
+  assert.equal(hb.next_attempt_at, "2026-08-19T00:30:00.000Z");
+
+  // Run 4: attempt budget exceeded -> held, next_attempt_at null, remains ok (time reaches next_attempt_at: 00:30:00.000Z)
+  currentTime = "2026-08-19T00:30:00.000Z";
+  await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    stateRoot: root,
+    run: mockCollectRun,
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: currentTime, events_digest: "a", event_count: 5 }),
+    persistCycle: noCycleReceipt,
+    now,
+  });
+  hb = JSON.parse(await readFile(path.join(root, "producer_health", "codex.json"), "utf8"));
+  assert.equal(hb.status, "ok");
+  assert.equal(hb.retry_state, "held");
+  assert.equal(hb.attempt_number, 3);
+  assert.equal(hb.backlog_count, 1);
+  assert.equal(hb.next_attempt_at, null);
+
+  const recoveryHistory = JSON.parse(await readFile(path.join(root, "producer_health", "recovery-history.json"), "utf8"));
+  assert.equal(recoveryHistory.entries.length, 4);
+  assert.deepEqual(recoveryHistory.entries.map((e) => e.outcome), ["retrying", "retrying", "retrying", "held"]);
+});
+
+test("Codex self-repair clears backlog and resets attempt counter when issue disappears", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "usage-codex-clear-"));
+  t.after(async () => { await rm(root, { recursive: true, force: true }); });
+  let tick = 0;
+  const now = () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000);
+
+  // Run 1: duplicate conflict -> retrying
+  await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    stateRoot: root,
+    run: async (_node, args) => {
+      if (args[1] === "collect") {
+        return codexCollectResult({
+          sessionFileCount: 1,
+          parsedSessionCount: 1,
+          issueCount: 1,
+          issues: [{ source_ref: "session-a", code: "usage_event_duplicate_conflict" }],
+          observedEventCount: 5,
+          duplicateEventObservationCount: 0,
+          eventCount: 5,
+          persistence: { created: 0, updated: 0, replayed: 5, total_event_count: 5, event_ids: ["e1", "e2", "e3", "e4", "e5"], state_root: root },
+        });
+      }
+      return successfulRun(args);
+    },
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 5 }),
+    persistCycle: noCycleReceipt,
+    now,
+  });
+  let hb = JSON.parse(await readFile(path.join(root, "producer_health", "codex.json"), "utf8"));
+  assert.equal(hb.status, "ok");
+  assert.equal(hb.retry_state, "retrying");
+  assert.equal(hb.attempt_number, 1);
+  assert.equal(hb.backlog_count, 1);
+
+  // Run 2: clean -> cleared, attempt_number reset to 0, backlog_count 0
+  await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    stateRoot: root,
+    run: async (_node, args) => {
+      if (args[1] === "collect") {
+        return codexCollectResult({
+          sessionFileCount: 1,
+          parsedSessionCount: 1,
+          issueCount: 0,
+          issues: [],
+          observedEventCount: 5,
+          duplicateEventObservationCount: 0,
+          eventCount: 5,
+          persistence: { created: 0, updated: 0, replayed: 5, total_event_count: 5, event_ids: ["e1", "e2", "e3", "e4", "e5"], state_root: root },
+        });
+      }
+      return successfulRun(args);
+    },
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 5 }),
+    persistCycle: noCycleReceipt,
+    now,
+  });
+  hb = JSON.parse(await readFile(path.join(root, "producer_health", "codex.json"), "utf8"));
+  assert.equal(hb.status, "ok");
+  assert.equal(hb.retry_state, "clear");
+  assert.equal(hb.attempt_number, 0);
+  assert.equal(hb.backlog_count, 0);
+  assert.equal(hb.next_attempt_at, null);
+
+  const recoveryHistory = JSON.parse(await readFile(path.join(root, "producer_health", "recovery-history.json"), "utf8"));
+  assert.equal(recoveryHistory.entries.length, 2);
+  assert.equal(recoveryHistory.entries[1].outcome, "cleared");
+  assert.equal(recoveryHistory.entries[1].verification_result, "clean");
+});
+
+test("Codex collection with unsafe or malformed issue code fails closed and is never repaired", async () => {
+  const heartbeats = [];
+  const recoveries = [];
+  let tick = 0;
+  await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    stateRoot: STATE_ROOT,
+    run: async (_node, args) => {
+      if (args[1] === "collect") {
+        return codexCollectResult({
+          sessionFileCount: 1,
+          parsedSessionCount: 1,
+          issueCount: 1,
+          issues: [{ source_ref: "session-a", code: "unsafe code with spaces!" }],
+          observedEventCount: 5,
+          duplicateEventObservationCount: 0,
+          eventCount: 5,
+          persistence: { created: 0, updated: 0, replayed: 5, total_event_count: 5, event_ids: ["e1", "e2", "e3", "e4", "e5"], state_root: STATE_ROOT },
+        });
+      }
+      return successfulRun(args);
+    },
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 5 }),
+    persistHeartbeat: async (value) => { heartbeats.push(value); },
+    persistRecovery: async ({ record }) => { recoveries.push(record); return record; },
+    persistCycle: noCycleReceipt,
+    now: () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000),
+  });
+
+  const codexHeartbeat = heartbeats.find(({ lane }) => lane === "codex");
   assert.equal(codexHeartbeat.succeeded, false);
-  assert.equal(codexHeartbeat.errorCode, "usage_event_conflict");
+  assert.equal(codexHeartbeat.errorCode, "collector_result_invalid");
 
-  const claudeHeartbeat = heartbeats.find(({ lane }) => lane === "claude");
-  assert.equal(claudeHeartbeat.succeeded, true);
+  assert.equal(recoveries.length, 1);
+  assert.equal(recoveries[0].outcome, "failed");
+  assert.equal(recoveries[0].action, "none");
+  assert.equal(recoveries[0].verification_result, "collector_result_invalid");
+});
 
-  const antigravityHeartbeat = heartbeats.find(({ lane }) => lane === "antigravity");
-  assert.equal(antigravityHeartbeat.succeeded, true);
+test("Codex collection with missing persistence fails closed", async () => {
+  const heartbeats = [];
+  const recoveries = [];
+  let tick = 0;
+  await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    stateRoot: STATE_ROOT,
+    run: async (_node, args) => {
+      if (args[1] === "collect") {
+        return codexCollectResult({
+          sessionFileCount: 1,
+          parsedSessionCount: 1,
+          issueCount: 1,
+          issues: [{ source_ref: "session-a", code: "usage_event_duplicate_conflict" }],
+          observedEventCount: 5,
+          eventCount: 5,
+          persistence: null,
+        });
+      }
+      return successfulRun(args);
+    },
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 5 }),
+    persistHeartbeat: async (value) => { heartbeats.push(value); },
+    persistRecovery: async ({ record }) => { recoveries.push(record); return record; },
+    persistCycle: noCycleReceipt,
+    now: () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000),
+  });
+
+  const codexHeartbeat = heartbeats.find(({ lane }) => lane === "codex");
+  assert.equal(codexHeartbeat.succeeded, false);
+  assert.equal(codexHeartbeat.errorCode, "persistence_missing");
+
+  assert.equal(recoveries.length, 1);
+  assert.equal(recoveries[0].outcome, "failed");
+  assert.equal(recoveries[0].verification_result, "persistence_missing");
+});
+
+test("Codex collection with invalid persistence fails closed and never claims quarantine_and_continue", async () => {
+  const heartbeats = [];
+  const recoveries = [];
+  const cycle = cycleCollector();
+  let tick = 0;
+  await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    stateRoot: STATE_ROOT,
+    run: async (_node, args) => {
+      if (args[1] === "collect") {
+        return codexCollectResult({
+          sessionFileCount: 1,
+          parsedSessionCount: 1,
+          issueCount: 1,
+          issues: [{ source_ref: "session-a", code: "usage_event_duplicate_conflict" }],
+          observedEventCount: 5,
+          eventCount: 5,
+          persistence: {
+            created: 0,
+            updated: 0,
+            replayed: 5,
+            total_event_count: -1,
+            event_ids: ["e01", "e02", "e03", "e04", "e05"],
+            state_root: STATE_ROOT,
+          },
+        });
+      }
+      return successfulRun(args);
+    },
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 5 }),
+    persistHeartbeat: async (value) => { heartbeats.push(value); },
+    persistRecovery: async ({ record }) => { recoveries.push(record); return { record, latest_outcome: "written", history_outcome: "created", history_reason: null }; },
+    persistCycle: cycle.persistCycle,
+    now: () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000),
+  });
+
+  const codexHeartbeat = heartbeats.find(({ lane }) => lane === "codex");
+  assert.equal(codexHeartbeat.succeeded, false);
+  assert.equal(codexHeartbeat.errorCode, "persistence_invalid");
 
   const completed = cycle.records.at(-1);
   assert.equal(completed.lanes.find((lane) => lane.lane === "codex").status, "error");
-  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").error_code, "usage_event_conflict");
-  assert.equal(completed.lanes.find((lane) => lane.lane === "claude").status, "ok");
-  assert.equal(completed.lanes.find((lane) => lane.lane === "antigravity").status, "ok");
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").error_code, "persistence_invalid");
+
+  assert.equal(recoveries.length, 1);
+  assert.equal(recoveries[0].outcome, "failed");
+  assert.equal(recoveries[0].action, "none");
+  assert.equal(recoveries[0].verification_result, "persistence_invalid");
+});
+
+test("recovery history retention is bounded, schema-tagged, and preserves corrupt bytes", async (t) => {
+  assert.equal(USAGE_PRODUCER_RECOVERY_HISTORY_LIMIT, 50);
+  assert.equal(USAGE_PRODUCER_RECOVERY_HISTORY_SCHEMA, "soulforge.ai_usage_producer_recovery_history.v1");
+  assert.equal(USAGE_PRODUCER_RECOVERY_MAX_BYTES, 128 * 1024);
+  assert.equal(MAX_CONSECUTIVE_RECOVERY_ATTEMPTS, 3);
+  assert.deepEqual([...SAFE_REPAIR_ISSUE_CODES], ["usage_event_duplicate_conflict", "usage_event_conflict"]);
+
+  const root = await mkdtemp(path.join(tmpdir(), "usage-recovery-corrupt-"));
+  t.after(async () => { await rm(root, { recursive: true, force: true }); });
+  const historyFile = path.join(root, "producer_health", "recovery-history.json");
+  const corrupt = "CORRUPT-RECOVERY-DO-NOT-OVERWRITE";
+  await mkdir(path.dirname(historyFile), { recursive: true });
+  await writeFile(historyFile, corrupt, "utf8");
+
+  const record = createUsageProducerRecoveryRecord({
+    observedAt: "2026-08-19T00:00:00.000Z",
+    lane: "codex",
+    safeIssueCodes: ["usage_event_duplicate_conflict"],
+    backlogCount: 1,
+    attemptNumber: 1,
+    action: "quarantine_and_continue",
+    outcome: "retrying",
+    verificationResult: "isolated_and_persisted",
+  });
+
+  const result = await persistProducerRecoveryReceipt({ stateRoot: root, record });
+  assert.equal(result.history_outcome, "preserved");
+  assert.equal(result.history_reason, "history_present_invalid");
+  assert.equal(await readFile(historyFile, "utf8"), corrupt);
+  assert.equal(result.latest_outcome, "written");
+});
+
+test("isUsageProducerRecoveryRecord strictly validates allowed vocabulary and schema", () => {
+  const valid = {
+    schema_version: USAGE_PRODUCER_RECOVERY_SCHEMA,
+    observed_at: "2026-08-19T00:00:00.000Z",
+    lane: "codex",
+    safe_issue_codes: ["usage_event_duplicate_conflict"],
+    backlog_count: 1,
+    attempt_number: 1,
+    action: "quarantine_and_continue",
+    outcome: "retrying",
+    verification_result: "isolated_and_persisted",
+  };
+  assert.equal(isUsageProducerRecoveryRecord(valid), true);
+
+  for (const invalid of [
+    null,
+    {},
+    { ...valid, schema_version: "wrong" },
+    { ...valid, lane: "unknown_lane" },
+    { ...valid, safe_issue_codes: ["usage_counter_regressed"] },
+    { ...valid, safe_issue_codes: ["usage_event_duplicate_conflict", "usage_event_conflict"] }, // unsorted
+    { ...valid, backlog_count: -1 },
+    { ...valid, attempt_number: 4 },
+    { ...valid, action: "unsupported_action" },
+    { ...valid, outcome: "unknown_outcome" },
+    { ...valid, verification_result: "raw with spaces" },
+    { ...valid, forbidden_key: "forbidden" },
+  ]) {
+    assert.equal(isUsageProducerRecoveryRecord(invalid), false);
+  }
 });
 
 test("Codex collection with malformed stdout fails closed with collector_result_invalid", async () => {
@@ -948,6 +1371,7 @@ test("Codex collection with malformed stdout fails closed with collector_result_
     loadActiveFiles: async () => [],
     loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 5 }),
     persistHeartbeat: async (value) => { heartbeats.push(value); },
+    persistRecovery: noRecoveryReceipt,
     persistCycle: cycle.persistCycle,
     now: () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000),
   });
@@ -959,6 +1383,281 @@ test("Codex collection with malformed stdout fails closed with collector_result_
   const completed = cycle.records.at(-1);
   assert.equal(completed.lanes.find((lane) => lane.lane === "codex").status, "error");
   assert.equal(completed.lanes.find((lane) => lane.lane === "codex").error_code, "collector_result_invalid");
+});
+
+test("Codex collection fails closed and records error when final ledger projection validation fails", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "usage-codex-proj-fail-"));
+  t.after(async () => { await rm(root, { recursive: true, force: true }); });
+  let tick = 0;
+  const now = () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000);
+
+  await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    stateRoot: root,
+    run: async (_node, args) => {
+      if (args[1] === "collect") {
+        return codexCollectResult({
+          sessionFileCount: 1,
+          parsedSessionCount: 1,
+          issueCount: 1,
+          issues: [{ source_ref: "session-a", code: "usage_event_duplicate_conflict" }],
+          observedEventCount: 5,
+          eventCount: 5,
+          persistence: { created: 0, updated: 0, replayed: 5, total_event_count: 5, event_ids: ["e1", "e2", "e3", "e4", "e5"], state_root: root },
+        });
+      }
+      return successfulRun(args);
+    },
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => { throw Object.assign(new Error("snapshot corrupted"), { code: "ledger_projection_invalid" }); },
+    persistCycle: noCycleReceipt,
+    now,
+  });
+
+  const hb = JSON.parse(await readFile(path.join(root, "producer_health", "codex.json"), "utf8"));
+  assert.equal(hb.status, "error");
+  assert.deepEqual(hb.error_codes, ["ledger_projection_invalid"]);
+
+  const rec = JSON.parse(await readFile(path.join(root, "producer_health", "recovery.json"), "utf8"));
+  assert.equal(rec.outcome, "failed");
+  assert.equal(rec.verification_result, "ledger_projection_invalid");
+});
+
+test("Codex collection with mixed safe issues holds backlog as ok without repair or token invention", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "usage-codex-mixed-"));
+  t.after(async () => { await rm(root, { recursive: true, force: true }); });
+  let tick = 0;
+  const now = () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000);
+
+  await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    stateRoot: root,
+    run: async (_node, args) => {
+      if (args[1] === "collect") {
+        return codexCollectResult({
+          sessionFileCount: 2,
+          parsedSessionCount: 2,
+          issueCount: 2,
+          issues: [
+            { source_ref: "session-a", code: "usage_event_duplicate_conflict" },
+            { source_ref: "session-b", code: "usage_counter_regressed" },
+          ],
+          observedEventCount: 10,
+          duplicateEventObservationCount: 0,
+          eventCount: 10,
+          persistence: { created: 0, updated: 0, replayed: 10, total_event_count: 10, event_ids: ["e01", "e02", "e03", "e04", "e05", "e06", "e07", "e08", "e09", "e10"], state_root: root },
+        });
+      }
+      return successfulRun(args);
+    },
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 10 }),
+    persistCycle: noCycleReceipt,
+    now,
+  });
+
+  const hb = JSON.parse(await readFile(path.join(root, "producer_health", "codex.json"), "utf8"));
+  assert.equal(hb.status, "ok");
+  assert.equal(hb.retry_state, "held");
+  assert.equal(hb.backlog_count, 2);
+  assert.deepEqual(hb.safe_issue_codes, ["usage_counter_regressed", "usage_event_duplicate_conflict"]);
+  assert.equal(hb.next_attempt_at, null);
+
+  const rec = JSON.parse(await readFile(path.join(root, "producer_health", "recovery.json"), "utf8"));
+  assert.equal(rec.outcome, "held");
+  assert.equal(rec.action, "none");
+  assert.equal(rec.verification_result, "unresolved_hold");
+  assert.deepEqual(rec.safe_issue_codes, ["usage_counter_regressed", "usage_event_duplicate_conflict"]);
+});
+
+test("Codex self-repair backoff respects next_attempt_at and only increments when due", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "usage-codex-truthful-backoff-"));
+  t.after(async () => { await rm(root, { recursive: true, force: true }); });
+
+  let currentTime = "2026-08-19T00:00:00.000Z";
+  const now = () => new Date(currentTime);
+
+  const mockCollect = async (_node, args) => {
+    if (args[1] === "collect") {
+      return codexCollectResult({
+        sessionFileCount: 1, parsedSessionCount: 1, issueCount: 1,
+        issues: [{ source_ref: "session-a", code: "usage_event_duplicate_conflict" }],
+        observedEventCount: 5, eventCount: 5,
+        persistence: { created: 0, updated: 0, replayed: 5, total_event_count: 5, event_ids: ["e1", "e2", "e3", "e4", "e5"], state_root: root },
+      });
+    }
+    return successfulRun(args);
+  };
+
+  const sweep = async () => runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    stateRoot: root,
+    run: mockCollect,
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: currentTime, events_digest: "a", event_count: 5 }),
+    persistCycle: noCycleReceipt,
+    now,
+  });
+
+  // T = 0m: Initial incident -> attempt 1, next_attempt_at = T + 5m (00:05:00.000Z)
+  currentTime = "2026-08-19T00:00:00.000Z";
+  await sweep();
+  let hb = JSON.parse(await readFile(path.join(root, "producer_health", "codex.json"), "utf8"));
+  assert.equal(hb.status, "ok");
+  assert.equal(hb.retry_state, "retrying");
+  assert.equal(hb.attempt_number, 1);
+  assert.equal(hb.next_attempt_at, "2026-08-19T00:05:00.000Z");
+
+  // T = 2m (< 5m): Intermediate sweep -> attempt remains 1, next_attempt_at remains 00:05:00.000Z
+  currentTime = "2026-08-19T00:02:00.000Z";
+  await sweep();
+  hb = JSON.parse(await readFile(path.join(root, "producer_health", "codex.json"), "utf8"));
+  assert.equal(hb.status, "ok");
+  assert.equal(hb.retry_state, "retrying");
+  assert.equal(hb.attempt_number, 1);
+  assert.equal(hb.next_attempt_at, "2026-08-19T00:05:00.000Z");
+
+  // T = 5m (== next_attempt_at): Due! Advances to attempt 2 -> next_attempt_at = T + 10m (00:15:00.000Z)
+  currentTime = "2026-08-19T00:05:00.000Z";
+  await sweep();
+  hb = JSON.parse(await readFile(path.join(root, "producer_health", "codex.json"), "utf8"));
+  assert.equal(hb.status, "ok");
+  assert.equal(hb.retry_state, "retrying");
+  assert.equal(hb.attempt_number, 2);
+  assert.equal(hb.next_attempt_at, "2026-08-19T00:15:00.000Z");
+
+  // T = 10m (< 15m): Intermediate sweep -> attempt remains 2, next_attempt_at remains 00:15:00.000Z
+  currentTime = "2026-08-19T00:10:00.000Z";
+  await sweep();
+  hb = JSON.parse(await readFile(path.join(root, "producer_health", "codex.json"), "utf8"));
+  assert.equal(hb.status, "ok");
+  assert.equal(hb.attempt_number, 2);
+  assert.equal(hb.next_attempt_at, "2026-08-19T00:15:00.000Z");
+
+  // T = 15m (== next_attempt_at): Due! Advances to attempt 3 -> next_attempt_at = T + 15m (00:30:00.000Z)
+  currentTime = "2026-08-19T00:15:00.000Z";
+  await sweep();
+  hb = JSON.parse(await readFile(path.join(root, "producer_health", "codex.json"), "utf8"));
+  assert.equal(hb.status, "ok");
+  assert.equal(hb.attempt_number, 3);
+  assert.equal(hb.next_attempt_at, "2026-08-19T00:30:00.000Z");
+
+  // T = 30m (== next_attempt_at): Due! Budget (3 attempts) exhausted -> transitions to held, next_attempt_at: null
+  currentTime = "2026-08-19T00:30:00.000Z";
+  await sweep();
+  hb = JSON.parse(await readFile(path.join(root, "producer_health", "codex.json"), "utf8"));
+  assert.equal(hb.status, "ok");
+  assert.equal(hb.retry_state, "held");
+  assert.equal(hb.attempt_number, 3);
+  assert.equal(hb.next_attempt_at, null);
+
+  // T = 35m: Intermediate repeated held sweep -> remains held, history length does NOT increase
+  currentTime = "2026-08-19T00:35:00.000Z";
+  await sweep();
+  hb = JSON.parse(await readFile(path.join(root, "producer_health", "codex.json"), "utf8"));
+  assert.equal(hb.status, "ok");
+  assert.equal(hb.retry_state, "held");
+
+  const recoveryHistory = JSON.parse(await readFile(path.join(root, "producer_health", "recovery-history.json"), "utf8"));
+  assert.equal(recoveryHistory.entries.length, 4);
+  assert.deepEqual(recoveryHistory.entries.map((e) => ({ attempt: e.attempt_number, outcome: e.outcome })), [
+    { attempt: 1, outcome: "retrying" },
+    { attempt: 2, outcome: "retrying" },
+    { attempt: 3, outcome: "retrying" },
+    { attempt: 3, outcome: "held" },
+  ]);
+});
+
+test("recovery log only records cleared on transition from prior backlog and avoids spamming normal operations", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "usage-codex-log-signal-"));
+  t.after(async () => { await rm(root, { recursive: true, force: true }); });
+
+  let tick = 0;
+  const now = () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000);
+
+  const cleanCollect = async (_node, args) => {
+    if (args[1] === "collect") {
+      return codexCollectResult({
+        sessionFileCount: 1, parsedSessionCount: 1, issueCount: 0, issues: [],
+        observedEventCount: 5, eventCount: 5,
+        persistence: { created: 0, updated: 0, replayed: 5, total_event_count: 5, event_ids: ["e1", "e2", "e3", "e4", "e5"], state_root: root },
+      });
+    }
+    return successfulRun(args);
+  };
+
+  const conflictCollect = async (_node, args) => {
+    if (args[1] === "collect") {
+      return codexCollectResult({
+        sessionFileCount: 1, parsedSessionCount: 1, issueCount: 1,
+        issues: [{ source_ref: "session-a", code: "usage_event_duplicate_conflict" }],
+        observedEventCount: 5, eventCount: 5,
+        persistence: { created: 0, updated: 0, replayed: 5, total_event_count: 5, event_ids: ["e1", "e2", "e3", "e4", "e5"], state_root: root },
+      });
+    }
+    return successfulRun(args);
+  };
+
+  // Step 1: Normal steady-state clean sweep with no prior history -> should NOT create recovery log
+  await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    stateRoot: root,
+    run: cleanCollect,
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 5 }),
+    persistCycle: noCycleReceipt,
+    now,
+  });
+
+  const historyFile = path.join(root, "producer_health", "recovery-history.json");
+  let historyExists = true;
+  try {
+    await readFile(historyFile, "utf8");
+  } catch {
+    historyExists = false;
+  }
+  assert.equal(historyExists, false, "steady state clean sweep must not write recovery history");
+
+  // Step 2: Incident occurs (conflict) -> writes 1st history record (retrying)
+  await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    stateRoot: root,
+    run: conflictCollect,
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 5 }),
+    persistCycle: noCycleReceipt,
+    now,
+  });
+  let history = JSON.parse(await readFile(historyFile, "utf8"));
+  assert.equal(history.entries.length, 1);
+  assert.equal(history.entries[0].outcome, "retrying");
+
+  // Step 3: Issue clears on next sweep -> writes 2nd history record (cleared transition)
+  await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    stateRoot: root,
+    run: cleanCollect,
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 5 }),
+    persistCycle: noCycleReceipt,
+    now,
+  });
+  history = JSON.parse(await readFile(historyFile, "utf8"));
+  assert.equal(history.entries.length, 2);
+  assert.equal(history.entries[1].outcome, "cleared");
+
+  // Step 4: Next clean sweep -> history length MUST REMAIN 2 (no spam)
+  await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    stateRoot: root,
+    run: cleanCollect,
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 5 }),
+    persistCycle: noCycleReceipt,
+    now,
+  });
+  history = JSON.parse(await readFile(historyFile, "utf8"));
+  assert.equal(history.entries.length, 2);
 });
 
 test("validateCodexCollectionResult validates exact required counts, schema, issues, summary, and persistence shape", () => {
@@ -1082,4 +1781,720 @@ test("validateCodexCollectionResult validates exact required counts, schema, iss
       `Expected collector_result_invalid for ${name}`
     );
   }
+});
+
+test("isVerifiedRecoveryPersistenceResult validates written latest and accepted history outcome", () => {
+  assert.equal(isVerifiedRecoveryPersistenceResult({ latest_outcome: "written", history_outcome: "created" }), true);
+  assert.equal(isVerifiedRecoveryPersistenceResult({ latest_outcome: "written", history_outcome: "appended" }), true);
+
+  assert.equal(isVerifiedRecoveryPersistenceResult(null), false);
+  assert.equal(isVerifiedRecoveryPersistenceResult(undefined), false);
+  assert.equal(isVerifiedRecoveryPersistenceResult({}), false);
+  assert.equal(isVerifiedRecoveryPersistenceResult({ latest_outcome: "latest_write_failed", history_outcome: "created" }), false);
+  assert.equal(isVerifiedRecoveryPersistenceResult({ latest_outcome: "written", history_outcome: "preserved" }), false);
+  assert.equal(isVerifiedRecoveryPersistenceResult({ latest_outcome: "written", history_outcome: "other" }), false);
+});
+
+test("isVerifiedPersistenceResult validates exact receipt contract test-first", () => {
+  const validPersistence = {
+    created: 0,
+    updated: 0,
+    replayed: 5,
+    total_event_count: 5,
+    event_ids: ["e1", "e2", "e3", "e4", "e5"],
+    state_root: STATE_ROOT,
+  };
+
+  // Valid basic 6-key receipt
+  assert.equal(isVerifiedPersistenceResult(validPersistence, STATE_ROOT), true);
+
+  // Valid with empty issues array (7 keys)
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, issues: [] }, STATE_ROOT), true);
+
+  // Valid with issue rows
+  assert.equal(isVerifiedPersistenceResult({
+    ...validPersistence,
+    issues: [{ source_ref: "session-a.json", code: "usage_event_conflict" }],
+  }, STATE_ROOT), true);
+
+  // Valid all-zero empty receipt (6 keys and 7 keys)
+  assert.equal(isVerifiedPersistenceResult({ created: 0, updated: 0, replayed: 0, event_ids: [], total_event_count: 0, state_root: STATE_ROOT }, STATE_ROOT), true);
+  assert.equal(isVerifiedPersistenceResult({ created: 0, updated: 0, replayed: 0, event_ids: [], total_event_count: 0, state_root: STATE_ROOT, issues: [] }, STATE_ROOT), true);
+
+  // Rejects invalid/non-string/unsafe event_ids entries
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, event_ids: [123] }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, event_ids: ["e1", 123, "e3", "e4", "e5"] }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, event_ids: [""] }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, event_ids: ["path/to/event"] }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, event_ids: ["api_key=secret"] }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, event_ids: ["bearer_token"] }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, event_ids: ["event 1"] }, STATE_ROOT), false);
+
+  // Rejects duplicate and unsorted event_ids
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, replayed: 2, total_event_count: 2, event_ids: ["e1", "e1"] }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, replayed: 2, total_event_count: 2, event_ids: ["e2", "e1"] }, STATE_ROOT), false);
+
+  // Rejects mismatched count (created + updated + replayed !== event_ids.length)
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, created: 1, event_ids: ["e1"] }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, event_ids: ["e1"] }, STATE_ROOT), false);
+
+  // Rejects total_event_count < event_ids.length
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, total_event_count: 3 }, STATE_ROOT), false);
+
+  // Rejects missing required keys
+  for (const key of ["created", "updated", "replayed", "event_ids", "total_event_count", "state_root"]) {
+    const missing = { ...validPersistence };
+    delete missing[key];
+    assert.equal(isVerifiedPersistenceResult(missing, STATE_ROOT), false);
+  }
+
+  // Rejects extra keys
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, extra_key: true }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, issues: [], pending: 1 }, STATE_ROOT), false);
+
+  // Rejects negative, non-safe-integer, non-number counts
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, total_event_count: -1 }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, total_event_count: 1.5 }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, total_event_count: "5" }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, total_event_count: NaN }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, total_event_count: Infinity }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, created: -1 }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, updated: -1 }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, replayed: -1 }, STATE_ROOT), false);
+
+  // Direct helper tests: exact root valid, normalized equivalent path valid
+  const normalizedEquivalent = path.resolve(STATE_ROOT, "sub", "..");
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, state_root: normalizedEquivalent }, STATE_ROOT), true);
+  assert.equal(isVerifiedPersistenceResult(validPersistence, normalizedEquivalent), true);
+
+  // Windows case equivalent valid only on win32
+  if (process.platform === "win32") {
+    const caseEquivalent = STATE_ROOT.toLowerCase() === STATE_ROOT ? STATE_ROOT.toUpperCase() : STATE_ROOT.toLowerCase();
+    assert.equal(isVerifiedPersistenceResult({ ...validPersistence, state_root: caseEquivalent }, STATE_ROOT), true);
+    assert.equal(isVerifiedPersistenceResult(validPersistence, caseEquivalent), true);
+  } else {
+    const upper = "/TEST/STATE/ROOT";
+    const lower = "/test/state/root";
+    assert.equal(isVerifiedPersistenceResult({ ...validPersistence, state_root: upper }, lower), false);
+  }
+
+  // Sibling, parent, child mismatch invalid
+  const parentRoot = path.dirname(STATE_ROOT);
+  const childRoot = path.join(STATE_ROOT, "child");
+  const siblingRoot = path.join(parentRoot, "sibling-root");
+  const alternateRoot = path.resolve(tmpdir(), "other-state-root");
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, state_root: parentRoot }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, state_root: childRoot }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, state_root: siblingRoot }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, state_root: alternateRoot }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult(validPersistence, parentRoot), false);
+  assert.equal(isVerifiedPersistenceResult(validPersistence, childRoot), false);
+  assert.equal(isVerifiedPersistenceResult(validPersistence, siblingRoot), false);
+  assert.equal(isVerifiedPersistenceResult(validPersistence, alternateRoot), false);
+
+  // Missing / non-absolute / invalid expectedStateRoot
+  assert.equal(isVerifiedPersistenceResult(validPersistence, undefined), false);
+  assert.equal(isVerifiedPersistenceResult(validPersistence, null), false);
+  assert.equal(isVerifiedPersistenceResult(validPersistence, ""), false);
+  assert.equal(isVerifiedPersistenceResult(validPersistence, "relative/path"), false);
+  assert.equal(isVerifiedPersistenceResult(validPersistence, 123), false);
+
+  // Rejects invalid state_root
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, state_root: "" }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, state_root: 123 }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, state_root: "relative/path" }, STATE_ROOT), false);
+
+  // Rejects invalid issues
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, issues: "not_array" }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, issues: ["not_object"] }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, issues: [{ code: "usage_event_conflict" }] }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, issues: [{ source_ref: "session-a" }] }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, issues: [{ source_ref: "session-a", code: "usage_event_conflict", extra: true }] }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, issues: [{ source_ref: "/absolute/path", code: "usage_event_conflict" }] }, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({ ...validPersistence, issues: [{ source_ref: "session-a", code: "INVALID ERROR!" }] }, STATE_ROOT), false);
+
+  // Null / undefined / primitive / empty object are invalid
+  assert.equal(isVerifiedPersistenceResult(null, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult(undefined, STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult("invalid", STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult([], STATE_ROOT), false);
+  assert.equal(isVerifiedPersistenceResult({}, STATE_ROOT), false);
+});
+
+test("isConsistentCodexIssues validates empty/empty, exact subset, missing, mismatch, and multiplicity", () => {
+  // Empty / empty valid
+  assert.equal(isConsistentCodexIssues([], []), true);
+  assert.equal(isConsistentCodexIssues([], null), true);
+  assert.equal(isConsistentCodexIssues([], undefined), true);
+
+  // Persistence issue exact subset valid
+  assert.equal(isConsistentCodexIssues(
+    [{ source_ref: "s1", code: "usage_event_conflict" }],
+    [{ source_ref: "s1", code: "usage_event_conflict" }]
+  ), true);
+  assert.equal(isConsistentCodexIssues(
+    [{ source_ref: "parse-err", code: "parse_error" }, { source_ref: "s1", code: "usage_event_conflict" }],
+    [{ source_ref: "s1", code: "usage_event_conflict" }]
+  ), true);
+  assert.equal(isConsistentCodexIssues(
+    [{ source_ref: "s1", code: "usage_event_conflict" }, { source_ref: "s2", code: "other_code" }],
+    [{ source_ref: "s1", code: "usage_event_conflict" }]
+  ), true);
+  assert.equal(isConsistentCodexIssues(
+    [{ source_ref: "s1", code: "c1" }, { source_ref: "s2", code: "c2" }],
+    [{ source_ref: "s2", code: "c2" }, { source_ref: "s1", code: "c1" }]
+  ), true);
+
+  // Persistence issue missing from root invalid (clean root requires empty persistence issues)
+  assert.equal(isConsistentCodexIssues(
+    [],
+    [{ source_ref: "s1", code: "usage_event_conflict" }]
+  ), false);
+  assert.equal(isConsistentCodexIssues(
+    [{ source_ref: "s1", code: "usage_event_conflict" }],
+    [{ source_ref: "s1", code: "usage_event_conflict" }, { source_ref: "s2", code: "other_code" }]
+  ), false);
+
+  // Code / ref mismatch invalid
+  assert.equal(isConsistentCodexIssues(
+    [{ source_ref: "s1", code: "usage_event_conflict" }],
+    [{ source_ref: "s2", code: "usage_event_conflict" }]
+  ), false);
+  assert.equal(isConsistentCodexIssues(
+    [{ source_ref: "s1", code: "usage_event_conflict" }],
+    [{ source_ref: "s1", code: "other_code" }]
+  ), false);
+  assert.equal(isConsistentCodexIssues(
+    [{ source_ref: "s1", code: "c1" }],
+    [{ source_ref: "s2", code: "c2" }]
+  ), false);
+
+  // Duplicate multiplicity mismatch invalid if applicable
+  assert.equal(isConsistentCodexIssues(
+    [{ source_ref: "s1", code: "c1" }],
+    [{ source_ref: "s1", code: "c1" }, { source_ref: "s1", code: "c1" }]
+  ), false);
+  assert.equal(isConsistentCodexIssues(
+    [{ source_ref: "s1", code: "c1" }, { source_ref: "s1", code: "c1" }],
+    [{ source_ref: "s1", code: "c1" }]
+  ), true);
+  assert.equal(isConsistentCodexIssues(
+    [{ source_ref: "s1", code: "c1" }, { source_ref: "s1", code: "c1" }],
+    [{ source_ref: "s1", code: "c1" }, { source_ref: "s1", code: "c1" }]
+  ), true);
+  assert.equal(isConsistentCodexIssues(
+    [{ source_ref: "s1", code: "c1" }, { source_ref: "s1", code: "c1" }],
+    [{ source_ref: "s1", code: "c1" }, { source_ref: "s1", code: "c1" }, { source_ref: "s1", code: "c1" }]
+  ), false);
+
+  // Malformed and invalid input structures
+  assert.equal(isConsistentCodexIssues(null, []), false);
+  assert.equal(isConsistentCodexIssues(undefined, []), false);
+  assert.equal(isConsistentCodexIssues("invalid", []), false);
+  assert.equal(isConsistentCodexIssues([], "invalid"), false);
+  assert.equal(isConsistentCodexIssues([{ source_ref: 123, code: "c1" }], [{ source_ref: 123, code: "c1" }]), false);
+  assert.equal(isConsistentCodexIssues([{ source_ref: "s1", code: null }], [{ source_ref: "s1", code: null }]), false);
+  assert.equal(isConsistentCodexIssues([null], [null]), false);
+  assert.equal(isConsistentCodexIssues([{}], [{}]), false);
+});
+
+test("Codex self-repair fails closed and records error heartbeat when persistRecovery rejects", async () => {
+  const heartbeats = [];
+  const cycle = cycleCollector();
+  let tick = 0;
+  const result = await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    projectRoot: PROJECT_ROOT,
+    stateRoot: STATE_ROOT,
+    run: async (_node, args) => {
+      if (args[1] === "collect") {
+        return codexCollectResult({
+          sessionFileCount: 1,
+          parsedSessionCount: 1,
+          issueCount: 1,
+          issues: [{ source_ref: "session-a", code: "usage_event_duplicate_conflict" }],
+          observedEventCount: 5,
+          duplicateEventObservationCount: 0,
+          eventCount: 5,
+          persistence: { created: 0, updated: 0, replayed: 5, total_event_count: 5, event_ids: ["e1", "e2", "e3", "e4", "e5"], state_root: STATE_ROOT },
+        });
+      }
+      return successfulRun(args);
+    },
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 5 }),
+    persistHeartbeat: async (value) => { heartbeats.push(value); },
+    persistRecovery: async () => { throw new Error("disk_write_failure"); },
+    persistCycle: cycle.persistCycle,
+    now: () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000),
+  });
+
+  const codexHeartbeats = heartbeats.filter(({ lane }) => lane === "codex");
+  assert.ok(codexHeartbeats.length > 0);
+  assert.ok(codexHeartbeats.every((hb) => hb.succeeded === false));
+  assert.equal(codexHeartbeats.at(-1).errorCode, "recovery_receipt_unavailable");
+
+  const completed = cycle.records.at(-1);
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").status, "error");
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").error_code, "recovery_receipt_unavailable");
+});
+
+test("Codex self-repair fails closed and records error heartbeat when persistRecovery returns non-written outcome", async () => {
+  const heartbeats = [];
+  const cycle = cycleCollector();
+  let tick = 0;
+  await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    projectRoot: PROJECT_ROOT,
+    stateRoot: STATE_ROOT,
+    run: async (_node, args) => {
+      if (args[1] === "collect") {
+        return codexCollectResult({
+          sessionFileCount: 1,
+          parsedSessionCount: 1,
+          issueCount: 1,
+          issues: [{ source_ref: "session-a", code: "usage_event_duplicate_conflict" }],
+          observedEventCount: 5,
+          duplicateEventObservationCount: 0,
+          eventCount: 5,
+          persistence: { created: 0, updated: 0, replayed: 5, total_event_count: 5, event_ids: ["e1", "e2", "e3", "e4", "e5"], state_root: STATE_ROOT },
+        });
+      }
+      return successfulRun(args);
+    },
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 5 }),
+    persistHeartbeat: async (value) => { heartbeats.push(value); },
+    persistRecovery: async () => ({ latest_outcome: "latest_write_failed", history_outcome: "preserved" }),
+    persistCycle: cycle.persistCycle,
+    now: () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000),
+  });
+
+  const codexHeartbeats = heartbeats.filter(({ lane }) => lane === "codex");
+  assert.ok(codexHeartbeats.length > 0);
+  assert.ok(codexHeartbeats.every((hb) => hb.succeeded === false));
+  assert.equal(codexHeartbeats.at(-1).errorCode, "recovery_receipt_unavailable");
+
+  const completed = cycle.records.at(-1);
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").status, "error");
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").error_code, "recovery_receipt_unavailable");
+});
+
+test("Codex cleared transition fails closed and records error heartbeat when cleared receipt write fails", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "usage-codex-clear-fail-"));
+  t.after(async () => { await rm(root, { recursive: true, force: true }); });
+  let tick = 0;
+  const now = () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000);
+
+  // Run 1: duplicate conflict -> retrying (succeeds, creating prior backlog heartbeat)
+  await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    stateRoot: root,
+    run: async (_node, args) => {
+      if (args[1] === "collect") {
+        return codexCollectResult({
+          sessionFileCount: 1,
+          parsedSessionCount: 1,
+          issueCount: 1,
+          issues: [{ source_ref: "session-a", code: "usage_event_duplicate_conflict" }],
+          observedEventCount: 5,
+          duplicateEventObservationCount: 0,
+          eventCount: 5,
+          persistence: { created: 0, updated: 0, replayed: 5, total_event_count: 5, event_ids: ["e1", "e2", "e3", "e4", "e5"], state_root: root },
+        });
+      }
+      return successfulRun(args);
+    },
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 5 }),
+    persistCycle: noCycleReceipt,
+    now,
+  });
+
+  let hb = JSON.parse(await readFile(path.join(root, "producer_health", "codex.json"), "utf8"));
+  assert.equal(hb.status, "ok");
+  assert.equal(hb.retry_state, "retrying");
+
+  // Run 2: clean collect, but persistRecovery rejects
+  await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    stateRoot: root,
+    run: async (_node, args) => {
+      if (args[1] === "collect") {
+        return codexCollectResult({
+          sessionFileCount: 1,
+          parsedSessionCount: 1,
+          issueCount: 0,
+          issues: [],
+          observedEventCount: 5,
+          duplicateEventObservationCount: 0,
+          eventCount: 5,
+          persistence: { created: 0, updated: 0, replayed: 5, total_event_count: 5, event_ids: ["e1", "e2", "e3", "e4", "e5"], state_root: root },
+        });
+      }
+      return successfulRun(args);
+    },
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 5 }),
+    persistRecovery: async () => { throw new Error("disk_error"); },
+    persistCycle: noCycleReceipt,
+    now,
+  });
+
+  hb = JSON.parse(await readFile(path.join(root, "producer_health", "codex.json"), "utf8"));
+  assert.equal(hb.status, "error");
+  assert.deepEqual(hb.error_codes, ["recovery_receipt_unavailable"]);
+});
+
+test("runUsageProducerSweep fails closed on persistence with invalid event_ids [123] and performs no quarantine action", async () => {
+  const root = path.join(tmpdir(), `test-companion-sweep-event-id-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  await mkdir(path.join(root, "producer_health"), { recursive: true });
+  const heartbeats = [];
+  const recoveries = [];
+  const cycle = cycleCollector();
+  let tick = 0;
+
+  const result = await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    projectRoot: PROJECT_ROOT,
+    stateRoot: root,
+    run: async (_node, args) => {
+      if (args[1] === "collect") {
+        return codexCollectResult({
+          sessionFileCount: 1,
+          parsedSessionCount: 1,
+          issueCount: 1,
+          issues: [{ source_ref: "session-a", code: "usage_event_duplicate_conflict" }],
+          observedEventCount: 1,
+          duplicateEventObservationCount: 0,
+          eventCount: 1,
+          persistence: {
+            created: 0,
+            updated: 0,
+            replayed: 1,
+            total_event_count: 1,
+            event_ids: [123],
+            state_root: root,
+          },
+        });
+      }
+      return successfulRun(args);
+    },
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 1 }),
+    persistHeartbeat: async (value) => { heartbeats.push(value); },
+    persistRecovery: async ({ record }) => { recoveries.push(record); return { record, latest_outcome: "written", history_outcome: "created", history_reason: null }; },
+    persistCycle: cycle.persistCycle,
+    now: () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000),
+  });
+
+  const codexHeartbeat = heartbeats.find(({ lane }) => lane === "codex");
+  assert.equal(codexHeartbeat.succeeded, false);
+  assert.equal(codexHeartbeat.errorCode, "persistence_invalid");
+
+  const completed = cycle.records.at(-1);
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").status, "error");
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").error_code, "persistence_invalid");
+
+  // Must not claim quarantine_and_continue or retrying
+  assert.equal(recoveries.some((r) => r.action === "quarantine_and_continue"), false);
+  assert.equal(recoveries.some((r) => r.outcome === "retrying"), false);
+  await rm(root, { recursive: true, force: true });
+});
+
+test("runUsageProducerSweep fails closed on persistence state_root mismatch and performs no quarantine action", async () => {
+  const rootA = path.join(tmpdir(), `test-companion-sweep-rootA-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const rootB = path.join(tmpdir(), `test-companion-sweep-rootB-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  await mkdir(path.join(rootA, "producer_health"), { recursive: true });
+  const heartbeats = [];
+  const recoveries = [];
+  const cycle = cycleCollector();
+  let tick = 0;
+
+  const result = await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    projectRoot: PROJECT_ROOT,
+    stateRoot: rootA,
+    run: async (_node, args) => {
+      if (args[1] === "collect") {
+        return codexCollectResult({
+          sessionFileCount: 1,
+          parsedSessionCount: 1,
+          issueCount: 1,
+          issues: [{ source_ref: "session-a", code: "usage_event_duplicate_conflict" }],
+          observedEventCount: 1,
+          duplicateEventObservationCount: 0,
+          eventCount: 1,
+          persistence: {
+            created: 0,
+            updated: 0,
+            replayed: 1,
+            total_event_count: 1,
+            event_ids: ["e1"],
+            state_root: rootB,
+          },
+        });
+      }
+      return successfulRun(args);
+    },
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 1 }),
+    persistHeartbeat: async (value) => { heartbeats.push(value); },
+    persistRecovery: async ({ record }) => { recoveries.push(record); return { record, latest_outcome: "written", history_outcome: "created", history_reason: null }; },
+    persistCycle: cycle.persistCycle,
+    now: () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000),
+  });
+
+  const codexHeartbeat = heartbeats.find(({ lane }) => lane === "codex");
+  assert.equal(codexHeartbeat.succeeded, false);
+  assert.equal(codexHeartbeat.errorCode, "persistence_invalid");
+
+  const completed = cycle.records.at(-1);
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").status, "error");
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").error_code, "persistence_invalid");
+
+  // Must not claim quarantine_and_continue, retrying, held, or ok
+  assert.equal(recoveries.some((r) => r.action === "quarantine_and_continue"), false);
+  assert.equal(recoveries.some((r) => r.outcome === "retrying"), false);
+  assert.equal(recoveries.some((r) => r.outcome === "held"), false);
+  assert.equal(heartbeats.some((hb) => hb.status === "ok" || hb.status === "held" || hb.retry_state === "retrying" || hb.retry_state === "held"), false);
+  await rm(rootA, { recursive: true, force: true });
+});
+
+test("runUsageProducerSweep fails closed on clean collect with missing persistence and never marks ok/clear", async () => {
+  const root = path.join(tmpdir(), `test-companion-sweep-clean-missing-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  await mkdir(path.join(root, "producer_health"), { recursive: true });
+  const heartbeats = [];
+  const recoveries = [];
+  const cycle = cycleCollector();
+  let tick = 0;
+
+  const result = await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    projectRoot: PROJECT_ROOT,
+    stateRoot: root,
+    run: async (_node, args) => {
+      if (args[1] === "collect") {
+        return codexCollectResult({
+          sessionFileCount: 1,
+          parsedSessionCount: 1,
+          issueCount: 0,
+          issues: [],
+          observedEventCount: 5,
+          duplicateEventObservationCount: 0,
+          eventCount: 5,
+          persistence: null,
+        });
+      }
+      return successfulRun(args);
+    },
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 5 }),
+    persistHeartbeat: async (value) => { heartbeats.push(value); },
+    persistRecovery: async ({ record }) => { recoveries.push(record); return { record, latest_outcome: "written", history_outcome: "created", history_reason: null }; },
+    persistCycle: cycle.persistCycle,
+    now: () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000),
+  });
+
+  const codexHeartbeats = heartbeats.filter(({ lane }) => lane === "codex");
+  assert.ok(codexHeartbeats.length > 0);
+  const codexHeartbeat = codexHeartbeats.at(-1);
+  assert.equal(codexHeartbeat.succeeded, false);
+  assert.equal(codexHeartbeat.errorCode, "persistence_missing");
+  assert.equal(heartbeats.some((hb) => hb.lane === "codex" && (hb.succeeded === true || hb.retry_state === "clear" || hb.retry_state === "held" || hb.status === "ok")), false);
+
+  const completed = cycle.records.at(-1);
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").status, "error");
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").error_code, "persistence_missing");
+
+  assert.equal(recoveries.length, 1);
+  assert.equal(recoveries[0].outcome, "failed");
+  assert.equal(recoveries[0].action, "none");
+  assert.equal(recoveries[0].verification_result, "persistence_missing");
+  await rm(root, { recursive: true, force: true });
+});
+
+test("runUsageProducerSweep fails closed on clean collect with invalid event_ids [123] persistence and never marks ok/clear", async () => {
+  const root = path.join(tmpdir(), `test-companion-sweep-clean-event-id-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  await mkdir(path.join(root, "producer_health"), { recursive: true });
+  const heartbeats = [];
+  const recoveries = [];
+  const cycle = cycleCollector();
+  let tick = 0;
+
+  const result = await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    projectRoot: PROJECT_ROOT,
+    stateRoot: root,
+    run: async (_node, args) => {
+      if (args[1] === "collect") {
+        return codexCollectResult({
+          sessionFileCount: 1,
+          parsedSessionCount: 1,
+          issueCount: 0,
+          issues: [],
+          observedEventCount: 1,
+          duplicateEventObservationCount: 0,
+          eventCount: 1,
+          persistence: {
+            created: 0,
+            updated: 0,
+            replayed: 1,
+            total_event_count: 1,
+            event_ids: [123],
+            state_root: root,
+          },
+        });
+      }
+      return successfulRun(args);
+    },
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 1 }),
+    persistHeartbeat: async (value) => { heartbeats.push(value); },
+    persistRecovery: async ({ record }) => { recoveries.push(record); return { record, latest_outcome: "written", history_outcome: "created", history_reason: null }; },
+    persistCycle: cycle.persistCycle,
+    now: () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000),
+  });
+
+  const codexHeartbeats = heartbeats.filter(({ lane }) => lane === "codex");
+  assert.ok(codexHeartbeats.length > 0);
+  const codexHeartbeat = codexHeartbeats.at(-1);
+  assert.equal(codexHeartbeat.succeeded, false);
+  assert.equal(codexHeartbeat.errorCode, "persistence_invalid");
+  assert.equal(heartbeats.some((hb) => hb.lane === "codex" && (hb.succeeded === true || hb.retry_state === "clear" || hb.retry_state === "held" || hb.status === "ok")), false);
+
+  const completed = cycle.records.at(-1);
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").status, "error");
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").error_code, "persistence_invalid");
+
+  assert.equal(recoveries.length, 1);
+  assert.equal(recoveries[0].outcome, "failed");
+  assert.equal(recoveries[0].action, "none");
+  assert.equal(recoveries[0].verification_result, "persistence_invalid");
+  await rm(root, { recursive: true, force: true });
+});
+
+test("runUsageProducerSweep fails closed on clean collect with persistence state_root mismatch and never marks ok/clear", async () => {
+  const rootA = path.join(tmpdir(), `test-companion-sweep-clean-rootA-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const rootB = path.join(tmpdir(), `test-companion-sweep-clean-rootB-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  await mkdir(path.join(rootA, "producer_health"), { recursive: true });
+  const heartbeats = [];
+  const recoveries = [];
+  const cycle = cycleCollector();
+  let tick = 0;
+
+  const result = await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    projectRoot: PROJECT_ROOT,
+    stateRoot: rootA,
+    run: async (_node, args) => {
+      if (args[1] === "collect") {
+        return codexCollectResult({
+          sessionFileCount: 1,
+          parsedSessionCount: 1,
+          issueCount: 0,
+          issues: [],
+          observedEventCount: 1,
+          duplicateEventObservationCount: 0,
+          eventCount: 1,
+          persistence: {
+            created: 0,
+            updated: 0,
+            replayed: 1,
+            total_event_count: 1,
+            event_ids: ["e1"],
+            state_root: rootB,
+          },
+        });
+      }
+      return successfulRun(args);
+    },
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 1 }),
+    persistHeartbeat: async (value) => { heartbeats.push(value); },
+    persistRecovery: async ({ record }) => { recoveries.push(record); return { record, latest_outcome: "written", history_outcome: "created", history_reason: null }; },
+    persistCycle: cycle.persistCycle,
+    now: () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000),
+  });
+
+  const codexHeartbeats = heartbeats.filter(({ lane }) => lane === "codex");
+  assert.ok(codexHeartbeats.length > 0);
+  const codexHeartbeat = codexHeartbeats.at(-1);
+  assert.equal(codexHeartbeat.succeeded, false);
+  assert.equal(codexHeartbeat.errorCode, "persistence_invalid");
+  assert.equal(heartbeats.some((hb) => hb.lane === "codex" && (hb.succeeded === true || hb.retry_state === "clear" || hb.retry_state === "held" || hb.status === "ok")), false);
+
+  const completed = cycle.records.at(-1);
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").status, "error");
+  assert.equal(completed.lanes.find((lane) => lane.lane === "codex").error_code, "persistence_invalid");
+
+  assert.equal(recoveries.length, 1);
+  assert.equal(recoveries[0].outcome, "failed");
+  assert.equal(recoveries[0].action, "none");
+  assert.equal(recoveries[0].verification_result, "persistence_invalid");
+  await rm(rootA, { recursive: true, force: true });
+});
+
+test("runUsageProducerSweep fails closed on contradiction: root issues [] but persistence.issues nonempty and never marks ok/clear/retry/held", async () => {
+  const root = path.join(tmpdir(), `test-companion-sweep-contradiction-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  await mkdir(path.join(root, "producer_health"), { recursive: true });
+  const heartbeats = [];
+  const recoveries = [];
+  const cycle = cycleCollector();
+  let tick = 0;
+
+  const result = await runUsageProducerSweep({
+    repoRoot: REPO_ROOT,
+    projectRoot: PROJECT_ROOT,
+    stateRoot: root,
+    run: async (_node, args) => {
+      if (args[1] === "collect") {
+        return codexCollectResult({
+          sessionFileCount: 1,
+          parsedSessionCount: 1,
+          issueCount: 0,
+          issues: [],
+          observedEventCount: 5,
+          duplicateEventObservationCount: 0,
+          eventCount: 5,
+          persistence: {
+            created: 0,
+            updated: 0,
+            replayed: 5,
+            total_event_count: 5,
+            event_ids: ["e1", "e2", "e3", "e4", "e5"],
+            state_root: root,
+            issues: [{ source_ref: "session-a", code: "usage_event_conflict" }],
+          },
+        });
+      }
+      return successfulRun(args);
+    },
+    loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-19T00:00:00.000Z", events_digest: "a", event_count: 5 }),
+    persistHeartbeat: async (value) => { heartbeats.push(value); },
+    persistRecovery: async ({ record }) => { recoveries.push(record); return { record, latest_outcome: "written", history_outcome: "created", history_reason: null }; },
+    persistCycle: cycle.persistCycle,
+    now: () => new Date(Date.parse("2026-08-19T00:00:00.000Z") + (tick++) * 1_000),
+  });
+
+  const codexHeartbeats = heartbeats.filter(({ lane }) => lane === "codex");
+  assert.ok(codexHeartbeats.length > 0);
+  const codexHeartbeat = codexHeartbeats.at(-1);
+  assert.equal(codexHeartbeat.succeeded, false);
+  assert.equal(codexHeartbeat.errorCode === "collector_result_invalid" || codexHeartbeat.errorCode === "persistence_invalid", true);
+  assert.equal(heartbeats.some((hb) => hb.lane === "codex" && (hb.succeeded === true || hb.retry_state === "clear" || hb.retry_state === "retrying" || hb.retry_state === "held" || hb.status === "ok")), false);
+
+  const completed = cycle.records.at(-1);
+  const codexCycleLane = completed.lanes.find((lane) => lane.lane === "codex");
+  assert.equal(codexCycleLane.status, "error");
+  assert.equal(codexCycleLane.error_code === "collector_result_invalid" || codexCycleLane.error_code === "persistence_invalid", true);
+
+  assert.equal(recoveries.length, 1);
+  assert.equal(recoveries[0].outcome, "failed");
+  assert.equal(recoveries[0].action, "none");
+  assert.equal(recoveries[0].verification_result === "collector_result_invalid" || recoveries[0].verification_result === "persistence_invalid", true);
+  assert.equal(recoveries.some((r) => r.action === "quarantine_and_continue"), false);
+  assert.equal(recoveries.some((r) => r.outcome === "retrying" || r.outcome === "held" || r.outcome === "cleared"), false);
+  await rm(root, { recursive: true, force: true });
 });

@@ -436,29 +436,35 @@ export async function runProbe(probe, { now, run_schtasks: runSchtasks }) {
   let activityNextAt;
   if (record !== null && typeof probe.activity_field === "string") {
     const observedActivityState = fieldPath(record, probe.activity_field);
-    if (!probe.activity_values.includes(observedActivityState)) {
-      reasons.push("activity_state_invalid");
-      activityState = null;
-    } else {
-      activityState = observedActivityState;
-    }
-    if (typeof probe.activity_count_field === "string") {
-      const observedActivityCount = fieldPath(record, probe.activity_count_field);
-      if (!Number.isSafeInteger(observedActivityCount) || observedActivityCount < 0) {
-        reasons.push("activity_count_invalid");
+    if (observedActivityState !== undefined && observedActivityState !== null) {
+      if (!probe.activity_values.includes(observedActivityState)) {
+        reasons.push("activity_state_invalid");
+        activityState = null;
       } else {
-        activityCount = observedActivityCount;
+        activityState = observedActivityState;
       }
-    }
-    if (typeof probe.activity_next_at_field === "string") {
-      const observedActivityNextAt = fieldPath(record, probe.activity_next_at_field);
-      if (observedActivityNextAt === null) {
-        activityNextAt = null;
-      } else if (typeof observedActivityNextAt !== "string"
-        || !Number.isFinite(Date.parse(observedActivityNextAt))) {
-        reasons.push("activity_next_at_invalid");
-      } else {
-        activityNextAt = observedActivityNextAt;
+      if (typeof probe.activity_count_field === "string") {
+        const observedActivityCount = fieldPath(record, probe.activity_count_field);
+        if (observedActivityCount !== undefined && observedActivityCount !== null) {
+          if (!Number.isSafeInteger(observedActivityCount) || observedActivityCount < 0) {
+            reasons.push("activity_count_invalid");
+          } else {
+            activityCount = observedActivityCount;
+          }
+        }
+      }
+      if (typeof probe.activity_next_at_field === "string") {
+        const observedActivityNextAt = fieldPath(record, probe.activity_next_at_field);
+        if (observedActivityNextAt === null) {
+          activityNextAt = null;
+        } else if (observedActivityNextAt !== undefined) {
+          if (typeof observedActivityNextAt !== "string"
+            || !Number.isFinite(Date.parse(observedActivityNextAt))) {
+            reasons.push("activity_next_at_invalid");
+          } else {
+            activityNextAt = observedActivityNextAt;
+          }
+        }
       }
     }
   }

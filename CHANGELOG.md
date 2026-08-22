@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-08-22 - AI usage collector self-repair, truthful backoff, and bounded recovery retention
+
+- Added deterministic safe self-repair and bounded recovery history retention to AI usage collector companion (`ui-workspace/apps/team-ops-board/ops/ai-usage-producer-companion.mjs`). Allowlisted duplicate/merge conflicts with verified non-conflicting persistence and verified final ledger projection maintain an `ok` collector heartbeat with `retry_state: "retrying"`, advancing attempt number truthfully up to 3 consecutive budget attempts with exponential backoff before transitioning to `held`.
+- Defer/finalize Codex collector heartbeat and recovery receipts until after final ledger projection verification (`current.json`) is confirmed; invalid/failed ledger projections fail closed to error/HOLD.
+- Non-repairable parse anomalies (e.g. `usage_counter_regressed`, `session_meta_missing`) with verified persistence and verified projection are held as `ok` with `retry_state: "held"`, `action: "none"`, `verification_result: "unresolved_hold"`, without guessing or fabricating tokens.
+- Recovery history retention is strictly bounded to 50 records (128 KB max) and only logs clean transitions from active incidents, preserving incident signal during normal operation.
+- Updated `guild_hall/watchtower/recovery_diagnostics.mjs` so `quarantine_and_continue` requires verified persistence, bounded recovery receipt, and healthy-with-backlog projection.
+
 ## 2026-08-22 - Agent Observation P0 result-gate preparation, retention bound, hold-code unification
 
 - Added `guild_hall/agent_observation/result_gate_preparation.mjs`. It prepares result-gate

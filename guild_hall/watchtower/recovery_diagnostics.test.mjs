@@ -29,7 +29,14 @@ const VALID_CASES = [
   },
   {
     name: "usage_event_duplicate_conflict with quarantine_and_continue",
-    input: { kind: "usage_conflict", conflict_count: 2, clean_event_count: 10 },
+    input: {
+      kind: "usage_conflict",
+      conflict_count: 2,
+      clean_event_count: 10,
+      persistence_verified: true,
+      recovery_receipt_present: true,
+      projection_verified: true,
+    },
     expected: {
       failure_family: "usage_event_duplicate_conflict",
       diagnostic_code: "usage_event_duplicate_conflict",
@@ -40,7 +47,49 @@ const VALID_CASES = [
         "isolate_conflicting_groups",
         "persist_non_conflicting_events",
         "emit_quarantine_issue",
-        "heartbeat_error_status",
+        "bounded_recovery_receipt",
+        "healthy_with_backlog_projection",
+      ],
+    },
+  },
+  {
+    name: "usage_event_duplicate_conflict unverified persistence requires owner action",
+    input: {
+      kind: "usage_conflict",
+      conflict_count: 2,
+      clean_event_count: 10,
+      persistence_verified: false,
+    },
+    expected: {
+      failure_family: "usage_event_duplicate_conflict",
+      diagnostic_code: "usage_event_duplicate_conflict",
+      disposition: "owner_action_required",
+      action_class: "owner_gate",
+      proposed_action: "owner_revalidate_receipt",
+      verification_requirements: [
+        "isolate_conflicting_groups",
+        "persist_non_conflicting_events",
+        "fresh_producer_evidence",
+      ],
+    },
+  },
+  {
+    name: "usage_event_duplicate_conflict with missing evidence fields requires owner action",
+    input: {
+      kind: "usage_conflict",
+      conflict_count: 2,
+      clean_event_count: 10,
+    },
+    expected: {
+      failure_family: "usage_event_duplicate_conflict",
+      diagnostic_code: "usage_event_duplicate_conflict",
+      disposition: "owner_action_required",
+      action_class: "owner_gate",
+      proposed_action: "owner_revalidate_receipt",
+      verification_requirements: [
+        "isolate_conflicting_groups",
+        "persist_non_conflicting_events",
+        "fresh_producer_evidence",
       ],
     },
   },

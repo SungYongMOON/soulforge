@@ -111,7 +111,7 @@ function healthyEnvelope(failureFamily) {
 
 const ALLOWED_INPUT_KEYS = Object.freeze({
   scheduled_task: new Set(["kind", "bound_digest", "observed_digest", "exists", "enabled", "state"]),
-  usage_conflict: new Set(["kind", "conflict_count", "conflicted_event_ids", "clean_event_count"]),
+  usage_conflict: new Set(["kind", "conflict_count", "conflicted_event_ids", "clean_event_count", "persistence_verified", "recovery_receipt_present", "projection_verified"]),
   standing_receipt: new Set(["kind", "contract_id", "status", "category", "auto_renew_valid"]),
   auth_refresh: new Set(["kind", "error_code", "status", "retryable"]),
 });
@@ -192,6 +192,13 @@ function classifyScheduledTask(evidence) {
 function classifyUsageConflict(evidence) {
   const conflictCount = Number.isSafeInteger(evidence.conflict_count) ? evidence.conflict_count : 0;
   if (conflictCount > 0) {
+    if (evidence.persistence_verified !== true || evidence.projection_verified !== true || evidence.recovery_receipt_present !== true) {
+      return ownerGateEnvelope("usage_event_duplicate_conflict", "usage_event_duplicate_conflict", "owner_revalidate_receipt", [
+        "isolate_conflicting_groups",
+        "persist_non_conflicting_events",
+        "fresh_producer_evidence",
+      ]);
+    }
     return buildEnvelope({
       failureFamily: "usage_event_duplicate_conflict",
       diagnosticCode: "usage_event_duplicate_conflict",
@@ -202,7 +209,8 @@ function classifyUsageConflict(evidence) {
         "isolate_conflicting_groups",
         "persist_non_conflicting_events",
         "emit_quarantine_issue",
-        "heartbeat_error_status",
+        "bounded_recovery_receipt",
+        "healthy_with_backlog_projection",
       ],
     });
   }

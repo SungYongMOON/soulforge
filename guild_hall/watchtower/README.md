@@ -56,9 +56,9 @@
 - `status_field`가 `ok_values` 밖이면 열화(`status_<value>`),
   `degrade_when`의 수치 초과도 열화(`count_<field>_<value>`).
 - A probe may expose an informational `activity_field` plus optional bounded
-  count/next-at fields. For the Hiworks forwarder this separates collector
-  liveness from its `retrying|held` queue: the node may remain healthy while the
-  queue stays visible, and invalid activity metadata fails closed.
+  count/next-at fields. For the Hiworks forwarder and AI usage collectors this separates
+  collector liveness from its `retrying|held` backlog: the node may remain healthy while the
+  backlog stays visible, and invalid activity metadata fails closed.
 - `resident_task`가 지정된 노드는 stale일 때 schtasks 상태로 정지 여부를
   구분한다(`task_not_running` → down).
 - probe가 없는 구조 노드는 이유 코드가 있는 `unmonitored`다. provider source는
