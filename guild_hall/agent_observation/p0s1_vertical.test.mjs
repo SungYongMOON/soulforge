@@ -265,6 +265,43 @@ test('a HOLD result carries no raw key, path or credential either', () => {
   }
 });
 
+
+test('a hidden or proxied fixture field cannot reach the p0s1 Board row', () => {
+  const hidden = Object.defineProperty({ ...P0S1_SYNTHETIC_FIXTURE }, 'organization_group_id', {
+    value: 'sk-abcdefgh12345678', enumerable: false, configurable: true,
+  });
+  const hiddenResult = runP0S1Vertical(hidden);
+  assert.equal(hiddenResult.status, 'HOLD');
+  assert.deepEqual(holdCodes(hiddenResult), [V.SECRET_VALUE_FORBIDDEN]);
+  assert.equal(hiddenResult.board_rows.length, 0);
+
+  let reads = 0;
+  const moving = Object.defineProperty({ ...P0S1_SYNTHETIC_FIXTURE }, 'organization_group_id', {
+    enumerable: false,
+    configurable: true,
+    get() { reads += 1; return reads > 1 ? 'sk-PAYLOADabcdefgh' : 'org-synthetic-development1'; },
+  });
+  const movingResult = runP0S1Vertical(moving);
+  assert.equal(movingResult.status, 'HOLD');
+  assert.deepEqual(holdCodes(movingResult), [V.ACCESSOR_PROPERTY_FORBIDDEN]);
+  assert.equal(reads, 0);
+
+  let gets = 0;
+  const proxied = new Proxy({ ...P0S1_SYNTHETIC_FIXTURE }, {
+    get(target, key, receiver) {
+      if (key === 'organization_group_id') {
+        gets += 1;
+        return gets > 1 ? 'sk-PROXYPAYLOAD123' : 'org-synthetic-development1';
+      }
+      return Reflect.get(target, key, receiver);
+    },
+  });
+  const proxiedResult = runP0S1Vertical(proxied);
+  assert.equal(proxiedResult.status, 'PASS');
+  assert.equal(gets, 0, 'the lying trap must never fire');
+  assert.equal(proxiedResult.board_rows[0].organization_group_id, 'org-synthetic-development1');
+});
+
 test('the vertical module opens no external effect surface', () => {
   const source = readFileSync(new URL('./p0s1_vertical.mjs', import.meta.url), 'utf8');
   assert.equal(source.includes('\u0000'), false, 'must stay plain text for grep-based validators');

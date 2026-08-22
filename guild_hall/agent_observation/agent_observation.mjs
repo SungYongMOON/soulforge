@@ -26,6 +26,7 @@ export const OBSERVATION_HOLD_CODES = Object.freeze({
   SECRET_VALUE_FORBIDDEN: 'SECRET_VALUE_FORBIDDEN',
   LOCAL_PATH_VALUE_FORBIDDEN: 'LOCAL_PATH_VALUE_FORBIDDEN',
   INPUT_TOO_DEEP: 'INPUT_TOO_DEEP',
+  ACCESSOR_PROPERTY_FORBIDDEN: 'ACCESSOR_PROPERTY_FORBIDDEN',
   INVALID_FIELD_VALUE: 'INVALID_FIELD_VALUE',
   UNKNOWN_STORE: 'UNKNOWN_STORE',
   UNKNOWN_PROJECT: 'UNKNOWN_PROJECT',
@@ -58,6 +59,7 @@ const ENTRY_CODES = Object.freeze({
   secret: H.SECRET_VALUE_FORBIDDEN,
   localPath: H.LOCAL_PATH_VALUE_FORBIDDEN,
   tooDeep: H.INPUT_TOO_DEEP,
+  accessor: H.ACCESSOR_PROPERTY_FORBIDDEN,
 });
 
 export const AGENT_KINDS = Object.freeze(['project_isolated_functional', 'shared_capability', 'tool_specialist_craftsman', 'resource_controller']);
@@ -149,11 +151,12 @@ export function createObservationStore() {
   return store;
 }
 
-export function registerAgent(store, input) {
+export function registerAgent(store, rawInput) {
   const state = stateOf(store);
   if (state === undefined) return hold(H.UNKNOWN_STORE);
-  const guard = guardEntry(input, FIELDS.agent, ENTRY_CODES);
-  if (guard !== null) return guard;
+  const guarded = guardEntry(rawInput, FIELDS.agent, ENTRY_CODES);
+  if (guarded.status === 'HOLD') return guarded;
+  const input = guarded.value;
 
   if (!isSafeId(input.agent_id)) return hold(H.INVALID_FIELD_VALUE, 'agent_id');
   if (input.project_id === null || input.project_id === undefined || input.project_id === '') return hold(H.UNKNOWN_PROJECT);
@@ -209,11 +212,12 @@ export function registerAgent(store, input) {
   return { status: 'REGISTERED', agent_id: input.agent_id, record: written.record };
 }
 
-export function observeRun(store, input) {
+export function observeRun(store, rawInput) {
   const state = stateOf(store);
   if (state === undefined) return hold(H.UNKNOWN_STORE);
-  const guard = guardEntry(input, FIELDS.run, ENTRY_CODES);
-  if (guard !== null) return guard;
+  const guarded = guardEntry(rawInput, FIELDS.run, ENTRY_CODES);
+  if (guarded.status === 'HOLD') return guarded;
+  const input = guarded.value;
 
   if (!isSafeId(input.run_id)) return hold(H.INVALID_FIELD_VALUE, 'run_id');
   if (!isSafeId(input.agent_id)) return hold(H.INVALID_FIELD_VALUE, 'agent_id');
@@ -277,11 +281,12 @@ export function observeRun(store, input) {
   return { status: written.status === 'NO_OP' ? 'NO_OP' : 'OBSERVED', run_id: input.run_id, record: written.record };
 }
 
-export function recordDirectUsage(store, input) {
+export function recordDirectUsage(store, rawInput) {
   const state = stateOf(store);
   if (state === undefined) return hold(H.UNKNOWN_STORE);
-  const guard = guardEntry(input, FIELDS.usage, ENTRY_CODES);
-  if (guard !== null) return guard;
+  const guarded = guardEntry(rawInput, FIELDS.usage, ENTRY_CODES);
+  if (guarded.status === 'HOLD') return guarded;
+  const input = guarded.value;
 
   if (!isSafeId(input.event_id)) return hold(H.INVALID_FIELD_VALUE, 'event_id');
   if (input.attribution_kind !== 'direct') return hold(H.CHILD_USAGE_MERGE_FORBIDDEN);
@@ -339,11 +344,12 @@ export function recordDirectUsage(store, input) {
   return { status: written.status === 'NO_OP' ? 'NO_OP' : 'RECORDED', event_id: input.event_id, record: written.record };
 }
 
-export function recordResultReceipt(store, input) {
+export function recordResultReceipt(store, rawInput) {
   const state = stateOf(store);
   if (state === undefined) return hold(H.UNKNOWN_STORE);
-  const guard = guardEntry(input, FIELDS.receipt, ENTRY_CODES);
-  if (guard !== null) return guard;
+  const guarded = guardEntry(rawInput, FIELDS.receipt, ENTRY_CODES);
+  if (guarded.status === 'HOLD') return guarded;
+  const input = guarded.value;
 
   if (!isSafeId(input.receipt_id)) return hold(H.INVALID_FIELD_VALUE, 'receipt_id');
   if (!isSafeId(input.run_id)) return hold(H.INVALID_FIELD_VALUE, 'run_id');
@@ -416,13 +422,13 @@ function descendantRunIds(state, runId) {
   return seen;
 }
 
-export function projectUsageRollup(store, request) {
+export function projectUsageRollup(store, rawRequest) {
   const state = stateOf(store);
   if (state === undefined) return hold(H.UNKNOWN_STORE);
-  if (!isPlainObject(request)) return hold(H.INVALID_FIELD_VALUE, 'request');
-  const guard = guardEntry(request, ROLLUP_REQUEST_FIELDS, ENTRY_CODES);
-  if (guard !== null) return guard;
-  const runId = request.run_id;
+  if (!isPlainObject(rawRequest)) return hold(H.INVALID_FIELD_VALUE, 'request');
+  const guarded = guardEntry(rawRequest, ROLLUP_REQUEST_FIELDS, ENTRY_CODES);
+  if (guarded.status === 'HOLD') return guarded;
+  const runId = guarded.value.run_id;
   if (!isSafeId(runId)) return hold(H.INVALID_FIELD_VALUE, 'run_id');
   // A typo must read as unknown, never as "this manager used nothing".
   if (!state.runs.has(runId)) return hold(H.UNKNOWN_RUN);

@@ -21,6 +21,7 @@ export const JOB_SHOP_HOLD_CODES = Object.freeze({
   SECRET_VALUE_FORBIDDEN: 'SECRET_VALUE_FORBIDDEN',
   LOCAL_PATH_VALUE_FORBIDDEN: 'LOCAL_PATH_VALUE_FORBIDDEN',
   INPUT_TOO_DEEP: 'INPUT_TOO_DEEP',
+  ACCESSOR_PROPERTY_FORBIDDEN: 'ACCESSOR_PROPERTY_FORBIDDEN',
   INVALID_FIELD_VALUE: 'INVALID_FIELD_VALUE',
   UNKNOWN_SHOP: 'UNKNOWN_SHOP',
   UNKNOWN_HOST: 'UNKNOWN_HOST',
@@ -52,6 +53,7 @@ const ENTRY_CODES = Object.freeze({
   secret: H.SECRET_VALUE_FORBIDDEN,
   localPath: H.LOCAL_PATH_VALUE_FORBIDDEN,
   tooDeep: H.INPUT_TOO_DEEP,
+  accessor: H.ACCESSOR_PROPERTY_FORBIDDEN,
 });
 
 const FIELDS = Object.freeze({
@@ -103,11 +105,12 @@ export function createJobShop() {
   return shop;
 }
 
-export function registerHost(shop, input) {
+export function registerHost(shop, rawInput) {
   const state = stateOf(shop);
   if (state === undefined) return hold(H.UNKNOWN_SHOP);
-  const guard = guardEntry(input, FIELDS.host, ENTRY_CODES);
-  if (guard !== null) return guard;
+  const guarded = guardEntry(rawInput, FIELDS.host, ENTRY_CODES);
+  if (guarded.status === 'HOLD') return guarded;
+  const input = guarded.value;
   if (!isSafeId(input.host_id)) return hold(H.INVALID_FIELD_VALUE, 'host_id');
   if (!HEALTH_STATES.includes(input.health)) return hold(H.INVALID_FIELD_VALUE, 'health');
   if (!isSafeIdList(input.capability_kinds)) return hold(H.INVALID_FIELD_VALUE, 'capability_kinds');
@@ -137,11 +140,12 @@ export function registerHost(shop, input) {
   return { status: 'REGISTERED', host_id: input.host_id };
 }
 
-export function registerResource(shop, input) {
+export function registerResource(shop, rawInput) {
   const state = stateOf(shop);
   if (state === undefined) return hold(H.UNKNOWN_SHOP);
-  const guard = guardEntry(input, FIELDS.resource, ENTRY_CODES);
-  if (guard !== null) return guard;
+  const guarded = guardEntry(rawInput, FIELDS.resource, ENTRY_CODES);
+  if (guarded.status === 'HOLD') return guarded;
+  const input = guarded.value;
   if (!isSafeId(input.resource_id)) return hold(H.INVALID_FIELD_VALUE, 'resource_id');
   if (!isSafeId(input.host_id)) return hold(H.INVALID_FIELD_VALUE, 'host_id');
   const host = state.hosts.get(input.host_id);
@@ -183,11 +187,12 @@ export function registerResource(shop, input) {
   return { status: 'REGISTERED', resource_id: input.resource_id };
 }
 
-export function observeResourceHealth(shop, input) {
+export function observeResourceHealth(shop, rawInput) {
   const state = stateOf(shop);
   if (state === undefined) return hold(H.UNKNOWN_SHOP);
-  const guard = guardEntry(input, FIELDS.resourceHealth, ENTRY_CODES);
-  if (guard !== null) return guard;
+  const guarded = guardEntry(rawInput, FIELDS.resourceHealth, ENTRY_CODES);
+  if (guarded.status === 'HOLD') return guarded;
+  const input = guarded.value;
   if (!isSafeId(input.resource_id)) return hold(H.INVALID_FIELD_VALUE, 'resource_id');
   const existing = state.resources.get(input.resource_id);
   if (existing === undefined) return hold(H.UNKNOWN_RESOURCE);
@@ -207,11 +212,12 @@ export function observeResourceHealth(shop, input) {
   return { status: 'UPDATED', resource_id: input.resource_id, health: input.health };
 }
 
-export function submitJob(shop, input) {
+export function submitJob(shop, rawInput) {
   const state = stateOf(shop);
   if (state === undefined) return hold(H.UNKNOWN_SHOP);
-  const guard = guardEntry(input, FIELDS.job, ENTRY_CODES);
-  if (guard !== null) return guard;
+  const guarded = guardEntry(rawInput, FIELDS.job, ENTRY_CODES);
+  if (guarded.status === 'HOLD') return guarded;
+  const input = guarded.value;
   if (!isSafeId(input.job_id)) return hold(H.INVALID_FIELD_VALUE, 'job_id');
   if (!isSafeId(input.resource_id)) return hold(H.INVALID_FIELD_VALUE, 'resource_id');
   const resource = state.resources.get(input.resource_id);
@@ -292,11 +298,12 @@ function nextQueuedJob(state, resourceId) {
   return best;
 }
 
-export function acquireLease(shop, input) {
+export function acquireLease(shop, rawInput) {
   const state = stateOf(shop);
   if (state === undefined) return hold(H.UNKNOWN_SHOP);
-  const guard = guardEntry(input, FIELDS.acquire, ENTRY_CODES);
-  if (guard !== null) return guard;
+  const guarded = guardEntry(rawInput, FIELDS.acquire, ENTRY_CODES);
+  if (guarded.status === 'HOLD') return guarded;
+  const input = guarded.value;
   if (!isSafeId(input.resource_id)) return hold(H.INVALID_FIELD_VALUE, 'resource_id');
   const resource = state.resources.get(input.resource_id);
   if (resource === undefined) return hold(H.UNKNOWN_RESOURCE);
@@ -334,11 +341,12 @@ export function acquireLease(shop, input) {
   return { status: 'GRANTED', job_id: job.job_id, lease: Object.freeze({ ...lease }) };
 }
 
-export function completeJob(shop, input) {
+export function completeJob(shop, rawInput) {
   const state = stateOf(shop);
   if (state === undefined) return hold(H.UNKNOWN_SHOP);
-  const guard = guardEntry(input, FIELDS.complete, ENTRY_CODES);
-  if (guard !== null) return guard;
+  const guarded = guardEntry(rawInput, FIELDS.complete, ENTRY_CODES);
+  if (guarded.status === 'HOLD') return guarded;
+  const input = guarded.value;
   if (!isSafeId(input.lease_id)) return hold(H.INVALID_FIELD_VALUE, 'lease_id');
   if (!isSafeId(input.job_id)) return hold(H.INVALID_FIELD_VALUE, 'job_id');
   if (!isSafeRef(input.result_ref)) return hold(H.INVALID_FIELD_VALUE, 'result_ref');
@@ -379,11 +387,12 @@ export function completeJob(shop, input) {
   return { status: 'COMPLETED', job_id: job.job_id, result_ref: input.result_ref };
 }
 
-export function releaseLease(shop, input) {
+export function releaseLease(shop, rawInput) {
   const state = stateOf(shop);
   if (state === undefined) return hold(H.UNKNOWN_SHOP);
-  const guard = guardEntry(input, FIELDS.release, ENTRY_CODES);
-  if (guard !== null) return guard;
+  const guarded = guardEntry(rawInput, FIELDS.release, ENTRY_CODES);
+  if (guarded.status === 'HOLD') return guarded;
+  const input = guarded.value;
   if (!isSafeId(input.lease_id)) return hold(H.INVALID_FIELD_VALUE, 'lease_id');
   const lease = state.leases.get(input.lease_id);
   if (lease === undefined) return hold(H.UNKNOWN_LEASE);
@@ -422,6 +431,9 @@ export function projectJobShop(shop, options = {}) {
     if (lease.state === 'active' && !leaseIsActive(lease, nowMs)) reclaimable.add(lease.job_id);
   }
 
+  // Per-job ledger rows, so a consumer can read what a job actually recorded instead of
+  // inferring it from a dispatch list.
+  const jobs = [];
   let queueDepth = 0;
   let leasedCount = 0;
   let recordedCompletions = 0;
@@ -431,12 +443,22 @@ export function projectJobShop(shop, options = {}) {
     if (job.state === 'queued' || reclaimable.has(job.job_id)) queueDepth += 1;
     else if (job.state === 'leased') leasedCount += 1;
     recordedCompletions += job.recorded_completions;
+    jobs.push(Object.freeze({
+      job_id: job.job_id,
+      resource_id: job.resource_id,
+      project_id: job.project_id,
+      priority: job.priority,
+      state: job.state,
+      result_ref: job.result_ref,
+      recorded_completions: job.recorded_completions,
+    }));
   }
 
   return {
     status: 'PROJECTED',
     hosts: [...state.hosts.values()].map((host) => ({ host_id: host.host_id, health: host.health, capability_kinds: [...host.capability_kinds] })),
     resources,
+    jobs,
     queue_depth: queueDepth,
     leased_count: leasedCount,
     // Completions actually recorded through the fenced writer. This is a ledger count, not proof

@@ -37,6 +37,7 @@ export const VERTICAL_HOLD_CODES = Object.freeze({
   SECRET_VALUE_FORBIDDEN: 'SECRET_VALUE_FORBIDDEN',
   LOCAL_PATH_VALUE_FORBIDDEN: 'LOCAL_PATH_VALUE_FORBIDDEN',
   INPUT_TOO_DEEP: 'INPUT_TOO_DEEP',
+  ACCESSOR_PROPERTY_FORBIDDEN: 'ACCESSOR_PROPERTY_FORBIDDEN',
   INVALID_FIELD_VALUE: 'INVALID_FIELD_VALUE',
   UNSAFE_DISPLAY_LABEL: 'UNSAFE_DISPLAY_LABEL',
 });
@@ -47,6 +48,7 @@ const ENTRY_CODES = Object.freeze({
   secret: V.SECRET_VALUE_FORBIDDEN,
   localPath: V.LOCAL_PATH_VALUE_FORBIDDEN,
   tooDeep: V.INPUT_TOO_DEEP,
+  accessor: V.ACCESSOR_PROPERTY_FORBIDDEN,
 });
 
 const FIXTURE_KEYS = Object.freeze([
@@ -130,8 +132,8 @@ const DECLARED_EFFECT_BOUNDARY = Object.freeze({
 });
 
 function guardParticipant(spec, label) {
-  const guard = guardEntry(spec, PARTICIPANT_KEYS, ENTRY_CODES);
-  if (guard !== null) return { ...guard, detail: `${label}.${guard.detail ?? 'value'}` };
+  const guarded = guardEntry(spec, PARTICIPANT_KEYS, ENTRY_CODES);
+  if (guarded.status === 'HOLD') return { ...guarded, detail: `${label}.${guarded.detail ?? 'value'}` };
   for (const key of ['agent_id', 'project_id', 'run_id', 'task_id', 'work_unit_id', 'provider', 'model_id', 'reasoning_effort', 'usage_event_id', 'functional_role']) {
     if (!isSafeId(spec[key])) return hold(V.INVALID_FIELD_VALUE, `${label}.${key}`);
   }
@@ -160,9 +162,10 @@ function guardParticipant(spec, label) {
   return null;
 }
 
-function guardFixture(fixture) {
-  const guard = guardEntry(fixture, FIXTURE_KEYS, ENTRY_CODES);
-  if (guard !== null) return guard;
+function guardFixture(rawFixture) {
+  const guarded = guardEntry(rawFixture, FIXTURE_KEYS, ENTRY_CODES);
+  if (guarded.status === 'HOLD') return guarded;
+  const fixture = guarded.value;
   for (const key of FLAG_KEYS) {
     if (fixture[key] !== undefined && typeof fixture[key] !== 'boolean') return hold(V.INVALID_FIELD_VALUE, key);
   }
@@ -191,7 +194,9 @@ function guardFixture(fixture) {
   if (!QUEUE_PRIORITIES.includes(fixture.job.priority)) return hold(V.INVALID_FIELD_VALUE, 'job.priority');
   if (!Number.isSafeInteger(fixture.job.submitted_seq) || fixture.job.submitted_seq < 0) return hold(V.INVALID_FIELD_VALUE, 'job.submitted_seq');
 
-  return guardParticipant(fixture.requester, 'requester') ?? guardParticipant(fixture.craftsman, 'craftsman');
+  return guardParticipant(fixture.requester, 'requester')
+    ?? guardParticipant(fixture.craftsman, 'craftsman')
+    ?? { status: 'OK', value: fixture };
 }
 
 const agentPayload = (spec, kind, projectId, allowedActions, at) => ({
@@ -251,9 +256,12 @@ function emptyResult(holds) {
   };
 }
 
-export function runP0S1Vertical(fixture) {
-  const fixtureGuard = guardFixture(fixture);
-  if (fixtureGuard !== null) return emptyResult([{ step: 'guard_fixture', hold_code: fixtureGuard.hold_code, detail: fixtureGuard.detail ?? null }]);
+export function runP0S1Vertical(rawFixture) {
+  const fixtureGuard = guardFixture(rawFixture);
+  if (fixtureGuard.status === 'HOLD') {
+    return emptyResult([{ step: 'guard_fixture', hold_code: fixtureGuard.hold_code, detail: fixtureGuard.detail ?? null }]);
+  }
+  const fixture = fixtureGuard.value;
 
   const holds = [];
   const note = (step, result) => {

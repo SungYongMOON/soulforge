@@ -368,6 +368,60 @@ test('an expired lease is fenced out and the fenced attempt is counted', () => {
   assert.equal(view.fenced_completion_attempt_count, 1, 'the stale worker attempt is recorded, not silently dropped');
 });
 
+test('a zombie lease cannot re-record an already completed job', () => {
+  const shop = readyShop();
+  submitJob(shop, jobInput());
+  assert.equal(lease(shop, 'lease-1', T0, 1_000).status, 'GRANTED');
+  const reclaim = lease(shop, 'lease-2', T0 + 2_000);
+  assert.equal(reclaim.status, 'GRANTED');
+  assert.equal(completeJob(shop, {
+    lease_id: 'lease-2', job_id: 'job-synthetic-0001',
+    result_ref: 'artifact://synthetic/fresh', now_ms: T0 + 2_100,
+  }).status, 'COMPLETED');
+
+  // The crashed worker wakes up and writes the same result, then a different one. Both are the
+  // wrong epoch, so both are fenced rather than replayed or reported as a result conflict.
+  const same = completeJob(shop, {
+    lease_id: 'lease-1', job_id: 'job-synthetic-0001',
+    result_ref: 'artifact://synthetic/fresh', now_ms: T0 + 2_200,
+  });
+  assert.equal(same.hold_code, C.LEASE_FENCED_OUT);
+  const different = completeJob(shop, {
+    lease_id: 'lease-1', job_id: 'job-synthetic-0001',
+    result_ref: 'artifact://synthetic/zombie', now_ms: T0 + 2_300,
+  });
+  assert.equal(different.hold_code, C.LEASE_FENCED_OUT);
+
+  const view = projectJobShop(shop);
+  assert.equal(view.recorded_completion_count, 1);
+  assert.equal(view.duplicate_completion_hold_count, 0, 'a fenced write is not a result conflict');
+  assert.ok(view.fenced_completion_attempt_count >= 2);
+});
+
+test('the job ledger rows expose the identity a consumer needs', () => {
+  const shop = readyShop();
+  submitJob(shop, jobInput({ job_id: 'job-a', priority: 'high', submitted_seq: 1 }));
+  submitJob(shop, jobInput({ job_id: 'job-b', priority: 'normal', submitted_seq: 2 }));
+  const granted = lease(shop, 'lease-1', T0);
+  completeJob(shop, { lease_id: 'lease-1', job_id: granted.job_id, result_ref: 'artifact://synthetic/a', now_ms: T0 + 1 });
+
+  const rows = projectJobShop(shop).jobs;
+  assert.equal(rows.length, 2);
+  const done = rows.find((row) => row.job_id === 'job-a');
+  assert.equal(done.project_id, 'proj-synthetic-alpha');
+  assert.equal(done.resource_id, 'res-spreadsheet-01');
+  assert.equal(done.priority, 'high');
+  assert.equal(done.state, 'completed');
+  assert.equal(done.result_ref, 'artifact://synthetic/a');
+  assert.equal(done.recorded_completions, 1);
+
+  const queued = rows.find((row) => row.job_id === 'job-b');
+  assert.equal(queued.state, 'queued');
+  assert.equal(queued.result_ref, null);
+  assert.equal(queued.recorded_completions, 0);
+  assert.equal(Object.isFrozen(queued), true);
+});
+
 test('a released lease cannot later record a completion', () => {
   const shop = readyShop();
   submitJob(shop, jobInput());

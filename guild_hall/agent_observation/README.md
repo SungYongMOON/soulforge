@@ -1,8 +1,8 @@
 # Agent Observation — provider-neutral agent/run/usage/receipt와 Tool Job Shop 계약
 
 이 owner는 Soulforge가 여러 provider의 agent 실행을 하나의 provider-neutral 계약으로
-관찰하기 위한 결정론 pure module을 소유한다. 현재 범위는 P0-S1 smallest vertical이며
-public-safe synthetic fixture만 사용한다.
+관찰하기 위한 결정론 pure module을 소유한다. 현재 범위는 P0-S1 smallest vertical과
+P0-S2 three-project job shop이며 public-safe synthetic fixture만 사용한다.
 
 이 owner는 usage token 수집기가 아니다. Codex/Claude/Antigravity token 수집과 rate card는
 계속 [`../ai_usage_meter/`](../ai_usage_meter/)가 소유한다. 여기서는 provider가 무엇이든
@@ -17,6 +17,7 @@ public-safe synthetic fixture만 사용한다.
 | `agent_observation.mjs` | Agent Registry, Run Observation, Usage Ledger, Result/Delivery Receipt와 usage rollup projection |
 | `resource_job_shop.mjs` | Host/Resource Registry, 3단계 priority queue, lease/fencing, capacity |
 | `p0s1_vertical.mjs` | P0-S1 smallest vertical 합성 fixture와 결정론 실행 결과 |
+| `p0s2_job_shop.mjs` | P0-S2 three-project job shop: Context Capsule 계약, 3 project 동시 제출, crash/reclaim/replay 시나리오 |
 
 guard는 한쪽 module에만 존재할 수 없도록 `guard_primitives.mjs` 하나에서만 정의한다.
 
@@ -31,6 +32,8 @@ guard는 한쪽 module에만 존재할 수 없도록 `guard_primitives.mjs` 하�
 - `soulforge.agent_observation.job_record.v1`
 - `soulforge.agent_observation.lease_record.v1`
 - `soulforge.agent_observation.p0s1_vertical_result.v1`
+- `soulforge.agent_observation.p0s2_job_shop_result.v1`
+- `soulforge.agent_observation.context_capsule.v1`
 
 ## 경계
 
@@ -59,7 +62,20 @@ guard는 한쪽 module에만 존재할 수 없도록 `guard_primitives.mjs` 하�
   통과해야 하므로 문자열 payload 자체가 들어올 수 없다.
 - guard는 own enumerable property만 훑는다. 그래서 prototype에 얹혀 온 payload는 scan을 통째로
   건너뛸 수 있었고, 이제 입력의 prototype이 `Object.prototype`이나 `null`이 아니면 거부한다.
-- 어떤 hold detail에도 caller가 정한 문자열을 넣지 않는다. 모든 detail은 고정 literal이다.
+- 어떤 hold `detail`에도 caller가 정한 문자열을 넣지 않는다. 모든 detail은 고정 literal이다.
+  P0-S2의 `holds[].step`은 예외로 project ID를 담는데, 이 값은 safe ID 문법과 entry guard의
+  secret·경로 scan을 이미 통과한 값이다.
+- 각 진입점은 입력을 먼저 스냅샷한 뒤 그 스냅샷만 검증하고 그 스냅샷에서만 record를 만든다.
+  스냅샷은 `Object.getOwnPropertyNames`로 own property를 **한 번씩만** 읽으므로 비열거 속성이
+  숨을 수 없고, getter가 있으면 호출하지 않고 `ACCESSOR_PROPERTY_FORBIDDEN`으로 거부하며,
+  Proxy의 `get` trap은 애초에 발동하지 않는다. 따라서 guard가 본 값과 record에 들어가는 값이
+  다를 수 없다.
+- P0-S2의 capsule과 Board row는 observation store의 record family가 아니므로 이 module이
+  `auditProjectionPrivacy`로 따로 감사하고 그 결과를 `privacy`에 합산한다. 두 성분은
+  `privacy_sources`에 나눠 실린다. 현재 fixture 집합에서는 두 성분 모두 0이지만, 이는 guard가
+  막고 있어서지 구조적으로 0이 될 수밖에 없어서가 아니다. 실제로 accessor guard가 열거 가능한
+  속성만 보던 시절에는 이 감사가 credential 형태 값을 잡아냈다. 감사는 guard가 뚫렸을 때의
+  backstop이고, 함수 자체는 일부러 나쁜 projection을 넣어 검증한다.
 - 알 수 없는 key 이름은 hold detail로 되돌려 주지 않는다. key 이름은 producer가 정하므로
   `sk-`로 시작하는 credential처럼 safe ID 문법을 통과하는 값도 있다. hold code가 이미 unknown
   field임을 알려주므로 이름 자체는 `unknown_key_name_withheld`로 가린다.
@@ -73,6 +89,8 @@ guard는 한쪽 module에만 존재할 수 없도록 `guard_primitives.mjs` 하�
   repo의 기존 path-policy validator 범위와 맞춘 것이다. 그 밖의 root(`usr`, `proc` 등)는 잡지
   않는다. 실제 패턴은 `guard_primitives.mjs`의 `LOCAL_PATH_VALUE`가 소유하고,
   테스트는 문자열을 조각에서 조립해 검증하므로 저장소에는 literal 절대경로가 남지 않는다.
+- read-only projection 중 `projectUsageRollup`과 `measureProjectIsolation`은 malformed 입력을
+  HOLD로 닫고, `projectJobShop`은 key allowlist만 쓴다.
 - privacy counter는 write guard와 같은 predicate를 공유한다. 따라서 guard가 놓치는 모양은
   counter도 놓친다. counter는 guard가 실제로 걸러냈음을 확인하는 값이지 독립 측정이 아니다.
 - title, cwd, prefix, similarity, age로 identity·parent·project를 추정하지 않는다. observation
@@ -189,7 +207,9 @@ fencing epoch가 어긋난 lease의 완료 시도는 `LEASE_FENCED_OUT`이고 �
 
 정확히 무엇이 보장되는지 구분한다.
 
-- 보장: 같은 job에 대해 **기록된 완료(`recorded_completion_count`)는 1회**다. 같은 결과의
+- 보장: 같은 job에 대해 **기록된 완료(`recorded_completion_count`)는 1회를 넘지 않는다**.
+  timeout처럼 완료가 아예 기록되지 않는 경로도 있으므로 "정확히 1회"가 아니라 "1회 초과 없음"이
+  실제 불변식이다. 같은 결과의
   재완료는 `NO_OP`, 다른 결과는 `JOB_RESULT_CONFLICT`이며 후자는
   `duplicate_completion_hold_count`로 센다.
 - 미보장: craftsman의 **실제 부수효과가 물리적으로 1회 실행됐다**는 것. 느린 worker가 죽지
@@ -222,14 +242,64 @@ resource나 host의 health가 `ok`가 아니면 lease를 주지 않는다
 반영하려면 `projectJobShop(shop, { now_ms })`처럼 명시 clock을 넘긴다. 이 module은
 자체 clock을 읽지 않는다.
 
+## Context Capsule
+
+Agent는 장기맥락을 소유하지 않는다. 한 WorkUnit에 필요한 최소 project context만
+Context Capsule로 들고 있으며, capsule은 다음을 모두 만족해야 바인딩된다.
+
+- `authority_class`는 `cache_only`이고 `not_authority`는 `true`다. 둘 중 하나라도 다르면
+  `CAPSULE_NOT_A_CACHE`다. capsule은 효율용 working cache이지 정본이 아니다.
+- `expires_at`이 있어야 하고 이미 지났으면 `CAPSULE_EXPIRED`다.
+- `project_id`가 바인딩 대상 project와 다르면 `CAPSULE_PROJECT_MISMATCH`,
+  `work_unit_id`가 다르면 `CAPSULE_WORK_UNIT_MISMATCH`다.
+- `source_refs`는 ref만 담는다. source body를 넣으면 key allowlist에서 걸린다.
+
+capsule은 ERP 세계수를 대체하지 않는다. 장기 Project Context 정본은 여전히 ERP 세계수이고
+이 module은 그 정본을 읽거나 쓰지 않는다.
+
+## P0-S2 three-project job shop
+
+`runP0S2JobShop(fixture)`는 서로 다른 3개 project가 capacity 1인 Spreadsheet resource 하나에
+동시에 job을 넣는 상황을 결정론적으로 재현한다. 시계를 읽지 않으므로 같은 fixture는 항상 같은
+결과를 낸다.
+
+- 제출 순서는 alpha, beta, gamma이고 dispatch 순서는 beta(긴급), gamma(높음), alpha(일반)다.
+  두 순서가 다르므로 제출 순서만으로는 dispatch를 설명할 수 없다. 다만 이 fixture는 tier마다
+  job이 하나씩이라 dispatch는 strict priority만으로 완전히 결정된다. 같은 tier 안의 FIFO는
+  이 slice가 아니라 `resource_job_shop.test.mjs`의 다섯 job dispatch 테스트가 증명한다.
+- 일반 우선순위 job은 유한한 batch가 빠진 뒤 마지막으로 실행된다. 이는 starvation-free 주장이
+  아니라 유한 batch에서의 동작이며, aging이 없다는 사실은 job shop 절에 그대로 적혀 있다.
+- 첫 worker는 완료 없이 TTL을 넘겨 crash한다. 재획득은 더 높은 fencing epoch를 받고, 죽은
+  worker의 완료 시도는 `LEASE_FENCED_OUT`으로 거부돼 `fenced_completion_attempt_count`에 잡힌다.
+  같은 완료를 다시 보내면 `NO_OP`다. 그래서 crash·reclaim·replay·timeout을 모두 거쳐도 job당
+  기록된 완료는 1회를 넘지 않는다.
+- `isolation`은 저장된 record 위에서 계산한다. `measureProjectIsolation`은 store handle이 아니라
+  평범한 record 배열을 받으므로 일부러 어긋난 입력으로 측정 자체를 검증할 수 있고, 실제로 그렇게
+  검증한다. 측정 축은 capsule 바인딩, parent link, usage 귀속 세 가지뿐이고 receipt·job 축은
+  없다. 다만 결과에 실리는 `result.isolation` 값 자체는 구조상 항상 0이다. capsule 바인딩,
+  `observeRun`, `recordDirectUsage`가 각각 상류에서 불일치를 거부하므로 이 실행 경로에서는
+  불일치한 record가 저장될 수 없다. 이 측정은 나중에 그 guard를 우회하는 producer가 생겼을 때를
+  위한 것이지, 지금 무언가를 잡아내고 있다는 뜻이 아니다.
+- `counts.leases_granted`는 실제로 발급된 lease 수다. crash 뒤 재획득이 있으면 dispatch 라운드
+  수보다 크다.
+- `per_project`의 `completion_count`와 `result_ref`는 job 원장에서 되읽는다. lease가 발급됐다는
+  사실은 완료가 아니므로, dispatch됐지만 기록된 완료가 없는 job은 `per_project`에 들어가지 않고
+  `counts.dispatched_without_completion`으로만 보인다.
+- 두 project가 같은 `delivery_receipt_id`를 선언하면 fixture guard가
+  `DUPLICATE_DELIVERY_RECEIPT_ID`로 거부하고, `artifact_ref`·`work_unit_id`·`capsule_id`를
+  공유하면 `DUPLICATE_PROJECT_IDENTIFIER`로 거부한다. 셋 다 소비자 투영에서 project binding이
+  넘어가는 경로다. 실제로 cross-project 통과를 막는 것은 이 guard다.
+  delivery receipt 조회가 receipt ID뿐 아니라 craftsman run·agent·receipt kind까지 맞추는 것은
+  그 위의 defence in depth이며, 현재 입력 범위에서는 ID만으로도 결과가 같다.
+
 ## 검증
 
 ```powershell
 npm.cmd run validate:agent-observation
 ```
 
-이 validator는 네 개 구현 module의 syntax check와 네 개 test 파일의 focused deterministic
-test를 실행한다.
+이 validator는 다섯 개 구현 module의 syntax check와 다섯 개 test 파일의 focused
+deterministic test를 실행한다.
 위 경계 문장은 각각 대응하는 test를 가지며, `guard_primitives.test.mjs`는 로컬 경로·secret·label
 규칙의 개별 alternative를 하나씩 검증한다. 개발 중 guard 제거 probe로 테스트 강도를 확인했지만
 그 harness는 저장소에 포함되지 않으므로 여기서 coverage 점수를 주장하지 않는다. 검증 가능한 것은

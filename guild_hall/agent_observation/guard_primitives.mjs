@@ -123,7 +123,7 @@ export const findUnknownKeyDeep = (value, allowedKeys) => scanKeys(value, allowe
 // `every` skips array holes, so a sparse list would pass and store an undefined element. Comparing
 // key count to length is not enough on its own: one extra non-index own property restores the
 // count the hole removed. Each index must actually be present.
-function isDenseArray(list) {
+export function isDenseArray(list) {
   if (!Array.isArray(list)) return false;
   // `every` and friends skip holes, so the indices have to be walked explicitly.
   for (let index = 0; index < list.length; index += 1) {
@@ -152,9 +152,52 @@ export function deepFreeze(value) {
   return value;
 }
 
-// Shared entry guard: reject an unknown key, then any secret value, then any local path value.
-// Order matters so the most specific reason is reported.
-export function guardEntry(input, allowedKeys, codes) {
+export const ACCESSOR_FOUND = Symbol('soulforge.agent_observation.accessor_found');
+
+function snapshotValue(value, depth) {
+  if (depth > MAX_SCAN_DEPTH) return TOO_DEEP;
+  if (value === null || typeof value !== 'object') return value;
+
+  if (Array.isArray(value)) {
+    const copy = new Array(value.length);
+    for (let index = 0; index < value.length; index += 1) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, index);
+      // A hole is left as a hole so the dense checks downstream still see and reject it.
+      if (descriptor === undefined) continue;
+      if (descriptor.get !== undefined || descriptor.set !== undefined) return ACCESSOR_FOUND;
+      const copied = snapshotValue(descriptor.value, depth + 1);
+      if (copied === TOO_DEEP || copied === ACCESSOR_FOUND) return copied;
+      copy[index] = copied;
+    }
+    return copy;
+  }
+
+  if (!isPlainObject(value)) return value;
+  const copy = {};
+  // Own property NAMES, not keys: a non-enumerable property is still an own property, and it would
+  // otherwise be invisible to the scans while remaining readable by the record builder.
+  for (const name of Object.getOwnPropertyNames(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, name);
+    if (descriptor === undefined) continue;
+    if (descriptor.get !== undefined || descriptor.set !== undefined) return ACCESSOR_FOUND;
+    const copied = snapshotValue(descriptor.value, depth + 1);
+    if (copied === TOO_DEEP || copied === ACCESSOR_FOUND) return copied;
+    copy[name] = copied;
+  }
+  return copy;
+}
+
+// Reads every own property exactly once, through its descriptor, into a fresh plain structure.
+// Validation and record building then both read that structure, so a getter or a Proxy trap cannot
+// show the guard one value and the builder another, and a non-enumerable property cannot hide.
+export const snapshotInput = (value) => snapshotValue(value, 0);
+
+// Shared entry guard. It snapshots first, then validates the snapshot, and returns that
+// snapshot for the caller to build from. Returns `{ status: 'OK', value }` or a hold.
+export function guardEntry(rawInput, allowedKeys, codes) {
+  const input = snapshotInput(rawInput);
+  if (input === TOO_DEEP) return hold(codes.tooDeep);
+  if (input === ACCESSOR_FOUND) return hold(codes.accessor);
   if (!isPlainObject(input)) return hold(codes.unknownField, 'input_not_object');
   const extra = unknownKeyIn(input, allowedKeys);
   if (extra !== null) return hold(codes.unknownField, extra);
@@ -164,5 +207,5 @@ export function guardEntry(input, allowedKeys, codes) {
   const localPath = findLocalPath(input);
   if (localPath === TOO_DEEP) return hold(codes.tooDeep);
   if (localPath !== null) return hold(codes.localPath);
-  return null;
+  return { status: 'OK', value: input };
 }

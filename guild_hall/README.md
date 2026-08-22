@@ -21,8 +21,9 @@
   local ledger/dashboard/CSV, and portable MCP query/binding adapter; no conversation payload capture
 - `agent_observation/`: provider-neutral durable agent identity와 provider-native ID crosswalk,
   run 관찰, direct usage 귀속과 self/child/subtree rollup, result/delivery receipt,
-  그리고 host/resource queue·lease·capacity의 Tool Job Shop 계약. pure in-memory
-  deterministic module이며 token 수집기·writer가 아니다
+  host/resource queue·lease·capacity의 Tool Job Shop 계약, 그리고 한 WorkUnit 범위의
+  비정본 Context Capsule 계약. pure in-memory deterministic module이며 token 수집기·writer가
+  아니고 장기 Project Context 정본도 아니다
 - `file_activity/`: multi-PC project file observation packets, single-primary logical-file/revision reconciliation,
   monthly metadata receipts/events, checkpoint-only rebuild, bounded life-tree projection helper,
   and feature-OFF H04 project-history adapter

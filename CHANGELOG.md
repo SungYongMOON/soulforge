@@ -1,5 +1,44 @@
 # CHANGELOG
 
+## 2026-08-22 - Agent Observation P0-S2 three-project job shop
+
+- Added `guild_hall/agent_observation/p0s2_job_shop.mjs`: three different projects submit one
+  spreadsheet job each against a single capacity-1 resource, prepared independently and dispatched
+  by priority then FIFO.
+- Added the Context Capsule contract. A capsule is the minimum project context an agent holds for one
+  work unit: it must declare itself a non-authoritative cache with an expiry, must match both the
+  project and the work unit it is bound for, and carries refs rather than source bodies. It does not
+  replace the ERP world tree, which remains the sole authority for long-term project context.
+- Submission order and dispatch order deliberately differ, so submission order alone does not
+  explain the result. With one job per tier the dispatch is fully determined by strict priority;
+  FIFO inside a tier is proven by the existing five-job job-shop test, not by this fixture. The
+  lowest-priority job still runs once the finite batch drains; this is not a starvation-free
+  claim, and the absence of aging remains documented.
+- The first worker crashes: its lease reaches TTL with no completion, the job is reclaimed at a
+  higher fencing epoch, the dead worker's completion is refused and counted, and a replay of the
+  fresh completion is a no-op. Across crash, reclaim, replay and timeout no job records more than
+  one completion; the timeout path records none for the job it never dispatches, so "exactly one"
+  would overstate it.
+- Per-project completion count and result ref are read back from the job ledger, so a granted lease
+  is never reported as a completion, and the delivery-receipt lookup is scoped to that project's own
+  craftsman run and agent. Two projects declaring the same delivery receipt id are refused.
+- Every entry point snapshots its input first, validates the snapshot, and builds the record from
+  that snapshot. The snapshot reads each own property exactly once through its descriptor, so a
+  non-enumerable property cannot hide from the scans, a getter is refused without being invoked,
+  and a Proxy `get` trap never fires. The capsule and Board row families this slice adds are
+  audited by this module and folded into the reported `privacy`, since the observation store's own
+  audit covers only its four record families.
+- Cross-project isolation is measured over the stored records rather than asserted, and the
+  measurement takes plain record arrays so it can be run against deliberately inconsistent input
+  and shown to detect it. The value reported on this path is structurally always zero, because the
+  upstream guards refuse every inconsistency before it can be stored; the measurement exists for a
+  future producer that bypasses them.
+- 운영 영향: 새 명령 표면은 없다. 기존 `npm run validate:agent-observation` 하나가 그대로 이
+  module까지 검증한다. 전부 pure in-memory이며 실제 Excel 앱, external provider, project payload,
+  ERP 세계수 write, Board enrollment write, result gate write, 파일 쓰기, network는 모두 0이다.
+  이번 수락도 public deterministic candidate이며 이 module set을 import하는 owner는 아직 없다.
+- 관련 경로: `guild_hall/agent_observation/**`, `package.json`.
+
 ## 2026-08-22 - Agent Observation P0-S1 smallest vertical
 
 - Added the new `guild_hall/agent_observation/` owner with provider-neutral Agent Registry,

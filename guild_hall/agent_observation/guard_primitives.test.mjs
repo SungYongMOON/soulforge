@@ -32,6 +32,7 @@ const CODES = Object.freeze({
   secret: 'SECRET_VALUE_FORBIDDEN',
   localPath: 'LOCAL_PATH_VALUE_FORBIDDEN',
   tooDeep: 'INPUT_TOO_DEEP',
+  accessor: 'ACCESSOR_PROPERTY_FORBIDDEN',
 });
 
 test('every local absolute path alternative is detected, including the ones only docs mention', () => {
@@ -155,6 +156,67 @@ const nest = (depth) => {
   return value;
 };
 
+
+test('the snapshot sees own properties the enumerable scans would miss', () => {
+  // A non-enumerable own property is invisible to Object.keys but perfectly readable afterwards,
+  // so the guard has to walk own property names, not keys.
+  const hidden = Object.defineProperty({ a: 'clean-value' }, 'b', {
+    value: 'Bearer abcdefgh12345678', enumerable: false, configurable: true,
+  });
+  assert.equal(guardEntry(hidden, ['a', 'b'], CODES).hold_code, CODES.secret);
+  assert.equal(guardEntry(hidden, ['a'], CODES).hold_code, CODES.unknownField);
+});
+
+test('a getter is refused without ever being invoked', () => {
+  let reads = 0;
+  const enumerable = Object.defineProperty({}, 'a', {
+    enumerable: true, configurable: true, get() { reads += 1; return 'clean-value'; },
+  });
+  assert.equal(guardEntry(enumerable, ['a'], CODES).hold_code, CODES.accessor);
+
+  const nonEnumerable = Object.defineProperty({ a: 'clean-value' }, 'b', {
+    enumerable: false, configurable: true, get() { reads += 1; return 'clean-value'; },
+  });
+  assert.equal(guardEntry(nonEnumerable, ['a', 'b'], CODES).hold_code, CODES.accessor);
+
+  const nested = { a: { deep: Object.defineProperty({}, 'x', { enumerable: true, get() { reads += 1; return 'v'; } }) } };
+  assert.equal(guardEntry(nested, ['a'], CODES).hold_code, CODES.accessor);
+
+  // An array index is an own property too, so an accessor can hide at a list position.
+  const list = ['clean-value'];
+  Object.defineProperty(list, 1, { enumerable: true, configurable: true, get() { reads += 1; return 'v'; } });
+  assert.equal(guardEntry({ a: list }, ['a'], CODES).hold_code, CODES.accessor);
+  assert.equal(reads, 0, 'a rejected accessor must never be evaluated');
+});
+
+test('a proxy cannot show the guard one value and the caller another', () => {
+  let gets = 0;
+  const proxy = new Proxy({ a: 'clean-value' }, {
+    get(target, key, receiver) {
+      if (key === 'a') { gets += 1; return gets > 1 ? 'Bearer abcdefgh12345678' : 'clean-value'; }
+      return Reflect.get(target, key, receiver);
+    },
+  });
+  const guarded = guardEntry(proxy, ['a'], CODES);
+  assert.equal(guarded.status, 'OK');
+  // The snapshot reads through property descriptors, so the lying `get` trap never fires and the
+  // value the caller builds from is the target value the guard actually validated.
+  assert.equal(gets, 0);
+  assert.equal(guarded.value.a, 'clean-value');
+  guarded.value.a = 'mutated';
+  assert.equal(guardEntry(proxy, ['a'], CODES).value.a, 'clean-value', 'the snapshot is a copy');
+});
+
+test('the snapshot is a detached copy, so later mutation of the input cannot change it', () => {
+  const source = { a: 'clean-value', nested: { b: 'also-clean' } };
+  const guarded = guardEntry(source, ['a', 'nested'], CODES);
+  assert.equal(guarded.status, 'OK');
+  source.a = 'Bearer abcdefgh12345678';
+  source.nested.b = 'Bearer abcdefgh12345678';
+  assert.equal(guarded.value.a, 'clean-value');
+  assert.equal(guarded.value.nested.b, 'also-clean');
+});
+
 test('a value deeper than the scan bound fails closed instead of blowing the stack', () => {
   assert.equal(findSecret(nest(MAX_SCAN_DEPTH + 5)), TOO_DEEP);
   assert.equal(findLocalPath(nest(MAX_SCAN_DEPTH + 5)), TOO_DEEP);
@@ -199,11 +261,13 @@ test('the shared entry guard reports the most specific reason in a fixed order',
   const carrier = { a: 'Bearer abcdefgh12345678' };
   assert.equal(guardEntry(carrier, ['a'], CODES).hold_code, CODES.secret);
   assert.equal(guardEntry(Object.create(carrier), ['a'], CODES).hold_code, CODES.unknownField);
-  assert.equal(guardEntry(Object.create(null), ['a'], CODES), null, 'a null prototype is still plain');
+  assert.equal(guardEntry(Object.create(null), ['a'], CODES).status, 'OK', 'a null prototype is still plain');
   assert.equal(guardEntry({ b: 1 }, ['a'], CODES).hold_code, CODES.unknownField);
   assert.equal(guardEntry({ a: 'Bearer abcdef0123456789' }, ['a'], CODES).hold_code, CODES.secret);
   assert.equal(guardEntry({ a: fileUri('C:', 'x') }, ['a'], CODES).hold_code, CODES.localPath);
-  assert.equal(guardEntry({ a: 'clean-value' }, ['a'], CODES), null);
+  const ok = guardEntry({ a: 'clean-value' }, ['a'], CODES);
+  assert.equal(ok.status, 'OK');
+  assert.deepEqual(ok.value, { a: 'clean-value' });
 
   // A value that matches both scans pins the order: swapping them would report the path code.
   const both = `Bearer abcdefgh12345678 ${fileUri('C:', 'Users', 'user', 'x')}`;
