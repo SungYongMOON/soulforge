@@ -354,7 +354,9 @@ export function createAcceptedContextQuery({ store, readModel, aclPolicy } = {})
         manifest = source.getGeneration ? snapshot(source.getGeneration(targetGenerationRef)) : null;
         receipt = source.getReceipt ? snapshot(source.getReceipt(targetGenerationRef)) : null;
       } catch { return makeUniformNotAvailable(); }
-      if (!manifest || !receipt || !verifyAcceptedGenerationManifest(manifest, manifest.manifest_digest_sha256)
+      if (!manifest || !receipt || !sameExactRef(manifest.accepted_generation_ref, targetGenerationRef)
+          || !sameExactRef(receipt.accepted_generation_ref, targetGenerationRef)
+          || !verifyAcceptedGenerationManifest(manifest, manifest.manifest_digest_sha256)
           || !verifyReceipt(receipt, manifest)) {
         return makeUniformNotAvailable();
       }

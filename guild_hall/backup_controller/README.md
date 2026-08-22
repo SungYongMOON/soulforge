@@ -276,6 +276,11 @@ one-shot remain absent and `HOLD`. A 24-hour scheduler, heartbeat, and topology
 projection belong to the post-one-shot `LB2` activation lane, not this adapter
 foundation.
 
+Before an actual LB1 snapshot, the Owner must either establish a quiesced window
+for the hourly multi-app writer or explicitly accept a non-quiesced snapshot.
+Without that decision, actual collection and restore acceptance remain `HOLD`;
+the synthetic adapter foundation does not provide writer coordination.
+
 ## Validation
 
 ```powershell

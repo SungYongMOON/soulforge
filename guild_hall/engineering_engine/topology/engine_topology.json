@@ -609,6 +609,28 @@
       "line_count": 1048
     },
     {
+      "module": "project_context_acceptance_gate",
+      "area": "kernel",
+      "exports": [
+        "PROJECT_CONTEXT_ACCEPTANCE_CODES",
+        "PROJECT_CONTEXT_ACCEPTANCE_SUBMISSION_SCHEMA",
+        "PROJECT_CONTEXT_ACCEPTED_GENERATION_RECEIPT_SCHEMA",
+        "PROJECT_CONTEXT_ACCEPTED_GENERATION_SCHEMA",
+        "createInMemoryAcceptedContextGenerationStore",
+        "evaluateProjectContextAcceptance",
+        "verifyAcceptedGenerationManifest"
+      ],
+      "export_count": 7,
+      "line_count": 798
+    },
+    {
+      "module": "project_context_acceptance_gate.test",
+      "area": "kernel",
+      "exports": [],
+      "export_count": 0,
+      "line_count": 619
+    },
+    {
       "module": "project_context_generation_candidate",
       "area": "kernel",
       "exports": [
@@ -616,10 +638,14 @@
         "PROJECT_CONTEXT_GENERATION_CANDIDATE_RECEIPT_SCHEMA",
         "PROJECT_CONTEXT_GENERATION_CANDIDATE_REQUEST_SCHEMA",
         "PROJECT_CONTEXT_GENERATION_CANDIDATE_SCHEMA",
-        "buildProjectContextGenerationCandidate"
+        "buildProjectContextGenerationCandidate",
+        "canonicalInstantEpoch",
+        "computeProjectContextExportedMembershipDigest",
+        "computeProjectContextExportedSourceRevisionSetDigest",
+        "computeProjectContextReviewContentDigest"
       ],
-      "export_count": 5,
-      "line_count": 587
+      "export_count": 9,
+      "line_count": 646
     },
     {
       "module": "registration",
@@ -806,7 +832,7 @@
       "line_count": 394
     }
   ],
-  "module_count": 34,
+  "module_count": 36,
   "module_edges": [
     {
       "from": "authority",
@@ -1677,6 +1703,48 @@
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
+      "from": "project_context_acceptance_gate.test",
+      "to": "canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "project_context_acceptance_gate.test",
+      "to": "project_context_acceptance_gate",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "project_context_acceptance_gate.test",
+      "to": "project_context_generation_candidate",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "project_context_acceptance_gate",
+      "to": "canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "project_context_acceptance_gate",
+      "to": "identity",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "project_context_acceptance_gate",
+      "to": "project_context_generation_candidate",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
       "from": "project_context_generation_candidate",
       "to": "canonical",
       "relation": "imports",
@@ -1880,7 +1948,7 @@
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 153,
+  "module_edge_count": 159,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -2231,5 +2299,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "eb1e002c104288a70d168201538fad1b5279282c5a0de5d8b8e555a3c907fa7a"
+  "topology_digest": "9b6aa6595fd4415ca0babd478f9c66f501ed3b6e8d3db228df5e0dc3f5c42013"
 }

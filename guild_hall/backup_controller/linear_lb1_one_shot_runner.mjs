@@ -269,13 +269,15 @@ function summarizeExternalEffects(adapters, initialCaptures, syntheticEffects) {
   if (initial.some((capture) => capture.state === EFFECT_EVIDENCE_STATES.UNKNOWN)) {
     return { external_effects: null, external_effects_evidence_state: EFFECT_EVIDENCE_STATES.UNKNOWN, external_effects_evidence_reason: initial.find((capture) => capture.state === EFFECT_EVIDENCE_STATES.UNKNOWN).reason, adapter_effect_evidence: null };
   }
+  const revocationCallsDelta = counterDelta(claim.evidence, initialCaptures.claim.evidence, "client_call_counts", "revocation_calls");
   if (counterDelta(claim.evidence, initialCaptures.claim.evidence, "adapter_invocation_counts", "consume_once") !== syntheticEffects.claim_attempts
       || counterDelta(reader.evidence, initialCaptures.reader.evidence, "adapter_invocation_counts", "collect_snapshot") !== syntheticEffects.provider_reads
       || counterDelta(storage.evidence, initialCaptures.storage.evidence, "adapter_invocation_counts", "write_revision_create_only") !== syntheticEffects.storage_writes
       || counterDelta(storage.evidence, initialCaptures.storage.evidence, "adapter_invocation_counts", "read_revision") !== syntheticEffects.storage_reads
       || counterDelta(storage.evidence, initialCaptures.storage.evidence, "adapter_invocation_counts", "has_revision") !== 0
       || counterDelta(storage.evidence, initialCaptures.storage.evidence, "client_call_counts", "exists_calls") !== 0
-      || counterDelta(claim.evidence, initialCaptures.claim.evidence, "client_call_counts", "revocation_calls") > syntheticEffects.claim_attempts) {
+      || revocationCallsDelta === null
+      || revocationCallsDelta > syntheticEffects.claim_attempts) {
     return { external_effects: null, external_effects_evidence_state: EFFECT_EVIDENCE_STATES.HOLD, external_effects_evidence_reason: "COUNTER_MISMATCH", adapter_effect_evidence: null };
   }
   return {

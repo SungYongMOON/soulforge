@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## 2026-08-22 - Voice-First Fable revalidation repairs and first scheduled receipt
+
+- Fable 5 independently returned `REVISE` at `main@489e3812`: the Engineering Engine manifest was
+  stale, a retrograde LB1 revocation counter could bypass `COUNTER_MISMATCH`, and Accepted Context
+  Query did not fence hostile manifest/receipt substitution to the requested generation.
+- Added RED-to-GREEN regressions for both code defects and regenerated the Engineering Engine
+  manifest and topology with the canonical emitters. Focused results are LB1 51/51, Backup
+  Controller 136/136, acceptance/query 31/31 plus P5 candidate 12/12, and manifest/topology
+  verification PASS.
+- Added root aliases for the existing dev-ERP Shadow validator and Windows launcher regression.
+  The Shadow alias delegates to the app-owned 53/53 script; the launcher alias syntax-checks and
+  runs the 13/13 temporary synthetic fixture without restarting the live dev-ERP runtime or binding
+  a production port.
+- Observed the first v0.4.0 Scheduled detail receipt (`hourly-v040-20260822T0605KST`): the Bot
+  reported five Linear effects, zero effects in the other apps, `gmail_sent=0`, and zero
+  failure/hold/deferred counts. These remain Bot-reported until provider/app readback is
+  independently reconciled.
+- Confirmed that `채팅 열기` routes the Scheduled result to a general `/c/...` chat rather than a
+  project path. Project memory/instruction inheritance is therefore not assumed; the existing task
+  requires a self-contained project-instruction fail-closed gate before the next accepted run.
+- Repository-wide `done:check` remains RED at the unchanged 51-item path-policy baseline, and the
+  separately observed pre-existing `context_life_tree` failure remains outside this repair. None of
+  the current changed files contributes a path-policy violation.
+
 ## 2026-08-22 - VF-8 bounded mutation canary gate foundation
 
 - Revision `working`.

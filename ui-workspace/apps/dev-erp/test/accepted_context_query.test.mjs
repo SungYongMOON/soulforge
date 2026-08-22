@@ -398,6 +398,37 @@ test('queries verified accepted generation and returns bounded typed metadata hi
   assert.equal(result.boundaries.writes_performed, false);
 });
 
+test('fails closed when a hostile source substitutes valid gen1 records for requested gen2', async () => {
+  const f = syntheticStoreFixture();
+  const gen2Ref = ref(102);
+  const hostileSource = {
+    getCurrentPointer: function () { return { generation_ref: copy(gen2Ref) }; },
+    getGeneration: function () { return copy(f.manifest); },
+    getReceipt: function () {
+      return copy(f.store.receipts.get(f.gen1Ref.entity_id + ':' + f.gen1Ref.revision_id));
+    },
+    getProjectRef: function () { return copy(f.projectRef); },
+  };
+  const queryEngine = createAcceptedContextQuery({ store: hostileSource, aclPolicy: f.aclPolicy });
+  const request = {
+    actor_ref: 'actor:dev_user_01',
+    project_ref: f.projectRef,
+    accepted_generation_ref: gen2Ref,
+    scope: 'project',
+    as_of: '2026-08-05T00:00:00.000Z',
+    purpose: 'task_context_assembly',
+    budget: { max_units: 10 },
+    cursor: null,
+  };
+
+  const result = await queryEngine.query(request);
+  const unavailable = await queryEngine.query({ ...request, accepted_generation_ref: f.gen0Ref });
+
+  assert.deepEqual(result, unavailable);
+  assert.equal(result.status, 'NOT_AVAILABLE');
+  assert.deepEqual(result.blocker_codes, [ACCEPTED_CONTEXT_QUERY_CODES.NOT_AVAILABLE]);
+});
+
 test('returns uniform not-available for stale or unaccepted generation', async () => {
   const f = syntheticStoreFixture();
   const queryEngine = createAcceptedContextQuery({ store: f.store, aclPolicy: f.aclPolicy });

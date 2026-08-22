@@ -1125,6 +1125,41 @@ test("runner emits zero external effects only from exact attested adapter eviden
   assert.deepEqual(result.adapter_effect_evidence.storage.client_call_counts, { write_calls: 1, read_calls: 1, exists_calls: 0 });
 });
 
+test("retrograde revocation counter delta holds instead of attesting synthetic zero effects", async () => {
+  const claimStore = createInMemoryClaimStore({ claim_store_ref: CLAIM_REF });
+  const linearReaderAdapter = createSyntheticLinearReaderAdapter({ adapter_ref: READER_REF });
+  const storageAdapter = createInMemoryStorageAdapter({ adapter_ref: STORAGE_REF });
+  attachAttestedSyntheticEvidence({ claimStore, linearReaderAdapter, storageAdapter });
+  let evidenceCaptureCount = 0;
+  claimStore.getEffects = () => ({
+    adapter_kind: "linear_runtime_claim_store",
+    feature_state: "bound_not_activated",
+    authority_state: "synthetic_only",
+    effect_domain: "synthetic",
+    external_effect_evidence: "synthetic_attested_only",
+    adapter_invocation_counts: { consume_once: claimStore.getCallCount() },
+    client_call_counts: {
+      claim_calls: claimStore.getCallCount(),
+      revocation_calls: evidenceCaptureCount++ === 0 ? 1 : 0,
+    },
+  });
+  const runner = createLinearLb1OneShotRunner({ claimStore, linearReaderAdapter, storageAdapter, clock: makeTestClock() });
+  const request = makeClosedRequest("token-evidence-retrograde-revocation", "target-evidence-retrograde-revocation");
+  const result = await runner.execute(request, trustedPinFor(request));
+
+  assert.equal(result.status, "HOLD_CONSUMED");
+  assert.equal(result.reason, "EXTERNAL_EFFECTS_EVIDENCE_HOLD");
+  assert.equal(result.origin_status, "RESTORE_REVIEW_CANDIDATE");
+  assert.equal(result.external_effects, null);
+  assert.equal(result.external_effects_evidence_state, "HOLD");
+  assert.equal(result.external_effects_evidence_reason, "COUNTER_MISMATCH");
+  assert.equal(result.adapter_effect_evidence, null);
+  assert.equal(result.run, null);
+  assert.equal(result.restore_check, null);
+  assert.equal(result.write_result, null);
+  assert.equal(result.candidate_state, null);
+});
+
 test("malformed, throwing, proxied, or mismatched effect evidence becomes a sanitized evidence HOLD", async () => {
   for (const [index, effects] of [
     () => { throw new Error(["file:", "", "", "C:", "private", "effects"].join("/")); },

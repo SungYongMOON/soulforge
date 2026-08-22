@@ -31,7 +31,7 @@ AI 팀 운영체계다.
 | --- | --- | --- |
 | 전체 아키텍처 | `CONDITIONAL_GO` | 구조는 확정하고 actual Evidence로 단계별 검증 |
 | ChatGPT Voice | `GO_AS_HUMAN_INTERFACE` | 단일 비서·교환대·Dispatch Console; 정본 아님 |
-| Chat 1시간 Bot | `OWNER_CONFIGURED_BOUNDED_WRITE / READBACK_PENDING` | v0.4.0 permission matrix와 max-effects=5를 Owner가 설정했다고 보고. public A0 contract는 safety baseline이며 실제 first-run effect는 미검증 |
+| Chat 1시간 Bot | `V0_4_0_FIRST_RUN_RECEIPT_OBSERVED / PROVIDER_READBACK_PENDING` | Scheduled detail에서 first receipt가 Linear 5·다른 앱 0·`gmail_sent=0`을 보고했다. 결과 채팅이 프로젝트 밖 일반 `/c/...`로 열리므로 project memory 자동 상속은 금지하고 지침 snapshot을 task prompt에 직접 고정해야 한다 |
 | Project Agent | `TARGET` | Project-scoped Source·Context·Engine·Task만 사용 |
 | Portfolio Navigator | `TARGET` | Project State Capsule과 typed projection만 소비, raw 통합 금지 |
 | P4·Linear Backup·P5 | `GO_WITH_EXACT_GATES` | actual 한 번의 Evidence 폐루프가 다음 단계 |
@@ -355,7 +355,7 @@ Work Unit 수행
 | 실행 주체 | 역할 | 현재 권한 |
 | --- | --- | --- |
 | ChatGPT Voice | 사람용 입력·조회·승인·STOP | Interface; 정본·writer 아님 |
-| Chat 1시간 Bot | all-project routing·Project별 high-judgment Shadow | A0 |
+| Chat 1시간 Bot | all-project routing·Project별 high-judgment 판단; 현재 v0.4.0은 Owner-configured bounded multi-app write이며 provider readback은 미검증 | `A0` repo-enforced baseline; 외부 task authority는 별도 관찰·Owner gate |
 | Codex | canon·repository·문서·검증 정밀 Worker | approved Work Brief 범위 |
 | Gemini Flash | 빠른 public-synthetic Builder·fixture·반복 구현 | Controller가 apply/review, actual effect 없음 |
 | Grok Build | 독립 병렬 코드 Worker·교차 구현 Pilot | isolated worktree·receipt·review 필요 |
@@ -378,8 +378,8 @@ source와 exact version을 고정하고 Soulforge sole-writer authority를 부�
 | `VF-1` | C0 mutation default-OFF — `DONE_FOR_SYNTHETIC_SCOPE 2026-08-21` | pre-fix RED 뒤 synthetic restart/launcher·core GREEN, explicit opt-in 보존, implicit enable 0; live runtime posture는 별도 승인 restart 전 미검증 |
 | `VF-2` | 현재 Chat Bot Prompt freeze·B0/B1/B2 계측 — `FOUNDATION_DONE / ACTUAL_TASK_HOLD 2026-08-21` | required-source/A0/payload-bounded Cycle Contract와 hostile fixture GREEN; actual Chat prompt digest·app binding은 `HB-D1` 전 `UNKNOWN/HOLD` |
 | `VF-3` | C3 Project Decision Ledger·Portfolio Projection·ShadowEvaluator — `DONE_FOR_PUBLIC_SYNTHETIC_SCOPE 2026-08-21` | in-memory append/replay/NO_OP/correction/digest chain, identical-horizon portfolio, live-only synthetic quality receipt; persistent private writer는 `HB-D2` 전 0 |
-| `VF-4` | C1 actual P4 + C2 actual Linear backup 병렬 — `C2_RUNTIME_ADAPTER_FOUNDATION_DONE / ACTUAL_RUN_HOLD 2026-08-22` | Linear runtime 22/22·LB1 50/50·Backup 135/135; actual project/source/stored-byte/human restore receipts는 Owner binding 뒤 |
-| `VF-5` | C4 Accepted Generation + read-only Context Query — `FOUNDATION_DONE / ACTUAL_ACCEPTANCE_HOLD 2026-08-22` | synthetic acceptance/query 30/30 + candidate 12/12; actual registered-human/HPP writer/private generation은 0, live query는 actual acceptance 뒤 |
+| `VF-4` | C1 actual P4 + C2 actual Linear backup 병렬 — `C2_RUNTIME_ADAPTER_FOUNDATION_DONE / ACTUAL_RUN_HOLD 2026-08-22` | Linear runtime 22/22·LB1 51/51·Backup 136/136; 역행 counter는 attestation 없이 HOLD, actual project/source/stored-byte/human restore receipts는 Owner binding 뒤 |
+| `VF-5` | C4 Accepted Generation + read-only Context Query — `FOUNDATION_DONE / ACTUAL_ACCEPTANCE_HOLD 2026-08-22` | synthetic acceptance/query 31/31 + candidate 12/12; wrong-generation substitution은 uniform `NOT_AVAILABLE`, actual registered-human/HPP writer/private generation은 0, live query는 actual acceptance 뒤 |
 | `VF-6` | Hermes 격리 install + read-only Proposal canary — `TRIAL_GATE_FOUNDATION_DONE / INSTALL_HOLD 2026-08-22` | exact version/host/isolation digests, one-seat/project/tool/memory/custody/rollback packet gate 10/10; install·doctor·MCP registration 0 |
 | `VF-7` | Grok Build/Flash/Codex Worker comparison — `COMPARISON_FOUNDATION_DONE / ACTUAL_COHORT_HOLD 2026-08-22` | same Work Unit/run/validator/review/comparison-basis receipt 14/14; actual three-provider runs·transferable ranking 0 |
 | `VF-8` | C5 Shadow evidence 뒤 first `Project×TaskType×Action` canary — `GATE_FOUNDATION_DONE / ACTUAL_CANARY_HOLD 2026-08-22` | synthetic gate 17/17: trusted pins·tuple rate cap·CAS/fencing·readback·voided compensation; actual tuple/Owner approval/live adapter는 0 |
@@ -411,7 +411,7 @@ source와 exact version을 고정하고 Soulforge sole-writer authority를 부�
 4. Project별 Manager/Agent와 Context Firewall을 두고 Portfolio는 projection만 본다.
 5. 현재 Linear를 Sole Official Task State Owner로 유지한다.
 6. Soulforge가 Context·Decision Ledger·Policy·Evidence·Agent Receipt를 소유한다.
-7. 1시간 Bot public contract는 A0 baseline이고, 실제 `업무 인입 감시`는 Owner 보고 v0.4.0 bounded multi-app write다. first-run receipt/readback 전 actual acceptance는 `HOLD`다.
+7. 1시간 Bot public contract는 A0 baseline이고, 실제 `업무 인입 감시` v0.4.0 first receipt는 Linear 5·다른 앱 0·`gmail_sent=0`을 보고했다. provider/app readback과 prohibited-action 0은 아직 독립 검증 전이며, 일반 결과 채팅은 project memory 자동 상속을 가정하지 않는다.
 8. 최종 목표는 `JM6(C6) 판단능력 × task-type별 A0~A6 가변권한`이다.
 9. Permanent Owner Authority 영역은 높은 단계에서도 Human Gate다.
 10. Canary 단위는 `Project×TaskType×Action×Authority×Policy Revision`이다.
