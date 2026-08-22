@@ -1,9 +1,9 @@
 ---
-name: soulforge-gated-depth-execution
-description: Use when a substantial Soulforge implementation, refactor, migration, or autonomous build has multiple dependent deliverables and should be executed through shallow staged gates, bounded leaves, fresh-context work where allowed, parent validator re-runs, and freshly measured final claims. Also trigger for requests to finish through gates, prevent 80-percent completion, use a safe depth tree, or apply Unlazy-like discipline without installing Unlazy. Do not use for factual replies, trivial edits, or single deterministic commands.
+name: soulforge-finish-work
+description: Use when a substantial Soulforge implementation, refactor, migration, or autonomous build has multiple dependent deliverables and should be carried through shallow staged gates, bounded leaves, fresh-context work where allowed, parent validator re-runs, and freshly measured final claims. Also trigger for Korean requests such as "끝까지 만들어줘", "단계별로 검증하면서 완성해줘", "중간에 멈추지 말고 실제 완료까지 해줘", or "끝날 때까지 진행해줘", and for requests to prevent 80-percent completion or apply safe Unlazy-like discipline without installing Unlazy. Do not use for factual replies, trivial edits, or single deterministic commands.
 ---
 
-# Soulforge Gated Depth Execution
+# Soulforge 끝까지 만들기
 
 Run substantial work through a shallow evidence-backed execution tree. Own the pre-work and in-work discipline; leave final acceptance to the existing Soulforge post-development review gate.
 
@@ -62,7 +62,7 @@ Run substantial work through a shallow evidence-backed execution tree. Own the p
 Keep updates compact:
 
 ```text
-Applied skill: soulforge-gated-depth-execution
+Applied skill: soulforge-finish-work
 Execution mode: solo | staged
 Gate progress: <met>/<total>; blocked <count>
 Active leaf: <name>

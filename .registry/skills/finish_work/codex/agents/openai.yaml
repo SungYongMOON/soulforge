@@ -1,0 +1,7 @@
+interface:
+  display_name: "끝까지 만들기"
+  short_description: "단계별로 만들고 검증해 실제 완료까지 진행"
+  default_prompt: "Use $soulforge-finish-work to take this substantial task through staged gates, parent re-verification, and actual completion."
+
+policy:
+  allow_implicit_invocation: true

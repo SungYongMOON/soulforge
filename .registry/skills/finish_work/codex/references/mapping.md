@@ -1,10 +1,10 @@
-# Gated Depth Execution Mapping
+# 끝까지 만들기 Mapping
 
 ## Canon Linkage
 
-- Canon skill id: `gated_depth_execution`
-- Canon source: `.registry/skills/gated_depth_execution/skill.yaml`
-- Installed Codex mirror: `soulforge-gated-depth-execution`
+- Canon skill id: `finish_work`
+- Canon source: `.registry/skills/finish_work/skill.yaml`
+- Installed Codex mirror: `soulforge-finish-work`
 - Final review owner: `.workflow/post_development_review_gate_v0/`
 
 ## Ownership
@@ -17,7 +17,7 @@
 ## Output Shape
 
 ```text
-Applied skill: soulforge-gated-depth-execution
+Applied skill: soulforge-finish-work
 Execution mode: solo | staged
 Gate result: pass | needs_revision | blocked
 Branch integration: pass | fail | not_applicable

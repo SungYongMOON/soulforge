@@ -3,7 +3,7 @@
 - `github_down/` is the tracked Codex wrapper for routing GitHub download/update requests to `.workflow/latest_update_sync_and_followup_v0/`.
 - `github_up/` is the tracked Codex wrapper for routing GitHub upload/publish requests to `.workflow/github_upload_publish_v0/`.
 - `grill_me/` is the tracked Codex candidate skill for `/grill-me` style plan pressure-testing and design-decision interview.
-- `gated_depth_execution/` is the tracked candidate for substantial staged work with bounded outcome gates, token-efficient leaf context, parent re-verification, and safe blocked semantics.
+- `finish_work/` is the tracked `끝까지 만들기` candidate for substantial staged work with bounded outcome gates, token-efficient leaf context, parent re-verification, and safe blocked semantics.
 - `easy_explain/` is the tracked Codex candidate for restating long or complex work as an easy, visual, structurally complete explanation without inheriting execution authority.
 - `quick_explain/` is the tracked Codex candidate for summarizing current work in at most 10 logical lines using only conclusion, completed work, remaining work, and one next action.
 - `dual_deep_research/` is the tracked Codex candidate launcher for `.workflow/dual_deep_research_v0`, which compares NotebookLM CLI Deep Research with Codex direct source research before downstream registration.

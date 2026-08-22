@@ -1,7 +1,7 @@
-skill_id: gated_depth_execution
+skill_id: finish_work
 kind: skill
 status: candidate
-title: Gated Depth Execution
+title: 끝까지 만들기
 summary: Run substantial work through bounded outcome gates, fresh leaf context, parent re-verification, and truthful blocked states without importing unsafe shell or Stop-hook authority.
 behavior:
   intent: Turn a substantial multi-stage task into a shallow dependency tree whose leaves have observable completion gates, disjoint ownership, deterministic validation, and branch integration checks before Soulforge closeout.
@@ -44,5 +44,5 @@ execution_requirements:
     - "An impossible, abandoned, or skipped gate is blocked or owner_decision_required, never successful completion."
     - "This candidate adapts the useful gate-ledger, fresh-leaf, parent-reverification, and number-audit ideas observed in Leonxlnx/unlazy v2 without copying or invoking its dynamic shell checker or Stop hook."
 notes:
-  - "`gated_depth_execution` owns pre-work and in-work execution discipline only. `.workflow/post_development_review_gate_v0` retains final review and acceptance ownership."
+  - "`finish_work` owns pre-work and in-work execution discipline only. `.workflow/post_development_review_gate_v0` retains final review and acceptance ownership."
   - "No upstream Unlazy install, shell runner, hook, or tracked gate schema is part of this package."

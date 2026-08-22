@@ -1,9 +1,31 @@
 # CHANGELOG
 
-## 2026-08-22 - Gated Depth Execution candidate skill
+## 2026-08-22 - Agent Observation P0-S1 smallest vertical
 
-- Added the tool-neutral `gated_depth_execution` canon candidate and the installed-mirror-ready
-  `$soulforge-gated-depth-execution` Codex bridge for substantial staged work.
+- Added the new `guild_hall/agent_observation/` owner with provider-neutral Agent Registry,
+  Run Observation, direct Usage Ledger, Result/Delivery Receipt, and a Tool Job Shop
+  (host/resource registry, three-tier priority queue with FIFO inside a tier, lease with
+  fencing epoch, capacity).
+- Provider-native identities live in a `(provider, id_kind, id_value)` crosswalk, so Codex
+  thread/session, Hermes session/delegation/subagent, and Claude/AGY identifiers never
+  overwrite one another. Unknown identity, parent, or project stays `HOLD` and is never
+  inferred from title, cwd, prefix, similarity, or age.
+- Child direct usage is never merged into a manager's direct usage; `self`, `child_direct`,
+  and `subtree` totals are computed in a projection over the untouched event ledger.
+  An identical replay is `NO_OP`; a divergent payload under the same ID is a conflict `HOLD`.
+- A structural topology edge cannot be recorded as a delivery receipt, and an expired lease is
+  fenced out so a crashed or timed-out worker cannot double execute.
+- 운영 영향: 새 명령 표면은 `npm run validate:agent-observation` 하나뿐이다. 모든 module은
+  pure in-memory이며 파일·network·child process·ERP 세계수·Board enrollment·result gate에
+  쓰지 않는다. 실제 Excel 앱, external provider, project payload는 사용하지 않고
+  public-safe synthetic fixture만 사용한다. 이번 수락은 public deterministic candidate이며
+  actual project, live runtime, 운영 승격 수락이 아니다.
+- 관련 경로: `guild_hall/agent_observation/**`, `guild_hall/README.md`, `package.json`.
+
+## 2026-08-22 - 끝까지 만들기 candidate skill
+
+- Added the tool-neutral `finish_work` canon candidate and the installed-mirror-ready
+  `$soulforge-finish-work` (`끝까지 만들기`) Codex bridge for substantial staged work.
 - The skill freezes contracts before fan-out, keeps leaves bounded, requires repository-owned
   validators and parent re-verification, treats blocked or owner-gated work as non-success, and
   re-measures final numeric claims.
