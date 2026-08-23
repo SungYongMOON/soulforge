@@ -591,6 +591,8 @@ test("a lineage key shaped like a concrete local path is withheld, and the meter
     `${"/"}${"Users"}/ownerkeya`,
     `${"/"}${"home"}/ownerkeyb`,
     `${"/"}${"mnt"}/ownerkeyc`,
+    `${"/root"}${"/"}${"Users"}/ownerkeyd`,
+    `${"/root"}${"/"}${"_workmeta"}/ownerkeye`,
   ];
   const measures = { input_tokens: 0, cached_input_tokens: 0, output_tokens: 0, credits: 0, credit_unknown_turns: 0, model_invocations: 0 };
   const rows = [
