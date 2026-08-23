@@ -1,5 +1,33 @@
 # CHANGELOG
 
+## 2026-08-23 - Agent Observation P1-3: the meter's lineage was there, unread
+
+- Added `guild_hall/agent_observation/meter_lineage_projection.mjs`. Measured against the live
+  ledger first: 29,898 recorded turns, **all on a single `local-node`**, across 744 `by_agent` rows
+  that the summary treats as opaque keys. On that evidence the self / child-direct / subtree
+  separation the observation contract defines looked uncomputable from real data.
+- It is computable. `actor.agent_id` is path-shaped — `root`, `/root/ax_board_recovery_worker`,
+  `/root/opus_ingest_vertical/…` — with 680 of the 744 ids at depth 2 or 3 under one `root` and 64
+  bare names. The lineage was present in every row and simply never read as lineage, so a parent's
+  `by_agent` row counts only its own turns and nothing in the ledger answers what an agent's subtree
+  cost.
+- `child_direct` sums immediate children only. Folding grandchildren in would let a manager reading
+  "my children cost this" silently absorb a generation it did not dispatch, which is the distinction
+  the observation contract draws and the reason the two rollups are separate at all.
+- No parent is inferred. `/root/a/b` has parent `/root/a`, `/root/a` has parent `root` because that
+  is how the ledger spells its own root, and a bare name like `Faraday` has none. Deriving lineage
+  from a naming resemblance is the guess this owner refuses everywhere else.
+- An intermediate agent that recorded no turns has no row at all. Materialising it with zeroes keeps
+  its children from vanishing out of every subtree above them; the live ledger was missing eleven
+  such parents.
+- The correctness bar is a partition: every root's subtree must sum to the ledger's own total, so no
+  turn is counted twice or dropped. Verified against the real ledger at 29,905 = 29,905, then frozen
+  as a measured fixture — `guild_hall/state/**` is gitignored, so a test reading it would pass here
+  and fail on every other machine.
+- 운영 영향: 새 명령 표면은 없다. pure 함수이며 meter 원장을 읽지도 쓰지도 않고 caller가 건넨 행만
+  다룬다. `npm run validate:agent-observation` 하나가 그대로 검증한다.
+- 관련 경로: `guild_hall/agent_observation/**`, `package.json`.
+
 ## 2026-08-23 - Engine topology: a test module in a code area, and the pin that caught it
 
 - `npm run validate:watchtower` had been red on `main` since `b1bee4c2` with

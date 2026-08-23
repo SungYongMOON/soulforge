@@ -21,6 +21,7 @@ P0-S2 three-project job shop이며 public-safe synthetic fixture만 사용한다
 | `usage_meter_bridge.mjs` | 관찰 usage record를 `ai_usage_meter`의 `soulforge.ai_usage_event.v1`로 투영하고 그 owner의 validator로 검사 |
 | `board_health_projection.mjs` | Board가 이미 게시하는 `result_gate_health`와 `binding_coverage`를 observation store에서 채움 |
 | `result_gate_preparation.mjs` | 한 synthetic exact Agent/Run의 result gate 활성화를 격리 registry에서만 준비 |
+| `meter_lineage_projection.mjs` | meter 원장의 경로형 agent id에서 계보를 읽어 self·child-direct·subtree 롤업을 유도 |
 
 guard는 한쪽 module에만 존재할 수 없도록 `guard_primitives.mjs` 하나에서만 정의한다.
 
@@ -437,13 +438,40 @@ Agent/Run을 쓰는 것이다. 약속이 아니라 구조로 막는다.
   `deriveThreadResultGateState`가 한다. 준비된 registry를 어디에 쓸지는 이 함수의 결과가 아니라
   별도의 action-time Owner gate이므로 `would_persist_to`는 항상 `null`이다.
 
+## Meter Lineage Projection
+
+관찰 store는 계보를 `parent_run_id` 간선으로 적고 그 위에서 usage를 롤업한다. 라이브 meter
+원장에는 그 나무가 없다. `by_node`는 기록된 29,898 turn 전부를 `local-node` 하나로 뭉치고
+`by_agent`는 각 agent를 불투명한 key로만 센다. 그런데 `actor.agent_id`가 경로 모양이다 —
+`root`, `/root/ax_board_recovery_worker` 같은 식이다. **계보는 있는데 아무도 계보로 읽지
+않는다.** 그래서 부모의 `by_agent` 행은 자기 turn만 세고, "이 agent의 하위 전체가 얼마를
+썼나"에 답하는 것이 원장에 없다.
+
+이 module이 그 경로를 읽어 관찰 계약이 정의한 세 롤업을 만든다.
+
+- `self`는 그 agent의 행 하나다.
+- `child_direct`는 **직속 자식만** 더한다. 손자를 포함하면 "내 자식들이 이만큼 썼다"를 읽는
+  manager가 자기가 붙이지 않은 세대를 조용히 흡수하게 된다.
+- `subtree`는 자신과 그 아래 전부다.
+
+부모를 추정하지 않는다. `/root/a/b`의 부모는 `/root/a`이고 `/root/a`의 부모는 원장이 나무의
+뿌리를 적는 방식 그대로 맨 앞 segment인 `root`다. `Faraday` 같은 맨이름은 부모가 없다 —
+이름이 비슷하다는 이유로 계보를 만들어내는 것은 관찰 계약이 금지하는 추정이다.
+
+자식만 이름을 부르고 원장에는 행이 없는 중간 부모는 0으로 실체화한다. 빠뜨리면 그 아래
+자식들이 위쪽 모든 subtree에서 사라진다. 실측에서 라이브 원장은 그런 중간 부모를 11개
+빠뜨리고 있었다.
+
+검증 기준은 하나다 — **모든 root의 subtree 합이 원장 전체와 정확히 같아야 한다.** 나무가
+원장을 분할하므로 turn 하나가 두 번 세어지거나 사라지면 안 된다.
+
 ## 검증
 
 ```powershell
 npm.cmd run validate:agent-observation
 ```
 
-이 validator는 여덟 개 구현 module의 syntax check와 열 개 test 파일의 focused
+이 validator는 아홉 개 구현 module의 syntax check와 열한 개 test 파일의 focused
 deterministic test를 실행한다.
 위 경계 문장은 각각 대응하는 test를 가지며, `guard_primitives.test.mjs`는 로컬 경로·secret·label
 규칙의 개별 alternative를 하나씩 검증한다. 개발 중 guard 제거 probe로 테스트 강도를 확인했지만
