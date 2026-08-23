@@ -120,6 +120,11 @@ const receiptInput = (over = {}) => ({
   agent_id: 'agent.snapshot.systems-engineering.v1',
   receipt_kind: 'delivery',
   producer_evidence_kind: 'producer_observed',
+  delivery_target: {
+    target_run_id: 'run-snapshot-0002',
+    target_agent_id: 'agent.snapshot.systems-engineering.v1',
+    target_work_unit_id: 'wu-snapshot-0002',
+  },
   refs: [{ ref_kind: 'artifact', ref_value: 'artifact://snapshot/workbook-0001' }],
   observed_at: '2026-08-22T01:11:00.000Z',
   ...over,
@@ -129,6 +134,13 @@ const seededStore = () => {
   const store = createObservationStore();
   assert.equal(registerAgent(store, agentInput()).status, 'REGISTERED');
   assert.equal(observeRun(store, runInput()).status, 'OBSERVED');
+  // The consumer a delivery receipt must name. Without an observed target run the receipt entry
+  // point would hold before its snapshot behaviour could be exercised.
+  assert.equal(observeRun(store, runInput({
+    run_id: 'run-snapshot-0002',
+    task_id: 'task-snapshot-0002',
+    work_unit_id: 'wu-snapshot-0002',
+  })).status, 'OBSERVED');
   return store;
 };
 
@@ -450,8 +462,9 @@ test('every hold code table is pinned to literal names, not to itself', () => {
     ["OBSERVATION_HOLD_CODES", OBSERVATION_HOLD_CODES, [
       "ACCESSOR_PROPERTY_FORBIDDEN", "AGENT_MEMORY_NOT_AUTHORITY_REQUIRED", "AGENT_RECORD_CONFLICT",
       "AGENT_RUN_MISMATCH", "CHILD_USAGE_MERGE_FORBIDDEN", "COST_EVIDENCE_REQUIRED",
-      "DELIVERY_EDGE_CONFLICT", "EDGE_RECEIPT_NOT_DELIVERY", "HOSTILE_INPUT_REFUSED",
-      "INPUT_TOO_DEEP", "INPUT_TOO_LARGE", "INVALID_FIELD_VALUE",
+      "DELIVERY_EDGE_CONFLICT", "DELIVERY_TARGET_FORBIDDEN", "DELIVERY_TARGET_MISMATCH",
+      "DELIVERY_TARGET_REQUIRED", "DELIVERY_TARGET_TEMPORAL_INVERSION", "DELIVERY_TARGET_WORK_UNIT_MISMATCH", "EDGE_RECEIPT_NOT_DELIVERY",
+      "HOSTILE_INPUT_REFUSED", "INPUT_TOO_DEEP", "INPUT_TOO_LARGE", "INVALID_FIELD_VALUE",
       "LOCAL_PATH_VALUE_FORBIDDEN", "PARENT_PROJECT_MISMATCH", "PROJECT_BINDING_MISMATCH",
       "PROVIDER_IDENTITY_CROSSWALK_CONFLICT", "PROVIDER_IDENTITY_SLOT_CONFLICT", "RAW_OR_UNKNOWN_FIELD_FORBIDDEN",
       "RECEIPT_ALREADY_EVIDENCED", "RECEIPT_RUN_MISMATCH", "RESULT_RECEIPT_CONFLICT",

@@ -1,8 +1,12 @@
 # Agent Observation — provider-neutral agent/run/usage/receipt와 Tool Job Shop 계약
 
 이 owner는 Soulforge가 여러 provider의 agent 실행을 하나의 provider-neutral 계약으로
-관찰하기 위한 결정론 pure module을 소유한다. 현재 범위는 P0-S1 smallest vertical과
-P0-S2 three-project job shop이며 public-safe synthetic fixture만 사용한다.
+관찰하기 위한 결정론 pure module을 소유한다. 현재 범위는 P0-S1 smallest vertical,
+P0-S2 three-project job shop, 그리고 그 위에 쌓인 P0/P1 foundation
+(usage meter bridge, Board health 투영, result gate 준비, meter lineage 투영,
+producer-evidenced delivery edge, 네 seam 분리)까지다. P2는 Board **view-model
+foundation** 하나이며 화면·서버·런타임에 붙어 있지 않다. 모두 public-safe synthetic
+fixture와 measured fixture만 사용한다.
 
 이 owner는 usage token 수집기가 아니다. Codex/Claude/Antigravity token 수집과 rate card는
 계속 [`../ai_usage_meter/`](../ai_usage_meter/)가 소유한다. 여기서는 provider가 무엇이든
@@ -14,7 +18,12 @@ P0-S2 three-project job shop이며 public-safe synthetic fixture만 사용한다
 | 파일 | 역할 |
 | --- | --- |
 | `guard_primitives.mjs` | 나머지 module이 공유하는 strict input 규칙: safe ID/ref/label 문법, secret 탐지, 로컬 절대경로 탐지, 깊이 한계 scan, deep freeze, canonical digest |
-| `agent_observation.mjs` | Agent Registry, Run Observation, Usage Ledger, Result/Delivery Receipt, Delivery Edge와 usage rollup projection |
+| `observation_internals.mjs` | **owner 내부 전용** 공유 내부: store handle과 그 뒤에 숨은 state, 단일 hold 어휘표, append·ref helper. public surface가 아니며 이 디렉터리 밖에서 import하지 않는다 |
+| `agent_registry.mjs` | Seam A — durable agent identity, project 바인딩, provider identity crosswalk, memory class |
+| `run_observation.mjs` | Seam B — 관찰된 run, 그 authority와 시각, parent/child run graph |
+| `usage_ledger.mjs` | Seam C — direct usage 귀속과 self/child-direct/subtree rollup |
+| `delivery_evidence.mjs` | Seam D — Result/Delivery Receipt, delivery receipt의 `delivery_target`, Delivery Edge와 consumer 투영 |
+| `agent_observation.mjs` | 위 네 seam의 **호환 barrel**. 기존 caller의 import 경로를 그대로 유지하고, 진짜로 family를 가로지르는 둘(record key allowlist 합집합, store 전체 privacy 감사·count 투영)만 직접 소유한다 |
 | `resource_job_shop.mjs` | Host/Resource Registry, 3단계 priority queue, lease/fencing, capacity |
 | `p0s1_vertical.mjs` | P0-S1 smallest vertical 합성 fixture와 결정론 실행 결과 |
 | `p0s2_job_shop.mjs` | P0-S2 three-project job shop: Context Capsule 계약, 3 project 동시 제출, crash/reclaim/replay 시나리오 |
@@ -25,14 +34,23 @@ P0-S2 three-project job shop이며 public-safe synthetic fixture만 사용한다
 
 guard는 한쪽 module에만 존재할 수 없도록 `guard_primitives.mjs` 하나에서만 정의한다.
 
-뒤의 세 module만 이 owner 바깥을 향한다. 셋 다 읽기 전용 투영이며 write authority가 없다.
+네 seam은 각자의 record 모양·guard·거부를 소유하고 store handle 하나만
+`observation_internals.mjs`를 통해 공유한다. 원장 Map은 handle을 key로 하는 WeakMap 뒤에
+있으므로 barrel을 포함한 어떤 consumer도 원장에 도달해 지우거나 다시 쓸 수 없다.
+barrel은 다섯 번째 원장이 되지 않도록 공유 state가 아니라 seam의 public interface 위에서만
+쓰인다.
+
+`usage_meter_bridge.mjs`, `board_health_projection.mjs`, `result_gate_preparation.mjs`,
+`meter_lineage_projection.mjs` 네 module이 이 owner 바깥 표면을 향한다. 넷 다 읽기 전용
+투영이며 write authority가 없다. 이 중 실제로 다른 owner의 코드를 import하는 것은
+아래 `검증` 절에 적힌 두 곳뿐이다.
 
 ## Schema
 
 - `soulforge.agent_observation.agent_record.v1`
 - `soulforge.agent_observation.run_record.v1`
 - `soulforge.agent_observation.usage_event.v1`
-- `soulforge.agent_observation.result_receipt.v1`
+- `soulforge.agent_observation.result_receipt.v2`
 - `soulforge.agent_observation.delivery_edge.v1`
 - `soulforge.agent_observation.host_record.v1`
 - `soulforge.agent_observation.resource_record.v1`
@@ -207,19 +225,55 @@ store가 structural delivery를 애초에 거부하므로 그 경로는 store의
 receipt가 없을 때 `none`이 되는 것만 증명한다.
 run이 시작되기 전 시각으로 관찰된 receipt는 `TEMPORAL_ORDER_INVALID`다.
 
+### `delivery_target` — v2에서 늘어난 저장 모양
+
+현재 receipt schema는 `soulforge.agent_observation.result_receipt.v2`다. v1과 달리
+`receipt_kind: delivery`인 영수증은 `delivery_target`
+(`target_run_id`, `target_agent_id`, `target_work_unit_id`)을 반드시 싣는다
+(`DELIVERY_TARGET_REQUIRED`). optional 추가 field로 v1에 접어 넣지 않고 버전을 올린 이유는
+v1 계약을 든 reader에게 모양이 바뀌었다고 말해야 하기 때문이다. delivery가 아닌
+result·artifact·approval·validation·recovery 영수증이 target을 실으면
+`DELIVERY_TARGET_FORBIDDEN`이다. 그 kind들은 자기 run에 대한 한쪽 끝 진술이라 hand-over를
+주장하지 않는다.
+
+target은 저장만 하는 선언이 아니라 관찰된 run에 대해 검사한다. target run이 없으면
+`UNKNOWN_RUN`, producer 자신이면 `SELF_DELIVERY_FORBIDDEN`, producer의 project와 다르면
+`PROJECT_BINDING_MISMATCH`, 지목한 agent가 그 run의 agent가 아니면 `AGENT_RUN_MISMATCH`,
+work unit이 다르면 `DELIVERY_TARGET_WORK_UNIT_MISMATCH`다.
+
+시간 경계도 같은 자리에서 닫는다. receipt의 `observed_at`이 target run의 `started_at`보다
+이르면 `DELIVERY_TARGET_TEMPORAL_INVERSION`이다. 나머지 target 검사는 모두 producer 자신의
+run에 대한 것이라, 이 경계가 없으면 아직 시작하지도 않은 consumer run으로의 hand-over가 다른
+검사를 전부 통과해 저장된다. 경계는 receipt 자신의 `receipt_before_run_start` 규칙과 delivery
+edge의 두 시간 경계처럼 **inclusive**다 — `observed_at === started_at`은 받아들이고 그보다
+이른 값만 막는다. hold이므로 receipt는 원장에 append되지 않고, hold code는 caller 문자열을
+싣지 않는 고정 code다.
+
+**의미의 상한은 여기까지다.** `delivery_target`은 producer가 관찰한 *의도된 hand-over*의
+exact 상대(run/agent/work-unit)이지 consumer가 받았다고 확인한 것이 아니다. 이 module은
+consumer 쪽을 전혀 관찰하지 않으므로 target의 존재를 수신 확인·수락·소비의 증거로 읽지
+않는다. 실제로 무언가 건너갔다는 양쪽 끝 기록은 여전히 delivery edge이며, 그 edge조차
+producer 증거 위에 서 있다.
+
 ## Delivery Edge
 
-receipt는 한쪽 끝만 기록한다. "이 run이 이 ref들을 산출했다"고만 말하고 **누가 받았는지는
-말하지 않는다.** 그래서 Functional Agent에서 Spreadsheet Craftsman으로 가는 handoff는 fixture가
+v1 receipt는 한쪽 끝만 기록했다. "이 run이 이 ref들을 산출했다"고만 말하고 **누가 받았는지는
+말하지 않았다.** 그래서 Functional Agent에서 Spreadsheet Craftsman으로 가는 handoff는 fixture가
 두 ID를 짝지어 준 것일 뿐 관찰된 사실이 아니었다. delivery edge는 그 간선 자체를 record로 만들어
-양쪽 끝을 다 적고 producer의 증거를 함께 옮긴다.
+양쪽 끝을 다 적고 producer의 증거를 함께 옮긴다. v2에서 delivery 영수증이 `delivery_target`으로
+의도한 상대를 말하게 된 뒤에도 edge는 사라지지 않는다. 영수증은 producer가 지목한 상대를
+말하고, edge는 그 지목대로 실제 간선이 놓였는지를 기록한다.
 
 핵심 구분은 하나다. `structural` 간선은 두 run이 그래프에서 인접하다는 말이고, `delivery`
-간선은 실제로 무언가 건너갔다는 말이다.
+간선은 producer의 증거 위에서 실제로 무언가 건너갔다는 말이다. 후자도 consumer의 수신
+확인은 아니다.
 
 - `delivery`는 **producer 자신의 run**에 붙은 `receipt_kind: delivery` +
   `producer_evidence_kind: producer_observed` receipt를 요구한다. 다른 run의 receipt를 가리키면
   `RECEIPT_RUN_MISMATCH`다. 자기가 만들지 않은 증거를 빌려 쓸 수 없다.
+- `delivery` 간선의 consumer run은 그 영수증의 `delivery_target.target_run_id`와 같아야 한다
+  (`DELIVERY_TARGET_MISMATCH`). run은 한 번 쓰이면 움직이지 않고 간선은 이미 자기 consumer
+  agent를 consumer run에 묶으므로, 여기서 agent나 work unit을 다시 비교하지 않는다.
 - `structural`은 receipt를 아예 가리킬 수 없다(`STRUCTURAL_EDGE_CARRIES_NO_RECEIPT`). 인접은
   무언가 산출됐다는 증거가 아니기 때문이다.
 - 투영은 두 종류를 절대 합산하지 않는다. `delivery_edge_count`와 `structural_edge_count`가
@@ -383,8 +437,14 @@ token, credit, privacy가 **exact key set**으로 들어 있다. 이 module의 u
   않는다. `project_id`와 `work_id`는 binding allowlist에 아예 없어서 caller가 다른 값을 제시하는
   것 자체가 unknown field다.
 - meter의 `source.kind`는 3값 닫힌 enum이라 그 밖의 provider는 가장 가까운 값으로 밀지 않고
-  거부한다. Hermes가 없는 것은 의도다. 넣으려면 2.29 MB 영속 상태가 뒤에 있는 검증 스키마의
-  마이그레이션이고, 그 결정은 투영 함수가 할 일이 아니다.
+  거부한다. Hermes가 없는 것은 의도다. 다만 **이유를 정정한다.** 이전 문장은 값을 하나 더
+  받는 것이 2.29 MB 영속 상태의 마이그레이션이라고 적었는데, 이는 사실이 아니다. enum에 값을
+  더하는 것은 **가산적(additive)** 변경이다. 이미 저장된 행은 각자 자기 `kind`를 지니고 있으므로
+  기존 행을 다시 쓸 필요가 없고, 새 값은 앞으로 기록되는 행에만 나타난다.
+  실제 이유는 다른 데 있다. Hermes에는 아직 token 신뢰도 의미(무엇이 input에 포함되는지,
+  reasoning output이 어떻게 분리되는지, 재전송이 어떻게 보이는지)를 증명한 **실제 collector가
+  없다.** 그 증명이 나오기 전까지 Hermes는 meter mapping에서 보류다. 매핑을 여는 결정은
+  투영 함수가 아니라 collector 근거가 만든다.
 - `billed_cost`와 `subscription_credit_observation`은 투영하지 않는다. 관찰 record는 청구의
   evidence ref만 갖고 금액은 갖지 않으므로, `rate_unknown`으로 보내면 관측된 청구를 버리는 것이고
   `calculated`로 보내면 없는 총액을 지어내는 것이다.
@@ -465,14 +525,52 @@ Agent/Run을 쓰는 것이다. 약속이 아니라 구조로 막는다.
 검증 기준은 하나다 — **모든 root의 subtree 합이 원장 전체와 정확히 같아야 한다.** 나무가
 원장을 분할하므로 turn 하나가 두 번 세어지거나 사라지면 안 된다.
 
+## P2 Board view-model foundation (화면 미연결)
+
+`ui-workspace/apps/team-ops-board/src/core/agent-observation-view.mjs`는 이 owner의 투영
+(store count·privacy 감사, delivery edge, Board health, meter lineage 롤업)을 Board panel이
+그릴 수 있는 행으로 바꾸는 **순수 view-model builder**다. caller가 이미 얻은 투영을 받아
+평범한 객체를 돌려주며 fetch·write·clock 읽기가 없다.
+
+현재 상태를 정확히 적는다.
+
+- 이것은 **view-model foundation**이지 화면이 아니다. screen·route·server·runtime 배선이
+  없고, 4192 런타임은 이 module을 import하지 않는다. `P2 완료`나 `Board에 보인다`는 주장은
+  하지 않는다.
+- 가시적 배선과 live producer 활성화는 `HOLD`다. 붙이는 것은 별도 단계이며 별도 승인 대상이다.
+- live evidence가 없다. 이 view의 test는 손으로 지어낸 모양이 아니라 이 owner의 **실제 투영
+  함수** 출력을 넣어 돌지만, 그것은 결정론 in-memory 투영이지 운영 화면 관측이 아니다.
+- 표시 규칙 둘은 이 owner의 계약과 같은 이유로 굽히지 않는다. HOLD된 투영은 빈 panel이 아니라
+  HOLD로 그리고(`아무것도 없음`과 `볼 수 없었음`은 반대말이다), structural 인접은 절대 delivery로
+  합산해 그리지 않는다.
+- HOLD를 그릴 때 `hold_code`를 화면에 되쓰지 않는다. hold code는 producer가 정하는 문자열이므로
+  Board health의 두 enum이나 감사 family 이름과 같은 **닫힌 어휘** 규칙을 받는다. 이 view가
+  label을 가진 code만 그 label로 그리고, 그 밖의 code·빈 문자열·비문자열은 전부 고정 문구
+  하나(`알 수 없는 상태 · 표시 보류`)로 닫는다. 알 수 없는 code를 그대로 보여주면 거부를
+  표시하는 척하면서 producer 문자열을 화면에 올리는 것이 된다.
+- meter lineage 행의 `agent_key`는 경로 모양이라 다른 문자열과 같은 local-path 거부를 그대로
+  걸면 정당한 계보 key가 통째로 사라진다. 그래서 meter 자신의 뿌리인 맨 앞 `/root` segment만
+  이름으로 정확히 면제하고, 그 나머지 문자열에는 이 화면의 다른 모든 값과 동일한 거부를
+  적용한다. 따라서 `root`와 `/root/...`는 그려지고, 알려진 home·mount·system-root 모양과
+  Soulforge private plane marker는 meter root 아래에 숨어 있어도 걸린다. 걸린 값은 잘라서
+  그리지 않고 행 자체를 만들지 않는다.
+- 이 view module은 런타임에 이 owner를 import하지 않는다. Board 번들이 `node:crypto`를 쓸 수
+  없어 읽는 모양만 국소적으로 다시 적는다. 반대로 그 view의 **test**는 `agent_observation.mjs`,
+  `board_health_projection.mjs`, `meter_lineage_projection.mjs`를 실제로 import해 진짜 투영
+  출력을 넣는다. 즉 이 owner 밖에서 이 module set을 import하는 것은 지금 그 test 하나뿐이고
+  런타임 소비자는 없다.
+
 ## 검증
 
 ```powershell
 npm.cmd run validate:agent-observation
 ```
 
-이 validator는 아홉 개 구현 module의 syntax check와 열한 개 test 파일의 focused
-deterministic test를 실행한다.
+이 validator는 열네 개 구현 module의 syntax check와 열두 개 test 파일의 focused
+deterministic test를 실행한다. `module_seams.test.mjs`는 네 seam을 각자의 import만으로 하나의
+store에 걸쳐 구동하고, 각 seam이 소유해야 할 결정이 그 seam 파일 안에 owner에서 정확히 한 번
+쓰였는지, 그리고 호환 barrel에는 쓰이지 않았는지를 소스 수준에서 확인한다. 단순 re-export
+wrapper 묶음은 이 검사를 통과하지 못한다.
 위 경계 문장은 각각 대응하는 test를 가지며, `guard_primitives.test.mjs`는 로컬 경로·secret·label
 규칙의 개별 alternative를 하나씩 검증한다. 개발 중 guard 제거 probe로 테스트 강도를 확인했지만
 그 harness는 저장소에 포함되지 않으므로 여기서 coverage 점수를 주장하지 않는다. 검증 가능한 것은
@@ -501,4 +599,5 @@ provider 연결, 운영 승격 수락이 아니다. 이 owner의 외부 import�
 `result_gate_preparation.mjs`가 `live-thread-projection.mjs`의 append/derive와 schema 상수를
 부른다. 둘 다 **순수 함수 호출**이며 파일도 상태도 건드리지 않는다. `board_health_projection.mjs`는
 Board 값 집합을 소스에서 읽어 대조하는 test만 가지고 런타임 import는 하지 않는다. 이 module set을
-import하는 다른 owner는 아직 없다.
+런타임에 import하는 다른 owner는 아직 없다. Board view-model의 test가 이 module들을 import하지만
+그것은 test 경로이며, view module 자체는 런타임에 이 owner를 부르지 않는다.

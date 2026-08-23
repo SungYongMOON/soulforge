@@ -120,7 +120,9 @@ test('schema versions are pinned and provider-neutral', () => {
   assert.equal(AGENT_RECORD_SCHEMA, 'soulforge.agent_observation.agent_record.v1');
   assert.equal(RUN_RECORD_SCHEMA, 'soulforge.agent_observation.run_record.v1');
   assert.equal(USAGE_EVENT_SCHEMA, 'soulforge.agent_observation.usage_event.v1');
-  assert.equal(RESULT_RECEIPT_SCHEMA, 'soulforge.agent_observation.result_receipt.v1');
+  // v2, not a widened v1: the stored receipt shape gained a target binding, so a consumer holding
+  // the v1 contract must be told the shape changed rather than silently handed a new field.
+  assert.equal(RESULT_RECEIPT_SCHEMA, 'soulforge.agent_observation.result_receipt.v2');
 });
 
 test('the append-only ledger is not reachable from the store handle', () => {
@@ -857,8 +859,23 @@ test('a payload rejected as a conflict does not claim its content key', () => {
 
 test('a stored delivery receipt keeps the producer evidence kind it was written with', () => {
   const store = seeded();
+  assert.equal(registerAgent(store, craftsmanAgentInput()).status, 'REGISTERED');
+  assert.equal(observeRun(store, runInput({
+    run_id: 'run-synthetic-0002',
+    agent_id: CRAFTSMAN_ID,
+    task_id: 'task-synthetic-0002',
+    work_unit_id: 'wu-synthetic-0002',
+  })).status, 'OBSERVED');
+  const target = {
+    target_run_id: 'run-synthetic-0002',
+    target_agent_id: CRAFTSMAN_ID,
+    target_work_unit_id: 'wu-synthetic-0002',
+  };
   assert.equal(recordResultReceipt(store, receiptInput({
-    receipt_id: 'rcpt-delivery', receipt_kind: 'delivery', producer_evidence_kind: 'producer_observed',
+    receipt_id: 'rcpt-delivery',
+    receipt_kind: 'delivery',
+    producer_evidence_kind: 'producer_observed',
+    delivery_target: target,
   })).status, 'RECORDED');
   const stored = listReceipts(store).find((r) => r.receipt_kind === 'delivery');
   assert.equal(stored.producer_evidence_kind, 'producer_observed');
@@ -872,9 +889,13 @@ test('a stored delivery receipt keeps the producer evidence kind it was written 
   const structural = listReceipts(store).find((r) => r.receipt_id === 'rcpt-structural-result');
   assert.equal(structural.producer_evidence_kind, 'structural_only');
 
-  // It stays refused for a delivery.
+  // It stays refused for a delivery, and that refusal still precedes the target binding: a
+  // structural claim dressed as a delivery is rejected for what it is, not for a missing target.
   assert.equal(recordResultReceipt(store, receiptInput({
-    receipt_id: 'rcpt-structural', receipt_kind: 'delivery', producer_evidence_kind: 'structural_only',
+    receipt_id: 'rcpt-structural',
+    receipt_kind: 'delivery',
+    producer_evidence_kind: 'structural_only',
+    delivery_target: target,
   })).hold_code, C.STRUCTURAL_EDGE_NOT_DELIVERY);
   assert.equal(listReceipts(store).filter((r) => r.receipt_kind === 'delivery').length, 1);
 });

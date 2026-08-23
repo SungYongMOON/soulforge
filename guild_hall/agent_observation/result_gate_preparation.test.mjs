@@ -17,6 +17,7 @@ import {
 } from './result_gate_preparation.mjs';
 
 const RUN_ID = 'run-gate-synthetic-0001';
+const CONSUMER_RUN_ID = 'run-gate-synthetic-0002';
 const AGENT_ID = 'agent.gate-synthetic.systems-engineering.v1';
 const THREAD_ID = 'th-gate-synthetic-0001';
 const ORG_ID = 'org-synthetic-development1';
@@ -59,6 +60,11 @@ const receiptInput = (over = {}) => ({
   agent_id: AGENT_ID,
   receipt_kind: 'delivery',
   producer_evidence_kind: 'producer_observed',
+  delivery_target: {
+    target_run_id: CONSUMER_RUN_ID,
+    target_agent_id: AGENT_ID,
+    target_work_unit_id: 'wu-gate-synthetic-0002',
+  },
   refs: [{ ref_kind: 'artifact', ref_value: 'artifact://gate/workbook-0001' }],
   observed_at: '2026-08-22T01:11:00.000Z',
   ...over,
@@ -68,7 +74,18 @@ const seeded = ({ agent = {}, run = {}, receipt = {}, withReceipt = true } = {})
   const store = createObservationStore();
   assert.equal(registerAgent(store, agentInput(agent)).status, 'REGISTERED');
   assert.equal(observeRun(store, runInput(run)).status, 'OBSERVED');
-  if (withReceipt) assert.equal(recordResultReceipt(store, receiptInput(receipt)).status, 'RECORDED');
+  if (withReceipt) {
+    // A delivery receipt names the run it was meant for, so that consumer has to be observed here.
+    // The gate preparation itself reads only the producer run, which this leaves untouched.
+    assert.equal(observeRun(store, runInput({
+      run_id: CONSUMER_RUN_ID,
+      task_id: 'task-gate-synthetic-0002',
+      work_unit_id: 'wu-gate-synthetic-0002',
+      result_state: 'result_pending',
+      side_effect_evidence_refs: [],
+    })).status, 'OBSERVED');
+    assert.equal(recordResultReceipt(store, receiptInput(receipt)).status, 'RECORDED');
+  }
   return store;
 };
 
@@ -145,12 +162,13 @@ test('a claimed result with no receipt behind it cannot announce one either', ()
 
   // Paperwork of another kind is not delivery evidence.
   for (const kind of ['approval', 'validation', 'artifact', 'recovery']) {
-    const store = seeded({ receipt: { receipt_kind: kind } });
+    const store = seeded({ receipt: { receipt_kind: kind, delivery_target: null } });
     assert.equal(prepareSyntheticResultGateActivation(store, request()).hold_code, P.RESULT_EVIDENCE_MISSING, kind);
   }
-  for (const kind of ['result', 'delivery']) {
-    const store = seeded({ receipt: { receipt_kind: kind } });
-    assert.equal(prepareSyntheticResultGateActivation(store, request()).status, 'PREPARED', kind);
+  // Only a delivery receipt carries a target binding; a result receipt must stay unbound.
+  for (const receipt of [{ receipt_kind: 'result', delivery_target: null }, { receipt_kind: 'delivery' }]) {
+    const store = seeded({ receipt });
+    assert.equal(prepareSyntheticResultGateActivation(store, request()).status, 'PREPARED', receipt.receipt_kind);
   }
 });
 

@@ -679,6 +679,14 @@ export function runP0S2JobShop(rawFixture) {
       agent_id: spec.craftsman.agent_id,
       receipt_kind: 'delivery',
       producer_evidence_kind: 'producer_observed',
+      // Bound to this project's own requester run and work unit. A receipt that named no consumer
+      // could be read as reaching any same-project run, which is the crossing this fixture exists
+      // to keep closed.
+      delivery_target: {
+        target_run_id: spec.requester.run_id,
+        target_agent_id: spec.requester.agent_id,
+        target_work_unit_id: spec.work_unit_id,
+      },
       refs: [{ ref_kind: 'artifact', ref_value: spec.artifact_ref }],
       observed_at: AT_DELIVER,
     }));

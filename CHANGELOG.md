@@ -1,5 +1,74 @@
 # CHANGELOG
 
+## 2026-08-23 - Current-state documentation correction: seams, receipt v2, Hermes rationale, P2 scope
+
+- This entry is the documentation half of one integrated slice: the correction below ships in the
+  same final public change as the source and test changes it describes, not as a separate
+  documentation-only delivery. The code was written by the preceding leaves and is described here as
+  it actually is.
+- `guild_hall/agent_observation/README.md` now describes the owner as it stands. The module table
+  names the four seams that replaced the single observation file - `agent_registry.mjs`,
+  `run_observation.mjs`, `usage_ledger.mjs`, `delivery_evidence.mjs` - plus
+  `observation_internals.mjs` as owner-private shared internals and `agent_observation.mjs` as the
+  compatibility barrel that keeps every existing import path and owns only the two genuinely
+  cross-family surfaces. The stated scope is the P0/P1 foundations and the P2 Board view-model
+  foundation, not P0-S1/P0-S2 alone.
+- The receipt schema is recorded as `soulforge.agent_observation.result_receipt.v2`, and
+  `delivery_target` is documented with its exact ceiling: it is the **producer's observed intended
+  hand-over** to an exact run, agent and work unit, verified against observed runs. It is not a
+  consumer acknowledgement, and nothing in this owner observes the consumer's side.
+- **Supersedes the Hermes rationale in the 2026-08-22 usage-meter bridge entry above.** That entry
+  said adding Hermes to the meter's `source.kind` "migrates a validated schema with persisted state
+  behind it". That was false. Adding a value to the enum is additive: every persisted row already
+  carries its own `kind`, so no stored row is rewritten and the new value appears only in rows
+  recorded afterwards. The historical entry stays as written; this is the correction of record.
+  Hermes remains withheld from the meter mapping for the real reason - no actual collector has yet
+  proven its token confidence semantics - and opening that mapping is a collector-evidence decision,
+  not a projection-function decision.
+- **Supersedes any screen-complete reading of the 2026-08-23 "Stage P2" entry above.** P2 is a Board
+  **view-model foundation**: a pure builder with no screen, route, server or runtime wiring, and the
+  4192 runtime does not import it. Visible wiring and live producer activation stay `HOLD`, and no
+  live evidence is claimed - the view's tests drive the owner's real deterministic projections, which
+  is not an operational screen observation.
+- Added two 2026-08-23 rows to the Roadmap plan-delta log: the Agent Observation P0~P2 foundation
+  current state, and the Hermes Desktop install-only truth (official NousResearch source, agent
+  v0.20.5 installed, one hidden local boot smoke succeeded and all related processes stopped; no
+  OAuth, login, provider connection, API key, MCP, scheduler, channel or Probe; unsigned local
+  executable and a dependency audit of 4 high / 0 critical keep security at `HOLD`). No local machine
+  path or credential is recorded.
+- **독립 재검토와 그 뒤의 실제 보정.** 새 `claude-fable-5`/high 세션이 이 slice를 byte 수준
+  **읽기 전용**으로 재검토해 `REVISE`를 냈다. Fable은 어떤 suite도 실행하지 않았고 코드를
+  고치지도 않았다. 지목은 셋이다 — moderate: Board view가 알 수 없는 `hold_code`를 화면에
+  되쓴다, low: meter lineage key의 로컬 경로 면제가 너무 넓다, info: delivery receipt에
+  target run 시작 시각에 대한 경계가 없다.
+- 지목을 주장으로 받지 않고 **먼저 실패하는 테스트로 재현했다.** 보정 전 실제 RED는 Board view
+  24건 중 20 pass·4 fail, delivery edge 23건 중 22 pass·1 fail이었다.
+- 그 RED 위에서 세 경계를 고쳤다. (1) 알 수 없거나 label이 없는 hold code는 고정 문구 하나로만
+  닫히고 producer 문자열이 화면에 오르지 않는다. (2) meter lineage key는 meter 자신의 뿌리인
+  맨 앞 `/root` segment만 이름으로 면제하고, 알려진 로컬 경로 모양은 meter root 아래에 숨어
+  있어도 행에서 제외한다 — `root`와 `/root/...` 계보는 그대로 그려진다. (3) target run이
+  시작하기 전 시각으로 관찰된 delivery receipt는 `DELIVERY_TARGET_TEMPORAL_INVERSION`으로
+  막는다. 동시각은 받아들이고, hold이므로 원장에는 아무것도 append되지 않는다.
+- 보정 뒤 focused GREEN: Board view 24/24, delivery edge 23/23.
+- 이 최종 바이트는 두 번째 fresh acceptance 재검토 대상으로 고정한다. `ACCEPT` 여부는 독립
+  reviewer receipt가 소유하며 이 항목 자체는 구현자나 manager의 self-claim으로 닫지 않는다.
+- 검증(최종 코드 수정 뒤 관찰된 그대로, 모두 exit 0): focused Board view test 24/24,
+  focused delivery edge test 23/23,
+  `npm run validate:path-policy`(changed scope) 5 pass·1 environment skip·위반 0,
+  `npm run validate:agent-observation` 293/293, `npm run validate:team-ops-app` 631/631,
+  `npm run validate:ai-usage-meter` 123 pass·1 skip·0 fail, `npm run validate:canon`
+  checked 137·errors 0·warnings 0, `npm run validate:core-loop` 88 pass·2 todo·0 fail,
+  `npm run validate:watchtower` 113/113, `npm run validate:voice-first-accepted-context` 31/31에
+  P5 candidate 12/12, `node guild_hall/validate/boot_digest_guard.mjs` OK, `git diff --check` clean.
+  변경·미추적 21개 파일 NUL scan에서 검출 없음. 이전에 이 자리에 적혀 있던 canon 실행 불가
+  blocker와 path-policy 위반 2건은 더 이상 현재 상태가 아니다.
+- 운영 영향: 없음. 명령 표면, 런타임, 권한, writer 활성화가 모두 그대로다. Roadmap이 바뀌었으므로
+  `AGENT_BOOT_DIGEST_V0.sources.json`을 저장소 소유 writer(`--update`)로 재서명했고 digest 본문은
+  손으로 고치지 않았다.
+- 관련 경로: `guild_hall/agent_observation/README.md`,
+  `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md`,
+  `docs/architecture/foundation/AGENT_BOOT_DIGEST_V0.sources.json`, `CHANGELOG.md`.
+
 ## 2026-08-23 - Stage P2: a Board view for the Agent Observation evidence
 
 - Added `ui-workspace/apps/team-ops-board/src/core/agent-observation-view.mjs`. The observation

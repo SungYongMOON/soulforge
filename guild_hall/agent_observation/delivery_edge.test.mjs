@@ -24,6 +24,7 @@ import {
   auditRecordPrivacy,
   createObservationStore,
   listDeliveryEdges,
+  listReceipts,
   observeRun,
   projectDeliveryEdges,
   projectStoreCounts,
@@ -34,8 +35,12 @@ import {
 
 const REQUESTER = 'agent.edge.systems-engineering.v1';
 const CRAFTSMAN = 'agent.edge.spreadsheet.v1';
+// A second consumer in the SAME project as the producer. Every project-level firewall passes for it,
+// so it is exactly the run a receipt could be misattached to if the receipt named no target.
+const BYSTANDER = 'agent.edge.quality.v1';
 const REQUESTER_RUN = 'run-edge-requester-0001';
 const CRAFTSMAN_RUN = 'run-edge-craftsman-0001';
+const BYSTANDER_RUN = 'run-edge-bystander-0001';
 const ARTIFACT = 'artifact://edge/workbook-0001';
 
 // The two runs start at different times on purpose. With a shared start, deleting either endpoint's
@@ -91,12 +96,20 @@ const craftsmanRun = (over = {}) => runInput({
   ...over,
 });
 
+const deliveryTarget = (over = {}) => ({
+  target_run_id: REQUESTER_RUN,
+  target_agent_id: REQUESTER,
+  target_work_unit_id: 'wu-edge-0001',
+  ...over,
+});
+
 const receiptInput = (over = {}) => ({
   receipt_id: 'rcpt-edge-0001',
   run_id: CRAFTSMAN_RUN,
   agent_id: CRAFTSMAN,
   receipt_kind: 'delivery',
   producer_evidence_kind: 'producer_observed',
+  delivery_target: deliveryTarget(),
   refs: [{ ref_kind: 'artifact', ref_value: ARTIFACT }],
   observed_at: '2026-08-22T01:11:00.000Z',
   ...over,
@@ -122,13 +135,35 @@ const craftsmanAgent = (over = {}) => agentInput({
   ...over,
 });
 
-/** A requester still running and a craftsman that finished, holding a delivery receipt. */
+const bystanderAgent = (over = {}) => agentInput({
+  agent_id: BYSTANDER,
+  functional_role: 'quality',
+  provider_identities: [{ provider: 'codex', id_kind: 'thread_id', id_value: 'th-edge-0003' }],
+  ...over,
+});
+
+const bystanderRun = (over = {}) => runInput({
+  run_id: BYSTANDER_RUN,
+  agent_id: BYSTANDER,
+  task_id: 'task-edge-0004',
+  work_unit_id: 'wu-edge-0004',
+  ...over,
+});
+
+/**
+ * A requester still running, a craftsman that finished holding a delivery receipt, and an unrelated
+ * bystander run in the same project. The bystander exists so every same-project test has a wrong
+ * consumer available; without one, a missing target binding would look indistinguishable from a
+ * correct one.
+ */
 function seeded({ receipt = {}, withReceipt = true } = {}) {
   const store = createObservationStore();
   assert.equal(registerAgent(store, agentInput()).status, 'REGISTERED');
   assert.equal(registerAgent(store, craftsmanAgent()).status, 'REGISTERED');
+  assert.equal(registerAgent(store, bystanderAgent()).status, 'REGISTERED');
   assert.equal(observeRun(store, runInput()).status, 'OBSERVED');
   assert.equal(observeRun(store, craftsmanRun()).status, 'OBSERVED');
+  assert.equal(observeRun(store, bystanderRun()).status, 'OBSERVED');
   if (withReceipt) assert.equal(recordResultReceipt(store, receiptInput(receipt)).status, 'RECORDED');
   return store;
 }
@@ -209,7 +244,8 @@ test('an unrecognised edge kind is refused rather than filed as structural', () 
 
 test('a delivery edge needs a receipt of the delivery kind', () => {
   for (const kind of ['result', 'artifact', 'approval', 'validation', 'recovery']) {
-    const store = seeded({ receipt: { receipt_kind: kind } });
+    // A receipt of another kind carries no target binding, so the edge reaches the kind check.
+    const store = seeded({ receipt: { receipt_kind: kind, delivery_target: null } });
     const held = recordDeliveryEdge(store, edgeInput());
     assert.equal(held.hold_code, C.EDGE_RECEIPT_NOT_DELIVERY, kind);
   }
@@ -220,6 +256,235 @@ test('a delivery edge needs a receipt of the delivery kind', () => {
   assert.equal(recordResultReceipt(structural, receiptInput({
     producer_evidence_kind: 'structural_only',
   })).hold_code, C.STRUCTURAL_EDGE_NOT_DELIVERY);
+});
+
+test('a delivery receipt names its exact intended consumer, and no edge to another run may cite it', () => {
+  // Before the binding existed, a receipt said only "this run produced these refs". Any same-project
+  // run could then be named as the consumer: the project firewall, the run/agent checks and the
+  // receipt-run check all pass, because none of them knows who the hand-over was meant for.
+  const store = seeded();
+  const misattached = recordDeliveryEdge(store, edgeInput({
+    edge_id: 'edge-craftsman-to-bystander-0001',
+    consumer_run_id: BYSTANDER_RUN,
+    consumer_agent_id: BYSTANDER,
+  }));
+  assert.equal(misattached.status, 'HOLD');
+  assert.equal(misattached.hold_code, C.DELIVERY_TARGET_MISMATCH);
+  assert.equal(projectDeliveryEdges(store).delivery_edge_count, 0);
+
+  // The intended consumer still goes through, and the receipt is not consumed by the refusal.
+  assert.equal(recordDeliveryEdge(store, edgeInput()).status, 'RECORDED');
+  assert.equal(projectDeliveryEdges(store).delivery_edge_count, 1);
+});
+
+test('the target binding is verified against the observed target run, not merely echoed', () => {
+  const cases = [
+    ['a work unit the target run does not carry', { target_work_unit_id: 'wu-edge-0009' }, C.DELIVERY_TARGET_WORK_UNIT_MISMATCH, null],
+    ['a run nobody observed', { target_run_id: 'run-absent-0001' }, C.UNKNOWN_RUN, 'delivery_target'],
+    ['an agent that did not run the target run', { target_agent_id: BYSTANDER }, C.AGENT_RUN_MISMATCH, 'delivery_target'],
+    ['the producer run itself', {
+      target_run_id: CRAFTSMAN_RUN, target_agent_id: CRAFTSMAN, target_work_unit_id: 'wu-edge-0002',
+    }, C.SELF_DELIVERY_FORBIDDEN, 'delivery_target'],
+  ];
+  for (const [label, over, code, detail] of cases) {
+    const store = seeded({ withReceipt: false });
+    const result = recordResultReceipt(store, receiptInput({ delivery_target: deliveryTarget(over) }));
+    assert.equal(result.status, 'HOLD', label);
+    assert.equal(result.hold_code, code, label);
+    if (detail !== null) assert.equal(result.detail, detail, label);
+    assert.equal(listReceipts(store).length, 0, label);
+  }
+
+  // A target in another project is the same firewall the edge and the run contracts enforce, closed
+  // one step earlier: at the receipt, before any edge can exist to carry it across.
+  const store = seeded({ withReceipt: false });
+  assert.equal(registerAgent(store, agentInput({
+    agent_id: 'agent.other-project.quality.v1',
+    functional_role: 'quality',
+    project_id: 'proj-other',
+    authority_scope: { allowed_projects: ['proj-other'], allowed_actions: ['read'] },
+    provider_identities: [{ provider: 'codex', id_kind: 'thread_id', id_value: 'th-other-0002' }],
+  })).status, 'REGISTERED');
+  assert.equal(observeRun(store, runInput({
+    run_id: 'run-other-0002',
+    agent_id: 'agent.other-project.quality.v1',
+    project_id: 'proj-other',
+    task_id: 'task-other-0002',
+    work_unit_id: 'wu-other-0002',
+  })).status, 'OBSERVED');
+  const crossed = recordResultReceipt(store, receiptInput({
+    delivery_target: deliveryTarget({
+      target_run_id: 'run-other-0002',
+      target_agent_id: 'agent.other-project.quality.v1',
+      target_work_unit_id: 'wu-other-0002',
+    }),
+  }));
+  assert.equal(crossed.hold_code, C.PROJECT_BINDING_MISMATCH);
+  assert.equal(crossed.detail, 'delivery_target');
+  assert.equal(listReceipts(store).length, 0);
+});
+
+/**
+ * The target binding is verified against the target run's identity but not against its clock.
+ *
+ * `guardDeliveryTarget` checks that the target run was observed, sits in the producer's project,
+ * belongs to the named agent and carries the named work unit — every one of which is true of a run
+ * that had not started yet when the receipt was written. A hand-over cannot have been delivered to a
+ * run that did not exist at the moment it was observed, so the receipt records a delivery to a
+ * future consumer and every count and edge downstream inherits it.
+ *
+ * The bound is inclusive, matching the receipt's own `receipt_before_run_start` rule and both edge
+ * bounds: a receipt observed at the exact instant the target run started is accepted.
+ */
+const LATE_TARGET_RUN = 'run-edge-bystander-0002';
+const LATE_TARGET_START = '2026-08-22T01:20:00.000Z';
+
+/** A target run that starts AFTER the producer run, which is the only way to reach this bound. */
+function seededWithLateTarget() {
+  const store = seeded({ withReceipt: false });
+  assert.equal(observeRun(store, bystanderRun({
+    run_id: LATE_TARGET_RUN,
+    task_id: 'task-edge-0005',
+    work_unit_id: 'wu-edge-0005',
+    started_at: LATE_TARGET_START,
+    heartbeat_at: '2026-08-22T01:25:00.000Z',
+  })).status, 'OBSERVED');
+  return store;
+}
+
+const lateTarget = () => deliveryTarget({
+  target_run_id: LATE_TARGET_RUN,
+  target_agent_id: BYSTANDER,
+  target_work_unit_id: 'wu-edge-0005',
+});
+
+test('a delivery cannot be observed before the run it was delivered to existed', () => {
+  assert.equal(C.DELIVERY_TARGET_TEMPORAL_INVERSION, 'DELIVERY_TARGET_TEMPORAL_INVERSION');
+
+  // The producer run started at 01:02 and the receipt at 01:11, so every existing bound passes and
+  // this is the only check the input can be refused by.
+  const store = seededWithLateTarget();
+  const inverted = recordResultReceipt(store, receiptInput({ delivery_target: lateTarget() }));
+  assert.equal(inverted.status, 'HOLD');
+  assert.equal(inverted.hold_code, C.DELIVERY_TARGET_TEMPORAL_INVERSION);
+  assert.equal(listReceipts(store).length, 0, 'a refused receipt must not be stored');
+
+  // One millisecond before the target's start is still an inversion.
+  const justBefore = recordResultReceipt(store, receiptInput({
+    delivery_target: lateTarget(), observed_at: '2026-08-22T01:19:59.999Z',
+  }));
+  assert.equal(justBefore.hold_code, C.DELIVERY_TARGET_TEMPORAL_INVERSION);
+  assert.equal(listReceipts(store).length, 0);
+
+  // And no edge can then be built on a receipt that was never written.
+  assert.equal(recordDeliveryEdge(store, edgeInput({
+    consumer_run_id: LATE_TARGET_RUN, consumer_agent_id: BYSTANDER,
+    observed_at: '2026-08-22T01:21:00.000Z',
+  })).hold_code, C.UNKNOWN_RECEIPT);
+});
+
+test('a delivery observed exactly at the target run start is accepted, as every other bound is', () => {
+  // The receipt's own run bound, both edge run bounds and the edge-to-receipt bound are all `<`,
+  // so a new bound that refused equality would be the one rule out of step with the others.
+  const boundary = seededWithLateTarget();
+  const atStart = recordResultReceipt(boundary, receiptInput({
+    delivery_target: lateTarget(), observed_at: LATE_TARGET_START,
+  }));
+  assert.equal(atStart.status, 'RECORDED');
+  assert.deepEqual(atStart.record.delivery_target, {
+    target_run_id: LATE_TARGET_RUN, target_agent_id: BYSTANDER, target_work_unit_id: 'wu-edge-0005',
+  });
+
+  const after = seededWithLateTarget();
+  assert.equal(recordResultReceipt(after, receiptInput({
+    delivery_target: lateTarget(), observed_at: '2026-08-22T01:21:00.000Z',
+  })).status, 'RECORDED');
+  // The accepted receipt still carries a real hand-over end to end.
+  assert.equal(recordDeliveryEdge(after, edgeInput({
+    consumer_run_id: LATE_TARGET_RUN, consumer_agent_id: BYSTANDER,
+    observed_at: '2026-08-22T01:22:00.000Z',
+  })).status, 'RECORDED');
+  assert.equal(projectDeliveryEdges(after).delivery_edge_count, 1);
+});
+
+test('a delivery receipt without a target binding is refused rather than left open-ended', () => {
+  const store = seeded({ withReceipt: false });
+  for (const missing of [null, undefined]) {
+    const result = recordResultReceipt(store, receiptInput({ delivery_target: missing }));
+    assert.equal(result.hold_code, C.DELIVERY_TARGET_REQUIRED, String(missing));
+  }
+  for (const malformed of ['run-edge-requester-0001', 42, []]) {
+    const result = recordResultReceipt(store, receiptInput({ delivery_target: malformed }));
+    assert.equal(result.hold_code, C.INVALID_FIELD_VALUE, String(malformed));
+    assert.equal(result.detail, 'delivery_target', String(malformed));
+  }
+  // A partial binding is not a binding: each leg must be a safe id of its own.
+  for (const key of ['target_run_id', 'target_agent_id', 'target_work_unit_id']) {
+    const result = recordResultReceipt(store, receiptInput({ delivery_target: deliveryTarget({ [key]: null }) }));
+    assert.equal(result.hold_code, C.INVALID_FIELD_VALUE, key);
+    assert.equal(result.detail, `delivery_target.${key}`, key);
+  }
+  assert.equal(recordResultReceipt(store, receiptInput({
+    delivery_target: { ...deliveryTarget(), target_note: 'extra' },
+  })).hold_code, C.RAW_OR_UNKNOWN_FIELD_FORBIDDEN);
+  assert.equal(listReceipts(store).length, 0);
+});
+
+test('a non-delivery receipt neither needs a target nor may carry one, and adjacency stays unbound', () => {
+  const store = seeded({ withReceipt: false });
+  // Unchanged behaviour: a result receipt is written exactly as before, with no binding.
+  const plain = recordResultReceipt(store, receiptInput({
+    receipt_id: 'rcpt-edge-result-0001', receipt_kind: 'result', delivery_target: null,
+  }));
+  assert.equal(plain.status, 'RECORDED');
+  assert.equal(plain.record.delivery_target, null);
+  assert.deepEqual(Object.keys(plain.record).sort(), [...RECORD_KEY_ALLOWLIST.receipt].sort());
+
+  for (const kind of ['result', 'artifact', 'approval', 'validation', 'recovery']) {
+    const carried = recordResultReceipt(store, receiptInput({
+      receipt_id: `rcpt-edge-${kind}-0002`, receipt_kind: kind,
+    }));
+    assert.equal(carried.hold_code, C.DELIVERY_TARGET_FORBIDDEN, kind);
+  }
+
+  // Structural adjacency is a separate claim and is bound by nothing: an edge to the bystander is
+  // still legal, because it asserts adjacency rather than a hand-over.
+  const adjacency = recordDeliveryEdge(store, edgeInput({
+    edge_id: 'edge-structural-bystander-0001',
+    edge_kind: 'structural',
+    receipt_id: null,
+    consumer_run_id: BYSTANDER_RUN,
+    consumer_agent_id: BYSTANDER,
+  }));
+  assert.equal(adjacency.status, 'RECORDED');
+  const view = projectDeliveryEdges(store);
+  assert.equal(view.structural_edge_count, 1);
+  assert.equal(view.delivery_edge_count, 0);
+});
+
+test('a stored binding cannot be rebound by a replay under the same receipt id', () => {
+  const store = seeded();
+  assert.equal(recordResultReceipt(store, receiptInput()).status, 'NO_OP');
+
+  const rebound = recordResultReceipt(store, receiptInput({
+    delivery_target: deliveryTarget({
+      target_run_id: BYSTANDER_RUN, target_agent_id: BYSTANDER, target_work_unit_id: 'wu-edge-0004',
+    }),
+  }));
+  assert.equal(rebound.hold_code, C.RESULT_RECEIPT_CONFLICT);
+
+  const [stored] = listReceipts(store).filter((r) => r.receipt_id === 'rcpt-edge-0001');
+  assert.deepEqual(stored.delivery_target, {
+    target_run_id: REQUESTER_RUN, target_agent_id: REQUESTER, target_work_unit_id: 'wu-edge-0001',
+  });
+  assert.equal(Object.isFrozen(stored.delivery_target), true);
+  assert.throws(() => { stored.delivery_target.target_run_id = BYSTANDER_RUN; }, TypeError);
+
+  // And the edge still follows the stored binding, not the rejected one.
+  assert.equal(recordDeliveryEdge(store, edgeInput({
+    edge_id: 'edge-to-bystander-0002', consumer_run_id: BYSTANDER_RUN, consumer_agent_id: BYSTANDER,
+  })).hold_code, C.DELIVERY_TARGET_MISMATCH);
+  assert.equal(recordDeliveryEdge(store, edgeInput()).status, 'RECORDED');
 });
 
 test('an edge cannot borrow a receipt from another run, even under the same agent', () => {

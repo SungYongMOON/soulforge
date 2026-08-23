@@ -358,6 +358,14 @@ export function runP0S1Vertical(rawFixture) {
       agent_id: craftsman.agent_id,
       receipt_kind: 'delivery',
       producer_evidence_kind: 'producer_observed',
+      // The craftsman produced this for the requester that asked for it, and says so. Naming the
+      // exact intended consumer is what keeps the fixture's pairing from being the only thing
+      // that links the two ends.
+      delivery_target: {
+        target_run_id: requester.run_id,
+        target_agent_id: requester.agent_id,
+        target_work_unit_id: requester.work_unit_id,
+      },
       refs: [{ ref_kind: 'artifact', ref_value: fixture.artifact_ref }],
       observed_at: AT_DELIVER,
     }));

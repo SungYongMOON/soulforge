@@ -59,6 +59,11 @@ const receiptInput = (over = {}) => ({
   agent_id: 'agent.health.systems-engineering.v1',
   receipt_kind: 'delivery',
   producer_evidence_kind: 'producer_observed',
+  delivery_target: {
+    target_run_id: 'run-health-0009',
+    target_agent_id: 'agent.health.systems-engineering.v1',
+    target_work_unit_id: 'wu-health-0009',
+  },
   refs: [{ ref_kind: 'artifact', ref_value: 'artifact://health/workbook-0001' }],
   observed_at: '2026-08-22T01:11:00.000Z',
   ...over,
@@ -68,7 +73,16 @@ const storeWith = ({ agent = {}, run = null, receipt = null } = {}) => {
   const store = createObservationStore();
   assert.equal(registerAgent(store, agentInput(agent)).status, 'REGISTERED');
   if (run !== null) assert.equal(observeRun(store, runInput(run)).status, 'OBSERVED');
-  if (receipt !== null) assert.equal(recordResultReceipt(store, receiptInput(receipt)).status, 'RECORDED');
+  if (receipt !== null) {
+    // A delivery receipt names the run it was meant for, so that consumer must be observed too. It
+    // claims no result of its own, so it does not alter what the gate health measures.
+    assert.equal(observeRun(store, runInput({
+      run_id: 'run-health-0009',
+      task_id: 'task-health-0009',
+      work_unit_id: 'wu-health-0009',
+    })).status, 'OBSERVED');
+    assert.equal(recordResultReceipt(store, receiptInput(receipt)).status, 'RECORDED');
+  }
   return store;
 };
 
@@ -122,12 +136,13 @@ test('a receipt that is not result or delivery evidence does not satisfy the gat
   // An approval or a validation receipt says something happened around the run, not that a result
   // was produced. Counting them would let a run claim an observed result on unrelated paperwork.
   for (const kind of ['approval', 'validation', 'artifact', 'recovery']) {
-    const store = storeWith({ run: OBSERVED, receipt: { receipt_kind: kind } });
+    const store = storeWith({ run: OBSERVED, receipt: { receipt_kind: kind, delivery_target: null } });
     assert.equal(projectBoardHealth(store).scope.result_gate_health, 'invalid', kind);
   }
-  for (const kind of ['result', 'delivery']) {
-    const store = storeWith({ run: OBSERVED, receipt: { receipt_kind: kind } });
-    assert.equal(projectBoardHealth(store).scope.result_gate_health, 'available', kind);
+  // Only a delivery receipt carries a target binding; a result receipt must stay unbound.
+  for (const receipt of [{ receipt_kind: 'result', delivery_target: null }, { receipt_kind: 'delivery' }]) {
+    const store = storeWith({ run: OBSERVED, receipt });
+    assert.equal(projectBoardHealth(store).scope.result_gate_health, 'available', receipt.receipt_kind);
   }
 });
 
