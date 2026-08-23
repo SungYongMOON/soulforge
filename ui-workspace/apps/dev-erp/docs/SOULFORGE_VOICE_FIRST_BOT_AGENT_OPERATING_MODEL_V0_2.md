@@ -368,6 +368,48 @@ Hermes는 공식 문서상 Windows native·WSL2·Docker를 지원한다. Soulfor
 promotion·skill auto-deploy를 허용하지 않는 격리 Runtime으로 먼저 시험한다. Grok Build도 official
 source와 exact version을 고정하고 Soulforge sole-writer authority를 부여하지 않는다.
 
+### Hermes Bot canonical 실행 규칙
+
+Hermes profile, 일반 Session과 Bot Mode의 canonical Bot Chat은 같은 것이 아니다. Bot에게 보낸 작업과
+사용자에게 보이는 협업 대화는 profile별 제목이 정확히 `Bot Chat`인 canonical session 하나에서만
+성립한다. 일반 `chat -q` 세션, 임의 제목 세션, one-shot `-z`, stopped/idle 상태는 Bot 전달·결과·완료
+증거가 아니다.
+
+표준 headless 호출 형태는 아래와 같다. `<public-safe-packet>`은 shell에서 직접 조립하지 않고 가능하면
+`--query-file`로 전달한다.
+
+```text
+hermes -p <exact-profile> chat \
+  --in <exact-public-safe-worktree> \
+  -c "Bot Chat" --create-if-missing -Q \
+  --query-file <public-safe-packet>
+```
+
+실행 전후 강제 조건은 다음과 같다.
+
+1. `--in`은 exact Git worktree를 가리킨다. title, 최근 사용 경로, profile 이름이나 cwd 유사도로 경로를
+   추정하지 않는다.
+2. worktree에는 root `AGENTS.md`와
+   `docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md`가 있어야 한다. `_workmeta`,
+   `private-state`, `_workspaces` 실자료, credential과 project raw payload가 있는 primary root는 public
+   OpenRouter/Ox 작업공간으로 사용하지 않는다.
+3. 첫 실작업 전에 Bot이 두 지침 파일을 실제로 읽고 exact branch·HEAD·dirty 상태와 쓰기 효과 0을
+   한국어로 readback해야 한다. manager는 같은 값을 독립 재확인한다.
+4. Bot Mode의 `BOTS` 화면에서 exact profile의 canonical 대화와 응답이 보여야 한다. 일반 Sessions에만
+   존재하는 대화는 user-visible Bot 협업 증거가 아니다.
+5. `-z` one-shot은 canonical Bot Chat을 만들지 않으며 현재 Ox 경로에서 빈 응답이 관찰됐으므로 Bot
+   실행에 사용하지 않는다. 지속 `chat` 또는 TUI Gateway JSON-RPC를 사용한다.
+6. profile `SOUL.md`는 장기 역할·판단·소통 성향만 소유한다. 프로젝트 규칙은 `AGENTS.md`, 이번 목표·
+   허용 파일·validator·stop condition은 bounded 작업 packet이 소유한다.
+7. Bot memory와 session history는 효율·대화 이력이며 ERP Project Context, accepted knowledge, task state,
+   result/delivery receipt 또는 completion authority가 아니다.
+8. credential 값, raw prompt/transcript/reasoning/tool result와 로컬 absolute path는 public 문서·Board·
+   원장으로 복제하지 않는다. 기록이 필요하면 profile/run/session ID와 상태·count·validator ref만
+   metadata-only로 남긴다.
+
+이 규칙은 local public-safe Bot pilot의 전달·가시성·지침 로딩 계약일 뿐 D31, HERMES-T1, MCP,
+scheduler, live project writer, team rollout 또는 production authority를 승인하지 않는다.
+
 ## 12. 실행 순서 `VF-0~VF-8`
 
 기존 Roadmap P0~P10/C0~C6와 충돌하지 않는 Voice-First 전용 slice ID다.

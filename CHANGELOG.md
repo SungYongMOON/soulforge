@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 2026-08-23 - Hermes Bot canonical routing and project-instruction gate
+
+- Added the public-safe Hermes Bot execution rule to the Voice-First Bot/Agent operating model and
+  routed root `AGENTS.md` to that owner surface.
+- A Hermes profile's ordinary CLI session is no longer accepted as Bot-visible delivery evidence.
+  User-visible Bot work must use the exact profile's canonical session titled `Bot Chat`, with an
+  exact public-safe worktree supplied through `--in`.
+- Before first implementation, the Bot must read back root `AGENTS.md`, the Agent Execution Contract,
+  exact branch/HEAD/dirty state, and zero write effects; the manager independently rechecks them.
+- The rule keeps SOUL identity, project rules, and bounded task packets as separate layers, and keeps
+  memory/session history non-authoritative. It does not activate MCP, scheduler, live project writer,
+  team rollout, or production authority.
+- Hermes one-shot `-z` is excluded from Bot execution because it does not create the canonical Bot
+  Chat and the local Ox compatibility probe observed empty replies. Persistent `chat` or TUI Gateway
+  JSON-RPC remains the allowed control surface.
+
 ## 2026-08-23 - Current-state documentation correction: seams, receipt v2, Hermes rationale, P2 scope
 
 - This entry is the documentation half of one integrated slice: the correction below ships in the
