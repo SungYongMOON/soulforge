@@ -1,5 +1,36 @@
 # CHANGELOG
 
+## 2026-08-23 - Stage P2: a Board view for the Agent Observation evidence
+
+- Added `ui-workspace/apps/team-ops-board/src/core/agent-observation-view.mjs`. The observation
+  owner has been producing store counts with a privacy audit, delivery edges, Board health and the
+  meter lineage rollups, and nothing displayed any of them. This turns those projections into panels
+  in the same shape the other topology views use: a pure view-model builder that takes projections
+  the caller already holds and neither fetches, writes, nor reads a clock.
+- **A held projection is rendered as that hold, never as an empty panel.** "Nothing to show" and "we
+  could not look" mean opposite things to a reader, and a blank panel says the first while meaning
+  the second. Each of the four panels carries its own availability and reason.
+- **The privacy panel will not call itself clean on three zeroes alone.** Those counters read the
+  same whether every record family was audited or none were, so the panel lists the families the
+  store reported auditing and names any that are missing. A store that dropped a family from its own
+  audit list shows as not clean with the missing family spelled out.
+- **Adjacency is never drawn as delivery.** The delivery and structural counts stay in separate
+  columns exactly as the observation contract keeps them apart, a consumer with adjacency and no
+  delivery is marked `adjacent_only` rather than shown as a zero, and each evidence ref carries the
+  producer that supplied it.
+- The lineage panel lists only agents whose subtree cost more than their own row — a leaf and a
+  childless root are not dispatchers, and listing every one would bury the handful that actually
+  dispatched work. It flags the case where a grandchild makes `subtree` differ from
+  `self + child_direct`, says when it truncated, and reports how many intermediate parents the
+  source list never emitted.
+- The tests feed the view the **real projections** from `guild_hall/agent_observation` rather than
+  hand-written shapes. A view tested against a fixture its own author invented proves the two agree
+  with each other, not that either matches the contract.
+- 운영 영향: 순수 view-model이며 서버·라우트·런타임 변경이 없다. 4192 런타임은 이 module을 아직
+  import하지 않으므로 화면에 붙이는 것은 별도 단계다. `npm run validate:team-ops-app`이 그대로
+  검증하며 607에서 616 test로 늘었다.
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/core/agent-observation-view.*`.
+
 ## 2026-08-23 - Agent Observation P1-3: the meter's lineage was there, unread
 
 - Added `guild_hall/agent_observation/meter_lineage_projection.mjs`. Measured against the live
