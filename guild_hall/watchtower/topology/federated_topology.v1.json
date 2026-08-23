@@ -1242,6 +1242,36 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::project_context_acceptance_gate",
+      "id": "engineering_engine::imports.project_context_acceptance_gate.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::project_context_acceptance_gate",
+      "id": "engineering_engine::imports.project_context_acceptance_gate.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::project_context_acceptance_gate",
+      "id": "engineering_engine::imports.project_context_acceptance_gate.project_context_generation_candidate",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::project_context_generation_candidate"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::project_context_generation_candidate",
       "id": "engineering_engine::imports.project_context_generation_candidate.canonical",
       "label": "imports",
@@ -2335,6 +2365,17 @@
       "id": "engineering_engine::pipeline",
       "kind": "module",
       "label": "pipeline",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::project_context_acceptance_gate",
+      "kind": "module",
+      "label": "project_context_acceptance_gate",
       "layer": "module",
       "parent_id": null,
       "provider_id": "engineering_engine",
@@ -3980,6 +4021,33 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "project_context_acceptance_gate",
+          "id": "imports.project_context_acceptance_gate.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "project_context_acceptance_gate",
+          "id": "imports.project_context_acceptance_gate.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "project_context_acceptance_gate",
+          "id": "imports.project_context_acceptance_gate.project_context_generation_candidate",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "project_context_generation_candidate"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "project_context_generation_candidate",
           "id": "imports.project_context_generation_candidate.canonical",
           "label": "imports",
@@ -4525,6 +4593,16 @@
         {
           "diagnostic_state": "validator_backed",
           "group": "kernel",
+          "id": "project_context_acceptance_gate",
+          "kind": "module",
+          "label": "project_context_acceptance_gate",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
           "id": "project_context_generation_candidate",
           "kind": "module",
           "label": "project_context_generation_candidate",
@@ -4589,7 +4667,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "eca73dd4494de6cf4013f147f7c66548e15bef0a7b2bf9d92d2d5961007803a0",
+        "digest": "13ee925a28f516e1475f2f85aca908c08b4c9382be67cb88e32df85960ec26fc",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -5583,13 +5661,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "5e1801ac2eff4a6b779b23d8460ef4a538df7ccf5925725ae5460569c56374fe",
+  "source_set_digest": "845aff4f9ae485bfc6369ba01724b7136b62b7f4d6acc029e597076af59b9b67",
   "summary": {
-    "edge_count": 203,
-    "node_count": 73,
+    "edge_count": 206,
+    "node_count": 74,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "33fbfe180f37850f613b8ba6afb8370d7ab5b51ba68c11ad620a7812cd2270c7"
+  "topology_digest": "e50d0216eff181e76606355f05a925cb8edce3042ab604ffca4259604d9fada2"
 }

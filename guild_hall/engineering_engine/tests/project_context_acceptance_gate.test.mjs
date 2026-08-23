@@ -3,13 +3,13 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { canonicalise } from './canonical.mjs';
+import { canonicalise } from '../kernel/canonical.mjs';
 import { sha256Canonical } from '../../shared/project_history_envelope.mjs';
 import { buildProjectPdfKnowledgeCandidate } from '../../rag/project_pdf_knowledge_projection.mjs';
 import {
   buildProjectContextGenerationCandidate,
   computeProjectContextReviewContentDigest,
-} from './project_context_generation_candidate.mjs';
+} from '../kernel/project_context_generation_candidate.mjs';
 import {
   PROJECT_CONTEXT_ACCEPTED_GENERATION_SCHEMA,
   PROJECT_CONTEXT_ACCEPTED_GENERATION_RECEIPT_SCHEMA,
@@ -18,14 +18,14 @@ import {
   createInMemoryAcceptedContextGenerationStore,
   evaluateProjectContextAcceptance,
   verifyAcceptedGenerationManifest,
-} from './project_context_acceptance_gate.mjs';
+} from '../kernel/project_context_acceptance_gate.mjs';
 
 const VALID = '2026-08-01T00:00:00.000Z';
 const KNOWN = '2026-08-02T00:00:00.000Z';
 const CUTOFF_VALID = '2026-08-05T00:00:00.000Z';
 const CUTOFF_KNOWN = '2026-08-06T00:00:00.000Z';
 const REVIEW_TIME = '2026-08-07T12:00:00.000Z';
-const MODULE_URL = new URL('./project_context_acceptance_gate.mjs', import.meta.url);
+const MODULE_URL = new URL('../kernel/project_context_acceptance_gate.mjs', import.meta.url);
 
 function hex(value) { return createHash('sha256').update(value, 'utf8').digest('hex'); }
 function hash(value) { return 'sha256:' + hex(value); }

@@ -19,7 +19,7 @@
 
 | 파일 | 역할 |
 | --- | --- |
-| `topology.mjs` | Soulforge AX 토폴로지의 public-safe 정의 (노드 27 · 간선 33)와 fail-closed 정적 검증 |
+| `topology.mjs` | Soulforge AX 토폴로지의 public-safe 정의 (노드 28 · 간선 36)와 fail-closed 정적 검증 |
 | `topology_federation.v1.schema.json` | owner별 구조 fragment의 strict public-safe wire contract |
 | `topology_federation.mjs` | fragment 검증, namespace 합성, canonical digest, declared/observed exact-set reconciliation |
 | `topology_provider_adapters.mjs` | allowlist된 Watchtower·Engineering Engine 선언 구조를 fragment로 바꾸는 순수 adapter |

@@ -160,7 +160,12 @@ export function adaptEngineeringEngineTopology(exactSourceBytes) {
   if (topology.module_count !== topology.modules?.length || topology.module_edge_count !== topology.module_edges?.length) {
     fail("topology_adapter_engine_declared_count_mismatch");
   }
-  assertExpectedCounts(topology.modules, topology.module_edges, 34, 153, "engineering_engine_topology_source");
+  // 35/156, not 36/159. The engine grew by one real module, `project_context_acceptance_gate`, and
+  // by one contaminant: that module's own test file sat in `kernel/`, which the emitter scans as a
+  // code area, so it was counted as a module and brought three edges with it. Raising the pin to
+  // the observed 36 would have blessed the contamination; the test now lives in `tests/` and this
+  // pin records only the legitimate growth.
+  assertExpectedCounts(topology.modules, topology.module_edges, 35, 156, "engineering_engine_topology_source");
   assertEmbeddedEngineDigest(topology);
 
   const nodes = topology.modules.map((module) => {

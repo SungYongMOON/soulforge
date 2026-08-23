@@ -1,5 +1,39 @@
 # CHANGELOG
 
+## 2026-08-23 - Engine topology: a test module in a code area, and the pin that caught it
+
+- `npm run validate:watchtower` had been red on `main` since `b1bee4c2` with
+  `topology_adapter_node_count_mismatch: expected=34; actual=36`. The obvious repair — raise the pin
+  to the observed 36 — would have been wrong. Only one of the two extra modules was real.
+- `project_context_acceptance_gate.test.mjs` lived in `kernel/`, and `emit_topology.mjs` scans
+  `kernel`, `assembly` and `subjects` as code areas, so the engine's own test was counted as a module
+  and brought three import edges with it. It was the only such file; the other 39 engine tests all
+  live in `tests/`. Moved, with its three sibling imports rewritten to `../kernel/`; the two
+  `../../` imports keep working because `tests/` and `kernel/` sit at the same depth.
+- Regenerated from the corrected tree: the engine is **35 modules / 156 edges** and the federation is
+  **74 nodes / 206 edges**. The adapter pin now records 35/156 — the one module of legitimate growth,
+  not the contamination.
+- The engine manifest had to be regenerated *after* staging, because it asserts each row against the
+  sha256 of the blob staged in the index rather than the working tree.
+- Fixed the two `package.json` references that pointed at the old `kernel/` path.
+- Updated every pinned count the move invalidated: the adapter, six in the watchtower adapter tests
+  including the two-provider subtotal, and six across the Board's classic and unified topology view
+  tests including the per-provider breakdown.
+- **The Board's classic engine view had gone dark and no count would have revealed it.**
+  `ENGINE_LANES` is a hand-maintained layout that must cover the engine's module set exactly, and
+  `project_context_acceptance_gate` was in no lane, so the whole view returned
+  `available: false` with `engineering_engine_lane_coverage_mismatch`. Placed in the EVIDENCE lane
+  beside `project_context_generation_candidate`, the module it gates, with the same `store` shape.
+- Carried in the regression test that prevents the recurrence: the engine topology must contain no
+  module whose name ends in `.test`. It fails against the old tree and passes against the new one.
+- `guild_hall/watchtower/README.md` said the AX topology holds 27 nodes and 33 edges; `topology.mjs`
+  emits 28 and 36. Nothing checked that prose. Corrected.
+- 운영 영향: main·4192·runtime 동작 변경 없음. 순수하게 tracked 구조 정본과 그 검증·표시 계층의
+  정정이다. `validate:watchtower`가 처음으로 다시 초록이며, 저장소에 34/153 또는 73/203 잔존
+  참조는 없다.
+- 관련 경로: `guild_hall/engineering_engine/**`, `guild_hall/watchtower/**`,
+  `ui-workspace/apps/team-ops-board/src/core/topology-*`, `package.json`.
+
 ## 2026-08-23 - Agent Observation P1-1 review pass: guards that no test could lose
 
 - The Stage P0 + P1-1 review returned ACCEPT with no blocking findings, but reported that **six

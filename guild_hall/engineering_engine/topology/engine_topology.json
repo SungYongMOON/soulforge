@@ -624,13 +624,6 @@
       "line_count": 798
     },
     {
-      "module": "project_context_acceptance_gate.test",
-      "area": "kernel",
-      "exports": [],
-      "export_count": 0,
-      "line_count": 619
-    },
-    {
       "module": "project_context_generation_candidate",
       "area": "kernel",
       "exports": [
@@ -832,7 +825,7 @@
       "line_count": 394
     }
   ],
-  "module_count": 36,
+  "module_count": 35,
   "module_edges": [
     {
       "from": "authority",
@@ -1703,27 +1696,6 @@
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
-      "from": "project_context_acceptance_gate.test",
-      "to": "canonical",
-      "relation": "imports",
-      "receipt_channel": "module_load_observation",
-      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
-    },
-    {
-      "from": "project_context_acceptance_gate.test",
-      "to": "project_context_acceptance_gate",
-      "relation": "imports",
-      "receipt_channel": "module_load_observation",
-      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
-    },
-    {
-      "from": "project_context_acceptance_gate.test",
-      "to": "project_context_generation_candidate",
-      "relation": "imports",
-      "receipt_channel": "module_load_observation",
-      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
-    },
-    {
       "from": "project_context_acceptance_gate",
       "to": "canonical",
       "relation": "imports",
@@ -1948,7 +1920,7 @@
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 159,
+  "module_edge_count": 156,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -2299,5 +2271,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "9b6aa6595fd4415ca0babd478f9c66f501ed3b6e8d3db228df5e0dc3f5c42013"
+  "topology_digest": "0b3c067ca97311a9d9cb5ef61d0300bee1e41d1a5cee7d6b2aeebe21182973eb"
 }

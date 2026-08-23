@@ -28,7 +28,7 @@ const ENGINE_LANES = Object.freeze([
     roleLabel: "EVIDENCE",
     label: "정본·근거",
     tone: "data",
-    ids: ["canonical", "fingerprint", "lineage", "custody", "context_receipt", "project_context_generation_candidate", "delivery_receipt", "finding", "errors"],
+    ids: ["canonical", "fingerprint", "lineage", "custody", "context_receipt", "project_context_generation_candidate", "project_context_acceptance_gate", "delivery_receipt", "finding", "errors"],
   },
   {
     roleLabel: "ENGINE",
@@ -67,6 +67,7 @@ const CLASSIC_SHAPE_BY_ID = Object.freeze({
   custody: "store",
   context_receipt: "store",
   project_context_generation_candidate: "store",
+  project_context_acceptance_gate: "store",
   delivery_receipt: "store",
   finding: "store",
   errors: "gate",

@@ -293,6 +293,13 @@ if (toplevel.status !== 0) {
       ? `emit failed: ${(emitted.stderr ?? '').slice(0, 200)}`
       : `${emitted.stdout.length} emitted bytes vs ${committedText.length} committed`);
 
+  const topologyBoundary = JSON.parse(committedText);
+  const testModules = topologyBoundary.modules
+    .map((entry) => entry.module)
+    .filter((moduleName) => moduleName.endsWith('.test'));
+  record('TOPOLOGY/test_modules_are_excluded_from_engine_code_areas', testModules.length === 0,
+    `test modules found in engine topology: ${testModules.join(', ') || 'none'}`);
+
   // The digest has to move when any part of the document moves. Checked on a field that is
   // nested two levels deep and was provably outside the old digest, because a digest that only
   // covers the top level looks identical to a correct one from the outside.
