@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## 2026-08-25 - Candidate Execution Coordinator first bounded live canary
+
+- **What changed**: Created one Owner-approved team-only synthetic Linear Todo (`SON-59`) with the
+  `AI 실행 후보` prefilter label, then passed its public-safe Work Brief through exact
+  Role/Capability matching, `responsible_ceo_triage`, `CandidateExecutionCoordinator`, and the
+  repository default `HermesBotSubmitExecutor` runner to the exact product-manager Bot/session on
+  `gpt-5.6-terra`.
+- **Observed evidence**: The response digest equals the expected `HERMES_LINEAR_CANARY_OK` marker,
+  the execution receipt attributes `candidate-run-000001` to `agent-system-product-manager` /
+  `bot-hermes-default`, the identical same-process replay returned `NO_OP` with the same receipt,
+  and 9120 plus the canonical 4192 Board observed one matched Bot transition `working→idle` with no
+  HOLD. Linear readback kept `SON-59` in Todo with the label and one metadata-only evidence comment;
+  Official Done and Official mutation remained false.
+- **Boundary**: This is one bounded canary, not activation of a live collector, automatic assignment,
+  persistent/multi-process claim ledger, scheduler, writer cutover, real-work Work Brief route, or
+  production readiness. The Linear connector and label are transport/prefilter evidence, not Task,
+  Role, Capability, assignment, completion, or approval authority. Unmeasured provider effects stay
+  literal `UNKNOWN`; Windows descendant process-tree termination remains unproved.
+
 ## 2026-08-24 - Candidate Execution Coordinator feature-OFF structure
 
 - **What changed**: Added separate `RoleCapabilityMatcher`, `AssignmentPolicy`, and in-memory

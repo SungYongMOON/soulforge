@@ -50,14 +50,16 @@ npm --prefix ui-workspace/apps/dev-erp run validate:candidate-execution-coordina
 npm --prefix ui-workspace/apps/dev-erp run validate:hermes-bot-submit-executor
 ```
 
-현재 저장소에는 feature-OFF `HermesBotSubmitExecutor`가 있다. Exact runtime/assignment binding,
+현재 저장소에는 기본 OFF `HermesBotSubmitExecutor`가 있다. Exact runtime/assignment binding,
 stdin-only `shell:false` command, bounded JSONL, one-attempt timeout/identity-drift HOLD와 digest-only
-result/evidence ref를 검증하지만 실제 command나 Bot을 실행하지 않는다. live Linear adapter,
-persistent ledger, scheduler, Task writer 또는 4192 result projection은 없다. 첫 임시 canary의
-Linear transport는 별도 승인된 Codex Linear connector이며 connector 출력은 관찰·transport
-receipt일 뿐 Task/Role/Capability/assignment authority가 아니다.
+result/evidence ref를 검증한다. 2026-08-25 Owner 승인 합성 canary 1건에서 Codex Linear connector가
+`AI 실행 후보` Todo를 만들고, exact Role/Capability→responsible triage→Coordinator→기본 runner가
+제품 총괄 Bot의 `gpt-5.6-terra` session을 한 번 실행했다. 결과 marker digest 일치, 같은-process
+claim replay `NO_OP`, 4192 exact Bot `working→idle`, Official Done/mutation false를 관찰했다.
+Connector 출력은 관찰·transport receipt일 뿐 Task/Role/Capability/assignment authority가 아니다.
 영구 adapter는 Soulforge-owned ingress, organization Role/Capability source, Executor transport,
-durable ledger/writer seam으로 교체되어야 한다. live canary와 production readiness는 모두 `HOLD`다.
+durable ledger/writer seam으로 교체되어야 한다. 자동 수집·persistent replay·scheduler·Task writer,
+실업무 Work Brief와 production readiness는 계속 `HOLD`다.
 
 ## Task Engine A8-SYNTH secure-access source foundation
 

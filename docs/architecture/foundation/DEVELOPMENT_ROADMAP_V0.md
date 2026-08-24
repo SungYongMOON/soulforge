@@ -196,15 +196,17 @@ read-only snapshot
   51/51, 기존 SE-core 348 pass/6 environment skip, Watchtower 44/44, changed path-policy
   0 violations와 fresh Claude Opus B/V 검토를 통과했다. 이는 public deterministic
   candidate acceptance이며 actual-project, live-current 또는 assignment acceptance가 아니다.
-- adjacent Task execution foundation(2026-08-24): 기존 `TaskExecutionCore`/SQLite를
-  변경하지 않는 feature-OFF in-memory `CandidateExecutionCoordinator` 구조가 exact
+- adjacent Task execution foundation(2026-08-25): 기존 `TaskExecutionCore`/SQLite를
+  변경하지 않는 default-OFF in-memory `CandidateExecutionCoordinator` 구조가 exact
   Role/Capability와 actor→agent→Bot→Executor binding, `responsible_ceo_triage`, opaque nested
   coverage custody, performing-agent별 slot, Waiting/HOLD release, exact successor,
   replay `NO_OP`/conflict `HOLD`, metadata-only attribution을 합성 검증했다. `AI 실행 후보`는
-  GPT/ingress prefilter marker일 뿐이다. 이 adjacent foundation은 현재 AX·SE active slice와
-  P5→P8 순서를 대체하거나 unlock하지 않으며, live Linear/organization/Hermes adapter,
-  persistent ledger, scheduler, writer, automatic assignment, 4192 result projection과 canary는
-  계속 `HOLD`다.
+  GPT/ingress prefilter marker일 뿐이다. Owner 승인 team-only 합성 `SON-59` 1건은 Codex Linear
+  connector, exact 제품 총괄 Bot/session, 기본 Hermes runner를 통해 marker digest 일치와
+  same-process replay `NO_OP`, 4192 matched Bot `working→idle`, Official Done/mutation false를
+  관찰했다. 이 adjacent foundation은 현재 AX·SE active slice와 P5→P8 순서를 대체하거나
+  unlock하지 않으며, live collector/organization source, persistent ledger, scheduler, writer,
+  automatic assignment, 실업무 Work Brief와 production route는 계속 `HOLD`다.
 - active follow-up(2026-08-14): `ax_se_project_role_roster.v0`는 logical role rows를 exact
   project/source/capability-vocabulary/time/coverage에 묶고 자체 content ref를 계산하는
   독립 public-safe module이다. coverage가 complete이고 unknown routing이 0일 때만
@@ -1236,7 +1238,7 @@ raw 산출물·private 수치는 `_workmeta` 영수증을 가리키고 여기엔
 | 2026-08-22 | `VF-8/C6` bounded mutation canary gate foundation | exact canary tuple·C5/Owner trusted pins·single-use claim·CAS/fencing·readback·compensation을 함께 검증하는 executable gate가 없었음 | synthetic-only adapter와 atomic claim store로 tuple rate cap, terminal success/failure replay, tuple-bound digest readback, non-destructive voided/superseded compensation idempotency를 구현 | canary 17/17, Task Core 28/28, Shadow 53/53, Accepted Context 30/30, fresh Opus 5 `ACCEPT`; `actual_canary_readiness=false`, live provider effect 0 | `voice_first_mutation_canary_gate*`, root acceptance wiring |
 | 2026-08-23 | Agent Observation P0~P2 foundation 현재 상태 정합 | owner README는 범위를 P0-S1/P0-S2로만 적었고 receipt v1 표기와 "Hermes를 넣으면 2.29 MB 영속 상태 마이그레이션"이라는 잘못된 근거가 남아 있었으며 P2가 화면 완료처럼 읽혔음 | 한 파일이던 관찰 표면을 Agent Registry·Run Observation·Usage Ledger·Evidence/Receipt 네 seam으로 나누고 private 공유 내부 `observation_internals.mjs`와 호환 barrel `agent_observation.mjs`을 두었다. delivery 영수증은 `result_receipt.v2`에서 `delivery_target`(target run/agent/work-unit)을 필수로 싣고 관찰된 run·project·agent·work unit에 대해 검사한다. Board view-model foundation은 투영을 panel 행으로 바꾸는 순수 builder로만 존재한다. 독립 검토가 지목한 세 경계는 RED를 먼저 잡고 보정했다 — (1) Board view가 알 수 없는 `hold_code`를 화면에 되쓰지 않고 고정 문구 하나로만 닫는다, (2) meter lineage key는 맨 앞 `/root` segment만 이름으로 면제하고 알려진 로컬 경로 모양은 meter root 아래 숨은 것까지 행에서 제외한다, (3) target run 시작 전에 관찰된 delivery receipt는 `DELIVERY_TARGET_TEMPORAL_INVERSION`으로 막고 동시각은 받아들이며 원장에 아무것도 append하지 않는다 | `delivery_target`은 producer가 관찰한 **의도된 hand-over 상대**이지 consumer의 수신 확인이 아니다. P2는 screen·route·server·runtime 배선이 없고 4192 런타임이 이 module을 import하지 않으며 가시적 배선과 live producer 활성화는 `HOLD`다. 위 세 보정도 view-model과 pure store 계약 안에서만 닫힌 것이고 런타임 배선을 만들지 않는다. Hermes meter mapping은 enum 확장이 가산적이라는 사실과 무관하게, 실제 collector가 token 신뢰도 의미를 증명하기 전까지 계속 보류다 | `guild_hall/agent_observation/**`(2026-08-23 관찰 `validate:agent-observation` 293/293), `ui-workspace/apps/team-ops-board/src/core/agent-observation-view.*`(`validate:team-ops-app` 631/631), owner README, CHANGELOG 08-23 |
 | 2026-08-23 | Hermes Desktop install-only 현재 상태 | `VF-6` Hermes proposal-runtime trial gate는 executable 계약만 있고 실제 설치 상태 기록이 없었음 | 공식 NousResearch 배포원에서 Hermes Desktop을 설치하고 agent `v0.20.5` 설치를 확인했다. 숨김 local boot smoke 1회가 성공했고 그 뒤 관련 프로세스를 모두 정지했다 | OAuth·로그인·provider 연결·API key·MCP·scheduler·channel·Probe는 어느 것도 하지 않았다. 서명되지 않은 로컬 실행 파일과 dependency audit high 4·critical 0이 남아 있어 security `HOLD`를 유지한다. 로컬 machine 경로와 credential은 기록하지 않는다 | Owner-observed install-only 보고, `voice_first_hermes_trial_gate*`(계약만, 설치·실행 권한 없음), CHANGELOG 08-23 |
-| 2026-08-24 | Candidate Execution Coordinator feature-OFF structure | `AI 실행 후보` marker와 Role/Capability candidacy, responsible triage assignment, nested Task dedupe/custody, Bot별 concurrency가 하나의 executable 구조로 아직 묶이지 않았음 | 기존 Core/SQLite와 분리된 `RoleCapabilityMatcher`·`AssignmentPolicy`·in-memory `CandidateExecutionCoordinator`와 feature-OFF `HermesBotSubmitExecutor`를 구현해 exact packet/binding, opaque parent-child-grandchild custody fingerprint, performing-agent별 slot, Waiting/HOLD release, successor/replay/fencing, stdin-only bounded command와 metadata-only attribution/effect evidence를 검증 | coordinator 21/21, Hermes Executor 16/16, Task Core 28/28, Agent Observation 295/295 evidence. Official Done/mutation false; effect count와 inspect 합계는 0 이상의 safe integer 또는 literal `UNKNOWN`이며 `null`은 허용하지 않고, 합계 overflow는 field별 `UNKNOWN`으로 닫는다. Codex Linear connector는 transport 후보일 뿐 authority가 아니며 live label/source/dispatch/canary·persistent ledger·scheduler·writer·automatic assignment·4192 result projection은 `HOLD` | `ui-workspace/apps/dev-erp/src/{role_capability_matcher,assignment_policy,candidate_execution_coordinator,hermes_bot_submit_executor}.mjs`, Task Execution Core POC docs, Task Engine master plan CURRENT, CHANGELOG 08-24 |
+| 2026-08-25 | Candidate Execution Coordinator first bounded live canary | feature-OFF public-synthetic 구조가 실제 Linear marker→exact Bot command→4192 readback을 아직 증명하지 못했음 | Owner 승인 team-only 합성 `SON-59`와 `AI 실행 후보` label을 Codex Linear connector로 만들고, Role/Capability→responsible triage→Coordinator→기본 Hermes runner로 exact 제품 총괄 `gpt-5.6-terra` session에 1회 전달 | marker digest 일치, candidate run/receipt exact Bot 귀속, same-process replay `NO_OP`, 4192 matched 1·`working→idle`, Linear Todo/label 유지, Official Done/mutation false. Connector/label은 authority가 아니며 persistent ledger·scheduler·writer·automatic assignment·실업무 Work Brief·production route는 `HOLD` | `SON-59` metadata-only Evidence comment, 4192 read-only projection, post-development review packet, CHANGELOG 08-25 |
 
 ## 갱신 규칙
 
