@@ -1,5 +1,33 @@
 # CHANGELOG
 
+## 2026-08-25 - E01 quality-readiness public-synthetic candidate
+
+- **Source-bound rule pack**: Added a public-safe, independently reviewed MIL-STD-1916, FAR Part
+  46, and NASA-STD-8739.6B source packet plus nine candidate rule rows. Source modality,
+  applicability, metadata/body separation, exact vocabulary mappings, and unresolved AQAP,
+  DTaQ/DAPA, paid-body, project-contract, and vocabulary gaps remain explicit. Candidate rows are
+  not adopted by their presence.
+- **Deterministic E01 module**: Added one deep read-only entry point, a candidate rule pack,
+  public-synthetic five-state fixture, stdout runner, and pre-release manifest factory. Execution
+  requires exact engine/objective/policy/snapshot/source/rule-stage-Owner bindings, typed and
+  evidence-disjoint authority refs, prerequisite context, observation state, and evaluated outcome.
+  Missing context/authority fails closed; evidence presence alone cannot satisfy a rule.
+- **Portable documentation shape**: Added a quality-readiness manual delta that mirrors the common
+  twelve-chapter manual without copying the shared chassis. Future engines can reuse the same
+  category and chapter order while keeping domain rules behind their own bound adapter.
+- **Validation evidence**: `validate:quality-readiness` covers syntax, 21 focused hostile tests,
+  Lane 1E module binding 104/104, Lane 1A state semantics 327/327, and Phase 2 authority oracle
+  154/154. Fresh Sol/max review accepted the source packet and the implementation for candidate
+  scope only.
+- **Operational impact and remaining HOLD**: None. No common kernel, registry, writer, MCP surface,
+  Task/ERP state, provider/profile, production route, release, or canon entry is activated. The
+  common manifest's legacy bare claim-ceiling field, truthful committed artifact/test receipts,
+  real-project source/applicability/authority facts, row-by-row Owner acceptance, release store,
+  promotion, and rollback decisions remain `HOLD`.
+- **Related paths**: `guild_hall/engineering_engine/{contracts,stage_rules,subjects,fixtures,tests,
+  tools,topology,manual/quality_readiness}`, the Engineering Engine README, and the Development
+  Roadmap plan-delta log.
+
 ## 2026-08-24 - Candidate Execution Coordinator feature-OFF structure
 
 - **What changed**: Added separate `RoleCapabilityMatcher`, `AssignmentPolicy`, and in-memory

@@ -1,5 +1,28 @@
 # guild_hall/engineering_engine
 
+## E01 quality-readiness candidate
+
+`assessQualityReadiness({ manifest, binding, domain_input, cutoffs })` is the first bounded
+engine-family module built on the existing read-only kernel seams. It checks quality-evidence
+readiness only; it cannot declare compliance, acceptance, disposition, release, or Task/ERP work.
+
+- Source contract: `contracts/quality_readiness_source_packet_v0.md`, exact SHA-256 bound by the
+  rule pack.
+- Module shape: `stage_rules/quality_readiness_rules.mjs`, `subjects/quality_readiness.mjs`,
+  a public-synthetic fixture, focused tests, stdout-only runner, and pre-release manifest factory.
+- Binding: exact engine/objective/policy/snapshot, three separate source metadata/body refs,
+  rule-stage-Owner acceptance refs, typed authority refs, applicability, prerequisite context,
+  observation, and evaluated outcome.
+- Deterministic guard: missing context/authority stays `gap_unknown`; confirmed absence alone may
+  become `gap_missing`; only a bound `criteria_met` outcome may become `satisfied`.
+- Validation: run `npm run validate:quality-readiness`.
+- Status: `PUBLIC_SYNTHETIC_IMPLEMENTATION_CANDIDATE`. Real-project applicability, row adoption,
+  source re-resolution, truthful release artifacts, manifest ABI axis migration, promotion, and
+  production activation remain `HOLD`.
+
+The common development manual remains the chassis. E01-specific deltas use the same fixed
+twelve-chapter order under `manual/quality_readiness/` and do not copy the shared chapters.
+
 ## SE-core source-pack and fixed-case evaluation
 
 The public-safe SE-core evaluation seam has seven distinct layers:
