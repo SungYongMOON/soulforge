@@ -76,6 +76,9 @@ export function observeRun(store, rawInput) {
   if (!RUN_AUTHORITIES.includes(input.authority)) return hold(H.INVALID_FIELD_VALUE, 'authority');
   if (!RUN_RESULT_STATES.includes(input.result_state)) return hold(H.INVALID_FIELD_VALUE, 'result_state');
   if (!isSafeId(input.provider)) return hold(H.INVALID_FIELD_VALUE, 'provider');
+  if (!agent.provider_identities.some((identity) => identity.provider === input.provider)) {
+    return hold(H.RUN_PROVIDER_IDENTITY_UNBOUND);
+  }
   if (!isSafeId(input.model_id)) return hold(H.INVALID_FIELD_VALUE, 'model_id');
   if (!isSafeId(input.reasoning_effort)) return hold(H.INVALID_FIELD_VALUE, 'reasoning_effort');
   if (!isUtcMs(input.started_at)) return hold(H.INVALID_FIELD_VALUE, 'started_at');

@@ -146,24 +146,21 @@ test('a receipt that is not result or delivery evidence does not satisfy the gat
   }
 });
 
-test('a run on a provider its agent has no identity for is not exact coverage', () => {
-  // The store already refuses an unregistered agent and a project mismatch, so those two alone
-  // would make this measurement vacuous. An agent registered for one provider running on another
-  // is legal, and that run cannot be traced to any provider-side thread.
+test('write-time provider binding keeps every stored run exact for Board coverage', () => {
   const bound = projectBoardHealth(storeWith({ run: {} }));
   assert.equal(bound.scope.binding_coverage, 'exact');
   assert.equal(bound.evidence.unbound_run_count, 0);
 
-  const drifted = projectBoardHealth(storeWith({
+  const store = storeWith({
     agent: { provider_identities: [{ provider: 'antigravity', id_kind: 'thread_id', id_value: 'th-other-0001' }] },
-    run: {},
-  }));
-  assert.equal(drifted.scope.binding_coverage, 'hold');
-  assert.equal(drifted.evidence.exactly_bound_run_count, 0);
-  assert.equal(drifted.evidence.unbound_run_count, 1);
+  });
+  assert.equal(observeRun(store, runInput()).status, 'HOLD');
+  const refused = projectBoardHealth(store);
+  assert.equal(refused.scope.binding_coverage, 'hold', 'the refused run was never stored');
+  assert.equal(refused.evidence.run_count, 0);
 });
 
-test('one unbound run among several is enough to hold the whole coverage', () => {
+test('several runs remain exact when each agent has the provider identity it uses', () => {
   const store = storeWith({ run: {} });
   assert.equal(registerAgent(store, agentInput({
     agent_id: 'agent.health.spreadsheet.v1',
@@ -175,12 +172,14 @@ test('one unbound run among several is enough to hold the whole coverage', () =>
     agent_id: 'agent.health.spreadsheet.v1',
     task_id: 'task-health-0002',
     work_unit_id: 'wu-health-0002',
+    provider: 'antigravity',
   })).status, 'OBSERVED');
 
   const result = projectBoardHealth(store);
   assert.equal(result.evidence.run_count, 2);
-  assert.equal(result.evidence.exactly_bound_run_count, 1);
-  assert.equal(result.scope.binding_coverage, 'hold', 'partial coverage is not exact coverage');
+  assert.equal(result.evidence.exactly_bound_run_count, 2);
+  assert.equal(result.evidence.unbound_run_count, 0);
+  assert.equal(result.scope.binding_coverage, 'exact');
 });
 
 test('disabled is never reported, because this store cannot observe it', () => {

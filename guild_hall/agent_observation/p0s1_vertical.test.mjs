@@ -56,6 +56,24 @@ test('the smallest vertical passes end to end with exactly one of each record', 
   assert.equal(result.counts.duplicate_completion_holds, 0);
 });
 
+test('an unsupported resource emits no usage, completion, delivery receipt or Board row', () => {
+  const result = runP0S1Vertical({
+    ...P0S1_SYNTHETIC_FIXTURE,
+    resource: { ...P0S1_SYNTHETIC_FIXTURE.resource, tool_kind: 'unbound_synthetic_tool' },
+  });
+
+  assert.equal(result.status, 'HOLD');
+  assert.ok(holdCodes(result).includes('CAPABILITY_NOT_SUPPORTED'));
+  assert.equal(result.counts.resources, 0);
+  assert.equal(result.counts.leases_granted, 0);
+  assert.equal(result.counts.recorded_completions, 0);
+  assert.equal(result.counts.usage_events, 0);
+  assert.equal(result.counts.requester_direct_usage_events, 0);
+  assert.equal(result.counts.receipts, 0);
+  assert.equal(result.board_rows.length, 0);
+  assert.equal(result.delivery_evidence.producer_evidence_kind, 'none');
+});
+
 test('the manager run keeps its own direct usage separate from the craftsman child', () => {
   const { usage_rollup: rollup } = runP0S1Vertical(P0S1_SYNTHETIC_FIXTURE);
   assert.equal(rollup.self_usage.event_count, 1);

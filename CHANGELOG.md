@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2026-08-24 - Agent Observation P0-S1 false-delivery and run-provider binding
+
+- **Completion-gated P0-S1 delivery (`agent_observation`)**: The synthetic vertical now retains the
+  exact `completeJob` response and requires its `job_id`/`result_ref` plus one matching completed Job
+  ledger row with exactly one recorded completion before emitting direct usage, replay/conflict
+  probes, a delivery receipt/evidence, or a Board row. An unsupported resource capability therefore
+  remains `HOLD` with zero resources, leases, completions, usage, receipts, and Board rows, and with
+  producer evidence `none`.
+- **Write-time provider crosswalk guard (`agent_observation`)**: `observeRun` now refuses a run when
+  its provider is absent from the registered Agent's provider-identity crosswalk. The fixed
+  `RUN_PROVIDER_IDENTITY_UNBOUND` HOLD code does not echo the caller's provider and no run is
+  appended. Board binding coverage now reflects this writer invariant: a non-empty valid store is
+  exact, while an empty store remains conservative `hold`. No Agent, Run, or Usage schema was
+  widened, and no provider/session binding is inferred.
+
 ## 2026-08-24 - AI Usage Meter: Codex usage activity projection, exact partial reconciliation, and Board history v4
 
 - **Codex usage activity projection (`ai_usage_meter`)**: Implemented `codex_usage_activity.mjs` and schema `soulforge.ai_usage_codex_activity_projection.v1`. Long-running multi-day turns in Codex session JSONL single-pass parser derive exact monotonic token deltas from source `token_count` observation lines relative to turn baseline, rather than attributing the entire cumulative turn usage to `event.time.started_at`. Counter regressions flag safe issue `codex_activity_counter_regression` and exclude the affected turn without crashing or synthetic timestamps. Raw prompts, reasoning content, tool payloads, and session paths are strictly excluded (`privacy.metadata_only = true`). Persisted projection is compact (`{ thread_id, turn_id, observations: [{ observed_at, delta_tokens }], total_tokens }`), dropping redundant dimensions to keep write latency and storage footprint minimal (~1.7 MB for 6.5k turns).

@@ -320,6 +320,20 @@ test('an unregistered agent holds the run', () => {
   assert.equal(result.hold_code, C.UNKNOWN_AGENT);
 });
 
+test('a run provider absent from its agent identity crosswalk is refused without echoing it', () => {
+  const store = createObservationStore();
+  assert.equal(registerAgent(store, agentInput({
+    provider_identities: [{ provider: 'codex', id_kind: 'thread_id', id_value: 'th-synthetic-0001' }],
+  })).status, 'REGISTERED');
+
+  const unregisteredProvider = 'provider_without_crosswalk';
+  const result = observeRun(store, runInput({ provider: unregisteredProvider }));
+  assert.equal(result.status, 'HOLD');
+  assert.equal(result.hold_code, 'RUN_PROVIDER_IDENTITY_UNBOUND');
+  assert.equal(JSON.stringify(result).includes(unregisteredProvider), false);
+  assert.equal(projectStoreCounts(store).runs, 0);
+});
+
 test('a run bound to a different project than its agent is a context firewall HOLD', () => {
   const store = seeded();
   const result = observeRun(store, runInput({ run_id: 'run-synthetic-0003', project_id: 'proj-synthetic-beta' }));

@@ -176,6 +176,11 @@ context firewall을 닫는다. parent run의 project와 다르면 `PARENT_PROJEC
 프로젝트의 작업이 이 parent의 subtree 사용량으로 딸려 들어오지 않는다. `heartbeat_at < started_at`이나 `ended_at < started_at`은
 `TEMPORAL_ORDER_INVALID`다.
 
+run의 `provider`는 등록된 Agent의 `provider_identities`에 같은 provider 항목이 있어야 한다.
+없으면 쓰기 시점에 `RUN_PROVIDER_IDENTITY_UNBOUND`로 거부하고 run을 append하지 않는다. 이 HOLD는
+caller가 준 provider 문자열을 detail에 되쓰지 않으며, title·session·다른 ID로 대체 binding을
+추정하지 않는다.
+
 알려진 한계: run record는 한 번 쓰이면 전진하지 않는다. 나중의 `heartbeat_at`,
 `started → running` 전이, `ended_at` 설정은 모두 `RUN_RECORD_CONFLICT`다. 이번 slice는 append와
 conflict 계약만 고정하며, lifecycle 전진은 provider identity 추가와 같이 P0의 별도 monotonic
@@ -364,6 +369,12 @@ resource나 host의 health가 `ok`가 아니면 lease를 주지 않는다
 반영하려면 `projectJobShop(shop, { now_ms })`처럼 명시 clock을 넘긴다. 이 module은
 자체 clock을 읽지 않는다.
 
+P0-S1 vertical은 lease 발급이나 run 관찰을 결과 전달로 읽지 않는다. `completeJob`의 정확한
+응답이 `COMPLETED`이고 `job_id`·`result_ref`가 요청과 일치하며, Job 원장에서 같은 job의 단일
+행이 `completed`·동일 result ref·기록 완료 1회로 확인될 때만 usage와 replay/conflict probe,
+delivery receipt, delivery evidence, Board row를 만든다. resource가 host capability에 묶이지 않아
+등록이 거부되면 이 downstream 값들은 모두 0이고 delivery evidence는 `none`이다.
+
 ## Context Capsule
 
 Agent는 장기맥락을 소유하지 않는다. 한 WorkUnit에 필요한 최소 project context만
@@ -462,13 +473,12 @@ token, credit, privacy가 **exact key set**으로 들어 있다. 이 module의 u
   Board를 돌리는 프로세스의 `TEAM_OPS_BOARD_RESULT_GATES_DISABLED` 둘뿐이고, 인메모리 store는
   둘 다 관측할 수 없다. 여기서 `disabled`을 보고하면 추측을 관측인 척 내놓는 것이다. module이 그
   문자열을 대입하지 않는다는 것 자체를 test가 소스에서 확인한다.
-- `binding_coverage`가 공허해지지 않게 조건을 하나 더 둔다. store는 미등록 agent와 project 불일치를
-  이미 쓰기 시점에 거부하므로 그 둘만 보면 비어 있지 않은 store는 언제나 `exact`가 된다. 그래서
-  **agent가 run이 실제로 쓴 provider의 crosswalk 신원을 갖고 있는가**를 함께 본다. 한 provider로
-  등록된 agent가 다른 provider에서 도는 것은 합법이고, 그런 run은 어떤 provider thread로도
-  추적되지 않는다.
+- `binding_coverage`의 provider 조건은 이제 projection-time 발견이 아니라 write-time 불변식이다.
+  `observeRun`이 미등록 agent, project 불일치, Agent crosswalk에 없는 provider를 모두 거부하므로
+  비어 있지 않은 유효 store는 `exact`이고, 빈 store만 공허한 통과 대신 `hold`다. 기존 evidence의
+  exact/unbound count 모양은 유지하지만 정상 writer를 지난 store의 unbound count는 0이다.
 - 두 값 모두 보수적인 쪽으로 떨어진다. 빈 store는 `missing`과 `hold`이며 공허한 전칭으로
-  `available`과 `exact`가 되지 않는다. run이 여럿일 때 하나만 미바인딩이어도 전체가 `hold`다.
+  `available`과 `exact`가 되지 않는다.
 - 알 수 없는 handle은 `UNKNOWN_STORE`로 거부한다. list 접근자가 빈 배열이 아니라 `null`을
   돌려주므로 `undefined`만 확인하면 외부 handle이 빈 store로 통과해 건강한 scope로 보고된다.
 - 판정만 내보내지 않고 그 판정을 만든 count를 `evidence`에 함께 싣는다. consumer가 판정을 믿는

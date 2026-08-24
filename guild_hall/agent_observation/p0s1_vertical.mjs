@@ -279,6 +279,8 @@ export function runP0S1Vertical(rawFixture) {
   const requesterProject = fixture.unknown_project === true ? null : requester.project_id;
   let usageReplayNoOps = 0;
   let leasesGranted = 0;
+  let completionResult = { status: 'SKIPPED' };
+  let completionConfirmed = false;
 
   const requesterAgent = note('register_requester_agent', registerAgent(
     store,
@@ -330,45 +332,58 @@ export function runP0S1Vertical(rawFixture) {
     }));
     if (lease.status === 'GRANTED') {
       leasesGranted += 1;
-      note('complete_job', completeJob(shop, {
+      completionResult = note('complete_job', completeJob(shop, {
         lease_id: fixture.job.lease_id,
         job_id: fixture.job.job_id,
         result_ref: fixture.artifact_ref,
         now_ms: 1_000,
       }));
+      const completionView = projectJobShop(shop);
+      const completedJobs = completionView.status === 'PROJECTED'
+        ? completionView.jobs.filter((job) => job.job_id === fixture.job.job_id)
+        : [];
+      completionConfirmed = completionResult.status === 'COMPLETED'
+        && completionResult.job_id === fixture.job.job_id
+        && completionResult.result_ref === fixture.artifact_ref
+        && completedJobs.length === 1
+        && completedJobs[0].state === 'completed'
+        && completedJobs[0].result_ref === fixture.artifact_ref
+        && completedJobs[0].recorded_completions === 1;
     }
 
-    note('record_requester_usage', recordDirectUsage(store, usagePayload(requester, AT_REQUEST)));
-    note('record_craftsman_usage', recordDirectUsage(store, usagePayload(craftsman, AT_DELIVER)));
+    if (completionConfirmed) {
+      note('record_requester_usage', recordDirectUsage(store, usagePayload(requester, AT_REQUEST)));
+      note('record_craftsman_usage', recordDirectUsage(store, usagePayload(craftsman, AT_DELIVER)));
 
-    if (fixture.replay_usage_event === true) {
-      const replay = note('replay_requester_usage', recordDirectUsage(store, usagePayload(requester, AT_REQUEST)));
-      if (replay.status === 'NO_OP') usageReplayNoOps += 1;
-    }
-    if (fixture.conflicting_usage_replay === true) {
-      note('conflicting_requester_usage', recordDirectUsage(store, {
-        ...usagePayload(requester, AT_REQUEST),
-        tokens: { ...requester.tokens, input: requester.tokens.input + 1_000 },
+      if (fixture.replay_usage_event === true) {
+        const replay = note('replay_requester_usage', recordDirectUsage(store, usagePayload(requester, AT_REQUEST)));
+        if (replay.status === 'NO_OP') usageReplayNoOps += 1;
+      }
+      if (fixture.conflicting_usage_replay === true) {
+        note('conflicting_requester_usage', recordDirectUsage(store, {
+          ...usagePayload(requester, AT_REQUEST),
+          tokens: { ...requester.tokens, input: requester.tokens.input + 1_000 },
+        }));
+      }
+
+      if (fixture.skip_delivery_receipt !== true) note('record_delivery_receipt', recordResultReceipt(store, {
+        receipt_id: fixture.delivery_receipt_id,
+        run_id: craftsman.run_id,
+        agent_id: craftsman.agent_id,
+        receipt_kind: 'delivery',
+        producer_evidence_kind: 'producer_observed',
+        // The craftsman produced this for the requester that asked for it, and says so. Naming the
+        // exact intended consumer is what keeps the fixture's pairing from being the only thing
+        // that links the two ends.
+        delivery_target: {
+          target_run_id: requester.run_id,
+          target_agent_id: requester.agent_id,
+          target_work_unit_id: requester.work_unit_id,
+        },
+        refs: [{ ref_kind: 'artifact', ref_value: fixture.artifact_ref }],
+        observed_at: AT_DELIVER,
       }));
     }
-
-    if (fixture.skip_delivery_receipt !== true) note('record_delivery_receipt', recordResultReceipt(store, {
-      receipt_id: fixture.delivery_receipt_id,
-      run_id: craftsman.run_id,
-      agent_id: craftsman.agent_id,
-      receipt_kind: 'delivery',
-      producer_evidence_kind: 'producer_observed',
-      // The craftsman produced this for the requester that asked for it, and says so. Naming the
-      // exact intended consumer is what keeps the fixture's pairing from being the only thing
-      // that links the two ends.
-      delivery_target: {
-        target_run_id: requester.run_id,
-        target_agent_id: requester.agent_id,
-        target_work_unit_id: requester.work_unit_id,
-      },
-      refs: [{ ref_kind: 'artifact', ref_value: fixture.artifact_ref }],
-      observed_at: AT_DELIVER,
-    }));
   }
 
   const counts = projectStoreCounts(store);
@@ -378,7 +393,7 @@ export function runP0S1Vertical(rawFixture) {
   // stored value rather than a constant. The store already refuses a structural_only delivery,
   // so that guard is proven in the store's own tests, not here.
   const deliveryReceipt = listReceipts(store).find((r) => r.receipt_kind === 'delivery') ?? null;
-  const deliveredToParent = deliveryReceipt !== null && craftsmanRun.status === 'OBSERVED';
+  const deliveredToParent = completionConfirmed && deliveryReceipt !== null && craftsmanRun.status === 'OBSERVED';
 
   const boardRows = deliveredToParent
     ? [{

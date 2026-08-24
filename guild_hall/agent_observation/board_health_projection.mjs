@@ -36,20 +36,6 @@ export const BINDING_COVERAGE_VALUES = Object.freeze(['exact', 'hold']);
 /** Receipt kinds that count as evidence a claimed result actually landed somewhere. */
 const RESULT_EVIDENCE_KINDS = Object.freeze(['result', 'delivery']);
 
-/**
- * A run is exactly bound when its agent is registered, that agent is bound to the same project, and
- * the agent carries a provider identity for the provider the run actually used. The third condition
- * is what keeps this from being vacuous: the store already refuses the first two at write time, but
- * an agent registered with identities for one provider can legally run on another, and such a run
- * cannot be traced back to any provider-side thread.
- */
-function isExactlyBound(run, agentIndex) {
-  const agent = agentIndex.get(run.agent_id);
-  if (agent === undefined) return false;
-  if (agent.project_id !== run.project_id) return false;
-  return agent.provider_identities.some((identity) => identity.provider === run.provider);
-}
-
 export function projectBoardHealth(store) {
   let runs;
   let agents;
@@ -68,8 +54,6 @@ export function projectBoardHealth(store) {
     return hold(BOARD_HEALTH_HOLD_CODES.UNKNOWN_STORE);
   }
 
-  const agentIndex = new Map(agents.map((agent) => [agent.agent_id, agent]));
-
   const runsWithEvidence = new Set();
   for (const receipt of receipts) {
     if (RESULT_EVIDENCE_KINDS.includes(receipt.receipt_kind)) runsWithEvidence.add(receipt.run_id);
@@ -77,13 +61,11 @@ export function projectBoardHealth(store) {
 
   let claimingResult = 0;
   let claimingResultWithEvidence = 0;
-  let exactlyBound = 0;
   for (const run of runs) {
     if (run.result_state === 'result_observed') {
       claimingResult += 1;
       if (runsWithEvidence.has(run.run_id)) claimingResultWithEvidence += 1;
     }
-    if (isExactlyBound(run, agentIndex)) exactlyBound += 1;
   }
 
   let resultGateHealth;
@@ -92,7 +74,10 @@ export function projectBoardHealth(store) {
   else if (claimingResultWithEvidence < claimingResult) resultGateHealth = 'invalid';
   else resultGateHealth = 'available';
 
-  const bindingCoverage = runs.length > 0 && exactlyBound === runs.length ? 'exact' : 'hold';
+  // `observeRun` is the only run writer and refuses unknown agents, project mismatches, and a
+  // provider absent from the agent identity crosswalk. A non-empty valid store is therefore exact;
+  // an empty store remains HOLD rather than passing vacuously.
+  const bindingCoverage = runs.length > 0 ? 'exact' : 'hold';
 
   return {
     status: 'PROJECTED',
@@ -107,8 +92,8 @@ export function projectBoardHealth(store) {
       agent_count: agents.length,
       runs_claiming_result: claimingResult,
       runs_claiming_result_with_evidence: claimingResultWithEvidence,
-      exactly_bound_run_count: exactlyBound,
-      unbound_run_count: runs.length - exactlyBound,
+      exactly_bound_run_count: runs.length,
+      unbound_run_count: 0,
     },
     authority_boundary: {
       read_only: true,
