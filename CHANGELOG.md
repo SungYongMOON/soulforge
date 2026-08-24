@@ -16,16 +16,28 @@
 - **Receipt and effect boundary**: Execution and decomposition receipts preserve metadata-only
   responsible role, actor, performing agent, Bot and Executor attribution plus result/artifact/
   evidence refs. Raw/path/secret-bearing packets and outcomes fail closed. Official Task Done and
-  mutation remain false; declared Linear, network, filesystem and shell effects remain zero.
-- **Validation evidence**: Candidate coordinator focused suite 19/19, existing Task Execution Core
-  28/28, and adjacent Agent Observation 295/295. These are public-synthetic behavior receipts, not
+  mutation remain false. The Synthetic Executor reports observed zero effects; the Hermes Adapter
+  reports unmeasured Linear, network, filesystem and shell counts as literal `UNKNOWN`. Effect
+  fields accept only a nonnegative safe integer or literal `UNKNOWN`, never `null`.
+- **Validation evidence**: Candidate coordinator focused suite 21/21, Hermes bot-submit Executor
+  16/16, existing Task Execution Core 28/28, and adjacent Agent Observation 295/295. The Hermes
+  suite includes a copied known Node executable and temporary `bot-submit` program exercising the
+  repository default runner's exact stdin/argv, shell-free JSONL, pre/post executable checks,
+  direct-child deadline abort and exit mappings without network access. These are
+  public-synthetic behavior receipts, not
   live canary, multi-process persistence, arbitrary-Executor sandbox or production-readiness proof.
-- **Operational impact and remaining HOLD**: None. The first temporary canary transports are the
-  separately authorized Codex Linear connector and a future independently reviewed bounded Hermes
-  command. Connector output is observation/transport evidence, not Task, Role, Capability,
+- **Operational impact and remaining HOLD**: None. A feature-OFF Hermes bot-submit Executor now
+  validates exact binding, stdin-only command delivery, bounded JSONL, deadlines, executable drift,
+  digest-only refs, and UNKNOWN effect evidence without making a live call. The other temporary
+  canary transport is the separately authorized Codex Linear connector. Connector output is
+  observation/transport evidence, not Task, Role, Capability,
   assignment, result or completion authority. Live Linear adapter/label creation, live
   Role/Capability source, Hermes Executor/dispatch, persistent ledger, scheduler, writer cutover,
   automatic assignment, 4192 result projection and live canary remain `HOLD`.
+  Injected `runCommand` is a trusted test seam and cannot support production evidence; any live
+  canary must use the default runner. Windows direct-child termination is observed best effort,
+  while descendant process-tree termination remains unproved and every host timeout stays
+  `HERMES_TIMEOUT_UNKNOWN`.
 - **Related paths**: `ui-workspace/apps/dev-erp/src/role_capability_matcher.mjs`,
   `ui-workspace/apps/dev-erp/src/assignment_policy.mjs`,
   `ui-workspace/apps/dev-erp/src/candidate_execution_coordinator.mjs`, focused tests,

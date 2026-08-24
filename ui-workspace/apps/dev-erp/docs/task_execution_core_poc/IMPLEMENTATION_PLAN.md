@@ -220,16 +220,22 @@ coordinator.inspect();
 6. same exact claim+packet replay는 `NO_OP`; divergent replay, idempotency collision과 잘못된
    successor는 `HOLD`다. successor는 latest Waiting/HOLD receipt에 exact 결속된 새 attempt다.
 7. raw/path/secret을 거부하고 metadata-only attribution/result/artifact/evidence ref만 receipt에
-   남긴다. Official Done/mutation은 false, Linear/network/filesystem/shell effect는 0이다.
+   남긴다. Official Done/mutation은 false다. Synthetic Executor effect는 관찰된 0이고 Hermes
+   Adapter의 미측정 effect는 literal `UNKNOWN`이다. effect field는 nonnegative safe integer 또는
+   literal `UNKNOWN`만 허용하며 `null`은 거부한다.
 
-Focused evidence는 19/19, 기존 Task Execution Core evidence는 28/28, adjacent Agent
+Focused evidence는 21/21, Hermes bot-submit Executor evidence는 16/16, 기존 Task Execution Core
+evidence는 28/28, adjacent Agent
 Observation evidence는 295/295다. 이 수치는 현재 통합 slice의 test evidence이며 live canary,
 runtime wiring, persistent concurrency 또는 production readiness 증거가 아니다.
 
 ### Adapter 순서와 중단선
 
-첫 임시 canary transport는 별도 승인된 Codex Linear connector와 향후 독립 검토된 bounded
-Hermes command다. Connector readback은 transport/observation receipt일 뿐 Task, organization,
+첫 임시 canary transport는 별도 승인된 Codex Linear connector와 feature-OFF bounded Hermes
+default command runner다. 주입형 `runCommand`는 trusted test seam일 뿐 production evidence가
+아니며 live canary는 반드시 default runner를 사용해야 한다. Windows에서는 direct child kill만
+best-effort로 관찰했고 descendant process-tree 종료는 미확정이므로 host timeout은 항상
+`HERMES_TIMEOUT_UNKNOWN`으로 둔다. Connector readback은 transport/observation receipt일 뿐 Task, organization,
 assignment 또는 result authority가 아니다. 구조 GREEN 이전이나 exact Bot/session binding이 없는
 상태에서 live issue를 만들거나 Hermes로 dispatch하지 않는다.
 

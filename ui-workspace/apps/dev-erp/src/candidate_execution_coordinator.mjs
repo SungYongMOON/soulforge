@@ -231,13 +231,28 @@ function exactBasis(candidate, task, assignment) {
     && assignment.authority_ref === task.authority_ref;
 }
 
+function validExternalEffectEvidence(value) {
+  const count = (entry) => entry === "UNKNOWN"
+    || (Number.isSafeInteger(entry) && entry >= 0);
+  return exactKeys(value, [
+    "source", "receipt_ref", "linear_writes", "network_calls",
+    "filesystem_writes", "shell_commands",
+  ]) && isSafeId(value.source) && isSafeId(value.receipt_ref)
+    && count(value.linear_writes) && count(value.network_calls)
+    && count(value.filesystem_writes) && count(value.shell_commands);
+}
+
 function normalizeOutcome(rawOutcome) {
   const value = snapshot(rawOutcome);
-  const keys = ["status", "reason_code", "result_ref", "artifact_refs", "evidence_refs"];
+  const keys = [
+    "status", "reason_code", "result_ref", "artifact_refs", "evidence_refs",
+    "external_effect_evidence",
+  ];
   if (!value || metadataViolation(value) || !exactKeys(value, keys)
     || !["succeeded", "failed", "waiting", "hold"].includes(value.status)
     || !isIdList(value.artifact_refs, { allowEmpty: true })
-    || !isIdList(value.evidence_refs, { allowEmpty: true })) return null;
+    || !isIdList(value.evidence_refs, { allowEmpty: true })
+    || !validExternalEffectEvidence(value.external_effect_evidence)) return null;
   if (value.status === "succeeded") {
     if (value.reason_code !== null || !isSafeId(value.result_ref)) return null;
   } else if (!REASON_CODE.test(value.reason_code ?? "") || value.result_ref !== null) {
@@ -297,6 +312,17 @@ export function createCandidateExecutionCoordinator({ executors, feature_enabled
     };
   }
 
+  function coordinatorEffectEvidence(receiptRef, value = 0) {
+    return {
+      source: "candidate_execution_coordinator",
+      receipt_ref: receiptRef,
+      linear_writes: value,
+      network_calls: value,
+      filesystem_writes: value,
+      shell_commands: value,
+    };
+  }
+
   function makeExecutionReceipt(run, outcomeValue) {
     return deepFreeze({
       schema_version: CANDIDATE_EXECUTION_RECEIPT_SCHEMA,
@@ -316,12 +342,7 @@ export function createCandidateExecutionCoordinator({ executors, feature_enabled
       evidence_refs: [...outcomeValue.evidence_refs],
       official_task_done: false,
       official_task_mutated: false,
-      external_effects: {
-        linear_writes: 0,
-        network_calls: 0,
-        filesystem_writes: 0,
-        shell_commands: 0,
-      },
+      external_effect_evidence: structuredClone(outcomeValue.external_effect_evidence),
     });
   }
 
@@ -490,6 +511,10 @@ export function createCandidateExecutionCoordinator({ executors, feature_enabled
         result_ref: null,
         artifact_refs: [],
         evidence_refs: [],
+        external_effect_evidence: coordinatorEffectEvidence(
+          `coordinator-adapter-crash.${run.run_id}`,
+          "UNKNOWN",
+        ),
       });
     }
     const normalized = normalizeOutcome(rawOutcome);
@@ -499,6 +524,10 @@ export function createCandidateExecutionCoordinator({ executors, feature_enabled
       result_ref: null,
       artifact_refs: [],
       evidence_refs: [],
+      external_effect_evidence: coordinatorEffectEvidence(
+        `coordinator-invalid-outcome.${run.run_id}`,
+        "UNKNOWN",
+      ),
     });
   }
 
@@ -518,6 +547,10 @@ export function createCandidateExecutionCoordinator({ executors, feature_enabled
       result_ref: null,
       artifact_refs: [],
       evidence_refs: input.evidence_refs,
+      external_effect_evidence: coordinatorEffectEvidence(
+        `coordinator-held-run.${run.run_id}`,
+        "UNKNOWN",
+      ),
     });
   }
 
@@ -647,7 +680,9 @@ export function createCandidateExecutionCoordinator({ executors, feature_enabled
       attribution: attributionOf(input.assignment_packet),
       official_task_done: false,
       official_task_mutated: false,
-      external_effects: {
+      external_effect_evidence: {
+        source: "candidate_execution_coordinator",
+        receipt_ref: `coordinator-decomposition.${receiptId}`,
         linear_writes: 0,
         network_calls: 0,
         filesystem_writes: 0,
@@ -676,6 +711,17 @@ export function createCandidateExecutionCoordinator({ executors, feature_enabled
       coverage_ref: coverageRef,
       task_id: owner.task_id,
     })).sort((left, right) => left.coverage_ref.localeCompare(right.coverage_ref));
+    const effectRows = [...receiptRows, ...decompositionRows]
+      .map((receipt) => receipt.external_effect_evidence);
+    const totalEffect = (key) => {
+      let total = 0;
+      for (const row of effectRows) {
+        const value = row[key];
+        if (value === "UNKNOWN" || total > Number.MAX_SAFE_INTEGER - value) return "UNKNOWN";
+        total += value;
+      }
+      return total;
+    };
     return deepFreeze({
       feature_enabled: featureEnabled,
       agent_runs: runRows,
@@ -684,10 +730,10 @@ export function createCandidateExecutionCoordinator({ executors, feature_enabled
       active_slots: slotRows,
       coverage_custody: custodyRows,
       external_effects: {
-        linear_writes: 0,
-        network_calls: 0,
-        filesystem_writes: 0,
-        shell_commands: 0,
+        linear_writes: totalEffect("linear_writes"),
+        network_calls: totalEffect("network_calls"),
+        filesystem_writes: totalEffect("filesystem_writes"),
+        shell_commands: totalEffect("shell_commands"),
       },
       official_task_done_count: 0,
     });

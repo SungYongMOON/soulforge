@@ -103,6 +103,14 @@ function outcome(status, overrides = {}) {
     result_ref: status === "succeeded" ? "result.synthetic.ok" : null,
     artifact_refs: status === "succeeded" ? ["artifact.synthetic.output"] : [],
     evidence_refs: ["evidence.synthetic.validator"],
+    external_effect_evidence: {
+      source: "executor.synthetic",
+      receipt_ref: "synthetic-executor.observation.v1",
+      linear_writes: 0,
+      network_calls: 0,
+      filesystem_writes: 0,
+      shell_commands: 0,
+    },
     ...overrides,
   };
 }
@@ -300,11 +308,98 @@ test("only exact prevalidated candidate/task/assignment bindings dispatch and re
   });
   assert.equal(completed.execution_receipt.official_task_done, false);
   assert.equal(completed.execution_receipt.official_task_mutated, false);
-  assert.deepEqual(completed.execution_receipt.external_effects, {
+  assert.deepEqual(completed.execution_receipt.external_effect_evidence, {
+    source: "executor.synthetic",
+    receipt_ref: "synthetic-executor.observation.v1",
     linear_writes: 0,
     network_calls: 0,
     filesystem_writes: 0,
     shell_commands: 0,
+  });
+});
+
+test("execution receipts copy exact effect evidence and inspect preserves UNKNOWN totals", async () => {
+  const unknownEvidence = {
+    source: "executor.hermes.bot-submit",
+    receipt_ref: "hermes-adapter-receipt.synthetic",
+    linear_writes: "UNKNOWN",
+    network_calls: "UNKNOWN",
+    filesystem_writes: "UNKNOWN",
+    shell_commands: "UNKNOWN",
+  };
+  const coordinator = createCandidateExecutionCoordinator({
+    feature_enabled: true,
+    executors: new Map([["executor.product.ceo", {
+      async execute() {
+        return outcome("succeeded", { external_effect_evidence: unknownEvidence });
+      },
+    }]]),
+  });
+  const result = await coordinator.dispatch(bundle(taskPacket("TASK-EFFECTS-UNKNOWN")));
+
+  assert.deepEqual(result.execution_receipt.external_effect_evidence, unknownEvidence);
+  assert.deepEqual(coordinator.inspect().external_effects, {
+    linear_writes: "UNKNOWN",
+    network_calls: "UNKNOWN",
+    filesystem_writes: "UNKNOWN",
+    shell_commands: "UNKNOWN",
+  });
+
+  const invalidCoordinator = createCandidateExecutionCoordinator({
+    feature_enabled: true,
+    executors: new Map([["executor.product.ceo", {
+      async execute() {
+        return outcome("succeeded", {
+          external_effect_evidence: { ...unknownEvidence, guessed: true },
+        });
+      },
+    }]]),
+  });
+  const invalid = await invalidCoordinator.dispatch(bundle(taskPacket("TASK-EFFECTS-INVALID")));
+  assert.equal(invalid.execution_receipt.reason_code, "EXECUTOR_OUTCOME_INVALID");
+  assert.equal(invalid.execution_receipt.external_effect_evidence.source,
+    "candidate_execution_coordinator");
+});
+
+test("inspect reports UNKNOWN per field when safe effect counts overflow", async () => {
+  const effectEvidence = [
+    {
+      source: "executor.synthetic",
+      receipt_ref: "synthetic-executor.observation.overflow-1",
+      linear_writes: Number.MAX_SAFE_INTEGER,
+      network_calls: Number.MAX_SAFE_INTEGER - 1,
+      filesystem_writes: "UNKNOWN",
+      shell_commands: 0,
+    },
+    {
+      source: "executor.synthetic",
+      receipt_ref: "synthetic-executor.observation.overflow-2",
+      linear_writes: 1,
+      network_calls: 1,
+      filesystem_writes: 7,
+      shell_commands: 4,
+    },
+  ];
+  let callIndex = 0;
+  const coordinator = createCandidateExecutionCoordinator({
+    feature_enabled: true,
+    executors: new Map([["executor.product.ceo", {
+      async execute() {
+        return outcome("succeeded", {
+          external_effect_evidence: effectEvidence[callIndex++],
+        });
+      },
+    }]]),
+  });
+
+  await coordinator.dispatch(bundle(taskPacket("TASK-EFFECTS-OVERFLOW-1")));
+  await coordinator.dispatch(bundle(taskPacket("TASK-EFFECTS-OVERFLOW-2")));
+
+  assert.deepEqual(coordinator.inspect().external_effects, {
+    linear_writes: "UNKNOWN",
+    network_calls: Number.MAX_SAFE_INTEGER,
+    filesystem_writes: "UNKNOWN",
+    shell_commands: 4,
   });
 });
 
@@ -353,6 +448,14 @@ test("decomposition receipts transfer exact parent-child-grandchild coverage wit
   });
   assert.equal(rootReceipt.status, "RECORDED");
   assert.equal(rootReceipt.decomposition_receipt.official_task_done, false);
+  assert.deepEqual(rootReceipt.decomposition_receipt.external_effect_evidence, {
+    source: "candidate_execution_coordinator",
+    receipt_ref: `coordinator-decomposition.${rootReceipt.decomposition_receipt.receipt_id}`,
+    linear_writes: 0,
+    network_calls: 0,
+    filesystem_writes: 0,
+    shell_commands: 0,
+  });
 
   const grandchildReceipt = await coordinator.recordDecomposition({
     schema_version: "soulforge.candidate_execution.decomposition_packet.v1",

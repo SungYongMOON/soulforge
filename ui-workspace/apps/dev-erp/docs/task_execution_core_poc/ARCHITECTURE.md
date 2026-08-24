@@ -251,7 +251,8 @@ sandbox하는 기능은 없으므로 production Executor를 등록하기 전에 
   경합, backup/restore, migration, retention은 구현·검증하지 않았다.
 - `readExecution`은 monotonic `run_order`의 최신 run과 그 run의 event만 반환하며 task 전체 run
   history 조회 API가 아니다.
-- receipt의 `external_effects=0`은 arbitrary Executor에 대한 기술적 sandbox 증명이 아니다.
+- POC MockExecutor receipt의 `external_effects=0`은 arbitrary Executor에 대한 기술적 sandbox
+  증명이 아니다.
 - 기존 dev-ERP Event Ledger, `core_item`, TaskDriver, Dispatcher, ERP projection에 통합하지 않았다.
 - 완전한 Context Graph/RAG/Wiki, 자동 Task discovery, 복수 Agent orchestration을 구현하지 않았다.
 - 합성 POC 통과는 operational activation, phase acceptance, production readiness를 뜻하지 않는다.
@@ -272,7 +273,7 @@ GPT/ingress `AI 실행 후보` marker
   -> RoleCapabilityMatcher (exact Role + Capability + actor/agent/Bot binding)
   -> AssignmentPolicy (`responsible_ceo_triage`)
   -> CandidateExecutionCoordinator (claim/custody/slot/replay/receipt)
-  -> replaceable Executor Adapter (현재 live 구현 없음)
+  -> replaceable Executor Adapter (feature-OFF Hermes bot-submit Adapter 포함)
 ```
 
 `AI 실행 후보`는 candidate prefilter marker일 뿐이다. marker나 connector readback은 Official
@@ -316,8 +317,11 @@ runtime availability에서 의미를 추론하지 않는다. Responsible actor�
   outcome은 저장·반환하지 않고 `HOLD`하며, receipt는 exact responsible role, actor,
   performing agent, Bot, Executor attribution과 ref만 보존한다.
 
-Execution/decomposition receipt와 `inspect()`는 항상 Official Done/mutation false와 아래 effect
-0을 고정한다.
+Execution/decomposition receipt와 `inspect()`는 항상 Official Done/mutation false를 유지한다.
+Execution receipt는 Executor가 제공한 exact `external_effect_evidence`를 검증·복사한다.
+Synthetic Executor는 관찰된 0을, Hermes Adapter는 측정하지 못한 count를 literal `UNKNOWN`으로
+기록한다. Effect field는 nonnegative safe integer 또는 literal `UNKNOWN`만 허용하고 `null`은
+거부한다. Decomposition의 아래 effect 0은 Coordinator 내부 동작에만 해당한다.
 
 ```json
 {
@@ -328,16 +332,23 @@ Execution/decomposition receipt와 `inspect()`는 항상 Official Done/mutation 
 }
 ```
 
-이 숫자는 현재 in-memory feature-OFF 구조의 경계이며 arbitrary future Executor의 sandbox
-증명이 아니다.
+이 숫자는 현재 in-memory decomposition 경계이며 arbitrary Executor의 sandbox 증명이 아니다.
 
 ### 11.3 Adapter와 현재 HOLD
 
-첫 임시 canary adapter 계획은 (1) 별도 승인된 Codex Linear connector로 marker/합성 issue를
-create/read하는 transport와 (2) 향후 독립 검토된 bounded Hermes command Executor다. 현재 public
-저장소에는 둘 중 어느 live adapter도 없고 canary도 실행되지 않았다. Connector 출력은 candidate
+첫 임시 canary adapter는 (1) 별도 승인된 Codex Linear connector로 marker/합성 issue를
+create/read하는 transport와 (2) feature-OFF `HermesBotSubmitExecutor`다. Hermes Adapter는 exact
+binding과 executable identity/digest를 검사하고 Work Brief를 승인 resolver에서 일시적으로 받아
+UTF-8 stdin으로만 전달하며, accepted/completed JSONL을 metadata-only result/evidence ref로 바꾼다.
+Host timeout·pre-ACK timeout·session/model/request mismatch·executable drift는 재시도 없이
+`HOLD/UNKNOWN`이다. 현재 실제 command/Bot canary는 실행되지 않았다. Connector 출력은 candidate
 관찰·transport receipt일 뿐 Task, Role, Capability, assignment, result 또는 completion authority가
 아니다.
+
+주입형 `runCommand`는 trusted test seam이며 그 결과는 production execution evidence가 아니다.
+live canary는 주입 없이 repository default runner를 사용해야 한다. Default runner의 direct child
+abort/kill은 best-effort이고 Windows descendant process-tree 종료는 아직 증명하지 않았으므로 host
+deadline은 성공·실패를 추론하지 않고 항상 `HERMES_TIMEOUT_UNKNOWN`으로 남긴다.
 
 영구 구조에서는 Soulforge-owned ingress/Linear adapter, organization Role/Capability source,
 Hermes Executor transport, persistent claim/run/decomposition/receipt ledger, scheduler와

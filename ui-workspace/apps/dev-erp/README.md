@@ -38,17 +38,24 @@ marker일 뿐이며 Role, Capability, 배정, 실행 eligibility 또는 완료 �
   successor, 동일 claim replay `NO_OP`, divergent replay/conflict `HOLD`를 검증한다. Coverage의
   의미는 해석하지 않는다.
 - 실행·decomposition receipt는 metadata-only attribution을 보존하고
-  `official_task_done=false`, `official_task_mutated=false`, Linear/network/filesystem/shell effect
-  0을 고정한다. feature가 기본 OFF일 때 Executor 호출은 0이다.
+  `official_task_done=false`, `official_task_mutated=false`를 고정한다. 실행 receipt의
+  `external_effect_evidence`는 synthetic Executor의 관찰된 0과 Hermes Executor의 `UNKNOWN`을
+  구분한다. 각 effect count와 `inspect().external_effects` 합계는 0 이상의 safe integer 또는
+  literal `UNKNOWN`만 허용하고 `null`은 허용하지 않으며, safe-integer 합계가 overflow해도 해당
+  field만 `UNKNOWN`으로 닫는다. decomposition receipt의 effect 0은 Coordinator 내부 동작에만
+  해당한다. feature가 기본 OFF일 때 Executor 호출은 0이다.
 
 ```bash
 npm --prefix ui-workspace/apps/dev-erp run validate:candidate-execution-coordinator
+npm --prefix ui-workspace/apps/dev-erp run validate:hermes-bot-submit-executor
 ```
 
-현재 저장소에는 live Linear adapter, Hermes Executor/dispatch adapter, persistent ledger,
-scheduler, Task writer 또는 4192 result projection이 없다. 첫 임시 canary transport 후보는
-별도 승인된 Codex Linear connector와 향후 독립 검토를 통과한 bounded Hermes command이며,
-connector 출력은 관찰·transport receipt일 뿐 Task/Role/Capability/assignment authority가 아니다.
+현재 저장소에는 feature-OFF `HermesBotSubmitExecutor`가 있다. Exact runtime/assignment binding,
+stdin-only `shell:false` command, bounded JSONL, one-attempt timeout/identity-drift HOLD와 digest-only
+result/evidence ref를 검증하지만 실제 command나 Bot을 실행하지 않는다. live Linear adapter,
+persistent ledger, scheduler, Task writer 또는 4192 result projection은 없다. 첫 임시 canary의
+Linear transport는 별도 승인된 Codex Linear connector이며 connector 출력은 관찰·transport
+receipt일 뿐 Task/Role/Capability/assignment authority가 아니다.
 영구 adapter는 Soulforge-owned ingress, organization Role/Capability source, Executor transport,
 durable ledger/writer seam으로 교체되어야 한다. live canary와 production readiness는 모두 `HOLD`다.
 
