@@ -793,13 +793,7 @@ unmatched rows remain their exact ID or `unassigned`. The Board does not infer
 or display guessed attribution, raw session content, paths, titles, prompts,
 or tool data.
 
-The `UsageTrendChart` renders a clean 30-day daily token trend across model and provider tabs
-with a truthful textual basis label (` · 토큰 관측일 기준` for complete coverage, ` · 토큰 관측일 우선 · 미근거 항목은 시작일 기준` for partial coverage, and omitted when fallback to v3 without matches). Because multi-day Codex turns derive exact monotonic
-observation deltas attributed to their actual observation dates, recent activity renders accurately without
-the former multi-billion-token historical spikes on start dates, eliminating the need for range toggle workarounds.
-Selecting a legend series dynamically rescales the chart's vertical axis to that series' individual maximum
-rather than retaining the global stacked aggregate maximum, preserving stable series colors, stride-5 tick distribution,
-tooltip hit-grid navigation, keyboard focus, and the secondary AG request overlay.
+The `UsageTrendChart` renders a daily token trend with an accessible range toggle (`최근 7일` default, `최근 30일` history) across model and provider tabs alongside a truthful textual basis label (` · 토큰 관측일 기준` for complete coverage, ` · 토큰 관측일 우선 · 미근거 항목은 시작일 기준` for partial coverage, and omitted when fallback to v3 without matches). The 7-day default allows recent activity (such as ~1.3B daily volume) to remain visibly substantial without visual compression from older multi-billion-token peaks in the 30-day window, while preserving the full 30-day history on demand. Daily token series and Antigravity request overlays slice to the active range. Selecting a legend series dynamically rescales the chart's vertical axis to that series' peak within the active range rather than retaining the global stacked aggregate maximum, preserving stable series colors, dynamic tick stride (all 7 days for 7-day range, stride 5 + last for 30-day range), tooltip hit-grid navigation, keyboard focus, and the secondary AG request overlay. The tooltip is clamped to the plot edge opposite the active date (including the midpoint), keeps the active guide clear, and never intercepts the chart controls.
 
 This Board projection is validated-private local tooling. It is not an official
 provider billing/quota authority, route resolver, Codex runtime authority,
