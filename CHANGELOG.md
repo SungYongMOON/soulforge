@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## 2026-08-24 - Hermes Agent Runtime read Module and fail-closed 4192 projection
+
+- **Provider-neutral Agent Runtime read Module (`team-ops-board`)**: Added a bounded deep read
+  Module plus Hermes TUI Gateway Adapter. The Hermes Adapter requests only
+  `session.active_list` with `metadata_only: true`; exact durable `session_key` bindings retain
+  the separate live session id and preserve `working`, `starting`, `waiting`, and `idle` without
+  inferring completion, usage, heartbeat, result, project, parent, or identity. Unknown/raw keys,
+  duplicate bindings, malformed or oversized responses, timeout, disconnect, and restart
+  invalidation fail closed with fixed non-echoing HOLD codes.
+- **Loopback 4192 projection wiring (`team-ops-board`)**: Added the exact read-only endpoint
+  `GET /agent-runtime.snapshot.json?read_only=1`, with loopback, method, query, `no-store`, JSON,
+  and `nosniff` guards, and connected the Owner Hermes cards through an exact-`bot_id` projector.
+  The default runtime has no authorized Hermes transport, no exact Bot-to-session bindings, and
+  no canonical Bot ids, so all three cards remain truthfully `UNKNOWN/HOLD`; display labels never
+  activate status and a failed refresh never retains stale `working` state. No Hermes database,
+  transcript, title, preview, prompt, reasoning, tool body, path, credential, provider mutation,
+  or runtime restart is introduced by this public slice.
+
 ## 2026-08-24 - Agent Observation P0-S1 false-delivery and run-provider binding
 
 - **Completion-gated P0-S1 delivery (`agent_observation`)**: The synthetic vertical now retains the

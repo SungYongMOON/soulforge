@@ -101,6 +101,29 @@ polling, change any snapshot, or grant runtime/repair authority.
 
 ## Local endpoint and privacy boundary
 
+### Agent Runtime read projection
+
+The Board registers `GET /agent-runtime.snapshot.json?read_only=1` for loopback
+clients only. The exact query is required, non-GET methods return `405`, and
+non-loopback callers return `403`. Responses are JSON with `Cache-Control:
+no-store` and `X-Content-Type-Options: nosniff`.
+
+The endpoint consumes the provider-neutral Agent Runtime read Module. Its Hermes
+Adapter requests only `session.active_list` with `metadata_only: true`; it never
+calls session history, free-form status, usage, activation, or the Hermes state
+database. Unknown fields and raw-bearing keys such as title, preview, messages,
+prompt, reasoning, tool bodies, cwd, paths, or credentials fail closed before a
+projection reaches the browser.
+
+The default 4192 runtime deliberately supplies neither an authorized Hermes
+transport nor exact Bot-to-session bindings. The three Owner cards also have no
+canonical `bot_id` yet. Therefore the current endpoint and UI return a fixed
+`HOLD`/`UNKNOWN` projection; display labels are never used to infer identity.
+Transport failure or a later refresh failure discards any prior positive state,
+so a stale `working` value is never retained. This wiring is a read-only,
+fail-closed integration surface, not a claim that live Hermes Bot status is
+currently connected.
+
 Vite exposes `GET /codex-threads.snapshot.json` only to loopback clients. The
 adapter starts its own short-lived official `codex app-server` stdio client,
 sends `initialize` then `initialized`, and cursor-paginates `thread/list`. It

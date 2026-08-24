@@ -79,9 +79,6 @@ import {
 } from "./core/mobile-detail.mjs";
 import { readCollapsedPanelIds, setPanelCollapsed } from "./core/panel-collapse.mjs";
 import { projectHermesBotsSnapshot } from "./core/hermes-bots-adapter.mjs";
-import {
-  buildHermesBotPanelViewModel,
-} from "./core/hermes-bot-panel.mjs";
 import { formatUsage as formatHermesBotUsage, formatHeartbeat as formatHermesBotHeartbeat } from "./core/hermes-bot-harness.mjs";
 import { buildTopologyConnectionDiagnostic, isTopologyDiagnosticNode } from "./core/topology-connection-diagnostics.mjs";
 import {
@@ -1572,24 +1569,51 @@ function RealtimeMeterHealth({ projection }: { projection: any }) {
   );
 }
 
-// Hermes Bot 관찰 패널(P2-B). P1 동결 계약(view-model/adapter)만 소비한다.
-// 첫 화면 카드는 식별 로스터(botName뿐)이고, 상태·usage·heartbeat·result는
-// 계약이 판정한 unknown/unavailable 그대로 표시하며 0으로 포장하지 않는다.
+// Hermes Bot 관찰 패널(Stage 3). Agent Runtime read projection만 소비한다.
+// 첫 화면 로스터의 canonical botId는 아직 미바인딩(null)이며 display label은
+// identity가 아니다. exact binding이 없으면 모든 관측값을 UNKNOWN/HOLD로 유지한다.
 const HERMES_BOT_IDENTITY_ROSTER = Object.freeze({
   bots: [
-    { botName: "제품 총괄" },
-    { botName: "Ox 제작자" },
-    { botName: "Ox 검토자" },
+    { botId: null, botName: "제품 총괄" },
+    { botId: null, botName: "Ox 제작자" },
+    { botId: null, botName: "Ox 검토자" },
   ],
 });
 
 function HermesBotPanel() {
   const panel = usePersistentPanelCollapse("owner.hermes_bots");
-  const viewModel = useMemo(
-    () => buildHermesBotPanelViewModel({ bots: projectHermesBotsSnapshot(HERMES_BOT_IDENTITY_ROSTER) }),
-    []
+  const [hermesRuntimeSnapshot, setHermesRuntimeSnapshot] = useState<any>(null);
+  useEffect(() => {
+    let cancelled = false;
+    let generation = 0;
+    let controller: AbortController | null = null;
+    const load = async () => {
+      const requestGeneration = ++generation;
+      controller?.abort();
+      controller = new AbortController();
+      if (!cancelled) setHermesRuntimeSnapshot(null);
+      try {
+        const response = await fetch("/agent-runtime.snapshot.json?read_only=1", { cache: "no-store", signal: controller.signal });
+        if (!response.ok) throw new Error("agent_runtime_snapshot_unavailable");
+        const nextSnapshot = await response.json();
+        if (!cancelled && requestGeneration === generation) setHermesRuntimeSnapshot(nextSnapshot);
+      } catch {
+        if (!cancelled && requestGeneration === generation) setHermesRuntimeSnapshot(null);
+      }
+    };
+    void load();
+    const timer = window.setInterval(() => { void load(); }, 10_000);
+    return () => {
+      cancelled = true;
+      generation += 1;
+      controller?.abort();
+      window.clearInterval(timer);
+    };
+  }, []);
+  const rows = useMemo(
+    () => projectHermesBotsSnapshot(hermesRuntimeSnapshot, HERMES_BOT_IDENTITY_ROSTER),
+    [hermesRuntimeSnapshot]
   );
-  const rows = Array.isArray(viewModel.rows) ? viewModel.rows : [];
   return (
     <section className={`hermes-bot-surface${panel.collapsed ? " is-collapsed" : ""}`} aria-labelledby="hermes-bot-heading" data-testid="hermes-bot-panel" data-collapsed={panel.collapsed || undefined}>
       <header className="realtime-headline">

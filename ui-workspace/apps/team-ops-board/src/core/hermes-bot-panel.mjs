@@ -2,14 +2,16 @@
 // fetch/fs/clock 호출 없음. 모든 입력은 화이트리스트로 정규화하고,
 // 미지원 필드와 hostile 입력은 값·키 자체를 반환하지 않고 hold 칩으로만 표현한다(fail-closed).
 
-const ALLOWED_STATES = new Set(["working", "reviewing", "waiting", "done", "hold"]);
+const ALLOWED_STATES = new Set(["working", "starting", "reviewing", "waiting", "idle", "done", "hold"]);
 
-const STATE_ORDER = { working: 0, reviewing: 1, waiting: 2, done: 3, hold: 4 };
+const STATE_ORDER = { working: 0, starting: 1, reviewing: 2, waiting: 3, idle: 4, done: 5, hold: 6 };
 
 const STATE_LABELS = {
   working: "작업 중",
+  starting: "시작 중",
   reviewing: "검토 중",
   waiting: "대기 중",
+  idle: "유휴",
   done: "완료",
   hold: "보류(HOLD)",
 };
