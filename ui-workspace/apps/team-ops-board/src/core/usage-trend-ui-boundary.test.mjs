@@ -7,6 +7,16 @@ import { fileURLToPath } from "node:url";
 const APP_PATH = join(dirname(dirname(fileURLToPath(import.meta.url))), "App.tsx");
 const CSS_PATH = join(dirname(dirname(fileURLToPath(import.meta.url))), "team-ops.css");
 
+function loadUsageTrendTooltipGeometry() {
+  const source = readFileSync(APP_PATH, "utf8");
+  const start = source.indexOf("function usageTrendTooltipGeometry(");
+  assert.notEqual(start, -1, "UsageTrendChart must use a dedicated tooltip geometry helper");
+  const end = source.indexOf("\n}\n\nfunction UsageTrendChart", start);
+  assert.notEqual(end, -1, "tooltip geometry helper must remain a standalone production function");
+  const helperSource = source.slice(start, end + 2).replaceAll(": number", "");
+  return Function(`"use strict"; ${helperSource}; return usageTrendTooltipGeometry;`)();
+}
+
 test("UsageTrendChart source wires accessible range toggle (최근 7일 default, 최근 30일 history) with textual basis label and excludes summary markup", () => {
   const source = readFileSync(APP_PATH, "utf8");
   const css = readFileSync(CSS_PATH, "utf8");
@@ -30,6 +40,7 @@ test("UsageTrendChart source wires accessible range toggle (최근 7일 default,
   assert.match(css, /\.usage-trend-ranges\s*\{/u);
   assert.match(css, /\.usage-trend-ranges button\s*\{/u);
   assert.match(css, /@media \(max-width: 700px\)[\s\S]*\.usage-trend-ranges/u);
+  assert.match(css, /\.usage-trend-tooltip\s*\{\s*pointer-events:\s*none;\s*\}/u);
 
   // Textual basis label supports complete and partial coverage
   assert.match(source, /토큰 관측일 기준/u);
@@ -172,4 +183,42 @@ test("variable x denominator, dynamic tick stride, hit-grid column count, and ke
   const keyClamp30 = (index, offset) => Math.min(days30.length - 1, Math.max(0, index + offset));
   assert.equal(keyClamp30(29, 1), 29, "Right arrow clamps at index 29 in 30-day view");
   assert.equal(keyClamp30(0, -1), 0, "Left arrow clamps at index 0 in 30-day view");
+});
+
+test("UsageTrendChart tooltip geometry keeps the active guide clear for left, midpoint, and right dates across 7/30-day desktop and narrow SVG layouts", () => {
+  const placeTooltip = loadUsageTrendTooltipGeometry();
+  const source = readFileSync(APP_PATH, "utf8");
+  assert.match(source, /const tooltip = usageTrendTooltipGeometry\(x, chart\.left, chart\.width - chart\.right, boxWidth\);/u);
+  const boxWidth = 260;
+  const gap = 12;
+
+  for (const layout of [
+    { label: "desktop", svgWidth: 1000, cssWidth: 1000, left: 58, right: 12 },
+    { label: "narrow mobile with AG overlay", svgWidth: 1000, cssWidth: 320, left: 58, right: 48 },
+  ]) {
+    const plotRight = layout.svgWidth - layout.right;
+    const plotWidth = plotRight - layout.left;
+    const midpoint = layout.left + plotWidth / 2;
+    const scale = layout.cssWidth / layout.svgWidth;
+
+    for (const days of [7, 30]) {
+      const x = (index) => layout.left + (index * plotWidth) / (days - 1);
+      for (const [position, activeX] of [["left", x(0)], ["midpoint", midpoint], ["right", x(days - 1)]]) {
+        const placement = placeTooltip(activeX, layout.left, plotRight, boxWidth);
+        const message = `${layout.label}, ${days}-day ${position}`;
+
+        assert.ok(placement.boxX >= layout.left, `${message}: tooltip clamps to the left plot bound`);
+        assert.ok(placement.boxX + boxWidth <= plotRight, `${message}: tooltip clamps to the right plot bound`);
+        assert.ok(activeX < placement.boxX || activeX > placement.boxX + boxWidth, `${message}: active guide is not covered by the tooltip`);
+
+        if (activeX >= midpoint) {
+          assert.equal(placement.side, "left", `${message}: midpoint and right dates use the left plot side`);
+          assert.ok((activeX - (placement.boxX + boxWidth)) * scale >= gap * scale, `${message}: left-side tooltip leaves a visible scaled gap`);
+        } else {
+          assert.equal(placement.side, "right", `${message}: left dates use the right plot side`);
+          assert.ok((placement.boxX - activeX) * scale >= gap * scale, `${message}: right-side tooltip leaves a visible scaled gap`);
+        }
+      }
+    }
+  }
 });

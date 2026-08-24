@@ -2774,6 +2774,15 @@ function buildUsageTrendChart(days: any[], series: any[], requestSeries: any[] =
   };
 }
 
+function usageTrendTooltipGeometry(activeX: number, plotLeft: number, plotRight: number, boxWidth: number) {
+  const maxBoxX = plotRight - boxWidth;
+  const midpoint = plotLeft + (plotRight - plotLeft) / 2;
+  const side = activeX >= midpoint ? "left" : "right";
+  const preferredBoxX = side === "left" ? plotLeft : maxBoxX;
+  const boxX = Math.max(plotLeft, Math.min(preferredBoxX, maxBoxX));
+  return { boxX, side };
+}
+
 function UsageTrendChart({ usage }: { usage: any }) {
   const [range, setRange] = useState<7 | 30>(7);
   const [view, setView] = useState<"model" | "provider">("model");
@@ -2917,36 +2926,32 @@ function UsageTrendChart({ usage }: { usage: any }) {
             const boxHeight = 44 + totalLines * 16;
             const maxNameLen = Math.max(14, ...visibleTokens.map((t: any) => t.label.length), ...activeReqModels.map((m) => m.model_id.length));
             const boxWidth = Math.min(260, Math.max(190, maxNameLen * 8 + 60));
-            const isRightHalf = x >= chart.left + chart.plotWidth / 2;
-            const rawBoxX = isRightHalf
-              ? chart.left + 10
-              : chart.width - chart.right - boxWidth - 10;
-            const boxX = Math.max(chart.left, Math.min(rawBoxX, chart.width - chart.right - boxWidth));
+            const tooltip = usageTrendTooltipGeometry(x, chart.left, chart.width - chart.right, boxWidth);
             let curY = 47;
             return (
               <g className="usage-trend-tooltip" role="tooltip">
                 <line x1={x} x2={x} y1={chart.top} y2={chart.top + chart.plotHeight} />
-                <rect x={boxX} y={10} width={boxWidth} height={boxHeight} rx="8" />
-                <text x={boxX + 11} y={29} className="is-title">{days[activeIndex]?.date}</text>
+                <rect x={tooltip.boxX} y={10} width={boxWidth} height={boxHeight} rx="8" />
+                <text x={tooltip.boxX + 11} y={29} className="is-title">{days[activeIndex]?.date}</text>
                 {visibleTokens.map((item: any) => {
                   const yPos = curY;
                   curY += 16;
                   return (
-                    <text key={item.id} x={boxX + 11} y={yPos} style={{ fill: USAGE_TREND_COLORS[series.indexOf(item) % USAGE_TREND_COLORS.length] }}>
+                    <text key={item.id} x={tooltip.boxX + 11} y={yPos} style={{ fill: USAGE_TREND_COLORS[series.indexOf(item) % USAGE_TREND_COLORS.length] }}>
                       {item.label}: {formatUsageNumber(item.values[activeIndex])} tok{item.unknownTurns[activeIndex] > 0 ? ` · 미기록 ${item.unknownTurns[activeIndex]}회` : ""}
                     </text>
                   );
                 })}
                 {hasAg && (
                   <>
-                    <text x={boxX + 11} y={curY} className="is-req-header">── AG 요청 (토큰 미측정) ──</text>
+                    <text x={tooltip.boxX + 11} y={curY} className="is-req-header">── AG 요청 (토큰 미측정) ──</text>
                     {(() => {
                       curY += 15;
                       return activeReqModels.map((m) => {
                         const yPos = curY;
                         curY += 16;
                         return (
-                          <text key={`${m.familyLabel}-${m.model_id}`} x={boxX + 11} y={yPos} style={{ fill: m.color }}>
+                          <text key={`${m.familyLabel}-${m.model_id}`} x={tooltip.boxX + 11} y={yPos} style={{ fill: m.color }}>
                             [{m.familyLabel}] {m.model_id}: {m.requests}회
                           </text>
                         );
