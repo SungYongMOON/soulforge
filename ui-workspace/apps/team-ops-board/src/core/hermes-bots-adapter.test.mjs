@@ -5,14 +5,14 @@ import { projectHermesBotsSnapshot } from "./hermes-bots-adapter.mjs";
 
 const ROSTER = {
   bots: [
-    { botId: "owner-approved-alpha", botName: "제품 총괄" },
+    { botId: "bot-hermes-default", botName: "제품 총괄" },
     { botId: null, botName: "Ox 제작자" },
     { botId: null, botName: "Ox 검토자" },
   ],
 };
 
 function runtimeBot({
-  botId = "owner-approved-alpha",
+  botId = "bot-hermes-default",
   displayLabel = "Provider-controlled label",
   state = "working",
   extra = {},
@@ -51,10 +51,10 @@ function readySnapshot(bots) {
   };
 }
 
-test("projection activates a card only through exact bot_id, never display label or title", () => {
+test("projection activates only 제품 총괄 through exact bot-hermes-default while unbound roles stay UNKNOWN/HOLD", () => {
   const snapshot = readySnapshot([
     runtimeBot({ botId: "different-id", displayLabel: "제품 총괄", state: "idle" }),
-    runtimeBot({ botId: "owner-approved-alpha", displayLabel: "Untrusted renamed label", state: "working" }),
+    runtimeBot({ botId: "bot-hermes-default", displayLabel: "Untrusted renamed label", state: "working" }),
   ]);
 
   const rows = projectHermesBotsSnapshot(snapshot, ROSTER);
@@ -63,9 +63,14 @@ test("projection activates a card only through exact bot_id, never display label
   assert.equal(rows[0].botName, "제품 총괄");
   assert.equal(rows[0].state, "working");
   assert.equal(rows[0].stateLabel, "작업 중");
+  assert.equal(rows[1].botName, "Ox 제작자");
   assert.equal(rows[1].state, "hold");
   assert.equal(rows[1].stateLabel, null);
+  assert.equal(rows[1].hold, "UNKNOWN_STATE_FOR_BOT_DISPLAY");
+  assert.equal(rows[2].botName, "Ox 검토자");
   assert.equal(rows[2].state, "hold");
+  assert.equal(rows[2].stateLabel, null);
+  assert.equal(rows[2].hold, "UNKNOWN_STATE_FOR_BOT_DISPLAY");
   assert.equal(JSON.stringify(rows).includes("Untrusted renamed label"), false);
 });
 

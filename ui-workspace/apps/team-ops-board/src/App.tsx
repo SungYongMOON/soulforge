@@ -1570,11 +1570,11 @@ function RealtimeMeterHealth({ projection }: { projection: any }) {
 }
 
 // Hermes Bot 관찰 패널(Stage 3). Agent Runtime read projection만 소비한다.
-// 첫 화면 로스터의 canonical botId는 아직 미바인딩(null)이며 display label은
-// identity가 아니다. exact binding이 없으면 모든 관측값을 UNKNOWN/HOLD로 유지한다.
+// Public botId는 UI/runtime identity일 뿐 route, project, authority 또는 장기 context가 아니다.
+// 제품 총괄만 Owner 승인 identity를 가지며 local runtime/session binding과 나머지 두 역할은 미바인딩이다.
 const HERMES_BOT_IDENTITY_ROSTER = Object.freeze({
   bots: [
-    { botId: null, botName: "제품 총괄" },
+    { botId: "bot-hermes-default", botName: "제품 총괄" },
     { botId: null, botName: "Ox 제작자" },
     { botId: null, botName: "Ox 검토자" },
   ],

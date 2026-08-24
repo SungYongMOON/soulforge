@@ -12,11 +12,18 @@
 - **Loopback 4192 projection wiring (`team-ops-board`)**: Added the exact read-only endpoint
   `GET /agent-runtime.snapshot.json?read_only=1`, with loopback, method, query, `no-store`, JSON,
   and `nosniff` guards, and connected the Owner Hermes cards through an exact-`bot_id` projector.
-  The default runtime has no authorized Hermes transport, no exact Bot-to-session bindings, and
-  no canonical Bot ids, so all three cards remain truthfully `UNKNOWN/HOLD`; display labels never
-  activate status and a failed refresh never retains stale `working` state. No Hermes database,
+  The default runtime has no authorized Hermes transport or exact Bot-to-session bindings, so all
+  three cards remain truthfully `UNKNOWN/HOLD`; display labels never activate status and a failed
+  refresh never retains stale `working` state. No Hermes database,
   transcript, title, preview, prompt, reasoning, tool body, path, credential, provider mutation,
   or runtime restart is introduced by this public slice.
+- **First Owner-approved public Bot identity (`team-ops-board`)**: Bound only the `제품 총괄`
+  roster row to the public-safe canonical `bot-hermes-default`; `Ox 제작자` and `Ox 검토자`
+  remain explicitly null and therefore `UNKNOWN/HOLD` under the same projection. Tests lock exact
+  `bot_id` matching and reject display-label activation. This public id is UI/runtime identity only,
+  not a route, project, authority grant, or long-term context handle. The corresponding `agent_id`
+  and durable Hermes session binding remain local ignored data. No live fetch, configuration,
+  provider mutation, or restart was performed; the claim ceiling is `validated_private`.
 - **Optional local Hermes transport and binding gate (`team-ops-board`)**: Added an all-or-nothing
   Vite startup binding for `TEAM_OPS_HERMES_AGENT_RUNTIME_URL` plus
   `TEAM_OPS_HERMES_AGENT_RUNTIME_BINDINGS`. The URL accepts only exact loopback HTTP, the fixed
