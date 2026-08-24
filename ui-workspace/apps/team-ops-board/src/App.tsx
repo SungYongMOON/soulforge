@@ -2707,13 +2707,16 @@ function buildProviderTokenSeries(providerDaily: any[]) {
   }));
 }
 
-function buildUsageTrendChart(days: any[], series: any[], requestSeries: any[] = []) {
+function buildUsageTrendChart(days: any[], series: any[], requestSeries: any[] = [], selectedSeries: string | null = null) {
   if (days.length !== 30 || series.length === 0) return null;
   const hasAgOverlay = requestSeries.length > 0 && requestSeries.some((s: any) => (s.totalRequests ?? 0) > 0);
   const width = 1000, height = 238, left = 58, right = hasAgOverlay ? 48 : 12, top = 16, bottom = 34;
   const plotWidth = width - left - right, plotHeight = height - top - bottom;
   const totals = days.map((_: any, index: number) => series.reduce((sum: number, item: any) => sum + (item.values[index] ?? 0), 0));
-  const rawMax = Math.max(...totals, 1);
+  const selectedItem = selectedSeries !== null ? series.find((item: any) => item.id === selectedSeries) : null;
+  const rawMax = selectedItem
+    ? Math.max(...(selectedItem.values ?? []), 1)
+    : Math.max(...totals, 1);
   const magnitude = 10 ** Math.floor(Math.log10(rawMax));
   const maxToken = Math.ceil(rawMax / magnitude) * magnitude;
 
@@ -2809,12 +2812,28 @@ function UsageTrendChart({ usage }: { usage: any }) {
   const totalAgRequests = requestSeries.reduce((sum, item) => sum + item.totalRequests, 0);
   const showAgOverlay = hasValidAgDaily && totalAgRequests > 0;
 
-  const chart = buildUsageTrendChart(days, series, showAgOverlay ? requestSeries : []);
+  const chart = buildUsageTrendChart(days, series, showAgOverlay ? requestSeries : [], selectedSeries);
   const knownTokens = series.reduce((sum: number, item: any) => sum + item.values.reduce((local: number, value: number) => local + value, 0), 0);
   const dailyTurns = modelDaily.reduce((sum: number, day: any) => sum + (day.models ?? []).reduce((local: number, row: any) => local + row.turns, 0), 0);
   const unknownTurns = series.reduce((sum: number, item: any) => sum + item.unknownTurns.reduce((local: number, value: number) => local + value, 0), 0);
   const chooseView = (next: "model" | "provider") => { setView(next); setSelectedSeries(null); setSelectedReqFamily(null); setActiveIndex(null); };
   if (chart === null) return <p className="usage-trend-empty">최근 30일의 정확한 로컬 토큰 시계열이 없습니다.</p>;
+
+  const latestIndex = days.length - 1;
+  const latestDate = days[latestIndex]?.date ?? "";
+  const nonzeroSeries = series
+    .map((item: any, index: number) => ({
+      id: item.id,
+      label: item.label,
+      value: item.values[latestIndex] ?? 0,
+      color: USAGE_TREND_COLORS[index % USAGE_TREND_COLORS.length],
+    }))
+    .filter((entry: any) => entry.value > 0)
+    .sort((a: any, b: any) => b.value - a.value || a.label.localeCompare(b.label, "en"));
+  const boundedTop = nonzeroSeries.slice(0, 3);
+  const remainderSeries = nonzeroSeries.slice(3);
+  const remainderTokens = remainderSeries.reduce((sum: number, entry: any) => sum + entry.value, 0);
+
   return (
     <div className={`usage-trend${showAgOverlay ? " has-req-overlay" : ""}`} data-testid="usage-trend-chart" data-view={view}>
       <header className="usage-trend-header">
@@ -2833,6 +2852,26 @@ function UsageTrendChart({ usage }: { usage: any }) {
           ? `사용 경로는 현재 원장에 기록되지 않아 표시하지 않습니다. Antigravity 요청(회)은 우측 축에 표시되며 토큰 미측정으로 토큰 합계에 합산되지 않습니다.${unknownTurns > 0 ? ` 토큰 미기록 ${formatUsageNumber(unknownTurns)}회는 토큰 합계에서 제외됩니다.` : ""}`
           : `사용 경로는 현재 원장에 기록되지 않아 표시하지 않습니다.${unknownTurns > 0 ? ` 토큰 미기록 ${formatUsageNumber(unknownTurns)}회는 합계에서 제외됩니다.` : ""}`}
       </p>
+      <div className="usage-trend-latest" data-testid="usage-trend-latest" aria-label={`최근일 ${latestDate} 사용량 요약`}>
+        <span className="usage-trend-latest-label">최근일 <strong>{latestDate}</strong></span>
+        {nonzeroSeries.length === 0 ? (
+          <span className="usage-trend-latest-empty">기록 없음</span>
+        ) : (
+          <div className="usage-trend-latest-items">
+            {boundedTop.map((entry: any) => (
+              <span key={entry.id} className="usage-trend-latest-item">
+                <span className="usage-trend-latest-dot" style={{ background: entry.color }} aria-hidden="true" />
+                <span>{entry.label} <strong>{formatUsageNumber(entry.value)}</strong> tok</span>
+              </span>
+            ))}
+            {remainderTokens > 0 && (
+              <span className="usage-trend-latest-item is-remainder">
+                <span>기타({remainderSeries.length}) <strong>{formatUsageNumber(remainderTokens)}</strong> tok</span>
+              </span>
+            )}
+          </div>
+        )}
+      </div>
       <div className="usage-trend-plot">
         <svg viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" aria-label={`최근 30일 ${view === "model" ? "모델별" : "제공자별"} 로컬 토큰${showAgOverlay ? " 및 Antigravity 요청" : ""} 사용량`}>
           {showAgOverlay && (
