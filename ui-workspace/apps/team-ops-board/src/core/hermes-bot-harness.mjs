@@ -12,7 +12,7 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function formatUsage(usage) {
+export function formatUsage(usage) {
   // usage.kind는 패널(동결 계약)이 판정한 값만 소비한다.
   if (!usage || usage.kind === "unknown") return "사용량 알 수 없음";
   if (usage.kind === "unavailable") return "사용량 정보 없음";
@@ -22,7 +22,7 @@ function formatUsage(usage) {
   return "사용량 알 수 없음";
 }
 
-function formatHeartbeat(heartbeat) {
+export function formatHeartbeat(heartbeat) {
   if (!heartbeat || heartbeat.kind === "unknown" || typeof heartbeat.ageSeconds !== "number") {
     return "마지막 신호 알 수 없음";
   }

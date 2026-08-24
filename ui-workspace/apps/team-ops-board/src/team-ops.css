@@ -6906,3 +6906,74 @@ a:focus-visible {
   .unified-topology-boundaries button { width: 100%; margin-left: 0; }
   .unified-topology-canvas { height: 720px; }
 }
+
+/* Hermes Bot 관찰 패널 (P2-B) — owner 표면, 읽기 전용 상태판 */
+.hermes-bot-surface {
+  background: #0b0f13;
+  border: 1px solid #1c242d;
+  border-radius: 10px;
+  padding: 12px 14px 10px;
+  display: grid;
+  gap: 8px;
+}
+.hermes-bot-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.hermes-bot-card {
+  border: 1px solid #27343c;
+  border-radius: 8px;
+  padding: 0.85rem 0.95rem;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.hermes-bot-card.is-hold { border-color: #c0392b; }
+.hermes-bot-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.hermes-bot-card-head h3 { margin: 0; font-size: 14px; color: #e2eaee; overflow-wrap: anywhere; }
+.hermes-bot-state-chip {
+  display: inline-block;
+  flex-shrink: 0;
+  background: #16202a;
+  color: #c9d6de;
+  border: 1px solid #2d3d49;
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+.hermes-bot-card[data-state="hold"] .hermes-bot-state-chip,
+.hermes-bot-card.is-hold .hermes-bot-state-chip { border-color: #c0392b; color: #f0b3ab; }
+.hermes-bot-meta { display: grid; gap: 4px; margin: 0; }
+.hermes-bot-meta div { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; }
+.hermes-bot-meta dt { color: #8a99a3; font-size: 11px; white-space: nowrap; }
+.hermes-bot-meta dd { margin: 0; color: #cbd6de; font-size: 12px; overflow-wrap: anywhere; }
+.hermes-bot-chip-row { display: flex; gap: 6px; margin: 0; }
+.hermes-bot-suppressed-chip {
+  display: inline-block;
+  background: rgb(192 57 43 / 16%);
+  color: #f0b3ab;
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.78rem;
+}
+.hermes-bot-open-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.hermes-bot-open { color: #8dbffc; font-size: 12px; overflow-wrap: anywhere; }
+.hermes-bot-open-missing { color: #77848d; }
+.hermes-bot-open-mobile-note { display: none; color: #77848d; font-size: 12px; }
+.hermes-bot-open:focus-visible { outline: 2px solid #8dbffc; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .hermes-bot-card { transition: none; animation: none; }
+}
+@media (max-width: 390px) {
+  .hermes-bot-grid { grid-template-columns: minmax(0, 1fr); }
+  .hermes-bot-card { padding: 0.75rem; }
+  .hermes-bot-open-actions .hermes-bot-open { display: none; }
+  .hermes-bot-open-actions .hermes-bot-open-mobile-note { display: inline; }
+}
