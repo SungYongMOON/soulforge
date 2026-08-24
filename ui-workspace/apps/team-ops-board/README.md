@@ -115,9 +115,10 @@ database. Unknown fields and raw-bearing keys such as title, preview, messages,
 prompt, reasoning, tool bodies, cwd, paths, or credentials fail closed before a
 projection reaches the browser.
 
-The default 4192 runtime deliberately supplies neither an authorized Hermes
-transport nor exact Bot-to-session bindings. With the optional environment
-values absent, the endpoint and UI return a fixed `HOLD`/`UNKNOWN` projection.
+An unconfigured manual 4192 or 4193 runtime deliberately supplies neither an
+authorized Hermes transport nor exact Bot-to-session bindings. With the optional
+environment values absent, the endpoint and UI return a fixed `HOLD`/`UNKNOWN`
+projection.
 The tracked roster assigns the Owner-approved public-safe `bot-hermes-default`
 identity only to `제품 총괄`; `Ox 제작자` and `Ox 검토자` remain explicitly
 unbound. This public `bot_id` is a UI/runtime identity only. It is not a route,
@@ -152,6 +153,18 @@ Owner supplies or changes both local values, the 4192 development or 4193
 preview process must be restarted before the new binding can be considered.
 This wiring remains a read-only, fail-closed integration surface; it does not
 install or restart Hermes, add credentials, or grant provider mutation.
+
+The Owner-approved Scheduled Task Pilot is narrower and deterministic. Its
+controller supplies the fixed local read endpoint
+`http://127.0.0.1:9120/api/agent-runtime/active-sessions` together with the
+binding path derived under the validated owner root at
+`guild_hall/state/operations/team_ops_board/agent_runtime_binding.v1.json`.
+Both values are rebuilt together in process memory; caller-supplied replacements
+cannot override them. The manual worker environment boundary forwards either
+Agent Runtime value only when its value is already a string and still drops
+unrelated values. A missing binding file, a one-sided manual configuration, or
+an unavailable listener remains the same fail-closed `HOLD`; no title, cwd,
+credential, or secret is used to derive or complete the pair.
 
 Vite exposes `GET /codex-threads.snapshot.json` only to loopback clients. The
 adapter starts its own short-lived official `codex app-server` stdio client,
@@ -533,6 +546,10 @@ default bindings in process memory before it owns one Board child. None of
 those values enter the task action,
 task metadata, repository, or logs. Scheduled mode starts from required OS
 variables only and replaces, rather than inherits, every Board binding. The
+Agent Runtime pair follows that same rule: the controller fixes the approved
+loopback URL and derives the ignored binding filename under the Board state root,
+overwriting any caller attempt. This environment-only propagation does not
+change the Scheduled Task definition or action digest. The
 Git and Tailscale preflight helpers each have a dedicated 15-second timeout;
 the local runtime control request timeout remains 3 seconds. A preflight failure
 before the Board child starts exits fail-closed and writes only a sanitized

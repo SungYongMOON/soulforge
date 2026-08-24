@@ -34,6 +34,14 @@
   truncated input stays at the existing fixed HOLD with no partial wiring or stale `working` cache.
   No live URL, local path, binding value, or credential is tracked, and default startup performs no
   fetch, provider restart, or provider mutation; local value changes require a Vite process restart.
+- **Scheduled Agent Runtime environment propagation (`team-ops-board`)**: The Owner-approved
+  Scheduled Task Pilot now constructs the exact loopback active-sessions URL and the ignored
+  `agent_runtime_binding.v1.json` path together from the validated owner root, then passes both to
+  its Board child through the bounded environment allowlist. Scheduled construction replaces
+  hostile caller values; the manual worker boundary forwards only present string values and drops
+  unrelated keys. Missing, one-sided, or unavailable local configuration still resolves to the
+  existing fail-closed `HOLD`. No task definition/action digest, task registration, live runtime,
+  listener, credential, secret, provider state, or restart was changed by this source-only slice.
 
 ## 2026-08-24 - Agent Observation P0-S1 false-delivery and run-provider binding
 

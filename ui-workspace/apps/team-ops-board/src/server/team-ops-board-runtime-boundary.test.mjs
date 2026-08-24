@@ -8,6 +8,8 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
+  TEAM_OPS_BOARD_AGENT_RUNTIME_BINDING_FILENAME,
+  TEAM_OPS_BOARD_AGENT_RUNTIME_PILOT_URL,
   TEAM_OPS_BOARD_RUNTIME_HOST,
   TEAM_OPS_BOARD_RUNTIME_HIDDEN_LAUNCHER,
   TEAM_OPS_BOARD_RUNTIME_HELPER_MAX_BUFFER_BYTES,
@@ -140,6 +142,33 @@ test("manual worker maps only exact operator quota intent without mutating its p
     assert.equal(TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ in malformedWorker, false);
     assert.equal(malformedParent[TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ], malformed);
   }
+});
+
+test("manual worker forwards the exact Agent Runtime string pair and no unrelated values", () => {
+  const worker = createRuntimeWorkerEnvironment({
+    TEAM_OPS_HERMES_AGENT_RUNTIME_URL: "sentinel-runtime-url",
+    TEAM_OPS_HERMES_AGENT_RUNTIME_BINDINGS: "sentinel-binding-path",
+    UNRELATED_AGENT_RUNTIME_VALUE: "must-not-forward",
+  });
+
+  assert.equal(worker.TEAM_OPS_HERMES_AGENT_RUNTIME_URL, "sentinel-runtime-url");
+  assert.equal(worker.TEAM_OPS_HERMES_AGENT_RUNTIME_BINDINGS, "sentinel-binding-path");
+  assert.equal("UNRELATED_AGENT_RUNTIME_VALUE" in worker, false);
+});
+
+test("manual worker preserves one-sided Agent Runtime string configuration without coercion", () => {
+  assert.deepEqual(createRuntimeWorkerEnvironment({
+    TEAM_OPS_HERMES_AGENT_RUNTIME_URL: "sentinel-runtime-url",
+    TEAM_OPS_HERMES_AGENT_RUNTIME_BINDINGS: 9120,
+  }), {
+    TEAM_OPS_HERMES_AGENT_RUNTIME_URL: "sentinel-runtime-url",
+  });
+  assert.deepEqual(createRuntimeWorkerEnvironment({
+    TEAM_OPS_HERMES_AGENT_RUNTIME_URL: null,
+    TEAM_OPS_HERMES_AGENT_RUNTIME_BINDINGS: "sentinel-binding-path",
+  }), {
+    TEAM_OPS_HERMES_AGENT_RUNTIME_BINDINGS: "sentinel-binding-path",
+  });
 });
 
 test("runtime preview is fixed to strict loopback 4192", () => {
@@ -557,6 +586,8 @@ test("scheduled worker derives private bindings in memory and keeps quota OFF", 
       TEAM_OPS_BOARD_CLAUDE_QUOTA_READ: "1",
       TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY: "must-be-replaced",
       TEAM_OPS_BOARD_EXACT_THREAD_BINDINGS: "must-not-inherit",
+      TEAM_OPS_HERMES_AGENT_RUNTIME_URL: "http://127.0.0.1:65535/hostile",
+      TEAM_OPS_HERMES_AGENT_RUNTIME_BINDINGS: "must-be-replaced",
       PSModulePath: "must-not-reach-runtime",
       UNRELATED_PASSWORD: "must-not-forward",
     },
@@ -568,6 +599,19 @@ test("scheduled worker derives private bindings in memory and keeps quota OFF", 
   assert.equal(environment.SOULFORGE_AI_USAGE_PROJECT_ROOT, ownerRoot);
   assert.match(environment.TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY, /thread_visibility\.v1\.json$/u);
   assert.notEqual(environment.TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY, "must-be-replaced");
+  assert.equal(
+    TEAM_OPS_BOARD_AGENT_RUNTIME_PILOT_URL,
+    "http://127.0.0.1:9120/api/agent-runtime/active-sessions",
+  );
+  assert.equal(TEAM_OPS_BOARD_AGENT_RUNTIME_BINDING_FILENAME, "agent_runtime_binding.v1.json");
+  assert.equal(
+    environment.TEAM_OPS_HERMES_AGENT_RUNTIME_URL,
+    TEAM_OPS_BOARD_AGENT_RUNTIME_PILOT_URL,
+  );
+  assert.equal(
+    environment.TEAM_OPS_HERMES_AGENT_RUNTIME_BINDINGS,
+    path.join(ownerRoot, "guild_hall", "state", "operations", "team_ops_board", "agent_runtime_binding.v1.json"),
+  );
   assert.equal("TEAM_OPS_BOARD_EXACT_THREAD_BINDINGS" in environment, false);
   assert.equal("TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ" in environment, false);
   assert.equal("TEAM_OPS_BOARD_CLAUDE_QUOTA_READ" in environment, false);

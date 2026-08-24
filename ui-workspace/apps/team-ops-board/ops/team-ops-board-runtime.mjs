@@ -24,6 +24,10 @@ import {
   isTeamOpsBoardReadOnlyPilot,
 } from "../src/core/team-ops-board-read-only-pilot.mjs";
 import { classifyBoundedHistory, planBoundedHistoryAppend } from "../src/core/bounded-observability-history.mjs";
+import {
+  HERMES_AGENT_RUNTIME_BINDINGS_ENV,
+  HERMES_AGENT_RUNTIME_URL_ENV,
+} from "../src/server/agent-runtime-snapshot-adapter.mjs";
 import { resolveTeamOpsBoardAllowedHosts } from "../src/server/team-ops-board-allowed-hosts.mjs";
 import { startUsageProducerCompanion } from "./ai-usage-producer-companion.mjs";
 import { startRecoveryCompanion } from "../../../../guild_hall/watchtower/recovery_runtime.mjs";
@@ -36,6 +40,10 @@ export const TEAM_OPS_BOARD_RUNTIME_LAUNCH_PIPE = String.raw`\\.\pipe\soulforge-
 export const TEAM_OPS_BOARD_RUNTIME_TASK_NAME = "Soulforge-TeamOpsBoard-ReadOnly-v1";
 export const TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ =
   "TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ";
+export const TEAM_OPS_BOARD_AGENT_RUNTIME_PILOT_URL =
+  "http://127.0.0.1:9120/api/agent-runtime/active-sessions";
+export const TEAM_OPS_BOARD_AGENT_RUNTIME_BINDING_FILENAME =
+  "agent_runtime_binding.v1.json";
 
 const RUNTIME_ENVIRONMENT_ALLOWLIST = Object.freeze([
   "APPDATA",
@@ -61,6 +69,8 @@ const RUNTIME_ENVIRONMENT_ALLOWLIST = Object.freeze([
   "TEAM_OPS_BOARD_CLAUDE_PROJECTS_ROOT",
   "TEAM_OPS_BOARD_EXACT_THREAD_BINDINGS",
   "TEAM_OPS_BOARD_HOST_DISK_ROOTS",
+  HERMES_AGENT_RUNTIME_BINDINGS_ENV,
+  HERMES_AGENT_RUNTIME_URL_ENV,
   "TEAM_OPS_BOARD_LIFECYCLE_DISABLE_CONTROL",
   "TEAM_OPS_BOARD_LIFECYCLE_SNAPSHOT",
   "TEAM_OPS_BOARD_ORGANIZATION_CATALOG",
@@ -745,6 +755,11 @@ export function createScheduledRuntimeEnvironment({
     TEAM_OPS_BOARD_READ_ONLY_PILOT: "1",
     TEAM_OPS_BOARD_ANTIGRAVITY_QUOTA_LIVE_REFRESH: "1",
     TEAM_OPS_BOARD_ALLOWED_HOSTS: deriveAllowedHostFromServeStatus(serveStatus),
+    [HERMES_AGENT_RUNTIME_URL_ENV]: TEAM_OPS_BOARD_AGENT_RUNTIME_PILOT_URL,
+    [HERMES_AGENT_RUNTIME_BINDINGS_ENV]: path.join(
+      boardStateRoot,
+      TEAM_OPS_BOARD_AGENT_RUNTIME_BINDING_FILENAME,
+    ),
     TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY: path.join(boardStateRoot, "thread_visibility.v1.json"),
     TEAM_OPS_BOARD_THREAD_RESULT_GATE_REGISTRY: path.join(boardStateRoot, "thread_result_gate.v1.json"),
     SOULFORGE_AI_USAGE_METER_STATE_ROOT: usageRoot,
