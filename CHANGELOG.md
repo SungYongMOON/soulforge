@@ -1,5 +1,37 @@
 # CHANGELOG
 
+## 2026-08-24 - Candidate Execution Coordinator feature-OFF structure
+
+- **What changed**: Added separate `RoleCapabilityMatcher`, `AssignmentPolicy`, and in-memory
+  `CandidateExecutionCoordinator` Modules beside the existing `TaskExecutionCore`/SQLite POC.
+  GPT/ingress `AI 실행 후보` is a candidate prefilter marker only. Exact versioned Role/Capability
+  data and explicit actor→performing-agent→Bot→Executor bindings produce bounded candidates;
+  `responsible_ceo_triage` selects only the exact responsible actor binding. The coordinator then
+  requires exact candidate/task/assignment consistency, preserves caller-supplied opaque
+  parent-child-grandchild coverage custody without semantic inference, fingerprints the exact
+  parent/authority/assignment/decomposition lineage against later drift, and allows one active slot per
+  performing agent with cross-agent parallelism, releases slots on Waiting/HOLD, fences exact
+  successors and late results, returns identical replay as `NO_OP`, and holds divergent replay or
+  conflicts.
+- **Receipt and effect boundary**: Execution and decomposition receipts preserve metadata-only
+  responsible role, actor, performing agent, Bot and Executor attribution plus result/artifact/
+  evidence refs. Raw/path/secret-bearing packets and outcomes fail closed. Official Task Done and
+  mutation remain false; declared Linear, network, filesystem and shell effects remain zero.
+- **Validation evidence**: Candidate coordinator focused suite 19/19, existing Task Execution Core
+  28/28, and adjacent Agent Observation 295/295. These are public-synthetic behavior receipts, not
+  live canary, multi-process persistence, arbitrary-Executor sandbox or production-readiness proof.
+- **Operational impact and remaining HOLD**: None. The first temporary canary transports are the
+  separately authorized Codex Linear connector and a future independently reviewed bounded Hermes
+  command. Connector output is observation/transport evidence, not Task, Role, Capability,
+  assignment, result or completion authority. Live Linear adapter/label creation, live
+  Role/Capability source, Hermes Executor/dispatch, persistent ledger, scheduler, writer cutover,
+  automatic assignment, 4192 result projection and live canary remain `HOLD`.
+- **Related paths**: `ui-workspace/apps/dev-erp/src/role_capability_matcher.mjs`,
+  `ui-workspace/apps/dev-erp/src/assignment_policy.mjs`,
+  `ui-workspace/apps/dev-erp/src/candidate_execution_coordinator.mjs`, focused tests,
+  dev-ERP README and Task Execution Core POC docs, Task Engine master plan CURRENT, and the
+  Development Roadmap.
+
 ## 2026-08-24 - Hermes Agent Runtime read Module and fail-closed 4192 projection
 
 - **Provider-neutral Agent Runtime read Module (`team-ops-board`)**: Added a bounded deep read

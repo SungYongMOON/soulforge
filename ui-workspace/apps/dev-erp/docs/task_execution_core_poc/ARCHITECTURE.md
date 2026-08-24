@@ -259,3 +259,88 @@ sandbox하는 기능은 없으므로 production Executor를 등록하기 전에 
 운영 통합 전 결정할 질문은 [NEXT_DECISIONS.md](./NEXT_DECISIONS.md)에 한정해 둔다.
 Linear 이력·Comment·Waiting·Evidence의 장기 복원 범위는
 [LINEAR_BACKUP_SCOPE_REVIEW.md](./LINEAR_BACKUP_SCOPE_REVIEW.md)에 별도로 정리한다.
+
+## 11. CandidateExecutionCoordinator 별도 구조
+
+2026-08-24 추가된 아래 세 Module은 이 문서의 `TaskExecutionCore`와 SQLite EventStore를
+수정하거나 감싸지 않는다. 별도의 feature-OFF, in-memory 구조로 candidate selection부터
+replaceable Executor 호출 직전·직후까지의 결속과 custody를 합성 packet으로 검증한다.
+
+```text
+GPT/ingress `AI 실행 후보` marker
+  -> prevalidated candidate packet (prefilter only)
+  -> RoleCapabilityMatcher (exact Role + Capability + actor/agent/Bot binding)
+  -> AssignmentPolicy (`responsible_ceo_triage`)
+  -> CandidateExecutionCoordinator (claim/custody/slot/replay/receipt)
+  -> replaceable Executor Adapter (현재 live 구현 없음)
+```
+
+`AI 실행 후보`는 candidate prefilter marker일 뿐이다. marker나 connector readback은 Official
+Task, `Todo`, Work Brief revision, action, authority, Role, Capability, assignment, dispatch 또는
+completion 권위를 만들지 않는다.
+
+### 11.1 Role/Capability와 배정 seam
+
+`RoleCapabilityMatcher`는 exact prevalidated Work/Task contract, versioned Role snapshot,
+versioned Capability snapshot만 받는다. Required Role의 exact action 책임과 explicit
+`actor_ref -> performing_agent_id -> bot_ref -> executor_ref` binding을 확인하고, required
+Capability가 모두 있는 active candidate만 반환한다. 라벨, 표시명, 유사 Role, 인접 candidate,
+runtime availability에서 의미를 추론하지 않는다. Responsible actor가 required Capability를
+충족하지 못하면 다른 candidate가 있어도 `HOLD`다.
+
+`AssignmentPolicy`는 matcher와 분리된 Module이다. 현재 구현된 policy mode는
+`responsible_ceo_triage` 하나이며 exact responsible actor candidate 한 건만 선택한다.
+`recommendation_only`, ranking, fallback, 자동 배정은 구현되지 않았다.
+
+### 11.2 Coordinator 불변식
+
+- candidate, Official `Todo` task, Work Brief revision, action, authority와 assignment packet이
+  exact하게 일치해야 Executor를 찾는다.
+- claim natural key는 exact TaskRef + immutable Work Brief revision + action이다. 같은 packet의
+  재호출은 idempotency key가 달라도 `NO_OP`; 같은 claim의 다른 packet이나 한 key의 다른
+  claim은 `HOLD`다.
+- parent decomposition은 caller가 제공한 opaque `coverage_refs`의 exact union을 자식에게
+  이전한다. sibling overlap, 누락/초과, unknown ancestry, 다른 authority는 `HOLD`이고,
+  child custody는 parent/task/claim/authority/coverage/assignment/decomposition lineage의
+  immutable fingerprint를 보존한다. 이후 child dispatch나 child→grandchild decomposition에서
+  하나라도 바뀌면 Executor 호출 전 `HOLD`한다. decomposed parent는 재실행하지 않는다.
+  같은 규칙을 child→grandchild에 반복하며 coverage의
+  업무 의미는 추론하지 않는다.
+- active slot key는 `performing_agent_id`다. 한 agent는 한 run만 active지만 다른 agent는
+  병렬로 실행할 수 있다. Waiting/HOLD와 성공/실패 settle은 slot을 해제하되 coverage custody는
+  유지한다.
+- successor는 같은 packet fingerprint와 latest Waiting/HOLD receipt exact ID에만 허용한다.
+  successor는 새 run/attempt/fencing epoch를 만들며 attribution 변경 같은 divergent replay는
+  `HOLD`다. 수동 timeout HOLD 뒤 늦은 결과도 fencing으로 거부한다.
+- Executor outcome은 closed metadata-only shape만 받는다. raw/path/secret-bearing packet 또는
+  outcome은 저장·반환하지 않고 `HOLD`하며, receipt는 exact responsible role, actor,
+  performing agent, Bot, Executor attribution과 ref만 보존한다.
+
+Execution/decomposition receipt와 `inspect()`는 항상 Official Done/mutation false와 아래 effect
+0을 고정한다.
+
+```json
+{
+  "linear_writes": 0,
+  "network_calls": 0,
+  "filesystem_writes": 0,
+  "shell_commands": 0
+}
+```
+
+이 숫자는 현재 in-memory feature-OFF 구조의 경계이며 arbitrary future Executor의 sandbox
+증명이 아니다.
+
+### 11.3 Adapter와 현재 HOLD
+
+첫 임시 canary adapter 계획은 (1) 별도 승인된 Codex Linear connector로 marker/합성 issue를
+create/read하는 transport와 (2) 향후 독립 검토된 bounded Hermes command Executor다. 현재 public
+저장소에는 둘 중 어느 live adapter도 없고 canary도 실행되지 않았다. Connector 출력은 candidate
+관찰·transport receipt일 뿐 Task, Role, Capability, assignment, result 또는 completion authority가
+아니다.
+
+영구 구조에서는 Soulforge-owned ingress/Linear adapter, organization Role/Capability source,
+Hermes Executor transport, persistent claim/run/decomposition/receipt ledger, scheduler와
+Task/4192 projection adapter가 이 seam에 결속되어야 한다. live Linear adapter/label creation,
+live Role/Capability source, Hermes dispatch, persistent ledger, scheduler, writer cutover,
+automatic assignment와 4192 result projection은 각각 별도 검증·승인 전 `HOLD`다.

@@ -166,3 +166,81 @@ Candidate와 Gate 실패는 Executor 호출과 AgentRun 생성이 모두 0이다
 4. SQLite EventStore와 provider-event idempotency, append-only trigger를 연결한다.
 5. ARCHITECTURE와 NEXT_DECISIONS를 실제 코드 결과에 맞춰 작성한다.
 6. focused test, dev-ERP test, root relevant validator, Level 2 independent review를 수행한다.
+
+## 2026-08-24 CandidateExecutionCoordinator 구조 조각
+
+- 상태: `public_synthetic / feature_off / in_memory / green_not_operational`
+- 관계: 기존 `TaskExecutionCore`, `_poc` SQLite table, provider/run event와 receipt 의미를
+  변경하거나 wrapper로 감싸지 않는 sibling foundation이다.
+- marker 경계: GPT/ingress `AI 실행 후보`는 prefilter candidate marker만 만든다. marker가
+  Role/Capability, assignment, dispatch, result 또는 completion authority가 되지 않는다.
+
+### 구현 파일과 Interface
+
+```text
+src/role_capability_matcher.mjs
+src/assignment_policy.mjs
+src/candidate_execution_coordinator.mjs
+test/role_capability_matcher.test.mjs
+test/assignment_policy.test.mjs
+test/candidate_execution_coordinator.test.mjs
+```
+
+```js
+const match = matchRoleCapabilities({
+  work_task_contract,
+  role_snapshot,
+  capability_snapshot,
+});
+const assignment = assignCandidate({ matcher_result: match, policy });
+const coordinator = createCandidateExecutionCoordinator({
+  executors,
+  feature_enabled: false,
+});
+
+await coordinator.recordDecomposition(decomposition_packet);
+await coordinator.dispatch(dispatch_packet);
+coordinator.holdRun(hold_packet);
+coordinator.inspect();
+```
+
+### GREEN으로 닫힌 합성 계약
+
+1. exact Role/action/Capability와 explicit actor→performing agent→Bot→Executor binding만
+   candidate가 된다. Label이나 가까운 candidate로 추론하지 않는다.
+2. `responsible_ceo_triage`는 exact responsible actor candidate 하나만 배정하며 자동 fallback이나
+   auto-assign을 하지 않는다.
+3. candidate/task/assignment의 TaskRef, Work Brief revision, action과 authority가 exact match일
+   때만 dispatch한다.
+4. parent-child-grandchild decomposition은 opaque coverage ref의 exact custody transfer만
+   수행한다. sibling overlap, coverage gap/extra, unknown ancestry와 decomposed-parent 재실행은
+   `HOLD`다.
+5. performing agent별 active slot 하나를 유지하면서 다른 agent의 병렬 실행은 허용한다.
+   Waiting/HOLD settle은 slot을 해제하고 coverage custody를 유지한다.
+6. same exact claim+packet replay는 `NO_OP`; divergent replay, idempotency collision과 잘못된
+   successor는 `HOLD`다. successor는 latest Waiting/HOLD receipt에 exact 결속된 새 attempt다.
+7. raw/path/secret을 거부하고 metadata-only attribution/result/artifact/evidence ref만 receipt에
+   남긴다. Official Done/mutation은 false, Linear/network/filesystem/shell effect는 0이다.
+
+Focused evidence는 19/19, 기존 Task Execution Core evidence는 28/28, adjacent Agent
+Observation evidence는 295/295다. 이 수치는 현재 통합 slice의 test evidence이며 live canary,
+runtime wiring, persistent concurrency 또는 production readiness 증거가 아니다.
+
+### Adapter 순서와 중단선
+
+첫 임시 canary transport는 별도 승인된 Codex Linear connector와 향후 독립 검토된 bounded
+Hermes command다. Connector readback은 transport/observation receipt일 뿐 Task, organization,
+assignment 또는 result authority가 아니다. 구조 GREEN 이전이나 exact Bot/session binding이 없는
+상태에서 live issue를 만들거나 Hermes로 dispatch하지 않는다.
+
+영구 adapter는 Soulforge-owned candidate ingress/Linear transport, versioned organization
+Role/Capability source, Hermes Executor transport, durable ledger, scheduler와 writer/projection
+surface로 분리한다. 다음 항목은 구현하지 않았고 계속 `HOLD`다.
+
+- live Linear adapter와 `AI 실행 후보` label create/apply
+- live Role/Capability source binding
+- Hermes Executor/dispatch와 exact session binding
+- persistent claim/run/decomposition/receipt ledger와 multi-process fencing
+- scheduler, writer cutover, automatic assignment
+- 4192 result/delivery/attribution projection
+- Official Task Done 승인 또는 외부 effect

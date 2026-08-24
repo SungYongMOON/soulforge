@@ -19,6 +19,39 @@ npm --prefix ui-workspace/apps/dev-erp run validate:task-execution-core-poc
 
 `AgentRun succeeded`는 Official Task Done이 아니며 모든 외부 effect와 Official Task mutation은 0이다.
 
+### CandidateExecutionCoordinator 구조
+
+`src/role_capability_matcher.mjs`, `src/assignment_policy.mjs`,
+`src/candidate_execution_coordinator.mjs`는 위 SQLite POC를 수정하거나 감싸지 않는 별도
+feature-OFF, in-memory 구조다. GPT/ingress가 붙이는 `AI 실행 후보`는 prefilter candidate
+marker일 뿐이며 Role, Capability, 배정, 실행 eligibility 또는 완료 권위가 아니다.
+
+- `RoleCapabilityMatcher`는 exact Work/Task, versioned Role/Capability snapshot과 명시적
+  `actor_ref -> performing_agent_id -> bot_ref -> executor_ref` 결속만 맞춘다. 라벨이나 인접
+  후보에서 Role 또는 Capability를 추론하지 않는다.
+- `AssignmentPolicy`의 현재 유일한 mode `responsible_ceo_triage`는 matcher가 반환한 후보 중
+  exact responsible actor binding 하나만 선택한다. 자동 배정과 ranked recommendation은 없다.
+- `CandidateExecutionCoordinator`는 candidate/task/assignment packet의 exact 일치, caller가
+  제공한 `coverage_refs`의 parent-child-grandchild custody와 immutable parent/authority/
+  assignment/decomposition fingerprint, performing agent별 active slot 하나,
+  다른 agent의 병렬 실행, Waiting/HOLD slot release, latest Waiting/HOLD receipt에 결속된 exact
+  successor, 동일 claim replay `NO_OP`, divergent replay/conflict `HOLD`를 검증한다. Coverage의
+  의미는 해석하지 않는다.
+- 실행·decomposition receipt는 metadata-only attribution을 보존하고
+  `official_task_done=false`, `official_task_mutated=false`, Linear/network/filesystem/shell effect
+  0을 고정한다. feature가 기본 OFF일 때 Executor 호출은 0이다.
+
+```bash
+npm --prefix ui-workspace/apps/dev-erp run validate:candidate-execution-coordinator
+```
+
+현재 저장소에는 live Linear adapter, Hermes Executor/dispatch adapter, persistent ledger,
+scheduler, Task writer 또는 4192 result projection이 없다. 첫 임시 canary transport 후보는
+별도 승인된 Codex Linear connector와 향후 독립 검토를 통과한 bounded Hermes command이며,
+connector 출력은 관찰·transport receipt일 뿐 Task/Role/Capability/assignment authority가 아니다.
+영구 adapter는 Soulforge-owned ingress, organization Role/Capability source, Executor transport,
+durable ledger/writer seam으로 교체되어야 한다. live canary와 production readiness는 모두 `HOLD`다.
+
 ## Task Engine A8-SYNTH secure-access source foundation
 
 `tools/a8_synth_secure_access.mjs` is a public, pathless, feature-OFF pure
