@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schema/ai_usage_board_history_snapshot.v4.schema.json",
+  "title": "Soulforge AI Usage Board History Snapshot v4",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "timezone",
+    "reference_at",
+    "top_n",
+    "current",
+    "windows",
+    "activity",
+    "rate_limit",
+    "provider_rows",
+    "claude_collection",
+    "codex_activity_coverage"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.ai_usage_board_history_snapshot.v4" },
+    "generated_at": { "$ref": "#/$defs/timestamp" },
+    "timezone": { "const": "Asia/Seoul" },
+    "reference_at": { "$ref": "#/$defs/timestamp" },
+    "top_n": { "type": "integer", "minimum": 1, "maximum": 50 },
+    "current": { "type": "object" },
+    "windows": { "type": "object" },
+    "activity": { "type": "object" },
+    "rate_limit": { "oneOf": [{ "type": "null" }, { "type": "object" }] },
+    "provider_rows": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/provider_row" }
+    },
+    "provider_daily": {
+      "type": "array",
+      "minItems": 30,
+      "maxItems": 30,
+      "items": { "$ref": "#/$defs/provider_daily_row" }
+    },
+    "model_daily": {
+      "type": "array",
+      "minItems": 30,
+      "maxItems": 30,
+      "items": { "$ref": "#/$defs/model_daily_row" }
+    },
+    "unmeasured_request_daily": {
+      "type": "array",
+      "minItems": 30,
+      "maxItems": 30,
+      "items": { "$ref": "#/$defs/unmeasured_request_daily_row" }
+    },
+    "claude_collection": { "$ref": "#/$defs/claude_collection" },
+    "codex_activity_coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "matched_turns", "mismatched_turns", "unmatched_turns", "uncovered_turns"],
+      "properties": {
+        "state": { "type": "string", "enum": ["complete", "partial"] },
+        "matched_turns": { "$ref": "#/$defs/safe_count" },
+        "mismatched_turns": { "$ref": "#/$defs/safe_count" },
+        "unmatched_turns": { "$ref": "#/$defs/safe_count" },
+        "uncovered_turns": { "$ref": "#/$defs/safe_count" }
+      }
+    }
+  },
+  "$defs": {
+    "timestamp": { "type": "string", "format": "date-time" },
+    "safe_count": { "type": "integer", "minimum": 0 },
+    "provider_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "turns", "total_tokens", "latest_usage_at"],
+      "properties": {
+        "provider": { "enum": ["codex", "claude", "antigravity"] },
+        "turns": { "type": "integer", "minimum": 1 },
+        "total_tokens": { "$ref": "#/$defs/safe_count" },
+        "latest_usage_at": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "provider_daily_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["date", "providers"],
+      "properties": {
+        "date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "providers": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["provider", "total_tokens", "token_unknown_turns", "credits", "credit_unknown_turns"],
+            "properties": {
+              "provider": { "enum": ["codex", "claude", "antigravity"] },
+              "total_tokens": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/safe_count" }] },
+              "token_unknown_turns": { "$ref": "#/$defs/safe_count" },
+              "credits": { "oneOf": [{ "type": "null" }, { "type": "number", "minimum": 0 }] },
+              "credit_unknown_turns": { "$ref": "#/$defs/safe_count" }
+            }
+          }
+        }
+      }
+    },
+    "model_daily_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["date", "models"],
+      "properties": {
+        "date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "models": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["model_id", "turns", "total_tokens", "token_unknown_turns"],
+            "properties": {
+              "model_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$" },
+              "turns": { "type": "integer", "minimum": 0 },
+              "total_tokens": { "$ref": "#/$defs/safe_count" },
+              "token_unknown_turns": { "$ref": "#/$defs/safe_count" }
+            }
+          }
+        }
+      }
+    },
+    "unmeasured_request_daily_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["date", "total_requests", "families"],
+      "properties": {
+        "date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "total_requests": { "$ref": "#/$defs/safe_count" },
+        "families": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["family_id", "requests", "models"],
+            "properties": {
+              "family_id": { "enum": ["ag_gemini", "ag_claude_gpt"] },
+              "requests": { "$ref": "#/$defs/safe_count" },
+              "models": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["model_id", "requests"],
+                  "properties": {
+                    "model_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$" },
+                    "requests": { "type": "integer", "minimum": 1 }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "claude_collection_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "session_file_count",
+        "parsed_session_count",
+        "observed_message_count",
+        "accepted_event_count",
+        "duplicate_message_count",
+        "issue_count"
+      ],
+      "properties": {
+        "session_file_count": { "$ref": "#/$defs/safe_count" },
+        "parsed_session_count": { "$ref": "#/$defs/safe_count" },
+        "observed_message_count": { "$ref": "#/$defs/safe_count" },
+        "accepted_event_count": { "$ref": "#/$defs/safe_count" },
+        "duplicate_message_count": { "$ref": "#/$defs/safe_count" },
+        "issue_count": { "$ref": "#/$defs/safe_count" }
+      }
+    },
+    "claude_collection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "state",
+        "reason",
+        "attempted_at",
+        "freshness_threshold_seconds",
+        "freshness",
+        "counts",
+        "evidence_scope",
+        "claim_scope"
+      ],
+      "properties": {
+        "schema_version": { "const": "soulforge.ai_usage_claude_collection_projection.v1" },
+        "state": { "enum": ["observed", "available_empty", "missing", "partial", "error", "unknown"] },
+        "reason": {
+          "enum": [
+            "source_observed",
+            "source_accessible_empty",
+            "projects_root_missing",
+            "source_partial",
+            "collector_error",
+            "attempt_unavailable",
+            "attempt_timestamp_untrusted"
+          ]
+        },
+        "attempted_at": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/timestamp" }] },
+        "freshness_threshold_seconds": { "type": "integer", "minimum": 1, "maximum": 604800 },
+        "freshness": { "enum": ["fresh", "stale", "unknown"] },
+        "counts": { "$ref": "#/$defs/claude_collection_counts" },
+        "evidence_scope": { "const": "collector_attempt_source_observation_only" },
+        "claim_scope": { "const": "does_not_prove_provider_availability_health_live_e2e_or_aggregate_health_or_completeness" }
+      }
+    }
+  }
+}

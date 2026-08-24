@@ -299,12 +299,16 @@ fabricated as zero or green. The common Meter ledger's Claude usage row remains
 an independent read-only projection and never supplies or replaces official
 quota values.
 
-Codex quota rendering reconciles the latest event-carried sample with the
-newest local session sample. While the currently observed reset is still in the
-future, a premature next-window sample with a later reset and lower utilization
-cannot replace the current window. Once the current reset has actually passed,
-the newer window is eligible normally. This prevents a transient `100% 남음`
-display without delaying a real reset.
+Codex quota rendering reconciles the latest event-carried sample with bounded
+recent local session samples (up to 12 files within 4 days). The reader inspects
+bounded tails, selects the freshest valid rate-limit observation timestamp via
+`selectCodexRateLimitObservation`, and falls back closed to null when no valid
+observation exists. While the currently observed reset is still in the future, a
+premature next-window sample with a later reset and lower utilization cannot
+replace the current window. Once the current reset has actually passed, the newer
+window is eligible normally. This prevents a transient `100% 남음` display
+without delaying a real reset or stalling behind an active session that has not
+yet emitted a quota row.
 
 The scheduled read-only Board enables one exact Antigravity quota gate. That
 gate sends only an empty JSON object to the running Antigravity language
@@ -754,13 +758,17 @@ surfaces, visible directed edges, controls, and accessibility boundaries.
 
 The Board exposes a credential-free same-origin loopback endpoint at
 `/ai-usage-meter.snapshot.json?read_only=1`. `read_only=1` is mandatory. A
-diagnostics refresh may add `refresh=1`, which only re-reads the local meter
-projection. The adapter resolves the current/accepted enrollment registry once,
-caps the exact safe IDs at 100, and validates only the existing bounded ledger
-projection. It does not spawn a CLI, invoke a collector, command, `--apply`,
-lifecycle reconciliation, writer, provider login, or network operation. It
-never scans raw session trees or derives an ID from a title, path, or
-transcript.
+diagnostics refresh may add `refresh=1`, which bypasses the validated in-memory
+cache to re-read the local meter projection while joining any existing in-flight
+computation without starting duplicates. Normal polling inside the 60-second TTL
+returns the validated cache. Exact enrollment and emergency-disable prerequisites
+are evaluated on every request before returning cache or joining in-flight work,
+with in-flight scope mismatches failing closed to `HOLD`. The adapter resolves the
+current/accepted enrollment registry once per request, caps the exact safe IDs at
+100, and validates only the existing bounded ledger projection. It does not spawn
+a CLI, invoke a collector, command, `--apply`, lifecycle reconciliation, writer,
+provider login, or network operation. It never scans raw session trees or derives
+an ID from a title, path, or transcript.
 
 The endpoint returns only a validated metadata-only aggregate envelope. The
 read-only usage projection aggregates all recorded local provider usage (Codex,
@@ -784,6 +792,14 @@ display label only when its exact `task_id` matches an enrolled thread;
 unmatched rows remain their exact ID or `unassigned`. The Board does not infer
 or display guessed attribution, raw session content, paths, titles, prompts,
 or tool data.
+
+The `UsageTrendChart` renders a clean 30-day daily token trend across model and provider tabs
+with a truthful textual basis label (` · 토큰 관측일 기준` for complete coverage, ` · 토큰 관측일 우선 · 미근거 항목은 시작일 기준` for partial coverage, and omitted when fallback to v3 without matches). Because multi-day Codex turns derive exact monotonic
+observation deltas attributed to their actual observation dates, recent activity renders accurately without
+the former multi-billion-token historical spikes on start dates, eliminating the need for range toggle workarounds.
+Selecting a legend series dynamically rescales the chart's vertical axis to that series' individual maximum
+rather than retaining the global stacked aggregate maximum, preserving stable series colors, stride-5 tick distribution,
+tooltip hit-grid navigation, keyboard focus, and the secondary AG request overlay.
 
 This Board projection is validated-private local tooling. It is not an official
 provider billing/quota authority, route resolver, Codex runtime authority,

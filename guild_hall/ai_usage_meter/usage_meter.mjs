@@ -312,6 +312,31 @@ function finalizeTurn(session, turn, latestUsage, completion = {}) {
     model_invocation_count: turn.model_invocation_count,
     max_invocation_input_tokens: turn.max_invocation_input_tokens,
     rate_limit_snapshot: turn.rate_limit_snapshot,
+    token_observations: turn.observations ?? [],
+  };
+}
+
+function finalizeActivityTurn(session, turn, finalUsage, completion = {}) {
+  let usage;
+  try {
+    usage = usageDelta(finalUsage, turn.baseline_usage);
+  } catch {
+    usage = { ...ZERO_USAGE };
+  }
+  const completedAt = isoOrNull(completion.completed_at ?? completion.timestamp);
+  return {
+    thread_id: session.thread_id,
+    turn_id: turn.turn_id,
+    started_at: turn.started_at,
+    completed_at: completedAt,
+    status: completedAt ? "complete" : "active",
+    model_id: turn.model ?? "unknown",
+    reasoning_effort: turn.effort ?? null,
+    observations: turn.observations ?? [],
+    total_tokens: (turn.observations ?? []).reduce((sum, o) => sum + o.delta_tokens, 0),
+    usage,
+    source_file: session.source_file,
+    has_counter_regression: turn.has_counter_regression ?? false,
   };
 }
 
@@ -344,6 +369,7 @@ export async function parseCodexSessionFile(filePath, {
     source_file: sourceFile,
   };
   const turns = [];
+  const activityTurns = [];
   const activeTurns = new Map();
   const turnContexts = new Map();
   const childThreads = [];
@@ -404,6 +430,8 @@ export async function parseCodexSessionFile(filePath, {
         model: context.model,
         effort: context.effort,
         baseline_usage: { ...latestUsage },
+        last_observation_usage: { ...latestUsage },
+        observations: [],
         model_invocation_count: 0,
         max_invocation_input_tokens: 0,
         rate_limit_snapshot: null,
@@ -427,6 +455,21 @@ export async function parseCodexSessionFile(filePath, {
           );
         }
         active.rate_limit_snapshot = safeRateLimit(payload.rate_limits);
+        try {
+          const delta = usageDelta(latestUsage, active.last_observation_usage);
+          const turnCum = usageDelta(latestUsage, active.baseline_usage);
+          const obsTime = isoOrNull(row.timestamp ?? payload.timestamp) ?? active.started_at;
+          active.observations.push({
+            observed_at: obsTime,
+            delta_tokens: delta.total_tokens,
+            delta_usage: delta,
+            cumulative_usage: turnCum,
+            rate_limit_snapshot: active.rate_limit_snapshot ? { ...active.rate_limit_snapshot, observed_at: obsTime } : null,
+          });
+          active.last_observation_usage = { ...latestUsage };
+        } catch {
+          active.has_counter_regression = true;
+        }
       }
       continue;
     }
@@ -440,9 +483,13 @@ export async function parseCodexSessionFile(filePath, {
       const turnId = safeId(payload.turn_id, "turn_id");
       const turn = activeTurns.get(turnId);
       if (!turn) continue;
+      const completedAt = requiredIso(payload.completed_at ?? row.timestamp, "turn_completed_at");
       turns.push(finalizeTurn(session, turn, latestUsage, {
-        completed_at: requiredIso(payload.completed_at ?? row.timestamp, "turn_completed_at"),
+        completed_at: completedAt,
         duration_ms: payload.duration_ms,
+      }));
+      activityTurns.push(finalizeActivityTurn(session, turn, latestUsage, {
+        completed_at: completedAt,
       }));
       activeTurns.delete(turnId);
     }
@@ -452,9 +499,11 @@ export async function parseCodexSessionFile(filePath, {
   // File mtime is metadata-only and tied to this exact session file. It is used
   // solely while the parsed turn remains active; a completed turn cannot be
   // revived by later file writes or snapshot regeneration.
+  let fileMtimeMs = null;
   try {
     const info = await stat(file);
     if (info.isFile() && Number.isFinite(info.mtimeMs)) {
+      fileMtimeMs = info.mtimeMs;
       // A session file can only supply a safe metadata heartbeat for its most
       // recently observed active turn. Do not infer activity for older,
       // concurrently-open turns from a shared file timestamp.
@@ -462,14 +511,17 @@ export async function parseCodexSessionFile(filePath, {
     }
   } catch {}
   for (const turn of activeTurns.values()) {
-    if (!includeActive && !forced.has(turn.turn_id)) continue;
-    turns.push(finalizeTurn(session, turn, latestUsage, {
-      forced: forced.has(turn.turn_id),
-    }));
+    if (includeActive || forced.has(turn.turn_id)) {
+      turns.push(finalizeTurn(session, turn, latestUsage, {
+        forced: forced.has(turn.turn_id),
+      }));
+    }
+    activityTurns.push(finalizeActivityTurn(session, turn, latestUsage, {}));
   }
   turns.sort((a, b) => (a.started_at ?? "").localeCompare(b.started_at ?? "", "en"));
+  activityTurns.sort((a, b) => (a.started_at ?? "").localeCompare(b.started_at ?? "", "en"));
   childThreads.sort((a, b) => a.localeCompare(b, "en"));
-  return { ...session, turns, child_threads: childThreads };
+  return { ...session, turns, usage_activity_turns: activityTurns, child_threads: childThreads, mtime_ms: fileMtimeMs };
 }
 
 export async function loadRateCard(filePath) {
@@ -1132,10 +1184,31 @@ export async function collectUsageObservations({
     }
   }
   const observedEvents = usageEventsFromSessions(sessions, normalizedConfig, rateCard);
+
+  const referenceTime = Date.now();
+  const ACTIVE_SESSION_FRESHNESS_MS = 15 * 60 * 1000;
+  const allActivityTurns = [];
+  for (const session of sessions) {
+    const isFresh = session.mtime_ms && (referenceTime - session.mtime_ms <= ACTIVE_SESSION_FRESHNESS_MS);
+    for (const actTurn of (session.usage_activity_turns ?? [])) {
+      if (actTurn.has_counter_regression) {
+        issues.push({
+          source_ref: session.source_file,
+          code: "codex_activity_counter_regression",
+        });
+        continue;
+      }
+      if (actTurn.status === "complete" || isFresh) {
+        allActivityTurns.push(actTurn);
+      }
+    }
+  }
+
   return {
     observations: observedEvents,
     issues: issues.sort((a, b) => a.source_ref.localeCompare(b.source_ref, "en")),
     parsed_session_count: sessions.length,
+    usage_activity_turns: allActivityTurns,
   };
 }
 
@@ -1151,6 +1224,7 @@ export async function collectUsageEvents(options) {
     parsed_session_count: collected.parsed_session_count,
     observed_event_count: observedEvents.length,
     duplicate_event_observation_count: collapsed.duplicate_count,
+    usage_activity_turns: collected.usage_activity_turns,
   };
 }
 
@@ -1776,15 +1850,38 @@ export async function persistUsageEvents(stateRoot, events, options = {}) {
   });
 }
 
-export async function loadPersistedUsageEvents(stateRoot) {
+export const DEFAULT_LOAD_PERSISTED_USAGE_EVENTS_CONCURRENCY = 32;
+export const MAX_LOAD_PERSISTED_USAGE_EVENTS_CONCURRENCY = 64;
+
+export function normalizePersistedUsageEventsConcurrency(options) {
+  const requested = typeof options === "number" ? options : options?.concurrency;
+  if (!Number.isInteger(requested) || requested <= 0) {
+    return DEFAULT_LOAD_PERSISTED_USAGE_EVENTS_CONCURRENCY;
+  }
+  return Math.min(requested, MAX_LOAD_PERSISTED_USAGE_EVENTS_CONCURRENCY);
+}
+
+export async function loadPersistedUsageEvents(stateRoot, options = {}) {
   const root = path.join(path.resolve(stateRoot), "events");
   const files = await walk(root, (file) => file.endsWith(".json"));
-  const events = [];
-  for (const file of files) {
-    const event = JSON.parse(await readFile(file, "utf8"));
-    events.push(validateUsageEvent(event));
+  const concurrency = normalizePersistedUsageEventsConcurrency(options);
+
+  const rawEvents = new Array(files.length);
+  if (files.length > 0) {
+    let nextIndex = 0;
+    const workerCount = Math.min(concurrency, files.length);
+    const workers = Array.from({ length: workerCount }, async () => {
+      while (true) {
+        const index = nextIndex++;
+        if (index >= files.length) break;
+        const content = await readFile(files[index], "utf8");
+        rawEvents[index] = validateUsageEvent(JSON.parse(content));
+      }
+    });
+    await Promise.all(workers);
   }
-  return events.sort((a, b) => (
+
+  return rawEvents.sort((a, b) => (
     (a.time.started_at ?? "").localeCompare(b.time.started_at ?? "", "en")
     || a.event_id.localeCompare(b.event_id, "en")
   ));

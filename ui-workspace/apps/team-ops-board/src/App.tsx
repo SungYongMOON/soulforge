@@ -2788,13 +2788,16 @@ function buildProviderTokenSeries(providerDaily: any[]) {
   }));
 }
 
-function buildUsageTrendChart(days: any[], series: any[], requestSeries: any[] = []) {
+function buildUsageTrendChart(days: any[], series: any[], requestSeries: any[] = [], selectedSeries: string | null = null) {
   if (days.length !== 30 || series.length === 0) return null;
   const hasAgOverlay = requestSeries.length > 0 && requestSeries.some((s: any) => (s.totalRequests ?? 0) > 0);
   const width = 1000, height = 238, left = 58, right = hasAgOverlay ? 48 : 12, top = 16, bottom = 34;
   const plotWidth = width - left - right, plotHeight = height - top - bottom;
   const totals = days.map((_: any, index: number) => series.reduce((sum: number, item: any) => sum + (item.values[index] ?? 0), 0));
-  const rawMax = Math.max(...totals, 1);
+  const selectedItem = selectedSeries !== null ? series.find((item: any) => item.id === selectedSeries) : null;
+  const rawMax = selectedItem
+    ? Math.max(...(selectedItem.values ?? []), 1)
+    : Math.max(...totals, 1);
   const magnitude = 10 ** Math.floor(Math.log10(rawMax));
   const maxToken = Math.ceil(rawMax / magnitude) * magnitude;
 
@@ -2802,7 +2805,7 @@ function buildUsageTrendChart(days: any[], series: any[], requestSeries: any[] =
   const magnitudeReq = hasAgOverlay ? 10 ** Math.floor(Math.log10(rawMaxReq)) : 1;
   const maxRequests = hasAgOverlay ? Math.max(1, Math.ceil(rawMaxReq / magnitudeReq) * magnitudeReq) : 0;
 
-  const x = (index: number) => left + (index * plotWidth) / 29;
+  const x = (index: number) => left + (index * plotWidth) / (days.length - 1);
   const y = (value: number) => top + plotHeight - (value / maxToken) * plotHeight;
   const yReq = (value: number) => top + plotHeight - (maxRequests > 0 ? (value / maxRequests) * plotHeight : 0);
 
@@ -2890,23 +2893,33 @@ function UsageTrendChart({ usage }: { usage: any }) {
   const totalAgRequests = requestSeries.reduce((sum, item) => sum + item.totalRequests, 0);
   const showAgOverlay = hasValidAgDaily && totalAgRequests > 0;
 
-  const chart = buildUsageTrendChart(days, series, showAgOverlay ? requestSeries : []);
+  const chart = buildUsageTrendChart(days, series, showAgOverlay ? requestSeries : [], selectedSeries);
   const knownTokens = series.reduce((sum: number, item: any) => sum + item.values.reduce((local: number, value: number) => local + value, 0), 0);
   const dailyTurns = modelDaily.reduce((sum: number, day: any) => sum + (day.models ?? []).reduce((local: number, row: any) => local + row.turns, 0), 0);
   const unknownTurns = series.reduce((sum: number, item: any) => sum + item.unknownTurns.reduce((local: number, value: number) => local + value, 0), 0);
   const chooseView = (next: "model" | "provider") => { setView(next); setSelectedSeries(null); setSelectedReqFamily(null); setActiveIndex(null); };
   if (chart === null) return <p className="usage-trend-empty">최근 30일의 정확한 로컬 토큰 시계열이 없습니다.</p>;
+
+  const coverageState = usage?.history?.codex_activity_coverage?.state;
+  const basisLabel = coverageState === "complete"
+    ? " · 토큰 관측일 기준"
+    : coverageState === "partial"
+      ? " · 토큰 관측일 우선 · 미근거 항목은 시작일 기준"
+      : "";
+
   return (
     <div className={`usage-trend${showAgOverlay ? " has-req-overlay" : ""}`} data-testid="usage-trend-chart" data-view={view}>
       <header className="usage-trend-header">
         <div>
           <span>토큰</span>
           <strong>{formatUsageNumber(knownTokens)}</strong>
-          <small>{formatUsageNumber(dailyTurns)}회{showAgOverlay ? " (측정 원장)" : ""} · KST 최근 30일{showAgOverlay ? ` · AG ${formatUsageNumber(totalAgRequests)}회 (토큰 미측정)` : ""}</small>
+          <small>{formatUsageNumber(dailyTurns)}회{showAgOverlay ? " (측정 원장)" : ""} · KST 최근 30일{basisLabel}{showAgOverlay ? ` · AG ${formatUsageNumber(totalAgRequests)}회 (토큰 미측정)` : ""}</small>
         </div>
-        <div className="usage-trend-tabs" role="tablist" aria-label="사용량 분류">
-          <button type="button" role="tab" aria-selected={view === "model"} onClick={() => chooseView("model")}>모델별</button>
-          <button type="button" role="tab" aria-selected={view === "provider"} onClick={() => chooseView("provider")}>제공자별</button>
+        <div className="usage-trend-controls">
+          <div className="usage-trend-tabs" role="tablist" aria-label="사용량 분류">
+            <button type="button" role="tab" aria-selected={view === "model"} onClick={() => chooseView("model")}>모델별</button>
+            <button type="button" role="tab" aria-selected={view === "provider"} onClick={() => chooseView("provider")}>제공자별</button>
+          </div>
         </div>
       </header>
       <p className="usage-trend-note">
@@ -2954,9 +2967,9 @@ function UsageTrendChart({ usage }: { usage: any }) {
               ))}
             </g>
           ))}
-          {days.map((day: any, index: number) => (index % 5 === 0 || index === 29) && (
+          {days.map((day: any, index: number) => ((index % 5 === 0 || index === days.length - 1) && (
             <text key={day.date} className="usage-trend-axis" x={chart.x(index)} y={chart.height - 10} textAnchor="middle">{String(day.date).slice(5).replace("-", "/")}</text>
-          ))}
+          )))}
           {activeIndex !== null && (() => {
             const x = chart.x(activeIndex);
             const visibleTokens = selectedSeries === null ? series : series.filter((item: any) => item.id === selectedSeries);
@@ -3012,7 +3025,7 @@ function UsageTrendChart({ usage }: { usage: any }) {
             );
           })()}
         </svg>
-        <div className="usage-trend-hit-grid" aria-label={showAgOverlay ? "날짜별 토큰 및 Antigravity 요청 상세" : "날짜별 토큰 상세"}>
+        <div className="usage-trend-hit-grid" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }} aria-label={showAgOverlay ? "날짜별 토큰 및 Antigravity 요청 상세" : "날짜별 토큰 상세"}>
           {days.map((day: any, index: number) => {
             const tokenDesc = (selectedSeries === null ? series : series.filter((item: any) => item.id === selectedSeries))
               .map((item: any) => `${item.label} ${formatUsageNumber(item.values[index])} 토큰`).join(", ");
@@ -3036,7 +3049,7 @@ function UsageTrendChart({ usage }: { usage: any }) {
                   if (offset !== 0) {
                     event.preventDefault();
                     const buttons = [...event.currentTarget.parentElement!.querySelectorAll("button")];
-                    (buttons[Math.min(29, Math.max(0, index + offset))] as HTMLButtonElement)?.focus();
+                    (buttons[Math.min(days.length - 1, Math.max(0, index + offset))] as HTMLButtonElement)?.focus();
                   }
                   if (event.key === "Escape") {
                     setActiveIndex(null);

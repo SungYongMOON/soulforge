@@ -7,7 +7,9 @@ import test from "node:test";
 
 import {
   AI_USAGE_READ_ONLY_QUERY_KEY,
+  AI_USAGE_REFRESH_QUERY_KEY,
   AI_USAGE_SNAPSHOT_PATH,
+  DEFAULT_AI_USAGE_TTL_MS,
   createAiUsageAdapter,
   createAiUsageAdapterPlugin,
   readExactScopedUsageProjection
@@ -18,10 +20,65 @@ import {
   writeThreadEnrollmentRegistryAtomic
 } from "../core/live-thread-enrollment.mjs";
 import { createBoardUsageHistorySnapshot } from "../../../../../guild_hall/ai_usage_meter/board_history_snapshot.mjs";
+import { persistCodexActivityProjection } from "../../../../../guild_hall/ai_usage_meter/codex_usage_activity.mjs";
 import { persistUsageEvents } from "../../../../../guild_hall/ai_usage_meter/usage_meter.mjs";
 
 const AT = "2026-08-04T01:00:00.000Z";
 const ENV = { TEAM_OPS_BOARD_AUTO_USAGE_REFRESH: "true" };
+
+function tokenActivityFromEvents(events) {
+  const codexEvents = events.filter((e) => e.source?.kind === "codex_session_jsonl");
+  const threads = codexEvents.map((e) => {
+    const tokens = Number(e.usage?.total_tokens ?? 0);
+    return {
+      thread_id: e.thread_id,
+      turn_id: e.turn_id,
+      observations: [
+        {
+          observed_at: e.time.started_at,
+          delta_tokens: tokens,
+        },
+      ],
+      total_tokens: tokens,
+    };
+  });
+  const totalTokens = threads.reduce((sum, t) => sum + t.total_tokens, 0);
+  const uniqueThreadCount = new Set(threads.map((t) => t.thread_id)).size;
+  return {
+    schema_version: "soulforge.ai_usage_codex_activity_projection.v1",
+    generated_at: new Date().toISOString(),
+    coverage: {
+      scope: "full_sessions_root",
+      session_file_count: threads.length,
+      parsed_session_count: threads.length,
+      issue_count: 0,
+      thread_count: uniqueThreadCount,
+      turn_count: threads.length,
+    },
+    privacy: {
+      metadata_only: true,
+      prompt_captured: false,
+      reasoning_captured: false,
+      tool_payload_captured: false,
+    },
+    issues: [],
+    totals: {
+      total_tokens: totalTokens,
+    },
+    threads,
+    reconciliation: {
+      total_tokens: totalTokens,
+      thread_count: uniqueThreadCount,
+      turn_count: threads.length,
+      observation_count: threads.length,
+    },
+  };
+}
+
+async function persistTestTokenActivity(stateRoot, events) {
+  const proj = tokenActivityFromEvents(events);
+  await persistCodexActivityProjection(stateRoot, proj);
+}
 
 function readOnlyFixture(events = []) {
   return {
@@ -122,7 +179,7 @@ test("usage adapter rereads the existing read-only projection and fails closed o
     });
 
     const first = await adapter.readProjection();
-    const reread = await adapter.readProjection();
+    const reread = await adapter.readProjection({ force: true });
     assert.equal(first.read_only, 1);
     assert.equal(reread.read_only, 1);
     assert.equal(calls.length, 2);
@@ -301,11 +358,13 @@ test("usage adapter projects all provider events including unregistered Codex ev
     const registryPath = join(directory, "visibility.json");
     await writeRegistry(registryPath, ["thread-enrolled"]);
     const stateRoot = join(directory, "meter-state");
-    await persistUsageEvents(stateRoot, [
+    const events = [
       codexLedgerEvent({ eventId: "aue-enrolled", threadId: "thread-enrolled", tokens: 20 }),
       codexLedgerEvent({ eventId: "aue-unregistered", threadId: "thread-unregistered", tokens: 30 }),
       persistedClaudeEvent(),
-    ]);
+    ];
+    await persistUsageEvents(stateRoot, events);
+    await persistTestTokenActivity(stateRoot, events);
 
     const adapter = createAiUsageAdapter({
       registryPath,
@@ -343,6 +402,33 @@ test("usage adapter projects all provider events including unregistered Codex ev
 
     const serialized = JSON.stringify(projection);
     assert.doesNotMatch(serialized, /(?:session_path|raw_prompt|message_body|bearer_token)/iu);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("usage adapter falls back cleanly to legacy started_at history when activity sidecar is absent", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "team-ops-missing-activity-"));
+  try {
+    const registryPath = join(directory, "visibility.json");
+    await writeRegistry(registryPath, ["thread-enrolled"]);
+    const stateRoot = join(directory, "meter-state");
+    await persistUsageEvents(stateRoot, [
+      codexLedgerEvent({ eventId: "aue-enrolled", threadId: "thread-enrolled", tokens: 20 }),
+    ]);
+
+    const adapter = createAiUsageAdapter({
+      registryPath,
+      usageMeterStateRoot: stateRoot,
+      env: ENV,
+      now: () => Date.parse("2026-08-04T01:00:00.000Z"),
+      readUsageProjection: readExactScopedUsageProjection,
+    });
+
+    const projection = await adapter.readProjection();
+    assert.equal(projection.schema_version, "soulforge.ai_usage_board_read_only_projection.v1");
+    assert.equal(projection.read_only, 1);
+    assert.equal(projection.snapshot.windows.all_time.totals.turns, 1);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -389,6 +475,363 @@ test("usage adapter fails closed when enrollment registry is disabled or empty",
       refresh_state: "hold",
       snapshot: null,
     });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("usage adapter collapses concurrent reads to a single-flight projection load", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "team-ops-usage-single-flight-"));
+  try {
+    const registryPath = join(directory, "visibility.json");
+    await writeRegistry(registryPath, ["thread-one"]);
+    let loaderCalls = 0;
+    let loaderStarted;
+    const loaderStartedPromise = new Promise((resolve) => { loaderStarted = resolve; });
+    let resolveLoader;
+    const loaderPromise = new Promise((resolve) => { resolveLoader = resolve; });
+
+    const adapter = createAiUsageAdapter({
+      registryPath,
+      usageMeterStateRoot: join(directory, "meter-state"),
+      env: ENV,
+      now: () => 1_000,
+      readUsageProjection: async () => {
+        loaderCalls += 1;
+        loaderStarted();
+        await loaderPromise;
+        return readOnlyFixture();
+      }
+    });
+
+    const read1 = adapter.readProjection();
+    const read2 = adapter.readProjection();
+    const read3 = adapter.readProjection();
+
+    await loaderStartedPromise;
+    assert.equal(loaderCalls, 1);
+    resolveLoader();
+
+    const [res1, res2, res3] = await Promise.all([read1, read2, read3]);
+    assert.equal(res1.read_only, 1);
+    assert.equal(res2.read_only, 1);
+    assert.equal(res3.read_only, 1);
+    assert.equal(loaderCalls, 1);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("usage adapter serves from TTL cache during normal polling and recomputes after TTL expires", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "team-ops-usage-ttl-"));
+  try {
+    const registryPath = join(directory, "visibility.json");
+    await writeRegistry(registryPath, ["thread-one"]);
+    let currentTime = 10_000;
+    let loaderCalls = 0;
+
+    const adapter = createAiUsageAdapter({
+      registryPath,
+      usageMeterStateRoot: join(directory, "meter-state"),
+      env: ENV,
+      ttlMs: 15_000,
+      now: () => currentTime,
+      readUsageProjection: async () => {
+        loaderCalls += 1;
+        return readOnlyFixture();
+      }
+    });
+
+    // Initial read populates cache
+    const initial = await adapter.readProjection();
+    assert.equal(initial.read_only, 1);
+    assert.equal(loaderCalls, 1);
+
+    // Repeated read inside TTL uses cache
+    currentTime = 15_000; // 5s elapsed, TTL is 15s
+    const cached = await adapter.readProjection();
+    assert.equal(cached.read_only, 1);
+    assert.equal(loaderCalls, 1);
+
+    // Read after TTL recomputes
+    currentTime = 26_000; // 16s elapsed from initial
+    const recomputed = await adapter.readProjection();
+    assert.equal(recomputed.read_only, 1);
+    assert.equal(loaderCalls, 2);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("forced refresh bypasses cache but joins an existing in-flight computation", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "team-ops-usage-force-refresh-"));
+  try {
+    const registryPath = join(directory, "visibility.json");
+    await writeRegistry(registryPath, ["thread-one"]);
+    let currentTime = 10_000;
+    let loaderCalls = 0;
+    let loaderStarted;
+    let loaderStartedPromise;
+    const resetLoaderStarted = () => {
+      loaderStartedPromise = new Promise((resolve) => { loaderStarted = resolve; });
+    };
+    resetLoaderStarted();
+    let resolveSecondLoad;
+
+    const adapter = createAiUsageAdapter({
+      registryPath,
+      usageMeterStateRoot: join(directory, "meter-state"),
+      env: ENV,
+      ttlMs: 30_000,
+      now: () => currentTime,
+      readUsageProjection: async () => {
+        loaderCalls += 1;
+        loaderStarted();
+        if (loaderCalls === 2) {
+          await new Promise((resolve) => { resolveSecondLoad = resolve; });
+        }
+        return readOnlyFixture();
+      }
+    });
+
+    // Initial load
+    const first = await adapter.readProjection();
+    assert.equal(first.read_only, 1);
+    assert.equal(loaderCalls, 1);
+
+    // Inside TTL, normal read uses cache
+    currentTime = 15_000;
+    const cached = await adapter.readProjection();
+    assert.equal(cached.read_only, 1);
+    assert.equal(loaderCalls, 1);
+
+    // Forced refresh starts second load
+    resetLoaderStarted();
+    const force1 = adapter.readProjection({ force: true });
+    await loaderStartedPromise;
+    assert.equal(loaderCalls, 2);
+
+    // Concurrent forced refresh and normal read join the second in-flight load
+    const force2 = adapter.readProjection({ force: true });
+    const normalJoin = adapter.readProjection({ force: false });
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    resolveSecondLoad();
+
+    const [resForce1, resForce2, resNormal] = await Promise.all([force1, force2, normalJoin]);
+    assert.equal(resForce1.read_only, 1);
+    assert.equal(resForce2.read_only, 1);
+    assert.equal(resNormal.read_only, 1);
+    assert.equal(loaderCalls, 2);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("invalid or failed refresh returns HOLD and does not poison last successful cache", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "team-ops-usage-fail-closed-cache-"));
+  try {
+    const registryPath = join(directory, "visibility.json");
+    await writeRegistry(registryPath, ["thread-one"]);
+    let currentTime = 10_000;
+    let loaderCalls = 0;
+    let shouldFail = false;
+
+    const adapter = createAiUsageAdapter({
+      registryPath,
+      usageMeterStateRoot: join(directory, "meter-state"),
+      env: ENV,
+      ttlMs: 30_000,
+      now: () => currentTime,
+      readUsageProjection: async () => {
+        loaderCalls += 1;
+        if (shouldFail) {
+          throw new Error("simulated_loader_failure");
+        }
+        return readOnlyFixture();
+      }
+    });
+
+    // 1. Initial successful projection
+    const initial = await adapter.readProjection();
+    assert.equal(initial.read_only, 1);
+    assert.equal(loaderCalls, 1);
+
+    // 2. Forced refresh fails -> returns HOLD
+    currentTime = 15_000;
+    shouldFail = true;
+    const failedRefresh = await adapter.readProjection({ force: true });
+    assert.deepEqual(failedRefresh, {
+      schema_version: "soulforge.team_ops_board_ai_usage_projection.v1",
+      refresh_state: "hold",
+      snapshot: null
+    });
+    assert.equal(loaderCalls, 2);
+
+    // 3. Normal read within initial TTL still returns the unpoisoned last good cache
+    currentTime = 20_000; // 10s from initial (within 30s TTL)
+    shouldFail = true; // Even if loader would fail, loader is NOT called
+    const unpoisonedCached = await adapter.readProjection({ force: false });
+    assert.equal(unpoisonedCached.read_only, 1);
+    assert.equal(loaderCalls, 2); // Loader was not called
+
+    // 4. Read after TTL expires attempts recomputation
+    currentTime = 45_000; // 35s from initial (past 30s TTL)
+    shouldFail = false;
+    const recomputed = await adapter.readProjection({ force: false });
+    assert.equal(recomputed.read_only, 1);
+    assert.equal(loaderCalls, 3);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("disabling enrollment inside TTL returns HOLD instead of cache", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "team-ops-usage-disable-in-ttl-"));
+  try {
+    const registryPath = join(directory, "visibility.json");
+    await writeRegistry(registryPath, ["thread-one"]);
+    let currentTime = 10_000;
+    let loaderCalls = 0;
+    let disabled = false;
+
+    const adapter = createAiUsageAdapter({
+      registryPath,
+      usageMeterStateRoot: join(directory, "meter-state"),
+      env: {
+        get TEAM_OPS_BOARD_AUTO_USAGE_REFRESH() { return "true"; },
+        get TEAM_OPS_BOARD_LIVE_THREADS_DISABLED() { return disabled ? "true" : "false"; }
+      },
+      ttlMs: 60_000,
+      now: () => currentTime,
+      readUsageProjection: async () => {
+        loaderCalls += 1;
+        return readOnlyFixture();
+      }
+    });
+
+    // 1. Initial read succeeds and is cached
+    const initial = await adapter.readProjection();
+    assert.equal(initial.read_only, 1);
+    assert.equal(loaderCalls, 1);
+
+    // 2. Disable enrollment within TTL (e.g. at 20s)
+    currentTime = 20_000;
+    disabled = true;
+    const disabledResult = await adapter.readProjection();
+    assert.deepEqual(disabledResult, {
+      schema_version: "soulforge.team_ops_board_ai_usage_projection.v1",
+      refresh_state: "hold",
+      snapshot: null
+    });
+    assert.equal(loaderCalls, 1);
+
+    // 3. Re-enabling returns cached if still within TTL
+    disabled = false;
+    currentTime = 30_000;
+    const reenabledResult = await adapter.readProjection();
+    assert.equal(reenabledResult.read_only, 1);
+    assert.equal(loaderCalls, 1);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("scope change does not receive old cache and in-flight scope mismatch fails closed to HOLD", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "team-ops-usage-scope-change-"));
+  try {
+    const registryPath = join(directory, "visibility.json");
+    await writeRegistry(registryPath, ["thread-one"]);
+    let currentTime = 10_000;
+    let loaderCalls = 0;
+    let loaderStarted;
+    const loaderStartedPromise = new Promise((resolve) => { loaderStarted = resolve; });
+    let resolveFirstScopeLoad;
+
+    const adapter = createAiUsageAdapter({
+      registryPath,
+      usageMeterStateRoot: join(directory, "meter-state"),
+      env: ENV,
+      ttlMs: 60_000,
+      now: () => currentTime,
+      readUsageProjection: async (options) => {
+        loaderCalls += 1;
+        if (loaderCalls === 1) {
+          loaderStarted();
+          await new Promise((resolve) => { resolveFirstScopeLoad = resolve; });
+        }
+        return readOnlyFixture();
+      }
+    });
+
+    // 1. Start in-flight read for scope A (["thread-one"])
+    const scopeAPromise = adapter.readProjection();
+    await loaderStartedPromise;
+    assert.equal(loaderCalls, 1);
+
+    // 2. Change enrollment to scope B (["thread-two"]) while scope A is in-flight
+    await writeRegistry(registryPath, ["thread-two"]);
+    const scopeBPromise = adapter.readProjection();
+
+    // Scope B must fail closed to HOLD rather than joining or starting a duplicate computation
+    const scopeBResult = await scopeBPromise;
+    assert.deepEqual(scopeBResult, {
+      schema_version: "soulforge.team_ops_board_ai_usage_projection.v1",
+      refresh_state: "hold",
+      snapshot: null
+    });
+
+    // Complete scope A
+    resolveFirstScopeLoad();
+    const scopeAResult = await scopeAPromise;
+    assert.equal(scopeAResult.read_only, 1);
+    assert.equal(loaderCalls, 1);
+
+    // 3. Subsequent read for scope B does not use scope A's cache and recomputes
+    currentTime = 20_000;
+    const scopeBRecompute = await adapter.readProjection();
+    assert.equal(scopeBRecompute.read_only, 1);
+    assert.equal(loaderCalls, 2);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("normal 30-second polling stays cached under the default 60-second TTL", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "team-ops-usage-30s-poll-"));
+  try {
+    const registryPath = join(directory, "visibility.json");
+    await writeRegistry(registryPath, ["thread-one"]);
+    let currentTime = 10_000;
+    let loaderCalls = 0;
+
+    const adapter = createAiUsageAdapter({
+      registryPath,
+      usageMeterStateRoot: join(directory, "meter-state"),
+      env: ENV,
+      now: () => currentTime,
+      readUsageProjection: async () => {
+        loaderCalls += 1;
+        return readOnlyFixture();
+      }
+    });
+
+    // Initial read at t=10s
+    const first = await adapter.readProjection();
+    assert.equal(first.read_only, 1);
+    assert.equal(loaderCalls, 1);
+
+    // 30s poll at t=40s (within 60s default TTL)
+    currentTime = 40_000;
+    const second = await adapter.readProjection();
+    assert.equal(second.read_only, 1);
+    assert.equal(loaderCalls, 1);
+
+    // Poll after 60s TTL expires at t=75s (65s from initial)
+    currentTime = 75_000;
+    const third = await adapter.readProjection();
+    assert.equal(third.read_only, 1);
+    assert.equal(loaderCalls, 2);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

@@ -10,6 +10,7 @@ import { buildOfficialProviderQuotaProjection } from "../core/provider-quota-sna
 import {
   buildProviderLimitsSnapshot,
   parseCodexRateLimitsFromJsonlText,
+  selectCodexRateLimitObservation,
 } from "../core/provider-limits.mjs";
 import { createProviderQuotaAttemptLog } from "./provider-quota-attempt-log.mjs";
 import { createProviderQuotaReceiptStore } from "./provider-quota-receipt-store.mjs";
@@ -36,8 +37,11 @@ function defaultCodexSessionsRoot(env = process.env) {
   return path.join(home, "sessions");
 }
 
+export const DEFAULT_CODEX_SESSION_SCAN_MAX_DAYS = 4;
+export const DEFAULT_CODEX_SESSION_SCAN_MAX_FILES = 12;
+
 async function latestNumericChild(root) {
-  const entries = await readdir(root, { withFileTypes: true });
+  const entries = await readdir(root, { withFileTypes: true }).catch(() => []);
   const names = entries
     .filter((entry) => entry.isDirectory() && /^\d+$/u.test(entry.name))
     .map((entry) => entry.name)
@@ -45,27 +49,33 @@ async function latestNumericChild(root) {
   return names.map((name) => path.join(root, name));
 }
 
-async function newestSessionFile(sessionsRoot, maxDays = 4) {
+async function recentSessionFiles(sessionsRoot, {
+  maxDays = DEFAULT_CODEX_SESSION_SCAN_MAX_DAYS,
+  maxFiles = DEFAULT_CODEX_SESSION_SCAN_MAX_FILES,
+} = {}) {
   let visitedDays = 0;
+  const candidates = [];
   for (const yearDir of await latestNumericChild(sessionsRoot)) {
     for (const monthDir of await latestNumericChild(yearDir)) {
       for (const dayDir of await latestNumericChild(monthDir)) {
         visitedDays += 1;
-        const entries = await readdir(dayDir, { withFileTypes: true });
+        const entries = await readdir(dayDir, { withFileTypes: true }).catch(() => []);
         const files = entries.filter((entry) => entry.isFile() && entry.name.endsWith(".jsonl"));
-        let newest = null;
         for (const file of files) {
           const fullPath = path.join(dayDir, file.name);
           const stats = await stat(fullPath).catch(() => null);
           if (stats === null) continue;
-          if (newest === null || stats.mtimeMs > newest.mtimeMs) newest = { path: fullPath, mtimeMs: stats.mtimeMs };
+          candidates.push({ path: fullPath, mtimeMs: stats.mtimeMs });
         }
-        if (newest !== null) return newest.path;
-        if (visitedDays >= maxDays) return null;
+        if (visitedDays >= maxDays) break;
       }
+      if (visitedDays >= maxDays) break;
     }
+    if (visitedDays >= maxDays) break;
   }
-  return null;
+  return candidates
+    .sort((left, right) => right.mtimeMs - left.mtimeMs)
+    .slice(0, maxFiles);
 }
 
 async function readTail(filePath, tailBytes) {
@@ -83,10 +93,22 @@ async function readTail(filePath, tailBytes) {
   }
 }
 
-async function readCodexLimits(sessionsRoot) {
-  const file = await newestSessionFile(sessionsRoot);
-  if (file === null) return null;
-  return parseCodexRateLimitsFromJsonlText(await readTail(file, CODEX_TAIL_BYTES));
+async function readCodexLimits(sessionsRoot, {
+  maxDays = DEFAULT_CODEX_SESSION_SCAN_MAX_DAYS,
+  maxFiles = DEFAULT_CODEX_SESSION_SCAN_MAX_FILES,
+  nowMs = Date.now(),
+} = {}) {
+  const files = await recentSessionFiles(sessionsRoot, { maxDays, maxFiles });
+  if (files.length === 0) return null;
+  let best = null;
+  for (const file of files) {
+    const tail = await readTail(file.path, CODEX_TAIL_BYTES).catch(() => "");
+    const parsed = parseCodexRateLimitsFromJsonlText(tail);
+    if (parsed !== null) {
+      best = selectCodexRateLimitObservation({ live: parsed, meter: best, nowMs });
+    }
+  }
+  return best;
 }
 
 function emptyClaudeOfficialProjection() {
@@ -190,9 +212,11 @@ export function createProviderLimitsReader({
     : null);
 
   async function refresh() {
-    const codex = await readCodexLimitsImpl(sessionsRoot).catch(() => null);
-    if (codex !== null) lastCodex = codex;
     const observedNow = now();
+    const codex = await readCodexLimitsImpl(sessionsRoot).catch(() => null);
+    if (codex !== null) {
+      lastCodex = selectCodexRateLimitObservation({ live: codex, meter: lastCodex, nowMs: observedNow });
+    }
     let claudeOfficial;
     try {
       claudeOfficial = publicClaudeOfficialProjection(await readClaudeOfficialProjection({

@@ -136,12 +136,12 @@ function strictCredit(value) {
   return parsed;
 }
 
-function plusCredit(current, value) {
-  return value === null ? current : current + value;
+function rounded(value, decimals = 9) {
+  return Number(value.toFixed(decimals));
 }
 
-function rounded(value) {
-  return Number(value.toFixed(12));
+function plusCredit(current, value) {
+  return value === null ? current : rounded(current + value);
 }
 
 function knownCreditsMatch(left, right) {

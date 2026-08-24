@@ -4,7 +4,8 @@ import {
 } from "./ai-usage-snapshot.mjs";
 
 export const AI_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA = "soulforge.ai_usage_board_history_snapshot.v2";
-export const AI_USAGE_HISTORY_SNAPSHOT_SCHEMA = "soulforge.ai_usage_board_history_snapshot.v3";
+export const AI_USAGE_HISTORY_SNAPSHOT_V3_SCHEMA = "soulforge.ai_usage_board_history_snapshot.v3";
+export const AI_USAGE_HISTORY_SNAPSHOT_SCHEMA = "soulforge.ai_usage_board_history_snapshot.v4";
 export const AI_USAGE_HISTORY_TIMEZONE = "Asia/Seoul";
 export const AI_USAGE_PROJECTION_ENVELOPE_SCHEMA = "soulforge.team_ops_board_ai_usage_projection.v1";
 export const AI_USAGE_READ_ONLY_PROJECTION_SCHEMA = "soulforge.ai_usage_board_read_only_projection.v1";
@@ -41,6 +42,13 @@ const V3_ROOT_KEYS = [...V2_ROOT_KEYS, "provider_rows", "claude_collection"];
 const V3_PROVIDER_DAILY_ROOT_KEYS = [...V3_ROOT_KEYS, "provider_daily"];
 const V3_DAILY_SERIES_ROOT_KEYS = [...V3_PROVIDER_DAILY_ROOT_KEYS, "model_daily"];
 const V3_UNMEASURED_DAILY_ROOT_KEYS = [...V3_DAILY_SERIES_ROOT_KEYS, "unmeasured_request_daily"];
+
+const V4_ROOT_KEYS = [...V3_ROOT_KEYS, "codex_activity_coverage"];
+const V4_PROVIDER_DAILY_ROOT_KEYS = [...V3_PROVIDER_DAILY_ROOT_KEYS, "codex_activity_coverage"];
+const V4_DAILY_SERIES_ROOT_KEYS = [...V3_DAILY_SERIES_ROOT_KEYS, "codex_activity_coverage"];
+const V4_UNMEASURED_DAILY_ROOT_KEYS = [...V3_UNMEASURED_DAILY_ROOT_KEYS, "codex_activity_coverage"];
+
+const CODEX_ACTIVITY_COVERAGE_KEYS = ["state", "matched_turns", "mismatched_turns", "unmatched_turns", "uncovered_turns"];
 const WINDOW_KEYS = ["start_at", "end_at", "totals", "breakdowns"];
 const BREAKDOWN_KEYS = ["projects", "works", "tasks", "models"];
 const BREAKDOWN_GROUP_KEYS = ["top", "other"];
@@ -436,13 +444,23 @@ function normalizeHistorySnapshot(input) {
   const legacy = normalizeAiUsageSnapshot(input);
   if (legacy.state === "ready" || input === null || input === undefined) return noHistoryProjection(legacy);
   const isV2 = input?.schema_version === AI_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA;
-  const isV3 = input?.schema_version === AI_USAGE_HISTORY_SNAPSHOT_SCHEMA;
-  const rootKeys = isV3 && Object.hasOwn(input ?? {}, "unmeasured_request_daily")
-    ? V3_UNMEASURED_DAILY_ROOT_KEYS
-    : isV3 && Object.hasOwn(input ?? {}, "model_daily")
-      ? V3_DAILY_SERIES_ROOT_KEYS
-      : isV3 && Object.hasOwn(input ?? {}, "provider_daily") ? V3_PROVIDER_DAILY_ROOT_KEYS : isV3 ? V3_ROOT_KEYS : V2_ROOT_KEYS;
-  if ((!isV2 && !isV3) || !hasExactKeys(input, rootKeys) || hasForbiddenKey(input)) return invalidProjection();
+  const isV3 = input?.schema_version === AI_USAGE_HISTORY_SNAPSHOT_V3_SCHEMA;
+  const isV4 = input?.schema_version === AI_USAGE_HISTORY_SNAPSHOT_SCHEMA;
+  const isV3OrV4 = isV3 || isV4;
+  const rootKeys = isV4
+    ? (Object.hasOwn(input ?? {}, "unmeasured_request_daily")
+        ? V4_UNMEASURED_DAILY_ROOT_KEYS
+        : Object.hasOwn(input ?? {}, "model_daily")
+          ? V4_DAILY_SERIES_ROOT_KEYS
+          : Object.hasOwn(input ?? {}, "provider_daily") ? V4_PROVIDER_DAILY_ROOT_KEYS : V4_ROOT_KEYS)
+    : isV3
+      ? (Object.hasOwn(input ?? {}, "unmeasured_request_daily")
+          ? V3_UNMEASURED_DAILY_ROOT_KEYS
+          : Object.hasOwn(input ?? {}, "model_daily")
+            ? V3_DAILY_SERIES_ROOT_KEYS
+            : Object.hasOwn(input ?? {}, "provider_daily") ? V3_PROVIDER_DAILY_ROOT_KEYS : V3_ROOT_KEYS)
+      : V2_ROOT_KEYS;
+  if ((!isV2 && !isV3 && !isV4) || !hasExactKeys(input, rootKeys) || hasForbiddenKey(input)) return invalidProjection();
   if (
     input.timezone !== AI_USAGE_HISTORY_TIMEZONE
     || !Number.isSafeInteger(input.top_n)
@@ -492,7 +510,7 @@ function normalizeHistorySnapshot(input) {
     rate_limit: parsedRateLimit.value
   };
   let providerEvidence = { claude: emptyClaudeEvidence() };
-  if (isV3) {
+  if (isV3OrV4) {
     const rows = providerRows(input.provider_rows, referenceAt);
     const collection = claudeCollection(input.claude_collection, referenceAt);
     if (rows === null || collection === null) return invalidProjection();
@@ -526,7 +544,8 @@ function normalizeHistorySnapshot(input) {
         const seen = new Set();
         const models = row.models.map((entry) => {
           if (!hasExactKeys(entry, MODEL_DAILY_VALUE_KEYS) || typeof entry.model_id !== "string" || !SAFE_ID.test(entry.model_id)
-            || seen.has(entry.model_id) || !Number.isSafeInteger(entry.turns) || entry.turns < 1
+            || seen.has(entry.model_id) || !Number.isSafeInteger(entry.turns)
+            || (isV4 ? (entry.turns < 0 || (entry.turns === 0 && entry.total_tokens === 0)) : entry.turns < 1)
             || !Number.isSafeInteger(entry.total_tokens) || entry.total_tokens < 0
             || !Number.isSafeInteger(entry.token_unknown_turns) || entry.token_unknown_turns < 0
             || entry.token_unknown_turns > entry.turns) return null;
@@ -592,6 +611,20 @@ function normalizeHistorySnapshot(input) {
     }
     history.claude_collection = collection;
     providerEvidence = { claude: evidence };
+    if (isV4) {
+      const cov = input.codex_activity_coverage;
+      if (!hasExactKeys(cov, CODEX_ACTIVITY_COVERAGE_KEYS)
+        || !["complete", "partial"].includes(cov.state)
+        || !Number.isSafeInteger(cov.matched_turns) || cov.matched_turns < 1
+        || !Number.isSafeInteger(cov.mismatched_turns) || cov.mismatched_turns < 0
+        || !Number.isSafeInteger(cov.unmatched_turns) || cov.unmatched_turns < 0
+        || !Number.isSafeInteger(cov.uncovered_turns) || cov.uncovered_turns < 0) {
+        return invalidProjection();
+      }
+      const expectedState = (cov.mismatched_turns === 0 && cov.unmatched_turns === 0 && cov.uncovered_turns === 0) ? "complete" : "partial";
+      if (cov.state !== expectedState) return invalidProjection();
+      history.codex_activity_coverage = { ...cov };
+    }
   }
 
   return {

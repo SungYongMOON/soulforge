@@ -14,6 +14,8 @@ import { AI_USAGE_PROJECTION_ENVELOPE_SCHEMA } from "../core/ai-usage-history-sn
 
 export const AI_USAGE_SNAPSHOT_PATH = "/ai-usage-meter.snapshot.json";
 export const AI_USAGE_READ_ONLY_QUERY_KEY = "read_only";
+export const AI_USAGE_REFRESH_QUERY_KEY = "refresh";
+export const DEFAULT_AI_USAGE_TTL_MS = 60_000;
 // The adapter carries its own explicit diagnostics evidence-age policy to the
 // Meter; it is never derived from the Board refresh/poll cadence.
 export const DEFAULT_CLAUDE_FRESHNESS_THRESHOLD_SECONDS = 15 * 60;
@@ -85,8 +87,15 @@ export function createAiUsageAdapter({
   usageMeterStateRoot = process.env.SOULFORGE_AI_USAGE_METER_STATE_ROOT || resolve(dirname(registryPath), "..", "ai_usage_meter"),
   readUsageProjection = readExactScopedUsageProjection,
   now = Date.now,
-  claudeFreshnessThresholdSeconds = DEFAULT_CLAUDE_FRESHNESS_THRESHOLD_SECONDS
+  claudeFreshnessThresholdSeconds = DEFAULT_CLAUDE_FRESHNESS_THRESHOLD_SECONDS,
+  ttlMs = DEFAULT_AI_USAGE_TTL_MS
 } = {}) {
+  let inFlight = null;
+  let inFlightScopeKey = null;
+  let lastSuccessSnapshot = null;
+  let lastSuccessAt = null;
+  let lastSuccessScopeKey = null;
+
   async function enrolledScope() {
     const enrollment = await readThreadEnrollmentRegistry(registryPath);
     if (!enrollment.registry || enrollment.status !== "available" || isLiveThreadEnrollmentDisabled({ registry: enrollment.registry, env })) {
@@ -98,20 +107,58 @@ export function createAiUsageAdapter({
     return ids.length > 0 && ids.length <= MAX_EXACT_THREAD_IDS ? ids : null;
   }
 
+  async function compute(scope, scopeKey) {
+    try {
+      const projection = await readUsageProjection({
+        stateRoot: usageMeterStateRoot,
+        threadIds: scope,
+        now,
+        claudeFreshnessThresholdSeconds
+      });
+      const validated = validateReadOnlyBoardUsageProjection(projection);
+      if (validated && validated.read_only === 1 && validated.snapshot !== null) {
+        lastSuccessSnapshot = validated;
+        lastSuccessAt = safeNow(now);
+        lastSuccessScopeKey = scopeKey;
+        return validated;
+      }
+      return unavailableProjection("hold");
+    } catch {
+      return unavailableProjection("hold");
+    }
+  }
+
   return {
-    async readProjection() {
+    async readProjection({ force = false } = {}) {
       const scope = await enrolledScope().catch(() => null);
       if (scope === null) return unavailableProjection("hold");
-      try {
-        return validateReadOnlyBoardUsageProjection(await readUsageProjection({
-          stateRoot: usageMeterStateRoot,
-          threadIds: scope,
-          now,
-          claudeFreshnessThresholdSeconds
-        }));
-      } catch {
+      const scopeKey = scope.join(",");
+      const observedNow = safeNow(now);
+
+      if (!force
+        && lastSuccessSnapshot !== null
+        && lastSuccessAt !== null
+        && lastSuccessScopeKey === scopeKey
+        && observedNow - lastSuccessAt < ttlMs) {
+        return lastSuccessSnapshot;
+      }
+
+      if (inFlight !== null) {
+        if (inFlightScopeKey === scopeKey) {
+          return await inFlight;
+        }
         return unavailableProjection("hold");
       }
+
+      inFlightScopeKey = scopeKey;
+      const operation = compute(scope, scopeKey).finally(() => {
+        if (inFlight === operation) {
+          inFlight = null;
+          inFlightScopeKey = null;
+        }
+      });
+      inFlight = operation;
+      return await inFlight;
     }
   };
 }
@@ -138,7 +185,7 @@ export function createAiUsageAdapterPlugin(options = {}) {
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket.remoteAddress)) {
+      if (!isLoopbackAddress(request.socket?.remoteAddress)) {
         response.statusCode = 403;
         response.end();
         return;
@@ -148,7 +195,8 @@ export function createAiUsageAdapterPlugin(options = {}) {
         response.end();
         return;
       }
-      void adapter.readProjection().then((projection) => {
+      const force = url.searchParams.get(AI_USAGE_REFRESH_QUERY_KEY) === "1";
+      void adapter.readProjection({ force }).then((projection) => {
         response.statusCode = 200;
         response.setHeader("Content-Type", "application/json; charset=utf-8");
         response.setHeader("Cache-Control", "no-store");

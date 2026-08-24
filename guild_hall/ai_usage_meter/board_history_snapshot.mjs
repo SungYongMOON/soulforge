@@ -13,10 +13,24 @@ import {
   createClaudeCollectionEnvelope,
   validateClaudeCollectionEnvelope,
 } from "./claude_collector.mjs";
-import { canonicalJson, loadPersistedUsageEvents } from "./usage_meter.mjs";
+import {
+  loadCodexActivityProjection,
+  validateCodexActivityProjection,
+} from "./codex_usage_activity.mjs";
+import {
+  USAGE_EVENT_TOKEN_CONFIDENCE_BY_SOURCE_KIND,
+  canonicalJson,
+  loadPersistedUsageEvents,
+} from "./usage_meter.mjs";
 
 export const BOARD_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA = "soulforge.ai_usage_board_history_snapshot.v2";
-export const BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA = "soulforge.ai_usage_board_history_snapshot.v3";
+export const BOARD_USAGE_HISTORY_SNAPSHOT_V3_SCHEMA = "soulforge.ai_usage_board_history_snapshot.v3";
+export const BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA = "soulforge.ai_usage_board_history_snapshot.v4";
+export const ACCEPTED_BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMAS = [
+  BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA,
+  BOARD_USAGE_HISTORY_SNAPSHOT_V3_SCHEMA,
+  BOARD_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA,
+];
 export const BOARD_USAGE_HISTORY_TIMEZONE = "Asia/Seoul";
 export const DEFAULT_BOARD_USAGE_HISTORY_TOP_N = 10;
 export const MAX_BOARD_USAGE_HISTORY_TOP_N = 50;
@@ -59,6 +73,15 @@ const V3_ROOT_KEYS = new Set([...V2_ROOT_KEYS, "provider_rows", "claude_collecti
 const V3_PROVIDER_DAILY_ROOT_KEYS = new Set([...V3_ROOT_KEYS, "provider_daily"]);
 const V3_DAILY_SERIES_ROOT_KEYS = new Set([...V3_PROVIDER_DAILY_ROOT_KEYS, "model_daily"]);
 const V3_UNMEASURED_DAILY_ROOT_KEYS = new Set([...V3_DAILY_SERIES_ROOT_KEYS, "unmeasured_request_daily"]);
+
+const V4_ROOT_KEYS = new Set([...V3_ROOT_KEYS, "codex_activity_coverage"]);
+const V4_PROVIDER_DAILY_ROOT_KEYS = new Set([...V3_PROVIDER_DAILY_ROOT_KEYS, "codex_activity_coverage"]);
+const V4_DAILY_SERIES_ROOT_KEYS = new Set([...V3_DAILY_SERIES_ROOT_KEYS, "codex_activity_coverage"]);
+const V4_UNMEASURED_DAILY_ROOT_KEYS = new Set([...V3_UNMEASURED_DAILY_ROOT_KEYS, "codex_activity_coverage"]);
+
+const CODEX_ACTIVITY_COVERAGE_KEYS = new Set([
+  "state", "matched_turns", "mismatched_turns", "unmatched_turns", "uncovered_turns",
+]);
 const WINDOW_NAMES = [
   "calendar_day",
   "calendar_week",
@@ -147,8 +170,10 @@ function strictCredit(value, code) {
   return value;
 }
 
-function rounded(value) {
-  return Number(value.toFixed(12));
+export const BOARD_USAGE_CREDIT_DECIMALS = 9;
+
+function rounded(value, decimals = BOARD_USAGE_CREDIT_DECIMALS) {
+  return Number(value.toFixed(decimals));
 }
 
 function emptyMetrics() {
@@ -172,7 +197,7 @@ function publicMetrics(metrics) {
 function addMetrics(target, value) {
   target.turns += value.turns;
   target.total_tokens += value.total_tokens;
-  target.credits += value.credits;
+  target.credits = rounded(target.credits + value.credits);
   target.credit_unknown_turns += value.credit_unknown_turns;
   return target;
 }
@@ -264,8 +289,10 @@ function eventObservation(event) {
     && event.credits.total >= 0
     ? event.credits.total
     : null;
-  const tokenIsExact = event?.measurement?.token_confidence === "exact_cumulative_delta"
-    || event?.measurement?.token_confidence === "exact_per_message";
+  const tokenConfidence = event?.measurement?.token_confidence
+    ?? (event?.source?.kind ? USAGE_EVENT_TOKEN_CONFIDENCE_BY_SOURCE_KIND[event.source.kind] : undefined);
+  const tokenIsExact = tokenConfidence === "exact_cumulative_delta"
+    || tokenConfidence === "exact_per_message";
   return {
     started_at: startedAt,
     provider: providerForSourceKind(event?.source?.kind),
@@ -339,21 +366,22 @@ function buildModelDaily(observations, referenceAt) {
     for (const row of observations) {
       if (kstDateKey(row.started_at) !== date) continue;
       const value = models.get(row.model_id) ?? { model_id: row.model_id, turns: 0, total_tokens: 0, token_unknown_turns: 0 };
-      value.turns += 1;
+      value.turns += row.metrics.turns;
       value.total_tokens += row.metrics.total_tokens;
       value.token_unknown_turns += row.metrics.token_unknown_turns;
       models.set(row.model_id, value);
     }
+    const filteredModels = [...models.values()].filter((m) => m.turns > 0 || m.total_tokens > 0);
     return {
       date,
-      models: [...models.values()].sort((left, right) => (
+      models: filteredModels.sort((left, right) => (
         right.total_tokens - left.total_tokens || left.model_id.localeCompare(right.model_id, "en")
       )),
     };
   });
 }
 
-function parseModelDaily(value) {
+function parseModelDaily(value, { isV4 = true } = {}) {
   if (!Array.isArray(value) || value.length !== 30) fail("board_usage_history_model_daily_invalid");
   let priorDate = "";
   return value.map((row) => {
@@ -364,7 +392,8 @@ function parseModelDaily(value) {
     const seen = new Set();
     const models = row.models.map((entry) => {
       if (!hasExactKeys(entry, MODEL_DAILY_VALUE_KEYS) || typeof entry.model_id !== "string" || !SAFE_ID.test(entry.model_id)
-        || seen.has(entry.model_id) || !Number.isSafeInteger(entry.turns) || entry.turns < 1
+        || seen.has(entry.model_id) || !Number.isSafeInteger(entry.turns)
+        || (isV4 ? (entry.turns < 0 || (entry.turns === 0 && entry.total_tokens === 0)) : entry.turns < 1)
         || !Number.isSafeInteger(entry.total_tokens) || entry.total_tokens < 0
         || !Number.isSafeInteger(entry.token_unknown_turns) || entry.token_unknown_turns < 0
         || entry.token_unknown_turns > entry.turns) fail("board_usage_history_model_daily_invalid");
@@ -701,7 +730,7 @@ function subtractMetrics(total, included) {
   const remaining = {
     turns: total.turns - included.turns,
     total_tokens: total.total_tokens - included.total_tokens,
-    credits: total.credits - included.credits,
+    credits: rounded(total.credits - included.credits),
     credit_unknown_turns: total.credit_unknown_turns - included.credit_unknown_turns,
   };
   if (remaining.turns < 0 || remaining.total_tokens < 0 || remaining.credit_unknown_turns < 0
@@ -887,6 +916,29 @@ function validateHistorySnapshotBase(snapshot, { schemaVersion, rootKeys }) {
   };
 }
 
+function parseCodexActivityCoverage(value) {
+  if (!isRecord(value) || !hasExactKeys(value, CODEX_ACTIVITY_COVERAGE_KEYS)) {
+    fail("board_usage_history_codex_activity_coverage_invalid");
+  }
+  if (!["complete", "partial"].includes(value.state)) {
+    fail("board_usage_history_codex_activity_coverage_invalid");
+  }
+  const matched = strictCount(value.matched_turns, "board_usage_history_codex_activity_coverage_invalid");
+  const mismatched = strictCount(value.mismatched_turns, "board_usage_history_codex_activity_coverage_invalid");
+  const unmatched = strictCount(value.unmatched_turns, "board_usage_history_codex_activity_coverage_invalid");
+  const uncovered = strictCount(value.uncovered_turns, "board_usage_history_codex_activity_coverage_invalid");
+  if (matched < 1) fail("board_usage_history_codex_activity_coverage_invalid");
+  const expectedState = (mismatched === 0 && unmatched === 0 && uncovered === 0) ? "complete" : "partial";
+  if (value.state !== expectedState) fail("board_usage_history_codex_activity_coverage_invalid");
+  return {
+    state: value.state,
+    matched_turns: matched,
+    mismatched_turns: mismatched,
+    unmatched_turns: unmatched,
+    uncovered_turns: uncovered,
+  };
+}
+
 export function validateBoardUsageHistorySnapshot(snapshot) {
   if (!isRecord(snapshot)) fail("board_usage_history_snapshot_invalid");
   if (snapshot.schema_version === BOARD_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA) {
@@ -895,16 +947,25 @@ export function validateBoardUsageHistorySnapshot(snapshot) {
       rootKeys: V2_ROOT_KEYS,
     });
   }
-  if (snapshot.schema_version !== BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA) {
+  if (snapshot.schema_version !== BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA && snapshot.schema_version !== BOARD_USAGE_HISTORY_SNAPSHOT_V3_SCHEMA) {
     fail("board_usage_history_snapshot_invalid");
   }
+  const isV4 = snapshot.schema_version === BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA;
+  const rootKeys = isV4
+    ? (Object.hasOwn(snapshot, "unmeasured_request_daily")
+        ? V4_UNMEASURED_DAILY_ROOT_KEYS
+        : Object.hasOwn(snapshot, "model_daily")
+          ? V4_DAILY_SERIES_ROOT_KEYS
+          : Object.hasOwn(snapshot, "provider_daily") ? V4_PROVIDER_DAILY_ROOT_KEYS : V4_ROOT_KEYS)
+    : (Object.hasOwn(snapshot, "unmeasured_request_daily")
+        ? V3_UNMEASURED_DAILY_ROOT_KEYS
+        : Object.hasOwn(snapshot, "model_daily")
+          ? V3_DAILY_SERIES_ROOT_KEYS
+          : Object.hasOwn(snapshot, "provider_daily") ? V3_PROVIDER_DAILY_ROOT_KEYS : V3_ROOT_KEYS);
+
   const base = validateHistorySnapshotBase(snapshot, {
-    schemaVersion: BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA,
-    rootKeys: Object.hasOwn(snapshot, "unmeasured_request_daily")
-      ? V3_UNMEASURED_DAILY_ROOT_KEYS
-      : Object.hasOwn(snapshot, "model_daily")
-        ? V3_DAILY_SERIES_ROOT_KEYS
-        : Object.hasOwn(snapshot, "provider_daily") ? V3_PROVIDER_DAILY_ROOT_KEYS : V3_ROOT_KEYS,
+    schemaVersion: snapshot.schema_version,
+    rootKeys,
   });
   const providerRows = parseProviderRows(snapshot.provider_rows, base.reference_at);
   const claudeCollection = validateClaudeCollectionEnvelope(snapshot.claude_collection, {
@@ -914,10 +975,12 @@ export function validateBoardUsageHistorySnapshot(snapshot) {
     fail("board_usage_history_claude_collection_invalid");
   }
   const providerDaily = Object.hasOwn(snapshot, "provider_daily") ? parseProviderDaily(snapshot.provider_daily) : null;
-  const modelDaily = Object.hasOwn(snapshot, "model_daily") ? parseModelDaily(snapshot.model_daily) : null;
+  const modelDaily = Object.hasOwn(snapshot, "model_daily") ? parseModelDaily(snapshot.model_daily, { isV4 }) : null;
   const unmeasuredRequestDaily = Object.hasOwn(snapshot, "unmeasured_request_daily")
     ? parseUnmeasuredRequestDaily(snapshot.unmeasured_request_daily)
     : null;
+  const codexActivityCoverage = isV4 ? parseCodexActivityCoverage(snapshot.codex_activity_coverage) : null;
+
   if (modelDaily !== null) {
     const activity = base.activity.daily.slice(-30);
     for (const [index, day] of modelDaily.entries()) {
@@ -944,7 +1007,140 @@ export function validateBoardUsageHistorySnapshot(snapshot) {
     ...(modelDaily !== null ? { model_daily: modelDaily } : {}),
     ...(unmeasuredRequestDaily !== null ? { unmeasured_request_daily: unmeasuredRequestDaily } : {}),
     claude_collection: claudeCollection,
+    ...(codexActivityCoverage !== null ? { codex_activity_coverage: codexActivityCoverage } : {}),
   };
+}
+
+export function buildHistoryObservations(uniqueEvents, activityProjection = null) {
+  const isCodex = (e) => e?.source?.kind === "codex_session_jsonl" || !e?.source?.kind;
+  const codexEvents = uniqueEvents.filter(isCodex);
+  const nonCodexEvents = uniqueEvents.filter((e) => !isCodex(e));
+
+  const observations = [];
+
+  for (const event of nonCodexEvents) {
+    observations.push(eventObservation(event));
+  }
+
+  if (codexEvents.length === 0) {
+    return { observations, codex_activity_coverage: null };
+  }
+
+  if (activityProjection) {
+    let validActivity = null;
+    try {
+      validActivity = validateCodexActivityProjection(activityProjection, { failClosed: false });
+    } catch {
+      validActivity = null;
+    }
+
+    if (validActivity) {
+      const activityMap = new Map();
+      for (const thread of validActivity.threads ?? []) {
+        activityMap.set(`${thread.thread_id}::${thread.turn_id}`, thread);
+      }
+
+      let matchedTurns = 0;
+      let mismatchedTurns = 0;
+      let uncoveredTurns = 0;
+      const matchedKeys = new Set();
+
+      for (const event of codexEvents) {
+        const key = `${event.thread_id}::${event.turn_id}`;
+        const act = activityMap.get(key);
+
+        if (act) {
+          const eventTokens = Number(event.usage?.total_tokens ?? 0);
+          if (act.total_tokens !== eventTokens || !act.observations || act.observations.length === 0) {
+            mismatchedTurns += 1;
+            observations.push(eventObservation(event));
+          } else {
+            matchedTurns += 1;
+            matchedKeys.add(key);
+
+            const projectId = safeDimensionId(event.project_id);
+            const workId = safeDimensionId(event.work_id);
+            const taskId = safeDimensionId(event.thread_id);
+            const modelId = safeDimensionId(event.model?.id);
+            const credit = typeof event?.credits?.total === "number"
+              && Number.isFinite(event.credits.total)
+              && event.credits.total >= 0
+              ? event.credits.total
+              : null;
+            const creditUnknown = credit === null || event?.credits?.status === "rate_unknown";
+
+            const firstObs = act.observations[0];
+            observations.push({
+              started_at: normalizedTimestamp(firstObs.observed_at, "board_usage_history_event_time_invalid"),
+              provider: "codex",
+              project_id: projectId,
+              work_id: workId,
+              task_id: taskId,
+              model_id: modelId,
+              metrics: {
+                turns: 1,
+                total_tokens: firstObs.delta_tokens,
+                token_unknown_turns: 0,
+                credits: credit ?? 0,
+                credit_unknown_turns: creditUnknown ? 1 : 0,
+              },
+            });
+
+            for (let i = 1; i < act.observations.length; i++) {
+              const obs = act.observations[i];
+              observations.push({
+                started_at: normalizedTimestamp(obs.observed_at, "board_usage_history_event_time_invalid"),
+                provider: "codex",
+                project_id: projectId,
+                work_id: workId,
+                task_id: taskId,
+                model_id: modelId,
+                metrics: {
+                  turns: 0,
+                  total_tokens: obs.delta_tokens,
+                  token_unknown_turns: 0,
+                  credits: 0,
+                  credit_unknown_turns: 0,
+                },
+              });
+            }
+          }
+        } else {
+          uncoveredTurns += 1;
+          observations.push(eventObservation(event));
+        }
+      }
+
+      const canonicalKeys = new Set(codexEvents.map((e) => `${e.thread_id}::${e.turn_id}`));
+      let unmatchedTurns = 0;
+      for (const key of activityMap.keys()) {
+        if (!canonicalKeys.has(key)) {
+          unmatchedTurns += 1;
+        }
+      }
+
+      if (matchedTurns > 0) {
+        const state = (mismatchedTurns === 0 && uncoveredTurns === 0 && unmatchedTurns === 0) ? "complete" : "partial";
+        return {
+          observations,
+          codex_activity_coverage: {
+            state,
+            matched_turns: matchedTurns,
+            mismatched_turns: mismatchedTurns,
+            unmatched_turns: unmatchedTurns,
+            uncovered_turns: uncoveredTurns,
+          },
+        };
+      }
+      return { observations, codex_activity_coverage: null };
+    }
+  }
+
+  for (const event of codexEvents) {
+    observations.push(eventObservation(event));
+  }
+
+  return { observations, codex_activity_coverage: null };
 }
 
 export function createBoardUsageHistorySnapshot(events, {
@@ -958,6 +1154,7 @@ export function createBoardUsageHistorySnapshot(events, {
   topN = DEFAULT_BOARD_USAGE_HISTORY_TOP_N,
   claudeCollection = null,
   claudeFreshnessThresholdSeconds = undefined,
+  activityProjection = null,
 } = {}) {
   const normalizedGeneratedAt = normalizedTimestamp(generatedAt, "board_usage_history_generated_at_invalid");
   const normalizedReferenceAt = normalizedTimestamp(referenceAt, "board_usage_history_reference_at_invalid");
@@ -972,7 +1169,8 @@ export function createBoardUsageHistorySnapshot(events, {
       generatedAt: normalizedGeneratedAt,
     })
     : validateBoardUsageSnapshot(currentSnapshot);
-  const observations = uniqueEvents.map(eventObservation);
+  const { observations, codex_activity_coverage } = buildHistoryObservations(uniqueEvents, activityProjection);
+  const isV4 = codex_activity_coverage !== null;
   const normalizedClaudeCollection = createClaudeCollectionEnvelope(
     claudeCollection ?? { state: "unknown" },
     {
@@ -981,7 +1179,7 @@ export function createBoardUsageHistorySnapshot(events, {
     },
   );
   const snapshot = {
-    schema_version: BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA,
+    schema_version: isV4 ? BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA : BOARD_USAGE_HISTORY_SNAPSHOT_V3_SCHEMA,
     generated_at: normalizedGeneratedAt,
     timezone: BOARD_USAGE_HISTORY_TIMEZONE,
     reference_at: normalizedReferenceAt,
@@ -997,6 +1195,7 @@ export function createBoardUsageHistorySnapshot(events, {
     model_daily: buildModelDaily(observations, normalizedReferenceAt),
     unmeasured_request_daily: buildUnmeasuredRequestDaily(observations, normalizedReferenceAt),
     claude_collection: normalizedClaudeCollection,
+    ...(isV4 ? { codex_activity_coverage } : {}),
   };
   return validateBoardUsageHistorySnapshot(snapshot);
 }
@@ -1009,6 +1208,7 @@ export async function loadBoardUsageHistorySnapshot(stateRoot, {
   includeProviders = null,
   claudeCollection = null,
   claudeFreshnessThresholdSeconds = undefined,
+  activityProjection = null,
 } = {}) {
   const root = path.resolve(stateRoot);
   const normalizedGeneratedAt = normalizedTimestamp(generatedAt, "board_usage_history_generated_at_invalid");
@@ -1022,6 +1222,17 @@ export async function loadBoardUsageHistorySnapshot(stateRoot, {
     }),
   ]);
   const events = filterBoardUsageEvents(allEvents, { threadIds: exactThreadIds, includeProviders });
+  const hasCodexEvents = events.some((e) => e?.source?.kind === "codex_session_jsonl");
+
+  let effectiveActivity = activityProjection;
+  if (effectiveActivity === null && hasCodexEvents) {
+    try {
+      effectiveActivity = await loadCodexActivityProjection(root, { failClosed: false });
+    } catch {
+      effectiveActivity = null;
+    }
+  }
+
   return createBoardUsageHistorySnapshot(events, {
     currentSnapshot: current,
     generatedAt: normalizedGeneratedAt,
@@ -1029,6 +1240,7 @@ export async function loadBoardUsageHistorySnapshot(stateRoot, {
     topN,
     claudeCollection,
     claudeFreshnessThresholdSeconds,
+    activityProjection: effectiveActivity,
   });
 }
 

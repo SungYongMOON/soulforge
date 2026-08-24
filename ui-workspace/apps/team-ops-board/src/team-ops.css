@@ -6421,6 +6421,7 @@ a:focus-visible {
 .usage-trend-header > div:first-child { display: grid; gap: 2px; }
 .usage-trend-header span, .usage-trend-header small { color: #8e9ba8; font-size: 11px; }
 .usage-trend-header strong { color: #f4f8fb; font: 500 28px/1.1 Consolas, ui-monospace, monospace; }
+.usage-trend-controls { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .usage-trend-tabs { display: inline-flex; padding: 2px; border: 1px solid #3b4148; border-radius: 999px; background: #33373c; }
 .usage-trend-tabs button { min-height: 32px; padding: 0 14px; border: 0; border-radius: 999px; color: #cbd2dc; background: transparent; font: inherit; cursor: pointer; }
 .usage-trend-tabs button[aria-selected="true"] { color: #fff; background: #171b20; box-shadow: 0 0 0 1px #454b53 inset; }
@@ -6463,6 +6464,7 @@ a:focus-visible {
 @media (max-width: 700px) {
   .usage-trend { padding: 14px 12px 12px; }
   .usage-trend-header { align-items: stretch; flex-direction: column; }
+  .usage-trend-controls { align-self: flex-start; }
   .usage-trend-tabs { align-self: flex-start; }
   .usage-trend-header strong { font-size: 23px; }
   .ledger-activity-panel .usage-trend-plot svg { min-height: 180px; }
