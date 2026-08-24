@@ -1776,15 +1776,38 @@ export async function persistUsageEvents(stateRoot, events, options = {}) {
   });
 }
 
-export async function loadPersistedUsageEvents(stateRoot) {
+export const DEFAULT_LOAD_PERSISTED_USAGE_EVENTS_CONCURRENCY = 32;
+export const MAX_LOAD_PERSISTED_USAGE_EVENTS_CONCURRENCY = 64;
+
+export function normalizePersistedUsageEventsConcurrency(options) {
+  const requested = typeof options === "number" ? options : options?.concurrency;
+  if (!Number.isInteger(requested) || requested <= 0) {
+    return DEFAULT_LOAD_PERSISTED_USAGE_EVENTS_CONCURRENCY;
+  }
+  return Math.min(requested, MAX_LOAD_PERSISTED_USAGE_EVENTS_CONCURRENCY);
+}
+
+export async function loadPersistedUsageEvents(stateRoot, options = {}) {
   const root = path.join(path.resolve(stateRoot), "events");
   const files = await walk(root, (file) => file.endsWith(".json"));
-  const events = [];
-  for (const file of files) {
-    const event = JSON.parse(await readFile(file, "utf8"));
-    events.push(validateUsageEvent(event));
+  const concurrency = normalizePersistedUsageEventsConcurrency(options);
+
+  const rawEvents = new Array(files.length);
+  if (files.length > 0) {
+    let nextIndex = 0;
+    const workerCount = Math.min(concurrency, files.length);
+    const workers = Array.from({ length: workerCount }, async () => {
+      while (true) {
+        const index = nextIndex++;
+        if (index >= files.length) break;
+        const content = await readFile(files[index], "utf8");
+        rawEvents[index] = validateUsageEvent(JSON.parse(content));
+      }
+    });
+    await Promise.all(workers);
   }
-  return events.sort((a, b) => (
+
+  return rawEvents.sort((a, b) => (
     (a.time.started_at ?? "").localeCompare(b.time.started_at ?? "", "en")
     || a.event_id.localeCompare(b.event_id, "en")
   ));

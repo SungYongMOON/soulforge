@@ -299,12 +299,16 @@ fabricated as zero or green. The common Meter ledger's Claude usage row remains
 an independent read-only projection and never supplies or replaces official
 quota values.
 
-Codex quota rendering reconciles the latest event-carried sample with the
-newest local session sample. While the currently observed reset is still in the
-future, a premature next-window sample with a later reset and lower utilization
-cannot replace the current window. Once the current reset has actually passed,
-the newer window is eligible normally. This prevents a transient `100% 남음`
-display without delaying a real reset.
+Codex quota rendering reconciles the latest event-carried sample with bounded
+recent local session samples (up to 12 files within 4 days). The reader inspects
+bounded tails, selects the freshest valid rate-limit observation timestamp via
+`selectCodexRateLimitObservation`, and falls back closed to null when no valid
+observation exists. While the currently observed reset is still in the future, a
+premature next-window sample with a later reset and lower utilization cannot
+replace the current window. Once the current reset has actually passed, the newer
+window is eligible normally. This prevents a transient `100% 남음` display
+without delaying a real reset or stalling behind an active session that has not
+yet emitted a quota row.
 
 The scheduled read-only Board enables one exact Antigravity quota gate. That
 gate sends only an empty JSON object to the running Antigravity language

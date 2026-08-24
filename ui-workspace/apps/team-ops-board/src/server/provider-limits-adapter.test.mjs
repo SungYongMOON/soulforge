@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import { createOfficialProviderQuotaSnapshot } from "../core/provider-quota-snapshot.mjs";
@@ -71,5 +74,90 @@ test("an unreadable or absent attempt log leaves attempt evidence UNKNOWN, never
       providerQuotaAttemptLog,
     });
     assert.equal((await reader.readSnapshot()).claude_quota_attempt, null);
+  }
+});
+
+test("Codex quota selects freshest valid rate-limit observation across recent sessions when newest has no rate_limits row", async () => {
+  const tempSessions = await mkdtemp(path.join(os.tmpdir(), "codex-sessions-test-"));
+  const dayDir = path.join(tempSessions, "2026", "08", "24");
+  await mkdir(dayDir, { recursive: true });
+
+  try {
+    const tOlder = new Date("2026-08-24T10:00:00.000Z");
+    const tFresh = new Date("2026-08-24T11:14:00.000Z");
+    const tNewest = new Date("2026-08-24T11:15:00.000Z");
+
+    const olderPath = path.join(dayDir, "older-session.jsonl");
+    const freshPath = path.join(dayDir, "fresh-session.jsonl");
+    const newestPath = path.join(dayDir, "newest-session.jsonl");
+
+    // Older session: 86% used
+    await writeFile(olderPath, JSON.stringify({
+      timestamp: "2026-08-24T10:00:00.000Z",
+      payload: {
+        rate_limits: {
+          primary: { used_percent: 86, window_minutes: 10080, resets_at: 1787565600 },
+          plan_type: "pro",
+        },
+      },
+    }) + "\n");
+    await utimes(olderPath, tOlder, tOlder);
+
+    // Fresh session: 1% used
+    await writeFile(freshPath, JSON.stringify({
+      timestamp: "2026-08-24T11:14:00.000Z",
+      payload: {
+        rate_limits: {
+          primary: { used_percent: 1, window_minutes: 10080, resets_at: 1787565600 },
+          plan_type: "pro",
+        },
+      },
+    }) + "\n");
+    await utimes(freshPath, tFresh, tFresh);
+
+    // Newest session: active but has NOT yet emitted rate_limits row
+    await writeFile(newestPath, JSON.stringify({
+      timestamp: "2026-08-24T11:15:00.000Z",
+      type: "session_meta",
+      payload: { id: "session-newest" },
+    }) + "\n");
+    await utimes(newestPath, tNewest, tNewest);
+
+    const reader = createProviderLimitsReader({
+      sessionsRoot: tempSessions,
+      now: () => Date.parse("2026-08-24T11:16:00.000Z"),
+    });
+
+    const snapshot = await reader.readSnapshot();
+    assert.ok(snapshot.codex !== null, "codex snapshot should not be null");
+    assert.equal(snapshot.codex.primary.used_percent, 1);
+    assert.equal(snapshot.codex.observed_at, "2026-08-24T11:14:00.000Z");
+    assert.equal(snapshot.codex.plan_type, "pro");
+  } finally {
+    await rm(tempSessions, { recursive: true, force: true });
+  }
+});
+
+test("Codex quota fails closed to null when no recent session has a valid rate_limits row", async () => {
+  const tempSessions = await mkdtemp(path.join(os.tmpdir(), "codex-sessions-empty-"));
+  const dayDir = path.join(tempSessions, "2026", "08", "24");
+  await mkdir(dayDir, { recursive: true });
+
+  try {
+    const sessionPath = path.join(dayDir, "session.jsonl");
+    await writeFile(sessionPath, JSON.stringify({
+      timestamp: "2026-08-24T11:15:00.000Z",
+      type: "session_meta",
+    }) + "\n");
+
+    const reader = createProviderLimitsReader({
+      sessionsRoot: tempSessions,
+      now: () => Date.parse("2026-08-24T11:16:00.000Z"),
+    });
+
+    const snapshot = await reader.readSnapshot();
+    assert.equal(snapshot.codex, null);
+  } finally {
+    await rm(tempSessions, { recursive: true, force: true });
   }
 });

@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-24 - Read-only Board freshness: bounded event load concurrency and multi-session Codex quota selection
+
+- **Usage aggregation latency and breakdown underflow fix (`ai_usage_meter`)**: `loadPersistedUsageEvents` now loads persisted event JSON files using bounded worker concurrency (default 32, max 64) rather than sequential iteration. Custom concurrency options are clamped to the fixed maximum. Strict per-event schema validation, immediate error propagation, and deterministic chronological ordering (`started_at` then `event_id`) are preserved with zero new external dependencies or authority changes. In addition, credit accumulation in board snapshot and history snapshot projections now quantizes additions to the stored schema precision (9 decimal places), eliminating floating-point summation drift that caused spurious breakdown underflows across large ledgers.
+- **Codex quota freshness race (`team-ops-board`)**: `provider-limits-adapter` now inspects a bounded window of recent session files (up to 12 files within 4 days) and bounded 256 KB tails rather than selecting only the single newest session file. When an active session has not yet emitted a rate-limit line, the reader reconciles timestamps across recent sessions via `selectCodexRateLimitObservation` to select the freshest valid observation rather than retaining stale data. The 60-second in-memory cache, loopback GET-only boundary, and fail-closed behavior are preserved.
+
 ## 2026-08-23 - Current-state documentation correction: seams, receipt v2, Hermes rationale, P2 scope
 
 - This entry is the documentation half of one integrated slice: the correction below ships in the

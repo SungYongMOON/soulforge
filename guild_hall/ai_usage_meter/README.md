@@ -349,9 +349,15 @@ ledger/history projection, and may re-read it for a refresh; it does not spawn
 the CLI above. It must never collect, apply, reconcile, write, scan all
 sessions, or infer an ID from a title, path, prompt, or message. A failed,
 unavailable, or untrustworthy projection remains `HOLD`/unknown rather than a
-zero-usage assertion. The separate safe Watchtower read-only refresh may run
-alongside this diagnostics read only path, without strengthening its structural
-topology evidence.
+zero-usage assertion. Persisted ledger event loading (`loadPersistedUsageEvents`)
+enforces bounded worker concurrency (default 32, max 64) across event files to
+eliminate sequential read latency on large ledgers while strictly maintaining
+per-event schema validation, immediate error propagation, and deterministic
+chronological ordering. Projection credit accumulation quantizes additions to the
+stored schema precision (9 decimal places) to prevent floating-point summation
+drift from triggering breakdown underflow across large ledgers. The separate
+safe Watchtower read-only refresh may run alongside this diagnostics read only
+path, without strengthening its structural topology evidence.
 
 ## Emergency local control
 

@@ -147,8 +147,10 @@ function strictCredit(value, code) {
   return value;
 }
 
-function rounded(value) {
-  return Number(value.toFixed(12));
+export const BOARD_USAGE_CREDIT_DECIMALS = 9;
+
+function rounded(value, decimals = BOARD_USAGE_CREDIT_DECIMALS) {
+  return Number(value.toFixed(decimals));
 }
 
 function emptyMetrics() {
@@ -172,7 +174,7 @@ function publicMetrics(metrics) {
 function addMetrics(target, value) {
   target.turns += value.turns;
   target.total_tokens += value.total_tokens;
-  target.credits += value.credits;
+  target.credits = rounded(target.credits + value.credits);
   target.credit_unknown_turns += value.credit_unknown_turns;
   return target;
 }
@@ -701,7 +703,7 @@ function subtractMetrics(total, included) {
   const remaining = {
     turns: total.turns - included.turns,
     total_tokens: total.total_tokens - included.total_tokens,
-    credits: total.credits - included.credits,
+    credits: rounded(total.credits - included.credits),
     credit_unknown_turns: total.credit_unknown_turns - included.credit_unknown_turns,
   };
   if (remaining.turns < 0 || remaining.total_tokens < 0 || remaining.credit_unknown_turns < 0
