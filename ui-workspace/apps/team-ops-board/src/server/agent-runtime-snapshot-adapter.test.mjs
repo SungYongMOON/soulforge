@@ -1,12 +1,18 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import {
   AGENT_RUNTIME_SNAPSHOT_PATH,
   createAgentRuntimeSnapshotAdapterPlugin,
+  createAgentRuntimeSnapshotAdapterPluginFromEnvironment,
   parseBoundedAgentRuntimeTransportFrame,
 } from "./agent-runtime-snapshot-adapter.mjs";
+
+const SYNTHETIC_BINDING_PATH = path.resolve("synthetic-agent-runtime-bindings.json");
 
 function captureMiddleware(plugin, surface = "configureServer") {
   let middleware;
@@ -187,12 +193,185 @@ test("raw transport ingress is byte-limited before JSON parsing", () => {
   );
 });
 
-test("Vite registers the default fail-closed endpoint plugin without runtime configuration", () => {
+test("environment wiring is all-or-nothing and never fetches for missing or invalid configuration", async () => {
+  let fetches = 0;
+  let bindingLoads = 0;
+  const httpGet = async () => {
+    fetches += 1;
+    throw new Error("unexpected fetch");
+  };
+  const loadBindings = async () => {
+    bindingLoads += 1;
+    return { state: "hold", hold_code: "AGENT_RUNTIME_BINDINGS_INVALID", bindings: [] };
+  };
+  const validUrl = "http://127.0.0.1:42424/api/agent-runtime/active-sessions";
+
+  for (const env of [
+    {},
+    { TEAM_OPS_HERMES_AGENT_RUNTIME_URL: validUrl },
+    { TEAM_OPS_HERMES_AGENT_RUNTIME_BINDINGS: SYNTHETIC_BINDING_PATH },
+    {
+      TEAM_OPS_HERMES_AGENT_RUNTIME_URL: "https://user:secret@127.0.0.1:42424/api/agent-runtime/active-sessions?raw=1",
+      TEAM_OPS_HERMES_AGENT_RUNTIME_BINDINGS: SYNTHETIC_BINDING_PATH,
+    },
+  ]) {
+    const plugin = await createAgentRuntimeSnapshotAdapterPluginFromEnvironment({
+      env,
+      httpGet,
+      loadBindings,
+    });
+    const result = await invoke(captureMiddleware(plugin), loopbackRequest());
+    assert.equal(JSON.parse(result.body).hold_code, "AGENT_RUNTIME_CONFIGURATION_UNAVAILABLE");
+  }
+  assert.equal(fetches, 0);
+  assert.equal(bindingLoads, 0);
+
+  const invalidBindingsPlugin = await createAgentRuntimeSnapshotAdapterPluginFromEnvironment({
+    env: {
+      TEAM_OPS_HERMES_AGENT_RUNTIME_URL: validUrl,
+      TEAM_OPS_HERMES_AGENT_RUNTIME_BINDINGS: SYNTHETIC_BINDING_PATH,
+    },
+    httpGet,
+    loadBindings,
+  });
+  const invalidBindings = await invoke(captureMiddleware(invalidBindingsPlugin), loopbackRequest());
+  assert.equal(JSON.parse(invalidBindings.body).hold_code, "AGENT_RUNTIME_CONFIGURATION_UNAVAILABLE");
+  assert.equal(bindingLoads, 1);
+  assert.equal(fetches, 0);
+});
+
+test("configured synthetic environment produces READY through the exact loader and loopback transport", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "agent-runtime-snapshot-configured-"));
+  const bindingPath = path.join(directory, "bindings.json");
+  const requests = [];
+  try {
+    await writeFile(bindingPath, JSON.stringify({
+      schema_version: "soulforge.team_ops_board.agent_runtime_bindings.v1",
+      metadata_only: true,
+      bindings: [{
+        bot_id: "synthetic-bot",
+        agent_id: "synthetic-agent",
+        display_label: "Synthetic Bot",
+        hermes_session_key: "synthetic-key",
+      }],
+    }), "utf8");
+    const plugin = await createAgentRuntimeSnapshotAdapterPluginFromEnvironment({
+      env: {
+        TEAM_OPS_HERMES_AGENT_RUNTIME_URL: "http://127.0.0.1:42424/api/agent-runtime/active-sessions",
+        TEAM_OPS_HERMES_AGENT_RUNTIME_BINDINGS: bindingPath,
+      },
+      httpGet: async (options) => {
+        requests.push(options);
+        return {
+          statusCode: 200,
+          headers: {
+            "content-type": "application/json; charset=utf-8",
+            "cache-control": "no-store",
+            "x-content-type-options": "nosniff",
+          },
+          body: Buffer.from(JSON.stringify({
+            schema_version: "hermes.agent_runtime_active_sessions.v1",
+            read_only: true,
+            sessions: [{
+              id: "synthetic-live-id",
+              session_key: "synthetic-key",
+              status: "working",
+              started_at: null,
+              last_active: null,
+              message_count: 0,
+              model: null,
+            }],
+            truncated: false,
+          }), "utf8"),
+        };
+      },
+      now: () => Date.parse("2026-08-24T12:00:00.000Z"),
+    });
+
+    const result = await invoke(captureMiddleware(plugin), loopbackRequest());
+    const projection = JSON.parse(result.body);
+    assert.equal(projection.refresh_state, "ready");
+    assert.deepEqual(projection.bots[0].state, { kind: "observed", value: "working" });
+    assert.equal(requests.length, 1);
+    assert.deepEqual({
+      method: requests[0].method,
+      protocol: requests[0].protocol,
+      hostname: requests[0].hostname,
+      port: requests[0].port,
+      path: requests[0].path,
+      headers: requests[0].headers,
+    }, {
+      method: "GET",
+      protocol: "http:",
+      hostname: "127.0.0.1",
+      port: 42424,
+      path: "/api/agent-runtime/active-sessions",
+      headers: { Accept: "application/json" },
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("a configured transport failure replaces prior working state with fixed HOLD", async () => {
+  let reads = 0;
+  const plugin = await createAgentRuntimeSnapshotAdapterPluginFromEnvironment({
+    env: {
+      TEAM_OPS_HERMES_AGENT_RUNTIME_URL: "http://127.0.0.1:42424/api/agent-runtime/active-sessions",
+      TEAM_OPS_HERMES_AGENT_RUNTIME_BINDINGS: SYNTHETIC_BINDING_PATH,
+    },
+    loadBindings: async () => ({
+      state: "ready",
+      hold_code: null,
+      bindings: [{
+        bot_id: "synthetic-bot",
+        agent_id: "synthetic-agent",
+        display_label: "Synthetic Bot",
+        hermes_session_key: "synthetic-key",
+      }],
+    }),
+    httpGet: async () => {
+      reads += 1;
+      if (reads > 1) throw new Error("PRIVATE-FAILURE");
+      return {
+        statusCode: 200,
+        headers: {
+          "content-type": "application/json",
+          "cache-control": "no-store",
+          "x-content-type-options": "nosniff",
+        },
+        body: Buffer.from(JSON.stringify({
+          schema_version: "hermes.agent_runtime_active_sessions.v1",
+          read_only: true,
+          sessions: [{
+            id: "synthetic-live-id",
+            session_key: "synthetic-key",
+            status: "working",
+            started_at: null,
+            last_active: null,
+            message_count: 0,
+            model: null,
+          }],
+          truncated: false,
+        }), "utf8"),
+      };
+    },
+  });
+  const middleware = captureMiddleware(plugin);
+  const working = JSON.parse((await invoke(middleware, loopbackRequest())).body);
+  const failed = JSON.parse((await invoke(middleware, loopbackRequest())).body);
+  assert.deepEqual(working.bots[0].state, { kind: "observed", value: "working" });
+  assert.equal(failed.refresh_state, "hold");
+  assert.equal(failed.hold_code, "GATEWAY_DISCONNECTED");
+  assert.equal(failed.bots.every((row) => row.state.kind === "unknown"), true);
+  assert.equal(JSON.stringify(failed).includes("PRIVATE-FAILURE"), false);
+});
+
+test("Vite awaits the environment-gated plugin while preserving default fail-closed behavior", () => {
   const viteSource = readFileSync(new URL("../../vite.config.ts", import.meta.url), "utf8");
   assert.match(
     viteSource,
-    /import \{ createAgentRuntimeSnapshotAdapterPlugin \} from "\.\/src\/server\/agent-runtime-snapshot-adapter\.mjs";/u,
+    /import \{ createAgentRuntimeSnapshotAdapterPluginFromEnvironment \} from "\.\/src\/server\/agent-runtime-snapshot-adapter\.mjs";/u,
   );
-  assert.match(viteSource, /createAgentRuntimeSnapshotAdapterPlugin\(\)/u);
-  assert.doesNotMatch(viteSource, /AGENT_RUNTIME_(?:BINDING|TRANSPORT)|HERMES_(?:BINDING|TRANSPORT)/u);
+  assert.match(viteSource, /await createAgentRuntimeSnapshotAdapterPluginFromEnvironment\(\)/u);
 });

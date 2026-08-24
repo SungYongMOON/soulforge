@@ -116,13 +116,37 @@ prompt, reasoning, tool bodies, cwd, paths, or credentials fail closed before a
 projection reaches the browser.
 
 The default 4192 runtime deliberately supplies neither an authorized Hermes
-transport nor exact Bot-to-session bindings. The three Owner cards also have no
-canonical `bot_id` yet. Therefore the current endpoint and UI return a fixed
-`HOLD`/`UNKNOWN` projection; display labels are never used to infer identity.
-Transport failure or a later refresh failure discards any prior positive state,
-so a stale `working` value is never retained. This wiring is a read-only,
-fail-closed integration surface, not a claim that live Hermes Bot status is
-currently connected.
+transport nor exact Bot-to-session bindings. With the optional environment
+values absent, the endpoint and UI return a fixed `HOLD`/`UNKNOWN` projection.
+Display labels are never used to infer identity, and the three Owner cards still
+require exact canonical `bot_id` values before a live row can match them.
+
+An optional local binding is enabled only when both
+`TEAM_OPS_HERMES_AGENT_RUNTIME_URL` and
+`TEAM_OPS_HERMES_AGENT_RUNTIME_BINDINGS` pass their complete validation. The URL
+must be exact loopback HTTP on an explicit port from 1024 through 65535 and end
+at `/api/agent-runtime/active-sessions`, with no user information, query, or
+fragment. The bindings value must name an absolute local regular non-symlink
+file. That file must be a stable, bounded, metadata-only
+`soulforge.team_ops_board.agent_runtime_bindings.v1` document containing only
+`bot_id`, `agent_id`, `display_label`, and nullable `hermes_session_key` rows;
+all non-null identities must be unique. No local URL, path, session key, or
+credential value belongs in this repository.
+
+The upstream read succeeds only for HTTP 200 JSON with `no-store`, `nosniff`,
+and the exact `hermes.agent_runtime_active_sessions.v1` read-only root. It accepts
+at most 64 rows with the seven allowlisted session fields and the observed
+states `working`, `starting`, `waiting`, or `idle`. A truncated, malformed,
+oversized, raw-bearing, or otherwise non-exact response becomes fixed `HOLD`.
+Missing, one-sided, or invalid configuration never creates a partial binding or
+performs a fetch. Transport failure discards prior positive state, so stale
+`working` is never retained.
+
+Vite reads and validates the two optional values at process startup. After the
+Owner supplies or changes both local values, the 4192 development or 4193
+preview process must be restarted before the new binding can be considered.
+This wiring remains a read-only, fail-closed integration surface; it does not
+install or restart Hermes, add credentials, or grant provider mutation.
 
 Vite exposes `GET /codex-threads.snapshot.json` only to loopback clients. The
 adapter starts its own short-lived official `codex app-server` stdio client,

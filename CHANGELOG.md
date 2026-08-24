@@ -17,6 +17,16 @@
   activate status and a failed refresh never retains stale `working` state. No Hermes database,
   transcript, title, preview, prompt, reasoning, tool body, path, credential, provider mutation,
   or runtime restart is introduced by this public slice.
+- **Optional local Hermes transport and binding gate (`team-ops-board`)**: Added an all-or-nothing
+  Vite startup binding for `TEAM_OPS_HERMES_AGENT_RUNTIME_URL` plus
+  `TEAM_OPS_HERMES_AGENT_RUNTIME_BINDINGS`. The URL accepts only exact loopback HTTP, the fixed
+  active-sessions path, and an explicit bounded port; the injected local binding file must be a
+  stable regular non-symlink strict v1 metadata document with unique exact identities. The
+  upstream response must be HTTP 200 JSON with `no-store`, `nosniff`, the exact read-only v1 root,
+  no truncation, and no more than 64 seven-field rows. Missing, one-sided, invalid, raced, raw, or
+  truncated input stays at the existing fixed HOLD with no partial wiring or stale `working` cache.
+  No live URL, local path, binding value, or credential is tracked, and default startup performs no
+  fetch, provider restart, or provider mutation; local value changes require a Vite process restart.
 
 ## 2026-08-24 - Agent Observation P0-S1 false-delivery and run-provider binding
 

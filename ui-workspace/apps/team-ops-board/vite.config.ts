@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createAiUsageAdapterPlugin } from "./src/server/ai-usage-adapter.mjs";
-import { createAgentRuntimeSnapshotAdapterPlugin } from "./src/server/agent-runtime-snapshot-adapter.mjs";
+import { createAgentRuntimeSnapshotAdapterPluginFromEnvironment } from "./src/server/agent-runtime-snapshot-adapter.mjs";
 import { createAntigravityQuotaAdapterPlugin } from "./src/server/antigravity-quota-adapter.mjs";
 import { createAntigravityUsageAdapterPlugin } from "./src/server/antigravity-usage-adapter.mjs";
 import { createClaudeUsageAdapterPlugin } from "./src/server/claude-usage-adapter.mjs";
@@ -49,10 +49,10 @@ const receiptExpiryBindingPath = path.join(
   "receipt_expiry_binding.v1.json",
 );
 
-export default defineConfig({
+export default defineConfig(async () => ({
   plugins: [
     react(),
-    createAgentRuntimeSnapshotAdapterPlugin(),
+    await createAgentRuntimeSnapshotAdapterPluginFromEnvironment(),
     createLiveThreadAdapterPlugin({ env: boardEnvironment }),
     createAiUsageAdapterPlugin(),
     createTopologyAdapterPlugin(boardTopologyOptions),
@@ -76,4 +76,4 @@ export default defineConfig({
     port: 4193,
     allowedHosts: boardAllowedHosts
   }
-});
+}));

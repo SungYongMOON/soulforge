@@ -1,7 +1,11 @@
+import { loadAgentRuntimeBindings } from "./agent-runtime-binding-loader.mjs";
 import { createAgentRuntimeReadModule } from "./agent-runtime-read-module.mjs";
+import { createHermesLoopbackReadTransport } from "./hermes-loopback-read-transport.mjs";
 import { createHermesTuiGatewayReadAdapter } from "./hermes-tui-gateway-read-adapter.mjs";
 
 export const AGENT_RUNTIME_SNAPSHOT_PATH = "/agent-runtime.snapshot.json";
+export const HERMES_AGENT_RUNTIME_URL_ENV = "TEAM_OPS_HERMES_AGENT_RUNTIME_URL";
+export const HERMES_AGENT_RUNTIME_BINDINGS_ENV = "TEAM_OPS_HERMES_AGENT_RUNTIME_BINDINGS";
 
 const DEFAULT_MAX_RESPONSE_BYTES = 262_144;
 
@@ -137,4 +141,69 @@ export function createAgentRuntimeSnapshotAdapterPlugin(options = {}) {
     configureServer: configure,
     configurePreviewServer: configure,
   };
+}
+
+export async function createAgentRuntimeSnapshotAdapterPluginFromEnvironment({
+  env = process.env,
+  httpGet,
+  limits,
+  loadBindings = loadAgentRuntimeBindings,
+  maxResponseBytes = DEFAULT_MAX_RESPONSE_BYTES,
+  now = Date.now,
+  timeoutMs,
+} = {}) {
+  let url;
+  let bindingPath;
+  try {
+    url = env?.[HERMES_AGENT_RUNTIME_URL_ENV];
+    bindingPath = env?.[HERMES_AGENT_RUNTIME_BINDINGS_ENV];
+  } catch {
+    return createAgentRuntimeSnapshotAdapterPlugin();
+  }
+  if (
+    typeof url !== "string"
+    || url.length === 0
+    || typeof bindingPath !== "string"
+    || bindingPath.length === 0
+    || typeof loadBindings !== "function"
+  ) {
+    return createAgentRuntimeSnapshotAdapterPlugin();
+  }
+
+  let transport;
+  try {
+    transport = createHermesLoopbackReadTransport({
+      url,
+      httpGet,
+      maxResponseBytes,
+      timeoutMs,
+    });
+  } catch {
+    return createAgentRuntimeSnapshotAdapterPlugin();
+  }
+
+  let loaded;
+  try {
+    loaded = await loadBindings({ bindingPath });
+  } catch {
+    return createAgentRuntimeSnapshotAdapterPlugin();
+  }
+  if (
+    loaded?.state !== "ready"
+    || loaded.hold_code !== null
+    || !Array.isArray(loaded.bindings)
+    || loaded.bindings.length === 0
+  ) {
+    return createAgentRuntimeSnapshotAdapterPlugin();
+  }
+
+  return createAgentRuntimeSnapshotAdapterPlugin({
+    bindings: loaded.bindings,
+    exchangeFrame: transport.exchangeFrame,
+    limits,
+    maxResponseBytes,
+    now,
+    onTransportInvalidated: transport.onTransportInvalidated,
+    timeoutMs,
+  });
 }
