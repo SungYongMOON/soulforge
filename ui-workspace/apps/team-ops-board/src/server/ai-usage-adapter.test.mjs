@@ -20,10 +20,65 @@ import {
   writeThreadEnrollmentRegistryAtomic
 } from "../core/live-thread-enrollment.mjs";
 import { createBoardUsageHistorySnapshot } from "../../../../../guild_hall/ai_usage_meter/board_history_snapshot.mjs";
+import { persistCodexActivityProjection } from "../../../../../guild_hall/ai_usage_meter/codex_usage_activity.mjs";
 import { persistUsageEvents } from "../../../../../guild_hall/ai_usage_meter/usage_meter.mjs";
 
 const AT = "2026-08-04T01:00:00.000Z";
 const ENV = { TEAM_OPS_BOARD_AUTO_USAGE_REFRESH: "true" };
+
+function tokenActivityFromEvents(events) {
+  const codexEvents = events.filter((e) => e.source?.kind === "codex_session_jsonl");
+  const threads = codexEvents.map((e) => {
+    const tokens = Number(e.usage?.total_tokens ?? 0);
+    return {
+      thread_id: e.thread_id,
+      turn_id: e.turn_id,
+      observations: [
+        {
+          observed_at: e.time.started_at,
+          delta_tokens: tokens,
+        },
+      ],
+      total_tokens: tokens,
+    };
+  });
+  const totalTokens = threads.reduce((sum, t) => sum + t.total_tokens, 0);
+  const uniqueThreadCount = new Set(threads.map((t) => t.thread_id)).size;
+  return {
+    schema_version: "soulforge.ai_usage_codex_activity_projection.v1",
+    generated_at: new Date().toISOString(),
+    coverage: {
+      scope: "full_sessions_root",
+      session_file_count: threads.length,
+      parsed_session_count: threads.length,
+      issue_count: 0,
+      thread_count: uniqueThreadCount,
+      turn_count: threads.length,
+    },
+    privacy: {
+      metadata_only: true,
+      prompt_captured: false,
+      reasoning_captured: false,
+      tool_payload_captured: false,
+    },
+    issues: [],
+    totals: {
+      total_tokens: totalTokens,
+    },
+    threads,
+    reconciliation: {
+      total_tokens: totalTokens,
+      thread_count: uniqueThreadCount,
+      turn_count: threads.length,
+      observation_count: threads.length,
+    },
+  };
+}
+
+async function persistTestTokenActivity(stateRoot, events) {
+  const proj = tokenActivityFromEvents(events);
+  await persistCodexActivityProjection(stateRoot, proj);
+}
 
 function readOnlyFixture(events = []) {
   return {
@@ -303,11 +358,13 @@ test("usage adapter projects all provider events including unregistered Codex ev
     const registryPath = join(directory, "visibility.json");
     await writeRegistry(registryPath, ["thread-enrolled"]);
     const stateRoot = join(directory, "meter-state");
-    await persistUsageEvents(stateRoot, [
+    const events = [
       codexLedgerEvent({ eventId: "aue-enrolled", threadId: "thread-enrolled", tokens: 20 }),
       codexLedgerEvent({ eventId: "aue-unregistered", threadId: "thread-unregistered", tokens: 30 }),
       persistedClaudeEvent(),
-    ]);
+    ];
+    await persistUsageEvents(stateRoot, events);
+    await persistTestTokenActivity(stateRoot, events);
 
     const adapter = createAiUsageAdapter({
       registryPath,
@@ -345,6 +402,33 @@ test("usage adapter projects all provider events including unregistered Codex ev
 
     const serialized = JSON.stringify(projection);
     assert.doesNotMatch(serialized, /(?:session_path|raw_prompt|message_body|bearer_token)/iu);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("usage adapter falls back cleanly to legacy started_at history when activity sidecar is absent", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "team-ops-missing-activity-"));
+  try {
+    const registryPath = join(directory, "visibility.json");
+    await writeRegistry(registryPath, ["thread-enrolled"]);
+    const stateRoot = join(directory, "meter-state");
+    await persistUsageEvents(stateRoot, [
+      codexLedgerEvent({ eventId: "aue-enrolled", threadId: "thread-enrolled", tokens: 20 }),
+    ]);
+
+    const adapter = createAiUsageAdapter({
+      registryPath,
+      usageMeterStateRoot: stateRoot,
+      env: ENV,
+      now: () => Date.parse("2026-08-04T01:00:00.000Z"),
+      readUsageProjection: readExactScopedUsageProjection,
+    });
+
+    const projection = await adapter.readProjection();
+    assert.equal(projection.schema_version, "soulforge.ai_usage_board_read_only_projection.v1");
+    assert.equal(projection.read_only, 1);
+    assert.equal(projection.snapshot.windows.all_time.totals.turns, 1);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

@@ -331,6 +331,16 @@ not exact-thread-bound. Coverage remains partial and retry/timeout fields stay
 present but zero unless an exact-thread evidence source is added later; this is
 intentional to avoid inferring or double-counting coordination activity.
 
+### Codex Usage Activity Projection & Exact Partial Reconciliation
+
+Codex session JSONL logs record cumulative token counts per session/turn. For long-running turns that span multiple calendar days, attributing the entire cumulative turn usage to `event.time.started_at` causes historical token spikes and leaves recent observation days appearing unrefreshed.
+
+To solve this without compromising canonical turn identity and attribution:
+1. **Monotonic Observation Deltas in Single-Pass Parser**: Usage activity derives exact, monotonic token deltas from source-safe `token_count` observations within each turn during the single-pass session parse. Counter regressions flag `codex_activity_counter_regression` and are safely excluded without crashing. Prompts, reasoning content, tool payloads, and raw conversation lines are never captured (`privacy.metadata_only = true`).
+2. **Durable Local Projection (`usage_activity/current.json`)**: Full authoritative collection persists a validated, compact activity projection (`soulforge.ai_usage_codex_activity_projection.v1`) under the existing state root (`guild_hall/state/operations/ai_usage_meter/usage_activity/current.json`). It retains only the minimal fields required for Board reconciliation: `{ thread_id, turn_id, observations: [{ observed_at, delta_tokens }], total_tokens }` alongside root totals, coverage, privacy, and reconciliation blocks. Redundant fields (models, reasoning effort, rate limit snapshots, daily aggregates, usage partitions) are pruned after in-memory monotonic and conflict validation. Active session turns are included only when fresh (within 15 minutes of file mtime). Scoped collections do not overwrite authoritative coverage.
+3. **Exact Partial Reconciliation on Board History v4**: Board history snapshot v4 (`soulforge.ai_usage_board_history_snapshot.v4`) requires `codex_activity_coverage` summary (`state: complete | partial`, `matched_turns`, `mismatched_turns`, `unmatched_turns`, `uncovered_turns`) and redistributes token metrics to observation dates across daily, hourly, window, and model/provider series for exact covered events (`thread_id` + `turn_id`), while keeping `turns: 1` and credits on the start date and `turns: 0` on subsequent observation dates. Uncovered legacy canonical events and mismatched events are retained verbatim on `started_at` without failing the board or guessing.
+4. **Clean Fallback & Truthful UI**: When the activity sidecar is absent or has zero exact matches, Board history projection cleanly emits legacy v3 with `started_at` attribution without breaking unrelated history or blanking the board. UI displays `토큰 관측일 기준` for complete coverage, `토큰 관측일 우선 · 미근거 항목은 시작일 기준` for partial coverage, and omits the basis note when falling back to v3. All-time totals strictly reconcile with the canonical ledger.
+
 ```powershell
 $acceptedThreadIds = @('<exact-thread-id-1>', '<exact-thread-id-2>')
 $meterState = Join-Path (Resolve-Path .).Path 'guild_hall\state\operations\ai_usage_meter'

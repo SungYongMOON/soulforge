@@ -68,6 +68,10 @@ import {
   writeBoardUsageHistorySnapshot,
 } from "./board_history_snapshot.mjs";
 import {
+  createCodexActivityProjection,
+  persistCodexActivityProjection,
+} from "./codex_usage_activity.mjs";
+import {
   createLifecycleReceipt,
   createLifecycleSnapshot,
   loadLifecycleReceipts,
@@ -472,6 +476,12 @@ async function collectCommand(options) {
     };
     if (authoritativeCoverage) {
       coverage = await writeRuntimeJson(path.join(resolvedStateRoot, "coverage", "latest.json"), coverage);
+      const activityProjection = createCodexActivityProjection(
+        collected.usage_activity_turns ?? [],
+        coverage,
+        { generatedAt: coverage.observed_at },
+      );
+      await persistCodexActivityProjection(resolvedStateRoot, activityProjection);
     }
   }
   return {

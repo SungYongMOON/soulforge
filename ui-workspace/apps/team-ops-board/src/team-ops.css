@@ -6422,10 +6422,10 @@ a:focus-visible {
 .usage-trend-header span, .usage-trend-header small { color: #8e9ba8; font-size: 11px; }
 .usage-trend-header strong { color: #f4f8fb; font: 500 28px/1.1 Consolas, ui-monospace, monospace; }
 .usage-trend-controls { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.usage-trend-tabs, .usage-trend-ranges { display: inline-flex; padding: 2px; border: 1px solid #3b4148; border-radius: 999px; background: #33373c; }
-.usage-trend-tabs button, .usage-trend-ranges button { min-height: 32px; padding: 0 14px; border: 0; border-radius: 999px; color: #cbd2dc; background: transparent; font: inherit; cursor: pointer; }
-.usage-trend-tabs button[aria-selected="true"], .usage-trend-ranges button[aria-selected="true"] { color: #fff; background: #171b20; box-shadow: 0 0 0 1px #454b53 inset; }
-.usage-trend-tabs button:focus-visible, .usage-trend-ranges button:focus-visible, .usage-trend-legend button:focus-visible, .usage-trend-hit-grid button:focus-visible { outline: 2px solid #8dbffc; outline-offset: 2px; }
+.usage-trend-tabs { display: inline-flex; padding: 2px; border: 1px solid #3b4148; border-radius: 999px; background: #33373c; }
+.usage-trend-tabs button { min-height: 32px; padding: 0 14px; border: 0; border-radius: 999px; color: #cbd2dc; background: transparent; font: inherit; cursor: pointer; }
+.usage-trend-tabs button[aria-selected="true"] { color: #fff; background: #171b20; box-shadow: 0 0 0 1px #454b53 inset; }
+.usage-trend-tabs button:focus-visible, .usage-trend-legend button:focus-visible, .usage-trend-hit-grid button:focus-visible { outline: 2px solid #8dbffc; outline-offset: 2px; }
 .usage-trend-note { margin: 0; color: #84909c; font-size: 10.5px; line-height: 1.5; }
 .usage-trend-plot { position: relative; min-width: 0; }
 .ledger-activity-panel .usage-trend-plot svg { width: 100%; height: auto; min-height: 220px; overflow: visible; }
@@ -6465,7 +6465,7 @@ a:focus-visible {
   .usage-trend { padding: 14px 12px 12px; }
   .usage-trend-header { align-items: stretch; flex-direction: column; }
   .usage-trend-controls { align-self: flex-start; }
-  .usage-trend-tabs, .usage-trend-ranges { align-self: flex-start; }
+  .usage-trend-tabs { align-self: flex-start; }
   .usage-trend-header strong { font-size: 23px; }
   .ledger-activity-panel .usage-trend-plot svg { min-height: 180px; }
   .usage-trend-legend { justify-content: flex-start; }

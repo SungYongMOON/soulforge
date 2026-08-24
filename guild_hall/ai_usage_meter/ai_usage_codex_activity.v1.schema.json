@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.ai_usage_codex_activity_projection.v1",
+  "title": "SoulforgeCodexUsageActivityProjectionV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "coverage",
+    "privacy",
+    "issues",
+    "totals",
+    "threads",
+    "reconciliation"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "soulforge.ai_usage_codex_activity_projection.v1"
+    },
+    "generated_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "session_file_count",
+        "parsed_session_count",
+        "issue_count",
+        "thread_count",
+        "turn_count"
+      ],
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": ["full_sessions_root", "scoped_thread_selection"]
+        },
+        "session_file_count": { "$ref": "#/$defs/safe_count" },
+        "parsed_session_count": { "$ref": "#/$defs/safe_count" },
+        "issue_count": { "$ref": "#/$defs/safe_count" },
+        "thread_count": { "$ref": "#/$defs/safe_count" },
+        "turn_count": { "$ref": "#/$defs/safe_count" }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metadata_only",
+        "prompt_captured",
+        "reasoning_captured",
+        "tool_payload_captured"
+      ],
+      "properties": {
+        "metadata_only": { "type": "boolean", "const": true },
+        "prompt_captured": { "type": "boolean", "const": false },
+        "reasoning_captured": { "type": "boolean", "const": false },
+        "tool_payload_captured": { "type": "boolean", "const": false }
+      }
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "count"],
+        "properties": {
+          "code": { "$ref": "#/$defs/safe_id" },
+          "count": { "$ref": "#/$defs/safe_count" }
+        }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total_tokens"],
+      "properties": {
+        "total_tokens": { "$ref": "#/$defs/safe_count" }
+      }
+    },
+    "threads": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "thread_id",
+          "turn_id",
+          "observations",
+          "total_tokens"
+        ],
+        "properties": {
+          "thread_id": { "$ref": "#/$defs/safe_id" },
+          "turn_id": { "$ref": "#/$defs/safe_id" },
+          "observations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "observed_at",
+                "delta_tokens"
+              ],
+              "properties": {
+                "observed_at": { "$ref": "#/$defs/timestamp" },
+                "delta_tokens": { "$ref": "#/$defs/safe_count" }
+              }
+            }
+          },
+          "total_tokens": { "$ref": "#/$defs/safe_count" }
+        }
+      }
+    },
+    "reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total_tokens",
+        "thread_count",
+        "turn_count",
+        "observation_count"
+      ],
+      "properties": {
+        "total_tokens": { "$ref": "#/$defs/safe_count" },
+        "thread_count": { "$ref": "#/$defs/safe_count" },
+        "turn_count": { "$ref": "#/$defs/safe_count" },
+        "observation_count": { "$ref": "#/$defs/safe_count" }
+      }
+    }
+  },
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+    },
+    "safe_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$"
+    },
+    "safe_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  }
+}

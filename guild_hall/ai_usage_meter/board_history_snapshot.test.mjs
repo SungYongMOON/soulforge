@@ -7,6 +7,7 @@ import Ajv2020 from "ajv/dist/2020.js";
 
 import {
   BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA,
+  BOARD_USAGE_HISTORY_SNAPSHOT_V3_SCHEMA,
   BOARD_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA,
   DEFAULT_READ_ONLY_BOARD_USAGE_PROVIDERS,
   UNMEASURED_REQUEST_FAMILY_CONTRACT_VERSION,
@@ -27,11 +28,67 @@ import {
   antigravityQuotaFamilyForModel as uiAntigravityQuotaFamilyForModel,
 } from "../../ui-workspace/apps/team-ops-board/src/core/ai-usage-history-snapshot.mjs";
 import { runCli } from "./cli.mjs";
+import { persistCodexActivityProjection } from "./codex_usage_activity.mjs";
 import { loadPersistedUsageEvents, persistUsageEvents } from "./usage_meter.mjs";
+
+function activityFromEvents(events) {
+  const codexEvents = events.filter((e) => e.source?.kind === "codex_session_jsonl");
+  const threads = codexEvents.map((e) => {
+    const tokens = Number(e.usage?.total_tokens ?? 0);
+    return {
+      thread_id: e.thread_id,
+      turn_id: e.turn_id,
+      observations: [
+        {
+          observed_at: e.time.started_at,
+          delta_tokens: tokens,
+        },
+      ],
+      total_tokens: tokens,
+    };
+  });
+  const totalTokens = threads.reduce((sum, t) => sum + t.total_tokens, 0);
+  const uniqueThreadCount = new Set(threads.map((t) => t.thread_id)).size;
+  return {
+    schema_version: "soulforge.ai_usage_codex_activity_projection.v1",
+    generated_at: new Date().toISOString(),
+    coverage: {
+      scope: "full_sessions_root",
+      session_file_count: threads.length,
+      parsed_session_count: threads.length,
+      issue_count: 0,
+      thread_count: uniqueThreadCount,
+      turn_count: threads.length,
+    },
+    privacy: {
+      metadata_only: true,
+      prompt_captured: false,
+      reasoning_captured: false,
+      tool_payload_captured: false,
+    },
+    issues: [],
+    totals: {
+      total_tokens: totalTokens,
+    },
+    threads,
+    reconciliation: {
+      total_tokens: totalTokens,
+      thread_count: uniqueThreadCount,
+      turn_count: threads.length,
+      observation_count: threads.length,
+    },
+  };
+}
+
+async function persistTestTokenActivity(stateRoot, events) {
+  const proj = activityFromEvents(events);
+  await persistCodexActivityProjection(stateRoot, proj);
+}
 
 function event({
   id,
   thread,
+  turn = id,
   startedAt,
   project = "project-a",
   work = "work-a",
@@ -46,6 +103,7 @@ function event({
   return {
     event_id: id,
     thread_id: thread,
+    turn_id: turn,
     project_id: project,
     work_id: work,
     team_id: "team-a",
@@ -55,7 +113,7 @@ function event({
     usage: { total_tokens: tokens },
     credits: { total: credit },
     time: { started_at: startedAt },
-    source: { source_ref: "raw-session-must-not-appear" },
+    source: { kind: "codex_session_jsonl", source_ref: "raw-session-must-not-appear" },
     rate_limit_snapshot: rateLimit,
   };
 }
@@ -149,7 +207,7 @@ test("Board usage history snapshots use Asia/Seoul calendar and rolling half-ope
     toolEvents: [{ attempt: 2, retry_reason_code: "retry", timeout: true }],
   });
 
-  assert.equal(snapshot.schema_version, BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA);
+  assert.equal(snapshot.schema_version, BOARD_USAGE_HISTORY_SNAPSHOT_V3_SCHEMA);
   assert.equal(snapshot.timezone, "Asia/Seoul");
   assert.equal(snapshot.current.coverage.status, "partial");
   assert.equal(snapshot.current.activity.retry_count, 1);
@@ -157,7 +215,7 @@ test("Board usage history snapshots use Asia/Seoul calendar and rolling half-ope
   assert.equal(snapshot.current.totals.turns, 6);
   assert.equal(snapshot.model_daily.length, 30);
   assert.deepEqual(snapshot.model_daily.at(-1).models, [{
-    model_id: "gpt-5.6-terra", turns: 2, total_tokens: 70, token_unknown_turns: 2,
+    model_id: "gpt-5.6-terra", turns: 2, total_tokens: 70, token_unknown_turns: 0,
   }]);
   assert.equal(snapshot.windows.calendar_day.start_at, "2026-08-02T15:00:00.000Z");
   assert.equal(snapshot.windows.calendar_day.end_at, "2026-08-03T15:00:00.000Z");
@@ -327,7 +385,7 @@ test("Board usage history writer is atomic and only writes the validated sidecar
     const written = await writeBoardUsageHistorySnapshot(output, snapshot);
     assert.deepEqual(written, snapshot);
     const persisted = await readFile(output, "utf8");
-    assert.equal(JSON.parse(persisted).schema_version, BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA);
+    assert.equal(JSON.parse(persisted).schema_version, BOARD_USAGE_HISTORY_SNAPSHOT_V3_SCHEMA);
     assert.doesNotMatch(persisted, /raw-session|"(?:source_ref|thread_id|prompt|message)"\s*:/u);
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -347,10 +405,12 @@ test("Board usage history static schema rejects extra fields while the runtime v
 test("Board usage history loader and CLI require exact accepted thread IDs and exclude unrelated persisted events", async () => {
   const state = await mkdtemp(path.join(os.tmpdir(), "sf-board-usage-history-scope-"));
   try {
-    await persistUsageEvents(state, [
+    const events = [
       persistedUsageEvent({ eventId: "aue-history-scope", threadId: "task-scope", turnId: "turn-scope", startedAt: "2026-08-03T00:00:00.000Z" }),
       persistedUsageEvent({ eventId: "aue-history-unrelated", threadId: "task-unrelated", turnId: "turn-unrelated", startedAt: "2026-08-03T00:01:00.000Z" }),
-    ]);
+    ];
+    await persistUsageEvents(state, events);
+    await persistTestTokenActivity(state, events);
     await mkdir(path.join(state, "coverage"), { recursive: true });
     await writeFile(path.join(state, "coverage", "latest.json"), JSON.stringify({
       scope: "full_sessions_root", issue_count: 0, unique_event_count: 2,
@@ -398,7 +458,7 @@ test("Board usage history loader and CLI require exact accepted thread IDs and e
 test("Board usage history include-provider unions provider events while default scope stays codex-only", async () => {
   const state = await mkdtemp(path.join(os.tmpdir(), "sf-board-usage-history-providers-"));
   try {
-    await persistUsageEvents(state, [
+    const events = [
       persistedUsageEvent({ eventId: "aue-history-codex", threadId: "task-scope", turnId: "turn-codex", startedAt: "2026-08-03T00:00:00.000Z" }),
       persistedUsageEvent({
         eventId: "aue-history-claude",
@@ -414,7 +474,9 @@ test("Board usage history include-provider unions provider events while default 
         startedAt: "2026-08-03T00:02:00.000Z",
         sourceKind: "antigravity_conversation_db",
       }),
-    ]);
+    ];
+    await persistUsageEvents(state, events);
+    await persistTestTokenActivity(state, events);
 
     const codexOnly = await loadBoardUsageHistorySnapshot(state, {
       threadIds: ["task-scope"],
@@ -808,7 +870,7 @@ test("Board history snapshot creation fails closed on unknown Antigravity model 
 test("read-only Board usage projection only validates existing ledger data", async () => {
   const state = await mkdtemp(path.join(os.tmpdir(), "sf-board-usage-read-only-"));
   try {
-    await persistUsageEvents(state, [
+    const events = [
       persistedUsageEvent({
         eventId: "read-only-codex", threadId: "task-read-only", turnId: "turn-read-only",
         startedAt: "2026-08-03T00:00:00.000Z",
@@ -817,7 +879,9 @@ test("read-only Board usage projection only validates existing ledger data", asy
         eventId: "read-only-claude", threadId: "claude-read-only", turnId: "claude-read-only-turn",
         startedAt: "2026-08-03T00:01:00.000Z", sourceKind: "claude_session_jsonl",
       }),
-    ]);
+    ];
+    await persistUsageEvents(state, events);
+    await persistTestTokenActivity(state, events);
     const persistedBefore = JSON.stringify(await loadPersistedUsageEvents(state));
     const direct = await loadReadOnlyBoardUsageProjection(state, {
       threadIds: ["task-read-only"],
@@ -866,7 +930,7 @@ test("read-only Board usage projection includes all provider events including un
 
   const state = await mkdtemp(path.join(os.tmpdir(), "sf-board-usage-global-codex-"));
   try {
-    await persistUsageEvents(state, [
+    const events = [
       persistedUsageEvent({
         eventId: "aue-enrolled-codex",
         threadId: "task-enrolled",
@@ -899,7 +963,9 @@ test("read-only Board usage projection includes all provider events including un
         sourceKind: "antigravity_conversation_db",
         model: "gemini-2.5-pro",
       }),
-    ]);
+    ];
+    await persistUsageEvents(state, events);
+    await persistTestTokenActivity(state, events);
 
     const projection = await loadReadOnlyBoardUsageProjection(state, {
       threadIds: ["task-enrolled"],
@@ -950,4 +1016,261 @@ test("read-only Board usage projection includes all provider events including un
   } finally {
     await rm(state, { recursive: true, force: true });
   }
+});
+
+test("Temporal attribution: multi-day Codex turn tokens redistribute to observation dates while turn count stays on start date", async () => {
+  const referenceAt = "2026-08-24T12:00:00.000Z";
+  const canonicalEvents = [
+    event({
+      id: "multi-day-event",
+      thread: "task-multi-day",
+      startedAt: "2026-08-21T08:00:00.000Z",
+      project: "soulforge",
+      work: "work-1",
+      tokens: 300,
+      credit: 0.30,
+      model: "gpt-5.6-sol",
+    }),
+  ];
+
+  const activityProjection = {
+    schema_version: "soulforge.ai_usage_codex_activity_projection.v1",
+    generated_at: referenceAt,
+    coverage: {
+      scope: "full_sessions_root",
+      session_file_count: 1,
+      parsed_session_count: 1,
+      issue_count: 0,
+      thread_count: 1,
+      turn_count: 1,
+    },
+    privacy: {
+      metadata_only: true,
+      prompt_captured: false,
+      reasoning_captured: false,
+      tool_payload_captured: false,
+    },
+    issues: [],
+    totals: {
+      total_tokens: 300,
+    },
+    threads: [
+      {
+        thread_id: "task-multi-day",
+        turn_id: "multi-day-event",
+        observations: [
+          {
+            observed_at: "2026-08-21T09:00:00.000Z",
+            delta_tokens: 100,
+          },
+          {
+            observed_at: "2026-08-22T09:00:00.000Z",
+            delta_tokens: 150,
+          },
+          {
+            observed_at: "2026-08-23T09:00:00.000Z",
+            delta_tokens: 50,
+          },
+        ],
+        total_tokens: 300,
+      },
+    ],
+    reconciliation: {
+      total_tokens: 300,
+      thread_count: 1,
+      turn_count: 1,
+      observation_count: 3,
+    },
+  };
+
+  const snapshot = createBoardUsageHistorySnapshot(canonicalEvents, {
+    referenceAt,
+    activityProjection,
+  });
+
+  // All-time total tokens == 300, turns == 1, credits == 0.30
+  assert.equal(snapshot.windows.all_time.totals.total_tokens, 300);
+  assert.equal(snapshot.windows.all_time.totals.turns, 1);
+  assert.equal(snapshot.windows.all_time.totals.credits, 0.30);
+
+  // Daily activity: tokens are on 8/21 (100), 8/22 (150), 8/23 (50); turns are on 8/21 (1)
+  const d21 = snapshot.activity.daily.find((d) => d.date === "2026-08-21");
+  const d22 = snapshot.activity.daily.find((d) => d.date === "2026-08-22");
+  const d23 = snapshot.activity.daily.find((d) => d.date === "2026-08-23");
+  assert.ok(d21);
+  assert.ok(d22);
+  assert.ok(d23);
+
+  assert.equal(d21.total_tokens, 100);
+  assert.equal(d21.turns, 1);
+  assert.equal(d21.credits, 0.30);
+
+  assert.equal(d22.total_tokens, 150);
+  assert.equal(d22.turns, 0);
+  assert.equal(d22.credits, 0);
+
+  assert.equal(d23.total_tokens, 50);
+  assert.equal(d23.turns, 0);
+  assert.equal(d23.credits, 0);
+
+  // Provider daily matches
+  const pd21 = snapshot.provider_daily.find((d) => d.date === "2026-08-21");
+  const pd22 = snapshot.provider_daily.find((d) => d.date === "2026-08-22");
+  const pd23 = snapshot.provider_daily.find((d) => d.date === "2026-08-23");
+  assert.equal(pd21.providers.find((p) => p.provider === "codex").total_tokens, 100);
+  assert.equal(pd22.providers.find((p) => p.provider === "codex").total_tokens, 150);
+  assert.equal(pd23.providers.find((p) => p.provider === "codex").total_tokens, 50);
+});
+
+test("Exact partial reconciliation: raw subset activity redistributes covered events and retains uncovered legacy events on started_at", async () => {
+  const referenceAt = "2026-08-24T12:00:00.000Z";
+  const canonicalEvents = [
+    event({
+      id: "covered-turn-1",
+      thread: "task-covered",
+      startedAt: "2026-08-21T08:00:00.000Z",
+      tokens: 300,
+      credit: 0.30,
+    }),
+    event({
+      id: "legacy-uncovered-turn-2",
+      thread: "task-legacy",
+      startedAt: "2026-08-01T08:00:00.000Z",
+      tokens: 1000,
+      credit: 1.00,
+    }),
+  ];
+
+  // Activity sidecar covers ONLY covered-turn-1
+  const partialActivity = {
+    schema_version: "soulforge.ai_usage_codex_activity_projection.v1",
+    generated_at: referenceAt,
+    coverage: { scope: "full_sessions_root", session_file_count: 1, parsed_session_count: 1, issue_count: 0, thread_count: 1, turn_count: 1 },
+    privacy: { metadata_only: true, prompt_captured: false, reasoning_captured: false, tool_payload_captured: false },
+    issues: [],
+    totals: { total_tokens: 300 },
+    threads: [{
+      thread_id: "task-covered",
+      turn_id: "covered-turn-1",
+      observations: [
+        { observed_at: "2026-08-21T09:00:00.000Z", delta_tokens: 100 },
+        { observed_at: "2026-08-22T09:00:00.000Z", delta_tokens: 200 },
+      ],
+      total_tokens: 300,
+    }],
+    reconciliation: { total_tokens: 300, thread_count: 1, turn_count: 1, observation_count: 2 },
+  };
+
+  const snapshot = createBoardUsageHistorySnapshot(canonicalEvents, {
+    referenceAt,
+    activityProjection: partialActivity,
+  });
+
+  // All-time totals: covered (300) + legacy (1000) = 1300 tokens, 2 turns, 1.30 credits
+  assert.equal(snapshot.windows.all_time.totals.total_tokens, 1300);
+  assert.equal(snapshot.windows.all_time.totals.turns, 2);
+  assert.equal(snapshot.windows.all_time.totals.credits, 1.30);
+
+  // Covered event tokens are split across 8/21 (100) and 8/22 (200)
+  const d21 = snapshot.activity.daily.find((d) => d.date === "2026-08-21");
+  const d22 = snapshot.activity.daily.find((d) => d.date === "2026-08-22");
+  assert.equal(d21.total_tokens, 100);
+  assert.equal(d21.turns, 1);
+  assert.equal(d22.total_tokens, 200);
+  assert.equal(d22.turns, 0);
+
+  // Legacy event tokens remain on 8/01 (1000 tokens, 1 turn)
+  const d01 = snapshot.activity.daily.find((d) => d.date === "2026-08-01");
+  assert.equal(d01.total_tokens, 1000);
+  assert.equal(d01.turns, 1);
+});
+
+test("Backward compatibility: loadBoardUsageHistorySnapshot falls back to legacy started_at when activity sidecar is absent", async () => {
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-board-usage-no-act-"));
+  try {
+    await persistUsageEvents(state, [
+      persistedUsageEvent({ eventId: "aue-no-act", threadId: "task-no-act", turnId: "turn-1", startedAt: "2026-08-03T00:00:00.000Z" }),
+    ]);
+    const snapshot = await loadBoardUsageHistorySnapshot(state, { threadIds: ["task-no-act"] });
+    assert.equal(snapshot.windows.all_time.totals.turns, 1);
+  } finally {
+    await rm(state, { recursive: true, force: true });
+  }
+});
+
+test("Graceful partial reconciliation: mismatched activity tokens fall back to started_at observation without failing board", async () => {
+  const canonicalEvents = [
+    event({
+      id: "unreconciled-event",
+      thread: "task-unreconciled",
+      startedAt: "2026-08-21T08:00:00.000Z",
+      tokens: 300,
+    }),
+  ];
+  const conflictingActivity = {
+    schema_version: "soulforge.ai_usage_codex_activity_projection.v1",
+    generated_at: "2026-08-24T12:00:00.000Z",
+    coverage: { scope: "full_sessions_root", session_file_count: 1, parsed_session_count: 1, issue_count: 0, thread_count: 1, turn_count: 1 },
+    privacy: { metadata_only: true, prompt_captured: false, reasoning_captured: false, tool_payload_captured: false },
+    issues: [],
+    totals: { total_tokens: 200 },
+    threads: [{
+      thread_id: "task-unreconciled",
+      turn_id: "unreconciled-event",
+      observations: [{ observed_at: "2026-08-21T09:00:00.000Z", delta_tokens: 200 }],
+      total_tokens: 200,
+    }],
+    reconciliation: { total_tokens: 200, thread_count: 1, turn_count: 1, observation_count: 1 },
+  };
+
+  // Does NOT throw; falls back to legacy v3 observation because matched_turns === 0
+  const snapshot = createBoardUsageHistorySnapshot(canonicalEvents, { activityProjection: conflictingActivity });
+  assert.equal(snapshot.schema_version, BOARD_USAGE_HISTORY_SNAPSHOT_V3_SCHEMA);
+  assert.equal(snapshot.windows.all_time.totals.total_tokens, 300);
+});
+
+test("v4 snapshot static schema validation with codex_activity_coverage", async () => {
+  const schemaPath = path.resolve("guild_hall/ai_usage_meter/ai_usage_board_history_snapshot.v4.schema.json");
+  const schema = JSON.parse(await readFile(schemaPath, "utf8"));
+  const ajv = new Ajv2020({ allErrors: true, strict: false });
+  const validateSchema = ajv.compile(schema);
+
+  const canonicalEvents = [
+    event({
+      id: "covered-turn-1",
+      thread: "task-covered",
+      startedAt: "2026-08-21T08:00:00.000Z",
+      tokens: 300,
+      credit: 0.30,
+    }),
+  ];
+  const activity = {
+    schema_version: "soulforge.ai_usage_codex_activity_projection.v1",
+    generated_at: "2026-08-24T12:00:00.000Z",
+    coverage: { scope: "full_sessions_root", session_file_count: 1, parsed_session_count: 1, issue_count: 0, thread_count: 1, turn_count: 1 },
+    privacy: { metadata_only: true, prompt_captured: false, reasoning_captured: false, tool_payload_captured: false },
+    issues: [],
+    totals: { total_tokens: 300 },
+    threads: [{
+      thread_id: "task-covered",
+      turn_id: "covered-turn-1",
+      observations: [
+        { observed_at: "2026-08-21T09:00:00.000Z", delta_tokens: 300 },
+      ],
+      total_tokens: 300,
+    }],
+    reconciliation: { total_tokens: 300, thread_count: 1, turn_count: 1, observation_count: 1 },
+  };
+
+  const snapshot = createBoardUsageHistorySnapshot(canonicalEvents, { activityProjection: activity });
+  assert.equal(snapshot.schema_version, BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA);
+  assert.deepEqual(snapshot.codex_activity_coverage, {
+    state: "complete",
+    matched_turns: 1,
+    mismatched_turns: 0,
+    unmatched_turns: 0,
+    uncovered_turns: 0,
+  });
+  const valid = validateSchema(snapshot);
+  assert.equal(valid, true, JSON.stringify(validateSchema.errors));
 });

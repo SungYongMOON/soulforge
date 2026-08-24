@@ -171,7 +171,14 @@ function historyFixture() {
         },
       ],
     })),
-    claude_collection: claudeCollectionFixture()
+    claude_collection: claudeCollectionFixture(),
+    codex_activity_coverage: {
+      state: "complete",
+      matched_turns: 1,
+      mismatched_turns: 0,
+      unmatched_turns: 0,
+      uncovered_turns: 0,
+    }
   };
 }
 
@@ -290,6 +297,7 @@ test("v2 history accepts aggregate fields but normalizes Claude provider evidenc
   delete v2.model_daily;
   delete v2.unmeasured_request_daily;
   delete v2.claude_collection;
+  delete v2.codex_activity_coverage;
   const projection = normalizeAiUsageHistoryProjection(v2);
   assert.equal(projection.state, "ready");
   assert.equal(projection.provider_evidence?.claude.state, "UNKNOWN");

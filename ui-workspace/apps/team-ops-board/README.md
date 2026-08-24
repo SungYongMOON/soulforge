@@ -793,14 +793,13 @@ unmatched rows remain their exact ID or `unassigned`. The Board does not infer
 or display guessed attribution, raw session content, paths, titles, prompts,
 or tool data.
 
-The `UsageTrendChart` renders daily token trends across model and provider tabs
-with a compact range toggle (`최근 7일` default, `최근 30일` history). Defaulting to 7
-days makes current Codex/Claude usage visibly comparable despite older 30-day
-multi-billion-token spikes, while 30-day history remains available. Selecting a legend
-series dynamically rescales the chart's vertical axis to that series' individual maximum
-within the active range rather than retaining the global stacked aggregate maximum,
-preserving stable series colors, dynamic tick stride, tooltip hit-grid navigation,
-keyboard focus, and the secondary AG request overlay.
+The `UsageTrendChart` renders a clean 30-day daily token trend across model and provider tabs
+with a truthful textual basis label (` · 토큰 관측일 기준` for complete coverage, ` · 토큰 관측일 우선 · 미근거 항목은 시작일 기준` for partial coverage, and omitted when fallback to v3 without matches). Because multi-day Codex turns derive exact monotonic
+observation deltas attributed to their actual observation dates, recent activity renders accurately without
+the former multi-billion-token historical spikes on start dates, eliminating the need for range toggle workarounds.
+Selecting a legend series dynamically rescales the chart's vertical axis to that series' individual maximum
+rather than retaining the global stacked aggregate maximum, preserving stable series colors, stride-5 tick distribution,
+tooltip hit-grid navigation, keyboard focus, and the secondary AG request overlay.
 
 This Board projection is validated-private local tooling. It is not an official
 provider billing/quota authority, route resolver, Codex runtime authority,
