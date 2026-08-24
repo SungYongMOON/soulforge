@@ -6421,62 +6421,12 @@ a:focus-visible {
 .usage-trend-header > div:first-child { display: grid; gap: 2px; }
 .usage-trend-header span, .usage-trend-header small { color: #8e9ba8; font-size: 11px; }
 .usage-trend-header strong { color: #f4f8fb; font: 500 28px/1.1 Consolas, ui-monospace, monospace; }
-.usage-trend-tabs { display: inline-flex; padding: 2px; border: 1px solid #3b4148; border-radius: 999px; background: #33373c; }
-.usage-trend-tabs button { min-height: 32px; padding: 0 14px; border: 0; border-radius: 999px; color: #cbd2dc; background: transparent; font: inherit; cursor: pointer; }
-.usage-trend-tabs button[aria-selected="true"] { color: #fff; background: #171b20; box-shadow: 0 0 0 1px #454b53 inset; }
-.usage-trend-tabs button:focus-visible, .usage-trend-legend button:focus-visible, .usage-trend-hit-grid button:focus-visible { outline: 2px solid #8dbffc; outline-offset: 2px; }
+.usage-trend-controls { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.usage-trend-tabs, .usage-trend-ranges { display: inline-flex; padding: 2px; border: 1px solid #3b4148; border-radius: 999px; background: #33373c; }
+.usage-trend-tabs button, .usage-trend-ranges button { min-height: 32px; padding: 0 14px; border: 0; border-radius: 999px; color: #cbd2dc; background: transparent; font: inherit; cursor: pointer; }
+.usage-trend-tabs button[aria-selected="true"], .usage-trend-ranges button[aria-selected="true"] { color: #fff; background: #171b20; box-shadow: 0 0 0 1px #454b53 inset; }
+.usage-trend-tabs button:focus-visible, .usage-trend-ranges button:focus-visible, .usage-trend-legend button:focus-visible, .usage-trend-hit-grid button:focus-visible { outline: 2px solid #8dbffc; outline-offset: 2px; }
 .usage-trend-note { margin: 0; color: #84909c; font-size: 10.5px; line-height: 1.5; }
-.usage-trend-latest {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 12px;
-  padding: 8px 12px;
-  border: 1px solid #283038;
-  border-radius: 6px;
-  background: #151a20;
-  font: 11px/1.4 Consolas, ui-monospace, monospace;
-  color: #94a3b3;
-}
-.usage-trend-latest-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: #cbd5e1;
-  font-weight: 500;
-}
-.usage-trend-latest-label strong {
-  color: #fff;
-  font-weight: 600;
-}
-.usage-trend-latest-items {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 14px;
-}
-.usage-trend-latest-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: #94a3b3;
-}
-.usage-trend-latest-item strong {
-  color: #f1f5f9;
-  font-weight: 600;
-}
-.usage-trend-latest-item.is-remainder {
-  color: #7b8b9b;
-}
-.usage-trend-latest-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.usage-trend-latest-empty {
-  color: #64748b;
-}
 .usage-trend-plot { position: relative; min-width: 0; }
 .ledger-activity-panel .usage-trend-plot svg { width: 100%; height: auto; min-height: 220px; overflow: visible; }
 .usage-trend-grid { stroke: #222a33; stroke-width: 1; stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
@@ -6514,10 +6464,9 @@ a:focus-visible {
 @media (max-width: 700px) {
   .usage-trend { padding: 14px 12px 12px; }
   .usage-trend-header { align-items: stretch; flex-direction: column; }
-  .usage-trend-tabs { align-self: flex-start; }
+  .usage-trend-controls { align-self: flex-start; }
+  .usage-trend-tabs, .usage-trend-ranges { align-self: flex-start; }
   .usage-trend-header strong { font-size: 23px; }
-  .usage-trend-latest { padding: 6px 10px; gap: 4px 8px; font-size: 10.5px; }
-  .usage-trend-latest-items { gap: 4px 8px; }
   .ledger-activity-panel .usage-trend-plot svg { min-height: 180px; }
   .usage-trend-legend { justify-content: flex-start; }
 }

@@ -7,79 +7,71 @@ import { fileURLToPath } from "node:url";
 const APP_PATH = join(dirname(dirname(fileURLToPath(import.meta.url))), "App.tsx");
 const CSS_PATH = join(dirname(dirname(fileURLToPath(import.meta.url))), "team-ops.css");
 
-test("UsageTrendChart source wires compact latest-day summary row with bounded top 3 and safe remainder", () => {
+test("UsageTrendChart source wires compact range toggle (최근 7일 default, 최근 30일 history) and excludes rejected summary markup", () => {
   const source = readFileSync(APP_PATH, "utf8");
   const css = readFileSync(CSS_PATH, "utf8");
 
-  // Summary row container and accessible labeling
-  assert.match(source, /data-testid="usage-trend-latest"/u);
-  assert.match(source, /aria-label=\{`최근일 \$\{latestDate\} 사용량 요약`\}/u);
-  assert.match(source, /className="usage-trend-latest"/u);
-  assert.match(source, /className="usage-trend-latest-label">최근일 <strong>\{latestDate\}<\/strong>/u);
+  // Summary row markup and CSS classes are completely removed
+  assert.doesNotMatch(source, /usage-trend-latest/u);
+  assert.doesNotMatch(source, /data-testid="usage-trend-latest"/u);
+  assert.doesNotMatch(css, /\.usage-trend-latest/u);
 
-  // Exact latest index and nonzero filter
-  assert.match(source, /const latestIndex = days\.length - 1;/u);
-  assert.match(source, /const latestDate = days\[latestIndex\]\?\.date \?\? "";/u);
-  assert.match(source, /filter\(\(entry: any\) => entry\.value > 0\)/u);
-  assert.match(source, /sort\(\(a: any, b: any\) => b\.value - a\.value \|\| a\.label\.localeCompare\(b\.label, "en"\)\)/u);
+  // Range state defaults to 7 days
+  assert.match(source, /const \[range, setRange\] = useState<7 \| 30>\(7\);/u);
 
-  // Bounded top 3 and remainder calculation
-  assert.match(source, /const boundedTop = nonzeroSeries\.slice\(0, 3\);/u);
-  assert.match(source, /const remainderSeries = nonzeroSeries\.slice\(3\);/u);
-  assert.match(source, /const remainderTokens = remainderSeries\.reduce\(\(sum: number, entry: any\) => sum \+ entry\.value, 0\);/u);
+  // Range toggle accessible controls and classes
+  assert.match(source, /className="usage-trend-ranges" role="tablist" aria-label="조회 기간"/u);
+  assert.match(source, /aria-selected=\{range === 7\} onClick=\{.*chooseRange\(7\)\}>최근 7일<\/button>/u);
+  assert.match(source, /aria-selected=\{range === 30\} onClick=\{.*chooseRange\(30\)\}>최근 30일<\/button>/u);
+  assert.match(source, /data-range=\{range\}/u);
 
-  // Truthful token rendering with existing formatUsageNumber
-  assert.match(source, /<span>\{entry\.label\} <strong>\{formatUsageNumber\(entry\.value\)\}<\/strong> tok<\/span>/u);
-  assert.match(source, /<span>기타\(\{remainderSeries\.length\}\) <strong>\{formatUsageNumber\(remainderTokens\)\}<\/strong> tok<\/span>/u);
-  assert.match(source, /<span className="usage-trend-latest-empty">기록 없음<\/span>/u);
-
-  // CSS definitions for latest-day summary and mobile responsiveness
-  assert.match(css, /\.usage-trend-latest\s*\{/u);
-  assert.match(css, /\.usage-trend-latest-label\s*\{/u);
-  assert.match(css, /\.usage-trend-latest-items\s*\{/u);
-  assert.match(css, /\.usage-trend-latest-item\s*\{/u);
-  assert.match(css, /\.usage-trend-latest-dot\s*\{/u);
-  assert.match(css, /@media \(max-width: 700px\)[\s\S]*\.usage-trend-latest\s*\{/u);
+  // CSS definitions for range controls and mobile responsiveness
+  assert.match(css, /\.usage-trend-controls\s*\{/u);
+  assert.match(css, /\.usage-trend-ranges\s*\{/u);
+  assert.match(css, /\.usage-trend-ranges button\s*\{/u);
+  assert.match(css, /@media \(max-width: 700px\)[\s\S]*\.usage-trend-ranges/u);
 });
 
-test("buildUsageTrendChart recomputes scale when selectedSeries is provided and retains stacked maximum when null", () => {
+test("buildUsageTrendChart supports exactly 7 and 30 days and computes dynamic x, ticks, hit-grid, and keyboard bounds", () => {
   const source = readFileSync(APP_PATH, "utf8");
 
-  // Function signature accepts selectedSeries with null fallback
-  assert.match(source, /function buildUsageTrendChart\(days: any\[\], series: any\[\], requestSeries: any\[\] = \[\], selectedSeries: string \| null = null\)/u);
+  // Strict support for exactly 7 or 30 days
+  assert.match(source, /if \(\(days\.length !== 7 && days\.length !== 30\) \|\| series\.length === 0\) return null;/u);
 
-  // Selected item extraction and dynamic rawMax computation
-  assert.match(source, /const selectedItem = selectedSeries !== null \? series\.find\(\(item: any\) => item\.id === selectedSeries\) : null;/u);
-  assert.match(source, /const rawMax = selectedItem\s*\?\s*Math\.max\(\.\.\.\(selectedItem\.values \?\? \[\]\), 1\)\s*:\s*Math\.max\(\.\.\.totals, 1\);/u);
+  // Dynamic x denominator using (days.length - 1)
+  assert.match(source, /const x = \(index: number\) => left \+ \(index \* plotWidth\) \/ \(days\.length - 1\);/u);
 
-  // UsageTrendChart passes selectedSeries to buildUsageTrendChart
-  assert.match(source, /const chart = buildUsageTrendChart\(days, series, showAgOverlay \? requestSeries : \[\], selectedSeries\);/u);
+  // Dynamic tick stride (stride 1 for <=7 days, stride 5 for >7 days)
+  assert.match(source, /index % \(days\.length <= 7 \? 1 : 5\) === 0 \|\| index === days\.length - 1/u);
 
-  // Chart renders isolated area when a series is selected and stacked area when unselected
-  assert.match(source, /d=\{selectedSeries === null \? area\.stacked : area\.isolated\}/u);
-  assert.match(source, /style=\{\{ color: USAGE_TREND_COLORS\[series\.findIndex\(\(item: any\) => item\.id === area\.id\) % USAGE_TREND_COLORS\.length\] \}\}/u);
+  // Dynamic hit-grid column count and keyboard bounds
+  assert.match(source, /gridTemplateColumns:\s*`repeat\(\$\{days\.length\},\s*minmax\(0,\s*1fr\)\)`/u);
+  assert.match(source, /Math\.min\(days\.length - 1,\s*Math\.max\(0,\s*index \+ offset\)\)/u);
+
+  // Active range sync across labels and ARIA
+  assert.match(source, /aria-label=\{`최근 \$\{range\}일 \$\{view === "model" \? "모델별" : "제공자별"\}/u);
+  assert.match(source, /· KST 최근 \{range\}일/u);
+
+  // State reset on range and view switches
+  assert.match(source, /const chooseRange = \(next: 7 \| 30\) => \{\s*setRange\(next\);\s*setSelectedSeries\(null\);\s*setSelectedReqFamily\(null\);\s*setActiveIndex\(null\);\s*\};/u);
+  assert.match(source, /const chooseView = \(next: "model" \| "provider"\) => \{\s*setView\(next\);\s*setSelectedSeries\(null\);\s*setSelectedReqFamily\(null\);\s*setActiveIndex\(null\);\s*\};/u);
 });
 
-test("synthetic 30-day scale decompression proves selected series is visibly inspectable despite older multi-billion spikes", () => {
-  // Simulate 30 days of data with an older 5B spike on day 5 and synthetic 90M / 70M use on day 30
-  const days = Array.from({ length: 30 }, (_, i) => ({ date: `2026-08-${String(i + 1).padStart(2, "0")}` }));
-  const gptValues = Array.from({ length: 30 }, () => 0);
-  const claudeValues = Array.from({ length: 30 }, () => 0);
-  const olderSpikeValues = Array.from({ length: 30 }, () => 0);
+test("synthetic 7-day slicing makes current day visible when an older 30-day spike exists, and 30-day mode retains the spike", () => {
+  // Simulate 30 days of data: older 9B spike on day 5 (index 4) and current day (day 30, index 29) with 90M / 70M
+  const days30 = Array.from({ length: 30 }, (_, i) => ({ date: `2026-08-${String(i + 1).padStart(2, "0")}` }));
+  const gptValues30 = Array.from({ length: 30 }, () => 0);
+  const claudeValues30 = Array.from({ length: 30 }, () => 0);
+  const olderSpikeValues30 = Array.from({ length: 30 }, () => 0);
 
-  olderSpikeValues[4] = 5_000_000_000; // 5B spike on day 5
-  gptValues[29] = 90_000_000; // 90M on day 30
-  claudeValues[29] = 70_000_000; // 70M on day 30
-
-  const series = [
-    { id: "gpt-5.6-sol", label: "gpt-5.6-sol", values: gptValues },
-    { id: "claude-opus-5", label: "claude-opus-5", values: claudeValues },
-    { id: "older-model", label: "older-model", values: olderSpikeValues },
-  ];
+  olderSpikeValues30[4] = 9_000_000_000; // 9B spike on day 5 (older model)
+  gptValues30[4] = 9_000_000_000; // gpt-5.6-sol also had a 9B spike on day 5
+  gptValues30[29] = 90_000_000; // 90M on day 30
+  claudeValues30[29] = 70_000_000; // 70M on day 30
 
   // Helper matching the algorithm in App.tsx
-  function computeChartScale(seriesList, selectedId = null) {
-    const totals = days.map((_, index) => seriesList.reduce((sum, item) => sum + (item.values[index] ?? 0), 0));
+  function computeChartScale(daysSlice, seriesList, selectedId = null) {
+    const totals = daysSlice.map((_, index) => seriesList.reduce((sum, item) => sum + (item.values[index] ?? 0), 0));
     const selectedItem = selectedId !== null ? seriesList.find((item) => item.id === selectedId) : null;
     const rawMax = selectedItem
       ? Math.max(...(selectedItem.values ?? []), 1)
@@ -88,82 +80,90 @@ test("synthetic 30-day scale decompression proves selected series is visibly ins
     const maxToken = Math.ceil(rawMax / magnitude) * magnitude;
     const plotHeight = 188; // 238 - 16 (top) - 34 (bottom)
     const y = (val) => 16 + plotHeight - (val / maxToken) * plotHeight;
-    return { maxToken, y, plotHeight };
+    return { maxToken, y, plotHeight, totals };
   }
 
-  // Unselected stacked view
-  const stacked = computeChartScale(series, null);
-  assert.equal(stacked.maxToken, 5_000_000_000);
-  const gptStackedHeight = (stacked.plotHeight - (stacked.y(90_000_000) - 16)) / stacked.plotHeight;
-  assert.ok(gptStackedHeight < 0.025, "Under 5B stacked scale, 90M is compressed to less than 2.5% height");
+  // --- 30-DAY MODE ---
+  const series30 = [
+    { id: "gpt-5.6-sol", label: "gpt-5.6-sol", values: gptValues30 },
+    { id: "claude-opus-5", label: "claude-opus-5", values: claudeValues30 },
+  ];
 
-  // Selected gpt-5.6-sol
-  const gptSelected = computeChartScale(series, "gpt-5.6-sol");
-  assert.equal(gptSelected.maxToken, 90_000_000); // 90M ceiling rounded up to 90M magnitude
-  const gptSelectedHeight = (gptSelected.plotHeight - (gptSelected.y(90_000_000) - 16)) / gptSelected.plotHeight;
-  assert.ok(gptSelectedHeight > 0.90, "Under rescaled 90M ceiling, 90M fills > 90% height and is clearly inspectable");
+  // In 30-day mode stacked view: 9B spike dominates
+  const stacked30 = computeChartScale(days30, series30, null);
+  assert.equal(stacked30.maxToken, 9_000_000_000);
+  const gptStackedHeight30 = (stacked30.plotHeight - (stacked30.y(90_000_000) - 16)) / stacked30.plotHeight;
+  assert.ok(gptStackedHeight30 <= 0.01, "Under 9B 30-day scale, 90M is compressed to <= 1% height");
 
-  // Selected claude-opus-5
-  const claudeSelected = computeChartScale(series, "claude-opus-5");
-  assert.equal(claudeSelected.maxToken, 70_000_000); // 70M ceiling rounded up to 70M magnitude
-  const claudeSelectedHeight = (claudeSelected.plotHeight - (claudeSelected.y(70_000_000) - 16)) / claudeSelected.plotHeight;
-  assert.ok(claudeSelectedHeight > 0.90, "Under rescaled 70M ceiling, 70M fills > 90% height and is clearly inspectable");
+  // In 30-day mode when selecting gpt-5.6-sol: because it has an older 9B spike on day 5, y-axis stays 9B
+  const gptSelected30 = computeChartScale(days30, series30, "gpt-5.6-sol");
+  assert.equal(gptSelected30.maxToken, 9_000_000_000, "30-day selection of gpt-5.6-sol retains 9B axis due to day 5 spike");
+
+  // --- DEFAULT 7-DAY MODE ---
+  const days7 = days30.slice(-7);
+  const series7 = [
+    { id: "gpt-5.6-sol", label: "gpt-5.6-sol", values: gptValues30.slice(-7) },
+    { id: "claude-opus-5", label: "claude-opus-5", values: claudeValues30.slice(-7) },
+  ];
+
+  // In 7-day mode: day 5 spike is excluded!
+  const stacked7 = computeChartScale(days7, series7, null);
+  // Total on day 30 is 90M + 70M = 160M -> maxToken = 200M
+  assert.equal(stacked7.maxToken, 200_000_000, "7-day stacked ceiling scales to recent usage (200M) without 9B spike");
+  const gptStackedHeight7 = (stacked7.plotHeight - (stacked7.y(90_000_000) - 16)) / stacked7.plotHeight;
+  assert.ok(Math.abs(gptStackedHeight7 - 0.45) < 1e-6, "90M is 45% of plot height in 7-day stacked view, visibly prominent and comparable");
+  const claudeStackedHeight7 = (stacked7.plotHeight - (stacked7.y(70_000_000) - 16)) / stacked7.plotHeight;
+  assert.ok(Math.abs(claudeStackedHeight7 - 0.35) < 1e-6, "70M is 35% of plot height in 7-day stacked view");
+
+  // In 7-day mode when selecting gpt-5.6-sol: 90M ceiling
+  const gptSelected7 = computeChartScale(days7, series7, "gpt-5.6-sol");
+  assert.equal(gptSelected7.maxToken, 90_000_000, "7-day selection of gpt-5.6-sol rescales to 90M ceiling");
+  const gptSelectedHeight7 = (gptSelected7.plotHeight - (gptSelected7.y(90_000_000) - 16)) / gptSelected7.plotHeight;
+  assert.ok(Math.abs(gptSelectedHeight7 - 1.0) < 1e-6, "90M fills 100% of plot height when selected in 7-day view");
+
+  // In 7-day mode when selecting claude-opus-5: 70M ceiling
+  const claudeSelected7 = computeChartScale(days7, series7, "claude-opus-5");
+  assert.equal(claudeSelected7.maxToken, 70_000_000, "7-day selection of claude-opus-5 rescales to 70M ceiling");
+  const claudeSelectedHeight7 = (claudeSelected7.plotHeight - (claudeSelected7.y(70_000_000) - 16)) / claudeSelected7.plotHeight;
+  assert.ok(Math.abs(claudeSelectedHeight7 - 1.0) < 1e-6, "70M fills 100% of plot height when selected in 7-day view");
 });
 
-test("synthetic latest-day summary extraction bounds top 3 nonzero items and computes safe remainder", () => {
-  const latestIndex = 29;
+test("variable x denominator, dynamic tick stride, hit-grid column count, and keyboard bounds evaluate accurately across 7 and 30 days", () => {
+  const left = 58;
+  const right = 12;
+  const width = 1000;
+  const plotWidth = width - left - right; // 930
 
-  // Case 1: Synthetic scenario with 2 nonzero series
-  const series2 = [
-    { id: "gpt-5.6-sol", label: "gpt-5.6-sol", values: Array.from({ length: 30 }, (_, i) => (i === 29 ? 90_000_000 : 0)) },
-    { id: "claude-opus-5", label: "claude-opus-5", values: Array.from({ length: 30 }, (_, i) => (i === 29 ? 70_000_000 : 0)) },
-    { id: "idle-model", label: "idle-model", values: Array.from({ length: 30 }, () => 0) },
-  ];
+  // 7-day evaluation
+  const days7 = Array.from({ length: 7 }, (_, i) => ({ date: `2026-08-${String(i + 18).padStart(2, "0")}` }));
+  const x7 = (index) => left + (index * plotWidth) / (days7.length - 1);
 
-  const nonzero2 = series2
-    .map((item) => ({ id: item.id, label: item.label, value: item.values[latestIndex] ?? 0 }))
-    .filter((entry) => entry.value > 0)
-    .sort((a, b) => b.value - a.value);
+  assert.equal(x7(0), left, "First x in 7-day view matches left edge");
+  assert.equal(x7(6), left + plotWidth, "Last x in 7-day view matches right edge");
+  assert.equal(x7(3), left + plotWidth / 2, "Middle x in 7-day view matches plot center");
 
-  assert.equal(nonzero2.length, 2);
-  assert.equal(nonzero2[0].label, "gpt-5.6-sol");
-  assert.equal(nonzero2[0].value, 90_000_000);
-  assert.equal(nonzero2[1].label, "claude-opus-5");
-  assert.equal(nonzero2[1].value, 70_000_000);
-  const remainder2 = nonzero2.slice(3);
-  assert.equal(remainder2.length, 0);
+  const ticks7 = days7
+    .map((_, index) => index)
+    .filter((index) => index % (days7.length <= 7 ? 1 : 5) === 0 || index === days7.length - 1);
+  assert.deepEqual(ticks7, [0, 1, 2, 3, 4, 5, 6], "7-day view renders all 7 date ticks");
 
-  // Case 2: 5 nonzero models (bounds to top 3 + remainder of 2)
-  const series5 = [
-    { id: "m1", label: "Model 1", values: Array.from({ length: 30 }, (_, i) => (i === 29 ? 50_000_000 : 0)) },
-    { id: "m2", label: "Model 2", values: Array.from({ length: 30 }, (_, i) => (i === 29 ? 40_000_000 : 0)) },
-    { id: "m3", label: "Model 3", values: Array.from({ length: 30 }, (_, i) => (i === 29 ? 30_000_000 : 0)) },
-    { id: "m4", label: "Model 4", values: Array.from({ length: 30 }, (_, i) => (i === 29 ? 20_000_000 : 0)) },
-    { id: "m5", label: "Model 5", values: Array.from({ length: 30 }, (_, i) => (i === 29 ? 10_000_000 : 0)) },
-  ];
+  const keyClamp7 = (index, offset) => Math.min(days7.length - 1, Math.max(0, index + offset));
+  assert.equal(keyClamp7(6, 1), 6, "Right arrow clamps at index 6 in 7-day view");
+  assert.equal(keyClamp7(0, -1), 0, "Left arrow clamps at index 0 in 7-day view");
 
-  const nonzero5 = series5
-    .map((item) => ({ id: item.id, label: item.label, value: item.values[latestIndex] ?? 0 }))
-    .filter((entry) => entry.value > 0)
-    .sort((a, b) => b.value - a.value);
+  // 30-day evaluation
+  const days30 = Array.from({ length: 30 }, (_, i) => ({ date: `2026-08-${String(i + 1).padStart(2, "0")}` }));
+  const x30 = (index) => left + (index * plotWidth) / (days30.length - 1);
 
-  const top3 = nonzero5.slice(0, 3);
-  const remainder5 = nonzero5.slice(3);
-  const remainderTokens5 = remainder5.reduce((sum, e) => sum + e.value, 0);
+  assert.equal(x30(0), left, "First x in 30-day view matches left edge");
+  assert.equal(x30(29), left + plotWidth, "Last x in 30-day view matches right edge");
 
-  assert.equal(top3.length, 3);
-  assert.equal(top3[0].label, "Model 1");
-  assert.equal(top3[1].label, "Model 2");
-  assert.equal(top3[2].label, "Model 3");
-  assert.equal(remainder5.length, 2);
-  assert.equal(remainderTokens5, 30_000_000);
+  const ticks30 = days30
+    .map((_, index) => index)
+    .filter((index) => index % (days30.length <= 7 ? 1 : 5) === 0 || index === days30.length - 1);
+  assert.deepEqual(ticks30, [0, 5, 10, 15, 20, 25, 29], "30-day view renders ticks every 5 days plus the last day");
 
-  // Case 3: Zero tokens on latest day
-  const seriesZero = [
-    { id: "m1", label: "Model 1", values: Array.from({ length: 30 }, () => 0) },
-  ];
-  const nonzeroZero = seriesZero
-    .map((item) => ({ id: item.id, label: item.label, value: item.values[latestIndex] ?? 0 }))
-    .filter((entry) => entry.value > 0);
-  assert.equal(nonzeroZero.length, 0);
+  const keyClamp30 = (index, offset) => Math.min(days30.length - 1, Math.max(0, index + offset));
+  assert.equal(keyClamp30(29, 1), 29, "Right arrow clamps at index 29 in 30-day view");
+  assert.equal(keyClamp30(0, -1), 0, "Left arrow clamps at index 0 in 30-day view");
 });
