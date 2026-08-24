@@ -758,13 +758,17 @@ surfaces, visible directed edges, controls, and accessibility boundaries.
 
 The Board exposes a credential-free same-origin loopback endpoint at
 `/ai-usage-meter.snapshot.json?read_only=1`. `read_only=1` is mandatory. A
-diagnostics refresh may add `refresh=1`, which only re-reads the local meter
-projection. The adapter resolves the current/accepted enrollment registry once,
-caps the exact safe IDs at 100, and validates only the existing bounded ledger
-projection. It does not spawn a CLI, invoke a collector, command, `--apply`,
-lifecycle reconciliation, writer, provider login, or network operation. It
-never scans raw session trees or derives an ID from a title, path, or
-transcript.
+diagnostics refresh may add `refresh=1`, which bypasses the validated in-memory
+cache to re-read the local meter projection while joining any existing in-flight
+computation without starting duplicates. Normal polling inside the 60-second TTL
+returns the validated cache. Exact enrollment and emergency-disable prerequisites
+are evaluated on every request before returning cache or joining in-flight work,
+with in-flight scope mismatches failing closed to `HOLD`. The adapter resolves the
+current/accepted enrollment registry once per request, caps the exact safe IDs at
+100, and validates only the existing bounded ledger projection. It does not spawn
+a CLI, invoke a collector, command, `--apply`, lifecycle reconciliation, writer,
+provider login, or network operation. It never scans raw session trees or derives
+an ID from a title, path, or transcript.
 
 The endpoint returns only a validated metadata-only aggregate envelope. The
 read-only usage projection aggregates all recorded local provider usage (Codex,
