@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.interface_consistency.assessment.v0",
+  "title": "Interface Consistency Assessment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "domain_engine_id", "ruleset_ref", "source_packet_ref", "register_id", "register_revision", "overall_state", "states_by_interface", "assessments", "findings", "counts", "execution_mode", "external_effects", "receipt"],
+  "properties": {
+    "schema_version": { "const": "soulforge.interface_consistency.assessment.v0" },
+    "domain_engine_id": { "const": "interface_consistency" },
+    "ruleset_ref": { "$ref": "#/$defs/content_ref" },
+    "source_packet_ref": { "$ref": "#/$defs/content_ref" },
+    "register_id": { "$ref": "#/$defs/token" },
+    "register_revision": { "$ref": "#/$defs/token" },
+    "overall_state": { "$ref": "#/$defs/state" },
+    "states_by_interface": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/state" }
+    },
+    "assessments": { "type": "array", "items": { "$ref": "#/$defs/assessment" } },
+    "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+    "counts": { "$ref": "#/$defs/counts" },
+    "execution_mode": { "const": "deterministic_only" },
+    "receipt": { "$ref": "#/$defs/receipt" },
+    "external_effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files_read", "files_written", "network_calls", "rag_queries"],
+      "properties": {
+        "files_read": { "const": 0 },
+        "files_written": { "const": 0 },
+        "network_calls": { "const": 0 },
+        "rag_queries": { "const": 0 }
+      }
+    }
+  },
+  "$defs": {
+    "token": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$" },
+    "state": { "enum": ["satisfied", "gap_missing", "gap_unknown", "gap_conflict", "not_applicable"] },
+    "content_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity_id", "revision_id", "content_id", "content_hash_alg"],
+      "properties": {
+        "entity_id": { "$ref": "#/$defs/token" },
+        "revision_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "content_id": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "content_hash_alg": { "const": "sha256" }
+      }
+    },
+    "pair_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pair_key", "state", "detail_code", "attribute_ids"],
+      "properties": {
+        "pair_key": { "type": "string", "minLength": 5, "maxLength": 259 },
+        "state": { "$ref": "#/$defs/state" },
+        "detail_code": { "$ref": "#/$defs/token" },
+        "attribute_ids": { "type": "array", "items": { "$ref": "#/$defs/token" } }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interface_id", "rule_id", "category", "state", "detail_code", "attribute_ids", "end_ids", "pair_results"],
+      "properties": {
+        "interface_id": { "$ref": "#/$defs/token" },
+        "rule_id": { "$ref": "#/$defs/token" },
+        "category": { "$ref": "#/$defs/token" },
+        "state": { "$ref": "#/$defs/state" },
+        "detail_code": { "$ref": "#/$defs/token" },
+        "attribute_ids": { "type": "array", "items": { "$ref": "#/$defs/token" } },
+        "end_ids": { "type": "array", "minItems": 2, "maxItems": 16, "items": { "$ref": "#/$defs/token" } },
+        "pair_results": { "type": "array", "minItems": 1, "maxItems": 120, "items": { "$ref": "#/$defs/pair_result" } }
+      }
+    },
+    "assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interface_id", "state", "findings"],
+      "properties": {
+        "interface_id": { "$ref": "#/$defs/token" },
+        "state": { "$ref": "#/$defs/state" },
+        "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["satisfied", "gap_missing", "gap_unknown", "gap_conflict", "not_applicable", "total"],
+      "properties": {
+        "satisfied": { "type": "integer", "minimum": 0 },
+        "gap_missing": { "type": "integer", "minimum": 0 },
+        "gap_unknown": { "type": "integer", "minimum": 0 },
+        "gap_conflict": { "type": "integer", "minimum": 0 },
+        "not_applicable": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "input_digest", "domain_ruleset_digest", "assessment_digest", "envelope_provenance", "provenance_digest"],
+      "properties": {
+        "schema_version": { "const": "soulforge.interface_consistency.receipt.v0" },
+        "input_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "domain_ruleset_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "assessment_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "provenance_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "envelope_provenance": { "$ref": "#/$defs/envelope_provenance" }
+      }
+    },
+    "envelope_provenance": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["envelope_kind"],
+          "properties": { "envelope_kind": { "const": "direct_domain_input" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["envelope_kind", "schema_version"],
+          "properties": {
+            "envelope_kind": { "const": "minimal_typed_project_facts" },
+            "schema_version": { "const": "soulforge.typed_project_facts.v0" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["envelope_kind", "schema_version", "asserted_facts_digest", "project_binding_ref_digest", "valid_at", "known_at"],
+          "properties": {
+            "envelope_kind": { "const": "core_typed_project_facts" },
+            "schema_version": { "const": "soulforge.typed_project_facts.v0" },
+            "asserted_facts_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "project_binding_ref_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "valid_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?Z$" },
+            "known_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?Z$" }
+          }
+        }
+      ]
+    }
+  }
+}
