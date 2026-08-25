@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.interface_consistency.domain_input.v0",
+  "title": "Interface Consistency Domain Input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "register_id", "register_revision", "interfaces"],
+  "properties": {
+    "schema_version": { "const": "soulforge.interface_consistency.domain_input.v0" },
+    "register_id": { "$ref": "#/$defs/token" },
+    "register_revision": { "$ref": "#/$defs/token" },
+    "interfaces": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/interface" }
+    }
+  },
+  "$defs": {
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "revision_fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state"],
+      "properties": {
+        "state": { "enum": ["present", "known_absent", "unknown"] },
+        "value": { "$ref": "#/$defs/token" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "state": { "const": "present" } } },
+          "then": { "required": ["value"] },
+          "else": { "not": { "required": ["value"] } }
+        }
+      ]
+    },
+    "bounded_value": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "allOf": [
+            { "not": { "pattern": "^[+-]?\\d+(?:\\.\\d+)?[eE][+-]?\\d+$" } },
+            {
+              "anyOf": [
+                { "not": { "pattern": "^\\d{4}-\\d{2}-\\d{2}T" } },
+                { "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$" }
+              ]
+            }
+          ]
+        },
+        { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+        { "type": "boolean" },
+        {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/bounded_value" }
+        },
+        {
+          "type": "object",
+          "maxProperties": 64,
+          "propertyNames": { "$ref": "#/$defs/token" },
+          "additionalProperties": { "$ref": "#/$defs/bounded_value" }
+        }
+      ]
+    },
+    "category_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["applicability", "required_attributes"],
+      "properties": {
+        "applicability": { "enum": ["applicable", "not_applicable", "unknown"] },
+        "required_attributes": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/token" }
+        }
+      }
+    },
+    "attribute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attribute_id", "state"],
+      "properties": {
+        "attribute_id": { "$ref": "#/$defs/token" },
+        "state": { "enum": ["present", "known_absent", "unknown"] },
+        "value": { "$ref": "#/$defs/bounded_value" },
+        "unit": { "$ref": "#/$defs/token" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "state": { "const": "present" } } },
+          "then": { "required": ["value"] },
+          "else": { "not": { "anyOf": [{ "required": ["value"] }, { "required": ["unit"] }] } }
+        }
+      ]
+    },
+    "category_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attributes"],
+      "properties": {
+        "attributes": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/attribute" }
+        }
+      }
+    },
+    "observations": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "electrical": { "$ref": "#/$defs/category_observation" },
+        "signal": { "$ref": "#/$defs/category_observation" },
+        "data_protocol": { "$ref": "#/$defs/category_observation" },
+        "mechanical": { "$ref": "#/$defs/category_observation" },
+        "timing": { "$ref": "#/$defs/category_observation" }
+      }
+    },
+    "agreement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "revision"],
+      "properties": {
+        "state": { "enum": ["agreed", "not_agreed", "unknown"] },
+        "revision": { "$ref": "#/$defs/revision_fact" }
+      }
+    },
+    "end": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["end_id", "role", "revision", "agreement", "observations"],
+      "properties": {
+        "end_id": { "$ref": "#/$defs/token" },
+        "role": { "enum": ["provider", "consumer", "bidirectional", "peer"] },
+        "revision": { "$ref": "#/$defs/revision_fact" },
+        "agreement": { "$ref": "#/$defs/agreement" },
+        "observations": { "$ref": "#/$defs/observations" }
+      }
+    },
+    "interface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interface_id", "applicability", "revision", "category_scope", "ends"],
+      "properties": {
+        "interface_id": { "$ref": "#/$defs/token" },
+        "applicability": { "enum": ["applicable", "not_applicable", "unknown"] },
+        "revision": { "$ref": "#/$defs/revision_fact" },
+        "category_scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "electrical": { "$ref": "#/$defs/category_scope" },
+            "signal": { "$ref": "#/$defs/category_scope" },
+            "data_protocol": { "$ref": "#/$defs/category_scope" },
+            "mechanical": { "$ref": "#/$defs/category_scope" },
+            "timing": { "$ref": "#/$defs/category_scope" }
+          }
+        },
+        "ends": { "type": "array", "minItems": 2, "maxItems": 16, "items": { "$ref": "#/$defs/end" } }
+      }
+    }
+  }
+}
