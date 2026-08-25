@@ -1575,6 +1575,7 @@ function RealtimeMeterHealth({ projection }: { projection: any }) {
 const HERMES_BOT_IDENTITY_ROSTER = Object.freeze({
   bots: [
     { botId: "bot-hermes-default", botName: "제품 총괄" },
+    { botId: "bot-hermes-msh-vds2093-core3-prestart-manager", botName: "MSH 음탐기 핵심부품 3종 착수준비 팀장" },
     { botId: null, botName: "Ox 제작자" },
     { botId: null, botName: "Ox 검토자" },
   ],

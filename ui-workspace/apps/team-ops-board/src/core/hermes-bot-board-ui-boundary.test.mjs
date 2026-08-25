@@ -21,16 +21,17 @@ test("Hermes Bot 패널은 Agent Runtime read projection을 owner 표면에 연�
   assert.match(source, /projectHermesBotsSnapshot\(hermesRuntimeSnapshot, HERMES_BOT_IDENTITY_ROSTER\)/u);
 });
 
-test("첫 화면 로스터는 제품 총괄의 public bot_id 하나만 활성화하고 다른 역할은 미바인딩으로 둔다", () => {
+test("첫 화면 로스터는 Owner 승인 public bot_id만 활성화하고 다른 역할은 미바인딩으로 둔다", () => {
   const source = readFileSync(APP_PATH, "utf8");
   const rosterMatch = source.match(/const HERMES_BOT_IDENTITY_ROSTER = Object\.freeze\(\{([\s\S]*?)\n\}\);/u);
   assert.ok(rosterMatch, "HERMES_BOT_IDENTITY_ROSTER 상수가 있어야 한다");
   const rosterBlock = rosterMatch[1];
   assert.match(rosterBlock, /\{ botId: "bot-hermes-default", botName: "제품 총괄" \}/u);
+  assert.match(rosterBlock, /\{ botId: "bot-hermes-msh-vds2093-core3-prestart-manager", botName: "MSH 음탐기 핵심부품 3종 착수준비 팀장" \}/u);
   for (const name of ["Ox 제작자", "Ox 검토자"]) {
     assert.match(rosterBlock, new RegExp(`\\{ botId: null, botName: "${name}" \\}`, "u"));
   }
-  assert.equal(rosterBlock.match(/botId: "[^"]+"/gu)?.length, 1);
+  assert.equal(rosterBlock.match(/botId: "[^"]+"/gu)?.length, 2);
   // Public bot_id는 UI/runtime identity일 뿐이며 local route/session/authority metadata를 싣지 않는다.
   for (const forbidden of ["agentId", "agent_id", "durable", "session", "title", "profile", "handle", "route", "project", "authority", "state:", "directUsage", "lastHeartbeatAtMs", "resultStatus", "openTargetSessionId", "promptText", "reasoning", "transcript", "system_prompt", "content"]) {
     assert.equal(rosterBlock.includes(forbidden), false, `roster must not carry ${forbidden}`);

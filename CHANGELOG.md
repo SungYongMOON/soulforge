@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-08-25 - MSH prestart Hermes Bot candidate card
+
+- Added the Owner-approved Korean card identity `MSH 음탐기 핵심부품 3종 착수준비 팀장`
+  to the existing 4192 Hermes Bot Viewer and bound it through the existing local
+  Agent Runtime binding surface with no durable session key.
+- The card is deliberately `UNKNOWN/HOLD` until an exact project-specific Hermes
+  manager session receipt is approved. This change creates no Hermes profile,
+  project, route, work binding, provider mutation, external transmission, or
+  project authority, and it leaves the default product-manager binding unchanged.
+
 ## 2026-08-25 - Candidate Execution Coordinator first bounded live canary
 
 - **What changed**: Created one Owner-approved team-only synthetic Linear Todo (`SON-59`) with the

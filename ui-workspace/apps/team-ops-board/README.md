@@ -119,11 +119,15 @@ An unconfigured manual 4192 or 4193 runtime deliberately supplies neither an
 authorized Hermes transport nor exact Bot-to-session bindings. With the optional
 environment values absent, the endpoint and UI return a fixed `HOLD`/`UNKNOWN`
 projection.
-The tracked roster assigns the Owner-approved public-safe `bot-hermes-default`
-identity only to `제품 총괄`; `Ox 제작자` and `Ox 검토자` remain explicitly
-unbound. This public `bot_id` is a UI/runtime identity only. It is not a route,
-project, authority grant, or long-term context handle. Display labels are never
-used to infer identity, and only the exact `bot_id` can match a live row.
+The tracked roster assigns Owner-approved public-safe identities to `제품 총괄`
+(`bot-hermes-default`) and the prestart candidate `MSH 음탐기 핵심부품 3종 착수준비 팀장`
+(`bot-hermes-msh-vds2093-core3-prestart-manager`). The MSH candidate keeps a null
+durable-session binding until an exact project-specific Hermes session receipt is
+approved, so it remains `UNKNOWN/HOLD` rather than implying readiness. `Ox 제작자`
+and `Ox 검토자` remain explicitly unbound. These public `bot_id` values are
+UI/runtime identities only. They are not routes, projects, authority grants, or
+long-term context handles. Display labels are never used to infer identity, and
+only the exact `bot_id` can match a live row.
 
 An optional local binding is enabled only when both
 `TEAM_OPS_HERMES_AGENT_RUNTIME_URL` and
@@ -136,7 +140,7 @@ file. That file must be a stable, bounded, metadata-only
 `bot_id`, `agent_id`, `display_label`, and nullable `hermes_session_key` rows;
 all non-null identities must be unique. No local URL, path, session key, or
 credential value belongs in this repository. The `agent_id` and durable Hermes
-session binding for `bot-hermes-default` therefore remain local ignored runtime
+session bindings for both tracked cards therefore remain local ignored runtime
 data rather than tracked identity metadata.
 
 The upstream read succeeds only for HTTP 200 JSON with `no-store`, `nosniff`,
