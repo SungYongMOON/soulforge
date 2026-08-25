@@ -1,0 +1,20 @@
+schema_version: soulforge.domain_engine_descriptor.v0
+domain_engine_id: interface_consistency
+display_name: Interface Consistency Domain Engine
+version: 0.1.0
+status: candidate
+claim_ceiling: source_supported
+execution_mode: deterministic_only
+contracts:
+  source_packet: engines/interface_consistency/contracts/interface_consistency_source_packet_v0.md
+  integration_request: engines/interface_consistency/contracts/interface_consistency_integration_request_v0.md
+schemas:
+  ruleset: soulforge.interface_consistency.ruleset.v0
+  domain_input: soulforge.interface_consistency.domain_input.v0
+  assessment: soulforge.interface_consistency.assessment.v0
+compiler_adapter: engines/interface_consistency/compiler/interface_consistency_compiler_adapter.mjs
+evaluator_adapter: engines/interface_consistency/evaluator/interface_consistency_evaluator_adapter.mjs
+fixtures:
+  public_synthetic: engines/interface_consistency/fixtures/interface_consistency_public_synthetic.mjs
+manual:
+  root: engines/interface_consistency/manual/README.md
