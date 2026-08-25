@@ -18,6 +18,7 @@ const ZERO_EFFECTS = Object.freeze({
   file_writes: 0,
   external_mutations: 0,
 });
+const PUBLIC_SYNTHETIC_CASE_IDS = new Set(['VALID', 'EXPIRED', 'OUT_OF_RANGE', 'EXCEPTION_HELD', 'UNKNOWN']);
 
 export const CALIBRATION_MEASUREMENT_VALIDITY_READ_ONLY_MCP_TOOLS = Object.freeze([
   Object.freeze({ name: 'cmv.classify_source', title: 'Classify public source evidence', write: false }),
@@ -58,6 +59,14 @@ function publicSyntheticTypedFacts(caseId) {
   });
 }
 
+function publicSyntheticCaseId(args) {
+  const caseId = args?.case_id ?? 'VALID';
+  if (typeof caseId !== 'string' || !PUBLIC_SYNTHETIC_CASE_IDS.has(caseId)) {
+    throw new ContractError(CMV_READ_ONLY_MCP_CODES.INPUT_INVALID, 'MCP public-synthetic case_id must be one declared CMV fixture case');
+  }
+  return caseId;
+}
+
 export function invokeCalibrationMeasurementValidityReadOnlyMcp(name, args = {}) {
   if (name === 'cmv.classify_source') {
     if (!args || typeof args !== 'object' || !args.source) {
@@ -66,7 +75,7 @@ export function invokeCalibrationMeasurementValidityReadOnlyMcp(name, args = {})
     return response(classifyCmvSourceEvidence(args.source));
   }
   if (name === 'cmv.evaluate_public_synthetic') {
-    const caseId = args?.case_id ?? 'VALID';
+    const caseId = publicSyntheticCaseId(args);
     const typed = publicSyntheticTypedFacts(caseId);
     const evaluation = assessCalibrationMeasurementValidity(typed.request);
     return response({
@@ -76,7 +85,7 @@ export function invokeCalibrationMeasurementValidityReadOnlyMcp(name, args = {})
     });
   }
   if (name === 'cmv.guidance_public_synthetic') {
-    const caseId = args?.case_id ?? 'VALID';
+    const caseId = publicSyntheticCaseId(args);
     const typed = publicSyntheticTypedFacts(caseId);
     const assessment = assessCalibrationMeasurementValidity(typed.request).assessment;
     const observation = deriveCalibrationMeasurementValidityObservationCandidates(typed);

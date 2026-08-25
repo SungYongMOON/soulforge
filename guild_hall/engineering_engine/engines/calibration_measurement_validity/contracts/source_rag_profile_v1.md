@@ -15,6 +15,8 @@ The package recognizes only the public authority rows already named in the E11 s
 
 An evaluator-eligible source classification requires an exact non-floating revision, the known authority, an official-public access class, a direct-access verification fact, `retrieval_path: direct`, `applicability_state: in_scope`, and an immutable source reference. Unknown authority, mismatched authority, unverified access, RAG retrieval, and controlled citation-only material remain hold states.
 
+Every consumer reruns the package-local canonical consumed-envelope validator. A caller cannot make a RAG, controlled, unknown, mismatched, extra-field, malformed, or contradictory envelope appear direct by editing its output fields. Typed Facts reject it, Profile evaluation holds, and observation/guidance refuse it.
+
 ## RAG boundary
 
 `rag_retrieval_only` is a locator/navigation class. It may identify a candidate source for a later direct verification, but it cannot produce a typed fact, satisfy a source-bound Profile requirement, raise a derivation claim ceiling, or change the E11 assessment.

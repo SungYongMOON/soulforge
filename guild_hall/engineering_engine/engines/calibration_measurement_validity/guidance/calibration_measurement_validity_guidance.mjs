@@ -1,5 +1,7 @@
 import { ContractError } from '../../../core/validators/errors.mjs';
 import { calibrationMeasurementValiditySha256 } from '../shared/calibration_measurement_validity_canonical_digest.mjs';
+import { CMV_OBSERVATION_SCHEMA_VERSION } from '../observation/calibration_measurement_validity_observation.mjs';
+import { validateConsumedCmvSourceClassification } from '../source/calibration_measurement_validity_source_classification.mjs';
 
 export const CMV_GUIDANCE_SCHEMA_VERSION = 'soulforge.calibration_measurement_validity.guidance.v1';
 export const CMV_GUIDANCE_CODES = Object.freeze({ INVALID_INPUT: 'CMV_GUIDANCE_INVALID_INPUT' });
@@ -32,6 +34,19 @@ export function buildCalibrationMeasurementValidityGuidance(input) {
   if (!input || typeof input !== 'object' || !input.assessment || !input.observation
       || !Array.isArray(input.assessment.determinations) || !Array.isArray(input.observation.candidates)) {
     throw new ContractError(CMV_GUIDANCE_CODES.INVALID_INPUT, 'guidance requires an assessment and source-bound observation candidates');
+  }
+  if (input.observation.schema_version !== CMV_OBSERVATION_SCHEMA_VERSION) {
+    throw new ContractError(CMV_GUIDANCE_CODES.INVALID_INPUT, 'guidance requires the canonical CMV observation envelope');
+  }
+  for (const candidate of input.observation.candidates) {
+    try {
+      const source = validateConsumedCmvSourceClassification(candidate?.source_envelope, { requireDirect: true });
+      if (candidate.source_id !== source.source_id || candidate.source_classification !== source.classification) {
+        throw new Error('candidate source binding mismatch');
+      }
+    } catch {
+      throw new ContractError(CMV_GUIDANCE_CODES.INVALID_INPUT, 'guidance refuses unbound or forged observation candidates');
+    }
   }
   const cards = input.assessment.determinations
     .map(cardFor)

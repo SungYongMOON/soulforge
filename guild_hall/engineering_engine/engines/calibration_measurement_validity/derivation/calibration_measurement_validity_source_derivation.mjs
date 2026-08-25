@@ -1,5 +1,6 @@
 import { CALIBRATION_MEASUREMENT_VALIDITY_RULES } from '../rules/calibration_measurement_validity_rules.mjs';
 import { calibrationMeasurementValiditySha256 } from '../shared/calibration_measurement_validity_canonical_digest.mjs';
+import { validateConsumedCmvSourceClassification } from '../source/calibration_measurement_validity_source_classification.mjs';
 
 export const CMV_SOURCE_DERIVATION_SCHEMA_VERSION = 'soulforge.calibration_measurement_validity.source_derivation.v1';
 
@@ -19,7 +20,15 @@ function weakestCeiling(classifications) {
 }
 
 export function deriveCalibrationMeasurementValiditySourceRows(sourceClassifications = []) {
-  const bySourceId = new Map(sourceClassifications.map((classification) => [classification.source_id, classification]));
+  const bySourceId = new Map();
+  for (const classification of sourceClassifications) {
+    try {
+      const canonical = validateConsumedCmvSourceClassification(classification);
+      bySourceId.set(canonical.source_id, canonical);
+    } catch {
+      // Invalid envelopes are deliberately not eligible to support any derivation row.
+    }
+  }
   const rows = CALIBRATION_MEASUREMENT_VALIDITY_RULES.map((rule) => {
     const sourceIds = rule.source_refs.filter((sourceId) => sourceId !== 'ENGINE-SAFETY-BOUNDARY');
     const classifications = sourceIds.map((sourceId) => bySourceId.get(sourceId) ?? null);

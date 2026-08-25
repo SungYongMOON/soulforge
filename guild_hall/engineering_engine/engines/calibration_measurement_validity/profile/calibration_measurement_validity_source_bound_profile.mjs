@@ -2,7 +2,11 @@ import { createHash } from 'node:crypto';
 import types from 'node:util/types';
 
 import { ContractError } from '../../../core/validators/errors.mjs';
-import { CMV_SOURCE_CLASSIFICATION_SCHEMA_VERSION } from '../source/calibration_measurement_validity_source_classification.mjs';
+import { normalizeProfileOperations } from '../../../core/interfaces/profile_operation_canon.mjs';
+import {
+  CMV_SOURCE_CLASSIFICATION_SCHEMA_VERSION,
+  validateConsumedCmvSourceClassification,
+} from '../source/calibration_measurement_validity_source_classification.mjs';
 import { calibrationMeasurementValiditySha256 } from '../shared/calibration_measurement_validity_canonical_digest.mjs';
 
 export const CMV_SOURCE_BOUND_PROFILE_SCHEMA_VERSION = 'soulforge.calibration_measurement_validity.source_bound_profile.v1';
@@ -58,12 +62,17 @@ export function compileCmvSourceBoundProfileRequirements(profileBindings = []) {
         || typeof binding.revision_or_hash !== 'string'
         || typeof binding.extends_or_base_pin !== 'string'
         || typeof binding.operation_digest !== 'string'
+        || !/^[a-f0-9]{64}$/u.test(binding.operation_digest)
         || !Number.isInteger(binding.order) || binding.order < 0
         || !Array.isArray(binding.source_refs)
         || !Array.isArray(binding.operations)) {
       refuse(CMV_SOURCE_BOUND_PROFILE_CODES.PROFILE_BINDING_INVALID, 'profile binding does not preserve the Core provenance contract');
     }
-    for (const operation of binding.operations) {
+    const normalizedOperations = normalizeProfileOperations(binding.operations);
+    if (normalizedOperations.operation_digest !== binding.operation_digest) {
+      refuse(CMV_SOURCE_BOUND_PROFILE_CODES.PROFILE_BINDING_INVALID, 'profile operation_digest does not match the Core canonical operation material');
+    }
+    for (const operation of normalizedOperations.operations) {
       assertPlainObject(operation, 'profile operation');
       if (operation.op !== 'source_bound_requirements') {
         refuse(CMV_SOURCE_BOUND_PROFILE_CODES.OPERATION_UNSUPPORTED, 'CMV profiles support only source_bound_requirements operations');
@@ -134,11 +143,15 @@ export function evaluateCmvSourceBoundProfileRequirements(requirements = [], sou
   }
   const bySourceId = new Map();
   for (const source of sourceClassifications) {
-    assertPlainObject(source, 'source classification');
-    if (source.schema_version !== CMV_SOURCE_CLASSIFICATION_SCHEMA_VERSION || typeof source.source_id !== 'string') {
-      refuse(CMV_SOURCE_BOUND_PROFILE_CODES.PROFILE_BINDING_INVALID, 'source classification is not CMV source-bound evidence');
+    try {
+      const canonicalSource = validateConsumedCmvSourceClassification(source);
+      if (canonicalSource.schema_version === CMV_SOURCE_CLASSIFICATION_SCHEMA_VERSION) {
+        bySourceId.set(canonicalSource.source_id, canonicalSource);
+      }
+    } catch {
+      // A forged or unknown envelope is intentionally absent from the source-bound lookup and
+      // therefore yields a deterministic Profile hold rather than a false source-supported pass.
     }
-    bySourceId.set(source.source_id, source);
   }
   const evaluated = [];
   const holdCodes = new Set();

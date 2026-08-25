@@ -1,5 +1,6 @@
 import { ContractError } from '../../../core/validators/errors.mjs';
 import { calibrationMeasurementValiditySha256 } from '../shared/calibration_measurement_validity_canonical_digest.mjs';
+import { validateConsumedCmvSourceClassification } from '../source/calibration_measurement_validity_source_classification.mjs';
 
 export const CMV_OBSERVATION_SCHEMA_VERSION = 'soulforge.calibration_measurement_validity.observation_candidates.v1';
 export const CMV_OBSERVATION_CODES = Object.freeze({
@@ -46,15 +47,22 @@ export function deriveCalibrationMeasurementValidityObservationCandidates(typedF
   const candidates = FACT_ROWS.map(([factKey, candidateId]) => {
     const provenance = typedFacts.fact_provenance[factKey];
     const source = provenance ? sources.get(provenance.source_id) : null;
-    if (!source || source.classification !== 'official_public_direct' || source.verdict_eligible !== true) {
+    let canonicalSource;
+    try {
+      canonicalSource = source ? validateConsumedCmvSourceClassification(source, { requireDirect: true }) : null;
+    } catch {
+      canonicalSource = null;
+    }
+    if (!canonicalSource) {
       refuse(CMV_OBSERVATION_CODES.SOURCE_BOUND_REQUIRED, 'every observation candidate requires direct source-bound typed facts');
     }
     return {
       candidate_id: `cmv-${candidateId}`,
       fact_key: factKey,
       observation_state: observationState(factKey, typedFacts.request),
-      source_id: source.source_id,
-      source_classification: source.classification,
+      source_id: canonicalSource.source_id,
+      source_classification: canonicalSource.classification,
+      source_envelope: canonicalSource,
       claim_ceiling: 'source_supported',
       needs_owner_confirmation: true,
     };

@@ -16,13 +16,15 @@
     "source_classification": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_version", "source_id", "authority", "revision", "source_ref", "classification", "verdict_eligible", "claim_ceiling", "hold_code", "retrieval_path", "applicability_state"],
+      "required": ["schema_version", "source_id", "authority", "revision", "source_ref", "access_class", "direct_access_verified", "classification", "verdict_eligible", "claim_ceiling", "hold_code", "retrieval_path", "applicability_state"],
       "properties": {
         "schema_version": { "const": "soulforge.calibration_measurement_validity.source_classification.v1" },
         "source_id": { "type": "string" },
         "authority": { "type": "string" },
         "revision": { "type": "string" },
         "source_ref": { "$ref": "#/$defs/reference" },
+        "access_class": { "type": "string" },
+        "direct_access_verified": { "type": "boolean" },
         "classification": { "enum": ["official_public_direct", "rag_retrieval_only", "controlled_citation_only", "direct_access_hold", "unknown_source_hold", "authority_mismatch_hold"] },
         "verdict_eligible": { "type": "boolean" },
         "claim_ceiling": { "enum": ["observed", "source_supported"] },

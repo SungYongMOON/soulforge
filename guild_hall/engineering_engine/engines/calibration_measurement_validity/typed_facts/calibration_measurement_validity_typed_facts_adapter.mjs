@@ -1,7 +1,10 @@
 import types from 'node:util/types';
 
 import { ContractError } from '../../../core/validators/errors.mjs';
-import { CMV_SOURCE_CLASSIFICATION_SCHEMA_VERSION } from '../source/calibration_measurement_validity_source_classification.mjs';
+import {
+  CMV_SOURCE_CLASSIFICATION_SCHEMA_VERSION,
+  validateConsumedCmvSourceClassification,
+} from '../source/calibration_measurement_validity_source_classification.mjs';
 import { calibrationMeasurementValiditySha256 } from '../shared/calibration_measurement_validity_canonical_digest.mjs';
 
 export const CMV_TYPED_FACTS_SCHEMA_VERSION = 'soulforge.calibration_measurement_validity.typed_facts.v1';
@@ -83,18 +86,20 @@ export function adaptCalibrationMeasurementValidityTypedFacts(input) {
   }
   const sourceById = new Map();
   for (const source of value.source_classifications) {
-    assertPlainObject(source, 'source classification');
-    if (source.schema_version !== CMV_SOURCE_CLASSIFICATION_SCHEMA_VERSION || typeof source.source_id !== 'string'
-        || !source.source_ref || !SHA256_REF.test(source.source_ref.content_id ?? '')) {
-      refuse(CMV_TYPED_FACT_CODES.INVALID_INPUT, 'source classification is malformed');
-    }
-    if (source.verdict_eligible !== true || source.classification !== 'official_public_direct') {
+    let canonicalSource;
+    try {
+      canonicalSource = validateConsumedCmvSourceClassification(source, { requireDirect: true });
+    } catch {
       refuse(CMV_TYPED_FACT_CODES.SOURCE_HOLD, 'RAG-only, controlled, unknown, or unverified source classifications cannot create typed CMV facts');
     }
-    if (sourceById.has(source.source_id)) {
+    if (canonicalSource.schema_version !== CMV_SOURCE_CLASSIFICATION_SCHEMA_VERSION
+        || !SHA256_REF.test(canonicalSource.source_ref.content_id ?? '')) {
+      refuse(CMV_TYPED_FACT_CODES.SOURCE_HOLD, 'source classification is malformed');
+    }
+    if (sourceById.has(canonicalSource.source_id)) {
       refuse(CMV_TYPED_FACT_CODES.INVALID_INPUT, 'source classifications must have unique source IDs');
     }
-    sourceById.set(source.source_id, source);
+    sourceById.set(canonicalSource.source_id, canonicalSource);
   }
   const provenance = assertPlainObject(value.fact_provenance, 'fact_provenance');
   const provenanceKeys = Object.keys(provenance).sort();

@@ -199,6 +199,54 @@ test('source-bound typed facts preserve provenance and reject RAG-only facts as 
   );
 });
 
+test('forged direct source-classification envelopes cannot satisfy Typed Facts or source-bound Profiles', () => {
+  const forged = structuredClone(ragSource());
+  forged.classification = 'official_public_direct';
+  forged.verdict_eligible = true;
+  forged.claim_ceiling = 'source_supported';
+  forged.hold_code = null;
+  forged.retrieval_path = 'direct';
+  forged.applicability_state = 'in_scope';
+  assert.throws(
+    () => adaptCalibrationMeasurementValidityTypedFacts(typedFactPacket([forged])),
+    (error) => error?.code === CMV_TYPED_FACT_CODES.SOURCE_HOLD,
+  );
+
+  const bindings = resolveProfileBindings(null, sourceBoundProfile());
+  const effective = assembleEffectiveRuleSet(calibrationMeasurementValidityAdapter, bindings);
+  const held = evaluate(calibrationMeasurementValidityAdapter, effective, {
+    request: buildCalibrationMeasurementValidityPublicSyntheticRequest('VALID'),
+    source_classifications: [forged],
+  });
+  assert.equal(held.assessment.profile_evaluation.status, 'hold');
+  assert.equal(held.assessment.result_status, 'unknown');
+
+  const extraField = structuredClone(directSource());
+  extraField.unapproved_extra = true;
+  assert.throws(
+    () => adaptCalibrationMeasurementValidityTypedFacts(typedFactPacket([extraField])),
+    (error) => error?.code === CMV_TYPED_FACT_CODES.SOURCE_HOLD,
+  );
+
+  const directTyped = adaptCalibrationMeasurementValidityTypedFacts(typedFactPacket());
+  const forgedTyped = structuredClone(directTyped);
+  forgedTyped.source_classifications[0] = forged;
+  assert.throws(
+    () => deriveCalibrationMeasurementValidityObservationCandidates(forgedTyped),
+    (error) => error?.code === 'CMV_OBSERVATION_SOURCE_BOUND_REQUIRED',
+  );
+  const observation = deriveCalibrationMeasurementValidityObservationCandidates(directTyped);
+  const forgedObservation = structuredClone(observation);
+  forgedObservation.candidates[0].source_envelope = forged;
+  assert.throws(
+    () => buildCalibrationMeasurementValidityGuidance({
+      assessment: evaluate(calibrationMeasurementValidityAdapter, assembleEffectiveRuleSet(calibrationMeasurementValidityAdapter, []), directTyped).assessment,
+      observation: forgedObservation,
+    }),
+    (error) => error?.code === 'CMV_GUIDANCE_INVALID_INPUT',
+  );
+});
+
 test('Core assembly accepts a source-bound profile and holds evaluation when required source class is absent', () => {
   const bindings = resolveProfileBindings(null, sourceBoundProfile());
   const effective = assembleEffectiveRuleSet(calibrationMeasurementValidityAdapter, bindings);
@@ -356,6 +404,12 @@ test('hostile profile operations and write-like MCP calls fail closed', () => {
     () => calibrationMeasurementValidityAdapter.compile([invalidOrderBinding]),
     (error) => error?.code === 'CMV_PROFILE_BINDING_INVALID',
   );
+  const invalidDigestBinding = structuredClone(validBindings[0]);
+  invalidDigestBinding.operation_digest = '0'.repeat(64);
+  assert.throws(
+    () => calibrationMeasurementValidityAdapter.compile([invalidDigestBinding]),
+    (error) => error?.code === 'CMV_PROFILE_BINDING_INVALID',
+  );
   const nullProfile = sourceBoundProfile();
   nullProfile.operations = [null];
   assert.throws(
@@ -365,5 +419,13 @@ test('hostile profile operations and write-like MCP calls fail closed', () => {
   assert.throws(
     () => invokeCalibrationMeasurementValidityReadOnlyMcp('cmv.write_exception', {}),
     (error) => error?.code === 'CMV_READ_ONLY_MCP_UNKNOWN_TOOL',
+  );
+  assert.throws(
+    () => invokeCalibrationMeasurementValidityReadOnlyMcp('cmv.evaluate_public_synthetic', { case_id: 'UNDECLARED' }),
+    (error) => error?.code === 'CMV_READ_ONLY_MCP_INPUT_INVALID',
+  );
+  assert.throws(
+    () => invokeCalibrationMeasurementValidityReadOnlyMcp('cmv.guidance_public_synthetic', { case_id: 'UNDECLARED' }),
+    (error) => error?.code === 'CMV_READ_ONLY_MCP_INPUT_INVALID',
   );
 });
