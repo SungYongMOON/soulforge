@@ -15,12 +15,9 @@ import {
   assembleEffectiveRuleSet,
   resolveProfileBindings,
   evaluate,
-  withoutNulls,
-  arrayOrderRules,
 } from '../../../core/interfaces/domain_engine_adapter.mjs';
+import { normalizeProfileOperations } from '../../../core/interfaces/profile_operation_canon.mjs';
 import { buildQualityReadinessPublicSyntheticRequest } from '../fixtures/quality_readiness_public_synthetic.mjs';
-import { canonicalise } from '../../../core/validators/canonical.mjs';
-import { sha256Hex } from '../../../core/validators/fingerprint.mjs';
 
 const VALID_QR_RULE = Object.freeze({
   rule_id: 'QR-TEST-01',
@@ -44,10 +41,11 @@ const VALID_QR_RULE_2 = Object.freeze({
   sufficiency_fields: ['inspection_log_ref'],
 });
 
+// Direct entry must agree with the Core seam, so the fixture digest comes from the same Core
+// helper the compiler recomputes with. A local copy here is what let a null-stripped digest
+// look correct on both sides at once.
 function computeOpDigest(operations) {
-  const cleanOps = withoutNulls(operations);
-  const canonicalOps = canonicalise(cleanOps, arrayOrderRules(cleanOps));
-  return sha256Hex(`soulforge.profile_operations.v0\n${canonicalOps}`);
+  return normalizeProfileOperations(operations).operation_digest;
 }
 
 function makeValidBinding(overrides = {}) {
@@ -615,5 +613,154 @@ test('QR Evaluator Hostile: forged base ref, extra fields, missing source_packet
   assert.throws(
     () => evaluate(qualityReadinessAdapter, derivedRuleset, facts, {}),
     (err) => err.code === 'QR_PROFILE_EVALUATION_UNSUPPORTED'
+  );
+});
+
+// ---------------------------------------------------------------- null-bearing Profile seam
+//
+// A QR rule binds `allowed_artifact_tokens: [null]` to accept source-native evidence and `[]`
+// to accept no artifact at all. Core used to strip the null before the compiler ever saw it,
+// so these two Profiles arrived identical and shared one operation digest.
+
+const SOURCE_NATIVE_RULE = Object.freeze({
+  rule_id: 'QR-NULLSEAM-01',
+  source_ref: 'contracts/qr_org.json',
+  source_locator: '§7.4',
+  source_modality: 'source-native evidence is accepted for this duty',
+  allowed_artifact_tokens: [null],
+  required_authority_families: ['company_approved_procedure'],
+  context_ref_fields: ['scope_ref'],
+  sufficiency_fields: [],
+});
+
+const NO_ARTIFACT_RULE = Object.freeze({
+  ...SOURCE_NATIVE_RULE,
+  allowed_artifact_tokens: [],
+});
+
+function nullSeamProfile(rule) {
+  return {
+    profile_kind: 'organization',
+    profile_id: 'org_qr_01',
+    domain_engine_id: 'quality_readiness',
+    revision_or_hash: 'rev_qr_01',
+    extends_or_base_pin: 'qr_base:v0',
+    source_refs: ['contracts/qr_org.json'],
+    operations: [{ op: 'add', rule }],
+    order: 0,
+  };
+}
+
+test('QR Seam: allowed_artifact_tokens [null] survives Core normalisation into the compiled rule', () => {
+  const profile = nullSeamProfile(SOURCE_NATIVE_RULE);
+  const inputCopy = JSON.parse(JSON.stringify(profile));
+
+  const [binding] = resolveProfileBindings(profile, null);
+  assert.deepEqual(binding.operations[0].rule.allowed_artifact_tokens, [null], 'binding must keep [null]');
+
+  const assembly = assembleEffectiveRuleSet(qualityReadinessAdapter, [binding], {});
+  const compiled = assembly.effective_rule_set.rules.find((r) => r.rule_id === 'QR-NULLSEAM-01');
+  assert.ok(compiled, 'added rule must be present');
+  assert.deepEqual(compiled.allowed_artifact_tokens, [null], 'compiled rule must keep [null]');
+
+  assert.deepEqual(profile, inputCopy, 'caller profile must not be mutated');
+  assert.equal(Object.isFrozen(binding.operations[0].rule.allowed_artifact_tokens), true);
+  assert.equal(Object.isFrozen(compiled.allowed_artifact_tokens), true);
+});
+
+test('QR Seam: the same rule with [] stays [] and is not widened to source-native', () => {
+  const [binding] = resolveProfileBindings(nullSeamProfile(NO_ARTIFACT_RULE), null);
+  assert.deepEqual(binding.operations[0].rule.allowed_artifact_tokens, []);
+
+  const assembly = assembleEffectiveRuleSet(qualityReadinessAdapter, [binding], {});
+  const compiled = assembly.effective_rule_set.rules.find((r) => r.rule_id === 'QR-NULLSEAM-01');
+  assert.deepEqual(compiled.allowed_artifact_tokens, []);
+});
+
+test('QR Seam: [null] and [] separate at every digest the seam publishes', () => {
+  const [sourceNativeBinding] = resolveProfileBindings(nullSeamProfile(SOURCE_NATIVE_RULE), null);
+  const [noArtifactBinding] = resolveProfileBindings(nullSeamProfile(NO_ARTIFACT_RULE), null);
+
+  // 1. Core Profile operation digest
+  assert.notEqual(sourceNativeBinding.operation_digest, noArtifactBinding.operation_digest);
+
+  const sourceNative = assembleEffectiveRuleSet(qualityReadinessAdapter, [sourceNativeBinding], {});
+  const noArtifact = assembleEffectiveRuleSet(qualityReadinessAdapter, [noArtifactBinding], {});
+
+  // 2. QR derived ruleset ref
+  assert.notEqual(
+    sourceNative.effective_rule_set.ruleset_ref.content_id,
+    noArtifact.effective_rule_set.ruleset_ref.content_id
+  );
+  assert.notEqual(
+    sourceNative.effective_rule_set.ruleset_ref.revision_id,
+    noArtifact.effective_rule_set.ruleset_ref.revision_id
+  );
+
+  // 3. Core effective ruleset digest and assembly digest
+  assert.notEqual(
+    sourceNative.compilation_trace.effective_ruleset_digest,
+    noArtifact.compilation_trace.effective_ruleset_digest
+  );
+  assert.notEqual(sourceNative.assembly_digest, noArtifact.assembly_digest);
+
+  // 4. Per-operation provenance digest
+  const sourceNativeProv = sourceNative.effective_rule_set.profile_rule_provenance['QR-NULLSEAM-01'];
+  const noArtifactProv = noArtifact.effective_rule_set.profile_rule_provenance['QR-NULLSEAM-01'];
+  assert.notEqual(sourceNativeProv.operation_item_digest, noArtifactProv.operation_item_digest);
+  assert.notEqual(sourceNativeProv.operation_digest, noArtifactProv.operation_digest);
+  assert.equal(sourceNativeProv.operation_digest, sourceNativeBinding.operation_digest);
+});
+
+test('QR Seam: null-bearing Profile replays to identical digests', () => {
+  const profile = nullSeamProfile(SOURCE_NATIVE_RULE);
+  const first = assembleEffectiveRuleSet(qualityReadinessAdapter, resolveProfileBindings(profile, null), {});
+  const second = assembleEffectiveRuleSet(qualityReadinessAdapter, resolveProfileBindings(profile, null), {});
+
+  assert.equal(first.assembly_digest, second.assembly_digest);
+  assert.equal(
+    first.effective_rule_set.ruleset_ref.content_id,
+    second.effective_rule_set.ruleset_ref.content_id
+  );
+  assert.equal(
+    first.compilation_trace.effective_ruleset_digest,
+    second.compilation_trace.effective_ruleset_digest
+  );
+});
+
+test('QR Seam: direct compiler entry and the Core-mediated seam agree on a null-bearing Profile', () => {
+  const directBinding = makeValidBinding({
+    operations: [{ op: 'add', rule: SOURCE_NATIVE_RULE }],
+  });
+  const direct = compileQualityReadinessRules([directBinding]);
+
+  const [coreBinding] = resolveProfileBindings(nullSeamProfile(SOURCE_NATIVE_RULE), null);
+  const coreMediated = assembleEffectiveRuleSet(qualityReadinessAdapter, [coreBinding], {});
+
+  assert.equal(directBinding.operation_digest, coreBinding.operation_digest, 'both entries compute one digest');
+  assert.equal(
+    direct.effective_rule_set.ruleset_ref.content_id,
+    coreMediated.effective_rule_set.ruleset_ref.content_id,
+    'both entries derive the same ruleset ref'
+  );
+  assert.equal(direct.rule_count, coreMediated.rule_count);
+
+  const directRule = direct.effective_rule_set.rules.find((r) => r.rule_id === 'QR-NULLSEAM-01');
+  const coreRule = coreMediated.effective_rule_set.rules.find((r) => r.rule_id === 'QR-NULLSEAM-01');
+  assert.deepEqual(directRule.allowed_artifact_tokens, [null]);
+  assert.deepEqual(coreRule.allowed_artifact_tokens, [null]);
+  assert.deepEqual(directRule, coreRule);
+});
+
+test('QR Seam: a binding whose digest was taken over null-stripped operations fails closed', () => {
+  const nullStrippedOps = [{ op: 'add', rule: { ...SOURCE_NATIVE_RULE, allowed_artifact_tokens: [] } }];
+  const forged = makeValidBinding({
+    operations: [{ op: 'add', rule: SOURCE_NATIVE_RULE }],
+    operation_digest: computeOpDigest(nullStrippedOps),
+  });
+
+  assert.throws(
+    () => compileQualityReadinessRules([forged]),
+    (err) => err.code === QR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID
   );
 });

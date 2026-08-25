@@ -1,5 +1,32 @@
 # CHANGELOG
 
+## 2026-08-25 - Engineering Engine Profile operation null-preservation contract
+
+- **New Core contract**: Added `core/interfaces/profile_operation_canon.mjs`, the single Core
+  authority for normalised Profile operations and exact `operation_digest` computation. It is
+  domain neutral and preserves every JSON `null` in arrays and object properties.
+- **Blocker closed**: Core Profile normalisation previously ran `withoutNulls` over the
+  operations before digesting them, so a rule binding `allowed_artifact_tokens: [null]`
+  (source-native evidence accepted) collapsed to `[]` (no artifact accepted). Through the real
+  Core seam the two Profiles shared one `operation_digest` and the compiled Effective Rule Set
+  lost the source-native meaning. `[null]` and `[]` now produce different Profile operation
+  digests, different QR derived ruleset refs, different `effective_ruleset_digest`, and
+  different Core `assembly_digest`.
+- **Single authority**: `validateProfileBinding` and the Quality Readiness compiler both call
+  `normalizeProfileOperations`; the QR compiler's duplicated null-stripping digest helper was
+  removed. Normalised operations are a frozen deep clone, so the seam stays deterministic and
+  non-mutating, and unsupported non-JSON or unsafe plain-data shapes fail closed with
+  `PROFILE_OPERATIONS_INVALID`.
+- **Unchanged by design**: Core `withoutNulls` keeps its existing behaviour for the
+  effective-rule and observation consumers whose accepted SE compatibility is pinned to it.
+  Null-free Profile fixtures keep their previous digests byte for byte.
+- **Tests**: Added `core/tests/profile_operation_null_preservation.test.mjs` (17 cases,
+  including proxy, accessor, symbol, cycle, prototype, depth, and non-plain hostile inputs) and
+  six Core→QR seam cases in `engines/quality_readiness/tests/quality_readiness_compiler.test.mjs`.
+  The historical 21 Quality Readiness cases remain green.
+- Regenerated `topology/engine_topology.json`, `topology/engine_manifest.sha256`,
+  `topology/engine_release.json`, and `guild_hall/watchtower/topology/federated_topology.v1.json`.
+
 ## 2026-08-25 - Engineering Engine physical package layout migration
 
 - **Core & Domain Engine restructuring**: Migrated `guild_hall/engineering_engine/` from a flat layout to a modular three-tier structure:

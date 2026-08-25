@@ -86,9 +86,9 @@ test('Topology Edge Oracle: independently resolves complete static import/re-exp
   const emittedTopology = buildTopology();
 
   assert.equal(emittedTopology.module_count, oracleResult.moduleCount, 'Module count must match independent scan');
-  assert.equal(emittedTopology.module_count, 130, 'Canonical module count must equal 130');
+  assert.equal(emittedTopology.module_count, 131, 'Canonical module count must equal 131');
   assert.equal(emittedTopology.module_edge_count, oracleResult.edges.length, 'Edge count must match independent scan');
-  assert.equal(emittedTopology.module_edge_count, 407, 'Canonical edge count must equal 407');
+  assert.equal(emittedTopology.module_edge_count, 413, 'Canonical edge count must equal 413');
 });
 
 test('Topology Edge Oracle: representative import syntax is correctly captured', () => {
@@ -114,6 +114,18 @@ test('Topology Edge Oracle: representative import syntax is correctly captured',
     edgeKeys.has('engines/systems_engineering/evaluator/se_evaluator_adapter->core/interfaces/domain_engine_adapter'),
     true,
     'Domain adapter to Core interface import must be captured'
+  );
+
+  // 4. Domain compiler reuse of the single Core Profile operation canon helper
+  assert.equal(
+    edgeKeys.has('engines/quality_readiness/compiler/quality_readiness_compiler_adapter->core/interfaces/profile_operation_canon'),
+    true,
+    'QR compiler must import the Core Profile operation canon rather than hold its own copy'
+  );
+  assert.equal(
+    edgeKeys.has('core/interfaces/domain_engine_adapter->core/interfaces/profile_operation_canon'),
+    true,
+    'Core profile binding validation must import the Profile operation canon'
   );
 });
 

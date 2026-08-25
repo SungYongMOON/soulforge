@@ -116,7 +116,19 @@
         "withoutNulls"
       ],
       "export_count": 17,
-      "line_count": 411
+      "line_count": 416
+    },
+    {
+      "module": "core/interfaces/profile_operation_canon",
+      "area": "core",
+      "exports": [
+        "PROFILE_OPERATION_CANON_VERSION",
+        "PROFILE_OPERATION_CODES",
+        "PROFILE_OPERATION_MAX_DEPTH",
+        "normalizeProfileOperations"
+      ],
+      "export_count": 4,
+      "line_count": 192
     },
     {
       "module": "core/interfaces/project_binding_adapter",
@@ -847,7 +859,7 @@
         "qualityReadinessCompilerAdapter"
       ],
       "export_count": 4,
-      "line_count": 641
+      "line_count": 631
     },
     {
       "module": "engines/quality_readiness/evaluator/quality_readiness",
@@ -2297,7 +2309,7 @@
       "line_count": 1885
     }
   ],
-  "module_count": 130,
+  "module_count": 131,
   "module_edges": [
     {
       "from": "core/evaluation_runtime/claim_ceilings",
@@ -2322,6 +2334,13 @@
     },
     {
       "from": "core/interfaces/domain_engine_adapter",
+      "to": "core/interfaces/profile_operation_canon",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "core/interfaces/domain_engine_adapter",
       "to": "core/validators/canonical",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
@@ -2336,6 +2355,34 @@
     },
     {
       "from": "core/interfaces/domain_engine_adapter",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "core/interfaces/profile_operation_canon",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "core/interfaces/profile_operation_canon",
+      "to": "core/validators/contract_config",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "core/interfaces/profile_operation_canon",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "core/interfaces/profile_operation_canon",
       "to": "core/validators/fingerprint",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
@@ -3135,6 +3182,13 @@
     {
       "from": "core/validators/snapshot",
       "to": "core/validators/minting",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/compiler/quality_readiness_compiler_adapter",
+      "to": "core/interfaces/profile_operation_canon",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
@@ -5149,7 +5203,7 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 407,
+  "module_edge_count": 413,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -5500,5 +5554,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "b9432ce08b87e44db6140aea1a0d767c9478e1496caa61aa0a2e89762ffc71e4"
+  "topology_digest": "3084fc6c37de8573db49773c85e4e98a1b4fe38389604906a9daee25de86a1e2"
 }

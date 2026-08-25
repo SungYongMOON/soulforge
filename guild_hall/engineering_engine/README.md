@@ -5,7 +5,7 @@
 The Engineering Engine is structured into an orchestration Core, decoupled Domain Engines, and public-safe Engineering Profiles:
 
 1. **`core/`**: Shared validation and runtime orchestration core.
-   - `interfaces/`: Canonical Domain Engine Adapter (`domain_engine_adapter.mjs`), Project Profile Adapter (`project_profile_adapter.mjs`), and Project Binding Adapter (`project_binding_adapter.mjs`).
+   - `interfaces/`: Canonical Domain Engine Adapter (`domain_engine_adapter.mjs`), Project Profile Adapter (`project_profile_adapter.mjs`), Project Binding Adapter (`project_binding_adapter.mjs`), and the Profile operation canonicalisation contract (`profile_operation_canon.mjs`).
    - `rule_assembly/`: Profile resolution, rule assembly coordination, and compilation trace generation (`profile_resolver.mjs`, `rule_assembler.mjs`, `compilation_trace.mjs`).
    - `evaluation_runtime/`: Multi-domain evaluation dispatch, result envelopes, and claim ceilings (`evaluation_coordinator.mjs`, `result_envelope.mjs`, `claim_ceilings.mjs`).
    - `validators/`: 25 canonical data and execution guards (`canonical.mjs`, `fingerprint.mjs`, `identity.mjs`, etc.).
@@ -25,6 +25,38 @@ The Engineering Engine is structured into an orchestration Core, decoupled Domai
 
 5. **Compatibility Re-exports**:
    - `kernel/`, `assembly/`, `stage_rules/`, `subjects/`, `observation/`, `guidance/`, `evaluation/`, `mcp/`, `fixtures/`, and `tests/` maintain backward-compatible re-export and forwarding stubs to preserve existing imports, CLI tools, and deterministic verification harnesses.
+
+## Profile operation canonicalisation and the null contract
+
+`core/interfaces/profile_operation_canon.mjs` is the single Core authority for normalised
+Profile operations and their `operation_digest`. Core `validateProfileBinding` and every domain
+compiler call `normalizeProfileOperations` and nothing else; a second local copy of the formula
+is what previously let two sides agree on a wrong answer.
+
+What the contract holds:
+
+- JSON `null` is a value in Profile operations, not an absence. It survives normalisation in
+  arrays and in object properties, so a rule binding `allowed_artifact_tokens: [null]`
+  (source-native evidence is accepted) stays distinguishable from `[]` (no artifact is accepted).
+  The two produce different `operation_digest` values and different compiled rule material.
+- Normalisation is a frozen deep clone. The caller's object is never mutated, and later mutation
+  of the caller's object cannot change what was digested.
+- Only plain JSON data is accepted. Proxies, accessors, symbol keys, class instances,
+  null-prototype objects, prototype-sensitive keys, cycles, and nesting past
+  `PROFILE_OPERATION_MAX_DEPTH` fail closed with `PROFILE_OPERATIONS_INVALID`.
+- Scalars stay with the PC-11 serialiser in `core/validators/canonical.mjs`: integers, instants,
+  NFC keys, and key-collision refusal are not re-decided here. Null-free operations therefore
+  keep the exact bytes, and the exact digests, they had before this contract existed.
+
+Claim boundary:
+
+- This contract covers Profile operations only. The effective-rule and observation projections in
+  `domain_engine_adapter.mjs` keep the historical `withoutNulls` projection, because accepted SE
+  compatibility is pinned to the digests it produces. A domain that needs `null` to reach the
+  Core effective-rule digest must carry that distinction in its own derived ruleset ref, as the
+  QR compiler does through `allowed_artifact_mappings`.
+- Preserving `null` is a canonicalisation guarantee, not a semantic one. Core does not know what
+  a `null` token means; the owning domain engine does.
 
 ## SE-core source-pack and fixed-case evaluation
 

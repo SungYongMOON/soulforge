@@ -2,6 +2,7 @@
 import { canonicalise } from "../validators/canonical.mjs";
 import { sha256Hex } from "../validators/fingerprint.mjs";
 import { ContractError } from "../validators/errors.mjs";
+import { normalizeProfileOperations } from "./profile_operation_canon.mjs";
 
 export const DOMAIN_ENGINE_ADAPTER_SCHEMA_VERSION = "soulforge.domain_engine_adapter.v0";
 export const PROFILE_BINDING_SCHEMA_VERSION = "soulforge.engineering_profile_binding.v0";
@@ -43,6 +44,10 @@ const deepFreeze = (value) => {
   return value;
 };
 
+// Effective-rule and observation material keeps the historical null-stripping projection:
+// those consumers were accepted against it and SE compatibility is pinned to the digests it
+// produces. Profile operations do not use it - `null` is a value there, and
+// profile_operation_canon.mjs owns that semantics explicitly.
 export function withoutNulls(value) {
   if (Array.isArray(value)) return value.filter((v) => v !== null).map(withoutNulls);
   if (value !== null && typeof value === "object") {
@@ -183,9 +188,9 @@ export function validateProfileBinding(profile, expectedOrder = null) {
     }
   }
 
-  const cleanOps = withoutNulls(profile.operations);
-  const canonicalOps = canonicalise(cleanOps, arrayOrderRules(cleanOps));
-  const operationDigest = sha256Hex(`soulforge.profile_operations.v0\n${canonicalOps}`);
+  // Null-preserving: `[null]` and `[]` are different Profile statements and must not share a
+  // digest. The clone is frozen and independent of the caller's object.
+  const normalizedOperations = normalizeProfileOperations(profile.operations);
 
   return deepFreeze({
     schema_version: PROFILE_BINDING_SCHEMA_VERSION,
@@ -194,10 +199,10 @@ export function validateProfileBinding(profile, expectedOrder = null) {
     domain_engine_id: domainEngineId,
     revision_or_hash: revisionOrHash,
     extends_or_base_pin: extendsOrBasePin,
-    operation_digest: operationDigest,
+    operation_digest: normalizedOperations.operation_digest,
     source_refs: [...profile.source_refs],
     order,
-    operations: cleanOps,
+    operations: normalizedOperations.operations,
   });
 }
 

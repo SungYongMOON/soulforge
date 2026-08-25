@@ -13,6 +13,7 @@ import { ContractError } from "../../../core/validators/errors.mjs";
 import { AUTHORITY_FAMILIES } from "../../../core/validators/authority.mjs";
 import { canonicalise, compareCodePoints } from "../../../core/validators/canonical.mjs";
 import { sha256Hex } from "../../../core/validators/fingerprint.mjs";
+import { normalizeProfileOperations } from "../../../core/interfaces/profile_operation_canon.mjs";
 
 export const QR_COMPILER_ADAPTER_SCHEMA_VERSION = "soulforge.quality_readiness.compiler.v0";
 
@@ -188,18 +189,6 @@ function arrayOrderRules(value) {
   };
   visit(value);
   return rules;
-}
-
-function withoutNulls(value) {
-  if (Array.isArray(value)) return value.filter((v) => v !== null).map(withoutNulls);
-  if (value !== null && typeof value === "object") {
-    const out = {};
-    for (const [key, child] of Object.entries(value)) {
-      if (child !== null) out[key] = withoutNulls(child);
-    }
-    return out;
-  }
-  return value;
 }
 
 function validateQrRuleRow(rule, bindingSourceRefs, existingRuleIds) {
@@ -415,10 +404,11 @@ function validateQrProfileBindingStrict(rawBinding, expectedOrder, existingKinds
     );
   }
 
-  // F2: Recompute and verify operation_digest
-  const cleanOps = withoutNulls(rawBinding.operations);
-  const canonicalOps = canonicalise(cleanOps, arrayOrderRules(cleanOps));
-  const expectedOperationDigest = sha256Hex(`soulforge.profile_operations.v0\n${canonicalOps}`);
+  // F2: Recompute and verify operation_digest through the one Core helper. QR must not hold a
+  // second opinion on Profile operation canonicalisation, and the normalised operations keep
+  // every `null` a rule bound on purpose - a QR rule reads `[null]` as source-native evidence.
+  const normalizedOperations = normalizeProfileOperations(rawBinding.operations);
+  const expectedOperationDigest = normalizedOperations.operation_digest;
 
   if (typeof rawBinding.operation_digest !== "string" || rawBinding.operation_digest !== expectedOperationDigest) {
     throw new ContractError(
@@ -457,7 +447,7 @@ function validateQrProfileBindingStrict(rawBinding, expectedOrder, existingKinds
     operation_digest: expectedOperationDigest,
     source_refs: validSourceRefs,
     order: rawBinding.order,
-    operations: rawBinding.operations,
+    operations: normalizedOperations.operations,
   };
 }
 

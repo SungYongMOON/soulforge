@@ -1422,6 +1422,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.compiler.quality_readiness_compiler_adapter",
+      "id": "engineering_engine::imports.a22c305e8c602961d1e44de97ee0222d",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.profile_operation_canon"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.tools.artifact_observation_inventory_runner",
       "id": "engineering_engine::imports.a4cafb7a7ff9d2134665e782ac03a381",
       "label": "imports",
@@ -1833,6 +1843,16 @@
     {
       "evidence_mode": "structural_only",
       "from": "engineering_engine::core.interfaces.domain_engine_adapter",
+      "id": "engineering_engine::imports.core.interfaces.domain_engine_adapter.core.interfaces.profile_operation_canon",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.profile_operation_canon"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::core.interfaces.domain_engine_adapter",
       "id": "engineering_engine::imports.core.interfaces.domain_engine_adapter.core.validators.canonical",
       "label": "imports",
       "layer": "module",
@@ -1854,6 +1874,46 @@
       "evidence_mode": "structural_only",
       "from": "engineering_engine::core.interfaces.domain_engine_adapter",
       "id": "engineering_engine::imports.core.interfaces.domain_engine_adapter.core.validators.fingerprint",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::core.interfaces.profile_operation_canon",
+      "id": "engineering_engine::imports.core.interfaces.profile_operation_canon.core.validators.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::core.interfaces.profile_operation_canon",
+      "id": "engineering_engine::imports.core.interfaces.profile_operation_canon.core.validators.contract_config",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.contract_config"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::core.interfaces.profile_operation_canon",
+      "id": "engineering_engine::imports.core.interfaces.profile_operation_canon.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::core.interfaces.profile_operation_canon",
+      "id": "engineering_engine::imports.core.interfaces.profile_operation_canon.core.validators.fingerprint",
       "label": "imports",
       "layer": "module",
       "provider_id": "engineering_engine",
@@ -4611,6 +4671,17 @@
       "id": "engineering_engine::core.interfaces.domain_engine_adapter",
       "kind": "module",
       "label": "core/interfaces/domain_engine_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "core",
+      "id": "engineering_engine::core.interfaces.profile_operation_canon",
+      "kind": "module",
+      "label": "core/interfaces/profile_operation_canon",
       "layer": "module",
       "parent_id": null,
       "provider_id": "engineering_engine",
@@ -7738,6 +7809,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.compiler.quality_readiness_compiler_adapter",
+          "id": "imports.a22c305e8c602961d1e44de97ee0222d",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.profile_operation_canon"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.tools.artifact_observation_inventory_runner",
           "id": "imports.a4cafb7a7ff9d2134665e782ac03a381",
           "label": "imports",
@@ -8108,6 +8188,15 @@
         {
           "evidence_mode": "structural_only",
           "from": "core.interfaces.domain_engine_adapter",
+          "id": "imports.core.interfaces.domain_engine_adapter.core.interfaces.profile_operation_canon",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.profile_operation_canon"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "core.interfaces.domain_engine_adapter",
           "id": "imports.core.interfaces.domain_engine_adapter.core.validators.canonical",
           "label": "imports",
           "layer": "module",
@@ -8127,6 +8216,42 @@
           "evidence_mode": "structural_only",
           "from": "core.interfaces.domain_engine_adapter",
           "id": "imports.core.interfaces.domain_engine_adapter.core.validators.fingerprint",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "core.interfaces.profile_operation_canon",
+          "id": "imports.core.interfaces.profile_operation_canon.core.validators.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "core.interfaces.profile_operation_canon",
+          "id": "imports.core.interfaces.profile_operation_canon.core.validators.contract_config",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.contract_config"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "core.interfaces.profile_operation_canon",
+          "id": "imports.core.interfaces.profile_operation_canon.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "core.interfaces.profile_operation_canon",
+          "id": "imports.core.interfaces.profile_operation_canon.core.validators.fingerprint",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
@@ -10167,6 +10292,16 @@
         {
           "diagnostic_state": "validator_backed",
           "group": "core",
+          "id": "core.interfaces.profile_operation_canon",
+          "kind": "module",
+          "label": "core/interfaces/profile_operation_canon",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "core",
           "id": "core.interfaces.project_binding_adapter",
           "kind": "module",
           "label": "core/interfaces/project_binding_adapter",
@@ -11431,7 +11566,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "d8ffb033f2b393e28e0f446967264d1d3db56f8489e239a2202b46c84a3eaf8b",
+        "digest": "23ae165892a1173917e79303e1c3cab324194e412139d25bf360e2d715c7d303",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -12425,13 +12560,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "45c89788fb5192db6a62a85dfb99fe5db0f013ea1cb2347a8f8c521746276608",
+  "source_set_digest": "8f1e63571be24a05ee626bf7a8035b30a6e7c3c6f1fe7e6de74786194cb4293c",
   "summary": {
-    "edge_count": 457,
-    "node_count": 169,
+    "edge_count": 463,
+    "node_count": 170,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "3922a150b11fe11f1c3d74a8760139c588e97ebd627fb8f13399e155eaa23301"
+  "topology_digest": "07c6ec914db04ad9ba1441f7cb9d0984e385f5e0d99a420a834f01c6cd928f14"
 }
