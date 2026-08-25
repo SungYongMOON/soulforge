@@ -13,8 +13,11 @@ rule acceptance, or project execution.
 - Local topology: `topology/quality_readiness_deepening_topology.mjs`
 - Public-synthetic runner: `tools/quality_readiness_runner.mjs --deepening`
 - Global registration: `false`; writer enabled: `false`
-- Source/RAG ceiling: official-public direct records can be source-supported at most;
-  public-synthetic direct records remain observed. RAG has no verdict or rule authority.
+- Source/RAG ceiling: the 56-row corpus aggregate is observed while any row is observed/HOLD.
+  Only the exact three packet-bound proof-subset corpus rows can remain source-supported; newly
+  admitted official-public and public-synthetic direct records remain observed. Profile-level
+  source-supported promotion is HOLD pending an Owner-accepted package-owned binding contract.
+  RAG has no verdict or rule authority.
 
 ## Exact shared surfaces that require a separate owner-approved integration slice
 

@@ -515,18 +515,19 @@ function assertSourceBindings(sourceBindings) {
   if (seen.size !== SOURCE_IDS.length || SOURCE_IDS.some((sourceId) => !seen.has(sourceId))) {
     fail(CODES.BINDING_REFUSED, 'source bindings do not name the accepted three source IDs exactly');
   }
-  return exactRefs;
+  return { exact_refs: exactRefs };
 }
 
-function assertProfileSourceBindings(sourceBindings, evaluationContract, baseExactRefs, manifest) {
+function assertProfileSourceBindings(sourceBindings, evaluationContract, baseSourceState, manifest) {
   const requiredSourceRefs = [...new Set(Object.values(evaluationContract.profile_rule_provenance)
     .flatMap((provenance) => provenance.source_refs))].sort(compareCodePoints);
   if (!Array.isArray(sourceBindings) || sourceBindings.length !== requiredSourceRefs.length) {
     fail(CODES.PROFILE_SOURCE_REFUSED, 'derived evaluation requires one pinned source binding per Profile source ref');
   }
   const seenSourceRefs = new Set();
-  const exactRefs = new Set(baseExactRefs);
+  const exactRefs = new Set(baseSourceState.exact_refs);
   const lanes = new Set();
+  const claimBySourceRef = new Map();
   let prior = null;
   for (const sourceBinding of sourceBindings) {
     assertExactKeys(sourceBinding, PROFILE_SOURCE_BINDING_FIELDS, [], 'profile_source_binding', CODES.PROFILE_SOURCE_REFUSED);
@@ -539,29 +540,33 @@ function assertProfileSourceBindings(sourceBindings, evaluationContract, baseExa
     seenSourceRefs.add(sourceRef);
     for (const field of ['metadata_revision_ref', 'body_revision_ref', 'direct_derivation_ref']) {
       assertExactRef(sourceBinding[field], `profile_source_binding.${field}`, CODES.PROFILE_SOURCE_REFUSED);
-      const key = refKey(sourceBinding[field]);
-      if (exactRefs.has(key)) {
-        fail(CODES.PROFILE_SOURCE_REFUSED, 'Profile source refs must remain globally distinct from source metadata/body/derivation refs');
-      }
-      exactRefs.add(key);
     }
     if (sameExactRef(sourceBinding.metadata_revision_ref, sourceBinding.body_revision_ref)
         || sameExactRef(sourceBinding.metadata_revision_ref, sourceBinding.direct_derivation_ref)
         || sameExactRef(sourceBinding.body_revision_ref, sourceBinding.direct_derivation_ref)) {
       fail(CODES.PROFILE_SOURCE_REFUSED, 'Profile source metadata, body, and direct-derivation refs must remain distinct');
     }
-    const official = sourceBinding.access_class === 'official_public'
+    const officialObserved = sourceBinding.access_class === 'official_public'
       && sourceBinding.direct_source_state === 'direct_confirmed'
       && sourceBinding.source_lane === 'official_public'
-      && sourceBinding.claim_ceiling === 'source_supported';
+      && sourceBinding.claim_ceiling === 'observed';
     const synthetic = sourceBinding.access_class === 'public_synthetic'
       && sourceBinding.direct_source_state === 'synthetic_direct_confirmed'
       && sourceBinding.source_lane === 'public_synthetic'
       && sourceBinding.claim_ceiling === 'observed';
-    if (!official && !synthetic) {
-      fail(CODES.PROFILE_SOURCE_REFUSED, 'Profile source binding must be directly confirmed official-public or explicitly public-synthetic only');
+    if (!officialObserved && !synthetic) {
+      fail(CODES.PROFILE_SOURCE_REFUSED,
+        'Profile source-supported promotion is unavailable until a package-owned exact proof binding is separately accepted');
+    }
+    for (const field of ['metadata_revision_ref', 'body_revision_ref', 'direct_derivation_ref']) {
+      const key = refKey(sourceBinding[field]);
+      if (exactRefs.has(key)) {
+        fail(CODES.PROFILE_SOURCE_REFUSED, 'Profile source refs must remain globally distinct from accepted source bindings');
+      }
+      exactRefs.add(key);
     }
     lanes.add(sourceBinding.source_lane);
+    claimBySourceRef.set(sourceRef, sourceBinding.claim_ceiling);
   }
   if (seenSourceRefs.size !== requiredSourceRefs.length
       || requiredSourceRefs.some((sourceRef) => !seenSourceRefs.has(sourceRef))) {
@@ -588,7 +593,12 @@ function assertProfileSourceBindings(sourceBindings, evaluationContract, baseExa
     claim_ceiling: binding.claim_ceiling,
   })));
   const ruleCanonCeilings = new Map(Object.entries(evaluationContract.profile_rule_provenance)
-    .map(([ruleId]) => [ruleId, sourceLane === 'public_synthetic' ? 'observed' : 'source_supported']));
+    .map(([ruleId, provenance]) => {
+      const ceiling = provenance.source_refs.some((sourceRef) => claimBySourceRef.get(sourceRef) === 'observed')
+        ? 'observed'
+        : 'source_supported';
+      return [ruleId, ceiling];
+    }));
   return Object.freeze({
     bindings,
     source_lane: sourceLane,

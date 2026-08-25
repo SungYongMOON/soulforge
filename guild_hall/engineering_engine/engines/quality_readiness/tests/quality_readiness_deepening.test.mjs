@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
-import { evaluate } from '../../../core/interfaces/domain_engine_adapter.mjs';
+import { assembleEffectiveRuleSet, evaluate, resolveProfileBindings } from '../../../core/interfaces/domain_engine_adapter.mjs';
 import {
   buildQualityReadinessTypedFacts,
   qualityReadinessFactsDigest,
@@ -16,6 +16,7 @@ import {
 } from '../binding/quality_readiness_typed_facts.mjs';
 import { qualityReadinessAdapter } from '../evaluator/quality_readiness_evaluator_adapter.mjs';
 import { assessQualityReadiness } from '../evaluator/quality_readiness.mjs';
+import { QUALITY_READINESS_SOURCE_PACKET_REF } from '../rules/quality_readiness_rules.mjs';
 import {
   buildQualityReadinessDeepeningPublicSynthetic,
   qualityReadinessSyntheticRef,
@@ -44,6 +45,7 @@ import {
 import {
   admitQualityReadinessDirectSource,
   buildQualityReadinessSourceDirectCorpus,
+  verifyQualityReadinessSourceDirectCorpus,
   verifyQualityReadinessDirectSourceRecord,
   QUALITY_READINESS_SOURCE_CODES,
 } from '../source/quality_readiness_source_derivation.mjs';
@@ -100,7 +102,7 @@ test('Q1-G2: the checked-in 56-row catalog deterministically emits a public-safe
     hold: 15,
   });
   assert.equal(first.derivation_sha256, second.derivation_sha256);
-  assert.equal(first.claim_ceiling, 'source_supported');
+  assert.equal(first.claim_ceiling, 'observed');
   assert.equal(first.applicability_ceiling, 'unknown_hold');
   assert.equal(first.source_adoption, false);
   assert.equal(first.rule_acceptance, false);
@@ -112,6 +114,8 @@ test('Q1-G2: the checked-in 56-row catalog deterministically emits a public-safe
       .map((record) => record.proof_subset_source_ref).sort(),
     ['S2-FAR-46', 'S1-MIL-STD-1916', 'S3-NASA-STD-8739.6B'].sort(),
   );
+  assert.ok(first.records.filter((record) => record.direct_source_state === 'proof_subset_packet_bound')
+    .every((record) => record.claim_ceiling === 'source_supported'));
   assert.equal(first.records.filter((record) => record.authority_class === 'excluded_nonofficial').length, 1);
   assert.ok(first.records.every((record) => !Object.hasOwn(record, 'source_body') && !Object.hasOwn(record, 'chunks')));
   assert.deepEqual(first.effects, {
@@ -122,13 +126,34 @@ test('Q1-G2: the checked-in 56-row catalog deterministically emits a public-safe
     rag_calls: 0,
   });
   assert.equal(deepFrozen(first), true);
+  assert.equal(verifyQualityReadinessSourceDirectCorpus(first).derivation_sha256, first.derivation_sha256);
+  const sourceStatus = callQualityReadinessReadTool({ name: 'source_status', input: { source_corpus: first } });
+  assert.equal(sourceStatus.claim_ceiling, 'observed');
+  assert.equal(sourceStatus.derivation_sha256, first.derivation_sha256);
+  const assertForgedCorpusRefused = (mutate) => {
+    const forgedCorpus = structuredClone(first);
+    mutate(forgedCorpus);
+    assert.throws(
+      () => verifyQualityReadinessSourceDirectCorpus(forgedCorpus),
+      (error) => error.code === QUALITY_READINESS_SOURCE_CODES.CORPUS_INVALID,
+    );
+    assert.throws(
+      () => callQualityReadinessReadTool({ name: 'source_status', input: { source_corpus: forgedCorpus } }),
+      (error) => error.code === QUALITY_READINESS_MCP_CODES.REQUEST_INVALID,
+    );
+  };
+  assertForgedCorpusRefused((corpus) => { corpus.counts.total = 1; });
+  assertForgedCorpusRefused((corpus) => { corpus.derivation_sha256 = '0'.repeat(64); });
+  assertForgedCorpusRefused((corpus) => { [corpus.records[0], corpus.records[1]] = [corpus.records[1], corpus.records[0]]; });
+  assertForgedCorpusRefused((corpus) => { corpus.records[0].record_sha256 = '0'.repeat(64); });
+  assertForgedCorpusRefused((corpus) => { corpus.records[0].claim_ceiling = 'source_supported'; });
 });
 
 test('Q1-G2: direct-source admission requires separate pinned metadata, body, and status refs and preserves no source body', () => {
   const direct = syntheticDirectRecord();
   assert.equal(direct.claim_ceiling, 'observed');
   assert.equal(direct.direct_source_state, 'synthetic_direct_confirmed');
-  assert.equal(syntheticDirectRecord({ source_id: 'qr_official_direct_01', access_class: 'official_public' }).claim_ceiling, 'source_supported');
+  assert.equal(syntheticDirectRecord({ source_id: 'qr_official_direct_01', access_class: 'official_public' }).claim_ceiling, 'observed');
   assert.equal(verifyQualityReadinessDirectSourceRecord(direct).record_sha256, direct.record_sha256);
   const forged = structuredClone(direct);
   forged.record_sha256 = '0'.repeat(64);
@@ -149,6 +174,18 @@ test('Q1-G2: direct-source admission requires separate pinned metadata, body, an
       applicability_ceiling: 'unknown_hold',
     }),
     (error) => error.code === QUALITY_READINESS_SOURCE_CODES.DIRECT_RECORD_INVALID,
+  );
+});
+
+test('P1-A: corpus aggregate stays observed while its exact proof rows retain their individual ceiling', () => {
+  const corpus = sourceCorpus();
+  const proofRows = corpus.records.filter((record) => record.direct_source_state === 'proof_subset_packet_bound');
+  assert.equal(corpus.claim_ceiling, 'observed');
+  assert.equal(proofRows.length, 3);
+  assert.ok(proofRows.every((record) => record.claim_ceiling === 'source_supported'));
+  assert.equal(
+    callQualityReadinessReadTool({ name: 'source_status', input: { source_corpus: corpus } }).claim_ceiling,
+    'observed',
   );
 });
 
@@ -336,6 +373,134 @@ test('Q1 hardening: derived Profile source bindings refuse missing, downgraded, 
   assert.throws(
     () => evaluate(qualityReadinessAdapter, fixture.assembly, widenedClassification, {}),
     (error) => error.code === 'QUALITY_READINESS_PROFILE_SOURCE_REFUSED',
+  );
+});
+
+test('P1-C: a self-declared official Profile source remains observed and cannot promote itself', () => {
+  const fixture = buildQualityReadinessDeepeningPublicSynthetic();
+  const arbitraryOfficial = structuredClone(fixture.typed_facts);
+  Object.assign(arbitraryOfficial.assessment_context.binding.profile_source_bindings[0], {
+    access_class: 'official_public',
+    direct_source_state: 'direct_confirmed',
+    source_lane: 'official_public',
+    claim_ceiling: 'observed',
+  });
+  const observedResult = evaluate(qualityReadinessAdapter, fixture.assembly, arbitraryOfficial, {});
+  assert.equal(
+    observedResult.domain_result.results.find((row) => row.rule_id === 'QR-SYNTH-01').canon_claim_ceiling,
+    'observed',
+  );
+  const selfPromoted = structuredClone(arbitraryOfficial);
+  selfPromoted.assessment_context.binding.profile_source_bindings[0].claim_ceiling = 'source_supported';
+  assert.throws(
+    () => evaluate(qualityReadinessAdapter, fixture.assembly, selfPromoted, {}),
+    (error) => error.code === 'QUALITY_READINESS_PROFILE_SOURCE_REFUSED',
+  );
+});
+
+test('P1-C: proof-subset-looking Profile binding cannot self-promote without a package-owned pin contract', () => {
+  const proofRule = {
+    rule_id: 'QR-PROOF-01',
+    source_ref: 'S1-MIL-STD-1916',
+    source_locator: 'synthetic-proof-subset-locator',
+    source_modality: 'proof-subset source is still owner-review evidence only',
+    allowed_artifact_tokens: [null],
+    required_authority_families: ['project_contract_baseline'],
+    context_ref_fields: ['proof_scope_ref'],
+    sufficiency_fields: [],
+  };
+  const [profile] = resolveProfileBindings({
+    profile_kind: 'organization',
+    profile_id: 'qr_proof_subset_org_01',
+    domain_engine_id: 'quality_readiness',
+    revision_or_hash: 'r1',
+    extends_or_base_pin: 'quality_readiness_base_v0',
+    source_refs: ['S1-MIL-STD-1916'],
+    operations: [{ op: 'add', rule: proofRule }],
+    order: 0,
+  }, null);
+  const assembly = assembleEffectiveRuleSet(qualityReadinessAdapter, [profile], {
+    execution_lane: 'proof_subset_only',
+  });
+  const request = buildQualityReadinessPublicSyntheticRequest();
+  const proofSource = request.binding.source_bindings.find((binding) => binding.source_id === 'S1-MIL-STD-1916');
+  proofSource.metadata_revision_ref = qualityReadinessSyntheticRef('qr-proof-attacker-metadata', 'r1', '7');
+  proofSource.body_revision_ref = qualityReadinessSyntheticRef('qr-proof-attacker-body', 'r1', '8');
+  const stageRef = qualityReadinessSyntheticRef('qr-proof-subset-stage', 'r1', 'a');
+  request.binding.ruleset_ref = structuredClone(assembly.effective_rule_set.ruleset_ref);
+  request.binding.ruleset_revision = assembly.effective_rule_set.ruleset_ref.revision_id;
+  request.binding.profile_source_bindings = [{
+    source_id: 'S1-MIL-STD-1916',
+    source_ref: 'S1-MIL-STD-1916',
+    metadata_revision_ref: structuredClone(proofSource.metadata_revision_ref),
+    body_revision_ref: structuredClone(proofSource.body_revision_ref),
+    direct_derivation_ref: structuredClone(QUALITY_READINESS_SOURCE_PACKET_REF),
+    access_class: 'official_public',
+    direct_source_state: 'proof_subset_packet_bound',
+    source_lane: 'official_public',
+    claim_ceiling: 'source_supported',
+  }];
+  request.binding.accepted_rule_bindings.push({
+    rule_id: proofRule.rule_id,
+    stage_ref: structuredClone(stageRef),
+    owner_acceptance_ref: qualityReadinessSyntheticRef('qr-proof-subset-acceptance', 'r1', 'b'),
+  });
+  request.domain_input.rows.push({
+    case_id: 'PROFILE_PROOF_SUBSET_SATISFIED',
+    rule_id: proofRule.rule_id,
+    stage_ref: structuredClone(stageRef),
+    applicability: {
+      project_binding: true,
+      jurisdiction: true,
+      time_window: true,
+      document_revision: true,
+      approval_scope: true,
+    },
+    context_refs: {
+      proof_scope_ref: qualityReadinessSyntheticRef('qr-proof-subset-scope', 'r1', 'c'),
+    },
+    authority_bindings: [{
+      authority_family: 'project_contract_baseline',
+      role_ref: qualityReadinessSyntheticRef('qr-proof-subset-role', 'r1', 'd'),
+      delegation_ref: qualityReadinessSyntheticRef('qr-proof-subset-delegation', 'r1', 'e'),
+      decision_ref: qualityReadinessSyntheticRef('qr-proof-subset-decision', 'r1', 'f'),
+    }],
+    observation_attempted: true,
+    observation_attempt_ref: qualityReadinessSyntheticRef('qr-proof-subset-observation', 'r1', '1'),
+    presence_state: 'present',
+    evidence_refs: [qualityReadinessSyntheticRef('qr-proof-subset-evidence', 'r1', '2')],
+    artifact_token: null,
+    evaluation_result_ref: qualityReadinessSyntheticRef('qr-proof-subset-evaluation', 'r1', '3'),
+    evaluation_result_state: 'criteria_met',
+  });
+  const typedFacts = buildQualityReadinessTypedFacts({
+    request,
+    compilation_trace: assembly.compilation_trace,
+    valid_at: QUALITY_READINESS_DEEPENING_SYNTHETIC_INSTANT,
+    known_at: QUALITY_READINESS_DEEPENING_SYNTHETIC_INSTANT,
+  });
+  assert.throws(
+    () => evaluate(qualityReadinessAdapter, assembly, typedFacts, {}),
+    (error) => error.code === 'QUALITY_READINESS_PROFILE_SOURCE_REFUSED',
+  );
+  const observedRequest = structuredClone(request);
+  Object.assign(observedRequest.binding.profile_source_bindings[0], {
+    metadata_revision_ref: qualityReadinessSyntheticRef('qr-proof-observed-metadata', 'r1', '4'),
+    body_revision_ref: qualityReadinessSyntheticRef('qr-proof-observed-body', 'r1', '5'),
+    direct_derivation_ref: qualityReadinessSyntheticRef('qr-proof-observed-derivation', 'r1', '6'),
+    direct_source_state: 'direct_confirmed',
+    claim_ceiling: 'observed',
+  });
+  const observedTypedFacts = buildQualityReadinessTypedFacts({
+    request: observedRequest,
+    compilation_trace: assembly.compilation_trace,
+    valid_at: QUALITY_READINESS_DEEPENING_SYNTHETIC_INSTANT,
+    known_at: QUALITY_READINESS_DEEPENING_SYNTHETIC_INSTANT,
+  });
+  assert.equal(
+    evaluate(qualityReadinessAdapter, assembly, observedTypedFacts, {})
+      .domain_result.results.find((row) => row.rule_id === proofRule.rule_id).canon_claim_ceiling,
+    'observed',
   );
 });
 

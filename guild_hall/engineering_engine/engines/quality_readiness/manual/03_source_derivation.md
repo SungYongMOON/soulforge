@@ -15,6 +15,15 @@ rows remain `observed`, direct-confirmation-required, or `HOLD`. The vendor over
 explicitly excluded. `paid_or_controlled`, HWP/HWP-like, metadata-only, stale, and unresolved
 rows cannot become a direct record or an executable rule.
 
+Because the 56-row corpus contains observed/HOLD rows, its aggregate claim ceiling is
+`observed`. The three exact proof-subset rows retain their individual source-supported ceiling;
+they do not raise the whole corpus. A newly admitted direct record, including one labeled
+`official_public`, remains observed until it is matched to that exact accepted proof subset.
+
+That row-level proof support is not a Profile-evaluation promotion contract. Profile bindings
+remain observed until a separate package-owned exact metadata/body/status/locator binding is
+accepted by the Owner.
+
 An explicitly `public_synthetic` direct record is also `observed`, never `source_supported`.
 It exists only to exercise the zero-write pilot contract and cannot represent an official source
 or real-project authority.

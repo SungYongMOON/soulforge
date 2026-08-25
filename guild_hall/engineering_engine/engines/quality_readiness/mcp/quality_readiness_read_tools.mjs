@@ -4,6 +4,7 @@
 import types from 'node:util/types';
 
 import { ContractError } from '../../../core/validators/errors.mjs';
+import { verifyQualityReadinessSourceDirectCorpus } from '../source/quality_readiness_source_derivation.mjs';
 
 export const QUALITY_READINESS_MCP_SCHEMA = 'soulforge.quality_readiness.mcp.read_only.v0';
 export const QUALITY_READINESS_MCP_CODES = Object.freeze({
@@ -138,10 +139,11 @@ export function callQualityReadinessReadTool(request) {
   }
   if (name === 'source_status') {
     exactKeys(input, ['source_corpus'], 'source_status input');
-    const corpus = input.source_corpus;
-    if (!corpus || corpus.schema_version !== 'soulforge.quality_readiness.source_direct_corpus.v0'
-        || !Number.isSafeInteger(corpus.source_count) || !corpus.counts || typeof corpus.derivation_sha256 !== 'string') {
-      fail(QUALITY_READINESS_MCP_CODES.REQUEST_INVALID, 'source_status requires a source-direct corpus receipt');
+    let corpus;
+    try {
+      corpus = verifyQualityReadinessSourceDirectCorpus(input.source_corpus);
+    } catch {
+      fail(QUALITY_READINESS_MCP_CODES.REQUEST_INVALID, 'source_status requires the exact canonical 56-row source-direct corpus receipt');
     }
     return freezeDeep({
       schema_version: QUALITY_READINESS_MCP_SCHEMA,

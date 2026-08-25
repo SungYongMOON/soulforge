@@ -16,6 +16,12 @@ Every derived rule still needs an explicit sorted Owner acceptance binding and a
 direct source record. A missing/mixed/forged Profile source binding, stale Typed Facts digest, or
 trace mismatch fails closed; no RAG locator may satisfy that requirement.
 
+Self-declared official-public Profile bindings remain observed. Profile-level
+`source_supported` promotion is unavailable/HOLD for this slice, even when a caller names one of
+the three proof-subset IDs or supplies matching-looking refs. It requires a separately
+Owner-accepted package-owned metadata/body/status/locator binding contract; this package does
+not invent that authority.
+
 The public-synthetic lane is structurally separate: every Profile source binding must declare
 `source_lane: public_synthetic`, retain the `observed` claim ceiling, and run under a
 public-synthetic-only manifest classification. It cannot mix with official-public bindings or

@@ -2,17 +2,21 @@
 // stores, or emits source bodies. A catalog row is routing evidence only until a separately pinned
 // direct record passes the narrow admission function below.
 import types from 'node:util/types';
+import { isDeepStrictEqual } from 'node:util';
 
 import { canonicalise, compareCodePoints } from '../../../core/validators/canonical.mjs';
 import { ContractError } from '../../../core/validators/errors.mjs';
 import { sha256Hex } from '../../../core/validators/fingerprint.mjs';
 import { isWellFormedRef } from '../../../core/validators/identity.mjs';
 import { QUALITY_READINESS_SOURCE_PACKET_REF } from '../rules/quality_readiness_rules.mjs';
+import canonicalInventory from '../contracts/quality_readiness_public_source_inventory_candidate_v1.json' with { type: 'json' };
+import canonicalMatrix from '../contracts/quality_readiness_source_family_matrix_candidate_v1.json' with { type: 'json' };
 
 export const QUALITY_READINESS_SOURCE_CORPUS_SCHEMA = 'soulforge.quality_readiness.source_direct_corpus.v0';
 export const QUALITY_READINESS_DIRECT_SOURCE_SCHEMA = 'soulforge.quality_readiness.direct_source_record.v0';
 export const QUALITY_READINESS_SOURCE_CODES = Object.freeze({
   INVENTORY_INVALID: 'QUALITY_READINESS_SOURCE_INVENTORY_INVALID',
+  CORPUS_INVALID: 'QUALITY_READINESS_SOURCE_CORPUS_INVALID',
   DIRECT_RECORD_INVALID: 'QUALITY_READINESS_DIRECT_RECORD_INVALID',
   PUBLIC_BOUNDARY: 'QUALITY_READINESS_SOURCE_PUBLIC_BOUNDARY',
 });
@@ -194,6 +198,21 @@ function sourceRecord(inventorySource, matrixRow) {
   return record;
 }
 
+function aggregateCorpusClaimCeiling(records) {
+  const order = new Map([
+    ['observed', 0],
+    ['source_supported', 1],
+  ]);
+  let aggregate = 'source_supported';
+  for (const record of records) {
+    if (!order.has(record.claim_ceiling)) {
+      fail(QUALITY_READINESS_SOURCE_CODES.CORPUS_INVALID, 'source corpus record has an unknown canon claim ceiling');
+    }
+    if (order.get(record.claim_ceiling) < order.get(aggregate)) aggregate = record.claim_ceiling;
+  }
+  return aggregate;
+}
+
 function freezeDeep(value) {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
     for (const child of Object.values(value)) freezeDeep(child);
@@ -262,7 +281,7 @@ export function buildQualityReadinessSourceDirectCorpus({ inventory, matrix }) {
     source_count: records.length,
     inventory_sha256,
     matrix_sha256,
-    claim_ceiling: 'source_supported',
+    claim_ceiling: aggregateCorpusClaimCeiling(records),
     applicability_ceiling: 'unknown_hold',
     source_adoption: false,
     rule_acceptance: false,
@@ -278,6 +297,32 @@ export function buildQualityReadinessSourceDirectCorpus({ inventory, matrix }) {
   };
   corpus.derivation_sha256 = digest('soulforge.quality_readiness.source_direct_corpus.v0', corpus);
   return freezeDeep(corpus);
+}
+
+/**
+ * Reconstructs the one admitted 56-row public corpus from package-owned public inventory and
+ * matrix bytes, then accepts only byte-equivalent structured material. This closes shallow
+ * receipt substitution at the MCP boundary without reading customer/project/runtime state.
+ */
+export function verifyQualityReadinessSourceDirectCorpus(corpus) {
+  let copied;
+  try {
+    copied = copyPlain(corpus, 'source direct corpus');
+  } catch (error) {
+    if (error instanceof ContractError) {
+      fail(QUALITY_READINESS_SOURCE_CODES.CORPUS_INVALID, 'source direct corpus is malformed or crosses the public boundary');
+    }
+    throw error;
+  }
+  const expected = buildQualityReadinessSourceDirectCorpus({
+    inventory: canonicalInventory,
+    matrix: canonicalMatrix,
+  });
+  if (!isDeepStrictEqual(copied, expected)) {
+    fail(QUALITY_READINESS_SOURCE_CODES.CORPUS_INVALID,
+      'source direct corpus does not exactly match the canonical 56-row inventory/matrix derivation');
+  }
+  return expected;
 }
 
 function assertExactRef(ref, field) {
@@ -325,7 +370,7 @@ export function admitQualityReadinessDirectSource(input) {
     access_class: copied.access_class,
     direct_source_state: synthetic ? 'synthetic_direct_confirmed' : 'direct_confirmed',
     applicability_ceiling: 'unknown_hold',
-    claim_ceiling: synthetic ? 'observed' : 'source_supported',
+    claim_ceiling: 'observed',
     source_adoption: false,
     rule_acceptance: false,
     effects: {
