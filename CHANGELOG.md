@@ -7,6 +7,12 @@
   applicability, metadata/body separation, exact vocabulary mappings, and unresolved AQAP,
   DTaQ/DAPA, paid-body, project-contract, and vocabulary gaps remain explicit. Candidate rows are
   not adopted by their presence.
+- **Source/RAG strengthening candidate**: Added a sanitized 56-source official-public inventory,
+  an exact 56-row source-family classification, and an 11-source `Q-B1` direct-reading queue. All
+  11 existing private RAG indexes revalidated, but RAG remains navigation-only and every candidate
+  still requires direct official-body/status/revision confirmation. LIG/vendor/project material is
+  excluded from common-engine truth, and a two-file/one-extractor-status mismatch remains explicit
+  `UNKNOWN` rather than being normalized. No source or rule is adopted by these records.
 - **Deterministic E01 module**: Added one deep read-only entry point, a candidate rule pack,
   public-synthetic five-state fixture, stdout runner, and pre-release manifest factory. Execution
   requires exact engine/objective/policy/snapshot/source/rule-stage-Owner bindings, typed and

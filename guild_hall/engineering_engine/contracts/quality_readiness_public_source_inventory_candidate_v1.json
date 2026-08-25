@@ -1,0 +1,657 @@
+{
+  "schema_version": "soulforge.quality_readiness.public_source_inventory_candidate.v1",
+  "status": "candidate_input_only",
+  "source_count": 56,
+  "claim_ceiling": "observed",
+  "source_authority_created": false,
+  "generated_from": "owner_approved_public_source_manifest_projection",
+  "fields_excluded": [
+    "source_card_ref",
+    "ready_ref",
+    "derived_text_ref",
+    "derived_text_byte_count",
+    "notes",
+    "local_paths",
+    "source_bodies",
+    "chunks"
+  ],
+  "sources": [
+    {
+      "source_id": "dapa_quality_management_rule_law_20251017",
+      "title": "방위사업 품질관리 규정",
+      "publisher": "방위사업청 / 국가법령정보센터",
+      "official_url": "https://www.law.go.kr/LSW/admRulLsInfoP.do?admRulSeq=2100000265118",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "dapa_dqms_certification_management_guideline_law",
+      "title": "국방품질경영시스템 인증제도 관리지침",
+      "publisher": "방위사업청 / 국가법령정보센터",
+      "official_url": "https://www.law.go.kr/LSW/admRulInfoP.do?admRulSeq=3765",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "dapa_standardization_rule_law_20250916",
+      "title": "표준화 업무규정",
+      "publisher": "방위사업청 / 국가법령정보센터",
+      "official_url": "https://www.law.go.kr/LSW/admRulLsInfoP.do?admRulSeq=2100000264396",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "dapa_contract_special_conditions_law_20260102",
+      "title": "물품 제조·구매 계약특수조건 표준(일반 및 방산)",
+      "publisher": "방위사업청 / 국가법령정보센터",
+      "official_url": "https://www.law.go.kr/LSW/admRulLsInfoP.do?admRulSeq=2100000272212",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "dapa_dq_mark_notice_law_20240408",
+      "title": "DQ마크 인증제도 운영에 관한 고시",
+      "publisher": "방위사업청 / 국가법령정보센터",
+      "official_url": "https://www.law.go.kr/LSW/admRulInfoP.do?admRulSeq=2100000238974&chrClsCd=010201",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "kds_0050_9000_dqms_legacy_pdf",
+      "title": "KDS 0050-9000 국방품질경영체제 요구서",
+      "publisher": "e-나라 표준인증 / 국방규격",
+      "official_url": "https://standard.go.kr/KSCI/potcommon/dbFileDown.do?id=APOT2022031610521087&sn=1",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "dtaq_standardization_quality_certification_page",
+      "title": "DTaQ 표준화·품질인증 업무 소개",
+      "publisher": "국방기술품질원",
+      "official_url": "https://www.dtaq.re.kr/km/work/standard.jsp",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "dtaq_aqap_2110_certification_rule_20260521",
+      "title": "NATO 품질보증시스템(AQAP-2110) 인증업무 규정",
+      "publisher": "국방기술품질원",
+      "official_url": "https://www.dtaq.re.kr/km/doc/prescribed.jsp?mode=view&article_no=162891&board_wrapper=%2Fkm%2Fdoc%2Fprescribed.jsp&pager.offset=0&board_no=24",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 2,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed",
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "dtaq_weapon_system_rd_quality_instruction_20260114",
+      "title": "무기체계 연구개발단계 품질관리 업무지침",
+      "publisher": "국방기술품질원",
+      "official_url": "https://www.dtaq.re.kr/km/doc/prescribed.jsp?mode=view&article_no=162435&board_wrapper=%2Fkm%2Fdoc%2Fprescribed.jsp&pager.offset=20&board_no=24",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 2,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed",
+        "hwp_requires_hwpx_preprocessing"
+      ]
+    },
+    {
+      "source_id": "dtaq_munitions_quality_management_basic_rule_20251119",
+      "title": "군수품 품질경영 기본규정",
+      "publisher": "국방기술품질원",
+      "official_url": "https://www.dtaq.re.kr/km/doc/prescribed.jsp?mode=view&article_no=162153&board_wrapper=%2Fkm%2Fdoc%2Fprescribed.jsp&pager.offset=20&board_no=24",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 2,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed",
+        "hwp_requires_hwpx_preprocessing"
+      ]
+    },
+    {
+      "source_id": "dtaq_international_gqa_export_import_basic_rule_20251105",
+      "title": "국제품질보증협정 및 수출입 품질보증 기본규정",
+      "publisher": "국방기술품질원",
+      "official_url": "https://www.dtaq.re.kr/km/doc/prescribed.jsp?mode=view&article_no=162094&board_wrapper=%2Fkm%2Fdoc%2Fprescribed.jsp&pager.offset=30&board_no=24",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 2,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "dtaq_dqms_certification_business_rule_20220725",
+      "title": "국방품질경영체제 인증업무 규정",
+      "publisher": "국방기술품질원",
+      "official_url": "https://www.dtaq.re.kr/km/doc/prescribed.jsp?mode=view&article_no=156473&board_wrapper=%2Fkm%2Fdoc%2Fprescribed.jsp&pager.offset=100&board_no=24",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 2,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed",
+        "hwp_requires_hwpx_preprocessing"
+      ]
+    },
+    {
+      "source_id": "dtaq_aqap_2110_application_notice_2026",
+      "title": "NATO AQAP-2110 인증 신청 안내",
+      "publisher": "국방기술품질원",
+      "official_url": "https://dtaq.re.kr/_custom/dtaq/_common/board/download.jsp?attach_no=202323",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "kolas_g_005_iso_iec_17025_commentary_2025_law_pdf",
+      "title": "KOLAS-G-005 KS Q ISO/IEC 17025 해설서",
+      "publisher": "KOLAS / 국가법령정보센터",
+      "official_url": "https://law.go.kr/LSW/flDownload.do?bylClsCd=&flSeq=148327745",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "lig_nex1_sustainability_report_2024_public_context",
+      "title": "LIG넥스원 지속가능경영보고서 2024",
+      "publisher": "LIG넥스원",
+      "official_url": "https://www.ligdefenseaerospace.com/res/attachment/LIG%EB%84%A5%EC%8A%A4%EC%9B%90_%EC%A7%80%EC%86%8D%EA%B0%80%EB%8A%A5%EA%B2%BD%EC%98%81%EB%B3%B4%EA%B3%A0%EC%84%9C_2024_KOR.pdf",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "bundeswehr_aqap_overview_page",
+      "title": "AQAP - Quality Assurance Requirements of NATO",
+      "publisher": "Bundeswehr",
+      "official_url": "https://www.bundeswehr.de/en/organization/equipment/contract-award/quality-management/aqap-quality-assurance-requirements-nato",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "aqap_2110_italy_mod_official_pdf",
+      "title": "AQAP-2110 NATO Quality Assurance Requirements for Design, Development and Production",
+      "publisher": "Italian Ministry of Defence",
+      "official_url": "https://www.difesa.it/assets/allegati/34116/aqap-2110_edd_v1_e.pdf",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "aqap_2105_italy_mod_official_pdf",
+      "title": "AQAP-2105 NATO Requirements for Deliverable Quality Plans",
+      "publisher": "Italian Ministry of Defence",
+      "official_url": "https://www.difesa.it/assets/allegati/34116/aqap-2105_edc_v1_e.2024.04.10.13.07.34.743.pdf",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "aqap_2131_italy_mod_official_pdf",
+      "title": "AQAP-2131 NATO Quality Assurance Requirements for Final Inspection and Test",
+      "publisher": "Italian Ministry of Defence",
+      "official_url": "https://www.difesa.it/assets/allegati/34116/aqap_2131_edc_v1_e.pdf",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "far_part_46_quality_assurance",
+      "title": "FAR Part 46 - Quality Assurance",
+      "publisher": "Acquisition.gov",
+      "official_url": "https://www.acquisition.gov/far/part-46",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "dfars_part_246_quality_assurance",
+      "title": "DFARS Part 246 - Quality Assurance",
+      "publisher": "Acquisition.gov",
+      "official_url": "https://www.acquisition.gov/dfars/part-246-quality-assurance",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "dfars_252_246_7007_counterfeit_electronic_parts",
+      "title": "DFARS 252.246-7007 Contractor Counterfeit Electronic Part Detection and Avoidance System",
+      "publisher": "Acquisition.gov",
+      "official_url": "https://www.acquisition.gov/dfars/252.246-7007-contractor-counterfeit-electronic-part-detection-and-avoidance-system.",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "dfars_252_246_7008_sources_electronic_parts",
+      "title": "DFARS 252.246-7008 Sources of Electronic Parts",
+      "publisher": "Acquisition.gov",
+      "official_url": "https://www.acquisition.gov/dfars/252.246-7008-sources-electronic-parts.",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "dodi_4140_67_counterfeit_prevention",
+      "title": "DoDI 4140.67 DoD Counterfeit Prevention Policy",
+      "publisher": "DoD Executive Services Directorate",
+      "official_url": "https://www.esd.whs.mil/Portals/54/Documents/DD/issuances/dodi/414067p.pdf",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "dodi_5200_49_gidep",
+      "title": "DoDI 5200.49 GIDEP",
+      "publisher": "DoD Executive Services Directorate",
+      "official_url": "https://www.esd.whs.mil/Portals/54/Documents/DD/issuances/dodi/520049p.PDF",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "dodi_8320_04_iuid",
+      "title": "DoDI 8320.04 Item Unique Identification Standards",
+      "publisher": "DoD Executive Services Directorate",
+      "official_url": "https://www.esd.whs.mil/Portals/54/Documents/DD/issuances/dodi/832004p.pdf",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "dodi_5000_88_engineering_das",
+      "title": "DoDI 5000.88 Engineering of Defense Systems",
+      "publisher": "DoD Executive Services Directorate",
+      "official_url": "https://www.esd.whs.mil/Portals/54/Documents/DD/issuances/dodi/500088p.PDF",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "dodi_5000_87_software_acquisition",
+      "title": "DoDI 5000.87 Operation of the Software Acquisition Pathway",
+      "publisher": "DoD Executive Services Directorate",
+      "official_url": "https://www.esd.whs.mil/Portals/54/Documents/DD/issuances/dodi/500087p.PDF",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "dodm_5010_12_m_daps",
+      "title": "DoDM 5010.12-M Procedures for the Acquisition and Management of Technical Data",
+      "publisher": "DoD Executive Services Directorate",
+      "official_url": "https://www.esd.whs.mil/Portals/54/Documents/DD/issuances/dodm/501012p.pdf",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "uk_mod_quality_cm_pocket_guide_2024",
+      "title": "Quality and Configuration Management in Your Pocket 2024",
+      "publisher": "UK Ministry of Defence",
+      "official_url": "https://assets.publishing.service.gov.uk/media/669fc3bc0808eaf43b50d57f/20240517_-_Quality_and_CM_in_Your_Pocket_2024.pdf",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "nasa_std_8739_1_workmanship_polymeric",
+      "title": "NASA-STD-8739.1 Workmanship Standard for Polymeric Application on Electronic Assemblies",
+      "publisher": "NASA Technical Standards System",
+      "official_url": "https://standards.nasa.gov/standard/nasa/nasa-std-87391",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 2,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed",
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "nasa_std_8739_2_surface_mount",
+      "title": "NASA-STD-8739.2 Workmanship Standard for Surface Mount Technology",
+      "publisher": "NASA Technical Standards System",
+      "official_url": "https://standards.nasa.gov/standard/nasa/nasa-std-87392",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "nasa_std_8739_3_soldered_connections",
+      "title": "NASA-STD-8739.3 Soldered Electrical Connections",
+      "publisher": "NASA Technical Standards System",
+      "official_url": "https://standards.nasa.gov/standard/nasa/nasa-std-87393",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "nasa_std_8739_4_crimp_cable_harness",
+      "title": "NASA-STD-8739.4 Crimping, Interconnecting Cables, Harnesses, and Wiring",
+      "publisher": "NASA Technical Standards System",
+      "official_url": "https://standards.nasa.gov/standard/nasa/nasa-std-87394",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 2,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed",
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "nasa_std_8739_5_fiber_optic",
+      "title": "NASA-STD-8739.5 Fiber Optic Terminations, Cable Assemblies, and Installation",
+      "publisher": "NASA Technical Standards System",
+      "official_url": "https://standards.nasa.gov/standard/nasa/nasa-std-87395",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 2,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed",
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "nasa_std_8739_6_workmanship_implementation",
+      "title": "NASA-STD-8739.6 Implementation Requirements for NASA Workmanship Standards",
+      "publisher": "NASA Technical Standards System",
+      "official_url": "https://standards.nasa.gov/standard/nasa/nasa-std-87396",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 2,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed",
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "nasa_std_8739_7_esd_control",
+      "title": "NASA-STD-8739.7 Electrostatic Discharge Control",
+      "publisher": "NASA Technical Standards System",
+      "official_url": "https://standards.nasa.gov/standard/nasa/nasa-std-87397",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "mil_std_1916_acceptance_product",
+      "title": "MIL-STD-1916 DOD Preferred Methods for Acceptance of Product",
+      "publisher": "Defense Logistics Agency ASSIST Quick Search",
+      "official_url": "https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=120287",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 4,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed",
+        "machine_extracted_unreviewed",
+        "machine_extracted_unreviewed",
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "mil_hdbk_61_configuration_management",
+      "title": "MIL-HDBK-61 Configuration Management Guidance",
+      "publisher": "Defense Logistics Agency ASSIST Quick Search",
+      "official_url": "https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=202239",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 2,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed",
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "mil_std_31000_technical_data_packages",
+      "title": "MIL-STD-31000 Technical Data Packages",
+      "publisher": "Defense Logistics Agency ASSIST Quick Search",
+      "official_url": "https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=276980",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 2,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed",
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "mil_std_130_identification_marking",
+      "title": "MIL-STD-130 Identification Marking of U.S. Military Property",
+      "publisher": "Defense Logistics Agency ASSIST Quick Search",
+      "official_url": "https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=35521",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 2,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed",
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "mil_std_129_shipment_storage_marking",
+      "title": "MIL-STD-129 Military Marking for Shipment and Storage",
+      "publisher": "Defense Logistics Agency ASSIST Quick Search",
+      "official_url": "https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=35520",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 2,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed",
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "mil_std_961_defense_specs_format",
+      "title": "MIL-STD-961 Defense and Program-Unique Specifications Format and Content",
+      "publisher": "Defense Logistics Agency ASSIST Quick Search",
+      "official_url": "https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=36063",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 2,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed",
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "mil_std_962_defense_standards_format",
+      "title": "MIL-STD-962 Defense Standards Format and Content",
+      "publisher": "Defense Logistics Agency ASSIST Quick Search",
+      "official_url": "https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=36064",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 2,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed",
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "mil_hdbk_245_statement_of_work",
+      "title": "MIL-HDBK-245 Preparation of Statement of Work",
+      "publisher": "Defense Logistics Agency ASSIST Quick Search",
+      "official_url": "https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=53962",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 2,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed",
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "sd_15_performance_spec_guide",
+      "title": "SD-15 Guide for Performance Specifications",
+      "publisher": "Defense Logistics Agency ASSIST Quick Search",
+      "official_url": "https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=116314",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 2,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed",
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "mil_std_1686_esd_control_legacy",
+      "title": "MIL-STD-1686 Electrostatic Discharge Control Program for Protection of Electrical and Electronic Parts, Assemblies and Equipment",
+      "publisher": "Defense Logistics Agency ASSIST Quick Search",
+      "official_url": "https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=37095",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 2,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed",
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "mil_hdbk_263_esd_control_legacy",
+      "title": "MIL-HDBK-263 Electrostatic Discharge Control Handbook",
+      "publisher": "Defense Logistics Agency ASSIST Quick Search",
+      "official_url": "https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=53974",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 2,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed",
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "aqap_4107_edstar_metadata",
+      "title": "AQAP-4107 Mutual Acceptance of Government Quality Assurance and Usage of the Allied Quality Assurance Publications",
+      "publisher": "European Defence Agency EDSTAR",
+      "official_url": "https://edstar.eda.europa.eu/api/Standards/b1bfc039-b238-4807-83c1-5829955cd462",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "aqap_2000_edstar_metadata",
+      "title": "AQAP-2000 NATO Policy on an Integrated Systems Approach to Quality Through the Life Cycle",
+      "publisher": "European Defence Agency EDSTAR",
+      "official_url": "https://edstar.eda.europa.eu/api/Standards/71dfd6c0-306c-4784-8ed7-e2f0d1ee8c3c",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "aqap_2070_edstar_metadata",
+      "title": "AQAP-2070 NATO Mutual Government Quality Assurance Process",
+      "publisher": "European Defence Agency EDSTAR",
+      "official_url": "https://edstar.eda.europa.eu/api/Standards/eeb9727b-af7e-4d28-9082-613dcebcd10b",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "aqap_2105_edstar_metadata",
+      "title": "AQAP-2105 NATO Requirements for Deliverable Quality Plans",
+      "publisher": "European Defence Agency EDSTAR",
+      "official_url": "https://edstar.eda.europa.eu/api/Standards/4639b948-8f71-4501-9d8f-4aef1520b4c2",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "aqap_2110_edstar_metadata",
+      "title": "AQAP-2110 NATO Quality Assurance Requirements for Design, Development and Production",
+      "publisher": "European Defence Agency EDSTAR",
+      "official_url": "https://edstar.eda.europa.eu/api/Standards/aad7da24-5ab4-419c-a2c6-e7b3835f8fa1",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "aqap_2131_edstar_metadata",
+      "title": "AQAP-2131 NATO Quality Assurance Requirements for Final Inspection and Test",
+      "publisher": "European Defence Agency EDSTAR",
+      "official_url": "https://edstar.eda.europa.eu/api/Standards/177de0f3-b0c8-461b-9437-9cb6aa3c2a6f",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "aqap_2210_edstar_metadata",
+      "title": "AQAP-2210 NATO Supplementary Software Quality Assurance Requirements",
+      "publisher": "European Defence Agency EDSTAR",
+      "official_url": "https://edstar.eda.europa.eu/api/Standards/051c90bb-0b10-48a2-8568-2fe744777630",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    },
+    {
+      "source_id": "aqap_2310_edstar_metadata",
+      "title": "AQAP-2310 NATO Quality Management System Requirements for Aviation, Space and Defence Suppliers",
+      "publisher": "European Defence Agency EDSTAR",
+      "official_url": "https://edstar.eda.europa.eu/api/Standards/fe6ea7cd-2cf5-421b-8b60-966812193fbf",
+      "status": "downloaded_and_prepared",
+      "source_file_count": 1,
+      "extractor_statuses": [
+        "machine_extracted_unreviewed"
+      ]
+    }
+  ]
+}

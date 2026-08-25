@@ -16,3 +16,4 @@ Read the shared chassis first: [../README.md](../README.md).
 10. [Observation boundary](10_observation_boundary.md)
 11. [Guidance boundary](11_guidance_boundary.md)
 12. [Integration door](12_integration_door.md)
+Appendix A. [Source/RAG/derivation strengthening contract v0](appendix_a_source_rag_derivation_strengthening_v0.md)
