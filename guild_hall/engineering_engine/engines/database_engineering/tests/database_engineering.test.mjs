@@ -78,6 +78,8 @@ function recloseDerivedWrapper(wrapper) {
   };
   const clean = withoutNulls(ruleset);
   const coreDigest = sha256Hex(`soulforge.effective_rule_set.v0\n${canonicalise(clean, arrayOrderRules(clean))}`);
+  wrapper.rule_count = ruleset.rules.length;
+  wrapper.compilation_trace.rule_count = ruleset.rules.length;
   wrapper.assembly_digest = coreDigest;
   wrapper.compilation_trace.effective_ruleset_digest = coreDigest;
   return wrapper;
@@ -381,7 +383,7 @@ test('a Core Profile-added rule is compiled with provenance and evaluated end-to
   });
   input.evidence.observations.push({
     rule_id: derivedRuleId,
-    evidence_key: 'retention_proof',
+    evidence_key: 'profile_advisory_retention_proof',
     status: 'supported',
     evidence_ref: `ref:${projectId}:evidence:${derivedRuleId}`,
     machine_observable: true,
@@ -410,7 +412,7 @@ test('a Core Profile-added rule is compiled with provenance and evaluated end-to
         source_locator: 'synthetic retention requirement',
         source_authority: 'profile_declared',
         claim_ceiling: 'observed',
-        evidence_key: 'retention_proof',
+        evidence_key: 'profile_advisory_retention_proof',
       },
     }],
   };
@@ -431,6 +433,13 @@ test('a Core Profile-added rule is compiled with provenance and evaluated end-to
   overclaimedProfile.operations[0].rule.source_authority = 'inventory_anchored';
   overclaimedProfile.operations[0].rule.claim_ceiling = 'source_supported';
   assert.throws(() => run(input, [overclaimedProfile]), (error) => error.code === 'DBE_OPERATION_INVALID');
+
+  const invalidProfileAxis = structuredClone(organizationProfile);
+  invalidProfileAxis.operations[0].rule.axis = 'outside_database_vocabulary';
+  assert.throws(() => run(input, [invalidProfileAxis]), (error) => error.code === 'DBE_OPERATION_INVALID');
+  const invalidProfileEvidenceKey = structuredClone(organizationProfile);
+  invalidProfileEvidenceKey.operations[0].rule.evidence_key = 'retention_proof';
+  assert.throws(() => run(input, [invalidProfileEvidenceKey]), (error) => error.code === 'DBE_OPERATION_INVALID');
 
   const tamperedHardDerived = structuredClone(compiled.effective.effective_rule_set);
   tamperedHardDerived.rules.find((rule) => rule.rule_id === derivedRuleId).kind = 'hard_technical';
@@ -509,6 +518,206 @@ test('a Core Profile-added rule is compiled with provenance and evaluated end-to
   const duplicateTrace = recloseDerivedWrapper(structuredClone(compiled.effective));
   duplicateTrace.compilation_trace.profiles.push(structuredClone(duplicateTrace.compilation_trace.profiles[0]));
   assert.throws(() => evaluateDatabaseEngineering(duplicateTrace, compiled.facts), (error) => error.code === 'DBE_SOURCE_TAMPERED' && /duplicate profile identity/.test(error.message));
+
+  const legitimateReclosed = recloseDerivedWrapper(structuredClone(compiled.effective));
+  const legitimateReclosedResult = evaluateDatabaseEngineering(legitimateReclosed, compiled.facts);
+  assert.equal(rulesetSchema(legitimateReclosed.effective_rule_set), true, JSON.stringify(rulesetSchema.errors));
+  assert.equal(evaluationSchema(legitimateReclosedResult), true, JSON.stringify(evaluationSchema.errors));
+
+  const provenanceCases = [
+    { label: 'profile_kind', mutate: (provenance) => { provenance.profile_kind = 'team'; } },
+    { label: 'profile_id', mutate: (provenance) => { provenance.profile_id = ''; }, recomputeItem: true },
+    { label: 'revision_or_hash', mutate: (provenance) => { provenance.revision_or_hash = ''; }, recomputeItem: true },
+    { label: 'extends_or_base_pin', mutate: (provenance) => { provenance.extends_or_base_pin = ''; } },
+    { label: 'operation_digest', mutate: (provenance) => { provenance.operation_digest = 'x'; }, recomputeItem: true },
+    {
+      label: 'source_refs',
+      mutate: (provenance, wrapper) => {
+        provenance.source_refs = [];
+        wrapper.effective_rule_set.rules.find((row) => row.rule_id === derivedRuleId).source_refs = [];
+      },
+    },
+    {
+      label: 'source_refs',
+      mutate: (provenance, wrapper) => {
+        provenance.source_refs = [''];
+        wrapper.effective_rule_set.rules.find((row) => row.rule_id === derivedRuleId).source_refs = [''];
+      },
+    },
+    { label: 'order', mutate: (provenance) => { provenance.order = 2; } },
+    { label: 'order', mutate: (provenance) => { provenance.order = '0'; } },
+    { label: 'operation_index', mutate: (provenance) => { provenance.operation_index = -1; }, recomputeItem: true },
+    { label: 'operation_index', mutate: (provenance) => { provenance.operation_index = '0'; }, recomputeItem: true },
+    { label: 'operation_index', mutate: (provenance) => { provenance.operation_index = 1; }, recomputeItem: true },
+    { label: 'operation_item_digest', mutate: (provenance) => { provenance.operation_item_digest = 'x'; } },
+    { label: 'closed key set', mutate: (provenance) => { provenance.unapproved_field = true; } },
+  ];
+  for (const entry of provenanceCases) {
+    const mutated = recloseDerivedWrapper(structuredClone(compiled.effective));
+    const mutatedProvenance = mutated.effective_rule_set.profile_rule_provenance[derivedRuleId];
+    entry.mutate(mutatedProvenance, mutated);
+    if (entry.recomputeItem) {
+      mutatedProvenance.operation_item_digest = calculateDatabaseProfileOperationItemDigest(mutatedProvenance, derivedRuleId);
+    }
+    recloseDerivedWrapper(mutated);
+    assert.throws(
+      () => evaluateDatabaseEngineering(mutated, compiled.facts),
+      (error) => error.code === 'DBE_RULESET_INVALID' && error.message.includes(entry.label),
+      entry.label,
+    );
+  }
+
+  const malformedCoreProfileTrace = recloseDerivedWrapper(structuredClone(compiled.effective));
+  malformedCoreProfileTrace.compilation_trace.profiles[0].unapproved_field = true;
+  assert.throws(() => evaluateDatabaseEngineering(malformedCoreProfileTrace, compiled.facts), (error) => error.code === 'DBE_RULESET_INVALID' && /Core compilation trace profile/.test(error.message));
+  const fullyReclosedInvalidDigest = recloseDerivedWrapper(structuredClone(compiled.effective));
+  const invalidDigestProvenance = fullyReclosedInvalidDigest.effective_rule_set.profile_rule_provenance[derivedRuleId];
+  invalidDigestProvenance.operation_digest = 'x';
+  invalidDigestProvenance.operation_item_digest = calculateDatabaseProfileOperationItemDigest(invalidDigestProvenance, derivedRuleId);
+  fullyReclosedInvalidDigest.compilation_trace.profiles[0].operation_digest = 'x';
+  fullyReclosedInvalidDigest.compilation_trace.organization_trace.operation_digest = 'x';
+  recloseDerivedWrapper(fullyReclosedInvalidDigest);
+  assert.throws(() => evaluateDatabaseEngineering(fullyReclosedInvalidDigest, compiled.facts), (error) => error.code === 'DBE_RULESET_INVALID' && /Core compilation trace profile/.test(error.message));
+  const projectionMismatch = recloseDerivedWrapper(structuredClone(compiled.effective));
+  projectionMismatch.compilation_trace.organization_trace.profile_id = 'forged_profile';
+  assert.throws(() => evaluateDatabaseEngineering(projectionMismatch, compiled.facts), (error) => error.code === 'DBE_SOURCE_TAMPERED' && /trace projection/.test(error.message));
+
+  const validFormatTraceMismatch = recloseDerivedWrapper(structuredClone(compiled.effective));
+  const mismatchProvenance = validFormatTraceMismatch.effective_rule_set.profile_rule_provenance[derivedRuleId];
+  mismatchProvenance.extends_or_base_pin = 'other-pin';
+  mismatchProvenance.operation_item_digest = calculateDatabaseProfileOperationItemDigest(mismatchProvenance, derivedRuleId);
+  recloseDerivedWrapper(validFormatTraceMismatch);
+  assert.throws(() => evaluateDatabaseEngineering(validFormatTraceMismatch, compiled.facts), (error) => error.code === 'DBE_SOURCE_TAMPERED' && /does not match Core compilation trace/.test(error.message));
+
+  const derivedRuleCases = [
+    {
+      label: 'rule_id',
+      mutate: (wrapper) => {
+        const rule = wrapper.effective_rule_set.rules.find((row) => row.rule_id === derivedRuleId);
+        const provenance = wrapper.effective_rule_set.profile_rule_provenance[derivedRuleId];
+        const invalidRuleId = `${derivedRuleId}_`;
+        rule.rule_id = invalidRuleId;
+        provenance.operation_item_digest = calculateDatabaseProfileOperationItemDigest(provenance, invalidRuleId);
+        delete wrapper.effective_rule_set.profile_rule_provenance[derivedRuleId];
+        wrapper.effective_rule_set.profile_rule_provenance[invalidRuleId] = provenance;
+      },
+    },
+    { label: 'axis', mutate: (wrapper) => { wrapper.effective_rule_set.rules.find((row) => row.rule_id === derivedRuleId).axis = ''; } },
+    { label: 'axis', mutate: (wrapper) => { wrapper.effective_rule_set.rules.find((row) => row.rule_id === derivedRuleId).axis = 'outside_database_vocabulary'; } },
+    { label: 'kind', mutate: (wrapper) => { wrapper.effective_rule_set.rules.find((row) => row.rule_id === derivedRuleId).kind = 'other'; } },
+    { label: 'platforms', mutate: (wrapper) => { wrapper.effective_rule_set.rules.find((row) => row.rule_id === derivedRuleId).platforms = []; } },
+    { label: 'platforms', mutate: (wrapper) => { wrapper.effective_rule_set.rules.find((row) => row.rule_id === derivedRuleId).platforms = ['oracle']; } },
+    { label: 'source_refs', mutate: (wrapper) => { wrapper.effective_rule_set.rules.find((row) => row.rule_id === derivedRuleId).source_refs = []; } },
+    { label: 'source_refs', mutate: (wrapper) => { wrapper.effective_rule_set.rules.find((row) => row.rule_id === derivedRuleId).source_refs = ['']; } },
+    { label: 'source_locator', mutate: (wrapper) => { wrapper.effective_rule_set.rules.find((row) => row.rule_id === derivedRuleId).source_locator = ''; } },
+    { label: 'source_authority', mutate: (wrapper) => { wrapper.effective_rule_set.rules.find((row) => row.rule_id === derivedRuleId).source_authority = 'other'; } },
+    { label: 'claim_ceiling', mutate: (wrapper) => { wrapper.effective_rule_set.rules.find((row) => row.rule_id === derivedRuleId).claim_ceiling = 'other'; } },
+    { label: 'evidence_key', mutate: (wrapper) => { wrapper.effective_rule_set.rules.find((row) => row.rule_id === derivedRuleId).evidence_key = ''; } },
+    { label: 'evidence_key', mutate: (wrapper) => { wrapper.effective_rule_set.rules.find((row) => row.rule_id === derivedRuleId).evidence_key = 'retention_proof'; } },
+  ];
+  for (const entry of derivedRuleCases) {
+    const mutated = recloseDerivedWrapper(structuredClone(compiled.effective));
+    entry.mutate(mutated);
+    recloseDerivedWrapper(mutated);
+    assert.equal(rulesetSchema(mutated.effective_rule_set), false, entry.label);
+    assert.throws(
+      () => evaluateDatabaseEngineering(mutated, compiled.facts),
+      (error) => error.code === 'DBE_RULESET_INVALID' && error.message.includes(entry.label),
+      entry.label,
+    );
+  }
+
+  const duplicateProfileOperation = recloseDerivedWrapper(structuredClone(compiled.effective));
+  const duplicateRuleId = 'DBE-PROFILE-RETENTION-002';
+  const duplicateRule = structuredClone(duplicateProfileOperation.effective_rule_set.rules.find((row) => row.rule_id === derivedRuleId));
+  const duplicateProvenance = structuredClone(duplicateProfileOperation.effective_rule_set.profile_rule_provenance[derivedRuleId]);
+  duplicateRule.rule_id = duplicateRuleId;
+  duplicateProvenance.operation_item_digest = calculateDatabaseProfileOperationItemDigest(duplicateProvenance, duplicateRuleId);
+  duplicateProfileOperation.effective_rule_set.rules.push(duplicateRule);
+  duplicateProfileOperation.effective_rule_set.rules.sort((left, right) => left.rule_id.localeCompare(right.rule_id));
+  duplicateProfileOperation.effective_rule_set.profile_rule_provenance[duplicateRuleId] = duplicateProvenance;
+  recloseDerivedWrapper(duplicateProfileOperation);
+  assert.equal(rulesetSchema(duplicateProfileOperation.effective_rule_set), true, JSON.stringify(rulesetSchema.errors));
+  assert.throws(() => evaluateDatabaseEngineering(duplicateProfileOperation, compiled.facts), (error) => error.code === 'DBE_RULESET_INVALID' && /duplicates a Profile operation identity/.test(error.message));
+
+  const forgedAppliedOperationCount = recloseDerivedWrapper(structuredClone(compiled.effective));
+  forgedAppliedOperationCount.compilation_trace.profiles[0].applied_operations_count = 2;
+  forgedAppliedOperationCount.compilation_trace.organization_trace.applied_operations_count = 2;
+  recloseDerivedWrapper(forgedAppliedOperationCount);
+  assert.throws(() => evaluateDatabaseEngineering(forgedAppliedOperationCount, compiled.facts), (error) => error.code === 'DBE_SOURCE_TAMPERED' && /applied operation counts/.test(error.message));
+});
+
+test('aggregate trace closure accepts zero-operation organization provenance beside one project operation', () => {
+  const input = buildSqlitePublicSyntheticInput();
+  const projectId = input.binding.project_id;
+  const derivedRuleId = 'DBE-PROFILE-PROJECT-RETENTION-001';
+  const evidenceKey = 'profile_advisory_project_retention';
+  input.evidence.requirements.push({
+    project_id: projectId,
+    rule_id: derivedRuleId,
+    requirement_id: `${projectId}:REQ:${derivedRuleId}`,
+    authority_ref: `ref:${projectId}:authority:${derivedRuleId}`,
+  });
+  input.evidence.observations.push({
+    project_id: projectId,
+    rule_id: derivedRuleId,
+    evidence_key: evidenceKey,
+    status: 'supported',
+    evidence_ref: `ref:${projectId}:evidence:${derivedRuleId}`,
+    machine_observable: true,
+  });
+  input.binding.authority_bindings.push({ rule_id: derivedRuleId, authority_ref: `ref:${projectId}:authority:${derivedRuleId}`, source_manifest_ref: `ref:${projectId}:source-manifest` });
+  input.binding.evidence_bindings.push({ rule_id: derivedRuleId, evidence_ref: `ref:${projectId}:evidence:${derivedRuleId}`, source_manifest_ref: `ref:${projectId}:source-manifest` });
+  input.binding.authority_bindings.sort((left, right) => left.rule_id.localeCompare(right.rule_id));
+  input.binding.evidence_bindings.sort((left, right) => left.rule_id.localeCompare(right.rule_id));
+  input.binding.evidence_ref_allowlist.push(`ref:${projectId}:evidence:${derivedRuleId}`);
+  input.binding.evidence_ref_allowlist.sort();
+
+  const organizationProfile = {
+    profile_id: 'org_dbe_zero_ops',
+    domain_engine_id: 'database_engineering',
+    revision_or_hash: 'org-zero-r1',
+    extends_or_base_pin: 'database_engineering:v0',
+    source_refs: [`ref:${projectId}:profile:org-zero`],
+    operations: [],
+  };
+  const projectProfile = {
+    profile_id: 'project_dbe_one_op',
+    domain_engine_id: 'database_engineering',
+    revision_or_hash: 'project-one-r1',
+    extends_or_base_pin: 'org_dbe_zero_ops',
+    source_refs: [`ref:${projectId}:profile:project-one`],
+    operations: [{
+      op: 'add',
+      rule: {
+        rule_id: derivedRuleId,
+        axis: 'data_quality_governance_retention_retirement',
+        kind: 'advisory',
+        platforms: ['common'],
+        source_refs: [`ref:${projectId}:profile:project-one`],
+        source_locator: 'synthetic project retention requirement',
+        source_authority: 'profile_declared',
+        claim_ceiling: 'observed',
+        evidence_key: evidenceKey,
+      },
+    }],
+  };
+  const compiled = run(input, [organizationProfile, projectProfile]);
+  assert.deepEqual(compiled.effective.compilation_trace.profiles.map((trace) => ({ kind: trace.profile_kind, order: trace.order, count: trace.applied_operations_count })), [
+    { kind: 'organization', order: 0, count: 0 },
+    { kind: 'project', order: 1, count: 1 },
+  ]);
+  assert.equal(compiled.effective.rule_count, DATABASE_ENGINEERING_RULES.length + 1);
+  assert.equal(compiled.effective.effective_rule_set.profile_rule_provenance[derivedRuleId].profile_kind, 'project');
+  assert.equal(compiled.effective.effective_rule_set.profile_rule_provenance[derivedRuleId].operation_index, 0);
+  assert.equal(resultFor(compiled.result, derivedRuleId).state, DATABASE_GAP_STATE.SATISFIED);
+  assert.doesNotThrow(() => evaluateDatabaseEngineering(compiled.effective, compiled.facts));
+
+  const forgedProjectCount = recloseDerivedWrapper(structuredClone(compiled.effective));
+  forgedProjectCount.compilation_trace.profiles.find((trace) => trace.profile_kind === 'project').applied_operations_count = 2;
+  forgedProjectCount.compilation_trace.project_trace.applied_operations_count = 2;
+  recloseDerivedWrapper(forgedProjectCount);
+  assert.throws(() => evaluateDatabaseEngineering(forgedProjectCount, compiled.facts), (error) => error.code === 'DBE_SOURCE_TAMPERED' && /applied operation counts/.test(error.message));
 });
 
 test('typed facts reject hostile proxy, accessor, cycle, alias, and cross-project evidence before evaluation', () => {
@@ -576,6 +785,19 @@ test('evaluator fails closed on base omission, order drift, forged ruleset ident
     operations: [{ op: 'disable', rule_id: 'DBE-SQLITE-FK-CONNECTION-001' }],
   };
   assert.throws(() => assembleEffectiveRuleSet(databaseEngineeringAdapter, resolveProfileBindings(disableProfile), {}), (error) => error.code === 'DBE_OPERATION_INVALID');
+});
+
+test('evaluator rejects hostile non-string rule IDs before ordering or base membership checks', () => {
+  const subject = run(buildSqlitePublicSyntheticInput());
+  for (const [index, value] of [[0, 0], [1, false], [2, {}], [3, []]]) {
+    const malformed = structuredClone(subject.effective.effective_rule_set);
+    malformed.rules[index].rule_id = value;
+    assert.throws(
+      () => evaluateDatabaseEngineering(malformed, subject.facts),
+      (error) => error.code === 'DBE_RULESET_INVALID' && error.message.includes(`effective rule ${index} rule_id is invalid`),
+      `hostile rule ID at ${index}`,
+    );
+  }
 });
 
 test('project authority and evidence refs are exact per-rule binding members, not substring hints', () => {

@@ -24,6 +24,9 @@ export const DATABASE_EVIDENCE_STATUS = Object.freeze([
 
 export const DATABASE_PLATFORM_FAMILIES = Object.freeze(['sqlite', 'postgresql']);
 export const DATABASE_RULE_KINDS = Object.freeze(['hard_technical', 'advisory']);
+// Profile-declared advisory rules are intentionally separated from package analyzer keys.
+// Their closed token grammar prevents an arbitrary caller string becoming a new domain key.
+export const DATABASE_PROFILE_ADVISORY_EVIDENCE_KEY_PATTERN = '^profile_advisory_[a-z][a-z0-9_]{0,63}$';
 export const DATABASE_SOURCE_AUTHORITY = Object.freeze([
   'inventory_anchored',
   'project_bound',

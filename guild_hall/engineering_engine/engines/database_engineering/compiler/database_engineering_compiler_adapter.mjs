@@ -4,6 +4,7 @@ import { sha256Hex } from '../../../core/validators/fingerprint.mjs';
 import { ContractError } from '../../../core/validators/errors.mjs';
 import {
   DATABASE_ENGINE_ID,
+  DATABASE_PROFILE_ADVISORY_EVIDENCE_KEY_PATTERN,
   DATABASE_REVIEW_AXES,
   DATABASE_RULE_KINDS,
   DATABASE_SOURCE_AUTHORITY,
@@ -17,6 +18,7 @@ import {
 } from '../rules/database_engineering_rules.mjs';
 
 const PROTOTYPE_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+const PROFILE_ADVISORY_EVIDENCE_KEY = new RegExp(DATABASE_PROFILE_ADVISORY_EVIDENCE_KEY_PATTERN, 'u');
 const RULE_FIELDS = Object.freeze([
   'axis',
   'claim_ceiling',
@@ -128,8 +130,11 @@ function validateRuleRow(rawRule, permittedSourceRefs, existingRuleIds) {
   if (!Array.isArray(rule.source_refs) || rule.source_refs.length === 0 || rule.source_refs.some((ref) => !permittedSourceRefs.includes(ref))) {
     refuse(DBE_ERROR_CODES.OPERATION_INVALID, 'profile rule sources must be explicit Profile source refs');
   }
-  for (const field of ['source_locator', 'evidence_key']) {
-    if (typeof rule[field] !== 'string' || !rule[field]) refuse(DBE_ERROR_CODES.OPERATION_INVALID, `profile rule ${field} must be a non-empty string`);
+  if (typeof rule.source_locator !== 'string' || !rule.source_locator) {
+    refuse(DBE_ERROR_CODES.OPERATION_INVALID, 'profile rule source_locator must be a non-empty string');
+  }
+  if (typeof rule.evidence_key !== 'string' || !PROFILE_ADVISORY_EVIDENCE_KEY.test(rule.evidence_key)) {
+    refuse(DBE_ERROR_CODES.OPERATION_INVALID, 'profile rule evidence_key must use the closed profile advisory vocabulary');
   }
   return deepFreeze({
     ...rule,

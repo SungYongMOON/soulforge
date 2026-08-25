@@ -6,7 +6,11 @@ import {
   DATABASE_ENGINE_ID,
   DATABASE_EVALUATION_SCHEMA,
   DATABASE_GAP_STATE,
+  DATABASE_PROFILE_ADVISORY_EVIDENCE_KEY_PATTERN,
+  DATABASE_REVIEW_AXES,
+  DATABASE_RULE_KINDS,
   DATABASE_RULESET_SCHEMA,
+  DATABASE_SOURCE_AUTHORITY,
   DBE_ERROR_CODES,
 } from '../rules/database_engineering_vocabulary.mjs';
 import {
@@ -31,6 +35,27 @@ const PROVENANCE_FIELDS = Object.freeze([
   'profile_kind', 'profile_id', 'revision_or_hash', 'extends_or_base_pin', 'operation_digest',
   'source_refs', 'order', 'operation_index', 'operation_item_digest',
 ]);
+const CORE_EFFECTIVE_ENVELOPE_FIELDS = Object.freeze([
+  'schema_version', 'domain_engine_id', 'effective_rule_set', 'compilation_trace', 'rule_count', 'assembly_digest',
+]);
+const CORE_COMPILATION_TRACE_FIELDS = Object.freeze([
+  'schema_version', 'domain_engine_id', 'domain_adapter_revision', 'organization_trace', 'project_trace',
+  'profiles', 'compilation_scope', 'effective_ruleset_digest', 'rule_count',
+]);
+const CORE_PROFILE_TRACE_FIELDS = Object.freeze([
+  'order', 'profile_kind', 'profile_id', 'domain_engine_id', 'revision_or_hash', 'extends_or_base_pin',
+  'operation_digest', 'applied_operations_count', 'source_refs',
+]);
+const CORE_PROFILE_PROJECTION_FIELDS = Object.freeze([
+  'profile_id', 'domain_engine_id', 'revision_or_hash', 'extends_or_base_pin', 'operation_digest',
+  'applied_operations_count', 'source_refs',
+]);
+const SHA256_HEX = /^[a-f0-9]{64}$/u;
+const RULE_ID = /^DBE-(?:COMMON|SQLITE|POSTGRESQL|PROFILE)-[A-Z0-9-]+$/u;
+const PROFILE_RULE_ID = /^DBE-PROFILE-[A-Z0-9-]+$/u;
+const PROFILE_ADVISORY_EVIDENCE_KEY = new RegExp(DATABASE_PROFILE_ADVISORY_EVIDENCE_KEY_PATTERN, 'u');
+const PLATFORM_FAMILIES = new Set(['common', 'sqlite', 'postgresql']);
+const CLAIM_CEILINGS = new Set(['observed', 'source_supported']);
 
 const deepFreeze = (value) => {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -66,28 +91,147 @@ function assertRuleShape(rule) {
   }
 }
 
+function validateDerivedRuleSchemaShape(rule) {
+  if (!PROFILE_RULE_ID.test(rule.rule_id)) {
+    refuse(DBE_ERROR_CODES.RULESET_INVALID, `derived rule ${rule.rule_id} rule_id is invalid`);
+  }
+  if (!DATABASE_REVIEW_AXES.includes(rule.axis)) refuse(DBE_ERROR_CODES.RULESET_INVALID, `derived rule ${rule.rule_id} axis is invalid`);
+  if (!DATABASE_RULE_KINDS.includes(rule.kind)) refuse(DBE_ERROR_CODES.RULESET_INVALID, `derived rule ${rule.rule_id} kind is invalid`);
+  if (!Array.isArray(rule.platforms) || rule.platforms.length === 0 || rule.platforms.some((platform) => !PLATFORM_FAMILIES.has(platform))) {
+    refuse(DBE_ERROR_CODES.RULESET_INVALID, `derived rule ${rule.rule_id} platforms is invalid`);
+  }
+  if (!isNonEmptyStringArray(rule.source_refs)) {
+    refuse(DBE_ERROR_CODES.RULESET_INVALID, `derived rule ${rule.rule_id} source_refs is invalid`);
+  }
+  if (!isNonEmptyString(rule.source_locator)) {
+    refuse(DBE_ERROR_CODES.RULESET_INVALID, `derived rule ${rule.rule_id} source_locator is invalid`);
+  }
+  if (!DATABASE_SOURCE_AUTHORITY.includes(rule.source_authority)) {
+    refuse(DBE_ERROR_CODES.RULESET_INVALID, `derived rule ${rule.rule_id} source_authority is invalid`);
+  }
+  if (!CLAIM_CEILINGS.has(rule.claim_ceiling)) {
+    refuse(DBE_ERROR_CODES.RULESET_INVALID, `derived rule ${rule.rule_id} claim_ceiling is invalid`);
+  }
+  if (!PROFILE_ADVISORY_EVIDENCE_KEY.test(rule.evidence_key)) {
+    refuse(DBE_ERROR_CODES.RULESET_INVALID, `derived rule ${rule.rule_id} evidence_key is invalid`);
+  }
+}
+
+function isNonEmptyString(value) {
+  return typeof value === 'string' && value.length > 0;
+}
+
+function isNonEmptyStringArray(value) {
+  return Array.isArray(value) && value.length > 0 && value.every(isNonEmptyString);
+}
+
+function isProfileKind(value) {
+  return value === 'organization' || value === 'project';
+}
+
+function coreProfileProjection(trace) {
+  return Object.fromEntries(CORE_PROFILE_PROJECTION_FIELDS.map((field) => [field, trace[field]]));
+}
+
+function validateCoreProfileTraceRecord(trace, label) {
+  assertExactKeys(trace, CORE_PROFILE_TRACE_FIELDS, label);
+  if (!isProfileKind(trace.profile_kind)
+      || !isNonEmptyString(trace.profile_id)
+      || trace.domain_engine_id !== DATABASE_ENGINE_ID
+      || !isNonEmptyString(trace.revision_or_hash)
+      || !isNonEmptyString(trace.extends_or_base_pin)
+      || !SHA256_HEX.test(trace.operation_digest)
+      || !isNonEmptyStringArray(trace.source_refs)
+      || !Number.isInteger(trace.order) || trace.order < 0 || trace.order > 1
+      || !Number.isInteger(trace.applied_operations_count) || trace.applied_operations_count < 0) {
+    refuse(DBE_ERROR_CODES.RULESET_INVALID, `${label} is malformed`);
+  }
+}
+
+function validateCoreCompilationEnvelope(envelope, ruleset) {
+  assertExactKeys(envelope, CORE_EFFECTIVE_ENVELOPE_FIELDS, 'derived ruleset Core compilation envelope');
+  if (envelope.schema_version !== 'soulforge.effective_rule_set.v0'
+      || envelope.domain_engine_id !== DATABASE_ENGINE_ID
+      || !Number.isInteger(envelope.rule_count)
+      || envelope.rule_count !== ruleset.rules.length
+      || !SHA256_HEX.test(envelope.assembly_digest)) {
+    refuse(DBE_ERROR_CODES.RULESET_INVALID, 'derived ruleset Core compilation envelope is malformed');
+  }
+  const trace = envelope.compilation_trace;
+  if (!trace || typeof trace !== 'object' || Array.isArray(trace)) {
+    refuse(DBE_ERROR_CODES.RULESET_INVALID, 'derived ruleset requires a Core compilation trace');
+  }
+  assertExactKeys(trace, CORE_COMPILATION_TRACE_FIELDS, 'derived ruleset Core compilation trace');
+  if (trace.schema_version !== 'soulforge.compilation_trace.v0'
+      || trace.domain_engine_id !== DATABASE_ENGINE_ID
+      || trace.domain_adapter_revision !== databaseEngineeringCompilerAdapter.revision
+      || !Array.isArray(trace.profiles) || trace.profiles.length === 0 || trace.profiles.length > 2
+      || !Number.isInteger(trace.rule_count) || trace.rule_count !== ruleset.rules.length
+      || !SHA256_HEX.test(trace.effective_ruleset_digest)) {
+    refuse(DBE_ERROR_CODES.RULESET_INVALID, 'derived ruleset Core compilation trace is malformed');
+  }
+  for (const [index, profileTrace] of trace.profiles.entries()) {
+    validateCoreProfileTraceRecord(profileTrace, `derived ruleset Core compilation trace profile ${index}`);
+  }
+  const traceKeys = trace.profiles.map((profileTrace) => `${profileTrace.profile_kind}\u0000${profileTrace.profile_id}`);
+  if (new Set(traceKeys).size !== traceKeys.length) {
+    refuse(DBE_ERROR_CODES.SOURCE_TAMPERED, 'derived ruleset Core compilation trace has duplicate profile identity entries');
+  }
+  for (const [index, profileTrace] of trace.profiles.entries()) {
+    if (profileTrace.order !== index) {
+      refuse(DBE_ERROR_CODES.SOURCE_TAMPERED, 'derived ruleset Core compilation trace profile order is inconsistent');
+    }
+  }
+  if (trace.profiles.length === 2 && (trace.profiles[0].profile_kind !== 'organization' || trace.profiles[1].profile_kind !== 'project')) {
+    refuse(DBE_ERROR_CODES.SOURCE_TAMPERED, 'derived ruleset Core compilation trace profile sequence is inconsistent');
+  }
+  const organizationTrace = trace.profiles.find((profileTrace) => profileTrace.profile_kind === 'organization');
+  const projectTrace = trace.profiles.find((profileTrace) => profileTrace.profile_kind === 'project');
+  if (!sameJson(trace.organization_trace, organizationTrace ? coreProfileProjection(organizationTrace) : null)
+      || !sameJson(trace.project_trace, projectTrace ? coreProfileProjection(projectTrace) : null)) {
+    refuse(DBE_ERROR_CODES.SOURCE_TAMPERED, 'derived ruleset Core compilation trace projection is inconsistent');
+  }
+  return trace;
+}
+
 function validateProfileProvenanceRecord(ruleId, profile, compilationTrace) {
   assertExactKeys(profile, PROVENANCE_FIELDS, `profile provenance ${ruleId}`);
-  if (typeof profile.profile_id !== 'string' || typeof profile.revision_or_hash !== 'string'
-      || typeof profile.extends_or_base_pin !== 'string' || typeof profile.operation_digest !== 'string'
-      || typeof profile.operation_index !== 'number' || !Number.isInteger(profile.operation_index)
-      || !Array.isArray(profile.source_refs) || !/^[a-f0-9]{64}$/u.test(profile.operation_item_digest)) {
-    refuse(DBE_ERROR_CODES.RULESET_INVALID, `profile provenance ${ruleId} is malformed`);
+  if (!isProfileKind(profile.profile_kind)) refuse(DBE_ERROR_CODES.RULESET_INVALID, `profile provenance ${ruleId} profile_kind is invalid`);
+  if (!isNonEmptyString(profile.profile_id)) refuse(DBE_ERROR_CODES.RULESET_INVALID, `profile provenance ${ruleId} profile_id is invalid`);
+  if (!isNonEmptyString(profile.revision_or_hash)) refuse(DBE_ERROR_CODES.RULESET_INVALID, `profile provenance ${ruleId} revision_or_hash is invalid`);
+  if (!isNonEmptyString(profile.extends_or_base_pin)) refuse(DBE_ERROR_CODES.RULESET_INVALID, `profile provenance ${ruleId} extends_or_base_pin is invalid`);
+  if (!SHA256_HEX.test(profile.operation_digest)) refuse(DBE_ERROR_CODES.RULESET_INVALID, `profile provenance ${ruleId} operation_digest is invalid`);
+  if (!isNonEmptyStringArray(profile.source_refs)) refuse(DBE_ERROR_CODES.RULESET_INVALID, `profile provenance ${ruleId} source_refs is invalid`);
+  if (!Number.isInteger(profile.order) || profile.order < 0 || profile.order > 1) {
+    refuse(DBE_ERROR_CODES.RULESET_INVALID, `profile provenance ${ruleId} order is invalid`);
+  }
+  if (!Number.isInteger(profile.operation_index) || profile.operation_index < 0) {
+    refuse(DBE_ERROR_CODES.RULESET_INVALID, `profile provenance ${ruleId} operation_index is invalid`);
+  }
+  if (!SHA256_HEX.test(profile.operation_item_digest)) {
+    refuse(DBE_ERROR_CODES.RULESET_INVALID, `profile provenance ${ruleId} operation_item_digest is invalid`);
   }
   if (calculateDatabaseProfileOperationItemDigest(profile, ruleId) !== profile.operation_item_digest) {
     refuse(DBE_ERROR_CODES.SOURCE_TAMPERED, `profile provenance ${ruleId} operation item digest was tampered`);
   }
   const traces = compilationTrace?.profiles;
-  if (!Array.isArray(traces)) refuse(DBE_ERROR_CODES.RULESET_INVALID, 'derived ruleset requires a Core compilation trace');
-  const trace = traces.find((entry) => entry && entry.profile_kind === profile.profile_kind && entry.profile_id === profile.profile_id);
+  const matchingTraces = Array.isArray(traces)
+    ? traces.filter((entry) => entry.profile_kind === profile.profile_kind && entry.profile_id === profile.profile_id)
+    : [];
+  const trace = matchingTraces[0];
+  if (matchingTraces.length !== 1) {
+    refuse(DBE_ERROR_CODES.SOURCE_TAMPERED, `profile provenance ${ruleId} does not identify exactly one Core compilation trace`);
+  }
+  if (profile.operation_index >= trace.applied_operations_count) {
+    refuse(DBE_ERROR_CODES.RULESET_INVALID, `profile provenance ${ruleId} operation_index is outside applied Core operations`);
+  }
   if (!trace || trace.domain_engine_id !== DATABASE_ENGINE_ID
       || trace.revision_or_hash !== profile.revision_or_hash
       || trace.extends_or_base_pin !== profile.extends_or_base_pin
       || trace.operation_digest !== profile.operation_digest
       || trace.order !== profile.order
       || !sameStringArray(trace.source_refs, profile.source_refs)
-      || !Number.isInteger(trace.applied_operations_count)
-      || profile.operation_index < 0 || profile.operation_index >= trace.applied_operations_count) {
+      || !Number.isInteger(trace.applied_operations_count)) {
     refuse(DBE_ERROR_CODES.SOURCE_TAMPERED, `profile provenance ${ruleId} does not match Core compilation trace`);
   }
 }
@@ -119,7 +263,12 @@ function unwrapAndValidateRuleset(raw) {
   if (!Array.isArray(ruleset.rules) || !ruleset.profile_rule_provenance || typeof ruleset.profile_rule_provenance !== 'object') {
     refuse(DBE_ERROR_CODES.RULESET_INVALID, 'effective ruleset must carry rules and provenance');
   }
-  const ids = ruleset.rules.map((rule) => rule?.rule_id);
+  for (const [index, rule] of ruleset.rules.entries()) {
+    if (!rule || typeof rule !== 'object' || Array.isArray(rule) || typeof rule.rule_id !== 'string' || !RULE_ID.test(rule.rule_id)) {
+      refuse(DBE_ERROR_CODES.RULESET_INVALID, `effective rule ${index} rule_id is invalid`);
+    }
+  }
+  const ids = ruleset.rules.map((rule) => rule.rule_id);
   const sortedIds = [...ids].sort(compareCodePoints);
   if (ids.length !== sortedIds.length || ids.some((id, index) => id !== sortedIds[index]) || new Set(ids).size !== ids.length) {
     refuse(DBE_ERROR_CODES.RULESET_INVALID, 'effective rules must be complete, unique, and code-point ordered');
@@ -147,28 +296,38 @@ function unwrapAndValidateRuleset(raw) {
     return { ruleset, compilation_trace: null };
   }
 
-  if (!isCoreWrapper || !envelope.compilation_trace || envelope.domain_engine_id !== DATABASE_ENGINE_ID) {
+  if (!isCoreWrapper) {
     refuse(DBE_ERROR_CODES.RULESET_INVALID, 'derived ruleset must arrive through the Core compilation envelope');
   }
-  if (!Array.isArray(envelope.compilation_trace.profiles)) {
-    refuse(DBE_ERROR_CODES.RULESET_INVALID, 'derived ruleset Core compilation trace has no profiles array');
-  }
-  const traceKeys = envelope.compilation_trace.profiles.map((trace) => `${trace?.profile_kind}\u0000${trace?.profile_id}`);
-  if (new Set(traceKeys).size !== traceKeys.length) {
-    refuse(DBE_ERROR_CODES.SOURCE_TAMPERED, 'derived ruleset Core compilation trace has duplicate profile identity entries');
-  }
+  const compilationTrace = validateCoreCompilationEnvelope(envelope, ruleset);
   const coreDigest = calculateCoreEffectiveRulesetDigest(ruleset);
-  if (envelope.assembly_digest !== coreDigest || envelope.compilation_trace.effective_ruleset_digest !== coreDigest) {
+  if (envelope.assembly_digest !== coreDigest || compilationTrace.effective_ruleset_digest !== coreDigest) {
     refuse(DBE_ERROR_CODES.SOURCE_TAMPERED, 'Core compilation envelope digest is inconsistent with admitted effective ruleset');
   }
+  const derivedCountByTrace = new Map(compilationTrace.profiles.map((trace) => [`${trace.profile_kind}\u0000${trace.profile_id}`, 0]));
+  const derivedOperationKeys = new Set();
   for (const rule of derivedRules) {
+    validateDerivedRuleSchemaShape(rule);
     const profile = ruleset.profile_rule_provenance[rule.rule_id];
     if (!rule.rule_id.startsWith('DBE-PROFILE-') || rule.kind !== 'advisory'
         || rule.source_authority !== 'profile_declared' || rule.claim_ceiling !== 'observed'
         || !Array.isArray(profile?.source_refs) || rule.source_refs.some((sourceRef) => !profile.source_refs.includes(sourceRef))) {
       refuse(DBE_ERROR_CODES.RULESET_INVALID, 'derived rule violates Profile authority/provenance closure');
     }
-    validateProfileProvenanceRecord(rule.rule_id, profile, envelope.compilation_trace);
+    validateProfileProvenanceRecord(rule.rule_id, profile, compilationTrace);
+    const traceKey = `${profile.profile_kind}\u0000${profile.profile_id}`;
+    const operationKey = `${traceKey}\u0000${profile.operation_index}`;
+    if (derivedOperationKeys.has(operationKey)) {
+      refuse(DBE_ERROR_CODES.RULESET_INVALID, `derived rule ${rule.rule_id} duplicates a Profile operation identity`);
+    }
+    derivedOperationKeys.add(operationKey);
+    derivedCountByTrace.set(traceKey, derivedCountByTrace.get(traceKey) + 1);
+  }
+  for (const trace of compilationTrace.profiles) {
+    const traceKey = `${trace.profile_kind}\u0000${trace.profile_id}`;
+    if (derivedCountByTrace.get(traceKey) !== trace.applied_operations_count) {
+      refuse(DBE_ERROR_CODES.SOURCE_TAMPERED, 'derived rules do not match Core applied operation counts');
+    }
   }
   const digest = calculateDatabaseDerivedRulesetDigest(ruleset.rules, ruleset.profile_rule_provenance);
   const expectedRef = {
