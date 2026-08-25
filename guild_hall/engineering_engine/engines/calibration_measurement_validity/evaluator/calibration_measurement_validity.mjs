@@ -3,6 +3,7 @@ import types from 'node:util/types';
 
 import { ContractError } from '../../../core/validators/errors.mjs';
 import { CALIBRATION_MEASUREMENT_VALIDITY_RULES, CMV_RULESET_REF, CMV_SOURCE_PACKET_REF } from '../rules/calibration_measurement_validity_rules.mjs';
+import { calibrationMeasurementValiditySha256 } from '../shared/calibration_measurement_validity_canonical_digest.mjs';
 
 export const CMV_ERROR_CODES = Object.freeze({
   INPUT_INVALID: 'CMV_INPUT_INVALID',
@@ -276,19 +277,6 @@ function aggregateDetermination(determinations) {
   return { result_status: 'valid', result_impact: 'none', determination: determination('CMV-RESULT-IMPACT-01', 'valid', 'all_required_measurement_validity_evidence_valid') };
 }
 
-function stableJson(value) {
-  if (value === null) return 'null';
-  if (typeof value === 'boolean' || typeof value === 'number') return JSON.stringify(value);
-  if (typeof value === 'string') return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
-  const keys = Object.keys(value).sort();
-  return `{${keys.map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
-}
-
-function sha256(value) {
-  return createHash('sha256').update(stableJson(value)).digest('hex');
-}
-
 function validateInput(input) {
   assertPlainData(input);
   const request = plainObject(input, 'input');
@@ -346,8 +334,8 @@ export function assessCalibrationMeasurementValidity(input) {
     result_impact: aggregate.result_impact,
     determinations,
   };
-  const inputDigest = sha256(request);
-  const assessmentDigest = sha256(assessment);
+  const inputDigest = calibrationMeasurementValiditySha256(request);
+  const assessmentDigest = calibrationMeasurementValiditySha256(assessment);
   const receipt = {
     schema_version: 'soulforge.calibration_measurement_validity.receipt.v0',
     execution_mode: 'deterministic_only',

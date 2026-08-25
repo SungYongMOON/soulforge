@@ -1,6 +1,6 @@
 # Calibration and Measurement Validity manual
 
-This manual describes the E11 package as a public-safe implementation candidate. It is not a calibration procedure, a laboratory quality manual, or an authority to approve a test result.
+This manual describes the E11 Q1 package as a public-safe, source-supported implementation candidate. It is not a calibration procedure, a laboratory quality manual, or an authority to approve a test result.
 
 1. [Purpose and shape](01_purpose_and_shape.md)
 2. [Rule layers](02_rule_layers.md)

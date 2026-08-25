@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.calibration_measurement_validity.source_bound_schema.v1",
+  "title": "CalibrationMeasurementValiditySourceBoundSchemas",
+  "$defs": {
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity_id", "revision_id", "content_id"],
+      "properties": {
+        "entity_id": { "type": "string", "minLength": 1 },
+        "revision_id": { "type": "string", "minLength": 1 },
+        "content_id": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+      }
+    },
+    "source_classification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "source_id", "authority", "revision", "source_ref", "classification", "verdict_eligible", "claim_ceiling", "hold_code", "retrieval_path", "applicability_state"],
+      "properties": {
+        "schema_version": { "const": "soulforge.calibration_measurement_validity.source_classification.v1" },
+        "source_id": { "type": "string" },
+        "authority": { "type": "string" },
+        "revision": { "type": "string" },
+        "source_ref": { "$ref": "#/$defs/reference" },
+        "classification": { "enum": ["official_public_direct", "rag_retrieval_only", "controlled_citation_only", "direct_access_hold", "unknown_source_hold", "authority_mismatch_hold"] },
+        "verdict_eligible": { "type": "boolean" },
+        "claim_ceiling": { "enum": ["observed", "source_supported"] },
+        "hold_code": { "type": ["string", "null"] },
+        "retrieval_path": { "enum": ["direct", "rag"] },
+        "applicability_state": { "type": "string" }
+      }
+    },
+    "typed_facts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "request", "source_classifications", "fact_provenance", "typed_fact_receipt"],
+      "properties": {
+        "schema_version": { "const": "soulforge.calibration_measurement_validity.typed_facts.v1" },
+        "request": { "type": "object" },
+        "source_classifications": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/source_classification" } },
+        "fact_provenance": { "type": "object", "minProperties": 6, "maxProperties": 6 },
+        "typed_fact_receipt": { "type": "object" }
+      }
+    },
+    "observation_candidates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "candidates", "effects", "receipt"],
+      "properties": {
+        "schema_version": { "const": "soulforge.calibration_measurement_validity.observation_candidates.v1" },
+        "candidates": { "type": "array", "minItems": 6, "maxItems": 6 },
+        "effects": { "type": "object" },
+        "receipt": { "type": "object" }
+      }
+    },
+    "guidance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "judgment_changed", "cards", "effects", "receipt"],
+      "properties": {
+        "schema_version": { "const": "soulforge.calibration_measurement_validity.guidance.v1" },
+        "judgment_changed": { "const": false },
+        "cards": { "type": "array", "minItems": 1 },
+        "effects": { "type": "object" },
+        "receipt": { "type": "object" }
+      }
+    }
+  }
+}

@@ -10,3 +10,5 @@ The direct source inventory is [the source packet](../contracts/calibration_meas
 ISO/IEC 17025 is cited only as a controlled-standard boundary. Its body was not read or copied. No rule is an executable compliance clause from that standard.
 
 Search or RAG may find sources, but cannot enter the evaluator as authority or facts.
+
+Q1 materializes this boundary as source classification and derivation rows. A direct official source can be `source_supported` only after its known authority, non-floating revision, direct access, applicability, and immutable reference are supplied. RAG-only, controlled, unknown, and mismatched-authority rows remain `observed` / hold and cannot produce a typed fact or Profile pass.

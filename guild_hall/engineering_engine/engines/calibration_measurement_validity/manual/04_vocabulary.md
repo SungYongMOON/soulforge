@@ -12,3 +12,5 @@
 | `exception_held` | An approved exception requires a hold; it is never converted into valid evidence. |
 
 Evidence states are `valid`, `missing`, `unknown`, `expired`, `out_of_range`, `not_suitable`, `exception_held`, and `not_applicable`. Aggregate result states are `valid`, `unknown`, `held`, and `invalid`.
+
+Source classes are `official_public_direct`, `rag_retrieval_only`, `controlled_citation_only`, or explicit hold classes. Only the first class can enter source-bound Typed Facts or satisfy a Q1 Profile requirement.

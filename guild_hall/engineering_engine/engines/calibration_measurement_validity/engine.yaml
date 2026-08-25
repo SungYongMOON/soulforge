@@ -8,15 +8,18 @@ execution_mode: deterministic_only
 contracts:
   source_packet: engines/calibration_measurement_validity/contracts/calibration_measurement_validity_source_packet_v0.md
   public_source_inventory: engines/calibration_measurement_validity/contracts/public_source_inventory_v1.json
+  source_rag_profile: engines/calibration_measurement_validity/contracts/source_rag_profile_v1.md
   build_mission: engines/calibration_measurement_validity/contracts/calibration_measurement_validity_build_mission_v0.md
 schemas:
   ruleset: soulforge.calibration_measurement_validity.ruleset.v0
   domain_input: soulforge.calibration_measurement_validity.domain_input.v0
   assessment: soulforge.calibration_measurement_validity.assessment.v0
   receipt: soulforge.calibration_measurement_validity.receipt.v0
+  source_bound: soulforge.calibration_measurement_validity.source_bound_schema.v1
 compiler_adapter: engines/calibration_measurement_validity/compiler/calibration_measurement_validity_compiler_adapter.mjs
 evaluator_adapter: engines/calibration_measurement_validity/evaluator/calibration_measurement_validity_evaluator_adapter.mjs
 fixtures:
   public_synthetic: engines/calibration_measurement_validity/fixtures/calibration_measurement_validity_public_synthetic.mjs
+  zero_write_pilot: engines/calibration_measurement_validity/tools/calibration_measurement_validity_zero_write_pilot_runner.mjs
 manual:
   root: engines/calibration_measurement_validity/manual/README.md

@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { calibrationMeasurementValiditySha256 } from '../shared/calibration_measurement_validity_canonical_digest.mjs';
 
 export const CMV_RULESET_SCHEMA_VERSION = 'soulforge.calibration_measurement_validity.ruleset.v0';
 export const CMV_RULESET_REVISION = 'soulforge.calibration_measurement_validity.ruleset.v0';
@@ -81,8 +81,10 @@ export const CALIBRATION_MEASUREMENT_VALIDITY_RULES = Object.freeze([
   }),
 ]);
 
-const ruleMaterial = JSON.stringify(CALIBRATION_MEASUREMENT_VALIDITY_RULES);
-const rulesetHash = createHash('sha256').update(`soulforge.calibration_measurement_validity.ruleset.v0\n${ruleMaterial}`).digest('hex');
+const rulesetHash = calibrationMeasurementValiditySha256({
+  domain_separator: 'soulforge.calibration_measurement_validity.ruleset.v0',
+  rules: CALIBRATION_MEASUREMENT_VALIDITY_RULES,
+});
 
 export const CMV_RULESET_REF = Object.freeze({
   entity_id: 'ruleset:calibration_measurement_validity',

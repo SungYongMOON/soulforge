@@ -10,3 +10,7 @@ Aggregation is deliberately fail-closed:
 4. Only otherwise complete valid/not-applicable evidence yields `valid` / `none`.
 
 The priority makes a formally held exception visible rather than allowing another apparent pass to conceal it.
+
+When a Q1 source-bound Profile is present, Core evaluates its compiled requirement set before the final package result is returned. Unmet direct-source evidence appends a source-bound Profile hold and returns `unknown` / `hold`; a Profile cannot turn an invalid or unknown base result into valid.
+
+The old bare v0 input remains compatible only for a base, zero-Profile ruleset. A derived source-bound ruleset always requires supplied source classifications; omission is a visible hold rather than an implicit direct-source pass.

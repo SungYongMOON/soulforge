@@ -1,13 +1,21 @@
 import { registerDomainEngineAdapter } from '../../../core/interfaces/domain_engine_adapter.mjs';
 import { ContractError } from '../../../core/validators/errors.mjs';
+import { canonicalizeCalibrationMeasurementValidity } from '../shared/calibration_measurement_validity_canonical_digest.mjs';
 import {
   CALIBRATION_MEASUREMENT_VALIDITY_RULES,
   CMV_RULESET_REF,
   CMV_RULESET_SCHEMA_VERSION,
   CMV_SOURCE_PACKET_REF,
 } from '../rules/calibration_measurement_validity_rules.mjs';
-import { calibrationMeasurementValidityCompilerAdapter } from '../compiler/calibration_measurement_validity_compiler_adapter.mjs';
+import {
+  calibrationMeasurementValidityCompilerAdapter,
+  deriveCalibrationMeasurementValidityRulesetReference,
+} from '../compiler/calibration_measurement_validity_compiler_adapter.mjs';
 import { assessCalibrationMeasurementValidity, CMV_ERROR_CODES } from './calibration_measurement_validity.mjs';
+import {
+  applyCmvSourceBoundProfileEvaluation,
+  evaluateCmvSourceBoundProfileRequirements,
+} from '../profile/calibration_measurement_validity_source_bound_profile.mjs';
 
 export const CMV_EVALUATOR_ADAPTER_SCHEMA_VERSION = 'soulforge.calibration_measurement_validity.evaluator.v0';
 
@@ -18,6 +26,52 @@ function sameReference(left, right) {
     && left.content_id === right.content_id);
 }
 
+function validateSourceBoundRequirements(requirements, provenance) {
+  if (!Array.isArray(requirements) || !provenance || typeof provenance !== 'object' || Array.isArray(provenance)) {
+    throw new ContractError(CMV_ERROR_CODES.EFFECTIVE_RULESET_INVALID, 'source-bound Profile requirements and provenance must be present');
+  }
+  const expectedKeys = ['extends_or_base_pin', 'operation_digest', 'order', 'profile_id', 'profile_kind', 'required_classification', 'required_source_ids', 'requirement_id', 'revision_or_hash', 'source_refs'];
+  const seen = new Set();
+  for (const requirement of requirements) {
+    if (!requirement || typeof requirement !== 'object' || Array.isArray(requirement)) {
+      throw new ContractError(CMV_ERROR_CODES.EFFECTIVE_RULESET_INVALID, 'source-bound Profile requirement must be an object');
+    }
+    const keys = Object.keys(requirement).sort();
+    if (keys.length !== expectedKeys.length || !keys.every((key, index) => key === expectedKeys[index])
+        || typeof requirement.requirement_id !== 'string' || seen.has(requirement.requirement_id)
+        || requirement.required_classification !== 'official_public_direct'
+        || !Array.isArray(requirement.required_source_ids) || requirement.required_source_ids.length === 0
+        || !Array.isArray(requirement.source_refs) || requirement.source_refs.length === 0
+        || !['organization', 'project'].includes(requirement.profile_kind)
+        || !Number.isInteger(requirement.order) || requirement.order < 0
+        || typeof requirement.operation_digest !== 'string' || !/^[a-f0-9]{64}$/u.test(requirement.operation_digest)) {
+      throw new ContractError(CMV_ERROR_CODES.EFFECTIVE_RULESET_INVALID, 'source-bound Profile requirement has an invalid effective-ruleset shape');
+    }
+    if (!Object.hasOwn(provenance, requirement.requirement_id)) {
+      throw new ContractError(CMV_ERROR_CODES.EFFECTIVE_RULESET_INVALID, 'source-bound Profile requirement has no preserved provenance');
+    }
+    if (requirement.required_source_ids.some((sourceId) => !requirement.source_refs.includes(`source:${sourceId}`))) {
+      throw new ContractError(CMV_ERROR_CODES.EFFECTIVE_RULESET_INVALID, 'source-bound Profile requirement sources are not covered by its own source_refs');
+    }
+    const provenanceRow = provenance[requirement.requirement_id];
+    if (!provenanceRow || provenanceRow.profile_kind !== requirement.profile_kind
+        || provenanceRow.profile_id !== requirement.profile_id
+        || provenanceRow.revision_or_hash !== requirement.revision_or_hash
+        || provenanceRow.extends_or_base_pin !== requirement.extends_or_base_pin
+        || provenanceRow.operation_digest !== requirement.operation_digest
+        || provenanceRow.order !== requirement.order
+        || canonicalizeCalibrationMeasurementValidity(provenanceRow.source_refs) !== canonicalizeCalibrationMeasurementValidity(requirement.source_refs)
+        || typeof provenanceRow.operation_item_digest !== 'string'
+        || !/^sha256:[a-f0-9]{64}$/u.test(provenanceRow.operation_item_digest)) {
+      throw new ContractError(CMV_ERROR_CODES.EFFECTIVE_RULESET_INVALID, 'source-bound Profile provenance does not match the effective requirement');
+    }
+    seen.add(requirement.requirement_id);
+  }
+  if (Object.keys(provenance).length !== requirements.length) {
+    throw new ContractError(CMV_ERROR_CODES.EFFECTIVE_RULESET_INVALID, 'source-bound Profile provenance count does not match requirements');
+  }
+}
+
 function verifyBaseRuleset(effectiveRuleSet) {
   if (!effectiveRuleSet || typeof effectiveRuleSet !== 'object' || Array.isArray(effectiveRuleSet)) {
     throw new ContractError(CMV_ERROR_CODES.EFFECTIVE_RULESET_INVALID, 'effective rule set must be an object');
@@ -26,27 +80,48 @@ function verifyBaseRuleset(effectiveRuleSet) {
   if (!ruleSet || typeof ruleSet !== 'object' || Array.isArray(ruleSet)
       || ruleSet.schema_version !== CMV_RULESET_SCHEMA_VERSION
       || ruleSet.domain_engine_id !== 'calibration_measurement_validity'
-      || !sameReference(ruleSet.ruleset_ref, CMV_RULESET_REF)
       || !sameReference(ruleSet.source_packet_ref, CMV_SOURCE_PACKET_REF)
       || !Array.isArray(ruleSet.rules)
       || ruleSet.rules.length !== CALIBRATION_MEASUREMENT_VALIDITY_RULES.length) {
     throw new ContractError(CMV_ERROR_CODES.EFFECTIVE_RULESET_INVALID, 'effective rule set is not the CMV v0 base ruleset');
   }
-  if (ruleSet.profile_rule_provenance && Object.keys(ruleSet.profile_rule_provenance).length !== 0) {
-    throw new ContractError(CMV_ERROR_CODES.PROFILE_UNSUPPORTED, 'derived CMV profile rulesets are not supported in v0');
+  const baseRuleset = sameReference(ruleSet.ruleset_ref, CMV_RULESET_REF);
+  const derivedRuleset = ruleSet.ruleset_ref?.entity_id === 'ruleset:calibration_measurement_validity:derived'
+    && typeof ruleSet.ruleset_ref?.revision_id === 'string'
+    && /^sha256:[a-f0-9]{64}$/u.test(ruleSet.ruleset_ref?.content_id ?? '');
+  if (!baseRuleset && !derivedRuleset) {
+    throw new ContractError(CMV_ERROR_CODES.EFFECTIVE_RULESET_INVALID, 'ruleset reference is neither the CMV base nor a CMV source-bound derived ruleset');
   }
   for (let index = 0; index < CALIBRATION_MEASUREMENT_VALIDITY_RULES.length; index += 1) {
-    if (JSON.stringify(ruleSet.rules[index]) !== JSON.stringify(CALIBRATION_MEASUREMENT_VALIDITY_RULES[index])) {
+    if (canonicalizeCalibrationMeasurementValidity(ruleSet.rules[index])
+        !== canonicalizeCalibrationMeasurementValidity(CALIBRATION_MEASUREMENT_VALIDITY_RULES[index])) {
       throw new ContractError(CMV_ERROR_CODES.EFFECTIVE_RULESET_INVALID, `CMV rule mismatch at index ${index}`);
     }
   }
+  const requirements = ruleSet.source_bound_profile_requirements ?? [];
+  if (!Array.isArray(requirements) || (baseRuleset && requirements.length !== 0)
+      || (derivedRuleset && requirements.length === 0)) {
+    throw new ContractError(CMV_ERROR_CODES.EFFECTIVE_RULESET_INVALID, 'source-bound profile requirements do not match the CMV ruleset reference');
+  }
+  if (derivedRuleset) {
+    validateSourceBoundRequirements(requirements, ruleSet.profile_rule_provenance);
+    const expectedDerivedReference = deriveCalibrationMeasurementValidityRulesetReference(requirements, ruleSet.profile_rule_provenance);
+    if (!sameReference(ruleSet.ruleset_ref, expectedDerivedReference)) {
+      throw new ContractError(CMV_ERROR_CODES.EFFECTIVE_RULESET_INVALID, 'derived CMV ruleset reference does not bind the requirements presented for evaluation');
+    }
+  }
+  return { requirements, ruleset_ref: ruleSet.ruleset_ref };
 }
 
 export const calibrationMeasurementValidityAdapter = Object.freeze({
   ...calibrationMeasurementValidityCompilerAdapter,
   evaluate(effectiveRuleSet, typedProjectFacts) {
-    verifyBaseRuleset(effectiveRuleSet);
-    return assessCalibrationMeasurementValidity(typedProjectFacts?.request || typedProjectFacts);
+    const verified = verifyBaseRuleset(effectiveRuleSet);
+    const envelope = typedProjectFacts?.request ? typedProjectFacts : { request: typedProjectFacts, source_classifications: [] };
+    const baseResult = assessCalibrationMeasurementValidity(envelope.request);
+    const profileEvaluation = evaluateCmvSourceBoundProfileRequirements(verified.requirements, envelope.source_classifications ?? []);
+    return applyCmvSourceBoundProfileEvaluation(baseResult, profileEvaluation,
+      verified.requirements.length > 0 ? verified.ruleset_ref : null);
   },
 });
 

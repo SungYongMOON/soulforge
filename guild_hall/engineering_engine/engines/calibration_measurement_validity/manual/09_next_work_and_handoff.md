@@ -4,7 +4,7 @@ The factory integration lane owns the package registration, root focused validat
 
 Possible later work requires an explicit owner/source package:
 
-- approved profile semantics for interval or exception policy;
+- approved broader profile semantics for interval or exception policy beyond the Q1 source-bound requirement operation;
 - unit-conversion authority and a conversion source;
 - approved uncertainty-model and guard-band semantics;
 - a project-local adapter that creates typed facts from properly authorized evidence; and

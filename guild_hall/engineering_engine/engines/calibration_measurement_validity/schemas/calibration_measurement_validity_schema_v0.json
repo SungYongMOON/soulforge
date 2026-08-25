@@ -89,7 +89,7 @@
       "properties": {
         "schema_version": { "const": "soulforge.calibration_measurement_validity.assessment.v0" },
         "domain_engine_id": { "const": "calibration_measurement_validity" },
-        "claim_ceiling": { "const": "source_supported" },
+        "claim_ceiling": { "enum": ["observed", "source_supported"] },
         "project_binding_ref": { "$ref": "#/$defs/reference" },
         "evaluated_at": {
           "type": "object",
@@ -102,7 +102,19 @@
         },
         "result_status": { "enum": ["valid", "unknown", "held", "invalid"] },
         "result_impact": { "enum": ["none", "hold", "invalidate"] },
-        "determinations": { "type": "array", "items": { "$ref": "#/$defs/determination" } }
+        "determinations": { "type": "array", "items": { "$ref": "#/$defs/determination" } },
+        "profile_evaluation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_version", "status", "claim_ceiling", "requirements", "hold_codes"],
+          "properties": {
+            "schema_version": { "const": "soulforge.calibration_measurement_validity.source_bound_profile.v1" },
+            "status": { "enum": ["supported", "hold", "not_applicable"] },
+            "claim_ceiling": { "enum": ["observed", "source_supported"] },
+            "requirements": { "type": "array" },
+            "hold_codes": { "type": "array", "items": { "type": "string" } }
+          }
+        }
       }
     },
     "ruleset": {
@@ -114,9 +126,27 @@
         "domain_engine_id": { "const": "calibration_measurement_validity" },
         "ruleset_ref": { "$ref": "#/$defs/reference" },
         "source_packet_ref": { "$ref": "#/$defs/reference" },
-        "profile_rule_provenance": { "type": "object", "additionalProperties": false },
+        "profile_rule_provenance": { "type": "object" },
+        "source_bound_profile_requirements": { "type": "array", "items": { "$ref": "#/$defs/source_bound_profile_requirement" } },
         "rules": { "type": "array", "minItems": 9 },
         "rule_count": { "type": "integer", "const": 9 }
+      }
+    },
+    "source_bound_profile_requirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirement_id", "required_source_ids", "required_classification", "profile_kind", "profile_id", "revision_or_hash", "extends_or_base_pin", "operation_digest", "source_refs", "order"],
+      "properties": {
+        "requirement_id": { "type": "string" },
+        "required_source_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "required_classification": { "const": "official_public_direct" },
+        "profile_kind": { "enum": ["organization", "project"] },
+        "profile_id": { "type": "string" },
+        "revision_or_hash": { "type": "string" },
+        "extends_or_base_pin": { "type": "string" },
+        "operation_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "source_refs": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "order": { "type": "integer", "minimum": 0 }
       }
     }
   }
