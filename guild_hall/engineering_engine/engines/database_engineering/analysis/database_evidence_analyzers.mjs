@@ -6,6 +6,12 @@ import { analyseRecoveryProof } from './recovery_proof.mjs';
 import { analyseDataQualityEvidence } from './data_quality_evidence.mjs';
 import { analysePlatformControlProof } from './platform_control_proof.mjs';
 
+const coherenceForKnownStatuses = (left, right) => {
+  if (left === 'conflict' || right === 'conflict') return 'conflict';
+  if (left === 'unknown' || right === 'unknown') return 'unknown';
+  return left === right ? 'coherent' : 'conflict';
+};
+
 const freezeDeep = (value) => {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
     for (const child of Object.values(value)) freezeDeep(child);
@@ -30,9 +36,8 @@ export function analyseDatabaseEvidence(analysisInput = {}) {
   const recoveryStatus = recoveryProof.recovery_evidence_status;
   const postgresqlPitrStatus = platformControls.postgresql_pitr.status;
   const pitrProofStatus = recoveryProof.pitr_preconditions_status;
-  const pitrProofCoherence = pitrProofStatus === 'unknown'
-    ? 'unknown'
-    : pitrProofStatus === postgresqlPitrStatus ? 'coherent' : 'conflict';
+  const pitrProofCoherence = coherenceForKnownStatuses(pitrProofStatus, postgresqlPitrStatus);
+  const restorePitrCoherence = coherenceForKnownStatuses(recoveryProof.restore_test_status, postgresqlPitrStatus);
   return freezeDeep({
     schema_graph: schemaGraph,
     migration_diff: migrationDiff,
@@ -45,6 +50,7 @@ export function analyseDatabaseEvidence(analysisInput = {}) {
       sqlite_transaction_semantics_vs_platform_controls: sqliteDirtyReadCoherent ? 'coherent' : 'conflict',
       recovery_plan_vs_postgresql_pitr_controls: 'distinct_propositions_not_compared',
       pitr_precondition_proof_vs_postgresql_pitr_controls: pitrProofCoherence,
+      restore_test_vs_postgresql_pitr_controls: restorePitrCoherence,
     },
     evidence_by_key: {
       schema_graph: { status: schemaGraph.structurally_consistent ? 'supported' : 'contradicted', analyzer: 'schema_graph' },
@@ -54,7 +60,7 @@ export function analyseDatabaseEvidence(analysisInput = {}) {
       recovery_proof: { status: recoveryStatus, analyzer: 'recovery_proof' },
       ...platformControls,
       sqlite_dirty_read_exception: { status: sqliteDirtyReadCoherent ? sqliteDirtyReadStatus : 'conflict', analyzer: 'transaction_semantics+platform_control_proof' },
-      postgresql_pitr: { status: pitrProofCoherence === 'unknown' ? 'unknown' : pitrProofCoherence === 'coherent' ? postgresqlPitrStatus : 'conflict', analyzer: 'recovery_proof.pitr_preconditions+platform_control_proof' },
+      postgresql_pitr: { status: pitrProofCoherence === 'unknown' ? 'unknown' : pitrProofCoherence === 'coherent' && restorePitrCoherence !== 'conflict' ? postgresqlPitrStatus : 'conflict', analyzer: 'recovery_proof.pitr_preconditions+restore_test+platform_control_proof' },
     },
   });
 }

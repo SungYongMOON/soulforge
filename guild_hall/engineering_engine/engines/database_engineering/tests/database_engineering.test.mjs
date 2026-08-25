@@ -207,16 +207,24 @@ test('closed DBE descriptor, ruleset, project-binding, and typed-facts schemas c
   const unsupportedInput = buildUnsupportedDatabasePublicSyntheticInput();
   const adapted = adaptDatabaseProjectEvidence(input.binding, input.evidence, input.cutoffs);
   const postgresAdapted = adaptDatabaseProjectEvidence(postgresInput.binding, postgresInput.evidence, postgresInput.cutoffs);
+  const unsupportedAdapted = adaptDatabaseProjectEvidence(unsupportedInput.binding, unsupportedInput.evidence, unsupportedInput.cutoffs);
   const effective = assembleEffectiveRuleSet(databaseEngineeringAdapter, [], {});
   assert.equal(bindingSchema(input.binding), true, JSON.stringify(bindingSchema.errors));
   assert.equal(bindingSchema(postgresInput.binding), true, JSON.stringify(bindingSchema.errors));
   assert.equal(bindingSchema(unsupportedInput.binding), true, JSON.stringify(bindingSchema.errors));
   assert.equal(factsSchema(adapted.typed_project_facts), true, JSON.stringify(factsSchema.errors));
   assert.equal(factsSchema(postgresAdapted.typed_project_facts), true, JSON.stringify(factsSchema.errors));
+  assert.equal(factsSchema(unsupportedAdapted.typed_project_facts), true, JSON.stringify(factsSchema.errors));
   assert.equal(rulesetSchema(effective.effective_rule_set), true, JSON.stringify(rulesetSchema.errors));
   const evaluated = evaluate(databaseEngineeringAdapter, effective, adapted.typed_project_facts, {}, input.cutoffs);
+  const postgresEvaluated = evaluate(databaseEngineeringAdapter, effective, postgresAdapted.typed_project_facts, {}, postgresInput.cutoffs);
+  const unsupportedEvaluated = evaluate(databaseEngineeringAdapter, effective, unsupportedAdapted.typed_project_facts, {}, unsupportedInput.cutoffs);
   assert.equal(evaluationSchema(evaluated), true, JSON.stringify(evaluationSchema.errors));
+  assert.equal(evaluationSchema(postgresEvaluated), true, JSON.stringify(evaluationSchema.errors));
+  assert.equal(evaluationSchema(unsupportedEvaluated), true, JSON.stringify(evaluationSchema.errors));
   assert.equal(receiptSchema(evaluated.receipt), true, JSON.stringify(receiptSchema.errors));
+  assert.equal(receiptSchema(postgresEvaluated.receipt), true, JSON.stringify(receiptSchema.errors));
+  assert.equal(receiptSchema(unsupportedEvaluated.receipt), true, JSON.stringify(receiptSchema.errors));
   const malformed = structuredClone(input.binding);
   malformed.unapproved_field = true;
   assert.equal(bindingSchema(malformed), false);
@@ -238,6 +246,21 @@ test('closed DBE descriptor, ruleset, project-binding, and typed-facts schemas c
   const malformedState = structuredClone(evaluated);
   malformedState.results[0].state = 'readiness';
   assert.equal(evaluationSchema(malformedState), false);
+  const malformedAnalysisGraph = structuredClone(evaluated);
+  malformedAnalysisGraph.analysis.schema_graph.unapproved_field = true;
+  assert.equal(evaluationSchema(malformedAnalysisGraph), false);
+  const malformedRecoveryAnalysis = structuredClone(evaluated);
+  malformedRecoveryAnalysis.analysis.recovery_proof.unapproved_field = true;
+  assert.equal(evaluationSchema(malformedRecoveryAnalysis), false);
+  const malformedPlatformProof = structuredClone(evaluated);
+  malformedPlatformProof.analysis.platform_control_proof.sqlite_fk_connection.unapproved_field = true;
+  assert.equal(evaluationSchema(malformedPlatformProof), false);
+  const malformedSourceProvenance = structuredClone(evaluated);
+  malformedSourceProvenance.results.find((row) => row.source_authority === 'inventory_anchored').source_provenance.unapproved_field = true;
+  assert.equal(evaluationSchema(malformedSourceProvenance), false);
+  const malformedFactProvenance = structuredClone(evaluated);
+  malformedFactProvenance.results[0].fact_provenance.project_binding.unapproved_field = true;
+  assert.equal(evaluationSchema(malformedFactProvenance), false);
 });
 
 test('SQLite and PostgreSQL public-synthetic bindings compile and evaluate through the Core seam', () => {
@@ -325,6 +348,18 @@ test('machine-observable contradictory evidence yields missing only under the co
   assert.equal(resultFor(recoveryConflictResult, 'DBE-COMMON-RECOVERY-001').state, DATABASE_GAP_STATE.CONFLICT);
   assert.equal(resultFor(recoveryConflictResult, 'DBE-POSTGRESQL-PITR-001').state, DATABASE_GAP_STATE.CONFLICT);
   assert.equal(resultFor(recoveryConflictResult, 'DBE-POSTGRESQL-PITR-001').reason_code, 'named_analyzer_cross_input_conflict');
+
+  const restoreFailureWithPassedProof = buildPostgresqlPublicSyntheticInput();
+  restoreFailureWithPassedProof.evidence.analysis_input.recovery.restore_test_required_but_failed = true;
+  const restoreFailureWithPassedProofResult = run(restoreFailureWithPassedProof).result;
+  assert.equal(restoreFailureWithPassedProofResult.analysis.recovery_proof.restore_test_status, 'conflict');
+  assert.equal(restoreFailureWithPassedProofResult.analysis.cross_analyzer_coherence.restore_test_vs_postgresql_pitr_controls, 'conflict');
+  for (const ruleId of ['DBE-COMMON-RECOVERY-001', 'DBE-POSTGRESQL-PITR-001']) {
+    const row = resultFor(restoreFailureWithPassedProofResult, ruleId);
+    assert.equal(row.state, DATABASE_GAP_STATE.CONFLICT);
+    assert.equal(row.reason_code, 'named_analyzer_cross_input_conflict');
+    assert.equal(row.analysis_status, 'conflict');
+  }
 
   const pitrProofAbsent = buildPostgresqlPublicSyntheticInput();
   pitrProofAbsent.evidence.analysis_input.recovery.proofs = pitrProofAbsent.evidence.analysis_input.recovery.proofs.filter((proof) => proof.kind !== 'pitr_preconditions');
@@ -580,6 +615,58 @@ test('project authority and evidence refs are exact per-rule binding members, no
   const unknownFacts = adaptDatabaseProjectEvidence(unknownRule.binding, unknownRule.evidence, unknownRule.cutoffs).typed_project_facts;
   const baseEffective = assembleEffectiveRuleSet(databaseEngineeringAdapter, [], {});
   assert.throws(() => evaluateDatabaseEngineering(baseEffective, unknownFacts), (error) => error.code === 'DBE_EVIDENCE_INVALID');
+});
+
+test('opaque project references have exact 256-character runtime and schema parity', () => {
+  const ajv = new Ajv2020({ strict: false });
+  const schema = (name) => JSON.parse(readFileSync(resolve(packageRoot, `schemas/${name}`), 'utf8'));
+  const bindingSchema = ajv.compile(schema('database_project_binding_schema_v0.json'));
+  const factsSchema = ajv.compile(schema('database_typed_facts_schema_v0.json'));
+  const makeRef = (projectId, kind, length) => {
+    const prefix = `ref:${projectId}:${kind}:`;
+    assert.ok(prefix.length < length);
+    return `${prefix}${'x'.repeat(length - prefix.length)}`;
+  };
+  const replaceEvidenceRef = (input, ref) => {
+    const observation = input.evidence.observations[0];
+    const priorRef = observation.evidence_ref;
+    input.binding.evidence_bindings.find((row) => row.rule_id === observation.rule_id).evidence_ref = ref;
+    input.binding.evidence_ref_allowlist[input.binding.evidence_ref_allowlist.indexOf(priorRef)] = ref;
+    observation.evidence_ref = ref;
+  };
+
+  const maximum = buildSqlitePublicSyntheticInput();
+  const maximumRef = makeRef(maximum.binding.project_id, 'evidence', 256);
+  replaceEvidenceRef(maximum, maximumRef);
+  assert.equal(bindingSchema(maximum.binding), true, JSON.stringify(bindingSchema.errors));
+  const maximumFacts = adaptDatabaseProjectEvidence(maximum.binding, maximum.evidence, maximum.cutoffs).typed_project_facts;
+  assert.equal(maximumFacts.evidence[0].evidence_ref.length, 256);
+  assert.equal(factsSchema(maximumFacts), true, JSON.stringify(factsSchema.errors));
+
+  const tooLongEvidence = buildSqlitePublicSyntheticInput();
+  replaceEvidenceRef(tooLongEvidence, makeRef(tooLongEvidence.binding.project_id, 'evidence', 257));
+  assert.throws(() => adaptDatabaseProjectEvidence(tooLongEvidence.binding, tooLongEvidence.evidence, tooLongEvidence.cutoffs), (error) => error.code === 'DBE_BINDING_INVALID');
+
+  const tooLongAuthority = buildSqlitePublicSyntheticInput();
+  const requirement = tooLongAuthority.evidence.requirements[0];
+  const authorityRef = makeRef(tooLongAuthority.binding.project_id, 'authority', 257);
+  tooLongAuthority.binding.authority_bindings.find((row) => row.rule_id === requirement.rule_id).authority_ref = authorityRef;
+  requirement.authority_ref = authorityRef;
+  assert.throws(() => adaptDatabaseProjectEvidence(tooLongAuthority.binding, tooLongAuthority.evidence, tooLongAuthority.cutoffs), (error) => error.code === 'DBE_BINDING_INVALID');
+
+  const tooLongWorkloadEvidence = buildSqlitePublicSyntheticInput();
+  const workloadMetric = tooLongWorkloadEvidence.evidence.analysis_input.workload.metrics[0];
+  const workloadRef = makeRef(tooLongWorkloadEvidence.binding.project_id, 'evidence', 257);
+  tooLongWorkloadEvidence.binding.evidence_ref_allowlist[tooLongWorkloadEvidence.binding.evidence_ref_allowlist.indexOf(workloadMetric.evidence_ref)] = workloadRef;
+  workloadMetric.evidence_ref = workloadRef;
+  assert.throws(() => adaptDatabaseProjectEvidence(tooLongWorkloadEvidence.binding, tooLongWorkloadEvidence.evidence, tooLongWorkloadEvidence.cutoffs), (error) => error.code === 'DBE_BINDING_INVALID');
+
+  const tooLongQualityEvidence = buildSqlitePublicSyntheticInput();
+  const qualityCheck = tooLongQualityEvidence.evidence.analysis_input.data_quality.checks[0];
+  const qualityRef = makeRef(tooLongQualityEvidence.binding.project_id, 'evidence', 257);
+  tooLongQualityEvidence.binding.evidence_ref_allowlist[tooLongQualityEvidence.binding.evidence_ref_allowlist.indexOf(qualityCheck.evidence_ref)] = qualityRef;
+  qualityCheck.evidence_ref = qualityRef;
+  assert.throws(() => adaptDatabaseProjectEvidence(tooLongQualityEvidence.binding, tooLongQualityEvidence.evidence, tooLongQualityEvidence.cutoffs), (error) => error.code === 'DBE_BINDING_INVALID');
 });
 
 test('outer wrappers, authority, and cutoffs reject accessors or proxies without executing traps', () => {

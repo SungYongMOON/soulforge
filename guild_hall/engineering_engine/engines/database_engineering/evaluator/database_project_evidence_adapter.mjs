@@ -22,9 +22,10 @@ const deepFreeze = (value) => {
   return value;
 };
 const refuse = (code, message) => { throw new ContractError(code, message); };
+const OPAQUE_REFERENCE_MAX_LENGTH = 256;
 
 function assertSafeReference(value, label) {
-  if (typeof value !== 'string' || !value || FORBIDDEN_DATA_PATTERNS.some((pattern) => pattern.test(value))) {
+  if (typeof value !== 'string' || !value || value.length > OPAQUE_REFERENCE_MAX_LENGTH || FORBIDDEN_DATA_PATTERNS.some((pattern) => pattern.test(value))) {
     refuse(DBE_ERROR_CODES.BINDING_INVALID, `${label} must be an opaque public-safe reference`);
   }
 }
