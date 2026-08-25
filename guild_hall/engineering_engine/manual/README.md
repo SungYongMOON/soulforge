@@ -1,6 +1,6 @@
 # Soulforge 체계공학 판단 엔진 개발 매뉴얼 (v0, 2026-08-18)
 
-이 폴더는 `guild_hall/engineering_engine/`(판단 엔진)과 그 규칙 공급층(`stage_rules/`, `guild_hall/requirement_trace/`,
+이 폴더는 `guild_hall/engineering_engine/`의 현재 Systems Engineering Domain Engine과 공통 Core, 그리고 그 규칙 공급층(`stage_rules/`, `guild_hall/requirement_trace/`,
 `.registry/skills/se_foldertree_generate/`)이 **무엇을, 왜, 어떻게** 만들었는지를 다른 작업자(사람이든 Codex·Claude 같은
 LLM이든)가 이어받을 수 있게 책 형태로 정리한 개발 매뉴얼이다. 도구 비종속이며 어떤 에이전트 환경도 전제하지 않는다.
 
@@ -8,13 +8,14 @@ LLM이든)가 이어받을 수 있게 책 형태로 정리한 개발 매뉴얼�
   정본과 매뉴얼이 다르면 정본이 이긴다(그리고 매뉴얼을 고친다).
 - public-safe: 과제 원문·사업명 세부·개인명·절대경로·secret을 넣지 않는다. private 실행 결과는 상대 포인터(`_workmeta/...`, `_workspaces/...`)로만 가리킨다.
 - 갱신 규칙: 규칙 층·컴파일러·어휘·요구추적·실행 기록·결정이 바뀌면 같은 변경에서 해당 장을 고친다. 장 번호는 고정이고 내용만 자란다.
+- 제품 전체 용어와 target package/storage owner는 `docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`가 정본이다. 이 매뉴얼의 4층·overlay는 SE Domain Engine 안의 current 구현 설명이며, LIG·과제를 별도 엔진으로 뜻하지 않는다.
 
 ## 읽는 순서 (새 작업자용)
 
 | 순서 | 장 | 언제 읽나 |
 | --- | --- | --- |
-| 1 | [01 목적과 모양](01_purpose_and_shape.md) | 처음 15분. 엔진이 하는 일 한 장, 두 층 구조, 파일 지도 |
-| 2 | [02 규칙의 네 층](02_rule_layers.md) | 체크리스트(단계→산출물)를 어디서 읽는지, 층이 어떻게 합쳐지는지 |
+| 1 | [01 목적과 모양](01_purpose_and_shape.md) | 처음 15분. Core와 SE Domain Engine, Profile·Binding, 현재 실행층과 파일 지도 |
+| 2 | [02 SE 규칙의 네 내부 층](02_rule_layers.md) | Domain 규칙 source와 Organization/Project Profile 구현 overlay가 어떻게 조립되는지 |
 | 3 | [03 항목은 어떻게 구했나](03_how_items_were_derived.md) | **행(항목)이 어디서 왔는지** — 정본 확보·추출·합성·검토·코딩·검증 파이프라인, 층별 방법, 세는 법 |
 | 4 | [04 산출물 표준어](04_vocabulary.md) | `artifact_type_id` 토큰 규칙, 계열, 발행·별칭 규칙 |
 | 5 | [05 컴파일러와 생성기](05_compiler_and_generator.md) | 규칙을 엔진 입력으로 바꾸는 순수 함수의 입출력·판정 규칙·시험 |
@@ -46,7 +47,7 @@ Owner 지시(2026-08-18): "하기로 한 것이 그림에서 빠지면 누락된
 | **과제 목록(과제 명부)** | 이 문이 서빙할 수 있는 과제 한 장 — 코드 → 프로필 경로·상태. 문 하나로 과제 N개 | 문 | **있음(2026-08-19, 부록 B 1·6번)** — `soulforge.engine_project_registry.v0`(private `_workmeta/system/engine/`, public에는 합성 예시만) + 도구 `projects_list` + 모든 도구의 `project_code` 인자 + 과제별 컨텍스트 LRU 8. 남은 것: 명부를 고치는 도구(과제 착수 C1에서), 실행 색인(부록 B 8번) |
 | **엔진 상태** | 판·규칙 지문·프로토콜·스위치 둘·명부·영수증 위치를 인자 없이 한 번에 | 문 | **있음(2026-08-19)** — 도구 `engine_status`(9.1E 벤치마크 ①). `rules_version`은 호환 위해 그대로 남겨 둔다 |
 | 과제 착수 명령 | 5입력 → 폴더트리·규칙·첫 판단 | 착수 | 없음 |
-| 발주처 덧씌움 추가(한화 등), 탐색·선행·운용 스펙 재기준 | 다른 발주처·사업유형 실체 | 규칙 | 없음(초안만) |
+| Organization Profile 추가(한화 등, 내부 overlay), 탐색·선행·운용 스펙 재기준 | 다른 발주처·사업유형 실체 | 규칙/Profile | 없음(초안만) |
 | R2 원장·R3 투영·R4 카드 | 요구 추적 후반 | 요구 추적 | 없음 |
 | 눈의 운영 모드(등록 대장 대조·미등록 알림·증분·03_Out만) + 매뉴얼 10장 트리거 절 | 후보 확인표는 첫 적재 1회만; 기본은 등록된 것만 관측, 훑기는 미등록·청소 알림 | 눈 | 없음(합의 2026-08-19, 09장 9.1D) |
 | 비서 층(엔진 MCP 위, 맥락 채움·표시) | 사람이 말 거는 상대; 엔진 판단 + 맥락(기한·담당·발주처 요청·결정) 조립, 판단/맥락 구분 표시 | 문 위 | 없음(합의 2026-08-19, 09장 9.1D) |
@@ -56,7 +57,7 @@ Owner 지시(2026-08-18): "하기로 한 것이 그림에서 빠지면 누락된
 
 ## 정본 위치 (매뉴얼이 가리키는 곳)
 
-- 설계: `docs/architecture/workspace/SE_STAGE_RULE_SOURCE_MODEL_V0.md`(단계 규칙 원천), `docs/architecture/workspace/PROJECT_REQUIREMENT_TRACE_MODEL_V0.md`(요구 추적), `docs/architecture/workspace/SE_ASSISTANT_OPERATING_MODEL_V0.md`, `SE_DUNGEON_STAGE_MODEL_V0.md`
+- 설계: `docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`(Core·Domain·Profile·Binding 조립 정본), `docs/architecture/workspace/SE_STAGE_RULE_SOURCE_MODEL_V0.md`(SE 단계 규칙 원천), `docs/architecture/workspace/PROJECT_REQUIREMENT_TRACE_MODEL_V0.md`(요구 추적), `docs/architecture/workspace/SE_ASSISTANT_OPERATING_MODEL_V0.md`, `SE_DUNGEON_STAGE_MODEL_V0.md`
 - 규칙 스펙: `.registry/skills/se_foldertree_generate/codex/assets/SE_FolderTree_*.md` + `assets/compiled/*.json`
 - 코드: `guild_hall/engineering_engine/{kernel,subjects,stage_rules,contracts,tests}`, `guild_hall/requirement_trace/`
 - 진행 상태 정본: `ui-workspace/apps/dev-erp/docs/TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md`(CURRENT 표), `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md`(plan delta log)

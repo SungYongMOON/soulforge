@@ -50,5 +50,5 @@ Owner 확정: ② 스펙에서 **행 이름·용어가 말하는 문서와 배�
 - 어휘의 `CROSS_LAYER_TOKEN_EQUIVALENCE`에서 `national_row_assignment` 3건을 **뺐다**. 남은 것은 진짜 동의어 한 쌍(`temp`↔`p_temp`)뿐이고, 두 층은 이제 같은 토큰으로 바로 만난다.
 - 영향: 엔진 요구 id는 **1개만** 바뀌었다(`150_TRR_DT_sps` → `150_TRR_DT_vdd`). 나머지 두 행은 `unstated`라 애초에 엔진 요구가 아니었다. ①→② 투영은 52간선/20행으로 수치가 같고, 대응표를 거치지 않고 바로 내려앉는다.
 - 게이트 역할 부작용: ② `entry` 행이 4 → 2로 줄었다. 줄어든 둘은 가이드북이 **다른 문서**(소요요구서·국방규격화연계표)를 회의 입력으로 적은 것을 잘못 배정된 토큰이 받아 가던 것이라, 사라진 것이 정정이다.
-- 과제 덧씌움: KVDS(P26-014) overlay 24 op 중 이 3토큰을 가리키는 것은 **0건**. 다만 그 overlay는 `extends.spec_sha256`이 v0.8을 가리켜 D44 이전부터 이미 `OVERLAY_BASE_MISMATCH`로 거부되는 상태이며, 다시 pin해야 한다(Owner 작업).
+- Project Profile 내부 overlay: private pilot 24 op 중 이 3토큰을 가리키는 것은 **0건**. 다만 그 overlay는 `extends.spec_sha256`이 v0.8을 가리켜 D44 이전부터 이미 `OVERLAY_BASE_MISMATCH`로 거부되는 상태이며, 다시 pin해야 한다(Owner 작업).
 - **컴파일러 동작(실측 확인)**: overlay가 그 단계에 없는 규칙을 `alias`/`mark_not_applicable`로 가리키면 조용한 보고가 아니라 `SE_STAGE_RULE_OVERLAY_INVALID`로 **거부**한다(detail에 op·stage·token). 이는 `unresolved_dependencies`나 생성기의 `unbound_observations` 같은 soft report와 다르며 의도된 설계다 — 없는 규칙에 대한 주장은 이미 틀린 주장이기 때문이다.

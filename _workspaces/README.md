@@ -50,12 +50,19 @@ _workspaces/
 │   └── <run_family_or_pilot_id>/
 │       └── ... reusable workflow lab and fixture outputs ...
 ├── knowledge/
-│   └── common/
-│       └── ... company or cross-project source packets ...
+│   ├── common/
+│   │   └── <domain_engine_id>/... common source packets and derivations ...
+│   └── organizations/                 target; not materialized by this decision
+│       └── <organization_id>/<domain_engine_id>/... private reusable profile sources ...
 └── <project_code>/
     ├── <stage>/<artifact>/00_Temp/
     │   ├── template_snapshot/
     │   └── workflow_candidate/
+    ├── engineering/                   target; project-private engine application plane
+    │   ├── profiles/
+    │   ├── bindings/
+    │   ├── facts/
+    │   └── runtime/
     └── ... actual project files ...
 ```
 
@@ -65,6 +72,8 @@ _workspaces/
 - `_workspaces/SE_TEMPLATE_LIBRARY/` 는 reusable SE artifact materials 의 canonical actual-file library/store 다. pointer-only reference folder 도 아니고 project execution baseline 도 아니다.
 - `_workspaces/system/` 은 특정 프로젝트 owner 가 없는 reusable workflow 실험, fixture 출력, pilot 산출물을 담는 reserved lab workspace 다. 참여 PC 에서는 같은 shared target 을 보는 link view 로 맞추고, PC-local 실험이나 cache 는 `_workspaces/_local/<node_id>/` 로 분리한다.
 - `_workspaces/knowledge/` 는 특정 프로젝트가 아닌 회사 공통 자료와 cross-project 지식 준비물을 위한 reserved workspace 다. 실제 프로젝트 자료를 이곳으로 옮겨 project owner 경계를 흐리지 않는다.
+- `_workspaces/knowledge/organizations/**`는 Owner 승인 뒤 materialize할 private cross-project organization source/profile target이다. 여러 과제에 반복 적용된다는 sourcebound review를 통과하지 않은 project 자료를 이곳으로 자동 승격하지 않는다.
+- `_workspaces/<project_code>/engineering/**`는 Project Profile·Binding·Typed Facts·Effective Rule Set·run payload의 target owner다. compiled 결과는 재생성 가능 artifact이며 사람이 고치는 정본이 아니다.
 - library 의 canonical reusable files 는 owner-approved templates/forms, executable artifact workflows, artifact-specific authoring rules, sample output files 를 포함할 수 있다. provenance, hash, version, classification 은 `manifests/` 또는 catalog docs 에 기록한다.
 - library 의 `workflow/` 는 executable workflow procedure 만 담는다. folder layout, source path, copy history, hash, catalog/provenance 는 workflow 본문이 아니라 `manifests/` 또는 catalog docs 에 둔다.
 - common document rules 는 artifact-specific `authoring_rules/` 와 섞지 않고 `common_document_rules/` 같은 별도 common-rule surface 에 둔다.
@@ -81,6 +90,7 @@ _workspaces/
 - 실행 기록은 `_workmeta/<project_code>/runs/<run_id>/` 아래에 남기되, 여기서 기록은 판단 근거, 검증 로그 같은 메타데이터를 뜻한다.
 - HWP/HWPX, Word, Excel, PowerPoint, PDF, 압축파일, 메일 원문/첨부 같은 실제 payload 파일은 `_workmeta` 에 두지 않고 `_workspaces/<project_code>/`, `_workspaces/SE_TEMPLATE_LIBRARY/`, `_workspaces/system/`, 또는 owner-approved shared worksite 에 둔다.
 - `_workmeta` 는 실제 원문 파일을 직접 보관하지 않고 workspace/shared worksite 경로, 크기, 해시, 출처, 사용 상태만 기록한다.
+- `_workmeta`에는 Effective Rule Set, Typed Facts, Project Profile/Binding payload를 저장하지 않는다. 해당 payload는 `_workspaces`에 두고 `_workmeta`에는 exact ref·hash·status·authority/decision metadata와 compact receipt만 둔다.
 - HWP 파일은 본문 분석 전에 workspace/shared worksite 작업본에서 먼저 HWPX 로 저장/export 한다. HWPX 파생본이 생기기 전에는 HWP 원문을 본문/양식/항목 추출 근거로 읽지 않는다.
 - project-side monster record 는 `_workmeta/<project_code>/monsters/` 아래에 남긴다.
 - `_workmeta/<project_code>/` 는 local contract, bindings, autohunt metadata, 실행 기록 메타데이터를 두는 실행 surface 이며 mission owner 가 아니다.

@@ -10,7 +10,7 @@
 
 | 문서 | 역할 |
 | --- | --- |
-| `WORKSPACE_PROJECT_MODEL.md` | `_workspaces`, `_workmeta`, `.mission`, gateway handoff 의 owner 경계를 고정한다. |
+| `WORKSPACE_PROJECT_MODEL.md` | `_workspaces`, `_workmeta`, `.mission`, gateway handoff 의 owner 경계와 project-private engineering Profile/Binding/Facts/runtime target을 고정한다. |
 | `WORKSPACE_PATH_IDENTITY_POLICY_V0.md` | `_workspaces/<name>` 이 PC마다 다른 실체를 가리키지 않도록 shared view 와 PC-local namespace 경계를 고정한다. |
 | `PROJECT_ONBOARDING_V0.md` | 실제 프로젝트를 `_workspaces/<project_code>/` 로 처음 붙이는 절차를 둔다. |
 | `PROJECT_FOLDER_INDEXING_POLICY_V0.md` | 프로젝트 폴더마다 검색 가능한 파일 색인을 project-local 로 유지하고, 색인과 지식화를 분리하는 운영 규칙이다. |
@@ -19,7 +19,7 @@
 | `PROJECT_HISTORY_ENVELOPE_V0.md` | mail/voice/structured PC work/file/run-log occurrence를 public-safe metadata envelope로 맞추고 0건을 가짜 event 없이 별도 coverage receipt로 증명하는 `canon_candidate` 계약이다. |
 | `PROJECT_HISTORY_READINESS_FOUNDATION_V0.md` | C00A/C00Q receipt와 C00B 이후 HOLD 경계를 public-safe map으로 연결하고, one-project five-lane Shadow/H06 synthetic replay만 검증하는 readiness 계약이다. |
 | `PROJECT_LEDGER_UPDATE_V0.md` | 주기적으로 전달되는 회사 PJT 관리 대장을 private source 로 받아 project registration 을 갱신하는 public-safe 절차다. |
-| `COMPANY_COMMON_SOURCE_STORAGE_V0.md` | 회사 공통 조직/연락처/자리배치/운영 참조 자료를 project worksite 와 분리해 knowledge common source packet 으로 보관하는 규칙이다. |
+| `COMPANY_COMMON_SOURCE_STORAGE_V0.md` | 회사 공통 운영 source와 특정 organization에 반복되는 Domain Profile source target을 project worksite와 분리하는 규칙이다. |
 | `PROJECT_KNOWLEDGE_EXTRACTION_STORAGE_V0.md` | 프로젝트 지식 추출(장서목록·본문추출·추출 메타)의 저장 위치를 `project_code` 단위로 격리해 고정하고, `HWP_NORMALIZATION`/`COMPANY_COMMON` 을 모든 문서 형식으로 일반화하며 `_local` 임의 폴더를 금지하는 규칙이다. |
 | `PROJECT_REQUIREMENT_TRACE_MODEL_V0.md` | (DRAFT/canon_candidate) 과제 맥락 = append-only 사실 원장 + 재생 가능한 타입 그래프·RTM 투영 + 별도 수락 게이트 + 얇은 카드; 계약 요구 ID→파생→산출물→시험 커버리지 계산 규칙과 Graph DB 도입 트리거를 고정한다. `PROJECT_CONTEXT_GRAPH_MODEL_V0.md`의 SE 확장. |
 | `VOICE_CAPTURE_MVP_V0.md` | MacBook Air 상주형 로컬 음성 수집 MVP 의 `_workspaces` raw payload 경계와 `_workmeta` metadata-only handoff 규칙이다. |
@@ -57,7 +57,7 @@
 | `BATTLE_LOG_STORAGE_PLAN.md` | battle log 저장 위치, event stream, chain sample 기준이다. |
 | `MISSION_CLOSE_PROVENANCE_V0.md` | mission terminal 상태와 battle event provenance pointer 계약이다. |
 | `SE_DUNGEON_STAGE_MODEL_V0.md` | project=dungeon, stage/floor, boss clear 를 UI/업무 단계에 연결한다. |
-| `SE_STAGE_RULE_SOURCE_MODEL_V0.md` | (DRAFT/canon_candidate) 단계 규칙(단계→산출물)의 단일 원천 = 사업유형별 폴더트리 variant 스펙 + 기계 필드(L1), 과제 덧씌움(L2), 결정론 컴파일러(L3: expected-artifact policy·엔진 stage policy·Needs stages), 산출물 표준어(artifact_type_id), D42~D45. |
+| `SE_STAGE_RULE_SOURCE_MODEL_V0.md` | (DRAFT/canon_candidate) SE Domain 규칙 source(L1), Organization/Project Profile 내부 overlay(L2), Domain Compiler Adapter(L3: Effective Rule Set 재료), 별도 Project Binding seam, 산출물 표준어와 D42~D45. |
 | `SE_ASSISTANT_OPERATING_MODEL_V0.md` | Defines the public-safe SE assistant operating loop, authority boundary, request flow, and project use path. |
 | `MAILBOX_CONCRETE_CONTRACT_V0.md` | mailbox concrete source 와 gateway state surface 의 public-safe 계약이다. |
 | `AUTOHUNT_MODEL.md` | `_workmeta/<project_code>/autohunt/` 의 routing, policy, capability 확장선을 둔다. |
@@ -160,7 +160,7 @@
 - `PROJECT_TASK_ENGINE_LIFECYCLE_V0.md` 는 `core_item` current state와 append-only `event_log`를 task truth target으로 유지하고, TaskDriver와 두 상태축은 migration/validator gate 전까지 `canon_candidate`로 둔다.
 - `PROJECT_HISTORY_ENVELOPE_V0.md` 는 다섯 history lane의 exact typed-ref/time/digest envelope와 별도 coverage receipt를 `canon_candidate`로 두며, owner ratification과 D25 completeness/gap vocabulary 전에는 adapter/live use를 허용하지 않는다.
 - `PROJECT_LEDGER_UPDATE_V0.md` 는 owner 가 주기적으로 전달하는 회사 PJT 관리 대장을 private source 로 보관하고 current/open project metadata 를 갱신하는 절차를 잠근다.
-- `COMPANY_COMMON_SOURCE_STORAGE_V0.md` 는 특정 프로젝트가 아닌 회사 공통 조직/연락처/자리배치/운영 참조 자료를 `_workspaces/knowledge/common/company/` 아래 source packet 으로 보관하고, `_workmeta` 에는 metadata-only 기록만 남기는 규칙을 잠근다.
+- `COMPANY_COMMON_SOURCE_STORAGE_V0.md` 는 회사 전체 운영/common source를 `_workspaces/knowledge/common/company/`에 두고, 특정 organization 반복 Profile source는 승인된 `knowledge/organizations/<organization>/<domain>/` target으로 분리하며, `_workmeta`에는 metadata-only 기록만 남기는 규칙을 잠근다.
 - `PROJECT_KNOWLEDGE_EXTRACTION_STORAGE_V0.md` 는 프로젝트 지식 추출 산출물을 `project_code` 단위로 격리해, 장서목록은 `_workmeta/<project_code>/reports/source_research/`, derived_text payload 는 `_workspaces/<project_code>/reference_payloads/knowledge_extract/<batch>/derived_text/`, 회사 공통은 `_workspaces/knowledge/common/company/` 로 두고 `_local` 임의 폴더를 금지하는 규칙을 잠근다.
 - `VOICE_RECORDING_LIBRARY_V0.md` 는 전체 녹음 보관함을 `_workspaces/system/voice_capture/library/` 로 고정하고, 현재 확정 전 metadata-only 후보와 후속 AI 임시 확정 상태를 사람 승인·공식 truth와 분리하며, 맥미니 단일 writer와 shared payload/private metadata의 PC 간 전달 규칙을 잠근다.
 - `SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md` 는 사람에게 보이는 SE workspace 폴더명은 짧은 한글 의미명으로 두고, 날짜/source/mail/hash/import provenance 는 `_workmeta` metadata 또는 manifest 로 분리하는 기준을 잠근다.

@@ -63,10 +63,21 @@ _workspaces/
 ├── system/
 │   └── <run_family_or_pilot_id>/
 │       └── ... reusable workflow lab and fixture outputs ...
+├── knowledge/
+│   ├── common/
+│   │   ├── company/ ... company-wide operating/common source sets ...
+│   │   └── <domain_engine_id>/ ... organization-neutral domain sources ...
+│   └── organizations/                 target; Owner-approved materialization only
+│       └── <organization_id>/<domain_engine_id>/ ... repeatable private profile sources ...
 └── <project_code>/
     ├── <stage>/<artifact>/00_Temp/
     │   ├── template_snapshot/
     │   └── workflow_candidate/
+    ├── engineering/                   target project-private engine application plane
+    │   ├── profiles/
+    │   ├── bindings/
+    │   ├── facts/
+    │   └── runtime/
     └── ... actual project files ...
 
 _workmeta/
@@ -106,6 +117,15 @@ _workmeta/
   a target for new project writes; common bytes are referenced by exact
   revision/hash from a project view rather than copied into a second project
   canon.
+- `_workspaces/knowledge/common/company/**` is company-wide operating/common source
+  material that does not implement a named customer/prime-contractor tailoring Profile.
+  `_workspaces/knowledge/organizations/<organization_id>/<domain_engine_id>/**` is a
+  separate target for sourcebound-reviewed material that repeats across projects for one
+  named organization. Project-only payload never moves there automatically.
+- `_workspaces/<project_code>/engineering/{profiles,bindings,facts,runtime}/**` is the
+  target project-private owner for Project Profile, Project Binding, Typed Project Facts,
+  Effective Rule Set and run payload. These runtime/compiled artifacts are not canon and
+  must remain reproducible from exact refs.
 - `_workspaces/SE_TEMPLATE_LIBRARY/` 는 reusable SE artifact materials 의 canonical actual-file library/store 다. pointer-only reference folder 도 아니고 project execution baseline 도 아니다.
 - `_workspaces/system/` 은 특정 delivery project 가 아닌 reusable workflow lab pilot output 과 fixture materialization 을 두는 reserved root 다. 여러 PC 에서 같은 이름을 사용할 때는 [`WORKSPACE_PATH_IDENTITY_POLICY_V0.md`](WORKSPACE_PATH_IDENTITY_POLICY_V0.md) 에 따라 같은 owner-approved shared worksite 를 가리키는 shared view 로 materialize 한다.
 - library 의 canonical reusable files 는 owner-approved templates/forms, executable artifact workflows, artifact-specific authoring rules, sample output files 를 포함할 수 있다. provenance, hash, version, classification 은 `manifests/` 또는 catalog docs 에 기록한다.
@@ -130,6 +150,9 @@ _workmeta/
 - `project_code` 는 경로와 식별에 쓰는 짧고 안정적인 id 로 두고, 사람용 full title 은 `contract.yaml` 의 `display_name` 에 둔다.
 - `_workmeta/<project_code>/` 는 분리된 registry 가 아니라 companion private root 안의 shared metadata plane 이며 contract, binding, 실행 기록 메타데이터, owner-handoff metadata 보관 위치다.
 - `_workmeta` 의 실행 기록은 원문 파일 보관을 뜻하지 않는다. HWP/HWPX, Word, Excel, PowerPoint, PDF, 압축파일, 메일 원문/첨부 같은 실제 payload 파일은 `_workmeta` 에 저장하지 않고 `_workspaces/<project_code>/...`, `_workspaces/SE_TEMPLATE_LIBRARY/...`, `_workspaces/system/...`, 또는 owner-approved shared worksite 에 둔다.
+- `_workmeta`에는 Project/Organization Profile payload, Project Binding, Typed Project
+  Facts, Effective Rule Set와 compilation/result payload를 두지 않는다. exact ref, hash,
+  status, authority/decision metadata와 compact receipt만 기록한다.
 - `_workmeta` 에는 실제 원문 파일 대신 workspace/shared worksite 경로, 크기, 해시, 출처, 사용 상태, 차단 사유 같은 포인터 메타데이터만 남긴다.
 - HWP 는 원문 자체를 본문 분석 대상으로 삼지 않는다. 모든 HWP 는 [`HWP_NORMALIZATION_V0.md`](HWP_NORMALIZATION_V0.md) 에 따라 workspace/shared worksite 작업본에서 HWPX 로 저장/export 한 뒤, HWPX 파생본만 읽는다.
 - `_workmeta/<project_code>/monsters/` 는 project-side monster current state owner 다.

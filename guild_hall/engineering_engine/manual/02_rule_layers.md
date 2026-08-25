@@ -1,4 +1,9 @@
-# 02. 규칙의 네 층
+# 02. SE 규칙의 네 내부 층
+
+사용자 관점에서는 ①·②가 Systems Engineering Domain Engine의 규칙 source이고,
+③은 Organization Profile, ④는 Project Profile이다. `덧씌움/overlay`은 ③·④를
+구현하는 내부 operation 이름이다. Project Binding은 실제 자료를 Typed Project
+Facts로 연결하는 별도 seam이며 규칙 층이 아니다.
 
 ## 2.1 왜 네 층인가
 
@@ -10,19 +15,40 @@
 | --- | --- | --- | --- | --- |
 | **① 일반 SE 기준선** | 발주처·국가 무관. "체계공학 기반으로 개발한다면 각 기술검토 전에 최소한 이건 만들어 둬라" | `assets/SE_FolderTree_GenericSE_Base.md` → `compiled/generic_se_base.json` | 202행(9게이트, +고정 27 = 229 task), 산출물 종류 100 | NASA NPR 7123.1D 부록 G, DoD SE Guidebook 2022 §3 (NASA SE Handbook은 추출만, 미반영) |
 | **② 국가 조달 공통(방사청·국방부)** | 한국 방위사업 체계개발이면 사업·발주처와 무관하게 요구되는 것 | `assets/SE_FolderTree_Guide.md` v0.8의 prime_contract 아닌 행 → `compiled/system_dev_common_no_grade.json` | 107행(8게이트, +고정 24 = 131 task): 규정 필수 35 · 가이드북 권고 46 · 근거 미표기 22 · 내부관리 4 | 방위사업관리규정·SE 가이드북·기술검토회의 가이드북 등 정본 13종(대조표 `references/source_verification_v0.md`) |
-| **③ 발주처(주계약사) 덧씌움** | 특정 주계약사 계약·품질 지침이 추가로 요구하는 것 | `compiled/overlays/system_dev_lig_grade_a.prime.overlay.json` (같은 스펙 v0.8의 `evidence_level: prime_contract` 행 14개를 exporter가 `add` op로 뽑아냄) | 14 op | 주계약사 개발품질 지침(계약 문서) |
-| **④ 과제 덧씌움** | 이 과제만의 별칭·추가·조건 | private: `_workspaces/<project>/…/06_validation/stage_rules_<date>/overlay.json` | P26-014 120_CDR: 24 op(별칭 14 · 추가 9 · 조건 1) | 발주처 요청 메일·SOW(과제 원문) |
+| **③ Organization Profile (내부 구현: prime overlay)** | 특정 주계약사에 반복 적용되는 계약·품질 지침 추가 요구 | `compiled/overlays/system_dev_lig_grade_a.prime.overlay.json` (같은 스펙 v0.8의 `evidence_level: prime_contract` 행 14개를 exporter가 `add` op로 뽑아냄) | 14 op | 주계약사 개발품질 지침(계약 문서) |
+| **④ Project Profile (내부 구현: project overlay)** | 이 과제만의 applicability·tailoring·별칭·추가·조건 | private: `_workspaces/<project>/…/06_validation/stage_rules_<date>/overlay.json` | private pilot 120_CDR: 24 op(별칭 14 · 추가 9 · 조건 1) | 발주처 요청 메일·SOW(과제 원문) |
 
 탐색개발·운용연구개발·선행연구 기본형(`*_Basic.md`, 각 35행)은 체계개발 명명틀을 빌린 **미검증 초안**이다(D43: 실제 과제 1건 검증 전 승격 금지). 응용연구는 제안 v2만 있다.
 
 ## 2.2 층은 어떻게 합쳐지나
 
-컴파일러(`compileStageRules`)는 `compiled_variant`(①이든 ②든 하나) + `overlay`(③·④ op 목록을 이어 붙인 것) + `project_binding`을 받는다.
+현재 컴파일러(`compileStageRules`)는 `compiled_variant`(①이든 ②든 하나) +
+`overlay`(③·④ op 목록을 이어 붙인 것) + compatibility `project_binding`을 받는다.
+제품 의미는 다음과 같다.
+
+```text
+SE Domain Engine + Organization Profile + Project Profile
+                           ↓ Rule Compiler
+                    Effective Rule Set
+
+Project Sources → Project Adapter/Binding → Typed Project Facts
+
+Effective Rule Set + Typed Project Facts → Evaluator
+```
+
+현재 `project_binding`은 document ref·authority·time·scope를 policy material에 고정한다.
+Project file/RAG/ERP observation을 읽는 Evidence Binding과 같은 것으로 확대하지 않는다.
+
+Current loader는 Organization/Project overlay ops를 compiler 입력 하나로 합치므로 파일
+분리는 돼 있어도 Profile별 `identity`, `extends/base pin`, revision, order, source refs를
+독립적으로 끝까지 검증하는 target semantic seam은 아직 없다. migration에서는 legacy
+project-profile envelope를 읽는 compatibility Adapter를 유지하면서 각 Profile provenance를
+compilation trace에 따로 남겨야 한다.
 
 - overlay op는 다섯 가지뿐: `add`(행 추가) · `alias`(과제 이름→표준어) · `mark_not_applicable`(N/A, 근거 필요) · `condition`(조건 토큰, 예 `sw_included`) · `add_dependency`(입력 추가, §2.6).
 - `add`는 선택 필드 `task_id`·`folder_name`으로 **그 행이 디스크 어디에 있는지**를 말할 수 있다(둘 다 쓰거나 둘 다 안 쓴다). 덧씌움이 더한 규칙은 보통 폴더가 없지만, 원래 스펙 행이었다가 덧씌움으로 옮겨온 슬롯은 이미 폴더가 있다. 이 두 값이 있어야 파일 문(12장)이 스펙 행과 같은 방식(번호와 이름이 둘 다 맞아야 함)으로 그 폴더를 찾는다.
 - overlay는 evidence level을 **올리거나 바꾸지 못한다**(D45). `add`는 표준 행이 `optional_context`일 때만 옆에 `prime_contract` 행을 둘 수 있고(발주처 요구 강화, 영수증 `overlay_strengthened`), 표준이 이미 요구하는 항목에는 거부된다.
-- 등가성 증명(2026-08-18): "통합 스펙(②+③이 한 파일) 컴파일" 결과와 "② 공통 + ③ overlay 컴파일" 결과가 P26-014 120_CDR에서 **같은 27개 엔진 요구**를 낸다. 이 검사가 깨지면 exporter나 컴파일러의 약화 규칙이 어긋난 것이다.
+- 등가성 증명(2026-08-18): "통합 스펙(②+③이 한 파일) 컴파일" 결과와 "② 공통 + ③ overlay 컴파일" 결과가 private pilot 120_CDR에서 **같은 27개 엔진 요구**를 낸다. 이 검사가 깨지면 exporter나 컴파일러의 약화 규칙이 어긋난 것이다.
 - ①과 ②는 별도 링크 필드 없이 **같은 `artifact_type_id`**로 만난다. 행 배정이 어긋났던 3건은 D44 확정(2026-08-19)으로 ② 행을 고쳐 두 층이 같은 토큰으로 바로 만나고(08장 §8.3), 남은 대응은 진짜 동의어 한 쌍뿐이다(04장 §4.6). 그 위에서 ①의 관계를 ②로 투영한다(§2.7). 묶음 대응은 여전히 미결.
 
 ## 2.3 한 단계(120_CDR)로 본 숫자
@@ -31,7 +57,7 @@
 | --- | --- | --- |
 | ① 만 | 38 | 횡단 산출물(SEMP·RTM·TEMP·위험목록·TPM…)을 게이트마다 반복 계수 |
 | ② 만 | 16 | 생성 게이트에 한 번만 기재 |
-| ②+③+④ (P26-014) | 27 | 표준 16 중 5는 발주처 슬롯과 일치, 규정 필수 6은 발주처 미요청, 발주처 추가 9 |
+| ②+③+④ (private pilot) | 27 | 표준 16 중 5는 발주처 슬롯과 일치, 규정 필수 6은 발주처 미요청, 발주처 추가 9 |
 | ①∩② 토큰 공유 | 9 | 나머지 차이의 상당수는 위 모델링 차이 — 별칭 정합 뒤 다시 센다 |
 
 ## 2.4 evidence level(행의 근거 등급)과 컴파일 결과

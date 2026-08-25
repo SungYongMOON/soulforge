@@ -1,6 +1,10 @@
-# 05. 컴파일러와 생성기 (규칙 → 엔진 입력)
+# 05. 컴파일러와 생성기 (Domain 규칙+Profile → Effective Rule Set)
 
-둘 다 `guild_hall/engineering_engine/stage_rules/`의 순수 함수다. fs·clock·random·env·network를 쓰지 않으며(import graph 전체가 `node:crypto`만 bare로 사용, 정적 effect pin 시험이 고정), 파일 읽기·쓰기는 호출자(드라이버·runner) 몫이다. CLI는 두지 않는다.
+둘 다 `guild_hall/engineering_engine/stage_rules/`의 순수 함수다. current Compiler는 계층이나
+별도 엔진이 아니라 Systems Engineering Domain Adapter다. Engineering Engine Core는 이
+Adapter를 부르는 Rule Assembly Interface와 공통 guard/receipt를 소유한다. fs·clock·random·env·
+network를 쓰지 않으며(import graph 전체가 `node:crypto`만 bare로 사용, 정적 effect
+pin 시험이 고정), 파일 읽기·쓰기는 호출자(드라이버·runner) 몫이다. CLI는 두지 않는다.
 
 ## 5.1 `compileStageRules(request)` — 스펙+덧씌움 → 정책 3종
 
@@ -9,14 +13,20 @@
 | 키 | 뜻 |
 | --- | --- |
 | `compiled_variant` | exporter가 만든 스펙 JSON(①·② 중 하나, `soulforge.se_foldertree_compiled_variant.v0`) |
-| `overlay` | `null` 또는 `soulforge.se_stage_rule_overlay.v0`(`extends`, `ops[]`, 선택 `overlay_identity`). ③과 ④를 쓸 때는 두 overlay의 `ops`를 이어 붙여 하나로 준다 |
-| `project_binding` | 과제 결속: `document_refs`, `valid_at`, `known_at`, `authority_family`, `applicability_default` |
+| `overlay` | `null` 또는 `soulforge.se_stage_rule_overlay.v0`(`extends`, `ops[]`, 선택 `overlay_identity`). Organization Profile과 Project Profile의 current internal ops를 이어 붙여 하나로 준다 |
+| `project_binding` | current compatibility compilation scope: `document_refs`, `valid_at`, `known_at`, `authority_family`, `applicability_default`. 실제 evidence location/observation Binding 전체가 아님 |
 | `target_stage_codes` | 컴파일할 엔진 stage code 목록(예 `["120_CDR"]`) |
 | `overlay_conditions` | 켜진 조건 토큰(예 `["sw_included"]`) |
 
 출력(deep-frozen): `expected_artifact_policy`(`se_stage_expected_artifact_policy_v0`) · `engine_stage_policy_material`(`soulforge.ax_se_stage_policy.v0` 재료) · `needs_stage_declarations`(Needs 정책 stage·어휘 선언) · `mapping_table`(행마다 stage_code, artifact_type_id, engine_requirement_id 또는 null, presence rule, evidence_level, verification_status, se_floor, maturity, source_refs, overlay_source_ref, 그리고 D46의 `node_kind`·`is_virtual`·`depends_on`·`depends_on_evidence`·`depends_on_refs`·`overlay_depends_on`·`dependency_resolution`·`evidence_record`) · `receipt`(입력·출력 digest, `effects` 전부 0, counts: `overlay_strengthened`·`by_node_kind`·`dependency_edges`·`unresolved_dependency` 등, 그리고 이름을 지목하는 `unresolved_dependencies[]`).
 gap scan 정책의 `expected_inputs`는 지금까지 빈 배열이었다 — 어떤 규칙표도 "무엇이 먼저"를 말하지 않았기 때문이다. 이제 그 행 그룹의 `depends_on` 합집합이 들어간다(인과 간선만, 게이트 순서는 넣지 않는다).
 `mintEnginePolicyRef(material, identity)`는 엔진의 policy_ref digest 규칙을 그대로 재현한다.
+
+Target Interface에서는 Core Rule Assembly Interface를 통해 Domain Compiler Adapter가
+Domain Engine과 두 Profile만 조립해 Effective Rule Set을 만들고, Project Adapter가
+별도로 Typed Project Facts를 만든다. 둘은
+Evaluator에서만 만난다. current `project_binding`을 제거하거나 이름을 바꾸는 것은 ABI
+migration과 replay 검증을 거치는 별도 작업이다.
 
 판정 규칙(순서대로):
 
@@ -42,7 +52,8 @@ gap scan 정책의 `expected_inputs`는 지금까지 빈 배열이었다 — 어
 ## 5.3 실행 흐름(드라이버 패턴)
 
 ```text
-compiled JSON(①/②) + overlay(③+④) + binding ──compileStageRules──▶ policy 3종 + mapping table + receipt
+compiled JSON(①/②) + Profile overlay ops(③+④) + compilation scope
+  ──compileStageRules──▶ Effective Rule Set 재료 + mapping table + receipt
                                                                      │
 base packet + 관측(artifact_observations) ────generatePilotPacket───▶ pilot_packet + launch + receipt
                                                                      │
@@ -124,4 +135,4 @@ work item은 엔진 요구가 된 행만이다. `optional_context` 행과 고정
 
 파일을 읽고 쓰는 자리는 CLI 하나뿐이다(`tools/engine_next_steps_runner.mjs`, `--out` 아래 create-only). 시험은 `npm run validate:se-guidance`(2026-08-18: 42), fixture는 `docs/architecture/workspace/examples/se_stage_rules/next_steps_synthetic_v0.json`.
 
-첫 실측(P26-014, 2026-08-18, run 04 판정 재사용): 030_SRR 카드 22 · 지시서 3(불명 3, 담당 형상관리 2·체계공학 1), 120_CDR 카드 28 · 지시서 3(불명 3, 담당 검증 1·SW 1·체계공학 1). 판정 수치는 run 04 그대로이고 이 층이 바꾼 것은 없다. 다만 run 04는 A2 이전 컴파일러로 돌렸으므로 재컴파일한 요구 수(22·28)와 판정이 센 요구 수(19·27)가 다르다 — 같아지려면 재컴파일한 정책으로 runner를 다시 돌려야 한다(다음 실행).
+첫 실측(private pilot, 2026-08-18, run 04 판정 재사용): 030_SRR 카드 22 · 지시서 3(불명 3, 담당 형상관리 2·체계공학 1), 120_CDR 카드 28 · 지시서 3(불명 3, 담당 검증 1·SW 1·체계공학 1). 판정 수치는 run 04 그대로이고 이 층이 바꾼 것은 없다. 다만 run 04는 A2 이전 컴파일러로 돌렸으므로 재컴파일한 요구 수(22·28)와 판정이 센 요구 수(19·27)가 다르다 — 같아지려면 재컴파일한 정책으로 runner를 다시 돌려야 한다(다음 실행).

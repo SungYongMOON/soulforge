@@ -42,6 +42,13 @@
 | mission | `.mission/<mission_id>/` | held mission plan, readiness, dispatch, resolved execution plan 을 소유하는 surface | raw run truth와 실제 project files는 workspace/worksite에 두고 `_workmeta`에는 compact receipt만 둔다. |
 | promotion | 승격 | 반복 성공, source support, review evidence 를 바탕으로 후보를 skill/workflow/party/knowledge/canon 쪽으로 올리는 일 | 승격은 해당 owner surface, README/schema, changelog, 검증 경로를 함께 맞춰야 한다. |
 | public-safe | 공개 안전 | private payload, raw source body, secret, local runtime 값 없이 공개 repo 에 둘 수 있게 추상화된 상태 | 공개 가능 여부가 애매하면 public 이 아니라 private 으로 해석한다. |
+| Engineering Engine Core | 공통 엔진 실행부 | canonical guard·identity/authority/module binding·Rule Assembly/Evaluation orchestration Interface·Receipt처럼 모든 전문 엔진이 재사용하는 실행 Module | domain token/schema/compile/evaluation 의미, 조직·과제 이름과 project payload를 넣지 않는다. |
+| Domain Engine | 전문 엔진 | Systems Engineering, Quality Readiness, Interface Consistency처럼 전문분야의 schema·공통 규칙·domain compiler/evaluator Adapter·검증 계약·fixture·test·manual을 가진 독립 package | LIG·한화·`<project_code>`를 Domain Engine으로 만들지 않는다. |
+| Organization Profile | 조직 프로파일 | 같은 조직의 여러 과제에 반복 적용되는 tailoring·추가 규칙 | 내부 구현은 overlay ops일 수 있지만 project-only 사실과 실제 파일 위치를 넣지 않는다. |
+| Project Profile | 과제 프로파일 | 한 과제의 applicability·tailoring·별칭·조건·과제 고유 추가 규칙 | 실제 source 위치와 observation은 Project Binding 책임이다. |
+| Project Binding | 과제 결속 | exact 문서·메일·RAG·ERP·요구사항 revision을 engine 어휘와 Typed Project Facts로 연결하는 seam | Profile처럼 규칙을 만들거나 완화하지 않는다. |
+| Effective Rule Set | 실효 규칙 집합 | Core Rule Assembly Interface를 통해 Domain Adapter가 Domain Engine과 선택된 Organization/Project Profile을 결정론적으로 조립한 재생성 가능 결과 | 사람이 수정하는 정본이나 observation이 아니다. |
+| Typed Project Facts | 형식화된 과제 사실 | Project Adapter가 exact binding과 관측에서 만든 Evaluator 입력 | RAG/LLM 답변만으로 source truth나 verdict가 되지 않는다. |
 
 ## Task Engine / AX 업무·증거 용어
 

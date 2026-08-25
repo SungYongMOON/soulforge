@@ -144,7 +144,7 @@ Owner가 따로 내린다. **꺼진 쓰기 도구를 숨기는 쪽으로 바꿨�
 | `project_code` | 과제 코드(폴더·영수증 이름에 쓰이므로 엄격한 토큰) | — |
 | `business_type` · `prime` · `quality_grade` | 사람이 읽는 표시 라벨(한국어 가능) | — |
 | `compiled_variant` | 사업유형 compiled 스펙 | 규칙 자산 또는 과제면 |
-| `overlays[]` | ③ 발주처 · ④ 과제 덧씌움(op를 순서대로 이어 붙인다) | 규칙 자산 또는 과제면 |
+| `overlays[]` | Organization Profile · Project Profile의 내부 overlay ops(순서대로 이어 붙인다) | 규칙 자산 또는 과제면 |
 | `overlay_conditions[]` | 켜진 조건 토큰 | — |
 | `project_binding` | 과제 결속(인라인 객체 또는 파일 경로) | 과제면 |
 | `base_packet` · `base_launch` | 직전 accepted 실행의 packet·launch(판단 실행이 쓰는 틀) | 과제면 / 메타면 |

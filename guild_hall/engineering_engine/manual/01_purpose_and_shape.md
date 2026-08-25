@@ -11,7 +11,20 @@ Owner의 목적: 제품 엔지니어링을 체계공학 기반으로 해서 **�
 비교 결과는 요구별로 `satisfied / gap_missing / gap_unknown / gap_conflict` 중 하나이고, 결손·불명은 담당 역할에게 갈 mission 후보로 바뀐다.
 엔진은 **판단만** 한다 — 파일을 쓰지 않고, Task를 만들지 않고, 승인하지 않는다(zero-write). 쓰기는 호출자(runner·writer)가 별도 권한으로 한다.
 
-## 1.2 두 층
+### 제품 용어
+
+이 매뉴얼에서 `엔진`은 다음 두 가지를 구분해 쓴다.
+
+- **Engineering Engine Core**: 공통 canonical guard·identity/authority/module binding·Rule Assembly/Evaluation orchestration Interface·Receipt 실행부. SE·LIG·과제 token을 모른다.
+- **Systems Engineering Domain Engine**: SE schema·공통 규칙·domain compiler/evaluator Adapter·평가 계약·fixture·test·manual. 이것이 전문분야로서의 SE 엔진이다.
+
+LIG·한화는 **Organization Profile**, `<project_code>` 같은 개별 과제 조건은 **Project
+Profile**, 실제 문서·요구사항·메일·RAG·ERP 연결은 **Project Binding**이다.
+Compiler는 계층이 아니라 Domain Adapter이고 Core는 조립 Interface를 소유한다. 전체 정본은
+`docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`가
+소유한다.
+
+## 1.2 현재 구현의 두 실행층
 
 | 층 | 역할 | 코드 | 특징 |
 | --- | --- | --- | --- |
@@ -26,17 +39,18 @@ Owner의 목적: 제품 엔지니어링을 체계공학 기반으로 해서 **�
 1. **있음/없음** — 산출물이 그 단계에 존재하는가(지금 엔진이 하는 것).
 2. **제대로 됐나** — 있는 문서가 필수 절·표·양식을 갖추고 요구를 다뤘는가. 이것이 **문서 내용 검사기**(Owner 제안 2026-08-17, 설계 §2.1A)이며 아직 만들지 않았다. 검사기는 엔진 안이 아니라 관측을 만드는 쪽에 붙어 `내용 충족/부족/미검사`를 관측으로 넣고, 미검사는 부족으로 찍지 않는다. 모든 기능 표·구조도에 상태 "없음(합의됨)"으로 함께 그린다(README의 합의 목록).
 
-## 1.3 왜 규칙을 밖에 두는가
+## 1.3 왜 Domain 규칙과 Profile을 밖에 두는가
 
-Owner 방향(2026-08-18): **"KVDS(P26-014)만 끼워맞추는 게 아니다. 다른 과제도 한다."**
-규칙(어느 단계에 어떤 산출물, 어떤 요구를 어떤 산출물이 덮나)은 공용 층에 있어야 하고 과제는 얇은 번역표(overlay)만 가진다.
+Owner 방향(2026-08-18): **"한 과제만 끼워맞추는 게 아니다. 다른 과제도 한다."**
+규칙(어느 단계에 어떤 산출물, 어떤 요구를 어떤 산출물이 덮나)은 Domain Engine에 있어야 하고 과제는 얇은 Project Profile만 가진다.
 그래서 규칙 정본은 엔진 코드가 아니라 사업유형별 폴더트리 스펙(`SE_FolderTree_*.md`)에 있고, 엔진은 읽기만 한다.
-발주처(주계약사) 계약 항목도 스펙 본문에 섞지 않고 overlay로 분리했다(02장). 이유: 계약 항목이 섞이면 다른 발주처 과제에서 재사용할 수 없다.
+발주처(주계약사) 반복 항목도 스펙 본문에 섞지 않고 Organization Profile로 분리한다. 현재 내부 구현은 overlay operation이다(02장). 이유: 계약 항목이 섞이면 다른 발주처 과제에서 재사용할 수 없다.
 
 ## 1.4 파일 지도
 
 ```text
 docs/architecture/workspace/
+  ../guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md  Core·Domain·Profile·Binding target 정본
   SE_STAGE_RULE_SOURCE_MODEL_V0.md         단계 규칙 원천 설계(L0~L3, D42~D45)
   PROJECT_REQUIREMENT_TRACE_MODEL_V0.md    요구 추적 설계(R1~R4, D36~D41, §8.2 결정 기록)
   examples/se_stage_rules/                 컴파일러·생성기 public-safe fixture
@@ -50,8 +64,9 @@ docs/architecture/workspace/
   references/source_verification_v0.md     ② 정본 대조표(행별 근거 판정)
   references/generic_se_base_derivation_v0.md  ① 도출 기록(행별 인용·방법·정정·미결)
 guild_hall/engineering_engine/
+  kernel/assembly/evaluation/...           current Core 후보(flat transition layout)
   stage_rules/artifact_vocabulary.mjs      산출물 표준어(artifact_type_id)
-  stage_rules/stage_rule_compiler.mjs      compileStageRules: L1+L2+binding → 정책 3종 + mapping table + 영수증
+  stage_rules/stage_rule_compiler.mjs      compileStageRules: Domain 규칙+Profile delta+scope → Effective Rule Set 재료
   stage_rules/pilot_packet_generator.mjs   generatePilotPacketFromStageRules: 정책+관측 → pilot packet + launch
   subjects/ax_se_project_context_pilot.mjs 판단 subject(M2-2), tools/…_runner.mjs 1회 실행
   manual/                                  이 매뉴얼
@@ -71,10 +86,15 @@ _workspaces/knowledge/common/…                        정본 원문·파생 �
 _workspaces/knowledge/common/systems_engineering/derivations/  규칙 도출 작업 파일(03장)
 ```
 
+Target에서는 Project Profile·Binding·Typed Facts·Effective Rule Set payload를
+`_workspaces/<project_code>/engineering/**`에 두고, `_workmeta`에는 exact ref·hash·
+status·compact receipt만 둔다.
+
 ## 1.5 지켜야 할 경계 (요약)
 
 - 순수 함수: `stage_rules/*`·`requirement_trace/*`는 fs·clock·random·env·network를 쓰지 않는다(정적 effect pin 시험).
 - 규칙을 코드에 새로 쓰지 않는다. 규칙이 틀리면 스펙(정본)을 고치고 export한다.
+- Domain Compiler Adapter는 Profile delta만 조립하고 Project source를 읽지 않는다. Project Adapter는 Typed Facts만 만들고 규칙을 발행하지 않는다.
 - 정본 대조 상태가 없거나 약한 행은 **낮추기만** 하고 올리지 않는다(05장).
 - private 실자료·사업명 세부·절대경로는 public 파일에 넣지 않는다. 실행 결과는 상대 포인터와 수치만.
 - 새 파일·폴더는 경로 예산(총 200자·세그먼트 60자·해시 16자)을 지킨다(`npm run validate:path-length`).

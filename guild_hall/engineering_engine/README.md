@@ -951,7 +951,7 @@ run record; this v4 result remains a fail-closed diagnostic HOLD.
 
 ## 목적
 
-- `engineering_engine/` 은 Soulforge 의 cross-project 증거기반 체계공학 판단 engine 을 소유한다.
+- `engineering_engine/` 은 Soulforge 의 cross-project 증거기반 Engineering Engine Core와 전문 Domain Engine 구현을 소유한다. 현재 active Domain Engine은 체계공학이며 Quality·Interface 등은 같은 Core Interface를 쓰는 독립 package target이다.
 - 적용 가능한 source authority 와 수락된 project context 로 `Expected State` 를 만들고, exact revision·authority·time·evidence lineage 가 붙은 `Observed State` 와 비교해 Snapshot·Finding·Missing/Unknown·Context Request 후보를 만든다.
 - 이 root child 는 **결정론 kernel 과 계약** 을 소유한다. 프로젝트 원문, 계약서, source PDF, project RAG/Wiki 본문, snapshot payload, secret 은 두지 않는다.
 
@@ -965,10 +965,44 @@ engine 이 소비하는 knowledge-supply provider 가 이미 같은 root 에 있
 - `guild_hall/knowledge_canon/`: ontology release inventory
 - `guild_hall/snapshot/`: read-only sanitized 상태 projection
 
+## 정본 조립 모델
+
+사용자·제품 관점의 정본 용어와 target tree는
+[`ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`](../../docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md)가 소유한다.
+
+```text
+Domain Engine + Organization Profile + Project Profile
+                         ↓ Core Rule Assembly Interface
+                           └─ Domain Compiler Adapter
+                  Effective Rule Set
+
+Project Sources → Project Adapter/Binding → Typed Project Facts
+
+Effective Rule Set + Typed Project Facts → Evaluator → Assessment/Receipt
+```
+
+LIG·한화·`<project_code>`는 엔진이 아니다. `Overlay`는 Organization Profile과 Project
+Profile의 내부 구현 operation을 말할 때만 쓴다. Compiler는 계층이 아니라 조립
+Adapter이며 Core는 그 작은 Interface와 공통 guard/receipt를 소유한다. Project source를
+읽거나 evidence verdict를 만들지 않는다.
+
+현재 `kernel/`, `stage_rules/`, `subjects/`, `contracts/`, `fixtures/`, `tests/`,
+`manual/`, `topology/` 평면 layout은 transition 상태다. target은 `core/`와
+`engines/<domain_engine_id>/` package 구조이고, relocation은 import·manifest·topology·
+zero-write replay를 함께 닫는 별도 migration이다. 이 문서 변경에서 파일을 이동하거나
+중복 복사하지 않는다.
+
+Current project-profile loader는 variant·복수 overlay·binding·observation/runtime refs를
+한 envelope에 받고 overlay ops를 compiler 입력 하나로 합친다. 파일 분리는 존재하지만
+Organization/Project Profile 각각의 identity·base pin·revision·order·source provenance를
+끝까지 보존하는 semantic seam은 아직 `HOLD`다. target migration은 legacy envelope
+compatibility Adapter와 per-profile compilation trace를 먼저 검증한다.
+
 ## 구성
 
+- 아래 목록은 migration 전 current flat layout이다.
 - `kernel/`: 결정론 kernel. 학습모델을 호출하지 않고, 공급된 값에 대한 순수 함수만 노출한다
-- `stage_rules/`: 단계 규칙 컴파일러. 폴더트리 variant(L1)와 과제 overlay(L2)를 세 소비자 표면으로 바꾸는 순수 함수만 둔다
+- `stage_rules/`: current SE Domain Compiler Adapter. 폴더트리 variant(L1)와 Organization/Project Profile 내부 overlay(L2)를 세 소비자 표면으로 바꾸는 순수 함수만 둔다
 - `observation/`: 관측 후보 공급자. 과제 자료 목록을 산출물 관측 **후보**로 바꾸고, 사람 확인을 거쳐 생성기가 받는 `artifact_observations`로 만드는 순수 함수만 둔다
 - `topology/ENGINE_VERSION` + `topology/engine_release.json`: 엔진 버전 라벨(만드는 중에는 `0.0.0`)과 그 판이 묶는 조각들의 지문(규칙 층 스펙 sha·덧씌움·어휘·컴파일러/생성기 판·코드 매니페스트·생성 기준 commit). `generated_from_commit`은 emit 시점의 base HEAD이며, 이 생성 파일을 담는 후속 commit을 self-bind하지 않는다. `git_commit`은 호환 alias다. `tools/emit_release_manifest.mjs --out|--check`, `npm run validate:engine-release`. 실제 번호는 정본 승격 때 시작한다
 - `manual/`: 엔진 개발 매뉴얼(책 형태, v0). 규칙 4층·항목 도출 방법·어휘·컴파일러·요구 추적·실행 기록·결정·다음 작업을 다른 작업자(사람·LLM)가 이어받을 수 있게 정리한다. 정본이 아니라 정본들의 지도이며, 관련 변경마다 해당 장을 같이 고친다. 읽는 순서는 `manual/README.md`
@@ -1015,10 +1049,12 @@ npm run validate:engineering-engine-se-core-eval
   두 종류도 있다 — `activity`(정본이 "하라"고 말하는 일)와 `decision`(정본이 "확정하라"고
   말하는 상태). 둘 다 증거는 기록이고 폴더는 만들지 않는다(D46).
 - `stage_rule_compiler.mjs`: `compileStageRules(request)`가 compiled variant(L1) +
-  overlay(L2) + project binding을 받아 `se_stage_expected_artifact_policy_v0` 인스턴스,
+  profile 구현 overlay(L2) + compilation-scope `project_binding`을 받아 `se_stage_expected_artifact_policy_v0` 인스턴스,
   엔진 `soulforge.ax_se_stage_policy.v0` stage material, Needs 정책 stage·어휘 선언,
-  mapping table, 영수증을 결정론적으로 낸다. `mintEnginePolicyRef`는 엔진의 policy_ref
-  digest 규칙을 그대로 재현한다.
+  mapping table, 영수증을 결정론적으로 낸다. 이 current `project_binding`은 policy에
+  project/document/authority/time scope를 고정하는 compatibility 입력이며 실제 source를
+  Typed Project Facts로 바꾸는 target Project Binding 전체를 뜻하지 않는다.
+  `mintEnginePolicyRef`는 엔진의 policy_ref digest 규칙을 그대로 재현한다.
 - `orderStageWork(compileResult, observations?)`(같은 파일): 컴파일 결과를 게이트별
   **"무엇부터"** 목록으로 바꾸는 순수 함수. 인과(같은 게이트 `depends_on` 위상 정렬)와
   순서(게이트 sequence)를 분리해서 내고, 관측이 0인 빈 과제에서는 입력이 없는 항목이 먼저

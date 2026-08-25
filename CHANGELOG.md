@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## 2026-08-25 - Engineering Engine Core·Domain·Profile assembly model
+
+- **Owner-approved terminology**: Fixed `Engineering Engine Core`, `Domain Engine`,
+  `Organization Profile`, `Project Profile`, `Project Binding`, `Typed Project Facts`, and
+  `Effective Rule Set`. `Overlay` is now the internal implementation term for Profile deltas;
+  Compiler is a Domain Adapter behind the Core Rule Assembly Interface, not another hierarchy or
+  a final engine.
+- **Two separate seams**: Rule assembly produces an Effective Rule Set, while a Project Adapter
+  turns exact project source bindings into Typed Project Facts. They meet only at the Evaluator;
+  RAG and project evidence cannot issue rules or verdicts.
+- **Target package and storage model**: Recorded the future `core/ + engines/<domain>/` package
+  tree, public-safe organization profile catalog target, project-local profile/binding/facts/runtime
+  payload owner, and metadata-only `_workmeta` receipts. New customer/project payload must not enter
+  public packages or `_workmeta`; one legacy tracked LIG overlay now has an explicit classification/
+  relocation `HOLD` and is not a precedent for new profiles.
+- **Migration is separate**: No code, file relocation, schema issuance, profile materialization,
+  E01 integration, E02 creation, release, or runtime activation occurred. Current flat imports and
+  manifests remain authoritative until inventory, compatibility, replay, topology, and fresh-review
+  gates pass.
+- **Related paths**: `docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`,
+  Engineering Engine README/manual, SE stage-rule source model, target tree, document ownership,
+  and development roadmap.
+
 ## 2026-08-25 - MSH prestart Hermes Bot candidate card
 
 - Added the Owner-approved Korean card identity `MSH 음탐기 핵심부품 3종 착수준비 팀장`

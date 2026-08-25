@@ -39,12 +39,13 @@
   no project binding, accepted-ingress, ERP, MCP, or TaskEngine authority
 - `knowledge_graph/`: metadata-only knowledge graph JSON, HTML preview, and generated Obsidian view helper
 - `rag/`: metadata-only RAG manifest, source-slice cards, decision records, metadata retrieval index, trace/evaluation, and indexed answer helper
-- `engineering_engine/`: cross-project 증거기반 체계공학 판단 engine 의 결정론 kernel 과 계약.
+- `engineering_engine/`: cross-project 증거기반 Engineering Engine Core와 독립 Domain Engine package의 결정론 계약·구현 owner. 현재 active domain은 체계공학이고 target 조립 모델은 `docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`가 소유한다.
   Expected/Observed 비교로 Snapshot·Finding·Missing/Unknown·Context Request 후보를 만들고,
   `rag/`·`knowledge_graph/`·`knowledge_access/`·`knowledge_canon/` 을 adapter 계약으로만 소비한다.
   Phase 1–4 baseline 은 `deterministic_only` 이며 학습모델을 호출하지 않는다.
-  `stage_rules/` 는 폴더트리 variant 와 과제 overlay 를 gap scan 정책·엔진 stage policy·Needs
-  정책 어휘로 바꾸는 순수 컴파일러를 소유하며 규칙을 새로 만들지 않는다.
+  `stage_rules/` 는 current SE Domain Compiler Adapter다. 폴더트리 variant와
+  Organization/Project Profile 내부 overlay를 gap scan 정책·엔진 stage policy·Needs
+  정책 어휘로 바꾸며 규칙을 새로 만들지 않는다.
   프로젝트 원문·계약서·source PDF·snapshot payload·secret 은 두지 않는다
 - `requirement_trace/`: 요구사항 추적(RTM) 커버리지 계산의 결정론 순수 함수 owner.
   `engineering_engine/kernel/` 어휘를 재사용해 커버리지 셀·요구 상태·고아 관측·게이트 준비도와

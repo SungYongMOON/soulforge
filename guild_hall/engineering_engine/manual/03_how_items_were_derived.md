@@ -38,7 +38,7 @@ S5 검증          --check(스펙↔compiled 드리프트), validate:se-stage-ru
    주계약사 계약·품질지침 항목이면 `prime_contract`; 어느 정본도 말하지 않으면 `unstated`(약화됨). 근거를 **추정으로 올리지 않는다**.
 6. **분리(S4 후속)**: exporter가 같은 스펙에서 `prime_contract` 아닌 행 → `compiled/system_dev_common_no_grade.json`(② 공통 기준선 107행+고정 24),
    `prime_contract` 행 14개 → `compiled/overlays/system_dev_lig_grade_a.prime.overlay.json`(③, `add` op·source_ref=스펙 md exact ref·`extends`=공통 키+스펙 sha).
-   컴파일러는 통합 스펙 경로와 계층 경로가 같은 결과를 내도록 `prime_contract` 행의 `unsupported`를 강등하지 않는다(P26-014 CDR 27=27 확인).
+   컴파일러는 통합 스펙 경로와 계층 경로가 같은 결과를 내도록 `prime_contract` 행의 `unsupported`를 강등하지 않는다(private pilot CDR 27=27 확인).
 7. **탐색·선행·운용·응용**: 대조 결과 탐색개발·선행연구 기본형은 체계개발 명명틀을 차용해 **재기준 필요**(선행연구는 881호로 회의체·산출물 재기준 초안 §10), 운용연구개발은
    "체계개발 준용형 성능개량"과 "현존전력 성능극대화형" 트랙 분리 필요, 응용연구는 어떤 정본도 SRR~PCA를 요구하지 않아 제안 v2(게이트 7·항목 56)만 둠. 승격은 D43.
 
@@ -48,7 +48,7 @@ S5 검증          --check(스펙↔compiled 드리프트), validate:se-stage-ru
 - 새로 조사한 것이 아니라 v0.8 스펙에 이미 있던 14행을 **exporter가 기계적으로 분리**한 것이다(3.1의 6). 사람이 고른 항목 목록은 스펙의 `evidence_level: prime_contract` 표시가 정본이다.
 - 토큰은 `prime_<...>`(예 `prime_q1_contract_data_review`)로 발행해 다른 주계약사 과제에서는 overlay로 N/A 처리할 수 있게 했다(04장).
 
-## 3.3 ④ 과제 덧씌움(P26-014, 120_CDR) — "발주처 요청 메일의 슬롯을 표준어로 번역했다"
+## 3.3 ④ Project Profile(private pilot, 120_CDR; 내부 구현 overlay) — "발주처 요청 메일의 슬롯을 표준어로 번역했다"
 
 - 입력: 발주처가 CDR 앞에 요청한 산출물 슬롯 14개(요청 메일·SOW, private).
 - 방법: 슬롯마다 표준 행과 대조 → 표준과 같으면 `alias`(과제 이름→`artifact_type_id`), 표준이 `optional_context`인데 발주처가 요구하면 `add`(강화), 표준에 없는 계약 항목이면 `add`, SW 포함 여부 같은 조건은 `condition`.
@@ -68,7 +68,7 @@ Owner 지적: "1층이 0항목이면 안 된다. 체계공학 기반으로 엔�
 4. **비판 검토(S3)**: 스팟체크 10건 전부 확인, 위험 7건 → 정정: IMS는 SRR preliminary·PDR baseline, 단일 출처 항목은 must_have 금지, [SE-39]/[SE-66] 페이지 p.38, 제조계획은 G-6/G-7 분리 인용, NASA 전용 항목은 partially_supported로 표시. 미검증 하위 인용 2건은 미결로 남김.
 5. **스펙 반영(S4)**: 코더 1개가 스펙 `SE_FolderTree_GenericSE_Base.md`(support_key `generic_se_base`, 사업유형 `일반SE/공통/없음`) 작성 — 9게이트, 행마다 `artifact_type_id`·`evidence_level: general_se_guidance`·`se_floor`·`maturity`·`source_refs`·`verification_status`(두 출처=source_supported, 한 출처=partially_supported, unverified 없음).
    컴파일러에 `general_se_guidance → present_or_not_applicable`(context floor는 optional_context) 추가, 어휘 30 토큰 등록, generate_tree 변형 등록.
-6. **검증(S5)**: export/--check, `validate:se-stage-rules` 35/35, dry-run 생성, 120_CDR 비교(① 38 / ② 16 / P26-014 27, 공유 9).
+6. **검증(S5)**: export/--check, `validate:se-stage-rules` 35/35, dry-run 생성, 120_CDR 비교(① 38 / ② 16 / private pilot 27, 공유 9).
 7. **행별 인용·정정·미결 전체**: `references/generic_se_base_derivation_v0.md`(compiled JSON에서 스크립트로 생성). 작업 파일 원본: `_workspaces/knowledge/common/systems_engineering/derivations/generic_se_base_20260818/`(영수증 `_workmeta/system/reports/se_stage_rules/generic_se_base_derivation_20260818.json`).
 
 ## 3.5 세는 법 — "202행"이 뜻하는 것

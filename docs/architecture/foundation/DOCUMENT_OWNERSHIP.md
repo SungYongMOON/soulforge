@@ -24,6 +24,7 @@
 | `.party/` | reusable workflow-chain party template + template-level stats | `docs/architecture/foundation/TARGET_TREE.md`, `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md` | `.party/README.md`, `.party/docs/` |
 | `.mission/` | held mission plan owner | `docs/architecture/foundation/TARGET_TREE.md`, `docs/architecture/workspace/MISSION_MODEL.md` | `.mission/README.md` |
 | `guild_hall/` | cross-project 기능 owner root (ingress, notify, assignment, night watch 운영 + knowledge supply·projection + 결정론 domain engine) | `guild_hall/README.md`, 각 owner-local `guild_hall/<owner>/README.md`, `docs/architecture/guild_hall/*.md` | `guild_hall/state/**` (local-only, untracked) |
+| `guild_hall/engineering_engine/` | shared Engineering Engine Core와 독립 Domain Engine package 구현 owner | `docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`, `guild_hall/engineering_engine/README.md`, domain manual | project/organization payload는 `_workspaces`, metadata receipt는 `_workmeta` |
 | `_workspaces/` | local-only project materialization mount point | `_workspaces/README.md`, `docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md` | `_workmeta/<project_code>/` 와 project-local 문서 |
 | `docs/architecture/foundation/` | 저장소 차원의 구조 canon | `docs/architecture/foundation/README.md`, `docs/architecture/foundation/*.md` | 해당 없음 |
 | `docs/architecture/workspace/` | `_workspaces` 구조와 보안 정책 canon | `docs/architecture/workspace/README.md`, `docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md` | 해당 없음 |
@@ -33,13 +34,14 @@
 
 | owner | 문서에 반드시 남겨야 할 것 | 문서에서 제거해야 할 것 |
 | --- | --- | --- |
-| `.registry` | species/class/skill/tool/knowledge canon 구조와 설명 | active runtime, project-local truth, workflow/party owner 서술 |
+| `.registry` | species/class/skill/tool/knowledge canon 구조와 설명, future public-safe Organization Profile catalog envelope | active runtime, project-local truth, private customer/contract profile payload, workflow/party owner 서술 |
 | `.unit` | unit 구조, policy, protocols, runtime, memory owner 설명 | registry canon 자체나 workflow/party canon owner 서술 |
 | `.workflow` | workflow 정의, workflow-level profile policy, public-safe calibration archive, curated learning history | project-local raw run log, private/raw transcript, project-local battle log |
 | `.party` | reusable workflow-chain/loadout template 와 chain-level stats | workflow 내부 step/profile, raw feedback dump, project operational metrics |
 | `.mission` | mission plan, readiness, resolved assignment 구조 | raw run log, project-local worksite truth |
 | `guild_hall` | cross-project ingress/notify/assignment/night-watch 기능, knowledge supply·projection owner, 결정론 domain engine 계약·kernel·public-safe fixture, 각 owner 문서, `guild-hall:*` 명령 표면 | `guild_hall/state/**` local state, mailbox dump, Telegram env, queue/log truth, project-local worksite truth, project payload·계약 원문·source PDF·snapshot payload·secret |
-| `_workspaces` | local-only project materialization mount 정책, `_workspaces/<project_code>/` 구조 | helper directory 를 project root 로 문서화, per-project 실자료 public 추적, mission assignment owner 서술 |
+| `guild_hall/engineering_engine` | Core orchestration Interface·common guard·receipt와 Domain compiler/evaluator Adapter package 계약·fixture·test·manual·topology | Organization/Project Profile private payload, Project Binding source body, Typed Facts/Effective Rule Set runtime payload, customer contract 원문 |
+| `_workspaces` | local-only project materialization mount 정책, `_workspaces/<project_code>/` 구조, private organization/project profile·binding·facts·runtime payload owner | helper directory 를 project root 로 문서화, per-project 실자료 public 추적, mission assignment owner 서술 |
 
 ## 적용 규칙
 

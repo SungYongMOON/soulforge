@@ -29,6 +29,17 @@
 실제 thread 등록은 `guild_hall/state/operations/team_ops_board/thread_visibility.v1.json` 이다.
 둘 다 untracked local state 이고 서로 자동 동기화되지 않는다.
 
+### Engineering Engine
+
+공통 실행 Core, 전문 Domain Engine, 조직·과제 적용 Profile과 실제 증거 Binding의
+책임을 구분할 때 읽는다.
+
+| 문서 | 역할 |
+| --- | --- |
+| [`ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`](ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md) | Engineering Engine Core·Domain Engine·Organization Profile·Project Profile·Project Binding의 조립 모델, 저장 owner와 target package tree다. |
+| [`../workspace/SE_STAGE_RULE_SOURCE_MODEL_V0.md`](../workspace/SE_STAGE_RULE_SOURCE_MODEL_V0.md) | 위 조립 모델을 SE 단계 규칙의 현행 variant·overlay·compiler에 매핑한 source model이다. |
+| [`../../../guild_hall/engineering_engine/README.md`](../../../guild_hall/engineering_engine/README.md) | 현재 구현 surface, validator, runtime/activation 상태다. |
+
 ### 지식·RAG·온톨로지
 
 | 문서 | 역할 |

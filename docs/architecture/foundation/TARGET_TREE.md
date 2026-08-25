@@ -26,6 +26,7 @@
 │   ├── skills/
 │   ├── tools/
 │   ├── knowledge/
+│   ├── engineering_profiles/     target: public-safe organization profile catalog; not materialized
 │   └── docs/
 │       └── architecture/
 ├── .unit/
@@ -75,6 +76,8 @@
 │   ├── night_watch/
 │   ├── dungeon_assignment/
 │   ├── engineering_engine/
+│   │   ├── core/                 target: shared Engine Core Modules
+│   │   └── engines/              target: independent Domain Engine packages
 │   └── state/
 ├── _workspaces/
 │   └── README.md
@@ -94,6 +97,9 @@
 - `.mission/<mission_id>/mission.yaml` 는 held mission plan owner 이고, `readiness.yaml` 는 현재 실행 가능 상태를 기록한다.
 - `guild_hall/` 은 cross-project 기능 owner 루트이고, 실제 local state 는 `guild_hall/state/**` 아래에서만 materialize 한다.
 - 위 트리의 `guild_hall/` 자식은 **대표 예시**다. 자식 전체의 정본 열거는 `guild_hall/README.md` 의 `## 구성` 이 소유한다. 이 문서는 root 경계를 고정하고, root 내부 자식 목록은 owner-local README 를 따른다.
+- `engineering_profiles/`, `engineering_engine/core/`, `engineering_engine/engines/`는 2026-08-25 Owner-approved target다. 현재 flat implementation을 즉시 대체하거나 중복 source of truth를 만들지 않으며, migration gate는 `docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`가 소유한다.
+- `.registry/engineering_profiles/**`에는 public-safe schema·identity·ref·hash·synthetic example만 허용한다. 실제 고객·계약·회사-private profile payload는 `_workspaces` owner에 두고 `_workmeta`에는 metadata receipt만 둔다.
+- 기존 tracked LIG-named overlay는 target catalog가 아니라 legacy classification `HOLD`다. source/public-safe 분류 뒤 private relocation 또는 synthetic/ref replacement를 통과해야 한다.
 
 ## `guild_hall` local operations state
 
@@ -189,6 +195,8 @@ _workmeta/
 - `.mission` 은 `.workflow`, `.party`, runtime assignment 를 참조해 held mission plan 을 소유한다.
 - `guild_hall` 은 cross-project ingress, notify, night watch, assignment 운영을 소유한다.
 - `guild_hall` 은 추가로 cross-project **결정론 domain engine 계약과 kernel** 을 소유한다. 이 범위에는 project payload, 계약 원문, runtime state, secret 을 두지 않는다.
+- Engineering Engine target은 shared Core와 독립 Domain Engine package를 분리한다. Organization Profile과 Project Profile을 별도 엔진으로 만들지 않으며 overlay는 Profile의 내부 구현이다.
+- Project Profile·Project Binding·Typed Facts·Effective Rule Set payload는 `_workspaces/<project_code>/**`에 두고 `_workmeta`에는 pointer·hash·status·compact receipt만 둔다.
 - `guild_hall/state/**` 는 local-only state 이다.
 - project candidate root 는 `_workspaces/<project_code>/` direct child 구조를 사용한다.
 - project-side monster record 는 `_workmeta/<project_code>/monsters/` 아래에 둔다.

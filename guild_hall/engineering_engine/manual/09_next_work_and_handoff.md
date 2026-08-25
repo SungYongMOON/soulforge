@@ -1,5 +1,45 @@
 # 09. 다음 작업과 인수인계
 
+## 9.0A Engine package 구조 결정 (Owner 확정 2026-08-25)
+
+2026-08-18의 SE 기능 조각 순서는 보존하되, E01·E02처럼 Domain Engine이 늘어나기
+전에 제품 구조를 다음처럼 고정한다.
+
+```text
+Engineering Engine Core
+├─ shared Loader / Rule Assembly·Evaluation orchestration Interface / Guard / Receipt
+└─ Domain Engines
+   ├─ systems_engineering
+   ├─ quality_readiness
+   └─ interface_consistency
+
+Organization Profile   LIG·한화 등 반복 tailoring
+Project Profile        과제별 applicability·tailoring
+Project Binding        실제 source → Typed Project Facts
+```
+
+Core는 Rule Assembly·Evaluation orchestration Interface를 소유하고 Domain Compiler
+Adapter가 `Domain Engine + Organization Profile + Project Profile`에서 Effective Rule
+Set을 만든다. Project Binding은 별도 Project Adapter seam이며 실제 source에서 Typed
+Project Facts를 만든다. Effective Rule Set과 Typed Facts는 Domain Evaluator Adapter에서
+만난다.
+
+물리 migration 순서:
+
+1. current flat file/import/manifest/topology/validator baseline 동결;
+2. SE와 별도 E01 candidate branch의 두 Domain Adapter conformance로 Core Interface 후보 검증;
+3. 두 Adapter가 통과한 뒤 Core Interface와 compatibility export 동결;
+4. Systems Engineering Domain Engine package 이동 + public/reported-private zero-write replay;
+5. E01 Quality candidate를 같은 package category로 통합하고 second-adapter conformance 재실행;
+6. Organization/Profile catalog와 Project Profile/Binding Adapter schema·fixture·validator;
+7. Profile별 identity/base pin/revision/order/provenance trace 검증;
+8. manifest·topology·release candidate 재생성·fresh review;
+9. 그 뒤 E02 Interface Domain Engine 착수.
+
+이 결정만으로 relocation·E01 merge·E02 생성은 수행하지 않는다. 정본과 storage
+owner, stop condition은
+`docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`를 따른다.
+
 ## 9.0 확정 계획 (Owner 확정 2026-08-18 밤 — 이 순서대로 간다. 바꾸면 여기 먼저 고친다)
 
 ### 9.0.1 목표와 "쓴다"의 정의
@@ -33,8 +73,8 @@
 | **B1** | 엔진 MCP 서버(feature-OFF 제작) | A 결과, runner, 잠금 규칙 | `guild_hall/engineering_engine/mcp/` 도구 6: 규칙 보기·판단·다음 할 일·가이드 카드·관측 넣기·답 넣기. 로직 0, launch+sha·grant·zero-write·영수증 동일 | 시험 통과, 켜기는 Owner 결정 |
 | **B2** | 답변 우편함 | kernel Phase 3 영수증 검증(있음), MCP | 사람 답(있음/해당 없음/근거·누가·언제) → 답변 영수증 + 관측/결정 사실 → 다음 실행 관측. P5 승인자 등록은 Owner | 같은 질문 반복 0, 영수증 쌍 검증 통과 |
 | **B3** | 야간 예약 실행 | 운영 체크아웃 | 주 1회 runner + 브리프 | 사람이 안 눌러도 돎. **M2** |
-| **C1** | 과제 착수 명령 | 폴더트리 스킬, 컴파일러, base packet 틀 | 5입력(코드·사업유형·발주처·등급·시작일) → 폴더트리·전 단계 컴파일·빈 과제 덧씌움·결속 뼈대·base packet 틀·첫 판단 | 새 과제 하루 안에 |
-| **C2** | 다른 발주처·사업유형 | 발주처 품질지침(한화 등), 대조표 §10, 정본 881·974호 | 발주처 overlay 추가; 탐색·선행·운용 스펙 재기준 → 실제 과제 1건 검증 후 승격(D43) | **M3** |
+| **C1** | 과제 착수 명령 | 폴더트리 스킬, 컴파일러, base packet 틀 | 5입력(코드·사업유형·발주처·등급·시작일) → 폴더트리·전 단계 컴파일·빈 Project Profile(내부 overlay)·Binding 뼈대·base packet 틀·첫 판단 | 새 과제 하루 안에 |
+| **C2** | 다른 발주처·사업유형 | 발주처 품질지침(한화 등), 대조표 §10, 정본 881·974호 | Organization Profile 추가(내부 overlay); 탐색·선행·운용 스펙 재기준 → 실제 과제 1건 검증 후 승격(D43) | **M3** |
 | **D1** | 문서 내용 검사기 | 스펙 `양식`, 산출물별 필수 절·표(정본·발주처 지침) | 문서 읽어 `내용 충족/부족/미검사` 관측(종이 2) — 미검사는 부족으로 찍지 않음 | "있는데 부실"까지 답함 |
 | **D2** | 요구 추적 후반 | R1/R2 준비 조각 | R2 원장 writer(Owner 승인 소량 pin) → R3 투영·generation → R4 카드 | 요구 118 추적(종이 3). **M4 전반** |
 | **E1** | 조언 lane | se_core 출처 붙인 답변 lane(평가용) | 정본 인용 붙인 조언, 판단과 분리 표시 | **M4** |
@@ -44,7 +84,7 @@
 | 쓰임 | 엔진 접점 | 조각 |
 | --- | --- | --- |
 | 관측 후보(어디에 무슨 문서가, 성숙도) | 종이 1 | A1 |
-| 발주처 요청·"해당 없음" 결정 | 과제 덧씌움·답변 | A1(덧씌움 후보)·B2 |
+| 발주처 요청·"해당 없음" 결정 | Project Profile·답변 | A1(Profile delta 후보)·B2 |
 | 사건·기한(회의 날짜·액션아이템) | 지시서의 기한·위험 | A3·B2 |
 | 사람·담당(누가 냈나) | 지시서의 담당 라우팅 | A3 |
 | 사연(왜 이렇게 됐나) | 가이드 카드·조언 인용, 감사 추적 | A3·E1 |
@@ -91,7 +131,7 @@ D42~D45(추천대로면 됨) · D46(활동·결정 노드) · D47(지시서 계�
 | --- | --- | --- | --- | --- |
 | **1 시작하기** | "새 과제 시작해줘 — 체계개발·A등급·발주처 ○○·9월 시작" | 과제 착수(폴더트리 생성 → 규칙 컴파일 → 빈 덧씌움·결속표 틀 → 첫 판단) | 과제 코드·사업유형·발주처·등급·시작일 5개 → 폴더트리 + 규칙 4층 선택 + 결속표 뼈대 | 없음(C1) |
 | | "이 과제 지금 어디쯤이야?" | 과제 현황(전 단계 한눈: 단계별 충족·결손·불명, 막힌 것) | 최근 판단 영수증 읽기 | 조립 가능 |
-| | "발주처가 CDR에 이거 더 내래" | 과제 덧씌움에 후보 한 줄 추가(사람 확정) | 덧씌움 파일(추가·별칭·해당없음·조건) | 파일 있음, 도구 없음 |
+| | "발주처가 CDR에 이거 더 내래" | Project Profile에 후보 한 줄 추가(사람 확정) | Profile의 내부 overlay 파일(추가·별칭·해당없음·조건) | 파일 있음, 도구 없음 |
 | **2 알아보기** | "이 과제엔 무슨 규칙이 붙어?" | 적용 층 보기(일반SE·방사청·발주처·과제) | 컴파일 결과의 층 정보 | 있음 |
 | | "PDR에 뭐가 있어야 해? 순서는?" | 단계 기대 목록 + 순서(핵심/진입/보조, 앞뒤 관계, 근거) | 컴파일 + 순서 계산 | 있음 |
 | | "SEMP는 왜·언제·어떻게 만들어?" | 가이드 카드 1장 | 스펙 행 + 정본 인용 + 양식 + 담당 | 있음 |
@@ -116,7 +156,7 @@ D42~D45(추천대로면 됨) · D46(활동·결정 노드) · D47(지시서 계�
 
 ## 9.1C 실제 사용 장면 (엔진이 지금 실제로 내는 답으로, 2026-08-18)
 
-MCP는 문일 뿐이고, 아래 답은 오늘 KVDS(P26-014)에 실제로 돌린 결과다. 도구 지도의 "밤마다 돌려줘"는 엔진 기능이 아니다 — 예약 실행은 운영 스케줄러(운영 체크아웃의 예약 작업)가 판단 도구를 부르는 것이며, 엔진 안에는 시계가 없다. 9.1B의 7 운영 행은 그렇게 읽는다.
+MCP는 문일 뿐이고, 아래 답은 private pilot에 실제로 돌린 결과다. 도구 지도의 "밤마다 돌려줘"는 엔진 기능이 아니다 — 예약 실행은 운영 스케줄러(운영 체크아웃의 예약 작업)가 판단 도구를 부르는 것이며, 엔진 안에는 시계가 없다. 9.1B의 7 운영 행은 그렇게 읽는다.
 
 **장면 1 — 착수 직후, 아무 자료도 없을 때.** 사람: "새 과제인데 뭐부터 해?" → 비서가 단계 기대·순서 도구를 부름 → 엔진(② 방사청 + LIG, 관측 0, SRR):
 > 바로 시작(19): **체계요구사항명세서[규정·핵심]** → 상호운용성 확보계획서 → M&S 활용계획서 → 예비 TEMP → RAM 계획 → SRR 회의록 → SDP → 기술검토회의 자료 → WBS → (가이드북) 기능분석/할당·이해관계자 기대·형상관리계획·QAP·착수회의록·위험목록·SEMP·TEMP → (발주처) Q1·Q2
@@ -164,7 +204,7 @@ MCP는 문일 뿐이고, 아래 답은 오늘 KVDS(P26-014)에 실제로 돌린 
 | 등록 `observe_register` | "이 파일 = 이 산출물·이 단계·이 성숙도" | 등록 대장에 관측 1건(해시·출처·누가·언제). 자동 확정 3조건은 03_Out 경로에서만; 그 밖은 사람 확정 표시 | 있음(파일) |
 | 등록 정정·취소 `observe_amend` | 잘못 등록된 것을 고치거나 지움 | 대장에 정정 기록(지우지 않고 덮음), 필요 시 writer가 파일을 맞는 자리로 이동(권한·영수증) | 없음 |
 | 답 `answer_record` | "해당 없음(근거)", "이 문서로 갈음", "보류" | 답 영수증(누가·언제·무엇에·근거) → 다음 판단에 반영, 같은 질문 반복 안 함 | 없음(B2) |
-| 과제 덧씌움 후보 `overlay_propose` | 발주처 요청·과제 결정을 규칙 한 줄로 | 후보 파일에 적고 사람 확정 후 덧씌움에 편입 | 없음 |
+| Project Profile 후보 `overlay_propose` | 발주처 요청·과제 결정을 Profile delta 한 줄로 | 후보 파일에 적고 사람 확정 후 Project Profile 내부 overlay에 편입 | 없음 |
 | 결속 `binding_set` | 계약문서(요구사양서·SOW) ↔ 어떤 산출물을 덮나 | 과제 결속표 갱신(create-only 판) | 없음 |
 | 착수 `project_init` | 5입력(코드·사업유형·발주처·등급·시작일) | 폴더트리·규칙 컴파일·빈 덧씌움·결속 뼈대·프로필·첫 판단 | 없음(C1) |
 | 훑기 `observe_scan` | 등록 대장 ↔ 실제 파일 대조 | 미등록·사라짐·바뀜·청소 알림만 냄(판단 영향 0). 후보 확인표는 첫 적재 1회 모드 | 있음(후보 모드; 대장 모드는 없음) |

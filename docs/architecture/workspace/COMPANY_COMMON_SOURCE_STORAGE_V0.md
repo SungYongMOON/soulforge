@@ -30,6 +30,10 @@ distinct attempts remain distinct events even when their payload hashes match.
 3. 여러 프로젝트에 공통으로 쓰는 회사 운영 참조 자료는 `_workspaces/knowledge/common/company/<source_set_id>/` 아래에 둔다.
 4. 프로젝트 번호, 담당자 관찰값, project registration 갱신처럼 회사 프로젝트 관리용 recurring source 는 `_workspaces/knowledge/common/project_management/<source_set_id>/` 아래에 두고, PJT 관리 대장은 `PROJECT_LEDGER_UPDATE_V0.md` 를 따른다.
 5. 실제 프로젝트 폴더와 회사 공통 지식 폴더를 임의로 섞지 않는다. 분류가 불명확하면 public repo 에 올리지 말고 metadata-only candidate 로 보류한다.
+6. `common/company/`는 회사 전체 운영·공통 source용이다. 특정 고객·주계약사에 반복
+   적용되는 Domain Profile source는 Owner-approved target
+   `_workspaces/knowledge/organizations/<organization_id>/<domain_engine_id>/`와 구분한다.
+   한 과제에서 발견됐다는 사실만으로 organization source에 승격하지 않는다.
 
 ## 회사 공통 source packet 형태
 
@@ -55,6 +59,21 @@ _workspaces/knowledge/common/company/<source_set_id>/
 
 실제 원문 파일은 `_workmeta` 에 저장하지 않는다. `_workmeta/system/runs/<run_id>/` 에는 request packet, registration report, 검증 결과, source pointer 만 둔다.
 
+Organization Profile source target의 기본 shape는 다음과 같다. 이 path는
+`ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`의 migration gate와 별도 Owner
+materialization 결정을 통과한 뒤 사용한다.
+
+```text
+_workspaces/knowledge/organizations/<organization_id>/<domain_engine_id>/
+├── source/
+├── source_cards/
+├── derivations/
+└── accepted_profile_package/
+```
+
+actual customer/contract payload는 public repo에 두지 않고, `_workmeta`에는 package
+payload가 아니라 exact refs·hashes·status·review/decision receipts만 둔다.
+
 ## 본문 분석과 지식화 경계
 
 1. source packet 보관은 원문 내용 분석, RAG index 생성, NotebookLM 업로드, public canon promotion 을 의미하지 않는다.
@@ -69,8 +88,10 @@ _workspaces/knowledge/common/company/<source_set_id>/
 2. 사용자가 "회사 공통", "우리 회사", "프로젝트 관리대장처럼", "지식 쪽" 이라고 말하고 특정 프로젝트가 아니면 `_workspaces/knowledge/common/...` 아래를 우선한다.
 3. 회사 공통 자료 중 조직, 연락처, 자리배치, 회사 운영 참고자료는 `common/company/` 를 쓴다.
 4. 회사 프로젝트 번호, project registration, 담당자 관찰값 갱신 자료는 `common/project_management/` 를 쓴다.
-5. 기존 팀 공유 폴더에 `_Soulforge_*` 같은 보관 폴더를 만들 수 없으면 무리해서 shared folder 를 수정하지 않고, approved knowledge workspace 에 사본과 metadata-only pointer 를 둔다.
-6. 임의의 새 top-level 폴더, 임의의 `knowledge/projects` 같은 미승인 분기, 개인 임시 폴더는 만들지 않는다.
+5. 특정 고객·주계약사에 반복되는 Profile source는 organization 승격 검토를 통과한
+   경우에만 `knowledge/organizations/<organization_id>/<domain_engine_id>/`를 쓴다.
+6. 기존 팀 공유 폴더에 `_Soulforge_*` 같은 보관 폴더를 만들 수 없으면 무리해서 shared folder 를 수정하지 않고, approved knowledge workspace 에 사본과 metadata-only pointer 를 둔다.
+7. 임의의 새 top-level 폴더, 임의의 `knowledge/projects` 같은 미승인 분기, 개인 임시 폴더는 만들지 않는다.
 
 ## 주기 갱신과 자동화 권한
 

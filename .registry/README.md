@@ -32,6 +32,7 @@ flowchart TD
 - `skills/`
 - `tools/`
 - `knowledge/`
+- `engineering_profiles/` — Owner-approved target. 아직 materialize/schema 발행 전이며 public-safe organization profile envelope·ref·hash·synthetic example만 허용할 예정
 - `docs/architecture/`
 
 ## 현재 phase에서 고정한 것
@@ -50,6 +51,23 @@ flowchart TD
   refs 는 검증된 entry만 가리킬 수 있다.
 - `skills/shield_wall`, `skills/charge_breaker`, `tools/kite_shield`, `tools/field_lance`, `knowledge/frontline_doctrine`, `knowledge/escort_etiquette` 는 `knight` sample 을 해석하기 위한 minimal canon entry 다.
 - skill canon 은 behavior 와 execution requirement 를 기록할 수 있지만, 실제 모델/MCP/tool 장착은 runtime binding 에서 최종 resolve 한다.
+
+## Engineering Profile catalog target
+
+`engineering_profiles/`는 Domain Engine 자체가 아니라 여러 과제에서 반복 적용되는
+Organization Profile의 public-safe catalog target이다. target 구조와 migration gate는
+`docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`가 소유한다.
+이번 결정에서는 폴더·schema·index entry를 만들지 않는다.
+
+고객·계약·회사-private rule payload, source body, project profile, project binding과
+Typed Project Facts는 이 public registry에 두지 않는다. 실제 private organization
+source/profile package는 owner-approved `_workspaces`에 두고 registry에는 허용된
+identity·ref·hash만 승격한다.
+
+현재 tracked foldertree asset의 LIG-named prime overlay는 이 target 정책 이전의 legacy
+artifact다. public-safe abstraction인지 private 계약 유래 payload인지 재분류하고,
+private relocation 또는 synthetic/ref replacement를 결정하기 전까지 새
+`engineering_profiles` catalog의 선례로 사용하지 않는다.
 
 ## 무엇을 두지 않는다
 
