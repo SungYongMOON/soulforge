@@ -1,0 +1,26 @@
+schema_version: soulforge.domain_engine_descriptor.v0
+domain_engine_id: reliability_maintainability
+display_name: Reliability and Maintainability Domain Engine
+version: 0.1.0
+status: candidate
+claim_ceiling: source_supported
+execution_mode: deterministic_only
+contracts:
+  source_packet: engines/reliability_maintainability/contracts/reliability_maintainability_source_packet_v0.md
+  build_mission: engines/reliability_maintainability/contracts/reliability_maintainability_build_mission_v0.md
+  integration_request: engines/reliability_maintainability/contracts/reliability_maintainability_integration_request_v0.md
+schemas:
+  ruleset: soulforge.reliability_maintainability.ruleset.v0
+  domain_input: soulforge.reliability_maintainability.domain_input.v0
+  assessment: soulforge.reliability_maintainability.assessment.v0
+  domain_result: soulforge.reliability_maintainability.domain_result.v0
+  receipt: soulforge.reliability_maintainability.receipt.v0
+compiler_adapter: engines/reliability_maintainability/compiler/reliability_maintainability_compiler_adapter.mjs
+evaluator_adapter: engines/reliability_maintainability/evaluator/reliability_maintainability_evaluator_adapter.mjs
+fixtures:
+  public_synthetic: engines/reliability_maintainability/fixtures/reliability_maintainability_public_synthetic.mjs
+manual:
+  root: engines/reliability_maintainability/manual/README.md
+topology:
+  manifest_factory: engines/reliability_maintainability/topology/reliability_maintainability_module_manifest.mjs
+  package_topology: engines/reliability_maintainability/topology/reliability_maintainability_topology.json

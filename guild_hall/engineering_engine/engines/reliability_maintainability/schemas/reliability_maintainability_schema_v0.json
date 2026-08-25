@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.reliability_maintainability_domain_descriptor.v0",
+  "title": "ReliabilityMaintainabilityDomainDescriptor",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "domain_engine_id",
+    "title",
+    "revision",
+    "status",
+    "claim_ceiling",
+    "interfaces",
+    "vocabulary"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "soulforge.reliability_maintainability_domain_descriptor.v0"
+    },
+    "domain_engine_id": {
+      "type": "string",
+      "const": "reliability_maintainability"
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "revision": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["candidate", "hold"] },
+    "claim_ceiling": { "type": "string", "const": "source_supported" },
+    "interfaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["compiler_adapter", "evaluator_adapter", "source_packet_ref"],
+      "properties": {
+        "compiler_adapter": { "type": "string", "minLength": 1 },
+        "evaluator_adapter": { "type": "string", "minLength": 1 },
+        "source_packet_ref": { "type": "string", "minLength": 1 }
+      }
+    },
+    "vocabulary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_kinds", "cross_domain_artifact_mapping"],
+      "properties": {
+        "evidence_kinds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "cross_domain_artifact_mapping": { "type": "string", "const": "none" }
+      }
+    },
+    "rules": { "type": "object" },
+    "evaluator": { "type": "object" },
+    "manual": { "type": "object" },
+    "contracts": { "type": "object" }
+  }
+}
