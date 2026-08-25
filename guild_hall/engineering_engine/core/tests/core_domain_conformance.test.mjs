@@ -98,25 +98,51 @@ test("Core Interface: assembleEffectiveRuleSet produces effective rules and comp
   assert.equal(result1.compilation_trace.effective_ruleset_digest, result2.compilation_trace.effective_ruleset_digest);
 });
 
-test("Core Interface: assembleEffectiveRuleSet produces effective rules and compilation trace for QR", () => {
+test("Core Interface: assembleEffectiveRuleSet produces effective rules and compilation trace for QR (empty and non-empty)", () => {
   const qrAdapter = loadDomainEngineAdapter("quality_readiness");
-  const orgProfile = {
+  const emptyOrgProfile = {
     profile_kind: "organization",
-    profile_id: "qr-org-rules",
+    profile_id: "qr-org-empty",
     domain_engine_id: "quality_readiness",
     revision_or_hash: "rev-qr-1.0.0",
     extends_or_base_pin: "qr_base:v0",
     source_refs: ["docs/qr_org.json"],
     operations: [],
   };
-  const bindings = resolveProfileBindings(orgProfile);
+  const emptyBindings = resolveProfileBindings(emptyOrgProfile);
+  const emptyResult = assembleEffectiveRuleSet(qrAdapter, emptyBindings);
+  assert.equal(emptyResult.schema_version, EFFECTIVE_RULE_SET_SCHEMA_VERSION);
+  assert.equal(emptyResult.domain_engine_id, "quality_readiness");
+  assert.ok(emptyResult.effective_rule_set);
+  assert.equal(emptyResult.compilation_trace.profiles[0].profile_id, "qr-org-empty");
+  assert.equal(emptyResult.rule_count, 9);
 
-  const result = assembleEffectiveRuleSet(qrAdapter, bindings);
-  assert.equal(result.schema_version, EFFECTIVE_RULE_SET_SCHEMA_VERSION);
-  assert.equal(result.domain_engine_id, "quality_readiness");
-  assert.ok(result.effective_rule_set);
-  assert.equal(result.compilation_trace.profiles[0].profile_id, "qr-org-rules");
-  assert.ok(result.rule_count > 0);
+  const validQrRule = {
+    rule_id: "QR-CONF-01",
+    source_ref: "docs/qr_org.json",
+    source_locator: "§3.1",
+    source_modality: "mandatory conformance rule",
+    allowed_artifact_tokens: [null],
+    required_authority_families: ["company_approved_procedure"],
+    context_ref_fields: ["scope_ref"],
+    sufficiency_fields: [],
+  };
+
+  const nonEmptyOrgProfile = {
+    profile_kind: "organization",
+    profile_id: "qr-org-rules",
+    domain_engine_id: "quality_readiness",
+    revision_or_hash: "rev-qr-1.0.1",
+    extends_or_base_pin: "qr_base:v0",
+    source_refs: ["docs/qr_org.json"],
+    operations: [{ op: "add", rule: validQrRule }],
+  };
+  const nonEmptyBindings = resolveProfileBindings(nonEmptyOrgProfile);
+  const nonEmptyResult = assembleEffectiveRuleSet(qrAdapter, nonEmptyBindings);
+  assert.equal(nonEmptyResult.rule_count, 10);
+  assert.notEqual(nonEmptyResult.assembly_digest, emptyResult.assembly_digest);
+  assert.equal(nonEmptyResult.effective_rule_set.ruleset_ref.entity_id, "quality-readiness-ruleset-derived-v0");
+  assert.ok(nonEmptyResult.effective_rule_set.rules.some((r) => r.rule_id === "QR-CONF-01"));
 });
 
 test("Core Interface: adaptLegacyProjectProfile translates legacy envelopes without loss of provenance", () => {

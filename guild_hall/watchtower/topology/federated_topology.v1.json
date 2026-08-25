@@ -122,6 +122,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter",
+      "id": "engineering_engine::imports.1143fe6a3fec9229ad4616c0146c0505",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.tools.se_core_eval_qa_human_report",
       "id": "engineering_engine::imports.119c7947c9a7060f7f0b08dde979b7af",
       "label": "imports",
@@ -782,6 +792,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.compiler.quality_readiness_compiler_adapter",
+      "id": "engineering_engine::imports.578ac6399d2cf26dd5611807b999bf8b",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.index",
       "id": "engineering_engine::imports.5a2607ee80d9fb928d73e90aaff288eb",
       "label": "imports",
@@ -1082,6 +1102,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter",
+      "id": "engineering_engine::imports.7d3f35d4458848d71e5e9d8a52b305ce",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.rules.quality_readiness_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.tools.artifact_observation_inventory_runner",
       "id": "engineering_engine::imports.7ff0c37c830a774319ac8ea5120e5700",
       "label": "imports",
@@ -1219,6 +1249,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.tools.judge_diff"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter",
+      "id": "engineering_engine::imports.908bcea7895b846f905ec2d11ee15ec1",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
     },
     {
       "evidence_mode": "structural_only",
@@ -3012,6 +3052,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.compiler.quality_readiness_compiler_adapter",
+      "id": "engineering_engine::imports.d7605f612ef887cca76af5b45e5b285e",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.authority"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluator.ax_se_project_role_bound_assessment",
       "id": "engineering_engine::imports.d76e6c424ffb2f485fef594866fe23aa",
       "label": "imports",
@@ -3029,6 +3079,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.tools.output_binding"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.compiler.quality_readiness_compiler_adapter",
+      "id": "engineering_engine::imports.d8f0ae568355d28b70d3f2c8597a9bea",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
     },
     {
       "evidence_mode": "structural_only",
@@ -3169,6 +3229,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.tools.file_tickets_gc"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.compiler.quality_readiness_compiler_adapter",
+      "id": "engineering_engine::imports.e6f79885675f53291554da380debb700",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
     },
     {
       "evidence_mode": "structural_only",
@@ -6498,6 +6568,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter",
+          "id": "imports.1143fe6a3fec9229ad4616c0146c0505",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.tools.se_core_eval_qa_human_report",
           "id": "imports.119c7947c9a7060f7f0b08dde979b7af",
           "label": "imports",
@@ -7092,6 +7171,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.compiler.quality_readiness_compiler_adapter",
+          "id": "imports.578ac6399d2cf26dd5611807b999bf8b",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.index",
           "id": "imports.5a2607ee80d9fb928d73e90aaff288eb",
           "label": "imports",
@@ -7362,6 +7450,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter",
+          "id": "imports.7d3f35d4458848d71e5e9d8a52b305ce",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.rules.quality_readiness_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.tools.artifact_observation_inventory_runner",
           "id": "imports.7ff0c37c830a774319ac8ea5120e5700",
           "label": "imports",
@@ -7485,6 +7582,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.tools.judge_diff"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter",
+          "id": "imports.908bcea7895b846f905ec2d11ee15ec1",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
         },
         {
           "evidence_mode": "structural_only",
@@ -9099,6 +9205,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.compiler.quality_readiness_compiler_adapter",
+          "id": "imports.d7605f612ef887cca76af5b45e5b285e",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.authority"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluator.ax_se_project_role_bound_assessment",
           "id": "imports.d76e6c424ffb2f485fef594866fe23aa",
           "label": "imports",
@@ -9114,6 +9229,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.tools.output_binding"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.compiler.quality_readiness_compiler_adapter",
+          "id": "imports.d8f0ae568355d28b70d3f2c8597a9bea",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
         },
         {
           "evidence_mode": "structural_only",
@@ -9240,6 +9364,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.tools.file_tickets_gc"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.compiler.quality_readiness_compiler_adapter",
+          "id": "imports.e6f79885675f53291554da380debb700",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
         },
         {
           "evidence_mode": "structural_only",
@@ -11298,7 +11431,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "a0dc4f183028f40845d2ea72df9d3bc386b7cdc4add6cd6074aff69359637187",
+        "digest": "d8ffb033f2b393e28e0f446967264d1d3db56f8489e239a2202b46c84a3eaf8b",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -12292,13 +12425,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "f6519ba8208509406c3d6905839707613af14f9dcbcb0dc07258374d7ac017c7",
+  "source_set_digest": "45c89788fb5192db6a62a85dfb99fe5db0f013ea1cb2347a8f8c521746276608",
   "summary": {
-    "edge_count": 450,
+    "edge_count": 457,
     "node_count": 169,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "91d48e5f6323c63288faa538fb19559eb7081b5491331c17ef4b91ccc2facdc3"
+  "topology_digest": "3922a150b11fe11f1c3d74a8760139c588e97ebd627fb8f13399e155eaa23301"
 }

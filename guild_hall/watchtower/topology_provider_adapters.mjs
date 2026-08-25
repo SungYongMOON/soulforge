@@ -160,11 +160,11 @@ export function adaptEngineeringEngineTopology(exactSourceBytes) {
   if (topology.module_count !== topology.modules?.length || topology.module_edge_count !== topology.module_edges?.length) {
     fail("topology_adapter_engine_declared_count_mismatch");
   }
-  // 130/400. Pinned to the canonical recursive multi-domain topology across core/,
+  // 130/407. Pinned to the canonical recursive multi-domain topology across core/,
   // engines/systems_engineering/, and engines/quality_readiness/. Legacy flat compatibility
   // wrappers (kernel, assembly, stage_rules, subjects, observation, guidance, evaluation, mcp,
   // fixtures, tools, tests) are excluded from canonical module counts.
-  assertExpectedCounts(topology.modules, topology.module_edges, 130, 400, "engineering_engine_topology_source");
+  assertExpectedCounts(topology.modules, topology.module_edges, 130, 407, "engineering_engine_topology_source");
   assertEmbeddedEngineDigest(topology);
 
   const nodes = topology.modules.map((module) => {

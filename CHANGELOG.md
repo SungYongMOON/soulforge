@@ -7,11 +7,18 @@
   - `engines/systems_engineering/`: Self-contained Systems Engineering domain package with `engine.yaml`, domain contracts, synthetic fixtures, 12-chapter manual, rules compiler, evaluation subjects, and domain adapters.
   - `engines/quality_readiness/`: Self-contained Quality Readiness (E01) domain package integrated from read-only branch with `engine.yaml`, domain contracts, public synthetic fixtures, 14-chapter manual, rules, evaluators, adapters, and 21 deterministic test cases.
 - **Engineering Profiles & Registry**: Created `.registry/engineering_profiles/` containing public-safe schemas (`engineering_profile_schema_v0.json`) and Organization Profile catalog documentation with strict segregation of customer/project payloads and provenance preservation.
+- **Quality Readiness Profile Compiler & Evaluator semantics (P1 repair)**:
+  - Implemented bounded Quality Readiness Profile compiler supporting `{ op: "add", rule: <closed_rule_row> }` operations with exact 8 canonical rule fields.
+  - Enforced strict fail-closed profile binding validation with exact schema, domain, ordering (organization before project), safe string, and recomputed `operation_digest` validation.
+  - Added dual profile-wide `operation_digest` and per-operation `operation_item_digest` provenance tracking on null-prototype maps with strict closure assertions.
+  - Enforced closed QR `rule_id` grammar rejecting prototype-sensitive identifiers (`__proto__`, `constructor`, `prototype`).
+  - Added deterministic set-valued array normalization (`compareCodePoints`) for rule fields.
+  - Bound E01 evaluator strictly to the base ruleset, requiring exact `source_packet_ref` and canonical 8-field rule rows, failing closed with `QR_PROFILE_EVALUATION_UNSUPPORTED` on derived rulesets or rule drift.
 - **Compatibility & Conformance**:
   - Maintained backward-compatibility re-exports across `kernel/`, `assembly/`, `stage_rules/`, `subjects/`, `observation/`, `guidance/`, `evaluation/`, `mcp/`, `fixtures/`, and `tests/` to ensure zero disruption to existing tools and callers.
   - Eliminated duplicate fixture payloads from flat `fixtures/` (`phase_2_oracle_spec.json`, `phase_2_oracle_spec.sha256`) and established target `engines/systems_engineering/fixtures/` as sole canonical fixture authority.
   - Updated `emit_release_manifest.mjs` to bind directly to canonical `engines/systems_engineering/rules/` implementations and added `release_manifest_drift.test.mjs`.
-  - Rewrote `emit_topology.mjs` to recursively map 130 canonical modules and 400 static internal module edges across `core/` and `engines/` with full-document digest coverage, excluding legacy compatibility wrappers.
+  - Rewrote `emit_topology.mjs` to recursively map 130 canonical modules and 407 static internal module edges across `core/` and `engines/` with full-document digest coverage, excluding legacy compatibility wrappers.
   - Updated `phase_1_integration_check.mjs` to canonical test suite paths and added `validate:engineering-engine-phase-1-public-integration`.
   - Added structural `validate_no_duplicate_authority.mjs` covering all flat directories and payloads, verified with `no_duplicate_authority_regression.test.mjs`.
   - Added comprehensive Core Domain Conformance test suite (`core/tests/core_domain_conformance.test.mjs`).

@@ -842,10 +842,12 @@
       "area": "engines",
       "exports": [
         "QR_COMPILER_ADAPTER_SCHEMA_VERSION",
+        "QR_COMPILER_ERROR_CODES",
+        "compileQualityReadinessRules",
         "qualityReadinessCompilerAdapter"
       ],
-      "export_count": 2,
-      "line_count": 32
+      "export_count": 4,
+      "line_count": 641
     },
     {
       "module": "engines/quality_readiness/evaluator/quality_readiness",
@@ -864,7 +866,7 @@
         "qualityReadinessAdapter"
       ],
       "export_count": 2,
-      "line_count": 17
+      "line_count": 190
     },
     {
       "module": "engines/quality_readiness/fixtures/quality_readiness_public_synthetic",
@@ -3139,6 +3141,34 @@
     },
     {
       "from": "engines/quality_readiness/compiler/quality_readiness_compiler_adapter",
+      "to": "core/validators/authority",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/compiler/quality_readiness_compiler_adapter",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/compiler/quality_readiness_compiler_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/compiler/quality_readiness_compiler_adapter",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/compiler/quality_readiness_compiler_adapter",
       "to": "engines/quality_readiness/rules/quality_readiness_rules",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
@@ -3153,6 +3183,20 @@
     },
     {
       "from": "engines/quality_readiness/evaluator/quality_readiness_evaluator_adapter",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/evaluator/quality_readiness_evaluator_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/evaluator/quality_readiness_evaluator_adapter",
       "to": "engines/quality_readiness/compiler/quality_readiness_compiler_adapter",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
@@ -3161,6 +3205,13 @@
     {
       "from": "engines/quality_readiness/evaluator/quality_readiness_evaluator_adapter",
       "to": "engines/quality_readiness/evaluator/quality_readiness",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/evaluator/quality_readiness_evaluator_adapter",
+      "to": "engines/quality_readiness/rules/quality_readiness_rules",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
@@ -5098,7 +5149,7 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 400,
+  "module_edge_count": 407,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -5449,5 +5500,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "1eb4a56f8cbc14d81d3bf13e1d735e859663523e6eb8c48990a27b0d39791276"
+  "topology_digest": "b9432ce08b87e44db6140aea1a0d767c9478e1496caa61aa0a2e89762ffc71e4"
 }
