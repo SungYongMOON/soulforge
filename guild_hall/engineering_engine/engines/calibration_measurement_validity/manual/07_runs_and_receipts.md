@@ -7,3 +7,5 @@ The focused test executes it twice in a temporary empty directory, asserts byte-
 This proof is only public-synthetic. It does not report a real calibration/test run or a private zero-write replay.
 
 The Q1 pilot additionally compiles a synthetic source-bound Profile, adapts source-bound Typed Facts, calls the Core seam, derives observation candidates and guidance, and emits one stable public-synthetic JSON record. It remains a no-file-read/no-file-write/no-network proof, not a real project pilot.
+
+The pilot's synthetic-direct source bindings are accepted only with the fixture's exact synthetic project-binding reference and canonical test/known timestamps. Reusing them for a live-like project request is rejected before source-bound evaluation.

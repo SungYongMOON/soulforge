@@ -3,6 +3,7 @@ import types from 'node:util/types';
 import { ContractError } from '../../../core/validators/errors.mjs';
 import {
   CMV_SOURCE_CLASSIFICATION_SCHEMA_VERSION,
+  CMV_PUBLIC_SYNTHETIC_SCOPE,
   validateConsumedCmvSourceClassification,
 } from '../source/calibration_measurement_validity_source_classification.mjs';
 import {
@@ -104,6 +105,13 @@ export function adaptCalibrationMeasurementValidityTypedFacts(input) {
       refuse(CMV_TYPED_FACT_CODES.INVALID_INPUT, 'source classifications must have unique source IDs');
     }
     sourceById.set(canonicalSource.source_id, canonicalSource);
+  }
+  if ([...sourceById.values()].some((source) => source.binding_kind === 'synthetic_direct')) {
+    if (!referenceEqual(request.project_binding_ref, CMV_PUBLIC_SYNTHETIC_SCOPE.project_binding_ref)
+        || request.evaluation_context.tested_at !== CMV_PUBLIC_SYNTHETIC_SCOPE.tested_at
+        || request.evaluation_context.known_at !== CMV_PUBLIC_SYNTHETIC_SCOPE.known_at) {
+      refuse(CMV_TYPED_FACT_CODES.SOURCE_HOLD, 'synthetic-direct source evidence is limited to the exact public-synthetic CMV scope');
+    }
   }
   const provenance = assertPlainObject(value.fact_provenance, 'fact_provenance');
   const provenanceKeys = Object.keys(provenance).sort();

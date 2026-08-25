@@ -1,4 +1,5 @@
 import types from 'node:util/types';
+import { createHash } from 'node:crypto';
 
 import { ContractError } from '../../../core/validators/errors.mjs';
 import { canonicalizeCalibrationMeasurementValidity } from '../shared/calibration_measurement_validity_canonical_digest.mjs';
@@ -24,10 +25,21 @@ const CONSUMED_FIELDS = Object.freeze([
   'schema_version', 'source_id', 'source_ref', 'verdict_eligible',
 ]);
 
-const ref = (entityId, revisionId, fill) => Object.freeze({
+const pin = (seed) => createHash('sha256').update(`soulforge.calibration_measurement_validity.accepted_binding.v1\n${seed}`).digest('hex');
+const ref = (entityId, revisionId, seed) => Object.freeze({
   entity_id: entityId,
   revision_id: revisionId,
-  content_id: `sha256:${fill.repeat(64)}`,
+  content_id: `sha256:${pin(seed)}`,
+});
+
+export const CMV_PUBLIC_SYNTHETIC_SCOPE = Object.freeze({
+  project_binding_ref: Object.freeze({
+    entity_id: 'synthetic:project-binding',
+    revision_id: 'v1',
+    content_id: `sha256:${'a'.repeat(64)}`,
+  }),
+  tested_at: '2026-08-26T10:00:00.000Z',
+  known_at: '2026-08-26T10:05:00.000Z',
 });
 
 const officialBinding = (sourceId, revision, fill) => Object.freeze({

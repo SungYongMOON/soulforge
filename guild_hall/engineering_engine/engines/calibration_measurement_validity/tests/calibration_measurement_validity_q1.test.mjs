@@ -11,6 +11,7 @@ import {
   classifyCmvSourceEvidence,
   cmvAcceptedSourceBindingInput,
   CMV_SOURCE_AUTHORITY_CATALOG,
+  CMV_PUBLIC_SYNTHETIC_SCOPE,
   CMV_SOURCE_CLASSIFICATION_CODES,
 } from '../source/calibration_measurement_validity_source_classification.mjs';
 import {
@@ -132,6 +133,23 @@ test('the source classification catalog is exactly aligned with the public sourc
   }
 });
 
+test('every closed source binding is a valid pinned SHA-256 identity with a classifier round-trip', () => {
+  const seen = new Set();
+  for (const [sourceId, catalog] of Object.entries(CMV_SOURCE_AUTHORITY_CATALOG)) {
+    for (const [bindingKind, binding] of Object.entries(catalog.bindings)) {
+      assert.match(binding.source_ref.content_id, /^sha256:[a-f0-9]{64}$/);
+      const identity = `${sourceId}\u001f${binding.source_ref.entity_id}\u001f${binding.source_ref.revision_id}\u001f${binding.source_ref.content_id}`;
+      assert.equal(seen.has(identity), false, identity);
+      seen.add(identity);
+      const classified = classifyCmvSourceEvidence(cmvAcceptedSourceBindingInput(sourceId, bindingKind));
+      assert.equal(classified.binding_kind, bindingKind);
+      assert.equal(classified.source_ref.content_id, binding.source_ref.content_id);
+      assert.equal(classified.verdict_eligible, binding.verdict_eligible);
+      assert.equal(classified.classification, binding.classification);
+    }
+  }
+});
+
 test('source derivation rows preserve source references and never raise a RAG-only claim ceiling', () => {
   const directRows = deriveCalibrationMeasurementValiditySourceRows([directSource()]);
   const identity = directRows.rows.find((row) => row.criterion_id === 'CMV-INSTRUMENT-IDENTITY-01');
@@ -165,6 +183,17 @@ test('source-bound typed facts preserve provenance and reject RAG-only facts as 
   assert.throws(
     () => adaptCalibrationMeasurementValidityTypedFacts(inverted),
     (error) => error?.code === CMV_TYPED_FACT_CODES.INVALID_INPUT,
+  );
+
+  assert.deepEqual(typed.request.project_binding_ref, CMV_PUBLIC_SYNTHETIC_SCOPE.project_binding_ref);
+  assert.equal(typed.request.evaluation_context.tested_at, CMV_PUBLIC_SYNTHETIC_SCOPE.tested_at);
+  assert.equal(typed.request.evaluation_context.known_at, CMV_PUBLIC_SYNTHETIC_SCOPE.known_at);
+
+  const liveLike = typedFactPacket();
+  liveLike.domain_input.project_binding_ref = reference('live-cmv-audit', 'e');
+  assert.throws(
+    () => adaptCalibrationMeasurementValidityTypedFacts(liveLike),
+    (error) => error?.code === CMV_TYPED_FACT_CODES.SOURCE_HOLD,
   );
 });
 
@@ -267,6 +296,18 @@ test('Core assembly accepts a source-bound profile and holds evaluation when req
 
   const notApplicable = evaluateCmvSourceBoundProfileRequirements([], []);
   assert.equal(notApplicable.claim_ceiling, 'observed');
+
+  const completeOtherSource = typedFactPacket([directSource('NIST-TN-1297-1994')]);
+  const otherTyped = adaptCalibrationMeasurementValidityTypedFacts(completeOtherSource);
+  const missingRequiredSource = evaluate(calibrationMeasurementValidityAdapter, effective, otherTyped);
+  assert.equal(missingRequiredSource.assessment.profile_evaluation.status, 'hold');
+  assert.equal(missingRequiredSource.assessment.profile_evaluation.claim_ceiling, 'observed');
+  assert.equal(missingRequiredSource.assessment.result_status, 'unknown');
+
+  assert.throws(
+    () => evaluate(calibrationMeasurementValidityAdapter, effective, null),
+    (error) => error?.code === 'CMV_EFFECTIVE_RULESET_INVALID',
+  );
 
   const tampered = structuredClone(effective);
   tampered.effective_rule_set.source_bound_profile_requirements[0].required_classification = 'rag_retrieval_only';

@@ -15,6 +15,8 @@ The package recognizes only the public authority rows already named in the E11 s
 
 An evaluator-eligible source classification is reconstructed only from one closed, source-specific accepted binding: source ID plus an exact pinned revision/content reference. The binding itself fixes the known authority, official-public access class, direct-access flag, retrieval path, applicability, ceiling, and hold state. Official public bindings and explicitly pinned synthetic-direct bindings are distinct; synthetic bindings exist only for public-synthetic tests. Unknown authority, arbitrary references, unverified bindings, RAG bindings, and controlled citation-only bindings cannot become direct merely because a caller changes labels or flags.
 
+`synthetic_direct` is limited to the one public-synthetic fixture scope: its exact synthetic project-binding reference plus canonical `tested_at` and `known_at`. Typed Facts reject it outside that scope. A live-like or project-local request must use an official public direct binding or remain hold/error; synthetic evidence is never a substitute for an actual project binding.
+
 Every consumer reruns the package-local canonical consumed-envelope validator. A caller cannot make a RAG, controlled, unknown, mismatched, extra-field, malformed, or contradictory envelope appear direct by editing its output fields. Typed Facts reject it, Profile evaluation holds, derivation cannot support it, and observation/guidance refuse it.
 
 ## RAG boundary
@@ -40,7 +42,7 @@ Every referenced source ID must also appear as `source:<source_id>` in the Core-
 
 At evaluation, unmet source-bound Profile requirements yield `unknown` / `hold`; they never upgrade a measurement result. A base ruleset without a Profile remains byte-compatible with v0 behavior.
 
-The legacy bare v0 domain-input compatibility path is retained only for a base ruleset with no source-bound Profile. If the effective ruleset contains a source-bound Profile and no source classifications accompany the input, E11 returns an explicit Profile `hold`; it does not silently treat the bare input as direct source-bound evidence.
+The legacy bare v0 domain-input compatibility path is retained only for a base ruleset with no source-bound Profile. A derived/source-bound ruleset accepts only the complete revalidated CMV Typed Facts v1 envelope; bare, raw, temporal-invalid, malformed, or provenance-substituted inputs fail closed with a declared error. A complete revalidated Typed Facts envelope that lacks a Profile-required accepted source instead returns the explicit Profile `hold` / `observed` result.
 
 ## Typed Facts, observation, guidance, and MCP
 

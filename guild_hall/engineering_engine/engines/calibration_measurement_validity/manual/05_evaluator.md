@@ -13,4 +13,4 @@ The priority makes a formally held exception visible rather than allowing anothe
 
 When a Q1 source-bound Profile is present, Core evaluates its compiled requirement set before the final package result is returned. Unmet direct-source evidence appends a source-bound Profile hold and returns `unknown` / `hold`; a Profile cannot turn an invalid or unknown base result into valid.
 
-The old bare v0 input remains compatible only for a base, zero-Profile ruleset. A derived source-bound ruleset always requires supplied source classifications; omission is a visible hold rather than an implicit direct-source pass.
+The old bare v0 input remains compatible only for a base, zero-Profile ruleset. A derived source-bound ruleset requires the complete revalidated Typed Facts v1 envelope; missing or malformed input fails closed. Only a complete envelope whose accepted source set does not satisfy the Profile requirement returns a visible `hold` / `observed` result.
