@@ -13,9 +13,9 @@ The package recognizes only the public authority rows already named in the E11 s
 - ILAC-G24:2022 publication index; and
 - ISO/IEC 17025:2017 as controlled citation-only metadata.
 
-An evaluator-eligible source classification requires an exact non-floating revision, the known authority, an official-public access class, a direct-access verification fact, `retrieval_path: direct`, `applicability_state: in_scope`, and an immutable source reference. Unknown authority, mismatched authority, unverified access, RAG retrieval, and controlled citation-only material remain hold states.
+An evaluator-eligible source classification is reconstructed only from one closed, source-specific accepted binding: source ID plus an exact pinned revision/content reference. The binding itself fixes the known authority, official-public access class, direct-access flag, retrieval path, applicability, ceiling, and hold state. Official public bindings and explicitly pinned synthetic-direct bindings are distinct; synthetic bindings exist only for public-synthetic tests. Unknown authority, arbitrary references, unverified bindings, RAG bindings, and controlled citation-only bindings cannot become direct merely because a caller changes labels or flags.
 
-Every consumer reruns the package-local canonical consumed-envelope validator. A caller cannot make a RAG, controlled, unknown, mismatched, extra-field, malformed, or contradictory envelope appear direct by editing its output fields. Typed Facts reject it, Profile evaluation holds, and observation/guidance refuse it.
+Every consumer reruns the package-local canonical consumed-envelope validator. A caller cannot make a RAG, controlled, unknown, mismatched, extra-field, malformed, or contradictory envelope appear direct by editing its output fields. Typed Facts reject it, Profile evaluation holds, derivation cannot support it, and observation/guidance refuse it.
 
 ## RAG boundary
 

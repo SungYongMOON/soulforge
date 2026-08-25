@@ -1,6 +1,7 @@
 import { ContractError } from '../../../core/validators/errors.mjs';
 import { calibrationMeasurementValiditySha256 } from '../shared/calibration_measurement_validity_canonical_digest.mjs';
 import { validateConsumedCmvSourceClassification } from '../source/calibration_measurement_validity_source_classification.mjs';
+import { validateAdaptedCalibrationMeasurementValidityTypedFacts } from '../typed_facts/calibration_measurement_validity_typed_facts_adapter.mjs';
 
 export const CMV_OBSERVATION_SCHEMA_VERSION = 'soulforge.calibration_measurement_validity.observation_candidates.v1';
 export const CMV_OBSERVATION_CODES = Object.freeze({
@@ -39,13 +40,15 @@ function observationState(factKey, request) {
 }
 
 export function deriveCalibrationMeasurementValidityObservationCandidates(typedFacts) {
-  if (!typedFacts || typeof typedFacts !== 'object' || typedFacts.schema_version !== 'soulforge.calibration_measurement_validity.typed_facts.v1'
-      || !typedFacts.request || !typedFacts.fact_provenance || !Array.isArray(typedFacts.source_classifications)) {
+  let canonicalTypedFacts;
+  try {
+    canonicalTypedFacts = validateAdaptedCalibrationMeasurementValidityTypedFacts(typedFacts);
+  } catch {
     refuse(CMV_OBSERVATION_CODES.INVALID_INPUT, 'CMV observation requires a source-bound typed-facts envelope');
   }
-  const sources = new Map(typedFacts.source_classifications.map((source) => [source.source_id, source]));
+  const sources = new Map(canonicalTypedFacts.source_classifications.map((source) => [source.source_id, source]));
   const candidates = FACT_ROWS.map(([factKey, candidateId]) => {
-    const provenance = typedFacts.fact_provenance[factKey];
+    const provenance = canonicalTypedFacts.fact_provenance[factKey];
     const source = provenance ? sources.get(provenance.source_id) : null;
     let canonicalSource;
     try {
@@ -53,13 +56,15 @@ export function deriveCalibrationMeasurementValidityObservationCandidates(typedF
     } catch {
       canonicalSource = null;
     }
-    if (!canonicalSource) {
+    if (!canonicalSource || provenance.source_ref.entity_id !== canonicalSource.source_ref.entity_id
+        || provenance.source_ref.revision_id !== canonicalSource.source_ref.revision_id
+        || provenance.source_ref.content_id !== canonicalSource.source_ref.content_id) {
       refuse(CMV_OBSERVATION_CODES.SOURCE_BOUND_REQUIRED, 'every observation candidate requires direct source-bound typed facts');
     }
     return {
       candidate_id: `cmv-${candidateId}`,
       fact_key: factKey,
-      observation_state: observationState(factKey, typedFacts.request),
+      observation_state: observationState(factKey, canonicalTypedFacts.request),
       source_id: canonicalSource.source_id,
       source_classification: canonicalSource.classification,
       source_envelope: canonicalSource,

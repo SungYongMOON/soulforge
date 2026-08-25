@@ -5,13 +5,17 @@ import {
   CMV_SOURCE_CLASSIFICATION_SCHEMA_VERSION,
   validateConsumedCmvSourceClassification,
 } from '../source/calibration_measurement_validity_source_classification.mjs';
-import { calibrationMeasurementValiditySha256 } from '../shared/calibration_measurement_validity_canonical_digest.mjs';
+import {
+  calibrationMeasurementValiditySha256,
+  canonicalizeCalibrationMeasurementValidity,
+} from '../shared/calibration_measurement_validity_canonical_digest.mjs';
 
 export const CMV_TYPED_FACTS_SCHEMA_VERSION = 'soulforge.calibration_measurement_validity.typed_facts.v1';
 export const CMV_TYPED_FACT_CODES = Object.freeze({
   INVALID_INPUT: 'CMV_TYPED_FACT_INVALID_INPUT',
   SOURCE_HOLD: 'CMV_TYPED_FACT_SOURCE_HOLD',
   PROVENANCE_INVALID: 'CMV_TYPED_FACT_PROVENANCE_INVALID',
+  ADAPTED_ENVELOPE_INVALID: 'CMV_TYPED_FACT_ADAPTED_ENVELOPE_INVALID',
 });
 
 const FACT_KEYS = Object.freeze([
@@ -148,4 +152,29 @@ export function adaptCalibrationMeasurementValidityTypedFacts(input) {
       },
     },
   });
+}
+
+export function validateAdaptedCalibrationMeasurementValidityTypedFacts(envelope) {
+  const value = assertPlainObject(envelope, 'adapted typed facts envelope');
+  const expectedKeys = ['fact_provenance', 'request', 'schema_version', 'source_classifications', 'typed_fact_receipt'];
+  const keys = Object.keys(value).sort();
+  if (keys.length !== expectedKeys.length || !keys.every((key, index) => key === expectedKeys[index])
+      || value.schema_version !== CMV_TYPED_FACTS_SCHEMA_VERSION) {
+    refuse(CMV_TYPED_FACT_CODES.ADAPTED_ENVELOPE_INVALID, 'derived evaluation requires the complete CMV Typed Facts v1 envelope');
+  }
+  let expected;
+  try {
+    expected = adaptCalibrationMeasurementValidityTypedFacts({
+      schema_version: 'soulforge.calibration_measurement_validity.source_bound_typed_facts.v1',
+      domain_input: value.request,
+      source_classifications: value.source_classifications,
+      fact_provenance: value.fact_provenance,
+    });
+  } catch {
+    refuse(CMV_TYPED_FACT_CODES.ADAPTED_ENVELOPE_INVALID, 'derived evaluation Typed Facts failed source/provenance/cutoff validation');
+  }
+  if (canonicalizeCalibrationMeasurementValidity(value) !== canonicalizeCalibrationMeasurementValidity(expected)) {
+    refuse(CMV_TYPED_FACT_CODES.ADAPTED_ENVELOPE_INVALID, 'derived evaluation Typed Facts receipt, provenance, or source binding is stale or substituted');
+  }
+  return expected;
 }

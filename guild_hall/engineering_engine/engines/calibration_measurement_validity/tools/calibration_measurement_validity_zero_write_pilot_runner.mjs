@@ -1,26 +1,18 @@
 #!/usr/bin/env node
 import { buildCalibrationMeasurementValidityPublicSyntheticRequest } from '../fixtures/calibration_measurement_validity_public_synthetic.mjs';
-import { classifyCmvSourceEvidence } from '../source/calibration_measurement_validity_source_classification.mjs';
+import {
+  classifyCmvSourceEvidence,
+  cmvAcceptedSourceBindingInput,
+} from '../source/calibration_measurement_validity_source_classification.mjs';
 import { adaptCalibrationMeasurementValidityTypedFacts } from '../typed_facts/calibration_measurement_validity_typed_facts_adapter.mjs';
 import { calibrationMeasurementValidityAdapter } from '../evaluator/calibration_measurement_validity_evaluator_adapter.mjs';
 import { deriveCalibrationMeasurementValidityObservationCandidates } from '../observation/calibration_measurement_validity_observation.mjs';
 import { buildCalibrationMeasurementValidityGuidance } from '../guidance/calibration_measurement_validity_guidance.mjs';
 import { assembleEffectiveRuleSet, evaluate, resolveProfileBindings } from '../../../core/interfaces/domain_engine_adapter.mjs';
 
-const source = classifyCmvSourceEvidence({
-  source_id: 'NIST-METROLOGICAL-TRACEABILITY-FAQ',
-  authority: 'National Institute of Standards and Technology',
-  revision: 'synthetic-v1',
-  access_class: 'official_public',
-  direct_access_verified: true,
-  retrieval_path: 'direct',
-  applicability_state: 'in_scope',
-  source_ref: {
-    entity_id: 'synthetic:cmv-pilot-source',
-    revision_id: 'v1',
-    content_id: `sha256:${'a'.repeat(64)}`,
-  },
-});
+const source = classifyCmvSourceEvidence(
+  cmvAcceptedSourceBindingInput('NIST-METROLOGICAL-TRACEABILITY-FAQ', 'synthetic_direct'),
+);
 const request = buildCalibrationMeasurementValidityPublicSyntheticRequest('VALID');
 const typed = adaptCalibrationMeasurementValidityTypedFacts({
   schema_version: 'soulforge.calibration_measurement_validity.source_bound_typed_facts.v1',

@@ -1,5 +1,11 @@
-import { registerDomainEngineAdapter } from '../../../core/interfaces/domain_engine_adapter.mjs';
+import {
+  arrayOrderRules,
+  registerDomainEngineAdapter,
+  withoutNulls,
+} from '../../../core/interfaces/domain_engine_adapter.mjs';
 import { ContractError } from '../../../core/validators/errors.mjs';
+import { canonicalise } from '../../../core/validators/canonical.mjs';
+import { sha256Hex } from '../../../core/validators/fingerprint.mjs';
 import { canonicalizeCalibrationMeasurementValidity } from '../shared/calibration_measurement_validity_canonical_digest.mjs';
 import {
   CALIBRATION_MEASUREMENT_VALIDITY_RULES,
@@ -16,6 +22,7 @@ import {
   applyCmvSourceBoundProfileEvaluation,
   evaluateCmvSourceBoundProfileRequirements,
 } from '../profile/calibration_measurement_validity_source_bound_profile.mjs';
+import { validateAdaptedCalibrationMeasurementValidityTypedFacts } from '../typed_facts/calibration_measurement_validity_typed_facts_adapter.mjs';
 
 export const CMV_EVALUATOR_ADAPTER_SCHEMA_VERSION = 'soulforge.calibration_measurement_validity.evaluator.v0';
 
@@ -72,11 +79,52 @@ function validateSourceBoundRequirements(requirements, provenance) {
   }
 }
 
+function validateCoreAssemblyEnvelope(outer, ruleSet, requirements) {
+  if (!outer || typeof outer !== 'object' || outer.schema_version !== 'soulforge.effective_rule_set.v0'
+      || outer.domain_engine_id !== 'calibration_measurement_validity'
+      || outer.effective_rule_set !== ruleSet || !outer.compilation_trace || typeof outer.compilation_trace !== 'object') {
+    throw new ContractError(CMV_ERROR_CODES.EFFECTIVE_RULESET_INVALID, 'derived CMV evaluation requires the complete Core assembly envelope');
+  }
+  const trace = outer.compilation_trace;
+  const cleanRules = withoutNulls(ruleSet);
+  const expectedDigest = sha256Hex(`soulforge.effective_rule_set.v0\n${canonicalise(cleanRules, arrayOrderRules(cleanRules))}`);
+  if (outer.assembly_digest !== expectedDigest || trace.effective_ruleset_digest !== expectedDigest
+      || trace.domain_engine_id !== 'calibration_measurement_validity'
+      || trace.domain_adapter_revision !== calibrationMeasurementValidityCompilerAdapter.revision
+      || trace.rule_count !== ruleSet.rule_count
+      || !Array.isArray(trace.profiles)) {
+    throw new ContractError(CMV_ERROR_CODES.EFFECTIVE_RULESET_INVALID, 'Core assembly digest, adapter revision, or rule count is stale');
+  }
+  for (const requirement of requirements) {
+    const profile = trace.profiles.find((candidate) => candidate.profile_kind === requirement.profile_kind
+      && candidate.profile_id === requirement.profile_id);
+    if (!profile || profile.domain_engine_id !== 'calibration_measurement_validity'
+        || profile.revision_or_hash !== requirement.revision_or_hash
+        || profile.extends_or_base_pin !== requirement.extends_or_base_pin
+        || profile.operation_digest !== requirement.operation_digest
+        || profile.order !== requirement.order
+        || canonicalizeCalibrationMeasurementValidity(profile.source_refs) !== canonicalizeCalibrationMeasurementValidity(requirement.source_refs)) {
+      throw new ContractError(CMV_ERROR_CODES.EFFECTIVE_RULESET_INVALID, 'Core Profile trace does not match the derived CMV requirement');
+    }
+  }
+  for (const kind of ['organization', 'project']) {
+    const profile = trace.profiles.find((candidate) => candidate.profile_kind === kind) ?? null;
+    const summary = kind === 'organization' ? trace.organization_trace : trace.project_trace;
+    if ((profile === null) !== (summary === null)) {
+      throw new ContractError(CMV_ERROR_CODES.EFFECTIVE_RULESET_INVALID, 'Core Profile summary trace is inconsistent');
+    }
+    if (profile && (summary.profile_id !== profile.profile_id || summary.operation_digest !== profile.operation_digest)) {
+      throw new ContractError(CMV_ERROR_CODES.EFFECTIVE_RULESET_INVALID, 'Core Profile summary trace is stale');
+    }
+  }
+}
+
 function verifyBaseRuleset(effectiveRuleSet) {
   if (!effectiveRuleSet || typeof effectiveRuleSet !== 'object' || Array.isArray(effectiveRuleSet)) {
     throw new ContractError(CMV_ERROR_CODES.EFFECTIVE_RULESET_INVALID, 'effective rule set must be an object');
   }
-  const ruleSet = effectiveRuleSet.effective_rule_set || effectiveRuleSet;
+  const outer = effectiveRuleSet.effective_rule_set ? effectiveRuleSet : null;
+  const ruleSet = outer ? outer.effective_rule_set : effectiveRuleSet;
   if (!ruleSet || typeof ruleSet !== 'object' || Array.isArray(ruleSet)
       || ruleSet.schema_version !== CMV_RULESET_SCHEMA_VERSION
       || ruleSet.domain_engine_id !== 'calibration_measurement_validity'
@@ -109,6 +157,7 @@ function verifyBaseRuleset(effectiveRuleSet) {
     if (!sameReference(ruleSet.ruleset_ref, expectedDerivedReference)) {
       throw new ContractError(CMV_ERROR_CODES.EFFECTIVE_RULESET_INVALID, 'derived CMV ruleset reference does not bind the requirements presented for evaluation');
     }
+    validateCoreAssemblyEnvelope(outer, ruleSet, requirements);
   }
   return { requirements, ruleset_ref: ruleSet.ruleset_ref };
 }
@@ -117,7 +166,16 @@ export const calibrationMeasurementValidityAdapter = Object.freeze({
   ...calibrationMeasurementValidityCompilerAdapter,
   evaluate(effectiveRuleSet, typedProjectFacts) {
     const verified = verifyBaseRuleset(effectiveRuleSet);
-    const envelope = typedProjectFacts?.request ? typedProjectFacts : { request: typedProjectFacts, source_classifications: [] };
+    let envelope;
+    if (verified.requirements.length > 0) {
+      try {
+        envelope = validateAdaptedCalibrationMeasurementValidityTypedFacts(typedProjectFacts);
+      } catch {
+        throw new ContractError(CMV_ERROR_CODES.EFFECTIVE_RULESET_INVALID, 'derived CMV evaluation requires validated Typed Facts v1 rather than raw evidence');
+      }
+    } else {
+      envelope = typedProjectFacts?.request ? typedProjectFacts : { request: typedProjectFacts, source_classifications: [] };
+    }
     const baseResult = assessCalibrationMeasurementValidity(envelope.request);
     const profileEvaluation = evaluateCmvSourceBoundProfileRequirements(verified.requirements, envelope.source_classifications ?? []);
     return applyCmvSourceBoundProfileEvaluation(baseResult, profileEvaluation,

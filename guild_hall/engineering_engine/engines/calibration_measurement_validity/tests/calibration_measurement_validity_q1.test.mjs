@@ -9,6 +9,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 
 import {
   classifyCmvSourceEvidence,
+  cmvAcceptedSourceBindingInput,
   CMV_SOURCE_AUTHORITY_CATALOG,
   CMV_SOURCE_CLASSIFICATION_CODES,
 } from '../source/calibration_measurement_validity_source_classification.mjs';
@@ -32,6 +33,9 @@ import {
 import {
   calibrationMeasurementValidityAdapter,
 } from '../evaluator/calibration_measurement_validity_evaluator_adapter.mjs';
+import {
+  deriveCalibrationMeasurementValidityRulesetReference,
+} from '../compiler/calibration_measurement_validity_compiler_adapter.mjs';
 import {
   evaluateCmvSourceBoundProfileRequirements,
 } from '../profile/calibration_measurement_validity_source_bound_profile.mjs';
@@ -58,29 +62,11 @@ function reference(entityId, fill) {
 }
 
 function directSource(sourceId = 'NIST-METROLOGICAL-TRACEABILITY-FAQ') {
-  return classifyCmvSourceEvidence({
-    source_id: sourceId,
-    authority: 'National Institute of Standards and Technology',
-    revision: 'synthetic-v1',
-    access_class: 'official_public',
-    direct_access_verified: true,
-    retrieval_path: 'direct',
-    applicability_state: 'in_scope',
-    source_ref: reference(`source-${sourceId}`, 'a'),
-  });
+  return classifyCmvSourceEvidence(cmvAcceptedSourceBindingInput(sourceId, 'synthetic_direct'));
 }
 
 function ragSource() {
-  return classifyCmvSourceEvidence({
-    source_id: 'NIST-METROLOGICAL-TRACEABILITY-FAQ',
-    authority: 'National Institute of Standards and Technology',
-    revision: 'synthetic-v1',
-    access_class: 'official_public',
-    direct_access_verified: false,
-    retrieval_path: 'rag',
-    applicability_state: 'candidate_locator_only',
-    source_ref: reference('source-rag', 'b'),
-  });
+  return classifyCmvSourceEvidence(cmvAcceptedSourceBindingInput('NIST-METROLOGICAL-TRACEABILITY-FAQ', 'rag_retrieval_only'));
 }
 
 function sourceBoundProfile() {
@@ -126,31 +112,14 @@ test('source classification separates direct official support from RAG-only and 
   assert.equal(rag.verdict_eligible, false);
   assert.equal(rag.hold_code, CMV_SOURCE_CLASSIFICATION_CODES.RAG_NOT_VERDICT_AUTHORITY);
 
-  const controlled = classifyCmvSourceEvidence({
-    source_id: 'ISO-IEC-17025-2017-CITATION-ONLY',
-    authority: 'International Organization for Standardization',
-    revision: '2017',
-    access_class: 'controlled_citation_only',
-    direct_access_verified: true,
-    retrieval_path: 'direct',
-    applicability_state: 'citation_only',
-    source_ref: reference('iso-citation-only', 'c'),
-  });
+  const controlled = classifyCmvSourceEvidence(cmvAcceptedSourceBindingInput('ISO-IEC-17025-2017-CITATION-ONLY', 'controlled_citation_only'));
   assert.equal(controlled.classification, 'controlled_citation_only');
   assert.equal(controlled.verdict_eligible, false);
 
-  const unknown = classifyCmvSourceEvidence({
-    source_id: 'UNREGISTERED-SOURCE',
-    authority: 'Unknown Publisher',
-    revision: 'synthetic-v1',
-    access_class: 'official_public',
-    direct_access_verified: true,
-    retrieval_path: 'direct',
-    applicability_state: 'in_scope',
-    source_ref: reference('unknown-source', 'e'),
-  });
-  assert.equal(unknown.classification, 'unknown_source_hold');
-  assert.equal(unknown.hold_code, CMV_SOURCE_CLASSIFICATION_CODES.UNKNOWN_SOURCE);
+  assert.throws(
+    () => classifyCmvSourceEvidence({ source_id: 'UNREGISTERED-SOURCE', source_ref: reference('unknown-source', 'e') }),
+    (error) => error?.code === CMV_SOURCE_CLASSIFICATION_CODES.UNKNOWN_SOURCE,
+  );
 });
 
 test('the source classification catalog is exactly aligned with the public source inventory', () => {
@@ -207,6 +176,13 @@ test('forged direct source-classification envelopes cannot satisfy Typed Facts o
   forged.hold_code = null;
   forged.retrieval_path = 'direct';
   forged.applicability_state = 'in_scope';
+  forged.access_class = 'official_public';
+  forged.direct_access_verified = true;
+  forged.binding_kind = 'synthetic_direct';
+  forged.claim_ceiling = 'source_supported';
+  forged.hold_code = null;
+  forged.retrieval_path = 'direct';
+  forged.applicability_state = 'in_scope';
   assert.throws(
     () => adaptCalibrationMeasurementValidityTypedFacts(typedFactPacket([forged])),
     (error) => error?.code === CMV_TYPED_FACT_CODES.SOURCE_HOLD,
@@ -214,12 +190,13 @@ test('forged direct source-classification envelopes cannot satisfy Typed Facts o
 
   const bindings = resolveProfileBindings(null, sourceBoundProfile());
   const effective = assembleEffectiveRuleSet(calibrationMeasurementValidityAdapter, bindings);
-  const held = evaluate(calibrationMeasurementValidityAdapter, effective, {
-    request: buildCalibrationMeasurementValidityPublicSyntheticRequest('VALID'),
-    source_classifications: [forged],
-  });
-  assert.equal(held.assessment.profile_evaluation.status, 'hold');
-  assert.equal(held.assessment.result_status, 'unknown');
+  assert.throws(
+    () => evaluate(calibrationMeasurementValidityAdapter, effective, {
+      request: buildCalibrationMeasurementValidityPublicSyntheticRequest('VALID'),
+      source_classifications: [forged],
+    }),
+    (error) => error?.code === 'CMV_EFFECTIVE_RULESET_INVALID',
+  );
 
   const extraField = structuredClone(directSource());
   extraField.unapproved_extra = true;
@@ -233,7 +210,7 @@ test('forged direct source-classification envelopes cannot satisfy Typed Facts o
   forgedTyped.source_classifications[0] = forged;
   assert.throws(
     () => deriveCalibrationMeasurementValidityObservationCandidates(forgedTyped),
-    (error) => error?.code === 'CMV_OBSERVATION_SOURCE_BOUND_REQUIRED',
+    (error) => error?.code === 'CMV_OBSERVATION_INVALID_INPUT',
   );
   const observation = deriveCalibrationMeasurementValidityObservationCandidates(directTyped);
   const forgedObservation = structuredClone(observation);
@@ -266,20 +243,27 @@ test('Core assembly accepts a source-bound profile and holds evaluation when req
     request: buildCalibrationMeasurementValidityPublicSyntheticRequest('VALID'),
     source_classifications: [ragSource()],
   };
-  const held = evaluate(calibrationMeasurementValidityAdapter, effective, ragEnvelope);
-  assert.equal(held.assessment.profile_evaluation.status, 'hold');
-  assert.equal(held.assessment.profile_evaluation.claim_ceiling, 'observed');
-  assert.equal(held.assessment.claim_ceiling, 'observed');
-  assert.equal(held.assessment.result_status, 'unknown');
-  assert.equal(held.assessment.result_impact, 'hold');
-
-  const bareHeld = evaluate(
-    calibrationMeasurementValidityAdapter,
-    effective,
-    buildCalibrationMeasurementValidityPublicSyntheticRequest('VALID'),
+  assert.throws(
+    () => evaluate(calibrationMeasurementValidityAdapter, effective, ragEnvelope),
+    (error) => error?.code === 'CMV_EFFECTIVE_RULESET_INVALID',
   );
-  assert.equal(bareHeld.assessment.profile_evaluation.status, 'hold');
-  assert.equal(bareHeld.assessment.profile_evaluation.claim_ceiling, 'observed');
+  assert.throws(
+    () => evaluate(calibrationMeasurementValidityAdapter, effective, buildCalibrationMeasurementValidityPublicSyntheticRequest('VALID')),
+    (error) => error?.code === 'CMV_EFFECTIVE_RULESET_INVALID',
+  );
+
+  const invalidTemporal = structuredClone(typed);
+  invalidTemporal.request.evaluation_context.known_at = '2026-08-26T09:59:59.000Z';
+  assert.throws(
+    () => evaluate(calibrationMeasurementValidityAdapter, effective, invalidTemporal),
+    (error) => error?.code === 'CMV_EFFECTIVE_RULESET_INVALID',
+  );
+  const mismatchedProvenance = structuredClone(typed);
+  mismatchedProvenance.fact_provenance.environment.source_ref = reference('foreign-source', 'f');
+  assert.throws(
+    () => evaluate(calibrationMeasurementValidityAdapter, effective, mismatchedProvenance),
+    (error) => error?.code === 'CMV_EFFECTIVE_RULESET_INVALID',
+  );
 
   const notApplicable = evaluateCmvSourceBoundProfileRequirements([], []);
   assert.equal(notApplicable.claim_ceiling, 'observed');
@@ -311,6 +295,18 @@ test('Core assembly accepts a source-bound profile and holds evaluation when req
     () => evaluate(calibrationMeasurementValidityAdapter, tamperedProvenance, typed),
     (error) => error?.code === 'CMV_EFFECTIVE_RULESET_INVALID',
   );
+  const staleCoreTrace = structuredClone(effective);
+  staleCoreTrace.effective_rule_set.source_bound_profile_requirements[0].source_refs = ['source:NIST-TN-1297-1994'];
+  staleCoreTrace.effective_rule_set.source_bound_profile_requirements[0].required_source_ids = ['NIST-TN-1297-1994'];
+  staleCoreTrace.effective_rule_set.profile_rule_provenance['cmv-direct-source-proof'].source_refs = ['source:NIST-TN-1297-1994'];
+  staleCoreTrace.effective_rule_set.ruleset_ref = deriveCalibrationMeasurementValidityRulesetReference(
+    staleCoreTrace.effective_rule_set.source_bound_profile_requirements,
+    staleCoreTrace.effective_rule_set.profile_rule_provenance,
+  );
+  assert.throws(
+    () => evaluate(calibrationMeasurementValidityAdapter, staleCoreTrace, typed),
+    (error) => error?.code === 'CMV_EFFECTIVE_RULESET_INVALID',
+  );
 
   const baseSchema = JSON.parse(readFileSync(fileURLToPath(new URL('../schemas/calibration_measurement_validity_schema_v0.json', import.meta.url)), 'utf8'));
   const sourceBoundSchema = JSON.parse(readFileSync(fileURLToPath(new URL('../schemas/calibration_measurement_validity_source_bound_schema_v1.json', import.meta.url)), 'utf8'));
@@ -323,7 +319,6 @@ test('Core assembly accepts a source-bound profile and holds evaluation when req
   const validateTyped = ajv.getSchema(`${sourceBoundSchema.$id}#/$defs/typed_facts`);
   assert.equal(validateRuleset(effective.effective_rule_set), true, JSON.stringify(validateRuleset.errors));
   assert.equal(validateAssessment(supported.assessment), true, JSON.stringify(validateAssessment.errors));
-  assert.equal(validateAssessment(held.assessment), true, JSON.stringify(validateAssessment.errors));
   assert.equal(validateTyped(typed), true, JSON.stringify(validateTyped.errors));
 });
 
@@ -346,21 +341,24 @@ test('observation and guidance are deterministic, source-bound, and do not chang
   assert.equal(guidance.effects.external_mutations, 0);
   assert.ok(guidance.cards.some((card) => card.action_code === 'obtain_current_calibration_evidence'));
   assert.equal(deepFrozen(guidance), true);
+  const receiptLess = structuredClone(observation);
+  delete receiptLess.receipt;
+  assert.throws(
+    () => buildCalibrationMeasurementValidityGuidance({ assessment: expired.assessment, observation: receiptLess }),
+    (error) => error?.code === 'CMV_GUIDANCE_INVALID_INPUT',
+  );
+  const staleReceipt = structuredClone(observation);
+  staleReceipt.receipt.candidate_count = 5;
+  assert.throws(
+    () => buildCalibrationMeasurementValidityGuidance({ assessment: expired.assessment, observation: staleReceipt }),
+    (error) => error?.code === 'CMV_GUIDANCE_INVALID_INPUT',
+  );
 });
 
 test('read-only MCP exposes only pure package calls and the public synthetic pilot is zero-write replayable', () => {
   assert.equal(CALIBRATION_MEASUREMENT_VALIDITY_READ_ONLY_MCP_TOOLS.every((tool) => tool.write === false), true);
   const mcp = invokeCalibrationMeasurementValidityReadOnlyMcp('cmv.classify_source', {
-    source: {
-      source_id: 'NIST-METROLOGICAL-TRACEABILITY-FAQ',
-      authority: 'National Institute of Standards and Technology',
-      revision: 'synthetic-v1',
-      access_class: 'official_public',
-      direct_access_verified: true,
-      retrieval_path: 'direct',
-      applicability_state: 'in_scope',
-      source_ref: reference('mcp-source', 'd'),
-    },
+    source: cmvAcceptedSourceBindingInput('NIST-METROLOGICAL-TRACEABILITY-FAQ', 'synthetic_direct'),
   });
   assert.equal(mcp.effects.external_mutations, 0);
   assert.equal(mcp.structured.classification, 'official_public_direct');

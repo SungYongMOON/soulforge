@@ -1,5 +1,8 @@
 import { ContractError } from '../../../core/validators/errors.mjs';
-import { classifyCmvSourceEvidence } from '../source/calibration_measurement_validity_source_classification.mjs';
+import {
+  classifyCmvSourceEvidence,
+  cmvAcceptedSourceBindingInput,
+} from '../source/calibration_measurement_validity_source_classification.mjs';
 import { buildCalibrationMeasurementValidityPublicSyntheticRequest } from '../fixtures/calibration_measurement_validity_public_synthetic.mjs';
 import { assessCalibrationMeasurementValidity } from '../evaluator/calibration_measurement_validity.mjs';
 import { buildCalibrationMeasurementValidityGuidance } from '../guidance/calibration_measurement_validity_guidance.mjs';
@@ -35,20 +38,9 @@ function response(structured) {
 }
 
 function publicSyntheticTypedFacts(caseId) {
-  const source = classifyCmvSourceEvidence({
-    source_id: 'NIST-METROLOGICAL-TRACEABILITY-FAQ',
-    authority: 'National Institute of Standards and Technology',
-    revision: 'synthetic-v1',
-    access_class: 'official_public',
-    direct_access_verified: true,
-    retrieval_path: 'direct',
-    applicability_state: 'in_scope',
-    source_ref: {
-      entity_id: 'synthetic:cmv-mcp-source',
-      revision_id: 'v1',
-      content_id: `sha256:${'c'.repeat(64)}`,
-    },
-  });
+  const source = classifyCmvSourceEvidence(
+    cmvAcceptedSourceBindingInput('NIST-METROLOGICAL-TRACEABILITY-FAQ', 'synthetic_direct'),
+  );
   return adaptCalibrationMeasurementValidityTypedFacts({
     schema_version: 'soulforge.calibration_measurement_validity.source_bound_typed_facts.v1',
     domain_input: buildCalibrationMeasurementValidityPublicSyntheticRequest(caseId),
