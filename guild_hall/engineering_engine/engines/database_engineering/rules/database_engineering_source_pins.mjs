@@ -27,11 +27,10 @@ const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 const refuse = (message) => { throw new ContractError(DBE_ERROR_CODES.SOURCE_TAMPERED, message); };
 
 function requireExactPagePin(source, expectedPath) {
-  const url = new URL(source.url);
-  const finalUrl = new URL(source.final_url);
-  if (url.protocol !== 'https:' || url.hostname !== 'www.postgresql.org' || url.pathname !== expectedPath || url.search || url.hash
-      || finalUrl.href !== url.href) {
-    refuse(`PostgreSQL source ${source.source_id} URL/final URL is not an exact allowed official locator`);
+  const expectedUrl = `https://www.postgresql.org${expectedPath}`;
+  if (!source || typeof source !== 'object' || Array.isArray(source)
+      || source.url !== expectedUrl || source.final_url !== expectedUrl) {
+    refuse(`PostgreSQL source ${source?.source_id ?? 'unknown'} URL/final URL is not the exact canonical locator`);
   }
   if (source.platform_family !== 'postgresql' || source.platform_version !== '18.6'
       || source.release_ref_id !== POSTGRESQL_18_6_RELEASE_REF_ID
@@ -70,6 +69,9 @@ export function validatePostgresql18_6ExecutableSourcePins(inventory) {
       || typeof release.content_sha256 !== 'string' || !/^[a-f0-9]{64}$/u.test(release.content_sha256)
       || !INSTANT.test(release.accessed_at_utc)) {
     refuse('PostgreSQL 18.6 release reference is not byte-pinned');
+  }
+  for (const field of FORBIDDEN_BODY_FIELDS) {
+    if (Object.hasOwn(release, field)) refuse(`PostgreSQL 18.6 release reference contains forbidden source body field ${field}`);
   }
   const rows = [];
   for (const sourceId of POSTGRESQL_18_6_EXECUTABLE_SOURCE_IDS) {

@@ -138,6 +138,7 @@ test('required DBE package surfaces are local, complete, and declare a small pub
     'schemas/database_typed_facts_schema_v0.json',
     'schemas/database_engineering_evaluation_schema_v0.json',
     'schemas/database_engineering_receipt_schema_v0.json',
+    'schemas/database_engineering_evidence_receipt_schema_v0.json',
     'rules/database_engineering_source_pins.mjs',
     'compiler/database_engineering_compiler_adapter.mjs',
     'evaluator/database_engineering_evaluator_adapter.mjs',
@@ -178,6 +179,27 @@ test('every executable PostgreSQL 18.6 rule has a public-safe exact source-byte 
   const releaseLocatorDrift = structuredClone(inventory);
   releaseLocatorDrift.sources.find((source) => source.source_id === 'POSTGRESQL-18.6-RELEASE').final_url = 'https://www.postgresql.org/docs/release/18.7/';
   assert.throws(() => validatePostgresql18_6ExecutableSourcePins(releaseLocatorDrift), (error) => error.code === 'DBE_SOURCE_TAMPERED');
+  for (const locator of [
+    'https://user:password@www.postgresql.org/docs/release/18.6/',
+    'https://www.postgresql.org:444/docs/release/18.6/',
+    'https://www.postgresql.org:443/docs/release/18.6/',
+    'HTTPS://WWW.POSTGRESQL.ORG/docs/release/./18.6/',
+    'https://www.postgresql.org/docs/release/%31%38.6/',
+    'https://www.postgresql.org/docs/release/18.6/?drift=1',
+    'https://www.postgresql.org/docs/release/18.6/#drift',
+    'not-a-url',
+  ]) {
+    const releaseAlias = structuredClone(inventory);
+    const release = releaseAlias.sources.find((source) => source.source_id === 'POSTGRESQL-18.6-RELEASE');
+    release.url = locator;
+    release.final_url = locator;
+    assert.throws(() => validatePostgresql18_6ExecutableSourcePins(releaseAlias), (error) => error.code === 'DBE_SOURCE_TAMPERED', locator);
+  }
+  for (const field of ['body', 'html', 'text', 'content', 'raw_body', 'source_body']) {
+    const releaseBodyField = structuredClone(inventory);
+    releaseBodyField.sources.find((source) => source.source_id === 'POSTGRESQL-18.6-RELEASE')[field] = 'forbidden';
+    assert.throws(() => validatePostgresql18_6ExecutableSourcePins(releaseBodyField), (error) => error.code === 'DBE_SOURCE_TAMPERED', field);
+  }
   const swapped = structuredClone(inventory);
   const rls = swapped.sources.find((source) => source.source_id === 'POSTGRESQL-18-RLS');
   const constraints = swapped.sources.find((source) => source.source_id === 'POSTGRESQL-18-CONSTRAINTS');
@@ -189,20 +211,50 @@ test('every executable PostgreSQL 18.6 rule has a public-safe exact source-byte 
   const duplicateMapping = structuredClone(inventory);
   duplicateMapping.sources.find((source) => source.source_id === 'POSTGRESQL-18-RLS').rule_ids = ['DBE-POSTGRESQL-RLS-001', 'DBE-POSTGRESQL-RLS-001'];
   assert.throws(() => validatePostgresql18_6ExecutableSourcePins(duplicateMapping), (error) => error.code === 'DBE_SOURCE_TAMPERED');
+  for (const locator of [
+    'https://user:password@www.postgresql.org/docs/18/continuous-archiving.html',
+    'https://www.postgresql.org:444/docs/18/continuous-archiving.html',
+    'https://www.postgresql.org:443/docs/18/continuous-archiving.html',
+    'HTTPS://WWW.POSTGRESQL.ORG/docs/18/./continuous-archiving.html',
+    'https://www.postgresql.org/docs/18/%63ontinuous-archiving.html',
+    'https://www.postgresql.org/docs/18/continuous-archiving.html?drift=1',
+    'https://www.postgresql.org/docs/18/continuous-archiving.html#drift',
+    'not-a-url',
+  ]) {
+    const locatorDrift = structuredClone(inventory);
+    const source = locatorDrift.sources.find((row) => row.source_id === 'POSTGRESQL-18-BACKUP-PITR');
+    source.url = locator;
+    source.final_url = locator;
+    assert.throws(() => validatePostgresql18_6ExecutableSourcePins(locatorDrift), (error) => error.code === 'DBE_SOURCE_TAMPERED', locator);
+  }
 });
 
 test('closed DBE descriptor, ruleset, project-binding, and typed-facts schemas compile and admit only package shape', () => {
   const ajv = new Ajv2020({ strict: false });
   const schema = (name) => JSON.parse(readFileSync(resolve(packageRoot, `schemas/${name}`), 'utf8'));
-  const descriptorSchema = ajv.compile(schema('database_engineering_descriptor_schema_v0.json'));
-  const rulesetSchema = ajv.compile(schema('database_engineering_ruleset_schema_v0.json'));
-  const bindingSchema = ajv.compile(schema('database_project_binding_schema_v0.json'));
-  const factsSchema = ajv.compile(schema('database_typed_facts_schema_v0.json'));
-  const receiptSchemaBytes = schema('database_engineering_receipt_schema_v0.json');
-  ajv.addSchema(receiptSchemaBytes);
-  const evaluationSchema = ajv.compile(schema('database_engineering_evaluation_schema_v0.json'));
-  const receiptSchema = ajv.getSchema('database_engineering_receipt_schema_v0.json');
   const descriptor = parseFlatMappingYaml(readFileSync(resolve(packageRoot, 'engine.yaml'), 'utf8'));
+  const declaredSchemaFiles = [
+    ['descriptor', 'database_engineering_descriptor_schema_v0.json'],
+    ['ruleset', 'database_engineering_ruleset_schema_v0.json'],
+    ['project_binding', 'database_project_binding_schema_v0.json'],
+    ['typed_facts', 'database_typed_facts_schema_v0.json'],
+    ['receipt', 'database_engineering_receipt_schema_v0.json'],
+    ['evidence_receipt', 'database_engineering_evidence_receipt_schema_v0.json'],
+    ['evaluation', 'database_engineering_evaluation_schema_v0.json'],
+  ];
+  for (const [, file] of declaredSchemaFiles) ajv.addSchema(schema(file));
+  for (const [key] of declaredSchemaFiles) {
+    assert.ok(ajv.getSchema(descriptor.schemas[key]), `missing declared semantic schema ${descriptor.schemas[key]}`);
+  }
+  assert.equal(ajv.getSchema('database_engineering_receipt_schema_v0.json'), undefined);
+  assert.equal(ajv.getSchema('database_engineering_evidence_receipt_schema_v0.json'), undefined);
+  const descriptorSchema = ajv.getSchema(descriptor.schemas.descriptor);
+  const rulesetSchema = ajv.getSchema(descriptor.schemas.ruleset);
+  const bindingSchema = ajv.getSchema(descriptor.schemas.project_binding);
+  const factsSchema = ajv.getSchema(descriptor.schemas.typed_facts);
+  const evaluationSchema = ajv.getSchema(descriptor.schemas.evaluation);
+  const receiptSchema = ajv.getSchema(descriptor.schemas.receipt);
+  const evidenceReceiptSchema = ajv.getSchema(descriptor.schemas.evidence_receipt);
   assert.equal(descriptorSchema(descriptor), true, JSON.stringify(descriptorSchema.errors));
   const input = buildSqlitePublicSyntheticInput();
   const postgresInput = buildPostgresqlPublicSyntheticInput();
@@ -217,6 +269,13 @@ test('closed DBE descriptor, ruleset, project-binding, and typed-facts schemas c
   assert.equal(factsSchema(adapted.typed_project_facts), true, JSON.stringify(factsSchema.errors));
   assert.equal(factsSchema(postgresAdapted.typed_project_facts), true, JSON.stringify(factsSchema.errors));
   assert.equal(factsSchema(unsupportedAdapted.typed_project_facts), true, JSON.stringify(factsSchema.errors));
+  for (const adaptedEvidence of [adapted, postgresAdapted, unsupportedAdapted]) {
+    assert.equal(evidenceReceiptSchema(adaptedEvidence.observation_receipt), true, JSON.stringify(evidenceReceiptSchema.errors));
+    assert.equal(adaptedEvidence.observation_receipt.facts_digest, adaptedEvidence.typed_project_facts.facts_digest);
+    assert.equal(adaptedEvidence.observation_receipt.project_id, adaptedEvidence.typed_project_facts.project_binding.project_id);
+    assert.equal(adaptedEvidence.observation_receipt.binding_revision_hash, adaptedEvidence.typed_project_facts.project_binding.binding_revision_hash);
+    assert.equal(adaptedEvidence.observation_receipt.source_manifest_ref, adaptedEvidence.typed_project_facts.project_binding.source_manifest_ref);
+  }
   assert.equal(rulesetSchema(effective.effective_rule_set), true, JSON.stringify(rulesetSchema.errors));
   const evaluated = evaluate(databaseEngineeringAdapter, effective, adapted.typed_project_facts, {}, input.cutoffs);
   const postgresEvaluated = evaluate(databaseEngineeringAdapter, effective, postgresAdapted.typed_project_facts, {}, postgresInput.cutoffs);
@@ -234,6 +293,15 @@ test('closed DBE descriptor, ruleset, project-binding, and typed-facts schemas c
   const malformedDescriptor = structuredClone(descriptor);
   malformedDescriptor.status = 'released';
   assert.equal(descriptorSchema(malformedDescriptor), false);
+  const missingEvidenceReceiptDescriptor = structuredClone(descriptor);
+  delete missingEvidenceReceiptDescriptor.schemas.evidence_receipt;
+  assert.equal(descriptorSchema(missingEvidenceReceiptDescriptor), false);
+  const swappedReceiptDescriptor = structuredClone(descriptor);
+  swappedReceiptDescriptor.schemas.receipt = swappedReceiptDescriptor.schemas.evidence_receipt;
+  assert.equal(descriptorSchema(swappedReceiptDescriptor), false);
+  const filenameReceiptDescriptor = structuredClone(descriptor);
+  filenameReceiptDescriptor.schemas.receipt = 'database_engineering_receipt_schema_v0.json';
+  assert.equal(descriptorSchema(filenameReceiptDescriptor), false);
 
   const malformedBindingEnum = structuredClone(input.binding);
   malformedBindingEnum.platform.version = 18;
@@ -263,6 +331,35 @@ test('closed DBE descriptor, ruleset, project-binding, and typed-facts schemas c
   const malformedFactProvenance = structuredClone(evaluated);
   malformedFactProvenance.results[0].fact_provenance.project_binding.unapproved_field = true;
   assert.equal(evaluationSchema(malformedFactProvenance), false);
+  assert.equal(receiptSchema(adapted.observation_receipt), false);
+  assert.equal(evidenceReceiptSchema(evaluated.receipt), false);
+  const malformedEvidenceReceipt = structuredClone(adapted.observation_receipt);
+  malformedEvidenceReceipt.schema_version = 'soulforge.database_engineering.wrong_receipt.v0';
+  assert.equal(evidenceReceiptSchema(malformedEvidenceReceipt), false);
+  const evidenceReceiptMissingSource = structuredClone(adapted.observation_receipt);
+  delete evidenceReceiptMissingSource.source_manifest_ref;
+  assert.equal(evidenceReceiptSchema(evidenceReceiptMissingSource), false);
+  const evidenceReceiptExtra = structuredClone(adapted.observation_receipt);
+  evidenceReceiptExtra.evaluation_digest = '0'.repeat(64);
+  assert.equal(evidenceReceiptSchema(evidenceReceiptExtra), false);
+  const evidenceReceiptEffect = structuredClone(adapted.observation_receipt);
+  evidenceReceiptEffect.effects.db_writes = 1;
+  assert.equal(evidenceReceiptSchema(evidenceReceiptEffect), false);
+  const evidenceReceiptInvalidProject = structuredClone(adapted.observation_receipt);
+  evidenceReceiptInvalidProject.project_id = 'invalid project id';
+  assert.equal(evidenceReceiptSchema(evidenceReceiptInvalidProject), false);
+  const malformedEvaluationReceipt = structuredClone(evaluated.receipt);
+  malformedEvaluationReceipt.schema_version = 'soulforge.database_engineering.evidence_receipt.v0';
+  assert.equal(receiptSchema(malformedEvaluationReceipt), false);
+  const evaluationReceiptMissingDigest = structuredClone(evaluated.receipt);
+  delete evaluationReceiptMissingDigest.evaluation_digest;
+  assert.equal(receiptSchema(evaluationReceiptMissingDigest), false);
+  const evaluationReceiptExtra = structuredClone(evaluated.receipt);
+  evaluationReceiptExtra.project_id = adapted.observation_receipt.project_id;
+  assert.equal(receiptSchema(evaluationReceiptExtra), false);
+  const evaluationReceiptEmptyPlatform = structuredClone(evaluated.receipt);
+  evaluationReceiptEmptyPlatform.platform.family = '';
+  assert.equal(receiptSchema(evaluationReceiptEmptyPlatform), false);
 });
 
 test('SQLite and PostgreSQL public-synthetic bindings compile and evaluate through the Core seam', () => {
@@ -375,7 +472,7 @@ test('PostgreSQL PITR keeps its proposition separate from generic recovery while
   const ajv = new Ajv2020({ strict: false });
   ajv.addSchema(JSON.parse(readFileSync(resolve(packageRoot, 'schemas/database_engineering_receipt_schema_v0.json'), 'utf8')));
   const evaluationSchema = ajv.compile(JSON.parse(readFileSync(resolve(packageRoot, 'schemas/database_engineering_evaluation_schema_v0.json'), 'utf8')));
-  const receiptSchema = ajv.getSchema('database_engineering_receipt_schema_v0.json');
+  const receiptSchema = ajv.getSchema('soulforge.database_engineering.evaluation_receipt.v0');
   const pitrObservation = (input) => input.evidence.observations.find((row) => row.rule_id === 'DBE-POSTGRESQL-PITR-001');
   const pitrProof = (input) => input.evidence.analysis_input.recovery.proofs.find((proof) => proof.kind === 'pitr_preconditions');
   const common = (result) => resultFor(result, 'DBE-COMMON-RECOVERY-001');
@@ -528,7 +625,7 @@ test('a Core Profile-added rule is compiled with provenance and evaluated end-to
   assert.equal(rulesetSchema(tamperedDerivedCeiling), false);
   ajv.addSchema(JSON.parse(readFileSync(resolve(packageRoot, 'schemas/database_engineering_receipt_schema_v0.json'), 'utf8')));
   const evaluationSchema = ajv.compile(JSON.parse(readFileSync(resolve(packageRoot, 'schemas/database_engineering_evaluation_schema_v0.json'), 'utf8')));
-  const receiptSchema = ajv.getSchema('database_engineering_receipt_schema_v0.json');
+  const receiptSchema = ajv.getSchema('soulforge.database_engineering.evaluation_receipt.v0');
   assert.equal(evaluationSchema(compiled.result), true, JSON.stringify(evaluationSchema.errors));
   assert.equal(receiptSchema(compiled.result.receipt), true, JSON.stringify(receiptSchema.errors));
   const malformedProvenance = structuredClone(compiled.result);

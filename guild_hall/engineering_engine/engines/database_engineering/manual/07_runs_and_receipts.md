@@ -1,8 +1,12 @@
 # 07 — Runs and receipts
 
-The package runner is public-synthetic and stdout-only. Receipts record ruleset
-and facts digests plus zero file, network, DB, and model effects. A replay with
-identical inputs has identical bytes.
+The package runner is public-synthetic and stdout-only. The Project Binding
+adapter emits the closed evidence receipt
+`soulforge.database_engineering.evidence_receipt.v0`; evaluation emits the
+separate closed evaluation receipt
+`soulforge.database_engineering.evaluation_receipt.v0`. Both record only the
+bound identities/digests and zero file, network, DB, and model effects. A replay
+with identical inputs has identical bytes.
 
 Run the public-synthetic demonstration from the repository root:
 

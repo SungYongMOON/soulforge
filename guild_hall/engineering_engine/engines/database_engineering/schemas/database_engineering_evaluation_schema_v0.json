@@ -11,7 +11,7 @@
     "results": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/result"}},
     "counts": {"$ref": "#/$defs/counts"},
     "analysis": {"$ref": "#/$defs/analysis"},
-    "receipt": {"$ref": "database_engineering_receipt_schema_v0.json"}
+    "receipt": {"$ref": "soulforge.database_engineering.evaluation_receipt.v0"}
   },
   "$defs": {
     "opaque_ref": {"type": "string", "minLength": 1, "maxLength": 256},

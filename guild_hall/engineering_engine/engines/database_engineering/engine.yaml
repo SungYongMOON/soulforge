@@ -21,6 +21,7 @@ schemas:
   typed_facts: soulforge.database_engineering.typed_facts.v0
   evaluation: soulforge.database_engineering.evaluation.v0
   receipt: soulforge.database_engineering.evaluation_receipt.v0
+  evidence_receipt: soulforge.database_engineering.evidence_receipt.v0
 compiler_adapter: engines/database_engineering/compiler/database_engineering_compiler_adapter.mjs
 evaluator_adapter: engines/database_engineering/evaluator/database_engineering_evaluator_adapter.mjs
 fixtures:

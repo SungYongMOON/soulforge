@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.database_engineering.evidence_receipt.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project_id", "binding_revision_hash", "source_manifest_ref", "facts_digest", "platform_supported", "effects"],
+  "properties": {
+    "schema_version": {"const": "soulforge.database_engineering.evidence_receipt.v0"},
+    "project_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,80}$"},
+    "binding_revision_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "source_manifest_ref": {"type": "string", "minLength": 1, "maxLength": 256},
+    "facts_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "platform_supported": {"type": "boolean"},
+    "effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file_writes", "network_calls", "db_writes", "model_calls"],
+      "properties": {
+        "file_writes": {"const": 0},
+        "network_calls": {"const": 0},
+        "db_writes": {"const": 0},
+        "model_calls": {"const": 0}
+      }
+    }
+  }
+}

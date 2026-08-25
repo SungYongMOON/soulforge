@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "database_engineering_receipt_schema_v0.json",
+  "$id": "soulforge.database_engineering.evaluation_receipt.v0",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "facts_digest", "evaluation_digest", "platform", "platform_supported", "effects"],
@@ -8,7 +8,7 @@
     "schema_version": {"const": "soulforge.database_engineering.evaluation_receipt.v0"},
     "facts_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "evaluation_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
-    "platform": {"type": "object", "additionalProperties": false, "required": ["family", "version"], "properties": {"family": {"type": "string"}, "version": {"type": "string"}}},
+    "platform": {"type": "object", "additionalProperties": false, "required": ["family", "version"], "properties": {"family": {"type": "string", "minLength": 1}, "version": {"type": "string", "minLength": 1}}},
     "platform_supported": {"type": "boolean"},
     "effects": {"type": "object", "additionalProperties": false, "required": ["file_writes", "network_calls", "db_writes", "model_calls"], "properties": {"file_writes": {"const": 0}, "network_calls": {"const": 0}, "db_writes": {"const": 0}, "model_calls": {"const": 0}}}
   }
