@@ -355,7 +355,8 @@ test('machine-observable contradictory evidence yields missing only under the co
   restoreFailureWithPassedProof.evidence.analysis_input.recovery.restore_test_required_but_failed = true;
   const restoreFailureWithPassedProofResult = run(restoreFailureWithPassedProof).result;
   assert.equal(restoreFailureWithPassedProofResult.analysis.recovery_proof.restore_test_status, 'conflict');
-  assert.equal(restoreFailureWithPassedProofResult.analysis.cross_analyzer_coherence.restore_test_vs_postgresql_pitr_controls, 'conflict');
+  assert.equal(restoreFailureWithPassedProofResult.analysis.cross_analyzer_coherence.restore_test_vs_postgresql_pitr_controls, 'distinct_propositions_not_compared');
+  assert.equal(restoreFailureWithPassedProofResult.analysis.cross_analyzer_coherence.required_restore_failure_crosscut_pitr, 'conflict');
   for (const ruleId of ['DBE-COMMON-RECOVERY-001', 'DBE-POSTGRESQL-PITR-001']) {
     const row = resultFor(restoreFailureWithPassedProofResult, ruleId);
     assert.equal(row.state, DATABASE_GAP_STATE.CONFLICT);
@@ -368,6 +369,75 @@ test('machine-observable contradictory evidence yields missing only under the co
   const pitrProofAbsentResult = run(pitrProofAbsent).result;
   assert.equal(resultFor(pitrProofAbsentResult, 'DBE-POSTGRESQL-PITR-001').state, DATABASE_GAP_STATE.UNKNOWN);
   assert.equal(resultFor(pitrProofAbsentResult, 'DBE-POSTGRESQL-PITR-001').reason_code, 'contradiction_not_confirmed_by_named_analyzer');
+});
+
+test('PostgreSQL PITR keeps its proposition separate from generic recovery while respecting explicit restore-failure safety', () => {
+  const ajv = new Ajv2020({ strict: false });
+  ajv.addSchema(JSON.parse(readFileSync(resolve(packageRoot, 'schemas/database_engineering_receipt_schema_v0.json'), 'utf8')));
+  const evaluationSchema = ajv.compile(JSON.parse(readFileSync(resolve(packageRoot, 'schemas/database_engineering_evaluation_schema_v0.json'), 'utf8')));
+  const receiptSchema = ajv.getSchema('database_engineering_receipt_schema_v0.json');
+  const pitrObservation = (input) => input.evidence.observations.find((row) => row.rule_id === 'DBE-POSTGRESQL-PITR-001');
+  const pitrProof = (input) => input.evidence.analysis_input.recovery.proofs.find((proof) => proof.kind === 'pitr_preconditions');
+  const common = (result) => resultFor(result, 'DBE-COMMON-RECOVERY-001');
+  const pitr = (result) => resultFor(result, 'DBE-POSTGRESQL-PITR-001');
+
+  const allPitrContradicted = buildPostgresqlPublicSyntheticInput();
+  pitrObservation(allPitrContradicted).status = 'contradicted';
+  pitrProof(allPitrContradicted).passed = false;
+  allPitrContradicted.evidence.analysis_input.platform_controls.postgresql.pitr_preconditions_met = false;
+  const allPitrContradictedResult = run(allPitrContradicted).result;
+  assert.equal(common(allPitrContradictedResult).state, DATABASE_GAP_STATE.SATISFIED);
+  assert.equal(pitr(allPitrContradictedResult).state, DATABASE_GAP_STATE.MISSING);
+  assert.equal(pitr(allPitrContradictedResult).hard_technical_failure, true);
+
+  const allPitrSupportedResult = run(buildPostgresqlPublicSyntheticInput()).result;
+  assert.equal(common(allPitrSupportedResult).state, DATABASE_GAP_STATE.SATISFIED);
+  assert.equal(pitr(allPitrSupportedResult).state, DATABASE_GAP_STATE.SATISFIED);
+
+  const pitrProofControlMismatch = buildPostgresqlPublicSyntheticInput();
+  pitrObservation(pitrProofControlMismatch).status = 'contradicted';
+  pitrProof(pitrProofControlMismatch).passed = false;
+  const pitrProofControlMismatchResult = run(pitrProofControlMismatch).result;
+  assert.equal(common(pitrProofControlMismatchResult).state, DATABASE_GAP_STATE.SATISFIED);
+  assert.equal(pitr(pitrProofControlMismatchResult).state, DATABASE_GAP_STATE.CONFLICT);
+  assert.equal(pitr(pitrProofControlMismatchResult).reason_code, 'named_analyzer_cross_input_conflict');
+
+  const conflictingPitrProofs = buildPostgresqlPublicSyntheticInput();
+  pitrObservation(conflictingPitrProofs).status = 'contradicted';
+  pitrProof(conflictingPitrProofs).passed = false;
+  conflictingPitrProofs.evidence.analysis_input.recovery.proofs.push({ kind: 'pitr_preconditions', passed: true });
+  conflictingPitrProofs.evidence.analysis_input.platform_controls.postgresql.pitr_preconditions_met = false;
+  const conflictingPitrProofsResult = run(conflictingPitrProofs).result;
+  assert.equal(common(conflictingPitrProofsResult).state, DATABASE_GAP_STATE.SATISFIED);
+  assert.equal(conflictingPitrProofsResult.analysis.recovery_proof.pitr_preconditions_status, 'conflict');
+  assert.equal(pitr(conflictingPitrProofsResult).state, DATABASE_GAP_STATE.CONFLICT);
+  assert.equal(pitr(conflictingPitrProofsResult).reason_code, 'named_analyzer_cross_input_conflict');
+  assert.equal(pitr(conflictingPitrProofsResult).hard_technical_failure, false);
+  assert.equal(evaluationSchema(conflictingPitrProofsResult), true, JSON.stringify(evaluationSchema.errors));
+  assert.equal(receiptSchema(conflictingPitrProofsResult.receipt), true, JSON.stringify(receiptSchema.errors));
+
+  const pitrProofAbsent = buildPostgresqlPublicSyntheticInput();
+  pitrProofAbsent.evidence.analysis_input.recovery.proofs = pitrProofAbsent.evidence.analysis_input.recovery.proofs.filter((proof) => proof.kind !== 'pitr_preconditions');
+  const pitrProofAbsentResult = run(pitrProofAbsent).result;
+  assert.equal(common(pitrProofAbsentResult).state, DATABASE_GAP_STATE.SATISFIED);
+  assert.equal(pitr(pitrProofAbsentResult).state, DATABASE_GAP_STATE.UNKNOWN);
+
+  const requiredRestoreFailurePitrSupported = buildPostgresqlPublicSyntheticInput();
+  requiredRestoreFailurePitrSupported.evidence.analysis_input.recovery.restore_test_required_but_failed = true;
+  const requiredRestoreFailurePitrSupportedResult = run(requiredRestoreFailurePitrSupported).result;
+  assert.equal(common(requiredRestoreFailurePitrSupportedResult).state, DATABASE_GAP_STATE.CONFLICT);
+  assert.equal(pitr(requiredRestoreFailurePitrSupportedResult).state, DATABASE_GAP_STATE.CONFLICT);
+  assert.equal(pitr(requiredRestoreFailurePitrSupportedResult).reason_code, 'named_analyzer_cross_input_conflict');
+
+  const requiredRestoreFailurePitrContradicted = buildPostgresqlPublicSyntheticInput();
+  requiredRestoreFailurePitrContradicted.evidence.analysis_input.recovery.restore_test_required_but_failed = true;
+  pitrObservation(requiredRestoreFailurePitrContradicted).status = 'contradicted';
+  pitrProof(requiredRestoreFailurePitrContradicted).passed = false;
+  requiredRestoreFailurePitrContradicted.evidence.analysis_input.platform_controls.postgresql.pitr_preconditions_met = false;
+  const requiredRestoreFailurePitrContradictedResult = run(requiredRestoreFailurePitrContradicted).result;
+  assert.equal(common(requiredRestoreFailurePitrContradictedResult).state, DATABASE_GAP_STATE.CONFLICT);
+  assert.equal(pitr(requiredRestoreFailurePitrContradictedResult).state, DATABASE_GAP_STATE.MISSING);
+  assert.equal(pitr(requiredRestoreFailurePitrContradictedResult).hard_technical_failure, true);
 });
 
 test('a Core Profile-added rule is compiled with provenance and evaluated end-to-end', () => {

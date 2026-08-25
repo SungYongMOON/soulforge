@@ -20,7 +20,7 @@ const freezeDeep = (value) => {
   return value;
 };
 
-// The package's one internal analysis facade concentrates the six analysis Modules while the
+// The package's one internal analysis facade concentrates the seven analysis Modules while the
 // public Core-facing adapter remains only compile/evaluate.
 export function analyseDatabaseEvidence(analysisInput = {}) {
   const schemaGraph = analyseSchemaGraph(analysisInput.schema);
@@ -37,7 +37,24 @@ export function analyseDatabaseEvidence(analysisInput = {}) {
   const postgresqlPitrStatus = platformControls.postgresql_pitr.status;
   const pitrProofStatus = recoveryProof.pitr_preconditions_status;
   const pitrProofCoherence = coherenceForKnownStatuses(pitrProofStatus, postgresqlPitrStatus);
-  const restorePitrCoherence = coherenceForKnownStatuses(recoveryProof.restore_test_status, postgresqlPitrStatus);
+  const pitrSpecificStatus = pitrProofCoherence === 'unknown'
+    ? 'unknown'
+    : pitrProofCoherence === 'coherent' ? postgresqlPitrStatus : 'conflict';
+  // Generic restore evidence is a different proposition. Only an explicit project-declared
+  // required restore failure cross-cuts PITR: it blocks a positive PITR result, but does not
+  // turn coherent PITR contradiction into a conflict.
+  const requiredRestoreFailureCrosscut = !recoveryProof.restore_test_required_failure_observed
+    ? 'not_triggered'
+    : pitrSpecificStatus === 'supported'
+      ? 'conflict'
+      : pitrSpecificStatus === 'contradicted'
+        ? 'consistent_negative'
+        : pitrSpecificStatus === 'conflict'
+          ? 'conflict'
+          : 'unknown';
+  const postgresqlPitrEvidenceStatus = requiredRestoreFailureCrosscut === 'conflict'
+    ? 'conflict'
+    : pitrSpecificStatus;
   return freezeDeep({
     schema_graph: schemaGraph,
     migration_diff: migrationDiff,
@@ -50,7 +67,8 @@ export function analyseDatabaseEvidence(analysisInput = {}) {
       sqlite_transaction_semantics_vs_platform_controls: sqliteDirtyReadCoherent ? 'coherent' : 'conflict',
       recovery_plan_vs_postgresql_pitr_controls: 'distinct_propositions_not_compared',
       pitr_precondition_proof_vs_postgresql_pitr_controls: pitrProofCoherence,
-      restore_test_vs_postgresql_pitr_controls: restorePitrCoherence,
+      restore_test_vs_postgresql_pitr_controls: 'distinct_propositions_not_compared',
+      required_restore_failure_crosscut_pitr: requiredRestoreFailureCrosscut,
     },
     evidence_by_key: {
       schema_graph: { status: schemaGraph.structurally_consistent ? 'supported' : 'contradicted', analyzer: 'schema_graph' },
@@ -60,7 +78,7 @@ export function analyseDatabaseEvidence(analysisInput = {}) {
       recovery_proof: { status: recoveryStatus, analyzer: 'recovery_proof' },
       ...platformControls,
       sqlite_dirty_read_exception: { status: sqliteDirtyReadCoherent ? sqliteDirtyReadStatus : 'conflict', analyzer: 'transaction_semantics+platform_control_proof' },
-      postgresql_pitr: { status: pitrProofCoherence === 'unknown' ? 'unknown' : pitrProofCoherence === 'coherent' && restorePitrCoherence !== 'conflict' ? postgresqlPitrStatus : 'conflict', analyzer: 'recovery_proof.pitr_preconditions+restore_test+platform_control_proof' },
+      postgresql_pitr: { status: postgresqlPitrEvidenceStatus, analyzer: 'recovery_proof.pitr_preconditions+platform_control_proof+required_restore_failure_crosscut' },
     },
   });
 }

@@ -11,5 +11,7 @@ outside this engine.
 | `gap_unknown` / `platform_unsupported` | DBMS family or exact version is outside v0. | Hold or add a separately reviewed platform pack. |
 | `gap_unknown` / `evidence_key_mismatch` | Evidence was not produced by the rule's named analyzer. | Correct the closed typed fact or collect the appropriate observation. |
 | `gap_conflict` / `caller_and_analyzer_evidence_conflict` | Caller label and analysis facts disagree. | Preserve both facts and resolve with the project evidence authority. |
+| `gap_conflict` / `named_analyzer_cross_input_conflict` | Closed machine-proof inputs for the named proposition disagree. | Preserve the contradictory inputs and obtain project-bound clarification; do not infer a hard failure. |
+| `gap_conflict` / `machine_observable_evidence_conflict` | The submitted machine-observable observation is itself marked conflicting. | Keep the conflict visible and collect one authoritative observation; this engine does not decide acceptance. |
 | `gap_missing` with `hard_technical_failure: true` | A project requirement, exact supported platform, and matching analyzer-confirmed contradiction are present. | Confirm remediation owner and re-evaluate; this is still not approval. |
 | `DBE_SOURCE_TAMPERED` | Inventory/ruleset or exact PostgreSQL source-pin metadata drifted. | Refresh public source metadata through review; never copy a body into the package. |

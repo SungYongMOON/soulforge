@@ -210,13 +210,14 @@
     "recovery_proof_analysis": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["proof_count", "restore_test_observed", "restore_test_status", "pitr_preconditions_observed", "pitr_preconditions_status", "recovery_evidence_status", "claimed_rpo_rto", "claimed_dr_sufficiency"],
+      "required": ["proof_count", "restore_test_observed", "restore_test_status", "restore_test_required_failure_observed", "pitr_preconditions_observed", "pitr_preconditions_status", "recovery_evidence_status", "claimed_rpo_rto", "claimed_dr_sufficiency"],
       "properties": {
         "proof_count": {"type": "integer", "minimum": 0},
         "restore_test_observed": {"type": "boolean"},
         "restore_test_status": {"enum": ["supported", "contradicted", "unknown", "conflict"]},
+        "restore_test_required_failure_observed": {"type": "boolean"},
         "pitr_preconditions_observed": {"type": "boolean"},
-        "pitr_preconditions_status": {"enum": ["supported", "contradicted", "unknown"]},
+        "pitr_preconditions_status": {"enum": ["supported", "contradicted", "unknown", "conflict"]},
         "recovery_evidence_status": {"enum": ["supported", "contradicted", "unknown", "conflict"]},
         "claimed_rpo_rto": {"const": false},
         "claimed_dr_sufficiency": {"const": false}
@@ -251,12 +252,13 @@
     "cross_analyzer_coherence": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["sqlite_transaction_semantics_vs_platform_controls", "recovery_plan_vs_postgresql_pitr_controls", "pitr_precondition_proof_vs_postgresql_pitr_controls", "restore_test_vs_postgresql_pitr_controls"],
+      "required": ["sqlite_transaction_semantics_vs_platform_controls", "recovery_plan_vs_postgresql_pitr_controls", "pitr_precondition_proof_vs_postgresql_pitr_controls", "restore_test_vs_postgresql_pitr_controls", "required_restore_failure_crosscut_pitr"],
       "properties": {
         "sqlite_transaction_semantics_vs_platform_controls": {"enum": ["coherent", "conflict"]},
         "recovery_plan_vs_postgresql_pitr_controls": {"const": "distinct_propositions_not_compared"},
         "pitr_precondition_proof_vs_postgresql_pitr_controls": {"enum": ["coherent", "conflict", "unknown"]},
-        "restore_test_vs_postgresql_pitr_controls": {"enum": ["coherent", "conflict", "unknown"]}
+        "restore_test_vs_postgresql_pitr_controls": {"const": "distinct_propositions_not_compared"},
+        "required_restore_failure_crosscut_pitr": {"enum": ["not_triggered", "conflict", "consistent_negative", "unknown"]}
       }
     },
     "evidence_by_key": {
