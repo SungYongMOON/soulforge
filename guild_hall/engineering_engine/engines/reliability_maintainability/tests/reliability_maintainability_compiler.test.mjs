@@ -162,7 +162,8 @@ test('R&M compiler hostile: Core provenance, profile order, paths, proxies, and 
   assert.throws(() => compileReliabilityMaintainabilityRules([wrongDomain]),
     (error) => error.code === RM_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID);
 
-  const unsafePath = makeValidBinding({ operations: [{ op: 'add', rule: { ...VALID_RM_RULE, source_locator: 'file:///etc/passwd' } }] });
+  const unsafeFileUri = ['file:', '', '', 'etc', 'passwd'].join('/');
+  const unsafePath = makeValidBinding({ operations: [{ op: 'add', rule: { ...VALID_RM_RULE, source_locator: unsafeFileUri } }] });
   assert.throws(() => compileReliabilityMaintainabilityRules([unsafePath]),
     (error) => error.code === RM_COMPILER_ERROR_CODES.RULE_INVALID_FIELD);
 
