@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.calibration_measurement_validity.schema.v0",
+  "title": "CalibrationMeasurementValidityDomainSchemas",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "domain_engine_id", "title", "revision", "status", "interfaces"],
+  "properties": {
+    "schema_version": { "const": "soulforge.calibration_measurement_validity_domain_descriptor.v0" },
+    "domain_engine_id": { "const": "calibration_measurement_validity" },
+    "title": { "type": "string" },
+    "revision": { "type": "string" },
+    "status": { "enum": ["candidate", "hold"] },
+    "interfaces": { "type": "object" },
+    "rules": { "$ref": "#/$defs/ruleset" },
+    "input": { "$ref": "#/$defs/domain_input" },
+    "assessment": { "$ref": "#/$defs/assessment" }
+  },
+  "$defs": {
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity_id", "revision_id", "content_id"],
+      "properties": {
+        "entity_id": { "type": "string", "minLength": 1 },
+        "revision_id": { "type": "string", "minLength": 1 },
+        "content_id": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+      }
+    },
+    "quantity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit"],
+      "properties": {
+        "value": { "type": "number" },
+        "unit": { "type": "string", "minLength": 1, "maxLength": 32 }
+      }
+    },
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum", "maximum", "unit"],
+      "properties": {
+        "minimum": { "type": "number" },
+        "maximum": { "type": "number" },
+        "unit": { "type": "string", "minLength": 1, "maxLength": 32 }
+      }
+    },
+    "domain_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "project_binding_ref", "evaluation_context", "instrument", "requested_measurement", "calibration_capability", "traceability", "environment", "exception"],
+      "properties": {
+        "schema_version": { "const": "soulforge.calibration_measurement_validity.domain_input.v0" },
+        "project_binding_ref": { "$ref": "#/$defs/reference" },
+        "evaluation_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["test_id", "tested_at", "known_at"],
+          "properties": {
+            "test_id": { "type": "string", "minLength": 1 },
+            "tested_at": { "type": "string", "format": "date-time" },
+            "known_at": { "type": "string", "format": "date-time" }
+          }
+        },
+        "instrument": { "type": "object" },
+        "requested_measurement": { "type": "object" },
+        "calibration_capability": { "type": "object" },
+        "traceability": { "type": "object" },
+        "environment": { "type": "object" },
+        "exception": { "type": "object" }
+      }
+    },
+    "determination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["criterion_id", "status", "reason_code", "source_refs"],
+      "properties": {
+        "criterion_id": { "type": "string" },
+        "status": { "enum": ["valid", "missing", "unknown", "expired", "out_of_range", "not_suitable", "exception_held", "not_applicable", "held", "invalid"] },
+        "reason_code": { "type": "string" },
+        "source_refs": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "domain_engine_id", "claim_ceiling", "project_binding_ref", "evaluated_at", "result_status", "result_impact", "determinations"],
+      "properties": {
+        "schema_version": { "const": "soulforge.calibration_measurement_validity.assessment.v0" },
+        "domain_engine_id": { "const": "calibration_measurement_validity" },
+        "claim_ceiling": { "const": "source_supported" },
+        "project_binding_ref": { "$ref": "#/$defs/reference" },
+        "evaluated_at": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tested_at", "known_at"],
+          "properties": {
+            "tested_at": { "type": "string", "format": "date-time" },
+            "known_at": { "type": "string", "format": "date-time" }
+          }
+        },
+        "result_status": { "enum": ["valid", "unknown", "held", "invalid"] },
+        "result_impact": { "enum": ["none", "hold", "invalidate"] },
+        "determinations": { "type": "array", "items": { "$ref": "#/$defs/determination" } }
+      }
+    },
+    "ruleset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "domain_engine_id", "ruleset_ref", "source_packet_ref", "rules"],
+      "properties": {
+        "schema_version": { "const": "soulforge.calibration_measurement_validity.ruleset.v0" },
+        "domain_engine_id": { "const": "calibration_measurement_validity" },
+        "ruleset_ref": { "$ref": "#/$defs/reference" },
+        "source_packet_ref": { "$ref": "#/$defs/reference" },
+        "profile_rule_provenance": { "type": "object", "additionalProperties": false },
+        "rules": { "type": "array", "minItems": 9 },
+        "rule_count": { "type": "integer", "const": 9 }
+      }
+    }
+  }
+}
