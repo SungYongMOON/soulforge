@@ -1,0 +1,74 @@
+{
+  "schema_version": "soulforge.pcb_compliance.public_source_inventory_candidate.v0",
+  "domain_engine_id": "pcb_compliance",
+  "status": "CANDIDATE_INPUT_ONLY",
+  "verified_at": "2026-08-26",
+  "claim_ceiling": "source_supported",
+  "source_adoption": false,
+  "applicability_approval": false,
+  "compliance_approval": false,
+  "sources": [
+    {
+      "source_id": "S-NASA-8739.6B",
+      "authority": "NASA Technical Standards System / NASA Office of Safety and Mission Assurance",
+      "document_id": "NASA-STD-8739.6",
+      "title": "Implementation Requirements for NASA Workmanship Standards",
+      "revision": "B",
+      "change": "0",
+      "document_date": "2021-02-04",
+      "status": "ACTIVE",
+      "access_class": "internet_public",
+      "metadata_url": "https://standards.nasa.gov/standard/NASA/NASA-STD-87396",
+      "body_url": "https://standards.nasa.gov/sites/default/files/standards/NASA/B/0/nasa-std-87396b.pdf",
+      "body_review_state": "direct_public_source_reviewed_for_bounded_paraphrase",
+      "body_stored_in_repo": false,
+      "bounded_locators": [
+        "1.2.1",
+        "4.1.2",
+        "4.1.4-4.1.5",
+        "6.4.1-6.4.2",
+        "6.5.1",
+        "6.6.1",
+        "6.8.1-6.8.2"
+      ],
+      "applicability": "NASA installations; external organizations only as specified or referenced by the applicable contract, grant, or agreement. Other projects are UNKNOWN/HOLD."
+    },
+    {
+      "source_id": "S-NASA-8739.1B-C2",
+      "authority": "NASA Technical Standards System / NASA Office of Safety and Mission Assurance",
+      "document_id": "NASA-STD-8739.1",
+      "title": "Workmanship Standard for Polymeric Application on Electronic Assemblies",
+      "revision": "B",
+      "change": "2",
+      "document_date": "2016-06-30",
+      "change_date": "2021-10-04",
+      "status": "ACTIVE",
+      "access_class": "internet_public",
+      "metadata_url": "https://standards.nasa.gov/standard/NASA/NASA-STD-87391",
+      "body_url": "https://standards.nasa.gov/sites/default/files/standards/NASA/B/2/nasa-std-87391B-Change-2.pdf",
+      "body_review_state": "metadata_scope_only_not_rule_derived_in_v0",
+      "body_stored_in_repo": false,
+      "bounded_scope": "polymeric applications, staking, conformal coating, bonding, and encapsulation for electronic hardware",
+      "applicability": "No generic project applicability is inferred; exact project binding and authority remain UNKNOWN/HOLD."
+    },
+    {
+      "source_id": "S-IPC-REVISION-CATALOG",
+      "authority": "IPC / Global Electronics Association",
+      "document_id": "IPC Standards Revision Table",
+      "revision": "catalog snapshot accessed 2026-08-26",
+      "status": "publisher revision metadata",
+      "access_class": "public_metadata_controlled_standard_bodies_not_acquired",
+      "metadata_url": "https://www.ipc.org/ipc-document-revision-table",
+      "body_url": null,
+      "body_review_state": "not_acquired_not_used",
+      "body_stored_in_repo": false,
+      "revision_metadata": [
+        "IPC-A-600 Rev M 5/25",
+        "IPC-A-610 Rev J 3/24",
+        "IPC-J-STD-001 Rev J 4/24",
+        "IPC-6012 Rev F 9/23"
+      ],
+      "applicability": "Exact standard edition, clause, class, addendum, customer/contract invocation, and lawful authorized access are UNKNOWN/HOLD without an Owner-approved binding."
+    }
+  ]
+}
