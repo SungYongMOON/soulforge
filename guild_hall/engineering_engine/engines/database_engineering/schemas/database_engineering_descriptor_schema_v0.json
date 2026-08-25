@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.database_engineering.domain_descriptor.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "domain_engine_id", "display_name", "version", "status", "claim_ceiling", "execution_mode"],
+  "properties": {
+    "schema_version": {"const": "soulforge.domain_engine_descriptor.v0"},
+    "domain_engine_id": {"const": "database_engineering"},
+    "display_name": {"type": "string"},
+    "version": {"type": "string"},
+    "status": {"const": "candidate"},
+    "claim_ceiling": {"const": "source_supported"},
+    "execution_mode": {"const": "deterministic_only"}
+  }
+}

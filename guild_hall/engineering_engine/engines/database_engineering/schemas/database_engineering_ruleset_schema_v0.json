@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.database_engineering.ruleset.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "domain_engine_id", "ruleset_ref", "source_inventory_ref", "rules", "profile_rule_provenance"],
+  "properties": {
+    "schema_version": {"const": "soulforge.database_engineering.ruleset.v0"},
+    "domain_engine_id": {"const": "database_engineering"},
+    "ruleset_ref": {"$ref": "#/$defs/content_ref"},
+    "source_inventory_ref": {"$ref": "#/$defs/content_ref"},
+    "rules": {"type": "array", "items": {"$ref": "#/$defs/rule"}},
+    "profile_rule_provenance": {
+      "type": "object",
+      "patternProperties": {"^DBE-PROFILE-[A-Z0-9-]+$": {"$ref": "#/$defs/profile_provenance"}},
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "content_ref": {
+      "type": "object", "additionalProperties": false,
+      "required": ["entity_id", "revision_id", "content_id", "content_hash_alg"],
+      "properties": {
+        "entity_id": {"type": "string", "minLength": 1},
+        "revision_id": {"type": "string", "minLength": 1},
+        "content_id": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "content_hash_alg": {"const": "sha256"}
+      }
+    },
+    "rule": {
+      "type": "object", "additionalProperties": false,
+      "required": ["rule_id", "axis", "kind", "platforms", "source_refs", "source_locator", "source_authority", "claim_ceiling", "evidence_key"],
+      "properties": {
+        "rule_id": {"type": "string", "pattern": "^DBE-(?:COMMON|SQLITE|POSTGRESQL|PROFILE)-[A-Z0-9-]+$"},
+        "axis": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["hard_technical", "advisory"]},
+        "platforms": {"type": "array", "minItems": 1, "items": {"enum": ["common", "sqlite", "postgresql"]}},
+        "source_refs": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "source_locator": {"type": "string", "minLength": 1},
+        "source_authority": {"enum": ["inventory_anchored", "project_bound", "profile_declared"]},
+        "claim_ceiling": {"enum": ["observed", "source_supported"]},
+        "evidence_key": {"type": "string", "minLength": 1}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"source_authority": {"const": "profile_declared"}}, "required": ["source_authority"]},
+          "then": {
+            "properties": {
+              "rule_id": {"pattern": "^DBE-PROFILE-[A-Z0-9-]+$"},
+              "claim_ceiling": {"const": "observed"},
+              "kind": {"const": "advisory"}
+            }
+          }
+        }
+      ]
+    },
+    "profile_provenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["profile_kind", "profile_id", "revision_or_hash", "extends_or_base_pin", "operation_digest", "source_refs", "order", "operation_item_digest"],
+      "properties": {
+        "profile_kind": {"enum": ["organization", "project"]},
+        "profile_id": {"type": "string", "minLength": 1},
+        "revision_or_hash": {"type": "string", "minLength": 1},
+        "extends_or_base_pin": {"type": "string", "minLength": 1},
+        "operation_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "source_refs": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "order": {"type": "integer", "minimum": 0, "maximum": 1},
+        "operation_item_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    }
+  }
+}
