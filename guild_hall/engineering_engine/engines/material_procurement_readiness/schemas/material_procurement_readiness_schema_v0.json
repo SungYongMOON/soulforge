@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.material_procurement_readiness_domain_descriptor.v0",
+  "title": "MaterialProcurementReadinessDomainDescriptor",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "domain_engine_id",
+    "title",
+    "revision",
+    "status",
+    "interfaces"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "soulforge.material_procurement_readiness_domain_descriptor.v0"
+    },
+    "domain_engine_id": {
+      "const": "material_procurement_readiness"
+    },
+    "title": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "const": "candidate"
+    },
+    "interfaces": {
+      "type": "object"
+    },
+    "rules": {
+      "type": "object"
+    },
+    "evaluator": {
+      "type": "object"
+    },
+    "manual": {
+      "type": "object"
+    },
+    "contracts": {
+      "type": "object"
+    }
+  }
+}
