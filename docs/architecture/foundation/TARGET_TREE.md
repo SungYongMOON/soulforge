@@ -26,7 +26,7 @@
 │   ├── skills/
 │   ├── tools/
 │   ├── knowledge/
-│   ├── engineering_profiles/     target: public-safe organization profile catalog; not materialized
+│   ├── engineering_profiles/     public-safe organization profile catalog and schemas
 │   └── docs/
 │       └── architecture/
 ├── .unit/
@@ -97,7 +97,7 @@
 - `.mission/<mission_id>/mission.yaml` 는 held mission plan owner 이고, `readiness.yaml` 는 현재 실행 가능 상태를 기록한다.
 - `guild_hall/` 은 cross-project 기능 owner 루트이고, 실제 local state 는 `guild_hall/state/**` 아래에서만 materialize 한다.
 - 위 트리의 `guild_hall/` 자식은 **대표 예시**다. 자식 전체의 정본 열거는 `guild_hall/README.md` 의 `## 구성` 이 소유한다. 이 문서는 root 경계를 고정하고, root 내부 자식 목록은 owner-local README 를 따른다.
-- `engineering_profiles/`, `engineering_engine/core/`, `engineering_engine/engines/`는 2026-08-25 Owner-approved target다. 현재 flat implementation을 즉시 대체하거나 중복 source of truth를 만들지 않으며, migration gate는 `docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`가 소유한다.
+- `engineering_profiles/`, `engineering_engine/core/`, `engineering_engine/engines/`는 2026-08-25 물리 migration이 완료되었다. legacy flat entry points는 호환 re-export로 유지되며, 조립 모델 및 계약은 `docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`가 소유한다.
 - `.registry/engineering_profiles/**`에는 public-safe schema·identity·ref·hash·synthetic example만 허용한다. 실제 고객·계약·회사-private profile payload는 `_workspaces` owner에 두고 `_workmeta`에는 metadata receipt만 둔다.
 - 기존 tracked LIG-named overlay는 target catalog가 아니라 legacy classification `HOLD`다. source/public-safe 분류 뒤 private relocation 또는 synthetic/ref replacement를 통과해야 한다.
 

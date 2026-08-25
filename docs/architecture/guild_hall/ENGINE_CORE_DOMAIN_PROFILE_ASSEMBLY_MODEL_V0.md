@@ -4,14 +4,14 @@
 
 - 상태: `canon_entry`
 - Owner 결정일: 2026-08-25
-- 결정 상태: target architecture 승인, 물리 migration 미착수
+- 결정 상태: target architecture 승인, 물리 migration 완료 (Core, Systems Engineering, Quality Readiness, Profile Schemas & Catalogs, Legacy Stubs)
 - 현재 bytes 주장 한계: `observed`
 
 이 문서는 Soulforge의 여러 전문 엔진을 같은 공통 실행부 위에서 만들고,
 LIG·한화 같은 조직 요구와 개별 과제 요구를 엔진 자체와 섞지 않는 조립 모델을
-고정한다. 현재 `guild_hall/engineering_engine/`의 평면 배치는 transition 상태다.
-이 문서 등록만으로 파일 relocation, schema 발행, profile 승격, release 또는
-production activation을 수행하지 않는다.
+고정한다. `guild_hall/engineering_engine/`은 `core/`, `engines/systems_engineering/`,
+`engines/quality_readiness/`와 `.registry/engineering_profiles/`로 물리 migration이
+완료되었으며, 기존 공개 인터페이스에 대한 호환 re-export를 유지한다.
 
 ## 한 줄 결정
 
@@ -331,18 +331,20 @@ identity·base pin·revision·order·source refs를 별도 검증하고 compilat
 
 Current public evidence:
 
-- 공통 Core 후보인 kernel/guard/receipt와 SE domain-specific compiler/evaluator/test/manual이 존재한다.
-- Organization/Project overlay 파일 분리와 equivalence test가 존재하지만 semantic
-  Profile seam과 per-profile provenance validation은 아직 없다.
+- 공통 Core와 Domain Engine(`systems_engineering`, `quality_readiness`) 및 Profile schema·adapter 물리 분리가 완료됐다.
+- `core/` 아래에 validator, interface, profile/binding adapter, evaluation runtime, assembly engine이 위치한다.
+- `engines/systems_engineering/` 및 `engines/quality_readiness/`로 규칙, evaluator, fixtures, guidance, mcp, manual, tests가 물리 relocation됐다.
+- legacy flat 경로는 순수 thin compatibility wrapper(re-export / pointer)로 유지되며 no-duplicate-authority validator로 검증된다.
+- Organization Profile authoring/binding schema(`.registry/engineering_profiles/schemas/engineering_profile_schema_v0.json` 및 `core/schemas/`)와 AJV validator 및 Profile별 provenance-preserving compilation trace가 구현됐다.
+- E01 Quality Readiness candidate integration과 two-domain adapter conformance가 완료됐다.
 - public roadmap/manual에는 private SE zero-write pilot이 보고돼 있다. 이 worktree에는
   exact private receipt payload가 없으므로 이 문서는 production activation이나 private
   validation을 새로 주장하지 않는다.
 
-HOLD:
+HOLD (외부/상위 승인 대기 항목):
 
-- target `core/engines/engineering_profiles` 물리 migration;
+- root done-check (외부 56개 pre-existing tracked absolute-path debt 미해결로 HOLD);
+- private full Phase-1 production activation 및 private payload validation (private workspace/payload 부재로 HOLD);
 - legacy tracked LIG overlay의 public/private classification과 relocation/replacement;
-- Profile별 identity/base pin/revision/order/provenance-preserving compilation trace;
-- Organization Profile public/private schema와 validator;
-- separate E01 candidate branch integration·second-adapter conformance, E02 package creation;
+- E02 (Interface Consistency) package creation;
 - production release, writer/action authority와 actual project acceptance.

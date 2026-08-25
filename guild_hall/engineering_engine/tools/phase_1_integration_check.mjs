@@ -26,6 +26,8 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ENGINE = join(HERE, '..');
+const SE_TESTS = join(ENGINE, 'engines', 'systems_engineering', 'tests');
+
 const arg = (n) => { const i = process.argv.indexOf(n); return i >= 0 ? process.argv[i + 1] : undefined; };
 const ORACLE = arg('--oracle');
 const BUNDLE = arg('--bundle');
@@ -45,7 +47,7 @@ const checks = [];
 const fail = (id, detail) => checks.push({ id, ok: false, detail });
 const pass = (id, detail) => checks.push({ id, ok: true, detail });
 
-const runNode = (script, args) => spawnSync(process.execPath, [join(ENGINE, 'tests', script), ...args], { encoding: 'utf8' });
+const runNode = (script, args) => spawnSync(process.execPath, [join(SE_TESTS, script), ...args], { encoding: 'utf8' });
 
 // ---------------------------------------------------------------- 1. suites
 
@@ -88,7 +90,7 @@ if (suiteResults.every((s) => s.result === 'PASS')) pass('suites', `${suiteResul
 // ---------------------------------------------------------------- 2. mutation lock
 
 const ml = spawnSync(process.execPath,
-  [join(ENGINE, 'tests', 'lane_1v_mutation_lock.mjs'), '--scratch', SCRATCH, '--oracle', ORACLE], { encoding: 'utf8' });
+  [join(SE_TESTS, 'lane_1v_mutation_lock.mjs'), '--scratch', SCRATCH, '--oracle', ORACLE], { encoding: 'utf8' });
 let mutation = null;
 try { mutation = JSON.parse(ml.stdout); } catch { /* reported below */ }
 if (ml.status === 0 && mutation?.result === 'PASS') {
@@ -159,15 +161,6 @@ if (!committed) {
 
 // ---------------------------------------------------------------- 5. topology is not stale
 
-// Compared as bytes, not as digests.
-//
-// A digest comparison is only as wide as the digest, and this one was far narrower than it
-// looked: the emitter hashed a filtered projection in which every module and edge entry
-// serialised as `{}`. A committed topology whose `line_count` had drifted from a fresh emit
-// still matched, because the drifted field was not in the digest. The emitter's digest is fixed
-// now, but the comparison here no longer depends on that being true — the whole emitted document
-// has to equal the committed one byte for byte. Together with the manifest check, which verifies
-// the committed file against the bytes Git has staged, that closes the loop from source to blob.
 const fresh = spawnSync(process.execPath, [join(ENGINE, 'tools', 'emit_topology.mjs')], { encoding: 'utf8' });
 let freshTopology = null;
 try { freshTopology = JSON.parse(fresh.stdout); } catch { /* reported below */ }
@@ -189,10 +182,6 @@ if (!freshTopology || !committed || committedText === null) {
 }
 
 // ---------------------------------------------------------------- 6. runtime observation
-// Runs the real surfaces under the load observation hook and compares what was traversed
-// against what the source declares. This is the engine's own Expected/Observed comparison
-// applied to itself, so the same rule holds: an undeclared traversal is a fault, and an idle
-// edge is reported rather than smoothed over.
 
 const obs = spawnSync(process.execPath,
   [join(ENGINE, 'tools', 'observe_engine_run.mjs'), '--oracle', ORACLE], { encoding: 'utf8' });
@@ -200,20 +189,17 @@ let observation = null;
 try { observation = JSON.parse(obs.stdout); } catch { /* reported below */ }
 if (!observation) {
   fail('runtime_observation', 'the observation run produced no readable summary');
-} else if (observation.edges.topology_is_one_to_one !== true) {
+} else if (observation.edges?.topology_is_one_to_one !== true) {
   fail('runtime_observation',
-    `a run traversed edges the topology does not declare: ${observation.edges.observed_not_declared.join(', ')}`);
-} else if (observation.surfaces.failing.length > 0) {
+    `a run traversed edges the topology does not declare: ${observation.edges?.observed_not_declared?.join(', ') ?? 'unknown'}`);
+} else if (observation.surfaces?.failing?.length > 0) {
   fail('runtime_observation', `surfaces failed under observation: ${observation.surfaces.failing.join(', ')}`);
 } else {
   pass('runtime_observation',
-    `${observation.edges.coverage} edges traversed, ${observation.surfaces.run} surfaces reported, topology 1:1`);
+    `${observation.edges?.coverage ?? 0} edges traversed, ${observation.surfaces?.run ?? 0} surfaces reported, topology 1:1`);
 }
 
 // ---------------------------------------------------------------- 7. the run left no residue
-// The existing hygiene check looks at tracked files, so it could not see this: a mutation that
-// resolved a path against the working directory wrote a state tree inside the engine source and
-// left it untracked. Checked after everything has run, because that is when residue exists.
 
 const nested = join(ENGINE, 'guild_hall');
 if (existsSync(nested)) {

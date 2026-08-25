@@ -2,25 +2,28 @@
   "schema_version": "soulforge.engine_release_manifest.v0",
   "engine_version": "0.0.0",
   "status": "under_construction",
-  "generated_at": "2026-08-20T13:28:54.971Z",
-  "generated_from_commit": "cb5740aa646a17489660fb0b380ea3616181f887",
-  "git_commit": "cb5740aa646a17489660fb0b380ea3616181f887",
+  "generated_at": "2026-08-25T11:48:55.563Z",
+  "generated_from_commit": "4db34db47bc8da0d9108d737d33e344cd81ddf1c",
+  "git_commit": "4db34db47bc8da0d9108d737d33e344cd81ddf1c",
   "components": {
     "engine_code_manifest": {
       "file": "guild_hall/engineering_engine/topology/engine_manifest.sha256",
-      "sha256": "eadb33f6681347bf613e93aecd8b391fcae686c9695b35315a507cd9e62490ce"
+      "sha256": "4986902f836f3da24cfcc65d23a3f467916cd04a8a8680a79297eb0e19a38686"
     },
     "stage_rule_compiler": {
+      "file": "guild_hall/engineering_engine/engines/systems_engineering/rules/stage_rule_compiler.mjs",
       "version": "v0",
       "schema": "soulforge.se_stage_rule_compiler.v0",
-      "sha256": "97acdef610d5323133034d8b10588eec71148f3d787ae60241b67f851b1279f7"
+      "sha256": "c9d36dfdc68df2e902b1ddaf83746040455284146fd7d47f84af10db838f3a0d"
     },
     "pilot_packet_generator": {
+      "file": "guild_hall/engineering_engine/engines/systems_engineering/rules/pilot_packet_generator.mjs",
       "version": "v0",
       "schema": "soulforge.ax_se_pilot_packet_generator.v0",
-      "sha256": "daa3a04c6c092403ffa7fb4ac593656fbeac84a2e61e19ee3f7f7c4733edb6ef"
+      "sha256": "df7fadfec97abca9ea57b51c3ac8b0cd746211584fbaeb3e1fd483df370aa0a5"
     },
     "artifact_vocabulary": {
+      "file": "guild_hall/engineering_engine/engines/systems_engineering/rules/artifact_vocabulary.mjs",
       "sha256": "9bf9fa9667c6029c345c0b4eb3383f5ba8febff98471c4e71b3b3c47ba126c9f"
     },
     "rule_layers": {

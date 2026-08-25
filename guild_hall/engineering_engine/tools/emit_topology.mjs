@@ -1,93 +1,84 @@
 #!/usr/bin/env node
-// Emits the engine's structural topology by reading the engine, not by describing it.
+// Emits the engine's structural topology by reading canonical core and domain engine modules.
 //
-// The point is that nothing here is hand-authored. Module edges come from parsing the actual
-// `import` statements; boundaries come from the OPERATIONS table lane 1D declares; the
-// lineage chain, graph shapes and fingerprint inputs come from the modules that own them.
-// A drawing can disagree with the code it depicts. This cannot: if a module stops importing
-// another, the edge disappears on the next run.
+// Nothing here is hand-authored:
+// - Modules and edges are parsed from all canonical .mjs source files under core/ and engines/.
+// - Boundaries come from pipeline.SERIALISED_BOUNDARIES and mcp_contract.OPERATIONS.
+// - Lineage, graph shapes, and fingerprint inputs come from core validator declarations.
 //
-// Output is a single JSON document plus a digest over it, so a viewer can state which
-// version of the code it is showing rather than asserting a topology of its own.
+// Legacy compatibility wrappers (kernel/, assembly/, stage_rules/, subjects/, observation/,
+// guidance/, evaluation/, mcp/, fixtures/, tools/, tests/) are excluded from canonical module counts
+// and topology representation.
 //
+// Usage:
 //   node tools/emit_topology.mjs [--out <path> | --check <path>]
 
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ENGINE = join(HERE, '..');
-// The graph covers every area that holds engine code, not just the kernel. If it covered only
-// the kernel, adding an assembly or a subject adapter would silently fall outside the thing
-// that claims to be 1:1 with the code.
-const AREAS = ['kernel', 'assembly', 'subjects'];
+const ENGINE = resolve(HERE, '..');
 
-// ---------------------------------------------------------------- module edges, parsed
+// Canonical source trees (excluding tests and legacy flat wrapper dirs)
+const CANONICAL_ROOTS = [
+  'core',
+  'engines/systems_engineering',
+  'engines/quality_readiness',
+];
 
-// Relative imports are resolved before admission. Only modules that resolve back under one
-// of the Engine-owned areas belong in this topology; a subject may depend on a shared owner
-// without turning that external module into a dangling Engine node.
-const IMPORT_FROM = /from\s+'((?:\.\.?\/)+[^']+\.mjs)'/g;
-
-const sourceFiles = [];
-for (const area of AREAS) {
+export function findCanonicalModules(dirRel) {
+  const fullDir = join(ENGINE, dirRel);
+  const found = [];
   let entries = [];
-  try { entries = readdirSync(join(ENGINE, area)); } catch { continue; }
-  for (const f of entries.filter((f) => f.endsWith('.mjs')).sort()) sourceFiles.push({ area, file: f });
-}
+  try { entries = readdirSync(fullDir, { withFileTypes: true }); } catch { return found; }
 
-const modules = [];
-const edges = [];
-for (const { area, file } of sourceFiles) {
-  const name = file.replace('.mjs', '');
-  const sourcePath = join(ENGINE, area, file);
-  const src = readFileSync(sourcePath, 'utf8');
-  const exported = [...src.matchAll(/^export\s+(?:const|function|class)\s+([A-Za-z_][A-Za-z_0-9]*)/gm)].map((m) => m[1]);
-  const reExported = [...src.matchAll(/^export\s*\{([^}]*)\}\s*from/gm)]
-    .flatMap((m) => m[1].split(',').map((s) => s.trim().split(/\s+as\s+/)[0]).filter(Boolean));
-  modules.push({
-    module: name,
-    area,
-    exports: [...new Set([...exported, ...reExported])].sort(),
-    export_count: new Set([...exported, ...reExported]).size,
-    line_count: src.split('\n').length,
-  });
-  for (const m of src.matchAll(IMPORT_FROM)) {
-    const target = resolve(dirname(sourcePath), m[1]);
-    const targetRelative = relative(ENGINE, target);
-    if (isAbsolute(targetRelative) || targetRelative === '..'
-        || targetRelative.startsWith(`..${sep}`)) continue;
-    const parts = targetRelative.split(sep);
-    if (parts.length !== 2 || !AREAS.includes(parts[0]) || !parts[1].endsWith('.mjs')) continue;
-    const to = parts[1].slice(0, -4);
-    if (to !== name && !edges.some((e) => e.from === name && e.to === to)) {
-      // The edge is declared by the source. Whether it is ever traversed is a separate
-      // question, so the edge also says how that could be observed. A new module gets this
-      // for free — nothing here is maintained by hand.
-      edges.push({
-        from: name, to, relation: 'imports',
-        receipt_channel: 'module_load_observation',
-        evidence_note: 'declared by the source; traversal requires a receipt from an observed run',
-      });
+  for (const entry of entries) {
+    const relChild = `${dirRel}/${entry.name}`;
+    if (entry.isDirectory()) {
+      if (entry.name === 'tests' || entry.name === 'scratch') continue;
+      found.push(...findCanonicalModules(relChild));
+    } else if (entry.name.endsWith('.mjs')) {
+      if (entry.name.endsWith('.test.mjs') || entry.name.includes('.test.')) continue;
+      found.push(relChild);
     }
   }
+  return found;
 }
-edges.sort((a, b) => (a.from + a.to < b.from + b.to ? -1 : 1));
 
-// ---------------------------------------------------------------- declarations, imported
+export function extractStaticImportSpecifiers(sourceText) {
+  const specifiers = new Set();
 
+  // Pattern 1: Any import/export ... from '...' or "..." (single/double quotes, single/multiline)
+  const fromPattern = /\bfrom\s*['"]((?:\.\.?\/)+[^'"]+\.mjs)['"]/g;
+  for (const m of sourceText.matchAll(fromPattern)) {
+    specifiers.add(m[1]);
+  }
+
+  // Pattern 2: Side-effect import: import '...' or import "..."
+  const sideEffectPattern = /\bimport\s*['"]((?:\.\.?\/)+[^'"]+\.mjs)['"]/g;
+  for (const m of sourceText.matchAll(sideEffectPattern)) {
+    specifiers.add(m[1]);
+  }
+
+  // Pattern 3: Dynamic import: import('...') or import("...")
+  const dynamicImportPattern = /\bimport\s*\(\s*['"]((?:\.\.?\/)+[^'"]+\.mjs)['"]/g;
+  for (const m of sourceText.matchAll(dynamicImportPattern)) {
+    specifiers.add(m[1]);
+  }
+
+  return [...specifiers];
+}
+
+// ---------------------------------------------------------------- core declarations
 const [
   cfg, mcp, pipeline, graph, capsule, lineage, custody, snapshot, minting, moduleBinding, ceilings, authority, finding, executionMode,
 ] = await Promise.all([
   'contract_config', 'mcp_contract', 'pipeline', 'graph', 'capsule', 'lineage', 'custody',
   'snapshot', 'minting', 'module_binding', 'ceilings', 'authority', 'finding', 'execution_mode',
-].map((m) => import(`../kernel/${m}.mjs`)));
+].map((m) => import(`../core/validators/${m}.mjs`)));
 
-// Lane ownership of the frozen crosswalk's field groups. This is the one list that is stated
-// rather than derived, because the crosswalk lives in the frozen bundle and this tree only
-// records which lane answered which entry.
 const LANE_FIELD_GROUPS = [
   { lane: '1A', field_group: 'snapshot_envelope_state_axes_finding_and_pipeline_contract_fields', modules: ['snapshot', 'pipeline'], suite: 'lane_1a_conformance.mjs' },
   { lane: '1B', field_group: 'inventory_custody_eligibility_and_lineage', modules: ['custody', 'lineage'], suite: 'lane_1b_conformance.mjs' },
@@ -97,106 +88,157 @@ const LANE_FIELD_GROUPS = [
   { lane: '1V', field_group: 'verification_lock', modules: [], suite: 'lane_1v_mutation_lock.mjs' },
 ];
 
-const topology = {
-  topology_version: 'engine_topology.v0',
-  engine_root: 'guild_hall/engineering_engine',
-  contract_revision: cfg.CONTRACT_REVISION,
-  derivation: {
-    module_edges: `parsed from import statements in ${AREAS.map((a) => `${a}/*.mjs`).join(', ')}`,
-    areas_covered: AREAS,
-    // Stated so this reads as a boundary rather than an omission: tools/ holds CLI entry points
-    // and the output binding, not judgement structure. Their edges are only traversed when a
-    // human runs a command, so including them would fill the graph with connections that are
-    // permanently unexercised by the verification surfaces. They are covered by the mutation
-    // lock instead.
-    areas_deliberately_excluded: [{ area: 'tools', reason: 'cli_entry_points_not_judgement_structure' }],
-    boundaries: 'read from mcp_contract.OPERATIONS',
-    everything_else: 'read from the module that owns it',
-    hand_authored: ['lane_field_group_ownership'],
-  },
+export function buildTopology() {
+  const canonicalFiles = CANONICAL_ROOTS.flatMap(findCanonicalModules).sort();
+  const canonicalModIds = new Set(canonicalFiles.map((f) => f.replace(/\\/g, '/').replace(/\.mjs$/, '')));
 
-  modules,
-  module_count: modules.length,
-  module_edges: edges,
-  module_edge_count: edges.length,
+  const modules = [];
+  const rawEdges = [];
 
-  lane_field_groups: LANE_FIELD_GROUPS,
+  for (const relFile of canonicalFiles) {
+    const sourcePath = join(ENGINE, relFile);
+    const modId = relFile.replace(/\\/g, '/').replace(/\.mjs$/, '');
+    const src = readFileSync(sourcePath, 'utf8');
 
-  serialised_boundaries: pipeline.SERIALISED_BOUNDARIES.map((b) => ({
-    ...b, effects: pipeline.BOUNDARY_EFFECTS[b.lane],
-  })),
-  parallel_operations: Object.entries(mcp.OPERATIONS)
-    .filter(([, o]) => o.concurrency === 'parallel').map(([name, o]) => ({ operation: name, ceiling: o.ceiling })),
+    const exported = [...src.matchAll(/^export\s+(?:const|function|class)\s+([A-Za-z_][A-Za-z_0-9]*)/gm)].map((m) => m[1]);
+    const reExported = [...src.matchAll(/^export\s*\{([^}]*)\}\s*from/gm)]
+      .flatMap((m) => m[1].split(',').map((s) => s.trim().split(/\s+as\s+/)[0]).filter(Boolean));
 
-  fingerprint: {
-    input_keys: cfg.FINGERPRINT_INPUT_KEYS,
-    excluded_layers: cfg.FINGERPRINT_EXCLUDED_LAYERS,
-    replay_relevant_field_count: cfg.REPLAY_RELEVANT_PROVENANCE.length,
-    run_observational_field_count: cfg.RUN_OBSERVATIONAL_PROVENANCE.length,
-  },
+    const allExports = [...new Set([...exported, ...reExported])].sort();
 
-  vocabularies: {
-    authority_families: authority.AUTHORITY_FAMILIES.map((f) => f.key ?? f),
-    canon_claim_ceiling: ceilings.CANON_CLAIM_CEILING,
-    evidence_claim_ceiling: ceilings.EVIDENCE_CLAIM_CEILING,
-    snapshot_claim_ceiling_axis: ceilings.SNAPSHOT_CLAIM_CEILING_AXIS,
-    graph_node_types: graph.NODE_TYPES,
-    graph_edge_shape_count: graph.EDGE_SHAPES.length,
-    lineage_chain: lineage.CHAIN_KINDS,
-    gap_types: Object.values(snapshot.GAP_TYPE),
-    state_axes: Object.values(snapshot.AXIS),
-    presence_states: Object.values(custody.PRESENCE),
-    custody_mode: custody.CUSTODY_MODE,
-    disposition_chain: finding.CHAIN,
-    minted_families: minting.MINTED_FAMILIES,
-    derived_families: minting.DERIVED_FAMILIES,
-    caller_supplied_families: minting.CALLER_FAMILIES,
-    max_capsule_hops: capsule.MAX_HOPS_CEILING,
-    time_fractional_digits: cfg.TIME_PRECISION.fractionalDigits,
-    baseline_execution_mode: cfg.BASELINE_EXECUTION_MODE,
-    allowed_authoritative_retrieval: executionMode.ALLOWED_AUTHORITATIVE_RETRIEVAL,
-  },
+    modules.push({
+      module: modId,
+      area: modId.split('/')[0],
+      exports: allExports,
+      export_count: allExports.length,
+      line_count: src.split('\n').length,
+    });
 
-  owner_decisions: {
-    closed: cfg.CLOSED_OWNER_DECISIONS,
-    open: cfg.OPEN_OWNER_DECISIONS,
-    open_lane_questions: cfg.OPEN_LANE_QUESTIONS,
-    lane_1a: pipeline.OPEN_OWNER_DECISIONS_FOR_THIS_LANE,
-    lane_1b: custody.OPEN_OWNER_DECISIONS_FOR_THIS_LANE,
-    lane_1e: moduleBinding.OPEN_OWNER_DECISIONS_FOR_THIS_LANE,
-  },
+    const specifiers = extractStaticImportSpecifiers(src);
+    for (const spec of specifiers) {
+      const targetAbs = resolve(dirname(sourcePath), spec);
+      const targetRel = relative(ENGINE, targetAbs).replace(/\\/g, '/');
 
-  // P7 is defined by the frozen plan as the TaskDriver behind a four-check policy gate. It is
-  // reported here as a stage, not as an open question, and it says plainly that no live driver
-  // is switched on.
-  task_driver_stage: pipeline.P7,
-};
+      if (isAbsolute(targetRel) || targetRel.startsWith('..')) continue;
 
-/**
- * Recursively key-sorted serialisation, so the digest does not depend on property order.
- *
- * The previous line was `JSON.stringify(topology, Object.keys(topology).sort())`. The second
- * argument of `JSON.stringify` is not a key *order* — it is a key *allowlist*, applied at every
- * depth. Only property names that also happened to be top-level keys of the document survived,
- * so every module entry and every edge entry serialised as `{}` and the digest covered 1060
- * bytes of a 38811-byte document. Module names, import edges, export lists and line counts were
- * all outside it.
- *
- * That is what let a committed topology drift from a fresh emit while the integration check's
- * "topology matches code" still passed on a digest comparison: the one field that had actually
- * changed was not in the digest. A checker whose green light is narrower than its claim is worse
- * than no checker, because the claim is what a reader acts on.
- */
-function stableStringify(value) {
+      const targetModId = targetRel.replace(/\.mjs$/, '');
+      if (canonicalModIds.has(targetModId) && targetModId !== modId) {
+        rawEdges.push({
+          from: modId,
+          to: targetModId,
+          relation: 'imports',
+          receipt_channel: 'module_load_observation',
+          evidence_note: 'declared by canonical source; traversal requires a receipt from an observed run',
+        });
+      }
+    }
+  }
+
+  modules.sort((a, b) => a.module.localeCompare(b.module));
+
+  // Deduplicate edges stably
+  const edges = [];
+  const seenEdges = new Set();
+  for (const e of rawEdges) {
+    const key = `${e.from}->${e.to}`;
+    if (!seenEdges.has(key)) {
+      seenEdges.add(key);
+      edges.push(e);
+    }
+  }
+  edges.sort((a, b) => (a.from + a.to).localeCompare(b.from + b.to));
+
+  const topology = {
+    topology_version: 'engine_topology.v0',
+    engine_root: 'guild_hall/engineering_engine',
+    contract_revision: cfg.CONTRACT_REVISION,
+    derivation: {
+      module_edges: `parsed from import statements across canonical ${CANONICAL_ROOTS.join(', ')}`,
+      areas_covered: CANONICAL_ROOTS,
+      areas_deliberately_excluded: [
+        { area: 'kernel', reason: 'legacy_compatibility_wrappers_excluded_from_canonical_topology' },
+        { area: 'assembly', reason: 'legacy_compatibility_wrappers_excluded_from_canonical_topology' },
+        { area: 'stage_rules', reason: 'legacy_compatibility_wrappers_excluded_from_canonical_topology' },
+        { area: 'subjects', reason: 'legacy_compatibility_wrappers_excluded_from_canonical_topology' },
+        { area: 'observation', reason: 'legacy_compatibility_wrappers_excluded_from_canonical_topology' },
+        { area: 'guidance', reason: 'legacy_compatibility_wrappers_excluded_from_canonical_topology' },
+        { area: 'evaluation', reason: 'legacy_compatibility_wrappers_excluded_from_canonical_topology' },
+        { area: 'mcp', reason: 'legacy_compatibility_wrappers_excluded_from_canonical_topology' },
+        { area: 'fixtures', reason: 'legacy_compatibility_wrappers_excluded_from_canonical_topology' },
+        { area: 'tools', reason: 'cli_entry_points_not_judgement_structure' },
+        { area: 'tests', reason: 'test_suites_excluded_from_canonical_topology' },
+      ],
+      boundaries: 'read from mcp_contract.OPERATIONS',
+      everything_else: 'read from the module that owns it',
+      hand_authored: ['lane_field_group_ownership'],
+    },
+
+    modules,
+    module_count: modules.length,
+    module_edges: edges,
+    module_edge_count: edges.length,
+
+    lane_field_groups: LANE_FIELD_GROUPS,
+
+    serialised_boundaries: pipeline.SERIALISED_BOUNDARIES.map((b) => ({
+      ...b, effects: pipeline.BOUNDARY_EFFECTS[b.lane],
+    })),
+    parallel_operations: Object.entries(mcp.OPERATIONS)
+      .filter(([, o]) => o.concurrency === 'parallel').map(([name, o]) => ({ operation: name, ceiling: o.ceiling })),
+
+    fingerprint: {
+      input_keys: cfg.FINGERPRINT_INPUT_KEYS,
+      excluded_layers: cfg.FINGERPRINT_EXCLUDED_LAYERS,
+      replay_relevant_field_count: cfg.REPLAY_RELEVANT_PROVENANCE.length,
+      run_observational_field_count: cfg.RUN_OBSERVATIONAL_PROVENANCE.length,
+    },
+
+    vocabularies: {
+      authority_families: authority.AUTHORITY_FAMILIES.map((f) => f.key ?? f),
+      canon_claim_ceiling: ceilings.CANON_CLAIM_CEILING,
+      evidence_claim_ceiling: ceilings.EVIDENCE_CLAIM_CEILING,
+      snapshot_claim_ceiling_axis: ceilings.SNAPSHOT_CLAIM_CEILING_AXIS,
+      graph_node_types: graph.NODE_TYPES,
+      graph_edge_shape_count: graph.EDGE_SHAPES.length,
+      lineage_chain: lineage.CHAIN_KINDS,
+      gap_types: Object.values(snapshot.GAP_TYPE),
+      state_axes: Object.values(snapshot.AXIS),
+      presence_states: Object.values(custody.PRESENCE),
+      custody_mode: custody.CUSTODY_MODE,
+      disposition_chain: finding.CHAIN,
+      minted_families: minting.MINTED_FAMILIES,
+      derived_families: minting.DERIVED_FAMILIES,
+      caller_supplied_families: minting.CALLER_FAMILIES,
+      max_capsule_hops: capsule.MAX_HOPS_CEILING,
+      time_fractional_digits: cfg.TIME_PRECISION.fractionalDigits,
+      baseline_execution_mode: cfg.BASELINE_EXECUTION_MODE,
+      allowed_authoritative_retrieval: executionMode.ALLOWED_AUTHORITATIVE_RETRIEVAL,
+    },
+
+    owner_decisions: {
+      closed: cfg.CLOSED_OWNER_DECISIONS,
+      open: cfg.OPEN_OWNER_DECISIONS,
+      open_lane_questions: cfg.OPEN_LANE_QUESTIONS,
+      lane_1a: pipeline.OPEN_OWNER_DECISIONS_FOR_THIS_LANE,
+      lane_1b: custody.OPEN_OWNER_DECISIONS_FOR_THIS_LANE,
+      lane_1e: moduleBinding.OPEN_OWNER_DECISIONS_FOR_THIS_LANE,
+    },
+
+    task_driver_stage: pipeline.P7,
+  };
+
+  const { topology_digest: _omitted, ...rest } = topology;
+  topology.topology_digest = createHash('sha256').update(stableStringify(rest)).digest('hex');
+  return topology;
+}
+
+export function stableStringify(value) {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
   if (value !== null && typeof value === 'object') {
     return `{${Object.keys(value).sort().map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(',')}}`;
   }
   return JSON.stringify(value);
 }
-
-// Stable digest over the whole document: a viewer can show this and say which code it rendered.
-topology.topology_digest = createHash('sha256').update(stableStringify(topology)).digest('hex');
 
 const flagValue = (name) => {
   const index = process.argv.indexOf(name);
@@ -207,26 +249,35 @@ const flagValue = (name) => {
   }
   return value;
 };
-const out = flagValue('--out');
-const check = flagValue('--check');
-if (out !== null && check !== null) throw new Error('engine_topology_output_mode_conflict');
-const text = `${JSON.stringify(topology, null, 2)}\n`;
-if (check !== null) {
-  const matches = readFileSync(check, 'utf8') === text;
-  console.log(JSON.stringify({
-    checked: check,
-    topology_matches_code: matches,
-    modules: topology.module_count,
-    module_edges: topology.module_edge_count,
-    topology_digest: topology.topology_digest,
-  }, null, 2));
-  if (!matches) process.exitCode = 1;
-} else if (out !== null) {
-  writeFileSync(out, text, 'utf8');
-  console.log(JSON.stringify({
-    emitted: out, modules: topology.module_count, module_edges: topology.module_edge_count,
-    boundaries: topology.serialised_boundaries.length, topology_digest: topology.topology_digest,
-  }, null, 2));
-} else {
-  process.stdout.write(text);
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  const out = flagValue('--out');
+  const check = flagValue('--check');
+  if (out !== null && check !== null) throw new Error('engine_topology_output_mode_conflict');
+
+  const topology = buildTopology();
+  const text = `${JSON.stringify(topology, null, 2)}\n`;
+
+  if (check !== null) {
+    const matches = readFileSync(check, 'utf8') === text;
+    console.log(JSON.stringify({
+      checked: check,
+      topology_matches_code: matches,
+      modules: topology.module_count,
+      module_edges: topology.module_edge_count,
+      topology_digest: topology.topology_digest,
+    }, null, 2));
+    if (!matches) process.exitCode = 1;
+  } else if (out !== null) {
+    writeFileSync(out, text, 'utf8');
+    console.log(JSON.stringify({
+      emitted: out,
+      modules: topology.module_count,
+      module_edges: topology.module_edge_count,
+      boundaries: topology.serialised_boundaries.length,
+      topology_digest: topology.topology_digest,
+    }, null, 2));
+  } else {
+    process.stdout.write(text);
+  }
 }

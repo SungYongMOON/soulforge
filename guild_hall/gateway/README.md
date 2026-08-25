@@ -73,7 +73,7 @@
     (업로드 전용 파일 요청 · 만료 있는 공유 링크)로 바꾼다. 엔진은 네트워크를 부르지 않으므로
     `file_ticket`이 이 명령을 **자식 프로세스로** 띄운다. 자격은 운영 PC `.env` 런타임 전용이고
     저장소·영수증·로그에는 키 **이름**만 남는다. 모의 DSM fixture로 자격 없이 시험·시연한다.
-    정본 결정은 `guild_hall/engineering_engine/manual/12_mcp_door.md` §12.C.
+    정본 결정은 `guild_hall/engineering_engine/engines/systems_engineering/manual/12_mcp_door.md` §12.C.
 - `mail_fetch/collector/storage/mail_candidate_queue.py`
   - fresh mail event 를 업무화 검토 후보 queue 로 적재하고, monster 생성 전 수신 이력을 `_workmeta/P00-000_INBOX/reports/메일_이력/` 로 남기는 local-only writer
 

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.typed_project_facts.v0",
+  "title": "TypedProjectFacts",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "project_binding_ref",
+    "facts",
+    "facts_digest",
+    "valid_at",
+    "known_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "soulforge.typed_project_facts.v0"
+    },
+    "project_binding_ref": {
+      "type": "object"
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "facts_digest": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "valid_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "known_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

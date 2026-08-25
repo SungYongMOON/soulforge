@@ -1,64 +1,7 @@
-# Soulforge 체계공학 판단 엔진 개발 매뉴얼 (v0, 2026-08-18)
+# Engineering Engine Manual (Legacy Pointer)
 
-이 폴더는 `guild_hall/engineering_engine/`의 현재 Systems Engineering Domain Engine과 공통 Core, 그리고 그 규칙 공급층(`stage_rules/`, `guild_hall/requirement_trace/`,
-`.registry/skills/se_foldertree_generate/`)이 **무엇을, 왜, 어떻게** 만들었는지를 다른 작업자(사람이든 Codex·Claude 같은
-LLM이든)가 이어받을 수 있게 책 형태로 정리한 개발 매뉴얼이다. 도구 비종속이며 어떤 에이전트 환경도 전제하지 않는다.
+The canonical manual chapters have been physically relocated:
+- Systems Engineering Manual (Chapters 01-12): `guild_hall/engineering_engine/engines/systems_engineering/manual/`
+- Quality Readiness Manual (Chapters 01-14): `guild_hall/engineering_engine/engines/quality_readiness/manual/`
 
-- 정본이 아니다. 규칙 본문은 각 스펙·코드·설계 문서가 정본이고, 이 매뉴얼은 그 정본들의 **지도·근거·판단 이유·미결**을 한 곳에 모은다.
-  정본과 매뉴얼이 다르면 정본이 이긴다(그리고 매뉴얼을 고친다).
-- public-safe: 과제 원문·사업명 세부·개인명·절대경로·secret을 넣지 않는다. private 실행 결과는 상대 포인터(`_workmeta/...`, `_workspaces/...`)로만 가리킨다.
-- 갱신 규칙: 규칙 층·컴파일러·어휘·요구추적·실행 기록·결정이 바뀌면 같은 변경에서 해당 장을 고친다. 장 번호는 고정이고 내용만 자란다.
-- 제품 전체 용어와 target package/storage owner는 `docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`가 정본이다. 이 매뉴얼의 4층·overlay는 SE Domain Engine 안의 current 구현 설명이며, LIG·과제를 별도 엔진으로 뜻하지 않는다.
-
-## 읽는 순서 (새 작업자용)
-
-| 순서 | 장 | 언제 읽나 |
-| --- | --- | --- |
-| 1 | [01 목적과 모양](01_purpose_and_shape.md) | 처음 15분. Core와 SE Domain Engine, Profile·Binding, 현재 실행층과 파일 지도 |
-| 2 | [02 SE 규칙의 네 내부 층](02_rule_layers.md) | Domain 규칙 source와 Organization/Project Profile 구현 overlay가 어떻게 조립되는지 |
-| 3 | [03 항목은 어떻게 구했나](03_how_items_were_derived.md) | **행(항목)이 어디서 왔는지** — 정본 확보·추출·합성·검토·코딩·검증 파이프라인, 층별 방법, 세는 법 |
-| 4 | [04 산출물 표준어](04_vocabulary.md) | `artifact_type_id` 토큰 규칙, 계열, 발행·별칭 규칙 |
-| 5 | [05 컴파일러와 생성기](05_compiler_and_generator.md) | 규칙을 엔진 입력으로 바꾸는 순수 함수의 입출력·판정 규칙·시험 |
-| 6 | [06 요구사항 추적](06_requirement_trace.md) | 계약 요구 → 산출물 → 시험 커버리지(R1~R4)와 Needs 정책 |
-| 7 | [07 실행 기록](07_runs_and_receipts.md) | 지금까지 돌린 실행과 숫자, 영수증 위치, 다시 돌리는 법 |
-| 8 | [08 결정 기록](08_decisions.md) | D37~D45와 미결 결정, 판단 규칙 요약 |
-| 9 | [09 다음 작업과 인수인계](09_next_work_and_handoff.md) | **확정 계획(9.0: 이정표 M1~M4·원칙·조각 A1~E1·맥락 다섯 쓰임·Owner 결정)**, 상세 참고표, 출시 형태(MCP), 새 작업자 시작 체크리스트 |
-| 10 | [10 관측 공급자(눈)](10_observation_eye.md) | **파일이 어떻게 관측이 되나** — 정식 통로와 훑기, 읽는 것/안 읽는 것, 규칙 3+1(업무폴더·이름 단서·성숙도·자동 확정 3조건), 확인표와 폴더 확정, 관측 생성, 청소 알림 6종, 출력 7종, 한계와 고치는 순서 |
-| 11 | [11 안내 층(입)](11_guidance_layer.md) | **판정이 어떻게 "이제 뭘 하라"가 되나** — 가이드 카드의 각 칸이 어느 행 필드·템플릿에서 오는지, 지시서(`instruction_packet_v0`)와 판단 불변 두 장치(금지 키 검사·`judgment_ref` 복사), 답 한 장의 4부와 "다음 3개" 선정 규칙, 출력 5종, 한계와 고치는 순서 |
-| 부록 A | [벤치마크: 비슷한 시스템 MCP → 더 넣을 것](appendix_a_mcp_benchmark_20260819.md) | 협업·요구관리·PLM·MCP 규격 20여 시스템 공통 기능 vs 우리 엔진(있음/부분/없음), 더 넣을 것 11개 순위, 넣지 말 것 |
-| 부록 B | [다과제 구조 검토](appendix_b_multi_project_review_20260819.md) | 판단·규칙은 N개 과제에 안전, 문(MCP)은 한 프로세스=한 과제; 과제 명부·프로필 검증·경로 예산·잠금·캐시 무효화·project_code 도구화 등 최소 변경 9개(S/M/L) |
-| 12 | [12 MCP 문](12_mcp_door.md) | **밖에서 엔진을 부르는 자리** — 스위치 둘(feature·write)과 꺼진 채 착지한 이유, 과제 명부와 과제 프로필(필드·경로 뿌리 3종·문 앞 칸 다섯 칸·거절 규칙), 신원(principal)과 접근표, 도구 23종과 각각이 부르는 기존 함수, 호출마다 남는 메타데이터 영수증과 접근 로그, 잠금·캐시·경로 예산·프로토콜·한계·다음, 그리고 **[§12.A 사람용 등록·사용 안내](12_mcp_door.md#12a-등록사용-안내-사람용)**·**[§12.B 파일 넣기·받기](12_mcp_door.md#12b-파일-넣기받기-문-앞-칸--사람용)** |
-
-## 합의됐지만 아직 없는 것 (모든 요약·도식에 반드시 같이 그린다)
-
-Owner 지시(2026-08-18): "하기로 한 것이 그림에서 빠지면 누락된 채 지나간다." 아래 항목은 엔진의 기능 표·구조도·시퀀스를 그릴 때 **상태 '없음(합의됨)'으로 항상 포함**한다. 만들어지면 상태만 바꾸고 줄은 지우지 않는다.
-
-| 항목 | 뜻 | 자리 | 상태 |
-| --- | --- | --- | --- |
-| **문서 내용 검사기** (Owner 제안 2026-08-17, 설계 §2.1A, 09장 7번) | "파일이 있냐" 다음 단계 — 있는 문서가 제대로 됐나(필수 절·표·양식·요구 반영). 관측을 만드는 쪽에 붙어 `내용 충족/부족/미검사`를 넣고, 엔진 핵심은 그대로. 미검사는 부족으로 찍지 않는다 | 관측 공급 층(눈) | 없음(합의됨) |
-| **선후 관계표 + 순서 계산(파이프라인)** | 규칙 행에 입력 산출물 열 → 컴파일러가 과제·사업유형·등급·발주처별 순서 계산; 빈 과제도 "무엇부터" | 규칙 + 컴파일러 | **있음(A2 착지 2026-08-18, 2판 정정 반영)** — 활동·결정 노드, `depends_on`, `gate_role`(핵심/진입/보조), ①→② 투영, 중요도 순서(`orderStageWork`). 빈 과제 SRR이 체계요구사항명세서부터 나온다. 남은 것: 규정 근거 간선은 후보 60건 Owner 확인 대기 · 기술관리 8종 행 없음(`references/se_io_relations_v0.md` §6B·§7) |
-| **산출물별 가이드 카드(어떻게)** | 스펙 행 + 정본 인용 + 양식 + 앞뒤 관계 + 담당 → "왜·언제·어떻게" 안내(판단과 분리) | 안내 층 | **있음(A3 착지 2026-08-18, "왜·어떻게" 채움 2026-08-19)** — `guidance/`의 카드 생성기 + 지시서(`instruction_packet_v0`, D47 제안) + "다음 할 일" 답변, 호출자 CLI 1개. "왜"는 정본이 말한 목적(`purpose_ko`) · 없으면 막히는 것 · 게이트 역할까지, "어떻게"는 입력의 관측 상태 · 양식 파일 · 근거 계열까지 말한다([11장 §11.10](11_guidance_layer.md), 도출은 [03장 §3.10](03_how_items_were_derived.md)). 남은 것: 목적 없는 행(② 29 · ① 36) · 맥락 채움(기한·담당) 공급 경로 · 중요도 정렬 · MCP 노출(B1) |
-| 관측 공급(문서 색인·메일 첨부 → 산출물 분류) | 폴더 03_Out 스캔 외의 자료를 있음/없음으로 | 눈 | 부분→후보 생성기 착지(확정은 사람) — `observation/`, 설명은 [10장](10_observation_eye.md). 자동 확정은 `03_Out`+업무 1:1+**파일 이름 단서** 세 조건 모두일 때만이고, 단서에는 표준어 토큰과 과제 등록 이름 패턴이 포함된다. 확정은 파일 단위와 **업무폴더 단위** 둘 다 가능. 남은 것: 메일 첨부·문서 색인 입력, 승인 기록 기반 성숙도 |
-| 폴더 청소 알림(housekeeping) | 중복·엉뚱한 자료·압축본·중간본·업무폴더 중복·`03_Out` 없음을 사람에게 | 눈(판단과 분리) | 있음 — `observation/observation_housekeeping.mjs`, 실행마다 `housekeeping_report.md`([10장 §10.6](10_observation_eye.md)). 판단·관측이 아니며 팀 등록이 정착한 뒤에도 상시 가드로 유지(Owner 방침) |
-| 결과 전달(결손 표·브리프·담당자 카드) | 판단 결과를 사람에게 | 입 | 부분 — A3의 "다음 할 일" 답변(위치·부족·다음 3개·막힌 것, 마크다운+JSON)이 첫 표면이며 설명은 [11장](11_guidance_layer.md). 남은 것: 주기 브리프·담당자별 카드 |
-| 답변 우편함(Context Response 수신) | 사람 답 → 다음 실행 반영 | MCP 단계 | 없음(합의: MCP 시점) — 문은 섰고 답 도구가 아직 없다(B2) |
-| MCP 문 + 야간 예약 실행 | 밖에서 부르는 문 하나, 밤에 자동 | 호출 | **부분(B1 착지 2026-08-18 + 후속 2026-08-19 2회, 꺼진 채)** — `mcp/`의 stdio JSON-RPC 서버 + 과제 프로필 + 도구 23(읽기 15·쓰기 8), 시험 102, 설명은 [12장](12_mcp_door.md), 사람용 등록 안내는 [§12.A](12_mcp_door.md#12a-등록사용-안내-사람용). 스위치 둘 다 꺼져 있고 어떤 클라이언트에도 등록하지 않았다(켜기는 Owner 결정). 남은 것: 답·맥락 도구(B2) · 야간 예약(B3, 엔진 밖) |
-| **파일 넣기·받기(문 앞 칸)** | 사람은 폴더를 만지지 않는다 — 표 발급 → 칸에 넣기 → 등록 → 엔진이 규칙이 정한 `03_Out`으로 이동 + 관측 → 끝난 칸은 휴지통으로 | 문 | **있음(2026-08-19, 꺼진 채)** — 도구 6(`file_ticket`·`file_put`·`file_register`·`file_get`·`file_tickets_list`·`file_tickets_gc`) + 프로필의 문 앞 칸 다섯 칸 + 표 대장·파일 영수증·등록 관측 대장. 등록 = 저장(9.1D), 덮어쓰기 없음, 지우기 없음, 규칙과 폴더트리가 다르면 거절. 설명은 [12장 §12.B](12_mcp_door.md). 남은 것: 링크 발급(게이트웨이, 엔진 밖) · 등록 정정 `observe_amend` · 덧씌움으로만 추가된 산출물의 업무폴더 결정 |
-| **과제 목록(과제 명부)** | 이 문이 서빙할 수 있는 과제 한 장 — 코드 → 프로필 경로·상태. 문 하나로 과제 N개 | 문 | **있음(2026-08-19, 부록 B 1·6번)** — `soulforge.engine_project_registry.v0`(private `_workmeta/system/engine/`, public에는 합성 예시만) + 도구 `projects_list` + 모든 도구의 `project_code` 인자 + 과제별 컨텍스트 LRU 8. 남은 것: 명부를 고치는 도구(과제 착수 C1에서), 실행 색인(부록 B 8번) |
-| **엔진 상태** | 판·규칙 지문·프로토콜·스위치 둘·명부·영수증 위치를 인자 없이 한 번에 | 문 | **있음(2026-08-19)** — 도구 `engine_status`(9.1E 벤치마크 ①). `rules_version`은 호환 위해 그대로 남겨 둔다 |
-| 과제 착수 명령 | 5입력 → 폴더트리·규칙·첫 판단 | 착수 | 없음 |
-| Organization Profile 추가(한화 등, 내부 overlay), 탐색·선행·운용 스펙 재기준 | 다른 발주처·사업유형 실체 | 규칙/Profile | 없음(초안만) |
-| R2 원장·R3 투영·R4 카드 | 요구 추적 후반 | 요구 추적 | 없음 |
-| 눈의 운영 모드(등록 대장 대조·미등록 알림·증분·03_Out만) + 매뉴얼 10장 트리거 절 | 후보 확인표는 첫 적재 1회만; 기본은 등록된 것만 관측, 훑기는 미등록·청소 알림 | 눈 | 없음(합의 2026-08-19, 09장 9.1D) |
-| 비서 층(엔진 MCP 위, 맥락 채움·표시) | 사람이 말 거는 상대; 엔진 판단 + 맥락(기한·담당·발주처 요청·결정) 조립, 판단/맥락 구분 표시 | 문 위 | 없음(합의 2026-08-19, 09장 9.1D) |
-| 접근 권한 모델(신원·권한표·집행·파일 권한) | 부르는 사람(역할) × 자료 등급(공개 규칙·팀 판단·기밀 계약·개인) × 동작; 엔진 문은 로컬, 원격은 비서/게이트웨이 층 로그인; 태그 없는 문서는 기밀(fail-closed) | 문 | **최소형 있음(2026-08-19, B1 후속)** — `--principal{principal_ref, role}` · 접근표 파일 `soulforge.engine_access_table.v0`(없으면 코드 기본표) · 도구 거절과 목록 숨김 · ⓒ 필드 가림 · 역할별 지시서 · 영수증 접근 로그 · 도구 `whoami`/`access_table`. 신원 없으면 ⓐ만(`SE_MCP_PRINCIPAL_REQUIRED`). 남은 것: 규칙 행·문서 단위 등급 태그, 원격 로그인(비서 층), 파일 권한(운영) |
-| 링크 발급기(시놀로지 NAS 파일 요청 링크) + NAS 문 앞 칸 프로필 | 외부 작업자가 링크만으로 올리게; 엔진은 칸·표·등록만, 링크는 엔진 옆 발급기(전산팀 계정·공유폴더 회신 대기) | 문 옆 | 없음(결정 2026-08-19, 12장 §12.C) |
-| 엔진 버전·판 매니페스트 | 엔진 버전 라벨 하나에 규칙 층 스펙 sha·덧씌움·어휘·컴파일러·코드 매니페스트·생성 기준 commit을 묶어, 영수증의 policy_ref가 어느 판에 귀속되는지 한 번에 읽히게 | 출시 | **자리 착지(2026-08-18)**: `topology/ENGINE_VERSION` = `0.0.0`(만드는 중; Owner: 정본 승격 때 실제 번호 시작) + `topology/engine_release.json`(`generated_from_commit` = emit 시 base HEAD, 뒤의 self commit 아님; `git_commit`은 호환 alias; `tools/emit_release_manifest.mjs --out/--check`, `npm run validate:engine-release`). MCP 문의 모든 결과와 영수증 줄에 engine_version이 찍힌다(B1 착지) |
-
-## 정본 위치 (매뉴얼이 가리키는 곳)
-
-- 설계: `docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`(Core·Domain·Profile·Binding 조립 정본), `docs/architecture/workspace/SE_STAGE_RULE_SOURCE_MODEL_V0.md`(SE 단계 규칙 원천), `docs/architecture/workspace/PROJECT_REQUIREMENT_TRACE_MODEL_V0.md`(요구 추적), `docs/architecture/workspace/SE_ASSISTANT_OPERATING_MODEL_V0.md`, `SE_DUNGEON_STAGE_MODEL_V0.md`
-- 규칙 스펙: `.registry/skills/se_foldertree_generate/codex/assets/SE_FolderTree_*.md` + `assets/compiled/*.json`
-- 코드: `guild_hall/engineering_engine/{kernel,subjects,stage_rules,contracts,tests}`, `guild_hall/requirement_trace/`
-- 진행 상태 정본: `ui-workspace/apps/dev-erp/docs/TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md`(CURRENT 표), `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md`(plan delta log)
-- 변경 이력: `CHANGELOG.md`
+This directory is a non-authoritative compatibility pointer and contains no manual chapters.

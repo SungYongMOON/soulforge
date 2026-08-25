@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.engineering_profile_binding.v0",
+  "title": "EngineeringProfileBinding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_kind",
+    "profile_id",
+    "domain_engine_id",
+    "revision_or_hash",
+    "extends_or_base_pin",
+    "operation_digest",
+    "source_refs",
+    "order",
+    "operations"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "soulforge.engineering_profile_binding.v0"
+    },
+    "profile_kind": {
+      "type": "string",
+      "enum": [
+        "organization",
+        "project"
+      ]
+    },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "domain_engine_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "revision_or_hash": {
+      "type": "string",
+      "minLength": 1
+    },
+    "extends_or_base_pin": {
+      "type": "string",
+      "minLength": 1
+    },
+    "operation_digest": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "order": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  }
+}

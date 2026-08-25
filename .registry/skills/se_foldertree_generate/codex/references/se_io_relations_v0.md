@@ -2,7 +2,7 @@
 
 이 문서는 규칙표의 행에 **"이것보다 이것이 먼저"**를 붙인 근거를 남긴다. 설계 authority는
 `docs/architecture/workspace/SE_STAGE_RULE_SOURCE_MODEL_V0.md` §8 D46, 엔진 쪽 설명은
-`guild_hall/engineering_engine/manual/03_how_items_were_derived.md` §3.7과 `05_compiler_and_generator.md` §5.4A이다.
+`guild_hall/engineering_engine/engines/systems_engineering/manual/03_how_items_were_derived.md` §3.7과 `guild_hall/engineering_engine/engines/systems_engineering/manual/05_compiler_and_generator.md` §5.4A이다.
 
 인용은 **위치만** 적는다(조·표 번호, 페이지 마커, 절 번호). 정본 원문 문장·경로·과제명은 넣지 않는다.
 
@@ -10,11 +10,11 @@
 
 | 만든 것 | 어디에 |
 | --- | --- |
-| 활동 노드 19종 + 결정 노드 3종(어휘 토큰) | `guild_hall/engineering_engine/stage_rules/artifact_vocabulary.mjs` (계열 `activity`, `decision`) |
+| 활동 노드 19종 + 결정 노드 3종(어휘 토큰) | `guild_hall/engineering_engine/engines/systems_engineering/rules/artifact_vocabulary.mjs` (계열 `activity`, `decision`) |
 | 정본별 사실 추출 4건 + 관계표 `relations.json` (간선 206) | private worksite `_workspaces/knowledge/common/systems_engineering/derivations/se_io_relations_20260818/` (영수증 `_workmeta/system/reports/se_stage_rules/se_io_relations_20260818.json`) |
 | ① 스펙 v0.1 → **v0.2**: 활동 18행 · 결정 3행 추가, 82행에 `depends_on`(산출물 64 + 활동·결정 18) | `assets/SE_FolderTree_GenericSE_Base.md` (250 task = 산출물 229 + 활동 18 + 결정 3) |
 | ② 스펙 v0.8 → **v0.9**: 활동 9행 추가, 12행에 `depends_on`(산출물 5 + 활동 7) | `assets/SE_FolderTree_Guide.md` (154 task = 산출물 145 + 활동 9) |
-| 순서 계산 `orderStageWork` | `guild_hall/engineering_engine/stage_rules/stage_rule_compiler.mjs` |
+| 순서 계산 `orderStageWork` | `guild_hall/engineering_engine/engines/systems_engineering/rules/stage_rule_compiler.mjs` |
 
 활동·결정 행은 **폴더를 만들지 않는다**(`is_virtual: true` → `generate_tree.py`가 건너뜀). 체계개발 폴더 생성 수는 145로 그대로다(일반SE 229).
 

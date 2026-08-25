@@ -1,7 +1,7 @@
 # guild_hall/gateway/nas_link_issuer
 
 시놀로지 NAS 링크 발급기 — 엔진 문이 낸 **표(ticket)** 폴더를 밖에서 열 수 있는 **링크**로 바꾸는
-게이트웨이 부품. 정본 결정은 `guild_hall/engineering_engine/manual/12_mcp_door.md` §12.C다.
+게이트웨이 부품. 정본 결정은 `guild_hall/engineering_engine/engines/systems_engineering/manual/12_mcp_door.md` §12.C다.
 
 ## 왜 엔진 밖인가
 

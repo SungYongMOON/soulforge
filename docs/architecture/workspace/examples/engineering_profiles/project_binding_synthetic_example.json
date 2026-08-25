@@ -1,0 +1,14 @@
+{
+  "schema_version": "soulforge.project_binding.v0",
+  "project_id": "project_alpha_synthetic_v0",
+  "domain_engine_id": "systems_engineering",
+  "binding_revision_hash": "112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00",
+  "source_manifest_ref": "docs/architecture/workspace/examples/engineering_profiles/source_manifest_v0.json",
+  "authority_family": "company_approved_procedure",
+  "valid_at": "2026-08-25T12:00:00.000Z",
+  "known_at": "2026-08-25T12:00:00.000Z",
+  "document_refs": [
+    "synthetic_docs/sys_spec.pdf",
+    "synthetic_docs/srr_minutes.pdf"
+  ]
+}

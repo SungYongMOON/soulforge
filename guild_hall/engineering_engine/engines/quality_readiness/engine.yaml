@@ -1,0 +1,22 @@
+schema_version: soulforge.domain_engine_descriptor.v0
+domain_engine_id: quality_readiness
+display_name: Quality Readiness Domain Engine
+version: 0.1.0
+status: candidate
+claim_ceiling: source_supported
+execution_mode: deterministic_only
+contracts:
+  source_packet: engines/quality_readiness/contracts/quality_readiness_source_packet_v0.md
+  build_mission: engines/quality_readiness/contracts/quality_readiness_build_mission_v0.md
+schemas:
+  ruleset: soulforge.quality_readiness.ruleset.v0
+  domain_input: soulforge.quality_readiness.domain_input.v0
+  assessment: soulforge.quality_readiness.assessment.v0
+  domain_result: soulforge.quality_readiness.domain_result.v0
+  receipt: soulforge.quality_readiness.receipt.v0
+compiler_adapter: engines/quality_readiness/compiler/quality_readiness_compiler_adapter.mjs
+evaluator_adapter: engines/quality_readiness/evaluator/quality_readiness_evaluator_adapter.mjs
+fixtures:
+  public_synthetic: engines/quality_readiness/fixtures/quality_readiness_public_synthetic.mjs
+manual:
+  root: engines/quality_readiness/manual/README.md

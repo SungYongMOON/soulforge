@@ -1,0 +1,25 @@
+{
+  "schema_version": "soulforge.engineering_profile.v0",
+  "profile_kind": "organization",
+  "profile_id": "org_synthetic_exemplar_v0",
+  "domain_engine_id": "systems_engineering",
+  "revision_hash": "a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0",
+  "extends_base_pin": "systems_engineering:generic_se_base:v0",
+  "description": "Public-safe synthetic Organization Profile exemplar demonstrating tailoring operations",
+  "source_refs": [
+    "docs/architecture/workspace/examples/engineering_profiles/org_synthetic_exemplar_v0.json"
+  ],
+  "operations": [
+    {
+      "op": "alias",
+      "token": "SYSTEM_SPEC",
+      "alias": "SYS_SPEC_ORG_DOC"
+    },
+    {
+      "op": "add",
+      "token": "ORG_INTERNAL_REVIEW",
+      "stage": "030_SRR",
+      "evidence_level": "standard"
+    }
+  ]
+}

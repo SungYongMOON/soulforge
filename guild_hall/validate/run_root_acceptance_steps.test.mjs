@@ -38,6 +38,10 @@ test("루트 게이트: 앱 테스트 스텝이 validate·done-check 양 모드�
       "npm run validate:voice-first-worker-runtime"],
     ['"voice-first-mutation-canary"',
       "npm run validate:voice-first-mutation-canary"],
+    ['"engineering-engine-no-duplicate-authority"', "npm run validate:engineering-engine-no-duplicate-authority"],
+    ['"engineering-engine-core-domain"', "npm run validate:engineering-engine-core-domain"],
+    ['"quality-readiness"', "npm run validate:quality-readiness"],
+    ['"engine-release"', "npm run validate:engine-release"],
     ['"watchtower"', "npm run validate:watchtower"],
   ];
   for (const [stepId, command] of requiredSteps) {

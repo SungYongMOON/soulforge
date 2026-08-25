@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.project_binding.v0",
+  "title": "ProjectBinding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "project_id",
+    "domain_engine_id",
+    "binding_revision_hash",
+    "source_manifest_ref"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "soulforge.project_binding.v0"
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "domain_engine_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "binding_revision_hash": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_manifest_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "authority_family": {
+      "type": "string"
+    },
+    "valid_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "known_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "document_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

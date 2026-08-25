@@ -1,0 +1,24 @@
+{
+  "schema_version": "soulforge.engineering_profile.v0",
+  "profile_kind": "project",
+  "profile_id": "project_alpha_synthetic_v0",
+  "domain_engine_id": "systems_engineering",
+  "revision_hash": "f0e1d2c3b4a5968778695a4b3c2d1e0ffeeddccbbaa99887766554433221100f",
+  "extends_base_pin": "org_synthetic_exemplar_v0",
+  "description": "Public-safe synthetic Project Profile exemplar demonstrating project-specific deltas",
+  "source_refs": [
+    "docs/architecture/workspace/examples/engineering_profiles/project_alpha_synthetic_v0.json"
+  ],
+  "operations": [
+    {
+      "op": "condition",
+      "token": "SW_SAFETY_CRITICAL",
+      "condition": "IS_SAFETY_CRITICAL_ENABLED"
+    },
+    {
+      "op": "not_applicable",
+      "token": "ORG_INTERNAL_REVIEW",
+      "reason": "waived_for_synthetic_pilot"
+    }
+  ]
+}

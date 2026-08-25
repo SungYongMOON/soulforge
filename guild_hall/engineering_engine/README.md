@@ -1,5 +1,31 @@
 # guild_hall/engineering_engine
 
+## Package Architecture & Layout
+
+The Engineering Engine is structured into an orchestration Core, decoupled Domain Engines, and public-safe Engineering Profiles:
+
+1. **`core/`**: Shared validation and runtime orchestration core.
+   - `interfaces/`: Canonical Domain Engine Adapter (`domain_engine_adapter.mjs`), Project Profile Adapter (`project_profile_adapter.mjs`), and Project Binding Adapter (`project_binding_adapter.mjs`).
+   - `rule_assembly/`: Profile resolution, rule assembly coordination, and compilation trace generation (`profile_resolver.mjs`, `rule_assembler.mjs`, `compilation_trace.mjs`).
+   - `evaluation_runtime/`: Multi-domain evaluation dispatch, result envelopes, and claim ceilings (`evaluation_coordinator.mjs`, `result_envelope.mjs`, `claim_ceilings.mjs`).
+   - `validators/`: 25 canonical data and execution guards (`canonical.mjs`, `fingerprint.mjs`, `identity.mjs`, etc.).
+   - `runtime/`: Core engine pass execution logic (`engine_pass.mjs`).
+
+2. **`engines/`**: Domain Engine implementations adhering to the Core Interface.
+   - `engines/systems_engineering/`: Systems Engineering (SE) domain package with contracts, fixtures, 12-chapter manual, rules compiler, evaluation subjects, compiler/evaluator adapters, and `engine.yaml`.
+   - `engines/quality_readiness/`: Quality Readiness (QR) domain package with contracts, public synthetic fixtures, 14-chapter manual, evaluation suite, compiler/evaluator adapters, tests, and `engine.yaml`.
+
+3. **`.registry/engineering_profiles/`**: Public-safe schema and profile catalog.
+   - `schemas/engineering_profile_schema_v0.json`: Schema governing Organization and Project profiles.
+   - `organizations/`: Organization tailoring profiles and catalog documentation.
+
+4. **Root Shared Tooling vs. Domain-Owned Implementation**:
+   - **Root Shared Tooling (`tools/`)**: Contains whole-engine generator and integration tooling (`emit_manifest.mjs`, `emit_release_manifest.mjs`, `emit_topology.mjs`, `phase_1_integration_check.mjs`, `validate_no_duplicate_authority.mjs`). Domain-specific CLI scripts under `tools/` act as thin forwarding stubs to their respective canonical domain package runners.
+   - **Domain-Owned Implementation (`engines/<domain>/`)**: Each domain package (`systems_engineering/`, `quality_readiness/`) owns its domain rules, evaluation subjects, observation, guidance, mcp server, test suites, contracts, fixtures, and domain-specific tool runners.
+
+5. **Compatibility Re-exports**:
+   - `kernel/`, `assembly/`, `stage_rules/`, `subjects/`, `observation/`, `guidance/`, `evaluation/`, `mcp/`, `fixtures/`, and `tests/` maintain backward-compatible re-export and forwarding stubs to preserve existing imports, CLI tools, and deterministic verification harnesses.
+
 ## SE-core source-pack and fixed-case evaluation
 
 The public-safe SE-core evaluation seam has seven distinct layers:
@@ -1464,13 +1490,13 @@ public fixture와 focused validator:
 - `docs/architecture/workspace/examples/ax_se_project_assessment/ax_se_project_assessment_synthetic_v0.json`
 - `docs/architecture/workspace/examples/ax_se_project_assessment/ax_se_project_role_roster_synthetic_v0.json`
 - `docs/architecture/workspace/examples/ax_se_project_assessment/ax_se_project_role_bound_assessment_synthetic_v1.json`
-- `guild_hall/engineering_engine/tests/ax_se_project_assessment.test.mjs`
-- `guild_hall/engineering_engine/tests/ax_se_project_role_roster.test.mjs`
-- `guild_hall/engineering_engine/tests/ax_se_project_role_bound_assessment.test.mjs`
-- `guild_hall/engineering_engine/tests/ax_se_project_assessment_runner.test.mjs`
-- `guild_hall/engineering_engine/tests/ax_se_project_role_bound_assessment_runner.test.mjs`
-- `guild_hall/engineering_engine/tests/ax_se_project_context_pilot.test.mjs`
-- `guild_hall/engineering_engine/tests/ax_se_project_context_pilot_runner.test.mjs`
+- `guild_hall/engineering_engine/engines/systems_engineering/tests/ax_se_project_assessment.test.mjs`
+- `guild_hall/engineering_engine/engines/systems_engineering/tests/ax_se_project_role_roster.test.mjs`
+- `guild_hall/engineering_engine/engines/systems_engineering/tests/ax_se_project_role_bound_assessment.test.mjs`
+- `guild_hall/engineering_engine/engines/systems_engineering/tests/ax_se_project_assessment_runner.test.mjs`
+- `guild_hall/engineering_engine/engines/systems_engineering/tests/ax_se_project_role_bound_assessment_runner.test.mjs`
+- `guild_hall/engineering_engine/engines/systems_engineering/tests/ax_se_project_context_pilot.test.mjs`
+- `guild_hall/engineering_engine/engines/systems_engineering/tests/ax_se_project_context_pilot_runner.test.mjs`
 - `npm run validate:engineering-engine-ax-se-project-context-pilot` — M2-2 pure composition과
   two-flag zero-write command의 syntax·public-synthetic·adversarial 계약을 검증한다.
 - `npm run validate:engineering-engine-ax-se-project-assessment` — assessment·role-roster·

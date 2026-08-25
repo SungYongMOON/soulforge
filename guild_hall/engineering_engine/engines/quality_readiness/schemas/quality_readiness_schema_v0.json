@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.quality_readiness_domain_descriptor.v0",
+  "title": "QualityReadinessDomainDescriptor",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "domain_engine_id",
+    "title",
+    "revision",
+    "status",
+    "interfaces"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "soulforge.quality_readiness_domain_descriptor.v0"
+    },
+    "domain_engine_id": {
+      "type": "string",
+      "const": "quality_readiness"
+    },
+    "title": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "interfaces": {
+      "type": "object"
+    },
+    "rules": {
+      "type": "object"
+    },
+    "evaluator": {
+      "type": "object"
+    },
+    "manual": {
+      "type": "object"
+    },
+    "contracts": {
+      "type": "object"
+    }
+  }
+}

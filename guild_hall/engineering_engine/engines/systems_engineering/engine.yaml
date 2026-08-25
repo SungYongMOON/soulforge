@@ -1,0 +1,22 @@
+schema_version: soulforge.domain_engine_descriptor.v0
+domain_engine_id: systems_engineering
+display_name: Systems Engineering Domain Engine
+version: 0.1.0
+status: candidate
+claim_ceiling: source_supported
+execution_mode: deterministic_only
+contracts:
+  engine_output_read_contract: engines/systems_engineering/contracts/engine_output_read_contract_v0.md
+  runtime_observation: engines/systems_engineering/contracts/runtime_observation_v0.md
+schemas:
+  stage_rules: soulforge.se_stage_rule_compiler.v0
+  pilot_packet: soulforge.ax_se_pilot_packet_generator.v0
+  assessment: soulforge.ax_se_project_assessment.v0
+  role_roster: soulforge.ax_se_project_role_roster.v0
+  role_bound_assessment: soulforge.ax_se_project_role_bound_assessment.v1
+compiler_adapter: engines/systems_engineering/compiler/se_compiler_adapter.mjs
+evaluator_adapter: engines/systems_engineering/evaluator/se_evaluator_adapter.mjs
+fixtures:
+  synthetic_project: engines/systems_engineering/fixtures/engine_mcp_synthetic_project.mjs
+manual:
+  root: engines/systems_engineering/manual/README.md

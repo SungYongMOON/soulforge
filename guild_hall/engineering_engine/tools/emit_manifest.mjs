@@ -32,7 +32,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ENGINE = join(HERE, '..');
 
 const INCLUDED_DIRS = [
-  'kernel', 'assembly', 'subjects', 'evaluation', 'tools', 'tests', 'contracts', 'fixtures', 'topology',
+  'core', 'engines', 'kernel', 'assembly', 'subjects', 'evaluation', 'tools', 'tests', 'contracts', 'fixtures', 'topology',
   'mcp', 'stage_rules', 'observation', 'guidance',
 ];
 const INCLUDED_ROOT_FILES = ['README.md'];

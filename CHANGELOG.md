@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## 2026-08-25 - Engineering Engine physical package layout migration
+
+- **Core & Domain Engine restructuring**: Migrated `guild_hall/engineering_engine/` from a flat layout to a modular three-tier structure:
+  - `core/`: Shared data guards, authority/identity verification, Rule Assembly and Evaluation orchestration interfaces (`domain_engine_adapter.mjs`, `project_profile_adapter.mjs`, `project_binding_adapter.mjs`), rule assembly coordination (`profile_resolver.mjs`, `rule_assembler.mjs`, `compilation_trace.mjs`), evaluation coordination (`evaluation_coordinator.mjs`, `result_envelope.mjs`, `claim_ceilings.mjs`), and canonical runtime execution.
+  - `engines/systems_engineering/`: Self-contained Systems Engineering domain package with `engine.yaml`, domain contracts, synthetic fixtures, 12-chapter manual, rules compiler, evaluation subjects, and domain adapters.
+  - `engines/quality_readiness/`: Self-contained Quality Readiness (E01) domain package integrated from read-only branch with `engine.yaml`, domain contracts, public synthetic fixtures, 14-chapter manual, rules, evaluators, adapters, and 21 deterministic test cases.
+- **Engineering Profiles & Registry**: Created `.registry/engineering_profiles/` containing public-safe schemas (`engineering_profile_schema_v0.json`) and Organization Profile catalog documentation with strict segregation of customer/project payloads and provenance preservation.
+- **Compatibility & Conformance**:
+  - Maintained backward-compatibility re-exports across `kernel/`, `assembly/`, `stage_rules/`, `subjects/`, `observation/`, `guidance/`, `evaluation/`, `mcp/`, `fixtures/`, and `tests/` to ensure zero disruption to existing tools and callers.
+  - Eliminated duplicate fixture payloads from flat `fixtures/` (`phase_2_oracle_spec.json`, `phase_2_oracle_spec.sha256`) and established target `engines/systems_engineering/fixtures/` as sole canonical fixture authority.
+  - Updated `emit_release_manifest.mjs` to bind directly to canonical `engines/systems_engineering/rules/` implementations and added `release_manifest_drift.test.mjs`.
+  - Rewrote `emit_topology.mjs` to recursively map 130 canonical modules and 400 static internal module edges across `core/` and `engines/` with full-document digest coverage, excluding legacy compatibility wrappers.
+  - Updated `phase_1_integration_check.mjs` to canonical test suite paths and added `validate:engineering-engine-phase-1-public-integration`.
+  - Added structural `validate_no_duplicate_authority.mjs` covering all flat directories and payloads, verified with `no_duplicate_authority_regression.test.mjs`.
+  - Added comprehensive Core Domain Conformance test suite (`core/tests/core_domain_conformance.test.mjs`).
+  - Added package scripts `validate:quality-readiness`, `validate:engineering-engine-core-domain`, `validate:engineering-engine-no-duplicate-authority`, `validate:engineering-engine-legacy-compatibility`, and `validate:engineering-engine-phase-1-public-integration`.
+  - Regenerated and verified `topology/engine_topology.json`, `topology/engine_manifest.sha256`, and `topology/engine_release.json`.
+
 ## 2026-08-25 - Engineering Engine Core·Domain·Profile assembly model
 
 - **Owner-approved terminology**: Fixed `Engineering Engine Core`, `Domain Engine`,

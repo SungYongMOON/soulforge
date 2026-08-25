@@ -160,23 +160,23 @@ export function adaptEngineeringEngineTopology(exactSourceBytes) {
   if (topology.module_count !== topology.modules?.length || topology.module_edge_count !== topology.module_edges?.length) {
     fail("topology_adapter_engine_declared_count_mismatch");
   }
-  // 35/156, not 36/159. The engine grew by one real module, `project_context_acceptance_gate`, and
-  // by one contaminant: that module's own test file sat in `kernel/`, which the emitter scans as a
-  // code area, so it was counted as a module and brought three edges with it. Raising the pin to
-  // the observed 36 would have blessed the contamination; the test now lives in `tests/` and this
-  // pin records only the legitimate growth.
-  assertExpectedCounts(topology.modules, topology.module_edges, 35, 156, "engineering_engine_topology_source");
+  // 130/400. Pinned to the canonical recursive multi-domain topology across core/,
+  // engines/systems_engineering/, and engines/quality_readiness/. Legacy flat compatibility
+  // wrappers (kernel, assembly, stage_rules, subjects, observation, guidance, evaluation, mcp,
+  // fixtures, tools, tests) are excluded from canonical module counts.
+  assertExpectedCounts(topology.modules, topology.module_edges, 130, 400, "engineering_engine_topology_source");
   assertEmbeddedEngineDigest(topology);
 
   const nodes = topology.modules.map((module) => {
     assertPlainObject(module, "topology_adapter_engine_module_shape");
+    const id = module.module.replace(/\//g, ".");
     return {
-      id: module.module,
+      id,
       label: module.module,
       kind: "module",
       layer: "module",
       parent_id: null,
-      group: module.area,
+      group: module.area.replace(/\//g, "."),
       diagnostic_state: "validator_backed",
       repair_state: "none",
     };
@@ -184,10 +184,14 @@ export function adaptEngineeringEngineTopology(exactSourceBytes) {
   const edges = topology.module_edges.map((edge) => {
     assertPlainObject(edge, "topology_adapter_engine_edge_shape");
     if (edge.relation !== "imports") fail("topology_adapter_engine_relation_mismatch", edge.relation ?? "missing");
+    const from = edge.from.replace(/\//g, ".");
+    const to = edge.to.replace(/\//g, ".");
+    const rawId = `imports.${from}.${to}`;
+    const id = rawId.length <= 95 ? rawId : `imports.${createHash("sha256").update(rawId).digest("hex").slice(0, 32)}`;
     return {
-      id: `imports.${edge.from}.${edge.to}`,
-      from: edge.from,
-      to: edge.to,
+      id,
+      from,
+      to,
       label: "imports",
       relation: "imports",
       layer: "module",

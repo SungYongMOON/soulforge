@@ -1,0 +1,1047 @@
+{
+  "schema_version": "soulforge.quality_readiness.source_family_matrix_candidate.v1",
+  "status": "candidate_input_only",
+  "claim_ceiling": "observed",
+  "source_authority_created": false,
+  "source_adoption": false,
+  "rule_acceptance": false,
+  "derived_from_inventory": "guild_hall/engineering_engine/contracts/quality_readiness_public_source_inventory_candidate_v1.json",
+  "source_count": 56,
+  "title_publisher_note": "Inventory title/publisher/url remain owned by the input inventory; this matrix references sources by source_id only and duplicates no source body or long quotation.",
+  "routing_metadata_note": "Counts in this matrix are routing/classification metadata only. They are not coverage, sufficiency, or compliance evidence. RAG/index state is retrieval support, never verdict authority.",
+  "field_enums": {
+    "disposition": [
+      "proof_subset_reconcile",
+      "eligible_common_candidate",
+      "context_only",
+      "metadata_only",
+      "blocked_format",
+      "excluded_overlay_or_vendor",
+      "out_of_scope_adjacent"
+    ],
+    "proof_subset_overlap": [
+      "none",
+      "direct_proof_subset_document",
+      "same_family_no_document_overlap"
+    ],
+    "body_access_state": [
+      "official_public_extracted_unreviewed",
+      "official_public_extracted_hwp_blocked",
+      "official_public_page_context",
+      "metadata_api_record_only"
+    ],
+    "extraction_review_state": [
+      "machine_extracted_unreviewed",
+      "multi_file_machine_extracted_unreviewed",
+      "page_context_not_clause_extracted",
+      "metadata_record_no_body_review"
+    ],
+    "common_engine_relevance": [
+      "core",
+      "supporting",
+      "contextual",
+      "none"
+    ],
+    "candidate_quality_domains": [
+      "contract_quality_administration",
+      "quality_system_requirements",
+      "supplier_quality",
+      "workmanship",
+      "inspection_and_test",
+      "nonconformance_and_corrective_action",
+      "configuration_management",
+      "technical_data_packages",
+      "counterfeit_prevention",
+      "software_quality",
+      "metrology_calibration",
+      "certification_and_accreditation",
+      "quality_planning",
+      "governance_and_organization"
+    ],
+    "research_batch": [
+      "Q-B1",
+      "deferred"
+    ]
+  },
+  "families": [
+    {
+      "family_id": "kr_dapa_regulation",
+      "scope": "DAPA defense acquisition quality/administrative rules and notices published via the National Law Information Center.",
+      "host_class": "official_public_law_go_kr"
+    },
+    {
+      "family_id": "kr_kds_dqms_standard",
+      "scope": "Korean defense specification (KDS) for the defense quality management system, hosted on the national standards portal.",
+      "host_class": "official_public_standard_portal"
+    },
+    {
+      "family_id": "kr_dtaq_rules",
+      "scope": "Defense Agency for Technology and Quality (DTaQ) regulations, instructions, and notices on quality certification and assurance.",
+      "host_class": "official_public_agency_site"
+    },
+    {
+      "family_id": "kr_kolas_commentary",
+      "scope": "KOLAS public commentary on KS Q ISO/IEC 17025 hosted via the National Law Information Center.",
+      "host_class": "official_public_download"
+    },
+    {
+      "family_id": "vendor_customer_overlay_context",
+      "scope": "Vendor self-published corporate reporting; never common engine truth.",
+      "host_class": "vendor_public_site"
+    },
+    {
+      "family_id": "nato_aqap_national_publications",
+      "scope": "NATO AQAP publications and overviews republished by national defence authorities.",
+      "host_class": "official_public_national_ministry"
+    },
+    {
+      "family_id": "us_acquisition_far_dfars",
+      "scope": "U.S. Federal Acquisition Regulation and Defense FAR Supplement quality parts and clauses on the official publication host.",
+      "host_class": "official_public_acquisition_gov"
+    },
+    {
+      "family_id": "us_dod_policy_directives",
+      "scope": "DoD directives and manuals on counterfeit prevention, GIDEP, item identification, engineering, software acquisition, and technical data.",
+      "host_class": "official_public_dod_esd"
+    },
+    {
+      "family_id": "uk_mod_guidance",
+      "scope": "UK Ministry of Defence public quality and configuration-management practitioner guidance.",
+      "host_class": "official_public_gov_uk_asset"
+    },
+    {
+      "family_id": "nasa_workmanship_standards",
+      "scope": "NASA workmanship standards family (NASA-STD-8739 series) on the official NASA Technical Standards System.",
+      "host_class": "official_public_standards_nasa"
+    },
+    {
+      "family_id": "us_dla_assist_mil_docs",
+      "scope": "MIL-STD/MIL-HDBK documents and guides surfaced through DLA ASSIST Quick Search metadata.",
+      "host_class": "official_public_assist"
+    },
+    {
+      "family_id": "eda_edstar_aqap_metadata",
+      "scope": "European Defence Agency EDSTAR API metadata records for AQAP documents; record-level metadata only.",
+      "host_class": "official_public_metadata_api"
+    }
+  ],
+  "qb1_batch_id": "Q-B1",
+  "qb1_count": 11,
+  "qb1_selection_rule": "small high-value first derivation batch expanding E01 beyond the three-source proof; excludes blocked_format, metadata_only, vendor-overlay, paid/controlled-dependent, and legacy rows",
+  "qb1_source_ids": [
+    "aqap_2110_italy_mod_official_pdf",
+    "aqap_2131_italy_mod_official_pdf",
+    "dapa_dqms_certification_management_guideline_law",
+    "dapa_quality_management_rule_law_20251017",
+    "dfars_252_246_7007_counterfeit_electronic_parts",
+    "dfars_part_246_quality_assurance",
+    "dodi_4140_67_counterfeit_prevention",
+    "dodi_5000_87_software_acquisition",
+    "dtaq_aqap_2110_certification_rule_20260521",
+    "dtaq_international_gqa_export_import_basic_rule_20251105",
+    "mil_hdbk_61_configuration_management"
+  ],
+  "sources": [
+    {
+      "source_id": "dapa_quality_management_rule_law_20251017",
+      "family_id": "kr_dapa_regulation",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "Public DAPA quality-management administrative rule; common national regulation, not customer-specific.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "core",
+      "candidate_quality_domains": [
+        "quality_system_requirements",
+        "contract_quality_administration",
+        "governance_and_organization"
+      ],
+      "research_batch": "Q-B1",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "dapa_dqms_certification_management_guideline_law",
+      "family_id": "kr_dapa_regulation",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "Public guideline governing the national DQMS certification regime; common regulatory knowledge.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "core",
+      "candidate_quality_domains": [
+        "certification_and_accreditation",
+        "supplier_quality"
+      ],
+      "research_batch": "Q-B1",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "dapa_standardization_rule_law_20250916",
+      "family_id": "kr_dapa_regulation",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "Public standardization administrative rule; supports governance context for defense quality baselines.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "supporting",
+      "candidate_quality_domains": [
+        "governance_and_organization"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "dapa_contract_special_conditions_law_20260102",
+      "family_id": "kr_dapa_regulation",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "Public standard contract special conditions for manufacturing/purchase including defense items; contract-quality adjacency.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "supporting",
+      "candidate_quality_domains": [
+        "contract_quality_administration"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "dapa_dq_mark_notice_law_20240408",
+      "family_id": "kr_dapa_regulation",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "Public notice operating the DQ-mark certification scheme; certification-domain knowledge.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "supporting",
+      "candidate_quality_domains": [
+        "certification_and_accreditation"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "kds_0050_9000_dqms_legacy_pdf",
+      "family_id": "kr_kds_dqms_standard",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "KDS defense quality management system requirements specification; core quality-system knowledge, but reached via a legacy direct file download.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "core",
+      "candidate_quality_domains": [
+        "quality_system_requirements",
+        "supplier_quality"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "current revision UNKNOWN: the official_url is a legacy file-download ref (file id suggests a 2022-era snapshot); resolve the live KDS 0050-9000 revision and status on the national standards portal before any binding"
+    },
+    {
+      "source_id": "dtaq_standardization_quality_certification_page",
+      "family_id": "kr_dtaq_rules",
+      "disposition": "context_only",
+      "disposition_reason": "Agency work-introduction page; organizational orientation without clause-level requirements.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_page_context",
+      "extraction_review_state": "page_context_not_clause_extracted",
+      "common_engine_relevance": "contextual",
+      "candidate_quality_domains": [
+        "certification_and_accreditation",
+        "governance_and_organization"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": false,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "dtaq_aqap_2110_certification_rule_20260521",
+      "family_id": "kr_dtaq_rules",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "DTaQ rule operating NATO AQAP-2110 certification; bridges Korean certification practice and NATO QA requirements.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "multi_file_machine_extracted_unreviewed",
+      "common_engine_relevance": "core",
+      "candidate_quality_domains": [
+        "certification_and_accreditation",
+        "inspection_and_test"
+      ],
+      "research_batch": "Q-B1",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "dtaq_weapon_system_rd_quality_instruction_20260114",
+      "family_id": "kr_dtaq_rules",
+      "disposition": "blocked_format",
+      "disposition_reason": "Weapon-system R&D phase quality instruction; relevant domain but at least one attached file is HWP requiring normalization.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_hwp_blocked",
+      "extraction_review_state": "multi_file_machine_extracted_unreviewed",
+      "common_engine_relevance": "core",
+      "candidate_quality_domains": [
+        "quality_system_requirements"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "HWP body blocker: no body-level claim before true HWPX normalization (appendix A section 8 register); stays HOLD past metadata until an owner-approved HWPX route exists"
+    },
+    {
+      "source_id": "dtaq_munitions_quality_management_basic_rule_20251119",
+      "family_id": "kr_dtaq_rules",
+      "disposition": "blocked_format",
+      "disposition_reason": "Munitions quality management basic rule; relevant domain but at least one attached file is HWP requiring normalization.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_hwp_blocked",
+      "extraction_review_state": "multi_file_machine_extracted_unreviewed",
+      "common_engine_relevance": "supporting",
+      "candidate_quality_domains": [
+        "quality_system_requirements"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "HWP body blocker: no body-level claim before true HWPX normalization; stays HOLD past metadata"
+    },
+    {
+      "source_id": "dtaq_international_gqa_export_import_basic_rule_20251105",
+      "family_id": "kr_dtaq_rules",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "Basic rule on international government quality assurance agreements and export/import QA; connects Korean and allied GQA practice.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "core",
+      "candidate_quality_domains": [
+        "contract_quality_administration",
+        "supplier_quality"
+      ],
+      "research_batch": "Q-B1",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "inventory reports source_file_count 2 but projects only one extractor status; per-file extraction coverage is UNKNOWN pending direct source-body audit"
+    },
+    {
+      "source_id": "dtaq_dqms_certification_business_rule_20220725",
+      "family_id": "kr_dtaq_rules",
+      "disposition": "blocked_format",
+      "disposition_reason": "DQMS certification business rule; relevant domain but at least one attached file is HWP requiring normalization.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_hwp_blocked",
+      "extraction_review_state": "multi_file_machine_extracted_unreviewed",
+      "common_engine_relevance": "supporting",
+      "candidate_quality_domains": [
+        "certification_and_accreditation"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "HWP body blocker: no body-level claim before true HWPX normalization; stays HOLD past metadata"
+    },
+    {
+      "source_id": "dtaq_aqap_2110_application_notice_2026",
+      "family_id": "kr_dtaq_rules",
+      "disposition": "context_only",
+      "disposition_reason": "Certification application guidance notice; procedural applicant-facing context, not requirement text.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "contextual",
+      "candidate_quality_domains": [
+        "certification_and_accreditation"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "kolas_g_005_iso_iec_17025_commentary_2025_law_pdf",
+      "family_id": "kr_kolas_commentary",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "Public KOLAS commentary on KS Q ISO/IEC 17025; addresses the metrology/calibration coverage gap, usable only at the commentary's own public content.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "supporting",
+      "candidate_quality_domains": [
+        "metrology_calibration"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "the operative ISO/IEC 17025 standard body is paid/controlled; no acceptance/defect criteria may be expanded from the commentary or references alone (appendix A section 4/8); commentary-only ceiling until an authorized channel exists"
+    },
+    {
+      "source_id": "lig_nex1_sustainability_report_2024_public_context",
+      "family_id": "vendor_customer_overlay_context",
+      "disposition": "excluded_overlay_or_vendor",
+      "disposition_reason": "Vendor self-published sustainability report; customer/vendor context belonging to a private overlay plane, never common engine truth.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "none",
+      "candidate_quality_domains": [],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": false,
+      "unresolved_or_hold": "permanently outside the common engine layer; any future use would require a separate owner-approved private overlay plane and gates (appendix A section 8)"
+    },
+    {
+      "source_id": "bundeswehr_aqap_overview_page",
+      "family_id": "nato_aqap_national_publications",
+      "disposition": "context_only",
+      "disposition_reason": "National authority overview page explaining the AQAP system; orientation context without operative clauses.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_page_context",
+      "extraction_review_state": "page_context_not_clause_extracted",
+      "common_engine_relevance": "contextual",
+      "candidate_quality_domains": [
+        "contract_quality_administration"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": false,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "aqap_2110_italy_mod_official_pdf",
+      "family_id": "nato_aqap_national_publications",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "AQAP-2110 body (design/development/production QA requirements) published by a national ministry of defence; expands contract QA beyond FAR/MIL proof.",
+      "proof_subset_overlap": "same_family_no_document_overlap",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "core",
+      "candidate_quality_domains": [
+        "quality_system_requirements",
+        "nonconformance_and_corrective_action"
+      ],
+      "research_batch": "Q-B1",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "current NATO edition/status not confirmed: the national republication's edition (filename suggests edd v1) must be reconciled against the current NATO baseline before any binding"
+    },
+    {
+      "source_id": "aqap_2105_italy_mod_official_pdf",
+      "family_id": "nato_aqap_national_publications",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "AQAP-2105 body (deliverable quality plans) published by a national ministry of defence; addresses the quality-planning gap.",
+      "proof_subset_overlap": "same_family_no_document_overlap",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "core",
+      "candidate_quality_domains": [
+        "quality_planning",
+        "contract_quality_administration"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "G-01-AQAP HOLD carried forward from the accepted packet: no current revision/body/applicability claim; reopening requires the OD-05 authorized-channel decision; national republication edition also unconfirmed"
+    },
+    {
+      "source_id": "aqap_2131_italy_mod_official_pdf",
+      "family_id": "nato_aqap_national_publications",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "AQAP-2131 body (final inspection and test) published by a national ministry of defence; expands inspection/test domain beyond the proof subset.",
+      "proof_subset_overlap": "same_family_no_document_overlap",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "core",
+      "candidate_quality_domains": [
+        "inspection_and_test",
+        "nonconformance_and_corrective_action"
+      ],
+      "research_batch": "Q-B1",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "current NATO edition/status not confirmed against the current NATO baseline before any binding"
+    },
+    {
+      "source_id": "far_part_46_quality_assurance",
+      "family_id": "us_acquisition_far_dfars",
+      "disposition": "proof_subset_reconcile",
+      "disposition_reason": "Same document as packet-bound proof-subset source S2-FAR-46; any later derivation must reconcile against the packet's exact FAC-bound locators, not merge silently.",
+      "proof_subset_overlap": "direct_proof_subset_document",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "core",
+      "candidate_quality_domains": [
+        "contract_quality_administration",
+        "nonconformance_and_corrective_action"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "dfars_part_246_quality_assurance",
+      "family_id": "us_acquisition_far_dfars",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "DFARS Part 246 extends federal contract quality administration into the defense supplement; natural next expansion of the FAR proof source.",
+      "proof_subset_overlap": "same_family_no_document_overlap",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "core",
+      "candidate_quality_domains": [
+        "contract_quality_administration",
+        "nonconformance_and_corrective_action"
+      ],
+      "research_batch": "Q-B1",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "dfars_252_246_7007_counterfeit_electronic_parts",
+      "family_id": "us_acquisition_far_dfars",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "Contract clause establishing a contractor counterfeit electronic part detection and avoidance system; opens the counterfeit-prevention gap.",
+      "proof_subset_overlap": "same_family_no_document_overlap",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "core",
+      "candidate_quality_domains": [
+        "counterfeit_prevention",
+        "supplier_quality"
+      ],
+      "research_batch": "Q-B1",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "dfars_252_246_7008_sources_electronic_parts",
+      "family_id": "us_acquisition_far_dfars",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "Contract clause restricting electronic part sources; complements the counterfeit-prevention domain.",
+      "proof_subset_overlap": "same_family_no_document_overlap",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "supporting",
+      "candidate_quality_domains": [
+        "counterfeit_prevention",
+        "supplier_quality"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "dodi_4140_67_counterfeit_prevention",
+      "family_id": "us_dod_policy_directives",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "DoD counterfeit prevention policy directive; department-level basis for the counterfeit-prevention domain.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "core",
+      "candidate_quality_domains": [
+        "counterfeit_prevention"
+      ],
+      "research_batch": "Q-B1",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "dodi_5200_49_gidep",
+      "family_id": "us_dod_policy_directives",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "GIDEP program directive; government-industry data exchange for defect/counterfeit alerts supporting nonconformance awareness.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "supporting",
+      "candidate_quality_domains": [
+        "counterfeit_prevention",
+        "nonconformance_and_corrective_action"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "dodi_8320_04_iuid",
+      "family_id": "us_dod_policy_directives",
+      "disposition": "out_of_scope_adjacent",
+      "disposition_reason": "Item unique identification serves asset visibility and logistics; not a stage-by-stage quality activity/artifact/acceptance source.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "contextual",
+      "candidate_quality_domains": [],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "dodi_5000_88_engineering_das",
+      "family_id": "us_dod_policy_directives",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "Defense systems engineering directive; frames technical reviews and quality-related engineering duties across the lifecycle.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "supporting",
+      "candidate_quality_domains": [
+        "governance_and_organization",
+        "quality_system_requirements"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "dodi_5000_87_software_acquisition",
+      "family_id": "us_dod_policy_directives",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "Software acquisition pathway directive; entry point for the software-quality coverage gap.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "supporting",
+      "candidate_quality_domains": [
+        "software_quality",
+        "governance_and_organization"
+      ],
+      "research_batch": "Q-B1",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "dodm_5010_12_m_daps",
+      "family_id": "us_dod_policy_directives",
+      "disposition": "out_of_scope_adjacent",
+      "disposition_reason": "Technical data acquisition and management procedures; data-rights/data-management focus rather than quality readiness activities.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "contextual",
+      "candidate_quality_domains": [],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "uk_mod_quality_cm_pocket_guide_2024",
+      "family_id": "uk_mod_guidance",
+      "disposition": "context_only",
+      "disposition_reason": "Practitioner guidance booklet; advisory narrative whose clause-level requirement content is unconfirmed, kept out of derivation batches.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "contextual",
+      "candidate_quality_domains": [
+        "configuration_management",
+        "quality_system_requirements"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "nasa_std_8739_1_workmanship_polymeric",
+      "family_id": "nasa_workmanship_standards",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "NASA polymeric workmanship standard; sibling of the accepted NASA-STD-8739.6B implementation standard.",
+      "proof_subset_overlap": "same_family_no_document_overlap",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "multi_file_machine_extracted_unreviewed",
+      "common_engine_relevance": "core",
+      "candidate_quality_domains": [
+        "workmanship"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "nasa_std_8739_2_surface_mount",
+      "family_id": "nasa_workmanship_standards",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "NASA surface-mount workmanship standard; sibling of the accepted NASA implementation standard.",
+      "proof_subset_overlap": "same_family_no_document_overlap",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "core",
+      "candidate_quality_domains": [
+        "workmanship"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "nasa_std_8739_3_soldered_connections",
+      "family_id": "nasa_workmanship_standards",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "NASA soldered-connection workmanship standard; sibling of the accepted NASA implementation standard.",
+      "proof_subset_overlap": "same_family_no_document_overlap",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "core",
+      "candidate_quality_domains": [
+        "workmanship"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "nasa_std_8739_4_crimp_cable_harness",
+      "family_id": "nasa_workmanship_standards",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "NASA crimp/harness workmanship standard; sibling of the accepted NASA implementation standard.",
+      "proof_subset_overlap": "same_family_no_document_overlap",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "multi_file_machine_extracted_unreviewed",
+      "common_engine_relevance": "core",
+      "candidate_quality_domains": [
+        "workmanship"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "nasa_std_8739_5_fiber_optic",
+      "family_id": "nasa_workmanship_standards",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "NASA fiber-optic workmanship standard; sibling of the accepted NASA implementation standard.",
+      "proof_subset_overlap": "same_family_no_document_overlap",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "multi_file_machine_extracted_unreviewed",
+      "common_engine_relevance": "core",
+      "candidate_quality_domains": [
+        "workmanship"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "nasa_std_8739_6_workmanship_implementation",
+      "family_id": "nasa_workmanship_standards",
+      "disposition": "proof_subset_reconcile",
+      "disposition_reason": "Same document family/document as packet-bound proof-subset source S3-NASA-STD-8739.6B; the inventory row is not revision-pinned, so reconciliation against the packet's exact B/Change-0 binding is required before reuse.",
+      "proof_subset_overlap": "direct_proof_subset_document",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "multi_file_machine_extracted_unreviewed",
+      "common_engine_relevance": "core",
+      "candidate_quality_domains": [
+        "quality_system_requirements",
+        "workmanship"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "nasa_std_8739_7_esd_control",
+      "family_id": "nasa_workmanship_standards",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "NASA ESD control standard; sibling family member whose operative program criteria depend partly on a paid ANSI/ESD baseline.",
+      "proof_subset_overlap": "same_family_no_document_overlap",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "machine_extracted_unreviewed",
+      "common_engine_relevance": "core",
+      "candidate_quality_domains": [
+        "workmanship"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "operative program criteria reference the ANSI/ESD S20.20-family baseline, which is paid/controlled; NASA-side clauses only until an authorized channel exists (appendix A section 8)"
+    },
+    {
+      "source_id": "mil_std_1916_acceptance_product",
+      "family_id": "us_dla_assist_mil_docs",
+      "disposition": "proof_subset_reconcile",
+      "disposition_reason": "Same document as packet-bound proof-subset source S1-MIL-STD-1916; this inventory row must reconcile to the packet's exact base-document and Notice 2 status binding before reuse.",
+      "proof_subset_overlap": "direct_proof_subset_document",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "multi_file_machine_extracted_unreviewed",
+      "common_engine_relevance": "core",
+      "candidate_quality_domains": [
+        "quality_system_requirements",
+        "inspection_and_test",
+        "nonconformance_and_corrective_action"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "mil_hdbk_61_configuration_management",
+      "family_id": "us_dla_assist_mil_docs",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "Configuration management guidance handbook; addresses the configuration-management coverage gap with handbook (advisory) modality.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "multi_file_machine_extracted_unreviewed",
+      "common_engine_relevance": "supporting",
+      "candidate_quality_domains": [
+        "configuration_management"
+      ],
+      "research_batch": "Q-B1",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "mil_std_31000_technical_data_packages",
+      "family_id": "us_dla_assist_mil_docs",
+      "disposition": "eligible_common_candidate",
+      "disposition_reason": "Technical data package standard; supports the technical-data/configuration artifact domain.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "multi_file_machine_extracted_unreviewed",
+      "common_engine_relevance": "supporting",
+      "candidate_quality_domains": [
+        "technical_data_packages",
+        "configuration_management"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "mil_std_130_identification_marking",
+      "family_id": "us_dla_assist_mil_docs",
+      "disposition": "out_of_scope_adjacent",
+      "disposition_reason": "Item identification marking standard; marking compliance rather than stage-by-stage quality activity/artifact/acceptance readiness.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "multi_file_machine_extracted_unreviewed",
+      "common_engine_relevance": "contextual",
+      "candidate_quality_domains": [],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "mil_std_129_shipment_storage_marking",
+      "family_id": "us_dla_assist_mil_docs",
+      "disposition": "out_of_scope_adjacent",
+      "disposition_reason": "Shipment and storage marking standard; logistics marking rather than quality readiness.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "multi_file_machine_extracted_unreviewed",
+      "common_engine_relevance": "contextual",
+      "candidate_quality_domains": [],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "mil_std_961_defense_specs_format",
+      "family_id": "us_dla_assist_mil_docs",
+      "disposition": "out_of_scope_adjacent",
+      "disposition_reason": "Specification authoring format/content standard; documentation authorship rather than quality readiness activities.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "multi_file_machine_extracted_unreviewed",
+      "common_engine_relevance": "contextual",
+      "candidate_quality_domains": [],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "mil_std_962_defense_standards_format",
+      "family_id": "us_dla_assist_mil_docs",
+      "disposition": "out_of_scope_adjacent",
+      "disposition_reason": "Standards authoring format/content standard; documentation authorship rather than quality readiness activities.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "multi_file_machine_extracted_unreviewed",
+      "common_engine_relevance": "contextual",
+      "candidate_quality_domains": [],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "mil_hdbk_245_statement_of_work",
+      "family_id": "us_dla_assist_mil_docs",
+      "disposition": "out_of_scope_adjacent",
+      "disposition_reason": "Statement-of-work preparation guidance; acquisition writing support rather than quality readiness.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "multi_file_machine_extracted_unreviewed",
+      "common_engine_relevance": "contextual",
+      "candidate_quality_domains": [],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "sd_15_performance_spec_guide",
+      "family_id": "us_dla_assist_mil_docs",
+      "disposition": "out_of_scope_adjacent",
+      "disposition_reason": "Performance specification writing guide; acquisition document authorship support rather than quality readiness.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "multi_file_machine_extracted_unreviewed",
+      "common_engine_relevance": "contextual",
+      "candidate_quality_domains": [],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "mil_std_1686_esd_control_legacy",
+      "family_id": "us_dla_assist_mil_docs",
+      "disposition": "out_of_scope_adjacent",
+      "disposition_reason": "The inventory source_id labels this ESD control program standard as legacy; active, cancelled, superseded, and new-design status remain UNKNOWN until direct ASSIST re-resolution.",
+      "proof_subset_overlap": "same_family_no_document_overlap",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "multi_file_machine_extracted_unreviewed",
+      "common_engine_relevance": "contextual",
+      "candidate_quality_domains": [
+        "workmanship"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "legacy/cancellation status not re-confirmed at ASSIST in this leaf; superseding ANSI/ESD baseline is paid/controlled; treat as HOLD for any status claim"
+    },
+    {
+      "source_id": "mil_hdbk_263_esd_control_legacy",
+      "family_id": "us_dla_assist_mil_docs",
+      "disposition": "out_of_scope_adjacent",
+      "disposition_reason": "Legacy ESD control handbook companion to MIL-STD-1686; excluded from derivation batches as legacy.",
+      "proof_subset_overlap": "same_family_no_document_overlap",
+      "body_access_state": "official_public_extracted_unreviewed",
+      "extraction_review_state": "multi_file_machine_extracted_unreviewed",
+      "common_engine_relevance": "contextual",
+      "candidate_quality_domains": [
+        "workmanship"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "legacy/cancellation status not re-confirmed at ASSIST in this leaf; superseding ANSI/ESD baseline is paid/controlled; treat as HOLD for any status claim"
+    },
+    {
+      "source_id": "aqap_4107_edstar_metadata",
+      "family_id": "eda_edstar_aqap_metadata",
+      "disposition": "metadata_only",
+      "disposition_reason": "EDSTAR record provides document metadata only; no confirmed body surface in this inventory.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "metadata_api_record_only",
+      "extraction_review_state": "metadata_record_no_body_review",
+      "common_engine_relevance": "supporting",
+      "candidate_quality_domains": [
+        "contract_quality_administration"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "aqap_2000_edstar_metadata",
+      "family_id": "eda_edstar_aqap_metadata",
+      "disposition": "metadata_only",
+      "disposition_reason": "EDSTAR record provides document metadata only; no confirmed body surface in this inventory.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "metadata_api_record_only",
+      "extraction_review_state": "metadata_record_no_body_review",
+      "common_engine_relevance": "supporting",
+      "candidate_quality_domains": [
+        "quality_planning",
+        "governance_and_organization"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "aqap_2070_edstar_metadata",
+      "family_id": "eda_edstar_aqap_metadata",
+      "disposition": "metadata_only",
+      "disposition_reason": "EDSTAR record provides document metadata only; no confirmed body surface in this inventory.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "metadata_api_record_only",
+      "extraction_review_state": "metadata_record_no_body_review",
+      "common_engine_relevance": "supporting",
+      "candidate_quality_domains": [
+        "contract_quality_administration"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "aqap_2105_edstar_metadata",
+      "family_id": "eda_edstar_aqap_metadata",
+      "disposition": "metadata_only",
+      "disposition_reason": "EDSTAR record provides document metadata only; no confirmed body surface in this inventory.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "metadata_api_record_only",
+      "extraction_review_state": "metadata_record_no_body_review",
+      "common_engine_relevance": "supporting",
+      "candidate_quality_domains": [
+        "quality_planning"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "G-01-AQAP HOLD carried forward from the accepted packet; reopening requires the OD-05 authorized-channel decision"
+    },
+    {
+      "source_id": "aqap_2110_edstar_metadata",
+      "family_id": "eda_edstar_aqap_metadata",
+      "disposition": "metadata_only",
+      "disposition_reason": "EDSTAR record provides document metadata only; the Italian MoD republication row carries any body work.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "metadata_api_record_only",
+      "extraction_review_state": "metadata_record_no_body_review",
+      "common_engine_relevance": "supporting",
+      "candidate_quality_domains": [
+        "quality_system_requirements"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "aqap_2131_edstar_metadata",
+      "family_id": "eda_edstar_aqap_metadata",
+      "disposition": "metadata_only",
+      "disposition_reason": "EDSTAR record provides document metadata only; the Italian MoD republication row carries any body work.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "metadata_api_record_only",
+      "extraction_review_state": "metadata_record_no_body_review",
+      "common_engine_relevance": "supporting",
+      "candidate_quality_domains": [
+        "inspection_and_test"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "aqap_2210_edstar_metadata",
+      "family_id": "eda_edstar_aqap_metadata",
+      "disposition": "metadata_only",
+      "disposition_reason": "EDSTAR record provides document metadata only; no confirmed body surface in this inventory.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "metadata_api_record_only",
+      "extraction_review_state": "metadata_record_no_body_review",
+      "common_engine_relevance": "supporting",
+      "candidate_quality_domains": [
+        "software_quality"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "none"
+    },
+    {
+      "source_id": "aqap_2310_edstar_metadata",
+      "family_id": "eda_edstar_aqap_metadata",
+      "disposition": "metadata_only",
+      "disposition_reason": "EDSTAR record provides document metadata only; the underlying ASD/EASA-aligned scheme references paid baselines.",
+      "proof_subset_overlap": "none",
+      "body_access_state": "metadata_api_record_only",
+      "extraction_review_state": "metadata_record_no_body_review",
+      "common_engine_relevance": "supporting",
+      "candidate_quality_domains": [
+        "quality_system_requirements"
+      ],
+      "research_batch": "deferred",
+      "direct_body_confirmation_required": true,
+      "unresolved_or_hold": "EN 9100-family baseline referenced by AQAP-2310 is paid/controlled; metadata routing only until an authorized channel exists"
+    }
+  ]
+}
