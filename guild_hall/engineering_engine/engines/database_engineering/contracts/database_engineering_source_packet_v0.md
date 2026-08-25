@@ -17,6 +17,11 @@ and `body_storage: none`. Those pins detect source drift; they do not copy a
 page into the package, make a retrieval source a verdict authority, or turn the
 floating `/docs/18/` locator into an assertion about a future minor release.
 
+SQLite and NIST entries remain official locator/revision-bound metadata in v0;
+they are not represented as fetched-page byte pins. That distinction is
+intentional: byte-pin drift detection is currently claimed only for the four
+PostgreSQL executable-rule pages and their 18.6 release reference.
+
 RAG/LLM may locate a listed source or propose a candidate. It cannot add a
 source, accept a rule, derive project facts, issue a verdict, or promote this
 package. ISO/IEC, DAMA, books, and other protected material remain locator-only

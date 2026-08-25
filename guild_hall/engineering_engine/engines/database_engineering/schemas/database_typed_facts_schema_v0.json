@@ -19,18 +19,24 @@
     "opaque_ref": {"type": "string", "minLength": 1, "maxLength": 256},
     "project_binding": {
       "type": "object", "additionalProperties": false,
-      "required": ["schema_version", "project_id", "domain_engine_id", "binding_revision_hash", "platform", "source_refs"],
+      "required": ["schema_version", "project_id", "domain_engine_id", "binding_revision_hash", "platform", "source_manifest_ref", "source_refs", "authority_bindings", "evidence_bindings", "evidence_ref_allowlist"],
       "properties": {
         "schema_version": {"const": "soulforge.database_engineering.project_binding.v0"},
-        "project_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,80}$"},
+        "project_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,80}$"},
         "domain_engine_id": {"const": "database_engineering"},
         "binding_revision_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
         "platform": {"$ref": "#/$defs/platform"},
-        "source_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/opaque_ref"}}
+        "source_manifest_ref": {"$ref": "#/$defs/opaque_ref"},
+        "source_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/opaque_ref"}},
+        "authority_bindings": {"type": "array", "items": {"$ref": "#/$defs/authority_binding"}},
+        "evidence_bindings": {"type": "array", "items": {"$ref": "#/$defs/evidence_binding"}},
+        "evidence_ref_allowlist": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/opaque_ref"}}
       }
     },
     "platform": {"type": "object", "additionalProperties": false, "required": ["family", "version"], "properties": {"family": {"type": "string", "minLength": 1}, "version": {"type": "string", "minLength": 1}}},
-    "requirement": {"type": "object", "additionalProperties": false, "required": ["rule_id", "requirement_id", "authority_ref"], "properties": {"rule_id": {"$ref": "#/$defs/opaque_ref"}, "requirement_id": {"$ref": "#/$defs/opaque_ref"}, "authority_ref": {"$ref": "#/$defs/opaque_ref"}}},
+    "authority_binding": {"type": "object", "additionalProperties": false, "required": ["rule_id", "authority_ref", "source_manifest_ref"], "properties": {"rule_id": {"$ref": "#/$defs/opaque_ref"}, "authority_ref": {"$ref": "#/$defs/opaque_ref"}, "source_manifest_ref": {"$ref": "#/$defs/opaque_ref"}}},
+    "evidence_binding": {"type": "object", "additionalProperties": false, "required": ["rule_id", "evidence_ref", "source_manifest_ref"], "properties": {"rule_id": {"$ref": "#/$defs/opaque_ref"}, "evidence_ref": {"$ref": "#/$defs/opaque_ref"}, "source_manifest_ref": {"$ref": "#/$defs/opaque_ref"}}},
+    "requirement": {"type": "object", "additionalProperties": false, "required": ["project_id", "rule_id", "requirement_id", "authority_ref"], "properties": {"project_id": {"$ref": "#/$defs/opaque_ref"}, "rule_id": {"$ref": "#/$defs/opaque_ref"}, "requirement_id": {"$ref": "#/$defs/opaque_ref"}, "authority_ref": {"$ref": "#/$defs/opaque_ref"}}},
     "observation": {"type": "object", "additionalProperties": false, "required": ["rule_id", "evidence_key", "status", "evidence_ref", "machine_observable", "project_id"], "properties": {"rule_id": {"$ref": "#/$defs/opaque_ref"}, "evidence_key": {"$ref": "#/$defs/opaque_ref"}, "status": {"enum": ["supported", "contradicted", "unknown", "conflict"]}, "evidence_ref": {"$ref": "#/$defs/opaque_ref"}, "machine_observable": {"type": "boolean"}, "project_id": {"$ref": "#/$defs/opaque_ref"}}},
     "analysis_input": {
       "type": "object", "additionalProperties": false,

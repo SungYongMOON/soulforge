@@ -3,14 +3,27 @@
   "$id": "soulforge.database_engineering.domain_descriptor.v0",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "domain_engine_id", "display_name", "version", "status", "claim_ceiling", "execution_mode"],
+  "required": ["schema_version", "domain_engine_id", "display_name", "version", "status", "claim_ceiling", "execution_mode", "scope", "contracts", "schemas", "compiler_adapter", "evaluator_adapter", "fixtures", "manual"],
   "properties": {
     "schema_version": {"const": "soulforge.domain_engine_descriptor.v0"},
     "domain_engine_id": {"const": "database_engineering"},
-    "display_name": {"type": "string"},
-    "version": {"type": "string"},
+    "display_name": {"const": "Database Engineering Domain Engine"},
+    "version": {"const": "0.1.0"},
     "status": {"const": "candidate"},
     "claim_ceiling": {"const": "source_supported"},
-    "execution_mode": {"const": "deterministic_only"}
+    "execution_mode": {"const": "deterministic_only"},
+    "scope": {"const": "relational_common_sqlite_3_53_4_postgresql_18_6"},
+    "contracts": {"$ref": "#/$defs/contracts"},
+    "schemas": {"$ref": "#/$defs/schemas"},
+    "compiler_adapter": {"const": "engines/database_engineering/compiler/database_engineering_compiler_adapter.mjs"},
+    "evaluator_adapter": {"const": "engines/database_engineering/evaluator/database_engineering_evaluator_adapter.mjs"},
+    "fixtures": {"$ref": "#/$defs/fixtures"},
+    "manual": {"$ref": "#/$defs/manual"}
+  },
+  "$defs": {
+    "contracts": {"type": "object", "additionalProperties": false, "required": ["source_inventory", "source_packet", "derivation", "authority_boundary", "evidence_contract", "error_model", "integration_request"], "properties": {"source_inventory": {"const": "engines/database_engineering/contracts/database_engineering_source_inventory_v0.json"}, "source_packet": {"const": "engines/database_engineering/contracts/database_engineering_source_packet_v0.md"}, "derivation": {"const": "engines/database_engineering/contracts/database_engineering_derivation_v0.md"}, "authority_boundary": {"const": "engines/database_engineering/contracts/database_engineering_authority_boundary_v0.md"}, "evidence_contract": {"const": "engines/database_engineering/contracts/database_engineering_evidence_contract_v0.md"}, "error_model": {"const": "engines/database_engineering/contracts/database_engineering_error_model_v0.md"}, "integration_request": {"const": "engines/database_engineering/contracts/database_engineering_integration_request_v0.md"}}},
+    "schemas": {"type": "object", "additionalProperties": false, "required": ["descriptor", "ruleset", "project_binding", "typed_facts", "evaluation", "receipt"], "properties": {"descriptor": {"const": "soulforge.database_engineering.domain_descriptor.v0"}, "ruleset": {"const": "soulforge.database_engineering.ruleset.v0"}, "project_binding": {"const": "soulforge.database_engineering.project_binding.v0"}, "typed_facts": {"const": "soulforge.database_engineering.typed_facts.v0"}, "evaluation": {"const": "soulforge.database_engineering.evaluation.v0"}, "receipt": {"const": "soulforge.database_engineering.evaluation_receipt.v0"}}},
+    "fixtures": {"type": "object", "additionalProperties": false, "required": ["public_synthetic"], "properties": {"public_synthetic": {"const": "engines/database_engineering/fixtures/database_engineering_public_synthetic.mjs"}}},
+    "manual": {"type": "object", "additionalProperties": false, "required": ["root"], "properties": {"root": {"const": "engines/database_engineering/manual/README.md"}}}
   }
 }

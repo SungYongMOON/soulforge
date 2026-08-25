@@ -15,6 +15,12 @@ const EXPECTED_PATH_BY_SOURCE = Object.freeze({
   'POSTGRESQL-18-RLS': '/docs/18/ddl-rowsecurity.html',
   'POSTGRESQL-18-BACKUP-PITR': '/docs/18/continuous-archiving.html',
 });
+export const POSTGRESQL_18_6_EXPECTED_RULE_BY_SOURCE = Object.freeze({
+  'POSTGRESQL-18-CONSTRAINTS': 'DBE-POSTGRESQL-CONSTRAINT-001',
+  'POSTGRESQL-18-TRANSACTION-ISOLATION': 'DBE-POSTGRESQL-ISOLATION-001',
+  'POSTGRESQL-18-RLS': 'DBE-POSTGRESQL-RLS-001',
+  'POSTGRESQL-18-BACKUP-PITR': 'DBE-POSTGRESQL-PITR-001',
+});
 const FORBIDDEN_BODY_FIELDS = new Set(['body', 'html', 'text', 'content', 'raw_body', 'source_body']);
 const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 
@@ -49,9 +55,17 @@ export function validatePostgresql18_6ExecutableSourcePins(inventory) {
   if (!inventory || typeof inventory !== 'object' || !Array.isArray(inventory.sources)) {
     refuse('source inventory must carry a sources array');
   }
-  const records = new Map(inventory.sources.map((source) => [source?.source_id, source]));
+  const sourceIds = inventory.sources.map((source) => source?.source_id);
+  if (sourceIds.some((sourceId) => typeof sourceId !== 'string') || new Set(sourceIds).size !== sourceIds.length) {
+    refuse('source inventory contains duplicate or malformed source_id rows');
+  }
+  const records = new Map(inventory.sources.map((source) => [source.source_id, source]));
   const release = records.get(POSTGRESQL_18_6_RELEASE_REF_ID);
-  if (!release || release.platform_version !== '18.6' || release.http_status !== 200
+  if (!release || release.url !== 'https://www.postgresql.org/docs/release/18.6/'
+      || release.final_url !== release.url || release.platform_family !== 'postgresql'
+      || release.platform_version !== '18.6' || release.request_profile_id !== 'postgresql_public_html_identity_v0'
+      || release.http_status !== 200 || release.content_type !== 'text/html' || release.content_encoding !== 'identity'
+      || release.text_encoding !== 'utf-8' || release.hash_basis !== 'raw_http_entity_bytes_after_transfer_coding'
       || release.body_storage !== 'none' || !Number.isSafeInteger(release.byte_length) || release.byte_length <= 0
       || typeof release.content_sha256 !== 'string' || !/^[a-f0-9]{64}$/u.test(release.content_sha256)
       || !INSTANT.test(release.accessed_at_utc)) {
@@ -62,8 +76,8 @@ export function validatePostgresql18_6ExecutableSourcePins(inventory) {
     const source = records.get(sourceId);
     if (!source) refuse(`PostgreSQL executable source ${sourceId} is missing`);
     requireExactPagePin(source, EXPECTED_PATH_BY_SOURCE[sourceId]);
-    if (!Array.isArray(source.rule_ids) || source.rule_ids.length !== 1 || typeof source.rule_ids[0] !== 'string') {
-      refuse(`PostgreSQL executable source ${sourceId} does not bind exactly one rule`);
+    if (!Array.isArray(source.rule_ids) || source.rule_ids.length !== 1 || source.rule_ids[0] !== POSTGRESQL_18_6_EXPECTED_RULE_BY_SOURCE[sourceId]) {
+      refuse(`PostgreSQL executable source ${sourceId} does not bind its exact expected rule`);
     }
     rows.push(Object.freeze({
       source_id: sourceId,

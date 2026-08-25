@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.database_engineering.evaluation.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "domain_engine_id", "ruleset_ref", "results", "counts", "analysis", "receipt"],
+  "properties": {
+    "schema_version": {"const": "soulforge.database_engineering.evaluation.v0"},
+    "domain_engine_id": {"const": "database_engineering"},
+    "ruleset_ref": {"$ref": "#/$defs/content_ref"},
+    "results": {"type": "array", "items": {"$ref": "#/$defs/result"}},
+    "counts": {"$ref": "#/$defs/counts"},
+    "analysis": {"$ref": "#/$defs/analysis"},
+    "receipt": {"$ref": "#/$defs/receipt"}
+  },
+  "$defs": {
+    "content_ref": {"type": "object", "additionalProperties": false, "required": ["entity_id", "revision_id", "content_id", "content_hash_alg"], "properties": {"entity_id": {"type": "string"}, "revision_id": {"type": "string"}, "content_id": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}, "content_hash_alg": {"const": "sha256"}}},
+    "proof": {"type": "object", "additionalProperties": false, "required": ["status", "analyzer"], "properties": {"status": {"enum": ["supported", "contradicted", "unknown", "conflict"]}, "analyzer": {"type": "string", "minLength": 1}}},
+    "source_provenance": {"oneOf": [
+      {"type": "object", "additionalProperties": false, "required": ["authority_kind", "inventory_content_id"], "properties": {"authority_kind": {"const": "inventory_anchored"}, "inventory_content_id": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}}},
+      {"type": "object", "additionalProperties": false, "required": ["authority_kind"], "properties": {"authority_kind": {"const": "project_bound"}}},
+      {"type": "object", "additionalProperties": false, "required": ["authority_kind", "profile_id", "revision_or_hash", "operation_digest", "operation_item_digest"], "properties": {"authority_kind": {"const": "profile_declared"}, "profile_id": {"type": "string"}, "revision_or_hash": {"type": "string"}, "operation_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "operation_item_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}}
+    ]},
+    "fact_provenance": {"type": "object", "additionalProperties": false, "required": ["project_binding", "requirement", "observation"], "properties": {
+      "project_binding": {"type": "object", "additionalProperties": false, "required": ["project_id", "binding_revision_hash", "source_manifest_ref"], "properties": {"project_id": {"type": "string"}, "binding_revision_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "source_manifest_ref": {"type": "string"}}},
+      "requirement": {"oneOf": [{"type": "object", "additionalProperties": false, "required": ["project_id", "requirement_id", "authority_ref"], "properties": {"project_id": {"type": "string"}, "requirement_id": {"type": "string"}, "authority_ref": {"type": "string"}}}, {"type": "object", "additionalProperties": false, "required": ["binding_state"], "properties": {"binding_state": {"const": "unbound"}}}]},
+      "observation": {"oneOf": [{"type": "object", "additionalProperties": false, "required": ["project_id", "evidence_ref", "evidence_key"], "properties": {"project_id": {"type": "string"}, "evidence_ref": {"type": "string"}, "evidence_key": {"type": "string"}}}, {"type": "object", "additionalProperties": false, "required": ["binding_state"], "properties": {"binding_state": {"const": "unobserved"}}}]}
+    }},
+    "result": {"type": "object", "additionalProperties": false, "required": ["rule_id", "axis", "state", "reason_code", "hard_technical_failure", "claim_ceiling", "source_authority", "source_provenance", "fact_provenance", "analysis_evidence_key", "analysis_status", "evidence_ref", "source_refs"], "properties": {"rule_id": {"type": "string"}, "axis": {"type": "string"}, "state": {"enum": ["satisfied", "gap_missing", "gap_unknown", "gap_conflict"]}, "reason_code": {"type": "string"}, "hard_technical_failure": {"type": "boolean"}, "claim_ceiling": {"enum": ["observed", "source_supported"]}, "source_authority": {"enum": ["inventory_anchored", "project_bound", "profile_declared"]}, "source_provenance": {"$ref": "#/$defs/source_provenance"}, "fact_provenance": {"$ref": "#/$defs/fact_provenance"}, "analysis_evidence_key": {"type": "string"}, "analysis_status": {"enum": ["supported", "contradicted", "unknown", "conflict", "unavailable"]}, "evidence_ref": {"type": "string"}, "source_refs": {"type": "array", "items": {"type": "string"}}}},
+    "counts": {"type": "object", "additionalProperties": false, "required": ["satisfied", "gap_missing", "gap_unknown", "gap_conflict"], "properties": {"satisfied": {"type": "integer", "minimum": 0}, "gap_missing": {"type": "integer", "minimum": 0}, "gap_unknown": {"type": "integer", "minimum": 0}, "gap_conflict": {"type": "integer", "minimum": 0}}},
+    "analysis": {"type": "object", "additionalProperties": false, "required": ["schema_graph", "migration_diff", "transaction_semantics", "query_workload", "recovery_proof", "data_quality", "platform_control_proof", "cross_analyzer_coherence", "evidence_by_key"], "properties": {
+      "schema_graph": {"type": "object"}, "migration_diff": {"type": "object"}, "transaction_semantics": {"type": "object"}, "query_workload": {"type": "object"}, "recovery_proof": {"type": "object"}, "data_quality": {"type": "object"},
+      "platform_control_proof": {"type": "object"},
+      "cross_analyzer_coherence": {"type": "object", "additionalProperties": false, "required": ["sqlite_transaction_semantics_vs_platform_controls", "recovery_plan_vs_postgresql_pitr_controls", "pitr_precondition_proof_vs_postgresql_pitr_controls"], "properties": {"sqlite_transaction_semantics_vs_platform_controls": {"enum": ["coherent", "conflict"]}, "recovery_plan_vs_postgresql_pitr_controls": {"const": "distinct_propositions_not_compared"}, "pitr_precondition_proof_vs_postgresql_pitr_controls": {"enum": ["coherent", "conflict", "unknown"]}}},
+      "evidence_by_key": {"type": "object", "additionalProperties": false, "required": ["schema_graph", "migration_diff", "query_workload", "data_quality", "recovery_proof", "sqlite_fk_connection", "sqlite_fk_check", "sqlite_integrity_check", "sqlite_dirty_read_exception", "sqlite_single_writer", "postgresql_constraints", "postgresql_isolation", "postgresql_rls", "postgresql_pitr"], "properties": {"schema_graph": {"$ref": "#/$defs/proof"}, "migration_diff": {"$ref": "#/$defs/proof"}, "query_workload": {"$ref": "#/$defs/proof"}, "data_quality": {"$ref": "#/$defs/proof"}, "recovery_proof": {"$ref": "#/$defs/proof"}, "sqlite_fk_connection": {"$ref": "#/$defs/proof"}, "sqlite_fk_check": {"$ref": "#/$defs/proof"}, "sqlite_integrity_check": {"$ref": "#/$defs/proof"}, "sqlite_dirty_read_exception": {"$ref": "#/$defs/proof"}, "sqlite_single_writer": {"$ref": "#/$defs/proof"}, "postgresql_constraints": {"$ref": "#/$defs/proof"}, "postgresql_isolation": {"$ref": "#/$defs/proof"}, "postgresql_rls": {"$ref": "#/$defs/proof"}, "postgresql_pitr": {"$ref": "#/$defs/proof"}}}
+    }},
+    "receipt": {"$ref": "database_engineering_receipt_schema_v0.json"}
+  }
+}

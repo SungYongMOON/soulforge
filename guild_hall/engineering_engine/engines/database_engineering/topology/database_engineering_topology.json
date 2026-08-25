@@ -14,7 +14,8 @@
     "analysis/query_workload_evidence.mjs",
     "analysis/recovery_proof.mjs",
     "analysis/data_quality_evidence.mjs",
-    "analysis/platform_control_proof.mjs"
+    "analysis/platform_control_proof.mjs",
+    "analysis/database_evidence_analyzers.mjs"
   ],
   "shared_integration": "../contracts/database_engineering_integration_request_v0.md",
   "effects": { "file_writes": 0, "network_calls": 0, "db_writes": 0, "model_calls": 0 }

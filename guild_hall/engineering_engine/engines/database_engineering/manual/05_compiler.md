@@ -1,7 +1,7 @@
 # 05 — Compiler
 
-The compiler accepts normalized Core Profile Bindings and closed `add` or
-`disable` operations. It produces a deterministic effective ruleset and keeps
+The compiler accepts normalized Core Profile Bindings and closed add-only
+operations. It produces a deterministic effective ruleset and keeps
 per-added-rule profile provenance. Derived rules are evaluated, not merely
 compiled.
 
