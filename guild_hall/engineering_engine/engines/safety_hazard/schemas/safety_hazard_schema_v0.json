@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.safety_hazard.engine_descriptor.v0",
+  "title": "SafetyHazardEngineDescriptor",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "domain_engine_id",
+    "display_name",
+    "version",
+    "status",
+    "claim_ceiling",
+    "execution_mode",
+    "contracts",
+    "schemas",
+    "compiler_adapter",
+    "evaluator_adapter",
+    "fixtures",
+    "manual",
+    "topology"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "soulforge.domain_engine_descriptor.v0"
+    },
+    "domain_engine_id": {
+      "type": "string",
+      "const": "safety_hazard"
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": ["candidate", "hold"]
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "const": "source_supported"
+    },
+    "execution_mode": {
+      "type": "string",
+      "const": "deterministic_only"
+    },
+    "contracts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_packet", "source_inventory", "derivation", "build_mission"],
+      "properties": {
+        "source_packet": { "type": "string", "minLength": 1 },
+        "source_inventory": { "type": "string", "minLength": 1 },
+        "derivation": { "type": "string", "minLength": 1 },
+        "build_mission": { "type": "string", "minLength": 1 }
+      }
+    },
+    "schemas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["descriptor", "ruleset", "domain_input", "assessment", "domain_result", "receipt"],
+      "properties": {
+        "descriptor": { "type": "string", "const": "soulforge.safety_hazard.engine_descriptor.v0" },
+        "ruleset": { "type": "string", "const": "soulforge.safety_hazard.ruleset.v0" },
+        "domain_input": { "type": "string", "const": "soulforge.safety_hazard.domain_input.v0" },
+        "assessment": { "type": "string", "const": "soulforge.safety_hazard.assessment.v0" },
+        "domain_result": { "type": "string", "const": "soulforge.safety_hazard.domain_result.v0" },
+        "receipt": { "type": "string", "const": "soulforge.safety_hazard.receipt.v0" }
+      }
+    },
+    "compiler_adapter": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evaluator_adapter": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fixtures": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["public_synthetic"],
+      "properties": {
+        "public_synthetic": { "type": "string", "minLength": 1 }
+      }
+    },
+    "manual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root"],
+      "properties": {
+        "root": { "type": "string", "minLength": 1 }
+      }
+    },
+    "topology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest", "topology", "integration_request"],
+      "properties": {
+        "manifest": { "type": "string", "minLength": 1 },
+        "topology": { "type": "string", "minLength": 1 },
+        "integration_request": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

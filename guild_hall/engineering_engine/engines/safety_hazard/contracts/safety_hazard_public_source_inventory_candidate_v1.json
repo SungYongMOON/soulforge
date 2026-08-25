@@ -1,0 +1,78 @@
+{
+  "schema_version": "soulforge.safety_hazard.public_source_inventory.candidate.v1",
+  "inventory_id": "safety-hazard-public-source-inventory-candidate-v1",
+  "status": "candidate_input_only",
+  "claim_ceiling": "source_supported",
+  "source_adoption": false,
+  "rule_acceptance": false,
+  "records": [
+    {
+      "source_id": "S1-MIL-STD-882E-CHANGE-1",
+      "title": "MIL-STD-882E w/Change 1, System Safety",
+      "publisher": "United States Department of Defense / DLA Quick Search",
+      "authority_kind": "public_standard_practice_when_invoked",
+      "official_locator": "https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=36027",
+      "revision": "Revision E Change 1 (change incorporated)",
+      "document_date": "2023-09-27",
+      "status_at_direct_check": "active",
+      "access_class": "official_public_distribution_a",
+      "body_sha256": "sha256:56c194c5f03baf28e3e48167215dfada45a7270f29f101a8dca2268fb74849c9",
+      "body_directly_checked": true,
+      "direct_check_date": "2026-08-26",
+      "candidate_use": "source_direct_candidate_only",
+      "applicability": "unknown_until_exact_contract_or_policy_binding",
+      "derivation_locators": [
+        "Figure 1",
+        "4.3.1(d)",
+        "4.3.2",
+        "4.3.3",
+        "4.3.4",
+        "4.3.5",
+        "4.3.6",
+        "4.3.7",
+        "4.3.8"
+      ],
+      "public_body_stored_in_git": false
+    },
+    {
+      "source_id": "S2-NASA-NPR-8715-3D",
+      "title": "NASA General Safety Program Requirements, Chapter 2",
+      "publisher": "NASA NODIS",
+      "authority_kind": "historical_agency_requirement",
+      "official_locator": "https://nodis3.gsfc.nasa.gov/displayCA.cfm?Internal_ID=N_PR_8715_003D_&page_name=Chapter2",
+      "revision": "NPR 8715.3D",
+      "effective_date": "2021-12-16",
+      "cancellation_date": "2024-06-10",
+      "status_at_direct_check": "obsolete_no_longer_used",
+      "access_class": "official_public",
+      "body_directly_checked": true,
+      "direct_check_date": "2026-08-26",
+      "candidate_use": "source_status_guard_and_historical_context_only",
+      "applicability": "not_executable",
+      "public_body_stored_in_git": false
+    },
+    {
+      "source_id": "S3-NASA-SP-2010-580-V1",
+      "title": "NASA System Safety Handbook, Volume 1: System Safety Framework and Concepts for Implementation",
+      "publisher": "NASA Technical Reports Server",
+      "authority_kind": "public_guidance",
+      "official_locator": "https://ntrs.nasa.gov/citations/20120003291",
+      "revision": "NASA/SP-2010-580/Version 1.0",
+      "publication_date": "2011-11-01",
+      "status_at_direct_check": "public_guidance",
+      "access_class": "public_use_permitted",
+      "body_directly_checked": false,
+      "direct_check_date": "2026-08-26",
+      "candidate_use": "context_only",
+      "applicability": "not_executable_without_separate_binding",
+      "public_body_stored_in_git": false
+    }
+  ],
+  "rag_boundary": {
+    "rag_used_for_this_packet": false,
+    "rag_can_locate_candidate_sources": true,
+    "rag_can_set_source_status_or_applicability": false,
+    "rag_can_accept_rules_or_risk": false,
+    "rag_can_issue_verdicts": false
+  }
+}

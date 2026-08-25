@@ -1,0 +1,36 @@
+{
+  "schema_version": "soulforge.domain_engine_descriptor.v0",
+  "domain_engine_id": "safety_hazard",
+  "display_name": "Safety and Hazard Domain Engine",
+  "version": "0.1.0",
+  "status": "candidate",
+  "claim_ceiling": "source_supported",
+  "execution_mode": "deterministic_only",
+  "contracts": {
+    "source_packet": "engines/safety_hazard/contracts/safety_hazard_source_packet_v0.md",
+    "source_inventory": "engines/safety_hazard/contracts/safety_hazard_public_source_inventory_candidate_v1.json",
+    "derivation": "engines/safety_hazard/contracts/safety_hazard_derivation_v0.md",
+    "build_mission": "engines/safety_hazard/contracts/safety_hazard_build_mission_v0.md"
+  },
+  "schemas": {
+    "descriptor": "soulforge.safety_hazard.engine_descriptor.v0",
+    "ruleset": "soulforge.safety_hazard.ruleset.v0",
+    "domain_input": "soulforge.safety_hazard.domain_input.v0",
+    "assessment": "soulforge.safety_hazard.assessment.v0",
+    "domain_result": "soulforge.safety_hazard.domain_result.v0",
+    "receipt": "soulforge.safety_hazard.receipt.v0"
+  },
+  "compiler_adapter": "engines/safety_hazard/compiler/safety_hazard_compiler_adapter.mjs",
+  "evaluator_adapter": "engines/safety_hazard/evaluator/safety_hazard_evaluator_adapter.mjs",
+  "fixtures": {
+    "public_synthetic": "engines/safety_hazard/fixtures/safety_hazard_public_synthetic.mjs"
+  },
+  "manual": {
+    "root": "engines/safety_hazard/manual/README.md"
+  },
+  "topology": {
+    "manifest": "engines/safety_hazard/topology/safety_hazard_module_manifest.mjs",
+    "topology": "engines/safety_hazard/topology/safety_hazard_topology_v0.md",
+    "integration_request": "engines/safety_hazard/topology/safety_hazard_integration_request_v0.md"
+  }
+}
