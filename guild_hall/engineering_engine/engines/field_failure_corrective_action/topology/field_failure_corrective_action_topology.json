@@ -1,0 +1,24 @@
+{
+  "schema_version": "soulforge.field_failure_corrective_action.topology.v0",
+  "domain_engine_id": "field_failure_corrective_action",
+  "claim_ceiling": "source_supported",
+  "nodes": [
+    { "node_id": "source_packet", "path": "contracts/field_failure_corrective_action_source_packet_v0.md", "kind": "source_boundary" },
+    { "node_id": "rules", "path": "rules/field_failure_corrective_action_rules.mjs", "kind": "domain_rules" },
+    { "node_id": "compiler", "path": "compiler/field_failure_corrective_action_compiler_adapter.mjs", "kind": "core_adapter" },
+    { "node_id": "evaluator", "path": "evaluator/field_failure_corrective_action_evaluator_adapter.mjs", "kind": "core_adapter" },
+    { "node_id": "fixture", "path": "fixtures/field_failure_corrective_action_public_synthetic.mjs", "kind": "public_synthetic" },
+    { "node_id": "runner", "path": "tools/field_failure_corrective_action_runner.mjs", "kind": "zero_write_runner" }
+  ],
+  "edges": [
+    { "from": "source_packet", "to": "rules", "relationship": "bounds" },
+    { "from": "rules", "to": "compiler", "relationship": "compiled_by" },
+    { "from": "rules", "to": "evaluator", "relationship": "evaluated_by" },
+    { "from": "fixture", "to": "runner", "relationship": "demonstrated_by" }
+  ],
+  "external_authority_boundaries": [
+    "quality_disposition",
+    "technical_change_approval",
+    "closure_decision"
+  ]
+}

@@ -1,0 +1,22 @@
+schema_version: soulforge.domain_engine_descriptor.v0
+domain_engine_id: field_failure_corrective_action
+display_name: Field Failure and Corrective Action Domain Engine
+version: 0.1.0
+status: candidate
+claim_ceiling: source_supported
+execution_mode: deterministic_only
+contracts:
+  source_packet: engines/field_failure_corrective_action/contracts/field_failure_corrective_action_source_packet_v0.md
+  domain_contract: engines/field_failure_corrective_action/contracts/field_failure_corrective_action_contract_v0.md
+schemas:
+  ruleset: soulforge.field_failure_corrective_action.ruleset.v0
+  request: soulforge.field_failure_corrective_action.request.v0
+  domain_input: soulforge.field_failure_corrective_action.domain_input.v0
+  assessment: soulforge.field_failure_corrective_action.assessment.v0
+  receipt: soulforge.field_failure_corrective_action.receipt.v0
+compiler_adapter: engines/field_failure_corrective_action/compiler/field_failure_corrective_action_compiler_adapter.mjs
+evaluator_adapter: engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_evaluator_adapter.mjs
+fixtures:
+  public_synthetic: engines/field_failure_corrective_action/fixtures/field_failure_corrective_action_public_synthetic.mjs
+manual:
+  root: engines/field_failure_corrective_action/manual/README.md
