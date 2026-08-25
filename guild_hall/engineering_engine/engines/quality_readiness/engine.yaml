@@ -16,7 +16,18 @@ schemas:
   receipt: soulforge.quality_readiness.receipt.v0
 compiler_adapter: engines/quality_readiness/compiler/quality_readiness_compiler_adapter.mjs
 evaluator_adapter: engines/quality_readiness/evaluator/quality_readiness_evaluator_adapter.mjs
+domain_local_surfaces:
+  source_derivation: engines/quality_readiness/source/quality_readiness_source_derivation.mjs
+  rag_boundary: engines/quality_readiness/rag/quality_readiness_rag_boundary.mjs
+  typed_facts: engines/quality_readiness/binding/quality_readiness_typed_facts.mjs
+  observation: engines/quality_readiness/observation/quality_readiness_observation.mjs
+  guidance: engines/quality_readiness/guidance/quality_readiness_guidance.mjs
+  mcp_read_tools: engines/quality_readiness/mcp/quality_readiness_read_tools.mjs
+  topology: engines/quality_readiness/topology/quality_readiness_deepening_topology.mjs
+  global_registration: false
+  writer_enabled: false
 fixtures:
   public_synthetic: engines/quality_readiness/fixtures/quality_readiness_public_synthetic.mjs
+  public_synthetic_deepening: engines/quality_readiness/fixtures/quality_readiness_deepening_public_synthetic.mjs
 manual:
   root: engines/quality_readiness/manual/README.md

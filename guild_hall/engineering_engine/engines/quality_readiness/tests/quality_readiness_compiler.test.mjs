@@ -18,6 +18,7 @@ import {
 } from '../../../core/interfaces/domain_engine_adapter.mjs';
 import { normalizeProfileOperations } from '../../../core/interfaces/profile_operation_canon.mjs';
 import { buildQualityReadinessPublicSyntheticRequest } from '../fixtures/quality_readiness_public_synthetic.mjs';
+import { buildQualityReadinessTypedFacts } from '../binding/quality_readiness_typed_facts.mjs';
 
 const VALID_QR_RULE = Object.freeze({
   rule_id: 'QR-TEST-01',
@@ -763,4 +764,78 @@ test('QR Seam: a binding whose digest was taken over null-stripped operations fa
     () => compileQualityReadinessRules([forged]),
     (err) => err.code === QR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID
   );
+});
+
+const syntheticExactRef = (entity_id, revision_id, fill) => ({
+  entity_id,
+  revision_id,
+  content_id: `sha256:${fill.repeat(64)}`,
+  content_hash_alg: 'sha256',
+});
+
+test('QR Derived Profile: a Core-assembled profile may evaluate only with its own pinned source binding', () => {
+  const [profile] = resolveProfileBindings(nullSeamProfile(SOURCE_NATIVE_RULE), null);
+  const assembled = assembleEffectiveRuleSet(qualityReadinessAdapter, [profile], {});
+  const request = buildQualityReadinessPublicSyntheticRequest();
+  const stageRef = syntheticExactRef('synthetic-profile-stage', 'r1', 'a');
+  const acceptanceRef = syntheticExactRef('synthetic-profile-acceptance', 'r1', 'b');
+
+  request.binding.ruleset_ref = structuredClone(assembled.effective_rule_set.ruleset_ref);
+  request.binding.ruleset_revision = assembled.effective_rule_set.ruleset_ref.revision_id;
+  request.binding.profile_source_bindings = [{
+    source_id: 'qr_profile_synthetic_source_01',
+    source_ref: 'contracts/qr_org.json',
+    metadata_revision_ref: syntheticExactRef('synthetic-profile-source-metadata', 'r1', 'c'),
+    body_revision_ref: syntheticExactRef('synthetic-profile-source-body', 'r1', 'd'),
+    direct_derivation_ref: syntheticExactRef('synthetic-profile-direct-derivation', 'r1', 'e'),
+    access_class: 'public_synthetic',
+    direct_source_state: 'synthetic_direct_confirmed',
+    source_lane: 'public_synthetic',
+    claim_ceiling: 'observed',
+  }];
+  request.binding.accepted_rule_bindings.push({
+    rule_id: 'QR-NULLSEAM-01',
+    stage_ref: structuredClone(stageRef),
+    owner_acceptance_ref: structuredClone(acceptanceRef),
+  });
+  request.domain_input.rows.push({
+    case_id: 'PROFILE_SATISFIED',
+    rule_id: 'QR-NULLSEAM-01',
+    stage_ref: structuredClone(stageRef),
+    applicability: {
+      project_binding: true,
+      jurisdiction: true,
+      time_window: true,
+      document_revision: true,
+      approval_scope: true,
+    },
+    context_refs: {
+      scope_ref: syntheticExactRef('synthetic-profile-scope', 'r1', 'f'),
+    },
+    authority_bindings: [{
+      authority_family: 'company_approved_procedure',
+      role_ref: syntheticExactRef('synthetic-profile-role', 'r1', '1'),
+      delegation_ref: syntheticExactRef('synthetic-profile-delegation', 'r1', '2'),
+      decision_ref: syntheticExactRef('synthetic-profile-decision', 'r1', '3'),
+    }],
+    observation_attempted: true,
+    observation_attempt_ref: syntheticExactRef('synthetic-profile-observation', 'r1', '4'),
+    presence_state: 'present',
+    evidence_refs: [syntheticExactRef('synthetic-profile-evidence', 'r1', '5')],
+    artifact_token: null,
+    evaluation_result_ref: syntheticExactRef('synthetic-profile-evaluation', 'r1', '6'),
+    evaluation_result_state: 'criteria_met',
+  });
+
+  const typedFacts = buildQualityReadinessTypedFacts({
+    request,
+    compilation_trace: assembled.compilation_trace,
+    valid_at: '2026-08-26T00:00:00.000Z',
+    known_at: '2026-08-26T00:00:00.000Z',
+  });
+  const result = evaluate(qualityReadinessAdapter, assembled, typedFacts, {});
+  const profileResult = result.domain_result.results.find((row) => row.rule_id === 'QR-NULLSEAM-01');
+  assert.equal(profileResult.state, 'satisfied');
+  assert.equal(profileResult.source_ref, 'contracts/qr_org.json');
+  assert.equal(result.receipt.bindings.profile_compilation_trace.profiles[0].profile_id, 'org_qr_01');
 });

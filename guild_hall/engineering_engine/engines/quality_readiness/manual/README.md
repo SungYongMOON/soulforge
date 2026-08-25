@@ -1,6 +1,8 @@
 # E01 Quality Readiness manual delta
 
-Status: implementation candidate only. This manual records the E01 domain delta; it does not adopt source candidates, approve product quality, or activate a production module.
+Status: local implementation candidate only. This manual records the E01 domain delta; it does not
+adopt source candidates, approve product quality, register a global MCP server, or activate a
+production module.
 
 Read the shared chassis first: [../README.md](../README.md).
 
@@ -17,3 +19,8 @@ Read the shared chassis first: [../README.md](../README.md).
 11. [Guidance boundary](11_guidance_boundary.md)
 12. [Integration door](12_integration_door.md)
 Appendix A. [Source/RAG/derivation strengthening contract v0](appendix_a_source_rag_derivation_strengthening_v0.md)
+
+The current deepening topology is local to this package:
+`../topology/quality_readiness_deepening_topology.mjs`. Its cross-package dependencies remain
+explicitly deferred in
+[the integration request](../contracts/quality_readiness_integration_request_v0.md).

@@ -191,6 +191,70 @@ function arrayOrderRules(value) {
   return rules;
 }
 
+function sameExactRef(left, right) {
+  return Boolean(left && right)
+    && left.entity_id === right.entity_id
+    && left.revision_id === right.revision_id
+    && left.content_id === right.content_id
+    && left.content_hash_alg === right.content_hash_alg;
+}
+
+function assertOwnDataRecord(value, label, { allowNullPrototype = false } = {}) {
+  if (!value || typeof value !== "object" || Array.isArray(value) || (types && types.isProxy(value))) {
+    throw new ContractError(QR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID, `${label} must be a plain data record`);
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && !(allowNullPrototype && prototype === null)) {
+    throw new ContractError(QR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID, `${label} has an unsupported prototype`);
+  }
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (typeof key !== "string" || PROTOTYPE_SENSITIVE_KEYS.has(key)
+        || !descriptor || !Object.hasOwn(descriptor, "value") || descriptor.enumerable !== true) {
+      throw new ContractError(QR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID, `${label} must not carry accessors, symbols, or prototype keys`);
+    }
+  }
+}
+
+function sameRule(left, right) {
+  const leftKeys = left && typeof left === 'object' ? Object.keys(left).sort(compareCodePoints) : [];
+  const rightKeys = right && typeof right === 'object' ? Object.keys(right).sort(compareCodePoints) : [];
+  const expectedKeys = [...CANONICAL_QR_RULE_FIELDS].sort(compareCodePoints);
+  if (leftKeys.length !== expectedKeys.length || rightKeys.length !== expectedKeys.length
+      || !leftKeys.every((field, index) => field === expectedKeys[index])
+      || !rightKeys.every((field, index) => field === expectedKeys[index])) return false;
+  return CANONICAL_QR_RULE_FIELDS.every((field) => {
+    if (Array.isArray(left[field]) || Array.isArray(right[field])) {
+      return Array.isArray(left[field]) && Array.isArray(right[field])
+        && left[field].length === right[field].length
+        && left[field].every((value, index) => value === right[field][index]);
+    }
+    return left[field] === right[field];
+  });
+}
+
+function derivedRulesetDigestFor(allRules, profileRuleProvenance) {
+  const digestMaterial = {
+    schema_version: QUALITY_READINESS_RULESET_SCHEMA,
+    revision: QUALITY_READINESS_RULESET_REVISION,
+    source_packet_ref: QUALITY_READINESS_SOURCE_PACKET_REF,
+    base_ruleset_ref: QUALITY_READINESS_RULESET_REF,
+    rules: allRules.map(({ allowed_artifact_tokens, ...rule }) => ({
+      ...rule,
+      allowed_artifact_mappings: allowed_artifact_tokens.map((artifact_token) => (
+        artifact_token === null ? { source_native: true } : { artifact_token }
+      )),
+    })),
+    profile_rule_provenance: profileRuleProvenance,
+  };
+  return sha256Hex(
+    `soulforge.quality_readiness.ruleset.derived.digest.v0\n${canonicalise(digestMaterial, {
+      ...arrayOrderRules(digestMaterial),
+      rules: "sorted_by:rule_id",
+    })}`
+  );
+}
+
 function validateQrRuleRow(rule, bindingSourceRefs, existingRuleIds) {
   if (!rule || typeof rule !== "object" || Array.isArray(rule)) {
     throw new ContractError(QR_COMPILER_ERROR_CODES.RULE_MALFORMED, "QR rule must be a plain object");
@@ -574,26 +638,7 @@ export function compileQualityReadinessRules(profileBindings = [], options = {})
 
   const frozenProvenance = Object.freeze(profileRuleProvenance);
 
-  const digestMaterial = {
-    schema_version: QUALITY_READINESS_RULESET_SCHEMA,
-    revision: QUALITY_READINESS_RULESET_REVISION,
-    source_packet_ref: QUALITY_READINESS_SOURCE_PACKET_REF,
-    base_ruleset_ref: QUALITY_READINESS_RULESET_REF,
-    rules: allRules.map(({ allowed_artifact_tokens, ...rule }) => ({
-      ...rule,
-      allowed_artifact_mappings: allowed_artifact_tokens.map((artifact_token) => (
-        artifact_token === null ? { source_native: true } : { artifact_token }
-      )),
-    })),
-    profile_rule_provenance: frozenProvenance,
-  };
-
-  const derivedRulesetDigest = sha256Hex(
-    `soulforge.quality_readiness.ruleset.derived.digest.v0\n${canonicalise(digestMaterial, {
-      ...arrayOrderRules(digestMaterial),
-      rules: "sorted_by:rule_id",
-    })}`
-  );
+  const derivedRulesetDigest = derivedRulesetDigestFor(allRules, frozenProvenance);
 
   const derivedRulesetRef = Object.freeze({
     entity_id: "quality-readiness-ruleset-derived-v0",
@@ -613,6 +658,148 @@ export function compileQualityReadinessRules(profileBindings = [], options = {})
     rule_count: allRules.length,
     profile_rule_provenance: frozenProvenance,
   };
+}
+
+/**
+ * Verifies a compiler-shaped E01 ruleset without creating a second Core contract. The evaluator
+ * uses this boundary before it accepts a derived Profile result, so a caller cannot substitute a
+ * hand-written ruleset ref or omit the per-rule Profile provenance that produced it.
+ */
+export function verifyQualityReadinessEffectiveRuleSet(effectiveRuleSet) {
+  assertOwnDataRecord(effectiveRuleSet, "effective rule set");
+  const keys = Object.keys(effectiveRuleSet).sort(compareCodePoints);
+  const baseKeys = ["rules", "ruleset_ref", "schema_version", "source_packet_ref"].sort(compareCodePoints);
+  const derivedKeys = [...baseKeys, "profile_rule_provenance"].sort(compareCodePoints);
+  const isBaseShape = keys.length === baseKeys.length && keys.every((key, index) => key === baseKeys[index]);
+  const isDerivedShape = keys.length === derivedKeys.length && keys.every((key, index) => key === derivedKeys[index]);
+  if (!isBaseShape && !isDerivedShape) {
+    throw new ContractError(QR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID,
+      "effective rule set has an unexpected key set");
+  }
+  if (effectiveRuleSet.schema_version !== QUALITY_READINESS_RULESET_SCHEMA
+      || !sameExactRef(effectiveRuleSet.source_packet_ref, QUALITY_READINESS_SOURCE_PACKET_REF)
+      || !Array.isArray(effectiveRuleSet.rules)) {
+    throw new ContractError(QR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID,
+      "effective rule set is not bound to the exact E01 schema and source packet");
+  }
+
+  if (isBaseShape) {
+    if (!sameExactRef(effectiveRuleSet.ruleset_ref, QUALITY_READINESS_RULESET_REF)
+        || effectiveRuleSet.rules.length !== QUALITY_READINESS_RULES.length
+        || !effectiveRuleSet.rules.every((rule, index) => sameRule(rule, QUALITY_READINESS_RULES[index]))) {
+      throw new ContractError(QR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID,
+        "base effective rule set does not exactly match the accepted E01 ruleset");
+    }
+    return Object.freeze({
+      kind: "base",
+      rules: effectiveRuleSet.rules,
+      ruleset_ref: effectiveRuleSet.ruleset_ref,
+      source_packet_ref: effectiveRuleSet.source_packet_ref,
+      profile_rule_provenance: null,
+    });
+  }
+
+  const provenance = effectiveRuleSet.profile_rule_provenance;
+  assertOwnDataRecord(provenance, "profile_rule_provenance", { allowNullPrototype: true });
+  let priorRuleId = null;
+  const seenRuleIds = new Set(QUALITY_READINESS_RULES.map((rule) => rule.rule_id));
+  const expectedProvenanceIds = [];
+  const baseById = new Map(QUALITY_READINESS_RULES.map((rule) => [rule.rule_id, rule]));
+  const seenBaseIds = new Set();
+  const derivedRules = [];
+  for (const rule of effectiveRuleSet.rules) {
+    if (priorRuleId !== null && compareCodePoints(priorRuleId, rule?.rule_id ?? "") >= 0) {
+      throw new ContractError(QR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID,
+        "effective rules must be sorted uniquely by rule_id");
+    }
+    priorRuleId = rule?.rule_id ?? null;
+    const baseRule = baseById.get(rule?.rule_id);
+    if (baseRule) {
+      if (!sameRule(rule, baseRule)) {
+        throw new ContractError(QR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID,
+          "derived rule set must retain each accepted E01 base rule exactly");
+      }
+      seenBaseIds.add(rule.rule_id);
+    } else {
+      derivedRules.push(rule);
+    }
+  }
+  if (derivedRules.length === 0 || seenBaseIds.size !== QUALITY_READINESS_RULES.length) {
+    throw new ContractError(QR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID,
+      "derived rule set must retain the complete accepted E01 base and at least one derived rule");
+  }
+
+  for (const rule of derivedRules) {
+    const provenanceRow = provenance[rule?.rule_id];
+    if (!provenanceRow) {
+      throw new ContractError(QR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID,
+        "every derived E01 rule requires its own Profile provenance row");
+    }
+    assertOwnDataRecord(provenanceRow, `profile_rule_provenance.${rule.rule_id}`);
+    const provenanceKeys = Object.keys(provenanceRow).sort(compareCodePoints);
+    const expectedKeys = [
+      "extends_or_base_pin", "operation_digest", "operation_item_digest", "order",
+      "profile_id", "profile_kind", "revision_or_hash", "source_refs",
+    ].sort(compareCodePoints);
+    if (provenanceKeys.length !== expectedKeys.length
+        || !provenanceKeys.every((key, index) => key === expectedKeys[index])) {
+      throw new ContractError(QR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID,
+        "derived rule Profile provenance must use the exact compiler trace fields");
+    }
+    if (!["organization", "project"].includes(provenanceRow.profile_kind)
+        || !Number.isSafeInteger(provenanceRow.order)
+        || provenanceRow.order < 0
+        || !/^[a-f0-9]{64}$/u.test(provenanceRow.operation_digest)
+        || !/^[a-f0-9]{64}$/u.test(provenanceRow.operation_item_digest)
+        || !Array.isArray(provenanceRow.source_refs)
+        || provenanceRow.source_refs.length === 0) {
+      throw new ContractError(QR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID,
+        "derived rule Profile provenance is incomplete or malformed");
+    }
+    for (const field of ["profile_id", "revision_or_hash", "extends_or_base_pin"]) {
+      assertSafeString(provenanceRow[field], `profile provenance ${field}`, 128);
+    }
+    const sourceRefs = [];
+    const seenSourceRefs = new Set();
+    for (const sourceRef of provenanceRow.source_refs) {
+      const source = assertSafeString(sourceRef, "profile provenance source_ref", 256);
+      if (seenSourceRefs.has(source)) {
+        throw new ContractError(QR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID,
+          "derived rule Profile provenance must not duplicate source refs");
+      }
+      seenSourceRefs.add(source);
+      sourceRefs.push(source);
+    }
+    validateQrRuleRow(rule, sourceRefs, seenRuleIds);
+    expectedProvenanceIds.push(rule.rule_id);
+  }
+
+  const actualProvenanceIds = Object.keys(provenance).sort(compareCodePoints);
+  const expectedIds = [...expectedProvenanceIds].sort(compareCodePoints);
+  if (actualProvenanceIds.length !== expectedIds.length
+      || !actualProvenanceIds.every((ruleId, index) => ruleId === expectedIds[index])) {
+    throw new ContractError(QR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID,
+      "profile provenance must cover exactly the derived E01 rules");
+  }
+
+  const derivedDigest = derivedRulesetDigestFor(effectiveRuleSet.rules, provenance);
+  const expectedRulesetRef = {
+    entity_id: "quality-readiness-ruleset-derived-v0",
+    revision_id: `derived:${derivedDigest.slice(0, 16)}`,
+    content_id: `sha256:${derivedDigest}`,
+    content_hash_alg: "sha256",
+  };
+  if (!sameExactRef(effectiveRuleSet.ruleset_ref, expectedRulesetRef)) {
+    throw new ContractError(QR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID,
+      "derived effective ruleset ref does not match the compiler digest");
+  }
+  return Object.freeze({
+    kind: "derived",
+    rules: effectiveRuleSet.rules,
+    ruleset_ref: effectiveRuleSet.ruleset_ref,
+    source_packet_ref: effectiveRuleSet.source_packet_ref,
+    profile_rule_provenance: provenance,
+  });
 }
 
 export const qualityReadinessCompilerAdapter = Object.freeze({

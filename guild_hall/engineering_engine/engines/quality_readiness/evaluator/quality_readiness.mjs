@@ -69,6 +69,17 @@ const BINDING_FIELDS = Object.freeze([
   'source_bindings',
   'accepted_rule_bindings',
 ]);
+const PROFILE_SOURCE_BINDING_FIELDS = Object.freeze([
+  'source_id',
+  'source_ref',
+  'metadata_revision_ref',
+  'body_revision_ref',
+  'direct_derivation_ref',
+  'access_class',
+  'direct_source_state',
+  'source_lane',
+  'claim_ceiling',
+]);
 const CUTOFF_FIELDS = Object.freeze(['accepted_context_generation', 'assessment_cutoff_ref']);
 const DOMAIN_INPUT_FIELDS = Object.freeze(['schema_version', 'rows']);
 const ROW_REQUIRED_FIELDS = Object.freeze([
@@ -154,6 +165,7 @@ const CODES = Object.freeze({
   UNACCEPTED_RULE: 'QUALITY_READINESS_UNACCEPTED_RULE',
   VOCABULARY_REFUSED: 'QUALITY_READINESS_VOCABULARY_REFUSED',
   AUTHORITY_REFUSED: 'QUALITY_READINESS_AUTHORITY_REFUSED',
+  PROFILE_SOURCE_REFUSED: 'QUALITY_READINESS_PROFILE_SOURCE_REFUSED',
 });
 
 function fail(code, message, detail = {}) {
@@ -388,6 +400,90 @@ function assertE01ManifestNestedShape(manifest) {
   }
 }
 
+function exactRefEqual(left, right) {
+  return Boolean(left && right)
+    && left.entity_id === right.entity_id
+    && left.revision_id === right.revision_id
+    && left.content_id === right.content_id
+    && left.content_hash_alg === right.content_hash_alg;
+}
+
+function assertProfileSourceRef(value, field) {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 256
+      || value.normalize('NFC') !== value || /[\u0000-\u001f\u007f]/u.test(value)
+      || FORBIDDEN_STRING_PATTERNS.some((pattern) => pattern.test(value))) {
+    fail(CODES.PROFILE_SOURCE_REFUSED, `${field} must be a bounded public-safe source ref`);
+  }
+  return value;
+}
+
+function normaliseEvaluationContract(options = {}) {
+  if (options === undefined || options === null) options = {};
+  if (typeof options !== 'object' || Array.isArray(options)) {
+    fail(CODES.BINDING_REFUSED, 'evaluation options must be a bounded internal contract');
+  }
+  const hasDerived = options.profile_rule_provenance !== undefined;
+  const rules = options.rules ?? QUALITY_READINESS_RULES;
+  const rulesetRef = options.ruleset_ref ?? QUALITY_READINESS_RULESET_REF;
+  const sourcePacketRef = options.source_packet_ref ?? QUALITY_READINESS_SOURCE_PACKET_REF;
+  if (!Array.isArray(rules) || rules.length === 0 || !rulesetRef || !sourcePacketRef) {
+    fail(CODES.BINDING_REFUSED, 'evaluation contract requires a non-empty exact ruleset and source packet');
+  }
+  const ruleById = new Map();
+  for (const rule of rules) {
+    if (!rule || typeof rule !== 'object' || typeof rule.rule_id !== 'string' || ruleById.has(rule.rule_id)) {
+      fail(CODES.BINDING_REFUSED, 'evaluation contract rules must have unique rule IDs');
+    }
+    ruleById.set(rule.rule_id, rule);
+  }
+  if (!hasDerived) {
+    if (!exactRefEqual(rulesetRef, QUALITY_READINESS_RULESET_REF)
+        || !exactRefEqual(sourcePacketRef, QUALITY_READINESS_SOURCE_PACKET_REF)
+        || rules.length !== QUALITY_READINESS_RULES.length
+        || rules.some((rule, index) => rule.rule_id !== QUALITY_READINESS_RULES[index].rule_id)) {
+      fail(CODES.BINDING_REFUSED, 'base evaluation contract must use the exact accepted E01 ruleset');
+    }
+    return Object.freeze({
+      derived: false,
+      rules,
+      rule_by_id: ruleById,
+      ruleset_ref: rulesetRef,
+      ruleset_revision: QUALITY_READINESS_RULESET_REVISION,
+      source_packet_ref: sourcePacketRef,
+      profile_rule_provenance: null,
+      profile_compilation_trace: null,
+    });
+  }
+
+  if (!options.profile_rule_provenance || typeof options.profile_rule_provenance !== 'object'
+      || Array.isArray(options.profile_rule_provenance)
+      || !options.profile_compilation_trace || typeof options.profile_compilation_trace !== 'object') {
+    fail(CODES.BINDING_REFUSED, 'derived evaluation requires Profile provenance and a Core compilation trace');
+  }
+  if (!exactRefEqual(sourcePacketRef, QUALITY_READINESS_SOURCE_PACKET_REF)
+      || rulesetRef.entity_id !== 'quality-readiness-ruleset-derived-v0'
+      || typeof rulesetRef.revision_id !== 'string'
+      || !/^derived:[0-9a-f]{16}$/u.test(rulesetRef.revision_id)
+      || !SHA256_CONTENT_ID.test(rulesetRef.content_id)
+      || rulesetRef.content_hash_alg !== 'sha256') {
+    fail(CODES.BINDING_REFUSED, 'derived evaluation contract requires an exact E01-derived ruleset ref');
+  }
+  if (typeof options.typed_facts_sha256 !== 'string' || !/^[a-f0-9]{64}$/u.test(options.typed_facts_sha256)) {
+    fail(CODES.BINDING_REFUSED, 'derived evaluation contract requires the exact Typed Facts digest');
+  }
+  return Object.freeze({
+    derived: true,
+    rules,
+    rule_by_id: ruleById,
+    ruleset_ref: rulesetRef,
+    ruleset_revision: rulesetRef.revision_id,
+    source_packet_ref: sourcePacketRef,
+    profile_rule_provenance: options.profile_rule_provenance,
+    profile_compilation_trace: options.profile_compilation_trace,
+    typed_facts_sha256: options.typed_facts_sha256,
+  });
+}
+
 function assertSourceBindings(sourceBindings) {
   if (!Array.isArray(sourceBindings) || sourceBindings.length !== SOURCE_IDS.length) {
     fail(CODES.BINDING_REFUSED, 'exactly the three accepted source bindings are required');
@@ -419,16 +515,95 @@ function assertSourceBindings(sourceBindings) {
   if (seen.size !== SOURCE_IDS.length || SOURCE_IDS.some((sourceId) => !seen.has(sourceId))) {
     fail(CODES.BINDING_REFUSED, 'source bindings do not name the accepted three source IDs exactly');
   }
+  return exactRefs;
 }
 
-function acceptedRuleBindingMap(ruleBindings) {
+function assertProfileSourceBindings(sourceBindings, evaluationContract, baseExactRefs, manifest) {
+  const requiredSourceRefs = [...new Set(Object.values(evaluationContract.profile_rule_provenance)
+    .flatMap((provenance) => provenance.source_refs))].sort(compareCodePoints);
+  if (!Array.isArray(sourceBindings) || sourceBindings.length !== requiredSourceRefs.length) {
+    fail(CODES.PROFILE_SOURCE_REFUSED, 'derived evaluation requires one pinned source binding per Profile source ref');
+  }
+  const seenSourceRefs = new Set();
+  const exactRefs = new Set(baseExactRefs);
+  const lanes = new Set();
+  let prior = null;
+  for (const sourceBinding of sourceBindings) {
+    assertExactKeys(sourceBinding, PROFILE_SOURCE_BINDING_FIELDS, [], 'profile_source_binding', CODES.PROFILE_SOURCE_REFUSED);
+    assertToken(sourceBinding.source_id, 'profile_source_binding.source_id', CODES.PROFILE_SOURCE_REFUSED);
+    const sourceRef = assertProfileSourceRef(sourceBinding.source_ref, 'profile_source_binding.source_ref');
+    if (prior !== null && compareCodePoints(prior, sourceRef) >= 0 || seenSourceRefs.has(sourceRef)) {
+      fail(CODES.PROFILE_SOURCE_REFUSED, 'Profile source bindings must be sorted uniquely by source_ref');
+    }
+    prior = sourceRef;
+    seenSourceRefs.add(sourceRef);
+    for (const field of ['metadata_revision_ref', 'body_revision_ref', 'direct_derivation_ref']) {
+      assertExactRef(sourceBinding[field], `profile_source_binding.${field}`, CODES.PROFILE_SOURCE_REFUSED);
+      const key = refKey(sourceBinding[field]);
+      if (exactRefs.has(key)) {
+        fail(CODES.PROFILE_SOURCE_REFUSED, 'Profile source refs must remain globally distinct from source metadata/body/derivation refs');
+      }
+      exactRefs.add(key);
+    }
+    if (sameExactRef(sourceBinding.metadata_revision_ref, sourceBinding.body_revision_ref)
+        || sameExactRef(sourceBinding.metadata_revision_ref, sourceBinding.direct_derivation_ref)
+        || sameExactRef(sourceBinding.body_revision_ref, sourceBinding.direct_derivation_ref)) {
+      fail(CODES.PROFILE_SOURCE_REFUSED, 'Profile source metadata, body, and direct-derivation refs must remain distinct');
+    }
+    const official = sourceBinding.access_class === 'official_public'
+      && sourceBinding.direct_source_state === 'direct_confirmed'
+      && sourceBinding.source_lane === 'official_public'
+      && sourceBinding.claim_ceiling === 'source_supported';
+    const synthetic = sourceBinding.access_class === 'public_synthetic'
+      && sourceBinding.direct_source_state === 'synthetic_direct_confirmed'
+      && sourceBinding.source_lane === 'public_synthetic'
+      && sourceBinding.claim_ceiling === 'observed';
+    if (!official && !synthetic) {
+      fail(CODES.PROFILE_SOURCE_REFUSED, 'Profile source binding must be directly confirmed official-public or explicitly public-synthetic only');
+    }
+    lanes.add(sourceBinding.source_lane);
+  }
+  if (seenSourceRefs.size !== requiredSourceRefs.length
+      || requiredSourceRefs.some((sourceRef) => !seenSourceRefs.has(sourceRef))) {
+    fail(CODES.PROFILE_SOURCE_REFUSED, 'Profile source bindings do not exactly cover the derived Profile provenance');
+  }
+  if (lanes.size !== 1) {
+    fail(CODES.PROFILE_SOURCE_REFUSED, 'Profile source bindings may not mix public-synthetic and official-public lanes');
+  }
+  const [sourceLane] = lanes;
+  if (sourceLane === 'public_synthetic'
+      && (manifest.supported_project_classifications.length !== 1
+        || manifest.supported_project_classifications[0] !== 'public_synthetic')) {
+    fail(CODES.PROFILE_SOURCE_REFUSED, 'public-synthetic Profile evaluation requires a public-synthetic-only manifest classification');
+  }
+  const bindings = Object.freeze(sourceBindings.map((binding) => ({
+    source_id: binding.source_id,
+    source_ref: binding.source_ref,
+    metadata_revision_ref: cloneRef(binding.metadata_revision_ref),
+    body_revision_ref: cloneRef(binding.body_revision_ref),
+    direct_derivation_ref: cloneRef(binding.direct_derivation_ref),
+    access_class: binding.access_class,
+    direct_source_state: binding.direct_source_state,
+    source_lane: binding.source_lane,
+    claim_ceiling: binding.claim_ceiling,
+  })));
+  const ruleCanonCeilings = new Map(Object.entries(evaluationContract.profile_rule_provenance)
+    .map(([ruleId]) => [ruleId, sourceLane === 'public_synthetic' ? 'observed' : 'source_supported']));
+  return Object.freeze({
+    bindings,
+    source_lane: sourceLane,
+    rule_canon_ceilings: ruleCanonCeilings,
+  });
+}
+
+function acceptedRuleBindingMap(ruleBindings, ruleById = RULE_BY_ID) {
   if (!Array.isArray(ruleBindings)) fail(CODES.BINDING_REFUSED, 'accepted rule bindings must be an explicit array');
   const byRuleId = new Map();
   let prior = null;
   for (const ruleBinding of ruleBindings) {
     assertExactKeys(ruleBinding, RULE_BINDING_FIELDS, [], 'accepted_rule_binding', CODES.BINDING_REFUSED);
     assertToken(ruleBinding.rule_id, 'accepted_rule_binding.rule_id', CODES.BINDING_REFUSED);
-    if (!RULE_BY_ID.has(ruleBinding.rule_id) || byRuleId.has(ruleBinding.rule_id)
+    if (!ruleById.has(ruleBinding.rule_id) || byRuleId.has(ruleBinding.rule_id)
         || (prior !== null && compareCodePoints(prior, ruleBinding.rule_id) >= 0)) {
       fail(CODES.BINDING_REFUSED, 'accepted rule bindings must be known, sorted, and unique');
     }
@@ -440,7 +615,7 @@ function acceptedRuleBindingMap(ruleBindings) {
   return byRuleId;
 }
 
-function validateManifestBinding(manifest, binding, cutoffs) {
+function validateManifestBinding(manifest, binding, cutoffs, evaluationContract) {
   try {
     assertExactKeys(manifest, REQUIRED_MANIFEST_FIELDS, [], 'manifest', CODES.BINDING_REFUSED);
     validateManifest(manifest);
@@ -456,7 +631,13 @@ function validateManifestBinding(manifest, binding, cutoffs) {
       fail(CODES.BINDING_REFUSED, 'manifest is not the exact E01 deterministic compatibility manifest');
     }
 
-    assertExactKeys(binding, BINDING_FIELDS, [], 'binding', CODES.BINDING_REFUSED);
+    assertExactKeys(
+      binding,
+      BINDING_FIELDS,
+      evaluationContract.derived ? ['profile_source_bindings'] : [],
+      'binding',
+      CODES.BINDING_REFUSED,
+    );
     for (const field of [
       'engine_contract_revision', 'snapshot_schema_revision', 'engine_release_version',
       'module_abi_revision', 'ruleset_revision', 'adapter_revision',
@@ -474,18 +655,21 @@ function validateManifestBinding(manifest, binding, cutoffs) {
         || binding.snapshot_schema_revision !== DOMAIN_INPUT_SCHEMA
         || binding.module_abi_revision !== MODULE_ABI_REVISION
         || binding.execution_mode !== 'deterministic_only'
-        || binding.ruleset_revision !== QUALITY_READINESS_RULESET_REVISION
+        || binding.ruleset_revision !== evaluationContract.ruleset_revision
         || binding.adapter_revision !== ADAPTER_REVISION
-        || !sameExactRef(binding.source_packet_ref, QUALITY_READINESS_SOURCE_PACKET_REF)
-        || !sameExactRef(binding.ruleset_ref, QUALITY_READINESS_RULESET_REF)
+        || !sameExactRef(binding.source_packet_ref, evaluationContract.source_packet_ref)
+        || !sameExactRef(binding.ruleset_ref, evaluationContract.ruleset_ref)
         || !Array.isArray(binding.module_bindings)
         || binding.module_bindings.length !== 1
         || canonicalDigest('soulforge.quality_readiness.manifest-binding.v0', binding.module_bindings[0])
           !== canonicalDigest('soulforge.quality_readiness.manifest-binding.v0', manifest)) {
       fail(CODES.BINDING_REFUSED, 'binding is stale, floating, mismatched, or not exact for E01');
     }
-    assertSourceBindings(binding.source_bindings);
-    const ruleBindings = acceptedRuleBindingMap(binding.accepted_rule_bindings);
+    const sourceExactRefs = assertSourceBindings(binding.source_bindings);
+    const profileSourceState = evaluationContract.derived
+      ? assertProfileSourceBindings(binding.profile_source_bindings, evaluationContract, sourceExactRefs, manifest)
+      : null;
+    const ruleBindings = acceptedRuleBindingMap(binding.accepted_rule_bindings, evaluationContract.rule_by_id);
 
     assertExactKeys(cutoffs, CUTOFF_FIELDS, [], 'cutoffs', CODES.BINDING_REFUSED);
     assertExactRef(cutoffs.assessment_cutoff_ref, 'cutoffs.assessment_cutoff_ref', CODES.BINDING_REFUSED);
@@ -497,9 +681,13 @@ function validateManifestBinding(manifest, binding, cutoffs) {
       accepted_rule_bindings: ruleBindings,
       module_binding_revision: bindingRevision(binding),
       binding_sha256: canonicalDigest('soulforge.quality_readiness.binding.v0', { manifest, binding, cutoffs }),
+      profile_source_bindings: profileSourceState?.bindings ?? null,
+      profile_evaluation_lane: profileSourceState?.source_lane ?? null,
+      profile_rule_canon_ceilings: profileSourceState?.rule_canon_ceilings ?? new Map(),
     };
   } catch (error) {
-    if (error instanceof ContractError && error.code === CODES.BINDING_REFUSED) throw error;
+    if (error instanceof ContractError
+        && [CODES.BINDING_REFUSED, CODES.PROFILE_SOURCE_REFUSED].includes(error.code)) throw error;
     fail(CODES.BINDING_REFUSED, 'common module binding validation refused this E01 binding');
   }
 }
@@ -565,11 +753,11 @@ function assertAuthorityRefSeparation(row, acceptedRuleBinding) {
   }
 }
 
-function validateRow(row, acceptedRuleBindings) {
+function validateRow(row, acceptedRuleBindings, ruleById) {
   assertExactKeys(row, ROW_REQUIRED_FIELDS, ROW_OPTIONAL_FIELDS, 'row');
   assertToken(row.case_id, 'row.case_id');
   assertToken(row.rule_id, 'row.rule_id');
-  const rule = RULE_BY_ID.get(row.rule_id);
+  const rule = ruleById.get(row.rule_id);
   if (!rule) fail(CODES.INPUT_REFUSED, 'row rule_id is not a known candidate rule');
   const acceptedRuleBinding = acceptedRuleBindings.get(row.rule_id);
   if (!acceptedRuleBinding) {
@@ -639,7 +827,7 @@ function validateRow(row, acceptedRuleBindings) {
   };
 }
 
-function validateDomainInput(domainInput, acceptedRuleBindings) {
+function validateDomainInput(domainInput, acceptedRuleBindings, ruleById, ruleCanonCeilings = new Map()) {
   assertExactKeys(domainInput, DOMAIN_INPUT_FIELDS, [], 'domain_input');
   if (domainInput.schema_version !== DOMAIN_INPUT_SCHEMA || !Array.isArray(domainInput.rows)
       || domainInput.rows.length > MAX.array) {
@@ -648,13 +836,16 @@ function validateDomainInput(domainInput, acceptedRuleBindings) {
   const seenCases = new Set();
   const seenRules = new Set();
   const prepared = domainInput.rows.map((row) => {
-    const result = validateRow(row, acceptedRuleBindings);
+    const result = validateRow(row, acceptedRuleBindings, ruleById);
     if (seenCases.has(row.case_id) || seenRules.has(row.rule_id)) {
       fail(CODES.INPUT_REFUSED, 'each case and accepted rule may execute at most once');
     }
     seenCases.add(row.case_id);
     seenRules.add(row.rule_id);
-    return result;
+    return {
+      ...result,
+      canon_claim_ceiling: ruleCanonCeilings.get(row.rule_id) ?? 'source_supported',
+    };
   });
   if (prepared.length !== acceptedRuleBindings.size || [...acceptedRuleBindings.keys()].some((ruleId) => !seenRules.has(ruleId))) {
     fail(CODES.INPUT_REFUSED, 'each explicit accepted rule requires exactly one bounded domain row');
@@ -706,7 +897,7 @@ function cloneAuthorityBinding(authorityBinding) {
   };
 }
 
-function axisFields(state) {
+function axisFields(state, canonClaimCeiling = 'source_supported') {
   const evidenceByState = Object.freeze({
     [GAP_TYPE.SATISFIED]: 'source_sufficient',
     [GAP_TYPE.MISSING]: 'source_referenced',
@@ -715,9 +906,9 @@ function axisFields(state) {
     not_applicable: 'not_applicable',
   });
   const evidence_claim_ceiling = evidenceByState[state];
-  assertCanonCeiling('source_supported');
+  assertCanonCeiling(canonClaimCeiling);
   assertEvidenceCeiling(evidence_claim_ceiling);
-  return { canon_claim_ceiling: 'source_supported', evidence_claim_ceiling };
+  return { canon_claim_ceiling: canonClaimCeiling, evidence_claim_ceiling };
 }
 
 function resultBase(row, rule, acceptedRuleBinding) {
@@ -748,37 +939,37 @@ function resultBase(row, rule, acceptedRuleBinding) {
   return result;
 }
 
-function evaluateRow({ row, rule, accepted_rule_binding, authority_present, missing_context_fields }) {
+function evaluateRow({ row, rule, accepted_rule_binding, authority_present, missing_context_fields, canon_claim_ceiling }) {
   const base = resultBase(row, rule, accepted_rule_binding);
   const applicability = resolveApplicability(row.applicability);
   if (applicability === APPLICABILITY.NO) {
     return {
       ...base,
-      ...axisFields('not_applicable'),
+      ...axisFields('not_applicable', canon_claim_ceiling),
       state: 'not_applicable',
       reason_code: 'not_applicable',
       authority_hold: false,
     };
   }
   if (applicability === APPLICABILITY.UNKNOWN) {
-    return { ...base, ...axisFields(GAP_TYPE.UNKNOWN), state: GAP_TYPE.UNKNOWN, reason_code: 'applicability_unknown', authority_hold: false };
+    return { ...base, ...axisFields(GAP_TYPE.UNKNOWN, canon_claim_ceiling), state: GAP_TYPE.UNKNOWN, reason_code: 'applicability_unknown', authority_hold: false };
   }
   if (missing_context_fields.length > 0) {
     return {
       ...base,
-      ...axisFields(GAP_TYPE.UNKNOWN),
+      ...axisFields(GAP_TYPE.UNKNOWN, canon_claim_ceiling),
       state: GAP_TYPE.UNKNOWN,
       reason_code: 'context_facts_missing',
       authority_hold: false,
     };
   }
   if (!authority_present) {
-    return { ...base, ...axisFields(GAP_TYPE.UNKNOWN), state: GAP_TYPE.UNKNOWN, reason_code: 'authority_missing', authority_hold: true };
+    return { ...base, ...axisFields(GAP_TYPE.UNKNOWN, canon_claim_ceiling), state: GAP_TYPE.UNKNOWN, reason_code: 'authority_missing', authority_hold: true };
   }
   if (row.conflict_claims !== undefined) {
     return {
       ...base,
-      ...axisFields(GAP_TYPE.CONFLICT),
+      ...axisFields(GAP_TYPE.CONFLICT, canon_claim_ceiling),
       state: GAP_TYPE.CONFLICT,
       reason_code: 'retained_source_conflict',
       authority_hold: false,
@@ -786,28 +977,28 @@ function evaluateRow({ row, rule, accepted_rule_binding, authority_present, miss
     };
   }
   if (!row.observation_attempted || row.presence_state === PRESENCE.UNKNOWN) {
-    return { ...base, ...axisFields(GAP_TYPE.UNKNOWN), state: GAP_TYPE.UNKNOWN, reason_code: 'observation_unavailable', authority_hold: false };
+    return { ...base, ...axisFields(GAP_TYPE.UNKNOWN, canon_claim_ceiling), state: GAP_TYPE.UNKNOWN, reason_code: 'observation_unavailable', authority_hold: false };
   }
   if (row.presence_state === PRESENCE.ABSENCE_CONFIRMED) {
-    return { ...base, ...axisFields(GAP_TYPE.MISSING), state: GAP_TYPE.MISSING, reason_code: 'absence_confirmed', authority_hold: false };
+    return { ...base, ...axisFields(GAP_TYPE.MISSING, canon_claim_ceiling), state: GAP_TYPE.MISSING, reason_code: 'absence_confirmed', authority_hold: false };
   }
   const missingFacts = rule.sufficiency_fields.filter((field) => !Object.hasOwn(row, field));
   if (missingFacts.length > 0) {
     return {
       ...base,
-      ...axisFields(GAP_TYPE.UNKNOWN),
+      ...axisFields(GAP_TYPE.UNKNOWN, canon_claim_ceiling),
       state: GAP_TYPE.UNKNOWN,
       reason_code: 'sufficiency_facts_missing',
       authority_hold: false,
     };
   }
   if (!Object.hasOwn(row, 'evaluation_result_ref') || row.evaluation_result_state === 'unknown') {
-    return { ...base, ...axisFields(GAP_TYPE.UNKNOWN), state: GAP_TYPE.UNKNOWN, reason_code: 'evaluation_unknown', authority_hold: false };
+    return { ...base, ...axisFields(GAP_TYPE.UNKNOWN, canon_claim_ceiling), state: GAP_TYPE.UNKNOWN, reason_code: 'evaluation_unknown', authority_hold: false };
   }
   if (row.evaluation_result_state === 'criteria_not_met') {
-    return { ...base, ...axisFields(GAP_TYPE.CONFLICT), state: GAP_TYPE.CONFLICT, reason_code: 'evaluation_not_met', authority_hold: false };
+    return { ...base, ...axisFields(GAP_TYPE.CONFLICT, canon_claim_ceiling), state: GAP_TYPE.CONFLICT, reason_code: 'evaluation_not_met', authority_hold: false };
   }
-  return { ...base, ...axisFields(GAP_TYPE.SATISFIED), state: GAP_TYPE.SATISFIED, reason_code: 'evidence_sufficient', authority_hold: false };
+  return { ...base, ...axisFields(GAP_TYPE.SATISFIED, canon_claim_ceiling), state: GAP_TYPE.SATISFIED, reason_code: 'evidence_sufficient', authority_hold: false };
 }
 
 function countsFor(results) {
@@ -871,20 +1062,60 @@ function aggregateEvidenceCeiling(counts) {
   return assertEvidenceCeiling(value);
 }
 
+function aggregateCanonClaimCeiling(results) {
+  const order = new Map([
+    ['rejected_or_blocked', 0],
+    ['observed', 1],
+    ['source_supported', 2],
+    ['validated_private', 3],
+    ['canon_candidate', 4],
+    ['canon_entry', 5],
+  ]);
+  if (results.length === 0) return assertCanonCeiling('observed');
+  let aggregate = 'canon_entry';
+  for (const result of results) {
+    assertCanonCeiling(result.canon_claim_ceiling);
+    if (order.get(result.canon_claim_ceiling) < order.get(aggregate)) {
+      aggregate = result.canon_claim_ceiling;
+    }
+  }
+  return assertCanonCeiling(aggregate);
+}
+
+function clampCanonClaimCeilingForProfileLane(canonClaimCeiling, profileEvaluationLane) {
+  assertCanonCeiling(canonClaimCeiling);
+  if (profileEvaluationLane === null || profileEvaluationLane === undefined || profileEvaluationLane === 'official_public') {
+    return canonClaimCeiling;
+  }
+  if (profileEvaluationLane === 'public_synthetic') {
+    return assertCanonCeiling('observed');
+  }
+  fail(CODES.PROFILE_SOURCE_REFUSED, 'derived Profile evaluation lane is not recognised for canon-ceiling aggregation');
+}
+
 /**
  * Assesses only quality-evidence readiness for exact accepted rule rows.
  *
  * @param {{manifest: object, binding: object, domain_input: object, cutoffs: object}} request
  * @returns {{assessment: object, domain_result: object, receipt: object}}
  */
-export function assessQualityReadiness(request) {
+export function assessQualityReadiness(request, options = {}) {
+  const evaluationContract = normaliseEvaluationContract(options);
   const input = snapshotPlainData(request);
   assertExactKeys(input, ROOT_FIELDS, [], 'request');
-  const bindingState = validateManifestBinding(input.manifest, input.binding, input.cutoffs);
-  const prepared = validateDomainInput(input.domain_input, bindingState.accepted_rule_bindings);
+  const bindingState = validateManifestBinding(input.manifest, input.binding, input.cutoffs, evaluationContract);
+  const prepared = validateDomainInput(
+    input.domain_input,
+    bindingState.accepted_rule_bindings,
+    evaluationContract.rule_by_id,
+    bindingState.profile_rule_canon_ceilings,
+  );
   const results = prepared.map(evaluateRow);
   const counts = countsFor(results);
-  const canon_claim_ceiling = assertCanonCeiling('source_supported');
+  const canon_claim_ceiling = clampCanonClaimCeilingForProfileLane(
+    aggregateCanonClaimCeiling(results),
+    bindingState.profile_evaluation_lane,
+  );
   const evidence_claim_ceiling = aggregateEvidenceCeiling(counts);
   const domain_result = {
     schema_version: DOMAIN_RESULT_SCHEMA,
@@ -946,5 +1177,11 @@ export function assessQualityReadiness(request) {
     },
     effects: { ...EFFECTS },
   };
+  if (evaluationContract.derived) {
+    receipt.bindings.profile_source_bindings = bindingState.profile_source_bindings;
+    receipt.bindings.profile_evaluation_lane = bindingState.profile_evaluation_lane;
+    receipt.bindings.typed_facts_sha256 = evaluationContract.typed_facts_sha256;
+    receipt.bindings.profile_compilation_trace = evaluationContract.profile_compilation_trace;
+  }
   return freezeDeep({ assessment, domain_result, receipt });
 }
