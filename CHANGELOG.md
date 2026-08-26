@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-26 - PCB Compliance evidence-readiness Domain Engine main integration
+
+- Integrated the accepted `pcb_compliance` package behind the unchanged Engineering Engine Core without granting IPC compliance, product/workmanship acceptance, project applicability, controlled-body access, production, release, or writer authority.
+- Registered its evaluator and root `validate:pcb-compliance` gate, including 46 package tests for Core Typed Facts, Profile provenance, trusted-input-rooted result receipts, source/public boundaries, schemas, replay and zero-write behavior.
+- Kept NASA derivation bounded to public evidence-readiness and IPC material at revision metadata only; Profile-added rules remain `observed` unless a separately approved source authority contract exists.
+
 ## 2026-08-26 - Material Procurement Readiness Domain Engine main integration
 
 - Integrated the accepted `material_procurement_readiness` package behind the existing Engineering Engine Core without granting ERP, purchase-order, supplier, reservation, allocation, or procurement action authority.

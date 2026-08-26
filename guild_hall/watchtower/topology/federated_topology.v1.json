@@ -62,6 +62,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance",
+      "id": "engineering_engine::imports.03c30f87d7715ce9966645ea6cea6c01",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.database_engineering.fixtures.database_engineering_public_synthetic",
       "id": "engineering_engine::imports.05e910e718a3afdd9ea2a5d4f1102158",
       "label": "imports",
@@ -122,6 +132,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
+      "id": "engineering_engine::imports.0d535e9aff30afa49e94892a3c7d5fe5",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.projects_list",
       "id": "engineering_engine::imports.0e0920326208428db4fa93601790da74",
       "label": "imports",
@@ -162,6 +182,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.topology.pcb_compliance_module_manifest",
+      "id": "engineering_engine::imports.116318f9d94ecaa268e0871ae78b2c13",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.module_binding"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.tools.se_core_eval_qa_human_report",
       "id": "engineering_engine::imports.119c7947c9a7060f7f0b08dde979b7af",
       "label": "imports",
@@ -169,6 +199,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.evaluation.se_core_eval_qa_report_writer"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
+      "id": "engineering_engine::imports.124989229dabe88b9240497dadd55278",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
     },
     {
       "evidence_mode": "structural_only",
@@ -492,6 +532,26 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
+      "id": "engineering_engine::imports.3188a52327dd82fc9ca41a4815fb98c2",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter",
+      "id": "engineering_engine::imports.31aaabb9a039ddc75da9899dcf942d45",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.pcb_compliance.vocabulary.pcb_compliance_vocabulary"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.observe_register",
       "id": "engineering_engine::imports.320fe248ff6c625fd62686eee9451abd",
       "label": "imports",
@@ -509,6 +569,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.evaluation.se_core_eval_qa_capture"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.fixtures.pcb_compliance_public_synthetic",
+      "id": "engineering_engine::imports.32c68c1b1cdc44f894d31b5930a85365",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.pcb_compliance.rules.pcb_compliance_rules"
     },
     {
       "evidence_mode": "structural_only",
@@ -572,6 +642,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter",
+      "id": "engineering_engine::imports.34d9d99974992572512b0f4c4e7003cb",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.profile_operation_canon"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.index",
       "id": "engineering_engine::imports.378cb8550f4a3f8ccb3af27029b5e160",
       "label": "imports",
@@ -632,6 +712,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance",
+      "id": "engineering_engine::imports.3a969877c2e337c35636b26d6b194a7d",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.index",
       "id": "engineering_engine::imports.3be188e10db848249358779363dda98b",
       "label": "imports",
@@ -679,6 +769,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.tools.output_binding"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter",
+      "id": "engineering_engine::imports.4050919082865a51b851cfc8e4a44eb0",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.pcb_compliance.rules.pcb_compliance_rules"
     },
     {
       "evidence_mode": "structural_only",
@@ -769,6 +869,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.render"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance",
+      "id": "engineering_engine::imports.496ee1dfd840f43e6da36a3bbbf86394",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.pcb_compliance.rules.pcb_compliance_rules"
     },
     {
       "evidence_mode": "structural_only",
@@ -924,6 +1034,16 @@
       "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.database_engineering.compiler.database_engineering_compiler_adapter",
       "id": "engineering_engine::imports.528598e628db76a3f69e12f6bcb27ed1",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter",
+      "id": "engineering_engine::imports.52e8ad460a4cfa98f17c82da4865383f",
       "label": "imports",
       "layer": "module",
       "provider_id": "engineering_engine",
@@ -1132,6 +1252,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
+      "id": "engineering_engine::imports.6452002ad0ea593041f281b49fe03519",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.authority"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.index",
       "id": "engineering_engine::imports.6470490b24f3b6807beedbb7057e16cd",
       "label": "imports",
@@ -1239,6 +1369,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.tickets"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.tools.pcb_compliance_runner",
+      "id": "engineering_engine::imports.6cdc98194a60124e8c73a9e1c6ae6085",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.pcb_compliance.fixtures.pcb_compliance_public_synthetic"
     },
     {
       "evidence_mode": "structural_only",
@@ -1492,6 +1632,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
+      "id": "engineering_engine::imports.807a74e82ead45e430f0c79098646684",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter",
       "id": "engineering_engine::imports.8134b8b43c243e596c092266b439d8eb",
       "label": "imports",
@@ -1629,6 +1779,26 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
+      "id": "engineering_engine::imports.8de001925ac694aede37376c6b94a95f",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.pcb_compliance.rules.pcb_compliance_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
+      "id": "engineering_engine::imports.8de346c969ccc992ae2c512db9059e6c",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
     },
     {
       "evidence_mode": "structural_only",
@@ -1982,6 +2152,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
+      "id": "engineering_engine::imports.ae9a26ac98bf2926211864d960468bdb",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.index",
       "id": "engineering_engine::imports.b1c18e8d2542ab97c2faddf771d20ab8",
       "label": "imports",
@@ -2159,6 +2339,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance",
+      "id": "engineering_engine::imports.c23f5a853b09fb1847dea78c89da77c2",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.pcb_compliance.vocabulary.pcb_compliance_vocabulary"
     },
     {
       "evidence_mode": "structural_only",
@@ -3952,6 +4142,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.tools.pcb_compliance_runner",
+      "id": "engineering_engine::imports.ec1be313db68ecade3962dd24a03a324",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.judge_diff",
       "id": "engineering_engine::imports.ec5645719ebd93238097c8298cd824e2",
       "label": "imports",
@@ -3992,6 +4192,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter",
+      "id": "engineering_engine::imports.ee9716666e53ffccf3ef1b660d5c63d6",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluator.ax_se_project_role_bound_assessment",
       "id": "engineering_engine::imports.eeca39c137f30a981cc05c6b2ee14879",
       "label": "imports",
@@ -4009,6 +4219,116 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter",
+      "id": "engineering_engine::imports.engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance",
+      "id": "engineering_engine::imports.engines.pcb_compliance.evaluator.pcb_compliance.core.interfaces.domain_engine_adapter",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance",
+      "id": "engineering_engine::imports.engines.pcb_compliance.evaluator.pcb_compliance.core.interfaces.profile_operation_canon",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.profile_operation_canon"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance",
+      "id": "engineering_engine::imports.engines.pcb_compliance.evaluator.pcb_compliance.core.validators.authority",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.authority"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance",
+      "id": "engineering_engine::imports.engines.pcb_compliance.evaluator.pcb_compliance.core.validators.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance",
+      "id": "engineering_engine::imports.engines.pcb_compliance.evaluator.pcb_compliance.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance",
+      "id": "engineering_engine::imports.engines.pcb_compliance.evaluator.pcb_compliance.core.validators.fingerprint",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.rules.pcb_compliance_rules",
+      "id": "engineering_engine::imports.engines.pcb_compliance.rules.pcb_compliance_rules.core.validators.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.rules.pcb_compliance_rules",
+      "id": "engineering_engine::imports.engines.pcb_compliance.rules.pcb_compliance_rules.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.rules.pcb_compliance_rules",
+      "id": "engineering_engine::imports.engines.pcb_compliance.rules.pcb_compliance_rules.core.validators.fingerprint",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.topology.pcb_compliance_module_manifest",
+      "id": "engineering_engine::imports.engines.pcb_compliance.topology.pcb_compliance_module_manifest.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
     },
     {
       "evidence_mode": "structural_only",
@@ -4579,6 +4899,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.tools.rules_stage"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter",
+      "id": "engineering_engine::imports.f18221dad5494e269f52f4e33c601875",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.authority"
     },
     {
       "evidence_mode": "structural_only",
@@ -6019,6 +6349,94 @@
       "id": "engineering_engine::engines.material_procurement_readiness.topology.material_procurement_readiness_module_manifest",
       "kind": "module",
       "label": "engines/material_procurement_readiness/topology/material_procurement_readiness_module_manifest",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter",
+      "kind": "module",
+      "label": "engines/pcb_compliance/compiler/pcb_compliance_compiler_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance",
+      "kind": "module",
+      "label": "engines/pcb_compliance/evaluator/pcb_compliance",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
+      "kind": "module",
+      "label": "engines/pcb_compliance/evaluator/pcb_compliance_evaluator_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.pcb_compliance.fixtures.pcb_compliance_public_synthetic",
+      "kind": "module",
+      "label": "engines/pcb_compliance/fixtures/pcb_compliance_public_synthetic",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.pcb_compliance.rules.pcb_compliance_rules",
+      "kind": "module",
+      "label": "engines/pcb_compliance/rules/pcb_compliance_rules",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.pcb_compliance.tools.pcb_compliance_runner",
+      "kind": "module",
+      "label": "engines/pcb_compliance/tools/pcb_compliance_runner",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.pcb_compliance.topology.pcb_compliance_module_manifest",
+      "kind": "module",
+      "label": "engines/pcb_compliance/topology/pcb_compliance_module_manifest",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.pcb_compliance.vocabulary.pcb_compliance_vocabulary",
+      "kind": "module",
+      "label": "engines/pcb_compliance/vocabulary/pcb_compliance_vocabulary",
       "layer": "module",
       "parent_id": null,
       "provider_id": "engineering_engine",
@@ -7592,6 +8010,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.evaluator.pcb_compliance",
+          "id": "imports.03c30f87d7715ce9966645ea6cea6c01",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.database_engineering.fixtures.database_engineering_public_synthetic",
           "id": "imports.05e910e718a3afdd9ea2a5d4f1102158",
           "label": "imports",
@@ -7646,6 +8073,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
+          "id": "imports.0d535e9aff30afa49e94892a3c7d5fe5",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.projects_list",
           "id": "imports.0e0920326208428db4fa93601790da74",
           "label": "imports",
@@ -7682,12 +8118,30 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.topology.pcb_compliance_module_manifest",
+          "id": "imports.116318f9d94ecaa268e0871ae78b2c13",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.module_binding"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.tools.se_core_eval_qa_human_report",
           "id": "imports.119c7947c9a7060f7f0b08dde979b7af",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.evaluation.se_core_eval_qa_report_writer"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
+          "id": "imports.124989229dabe88b9240497dadd55278",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
         },
         {
           "evidence_mode": "structural_only",
@@ -7979,6 +8433,24 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
+          "id": "imports.3188a52327dd82fc9ca41a4815fb98c2",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter",
+          "id": "imports.31aaabb9a039ddc75da9899dcf942d45",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.pcb_compliance.vocabulary.pcb_compliance_vocabulary"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.observe_register",
           "id": "imports.320fe248ff6c625fd62686eee9451abd",
           "label": "imports",
@@ -7994,6 +8466,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.evaluation.se_core_eval_qa_capture"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.fixtures.pcb_compliance_public_synthetic",
+          "id": "imports.32c68c1b1cdc44f894d31b5930a85365",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.pcb_compliance.rules.pcb_compliance_rules"
         },
         {
           "evidence_mode": "structural_only",
@@ -8051,6 +8532,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter",
+          "id": "imports.34d9d99974992572512b0f4c4e7003cb",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.profile_operation_canon"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.index",
           "id": "imports.378cb8550f4a3f8ccb3af27029b5e160",
           "label": "imports",
@@ -8105,6 +8595,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.evaluator.pcb_compliance",
+          "id": "imports.3a969877c2e337c35636b26d6b194a7d",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.index",
           "id": "imports.3be188e10db848249358779363dda98b",
           "label": "imports",
@@ -8147,6 +8646,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.tools.output_binding"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter",
+          "id": "imports.4050919082865a51b851cfc8e4a44eb0",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.pcb_compliance.rules.pcb_compliance_rules"
         },
         {
           "evidence_mode": "structural_only",
@@ -8228,6 +8736,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.render"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.evaluator.pcb_compliance",
+          "id": "imports.496ee1dfd840f43e6da36a3bbbf86394",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.pcb_compliance.rules.pcb_compliance_rules"
         },
         {
           "evidence_mode": "structural_only",
@@ -8368,6 +8885,15 @@
           "evidence_mode": "structural_only",
           "from": "engines.database_engineering.compiler.database_engineering_compiler_adapter",
           "id": "imports.528598e628db76a3f69e12f6bcb27ed1",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter",
+          "id": "imports.52e8ad460a4cfa98f17c82da4865383f",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
@@ -8555,6 +9081,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
+          "id": "imports.6452002ad0ea593041f281b49fe03519",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.authority"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.index",
           "id": "imports.6470490b24f3b6807beedbb7057e16cd",
           "label": "imports",
@@ -8651,6 +9186,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.tickets"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.tools.pcb_compliance_runner",
+          "id": "imports.6cdc98194a60124e8c73a9e1c6ae6085",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.pcb_compliance.fixtures.pcb_compliance_public_synthetic"
         },
         {
           "evidence_mode": "structural_only",
@@ -8879,6 +9423,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
+          "id": "imports.807a74e82ead45e430f0c79098646684",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter",
           "id": "imports.8134b8b43c243e596c092266b439d8eb",
           "label": "imports",
@@ -9002,6 +9555,24 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
+          "id": "imports.8de001925ac694aede37376c6b94a95f",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.pcb_compliance.rules.pcb_compliance_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
+          "id": "imports.8de346c969ccc992ae2c512db9059e6c",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
         },
         {
           "evidence_mode": "structural_only",
@@ -9320,6 +9891,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
+          "id": "imports.ae9a26ac98bf2926211864d960468bdb",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.pcb_compliance.evaluator.pcb_compliance"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.index",
           "id": "imports.b1c18e8d2542ab97c2faddf771d20ab8",
           "label": "imports",
@@ -9479,6 +10059,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.evaluator.pcb_compliance",
+          "id": "imports.c23f5a853b09fb1847dea78c89da77c2",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.pcb_compliance.vocabulary.pcb_compliance_vocabulary"
         },
         {
           "evidence_mode": "structural_only",
@@ -11093,6 +11682,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.tools.pcb_compliance_runner",
+          "id": "imports.ec1be313db68ecade3962dd24a03a324",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.pcb_compliance.evaluator.pcb_compliance"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.judge_diff",
           "id": "imports.ec5645719ebd93238097c8298cd824e2",
           "label": "imports",
@@ -11129,6 +11727,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter",
+          "id": "imports.ee9716666e53ffccf3ef1b660d5c63d6",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluator.ax_se_project_role_bound_assessment",
           "id": "imports.eeca39c137f30a981cc05c6b2ee14879",
           "label": "imports",
@@ -11144,6 +11751,105 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter",
+          "id": "imports.engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.evaluator.pcb_compliance",
+          "id": "imports.engines.pcb_compliance.evaluator.pcb_compliance.core.interfaces.domain_engine_adapter",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.evaluator.pcb_compliance",
+          "id": "imports.engines.pcb_compliance.evaluator.pcb_compliance.core.interfaces.profile_operation_canon",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.profile_operation_canon"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.evaluator.pcb_compliance",
+          "id": "imports.engines.pcb_compliance.evaluator.pcb_compliance.core.validators.authority",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.authority"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.evaluator.pcb_compliance",
+          "id": "imports.engines.pcb_compliance.evaluator.pcb_compliance.core.validators.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.evaluator.pcb_compliance",
+          "id": "imports.engines.pcb_compliance.evaluator.pcb_compliance.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.evaluator.pcb_compliance",
+          "id": "imports.engines.pcb_compliance.evaluator.pcb_compliance.core.validators.fingerprint",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.rules.pcb_compliance_rules",
+          "id": "imports.engines.pcb_compliance.rules.pcb_compliance_rules.core.validators.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.rules.pcb_compliance_rules",
+          "id": "imports.engines.pcb_compliance.rules.pcb_compliance_rules.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.rules.pcb_compliance_rules",
+          "id": "imports.engines.pcb_compliance.rules.pcb_compliance_rules.core.validators.fingerprint",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.topology.pcb_compliance_module_manifest",
+          "id": "imports.engines.pcb_compliance.topology.pcb_compliance_module_manifest.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
         },
         {
           "evidence_mode": "structural_only",
@@ -11657,6 +12363,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.tools.rules_stage"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter",
+          "id": "imports.f18221dad5494e269f52f4e33c601875",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.authority"
         },
         {
           "evidence_mode": "structural_only",
@@ -12511,6 +13226,86 @@
           "id": "engines.material_procurement_readiness.topology.material_procurement_readiness_module_manifest",
           "kind": "module",
           "label": "engines/material_procurement_readiness/topology/material_procurement_readiness_module_manifest",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter",
+          "kind": "module",
+          "label": "engines/pcb_compliance/compiler/pcb_compliance_compiler_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.pcb_compliance.evaluator.pcb_compliance",
+          "kind": "module",
+          "label": "engines/pcb_compliance/evaluator/pcb_compliance",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
+          "kind": "module",
+          "label": "engines/pcb_compliance/evaluator/pcb_compliance_evaluator_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.pcb_compliance.fixtures.pcb_compliance_public_synthetic",
+          "kind": "module",
+          "label": "engines/pcb_compliance/fixtures/pcb_compliance_public_synthetic",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.pcb_compliance.rules.pcb_compliance_rules",
+          "kind": "module",
+          "label": "engines/pcb_compliance/rules/pcb_compliance_rules",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.pcb_compliance.tools.pcb_compliance_runner",
+          "kind": "module",
+          "label": "engines/pcb_compliance/tools/pcb_compliance_runner",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.pcb_compliance.topology.pcb_compliance_module_manifest",
+          "kind": "module",
+          "label": "engines/pcb_compliance/topology/pcb_compliance_module_manifest",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.pcb_compliance.vocabulary.pcb_compliance_vocabulary",
+          "kind": "module",
+          "label": "engines/pcb_compliance/vocabulary/pcb_compliance_vocabulary",
           "layer": "module",
           "parent_id": null,
           "repair_state": "none"
@@ -13482,7 +14277,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "0f8a968c071691ff804653ce0860ddd407e4161bae9ac0e5dfeec9cdda8dffa9",
+        "digest": "083d928175888965e78073040f8e33ca4fd1dad8eb69f43bdbeb06f083f9e1fb",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -14476,13 +15271,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "24e90bbfef4ef7d3192c59434429d5cfeab69b423304497c678eb37724bd7887",
+  "source_set_digest": "c3e581997ec23975ba553955bb840936ce1b8f4176a785c4d48b5c4cb004f693",
   "summary": {
-    "edge_count": 534,
-    "node_count": 197,
+    "edge_count": 567,
+    "node_count": 205,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "f9cdefaa96845c83a25bfb24f732f648aee7765ac5a4b3fb278e05703da3aae2"
+  "topology_digest": "3e4c08f42a03731564e731ddd4cfb21f9a2922f7c0d83868744db7e9f8e392c1"
 }

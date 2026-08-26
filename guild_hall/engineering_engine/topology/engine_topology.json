@@ -3,13 +3,14 @@
   "engine_root": "guild_hall/engineering_engine",
   "contract_revision": "phase_1_0_contract.v0",
   "derivation": {
-    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness, engines/database_engineering, engines/material_procurement_readiness",
+    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness, engines/database_engineering, engines/material_procurement_readiness, engines/pcb_compliance",
     "areas_covered": [
       "core",
       "engines/systems_engineering",
       "engines/quality_readiness",
       "engines/database_engineering",
-      "engines/material_procurement_readiness"
+      "engines/material_procurement_readiness",
+      "engines/pcb_compliance"
     ],
     "areas_deliberately_excluded": [
       {
@@ -1147,6 +1148,107 @@
       ],
       "export_count": 1,
       "line_count": 107
+    },
+    {
+      "module": "engines/pcb_compliance/compiler/pcb_compliance_compiler_adapter",
+      "area": "engines",
+      "exports": [
+        "PCB_COMPILER_ADAPTER_SCHEMA_VERSION",
+        "PCB_COMPILER_ERROR_CODES",
+        "calculatePcbDerivedRulesetContentId",
+        "compilePcbComplianceRules",
+        "pcbComplianceCompilerAdapter"
+      ],
+      "export_count": 5,
+      "line_count": 302
+    },
+    {
+      "module": "engines/pcb_compliance/evaluator/pcb_compliance",
+      "area": "engines",
+      "exports": [
+        "PCB_EVALUATOR_ERROR_CODES",
+        "admitTrustedInput",
+        "assessPcbCompliance",
+        "validatePcbEffectiveRuleSet",
+        "validateRequest",
+        "verifyPcbComplianceResult"
+      ],
+      "export_count": 6,
+      "line_count": 1223
+    },
+    {
+      "module": "engines/pcb_compliance/evaluator/pcb_compliance_evaluator_adapter",
+      "area": "engines",
+      "exports": [
+        "PCB_EVALUATOR_ADAPTER_SCHEMA_VERSION",
+        "PCB_TYPED_FACTS_ERROR_CODE",
+        "admitPcbCoreTypedFacts",
+        "calculatePcbCoreTypedFactsDigest",
+        "pcbComplianceAdapter"
+      ],
+      "export_count": 5,
+      "line_count": 262
+    },
+    {
+      "module": "engines/pcb_compliance/fixtures/pcb_compliance_public_synthetic",
+      "area": "engines",
+      "exports": [
+        "PCB_COMPLIANCE_PUBLIC_SYNTHETIC_FIXTURE",
+        "PCB_COMPLIANCE_SOURCE_PACKET_SHA256",
+        "buildPcbCompliancePublicSyntheticRequest"
+      ],
+      "export_count": 3,
+      "line_count": 140
+    },
+    {
+      "module": "engines/pcb_compliance/rules/pcb_compliance_rules",
+      "area": "engines",
+      "exports": [
+        "PCB_COMPLIANCE_RULES",
+        "PCB_COMPLIANCE_RULESET_REF",
+        "PCB_COMPLIANCE_RULESET_REVISION",
+        "PCB_COMPLIANCE_RULESET_SCHEMA",
+        "PCB_COMPLIANCE_SOURCE_PACKET_REF",
+        "PCB_COMPLIANCE_SOURCE_PACKET_SHA256",
+        "PROHIBITED_PUBLIC_SENTINELS",
+        "assertPublicSafeString",
+        "isPcbControlledSourceRef",
+        "isPublicSafeString",
+        "projectPcbRuleForDigest"
+      ],
+      "export_count": 11,
+      "line_count": 259
+    },
+    {
+      "module": "engines/pcb_compliance/tools/pcb_compliance_runner",
+      "area": "engines",
+      "exports": [],
+      "export_count": 0,
+      "line_count": 8
+    },
+    {
+      "module": "engines/pcb_compliance/topology/pcb_compliance_module_manifest",
+      "area": "engines",
+      "exports": [
+        "createPcbComplianceModuleManifest"
+      ],
+      "export_count": 1,
+      "line_count": 85
+    },
+    {
+      "module": "engines/pcb_compliance/vocabulary/pcb_compliance_vocabulary",
+      "area": "engines",
+      "exports": [
+        "PCB_COMPLIANCE_COVERAGE_AREAS",
+        "PCB_COMPLIANCE_EVIDENCE_KEYS",
+        "PCB_CONTROLLED_BODY_ACCESS_STATES",
+        "PCB_OBSERVATION_STATES",
+        "isPcbControlledBodyAccessState",
+        "isPcbCoverageArea",
+        "isPcbObservationState"
+      ],
+      "export_count": 7,
+      "line_count": 42
     },
     {
       "module": "engines/quality_readiness/compiler/quality_readiness_compiler_adapter",
@@ -2608,7 +2710,7 @@
       "line_count": 1885
     }
   ],
-  "module_count": 158,
+  "module_count": 166,
   "module_edges": [
     {
       "from": "core/evaluation_runtime/claim_ceilings",
@@ -3977,6 +4079,237 @@
     },
     {
       "from": "engines/material_procurement_readiness/topology/material_procurement_readiness_module_manifest",
+      "to": "core/validators/module_binding",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/compiler/pcb_compliance_compiler_adapter",
+      "to": "core/interfaces/profile_operation_canon",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/compiler/pcb_compliance_compiler_adapter",
+      "to": "core/validators/authority",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/compiler/pcb_compliance_compiler_adapter",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/compiler/pcb_compliance_compiler_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/compiler/pcb_compliance_compiler_adapter",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/compiler/pcb_compliance_compiler_adapter",
+      "to": "engines/pcb_compliance/rules/pcb_compliance_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/compiler/pcb_compliance_compiler_adapter",
+      "to": "engines/pcb_compliance/vocabulary/pcb_compliance_vocabulary",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/evaluator/pcb_compliance_evaluator_adapter",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/evaluator/pcb_compliance_evaluator_adapter",
+      "to": "core/validators/authority",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/evaluator/pcb_compliance_evaluator_adapter",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/evaluator/pcb_compliance_evaluator_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/evaluator/pcb_compliance_evaluator_adapter",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/evaluator/pcb_compliance_evaluator_adapter",
+      "to": "engines/pcb_compliance/compiler/pcb_compliance_compiler_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/evaluator/pcb_compliance_evaluator_adapter",
+      "to": "engines/pcb_compliance/evaluator/pcb_compliance",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/evaluator/pcb_compliance_evaluator_adapter",
+      "to": "engines/pcb_compliance/rules/pcb_compliance_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/evaluator/pcb_compliance",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/evaluator/pcb_compliance",
+      "to": "core/interfaces/profile_operation_canon",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/evaluator/pcb_compliance",
+      "to": "core/validators/authority",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/evaluator/pcb_compliance",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/evaluator/pcb_compliance",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/evaluator/pcb_compliance",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/evaluator/pcb_compliance",
+      "to": "engines/pcb_compliance/compiler/pcb_compliance_compiler_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/evaluator/pcb_compliance",
+      "to": "engines/pcb_compliance/evaluator/pcb_compliance_evaluator_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/evaluator/pcb_compliance",
+      "to": "engines/pcb_compliance/rules/pcb_compliance_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/evaluator/pcb_compliance",
+      "to": "engines/pcb_compliance/vocabulary/pcb_compliance_vocabulary",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/fixtures/pcb_compliance_public_synthetic",
+      "to": "engines/pcb_compliance/rules/pcb_compliance_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/rules/pcb_compliance_rules",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/rules/pcb_compliance_rules",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/rules/pcb_compliance_rules",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/tools/pcb_compliance_runner",
+      "to": "engines/pcb_compliance/evaluator/pcb_compliance",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/tools/pcb_compliance_runner",
+      "to": "engines/pcb_compliance/fixtures/pcb_compliance_public_synthetic",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/topology/pcb_compliance_module_manifest",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/pcb_compliance/topology/pcb_compliance_module_manifest",
       "to": "core/validators/module_binding",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
@@ -5999,7 +6332,7 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 484,
+  "module_edge_count": 517,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -6350,5 +6683,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "fb2aac1c1322c2a79ba801dc89a910ef9ae0ee3084a8fc45f2ae939bbcb28550"
+  "topology_digest": "cb9096df969fe79dc9c86193411c1d937196e4fd37e9b6d3ec1f682fd6b0f955"
 }
