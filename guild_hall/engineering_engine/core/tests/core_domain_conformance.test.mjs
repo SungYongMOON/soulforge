@@ -19,6 +19,7 @@ import { adaptLegacyProjectProfile } from "../interfaces/project_profile_adapter
 
 import "../../engines/systems_engineering/evaluator/se_evaluator_adapter.mjs";
 import "../../engines/quality_readiness/evaluator/quality_readiness_evaluator_adapter.mjs";
+import "../../engines/database_engineering/evaluator/database_engineering_evaluator_adapter.mjs";
 
 test("Core Interface: domain engine adapters register and load successfully", () => {
   const seAdapter = loadDomainEngineAdapter("systems_engineering");
@@ -28,6 +29,10 @@ test("Core Interface: domain engine adapters register and load successfully", ()
   const qrAdapter = loadDomainEngineAdapter("quality_readiness");
   assert.equal(qrAdapter.domain_engine_id, "quality_readiness");
   assert.ok(validateDomainEngineAdapter(qrAdapter));
+
+  const dbAdapter = loadDomainEngineAdapter("database_engineering");
+  assert.equal(dbAdapter.domain_engine_id, "database_engineering");
+  assert.ok(validateDomainEngineAdapter(dbAdapter));
 });
 
 test("Core Interface: resolveProfileBindings preserves distinct Organization and Project Profile provenance", () => {

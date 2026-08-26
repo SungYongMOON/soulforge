@@ -16,11 +16,13 @@ test('Topology: covers canonical modules and excludes legacy wrappers', () => {
   assert.equal(topo.derivation.areas_covered.includes('core'), true, 'Must cover core/');
   assert.equal(topo.derivation.areas_covered.includes('engines/systems_engineering'), true, 'Must cover SE domain');
   assert.equal(topo.derivation.areas_covered.includes('engines/quality_readiness'), true, 'Must cover QR domain');
+  assert.equal(topo.derivation.areas_covered.includes('engines/database_engineering'), true, 'Must cover DBE domain');
 
   // Verify that modules list includes canonical paths
   assert.equal(topo.modules.some(m => m.module.startsWith('core/validators/')), true, 'Contains core validator modules');
   assert.equal(topo.modules.some(m => m.module.startsWith('engines/systems_engineering/rules/')), true, 'Contains SE rules modules');
   assert.equal(topo.modules.some(m => m.module.startsWith('engines/quality_readiness/rules/')), true, 'Contains QR rules modules');
+  assert.equal(topo.modules.some(m => m.module.startsWith('engines/database_engineering/rules/')), true, 'Contains DBE rules modules');
 
   // Verify that legacy wrapper directories are NOT counted as canonical modules
   assert.equal(topo.modules.some(m => m.module.startsWith('kernel/')), false, 'Must not contain kernel/ wrappers');

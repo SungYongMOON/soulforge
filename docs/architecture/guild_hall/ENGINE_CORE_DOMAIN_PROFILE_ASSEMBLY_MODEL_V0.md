@@ -10,7 +10,7 @@
 이 문서는 Soulforge의 여러 전문 엔진을 같은 공통 실행부 위에서 만들고,
 LIG·한화 같은 조직 요구와 개별 과제 요구를 엔진 자체와 섞지 않는 조립 모델을
 고정한다. `guild_hall/engineering_engine/`은 `core/`, `engines/systems_engineering/`,
-`engines/quality_readiness/`와 `.registry/engineering_profiles/`로 물리 migration이
+`engines/quality_readiness/`, `engines/database_engineering/`와 `.registry/engineering_profiles/`로 물리 migration이
 완료되었으며, 기존 공개 인터페이스에 대한 호환 re-export를 유지한다.
 
 ## 한 줄 결정
@@ -26,7 +26,7 @@ LIG·한화 같은 조직 요구와 개별 과제 요구를 엔진 자체와 섞
 | 용어 | 소유하는 것 | 소유하지 않는 것 |
 | --- | --- | --- |
 | **Engineering Engine Core** | canonical data guard, identity/authority/module binding, Rule Assembly·Evaluation orchestration Interface, 공통 실행·result/receipt 규칙 | domain token/schema, domain compile/evaluation semantics, 조직·과제 이름, project source payload |
-| **Domain Engine** | SE·Quality·Interface 같은 전문분야의 schema, 공통 규칙, domain compiler/evaluator Adapter, 검증 계약, fixture, test, manual, topology | LIG·한화·특정 과제 조건, 실제 문서 위치 |
+| **Domain Engine** | SE·Quality·Database·Interface 같은 전문분야의 schema, 공통 규칙, domain compiler/evaluator Adapter, 검증 계약, fixture, test, manual, topology | LIG·한화·특정 과제 조건, 실제 문서 위치 |
 | **Organization Profile** | 여러 과제에서 반복 적용되는 조직별 tailoring과 추가 규칙 | 한 과제의 계약 사실, 실제 파일 위치, 조직 전체를 대신하는 별도 엔진 |
 | **Project Profile** | 특정 과제의 applicability, tailoring, 별칭, 조건, 과제 고유 추가 규칙 | 실제 문서·메일·ERP row의 위치와 관측 사실 |
 | **Project Binding** | 실제 source revision·문서·메일·RAG·ERP·요구사항을 engine 어휘와 Typed Project Facts에 연결 | 공통 규칙, 조직 규칙, 적용정책의 임의 변경 |
@@ -151,6 +151,8 @@ guild_hall/engineering_engine/
     │   ├── manual/
     │   └── topology/
     ├── quality_readiness/
+    │   └── <same package categories>
+    ├── database_engineering/
     │   └── <same package categories>
     └── interface_consistency/
         └── <same package categories>
@@ -331,12 +333,12 @@ identity·base pin·revision·order·source refs를 별도 검증하고 compilat
 
 Current public evidence:
 
-- 공통 Core와 Domain Engine(`systems_engineering`, `quality_readiness`) 및 Profile schema·adapter 물리 분리가 완료됐다.
+- 공통 Core와 Domain Engine(`systems_engineering`, `quality_readiness`, `database_engineering`) 및 Profile schema·adapter 물리 분리가 완료됐다.
 - `core/` 아래에 validator, interface, profile/binding adapter, evaluation runtime, assembly engine이 위치한다.
-- `engines/systems_engineering/` 및 `engines/quality_readiness/`로 규칙, evaluator, fixtures, guidance, mcp, manual, tests가 물리 relocation됐다.
+- `engines/systems_engineering/`, `engines/quality_readiness/`, `engines/database_engineering/`로 domain 규칙, evaluator, fixtures, guidance, manual, tests가 물리 분리됐다.
 - legacy flat 경로는 순수 thin compatibility wrapper(re-export / pointer)로 유지되며 no-duplicate-authority validator로 검증된다.
 - Organization Profile authoring/binding schema(`.registry/engineering_profiles/schemas/engineering_profile_schema_v0.json` 및 `core/schemas/`)와 AJV validator 및 Profile별 provenance-preserving compilation trace가 구현됐다.
-- E01 Quality Readiness candidate integration과 two-domain adapter conformance가 완료됐다.
+- E01 Quality Readiness와 Database Engineering source-supported candidate integration 및 multi-domain adapter conformance가 완료됐다. DBE 통합은 live DB, production release, 표준 채택 또는 project acceptance를 의미하지 않는다.
 - public roadmap/manual에는 private SE zero-write pilot이 보고돼 있다. 이 worktree에는
   exact private receipt payload가 없으므로 이 문서는 production activation이나 private
   validation을 새로 주장하지 않는다.

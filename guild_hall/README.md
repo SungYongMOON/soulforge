@@ -39,7 +39,7 @@
   no project binding, accepted-ingress, ERP, MCP, or TaskEngine authority
 - `knowledge_graph/`: metadata-only knowledge graph JSON, HTML preview, and generated Obsidian view helper
 - `rag/`: metadata-only RAG manifest, source-slice cards, decision records, metadata retrieval index, trace/evaluation, and indexed answer helper
-- `engineering_engine/`: cross-project 증거기반 Engineering Engine Core와 독립 Domain Engine package의 결정론 계약·구현 owner. 현재 active domain은 체계공학(`engines/systems_engineering/`)과 품질준비도(`engines/quality_readiness/`)이며 조립 모델은 `docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`가 소유한다. 정본 코드는 `core/` 및 `engines/<domain>/` 아래에 위치하며, 평면 최상위 경로(`kernel/`, `stage_rules/`, `subjects/` 등)는 backward compatibility wrapper로 유지된다.
+- `engineering_engine/`: cross-project 증거기반 Engineering Engine Core와 독립 Domain Engine package의 결정론 계약·구현 owner. 현재 Core에 통합된 package는 체계공학(`engines/systems_engineering/`), 품질준비도(`engines/quality_readiness/`), 데이터베이스 공학(`engines/database_engineering/`)이다. DBE는 `source_supported` candidate이며 live DB·production activation을 뜻하지 않는다. 조립 모델은 `docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`가 소유한다. 정본 코드는 `core/` 및 `engines/<domain>/` 아래에 위치하며, 평면 최상위 경로(`kernel/`, `stage_rules/`, `subjects/` 등)는 backward compatibility wrapper로 유지된다.
   Expected/Observed 비교로 Snapshot·Finding·Missing/Unknown·Context Request 후보를 만들고,
   `rag/`·`knowledge_graph/`·`knowledge_access/`·`knowledge_canon/` 을 adapter 계약으로만 소비한다.
   Phase 1–4 baseline 은 `deterministic_only` 이며 학습모델을 호출하지 않는다.

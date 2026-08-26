@@ -80,15 +80,15 @@ function independentScanEdges(canonicalRoots) {
 }
 
 test('Topology Edge Oracle: independently resolves complete static import/re-export graph', () => {
-  const roots = ['core', 'engines/systems_engineering', 'engines/quality_readiness'];
+  const roots = ['core', 'engines/systems_engineering', 'engines/quality_readiness', 'engines/database_engineering'];
   const oracleResult = independentScanEdges(roots);
 
   const emittedTopology = buildTopology();
 
   assert.equal(emittedTopology.module_count, oracleResult.moduleCount, 'Module count must match independent scan');
-  assert.equal(emittedTopology.module_count, 131, 'Canonical module count must equal 131');
+  assert.equal(emittedTopology.module_count, 150, 'Canonical module count must equal 150');
   assert.equal(emittedTopology.module_edge_count, oracleResult.edges.length, 'Edge count must match independent scan');
-  assert.equal(emittedTopology.module_edge_count, 413, 'Canonical edge count must equal 413');
+  assert.equal(emittedTopology.module_edge_count, 458, 'Canonical edge count must equal 458');
 });
 
 test('Topology Edge Oracle: representative import syntax is correctly captured', () => {
@@ -126,6 +126,13 @@ test('Topology Edge Oracle: representative import syntax is correctly captured',
     edgeKeys.has('core/interfaces/domain_engine_adapter->core/interfaces/profile_operation_canon'),
     true,
     'Core profile binding validation must import the Profile operation canon'
+  );
+
+  // 5. Database Engineering evaluator is registered through the same Core Interface.
+  assert.equal(
+    edgeKeys.has('engines/database_engineering/evaluator/database_engineering_evaluator_adapter->core/interfaces/domain_engine_adapter'),
+    true,
+    'Database Engineering evaluator must use the canonical Core Domain Adapter'
   );
 });
 

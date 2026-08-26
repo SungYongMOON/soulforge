@@ -14,6 +14,7 @@ The Engineering Engine is structured into an orchestration Core, decoupled Domai
 2. **`engines/`**: Domain Engine implementations adhering to the Core Interface.
    - `engines/systems_engineering/`: Systems Engineering (SE) domain package with contracts, fixtures, 12-chapter manual, rules compiler, evaluation subjects, compiler/evaluator adapters, and `engine.yaml`.
    - `engines/quality_readiness/`: Quality Readiness (QR) domain package with contracts, public synthetic fixtures, 14-chapter manual, evaluation suite, compiler/evaluator adapters, tests, and `engine.yaml`.
+   - `engines/database_engineering/`: Database Engineering (DBE) domain package with source-pinned relational/SQLite/PostgreSQL contracts, closed Project Binding and receipt schemas, deterministic analyzers, compiler/evaluator adapters, public synthetic fixtures, tests, and a 12-chapter manual.
 
 3. **`.registry/engineering_profiles/`**: Public-safe schema and profile catalog.
    - `schemas/engineering_profile_schema_v0.json`: Schema governing Organization and Project profiles.
@@ -21,7 +22,7 @@ The Engineering Engine is structured into an orchestration Core, decoupled Domai
 
 4. **Root Shared Tooling vs. Domain-Owned Implementation**:
    - **Root Shared Tooling (`tools/`)**: Contains whole-engine generator and integration tooling (`emit_manifest.mjs`, `emit_release_manifest.mjs`, `emit_topology.mjs`, `phase_1_integration_check.mjs`, `validate_no_duplicate_authority.mjs`). Domain-specific CLI scripts under `tools/` act as thin forwarding stubs to their respective canonical domain package runners.
-   - **Domain-Owned Implementation (`engines/<domain>/`)**: Each domain package (`systems_engineering/`, `quality_readiness/`) owns its domain rules, evaluation subjects, observation, guidance, mcp server, test suites, contracts, fixtures, and domain-specific tool runners.
+   - **Domain-Owned Implementation (`engines/<domain>/`)**: Each domain package (`systems_engineering/`, `quality_readiness/`, `database_engineering/`) owns its domain rules, evidence contracts, evaluators, guidance, test suites, fixtures, and domain-specific tool runners.
 
 5. **Compatibility Re-exports**:
    - `kernel/`, `assembly/`, `stage_rules/`, `subjects/`, `observation/`, `guidance/`, `evaluation/`, `mcp/`, `fixtures/`, and `tests/` maintain backward-compatible re-export and forwarding stubs to preserve existing imports, CLI tools, and deterministic verification harnesses.
@@ -1009,7 +1010,7 @@ run record; this v4 result remains a fail-closed diagnostic HOLD.
 
 ## 목적
 
-- `engineering_engine/` 은 Soulforge 의 cross-project 증거기반 Engineering Engine Core와 전문 Domain Engine 구현을 소유한다. 현재 active Domain Engine은 체계공학이며 Quality·Interface 등은 같은 Core Interface를 쓰는 독립 package target이다.
+- `engineering_engine/` 은 Soulforge 의 cross-project 증거기반 Engineering Engine Core와 전문 Domain Engine 구현을 소유한다. 현재 통합된 Domain Engine은 체계공학·품질 준비도·데이터베이스 공학이며, Interface 등 후속 분야는 같은 Core Interface를 쓰는 독립 package target이다.
 - 적용 가능한 source authority 와 수락된 project context 로 `Expected State` 를 만들고, exact revision·authority·time·evidence lineage 가 붙은 `Observed State` 와 비교해 Snapshot·Finding·Missing/Unknown·Context Request 후보를 만든다.
 - 이 root child 는 **결정론 kernel 과 계약** 을 소유한다. 프로젝트 원문, 계약서, source PDF, project RAG/Wiki 본문, snapshot payload, secret 은 두지 않는다.
 

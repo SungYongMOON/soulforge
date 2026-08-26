@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-26 - Database Engineering Domain Engine main integration
+
+- Integrated the accepted `database_engineering` package behind the existing Engineering Engine Core without creating another Core or granting live database authority.
+- Registered its evaluator in Core conformance and added a root `validate:database-engineering` surface covering the source-pin, compiler, Project Binding, evaluator, runner, and 24-case package suite.
+- Extended canonical topology discovery to the DBE modules, regenerated the whole-engine manifest/topology/release artifacts, and synchronized Watchtower's federated topology and exact inventory guards.
+- The package remains a `source_supported` candidate: unsupported DBMS families, live project applicability, standard adoption, database mutation, production release, and product acceptance remain outside its authority.
+
 ## 2026-08-25 - Engineering Engine Profile operation null-preservation contract
 
 - **New Core contract**: Added `core/interfaces/profile_operation_canon.mjs`, the single Core
