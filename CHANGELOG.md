@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-26 - Material Procurement Readiness Domain Engine main integration
+
+- Integrated the accepted `material_procurement_readiness` package behind the existing Engineering Engine Core without granting ERP, purchase-order, supplier, reservation, allocation, or procurement action authority.
+- Registered the evaluator in Core conformance and added the root `validate:material-procurement-readiness` surface covering source pins, Project Binding, Typed Facts, compiler/evaluator, closed schemas, zero-write runner, and the 24-case package suite.
+- Reused the single Core canonical-instant authority for exact real UTC millisecond cutoffs and kept the package claim ceiling at `source_supported`; live ERP mapping and project applicability remain Owner-gated.
+
 ## 2026-08-26 - Core canonical instant alignment
 
 - Routed Project Evidence `valid_at`, `known_at`, and optional `observed_at` through the single Core canonical-instant authority.

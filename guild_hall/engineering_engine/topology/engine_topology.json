@@ -3,12 +3,13 @@
   "engine_root": "guild_hall/engineering_engine",
   "contract_revision": "phase_1_0_contract.v0",
   "derivation": {
-    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness, engines/database_engineering",
+    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness, engines/database_engineering, engines/material_procurement_readiness",
     "areas_covered": [
       "core",
       "engines/systems_engineering",
       "engines/quality_readiness",
-      "engines/database_engineering"
+      "engines/database_engineering",
+      "engines/material_procurement_readiness"
     ],
     "areas_deliberately_excluded": [
       {
@@ -1053,6 +1054,99 @@
       ],
       "export_count": 1,
       "line_count": 34
+    },
+    {
+      "module": "engines/material_procurement_readiness/compiler/material_procurement_readiness_compiler_adapter",
+      "area": "engines",
+      "exports": [
+        "MPR_COMPILER_ADAPTER_SCHEMA_VERSION",
+        "MPR_COMPILER_ERROR_CODES",
+        "compileMaterialProcurementReadinessRules",
+        "materialProcurementReadinessCompilerAdapter"
+      ],
+      "export_count": 4,
+      "line_count": 240
+    },
+    {
+      "module": "engines/material_procurement_readiness/evaluator/material_procurement_project_evidence_adapter",
+      "area": "engines",
+      "exports": [
+        "MPR_ERP_SNAPSHOT_FACTS_SCHEMA",
+        "MPR_OBSERVATION_RECEIPT_SCHEMA",
+        "MPR_PROJECT_BINDING_SCHEMA",
+        "MPR_PROJECT_EVIDENCE_ERROR_CODES",
+        "MPR_TYPED_FACTS_SCHEMA_V1",
+        "adaptMaterialProcurementProjectEvidence",
+        "validateMaterialProcurementTypedFacts"
+      ],
+      "export_count": 7,
+      "line_count": 479
+    },
+    {
+      "module": "engines/material_procurement_readiness/evaluator/material_procurement_readiness",
+      "area": "engines",
+      "exports": [
+        "MPR_ASSESSMENT_SCHEMA",
+        "MPR_DOMAIN_RESULT_SCHEMA",
+        "MPR_ERROR_CODES",
+        "MPR_RECEIPT_SCHEMA",
+        "MPR_TYPED_FACTS_SCHEMA",
+        "evaluateMaterialProcurementReadiness"
+      ],
+      "export_count": 6,
+      "line_count": 620
+    },
+    {
+      "module": "engines/material_procurement_readiness/evaluator/material_procurement_readiness_evaluator_adapter",
+      "area": "engines",
+      "exports": [
+        "MPR_EVALUATOR_ADAPTER_SCHEMA_VERSION",
+        "materialProcurementReadinessAdapter"
+      ],
+      "export_count": 2,
+      "line_count": 22
+    },
+    {
+      "module": "engines/material_procurement_readiness/fixtures/material_procurement_readiness_public_synthetic",
+      "area": "engines",
+      "exports": [
+        "MATERIAL_PROCUREMENT_READINESS_PUBLIC_CASES",
+        "buildMaterialProcurementReadinessPublicSyntheticEvidenceInput",
+        "buildMaterialProcurementReadinessPublicSyntheticRequest"
+      ],
+      "export_count": 3,
+      "line_count": 230
+    },
+    {
+      "module": "engines/material_procurement_readiness/rules/material_procurement_readiness_rules",
+      "area": "engines",
+      "exports": [
+        "MATERIAL_PROCUREMENT_READINESS_RULES",
+        "MATERIAL_PROCUREMENT_READINESS_RULESET_REF",
+        "MATERIAL_PROCUREMENT_READINESS_RULESET_REVISION",
+        "MATERIAL_PROCUREMENT_READINESS_RULESET_SCHEMA",
+        "MATERIAL_PROCUREMENT_READINESS_SOURCE_PACKET_REF",
+        "PURCHASE_ORDER_STATES",
+        "isPurchaseOrderState"
+      ],
+      "export_count": 7,
+      "line_count": 93
+    },
+    {
+      "module": "engines/material_procurement_readiness/tools/material_procurement_readiness_runner",
+      "area": "engines",
+      "exports": [],
+      "export_count": 0,
+      "line_count": 17
+    },
+    {
+      "module": "engines/material_procurement_readiness/topology/material_procurement_readiness_module_manifest",
+      "area": "engines",
+      "exports": [
+        "createMaterialProcurementReadinessModuleManifest"
+      ],
+      "export_count": 1,
+      "line_count": 107
     },
     {
       "module": "engines/quality_readiness/compiler/quality_readiness_compiler_adapter",
@@ -2514,7 +2608,7 @@
       "line_count": 1885
     }
   ],
-  "module_count": 150,
+  "module_count": 158,
   "module_edges": [
     {
       "from": "core/evaluation_runtime/claim_ceilings",
@@ -3702,6 +3796,188 @@
     {
       "from": "engines/database_engineering/topology/database_engineering_module_manifest",
       "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/compiler/material_procurement_readiness_compiler_adapter",
+      "to": "core/interfaces/profile_operation_canon",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/compiler/material_procurement_readiness_compiler_adapter",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/compiler/material_procurement_readiness_compiler_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/compiler/material_procurement_readiness_compiler_adapter",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/compiler/material_procurement_readiness_compiler_adapter",
+      "to": "engines/material_procurement_readiness/rules/material_procurement_readiness_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/evaluator/material_procurement_project_evidence_adapter",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/evaluator/material_procurement_project_evidence_adapter",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/evaluator/material_procurement_project_evidence_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/evaluator/material_procurement_project_evidence_adapter",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/evaluator/material_procurement_project_evidence_adapter",
+      "to": "engines/material_procurement_readiness/rules/material_procurement_readiness_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/evaluator/material_procurement_readiness_evaluator_adapter",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/evaluator/material_procurement_readiness_evaluator_adapter",
+      "to": "engines/material_procurement_readiness/compiler/material_procurement_readiness_compiler_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/evaluator/material_procurement_readiness_evaluator_adapter",
+      "to": "engines/material_procurement_readiness/evaluator/material_procurement_readiness",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/evaluator/material_procurement_readiness",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/evaluator/material_procurement_readiness",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/evaluator/material_procurement_readiness",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/evaluator/material_procurement_readiness",
+      "to": "engines/material_procurement_readiness/evaluator/material_procurement_project_evidence_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/evaluator/material_procurement_readiness",
+      "to": "engines/material_procurement_readiness/rules/material_procurement_readiness_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/fixtures/material_procurement_readiness_public_synthetic",
+      "to": "engines/material_procurement_readiness/evaluator/material_procurement_project_evidence_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/rules/material_procurement_readiness_rules",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/rules/material_procurement_readiness_rules",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/tools/material_procurement_readiness_runner",
+      "to": "engines/material_procurement_readiness/compiler/material_procurement_readiness_compiler_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/tools/material_procurement_readiness_runner",
+      "to": "engines/material_procurement_readiness/evaluator/material_procurement_readiness_evaluator_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/tools/material_procurement_readiness_runner",
+      "to": "engines/material_procurement_readiness/fixtures/material_procurement_readiness_public_synthetic",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/topology/material_procurement_readiness_module_manifest",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/material_procurement_readiness/topology/material_procurement_readiness_module_manifest",
+      "to": "core/validators/module_binding",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
@@ -5723,7 +5999,7 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 458,
+  "module_edge_count": 484,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -6074,5 +6350,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "615c787e22cda3f4dfe131b967c47c9dc3ca1aee3f94b84e23b34aa082e56fa8"
+  "topology_digest": "fb2aac1c1322c2a79ba801dc89a910ef9ae0ee3084a8fc45f2ae939bbcb28550"
 }

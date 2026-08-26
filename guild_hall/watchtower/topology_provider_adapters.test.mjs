@@ -39,19 +39,24 @@ test("allowlisted adapters map exact Watchtower and Engineering Engine inventori
 
   assert.equal(watchtower.nodes.length, 28);
   assert.equal(watchtower.edges.length, 36);
-  assert.equal(engineeringEngine.nodes.length, 150);
-  assert.equal(engineeringEngine.edges.length, 458);
+  assert.equal(engineeringEngine.nodes.length, 158);
+  assert.equal(engineeringEngine.edges.length, 484);
   assert.equal(watchtower.source.digest, digest(watchtowerBytes));
   assert.equal(engineeringEngine.source.digest, digest(engineBytes));
   assert.equal(watchtower.runtime_state, "unknown");
   assert.equal(engineeringEngine.runtime_state, "unknown");
   assert.ok([...watchtower.edges, ...engineeringEngine.edges].every(({ evidence_mode }) => evidence_mode === "structural_only"));
+  assert.ok(engineeringEngine.nodes.every(({ id }) => id.length <= 95));
+  assert.equal(new Set(engineeringEngine.nodes.map(({ id }) => id)).size, engineeringEngine.nodes.length);
+  const longE03Node = engineeringEngine.nodes.find(({ label }) => label === "engines/material_procurement_readiness/evaluator/material_procurement_readiness_evaluator_adapter");
+  assert.match(longE03Node.id, /^module\.[a-f0-9]{32}$/u);
+  assert.ok(engineeringEngine.edges.every(({ from, to }) => engineeringEngine.nodes.some(({ id }) => id === from) && engineeringEngine.nodes.some(({ id }) => id === to)));
 
   const federation = composeFederatedTopology([watchtower, engineeringEngine]);
   assert.deepEqual(federation.summary, {
     provider_count: 2,
-    node_count: 178,
-    edge_count: 494,
+    node_count: 186,
+    edge_count: 520,
     runtime_authority: false,
     repair_execution_authority: false,
   });
@@ -77,8 +82,8 @@ test("CLI emits canonical bytes only on stdout by default and --check remains re
   assert.equal(run.status, 0, run.stderr);
   const parsed = JSON.parse(run.stdout);
   assert.equal(parsed.summary.provider_count, 4);
-  assert.equal(parsed.summary.node_count, 189);
-  assert.equal(parsed.summary.edge_count, 508);
+  assert.equal(parsed.summary.node_count, 197);
+  assert.equal(parsed.summary.edge_count, 534);
   assert.equal(run.stdout, canonicalStringify(parsed));
 
   const scratch = mkdtempSync(join(tmpdir(), "soulforge-federated-topology-"));
@@ -107,8 +112,8 @@ test("CLI never writes without --out and writes only the requested output", () =
     assert.equal(emitted.status, 0, emitted.stderr);
     const parsed = JSON.parse(readFileSync(output, "utf8"));
     assert.equal(parsed.summary.provider_count, 4);
-    assert.equal(parsed.summary.node_count, 189);
-    assert.equal(parsed.summary.edge_count, 508);
+    assert.equal(parsed.summary.node_count, 197);
+    assert.equal(parsed.summary.edge_count, 534);
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
