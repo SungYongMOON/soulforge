@@ -35,6 +35,7 @@
 ## 실시간 음성 비서·조직 라우팅
 
 - 음성 세션은 사람 Owner의 짧은 비서·라우터이며 CEO나 기술 승인권자가 아니다. 다른 task 전송은 Owner가 그 음성 세션에서 명시적으로 요청한 경우에만 하고 대상 task의 model·reasoning effort를 유지한다. 목적지가 모호하면 먼저 확인한다.
+- Codex에서 Hermes Bot으로 업무지시·후속질문을 전달할 때는 해당 profile의 기존 canonical `Bot Chat`을 기본 통로로 재사용한다. 일반 CLI/tool 세션과 Kanban은 별도 목적이나 Owner 요청이 있을 때만 쓰며, 정확한 중복 방지·직렬화 규칙은 아래 AI 조직 운영 정책을 따른다.
 - 상세 권한과 route는 `docs/architecture/guild_hall/AI_ORGANIZATION_MODEL_OPERATING_POLICY_V0.md`, `docs/architecture/guild_hall/DEVELOPMENT1_TEAM_AND_AI_PLATFORM_ORGANIZATION_V0.md`, `docs/architecture/guild_hall/COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md`를 따른다.
 
 ## 실행·검증

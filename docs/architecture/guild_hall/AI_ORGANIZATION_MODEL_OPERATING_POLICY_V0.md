@@ -239,6 +239,39 @@ CEO briefing은 다음 형태를 사용한다.
 전체 TASK 대화, 테스트 로그, 계산 과정, 변경되지 않은 장표를 매번 반복
 전달하지 않는다.
 
+## Codex에서 Hermes Bot으로 전달하는 기본 대화 통로
+
+사람 Owner가 Codex 대화에서 Hermes Bot에게 업무지시나 후속질문 전달을 요청하면,
+기본 통로는 대상 profile이 이미 소유한 canonical `Bot Chat`이다. 같은 Bot을
+계속 상대하는 업무는 이 지속형 대화에 축적하며, 새 제목의 일반 CLI chat,
+`source=tool` 세션, Kanban task를 기본 전달 통로로 사용하지 않는다.
+
+외부 wrapper나 로컬 명령 표면은 다음 의미를 보존해야 한다.
+
+```text
+hermes -p <exact-profile> chat --in ~ -c "Bot Chat" --create-if-missing ...
+```
+
+- 먼저 exact profile과 제목이 정확히 `Bot Chat`인 기존 canonical session을
+  resolve한다.
+- 기존 session이 있으면 그 session 또는 최신 압축 lineage tip을 재사용하고,
+  없을 때만 `--create-if-missing`으로 하나를 만든다.
+- profile alias wrapper를 써도 위 identity와 같은 profile state store를
+  가리켜야 한다.
+- 기본 전달에서는 `--source tool`이나 `--source desktop`으로 source를 가장하지
+  않고 source override를 생략한다.
+- 동일 Bot Chat의 동시 turn을 피하고 호출자가 직렬화한다.
+- 전송 후 반환된 session id가 resolve한 canonical session id와 같은지 확인한다.
+  Desktop 화면의 즉시 갱신은 보장하지 않으므로 필요하면 사용자가 해당 Bot
+  카드나 탭을 다시 열어 최신 history를 hydrate한다.
+- 잘못 만들어진 일반 세션은 canonical 전달 성공과 기록 확인 전에는 삭제하지
+  않는다. 정리가 필요하면 별도 권한으로 soft archive를 우선 검토한다.
+
+Kanban은 상태·작업판 운영, 일반 CLI/tool 세션은 격리된 시험·integration 호출처럼
+각 표면의 고유 목적이나 Owner의 명시 요청이 있을 때만 사용한다. 이 대화 통로
+규칙은 Bot의 기술승인, 외부전송, 구매, 파일 writer, 기준선 또는 완료 권한을
+추가하지 않는다.
+
 ## 조사·자문 지원 채널
 
 다음 채널은 `CODEX_NATIVE`에서도 사용할 수 있으며 내부 역할을 자동 대체하지

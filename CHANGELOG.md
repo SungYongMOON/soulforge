@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-27 - Hermes canonical Bot Chat default delivery route
+
+- Set each Hermes profile's existing canonical `Bot Chat` as the default Codex-to-Bot instruction and follow-up channel, with exact-profile resolution, create-only-if-missing, same-session verification, and serialized turns.
+- Kept generic CLI/tool sessions and Kanban for explicit or surface-specific uses instead of treating them as the default Bot conversation path.
+- Preserved all existing technical approval, external transmission, file writer, baseline, and completion authority boundaries.
+
 ## 2026-08-26 - PCB Compliance evidence-readiness Domain Engine main integration
 
 - Integrated the accepted `pcb_compliance` package behind the unchanged Engineering Engine Core without granting IPC compliance, product/workmanship acceptance, project applicability, controlled-body access, production, release, or writer authority.
