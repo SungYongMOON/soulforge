@@ -363,6 +363,80 @@ test("self, five-field, and workmeta tracking boundaries stay evidence-owned and
   }, "topology_snapshot_protected_node_invalid");
 });
 
+test("observed non-green gate_five_field accepts manual repairability and rejects wrong repairabilities or absent semantics", () => {
+  const snapshot = sampleSnapshot();
+  const fiveField = snapshot.nodes.find((node) => node.id === "gate_five_field");
+  fiveField.health = { state: "degraded", reasons: ["heartbeat_late"], age_seconds: 350 };
+  fiveField.tracking = tracking("gate_five_field", "heartbeat_late", {
+    evidenceOwner: "five_field_event_validator",
+    escalationOwner: "five_field_owner",
+    repairability: "manual",
+    verificationState: "observed",
+    lastCheckedAt: "2026-08-08T06:00:00.000Z",
+    nextCheckAt: "2026-08-08T06:05:00.000Z",
+    nextEvidenceDueAt: "2026-08-08T05:59:10.000Z",
+  });
+  snapshot.summary.unmonitored -= 1;
+  snapshot.summary.degraded += 1;
+
+  // The truthfully observed degraded gate_five_field with manual repairability must validate:
+  assert.equal(validateTopologyHealthSnapshot(snapshot, { now: NOW }), snapshot);
+
+  // Observed stale state also accepts manual repairability:
+  const staleSnapshot = structuredClone(snapshot);
+  const staleFiveField = staleSnapshot.nodes.find((node) => node.id === "gate_five_field");
+  staleFiveField.health = { state: "stale", reasons: ["heartbeat_stale"], age_seconds: 900 };
+  staleFiveField.tracking = tracking("gate_five_field", "heartbeat_stale", {
+    evidenceOwner: "five_field_event_validator",
+    escalationOwner: "five_field_owner",
+    repairability: "manual",
+    verificationState: "observed",
+    lastCheckedAt: "2026-08-08T06:00:00.000Z",
+    nextCheckAt: "2026-08-08T06:05:00.000Z",
+    nextEvidenceDueAt: "2026-08-08T05:50:00.000Z",
+  });
+  staleSnapshot.summary.degraded -= 1;
+  staleSnapshot.summary.stale += 1;
+  assert.equal(validateTopologyHealthSnapshot(staleSnapshot, { now: NOW }), staleSnapshot);
+
+  // Negative test: observed non-ok gate_five_field must NOT accept not_available repairability
+  expectInvalid((candidate) => {
+    candidate.nodes.find((node) => node.id === "gate_five_field").health = { state: "degraded", reasons: ["heartbeat_late"], age_seconds: 350 };
+    candidate.nodes.find((node) => node.id === "gate_five_field").tracking = tracking("gate_five_field", "heartbeat_late", {
+      evidenceOwner: "five_field_event_validator",
+      escalationOwner: "five_field_owner",
+      repairability: "not_available",
+      verificationState: "observed",
+      lastCheckedAt: "2026-08-08T06:00:00.000Z",
+      nextCheckAt: "2026-08-08T06:05:00.000Z",
+      nextEvidenceDueAt: "2026-08-08T05:59:10.000Z",
+    });
+    candidate.summary.unmonitored -= 1;
+    candidate.summary.degraded += 1;
+  }, "topology_snapshot_protected_node_invalid");
+
+  // Negative test: observed non-ok must NOT accept automatic repairability
+  expectInvalid((candidate) => {
+    candidate.nodes.find((node) => node.id === "gate_five_field").health = { state: "degraded", reasons: ["heartbeat_late"], age_seconds: 350 };
+    candidate.nodes.find((node) => node.id === "gate_five_field").tracking = tracking("gate_five_field", "heartbeat_late", {
+      evidenceOwner: "five_field_event_validator",
+      escalationOwner: "five_field_owner",
+      repairability: "automatic",
+      verificationState: "observed",
+      lastCheckedAt: "2026-08-08T06:00:00.000Z",
+      nextCheckAt: "2026-08-08T06:05:00.000Z",
+      nextEvidenceDueAt: "2026-08-08T05:59:10.000Z",
+    });
+    candidate.summary.unmonitored -= 1;
+    candidate.summary.degraded += 1;
+  }, "topology_snapshot_protected_node_invalid");
+
+  // Negative test: unmonitored / evidence-absent gate_five_field still requires not_available repairability
+  expectInvalid((candidate) => {
+    candidate.nodes.find((node) => node.id === "gate_five_field").tracking.repairability = "manual";
+  }, "topology_snapshot_protected_node_invalid");
+});
+
 test("healthy self, five-field, and workmeta nodes omit non-green tracking", () => {
   const snapshot = sampleSnapshot();
   for (const id of ["watchtower_self", "gate_five_field", "store_workmeta"]) {
