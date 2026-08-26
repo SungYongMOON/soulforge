@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.pcb_compliance.domain_input.v0",
+  "title": "PcbComplianceDomainInput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "rows"],
+  "properties": {
+    "schema_version": { "const": "soulforge.pcb_compliance.domain_input.v0" },
+    "rows": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/row" }
+    }
+  },
+  "$defs": {
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["case_id", "rule_id", "applicability", "authority_bindings", "observation"],
+      "properties": {
+        "case_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,255}$" },
+        "rule_id": { "type": "string", "pattern": "^PCB-(?:NASA|STD|PROFILE)-[A-Z0-9-]{2,64}$" },
+        "applicability": { "$ref": "#/$defs/applicability" },
+        "authority_bindings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/authority_binding" }
+        },
+        "observation": { "$ref": "#/$defs/observation" },
+        "standard_binding": { "$ref": "#/$defs/standard_binding" }
+      }
+    },
+    "applicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["approval_scope", "document_revision", "jurisdiction", "project_binding", "time_window"],
+      "properties": {
+        "approval_scope": { "$ref": "#/$defs/tristate" },
+        "document_revision": { "$ref": "#/$defs/tristate" },
+        "jurisdiction": { "$ref": "#/$defs/tristate" },
+        "project_binding": { "$ref": "#/$defs/tristate" },
+        "time_window": { "$ref": "#/$defs/tristate" }
+      }
+    },
+    "tristate": {
+      "anyOf": [
+        { "type": "boolean" },
+        { "const": "UNKNOWN" }
+      ]
+    },
+    "authority_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "authority_ref"],
+      "properties": {
+        "family": {
+          "enum": [
+            "project_contract_baseline",
+            "applicable_law_and_regulation",
+            "company_approved_procedure",
+            "acquisition_authority_manual",
+            "general_se_guidance",
+            "case_and_template",
+            "reviewed_wiki",
+            "llm_proposal"
+          ]
+        },
+        "authority_ref": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/#-]{0,255}$" }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempted", "evidence_state", "evidence_by_key"],
+      "properties": {
+        "attempted": { "type": "boolean" },
+        "evidence_state": { "enum": ["absent_confirmed", "conflict", "present", "unknown"] },
+        "evidence_by_key": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/#-]{0,255}$" }
+          }
+        }
+      }
+    },
+    "standard_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["body_access_state", "lawful_source_ref", "standard_revision_ref"],
+      "properties": {
+        "body_access_state": { "enum": ["metadata_only", "owner_approved_lawful", "unavailable"] },
+        "lawful_source_ref": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/#-]{0,255}$" },
+        "standard_revision_ref": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/#-]{0,255}$" }
+      }
+    }
+  }
+}

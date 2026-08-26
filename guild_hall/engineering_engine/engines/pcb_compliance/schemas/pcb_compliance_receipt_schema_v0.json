@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.pcb_compliance.receipt.v0",
+  "title": "PcbComplianceReceipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "domain_engine_id",
+    "ruleset_ref",
+    "source_packet_ref",
+    "input_digest",
+    "assessment_digest",
+    "domain_result_digest",
+    "result_digest",
+    "effects"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.pcb_compliance.receipt.v0" },
+    "domain_engine_id": { "const": "pcb_compliance" },
+    "ruleset_ref": { "$ref": "soulforge.pcb_compliance.ruleset.v0#/$defs/ref" },
+    "source_packet_ref": { "$ref": "soulforge.pcb_compliance.ruleset.v0#/$defs/ref" },
+    "input_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "assessment_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "domain_result_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "result_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["filesystem_writes", "network_calls", "model_calls", "rag_queries", "external_actions"],
+      "properties": {
+        "filesystem_writes": { "const": 0 },
+        "network_calls": { "const": 0 },
+        "model_calls": { "const": 0 },
+        "rag_queries": { "const": 0 },
+        "external_actions": { "const": 0 }
+      }
+    },
+    "project_facts_provenance": { "$ref": "soulforge.pcb_compliance.domain_result.v0#/$defs/project_facts_provenance" }
+  }
+}

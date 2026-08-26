@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.pcb_compliance.request.v0",
+  "title": "PcbComplianceRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "binding", "domain_input", "cutoffs"],
+  "properties": {
+    "schema_version": { "const": "soulforge.pcb_compliance.request.v0" },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["domain_engine_id", "source_packet_ref", "ruleset_ref"],
+      "properties": {
+        "domain_engine_id": { "const": "pcb_compliance" },
+        "source_packet_ref": { "$ref": "soulforge.pcb_compliance.ruleset.v0#/$defs/ref" },
+        "ruleset_ref": { "$ref": "soulforge.pcb_compliance.ruleset.v0#/$defs/ref" }
+      }
+    },
+    "domain_input": { "$ref": "soulforge.pcb_compliance.domain_input.v0" },
+    "cutoffs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["valid_at", "known_at"],
+      "properties": {
+        "valid_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" },
+        "known_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" }
+      }
+    }
+  }
+}

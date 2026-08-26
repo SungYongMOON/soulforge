@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.pcb_compliance.assessment.v0",
+  "title": "PcbComplianceAssessment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "domain_engine_id",
+    "assessment_scope",
+    "overall_state",
+    "counts",
+    "results"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.pcb_compliance.assessment.v0" },
+    "domain_engine_id": { "const": "pcb_compliance" },
+    "assessment_scope": { "const": "evidence_readiness_only" },
+    "overall_state": { "enum": ["SATISFIED", "MISSING", "CONFLICT", "UNKNOWN", "NOT_APPLICABLE"] },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["CONFLICT", "MISSING", "NOT_APPLICABLE", "SATISFIED", "UNKNOWN"],
+      "properties": {
+        "CONFLICT": { "type": "integer", "minimum": 0 },
+        "MISSING": { "type": "integer", "minimum": 0 },
+        "NOT_APPLICABLE": { "type": "integer", "minimum": 0 },
+        "SATISFIED": { "type": "integer", "minimum": 0 },
+        "UNKNOWN": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "results": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/result_row" }
+    }
+  },
+  "$defs": {
+    "result_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "coverage_area",
+        "reason_code",
+        "rule_id",
+        "source_locator",
+        "source_modality",
+        "source_ref",
+        "state",
+        "workmanship_clause_status"
+      ],
+      "properties": {
+        "case_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,255}$" },
+        "rule_id": { "type": "string", "pattern": "^PCB-(?:NASA|STD|PROFILE)-[A-Z0-9-]{2,64}$" },
+        "coverage_area": {
+          "enum": [
+            "approved_standard_applicability",
+            "fabrication_and_assembly",
+            "inspection",
+            "protection_and_handling",
+            "tools_and_measurement",
+            "traceability_and_rework"
+          ]
+        },
+        "source_ref": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/#-]{0,255}$" },
+        "source_locator": { "type": "string", "minLength": 1 },
+        "source_modality": { "type": "string", "minLength": 1 },
+        "workmanship_clause_status": { "enum": ["HOLD", "NOT_EVALUATED"] },
+        "state": { "enum": ["SATISFIED", "MISSING", "CONFLICT", "UNKNOWN", "NOT_APPLICABLE"] },
+        "reason_code": {
+          "enum": [
+            "PCB_APPLICABILITY_HOLD",
+            "PCB_AUTHORITY_HOLD",
+            "PCB_CONTROLLED_STANDARD_HOLD",
+            "PCB_EVIDENCE_ABSENT_CONFIRMED",
+            "PCB_EVIDENCE_CONFLICT",
+            "PCB_EVIDENCE_READY",
+            "PCB_EVIDENCE_SUFFICIENCY_HOLD",
+            "PCB_EVIDENCE_UNOBSERVED",
+            "PCB_NOT_APPLICABLE"
+          ]
+        }
+      }
+    }
+  }
+}

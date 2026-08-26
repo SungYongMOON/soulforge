@@ -1,0 +1,24 @@
+schema_version: soulforge.domain_engine_descriptor.v0
+domain_engine_id: pcb_compliance
+display_name: PCB Compliance Domain Engine
+version: 0.1.0
+status: candidate
+claim_ceiling: source_supported
+execution_mode: deterministic_only
+contracts:
+  source_packet: engines/pcb_compliance/contracts/pcb_compliance_source_packet_v0.md
+  source_inventory: engines/pcb_compliance/contracts/pcb_compliance_public_source_inventory_candidate_v0.json
+  integration_request: engines/pcb_compliance/contracts/pcb_compliance_integration_request_v0.md
+schemas:
+  request: soulforge.pcb_compliance.request.v0
+  ruleset: soulforge.pcb_compliance.ruleset.v0
+  domain_input: soulforge.pcb_compliance.domain_input.v0
+  assessment: soulforge.pcb_compliance.assessment.v0
+  domain_result: soulforge.pcb_compliance.domain_result.v0
+  receipt: soulforge.pcb_compliance.receipt.v0
+compiler_adapter: engines/pcb_compliance/compiler/pcb_compliance_compiler_adapter.mjs
+evaluator_adapter: engines/pcb_compliance/evaluator/pcb_compliance_evaluator_adapter.mjs
+fixtures:
+  public_synthetic: engines/pcb_compliance/fixtures/pcb_compliance_public_synthetic.mjs
+manual:
+  root: engines/pcb_compliance/manual/README.md

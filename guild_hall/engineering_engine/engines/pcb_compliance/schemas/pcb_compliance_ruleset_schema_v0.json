@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.pcb_compliance.ruleset.v0",
+  "title": "PcbComplianceEffectiveRuleSet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "domain_engine_id",
+    "source_packet_ref",
+    "ruleset_ref",
+    "rules",
+    "profile_rule_provenance",
+    "rule_count"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.pcb_compliance.ruleset.v0" },
+    "domain_engine_id": { "const": "pcb_compliance" },
+    "source_packet_ref": { "$ref": "#/$defs/ref" },
+    "ruleset_ref": { "$ref": "#/$defs/ref" },
+    "rules": {
+      "type": "array",
+      "minItems": 6,
+      "items": { "$ref": "#/$defs/rule" }
+    },
+    "profile_rule_provenance": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/provenance" }
+    },
+    "rule_count": { "type": "integer", "minimum": 6 }
+  },
+  "$defs": {
+    "ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity_id", "revision_id", "content_id", "content_hash_alg"],
+      "properties": {
+        "entity_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+        "revision_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+        "content_id": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "content_hash_alg": { "const": "sha256" }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed_artifact_tokens",
+        "claim_ceiling",
+        "controlled_clause_hold",
+        "coverage_area",
+        "expected_evidence_keys",
+        "required_authority_families",
+        "rule_id",
+        "source_locator",
+        "source_modality",
+        "source_ref"
+      ],
+      "properties": {
+        "rule_id": { "type": "string", "pattern": "^PCB-(?:NASA|STD|PROFILE)-[A-Z0-9-]{2,64}$" },
+        "source_ref": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/#-]{0,255}$" },
+        "source_locator": { "type": "string", "minLength": 1 },
+        "source_modality": { "type": "string", "minLength": 1 },
+        "coverage_area": {
+          "enum": [
+            "approved_standard_applicability",
+            "fabrication_and_assembly",
+            "inspection",
+            "protection_and_handling",
+            "tools_and_measurement",
+            "traceability_and_rework"
+          ]
+        },
+        "required_authority_families": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "project_contract_baseline",
+              "applicable_law_and_regulation",
+              "company_approved_procedure",
+              "acquisition_authority_manual",
+              "general_se_guidance",
+              "case_and_template",
+              "reviewed_wiki",
+              "llm_proposal"
+            ]
+          }
+        },
+        "expected_evidence_keys": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "^[a-z0-9_]{1,64}$" }
+        },
+        "allowed_artifact_tokens": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              { "type": "string", "pattern": "^[a-z0-9_]{1,64}$" },
+              { "type": "null" }
+            ]
+          }
+        },
+        "controlled_clause_hold": { "type": "boolean" },
+        "claim_ceiling": { "enum": ["source_supported", "observed"] }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_index",
+        "operation_item_digest",
+        "profile_id",
+        "profile_kind",
+        "profile_order",
+        "source_ref"
+      ],
+      "properties": {
+        "operation_index": { "type": "integer", "minimum": 0 },
+        "operation_item_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "profile_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+        "profile_kind": { "enum": ["organization", "project"] },
+        "profile_order": { "type": "integer", "minimum": 0, "maximum": 1 },
+        "source_ref": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/#-]{0,255}$" }
+      }
+    }
+  }
+}

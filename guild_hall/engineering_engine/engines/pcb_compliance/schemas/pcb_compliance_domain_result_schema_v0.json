@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.pcb_compliance.domain_result.v0",
+  "title": "PcbComplianceDomainResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "domain_engine_id",
+    "claim_ceiling",
+    "product_acceptance",
+    "workmanship_compliance"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.pcb_compliance.domain_result.v0" },
+    "domain_engine_id": { "const": "pcb_compliance" },
+    "claim_ceiling": { "enum": ["source_supported", "observed"] },
+    "product_acceptance": { "const": "NOT_EVALUATED" },
+    "workmanship_compliance": { "const": "NOT_EVALUATED" },
+    "project_facts_provenance": { "$ref": "#/$defs/project_facts_provenance" }
+  },
+  "$defs": {
+    "project_facts_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project_binding_ref", "facts_digest", "valid_at", "known_at"],
+      "properties": {
+        "project_binding_ref": { "$ref": "#/$defs/project_binding_ref" },
+        "facts_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "valid_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" },
+        "known_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" }
+      }
+    },
+    "project_binding_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "project_id",
+        "domain_engine_id",
+        "binding_revision_hash",
+        "source_manifest_ref"
+      ],
+      "properties": {
+        "schema_version": { "const": "soulforge.project_binding.v0" },
+        "project_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,255}$" },
+        "domain_engine_id": { "const": "pcb_compliance" },
+        "binding_revision_hash": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,255}$" },
+        "source_manifest_ref": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,255}$" },
+        "authority_family": {
+          "enum": [
+            "project_contract_baseline",
+            "applicable_law_and_regulation",
+            "company_approved_procedure",
+            "acquisition_authority_manual",
+            "general_se_guidance",
+            "case_and_template",
+            "reviewed_wiki",
+            "llm_proposal"
+          ]
+        },
+        "document_refs": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,255}$" }
+        },
+        "valid_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" },
+        "known_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" }
+      }
+    }
+  }
+}
