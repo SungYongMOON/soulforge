@@ -15,6 +15,7 @@ The Engineering Engine is structured into an orchestration Core, decoupled Domai
    - `engines/systems_engineering/`: Systems Engineering (SE) domain package with contracts, fixtures, 12-chapter manual, rules compiler, evaluation subjects, compiler/evaluator adapters, and `engine.yaml`.
    - `engines/quality_readiness/`: Quality Readiness (QR) domain package with contracts, public synthetic fixtures, 14-chapter manual, evaluation suite, compiler/evaluator adapters, tests, and `engine.yaml`.
    - `engines/database_engineering/`: Database Engineering (DBE) domain package with source-pinned relational/SQLite/PostgreSQL contracts, closed Project Binding and receipt schemas, deterministic analyzers, compiler/evaluator adapters, public synthetic fixtures, tests, and a 12-chapter manual.
+   - `engines/material_procurement_readiness/`: Material Procurement Readiness (E03) domain package with source-pinned procurement vocabulary, ERP-owned read-only typed facts, deterministic readiness evaluation, closed receipts and schemas, public synthetic fixtures, tests, and a 12-chapter manual.
 
 3. **`.registry/engineering_profiles/`**: Public-safe schema and profile catalog.
    - `schemas/engineering_profile_schema_v0.json`: Schema governing Organization and Project profiles.
@@ -22,7 +23,7 @@ The Engineering Engine is structured into an orchestration Core, decoupled Domai
 
 4. **Root Shared Tooling vs. Domain-Owned Implementation**:
    - **Root Shared Tooling (`tools/`)**: Contains whole-engine generator and integration tooling (`emit_manifest.mjs`, `emit_release_manifest.mjs`, `emit_topology.mjs`, `phase_1_integration_check.mjs`, `validate_no_duplicate_authority.mjs`). Domain-specific CLI scripts under `tools/` act as thin forwarding stubs to their respective canonical domain package runners.
-   - **Domain-Owned Implementation (`engines/<domain>/`)**: Each domain package (`systems_engineering/`, `quality_readiness/`, `database_engineering/`) owns its domain rules, evidence contracts, evaluators, guidance, test suites, fixtures, and domain-specific tool runners.
+   - **Domain-Owned Implementation (`engines/<domain>/`)**: Each domain package (`systems_engineering/`, `quality_readiness/`, `database_engineering/`, `material_procurement_readiness/`) owns its domain rules, evidence contracts, evaluators, guidance, test suites, fixtures, and domain-specific tool runners.
 
 5. **Compatibility Re-exports**:
    - `kernel/`, `assembly/`, `stage_rules/`, `subjects/`, `observation/`, `guidance/`, `evaluation/`, `mcp/`, `fixtures/`, and `tests/` maintain backward-compatible re-export and forwarding stubs to preserve existing imports, CLI tools, and deterministic verification harnesses.

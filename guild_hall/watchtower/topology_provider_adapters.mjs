@@ -48,6 +48,13 @@ function assertExpectedCounts(nodes, edges, expectedNodes, expectedEdges, source
   }
 }
 
+function engineeringEngineModuleId(modulePath) {
+  const readable = modulePath.replace(/\//g, ".");
+  return readable.length <= 95
+    ? readable
+    : `module.${createHash("sha256").update(readable).digest("hex").slice(0, 32)}`;
+}
+
 function baseProvider({
   providerId,
   providerKind,
@@ -160,17 +167,17 @@ export function adaptEngineeringEngineTopology(exactSourceBytes) {
   if (topology.module_count !== topology.modules?.length || topology.module_edge_count !== topology.module_edges?.length) {
     fail("topology_adapter_engine_declared_count_mismatch");
   }
-  // 150/458. Pinned to the canonical recursive multi-domain topology across core/,
+  // 158/484. Pinned to the canonical recursive multi-domain topology across core/,
   // engines/systems_engineering/, engines/quality_readiness/, and
-  // engines/database_engineering/. Legacy flat compatibility
+  // engines/database_engineering/, and engines/material_procurement_readiness/. Legacy flat compatibility
   // wrappers (kernel, assembly, stage_rules, subjects, observation, guidance, evaluation, mcp,
   // fixtures, tools, tests) are excluded from canonical module counts.
-  assertExpectedCounts(topology.modules, topology.module_edges, 150, 458, "engineering_engine_topology_source");
+  assertExpectedCounts(topology.modules, topology.module_edges, 158, 484, "engineering_engine_topology_source");
   assertEmbeddedEngineDigest(topology);
 
   const nodes = topology.modules.map((module) => {
     assertPlainObject(module, "topology_adapter_engine_module_shape");
-    const id = module.module.replace(/\//g, ".");
+    const id = engineeringEngineModuleId(module.module);
     return {
       id,
       label: module.module,
@@ -185,8 +192,8 @@ export function adaptEngineeringEngineTopology(exactSourceBytes) {
   const edges = topology.module_edges.map((edge) => {
     assertPlainObject(edge, "topology_adapter_engine_edge_shape");
     if (edge.relation !== "imports") fail("topology_adapter_engine_relation_mismatch", edge.relation ?? "missing");
-    const from = edge.from.replace(/\//g, ".");
-    const to = edge.to.replace(/\//g, ".");
+    const from = engineeringEngineModuleId(edge.from);
+    const to = engineeringEngineModuleId(edge.to);
     const rawId = `imports.${from}.${to}`;
     const id = rawId.length <= 95 ? rawId : `imports.${createHash("sha256").update(rawId).digest("hex").slice(0, 32)}`;
     return {

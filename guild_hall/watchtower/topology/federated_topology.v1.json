@@ -22,6 +22,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.tools.material_procurement_readiness_runner",
+      "id": "engineering_engine::imports.01856100726341e052d81775374aae43",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.material_procurement_readiness.compiler.material_procurement_readiness_compiler_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluation.se_core_sourcebound_answer_lane",
       "id": "engineering_engine::imports.0242434df7b9c672f1060dade3b5b480",
       "label": "imports",
@@ -452,6 +462,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.60ed739c602b756bca903a5f883dc9eb",
+      "id": "engineering_engine::imports.2baaf43e473865e03a31a43d6324f1f6",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_readiness"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluator.se_core_source_cited_answer_run",
       "id": "engineering_engine::imports.2c444789288acf1d5fe4f268e39aea5c",
       "label": "imports",
@@ -509,6 +529,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_readiness",
+      "id": "engineering_engine::imports.332613739b4d21f4e61cf23a923cb6f4",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.material_procurement_readiness.rules.material_procurement_readiness_rules"
     },
     {
       "evidence_mode": "structural_only",
@@ -702,6 +732,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.tools.material_procurement_readiness_runner",
+      "id": "engineering_engine::imports.42d9df8256d872fed72a67592c52bf3b",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.material_procurement_readiness.fixtures.material_procurement_readiness_public_synthetic"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.observation.artifact_observations_from_confirmed",
       "id": "engineering_engine::imports.443bfd0b58c72cd2c9bbf6297bb90849",
       "label": "imports",
@@ -712,6 +752,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.60ed739c602b756bca903a5f883dc9eb",
+      "id": "engineering_engine::imports.44f8fcd4fc58c165c2739cbf1669fbb1",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.material_procurement_readiness.compiler.material_procurement_readiness_compiler_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.rules_stage",
       "id": "engineering_engine::imports.4657cbf7e87f3d1c6af7f3e4a5a7ef77",
       "label": "imports",
@@ -719,6 +769,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.render"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.compiler.material_procurement_readiness_compiler_adapter",
+      "id": "engineering_engine::imports.4a1157109187c1a2b2f1c0ec367fb969",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
     },
     {
       "evidence_mode": "structural_only",
@@ -749,6 +809,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.database_engineering.rules.database_engineering_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.rules.material_procurement_readiness_rules",
+      "id": "engineering_engine::imports.4ceb98555c8d60dd35e135e0ea381a9b",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
     },
     {
       "evidence_mode": "structural_only",
@@ -952,6 +1022,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.compiler.material_procurement_readiness_compiler_adapter",
+      "id": "engineering_engine::imports.58dae59cbc898126fa702840c7bf34ff",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.index",
       "id": "engineering_engine::imports.5a2607ee80d9fb928d73e90aaff288eb",
       "label": "imports",
@@ -1059,6 +1139,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.tools.observe_confirm"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.compiler.material_procurement_readiness_compiler_adapter",
+      "id": "engineering_engine::imports.64f6f7444f1096609e27442db3e00ba7",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.material_procurement_readiness.rules.material_procurement_readiness_rules"
     },
     {
       "evidence_mode": "structural_only",
@@ -1312,6 +1402,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_readiness",
+      "id": "engineering_engine::imports.7b20637522dc2c7cc0fe02b0a2fb2078",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluation.se_core_eval_human_report",
       "id": "engineering_engine::imports.7becce542bcfa77c6bcfdc134e1589f3",
       "label": "imports",
@@ -1319,6 +1419,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.evaluation.se_core_eval_ledger"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter",
+      "id": "engineering_engine::imports.7c3eea603ecafa830a534185b096e892",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
     },
     {
       "evidence_mode": "structural_only",
@@ -1382,6 +1492,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter",
+      "id": "engineering_engine::imports.8134b8b43c243e596c092266b439d8eb",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.file_tickets_gc",
       "id": "engineering_engine::imports.825c9da9732029714366f8db900339bd",
       "label": "imports",
@@ -1409,6 +1529,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.quality_readiness.compiler.quality_readiness_compiler_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter",
+      "id": "engineering_engine::imports.832ea42e7ae2dc0109dfa09418ba8fdc",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
     },
     {
       "evidence_mode": "structural_only",
@@ -1532,6 +1662,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter",
+      "id": "engineering_engine::imports.9024fd0e2d18eab8bb29207af0960a93",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.material_procurement_readiness.rules.material_procurement_readiness_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter",
       "id": "engineering_engine::imports.908bcea7895b846f905ec2d11ee15ec1",
       "label": "imports",
@@ -1539,6 +1679,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.tools.material_procurement_readiness_runner",
+      "id": "engineering_engine::imports.90f2bbbd9019c5e71f38095388ce1cc1",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.60ed739c602b756bca903a5f883dc9eb"
     },
     {
       "evidence_mode": "structural_only",
@@ -1632,6 +1782,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter",
+      "id": "engineering_engine::imports.988228740ad85ef5d2aa40e0834833af",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.engine_mcp_server",
       "id": "engineering_engine::imports.989cbe98ebd5e3affdb2f117e4e1be0f",
       "label": "imports",
@@ -1689,6 +1849,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.guidance.guide_cards"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.rules.material_procurement_readiness_rules",
+      "id": "engineering_engine::imports.9dfe551d3de522f7a55cf0c6290b3738",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
     },
     {
       "evidence_mode": "structural_only",
@@ -1782,6 +1952,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_readiness",
+      "id": "engineering_engine::imports.add76a9962f3abcc5b1c2092b1fe01fa",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.project_status",
       "id": "engineering_engine::imports.ae41046770f2e8a491d80301cbdb6a39",
       "label": "imports",
@@ -1859,6 +2039,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.access_table"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.fixtures.material_procurement_readiness_public_synthetic",
+      "id": "engineering_engine::imports.b503d0911ee5be566f814dad71f2d856",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter"
     },
     {
       "evidence_mode": "structural_only",
@@ -3452,6 +3642,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.topology.material_procurement_readiness_module_manifest",
+      "id": "engineering_engine::imports.d62ef3af7e676d5ad0105e848aab07fe",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.observation.observation_housekeeping",
       "id": "engineering_engine::imports.d66708fcec5391c4cb2e27c793c0ee63",
       "label": "imports",
@@ -3509,6 +3709,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_readiness",
+      "id": "engineering_engine::imports.d895e580214aa593714e2a399dc94dcc",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
     },
     {
       "evidence_mode": "structural_only",
@@ -4402,6 +4612,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.topology.material_procurement_readiness_module_manifest",
+      "id": "engineering_engine::imports.f353789793230cb2e35b28ee8a33d3ba",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.module_binding"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.observation.observation_housekeeping",
       "id": "engineering_engine::imports.f37f3b8a85b0edb1719f40a75d029ee9",
       "label": "imports",
@@ -4409,6 +4629,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_readiness",
+      "id": "engineering_engine::imports.f46821ff47ed9a1b52e53ba1e8568842",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
     },
     {
       "evidence_mode": "structural_only",
@@ -4439,6 +4669,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.compiler.se_compiler_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.compiler.material_procurement_readiness_compiler_adapter",
+      "id": "engineering_engine::imports.f6b7becda37124137d6bc5b34c8380a8",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
     },
     {
       "evidence_mode": "structural_only",
@@ -4479,6 +4719,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.observation.observation_confirmation_sheet"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.material_procurement_readiness.compiler.material_procurement_readiness_compiler_adapter",
+      "id": "engineering_engine::imports.f843a594a2ec125d36803c57b4d59115",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.profile_operation_canon"
     },
     {
       "evidence_mode": "structural_only",
@@ -4579,6 +4829,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.evaluator.ax_se_project_assessment"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.60ed739c602b756bca903a5f883dc9eb",
+      "id": "engineering_engine::imports.module.60ed739c602b756bca903a5f883dc9eb.core.interfaces.domain_engine_adapter",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
     },
     {
       "evidence_mode": "structural_only",
@@ -5690,6 +5950,83 @@
     {
       "diagnostic_state": "validator_backed",
       "group": "engines",
+      "id": "engineering_engine::engines.material_procurement_readiness.compiler.material_procurement_readiness_compiler_adapter",
+      "kind": "module",
+      "label": "engines/material_procurement_readiness/compiler/material_procurement_readiness_compiler_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter",
+      "kind": "module",
+      "label": "engines/material_procurement_readiness/evaluator/material_procurement_project_evidence_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_readiness",
+      "kind": "module",
+      "label": "engines/material_procurement_readiness/evaluator/material_procurement_readiness",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.material_procurement_readiness.fixtures.material_procurement_readiness_public_synthetic",
+      "kind": "module",
+      "label": "engines/material_procurement_readiness/fixtures/material_procurement_readiness_public_synthetic",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.material_procurement_readiness.rules.material_procurement_readiness_rules",
+      "kind": "module",
+      "label": "engines/material_procurement_readiness/rules/material_procurement_readiness_rules",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.material_procurement_readiness.tools.material_procurement_readiness_runner",
+      "kind": "module",
+      "label": "engines/material_procurement_readiness/tools/material_procurement_readiness_runner",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.material_procurement_readiness.topology.material_procurement_readiness_module_manifest",
+      "kind": "module",
+      "label": "engines/material_procurement_readiness/topology/material_procurement_readiness_module_manifest",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
       "id": "engineering_engine::engines.quality_readiness.compiler.quality_readiness_compiler_adapter",
       "kind": "module",
       "label": "engines/quality_readiness/compiler/quality_readiness_compiler_adapter",
@@ -6733,6 +7070,17 @@
       "repair_state": "none"
     },
     {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::module.60ed739c602b756bca903a5f883dc9eb",
+      "kind": "module",
+      "label": "engines/material_procurement_readiness/evaluator/material_procurement_readiness_evaluator_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
       "diagnostic_state": "structural",
       "group": "Knowledge",
       "id": "knowledge_stack::knowledge_access",
@@ -7208,6 +7556,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.tools.material_procurement_readiness_runner",
+          "id": "imports.01856100726341e052d81775374aae43",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.material_procurement_readiness.compiler.material_procurement_readiness_compiler_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluation.se_core_sourcebound_answer_lane",
           "id": "imports.0242434df7b9c672f1060dade3b5b480",
           "label": "imports",
@@ -7595,6 +7952,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "module.60ed739c602b756bca903a5f883dc9eb",
+          "id": "imports.2baaf43e473865e03a31a43d6324f1f6",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.material_procurement_readiness.evaluator.material_procurement_readiness"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluator.se_core_source_cited_answer_run",
           "id": "imports.2c444789288acf1d5fe4f268e39aea5c",
           "label": "imports",
@@ -7646,6 +8012,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.evaluator.material_procurement_readiness",
+          "id": "imports.332613739b4d21f4e61cf23a923cb6f4",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.material_procurement_readiness.rules.material_procurement_readiness_rules"
         },
         {
           "evidence_mode": "structural_only",
@@ -7820,6 +8195,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.tools.material_procurement_readiness_runner",
+          "id": "imports.42d9df8256d872fed72a67592c52bf3b",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.material_procurement_readiness.fixtures.material_procurement_readiness_public_synthetic"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.observation.artifact_observations_from_confirmed",
           "id": "imports.443bfd0b58c72cd2c9bbf6297bb90849",
           "label": "imports",
@@ -7829,12 +8213,30 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "module.60ed739c602b756bca903a5f883dc9eb",
+          "id": "imports.44f8fcd4fc58c165c2739cbf1669fbb1",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.material_procurement_readiness.compiler.material_procurement_readiness_compiler_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.rules_stage",
           "id": "imports.4657cbf7e87f3d1c6af7f3e4a5a7ef77",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.render"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.compiler.material_procurement_readiness_compiler_adapter",
+          "id": "imports.4a1157109187c1a2b2f1c0ec367fb969",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
         },
         {
           "evidence_mode": "structural_only",
@@ -7862,6 +8264,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.database_engineering.rules.database_engineering_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.rules.material_procurement_readiness_rules",
+          "id": "imports.4ceb98555c8d60dd35e135e0ea381a9b",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
         },
         {
           "evidence_mode": "structural_only",
@@ -8045,6 +8456,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.compiler.material_procurement_readiness_compiler_adapter",
+          "id": "imports.58dae59cbc898126fa702840c7bf34ff",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.index",
           "id": "imports.5a2607ee80d9fb928d73e90aaff288eb",
           "label": "imports",
@@ -8141,6 +8561,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.tools.observe_confirm"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.compiler.material_procurement_readiness_compiler_adapter",
+          "id": "imports.64f6f7444f1096609e27442db3e00ba7",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.material_procurement_readiness.rules.material_procurement_readiness_rules"
         },
         {
           "evidence_mode": "structural_only",
@@ -8369,12 +8798,30 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.evaluator.material_procurement_readiness",
+          "id": "imports.7b20637522dc2c7cc0fe02b0a2fb2078",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluation.se_core_eval_human_report",
           "id": "imports.7becce542bcfa77c6bcfdc134e1589f3",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.evaluation.se_core_eval_ledger"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter",
+          "id": "imports.7c3eea603ecafa830a534185b096e892",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
         },
         {
           "evidence_mode": "structural_only",
@@ -8432,6 +8879,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter",
+          "id": "imports.8134b8b43c243e596c092266b439d8eb",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.file_tickets_gc",
           "id": "imports.825c9da9732029714366f8db900339bd",
           "label": "imports",
@@ -8456,6 +8912,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.quality_readiness.compiler.quality_readiness_compiler_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter",
+          "id": "imports.832ea42e7ae2dc0109dfa09418ba8fdc",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
         },
         {
           "evidence_mode": "structural_only",
@@ -8567,12 +9032,30 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter",
+          "id": "imports.9024fd0e2d18eab8bb29207af0960a93",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.material_procurement_readiness.rules.material_procurement_readiness_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter",
           "id": "imports.908bcea7895b846f905ec2d11ee15ec1",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.tools.material_procurement_readiness_runner",
+          "id": "imports.90f2bbbd9019c5e71f38095388ce1cc1",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.60ed739c602b756bca903a5f883dc9eb"
         },
         {
           "evidence_mode": "structural_only",
@@ -8657,6 +9140,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter",
+          "id": "imports.988228740ad85ef5d2aa40e0834833af",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.engine_mcp_server",
           "id": "imports.989cbe98ebd5e3affdb2f117e4e1be0f",
           "label": "imports",
@@ -8708,6 +9200,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.guidance.guide_cards"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.rules.material_procurement_readiness_rules",
+          "id": "imports.9dfe551d3de522f7a55cf0c6290b3738",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
         },
         {
           "evidence_mode": "structural_only",
@@ -8792,6 +9293,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.evaluator.material_procurement_readiness",
+          "id": "imports.add76a9962f3abcc5b1c2092b1fe01fa",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.project_status",
           "id": "imports.ae41046770f2e8a491d80301cbdb6a39",
           "label": "imports",
@@ -8861,6 +9371,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.access_table"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.fixtures.material_procurement_readiness_public_synthetic",
+          "id": "imports.b503d0911ee5be566f814dad71f2d856",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter"
         },
         {
           "evidence_mode": "structural_only",
@@ -10295,6 +10814,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.topology.material_procurement_readiness_module_manifest",
+          "id": "imports.d62ef3af7e676d5ad0105e848aab07fe",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.observation.observation_housekeeping",
           "id": "imports.d66708fcec5391c4cb2e27c793c0ee63",
           "label": "imports",
@@ -10346,6 +10874,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.evaluator.material_procurement_readiness",
+          "id": "imports.d895e580214aa593714e2a399dc94dcc",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
         },
         {
           "evidence_mode": "structural_only",
@@ -11150,12 +11687,30 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.topology.material_procurement_readiness_module_manifest",
+          "id": "imports.f353789793230cb2e35b28ee8a33d3ba",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.module_binding"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.observation.observation_housekeeping",
           "id": "imports.f37f3b8a85b0edb1719f40a75d029ee9",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.evaluator.material_procurement_readiness",
+          "id": "imports.f46821ff47ed9a1b52e53ba1e8568842",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
         },
         {
           "evidence_mode": "structural_only",
@@ -11183,6 +11738,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.compiler.se_compiler_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.compiler.material_procurement_readiness_compiler_adapter",
+          "id": "imports.f6b7becda37124137d6bc5b34c8380a8",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
         },
         {
           "evidence_mode": "structural_only",
@@ -11219,6 +11783,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.observation.observation_confirmation_sheet"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.material_procurement_readiness.compiler.material_procurement_readiness_compiler_adapter",
+          "id": "imports.f843a594a2ec125d36803c57b4d59115",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.profile_operation_canon"
         },
         {
           "evidence_mode": "structural_only",
@@ -11309,6 +11882,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.evaluator.ax_se_project_assessment"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.60ed739c602b756bca903a5f883dc9eb",
+          "id": "imports.module.60ed739c602b756bca903a5f883dc9eb.core.interfaces.domain_engine_adapter",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
         }
       ],
       "label": "Soulforge Engineering Engine declared module topology",
@@ -11859,6 +12441,76 @@
           "id": "engines.database_engineering.topology.database_engineering_module_manifest",
           "kind": "module",
           "label": "engines/database_engineering/topology/database_engineering_module_manifest",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.material_procurement_readiness.compiler.material_procurement_readiness_compiler_adapter",
+          "kind": "module",
+          "label": "engines/material_procurement_readiness/compiler/material_procurement_readiness_compiler_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter",
+          "kind": "module",
+          "label": "engines/material_procurement_readiness/evaluator/material_procurement_project_evidence_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.material_procurement_readiness.evaluator.material_procurement_readiness",
+          "kind": "module",
+          "label": "engines/material_procurement_readiness/evaluator/material_procurement_readiness",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.material_procurement_readiness.fixtures.material_procurement_readiness_public_synthetic",
+          "kind": "module",
+          "label": "engines/material_procurement_readiness/fixtures/material_procurement_readiness_public_synthetic",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.material_procurement_readiness.rules.material_procurement_readiness_rules",
+          "kind": "module",
+          "label": "engines/material_procurement_readiness/rules/material_procurement_readiness_rules",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.material_procurement_readiness.tools.material_procurement_readiness_runner",
+          "kind": "module",
+          "label": "engines/material_procurement_readiness/tools/material_procurement_readiness_runner",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.material_procurement_readiness.topology.material_procurement_readiness_module_manifest",
+          "kind": "module",
+          "label": "engines/material_procurement_readiness/topology/material_procurement_readiness_module_manifest",
           "layer": "module",
           "parent_id": null,
           "repair_state": "none"
@@ -12812,6 +13464,16 @@
           "layer": "module",
           "parent_id": null,
           "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "module.60ed739c602b756bca903a5f883dc9eb",
+          "kind": "module",
+          "label": "engines/material_procurement_readiness/evaluator/material_procurement_readiness_evaluator_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
         }
       ],
       "payload_state": "public_safe_contract",
@@ -12820,7 +13482,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "1f94a306b5ee49eb14789d2fdcd84f4ea65b30a704260de4d2dd053df137ee73",
+        "digest": "0f8a968c071691ff804653ce0860ddd407e4161bae9ac0e5dfeec9cdda8dffa9",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -13814,13 +14476,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "a4f829e7ec509db274d3764a78d4a82f8f389ce1d0f206c177ff4ae57748c3ef",
+  "source_set_digest": "24e90bbfef4ef7d3192c59434429d5cfeab69b423304497c678eb37724bd7887",
   "summary": {
-    "edge_count": 508,
-    "node_count": 189,
+    "edge_count": 534,
+    "node_count": 197,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "a044d3cb310bf8a86a9bdd40cd1872fb1503e776b56e7d33581c184a5baf73c3"
+  "topology_digest": "f9cdefaa96845c83a25bfb24f732f648aee7765ac5a4b3fb278e05703da3aae2"
 }

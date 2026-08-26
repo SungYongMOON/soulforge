@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.material_procurement_readiness.assessment.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "domain_engine_id", "state", "material_count", "ready_count", "gap_count", "unknown_count"],
+  "properties": {
+    "schema_version": { "const": "soulforge.material_procurement_readiness.assessment.v0" },
+    "domain_engine_id": { "const": "material_procurement_readiness" },
+    "state": { "enum": ["ready", "not_ready", "unknown", "not_applicable"] },
+    "material_count": { "type": "integer", "minimum": 1, "maximum": 256 },
+    "ready_count": { "type": "integer", "minimum": 0 },
+    "gap_count": { "type": "integer", "minimum": 0 },
+    "unknown_count": { "type": "integer", "minimum": 0 }
+  }
+}

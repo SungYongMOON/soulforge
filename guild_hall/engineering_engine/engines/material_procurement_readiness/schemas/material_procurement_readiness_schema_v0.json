@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.material_procurement_readiness.domain_descriptor.v0",
+  "title": "MaterialProcurementReadinessEngineDescriptor",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "domain_engine_id", "display_name", "version", "status", "claim_ceiling", "execution_mode", "contracts", "schemas", "compiler_adapter", "evaluator_adapter", "project_evidence_adapter", "fixtures", "manual"],
+  "properties": {
+    "schema_version": { "const": "soulforge.domain_engine_descriptor.v0" },
+    "domain_engine_id": { "const": "material_procurement_readiness" },
+    "display_name": { "const": "Material and Procurement Readiness Domain Engine" },
+    "version": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" },
+    "status": { "const": "candidate" },
+    "claim_ceiling": { "const": "source_supported" },
+    "execution_mode": { "const": "deterministic_only" },
+    "contracts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_packet", "project_evidence", "error_model", "authority_boundary", "derivation", "integration_request"],
+      "properties": {
+        "source_packet": { "type": "string", "minLength": 1 },
+        "project_evidence": { "type": "string", "minLength": 1 },
+        "error_model": { "type": "string", "minLength": 1 },
+        "authority_boundary": { "type": "string", "minLength": 1 },
+        "derivation": { "type": "string", "minLength": 1 },
+        "integration_request": { "type": "string", "minLength": 1 }
+      }
+    },
+    "schemas": {
+      "type": "object", "additionalProperties": false,
+      "required": ["descriptor", "ruleset", "project_binding", "typed_project_facts", "observation_receipt", "assessment", "domain_result", "evaluation_receipt"],
+      "properties": {
+        "descriptor": { "const": "soulforge.material_procurement_readiness.domain_descriptor.v0" },
+        "ruleset": { "const": "soulforge.material_procurement_readiness.ruleset.v0" },
+        "project_binding": { "const": "soulforge.material_procurement_readiness.project_binding.v0" },
+        "typed_project_facts": { "const": "soulforge.material_procurement_readiness.typed_project_facts.v1" },
+        "observation_receipt": { "const": "soulforge.material_procurement_readiness.observation_receipt.v0" },
+        "assessment": { "const": "soulforge.material_procurement_readiness.assessment.v0" },
+        "domain_result": { "const": "soulforge.material_procurement_readiness.domain_result.v0" },
+        "evaluation_receipt": { "const": "soulforge.material_procurement_readiness.evaluation_receipt.v0" }
+      }
+    },
+    "compiler_adapter": { "type": "string", "minLength": 1 },
+    "evaluator_adapter": { "type": "string", "minLength": 1 },
+    "project_evidence_adapter": { "type": "string", "minLength": 1 },
+    "fixtures": {
+      "type": "object", "additionalProperties": false,
+      "required": ["public_synthetic"],
+      "properties": { "public_synthetic": { "type": "string", "minLength": 1 } }
+    },
+    "manual": {
+      "type": "object", "additionalProperties": false,
+      "required": ["root"],
+      "properties": { "root": { "type": "string", "minLength": 1 } }
+    }
+  }
+}

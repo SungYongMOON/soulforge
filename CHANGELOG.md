@@ -7,6 +7,12 @@
 - Added the thin `project_bootstrap` launcher and synchronized its Codex bridge as `$soulforge-project-bootstrap`; workflow steps, profile policy, project identities, people, runtime paths, integration state, and authority remain outside the launcher.
 - A fresh executor and separate verifier passed the public synthetic cold preview at `usable` level with zero must-have failures and boundary-safety score 3. The workflow is registered but does not claim production readiness, profile calibration, default-route safety, external mutation authority, or automatic D1 consumer compatibility.
 
+## 2026-08-26 - Material Procurement Readiness Domain Engine main integration
+
+- Integrated the accepted `material_procurement_readiness` package behind the existing Engineering Engine Core without granting ERP, purchase-order, supplier, reservation, allocation, or procurement action authority.
+- Registered the evaluator in Core conformance and added the root `validate:material-procurement-readiness` surface covering source pins, Project Binding, Typed Facts, compiler/evaluator, closed schemas, zero-write runner, and the 24-case package suite.
+- Reused the single Core canonical-instant authority for exact real UTC millisecond cutoffs and kept the package claim ceiling at `source_supported`; live ERP mapping and project applicability remain Owner-gated.
+
 ## 2026-08-26 - Watchtower protected-node observation contract repair
 
 - Fixed the Team Ops Board topology adapter so an independently observed non-green `gate_five_field` node retains the Watchtower producer's exact `manual` repairability instead of invalidating and hiding the whole health snapshot.

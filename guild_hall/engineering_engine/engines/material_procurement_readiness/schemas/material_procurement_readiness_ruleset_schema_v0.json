@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.material_procurement_readiness.ruleset.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "revision", "domain_engine_id", "source_packet_ref", "rules", "policy", "ruleset_ref"],
+  "properties": {
+    "schema_version": { "const": "soulforge.material_procurement_readiness.ruleset.v0" },
+    "revision": { "const": "soulforge.material_procurement_readiness.ruleset.v0" },
+    "domain_engine_id": { "const": "material_procurement_readiness" },
+    "source_packet_ref": { "$ref": "#/$defs/ref" },
+    "rules": { "type": "array", "minItems": 1, "maxItems": 64, "items": { "$ref": "#/$defs/rule" } },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default_receipt_required"],
+      "properties": { "default_receipt_required": { "type": "boolean" } }
+    },
+    "ruleset_ref": { "$ref": "#/$defs/ref" }
+  },
+  "$defs": {
+    "ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity_id", "revision_id", "content_id", "content_hash_alg"],
+      "properties": {
+        "entity_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+        "revision_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+        "content_id": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "content_hash_alg": { "const": "sha256" }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_id", "source_refs", "source_locator", "required_fact_fields"],
+      "properties": {
+        "rule_id": { "type": "string", "pattern": "^MPR-[A-Z-]+$" },
+        "source_refs": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "source_locator": { "type": "string", "minLength": 1 },
+        "required_fact_fields": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+      }
+    }
+  }
+}

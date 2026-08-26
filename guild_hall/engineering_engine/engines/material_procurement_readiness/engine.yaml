@@ -1,0 +1,30 @@
+schema_version: soulforge.domain_engine_descriptor.v0
+domain_engine_id: material_procurement_readiness
+display_name: Material and Procurement Readiness Domain Engine
+version: 0.2.0
+status: candidate
+claim_ceiling: source_supported
+execution_mode: deterministic_only
+contracts:
+  source_packet: engines/material_procurement_readiness/contracts/material_procurement_readiness_source_packet_v0.md
+  project_evidence: engines/material_procurement_readiness/contracts/material_procurement_project_evidence_contract_v0.md
+  error_model: engines/material_procurement_readiness/contracts/material_procurement_error_model_v0.md
+  authority_boundary: engines/material_procurement_readiness/contracts/material_procurement_authority_boundary_v0.md
+  derivation: engines/material_procurement_readiness/contracts/material_procurement_derivation_v0.md
+  integration_request: engines/material_procurement_readiness/topology/integration_request_v0.md
+schemas:
+  descriptor: soulforge.material_procurement_readiness.domain_descriptor.v0
+  ruleset: soulforge.material_procurement_readiness.ruleset.v0
+  project_binding: soulforge.material_procurement_readiness.project_binding.v0
+  typed_project_facts: soulforge.material_procurement_readiness.typed_project_facts.v1
+  observation_receipt: soulforge.material_procurement_readiness.observation_receipt.v0
+  assessment: soulforge.material_procurement_readiness.assessment.v0
+  domain_result: soulforge.material_procurement_readiness.domain_result.v0
+  evaluation_receipt: soulforge.material_procurement_readiness.evaluation_receipt.v0
+compiler_adapter: engines/material_procurement_readiness/compiler/material_procurement_readiness_compiler_adapter.mjs
+evaluator_adapter: engines/material_procurement_readiness/evaluator/material_procurement_readiness_evaluator_adapter.mjs
+project_evidence_adapter: engines/material_procurement_readiness/evaluator/material_procurement_project_evidence_adapter.mjs
+fixtures:
+  public_synthetic: engines/material_procurement_readiness/fixtures/material_procurement_readiness_public_synthetic.mjs
+manual:
+  root: engines/material_procurement_readiness/manual/README.md

@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.material_procurement_readiness.domain_result.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "domain_engine_id", "ruleset_ref", "source_packet_ref", "project_binding_lineage", "erp_snapshot_ref", "as_of_date", "facts_digest", "valid_at", "known_at", "rows"],
+  "properties": {
+    "schema_version": { "const": "soulforge.material_procurement_readiness.domain_result.v0" },
+    "domain_engine_id": { "const": "material_procurement_readiness" },
+    "ruleset_ref": { "$ref": "#/$defs/ref" },
+    "source_packet_ref": { "$ref": "#/$defs/ref" },
+    "project_binding_lineage": { "$ref": "#/$defs/lineage" },
+    "erp_snapshot_ref": { "$ref": "#/$defs/ref" },
+    "as_of_date": { "type": "string", "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])$" },
+    "facts_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "valid_at": { "type": "string", "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}Z$" },
+    "known_at": { "type": "string", "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}Z$" },
+    "rows": { "type": "array", "minItems": 1, "maxItems": 256, "items": { "$ref": "#/$defs/result_row" } }
+  },
+  "$defs": {
+    "ref": {
+      "type": "object", "additionalProperties": false,
+      "required": ["entity_id", "revision_id", "content_id", "content_hash_alg"],
+      "properties": {
+        "entity_id": { "type": "string" }, "revision_id": { "type": "string" },
+        "content_id": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }, "content_hash_alg": { "const": "sha256" }
+      }
+    },
+    "lineage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["project_id", "domain_engine_id", "binding_revision_hash", "source_manifest_ref", "source_refs"],
+      "properties": {
+        "project_id": { "type": "string" }, "domain_engine_id": { "const": "material_procurement_readiness" },
+        "binding_revision_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "source_manifest_ref": { "$ref": "#/$defs/ref" },
+        "source_refs": { "type": "array", "minItems": 1, "maxItems": 64, "items": { "$ref": "#/$defs/ref" } }
+      }
+    },
+    "nullable_integer": { "anyOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] },
+    "nullable_date": { "anyOf": [{ "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }, { "type": "null" }] },
+    "trace_field": { "enum": ["available_quantity", "confirmed_receipt_date", "lead_time_days", "need_date", "open_purchase_quantity", "order_date", "planned_receipt_date", "promised_delivery_date", "purchase_order_state", "receipt_required", "received_quantity", "required_quantity"] },
+    "decision_basis": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "rule_ids", "fact_fields_used", "unknown_or_missing_fact_fields", "needed_next", "package_source_refs", "project_evidence_refs", "source_packet_ref", "interpretation"],
+      "properties": {
+        "schema_version": { "const": "soulforge.material_procurement_readiness.decision_basis.v0" },
+        "rule_ids": { "type": "array", "minItems": 1, "items": { "enum": ["MPR-DELIVERY-DATE", "MPR-LEAD-TIME", "MPR-PURCHASE-ORDER", "MPR-RECEIPT", "MPR-SHORTAGE"] } },
+        "fact_fields_used": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/trace_field" } },
+        "unknown_or_missing_fact_fields": { "type": "array", "items": { "$ref": "#/$defs/trace_field" } },
+        "needed_next": { "type": "array", "items": { "$ref": "#/$defs/trace_field" } },
+        "package_source_refs": { "type": "array", "minItems": 1, "items": { "enum": ["S1-D365-PO-DATES", "S2-OASIS-UBL-2.3", "S3-ORACLE-PROCUREMENT-24D"] } },
+        "project_evidence_refs": {
+          "type": "object", "additionalProperties": false,
+          "required": ["material_need_source_ref", "open_purchase_quantity_proof_ref"],
+          "properties": {
+            "material_need_source_ref": { "$ref": "#/$defs/ref" },
+            "open_purchase_quantity_proof_ref": { "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }] }
+          }
+        },
+        "source_packet_ref": { "$ref": "#/$defs/ref" },
+        "interpretation": { "const": "soulforge_candidate_interpretation_not_source_authored_rule" }
+      }
+    },
+    "result_row": {
+      "type": "object", "additionalProperties": false,
+      "required": ["material_need_ref", "material_ref", "quantity_uom", "required_quantity", "available_quantity", "open_purchase_quantity", "received_quantity", "purchase_order_state", "need_date", "lead_time_days", "order_date", "planned_receipt_date", "promised_delivery_date", "confirmed_receipt_date", "receipt_required", "inbound_date_field", "inbound_date", "inbound_quantity_counted", "available_coverage_quantity", "shortage_quantity", "receipt_state", "purchase_order_readiness", "order_timing_state", "latest_order_date", "schedule_state", "readiness_state", "reason", "decision_basis"],
+      "properties": {
+        "material_need_ref": { "type": "string" }, "material_ref": { "type": "string" }, "quantity_uom": { "type": "string" },
+        "required_quantity": { "$ref": "#/$defs/nullable_integer" }, "available_quantity": { "$ref": "#/$defs/nullable_integer" },
+        "open_purchase_quantity": { "$ref": "#/$defs/nullable_integer" }, "received_quantity": { "$ref": "#/$defs/nullable_integer" },
+        "purchase_order_state": { "enum": ["cancelled", "closed", "draft", "in_transit", "not_ordered", "released", "supplier_acknowledged", "unknown"] }, "need_date": { "$ref": "#/$defs/nullable_date" },
+        "lead_time_days": { "$ref": "#/$defs/nullable_integer" }, "order_date": { "$ref": "#/$defs/nullable_date" },
+        "planned_receipt_date": { "$ref": "#/$defs/nullable_date" }, "promised_delivery_date": { "$ref": "#/$defs/nullable_date" },
+        "confirmed_receipt_date": { "$ref": "#/$defs/nullable_date" }, "receipt_required": { "type": "boolean" },
+        "inbound_date_field": { "enum": ["confirmed_receipt_date", "promised_delivery_date", "planned_receipt_date", null] }, "inbound_date": { "$ref": "#/$defs/nullable_date" },
+        "inbound_quantity_counted": { "$ref": "#/$defs/nullable_integer" }, "available_coverage_quantity": { "$ref": "#/$defs/nullable_integer" },
+        "shortage_quantity": { "$ref": "#/$defs/nullable_integer" }, "receipt_state": { "enum": ["fully_received", "partially_received", "not_received", "unknown"] },
+        "purchase_order_readiness": { "enum": ["not_needed", "unknown", "not_ordered", "insufficient_open_quantity", "open_supply"] },
+        "order_timing_state": { "enum": ["not_needed", "unknown", "ordered_within_lead_time", "ordered_after_lead_time", "not_ordered_past_lead_time", "order_window_open"] },
+        "latest_order_date": { "$ref": "#/$defs/nullable_date" }, "schedule_state": { "enum": ["unknown", "not_applicable", "stock_ready", "supply_unconfirmed", "shortage", "overdue", "on_time", "late"] },
+        "readiness_state": { "enum": ["ready", "gap_purchase_order", "gap_late_order", "gap_shortage", "gap_late_delivery", "gap_overdue_receipt", "unknown", "not_applicable"] },
+        "reason": { "type": "string" }, "decision_basis": { "$ref": "#/$defs/decision_basis" }
+      }
+    }
+  }
+}
