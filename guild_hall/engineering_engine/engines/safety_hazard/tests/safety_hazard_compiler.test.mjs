@@ -15,9 +15,14 @@ import {
   resolveProfileBindings,
 } from '../../../core/interfaces/domain_engine_adapter.mjs';
 import { ContractError } from '../../../core/validators/errors.mjs';
+import { canonicalise } from '../../../core/validators/canonical.mjs';
+import { sha256Hex } from '../../../core/validators/fingerprint.mjs';
 import {
   SAFETY_HAZARD_RULES,
+  SAFETY_HAZARD_FROZEN_RULESET_CONTENT_ID,
   SAFETY_HAZARD_RULESET_REF,
+  SAFETY_HAZARD_RULESET_REVISION,
+  SAFETY_HAZARD_RULESET_SCHEMA,
   SAFETY_HAZARD_SOURCE_PACKET_REF,
 } from '../rules/safety_hazard_rules.mjs';
 import {
@@ -56,6 +61,29 @@ test('Safety Hazard compiler: base ruleset is stable and Core adapter loads', ()
   assert.equal(adapter.domain_engine_id, 'safety_hazard');
   assert.equal(compiled.rule_count, SAFETY_HAZARD_RULES.length);
   assert.deepEqual(compiled.effective_rule_set.ruleset_ref, SAFETY_HAZARD_RULESET_REF);
+});
+
+test('Safety Hazard compiler: base ruleset has an independent frozen digest lock and controlled drift changes it', () => {
+  const frozen = 'sha256:05d49b5bd79fcc956aa93a9877d9a0b638a9d592a86ad7c85e0cc03f53a72992';
+  const digestFor = (rules) => `sha256:${sha256Hex(canonicalise({
+    schema_version: SAFETY_HAZARD_RULESET_SCHEMA,
+    revision: SAFETY_HAZARD_RULESET_REVISION,
+    source_packet_ref: SAFETY_HAZARD_SOURCE_PACKET_REF,
+    rules,
+  }, {
+    rules: 'sorted_by:rule_id',
+    'rules[].required_evidence_fields': 'insertion_ordered',
+    'rules[].required_authority_families': 'insertion_ordered',
+    'rules[].lifecycle_statuses': 'insertion_ordered',
+  }))}`;
+
+  assert.equal(SAFETY_HAZARD_FROZEN_RULESET_CONTENT_ID, frozen);
+  assert.equal(SAFETY_HAZARD_RULESET_REF.content_id, frozen);
+  assert.equal(digestFor(SAFETY_HAZARD_RULES), frozen);
+
+  const drifted = structuredClone(SAFETY_HAZARD_RULES);
+  drifted.find((rule) => rule.rule_id === 'SH-RSK-02').source_locator = 'controlled-drift';
+  assert.notEqual(digestFor(drifted), frozen);
 });
 
 test('Safety Hazard compiler: Core Profile bindings preserve provenance for a bounded add', () => {
@@ -133,6 +161,24 @@ test('Safety Hazard package: source packet is byte-bound and the obsolete NASA s
   assert.equal(inventory.rag_boundary.rag_can_issue_verdicts, false);
   assert.equal(obsoleteNasa.status_at_direct_check, 'obsolete_no_longer_used');
   assert.equal(obsoleteNasa.applicability, 'not_executable');
+});
+
+test('Safety Hazard package: S1 inventory is a documented locator superset with exact risk-rule coverage', () => {
+  const inventoryPath = fileURLToPath(new URL('../contracts/safety_hazard_public_source_inventory_candidate_v1.json', import.meta.url));
+  const derivationPath = fileURLToPath(new URL('../contracts/safety_hazard_derivation_v0.md', import.meta.url));
+  const inventory = JSON.parse(readFileSync(inventoryPath, 'utf8'));
+  const s1 = inventory.records.find((record) => record.source_id === 'S1-MIL-STD-882E-CHANGE-1');
+  const riskRule = SAFETY_HAZARD_RULES.find((rule) => rule.rule_id === 'SH-RSK-02');
+  const derivation = readFileSync(derivationPath, 'utf8');
+
+  assert.deepEqual(s1.derivation_locators, [
+    'Figure 1', '4.3.1(d)', '4.3.2', '4.3.3', 'Tables I-III', '4.3.4', '4.3.5', '4.3.6', '4.3.7', '4.3.8',
+  ]);
+  assert.match(s1.derivation_locator_scope, /Figure 1 is process-shape context only/u);
+  assert.match(s1.derivation_locator_scope, /Tables I-III specifically support SH-RSK-02/u);
+  assert.equal(riskRule.source_locator, '4.3.3; Tables I-III');
+  assert.match(derivation, /Figure 1 is\s+source-level process context only/u);
+  assert.match(derivation, /Tables I-III\s+specifically support SH-RSK-02/u);
 });
 
 test('Safety Hazard package: descriptor, topology, schema, and complete manual remain local and present', () => {

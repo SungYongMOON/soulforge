@@ -26,12 +26,14 @@
         "4.3.1(d)",
         "4.3.2",
         "4.3.3",
+        "Tables I-III",
         "4.3.4",
         "4.3.5",
         "4.3.6",
         "4.3.7",
         "4.3.8"
       ],
+      "derivation_locator_scope": "Source-level locator superset: Figure 1 is process-shape context only and is not mapped to an executable rule; Tables I-III specifically support SH-RSK-02 severity, probability, and risk characterisation.",
       "public_body_stored_in_git": false
     },
     {

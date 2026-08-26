@@ -117,9 +117,18 @@ const rulesetDigest = sha256Hex(canonicalise(digestMaterial, {
   'rules[].lifecycle_statuses': 'insertion_ordered',
 }));
 
+// Independent literal lock: this value is intentionally not derived from the current rules at
+// assertion time. A rule-row change must update the reviewed pin explicitly instead of letting
+// the exported reference silently follow production metadata.
+export const SAFETY_HAZARD_FROZEN_RULESET_CONTENT_ID = 'sha256:05d49b5bd79fcc956aa93a9877d9a0b638a9d592a86ad7c85e0cc03f53a72992';
+
+if (`sha256:${rulesetDigest}` !== SAFETY_HAZARD_FROZEN_RULESET_CONTENT_ID) {
+  throw new Error('Safety Hazard base ruleset digest drifted from its reviewed frozen pin');
+}
+
 export const SAFETY_HAZARD_RULESET_REF = Object.freeze({
   entity_id: 'safety-hazard-ruleset-v0',
   revision_id: SAFETY_HAZARD_RULESET_REVISION,
-  content_id: `sha256:${rulesetDigest}`,
+  content_id: SAFETY_HAZARD_FROZEN_RULESET_CONTENT_ID,
   content_hash_alg: 'sha256',
 });

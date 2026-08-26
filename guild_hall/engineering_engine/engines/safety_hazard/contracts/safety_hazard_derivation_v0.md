@@ -9,6 +9,11 @@ source inventory to the official DLA public document image and SHA-256. The dire
 verified the eight-element process and the named sections below. This record keeps short
 paraphrases and locators only; it does not reproduce the standard.
 
+Locator reconciliation: the S1 inventory is a source-level locator superset. Figure 1 is
+source-level process context only and is not mapped to an executable rule. Tables I-III
+specifically support SH-RSK-02 severity, probability, and risk characterisation; the rule-level
+locators below intentionally retain only the applicable subset.
+
 | candidate rule | direct locator | bounded derivation |
 | --- | --- | --- |
 | `SH-HZ-01` | §4.3.2 | Hazard identity should be traceably documented across the system life cycle. |

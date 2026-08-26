@@ -518,10 +518,14 @@ function evaluateRow(row) {
         'not_applicable requires an exact not_applicable_basis_ref');
     }
     state = 'not_applicable';
-  } else if (applicability === 'unknown' || !lifecycleStatusSupported || riskCharacterizationUnknown) {
+  } else if (applicability === 'unknown') {
     state = 'gap_unknown';
   } else if (row.conflict_record) {
+    // The candidate mission contract preserves a valid source disagreement immediately after
+    // applicability resolves; a valid conflict must not be hidden by downstream uncertainty.
     state = 'gap_conflict';
+  } else if (!lifecycleStatusSupported || riskCharacterizationUnknown) {
+    state = 'gap_unknown';
   } else if (row.missing_authority_families.length > 0 || (humanBindingRequired && !humanBindingPresent)) {
     state = 'gap_unknown';
   } else if (!row.observation_attempted || row.presence_state === 'unknown') {

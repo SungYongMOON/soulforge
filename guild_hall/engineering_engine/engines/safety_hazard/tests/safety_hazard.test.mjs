@@ -136,6 +136,43 @@ test('Safety Hazard: floating revisions and secret-like strings are refused', ()
   );
 });
 
+test('Safety Hazard: a valid source conflict outranks rule-ineligible lifecycle and unclassified risk states', () => {
+  const request = buildSafetyHazardPublicSyntheticRequest();
+  const sourceConflict = request.domain_input.rows.find((candidate) => candidate.case_id === 'VERIFICATION_CONFLICT');
+  const target = request.domain_input.rows.find((candidate) => candidate.case_id === 'RISK_MISSING');
+  target.lifecycle_status = 'identified';
+  target.risk_characterization.risk = 'unclassified';
+  target.conflict_claims = structuredClone(sourceConflict.conflict_claims);
+
+  const result = assessSafetyHazard(request);
+  const observed = result.domain_result.results.find((candidate) => candidate.case_id === 'RISK_MISSING');
+  assert.equal(observed.state, 'gap_conflict');
+  assert.equal(observed.conflict_claim_count, 2);
+  assert.equal(observed.governing_authority_family, 'project_contract_baseline');
+});
+
+test('Safety Hazard: malformed lifecycle and risk literals remain input refusals even when conflict evidence is present', () => {
+  const lifecycle = buildSafetyHazardPublicSyntheticRequest();
+  const sourceConflict = lifecycle.domain_input.rows.find((candidate) => candidate.case_id === 'VERIFICATION_CONFLICT');
+  const lifecycleTarget = lifecycle.domain_input.rows.find((candidate) => candidate.case_id === 'RISK_MISSING');
+  lifecycleTarget.lifecycle_status = 'not-a-lifecycle-token';
+  lifecycleTarget.conflict_claims = structuredClone(sourceConflict.conflict_claims);
+  assert.throws(
+    () => assessSafetyHazard(lifecycle),
+    (error) => error.code === SAFETY_HAZARD_ERROR_CODES.INPUT_REFUSED,
+  );
+
+  const risk = buildSafetyHazardPublicSyntheticRequest();
+  const riskSourceConflict = risk.domain_input.rows.find((candidate) => candidate.case_id === 'VERIFICATION_CONFLICT');
+  const riskTarget = risk.domain_input.rows.find((candidate) => candidate.case_id === 'RISK_MISSING');
+  riskTarget.risk_characterization.risk = 'not-a-risk-token';
+  riskTarget.conflict_claims = structuredClone(riskSourceConflict.conflict_claims);
+  assert.throws(
+    () => assessSafetyHazard(risk),
+    (error) => error.code === SAFETY_HAZARD_ERROR_CODES.INPUT_REFUSED,
+  );
+});
+
 test('Safety Hazard: zero-write runner emits deterministic JSON only', () => {
   const runner = fileURLToPath(new URL('../tools/safety_hazard_runner.mjs', import.meta.url));
   const first = spawnSync(process.execPath, [runner], { encoding: 'utf8' });
