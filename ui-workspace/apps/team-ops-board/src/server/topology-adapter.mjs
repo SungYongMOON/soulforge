@@ -153,7 +153,7 @@ const PROTECTED_NODE_CONTRACTS = new Map([
     unmonitoredReasons: ["independent_evidence_absent", "probe_unbound", "heartbeat_receipt_unavailable", "source_missing"], observedAllowed: true,
     tracking: {
       evidenceOwner: "five_field_event_validator", escalationOwner: "five_field_owner",
-      repairability: "not_available",
+      repairability: { observed: "manual", unmonitored: "not_available" },
     },
   }],
   ["store_workmeta", {
@@ -257,6 +257,17 @@ function parseExactTimestamp(value) {
 
 function validTrackingIdentifier(value) {
   return typeof value === "string" && /^[a-z][a-z0-9_]{0,127}$/u.test(value);
+}
+
+function expectedProtectedRepairability(contractRepairability, healthState) {
+  if (typeof contractRepairability === "string") return contractRepairability;
+  if (isPlainObject(contractRepairability)) {
+    if (healthState === "unmonitored") return contractRepairability.unmonitored;
+    if (healthState === "degraded" || healthState === "stale" || healthState === "down") {
+      return contractRepairability.observed;
+    }
+  }
+  return null;
 }
 
 function validateNodeTracking(node, observedAt) {
@@ -370,7 +381,10 @@ export function validateTopologyHealthSnapshot(snapshot, { now = Date.now() } = 
           && (!isPlainObject(node.tracking)
             || node.tracking.evidence_owner !== protectedContract.tracking.evidenceOwner
             || node.tracking.escalation_owner !== protectedContract.tracking.escalationOwner
-            || node.tracking.repairability !== protectedContract.tracking.repairability))) {
+            || node.tracking.repairability !== expectedProtectedRepairability(
+              protectedContract.tracking.repairability,
+              node.health.state,
+            )))) {
         throw new Error("topology_snapshot_protected_node_invalid");
       }
     }

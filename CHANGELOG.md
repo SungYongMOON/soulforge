@@ -6,6 +6,12 @@
 - Registered the evaluator in Core conformance and added the root `validate:material-procurement-readiness` surface covering source pins, Project Binding, Typed Facts, compiler/evaluator, closed schemas, zero-write runner, and the 24-case package suite.
 - Reused the single Core canonical-instant authority for exact real UTC millisecond cutoffs and kept the package claim ceiling at `source_supported`; live ERP mapping and project applicability remain Owner-gated.
 
+## 2026-08-26 - Watchtower protected-node observation contract repair
+
+- Fixed the Team Ops Board topology adapter so an independently observed non-green `gate_five_field` node retains the Watchtower producer's exact `manual` repairability instead of invalidating and hiding the whole health snapshot.
+- Kept evidence-absent `unmonitored` state strictly bound to `not_available`, preserved exact evidence/escalation owners, and left executable recovery behind the separate v3 `allowlisted` recovery contract.
+- Added RED/GREEN coverage for degraded and stale observations plus rejection of semantically wrong `not_available`, `automatic`, and unmonitored `manual` combinations.
+
 ## 2026-08-26 - Core canonical instant alignment
 
 - Routed Project Evidence `valid_at`, `known_at`, and optional `observed_at` through the single Core canonical-instant authority.
