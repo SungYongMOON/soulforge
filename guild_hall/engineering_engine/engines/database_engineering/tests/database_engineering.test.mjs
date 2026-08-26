@@ -1029,8 +1029,41 @@ test('opaque project references have exact 256-character runtime and schema pari
   replaceEvidenceRef(maximum, maximumRef);
   assert.equal(bindingSchema(maximum.binding), true, JSON.stringify(bindingSchema.errors));
   const maximumFacts = adaptDatabaseProjectEvidence(maximum.binding, maximum.evidence, maximum.cutoffs).typed_project_facts;
-  assert.equal(maximumFacts.evidence[0].evidence_ref.length, 256);
+  assert.equal([...maximumFacts.evidence[0].evidence_ref].length, 256);
   assert.equal(factsSchema(maximumFacts), true, JSON.stringify(factsSchema.errors));
+
+  const makeAstralRef = (projectId, kind, codePointLength) => {
+    const prefix = `ref:${projectId}:${kind}:`;
+    assert.ok([...prefix].length < codePointLength);
+    return `${prefix}${'😀'.repeat(codePointLength - [...prefix].length)}`;
+  };
+  const astralMaximum = buildSqlitePublicSyntheticInput();
+  const astralMaximumRef = makeAstralRef(astralMaximum.binding.project_id, 'evidence', 256);
+  replaceEvidenceRef(astralMaximum, astralMaximumRef);
+  assert.equal([...astralMaximumRef].length, 256);
+  assert.ok(astralMaximumRef.length > 256);
+  assert.equal(bindingSchema(astralMaximum.binding), true, JSON.stringify(bindingSchema.errors));
+  const astralMaximumAdapted = adaptDatabaseProjectEvidence(astralMaximum.binding, astralMaximum.evidence, astralMaximum.cutoffs);
+  const astralMaximumReplay = adaptDatabaseProjectEvidence(astralMaximum.binding, astralMaximum.evidence, astralMaximum.cutoffs);
+  assert.equal(astralMaximumAdapted.typed_project_facts.evidence[0].evidence_ref, astralMaximumRef);
+  assert.equal(factsSchema(astralMaximumAdapted.typed_project_facts), true, JSON.stringify(factsSchema.errors));
+  assert.equal(astralMaximumAdapted.typed_project_facts.facts_digest, astralMaximumReplay.typed_project_facts.facts_digest);
+  assert.deepEqual(astralMaximumAdapted.observation_receipt, astralMaximumReplay.observation_receipt);
+
+  const astralTooLong = buildSqlitePublicSyntheticInput();
+  replaceEvidenceRef(astralTooLong, makeAstralRef(astralTooLong.binding.project_id, 'evidence', 257));
+  assert.equal(bindingSchema(astralTooLong.binding), false);
+  assert.throws(() => adaptDatabaseProjectEvidence(astralTooLong.binding, astralTooLong.evidence, astralTooLong.cutoffs), (error) => error.code === 'DBE_BINDING_INVALID');
+
+  const astralAuthority = buildSqlitePublicSyntheticInput();
+  const astralRequirement = astralAuthority.evidence.requirements[0];
+  const astralAuthorityRef = makeAstralRef(astralAuthority.binding.project_id, 'authority', 256);
+  astralAuthority.binding.authority_bindings.find((row) => row.rule_id === astralRequirement.rule_id).authority_ref = astralAuthorityRef;
+  astralRequirement.authority_ref = astralAuthorityRef;
+  assert.equal(bindingSchema(astralAuthority.binding), true, JSON.stringify(bindingSchema.errors));
+  const astralAuthorityFacts = adaptDatabaseProjectEvidence(astralAuthority.binding, astralAuthority.evidence, astralAuthority.cutoffs).typed_project_facts;
+  assert.equal(astralAuthorityFacts.requirements[0].authority_ref, astralAuthorityRef);
+  assert.equal(factsSchema(astralAuthorityFacts), true, JSON.stringify(factsSchema.errors));
 
   const tooLongEvidence = buildSqlitePublicSyntheticInput();
   replaceEvidenceRef(tooLongEvidence, makeRef(tooLongEvidence.binding.project_id, 'evidence', 257));

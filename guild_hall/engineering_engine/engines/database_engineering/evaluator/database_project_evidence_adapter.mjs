@@ -24,8 +24,19 @@ const deepFreeze = (value) => {
 const refuse = (code, message) => { throw new ContractError(code, message); };
 const OPAQUE_REFERENCE_MAX_LENGTH = 256;
 
+// JSON Schema maxLength counts Unicode code points. Scan only until the first
+// disallowed point instead of materializing an unbounded code-point array.
+function exceedsUnicodeCodePointLimit(value, limit) {
+  let count = 0;
+  for (const _codePoint of value) {
+    count += 1;
+    if (count > limit) return true;
+  }
+  return false;
+}
+
 function assertSafeReference(value, label) {
-  if (typeof value !== 'string' || !value || value.length > OPAQUE_REFERENCE_MAX_LENGTH || FORBIDDEN_DATA_PATTERNS.some((pattern) => pattern.test(value))) {
+  if (typeof value !== 'string' || !value || exceedsUnicodeCodePointLimit(value, OPAQUE_REFERENCE_MAX_LENGTH) || FORBIDDEN_DATA_PATTERNS.some((pattern) => pattern.test(value))) {
     refuse(DBE_ERROR_CODES.BINDING_INVALID, `${label} must be an opaque public-safe reference`);
   }
 }

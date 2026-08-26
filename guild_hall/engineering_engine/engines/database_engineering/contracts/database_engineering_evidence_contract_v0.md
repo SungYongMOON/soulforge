@@ -12,7 +12,9 @@ Requirement and observation rows carry the exact project ID; their refs must
 exactly match the relevant binding row, not merely contain a project-looking
 substring. Evidence contains only public-synthetic or project-local opaque
 references; absolute paths, credential-like tokens, source bodies, and
-cross-project references are refused.
+cross-project references are refused. Opaque reference length is bounded at
+256 Unicode code points, matching the published JSON Schema `maxLength`
+contract rather than JavaScript UTF-16 code units.
 
 Per-rule evidence has a `rule_id`, a `status` (`supported`, `contradicted`,
 `unknown`, or `conflict`), an opaque evidence reference, and
