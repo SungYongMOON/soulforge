@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-26 - Engineering Engine Core pre-admission hardening
+
+- Hardened the public Core `evaluate` and Domain Adapter seams so hostile or accessor-backed adapters and effective-rule wrappers are rejected or snapshotted before any caller-controlled property read.
+- Hardened Core Profile binding/list, compilation-scope, and Project Evidence admission so Proxy, accessor, symbol, custom-prototype, sparse, named-array, cycle, and revoked containers fail closed before compilation, resolution, evidence digesting, or Domain Adapter calls.
+- Added RED/GREEN Core Interface regressions while preserving valid SE, Quality Readiness, and Database Engineering behavior and all domain-specific judgment ownership.
+
 ## 2026-08-26 - Database Engineering Domain Engine main integration
 
 - Integrated the accepted `database_engineering` package behind the existing Engineering Engine Core without creating another Core or granting live database authority.

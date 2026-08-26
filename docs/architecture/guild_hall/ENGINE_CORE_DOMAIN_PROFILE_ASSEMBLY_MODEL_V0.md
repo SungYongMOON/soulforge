@@ -335,6 +335,7 @@ Current public evidence:
 
 - 공통 Core와 Domain Engine(`systems_engineering`, `quality_readiness`, `database_engineering`) 및 Profile schema·adapter 물리 분리가 완료됐다.
 - `core/` 아래에 validator, interface, profile/binding adapter, evaluation runtime, assembly engine이 위치한다.
+- Core Interface는 Domain Adapter, effective-rule outer envelope, Profile binding/list, compilation scope, Project Evidence를 사용 전 admit/snapshot하며 Proxy·revoked Proxy·accessor·symbol·비표준 prototype·sparse/named array·cycle을 compile·digest·Domain Adapter 호출 전에 fail-closed 한다.
 - `engines/systems_engineering/`, `engines/quality_readiness/`, `engines/database_engineering/`로 domain 규칙, evaluator, fixtures, guidance, manual, tests가 물리 분리됐다.
 - legacy flat 경로는 순수 thin compatibility wrapper(re-export / pointer)로 유지되며 no-duplicate-authority validator로 검증된다.
 - Organization Profile authoring/binding schema(`.registry/engineering_profiles/schemas/engineering_profile_schema_v0.json` 및 `core/schemas/`)와 AJV validator 및 Profile별 provenance-preserving compilation trace가 구현됐다.

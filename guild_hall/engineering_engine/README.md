@@ -27,6 +27,15 @@ The Engineering Engine is structured into an orchestration Core, decoupled Domai
 5. **Compatibility Re-exports**:
    - `kernel/`, `assembly/`, `stage_rules/`, `subjects/`, `observation/`, `guidance/`, `evaluation/`, `mcp/`, `fixtures/`, and `tests/` maintain backward-compatible re-export and forwarding stubs to preserve existing imports, CLI tools, and deterministic verification harnesses.
 
+## Core Interface pre-admission
+
+The Core admits or snapshots the Domain Adapter, outer effective-rule envelope, Profile binding
+containers, compilation scope, and Project Evidence inputs before caller-owned properties are
+used. Proxy, revoked Proxy, accessor, symbol, custom/null-prototype, sparse, named-array, and
+cyclic shapes fail with a closed Core error and do not reach compilation, digesting,
+or a Domain Adapter. This is a domain-neutral seam guard: nested domain rules, Typed Facts
+semantics, and verdict logic remain owned and revalidated by each Domain Engine.
+
 ## Profile operation canonicalisation and the null contract
 
 `core/interfaces/profile_operation_canon.mjs` is the single Core authority for normalised

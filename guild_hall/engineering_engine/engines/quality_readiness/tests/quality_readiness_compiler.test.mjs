@@ -587,15 +587,20 @@ test('QR Evaluator Hostile: forged base ref, extra fields, missing source_packet
 
   // 10. Accessor/getter on effective ruleset
   const accessorRuleset = { ...validBase };
+  let accessorReads = 0;
   Object.defineProperty(accessorRuleset, 'ruleset_ref', {
-    get() { return QUALITY_READINESS_RULESET_REF; },
+    get() {
+      accessorReads += 1;
+      return QUALITY_READINESS_RULESET_REF;
+    },
     enumerable: true,
     configurable: true,
   });
   assert.throws(
     () => evaluate(qualityReadinessAdapter, accessorRuleset, facts, {}),
-    (err) => err.code === 'QR_EFFECTIVE_RULESET_INVALID'
+    (err) => err.code === 'EVALUATION_FAILED'
   );
+  assert.equal(accessorReads, 0);
 
   // 11. Derived ruleset with non-empty provenance
   const derivedRuleset = {

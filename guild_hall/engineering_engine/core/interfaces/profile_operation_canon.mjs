@@ -36,6 +36,9 @@ export const PROFILE_OPERATION_CODES = Object.freeze({
 });
 
 const ARRAY_INDEX_KEY = /^(0|[1-9][0-9]*)$/u;
+const MAX_ARRAY_INDEX = 4_294_967_294;
+
+const isArrayIndexKey = (key) => ARRAY_INDEX_KEY.test(key) && Number(key) <= MAX_ARRAY_INDEX;
 
 const PROTOTYPE_SENSITIVE_KEYS = new Set([
   "__proto__",
@@ -85,7 +88,7 @@ function clonePlainData(value, depth, ancestors) {
         reject("arrays must use the standard Array prototype");
       }
       for (const key of Reflect.ownKeys(value)) {
-        if (typeof key === "symbol" || (key !== "length" && !ARRAY_INDEX_KEY.test(key))) {
+        if (typeof key === "symbol" || (key !== "length" && !isArrayIndexKey(key))) {
           reject("symbol-keyed, sparse, or named array entries are rejected");
         }
       }
@@ -178,7 +181,7 @@ function serialiseNullPreserving(value, path) {
  * @returns frozen `{ operations, canonical_material, operation_digest }`, null preserved
  */
 export function normalizeProfileOperations(operations) {
-  if (!Array.isArray(operations)) {
+  if (types.isProxy(operations) || !Array.isArray(operations)) {
     reject("operations must be an array");
   }
   const normalized = clonePlainData(operations, 0, new Set());

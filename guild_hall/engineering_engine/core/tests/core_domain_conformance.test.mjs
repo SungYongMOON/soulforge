@@ -33,6 +33,421 @@ test("Core Interface: domain engine adapters register and load successfully", ()
   const dbAdapter = loadDomainEngineAdapter("database_engineering");
   assert.equal(dbAdapter.domain_engine_id, "database_engineering");
   assert.ok(validateDomainEngineAdapter(dbAdapter));
+
+  const revokedRef = Proxy.revocable({ domain_engine_id: "systems_engineering" }, {});
+  revokedRef.revoke();
+  assert.throws(
+    () => loadDomainEngineAdapter(revokedRef.proxy),
+    (error) => error.code === "DOMAIN_ADAPTER_INVALID",
+  );
+
+  let refReads = 0;
+  const accessorRef = {};
+  Object.defineProperty(accessorRef, "domain_engine_id", {
+    enumerable: true,
+    get() {
+      refReads += 1;
+      return "systems_engineering";
+    },
+  });
+  assert.throws(
+    () => loadDomainEngineAdapter(accessorRef),
+    (error) => error.code === "DOMAIN_ADAPTER_INVALID",
+  );
+  assert.equal(refReads, 0);
+  assert.equal(loadDomainEngineAdapter({ domain_engine_id: "systems_engineering" }), seAdapter);
+});
+
+test("Core Interface: Domain Adapter and compilation scope are snapshotted before use", () => {
+  let adapterReads = 0;
+  const proxyAdapter = new Proxy({}, {
+    get() {
+      adapterReads += 1;
+      throw new Error("adapter get trap executed");
+    },
+    getPrototypeOf() {
+      adapterReads += 1;
+      throw new Error("adapter prototype trap executed");
+    },
+  });
+  assert.throws(
+    () => validateDomainEngineAdapter(proxyAdapter),
+    (error) => error.code === "DOMAIN_ADAPTER_INVALID",
+  );
+  assert.equal(adapterReads, 0);
+
+  const revokedAdapter = Proxy.revocable({}, {});
+  revokedAdapter.revoke();
+  assert.throws(
+    () => validateDomainEngineAdapter(revokedAdapter.proxy),
+    (error) => error.code === "DOMAIN_ADAPTER_INVALID",
+  );
+
+  let accessorReads = 0;
+  const accessorAdapter = {
+    revision: "core-adapter-accessor-v0",
+    compile() { return {}; },
+    evaluate() { return {}; },
+  };
+  Object.defineProperty(accessorAdapter, "domain_engine_id", {
+    enumerable: true,
+    get() {
+      accessorReads += 1;
+      return "core_adapter_accessor";
+    },
+  });
+  assert.throws(
+    () => validateDomainEngineAdapter(accessorAdapter),
+    (error) => error.code === "DOMAIN_ADAPTER_INVALID",
+  );
+  assert.equal(accessorReads, 0);
+
+  let compileCalls = 0;
+  const mutableAdapter = {
+    domain_engine_id: "core_adapter_snapshot",
+    revision: "core-adapter-snapshot-v0",
+    compile() {
+      compileCalls += 1;
+      mutableAdapter.domain_engine_id = "mutated_after_admission";
+      mutableAdapter.revision = "mutated-after-admission";
+      return { effective_rule_set: { rules: [] }, rule_count: 0 };
+    },
+    evaluate() { return {}; },
+  };
+  const assembled = assembleEffectiveRuleSet(mutableAdapter, [], {});
+  assert.equal(compileCalls, 1);
+  assert.equal(assembled.domain_engine_id, "core_adapter_snapshot");
+  assert.equal(assembled.compilation_trace.domain_adapter_revision, "core-adapter-snapshot-v0");
+
+  const scopeAdapter = {
+    domain_engine_id: "core_scope_probe",
+    revision: "core-scope-probe-v0",
+    compile(_bindings, scope) {
+      compileCalls += 1;
+      return { effective_rule_set: { rules: [], scope }, rule_count: 0 };
+    },
+    evaluate() { return {}; },
+  };
+  const callsBeforeRevokedScope = compileCalls;
+  const revokedScope = Proxy.revocable({}, {});
+  revokedScope.revoke();
+  assert.throws(
+    () => assembleEffectiveRuleSet(scopeAdapter, [], revokedScope.proxy),
+    (error) => error.code === "RULE_ASSEMBLY_FAILED",
+  );
+  assert.equal(compileCalls, callsBeforeRevokedScope);
+
+  let scopeReads = 0;
+  const accessorScope = {};
+  Object.defineProperty(accessorScope, "mode", {
+    enumerable: true,
+    get() {
+      scopeReads += 1;
+      return "unsafe";
+    },
+  });
+  assert.throws(
+    () => assembleEffectiveRuleSet(scopeAdapter, [], accessorScope),
+    (error) => error.code === "RULE_ASSEMBLY_FAILED",
+  );
+  assert.equal(scopeReads, 0);
+  assert.equal(compileCalls, callsBeforeRevokedScope);
+
+  for (const scalarScope of ["scope", 1, true]) {
+    assert.throws(
+      () => assembleEffectiveRuleSet(scopeAdapter, [], scalarScope),
+      (error) => error.code === "RULE_ASSEMBLY_FAILED",
+    );
+  }
+  assert.equal(compileCalls, callsBeforeRevokedScope);
+
+  const cyclicScope = {};
+  cyclicScope.self = cyclicScope;
+  assert.throws(
+    () => assembleEffectiveRuleSet(scopeAdapter, [], cyclicScope),
+    (error) => error.code === "RULE_ASSEMBLY_FAILED",
+  );
+  assert.equal(compileCalls, callsBeforeRevokedScope);
+
+  let mutationError = null;
+  const mutatingAdapter = {
+    domain_engine_id: "systems_engineering",
+    revision: "core-binding-freeze-probe-v0",
+    compile(bindings) {
+      try {
+        bindings.pop();
+      } catch (error) {
+        mutationError = error;
+      }
+      return { effective_rule_set: { rules: [] }, rule_count: 0 };
+    },
+    evaluate() { return {}; },
+  };
+  const profile = {
+    profile_kind: "organization",
+    profile_id: "core-binding-freeze-profile",
+    domain_engine_id: "systems_engineering",
+    revision_or_hash: "rev-core-binding-freeze-1",
+    extends_or_base_pin: "systems_engineering:generic_se_base:v0",
+    source_refs: ["docs/core-binding-freeze.json"],
+    operations: [],
+    order: 0,
+  };
+  const mutationResult = assembleEffectiveRuleSet(mutatingAdapter, [profile], {});
+  assert.equal(mutationError instanceof TypeError, true);
+  assert.equal(mutationResult.compilation_trace.profiles.length, 1);
+  assert.equal(mutationResult.compilation_trace.profiles[0].profile_id, profile.profile_id);
+
+  const uncaughtMutatingAdapter = {
+    ...mutatingAdapter,
+    revision: "core-binding-freeze-uncaught-v0",
+    compile(bindings) {
+      bindings.pop();
+      return { effective_rule_set: { rules: [] }, rule_count: 0 };
+    },
+  };
+  assert.throws(
+    () => assembleEffectiveRuleSet(uncaughtMutatingAdapter, [profile], {}),
+    (error) => error.code === "RULE_ASSEMBLY_FAILED",
+  );
+});
+
+test("Core Interface: evaluate admits the outer effective-rule envelope before any property read", () => {
+  let adapterCalls = 0;
+  const adapter = Object.freeze({
+    domain_engine_id: "core_admission_probe",
+    revision: "core-admission-probe-v0",
+    compile() { return {}; },
+    evaluate() {
+      adapterCalls += 1;
+      return Object.freeze({ accepted: true });
+    },
+  });
+
+  let proxyReads = 0;
+  const proxy = new Proxy({}, {
+    get() {
+      proxyReads += 1;
+      throw new Error("outer proxy get trap executed");
+    },
+    getPrototypeOf() {
+      proxyReads += 1;
+      throw new Error("outer proxy prototype trap executed");
+    },
+    getOwnPropertyDescriptor() {
+      proxyReads += 1;
+      throw new Error("outer proxy descriptor trap executed");
+    },
+    ownKeys() {
+      proxyReads += 1;
+      throw new Error("outer proxy ownKeys trap executed");
+    },
+  });
+  assert.throws(
+    () => evaluate(adapter, proxy, {}, {}, {}),
+    (error) => error.code === "EVALUATION_FAILED",
+  );
+  assert.equal(proxyReads, 0);
+  assert.equal(adapterCalls, 0);
+
+  const revokedEffective = Proxy.revocable({}, {});
+  revokedEffective.revoke();
+  assert.throws(
+    () => evaluate(adapter, revokedEffective.proxy, {}, {}, {}),
+    (error) => error.code === "EVALUATION_FAILED",
+  );
+  assert.equal(adapterCalls, 0);
+
+  let accessorReads = 0;
+  const accessor = {};
+  Object.defineProperty(accessor, "domain_engine_id", {
+    enumerable: true,
+    get() {
+      accessorReads += 1;
+      return "core_admission_probe";
+    },
+  });
+  assert.throws(
+    () => evaluate(adapter, accessor, {}, {}, {}),
+    (error) => error.code === "EVALUATION_FAILED",
+  );
+  assert.equal(accessorReads, 0);
+  assert.equal(adapterCalls, 0);
+
+  const symbolKeyed = { domain_engine_id: "core_admission_probe" };
+  symbolKeyed[Symbol("hidden")] = true;
+  assert.throws(
+    () => evaluate(adapter, symbolKeyed, {}, {}, {}),
+    (error) => error.code === "EVALUATION_FAILED",
+  );
+  assert.throws(
+    () => evaluate(adapter, Object.create({ domain_engine_id: "core_admission_probe" }), {}, {}, {}),
+    (error) => error.code === "EVALUATION_FAILED",
+  );
+
+  assert.throws(
+    () => evaluate(adapter, { domain_engine_id: "different_domain" }, {}, {}, {}),
+    (error) => error.code === "DOMAIN_ENGINE_MISMATCH",
+  );
+  assert.equal(adapterCalls, 0);
+
+  assert.deepEqual(
+    evaluate(adapter, { domain_engine_id: "core_admission_probe" }, {}, {}, {}),
+    { accepted: true },
+  );
+  assert.deepEqual(evaluate(adapter, {}, {}, {}, {}), { accepted: true });
+  assert.equal(adapterCalls, 2);
+});
+
+test("Core Interface: Profile binding containers fail closed before hostile property reads", () => {
+  const valid = {
+    profile_kind: "organization",
+    profile_id: "core-profile-admission",
+    domain_engine_id: "systems_engineering",
+    revision_or_hash: "rev-core-profile-1",
+    extends_or_base_pin: "systems_engineering:generic_se_base:v0",
+    source_refs: ["docs/core-profile-source.json"],
+    operations: [],
+    order: 0,
+  };
+
+  let outerReads = 0;
+  const outerProxy = new Proxy(valid, {
+    get() {
+      outerReads += 1;
+      throw new Error("profile outer get trap executed");
+    },
+    getPrototypeOf() {
+      outerReads += 1;
+      throw new Error("profile outer prototype trap executed");
+    },
+    ownKeys() {
+      outerReads += 1;
+      throw new Error("profile outer ownKeys trap executed");
+    },
+  });
+  assert.throws(
+    () => validateProfileBinding(outerProxy, 0),
+    (error) => error.code === "PROFILE_BINDING_INVALID",
+  );
+  assert.throws(
+    () => resolveProfileBindings(outerProxy),
+    (error) => error.code === "PROFILE_BINDING_INVALID",
+  );
+  assert.equal(outerReads, 0);
+
+  const revokedProfile = Proxy.revocable(valid, {});
+  revokedProfile.revoke();
+  assert.throws(
+    () => validateProfileBinding(revokedProfile.proxy, 0),
+    (error) => error.code === "PROFILE_BINDING_INVALID",
+  );
+
+  let accessorReads = 0;
+  const accessor = { ...valid };
+  Object.defineProperty(accessor, "profile_id", {
+    enumerable: true,
+    get() {
+      accessorReads += 1;
+      return "core-profile-admission";
+    },
+  });
+  assert.throws(
+    () => validateProfileBinding(accessor, 0),
+    (error) => error.code === "PROFILE_BINDING_INVALID",
+  );
+  assert.equal(accessorReads, 0);
+
+  let sourceReads = 0;
+  const sourceRefs = new Proxy(valid.source_refs, {
+    get() {
+      sourceReads += 1;
+      throw new Error("source_refs trap executed");
+    },
+  });
+  assert.throws(
+    () => validateProfileBinding({ ...valid, source_refs: sourceRefs }, 0),
+    (error) => error.code === "PROFILE_BINDING_INVALID",
+  );
+  assert.equal(sourceReads, 0);
+
+  const revokedSources = Proxy.revocable(["docs/core-profile-source.json"], {});
+  revokedSources.revoke();
+  assert.throws(
+    () => validateProfileBinding({ ...valid, source_refs: revokedSources.proxy }, 0),
+    (error) => error.code === "PROFILE_BINDING_INVALID",
+  );
+
+  let listReads = 0;
+  const bindingList = new Proxy([valid], {
+    get() {
+      listReads += 1;
+      throw new Error("binding list trap executed");
+    },
+  });
+  const seAdapter = loadDomainEngineAdapter("systems_engineering");
+  assert.throws(
+    () => assembleEffectiveRuleSet(seAdapter, bindingList),
+    (error) => error.code === "PROFILE_BINDING_INVALID",
+  );
+  assert.equal(listReads, 0);
+
+  const revokedList = Proxy.revocable([valid], {});
+  revokedList.revoke();
+  assert.throws(
+    () => assembleEffectiveRuleSet(seAdapter, revokedList.proxy),
+    (error) => error.code === "PROFILE_BINDING_INVALID",
+  );
+
+  const revokedOperations = Proxy.revocable([], {});
+  revokedOperations.revoke();
+  assert.throws(
+    () => validateProfileBinding({ ...valid, operations: revokedOperations.proxy }, 0),
+    (error) => error.code === "PROFILE_OPERATIONS_INVALID",
+  );
+
+  const namedSources = [...valid.source_refs];
+  Object.defineProperty(namedSources, "4294967295", { value: "hidden", enumerable: true });
+  assert.throws(
+    () => validateProfileBinding({ ...valid, source_refs: namedSources }, 0),
+    (error) => error.code === "PROFILE_BINDING_INVALID",
+  );
+
+  const namedBindingList = [valid];
+  Object.defineProperty(namedBindingList, "4294967295", { value: valid, enumerable: true });
+  assert.throws(
+    () => assembleEffectiveRuleSet(seAdapter, namedBindingList),
+    (error) => error.code === "PROFILE_BINDING_INVALID",
+  );
+
+  const namedOperations = [];
+  Object.defineProperty(namedOperations, "4294967295", { value: {}, enumerable: true });
+  assert.throws(
+    () => validateProfileBinding({ ...valid, operations: namedOperations }, 0),
+    (error) => error.code === "PROFILE_OPERATIONS_INVALID",
+  );
+
+  const symbolKeyed = { ...valid, [Symbol("hidden")]: true };
+  assert.throws(
+    () => validateProfileBinding(symbolKeyed, 0),
+    (error) => error.code === "PROFILE_BINDING_INVALID",
+  );
+  assert.throws(
+    () => validateProfileBinding(Object.assign(Object.create(null), valid), 0),
+    (error) => error.code === "PROFILE_BINDING_INVALID",
+  );
+  assert.throws(
+    () => validateProfileBinding({ ...valid, profile_kind: "invalid" }, 0, "organization"),
+    (error) => error.code === "PROFILE_BINDING_INVALID",
+  );
+  assert.throws(
+    () => resolveProfileBindings({ ...valid, profile_kind: "project" }),
+    (error) => error.code === "PROFILE_BINDING_INVALID",
+  );
+
+  const admitted = validateProfileBinding(valid, 0);
+  assert.equal(admitted.profile_id, valid.profile_id);
+  assert.deepEqual(admitted.source_refs, valid.source_refs);
 });
 
 test("Core Interface: resolveProfileBindings preserves distinct Organization and Project Profile provenance", () => {
