@@ -46,6 +46,53 @@ function profileAdd({
   };
 }
 
+function requestForEffectiveEnvelope(effective, label) {
+  const request = buildPcbCompliancePublicSyntheticRequest();
+  request.binding.ruleset_ref = { ...effective.effective_rule_set.ruleset_ref };
+  for (const rule of effective.effective_rule_set.rules.filter((candidate) => candidate.rule_id.startsWith("PCB-PROFILE-"))) {
+    request.domain_input.rows.push({
+      case_id: `${label}_${rule.rule_id.toLowerCase().replaceAll("-", "_")}`,
+      rule_id: rule.rule_id,
+      applicability: {
+        approval_scope: true,
+        document_revision: true,
+        jurisdiction: true,
+        project_binding: true,
+        time_window: true,
+      },
+      authority_bindings: [{ family: "project_contract_baseline", authority_ref: "synthetic_contract_baseline_v0" }],
+      observation: {
+        attempted: true,
+        evidence_state: "present",
+        evidence_by_key: {
+          synthetic_evidence_ref: ["synthetic_profile_evidence"],
+        },
+      },
+    });
+  }
+  return request;
+}
+
+function adaptedFactsForEffective(effective, request, label) {
+  const bindingAdapter = createProjectBindingAdapter("pcb_compliance", {
+    schema_version: "soulforge.project_binding.v0",
+    project_id: `public_synthetic_${label}`,
+    binding_revision_hash: "b".repeat(64),
+    source_manifest_ref: `public_synthetic_manifest_${label}`,
+  });
+  return bindingAdapter.adaptEvidence({
+    snapshot_id: `pcb_synthetic_snapshot_${label}`,
+    source_refs: ["public-synthetic-source-v0"],
+    observations: [{
+      fact_type: "pcb_compliance_evaluation_request",
+      request,
+    }],
+  }, {
+    valid_at: "2026-08-26T00:00:00.000Z",
+    known_at: "2026-08-26T00:00:00.000Z",
+  }).typed_project_facts;
+}
+
 test("PCB compiler produces a stable Core effective rule set without a Core change", () => {
   const empty = resolveProfileBindings(null, null);
   const first = assembleEffectiveRuleSet(pcbComplianceAdapter, empty, { mode: "public_synthetic" });
@@ -67,6 +114,43 @@ test("PCB compiler permits only sourced, typed Profile additions and preserves p
   assert.equal(result.compilation_trace.organization_trace.profile_id, "pcb_public_synthetic_org");
   const replay = assembleEffectiveRuleSet(pcbComplianceAdapter, resolveProfileBindings(profileAdd(), null), {});
   assert.equal(result.effective_rule_set.ruleset_ref.content_id, replay.effective_rule_set.ruleset_ref.content_id);
+});
+
+test("PCB Core full envelopes with one or two Profiles remain evaluable", () => {
+  const organization = profileAdd();
+  const organizationEffective = assembleEffectiveRuleSet(pcbComplianceAdapter, resolveProfileBindings(organization, null), {});
+  const organizationRequest = requestForEffectiveEnvelope(organizationEffective, "organization");
+  const organizationFacts = adaptedFactsForEffective(organizationEffective, organizationRequest, "organization");
+  assert.doesNotThrow(() => evaluate(pcbComplianceAdapter, organizationEffective, organizationFacts));
+  const organizationInnerAlias = structuredClone(organizationEffective);
+  organizationInnerAlias.effective_rule_set.rules[0].allowed_artifact_tokens = organizationInnerAlias.effective_rule_set.rules[1].allowed_artifact_tokens;
+  assert.throws(
+    () => evaluate(pcbComplianceAdapter, organizationInnerAlias, organizationFacts),
+    (error) => error.code === "PCB_EFFECTIVE_RULESET_INVALID",
+  );
+
+  const project = {
+    ...profileAdd({
+      profileId: "pcb_public_synthetic_project",
+      sourceRef: "synthetic-project-source-v1",
+      ruleId: "PCB-PROFILE-02",
+    }),
+    profile_kind: "project",
+    revision_or_hash: "pcb_public_synthetic_project_v1",
+    extends_or_base_pin: "pcb_public_synthetic_org",
+    source_refs: ["synthetic-project-source-v1"],
+    order: 1,
+  };
+  const twoProfileEffective = assembleEffectiveRuleSet(pcbComplianceAdapter, resolveProfileBindings(organization, project), {});
+  const twoProfileRequest = requestForEffectiveEnvelope(twoProfileEffective, "two_profile");
+  const twoProfileFacts = adaptedFactsForEffective(twoProfileEffective, twoProfileRequest, "two_profile");
+  assert.doesNotThrow(() => evaluate(pcbComplianceAdapter, twoProfileEffective, twoProfileFacts));
+  const twoProfileInnerAlias = structuredClone(twoProfileEffective);
+  twoProfileInnerAlias.effective_rule_set.rules[0].allowed_artifact_tokens = twoProfileInnerAlias.effective_rule_set.rules[1].allowed_artifact_tokens;
+  assert.throws(
+    () => evaluate(pcbComplianceAdapter, twoProfileInnerAlias, twoProfileFacts),
+    (error) => error.code === "PCB_EFFECTIVE_RULESET_INVALID",
+  );
 });
 
 test("PCB derived ruleset roundtrips exactly and rejects digest, rule, and authority tampering", () => {

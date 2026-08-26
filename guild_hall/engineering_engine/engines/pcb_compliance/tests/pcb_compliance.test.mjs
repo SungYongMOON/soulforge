@@ -15,6 +15,7 @@ import { assessPcbCompliance, validatePcbEffectiveRuleSet } from "../evaluator/p
 import {
   PCB_COMPLIANCE_RULES,
   PCB_COMPLIANCE_RULESET_REF,
+  PCB_COMPLIANCE_SOURCE_PACKET_REF,
 } from "../rules/pcb_compliance_rules.mjs";
 import { createPcbComplianceModuleManifest } from "../topology/pcb_compliance_module_manifest.mjs";
 
@@ -190,14 +191,39 @@ test("PCB effective ruleset admission refuses proxy, alias, and cyclic hostile s
   const aliasedRuleset = {
     schema_version: "soulforge.pcb_compliance.ruleset.v0",
     domain_engine_id: "pcb_compliance",
-    source_packet_ref: { entity_id: "x", revision_id: "x", content_id: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", content_hash_alg: "sha256" },
-    ruleset_ref: { entity_id: "x", revision_id: "x", content_id: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", content_hash_alg: "sha256" },
-    rules: [],
+    source_packet_ref: { ...PCB_COMPLIANCE_SOURCE_PACKET_REF },
+    ruleset_ref: { ...PCB_COMPLIANCE_RULESET_REF },
+    rules: PCB_COMPLIANCE_RULES.map((rule) => ({
+      ...rule,
+      required_authority_families: [...rule.required_authority_families],
+      expected_evidence_keys: [...rule.expected_evidence_keys],
+      allowed_artifact_tokens: [...rule.allowed_artifact_tokens],
+    })),
     profile_rule_provenance: {},
-    rule_count: 0,
+    rule_count: PCB_COMPLIANCE_RULES.length,
   };
-  const aliasEnvelope = { effective_rule_set: aliasedRuleset, duplicate: aliasedRuleset };
-  assert.throws(() => validatePcbEffectiveRuleSet(aliasEnvelope), (error) => error.code === "PCB_EFFECTIVE_RULESET_INVALID");
+  aliasedRuleset.ruleset_ref = aliasedRuleset.source_packet_ref;
+  assert.throws(() => validatePcbEffectiveRuleSet(aliasedRuleset), (error) => error.code === "PCB_EFFECTIVE_RULESET_INVALID");
+
+  const wrappedInnerAlias = structuredClone({
+    schema_version: "soulforge.pcb_compliance.ruleset.v0",
+    domain_engine_id: "pcb_compliance",
+    source_packet_ref: { ...PCB_COMPLIANCE_SOURCE_PACKET_REF },
+    ruleset_ref: { ...PCB_COMPLIANCE_RULESET_REF },
+    rules: PCB_COMPLIANCE_RULES.map((rule) => ({
+      ...rule,
+      required_authority_families: [...rule.required_authority_families],
+      expected_evidence_keys: [...rule.expected_evidence_keys],
+      allowed_artifact_tokens: [...rule.allowed_artifact_tokens],
+    })),
+    profile_rule_provenance: {},
+    rule_count: PCB_COMPLIANCE_RULES.length,
+  });
+  wrappedInnerAlias.rules[0].allowed_artifact_tokens = wrappedInnerAlias.rules[1].allowed_artifact_tokens;
+  assert.throws(
+    () => validatePcbEffectiveRuleSet({ effective_rule_set: wrappedInnerAlias }),
+    (error) => error.code === "PCB_EFFECTIVE_RULESET_INVALID",
+  );
 
   const cyclic = {};
   cyclic.effective_rule_set = cyclic;

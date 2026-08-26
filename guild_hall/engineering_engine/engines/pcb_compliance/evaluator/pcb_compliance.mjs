@@ -80,40 +80,55 @@ function fail(code, message) {
   throw new ContractError(code, message);
 }
 
-function snapshotPlainData(value, label = "input", code = PCB_EVALUATOR_ERROR_CODES.INPUT_REFUSED, seen = new Set(), depth = 0) {
+function snapshotPlainData(
+  value,
+  label = "input",
+  code = PCB_EVALUATOR_ERROR_CODES.INPUT_REFUSED,
+  ancestors = new Set(),
+  seen = new Set(),
+  options = {},
+  depth = 0,
+) {
   if (depth > 20) fail(code, `${label} exceeds maximum depth`);
   if (value === null || typeof value !== "object") {
     if (["string", "boolean", "number"].includes(typeof value) || value === null) return value;
     fail(code, `${label} contains an unsupported value`);
   }
-  if (types.isProxy(value) || seen.has(value)) fail(code, `${label} may not be a proxy, alias, or cycle`);
+  if (types.isProxy(value)) fail(code, `${label} may not be a proxy`);
+  if (ancestors.has(value)) fail(code, `${label} is cyclic`);
+  if (seen.has(value) && options.allowAliases !== true) fail(code, `${label} aliases another supplied object`);
   const isArray = Array.isArray(value);
   if (Object.getPrototypeOf(value) !== (isArray ? Array.prototype : Object.prototype)) {
     fail(code, `${label} must have a standard prototype`);
   }
+  ancestors.add(value);
   seen.add(value);
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  const out = isArray ? [] : {};
-  if (isArray) {
-    const keys = Object.keys(descriptors).filter((key) => key !== "length");
-    if (keys.length !== value.length || value.length > 128) fail(code, `${label} must be a bounded dense array`);
-    for (let index = 0; index < value.length; index += 1) {
-      const descriptor = descriptors[String(index)];
-      if (!descriptor || !Object.hasOwn(descriptor, "value") || !descriptor.enumerable) {
-        fail(code, `${label} contains an accessor or sparse item`);
+  try {
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const out = isArray ? [] : {};
+    if (isArray) {
+      const keys = Object.keys(descriptors).filter((key) => key !== "length");
+      if (keys.length !== value.length || value.length > 128) fail(code, `${label} must be a bounded dense array`);
+      for (let index = 0; index < value.length; index += 1) {
+        const descriptor = descriptors[String(index)];
+        if (!descriptor || !Object.hasOwn(descriptor, "value") || !descriptor.enumerable) {
+          fail(code, `${label} contains an accessor or sparse item`);
+        }
+        out.push(snapshotPlainData(descriptor.value, `${label}[${index}]`, code, ancestors, seen, options, depth + 1));
       }
-      out.push(snapshotPlainData(descriptor.value, `${label}[${index}]`, code, seen, depth + 1));
-    }
-  } else {
-    for (const key of Object.keys(descriptors)) {
-      const descriptor = descriptors[key];
-      if (["__proto__", "prototype", "constructor"].includes(key) || !Object.hasOwn(descriptor, "value") || !descriptor.enumerable) {
-        fail(code, `${label} contains an unsafe property`);
+    } else {
+      for (const key of Object.keys(descriptors)) {
+        const descriptor = descriptors[key];
+        if (["__proto__", "prototype", "constructor"].includes(key) || !Object.hasOwn(descriptor, "value") || !descriptor.enumerable) {
+          fail(code, `${label} contains an unsafe property`);
+        }
+        out[key] = snapshotPlainData(descriptor.value, `${label}.${key}`, code, ancestors, seen, options, depth + 1);
       }
-      out[key] = snapshotPlainData(descriptor.value, `${label}.${key}`, code, seen, depth + 1);
     }
+    return out;
+  } finally {
+    ancestors.delete(value);
   }
-  return out;
 }
 
 function assertSafeToken(value, label, code = PCB_EVALUATOR_ERROR_CODES.INPUT_REFUSED) {
@@ -194,8 +209,23 @@ function canonicalRule(rule) {
 }
 
 export function validatePcbEffectiveRuleSet(input) {
-  const snapshot = snapshotPlainData(input, "effective rule set", PCB_EVALUATOR_ERROR_CODES.EFFECTIVE_RULESET_INVALID);
-  const ruleset = Object.hasOwn(snapshot, "effective_rule_set") ? snapshot.effective_rule_set : snapshot;
+  const outerEnvelope = snapshotPlainData(
+    input,
+    "effective rule set outer envelope",
+    PCB_EVALUATOR_ERROR_CODES.EFFECTIVE_RULESET_INVALID,
+    new Set(),
+    new Set(),
+    { allowAliases: true },
+  );
+  const isCoreEnvelope = Object.hasOwn(outerEnvelope, "effective_rule_set");
+  // The outer Core envelope legitimately reuses profile provenance arrays in its trace. Its
+  // clone may therefore permit aliases, but the candidate ruleset must be re-read from the
+  // original input and admitted with strict alias rejection; otherwise outer cloning could
+  // silently de-alias a hostile inner ruleset before the strict pass sees it.
+  const originalInnerRuleset = isCoreEnvelope
+    ? Object.getOwnPropertyDescriptor(input, "effective_rule_set")?.value
+    : input;
+  const ruleset = snapshotPlainData(originalInnerRuleset, "effective rule set", PCB_EVALUATOR_ERROR_CODES.EFFECTIVE_RULESET_INVALID);
   if (!ruleset || typeof ruleset !== "object" || Array.isArray(ruleset)) {
     fail(PCB_EVALUATOR_ERROR_CODES.EFFECTIVE_RULESET_INVALID, "PCB effective rule set is incomplete");
   }
