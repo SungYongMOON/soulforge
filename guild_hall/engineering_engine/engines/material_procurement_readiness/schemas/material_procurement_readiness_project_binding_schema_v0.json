@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.material_procurement_readiness.project_binding.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project_id", "domain_engine_id", "binding_revision_hash", "source_manifest_ref", "source_refs", "erp_snapshot_ref", "fact_authority", "material_need_bindings"],
+  "properties": {
+    "schema_version": { "const": "soulforge.material_procurement_readiness.project_binding.v0" },
+    "project_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+    "domain_engine_id": { "const": "material_procurement_readiness" },
+    "binding_revision_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "source_manifest_ref": { "$ref": "#/$defs/ref" },
+    "source_refs": { "type": "array", "minItems": 1, "maxItems": 64, "items": { "$ref": "#/$defs/ref" } },
+    "erp_snapshot_ref": { "$ref": "#/$defs/ref" },
+    "fact_authority": { "const": "erp_owned_read_only_snapshot" },
+    "material_need_bindings": { "type": "array", "minItems": 1, "maxItems": 256, "items": { "$ref": "#/$defs/material_need_binding" } }
+  },
+  "$defs": {
+    "ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity_id", "revision_id", "content_id", "content_hash_alg"],
+      "properties": {
+        "entity_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+        "revision_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+        "content_id": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "content_hash_alg": { "const": "sha256" }
+      }
+    },
+    "material_need_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["material_need_ref", "source_ref", "open_purchase_quantity_proof_ref"],
+      "properties": {
+        "material_need_ref": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+        "source_ref": { "$ref": "#/$defs/ref" },
+        "open_purchase_quantity_proof_ref": { "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }] }
+      }
+    }
+  }
+}
