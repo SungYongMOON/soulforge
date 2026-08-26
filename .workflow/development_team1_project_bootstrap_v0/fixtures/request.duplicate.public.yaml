@@ -1,0 +1,30 @@
+schema_version: development_team1_project_bootstrap_v0.request
+mode: preview
+project_kind: internal
+project_year: 2026
+requested_at: "2026-01-02T09:00:00+09:00"
+identity:
+  title: Example Existing Internal Project
+  alias: DUPLICATE
+  requested_code: D1-26-001
+  objective: This synthetic request must fail closed.
+authority:
+  owner_project_creation_approved: true
+  owner_decision_ref: owner-decision:synthetic
+people:
+  development_responsible: Example Lead
+  practical_owner: Example Owner
+  team_members:
+    - Example Lead
+    - Example Owner
+storage:
+  project_payload_owner_ref: owner-approved-worksite:<project_code>
+  metadata_owner_ref: _workmeta/<project_code>
+  bot_workspace_policy_ref: runtime-binding-or-no-runtime
+source_boundary:
+  approved_source_owner_ref: owner-approved-source
+  raw_payload_in_workmeta: false
+runtime:
+  requested: false
+  profiles: []
+integrations: {}

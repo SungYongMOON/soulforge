@@ -1,0 +1,40 @@
+schema_version: development_team1_project_bootstrap_v0.request
+mode: preview
+project_kind: internal
+project_year: 2026
+requested_at: "2026-01-01T00:00:00+09:00"
+identity:
+  title: Example Internal Project
+  alias: EXAMPLE
+  requested_code: null
+  objective: Prepare one bounded internal project result.
+authority:
+  owner_project_creation_approved: false
+  owner_decision_ref: null
+people:
+  development_responsible: null
+  practical_owner: null
+  team_members: []
+storage:
+  project_payload_owner_ref: null
+  metadata_owner_ref: null
+  bot_workspace_policy_ref: null
+source_boundary:
+  approved_source_owner_ref: null
+  raw_payload_in_workmeta: false
+runtime:
+  requested: false
+  profiles: []
+integrations:
+  slack:
+    state: hold
+    authority_ref: null
+  linear:
+    state: hold
+    authority_ref: null
+  drive:
+    state: hold
+    authority_ref: null
+  calendar:
+    state: not_requested
+    authority_ref: null

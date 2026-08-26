@@ -1,0 +1,9 @@
+schema_version: development_team1_project_bootstrap_v0.source_register_candidate
+project_code: null
+status: discovery_pending
+payload_policy: metadata_and_pointer_only
+sources: []
+rules:
+  - raw payload remains with the approved source owner
+  - exact revision, hash, time, access boundary, and source owner are recorded before status promotion
+  - missing source becomes a gap with inspected scope, not an absence claim

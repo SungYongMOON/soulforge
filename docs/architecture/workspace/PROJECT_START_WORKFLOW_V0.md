@@ -105,6 +105,15 @@ _workspaces/<project_code>/
 - 사람과 Codex 의 대화에서 정해진 순서가 실제 작업 순서로 이어졌다면, 그 흐름은 사용자가 따로 요청하지 않아도 worklog 와 workflow note 에 남긴다.
 - 자동 기록의 기본 대상은 `project_start_worklog.md` 이고, 주제가 분리되면 `YYYY-MM-DD_<topic>.md` note 로 확장한다.
 
+## 개발1팀 실행 Workflow와 launcher
+
+- 개발1팀의 새 정식 또는 자체 프로젝트는 등록된 `.workflow/development_team1_project_bootstrap_v0/`를 preview-first 실행 표면으로 사용할 수 있다.
+- 해당 Workflow는 프로젝트인지 TASK·지원·분류대기인지 먼저 구분하고, 개발1팀 자체 프로젝트이면 Owner 권한과 append-only register를 근거로 `D1-YY-NNN` 다음 번호를 제안한다. 정식 프로젝트는 회사/Owner가 부여한 exact code와 authority ref를 요구하며 자체 발급하지 않는다.
+- project payload, `_workmeta` metadata, Bot scratch/workspace는 서로 다른 owner로 분리하고 실제 저장 방식은 current project binding의 variant로 받는다. OneDrive, junction, direct worksite, Codex, Hermes, Slack, Linear, Drive, Calendar는 mandatory default가 아니다.
+- onboarding worklog와 첫 bounded work packet은 기본 출력이며, 일일업무·mail·RAG·history·collaboration consumer가 project-code family를 지원한다는 evidence가 없으면 alias로 우회하지 않고 compatibility `HOLD`를 남긴다.
+- `$soulforge-project-bootstrap`은 이 Workflow를 호출하는 thin Codex launcher다. launcher는 Workflow body, profile policy, project people/code/path, runtime binding, integration state, Owner approval을 소유하지 않는다.
+- 외부 메시지·공유·구매·route·automation·사람 최종배정·기준선·수락은 각 exact authority gate를 별도로 통과해야 하며 Workflow 등록이나 skill 호출만으로 허용되지 않는다.
+
 ## 관련 경로
 
 - [`PROJECT_ONBOARDING_V0.md`](PROJECT_ONBOARDING_V0.md)

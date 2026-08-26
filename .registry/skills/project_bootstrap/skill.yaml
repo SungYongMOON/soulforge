@@ -1,0 +1,40 @@
+skill_id: project_bootstrap
+kind: skill
+status: active
+title: Project Bootstrap
+summary: Launch the registered Development Team 1 project-bootstrap workflow for classification, identity preview, separated storage, starter packets, onboarding worklog, minimum runtime planning, compatibility holds, first-work canary, and closeout without granting people, external, budget, route, baseline, or acceptance authority.
+behavior:
+  intent: Resolve project-start requests to `development_team1_project_bootstrap_v0` and keep the launcher thin while the workflow owns procedure, packet shapes, compatibility gates, and profile policy.
+  use_when:
+    - a new Development Team 1 project or internal project should be started
+    - a project needs a D1 temporary number or exact formal-code onboarding
+    - project folders, metadata, team responsibilities, source register, onboarding worklog, minimum Bots, and first work should be prepared together
+    - the user asks to repeat the MSH or S150 project-start procedure without relying on memory
+  avoid_when:
+    - the request is only to create an SE folder tree
+    - the project already exists and only needs ordinary task execution
+    - the request is only to configure Slack, Linear, Drive, Calendar, mail, or another external integration
+    - project creation, number, people, or storage authority is missing
+  expected_outcome:
+    - the workflow runs preview-first and returns ready, HOLD, or owner-decision-required state
+    - internal D1 identity is collision-checked or an exact formal code is authority-checked
+    - project payload, private metadata, and Bot scratch boundaries are explicit
+    - project context, source, responsibility, onboarding worklog, and first-work packets are prepared
+    - unproven compatibility and external integrations remain HOLD
+    - a bounded first-work canary and review closeout are required before readiness
+execution_requirements:
+  required_capabilities:
+    - workflow_launcher_routing
+    - YAML_and_Markdown_packet_review
+    - deterministic_preflight_execution
+    - scoped_file_editing
+    - public_private_boundary_review
+  preferred_tools:
+    - rg
+    - node
+    - apply_patch
+    - npm_validate
+  notes:
+    - The workflow package owns steps, templates, profile policy, and validation posture.
+    - Runtime profiles, model, reasoning, tools, project paths, people, and integration identities remain execution or private binding concerns.
+    - Skill activation never grants project creation, external mutation, default route, automation, or final acceptance authority.

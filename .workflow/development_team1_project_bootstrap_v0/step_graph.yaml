@@ -1,0 +1,98 @@
+workflow_id: development_team1_project_bootstrap_v0
+kind: step_graph
+status: draft
+steps:
+  - step_id: bind_request_and_authority
+    actor_slot: workflow_runner
+    action:
+      kind: bind_project_bootstrap_request
+    outputs:
+      - bound_bootstrap_request
+  - step_id: classify_candidate
+    actor_slot: intake_classifier
+    action:
+      kind: classify_project_task_support_or_triage
+    inputs:
+      - bound_bootstrap_request
+    outputs:
+      - project_classification_packet
+  - step_id: run_identity_preflight
+    actor_slot: identity_reserver
+    action:
+      kind: deterministic_preview_only_preflight
+      tool_ref: tools/project_bootstrap_preflight_cli.mjs
+    inputs:
+      - project_classification_packet
+      - project_register_snapshot
+      - owner_authority_packet
+    outputs:
+      - bootstrap_preview
+  - step_id: plan_storage_boundaries
+    actor_slot: storage_boundary_planner
+    action:
+      kind: plan_payload_metadata_and_bot_workspace_boundaries
+    inputs:
+      - bootstrap_preview
+      - storage_boundary_packet
+      - source_boundary_packet
+    outputs:
+      - storage_boundary_plan
+  - step_id: materialize_project_packets
+    actor_slot: project_packet_author
+    action:
+      kind: guarded_private_metadata_and_local_packet_materialization
+    inputs:
+      - bootstrap_preview
+      - storage_boundary_plan
+    outputs:
+      - project_contract_candidate
+      - project_context_candidate
+      - source_register_candidate
+      - responsibility_matrix_candidate
+      - onboarding_worklog
+      - first_work_packet
+  - step_id: plan_minimum_runtime
+    actor_slot: runtime_planner
+    action:
+      kind: plan_optional_minimum_runtime_profiles
+    inputs:
+      - project_context_candidate
+      - responsibility_matrix_candidate
+      - runtime_profile_request
+    outputs:
+      - runtime_profile_plan
+  - step_id: evaluate_compatibility_and_integrations
+    actor_slot: compatibility_reviewer
+    action:
+      kind: evaluate_ledger_code_family_and_optional_integration_gates
+    inputs:
+      - bootstrap_preview
+      - daily_ledger_compatibility_evidence
+      - project_code_compatibility_evidence
+      - collaboration_integration_request
+    outputs:
+      - compatibility_gate_packet
+      - optional_integration_handoff
+  - step_id: prepare_first_bounded_canary
+    actor_slot: first_work_coordinator
+    action:
+      kind: prepare_and_observe_first_work_without_external_effects
+    inputs:
+      - first_work_packet
+      - runtime_profile_plan
+      - compatibility_gate_packet
+    outputs:
+      - first_work_receipt
+  - step_id: validate_and_close
+    actor_slot: closeout_reviewer
+    action:
+      kind: validate_bootstrap_and_run_post_development_review
+    inputs:
+      - bootstrap_preview
+      - project_contract_candidate
+      - onboarding_worklog
+      - first_work_receipt
+      - compatibility_gate_packet
+    outputs:
+      - bootstrap_receipt
+      - boundary_review_note

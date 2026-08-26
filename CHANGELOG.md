@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-26 - Development Team 1 project bootstrap workflow and launcher
+
+- Added the registered preview-first `development_team1_project_bootstrap_v0` workflow for project-versus-task classification, append-only internal `D1-YY-NNN` code proposals, exact formal-project code admission, storage/source boundary planning, project starter packets, onboarding worklog, minimum runtime planning, compatibility HOLDs, and one bounded first-work canary.
+- Added a deterministic mutation-free preflight CLI and 7-case test suite covering next-code calculation, duplicate code/title rejection, missing Owner authority, missing storage/source boundaries, external integration authority, exact formal-code admission, and deterministic receipts.
+- Added the thin `project_bootstrap` launcher and synchronized its Codex bridge as `$soulforge-project-bootstrap`; workflow steps, profile policy, project identities, people, runtime paths, integration state, and authority remain outside the launcher.
+- A fresh executor and separate verifier passed the public synthetic cold preview at `usable` level with zero must-have failures and boundary-safety score 3. The workflow is registered but does not claim production readiness, profile calibration, default-route safety, external mutation authority, or automatic D1 consumer compatibility.
+
 ## 2026-08-26 - Watchtower protected-node observation contract repair
 
 - Fixed the Team Ops Board topology adapter so an independently observed non-green `gate_five_field` node retains the Watchtower producer's exact `manual` repairability instead of invalidating and hiding the whole health snapshot.

@@ -1,0 +1,24 @@
+workflow_id: development_team1_project_bootstrap_v0
+kind: workflow_profile_policy
+status: draft
+last_calibration_id: null
+calibration_mode: subagent_quality_first
+measurement_policy:
+  quality_source: synthetic_cold_pilot_and_private_project_receipts
+  telemetry_source: cli_passed_candidates_only
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_not_exact
+primary_profile: null
+shadow_top_k: []
+rerun_triggers:
+  - project classification or number policy changes
+  - storage or workspace ownership changes
+  - project packet schemas change
+  - D1 or formal project compatibility changes
+  - runtime profile or collaboration integration gates change
+  - first-work or post-development review contract changes
+calibration_archive_ref: null
+notes:
+  - Resolve model, reasoning, species, class, party, tools, and runtime from the current execution binding.
+  - Do not copy project-specific profile values into this public workflow policy.

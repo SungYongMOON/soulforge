@@ -1,0 +1,13 @@
+schema_version: development_team1_project_bootstrap_v0.responsibility_matrix_candidate
+project_code: null
+status: provisional
+assignment_governance:
+  membership_authority: Owner
+  detailed_assignment_proposal: project_manager
+  capacity_and_overlap_check: team_operations_manager
+  final_people_assignment: Owner
+  one_primary_rule: one primary responsibility per work item
+human_assignments: []
+runtime_assignments: []
+initial_work_packages: []
+dormant_responsibility_fields: []

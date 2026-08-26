@@ -1,0 +1,22 @@
+schema_version: development_team1_project_bootstrap_v0.compatibility_gate
+project_code: null
+checks:
+  daily_ledger:
+    state: unknown
+    evidence_refs: []
+  mail_routing:
+    state: unknown
+    evidence_refs: []
+  knowledge_and_rag:
+    state: unknown
+    evidence_refs: []
+  project_history:
+    state: unknown
+    evidence_refs: []
+  collaboration_surfaces:
+    state: hold
+    evidence_refs: []
+fallback:
+  onboarding_worklog_required: true
+  alias_or_fake_code_workaround_allowed: false
+overall_state: HOLD
