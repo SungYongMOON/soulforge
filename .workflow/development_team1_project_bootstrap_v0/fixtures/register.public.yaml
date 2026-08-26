@@ -1,0 +1,13 @@
+schema_version: development_team1_project_bootstrap_v0.register_snapshot
+number_policy:
+  format: D1-YY-NNN
+  sequence_scope: calendar_year
+  append_only: true
+  retired_or_cancelled_number_reuse: false
+projects:
+  - code: D1-26-001
+    title: Example Existing Internal Project
+    status: active
+  - code: P26-001
+    title: Example Existing Formal Project
+    status: active

@@ -1,0 +1,21 @@
+schema_version: development_team1_project_bootstrap_v0.project_context_candidate
+status: candidate
+project_identity:
+  project_code: null
+  display_name: null
+  project_kind: null
+  lifecycle: prestart
+objective:
+  statement: null
+relationships: []
+request_origin:
+  relationship: owner_directive
+  source_ref: null
+human_team:
+  members: []
+runtime_team:
+  profiles: []
+provisional_schedule:
+  startup_milestones: []
+unknowns: []
+authority_boundaries: []

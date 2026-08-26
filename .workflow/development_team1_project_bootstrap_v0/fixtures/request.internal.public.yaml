@@ -1,0 +1,45 @@
+schema_version: development_team1_project_bootstrap_v0.request
+mode: preview
+project_kind: internal
+project_year: 2026
+requested_at: "2026-01-02T09:00:00+09:00"
+identity:
+  title: Example New Internal Project
+  alias: EXAMPLE_NEW
+  requested_code: null
+  objective: Prepare one bounded project result.
+authority:
+  owner_project_creation_approved: true
+  owner_decision_ref: owner-decision:synthetic
+people:
+  development_responsible: Example Lead
+  practical_owner: Example Owner
+  team_members:
+    - Example Lead
+    - Example Owner
+storage:
+  project_payload_owner_ref: owner-approved-worksite:<project_code>
+  metadata_owner_ref: _workmeta/<project_code>
+  bot_workspace_policy_ref: runtime-binding-or-no-runtime
+source_boundary:
+  approved_source_owner_ref: owner-approved-source
+  raw_payload_in_workmeta: false
+runtime:
+  requested: false
+  profiles: []
+integrations:
+  slack:
+    state: hold
+    authority_ref: null
+  linear:
+    state: hold
+    authority_ref: null
+  drive:
+    state: hold
+    authority_ref: null
+  calendar:
+    state: not_requested
+    authority_ref: null
+compatibility:
+  daily_ledger_supported: false
+  mail_routing_supported: false

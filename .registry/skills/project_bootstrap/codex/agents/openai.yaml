@@ -1,0 +1,7 @@
+interface:
+  display_name: "Soulforge Project Bootstrap"
+  short_description: "Start a Development Team 1 project safely."
+  default_prompt: "Use $soulforge-project-bootstrap to prepare this new project through the registered preview-first bootstrap workflow."
+
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,11 @@
+workflow_id: development_team1_project_bootstrap_v0
+kind: party_compatibility
+status: draft
+party_required: false
+candidate_party_id: null
+bound_party_id: null
+binding_authority: none
+compatibility_notes:
+  - Current controller execution is allowed only through explicit request and exact authority packets.
+  - A future party must separate intake, identity, storage, packet authoring, compatibility review, first-work execution, and closeout review.
+  - Lane similarity alone must not create a party or execution binding.

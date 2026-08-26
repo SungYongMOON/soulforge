@@ -1,0 +1,49 @@
+workflow_id: development_team1_project_bootstrap_v0
+kind: handoff_rules
+status: draft
+rules:
+  - from: workflow_runner
+    to: intake_classifier
+    requires:
+      - exact_request_ref
+      - owner_authority_state
+  - from: intake_classifier
+    to: identity_reserver
+    requires:
+      - project_classification_not_triage
+      - project_kind_internal_or_formal
+  - from: identity_reserver
+    to: storage_boundary_planner
+    requires:
+      - bootstrap_preview_ready
+      - no_duplicate_code_or_title
+  - from: storage_boundary_planner
+    to: project_packet_author
+    requires:
+      - project_payload_owner_resolved
+      - metadata_owner_resolved
+      - bot_workspace_policy_resolved
+      - source_boundary_resolved
+  - from: project_packet_author
+    to: runtime_planner
+    requires:
+      - contract_and_shared_packet_candidates_present
+      - onboarding_worklog_open
+  - from: runtime_planner
+    to: compatibility_reviewer
+    requires:
+      - runtime_plan_or_explicit_no_runtime
+  - from: compatibility_reviewer
+    to: first_work_coordinator
+    requires:
+      - first_work_not_blocked
+      - external_integrations_not_required_for_canary
+  - from: first_work_coordinator
+    to: closeout_reviewer
+    requires:
+      - first_work_receipt_or_truthful_blocker
+fail_closed:
+  - missing_owner_authority_returns_owner_decision_required
+  - triage_classification_stops_before_code_or_folder_creation
+  - duplicate_code_or_title_stops_before_write
+  - unproven_integration_or_code_family_compatibility_becomes_HOLD

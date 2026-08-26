@@ -1,0 +1,34 @@
+workflow_id: development_team1_project_bootstrap_v0
+kind: monster_rules
+status: draft
+monsters:
+  - monster_id: project_creation_authority_missing
+    trigger: Owner project-creation, number, or people authority is absent
+    disposition: owner_decision_required
+  - monster_id: project_classification_ambiguous
+    trigger: project versus task/support/triage or internal versus formal cannot be resolved
+    disposition: HOLD
+  - monster_id: duplicate_identity
+    trigger: requested or proposed project code or normalized title collides with the register snapshot
+    disposition: HOLD
+  - monster_id: storage_boundary_ambiguous
+    trigger: project payload, metadata, or Bot scratch owner is missing or overlaps
+    disposition: HOLD
+  - monster_id: raw_or_secret_boundary_risk
+    trigger: raw mail, attachment, project payload, credential, secret, transcript, or hidden reasoning would enter public canon or `_workmeta`
+    disposition: blocked
+  - monster_id: people_assignment_overreach
+    trigger: workflow or project manager attempts to finalize people, priority, budget, purchase, or acceptance without Owner authority
+    disposition: owner_decision_required
+  - monster_id: integration_authority_missing
+    trigger: Slack, Linear, Drive, Calendar, mail, route, or automation activation is requested without exact authority and scope
+    disposition: HOLD
+  - monster_id: project_code_family_incompatible
+    trigger: ledger, RAG, mail, history, or collaboration surface does not prove support for the project-code family
+    disposition: HOLD_without_alias_workaround
+  - monster_id: runtime_overprovision
+    trigger: persistent profiles or Engines exceed the approved minimum and demand gates
+    disposition: HOLD
+  - monster_id: false_readiness
+    trigger: folders, files, or agent responses exist without source lock, first-work evidence, or required review
+    disposition: needs_revision

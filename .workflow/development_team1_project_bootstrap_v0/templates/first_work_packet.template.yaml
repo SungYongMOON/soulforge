@@ -1,0 +1,15 @@
+schema_version: development_team1_project_bootstrap_v0.first_work_packet
+work_ref: null
+project_code: null
+state: ready_for_manager_acceptance
+primary_owner: project_manager
+executor_or_agent: null
+collaborators: []
+independent_reviewers: []
+acceptance_authority: Owner
+objective: null
+inputs: []
+expected_outputs: []
+stop_conditions: []
+external_effects_authorized: false
+technical_approval_authority: none

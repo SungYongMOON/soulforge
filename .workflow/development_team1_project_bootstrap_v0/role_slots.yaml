@@ -1,0 +1,28 @@
+workflow_id: development_team1_project_bootstrap_v0
+kind: workflow_role_slots
+status: draft
+role_slots:
+  - slot_id: workflow_runner
+    responsibility: bind the request, run preflight, and preserve the preview-first boundary
+  - slot_id: intake_classifier
+    responsibility: classify project versus task/support/triage and internal versus formal project
+  - slot_id: identity_reserver
+    responsibility: propose a collision-free internal code or validate an exact formal code and authority ref
+  - slot_id: storage_boundary_planner
+    responsibility: separate project payload, private metadata, Bot scratch, and public workflow paths
+  - slot_id: project_packet_author
+    responsibility: create project context, source register, responsibility matrix, onboarding worklog, and first-work candidates
+  - slot_id: runtime_planner
+    responsibility: plan only the minimum explicit manager/responsibility runtime requested
+  - slot_id: compatibility_reviewer
+    responsibility: evaluate ledger, RAG, mail, collaboration, and project-code compatibility as pass or HOLD
+  - slot_id: first_work_coordinator
+    responsibility: prepare and observe one bounded first-work canary without technical or external overreach
+  - slot_id: closeout_reviewer
+    responsibility: validate receipts, boundaries, claim ceiling, and post-development review state
+forbidden_role_conflation:
+  - workflow_runner_is_not_owner
+  - project_manager_is_not_people_approval_authority
+  - runtime_planner_is_not_profile_creation_authority_without_explicit_gate
+  - compatibility_reviewer_is_not_default_route_authority
+  - closeout_reviewer_is_not_technical_or_final_acceptance_authority

@@ -1,0 +1,11 @@
+schema_version: development_team1_project_bootstrap_v0.receipt
+project_code: null
+status: draft
+preview_digest: null
+created_or_updated_refs: []
+validation_refs: []
+first_work_receipt_ref: null
+compatibility_holds: []
+external_effects: []
+owner_decisions_remaining: []
+claim_ceiling: observed

@@ -1,0 +1,13 @@
+schema_version: development_team1_project_bootstrap_v0.preview
+ok: false
+status: hold
+project_kind: internal
+proposed_project_code: null
+normalized_title: null
+blockers: []
+warnings: []
+required_artifacts: []
+integration_states: {}
+compatibility_holds: []
+mutation_allowed: false
+preview_digest: null

@@ -1,0 +1,217 @@
+workflow_id: development_team1_project_bootstrap_v0
+kind: workflow
+status: active
+title: Development Team 1 Project Bootstrap v0
+summary: Preview, register, and prepare a Development Team 1 project through explicit Owner authority, collision-free identity, separated payload/metadata/Bot workspaces, shared starter packets, onboarding worklog, minimum runtime, compatibility holds, and a bounded first-work canary without granting external, people, budget, route, baseline, or acceptance authority.
+global_name_ko: 운영_개발1팀프로젝트시작
+global_name_ko_scope: invocation_alias_candidate
+global_name_ko_note: 한글 호출 후보이며 canonical workflow_id로 resolve된 뒤에만 실행한다.
+display_name_ko: 프로젝트관리/시작/개발1팀프로젝트등록
+display_name_ko_scope: human_readable_description
+display_name_ko_note: 프로젝트 생성 승인이나 사람 배정 권한을 뜻하지 않는다.
+naming_contract_ref: .workflow/docs/WORKFLOW_NAMING_CONTRACT_V0.md
+entrypoint: run
+execution_mode: local_tool_sequence_owner_gated_preview_first
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+calibrations: calibrations/
+history: history/
+tools:
+  preflight_module: tools/project_bootstrap_preflight.mjs
+  preflight_cli: tools/project_bootstrap_preflight_cli.mjs
+
+policy_refs:
+  - docs/architecture/workspace/PROJECT_START_WORKFLOW_V0.md
+  - docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md
+  - docs/architecture/guild_hall/DEVELOPMENT1_TEAM_OPERATIONS_WORK_CLASSIFICATION_GUIDE_V0.md
+  - docs/architecture/guild_hall/PROJECT_WORK_ORGANIZATION_AND_TASK_ROUTING_V0.md
+
+inputs:
+  - project_bootstrap_request
+  - project_register_snapshot
+  - owner_authority_packet
+  - storage_boundary_packet
+  - source_boundary_packet
+optional_inputs:
+  - prior_project_alias_refs
+  - upstream_project_refs
+  - current_team_roster_ref
+  - runtime_profile_request
+  - collaboration_integration_request
+  - daily_ledger_compatibility_evidence
+  - project_code_compatibility_evidence
+outputs:
+  - bootstrap_preview
+  - project_identity_reservation
+  - project_contract_candidate
+  - project_context_candidate
+  - source_register_candidate
+  - responsibility_matrix_candidate
+  - onboarding_worklog
+  - first_work_packet
+  - runtime_profile_plan
+  - compatibility_gate_packet
+  - optional_integration_handoff
+  - bootstrap_receipt
+  - boundary_review_note
+
+validation_level: public_synthetic_cold_pilot_passed
+registration_policy: owner_requested_registration_after_success
+output_state: registered
+readiness_posture:
+  package_state: registered
+  pilot_ready: true
+  pilot_executed: true
+  canon_ready: true
+  registered: true
+  default_route_safe: false
+  default_route_safety_claimed: false
+
+classification_lane:
+  primary: project_management
+  primary_name_ko: 프로젝트 관리
+  secondary:
+    - workspace_management
+    - source_management
+    - review_governance
+  secondary_name_ko:
+    - 작업공간 관리
+    - 소스 관리
+    - 리뷰/거버넌스
+  purpose: discovery_only
+  authority: none
+  notes:
+    - Lane metadata does not choose a party, project owner, or route.
+
+execution_binding:
+  party_required: false
+  candidate_party_id: null
+  bound_party_id: null
+  binding_authority: none
+  notes:
+    - The current controller may execute after exact Owner authority and local capability checks.
+
+workflow_modes:
+  - internal_project_preview
+  - internal_project_apply_after_owner_authority
+  - formal_project_onboarding_with_exact_code
+  - readiness_recheck
+
+upstream_workflows:
+  - workflow_id: owner_decision_packet_v0
+    expected_outputs:
+      - scoped_owner_decision
+    status: required_when_project_identity_people_or_external_effect_authority_is_missing
+  - workflow_id: project_folder_indexing_v0
+    expected_outputs:
+      - project_index_binding_packet
+    status: optional_after_project_worksite_binding
+downstream_workflows:
+  - workflow_id: daily_work_ledger_capture_v0
+    expected_input: approved_metadata_only_project_activity
+    status: optional_only_when_project_code_family_compatibility_is_proven
+  - workflow_id: codex_thread_manager_v0
+    expected_input: explicit_codex_task_creation_request_after_runtime_plan_acceptance
+    status: optional_and_separately_owner_gated
+  - workflow_id: project_readiness_digest_v0
+    expected_input: bootstrap_receipt_and_compatibility_holds
+    status: optional_summary
+  - workflow_id: post_development_review_gate_v0
+    expected_input: bootstrap_change_or_registration_review_packet
+    status: required_before_completion_or_registration_claim
+
+bootstrap_contract:
+  owns:
+    - project_candidate_classification_packet
+    - append_only_internal_code_preview
+    - exact_formal_project_code_admission_check
+    - duplicate_code_and_title_detection
+    - storage_boundary_plan
+    - project_contract_candidate_shape
+    - shared_project_context_candidate_shape
+    - source_register_candidate_shape
+    - responsibility_matrix_candidate_shape
+    - onboarding_worklog_shape
+    - first_bounded_work_packet_shape
+    - minimum_runtime_plan
+    - compatibility_hold_packet
+    - optional_integration_handoff
+    - bootstrap_receipt_and_boundary_review
+  does_not_own:
+    - project_creation_owner_approval
+    - company_project_code_issuance
+    - final_people_assignment_or_priority
+    - hiring_performance_or_hr_authority
+    - budget_purchase_vendor_or_contract_authority
+    - external_mail_slack_linear_drive_calendar_mutation
+    - default_route_or_automation_activation
+    - project_payload_copy_into_workmeta
+    - technical_baseline_or_final_acceptance
+    - project_specific_engine_creation
+    - persistent_bot_creation_without_explicit_runtime_plan_and_owner_gate
+  internal_number_policy:
+    format: D1-YY-NNN
+    sequence_scope: calendar_year
+    append_only: true
+    retired_or_cancelled_number_reuse: false
+    preview_before_write: true
+  formal_project_policy:
+    exact_code_required: true
+    code_authority_ref_required: true
+    workflow_may_issue_company_code: false
+  preview_policy:
+    deterministic_preflight_is_read_only: true
+    mutation_allowed_in_preflight: false
+    missing_owner_authority_result: HOLD
+    duplicate_code_or_title_result: HOLD
+    ambiguous_storage_or_source_boundary_result: HOLD
+  storage_policy:
+    project_payload_owner: _workspaces/<project_code>_or_owner_approved_worksite
+    metadata_owner: _workmeta/<project_code>
+    bot_scratch_owner: runtime_binding_or_owner_approved_bot_workspace
+    public_workflow_contains_runtime_absolute_paths: false
+  source_policy:
+    raw_mail_body_in_workmeta: false
+    attachment_payload_in_workmeta: false
+    project_payload_in_bot_memory: false
+    metadata_pointer_and_status_only: true
+  runtime_policy:
+    minimum_profiles_only: true
+    runtime_kind_is_input_controlled_variant: true
+    no_runtime_profile_means_no_profile_creation: true
+    profile_creation_requires_exact_id_role_workspace_and_owner_scope: true
+  ledger_policy:
+    onboarding_worklog_required: true
+    automatic_daily_ledger_requires_compatibility_evidence: true
+    missing_compatibility_creates_hold_not_alias_workaround: true
+  integration_policy:
+    default_state: HOLD
+    each_surface_requires_exact_scope_and_authority: true
+    Calendar_may_remain_intentionally_unconnected: true
+  first_work_policy:
+    bounded_first_work_required: true
+    technical_execution_before_source_lock_allowed: false
+    file_or_agent_presence_is_not_completion: true
+  required_input_shapes:
+    project_bootstrap_request: templates/project_bootstrap_request.template.yaml
+    project_register_snapshot: templates/project_register_snapshot.template.yaml
+  required_output_shapes:
+    bootstrap_preview: templates/bootstrap_preview.template.yaml
+    project_context_candidate: templates/project_context.template.yaml
+    source_register_candidate: templates/source_register.template.yaml
+    responsibility_matrix_candidate: templates/responsibility_matrix.template.yaml
+    onboarding_worklog: templates/onboarding_worklog.template.md
+    first_work_packet: templates/first_work_packet.template.yaml
+    compatibility_gate_packet: templates/compatibility_gate.template.yaml
+    bootstrap_receipt: templates/bootstrap_receipt.template.yaml
+    boundary_review_note: templates/boundary_review_note.template.md
+
+notes:
+  - This workflow is preview-first. Its deterministic tool never mutates registries, workspaces, profiles, routes, or external systems.
+  - Apply steps remain agent/controller work behind exact Owner authority, write-target guards, and post-development review.
+  - Storage, runtime, collaboration, and ledger integrations are variants, not mandatory defaults.
+  - A fresh cold executor and separate verifier passed the public synthetic internal-project preview fixture; this supports usable registered workflow status, not production-ready or default-route-safe status.
