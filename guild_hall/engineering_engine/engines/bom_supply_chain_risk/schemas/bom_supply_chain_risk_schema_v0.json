@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.bom_supply_chain_risk.snapshot.v0",
+  "title": "BOM and Supply-Chain Risk public-safe typed snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["snapshot_kind", "snapshot_revision", "bom_identity_ref", "bom_revision_ref", "source_system_revision_ref", "bom_items"],
+  "properties": {
+    "snapshot_kind": { "const": "bom_supply_chain_risk_snapshot_v0" },
+    "snapshot_revision": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "bom_identity_ref": { "$ref": "#/$defs/opaqueRef" },
+    "bom_revision_ref": { "$ref": "#/$defs/opaqueRef" },
+    "source_system_revision_ref": { "$ref": "#/$defs/opaqueRef" },
+    "source_applicability": { "$ref": "#/$defs/sourceApplicability" },
+    "bom_items": { "type": "array", "minItems": 1, "maxItems": 10000, "items": { "$ref": "#/$defs/bomItem" } }
+  },
+  "$defs": {
+    "opaqueRef": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,48}:[A-Za-z0-9._-]{1,128}$" },
+    "sourceApplicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["S1-DODM-4245.15", "S2-DFARS-252.246-7007", "S3-DFARS-252.246-7008", "S4-NIST-MEP-2024", "S5-NIST-SP-800-161R1-UPD1"],
+      "properties": {
+        "S1-DODM-4245.15": { "$ref": "#/$defs/vocabularyOnly" },
+        "S2-DFARS-252.246-7007": { "$ref": "#/$defs/conditionalSource" },
+        "S3-DFARS-252.246-7008": { "$ref": "#/$defs/conditionalSource" },
+        "S4-NIST-MEP-2024": { "$ref": "#/$defs/educationalOnly" },
+        "S5-NIST-SP-800-161R1-UPD1": { "$ref": "#/$defs/educationalOnly" }
+      }
+    },
+    "vocabularyOnly": { "type": "object", "additionalProperties": false, "required": ["status"], "properties": { "status": { "const": "vocabulary_only" } } },
+    "educationalOnly": { "type": "object", "additionalProperties": false, "required": ["status"], "properties": { "status": { "const": "educational_only" } } },
+    "conditionalSource": {
+      "oneOf": [
+        { "type": "object", "additionalProperties": false, "required": ["status"], "properties": { "status": { "const": "unknown" } } },
+        { "type": "object", "additionalProperties": false, "required": ["status", "basis_ref"], "properties": { "status": { "enum": ["bound_applicable", "bound_not_applicable"] }, "basis_ref": { "$ref": "#/$defs/opaqueRef" } } }
+      ]
+    },
+    "bomItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item_id", "criticality", "lifecycle_status", "obsolescence_signal", "alternate_status", "counterfeit_control_status", "continuity_status", "conflict_dimensions"],
+      "properties": {
+        "item_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+        "criticality": { "enum": ["low", "medium", "high", "unknown"] },
+        "lifecycle_status": { "enum": ["active", "last_time_buy", "not_recommended", "end_of_life", "obsolete", "unknown"] },
+        "lifecycle_evidence_ref": { "$ref": "#/$defs/opaqueRef" },
+        "obsolescence_signal": { "enum": ["none", "notification", "validated_issue", "unknown"] },
+        "obsolescence_evidence_ref": { "$ref": "#/$defs/opaqueRef" },
+        "lead_time_days": { "type": "integer", "minimum": 0, "maximum": 1000000000 },
+        "lead_time_evidence_ref": { "$ref": "#/$defs/opaqueRef" },
+        "approved_source_count": { "type": "integer", "minimum": 0, "maximum": 1000000000 },
+        "supplier_evidence_ref": { "$ref": "#/$defs/opaqueRef" },
+        "alternate_status": { "enum": ["qualified", "pending", "not_available", "not_required", "unknown"] },
+        "alternate_evidence_ref": { "$ref": "#/$defs/opaqueRef" },
+        "alternate_not_required_basis_ref": { "$ref": "#/$defs/opaqueRef" },
+        "counterfeit_control_status": { "enum": ["traceable_verified", "elevated_risk", "unknown"] },
+        "counterfeit_evidence_ref": { "$ref": "#/$defs/opaqueRef" },
+        "supplier_count": { "type": "integer", "minimum": 0, "maximum": 1000000000 },
+        "geography_count": { "type": "integer", "minimum": 0, "maximum": 1000000000 },
+        "geography_evidence_ref": { "$ref": "#/$defs/opaqueRef" },
+        "continuity_status": { "enum": ["covered", "gap", "unknown"] },
+        "continuity_evidence_ref": { "$ref": "#/$defs/opaqueRef" },
+        "conflict_dimensions": { "type": "array", "uniqueItems": true, "items": { "enum": ["lifecycle_status", "obsolescence_signal", "long_lead", "sole_source", "alternate_qualification", "counterfeit_control", "supplier_concentration", "geographic_concentration", "continuity_gap"] } }
+      }
+    }
+  }
+}

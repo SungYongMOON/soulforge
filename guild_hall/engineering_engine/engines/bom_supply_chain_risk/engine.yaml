@@ -1,0 +1,32 @@
+schema_version: soulforge.domain_engine_descriptor.v0
+domain_engine_id: bom_supply_chain_risk
+display_name: BOM and Supply-Chain Risk Domain Engine
+version: 0.1.0
+status: candidate
+claim_ceiling: source_supported
+execution_mode: deterministic_only
+contracts:
+  source_packet: engines/bom_supply_chain_risk/contracts/bom_supply_chain_risk_source_packet_v0.md
+  domain_contract: engines/bom_supply_chain_risk/contracts/bom_supply_chain_risk_contract_v0.md
+schemas:
+  ruleset: soulforge.bom_supply_chain_risk.ruleset.v0
+  typed_snapshot: soulforge.bom_supply_chain_risk.snapshot.v0
+  assessment: soulforge.bom_supply_chain_risk.assessment.v0
+  domain_result: soulforge.bom_supply_chain_risk.domain_result.v0
+  receipt: soulforge.bom_supply_chain_risk.receipt.v0
+  files:
+    assessment: engines/bom_supply_chain_risk/schemas/bom_supply_chain_risk_assessment_schema_v0.json
+    receipt: engines/bom_supply_chain_risk/schemas/bom_supply_chain_risk_receipt_schema_v0.json
+    ruleset: engines/bom_supply_chain_risk/schemas/bom_supply_chain_risk_ruleset_schema_v0.json
+    typed_snapshot: engines/bom_supply_chain_risk/schemas/bom_supply_chain_risk_schema_v0.json
+    domain_result: engines/bom_supply_chain_risk/schemas/bom_supply_chain_risk_result_schema_v0.json
+compiler_adapter: engines/bom_supply_chain_risk/compiler/bom_supply_chain_risk_compiler_adapter.mjs
+evaluator_adapter: engines/bom_supply_chain_risk/evaluator/bom_supply_chain_risk_evaluator_adapter.mjs
+fixtures:
+  public_synthetic: engines/bom_supply_chain_risk/fixtures/bom_supply_chain_risk_public_synthetic.mjs
+manual:
+  root: engines/bom_supply_chain_risk/manual/README.md
+topology:
+  local: engines/bom_supply_chain_risk/topology/bom_supply_chain_risk_topology.json
+  module_manifest: engines/bom_supply_chain_risk/topology/bom_supply_chain_risk_module_manifest.mjs
+integration_request: engines/bom_supply_chain_risk/integration_request.md

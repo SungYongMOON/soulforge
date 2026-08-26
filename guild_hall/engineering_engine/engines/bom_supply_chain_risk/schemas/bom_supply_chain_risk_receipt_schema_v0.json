@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.bom_supply_chain_risk.receipt.v0",
+  "title": "BOM and Supply-Chain Risk deterministic receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "digests", "bindings", "counts", "effects"],
+  "properties": {
+    "schema_version": { "const": "soulforge.bom_supply_chain_risk.receipt.v0" },
+    "digests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["typed_facts_sha256", "ruleset_sha256", "domain_result_sha256", "assessment_sha256"],
+      "properties": {
+        "typed_facts_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "ruleset_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "domain_result_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "assessment_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["domain_engine_id", "project_binding_ref", "source_packet_ref", "ruleset_ref", "assessment_scope", "source_applicability", "valid_at", "known_at"],
+      "properties": {
+        "domain_engine_id": { "const": "bom_supply_chain_risk" },
+        "project_binding_ref": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["project_id", "domain_engine_id", "binding_revision_hash"],
+          "properties": {
+            "project_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+            "domain_engine_id": { "const": "bom_supply_chain_risk" },
+            "binding_revision_hash": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" }
+          }
+        },
+        "source_packet_ref": { "$ref": "#/$defs/entityRef" },
+        "ruleset_ref": { "$ref": "#/$defs/entityRef" },
+        "assessment_scope": { "$ref": "#/$defs/assessmentScope" },
+        "source_applicability": { "$ref": "#/$defs/sourceApplicability" },
+        "valid_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" },
+        "known_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" }
+      }
+    },
+    "counts": { "$ref": "#/$defs/counts" },
+    "effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["filesystem_writes", "network_requests", "model_calls", "procurement_actions", "erp_writes", "authority_actions"],
+      "properties": {
+        "filesystem_writes": { "const": 0 },
+        "network_requests": { "const": 0 },
+        "model_calls": { "const": 0 },
+        "procurement_actions": { "const": 0 },
+        "erp_writes": { "const": 0 },
+        "authority_actions": { "const": 0 }
+      }
+    }
+  },
+  "$defs": {
+    "opaqueRef": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,48}:[A-Za-z0-9._-]{1,128}$" },
+    "entityRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity_id", "revision_id", "content_id", "content_hash_alg"],
+      "properties": {
+        "entity_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+        "revision_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+        "content_id": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "content_hash_alg": { "const": "sha256" }
+      }
+    },
+    "assessmentScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["snapshot_revision", "bom_identity_ref", "bom_revision_ref", "source_system_revision_ref"],
+      "properties": {
+        "snapshot_revision": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+        "bom_identity_ref": { "$ref": "#/$defs/opaqueRef" },
+        "bom_revision_ref": { "$ref": "#/$defs/opaqueRef" },
+        "source_system_revision_ref": { "$ref": "#/$defs/opaqueRef" }
+      }
+    },
+    "sourceApplicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["S1-DODM-4245.15", "S2-DFARS-252.246-7007", "S3-DFARS-252.246-7008", "S4-NIST-MEP-2024", "S5-NIST-SP-800-161R1-UPD1"],
+      "properties": {
+        "S1-DODM-4245.15": { "$ref": "#/$defs/vocabularyOnly" },
+        "S2-DFARS-252.246-7007": { "$ref": "#/$defs/conditionalSource" },
+        "S3-DFARS-252.246-7008": { "$ref": "#/$defs/conditionalSource" },
+        "S4-NIST-MEP-2024": { "$ref": "#/$defs/educationalOnly" },
+        "S5-NIST-SP-800-161R1-UPD1": { "$ref": "#/$defs/educationalOnly" }
+      }
+    },
+    "vocabularyOnly": { "type": "object", "additionalProperties": false, "required": ["status"], "properties": { "status": { "const": "vocabulary_only" } } },
+    "educationalOnly": { "type": "object", "additionalProperties": false, "required": ["status"], "properties": { "status": { "const": "educational_only" } } },
+    "conditionalSource": {
+      "oneOf": [
+        { "type": "object", "additionalProperties": false, "required": ["status"], "properties": { "status": { "const": "unknown" } } },
+        { "type": "object", "additionalProperties": false, "required": ["status", "basis_ref"], "properties": { "status": { "enum": ["bound_applicable", "bound_not_applicable"] }, "basis_ref": { "$ref": "#/$defs/opaqueRef" } } }
+      ]
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_sufficient", "risk_detected", "unknown", "conflict", "not_applicable", "total"],
+      "properties": {
+        "evidence_sufficient": { "type": "integer", "minimum": 0 },
+        "risk_detected": { "type": "integer", "minimum": 0 },
+        "unknown": { "type": "integer", "minimum": 0 },
+        "conflict": { "type": "integer", "minimum": 0 },
+        "not_applicable": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}
