@@ -117,7 +117,7 @@
         "withoutNulls"
       ],
       "export_count": 17,
-      "line_count": 642
+      "line_count": 645
     },
     {
       "module": "core/interfaces/profile_operation_canon",
@@ -6074,5 +6074,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "08c2135040560db59e96887d2fa7151c7cfb56b3c6d9e48b9d6dcc4953d11cbe"
+  "topology_digest": "615c787e22cda3f4dfe131b967c47c9dc3ca1aee3f94b84e23b34aa082e56fa8"
 }

@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-26 - Core canonical instant alignment
+
+- Routed Project Evidence `valid_at`, `known_at`, and optional `observed_at` through the single Core canonical-instant authority.
+- Added RED/GREEN rejection for missing or variable fractional precision, impossible calendar dates, and out-of-range clock fields while preserving the closed `INSTANT_INVALID` Core error contract.
+
 ## 2026-08-26 - Engineering Engine Core pre-admission hardening
 
 - Hardened the public Core `evaluate` and Domain Adapter seams so hostile or accessor-backed adapters and effective-rule wrappers are rejected or snapshotted before any caller-controlled property read.

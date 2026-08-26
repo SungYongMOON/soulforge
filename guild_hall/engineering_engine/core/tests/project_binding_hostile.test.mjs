@@ -46,6 +46,42 @@ test('Project Binding: rejects missing cutoffs and non-ISO timestamps', () => {
     () => adaptProjectEvidence(VALID_BINDING_REF, VALID_SNAPSHOT_REFS, { valid_at: '2026-08-25T12:00:00.000Z', known_at: null }),
     (err) => err.code === CODES.INSTANT_REQUIRED || err.code === CODES.INSTANT_INVALID
   );
+
+  for (const invalidInstant of [
+    '2026-08-25T12:00:00Z',
+    '2026-08-25T12:00:00.0Z',
+    '2026-08-25T12:00:00.0000Z',
+    '2026-02-30T12:00:00.000Z',
+    '2026-08-25T24:00:00.000Z',
+  ]) {
+    assert.throws(
+      () => adaptProjectEvidence(
+        VALID_BINDING_REF,
+        VALID_SNAPSHOT_REFS,
+        { valid_at: invalidInstant, known_at: VALID_CUTOFFS.known_at },
+      ),
+      (err) => err.code === CODES.INSTANT_INVALID,
+    );
+  }
+
+  for (const invalidObservedAt of ['', 0, false]) {
+    assert.throws(
+      () => adaptProjectEvidence(
+        VALID_BINDING_REF,
+        VALID_SNAPSHOT_REFS,
+        { ...VALID_CUTOFFS, observed_at: invalidObservedAt },
+      ),
+      (err) => err.code === CODES.INSTANT_INVALID,
+    );
+  }
+
+  const explicitObservedAt = '2026-08-25T12:00:01.000Z';
+  const evidence = adaptProjectEvidence(
+    VALID_BINDING_REF,
+    VALID_SNAPSHOT_REFS,
+    { ...VALID_CUTOFFS, observed_at: explicitObservedAt },
+  );
+  assert.equal(evidence.observation_receipt.observed_at, explicitObservedAt);
 });
 
 test('Project Binding: rejects forbidden path and secret sentinels in observations', () => {

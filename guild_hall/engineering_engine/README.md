@@ -36,6 +36,9 @@ cyclic shapes fail with a closed Core error and do not reach compilation, digest
 or a Domain Adapter. This is a domain-neutral seam guard: nested domain rules, Typed Facts
 semantics, and verdict logic remain owned and revalidated by each Domain Engine.
 
+Project Evidence cutoff instants use the same configured millisecond precision and real-calendar
+validation as the Core canonical serializer; permissive ISO-looking timestamps are not admitted.
+
 ## Profile operation canonicalisation and the null contract
 
 `core/interfaces/profile_operation_canon.mjs` is the single Core authority for normalised

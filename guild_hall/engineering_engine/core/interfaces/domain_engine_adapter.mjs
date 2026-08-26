@@ -1,7 +1,7 @@
 // Core Domain Engine Adapter Interface
 import types from "node:util/types";
 
-import { canonicalise } from "../validators/canonical.mjs";
+import { canonicalise, inspectInstant } from "../validators/canonical.mjs";
 import { sha256Hex } from "../validators/fingerprint.mjs";
 import { ContractError } from "../validators/errors.mjs";
 import { normalizeProfileOperations } from "./profile_operation_canon.mjs";
@@ -25,8 +25,6 @@ export const CODES = Object.freeze({
   INSTANT_INVALID: "INSTANT_INVALID",
   INSTANT_REQUIRED: "INSTANT_REQUIRED",
 });
-
-const ISO_UTC_REGEX = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?Z$/;
 
 const ARRAY_INDEX_KEY = /^(0|[1-9][0-9]*)$/u;
 const MAX_ARRAY_INDEX = 4_294_967_294;
@@ -216,11 +214,16 @@ function assertProjectFactStringsSafe(value, label) {
 }
 
 export function validateCanonicalInstant(instant, fieldName = "instant") {
-  if (typeof instant !== "string" || !ISO_UTC_REGEX.test(instant)) {
+  if (instant === undefined || instant === null) {
     throw new ContractError(
-      instant === undefined || instant === null ? CODES.INSTANT_REQUIRED : CODES.INSTANT_INVALID,
-      `${fieldName} must be a valid canonical UTC ISO-8601 string, got "${instant}"`
+      CODES.INSTANT_REQUIRED,
+      `${fieldName} is required and must be a canonical UTC instant`,
     );
+  }
+  const inspected = inspectInstant(instant);
+  if (!inspected.valid) {
+    throw new ContractError(CODES.INSTANT_INVALID,
+      `${fieldName} must be a real canonical UTC instant with the configured precision`);
   }
   return instant;
 }
@@ -601,7 +604,7 @@ export function adaptProjectEvidence(projectBindingRef, sourceSnapshotRefs, cuto
   assertProjectFactStringsSafe(admittedCutoffs, "cutoffs");
   const validAt = validateCanonicalInstant(admittedCutoffs.valid_at, "cutoffs.valid_at");
   const knownAt = validateCanonicalInstant(admittedCutoffs.known_at, "cutoffs.known_at");
-  const observedAt = admittedCutoffs.observed_at
+  const observedAt = Object.hasOwn(admittedCutoffs, "observed_at")
     ? validateCanonicalInstant(admittedCutoffs.observed_at, "cutoffs.observed_at")
     : knownAt;
 

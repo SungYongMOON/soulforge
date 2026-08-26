@@ -12820,7 +12820,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "d2769a2f7c71c725525e8362e07d272307065675e656acffb4edfd3a540d1c4f",
+        "digest": "1f94a306b5ee49eb14789d2fdcd84f4ea65b30a704260de4d2dd053df137ee73",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -13814,7 +13814,7 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "f900bec1887acfd8abbb03337948b01e62569d5e0f1800139c15360efda126f5",
+  "source_set_digest": "a4f829e7ec509db274d3764a78d4a82f8f389ce1d0f206c177ff4ae57748c3ef",
   "summary": {
     "edge_count": 508,
     "node_count": 189,
@@ -13822,5 +13822,5 @@
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "831c19a36ec172c82d958f4ca9e1173c94eda245b12aea4d8deaaf50df487397"
+  "topology_digest": "a044d3cb310bf8a86a9bdd40cd1872fb1503e776b56e7d33581c184a5baf73c3"
 }
