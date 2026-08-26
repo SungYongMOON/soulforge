@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.bom_supply_chain_risk.domain_result.v0",
+  "title": "BOM and Supply-Chain Risk deterministic result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "claim_ceiling", "assessment_scope", "findings", "counts"],
+  "properties": {
+    "schema_version": { "const": "soulforge.bom_supply_chain_risk.domain_result.v0" },
+    "claim_ceiling": { "const": "source_supported" },
+    "assessment_scope": { "$ref": "#/$defs/assessmentScope" },
+    "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+    "counts": { "$ref": "#/$defs/counts" }
+  },
+  "$defs": {
+    "opaqueRef": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,48}:[A-Za-z0-9._-]{1,128}$" },
+    "assessmentScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["snapshot_revision", "bom_identity_ref", "bom_revision_ref", "source_system_revision_ref"],
+      "properties": {
+        "snapshot_revision": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+        "bom_identity_ref": { "$ref": "#/$defs/opaqueRef" },
+        "bom_revision_ref": { "$ref": "#/$defs/opaqueRef" },
+        "source_system_revision_ref": { "$ref": "#/$defs/opaqueRef" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item_id", "criticality", "rule_id", "risk_dimension", "source", "state", "reason_code"],
+      "properties": {
+        "item_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+        "criticality": { "enum": ["low", "medium", "high", "unknown"] },
+        "rule_id": { "type": "string", "pattern": "^BOM-SCR-[0-9]{2}$" },
+        "risk_dimension": { "enum": ["lifecycle_status", "obsolescence_signal", "long_lead", "sole_source", "alternate_qualification", "counterfeit_control", "supplier_concentration", "geographic_concentration", "continuity_gap"] },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source_id", "source_revision", "source_locator", "applicability", "applicability_status"],
+          "properties": {
+            "source_id": { "type": "string", "minLength": 1 },
+            "source_revision": { "type": "string", "minLength": 1 },
+            "source_locator": { "type": "string", "minLength": 1 },
+            "applicability": { "type": "string", "minLength": 1 },
+            "applicability_status": { "enum": ["vocabulary_only", "educational_only", "bound_applicable", "bound_not_applicable", "unknown"] },
+            "applicability_basis_ref": { "$ref": "#/$defs/opaqueRef" }
+          }
+        },
+        "state": { "enum": ["evidence_sufficient", "risk_detected", "unknown", "conflict", "not_applicable"] },
+        "reason_code": { "type": "string", "minLength": 1 },
+        "observed_evidence_ref": { "$ref": "#/$defs/opaqueRef" },
+        "threshold_metric": { "enum": ["max_lead_time_days", "minimum_supplier_count", "minimum_geography_count"] },
+        "threshold_value": { "type": "integer", "minimum": 1 },
+        "observed_value": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_sufficient", "risk_detected", "unknown", "conflict", "not_applicable", "total"],
+      "properties": {
+        "evidence_sufficient": { "type": "integer", "minimum": 0 },
+        "risk_detected": { "type": "integer", "minimum": 0 },
+        "unknown": { "type": "integer", "minimum": 0 },
+        "conflict": { "type": "integer", "minimum": 0 },
+        "not_applicable": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.bom_supply_chain_risk.ruleset.v0",
+  "title": "BOM and Supply-Chain Risk effective ruleset",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "domain_engine_id", "ruleset_ref", "source_packet_ref", "rules", "thresholds", "profile_threshold_provenance"],
+  "properties": {
+    "schema_version": { "const": "soulforge.bom_supply_chain_risk.ruleset.v0" },
+    "domain_engine_id": { "const": "bom_supply_chain_risk" },
+    "ruleset_ref": { "$ref": "#/$defs/entityRef" },
+    "source_packet_ref": { "$ref": "#/$defs/entityRef" },
+    "rules": { "type": "array", "minItems": 9, "maxItems": 9, "items": { "$ref": "#/$defs/rule" } },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_lead_time_days": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "minimum_supplier_count": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "minimum_geography_count": { "type": "integer", "minimum": 1, "maximum": 100000 }
+      }
+    },
+    "profile_threshold_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_lead_time_days": { "$ref": "#/$defs/provenance" },
+        "minimum_supplier_count": { "$ref": "#/$defs/provenance" },
+        "minimum_geography_count": { "$ref": "#/$defs/provenance" }
+      }
+    }
+  },
+  "$defs": {
+    "entityRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity_id", "revision_id", "content_id", "content_hash_alg"],
+      "properties": {
+        "entity_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+        "revision_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+        "content_id": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "content_hash_alg": { "const": "sha256" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile_kind", "profile_id", "revision_or_hash", "operation_digest", "source_refs"],
+      "properties": {
+        "profile_kind": { "enum": ["organization", "project"] },
+        "profile_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+        "revision_or_hash": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+        "operation_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "source_refs": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 256 } }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_id", "risk_dimension", "source_id", "source_revision", "source_locator", "source_applicability", "source_applicability_mode", "purpose"],
+      "properties": {
+        "rule_id": { "type": "string", "pattern": "^BOM-SCR-[0-9]{2}$" },
+        "risk_dimension": { "enum": ["lifecycle_status", "obsolescence_signal", "long_lead", "sole_source", "alternate_qualification", "counterfeit_control", "supplier_concentration", "geographic_concentration", "continuity_gap"] },
+        "source_id": { "type": "string", "minLength": 1 },
+        "source_revision": { "type": "string", "minLength": 1 },
+        "source_locator": { "type": "string", "minLength": 1 },
+        "source_applicability": { "type": "string", "minLength": 1 },
+        "source_applicability_mode": { "enum": ["vocabulary_only", "conditional_contract", "educational_only"] },
+        "purpose": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
