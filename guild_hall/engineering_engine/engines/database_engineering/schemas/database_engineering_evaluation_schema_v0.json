@@ -1,0 +1,302 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.database_engineering.evaluation.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "domain_engine_id", "ruleset_ref", "results", "counts", "analysis", "receipt"],
+  "properties": {
+    "schema_version": {"const": "soulforge.database_engineering.evaluation.v0"},
+    "domain_engine_id": {"const": "database_engineering"},
+    "ruleset_ref": {"$ref": "#/$defs/content_ref"},
+    "results": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/result"}},
+    "counts": {"$ref": "#/$defs/counts"},
+    "analysis": {"$ref": "#/$defs/analysis"},
+    "receipt": {"$ref": "soulforge.database_engineering.evaluation_receipt.v0"}
+  },
+  "$defs": {
+    "opaque_ref": {"type": "string", "minLength": 1, "maxLength": 256},
+    "content_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity_id", "revision_id", "content_id", "content_hash_alg"],
+      "properties": {
+        "entity_id": {"type": "string", "minLength": 1},
+        "revision_id": {"type": "string", "minLength": 1},
+        "content_id": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "content_hash_alg": {"const": "sha256"}
+      }
+    },
+    "proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "analyzer"],
+      "properties": {
+        "status": {"enum": ["supported", "contradicted", "unknown", "conflict"]},
+        "analyzer": {"type": "string", "minLength": 1}
+      }
+    },
+    "source_provenance": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["authority_kind", "inventory_content_id"],
+          "properties": {
+            "authority_kind": {"const": "inventory_anchored"},
+            "inventory_content_id": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["authority_kind"],
+          "properties": {"authority_kind": {"const": "project_bound"}}
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["authority_kind", "profile_id", "revision_or_hash", "operation_digest", "operation_item_digest"],
+          "properties": {
+            "authority_kind": {"const": "profile_declared"},
+            "profile_id": {"type": "string", "minLength": 1},
+            "revision_or_hash": {"type": "string", "minLength": 1},
+            "operation_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "operation_item_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+          }
+        }
+      ]
+    },
+    "fact_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project_binding", "requirement", "observation"],
+      "properties": {
+        "project_binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["project_id", "binding_revision_hash", "source_manifest_ref"],
+          "properties": {
+            "project_id": {"type": "string", "minLength": 1, "maxLength": 81},
+            "binding_revision_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "source_manifest_ref": {"$ref": "#/$defs/opaque_ref"}
+          }
+        },
+        "requirement": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["project_id", "requirement_id", "authority_ref"],
+              "properties": {
+                "project_id": {"type": "string", "minLength": 1, "maxLength": 81},
+                "requirement_id": {"$ref": "#/$defs/opaque_ref"},
+                "authority_ref": {"$ref": "#/$defs/opaque_ref"}
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["binding_state"],
+              "properties": {"binding_state": {"const": "unbound"}}
+            }
+          ]
+        },
+        "observation": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["project_id", "evidence_ref", "evidence_key"],
+              "properties": {
+                "project_id": {"type": "string", "minLength": 1, "maxLength": 81},
+                "evidence_ref": {"$ref": "#/$defs/opaque_ref"},
+                "evidence_key": {"type": "string", "minLength": 1}
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["binding_state"],
+              "properties": {"binding_state": {"const": "unobserved"}}
+            }
+          ]
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_id", "axis", "state", "reason_code", "hard_technical_failure", "claim_ceiling", "source_authority", "source_provenance", "fact_provenance", "analysis_evidence_key", "analysis_status", "evidence_ref", "source_refs"],
+      "properties": {
+        "rule_id": {"type": "string", "minLength": 1},
+        "axis": {"enum": ["requirements_workload_authority", "conceptual_logical_model", "identifiers_nulls_integrity", "temporal_revision_semantics", "physical_design_indexes", "transactions_isolation_concurrency_idempotency", "security_access_project_isolation", "schema_evolution_migration_backfill_rollback", "performance_capacity_observability", "backup_restore_pitr_rpo_rto_dr", "data_quality_governance_retention_retirement"]},
+        "state": {"enum": ["satisfied", "gap_missing", "gap_unknown", "gap_conflict"]},
+        "reason_code": {"type": "string", "minLength": 1},
+        "hard_technical_failure": {"type": "boolean"},
+        "claim_ceiling": {"enum": ["observed", "source_supported"]},
+        "source_authority": {"enum": ["inventory_anchored", "project_bound", "profile_declared"]},
+        "source_provenance": {"$ref": "#/$defs/source_provenance"},
+        "fact_provenance": {"$ref": "#/$defs/fact_provenance"},
+        "analysis_evidence_key": {"type": "string", "minLength": 1},
+        "analysis_status": {"enum": ["supported", "contradicted", "unknown", "conflict", "unavailable"]},
+        "evidence_ref": {"$ref": "#/$defs/opaque_ref"},
+        "source_refs": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"source_authority": {"const": "profile_declared"}}, "required": ["source_authority"]},
+          "then": {"properties": {"analysis_evidence_key": {"pattern": "^profile_advisory_[a-z][a-z0-9_]{0,63}$"}}}
+        }
+      ]
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["satisfied", "gap_missing", "gap_unknown", "gap_conflict"],
+      "properties": {
+        "satisfied": {"type": "integer", "minimum": 0},
+        "gap_missing": {"type": "integer", "minimum": 0},
+        "gap_unknown": {"type": "integer", "minimum": 0},
+        "gap_conflict": {"type": "integer", "minimum": 0}
+      }
+    },
+    "schema_graph_analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["table_count", "duplicate_tables", "missing_foreign_key_targets", "structurally_consistent"],
+      "properties": {
+        "table_count": {"type": "integer", "minimum": 0},
+        "duplicate_tables": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "missing_foreign_key_targets": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "structurally_consistent": {"type": "boolean"}
+      }
+    },
+    "migration_diff_analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["migration_count", "duplicate_ids", "irreversible_without_rollback_proof", "migration_proof_complete"],
+      "properties": {
+        "migration_count": {"type": "integer", "minimum": 0},
+        "duplicate_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "irreversible_without_rollback_proof": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "migration_proof_complete": {"type": "boolean"}
+      }
+    },
+    "transaction_semantics_analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["configured_isolation", "shared_cache_enabled", "read_uncommitted_enabled", "idempotency_key_count", "duplicate_idempotency_keys", "dirty_read_exception_observed"],
+      "properties": {
+        "configured_isolation": {"type": "string", "minLength": 1},
+        "shared_cache_enabled": {"type": "boolean"},
+        "read_uncommitted_enabled": {"type": "boolean"},
+        "idempotency_key_count": {"type": "integer", "minimum": 0},
+        "duplicate_idempotency_keys": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "dirty_read_exception_observed": {"type": "boolean"}
+      }
+    },
+    "query_workload_analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric_count", "capacity_evidence_present", "textual_query_plan_present", "textual_query_plan_used_as_verdict", "advisory_only"],
+      "properties": {
+        "metric_count": {"type": "integer", "minimum": 0},
+        "capacity_evidence_present": {"type": "boolean"},
+        "textual_query_plan_present": {"type": "boolean"},
+        "textual_query_plan_used_as_verdict": {"const": false},
+        "advisory_only": {"const": true}
+      }
+    },
+    "recovery_proof_analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proof_count", "restore_test_observed", "restore_test_status", "restore_test_required_failure_observed", "pitr_preconditions_observed", "pitr_preconditions_status", "recovery_evidence_status", "claimed_rpo_rto", "claimed_dr_sufficiency"],
+      "properties": {
+        "proof_count": {"type": "integer", "minimum": 0},
+        "restore_test_observed": {"type": "boolean"},
+        "restore_test_status": {"enum": ["supported", "contradicted", "unknown", "conflict"]},
+        "restore_test_required_failure_observed": {"type": "boolean"},
+        "pitr_preconditions_observed": {"type": "boolean"},
+        "pitr_preconditions_status": {"enum": ["supported", "contradicted", "unknown", "conflict"]},
+        "recovery_evidence_status": {"enum": ["supported", "contradicted", "unknown", "conflict"]},
+        "claimed_rpo_rto": {"const": false},
+        "claimed_dr_sufficiency": {"const": false}
+      }
+    },
+    "data_quality_analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["check_count", "failed_check_ids", "quality_evidence_present"],
+      "properties": {
+        "check_count": {"type": "integer", "minimum": 0},
+        "failed_check_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "quality_evidence_present": {"type": "boolean"}
+      }
+    },
+    "platform_control_proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sqlite_fk_connection", "sqlite_fk_check", "sqlite_integrity_check", "sqlite_dirty_read_exception", "sqlite_single_writer", "postgresql_constraints", "postgresql_isolation", "postgresql_rls", "postgresql_pitr"],
+      "properties": {
+        "sqlite_fk_connection": {"$ref": "#/$defs/proof"},
+        "sqlite_fk_check": {"$ref": "#/$defs/proof"},
+        "sqlite_integrity_check": {"$ref": "#/$defs/proof"},
+        "sqlite_dirty_read_exception": {"$ref": "#/$defs/proof"},
+        "sqlite_single_writer": {"$ref": "#/$defs/proof"},
+        "postgresql_constraints": {"$ref": "#/$defs/proof"},
+        "postgresql_isolation": {"$ref": "#/$defs/proof"},
+        "postgresql_rls": {"$ref": "#/$defs/proof"},
+        "postgresql_pitr": {"$ref": "#/$defs/proof"}
+      }
+    },
+    "cross_analyzer_coherence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sqlite_transaction_semantics_vs_platform_controls", "recovery_plan_vs_postgresql_pitr_controls", "pitr_precondition_proof_vs_postgresql_pitr_controls", "restore_test_vs_postgresql_pitr_controls", "required_restore_failure_crosscut_pitr"],
+      "properties": {
+        "sqlite_transaction_semantics_vs_platform_controls": {"enum": ["coherent", "conflict"]},
+        "recovery_plan_vs_postgresql_pitr_controls": {"const": "distinct_propositions_not_compared"},
+        "pitr_precondition_proof_vs_postgresql_pitr_controls": {"enum": ["coherent", "conflict", "unknown"]},
+        "restore_test_vs_postgresql_pitr_controls": {"const": "distinct_propositions_not_compared"},
+        "required_restore_failure_crosscut_pitr": {"enum": ["not_triggered", "conflict", "consistent_negative", "unknown"]}
+      }
+    },
+    "evidence_by_key": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_graph", "migration_diff", "query_workload", "data_quality", "recovery_proof", "sqlite_fk_connection", "sqlite_fk_check", "sqlite_integrity_check", "sqlite_dirty_read_exception", "sqlite_single_writer", "postgresql_constraints", "postgresql_isolation", "postgresql_rls", "postgresql_pitr"],
+      "properties": {
+        "schema_graph": {"$ref": "#/$defs/proof"},
+        "migration_diff": {"$ref": "#/$defs/proof"},
+        "query_workload": {"$ref": "#/$defs/proof"},
+        "data_quality": {"$ref": "#/$defs/proof"},
+        "recovery_proof": {"$ref": "#/$defs/proof"},
+        "sqlite_fk_connection": {"$ref": "#/$defs/proof"},
+        "sqlite_fk_check": {"$ref": "#/$defs/proof"},
+        "sqlite_integrity_check": {"$ref": "#/$defs/proof"},
+        "sqlite_dirty_read_exception": {"$ref": "#/$defs/proof"},
+        "sqlite_single_writer": {"$ref": "#/$defs/proof"},
+        "postgresql_constraints": {"$ref": "#/$defs/proof"},
+        "postgresql_isolation": {"$ref": "#/$defs/proof"},
+        "postgresql_rls": {"$ref": "#/$defs/proof"},
+        "postgresql_pitr": {"$ref": "#/$defs/proof"}
+      }
+    },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_graph", "migration_diff", "transaction_semantics", "query_workload", "recovery_proof", "data_quality", "platform_control_proof", "cross_analyzer_coherence", "evidence_by_key"],
+      "properties": {
+        "schema_graph": {"$ref": "#/$defs/schema_graph_analysis"},
+        "migration_diff": {"$ref": "#/$defs/migration_diff_analysis"},
+        "transaction_semantics": {"$ref": "#/$defs/transaction_semantics_analysis"},
+        "query_workload": {"$ref": "#/$defs/query_workload_analysis"},
+        "recovery_proof": {"$ref": "#/$defs/recovery_proof_analysis"},
+        "data_quality": {"$ref": "#/$defs/data_quality_analysis"},
+        "platform_control_proof": {"$ref": "#/$defs/platform_control_proof"},
+        "cross_analyzer_coherence": {"$ref": "#/$defs/cross_analyzer_coherence"},
+        "evidence_by_key": {"$ref": "#/$defs/evidence_by_key"}
+      }
+    }
+  }
+}

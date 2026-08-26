@@ -1,0 +1,30 @@
+schema_version: soulforge.domain_engine_descriptor.v0
+domain_engine_id: database_engineering
+display_name: Database Engineering Domain Engine
+version: 0.1.0
+status: candidate
+claim_ceiling: source_supported
+execution_mode: deterministic_only
+scope: relational_common_sqlite_3_53_4_postgresql_18_6
+contracts:
+  source_inventory: engines/database_engineering/contracts/database_engineering_source_inventory_v0.json
+  source_packet: engines/database_engineering/contracts/database_engineering_source_packet_v0.md
+  derivation: engines/database_engineering/contracts/database_engineering_derivation_v0.md
+  authority_boundary: engines/database_engineering/contracts/database_engineering_authority_boundary_v0.md
+  evidence_contract: engines/database_engineering/contracts/database_engineering_evidence_contract_v0.md
+  error_model: engines/database_engineering/contracts/database_engineering_error_model_v0.md
+  integration_request: engines/database_engineering/contracts/database_engineering_integration_request_v0.md
+schemas:
+  descriptor: soulforge.database_engineering.domain_descriptor.v0
+  ruleset: soulforge.database_engineering.ruleset.v0
+  project_binding: soulforge.database_engineering.project_binding.v0
+  typed_facts: soulforge.database_engineering.typed_facts.v0
+  evaluation: soulforge.database_engineering.evaluation.v0
+  receipt: soulforge.database_engineering.evaluation_receipt.v0
+  evidence_receipt: soulforge.database_engineering.evidence_receipt.v0
+compiler_adapter: engines/database_engineering/compiler/database_engineering_compiler_adapter.mjs
+evaluator_adapter: engines/database_engineering/evaluator/database_engineering_evaluator_adapter.mjs
+fixtures:
+  public_synthetic: engines/database_engineering/fixtures/database_engineering_public_synthetic.mjs
+manual:
+  root: engines/database_engineering/manual/README.md

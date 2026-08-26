@@ -3,11 +3,12 @@
   "engine_root": "guild_hall/engineering_engine",
   "contract_revision": "phase_1_0_contract.v0",
   "derivation": {
-    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness",
+    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness, engines/database_engineering",
     "areas_covered": [
       "core",
       "engines/systems_engineering",
-      "engines/quality_readiness"
+      "engines/quality_readiness",
+      "engines/database_engineering"
     ],
     "areas_deliberately_excluded": [
       {
@@ -848,6 +849,210 @@
       ],
       "export_count": 15,
       "line_count": 322
+    },
+    {
+      "module": "engines/database_engineering/analysis/data_quality_evidence",
+      "area": "engines",
+      "exports": [
+        "analyseDataQualityEvidence"
+      ],
+      "export_count": 1,
+      "line_count": 14
+    },
+    {
+      "module": "engines/database_engineering/analysis/database_evidence_analyzers",
+      "area": "engines",
+      "exports": [
+        "analyseDatabaseEvidence"
+      ],
+      "export_count": 1,
+      "line_count": 85
+    },
+    {
+      "module": "engines/database_engineering/analysis/migration_diff",
+      "area": "engines",
+      "exports": [
+        "analyseMigrationDiff"
+      ],
+      "export_count": 1,
+      "line_count": 24
+    },
+    {
+      "module": "engines/database_engineering/analysis/platform_control_proof",
+      "area": "engines",
+      "exports": [
+        "analysePlatformControlProof"
+      ],
+      "export_count": 1,
+      "line_count": 28
+    },
+    {
+      "module": "engines/database_engineering/analysis/query_workload_evidence",
+      "area": "engines",
+      "exports": [
+        "analyseQueryWorkloadEvidence"
+      ],
+      "export_count": 1,
+      "line_count": 15
+    },
+    {
+      "module": "engines/database_engineering/analysis/recovery_proof",
+      "area": "engines",
+      "exports": [
+        "analyseRecoveryProof"
+      ],
+      "export_count": 1,
+      "line_count": 53
+    },
+    {
+      "module": "engines/database_engineering/analysis/schema_graph",
+      "area": "engines",
+      "exports": [
+        "analyseSchemaGraph"
+      ],
+      "export_count": 1,
+      "line_count": 29
+    },
+    {
+      "module": "engines/database_engineering/analysis/transaction_semantics",
+      "area": "engines",
+      "exports": [
+        "analyseTransactionSemantics"
+      ],
+      "export_count": 1,
+      "line_count": 17
+    },
+    {
+      "module": "engines/database_engineering/compiler/database_engineering_compiler_adapter",
+      "area": "engines",
+      "exports": [
+        "calculateDatabaseDerivedRulesetDigest",
+        "calculateDatabaseProfileOperationItemDigest",
+        "cloneDatabasePlainData",
+        "compileDatabaseEngineeringRules",
+        "databaseEngineeringCompilerAdapter",
+        "databaseProfileProvenanceRows"
+      ],
+      "export_count": 6,
+      "line_count": 271
+    },
+    {
+      "module": "engines/database_engineering/evaluator/database_engineering_evaluator_adapter",
+      "area": "engines",
+      "exports": [
+        "databaseEngineeringAdapter",
+        "evaluateDatabaseEngineering",
+        "validateDatabaseHardAnalyzerCoverage"
+      ],
+      "export_count": 3,
+      "line_count": 514
+    },
+    {
+      "module": "engines/database_engineering/evaluator/database_project_evidence_adapter",
+      "area": "engines",
+      "exports": [
+        "adaptDatabaseProjectEvidence",
+        "calculateDatabaseTypedFactsDigest",
+        "validateDatabaseAnalysisInput",
+        "validateDatabaseProjectBinding",
+        "validateDatabaseTypedFacts"
+      ],
+      "export_count": 5,
+      "line_count": 372
+    },
+    {
+      "module": "engines/database_engineering/fixtures/database_engineering_public_synthetic",
+      "area": "engines",
+      "exports": [
+        "DATABASE_ENGINEERING_PUBLIC_SYNTHETIC",
+        "buildPostgresqlPublicSyntheticInput",
+        "buildSqlitePublicSyntheticInput",
+        "buildUnsupportedDatabasePublicSyntheticInput"
+      ],
+      "export_count": 4,
+      "line_count": 136
+    },
+    {
+      "module": "engines/database_engineering/guidance/database_engineering_guidance",
+      "area": "engines",
+      "exports": [
+        "DATABASE_ENGINEERING_GUIDANCE"
+      ],
+      "export_count": 1,
+      "line_count": 15
+    },
+    {
+      "module": "engines/database_engineering/platform/database_platform_packs",
+      "area": "engines",
+      "exports": [
+        "DATABASE_PLATFORM_PACKS",
+        "platformAppliesToRule",
+        "resolveDatabasePlatformPack"
+      ],
+      "export_count": 3,
+      "line_count": 70
+    },
+    {
+      "module": "engines/database_engineering/rules/database_engineering_rules",
+      "area": "engines",
+      "exports": [
+        "DATABASE_BASE_RULESET_DIGEST",
+        "DATABASE_BASE_RULESET_REF",
+        "DATABASE_ENGINEERING_RULES",
+        "DATABASE_SOURCE_INVENTORY_REF"
+      ],
+      "export_count": 4,
+      "line_count": 200
+    },
+    {
+      "module": "engines/database_engineering/rules/database_engineering_source_pins",
+      "area": "engines",
+      "exports": [
+        "POSTGRESQL_18_6_EXECUTABLE_SOURCE_IDS",
+        "POSTGRESQL_18_6_EXPECTED_RULE_BY_SOURCE",
+        "POSTGRESQL_18_6_RELEASE_REF_ID",
+        "validatePostgresql18_6ExecutableSourcePins"
+      ],
+      "export_count": 4,
+      "line_count": 93
+    },
+    {
+      "module": "engines/database_engineering/rules/database_engineering_vocabulary",
+      "area": "engines",
+      "exports": [
+        "DATABASE_ENGINE_ID",
+        "DATABASE_EVALUATION_SCHEMA",
+        "DATABASE_EVIDENCE_STATUS",
+        "DATABASE_GAP_STATE",
+        "DATABASE_PLATFORM_FAMILIES",
+        "DATABASE_PROFILE_ADVISORY_EVIDENCE_KEY_PATTERN",
+        "DATABASE_PROJECT_BINDING_SCHEMA",
+        "DATABASE_REVIEW_AXES",
+        "DATABASE_RULESET_SCHEMA",
+        "DATABASE_RULE_KINDS",
+        "DATABASE_SOURCE_AUTHORITY",
+        "DATABASE_TYPED_FACTS_SCHEMA",
+        "DBE_ERROR_CODES",
+        "FORBIDDEN_DATA_PATTERNS"
+      ],
+      "export_count": 14,
+      "line_count": 65
+    },
+    {
+      "module": "engines/database_engineering/tools/database_engineering_runner",
+      "area": "engines",
+      "exports": [],
+      "export_count": 0,
+      "line_count": 14
+    },
+    {
+      "module": "engines/database_engineering/topology/database_engineering_module_manifest",
+      "area": "engines",
+      "exports": [
+        "createDatabaseEngineeringModuleManifest"
+      ],
+      "export_count": 1,
+      "line_count": 34
     },
     {
       "module": "engines/quality_readiness/compiler/quality_readiness_compiler_adapter",
@@ -2309,7 +2514,7 @@
       "line_count": 1885
     }
   ],
-  "module_count": 131,
+  "module_count": 150,
   "module_edges": [
     {
       "from": "core/evaluation_runtime/claim_ceilings",
@@ -3182,6 +3387,321 @@
     {
       "from": "core/validators/snapshot",
       "to": "core/validators/minting",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/analysis/database_evidence_analyzers",
+      "to": "engines/database_engineering/analysis/data_quality_evidence",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/analysis/database_evidence_analyzers",
+      "to": "engines/database_engineering/analysis/migration_diff",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/analysis/database_evidence_analyzers",
+      "to": "engines/database_engineering/analysis/platform_control_proof",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/analysis/database_evidence_analyzers",
+      "to": "engines/database_engineering/analysis/query_workload_evidence",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/analysis/database_evidence_analyzers",
+      "to": "engines/database_engineering/analysis/recovery_proof",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/analysis/database_evidence_analyzers",
+      "to": "engines/database_engineering/analysis/schema_graph",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/analysis/database_evidence_analyzers",
+      "to": "engines/database_engineering/analysis/transaction_semantics",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/compiler/database_engineering_compiler_adapter",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/compiler/database_engineering_compiler_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/compiler/database_engineering_compiler_adapter",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/compiler/database_engineering_compiler_adapter",
+      "to": "engines/database_engineering/rules/database_engineering_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/compiler/database_engineering_compiler_adapter",
+      "to": "engines/database_engineering/rules/database_engineering_vocabulary",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/evaluator/database_engineering_evaluator_adapter",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/evaluator/database_engineering_evaluator_adapter",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/evaluator/database_engineering_evaluator_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/evaluator/database_engineering_evaluator_adapter",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/evaluator/database_engineering_evaluator_adapter",
+      "to": "engines/database_engineering/analysis/database_evidence_analyzers",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/evaluator/database_engineering_evaluator_adapter",
+      "to": "engines/database_engineering/compiler/database_engineering_compiler_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/evaluator/database_engineering_evaluator_adapter",
+      "to": "engines/database_engineering/evaluator/database_project_evidence_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/evaluator/database_engineering_evaluator_adapter",
+      "to": "engines/database_engineering/platform/database_platform_packs",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/evaluator/database_engineering_evaluator_adapter",
+      "to": "engines/database_engineering/rules/database_engineering_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/evaluator/database_engineering_evaluator_adapter",
+      "to": "engines/database_engineering/rules/database_engineering_vocabulary",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/evaluator/database_project_evidence_adapter",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/evaluator/database_project_evidence_adapter",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/evaluator/database_project_evidence_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/evaluator/database_project_evidence_adapter",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/evaluator/database_project_evidence_adapter",
+      "to": "engines/database_engineering/compiler/database_engineering_compiler_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/evaluator/database_project_evidence_adapter",
+      "to": "engines/database_engineering/platform/database_platform_packs",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/evaluator/database_project_evidence_adapter",
+      "to": "engines/database_engineering/rules/database_engineering_vocabulary",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/fixtures/database_engineering_public_synthetic",
+      "to": "engines/database_engineering/rules/database_engineering_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/fixtures/database_engineering_public_synthetic",
+      "to": "engines/database_engineering/rules/database_engineering_vocabulary",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/guidance/database_engineering_guidance",
+      "to": "engines/database_engineering/rules/database_engineering_vocabulary",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/platform/database_platform_packs",
+      "to": "engines/database_engineering/rules/database_engineering_source_pins",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/platform/database_platform_packs",
+      "to": "engines/database_engineering/rules/database_engineering_vocabulary",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/rules/database_engineering_rules",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/rules/database_engineering_rules",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/rules/database_engineering_rules",
+      "to": "engines/database_engineering/rules/database_engineering_vocabulary",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/rules/database_engineering_source_pins",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/rules/database_engineering_source_pins",
+      "to": "engines/database_engineering/rules/database_engineering_vocabulary",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/rules/database_engineering_vocabulary",
+      "to": "core/validators/snapshot",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/tools/database_engineering_runner",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/tools/database_engineering_runner",
+      "to": "engines/database_engineering/evaluator/database_engineering_evaluator_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/tools/database_engineering_runner",
+      "to": "engines/database_engineering/evaluator/database_project_evidence_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/tools/database_engineering_runner",
+      "to": "engines/database_engineering/fixtures/database_engineering_public_synthetic",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/database_engineering/topology/database_engineering_module_manifest",
+      "to": "core/validators/fingerprint",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
@@ -5203,7 +5723,7 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 413,
+  "module_edge_count": 458,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -5554,5 +6074,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "3084fc6c37de8573db49773c85e4e98a1b4fe38389604906a9daee25de86a1e2"
+  "topology_digest": "015fab9c65e78bcc609a8c31d3bfb5c6459ce2059a422255ea93b6c81ef964e3"
 }

@@ -52,6 +52,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.fixtures.database_engineering_public_synthetic",
+      "id": "engineering_engine::imports.05e910e718a3afdd9ea2a5d4f1102158",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.rules.database_engineering_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.tools.engine_next_steps_runner",
       "id": "engineering_engine::imports.062c6cb4e15ba995bce5b7a6af2ac6aa",
       "label": "imports",
@@ -89,6 +99,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.access_table"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.analysis.database_evidence_analyzers",
+      "id": "engineering_engine::imports.0cbc13b27a8056867bf0dcea40e0a4ee",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.analysis.migration_diff"
     },
     {
       "evidence_mode": "structural_only",
@@ -142,6 +162,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.compiler.database_engineering_compiler_adapter",
+      "id": "engineering_engine::imports.127c5336b412ec1da3c30f30ee98c0d9",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.rules.database_engineering_vocabulary"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.tools.manual_shadow_comparison",
       "id": "engineering_engine::imports.12b73f4ff1de3c1b7d9abb2dfd037004",
       "label": "imports",
@@ -179,6 +209,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.evaluator.ax_se_project_role_bound_assessment"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.compiler.database_engineering_compiler_adapter",
+      "id": "engineering_engine::imports.150f7eda9f2f72b466b4012d1a7ba8d2",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.rules.database_engineering_rules"
     },
     {
       "evidence_mode": "structural_only",
@@ -252,6 +292,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.tools.database_engineering_runner",
+      "id": "engineering_engine::imports.1ab447120493f750a474733cf8083f18",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.index",
       "id": "engineering_engine::imports.1af79300e80e6dacdb58d9958d6b1641",
       "label": "imports",
@@ -312,6 +362,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.evaluator.database_project_evidence_adapter",
+      "id": "engineering_engine::imports.2269595f760a8e75e599e6842be2a104",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.rules.database_engineering_vocabulary"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.observation.artifact_observation_candidates",
       "id": "engineering_engine::imports.227d31332810e94162829c2393815510",
       "label": "imports",
@@ -359,6 +419,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.tools.judge_result"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.analysis.database_evidence_analyzers",
+      "id": "engineering_engine::imports.27c9d446e685198f3fd65c96da3baf04",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.analysis.transaction_semantics"
     },
     {
       "evidence_mode": "structural_only",
@@ -439,6 +509,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.tools.database_engineering_runner",
+      "id": "engineering_engine::imports.33b692f4457265984f7950404bfecbaf",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.evaluator.database_project_evidence_adapter"
     },
     {
       "evidence_mode": "structural_only",
@@ -542,6 +622,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+      "id": "engineering_engine::imports.3d34dba89b5906c6bfcf112c992a58e8",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.rules.stage_rule_compiler",
       "id": "engineering_engine::imports.3e462b7620cdd5b98ecfc244e8e60fbb",
       "label": "imports",
@@ -642,6 +732,26 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.fixtures.database_engineering_public_synthetic",
+      "id": "engineering_engine::imports.4af8f86cc0825ecf0dbf10515fcd4b2f",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.rules.database_engineering_vocabulary"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+      "id": "engineering_engine::imports.4b9cf7f8d51f51580288731c3e888f95",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.rules.database_engineering_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluator.common_se_corpus_projection",
       "id": "engineering_engine::imports.4d38723e5bbd9f694f97375776a0d0ef",
       "label": "imports",
@@ -722,6 +832,36 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.topology.database_engineering_module_manifest",
+      "id": "engineering_engine::imports.5214ee0b879261664b6f53a58309897f",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+      "id": "engineering_engine::imports.5268e575d5545e1bbb0b34c3b556f78b",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.compiler.database_engineering_compiler_adapter",
+      "id": "engineering_engine::imports.528598e628db76a3f69e12f6bcb27ed1",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.fixtures.engine_mcp_synthetic_project",
       "id": "engineering_engine::imports.5345c39788806e379e90069a6745f069",
       "label": "imports",
@@ -792,6 +932,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+      "id": "engineering_engine::imports.5539a7b15d7b7c63fd832539a0d632a6",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.quality_readiness.compiler.quality_readiness_compiler_adapter",
       "id": "engineering_engine::imports.578ac6399d2cf26dd5611807b999bf8b",
       "label": "imports",
@@ -832,6 +982,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.compiler.database_engineering_compiler_adapter",
+      "id": "engineering_engine::imports.5da30357bfa610a725fa16564ed5994e",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluator.ax_se_project_context_pilot",
       "id": "engineering_engine::imports.5ea8ac70c0192553b795877a920b5a0d",
       "label": "imports",
@@ -849,6 +1009,36 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.rules.stage_rule_compiler"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.evaluator.database_project_evidence_adapter",
+      "id": "engineering_engine::imports.5f5db80a640462677855b3accaff63ce",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.platform.database_platform_packs"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.rules.database_engineering_rules",
+      "id": "engineering_engine::imports.60675879a023ff645c1e763fa5c97328",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.rules.database_engineering_vocabulary"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+      "id": "engineering_engine::imports.6232aeef71cc7eee54e3e1144d4e43e2",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.evaluator.database_project_evidence_adapter"
     },
     {
       "evidence_mode": "structural_only",
@@ -942,6 +1132,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.evaluator.database_project_evidence_adapter",
+      "id": "engineering_engine::imports.6a364defee8fe30c51e7b74555a85a5f",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.compiler.database_engineering_compiler_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.file_ticket",
       "id": "engineering_engine::imports.6a7c0d640213b1250dc1b45a7e591daf",
       "label": "imports",
@@ -962,6 +1162,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.tools.database_engineering_runner",
+      "id": "engineering_engine::imports.6e200cf583da1245e8fc859583f96343",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.fixtures.database_engineering_public_synthetic"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.next_steps",
       "id": "engineering_engine::imports.6ec611652097a0d36ced14d4aa5c1632",
       "label": "imports",
@@ -969,6 +1179,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.rules.stage_rule_compiler"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.analysis.database_evidence_analyzers",
+      "id": "engineering_engine::imports.6f2a809681b718bb956bf6a33c375c0b",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.analysis.schema_graph"
     },
     {
       "evidence_mode": "structural_only",
@@ -1102,6 +1322,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+      "id": "engineering_engine::imports.7d2eddda67ca47ea00f1006fb62dad87",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.rules.database_engineering_vocabulary"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter",
       "id": "engineering_engine::imports.7d3f35d4458848d71e5e9d8a52b305ce",
       "label": "imports",
@@ -1109,6 +1339,36 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.quality_readiness.rules.quality_readiness_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.platform.database_platform_packs",
+      "id": "engineering_engine::imports.7e411229ddc98c597cb815ae0982757c",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.rules.database_engineering_vocabulary"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.evaluator.database_project_evidence_adapter",
+      "id": "engineering_engine::imports.7ea2573134712924e68e757713667efb",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+      "id": "engineering_engine::imports.7ecd1f7b61671d8d949be61289ed192a",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.analysis.database_evidence_analyzers"
     },
     {
       "evidence_mode": "structural_only",
@@ -1132,6 +1392,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.rules.database_engineering_source_pins",
+      "id": "engineering_engine::imports.82749ef463bb2b1e16f93cdba1ac3abd",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.rules.database_engineering_vocabulary"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter",
       "id": "engineering_engine::imports.82b9f5ab1554018a0f33b774c15ee67f",
       "label": "imports",
@@ -1149,6 +1419,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.render"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.evaluator.database_project_evidence_adapter",
+      "id": "engineering_engine::imports.83ced7b5132a2d20aeb39e2b584e5244",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
     },
     {
       "evidence_mode": "structural_only",
@@ -1289,6 +1569,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.paging"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.rules.database_engineering_vocabulary",
+      "id": "engineering_engine::imports.949c8b54cf0adb5659a7a12611979169",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.snapshot"
     },
     {
       "evidence_mode": "structural_only",
@@ -1472,6 +1762,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.evaluator.database_project_evidence_adapter",
+      "id": "engineering_engine::imports.ab2e7d4035b3dc2173f9df3d4f009449",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.observation.observation_confirmation_sheet",
       "id": "engineering_engine::imports.ab61c83e27da55741f78f4859feb98c0",
       "label": "imports",
@@ -1579,6 +1879,26 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.platform.database_platform_packs",
+      "id": "engineering_engine::imports.b85e41e8d5a8f766fb86244a03820813",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.rules.database_engineering_source_pins"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.analysis.database_evidence_analyzers",
+      "id": "engineering_engine::imports.b8ca5b2dec0ae65eb97abfc821d4a8d6",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.analysis.platform_control_proof"
     },
     {
       "evidence_mode": "structural_only",
@@ -1702,6 +2022,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+      "id": "engineering_engine::imports.c4534aa28c2a93a48eb3066bc23cfedf",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.platform.database_platform_packs"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluator.ax_se_project_context_pilot",
       "id": "engineering_engine::imports.c4f64151d02b2822b8b4bb9211176ea6",
       "label": "imports",
@@ -1719,6 +2049,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.engine_context"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.rules.database_engineering_rules",
+      "id": "engineering_engine::imports.c7f688358c009485e00dcf42381801a1",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
     },
     {
       "evidence_mode": "structural_only",
@@ -1772,6 +2112,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.analysis.database_evidence_analyzers",
+      "id": "engineering_engine::imports.cb067f0679a8092ef79f6888c8fa6f6e",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.analysis.query_workload_evidence"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.index",
       "id": "engineering_engine::imports.cb182b43276b92bc6f5df29ea6f22ec1",
       "label": "imports",
@@ -1779,6 +2129,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.tools.next_steps"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.analysis.database_evidence_analyzers",
+      "id": "engineering_engine::imports.cbd05984981ae22f034431a139b1ca8f",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.analysis.recovery_proof"
     },
     {
       "evidence_mode": "structural_only",
@@ -3142,6 +3502,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.compiler.database_engineering_compiler_adapter",
+      "id": "engineering_engine::imports.d86efa3264d991c81b469e8494484583",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.quality_readiness.compiler.quality_readiness_compiler_adapter",
       "id": "engineering_engine::imports.d8f0ae568355d28b70d3f2c8597a9bea",
       "label": "imports",
@@ -3159,6 +3529,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+      "id": "engineering_engine::imports.d9b081da272fd887179bca10bacfda1c",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.compiler.database_engineering_compiler_adapter"
     },
     {
       "evidence_mode": "structural_only",
@@ -3219,6 +3599,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.guidance.guide_cards"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+      "id": "engineering_engine::imports.ddc90e7cc6fc48658f1c96ffbb0f1e0a",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
     },
     {
       "evidence_mode": "structural_only",
@@ -3292,6 +3682,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.tools.database_engineering_runner",
+      "id": "engineering_engine::imports.e6a72f50a16470f66ad2517e07a81a90",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.evaluator.database_engineering_evaluator_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.quality_readiness.compiler.quality_readiness_compiler_adapter",
       "id": "engineering_engine::imports.e6f79885675f53291554da380debb700",
       "label": "imports",
@@ -3332,6 +3732,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.rules.database_engineering_source_pins",
+      "id": "engineering_engine::imports.ebf870e70317bba4f782f223c5235c6b",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.judge_diff",
       "id": "engineering_engine::imports.ec5645719ebd93238097c8298cd824e2",
       "label": "imports",
@@ -3362,6 +3772,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.evaluator.database_project_evidence_adapter",
+      "id": "engineering_engine::imports.ee4d9a2b76ac81ab93913963fb7fee0e",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluator.ax_se_project_role_bound_assessment",
       "id": "engineering_engine::imports.eeca39c137f30a981cc05c6b2ee14879",
       "label": "imports",
@@ -3369,6 +3789,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.rules.database_engineering_rules",
+      "id": "engineering_engine::imports.engines.database_engineering.rules.database_engineering_rules.core.validators.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
     },
     {
       "evidence_mode": "structural_only",
@@ -4062,6 +4492,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.analysis.database_evidence_analyzers",
+      "id": "engineering_engine::imports.f90aee7df4f69b50072d1e7c9350d96b",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.analysis.data_quality_evidence"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.observe_register",
       "id": "engineering_engine::imports.f959bd98fc2eaad053a725693dfac52c",
       "label": "imports",
@@ -4089,6 +4529,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.database_engineering.guidance.database_engineering_guidance",
+      "id": "engineering_engine::imports.fa811735e007ac856a8c60dc73d5c179",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.database_engineering.rules.database_engineering_vocabulary"
     },
     {
       "evidence_mode": "structural_only",
@@ -5023,6 +5473,215 @@
       "id": "engineering_engine::core.validators.snapshot",
       "kind": "module",
       "label": "core/validators/snapshot",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.database_engineering.analysis.data_quality_evidence",
+      "kind": "module",
+      "label": "engines/database_engineering/analysis/data_quality_evidence",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.database_engineering.analysis.database_evidence_analyzers",
+      "kind": "module",
+      "label": "engines/database_engineering/analysis/database_evidence_analyzers",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.database_engineering.analysis.migration_diff",
+      "kind": "module",
+      "label": "engines/database_engineering/analysis/migration_diff",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.database_engineering.analysis.platform_control_proof",
+      "kind": "module",
+      "label": "engines/database_engineering/analysis/platform_control_proof",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.database_engineering.analysis.query_workload_evidence",
+      "kind": "module",
+      "label": "engines/database_engineering/analysis/query_workload_evidence",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.database_engineering.analysis.recovery_proof",
+      "kind": "module",
+      "label": "engines/database_engineering/analysis/recovery_proof",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.database_engineering.analysis.schema_graph",
+      "kind": "module",
+      "label": "engines/database_engineering/analysis/schema_graph",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.database_engineering.analysis.transaction_semantics",
+      "kind": "module",
+      "label": "engines/database_engineering/analysis/transaction_semantics",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.database_engineering.compiler.database_engineering_compiler_adapter",
+      "kind": "module",
+      "label": "engines/database_engineering/compiler/database_engineering_compiler_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+      "kind": "module",
+      "label": "engines/database_engineering/evaluator/database_engineering_evaluator_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.database_engineering.evaluator.database_project_evidence_adapter",
+      "kind": "module",
+      "label": "engines/database_engineering/evaluator/database_project_evidence_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.database_engineering.fixtures.database_engineering_public_synthetic",
+      "kind": "module",
+      "label": "engines/database_engineering/fixtures/database_engineering_public_synthetic",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.database_engineering.guidance.database_engineering_guidance",
+      "kind": "module",
+      "label": "engines/database_engineering/guidance/database_engineering_guidance",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.database_engineering.platform.database_platform_packs",
+      "kind": "module",
+      "label": "engines/database_engineering/platform/database_platform_packs",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.database_engineering.rules.database_engineering_rules",
+      "kind": "module",
+      "label": "engines/database_engineering/rules/database_engineering_rules",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.database_engineering.rules.database_engineering_source_pins",
+      "kind": "module",
+      "label": "engines/database_engineering/rules/database_engineering_source_pins",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.database_engineering.rules.database_engineering_vocabulary",
+      "kind": "module",
+      "label": "engines/database_engineering/rules/database_engineering_vocabulary",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.database_engineering.tools.database_engineering_runner",
+      "kind": "module",
+      "label": "engines/database_engineering/tools/database_engineering_runner",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.database_engineering.topology.database_engineering_module_manifest",
+      "kind": "module",
+      "label": "engines/database_engineering/topology/database_engineering_module_manifest",
       "layer": "module",
       "parent_id": null,
       "provider_id": "engineering_engine",
@@ -6576,6 +7235,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.fixtures.database_engineering_public_synthetic",
+          "id": "imports.05e910e718a3afdd9ea2a5d4f1102158",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.rules.database_engineering_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.tools.engine_next_steps_runner",
           "id": "imports.062c6cb4e15ba995bce5b7a6af2ac6aa",
           "label": "imports",
@@ -6609,6 +7277,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.access_table"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.analysis.database_evidence_analyzers",
+          "id": "imports.0cbc13b27a8056867bf0dcea40e0a4ee",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.analysis.migration_diff"
         },
         {
           "evidence_mode": "structural_only",
@@ -6657,6 +7334,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.compiler.database_engineering_compiler_adapter",
+          "id": "imports.127c5336b412ec1da3c30f30ee98c0d9",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.rules.database_engineering_vocabulary"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.tools.manual_shadow_comparison",
           "id": "imports.12b73f4ff1de3c1b7d9abb2dfd037004",
           "label": "imports",
@@ -6690,6 +7376,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.evaluator.ax_se_project_role_bound_assessment"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.compiler.database_engineering_compiler_adapter",
+          "id": "imports.150f7eda9f2f72b466b4012d1a7ba8d2",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.rules.database_engineering_rules"
         },
         {
           "evidence_mode": "structural_only",
@@ -6756,6 +7451,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.tools.database_engineering_runner",
+          "id": "imports.1ab447120493f750a474733cf8083f18",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.index",
           "id": "imports.1af79300e80e6dacdb58d9958d6b1641",
           "label": "imports",
@@ -6810,6 +7514,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.evaluator.database_project_evidence_adapter",
+          "id": "imports.2269595f760a8e75e599e6842be2a104",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.rules.database_engineering_vocabulary"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.observation.artifact_observation_candidates",
           "id": "imports.227d31332810e94162829c2393815510",
           "label": "imports",
@@ -6852,6 +7565,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.tools.judge_result"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.analysis.database_evidence_analyzers",
+          "id": "imports.27c9d446e685198f3fd65c96da3baf04",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.analysis.transaction_semantics"
         },
         {
           "evidence_mode": "structural_only",
@@ -6924,6 +7646,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.tools.database_engineering_runner",
+          "id": "imports.33b692f4457265984f7950404bfecbaf",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.evaluator.database_project_evidence_adapter"
         },
         {
           "evidence_mode": "structural_only",
@@ -7017,6 +7748,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+          "id": "imports.3d34dba89b5906c6bfcf112c992a58e8",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.rules.stage_rule_compiler",
           "id": "imports.3e462b7620cdd5b98ecfc244e8e60fbb",
           "label": "imports",
@@ -7107,6 +7847,24 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.fixtures.database_engineering_public_synthetic",
+          "id": "imports.4af8f86cc0825ecf0dbf10515fcd4b2f",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.rules.database_engineering_vocabulary"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+          "id": "imports.4b9cf7f8d51f51580288731c3e888f95",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.rules.database_engineering_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluator.common_se_corpus_projection",
           "id": "imports.4d38723e5bbd9f694f97375776a0d0ef",
           "label": "imports",
@@ -7179,6 +7937,33 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.topology.database_engineering_module_manifest",
+          "id": "imports.5214ee0b879261664b6f53a58309897f",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+          "id": "imports.5268e575d5545e1bbb0b34c3b556f78b",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.compiler.database_engineering_compiler_adapter",
+          "id": "imports.528598e628db76a3f69e12f6bcb27ed1",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.fixtures.engine_mcp_synthetic_project",
           "id": "imports.5345c39788806e379e90069a6745f069",
           "label": "imports",
@@ -7242,6 +8027,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+          "id": "imports.5539a7b15d7b7c63fd832539a0d632a6",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.quality_readiness.compiler.quality_readiness_compiler_adapter",
           "id": "imports.578ac6399d2cf26dd5611807b999bf8b",
           "label": "imports",
@@ -7278,6 +8072,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.compiler.database_engineering_compiler_adapter",
+          "id": "imports.5da30357bfa610a725fa16564ed5994e",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluator.ax_se_project_context_pilot",
           "id": "imports.5ea8ac70c0192553b795877a920b5a0d",
           "label": "imports",
@@ -7293,6 +8096,33 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.rules.stage_rule_compiler"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.evaluator.database_project_evidence_adapter",
+          "id": "imports.5f5db80a640462677855b3accaff63ce",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.platform.database_platform_packs"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.rules.database_engineering_rules",
+          "id": "imports.60675879a023ff645c1e763fa5c97328",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.rules.database_engineering_vocabulary"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+          "id": "imports.6232aeef71cc7eee54e3e1144d4e43e2",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.evaluator.database_project_evidence_adapter"
         },
         {
           "evidence_mode": "structural_only",
@@ -7377,6 +8207,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.evaluator.database_project_evidence_adapter",
+          "id": "imports.6a364defee8fe30c51e7b74555a85a5f",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.compiler.database_engineering_compiler_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.file_ticket",
           "id": "imports.6a7c0d640213b1250dc1b45a7e591daf",
           "label": "imports",
@@ -7395,12 +8234,30 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.tools.database_engineering_runner",
+          "id": "imports.6e200cf583da1245e8fc859583f96343",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.fixtures.database_engineering_public_synthetic"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.next_steps",
           "id": "imports.6ec611652097a0d36ced14d4aa5c1632",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.rules.stage_rule_compiler"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.analysis.database_evidence_analyzers",
+          "id": "imports.6f2a809681b718bb956bf6a33c375c0b",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.analysis.schema_graph"
         },
         {
           "evidence_mode": "structural_only",
@@ -7521,12 +8378,48 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+          "id": "imports.7d2eddda67ca47ea00f1006fb62dad87",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.rules.database_engineering_vocabulary"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter",
           "id": "imports.7d3f35d4458848d71e5e9d8a52b305ce",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
           "to": "engines.quality_readiness.rules.quality_readiness_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.platform.database_platform_packs",
+          "id": "imports.7e411229ddc98c597cb815ae0982757c",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.rules.database_engineering_vocabulary"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.evaluator.database_project_evidence_adapter",
+          "id": "imports.7ea2573134712924e68e757713667efb",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+          "id": "imports.7ecd1f7b61671d8d949be61289ed192a",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.analysis.database_evidence_analyzers"
         },
         {
           "evidence_mode": "structural_only",
@@ -7548,6 +8441,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.rules.database_engineering_source_pins",
+          "id": "imports.82749ef463bb2b1e16f93cdba1ac3abd",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.rules.database_engineering_vocabulary"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter",
           "id": "imports.82b9f5ab1554018a0f33b774c15ee67f",
           "label": "imports",
@@ -7563,6 +8465,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.render"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.evaluator.database_project_evidence_adapter",
+          "id": "imports.83ced7b5132a2d20aeb39e2b584e5244",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
         },
         {
           "evidence_mode": "structural_only",
@@ -7689,6 +8600,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.paging"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.rules.database_engineering_vocabulary",
+          "id": "imports.949c8b54cf0adb5659a7a12611979169",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.snapshot"
         },
         {
           "evidence_mode": "structural_only",
@@ -7854,6 +8774,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.evaluator.database_project_evidence_adapter",
+          "id": "imports.ab2e7d4035b3dc2173f9df3d4f009449",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.observation.observation_confirmation_sheet",
           "id": "imports.ab61c83e27da55741f78f4859feb98c0",
           "label": "imports",
@@ -7950,6 +8879,24 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.platform.database_platform_packs",
+          "id": "imports.b85e41e8d5a8f766fb86244a03820813",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.rules.database_engineering_source_pins"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.analysis.database_evidence_analyzers",
+          "id": "imports.b8ca5b2dec0ae65eb97abfc821d4a8d6",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.analysis.platform_control_proof"
         },
         {
           "evidence_mode": "structural_only",
@@ -8061,6 +9008,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+          "id": "imports.c4534aa28c2a93a48eb3066bc23cfedf",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.platform.database_platform_packs"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluator.ax_se_project_context_pilot",
           "id": "imports.c4f64151d02b2822b8b4bb9211176ea6",
           "label": "imports",
@@ -8076,6 +9032,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.engine_context"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.rules.database_engineering_rules",
+          "id": "imports.c7f688358c009485e00dcf42381801a1",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
         },
         {
           "evidence_mode": "structural_only",
@@ -8124,12 +9089,30 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.analysis.database_evidence_analyzers",
+          "id": "imports.cb067f0679a8092ef79f6888c8fa6f6e",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.analysis.query_workload_evidence"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.index",
           "id": "imports.cb182b43276b92bc6f5df29ea6f22ec1",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.tools.next_steps"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.analysis.database_evidence_analyzers",
+          "id": "imports.cbd05984981ae22f034431a139b1ca8f",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.analysis.recovery_proof"
         },
         {
           "evidence_mode": "structural_only",
@@ -9357,6 +10340,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.compiler.database_engineering_compiler_adapter",
+          "id": "imports.d86efa3264d991c81b469e8494484583",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.quality_readiness.compiler.quality_readiness_compiler_adapter",
           "id": "imports.d8f0ae568355d28b70d3f2c8597a9bea",
           "label": "imports",
@@ -9372,6 +10364,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+          "id": "imports.d9b081da272fd887179bca10bacfda1c",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.compiler.database_engineering_compiler_adapter"
         },
         {
           "evidence_mode": "structural_only",
@@ -9426,6 +10427,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.guidance.guide_cards"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+          "id": "imports.ddc90e7cc6fc48658f1c96ffbb0f1e0a",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
         },
         {
           "evidence_mode": "structural_only",
@@ -9492,6 +10502,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.tools.database_engineering_runner",
+          "id": "imports.e6a72f50a16470f66ad2517e07a81a90",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.evaluator.database_engineering_evaluator_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.quality_readiness.compiler.quality_readiness_compiler_adapter",
           "id": "imports.e6f79885675f53291554da380debb700",
           "label": "imports",
@@ -9528,6 +10547,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.rules.database_engineering_source_pins",
+          "id": "imports.ebf870e70317bba4f782f223c5235c6b",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.judge_diff",
           "id": "imports.ec5645719ebd93238097c8298cd824e2",
           "label": "imports",
@@ -9555,12 +10583,30 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.evaluator.database_project_evidence_adapter",
+          "id": "imports.ee4d9a2b76ac81ab93913963fb7fee0e",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluator.ax_se_project_role_bound_assessment",
           "id": "imports.eeca39c137f30a981cc05c6b2ee14879",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.rules.database_engineering_rules",
+          "id": "imports.engines.database_engineering.rules.database_engineering_rules.core.validators.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
         },
         {
           "evidence_mode": "structural_only",
@@ -10185,6 +11231,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.analysis.database_evidence_analyzers",
+          "id": "imports.f90aee7df4f69b50072d1e7c9350d96b",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.analysis.data_quality_evidence"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.observe_register",
           "id": "imports.f959bd98fc2eaad053a725693dfac52c",
           "label": "imports",
@@ -10209,6 +11264,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.database_engineering.guidance.database_engineering_guidance",
+          "id": "imports.fa811735e007ac856a8c60dc73d5c179",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.database_engineering.rules.database_engineering_vocabulary"
         },
         {
           "evidence_mode": "structural_only",
@@ -10605,6 +11669,196 @@
           "id": "core.validators.snapshot",
           "kind": "module",
           "label": "core/validators/snapshot",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.database_engineering.analysis.data_quality_evidence",
+          "kind": "module",
+          "label": "engines/database_engineering/analysis/data_quality_evidence",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.database_engineering.analysis.database_evidence_analyzers",
+          "kind": "module",
+          "label": "engines/database_engineering/analysis/database_evidence_analyzers",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.database_engineering.analysis.migration_diff",
+          "kind": "module",
+          "label": "engines/database_engineering/analysis/migration_diff",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.database_engineering.analysis.platform_control_proof",
+          "kind": "module",
+          "label": "engines/database_engineering/analysis/platform_control_proof",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.database_engineering.analysis.query_workload_evidence",
+          "kind": "module",
+          "label": "engines/database_engineering/analysis/query_workload_evidence",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.database_engineering.analysis.recovery_proof",
+          "kind": "module",
+          "label": "engines/database_engineering/analysis/recovery_proof",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.database_engineering.analysis.schema_graph",
+          "kind": "module",
+          "label": "engines/database_engineering/analysis/schema_graph",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.database_engineering.analysis.transaction_semantics",
+          "kind": "module",
+          "label": "engines/database_engineering/analysis/transaction_semantics",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.database_engineering.compiler.database_engineering_compiler_adapter",
+          "kind": "module",
+          "label": "engines/database_engineering/compiler/database_engineering_compiler_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
+          "kind": "module",
+          "label": "engines/database_engineering/evaluator/database_engineering_evaluator_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.database_engineering.evaluator.database_project_evidence_adapter",
+          "kind": "module",
+          "label": "engines/database_engineering/evaluator/database_project_evidence_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.database_engineering.fixtures.database_engineering_public_synthetic",
+          "kind": "module",
+          "label": "engines/database_engineering/fixtures/database_engineering_public_synthetic",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.database_engineering.guidance.database_engineering_guidance",
+          "kind": "module",
+          "label": "engines/database_engineering/guidance/database_engineering_guidance",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.database_engineering.platform.database_platform_packs",
+          "kind": "module",
+          "label": "engines/database_engineering/platform/database_platform_packs",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.database_engineering.rules.database_engineering_rules",
+          "kind": "module",
+          "label": "engines/database_engineering/rules/database_engineering_rules",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.database_engineering.rules.database_engineering_source_pins",
+          "kind": "module",
+          "label": "engines/database_engineering/rules/database_engineering_source_pins",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.database_engineering.rules.database_engineering_vocabulary",
+          "kind": "module",
+          "label": "engines/database_engineering/rules/database_engineering_vocabulary",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.database_engineering.tools.database_engineering_runner",
+          "kind": "module",
+          "label": "engines/database_engineering/tools/database_engineering_runner",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.database_engineering.topology.database_engineering_module_manifest",
+          "kind": "module",
+          "label": "engines/database_engineering/topology/database_engineering_module_manifest",
           "layer": "module",
           "parent_id": null,
           "repair_state": "none"
@@ -11566,7 +12820,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "23ae165892a1173917e79303e1c3cab324194e412139d25bf360e2d715c7d303",
+        "digest": "e8cadbed1825a5c0d9caddc56d8c8980a4e4af84810153ce842c06b136fd9e1c",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -12560,13 +13814,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "8f1e63571be24a05ee626bf7a8035b30a6e7c3c6f1fe7e6de74786194cb4293c",
+  "source_set_digest": "5f04f960f5d3c60e0e093a55cb878cc85088dcff92f607fcf7abe61b6dfa79c8",
   "summary": {
-    "edge_count": 463,
-    "node_count": 170,
+    "edge_count": 508,
+    "node_count": 189,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "07c6ec914db04ad9ba1441f7cb9d0984e385f5e0d99a420a834f01c6cd928f14"
+  "topology_digest": "88c96c47fc9649d844b64f12ba49679d60b6ca3dc96e01934bb636b9eabe65a7"
 }

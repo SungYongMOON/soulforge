@@ -1,0 +1,22 @@
+{
+  "schema_version": "soulforge.database_engineering.topology.v0",
+  "domain_engine_id": "database_engineering",
+  "claim_ceiling": "source_supported",
+  "public_interface": [
+    "compiler/database_engineering_compiler_adapter.mjs",
+    "evaluator/database_engineering_evaluator_adapter.mjs",
+    "evaluator/database_project_evidence_adapter.mjs"
+  ],
+  "internal_modules": [
+    "analysis/schema_graph.mjs",
+    "analysis/migration_diff.mjs",
+    "analysis/transaction_semantics.mjs",
+    "analysis/query_workload_evidence.mjs",
+    "analysis/recovery_proof.mjs",
+    "analysis/data_quality_evidence.mjs",
+    "analysis/platform_control_proof.mjs",
+    "analysis/database_evidence_analyzers.mjs"
+  ],
+  "shared_integration": "../contracts/database_engineering_integration_request_v0.md",
+  "effects": { "file_writes": 0, "network_calls": 0, "db_writes": 0, "model_calls": 0 }
+}

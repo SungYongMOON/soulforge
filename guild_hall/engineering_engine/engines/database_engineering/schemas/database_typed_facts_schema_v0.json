@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.database_engineering.typed_facts.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project_binding", "requirements", "evidence", "analysis_input", "platform_supported", "facts_digest", "valid_at", "known_at"],
+  "properties": {
+    "schema_version": {"const": "soulforge.database_engineering.typed_facts.v0"},
+    "project_binding": {"$ref": "#/$defs/project_binding"},
+    "requirements": {"type": "array", "items": {"$ref": "#/$defs/requirement"}},
+    "evidence": {"type": "array", "items": {"$ref": "#/$defs/observation"}},
+    "analysis_input": {"$ref": "#/$defs/analysis_input"},
+    "platform_supported": {"type": "boolean"},
+    "facts_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "valid_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?Z$"},
+    "known_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?Z$"}
+  },
+  "$defs": {
+    "opaque_ref": {"type": "string", "minLength": 1, "maxLength": 256},
+    "project_binding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "project_id", "domain_engine_id", "binding_revision_hash", "platform", "source_manifest_ref", "source_refs", "authority_bindings", "evidence_bindings", "evidence_ref_allowlist"],
+      "properties": {
+        "schema_version": {"const": "soulforge.database_engineering.project_binding.v0"},
+        "project_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,80}$"},
+        "domain_engine_id": {"const": "database_engineering"},
+        "binding_revision_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "platform": {"$ref": "#/$defs/platform"},
+        "source_manifest_ref": {"$ref": "#/$defs/opaque_ref"},
+        "source_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/opaque_ref"}},
+        "authority_bindings": {"type": "array", "items": {"$ref": "#/$defs/authority_binding"}},
+        "evidence_bindings": {"type": "array", "items": {"$ref": "#/$defs/evidence_binding"}},
+        "evidence_ref_allowlist": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/opaque_ref"}}
+      }
+    },
+    "platform": {"type": "object", "additionalProperties": false, "required": ["family", "version"], "properties": {"family": {"type": "string", "minLength": 1}, "version": {"type": "string", "minLength": 1}}},
+    "authority_binding": {"type": "object", "additionalProperties": false, "required": ["rule_id", "authority_ref", "source_manifest_ref"], "properties": {"rule_id": {"$ref": "#/$defs/opaque_ref"}, "authority_ref": {"$ref": "#/$defs/opaque_ref"}, "source_manifest_ref": {"$ref": "#/$defs/opaque_ref"}}},
+    "evidence_binding": {"type": "object", "additionalProperties": false, "required": ["rule_id", "evidence_ref", "source_manifest_ref"], "properties": {"rule_id": {"$ref": "#/$defs/opaque_ref"}, "evidence_ref": {"$ref": "#/$defs/opaque_ref"}, "source_manifest_ref": {"$ref": "#/$defs/opaque_ref"}}},
+    "requirement": {"type": "object", "additionalProperties": false, "required": ["project_id", "rule_id", "requirement_id", "authority_ref"], "properties": {"project_id": {"$ref": "#/$defs/opaque_ref"}, "rule_id": {"$ref": "#/$defs/opaque_ref"}, "requirement_id": {"$ref": "#/$defs/opaque_ref"}, "authority_ref": {"$ref": "#/$defs/opaque_ref"}}},
+    "observation": {"type": "object", "additionalProperties": false, "required": ["rule_id", "evidence_key", "status", "evidence_ref", "machine_observable", "project_id"], "properties": {"rule_id": {"$ref": "#/$defs/opaque_ref"}, "evidence_key": {"$ref": "#/$defs/opaque_ref"}, "status": {"enum": ["supported", "contradicted", "unknown", "conflict"]}, "evidence_ref": {"$ref": "#/$defs/opaque_ref"}, "machine_observable": {"type": "boolean"}, "project_id": {"$ref": "#/$defs/opaque_ref"}}},
+    "analysis_input": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "migrations", "transactions", "workload", "recovery", "platform_controls", "data_quality"],
+      "properties": {
+        "schema": {"type": "object", "additionalProperties": false, "required": ["tables"], "properties": {"tables": {"type": "array", "items": {"$ref": "#/$defs/table"}}}},
+        "migrations": {"type": "array", "items": {"$ref": "#/$defs/migration"}},
+        "transactions": {"$ref": "#/$defs/transactions"},
+        "workload": {"$ref": "#/$defs/workload"},
+        "recovery": {"$ref": "#/$defs/recovery"},
+        "platform_controls": {"$ref": "#/$defs/platform_controls"},
+        "data_quality": {"$ref": "#/$defs/data_quality"}
+      }
+    },
+    "table": {"type": "object", "additionalProperties": false, "required": ["name", "foreign_keys"], "properties": {"name": {"type": "string", "minLength": 1}, "foreign_keys": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["target_table"], "properties": {"target_table": {"type": "string", "minLength": 1}}}}}},
+    "migration": {"type": "object", "additionalProperties": false, "required": ["id", "irreversible", "rollback_proof"], "properties": {"id": {"type": "string", "minLength": 1}, "irreversible": {"type": "boolean"}, "rollback_proof": {"type": "boolean"}}},
+    "transactions": {"type": "object", "additionalProperties": false, "required": ["isolation", "shared_cache_enabled", "read_uncommitted_enabled", "idempotency_keys"], "properties": {"isolation": {"type": "string", "minLength": 1}, "shared_cache_enabled": {"type": "boolean"}, "read_uncommitted_enabled": {"type": "boolean"}, "idempotency_keys": {"type": "array", "items": {"type": "string", "minLength": 1}}}},
+    "workload": {"type": "object", "additionalProperties": false, "required": ["metrics"], "properties": {"metrics": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["evidence_ref", "observed"], "properties": {"evidence_ref": {"$ref": "#/$defs/opaque_ref"}, "observed": {"type": "boolean"}}}}, "query_plan_text": {"type": "string", "minLength": 1}}},
+    "recovery": {"type": "object", "additionalProperties": false, "required": ["plan_evidence_present", "proofs"], "properties": {"plan_evidence_present": {"type": "boolean"}, "restore_test_required_but_failed": {"type": "boolean"}, "proofs": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["kind", "passed"], "properties": {"kind": {"type": "string", "minLength": 1}, "passed": {"type": "boolean"}}}}}},
+    "platform_controls": {"type": "object", "additionalProperties": false, "required": ["sqlite", "postgresql"], "properties": {"sqlite": {"type": "object", "additionalProperties": false, "required": ["foreign_keys_enabled", "foreign_key_check_clean", "integrity_check_clean", "shared_cache_enabled", "read_uncommitted_enabled", "single_writer_requirement_met"], "properties": {"foreign_keys_enabled": {"type": "boolean"}, "foreign_key_check_clean": {"type": "boolean"}, "integrity_check_clean": {"type": "boolean"}, "shared_cache_enabled": {"type": "boolean"}, "read_uncommitted_enabled": {"type": "boolean"}, "single_writer_requirement_met": {"type": "boolean"}}}, "postgresql": {"type": "object", "additionalProperties": false, "required": ["constraints_requirement_met", "isolation_requirement_met", "rls_requirement_met", "pitr_preconditions_met"], "properties": {"constraints_requirement_met": {"type": "boolean"}, "isolation_requirement_met": {"type": "boolean"}, "rls_requirement_met": {"type": "boolean"}, "pitr_preconditions_met": {"type": "boolean"}}}}},
+    "data_quality": {"type": "object", "additionalProperties": false, "required": ["checks"], "properties": {"checks": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["check_id", "status", "evidence_ref"], "properties": {"check_id": {"type": "string", "minLength": 1}, "status": {"enum": ["passed", "failed", "unknown"]}, "evidence_ref": {"$ref": "#/$defs/opaque_ref"}}}}}}
+  }
+}

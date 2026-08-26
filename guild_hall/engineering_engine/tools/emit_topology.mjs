@@ -26,6 +26,7 @@ const CANONICAL_ROOTS = [
   'core',
   'engines/systems_engineering',
   'engines/quality_readiness',
+  'engines/database_engineering',
 ];
 
 export function findCanonicalModules(dirRel) {
