@@ -309,6 +309,7 @@ storage Seam은 in-memory fixture Adapter와 Owner-approved persistent Adapter�
 | `HB-DEC-04` voice provenance and routing | `OWNER_ACCEPTED` | Voice는 Thin Context의 비서실·Dispatcher이며 raw→intent→accepted instruction→execution receipt를 연결한다 | Voice AI를 authority로 기록하거나 모든 회의발화를 Task로 승격하지 않음 |
 | `HB-DEC-05` meaningful work and learning | `OWNER_ACCEPTED` | Soulforge는 Meaningful/Skillable Work Unit을 주고 Worker가 내부 분해한다. 반복 성공은 Skill→Workflow→Party 후보로 승격한다 | micro-step orchestration과 skill self-promotion/auto-deploy 금지 |
 | `HB-DEC-06` decision memory | `OWNER_ACCEPTED` | Project Decision Ledger가 해석·정정·승인 history를 소유하고 Portfolio Projection이 요약한다 | Linear Task state·Chat memory·Agent memory와 혼합 금지 |
+| `HB-DEC-07` AX 성과 증명 카드 도입 순서 | `OWNER_ACCEPTED / MANUAL_FIRST` | 별도 Google Docs에서 `Linear 업무 인입·AI 후보 분류 자동화` 첫 카드를 수동 작성하고 Owner 검토로 형식을 먼저 고정한다. 충분한 장부 축적 뒤에만 기존 4192의 기간 선택·내부/공유용 카드·Docs/PDF 내보내기 자동화를 별도 검토한다 | 변경·출처 장부 원본에 카드를 섞지 않음. 첫 카드에서 Bot 자동수행·완료시간 단축을 주장하지 않음. 이 결정만으로 소프트웨어 구현·4192 변경·export 활성화 금지 |
 
 Source refs:
 
@@ -2185,6 +2186,31 @@ condition, receipt를 보여준다. Project/common knowledge scope는 사용자�
 “ERP에 적용”은 Driver apply API를 호출하되 현재 seat가 authority인지 서버가 다시 검사한다. MCP/개인
 Codex는 candidate producer이자 primary query client일 수 있지만 TaskEngine coordinator나 두 번째
 truth가 아니다.
+
+### 10.1B AX 성과 증명 카드 단계적 도입 (`OWNER-ORDERED / MANUAL-FIRST`)
+
+성과 증명 카드는 변경 장부·출처 장부·Bot 실행 영수증을 읽어 사람이 검토할 수 있는 증명 문서로
+묶는 projection이다. 장부 원본의 행이나 schema가 아니며, 원장에 카드 본문·공유용 표현·평가 문구를
+되쓰지 않는다. 같은 운영관리 영역의 별도 `성과 증명` 위치를 사용하되 exact Google Docs 문서 ID와
+보관 위치는 첫 수동 문서를 만들 때 별도 결속한다.
+
+| 단계 | 상태·행동 | 완료 Gate |
+| --- | --- | --- |
+| `APC-1` 첫 수동 카드 | 별도 Google Docs에 `Linear 업무 인입·AI 후보 분류 자동화` 카드를 수동 작성 | Owner가 필드·표현·근거 링크·claim 범위를 검토 |
+| `APC-2` 형식 확정 | 검토 결과로 카드 field와 내부용/공유 가능 버전을 고정 | 동일 장부 근거에서 재작성 가능한 template와 금지 주장 확정 |
+| `APC-3` 자동 생성 검토 | 충분한 장부가 축적된 뒤 기존 4192에 기간 선택, 내부/공유용 카드, Docs/PDF export 후보를 별도 심사 | 별도 Owner 승인, 안정된 metric 정의, export authority·privacy·replay validator가 모두 닫힘 |
+
+첫 카드의 허용 claim은 `업무 발견`, `Linear 생성/갱신`, `출처 연결`, `AI 실행대기 분류`,
+`잡담/광고/중복 필터`, `Gmail 실제 발송 0`까지다. `Bot 자동수행`, `업무 완료`, `완료시간 단축`,
+사람 개입 감소 또는 생산성 향상은 현재 근거로 주장하지 않는다.
+
+고정 후보 field는 `문제`, `변경 구조`, `측정기간`, `Before 기준선`, `After 집계`, `안전 증거`,
+`재현 방법`, `남은 한계`, `장부 참조`다. 내부용은 권한이 확인된 실제 업무·근거 링크를 사용할 수
+있고, 공유 가능 버전은 익명 집계와 합성 재현만 허용한다. 두 버전은 같은 근거 집합을 사용하되
+공유본에서 실제 업무명·사람·계정·private 링크를 제거한다.
+
+현재 상태는 `MANUAL_CARD_PENDING / SOFTWARE_DEFERRED`다. 카드 형식 확정 전에는 schema, exporter,
+4192 panel, scheduler, Google Docs writer 또는 PDF generator를 만들지 않는다.
 
 ### 10.2 AgentRun
 

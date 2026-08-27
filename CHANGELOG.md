@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-28 - AX performance proof card manual-first plan
+
+- Recorded the Owner-ordered manual-first sequence for an `AX 성과 증명 카드`: create and review one separate Google Docs card, freeze the evidence/claim format, and consider 4192 generation/export only after sufficient ledger accumulation and a separate approval gate.
+- Kept the first `Linear 업무 인입·AI 후보 분류 자동화` card bounded to observed intake, Linear create/update, source linkage, AI-waiting classification, noise/duplicate filtering, and zero Gmail sends; Bot autonomous execution and completion-time improvement remain unclaimed.
+- Kept performance-card prose out of the source/change ledgers, separated internal evidence links from anonymized synthetic sharing, and made software, scheduler, Docs writer, PDF export, and 4192 changes explicitly deferred.
+
 ## 2026-08-28 - Calibration & Measurement Validity evidence-readiness Domain Engine main integration
 
 - Integrated the accepted `calibration_measurement_validity` package behind the unchanged Engineering Engine Core without granting laboratory accreditation, ISO/IEC 17025 compliance, traceability certification, calibration/exception approval, product acceptance, project applicability, writer, canon, or production authority.
