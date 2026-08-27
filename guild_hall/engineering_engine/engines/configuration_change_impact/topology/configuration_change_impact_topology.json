@@ -1,0 +1,43 @@
+{
+  "schema_version": "soulforge.configuration_change_impact.topology.v0",
+  "domain_engine_id": "configuration_change_impact",
+  "claim_ceiling": "source_supported",
+  "execution_mode": "deterministic_only",
+  "nodes": [
+    { "id": "descriptor", "path": "engine.yaml", "kind": "domain_descriptor" },
+    { "id": "source_packet", "path": "contracts/configuration_change_impact_source_packet_v0.md", "kind": "public_safe_source_packet" },
+    { "id": "domain_contract", "path": "contracts/configuration_change_impact_contract_v0.md", "kind": "domain_contract" },
+    { "id": "schema", "path": "schemas/configuration_change_impact_schema_v0.json", "kind": "input_schema" },
+    { "id": "rules", "path": "rules/configuration_change_impact_rules.mjs", "kind": "domain_vocabulary_and_rules" },
+    { "id": "core_project_binding", "path": "../../core/interfaces/project_binding_adapter.mjs", "kind": "existing_core_project_binding_seam" },
+    { "id": "compiler", "path": "compiler/configuration_change_impact_compiler_adapter.mjs", "kind": "core_adapter" },
+    { "id": "propagation_graph", "path": "evaluator/propagation_graph.mjs", "kind": "domain_graph_module" },
+    { "id": "evaluator", "path": "evaluator/configuration_change_impact_evaluator_adapter.mjs", "kind": "core_adapter" },
+    { "id": "fixture", "path": "fixtures/configuration_change_impact_public_synthetic.mjs", "kind": "synthetic_fixture" },
+    { "id": "tests", "path": "tests/", "kind": "deterministic_tests" },
+    { "id": "runner", "path": "tools/configuration_change_impact_runner.mjs", "kind": "zero_write_runner" },
+    { "id": "manifest", "path": "topology/configuration_change_impact_module_manifest.mjs", "kind": "candidate_manifest_factory" },
+    { "id": "integration_request", "path": "integration/configuration_change_impact_integration_request_v0.md", "kind": "shared_surface_request" }
+  ],
+  "edges": [
+    ["source_packet", "rules"],
+    ["source_packet", "domain_contract"],
+    ["schema", "evaluator"],
+    ["rules", "compiler"],
+    ["rules", "propagation_graph"],
+    ["rules", "evaluator"],
+    ["core_project_binding", "evaluator"],
+    ["compiler", "evaluator"],
+    ["propagation_graph", "evaluator"],
+    ["fixture", "evaluator"],
+    ["schema", "fixture"],
+    ["evaluator", "runner"],
+    ["compiler", "tests"],
+    ["propagation_graph", "tests"],
+    ["evaluator", "tests"],
+    ["schema", "tests"],
+    ["manifest", "tests"]
+  ],
+  "shared_surface_mutation": false,
+  "private_payload_storage": "forbidden"
+}
