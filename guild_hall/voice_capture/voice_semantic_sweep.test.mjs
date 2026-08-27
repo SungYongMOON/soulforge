@@ -5,6 +5,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  readdir,
   rm,
   writeFile,
 } from "node:fs/promises";
@@ -128,7 +129,82 @@ test("a verified completed transcript with zero segments is recorded as no seman
     assert.equal(result.no_content_session_count, 1);
     assert.equal(result.failed_session_count, 0);
     assert.deepEqual(result.failures, []);
-    await assert.rejects(lstat(path.join(sessionDir, "analysis", "semantic_labels")), { code: "ENOENT" });
+    const markerRoot = path.join(sessionDir, "analysis", "semantic_labels", "no_content");
+    const markers = await readdir(markerRoot);
+    assert.equal(markers.length, 1);
+    const marker = JSON.parse(await readFile(path.join(markerRoot, markers[0]), "utf8"));
+    assert.equal(marker.schema_version, "soulforge.voice_semantic_no_content.v1");
+    assert.equal(marker.segment_count, 0);
+    assert.equal(marker.transcript_sha256, crypto.createHash("sha256").update(transcript).digest("hex"));
+    assert.doesNotMatch(JSON.stringify(marker), /session_empty|transcript_jsonl_ref/u);
+
+    const replay = await runVoiceSemanticSweep({
+      repo_root: root,
+      voice_root: voiceRoot,
+      apply: true,
+      max_sessions: 10,
+    });
+    assert.equal(replay.pending_session_count, 0);
+    assert.equal(replay.selected_session_count, 0);
+    assert.equal(replay.processed_session_count, 0);
+    assert.equal(replay.no_content_session_count, 1);
+    assert.equal(replay.failed_session_count, 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("empty transcript validation failures never create a no-content marker", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "voice-semantic-sweep-empty-invalid-"));
+  try {
+    const voiceRoot = path.join(root, "voice");
+    const emptyDigest = crypto.createHash("sha256").update("").digest("hex");
+    const cases = [
+      { id: "count_mismatch", segmentCount: 1, digest: emptyDigest, writeTranscript: true },
+      { id: "digest_mismatch", segmentCount: 0, digest: "f".repeat(64), writeTranscript: true },
+      { id: "missing_transcript", segmentCount: 0, digest: emptyDigest, writeTranscript: false },
+    ];
+    for (const row of cases) {
+      const sessionDir = path.join(voiceRoot, "sessions", "2026-08-25", row.id);
+      const runDir = path.join(sessionDir, "analysis", "local_asr", "large-v3-q5_0");
+      await mkdir(runDir, { recursive: true });
+      await writeFile(path.join(sessionDir, "session_manifest.json"), `${JSON.stringify({
+        session_id: row.id,
+        source_provider: "PLAUD",
+        recorded_at_local: "2026-08-25T20:00:00+09:00",
+      })}\n`, "utf8");
+      if (row.writeTranscript) await writeFile(path.join(runDir, "transcript.jsonl"), "", "utf8");
+      await writeFile(path.join(runDir, "analysis_manifest.json"), `${JSON.stringify({
+        state: "completed",
+        session_id: row.id,
+        model_id: "large-v3-q5_0",
+        segment_count: row.segmentCount,
+        transcript_jsonl_ref: `_workspaces/system/voice_capture/sessions/2026-08-25/${row.id}/analysis/local_asr/large-v3-q5_0/transcript.jsonl`,
+        transcript_sha256: row.digest,
+        evidence_role: "independent_machine_transcript_unverified",
+        quality: "machine_transcript_unverified_attention_required",
+        completed_at: "2026-08-25T11:00:00.000Z",
+      })}\n`, "utf8");
+    }
+
+    const result = await runVoiceSemanticSweep({
+      repo_root: root,
+      voice_root: voiceRoot,
+      apply: true,
+      max_sessions: 10,
+    });
+    assert.equal(result.no_content_session_count, 0);
+    assert.equal(result.failed_session_count, 3);
+    assert.deepEqual(
+      [...new Set(result.failures.map((failure) => failure.error_code))],
+      ["voice_semantic_processing_failed"],
+    );
+    for (const row of cases) {
+      await assert.rejects(
+        lstat(path.join(voiceRoot, "sessions", "2026-08-25", row.id, "analysis", "semantic_labels", "no_content")),
+        { code: "ENOENT" },
+      );
+    }
   } finally {
     await rm(root, { recursive: true, force: true });
   }

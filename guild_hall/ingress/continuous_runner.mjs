@@ -1376,17 +1376,13 @@ async function releaseLease(binding, leaseContext) {
   // its own failures internally (see removeMatchingLeaseInstanceSidecar).
   try {
     if (await optionalLstat(leaseContext.recoveryPath)) fail("continuous_lease_lost");
-    // A lock already gone (ENOENT) means there is nothing left to validate or unlink for
-    // this lease, but a matching instance sidecar may still be sitting on disk; attempt
-    // its cleanup regardless instead of skipping past it.
-    if (await optionalLstat(leaseContext.lockPath)) {
-      const current = await inspectContinuousLease(leaseContext.lockPath, "continuous_lease_lost");
-      if (current.lease.fence_token !== leaseContext.lease.fence_token
-        || current.lease.owner_host !== leaseContext.lease.owner_host
-        || current.lease.owner_pid !== leaseContext.lease.owner_pid
-        || current.lease.lease_epoch !== leaseContext.lease.lease_epoch) fail("continuous_lease_lost");
-      await removeContinuousPathWithIdentity(leaseContext.lockPath, current.identity, { missingOk: true });
-    }
+    if (!(await optionalLstat(leaseContext.lockPath))) fail("continuous_lease_lost");
+    const current = await inspectContinuousLease(leaseContext.lockPath, "continuous_lease_lost");
+    if (current.lease.fence_token !== leaseContext.lease.fence_token
+      || current.lease.owner_host !== leaseContext.lease.owner_host
+      || current.lease.owner_pid !== leaseContext.lease.owner_pid
+      || current.lease.lease_epoch !== leaseContext.lease.lease_epoch) fail("continuous_lease_lost");
+    await removeContinuousPathWithIdentity(leaseContext.lockPath, current.identity);
   } finally {
     await removeMatchingLeaseInstanceSidecar(leaseContext.leaseRoot, leaseContext.lease);
   }
@@ -2373,6 +2369,9 @@ export async function runContinuousIngress(options = {}) {
     await validateAllAuthorityLanes(binding, authorityContext, "after_payload", now);
     return receipt;
   } finally {
+    if (typeof options.testHooks?.beforeLeaseRelease === "function") {
+      await options.testHooks.beforeLeaseRelease({ binding, leaseContext, authorityContext });
+    }
     await releaseLease(binding, leaseContext);
   }
 }

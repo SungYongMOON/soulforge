@@ -377,12 +377,14 @@ of scope.
 
 A completed transcript whose pinned bytes and manifest both verify an exact
 zero segment count is valid no-semantic-content evidence, not a failed backup.
-The sweep revalidates that evidence, increments `no_content_session_count`, and
-does not create a semantic artifact or a false task/label. Metadata-only health,
-cycle receipts, and supervisor events retain the count plus sorted safe failure
-codes for real failures while excluding session refs, paths, and transcript
-content. Other digest, identity, path, schema, and segment-count failures remain
-degraded and fail closed.
+The first applied sweep writes one content-addressed metadata-only no-content
+marker bound to the exact manifest and transcript digests. Later cycles count
+that marker without reselecting the session, while a revised transcript manifest
+reopens processing. No semantic-label run, task, or route is fabricated.
+Metadata-only health, cycle receipts, and supervisor events retain the count plus
+sorted closed safe failure codes for real failures while excluding session refs,
+paths, and transcript content. Other digest, identity, path, schema, and
+segment-count failures remain degraded and fail closed.
 
 The Windows entrypoints are:
 

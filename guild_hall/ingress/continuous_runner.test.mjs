@@ -1015,7 +1015,10 @@ test("release cleanup removes a matching sidecar even when active.lock is alread
             sidecarPath = await writeLeaseInstanceSidecar(leaseContext.leaseRoot, leaseContext.lease, {
               instanceToken: "1",
             });
-            // Simulate the lock already being gone by the time release runs.
+          },
+          beforeLeaseRelease: async ({ leaseContext }) => {
+            // Remove the lock after the final publication fence so this test pins
+            // releaseLease's own missing-lock behavior rather than an earlier fence.
             await rm(leaseContext.lockPath, { force: true });
           },
         },

@@ -9,7 +9,7 @@
 
 ## 2026-08-28 - Voice zero-content recovery and diagnostic receipts
 
-- Kept verified zero-segment PLAUD/ASR transcripts as retained source evidence while treating semantic labeling as not applicable instead of retrying the same valid empty transcript as a permanent degradation.
+- Kept verified zero-segment PLAUD/ASR transcripts as retained source evidence while treating semantic labeling as not applicable and writing one digest-bound metadata-only convergence marker instead of retrying the same valid empty transcript forever.
 - Added metadata-only `no_content_session_count` and sorted safe semantic failure-code reporting to worker health, per-cycle receipts, and supervisor events without persisting session refs, paths, or transcript bodies.
 - Kept digest, identity, path, schema, and segment-count mismatches fail-closed; project assignment, ERP, TaskDriver, official-task, source-audio, and provider authority remain unchanged.
 
