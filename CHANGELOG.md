@@ -12,6 +12,7 @@
 - Kept verified zero-segment PLAUD/ASR transcripts as retained source evidence while treating semantic labeling as not applicable and writing one digest-bound metadata-only convergence marker instead of retrying the same valid empty transcript forever.
 - Added metadata-only `no_content_session_count` and sorted safe semantic failure-code reporting to worker health, per-cycle receipts, and supervisor events without persisting session refs, paths, or transcript bodies.
 - Kept digest, identity, path, schema, and segment-count mismatches fail-closed; project assignment, ERP, TaskDriver, official-task, source-audio, and provider authority remain unchanged.
+- Applied the six reviewed runtime modules with reversible local byte backup, restarted only the owned voice and ingress supervisors, and observed fresh `ok` health: voice failures `0`, no-content `1`, replay pending `0`; ingress errors `0` and mail status `ok`.
 
 ## 2026-08-27 - Reliability & Maintainability evidence-readiness Domain Engine main integration
 
@@ -24,7 +25,7 @@
 - Preserved the exact `continuous_lease.v1` record while adding a separate Windows process-instance sidecar that permits stale-lease recovery only for an expired same-host lease whose live PID is proven to belong to a strictly newer process.
 - Kept missing, malformed, unbound, out-of-window, unresolved, matching, and non-newer evidence fail-closed; selected a fixed validated Windows PowerShell executable instead of an environment-selected path.
 - Added sanitized `continuous_lease_held_<reason>` supervisor heartbeat diagnostics, bounded orphan-sidecar retention, recovery/fence-loss cleanup, and regression coverage without exposing local paths, PIDs, fence tokens, or credentials.
-- Public source and deterministic validators are accepted; installed runtime application, scheduled-supervisor restart, and live private-state verification remain a separate Owner action-time gate.
+- Public source and deterministic validators are accepted. Owner-authorized runtime application and exact voice/ingress supervisor restart completed on 2026-08-28 with reviewed-byte equality, fresh `ok` heartbeats, and a reversible local rollback copy.
 
 ## 2026-08-27 - Hermes canonical Bot Chat default delivery route
 
