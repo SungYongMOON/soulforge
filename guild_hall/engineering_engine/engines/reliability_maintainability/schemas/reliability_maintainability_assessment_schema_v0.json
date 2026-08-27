@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.reliability_maintainability.assessment_schema.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "assessment_kind", "canon_claim_ceiling", "evidence_claim_ceiling", "effective_ruleset_digest", "overall_state", "result_counts"],
+  "properties": {
+    "schema_version": { "const": "soulforge.reliability_maintainability.assessment.v0" },
+    "assessment_kind": { "const": "reliability_maintainability_evidence_readiness" },
+    "canon_claim_ceiling": { "const": "source_supported" },
+    "evidence_claim_ceiling": { "enum": ["source_sufficient", "source_referenced", "unknown", "contradicted", "not_applicable"] },
+    "effective_ruleset_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "overall_state": { "enum": ["hold", "no_accepted_rows", "not_applicable", "evidence_ready_for_owner_review"] },
+    "result_counts": { "$ref": "#/$defs/counts" }
+  },
+  "$defs": {
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["satisfied", "gap_missing", "gap_unknown", "gap_conflict", "not_applicable", "total"],
+      "properties": {
+        "satisfied": { "type": "integer", "minimum": 0 },
+        "gap_missing": { "type": "integer", "minimum": 0 },
+        "gap_unknown": { "type": "integer", "minimum": 0 },
+        "gap_conflict": { "type": "integer", "minimum": 0 },
+        "not_applicable": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

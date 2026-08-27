@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.reliability_maintainability.domain_result_schema.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "canon_claim_ceiling", "evidence_claim_ceiling", "effective_ruleset_digest", "results", "counts"],
+  "properties": {
+    "schema_version": { "const": "soulforge.reliability_maintainability.domain_result.v0" },
+    "canon_claim_ceiling": { "const": "source_supported" },
+    "evidence_claim_ceiling": { "enum": ["source_sufficient", "source_referenced", "unknown", "contradicted", "not_applicable"] },
+    "effective_ruleset_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "results": { "type": "array", "minItems": 1, "maxItems": 64, "items": { "$ref": "#/$defs/result" } },
+    "counts": { "$ref": "#/$defs/counts" },
+    "project_facts_provenance": { "$ref": "#/$defs/projectFactsProvenance" }
+  },
+  "$defs": {
+    "projectFactsProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project_binding_ref", "facts_digest", "valid_at", "known_at"],
+      "properties": {
+        "project_binding_ref": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_version", "project_id", "domain_engine_id", "binding_revision_hash", "source_manifest_ref"],
+          "properties": {
+            "schema_version": { "const": "soulforge.project_binding.v0" },
+            "project_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+            "domain_engine_id": { "const": "reliability_maintainability" },
+            "binding_revision_hash": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+            "source_manifest_ref": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+            "authority_family": {
+              "enum": [
+                "project_contract_baseline",
+                "applicable_law_and_regulation",
+                "company_approved_procedure",
+                "acquisition_authority_manual",
+                "general_se_guidance",
+                "case_and_template",
+                "reviewed_wiki",
+                "llm_proposal"
+              ]
+            },
+            "document_refs": {
+              "type": "array",
+              "maxItems": 64,
+              "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" }
+            },
+            "valid_at": { "type": "string", "pattern": "Z$" },
+            "known_at": { "type": "string", "pattern": "Z$" }
+          }
+        },
+        "facts_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "valid_at": { "type": "string", "pattern": "Z$" },
+        "known_at": { "type": "string", "pattern": "Z$" }
+      }
+    },
+    "shaRef": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" },
+    "applicability": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/applicability" },
+    "authorityBinding": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/authorityBinding" },
+    "contextRefs": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/contextRefs" },
+    "claim": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/claim" },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["satisfied", "gap_missing", "gap_unknown", "gap_conflict", "not_applicable", "total"],
+      "properties": {
+        "satisfied": { "type": "integer", "minimum": 0 },
+        "gap_missing": { "type": "integer", "minimum": 0 },
+        "gap_unknown": { "type": "integer", "minimum": 0 },
+        "gap_conflict": { "type": "integer", "minimum": 0 },
+        "not_applicable": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "conflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim_count", "governing_authority_family", "resolution_reason", "retained_claims", "sides_dropped"],
+      "properties": {
+        "claim_count": { "type": "integer", "minimum": 2 },
+        "governing_authority_family": {
+          "enum": [
+            "project_contract_baseline",
+            "applicable_law_and_regulation",
+            "company_approved_procedure",
+            "acquisition_authority_manual",
+            "general_se_guidance",
+            "case_and_template",
+            "reviewed_wiki",
+            "llm_proposal"
+          ]
+        },
+        "resolution_reason": { "type": "string" },
+        "retained_claims": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/claim" } },
+        "sides_dropped": { "const": 0 }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["case_id", "rule_id", "stage_ref", "owner_acceptance_ref", "source_ref", "source_locator", "source_modality", "evidence_kind", "applicability_components", "context_refs", "authority_bindings", "observation_attempted", "presence_state", "evidence_refs", "canon_claim_ceiling", "evidence_claim_ceiling", "state", "reason_code", "authority_hold"],
+      "properties": {
+        "case_id": { "type": "string" },
+        "rule_id": { "type": "string" },
+        "stage_ref": { "$ref": "#/$defs/shaRef" },
+        "owner_acceptance_ref": { "$ref": "#/$defs/shaRef" },
+        "source_ref": { "type": "string" },
+        "source_locator": { "type": "string" },
+        "source_modality": { "type": "string" },
+        "evidence_kind": { "type": ["string", "null"] },
+        "applicability_components": { "$ref": "#/$defs/applicability" },
+        "context_refs": { "$ref": "#/$defs/contextRefs" },
+        "authority_bindings": { "type": "array", "items": { "$ref": "#/$defs/authorityBinding" } },
+        "observation_attempted": { "type": "boolean" },
+        "observation_attempt_ref": { "$ref": "#/$defs/shaRef" },
+        "presence_state": { "enum": ["present", "absence_confirmed", "unknown"] },
+        "evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/shaRef" } },
+        "not_applicable_basis_ref": { "$ref": "#/$defs/shaRef" },
+        "evaluation_result_ref": { "$ref": "#/$defs/shaRef" },
+        "evaluation_result_state": { "enum": ["criteria_met", "criteria_not_met", "unknown"] },
+        "conflict": { "$ref": "#/$defs/conflict" },
+        "canon_claim_ceiling": { "const": "source_supported" },
+        "evidence_claim_ceiling": { "enum": ["source_sufficient", "source_referenced", "unknown", "contradicted", "not_applicable"] },
+        "state": { "enum": ["satisfied", "gap_missing", "gap_unknown", "gap_conflict", "not_applicable"] },
+        "reason_code": { "type": "string" },
+        "authority_hold": { "type": "boolean" },
+        "closure_authority_exercised": { "const": false }
+      }
+    }
+  }
+}

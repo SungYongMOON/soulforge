@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.reliability_maintainability.receipt_schema.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "digests", "counts", "bindings", "effects"],
+  "properties": {
+    "schema_version": { "const": "soulforge.reliability_maintainability.receipt.v0" },
+    "digests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input_sha256", "binding_sha256", "effective_ruleset_sha256", "assessment_sha256", "domain_result_sha256", "result_sha256"],
+      "properties": {
+        "input_sha256": { "$ref": "#/$defs/sha" },
+        "binding_sha256": { "$ref": "#/$defs/sha" },
+        "effective_ruleset_sha256": { "$ref": "#/$defs/sha" },
+        "assessment_sha256": { "$ref": "#/$defs/sha" },
+        "domain_result_sha256": { "$ref": "#/$defs/sha" },
+        "result_sha256": { "$ref": "#/$defs/sha" }
+      }
+    },
+    "counts": { "$ref": "#/$defs/counts" },
+    "bindings": { "$ref": "#/$defs/bindings" },
+    "effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["filesystem", "network", "model", "rag", "wiki", "erp", "task", "approval"],
+      "properties": {
+        "filesystem": { "const": 0 }, "network": { "const": 0 }, "model": { "const": 0 }, "rag": { "const": 0 },
+        "wiki": { "const": 0 }, "erp": { "const": 0 }, "task": { "const": 0 }, "approval": { "const": 0 }
+      }
+    },
+    "project_facts_provenance": { "$ref": "#/$defs/projectFactsProvenance" }
+  },
+  "$defs": {
+    "projectFactsProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project_binding_ref", "facts_digest", "valid_at", "known_at"],
+      "properties": {
+        "project_binding_ref": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_version", "project_id", "domain_engine_id", "binding_revision_hash", "source_manifest_ref"],
+          "properties": {
+            "schema_version": { "const": "soulforge.project_binding.v0" },
+            "project_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+            "domain_engine_id": { "const": "reliability_maintainability" },
+            "binding_revision_hash": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+            "source_manifest_ref": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+            "authority_family": {
+              "enum": [
+                "project_contract_baseline",
+                "applicable_law_and_regulation",
+                "company_approved_procedure",
+                "acquisition_authority_manual",
+                "general_se_guidance",
+                "case_and_template",
+                "reviewed_wiki",
+                "llm_proposal"
+              ]
+            },
+            "document_refs": {
+              "type": "array",
+              "maxItems": 64,
+              "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" }
+            },
+            "valid_at": { "type": "string", "pattern": "Z$" },
+            "known_at": { "type": "string", "pattern": "Z$" }
+          }
+        },
+        "facts_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "valid_at": { "type": "string", "pattern": "Z$" },
+        "known_at": { "type": "string", "pattern": "Z$" }
+      }
+    },
+    "sha": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "shaRef": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["satisfied", "gap_missing", "gap_unknown", "gap_conflict", "not_applicable", "total"],
+      "properties": {
+        "satisfied": { "type": "integer", "minimum": 0 }, "gap_missing": { "type": "integer", "minimum": 0 },
+        "gap_unknown": { "type": "integer", "minimum": 0 }, "gap_conflict": { "type": "integer", "minimum": 0 },
+        "not_applicable": { "type": "integer", "minimum": 0 }, "total": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "sourceBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "metadata_revision_ref", "body_revision_ref"],
+      "properties": {
+        "source_id": { "type": "string" },
+        "metadata_revision_ref": { "$ref": "#/$defs/shaRef" },
+        "body_revision_ref": { "$ref": "#/$defs/shaRef" }
+      }
+    },
+    "acceptedRuleBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_id", "stage_ref", "owner_acceptance_ref"],
+      "properties": {
+        "rule_id": { "type": "string" },
+        "stage_ref": { "$ref": "#/$defs/shaRef" },
+        "owner_acceptance_ref": { "$ref": "#/$defs/shaRef" }
+      }
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["module_binding_revision", "source_packet_ref", "engine_ref", "objective_ref", "policy_ref", "snapshot_ref", "ruleset_ref", "effective_ruleset_ref", "ruleset_revision", "adapter_revision", "execution_mode", "project_binding_ref", "context_generation", "assessment_cutoff_ref", "source_bindings", "accepted_rule_bindings"],
+      "properties": {
+        "module_binding_revision": { "$ref": "#/$defs/sha" },
+        "source_packet_ref": { "$ref": "#/$defs/shaRef" },
+        "engine_ref": { "$ref": "#/$defs/shaRef" },
+        "objective_ref": { "$ref": "#/$defs/shaRef" },
+        "policy_ref": { "$ref": "#/$defs/shaRef" },
+        "snapshot_ref": { "$ref": "#/$defs/shaRef" },
+        "ruleset_ref": { "$ref": "#/$defs/shaRef" },
+        "effective_ruleset_ref": { "$ref": "#/$defs/shaRef" },
+        "ruleset_revision": { "type": "string" },
+        "adapter_revision": { "type": "string" },
+        "execution_mode": { "const": "deterministic_only" },
+        "project_binding_ref": { "$ref": "#/$defs/shaRef" },
+        "context_generation": { "type": "integer", "minimum": 0 },
+        "assessment_cutoff_ref": { "$ref": "#/$defs/shaRef" },
+        "source_bindings": { "type": "array", "items": { "$ref": "#/$defs/sourceBinding" } },
+        "accepted_rule_bindings": { "type": "array", "items": { "$ref": "#/$defs/acceptedRuleBinding" } }
+      }
+    }
+  }
+}
