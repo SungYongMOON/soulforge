@@ -1,0 +1,113 @@
+{
+  "schema_version": "soulforge.manufacturing_readiness.source_inventory.v1",
+  "domain_engine_id": "manufacturing_readiness",
+  "status": "candidate",
+  "claim_ceiling": "source_supported",
+  "observed_at": "2026-08-26",
+  "sources": [
+    {
+      "source_id": "S1-NASA-8739.6B",
+      "document_id": "NASA-STD-8739.6B",
+      "revision": "B-change-0-2021-02-04",
+      "authority": "NASA Office of Safety and Mission Assurance",
+      "status": "active_observed",
+      "access": "internet_public",
+      "metadata_url": "https://standards.nasa.gov/standard/NASA/NASA-STD-87396",
+      "body_url": "https://standards.nasa.gov/sites/default/files/standards/NASA/B/0/nasa-std-87396b.pdf",
+      "applicability": "contract_or_agreement_bound",
+      "use": "manufacturing_documentation_process_tooling_personnel_inspection_material_controls"
+    },
+    {
+      "source_id": "S2-NASA-8739.12A",
+      "document_id": "NASA-STD-8739.12",
+      "revision": "A-2024-11-20",
+      "authority": "NASA Office of Safety and Mission Assurance",
+      "status": "active_observed",
+      "access": "internet_public",
+      "metadata_url": "https://standards.nasa.gov/standard/NASA/NASA-STD-873912",
+      "body_url": "https://standards.nasa.gov/sites/default/files/standards/NASA/Revision/0/NASA-STD-873912A.pdf",
+      "applicability": "contract_or_agreement_bound",
+      "use": "measurement_and_test_equipment_readiness_only"
+    },
+    {
+      "source_id": "S3-NASA-8739.14",
+      "document_id": "NASA-STD-8739.14",
+      "revision": "baseline-2020-06-02",
+      "authority": "NASA Office of Safety and Mission Assurance",
+      "status": "active_observed",
+      "access": "internet_public",
+      "metadata_url": "https://standards.nasa.gov/standard/NASA/NASA-STD-873914",
+      "body_url": "https://standards.nasa.gov/sites/default/files/standards/NASA/Baseline/0/nasa-std-873914.pdf",
+      "applicability": "higher_level_requirement_or_procurement_bound",
+      "use": "fastener_material_readiness_illustration_only"
+    },
+    {
+      "source_id": "S4-DOD-MRL-2025",
+      "document_id": "Manufacturing Readiness Level Deskbook",
+      "revision": "2025-release-announcement-observed",
+      "authority": "OUSD(R&E) Systems Engineering and Architecture",
+      "status": "guidance_current_release_announcement_observed",
+      "access": "public_announcement_only;_2025_body_not_pinned",
+      "announcement_url": "https://www.cto.mil/sea/news/",
+      "legacy_2020_guidance_url": "https://www.dodmrl.com/MRL%20Deskbook%20V2020.pdf",
+      "applicability": "none_asserted",
+      "use": "retrieval_and_taxonomy_only_no_executable_rule"
+    }
+  ],
+  "rule_crosswalk": [
+    {
+      "rule_id": "MR-BOM-01",
+      "facet_id": "bom",
+      "source_ids": ["S1-NASA-8739.6B"],
+      "source_locators": ["§4.1.4"]
+    },
+    {
+      "rule_id": "MR-DOC-01",
+      "facet_id": "drawings",
+      "source_ids": ["S1-NASA-8739.6B"],
+      "source_locators": ["§§4.1.2, 4.1.4-4.1.5"]
+    },
+    {
+      "rule_id": "MR-INSP-01",
+      "facet_id": "inspections",
+      "source_ids": ["S1-NASA-8739.6B", "S2-NASA-8739.12A"],
+      "source_locators": ["§§4.1.2, 6.6", "Appendix A"]
+    },
+    {
+      "rule_id": "MR-MAT-01",
+      "facet_id": "materials",
+      "source_ids": ["S1-NASA-8739.6B", "S3-NASA-8739.14"],
+      "source_locators": ["§§4.1.4, 4.3, 6.3, 6.5", "§§4.4-4.6"]
+    },
+    {
+      "rule_id": "MR-PE-01",
+      "facet_id": "personnel_and_equipment",
+      "source_ids": ["S1-NASA-8739.6B", "S2-NASA-8739.12A"],
+      "source_locators": ["§§5.2, 5.14", "Appendix A"]
+    },
+    {
+      "rule_id": "MR-PROC-01",
+      "facet_id": "processes",
+      "source_ids": ["S1-NASA-8739.6B"],
+      "source_locators": ["§§4.1.4-4.1.7"]
+    },
+    {
+      "rule_id": "MR-TOOL-01",
+      "facet_id": "tooling",
+      "source_ids": ["S1-NASA-8739.6B", "S2-NASA-8739.12A"],
+      "source_locators": ["§§4.1.4, 6.4.1-6.4.2", "§§4.1-4.2"]
+    },
+    {
+      "rule_id": "MR-WI-01",
+      "facet_id": "work_instructions",
+      "source_ids": ["S1-NASA-8739.6B"],
+      "source_locators": ["§§4.1.2, 4.1.5, 4.1.7"]
+    }
+  ],
+  "excluded_source_classes": [
+    "paid_or_controlled_standard_body",
+    "private_project_or_customer_payload",
+    "erp_inventory_row",
+    "rag_answer_as_authority"
+  ]
+}

@@ -1,0 +1,28 @@
+schema_version: soulforge.domain_engine_descriptor.v0
+domain_engine_id: manufacturing_readiness
+display_name: Manufacturing Readiness Domain Engine
+version: 0.1.0
+status: candidate
+claim_ceiling: source_supported
+execution_mode: deterministic_only
+contracts:
+  source_packet: engines/manufacturing_readiness/contracts/manufacturing_readiness_source_packet_v0.md
+  source_inventory: engines/manufacturing_readiness/contracts/manufacturing_readiness_source_inventory_candidate_v1.json
+  build_mission: engines/manufacturing_readiness/contracts/manufacturing_readiness_build_mission_v0.md
+  integration_request: engines/manufacturing_readiness/contracts/manufacturing_readiness_integration_request_v0.md
+schemas:
+  vocabulary: soulforge.manufacturing_readiness.vocabulary.v0
+  ruleset: soulforge.manufacturing_readiness.ruleset.v0
+  domain_input: soulforge.manufacturing_readiness.domain_input.v0
+  assessment: soulforge.manufacturing_readiness.assessment.v0
+  domain_result: soulforge.manufacturing_readiness.domain_result.v0
+  receipt: soulforge.manufacturing_readiness.receipt.v0
+compiler_adapter: engines/manufacturing_readiness/compiler/manufacturing_readiness_compiler_adapter.mjs
+evaluator_adapter: engines/manufacturing_readiness/evaluator/manufacturing_readiness_evaluator_adapter.mjs
+fixtures:
+  public_synthetic: engines/manufacturing_readiness/fixtures/manufacturing_readiness_public_synthetic.mjs
+manual:
+  root: engines/manufacturing_readiness/manual/README.md
+topology:
+  local_manifest: engines/manufacturing_readiness/topology/manufacturing_readiness_module_manifest.mjs
+  local_topology: engines/manufacturing_readiness/topology/manufacturing_readiness_topology.json
