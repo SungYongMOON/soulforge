@@ -3,7 +3,7 @@
   "engine_root": "guild_hall/engineering_engine",
   "contract_revision": "phase_1_0_contract.v0",
   "derivation": {
-    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness, engines/database_engineering, engines/material_procurement_readiness, engines/reliability_maintainability, engines/calibration_measurement_validity, engines/configuration_change_impact, engines/pcb_compliance",
+    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness, engines/database_engineering, engines/material_procurement_readiness, engines/reliability_maintainability, engines/calibration_measurement_validity, engines/configuration_change_impact, engines/manufacturing_readiness, engines/pcb_compliance",
     "areas_covered": [
       "core",
       "engines/systems_engineering",
@@ -13,6 +13,7 @@
       "engines/reliability_maintainability",
       "engines/calibration_measurement_validity",
       "engines/configuration_change_impact",
+      "engines/manufacturing_readiness",
       "engines/pcb_compliance"
     ],
     "areas_deliberately_excluded": [
@@ -1338,6 +1339,108 @@
       ],
       "export_count": 1,
       "line_count": 34
+    },
+    {
+      "module": "engines/manufacturing_readiness/compiler/manufacturing_readiness_compiler_adapter",
+      "area": "engines",
+      "exports": [
+        "MR_COMPILER_ADAPTER_SCHEMA_VERSION",
+        "MR_COMPILER_ERROR_CODES",
+        "compileManufacturingReadinessRules",
+        "manufacturingReadinessCompilerAdapter"
+      ],
+      "export_count": 4,
+      "line_count": 268
+    },
+    {
+      "module": "engines/manufacturing_readiness/evaluator/manufacturing_readiness",
+      "area": "engines",
+      "exports": [
+        "MANUFACTURING_READINESS_ASSESSMENT_SCHEMA",
+        "MANUFACTURING_READINESS_DOMAIN_INPUT_SCHEMA",
+        "MANUFACTURING_READINESS_DOMAIN_RESULT_SCHEMA",
+        "MANUFACTURING_READINESS_RECEIPT_SCHEMA",
+        "MR_EVALUATOR_ERROR_CODES",
+        "assessManufacturingReadiness"
+      ],
+      "export_count": 6,
+      "line_count": 281
+    },
+    {
+      "module": "engines/manufacturing_readiness/evaluator/manufacturing_readiness_evaluator_adapter",
+      "area": "engines",
+      "exports": [
+        "MR_EVALUATOR_ADAPTER_ERROR_CODES",
+        "MR_EVALUATOR_ADAPTER_SCHEMA_VERSION",
+        "manufacturingReadinessAdapter"
+      ],
+      "export_count": 3,
+      "line_count": 349
+    },
+    {
+      "module": "engines/manufacturing_readiness/fixtures/manufacturing_readiness_public_synthetic",
+      "area": "engines",
+      "exports": [
+        "MANUFACTURING_READINESS_PUBLIC_SYNTHETIC_FIXTURE",
+        "MANUFACTURING_READINESS_PUBLIC_SYNTHETIC_PROJECT_BINDING_REF",
+        "buildManufacturingReadinessPublicSyntheticRequest"
+      ],
+      "export_count": 3,
+      "line_count": 81
+    },
+    {
+      "module": "engines/manufacturing_readiness/rules/manufacturing_readiness_rules",
+      "area": "engines",
+      "exports": [
+        "MANUFACTURING_READINESS_RULES",
+        "MANUFACTURING_READINESS_RULESET_REF",
+        "MANUFACTURING_READINESS_RULESET_REVISION",
+        "MANUFACTURING_READINESS_RULESET_SCHEMA",
+        "MANUFACTURING_READINESS_SOURCE_INVENTORY_REF",
+        "MANUFACTURING_READINESS_SOURCE_PACKET_REF"
+      ],
+      "export_count": 6,
+      "line_count": 76
+    },
+    {
+      "module": "engines/manufacturing_readiness/tools/manufacturing_readiness_runner",
+      "area": "engines",
+      "exports": [],
+      "export_count": 0,
+      "line_count": 7
+    },
+    {
+      "module": "engines/manufacturing_readiness/topology/manufacturing_readiness_module_manifest",
+      "area": "engines",
+      "exports": [
+        "createManufacturingReadinessModuleManifest"
+      ],
+      "export_count": 1,
+      "line_count": 133
+    },
+    {
+      "module": "engines/manufacturing_readiness/validators/manufacturing_readiness_input_admission",
+      "area": "engines",
+      "exports": [
+        "compareCanonicalUtcInstants",
+        "deepFreezePublicData",
+        "parseCanonicalUtcInstant",
+        "snapshotPublicData"
+      ],
+      "export_count": 4,
+      "line_count": 145
+    },
+    {
+      "module": "engines/manufacturing_readiness/vocabulary/manufacturing_readiness_vocabulary",
+      "area": "engines",
+      "exports": [
+        "MANUFACTURING_READINESS_FACETS",
+        "MANUFACTURING_READINESS_FACET_IDS",
+        "MANUFACTURING_READINESS_VOCABULARY_SCHEMA",
+        "isManufacturingReadinessFacetId"
+      ],
+      "export_count": 4,
+      "line_count": 55
     },
     {
       "module": "engines/material_procurement_readiness/compiler/material_procurement_readiness_compiler_adapter",
@@ -3116,7 +3219,7 @@
       "line_count": 1885
     }
   ],
-  "module_count": 199,
+  "module_count": 208,
   "module_edges": [
     {
       "from": "core/evaluation_runtime/claim_ceilings",
@@ -4955,6 +5058,216 @@
     {
       "from": "engines/database_engineering/topology/database_engineering_module_manifest",
       "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/compiler/manufacturing_readiness_compiler_adapter",
+      "to": "core/interfaces/profile_operation_canon",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/compiler/manufacturing_readiness_compiler_adapter",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/compiler/manufacturing_readiness_compiler_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/compiler/manufacturing_readiness_compiler_adapter",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/compiler/manufacturing_readiness_compiler_adapter",
+      "to": "engines/manufacturing_readiness/rules/manufacturing_readiness_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/compiler/manufacturing_readiness_compiler_adapter",
+      "to": "engines/manufacturing_readiness/validators/manufacturing_readiness_input_admission",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/evaluator/manufacturing_readiness_evaluator_adapter",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/evaluator/manufacturing_readiness_evaluator_adapter",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/evaluator/manufacturing_readiness_evaluator_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/evaluator/manufacturing_readiness_evaluator_adapter",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/evaluator/manufacturing_readiness_evaluator_adapter",
+      "to": "engines/manufacturing_readiness/compiler/manufacturing_readiness_compiler_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/evaluator/manufacturing_readiness_evaluator_adapter",
+      "to": "engines/manufacturing_readiness/evaluator/manufacturing_readiness",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/evaluator/manufacturing_readiness_evaluator_adapter",
+      "to": "engines/manufacturing_readiness/rules/manufacturing_readiness_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/evaluator/manufacturing_readiness_evaluator_adapter",
+      "to": "engines/manufacturing_readiness/validators/manufacturing_readiness_input_admission",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/evaluator/manufacturing_readiness",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/evaluator/manufacturing_readiness",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/evaluator/manufacturing_readiness",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/evaluator/manufacturing_readiness",
+      "to": "engines/manufacturing_readiness/rules/manufacturing_readiness_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/evaluator/manufacturing_readiness",
+      "to": "engines/manufacturing_readiness/validators/manufacturing_readiness_input_admission",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/fixtures/manufacturing_readiness_public_synthetic",
+      "to": "engines/manufacturing_readiness/rules/manufacturing_readiness_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/rules/manufacturing_readiness_rules",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/rules/manufacturing_readiness_rules",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/rules/manufacturing_readiness_rules",
+      "to": "engines/manufacturing_readiness/vocabulary/manufacturing_readiness_vocabulary",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/tools/manufacturing_readiness_runner",
+      "to": "engines/manufacturing_readiness/evaluator/manufacturing_readiness",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/tools/manufacturing_readiness_runner",
+      "to": "engines/manufacturing_readiness/fixtures/manufacturing_readiness_public_synthetic",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/topology/manufacturing_readiness_module_manifest",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/topology/manufacturing_readiness_module_manifest",
+      "to": "core/validators/module_binding",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/topology/manufacturing_readiness_module_manifest",
+      "to": "engines/manufacturing_readiness/validators/manufacturing_readiness_input_admission",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/validators/manufacturing_readiness_input_admission",
+      "to": "core/validators/contract_config",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/manufacturing_readiness/validators/manufacturing_readiness_input_admission",
+      "to": "core/validators/errors",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
@@ -7711,7 +8024,7 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 656,
+  "module_edge_count": 686,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -8062,5 +8375,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "aecb494755e13d02ea323e8eebc598f61a0a308dbbabdfb767f32fcfcbf87f70"
+  "topology_digest": "9765e180212b48015903335d83cbcd0b1469c4230ebb7b3363707d5075ff3be9"
 }
