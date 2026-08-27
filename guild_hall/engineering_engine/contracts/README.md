@@ -7,6 +7,7 @@ The canonical contracts for domain engines have been physically relocated:
 - Material Procurement Readiness: `guild_hall/engineering_engine/engines/material_procurement_readiness/contracts/`
 - Reliability & Maintainability: `guild_hall/engineering_engine/engines/reliability_maintainability/contracts/`
 - Calibration & Measurement Validity: `guild_hall/engineering_engine/engines/calibration_measurement_validity/contracts/`
+- Configuration Change Impact: `guild_hall/engineering_engine/engines/configuration_change_impact/contracts/`
 - PCB Compliance: `guild_hall/engineering_engine/engines/pcb_compliance/contracts/`
 
 This directory is a non-authoritative compatibility pointer and contains no contract definitions.

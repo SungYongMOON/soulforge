@@ -6,6 +6,12 @@
 - Kept the first `Linear 업무 인입·AI 후보 분류 자동화` card bounded to observed intake, Linear create/update, source linkage, AI-waiting classification, noise/duplicate filtering, and zero Gmail sends; Bot autonomous execution and completion-time improvement remain unclaimed.
 - Kept performance-card prose out of the source/change ledgers, separated internal evidence links from anonymized synthetic sharing, and made software, scheduler, Docs writer, PDF export, and 4192 changes explicitly deferred.
 
+## 2026-08-28 - Configuration Change Impact evidence-readiness Domain Engine main integration
+
+- Integrated the accepted `configuration_change_impact` package behind the unchanged Engineering Engine Core without granting project applicability, change approval, baseline mutation, closure, release, compliance, canon, production, or writer authority.
+- Registered its evaluator and root `validate:configuration-change-impact` gate, including 31 package tests for exact Project Binding/Typed Facts, Effective Rule Set and receipt identity, deterministic propagation reachability, hostile admission, replay, schema parity, and zero-write behavior.
+- Closed the incomplete-graph unreachable-category bypass so affected, pending, or conflict rows cannot retain foreign change evidence when no path is reachable; the package remains a public `source_supported` candidate only.
+
 ## 2026-08-28 - Calibration & Measurement Validity evidence-readiness Domain Engine main integration
 
 - Integrated the accepted `calibration_measurement_validity` package behind the unchanged Engineering Engine Core without granting laboratory accreditation, ISO/IEC 17025 compliance, traceability certification, calibration/exception approval, product acceptance, project applicability, writer, canon, or production authority.
