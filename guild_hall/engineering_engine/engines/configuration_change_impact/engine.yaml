@@ -1,0 +1,26 @@
+schema_version: soulforge.domain_engine_descriptor.v0
+domain_engine_id: configuration_change_impact
+display_name: Configuration Change Impact Domain Engine
+version: 0.1.0
+status: candidate
+claim_ceiling: source_supported
+execution_mode: deterministic_only
+contracts:
+  source_packet: engines/configuration_change_impact/contracts/configuration_change_impact_source_packet_v0.md
+  domain_contract: engines/configuration_change_impact/contracts/configuration_change_impact_contract_v0.md
+schemas:
+  ruleset: soulforge.configuration_change_impact.ruleset.v0
+  domain_input: soulforge.configuration_change_impact.input.v0
+  assessment: soulforge.configuration_change_impact.assessment.v0
+  domain_result: soulforge.configuration_change_impact.domain_result.v0
+  receipt: soulforge.configuration_change_impact.receipt.v0
+  typed_facts: soulforge.configuration_change_impact.typed_facts.v0
+compiler_adapter: engines/configuration_change_impact/compiler/configuration_change_impact_compiler_adapter.mjs
+evaluator_adapter: engines/configuration_change_impact/evaluator/configuration_change_impact_evaluator_adapter.mjs
+fixtures:
+  public_synthetic: engines/configuration_change_impact/fixtures/configuration_change_impact_public_synthetic.mjs
+manual:
+  root: engines/configuration_change_impact/manual/README.md
+topology:
+  local: engines/configuration_change_impact/topology/configuration_change_impact_topology.json
+integration_request: engines/configuration_change_impact/integration/configuration_change_impact_integration_request_v0.md

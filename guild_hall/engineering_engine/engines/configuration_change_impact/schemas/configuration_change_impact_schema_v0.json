@@ -1,0 +1,285 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.configuration_change_impact.input.v0",
+  "title": "Configuration Change Impact Input v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "change", "propagation_graph", "impact_records", "approval", "closure"],
+  "properties": {
+    "schema_version": { "const": "soulforge.configuration_change_impact.input.v0" },
+    "change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "change_id",
+        "change_class",
+        "change_request_ref",
+        "pre_change_baseline_ref",
+        "pre_change_revision_ref",
+        "target_post_change_revision_ref",
+        "seed_item_refs"
+      ],
+      "properties": {
+        "change_id": { "$ref": "#/$defs/ref" },
+        "change_class": { "$ref": "#/$defs/ref" },
+        "change_request_ref": { "$ref": "#/$defs/ref" },
+        "pre_change_baseline_ref": { "$ref": "#/$defs/ref" },
+        "pre_change_revision_ref": { "$ref": "#/$defs/ref" },
+        "target_post_change_revision_ref": { "$ref": "#/$defs/ref" },
+        "seed_item_refs": { "$ref": "#/$defs/seedRefArray" }
+      }
+    },
+    "propagation_graph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["complete", "nodes", "edges"],
+      "properties": {
+        "complete": { "type": "boolean" },
+        "nodes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/propagationNode" }
+        },
+        "edges": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/propagationEdge" }
+        }
+      }
+    },
+    "impact_records": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "prefixItems": [
+        { "allOf": [{ "$ref": "#/$defs/impactRecord" }, { "properties": { "impact_kind": { "const": "requirements" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/impactRecord" }, { "properties": { "impact_kind": { "const": "bom" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/impactRecord" }, { "properties": { "impact_kind": { "const": "drawings" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/impactRecord" }, { "properties": { "impact_kind": { "const": "software" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/impactRecord" }, { "properties": { "impact_kind": { "const": "interfaces" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/impactRecord" }, { "properties": { "impact_kind": { "const": "tests" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/impactRecord" }, { "properties": { "impact_kind": { "const": "documents" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/impactRecord" }, { "properties": { "impact_kind": { "const": "baselines" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/impactRecord" }, { "properties": { "impact_kind": { "const": "closure_evidence" } } }] }
+      ],
+      "items": false
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "approval_decision_ref"],
+      "properties": {
+        "state": { "enum": ["approved", "pending", "rejected", "unknown"] },
+        "approval_decision_ref": { "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "state": { "enum": ["approved", "rejected"] } }, "required": ["state"] },
+          "then": { "properties": { "approval_decision_ref": { "$ref": "#/$defs/ref" } } },
+          "else": { "properties": { "approval_decision_ref": { "type": "null" } } }
+        }
+      ]
+    },
+    "closure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "closure_evidence"],
+      "properties": {
+        "state": { "enum": ["closed", "open", "unknown"] },
+        "closure_evidence": { "$ref": "#/$defs/evidenceArray" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "state": { "const": "closed" } }, "required": ["state"] },
+          "then": { "properties": { "closure_evidence": { "$ref": "#/$defs/evidenceArrayNonEmpty" } } },
+          "else": { "properties": { "closure_evidence": { "type": "array", "maxItems": 0 } } }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "ref": {
+      "allOf": [
+        { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+        { "not": { "const": "latest" } },
+        { "not": { "pattern": "^[Ff][Ii][Ll][Ee]:" } }
+      ]
+    },
+    "sha256Ref": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "refArray": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/ref" }
+    },
+    "refArrayNonEmpty": {
+      "allOf": [{ "$ref": "#/$defs/refArray" }, { "minItems": 1 }]
+    },
+    "seedRefArray": {
+      "allOf": [{ "$ref": "#/$defs/refArray" }, { "minItems": 1, "maxItems": 32 }]
+    },
+    "pathRefArray": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/ref" }
+    },
+    "relationshipPathRefArray": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/ref" }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_ref", "change_id", "change_identity_digest", "item_ref", "item_path_refs", "relationship_path_refs"],
+      "properties": {
+        "evidence_ref": { "$ref": "#/$defs/ref" },
+        "change_id": { "$ref": "#/$defs/ref" },
+        "change_identity_digest": { "$ref": "#/$defs/sha256Ref" },
+        "item_ref": { "$ref": "#/$defs/ref" },
+        "item_path_refs": { "$ref": "#/$defs/pathRefArray" },
+        "relationship_path_refs": { "$ref": "#/$defs/relationshipPathRefArray" }
+      }
+    },
+    "evidenceArray": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/evidence" }
+    },
+    "evidenceArrayNonEmpty": {
+      "allOf": [{ "$ref": "#/$defs/evidenceArray" }, { "minItems": 1 }]
+    },
+    "impactRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "impact_kind",
+        "impact_state",
+        "impact_analysis_ref",
+        "affected_item_refs",
+        "propagation_evidence",
+        "verification_evidence"
+      ],
+      "properties": {
+        "impact_kind": {
+          "enum": [
+            "requirements",
+            "bom",
+            "drawings",
+            "software",
+            "interfaces",
+            "tests",
+            "documents",
+            "baselines",
+            "closure_evidence"
+          ]
+        },
+        "impact_state": { "enum": ["affected_verified", "affected_pending", "conflict", "not_affected", "unknown"] },
+        "impact_analysis_ref": { "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }] },
+        "affected_item_refs": { "$ref": "#/$defs/refArray" },
+        "propagation_evidence": { "$ref": "#/$defs/evidenceArray" },
+        "verification_evidence": { "$ref": "#/$defs/evidenceArray" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "impact_state": { "const": "unknown" } }, "required": ["impact_state"] },
+          "then": {
+            "properties": {
+              "impact_analysis_ref": { "type": "null" },
+              "affected_item_refs": { "type": "array", "maxItems": 0 },
+              "propagation_evidence": { "type": "array", "maxItems": 0 },
+              "verification_evidence": { "type": "array", "maxItems": 0 }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "impact_state": { "const": "not_affected" } }, "required": ["impact_state"] },
+          "then": {
+            "properties": {
+              "impact_analysis_ref": { "$ref": "#/$defs/ref" },
+              "affected_item_refs": { "type": "array", "maxItems": 0 },
+              "propagation_evidence": { "type": "array", "maxItems": 0 },
+              "verification_evidence": { "type": "array", "maxItems": 0 }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "impact_state": { "const": "affected_pending" } }, "required": ["impact_state"] },
+          "then": {
+            "properties": {
+              "impact_analysis_ref": { "$ref": "#/$defs/ref" },
+              "affected_item_refs": { "$ref": "#/$defs/refArrayNonEmpty" },
+              "propagation_evidence": { "$ref": "#/$defs/evidenceArrayNonEmpty" },
+              "verification_evidence": { "type": "array", "maxItems": 0 }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "impact_state": { "const": "affected_verified" } }, "required": ["impact_state"] },
+          "then": {
+            "properties": {
+              "impact_analysis_ref": { "$ref": "#/$defs/ref" },
+              "affected_item_refs": { "$ref": "#/$defs/refArrayNonEmpty" },
+              "propagation_evidence": { "$ref": "#/$defs/evidenceArrayNonEmpty" },
+              "verification_evidence": { "$ref": "#/$defs/evidenceArrayNonEmpty" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "impact_state": { "const": "conflict" } }, "required": ["impact_state"] },
+          "then": {
+            "properties": {
+              "impact_analysis_ref": { "$ref": "#/$defs/ref" },
+              "affected_item_refs": { "$ref": "#/$defs/refArrayNonEmpty" }
+            },
+            "anyOf": [
+              { "properties": { "propagation_evidence": { "$ref": "#/$defs/evidenceArrayNonEmpty" } } },
+              { "properties": { "verification_evidence": { "$ref": "#/$defs/evidenceArrayNonEmpty" } } }
+            ]
+          }
+        }
+      ]
+    },
+    "propagationNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item_ref", "impact_kind"],
+      "properties": {
+        "item_ref": { "$ref": "#/$defs/ref" },
+        "impact_kind": {
+          "enum": [
+            "requirements",
+            "bom",
+            "drawings",
+            "software",
+            "interfaces",
+            "tests",
+            "documents",
+            "baselines",
+            "closure_evidence"
+          ]
+        }
+      }
+    },
+    "propagationEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from_item_ref", "to_item_ref", "relationship_ref"],
+      "properties": {
+        "from_item_ref": { "$ref": "#/$defs/ref" },
+        "to_item_ref": { "$ref": "#/$defs/ref" },
+        "relationship_ref": { "$ref": "#/$defs/ref" }
+      }
+    }
+  }
+}
