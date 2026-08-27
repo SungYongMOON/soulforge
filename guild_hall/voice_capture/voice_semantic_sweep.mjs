@@ -132,6 +132,11 @@ function noContentMarker(candidate) {
   };
 }
 
+function safeFailureCode(error) {
+  const candidate = String(error?.code ?? "");
+  return SAFE_FAILURE_CODE.test(candidate) ? candidate : "voice_semantic_processing_failed";
+}
+
 function noContentMarkerPaths(candidate) {
   const root = path.join(candidate.sessionDir, "analysis", "semantic_labels", "no_content");
   return {
@@ -259,13 +264,17 @@ export async function runVoiceSemanticSweep({
   );
   const invalidCandidates = discoveredCandidates.filter((candidate) => candidate.invalid);
   const candidates = chooseOnePerSession(discoveredCandidates);
-  const completionRows = await Promise.all(candidates.map(async (candidate) => ({
-    candidate,
-    state: await currentSemanticGenerationState(candidate),
-  })));
+  const completionRows = await Promise.all(candidates.map(async (candidate) => {
+    try {
+      return { candidate, state: await currentSemanticGenerationState(candidate), errorCode: null };
+    } catch (error) {
+      return { candidate, state: "failed", errorCode: safeFailureCode(error) };
+    }
+  }));
   const pending = completionRows.filter((row) => row.state === "pending").map((row) => row.candidate);
   const processed = completionRows.filter((row) => row.state === "processed").map((row) => row.candidate);
   const noContent = completionRows.filter((row) => row.state === "no_content").map((row) => row.candidate);
+  const completionFailures = completionRows.filter((row) => row.state === "failed");
   const selected = [...pending, ...processed];
   const summary = {
     mode: apply ? "apply" : "dry_run",
@@ -276,14 +285,22 @@ export async function runVoiceSemanticSweep({
     processed_session_count: 0,
     duplicate_session_count: 0,
     no_content_session_count: noContent.length,
-    failed_session_count: invalidCandidates.length,
+    failed_session_count: invalidCandidates.length + completionFailures.length,
     timeline_annotation_count: 0,
     official_task_mutation_count: 0,
     official_project_assignment_mutation_count: 0,
-    failures: invalidCandidates.map((candidate) => ({
-      session_ref: `voice-session:${createHash("sha256").update(candidate.sessionDir).digest("hex").slice(0, 24)}`,
-      error_code: candidate.errorCode,
-    })),
+    failures: [
+      ...invalidCandidates.map((candidate) => ({
+        session_ref: `voice-session:${createHash("sha256").update(candidate.sessionDir).digest("hex").slice(0, 24)}`,
+        error_code: SAFE_FAILURE_CODE.test(String(candidate.errorCode ?? ""))
+          ? candidate.errorCode
+          : "voice_semantic_processing_failed",
+      })),
+      ...completionFailures.map((row) => ({
+        session_ref: `voice-session:${createHash("sha256").update(row.candidate.sessionDir).digest("hex").slice(0, 24)}`,
+        error_code: row.errorCode,
+      })),
+    ],
   };
   for (const candidate of selected) {
     if (summary.processed_session_count >= maxSessions) break;
@@ -300,16 +317,22 @@ export async function runVoiceSemanticSweep({
       if (result.duplicate === true) summary.duplicate_session_count += 1;
     } catch (error) {
       if (error?.code === NO_SEMANTIC_CONTENT_CODE) {
-        if (apply) await writeNoContentMarker(candidate);
-        summary.no_content_session_count += 1;
+        try {
+          if (apply) await writeNoContentMarker(candidate);
+          summary.no_content_session_count += 1;
+        } catch (markerError) {
+          summary.failed_session_count += 1;
+          summary.failures.push({
+            session_ref: `voice-session:${createHash("sha256").update(candidate.sessionDir).digest("hex").slice(0, 24)}`,
+            error_code: safeFailureCode(markerError),
+          });
+        }
         continue;
       }
       summary.failed_session_count += 1;
       summary.failures.push({
         session_ref: `voice-session:${createHash("sha256").update(candidate.sessionDir).digest("hex").slice(0, 24)}`,
-        error_code: SAFE_FAILURE_CODE.test(String(error?.code ?? ""))
-          ? error.code
-          : "voice_semantic_processing_failed",
+        error_code: safeFailureCode(error),
       });
     }
   }

@@ -115,6 +115,19 @@ test("a verified completed transcript with zero segments is recorded as no seman
       completed_at: "2026-08-25T11:00:00.000Z",
     })}\n`, "utf8");
 
+    const dryRun = await runVoiceSemanticSweep({
+      repo_root: root,
+      voice_root: voiceRoot,
+      apply: false,
+      max_sessions: 10,
+    });
+    assert.equal(dryRun.no_content_session_count, 1);
+    assert.equal(dryRun.failed_session_count, 0);
+    await assert.rejects(
+      lstat(path.join(sessionDir, "analysis", "semantic_labels", "no_content")),
+      { code: "ENOENT" },
+    );
+
     const result = await runVoiceSemanticSweep({
       repo_root: root,
       voice_root: voiceRoot,
@@ -149,6 +162,36 @@ test("a verified completed transcript with zero segments is recorded as no seman
     assert.equal(replay.processed_session_count, 0);
     assert.equal(replay.no_content_session_count, 1);
     assert.equal(replay.failed_session_count, 0);
+
+    const markerPath = path.join(markerRoot, markers[0]);
+    await writeFile(markerPath, `${JSON.stringify({ ...marker, segment_count: 1 })}\n`, "utf8");
+    const tampered = await runVoiceSemanticSweep({
+      repo_root: root,
+      voice_root: voiceRoot,
+      apply: true,
+      max_sessions: 10,
+    });
+    assert.equal(tampered.no_content_session_count, 0);
+    assert.equal(tampered.failed_session_count, 1);
+    assert.deepEqual(tampered.failures.map((failure) => failure.error_code), [
+      "voice_semantic_no_content_marker_invalid",
+    ]);
+
+    await writeFile(markerPath, `${JSON.stringify(marker, null, 2)}\n`, "utf8");
+    const manifestPath = path.join(runDir, "analysis_manifest.json");
+    const revisedManifest = JSON.parse(await readFile(manifestPath, "utf8"));
+    revisedManifest.completed_at = "2026-08-25T11:05:00.000Z";
+    await writeFile(manifestPath, `${JSON.stringify(revisedManifest)}\n`, "utf8");
+    const reopened = await runVoiceSemanticSweep({
+      repo_root: root,
+      voice_root: voiceRoot,
+      apply: false,
+      max_sessions: 10,
+    });
+    assert.equal(reopened.pending_session_count, 1);
+    assert.equal(reopened.selected_session_count, 1);
+    assert.equal(reopened.no_content_session_count, 1);
+    assert.equal(reopened.failed_session_count, 0);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

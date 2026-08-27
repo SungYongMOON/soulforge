@@ -1091,7 +1091,10 @@ async function removeContinuousPathWithIdentity(path, identity, { missingOk = fa
   } catch (error) {
     // A concurrent remover can win the race between the identity check above and this
     // unlink; with missingOk the outcome (path gone) is indistinguishable from success.
-    if (missingOk && error?.code === "ENOENT") return false;
+    if (error?.code === "ENOENT") {
+      if (missingOk) return false;
+      fail("continuous_lease_lost");
+    }
     throw error;
   }
   return true;

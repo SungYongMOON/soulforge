@@ -381,6 +381,8 @@ The first applied sweep writes one content-addressed metadata-only no-content
 marker bound to the exact manifest and transcript digests. Later cycles count
 that marker without reselecting the session, while a revised transcript manifest
 reopens processing. No semantic-label run, task, or route is fabricated.
+The existing voice-custody validator continues to own retained source-byte
+integrity; the convergence marker never replaces custody validation.
 Metadata-only health, cycle receipts, and supervisor events retain the count plus
 sorted closed safe failure codes for real failures while excluding session refs,
 paths, and transcript content. Other digest, identity, path, schema, and
