@@ -3,7 +3,7 @@
   "engine_root": "guild_hall/engineering_engine",
   "contract_revision": "phase_1_0_contract.v0",
   "derivation": {
-    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness, engines/database_engineering, engines/material_procurement_readiness, engines/reliability_maintainability, engines/pcb_compliance",
+    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness, engines/database_engineering, engines/material_procurement_readiness, engines/reliability_maintainability, engines/calibration_measurement_validity, engines/pcb_compliance",
     "areas_covered": [
       "core",
       "engines/systems_engineering",
@@ -11,6 +11,7 @@
       "engines/database_engineering",
       "engines/material_procurement_readiness",
       "engines/reliability_maintainability",
+      "engines/calibration_measurement_validity",
       "engines/pcb_compliance"
     ],
     "areas_deliberately_excluded": [
@@ -852,6 +853,193 @@
       ],
       "export_count": 15,
       "line_count": 322
+    },
+    {
+      "module": "engines/calibration_measurement_validity/compiler/calibration_measurement_validity_compiler_adapter",
+      "area": "engines",
+      "exports": [
+        "CMV_COMPILER_ADAPTER_SCHEMA_VERSION",
+        "CMV_COMPILER_ERROR_CODES",
+        "calibrationMeasurementValidityCompilerAdapter",
+        "compileCalibrationMeasurementValidityRules",
+        "deriveCalibrationMeasurementValidityRulesetReference"
+      ],
+      "export_count": 5,
+      "line_count": 131
+    },
+    {
+      "module": "engines/calibration_measurement_validity/derivation/calibration_measurement_validity_source_derivation",
+      "area": "engines",
+      "exports": [
+        "CMV_SOURCE_DERIVATION_SCHEMA_VERSION",
+        "deriveCalibrationMeasurementValiditySourceRows"
+      ],
+      "export_count": 2,
+      "line_count": 63
+    },
+    {
+      "module": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity",
+      "area": "engines",
+      "exports": [
+        "CMV_ERROR_CODES",
+        "assessCalibrationMeasurementValidity"
+      ],
+      "export_count": 2,
+      "line_count": 368
+    },
+    {
+      "module": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity_evaluator_adapter",
+      "area": "engines",
+      "exports": [
+        "CMV_EVALUATOR_ADAPTER_SCHEMA_VERSION",
+        "admitCmvCoreTypedFacts",
+        "calculateCmvCoreTypedFactsDigest",
+        "calibrationMeasurementValidityAdapter"
+      ],
+      "export_count": 4,
+      "line_count": 655
+    },
+    {
+      "module": "engines/calibration_measurement_validity/fixtures/calibration_measurement_validity_public_synthetic",
+      "area": "engines",
+      "exports": [
+        "CALIBRATION_MEASUREMENT_VALIDITY_PUBLIC_SYNTHETIC_FIXTURE",
+        "buildCalibrationMeasurementValidityPublicSyntheticRequest"
+      ],
+      "export_count": 2,
+      "line_count": 108
+    },
+    {
+      "module": "engines/calibration_measurement_validity/guidance/calibration_measurement_validity_guidance",
+      "area": "engines",
+      "exports": [
+        "CMV_GUIDANCE_CODES",
+        "CMV_GUIDANCE_SCHEMA_VERSION",
+        "buildCalibrationMeasurementValidityGuidance",
+        "validateCalibrationMeasurementValidityGuidance"
+      ],
+      "export_count": 4,
+      "line_count": 494
+    },
+    {
+      "module": "engines/calibration_measurement_validity/mcp/calibration_measurement_validity_read_only_mcp",
+      "area": "engines",
+      "exports": [
+        "CALIBRATION_MEASUREMENT_VALIDITY_READ_ONLY_MCP_TOOLS",
+        "CMV_READ_ONLY_MCP_CODES",
+        "CMV_READ_ONLY_MCP_SCHEMA_VERSION",
+        "invokeCalibrationMeasurementValidityReadOnlyMcp"
+      ],
+      "export_count": 4,
+      "line_count": 120
+    },
+    {
+      "module": "engines/calibration_measurement_validity/observation/calibration_measurement_validity_observation",
+      "area": "engines",
+      "exports": [
+        "CMV_OBSERVATION_CODES",
+        "CMV_OBSERVATION_SCHEMA_VERSION",
+        "deriveCalibrationMeasurementValidityObservationCandidates"
+      ],
+      "export_count": 3,
+      "line_count": 100
+    },
+    {
+      "module": "engines/calibration_measurement_validity/profile/calibration_measurement_validity_source_bound_profile",
+      "area": "engines",
+      "exports": [
+        "CMV_SOURCE_BOUND_PROFILE_CODES",
+        "CMV_SOURCE_BOUND_PROFILE_SCHEMA_VERSION",
+        "applyCmvSourceBoundProfileEvaluation",
+        "compileCmvSourceBoundProfileRequirements",
+        "evaluateCmvSourceBoundProfileRequirements"
+      ],
+      "export_count": 5,
+      "line_count": 217
+    },
+    {
+      "module": "engines/calibration_measurement_validity/rules/calibration_measurement_validity_rules",
+      "area": "engines",
+      "exports": [
+        "CALIBRATION_MEASUREMENT_VALIDITY_RULES",
+        "CMV_RULESET_REF",
+        "CMV_RULESET_REVISION",
+        "CMV_RULESET_SCHEMA_VERSION",
+        "CMV_SOURCE_PACKET_REF",
+        "CMV_VOCABULARY"
+      ],
+      "export_count": 6,
+      "line_count": 94
+    },
+    {
+      "module": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_canonical_digest",
+      "area": "engines",
+      "exports": [
+        "CMV_CANONICAL_DIGEST_SCHEMA_VERSION",
+        "calibrationMeasurementValiditySha256",
+        "canonicalizeCalibrationMeasurementValidity"
+      ],
+      "export_count": 3,
+      "line_count": 28
+    },
+    {
+      "module": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_safe_snapshot",
+      "area": "engines",
+      "exports": [
+        "snapshotCalibrationMeasurementValidityPlainData"
+      ],
+      "export_count": 1,
+      "line_count": 121
+    },
+    {
+      "module": "engines/calibration_measurement_validity/source/calibration_measurement_validity_source_classification",
+      "area": "engines",
+      "exports": [
+        "CMV_PUBLIC_SYNTHETIC_SCOPE",
+        "CMV_SOURCE_AUTHORITY_CATALOG",
+        "CMV_SOURCE_CLASSIFICATION_CODES",
+        "CMV_SOURCE_CLASSIFICATION_SCHEMA_VERSION",
+        "classifyCmvSourceEvidence",
+        "cmvAcceptedSourceBindingInput",
+        "validateConsumedCmvSourceClassification"
+      ],
+      "export_count": 7,
+      "line_count": 290
+    },
+    {
+      "module": "engines/calibration_measurement_validity/tools/calibration_measurement_validity_runner",
+      "area": "engines",
+      "exports": [],
+      "export_count": 0,
+      "line_count": 8
+    },
+    {
+      "module": "engines/calibration_measurement_validity/tools/calibration_measurement_validity_zero_write_pilot_runner",
+      "area": "engines",
+      "exports": [],
+      "export_count": 0,
+      "line_count": 57
+    },
+    {
+      "module": "engines/calibration_measurement_validity/topology/calibration_measurement_validity_module_manifest",
+      "area": "engines",
+      "exports": [
+        "createCalibrationMeasurementValidityModuleManifest"
+      ],
+      "export_count": 1,
+      "line_count": 73
+    },
+    {
+      "module": "engines/calibration_measurement_validity/typed_facts/calibration_measurement_validity_typed_facts_adapter",
+      "area": "engines",
+      "exports": [
+        "CMV_TYPED_FACTS_SCHEMA_VERSION",
+        "CMV_TYPED_FACT_CODES",
+        "adaptCalibrationMeasurementValidityTypedFacts",
+        "validateAdaptedCalibrationMeasurementValidityTypedFacts"
+      ],
+      "export_count": 4,
+      "line_count": 213
     },
     {
       "module": "engines/database_engineering/analysis/data_quality_evidence",
@@ -2834,7 +3022,7 @@
       "line_count": 1885
     }
   ],
-  "module_count": 175,
+  "module_count": 192,
   "module_edges": [
     {
       "from": "core/evaluation_runtime/claim_ceilings",
@@ -3707,6 +3895,468 @@
     {
       "from": "core/validators/snapshot",
       "to": "core/validators/minting",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/compiler/calibration_measurement_validity_compiler_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/compiler/calibration_measurement_validity_compiler_adapter",
+      "to": "engines/calibration_measurement_validity/profile/calibration_measurement_validity_source_bound_profile",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/compiler/calibration_measurement_validity_compiler_adapter",
+      "to": "engines/calibration_measurement_validity/rules/calibration_measurement_validity_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/compiler/calibration_measurement_validity_compiler_adapter",
+      "to": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_canonical_digest",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/derivation/calibration_measurement_validity_source_derivation",
+      "to": "engines/calibration_measurement_validity/rules/calibration_measurement_validity_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/derivation/calibration_measurement_validity_source_derivation",
+      "to": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_canonical_digest",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/derivation/calibration_measurement_validity_source_derivation",
+      "to": "engines/calibration_measurement_validity/source/calibration_measurement_validity_source_classification",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity_evaluator_adapter",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity_evaluator_adapter",
+      "to": "core/interfaces/profile_operation_canon",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity_evaluator_adapter",
+      "to": "core/validators/authority",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity_evaluator_adapter",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity_evaluator_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity_evaluator_adapter",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity_evaluator_adapter",
+      "to": "engines/calibration_measurement_validity/compiler/calibration_measurement_validity_compiler_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity_evaluator_adapter",
+      "to": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity_evaluator_adapter",
+      "to": "engines/calibration_measurement_validity/profile/calibration_measurement_validity_source_bound_profile",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity_evaluator_adapter",
+      "to": "engines/calibration_measurement_validity/rules/calibration_measurement_validity_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity_evaluator_adapter",
+      "to": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_canonical_digest",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity_evaluator_adapter",
+      "to": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_safe_snapshot",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity_evaluator_adapter",
+      "to": "engines/calibration_measurement_validity/typed_facts/calibration_measurement_validity_typed_facts_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity",
+      "to": "engines/calibration_measurement_validity/rules/calibration_measurement_validity_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity",
+      "to": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_canonical_digest",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/guidance/calibration_measurement_validity_guidance",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/guidance/calibration_measurement_validity_guidance",
+      "to": "engines/calibration_measurement_validity/observation/calibration_measurement_validity_observation",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/guidance/calibration_measurement_validity_guidance",
+      "to": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_canonical_digest",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/guidance/calibration_measurement_validity_guidance",
+      "to": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_safe_snapshot",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/guidance/calibration_measurement_validity_guidance",
+      "to": "engines/calibration_measurement_validity/source/calibration_measurement_validity_source_classification",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/mcp/calibration_measurement_validity_read_only_mcp",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/mcp/calibration_measurement_validity_read_only_mcp",
+      "to": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/mcp/calibration_measurement_validity_read_only_mcp",
+      "to": "engines/calibration_measurement_validity/fixtures/calibration_measurement_validity_public_synthetic",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/mcp/calibration_measurement_validity_read_only_mcp",
+      "to": "engines/calibration_measurement_validity/guidance/calibration_measurement_validity_guidance",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/mcp/calibration_measurement_validity_read_only_mcp",
+      "to": "engines/calibration_measurement_validity/observation/calibration_measurement_validity_observation",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/mcp/calibration_measurement_validity_read_only_mcp",
+      "to": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_safe_snapshot",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/mcp/calibration_measurement_validity_read_only_mcp",
+      "to": "engines/calibration_measurement_validity/source/calibration_measurement_validity_source_classification",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/mcp/calibration_measurement_validity_read_only_mcp",
+      "to": "engines/calibration_measurement_validity/typed_facts/calibration_measurement_validity_typed_facts_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/observation/calibration_measurement_validity_observation",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/observation/calibration_measurement_validity_observation",
+      "to": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_canonical_digest",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/observation/calibration_measurement_validity_observation",
+      "to": "engines/calibration_measurement_validity/source/calibration_measurement_validity_source_classification",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/observation/calibration_measurement_validity_observation",
+      "to": "engines/calibration_measurement_validity/typed_facts/calibration_measurement_validity_typed_facts_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/profile/calibration_measurement_validity_source_bound_profile",
+      "to": "core/interfaces/profile_operation_canon",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/profile/calibration_measurement_validity_source_bound_profile",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/profile/calibration_measurement_validity_source_bound_profile",
+      "to": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_canonical_digest",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/profile/calibration_measurement_validity_source_bound_profile",
+      "to": "engines/calibration_measurement_validity/source/calibration_measurement_validity_source_classification",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/rules/calibration_measurement_validity_rules",
+      "to": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_canonical_digest",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_canonical_digest",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_canonical_digest",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_safe_snapshot",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/source/calibration_measurement_validity_source_classification",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/source/calibration_measurement_validity_source_classification",
+      "to": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_canonical_digest",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/source/calibration_measurement_validity_source_classification",
+      "to": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_safe_snapshot",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/tools/calibration_measurement_validity_runner",
+      "to": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/tools/calibration_measurement_validity_runner",
+      "to": "engines/calibration_measurement_validity/fixtures/calibration_measurement_validity_public_synthetic",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/tools/calibration_measurement_validity_zero_write_pilot_runner",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/tools/calibration_measurement_validity_zero_write_pilot_runner",
+      "to": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity_evaluator_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/tools/calibration_measurement_validity_zero_write_pilot_runner",
+      "to": "engines/calibration_measurement_validity/fixtures/calibration_measurement_validity_public_synthetic",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/tools/calibration_measurement_validity_zero_write_pilot_runner",
+      "to": "engines/calibration_measurement_validity/guidance/calibration_measurement_validity_guidance",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/tools/calibration_measurement_validity_zero_write_pilot_runner",
+      "to": "engines/calibration_measurement_validity/observation/calibration_measurement_validity_observation",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/tools/calibration_measurement_validity_zero_write_pilot_runner",
+      "to": "engines/calibration_measurement_validity/source/calibration_measurement_validity_source_classification",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/tools/calibration_measurement_validity_zero_write_pilot_runner",
+      "to": "engines/calibration_measurement_validity/typed_facts/calibration_measurement_validity_typed_facts_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/topology/calibration_measurement_validity_module_manifest",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/topology/calibration_measurement_validity_module_manifest",
+      "to": "core/validators/module_binding",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/typed_facts/calibration_measurement_validity_typed_facts_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/typed_facts/calibration_measurement_validity_typed_facts_adapter",
+      "to": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_canonical_digest",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/typed_facts/calibration_measurement_validity_typed_facts_adapter",
+      "to": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_safe_snapshot",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/calibration_measurement_validity/typed_facts/calibration_measurement_validity_typed_facts_adapter",
+      "to": "engines/calibration_measurement_validity/source/calibration_measurement_validity_source_classification",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
@@ -6778,7 +7428,7 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 563,
+  "module_edge_count": 629,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -7129,5 +7779,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "43aa5e0dba45d5379d3742ad03851b2215dff66390037f285457dea6752b2414"
+  "topology_digest": "59ae55c0c726968fb67d3d0f7b5d80e522c81a90faea62bf2c00ce7e7bea38cd"
 }

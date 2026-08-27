@@ -59,6 +59,7 @@
   - `npm run validate:material-procurement-readiness`
   - `npm run validate:pcb-compliance`
   - `npm run validate:reliability-maintainability`
+  - `npm run validate:calibration-measurement-validity`
   - `npm run validate:watchtower`
   - `npm run validate:gateway`
 

@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-28 - Calibration & Measurement Validity evidence-readiness Domain Engine main integration
+
+- Integrated the accepted `calibration_measurement_validity` package behind the unchanged Engineering Engine Core without granting laboratory accreditation, ISO/IEC 17025 compliance, traceability certification, calibration/exception approval, product acceptance, project applicability, writer, canon, or production authority.
+- Registered its evaluator and root `validate:calibration-measurement-validity` gate, including 38 package tests for exact Core Typed Facts/Project Binding, complete Profile and zero-op trace identity, project-fact source lineage, closed schemas, trusted assessment-observation-guidance-MCP receipts, replay, and zero-write behavior.
+- Kept NIST/ILAC source use bounded to public rule semantics, ISO/IEC 17025 at citation-only HOLD, RAG retrieval-only, and live-like project facts at observed/UNKNOWN/HOLD unless exact project/time/source-native evidence is admitted.
+- Kept Manifest blob verification authoritative as the engine inventory grew past the Windows command-line limit by chunking the existing read-only `git hash-object --filters` check without changing its byte basis or release authority.
+
 ## 2026-08-27 - Reliability & Maintainability evidence-readiness Domain Engine main integration
 
 - Integrated the accepted `reliability_maintainability` package behind the unchanged Engineering Engine Core without granting Quality acceptance, closure, repair, release, procurement, project applicability, compliance, or human decision authority.

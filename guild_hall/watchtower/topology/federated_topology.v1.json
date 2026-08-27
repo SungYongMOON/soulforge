@@ -132,6 +132,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.calibration_measurement_validity.evaluator.calibration_measurement_validity",
+      "id": "engineering_engine::imports.0bcb73109fbafe10ae2c260388f8bff5",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.database_engineering.analysis.database_evidence_analyzers",
       "id": "engineering_engine::imports.0cbc13b27a8056867bf0dcea40e0a4ee",
       "label": "imports",
@@ -229,6 +239,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.evaluation.se_core_eval_qa_report_writer"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.calibration_measurement_validity.mcp.calibration_measurement_validity_read_only_mcp",
+      "id": "engineering_engine::imports.12317420a52153c21f98c547fde29f9e",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.290aecd3d7a82b7b8fe74648db54d174"
     },
     {
       "evidence_mode": "structural_only",
@@ -479,6 +499,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.evaluation.se_core_eval_human_report"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.calibration_measurement_validity.evaluator.calibration_measurement_validity",
+      "id": "engineering_engine::imports.21e4349b394fa3862b6b30469d3e3c73",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.49baa75bcecc59367f6d6786627dd140"
     },
     {
       "evidence_mode": "structural_only",
@@ -962,6 +992,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.calibration_measurement_validity.tools.calibration_measurement_validity_runner",
+      "id": "engineering_engine::imports.4310192a6fda11fe378164e735aa3199",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.calibration_measurement_validity.evaluator.calibration_measurement_validity"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability",
       "id": "engineering_engine::imports.433e6c45025b37ff76b5020a69607b23",
       "label": "imports",
@@ -1062,6 +1102,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.ff2bb4af8fc27c606db29cce630c97ac",
+      "id": "engineering_engine::imports.4c61acd431d1a243409800251612c83f",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.calibration_measurement_validity.rules.calibration_measurement_validity_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.material_procurement_readiness.rules.material_procurement_readiness_rules",
       "id": "engineering_engine::imports.4ceb98555c8d60dd35e135e0ea381a9b",
       "label": "imports",
@@ -1139,6 +1189,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.evaluator.se_core_crosswalk_projection"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.caf6a8abb5aec9331ab6b546a6ca6b7b",
+      "id": "engineering_engine::imports.5065d08940ed44aab74611999612ea7f",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.calibration_measurement_validity.rules.calibration_measurement_validity_rules"
     },
     {
       "evidence_mode": "structural_only",
@@ -1252,6 +1312,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.0da2c7a31bf0b288b23a4554dc474781",
+      "id": "engineering_engine::imports.53cee9b49d848a99e54a39e47708dff0",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.calibration_measurement_validity.shared.calibration_measurement_validity_safe_snapshot"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.observe_confirm",
       "id": "engineering_engine::imports.5406a394b4698f469679b3f8a9199dcc",
       "label": "imports",
@@ -1359,6 +1429,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.calibration_measurement_validity.tools.calibration_measurement_validity_runner",
+      "id": "engineering_engine::imports.5da759186d8f91af1f27ce31e2e50ec4",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.290aecd3d7a82b7b8fe74648db54d174"
     },
     {
       "evidence_mode": "structural_only",
@@ -1532,6 +1612,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.calibration_measurement_validity.mcp.calibration_measurement_validity_read_only_mcp",
+      "id": "engineering_engine::imports.69b6d178233a9e4b5d5f655a0a3938ef",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.61ac8469da001b63443d9cc99b9c7bf4"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.link_issuer",
       "id": "engineering_engine::imports.69ef972ed67e706f46b2effdc01dba10",
       "label": "imports",
@@ -1539,6 +1629,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.project_profile"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.calibration_measurement_validity.guidance.calibration_measurement_validity_guidance",
+      "id": "engineering_engine::imports.6a012228f43f2d206517f9fbdeb93a0b",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.61ac8469da001b63443d9cc99b9c7bf4"
     },
     {
       "evidence_mode": "structural_only",
@@ -1832,6 +1932,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.calibration_measurement_validity.guidance.calibration_measurement_validity_guidance",
+      "id": "engineering_engine::imports.80466de56dc52983717e0f7c0e3d21d0",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.calibration_measurement_validity.shared.calibration_measurement_validity_safe_snapshot"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
       "id": "engineering_engine::imports.807a74e82ead45e430f0c79098646684",
       "label": "imports",
@@ -2002,6 +2112,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.calibration_measurement_validity.mcp.calibration_measurement_validity_read_only_mcp",
+      "id": "engineering_engine::imports.8b12333b144669e5d3173a27affc7c3d",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.calibration_measurement_validity.guidance.calibration_measurement_validity_guidance"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluator.se_evaluator_adapter",
       "id": "engineering_engine::imports.8ca4a10fe547c53f3fce193b225fe02b",
       "label": "imports",
@@ -2122,6 +2242,26 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.calibration_measurement_validity.shared.calibration_measurement_validity_safe_snapshot",
+      "id": "engineering_engine::imports.9119d48cd07ffbd9d3736324b9d1c81c",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.calibration_measurement_validity.guidance.calibration_measurement_validity_guidance",
+      "id": "engineering_engine::imports.9130feb87188ba91ff72d711dd9804ac",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.engine_contexts",
       "id": "engineering_engine::imports.91b7fb8ed828f57dcc72d93331c4dacf",
       "label": "imports",
@@ -2222,6 +2362,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.calibration_measurement_validity.evaluator.calibration_measurement_validity",
+      "id": "engineering_engine::imports.982994434d5e7c8c18e407a73c9f0f04",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.calibration_measurement_validity.rules.calibration_measurement_validity_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter",
       "id": "engineering_engine::imports.988228740ad85ef5d2aa40e0834833af",
       "label": "imports",
@@ -2259,6 +2409,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.access_table"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.calibration_measurement_validity.mcp.calibration_measurement_validity_read_only_mcp",
+      "id": "engineering_engine::imports.99e26d78a7fb8a40ce55581e25f1ece7",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
     },
     {
       "evidence_mode": "structural_only",
@@ -2339,6 +2499,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.interfaces.profile_operation_canon"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.0da2c7a31bf0b288b23a4554dc474781",
+      "id": "engineering_engine::imports.a4358945b0fcd1344be94a7dc1100a30",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.calibration_measurement_validity.evaluator.calibration_measurement_validity"
     },
     {
       "evidence_mode": "structural_only",
@@ -2452,6 +2622,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.calibration_measurement_validity.rules.calibration_measurement_validity_rules",
+      "id": "engineering_engine::imports.ad673c643745ddb20b3233524debc3a5",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.49baa75bcecc59367f6d6786627dd140"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_readiness",
       "id": "engineering_engine::imports.add76a9962f3abcc5b1c2092b1fe01fa",
       "label": "imports",
@@ -2489,6 +2669,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.calibration_measurement_validity.mcp.calibration_measurement_validity_read_only_mcp",
+      "id": "engineering_engine::imports.afb6d31e4502ec1f29831488f58bc573",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.8a31f9be4f7b3f3290f7ebe2d4fcf00e"
     },
     {
       "evidence_mode": "structural_only",
@@ -2702,6 +2892,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.calibration_measurement_validity.mcp.calibration_measurement_validity_read_only_mcp",
+      "id": "engineering_engine::imports.c0658893eeae0952ea5027abf98eaf14",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.calibration_measurement_validity.evaluator.calibration_measurement_validity"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluator.se_core_crosswalk_case_run",
       "id": "engineering_engine::imports.c1d50a37c50b8106c82d9e881c66b28f",
       "label": "imports",
@@ -2752,6 +2952,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.calibration_measurement_validity.mcp.calibration_measurement_validity_read_only_mcp",
+      "id": "engineering_engine::imports.c303cbd3b20adfee7284ca6ca1b8f0f0",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.80ff94140e105629589a73952c249766"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluator.ax_se_project_role_roster",
       "id": "engineering_engine::imports.c30c207471b25c812823138f428bb4ca",
       "label": "imports",
@@ -2789,6 +2999,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.calibration_measurement_validity.mcp.calibration_measurement_validity_read_only_mcp",
+      "id": "engineering_engine::imports.c5f309410cbdbf1a67f3549b7a362481",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.calibration_measurement_validity.shared.calibration_measurement_validity_safe_snapshot"
     },
     {
       "evidence_mode": "structural_only",
@@ -2902,6 +3122,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.calibration_measurement_validity.guidance.calibration_measurement_validity_guidance",
+      "id": "engineering_engine::imports.cb7369bc50fb2b1302dc729dd0514a7e",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.8a31f9be4f7b3f3290f7ebe2d4fcf00e"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.database_engineering.analysis.database_evidence_analyzers",
       "id": "engineering_engine::imports.cbd05984981ae22f034431a139b1ca8f",
       "label": "imports",
@@ -2949,6 +3179,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.tools.observe_register"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.61ac8469da001b63443d9cc99b9c7bf4",
+      "id": "engineering_engine::imports.cf41c84d06e941750a534e7062686945",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.calibration_measurement_validity.shared.calibration_measurement_validity_safe_snapshot"
     },
     {
       "evidence_mode": "structural_only",
@@ -4272,6 +4512,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.0da2c7a31bf0b288b23a4554dc474781",
+      "id": "engineering_engine::imports.d659abbf922e8437847397b816b78aef",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.calibration_measurement_validity.rules.calibration_measurement_validity_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.observation.observation_housekeeping",
       "id": "engineering_engine::imports.d66708fcec5391c4cb2e27c793c0ee63",
       "label": "imports",
@@ -4369,6 +4619,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.database_engineering.compiler.database_engineering_compiler_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.calibration_measurement_validity.guidance.calibration_measurement_validity_guidance",
+      "id": "engineering_engine::imports.d9c7537a9b3918b00ae85807247c3aa6",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.49baa75bcecc59367f6d6786627dd140"
     },
     {
       "evidence_mode": "structural_only",
@@ -5572,6 +5832,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.c628cc19e55a08c8fc7a454535362add",
+      "id": "engineering_engine::imports.fa6fa7c30a8d56d15cb653e7f0455837",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.calibration_measurement_validity.guidance.calibration_measurement_validity_guidance"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.database_engineering.guidance.database_engineering_guidance",
       "id": "engineering_engine::imports.fa811735e007ac856a8c60dc73d5c179",
       "label": "imports",
@@ -5589,6 +5859,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.access_table"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.80ff94140e105629589a73952c249766",
+      "id": "engineering_engine::imports.fc404fbc3c993b63aa91205b26700d96",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.calibration_measurement_validity.shared.calibration_measurement_validity_safe_snapshot"
     },
     {
       "evidence_mode": "structural_only",
@@ -5622,6 +5902,166 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.0d9a62b01be10e579cbf0c88e8e4ae01",
+      "id": "engineering_engine::imports.module.0d9a62b01be10e579cbf0c88e8e4ae01.core.interfaces.profile_operation_canon",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.profile_operation_canon"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.0d9a62b01be10e579cbf0c88e8e4ae01",
+      "id": "engineering_engine::imports.module.0d9a62b01be10e579cbf0c88e8e4ae01.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.0d9a62b01be10e579cbf0c88e8e4ae01",
+      "id": "engineering_engine::imports.module.0d9a62b01be10e579cbf0c88e8e4ae01.module.49baa75bcecc59367f6d6786627dd140",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.49baa75bcecc59367f6d6786627dd140"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.0d9a62b01be10e579cbf0c88e8e4ae01",
+      "id": "engineering_engine::imports.module.0d9a62b01be10e579cbf0c88e8e4ae01.module.61ac8469da001b63443d9cc99b9c7bf4",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.61ac8469da001b63443d9cc99b9c7bf4"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.0da2c7a31bf0b288b23a4554dc474781",
+      "id": "engineering_engine::imports.module.0da2c7a31bf0b288b23a4554dc474781.core.interfaces.domain_engine_adapter",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.0da2c7a31bf0b288b23a4554dc474781",
+      "id": "engineering_engine::imports.module.0da2c7a31bf0b288b23a4554dc474781.core.interfaces.profile_operation_canon",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.profile_operation_canon"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.0da2c7a31bf0b288b23a4554dc474781",
+      "id": "engineering_engine::imports.module.0da2c7a31bf0b288b23a4554dc474781.core.validators.authority",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.authority"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.0da2c7a31bf0b288b23a4554dc474781",
+      "id": "engineering_engine::imports.module.0da2c7a31bf0b288b23a4554dc474781.core.validators.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.0da2c7a31bf0b288b23a4554dc474781",
+      "id": "engineering_engine::imports.module.0da2c7a31bf0b288b23a4554dc474781.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.0da2c7a31bf0b288b23a4554dc474781",
+      "id": "engineering_engine::imports.module.0da2c7a31bf0b288b23a4554dc474781.core.validators.fingerprint",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.0da2c7a31bf0b288b23a4554dc474781",
+      "id": "engineering_engine::imports.module.0da2c7a31bf0b288b23a4554dc474781.module.0d9a62b01be10e579cbf0c88e8e4ae01",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.0d9a62b01be10e579cbf0c88e8e4ae01"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.0da2c7a31bf0b288b23a4554dc474781",
+      "id": "engineering_engine::imports.module.0da2c7a31bf0b288b23a4554dc474781.module.49baa75bcecc59367f6d6786627dd140",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.49baa75bcecc59367f6d6786627dd140"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.0da2c7a31bf0b288b23a4554dc474781",
+      "id": "engineering_engine::imports.module.0da2c7a31bf0b288b23a4554dc474781.module.80ff94140e105629589a73952c249766",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.80ff94140e105629589a73952c249766"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.0da2c7a31bf0b288b23a4554dc474781",
+      "id": "engineering_engine::imports.module.0da2c7a31bf0b288b23a4554dc474781.module.ff2bb4af8fc27c606db29cce630c97ac",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.ff2bb4af8fc27c606db29cce630c97ac"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.49baa75bcecc59367f6d6786627dd140",
+      "id": "engineering_engine::imports.module.49baa75bcecc59367f6d6786627dd140.core.validators.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.49baa75bcecc59367f6d6786627dd140",
+      "id": "engineering_engine::imports.module.49baa75bcecc59367f6d6786627dd140.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::module.60ed739c602b756bca903a5f883dc9eb",
       "id": "engineering_engine::imports.module.60ed739c602b756bca903a5f883dc9eb.core.interfaces.domain_engine_adapter",
       "label": "imports",
@@ -5629,6 +6069,226 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.613285a43b687804820e45222e757f93",
+      "id": "engineering_engine::imports.module.613285a43b687804820e45222e757f93.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.613285a43b687804820e45222e757f93",
+      "id": "engineering_engine::imports.module.613285a43b687804820e45222e757f93.core.validators.module_binding",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.module_binding"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.61ac8469da001b63443d9cc99b9c7bf4",
+      "id": "engineering_engine::imports.module.61ac8469da001b63443d9cc99b9c7bf4.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.61ac8469da001b63443d9cc99b9c7bf4",
+      "id": "engineering_engine::imports.module.61ac8469da001b63443d9cc99b9c7bf4.module.49baa75bcecc59367f6d6786627dd140",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.49baa75bcecc59367f6d6786627dd140"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.80ff94140e105629589a73952c249766",
+      "id": "engineering_engine::imports.module.80ff94140e105629589a73952c249766.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.80ff94140e105629589a73952c249766",
+      "id": "engineering_engine::imports.module.80ff94140e105629589a73952c249766.module.49baa75bcecc59367f6d6786627dd140",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.49baa75bcecc59367f6d6786627dd140"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.80ff94140e105629589a73952c249766",
+      "id": "engineering_engine::imports.module.80ff94140e105629589a73952c249766.module.61ac8469da001b63443d9cc99b9c7bf4",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.61ac8469da001b63443d9cc99b9c7bf4"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.8a31f9be4f7b3f3290f7ebe2d4fcf00e",
+      "id": "engineering_engine::imports.module.8a31f9be4f7b3f3290f7ebe2d4fcf00e.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.8a31f9be4f7b3f3290f7ebe2d4fcf00e",
+      "id": "engineering_engine::imports.module.8a31f9be4f7b3f3290f7ebe2d4fcf00e.module.49baa75bcecc59367f6d6786627dd140",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.49baa75bcecc59367f6d6786627dd140"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.8a31f9be4f7b3f3290f7ebe2d4fcf00e",
+      "id": "engineering_engine::imports.module.8a31f9be4f7b3f3290f7ebe2d4fcf00e.module.61ac8469da001b63443d9cc99b9c7bf4",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.61ac8469da001b63443d9cc99b9c7bf4"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.8a31f9be4f7b3f3290f7ebe2d4fcf00e",
+      "id": "engineering_engine::imports.module.8a31f9be4f7b3f3290f7ebe2d4fcf00e.module.80ff94140e105629589a73952c249766",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.80ff94140e105629589a73952c249766"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.c628cc19e55a08c8fc7a454535362add",
+      "id": "engineering_engine::imports.module.c628cc19e55a08c8fc7a454535362add.core.interfaces.domain_engine_adapter",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.c628cc19e55a08c8fc7a454535362add",
+      "id": "engineering_engine::imports.module.c628cc19e55a08c8fc7a454535362add.module.0da2c7a31bf0b288b23a4554dc474781",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.0da2c7a31bf0b288b23a4554dc474781"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.c628cc19e55a08c8fc7a454535362add",
+      "id": "engineering_engine::imports.module.c628cc19e55a08c8fc7a454535362add.module.290aecd3d7a82b7b8fe74648db54d174",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.290aecd3d7a82b7b8fe74648db54d174"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.c628cc19e55a08c8fc7a454535362add",
+      "id": "engineering_engine::imports.module.c628cc19e55a08c8fc7a454535362add.module.61ac8469da001b63443d9cc99b9c7bf4",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.61ac8469da001b63443d9cc99b9c7bf4"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.c628cc19e55a08c8fc7a454535362add",
+      "id": "engineering_engine::imports.module.c628cc19e55a08c8fc7a454535362add.module.80ff94140e105629589a73952c249766",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.80ff94140e105629589a73952c249766"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.c628cc19e55a08c8fc7a454535362add",
+      "id": "engineering_engine::imports.module.c628cc19e55a08c8fc7a454535362add.module.8a31f9be4f7b3f3290f7ebe2d4fcf00e",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.8a31f9be4f7b3f3290f7ebe2d4fcf00e"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.caf6a8abb5aec9331ab6b546a6ca6b7b",
+      "id": "engineering_engine::imports.module.caf6a8abb5aec9331ab6b546a6ca6b7b.module.49baa75bcecc59367f6d6786627dd140",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.49baa75bcecc59367f6d6786627dd140"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.caf6a8abb5aec9331ab6b546a6ca6b7b",
+      "id": "engineering_engine::imports.module.caf6a8abb5aec9331ab6b546a6ca6b7b.module.61ac8469da001b63443d9cc99b9c7bf4",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.61ac8469da001b63443d9cc99b9c7bf4"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.ff2bb4af8fc27c606db29cce630c97ac",
+      "id": "engineering_engine::imports.module.ff2bb4af8fc27c606db29cce630c97ac.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.ff2bb4af8fc27c606db29cce630c97ac",
+      "id": "engineering_engine::imports.module.ff2bb4af8fc27c606db29cce630c97ac.module.0d9a62b01be10e579cbf0c88e8e4ae01",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.0d9a62b01be10e579cbf0c88e8e4ae01"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.ff2bb4af8fc27c606db29cce630c97ac",
+      "id": "engineering_engine::imports.module.ff2bb4af8fc27c606db29cce630c97ac.module.49baa75bcecc59367f6d6786627dd140",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.49baa75bcecc59367f6d6786627dd140"
     },
     {
       "evidence_mode": "structural_only",
@@ -6523,6 +7183,72 @@
       "id": "engineering_engine::core.validators.snapshot",
       "kind": "module",
       "label": "core/validators/snapshot",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.calibration_measurement_validity.evaluator.calibration_measurement_validity",
+      "kind": "module",
+      "label": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.calibration_measurement_validity.guidance.calibration_measurement_validity_guidance",
+      "kind": "module",
+      "label": "engines/calibration_measurement_validity/guidance/calibration_measurement_validity_guidance",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.calibration_measurement_validity.mcp.calibration_measurement_validity_read_only_mcp",
+      "kind": "module",
+      "label": "engines/calibration_measurement_validity/mcp/calibration_measurement_validity_read_only_mcp",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.calibration_measurement_validity.rules.calibration_measurement_validity_rules",
+      "kind": "module",
+      "label": "engines/calibration_measurement_validity/rules/calibration_measurement_validity_rules",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.calibration_measurement_validity.shared.calibration_measurement_validity_safe_snapshot",
+      "kind": "module",
+      "label": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_safe_snapshot",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.calibration_measurement_validity.tools.calibration_measurement_validity_runner",
+      "kind": "module",
+      "label": "engines/calibration_measurement_validity/tools/calibration_measurement_validity_runner",
       "layer": "module",
       "parent_id": null,
       "provider_id": "engineering_engine",
@@ -8049,9 +8775,130 @@
     {
       "diagnostic_state": "validator_backed",
       "group": "engines",
+      "id": "engineering_engine::module.0d9a62b01be10e579cbf0c88e8e4ae01",
+      "kind": "module",
+      "label": "engines/calibration_measurement_validity/profile/calibration_measurement_validity_source_bound_profile",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::module.0da2c7a31bf0b288b23a4554dc474781",
+      "kind": "module",
+      "label": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity_evaluator_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::module.290aecd3d7a82b7b8fe74648db54d174",
+      "kind": "module",
+      "label": "engines/calibration_measurement_validity/fixtures/calibration_measurement_validity_public_synthetic",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::module.49baa75bcecc59367f6d6786627dd140",
+      "kind": "module",
+      "label": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_canonical_digest",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
       "id": "engineering_engine::module.60ed739c602b756bca903a5f883dc9eb",
       "kind": "module",
       "label": "engines/material_procurement_readiness/evaluator/material_procurement_readiness_evaluator_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::module.613285a43b687804820e45222e757f93",
+      "kind": "module",
+      "label": "engines/calibration_measurement_validity/topology/calibration_measurement_validity_module_manifest",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::module.61ac8469da001b63443d9cc99b9c7bf4",
+      "kind": "module",
+      "label": "engines/calibration_measurement_validity/source/calibration_measurement_validity_source_classification",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::module.80ff94140e105629589a73952c249766",
+      "kind": "module",
+      "label": "engines/calibration_measurement_validity/typed_facts/calibration_measurement_validity_typed_facts_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::module.8a31f9be4f7b3f3290f7ebe2d4fcf00e",
+      "kind": "module",
+      "label": "engines/calibration_measurement_validity/observation/calibration_measurement_validity_observation",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::module.c628cc19e55a08c8fc7a454535362add",
+      "kind": "module",
+      "label": "engines/calibration_measurement_validity/tools/calibration_measurement_validity_zero_write_pilot_runner",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::module.caf6a8abb5aec9331ab6b546a6ca6b7b",
+      "kind": "module",
+      "label": "engines/calibration_measurement_validity/derivation/calibration_measurement_validity_source_derivation",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::module.ff2bb4af8fc27c606db29cce630c97ac",
+      "kind": "module",
+      "label": "engines/calibration_measurement_validity/compiler/calibration_measurement_validity_compiler_adapter",
       "layer": "module",
       "parent_id": null,
       "provider_id": "engineering_engine",
@@ -8632,6 +9479,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.calibration_measurement_validity.evaluator.calibration_measurement_validity",
+          "id": "imports.0bcb73109fbafe10ae2c260388f8bff5",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.database_engineering.analysis.database_evidence_analyzers",
           "id": "imports.0cbc13b27a8056867bf0dcea40e0a4ee",
           "label": "imports",
@@ -8719,6 +9575,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.evaluation.se_core_eval_qa_report_writer"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.calibration_measurement_validity.mcp.calibration_measurement_validity_read_only_mcp",
+          "id": "imports.12317420a52153c21f98c547fde29f9e",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.290aecd3d7a82b7b8fe74648db54d174"
         },
         {
           "evidence_mode": "structural_only",
@@ -8944,6 +9809,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.evaluation.se_core_eval_human_report"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.calibration_measurement_validity.evaluator.calibration_measurement_validity",
+          "id": "imports.21e4349b394fa3862b6b30469d3e3c73",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.49baa75bcecc59367f6d6786627dd140"
         },
         {
           "evidence_mode": "structural_only",
@@ -9379,6 +10253,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.calibration_measurement_validity.tools.calibration_measurement_validity_runner",
+          "id": "imports.4310192a6fda11fe378164e735aa3199",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.calibration_measurement_validity.evaluator.calibration_measurement_validity"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.reliability_maintainability.evaluator.reliability_maintainability",
           "id": "imports.433e6c45025b37ff76b5020a69607b23",
           "label": "imports",
@@ -9469,6 +10352,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "module.ff2bb4af8fc27c606db29cce630c97ac",
+          "id": "imports.4c61acd431d1a243409800251612c83f",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.calibration_measurement_validity.rules.calibration_measurement_validity_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.material_procurement_readiness.rules.material_procurement_readiness_rules",
           "id": "imports.4ceb98555c8d60dd35e135e0ea381a9b",
           "label": "imports",
@@ -9538,6 +10430,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.evaluator.se_core_crosswalk_projection"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.caf6a8abb5aec9331ab6b546a6ca6b7b",
+          "id": "imports.5065d08940ed44aab74611999612ea7f",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.calibration_measurement_validity.rules.calibration_measurement_validity_rules"
         },
         {
           "evidence_mode": "structural_only",
@@ -9640,6 +10541,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "module.0da2c7a31bf0b288b23a4554dc474781",
+          "id": "imports.53cee9b49d848a99e54a39e47708dff0",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.calibration_measurement_validity.shared.calibration_measurement_validity_safe_snapshot"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.observe_confirm",
           "id": "imports.5406a394b4698f469679b3f8a9199dcc",
           "label": "imports",
@@ -9736,6 +10646,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.calibration_measurement_validity.tools.calibration_measurement_validity_runner",
+          "id": "imports.5da759186d8f91af1f27ce31e2e50ec4",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.290aecd3d7a82b7b8fe74648db54d174"
         },
         {
           "evidence_mode": "structural_only",
@@ -9892,12 +10811,30 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.calibration_measurement_validity.mcp.calibration_measurement_validity_read_only_mcp",
+          "id": "imports.69b6d178233a9e4b5d5f655a0a3938ef",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.61ac8469da001b63443d9cc99b9c7bf4"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.link_issuer",
           "id": "imports.69ef972ed67e706f46b2effdc01dba10",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.project_profile"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.calibration_measurement_validity.guidance.calibration_measurement_validity_guidance",
+          "id": "imports.6a012228f43f2d206517f9fbdeb93a0b",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.61ac8469da001b63443d9cc99b9c7bf4"
         },
         {
           "evidence_mode": "structural_only",
@@ -10162,6 +11099,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.calibration_measurement_validity.guidance.calibration_measurement_validity_guidance",
+          "id": "imports.80466de56dc52983717e0f7c0e3d21d0",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.calibration_measurement_validity.shared.calibration_measurement_validity_safe_snapshot"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
           "id": "imports.807a74e82ead45e430f0c79098646684",
           "label": "imports",
@@ -10315,6 +11261,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.calibration_measurement_validity.mcp.calibration_measurement_validity_read_only_mcp",
+          "id": "imports.8b12333b144669e5d3173a27affc7c3d",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.calibration_measurement_validity.guidance.calibration_measurement_validity_guidance"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluator.se_evaluator_adapter",
           "id": "imports.8ca4a10fe547c53f3fce193b225fe02b",
           "label": "imports",
@@ -10423,6 +11378,24 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.calibration_measurement_validity.shared.calibration_measurement_validity_safe_snapshot",
+          "id": "imports.9119d48cd07ffbd9d3736324b9d1c81c",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.calibration_measurement_validity.guidance.calibration_measurement_validity_guidance",
+          "id": "imports.9130feb87188ba91ff72d711dd9804ac",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.engine_contexts",
           "id": "imports.91b7fb8ed828f57dcc72d93331c4dacf",
           "label": "imports",
@@ -10513,6 +11486,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.calibration_measurement_validity.evaluator.calibration_measurement_validity",
+          "id": "imports.982994434d5e7c8c18e407a73c9f0f04",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.calibration_measurement_validity.rules.calibration_measurement_validity_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter",
           "id": "imports.988228740ad85ef5d2aa40e0834833af",
           "label": "imports",
@@ -10546,6 +11528,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.access_table"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.calibration_measurement_validity.mcp.calibration_measurement_validity_read_only_mcp",
+          "id": "imports.99e26d78a7fb8a40ce55581e25f1ece7",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
         },
         {
           "evidence_mode": "structural_only",
@@ -10618,6 +11609,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.interfaces.profile_operation_canon"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.0da2c7a31bf0b288b23a4554dc474781",
+          "id": "imports.a4358945b0fcd1344be94a7dc1100a30",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.calibration_measurement_validity.evaluator.calibration_measurement_validity"
         },
         {
           "evidence_mode": "structural_only",
@@ -10720,6 +11720,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.calibration_measurement_validity.rules.calibration_measurement_validity_rules",
+          "id": "imports.ad673c643745ddb20b3233524debc3a5",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.49baa75bcecc59367f6d6786627dd140"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.material_procurement_readiness.evaluator.material_procurement_readiness",
           "id": "imports.add76a9962f3abcc5b1c2092b1fe01fa",
           "label": "imports",
@@ -10753,6 +11762,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.pcb_compliance.evaluator.pcb_compliance"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.calibration_measurement_validity.mcp.calibration_measurement_validity_read_only_mcp",
+          "id": "imports.afb6d31e4502ec1f29831488f58bc573",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.8a31f9be4f7b3f3290f7ebe2d4fcf00e"
         },
         {
           "evidence_mode": "structural_only",
@@ -10945,6 +11963,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.calibration_measurement_validity.mcp.calibration_measurement_validity_read_only_mcp",
+          "id": "imports.c0658893eeae0952ea5027abf98eaf14",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.calibration_measurement_validity.evaluator.calibration_measurement_validity"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluator.se_core_crosswalk_case_run",
           "id": "imports.c1d50a37c50b8106c82d9e881c66b28f",
           "label": "imports",
@@ -10990,6 +12017,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.calibration_measurement_validity.mcp.calibration_measurement_validity_read_only_mcp",
+          "id": "imports.c303cbd3b20adfee7284ca6ca1b8f0f0",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.80ff94140e105629589a73952c249766"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluator.ax_se_project_role_roster",
           "id": "imports.c30c207471b25c812823138f428bb4ca",
           "label": "imports",
@@ -11023,6 +12059,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.calibration_measurement_validity.mcp.calibration_measurement_validity_read_only_mcp",
+          "id": "imports.c5f309410cbdbf1a67f3549b7a362481",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.calibration_measurement_validity.shared.calibration_measurement_validity_safe_snapshot"
         },
         {
           "evidence_mode": "structural_only",
@@ -11125,6 +12170,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.calibration_measurement_validity.guidance.calibration_measurement_validity_guidance",
+          "id": "imports.cb7369bc50fb2b1302dc729dd0514a7e",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.8a31f9be4f7b3f3290f7ebe2d4fcf00e"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.database_engineering.analysis.database_evidence_analyzers",
           "id": "imports.cbd05984981ae22f034431a139b1ca8f",
           "label": "imports",
@@ -11167,6 +12221,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.tools.observe_register"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.61ac8469da001b63443d9cc99b9c7bf4",
+          "id": "imports.cf41c84d06e941750a534e7062686945",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.calibration_measurement_validity.shared.calibration_measurement_validity_safe_snapshot"
         },
         {
           "evidence_mode": "structural_only",
@@ -12358,6 +13421,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "module.0da2c7a31bf0b288b23a4554dc474781",
+          "id": "imports.d659abbf922e8437847397b816b78aef",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.calibration_measurement_validity.rules.calibration_measurement_validity_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.observation.observation_housekeeping",
           "id": "imports.d66708fcec5391c4cb2e27c793c0ee63",
           "label": "imports",
@@ -12445,6 +13517,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.database_engineering.compiler.database_engineering_compiler_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.calibration_measurement_validity.guidance.calibration_measurement_validity_guidance",
+          "id": "imports.d9c7537a9b3918b00ae85807247c3aa6",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.49baa75bcecc59367f6d6786627dd140"
         },
         {
           "evidence_mode": "structural_only",
@@ -13528,6 +14609,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "module.c628cc19e55a08c8fc7a454535362add",
+          "id": "imports.fa6fa7c30a8d56d15cb653e7f0455837",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.calibration_measurement_validity.guidance.calibration_measurement_validity_guidance"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.database_engineering.guidance.database_engineering_guidance",
           "id": "imports.fa811735e007ac856a8c60dc73d5c179",
           "label": "imports",
@@ -13543,6 +14633,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.access_table"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.80ff94140e105629589a73952c249766",
+          "id": "imports.fc404fbc3c993b63aa91205b26700d96",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.calibration_measurement_validity.shared.calibration_measurement_validity_safe_snapshot"
         },
         {
           "evidence_mode": "structural_only",
@@ -13573,12 +14672,354 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "module.0d9a62b01be10e579cbf0c88e8e4ae01",
+          "id": "imports.module.0d9a62b01be10e579cbf0c88e8e4ae01.core.interfaces.profile_operation_canon",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.profile_operation_canon"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.0d9a62b01be10e579cbf0c88e8e4ae01",
+          "id": "imports.module.0d9a62b01be10e579cbf0c88e8e4ae01.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.0d9a62b01be10e579cbf0c88e8e4ae01",
+          "id": "imports.module.0d9a62b01be10e579cbf0c88e8e4ae01.module.49baa75bcecc59367f6d6786627dd140",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.49baa75bcecc59367f6d6786627dd140"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.0d9a62b01be10e579cbf0c88e8e4ae01",
+          "id": "imports.module.0d9a62b01be10e579cbf0c88e8e4ae01.module.61ac8469da001b63443d9cc99b9c7bf4",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.61ac8469da001b63443d9cc99b9c7bf4"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.0da2c7a31bf0b288b23a4554dc474781",
+          "id": "imports.module.0da2c7a31bf0b288b23a4554dc474781.core.interfaces.domain_engine_adapter",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.0da2c7a31bf0b288b23a4554dc474781",
+          "id": "imports.module.0da2c7a31bf0b288b23a4554dc474781.core.interfaces.profile_operation_canon",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.profile_operation_canon"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.0da2c7a31bf0b288b23a4554dc474781",
+          "id": "imports.module.0da2c7a31bf0b288b23a4554dc474781.core.validators.authority",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.authority"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.0da2c7a31bf0b288b23a4554dc474781",
+          "id": "imports.module.0da2c7a31bf0b288b23a4554dc474781.core.validators.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.0da2c7a31bf0b288b23a4554dc474781",
+          "id": "imports.module.0da2c7a31bf0b288b23a4554dc474781.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.0da2c7a31bf0b288b23a4554dc474781",
+          "id": "imports.module.0da2c7a31bf0b288b23a4554dc474781.core.validators.fingerprint",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.0da2c7a31bf0b288b23a4554dc474781",
+          "id": "imports.module.0da2c7a31bf0b288b23a4554dc474781.module.0d9a62b01be10e579cbf0c88e8e4ae01",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.0d9a62b01be10e579cbf0c88e8e4ae01"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.0da2c7a31bf0b288b23a4554dc474781",
+          "id": "imports.module.0da2c7a31bf0b288b23a4554dc474781.module.49baa75bcecc59367f6d6786627dd140",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.49baa75bcecc59367f6d6786627dd140"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.0da2c7a31bf0b288b23a4554dc474781",
+          "id": "imports.module.0da2c7a31bf0b288b23a4554dc474781.module.80ff94140e105629589a73952c249766",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.80ff94140e105629589a73952c249766"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.0da2c7a31bf0b288b23a4554dc474781",
+          "id": "imports.module.0da2c7a31bf0b288b23a4554dc474781.module.ff2bb4af8fc27c606db29cce630c97ac",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.ff2bb4af8fc27c606db29cce630c97ac"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.49baa75bcecc59367f6d6786627dd140",
+          "id": "imports.module.49baa75bcecc59367f6d6786627dd140.core.validators.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.49baa75bcecc59367f6d6786627dd140",
+          "id": "imports.module.49baa75bcecc59367f6d6786627dd140.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "module.60ed739c602b756bca903a5f883dc9eb",
           "id": "imports.module.60ed739c602b756bca903a5f883dc9eb.core.interfaces.domain_engine_adapter",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
           "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.613285a43b687804820e45222e757f93",
+          "id": "imports.module.613285a43b687804820e45222e757f93.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.613285a43b687804820e45222e757f93",
+          "id": "imports.module.613285a43b687804820e45222e757f93.core.validators.module_binding",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.module_binding"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.61ac8469da001b63443d9cc99b9c7bf4",
+          "id": "imports.module.61ac8469da001b63443d9cc99b9c7bf4.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.61ac8469da001b63443d9cc99b9c7bf4",
+          "id": "imports.module.61ac8469da001b63443d9cc99b9c7bf4.module.49baa75bcecc59367f6d6786627dd140",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.49baa75bcecc59367f6d6786627dd140"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.80ff94140e105629589a73952c249766",
+          "id": "imports.module.80ff94140e105629589a73952c249766.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.80ff94140e105629589a73952c249766",
+          "id": "imports.module.80ff94140e105629589a73952c249766.module.49baa75bcecc59367f6d6786627dd140",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.49baa75bcecc59367f6d6786627dd140"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.80ff94140e105629589a73952c249766",
+          "id": "imports.module.80ff94140e105629589a73952c249766.module.61ac8469da001b63443d9cc99b9c7bf4",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.61ac8469da001b63443d9cc99b9c7bf4"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.8a31f9be4f7b3f3290f7ebe2d4fcf00e",
+          "id": "imports.module.8a31f9be4f7b3f3290f7ebe2d4fcf00e.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.8a31f9be4f7b3f3290f7ebe2d4fcf00e",
+          "id": "imports.module.8a31f9be4f7b3f3290f7ebe2d4fcf00e.module.49baa75bcecc59367f6d6786627dd140",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.49baa75bcecc59367f6d6786627dd140"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.8a31f9be4f7b3f3290f7ebe2d4fcf00e",
+          "id": "imports.module.8a31f9be4f7b3f3290f7ebe2d4fcf00e.module.61ac8469da001b63443d9cc99b9c7bf4",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.61ac8469da001b63443d9cc99b9c7bf4"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.8a31f9be4f7b3f3290f7ebe2d4fcf00e",
+          "id": "imports.module.8a31f9be4f7b3f3290f7ebe2d4fcf00e.module.80ff94140e105629589a73952c249766",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.80ff94140e105629589a73952c249766"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.c628cc19e55a08c8fc7a454535362add",
+          "id": "imports.module.c628cc19e55a08c8fc7a454535362add.core.interfaces.domain_engine_adapter",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.c628cc19e55a08c8fc7a454535362add",
+          "id": "imports.module.c628cc19e55a08c8fc7a454535362add.module.0da2c7a31bf0b288b23a4554dc474781",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.0da2c7a31bf0b288b23a4554dc474781"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.c628cc19e55a08c8fc7a454535362add",
+          "id": "imports.module.c628cc19e55a08c8fc7a454535362add.module.290aecd3d7a82b7b8fe74648db54d174",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.290aecd3d7a82b7b8fe74648db54d174"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.c628cc19e55a08c8fc7a454535362add",
+          "id": "imports.module.c628cc19e55a08c8fc7a454535362add.module.61ac8469da001b63443d9cc99b9c7bf4",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.61ac8469da001b63443d9cc99b9c7bf4"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.c628cc19e55a08c8fc7a454535362add",
+          "id": "imports.module.c628cc19e55a08c8fc7a454535362add.module.80ff94140e105629589a73952c249766",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.80ff94140e105629589a73952c249766"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.c628cc19e55a08c8fc7a454535362add",
+          "id": "imports.module.c628cc19e55a08c8fc7a454535362add.module.8a31f9be4f7b3f3290f7ebe2d4fcf00e",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.8a31f9be4f7b3f3290f7ebe2d4fcf00e"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.caf6a8abb5aec9331ab6b546a6ca6b7b",
+          "id": "imports.module.caf6a8abb5aec9331ab6b546a6ca6b7b.module.49baa75bcecc59367f6d6786627dd140",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.49baa75bcecc59367f6d6786627dd140"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.caf6a8abb5aec9331ab6b546a6ca6b7b",
+          "id": "imports.module.caf6a8abb5aec9331ab6b546a6ca6b7b.module.61ac8469da001b63443d9cc99b9c7bf4",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.61ac8469da001b63443d9cc99b9c7bf4"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.ff2bb4af8fc27c606db29cce630c97ac",
+          "id": "imports.module.ff2bb4af8fc27c606db29cce630c97ac.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.ff2bb4af8fc27c606db29cce630c97ac",
+          "id": "imports.module.ff2bb4af8fc27c606db29cce630c97ac.module.0d9a62b01be10e579cbf0c88e8e4ae01",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.0d9a62b01be10e579cbf0c88e8e4ae01"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.ff2bb4af8fc27c606db29cce630c97ac",
+          "id": "imports.module.ff2bb4af8fc27c606db29cce630c97ac.module.49baa75bcecc59367f6d6786627dd140",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.49baa75bcecc59367f6d6786627dd140"
         }
       ],
       "label": "Soulforge Engineering Engine declared module topology",
@@ -13939,6 +15380,66 @@
           "id": "core.validators.snapshot",
           "kind": "module",
           "label": "core/validators/snapshot",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.calibration_measurement_validity.evaluator.calibration_measurement_validity",
+          "kind": "module",
+          "label": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.calibration_measurement_validity.guidance.calibration_measurement_validity_guidance",
+          "kind": "module",
+          "label": "engines/calibration_measurement_validity/guidance/calibration_measurement_validity_guidance",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.calibration_measurement_validity.mcp.calibration_measurement_validity_read_only_mcp",
+          "kind": "module",
+          "label": "engines/calibration_measurement_validity/mcp/calibration_measurement_validity_read_only_mcp",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.calibration_measurement_validity.rules.calibration_measurement_validity_rules",
+          "kind": "module",
+          "label": "engines/calibration_measurement_validity/rules/calibration_measurement_validity_rules",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.calibration_measurement_validity.shared.calibration_measurement_validity_safe_snapshot",
+          "kind": "module",
+          "label": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_safe_snapshot",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.calibration_measurement_validity.tools.calibration_measurement_validity_runner",
+          "kind": "module",
+          "label": "engines/calibration_measurement_validity/tools/calibration_measurement_validity_runner",
           "layer": "module",
           "parent_id": null,
           "repair_state": "none"
@@ -15326,9 +16827,119 @@
         {
           "diagnostic_state": "validator_backed",
           "group": "engines",
+          "id": "module.0d9a62b01be10e579cbf0c88e8e4ae01",
+          "kind": "module",
+          "label": "engines/calibration_measurement_validity/profile/calibration_measurement_validity_source_bound_profile",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "module.0da2c7a31bf0b288b23a4554dc474781",
+          "kind": "module",
+          "label": "engines/calibration_measurement_validity/evaluator/calibration_measurement_validity_evaluator_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "module.290aecd3d7a82b7b8fe74648db54d174",
+          "kind": "module",
+          "label": "engines/calibration_measurement_validity/fixtures/calibration_measurement_validity_public_synthetic",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "module.49baa75bcecc59367f6d6786627dd140",
+          "kind": "module",
+          "label": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_canonical_digest",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
           "id": "module.60ed739c602b756bca903a5f883dc9eb",
           "kind": "module",
           "label": "engines/material_procurement_readiness/evaluator/material_procurement_readiness_evaluator_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "module.613285a43b687804820e45222e757f93",
+          "kind": "module",
+          "label": "engines/calibration_measurement_validity/topology/calibration_measurement_validity_module_manifest",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "module.61ac8469da001b63443d9cc99b9c7bf4",
+          "kind": "module",
+          "label": "engines/calibration_measurement_validity/source/calibration_measurement_validity_source_classification",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "module.80ff94140e105629589a73952c249766",
+          "kind": "module",
+          "label": "engines/calibration_measurement_validity/typed_facts/calibration_measurement_validity_typed_facts_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "module.8a31f9be4f7b3f3290f7ebe2d4fcf00e",
+          "kind": "module",
+          "label": "engines/calibration_measurement_validity/observation/calibration_measurement_validity_observation",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "module.c628cc19e55a08c8fc7a454535362add",
+          "kind": "module",
+          "label": "engines/calibration_measurement_validity/tools/calibration_measurement_validity_zero_write_pilot_runner",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "module.caf6a8abb5aec9331ab6b546a6ca6b7b",
+          "kind": "module",
+          "label": "engines/calibration_measurement_validity/derivation/calibration_measurement_validity_source_derivation",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "module.ff2bb4af8fc27c606db29cce630c97ac",
+          "kind": "module",
+          "label": "engines/calibration_measurement_validity/compiler/calibration_measurement_validity_compiler_adapter",
           "layer": "module",
           "parent_id": null,
           "repair_state": "none"
@@ -15340,7 +16951,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "268952016bb726ea11bc3504752328809938b135d50189079e9c8485db217904",
+        "digest": "64ec67bd2c526bcd44d29180d6067aed57e7fadb4c90388849bcfa886ec14c11",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -16334,13 +17945,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "69cbb568fb2ab91511f20cd5dbe093a51379e4d72a8140718bbae98be2f43a31",
+  "source_set_digest": "817942adc2cbfc2939e99fa053d4bdbb95552b7f70363dc46ee12545d437709c",
   "summary": {
-    "edge_count": 613,
-    "node_count": 214,
+    "edge_count": 679,
+    "node_count": 231,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "fef45eb993749a61ca6f17adcc51c0e3de1e782e1f72be7a500509d682884534"
+  "topology_digest": "d158a107a3416af3cf70c0df38ecb0cfaed436a094799d4eb23300f737cd750d"
 }

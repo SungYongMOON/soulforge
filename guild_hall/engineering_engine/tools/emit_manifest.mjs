@@ -117,16 +117,24 @@ const blobIdOf = (bytes) => createHash('sha1')
 /**
  * Asks Git for the blob id of each working-tree file, with the repository's attributes applied.
  *
- * One process for the whole list. Returns null when Git is unavailable, which the caller
- * treats as "cannot verify" rather than "verified".
+ * Uses bounded chunks so Windows command-line limits cannot turn a large canonical engine
+ * inventory into an unverified manifest. Returns null when Git is unavailable, which the
+ * caller treats as "cannot verify" rather than "verified".
  */
 function gitBlobIds(files) {
-  const r = spawnSync('git', ['hash-object', '--filters', '--', ...files], {
-    cwd: ENGINE,
-    encoding: 'utf8',
-  });
-  if (r.status !== 0 || typeof r.stdout !== 'string') return null;
-  const ids = r.stdout.trim().split('\n').map((l) => l.trim()).filter(Boolean);
+  const ids = [];
+  const chunkSize = 64;
+  for (let offset = 0; offset < files.length; offset += chunkSize) {
+    const chunk = files.slice(offset, offset + chunkSize);
+    const r = spawnSync('git', ['hash-object', '--filters', '--', ...chunk], {
+      cwd: ENGINE,
+      encoding: 'utf8',
+    });
+    if (r.status !== 0 || typeof r.stdout !== 'string') return null;
+    const chunkIds = r.stdout.trim().split('\n').map((l) => l.trim()).filter(Boolean);
+    if (chunkIds.length !== chunk.length) return null;
+    ids.push(...chunkIds);
+  }
   return ids.length === files.length ? ids : null;
 }
 
