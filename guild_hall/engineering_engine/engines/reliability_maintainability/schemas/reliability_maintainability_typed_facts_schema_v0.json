@@ -1,0 +1,313 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.reliability_maintainability.typed_facts.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project_binding_ref", "facts", "facts_digest", "valid_at", "known_at"],
+  "properties": {
+    "schema_version": { "const": "soulforge.typed_project_facts.v0" },
+    "project_binding_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "project_id", "domain_engine_id", "binding_revision_hash", "source_manifest_ref"],
+      "properties": {
+        "schema_version": { "const": "soulforge.project_binding.v0" },
+        "project_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+        "domain_engine_id": { "const": "reliability_maintainability" },
+        "binding_revision_hash": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+        "source_manifest_ref": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+        "authority_family": {
+          "enum": [
+            "project_contract_baseline",
+            "applicable_law_and_regulation",
+            "company_approved_procedure",
+            "acquisition_authority_manual",
+            "general_se_guidance",
+            "case_and_template",
+            "reviewed_wiki",
+            "llm_proposal"
+          ]
+        },
+        "valid_at": { "type": "string", "pattern": "Z$" },
+        "known_at": { "type": "string", "pattern": "Z$" },
+        "document_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" }
+        }
+      }
+    },
+    "facts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["manifest", "binding", "domain_input", "cutoffs"],
+        "properties": {
+          "manifest": { "$ref": "#/$defs/manifest" },
+          "binding": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "project_binding_ref",
+              "engine_release_version",
+              "engine_artifact_sha256",
+              "engine_contract_revision",
+              "snapshot_schema_revision",
+              "module_abi_revision",
+              "module_bindings",
+              "common_knowledge_revision",
+              "project_knowledge_revision",
+              "policy_bundle_revision",
+              "ruleset_revision",
+              "accepted_context_generation",
+              "acl_policy_revision",
+              "execution_mode",
+              "engine_ref",
+              "objective_ref",
+              "policy_ref",
+              "snapshot_ref",
+              "source_packet_ref",
+              "ruleset_ref",
+              "adapter_revision",
+              "source_bindings",
+              "accepted_rule_bindings"
+            ],
+            "properties": {
+              "engine_contract_revision": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+              "snapshot_schema_revision": { "const": "soulforge.reliability_maintainability.domain_input.v0" },
+              "engine_ref": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" },
+              "project_binding_ref": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" },
+              "objective_ref": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" },
+              "policy_ref": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" },
+              "snapshot_ref": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" },
+              "engine_release_version": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$" },
+              "engine_artifact_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              "module_abi_revision": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$" },
+              "module_bindings": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 1,
+                "items": { "$ref": "#/$defs/manifest" }
+              },
+              "common_knowledge_revision": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+              "project_knowledge_revision": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+              "policy_bundle_revision": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+              "ruleset_revision": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+              "accepted_context_generation": { "type": "integer", "minimum": 0 },
+              "acl_policy_revision": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+              "execution_mode": { "const": "deterministic_only" },
+              "source_packet_ref": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" },
+              "ruleset_ref": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" },
+              "adapter_revision": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+              "source_bindings": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["source_id", "metadata_revision_ref", "body_revision_ref"],
+                  "properties": {
+                    "source_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+                    "metadata_revision_ref": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" },
+                    "body_revision_ref": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" }
+                  }
+                }
+              },
+              "accepted_rule_bindings": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 64,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["rule_id", "stage_ref", "owner_acceptance_ref"],
+                  "properties": {
+                    "rule_id": { "type": "string", "pattern": "^RM-[A-Za-z0-9_-]{1,60}$" },
+                    "stage_ref": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" },
+                    "owner_acceptance_ref": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" }
+                  }
+                }
+              }
+            }
+          },
+          "domain_input": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["schema_version", "rows"],
+            "properties": {
+              "schema_version": { "const": "soulforge.reliability_maintainability.domain_input.v0" },
+              "rows": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 64,
+                "items": { "$ref": "#/$defs/transportRow" }
+              }
+            }
+          },
+          "cutoffs": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["accepted_context_generation", "assessment_cutoff_ref", "valid_at", "known_at"],
+            "properties": {
+              "accepted_context_generation": { "type": "integer", "minimum": 0 },
+              "assessment_cutoff_ref": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" },
+              "valid_at": { "type": "string", "pattern": "Z$" },
+              "known_at": { "type": "string", "pattern": "Z$" }
+            }
+          }
+        }
+      }
+    },
+    "facts_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "valid_at": { "type": "string", "pattern": "Z$" },
+    "known_at": { "type": "string", "pattern": "Z$" }
+  },
+  "$defs": {
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "module_id", "module_version", "build_commit", "artifact_sha256", "engine_contract_abi_range",
+        "input_schema_revision", "output_schema_revision", "authority_ceiling", "claim_ceiling",
+        "supported_project_classifications", "execution_mode", "dependency_versions", "configuration_hash",
+        "migration_requirement", "rollback_compatible_with", "test_receipt_ref"
+      ],
+      "properties": {
+        "module_id": { "const": "soulforge.engineering_engine.reliability_maintainability" },
+        "module_version": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$" },
+        "build_commit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+        "artifact_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "engine_contract_abi_range": { "type": "string", "pattern": "^>=(\\d+\\.\\d+\\.\\d+) <(\\d+\\.\\d+\\.\\d+)$" },
+        "input_schema_revision": { "const": "soulforge.reliability_maintainability.domain_input.v0" },
+        "output_schema_revision": { "const": "soulforge.reliability_maintainability.assessment.v0" },
+        "authority_ceiling": { "const": "project_contract_baseline" },
+        "claim_ceiling": { "const": "source_supported" },
+        "supported_project_classifications": { "type": "array", "minItems": 1, "maxItems": 64, "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" } },
+        "execution_mode": { "const": "deterministic_only" },
+        "dependency_versions": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$" },
+          "propertyNames": { "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" }
+        },
+        "configuration_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "migration_requirement": { "const": "none" },
+        "rollback_compatible_with": { "type": "array", "maxItems": 64, "items": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$" } },
+        "test_receipt_ref": { "type": "string", "pattern": "^receipt:[A-Za-z0-9][A-Za-z0-9_.:-]{0,248}$" }
+      }
+    },
+    "transportRow": {
+      "oneOf": [
+        { "$ref": "#/$defs/normalTransportRow" },
+        { "$ref": "#/$defs/sourceNativeTransportRow" }
+      ]
+    },
+    "normalTransportRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "rule_id",
+        "stage_ref",
+        "applicability",
+        "context_refs",
+        "authority_bindings",
+        "observation_attempted",
+        "presence_state",
+        "evidence_refs",
+        "evidence_kind"
+      ],
+      "properties": {
+        "case_id": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/token" },
+        "rule_id": { "type": "string" },
+        "stage_ref": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" },
+        "applicability": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/applicability" },
+        "context_refs": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/contextRefs" },
+        "authority_bindings": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/authorityBinding" }
+        },
+        "observation_attempted": { "type": "boolean" },
+        "observation_attempt_ref": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" },
+        "presence_state": { "enum": ["present", "absence_confirmed", "unknown"] },
+        "evidence_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" }
+        },
+        "evidence_kind": {
+          "type": ["string", "null"],
+          "enum": [
+            null,
+            "availability_analysis",
+            "failure_closure_trace",
+            "failure_repair_metric_record",
+            "fmeca_record",
+            "logistics_support_analysis",
+            "maintainability_demonstration_record",
+            "reliability_allocation_model"
+          ]
+        },
+        "not_applicable_basis_ref": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" },
+        "evaluation_result_ref": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" },
+        "evaluation_result_state": { "enum": ["criteria_met", "criteria_not_met", "unknown"] },
+        "conflict_claims": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/claim" }
+        }
+      }
+    },
+    "sourceNativeTransportRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "rule_id",
+        "stage_ref",
+        "applicability",
+        "context_refs",
+        "authority_bindings",
+        "observation_attempted",
+        "presence_state",
+        "evidence_refs",
+        "evidence_kind_projection"
+      ],
+      "properties": {
+        "case_id": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/token" },
+        "rule_id": { "type": "string" },
+        "stage_ref": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" },
+        "applicability": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/applicability" },
+        "context_refs": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/contextRefs" },
+        "authority_bindings": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/authorityBinding" }
+        },
+        "observation_attempted": { "type": "boolean" },
+        "observation_attempt_ref": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" },
+        "presence_state": { "enum": ["present", "absence_confirmed", "unknown"] },
+        "evidence_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" }
+        },
+        "evidence_kind_projection": {
+          "const": "source_native"
+        },
+        "not_applicable_basis_ref": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" },
+        "evaluation_result_ref": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/shaRef" },
+        "evaluation_result_state": { "enum": ["criteria_met", "criteria_not_met", "unknown"] },
+        "conflict_claims": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "soulforge.reliability_maintainability.domain_input_schema.v0#/$defs/claim" }
+        }
+      }
+    }
+  }
+}

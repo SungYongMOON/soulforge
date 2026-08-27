@@ -1,0 +1,52 @@
+{
+  "schema_version": "soulforge.domain_engine_topology.v0",
+  "domain_engine_id": "reliability_maintainability",
+  "revision": "0.1.0-candidate",
+  "claim_ceiling": "source_supported",
+  "nodes": [
+    { "id": "descriptor", "path": "engine.yaml", "kind": "domain_descriptor" },
+    { "id": "source_packet", "path": "contracts/reliability_maintainability_source_packet_v0.md", "kind": "source_packet" },
+    { "id": "rules", "path": "rules/reliability_maintainability_rules.mjs", "kind": "domain_rules_and_vocabulary" },
+    { "id": "compiler", "path": "compiler/reliability_maintainability_compiler_adapter.mjs", "kind": "compiler_adapter" },
+    { "id": "public_safe", "path": "rules/reliability_maintainability_public_safe.mjs", "kind": "public_safe_locator_token_policy" },
+    { "id": "evaluator", "path": "evaluator/reliability_maintainability.mjs", "kind": "evaluator_subject" },
+    { "id": "admission", "path": "evaluator/reliability_maintainability_admission.mjs", "kind": "core_typed_facts_and_effective_ruleset_admission" },
+    { "id": "evaluator_adapter", "path": "evaluator/reliability_maintainability_evaluator_adapter.mjs", "kind": "evaluator_adapter" },
+    { "id": "fixture", "path": "fixtures/reliability_maintainability_public_synthetic.mjs", "kind": "public_synthetic_fixture" },
+    { "id": "runner", "path": "tools/reliability_maintainability_runner.mjs", "kind": "zero_write_runner" },
+    { "id": "tests", "path": "tests", "kind": "hostile_replay_test_suite" },
+    { "id": "manual", "path": "manual/README.md", "kind": "domain_manual" },
+    { "id": "manifest_factory", "path": "topology/reliability_maintainability_module_manifest.mjs", "kind": "module_manifest_factory" }
+  ],
+  "edges": [
+    { "from": "source_packet", "to": "rules", "relationship": "source_locator_and_modality_bound" },
+    { "from": "rules", "to": "compiler", "relationship": "base_rules_and_domain_vocabulary" },
+    { "from": "public_safe", "to": "compiler", "relationship": "closed_profile_and_locator_admission" },
+    { "from": "compiler", "to": "evaluator_adapter", "relationship": "Core_Domain_Adapter_compile" },
+    { "from": "public_safe", "to": "admission", "relationship": "closed_typed_facts_and_ruleset_admission" },
+    { "from": "admission", "to": "evaluator_adapter", "relationship": "Core_TypedProjectFacts_to_RM_request_projection" },
+    { "from": "evaluator", "to": "evaluator_adapter", "relationship": "Core_Domain_Adapter_evaluate" },
+    { "from": "fixture", "to": "evaluator", "relationship": "public_synthetic_input" },
+    { "from": "runner", "to": "fixture", "relationship": "fixed_zero_write_demo" },
+    { "from": "tests", "to": "source_packet", "relationship": "sha256_lock" },
+    { "from": "tests", "to": "compiler", "relationship": "profile_and_hostile_conformance" },
+    { "from": "tests", "to": "evaluator", "relationship": "state_replay_and_boundary_conformance" }
+  ],
+  "core_interface": {
+    "owner": "guild_hall/engineering_engine/core/interfaces/domain_engine_adapter.mjs",
+    "core_modification_required": false,
+    "profile_binding_support": "compile_only_for_added_rules",
+    "typed_project_facts_support": "one_exact_Core_typed_facts_envelope_with_one_closed_RM_request_fact"
+  },
+  "effects": {
+    "filesystem": 0,
+    "network": 0,
+    "model": 0,
+    "rag": 0,
+    "wiki": 0,
+    "erp": 0,
+    "task": 0,
+    "approval": 0
+  },
+  "shared_surface_status": "integration_request_pending"
+}

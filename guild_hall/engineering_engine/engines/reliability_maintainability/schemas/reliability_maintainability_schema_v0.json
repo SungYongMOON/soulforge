@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.reliability_maintainability_engine_descriptor.v0",
+  "title": "ReliabilityMaintainabilityEngineDescriptor",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "domain_engine_id",
+    "display_name",
+    "version",
+    "status",
+    "claim_ceiling",
+    "execution_mode",
+    "contracts",
+    "schemas",
+    "compiler_adapter",
+    "evaluator_adapter",
+    "fixtures",
+    "manual",
+    "topology"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.domain_engine_descriptor.v0" },
+    "domain_engine_id": { "const": "reliability_maintainability" },
+    "display_name": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "status": { "enum": ["candidate", "hold"] },
+    "claim_ceiling": { "const": "source_supported" },
+    "execution_mode": { "const": "deterministic_only" },
+    "contracts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_packet", "build_mission", "integration_request"],
+      "properties": {
+        "source_packet": { "type": "string", "minLength": 1 },
+        "build_mission": { "type": "string", "minLength": 1 },
+        "integration_request": { "type": "string", "minLength": 1 }
+      }
+    },
+    "schemas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["descriptor", "ruleset", "typed_facts", "domain_input", "assessment", "domain_result", "receipt"],
+      "properties": {
+        "descriptor": { "const": "soulforge.reliability_maintainability_engine_descriptor.v0" },
+        "ruleset": { "const": "soulforge.reliability_maintainability.ruleset.v0" },
+        "typed_facts": { "const": "soulforge.reliability_maintainability.typed_facts.v0" },
+        "domain_input": { "const": "soulforge.reliability_maintainability.domain_input.v0" },
+        "assessment": { "const": "soulforge.reliability_maintainability.assessment.v0" },
+        "domain_result": { "const": "soulforge.reliability_maintainability.domain_result.v0" },
+        "receipt": { "const": "soulforge.reliability_maintainability.receipt.v0" }
+      }
+    },
+    "compiler_adapter": { "type": "string", "minLength": 1 },
+    "evaluator_adapter": { "type": "string", "minLength": 1 },
+    "fixtures": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["public_synthetic"],
+      "properties": { "public_synthetic": { "type": "string", "minLength": 1 } }
+    },
+    "manual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root"],
+      "properties": { "root": { "type": "string", "minLength": 1 } }
+    },
+    "topology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest_factory", "package_topology"],
+      "properties": {
+        "manifest_factory": { "type": "string", "minLength": 1 },
+        "package_topology": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
