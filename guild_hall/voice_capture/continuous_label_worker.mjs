@@ -531,12 +531,17 @@ function summarizeDrain(result) {
 }
 
 function summarizeLabels(result) {
+  const failureCodes = [...new Set((Array.isArray(result?.failures) ? result.failures : [])
+    .map((failure) => String(failure?.error_code ?? ""))
+    .filter((code) => /^[a-z0-9_]{1,128}$/u.test(code)))].sort();
   return {
     eligible_session_count: Number(result?.eligible_session_count ?? 0),
     pending_session_count: Number(result?.pending_session_count ?? 0),
     processed_session_count: Number(result?.processed_session_count ?? 0),
     duplicate_session_count: Number(result?.duplicate_session_count ?? 0),
+    no_content_session_count: Number(result?.no_content_session_count ?? 0),
     failed_session_count: Number(result?.failed_session_count ?? 0),
+    failure_codes: failureCodes,
     timeline_annotation_count: Number(result?.timeline_annotation_count ?? 0),
   };
 }
@@ -605,7 +610,7 @@ export async function runContinuousVoiceLabelWorker(options = {}) {
         status: "already_running",
         completed_at: new Date().toISOString(),
         asr: { pending_count: 0, processed_count: 0, failed_count: 0, remaining_pending_count: 0, retry_required: false },
-        labels: { eligible_session_count: 0, pending_session_count: 0, processed_session_count: 0, duplicate_session_count: 0, failed_session_count: 0, timeline_annotation_count: 0 },
+        labels: { eligible_session_count: 0, pending_session_count: 0, processed_session_count: 0, duplicate_session_count: 0, no_content_session_count: 0, failed_session_count: 0, failure_codes: [], timeline_annotation_count: 0 },
       };
     }
     const expectedProfileSha256 = normalizedSha256(
@@ -654,7 +659,7 @@ export async function runContinuousVoiceLabelWorker(options = {}) {
         preflight_ok: Boolean(preflight?.ok),
         asr_binary_sha256_match: observedAsrSha256 === expectedAsrSha256,
         asr: { pending_count: 0, processed_count: 0, failed_count: 0, remaining_pending_count: 0, retry_required: false },
-        labels: { eligible_session_count: 0, pending_session_count: 0, processed_session_count: 0, duplicate_session_count: 0, failed_session_count: 0, timeline_annotation_count: 0 },
+        labels: { eligible_session_count: 0, pending_session_count: 0, processed_session_count: 0, duplicate_session_count: 0, no_content_session_count: 0, failed_session_count: 0, failure_codes: [], timeline_annotation_count: 0 },
       };
       if (apply) await writeResultState(stateRoot, blocked);
       return blocked;
@@ -711,7 +716,7 @@ export async function runContinuousVoiceLabelWorker(options = {}) {
           ? error.code
           : "voice_label_worker_failed",
         asr: { pending_count: 0, processed_count: 0, failed_count: 1, remaining_pending_count: 0, retry_required: true },
-        labels: { eligible_session_count: 0, pending_session_count: 0, processed_session_count: 0, duplicate_session_count: 0, failed_session_count: 0, timeline_annotation_count: 0 },
+        labels: { eligible_session_count: 0, pending_session_count: 0, processed_session_count: 0, duplicate_session_count: 0, no_content_session_count: 0, failed_session_count: 0, failure_codes: [], timeline_annotation_count: 0 },
       };
       await writeResultState(stateRoot, failed);
     }

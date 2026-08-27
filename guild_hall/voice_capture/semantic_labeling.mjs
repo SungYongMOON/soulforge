@@ -209,7 +209,11 @@ function buildVoiceSemanticLabelRunInternal(options = {}, verifiedPairEvidence =
   const transcriptRef = requireSafeRelativeRef(options.transcriptRef, "transcriptRef");
   const transcriptSha256 = requireSha256(options.transcriptSha256, "transcriptSha256");
   const sourceSegments = Array.isArray(options.sourceSegments) ? options.sourceSegments.map((row) => ({ ...row })) : [];
-  if (sourceSegments.length === 0) throw new Error("sourceSegments must contain at least one transcript segment");
+  if (sourceSegments.length === 0) {
+    const error = new Error("sourceSegments must contain at least one transcript segment");
+    error.code = "voice_semantic_no_content";
+    throw error;
+  }
   validateSourceSegments(sourceSegments);
   const contextCards = validateProjectContextCards(options.projectContextCards ?? []);
   const rulesetSha256 = sha256(stableStringify(RULESET_DESCRIPTOR));

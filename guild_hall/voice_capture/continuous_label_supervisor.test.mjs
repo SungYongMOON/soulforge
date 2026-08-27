@@ -33,7 +33,9 @@ test("supervisor runs bounded cycles and emits metadata-only summaries", async (
         labels: {
           processed_session_count: 1,
           duplicate_session_count: 0,
+          no_content_session_count: 2,
           failed_session_count: 0,
+          failure_codes: [],
           timeline_annotation_count: 3,
         },
       };
@@ -42,6 +44,8 @@ test("supervisor runs bounded cycles and emits metadata-only summaries", async (
   assert.equal(result.status, "completed");
   assert.equal(calls, 2);
   assert.equal(events.filter((value) => value.event === "cycle_completed").length, 2);
+  assert.equal(events[1].label_no_content_session_count, 2);
+  assert.deepEqual(events[1].label_failure_codes, []);
   assert.equal(JSON.stringify(events).includes("transcript"), false);
 });
 

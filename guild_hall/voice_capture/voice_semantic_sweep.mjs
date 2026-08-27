@@ -13,6 +13,7 @@ import {
 } from "./semantic_labeling.mjs";
 
 const MAX_DISCOVERED_MANIFESTS = 5000;
+const NO_SEMANTIC_CONTENT_CODE = "voice_semantic_no_content";
 
 function fail(code) {
   const error = new Error(code);
@@ -179,6 +180,7 @@ export async function runVoiceSemanticSweep({
     selected_session_count: 0,
     processed_session_count: 0,
     duplicate_session_count: 0,
+    no_content_session_count: 0,
     failed_session_count: invalidCandidates.length,
     timeline_annotation_count: 0,
     official_task_mutation_count: 0,
@@ -202,6 +204,10 @@ export async function runVoiceSemanticSweep({
       summary.timeline_annotation_count += result.timeline_annotation_count ?? 0;
       if (result.duplicate === true) summary.duplicate_session_count += 1;
     } catch (error) {
+      if (error?.code === NO_SEMANTIC_CONTENT_CODE) {
+        summary.no_content_session_count += 1;
+        continue;
+      }
       summary.failed_session_count += 1;
       summary.failures.push({
         session_ref: `voice-session:${createHash("sha256").update(candidate.sessionDir).digest("hex").slice(0, 24)}`,

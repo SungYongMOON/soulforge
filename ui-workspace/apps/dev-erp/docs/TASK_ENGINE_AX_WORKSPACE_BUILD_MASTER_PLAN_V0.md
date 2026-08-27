@@ -1,5 +1,13 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-08-28 CURRENT: the derived voice supervisor now distinguishes a fully
+> hash/count-verified zero-segment transcript from a failed semantic run. It keeps the
+> source custody untouched, writes no false semantic artifact, records one
+> `no_content_session_count`, and preserves only safe aggregate failure codes in
+> metadata-only health/receipts. Digest, identity, path, schema, or segment-count
+> failures remain degraded. This closes the observed endless retry of one valid empty
+> PLAUD transcript without granting project, ERP, TaskDriver, or official-task authority.
+>
 > 2026-08-27 CURRENT: the public continuous-ingress implementation now keeps the exact
 > `continuous_lease.v1` record unchanged while adding separate Windows process-instance
 > evidence for one bounded self-heal case: an expired same-host lease whose numeric PID is

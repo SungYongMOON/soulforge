@@ -124,7 +124,9 @@ function implementations(f, calls) {
         pending_session_count: 1,
         processed_session_count: 1,
         duplicate_session_count: 0,
+        no_content_session_count: 0,
         failed_session_count: 0,
+        failures: [],
         timeline_annotation_count: 12,
       };
     },
@@ -154,11 +156,59 @@ test("apply processes bounded ASR then labels and writes metadata-only state", a
     assert.equal(result.asr.processed_count, 1);
     assert.equal(result.asr.remaining_pending_count, 2);
     assert.equal(result.labels.timeline_annotation_count, 12);
+    assert.equal(result.labels.no_content_session_count, 0);
+    assert.deepEqual(result.labels.failure_codes, []);
     assert.equal(result.raw_payload_copied, false);
     assert.equal(result.official_task_mutation_count, 0);
     const health = JSON.parse(await readFile(path.join(f.stateRoot, "health.json"), "utf8"));
     assert.equal(health.schema_version, continuousVoiceLabelHealthSchemaVersion);
     assert.equal(health.status, "ok");
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("metadata-only state records no-content counts and safe failure codes without session refs", async () => {
+  const f = await fixture();
+  try {
+    const calls = [];
+    const result = await runContinuousVoiceLabelWorker({
+      repoRoot: f.repoRoot,
+      voiceRoot: f.voiceRoot,
+      profileRef: f.profilePath,
+      stateRoot: f.stateRoot,
+      expectedStateRoot: f.expectedStateRoot,
+      expectedAsrBinRoot: path.dirname(f.asrPath),
+      expectedProfileSha256: f.profileSha256,
+      expectedAsrSha256: f.asrSha256,
+      apply: true,
+      now: new Date("2026-08-28T00:00:00.000Z"),
+      ...implementations(f, calls),
+      sweepImpl: async () => ({
+        eligible_session_count: 2,
+        pending_session_count: 2,
+        processed_session_count: 0,
+        duplicate_session_count: 0,
+        no_content_session_count: 1,
+        failed_session_count: 1,
+        failures: [
+          { session_ref: "voice-session:must-not-persist", error_code: "voice_semantic_manifest_invalid" },
+          { session_ref: "voice-session:must-not-persist", error_code: "unsafe-code" },
+        ],
+        timeline_annotation_count: 0,
+      }),
+    });
+
+    assert.equal(result.status, "degraded");
+    assert.equal(result.labels.no_content_session_count, 1);
+    assert.deepEqual(result.labels.failure_codes, ["voice_semantic_manifest_invalid"]);
+    const health = await readFile(path.join(f.stateRoot, "health.json"), "utf8");
+    assert.doesNotMatch(health, /must-not-persist/u);
+    assert.doesNotMatch(health, /unsafe-code/u);
+    assert.match(health, /voice_semantic_manifest_invalid/u);
+    const receipts = await readdir(path.join(f.stateRoot, "receipts"));
+    const receipt = await readFile(path.join(f.stateRoot, "receipts", receipts[0]), "utf8");
+    assert.doesNotMatch(receipt, /must-not-persist/u);
   } finally {
     await rm(f.root, { recursive: true, force: true });
   }

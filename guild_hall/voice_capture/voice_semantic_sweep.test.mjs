@@ -88,6 +88,52 @@ test("sweep selects the stronger completed transcript, writes once, and replays 
   }
 });
 
+test("a verified completed transcript with zero segments is recorded as no semantic content", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "voice-semantic-sweep-empty-"));
+  try {
+    const voiceRoot = path.join(root, "voice");
+    const sessionDir = path.join(voiceRoot, "sessions", "2026-08-25", "session_empty");
+    const runDir = path.join(sessionDir, "analysis", "local_asr", "large-v3-q5_0");
+    await mkdir(runDir, { recursive: true });
+    await writeFile(path.join(sessionDir, "session_manifest.json"), `${JSON.stringify({
+      session_id: "session_empty",
+      source_provider: "PLAUD",
+      recorded_at_local: "2026-08-25T20:00:00+09:00",
+    })}\n`, "utf8");
+    const transcript = "";
+    await writeFile(path.join(runDir, "transcript.jsonl"), transcript, "utf8");
+    await writeFile(path.join(runDir, "analysis_manifest.json"), `${JSON.stringify({
+      state: "completed",
+      session_id: "session_empty",
+      model_id: "large-v3-q5_0",
+      segment_count: 0,
+      transcript_jsonl_ref: "_workspaces/system/voice_capture/sessions/2026-08-25/session_empty/analysis/local_asr/large-v3-q5_0/transcript.jsonl",
+      transcript_sha256: crypto.createHash("sha256").update(transcript).digest("hex"),
+      evidence_role: "independent_machine_transcript_unverified",
+      quality: "machine_transcript_unverified_attention_required",
+      completed_at: "2026-08-25T11:00:00.000Z",
+    })}\n`, "utf8");
+
+    const result = await runVoiceSemanticSweep({
+      repo_root: root,
+      voice_root: voiceRoot,
+      apply: true,
+      max_sessions: 10,
+    });
+
+    assert.equal(result.eligible_session_count, 1);
+    assert.equal(result.pending_session_count, 1);
+    assert.equal(result.selected_session_count, 1);
+    assert.equal(result.processed_session_count, 0);
+    assert.equal(result.no_content_session_count, 1);
+    assert.equal(result.failed_session_count, 0);
+    assert.deepEqual(result.failures, []);
+    await assert.rejects(lstat(path.join(sessionDir, "analysis", "semantic_labels")), { code: "ENOENT" });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("bounded sweep prioritizes an unprocessed later session over an older duplicate", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "voice-semantic-sweep-progress-"));
   try {

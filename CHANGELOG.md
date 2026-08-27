@@ -7,6 +7,12 @@
 - Kept NIST/ILAC source use bounded to public rule semantics, ISO/IEC 17025 at citation-only HOLD, RAG retrieval-only, and live-like project facts at observed/UNKNOWN/HOLD unless exact project/time/source-native evidence is admitted.
 - Kept Manifest blob verification authoritative as the engine inventory grew past the Windows command-line limit by chunking the existing read-only `git hash-object --filters` check without changing its byte basis or release authority.
 
+## 2026-08-28 - Voice zero-content recovery and diagnostic receipts
+
+- Kept verified zero-segment PLAUD/ASR transcripts as retained source evidence while treating semantic labeling as not applicable instead of retrying the same valid empty transcript as a permanent degradation.
+- Added metadata-only `no_content_session_count` and sorted safe semantic failure-code reporting to worker health, per-cycle receipts, and supervisor events without persisting session refs, paths, or transcript bodies.
+- Kept digest, identity, path, schema, and segment-count mismatches fail-closed; project assignment, ERP, TaskDriver, official-task, source-audio, and provider authority remain unchanged.
+
 ## 2026-08-27 - Reliability & Maintainability evidence-readiness Domain Engine main integration
 
 - Integrated the accepted `reliability_maintainability` package behind the unchanged Engineering Engine Core without granting Quality acceptance, closure, repair, release, procurement, project applicability, compliance, or human decision authority.

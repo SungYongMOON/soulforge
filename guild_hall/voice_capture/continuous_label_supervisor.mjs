@@ -50,7 +50,11 @@ function safeCycleSummary(result, cycle) {
     asr_remaining_pending_count: Number(result?.asr?.remaining_pending_count ?? 0),
     label_processed_session_count: Number(result?.labels?.processed_session_count ?? 0),
     label_duplicate_session_count: Number(result?.labels?.duplicate_session_count ?? 0),
+    label_no_content_session_count: Number(result?.labels?.no_content_session_count ?? 0),
     label_failed_session_count: Number(result?.labels?.failed_session_count ?? 0),
+    label_failure_codes: Array.isArray(result?.labels?.failure_codes)
+      ? result.labels.failure_codes.filter((code) => /^[a-z0-9_]{1,128}$/u.test(String(code))).sort()
+      : [],
     timeline_annotation_count: Number(result?.labels?.timeline_annotation_count ?? 0),
     raw_payload_copied: false,
     official_task_mutation_count: 0,

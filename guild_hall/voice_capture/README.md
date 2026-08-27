@@ -375,6 +375,15 @@ logs contain counts and states rather than transcript bodies. Project
 assignment, ERP writes, TaskDriver candidates, and official tasks remain out
 of scope.
 
+A completed transcript whose pinned bytes and manifest both verify an exact
+zero segment count is valid no-semantic-content evidence, not a failed backup.
+The sweep revalidates that evidence, increments `no_content_session_count`, and
+does not create a semantic artifact or a false task/label. Metadata-only health,
+cycle receipts, and supervisor events retain the count plus sorted safe failure
+codes for real failures while excluding session refs, paths, and transcript
+content. Other digest, identity, path, schema, and segment-count failures remain
+degraded and fail closed.
+
 The Windows entrypoints are:
 
 - `continuous_label_worker_cli.mjs`: one bounded cycle
