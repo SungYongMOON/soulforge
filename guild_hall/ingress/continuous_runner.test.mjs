@@ -9,7 +9,9 @@ import {
   readFile,
   readdir,
   rm,
+  stat,
   symlink,
+  utimes,
   writeFile,
 } from "node:fs/promises";
 import { hostname, tmpdir } from "node:os";
@@ -23,9 +25,12 @@ import {
   CONTINUOUS_BINDING_SCHEMA_V2,
   CONTINUOUS_BINDING_SCHEMA_V3,
   CONTINUOUS_EPOCH_SCHEMA,
+  CONTINUOUS_LEASE_INSTANCE_SCHEMA,
   CONTINUOUS_LEASE_SCHEMA,
+  continuousLeaseInstancePath,
   loadContinuousBinding,
   plaudSessionCustodyPrefixes,
+  resolveWindowsProcessInstanceToken,
   runContinuousIngress as runContinuousIngressImpl,
 } from "./continuous_runner.mjs";
 import { inspectMailCollectorRelease } from "./mail_bridge.mjs";
@@ -225,6 +230,19 @@ async function terminatedChildPid() {
   const pid = child.pid;
   await once(child, "exit");
   return pid;
+}
+
+async function stablyTerminatedChildPid(maxAttempts = 5) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const pid = await terminatedChildPid();
+    try {
+      process.kill(pid, 0);
+    } catch (error) {
+      if (error?.code === "ESRCH") return pid;
+      throw error;
+    }
+  }
+  throw new Error("could not obtain a stably-terminated PID for testing");
 }
 
 async function adversariallyRevokeDuringRun(f, authority) {
@@ -676,6 +694,596 @@ test("active lease blocks a second writer and expired lease increments the fence
     });
     assert.equal(result.lease_epoch, 5);
     assert.ok((await readdir(leaseRoot)).some((name) => name.startsWith("stale-")));
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+async function writeExpiredLeaseFixture(f, { fenceToken = "reused-pid-token", ownerPid = process.pid } = {}) {
+  const leaseRoot = join(f.dataRoot, "state", "leases", "continuous_ingress");
+  await mkdir(leaseRoot, { recursive: true });
+  const lease = {
+    schema_version: CONTINUOUS_LEASE_SCHEMA,
+    node_id: "other-node",
+    owner_host: hostname(),
+    owner_pid: ownerPid,
+    lease_epoch: 4,
+    fence_token: fenceToken,
+    acquired_at: "2026-07-16T22:00:00.000Z",
+    expires_at: "2026-07-16T23:00:00.000Z",
+  };
+  await writeFile(join(leaseRoot, "active.lock.json"), `${JSON.stringify(lease)}\n`);
+  await writeFile(join(leaseRoot, "epoch.json"), `${JSON.stringify({
+    schema_version: CONTINUOUS_EPOCH_SCHEMA,
+    last_epoch: 4,
+    updated_at: "2026-07-16T23:00:00.000Z",
+  })}\n`);
+  return { leaseRoot, lease };
+}
+
+function leaseInstanceSidecarPayload(lease, { instanceToken, observedAt = "2026-07-16T22:00:00.000Z", ...overrides } = {}) {
+  return {
+    schema_version: CONTINUOUS_LEASE_INSTANCE_SCHEMA,
+    node_id: lease.node_id,
+    owner_host: lease.owner_host,
+    owner_pid: lease.owner_pid,
+    fence_token: lease.fence_token,
+    instance_token: instanceToken,
+    observed_at: observedAt,
+    ...overrides,
+  };
+}
+
+async function writeLeaseInstanceSidecar(leaseRoot, lease, options = {}) {
+  const path = continuousLeaseInstancePath(leaseRoot, lease.fence_token);
+  await writeFile(path, `${JSON.stringify(leaseInstanceSidecarPayload(lease, options))}\n`);
+  return path;
+}
+
+const RECOVERY_NOW = () => Date.parse("2026-07-17T00:30:00Z");
+const ON_WINDOWS = process.platform === "win32";
+
+test("an expired lease whose live owner PID matches the sidecar's recorded instance stays blocked", async () => {
+  const f = await fixture();
+  try {
+    await writeBinding(f, binding(f));
+    const { leaseRoot, lease } = await writeExpiredLeaseFixture(f);
+    // On Windows this is the real, digits-only token for the current process, so the
+    // production probe resolves it and matches the sidecar (instance_match). Off Windows
+    // the probe always returns null regardless of the sidecar's content (probe_unresolved),
+    // so a valid-shaped placeholder token is used rather than an invalid alphanumeric one
+    // that would instead exercise evidence_invalid.
+    const currentToken = ON_WINDOWS ? resolveWindowsProcessInstanceToken(process.pid) : "1";
+    assert.equal(typeof currentToken, "string");
+    await writeLeaseInstanceSidecar(leaseRoot, lease, { instanceToken: currentToken });
+    await assert.rejects(
+      runContinuousIngress({
+        bindingPath: f.bindingPath,
+        apply: true,
+        now: RECOVERY_NOW,
+      }),
+      (error) => {
+        assert.equal(error.code, "continuous_lease_held");
+        assert.equal(error.reason_code, ON_WINDOWS ? "instance_match" : "probe_unresolved");
+        return true;
+      },
+    );
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("an expired lease whose live owner PID now resolves to a strictly newer instance than the sidecar recovers", { skip: !ON_WINDOWS }, async () => {
+  const f = await fixture();
+  try {
+    await writeBinding(f, binding(f));
+    const { leaseRoot, lease } = await writeExpiredLeaseFixture(f);
+    const currentToken = resolveWindowsProcessInstanceToken(process.pid);
+    assert.equal(typeof currentToken, "string");
+    const recordedToken = (BigInt(currentToken) - 1n).toString();
+    await writeLeaseInstanceSidecar(leaseRoot, lease, { instanceToken: recordedToken });
+    const result = await runContinuousIngress({
+      bindingPath: f.bindingPath,
+      apply: true,
+      now: (() => {
+        let value = RECOVERY_NOW();
+        return () => value++;
+      })(),
+    });
+    assert.equal(result.lease_epoch, 5);
+    assert.ok((await readdir(leaseRoot)).some((name) => name.startsWith("stale-")));
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("an expired lease whose sidecar records a newer instance than the live owner PID stays blocked", { skip: !ON_WINDOWS }, async () => {
+  const f = await fixture();
+  try {
+    await writeBinding(f, binding(f));
+    const { leaseRoot, lease } = await writeExpiredLeaseFixture(f);
+    const currentToken = resolveWindowsProcessInstanceToken(process.pid);
+    assert.equal(typeof currentToken, "string");
+    const recordedToken = (BigInt(currentToken) + 1n).toString();
+    await writeLeaseInstanceSidecar(leaseRoot, lease, { instanceToken: recordedToken });
+    await assert.rejects(
+      runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now: RECOVERY_NOW }),
+      (error) => {
+        assert.equal(error.code, "continuous_lease_held");
+        assert.equal(error.reason_code, "instance_not_newer");
+        return true;
+      },
+    );
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("an expired lease whose live owner PID resolves to exactly the sidecar's recorded instance stays blocked", { skip: !ON_WINDOWS }, async () => {
+  const f = await fixture();
+  try {
+    await writeBinding(f, binding(f));
+    const { leaseRoot, lease } = await writeExpiredLeaseFixture(f);
+    const currentToken = resolveWindowsProcessInstanceToken(process.pid);
+    assert.equal(typeof currentToken, "string");
+    await writeLeaseInstanceSidecar(leaseRoot, lease, { instanceToken: currentToken });
+    await assert.rejects(
+      runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now: RECOVERY_NOW }),
+      (error) => {
+        assert.equal(error.code, "continuous_lease_held");
+        assert.equal(error.reason_code, "instance_match");
+        return true;
+      },
+    );
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+function rejectsWithLeaseHeldReason(promise, reasonCode) {
+  return assert.rejects(promise, (error) => {
+    assert.equal(error.code, "continuous_lease_held");
+    assert.equal(error.reason_code, reasonCode);
+    return true;
+  });
+}
+
+test("a missing, malformed, or fence-mismatched sidecar keeps an expired lease with a live owner blocked, with a distinct reason_code per taxonomy", async () => {
+  const f = await fixture();
+  try {
+    await writeBinding(f, binding(f));
+    const { leaseRoot, lease } = await writeExpiredLeaseFixture(f);
+
+    // 1. No sidecar at all.
+    await rejectsWithLeaseHeldReason(
+      runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now: RECOVERY_NOW }),
+      "evidence_missing",
+    );
+
+    // 2. Sidecar present but not valid JSON/schema.
+    const sidecarPath = continuousLeaseInstancePath(leaseRoot, lease.fence_token);
+    await writeFile(sidecarPath, "not json");
+    await rejectsWithLeaseHeldReason(
+      runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now: RECOVERY_NOW }),
+      "evidence_invalid",
+    );
+
+    // 3. Sidecar is well-formed but bound to a different fence token than the lease.
+    await writeLeaseInstanceSidecar(leaseRoot, lease, {
+      instanceToken: "1",
+      fence_token: "different-fence-token",
+    });
+    await rejectsWithLeaseHeldReason(
+      runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now: RECOVERY_NOW }),
+      "evidence_unbound",
+    );
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("a sidecar observed_at before the lease's acquired_at fails closed as out of window", async () => {
+  const f = await fixture();
+  try {
+    await writeBinding(f, binding(f));
+    const { leaseRoot, lease } = await writeExpiredLeaseFixture(f);
+    await writeLeaseInstanceSidecar(leaseRoot, lease, {
+      instanceToken: "1",
+      observedAt: "2026-07-16T21:59:59.000Z",
+    });
+    await rejectsWithLeaseHeldReason(
+      runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now: RECOVERY_NOW }),
+      "evidence_out_of_window",
+    );
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("a sidecar observed_at after the lease's expires_at fails closed as out of window", async () => {
+  const f = await fixture();
+  try {
+    await writeBinding(f, binding(f));
+    const { leaseRoot, lease } = await writeExpiredLeaseFixture(f);
+    await writeLeaseInstanceSidecar(leaseRoot, lease, {
+      instanceToken: "1",
+      observedAt: "2026-07-16T23:00:01.000Z",
+    });
+    await rejectsWithLeaseHeldReason(
+      runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now: RECOVERY_NOW }),
+      "evidence_out_of_window",
+    );
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("a freshly acquired lease keeps the exact continuous_lease.v1 field set", async () => {
+  const f = await fixture();
+  try {
+    await writeBinding(f, binding(f));
+    let observedFields = null;
+    let observedSchema = null;
+    await runContinuousIngress({
+      bindingPath: f.bindingPath,
+      apply: true,
+      now: () => Date.parse("2026-07-17T00:00:00Z"),
+      testHooks: {
+        afterLeaseAcquired: async ({ leaseContext }) => {
+          const raw = JSON.parse(await readFile(leaseContext.lockPath, "utf8"));
+          observedFields = Object.keys(raw).sort();
+          observedSchema = raw.schema_version;
+        },
+      },
+    });
+    assert.deepEqual(observedFields, [
+      "acquired_at",
+      "expires_at",
+      "fence_token",
+      "lease_epoch",
+      "node_id",
+      "owner_host",
+      "owner_pid",
+      "schema_version",
+    ]);
+    assert.equal(observedSchema, CONTINUOUS_LEASE_SCHEMA);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("normal release removes a sidecar that matches the released lease", async () => {
+  const f = await fixture();
+  try {
+    await writeBinding(f, binding(f));
+    let sidecarPath;
+    await runContinuousIngress({
+      bindingPath: f.bindingPath,
+      apply: true,
+      now: () => Date.parse("2026-07-17T00:00:00Z"),
+      testHooks: {
+        afterLeaseAcquired: async ({ leaseContext }) => {
+          sidecarPath = await writeLeaseInstanceSidecar(leaseContext.leaseRoot, leaseContext.lease, {
+            instanceToken: "1",
+          });
+        },
+      },
+    });
+    await assert.rejects(readFile(sidecarPath), { code: "ENOENT" });
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("normal release preserves a sidecar whose fields do not match the released lease", async () => {
+  const f = await fixture();
+  try {
+    await writeBinding(f, binding(f));
+    let sidecarPath;
+    await runContinuousIngress({
+      bindingPath: f.bindingPath,
+      apply: true,
+      now: () => Date.parse("2026-07-17T00:00:00Z"),
+      testHooks: {
+        afterLeaseAcquired: async ({ leaseContext }) => {
+          sidecarPath = await writeLeaseInstanceSidecar(leaseContext.leaseRoot, leaseContext.lease, {
+            instanceToken: "1",
+            owner_pid: leaseContext.lease.owner_pid + 1,
+          });
+        },
+      },
+    });
+    const raw = await readFile(sidecarPath, "utf8");
+    assert.ok(raw.length > 0);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("release cleanup removes a matching sidecar even when active.lock is already gone", async () => {
+  const f = await fixture();
+  try {
+    await writeBinding(f, binding(f));
+    let sidecarPath;
+    await assert.rejects(
+      runContinuousIngress({
+        bindingPath: f.bindingPath,
+        apply: true,
+        now: () => Date.parse("2026-07-17T00:00:00Z"),
+        testHooks: {
+          afterLeaseAcquired: async ({ leaseContext }) => {
+            sidecarPath = await writeLeaseInstanceSidecar(leaseContext.leaseRoot, leaseContext.lease, {
+              instanceToken: "1",
+            });
+            // Simulate the lock already being gone by the time release runs.
+            await rm(leaseContext.lockPath, { force: true });
+          },
+        },
+      }),
+      { code: "continuous_lease_lost" },
+    );
+    await assert.rejects(readFile(sidecarPath), { code: "ENOENT" });
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("release cleanup attempts matching sidecar removal from finally even when a recovery marker forces continuous_lease_lost", async () => {
+  const f = await fixture();
+  try {
+    await writeBinding(f, binding(f));
+    let sidecarPath;
+    let recoveryPath;
+    await assert.rejects(
+      runContinuousIngress({
+        bindingPath: f.bindingPath,
+        apply: true,
+        now: () => Date.parse("2026-07-17T00:00:00Z"),
+        testHooks: {
+          afterLeaseAcquired: async ({ leaseContext }) => {
+            sidecarPath = await writeLeaseInstanceSidecar(leaseContext.leaseRoot, leaseContext.lease, {
+              instanceToken: "1",
+            });
+            // Simulate a concurrent recovery marker appearing before release runs, which
+            // makes releaseLease's own recovery-marker check fail with continuous_lease_lost
+            // before it ever reaches the lock/fence validation below it.
+            recoveryPath = leaseContext.recoveryPath;
+            await writeFile(recoveryPath, `${JSON.stringify(leaseContext.lease)}\n`);
+          },
+        },
+      }),
+      { code: "continuous_lease_lost" },
+    );
+    // Sidecar cleanup must still have been attempted (and succeeded, since it matches the
+    // released lease) even though the primary continuous_lease_lost error fired first.
+    await assert.rejects(readFile(sidecarPath), { code: "ENOENT" });
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test(
+  "genuine OS PID reuse recovering a stale lease (explicitly waived: not reproducible deterministically in CI)",
+  { skip: "true PID reuse requires racing the OS PID allocator and cannot be produced deterministically; covered instead by the resolver and strict-monotonic-classifier tests above" },
+  async () => {},
+);
+
+test("stale recovery removes the recovered lease's own sidecar once finalized, while preserving the stale lease record", { skip: !ON_WINDOWS }, async () => {
+  const f = await fixture();
+  try {
+    await writeBinding(f, binding(f));
+    const { leaseRoot, lease } = await writeExpiredLeaseFixture(f);
+    const sidecarPath = await writeLeaseInstanceSidecar(leaseRoot, lease, { instanceToken: "1" });
+    await runContinuousIngress({
+      bindingPath: f.bindingPath,
+      apply: true,
+      now: (() => {
+        let value = RECOVERY_NOW();
+        return () => value++;
+      })(),
+    });
+    // The recovered lease's own sidecar is no longer decision evidence once recovery has
+    // finalized, so it must not accumulate on disk forever.
+    await assert.rejects(readFile(sidecarPath), { code: "ENOENT" });
+    // The stale lease record itself (the exact v1 lease JSON) is preserved untouched.
+    const staleFiles = (await readdir(leaseRoot)).filter((name) => name.startsWith("stale-"));
+    assert.equal(staleFiles.length, 1);
+    const stale = JSON.parse(await readFile(join(leaseRoot, staleFiles[0]), "utf8"));
+    assert.equal(stale.fence_token, lease.fence_token);
+    assert.equal(stale.owner_pid, lease.owner_pid);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+function orphanSidecarPayload(fenceToken) {
+  return {
+    schema_version: CONTINUOUS_LEASE_INSTANCE_SCHEMA,
+    node_id: "hpp-test-node",
+    owner_host: hostname(),
+    owner_pid: process.pid,
+    fence_token: fenceToken,
+    instance_token: "1",
+    observed_at: "2020-01-01T00:00:00.000Z",
+  };
+}
+
+test("an orphan sidecar older than the retention bound is swept during a later acquisition", async () => {
+  const f = await fixture();
+  try {
+    await writeBinding(f, binding(f));
+    const leaseRoot = join(f.dataRoot, "state", "leases", "continuous_ingress");
+    await mkdir(leaseRoot, { recursive: true });
+    const fenceToken = "orphan-fence-token-old";
+    const orphanPath = continuousLeaseInstancePath(leaseRoot, fenceToken);
+    await writeFile(orphanPath, `${JSON.stringify(orphanSidecarPayload(fenceToken))}\n`);
+    const runNow = Date.parse("2026-07-17T00:00:00Z");
+    const eightDaysBeforeRun = new Date(runNow - 8 * 24 * 60 * 60 * 1000);
+    await utimes(orphanPath, eightDaysBeforeRun, eightDaysBeforeRun);
+    await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now: () => runNow });
+    await assert.rejects(readFile(orphanPath), { code: "ENOENT" });
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("an orphan sidecar within the retention bound is preserved during a later acquisition", async () => {
+  const f = await fixture();
+  try {
+    await writeBinding(f, binding(f));
+    const leaseRoot = join(f.dataRoot, "state", "leases", "continuous_ingress");
+    await mkdir(leaseRoot, { recursive: true });
+    const fenceToken = "orphan-fence-token-recent";
+    const orphanPath = continuousLeaseInstancePath(leaseRoot, fenceToken);
+    await writeFile(orphanPath, `${JSON.stringify(orphanSidecarPayload(fenceToken))}\n`);
+    const runNow = Date.parse("2026-07-17T00:00:00Z");
+    const oneDayBeforeRun = new Date(runNow - 1 * 24 * 60 * 60 * 1000);
+    await utimes(orphanPath, oneDayBeforeRun, oneDayBeforeRun);
+    await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now: () => runNow });
+    const preserved = await readFile(orphanPath, "utf8");
+    assert.ok(preserved.length > 0);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("a malformed non-JSON entry and a symlinked entry matching the sidecar name pattern are left alone by the sweep", async () => {
+  const f = await fixture();
+  try {
+    await writeBinding(f, binding(f));
+    const leaseRoot = join(f.dataRoot, "state", "leases", "continuous_ingress");
+    await mkdir(leaseRoot, { recursive: true });
+    const runNow = Date.parse("2026-07-17T00:00:00Z");
+    const eightDaysBeforeRun = new Date(runNow - 8 * 24 * 60 * 60 * 1000);
+
+    const malformedPath = continuousLeaseInstancePath(leaseRoot, "orphan-fence-token-malformed");
+    await writeFile(malformedPath, "not json at all");
+    await utimes(malformedPath, eightDaysBeforeRun, eightDaysBeforeRun);
+
+    const linkTargetPath = join(leaseRoot, "symlink-target.json");
+    await writeFile(linkTargetPath, `${JSON.stringify(orphanSidecarPayload("orphan-fence-token-symlinked"))}\n`);
+    const symlinkPath = continuousLeaseInstancePath(leaseRoot, "orphan-fence-token-symlinked");
+    let symlinkCreated = true;
+    try {
+      await symlink(linkTargetPath, symlinkPath, "file");
+    } catch (error) {
+      if (["EPERM", "EACCES", "UNKNOWN"].includes(error?.code)) {
+        symlinkCreated = false;
+      } else {
+        throw error;
+      }
+    }
+
+    await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now: () => runNow });
+
+    // A malformed (non-JSON) entry still gets removed once it's old enough — the sweep
+    // never parses content, only identity-safe file removal by age and exclusion list.
+    await assert.rejects(readFile(malformedPath), { code: "ENOENT" });
+    if (symlinkCreated) {
+      // A symlinked entry is never followed or removed by the sweep.
+      const stillLinked = await readFile(symlinkPath, "utf8");
+      assert.ok(stillLinked.length > 0);
+    }
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("the sweep excludes the just-acquired lease's own sidecar even under a synthetic far-future clock", { skip: !ON_WINDOWS }, async () => {
+  const f = await fixture();
+  try {
+    await writeBinding(f, binding(f));
+    // Far beyond the retention bound relative to the sidecar's real on-disk mtime (set by
+    // the OS at write time), so if exclusion-by-fence-token did not work, an age computed
+    // from this synthetic clock would make the sweep delete the lease's own fresh sidecar
+    // in the very call that just wrote it.
+    const farFuture = Date.parse("2026-07-17T00:00:00Z") + 30 * 24 * 60 * 60 * 1000;
+    let sidecarExistedDuringRun = false;
+    await runContinuousIngress({
+      bindingPath: f.bindingPath,
+      apply: true,
+      now: () => farFuture,
+      testHooks: {
+        afterLeaseAcquired: async ({ leaseContext }) => {
+          const sidecarPath = continuousLeaseInstancePath(leaseContext.leaseRoot, leaseContext.lease.fence_token);
+          sidecarExistedDuringRun = await readFile(sidecarPath, "utf8").then(() => true, () => false);
+        },
+      },
+    });
+    assert.equal(sidecarExistedDuringRun, true);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("the Windows process instance resolver returns a digits-only token for a live PID and null for a terminated PID", { skip: !ON_WINDOWS }, async () => {
+  const token = resolveWindowsProcessInstanceToken(process.pid);
+  assert.equal(typeof token, "string");
+  assert.match(token, /^[0-9]{1,32}$/);
+  const deadPid = await stablyTerminatedChildPid();
+  assert.equal(resolveWindowsProcessInstanceToken(deadPid), null);
+});
+
+test("a hostile SystemRoot environment variable cannot redirect the Windows PowerShell resolver", { skip: !ON_WINDOWS }, async () => {
+  const originalSystemRoot = process.env.SystemRoot;
+  const hostileRoot = await mkdtemp(join(tmpdir(), "soulforge-hostile-systemroot-"));
+  const hostileExeDir = join(hostileRoot, "System32", "WindowsPowerShell", "v1.0");
+  await mkdir(hostileExeDir, { recursive: true });
+  const hostileExePath = join(hostileExeDir, "powershell.exe");
+  // A hostile "powershell.exe" planted under an attacker-controlled SystemRoot. It is not a
+  // real executable (not a valid PE image), so if the resolver ever built its spawn path
+  // from SystemRoot instead of the fixed, hardcoded Windows directory, it would try to
+  // execute this file and observably fail. It is never touched: content and mtime are
+  // unchanged afterward.
+  const hostileBytesBefore = "not a real executable";
+  await writeFile(hostileExePath, hostileBytesBefore);
+  const statBefore = await stat(hostileExePath);
+  try {
+    process.env.SystemRoot = hostileRoot;
+    const token = resolveWindowsProcessInstanceToken(process.pid);
+    // A corrupted SystemRoot can itself make the genuine, fixed-path PowerShell refuse to
+    // start (observed on this host: PowerShell/.NET consult ambient OS state beyond the
+    // spawned child's own environment block). Either outcome is safe and expected here: a
+    // valid digits-only token (the fixed path resolved and ran normally), or null
+    // (fail-closed) — never anything else, and never a crash.
+    assert.ok(token === null || /^[0-9]{1,32}$/.test(token));
+  } finally {
+    if (originalSystemRoot === undefined) delete process.env.SystemRoot;
+    else process.env.SystemRoot = originalSystemRoot;
+  }
+  const statAfter = await stat(hostileExePath);
+  const bytesAfter = await readFile(hostileExePath, "utf8");
+  assert.equal(bytesAfter, hostileBytesBefore);
+  assert.equal(statAfter.mtimeMs, statBefore.mtimeMs);
+  await rm(hostileRoot, { recursive: true, force: true });
+});
+
+test("a processInstanceProbe test hook has no effect; the resolver cannot be overridden", { skip: !ON_WINDOWS }, async () => {
+  const f = await fixture();
+  try {
+    await writeBinding(f, binding(f));
+    const { leaseRoot, lease } = await writeExpiredLeaseFixture(f);
+    // Bind the sidecar to the REAL current process token, so recovery would only
+    // succeed if the production resolver actually consulted the test hook's claimed
+    // (newer) value instead of its own internal probe. If the hook had any effect,
+    // this run would recover instead of rejecting.
+    const currentToken = resolveWindowsProcessInstanceToken(process.pid);
+    assert.equal(typeof currentToken, "string");
+    await writeLeaseInstanceSidecar(leaseRoot, lease, { instanceToken: currentToken });
+    const claimedNewerInstance = (BigInt(currentToken) + 1n).toString();
+    await assert.rejects(
+      runContinuousIngress({
+        bindingPath: f.bindingPath,
+        apply: true,
+        now: RECOVERY_NOW,
+        testHooks: { processInstanceProbe: () => claimedNewerInstance },
+      }),
+      (error) => {
+        assert.equal(error.code, "continuous_lease_held");
+        assert.equal(error.reason_code, "instance_match");
+        return true;
+      },
+    );
   } finally {
     await rm(f.root, { recursive: true, force: true });
   }

@@ -269,8 +269,15 @@ final payload, receipt, checkpoint, and health-record publication boundary. A
 second writer is blocked while the recorded local owner process is alive, even
 after the lease timestamp expires. Automatic stale-lease recovery requires an
 expired lease whose exact host is the current host and whose recorded PID is
-verified dead. A remote-host lease, an unverifiable owner, or PID reuse fails
-closed and requires controlled operator recovery.
+verified dead. On the canonical Windows host, a separate strict instance
+sidecar can also prove that a still-live PID has been reused by a strictly newer
+process. The active `continuous_lease.v1` JSON remains unchanged; missing,
+malformed, unbound, out-of-window, unresolved, matching, or non-newer instance
+evidence fails closed. The supervisor persists only a bounded sanitized
+`continuous_lease_held_<reason>` code, never local paths or instance tokens.
+Recovered evidence is removed after the stale lease record is preserved, and
+unreferenced sidecars age out after seven days without touching active or
+recovery-marker evidence. Remote-host recovery is never inferred.
 
 Versions 2 and 3 explicitly declare `writer_mode: primary|fallback` and additionally
 acquires the same durable writer-authority snapshot for

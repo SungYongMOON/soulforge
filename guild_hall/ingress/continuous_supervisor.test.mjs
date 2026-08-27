@@ -261,6 +261,73 @@ test("fatal cycle errors are sanitized, logged once, and terminate for Windows r
   assert.equal(safeSupervisorErrorCode({ code: "writer_authority_expired" }), "writer_authority_expired");
 });
 
+test("continuous_lease_held reason_code taxonomy folds into distinct sanitized supervisor codes", () => {
+  const normalHold = safeSupervisorErrorCode({ code: "continuous_lease_held", reason_code: "unexpired" });
+  const evidenceMissing = safeSupervisorErrorCode({ code: "continuous_lease_held", reason_code: "evidence_missing" });
+  const evidenceInvalid = safeSupervisorErrorCode({ code: "continuous_lease_held", reason_code: "evidence_invalid" });
+  const evidenceUnbound = safeSupervisorErrorCode({ code: "continuous_lease_held", reason_code: "evidence_unbound" });
+  const evidenceOutOfWindow = safeSupervisorErrorCode({ code: "continuous_lease_held", reason_code: "evidence_out_of_window" });
+  const probeUnresolved = safeSupervisorErrorCode({ code: "continuous_lease_held", reason_code: "probe_unresolved" });
+  const instanceMatch = safeSupervisorErrorCode({ code: "continuous_lease_held", reason_code: "instance_match" });
+  const instanceNotNewer = safeSupervisorErrorCode({ code: "continuous_lease_held", reason_code: "instance_not_newer" });
+
+  // A normal unexpired hold is distinguishable from every evidence/probe failure category.
+  assert.equal(normalHold, "continuous_lease_held_unexpired");
+  assert.notEqual(normalHold, evidenceMissing);
+
+  // The evidence_missing / evidence_invalid / evidence_unbound taxonomy stays separated.
+  const codes = [
+    normalHold,
+    evidenceMissing,
+    evidenceInvalid,
+    evidenceUnbound,
+    evidenceOutOfWindow,
+    probeUnresolved,
+    instanceMatch,
+    instanceNotNewer,
+  ];
+  assert.equal(new Set(codes).size, codes.length);
+  for (const code of codes) assert.match(code, /^[a-z0-9_]{1,128}$/);
+
+  // An unrecognized reason_code never gets concatenated into the sanitized code (no raw
+  // pass-through of untrusted detail).
+  assert.equal(
+    safeSupervisorErrorCode({ code: "continuous_lease_held", reason_code: "../etc/passwd" }),
+    "continuous_lease_held",
+  );
+  assert.equal(safeSupervisorErrorCode({ code: "continuous_lease_held" }), "continuous_lease_held");
+});
+
+test("a continuous_lease_held cycle failure propagates its reason_code into the heartbeat ledger", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "soulforge-supervisor-lease-held-heartbeat-"));
+  const bindingPath = path.join(root, "continuous-binding.json");
+  const ledgerPath = resolveSupervisorHeartbeatLedger(bindingPath);
+  const recordHeartbeat = createSupervisorHeartbeatRecorder({
+    bindingPath,
+    instanceId: "test-instance",
+    now: () => new Date("2026-08-27T00:00:00.000Z"),
+  });
+
+  const failure = new Error("continuous_lease_held");
+  failure.code = "continuous_lease_held";
+  failure.reason_code = "evidence_missing";
+
+  await assert.rejects(runContinuousSupervisor({
+    bindingPath,
+    bindingDigest: DIGEST,
+    apply: true,
+    loadBindingImpl: async () => binding(),
+    runCycleImpl: async () => { throw failure; },
+    recordHeartbeat,
+  }), failure);
+
+  const lines = (await readFile(ledgerPath, "utf8")).trim().split("\n").map(JSON.parse);
+  assert.equal(lines.length, 1);
+  assert.equal(lines[0].status, "failed");
+  assert.deepEqual(lines[0].error_codes, ["continuous_lease_held_evidence_missing"]);
+  await rm(root, { recursive: true, force: true });
+});
+
 test("failed cycles append a sanitized failure heartbeat to the ledger", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "soulforge-supervisor-failed-heartbeat-"));
   const bindingPath = path.join(root, "continuous-binding.json");

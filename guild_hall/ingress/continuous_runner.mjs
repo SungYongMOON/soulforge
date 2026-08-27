@@ -12,6 +12,8 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { createHash, randomUUID } from "node:crypto";
+import { spawnSync } from "node:child_process";
+import { lstatSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, posix, relative, resolve, sep } from "node:path";
 import { hostname } from "node:os";
 import { stageIngressFile } from "./collector.mjs";
@@ -151,10 +153,27 @@ const CONTINUOUS_LEASE_FIELDS = [
   "acquired_at",
   "expires_at",
 ];
+export const CONTINUOUS_LEASE_INSTANCE_SCHEMA = "soulforge.ingress.continuous_lease_instance.v1";
+const CONTINUOUS_LEASE_INSTANCE_FIELDS = [
+  "schema_version",
+  "node_id",
+  "owner_host",
+  "owner_pid",
+  "fence_token",
+  "instance_token",
+  "observed_at",
+];
 
 function fail(code) {
   const error = new Error(code);
   error.code = code;
+  throw error;
+}
+
+function failLeaseHeld(reasonCode) {
+  const error = new Error("continuous_lease_held");
+  error.code = "continuous_lease_held";
+  error.reason_code = reasonCode;
   throw error;
 }
 
@@ -204,6 +223,9 @@ function ownerPid(value, code) {
   return value;
 }
 
+const OPAQUE_TOKEN_PATTERN = /^[A-Za-z0-9_.-]{1,128}$/;
+const INSTANCE_TOKEN_PATTERN = /^[0-9]{1,32}$/;
+
 function processIsAlive(pid) {
   try {
     process.kill(pid, 0);
@@ -220,7 +242,7 @@ function validateContinuousLease(value, code = "continuous_lease_invalid") {
     || !Number.isSafeInteger(value.lease_epoch)
     || value.lease_epoch < 0
     || typeof value.fence_token !== "string"
-    || !/^[A-Za-z0-9_.-]{1,128}$/.test(value.fence_token)) fail(code);
+    || !OPAQUE_TOKEN_PATTERN.test(value.fence_token)) fail(code);
   safeId(value.node_id, code);
   hostIdentity(value.owner_host, code);
   ownerPid(value.owner_pid, code);
@@ -228,6 +250,139 @@ function validateContinuousLease(value, code = "continuous_lease_invalid") {
   const expiresAt = Date.parse(value.expires_at);
   if (!Number.isFinite(acquiredAt) || !Number.isFinite(expiresAt) || expiresAt <= acquiredAt) fail(code);
   return value;
+}
+
+function fenceDigest(fenceToken) {
+  return createHash("sha256").update(fenceToken, "utf8").digest("hex");
+}
+
+export function continuousLeaseInstancePath(leaseRoot, fenceToken) {
+  return resolve(leaseRoot, `instance-${fenceDigest(fenceToken)}.json`);
+}
+
+function validateContinuousLeaseInstance(value, code = "continuous_lease_instance_invalid") {
+  exactFields(value, CONTINUOUS_LEASE_INSTANCE_FIELDS, code);
+  if (value.schema_version !== CONTINUOUS_LEASE_INSTANCE_SCHEMA) fail(code);
+  safeId(value.node_id, code);
+  hostIdentity(value.owner_host, code);
+  ownerPid(value.owner_pid, code);
+  if (typeof value.fence_token !== "string" || !OPAQUE_TOKEN_PATTERN.test(value.fence_token)) fail(code);
+  if (typeof value.instance_token !== "string" || !INSTANCE_TOKEN_PATTERN.test(value.instance_token)) fail(code);
+  if (!Number.isFinite(Date.parse(value.observed_at))) fail(code);
+  return value;
+}
+
+async function readContinuousLeaseInstance(path) {
+  await assertNormalFile(path, "continuous_lease_instance_invalid");
+  let value;
+  try {
+    value = JSON.parse(await readFile(path, "utf8"));
+  } catch {
+    fail("continuous_lease_instance_invalid");
+  }
+  return validateContinuousLeaseInstance(value);
+}
+
+export function normalizeProcessInstanceToken(value) {
+  if (typeof value !== "string") return null;
+  if (!INSTANCE_TOKEN_PATTERN.test(value)) return null;
+  return value;
+}
+
+const WINDOWS_PROBE_TIMEOUT_MS = 2000;
+const WINDOWS_PROBE_MAX_BUFFER = 65536;
+const WINDOWS_POWERSHELL_ARGS = [
+  "-NoLogo",
+  "-NoProfile",
+  "-NonInteractive",
+  "-Command",
+  "& { param([int]$ProcId) try { (Get-Process -Id $ProcId -ErrorAction Stop).StartTime.ToUniversalTime().ToFileTimeUtc() } catch { } }",
+];
+// Fixed generic-OS path for the canonical Windows host, built from fixed safe path segments
+// (never a concrete path literal). Deliberately NOT derived from SystemRoot or any other
+// environment variable: an attacker-influenceable env var must never select the executable
+// this process spawns. If this exact path is missing or is anything other than a normal,
+// non-reparse file, probing fails closed (returns null).
+const WINDOWS_SYSTEM_ROOT = resolve(`C:${sep}`, "Windows");
+const WINDOWS_POWERSHELL_EXECUTABLE = resolve(
+  WINDOWS_SYSTEM_ROOT,
+  "System32",
+  "WindowsPowerShell",
+  "v1.0",
+  "powershell.exe",
+);
+
+function resolveTrustedWindowsPowershellExecutable() {
+  let info;
+  try {
+    info = lstatSync(WINDOWS_POWERSHELL_EXECUTABLE);
+  } catch {
+    return null;
+  }
+  if (!info.isFile() || info.isSymbolicLink()) return null;
+  let physical;
+  try {
+    physical = realpathSync(WINDOWS_POWERSHELL_EXECUTABLE);
+  } catch {
+    return null;
+  }
+  if (comparable(physical) !== comparable(resolve(WINDOWS_POWERSHELL_EXECUTABLE))) return null;
+  return WINDOWS_POWERSHELL_EXECUTABLE;
+}
+
+export function resolveWindowsProcessInstanceToken(pid) {
+  if (process.platform !== "win32") return null;
+  if (!Number.isSafeInteger(pid) || pid < 1) return null;
+  const executable = resolveTrustedWindowsPowershellExecutable();
+  if (!executable) return null;
+  let result;
+  try {
+    result = spawnSync(executable, [...WINDOWS_POWERSHELL_ARGS, String(pid)], {
+      shell: false,
+      windowsHide: true,
+      timeout: WINDOWS_PROBE_TIMEOUT_MS,
+      maxBuffer: WINDOWS_PROBE_MAX_BUFFER,
+      encoding: "utf8",
+      // Pin SystemRoot/windir for the child to the same trusted, hardcoded path used to
+      // select the executable above. Both are otherwise attacker-influenceable process
+      // env vars that PowerShell itself consults at startup (module/runtime lookup); an
+      // attacker-controlled value here must not be able to steer or break the trusted probe.
+      env: { ...process.env, SystemRoot: WINDOWS_SYSTEM_ROOT, windir: WINDOWS_SYSTEM_ROOT },
+    });
+  } catch {
+    return null;
+  }
+  if (!result || typeof result !== "object" || result.error || result.status !== 0) return null;
+  if (typeof result.stdout !== "string") return null;
+  const trimmed = result.stdout.trim();
+  if (!INSTANCE_TOKEN_PATTERN.test(trimmed)) return null;
+  return trimmed;
+}
+
+// The runner's own PID instance never changes for the lifetime of this process, so it is
+// safe (and avoids a redundant PowerShell spawn on every acquisition) to cache it once at
+// module scope. A foreign PID's owner may exit and its PID be reused between acquisitions,
+// so foreign lookups must never be cached beyond a single acquisition's fresh Map below.
+let ownProcessInstanceTokenCache;
+
+function resolveOwnProcessInstanceToken() {
+  if (ownProcessInstanceTokenCache === undefined) {
+    ownProcessInstanceTokenCache = normalizeProcessInstanceToken(
+      resolveWindowsProcessInstanceToken(process.pid),
+    );
+  }
+  return ownProcessInstanceTokenCache;
+}
+
+function createProcessInstanceCache() {
+  const cache = new Map();
+  return (pid) => {
+    if (pid === process.pid) return resolveOwnProcessInstanceToken();
+    if (cache.has(pid)) return cache.get(pid);
+    const token = normalizeProcessInstanceToken(resolveWindowsProcessInstanceToken(pid));
+    cache.set(pid, token);
+    return token;
+  };
 }
 
 function fileIdentity(info) {
@@ -931,7 +1086,14 @@ async function removeContinuousPathWithIdentity(path, identity, { missingOk = fa
   if (!info.isFile() || info.isSymbolicLink()) fail("continuous_lease_invalid");
   const current = fileIdentity(await lstat(path, { bigint: true }));
   if (!sameFileIdentity(current, identity)) fail("continuous_lease_lost");
-  await rm(path);
+  try {
+    await rm(path);
+  } catch (error) {
+    // A concurrent remover can win the race between the identity check above and this
+    // unlink; with missingOk the outcome (path gone) is indistinguishable from success.
+    if (missingOk && error?.code === "ENOENT") return false;
+    throw error;
+  }
   return true;
 }
 
@@ -976,21 +1138,51 @@ async function publishContinuousLease(lockPath, lease) {
   }
 }
 
-function assertRecoverableContinuousOwner(lease, nowMs) {
-  if (Date.parse(lease.expires_at) > nowMs) fail("continuous_lease_held");
+async function assertRecoverableContinuousOwner(paths, lease, nowMs, processInstanceProbe) {
+  if (Date.parse(lease.expires_at) > nowMs) failLeaseHeld("unexpired");
   if (lease.owner_host !== hostIdentity(hostname(), "continuous_lease_invalid")) {
     fail("continuous_lease_remote_owner");
   }
-  if (processIsAlive(lease.owner_pid)) fail("continuous_lease_held");
+  if (!processIsAlive(lease.owner_pid)) return;
+  // The recorded owner PID still resolves to a running process. Only allow recovery
+  // if a bound instance sidecar proves that PID now belongs to a strictly newer process
+  // instance than the one that acquired the lease (e.g. the OS reused the PID after
+  // the original writer died). A missing/malformed/unbound sidecar, an unresolved
+  // current instance, or an equal/older instance all fail closed.
+  const sidecarPath = continuousLeaseInstancePath(paths.leaseRoot, lease.fence_token);
+  let sidecar;
+  try {
+    if (!(await optionalLstat(sidecarPath))) failLeaseHeld("evidence_missing");
+    sidecar = await readContinuousLeaseInstance(sidecarPath);
+  } catch (error) {
+    if (error?.code === "continuous_lease_held") throw error;
+    failLeaseHeld("evidence_invalid");
+  }
+  if (sidecar.fence_token !== lease.fence_token
+    || sidecar.node_id !== lease.node_id
+    || sidecar.owner_host !== lease.owner_host
+    || sidecar.owner_pid !== lease.owner_pid) {
+    failLeaseHeld("evidence_unbound");
+  }
+  const observedAtMs = Date.parse(sidecar.observed_at);
+  const acquiredAtMs = Date.parse(lease.acquired_at);
+  const expiresAtMs = Date.parse(lease.expires_at);
+  if (observedAtMs < acquiredAtMs || observedAtMs > expiresAtMs) failLeaseHeld("evidence_out_of_window");
+  const current = processInstanceProbe(lease.owner_pid);
+  if (typeof current !== "string") failLeaseHeld("probe_unresolved");
+  const currentValue = BigInt(current);
+  const recordedValue = BigInt(sidecar.instance_token);
+  if (currentValue === recordedValue) failLeaseHeld("instance_match");
+  if (currentValue < recordedValue) failLeaseHeld("instance_not_newer");
 }
 
-async function recoverExpiredContinuousLease(paths, nowMs) {
+async function recoverExpiredContinuousLease(paths, nowMs, processInstanceProbe) {
   let observed = null;
   if (await optionalLstat(paths.lockPath)) observed = await inspectContinuousLease(paths.lockPath);
   let marker;
   if (!(await optionalLstat(paths.recoveryPath))) {
     if (!observed) fail("continuous_lease_race");
-    assertRecoverableContinuousOwner(observed.lease, nowMs);
+    await assertRecoverableContinuousOwner(paths, observed.lease, nowMs, processInstanceProbe);
     try {
       await link(paths.lockPath, paths.recoveryPath);
     } catch (error) {
@@ -998,7 +1190,7 @@ async function recoverExpiredContinuousLease(paths, nowMs) {
     }
   }
   marker = await inspectContinuousLease(paths.recoveryPath);
-  assertRecoverableContinuousOwner(marker.lease, nowMs);
+  await assertRecoverableContinuousOwner(paths, marker.lease, nowMs, processInstanceProbe);
   if (observed && (!sameFileIdentity(marker.identity, observed.identity)
     || marker.lease.fence_token !== observed.lease.fence_token)) fail("continuous_lease_race");
 
@@ -1026,16 +1218,23 @@ async function recoverExpiredContinuousLease(paths, nowMs) {
     }
     await removeContinuousPathWithIdentity(paths.lockPath, marker.identity);
   }
+  // The recovered lease's own instance sidecar was only ever decision evidence for THIS
+  // recovery: once the stale lease record above has captured it and the active lock for
+  // that fence token is gone, the sidecar is orphaned. Remove it now (best effort, missing
+  // is fine) so sidecars do not accumulate forever; the stale-*.json lease record itself is
+  // left untouched.
+  await removeMatchingLeaseInstanceSidecar(paths.leaseRoot, marker.lease);
   return marker;
 }
 
-async function acquireLease(binding, nowMs) {
+async function acquireLease(binding, nowMs, testHooks = {}) {
   const leaseRoot = resolve(binding.dataRoot, "state", "leases", "continuous_ingress");
   await ensureDirectoryChain(binding.dataRoot, leaseRoot, { create: true });
   const lockPath = resolve(leaseRoot, "active.lock.json");
   const recoveryPath = resolve(leaseRoot, "active.lock.json.recovery");
   const epochPath = resolve(leaseRoot, "epoch.json");
   const token = randomUUID();
+  const processInstanceProbe = createProcessInstanceCache();
   const provisional = validateContinuousLease({
     schema_version: CONTINUOUS_LEASE_SCHEMA,
     node_id: binding.nodeId,
@@ -1051,11 +1250,11 @@ async function acquireLease(binding, nowMs) {
   let recoveryMarker = null;
   try {
     if (await optionalLstat(recoveryPath)) {
-      recoveryMarker = await recoverExpiredContinuousLease(paths, nowMs);
+      recoveryMarker = await recoverExpiredContinuousLease(paths, nowMs, processInstanceProbe);
     }
     let installed = await publishContinuousLease(lockPath, provisional);
     if (!installed) {
-      recoveryMarker = await recoverExpiredContinuousLease(paths, nowMs);
+      recoveryMarker = await recoverExpiredContinuousLease(paths, nowMs, processInstanceProbe);
       installed = await publishContinuousLease(lockPath, provisional);
       if (!installed) fail("continuous_lease_race");
     }
@@ -1092,6 +1291,30 @@ async function acquireLease(binding, nowMs) {
     await atomicJson(binding.dataRoot, lockPath, lease);
     const installed = await inspectContinuousLease(lockPath);
     if (installed.lease.fence_token !== lease.fence_token) fail("continuous_lease_lost");
+    const ownInstance = processInstanceProbe(process.pid);
+    if (typeof ownInstance === "string") {
+      const instancePath = continuousLeaseInstancePath(leaseRoot, lease.fence_token);
+      const instanceRecord = validateContinuousLeaseInstance({
+        schema_version: CONTINUOUS_LEASE_INSTANCE_SCHEMA,
+        node_id: lease.node_id,
+        owner_host: lease.owner_host,
+        owner_pid: lease.owner_pid,
+        fence_token: lease.fence_token,
+        instance_token: ownInstance,
+        observed_at: new Date(nowMs).toISOString(),
+      });
+      // The sidecar is optional recovery evidence, not lease authority: if the atomic
+      // write fails, this run must still continue. A missing sidecar only makes a
+      // future crash-recovery attempt fail closed (evidence_missing), never open.
+      try {
+        await atomicJson(binding.dataRoot, instancePath, instanceRecord);
+      } catch {
+        // ignored: sidecar write failure must not block lease acquisition.
+      }
+    }
+    // Best-effort bounded cleanup so orphaned sidecars from past crashes/recoveries do not
+    // accumulate forever; must never block or fail this acquisition.
+    await sweepOrphanLeaseInstanceSidecars(paths, nowMs).catch(() => {});
     return { leaseRoot, lockPath, recoveryPath, epochPath, lease, lockIdentity: installed.identity };
   } catch (error) {
     if (ownsLock) {
@@ -1148,17 +1371,87 @@ async function assertFinalRunPublication(binding, leaseContext, authorityContext
 }
 
 async function releaseLease(binding, leaseContext) {
+  // Sidecar cleanup runs from finally so it is still attempted even when a recovery-marker
+  // or fence-loss check below throws; it never masks the primary error since it swallows
+  // its own failures internally (see removeMatchingLeaseInstanceSidecar).
   try {
     if (await optionalLstat(leaseContext.recoveryPath)) fail("continuous_lease_lost");
-    const current = await inspectContinuousLease(leaseContext.lockPath, "continuous_lease_lost");
-    if (current.lease.fence_token !== leaseContext.lease.fence_token
-      || current.lease.owner_host !== leaseContext.lease.owner_host
-      || current.lease.owner_pid !== leaseContext.lease.owner_pid
-      || current.lease.lease_epoch !== leaseContext.lease.lease_epoch) fail("continuous_lease_lost");
-    await removeContinuousPathWithIdentity(leaseContext.lockPath, current.identity);
-  } catch (error) {
-    if (error?.code === "ENOENT") return;
-    throw error;
+    // A lock already gone (ENOENT) means there is nothing left to validate or unlink for
+    // this lease, but a matching instance sidecar may still be sitting on disk; attempt
+    // its cleanup regardless instead of skipping past it.
+    if (await optionalLstat(leaseContext.lockPath)) {
+      const current = await inspectContinuousLease(leaseContext.lockPath, "continuous_lease_lost");
+      if (current.lease.fence_token !== leaseContext.lease.fence_token
+        || current.lease.owner_host !== leaseContext.lease.owner_host
+        || current.lease.owner_pid !== leaseContext.lease.owner_pid
+        || current.lease.lease_epoch !== leaseContext.lease.lease_epoch) fail("continuous_lease_lost");
+      await removeContinuousPathWithIdentity(leaseContext.lockPath, current.identity, { missingOk: true });
+    }
+  } finally {
+    await removeMatchingLeaseInstanceSidecar(leaseContext.leaseRoot, leaseContext.lease);
+  }
+}
+
+async function removeMatchingLeaseInstanceSidecar(leaseRoot, lease) {
+  const instancePath = continuousLeaseInstancePath(leaseRoot, lease.fence_token);
+  try {
+    const sidecar = await readContinuousLeaseInstance(instancePath);
+    if (sidecar.fence_token !== lease.fence_token
+      || sidecar.node_id !== lease.node_id
+      || sidecar.owner_host !== lease.owner_host
+      || sidecar.owner_pid !== lease.owner_pid) return;
+    const info = await lstat(instancePath, { bigint: true });
+    await removeContinuousPathWithIdentity(instancePath, fileIdentity(info), { missingOk: true });
+  } catch {
+    // No matching sidecar to remove; nothing to do.
+  }
+}
+
+// Comfortably beyond the maximum lease TTL (172800s = 2 days) plus operator response time,
+// so the sweep only ever removes sidecars that are unambiguously orphaned debris, never
+// evidence a live recovery decision could still depend on.
+const LEASE_INSTANCE_SIDECAR_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+const LEASE_INSTANCE_SIDECAR_NAME_PATTERN = /^instance-[a-f0-9]{64}\.json$/;
+
+async function protectedLeaseInstancePaths(paths) {
+  const protectedPaths = new Set();
+  for (const path of [paths.lockPath, paths.recoveryPath]) {
+    try {
+      if (!(await optionalLstat(path))) continue;
+      const { lease } = await inspectContinuousLease(path);
+      protectedPaths.add(continuousLeaseInstancePath(paths.leaseRoot, lease.fence_token));
+    } catch {
+      // Best-effort: an unreadable lock/recovery file protects nothing extra here; the
+      // sweep below only ever removes strictly stale, ordinary (non-symlink) sidecar files.
+    }
+  }
+  return protectedPaths;
+}
+
+async function sweepOrphanLeaseInstanceSidecars(paths, nowMs) {
+  let entries;
+  try {
+    entries = await readdir(paths.leaseRoot, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  const protectedPaths = await protectedLeaseInstancePaths(paths);
+  for (const entry of entries) {
+    if (!LEASE_INSTANCE_SIDECAR_NAME_PATTERN.test(entry.name)) continue;
+    const entryPath = resolve(paths.leaseRoot, entry.name);
+    if (protectedPaths.has(entryPath)) continue;
+    try {
+      const info = await lstat(entryPath, { bigint: true });
+      // Never follow a symlink standing in for a sidecar; lstat (not stat) already avoids
+      // dereferencing it, and a symlinked entry is simply left alone rather than removed.
+      if (!info.isFile() || info.isSymbolicLink()) continue;
+      const ageMs = nowMs - Number(info.mtimeNs / 1000000n);
+      if (ageMs < LEASE_INSTANCE_SIDECAR_RETENTION_MS) continue;
+      await removeContinuousPathWithIdentity(entryPath, fileIdentity(info), { missingOk: true });
+    } catch {
+      // Best-effort sweep: an entry that vanishes, changes identity, or fails removal is
+      // simply left for a later sweep rather than treated as fatal to this acquisition.
+    }
   }
 }
 
@@ -1758,7 +2051,7 @@ export async function runContinuousIngress(options = {}) {
     return result;
   }
 
-  const leaseContext = await acquireLease(binding, now());
+  const leaseContext = await acquireLease(binding, now(), options.testHooks ?? {});
   const startedAt = new Date(now()).toISOString();
   const id = runId(binding.nodeId, leaseContext.lease.lease_epoch, startedAt);
   const queueResults = [];

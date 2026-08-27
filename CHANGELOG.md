@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-27 - Continuous ingress PID-reuse self-heal hardening
+
+- Preserved the exact `continuous_lease.v1` record while adding a separate Windows process-instance sidecar that permits stale-lease recovery only for an expired same-host lease whose live PID is proven to belong to a strictly newer process.
+- Kept missing, malformed, unbound, out-of-window, unresolved, matching, and non-newer evidence fail-closed; selected a fixed validated Windows PowerShell executable instead of an environment-selected path.
+- Added sanitized `continuous_lease_held_<reason>` supervisor heartbeat diagnostics, bounded orphan-sidecar retention, recovery/fence-loss cleanup, and regression coverage without exposing local paths, PIDs, fence tokens, or credentials.
+- Public source and deterministic validators are accepted; installed runtime application, scheduled-supervisor restart, and live private-state verification remain a separate Owner action-time gate.
+
 ## 2026-08-27 - Hermes canonical Bot Chat default delivery route
 
 - Set each Hermes profile's existing canonical `Bot Chat` as the default Codex-to-Bot instruction and follow-up channel, with exact-profile resolution, create-only-if-missing, same-session verification, and serialized turns.
