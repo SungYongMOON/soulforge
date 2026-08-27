@@ -39,8 +39,8 @@ test("allowlisted adapters map exact Watchtower and Engineering Engine inventori
 
   assert.equal(watchtower.nodes.length, 28);
   assert.equal(watchtower.edges.length, 36);
-  assert.equal(engineeringEngine.nodes.length, 166);
-  assert.equal(engineeringEngine.edges.length, 517);
+  assert.equal(engineeringEngine.nodes.length, 175);
+  assert.equal(engineeringEngine.edges.length, 563);
   assert.equal(watchtower.source.digest, digest(watchtowerBytes));
   assert.equal(engineeringEngine.source.digest, digest(engineBytes));
   assert.equal(watchtower.runtime_state, "unknown");
@@ -55,8 +55,8 @@ test("allowlisted adapters map exact Watchtower and Engineering Engine inventori
   const federation = composeFederatedTopology([watchtower, engineeringEngine]);
   assert.deepEqual(federation.summary, {
     provider_count: 2,
-    node_count: 194,
-    edge_count: 553,
+    node_count: 203,
+    edge_count: 599,
     runtime_authority: false,
     repair_execution_authority: false,
   });
@@ -82,8 +82,8 @@ test("CLI emits canonical bytes only on stdout by default and --check remains re
   assert.equal(run.status, 0, run.stderr);
   const parsed = JSON.parse(run.stdout);
   assert.equal(parsed.summary.provider_count, 4);
-  assert.equal(parsed.summary.node_count, 205);
-  assert.equal(parsed.summary.edge_count, 567);
+  assert.equal(parsed.summary.node_count, 214);
+  assert.equal(parsed.summary.edge_count, 613);
   assert.equal(run.stdout, canonicalStringify(parsed));
 
   const scratch = mkdtempSync(join(tmpdir(), "soulforge-federated-topology-"));
@@ -112,8 +112,8 @@ test("CLI never writes without --out and writes only the requested output", () =
     assert.equal(emitted.status, 0, emitted.stderr);
     const parsed = JSON.parse(readFileSync(output, "utf8"));
     assert.equal(parsed.summary.provider_count, 4);
-    assert.equal(parsed.summary.node_count, 205);
-    assert.equal(parsed.summary.edge_count, 567);
+    assert.equal(parsed.summary.node_count, 214);
+    assert.equal(parsed.summary.edge_count, 613);
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }

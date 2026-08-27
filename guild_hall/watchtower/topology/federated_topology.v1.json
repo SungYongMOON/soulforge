@@ -72,6 +72,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter",
+      "id": "engineering_engine::imports.05c31f74624eb0ff63beec43ba9437b7",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.database_engineering.fixtures.database_engineering_public_synthetic",
       "id": "engineering_engine::imports.05e910e718a3afdd9ea2a5d4f1102158",
       "label": "imports",
@@ -169,6 +179,26 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.engine_context"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.topology.reliability_maintainability_module_manifest",
+      "id": "engineering_engine::imports.0f26da7dd235d41aa04df694bb87f5d4",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.topology.reliability_maintainability_module_manifest",
+      "id": "engineering_engine::imports.10c4c8dbac2f040b02f60216d47f0e8f",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability"
     },
     {
       "evidence_mode": "structural_only",
@@ -292,6 +322,26 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability",
+      "id": "engineering_engine::imports.16039fe9b0a8e893f262cb7be28f6db3",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.snapshot"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability",
+      "id": "engineering_engine::imports.160cdc4c48ea13059b8b44cdf52b458a",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.authority"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.tools.se_core_source_cited_answer_runner",
       "id": "engineering_engine::imports.170d05778d10a3eb468904b11bdf2b5a",
       "label": "imports",
@@ -372,6 +422,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability_admission",
+      "id": "engineering_engine::imports.1bb2f80634c2870c7aeeef4a756cca85",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.profile_operation_canon"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.engine_context",
       "id": "engineering_engine::imports.1c715dad0110da431422ae000a69b3d1",
       "label": "imports",
@@ -379,6 +439,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.project_profile"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.rules.reliability_maintainability_rules",
+      "id": "engineering_engine::imports.1dee41b7ff64a845ca3059be6e278f3d",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
     },
     {
       "evidence_mode": "structural_only",
@@ -509,6 +579,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_readiness"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability",
+      "id": "engineering_engine::imports.2c0e44a77f092eb2823eb4f22b51a2f8",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.reliability_maintainability.rules.reliability_maintainability_public_safe"
     },
     {
       "evidence_mode": "structural_only",
@@ -692,6 +772,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.rules.reliability_maintainability_rules",
+      "id": "engineering_engine::imports.3993b1fa0c75770b8c8121850d6d0702",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.file_tickets_list",
       "id": "engineering_engine::imports.39d861ced5be00a6e20366ccc730e29f",
       "label": "imports",
@@ -742,6 +832,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.fixtures.reliability_maintainability_public_synthetic",
+      "id": "engineering_engine::imports.3c67f7e8cceb61db452cff84933a30f0",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
       "id": "engineering_engine::imports.3d34dba89b5906c6bfcf112c992a58e8",
       "label": "imports",
@@ -749,6 +849,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability_admission",
+      "id": "engineering_engine::imports.3dab1e5f8db7bf482b42284d76f14d3d",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.authority"
     },
     {
       "evidence_mode": "structural_only",
@@ -779,6 +889,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.pcb_compliance.rules.pcb_compliance_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability_admission",
+      "id": "engineering_engine::imports.4054080aa12a8ace48a9677d41f6e6ae",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter"
     },
     {
       "evidence_mode": "structural_only",
@@ -842,6 +962,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability",
+      "id": "engineering_engine::imports.433e6c45025b37ff76b5020a69607b23",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.observation.artifact_observations_from_confirmed",
       "id": "engineering_engine::imports.443bfd0b58c72cd2c9bbf6297bb90849",
       "label": "imports",
@@ -869,6 +999,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.render"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability_evaluator_adapter",
+      "id": "engineering_engine::imports.47fef232ad7866b44058052f5411c29e",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter"
     },
     {
       "evidence_mode": "structural_only",
@@ -942,6 +1082,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability",
+      "id": "engineering_engine::imports.4d7fb74997e947243c7196c6f6ba1b4f",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.ceilings"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluator.common_se_corpus_projection",
       "id": "engineering_engine::imports.4d99d98b31b81e5331d566de2a6fbe95",
       "label": "imports",
@@ -959,6 +1109,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability_admission",
+      "id": "engineering_engine::imports.4f5626a4d6beaf61696a2fc321e986de",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.reliability_maintainability.rules.reliability_maintainability_public_safe"
     },
     {
       "evidence_mode": "structural_only",
@@ -1102,6 +1262,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability_evaluator_adapter",
+      "id": "engineering_engine::imports.542d3255e5994582e07482419f424efd",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.engine_status",
       "id": "engineering_engine::imports.5430ba3a1614b80b7593dd06b27069c0",
       "label": "imports",
@@ -1222,6 +1392,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.topology.reliability_maintainability_module_manifest",
+      "id": "engineering_engine::imports.5fb374f2c1b61f88274aafaf6fec2ab5",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.module_binding"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.database_engineering.rules.database_engineering_rules",
       "id": "engineering_engine::imports.60675879a023ff645c1e763fa5c97328",
       "label": "imports",
@@ -1309,6 +1489,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.quality_readiness.rules.quality_readiness_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability",
+      "id": "engineering_engine::imports.679bbb12cbb538275c28b4fd2c47c798",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
     },
     {
       "evidence_mode": "structural_only",
@@ -1439,6 +1629,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.engine_context"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.tools.reliability_maintainability_runner",
+      "id": "engineering_engine::imports.731f791b9de95109ea9e8eebf9c544b9",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.reliability_maintainability.fixtures.reliability_maintainability_public_synthetic"
     },
     {
       "evidence_mode": "structural_only",
@@ -1682,6 +1882,26 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.fixtures.reliability_maintainability_public_synthetic",
+      "id": "engineering_engine::imports.82f19ca1332cc766ea9aac237fb120f0",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.reliability_maintainability.rules.reliability_maintainability_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter",
+      "id": "engineering_engine::imports.830f433b9a4c9de2eaa2bf25a4ef39fd",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.authority"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter",
       "id": "engineering_engine::imports.832ea42e7ae2dc0109dfa09418ba8fdc",
       "label": "imports",
@@ -1739,6 +1959,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.project_registry"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability",
+      "id": "engineering_engine::imports.86ab625081112751a59829bb33f4ad13",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability_admission"
     },
     {
       "evidence_mode": "structural_only",
@@ -1812,6 +2042,26 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability",
+      "id": "engineering_engine::imports.8f94df0868bf84124a85c0ddf956ca35",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.module_binding"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability",
+      "id": "engineering_engine::imports.8fcaa75791b586a5ff49c331c7e8f1a3",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.custody"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.observe_confirm",
       "id": "engineering_engine::imports.8fd4c0647d338401454af8829c304149",
       "label": "imports",
@@ -1882,6 +2132,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability_admission",
+      "id": "engineering_engine::imports.91cb32b2088694ab20bc9ff5bcc9b76b",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.file_tickets_list",
       "id": "engineering_engine::imports.92cb99caa70efe409338388bc723ef5b",
       "label": "imports",
@@ -1929,6 +2189,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.engine_context"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability_admission",
+      "id": "engineering_engine::imports.964e2960840489a9836a17da8e082072",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
     },
     {
       "evidence_mode": "structural_only",
@@ -2012,6 +2282,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability",
+      "id": "engineering_engine::imports.9b5274e6ceb4df20a239a8703af2bb52",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.reliability_maintainability.rules.reliability_maintainability_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.guidance.instruction_packet",
       "id": "engineering_engine::imports.9d06f81c66b9bd9673f024954a75d20e",
       "label": "imports",
@@ -2062,6 +2342,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter",
+      "id": "engineering_engine::imports.a4789cdff866428c9a9722936af3a718",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.tools.artifact_observation_inventory_runner",
       "id": "engineering_engine::imports.a4cafb7a7ff9d2134665e782ac03a381",
       "label": "imports",
@@ -2079,6 +2369,26 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.tools.reliability_maintainability_runner",
+      "id": "engineering_engine::imports.a5df36ba75f9aa40a1fe06114476de3e",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.topology.reliability_maintainability_module_manifest",
+      "id": "engineering_engine::imports.a797cab40f3c15f76ade2f43be17224b",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.reliability_maintainability.rules.reliability_maintainability_public_safe"
     },
     {
       "evidence_mode": "structural_only",
@@ -2119,6 +2429,26 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability_admission",
+      "id": "engineering_engine::imports.ac59b4d6a3309ae85d15ff82ad55d54d",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability",
+      "id": "engineering_engine::imports.acc06f77c3e812b4602c39be4df32318",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.identity"
     },
     {
       "evidence_mode": "structural_only",
@@ -2169,6 +2499,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.tools.observe_scan"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability",
+      "id": "engineering_engine::imports.b1f18f0ff33fd8175d43642213080ec1",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
     },
     {
       "evidence_mode": "structural_only",
@@ -2232,6 +2572,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.fixtures.reliability_maintainability_public_synthetic",
+      "id": "engineering_engine::imports.b519b605c8a9ad29f8d5302225ce105e",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.contract_config"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.rules.pilot_packet_generator",
       "id": "engineering_engine::imports.b6f2a111883dd345d1c382d028acb41c",
       "label": "imports",
@@ -2269,6 +2619,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.database_engineering.analysis.platform_control_proof"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability_evaluator_adapter",
+      "id": "engineering_engine::imports.bac5330d5d9abb0f38423711506cae08",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
     },
     {
       "evidence_mode": "structural_only",
@@ -2329,6 +2689,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.render"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability_admission",
+      "id": "engineering_engine::imports.bfab3473dd3e70cfb16ed8c55af659dd",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
     },
     {
       "evidence_mode": "structural_only",
@@ -2432,6 +2802,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter",
+      "id": "engineering_engine::imports.c73a740c643224ed453e018ac42ca7da",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.database_engineering.rules.database_engineering_rules",
       "id": "engineering_engine::imports.c7f688358c009485e00dcf42381801a1",
       "label": "imports",
@@ -2439,6 +2819,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability_evaluator_adapter",
+      "id": "engineering_engine::imports.c8c85f4d057eee0ee3809d888d335ea3",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability_admission"
     },
     {
       "evidence_mode": "structural_only",
@@ -2532,6 +2922,26 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability_admission",
+      "id": "engineering_engine::imports.cd2866b58dc6e60aa37e3c0251de9c5f",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.reliability_maintainability.rules.reliability_maintainability_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter",
+      "id": "engineering_engine::imports.cdb5592c32f4c5f498060379560d1402",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.reliability_maintainability.rules.reliability_maintainability_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.index",
       "id": "engineering_engine::imports.cdccc7d6f25acd13702b1b21875d63a5",
       "label": "imports",
@@ -2549,6 +2959,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.quality_readiness.topology.quality_readiness_module_manifest"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter",
+      "id": "engineering_engine::imports.cfb5f9108b2ca75c979df62723f5ea21",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.profile_operation_canon"
     },
     {
       "evidence_mode": "structural_only",
@@ -3832,6 +4252,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter",
+      "id": "engineering_engine::imports.d3df58479f708e9aabc421461f582ae8",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.reliability_maintainability.rules.reliability_maintainability_public_safe"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.material_procurement_readiness.topology.material_procurement_readiness_module_manifest",
       "id": "engineering_engine::imports.d62ef3af7e676d5ad0105e848aab07fe",
       "label": "imports",
@@ -3952,6 +4382,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.fixtures.reliability_maintainability_public_synthetic",
+      "id": "engineering_engine::imports.da05ed1cd349dedb75feb38c95fdb5c3",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.reliability_maintainability.topology.reliability_maintainability_module_manifest"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.tools.ax_se_project_assessment_runner",
       "id": "engineering_engine::imports.da74ee045b6c023d81725b8f31836e85",
       "label": "imports",
@@ -4039,6 +4479,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.project_profile"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.rules.reliability_maintainability_public_safe",
+      "id": "engineering_engine::imports.e191257d9c6aff64aab99b4eec4e2bab",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
     },
     {
       "evidence_mode": "structural_only",
@@ -4209,6 +4659,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.reliability_maintainability.fixtures.reliability_maintainability_public_synthetic",
+      "id": "engineering_engine::imports.efcb43409f5c7ad138e2c6f8b6a818d7",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
     },
     {
       "evidence_mode": "structural_only",
@@ -6522,6 +6982,105 @@
     {
       "diagnostic_state": "validator_backed",
       "group": "engines",
+      "id": "engineering_engine::engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter",
+      "kind": "module",
+      "label": "engines/reliability_maintainability/compiler/reliability_maintainability_compiler_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability",
+      "kind": "module",
+      "label": "engines/reliability_maintainability/evaluator/reliability_maintainability",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability_admission",
+      "kind": "module",
+      "label": "engines/reliability_maintainability/evaluator/reliability_maintainability_admission",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability_evaluator_adapter",
+      "kind": "module",
+      "label": "engines/reliability_maintainability/evaluator/reliability_maintainability_evaluator_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.reliability_maintainability.fixtures.reliability_maintainability_public_synthetic",
+      "kind": "module",
+      "label": "engines/reliability_maintainability/fixtures/reliability_maintainability_public_synthetic",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.reliability_maintainability.rules.reliability_maintainability_public_safe",
+      "kind": "module",
+      "label": "engines/reliability_maintainability/rules/reliability_maintainability_public_safe",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.reliability_maintainability.rules.reliability_maintainability_rules",
+      "kind": "module",
+      "label": "engines/reliability_maintainability/rules/reliability_maintainability_rules",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.reliability_maintainability.tools.reliability_maintainability_runner",
+      "kind": "module",
+      "label": "engines/reliability_maintainability/tools/reliability_maintainability_runner",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.reliability_maintainability.topology.reliability_maintainability_module_manifest",
+      "kind": "module",
+      "label": "engines/reliability_maintainability/topology/reliability_maintainability_module_manifest",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
       "id": "engineering_engine::engines.systems_engineering.compiler.se_compiler_adapter",
       "kind": "module",
       "label": "engines/systems_engineering/compiler/se_compiler_adapter",
@@ -8019,6 +8578,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter",
+          "id": "imports.05c31f74624eb0ff63beec43ba9437b7",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.database_engineering.fixtures.database_engineering_public_synthetic",
           "id": "imports.05e910e718a3afdd9ea2a5d4f1102158",
           "label": "imports",
@@ -8106,6 +8674,24 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.engine_context"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.topology.reliability_maintainability_module_manifest",
+          "id": "imports.0f26da7dd235d41aa04df694bb87f5d4",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.topology.reliability_maintainability_module_manifest",
+          "id": "imports.10c4c8dbac2f040b02f60216d47f0e8f",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.reliability_maintainability.evaluator.reliability_maintainability"
         },
         {
           "evidence_mode": "structural_only",
@@ -8217,6 +8803,24 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability",
+          "id": "imports.16039fe9b0a8e893f262cb7be28f6db3",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.snapshot"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability",
+          "id": "imports.160cdc4c48ea13059b8b44cdf52b458a",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.authority"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.tools.se_core_source_cited_answer_runner",
           "id": "imports.170d05778d10a3eb468904b11bdf2b5a",
           "label": "imports",
@@ -8289,12 +8893,30 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability_admission",
+          "id": "imports.1bb2f80634c2870c7aeeef4a756cca85",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.profile_operation_canon"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.engine_context",
           "id": "imports.1c715dad0110da431422ae000a69b3d1",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.project_profile"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.rules.reliability_maintainability_rules",
+          "id": "imports.1dee41b7ff64a845ca3059be6e278f3d",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
         },
         {
           "evidence_mode": "structural_only",
@@ -8412,6 +9034,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.material_procurement_readiness.evaluator.material_procurement_readiness"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability",
+          "id": "imports.2c0e44a77f092eb2823eb4f22b51a2f8",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.reliability_maintainability.rules.reliability_maintainability_public_safe"
         },
         {
           "evidence_mode": "structural_only",
@@ -8577,6 +9208,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.rules.reliability_maintainability_rules",
+          "id": "imports.3993b1fa0c75770b8c8121850d6d0702",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.file_tickets_list",
           "id": "imports.39d861ced5be00a6e20366ccc730e29f",
           "label": "imports",
@@ -8622,12 +9262,30 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.fixtures.reliability_maintainability_public_synthetic",
+          "id": "imports.3c67f7e8cceb61db452cff84933a30f0",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.reliability_maintainability.evaluator.reliability_maintainability"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.database_engineering.evaluator.database_engineering_evaluator_adapter",
           "id": "imports.3d34dba89b5906c6bfcf112c992a58e8",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
           "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability_admission",
+          "id": "imports.3dab1e5f8db7bf482b42284d76f14d3d",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.authority"
         },
         {
           "evidence_mode": "structural_only",
@@ -8655,6 +9313,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.pcb_compliance.rules.pcb_compliance_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability_admission",
+          "id": "imports.4054080aa12a8ace48a9677d41f6e6ae",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter"
         },
         {
           "evidence_mode": "structural_only",
@@ -8712,6 +9379,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability",
+          "id": "imports.433e6c45025b37ff76b5020a69607b23",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.observation.artifact_observations_from_confirmed",
           "id": "imports.443bfd0b58c72cd2c9bbf6297bb90849",
           "label": "imports",
@@ -8736,6 +9412,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.render"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability_evaluator_adapter",
+          "id": "imports.47fef232ad7866b44058052f5411c29e",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter"
         },
         {
           "evidence_mode": "structural_only",
@@ -8802,6 +9487,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability",
+          "id": "imports.4d7fb74997e947243c7196c6f6ba1b4f",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.ceilings"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluator.common_se_corpus_projection",
           "id": "imports.4d99d98b31b81e5331d566de2a6fbe95",
           "label": "imports",
@@ -8817,6 +9511,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability_admission",
+          "id": "imports.4f5626a4d6beaf61696a2fc321e986de",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.reliability_maintainability.rules.reliability_maintainability_public_safe"
         },
         {
           "evidence_mode": "structural_only",
@@ -8946,6 +9649,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability_evaluator_adapter",
+          "id": "imports.542d3255e5994582e07482419f424efd",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.reliability_maintainability.evaluator.reliability_maintainability"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.engine_status",
           "id": "imports.5430ba3a1614b80b7593dd06b27069c0",
           "label": "imports",
@@ -9054,6 +9766,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.topology.reliability_maintainability_module_manifest",
+          "id": "imports.5fb374f2c1b61f88274aafaf6fec2ab5",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.module_binding"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.database_engineering.rules.database_engineering_rules",
           "id": "imports.60675879a023ff645c1e763fa5c97328",
           "label": "imports",
@@ -9132,6 +9853,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.quality_readiness.rules.quality_readiness_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability",
+          "id": "imports.679bbb12cbb538275c28b4fd2c47c798",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
         },
         {
           "evidence_mode": "structural_only",
@@ -9249,6 +9979,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.engine_context"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.tools.reliability_maintainability_runner",
+          "id": "imports.731f791b9de95109ea9e8eebf9c544b9",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.reliability_maintainability.fixtures.reliability_maintainability_public_synthetic"
         },
         {
           "evidence_mode": "structural_only",
@@ -9468,6 +10207,24 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.fixtures.reliability_maintainability_public_synthetic",
+          "id": "imports.82f19ca1332cc766ea9aac237fb120f0",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.reliability_maintainability.rules.reliability_maintainability_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter",
+          "id": "imports.830f433b9a4c9de2eaa2bf25a4ef39fd",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.authority"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter",
           "id": "imports.832ea42e7ae2dc0109dfa09418ba8fdc",
           "label": "imports",
@@ -9519,6 +10276,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.project_registry"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability",
+          "id": "imports.86ab625081112751a59829bb33f4ad13",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.reliability_maintainability.evaluator.reliability_maintainability_admission"
         },
         {
           "evidence_mode": "structural_only",
@@ -9585,6 +10351,24 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability",
+          "id": "imports.8f94df0868bf84124a85c0ddf956ca35",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.module_binding"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability",
+          "id": "imports.8fcaa75791b586a5ff49c331c7e8f1a3",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.custody"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.observe_confirm",
           "id": "imports.8fd4c0647d338401454af8829c304149",
           "label": "imports",
@@ -9648,6 +10432,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability_admission",
+          "id": "imports.91cb32b2088694ab20bc9ff5bcc9b76b",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.file_tickets_list",
           "id": "imports.92cb99caa70efe409338388bc723ef5b",
           "label": "imports",
@@ -9690,6 +10483,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.engine_context"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability_admission",
+          "id": "imports.964e2960840489a9836a17da8e082072",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
         },
         {
           "evidence_mode": "structural_only",
@@ -9765,6 +10567,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability",
+          "id": "imports.9b5274e6ceb4df20a239a8703af2bb52",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.reliability_maintainability.rules.reliability_maintainability_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.guidance.instruction_packet",
           "id": "imports.9d06f81c66b9bd9673f024954a75d20e",
           "label": "imports",
@@ -9810,6 +10621,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter",
+          "id": "imports.a4789cdff866428c9a9722936af3a718",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.tools.artifact_observation_inventory_runner",
           "id": "imports.a4cafb7a7ff9d2134665e782ac03a381",
           "label": "imports",
@@ -9825,6 +10645,24 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.tools.reliability_maintainability_runner",
+          "id": "imports.a5df36ba75f9aa40a1fe06114476de3e",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.reliability_maintainability.evaluator.reliability_maintainability"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.topology.reliability_maintainability_module_manifest",
+          "id": "imports.a797cab40f3c15f76ade2f43be17224b",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.reliability_maintainability.rules.reliability_maintainability_public_safe"
         },
         {
           "evidence_mode": "structural_only",
@@ -9861,6 +10699,24 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability_admission",
+          "id": "imports.ac59b4d6a3309ae85d15ff82ad55d54d",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability",
+          "id": "imports.acc06f77c3e812b4602c39be4df32318",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.identity"
         },
         {
           "evidence_mode": "structural_only",
@@ -9906,6 +10762,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.tools.observe_scan"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability",
+          "id": "imports.b1f18f0ff33fd8175d43642213080ec1",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
         },
         {
           "evidence_mode": "structural_only",
@@ -9963,6 +10828,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.fixtures.reliability_maintainability_public_synthetic",
+          "id": "imports.b519b605c8a9ad29f8d5302225ce105e",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.contract_config"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.rules.pilot_packet_generator",
           "id": "imports.b6f2a111883dd345d1c382d028acb41c",
           "label": "imports",
@@ -9996,6 +10870,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.database_engineering.analysis.platform_control_proof"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability_evaluator_adapter",
+          "id": "imports.bac5330d5d9abb0f38423711506cae08",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
         },
         {
           "evidence_mode": "structural_only",
@@ -10050,6 +10933,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.render"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability_admission",
+          "id": "imports.bfab3473dd3e70cfb16ed8c55af659dd",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
         },
         {
           "evidence_mode": "structural_only",
@@ -10143,12 +11035,30 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter",
+          "id": "imports.c73a740c643224ed453e018ac42ca7da",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.database_engineering.rules.database_engineering_rules",
           "id": "imports.c7f688358c009485e00dcf42381801a1",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability_evaluator_adapter",
+          "id": "imports.c8c85f4d057eee0ee3809d888d335ea3",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.reliability_maintainability.evaluator.reliability_maintainability_admission"
         },
         {
           "evidence_mode": "structural_only",
@@ -10233,6 +11143,24 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.evaluator.reliability_maintainability_admission",
+          "id": "imports.cd2866b58dc6e60aa37e3c0251de9c5f",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.reliability_maintainability.rules.reliability_maintainability_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter",
+          "id": "imports.cdb5592c32f4c5f498060379560d1402",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.reliability_maintainability.rules.reliability_maintainability_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.index",
           "id": "imports.cdccc7d6f25acd13702b1b21875d63a5",
           "label": "imports",
@@ -10248,6 +11176,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.quality_readiness.topology.quality_readiness_module_manifest"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter",
+          "id": "imports.cfb5f9108b2ca75c979df62723f5ea21",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.profile_operation_canon"
         },
         {
           "evidence_mode": "structural_only",
@@ -11403,6 +12340,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter",
+          "id": "imports.d3df58479f708e9aabc421461f582ae8",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.reliability_maintainability.rules.reliability_maintainability_public_safe"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.material_procurement_readiness.topology.material_procurement_readiness_module_manifest",
           "id": "imports.d62ef3af7e676d5ad0105e848aab07fe",
           "label": "imports",
@@ -11511,6 +12457,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.fixtures.reliability_maintainability_public_synthetic",
+          "id": "imports.da05ed1cd349dedb75feb38c95fdb5c3",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.reliability_maintainability.topology.reliability_maintainability_module_manifest"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.tools.ax_se_project_assessment_runner",
           "id": "imports.da74ee045b6c023d81725b8f31836e85",
           "label": "imports",
@@ -11589,6 +12544,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.project_profile"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.rules.reliability_maintainability_public_safe",
+          "id": "imports.e191257d9c6aff64aab99b4eec4e2bab",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
         },
         {
           "evidence_mode": "structural_only",
@@ -11742,6 +12706,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.reliability_maintainability.fixtures.reliability_maintainability_public_synthetic",
+          "id": "imports.efcb43409f5c7ad138e2c6f8b6a818d7",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
         },
         {
           "evidence_mode": "structural_only",
@@ -13383,6 +14356,96 @@
         {
           "diagnostic_state": "validator_backed",
           "group": "engines",
+          "id": "engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter",
+          "kind": "module",
+          "label": "engines/reliability_maintainability/compiler/reliability_maintainability_compiler_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.reliability_maintainability.evaluator.reliability_maintainability",
+          "kind": "module",
+          "label": "engines/reliability_maintainability/evaluator/reliability_maintainability",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.reliability_maintainability.evaluator.reliability_maintainability_admission",
+          "kind": "module",
+          "label": "engines/reliability_maintainability/evaluator/reliability_maintainability_admission",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.reliability_maintainability.evaluator.reliability_maintainability_evaluator_adapter",
+          "kind": "module",
+          "label": "engines/reliability_maintainability/evaluator/reliability_maintainability_evaluator_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.reliability_maintainability.fixtures.reliability_maintainability_public_synthetic",
+          "kind": "module",
+          "label": "engines/reliability_maintainability/fixtures/reliability_maintainability_public_synthetic",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.reliability_maintainability.rules.reliability_maintainability_public_safe",
+          "kind": "module",
+          "label": "engines/reliability_maintainability/rules/reliability_maintainability_public_safe",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.reliability_maintainability.rules.reliability_maintainability_rules",
+          "kind": "module",
+          "label": "engines/reliability_maintainability/rules/reliability_maintainability_rules",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.reliability_maintainability.tools.reliability_maintainability_runner",
+          "kind": "module",
+          "label": "engines/reliability_maintainability/tools/reliability_maintainability_runner",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.reliability_maintainability.topology.reliability_maintainability_module_manifest",
+          "kind": "module",
+          "label": "engines/reliability_maintainability/topology/reliability_maintainability_module_manifest",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
           "id": "engines.systems_engineering.compiler.se_compiler_adapter",
           "kind": "module",
           "label": "engines/systems_engineering/compiler/se_compiler_adapter",
@@ -14277,7 +15340,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "083d928175888965e78073040f8e33ca4fd1dad8eb69f43bdbeb06f083f9e1fb",
+        "digest": "268952016bb726ea11bc3504752328809938b135d50189079e9c8485db217904",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -15271,13 +16334,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "c3e581997ec23975ba553955bb840936ce1b8f4176a785c4d48b5c4cb004f693",
+  "source_set_digest": "69cbb568fb2ab91511f20cd5dbe093a51379e4d72a8140718bbae98be2f43a31",
   "summary": {
-    "edge_count": 567,
-    "node_count": 205,
+    "edge_count": 613,
+    "node_count": 214,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "3e4c08f42a03731564e731ddd4cfb21f9a2922f7c0d83868744db7e9f8e392c1"
+  "topology_digest": "fef45eb993749a61ca6f17adcc51c0e3de1e782e1f72be7a500509d682884534"
 }

@@ -3,13 +3,14 @@
   "engine_root": "guild_hall/engineering_engine",
   "contract_revision": "phase_1_0_contract.v0",
   "derivation": {
-    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness, engines/database_engineering, engines/material_procurement_readiness, engines/pcb_compliance",
+    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness, engines/database_engineering, engines/material_procurement_readiness, engines/reliability_maintainability, engines/pcb_compliance",
     "areas_covered": [
       "core",
       "engines/systems_engineering",
       "engines/quality_readiness",
       "engines/database_engineering",
       "engines/material_procurement_readiness",
+      "engines/reliability_maintainability",
       "engines/pcb_compliance"
     ],
     "areas_deliberately_excluded": [
@@ -1323,6 +1324,129 @@
       ],
       "export_count": 1,
       "line_count": 148
+    },
+    {
+      "module": "engines/reliability_maintainability/compiler/reliability_maintainability_compiler_adapter",
+      "area": "engines",
+      "exports": [
+        "RM_COMPILER_ADAPTER_SCHEMA_VERSION",
+        "RM_COMPILER_ERROR_CODES",
+        "RM_COMPILER_VOCABULARY",
+        "calculateReliabilityMaintainabilityProfileOperationItemDigest",
+        "compileReliabilityMaintainabilityRules",
+        "reliabilityMaintainabilityCompilerAdapter"
+      ],
+      "export_count": 6,
+      "line_count": 560
+    },
+    {
+      "module": "engines/reliability_maintainability/evaluator/reliability_maintainability",
+      "area": "engines",
+      "exports": [
+        "RM_ADAPTER_REVISION",
+        "RM_ASSESSMENT_SCHEMA",
+        "RM_DOMAIN_INPUT_SCHEMA",
+        "RM_DOMAIN_RESULT_SCHEMA",
+        "RM_EVALUATOR_ERROR_CODES",
+        "RM_MODULE_ABI_REVISION",
+        "RM_MODULE_ID",
+        "RM_RECEIPT_SCHEMA",
+        "assessAdmittedReliabilityMaintainability",
+        "assessReliabilityMaintainability",
+        "verifyReliabilityMaintainabilityResult"
+      ],
+      "export_count": 11,
+      "line_count": 1037
+    },
+    {
+      "module": "engines/reliability_maintainability/evaluator/reliability_maintainability_admission",
+      "area": "engines",
+      "exports": [
+        "RM_ADMISSION_ERROR_CODES",
+        "admitReliabilityMaintainabilityEffectiveRuleSet",
+        "admitReliabilityMaintainabilityTypedFacts",
+        "calculateReliabilityMaintainabilityCompilationIdentityDigest",
+        "coreFactsDigest",
+        "snapshotReliabilityMaintainabilityAdmission",
+        "validateAndCloneProjectFactsProvenance",
+        "validateEvaluatorAuthority",
+        "validateEvaluatorCutoffs"
+      ],
+      "export_count": 9,
+      "line_count": 968
+    },
+    {
+      "module": "engines/reliability_maintainability/evaluator/reliability_maintainability_evaluator_adapter",
+      "area": "engines",
+      "exports": [
+        "RM_EVALUATOR_ADAPTER_SCHEMA_VERSION",
+        "RM_TYPED_FACTS_ERROR_CODES",
+        "reliabilityMaintainabilityAdapter",
+        "verifyReliabilityMaintainabilityBaseRuleset"
+      ],
+      "export_count": 4,
+      "line_count": 41
+    },
+    {
+      "module": "engines/reliability_maintainability/fixtures/reliability_maintainability_public_synthetic",
+      "area": "engines",
+      "exports": [
+        "RELIABILITY_MAINTAINABILITY_PUBLIC_SYNTHETIC_FIXTURE",
+        "RELIABILITY_MAINTAINABILITY_SOURCE_PACKET_REF",
+        "RELIABILITY_MAINTAINABILITY_SOURCE_PACKET_SHA256",
+        "buildReliabilityMaintainabilityPublicSyntheticRequest",
+        "buildReliabilityMaintainabilityPublicSyntheticTypedFacts"
+      ],
+      "export_count": 5,
+      "line_count": 341
+    },
+    {
+      "module": "engines/reliability_maintainability/rules/reliability_maintainability_public_safe",
+      "area": "engines",
+      "exports": [
+        "RM_OPAQUE_TOKEN",
+        "RM_PUBLIC_UNSAFE_PATTERNS",
+        "assertRmOpaqueToken",
+        "assertRmPublicSafeLocator",
+        "assertRmPublicSafeString",
+        "assertRmReceiptRef",
+        "isForbiddenHost",
+        "isRmPublicSafeString"
+      ],
+      "export_count": 8,
+      "line_count": 185
+    },
+    {
+      "module": "engines/reliability_maintainability/rules/reliability_maintainability_rules",
+      "area": "engines",
+      "exports": [
+        "RELIABILITY_MAINTAINABILITY_EVIDENCE_KINDS",
+        "RELIABILITY_MAINTAINABILITY_RULES",
+        "RELIABILITY_MAINTAINABILITY_RULESET_REF",
+        "RELIABILITY_MAINTAINABILITY_RULESET_REVISION",
+        "RELIABILITY_MAINTAINABILITY_RULESET_SCHEMA",
+        "RELIABILITY_MAINTAINABILITY_SOURCE_IDS",
+        "RELIABILITY_MAINTAINABILITY_SOURCE_PACKET_REF",
+        "isReliabilityMaintainabilityEvidenceKind"
+      ],
+      "export_count": 8,
+      "line_count": 195
+    },
+    {
+      "module": "engines/reliability_maintainability/tools/reliability_maintainability_runner",
+      "area": "engines",
+      "exports": [],
+      "export_count": 0,
+      "line_count": 9
+    },
+    {
+      "module": "engines/reliability_maintainability/topology/reliability_maintainability_module_manifest",
+      "area": "engines",
+      "exports": [
+        "createReliabilityMaintainabilityModuleManifest"
+      ],
+      "export_count": 1,
+      "line_count": 152
     },
     {
       "module": "engines/systems_engineering/compiler/se_compiler_adapter",
@@ -2710,7 +2834,7 @@
       "line_count": 1885
     }
   ],
-  "module_count": 166,
+  "module_count": 175,
   "module_edges": [
     {
       "from": "core/evaluation_runtime/claim_ceilings",
@@ -4540,6 +4664,328 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     },
     {
+      "from": "engines/reliability_maintainability/compiler/reliability_maintainability_compiler_adapter",
+      "to": "core/interfaces/profile_operation_canon",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/compiler/reliability_maintainability_compiler_adapter",
+      "to": "core/validators/authority",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/compiler/reliability_maintainability_compiler_adapter",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/compiler/reliability_maintainability_compiler_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/compiler/reliability_maintainability_compiler_adapter",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/compiler/reliability_maintainability_compiler_adapter",
+      "to": "engines/reliability_maintainability/rules/reliability_maintainability_public_safe",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/compiler/reliability_maintainability_compiler_adapter",
+      "to": "engines/reliability_maintainability/rules/reliability_maintainability_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability_admission",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability_admission",
+      "to": "core/interfaces/profile_operation_canon",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability_admission",
+      "to": "core/validators/authority",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability_admission",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability_admission",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability_admission",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability_admission",
+      "to": "engines/reliability_maintainability/compiler/reliability_maintainability_compiler_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability_admission",
+      "to": "engines/reliability_maintainability/rules/reliability_maintainability_public_safe",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability_admission",
+      "to": "engines/reliability_maintainability/rules/reliability_maintainability_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability_evaluator_adapter",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability_evaluator_adapter",
+      "to": "engines/reliability_maintainability/compiler/reliability_maintainability_compiler_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability_evaluator_adapter",
+      "to": "engines/reliability_maintainability/evaluator/reliability_maintainability",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability_evaluator_adapter",
+      "to": "engines/reliability_maintainability/evaluator/reliability_maintainability_admission",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability",
+      "to": "core/validators/authority",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability",
+      "to": "core/validators/ceilings",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability",
+      "to": "core/validators/custody",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability",
+      "to": "core/validators/identity",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability",
+      "to": "core/validators/module_binding",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability",
+      "to": "core/validators/snapshot",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability",
+      "to": "engines/reliability_maintainability/evaluator/reliability_maintainability_admission",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability",
+      "to": "engines/reliability_maintainability/rules/reliability_maintainability_public_safe",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/evaluator/reliability_maintainability",
+      "to": "engines/reliability_maintainability/rules/reliability_maintainability_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/fixtures/reliability_maintainability_public_synthetic",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/fixtures/reliability_maintainability_public_synthetic",
+      "to": "core/validators/contract_config",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/fixtures/reliability_maintainability_public_synthetic",
+      "to": "engines/reliability_maintainability/evaluator/reliability_maintainability",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/fixtures/reliability_maintainability_public_synthetic",
+      "to": "engines/reliability_maintainability/rules/reliability_maintainability_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/fixtures/reliability_maintainability_public_synthetic",
+      "to": "engines/reliability_maintainability/topology/reliability_maintainability_module_manifest",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/rules/reliability_maintainability_public_safe",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/rules/reliability_maintainability_rules",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/rules/reliability_maintainability_rules",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/tools/reliability_maintainability_runner",
+      "to": "engines/reliability_maintainability/evaluator/reliability_maintainability",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/tools/reliability_maintainability_runner",
+      "to": "engines/reliability_maintainability/fixtures/reliability_maintainability_public_synthetic",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/topology/reliability_maintainability_module_manifest",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/topology/reliability_maintainability_module_manifest",
+      "to": "core/validators/module_binding",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/topology/reliability_maintainability_module_manifest",
+      "to": "engines/reliability_maintainability/evaluator/reliability_maintainability",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/reliability_maintainability/topology/reliability_maintainability_module_manifest",
+      "to": "engines/reliability_maintainability/rules/reliability_maintainability_public_safe",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
       "from": "engines/systems_engineering/compiler/se_compiler_adapter",
       "to": "core/validators/errors",
       "relation": "imports",
@@ -6332,7 +6778,7 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 517,
+  "module_edge_count": 563,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -6683,5 +7129,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "cb9096df969fe79dc9c86193411c1d937196e4fd37e9b6d3ec1f682fd6b0f955"
+  "topology_digest": "43aa5e0dba45d5379d3742ad03851b2215dff66390037f285457dea6752b2414"
 }

@@ -28,6 +28,7 @@ const CANONICAL_ROOTS = [
   'engines/quality_readiness',
   'engines/database_engineering',
   'engines/material_procurement_readiness',
+  'engines/reliability_maintainability',
   'engines/pcb_compliance',
 ];
 

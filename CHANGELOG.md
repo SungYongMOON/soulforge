@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-27 - Reliability & Maintainability evidence-readiness Domain Engine main integration
+
+- Integrated the accepted `reliability_maintainability` package behind the unchanged Engineering Engine Core without granting Quality acceptance, closure, repair, release, procurement, project applicability, compliance, or human decision authority.
+- Registered its evaluator and root `validate:reliability-maintainability` gate, including 62 package tests for Core Typed Facts, complete Profile/compilation identity, trusted-input-rooted receipts, source-native null transport, closed schemas, replay, hostile admission, and zero-write behavior.
+- Kept NASA/GSFC source use at a public `source_supported` candidate boundary; Profile-derived evaluation remains deliberately fail-closed pending a separately reviewed evaluator revision.
+
 ## 2026-08-27 - Hermes canonical Bot Chat default delivery route
 
 - Set each Hermes profile's existing canonical `Bot Chat` as the default Codex-to-Bot instruction and follow-up channel, with exact-profile resolution, create-only-if-missing, same-session verification, and serialized turns.

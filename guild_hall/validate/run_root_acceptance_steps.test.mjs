@@ -43,6 +43,7 @@ test("루트 게이트: 앱 테스트 스텝이 validate·done-check 양 모드�
     ['"quality-readiness"', "npm run validate:quality-readiness"],
     ['"database-engineering"', "npm run validate:database-engineering"],
     ['"material-procurement-readiness"', "npm run validate:material-procurement-readiness"],
+    ['"reliability-maintainability"', "npm run validate:reliability-maintainability"],
     ['"pcb-compliance"', "npm run validate:pcb-compliance"],
     ['"engine-release"', "npm run validate:engine-release"],
     ['"watchtower"', "npm run validate:watchtower"],

@@ -4,5 +4,8 @@ The canonical contracts for domain engines have been physically relocated:
 - Systems Engineering: `guild_hall/engineering_engine/engines/systems_engineering/contracts/`
 - Quality Readiness: `guild_hall/engineering_engine/engines/quality_readiness/contracts/`
 - Database Engineering: `guild_hall/engineering_engine/engines/database_engineering/contracts/`
+- Material Procurement Readiness: `guild_hall/engineering_engine/engines/material_procurement_readiness/contracts/`
+- Reliability & Maintainability: `guild_hall/engineering_engine/engines/reliability_maintainability/contracts/`
+- PCB Compliance: `guild_hall/engineering_engine/engines/pcb_compliance/contracts/`
 
 This directory is a non-authoritative compatibility pointer and contains no contract definitions.

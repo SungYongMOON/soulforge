@@ -21,6 +21,7 @@ import "../../engines/systems_engineering/evaluator/se_evaluator_adapter.mjs";
 import "../../engines/quality_readiness/evaluator/quality_readiness_evaluator_adapter.mjs";
 import "../../engines/database_engineering/evaluator/database_engineering_evaluator_adapter.mjs";
 import "../../engines/material_procurement_readiness/evaluator/material_procurement_readiness_evaluator_adapter.mjs";
+import "../../engines/reliability_maintainability/evaluator/reliability_maintainability_evaluator_adapter.mjs";
 import "../../engines/pcb_compliance/evaluator/pcb_compliance_evaluator_adapter.mjs";
 
 test("Core Interface: domain engine adapters register and load successfully", () => {
@@ -39,6 +40,10 @@ test("Core Interface: domain engine adapters register and load successfully", ()
   const mprAdapter = loadDomainEngineAdapter("material_procurement_readiness");
   assert.equal(mprAdapter.domain_engine_id, "material_procurement_readiness");
   assert.ok(validateDomainEngineAdapter(mprAdapter));
+
+  const rmAdapter = loadDomainEngineAdapter("reliability_maintainability");
+  assert.equal(rmAdapter.domain_engine_id, "reliability_maintainability");
+  assert.ok(validateDomainEngineAdapter(rmAdapter));
 
   const pcbAdapter = loadDomainEngineAdapter("pcb_compliance");
   assert.equal(pcbAdapter.domain_engine_id, "pcb_compliance");
