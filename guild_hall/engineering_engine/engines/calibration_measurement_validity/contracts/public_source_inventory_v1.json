@@ -1,0 +1,65 @@
+{
+  "schema_version": "soulforge.calibration_measurement_validity.public_source_inventory.v1",
+  "domain_engine_id": "calibration_measurement_validity",
+  "status": "candidate",
+  "claim_ceiling": "source_supported",
+  "verified_at": "2026-08-26T00:00:00.000Z",
+  "raw_source_body_present": false,
+  "sources": [
+    {
+      "source_id": "ILAC-G24-2022-PUBLICATION",
+      "authority": "International Laboratory Accreditation Cooperation",
+      "title": "ILAC-G24:2022 Guidelines for the determination of recalibration intervals of measuring equipment",
+      "revision": "2022",
+      "access_class": "official_public_index",
+      "direct_url": "https://ilac.org/publications-and-resources/ilac-guidance-series/",
+      "direct_access_verified": true,
+      "applicability": "interval-program guidance only; no interval selection or laboratory requirement is encoded",
+      "rule_use": ["CMV-CALIBRATION-STATUS-01"]
+    },
+    {
+      "source_id": "NIST-METROLOGICAL-TRACEABILITY-FAQ",
+      "authority": "National Institute of Standards and Technology",
+      "title": "Metrological Traceability: Frequently Asked Questions and NIST Policy (NIST Technical Note 2156)",
+      "revision": "NIST P 5800.00 effective 2019-05-31; page accessed 2026-08-26",
+      "access_class": "official_public_web_publication",
+      "direct_url": "https://www.nist.gov/metrology/metrological-traceability",
+      "direct_access_verified": true,
+      "applicability": "traceability is an attribute of a measurement result and needs documented evidence; no external traceability claim is made by E11",
+      "rule_use": ["CMV-INSTRUMENT-IDENTITY-01", "CMV-TRACEABILITY-01"]
+    },
+    {
+      "source_id": "NIST-RECOMMENDED-CALIBRATION-INTERVAL-2026-05-29",
+      "authority": "National Institute of Standards and Technology Calibration Services",
+      "title": "Recommended Calibration Interval",
+      "revision": "web page updated 2026-05-29",
+      "access_class": "official_public_webpage",
+      "direct_url": "https://www.nist.gov/calibrations/recommended-calibration-interval",
+      "direct_access_verified": true,
+      "applicability": "no universal interval; test-time due-date comparison only, with no interval creation or recommendation",
+      "rule_use": ["CMV-CALIBRATION-STATUS-01", "CMV-ENVIRONMENT-01"]
+    },
+    {
+      "source_id": "NIST-TN-1297-1994",
+      "authority": "National Institute of Standards and Technology",
+      "title": "NIST Technical Note 1297: Guidelines for Evaluating and Expressing the Uncertainty of NIST Measurement Results",
+      "revision": "1994 Edition",
+      "access_class": "official_public_technical_note",
+      "direct_url": "https://www.nist.gov/pml/nist-technical-note-1297",
+      "direct_access_verified": true,
+      "applicability": "explicit uncertainty and conditions vocabulary only; no uncertainty propagation, correction, or acceptance limit is encoded",
+      "rule_use": ["CMV-RANGE-01", "CMV-ACCURACY-01", "CMV-UNCERTAINTY-01", "CMV-ENVIRONMENT-01"]
+    },
+    {
+      "source_id": "ISO-IEC-17025-2017-CITATION-ONLY",
+      "authority": "International Organization for Standardization",
+      "title": "ISO/IEC 17025:2017 General requirements for the competence of testing and calibration laboratories",
+      "revision": "Edition 3, published 2017-11; confirmed 2023-08-18",
+      "access_class": "controlled_standard_citation_only",
+      "direct_url": "https://www.iso.org/standard/66912.html",
+      "direct_access_verified": true,
+      "applicability": "licensing boundary only; protected body was not read, reproduced, or used for executable rules",
+      "rule_use": []
+    }
+  ]
+}

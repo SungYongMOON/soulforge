@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.calibration_measurement_validity.source_bound_schema.v1",
+  "title": "CalibrationMeasurementValiditySourceBoundSchemas",
+  "$defs": {
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity_id", "revision_id", "content_id"],
+      "properties": {
+        "entity_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "revision_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "content_id": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "content_hash_alg": { "enum": ["sha256"] }
+      }
+    },
+    "source_classification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "source_id", "authority", "revision", "source_ref", "access_class", "direct_access_verified", "classification", "verdict_eligible", "claim_ceiling", "hold_code", "retrieval_path", "applicability_state", "binding_kind"],
+      "properties": {
+        "schema_version": { "const": "soulforge.calibration_measurement_validity.source_classification.v2" },
+        "source_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "authority": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "revision": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "source_ref": { "$ref": "#/$defs/reference" },
+        "access_class": { "enum": ["official_public", "controlled_citation_only"] },
+        "direct_access_verified": { "type": "boolean" },
+        "binding_kind": { "enum": ["official_public_direct", "synthetic_direct", "rag_retrieval_only", "direct_access_hold", "controlled_citation_only"] },
+        "classification": { "enum": ["official_public_direct", "rag_retrieval_only", "controlled_citation_only", "direct_access_hold", "unknown_source_hold", "authority_mismatch_hold"] },
+        "verdict_eligible": { "type": "boolean" },
+        "claim_ceiling": { "enum": ["observed", "source_supported"] },
+        "hold_code": { "type": ["string", "null"] },
+        "retrieval_path": { "enum": ["direct", "rag"] },
+        "applicability_state": { "enum": ["in_scope", "candidate_locator_only", "unknown", "citation_only"] }
+      }
+    },
+    "fact_provenance_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "source_ref"],
+      "properties": {
+        "source_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "source_ref": { "$ref": "#/$defs/reference" }
+      }
+    },
+    "typed_fact_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "project_binding_ref", "valid_at", "known_at", "source_classifications_digest", "provenance_count", "effects"],
+      "properties": {
+        "schema_version": { "const": "soulforge.calibration_measurement_validity.typed_fact_receipt.v1" },
+        "project_binding_ref": { "$ref": "#/$defs/reference" },
+        "valid_at": { "type": "string", "format": "date-time" },
+        "known_at": { "type": "string", "format": "date-time" },
+        "source_classifications_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "provenance_count": { "const": 6 },
+        "effects": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["network_calls", "file_reads", "file_writes", "external_mutations"],
+          "properties": {
+            "network_calls": { "const": 0 },
+            "file_reads": { "const": 0 },
+            "file_writes": { "const": 0 },
+            "external_mutations": { "const": 0 }
+          }
+        }
+      }
+    },
+    "typed_facts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "request", "source_classifications", "fact_provenance", "typed_fact_receipt"],
+      "properties": {
+        "schema_version": { "const": "soulforge.calibration_measurement_validity.typed_facts.v1" },
+        "request": { "$ref": "soulforge.calibration_measurement_validity.schema.v0#/$defs/domain_input" },
+        "source_classifications": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/source_classification" } },
+        "fact_provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["instrument_identity", "calibration_status", "measurement_suitability", "traceability", "environment", "exception"],
+          "properties": {
+            "instrument_identity": { "$ref": "#/$defs/fact_provenance_row" },
+            "calibration_status": { "$ref": "#/$defs/fact_provenance_row" },
+            "measurement_suitability": { "$ref": "#/$defs/fact_provenance_row" },
+            "traceability": { "$ref": "#/$defs/fact_provenance_row" },
+            "environment": { "$ref": "#/$defs/fact_provenance_row" },
+            "exception": { "$ref": "#/$defs/fact_provenance_row" }
+          }
+        },
+        "typed_fact_receipt": { "$ref": "#/$defs/typed_fact_receipt" }
+      }
+    },
+    "observation_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "project_binding_ref",
+        "valid_at",
+        "known_at",
+        "candidate_count",
+        "candidates_digest",
+        "observation_is_not_fact_confirmation"
+      ],
+      "properties": {
+        "schema_version": { "const": "soulforge.calibration_measurement_validity.observation_receipt.v1" },
+        "project_binding_ref": { "$ref": "#/$defs/reference" },
+        "valid_at": { "type": "string", "format": "date-time" },
+        "known_at": { "type": "string", "format": "date-time" },
+        "candidate_count": { "const": 6 },
+        "candidates_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "observation_is_not_fact_confirmation": { "const": true }
+      }
+    },
+    "observation_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "fact_key",
+        "observation_state",
+        "source_id",
+        "source_classification",
+        "source_envelope",
+        "claim_ceiling",
+        "needs_owner_confirmation"
+      ],
+      "properties": {
+        "candidate_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "fact_key": { "enum": ["instrument_identity", "calibration_status", "measurement_suitability", "traceability", "environment", "exception"] },
+        "observation_state": { "enum": ["present", "missing", "documented", "not_documented", "within_limit", "out_of_limit", "not_applicable", "none", "approved_hold", "unapproved", "unknown"] },
+        "source_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "source_classification": { "const": "official_public_direct" },
+        "source_envelope": { "$ref": "#/$defs/source_classification" },
+        "claim_ceiling": { "const": "source_supported" },
+        "needs_owner_confirmation": { "const": true }
+      }
+    },
+    "observation_candidates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "candidates", "effects", "receipt"],
+      "properties": {
+        "schema_version": { "const": "soulforge.calibration_measurement_validity.observation_candidates.v1" },
+        "candidates": { "type": "array", "minItems": 6, "maxItems": 6, "items": { "$ref": "#/$defs/observation_candidate" } },
+        "effects": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["network_calls", "file_reads", "file_writes", "external_mutations"],
+          "properties": {
+            "network_calls": { "const": 0 },
+            "file_reads": { "const": 0 },
+            "file_writes": { "const": 0 },
+            "external_mutations": { "const": 0 }
+          }
+        },
+        "receipt": { "$ref": "#/$defs/observation_receipt" }
+      }
+    },
+    "guidance_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "project_binding_ref",
+        "valid_at",
+        "known_at",
+        "assessment_digest",
+        "candidates_digest",
+        "guidance_digest",
+        "assessment_result_preserved",
+        "source_bound_candidate_count"
+      ],
+      "properties": {
+        "schema_version": { "const": "soulforge.calibration_measurement_validity.guidance_receipt.v1" },
+        "project_binding_ref": { "$ref": "#/$defs/reference" },
+        "valid_at": { "type": "string", "format": "date-time" },
+        "known_at": { "type": "string", "format": "date-time" },
+        "assessment_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "candidates_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "guidance_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "assessment_result_preserved": { "const": true },
+        "source_bound_candidate_count": { "const": 6 }
+      }
+    },
+    "guidance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "project_binding_ref",
+        "valid_at",
+        "known_at",
+        "assessment_digest",
+        "candidates_digest",
+        "judgment_changed",
+        "cards",
+        "effects",
+        "receipt"
+      ],
+      "properties": {
+        "schema_version": { "const": "soulforge.calibration_measurement_validity.guidance.v1" },
+        "project_binding_ref": { "$ref": "#/$defs/reference" },
+        "valid_at": { "type": "string", "format": "date-time" },
+        "known_at": { "type": "string", "format": "date-time" },
+        "assessment_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "candidates_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "judgment_changed": { "const": false },
+        "cards": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["card_id", "action_code", "reason_code", "authority_required"],
+            "properties": {
+              "card_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "action_code": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "reason_code": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "authority_required": { "type": "boolean" }
+            }
+          }
+        },
+        "effects": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["network_calls", "file_reads", "file_writes", "external_mutations"],
+          "properties": {
+            "network_calls": { "const": 0 },
+            "file_reads": { "const": 0 },
+            "file_writes": { "const": 0 },
+            "external_mutations": { "const": 0 }
+          }
+        },
+        "receipt": { "$ref": "#/$defs/guidance_receipt" }
+      }
+    },
+    "mcp_evaluation_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assessment", "receipt", "typed_fact_receipt"],
+      "properties": {
+        "assessment": { "$ref": "soulforge.calibration_measurement_validity.schema.v0#/$defs/assessment" },
+        "receipt": { "$ref": "soulforge.calibration_measurement_validity.schema.v0#/$defs/receipt" },
+        "typed_fact_receipt": { "$ref": "#/$defs/typed_fact_receipt" }
+      }
+    },
+    "read_only_mcp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "structured", "effects"],
+      "properties": {
+        "schema_version": { "const": "soulforge.calibration_measurement_validity.read_only_mcp.v1" },
+        "structured": {
+          "oneOf": [
+            { "$ref": "#/$defs/source_classification" },
+            { "$ref": "#/$defs/mcp_evaluation_result" },
+            { "$ref": "#/$defs/guidance" }
+          ]
+        },
+        "effects": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["network_calls", "file_reads", "file_writes", "external_mutations"],
+          "properties": {
+            "network_calls": { "const": 0 },
+            "file_reads": { "const": 0 },
+            "file_writes": { "const": 0 },
+            "external_mutations": { "const": 0 }
+          }
+        }
+      }
+    },
+    "zero_write_pilot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "pilot_status", "assessment", "profile_status", "observation_receipt", "guidance_receipt", "effects"],
+      "properties": {
+        "schema_version": { "const": "soulforge.calibration_measurement_validity.zero_write_pilot.v1" },
+        "pilot_status": { "const": "public_synthetic_only" },
+        "assessment": { "$ref": "soulforge.calibration_measurement_validity.schema.v0#/$defs/assessment" },
+        "profile_status": { "enum": ["supported", "hold", "not_applicable"] },
+        "observation_receipt": { "$ref": "#/$defs/observation_receipt" },
+        "guidance_receipt": { "$ref": "#/$defs/guidance_receipt" },
+        "effects": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["network_calls", "file_reads", "file_writes", "external_mutations"],
+          "properties": {
+            "network_calls": { "const": 0 },
+            "file_reads": { "const": 0 },
+            "file_writes": { "const": 0 },
+            "external_mutations": { "const": 0 }
+          }
+        }
+      }
+    }
+  }
+}
