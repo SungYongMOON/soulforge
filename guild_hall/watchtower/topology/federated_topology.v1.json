@@ -22,6 +22,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
+      "id": "engineering_engine::imports.0134cfbc7bc7384515269ae4626f4dc8",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.material_procurement_readiness.tools.material_procurement_readiness_runner",
       "id": "engineering_engine::imports.01856100726341e052d81775374aae43",
       "label": "imports",
@@ -122,6 +132,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter",
+      "id": "engineering_engine::imports.09c770825048a40b49a6151ec70327d3",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.configuration_change_impact.rules.configuration_change_impact_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.engine_contexts",
       "id": "engineering_engine::imports.0a20dabcaac682e8fd79eb6f37e330d1",
       "label": "imports",
@@ -129,6 +149,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.access_table"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.topology.configuration_change_impact_module_manifest",
+      "id": "engineering_engine::imports.0b31251e9cd5ca82c66346dc0ba9188b",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.configuration_change_impact.rules.configuration_change_impact_rules"
     },
     {
       "evidence_mode": "structural_only",
@@ -372,6 +402,26 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter",
+      "id": "engineering_engine::imports.185b943e38cdfddaf9f25727d068bf59",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.topology.configuration_change_impact_module_manifest",
+      "id": "engineering_engine::imports.198b82e9fb0feb8b904cdcc4326dc4a0",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.rules.pilot_packet_generator",
       "id": "engineering_engine::imports.19de150f550e2cd6e0c4e3a2eaa9d230",
       "label": "imports",
@@ -459,6 +509,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.project_profile"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.tools.configuration_change_impact_runner",
+      "id": "engineering_engine::imports.1d6afd0d228c99dfc9cd82933a4af17c",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter"
     },
     {
       "evidence_mode": "structural_only",
@@ -642,6 +702,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
+      "id": "engineering_engine::imports.2d458503ccdb189ed9b448282742cd33",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
       "id": "engineering_engine::imports.3188a52327dd82fc9ca41a4815fb98c2",
       "label": "imports",
@@ -679,6 +749,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.evaluation.se_core_eval_qa_capture"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.topology.configuration_change_impact_module_manifest",
+      "id": "engineering_engine::imports.328596c2c0e3939bb77c0fa4e0b4af2d",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.module_binding"
     },
     {
       "evidence_mode": "structural_only",
@@ -1152,6 +1232,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
+      "id": "engineering_engine::imports.4dad6607b1444dbaee3a5ba6f237c9e4",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.configuration_change_impact.rules.configuration_change_impact_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluator.common_se_corpus_projection",
       "id": "engineering_engine::imports.4eb9b709d8184adc54afc89f49abd232",
       "label": "imports",
@@ -1249,6 +1339,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.rules.configuration_change_impact_rules",
+      "id": "engineering_engine::imports.528265d313465dedeb1a279f6fd59120",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
     },
     {
       "evidence_mode": "structural_only",
@@ -1422,6 +1522,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.tools.configuration_change_impact_runner",
+      "id": "engineering_engine::imports.5c39ff9928442a59c85b4bd6153be637",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.configuration_change_impact.fixtures.configuration_change_impact_public_synthetic"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.database_engineering.compiler.database_engineering_compiler_adapter",
       "id": "engineering_engine::imports.5da30357bfa610a725fa16564ed5994e",
       "label": "imports",
@@ -1439,6 +1549,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::module.290aecd3d7a82b7b8fe74648db54d174"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
+      "id": "engineering_engine::imports.5dc2aa41a06a13a967ee48a22e361fa8",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.configuration_change_impact.evaluator.propagation_graph"
     },
     {
       "evidence_mode": "structural_only",
@@ -1539,6 +1659,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.material_procurement_readiness.rules.material_procurement_readiness_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.rules.configuration_change_impact_rules",
+      "id": "engineering_engine::imports.6571faef6c5b9a1750884bad3afb599c",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
     },
     {
       "evidence_mode": "structural_only",
@@ -1719,6 +1849,26 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.observation.artifact_observations_from_confirmed"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.evaluator.propagation_graph",
+      "id": "engineering_engine::imports.7094ee684232d833bc67ae81c339532e",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.configuration_change_impact.rules.configuration_change_impact_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter",
+      "id": "engineering_engine::imports.7098a77d93d51254e01fb92b34d82589",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
     },
     {
       "evidence_mode": "structural_only",
@@ -2132,6 +2282,26 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
+      "id": "engineering_engine::imports.8d28f4c3fc36d8bc8fca3de3e0285fbd",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.project_binding_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter",
+      "id": "engineering_engine::imports.8dd008e6c17ec8643575684b02a01efa",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.profile_operation_canon"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
       "id": "engineering_engine::imports.8de001925ac694aede37376c6b94a95f",
       "label": "imports",
@@ -2382,6 +2552,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
+      "id": "engineering_engine::imports.9882b586533ae0a5090229dd1b6463a0",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.engine_mcp_server",
       "id": "engineering_engine::imports.989cbe98ebd5e3affdb2f117e4e1be0f",
       "label": "imports",
@@ -2442,6 +2622,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.evaluator.propagation_graph",
+      "id": "engineering_engine::imports.9a8498187701ad388f8a9338c68b8cf9",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability",
       "id": "engineering_engine::imports.9b5274e6ceb4df20a239a8703af2bb52",
       "label": "imports",
@@ -2464,6 +2654,16 @@
       "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.material_procurement_readiness.rules.material_procurement_readiness_rules",
       "id": "engineering_engine::imports.9dfe551d3de522f7a55cf0c6290b3738",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter",
+      "id": "engineering_engine::imports.9e56030e85951275bd05bb6e30e62caa",
       "label": "imports",
       "layer": "module",
       "provider_id": "engineering_engine",
@@ -2802,6 +3002,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.fixtures.configuration_change_impact_public_synthetic",
+      "id": "engineering_engine::imports.b887aba65f9620c3ef6d1918a19625df",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.database_engineering.analysis.database_evidence_analyzers",
       "id": "engineering_engine::imports.b8ca5b2dec0ae65eb97abfc821d4a8d6",
       "label": "imports",
@@ -2829,6 +3039,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.tools.index"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.fixtures.configuration_change_impact_public_synthetic",
+      "id": "engineering_engine::imports.bc3195311767ab0012d974fd5c8a07dc",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.configuration_change_impact.rules.configuration_change_impact_rules"
     },
     {
       "evidence_mode": "structural_only",
@@ -2879,6 +3099,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.render"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.tools.configuration_change_impact_runner",
+      "id": "engineering_engine::imports.bf441410a45ee27571d66ec732359978",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
     },
     {
       "evidence_mode": "structural_only",
@@ -3189,6 +3419,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.calibration_measurement_validity.shared.calibration_measurement_validity_safe_snapshot"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter",
+      "id": "engineering_engine::imports.cf79305c8ec2860fc6b0f24ba463a41b",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
     },
     {
       "evidence_mode": "structural_only",
@@ -4822,6 +5062,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
+      "id": "engineering_engine::imports.e7c7cf1d87144bae98858022fbeda501",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluator.engine_self_topology",
       "id": "engineering_engine::imports.e94e735f4151114620c9ff4c19187ad5",
       "label": "imports",
@@ -4929,6 +5179,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.evaluator.propagation_graph",
+      "id": "engineering_engine::imports.engines.configuration_change_impact.evaluator.propagation_graph.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
     },
     {
       "evidence_mode": "structural_only",
@@ -5869,6 +6129,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.calibration_measurement_validity.shared.calibration_measurement_validity_safe_snapshot"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
+      "id": "engineering_engine::imports.fcfa15f7da3f4370dc4add34b23119f4",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
     },
     {
       "evidence_mode": "structural_only",
@@ -7249,6 +7519,83 @@
       "id": "engineering_engine::engines.calibration_measurement_validity.tools.calibration_measurement_validity_runner",
       "kind": "module",
       "label": "engines/calibration_measurement_validity/tools/calibration_measurement_validity_runner",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter",
+      "kind": "module",
+      "label": "engines/configuration_change_impact/compiler/configuration_change_impact_compiler_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
+      "kind": "module",
+      "label": "engines/configuration_change_impact/evaluator/configuration_change_impact_evaluator_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.configuration_change_impact.evaluator.propagation_graph",
+      "kind": "module",
+      "label": "engines/configuration_change_impact/evaluator/propagation_graph",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.configuration_change_impact.fixtures.configuration_change_impact_public_synthetic",
+      "kind": "module",
+      "label": "engines/configuration_change_impact/fixtures/configuration_change_impact_public_synthetic",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.configuration_change_impact.rules.configuration_change_impact_rules",
+      "kind": "module",
+      "label": "engines/configuration_change_impact/rules/configuration_change_impact_rules",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.configuration_change_impact.tools.configuration_change_impact_runner",
+      "kind": "module",
+      "label": "engines/configuration_change_impact/tools/configuration_change_impact_runner",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.configuration_change_impact.topology.configuration_change_impact_module_manifest",
+      "kind": "module",
+      "label": "engines/configuration_change_impact/topology/configuration_change_impact_module_manifest",
       "layer": "module",
       "parent_id": null,
       "provider_id": "engineering_engine",
@@ -9380,6 +9727,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
+          "id": "imports.0134cfbc7bc7384515269ae4626f4dc8",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.material_procurement_readiness.tools.material_procurement_readiness_runner",
           "id": "imports.01856100726341e052d81775374aae43",
           "label": "imports",
@@ -9470,12 +9826,30 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter",
+          "id": "imports.09c770825048a40b49a6151ec70327d3",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.configuration_change_impact.rules.configuration_change_impact_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.engine_contexts",
           "id": "imports.0a20dabcaac682e8fd79eb6f37e330d1",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.access_table"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.topology.configuration_change_impact_module_manifest",
+          "id": "imports.0b31251e9cd5ca82c66346dc0ba9188b",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.configuration_change_impact.rules.configuration_change_impact_rules"
         },
         {
           "evidence_mode": "structural_only",
@@ -9695,6 +10069,24 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter",
+          "id": "imports.185b943e38cdfddaf9f25727d068bf59",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.topology.configuration_change_impact_module_manifest",
+          "id": "imports.198b82e9fb0feb8b904cdcc4326dc4a0",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.rules.pilot_packet_generator",
           "id": "imports.19de150f550e2cd6e0c4e3a2eaa9d230",
           "label": "imports",
@@ -9773,6 +10165,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.project_profile"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.tools.configuration_change_impact_runner",
+          "id": "imports.1d6afd0d228c99dfc9cd82933a4af17c",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter"
         },
         {
           "evidence_mode": "structural_only",
@@ -9938,6 +10339,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
+          "id": "imports.2d458503ccdb189ed9b448282742cd33",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
           "id": "imports.3188a52327dd82fc9ca41a4815fb98c2",
           "label": "imports",
@@ -9971,6 +10381,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.evaluation.se_core_eval_qa_capture"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.topology.configuration_change_impact_module_manifest",
+          "id": "imports.328596c2c0e3939bb77c0fa4e0b4af2d",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.module_binding"
         },
         {
           "evidence_mode": "structural_only",
@@ -10397,6 +10816,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
+          "id": "imports.4dad6607b1444dbaee3a5ba6f237c9e4",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.configuration_change_impact.rules.configuration_change_impact_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluator.common_se_corpus_projection",
           "id": "imports.4eb9b709d8184adc54afc89f49abd232",
           "label": "imports",
@@ -10484,6 +10912,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.rules.configuration_change_impact_rules",
+          "id": "imports.528265d313465dedeb1a279f6fd59120",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
         },
         {
           "evidence_mode": "structural_only",
@@ -10640,6 +11077,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.tools.configuration_change_impact_runner",
+          "id": "imports.5c39ff9928442a59c85b4bd6153be637",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.configuration_change_impact.fixtures.configuration_change_impact_public_synthetic"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.database_engineering.compiler.database_engineering_compiler_adapter",
           "id": "imports.5da30357bfa610a725fa16564ed5994e",
           "label": "imports",
@@ -10655,6 +11101,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "module.290aecd3d7a82b7b8fe74648db54d174"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
+          "id": "imports.5dc2aa41a06a13a967ee48a22e361fa8",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.configuration_change_impact.evaluator.propagation_graph"
         },
         {
           "evidence_mode": "structural_only",
@@ -10745,6 +11200,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.material_procurement_readiness.rules.material_procurement_readiness_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.rules.configuration_change_impact_rules",
+          "id": "imports.6571faef6c5b9a1750884bad3afb599c",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
         },
         {
           "evidence_mode": "structural_only",
@@ -10907,6 +11371,24 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.observation.artifact_observations_from_confirmed"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.evaluator.propagation_graph",
+          "id": "imports.7094ee684232d833bc67ae81c339532e",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.configuration_change_impact.rules.configuration_change_impact_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter",
+          "id": "imports.7098a77d93d51254e01fb92b34d82589",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
         },
         {
           "evidence_mode": "structural_only",
@@ -11279,6 +11761,24 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
+          "id": "imports.8d28f4c3fc36d8bc8fca3de3e0285fbd",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.project_binding_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter",
+          "id": "imports.8dd008e6c17ec8643575684b02a01efa",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.profile_operation_canon"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.pcb_compliance.evaluator.pcb_compliance_evaluator_adapter",
           "id": "imports.8de001925ac694aede37376c6b94a95f",
           "label": "imports",
@@ -11504,6 +12004,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
+          "id": "imports.9882b586533ae0a5090229dd1b6463a0",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.engine_mcp_server",
           "id": "imports.989cbe98ebd5e3affdb2f117e4e1be0f",
           "label": "imports",
@@ -11558,6 +12067,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.evaluator.propagation_graph",
+          "id": "imports.9a8498187701ad388f8a9338c68b8cf9",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.reliability_maintainability.evaluator.reliability_maintainability",
           "id": "imports.9b5274e6ceb4df20a239a8703af2bb52",
           "label": "imports",
@@ -11578,6 +12096,15 @@
           "evidence_mode": "structural_only",
           "from": "engines.material_procurement_readiness.rules.material_procurement_readiness_rules",
           "id": "imports.9dfe551d3de522f7a55cf0c6290b3738",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter",
+          "id": "imports.9e56030e85951275bd05bb6e30e62caa",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
@@ -11882,6 +12409,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.fixtures.configuration_change_impact_public_synthetic",
+          "id": "imports.b887aba65f9620c3ef6d1918a19625df",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.database_engineering.analysis.database_evidence_analyzers",
           "id": "imports.b8ca5b2dec0ae65eb97abfc821d4a8d6",
           "label": "imports",
@@ -11906,6 +12442,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.tools.index"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.fixtures.configuration_change_impact_public_synthetic",
+          "id": "imports.bc3195311767ab0012d974fd5c8a07dc",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.configuration_change_impact.rules.configuration_change_impact_rules"
         },
         {
           "evidence_mode": "structural_only",
@@ -11951,6 +12496,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.render"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.tools.configuration_change_impact_runner",
+          "id": "imports.bf441410a45ee27571d66ec732359978",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
         },
         {
           "evidence_mode": "structural_only",
@@ -12230,6 +12784,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.calibration_measurement_validity.shared.calibration_measurement_validity_safe_snapshot"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter",
+          "id": "imports.cf79305c8ec2860fc6b0f24ba463a41b",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
         },
         {
           "evidence_mode": "structural_only",
@@ -13700,6 +14263,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
+          "id": "imports.e7c7cf1d87144bae98858022fbeda501",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluator.engine_self_topology",
           "id": "imports.e94e735f4151114620c9ff4c19187ad5",
           "label": "imports",
@@ -13796,6 +14368,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.evaluator.propagation_graph",
+          "id": "imports.engines.configuration_change_impact.evaluator.propagation_graph.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
         },
         {
           "evidence_mode": "structural_only",
@@ -14645,6 +15226,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
+          "id": "imports.fcfa15f7da3f4370dc4add34b23119f4",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.index",
           "id": "imports.fe28bcc507195ec54d50848b22fbaa4e",
           "label": "imports",
@@ -15440,6 +16030,76 @@
           "id": "engines.calibration_measurement_validity.tools.calibration_measurement_validity_runner",
           "kind": "module",
           "label": "engines/calibration_measurement_validity/tools/calibration_measurement_validity_runner",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter",
+          "kind": "module",
+          "label": "engines/configuration_change_impact/compiler/configuration_change_impact_compiler_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
+          "kind": "module",
+          "label": "engines/configuration_change_impact/evaluator/configuration_change_impact_evaluator_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.configuration_change_impact.evaluator.propagation_graph",
+          "kind": "module",
+          "label": "engines/configuration_change_impact/evaluator/propagation_graph",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.configuration_change_impact.fixtures.configuration_change_impact_public_synthetic",
+          "kind": "module",
+          "label": "engines/configuration_change_impact/fixtures/configuration_change_impact_public_synthetic",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.configuration_change_impact.rules.configuration_change_impact_rules",
+          "kind": "module",
+          "label": "engines/configuration_change_impact/rules/configuration_change_impact_rules",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.configuration_change_impact.tools.configuration_change_impact_runner",
+          "kind": "module",
+          "label": "engines/configuration_change_impact/tools/configuration_change_impact_runner",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.configuration_change_impact.topology.configuration_change_impact_module_manifest",
+          "kind": "module",
+          "label": "engines/configuration_change_impact/topology/configuration_change_impact_module_manifest",
           "layer": "module",
           "parent_id": null,
           "repair_state": "none"
@@ -16951,7 +17611,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "64ec67bd2c526bcd44d29180d6067aed57e7fadb4c90388849bcfa886ec14c11",
+        "digest": "0d6961cf2cf70af0f14717922a0da560089daf10371cf7df3b1dc9dbe8162e14",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -17945,13 +18605,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "817942adc2cbfc2939e99fa053d4bdbb95552b7f70363dc46ee12545d437709c",
+  "source_set_digest": "e43aa77c333c0a1f250b3481e16458d1674ff4ab2899fa19a2464bc872154627",
   "summary": {
-    "edge_count": 679,
-    "node_count": 231,
+    "edge_count": 706,
+    "node_count": 238,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "d158a107a3416af3cf70c0df38ecb0cfaed436a094799d4eb23300f737cd750d"
+  "topology_digest": "3a45ae764c3540383357cfa9b9d46a4f818871fd877c12486ef64faf58855b6b"
 }

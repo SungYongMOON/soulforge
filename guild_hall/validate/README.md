@@ -57,6 +57,7 @@
   - `npm run validate:engineering-engine-p5-context-generation-candidate`
   - `npm run validate:database-engineering`
   - `npm run validate:material-procurement-readiness`
+  - `npm run validate:configuration-change-impact`
   - `npm run validate:pcb-compliance`
   - `npm run validate:reliability-maintainability`
   - `npm run validate:calibration-measurement-validity`

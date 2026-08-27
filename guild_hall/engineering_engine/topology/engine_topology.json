@@ -3,7 +3,7 @@
   "engine_root": "guild_hall/engineering_engine",
   "contract_revision": "phase_1_0_contract.v0",
   "derivation": {
-    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness, engines/database_engineering, engines/material_procurement_readiness, engines/reliability_maintainability, engines/calibration_measurement_validity, engines/pcb_compliance",
+    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness, engines/database_engineering, engines/material_procurement_readiness, engines/reliability_maintainability, engines/calibration_measurement_validity, engines/configuration_change_impact, engines/pcb_compliance",
     "areas_covered": [
       "core",
       "engines/systems_engineering",
@@ -12,6 +12,7 @@
       "engines/material_procurement_readiness",
       "engines/reliability_maintainability",
       "engines/calibration_measurement_validity",
+      "engines/configuration_change_impact",
       "engines/pcb_compliance"
     ],
     "areas_deliberately_excluded": [
@@ -1040,6 +1041,99 @@
       ],
       "export_count": 4,
       "line_count": 213
+    },
+    {
+      "module": "engines/configuration_change_impact/compiler/configuration_change_impact_compiler_adapter",
+      "area": "engines",
+      "exports": [
+        "CCI_COMPILER_ADAPTER_SCHEMA_VERSION",
+        "CCI_COMPILER_ERROR_CODES",
+        "CCI_EMPTY_PROFILE_OPERATION_DIGEST",
+        "CCI_PROFILE_PROVENANCE_SCHEMA_VERSION",
+        "compileConfigurationChangeImpactRules",
+        "configurationChangeImpactCompilerAdapter",
+        "configurationChangeImpactProfileProvenanceDigest",
+        "validateConfigurationChangeImpactProfileProvenance"
+      ],
+      "export_count": 8,
+      "line_count": 270
+    },
+    {
+      "module": "engines/configuration_change_impact/evaluator/configuration_change_impact_evaluator_adapter",
+      "area": "engines",
+      "exports": [
+        "CCI_ERROR_CODES",
+        "CCI_EVALUATOR_ADAPTER_SCHEMA_VERSION",
+        "CCI_TYPED_FACTS_IDENTITY_DOMAIN",
+        "CCI_TYPED_FACTS_SCHEMA_VERSION",
+        "adaptConfigurationChangeImpactProjectEvidence",
+        "configurationChangeImpactAdapter",
+        "configurationChangeImpactChangeIdentityDigest",
+        "evaluateConfigurationChangeImpact"
+      ],
+      "export_count": 8,
+      "line_count": 1178
+    },
+    {
+      "module": "engines/configuration_change_impact/evaluator/propagation_graph",
+      "area": "engines",
+      "exports": [
+        "PROPAGATION_GRAPH_ERROR_CODES",
+        "evaluatePropagationGraph"
+      ],
+      "export_count": 2,
+      "line_count": 249
+    },
+    {
+      "module": "engines/configuration_change_impact/fixtures/configuration_change_impact_public_synthetic",
+      "area": "engines",
+      "exports": [
+        "CONFIGURATION_CHANGE_IMPACT_PUBLIC_SYNTHETIC_FIXTURE",
+        "buildConfigurationChangeImpactPublicSyntheticBindingInput",
+        "buildConfigurationChangeImpactPublicSyntheticProjectProfile",
+        "buildConfigurationChangeImpactPublicSyntheticRequest"
+      ],
+      "export_count": 4,
+      "line_count": 177
+    },
+    {
+      "module": "engines/configuration_change_impact/rules/configuration_change_impact_rules",
+      "area": "engines",
+      "exports": [
+        "CONFIGURATION_CHANGE_IMPACT_ASSESSMENT_SCHEMA",
+        "CONFIGURATION_CHANGE_IMPACT_ERROR_CODES",
+        "CONFIGURATION_CHANGE_IMPACT_IMPACT_KINDS",
+        "CONFIGURATION_CHANGE_IMPACT_IMPACT_STATES",
+        "CONFIGURATION_CHANGE_IMPACT_INPUT_SCHEMA",
+        "CONFIGURATION_CHANGE_IMPACT_RECEIPT_SCHEMA",
+        "CONFIGURATION_CHANGE_IMPACT_RESULT_SCHEMA",
+        "CONFIGURATION_CHANGE_IMPACT_RULES",
+        "CONFIGURATION_CHANGE_IMPACT_RULESET_REF",
+        "CONFIGURATION_CHANGE_IMPACT_RULESET_REVISION",
+        "CONFIGURATION_CHANGE_IMPACT_RULESET_SCHEMA",
+        "CONFIGURATION_CHANGE_IMPACT_SOURCE_PACKET_REF",
+        "isConfigurationChangeImpactKind",
+        "isConfigurationChangeImpactState"
+      ],
+      "export_count": 14,
+      "line_count": 134
+    },
+    {
+      "module": "engines/configuration_change_impact/tools/configuration_change_impact_runner",
+      "area": "engines",
+      "exports": [],
+      "export_count": 0,
+      "line_count": 29
+    },
+    {
+      "module": "engines/configuration_change_impact/topology/configuration_change_impact_module_manifest",
+      "area": "engines",
+      "exports": [
+        "CCI_MANIFEST_ERROR_CODES",
+        "createConfigurationChangeImpactModuleManifest"
+      ],
+      "export_count": 2,
+      "line_count": 132
     },
     {
       "module": "engines/database_engineering/analysis/data_quality_evidence",
@@ -3022,7 +3116,7 @@
       "line_count": 1885
     }
   ],
-  "module_count": 192,
+  "module_count": 199,
   "module_edges": [
     {
       "from": "core/evaluation_runtime/claim_ceilings",
@@ -4357,6 +4451,195 @@
     {
       "from": "engines/calibration_measurement_validity/typed_facts/calibration_measurement_validity_typed_facts_adapter",
       "to": "engines/calibration_measurement_validity/source/calibration_measurement_validity_source_classification",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/compiler/configuration_change_impact_compiler_adapter",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/compiler/configuration_change_impact_compiler_adapter",
+      "to": "core/interfaces/profile_operation_canon",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/compiler/configuration_change_impact_compiler_adapter",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/compiler/configuration_change_impact_compiler_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/compiler/configuration_change_impact_compiler_adapter",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/compiler/configuration_change_impact_compiler_adapter",
+      "to": "engines/configuration_change_impact/rules/configuration_change_impact_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/evaluator/configuration_change_impact_evaluator_adapter",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/evaluator/configuration_change_impact_evaluator_adapter",
+      "to": "core/interfaces/project_binding_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/evaluator/configuration_change_impact_evaluator_adapter",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/evaluator/configuration_change_impact_evaluator_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/evaluator/configuration_change_impact_evaluator_adapter",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/evaluator/configuration_change_impact_evaluator_adapter",
+      "to": "engines/configuration_change_impact/compiler/configuration_change_impact_compiler_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/evaluator/configuration_change_impact_evaluator_adapter",
+      "to": "engines/configuration_change_impact/evaluator/propagation_graph",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/evaluator/configuration_change_impact_evaluator_adapter",
+      "to": "engines/configuration_change_impact/rules/configuration_change_impact_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/evaluator/propagation_graph",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/evaluator/propagation_graph",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/evaluator/propagation_graph",
+      "to": "engines/configuration_change_impact/rules/configuration_change_impact_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/fixtures/configuration_change_impact_public_synthetic",
+      "to": "engines/configuration_change_impact/evaluator/configuration_change_impact_evaluator_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/fixtures/configuration_change_impact_public_synthetic",
+      "to": "engines/configuration_change_impact/rules/configuration_change_impact_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/rules/configuration_change_impact_rules",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/rules/configuration_change_impact_rules",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/tools/configuration_change_impact_runner",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/tools/configuration_change_impact_runner",
+      "to": "engines/configuration_change_impact/evaluator/configuration_change_impact_evaluator_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/tools/configuration_change_impact_runner",
+      "to": "engines/configuration_change_impact/fixtures/configuration_change_impact_public_synthetic",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/topology/configuration_change_impact_module_manifest",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/topology/configuration_change_impact_module_manifest",
+      "to": "core/validators/module_binding",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/configuration_change_impact/topology/configuration_change_impact_module_manifest",
+      "to": "engines/configuration_change_impact/rules/configuration_change_impact_rules",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
@@ -7428,7 +7711,7 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 629,
+  "module_edge_count": 656,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -7779,5 +8062,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "59ae55c0c726968fb67d3d0f7b5d80e522c81a90faea62bf2c00ce7e7bea38cd"
+  "topology_digest": "aecb494755e13d02ea323e8eebc598f61a0a308dbbabdfb767f32fcfcbf87f70"
 }
