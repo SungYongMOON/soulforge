@@ -72,6 +72,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.evaluator.manufacturing_readiness_evaluator_adapter",
+      "id": "engineering_engine::imports.03ba00bd5d6199b4807228702c673618",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.manufacturing_readiness.evaluator.manufacturing_readiness"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance",
       "id": "engineering_engine::imports.03c30f87d7715ce9966645ea6cea6c01",
       "label": "imports",
@@ -642,6 +652,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.tools.manufacturing_readiness_runner",
+      "id": "engineering_engine::imports.27eb24da3fb8d244dc04ddae2d02979e",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.manufacturing_readiness.evaluator.manufacturing_readiness"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.tools.se_core_crosswalk_case_runner",
       "id": "engineering_engine::imports.29ffb3f923077585437e5f4018224105",
       "label": "imports",
@@ -709,6 +729,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.compiler.manufacturing_readiness_compiler_adapter",
+      "id": "engineering_engine::imports.30d5af70f24ae4d32cd9fbdf7f45d20b",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
     },
     {
       "evidence_mode": "structural_only",
@@ -834,6 +864,16 @@
       "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter",
       "id": "engineering_engine::imports.34d9d99974992572512b0f4c4e7003cb",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.profile_operation_canon"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.compiler.manufacturing_readiness_compiler_adapter",
+      "id": "engineering_engine::imports.3703b7cb5805ada30295e17e780927c3",
       "label": "imports",
       "layer": "module",
       "provider_id": "engineering_engine",
@@ -979,6 +1019,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.rules.artifact_vocabulary"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.compiler.manufacturing_readiness_compiler_adapter",
+      "id": "engineering_engine::imports.3eb98f4d317e31937f3efcc4a21d0f38",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.manufacturing_readiness.validators.manufacturing_readiness_input_admission"
     },
     {
       "evidence_mode": "structural_only",
@@ -1129,6 +1179,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.evaluator.manufacturing_readiness_evaluator_adapter",
+      "id": "engineering_engine::imports.4816aee47065dfcb8436cbda73a81cc6",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.manufacturing_readiness.compiler.manufacturing_readiness_compiler_adapter"
     },
     {
       "evidence_mode": "structural_only",
@@ -1319,6 +1379,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.observation.artifact_observations_from_confirmed"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.compiler.manufacturing_readiness_compiler_adapter",
+      "id": "engineering_engine::imports.51ec67e6e4e183ad5a2cac96f39a6d78",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
     },
     {
       "evidence_mode": "structural_only",
@@ -1689,6 +1759,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.validators.manufacturing_readiness_input_admission",
+      "id": "engineering_engine::imports.66dd09c8fccad54d8bfbb7f568e3627b",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
     },
     {
       "evidence_mode": "structural_only",
@@ -2232,6 +2312,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.evaluator.manufacturing_readiness",
+      "id": "engineering_engine::imports.88b410aae224620e861e69fc000fb419",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.index",
       "id": "engineering_engine::imports.890521ea98f838ab425157e6795651ef",
       "label": "imports",
@@ -2642,6 +2732,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.evaluator.manufacturing_readiness_evaluator_adapter",
+      "id": "engineering_engine::imports.9c687e5c93a3ef4a452c280724f2a7e1",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.manufacturing_readiness.rules.manufacturing_readiness_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.guidance.instruction_packet",
       "id": "engineering_engine::imports.9d06f81c66b9bd9673f024954a75d20e",
       "label": "imports",
@@ -2649,6 +2749,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.guidance.guide_cards"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.rules.manufacturing_readiness_rules",
+      "id": "engineering_engine::imports.9d2ac5baacf6ec9c643bb3ccde89e84d",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.manufacturing_readiness.vocabulary.manufacturing_readiness_vocabulary"
     },
     {
       "evidence_mode": "structural_only",
@@ -2782,6 +2892,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.evaluator.manufacturing_readiness",
+      "id": "engineering_engine::imports.aa6efefdc270482263b730e256a05f67",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.manufacturing_readiness.validators.manufacturing_readiness_input_admission"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.database_engineering.evaluator.database_project_evidence_adapter",
       "id": "engineering_engine::imports.ab2e7d4035b3dc2173f9df3d4f009449",
       "label": "imports",
@@ -2882,6 +3002,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.rules.manufacturing_readiness_rules",
+      "id": "engineering_engine::imports.b1b776fb5c4e30633d89c7a2d68e9ade",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.index",
       "id": "engineering_engine::imports.b1c18e8d2542ab97c2faddf771d20ab8",
       "label": "imports",
@@ -2919,6 +3049,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.rules.manufacturing_readiness_rules",
+      "id": "engineering_engine::imports.b44b115037d1cacb65b3267e7a0dadf7",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
     },
     {
       "evidence_mode": "structural_only",
@@ -2972,6 +3112,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.evaluator.manufacturing_readiness_evaluator_adapter",
+      "id": "engineering_engine::imports.b681016efb78d78aa558954131e51a5f",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.rules.pilot_packet_generator",
       "id": "engineering_engine::imports.b6f2a111883dd345d1c382d028acb41c",
       "label": "imports",
@@ -2989,6 +3139,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.evaluator.manufacturing_readiness",
+      "id": "engineering_engine::imports.b855a0da3d0b40ecc4b270bce5fdbdec",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
     },
     {
       "evidence_mode": "structural_only",
@@ -3019,6 +3179,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.database_engineering.analysis.platform_control_proof"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.validators.manufacturing_readiness_input_admission",
+      "id": "engineering_engine::imports.ba315cd6b7535a054ab2184d075699e7",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.contract_config"
     },
     {
       "evidence_mode": "structural_only",
@@ -3132,6 +3302,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.evaluator.manufacturing_readiness_evaluator_adapter",
+      "id": "engineering_engine::imports.c0dfaff8357167ed95bfcc28bcff1ef2",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.manufacturing_readiness.validators.manufacturing_readiness_input_admission"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluator.se_core_crosswalk_case_run",
       "id": "engineering_engine::imports.c1d50a37c50b8106c82d9e881c66b28f",
       "label": "imports",
@@ -3199,6 +3379,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.compiler.manufacturing_readiness_compiler_adapter",
+      "id": "engineering_engine::imports.c323482c0b948d22bf8c2c7e6da91055",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
     },
     {
       "evidence_mode": "structural_only",
@@ -4742,6 +4932,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.tools.manufacturing_readiness_runner",
+      "id": "engineering_engine::imports.d4bded5540d6707f51c33fa2c17c421d",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.manufacturing_readiness.fixtures.manufacturing_readiness_public_synthetic"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.material_procurement_readiness.topology.material_procurement_readiness_module_manifest",
       "id": "engineering_engine::imports.d62ef3af7e676d5ad0105e848aab07fe",
       "label": "imports",
@@ -4749,6 +4949,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.evaluator.manufacturing_readiness_evaluator_adapter",
+      "id": "engineering_engine::imports.d63733253625fdf9ec9fbc3936fb0128",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
     },
     {
       "evidence_mode": "structural_only",
@@ -4882,6 +5092,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.topology.manufacturing_readiness_module_manifest",
+      "id": "engineering_engine::imports.d9faaefffc4cdbf476fbaa11628cedfe",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.module_binding"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.reliability_maintainability.fixtures.reliability_maintainability_public_synthetic",
       "id": "engineering_engine::imports.da05ed1cd349dedb75feb38c95fdb5c3",
       "label": "imports",
@@ -4922,6 +5142,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.evaluator.manufacturing_readiness",
+      "id": "engineering_engine::imports.db6c5cfcbecfc518c9dca60077d2d3a9",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.rules_layers",
       "id": "engineering_engine::imports.db92bd9d3f3847ed2438966eb9ca9d26",
       "label": "imports",
@@ -4949,6 +5179,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.topology.manufacturing_readiness_module_manifest",
+      "id": "engineering_engine::imports.ddf8da02c1068210872c6c90dd97ebc7",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
     },
     {
       "evidence_mode": "structural_only",
@@ -5022,6 +5262,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.evaluator.manufacturing_readiness",
+      "id": "engineering_engine::imports.e52c441938c5f0be45300cdb858e3244",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.manufacturing_readiness.rules.manufacturing_readiness_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.index",
       "id": "engineering_engine::imports.e5f081b0ebb56153418e75010ff1c7c7",
       "label": "imports",
@@ -5082,6 +5332,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.compiler.manufacturing_readiness_compiler_adapter",
+      "id": "engineering_engine::imports.ea505336142f0cb26fb67ed5321453d4",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.manufacturing_readiness.rules.manufacturing_readiness_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.quality_readiness.topology.quality_readiness_module_manifest",
       "id": "engineering_engine::imports.eb178a2447da7d69becb3004763178ca",
       "label": "imports",
@@ -5119,6 +5379,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.engine_context"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.topology.manufacturing_readiness_module_manifest",
+      "id": "engineering_engine::imports.ec5a553ec5af9bd54f9437a857db1ce6",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.manufacturing_readiness.validators.manufacturing_readiness_input_admission"
     },
     {
       "evidence_mode": "structural_only",
@@ -6082,6 +6352,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.evaluator.manufacturing_readiness_evaluator_adapter",
+      "id": "engineering_engine::imports.fa02abaa36548aa2bdc1fabb1fb70ad1",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluator.ax_se_project_role_roster",
       "id": "engineering_engine::imports.fa52cac092768bc73c97ae26bdeddd80",
       "label": "imports",
@@ -6122,6 +6402,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.evaluator.manufacturing_readiness_evaluator_adapter",
+      "id": "engineering_engine::imports.fc2aff999d190eef577fab9ee0da52f4",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::module.80ff94140e105629589a73952c249766",
       "id": "engineering_engine::imports.fc404fbc3c993b63aa91205b26700d96",
       "label": "imports",
@@ -6139,6 +6429,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.manufacturing_readiness.fixtures.manufacturing_readiness_public_synthetic",
+      "id": "engineering_engine::imports.fe0a3a4ced875ef49cd8bb9556488c7f",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.manufacturing_readiness.rules.manufacturing_readiness_rules"
     },
     {
       "evidence_mode": "structural_only",
@@ -7805,6 +8105,105 @@
       "id": "engineering_engine::engines.database_engineering.topology.database_engineering_module_manifest",
       "kind": "module",
       "label": "engines/database_engineering/topology/database_engineering_module_manifest",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.manufacturing_readiness.compiler.manufacturing_readiness_compiler_adapter",
+      "kind": "module",
+      "label": "engines/manufacturing_readiness/compiler/manufacturing_readiness_compiler_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.manufacturing_readiness.evaluator.manufacturing_readiness",
+      "kind": "module",
+      "label": "engines/manufacturing_readiness/evaluator/manufacturing_readiness",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.manufacturing_readiness.evaluator.manufacturing_readiness_evaluator_adapter",
+      "kind": "module",
+      "label": "engines/manufacturing_readiness/evaluator/manufacturing_readiness_evaluator_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.manufacturing_readiness.fixtures.manufacturing_readiness_public_synthetic",
+      "kind": "module",
+      "label": "engines/manufacturing_readiness/fixtures/manufacturing_readiness_public_synthetic",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.manufacturing_readiness.rules.manufacturing_readiness_rules",
+      "kind": "module",
+      "label": "engines/manufacturing_readiness/rules/manufacturing_readiness_rules",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.manufacturing_readiness.tools.manufacturing_readiness_runner",
+      "kind": "module",
+      "label": "engines/manufacturing_readiness/tools/manufacturing_readiness_runner",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.manufacturing_readiness.topology.manufacturing_readiness_module_manifest",
+      "kind": "module",
+      "label": "engines/manufacturing_readiness/topology/manufacturing_readiness_module_manifest",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.manufacturing_readiness.validators.manufacturing_readiness_input_admission",
+      "kind": "module",
+      "label": "engines/manufacturing_readiness/validators/manufacturing_readiness_input_admission",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.manufacturing_readiness.vocabulary.manufacturing_readiness_vocabulary",
+      "kind": "module",
+      "label": "engines/manufacturing_readiness/vocabulary/manufacturing_readiness_vocabulary",
       "layer": "module",
       "parent_id": null,
       "provider_id": "engineering_engine",
@@ -9772,6 +10171,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.evaluator.manufacturing_readiness_evaluator_adapter",
+          "id": "imports.03ba00bd5d6199b4807228702c673618",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.manufacturing_readiness.evaluator.manufacturing_readiness"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.pcb_compliance.evaluator.pcb_compliance",
           "id": "imports.03c30f87d7715ce9966645ea6cea6c01",
           "label": "imports",
@@ -10285,6 +10693,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.tools.manufacturing_readiness_runner",
+          "id": "imports.27eb24da3fb8d244dc04ddae2d02979e",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.manufacturing_readiness.evaluator.manufacturing_readiness"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.tools.se_core_crosswalk_case_runner",
           "id": "imports.29ffb3f923077585437e5f4018224105",
           "label": "imports",
@@ -10345,6 +10762,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.compiler.manufacturing_readiness_compiler_adapter",
+          "id": "imports.30d5af70f24ae4d32cd9fbdf7f45d20b",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
         },
         {
           "evidence_mode": "structural_only",
@@ -10458,6 +10884,15 @@
           "evidence_mode": "structural_only",
           "from": "engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter",
           "id": "imports.34d9d99974992572512b0f4c4e7003cb",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.profile_operation_canon"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.compiler.manufacturing_readiness_compiler_adapter",
+          "id": "imports.3703b7cb5805ada30295e17e780927c3",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
@@ -10588,6 +11023,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.rules.artifact_vocabulary"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.compiler.manufacturing_readiness_compiler_adapter",
+          "id": "imports.3eb98f4d317e31937f3efcc4a21d0f38",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.manufacturing_readiness.validators.manufacturing_readiness_input_admission"
         },
         {
           "evidence_mode": "structural_only",
@@ -10723,6 +11167,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.evaluator.manufacturing_readiness_evaluator_adapter",
+          "id": "imports.4816aee47065dfcb8436cbda73a81cc6",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.manufacturing_readiness.compiler.manufacturing_readiness_compiler_adapter"
         },
         {
           "evidence_mode": "structural_only",
@@ -10894,6 +11347,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.observation.artifact_observations_from_confirmed"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.compiler.manufacturing_readiness_compiler_adapter",
+          "id": "imports.51ec67e6e4e183ad5a2cac96f39a6d78",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
         },
         {
           "evidence_mode": "structural_only",
@@ -11227,6 +11689,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.validators.manufacturing_readiness_input_admission",
+          "id": "imports.66dd09c8fccad54d8bfbb7f568e3627b",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
         },
         {
           "evidence_mode": "structural_only",
@@ -11716,6 +12187,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.evaluator.manufacturing_readiness",
+          "id": "imports.88b410aae224620e861e69fc000fb419",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.index",
           "id": "imports.890521ea98f838ab425157e6795651ef",
           "label": "imports",
@@ -12085,12 +12565,30 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.evaluator.manufacturing_readiness_evaluator_adapter",
+          "id": "imports.9c687e5c93a3ef4a452c280724f2a7e1",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.manufacturing_readiness.rules.manufacturing_readiness_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.guidance.instruction_packet",
           "id": "imports.9d06f81c66b9bd9673f024954a75d20e",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.guidance.guide_cards"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.rules.manufacturing_readiness_rules",
+          "id": "imports.9d2ac5baacf6ec9c643bb3ccde89e84d",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.manufacturing_readiness.vocabulary.manufacturing_readiness_vocabulary"
         },
         {
           "evidence_mode": "structural_only",
@@ -12211,6 +12709,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.evaluator.manufacturing_readiness",
+          "id": "imports.aa6efefdc270482263b730e256a05f67",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.manufacturing_readiness.validators.manufacturing_readiness_input_admission"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.database_engineering.evaluator.database_project_evidence_adapter",
           "id": "imports.ab2e7d4035b3dc2173f9df3d4f009449",
           "label": "imports",
@@ -12301,6 +12808,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.rules.manufacturing_readiness_rules",
+          "id": "imports.b1b776fb5c4e30633d89c7a2d68e9ade",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.index",
           "id": "imports.b1c18e8d2542ab97c2faddf771d20ab8",
           "label": "imports",
@@ -12334,6 +12850,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.rules.manufacturing_readiness_rules",
+          "id": "imports.b44b115037d1cacb65b3267e7a0dadf7",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
         },
         {
           "evidence_mode": "structural_only",
@@ -12382,6 +12907,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.evaluator.manufacturing_readiness_evaluator_adapter",
+          "id": "imports.b681016efb78d78aa558954131e51a5f",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.rules.pilot_packet_generator",
           "id": "imports.b6f2a111883dd345d1c382d028acb41c",
           "label": "imports",
@@ -12397,6 +12931,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.evaluator.manufacturing_readiness",
+          "id": "imports.b855a0da3d0b40ecc4b270bce5fdbdec",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
         },
         {
           "evidence_mode": "structural_only",
@@ -12424,6 +12967,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.database_engineering.analysis.platform_control_proof"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.validators.manufacturing_readiness_input_admission",
+          "id": "imports.ba315cd6b7535a054ab2184d075699e7",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.contract_config"
         },
         {
           "evidence_mode": "structural_only",
@@ -12526,6 +13078,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.evaluator.manufacturing_readiness_evaluator_adapter",
+          "id": "imports.c0dfaff8357167ed95bfcc28bcff1ef2",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.manufacturing_readiness.validators.manufacturing_readiness_input_admission"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluator.se_core_crosswalk_case_run",
           "id": "imports.c1d50a37c50b8106c82d9e881c66b28f",
           "label": "imports",
@@ -12586,6 +13147,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.compiler.manufacturing_readiness_compiler_adapter",
+          "id": "imports.c323482c0b948d22bf8c2c7e6da91055",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
         },
         {
           "evidence_mode": "structural_only",
@@ -13975,12 +14545,30 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.tools.manufacturing_readiness_runner",
+          "id": "imports.d4bded5540d6707f51c33fa2c17c421d",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.manufacturing_readiness.fixtures.manufacturing_readiness_public_synthetic"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.material_procurement_readiness.topology.material_procurement_readiness_module_manifest",
           "id": "imports.d62ef3af7e676d5ad0105e848aab07fe",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.evaluator.manufacturing_readiness_evaluator_adapter",
+          "id": "imports.d63733253625fdf9ec9fbc3936fb0128",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
         },
         {
           "evidence_mode": "structural_only",
@@ -14101,6 +14689,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.topology.manufacturing_readiness_module_manifest",
+          "id": "imports.d9faaefffc4cdbf476fbaa11628cedfe",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.module_binding"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.reliability_maintainability.fixtures.reliability_maintainability_public_synthetic",
           "id": "imports.da05ed1cd349dedb75feb38c95fdb5c3",
           "label": "imports",
@@ -14137,6 +14734,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.evaluator.manufacturing_readiness",
+          "id": "imports.db6c5cfcbecfc518c9dca60077d2d3a9",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.rules_layers",
           "id": "imports.db92bd9d3f3847ed2438966eb9ca9d26",
           "label": "imports",
@@ -14161,6 +14767,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.topology.manufacturing_readiness_module_manifest",
+          "id": "imports.ddf8da02c1068210872c6c90dd97ebc7",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
         },
         {
           "evidence_mode": "structural_only",
@@ -14227,6 +14842,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.evaluator.manufacturing_readiness",
+          "id": "imports.e52c441938c5f0be45300cdb858e3244",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.manufacturing_readiness.rules.manufacturing_readiness_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.index",
           "id": "imports.e5f081b0ebb56153418e75010ff1c7c7",
           "label": "imports",
@@ -14281,6 +14905,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.compiler.manufacturing_readiness_compiler_adapter",
+          "id": "imports.ea505336142f0cb26fb67ed5321453d4",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.manufacturing_readiness.rules.manufacturing_readiness_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.quality_readiness.topology.quality_readiness_module_manifest",
           "id": "imports.eb178a2447da7d69becb3004763178ca",
           "label": "imports",
@@ -14314,6 +14947,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.engine_context"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.topology.manufacturing_readiness_module_manifest",
+          "id": "imports.ec5a553ec5af9bd54f9437a857db1ce6",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.manufacturing_readiness.validators.manufacturing_readiness_input_admission"
         },
         {
           "evidence_mode": "structural_only",
@@ -15181,6 +15823,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.evaluator.manufacturing_readiness_evaluator_adapter",
+          "id": "imports.fa02abaa36548aa2bdc1fabb1fb70ad1",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluator.ax_se_project_role_roster",
           "id": "imports.fa52cac092768bc73c97ae26bdeddd80",
           "label": "imports",
@@ -15217,6 +15868,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.evaluator.manufacturing_readiness_evaluator_adapter",
+          "id": "imports.fc2aff999d190eef577fab9ee0da52f4",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "module.80ff94140e105629589a73952c249766",
           "id": "imports.fc404fbc3c993b63aa91205b26700d96",
           "label": "imports",
@@ -15232,6 +15892,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.manufacturing_readiness.fixtures.manufacturing_readiness_public_synthetic",
+          "id": "imports.fe0a3a4ced875ef49cd8bb9556488c7f",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.manufacturing_readiness.rules.manufacturing_readiness_rules"
         },
         {
           "evidence_mode": "structural_only",
@@ -16290,6 +16959,96 @@
           "id": "engines.database_engineering.topology.database_engineering_module_manifest",
           "kind": "module",
           "label": "engines/database_engineering/topology/database_engineering_module_manifest",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.manufacturing_readiness.compiler.manufacturing_readiness_compiler_adapter",
+          "kind": "module",
+          "label": "engines/manufacturing_readiness/compiler/manufacturing_readiness_compiler_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.manufacturing_readiness.evaluator.manufacturing_readiness",
+          "kind": "module",
+          "label": "engines/manufacturing_readiness/evaluator/manufacturing_readiness",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.manufacturing_readiness.evaluator.manufacturing_readiness_evaluator_adapter",
+          "kind": "module",
+          "label": "engines/manufacturing_readiness/evaluator/manufacturing_readiness_evaluator_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.manufacturing_readiness.fixtures.manufacturing_readiness_public_synthetic",
+          "kind": "module",
+          "label": "engines/manufacturing_readiness/fixtures/manufacturing_readiness_public_synthetic",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.manufacturing_readiness.rules.manufacturing_readiness_rules",
+          "kind": "module",
+          "label": "engines/manufacturing_readiness/rules/manufacturing_readiness_rules",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.manufacturing_readiness.tools.manufacturing_readiness_runner",
+          "kind": "module",
+          "label": "engines/manufacturing_readiness/tools/manufacturing_readiness_runner",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.manufacturing_readiness.topology.manufacturing_readiness_module_manifest",
+          "kind": "module",
+          "label": "engines/manufacturing_readiness/topology/manufacturing_readiness_module_manifest",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.manufacturing_readiness.validators.manufacturing_readiness_input_admission",
+          "kind": "module",
+          "label": "engines/manufacturing_readiness/validators/manufacturing_readiness_input_admission",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.manufacturing_readiness.vocabulary.manufacturing_readiness_vocabulary",
+          "kind": "module",
+          "label": "engines/manufacturing_readiness/vocabulary/manufacturing_readiness_vocabulary",
           "layer": "module",
           "parent_id": null,
           "repair_state": "none"
@@ -17611,7 +18370,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "0d6961cf2cf70af0f14717922a0da560089daf10371cf7df3b1dc9dbe8162e14",
+        "digest": "bb5ed246c28bec2a76c9fef48836a3ec94b69fae937fee416c477c1324a462da",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -18605,13 +19364,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "e43aa77c333c0a1f250b3481e16458d1674ff4ab2899fa19a2464bc872154627",
+  "source_set_digest": "e1817c1fc58920667b3c2ebd411001241f5152217d360ca4e0aad0fbeb9d8110",
   "summary": {
-    "edge_count": 706,
-    "node_count": 238,
+    "edge_count": 736,
+    "node_count": 247,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "3a45ae764c3540383357cfa9b9d46a4f818871fd877c12486ef64faf58855b6b"
+  "topology_digest": "aa842b6287b036165efc9b27e33a2249bdf09efcfebe7343b21eb1af762e75ca"
 }

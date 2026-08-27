@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-28 - Manufacturing Readiness evidence-readiness Domain Engine main integration
+
+- Integrated the accepted `manufacturing_readiness` package behind the unchanged Engineering Engine Core without granting manufacturing/build-start, design/Quality/inspection/ERP, project applicability, compliance, release, production, canon, or writer authority.
+- Registered its evaluator and root `validate:manufacturing-readiness` gate, including 44 package tests for exact Project Binding/Typed Facts, Core millisecond time parity, Profile operation/source integrity, closed schemas, mixed-applicability semantics, hostile admission, replay, and zero-write behavior.
+- Kept public NASA/DoD source use bounded to source-supported evidence readiness; Profile-derived evaluation remains fail-closed pending a separately reviewed evaluator revision.
+
 ## 2026-08-28 - Configuration Change Impact evidence-readiness Domain Engine main integration
 
 - Integrated the accepted `configuration_change_impact` package behind the unchanged Engineering Engine Core without granting project applicability, change approval, baseline mutation, closure, release, compliance, canon, production, or writer authority.
