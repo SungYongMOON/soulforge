@@ -11,6 +11,22 @@ export const CONTINUOUS_SUPERVISOR_HEARTBEAT_SCHEMA = "soulforge.ingress.continu
 
 const SAFE_CODE = /^[a-z0-9_]{1,128}$/;
 
+// Bounded enum of continuous_lease_held reason_code values the runner can emit (see
+// continuous_runner.mjs assertRecoverableContinuousOwner). Only these exact, pre-known
+// strings are ever folded into the sanitized heartbeat/log code below — never raw error
+// detail, paths, or tokens — so a normal unexpired hold stays distinguishable from an
+// evidence or probe failure without widening what the heartbeat surface can leak.
+const LEASE_HELD_REASON_CODES = new Set([
+  "unexpired",
+  "evidence_missing",
+  "evidence_invalid",
+  "evidence_unbound",
+  "evidence_out_of_window",
+  "probe_unresolved",
+  "instance_match",
+  "instance_not_newer",
+]);
+
 function fail(code) {
   const error = new Error(code);
   error.code = code;
@@ -18,6 +34,13 @@ function fail(code) {
 }
 
 export function safeSupervisorErrorCode(error) {
+  const code = String(error?.code || "");
+  if (code === "continuous_lease_held") {
+    const reasonCode = String(error?.reason_code || "");
+    return LEASE_HELD_REASON_CODES.has(reasonCode)
+      ? `continuous_lease_held_${reasonCode}`
+      : "continuous_lease_held";
+  }
   const candidate = String(error?.code || error?.message || "continuous_supervisor_failed");
   return SAFE_CODE.test(candidate) ? candidate : "continuous_supervisor_failed";
 }
