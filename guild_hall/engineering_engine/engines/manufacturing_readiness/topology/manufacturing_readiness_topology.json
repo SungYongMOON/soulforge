@@ -1,0 +1,30 @@
+{
+  "schema_version": "soulforge.manufacturing_readiness.topology.v0",
+  "domain_engine_id": "manufacturing_readiness",
+  "status": "candidate",
+  "execution_mode": "deterministic_only",
+  "nodes": [
+    "contracts/source_packet",
+    "schemas/domain_input",
+    "vocabulary/closed_facets",
+    "rules/base_ruleset",
+    "validators/public_input_admission",
+    "compiler/domain_adapter",
+    "evaluator/domain_adapter",
+    "fixtures/public_synthetic",
+    "tools/zero_write_runner",
+    "manual/operator_boundary",
+    "topology/local_manifest"
+  ],
+  "shared_surface_requests": [
+    "factory_integration_adds_registry_and_global_manifest_entries_only_after_sequential_review"
+  ],
+  "forbidden_owners": [
+    "core_rule_semantics",
+    "project_binding_payload",
+    "erp_inventory_truth",
+    "design_approval",
+    "quality_acceptance",
+    "production_release"
+  ]
+}

@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.manufacturing_readiness.schema.v0",
+  "title": "Manufacturing Readiness Domain Input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project_binding_ref", "facets"],
+  "properties": {
+    "project_binding_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "project_id",
+        "domain_engine_id",
+        "binding_revision_hash",
+        "source_manifest_ref"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "soulforge.project_binding.v0"
+        },
+        "project_id": { "$ref": "#/$defs/public_safe_core_binding_string" },
+        "domain_engine_id": { "const": "manufacturing_readiness" },
+        "binding_revision_hash": { "$ref": "#/$defs/public_safe_core_binding_string" },
+        "source_manifest_ref": { "$ref": "#/$defs/public_safe_core_binding_string" },
+        "authority_family": { "$ref": "#/$defs/public_safe_core_binding_string" },
+        "valid_at": { "$ref": "#/$defs/canonical_utc_instant" },
+        "known_at": { "$ref": "#/$defs/canonical_utc_instant" },
+        "document_refs": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/public_safe_core_binding_string" }
+        }
+      }
+    },
+    "schema_version": {
+      "const": "soulforge.manufacturing_readiness.domain_input.v0"
+    },
+    "facets": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["facet_id", "applicability", "evidence_state", "evaluation_state"],
+        "properties": {
+          "facet_id": {
+            "enum": [
+              "drawings",
+              "bom",
+              "processes",
+              "tooling",
+              "work_instructions",
+              "personnel_and_equipment",
+              "inspections",
+              "materials"
+            ]
+          },
+          "applicability": {
+            "enum": ["applicable", "not_applicable", "unknown"]
+          },
+          "evidence_state": {
+            "enum": ["present", "absence_confirmed", "unknown"]
+          },
+          "evaluation_state": {
+            "enum": ["criteria_met", "criteria_not_met", "unknown"]
+          },
+          "not_applicable_basis_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "applicability": { "const": "not_applicable" }
+              },
+              "required": ["applicability"]
+            },
+            "then": {
+              "required": ["not_applicable_basis_ref"]
+            },
+            "else": {
+              "not": {
+                "required": ["not_applicable_basis_ref"]
+              }
+            }
+          }
+        ]
+      },
+      "allOf": [
+        {
+          "contains": { "type": "object", "properties": { "facet_id": { "const": "drawings" } }, "required": ["facet_id"] },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": { "type": "object", "properties": { "facet_id": { "const": "bom" } }, "required": ["facet_id"] },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": { "type": "object", "properties": { "facet_id": { "const": "processes" } }, "required": ["facet_id"] },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": { "type": "object", "properties": { "facet_id": { "const": "tooling" } }, "required": ["facet_id"] },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": { "type": "object", "properties": { "facet_id": { "const": "work_instructions" } }, "required": ["facet_id"] },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": { "type": "object", "properties": { "facet_id": { "const": "personnel_and_equipment" } }, "required": ["facet_id"] },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": { "type": "object", "properties": { "facet_id": { "const": "inspections" } }, "required": ["facet_id"] },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": { "type": "object", "properties": { "facet_id": { "const": "materials" } }, "required": ["facet_id"] },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "canonical_utc_instant": {
+      "type": "string",
+      "pattern": "^(?:(?:[0-9]{4}-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8])))|(?:(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00|0000)-02-29))T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$"
+    },
+    "public_safe_core_binding_string": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "allOf": [
+        { "not": { "pattern": "[\\u0000-\\u001f\\u007f]" } },
+        { "not": { "pattern": "(?:^|[^A-Za-z0-9_])(?:_workspaces|_workmeta|private-state)(?:[\\\\/]|$)" } },
+        { "not": { "pattern": "(?:^|[^A-Za-z0-9])[A-Za-z]:[\\\\/]" } },
+        { "not": { "pattern": "\\\\\\\\[^\\\\]+" } },
+        { "not": { "pattern": "-----BEGIN [A-Z ]+PRIVATE KEY-----" } },
+        { "not": { "pattern": "(?:^|[^A-Za-z0-9_])(?:ghp_|github_pat_|sk-|xox[baprs]-|AIza)[A-Za-z0-9_-]{8,}" } },
+        { "not": { "pattern": "(?:password|passwd|api[_-]?key|access[_-]?token|refresh[_-]?token)[ \\t]*[:=]" } }
+      ]
+    }
+  }
+}
