@@ -2,13 +2,13 @@
   "schema_version": "soulforge.engine_release_manifest.v0",
   "engine_version": "0.0.0",
   "status": "under_construction",
-  "generated_at": "2026-08-27T15:10:21.419Z",
-  "generated_from_commit": "5ea77a8454bd2b0dc010d25b838eac3db64c27c0",
-  "git_commit": "5ea77a8454bd2b0dc010d25b838eac3db64c27c0",
+  "generated_at": "2026-08-27T22:47:30.070Z",
+  "generated_from_commit": "8eef1e05c810e6906fe6eac74c78b321444d780f",
+  "git_commit": "8eef1e05c810e6906fe6eac74c78b321444d780f",
   "components": {
     "engine_code_manifest": {
       "file": "guild_hall/engineering_engine/topology/engine_manifest.sha256",
-      "sha256": "581a55f630c8afc6f9f70f3f9cfd69ea1036c66fc85d85a9cd65274ca46ae226"
+      "sha256": "4301bb972d6521b4bcf0ced8789bbaad18f99239f33abf96d0473cb332678ae7"
     },
     "stage_rule_compiler": {
       "file": "guild_hall/engineering_engine/engines/systems_engineering/rules/stage_rule_compiler.mjs",
