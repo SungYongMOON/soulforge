@@ -702,6 +702,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter",
+      "id": "engineering_engine::imports.2a14853795235b3ccdae277b19b82a52",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluator.se_core_crosswalk_case_run",
       "id": "engineering_engine::imports.2b7fee973de04c570e0633325af2fe7a",
       "label": "imports",
@@ -752,6 +762,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard_evaluator_adapter",
+      "id": "engineering_engine::imports.2d25a722ea0cf2491aa7a8af4a82ba96",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.safety_hazard.compiler.safety_hazard_compiler_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.field_failure_corrective_action.rules.field_failure_corrective_action_binding_integrity",
       "id": "engineering_engine::imports.2d3e675ac046c8d8804f0d3635e6d0c2",
       "label": "imports",
@@ -769,6 +789,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard_evaluator_adapter",
+      "id": "engineering_engine::imports.2f8f64d52021a5ec7aa31760ff95cb4d",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
     },
     {
       "evidence_mode": "structural_only",
@@ -1022,6 +1052,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.tools.safety_hazard_runner",
+      "id": "engineering_engine::imports.3c2f1c31d27d9ed088f6ef3b0d01d5cd",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.tools.ax_se_project_context_pilot_runner",
       "id": "engineering_engine::imports.3c4e60e9e6dcb4206a1099cdf9b177d9",
       "label": "imports",
@@ -1049,6 +1089,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.tools.safety_hazard_runner",
+      "id": "engineering_engine::imports.3d6199705c3388bd915b8bbb58283ef9",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.safety_hazard.fixtures.safety_hazard_public_synthetic"
     },
     {
       "evidence_mode": "structural_only",
@@ -1129,6 +1179,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.observation.artifact_observations_from_confirmed"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.topology.safety_hazard_module_manifest",
+      "id": "engineering_engine::imports.41eac48e96e16c7bf279ae966918de3a",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.module_binding"
     },
     {
       "evidence_mode": "structural_only",
@@ -1442,6 +1502,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter",
+      "id": "engineering_engine::imports.51aaaa7a89622b05fe68ea8dd0962bd0",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.manufacturing_readiness.compiler.manufacturing_readiness_compiler_adapter",
       "id": "engineering_engine::imports.51ec67e6e4e183ad5a2cac96f39a6d78",
       "label": "imports",
@@ -1722,6 +1792,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.compiler.safety_hazard_compiler_adapter",
+      "id": "engineering_engine::imports.5ebd23e0e7ca47a1ee743ecf5b8f545e",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.rules_card",
       "id": "engineering_engine::imports.5ee67f45ccd3b204466f28b8ba032502",
       "label": "imports",
@@ -1769,6 +1849,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.database_engineering.evaluator.database_project_evidence_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard",
+      "id": "engineering_engine::imports.628742ee8a711fdcc5b15346455cb415",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.safety_hazard.vocabulary.safety_hazard_vocabulary"
     },
     {
       "evidence_mode": "structural_only",
@@ -2102,6 +2192,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.compiler.safety_hazard_compiler_adapter",
+      "id": "engineering_engine::imports.7772beee8ae61f35402fde1329d93fe6",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.safety_hazard.rules.safety_hazard_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.tools.se_core_eval_qa_capture",
       "id": "engineering_engine::imports.77b4840bd5023c5b302ebac3dd3b3501",
       "label": "imports",
@@ -2292,6 +2392,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter",
+      "id": "engineering_engine::imports.809b634f2382ce6214132ad7d7039569",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter",
       "id": "engineering_engine::imports.8134b8b43c243e596c092266b439d8eb",
       "label": "imports",
@@ -2299,6 +2409,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter",
+      "id": "engineering_engine::imports.824fa8bed117f07801a6602674688a5b",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.safety_hazard.rules.safety_hazard_rules"
     },
     {
       "evidence_mode": "structural_only",
@@ -2329,6 +2449,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.quality_readiness.compiler.quality_readiness_compiler_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter",
+      "id": "engineering_engine::imports.82eda762f59fcb69125adfe4d3d3f210",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
     },
     {
       "evidence_mode": "structural_only",
@@ -2692,6 +2822,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.fixtures.safety_hazard_public_synthetic",
+      "id": "engineering_engine::imports.95415c11a339b65c84bfae0e5cdc98e3",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.safety_hazard.rules.safety_hazard_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.guidance.guide_cards",
       "id": "engineering_engine::imports.959302ad63fec0bfccc336650866ea6c",
       "label": "imports",
@@ -2779,6 +2919,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.engine_contexts"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.fixtures.safety_hazard_public_synthetic",
+      "id": "engineering_engine::imports.98b3140e2bffba163c952091899204f9",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.contract_config"
     },
     {
       "evidence_mode": "structural_only",
@@ -2932,6 +3082,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard",
+      "id": "engineering_engine::imports.a3e6516a21f70b8d982b8b57a185ecbc",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.safety_hazard.rules.safety_hazard_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::module.0da2c7a31bf0b288b23a4554dc474781",
       "id": "engineering_engine::imports.a4358945b0fcd1344be94a7dc1100a30",
       "label": "imports",
@@ -3009,6 +3169,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.engine_context"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.compiler.safety_hazard_compiler_adapter",
+      "id": "engineering_engine::imports.a8ab547dae1b3cae0356e070fc94a764",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.profile_operation_canon"
     },
     {
       "evidence_mode": "structural_only",
@@ -3199,6 +3369,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.render"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard_evaluator_adapter",
+      "id": "engineering_engine::imports.b22633accdadd37ea2cc7375f42d8f67",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter"
     },
     {
       "evidence_mode": "structural_only",
@@ -3422,6 +3602,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter",
+      "id": "engineering_engine::imports.bdbdca69a5ddc9c84582639bebab5c43",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.authority"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.tools.engine_next_steps_runner",
       "id": "engineering_engine::imports.bded5b86d9c7952f4833357bb3eb2e93",
       "label": "imports",
@@ -3569,6 +3759,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard_evaluator_adapter",
+      "id": "engineering_engine::imports.c345205e1fdabf5462f77f1861899329",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard"
     },
     {
       "evidence_mode": "structural_only",
@@ -5172,6 +5372,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.fixtures.safety_hazard_public_synthetic",
+      "id": "engineering_engine::imports.d6b2469136717b5286159c86dae7f054",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.safety_hazard.topology.safety_hazard_module_manifest"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.quality_readiness.compiler.quality_readiness_compiler_adapter",
       "id": "engineering_engine::imports.d7605f612ef887cca76af5b45e5b285e",
       "label": "imports",
@@ -5339,6 +5549,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.evaluation.se_core_eval_ledger"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter",
+      "id": "engineering_engine::imports.da9ac1aa47faa09902b24b55fa1aea9e",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.safety_hazard.compiler.safety_hazard_compiler_adapter"
     },
     {
       "evidence_mode": "structural_only",
@@ -5529,6 +5749,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.compiler.safety_hazard_compiler_adapter",
+      "id": "engineering_engine::imports.e80139d65be9dae7dd1f7e1ef6c3e421",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.safety_hazard.vocabulary.safety_hazard_vocabulary"
     },
     {
       "evidence_mode": "structural_only",
@@ -5919,6 +6149,136 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.compiler.safety_hazard_compiler_adapter",
+      "id": "engineering_engine::imports.engines.safety_hazard.compiler.safety_hazard_compiler_adapter.core.validators.authority",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.authority"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.compiler.safety_hazard_compiler_adapter",
+      "id": "engineering_engine::imports.engines.safety_hazard.compiler.safety_hazard_compiler_adapter.core.validators.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.compiler.safety_hazard_compiler_adapter",
+      "id": "engineering_engine::imports.engines.safety_hazard.compiler.safety_hazard_compiler_adapter.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard",
+      "id": "engineering_engine::imports.engines.safety_hazard.evaluator.safety_hazard.core.validators.authority",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.authority"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard",
+      "id": "engineering_engine::imports.engines.safety_hazard.evaluator.safety_hazard.core.validators.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard",
+      "id": "engineering_engine::imports.engines.safety_hazard.evaluator.safety_hazard.core.validators.ceilings",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.ceilings"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard",
+      "id": "engineering_engine::imports.engines.safety_hazard.evaluator.safety_hazard.core.validators.contract_config",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.contract_config"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard",
+      "id": "engineering_engine::imports.engines.safety_hazard.evaluator.safety_hazard.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard",
+      "id": "engineering_engine::imports.engines.safety_hazard.evaluator.safety_hazard.core.validators.fingerprint",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard",
+      "id": "engineering_engine::imports.engines.safety_hazard.evaluator.safety_hazard.core.validators.module_binding",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.module_binding"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.rules.safety_hazard_rules",
+      "id": "engineering_engine::imports.engines.safety_hazard.rules.safety_hazard_rules.core.validators.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.rules.safety_hazard_rules",
+      "id": "engineering_engine::imports.engines.safety_hazard.rules.safety_hazard_rules.core.validators.fingerprint",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.safety_hazard.topology.safety_hazard_module_manifest",
+      "id": "engineering_engine::imports.engines.safety_hazard.topology.safety_hazard_module_manifest.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
     },
     {
       "evidence_mode": "structural_only",
@@ -8988,6 +9348,116 @@
     {
       "diagnostic_state": "validator_backed",
       "group": "engines",
+      "id": "engineering_engine::engines.safety_hazard.compiler.safety_hazard_compiler_adapter",
+      "kind": "module",
+      "label": "engines/safety_hazard/compiler/safety_hazard_compiler_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard",
+      "kind": "module",
+      "label": "engines/safety_hazard/evaluator/safety_hazard",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard_evaluator_adapter",
+      "kind": "module",
+      "label": "engines/safety_hazard/evaluator/safety_hazard_evaluator_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter",
+      "kind": "module",
+      "label": "engines/safety_hazard/evaluator/safety_hazard_project_facts_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.safety_hazard.fixtures.safety_hazard_public_synthetic",
+      "kind": "module",
+      "label": "engines/safety_hazard/fixtures/safety_hazard_public_synthetic",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.safety_hazard.rules.safety_hazard_rules",
+      "kind": "module",
+      "label": "engines/safety_hazard/rules/safety_hazard_rules",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.safety_hazard.schemas.safety_hazard_schema_validator",
+      "kind": "module",
+      "label": "engines/safety_hazard/schemas/safety_hazard_schema_validator",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.safety_hazard.tools.safety_hazard_runner",
+      "kind": "module",
+      "label": "engines/safety_hazard/tools/safety_hazard_runner",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.safety_hazard.topology.safety_hazard_module_manifest",
+      "kind": "module",
+      "label": "engines/safety_hazard/topology/safety_hazard_module_manifest",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.safety_hazard.vocabulary.safety_hazard_vocabulary",
+      "kind": "module",
+      "label": "engines/safety_hazard/vocabulary/safety_hazard_vocabulary",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
       "id": "engineering_engine::engines.systems_engineering.compiler.se_compiler_adapter",
       "kind": "module",
       "label": "engines/systems_engineering/compiler/se_compiler_adapter",
@@ -11228,6 +11698,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter",
+          "id": "imports.2a14853795235b3ccdae277b19b82a52",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluator.se_core_crosswalk_case_run",
           "id": "imports.2b7fee973de04c570e0633325af2fe7a",
           "label": "imports",
@@ -11273,6 +11752,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.evaluator.safety_hazard_evaluator_adapter",
+          "id": "imports.2d25a722ea0cf2491aa7a8af4a82ba96",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.safety_hazard.compiler.safety_hazard_compiler_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.field_failure_corrective_action.rules.field_failure_corrective_action_binding_integrity",
           "id": "imports.2d3e675ac046c8d8804f0d3635e6d0c2",
           "label": "imports",
@@ -11288,6 +11776,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.evaluator.safety_hazard_evaluator_adapter",
+          "id": "imports.2f8f64d52021a5ec7aa31760ff95cb4d",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
         },
         {
           "evidence_mode": "structural_only",
@@ -11516,6 +12013,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.tools.safety_hazard_runner",
+          "id": "imports.3c2f1c31d27d9ed088f6ef3b0d01d5cd",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.safety_hazard.evaluator.safety_hazard"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.tools.ax_se_project_context_pilot_runner",
           "id": "imports.3c4e60e9e6dcb4206a1099cdf9b177d9",
           "label": "imports",
@@ -11540,6 +12046,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.tools.safety_hazard_runner",
+          "id": "imports.3d6199705c3388bd915b8bbb58283ef9",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.safety_hazard.fixtures.safety_hazard_public_synthetic"
         },
         {
           "evidence_mode": "structural_only",
@@ -11612,6 +12127,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.observation.artifact_observations_from_confirmed"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.topology.safety_hazard_module_manifest",
+          "id": "imports.41eac48e96e16c7bf279ae966918de3a",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.module_binding"
         },
         {
           "evidence_mode": "structural_only",
@@ -11894,6 +12418,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter",
+          "id": "imports.51aaaa7a89622b05fe68ea8dd0962bd0",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.manufacturing_readiness.compiler.manufacturing_readiness_compiler_adapter",
           "id": "imports.51ec67e6e4e183ad5a2cac96f39a6d78",
           "label": "imports",
@@ -12146,6 +12679,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.compiler.safety_hazard_compiler_adapter",
+          "id": "imports.5ebd23e0e7ca47a1ee743ecf5b8f545e",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.rules_card",
           "id": "imports.5ee67f45ccd3b204466f28b8ba032502",
           "label": "imports",
@@ -12188,6 +12730,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.database_engineering.evaluator.database_project_evidence_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.evaluator.safety_hazard",
+          "id": "imports.628742ee8a711fdcc5b15346455cb415",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.safety_hazard.vocabulary.safety_hazard_vocabulary"
         },
         {
           "evidence_mode": "structural_only",
@@ -12488,6 +13039,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.compiler.safety_hazard_compiler_adapter",
+          "id": "imports.7772beee8ae61f35402fde1329d93fe6",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.safety_hazard.rules.safety_hazard_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.tools.se_core_eval_qa_capture",
           "id": "imports.77b4840bd5023c5b302ebac3dd3b3501",
           "label": "imports",
@@ -12659,12 +13219,30 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter",
+          "id": "imports.809b634f2382ce6214132ad7d7039569",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.material_procurement_readiness.evaluator.material_procurement_project_evidence_adapter",
           "id": "imports.8134b8b43c243e596c092266b439d8eb",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
           "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter",
+          "id": "imports.824fa8bed117f07801a6602674688a5b",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.safety_hazard.rules.safety_hazard_rules"
         },
         {
           "evidence_mode": "structural_only",
@@ -12692,6 +13270,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.quality_readiness.compiler.quality_readiness_compiler_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter",
+          "id": "imports.82eda762f59fcb69125adfe4d3d3f210",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
         },
         {
           "evidence_mode": "structural_only",
@@ -13019,6 +13606,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.fixtures.safety_hazard_public_synthetic",
+          "id": "imports.95415c11a339b65c84bfae0e5cdc98e3",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.safety_hazard.rules.safety_hazard_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.guidance.guide_cards",
           "id": "imports.959302ad63fec0bfccc336650866ea6c",
           "label": "imports",
@@ -13097,6 +13693,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.engine_contexts"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.fixtures.safety_hazard_public_synthetic",
+          "id": "imports.98b3140e2bffba163c952091899204f9",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.contract_config"
         },
         {
           "evidence_mode": "structural_only",
@@ -13235,6 +13840,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.evaluator.safety_hazard",
+          "id": "imports.a3e6516a21f70b8d982b8b57a185ecbc",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.safety_hazard.rules.safety_hazard_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "module.0da2c7a31bf0b288b23a4554dc474781",
           "id": "imports.a4358945b0fcd1344be94a7dc1100a30",
           "label": "imports",
@@ -13304,6 +13918,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.engine_context"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.compiler.safety_hazard_compiler_adapter",
+          "id": "imports.a8ab547dae1b3cae0356e070fc94a764",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.profile_operation_canon"
         },
         {
           "evidence_mode": "structural_only",
@@ -13475,6 +14098,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.render"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.evaluator.safety_hazard_evaluator_adapter",
+          "id": "imports.b22633accdadd37ea2cc7375f42d8f67",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter"
         },
         {
           "evidence_mode": "structural_only",
@@ -13676,6 +14308,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter",
+          "id": "imports.bdbdca69a5ddc9c84582639bebab5c43",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.authority"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.tools.engine_next_steps_runner",
           "id": "imports.bded5b86d9c7952f4833357bb3eb2e93",
           "label": "imports",
@@ -13808,6 +14449,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.evaluator.safety_hazard_evaluator_adapter",
+          "id": "imports.c345205e1fdabf5462f77f1861899329",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.safety_hazard.evaluator.safety_hazard"
         },
         {
           "evidence_mode": "structural_only",
@@ -15251,6 +15901,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.fixtures.safety_hazard_public_synthetic",
+          "id": "imports.d6b2469136717b5286159c86dae7f054",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.safety_hazard.topology.safety_hazard_module_manifest"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.quality_readiness.compiler.quality_readiness_compiler_adapter",
           "id": "imports.d7605f612ef887cca76af5b45e5b285e",
           "label": "imports",
@@ -15401,6 +16060,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.evaluation.se_core_eval_ledger"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter",
+          "id": "imports.da9ac1aa47faa09902b24b55fa1aea9e",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.safety_hazard.compiler.safety_hazard_compiler_adapter"
         },
         {
           "evidence_mode": "structural_only",
@@ -15572,6 +16240,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.compiler.safety_hazard_compiler_adapter",
+          "id": "imports.e80139d65be9dae7dd1f7e1ef6c3e421",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.safety_hazard.vocabulary.safety_hazard_vocabulary"
         },
         {
           "evidence_mode": "structural_only",
@@ -15923,6 +16600,123 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.compiler.safety_hazard_compiler_adapter",
+          "id": "imports.engines.safety_hazard.compiler.safety_hazard_compiler_adapter.core.validators.authority",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.authority"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.compiler.safety_hazard_compiler_adapter",
+          "id": "imports.engines.safety_hazard.compiler.safety_hazard_compiler_adapter.core.validators.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.compiler.safety_hazard_compiler_adapter",
+          "id": "imports.engines.safety_hazard.compiler.safety_hazard_compiler_adapter.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.evaluator.safety_hazard",
+          "id": "imports.engines.safety_hazard.evaluator.safety_hazard.core.validators.authority",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.authority"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.evaluator.safety_hazard",
+          "id": "imports.engines.safety_hazard.evaluator.safety_hazard.core.validators.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.evaluator.safety_hazard",
+          "id": "imports.engines.safety_hazard.evaluator.safety_hazard.core.validators.ceilings",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.ceilings"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.evaluator.safety_hazard",
+          "id": "imports.engines.safety_hazard.evaluator.safety_hazard.core.validators.contract_config",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.contract_config"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.evaluator.safety_hazard",
+          "id": "imports.engines.safety_hazard.evaluator.safety_hazard.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.evaluator.safety_hazard",
+          "id": "imports.engines.safety_hazard.evaluator.safety_hazard.core.validators.fingerprint",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.evaluator.safety_hazard",
+          "id": "imports.engines.safety_hazard.evaluator.safety_hazard.core.validators.module_binding",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.module_binding"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.rules.safety_hazard_rules",
+          "id": "imports.engines.safety_hazard.rules.safety_hazard_rules.core.validators.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.rules.safety_hazard_rules",
+          "id": "imports.engines.safety_hazard.rules.safety_hazard_rules.core.validators.fingerprint",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.safety_hazard.topology.safety_hazard_module_manifest",
+          "id": "imports.engines.safety_hazard.topology.safety_hazard_module_manifest.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
         },
         {
           "evidence_mode": "structural_only",
@@ -18248,6 +19042,106 @@
         {
           "diagnostic_state": "validator_backed",
           "group": "engines",
+          "id": "engines.safety_hazard.compiler.safety_hazard_compiler_adapter",
+          "kind": "module",
+          "label": "engines/safety_hazard/compiler/safety_hazard_compiler_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.safety_hazard.evaluator.safety_hazard",
+          "kind": "module",
+          "label": "engines/safety_hazard/evaluator/safety_hazard",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.safety_hazard.evaluator.safety_hazard_evaluator_adapter",
+          "kind": "module",
+          "label": "engines/safety_hazard/evaluator/safety_hazard_evaluator_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter",
+          "kind": "module",
+          "label": "engines/safety_hazard/evaluator/safety_hazard_project_facts_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.safety_hazard.fixtures.safety_hazard_public_synthetic",
+          "kind": "module",
+          "label": "engines/safety_hazard/fixtures/safety_hazard_public_synthetic",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.safety_hazard.rules.safety_hazard_rules",
+          "kind": "module",
+          "label": "engines/safety_hazard/rules/safety_hazard_rules",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.safety_hazard.schemas.safety_hazard_schema_validator",
+          "kind": "module",
+          "label": "engines/safety_hazard/schemas/safety_hazard_schema_validator",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.safety_hazard.tools.safety_hazard_runner",
+          "kind": "module",
+          "label": "engines/safety_hazard/tools/safety_hazard_runner",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.safety_hazard.topology.safety_hazard_module_manifest",
+          "kind": "module",
+          "label": "engines/safety_hazard/topology/safety_hazard_module_manifest",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.safety_hazard.vocabulary.safety_hazard_vocabulary",
+          "kind": "module",
+          "label": "engines/safety_hazard/vocabulary/safety_hazard_vocabulary",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
           "id": "engines.systems_engineering.compiler.se_compiler_adapter",
           "kind": "module",
           "label": "engines/systems_engineering/compiler/se_compiler_adapter",
@@ -19302,7 +20196,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "b31fd89eea1869461326349adde853980986bf1892aff953cd7e564ddba93345",
+        "digest": "07ca5e4dba3b2b8515d8e6e2b6213b4ad499e286642d9661f3a1affb885ab85e",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -20296,13 +21190,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "1322ab39cbb3e31de0bfeb5bc5bfc7feb67a95cb58cbf2c493c223c82c7df8a6",
+  "source_set_digest": "d2bcba8d60073f5a8e0832b2ebe8d0e99c85915c8df16ed9548d2dc66e54b3c3",
   "summary": {
-    "edge_count": 774,
-    "node_count": 257,
+    "edge_count": 810,
+    "node_count": 267,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "232b7f22456d40b0d18587dccd8782fc46693f57290376e159144101c110814b"
+  "topology_digest": "edf7b4ee6a7b2b25ab64ad35b108b48319f8606b5e2bd1d1b1730770530baf67"
 }

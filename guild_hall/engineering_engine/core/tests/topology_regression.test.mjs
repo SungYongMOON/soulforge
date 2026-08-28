@@ -23,6 +23,7 @@ test('Topology: covers canonical modules and excludes legacy wrappers', () => {
   assert.equal(topo.derivation.areas_covered.includes('engines/configuration_change_impact'), true, 'Must cover E04 domain');
   assert.equal(topo.derivation.areas_covered.includes('engines/manufacturing_readiness'), true, 'Must cover E05 domain');
   assert.equal(topo.derivation.areas_covered.includes('engines/field_failure_corrective_action'), true, 'Must cover E09 domain');
+  assert.equal(topo.derivation.areas_covered.includes('engines/safety_hazard'), true, 'Must cover E07 domain');
   assert.equal(topo.derivation.areas_covered.includes('engines/pcb_compliance'), true, 'Must cover E10 domain');
 
   // Verify that modules list includes canonical paths
@@ -36,6 +37,7 @@ test('Topology: covers canonical modules and excludes legacy wrappers', () => {
   assert.equal(topo.modules.some(m => m.module.startsWith('engines/configuration_change_impact/rules/')), true, 'Contains E04 rules modules');
   assert.equal(topo.modules.some(m => m.module.startsWith('engines/manufacturing_readiness/rules/')), true, 'Contains E05 rules modules');
   assert.equal(topo.modules.some(m => m.module.startsWith('engines/field_failure_corrective_action/rules/')), true, 'Contains E09 rules modules');
+  assert.equal(topo.modules.some(m => m.module.startsWith('engines/safety_hazard/rules/')), true, 'Contains E07 rules modules');
   assert.equal(topo.modules.some(m => m.module.startsWith('engines/pcb_compliance/rules/')), true, 'Contains E10 rules modules');
 
   // Verify that legacy wrapper directories are NOT counted as canonical modules

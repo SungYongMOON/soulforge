@@ -3,7 +3,7 @@
   "engine_root": "guild_hall/engineering_engine",
   "contract_revision": "phase_1_0_contract.v0",
   "derivation": {
-    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness, engines/database_engineering, engines/material_procurement_readiness, engines/reliability_maintainability, engines/calibration_measurement_validity, engines/configuration_change_impact, engines/manufacturing_readiness, engines/field_failure_corrective_action, engines/pcb_compliance",
+    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness, engines/database_engineering, engines/material_procurement_readiness, engines/reliability_maintainability, engines/calibration_measurement_validity, engines/configuration_change_impact, engines/manufacturing_readiness, engines/field_failure_corrective_action, engines/safety_hazard, engines/pcb_compliance",
     "areas_covered": [
       "core",
       "engines/systems_engineering",
@@ -15,6 +15,7 @@
       "engines/configuration_change_impact",
       "engines/manufacturing_readiness",
       "engines/field_failure_corrective_action",
+      "engines/safety_hazard",
       "engines/pcb_compliance"
     ],
     "areas_deliberately_excluded": [
@@ -1965,6 +1966,125 @@
       "line_count": 152
     },
     {
+      "module": "engines/safety_hazard/compiler/safety_hazard_compiler_adapter",
+      "area": "engines",
+      "exports": [
+        "SAFETY_HAZARD_COMPILER_ADAPTER_SCHEMA_VERSION",
+        "SAFETY_HAZARD_COMPILER_ERROR_CODES",
+        "compileSafetyHazardRules",
+        "safetyHazardCompilerAdapter"
+      ],
+      "export_count": 4,
+      "line_count": 321
+    },
+    {
+      "module": "engines/safety_hazard/evaluator/safety_hazard",
+      "area": "engines",
+      "exports": [
+        "SAFETY_HAZARD_ERROR_CODES",
+        "assessSafetyHazard"
+      ],
+      "export_count": 2,
+      "line_count": 667
+    },
+    {
+      "module": "engines/safety_hazard/evaluator/safety_hazard_evaluator_adapter",
+      "area": "engines",
+      "exports": [
+        "SAFETY_HAZARD_EVALUATOR_ADAPTER_SCHEMA_VERSION",
+        "safetyHazardAdapter"
+      ],
+      "export_count": 2,
+      "line_count": 39
+    },
+    {
+      "module": "engines/safety_hazard/evaluator/safety_hazard_project_facts_adapter",
+      "area": "engines",
+      "exports": [
+        "SAFETY_HAZARD_CORE_FACTS_ERROR_CODES",
+        "SAFETY_HAZARD_CORE_FACT_KIND",
+        "SAFETY_HAZARD_CORE_TYPED_FACTS_SCHEMA",
+        "admitSafetyHazardCoreEvaluation",
+        "calculateSafetyHazardAdmissionDigest",
+        "calculateSafetyHazardCoreFactsDigest",
+        "calculateSafetyHazardRequestDigest",
+        "createSafetyHazardTypedProjectFacts",
+        "snapshotSafetyHazardPlainData"
+      ],
+      "export_count": 9,
+      "line_count": 443
+    },
+    {
+      "module": "engines/safety_hazard/fixtures/safety_hazard_public_synthetic",
+      "area": "engines",
+      "exports": [
+        "SAFETY_HAZARD_PUBLIC_SYNTHETIC_FIXTURE",
+        "buildSafetyHazardPublicSyntheticRequest"
+      ],
+      "export_count": 2,
+      "line_count": 283
+    },
+    {
+      "module": "engines/safety_hazard/rules/safety_hazard_rules",
+      "area": "engines",
+      "exports": [
+        "SAFETY_HAZARD_FROZEN_RULESET_CONTENT_ID",
+        "SAFETY_HAZARD_RULES",
+        "SAFETY_HAZARD_RULESET_REF",
+        "SAFETY_HAZARD_RULESET_REVISION",
+        "SAFETY_HAZARD_RULESET_SCHEMA",
+        "SAFETY_HAZARD_SOURCE_PACKET_REF"
+      ],
+      "export_count": 6,
+      "line_count": 135
+    },
+    {
+      "module": "engines/safety_hazard/schemas/safety_hazard_schema_validator",
+      "area": "engines",
+      "exports": [
+        "validateJsonSchemaSubset"
+      ],
+      "export_count": 1,
+      "line_count": 72
+    },
+    {
+      "module": "engines/safety_hazard/tools/safety_hazard_runner",
+      "area": "engines",
+      "exports": [],
+      "export_count": 0,
+      "line_count": 8
+    },
+    {
+      "module": "engines/safety_hazard/topology/safety_hazard_module_manifest",
+      "area": "engines",
+      "exports": [
+        "createSafetyHazardModuleManifest"
+      ],
+      "export_count": 1,
+      "line_count": 134
+    },
+    {
+      "module": "engines/safety_hazard/vocabulary/safety_hazard_vocabulary",
+      "area": "engines",
+      "exports": [
+        "SAFETY_HAZARD_EVIDENCE_FIELDS",
+        "SAFETY_HAZARD_LIFECYCLE_STATUSES",
+        "SAFETY_HAZARD_PRESENCE_STATES",
+        "SAFETY_HAZARD_PROBABILITY_BANDS",
+        "SAFETY_HAZARD_RESULT_STATES",
+        "SAFETY_HAZARD_RISK_BANDS",
+        "SAFETY_HAZARD_SEVERITY_BANDS",
+        "isSafetyHazardEvidenceField",
+        "isSafetyHazardLifecycleStatus",
+        "isSafetyHazardPresenceState",
+        "isSafetyHazardProbabilityBand",
+        "isSafetyHazardRiskBand",
+        "isSafetyHazardSeverityBand"
+      ],
+      "export_count": 13,
+      "line_count": 87
+    },
+    {
       "module": "engines/systems_engineering/compiler/se_compiler_adapter",
       "area": "engines",
       "exports": [
@@ -3350,7 +3470,7 @@
       "line_count": 1885
     }
   ],
-  "module_count": 218,
+  "module_count": 228,
   "module_edges": [
     {
       "from": "core/evaluation_runtime/claim_ceilings",
@@ -6629,6 +6749,258 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     },
     {
+      "from": "engines/safety_hazard/compiler/safety_hazard_compiler_adapter",
+      "to": "core/interfaces/profile_operation_canon",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/compiler/safety_hazard_compiler_adapter",
+      "to": "core/validators/authority",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/compiler/safety_hazard_compiler_adapter",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/compiler/safety_hazard_compiler_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/compiler/safety_hazard_compiler_adapter",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/compiler/safety_hazard_compiler_adapter",
+      "to": "engines/safety_hazard/rules/safety_hazard_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/compiler/safety_hazard_compiler_adapter",
+      "to": "engines/safety_hazard/vocabulary/safety_hazard_vocabulary",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/evaluator/safety_hazard_evaluator_adapter",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/evaluator/safety_hazard_evaluator_adapter",
+      "to": "engines/safety_hazard/compiler/safety_hazard_compiler_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/evaluator/safety_hazard_evaluator_adapter",
+      "to": "engines/safety_hazard/evaluator/safety_hazard",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/evaluator/safety_hazard_evaluator_adapter",
+      "to": "engines/safety_hazard/evaluator/safety_hazard_project_facts_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/evaluator/safety_hazard_project_facts_adapter",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/evaluator/safety_hazard_project_facts_adapter",
+      "to": "core/validators/authority",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/evaluator/safety_hazard_project_facts_adapter",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/evaluator/safety_hazard_project_facts_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/evaluator/safety_hazard_project_facts_adapter",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/evaluator/safety_hazard_project_facts_adapter",
+      "to": "engines/safety_hazard/compiler/safety_hazard_compiler_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/evaluator/safety_hazard_project_facts_adapter",
+      "to": "engines/safety_hazard/rules/safety_hazard_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/evaluator/safety_hazard",
+      "to": "core/validators/authority",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/evaluator/safety_hazard",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/evaluator/safety_hazard",
+      "to": "core/validators/ceilings",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/evaluator/safety_hazard",
+      "to": "core/validators/contract_config",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/evaluator/safety_hazard",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/evaluator/safety_hazard",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/evaluator/safety_hazard",
+      "to": "core/validators/module_binding",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/evaluator/safety_hazard",
+      "to": "engines/safety_hazard/rules/safety_hazard_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/evaluator/safety_hazard",
+      "to": "engines/safety_hazard/vocabulary/safety_hazard_vocabulary",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/fixtures/safety_hazard_public_synthetic",
+      "to": "core/validators/contract_config",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/fixtures/safety_hazard_public_synthetic",
+      "to": "engines/safety_hazard/rules/safety_hazard_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/fixtures/safety_hazard_public_synthetic",
+      "to": "engines/safety_hazard/topology/safety_hazard_module_manifest",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/rules/safety_hazard_rules",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/rules/safety_hazard_rules",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/tools/safety_hazard_runner",
+      "to": "engines/safety_hazard/evaluator/safety_hazard",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/tools/safety_hazard_runner",
+      "to": "engines/safety_hazard/fixtures/safety_hazard_public_synthetic",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/topology/safety_hazard_module_manifest",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/safety_hazard/topology/safety_hazard_module_manifest",
+      "to": "core/validators/module_binding",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
       "from": "engines/systems_engineering/compiler/se_compiler_adapter",
       "to": "core/validators/errors",
       "relation": "imports",
@@ -8421,7 +8793,7 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 724,
+  "module_edge_count": 760,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -8772,5 +9144,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "297b194af843754ec90b531990643353e899ebd32cd046098570a518dad06de0"
+  "topology_digest": "496c2e77ea5710a4ef2fa9382ee54579595774aa6be8ea0729864d581dd375a2"
 }

@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-28 - Safety Hazard evidence-readiness Domain Engine main integration
+
+- Integrated the accepted `safety_hazard` package behind the unchanged Engineering Engine Core without granting residual-risk acceptance, hazard closure, human-authority validation, compliance, project applicability, production, canon, release, or writer authority.
+- Registered its evaluator and root `validate:safety-hazard` gate, including 27 package tests for exact Core Typed Facts/Project Binding, Profile/trace/digest identity, closed schemas, risk and lifecycle evidence states, hostile admission, replay, and zero-write behavior.
+- Kept MIL-STD-882E derivation bounded to evidence readiness; obsolete/context sources remain non-executable and Profile-added evaluation remains fail-closed pending separate approval.
+
 ## 2026-08-28 - Field Failure Corrective Action evidence-readiness Domain Engine main integration
 
 - Integrated the accepted `field_failure_corrective_action` package behind the unchanged Engineering Engine Core without granting Quality disposition, technical-change approval, waiver/repair/release, regulatory reporting, final closure, project applicability, compliance, production, canon, or writer authority.

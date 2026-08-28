@@ -80,15 +80,15 @@ function independentScanEdges(canonicalRoots) {
 }
 
 test('Topology Edge Oracle: independently resolves complete static import/re-export graph', () => {
-  const roots = ['core', 'engines/systems_engineering', 'engines/quality_readiness', 'engines/database_engineering', 'engines/material_procurement_readiness', 'engines/reliability_maintainability', 'engines/calibration_measurement_validity', 'engines/configuration_change_impact', 'engines/manufacturing_readiness', 'engines/field_failure_corrective_action', 'engines/pcb_compliance'];
+  const roots = ['core', 'engines/systems_engineering', 'engines/quality_readiness', 'engines/database_engineering', 'engines/material_procurement_readiness', 'engines/reliability_maintainability', 'engines/calibration_measurement_validity', 'engines/configuration_change_impact', 'engines/manufacturing_readiness', 'engines/field_failure_corrective_action', 'engines/safety_hazard', 'engines/pcb_compliance'];
   const oracleResult = independentScanEdges(roots);
 
   const emittedTopology = buildTopology();
 
   assert.equal(emittedTopology.module_count, oracleResult.moduleCount, 'Module count must match independent scan');
-  assert.equal(emittedTopology.module_count, 218, 'Canonical module count must equal 218');
+  assert.equal(emittedTopology.module_count, 228, 'Canonical module count must equal 228');
   assert.equal(emittedTopology.module_edge_count, oracleResult.edges.length, 'Edge count must match independent scan');
-  assert.equal(emittedTopology.module_edge_count, 724, 'Canonical edge count must equal 724');
+  assert.equal(emittedTopology.module_edge_count, 760, 'Canonical edge count must equal 760');
 });
 
 test('Topology Edge Oracle: representative import syntax is correctly captured', () => {
@@ -163,6 +163,11 @@ test('Topology Edge Oracle: representative import syntax is correctly captured',
     edgeKeys.has('engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_evaluator_adapter->core/interfaces/domain_engine_adapter'),
     true,
     'Field Failure Corrective Action evaluator must use the canonical Core Domain Adapter'
+  );
+  assert.equal(
+    edgeKeys.has('engines/safety_hazard/evaluator/safety_hazard_evaluator_adapter->core/interfaces/domain_engine_adapter'),
+    true,
+    'Safety Hazard evaluator must use the canonical Core Domain Adapter'
   );
   assert.equal(
     edgeKeys.has('engines/pcb_compliance/evaluator/pcb_compliance_evaluator_adapter->core/interfaces/domain_engine_adapter'),

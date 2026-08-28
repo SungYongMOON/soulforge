@@ -33,6 +33,7 @@ const CANONICAL_ROOTS = [
   'engines/configuration_change_impact',
   'engines/manufacturing_readiness',
   'engines/field_failure_corrective_action',
+  'engines/safety_hazard',
   'engines/pcb_compliance',
 ];
 

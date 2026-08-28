@@ -46,6 +46,7 @@ test("루트 게이트: 앱 테스트 스텝이 validate·done-check 양 모드�
     ['"configuration-change-impact"', "npm run validate:configuration-change-impact"],
     ['"manufacturing-readiness"', "npm run validate:manufacturing-readiness"],
     ['"field-failure-corrective-action"', "npm run validate:field-failure-corrective-action"],
+    ['"safety-hazard"', "npm run validate:safety-hazard"],
     ['"reliability-maintainability"', "npm run validate:reliability-maintainability"],
     ['"pcb-compliance"', "npm run validate:pcb-compliance"],
     ['"calibration-measurement-validity"', "npm run validate:calibration-measurement-validity"],

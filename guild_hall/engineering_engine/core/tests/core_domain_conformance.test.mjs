@@ -26,6 +26,7 @@ import "../../engines/calibration_measurement_validity/evaluator/calibration_mea
 import "../../engines/configuration_change_impact/evaluator/configuration_change_impact_evaluator_adapter.mjs";
 import "../../engines/manufacturing_readiness/evaluator/manufacturing_readiness_evaluator_adapter.mjs";
 import "../../engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_evaluator_adapter.mjs";
+import "../../engines/safety_hazard/evaluator/safety_hazard_evaluator_adapter.mjs";
 import "../../engines/pcb_compliance/evaluator/pcb_compliance_evaluator_adapter.mjs";
 
 test("Core Interface: domain engine adapters register and load successfully", () => {
@@ -64,6 +65,10 @@ test("Core Interface: domain engine adapters register and load successfully", ()
   const ffcaAdapter = loadDomainEngineAdapter("field_failure_corrective_action");
   assert.equal(ffcaAdapter.domain_engine_id, "field_failure_corrective_action");
   assert.ok(validateDomainEngineAdapter(ffcaAdapter));
+
+  const shAdapter = loadDomainEngineAdapter("safety_hazard");
+  assert.equal(shAdapter.domain_engine_id, "safety_hazard");
+  assert.ok(validateDomainEngineAdapter(shAdapter));
 
   const pcbAdapter = loadDomainEngineAdapter("pcb_compliance");
   assert.equal(pcbAdapter.domain_engine_id, "pcb_compliance");

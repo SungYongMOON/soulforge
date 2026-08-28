@@ -21,6 +21,7 @@ The Engineering Engine is structured into an orchestration Core, decoupled Domai
    - `engines/configuration_change_impact/`: Configuration Change Impact (E04) evidence-readiness package with public NASA source bindings, closed Project Binding/Typed Facts/rules/results/receipts, deterministic propagation-graph evaluation, public synthetic fixtures, hostile/replay/zero-write tests, and a bounded manual.
    - `engines/manufacturing_readiness/`: Manufacturing Readiness (E05) evidence-readiness package with public NASA/DoD source inventory boundaries, closed Project Binding/Typed Facts/rules/results/receipts, exact Core time and Profile source admission, public synthetic fixtures, hostile/replay/zero-write tests, and a 12-chapter manual.
    - `engines/field_failure_corrective_action/`: Field Failure Corrective Action (E09) evidence-readiness package with public eCFR/FDA source bindings, closed Project Binding/Typed Facts/rules/results/receipts, deterministic containment/RCA/corrective/effectiveness/recurrence readiness evaluation, public synthetic fixtures, hostile/replay/zero-write tests, and a bounded manual.
+   - `engines/safety_hazard/`: Safety Hazard (E07) evidence-readiness package with public MIL-STD-882E source binding, obsolete/context source guards, closed Project Binding/Typed Facts/rules/results/receipts, deterministic hazard evidence evaluation, public synthetic fixtures, hostile/replay/zero-write tests, and a 12-chapter manual.
    - `engines/pcb_compliance/`: PCB Compliance (E10) evidence-readiness package with bounded public NASA derivation, IPC revision metadata-only HOLD boundaries, closed Typed Facts/results/receipts, compiler/evaluator adapters, public synthetic fixtures, tests, and a 12-chapter manual.
 
 3. **`.registry/engineering_profiles/`**: Public-safe schema and profile catalog.
@@ -29,7 +30,7 @@ The Engineering Engine is structured into an orchestration Core, decoupled Domai
 
 4. **Root Shared Tooling vs. Domain-Owned Implementation**:
    - **Root Shared Tooling (`tools/`)**: Contains whole-engine generator and integration tooling (`emit_manifest.mjs`, `emit_release_manifest.mjs`, `emit_topology.mjs`, `phase_1_integration_check.mjs`, `validate_no_duplicate_authority.mjs`). Domain-specific CLI scripts under `tools/` act as thin forwarding stubs to their respective canonical domain package runners.
-   - **Domain-Owned Implementation (`engines/<domain>/`)**: Each domain package (`systems_engineering/`, `quality_readiness/`, `database_engineering/`, `material_procurement_readiness/`, `reliability_maintainability/`, `calibration_measurement_validity/`, `configuration_change_impact/`, `manufacturing_readiness/`, `field_failure_corrective_action/`, `pcb_compliance/`) owns its domain rules, evidence contracts, evaluators, guidance, test suites, fixtures, and domain-specific tool runners.
+   - **Domain-Owned Implementation (`engines/<domain>/`)**: Each domain package (`systems_engineering/`, `quality_readiness/`, `database_engineering/`, `material_procurement_readiness/`, `reliability_maintainability/`, `calibration_measurement_validity/`, `configuration_change_impact/`, `manufacturing_readiness/`, `field_failure_corrective_action/`, `safety_hazard/`, `pcb_compliance/`) owns its domain rules, evidence contracts, evaluators, guidance, test suites, fixtures, and domain-specific tool runners.
 
 5. **Compatibility Re-exports**:
    - `kernel/`, `assembly/`, `stage_rules/`, `subjects/`, `observation/`, `guidance/`, `evaluation/`, `mcp/`, `fixtures/`, and `tests/` maintain backward-compatible re-export and forwarding stubs to preserve existing imports, CLI tools, and deterministic verification harnesses.
@@ -1029,7 +1030,7 @@ run record; this v4 result remains a fail-closed diagnostic HOLD.
 
 ## 목적
 
-- `engineering_engine/` 은 Soulforge 의 cross-project 증거기반 Engineering Engine Core와 전문 Domain Engine 구현을 소유한다. 현재 통합된 Domain Engine은 체계공학·품질 준비도·데이터베이스 공학·자재조달 준비도·신뢰성/정비성·교정/측정 유효성·형상변경 영향·제조 준비도·현장고장 시정조치·PCB 증거준비도이며, Interface 등 후속 분야는 같은 Core Interface를 쓰는 독립 package target이다.
+- `engineering_engine/` 은 Soulforge 의 cross-project 증거기반 Engineering Engine Core와 전문 Domain Engine 구현을 소유한다. 현재 통합된 Domain Engine은 체계공학·품질 준비도·데이터베이스 공학·자재조달 준비도·신뢰성/정비성·교정/측정 유효성·형상변경 영향·제조 준비도·현장고장 시정조치·안전위험·PCB 증거준비도이며, Interface 등 후속 분야는 같은 Core Interface를 쓰는 독립 package target이다.
 - 적용 가능한 source authority 와 수락된 project context 로 `Expected State` 를 만들고, exact revision·authority·time·evidence lineage 가 붙은 `Observed State` 와 비교해 Snapshot·Finding·Missing/Unknown·Context Request 후보를 만든다.
 - 이 root child 는 **결정론 kernel 과 계약** 을 소유한다. 프로젝트 원문, 계약서, source PDF, project RAG/Wiki 본문, snapshot payload, secret 은 두지 않는다.
 
