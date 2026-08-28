@@ -1,7 +1,9 @@
 # Appendix A — E01 Source/RAG/Derivation Strengthening Contract v0
 
-Status: contract only (implementation candidate input). This leaf changes no evaluator,
-rules, tests, runner, topology, or package.json.
+Status: local implementation candidate. The contract remains the authority boundary; the
+package-local source/RAG/Profile/Typed Facts/observation/guidance/read-MCP seams now implement
+its public-synthetic, zero-write portion. No root package, Core, global topology, release,
+Watchtower, or production route changed.
 Owner authorization: explicit owner-authorized strengthening leaf, 2026-08-25 KST session.
 Inputs allowed: public tracked repo files and official-public web sources only.
 Excluded: `.env`, auth, sessions, `_workmeta`, `_workspaces`, `private-state`, LIG/customer/
@@ -10,8 +12,9 @@ project material, paid/controlled bodies, raw transcripts, verifier/golden outpu
 ## 0. Purpose and claim ceiling
 
 Raise E01 from a 3-source proof to the same source-bound development depth as the SE engine
-(`manual/03_how_items_were_derived.md` S0-S5 pipeline), without widening scope into
-implementation. This document is a contract for a later derivation leaf.
+(`manual/03_how_items_were_derived.md` S0-S5 pipeline), without widening into source adoption,
+product quality acceptance, or external execution. The local implementation binds the boundary;
+it does not replace the later source-reader/critic/Owner gates.
 
 Claim ceiling: `observed` / `source_supported` at most throughout. Nothing here adopts
 sources, approves applicability, promotes canon, or activates any rule.
@@ -61,8 +64,10 @@ leaf records, before any rule candidate can cite it:
    `paid_or_controlled`, `internal`, `unknown`;
 4. whether any member overlaps the proof subset (overlap must be reconciled, not merged).
 
-The candidate inventory lives in the Leaf B1 contract records cited in Section 11, not in this
-strengthening contract. This strengthening contract issues no inventory rows.
+The candidate inventory remains in the Leaf B1 contract records cited in Section 11. The local
+`source/quality_readiness_source_derivation.mjs` projection now emits all 56 routing records
+deterministically, including authority class, access, revision/status state, applicability
+ceiling, claim ceiling, and direct-source/HOLD state. It does not add a body-level claim.
 
 ## 4. Exact revision/access/status policy
 
@@ -169,31 +174,24 @@ token or justified null, required typed authority families, applicability compon
 their UNKNOWN/HOLD conditions, claim ceiling `source_supported` at most. A candidate missing
 any element stays data, never executable.
 
-## 10. Next implementation handoff (Leaf B input contract)
+## 10. Current local implementation and next source-reader handoff
 
-Leaf B (derivation execution leaf) may start only with all of:
+The local package now has the following bounded surfaces:
 
-1. this contract plus the accepted source packet and build mission as its binding inputs;
-2. an owner-approved target list of source families/specific sources to derive next (this
-   leaf deliberately does not pick them);
-3. continued observance of Sections 1-9 above, including the blocked-source register;
-4. outputs confined to bounded contracts/manual documents and private-surface work files
-   with compact receipts; still no evaluator/rules/tests/runner/topology/package.json change
-   unless a separate leaf authorizes implementation;
-5. exact file inventory below as its starting tree state.
+1. deterministic 56-row source-direct corpus record with the existing proof subset and explicit
+   `observed`/`HOLD` treatment for every unconfirmed row;
+2. advisory locator retrieval that refuses missing, mixed, stale, forged, malformed, or
+   unauthorized packets and cannot drive a verdict or rule;
+3. derived Profile evaluation only through a Core-assembled trace and a pinned Typed Facts
+   envelope; and
+4. public-synthetic observation, guidance, read-MCP, and runner surfaces with zero external
+   effects.
 
-Exact file inventory of the strengthening leaf (tracked):
-
-```text
-guild_hall/engineering_engine/manual/quality_readiness/appendix_a_source_rag_derivation_strengthening_v0.md  (new)
-guild_hall/engineering_engine/manual/quality_readiness/03_source_derivation.md                       (updated)
-guild_hall/engineering_engine/manual/quality_readiness/09_next_work_and_handoff.md                   (updated)
-guild_hall/engineering_engine/manual/quality_readiness/README.md                                     (updated)
-```
-
-No other files changed in the strengthening leaf. Raw source bodies, absolute private paths, private manifests'
-contents, and chunk payloads appear nowhere in these files; registry facts are cited as
-counts/refs only.
+The next *source-reader* leaf still needs an owner-approved target list, direct official status
+and body re-resolution, independent critic review, and exact Owner rule acceptance. It must use
+the `HOLD` rows as stop conditions rather than treating a catalog, RAG locator, or private index
+as authority. Shared registration remains a separate owner-gated request at
+`../contracts/quality_readiness_integration_request_v0.md`.
 
 ## 11. Leaf B1 candidate queue
 

@@ -69,6 +69,17 @@ const BINDING_FIELDS = Object.freeze([
   'source_bindings',
   'accepted_rule_bindings',
 ]);
+const PROFILE_SOURCE_BINDING_FIELDS = Object.freeze([
+  'source_id',
+  'source_ref',
+  'metadata_revision_ref',
+  'body_revision_ref',
+  'direct_derivation_ref',
+  'access_class',
+  'direct_source_state',
+  'source_lane',
+  'claim_ceiling',
+]);
 const CUTOFF_FIELDS = Object.freeze(['accepted_context_generation', 'assessment_cutoff_ref']);
 const DOMAIN_INPUT_FIELDS = Object.freeze(['schema_version', 'rows']);
 const ROW_REQUIRED_FIELDS = Object.freeze([
@@ -154,6 +165,7 @@ const CODES = Object.freeze({
   UNACCEPTED_RULE: 'QUALITY_READINESS_UNACCEPTED_RULE',
   VOCABULARY_REFUSED: 'QUALITY_READINESS_VOCABULARY_REFUSED',
   AUTHORITY_REFUSED: 'QUALITY_READINESS_AUTHORITY_REFUSED',
+  PROFILE_SOURCE_REFUSED: 'QUALITY_READINESS_PROFILE_SOURCE_REFUSED',
 });
 
 function fail(code, message, detail = {}) {
@@ -388,6 +400,103 @@ function assertE01ManifestNestedShape(manifest) {
   }
 }
 
+function exactRefEqual(left, right) {
+  return Boolean(left && right)
+    && left.entity_id === right.entity_id
+    && left.revision_id === right.revision_id
+    && left.content_id === right.content_id
+    && left.content_hash_alg === right.content_hash_alg;
+}
+
+function assertProfileSourceRef(value, field) {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 256
+      || value.normalize('NFC') !== value || /[\u0000-\u001f\u007f]/u.test(value)
+      || FORBIDDEN_STRING_PATTERNS.some((pattern) => pattern.test(value))) {
+    fail(CODES.PROFILE_SOURCE_REFUSED, `${field} must be a bounded public-safe source ref`);
+  }
+  return value;
+}
+
+function normaliseEvaluationContract(options = {}) {
+  if (options === undefined || options === null) options = {};
+  if (typeof options !== 'object' || Array.isArray(options)) {
+    fail(CODES.BINDING_REFUSED, 'evaluation options must be a bounded internal contract');
+  }
+  const hasDerived = options.profile_rule_provenance !== undefined;
+  const evaluationInputLane = options.evaluation_input_lane ?? null;
+  const coreSuppliedCutoffsMatch = options.core_supplied_cutoffs_match ?? false;
+  if (evaluationInputLane !== null
+      && !['base_raw_request', 'base_legacy_wrapper', 'typed_facts'].includes(evaluationInputLane)) {
+    fail(CODES.BINDING_REFUSED, 'evaluation input lane is not recognised');
+  }
+  if (typeof coreSuppliedCutoffsMatch !== 'boolean') {
+    fail(CODES.BINDING_REFUSED, 'Core cutoff match flag must be boolean when present');
+  }
+  const rules = options.rules ?? QUALITY_READINESS_RULES;
+  const rulesetRef = options.ruleset_ref ?? QUALITY_READINESS_RULESET_REF;
+  const sourcePacketRef = options.source_packet_ref ?? QUALITY_READINESS_SOURCE_PACKET_REF;
+  if (!Array.isArray(rules) || rules.length === 0 || !rulesetRef || !sourcePacketRef) {
+    fail(CODES.BINDING_REFUSED, 'evaluation contract requires a non-empty exact ruleset and source packet');
+  }
+  const ruleById = new Map();
+  for (const rule of rules) {
+    if (!rule || typeof rule !== 'object' || typeof rule.rule_id !== 'string' || ruleById.has(rule.rule_id)) {
+      fail(CODES.BINDING_REFUSED, 'evaluation contract rules must have unique rule IDs');
+    }
+    ruleById.set(rule.rule_id, rule);
+  }
+  if (!hasDerived) {
+    if (!exactRefEqual(rulesetRef, QUALITY_READINESS_RULESET_REF)
+        || !exactRefEqual(sourcePacketRef, QUALITY_READINESS_SOURCE_PACKET_REF)
+        || rules.length !== QUALITY_READINESS_RULES.length
+        || rules.some((rule, index) => rule.rule_id !== QUALITY_READINESS_RULES[index].rule_id)) {
+      fail(CODES.BINDING_REFUSED, 'base evaluation contract must use the exact accepted E01 ruleset');
+    }
+    return Object.freeze({
+      derived: false,
+      rules,
+      rule_by_id: ruleById,
+      ruleset_ref: rulesetRef,
+      ruleset_revision: QUALITY_READINESS_RULESET_REVISION,
+      source_packet_ref: sourcePacketRef,
+      profile_rule_provenance: null,
+      profile_compilation_trace: null,
+      evaluation_input_lane: evaluationInputLane,
+      core_supplied_cutoffs_match: coreSuppliedCutoffsMatch,
+    });
+  }
+
+  if (!options.profile_rule_provenance || typeof options.profile_rule_provenance !== 'object'
+      || Array.isArray(options.profile_rule_provenance)
+      || !options.profile_compilation_trace || typeof options.profile_compilation_trace !== 'object') {
+    fail(CODES.BINDING_REFUSED, 'derived evaluation requires Profile provenance and a Core compilation trace');
+  }
+  if (!exactRefEqual(sourcePacketRef, QUALITY_READINESS_SOURCE_PACKET_REF)
+      || rulesetRef.entity_id !== 'quality-readiness-ruleset-derived-v0'
+      || typeof rulesetRef.revision_id !== 'string'
+      || !/^derived:[0-9a-f]{16}$/u.test(rulesetRef.revision_id)
+      || !SHA256_CONTENT_ID.test(rulesetRef.content_id)
+      || rulesetRef.content_hash_alg !== 'sha256') {
+    fail(CODES.BINDING_REFUSED, 'derived evaluation contract requires an exact E01-derived ruleset ref');
+  }
+  if (typeof options.typed_facts_sha256 !== 'string' || !/^[a-f0-9]{64}$/u.test(options.typed_facts_sha256)) {
+    fail(CODES.BINDING_REFUSED, 'derived evaluation contract requires the exact Typed Facts digest');
+  }
+  return Object.freeze({
+    derived: true,
+    rules,
+    rule_by_id: ruleById,
+    ruleset_ref: rulesetRef,
+    ruleset_revision: rulesetRef.revision_id,
+    source_packet_ref: sourcePacketRef,
+    profile_rule_provenance: options.profile_rule_provenance,
+    profile_compilation_trace: options.profile_compilation_trace,
+    typed_facts_sha256: options.typed_facts_sha256,
+    evaluation_input_lane: evaluationInputLane,
+    core_supplied_cutoffs_match: coreSuppliedCutoffsMatch,
+  });
+}
+
 function assertSourceBindings(sourceBindings) {
   if (!Array.isArray(sourceBindings) || sourceBindings.length !== SOURCE_IDS.length) {
     fail(CODES.BINDING_REFUSED, 'exactly the three accepted source bindings are required');
@@ -419,16 +528,105 @@ function assertSourceBindings(sourceBindings) {
   if (seen.size !== SOURCE_IDS.length || SOURCE_IDS.some((sourceId) => !seen.has(sourceId))) {
     fail(CODES.BINDING_REFUSED, 'source bindings do not name the accepted three source IDs exactly');
   }
+  return { exact_refs: exactRefs };
 }
 
-function acceptedRuleBindingMap(ruleBindings) {
+function assertProfileSourceBindings(sourceBindings, evaluationContract, baseSourceState, manifest) {
+  const requiredSourceRefs = [...new Set(Object.values(evaluationContract.profile_rule_provenance)
+    .flatMap((provenance) => provenance.source_refs))].sort(compareCodePoints);
+  if (!Array.isArray(sourceBindings) || sourceBindings.length !== requiredSourceRefs.length) {
+    fail(CODES.PROFILE_SOURCE_REFUSED, 'derived evaluation requires one pinned source binding per Profile source ref');
+  }
+  const seenSourceRefs = new Set();
+  const exactRefs = new Set(baseSourceState.exact_refs);
+  const lanes = new Set();
+  const claimBySourceRef = new Map();
+  let prior = null;
+  for (const sourceBinding of sourceBindings) {
+    assertExactKeys(sourceBinding, PROFILE_SOURCE_BINDING_FIELDS, [], 'profile_source_binding', CODES.PROFILE_SOURCE_REFUSED);
+    assertToken(sourceBinding.source_id, 'profile_source_binding.source_id', CODES.PROFILE_SOURCE_REFUSED);
+    const sourceRef = assertProfileSourceRef(sourceBinding.source_ref, 'profile_source_binding.source_ref');
+    if (prior !== null && compareCodePoints(prior, sourceRef) >= 0 || seenSourceRefs.has(sourceRef)) {
+      fail(CODES.PROFILE_SOURCE_REFUSED, 'Profile source bindings must be sorted uniquely by source_ref');
+    }
+    prior = sourceRef;
+    seenSourceRefs.add(sourceRef);
+    for (const field of ['metadata_revision_ref', 'body_revision_ref', 'direct_derivation_ref']) {
+      assertExactRef(sourceBinding[field], `profile_source_binding.${field}`, CODES.PROFILE_SOURCE_REFUSED);
+    }
+    if (sameExactRef(sourceBinding.metadata_revision_ref, sourceBinding.body_revision_ref)
+        || sameExactRef(sourceBinding.metadata_revision_ref, sourceBinding.direct_derivation_ref)
+        || sameExactRef(sourceBinding.body_revision_ref, sourceBinding.direct_derivation_ref)) {
+      fail(CODES.PROFILE_SOURCE_REFUSED, 'Profile source metadata, body, and direct-derivation refs must remain distinct');
+    }
+    const officialObserved = sourceBinding.access_class === 'official_public'
+      && sourceBinding.direct_source_state === 'direct_confirmed'
+      && sourceBinding.source_lane === 'official_public'
+      && sourceBinding.claim_ceiling === 'observed';
+    const synthetic = sourceBinding.access_class === 'public_synthetic'
+      && sourceBinding.direct_source_state === 'synthetic_direct_confirmed'
+      && sourceBinding.source_lane === 'public_synthetic'
+      && sourceBinding.claim_ceiling === 'observed';
+    if (!officialObserved && !synthetic) {
+      fail(CODES.PROFILE_SOURCE_REFUSED,
+        'Profile source-supported promotion is unavailable until a package-owned exact proof binding is separately accepted');
+    }
+    for (const field of ['metadata_revision_ref', 'body_revision_ref', 'direct_derivation_ref']) {
+      const key = refKey(sourceBinding[field]);
+      if (exactRefs.has(key)) {
+        fail(CODES.PROFILE_SOURCE_REFUSED, 'Profile source refs must remain globally distinct from accepted source bindings');
+      }
+      exactRefs.add(key);
+    }
+    lanes.add(sourceBinding.source_lane);
+    claimBySourceRef.set(sourceRef, sourceBinding.claim_ceiling);
+  }
+  if (seenSourceRefs.size !== requiredSourceRefs.length
+      || requiredSourceRefs.some((sourceRef) => !seenSourceRefs.has(sourceRef))) {
+    fail(CODES.PROFILE_SOURCE_REFUSED, 'Profile source bindings do not exactly cover the derived Profile provenance');
+  }
+  if (lanes.size !== 1) {
+    fail(CODES.PROFILE_SOURCE_REFUSED, 'Profile source bindings may not mix public-synthetic and official-public lanes');
+  }
+  const [sourceLane] = lanes;
+  if (sourceLane === 'public_synthetic'
+      && (manifest.supported_project_classifications.length !== 1
+        || manifest.supported_project_classifications[0] !== 'public_synthetic')) {
+    fail(CODES.PROFILE_SOURCE_REFUSED, 'public-synthetic Profile evaluation requires a public-synthetic-only manifest classification');
+  }
+  const bindings = Object.freeze(sourceBindings.map((binding) => ({
+    source_id: binding.source_id,
+    source_ref: binding.source_ref,
+    metadata_revision_ref: cloneRef(binding.metadata_revision_ref),
+    body_revision_ref: cloneRef(binding.body_revision_ref),
+    direct_derivation_ref: cloneRef(binding.direct_derivation_ref),
+    access_class: binding.access_class,
+    direct_source_state: binding.direct_source_state,
+    source_lane: binding.source_lane,
+    claim_ceiling: binding.claim_ceiling,
+  })));
+  const ruleCanonCeilings = new Map(Object.entries(evaluationContract.profile_rule_provenance)
+    .map(([ruleId, provenance]) => {
+      const ceiling = provenance.source_refs.some((sourceRef) => claimBySourceRef.get(sourceRef) === 'observed')
+        ? 'observed'
+        : 'source_supported';
+      return [ruleId, ceiling];
+    }));
+  return Object.freeze({
+    bindings,
+    source_lane: sourceLane,
+    rule_canon_ceilings: ruleCanonCeilings,
+  });
+}
+
+function acceptedRuleBindingMap(ruleBindings, ruleById = RULE_BY_ID) {
   if (!Array.isArray(ruleBindings)) fail(CODES.BINDING_REFUSED, 'accepted rule bindings must be an explicit array');
   const byRuleId = new Map();
   let prior = null;
   for (const ruleBinding of ruleBindings) {
     assertExactKeys(ruleBinding, RULE_BINDING_FIELDS, [], 'accepted_rule_binding', CODES.BINDING_REFUSED);
     assertToken(ruleBinding.rule_id, 'accepted_rule_binding.rule_id', CODES.BINDING_REFUSED);
-    if (!RULE_BY_ID.has(ruleBinding.rule_id) || byRuleId.has(ruleBinding.rule_id)
+    if (!ruleById.has(ruleBinding.rule_id) || byRuleId.has(ruleBinding.rule_id)
         || (prior !== null && compareCodePoints(prior, ruleBinding.rule_id) >= 0)) {
       fail(CODES.BINDING_REFUSED, 'accepted rule bindings must be known, sorted, and unique');
     }
@@ -440,7 +638,7 @@ function acceptedRuleBindingMap(ruleBindings) {
   return byRuleId;
 }
 
-function validateManifestBinding(manifest, binding, cutoffs) {
+function validateManifestBinding(manifest, binding, cutoffs, evaluationContract) {
   try {
     assertExactKeys(manifest, REQUIRED_MANIFEST_FIELDS, [], 'manifest', CODES.BINDING_REFUSED);
     validateManifest(manifest);
@@ -456,7 +654,13 @@ function validateManifestBinding(manifest, binding, cutoffs) {
       fail(CODES.BINDING_REFUSED, 'manifest is not the exact E01 deterministic compatibility manifest');
     }
 
-    assertExactKeys(binding, BINDING_FIELDS, [], 'binding', CODES.BINDING_REFUSED);
+    assertExactKeys(
+      binding,
+      BINDING_FIELDS,
+      evaluationContract.derived ? ['profile_source_bindings'] : [],
+      'binding',
+      CODES.BINDING_REFUSED,
+    );
     for (const field of [
       'engine_contract_revision', 'snapshot_schema_revision', 'engine_release_version',
       'module_abi_revision', 'ruleset_revision', 'adapter_revision',
@@ -474,18 +678,21 @@ function validateManifestBinding(manifest, binding, cutoffs) {
         || binding.snapshot_schema_revision !== DOMAIN_INPUT_SCHEMA
         || binding.module_abi_revision !== MODULE_ABI_REVISION
         || binding.execution_mode !== 'deterministic_only'
-        || binding.ruleset_revision !== QUALITY_READINESS_RULESET_REVISION
+        || binding.ruleset_revision !== evaluationContract.ruleset_revision
         || binding.adapter_revision !== ADAPTER_REVISION
-        || !sameExactRef(binding.source_packet_ref, QUALITY_READINESS_SOURCE_PACKET_REF)
-        || !sameExactRef(binding.ruleset_ref, QUALITY_READINESS_RULESET_REF)
+        || !sameExactRef(binding.source_packet_ref, evaluationContract.source_packet_ref)
+        || !sameExactRef(binding.ruleset_ref, evaluationContract.ruleset_ref)
         || !Array.isArray(binding.module_bindings)
         || binding.module_bindings.length !== 1
         || canonicalDigest('soulforge.quality_readiness.manifest-binding.v0', binding.module_bindings[0])
           !== canonicalDigest('soulforge.quality_readiness.manifest-binding.v0', manifest)) {
       fail(CODES.BINDING_REFUSED, 'binding is stale, floating, mismatched, or not exact for E01');
     }
-    assertSourceBindings(binding.source_bindings);
-    const ruleBindings = acceptedRuleBindingMap(binding.accepted_rule_bindings);
+    const sourceExactRefs = assertSourceBindings(binding.source_bindings);
+    const profileSourceState = evaluationContract.derived
+      ? assertProfileSourceBindings(binding.profile_source_bindings, evaluationContract, sourceExactRefs, manifest)
+      : null;
+    const ruleBindings = acceptedRuleBindingMap(binding.accepted_rule_bindings, evaluationContract.rule_by_id);
 
     assertExactKeys(cutoffs, CUTOFF_FIELDS, [], 'cutoffs', CODES.BINDING_REFUSED);
     assertExactRef(cutoffs.assessment_cutoff_ref, 'cutoffs.assessment_cutoff_ref', CODES.BINDING_REFUSED);
@@ -497,9 +704,13 @@ function validateManifestBinding(manifest, binding, cutoffs) {
       accepted_rule_bindings: ruleBindings,
       module_binding_revision: bindingRevision(binding),
       binding_sha256: canonicalDigest('soulforge.quality_readiness.binding.v0', { manifest, binding, cutoffs }),
+      profile_source_bindings: profileSourceState?.bindings ?? null,
+      profile_evaluation_lane: profileSourceState?.source_lane ?? null,
+      profile_rule_canon_ceilings: profileSourceState?.rule_canon_ceilings ?? new Map(),
     };
   } catch (error) {
-    if (error instanceof ContractError && error.code === CODES.BINDING_REFUSED) throw error;
+    if (error instanceof ContractError
+        && [CODES.BINDING_REFUSED, CODES.PROFILE_SOURCE_REFUSED].includes(error.code)) throw error;
     fail(CODES.BINDING_REFUSED, 'common module binding validation refused this E01 binding');
   }
 }
@@ -565,11 +776,11 @@ function assertAuthorityRefSeparation(row, acceptedRuleBinding) {
   }
 }
 
-function validateRow(row, acceptedRuleBindings) {
+function validateRow(row, acceptedRuleBindings, ruleById) {
   assertExactKeys(row, ROW_REQUIRED_FIELDS, ROW_OPTIONAL_FIELDS, 'row');
   assertToken(row.case_id, 'row.case_id');
   assertToken(row.rule_id, 'row.rule_id');
-  const rule = RULE_BY_ID.get(row.rule_id);
+  const rule = ruleById.get(row.rule_id);
   if (!rule) fail(CODES.INPUT_REFUSED, 'row rule_id is not a known candidate rule');
   const acceptedRuleBinding = acceptedRuleBindings.get(row.rule_id);
   if (!acceptedRuleBinding) {
@@ -639,7 +850,7 @@ function validateRow(row, acceptedRuleBindings) {
   };
 }
 
-function validateDomainInput(domainInput, acceptedRuleBindings) {
+function validateDomainInput(domainInput, acceptedRuleBindings, ruleById, ruleCanonCeilings = new Map()) {
   assertExactKeys(domainInput, DOMAIN_INPUT_FIELDS, [], 'domain_input');
   if (domainInput.schema_version !== DOMAIN_INPUT_SCHEMA || !Array.isArray(domainInput.rows)
       || domainInput.rows.length > MAX.array) {
@@ -648,13 +859,16 @@ function validateDomainInput(domainInput, acceptedRuleBindings) {
   const seenCases = new Set();
   const seenRules = new Set();
   const prepared = domainInput.rows.map((row) => {
-    const result = validateRow(row, acceptedRuleBindings);
+    const result = validateRow(row, acceptedRuleBindings, ruleById);
     if (seenCases.has(row.case_id) || seenRules.has(row.rule_id)) {
       fail(CODES.INPUT_REFUSED, 'each case and accepted rule may execute at most once');
     }
     seenCases.add(row.case_id);
     seenRules.add(row.rule_id);
-    return result;
+    return {
+      ...result,
+      canon_claim_ceiling: ruleCanonCeilings.get(row.rule_id) ?? 'source_supported',
+    };
   });
   if (prepared.length !== acceptedRuleBindings.size || [...acceptedRuleBindings.keys()].some((ruleId) => !seenRules.has(ruleId))) {
     fail(CODES.INPUT_REFUSED, 'each explicit accepted rule requires exactly one bounded domain row');
@@ -706,7 +920,7 @@ function cloneAuthorityBinding(authorityBinding) {
   };
 }
 
-function axisFields(state) {
+function axisFields(state, canonClaimCeiling = 'source_supported') {
   const evidenceByState = Object.freeze({
     [GAP_TYPE.SATISFIED]: 'source_sufficient',
     [GAP_TYPE.MISSING]: 'source_referenced',
@@ -715,9 +929,9 @@ function axisFields(state) {
     not_applicable: 'not_applicable',
   });
   const evidence_claim_ceiling = evidenceByState[state];
-  assertCanonCeiling('source_supported');
+  assertCanonCeiling(canonClaimCeiling);
   assertEvidenceCeiling(evidence_claim_ceiling);
-  return { canon_claim_ceiling: 'source_supported', evidence_claim_ceiling };
+  return { canon_claim_ceiling: canonClaimCeiling, evidence_claim_ceiling };
 }
 
 function resultBase(row, rule, acceptedRuleBinding) {
@@ -748,37 +962,37 @@ function resultBase(row, rule, acceptedRuleBinding) {
   return result;
 }
 
-function evaluateRow({ row, rule, accepted_rule_binding, authority_present, missing_context_fields }) {
+function evaluateRow({ row, rule, accepted_rule_binding, authority_present, missing_context_fields, canon_claim_ceiling }) {
   const base = resultBase(row, rule, accepted_rule_binding);
   const applicability = resolveApplicability(row.applicability);
   if (applicability === APPLICABILITY.NO) {
     return {
       ...base,
-      ...axisFields('not_applicable'),
+      ...axisFields('not_applicable', canon_claim_ceiling),
       state: 'not_applicable',
       reason_code: 'not_applicable',
       authority_hold: false,
     };
   }
   if (applicability === APPLICABILITY.UNKNOWN) {
-    return { ...base, ...axisFields(GAP_TYPE.UNKNOWN), state: GAP_TYPE.UNKNOWN, reason_code: 'applicability_unknown', authority_hold: false };
+    return { ...base, ...axisFields(GAP_TYPE.UNKNOWN, canon_claim_ceiling), state: GAP_TYPE.UNKNOWN, reason_code: 'applicability_unknown', authority_hold: false };
   }
   if (missing_context_fields.length > 0) {
     return {
       ...base,
-      ...axisFields(GAP_TYPE.UNKNOWN),
+      ...axisFields(GAP_TYPE.UNKNOWN, canon_claim_ceiling),
       state: GAP_TYPE.UNKNOWN,
       reason_code: 'context_facts_missing',
       authority_hold: false,
     };
   }
   if (!authority_present) {
-    return { ...base, ...axisFields(GAP_TYPE.UNKNOWN), state: GAP_TYPE.UNKNOWN, reason_code: 'authority_missing', authority_hold: true };
+    return { ...base, ...axisFields(GAP_TYPE.UNKNOWN, canon_claim_ceiling), state: GAP_TYPE.UNKNOWN, reason_code: 'authority_missing', authority_hold: true };
   }
   if (row.conflict_claims !== undefined) {
     return {
       ...base,
-      ...axisFields(GAP_TYPE.CONFLICT),
+      ...axisFields(GAP_TYPE.CONFLICT, canon_claim_ceiling),
       state: GAP_TYPE.CONFLICT,
       reason_code: 'retained_source_conflict',
       authority_hold: false,
@@ -786,28 +1000,28 @@ function evaluateRow({ row, rule, accepted_rule_binding, authority_present, miss
     };
   }
   if (!row.observation_attempted || row.presence_state === PRESENCE.UNKNOWN) {
-    return { ...base, ...axisFields(GAP_TYPE.UNKNOWN), state: GAP_TYPE.UNKNOWN, reason_code: 'observation_unavailable', authority_hold: false };
+    return { ...base, ...axisFields(GAP_TYPE.UNKNOWN, canon_claim_ceiling), state: GAP_TYPE.UNKNOWN, reason_code: 'observation_unavailable', authority_hold: false };
   }
   if (row.presence_state === PRESENCE.ABSENCE_CONFIRMED) {
-    return { ...base, ...axisFields(GAP_TYPE.MISSING), state: GAP_TYPE.MISSING, reason_code: 'absence_confirmed', authority_hold: false };
+    return { ...base, ...axisFields(GAP_TYPE.MISSING, canon_claim_ceiling), state: GAP_TYPE.MISSING, reason_code: 'absence_confirmed', authority_hold: false };
   }
   const missingFacts = rule.sufficiency_fields.filter((field) => !Object.hasOwn(row, field));
   if (missingFacts.length > 0) {
     return {
       ...base,
-      ...axisFields(GAP_TYPE.UNKNOWN),
+      ...axisFields(GAP_TYPE.UNKNOWN, canon_claim_ceiling),
       state: GAP_TYPE.UNKNOWN,
       reason_code: 'sufficiency_facts_missing',
       authority_hold: false,
     };
   }
   if (!Object.hasOwn(row, 'evaluation_result_ref') || row.evaluation_result_state === 'unknown') {
-    return { ...base, ...axisFields(GAP_TYPE.UNKNOWN), state: GAP_TYPE.UNKNOWN, reason_code: 'evaluation_unknown', authority_hold: false };
+    return { ...base, ...axisFields(GAP_TYPE.UNKNOWN, canon_claim_ceiling), state: GAP_TYPE.UNKNOWN, reason_code: 'evaluation_unknown', authority_hold: false };
   }
   if (row.evaluation_result_state === 'criteria_not_met') {
-    return { ...base, ...axisFields(GAP_TYPE.CONFLICT), state: GAP_TYPE.CONFLICT, reason_code: 'evaluation_not_met', authority_hold: false };
+    return { ...base, ...axisFields(GAP_TYPE.CONFLICT, canon_claim_ceiling), state: GAP_TYPE.CONFLICT, reason_code: 'evaluation_not_met', authority_hold: false };
   }
-  return { ...base, ...axisFields(GAP_TYPE.SATISFIED), state: GAP_TYPE.SATISFIED, reason_code: 'evidence_sufficient', authority_hold: false };
+  return { ...base, ...axisFields(GAP_TYPE.SATISFIED, canon_claim_ceiling), state: GAP_TYPE.SATISFIED, reason_code: 'evidence_sufficient', authority_hold: false };
 }
 
 function countsFor(results) {
@@ -871,20 +1085,178 @@ function aggregateEvidenceCeiling(counts) {
   return assertEvidenceCeiling(value);
 }
 
+function aggregateCanonClaimCeiling(results) {
+  const order = new Map([
+    ['rejected_or_blocked', 0],
+    ['observed', 1],
+    ['source_supported', 2],
+    ['validated_private', 3],
+    ['canon_candidate', 4],
+    ['canon_entry', 5],
+  ]);
+  if (results.length === 0) return assertCanonCeiling('observed');
+  let aggregate = 'canon_entry';
+  for (const result of results) {
+    assertCanonCeiling(result.canon_claim_ceiling);
+    if (order.get(result.canon_claim_ceiling) < order.get(aggregate)) {
+      aggregate = result.canon_claim_ceiling;
+    }
+  }
+  return assertCanonCeiling(aggregate);
+}
+
+function clampCanonClaimCeilingForProfileLane(canonClaimCeiling, profileEvaluationLane) {
+  assertCanonCeiling(canonClaimCeiling);
+  if (profileEvaluationLane === null || profileEvaluationLane === undefined || profileEvaluationLane === 'official_public') {
+    return canonClaimCeiling;
+  }
+  if (profileEvaluationLane === 'public_synthetic') {
+    return assertCanonCeiling('observed');
+  }
+  fail(CODES.PROFILE_SOURCE_REFUSED, 'derived Profile evaluation lane is not recognised for canon-ceiling aggregation');
+}
+
+const ASSESSMENT_OUTPUT_KEYS = Object.freeze([
+  'schema_version', 'assessment_kind', 'canon_claim_ceiling', 'evidence_claim_ceiling', 'overall_state', 'result_counts',
+]);
+const DOMAIN_RESULT_OUTPUT_KEYS = Object.freeze([
+  'schema_version', 'canon_claim_ceiling', 'evidence_claim_ceiling', 'results', 'counts',
+]);
+const RECEIPT_OUTPUT_KEYS = Object.freeze(['schema_version', 'digests', 'counts', 'bindings', 'effects']);
+const RECEIPT_DIGEST_KEYS = Object.freeze([
+  'input_sha256', 'binding_sha256', 'assessment_sha256', 'domain_result_sha256',
+]);
+const BASE_RECEIPT_BINDING_KEYS = Object.freeze([
+  'module_binding_revision', 'source_packet_ref', 'engine_ref', 'objective_ref', 'policy_ref',
+  'snapshot_ref', 'ruleset_ref', 'ruleset_revision', 'adapter_revision', 'execution_mode',
+  'project_binding_ref', 'context_generation', 'assessment_cutoff_ref', 'source_bindings',
+  'accepted_rule_bindings', 'evaluation_input_lane',
+]);
+const TYPED_RECEIPT_BINDING_KEYS = Object.freeze([
+  ...BASE_RECEIPT_BINDING_KEYS,
+  'profile_source_bindings', 'profile_evaluation_lane', 'typed_facts_sha256',
+  'profile_compilation_trace',
+]);
+
+function sameCanonicalValue(left, right, domain) {
+  return canonicalDigest(domain, left) === canonicalDigest(domain, right);
+}
+
+function assertAssessmentEffects(effects) {
+  if (!sameCanonicalValue(effects, EFFECTS, 'soulforge.quality_readiness.effects.v0')) {
+    fail(CODES.INPUT_REFUSED, 'assessment receipt effects must retain the exact zero-effect projection');
+  }
+}
+
+function assessmentReceiptLane(bindings) {
+  if (!bindings || typeof bindings !== 'object' || Array.isArray(bindings)) {
+    fail(CODES.INPUT_REFUSED, 'assessment receipt bindings must be an exact object');
+  }
+  const lane = bindings.evaluation_input_lane;
+  const isTypedFacts = lane === 'typed_facts';
+  if (!isTypedFacts && !['base_raw_request', 'base_legacy_wrapper'].includes(lane)) {
+    fail(CODES.INPUT_REFUSED, 'assessment receipt evaluation input lane is not recognised');
+  }
+  const expected = isTypedFacts
+    ? [...TYPED_RECEIPT_BINDING_KEYS, ...(Object.hasOwn(bindings, 'core_supplied_cutoffs_match') ? ['core_supplied_cutoffs_match'] : [])]
+    : BASE_RECEIPT_BINDING_KEYS;
+  assertExactKeys(bindings, expected, [], 'assessment result.receipt.bindings');
+  if (isTypedFacts) {
+    if (!['official_public', 'public_synthetic'].includes(bindings.profile_evaluation_lane)
+        || typeof bindings.typed_facts_sha256 !== 'string'
+        || !/^[a-f0-9]{64}$/u.test(bindings.typed_facts_sha256)
+        || !Array.isArray(bindings.profile_source_bindings)
+        || bindings.profile_source_bindings.length === 0
+        || !bindings.profile_compilation_trace
+        || typeof bindings.profile_compilation_trace !== 'object'
+        || Array.isArray(bindings.profile_compilation_trace)
+        || (Object.hasOwn(bindings, 'core_supplied_cutoffs_match')
+          && bindings.core_supplied_cutoffs_match !== true)) {
+      fail(CODES.INPUT_REFUSED, 'typed-facts receipt bindings are incomplete or malformed');
+    }
+    return bindings.profile_evaluation_lane;
+  }
+  return null;
+}
+
+/**
+ * Structural-only output verifier. It validates a result/receipt pair's own deterministic shape
+ * and output digests; callers needing source binding must use the adapter fixed-point verifier.
+ */
+export function verifyQualityReadinessAssessmentResultShape(result) {
+  const copied = snapshotPlainData(result);
+  assertExactKeys(copied, ['assessment', 'domain_result', 'receipt'], [], 'assessment result');
+  assertExactKeys(copied.assessment, ASSESSMENT_OUTPUT_KEYS, [], 'assessment result.assessment');
+  assertExactKeys(copied.domain_result, DOMAIN_RESULT_OUTPUT_KEYS, [], 'assessment result.domain_result');
+  assertExactKeys(copied.receipt, RECEIPT_OUTPUT_KEYS, [], 'assessment result.receipt');
+  assertExactKeys(copied.receipt.digests, RECEIPT_DIGEST_KEYS, [], 'assessment result.receipt.digests');
+  if (copied.assessment.schema_version !== ASSESSMENT_SCHEMA
+      || copied.assessment.assessment_kind !== 'quality_evidence_readiness'
+      || copied.domain_result.schema_version !== DOMAIN_RESULT_SCHEMA
+      || copied.receipt.schema_version !== RECEIPT_SCHEMA
+      || !Array.isArray(copied.domain_result.results)) {
+    fail(CODES.INPUT_REFUSED, 'assessment result schema is not the exact Quality Readiness result envelope');
+  }
+  for (const field of RECEIPT_DIGEST_KEYS) {
+    if (typeof copied.receipt.digests[field] !== 'string' || !/^[a-f0-9]{64}$/u.test(copied.receipt.digests[field])) {
+      fail(CODES.INPUT_REFUSED, 'assessment receipt digest is malformed');
+    }
+  }
+  for (const row of copied.domain_result.results) {
+    if (!row || typeof row !== 'object' || Array.isArray(row)
+        || !Object.values(GAP_TYPE).includes(row.state) && row.state !== 'not_applicable') {
+      fail(CODES.INPUT_REFUSED, 'assessment result contains an unsupported row state');
+    }
+    assertCanonCeiling(row.canon_claim_ceiling);
+    assertEvidenceCeiling(row.evidence_claim_ceiling);
+  }
+  const counts = countsFor(copied.domain_result.results);
+  if (!sameCanonicalValue(copied.domain_result.counts, counts, 'soulforge.quality_readiness.counts.v0')
+      || !sameCanonicalValue(copied.assessment.result_counts, counts, 'soulforge.quality_readiness.counts.v0')
+      || !sameCanonicalValue(copied.receipt.counts, counts, 'soulforge.quality_readiness.counts.v0')) {
+    fail(CODES.INPUT_REFUSED, 'assessment result counts do not match the retained rows');
+  }
+  const lane = assessmentReceiptLane(copied.receipt.bindings);
+  const canon = clampCanonClaimCeilingForProfileLane(aggregateCanonClaimCeiling(copied.domain_result.results), lane);
+  const evidence = aggregateEvidenceCeiling(counts);
+  if (copied.assessment.canon_claim_ceiling !== canon
+      || copied.domain_result.canon_claim_ceiling !== canon
+      || copied.assessment.evidence_claim_ceiling !== evidence
+      || copied.domain_result.evidence_claim_ceiling !== evidence
+      || copied.assessment.overall_state !== overallState(counts)) {
+    fail(CODES.INPUT_REFUSED, 'assessment aggregate state or claim ceilings do not match the retained rows');
+  }
+  if (copied.receipt.digests.assessment_sha256 !== canonicalDigest('soulforge.quality_readiness.assessment.v0', copied.assessment)
+      || copied.receipt.digests.domain_result_sha256 !== canonicalDigest('soulforge.quality_readiness.domain_result.v0', copied.domain_result)) {
+    fail(CODES.INPUT_REFUSED, 'assessment receipt digest does not match the retained assessment result');
+  }
+  assertAssessmentEffects(copied.receipt.effects);
+  return freezeDeep(copied);
+}
+
 /**
  * Assesses only quality-evidence readiness for exact accepted rule rows.
  *
  * @param {{manifest: object, binding: object, domain_input: object, cutoffs: object}} request
  * @returns {{assessment: object, domain_result: object, receipt: object}}
  */
-export function assessQualityReadiness(request) {
+export function assessQualityReadiness(request, options = {}) {
+  const evaluationContract = normaliseEvaluationContract(options);
   const input = snapshotPlainData(request);
   assertExactKeys(input, ROOT_FIELDS, [], 'request');
-  const bindingState = validateManifestBinding(input.manifest, input.binding, input.cutoffs);
-  const prepared = validateDomainInput(input.domain_input, bindingState.accepted_rule_bindings);
+  const bindingState = validateManifestBinding(input.manifest, input.binding, input.cutoffs, evaluationContract);
+  const prepared = validateDomainInput(
+    input.domain_input,
+    bindingState.accepted_rule_bindings,
+    evaluationContract.rule_by_id,
+    bindingState.profile_rule_canon_ceilings,
+  );
   const results = prepared.map(evaluateRow);
   const counts = countsFor(results);
-  const canon_claim_ceiling = assertCanonCeiling('source_supported');
+  const canon_claim_ceiling = clampCanonClaimCeilingForProfileLane(
+    aggregateCanonClaimCeiling(results),
+    bindingState.profile_evaluation_lane,
+  );
   const evidence_claim_ceiling = aggregateEvidenceCeiling(counts);
   const domain_result = {
     schema_version: DOMAIN_RESULT_SCHEMA,
@@ -946,5 +1318,17 @@ export function assessQualityReadiness(request) {
     },
     effects: { ...EFFECTS },
   };
+  if (evaluationContract.derived) {
+    receipt.bindings.profile_source_bindings = bindingState.profile_source_bindings;
+    receipt.bindings.profile_evaluation_lane = bindingState.profile_evaluation_lane;
+    receipt.bindings.typed_facts_sha256 = evaluationContract.typed_facts_sha256;
+    receipt.bindings.profile_compilation_trace = evaluationContract.profile_compilation_trace;
+    if (evaluationContract.core_supplied_cutoffs_match) {
+      receipt.bindings.core_supplied_cutoffs_match = true;
+    }
+  }
+  if (evaluationContract.evaluation_input_lane !== null) {
+    receipt.bindings.evaluation_input_lane = evaluationContract.evaluation_input_lane;
+  }
   return freezeDeep({ assessment, domain_result, receipt });
 }

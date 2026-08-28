@@ -8,3 +8,7 @@ Next derivation leaf (Leaf B) input contract and exact file inventory live in
 [appendix_a_source_rag_derivation_strengthening_v0.md](appendix_a_source_rag_derivation_strengthening_v0.md)
 §10. Every new executable rule remains blocked pending an exact confirmed source locator plus
 an explicit sorted Owner acceptance binding; bulk adoption by source count is invalid.
+
+Shared registration is not the next automatic step. The exact later root/docs/topology/release/
+Watchtower requests and their owner gates are listed in
+[the integration request](../contracts/quality_readiness_integration_request_v0.md).

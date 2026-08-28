@@ -3,7 +3,7 @@ domain_engine_id: quality_readiness
 display_name: Quality Readiness Domain Engine
 version: 0.1.0
 status: candidate
-claim_ceiling: source_supported
+claim_ceiling: observed
 execution_mode: deterministic_only
 contracts:
   source_packet: engines/quality_readiness/contracts/quality_readiness_source_packet_v0.md
@@ -11,12 +11,38 @@ contracts:
 schemas:
   ruleset: soulforge.quality_readiness.ruleset.v0
   domain_input: soulforge.quality_readiness.domain_input.v0
+  evaluation_input: soulforge.quality_readiness.evaluation_input.v1
+  typed_facts_envelope: soulforge.quality_readiness.typed_facts_envelope.v0
   assessment: soulforge.quality_readiness.assessment.v0
   domain_result: soulforge.quality_readiness.domain_result.v0
   receipt: soulforge.quality_readiness.receipt.v0
+  assessment_result: soulforge.quality_readiness.assessment_result.v1
+  rag_result: soulforge.quality_readiness.rag_result.v0
+  observation_projection: soulforge.quality_readiness.observation_projection.v0
+  guidance: soulforge.quality_readiness.guidance.v0
+  public_synthetic_deepening_run: soulforge.quality_readiness.public_synthetic_deepening_run.v0
+schema_files:
+  evaluation_input: engines/quality_readiness/contracts/schemas/quality_readiness_evaluation_input_schema_v1.json
+  typed_facts_envelope: engines/quality_readiness/contracts/schemas/quality_readiness_typed_facts_envelope_schema_v1.json
+  assessment_result: engines/quality_readiness/contracts/schemas/quality_readiness_assessment_result_schema_v1.json
+  rag_result: engines/quality_readiness/contracts/schemas/quality_readiness_rag_result_schema_v1.json
+  observation_projection: engines/quality_readiness/contracts/schemas/quality_readiness_observation_projection_schema_v1.json
+  guidance: engines/quality_readiness/contracts/schemas/quality_readiness_guidance_schema_v1.json
+  public_synthetic_deepening_run: engines/quality_readiness/contracts/schemas/quality_readiness_deepening_run_schema_v1.json
 compiler_adapter: engines/quality_readiness/compiler/quality_readiness_compiler_adapter.mjs
 evaluator_adapter: engines/quality_readiness/evaluator/quality_readiness_evaluator_adapter.mjs
+domain_local_surfaces:
+  source_derivation: engines/quality_readiness/source/quality_readiness_source_derivation.mjs
+  rag_boundary: engines/quality_readiness/rag/quality_readiness_rag_boundary.mjs
+  typed_facts: engines/quality_readiness/binding/quality_readiness_typed_facts.mjs
+  observation: engines/quality_readiness/observation/quality_readiness_observation.mjs
+  guidance: engines/quality_readiness/guidance/quality_readiness_guidance.mjs
+  mcp_read_tools: engines/quality_readiness/mcp/quality_readiness_read_tools.mjs
+  topology: engines/quality_readiness/topology/quality_readiness_deepening_topology.mjs
+  global_registration: false
+  writer_enabled: false
 fixtures:
   public_synthetic: engines/quality_readiness/fixtures/quality_readiness_public_synthetic.mjs
+  public_synthetic_deepening: engines/quality_readiness/fixtures/quality_readiness_deepening_public_synthetic.mjs
 manual:
   root: engines/quality_readiness/manual/README.md

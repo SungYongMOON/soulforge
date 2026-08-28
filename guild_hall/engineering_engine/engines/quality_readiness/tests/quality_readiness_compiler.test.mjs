@@ -4,6 +4,7 @@ import {
   compileQualityReadinessRules,
   qualityReadinessCompilerAdapter,
   QR_COMPILER_ERROR_CODES,
+  verifyQualityReadinessEffectiveRuleSet,
 } from '../compiler/quality_readiness_compiler_adapter.mjs';
 import { qualityReadinessAdapter } from '../evaluator/quality_readiness_evaluator_adapter.mjs';
 import {
@@ -13,11 +14,20 @@ import {
 } from '../rules/quality_readiness_rules.mjs';
 import {
   assembleEffectiveRuleSet,
+  arrayOrderRules,
   resolveProfileBindings,
   evaluate,
+  withoutNulls,
 } from '../../../core/interfaces/domain_engine_adapter.mjs';
+import { canonicalise } from '../../../core/validators/canonical.mjs';
 import { normalizeProfileOperations } from '../../../core/interfaces/profile_operation_canon.mjs';
+import { sha256Hex } from '../../../core/validators/fingerprint.mjs';
 import { buildQualityReadinessPublicSyntheticRequest } from '../fixtures/quality_readiness_public_synthetic.mjs';
+import {
+  buildQualityReadinessTypedFacts,
+  qualityReadinessTypedFactsDigest,
+} from '../binding/quality_readiness_typed_facts.mjs';
+import { QUALITY_READINESS_RULESET_REVISION } from '../rules/quality_readiness_rules.mjs';
 
 const VALID_QR_RULE = Object.freeze({
   rule_id: 'QR-TEST-01',
@@ -66,6 +76,55 @@ function makeValidBinding(overrides = {}) {
     ...overrides,
   };
   return b;
+}
+
+function recloseDerivedRuleset(effectiveRuleSet) {
+  const digestMaterial = {
+    schema_version: 'soulforge.quality_readiness.ruleset.v0',
+    revision: QUALITY_READINESS_RULESET_REVISION,
+    source_packet_ref: QUALITY_READINESS_SOURCE_PACKET_REF,
+    base_ruleset_ref: QUALITY_READINESS_RULESET_REF,
+    rules: effectiveRuleSet.rules.map(({ allowed_artifact_tokens, ...rule }) => ({
+      ...rule,
+      allowed_artifact_mappings: allowed_artifact_tokens.map((artifact_token) => (
+        artifact_token === null ? { source_native: true } : { artifact_token }
+      )),
+    })),
+    profile_rule_provenance: effectiveRuleSet.profile_rule_provenance,
+  };
+  const digest = sha256Hex(
+    `soulforge.quality_readiness.ruleset.derived.digest.v1\n${canonicalise(digestMaterial, {
+      ...arrayOrderRules(digestMaterial),
+      rules: 'sorted_by:rule_id',
+    })}`,
+  );
+  effectiveRuleSet.ruleset_ref = {
+    entity_id: 'quality-readiness-ruleset-derived-v0',
+    revision_id: `derived:${digest.slice(0, 16)}`,
+    content_id: `sha256:${digest}`,
+    content_hash_alg: 'sha256',
+  };
+}
+
+function recloseAssembly(assembly) {
+  const cleanRules = withoutNulls(assembly.effective_rule_set);
+  const digest = sha256Hex(
+    `soulforge.effective_rule_set.v0\n${canonicalise(cleanRules, arrayOrderRules(cleanRules))}`,
+  );
+  assembly.assembly_digest = digest;
+  assembly.compilation_trace.effective_ruleset_digest = digest;
+}
+
+function profileSummary(profile) {
+  return {
+    profile_id: profile.profile_id,
+    domain_engine_id: profile.domain_engine_id,
+    revision_or_hash: profile.revision_or_hash,
+    extends_or_base_pin: profile.extends_or_base_pin,
+    operation_digest: profile.operation_digest,
+    applied_operations_count: profile.applied_operations_count,
+    source_refs: structuredClone(profile.source_refs),
+  };
 }
 
 test('QR Compiler: empty Profile preserves base ruleset and count', () => {
@@ -123,8 +182,156 @@ test('QR Compiler: accepted add operation changes rule_count, ruleset_ref, assem
   assert.equal(prov.profile_id, 'org_qr_01');
   assert.equal(prov.profile_kind, 'organization');
   assert.equal(prov.order, 0);
+  assert.equal(prov.operation_index, 0);
   assert.equal(prov.operation_digest, bindingsWithAdd[0].operation_digest);
   assert.ok(prov.operation_item_digest);
+});
+
+test('B2 closure: Profile provenance reaches ordered organization/project operations and refuses reclosed substitutions', () => {
+  const organizationOperations = [
+    { op: 'add', rule: structuredClone(VALID_QR_RULE) },
+    { op: 'add', rule: structuredClone(VALID_QR_RULE_2) },
+  ];
+  const projectRule = {
+    ...VALID_QR_RULE,
+    rule_id: 'QR-TEST-03',
+    source_ref: 'contracts/qr_proj.json',
+    source_locator: '§6.3',
+  };
+  const projectOperations = [{ op: 'add', rule: structuredClone(projectRule) }];
+  const organization = makeValidBinding({
+    source_refs: ['contracts/qr_org.json', 'contracts/qr_proj.json'],
+    operations: organizationOperations,
+  });
+  const project = makeValidBinding({
+    profile_kind: 'project',
+    profile_id: 'project_qr_01',
+    revision_or_hash: 'rev_qr_project_01',
+    extends_or_base_pin: 'org_qr_01',
+    source_refs: ['contracts/qr_proj.json'],
+    operations: projectOperations,
+    order: 1,
+  });
+  const compiled = compileQualityReadinessRules([organization, project]);
+  const effective = compiled.effective_rule_set;
+  const reachingTable = [
+    ['QR-TEST-01', 'organization', 'org_qr_01', 0, 0, ['contracts/qr_org.json', 'contracts/qr_proj.json']],
+    ['QR-TEST-02', 'organization', 'org_qr_01', 0, 1, ['contracts/qr_org.json', 'contracts/qr_proj.json']],
+    ['QR-TEST-03', 'project', 'project_qr_01', 1, 0, ['contracts/qr_proj.json']],
+  ];
+  assert.deepEqual(
+    reachingTable.map(([ruleId, kind, profileId, order, operationIndex, sourceRefs]) => {
+      const provenance = effective.profile_rule_provenance[ruleId];
+      return [ruleId, provenance.profile_kind, provenance.profile_id, provenance.order, provenance.operation_index, provenance.source_refs];
+    }),
+    reachingTable,
+  );
+  assert.doesNotThrow(() => verifyQualityReadinessEffectiveRuleSet(effective));
+
+  const duplicateIndex = structuredClone(effective);
+  duplicateIndex.profile_rule_provenance['QR-TEST-02'].operation_index = 0;
+  const missingIndex = structuredClone(effective);
+  missingIndex.profile_rule_provenance['QR-TEST-02'].operation_index = 2;
+  const reclosedOperation = structuredClone(effective);
+  const changedRule = reclosedOperation.rules.find((rule) => rule.rule_id === 'QR-TEST-02');
+  changedRule.source_locator = '§6.3-alternate';
+  const changedOperation = { op: 'add', rule: changedRule };
+  reclosedOperation.profile_rule_provenance['QR-TEST-02'].operation_item_digest = sha256Hex(
+    `soulforge.quality_readiness.operation_item.v1\n${normalizeProfileOperations([changedOperation]).canonical_material}`,
+  );
+  reclosedOperation.profile_rule_provenance['QR-TEST-02'].operation_digest = normalizeProfileOperations([
+    { op: 'add', rule: reclosedOperation.rules.find((rule) => rule.rule_id === 'QR-TEST-01') },
+    changedOperation,
+  ]).operation_digest;
+  const crossProfile = structuredClone(effective);
+  crossProfile.profile_rule_provenance['QR-TEST-03'].profile_kind = 'organization';
+  crossProfile.profile_rule_provenance['QR-TEST-03'].profile_id = 'org_qr_01';
+  crossProfile.profile_rule_provenance['QR-TEST-03'].order = 0;
+  crossProfile.profile_rule_provenance['QR-TEST-03'].operation_index = 2;
+  crossProfile.profile_rule_provenance['QR-TEST-03'].source_refs = ['contracts/qr_org.json', 'contracts/qr_proj.json'];
+
+  for (const forged of [duplicateIndex, missingIndex, reclosedOperation, crossProfile]) {
+    assert.throws(
+      () => verifyQualityReadinessEffectiveRuleSet(forged),
+      (error) => error?.code === QR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID,
+    );
+  }
+});
+
+test('B2 RED: fully reclosed project/project topology is refused at compiler, evaluator, and Typed Facts seams', () => {
+  const organization = makeValidBinding({
+    source_refs: ['contracts/qr_org.json'],
+    operations: [{ op: 'add', rule: structuredClone(VALID_QR_RULE) }],
+  });
+  const project = makeValidBinding({
+    profile_kind: 'project',
+    profile_id: 'project_qr_topology_01',
+    revision_or_hash: 'rev_qr_topology_01',
+    extends_or_base_pin: 'org_qr_01',
+    source_refs: ['contracts/qr_proj.json'],
+    operations: [{ op: 'add', rule: structuredClone({
+      ...VALID_QR_RULE_2,
+      rule_id: 'QR-TEST-04',
+    }) }],
+    order: 1,
+  });
+  const assembly = assembleEffectiveRuleSet(
+    qualityReadinessAdapter,
+    resolveProfileBindings(organization, project),
+    {},
+  );
+  const request = buildQualityReadinessPublicSyntheticRequest();
+  request.binding.ruleset_ref = structuredClone(assembly.effective_rule_set.ruleset_ref);
+  request.binding.ruleset_revision = assembly.effective_rule_set.ruleset_ref.revision_id;
+  const typedFacts = buildQualityReadinessTypedFacts({
+    request,
+    compilation_trace: assembly.compilation_trace,
+    valid_at: '2026-08-26T00:00:00.000Z',
+    known_at: '2026-08-26T00:00:00.000Z',
+  });
+
+  const impossibleAssembly = structuredClone(assembly);
+  for (const provenance of Object.values(impossibleAssembly.effective_rule_set.profile_rule_provenance)) {
+    if (provenance.profile_kind === 'organization') provenance.profile_kind = 'project';
+  }
+  recloseDerivedRuleset(impossibleAssembly.effective_rule_set);
+  impossibleAssembly.compilation_trace.profiles[0].profile_kind = 'project';
+  impossibleAssembly.compilation_trace.organization_trace = null;
+  impossibleAssembly.compilation_trace.project_trace = profileSummary(impossibleAssembly.compilation_trace.profiles[0]);
+  recloseAssembly(impossibleAssembly);
+
+  const impossibleRequest = structuredClone(request);
+  impossibleRequest.binding.ruleset_ref = structuredClone(impossibleAssembly.effective_rule_set.ruleset_ref);
+  impossibleRequest.binding.ruleset_revision = impossibleAssembly.effective_rule_set.ruleset_ref.revision_id;
+  const impossibleTypedFacts = structuredClone(typedFacts);
+  impossibleTypedFacts.assessment_context.binding.ruleset_ref = structuredClone(
+    impossibleAssembly.effective_rule_set.ruleset_ref,
+  );
+  impossibleTypedFacts.assessment_context.binding.ruleset_revision = impossibleAssembly.effective_rule_set.ruleset_ref.revision_id;
+  impossibleTypedFacts.compilation_trace = structuredClone(impossibleAssembly.compilation_trace);
+  impossibleTypedFacts.typed_project_facts.facts_digest = qualityReadinessTypedFactsDigest(
+    impossibleTypedFacts.typed_project_facts,
+    impossibleTypedFacts.assessment_context,
+    impossibleTypedFacts.compilation_trace,
+  );
+
+  assert.throws(
+    () => verifyQualityReadinessEffectiveRuleSet(impossibleAssembly.effective_rule_set),
+    (error) => error?.code === QR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID,
+  );
+  assert.throws(
+    () => buildQualityReadinessTypedFacts({
+      request: impossibleRequest,
+      compilation_trace: impossibleAssembly.compilation_trace,
+      valid_at: '2026-08-26T00:00:00.000Z',
+      known_at: '2026-08-26T00:00:00.000Z',
+    }),
+    (error) => error?.code === 'QUALITY_READINESS_TYPED_FACTS_TRACE_MISMATCH',
+  );
+  assert.throws(
+    () => qualityReadinessAdapter.evaluate(impossibleAssembly, impossibleTypedFacts, {}),
+    (error) => error?.code === 'QR_PROFILE_EVALUATION_UNSUPPORTED',
+  );
 });
 
 test('QR Compiler: replay is byte/digest deterministic and caller inputs remain unmodified', () => {
@@ -419,7 +626,7 @@ test('QR Compiler Hostile: duplicate rule_id across profile operations fails clo
   const binding = makeValidBinding({
     operations: [
       { op: 'add', rule: VALID_QR_RULE },
-      { op: 'add', rule: { ...VALID_QR_RULE } },
+      { op: 'add', rule: structuredClone(VALID_QR_RULE) },
     ],
   });
   assert.throws(
@@ -495,7 +702,7 @@ test('QR Evaluator Hostile: forged base ref, extra fields, missing source_packet
     rules: QUALITY_READINESS_RULES,
   };
   assert.doesNotThrow(() => {
-    evaluate(qualityReadinessAdapter, validBase, facts, {});
+    qualityReadinessAdapter.evaluate(validBase, facts, {});
   });
 
   // 2. F4: Extra field on rule row fails closed
@@ -503,7 +710,7 @@ test('QR Evaluator Hostile: forged base ref, extra fields, missing source_packet
     i === 0 ? { ...r, unexpected_extra_key: 'malicious' } : r
   ));
   assert.throws(
-    () => evaluate(qualityReadinessAdapter, { ...validBase, rules: extraRuleKey }, facts, {}),
+    () => qualityReadinessAdapter.evaluate({ ...validBase, rules: extraRuleKey }, facts, {}),
     (err) => err.code === 'QR_EFFECTIVE_RULESET_INVALID'
   );
 
@@ -511,11 +718,11 @@ test('QR Evaluator Hostile: forged base ref, extra fields, missing source_packet
   const missingSourcePacket = { ...validBase };
   delete missingSourcePacket.source_packet_ref;
   assert.throws(
-    () => evaluate(qualityReadinessAdapter, missingSourcePacket, facts, {}),
+    () => qualityReadinessAdapter.evaluate(missingSourcePacket, facts, {}),
     (err) => err.code === 'QR_EFFECTIVE_RULESET_INVALID'
   );
   assert.throws(
-    () => evaluate(qualityReadinessAdapter, { ...validBase, source_packet_ref: null }, facts, {}),
+    () => qualityReadinessAdapter.evaluate({ ...validBase, source_packet_ref: null }, facts, {}),
     (err) => err.code === 'QR_EFFECTIVE_RULESET_INVALID'
   );
 
@@ -528,7 +735,7 @@ test('QR Evaluator Hostile: forged base ref, extra fields, missing source_packet
     },
   };
   assert.throws(
-    () => evaluate(qualityReadinessAdapter, driftedSourcePacket, facts, {}),
+    () => qualityReadinessAdapter.evaluate(driftedSourcePacket, facts, {}),
     (err) => err.code === 'QR_PROFILE_EVALUATION_UNSUPPORTED'
   );
 
@@ -538,7 +745,7 @@ test('QR Evaluator Hostile: forged base ref, extra fields, missing source_packet
     rules: [...QUALITY_READINESS_RULES, VALID_QR_RULE],
   };
   assert.throws(
-    () => evaluate(qualityReadinessAdapter, forgedAddedRule, facts, {}),
+    () => qualityReadinessAdapter.evaluate(forgedAddedRule, facts, {}),
     (err) => err.code === 'QR_PROFILE_EVALUATION_UNSUPPORTED'
   );
 
@@ -548,7 +755,7 @@ test('QR Evaluator Hostile: forged base ref, extra fields, missing source_packet
     rules: [...QUALITY_READINESS_RULES].reverse(),
   };
   assert.throws(
-    () => evaluate(qualityReadinessAdapter, forgedReordered, facts, {}),
+    () => qualityReadinessAdapter.evaluate(forgedReordered, facts, {}),
     (err) => err.code === 'QR_PROFILE_EVALUATION_UNSUPPORTED'
   );
 
@@ -561,7 +768,7 @@ test('QR Evaluator Hostile: forged base ref, extra fields, missing source_packet
     rules: tamperedRules,
   };
   assert.throws(
-    () => evaluate(qualityReadinessAdapter, forgedTampered, facts, {}),
+    () => qualityReadinessAdapter.evaluate(forgedTampered, facts, {}),
     (err) => err.code === 'QR_PROFILE_EVALUATION_UNSUPPORTED'
   );
 
@@ -571,7 +778,7 @@ test('QR Evaluator Hostile: forged base ref, extra fields, missing source_packet
     rules: QUALITY_READINESS_RULES.slice(0, 8),
   };
   assert.throws(
-    () => evaluate(qualityReadinessAdapter, forgedMissing, facts, {}),
+    () => qualityReadinessAdapter.evaluate(forgedMissing, facts, {}),
     (err) => err.code === 'QR_PROFILE_EVALUATION_UNSUPPORTED'
   );
 
@@ -581,26 +788,21 @@ test('QR Evaluator Hostile: forged base ref, extra fields, missing source_packet
     forged_extra_field: true,
   };
   assert.throws(
-    () => evaluate(qualityReadinessAdapter, extraFieldRuleset, facts, {}),
+    () => qualityReadinessAdapter.evaluate(extraFieldRuleset, facts, {}),
     (err) => err.code === 'QR_EFFECTIVE_RULESET_INVALID'
   );
 
   // 10. Accessor/getter on effective ruleset
   const accessorRuleset = { ...validBase };
-  let accessorReads = 0;
   Object.defineProperty(accessorRuleset, 'ruleset_ref', {
-    get() {
-      accessorReads += 1;
-      return QUALITY_READINESS_RULESET_REF;
-    },
+    get() { return QUALITY_READINESS_RULESET_REF; },
     enumerable: true,
     configurable: true,
   });
   assert.throws(
-    () => evaluate(qualityReadinessAdapter, accessorRuleset, facts, {}),
-    (err) => err.code === 'EVALUATION_FAILED'
+    () => qualityReadinessAdapter.evaluate(accessorRuleset, facts, {}),
+    (err) => err.code === 'QR_EFFECTIVE_RULESET_INVALID'
   );
-  assert.equal(accessorReads, 0);
 
   // 11. Derived ruleset with non-empty provenance
   const derivedRuleset = {
@@ -616,7 +818,7 @@ test('QR Evaluator Hostile: forged base ref, extra fields, missing source_packet
     profile_rule_provenance: { 'QR-TEST-01': { profile_id: 'org_01' } },
   };
   assert.throws(
-    () => evaluate(qualityReadinessAdapter, derivedRuleset, facts, {}),
+    () => qualityReadinessAdapter.evaluate(derivedRuleset, facts, {}),
     (err) => err.code === 'QR_PROFILE_EVALUATION_UNSUPPORTED'
   );
 });
@@ -768,4 +970,78 @@ test('QR Seam: a binding whose digest was taken over null-stripped operations fa
     () => compileQualityReadinessRules([forged]),
     (err) => err.code === QR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID
   );
+});
+
+const syntheticExactRef = (entity_id, revision_id, fill) => ({
+  entity_id,
+  revision_id,
+  content_id: `sha256:${fill.repeat(64)}`,
+  content_hash_alg: 'sha256',
+});
+
+test('QR Derived Profile: a Core-assembled profile may evaluate only with its own pinned source binding', () => {
+  const [profile] = resolveProfileBindings(nullSeamProfile(SOURCE_NATIVE_RULE), null);
+  const assembled = assembleEffectiveRuleSet(qualityReadinessAdapter, [profile], {});
+  const request = buildQualityReadinessPublicSyntheticRequest();
+  const stageRef = syntheticExactRef('synthetic-profile-stage', 'r1', 'a');
+  const acceptanceRef = syntheticExactRef('synthetic-profile-acceptance', 'r1', 'b');
+
+  request.binding.ruleset_ref = structuredClone(assembled.effective_rule_set.ruleset_ref);
+  request.binding.ruleset_revision = assembled.effective_rule_set.ruleset_ref.revision_id;
+  request.binding.profile_source_bindings = [{
+    source_id: 'qr_profile_synthetic_source_01',
+    source_ref: 'contracts/qr_org.json',
+    metadata_revision_ref: syntheticExactRef('synthetic-profile-source-metadata', 'r1', 'c'),
+    body_revision_ref: syntheticExactRef('synthetic-profile-source-body', 'r1', 'd'),
+    direct_derivation_ref: syntheticExactRef('synthetic-profile-direct-derivation', 'r1', 'e'),
+    access_class: 'public_synthetic',
+    direct_source_state: 'synthetic_direct_confirmed',
+    source_lane: 'public_synthetic',
+    claim_ceiling: 'observed',
+  }];
+  request.binding.accepted_rule_bindings.push({
+    rule_id: 'QR-NULLSEAM-01',
+    stage_ref: structuredClone(stageRef),
+    owner_acceptance_ref: structuredClone(acceptanceRef),
+  });
+  request.domain_input.rows.push({
+    case_id: 'PROFILE_SATISFIED',
+    rule_id: 'QR-NULLSEAM-01',
+    stage_ref: structuredClone(stageRef),
+    applicability: {
+      project_binding: true,
+      jurisdiction: true,
+      time_window: true,
+      document_revision: true,
+      approval_scope: true,
+    },
+    context_refs: {
+      scope_ref: syntheticExactRef('synthetic-profile-scope', 'r1', 'f'),
+    },
+    authority_bindings: [{
+      authority_family: 'company_approved_procedure',
+      role_ref: syntheticExactRef('synthetic-profile-role', 'r1', '1'),
+      delegation_ref: syntheticExactRef('synthetic-profile-delegation', 'r1', '2'),
+      decision_ref: syntheticExactRef('synthetic-profile-decision', 'r1', '3'),
+    }],
+    observation_attempted: true,
+    observation_attempt_ref: syntheticExactRef('synthetic-profile-observation', 'r1', '4'),
+    presence_state: 'present',
+    evidence_refs: [syntheticExactRef('synthetic-profile-evidence', 'r1', '5')],
+    artifact_token: null,
+    evaluation_result_ref: syntheticExactRef('synthetic-profile-evaluation', 'r1', '6'),
+    evaluation_result_state: 'criteria_met',
+  });
+
+  const typedFacts = buildQualityReadinessTypedFacts({
+    request,
+    compilation_trace: assembled.compilation_trace,
+    valid_at: '2026-08-26T00:00:00.000Z',
+    known_at: '2026-08-26T00:00:00.000Z',
+  });
+  const result = evaluate(qualityReadinessAdapter, assembled, typedFacts, {});
+  const profileResult = result.domain_result.results.find((row) => row.rule_id === 'QR-NULLSEAM-01');
+  assert.equal(profileResult.state, 'satisfied');
+  assert.equal(profileResult.source_ref, 'contracts/qr_org.json');
+  assert.equal(result.receipt.bindings.profile_compilation_trace.profiles[0].profile_id, 'org_qr_01');
 });

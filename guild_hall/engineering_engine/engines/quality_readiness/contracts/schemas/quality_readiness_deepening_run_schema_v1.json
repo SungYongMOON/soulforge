@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.quality_readiness.public_synthetic_deepening_run.v0",
+  "title": "Quality Readiness public-synthetic deepening run",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "assessment", "rag", "observation", "guidance", "mcp_preview", "effects"],
+  "properties": {
+    "schema_version": { "const": "soulforge.quality_readiness.public_synthetic_deepening_run.v0" },
+    "assessment": { "$ref": "soulforge.quality_readiness.assessment_result.v1" },
+    "rag": { "$ref": "soulforge.quality_readiness.rag_result.v0" },
+    "observation": { "$ref": "soulforge.quality_readiness.observation_projection.v0" },
+    "guidance": { "$ref": "soulforge.quality_readiness.guidance.v0" },
+    "mcp_preview": { "$ref": "#/$defs/mcpPreview" },
+    "effects": { "$ref": "#/$defs/zeroEffects" }
+  },
+  "$defs": {
+    "zeroEffects": {
+      "type": "object", "additionalProperties": false,
+      "required": ["filesystem_reads", "filesystem_writes", "network_calls", "model_calls", "rag_calls"],
+      "properties": {
+        "filesystem_reads": { "const": 0 }, "filesystem_writes": { "const": 0 }, "network_calls": { "const": 0 },
+        "model_calls": { "const": 0 }, "rag_calls": { "const": 0 }
+      }
+    },
+    "mcpPreview": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "tool", "cards", "verdict_authority", "effects"],
+      "properties": {
+        "schema_version": { "const": "soulforge.quality_readiness.mcp.read_only.v0" },
+        "tool": { "const": "guidance_next_steps" },
+        "cards": { "type": "array", "items": { "$ref": "soulforge.quality_readiness.guidance.v0#/$defs/card" } },
+        "verdict_authority": { "const": false },
+        "effects": { "$ref": "#/$defs/zeroEffects" }
+      }
+    }
+  }
+}

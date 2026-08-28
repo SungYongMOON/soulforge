@@ -1,0 +1,332 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.quality_readiness.typed_facts_envelope.v0",
+  "title": "Quality Readiness Typed Facts envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "typed_project_facts", "assessment_context", "compilation_trace"],
+  "properties": {
+    "schema_version": { "const": "soulforge.quality_readiness.typed_facts_envelope.v0" },
+    "typed_project_facts": { "$ref": "#/$defs/typedProjectFacts" },
+    "assessment_context": { "$ref": "#/$defs/assessmentContext" },
+    "compilation_trace": { "$ref": "#/$defs/compilationTrace" }
+  },
+  "$defs": {
+    "token": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+    "text": { "type": "string", "minLength": 1, "maxLength": 512, "pattern": "^[^\\u0000-\\u001f\\u007f]+$" },
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "exactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity_id", "revision_id", "content_id", "content_hash_alg"],
+      "properties": {
+        "entity_id": { "$ref": "#/$defs/text" },
+        "revision_id": { "$ref": "#/$defs/text" },
+        "content_id": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "content_hash_alg": { "const": "sha256" }
+      }
+    },
+    "instant": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$" },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["module_id", "module_version", "build_commit", "artifact_sha256", "engine_contract_abi_range", "input_schema_revision", "output_schema_revision", "authority_ceiling", "claim_ceiling", "supported_project_classifications", "execution_mode", "dependency_versions", "configuration_hash", "migration_requirement", "rollback_compatible_with", "test_receipt_ref"],
+      "properties": {
+        "module_id": { "const": "soulforge.engineering_engine.quality_readiness" },
+        "module_version": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$" },
+        "build_commit": { "type": "string", "pattern": "^[a-f0-9]{7,40}$" },
+        "artifact_sha256": { "$ref": "#/$defs/digest" },
+        "engine_contract_abi_range": { "type": "string", "pattern": "^>=\\d+\\.\\d+\\.\\d+ <\\d+\\.\\d+\\.\\d+$" },
+        "input_schema_revision": { "const": "soulforge.quality_readiness.domain_input.v0" },
+        "output_schema_revision": { "const": "soulforge.quality_readiness.assessment.v0" },
+        "authority_ceiling": { "const": "project_contract_baseline" },
+        "claim_ceiling": { "const": "source_supported" },
+        "supported_project_classifications": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/token" } },
+        "execution_mode": { "const": "deterministic_only" },
+        "dependency_versions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["engineering_kernel"],
+          "properties": { "engineering_kernel": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$" } }
+        },
+        "configuration_hash": { "$ref": "#/$defs/digest" },
+        "migration_requirement": { "const": "none" },
+        "rollback_compatible_with": { "type": "array", "items": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$" } },
+        "test_receipt_ref": { "$ref": "#/$defs/text" }
+      }
+    },
+    "sourceBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "metadata_revision_ref", "body_revision_ref"],
+      "properties": {
+        "source_id": { "$ref": "#/$defs/token" },
+        "metadata_revision_ref": { "$ref": "#/$defs/exactRef" },
+        "body_revision_ref": { "$ref": "#/$defs/exactRef" }
+      }
+    },
+    "acceptedRuleBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_id", "stage_ref", "owner_acceptance_ref"],
+      "properties": {
+        "rule_id": { "$ref": "#/$defs/token" },
+        "stage_ref": { "$ref": "#/$defs/exactRef" },
+        "owner_acceptance_ref": { "$ref": "#/$defs/exactRef" }
+      }
+    },
+    "profileSourceBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "source_ref", "metadata_revision_ref", "body_revision_ref", "direct_derivation_ref", "access_class", "direct_source_state", "source_lane", "claim_ceiling"],
+      "properties": {
+        "source_id": { "$ref": "#/$defs/token" },
+        "source_ref": { "$ref": "#/$defs/token" },
+        "metadata_revision_ref": { "$ref": "#/$defs/exactRef" },
+        "body_revision_ref": { "$ref": "#/$defs/exactRef" },
+        "direct_derivation_ref": { "$ref": "#/$defs/exactRef" },
+        "access_class": { "enum": ["official_public", "public_synthetic"] },
+        "direct_source_state": { "enum": ["direct_confirmed", "synthetic_direct_confirmed"] },
+        "source_lane": { "enum": ["official_public", "public_synthetic"] },
+        "claim_ceiling": { "const": "observed" }
+      },
+      "oneOf": [
+        { "properties": { "access_class": { "const": "official_public" }, "direct_source_state": { "const": "direct_confirmed" }, "source_lane": { "const": "official_public" } } },
+        { "properties": { "access_class": { "const": "public_synthetic" }, "direct_source_state": { "const": "synthetic_direct_confirmed" }, "source_lane": { "const": "public_synthetic" } } }
+      ]
+    },
+    "baseBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project_binding_ref", "engine_release_version", "engine_artifact_sha256", "engine_contract_revision", "snapshot_schema_revision", "module_abi_revision", "module_bindings", "common_knowledge_revision", "project_knowledge_revision", "policy_bundle_revision", "ruleset_revision", "accepted_context_generation", "acl_policy_revision", "execution_mode", "engine_ref", "objective_ref", "policy_ref", "snapshot_ref", "source_packet_ref", "ruleset_ref", "adapter_revision", "source_bindings", "accepted_rule_bindings"],
+      "properties": {
+        "project_binding_ref": { "$ref": "#/$defs/exactRef" },
+        "engine_release_version": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$" },
+        "engine_artifact_sha256": { "$ref": "#/$defs/digest" },
+        "engine_contract_revision": { "$ref": "#/$defs/text" },
+        "snapshot_schema_revision": { "const": "soulforge.quality_readiness.domain_input.v0" },
+        "module_abi_revision": { "const": "1.0.0" },
+        "module_bindings": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/manifest" } },
+        "common_knowledge_revision": { "$ref": "#/$defs/text" },
+        "project_knowledge_revision": { "$ref": "#/$defs/text" },
+        "policy_bundle_revision": { "$ref": "#/$defs/text" },
+        "ruleset_revision": { "$ref": "#/$defs/text" },
+        "accepted_context_generation": { "type": "integer", "minimum": 0 },
+        "acl_policy_revision": { "$ref": "#/$defs/text" },
+        "execution_mode": { "const": "deterministic_only" },
+        "engine_ref": { "$ref": "#/$defs/exactRef" },
+        "objective_ref": { "$ref": "#/$defs/exactRef" },
+        "policy_ref": { "$ref": "#/$defs/exactRef" },
+        "snapshot_ref": { "$ref": "#/$defs/exactRef" },
+        "source_packet_ref": { "$ref": "#/$defs/exactRef" },
+        "ruleset_ref": { "$ref": "#/$defs/exactRef" },
+        "adapter_revision": { "const": "soulforge.quality_readiness.adapter.v0" },
+        "source_bindings": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/sourceBinding" } },
+        "accepted_rule_bindings": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/acceptedRuleBinding" } },
+        "profile_source_bindings": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/profileSourceBinding" } }
+      }
+    },
+    "binding": {
+      "allOf": [
+        { "$ref": "#/$defs/baseBinding" },
+        { "required": ["profile_source_bindings"] }
+      ]
+    },
+    "cutoffs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accepted_context_generation", "assessment_cutoff_ref"],
+      "properties": {
+        "accepted_context_generation": { "type": "integer", "minimum": 0 },
+        "assessment_cutoff_ref": { "$ref": "#/$defs/exactRef" }
+      }
+    },
+    "applicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project_binding", "jurisdiction", "time_window", "document_revision", "approval_scope"],
+      "properties": {
+        "project_binding": { "enum": [true, false, "unknown"] },
+        "jurisdiction": { "enum": [true, false, "unknown"] },
+        "time_window": { "enum": [true, false, "unknown"] },
+        "document_revision": { "enum": [true, false, "unknown"] },
+        "approval_scope": { "enum": [true, false, "unknown"] }
+      }
+    },
+    "contextRefs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "invocation_ref": { "$ref": "#/$defs/exactRef" },
+        "scope_ref": { "$ref": "#/$defs/exactRef" },
+        "agency_procedure_ref": { "$ref": "#/$defs/exactRef" },
+        "completed_actions_ref": { "$ref": "#/$defs/exactRef" },
+        "exceptions_ref": { "$ref": "#/$defs/exactRef" },
+        "far_jurisdiction_ref": { "$ref": "#/$defs/exactRef" },
+        "inspection_record_ref": { "$ref": "#/$defs/exactRef" },
+        "record_path_ref": { "$ref": "#/$defs/exactRef" },
+        "authority_route_ref": { "$ref": "#/$defs/exactRef" },
+        "baseline_ref": { "$ref": "#/$defs/exactRef" },
+        "nasa_flowdown_ref": { "$ref": "#/$defs/exactRef" },
+        "tailoring_ref": { "$ref": "#/$defs/exactRef" },
+        "nonconformance_class_ref": { "$ref": "#/$defs/exactRef" },
+        "proposed_disposition_ref": { "$ref": "#/$defs/exactRef" },
+        "selected_branch_ref": { "$ref": "#/$defs/exactRef" },
+        "technical_evidence_ref": { "$ref": "#/$defs/exactRef" },
+        "synthetic_scope_ref": { "$ref": "#/$defs/exactRef" }
+      }
+    },
+    "authorityBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority_family", "role_ref", "delegation_ref", "decision_ref"],
+      "properties": {
+        "authority_family": { "enum": ["applicable_law_and_regulation", "project_contract_baseline", "company_approved_procedure"] },
+        "role_ref": { "$ref": "#/$defs/exactRef" },
+        "delegation_ref": { "$ref": "#/$defs/exactRef" },
+        "decision_ref": { "$ref": "#/$defs/exactRef" }
+      }
+    },
+    "conflictClaim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim_id", "authority_family", "source_revision_ref", "lineage_ref", "applicability", "asserted_value", "valid_at", "known_at"],
+      "properties": {
+        "claim_id": { "$ref": "#/$defs/token" },
+        "authority_family": { "enum": ["applicable_law_and_regulation", "project_contract_baseline", "company_approved_procedure"] },
+        "source_revision_ref": { "$ref": "#/$defs/exactRef" },
+        "lineage_ref": { "$ref": "#/$defs/token" },
+        "applicability": { "enum": [true, false, "unknown"] },
+        "asserted_value": { "$ref": "#/$defs/token" },
+        "valid_at": { "$ref": "#/$defs/instant" },
+        "known_at": { "$ref": "#/$defs/instant" }
+      }
+    },
+    "factRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["case_id", "rule_id", "stage_ref", "applicability", "context_refs", "authority_bindings", "observation_attempted", "presence_state", "evidence_refs", "artifact_token"],
+      "properties": {
+        "case_id": { "$ref": "#/$defs/token" },
+        "rule_id": { "$ref": "#/$defs/token" },
+        "stage_ref": { "$ref": "#/$defs/exactRef" },
+        "applicability": { "$ref": "#/$defs/applicability" },
+        "context_refs": { "$ref": "#/$defs/contextRefs" },
+        "authority_bindings": { "type": "array", "items": { "$ref": "#/$defs/authorityBinding" } },
+        "observation_attempted": { "type": "boolean" },
+        "observation_attempt_ref": { "$ref": "#/$defs/exactRef" },
+        "presence_state": { "enum": ["present", "absence_confirmed", "unknown"] },
+        "evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/exactRef" } },
+        "artifact_token": { "type": ["string", "null"] },
+        "not_applicable_basis_ref": { "$ref": "#/$defs/exactRef" },
+        "approved_evidence_selection_ref": { "$ref": "#/$defs/exactRef" },
+        "measurement_evaluation_criteria_ref": { "$ref": "#/$defs/exactRef" },
+        "evaluation_result_ref": { "$ref": "#/$defs/exactRef" },
+        "evaluation_result_state": { "enum": ["criteria_met", "criteria_not_met", "unknown"] },
+        "conflict_claims": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/conflictClaim" } }
+      }
+    },
+    "typedProjectFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "project_binding_ref", "facts", "facts_digest", "valid_at", "known_at"],
+      "properties": {
+        "schema_version": { "const": "soulforge.typed_project_facts.v0" },
+        "project_binding_ref": { "$ref": "#/$defs/exactRef" },
+        "facts": { "type": "array", "items": { "$ref": "#/$defs/factRow" } },
+        "facts_digest": { "$ref": "#/$defs/digest" },
+        "valid_at": { "$ref": "#/$defs/instant" },
+        "known_at": { "$ref": "#/$defs/instant" }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["order", "profile_kind", "profile_id", "domain_engine_id", "revision_or_hash", "extends_or_base_pin", "operation_digest", "applied_operations_count", "source_refs"],
+      "properties": {
+        "order": { "type": "integer", "minimum": 0 },
+        "profile_kind": { "enum": ["organization", "project"] },
+        "profile_id": { "$ref": "#/$defs/text" },
+        "domain_engine_id": { "const": "quality_readiness" },
+        "revision_or_hash": { "$ref": "#/$defs/text" },
+        "extends_or_base_pin": { "$ref": "#/$defs/text" },
+        "operation_digest": { "$ref": "#/$defs/digest" },
+        "applied_operations_count": { "type": "integer", "minimum": 0 },
+        "source_refs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/text" } }
+      }
+    },
+    "profileSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile_id", "domain_engine_id", "revision_or_hash", "extends_or_base_pin", "operation_digest", "applied_operations_count", "source_refs"],
+      "properties": {
+        "profile_id": { "$ref": "#/$defs/text" },
+        "domain_engine_id": { "const": "quality_readiness" },
+        "revision_or_hash": { "$ref": "#/$defs/text" },
+        "extends_or_base_pin": { "$ref": "#/$defs/text" },
+        "operation_digest": { "$ref": "#/$defs/digest" },
+        "applied_operations_count": { "type": "integer", "minimum": 0 },
+        "source_refs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/text" } }
+      }
+    },
+    "compilationTrace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "domain_engine_id", "domain_adapter_revision", "organization_trace", "project_trace", "profiles", "compilation_scope", "effective_ruleset_digest", "rule_count"],
+      "properties": {
+        "schema_version": { "const": "soulforge.compilation_trace.v0" },
+        "domain_engine_id": { "const": "quality_readiness" },
+        "domain_adapter_revision": { "const": "soulforge.quality_readiness.compiler.v0" },
+        "organization_trace": { "anyOf": [{ "$ref": "#/$defs/profileSummary" }, { "type": "null" }] },
+        "project_trace": { "anyOf": [{ "$ref": "#/$defs/profileSummary" }, { "type": "null" }] },
+        "profiles": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "prefixItems": [
+            { "allOf": [{ "$ref": "#/$defs/profile" }, { "properties": { "order": { "const": 0 } } }] },
+            { "allOf": [{ "$ref": "#/$defs/profile" }, { "properties": { "order": { "const": 1 }, "profile_kind": { "const": "project" } } }] }
+          ],
+          "items": false
+        },
+        "compilation_scope": { "type": "object", "additionalProperties": false, "maxProperties": 0 },
+        "effective_ruleset_digest": { "$ref": "#/$defs/digest" },
+        "rule_count": { "type": "integer", "minimum": 1 }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "profiles": { "maxItems": 1, "prefixItems": [{ "properties": { "profile_kind": { "const": "organization" } } }] },
+            "organization_trace": { "$ref": "#/$defs/profileSummary" },
+            "project_trace": { "type": "null" }
+          }
+        },
+        {
+          "properties": {
+            "profiles": { "minItems": 2, "maxItems": 2, "prefixItems": [{ "properties": { "profile_kind": { "const": "organization" } } }] },
+            "organization_trace": { "$ref": "#/$defs/profileSummary" },
+            "project_trace": { "$ref": "#/$defs/profileSummary" }
+          }
+        },
+        {
+          "properties": {
+            "profiles": { "maxItems": 1, "prefixItems": [{ "properties": { "profile_kind": { "const": "project" } } }] },
+            "organization_trace": { "type": "null" },
+            "project_trace": { "$ref": "#/$defs/profileSummary" }
+          }
+        }
+      ]
+    },
+    "assessmentContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest", "binding", "domain_input_schema_version", "cutoffs"],
+      "properties": {
+        "manifest": { "$ref": "#/$defs/manifest" },
+        "binding": { "$ref": "#/$defs/binding" },
+        "domain_input_schema_version": { "const": "soulforge.quality_readiness.domain_input.v0" },
+        "cutoffs": { "$ref": "#/$defs/cutoffs" }
+      }
+    }
+  }
+}

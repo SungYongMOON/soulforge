@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.quality_readiness.evaluation_input.v1",
+  "title": "Quality Readiness admitted evaluation input",
+  "oneOf": [
+    { "$ref": "#/$defs/request" },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request"],
+      "properties": { "request": { "$ref": "#/$defs/request" } }
+    },
+    { "$ref": "soulforge.quality_readiness.typed_facts_envelope.v0" }
+  ],
+  "$defs": {
+    "domainInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "rows"],
+      "properties": {
+        "schema_version": { "const": "soulforge.quality_readiness.domain_input.v0" },
+        "rows": {
+          "type": "array",
+          "items": { "$ref": "soulforge.quality_readiness.typed_facts_envelope.v0#/$defs/factRow" }
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest", "binding", "domain_input", "cutoffs"],
+      "properties": {
+        "manifest": { "$ref": "soulforge.quality_readiness.typed_facts_envelope.v0#/$defs/manifest" },
+        "binding": { "$ref": "soulforge.quality_readiness.typed_facts_envelope.v0#/$defs/baseBinding" },
+        "domain_input": { "$ref": "#/$defs/domainInput" },
+        "cutoffs": { "$ref": "soulforge.quality_readiness.typed_facts_envelope.v0#/$defs/cutoffs" }
+      }
+    }
+  }
+}

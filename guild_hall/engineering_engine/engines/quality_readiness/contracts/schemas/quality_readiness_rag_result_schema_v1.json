@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.quality_readiness.rag_result.v0",
+  "title": "Quality Readiness advisory RAG result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status", "verdict_authority", "rule_authority", "source_packet_sha256", "query_id", "candidate_locators", "receipt"],
+  "properties": {
+    "schema_version": { "const": "soulforge.quality_readiness.rag_result.v0" },
+    "status": { "enum": ["advisory_locator_candidates", "hold_no_admissible_locator"] },
+    "verdict_authority": { "const": false },
+    "rule_authority": { "const": false },
+    "source_packet_sha256": { "$ref": "#/$defs/digest" },
+    "query_id": { "$ref": "#/$defs/token" },
+    "candidate_locators": { "type": "array", "items": { "$ref": "#/$defs/candidateLocator" } },
+    "receipt": { "$ref": "#/$defs/receipt" }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "status": { "const": "advisory_locator_candidates" },
+        "candidate_locators": { "minItems": 1 }
+      }
+    },
+    {
+      "properties": {
+        "status": { "const": "hold_no_admissible_locator" },
+        "candidate_locators": { "maxItems": 0 }
+      }
+    }
+  ],
+  "$defs": {
+    "token": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "publicLocator": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$",
+      "anyOf": [
+        { "pattern": "^(?![A-Za-z][A-Za-z0-9+.-]*:)(?![\\\\/])[^\\u0000-\\u001f\\u007f]+$" },
+        { "pattern": "^https://[^/?#\\s]+(?:/[^?#\\s]*)?$" }
+      ],
+      "not": {
+        "pattern": "(?:^/|(?:^|[^A-Za-z0-9])[A-Za-z]:[\\\\/]|\\\\\\\\|(?:^|[\\\\/])(?:workspace|_workspaces|_workmeta|private-state|private)(?:[\\\\/]|$)|^https://(?:localhost|[^/]+\\.(?:localhost|local|localdomain|internal|intranet|lan|home))(?:[:/]|$))"
+      }
+    },
+    "zeroEffects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["filesystem_reads", "filesystem_writes", "network_calls", "model_calls", "rag_calls"],
+      "properties": {
+        "filesystem_reads": { "const": 0 }, "filesystem_writes": { "const": 0 }, "network_calls": { "const": 0 },
+        "model_calls": { "const": 0 }, "rag_calls": { "const": 0 }
+      }
+    },
+    "candidateLocator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "direct_record_sha256", "exact_locator", "claim_ceiling", "confirmation_required_before_rule_or_verdict"],
+      "properties": {
+        "source_id": { "$ref": "#/$defs/token" },
+        "direct_record_sha256": { "$ref": "#/$defs/digest" },
+        "exact_locator": { "$ref": "#/$defs/publicLocator" },
+        "claim_ceiling": { "enum": ["observed", "source_supported"] },
+        "confirmation_required_before_rule_or_verdict": { "const": true }
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input_sha256", "output_sha256", "effects"],
+      "properties": {
+        "input_sha256": { "$ref": "#/$defs/digest" },
+        "output_sha256": { "$ref": "#/$defs/digest" },
+        "effects": { "$ref": "#/$defs/zeroEffects" }
+      }
+    }
+  }
+}

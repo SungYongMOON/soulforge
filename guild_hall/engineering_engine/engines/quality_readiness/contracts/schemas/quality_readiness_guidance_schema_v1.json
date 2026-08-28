@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.quality_readiness.guidance.v0",
+  "title": "Quality Readiness owner-review guidance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "guidance_kind", "claim_ceiling", "verdict_authority", "cards", "receipt"],
+  "properties": {
+    "schema_version": { "const": "soulforge.quality_readiness.guidance.v0" },
+    "guidance_kind": { "const": "owner_review_only" },
+    "claim_ceiling": { "enum": ["observed", "source_supported"] },
+    "verdict_authority": { "const": false },
+    "cards": { "type": "array", "items": { "$ref": "#/$defs/card" } },
+    "receipt": { "$ref": "#/$defs/receipt" }
+  },
+  "$defs": {
+    "token": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "zeroEffects": {
+      "type": "object", "additionalProperties": false,
+      "required": ["filesystem_reads", "filesystem_writes", "network_calls", "model_calls", "rag_calls"],
+      "properties": {
+        "filesystem_reads": { "const": 0 }, "filesystem_writes": { "const": 0 }, "network_calls": { "const": 0 },
+        "model_calls": { "const": 0 }, "rag_calls": { "const": 0 }
+      }
+    },
+    "card": {
+      "type": "object", "additionalProperties": false,
+      "required": ["guide_id", "rule_id", "case_id", "observed_state", "next_action", "owner_review_required", "verdict_authority"],
+      "properties": {
+        "guide_id": { "type": "string", "pattern": "^qr_guide_[a-f0-9]{24}$" },
+        "rule_id": { "$ref": "#/$defs/token" },
+        "case_id": { "$ref": "#/$defs/token" },
+        "observed_state": { "enum": ["satisfied", "gap_missing", "gap_unknown", "gap_conflict", "not_applicable"] },
+        "next_action": { "enum": ["retain_exact_evidence_for_owner_review", "obtain_or_confirm_the_named_evidence", "resolve_the_missing_binding_or_observation", "preserve_all_sides_and_seek_authorized_resolution", "retain_the_exact_not_applicable_basis"] },
+        "owner_review_required": { "const": true },
+        "verdict_authority": { "const": false }
+      }
+    },
+    "receipt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["assessment_sha256", "observation_sha256", "typed_facts_sha256", "guidance_sha256", "effects"],
+      "properties": {
+        "assessment_sha256": { "$ref": "#/$defs/digest" }, "observation_sha256": { "$ref": "#/$defs/digest" },
+        "typed_facts_sha256": { "$ref": "#/$defs/digest" }, "guidance_sha256": { "$ref": "#/$defs/digest" },
+        "effects": { "$ref": "#/$defs/zeroEffects" }
+      }
+    }
+  }
+}

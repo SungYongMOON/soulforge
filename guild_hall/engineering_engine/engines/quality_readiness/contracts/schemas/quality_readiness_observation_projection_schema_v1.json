@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.quality_readiness.observation_projection.v0",
+  "title": "Quality Readiness observation projection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "observation_kind", "observation_run_ref", "known_at", "observations", "counts", "receipt"],
+  "properties": {
+    "schema_version": { "const": "soulforge.quality_readiness.observation_projection.v0" },
+    "observation_kind": { "const": "typed_facts_projection_only" },
+    "observation_run_ref": { "$ref": "#/$defs/exactRef" },
+    "known_at": { "$ref": "#/$defs/instant" },
+    "observations": { "type": "array", "items": { "$ref": "#/$defs/observation" } },
+    "counts": { "$ref": "#/$defs/counts" },
+    "receipt": { "$ref": "#/$defs/receipt" }
+  },
+  "$defs": {
+    "token": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$" },
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "instant": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$" },
+    "exactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity_id", "revision_id", "content_id", "content_hash_alg"],
+      "properties": {
+        "entity_id": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "revision_id": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "content_id": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "content_hash_alg": { "const": "sha256" }
+      }
+    },
+    "zeroEffects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["filesystem_reads", "filesystem_writes", "network_calls", "model_calls", "rag_calls"],
+      "properties": {
+        "filesystem_reads": { "const": 0 }, "filesystem_writes": { "const": 0 }, "network_calls": { "const": 0 },
+        "model_calls": { "const": 0 }, "rag_calls": { "const": 0 }
+      }
+    },
+    "observation": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["observation_id", "rule_id", "case_id", "observation_state", "presence_state", "observation_attempted", "observation_attempt_ref"],
+          "properties": {
+            "observation_id": { "type": "string", "pattern": "^qr_obs_[a-f0-9]{24}$" }, "rule_id": { "$ref": "#/$defs/token" }, "case_id": { "$ref": "#/$defs/token" },
+            "observation_state": { "const": "observed_present" }, "presence_state": { "const": "present" },
+            "observation_attempted": { "const": true }, "observation_attempt_ref": { "$ref": "#/$defs/exactRef" }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["observation_id", "rule_id", "case_id", "observation_state", "presence_state", "observation_attempted", "observation_attempt_ref"],
+          "properties": {
+            "observation_id": { "type": "string", "pattern": "^qr_obs_[a-f0-9]{24}$" }, "rule_id": { "$ref": "#/$defs/token" }, "case_id": { "$ref": "#/$defs/token" },
+            "observation_state": { "const": "observed_absence_confirmed" }, "presence_state": { "const": "absence_confirmed" },
+            "observation_attempted": { "const": true }, "observation_attempt_ref": { "$ref": "#/$defs/exactRef" }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["observation_id", "rule_id", "case_id", "observation_state", "presence_state", "observation_attempted"],
+          "properties": {
+            "observation_id": { "type": "string", "pattern": "^qr_obs_[a-f0-9]{24}$" }, "rule_id": { "$ref": "#/$defs/token" }, "case_id": { "$ref": "#/$defs/token" },
+            "observation_state": { "const": "observation_unavailable" }, "presence_state": { "const": "unknown" }, "observation_attempted": { "const": false }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["observation_id", "rule_id", "case_id", "observation_state", "presence_state", "observation_attempted", "observation_attempt_ref"],
+          "properties": {
+            "observation_id": { "type": "string", "pattern": "^qr_obs_[a-f0-9]{24}$" }, "rule_id": { "$ref": "#/$defs/token" }, "case_id": { "$ref": "#/$defs/token" },
+            "observation_state": { "const": "observation_unavailable" }, "presence_state": { "const": "unknown" },
+            "observation_attempted": { "const": true }, "observation_attempt_ref": { "$ref": "#/$defs/exactRef" }
+          }
+        }
+      ]
+    },
+    "counts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["total", "observed_present", "observed_absence_confirmed", "observation_unavailable"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 }, "observed_present": { "type": "integer", "minimum": 0 },
+        "observed_absence_confirmed": { "type": "integer", "minimum": 0 }, "observation_unavailable": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "receipt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["typed_facts_sha256", "assessment_sha256", "observations_sha256", "effects"],
+      "properties": {
+        "typed_facts_sha256": { "$ref": "#/$defs/digest" }, "assessment_sha256": { "$ref": "#/$defs/digest" },
+        "observations_sha256": { "$ref": "#/$defs/digest" }, "effects": { "$ref": "#/$defs/zeroEffects" }
+      }
+    }
+  }
+}
