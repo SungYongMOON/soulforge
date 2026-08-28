@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-28 - Quality Readiness Q1 source and replay deepening main integration
+
+- Integrated the accepted Q1 deepening surfaces for `quality_readiness`: immutable public source pins, locator-only non-authoritative RAG, Core-compatible Typed Facts/Profile provenance, fixed-point assessment replay, replay-bound observation/guidance/read tools, and seven closed semantic schemas.
+- Registered the separate, additive `validate:quality-readiness-deepening` root gate and refreshed the canonical Engineering Engine topology, manifest, release evidence, and passive Watchtower federation counts. The five QR suites pass 76 tests; the deepening gate owns the three new suites.
+- Kept the 56-row corpus aggregate and caller-admitted Profile lane at `observed`/HOLD. This integration grants no source/rule/Profile acceptance, global MCP/schema registration, separate Watchtower node, Quality or product disposition, compliance, project applicability, production, release, canon, or writer authority.
+
 ## 2026-08-28 - Safety Hazard evidence-readiness Domain Engine main integration
 
 - Integrated the accepted `safety_hazard` package behind the unchanged Engineering Engine Core without granting residual-risk acceptance, hazard closure, human-authority validation, compliance, project applicability, production, canon, release, or writer authority.

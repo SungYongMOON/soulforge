@@ -41,6 +41,7 @@ test("루트 게이트: 앱 테스트 스텝이 validate·done-check 양 모드�
     ['"engineering-engine-no-duplicate-authority"', "npm run validate:engineering-engine-no-duplicate-authority"],
     ['"engineering-engine-core-domain"', "npm run validate:engineering-engine-core-domain"],
     ['"quality-readiness"', "npm run validate:quality-readiness"],
+    ['"quality-readiness-deepening"', "npm run validate:quality-readiness-deepening"],
     ['"database-engineering"', "npm run validate:database-engineering"],
     ['"material-procurement-readiness"', "npm run validate:material-procurement-readiness"],
     ['"configuration-change-impact"', "npm run validate:configuration-change-impact"],

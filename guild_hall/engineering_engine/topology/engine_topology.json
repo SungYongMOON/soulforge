@@ -1769,35 +1769,67 @@
       "line_count": 42
     },
     {
+      "module": "engines/quality_readiness/binding/quality_readiness_typed_facts",
+      "area": "engines",
+      "exports": [
+        "QUALITY_READINESS_TYPED_FACTS_CODES",
+        "QUALITY_READINESS_TYPED_FACTS_CORE_SCHEMA",
+        "QUALITY_READINESS_TYPED_FACTS_SCHEMA",
+        "buildQualityReadinessTypedFacts",
+        "qualityReadinessCanonicalDataDigest",
+        "qualityReadinessFactsDigest",
+        "qualityReadinessTypedFactsDigest",
+        "requestFromQualityReadinessTypedFacts"
+      ],
+      "export_count": 8,
+      "line_count": 402
+    },
+    {
       "module": "engines/quality_readiness/compiler/quality_readiness_compiler_adapter",
       "area": "engines",
       "exports": [
         "QR_COMPILER_ADAPTER_SCHEMA_VERSION",
         "QR_COMPILER_ERROR_CODES",
         "compileQualityReadinessRules",
-        "qualityReadinessCompilerAdapter"
+        "qualityReadinessCompilerAdapter",
+        "verifyQualityReadinessEffectiveRuleSet"
       ],
-      "export_count": 4,
-      "line_count": 631
+      "export_count": 5,
+      "line_count": 959
     },
     {
       "module": "engines/quality_readiness/evaluator/quality_readiness",
       "area": "engines",
       "exports": [
-        "assessQualityReadiness"
+        "assessQualityReadiness",
+        "verifyQualityReadinessAssessmentResultShape"
       ],
-      "export_count": 1,
-      "line_count": 951
+      "export_count": 2,
+      "line_count": 1335
     },
     {
       "module": "engines/quality_readiness/evaluator/quality_readiness_evaluator_adapter",
       "area": "engines",
       "exports": [
+        "QR_EVALUATOR_ADAPTER_CODES",
         "QR_EVALUATOR_ADAPTER_SCHEMA_VERSION",
-        "qualityReadinessAdapter"
+        "qualityReadinessAdapter",
+        "verifyQualityReadinessAssessmentResult"
       ],
-      "export_count": 2,
-      "line_count": 190
+      "export_count": 4,
+      "line_count": 618
+    },
+    {
+      "module": "engines/quality_readiness/fixtures/quality_readiness_deepening_public_synthetic",
+      "area": "engines",
+      "exports": [
+        "QUALITY_READINESS_DEEPENING_SYNTHETIC_INSTANT",
+        "QUALITY_READINESS_SYNTHETIC_PROFILE_RULE",
+        "buildQualityReadinessDeepeningPublicSynthetic",
+        "qualityReadinessSyntheticRef"
+      ],
+      "export_count": 4,
+      "line_count": 128
     },
     {
       "module": "engines/quality_readiness/fixtures/quality_readiness_public_synthetic",
@@ -1810,6 +1842,57 @@
       ],
       "export_count": 4,
       "line_count": 271
+    },
+    {
+      "module": "engines/quality_readiness/guidance/quality_readiness_guidance",
+      "area": "engines",
+      "exports": [
+        "QUALITY_READINESS_GUIDANCE_CODES",
+        "QUALITY_READINESS_GUIDANCE_SCHEMA",
+        "buildQualityReadinessGuidance",
+        "verifyQualityReadinessGuidance"
+      ],
+      "export_count": 4,
+      "line_count": 264
+    },
+    {
+      "module": "engines/quality_readiness/mcp/quality_readiness_read_tools",
+      "area": "engines",
+      "exports": [
+        "QUALITY_READINESS_MCP_CODES",
+        "QUALITY_READINESS_MCP_SCHEMA",
+        "callQualityReadinessReadTool",
+        "handleQualityReadinessMcpRequest",
+        "listQualityReadinessReadTools"
+      ],
+      "export_count": 5,
+      "line_count": 274
+    },
+    {
+      "module": "engines/quality_readiness/observation/quality_readiness_observation",
+      "area": "engines",
+      "exports": [
+        "QUALITY_READINESS_OBSERVATION_CODES",
+        "QUALITY_READINESS_OBSERVATION_SCHEMA",
+        "projectQualityReadinessObservations",
+        "verifyQualityReadinessObservationProjection"
+      ],
+      "export_count": 4,
+      "line_count": 285
+    },
+    {
+      "module": "engines/quality_readiness/rag/quality_readiness_rag_boundary",
+      "area": "engines",
+      "exports": [
+        "QUALITY_READINESS_RAG_CODES",
+        "QUALITY_READINESS_RAG_PACKET_SCHEMA",
+        "QUALITY_READINESS_RAG_RESULT_SCHEMA",
+        "createQualityReadinessRagPacket",
+        "retrieveQualityReadinessAdvisoryEvidence",
+        "verifyQualityReadinessRagResult"
+      ],
+      "export_count": 6,
+      "line_count": 373
     },
     {
       "module": "engines/quality_readiness/rules/quality_readiness_rules",
@@ -1827,11 +1910,40 @@
       "line_count": 171
     },
     {
+      "module": "engines/quality_readiness/source/quality_readiness_source_derivation",
+      "area": "engines",
+      "exports": [
+        "QUALITY_READINESS_DIRECT_SOURCE_SCHEMA",
+        "QUALITY_READINESS_SOURCE_CODES",
+        "QUALITY_READINESS_SOURCE_CORPUS_SCHEMA",
+        "admitQualityReadinessDirectSource",
+        "assertQualityReadinessPublicLocator",
+        "buildQualityReadinessSourceDirectCorpus",
+        "verifyQualityReadinessDirectSourceRecord",
+        "verifyQualityReadinessSourceDirectCorpus"
+      ],
+      "export_count": 8,
+      "line_count": 628
+    },
+    {
       "module": "engines/quality_readiness/tools/quality_readiness_runner",
       "area": "engines",
-      "exports": [],
-      "export_count": 0,
-      "line_count": 9
+      "exports": [
+        "runQualityReadinessPublicSynthetic"
+      ],
+      "export_count": 1,
+      "line_count": 76
+    },
+    {
+      "module": "engines/quality_readiness/topology/quality_readiness_deepening_topology",
+      "area": "engines",
+      "exports": [
+        "QUALITY_READINESS_DEEPENING_TOPOLOGY",
+        "QUALITY_READINESS_DEEPENING_TOPOLOGY_SCHEMA",
+        "getQualityReadinessDeepeningTopology"
+      ],
+      "export_count": 3,
+      "line_count": 30
     },
     {
       "module": "engines/quality_readiness/topology/quality_readiness_module_manifest",
@@ -3470,7 +3582,7 @@
       "line_count": 1885
     }
   ],
-  "module_count": 228,
+  "module_count": 236,
   "module_edges": [
     {
       "from": "core/evaluation_runtime/claim_ceilings",
@@ -6203,6 +6315,27 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     },
     {
+      "from": "engines/quality_readiness/binding/quality_readiness_typed_facts",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/binding/quality_readiness_typed_facts",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/binding/quality_readiness_typed_facts",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
       "from": "engines/quality_readiness/compiler/quality_readiness_compiler_adapter",
       "to": "core/interfaces/profile_operation_canon",
       "relation": "imports",
@@ -6267,6 +6400,20 @@
     },
     {
       "from": "engines/quality_readiness/evaluator/quality_readiness_evaluator_adapter",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/evaluator/quality_readiness_evaluator_adapter",
+      "to": "engines/quality_readiness/binding/quality_readiness_typed_facts",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/evaluator/quality_readiness_evaluator_adapter",
       "to": "engines/quality_readiness/compiler/quality_readiness_compiler_adapter",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
@@ -6275,13 +6422,6 @@
     {
       "from": "engines/quality_readiness/evaluator/quality_readiness_evaluator_adapter",
       "to": "engines/quality_readiness/evaluator/quality_readiness",
-      "relation": "imports",
-      "receipt_channel": "module_load_observation",
-      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
-    },
-    {
-      "from": "engines/quality_readiness/evaluator/quality_readiness_evaluator_adapter",
-      "to": "engines/quality_readiness/rules/quality_readiness_rules",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
@@ -6364,6 +6504,48 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     },
     {
+      "from": "engines/quality_readiness/fixtures/quality_readiness_deepening_public_synthetic",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/fixtures/quality_readiness_deepening_public_synthetic",
+      "to": "engines/quality_readiness/binding/quality_readiness_typed_facts",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/fixtures/quality_readiness_deepening_public_synthetic",
+      "to": "engines/quality_readiness/evaluator/quality_readiness_evaluator_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/fixtures/quality_readiness_deepening_public_synthetic",
+      "to": "engines/quality_readiness/fixtures/quality_readiness_public_synthetic",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/fixtures/quality_readiness_deepening_public_synthetic",
+      "to": "engines/quality_readiness/rag/quality_readiness_rag_boundary",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/fixtures/quality_readiness_deepening_public_synthetic",
+      "to": "engines/quality_readiness/source/quality_readiness_source_derivation",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
       "from": "engines/quality_readiness/fixtures/quality_readiness_public_synthetic",
       "to": "core/validators/contract_config",
       "relation": "imports",
@@ -6385,6 +6567,153 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     },
     {
+      "from": "engines/quality_readiness/guidance/quality_readiness_guidance",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/guidance/quality_readiness_guidance",
+      "to": "core/validators/ceilings",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/guidance/quality_readiness_guidance",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/guidance/quality_readiness_guidance",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/guidance/quality_readiness_guidance",
+      "to": "engines/quality_readiness/evaluator/quality_readiness_evaluator_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/guidance/quality_readiness_guidance",
+      "to": "engines/quality_readiness/observation/quality_readiness_observation",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/mcp/quality_readiness_read_tools",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/mcp/quality_readiness_read_tools",
+      "to": "engines/quality_readiness/guidance/quality_readiness_guidance",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/mcp/quality_readiness_read_tools",
+      "to": "engines/quality_readiness/observation/quality_readiness_observation",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/mcp/quality_readiness_read_tools",
+      "to": "engines/quality_readiness/rag/quality_readiness_rag_boundary",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/mcp/quality_readiness_read_tools",
+      "to": "engines/quality_readiness/source/quality_readiness_source_derivation",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/observation/quality_readiness_observation",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/observation/quality_readiness_observation",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/observation/quality_readiness_observation",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/observation/quality_readiness_observation",
+      "to": "core/validators/identity",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/observation/quality_readiness_observation",
+      "to": "engines/quality_readiness/binding/quality_readiness_typed_facts",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/observation/quality_readiness_observation",
+      "to": "engines/quality_readiness/evaluator/quality_readiness_evaluator_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/rag/quality_readiness_rag_boundary",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/rag/quality_readiness_rag_boundary",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/rag/quality_readiness_rag_boundary",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/rag/quality_readiness_rag_boundary",
+      "to": "engines/quality_readiness/source/quality_readiness_source_derivation",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
       "from": "engines/quality_readiness/rules/quality_readiness_rules",
       "to": "core/validators/canonical",
       "relation": "imports",
@@ -6399,6 +6728,48 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     },
     {
+      "from": "engines/quality_readiness/source/quality_readiness_source_derivation",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/source/quality_readiness_source_derivation",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/source/quality_readiness_source_derivation",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/source/quality_readiness_source_derivation",
+      "to": "core/validators/identity",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/source/quality_readiness_source_derivation",
+      "to": "engines/quality_readiness/rules/quality_readiness_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/tools/quality_readiness_runner",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
       "from": "engines/quality_readiness/tools/quality_readiness_runner",
       "to": "engines/quality_readiness/evaluator/quality_readiness",
       "relation": "imports",
@@ -6407,7 +6778,49 @@
     },
     {
       "from": "engines/quality_readiness/tools/quality_readiness_runner",
+      "to": "engines/quality_readiness/evaluator/quality_readiness_evaluator_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/tools/quality_readiness_runner",
+      "to": "engines/quality_readiness/fixtures/quality_readiness_deepening_public_synthetic",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/tools/quality_readiness_runner",
       "to": "engines/quality_readiness/fixtures/quality_readiness_public_synthetic",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/tools/quality_readiness_runner",
+      "to": "engines/quality_readiness/guidance/quality_readiness_guidance",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/tools/quality_readiness_runner",
+      "to": "engines/quality_readiness/mcp/quality_readiness_read_tools",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/tools/quality_readiness_runner",
+      "to": "engines/quality_readiness/observation/quality_readiness_observation",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/quality_readiness/tools/quality_readiness_runner",
+      "to": "engines/quality_readiness/rag/quality_readiness_rag_boundary",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
@@ -8793,7 +9206,7 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 760,
+  "module_edge_count": 803,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -9144,5 +9557,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "496c2e77ea5710a4ef2fa9382ee54579595774aa6be8ea0729864d581dd375a2"
+  "topology_digest": "2ccd6fd5d9cf189646d95f142c0cda41e17f07fae7b69499e050415b05402ec8"
 }

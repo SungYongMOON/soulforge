@@ -32,6 +32,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.source.quality_readiness_source_derivation",
+      "id": "engineering_engine::imports.016cdaf160dd386c875a836d06f9f074",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.material_procurement_readiness.tools.material_procurement_readiness_runner",
       "id": "engineering_engine::imports.01856100726341e052d81775374aae43",
       "label": "imports",
@@ -222,6 +232,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.guidance.quality_readiness_guidance",
+      "id": "engineering_engine::imports.0e6e961ccc5612ed11f75f54f5ebc9f7",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluator.se_core_crosswalk_projection",
       "id": "engineering_engine::imports.0e881afee3c475b514360878fd12f4af",
       "label": "imports",
@@ -249,6 +269,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.source.quality_readiness_source_derivation",
+      "id": "engineering_engine::imports.0f4b4329798ca182fb14a04ece6be526",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
     },
     {
       "evidence_mode": "structural_only",
@@ -342,6 +372,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.observation.quality_readiness_observation",
+      "id": "engineering_engine::imports.1453df067f332b1d074d87e743263cb0",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.observe_status",
       "id": "engineering_engine::imports.146bb75026f11fbe2a219f428d24046d",
       "label": "imports",
@@ -402,6 +442,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.tools.quality_readiness_runner",
+      "id": "engineering_engine::imports.160b9808b602e059ce87a06b1b9605f1",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.fixtures.quality_readiness_deepening_public_synthetic"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability",
       "id": "engineering_engine::imports.160cdc4c48ea13059b8b44cdf52b458a",
       "label": "imports",
@@ -422,6 +472,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.observation.quality_readiness_observation",
+      "id": "engineering_engine::imports.177e38f2e95020b3a652cbda5cd23317",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter",
       "id": "engineering_engine::imports.185b943e38cdfddaf9f25727d068bf59",
       "label": "imports",
@@ -429,6 +489,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.observation.quality_readiness_observation",
+      "id": "engineering_engine::imports.19455ebfeb69687a897f4bb8b409c36f",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.identity"
     },
     {
       "evidence_mode": "structural_only",
@@ -712,6 +782,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.binding.quality_readiness_typed_facts",
+      "id": "engineering_engine::imports.2ab83767b574d6da09d3fc4f789ab13c",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluator.se_core_crosswalk_case_run",
       "id": "engineering_engine::imports.2b7fee973de04c570e0633325af2fe7a",
       "label": "imports",
@@ -762,6 +842,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.observation.quality_readiness_observation",
+      "id": "engineering_engine::imports.2d101fc1f21755a2681f267b953de4a5",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard_evaluator_adapter",
       "id": "engineering_engine::imports.2d25a722ea0cf2491aa7a8af4a82ba96",
       "label": "imports",
@@ -789,6 +879,36 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.tools.quality_readiness_runner",
+      "id": "engineering_engine::imports.2e4669cfcc3eedc4dabd3efe0533c0f3",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.observation.quality_readiness_observation"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.binding.quality_readiness_typed_facts",
+      "id": "engineering_engine::imports.2eabe01b65ccee60e8c9400f3493331a",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.guidance.quality_readiness_guidance",
+      "id": "engineering_engine::imports.2f81a796b7dc70252fe2520f5eef988c",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.observation.quality_readiness_observation"
     },
     {
       "evidence_mode": "structural_only",
@@ -1272,6 +1392,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter",
+      "id": "engineering_engine::imports.4636be0d2526c066f99b7905fd388ded",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.rules_stage",
       "id": "engineering_engine::imports.4657cbf7e87f3d1c6af7f3e4a5a7ef77",
       "label": "imports",
@@ -1562,6 +1692,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.fixtures.quality_readiness_deepening_public_synthetic",
+      "id": "engineering_engine::imports.52c1a5e5b0a9ab151557c51398f44c0d",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.fixtures.quality_readiness_public_synthetic"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter",
       "id": "engineering_engine::imports.52e8ad460a4cfa98f17c82da4865383f",
       "label": "imports",
@@ -1772,6 +1912,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter",
+      "id": "engineering_engine::imports.5db0c62c077f02bb77536c7666cb6f53",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.binding.quality_readiness_typed_facts"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
       "id": "engineering_engine::imports.5dc2aa41a06a13a967ee48a22e361fa8",
       "label": "imports",
@@ -1809,6 +1959,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.rules.stage_rule_compiler"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.source.quality_readiness_source_derivation",
+      "id": "engineering_engine::imports.5f5c2332fb6e17fa1c9bd2ad2531c6da",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.rules.quality_readiness_rules"
     },
     {
       "evidence_mode": "structural_only",
@@ -1872,6 +2032,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.fixtures.quality_readiness_deepening_public_synthetic",
+      "id": "engineering_engine::imports.63e6156fc8fe508b4e32f31d6965284c",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.rag.quality_readiness_rag_boundary"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.field_failure_corrective_action.rules.field_failure_corrective_action_binding_integrity",
       "id": "engineering_engine::imports.6446929cd45d1f05d2eca393a9ccae2a",
       "label": "imports",
@@ -1922,6 +2092,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.source.quality_readiness_source_derivation",
+      "id": "engineering_engine::imports.659eea0c7c6f1894ef71d8f133bad61a",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.identity"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.file_tickets_list",
       "id": "engineering_engine::imports.65cdf235f48774460046a5b1570cb515",
       "label": "imports",
@@ -1949,6 +2129,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.mcp.quality_readiness_read_tools",
+      "id": "engineering_engine::imports.6735b49379d7cb3440e9ee7a693f7d26",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.source.quality_readiness_source_derivation"
     },
     {
       "evidence_mode": "structural_only",
@@ -1989,6 +2179,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.rules.stage_rule_compiler"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.fixtures.quality_readiness_deepening_public_synthetic",
+      "id": "engineering_engine::imports.68bc7c2a4c819464658b432729de3335",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.source.quality_readiness_source_derivation"
     },
     {
       "evidence_mode": "structural_only",
@@ -2312,16 +2512,6 @@
     },
     {
       "evidence_mode": "structural_only",
-      "from": "engineering_engine::engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter",
-      "id": "engineering_engine::imports.7d3f35d4458848d71e5e9d8a52b305ce",
-      "label": "imports",
-      "layer": "module",
-      "provider_id": "engineering_engine",
-      "relation": "imports",
-      "to": "engineering_engine::engines.quality_readiness.rules.quality_readiness_rules"
-    },
-    {
-      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.field_failure_corrective_action.tools.field_failure_corrective_action_runner",
       "id": "engineering_engine::imports.7dab38b71ca49e80405af160b76cbc0b",
       "label": "imports",
@@ -2359,6 +2549,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.database_engineering.analysis.database_evidence_analyzers"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.rag.quality_readiness_rag_boundary",
+      "id": "engineering_engine::imports.7f4c7e8a6f73dbcce8ed4c33b128fe6a",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.source.quality_readiness_source_derivation"
     },
     {
       "evidence_mode": "structural_only",
@@ -2412,6 +2612,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.tools.quality_readiness_runner",
+      "id": "engineering_engine::imports.81c68076c8730b501835234493fc0062",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.rag.quality_readiness_rag_boundary"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter",
       "id": "engineering_engine::imports.824fa8bed117f07801a6602674688a5b",
       "label": "imports",
@@ -2429,6 +2639,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.tickets"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.observation.quality_readiness_observation",
+      "id": "engineering_engine::imports.82736fe44f1cc6b6b2bbdd65c7ff52ea",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
     },
     {
       "evidence_mode": "structural_only",
@@ -2549,6 +2769,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability_admission"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.tools.quality_readiness_runner",
+      "id": "engineering_engine::imports.86f4200c6cb93d2a8cece03785b32938",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter"
     },
     {
       "evidence_mode": "structural_only",
@@ -2809,6 +3039,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.snapshot"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.observation.quality_readiness_observation",
+      "id": "engineering_engine::imports.94a1072ad7705c7851044c4c92a529ed",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.binding.quality_readiness_typed_facts"
     },
     {
       "evidence_mode": "structural_only",
@@ -3172,6 +3412,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.source.quality_readiness_source_derivation",
+      "id": "engineering_engine::imports.a89b219ee667f10be89632b26ede583d",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.safety_hazard.compiler.safety_hazard_compiler_adapter",
       "id": "engineering_engine::imports.a8ab547dae1b3cae0356e070fc94a764",
       "label": "imports",
@@ -3199,6 +3449,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.render"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.rag.quality_readiness_rag_boundary",
+      "id": "engineering_engine::imports.aa23a04993108885c4edebebe1b859fc",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
     },
     {
       "evidence_mode": "structural_only",
@@ -3379,6 +3639,26 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.tools.quality_readiness_runner",
+      "id": "engineering_engine::imports.b2c028aea995b9392945934ec472bc4f",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.guidance.quality_readiness_guidance",
+      "id": "engineering_engine::imports.b2efd0bd7ba75e3d93772c3caa13bc29",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter"
     },
     {
       "evidence_mode": "structural_only",
@@ -3702,6 +3982,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.fixtures.quality_readiness_deepening_public_synthetic",
+      "id": "engineering_engine::imports.c27c1918bf532cb1f2aa196a01fc49b3",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.quality_readiness.topology.quality_readiness_module_manifest",
       "id": "engineering_engine::imports.c293640fa9514373bcf6f56565552b6d",
       "label": "imports",
@@ -3769,6 +4059,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.safety_hazard.evaluator.safety_hazard"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.mcp.quality_readiness_read_tools",
+      "id": "engineering_engine::imports.c3f8752a757fe7d19a8dd3f61cd8153c",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.rag.quality_readiness_rag_boundary"
     },
     {
       "evidence_mode": "structural_only",
@@ -5282,6 +5582,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.fixtures.quality_readiness_deepening_public_synthetic",
+      "id": "engineering_engine::imports.d0cb034077ba01c89135614fa7763a55",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.tools.engine_next_steps_runner",
       "id": "engineering_engine::imports.d0ff965fb22e35f41d7e047fea597006",
       "label": "imports",
@@ -5429,6 +5739,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.fixtures.quality_readiness_deepening_public_synthetic",
+      "id": "engineering_engine::imports.d8a9fe4f045698d22c26b75ea7e705df",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.binding.quality_readiness_typed_facts"
     },
     {
       "evidence_mode": "structural_only",
@@ -5669,6 +5989,26 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.evaluator.ax_se_project_assessment"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.mcp.quality_readiness_read_tools",
+      "id": "engineering_engine::imports.e329a0ed4cd769bbf4fcf8bd9d584019",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.guidance.quality_readiness_guidance"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.tools.quality_readiness_runner",
+      "id": "engineering_engine::imports.e48027096b11c774a4c2f82809d24e88",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.guidance.quality_readiness_guidance"
     },
     {
       "evidence_mode": "structural_only",
@@ -6032,6 +6372,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.binding.quality_readiness_typed_facts",
+      "id": "engineering_engine::imports.engines.quality_readiness.binding.quality_readiness_typed_facts.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.quality_readiness.evaluator.quality_readiness",
       "id": "engineering_engine::imports.engines.quality_readiness.evaluator.quality_readiness.core.validators.authority",
       "label": "imports",
@@ -6129,6 +6479,66 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.snapshot"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.guidance.quality_readiness_guidance",
+      "id": "engineering_engine::imports.engines.quality_readiness.guidance.quality_readiness_guidance.core.validators.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.guidance.quality_readiness_guidance",
+      "id": "engineering_engine::imports.engines.quality_readiness.guidance.quality_readiness_guidance.core.validators.ceilings",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.ceilings"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.guidance.quality_readiness_guidance",
+      "id": "engineering_engine::imports.engines.quality_readiness.guidance.quality_readiness_guidance.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.mcp.quality_readiness_read_tools",
+      "id": "engineering_engine::imports.engines.quality_readiness.mcp.quality_readiness_read_tools.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.rag.quality_readiness_rag_boundary",
+      "id": "engineering_engine::imports.engines.quality_readiness.rag.quality_readiness_rag_boundary.core.validators.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.rag.quality_readiness_rag_boundary",
+      "id": "engineering_engine::imports.engines.quality_readiness.rag.quality_readiness_rag_boundary.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
     },
     {
       "evidence_mode": "structural_only",
@@ -6792,6 +7202,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.tools.quality_readiness_runner",
+      "id": "engineering_engine::imports.f390edb58f499d18af7bb74409b2487b",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.mcp.quality_readiness_read_tools"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.material_procurement_readiness.evaluator.material_procurement_readiness",
       "id": "engineering_engine::imports.f46821ff47ed9a1b52e53ba1e8568842",
       "label": "imports",
@@ -7059,6 +7479,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.evaluator.ax_se_project_assessment"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.quality_readiness.mcp.quality_readiness_read_tools",
+      "id": "engineering_engine::imports.ff9821d45448b3556e97a01239bc46e3",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.quality_readiness.observation.quality_readiness_observation"
     },
     {
       "evidence_mode": "structural_only",
@@ -9172,6 +9602,17 @@
     {
       "diagnostic_state": "validator_backed",
       "group": "engines",
+      "id": "engineering_engine::engines.quality_readiness.binding.quality_readiness_typed_facts",
+      "kind": "module",
+      "label": "engines/quality_readiness/binding/quality_readiness_typed_facts",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
       "id": "engineering_engine::engines.quality_readiness.compiler.quality_readiness_compiler_adapter",
       "kind": "module",
       "label": "engines/quality_readiness/compiler/quality_readiness_compiler_adapter",
@@ -9205,9 +9646,64 @@
     {
       "diagnostic_state": "validator_backed",
       "group": "engines",
+      "id": "engineering_engine::engines.quality_readiness.fixtures.quality_readiness_deepening_public_synthetic",
+      "kind": "module",
+      "label": "engines/quality_readiness/fixtures/quality_readiness_deepening_public_synthetic",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
       "id": "engineering_engine::engines.quality_readiness.fixtures.quality_readiness_public_synthetic",
       "kind": "module",
       "label": "engines/quality_readiness/fixtures/quality_readiness_public_synthetic",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.quality_readiness.guidance.quality_readiness_guidance",
+      "kind": "module",
+      "label": "engines/quality_readiness/guidance/quality_readiness_guidance",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.quality_readiness.mcp.quality_readiness_read_tools",
+      "kind": "module",
+      "label": "engines/quality_readiness/mcp/quality_readiness_read_tools",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.quality_readiness.observation.quality_readiness_observation",
+      "kind": "module",
+      "label": "engines/quality_readiness/observation/quality_readiness_observation",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.quality_readiness.rag.quality_readiness_rag_boundary",
+      "kind": "module",
+      "label": "engines/quality_readiness/rag/quality_readiness_rag_boundary",
       "layer": "module",
       "parent_id": null,
       "provider_id": "engineering_engine",
@@ -9227,9 +9723,31 @@
     {
       "diagnostic_state": "validator_backed",
       "group": "engines",
+      "id": "engineering_engine::engines.quality_readiness.source.quality_readiness_source_derivation",
+      "kind": "module",
+      "label": "engines/quality_readiness/source/quality_readiness_source_derivation",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
       "id": "engineering_engine::engines.quality_readiness.tools.quality_readiness_runner",
       "kind": "module",
       "label": "engines/quality_readiness/tools/quality_readiness_runner",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.quality_readiness.topology.quality_readiness_deepening_topology",
+      "kind": "module",
+      "label": "engines/quality_readiness/topology/quality_readiness_deepening_topology",
       "layer": "module",
       "parent_id": null,
       "provider_id": "engineering_engine",
@@ -11095,6 +11613,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.source.quality_readiness_source_derivation",
+          "id": "imports.016cdaf160dd386c875a836d06f9f074",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.material_procurement_readiness.tools.material_procurement_readiness_runner",
           "id": "imports.01856100726341e052d81775374aae43",
           "label": "imports",
@@ -11266,6 +11793,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.guidance.quality_readiness_guidance",
+          "id": "imports.0e6e961ccc5612ed11f75f54f5ebc9f7",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluator.se_core_crosswalk_projection",
           "id": "imports.0e881afee3c475b514360878fd12f4af",
           "label": "imports",
@@ -11290,6 +11826,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.source.quality_readiness_source_derivation",
+          "id": "imports.0f4b4329798ca182fb14a04ece6be526",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
         },
         {
           "evidence_mode": "structural_only",
@@ -11374,6 +11919,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.observation.quality_readiness_observation",
+          "id": "imports.1453df067f332b1d074d87e743263cb0",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.observe_status",
           "id": "imports.146bb75026f11fbe2a219f428d24046d",
           "label": "imports",
@@ -11428,6 +11982,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.tools.quality_readiness_runner",
+          "id": "imports.160b9808b602e059ce87a06b1b9605f1",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.fixtures.quality_readiness_deepening_public_synthetic"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.reliability_maintainability.evaluator.reliability_maintainability",
           "id": "imports.160cdc4c48ea13059b8b44cdf52b458a",
           "label": "imports",
@@ -11446,12 +12009,30 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.observation.quality_readiness_observation",
+          "id": "imports.177e38f2e95020b3a652cbda5cd23317",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter",
           "id": "imports.185b943e38cdfddaf9f25727d068bf59",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.observation.quality_readiness_observation",
+          "id": "imports.19455ebfeb69687a897f4bb8b409c36f",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.identity"
         },
         {
           "evidence_mode": "structural_only",
@@ -11707,6 +12288,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.binding.quality_readiness_typed_facts",
+          "id": "imports.2ab83767b574d6da09d3fc4f789ab13c",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluator.se_core_crosswalk_case_run",
           "id": "imports.2b7fee973de04c570e0633325af2fe7a",
           "label": "imports",
@@ -11752,6 +12342,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.observation.quality_readiness_observation",
+          "id": "imports.2d101fc1f21755a2681f267b953de4a5",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.safety_hazard.evaluator.safety_hazard_evaluator_adapter",
           "id": "imports.2d25a722ea0cf2491aa7a8af4a82ba96",
           "label": "imports",
@@ -11776,6 +12375,33 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.configuration_change_impact.compiler.configuration_change_impact_compiler_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.tools.quality_readiness_runner",
+          "id": "imports.2e4669cfcc3eedc4dabd3efe0533c0f3",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.observation.quality_readiness_observation"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.binding.quality_readiness_typed_facts",
+          "id": "imports.2eabe01b65ccee60e8c9400f3493331a",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.guidance.quality_readiness_guidance",
+          "id": "imports.2f81a796b7dc70252fe2520f5eef988c",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.observation.quality_readiness_observation"
         },
         {
           "evidence_mode": "structural_only",
@@ -12211,6 +12837,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter",
+          "id": "imports.4636be0d2526c066f99b7905fd388ded",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.rules_stage",
           "id": "imports.4657cbf7e87f3d1c6af7f3e4a5a7ef77",
           "label": "imports",
@@ -12472,6 +13107,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.fixtures.quality_readiness_deepening_public_synthetic",
+          "id": "imports.52c1a5e5b0a9ab151557c51398f44c0d",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.fixtures.quality_readiness_public_synthetic"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.pcb_compliance.compiler.pcb_compliance_compiler_adapter",
           "id": "imports.52e8ad460a4cfa98f17c82da4865383f",
           "label": "imports",
@@ -12661,6 +13305,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter",
+          "id": "imports.5db0c62c077f02bb77536c7666cb6f53",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.binding.quality_readiness_typed_facts"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
           "id": "imports.5dc2aa41a06a13a967ee48a22e361fa8",
           "label": "imports",
@@ -12694,6 +13347,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.rules.stage_rule_compiler"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.source.quality_readiness_source_derivation",
+          "id": "imports.5f5c2332fb6e17fa1c9bd2ad2531c6da",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.rules.quality_readiness_rules"
         },
         {
           "evidence_mode": "structural_only",
@@ -12751,6 +13413,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.fixtures.quality_readiness_deepening_public_synthetic",
+          "id": "imports.63e6156fc8fe508b4e32f31d6965284c",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.rag.quality_readiness_rag_boundary"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.field_failure_corrective_action.rules.field_failure_corrective_action_binding_integrity",
           "id": "imports.6446929cd45d1f05d2eca393a9ccae2a",
           "label": "imports",
@@ -12796,6 +13467,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.source.quality_readiness_source_derivation",
+          "id": "imports.659eea0c7c6f1894ef71d8f133bad61a",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.identity"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.file_tickets_list",
           "id": "imports.65cdf235f48774460046a5b1570cb515",
           "label": "imports",
@@ -12820,6 +13500,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.mcp.quality_readiness_read_tools",
+          "id": "imports.6735b49379d7cb3440e9ee7a693f7d26",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.source.quality_readiness_source_derivation"
         },
         {
           "evidence_mode": "structural_only",
@@ -12856,6 +13545,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.rules.stage_rule_compiler"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.fixtures.quality_readiness_deepening_public_synthetic",
+          "id": "imports.68bc7c2a4c819464658b432729de3335",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.source.quality_readiness_source_derivation"
         },
         {
           "evidence_mode": "structural_only",
@@ -13147,15 +13845,6 @@
         },
         {
           "evidence_mode": "structural_only",
-          "from": "engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter",
-          "id": "imports.7d3f35d4458848d71e5e9d8a52b305ce",
-          "label": "imports",
-          "layer": "module",
-          "relation": "imports",
-          "to": "engines.quality_readiness.rules.quality_readiness_rules"
-        },
-        {
-          "evidence_mode": "structural_only",
           "from": "engines.field_failure_corrective_action.tools.field_failure_corrective_action_runner",
           "id": "imports.7dab38b71ca49e80405af160b76cbc0b",
           "label": "imports",
@@ -13189,6 +13878,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.database_engineering.analysis.database_evidence_analyzers"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.rag.quality_readiness_rag_boundary",
+          "id": "imports.7f4c7e8a6f73dbcce8ed4c33b128fe6a",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.source.quality_readiness_source_derivation"
         },
         {
           "evidence_mode": "structural_only",
@@ -13237,6 +13935,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.tools.quality_readiness_runner",
+          "id": "imports.81c68076c8730b501835234493fc0062",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.rag.quality_readiness_rag_boundary"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter",
           "id": "imports.824fa8bed117f07801a6602674688a5b",
           "label": "imports",
@@ -13252,6 +13959,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.tickets"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.observation.quality_readiness_observation",
+          "id": "imports.82736fe44f1cc6b6b2bbdd65c7ff52ea",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
         },
         {
           "evidence_mode": "structural_only",
@@ -13360,6 +14076,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.reliability_maintainability.evaluator.reliability_maintainability_admission"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.tools.quality_readiness_runner",
+          "id": "imports.86f4200c6cb93d2a8cece03785b32938",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter"
         },
         {
           "evidence_mode": "structural_only",
@@ -13594,6 +14319,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.snapshot"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.observation.quality_readiness_observation",
+          "id": "imports.94a1072ad7705c7851044c4c92a529ed",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.binding.quality_readiness_typed_facts"
         },
         {
           "evidence_mode": "structural_only",
@@ -13921,6 +14655,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.source.quality_readiness_source_derivation",
+          "id": "imports.a89b219ee667f10be89632b26ede583d",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.safety_hazard.compiler.safety_hazard_compiler_adapter",
           "id": "imports.a8ab547dae1b3cae0356e070fc94a764",
           "label": "imports",
@@ -13945,6 +14688,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.render"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.rag.quality_readiness_rag_boundary",
+          "id": "imports.aa23a04993108885c4edebebe1b859fc",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
         },
         {
           "evidence_mode": "structural_only",
@@ -14107,6 +14859,24 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.safety_hazard.evaluator.safety_hazard_project_facts_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.tools.quality_readiness_runner",
+          "id": "imports.b2c028aea995b9392945934ec472bc4f",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.guidance.quality_readiness_guidance",
+          "id": "imports.b2efd0bd7ba75e3d93772c3caa13bc29",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter"
         },
         {
           "evidence_mode": "structural_only",
@@ -14398,6 +15168,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.fixtures.quality_readiness_deepening_public_synthetic",
+          "id": "imports.c27c1918bf532cb1f2aa196a01fc49b3",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.evaluator.quality_readiness_evaluator_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.quality_readiness.topology.quality_readiness_module_manifest",
           "id": "imports.c293640fa9514373bcf6f56565552b6d",
           "label": "imports",
@@ -14458,6 +15237,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.safety_hazard.evaluator.safety_hazard"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.mcp.quality_readiness_read_tools",
+          "id": "imports.c3f8752a757fe7d19a8dd3f61cd8153c",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.rag.quality_readiness_rag_boundary"
         },
         {
           "evidence_mode": "structural_only",
@@ -15820,6 +16608,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.fixtures.quality_readiness_deepening_public_synthetic",
+          "id": "imports.d0cb034077ba01c89135614fa7763a55",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.tools.engine_next_steps_runner",
           "id": "imports.d0ff965fb22e35f41d7e047fea597006",
           "label": "imports",
@@ -15952,6 +16749,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.fixtures.quality_readiness_deepening_public_synthetic",
+          "id": "imports.d8a9fe4f045698d22c26b75ea7e705df",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.binding.quality_readiness_typed_facts"
         },
         {
           "evidence_mode": "structural_only",
@@ -16168,6 +16974,24 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.evaluator.ax_se_project_assessment"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.mcp.quality_readiness_read_tools",
+          "id": "imports.e329a0ed4cd769bbf4fcf8bd9d584019",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.guidance.quality_readiness_guidance"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.tools.quality_readiness_runner",
+          "id": "imports.e48027096b11c774a4c2f82809d24e88",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.guidance.quality_readiness_guidance"
         },
         {
           "evidence_mode": "structural_only",
@@ -16495,6 +17319,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.binding.quality_readiness_typed_facts",
+          "id": "imports.engines.quality_readiness.binding.quality_readiness_typed_facts.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.quality_readiness.evaluator.quality_readiness",
           "id": "imports.engines.quality_readiness.evaluator.quality_readiness.core.validators.authority",
           "label": "imports",
@@ -16582,6 +17415,60 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.snapshot"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.guidance.quality_readiness_guidance",
+          "id": "imports.engines.quality_readiness.guidance.quality_readiness_guidance.core.validators.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.guidance.quality_readiness_guidance",
+          "id": "imports.engines.quality_readiness.guidance.quality_readiness_guidance.core.validators.ceilings",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.ceilings"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.guidance.quality_readiness_guidance",
+          "id": "imports.engines.quality_readiness.guidance.quality_readiness_guidance.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.mcp.quality_readiness_read_tools",
+          "id": "imports.engines.quality_readiness.mcp.quality_readiness_read_tools.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.rag.quality_readiness_rag_boundary",
+          "id": "imports.engines.quality_readiness.rag.quality_readiness_rag_boundary.core.validators.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.rag.quality_readiness_rag_boundary",
+          "id": "imports.engines.quality_readiness.rag.quality_readiness_rag_boundary.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
         },
         {
           "evidence_mode": "structural_only",
@@ -17179,6 +18066,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.tools.quality_readiness_runner",
+          "id": "imports.f390edb58f499d18af7bb74409b2487b",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.mcp.quality_readiness_read_tools"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.material_procurement_readiness.evaluator.material_procurement_readiness",
           "id": "imports.f46821ff47ed9a1b52e53ba1e8568842",
           "label": "imports",
@@ -17419,6 +18315,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.evaluator.ax_se_project_assessment"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.quality_readiness.mcp.quality_readiness_read_tools",
+          "id": "imports.ff9821d45448b3556e97a01239bc46e3",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.quality_readiness.observation.quality_readiness_observation"
         },
         {
           "evidence_mode": "structural_only",
@@ -18882,6 +19787,16 @@
         {
           "diagnostic_state": "validator_backed",
           "group": "engines",
+          "id": "engines.quality_readiness.binding.quality_readiness_typed_facts",
+          "kind": "module",
+          "label": "engines/quality_readiness/binding/quality_readiness_typed_facts",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
           "id": "engines.quality_readiness.compiler.quality_readiness_compiler_adapter",
           "kind": "module",
           "label": "engines/quality_readiness/compiler/quality_readiness_compiler_adapter",
@@ -18912,9 +19827,59 @@
         {
           "diagnostic_state": "validator_backed",
           "group": "engines",
+          "id": "engines.quality_readiness.fixtures.quality_readiness_deepening_public_synthetic",
+          "kind": "module",
+          "label": "engines/quality_readiness/fixtures/quality_readiness_deepening_public_synthetic",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
           "id": "engines.quality_readiness.fixtures.quality_readiness_public_synthetic",
           "kind": "module",
           "label": "engines/quality_readiness/fixtures/quality_readiness_public_synthetic",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.quality_readiness.guidance.quality_readiness_guidance",
+          "kind": "module",
+          "label": "engines/quality_readiness/guidance/quality_readiness_guidance",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.quality_readiness.mcp.quality_readiness_read_tools",
+          "kind": "module",
+          "label": "engines/quality_readiness/mcp/quality_readiness_read_tools",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.quality_readiness.observation.quality_readiness_observation",
+          "kind": "module",
+          "label": "engines/quality_readiness/observation/quality_readiness_observation",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.quality_readiness.rag.quality_readiness_rag_boundary",
+          "kind": "module",
+          "label": "engines/quality_readiness/rag/quality_readiness_rag_boundary",
           "layer": "module",
           "parent_id": null,
           "repair_state": "none"
@@ -18932,9 +19897,29 @@
         {
           "diagnostic_state": "validator_backed",
           "group": "engines",
+          "id": "engines.quality_readiness.source.quality_readiness_source_derivation",
+          "kind": "module",
+          "label": "engines/quality_readiness/source/quality_readiness_source_derivation",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
           "id": "engines.quality_readiness.tools.quality_readiness_runner",
           "kind": "module",
           "label": "engines/quality_readiness/tools/quality_readiness_runner",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.quality_readiness.topology.quality_readiness_deepening_topology",
+          "kind": "module",
+          "label": "engines/quality_readiness/topology/quality_readiness_deepening_topology",
           "layer": "module",
           "parent_id": null,
           "repair_state": "none"
@@ -20196,7 +21181,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "07ca5e4dba3b2b8515d8e6e2b6213b4ad499e286642d9661f3a1affb885ab85e",
+        "digest": "f41ffcec830aab4a8684fc89d04eaba8711e4064090564156b5a55561ed874dd",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -21190,13 +22175,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "d2bcba8d60073f5a8e0832b2ebe8d0e99c85915c8df16ed9548d2dc66e54b3c3",
+  "source_set_digest": "a322ae5aced646423afa46659bb6ff8c7ebcad8e29e2236ce9594b92490d9c8d",
   "summary": {
-    "edge_count": 810,
-    "node_count": 267,
+    "edge_count": 853,
+    "node_count": 275,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "edf7b4ee6a7b2b25ab64ad35b108b48319f8606b5e2bd1d1b1730770530baf67"
+  "topology_digest": "fadad7d3b7a14b932140791c145e62de3fe6b3dd25026d71757d00bfffe617ea"
 }

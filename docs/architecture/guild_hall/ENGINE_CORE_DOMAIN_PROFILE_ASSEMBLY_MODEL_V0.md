@@ -358,6 +358,7 @@ Current public evidence:
 - legacy flat 경로는 순수 thin compatibility wrapper(re-export / pointer)로 유지되며 no-duplicate-authority validator로 검증된다.
 - Organization Profile authoring/binding schema(`.registry/engineering_profiles/schemas/engineering_profile_schema_v0.json` 및 `core/schemas/`)와 AJV validator 및 Profile별 provenance-preserving compilation trace가 구현됐다.
 - E01 Quality Readiness, Database Engineering, E03 Material Procurement Readiness, E04 Configuration Change Impact, E05 Manufacturing Readiness, E06 Reliability & Maintainability, E07 Safety Hazard, E09 Field Failure Corrective Action, E11 Calibration & Measurement Validity, E10 PCB Compliance의 `source_supported` candidate integration 및 multi-domain adapter conformance가 완료됐다. 이 통합은 live DB·ERP writer, production release, 표준 채택·준수·인증, 제품/품질 합격, 변경/제조 승인·고장 disposition·위험 수락·baseline mutation·closure·repair·release authority 또는 project acceptance를 의미하지 않는다.
+- E01 Q1 deepening은 exact public source/RAG locator, Core Typed Facts/Profile provenance, fixed-point assessment replay, observation/guidance/read-only MCP-shaped projection과 closed schema를 같은 Domain package 안에 추가했다. 세 packet-bound proof row만 `source_supported`를 유지하며 56-row aggregate와 caller-admitted Profile lane은 `observed`/HOLD다. Global MCP/schema registry, 별도 Watchtower node, source/rule/Profile acceptance와 writer authority는 활성화하지 않았다.
 - public roadmap/manual에는 private SE zero-write pilot이 보고돼 있다. 이 worktree에는
   exact private receipt payload가 없으므로 이 문서는 production activation이나 private
   validation을 새로 주장하지 않는다.

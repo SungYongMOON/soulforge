@@ -55,6 +55,8 @@
   - `npm run validate:knowledge-access`
   - `npm run validate:town-crier`
   - `npm run validate:engineering-engine-p5-context-generation-candidate`
+  - `npm run validate:quality-readiness`
+  - `npm run validate:quality-readiness-deepening`
   - `npm run validate:database-engineering`
   - `npm run validate:material-procurement-readiness`
   - `npm run validate:configuration-change-impact`
