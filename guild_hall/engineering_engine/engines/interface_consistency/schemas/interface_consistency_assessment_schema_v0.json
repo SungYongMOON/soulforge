@@ -4,22 +4,35 @@
   "title": "Interface Consistency Assessment",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "domain_engine_id", "ruleset_ref", "source_packet_ref", "register_id", "register_revision", "overall_state", "states_by_interface", "assessments", "findings", "counts", "execution_mode", "external_effects", "receipt"],
+  "required": ["schema_version", "domain_engine_id", "ruleset_ref", "source_packet_ref", "register_id", "register_revision", "assessments", "execution_mode", "external_effects", "receipt"],
   "properties": {
     "schema_version": { "const": "soulforge.interface_consistency.assessment.v0" },
     "domain_engine_id": { "const": "interface_consistency" },
-    "ruleset_ref": { "$ref": "#/$defs/content_ref" },
-    "source_packet_ref": { "$ref": "#/$defs/content_ref" },
+    "ruleset_ref": {
+      "const": {
+        "entity_id": "interface-consistency-ruleset-v0",
+        "revision_id": "soulforge.interface_consistency.ruleset.v0",
+        "content_id": "sha256:b21977554be56875ac2465d5fbb92c59d8114344bd9df4b2b7b96ce59b79fd3d",
+        "content_hash_alg": "sha256"
+      }
+    },
+    "source_packet_ref": {
+      "const": {
+        "entity_id": "interface-consistency-source-packet-v0",
+        "revision_id": "interface-consistency-source-packet-v0",
+        "content_id": "sha256:4105f0ae10fe126be2f068c078eff259a95c93746eff072f42356e7d36780580",
+        "content_hash_alg": "sha256"
+      }
+    },
     "register_id": { "$ref": "#/$defs/token" },
     "register_revision": { "$ref": "#/$defs/token" },
-    "overall_state": { "$ref": "#/$defs/state" },
-    "states_by_interface": {
+    "assessments": {
       "type": "object",
-      "additionalProperties": { "$ref": "#/$defs/state" }
+      "minProperties": 1,
+      "maxProperties": 256,
+      "propertyNames": { "$ref": "#/$defs/token" },
+      "additionalProperties": { "$ref": "#/$defs/assessment" }
     },
-    "assessments": { "type": "array", "items": { "$ref": "#/$defs/assessment" } },
-    "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
-    "counts": { "$ref": "#/$defs/counts" },
     "execution_mode": { "const": "deterministic_only" },
     "receipt": { "$ref": "#/$defs/receipt" },
     "external_effects": {
@@ -35,66 +48,108 @@
     }
   },
   "$defs": {
-    "token": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$" },
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$",
+      "allOf": [
+        { "not": { "pattern": "(?:[Ss][Ee][Cc][Rr][Ee][Tt]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Pp][Aa][Ss][Ss][Ww][Dd]|[Bb][Ee][Aa][Rr][Ee][Rr]|[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Tt][Oo][Kk][Ee][Nn]|[Rr][Ee][Ff][Rr][Ee][Ss][Hh][_-]?[Tt][Oo][Kk][Ee][Nn]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]|[Pp][Ee][Mm])" } },
+        { "not": { "pattern": "(?:[Ss][Kk]-(?:[Pp][Rr][Oo][Jj]-)?|[Gg][Hh][Pp]_|[Gg][Ii][Tt][Hh][Uu][Bb]_[Pp][Aa][Tt]_|[Xx][Oo][Xx][Bb][Aa][Pp][Rr][Ss]-|[Aa][Ii][Zz][Aa])" } }
+      ]
+    },
+    "safe_text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "allOf": [
+        { "not": { "pattern": "[\\u0000-\\u001f\\u007f]" } },
+        { "not": { "pattern": "[\\u0300-\\u036f]" } },
+        { "not": { "pattern": "[A-Za-z]:[\\\\/]" } },
+        { "not": { "pattern": "\\\\\\\\[^\\\\/\\s]+[\\\\/][^\\\\/\\s]+" } },
+        { "not": { "pattern": "(?:^|[^A-Za-z0-9_])_[Ww][Oo][Rr][Kk][Ss][Pp][Aa][Cc][Ee][Ss](?:[\\\\/]|$)" } },
+        { "not": { "pattern": "(?:^|[^A-Za-z0-9_])_[Ww][Oo][Rr][Kk][Mm][Ee][Tt][Aa](?:[\\\\/]|$)" } },
+        { "not": { "pattern": "(?:^|[^A-Za-z0-9_])[Pp][Rr][Ii][Vv][Aa][Tt][Ee]-[Ss][Tt][Aa][Tt][Ee](?:[\\\\/]|$)" } },
+        { "not": { "pattern": "\\/(?:[Hh][Oo][Mm][Ee]|[Uu][Ss][Ee][Rr][Ss]|[Tt][Mm][Pp]|[Ee][Tt][Cc]|[Vv][Aa][Rr]|[Uu][Ss][Rr]|[Rr][Oo][Oo][Tt]|[Oo][Pp][Tt]|[Ss][Rr][Vv]|[Mm][Nn][Tt]|[Mm][Ee][Dd][Ii][Aa]|[Ww][Oo][Rr][Kk][Ss][Pp][Aa][Cc][Ee]|[Ww][Oo][Rr][Kk][Ss][Pp][Aa][Cc][Ee][Ss]|[Pp][Rr][Ii][Vv][Aa][Tt][Ee]|[Dd][Aa][Tt][Aa])(?:\\/|$)" } },
+        { "not": { "pattern": "[Ff][Ii][Ll][Ee]:\\/\\/" } },
+        { "not": { "pattern": "-----BEGIN [A-Z ]+[Pp][Rr][Ii][Vv][Aa][Tt][Ee] [Kk][Ee][Yy]-----" } },
+        { "not": { "pattern": "(?:[Ss][Ee][Cc][Rr][Ee][Tt]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Pp][Aa][Ss][Ss][Ww][Dd]|[Bb][Ee][Aa][Rr][Ee][Rr]|[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Tt][Oo][Kk][Ee][Nn]|[Rr][Ee][Ff][Rr][Ee][Ss][Hh][_-]?[Tt][Oo][Kk][Ee][Nn]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]|[Pp][Ee][Mm])" } },
+        { "not": { "pattern": "(?:[Ss][Kk]-(?:[Pp][Rr][Oo][Jj]-)?|[Gg][Hh][Pp]_|[Gg][Ii][Tt][Hh][Uu][Bb]_[Pp][Aa][Tt]_|[Xx][Oo][Xx][Bb][Aa][Pp][Rr][Ss]-|[Aa][Ii][Zz][Aa])" } }
+      ]
+    },
     "state": { "enum": ["satisfied", "gap_missing", "gap_unknown", "gap_conflict", "not_applicable"] },
+    "detail_code": {
+      "enum": [
+        "IC_REGISTERED_ENDS", "IC_REGISTER_APPLICABILITY", "IC_CATEGORY_SCOPE_UNKNOWN", "IC_REQUIRED_ATTRIBUTE_SET_UNKNOWN",
+        "IC_PAIRWISE_MATCH", "IC_PAIRWISE_ATTRIBUTE_STATE", "IC_PAIRWISE_RESULTS_AGGREGATED",
+        "IC_REVISION_APPLICABILITY", "IC_REVISION_ALIGNMENT", "IC_REVISION_RESULTS_AGGREGATED",
+        "IC_BILATERAL_APPLICABILITY", "IC_BILATERAL_AGREEMENT_CONFLICT", "IC_BILATERAL_AGREEMENT_MISSING",
+        "IC_BILATERAL_AGREEMENT_UNKNOWN", "IC_BILATERAL_REVISION_ALIGNMENT", "IC_BILATERAL_RESULTS_AGGREGATED",
+        "IC_ELECTRICAL_APPLICABILITY_NOT_APPLICABLE", "IC_ELECTRICAL_APPLICABILITY_GAP_UNKNOWN", "IC_ELECTRICAL_APPLICABILITY_GAP_CONFLICT",
+        "IC_SIGNAL_APPLICABILITY_NOT_APPLICABLE", "IC_SIGNAL_APPLICABILITY_GAP_UNKNOWN", "IC_SIGNAL_APPLICABILITY_GAP_CONFLICT",
+        "IC_DATA_PROTOCOL_APPLICABILITY_NOT_APPLICABLE", "IC_DATA_PROTOCOL_APPLICABILITY_GAP_UNKNOWN", "IC_DATA_PROTOCOL_APPLICABILITY_GAP_CONFLICT",
+        "IC_MECHANICAL_APPLICABILITY_NOT_APPLICABLE", "IC_MECHANICAL_APPLICABILITY_GAP_UNKNOWN", "IC_MECHANICAL_APPLICABILITY_GAP_CONFLICT",
+        "IC_TIMING_APPLICABILITY_NOT_APPLICABLE", "IC_TIMING_APPLICABILITY_GAP_UNKNOWN", "IC_TIMING_APPLICABILITY_GAP_CONFLICT"
+      ]
+    },
     "content_ref": {
       "type": "object",
       "additionalProperties": false,
       "required": ["entity_id", "revision_id", "content_id", "content_hash_alg"],
       "properties": {
         "entity_id": { "$ref": "#/$defs/token" },
-        "revision_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "revision_id": { "$ref": "#/$defs/safe_text" },
         "content_id": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
         "content_hash_alg": { "const": "sha256" }
-      }
-    },
-    "pair_result": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["pair_key", "state", "detail_code", "attribute_ids"],
-      "properties": {
-        "pair_key": { "type": "string", "minLength": 5, "maxLength": 259 },
-        "state": { "$ref": "#/$defs/state" },
-        "detail_code": { "$ref": "#/$defs/token" },
-        "attribute_ids": { "type": "array", "items": { "$ref": "#/$defs/token" } }
-      }
-    },
-    "finding": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["interface_id", "rule_id", "category", "state", "detail_code", "attribute_ids", "end_ids", "pair_results"],
-      "properties": {
-        "interface_id": { "$ref": "#/$defs/token" },
-        "rule_id": { "$ref": "#/$defs/token" },
-        "category": { "$ref": "#/$defs/token" },
-        "state": { "$ref": "#/$defs/state" },
-        "detail_code": { "$ref": "#/$defs/token" },
-        "attribute_ids": { "type": "array", "items": { "$ref": "#/$defs/token" } },
-        "end_ids": { "type": "array", "minItems": 2, "maxItems": 16, "items": { "$ref": "#/$defs/token" } },
-        "pair_results": { "type": "array", "minItems": 1, "maxItems": 120, "items": { "$ref": "#/$defs/pair_result" } }
       }
     },
     "assessment": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["interface_id", "state", "findings"],
+      "required": ["pairs"],
       "properties": {
-        "interface_id": { "$ref": "#/$defs/token" },
-        "state": { "$ref": "#/$defs/state" },
-        "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } }
+        "pairs": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 120,
+          "propertyNames": { "type": "string", "minLength": 5, "maxLength": 259, "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}<->[A-Za-z][A-Za-z0-9_.:-]{0,127}$" },
+          "additionalProperties": { "$ref": "#/$defs/pair_assessment" }
+        }
       }
     },
-    "counts": {
+    "pair_assessment": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["satisfied", "gap_missing", "gap_unknown", "gap_conflict", "not_applicable", "total"],
+      "required": ["rules"],
       "properties": {
-        "satisfied": { "type": "integer", "minimum": 0 },
-        "gap_missing": { "type": "integer", "minimum": 0 },
-        "gap_unknown": { "type": "integer", "minimum": 0 },
-        "gap_conflict": { "type": "integer", "minimum": 0 },
-        "not_applicable": { "type": "integer", "minimum": 0 },
-        "total": { "type": "integer", "minimum": 0 }
+        "rules": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "prefixItems": [
+            { "allOf": [{ "$ref": "#/$defs/rule_outcome" }, { "type": "object", "properties": { "rule_id": { "const": "IC-REG-01" }, "category": { "const": "interface_register" } } }] },
+            { "allOf": [{ "$ref": "#/$defs/rule_outcome" }, { "type": "object", "properties": { "rule_id": { "const": "IC-ELEC-01" }, "category": { "const": "electrical" } } }] },
+            { "allOf": [{ "$ref": "#/$defs/rule_outcome" }, { "type": "object", "properties": { "rule_id": { "const": "IC-SIG-01" }, "category": { "const": "signal" } } }] },
+            { "allOf": [{ "$ref": "#/$defs/rule_outcome" }, { "type": "object", "properties": { "rule_id": { "const": "IC-DATA-01" }, "category": { "const": "data_protocol" } } }] },
+            { "allOf": [{ "$ref": "#/$defs/rule_outcome" }, { "type": "object", "properties": { "rule_id": { "const": "IC-MECH-01" }, "category": { "const": "mechanical" } } }] },
+            { "allOf": [{ "$ref": "#/$defs/rule_outcome" }, { "type": "object", "properties": { "rule_id": { "const": "IC-TIME-01" }, "category": { "const": "timing" } } }] },
+            { "allOf": [{ "$ref": "#/$defs/rule_outcome" }, { "type": "object", "properties": { "rule_id": { "const": "IC-REV-01" }, "category": { "const": "revision" } } }] },
+            { "allOf": [{ "$ref": "#/$defs/rule_outcome" }, { "type": "object", "properties": { "rule_id": { "const": "IC-BILAT-01" }, "category": { "const": "bilateral_agreement" } } }] }
+          ],
+          "items": false
+        }
+      }
+    },
+    "rule_outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_id", "category", "state", "detail_code", "attribute_ids"],
+      "properties": {
+        "rule_id": { "$ref": "#/$defs/token" },
+        "category": { "$ref": "#/$defs/token" },
+        "state": { "$ref": "#/$defs/state" },
+        "detail_code": { "$ref": "#/$defs/detail_code" },
+        "attribute_ids": { "type": "array", "maxItems": 64, "uniqueItems": true, "items": { "$ref": "#/$defs/token" } }
       }
     },
     "receipt": {
@@ -130,14 +185,13 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["envelope_kind", "schema_version", "asserted_facts_digest", "project_binding_ref_digest", "valid_at", "known_at"],
+          "required": ["envelope_kind", "schema_version", "asserted_facts_digest", "project_binding_ref_digest", "cutoff_pair_digest"],
           "properties": {
             "envelope_kind": { "const": "core_typed_project_facts" },
             "schema_version": { "const": "soulforge.typed_project_facts.v0" },
             "asserted_facts_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
             "project_binding_ref_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
-            "valid_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?Z$" },
-            "known_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?Z$" }
+            "cutoff_pair_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
           }
         }
       ]

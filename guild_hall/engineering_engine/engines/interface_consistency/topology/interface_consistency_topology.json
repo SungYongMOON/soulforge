@@ -10,6 +10,7 @@
     "contracts/interface_consistency_integration_request_v0.md",
     "schemas/interface_consistency_schema_v0.json",
     "schemas/interface_consistency_assessment_schema_v0.json",
+    "schemas/interface_consistency_ruleset_schema_v0.json",
     "rules/interface_consistency_rules.mjs",
     "rules/interface_consistency_safety_policy.mjs",
     "compiler/interface_consistency_compiler_adapter.mjs",
@@ -35,6 +36,7 @@
   ],
   "external_dependencies": [
     "../../../core/interfaces/domain_engine_adapter.mjs",
+    "../../../core/interfaces/profile_operation_canon.mjs",
     "../../../core/validators/canonical.mjs",
     "../../../core/validators/errors.mjs",
     "../../../core/validators/fingerprint.mjs",

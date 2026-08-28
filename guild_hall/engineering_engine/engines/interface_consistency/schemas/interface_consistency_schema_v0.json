@@ -21,7 +21,11 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
-      "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$"
+      "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$",
+      "allOf": [
+        { "not": { "pattern": "(?:[Ss][Ee][Cc][Rr][Ee][Tt]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Pp][Aa][Ss][Ss][Ww][Dd]|[Bb][Ee][Aa][Rr][Ee][Rr]|[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Tt][Oo][Kk][Ee][Nn]|[Rr][Ee][Ff][Rr][Ee][Ss][Hh][_-]?[Tt][Oo][Kk][Ee][Nn]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]|[Pp][Ee][Mm])" } },
+        { "not": { "pattern": "(?:[Ss][Kk]-(?:[Pp][Rr][Oo][Jj]-)?|[Gg][Hh][Pp]_|[Gg][Ii][Tt][Hh][Uu][Bb]_[Pp][Aa][Tt]_|[Xx][Oo][Xx][Bb][Aa][Pp][Rr][Ss]-|[Aa][Ii][Zz][Aa])" } }
+      ]
     },
     "revision_fact": {
       "type": "object",
@@ -34,40 +38,122 @@
       "allOf": [
         {
           "if": { "properties": { "state": { "const": "present" } } },
-          "then": { "required": ["value"] },
+          "then": { "type": "object", "properties": { "value": { "$ref": "#/$defs/token" } }, "required": ["value"] },
           "else": { "not": { "required": ["value"] } }
         }
       ]
     },
-    "bounded_value": {
-      "oneOf": [
+    "safe_text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "allOf": [
+        { "not": { "pattern": "[\\u0000-\\u001f\\u007f]" } },
+        { "not": { "pattern": "[\\u0300-\\u036f]" } },
+        { "not": { "pattern": "\\\\\\\\[^\\\\/\\s]+[\\\\/][^\\\\/\\s]+" } },
+        { "not": { "pattern": "(?:^|[^A-Za-z0-9_])_[Ww][Oo][Rr][Kk][Ss][Pp][Aa][Cc][Ee][Ss](?:[\\\\/]|$)" } },
+        { "not": { "pattern": "(?:^|[^A-Za-z0-9_])_[Ww][Oo][Rr][Kk][Mm][Ee][Tt][Aa](?:[\\\\/]|$)" } },
+        { "not": { "pattern": "(?:^|[^A-Za-z0-9_])[Pp][Rr][Ii][Vv][Aa][Tt][Ee]-[Ss][Tt][Aa][Tt][Ee](?:[\\\\/]|$)" } },
         {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024,
-          "allOf": [
-            { "not": { "pattern": "^[+-]?\\d+(?:\\.\\d+)?[eE][+-]?\\d+$" } },
+          "anyOf": [
+            { "pattern": "^https?:\\/\\/[A-Za-z0-9.-]+(?:\\/[^\\s]*)?$" },
             {
-              "anyOf": [
-                { "not": { "pattern": "^\\d{4}-\\d{2}-\\d{2}T" } },
-                { "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$" }
+              "allOf": [
+                { "not": { "pattern": "[A-Za-z]:[\\\\/]" } },
+                { "not": { "pattern": "\\/(?:[Hh][Oo][Mm][Ee]|[Uu][Ss][Ee][Rr][Ss]|[Tt][Mm][Pp]|[Ee][Tt][Cc]|[Vv][Aa][Rr]|[Uu][Ss][Rr]|[Rr][Oo][Oo][Tt]|[Oo][Pp][Tt]|[Ss][Rr][Vv]|[Mm][Nn][Tt]|[Mm][Ee][Dd][Ii][Aa]|[Ww][Oo][Rr][Kk][Ss][Pp][Aa][Cc][Ee]|[Ww][Oo][Rr][Kk][Ss][Pp][Aa][Cc][Ee][Ss]|[Pp][Rr][Ii][Vv][Aa][Tt][Ee]|[Dd][Aa][Tt][Aa])(?:\\/|$)" } }
               ]
             }
           ]
         },
+        { "not": { "pattern": "[Ff][Ii][Ll][Ee]:\\/\\/" } },
+        { "not": { "pattern": "-----BEGIN [A-Z ]+[Pp][Rr][Ii][Vv][Aa][Tt][Ee] [Kk][Ee][Yy]-----" } },
+        { "not": { "pattern": "(?:[Ss][Ee][Cc][Rr][Ee][Tt]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Pp][Aa][Ss][Ss][Ww][Dd]|[Bb][Ee][Aa][Rr][Ee][Rr]|[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Tt][Oo][Kk][Ee][Nn]|[Rr][Ee][Ff][Rr][Ee][Ss][Hh][_-]?[Tt][Oo][Kk][Ee][Nn]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]|[Pp][Ee][Mm])" } },
+        { "not": { "pattern": "(?:[Ss][Kk]-(?:[Pp][Rr][Oo][Jj]-)?|[Gg][Hh][Pp]_|[Gg][Ii][Tt][Hh][Uu][Bb]_[Pp][Aa][Tt]_|[Xx][Oo][Xx][Bb][Aa][Pp][Rr][Ss]-|[Aa][Ii][Zz][Aa])" } },
+        { "not": { "pattern": "^[+-]?\\d+(?:\\.\\d+)?[eE][+-]?\\d+$" } },
+        {
+          "anyOf": [
+            { "not": { "pattern": "^\\d{4}-\\d{2}-\\d{2}T" } },
+            { "pattern": "^(?:(?:(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)|(?:[0-9]{4}-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))))T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$" }
+          ]
+        }
+      ]
+    },
+    "bounded_scalar": {
+      "oneOf": [
+        { "$ref": "#/$defs/safe_text" },
         { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
-        { "type": "boolean" },
+        { "type": "boolean" }
+      ]
+    },
+    "bounded_value": { "$ref": "#/$defs/bounded_value_0" },
+    "bounded_value_0": {
+      "oneOf": [
+        { "$ref": "#/$defs/bounded_scalar" },
         {
           "type": "array",
           "maxItems": 64,
-          "items": { "$ref": "#/$defs/bounded_value" }
+          "items": { "$ref": "#/$defs/bounded_value_1" }
         },
         {
           "type": "object",
           "maxProperties": 64,
           "propertyNames": { "$ref": "#/$defs/token" },
-          "additionalProperties": { "$ref": "#/$defs/bounded_value" }
+          "additionalProperties": { "$ref": "#/$defs/bounded_value_1" }
         }
+      ]
+    },
+    "bounded_value_1": {
+      "oneOf": [
+        { "$ref": "#/$defs/bounded_scalar" },
+        { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/bounded_value_2" } },
+        { "type": "object", "maxProperties": 64, "propertyNames": { "$ref": "#/$defs/token" }, "additionalProperties": { "$ref": "#/$defs/bounded_value_2" } }
+      ]
+    },
+    "bounded_value_2": {
+      "oneOf": [
+        { "$ref": "#/$defs/bounded_scalar" },
+        { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/bounded_value_3" } },
+        { "type": "object", "maxProperties": 64, "propertyNames": { "$ref": "#/$defs/token" }, "additionalProperties": { "$ref": "#/$defs/bounded_value_3" } }
+      ]
+    },
+    "bounded_value_3": {
+      "oneOf": [
+        { "$ref": "#/$defs/bounded_scalar" },
+        { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/bounded_value_4" } },
+        { "type": "object", "maxProperties": 64, "propertyNames": { "$ref": "#/$defs/token" }, "additionalProperties": { "$ref": "#/$defs/bounded_value_4" } }
+      ]
+    },
+    "bounded_value_4": {
+      "oneOf": [
+        { "$ref": "#/$defs/bounded_scalar" },
+        { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/bounded_value_5" } },
+        { "type": "object", "maxProperties": 64, "propertyNames": { "$ref": "#/$defs/token" }, "additionalProperties": { "$ref": "#/$defs/bounded_value_5" } }
+      ]
+    },
+    "bounded_value_5": {
+      "oneOf": [
+        { "$ref": "#/$defs/bounded_scalar" },
+        { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/bounded_value_6" } },
+        { "type": "object", "maxProperties": 64, "propertyNames": { "$ref": "#/$defs/token" }, "additionalProperties": { "$ref": "#/$defs/bounded_value_6" } }
+      ]
+    },
+    "bounded_value_6": {
+      "oneOf": [
+        { "$ref": "#/$defs/bounded_scalar" },
+        { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/bounded_value_7" } },
+        { "type": "object", "maxProperties": 64, "propertyNames": { "$ref": "#/$defs/token" }, "additionalProperties": { "$ref": "#/$defs/bounded_value_7" } }
+      ]
+    },
+    "bounded_value_7": {
+      "oneOf": [
+        { "$ref": "#/$defs/bounded_scalar" },
+        { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/bounded_value_8" } },
+        { "type": "object", "maxProperties": 64, "propertyNames": { "$ref": "#/$defs/token" }, "additionalProperties": { "$ref": "#/$defs/bounded_value_8" } }
+      ]
+    },
+    "bounded_value_8": {
+      "oneOf": [
+        { "$ref": "#/$defs/bounded_scalar" }
       ]
     },
     "category_scope": {
@@ -97,8 +183,11 @@
       "allOf": [
         {
           "if": { "properties": { "state": { "const": "present" } } },
-          "then": { "required": ["value"] },
-          "else": { "not": { "anyOf": [{ "required": ["value"] }, { "required": ["unit"] }] } }
+          "then": { "type": "object", "properties": { "value": { "$ref": "#/$defs/bounded_value" } }, "required": ["value"] },
+          "else": { "not": { "anyOf": [
+            { "type": "object", "properties": { "value": { "$ref": "#/$defs/bounded_value" } }, "required": ["value"] },
+            { "type": "object", "properties": { "unit": { "$ref": "#/$defs/token" } }, "required": ["unit"] }
+          ] } }
         }
       ]
     },

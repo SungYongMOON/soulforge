@@ -9,11 +9,13 @@ import {
 } from "../rules/interface_consistency_rules.mjs";
 import {
   INTERFACE_CONSISTENCY_EXPONENT_LIKE,
-  INTERFACE_CONSISTENCY_FORBIDDEN_STRING_PATTERNS,
   INTERFACE_CONSISTENCY_SAFE_PROVENANCE_TOKEN,
   INTERFACE_CONSISTENCY_SAFE_SOURCE_REF,
+  interfaceConsistencyStringHasForbiddenMarker,
 } from "../rules/interface_consistency_safety_policy.mjs";
 import { ContractError } from "../../../core/validators/errors.mjs";
+import { validateProfileBinding } from "../../../core/interfaces/domain_engine_adapter.mjs";
+import { normalizeProfileOperations } from "../../../core/interfaces/profile_operation_canon.mjs";
 
 export const INTERFACE_CONSISTENCY_COMPILER_ADAPTER_SCHEMA_VERSION = "soulforge.interface_consistency.compiler.v0";
 
@@ -24,6 +26,19 @@ export const INTERFACE_CONSISTENCY_COMPILER_CODES = Object.freeze({
   CATEGORY_UNKNOWN: "IC_PROFILE_CATEGORY_UNKNOWN",
   DOMAIN_ENGINE_MISMATCH: "IC_PROFILE_DOMAIN_ENGINE_MISMATCH",
 });
+
+const CORE_PROFILE_FIELDS = Object.freeze([
+  "domain_engine_id",
+  "extends_or_base_pin",
+  "operation_digest",
+  "operations",
+  "order",
+  "profile_id",
+  "profile_kind",
+  "revision_or_hash",
+  "schema_version",
+  "source_refs",
+]);
 
 
 const deepFreeze = (value) => {
@@ -83,15 +98,13 @@ function assertSafeProvenanceString(value, field, { sourceRef = false, rejectExp
   if (rejectExponent && INTERFACE_CONSISTENCY_EXPONENT_LIKE.test(value)) {
     profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.PROFILE_BINDINGS_INVALID, `Profile provenance field ${field} cannot use exponent-like revision syntax`);
   }
-  for (const pattern of INTERFACE_CONSISTENCY_FORBIDDEN_STRING_PATTERNS) {
-    if (pattern.test(value)) {
-      profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.PROFILE_BINDINGS_INVALID, `Profile provenance field ${field} contains a forbidden path or secret sentinel`);
-    }
+  if (interfaceConsistencyStringHasForbiddenMarker(value)) {
+    profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.PROFILE_BINDINGS_INVALID, `Profile provenance field ${field} contains a forbidden path or secret sentinel`);
   }
   return value;
 }
 
-function validateBindingProvenance(descriptors) {
+function validateBindingProvenance(descriptors, expectedOrder) {
   for (const field of ["profile_id", "profile_kind", "extends_or_base_pin", "operation_digest"]) {
     if (Object.hasOwn(descriptors, field)) assertSafeProvenanceString(descriptors[field].value, field);
   }
@@ -105,9 +118,68 @@ function validateBindingProvenance(descriptors) {
       assertSafeProvenanceString(sourceDescriptors[String(index)].value, `source_refs[${index}]`, { sourceRef: true });
     }
   }
+
+  const coreProvenanceFields = CORE_PROFILE_FIELDS.filter((field) => field !== "operations");
+  const presentCoreFields = coreProvenanceFields.filter((field) => Object.hasOwn(descriptors, field));
+  const suppliedKeys = Object.keys(descriptors).sort();
+  if (presentCoreFields.length === 0) {
+    if (suppliedKeys.length !== 1 || suppliedKeys[0] !== "operations") {
+      profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.PROFILE_BINDINGS_INVALID, "direct Profile bindings may carry only an operations array");
+    }
+    return null;
+  }
+  if (presentCoreFields.length !== coreProvenanceFields.length) {
+    profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.PROFILE_BINDINGS_INVALID, "Core Profile provenance must provide the complete exact Core binding shape");
+  }
+  if (suppliedKeys.length !== CORE_PROFILE_FIELDS.length
+      || !CORE_PROFILE_FIELDS.every((field, index) => suppliedKeys[index] === field)) {
+    profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.PROFILE_BINDINGS_INVALID, "Core Profile binding has an invalid exact-key shape");
+  }
+  if (descriptors.schema_version.value !== "soulforge.engineering_profile_binding.v0"
+      || !Number.isSafeInteger(descriptors.order.value)
+      || descriptors.order.value !== expectedOrder
+      || (descriptors.profile_kind.value !== "organization" && descriptors.profile_kind.value !== "project")
+      || (descriptors.profile_kind.value === "organization" && expectedOrder !== 0)
+      || (descriptors.profile_kind.value === "project" && expectedOrder > 1)) {
+    profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.PROFILE_BINDINGS_INVALID, "Core Profile binding metadata is invalid");
+  }
+  const sourceRefs = descriptors.source_refs.value;
+  if (sourceRefs.length === 0) {
+    profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.PROFILE_BINDINGS_INVALID, "Core Profile binding must provide at least one source reference");
+  }
+  let normalizedOperations;
+  try {
+    normalizedOperations = normalizeProfileOperations(descriptors.operations.value);
+  } catch {
+    profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.PROFILE_BINDINGS_INVALID, "Core Profile operations do not satisfy the Core operation canonical contract");
+  }
+  if (descriptors.operation_digest.value !== normalizedOperations.operation_digest) {
+    profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.PROFILE_BINDINGS_INVALID, "Profile operation_digest does not match the Core operation canonical contract");
+  }
+  let coreBinding;
+  try {
+    coreBinding = validateProfileBinding({
+      schema_version: descriptors.schema_version.value,
+      profile_kind: descriptors.profile_kind.value,
+      profile_id: descriptors.profile_id.value,
+      domain_engine_id: descriptors.domain_engine_id.value,
+      revision_or_hash: descriptors.revision_or_hash.value,
+      extends_or_base_pin: descriptors.extends_or_base_pin.value,
+      operation_digest: descriptors.operation_digest.value,
+      source_refs: sourceRefs,
+      order: descriptors.order.value,
+      operations: normalizedOperations.operations,
+    }, expectedOrder);
+  } catch {
+    profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.PROFILE_BINDINGS_INVALID, "Core Profile binding does not satisfy the Core binding contract");
+  }
+  if (coreBinding.operation_digest !== normalizedOperations.operation_digest) {
+    profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.PROFILE_BINDINGS_INVALID, "Core Profile operation digest parity failed");
+  }
+  return coreBinding;
 }
 
-function assertBinding(binding) {
+function assertBinding(binding, expectedOrder) {
   const descriptors = dataDescriptors(binding, "Interface Consistency Profile binding");
   if (!Object.hasOwn(descriptors, "operations")) {
     profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.PROFILE_BINDINGS_INVALID, "each Interface Consistency Profile binding must provide an operations array");
@@ -120,24 +192,23 @@ function assertBinding(binding) {
       profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.DOMAIN_ENGINE_MISMATCH, "Profile binding domain_engine_id must equal interface_consistency");
     }
   }
-  validateBindingProvenance(descriptors);
+  const coreBinding = validateBindingProvenance(descriptors, expectedOrder);
   return {
     descriptors,
-    operations: descriptors.operations.value,
-    operation_descriptors: denseArrayDescriptors(descriptors.operations.value, "Profile operations", 64),
+    core_binding: coreBinding,
+    operations: coreBinding?.operations ?? descriptors.operations.value,
+    operation_descriptors: denseArrayDescriptors(coreBinding?.operations ?? descriptors.operations.value, "Profile operations", 64),
   };
 }
 
-function provenanceFrom(descriptors) {
+function provenanceFrom(profilePackageIndex, operationIndex) {
   return {
-    profile_id: Object.hasOwn(descriptors, "profile_id") ? descriptors.profile_id.value : "direct_compiler_input",
-    profile_kind: Object.hasOwn(descriptors, "profile_kind") ? descriptors.profile_kind.value : "unknown",
-    revision_or_hash: Object.hasOwn(descriptors, "revision_or_hash") ? descriptors.revision_or_hash.value : "unknown",
-    operation_digest: Object.hasOwn(descriptors, "operation_digest") ? descriptors.operation_digest.value : "unknown",
+    profile_package_index: profilePackageIndex,
+    operation_index: operationIndex,
   };
 }
 
-export function compileInterfaceConsistencyRules(profileBindings = []) {
+export function compileInterfaceConsistencyRules(profileBindings = [], compilationScope = undefined) {
   if (!Array.isArray(profileBindings) || types.isProxy(profileBindings) || Object.getPrototypeOf(profileBindings) !== Array.prototype) {
     profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.PROFILE_BINDINGS_INVALID, "profileBindings must be an ordinary array");
   }
@@ -145,11 +216,48 @@ export function compileInterfaceConsistencyRules(profileBindings = []) {
     profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.PROFILE_BINDINGS_INVALID, "profileBindings may contain at most two ordered bindings");
   }
   const bindingDescriptors = denseArrayDescriptors(profileBindings, "profileBindings", 2);
+  if (compilationScope !== undefined) {
+    const scopeDescriptors = dataDescriptors(compilationScope, "compilationScope");
+    if (Object.keys(scopeDescriptors).length !== 0) {
+      profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.PROFILE_BINDINGS_INVALID, "Interface Consistency compilationScope must be the exact empty object");
+    }
+  }
+  // Core calls domain compilers with its admitted compilation scope as a second argument.
+  // A one-argument compiler call remains a base-ruleset surface: it may validate supplied
+  // bindings, but it cannot manufacture a Profile-effective ruleset without the Core wrapper.
+  const coreAssemblyMode = compilationScope !== undefined;
   const categoryApplicability = Object.fromEntries(INTERFACE_CONSISTENCY_CATEGORIES.map((category) => [category, null]));
   const profileRuleProvenance = {};
+  const profilePackages = [];
+  let organizationSeen = false;
+  let projectSeen = false;
+  let directBindingSeen = false;
 
   for (let index = 0; index < profileBindings.length; index += 1) {
-    const bindingInfo = assertBinding(bindingDescriptors[String(index)].value);
+    const bindingInfo = assertBinding(bindingDescriptors[String(index)].value, index);
+    if (bindingInfo.core_binding && directBindingSeen) {
+      profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.PROFILE_BINDINGS_INVALID, "Core Profile bindings may not follow a direct compiler-only binding");
+    }
+    if (!bindingInfo.core_binding) directBindingSeen = true;
+    const profilePackageIndex = bindingInfo.core_binding ? profilePackages.length : null;
+    if (bindingInfo.core_binding) {
+      if (bindingInfo.core_binding.order !== profilePackageIndex) {
+        profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.PROFILE_BINDINGS_INVALID, "Core Profile package order is not contiguous");
+      }
+      profilePackages.push(structuredClone(bindingInfo.core_binding));
+    }
+    if (bindingInfo.core_binding?.profile_kind === "organization") {
+      if (organizationSeen || projectSeen) {
+        profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.PROFILE_BINDINGS_INVALID, "Core Profile bindings must order one organization before any project binding");
+      }
+      organizationSeen = true;
+    }
+    if (bindingInfo.core_binding?.profile_kind === "project") {
+      if (projectSeen) {
+        profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.PROFILE_BINDINGS_INVALID, "Core Profile bindings may contain at most one project binding");
+      }
+      projectSeen = true;
+    }
     for (let opIndex = 0; opIndex < bindingInfo.operations.length; opIndex += 1) {
       const operationDescriptors = dataDescriptors(
         bindingInfo.operation_descriptors[String(opIndex)].value,
@@ -179,8 +287,13 @@ export function compileInterfaceConsistencyRules(profileBindings = []) {
       if (typeof applicable !== "boolean") {
         profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.OPERATION_INVALID, "set_category_applicability.applicable must be boolean");
       }
-      categoryApplicability[category] = applicable;
-      profileRuleProvenance[category] = provenanceFrom(bindingInfo.descriptors);
+      if (profilePackageIndex === null) {
+        profileError(INTERFACE_CONSISTENCY_COMPILER_CODES.PROFILE_BINDINGS_INVALID, "Profile applicability operations require a complete Core Profile binding");
+      }
+      if (coreAssemblyMode) {
+        categoryApplicability[category] = applicable;
+        profileRuleProvenance[category] = provenanceFrom(profilePackageIndex, opIndex);
+      }
     }
   }
 
@@ -190,7 +303,8 @@ export function compileInterfaceConsistencyRules(profileBindings = []) {
     source_packet_ref: structuredClone(INTERFACE_CONSISTENCY_SOURCE_PACKET_REF),
     rules: INTERFACE_CONSISTENCY_RULES.map((rule) => structuredClone(rule)),
     category_applicability: categoryApplicability,
-    profile_rule_provenance: profileRuleProvenance,
+    profile_packages: coreAssemblyMode ? profilePackages : [],
+    profile_rule_provenance: coreAssemblyMode ? profileRuleProvenance : {},
   };
 
   return deepFreeze({

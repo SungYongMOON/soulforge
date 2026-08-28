@@ -16,15 +16,20 @@ The engine owns a scalable interface register and pairwise checks for:
 - revision alignment; and
 - bilateral agreement.
 
-An interface can have 2-16 named ends; every finding carries a stable `pair_results`
-entry for every end pair, without copying actual compared values into findings. A Project Binding or
+An interface can have 2-16 named ends; every assessment carries a stable pair-keyed
+outcome entry for every end pair, without copying actual compared values into findings. A Project Binding or
 Typed Facts producer, not this package, supplies actual project rows and decides
 which categories/attributes are applicable.
 
 Every deterministic assessment includes a bounded receipt with input, domain-ruleset,
 and assessment SHA-256 digests. The receipt exposes only safe envelope provenance and
-cutoffs when they are already part of a Typed Facts envelope; it never echoes compared
-values or project payload.
+the digest of an admitted cutoff pair when it is already part of a Typed Facts envelope;
+it never echoes compared values, cutoff timestamps, or project payload.
+
+The assessment JSON Schema is a closed structural contract. Dynamic equality between
+admitted input identities and its assessment/pair map is enforced by the package-local
+`verifyInterfaceConsistencyAssessment(typedFacts, result, effectiveRuleSet)` verifier
+before the evaluator returns a result; the effective ruleset argument is mandatory.
 
 ## Package surface
 
@@ -32,7 +37,7 @@ values or project payload.
 | --- | --- |
 | `engine.yaml` | domain descriptor |
 | `contracts/` | source boundary and integration request |
-| `schemas/` | public-safe typed-fact shape |
+| `schemas/` | public-safe input, effective-ruleset, and assessment shapes |
 | `rules/` | bounded source-linked structural checks |
 | `compiler/` | Profile applicability adapter |
 | `evaluator/` | pure pairwise evaluator and Core adapter |

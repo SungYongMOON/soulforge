@@ -15,9 +15,18 @@ Compiler provenance fields are bounded and sentinel-checked before entering the 
 ruleset. Absolute/private-path, secret-shaped, and exponent-like revision strings are
 rejected with `IC_PROFILE_*` codes rather than being delegated to a lower-level serializer.
 
+For the standard Core paths, E02 also validates the complete Core assembly wrapper and
+compilation trace, recomputes the effective-ruleset digest, cross-checks every ordered
+Organization/Project trace row against the retained Core Profile package, replays
+Profile-derived category indexes, and recomputes the Core observations digest for Typed
+Facts. Stale wrapper, trace, provenance, or facts-digest material fails closed before a
+consistency verdict is emitted.
+
 Compiler and evaluator share `rules/interface_consistency_safety_policy.mjs` as the one
 local forbidden-string policy owner, preventing their path/secret sentinel sets from
-silently drifting.
+silently drifting. Credential, secret, PEM, file-URI, and local-path markers are checked
+as embedded fragments rather than only as whole words, so public identifiers cannot echo a
+prefixed or suffixed sensitive marker.
 
 The evaluator rejects JSON floats, exponent-form decimal strings, and malformed
 instant-shaped strings before comparison so they cannot later escape as Core canonical
