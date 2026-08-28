@@ -212,6 +212,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.ab7042f5d3a363cf515037a17d0284d7",
+      "id": "engineering_engine::imports.0e4f0268901b740fbe15ccaf8f3d2613",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.field_failure_corrective_action.rules.field_failure_corrective_action_binding_integrity"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluator.se_core_crosswalk_projection",
       "id": "engineering_engine::imports.0e881afee3c475b514360878fd12f4af",
       "label": "imports",
@@ -532,6 +542,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.field_failure_corrective_action.evaluator.field_failure_corrective_action",
+      "id": "engineering_engine::imports.1d81336ba5f41391fff2f4303bcb27ca",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.reliability_maintainability.rules.reliability_maintainability_rules",
       "id": "engineering_engine::imports.1dee41b7ff64a845ca3059be6e278f3d",
       "label": "imports",
@@ -549,6 +569,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.tools.file_tickets_list"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.field_failure_corrective_action.evaluator.field_failure_corrective_action",
+      "id": "engineering_engine::imports.1ff2f889e501f26c1ce71c47a22f8ce0",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
     },
     {
       "evidence_mode": "structural_only",
@@ -719,6 +749,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.quality_readiness.rules.quality_readiness_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.field_failure_corrective_action.rules.field_failure_corrective_action_binding_integrity",
+      "id": "engineering_engine::imports.2d3e675ac046c8d8804f0d3635e6d0c2",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
     },
     {
       "evidence_mode": "structural_only",
@@ -909,6 +949,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.evaluator.se_core_crosswalk_projection"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.2d381e9834e7bedd5b74fa901762eab6",
+      "id": "engineering_engine::imports.38f43c658e49c0ec04eafa0fb2ac2119",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.field_failure_corrective_action.rules.field_failure_corrective_action_vocabulary"
     },
     {
       "evidence_mode": "structural_only",
@@ -1169,6 +1219,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.render"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.field_failure_corrective_action.evaluator.field_failure_corrective_action",
+      "id": "engineering_engine::imports.46b94ae612b74551d1dc7463f95a0245",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.field_failure_corrective_action.rules.field_failure_corrective_action_rules"
     },
     {
       "evidence_mode": "structural_only",
@@ -1522,6 +1582,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.2d381e9834e7bedd5b74fa901762eab6",
+      "id": "engineering_engine::imports.550e83544df6dc857b631ce2a19e0bd7",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.field_failure_corrective_action.rules.field_failure_corrective_action_binding_integrity"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.rules_layers",
       "id": "engineering_engine::imports.552f20555cc322e29fd29a9b30601de2",
       "label": "imports",
@@ -1539,6 +1609,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.field_failure_corrective_action.tools.field_failure_corrective_action_runner",
+      "id": "engineering_engine::imports.574aa839e76ac2cf5f30bc3320554bba",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.field_failure_corrective_action.evaluator.field_failure_corrective_action"
     },
     {
       "evidence_mode": "structural_only",
@@ -1699,6 +1779,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.rules.pilot_packet_generator"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.field_failure_corrective_action.rules.field_failure_corrective_action_binding_integrity",
+      "id": "engineering_engine::imports.6446929cd45d1f05d2eca393a9ccae2a",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
     },
     {
       "evidence_mode": "structural_only",
@@ -2002,6 +2092,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.field_failure_corrective_action.evaluator.field_failure_corrective_action",
+      "id": "engineering_engine::imports.75fcc8a22571d144fdcb4d6e46b4ae66",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.tools.se_core_eval_qa_capture",
       "id": "engineering_engine::imports.77b4840bd5023c5b302ebac3dd3b3501",
       "label": "imports",
@@ -2119,6 +2219,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.quality_readiness.rules.quality_readiness_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.field_failure_corrective_action.tools.field_failure_corrective_action_runner",
+      "id": "engineering_engine::imports.7dab38b71ca49e80405af160b76cbc0b",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.ed1b99b09119b32c19fcba1fcbf0dc4b"
     },
     {
       "evidence_mode": "structural_only",
@@ -2309,6 +2419,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability_admission"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.field_failure_corrective_action.evaluator.field_failure_corrective_action",
+      "id": "engineering_engine::imports.87729dba710872b334fa62d664b8481b",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.field_failure_corrective_action.rules.field_failure_corrective_action_vocabulary"
     },
     {
       "evidence_mode": "structural_only",
@@ -2852,6 +2972,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.ab7042f5d3a363cf515037a17d0284d7",
+      "id": "engineering_engine::imports.a530f42e67daaf1df64661ebbe92223c",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.field_failure_corrective_action.evaluator.field_failure_corrective_action"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.reliability_maintainability.tools.reliability_maintainability_runner",
       "id": "engineering_engine::imports.a5df36ba75f9aa40a1fe06114476de3e",
       "label": "imports",
@@ -2882,6 +3012,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.ed1b99b09119b32c19fcba1fcbf0dc4b",
+      "id": "engineering_engine::imports.a910e357b8a83b1a7f31b1994a76ce9c",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.field_failure_corrective_action.rules.field_failure_corrective_action_binding_integrity"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.file_register",
       "id": "engineering_engine::imports.a93e5fea8d487917cfee1857fa3c1638",
       "label": "imports",
@@ -2902,6 +3042,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.ed1b99b09119b32c19fcba1fcbf0dc4b",
+      "id": "engineering_engine::imports.aa912736fe5bacb217bbb7e2ee89a383",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.field_failure_corrective_action.evaluator.field_failure_corrective_action"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.database_engineering.evaluator.database_project_evidence_adapter",
       "id": "engineering_engine::imports.ab2e7d4035b3dc2173f9df3d4f009449",
       "label": "imports",
@@ -2919,6 +3069,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.301e8a0036dba43f140b5513828d0131",
+      "id": "engineering_engine::imports.ac33979c5e64dcd18f2910f42d611e0f",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.field_failure_corrective_action.rules.field_failure_corrective_action_binding_integrity"
     },
     {
       "evidence_mode": "structural_only",
@@ -3172,6 +3332,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.301e8a0036dba43f140b5513828d0131",
+      "id": "engineering_engine::imports.b894a8bd785ac4d58f328ceb3f850c8c",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.field_failure_corrective_action.rules.field_failure_corrective_action_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.database_engineering.analysis.database_evidence_analyzers",
       "id": "engineering_engine::imports.b8ca5b2dec0ae65eb97abfc821d4a8d6",
       "label": "imports",
@@ -3359,6 +3529,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.quality_readiness.fixtures.quality_readiness_public_synthetic"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.field_failure_corrective_action.rules.field_failure_corrective_action_binding_integrity",
+      "id": "engineering_engine::imports.c2e8390cf11e840a22f4b1d9d6e56fe4",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
     },
     {
       "evidence_mode": "structural_only",
@@ -5052,6 +5232,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.2d381e9834e7bedd5b74fa901762eab6",
+      "id": "engineering_engine::imports.d93f6085d506030aad7acacf7a2b6624",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.field_failure_corrective_action.evaluator.field_failure_corrective_action"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluator.ax_se_project_context_pilot",
       "id": "engineering_engine::imports.d9a0973b4d46ff3fc5716e2f36c8f0c0",
       "label": "imports",
@@ -5109,6 +5299,26 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.reliability_maintainability.topology.reliability_maintainability_module_manifest"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.ed1b99b09119b32c19fcba1fcbf0dc4b",
+      "id": "engineering_engine::imports.da3c1dfa18ea48041b39d9e9e2c60c80",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.field_failure_corrective_action.rules.field_failure_corrective_action_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.field_failure_corrective_action.rules.field_failure_corrective_action_rules",
+      "id": "engineering_engine::imports.da53064d1ac5bf05fcf4bbbdd6557340",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
     },
     {
       "evidence_mode": "structural_only",
@@ -5319,6 +5529,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.field_failure_corrective_action.rules.field_failure_corrective_action_rules",
+      "id": "engineering_engine::imports.e8583d7b2aaf22ac374d8607b41e3d6f",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
     },
     {
       "evidence_mode": "structural_only",
@@ -6422,6 +6642,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.2d381e9834e7bedd5b74fa901762eab6",
+      "id": "engineering_engine::imports.fcd8e1e9923f9206441f8c01fbaf0fea",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.field_failure_corrective_action.rules.field_failure_corrective_action_rules"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
       "id": "engineering_engine::imports.fcfa15f7da3f4370dc4add34b23119f4",
       "label": "imports",
@@ -6612,6 +6842,106 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.2d381e9834e7bedd5b74fa901762eab6",
+      "id": "engineering_engine::imports.module.2d381e9834e7bedd5b74fa901762eab6.core.interfaces.domain_engine_adapter",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.2d381e9834e7bedd5b74fa901762eab6",
+      "id": "engineering_engine::imports.module.2d381e9834e7bedd5b74fa901762eab6.core.interfaces.profile_operation_canon",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.profile_operation_canon"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.2d381e9834e7bedd5b74fa901762eab6",
+      "id": "engineering_engine::imports.module.2d381e9834e7bedd5b74fa901762eab6.core.validators.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.2d381e9834e7bedd5b74fa901762eab6",
+      "id": "engineering_engine::imports.module.2d381e9834e7bedd5b74fa901762eab6.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.2d381e9834e7bedd5b74fa901762eab6",
+      "id": "engineering_engine::imports.module.2d381e9834e7bedd5b74fa901762eab6.core.validators.fingerprint",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.2d381e9834e7bedd5b74fa901762eab6",
+      "id": "engineering_engine::imports.module.2d381e9834e7bedd5b74fa901762eab6.module.301e8a0036dba43f140b5513828d0131",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.301e8a0036dba43f140b5513828d0131"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.2d381e9834e7bedd5b74fa901762eab6",
+      "id": "engineering_engine::imports.module.2d381e9834e7bedd5b74fa901762eab6.module.ab7042f5d3a363cf515037a17d0284d7",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module.ab7042f5d3a363cf515037a17d0284d7"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.301e8a0036dba43f140b5513828d0131",
+      "id": "engineering_engine::imports.module.301e8a0036dba43f140b5513828d0131.core.interfaces.domain_engine_adapter",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.301e8a0036dba43f140b5513828d0131",
+      "id": "engineering_engine::imports.module.301e8a0036dba43f140b5513828d0131.core.interfaces.profile_operation_canon",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.profile_operation_canon"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.301e8a0036dba43f140b5513828d0131",
+      "id": "engineering_engine::imports.module.301e8a0036dba43f140b5513828d0131.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::module.49baa75bcecc59367f6d6786627dd140",
       "id": "engineering_engine::imports.module.49baa75bcecc59367f6d6786627dd140.core.validators.canonical",
       "label": "imports",
@@ -6629,6 +6959,26 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.54d2ae4572a0be4b97b6f7b05973f0ec",
+      "id": "engineering_engine::imports.module.54d2ae4572a0be4b97b6f7b05973f0ec.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.54d2ae4572a0be4b97b6f7b05973f0ec",
+      "id": "engineering_engine::imports.module.54d2ae4572a0be4b97b6f7b05973f0ec.core.validators.module_binding",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.module_binding"
     },
     {
       "evidence_mode": "structural_only",
@@ -6752,6 +7102,26 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.ab7042f5d3a363cf515037a17d0284d7",
+      "id": "engineering_engine::imports.module.ab7042f5d3a363cf515037a17d0284d7.core.validators.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.ab7042f5d3a363cf515037a17d0284d7",
+      "id": "engineering_engine::imports.module.ab7042f5d3a363cf515037a17d0284d7.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::module.c628cc19e55a08c8fc7a454535362add",
       "id": "engineering_engine::imports.module.c628cc19e55a08c8fc7a454535362add.core.interfaces.domain_engine_adapter",
       "label": "imports",
@@ -6829,6 +7199,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::module.61ac8469da001b63443d9cc99b9c7bf4"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module.ed1b99b09119b32c19fcba1fcbf0dc4b",
+      "id": "engineering_engine::imports.module.ed1b99b09119b32c19fcba1fcbf0dc4b.core.interfaces.domain_engine_adapter",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
     },
     {
       "evidence_mode": "structural_only",
@@ -8105,6 +8485,61 @@
       "id": "engineering_engine::engines.database_engineering.topology.database_engineering_module_manifest",
       "kind": "module",
       "label": "engines/database_engineering/topology/database_engineering_module_manifest",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.field_failure_corrective_action.evaluator.field_failure_corrective_action",
+      "kind": "module",
+      "label": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.field_failure_corrective_action.rules.field_failure_corrective_action_binding_integrity",
+      "kind": "module",
+      "label": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_binding_integrity",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.field_failure_corrective_action.rules.field_failure_corrective_action_rules",
+      "kind": "module",
+      "label": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_rules",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.field_failure_corrective_action.rules.field_failure_corrective_action_vocabulary",
+      "kind": "module",
+      "label": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_vocabulary",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.field_failure_corrective_action.tools.field_failure_corrective_action_runner",
+      "kind": "module",
+      "label": "engines/field_failure_corrective_action/tools/field_failure_corrective_action_runner",
       "layer": "module",
       "parent_id": null,
       "provider_id": "engineering_engine",
@@ -9554,9 +9989,42 @@
     {
       "diagnostic_state": "validator_backed",
       "group": "engines",
+      "id": "engineering_engine::module.2d381e9834e7bedd5b74fa901762eab6",
+      "kind": "module",
+      "label": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_evaluator_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::module.301e8a0036dba43f140b5513828d0131",
+      "kind": "module",
+      "label": "engines/field_failure_corrective_action/compiler/field_failure_corrective_action_compiler_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
       "id": "engineering_engine::module.49baa75bcecc59367f6d6786627dd140",
       "kind": "module",
       "label": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_canonical_digest",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::module.54d2ae4572a0be4b97b6f7b05973f0ec",
+      "kind": "module",
+      "label": "engines/field_failure_corrective_action/topology/field_failure_corrective_action_module_manifest",
       "layer": "module",
       "parent_id": null,
       "provider_id": "engineering_engine",
@@ -9620,6 +10088,17 @@
     {
       "diagnostic_state": "validator_backed",
       "group": "engines",
+      "id": "engineering_engine::module.ab7042f5d3a363cf515037a17d0284d7",
+      "kind": "module",
+      "label": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_typed_facts_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
       "id": "engineering_engine::module.c628cc19e55a08c8fc7a454535362add",
       "kind": "module",
       "label": "engines/calibration_measurement_validity/tools/calibration_measurement_validity_zero_write_pilot_runner",
@@ -9634,6 +10113,17 @@
       "id": "engineering_engine::module.caf6a8abb5aec9331ab6b546a6ca6b7b",
       "kind": "module",
       "label": "engines/calibration_measurement_validity/derivation/calibration_measurement_validity_source_derivation",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::module.ed1b99b09119b32c19fcba1fcbf0dc4b",
+      "kind": "module",
+      "label": "engines/field_failure_corrective_action/fixtures/field_failure_corrective_action_public_synthetic",
       "layer": "module",
       "parent_id": null,
       "provider_id": "engineering_engine",
@@ -10297,6 +10787,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "module.ab7042f5d3a363cf515037a17d0284d7",
+          "id": "imports.0e4f0268901b740fbe15ccaf8f3d2613",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.field_failure_corrective_action.rules.field_failure_corrective_action_binding_integrity"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluator.se_core_crosswalk_projection",
           "id": "imports.0e881afee3c475b514360878fd12f4af",
           "label": "imports",
@@ -10585,6 +11084,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.field_failure_corrective_action.evaluator.field_failure_corrective_action",
+          "id": "imports.1d81336ba5f41391fff2f4303bcb27ca",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.reliability_maintainability.rules.reliability_maintainability_rules",
           "id": "imports.1dee41b7ff64a845ca3059be6e278f3d",
           "label": "imports",
@@ -10600,6 +11108,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.tools.file_tickets_list"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.field_failure_corrective_action.evaluator.field_failure_corrective_action",
+          "id": "imports.1ff2f889e501f26c1ce71c47a22f8ce0",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
         },
         {
           "evidence_mode": "structural_only",
@@ -10753,6 +11270,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.quality_readiness.rules.quality_readiness_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.field_failure_corrective_action.rules.field_failure_corrective_action_binding_integrity",
+          "id": "imports.2d3e675ac046c8d8804f0d3635e6d0c2",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
         },
         {
           "evidence_mode": "structural_only",
@@ -10924,6 +11450,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.evaluator.se_core_crosswalk_projection"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.2d381e9834e7bedd5b74fa901762eab6",
+          "id": "imports.38f43c658e49c0ec04eafa0fb2ac2119",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.field_failure_corrective_action.rules.field_failure_corrective_action_vocabulary"
         },
         {
           "evidence_mode": "structural_only",
@@ -11158,6 +11693,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.render"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.field_failure_corrective_action.evaluator.field_failure_corrective_action",
+          "id": "imports.46b94ae612b74551d1dc7463f95a0245",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.field_failure_corrective_action.rules.field_failure_corrective_action_rules"
         },
         {
           "evidence_mode": "structural_only",
@@ -11476,6 +12020,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "module.2d381e9834e7bedd5b74fa901762eab6",
+          "id": "imports.550e83544df6dc857b631ce2a19e0bd7",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.field_failure_corrective_action.rules.field_failure_corrective_action_binding_integrity"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.rules_layers",
           "id": "imports.552f20555cc322e29fd29a9b30601de2",
           "label": "imports",
@@ -11491,6 +12044,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.field_failure_corrective_action.tools.field_failure_corrective_action_runner",
+          "id": "imports.574aa839e76ac2cf5f30bc3320554bba",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.field_failure_corrective_action.evaluator.field_failure_corrective_action"
         },
         {
           "evidence_mode": "structural_only",
@@ -11635,6 +12197,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.rules.pilot_packet_generator"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.field_failure_corrective_action.rules.field_failure_corrective_action_binding_integrity",
+          "id": "imports.6446929cd45d1f05d2eca393a9ccae2a",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
         },
         {
           "evidence_mode": "structural_only",
@@ -11908,6 +12479,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.field_failure_corrective_action.evaluator.field_failure_corrective_action",
+          "id": "imports.75fcc8a22571d144fdcb4d6e46b4ae66",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.tools.se_core_eval_qa_capture",
           "id": "imports.77b4840bd5023c5b302ebac3dd3b3501",
           "label": "imports",
@@ -12013,6 +12593,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.quality_readiness.rules.quality_readiness_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.field_failure_corrective_action.tools.field_failure_corrective_action_runner",
+          "id": "imports.7dab38b71ca49e80405af160b76cbc0b",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.ed1b99b09119b32c19fcba1fcbf0dc4b"
         },
         {
           "evidence_mode": "structural_only",
@@ -12184,6 +12773,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.reliability_maintainability.evaluator.reliability_maintainability_admission"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.field_failure_corrective_action.evaluator.field_failure_corrective_action",
+          "id": "imports.87729dba710872b334fa62d664b8481b",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.field_failure_corrective_action.rules.field_failure_corrective_action_vocabulary"
         },
         {
           "evidence_mode": "structural_only",
@@ -12673,6 +13271,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "module.ab7042f5d3a363cf515037a17d0284d7",
+          "id": "imports.a530f42e67daaf1df64661ebbe92223c",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.field_failure_corrective_action.evaluator.field_failure_corrective_action"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.reliability_maintainability.tools.reliability_maintainability_runner",
           "id": "imports.a5df36ba75f9aa40a1fe06114476de3e",
           "label": "imports",
@@ -12700,6 +13307,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "module.ed1b99b09119b32c19fcba1fcbf0dc4b",
+          "id": "imports.a910e357b8a83b1a7f31b1994a76ce9c",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.field_failure_corrective_action.rules.field_failure_corrective_action_binding_integrity"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.file_register",
           "id": "imports.a93e5fea8d487917cfee1857fa3c1638",
           "label": "imports",
@@ -12718,6 +13334,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "module.ed1b99b09119b32c19fcba1fcbf0dc4b",
+          "id": "imports.aa912736fe5bacb217bbb7e2ee89a383",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.field_failure_corrective_action.evaluator.field_failure_corrective_action"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.database_engineering.evaluator.database_project_evidence_adapter",
           "id": "imports.ab2e7d4035b3dc2173f9df3d4f009449",
           "label": "imports",
@@ -12733,6 +13358,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.301e8a0036dba43f140b5513828d0131",
+          "id": "imports.ac33979c5e64dcd18f2910f42d611e0f",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.field_failure_corrective_action.rules.field_failure_corrective_action_binding_integrity"
         },
         {
           "evidence_mode": "structural_only",
@@ -12961,6 +13595,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "module.301e8a0036dba43f140b5513828d0131",
+          "id": "imports.b894a8bd785ac4d58f328ceb3f850c8c",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.field_failure_corrective_action.rules.field_failure_corrective_action_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.database_engineering.analysis.database_evidence_analyzers",
           "id": "imports.b8ca5b2dec0ae65eb97abfc821d4a8d6",
           "label": "imports",
@@ -13129,6 +13772,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.quality_readiness.fixtures.quality_readiness_public_synthetic"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.field_failure_corrective_action.rules.field_failure_corrective_action_binding_integrity",
+          "id": "imports.c2e8390cf11e840a22f4b1d9d6e56fe4",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
         },
         {
           "evidence_mode": "structural_only",
@@ -14653,6 +15305,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "module.2d381e9834e7bedd5b74fa901762eab6",
+          "id": "imports.d93f6085d506030aad7acacf7a2b6624",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.field_failure_corrective_action.evaluator.field_failure_corrective_action"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluator.ax_se_project_context_pilot",
           "id": "imports.d9a0973b4d46ff3fc5716e2f36c8f0c0",
           "label": "imports",
@@ -14704,6 +15365,24 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.reliability_maintainability.topology.reliability_maintainability_module_manifest"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.ed1b99b09119b32c19fcba1fcbf0dc4b",
+          "id": "imports.da3c1dfa18ea48041b39d9e9e2c60c80",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.field_failure_corrective_action.rules.field_failure_corrective_action_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.field_failure_corrective_action.rules.field_failure_corrective_action_rules",
+          "id": "imports.da53064d1ac5bf05fcf4bbbdd6557340",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
         },
         {
           "evidence_mode": "structural_only",
@@ -14893,6 +15572,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.field_failure_corrective_action.rules.field_failure_corrective_action_rules",
+          "id": "imports.e8583d7b2aaf22ac374d8607b41e3d6f",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
         },
         {
           "evidence_mode": "structural_only",
@@ -15886,6 +16574,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "module.2d381e9834e7bedd5b74fa901762eab6",
+          "id": "imports.fcd8e1e9923f9206441f8c01fbaf0fea",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.field_failure_corrective_action.rules.field_failure_corrective_action_rules"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.configuration_change_impact.evaluator.configuration_change_impact_evaluator_adapter",
           "id": "imports.fcfa15f7da3f4370dc4add34b23119f4",
           "label": "imports",
@@ -16057,6 +16754,96 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "module.2d381e9834e7bedd5b74fa901762eab6",
+          "id": "imports.module.2d381e9834e7bedd5b74fa901762eab6.core.interfaces.domain_engine_adapter",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.2d381e9834e7bedd5b74fa901762eab6",
+          "id": "imports.module.2d381e9834e7bedd5b74fa901762eab6.core.interfaces.profile_operation_canon",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.profile_operation_canon"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.2d381e9834e7bedd5b74fa901762eab6",
+          "id": "imports.module.2d381e9834e7bedd5b74fa901762eab6.core.validators.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.2d381e9834e7bedd5b74fa901762eab6",
+          "id": "imports.module.2d381e9834e7bedd5b74fa901762eab6.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.2d381e9834e7bedd5b74fa901762eab6",
+          "id": "imports.module.2d381e9834e7bedd5b74fa901762eab6.core.validators.fingerprint",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.2d381e9834e7bedd5b74fa901762eab6",
+          "id": "imports.module.2d381e9834e7bedd5b74fa901762eab6.module.301e8a0036dba43f140b5513828d0131",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.301e8a0036dba43f140b5513828d0131"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.2d381e9834e7bedd5b74fa901762eab6",
+          "id": "imports.module.2d381e9834e7bedd5b74fa901762eab6.module.ab7042f5d3a363cf515037a17d0284d7",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module.ab7042f5d3a363cf515037a17d0284d7"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.301e8a0036dba43f140b5513828d0131",
+          "id": "imports.module.301e8a0036dba43f140b5513828d0131.core.interfaces.domain_engine_adapter",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.301e8a0036dba43f140b5513828d0131",
+          "id": "imports.module.301e8a0036dba43f140b5513828d0131.core.interfaces.profile_operation_canon",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.profile_operation_canon"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.301e8a0036dba43f140b5513828d0131",
+          "id": "imports.module.301e8a0036dba43f140b5513828d0131.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "module.49baa75bcecc59367f6d6786627dd140",
           "id": "imports.module.49baa75bcecc59367f6d6786627dd140.core.validators.canonical",
           "label": "imports",
@@ -16072,6 +16859,24 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.54d2ae4572a0be4b97b6f7b05973f0ec",
+          "id": "imports.module.54d2ae4572a0be4b97b6f7b05973f0ec.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.54d2ae4572a0be4b97b6f7b05973f0ec",
+          "id": "imports.module.54d2ae4572a0be4b97b6f7b05973f0ec.core.validators.module_binding",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.module_binding"
         },
         {
           "evidence_mode": "structural_only",
@@ -16183,6 +16988,24 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "module.ab7042f5d3a363cf515037a17d0284d7",
+          "id": "imports.module.ab7042f5d3a363cf515037a17d0284d7.core.validators.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.ab7042f5d3a363cf515037a17d0284d7",
+          "id": "imports.module.ab7042f5d3a363cf515037a17d0284d7.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "module.c628cc19e55a08c8fc7a454535362add",
           "id": "imports.module.c628cc19e55a08c8fc7a454535362add.core.interfaces.domain_engine_adapter",
           "label": "imports",
@@ -16252,6 +17075,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "module.61ac8469da001b63443d9cc99b9c7bf4"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module.ed1b99b09119b32c19fcba1fcbf0dc4b",
+          "id": "imports.module.ed1b99b09119b32c19fcba1fcbf0dc4b.core.interfaces.domain_engine_adapter",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
         },
         {
           "evidence_mode": "structural_only",
@@ -16959,6 +17791,56 @@
           "id": "engines.database_engineering.topology.database_engineering_module_manifest",
           "kind": "module",
           "label": "engines/database_engineering/topology/database_engineering_module_manifest",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.field_failure_corrective_action.evaluator.field_failure_corrective_action",
+          "kind": "module",
+          "label": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.field_failure_corrective_action.rules.field_failure_corrective_action_binding_integrity",
+          "kind": "module",
+          "label": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_binding_integrity",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.field_failure_corrective_action.rules.field_failure_corrective_action_rules",
+          "kind": "module",
+          "label": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_rules",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.field_failure_corrective_action.rules.field_failure_corrective_action_vocabulary",
+          "kind": "module",
+          "label": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_vocabulary",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.field_failure_corrective_action.tools.field_failure_corrective_action_runner",
+          "kind": "module",
+          "label": "engines/field_failure_corrective_action/tools/field_failure_corrective_action_runner",
           "layer": "module",
           "parent_id": null,
           "repair_state": "none"
@@ -18276,9 +19158,39 @@
         {
           "diagnostic_state": "validator_backed",
           "group": "engines",
+          "id": "module.2d381e9834e7bedd5b74fa901762eab6",
+          "kind": "module",
+          "label": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_evaluator_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "module.301e8a0036dba43f140b5513828d0131",
+          "kind": "module",
+          "label": "engines/field_failure_corrective_action/compiler/field_failure_corrective_action_compiler_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
           "id": "module.49baa75bcecc59367f6d6786627dd140",
           "kind": "module",
           "label": "engines/calibration_measurement_validity/shared/calibration_measurement_validity_canonical_digest",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "module.54d2ae4572a0be4b97b6f7b05973f0ec",
+          "kind": "module",
+          "label": "engines/field_failure_corrective_action/topology/field_failure_corrective_action_module_manifest",
           "layer": "module",
           "parent_id": null,
           "repair_state": "none"
@@ -18336,6 +19248,16 @@
         {
           "diagnostic_state": "validator_backed",
           "group": "engines",
+          "id": "module.ab7042f5d3a363cf515037a17d0284d7",
+          "kind": "module",
+          "label": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_typed_facts_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
           "id": "module.c628cc19e55a08c8fc7a454535362add",
           "kind": "module",
           "label": "engines/calibration_measurement_validity/tools/calibration_measurement_validity_zero_write_pilot_runner",
@@ -18349,6 +19271,16 @@
           "id": "module.caf6a8abb5aec9331ab6b546a6ca6b7b",
           "kind": "module",
           "label": "engines/calibration_measurement_validity/derivation/calibration_measurement_validity_source_derivation",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "module.ed1b99b09119b32c19fcba1fcbf0dc4b",
+          "kind": "module",
+          "label": "engines/field_failure_corrective_action/fixtures/field_failure_corrective_action_public_synthetic",
           "layer": "module",
           "parent_id": null,
           "repair_state": "none"
@@ -18370,7 +19302,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "bb5ed246c28bec2a76c9fef48836a3ec94b69fae937fee416c477c1324a462da",
+        "digest": "b31fd89eea1869461326349adde853980986bf1892aff953cd7e564ddba93345",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -19364,13 +20296,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "e1817c1fc58920667b3c2ebd411001241f5152217d360ca4e0aad0fbeb9d8110",
+  "source_set_digest": "1322ab39cbb3e31de0bfeb5bc5bfc7feb67a95cb58cbf2c493c223c82c7df8a6",
   "summary": {
-    "edge_count": 736,
-    "node_count": 247,
+    "edge_count": 774,
+    "node_count": 257,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "aa842b6287b036165efc9b27e33a2249bdf09efcfebe7343b21eb1af762e75ca"
+  "topology_digest": "232b7f22456d40b0d18587dccd8782fc46693f57290376e159144101c110814b"
 }

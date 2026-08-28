@@ -3,7 +3,7 @@
   "engine_root": "guild_hall/engineering_engine",
   "contract_revision": "phase_1_0_contract.v0",
   "derivation": {
-    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness, engines/database_engineering, engines/material_procurement_readiness, engines/reliability_maintainability, engines/calibration_measurement_validity, engines/configuration_change_impact, engines/manufacturing_readiness, engines/pcb_compliance",
+    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness, engines/database_engineering, engines/material_procurement_readiness, engines/reliability_maintainability, engines/calibration_measurement_validity, engines/configuration_change_impact, engines/manufacturing_readiness, engines/field_failure_corrective_action, engines/pcb_compliance",
     "areas_covered": [
       "core",
       "engines/systems_engineering",
@@ -14,6 +14,7 @@
       "engines/calibration_measurement_validity",
       "engines/configuration_change_impact",
       "engines/manufacturing_readiness",
+      "engines/field_failure_corrective_action",
       "engines/pcb_compliance"
     ],
     "areas_deliberately_excluded": [
@@ -1339,6 +1340,136 @@
       ],
       "export_count": 1,
       "line_count": 34
+    },
+    {
+      "module": "engines/field_failure_corrective_action/compiler/field_failure_corrective_action_compiler_adapter",
+      "area": "engines",
+      "exports": [
+        "FFCA_COMPILER_ADAPTER_SCHEMA_VERSION",
+        "FFCA_COMPILER_ERROR_CODES",
+        "compileFieldFailureCorrectiveActionRules",
+        "fieldFailureCorrectiveActionCompilerAdapter"
+      ],
+      "export_count": 4,
+      "line_count": 203
+    },
+    {
+      "module": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action",
+      "area": "engines",
+      "exports": [
+        "FFCA_ASSESSMENT_SCHEMA",
+        "FFCA_DOMAIN_INPUT_SCHEMA",
+        "FFCA_EVALUATOR_ERROR_CODES",
+        "FFCA_RECEIPT_SCHEMA",
+        "FFCA_REQUEST_SCHEMA",
+        "assessFieldFailureCorrectiveAction"
+      ],
+      "export_count": 6,
+      "line_count": 523
+    },
+    {
+      "module": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_evaluator_adapter",
+      "area": "engines",
+      "exports": [
+        "FFCA_EVALUATOR_ADAPTER_SCHEMA_VERSION",
+        "fieldFailureCorrectiveActionAdapter"
+      ],
+      "export_count": 2,
+      "line_count": 458
+    },
+    {
+      "module": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_typed_facts_adapter",
+      "area": "engines",
+      "exports": [
+        "FFCA_PROJECT_BINDING_SCHEMA",
+        "FFCA_TYPED_FACTS_RECEIPT_SCHEMA",
+        "FFCA_TYPED_FACTS_SCHEMA",
+        "admitFfcaTypedProjectFacts"
+      ],
+      "export_count": 4,
+      "line_count": 174
+    },
+    {
+      "module": "engines/field_failure_corrective_action/fixtures/field_failure_corrective_action_public_synthetic",
+      "area": "engines",
+      "exports": [
+        "FFCA_PUBLIC_SYNTHETIC_FIXTURE_ID",
+        "FFCA_PUBLIC_SYNTHETIC_PROJECT_BINDING",
+        "buildFieldFailureCorrectiveActionPublicSyntheticRequest",
+        "buildFieldFailureCorrectiveActionPublicSyntheticTypedFacts"
+      ],
+      "export_count": 4,
+      "line_count": 212
+    },
+    {
+      "module": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_binding_integrity",
+      "area": "engines",
+      "exports": [
+        "FFCA_FLOATING_REVISION",
+        "canonicalFfcaDigest",
+        "computeFfcaCompilationScopeDigest",
+        "computeFfcaProfileProvenanceDigest",
+        "computeFfcaRequestBindingRevision",
+        "computeFfcaSourceManifestDigest",
+        "computeFfcaTypedFactsDigest",
+        "isFfcaFloatingRevision"
+      ],
+      "export_count": 8,
+      "line_count": 36
+    },
+    {
+      "module": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_rules",
+      "area": "engines",
+      "exports": [
+        "FFCA_RULES",
+        "FFCA_RULESET_REF",
+        "FFCA_RULESET_REVISION",
+        "FFCA_RULESET_SCHEMA",
+        "FFCA_SOURCE_INVENTORY",
+        "FFCA_SOURCE_PACKET_MARKDOWN_SHA256",
+        "FFCA_SOURCE_PACKET_REF",
+        "FFCA_SOURCE_PACKET_SCHEMA",
+        "getFfcaRule",
+        "isFfcaRuleId"
+      ],
+      "export_count": 10,
+      "line_count": 148
+    },
+    {
+      "module": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_vocabulary",
+      "area": "engines",
+      "exports": [
+        "FFCA_APPLICABILITY_STATES",
+        "FFCA_ASSESSMENT_STATES",
+        "FFCA_CASE_KINDS",
+        "FFCA_CHANGE_STATES",
+        "FFCA_CLOSURE_READINESS_STATES",
+        "FFCA_FORBIDDEN_AUTHORITY_FIELDS",
+        "FFCA_LINK_FIELDS",
+        "FFCA_OBSERVATION_STATES",
+        "isFfcaApplicabilityState",
+        "isFfcaCaseKind",
+        "isFfcaChangeState",
+        "isFfcaObservationState"
+      ],
+      "export_count": 12,
+      "line_count": 74
+    },
+    {
+      "module": "engines/field_failure_corrective_action/tools/field_failure_corrective_action_runner",
+      "area": "engines",
+      "exports": [],
+      "export_count": 0,
+      "line_count": 9
+    },
+    {
+      "module": "engines/field_failure_corrective_action/topology/field_failure_corrective_action_module_manifest",
+      "area": "engines",
+      "exports": [
+        "createFieldFailureCorrectiveActionModuleManifest"
+      ],
+      "export_count": 1,
+      "line_count": 135
     },
     {
       "module": "engines/manufacturing_readiness/compiler/manufacturing_readiness_compiler_adapter",
@@ -3219,7 +3350,7 @@
       "line_count": 1885
     }
   ],
-  "module_count": 208,
+  "module_count": 218,
   "module_edges": [
     {
       "from": "core/evaluation_runtime/claim_ceilings",
@@ -5058,6 +5189,272 @@
     {
       "from": "engines/database_engineering/topology/database_engineering_module_manifest",
       "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/compiler/field_failure_corrective_action_compiler_adapter",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/compiler/field_failure_corrective_action_compiler_adapter",
+      "to": "core/interfaces/profile_operation_canon",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/compiler/field_failure_corrective_action_compiler_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/compiler/field_failure_corrective_action_compiler_adapter",
+      "to": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_binding_integrity",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/compiler/field_failure_corrective_action_compiler_adapter",
+      "to": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_evaluator_adapter",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_evaluator_adapter",
+      "to": "core/interfaces/profile_operation_canon",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_evaluator_adapter",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_evaluator_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_evaluator_adapter",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_evaluator_adapter",
+      "to": "engines/field_failure_corrective_action/compiler/field_failure_corrective_action_compiler_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_evaluator_adapter",
+      "to": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_evaluator_adapter",
+      "to": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_typed_facts_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_evaluator_adapter",
+      "to": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_binding_integrity",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_evaluator_adapter",
+      "to": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_evaluator_adapter",
+      "to": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_vocabulary",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_typed_facts_adapter",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_typed_facts_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_typed_facts_adapter",
+      "to": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_typed_facts_adapter",
+      "to": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_binding_integrity",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action",
+      "to": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action",
+      "to": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_vocabulary",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/fixtures/field_failure_corrective_action_public_synthetic",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/fixtures/field_failure_corrective_action_public_synthetic",
+      "to": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/fixtures/field_failure_corrective_action_public_synthetic",
+      "to": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_binding_integrity",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/fixtures/field_failure_corrective_action_public_synthetic",
+      "to": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_binding_integrity",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_binding_integrity",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_binding_integrity",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_rules",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/rules/field_failure_corrective_action_rules",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/tools/field_failure_corrective_action_runner",
+      "to": "engines/field_failure_corrective_action/evaluator/field_failure_corrective_action",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/tools/field_failure_corrective_action_runner",
+      "to": "engines/field_failure_corrective_action/fixtures/field_failure_corrective_action_public_synthetic",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/topology/field_failure_corrective_action_module_manifest",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/field_failure_corrective_action/topology/field_failure_corrective_action_module_manifest",
+      "to": "core/validators/module_binding",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
@@ -8024,7 +8421,7 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 686,
+  "module_edge_count": 724,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -8375,5 +8772,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "9765e180212b48015903335d83cbcd0b1469c4230ebb7b3363707d5075ff3be9"
+  "topology_digest": "297b194af843754ec90b531990643353e899ebd32cd046098570a518dad06de0"
 }

@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-28 - Field Failure Corrective Action evidence-readiness Domain Engine main integration
+
+- Integrated the accepted `field_failure_corrective_action` package behind the unchanged Engineering Engine Core without granting Quality disposition, technical-change approval, waiver/repair/release, regulatory reporting, final closure, project applicability, compliance, production, canon, or writer authority.
+- Registered its evaluator and root `validate:field-failure-corrective-action` gate, including 33 package tests for exact Project Binding/Typed Facts, source and Profile identity, closed schemas, containment/RCA/corrective/effectiveness/recurrence readiness, hostile admission, replay, and zero-write behavior.
+- Kept closure and downstream decision fields human-owned; integration remains a public `source_supported` candidate only.
+
 ## 2026-08-28 - AX performance proof card manual-first plan
 
 - Recorded the Owner-ordered manual-first sequence for an `AX 성과 증명 카드`: create and review one separate Google Docs card, freeze the evidence/claim format, and consider 4192 generation/export only after sufficient ledger accumulation and a separate approval gate.
