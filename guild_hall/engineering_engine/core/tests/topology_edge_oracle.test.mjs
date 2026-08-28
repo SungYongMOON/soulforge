@@ -80,15 +80,15 @@ function independentScanEdges(canonicalRoots) {
 }
 
 test('Topology Edge Oracle: independently resolves complete static import/re-export graph', () => {
-  const roots = ['core', 'engines/systems_engineering', 'engines/quality_readiness', 'engines/database_engineering', 'engines/material_procurement_readiness', 'engines/reliability_maintainability', 'engines/calibration_measurement_validity', 'engines/configuration_change_impact', 'engines/manufacturing_readiness', 'engines/field_failure_corrective_action', 'engines/safety_hazard', 'engines/bom_supply_chain_risk', 'engines/pcb_compliance'];
+  const roots = ['core', 'engines/systems_engineering', 'engines/quality_readiness', 'engines/database_engineering', 'engines/material_procurement_readiness', 'engines/reliability_maintainability', 'engines/calibration_measurement_validity', 'engines/configuration_change_impact', 'engines/manufacturing_readiness', 'engines/field_failure_corrective_action', 'engines/safety_hazard', 'engines/bom_supply_chain_risk', 'engines/interface_consistency', 'engines/pcb_compliance'];
   const oracleResult = independentScanEdges(roots);
 
   const emittedTopology = buildTopology();
 
   assert.equal(emittedTopology.module_count, oracleResult.moduleCount, 'Module count must match independent scan');
-  assert.equal(emittedTopology.module_count, 244, 'Canonical module count must equal 244');
+  assert.equal(emittedTopology.module_count, 252, 'Canonical module count must equal 252');
   assert.equal(emittedTopology.module_edge_count, oracleResult.edges.length, 'Edge count must match independent scan');
-  assert.equal(emittedTopology.module_edge_count, 826, 'Canonical edge count must equal 826');
+  assert.equal(emittedTopology.module_edge_count, 850, 'Canonical edge count must equal 850');
 });
 
 test('Topology Edge Oracle: representative import syntax is correctly captured', () => {
@@ -173,6 +173,11 @@ test('Topology Edge Oracle: representative import syntax is correctly captured',
     edgeKeys.has('engines/bom_supply_chain_risk/evaluator/bom_supply_chain_risk_evaluator_adapter->core/interfaces/domain_engine_adapter'),
     true,
     'BOM Supply-Chain Risk evaluator must use the canonical Core Domain Adapter'
+  );
+  assert.equal(
+    edgeKeys.has('engines/interface_consistency/evaluator/interface_consistency_evaluator_adapter->core/interfaces/domain_engine_adapter'),
+    true,
+    'Interface Consistency evaluator must use the canonical Core Domain Adapter'
   );
   assert.equal(
     edgeKeys.has('engines/pcb_compliance/evaluator/pcb_compliance_evaluator_adapter->core/interfaces/domain_engine_adapter'),

@@ -12,6 +12,7 @@ The canonical contracts for domain engines have been physically relocated:
 - Field Failure Corrective Action: `guild_hall/engineering_engine/engines/field_failure_corrective_action/contracts/`
 - Safety Hazard: `guild_hall/engineering_engine/engines/safety_hazard/contracts/`
 - BOM & Supply-Chain Risk: `guild_hall/engineering_engine/engines/bom_supply_chain_risk/contracts/`
+- Interface Consistency: `guild_hall/engineering_engine/engines/interface_consistency/contracts/`
 - PCB Compliance: `guild_hall/engineering_engine/engines/pcb_compliance/contracts/`
 
 This directory is a non-authoritative compatibility pointer and contains no contract definitions.

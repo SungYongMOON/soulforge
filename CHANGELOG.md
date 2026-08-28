@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-28 - Interface Consistency structural evidence-readiness Domain Engine main integration
+
+- Integrated the accepted `interface_consistency` package behind the unchanged Engineering Engine Core without granting interface, design, product, or Quality acceptance; compliance; project applicability; production; release; canon; or writer authority.
+- Registered its evaluator and root `validate:interface-consistency` gate, including 67 package tests for 2–16-end pair evaluation, exact Core Typed Facts/Profile replay, canonical interface/pair/rule projections, strict structural schemas plus deterministic semantic verification, hostile admission, replay, and zero-write behavior.
+- Kept ECSS/NASA/DLA/RFC source use bounded to a `source_supported` structural candidate; exact project binding and human engineering judgment remain outside the package.
+
 ## 2026-08-28 - BOM & Supply-Chain Risk evidence-readiness Domain Engine main integration
 
 - Integrated the accepted `bom_supply_chain_risk` package behind the unchanged Engineering Engine Core without granting DFARS applicability, contract compliance, supplier approval, counterfeit authentication, procurement, ERP, project acceptance, production, release, canon, or writer authority.

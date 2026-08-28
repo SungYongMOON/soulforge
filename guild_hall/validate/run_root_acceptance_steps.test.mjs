@@ -49,6 +49,7 @@ test("루트 게이트: 앱 테스트 스텝이 validate·done-check 양 모드�
     ['"field-failure-corrective-action"', "npm run validate:field-failure-corrective-action"],
     ['"safety-hazard"', "npm run validate:safety-hazard"],
     ['"bom-supply-chain-risk"', "npm run validate:bom-supply-chain-risk"],
+    ['"interface-consistency"', "npm run validate:interface-consistency"],
     ['"reliability-maintainability"', "npm run validate:reliability-maintainability"],
     ['"pcb-compliance"', "npm run validate:pcb-compliance"],
     ['"calibration-measurement-validity"', "npm run validate:calibration-measurement-validity"],

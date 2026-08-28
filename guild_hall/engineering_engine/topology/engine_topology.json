@@ -3,7 +3,7 @@
   "engine_root": "guild_hall/engineering_engine",
   "contract_revision": "phase_1_0_contract.v0",
   "derivation": {
-    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness, engines/database_engineering, engines/material_procurement_readiness, engines/reliability_maintainability, engines/calibration_measurement_validity, engines/configuration_change_impact, engines/manufacturing_readiness, engines/field_failure_corrective_action, engines/safety_hazard, engines/bom_supply_chain_risk, engines/pcb_compliance",
+    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness, engines/database_engineering, engines/material_procurement_readiness, engines/reliability_maintainability, engines/calibration_measurement_validity, engines/configuration_change_impact, engines/manufacturing_readiness, engines/field_failure_corrective_action, engines/safety_hazard, engines/bom_supply_chain_risk, engines/interface_consistency, engines/pcb_compliance",
     "areas_covered": [
       "core",
       "engines/systems_engineering",
@@ -17,6 +17,7 @@
       "engines/field_failure_corrective_action",
       "engines/safety_hazard",
       "engines/bom_supply_chain_risk",
+      "engines/interface_consistency",
       "engines/pcb_compliance"
     ],
     "areas_deliberately_excluded": [
@@ -1574,6 +1575,100 @@
       ],
       "export_count": 1,
       "line_count": 135
+    },
+    {
+      "module": "engines/interface_consistency/compiler/interface_consistency_compiler_adapter",
+      "area": "engines",
+      "exports": [
+        "INTERFACE_CONSISTENCY_COMPILER_ADAPTER_SCHEMA_VERSION",
+        "INTERFACE_CONSISTENCY_COMPILER_CODES",
+        "compileInterfaceConsistencyRules",
+        "interfaceConsistencyCompilerAdapter"
+      ],
+      "export_count": 4,
+      "line_count": 321
+    },
+    {
+      "module": "engines/interface_consistency/evaluator/interface_consistency",
+      "area": "engines",
+      "exports": [
+        "INTERFACE_CONSISTENCY_ASSESSMENT_DIGEST_DOMAIN",
+        "INTERFACE_CONSISTENCY_EVALUATOR_CODES",
+        "INTERFACE_CONSISTENCY_STATES",
+        "assessInterfaceConsistency",
+        "digestInterfaceConsistencyAssessmentBody",
+        "evaluateInterfaceConsistency",
+        "verifyInterfaceConsistencyAssessment"
+      ],
+      "export_count": 7,
+      "line_count": 1690
+    },
+    {
+      "module": "engines/interface_consistency/evaluator/interface_consistency_evaluator_adapter",
+      "area": "engines",
+      "exports": [
+        "interfaceConsistencyAdapter"
+      ],
+      "export_count": 1,
+      "line_count": 13
+    },
+    {
+      "module": "engines/interface_consistency/fixtures/interface_consistency_public_synthetic",
+      "area": "engines",
+      "exports": [
+        "INTERFACE_CONSISTENCY_PUBLIC_SYNTHETIC_FIXTURE",
+        "buildInterfaceConsistencyPublicSyntheticRequest"
+      ],
+      "export_count": 2,
+      "line_count": 143
+    },
+    {
+      "module": "engines/interface_consistency/rules/interface_consistency_rules",
+      "area": "engines",
+      "exports": [
+        "INTERFACE_CONSISTENCY_ASSESSMENT_SCHEMA",
+        "INTERFACE_CONSISTENCY_CATEGORIES",
+        "INTERFACE_CONSISTENCY_COMPARISON_CATEGORIES",
+        "INTERFACE_CONSISTENCY_DOMAIN_INPUT_SCHEMA",
+        "INTERFACE_CONSISTENCY_RULES",
+        "INTERFACE_CONSISTENCY_RULESET_REF",
+        "INTERFACE_CONSISTENCY_RULESET_REVISION",
+        "INTERFACE_CONSISTENCY_RULESET_SCHEMA",
+        "INTERFACE_CONSISTENCY_SOURCE_PACKET_REF"
+      ],
+      "export_count": 9,
+      "line_count": 123
+    },
+    {
+      "module": "engines/interface_consistency/rules/interface_consistency_safety_policy",
+      "area": "engines",
+      "exports": [
+        "INTERFACE_CONSISTENCY_EXPONENT_LIKE",
+        "INTERFACE_CONSISTENCY_FORBIDDEN_STRING_PATTERNS",
+        "INTERFACE_CONSISTENCY_POSIX_PATH_PATTERN",
+        "INTERFACE_CONSISTENCY_SAFE_PROVENANCE_TOKEN",
+        "INTERFACE_CONSISTENCY_SAFE_SOURCE_REF",
+        "INTERFACE_CONSISTENCY_WINDOWS_DRIVE_PATH_PATTERN",
+        "interfaceConsistencyStringHasForbiddenMarker"
+      ],
+      "export_count": 7,
+      "line_count": 37
+    },
+    {
+      "module": "engines/interface_consistency/tools/interface_consistency_runner",
+      "area": "engines",
+      "exports": [],
+      "export_count": 0,
+      "line_count": 8
+    },
+    {
+      "module": "engines/interface_consistency/topology/interface_consistency_module_manifest",
+      "area": "engines",
+      "exports": [
+        "createInterfaceConsistencyModuleManifest"
+      ],
+      "export_count": 1,
+      "line_count": 137
     },
     {
       "module": "engines/manufacturing_readiness/compiler/manufacturing_readiness_compiler_adapter",
@@ -3685,7 +3780,7 @@
       "line_count": 1885
     }
   ],
-  "module_count": 244,
+  "module_count": 252,
   "module_edges": [
     {
       "from": "core/evaluation_runtime/claim_ceilings",
@@ -5951,6 +6046,174 @@
     {
       "from": "engines/field_failure_corrective_action/topology/field_failure_corrective_action_module_manifest",
       "to": "core/validators/module_binding",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/compiler/interface_consistency_compiler_adapter",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/compiler/interface_consistency_compiler_adapter",
+      "to": "core/interfaces/profile_operation_canon",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/compiler/interface_consistency_compiler_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/compiler/interface_consistency_compiler_adapter",
+      "to": "engines/interface_consistency/rules/interface_consistency_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/compiler/interface_consistency_compiler_adapter",
+      "to": "engines/interface_consistency/rules/interface_consistency_safety_policy",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/evaluator/interface_consistency_evaluator_adapter",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/evaluator/interface_consistency_evaluator_adapter",
+      "to": "engines/interface_consistency/compiler/interface_consistency_compiler_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/evaluator/interface_consistency_evaluator_adapter",
+      "to": "engines/interface_consistency/evaluator/interface_consistency",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/evaluator/interface_consistency",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/evaluator/interface_consistency",
+      "to": "core/interfaces/profile_operation_canon",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/evaluator/interface_consistency",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/evaluator/interface_consistency",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/evaluator/interface_consistency",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/evaluator/interface_consistency",
+      "to": "engines/interface_consistency/compiler/interface_consistency_compiler_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/evaluator/interface_consistency",
+      "to": "engines/interface_consistency/rules/interface_consistency_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/evaluator/interface_consistency",
+      "to": "engines/interface_consistency/rules/interface_consistency_safety_policy",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/fixtures/interface_consistency_public_synthetic",
+      "to": "engines/interface_consistency/rules/interface_consistency_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/rules/interface_consistency_rules",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/rules/interface_consistency_rules",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/tools/interface_consistency_runner",
+      "to": "engines/interface_consistency/evaluator/interface_consistency",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/tools/interface_consistency_runner",
+      "to": "engines/interface_consistency/fixtures/interface_consistency_public_synthetic",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/topology/interface_consistency_module_manifest",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/topology/interface_consistency_module_manifest",
+      "to": "core/validators/module_binding",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/interface_consistency/topology/interface_consistency_module_manifest",
+      "to": "engines/interface_consistency/rules/interface_consistency_safety_policy",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
@@ -9470,7 +9733,7 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 826,
+  "module_edge_count": 850,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -9821,5 +10084,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "2303ff5a4020f21775613e3f3200716fee17574a25a181d5e0091e0563eaacbc"
+  "topology_digest": "d7d5319d6f3ac13982dbf2269f50315a838f9769d791cc252827c65bf227748a"
 }
