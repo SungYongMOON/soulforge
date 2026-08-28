@@ -27,14 +27,30 @@ contractual compliance.
 - The snapshot carries opaque `bom_identity_ref`, `bom_revision_ref`, and
   `source_system_revision_ref` values. They bind the assessment and receipt
   without exposing an ERP row, supplier payload, or local path.
-- Conditional DFARS source IDs require a typed `bound_applicable` applicability
-  status plus an opaque basis reference before the alternate/counterfeit rules
-  can reach a normal conclusion. An omitted or `unknown` binding stays
-  `unknown`; a bound-not-applicable conditional source is also not treated as a
-  compliance or alternate-approval conclusion.
-- The evaluator recomputes the exact existing Core facts digest and the
-  package-local derived-ruleset identity before evaluating. A stale digest,
-  ref, threshold, or provenance row is refused.
+- Every project/binding, BOM, source, evidence-basis, and Profile-provenance
+  reference admitted by this package is public-safe. Credential-shaped tokens,
+  local/UNC/file paths, and secret-shaped material fail before they can appear
+  in an assessment, result, receipt, or derived provenance.
+- Conditional DFARS source IDs require source-bound typed applicability. S2
+  (`BOM-SCR-06`) requires independent affirmative exact-clause-incorporation and
+  Cost Accounting Standards applicability gates; each affirmative opaque basis
+  ref must resolve to a matching digest-bound `project_typed_fact` evidence
+  member. Unknown, negative, missing, or mismatched S2 gates stay `unknown` and
+  never become compliance or `not_applicable`. S3 preserves its closed explicit
+  clause basis gate and is likewise not a compliance conclusion.
+- The evaluator consumes all four existing Core arguments. Authority is the
+  exact empty no-action shape; cutoffs are either exact empty or the canonical
+  `valid_at`/`known_at` pair already carried by typed facts. It recomputes the
+  exact existing Core facts digest and, for derived thresholds, verifies the
+  complete Core assembly digest, empty compilation scope, profile traces, and
+  Core operation-digest rooting before evaluating. A stale digest, stale Profile
+  provenance, forged envelope, mismatched source packet, authority, or cutoff
+  is a refusal, not a fallback.
+- A derived ruleset retains each complete ordered Core Profile operation program
+  alongside final threshold provenance. The evaluator proves every program's
+  Core operation digest and trace count, then binds each final threshold to the
+  last operation for its metric. Exact zero-operation organization/project
+  traces are valid when their canonical empty program and all counts agree.
 
 ## Closed output states
 
@@ -65,6 +81,7 @@ boundary is incomplete.
 | `BOM_SCR_EFFECTIVE_RULESET_INVALID` / `BOM_SCR_EFFECTIVE_RULESET_UNSUPPORTED` | The evaluator cannot prove that the ruleset/source-packet binding is this package's closed deterministic rule set. |
 | `BOM_SCR_TYPED_FACTS_DIGEST_MISMATCH` | The Core Typed Facts `facts_digest` does not match the existing Core observations material. |
 | `BOM_SCR_DERIVED_RULESET_INTEGRITY` | Thresholds, profile provenance, and the derived ruleset reference are not mutually coherent. |
+| `BOM_SCR_AUTHORITY_INVALID` / `BOM_SCR_CUTOFFS_INVALID` / `BOM_SCR_APPLICABILITY_EVIDENCE_INVALID` / `BOM_SCR_ASSEMBLY_INTEGRITY` | The no-action authority, cutoff pair, source-bound gate evidence, or complete Core assembly cannot be admitted exactly. |
 
 Errors are refusal outcomes; they never trigger a fallback source, default
 threshold, write, or procurement/authority action.

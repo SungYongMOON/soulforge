@@ -24,6 +24,17 @@ export const BOM_SCR_COMPILER_ERROR_CODES = Object.freeze({
   THRESHOLD_CONFLICT: "BOM_SCR_THRESHOLD_CONFLICT",
 });
 
+const PUBLIC_SAFE_REFERENCE_FORBIDDEN = Object.freeze([
+  /^[A-Za-z]:[\\/]/u,
+  /^\\\\[^\\]+\\[^\\]+/u,
+  /^\/(?:etc|var|usr|home|root|tmp|workspace|workspaces|users|private|data|opt|srv|mnt|media)(?:\/|$)/iu,
+  /^file:\/\//iu,
+  /-----BEGIN [A-Z ]+PRIVATE KEY-----/u,
+  /\bBearer\s+[A-Za-z0-9._~+/=-]{8,}/u,
+  /\b(?:ghp_|github_pat_|sk-|xox[baprs]-|AIza)[A-Za-z0-9_-]{8,}/u,
+  /(?:secret|password|passwd|bearer|token|credential|api[_-]?key|access[_-]?token|refresh[_-]?token)/iu,
+]);
+
 const freezeDeep = (value) => {
   if (value && typeof value === "object" && !Object.isFrozen(value)) {
     for (const child of Object.values(value)) freezeDeep(child);
@@ -81,7 +92,8 @@ function assertPlainArray(value, code, label) {
 
 function assertBoundedText(value, code, label, maxLength = 160) {
   if (typeof value !== "string" || !value || value.length > maxLength
-      || value.normalize("NFC") !== value || /[\u0000-\u001f\u007f]/u.test(value)) {
+      || value.normalize("NFC") !== value || /[\u0000-\u001f\u007f]/u.test(value)
+      || PUBLIC_SAFE_REFERENCE_FORBIDDEN.some((pattern) => pattern.test(value))) {
     fail(code, `${label} must be a non-empty bounded NFC string without controls`);
   }
   return value;
@@ -123,6 +135,7 @@ function validateBinding(binding, index) {
   }
   assertBoundedText(binding.profile_id, BOM_SCR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID, "profile_id");
   assertBoundedText(binding.revision_or_hash, BOM_SCR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID, "revision_or_hash");
+  assertBoundedText(binding.extends_or_base_pin, BOM_SCR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID, "extends_or_base_pin");
   assertBoundedText(binding.operation_digest, BOM_SCR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID, "operation_digest");
   assertPlainArray(binding.source_refs, BOM_SCR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID, "profile binding source_refs");
   if (binding.source_refs.length === 0) {
@@ -142,7 +155,16 @@ function validateBinding(binding, index) {
   if (binding.operation_digest !== normalizedOperations.operation_digest) {
     fail(BOM_SCR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID, "profile binding operation_digest must match the existing Core operation canon");
   }
-  return { sourceRefs, operations: normalizedOperations.operations };
+  return Object.freeze({
+    profile_kind: binding.profile_kind,
+    profile_id: binding.profile_id,
+    revision_or_hash: binding.revision_or_hash,
+    extends_or_base_pin: binding.extends_or_base_pin,
+    operation_digest: binding.operation_digest,
+    order: binding.order,
+    source_refs: Object.freeze(sourceRefs),
+    operations: normalizedOperations.operations,
+  });
 }
 
 function validateOperation(operation, bindingIndex, operationIndex) {
@@ -169,32 +191,50 @@ export function compileBomSupplyChainRiskRules(profileBindings = [], options = {
 
   const thresholds = {};
   const profileThresholdProvenance = {};
+  const profileOperationPrograms = [];
   const seenProfileKinds = new Set();
 
   for (let bindingIndex = 0; bindingIndex < profileBindings.length; bindingIndex += 1) {
     const binding = profileBindings[bindingIndex];
-    const { sourceRefs, operations } = validateBinding(binding, bindingIndex);
-    if (seenProfileKinds.has(binding.profile_kind)
-        || (binding.profile_kind === "organization" && seenProfileKinds.has("project"))) {
+    const validatedBinding = validateBinding(binding, bindingIndex);
+    if (seenProfileKinds.has(validatedBinding.profile_kind)
+        || (validatedBinding.profile_kind === "organization" && seenProfileKinds.has("project"))) {
       fail(BOM_SCR_COMPILER_ERROR_CODES.PROFILE_BINDINGS_INVALID, "Profile Binding kinds must be unique and organization precedes project");
     }
-    seenProfileKinds.add(binding.profile_kind);
+    seenProfileKinds.add(validatedBinding.profile_kind);
     const seenMetrics = new Set();
-    for (let operationIndex = 0; operationIndex < operations.length; operationIndex += 1) {
-      const operation = validateOperation(operations[operationIndex], bindingIndex, operationIndex);
+    const operations = [];
+    for (let operationIndex = 0; operationIndex < validatedBinding.operations.length; operationIndex += 1) {
+      const operation = validateOperation(validatedBinding.operations[operationIndex], bindingIndex, operationIndex);
       if (seenMetrics.has(operation.metric)) {
         fail(BOM_SCR_COMPILER_ERROR_CODES.THRESHOLD_CONFLICT, "one Profile cannot set the same BOM/SCR threshold more than once");
       }
       seenMetrics.add(operation.metric);
+      operations.push({ op: "set_threshold", metric: operation.metric, value: operation.value });
       thresholds[operation.metric] = operation.value;
       profileThresholdProvenance[operation.metric] = {
-        profile_kind: binding.profile_kind,
-        profile_id: binding.profile_id,
-        revision_or_hash: binding.revision_or_hash,
-        operation_digest: binding.operation_digest,
-        source_refs: [...sourceRefs],
+        profile_kind: validatedBinding.profile_kind,
+        profile_id: validatedBinding.profile_id,
+        revision_or_hash: validatedBinding.revision_or_hash,
+        extends_or_base_pin: validatedBinding.extends_or_base_pin,
+        operation_digest: validatedBinding.operation_digest,
+        order: validatedBinding.order,
+        operation_index: operationIndex,
+        source_refs: [...validatedBinding.source_refs],
       };
     }
+    profileOperationPrograms.push({
+      domain_engine_id: BOM_SCR_DOMAIN_ENGINE_ID,
+      profile_kind: validatedBinding.profile_kind,
+      profile_id: validatedBinding.profile_id,
+      revision_or_hash: validatedBinding.revision_or_hash,
+      extends_or_base_pin: validatedBinding.extends_or_base_pin,
+      operation_digest: validatedBinding.operation_digest,
+      order: validatedBinding.order,
+      source_refs: [...validatedBinding.source_refs],
+      operations,
+      applied_operations_count: operations.length,
+    });
   }
 
   const orderedThresholds = Object.fromEntries(Object.entries(thresholds).sort(([left], [right]) => compareCodePoints(left, right)));
@@ -209,6 +249,7 @@ export function compileBomSupplyChainRiskRules(profileBindings = [], options = {
     rules: BOM_SCR_RULES.map((entry) => ({ ...entry })),
     thresholds: orderedThresholds,
     profile_threshold_provenance: orderedProvenance,
+    profile_operation_programs: profileOperationPrograms,
   };
 
   return freezeDeep({

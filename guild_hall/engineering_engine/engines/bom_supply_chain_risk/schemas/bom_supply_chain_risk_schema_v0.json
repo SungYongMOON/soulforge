@@ -7,22 +7,72 @@
   "required": ["snapshot_kind", "snapshot_revision", "bom_identity_ref", "bom_revision_ref", "source_system_revision_ref", "bom_items"],
   "properties": {
     "snapshot_kind": { "const": "bom_supply_chain_risk_snapshot_v0" },
-    "snapshot_revision": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "snapshot_revision": { "$ref": "#/$defs/publicSafeIdentifier" },
     "bom_identity_ref": { "$ref": "#/$defs/opaqueRef" },
     "bom_revision_ref": { "$ref": "#/$defs/opaqueRef" },
     "source_system_revision_ref": { "$ref": "#/$defs/opaqueRef" },
     "source_applicability": { "$ref": "#/$defs/sourceApplicability" },
+    "applicability_evidence": { "$ref": "#/$defs/applicabilityEvidence" },
     "bom_items": { "type": "array", "minItems": 1, "maxItems": 10000, "items": { "$ref": "#/$defs/bomItem" } }
   },
+  "allOf": [
+    {
+      "if": { "required": ["applicability_evidence"] },
+      "then": { "required": ["source_applicability"] }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_applicability": {
+            "properties": {
+              "S2-DFARS-252.246-7007": {
+                "properties": {
+                  "clause_incorporation": { "properties": { "status": { "const": "affirmative" } }, "required": ["status"] },
+                  "cost_accounting_standards_applicability": { "properties": { "status": { "const": "affirmative" } }, "required": ["status"] }
+                },
+                "required": ["clause_incorporation", "cost_accounting_standards_applicability"]
+              }
+            },
+            "required": ["S2-DFARS-252.246-7007"]
+          }
+        },
+        "required": ["source_applicability"]
+      },
+      "then": {
+        "required": ["applicability_evidence"],
+        "properties": {
+          "applicability_evidence": {
+            "allOf": [
+              { "contains": { "properties": { "source_id": { "const": "S2-DFARS-252.246-7007" }, "gate": { "const": "clause_incorporation" } }, "required": ["source_id", "gate"] }, "minContains": 1 },
+              { "contains": { "properties": { "source_id": { "const": "S2-DFARS-252.246-7007" }, "gate": { "const": "cost_accounting_standards_applicability" } }, "required": ["source_id", "gate"] }, "minContains": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "source_applicability": { "properties": { "S2-DFARS-252.246-7007": { "properties": { "clause_incorporation": { "properties": { "status": { "const": "affirmative" } }, "required": ["status"] } }, "required": ["clause_incorporation"] } }, "required": ["S2-DFARS-252.246-7007"] } }, "required": ["source_applicability"] },
+      "then": { "required": ["applicability_evidence"], "properties": { "applicability_evidence": { "contains": { "properties": { "source_id": { "const": "S2-DFARS-252.246-7007" }, "gate": { "const": "clause_incorporation" } }, "required": ["source_id", "gate"] }, "minContains": 1 } } }
+    },
+    {
+      "if": { "properties": { "source_applicability": { "properties": { "S2-DFARS-252.246-7007": { "properties": { "cost_accounting_standards_applicability": { "properties": { "status": { "const": "affirmative" } }, "required": ["status"] } }, "required": ["cost_accounting_standards_applicability"] } }, "required": ["S2-DFARS-252.246-7007"] } }, "required": ["source_applicability"] },
+      "then": { "required": ["applicability_evidence"], "properties": { "applicability_evidence": { "contains": { "properties": { "source_id": { "const": "S2-DFARS-252.246-7007" }, "gate": { "const": "cost_accounting_standards_applicability" } }, "required": ["source_id", "gate"] }, "minContains": 1 } } }
+    },
+    {
+      "if": { "properties": { "source_applicability": { "properties": { "S3-DFARS-252.246-7008": { "properties": { "status": { "enum": ["bound_applicable", "bound_not_applicable"] } }, "required": ["status"] } }, "required": ["S3-DFARS-252.246-7008"] } }, "required": ["source_applicability"] },
+      "then": { "required": ["applicability_evidence"], "properties": { "applicability_evidence": { "contains": { "properties": { "source_id": { "const": "S3-DFARS-252.246-7008" }, "gate": { "const": "clause_incorporation" } }, "required": ["source_id", "gate"] }, "minContains": 1 } } }
+    }
+  ],
   "$defs": {
-    "opaqueRef": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,48}:[A-Za-z0-9._-]{1,128}$" },
+    "opaqueRef": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,48}:[A-Za-z0-9._-]{1,128}$", "not": { "pattern": "(?:\\b(?:ghp_|github_pat_|sk-|xox[baprs]-|AIza)[A-Za-z0-9_-]{8,}|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Tt][Oo][Kk][Ee][Nn]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll])" } },
+    "publicSafeIdentifier": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$", "not": { "pattern": "(?:\\b(?:ghp_|github_pat_|sk-|xox[baprs]-|AIza)[A-Za-z0-9_-]{8,}|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Tt][Oo][Kk][Ee][Nn]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll])" } },
     "sourceApplicability": {
       "type": "object",
       "additionalProperties": false,
       "required": ["S1-DODM-4245.15", "S2-DFARS-252.246-7007", "S3-DFARS-252.246-7008", "S4-NIST-MEP-2024", "S5-NIST-SP-800-161R1-UPD1"],
       "properties": {
         "S1-DODM-4245.15": { "$ref": "#/$defs/vocabularyOnly" },
-        "S2-DFARS-252.246-7007": { "$ref": "#/$defs/conditionalSource" },
+        "S2-DFARS-252.246-7007": { "$ref": "#/$defs/dfars7007Applicability" },
         "S3-DFARS-252.246-7008": { "$ref": "#/$defs/conditionalSource" },
         "S4-NIST-MEP-2024": { "$ref": "#/$defs/educationalOnly" },
         "S5-NIST-SP-800-161R1-UPD1": { "$ref": "#/$defs/educationalOnly" }
@@ -33,15 +83,93 @@
     "conditionalSource": {
       "oneOf": [
         { "type": "object", "additionalProperties": false, "required": ["status"], "properties": { "status": { "const": "unknown" } } },
-        { "type": "object", "additionalProperties": false, "required": ["status", "basis_ref"], "properties": { "status": { "enum": ["bound_applicable", "bound_not_applicable"] }, "basis_ref": { "$ref": "#/$defs/opaqueRef" } } }
+        { "type": "object", "additionalProperties": false, "required": ["status", "basis_ref"], "properties": { "status": { "enum": ["bound_applicable", "bound_not_applicable"] }, "basis_ref": { "$ref": "#/$defs/s3ClauseBasis" } } }
       ]
+    },
+    "dfars7007Applicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "clause_incorporation", "cost_accounting_standards_applicability"],
+      "properties": {
+        "status": { "enum": ["bound_applicable", "unknown"] },
+        "clause_incorporation": { "$ref": "#/$defs/s2ClauseGate" },
+        "cost_accounting_standards_applicability": { "$ref": "#/$defs/s2CasGate" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "clause_incorporation": { "properties": { "status": { "const": "affirmative" } }, "required": ["status"] },
+              "cost_accounting_standards_applicability": { "properties": { "status": { "const": "affirmative" } }, "required": ["status"] }
+            },
+            "required": ["clause_incorporation", "cost_accounting_standards_applicability"]
+          },
+          "then": { "properties": { "status": { "const": "bound_applicable" } } },
+          "else": { "properties": { "status": { "const": "unknown" } } }
+        }
+      ]
+    },
+    "dfars7007Gate": {
+      "oneOf": [
+        { "type": "object", "additionalProperties": false, "required": ["status"], "properties": { "status": { "enum": ["unknown", "negative"] } } },
+        { "type": "object", "additionalProperties": false, "required": ["status", "basis_ref"], "properties": { "status": { "const": "affirmative" }, "basis_ref": { "$ref": "#/$defs/opaqueRef" } } }
+      ]
+    },
+    "s2ClauseGate": { "oneOf": [{ "type": "object", "additionalProperties": false, "required": ["status"], "properties": { "status": { "enum": ["unknown", "negative"] } } }, { "type": "object", "additionalProperties": false, "required": ["status", "basis_ref"], "properties": { "status": { "const": "affirmative" }, "basis_ref": { "$ref": "#/$defs/s2ClauseBasis" } } }] },
+    "s2CasGate": { "oneOf": [{ "type": "object", "additionalProperties": false, "required": ["status"], "properties": { "status": { "enum": ["unknown", "negative"] } } }, { "type": "object", "additionalProperties": false, "required": ["status", "basis_ref"], "properties": { "status": { "const": "affirmative" }, "basis_ref": { "$ref": "#/$defs/s2CasBasis" } } }] },
+    "s2ClauseBasis": { "allOf": [{ "$ref": "#/$defs/opaqueRef" }, { "pattern": "^basis:s2_clause-[A-Za-z0-9._-]{1,96}$" }] },
+    "s2CasBasis": { "allOf": [{ "$ref": "#/$defs/opaqueRef" }, { "pattern": "^basis:s2_cas-[A-Za-z0-9._-]{1,96}$" }] },
+    "s3ClauseBasis": { "allOf": [{ "$ref": "#/$defs/opaqueRef" }, { "pattern": "^basis:s3_clause-[A-Za-z0-9._-]{1,96}$" }] },
+    "applicabilityEvidence": {
+      "type": "array",
+      "maxItems": 3,
+      "uniqueItems": true,
+      "allOf": [
+        { "not": { "contains": { "properties": { "source_id": { "const": "S2-DFARS-252.246-7007" }, "gate": { "const": "clause_incorporation" } }, "required": ["source_id", "gate"] }, "minContains": 2 } },
+        { "not": { "contains": { "properties": { "source_id": { "const": "S2-DFARS-252.246-7007" }, "gate": { "const": "cost_accounting_standards_applicability" } }, "required": ["source_id", "gate"] }, "minContains": 2 } },
+        { "not": { "contains": { "properties": { "source_id": { "const": "S3-DFARS-252.246-7008" }, "gate": { "const": "clause_incorporation" } }, "required": ["source_id", "gate"] }, "minContains": 2 } }
+      ],
+      "items": {
+        "oneOf": [
+          {
+            "type": "object", "additionalProperties": false,
+            "required": ["basis_ref", "source_id", "gate", "evidence_class"],
+            "properties": {
+              "basis_ref": { "$ref": "#/$defs/s2ClauseBasis" },
+              "source_id": { "const": "S2-DFARS-252.246-7007" },
+              "gate": { "const": "clause_incorporation" },
+              "evidence_class": { "const": "project_typed_fact" }
+            }
+          },
+          {
+            "type": "object", "additionalProperties": false,
+            "required": ["basis_ref", "source_id", "gate", "evidence_class"],
+            "properties": {
+              "basis_ref": { "$ref": "#/$defs/s2CasBasis" },
+              "source_id": { "const": "S2-DFARS-252.246-7007" },
+              "gate": { "const": "cost_accounting_standards_applicability" },
+              "evidence_class": { "const": "project_typed_fact" }
+            }
+          },
+          {
+            "type": "object", "additionalProperties": false,
+            "required": ["basis_ref", "source_id", "gate", "evidence_class"],
+            "properties": {
+              "basis_ref": { "$ref": "#/$defs/s3ClauseBasis" },
+              "source_id": { "const": "S3-DFARS-252.246-7008" },
+              "gate": { "const": "clause_incorporation" },
+              "evidence_class": { "const": "project_typed_fact" }
+            }
+          }
+        ]
+      }
     },
     "bomItem": {
       "type": "object",
       "additionalProperties": false,
       "required": ["item_id", "criticality", "lifecycle_status", "obsolescence_signal", "alternate_status", "counterfeit_control_status", "continuity_status", "conflict_dimensions"],
       "properties": {
-        "item_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+        "item_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", "not": { "pattern": "(?:\\b(?:ghp_|github_pat_|sk-|xox[baprs]-|AIza)[A-Za-z0-9_-]{8,}|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Tt][Oo][Kk][Ee][Nn]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll])" } },
         "criticality": { "enum": ["low", "medium", "high", "unknown"] },
         "lifecycle_status": { "enum": ["active", "last_time_buy", "not_recommended", "end_of_life", "obsolete", "unknown"] },
         "lifecycle_evidence_ref": { "$ref": "#/$defs/opaqueRef" },

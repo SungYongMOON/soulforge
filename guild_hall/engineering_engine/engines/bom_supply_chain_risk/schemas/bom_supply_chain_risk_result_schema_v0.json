@@ -13,13 +13,14 @@
     "counts": { "$ref": "#/$defs/counts" }
   },
   "$defs": {
-    "opaqueRef": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,48}:[A-Za-z0-9._-]{1,128}$" },
+    "opaqueRef": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,48}:[A-Za-z0-9._-]{1,128}$", "not": { "pattern": "(?:\\b(?:ghp_|github_pat_|sk-|xox[baprs]-|AIza)[A-Za-z0-9_-]{8,}|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Tt][Oo][Kk][Ee][Nn]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll])" } },
+    "publicSafeIdentifier": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$", "not": { "pattern": "(?:\\b(?:ghp_|github_pat_|sk-|xox[baprs]-|AIza)[A-Za-z0-9_-]{8,}|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Tt][Oo][Kk][Ee][Nn]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll])" } },
     "assessmentScope": {
       "type": "object",
       "additionalProperties": false,
       "required": ["snapshot_revision", "bom_identity_ref", "bom_revision_ref", "source_system_revision_ref"],
       "properties": {
-        "snapshot_revision": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+        "snapshot_revision": { "$ref": "#/$defs/publicSafeIdentifier" },
         "bom_identity_ref": { "$ref": "#/$defs/opaqueRef" },
         "bom_revision_ref": { "$ref": "#/$defs/opaqueRef" },
         "source_system_revision_ref": { "$ref": "#/$defs/opaqueRef" }
@@ -30,30 +31,53 @@
       "additionalProperties": false,
       "required": ["item_id", "criticality", "rule_id", "risk_dimension", "source", "state", "reason_code"],
       "properties": {
-        "item_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+        "item_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", "not": { "pattern": "(?:\\b(?:ghp_|github_pat_|sk-|xox[baprs]-|AIza)[A-Za-z0-9_-]{8,}|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Tt][Oo][Kk][Ee][Nn]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll])" } },
         "criticality": { "enum": ["low", "medium", "high", "unknown"] },
-        "rule_id": { "type": "string", "pattern": "^BOM-SCR-[0-9]{2}$" },
+        "rule_id": { "enum": ["BOM-SCR-01", "BOM-SCR-02", "BOM-SCR-03", "BOM-SCR-04", "BOM-SCR-05", "BOM-SCR-06", "BOM-SCR-07", "BOM-SCR-08", "BOM-SCR-09"] },
         "risk_dimension": { "enum": ["lifecycle_status", "obsolescence_signal", "long_lead", "sole_source", "alternate_qualification", "counterfeit_control", "supplier_concentration", "geographic_concentration", "continuity_gap"] },
         "source": {
           "type": "object",
           "additionalProperties": false,
           "required": ["source_id", "source_revision", "source_locator", "applicability", "applicability_status"],
           "properties": {
-            "source_id": { "type": "string", "minLength": 1 },
-            "source_revision": { "type": "string", "minLength": 1 },
-            "source_locator": { "type": "string", "minLength": 1 },
-            "applicability": { "type": "string", "minLength": 1 },
+            "source_id": { "enum": ["S1-DODM-4245.15", "S2-DFARS-252.246-7007", "S3-DFARS-252.246-7008", "S4-NIST-MEP-2024", "S5-NIST-SP-800-161R1-UPD1"] },
+            "source_revision": { "enum": ["effective-2022-10-26", "DFARS-change-2026-05-07; clause-JAN-2023", "published-2024-01-16", "May-2022; updates-through-2024-11-01"] },
+            "source_locator": { "enum": ["§§3.3-3.4; glossary", "introductory applicability sentence; (a), (c)(2), (c)(4)-(12)", "(a)-(c)", "Mapping Program Captures Key Data", "supply-chain risk-management family"] },
+            "applicability": { "enum": ["DoD policy; vocabulary only unless an explicit project binding establishes applicability", "only with affirmative typed clause-incorporation and Cost Accounting Standards applicability gates", "only when the exact clause is incorporated", "public educational guidance; not a procurement rule", "ICT/OT supply-chain guidance; not a hardware-BOM rule"] },
             "applicability_status": { "enum": ["vocabulary_only", "educational_only", "bound_applicable", "bound_not_applicable", "unknown"] },
-            "applicability_basis_ref": { "$ref": "#/$defs/opaqueRef" }
+            "applicability_basis_ref": { "$ref": "#/$defs/opaqueRef" },
+            "applicability_gates": { "$ref": "#/$defs/dfars7007Gates" }
           }
         },
         "state": { "enum": ["evidence_sufficient", "risk_detected", "unknown", "conflict", "not_applicable"] },
-        "reason_code": { "type": "string", "minLength": 1 },
+        "reason_code": { "enum": ["typed_fact_conflict_retained", "dfars_252_246_7007_clause_incorporation_unresolved", "dfars_252_246_7007_cas_applicability_unresolved", "conditional_source_applicability_unknown", "conditional_source_not_applicable", "lifecycle_status_unknown", "lifecycle_evidence_unbound", "lifecycle_active", "lifecycle_at_risk", "obsolescence_signal_unknown", "obsolescence_evidence_unbound", "no_obsolescence_signal", "obsolescence_signal_observed", "lead_time_threshold_unbound", "lead_time_unknown", "lead_time_evidence_unbound", "lead_time_exceeds_bound_threshold", "lead_time_within_bound_threshold", "approved_source_count_unknown", "supplier_evidence_unbound", "no_approved_source_observed", "multiple_approved_sources_observed", "single_source_alternate_status_unknown", "single_source_with_qualified_alternate", "single_source_without_qualified_alternate", "alternate_status_unknown", "alternate_explicitly_not_required", "alternate_not_required_basis_unbound", "alternate_evidence_unbound", "alternate_qualified", "alternate_not_qualified", "counterfeit_control_unknown", "counterfeit_control_evidence_unbound", "traceability_control_evidenced", "counterfeit_control_elevated_risk", "supplier_count_threshold_unbound", "supplier_count_unknown", "supplier_count_below_bound_threshold", "supplier_count_meets_bound_threshold", "geography_count_threshold_unbound", "geography_count_unknown", "geography_evidence_unbound", "geography_count_below_bound_threshold", "geography_count_meets_bound_threshold", "continuity_status_unknown", "continuity_evidence_unbound", "continuity_evidence_present", "continuity_gap_observed"] },
         "observed_evidence_ref": { "$ref": "#/$defs/opaqueRef" },
         "threshold_metric": { "enum": ["max_lead_time_days", "minimum_supplier_count", "minimum_geography_count"] },
         "threshold_value": { "type": "integer", "minimum": 1 },
         "observed_value": { "type": "integer", "minimum": 0 }
-      }
+      },
+      "allOf": [
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-01" } } }, "then": { "properties": { "risk_dimension": { "const": "lifecycle_status" }, "source": { "properties": { "source_id": { "const": "S1-DODM-4245.15" } }, "required": ["source_id"] } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-02" } } }, "then": { "properties": { "risk_dimension": { "const": "obsolescence_signal" }, "source": { "properties": { "source_id": { "const": "S1-DODM-4245.15" } }, "required": ["source_id"] } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-03" } } }, "then": { "properties": { "risk_dimension": { "const": "long_lead" }, "source": { "properties": { "source_id": { "const": "S1-DODM-4245.15" } }, "required": ["source_id"] } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-04" } } }, "then": { "properties": { "risk_dimension": { "const": "sole_source" }, "source": { "properties": { "source_id": { "const": "S1-DODM-4245.15" } }, "required": ["source_id"] } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-05" } } }, "then": { "properties": { "risk_dimension": { "const": "alternate_qualification" }, "source": { "properties": { "source_id": { "const": "S3-DFARS-252.246-7008" } }, "required": ["source_id"] } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-06" } } }, "then": { "properties": { "risk_dimension": { "const": "counterfeit_control" }, "source": { "properties": { "source_id": { "const": "S2-DFARS-252.246-7007" } }, "required": ["source_id"] } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-07" } } }, "then": { "properties": { "risk_dimension": { "const": "supplier_concentration" }, "source": { "properties": { "source_id": { "const": "S4-NIST-MEP-2024" } }, "required": ["source_id"] } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-08" } } }, "then": { "properties": { "risk_dimension": { "const": "geographic_concentration" }, "source": { "properties": { "source_id": { "const": "S4-NIST-MEP-2024" } }, "required": ["source_id"] } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-09" } } }, "then": { "properties": { "risk_dimension": { "const": "continuity_gap" }, "source": { "properties": { "source_id": { "const": "S1-DODM-4245.15" } }, "required": ["source_id"] } } } }
+        ,
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-01" } } }, "then": { "properties": { "source": { "properties": { "source_locator": { "const": "§§3.3-3.4; glossary" } } }, "reason_code": { "enum": ["typed_fact_conflict_retained", "lifecycle_status_unknown", "lifecycle_evidence_unbound", "lifecycle_active", "lifecycle_at_risk"] } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-02" } } }, "then": { "properties": { "source": { "properties": { "source_locator": { "const": "§§3.3-3.4; glossary" } } }, "reason_code": { "enum": ["typed_fact_conflict_retained", "obsolescence_signal_unknown", "obsolescence_evidence_unbound", "no_obsolescence_signal", "obsolescence_signal_observed"] } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-03" } } }, "then": { "properties": { "source": { "properties": { "source_locator": { "const": "§§3.3-3.4; glossary" } } }, "reason_code": { "enum": ["typed_fact_conflict_retained", "lead_time_threshold_unbound", "lead_time_unknown", "lead_time_evidence_unbound", "lead_time_exceeds_bound_threshold", "lead_time_within_bound_threshold"] } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-04" } } }, "then": { "properties": { "source": { "properties": { "source_locator": { "const": "§§3.3-3.4; glossary" } } }, "reason_code": { "enum": ["typed_fact_conflict_retained", "approved_source_count_unknown", "supplier_evidence_unbound", "no_approved_source_observed", "multiple_approved_sources_observed", "single_source_alternate_status_unknown", "single_source_with_qualified_alternate", "single_source_without_qualified_alternate"] } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-05" } } }, "then": { "properties": { "source": { "properties": { "source_locator": { "const": "(a)-(c)" } } }, "reason_code": { "enum": ["typed_fact_conflict_retained", "conditional_source_applicability_unknown", "conditional_source_not_applicable", "alternate_status_unknown", "alternate_explicitly_not_required", "alternate_not_required_basis_unbound", "alternate_evidence_unbound", "alternate_qualified", "alternate_not_qualified"] } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-06" } } }, "then": { "properties": { "source": { "properties": { "source_locator": { "const": "introductory applicability sentence; (a), (c)(2), (c)(4)-(12)" } } }, "reason_code": { "enum": ["typed_fact_conflict_retained", "dfars_252_246_7007_clause_incorporation_unresolved", "dfars_252_246_7007_cas_applicability_unresolved", "counterfeit_control_unknown", "counterfeit_control_evidence_unbound", "traceability_control_evidenced", "counterfeit_control_elevated_risk"] } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-07" } } }, "then": { "properties": { "source": { "properties": { "source_locator": { "const": "Mapping Program Captures Key Data" } } }, "reason_code": { "enum": ["typed_fact_conflict_retained", "supplier_count_threshold_unbound", "supplier_count_unknown", "supplier_evidence_unbound", "supplier_count_below_bound_threshold", "supplier_count_meets_bound_threshold"] } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-08" } } }, "then": { "properties": { "source": { "properties": { "source_locator": { "const": "Mapping Program Captures Key Data" } } }, "reason_code": { "enum": ["typed_fact_conflict_retained", "geography_count_threshold_unbound", "geography_count_unknown", "geography_evidence_unbound", "geography_count_below_bound_threshold", "geography_count_meets_bound_threshold"] } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-09" } } }, "then": { "properties": { "source": { "properties": { "source_locator": { "const": "§§3.3-3.4; glossary" } } }, "reason_code": { "enum": ["typed_fact_conflict_retained", "continuity_status_unknown", "continuity_evidence_unbound", "continuity_evidence_present", "continuity_gap_observed"] } } } },
+        { "if": { "properties": { "rule_id": { "not": { "const": "BOM-SCR-06" } } }, "required": ["rule_id"] }, "then": { "properties": { "source": { "not": { "required": ["applicability_gates"] } } } } }
+      ]
     },
     "counts": {
       "type": "object",
@@ -68,5 +92,26 @@
         "total": { "type": "integer", "minimum": 0 }
       }
     }
+    ,
+    "dfars7007Gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clause_incorporation", "cost_accounting_standards_applicability"],
+      "properties": {
+        "clause_incorporation": { "$ref": "#/$defs/s2ClauseGate" },
+        "cost_accounting_standards_applicability": { "$ref": "#/$defs/s2CasGate" }
+      }
+    },
+    "dfars7007Gate": {
+      "oneOf": [
+        { "type": "object", "additionalProperties": false, "required": ["status"], "properties": { "status": { "enum": ["unknown", "negative"] } } },
+        { "type": "object", "additionalProperties": false, "required": ["status", "basis_ref"], "properties": { "status": { "const": "affirmative" }, "basis_ref": { "$ref": "#/$defs/opaqueRef" } } }
+      ]
+    }
+    ,
+    "s2ClauseGate": { "oneOf": [{ "type": "object", "additionalProperties": false, "required": ["status"], "properties": { "status": { "enum": ["unknown", "negative"] } } }, { "type": "object", "additionalProperties": false, "required": ["status", "basis_ref"], "properties": { "status": { "const": "affirmative" }, "basis_ref": { "$ref": "#/$defs/s2ClauseBasis" } } }] },
+    "s2CasGate": { "oneOf": [{ "type": "object", "additionalProperties": false, "required": ["status"], "properties": { "status": { "enum": ["unknown", "negative"] } } }, { "type": "object", "additionalProperties": false, "required": ["status", "basis_ref"], "properties": { "status": { "const": "affirmative" }, "basis_ref": { "$ref": "#/$defs/s2CasBasis" } } }] },
+    "s2ClauseBasis": { "allOf": [{ "$ref": "#/$defs/opaqueRef" }, { "pattern": "^basis:s2_clause-[A-Za-z0-9._-]{1,96}$" }] },
+    "s2CasBasis": { "allOf": [{ "$ref": "#/$defs/opaqueRef" }, { "pattern": "^basis:s2_cas-[A-Za-z0-9._-]{1,96}$" }] }
   }
 }

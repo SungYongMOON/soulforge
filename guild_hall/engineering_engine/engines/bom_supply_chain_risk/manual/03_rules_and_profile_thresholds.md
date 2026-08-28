@@ -16,3 +16,17 @@ The other permitted metrics are `minimum_supplier_count` and
 invented default. An organization Profile can set a threshold and a later project
 Profile can replace it with its own pinned operation provenance; duplicate
 operations within one Profile are rejected.
+
+For any derived threshold set, the evaluator accepts only the complete current
+Core assembly wrapper. It recomputes the effective/assembly digest, requires an
+empty compilation scope, and roots each threshold provenance to the ordered
+organization/project trace, `extends_or_base_pin`, Core operation digest, and
+operation index. A bare inner ruleset is accepted only for the exact base rules
+with no thresholds or provenance.
+
+The effective ruleset also retains each full Profile operation program. This
+allows a project threshold to override an organization threshold without losing
+the earlier program's digest/count closure: final provenance names the last
+operation for that metric, while every original program is verified separately.
+An exact zero-operation Profile uses the Core digest for `[]`, an operation
+count of zero, and adds no threshold/provenance row.

@@ -51,15 +51,42 @@ export function buildBomSupplyChainRiskPublicSyntheticObservation() {
       "S1-DODM-4245.15": { status: "vocabulary_only" },
       "S2-DFARS-252.246-7007": {
         status: "bound_applicable",
-        basis_ref: basis("public-synthetic-dfars-7007"),
+        clause_incorporation: {
+          status: "affirmative",
+          basis_ref: "basis:s2_clause-public-synthetic-dfars-7007",
+        },
+        cost_accounting_standards_applicability: {
+          status: "affirmative",
+          basis_ref: "basis:s2_cas-public-synthetic-dfars-7007",
+        },
       },
       "S3-DFARS-252.246-7008": {
         status: "bound_applicable",
-        basis_ref: basis("public-synthetic-dfars-7008"),
+        basis_ref: "basis:s3_clause-public-synthetic-dfars-7008",
       },
       "S4-NIST-MEP-2024": { status: "educational_only" },
       "S5-NIST-SP-800-161R1-UPD1": { status: "educational_only" },
     },
+    applicability_evidence: [
+      {
+        basis_ref: "basis:s2_clause-public-synthetic-dfars-7007",
+        source_id: "S2-DFARS-252.246-7007",
+        gate: "clause_incorporation",
+        evidence_class: "project_typed_fact",
+      },
+      {
+        basis_ref: "basis:s2_cas-public-synthetic-dfars-7007",
+        source_id: "S2-DFARS-252.246-7007",
+        gate: "cost_accounting_standards_applicability",
+        evidence_class: "project_typed_fact",
+      },
+      {
+        basis_ref: "basis:s3_clause-public-synthetic-dfars-7008",
+        source_id: "S3-DFARS-252.246-7008",
+        gate: "clause_incorporation",
+        evidence_class: "project_typed_fact",
+      },
+    ],
     bom_items: [
       healthyItem("synthetic-healthy", "medium"),
       {
