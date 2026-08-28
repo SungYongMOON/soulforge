@@ -10,8 +10,22 @@ fixed rules and supports one Profile operation:
 The supported category must be one of the eight fixed rules. The operation may only
 tailor applicability; it cannot add rules, alter source metadata, redefine vocabulary,
 or inject project facts. Ordered Organization/Project Profile provenance remains in the
-Core compilation trace. A later profile may replace an earlier category setting, with
-the latest binding retained as local provenance.
+Core compilation trace. A later profile may replace an earlier category setting; the
+winning category record is the exact `{ profile_package_index, operation_index }` pair.
+
+For a Core Profile binding, the compiler first admits the exact ordered Core binding
+shape, recomputes its operations through Core's Profile-operation canonical helper, and
+compares the supplied operation digest before copying the recomputed provenance. A
+Profile-derived effective ruleset reaches the evaluator only inside a full Core assembly:
+the evaluator recomputes the Core ruleset digest and cross-checks the ordered packages and
+trace row-by-row (kind, order, id, revision, base pin, operation digest, operation count,
+and source references), then replays applicability from those packages. The small direct
+compiler-output seam is limited to the base ruleset; it cannot claim Profile-derived
+category applicability.
+
+E02 has no compilation-scope semantics. Its Core compiler therefore admits only the exact
+empty scope object, and evaluation independently requires the trace's `compilation_scope`
+to be exactly empty. A scope substitution cannot become unbound trace metadata.
 
 If a Profile setting and explicit typed scope contradict, the evaluator reports a
 conflict rather than silently choosing one.
