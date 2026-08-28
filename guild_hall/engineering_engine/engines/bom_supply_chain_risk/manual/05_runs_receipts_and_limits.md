@@ -20,7 +20,8 @@ npm.cmd run validate:engineering-engine-no-duplicate-authority
 
 The package tests prove only their named public-synthetic seams: Core facts and
 derived-ruleset digest coherence, typed source applicability, opaque BOM/revision
-binding, AJV validation of actual public outputs, hostile admission refusal,
+binding, two-gate S2 applicability-evidence membership, Core assembly closure,
+AJV validation of actual public outputs, hostile admission refusal,
 evidenced-zero semantics, exact local package inventory, and zero-write replay.
 They do not prove a real supplier, alternate, contract clause, ERP record, or
 product decision.

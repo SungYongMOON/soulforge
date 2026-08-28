@@ -7,7 +7,7 @@ import {
 
 export const BOM_SCR_RULESET_SCHEMA_VERSION = "soulforge.bom_supply_chain_risk.ruleset.v0";
 export const BOM_SCR_SOURCE_PACKET_SCHEMA_VERSION = "soulforge.bom_supply_chain_risk.source_packet.v0";
-export const BOM_SCR_RULESET_REVISION = "2026-08-26";
+export const BOM_SCR_RULESET_REVISION = "2026-08-28";
 
 const freezeDeep = (value) => {
   if (value && typeof value === "object" && !Object.isFrozen(value)) {
@@ -19,8 +19,8 @@ const freezeDeep = (value) => {
 
 export const BOM_SCR_SOURCE_PACKET_REF = freezeDeep({
   entity_id: "bom-supply-chain-risk-public-source-packet-v0",
-  revision_id: "2026-08-26",
-  content_id: "sha256:dcf61c68bd7130667ce736112e1159eacb10cdfb1d5351ade8e9aa217f335eec",
+  revision_id: "2026-08-28",
+  content_id: "sha256:7b2ae1bb16f97a9d62a37ce43db0c38f609d5e2a9279c64ec7e964692c619e57",
   content_hash_alg: "sha256",
 });
 
@@ -35,8 +35,8 @@ export const BOM_SCR_SOURCE_REFERENCES = freezeDeep([
   {
     source_id: "S2-DFARS-252.246-7007",
     revision: "DFARS-change-2026-05-07; clause-JAN-2023",
-    locator: "(a), (c)(2), (c)(4)-(12)",
-    applicability: "only when the exact clause is incorporated",
+    locator: "introductory applicability sentence; (a), (c)(2), (c)(4)-(12)",
+    applicability: "only with affirmative typed clause-incorporation and Cost Accounting Standards applicability gates",
     applicability_mode: "conditional_contract",
   },
   {
@@ -81,7 +81,7 @@ export const BOM_SCR_RULES = freezeDeep([
   rule("BOM-SCR-03", "long_lead", "S1-DODM-4245.15", "Compare observed lead time to a bound Profile threshold; never invent a universal limit."),
   rule("BOM-SCR-04", "sole_source", "S1-DODM-4245.15", "Project qualified-source count and alternate status as a continuity risk signal."),
   rule("BOM-SCR-05", "alternate_qualification", "S3-DFARS-252.246-7008", "Keep alternate status and source/traceability evidence distinct from approval authority."),
-  rule("BOM-SCR-06", "counterfeit_control", "S2-DFARS-252.246-7007", "Project bounded traceability/control evidence as a risk signal, not counterfeit authentication."),
+  rule("BOM-SCR-06", "counterfeit_control", "S2-DFARS-252.246-7007", "Project bounded traceability/control evidence only after both source-bound applicability gates; never counterfeit authentication."),
   rule("BOM-SCR-07", "supplier_concentration", "S4-NIST-MEP-2024", "Compare observed supplier count to a bound Profile threshold."),
   rule("BOM-SCR-08", "geographic_concentration", "S4-NIST-MEP-2024", "Compare observed geography count to a bound Profile threshold."),
   rule("BOM-SCR-09", "continuity_gap", "S1-DODM-4245.15", "Project bounded continuity-plan evidence and open gaps."),

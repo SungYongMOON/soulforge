@@ -4,13 +4,13 @@
   "title": "BOM and Supply-Chain Risk effective ruleset",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "domain_engine_id", "ruleset_ref", "source_packet_ref", "rules", "thresholds", "profile_threshold_provenance"],
+  "required": ["schema_version", "domain_engine_id", "ruleset_ref", "source_packet_ref", "rules", "thresholds", "profile_threshold_provenance", "profile_operation_programs"],
   "properties": {
     "schema_version": { "const": "soulforge.bom_supply_chain_risk.ruleset.v0" },
     "domain_engine_id": { "const": "bom_supply_chain_risk" },
     "ruleset_ref": { "$ref": "#/$defs/entityRef" },
-    "source_packet_ref": { "$ref": "#/$defs/entityRef" },
-    "rules": { "type": "array", "minItems": 9, "maxItems": 9, "items": { "$ref": "#/$defs/rule" } },
+    "source_packet_ref": { "$ref": "#/$defs/sourcePacketRef" },
+    "rules": { "type": "array", "minItems": 9, "maxItems": 9, "prefixItems": [{ "$ref": "#/$defs/rule01" }, { "$ref": "#/$defs/rule02" }, { "$ref": "#/$defs/rule03" }, { "$ref": "#/$defs/rule04" }, { "$ref": "#/$defs/rule05" }, { "$ref": "#/$defs/rule06" }, { "$ref": "#/$defs/rule07" }, { "$ref": "#/$defs/rule08" }, { "$ref": "#/$defs/rule09" }], "items": false },
     "thresholds": {
       "type": "object",
       "additionalProperties": false,
@@ -28,8 +28,30 @@
         "minimum_supplier_count": { "$ref": "#/$defs/provenance" },
         "minimum_geography_count": { "$ref": "#/$defs/provenance" }
       }
+    },
+    "profile_operation_programs": {
+      "type": "array", "maxItems": 2, "items": { "$ref": "#/$defs/profileProgram" },
+      "allOf": [
+        { "if": { "minItems": 1 }, "then": { "prefixItems": [{ "allOf": [{ "$ref": "#/$defs/profileProgram" }, { "properties": { "order": { "const": 0 } } }] }] } },
+        { "if": { "minItems": 2 }, "then": { "prefixItems": [{ "allOf": [{ "$ref": "#/$defs/profileProgram" }, { "properties": { "profile_kind": { "const": "organization" }, "order": { "const": 0 } } }] }, { "allOf": [{ "$ref": "#/$defs/profileProgram" }, { "properties": { "profile_kind": { "const": "project" }, "order": { "const": 1 } } }] }] } }
+      ]
     }
   },
+  "allOf": [
+    { "if": { "properties": { "profile_threshold_provenance": { "properties": { "max_lead_time_days": { "properties": { "order": { "const": 0 }, "operation_index": { "const": 0 } }, "required": ["order", "operation_index"] } }, "required": ["max_lead_time_days"] } }, "required": ["profile_threshold_provenance"] }, "then": { "properties": { "profile_operation_programs": { "minItems": 1, "prefixItems": [{ "properties": { "operations": { "minItems": 1, "prefixItems": [{ "properties": { "metric": { "const": "max_lead_time_days" } }, "required": ["metric"] }] } }, "required": ["operations"] }] } } } },
+    { "if": { "properties": { "profile_threshold_provenance": { "properties": { "max_lead_time_days": { "properties": { "order": { "const": 0 }, "operation_index": { "const": 1 } }, "required": ["order", "operation_index"] } }, "required": ["max_lead_time_days"] } }, "required": ["profile_threshold_provenance"] }, "then": { "properties": { "profile_operation_programs": { "minItems": 1, "prefixItems": [{ "properties": { "operations": { "minItems": 2, "prefixItems": [{}, { "properties": { "metric": { "const": "max_lead_time_days" } }, "required": ["metric"] }] } }, "required": ["operations"] }] } } } },
+    { "if": { "properties": { "profile_threshold_provenance": { "properties": { "max_lead_time_days": { "properties": { "order": { "const": 0 }, "operation_index": { "const": 2 } }, "required": ["order", "operation_index"] } }, "required": ["max_lead_time_days"] } }, "required": ["profile_threshold_provenance"] }, "then": { "properties": { "profile_operation_programs": { "minItems": 1, "prefixItems": [{ "properties": { "operations": { "minItems": 3, "prefixItems": [{}, {}, { "properties": { "metric": { "const": "max_lead_time_days" } }, "required": ["metric"] }] } }, "required": ["operations"] }] } } } },
+    { "if": { "properties": { "profile_threshold_provenance": { "properties": { "max_lead_time_days": { "properties": { "order": { "const": 1 }, "operation_index": { "const": 0 } }, "required": ["order", "operation_index"] } }, "required": ["max_lead_time_days"] } }, "required": ["profile_threshold_provenance"] }, "then": { "properties": { "profile_operation_programs": { "minItems": 2, "prefixItems": [{}, { "properties": { "operations": { "minItems": 1, "prefixItems": [{ "properties": { "metric": { "const": "max_lead_time_days" } }, "required": ["metric"] }] } }, "required": ["operations"] }] } } } },
+    { "if": { "properties": { "profile_threshold_provenance": { "properties": { "max_lead_time_days": { "properties": { "order": { "const": 1 }, "operation_index": { "const": 1 } }, "required": ["order", "operation_index"] } }, "required": ["max_lead_time_days"] } }, "required": ["profile_threshold_provenance"] }, "then": { "properties": { "profile_operation_programs": { "minItems": 2, "prefixItems": [{}, { "properties": { "operations": { "minItems": 2, "prefixItems": [{}, { "properties": { "metric": { "const": "max_lead_time_days" } }, "required": ["metric"] }] } }, "required": ["operations"] }] } } } },
+    { "if": { "properties": { "profile_threshold_provenance": { "properties": { "max_lead_time_days": { "properties": { "order": { "const": 1 }, "operation_index": { "const": 2 } }, "required": ["order", "operation_index"] } }, "required": ["max_lead_time_days"] } }, "required": ["profile_threshold_provenance"] }, "then": { "properties": { "profile_operation_programs": { "minItems": 2, "prefixItems": [{}, { "properties": { "operations": { "minItems": 3, "prefixItems": [{}, {}, { "properties": { "metric": { "const": "max_lead_time_days" } }, "required": ["metric"] }] } }, "required": ["operations"] }] } } } }
+    ,
+    { "if": { "properties": { "profile_threshold_provenance": { "properties": { "minimum_supplier_count": { "properties": { "order": { "const": 0 }, "operation_index": { "const": 0 } }, "required": ["order", "operation_index"] } }, "required": ["minimum_supplier_count"] } }, "required": ["profile_threshold_provenance"] }, "then": { "properties": { "profile_operation_programs": { "prefixItems": [{ "properties": { "operations": { "minItems": 1, "prefixItems": [{ "properties": { "metric": { "const": "minimum_supplier_count" } }, "required": ["metric"] }] } } }] } } } },
+    { "if": { "properties": { "profile_threshold_provenance": { "properties": { "minimum_supplier_count": { "properties": { "order": { "const": 0 }, "operation_index": { "const": 1 } }, "required": ["order", "operation_index"] } }, "required": ["minimum_supplier_count"] } }, "required": ["profile_threshold_provenance"] }, "then": { "properties": { "profile_operation_programs": { "prefixItems": [{ "properties": { "operations": { "minItems": 2, "prefixItems": [{}, { "properties": { "metric": { "const": "minimum_supplier_count" } }, "required": ["metric"] }] } } }] } } } },
+    { "if": { "properties": { "profile_threshold_provenance": { "properties": { "minimum_supplier_count": { "properties": { "order": { "const": 0 }, "operation_index": { "const": 2 } }, "required": ["order", "operation_index"] } }, "required": ["minimum_supplier_count"] } }, "required": ["profile_threshold_provenance"] }, "then": { "properties": { "profile_operation_programs": { "prefixItems": [{ "properties": { "operations": { "minItems": 3, "prefixItems": [{}, {}, { "properties": { "metric": { "const": "minimum_supplier_count" } }, "required": ["metric"] }] } } }] } } } },
+    { "if": { "properties": { "profile_threshold_provenance": { "properties": { "minimum_geography_count": { "properties": { "order": { "const": 0 }, "operation_index": { "const": 0 } }, "required": ["order", "operation_index"] } }, "required": ["minimum_geography_count"] } }, "required": ["profile_threshold_provenance"] }, "then": { "properties": { "profile_operation_programs": { "prefixItems": [{ "properties": { "operations": { "minItems": 1, "prefixItems": [{ "properties": { "metric": { "const": "minimum_geography_count" } }, "required": ["metric"] }] } } }] } } } },
+    { "if": { "properties": { "profile_threshold_provenance": { "properties": { "minimum_geography_count": { "properties": { "order": { "const": 0 }, "operation_index": { "const": 1 } }, "required": ["order", "operation_index"] } }, "required": ["minimum_geography_count"] } }, "required": ["profile_threshold_provenance"] }, "then": { "properties": { "profile_operation_programs": { "prefixItems": [{ "properties": { "operations": { "minItems": 2, "prefixItems": [{}, { "properties": { "metric": { "const": "minimum_geography_count" } }, "required": ["metric"] }] } } }] } } } },
+    { "if": { "properties": { "profile_threshold_provenance": { "properties": { "minimum_geography_count": { "properties": { "order": { "const": 0 }, "operation_index": { "const": 2 } }, "required": ["order", "operation_index"] } }, "required": ["minimum_geography_count"] } }, "required": ["profile_threshold_provenance"] }, "then": { "properties": { "profile_operation_programs": { "prefixItems": [{ "properties": { "operations": { "minItems": 3, "prefixItems": [{}, {}, { "properties": { "metric": { "const": "minimum_geography_count" } }, "required": ["metric"] }] } } }] } } } }
+  ],
   "$defs": {
     "entityRef": {
       "type": "object",
@@ -42,32 +64,93 @@
         "content_hash_alg": { "const": "sha256" }
       }
     },
+    "sourcePacketRef": {
+      "allOf": [
+        { "$ref": "#/$defs/entityRef" },
+        { "const": { "entity_id": "bom-supply-chain-risk-public-source-packet-v0", "revision_id": "2026-08-28", "content_id": "sha256:7b2ae1bb16f97a9d62a37ce43db0c38f609d5e2a9279c64ec7e964692c619e57", "content_hash_alg": "sha256" } }
+      ]
+    },
     "provenance": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["profile_kind", "profile_id", "revision_or_hash", "operation_digest", "source_refs"],
+        "required": ["profile_kind", "profile_id", "revision_or_hash", "extends_or_base_pin", "operation_digest", "order", "operation_index", "source_refs"],
       "properties": {
         "profile_kind": { "enum": ["organization", "project"] },
         "profile_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
         "revision_or_hash": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+        "extends_or_base_pin": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
         "operation_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-        "source_refs": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 256 } }
+        "order": { "type": "integer", "minimum": 0, "maximum": 1 },
+        "operation_index": { "type": "integer", "minimum": 0, "maximum": 2 },
+        "source_refs": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/publicSafeText" } }
       }
     },
+    "profileProgram": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["domain_engine_id", "profile_kind", "profile_id", "revision_or_hash", "extends_or_base_pin", "operation_digest", "order", "source_refs", "operations", "applied_operations_count"],
+      "properties": {
+        "domain_engine_id": { "const": "bom_supply_chain_risk" },
+        "profile_kind": { "enum": ["organization", "project"] },
+        "profile_id": { "$ref": "#/$defs/publicSafeIdentifier" },
+        "revision_or_hash": { "$ref": "#/$defs/publicSafeIdentifier" },
+        "extends_or_base_pin": { "$ref": "#/$defs/publicSafeIdentifier" },
+        "operation_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "order": { "type": "integer", "minimum": 0, "maximum": 1 },
+        "source_refs": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/publicSafeText" } },
+        "operations": { "type": "array", "maxItems": 3, "items": { "$ref": "#/$defs/thresholdOperation" } },
+        "applied_operations_count": { "type": "integer", "minimum": 0, "maximum": 3 }
+      },
+      "allOf": [
+        { "if": { "properties": { "operations": { "maxItems": 0 } } }, "then": { "properties": { "applied_operations_count": { "const": 0 } } } },
+        { "if": { "properties": { "operations": { "minItems": 1, "maxItems": 1 } } }, "then": { "properties": { "applied_operations_count": { "const": 1 } } } },
+        { "if": { "properties": { "operations": { "minItems": 2, "maxItems": 2 } } }, "then": { "properties": { "applied_operations_count": { "const": 2 } } } },
+        { "if": { "properties": { "operations": { "minItems": 3 } } }, "then": { "properties": { "applied_operations_count": { "const": 3 } } } },
+        { "properties": { "operations": { "contains": { "properties": { "metric": { "const": "max_lead_time_days" } }, "required": ["metric"] }, "minContains": 0, "maxContains": 1 } } },
+        { "properties": { "operations": { "contains": { "properties": { "metric": { "const": "minimum_supplier_count" } }, "required": ["metric"] }, "minContains": 0, "maxContains": 1 } } },
+        { "properties": { "operations": { "contains": { "properties": { "metric": { "const": "minimum_geography_count" } }, "required": ["metric"] }, "minContains": 0, "maxContains": 1 } } }
+      ]
+    },
+    "thresholdOperation": {
+      "type": "object", "additionalProperties": false, "required": ["op", "metric", "value"],
+      "properties": { "op": { "const": "set_threshold" }, "metric": { "enum": ["max_lead_time_days", "minimum_supplier_count", "minimum_geography_count"] }, "value": { "type": "integer", "minimum": 1, "maximum": 100000 } }
+    },
+    "rule01": { "type": "object", "additionalProperties": false, "required": ["rule_id", "risk_dimension", "source_id", "source_revision", "source_locator", "source_applicability", "source_applicability_mode", "purpose"], "properties": { "rule_id": { "const": "BOM-SCR-01" }, "risk_dimension": { "const": "lifecycle_status" }, "source_id": { "const": "S1-DODM-4245.15" }, "source_revision": { "const": "effective-2022-10-26" }, "source_locator": { "const": "§§3.3-3.4; glossary" }, "source_applicability": { "const": "DoD policy; vocabulary only unless an explicit project binding establishes applicability" }, "source_applicability_mode": { "const": "vocabulary_only" }, "purpose": { "const": "Assess observed production/lifecycle status without inferring a manufacturer decision." } } },
+    "rule02": { "type": "object", "additionalProperties": false, "required": ["rule_id", "risk_dimension", "source_id", "source_revision", "source_locator", "source_applicability", "source_applicability_mode", "purpose"], "properties": { "rule_id": { "const": "BOM-SCR-02" }, "risk_dimension": { "const": "obsolescence_signal" }, "source_id": { "const": "S1-DODM-4245.15" }, "source_revision": { "const": "effective-2022-10-26" }, "source_locator": { "const": "§§3.3-3.4; glossary" }, "source_applicability": { "const": "DoD policy; vocabulary only unless an explicit project binding establishes applicability" }, "source_applicability_mode": { "const": "vocabulary_only" }, "purpose": { "const": "Retain DMSMS notifications and validated issue signals as risk inputs." } } },
+    "rule03": { "type": "object", "additionalProperties": false, "required": ["rule_id", "risk_dimension", "source_id", "source_revision", "source_locator", "source_applicability", "source_applicability_mode", "purpose"], "properties": { "rule_id": { "const": "BOM-SCR-03" }, "risk_dimension": { "const": "long_lead" }, "source_id": { "const": "S1-DODM-4245.15" }, "source_revision": { "const": "effective-2022-10-26" }, "source_locator": { "const": "§§3.3-3.4; glossary" }, "source_applicability": { "const": "DoD policy; vocabulary only unless an explicit project binding establishes applicability" }, "source_applicability_mode": { "const": "vocabulary_only" }, "purpose": { "const": "Compare observed lead time to a bound Profile threshold; never invent a universal limit." } } },
+    "rule04": { "type": "object", "additionalProperties": false, "required": ["rule_id", "risk_dimension", "source_id", "source_revision", "source_locator", "source_applicability", "source_applicability_mode", "purpose"], "properties": { "rule_id": { "const": "BOM-SCR-04" }, "risk_dimension": { "const": "sole_source" }, "source_id": { "const": "S1-DODM-4245.15" }, "source_revision": { "const": "effective-2022-10-26" }, "source_locator": { "const": "§§3.3-3.4; glossary" }, "source_applicability": { "const": "DoD policy; vocabulary only unless an explicit project binding establishes applicability" }, "source_applicability_mode": { "const": "vocabulary_only" }, "purpose": { "const": "Project qualified-source count and alternate status as a continuity risk signal." } } },
+    "rule05": { "type": "object", "additionalProperties": false, "required": ["rule_id", "risk_dimension", "source_id", "source_revision", "source_locator", "source_applicability", "source_applicability_mode", "purpose"], "properties": { "rule_id": { "const": "BOM-SCR-05" }, "risk_dimension": { "const": "alternate_qualification" }, "source_id": { "const": "S3-DFARS-252.246-7008" }, "source_revision": { "const": "DFARS-change-2026-05-07; clause-JAN-2023" }, "source_locator": { "const": "(a)-(c)" }, "source_applicability": { "const": "only when the exact clause is incorporated" }, "source_applicability_mode": { "const": "conditional_contract" }, "purpose": { "const": "Keep alternate status and source/traceability evidence distinct from approval authority." } } },
+    "rule06": { "type": "object", "additionalProperties": false, "required": ["rule_id", "risk_dimension", "source_id", "source_revision", "source_locator", "source_applicability", "source_applicability_mode", "purpose"], "properties": { "rule_id": { "const": "BOM-SCR-06" }, "risk_dimension": { "const": "counterfeit_control" }, "source_id": { "const": "S2-DFARS-252.246-7007" }, "source_revision": { "const": "DFARS-change-2026-05-07; clause-JAN-2023" }, "source_locator": { "const": "introductory applicability sentence; (a), (c)(2), (c)(4)-(12)" }, "source_applicability": { "const": "only with affirmative typed clause-incorporation and Cost Accounting Standards applicability gates" }, "source_applicability_mode": { "const": "conditional_contract" }, "purpose": { "const": "Project bounded traceability/control evidence only after both source-bound applicability gates; never counterfeit authentication." } } },
+    "rule07": { "type": "object", "additionalProperties": false, "required": ["rule_id", "risk_dimension", "source_id", "source_revision", "source_locator", "source_applicability", "source_applicability_mode", "purpose"], "properties": { "rule_id": { "const": "BOM-SCR-07" }, "risk_dimension": { "const": "supplier_concentration" }, "source_id": { "const": "S4-NIST-MEP-2024" }, "source_revision": { "const": "published-2024-01-16" }, "source_locator": { "const": "Mapping Program Captures Key Data" }, "source_applicability": { "const": "public educational guidance; not a procurement rule" }, "source_applicability_mode": { "const": "educational_only" }, "purpose": { "const": "Compare observed supplier count to a bound Profile threshold." } } },
+    "rule08": { "type": "object", "additionalProperties": false, "required": ["rule_id", "risk_dimension", "source_id", "source_revision", "source_locator", "source_applicability", "source_applicability_mode", "purpose"], "properties": { "rule_id": { "const": "BOM-SCR-08" }, "risk_dimension": { "const": "geographic_concentration" }, "source_id": { "const": "S4-NIST-MEP-2024" }, "source_revision": { "const": "published-2024-01-16" }, "source_locator": { "const": "Mapping Program Captures Key Data" }, "source_applicability": { "const": "public educational guidance; not a procurement rule" }, "source_applicability_mode": { "const": "educational_only" }, "purpose": { "const": "Compare observed geography count to a bound Profile threshold." } } },
+    "rule09": { "type": "object", "additionalProperties": false, "required": ["rule_id", "risk_dimension", "source_id", "source_revision", "source_locator", "source_applicability", "source_applicability_mode", "purpose"], "properties": { "rule_id": { "const": "BOM-SCR-09" }, "risk_dimension": { "const": "continuity_gap" }, "source_id": { "const": "S1-DODM-4245.15" }, "source_revision": { "const": "effective-2022-10-26" }, "source_locator": { "const": "§§3.3-3.4; glossary" }, "source_applicability": { "const": "DoD policy; vocabulary only unless an explicit project binding establishes applicability" }, "source_applicability_mode": { "const": "vocabulary_only" }, "purpose": { "const": "Project bounded continuity-plan evidence and open gaps." } } },
+    "publicSafeIdentifier": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$", "not": { "pattern": "(?:\\b(?:ghp_|github_pat_|sk-|xox[baprs]-|AIza)[A-Za-z0-9_-]{8,}|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Tt][Oo][Kk][Ee][Nn]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll])" } },
+    "publicSafeText": { "type": "string", "minLength": 1, "maxLength": 256, "not": { "pattern": "(?:^[A-Za-z]:[\\\\/]|^\\\\\\\\|^file:|-----BEGIN [A-Z ]+[Pp][Rr][Ii][Vv][Aa][Tt][Ee] [Kk][Ee][Yy]-----|\\b(?:ghp_|github_pat_|sk-|xox[baprs]-|AIza)[A-Za-z0-9_-]{8,}|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Tt][Oo][Kk][Ee][Nn]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll])" } },
     "rule": {
       "type": "object",
       "additionalProperties": false,
       "required": ["rule_id", "risk_dimension", "source_id", "source_revision", "source_locator", "source_applicability", "source_applicability_mode", "purpose"],
       "properties": {
-        "rule_id": { "type": "string", "pattern": "^BOM-SCR-[0-9]{2}$" },
+        "rule_id": { "enum": ["BOM-SCR-01", "BOM-SCR-02", "BOM-SCR-03", "BOM-SCR-04", "BOM-SCR-05", "BOM-SCR-06", "BOM-SCR-07", "BOM-SCR-08", "BOM-SCR-09"] },
         "risk_dimension": { "enum": ["lifecycle_status", "obsolescence_signal", "long_lead", "sole_source", "alternate_qualification", "counterfeit_control", "supplier_concentration", "geographic_concentration", "continuity_gap"] },
-        "source_id": { "type": "string", "minLength": 1 },
+        "source_id": { "enum": ["S1-DODM-4245.15", "S2-DFARS-252.246-7007", "S3-DFARS-252.246-7008", "S4-NIST-MEP-2024", "S5-NIST-SP-800-161R1-UPD1"] },
         "source_revision": { "type": "string", "minLength": 1 },
         "source_locator": { "type": "string", "minLength": 1 },
         "source_applicability": { "type": "string", "minLength": 1 },
         "source_applicability_mode": { "enum": ["vocabulary_only", "conditional_contract", "educational_only"] },
         "purpose": { "type": "string", "minLength": 1 }
-      }
+      },
+      "allOf": [
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-01" } } }, "then": { "properties": { "risk_dimension": { "const": "lifecycle_status" }, "source_id": { "const": "S1-DODM-4245.15" }, "source_applicability_mode": { "const": "vocabulary_only" } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-02" } } }, "then": { "properties": { "risk_dimension": { "const": "obsolescence_signal" }, "source_id": { "const": "S1-DODM-4245.15" }, "source_applicability_mode": { "const": "vocabulary_only" } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-03" } } }, "then": { "properties": { "risk_dimension": { "const": "long_lead" }, "source_id": { "const": "S1-DODM-4245.15" }, "source_applicability_mode": { "const": "vocabulary_only" } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-04" } } }, "then": { "properties": { "risk_dimension": { "const": "sole_source" }, "source_id": { "const": "S1-DODM-4245.15" }, "source_applicability_mode": { "const": "vocabulary_only" } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-05" } } }, "then": { "properties": { "risk_dimension": { "const": "alternate_qualification" }, "source_id": { "const": "S3-DFARS-252.246-7008" }, "source_applicability_mode": { "const": "conditional_contract" } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-06" } } }, "then": { "properties": { "risk_dimension": { "const": "counterfeit_control" }, "source_id": { "const": "S2-DFARS-252.246-7007" }, "source_applicability_mode": { "const": "conditional_contract" } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-07" } } }, "then": { "properties": { "risk_dimension": { "const": "supplier_concentration" }, "source_id": { "const": "S4-NIST-MEP-2024" }, "source_applicability_mode": { "const": "educational_only" } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-08" } } }, "then": { "properties": { "risk_dimension": { "const": "geographic_concentration" }, "source_id": { "const": "S4-NIST-MEP-2024" }, "source_applicability_mode": { "const": "educational_only" } } } },
+        { "if": { "properties": { "rule_id": { "const": "BOM-SCR-09" } } }, "then": { "properties": { "risk_dimension": { "const": "continuity_gap" }, "source_id": { "const": "S1-DODM-4245.15" }, "source_applicability_mode": { "const": "vocabulary_only" } } } }
+      ]
     }
   }
 }

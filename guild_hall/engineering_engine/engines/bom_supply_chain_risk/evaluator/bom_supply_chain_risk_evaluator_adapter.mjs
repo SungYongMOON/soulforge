@@ -7,8 +7,8 @@ export const BOM_SCR_EVALUATOR_ADAPTER_SCHEMA_VERSION = "soulforge.bom_supply_ch
 export const bomSupplyChainRiskAdapter = Object.freeze({
   ...bomSupplyChainRiskCompilerAdapter,
   revision: "soulforge.bom_supply_chain_risk.adapter.v0",
-  evaluate(effectiveRuleSet, typedProjectFacts) {
-    return evaluateBomSupplyChainRisk(effectiveRuleSet, typedProjectFacts);
+  evaluate(effectiveRuleSet, typedProjectFacts, authority, cutoffs) {
+    return evaluateBomSupplyChainRisk(effectiveRuleSet, typedProjectFacts, authority, cutoffs);
   },
 });
 

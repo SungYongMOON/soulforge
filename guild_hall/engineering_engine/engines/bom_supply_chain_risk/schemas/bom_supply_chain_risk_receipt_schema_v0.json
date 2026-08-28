@@ -21,7 +21,7 @@
     "bindings": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["domain_engine_id", "project_binding_ref", "source_packet_ref", "ruleset_ref", "assessment_scope", "source_applicability", "valid_at", "known_at"],
+      "required": ["domain_engine_id", "project_binding_ref", "source_packet_ref", "ruleset_ref", "assessment_scope", "source_applicability", "applicability_evidence", "valid_at", "known_at"],
       "properties": {
         "domain_engine_id": { "const": "bom_supply_chain_risk" },
         "project_binding_ref": {
@@ -29,15 +29,16 @@
           "additionalProperties": false,
           "required": ["project_id", "domain_engine_id", "binding_revision_hash"],
           "properties": {
-            "project_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+            "project_id": { "$ref": "#/$defs/publicSafeIdentifier" },
             "domain_engine_id": { "const": "bom_supply_chain_risk" },
-            "binding_revision_hash": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" }
+            "binding_revision_hash": { "$ref": "#/$defs/publicSafeIdentifier" }
           }
         },
-        "source_packet_ref": { "$ref": "#/$defs/entityRef" },
+        "source_packet_ref": { "$ref": "#/$defs/sourcePacketRef" },
         "ruleset_ref": { "$ref": "#/$defs/entityRef" },
         "assessment_scope": { "$ref": "#/$defs/assessmentScope" },
         "source_applicability": { "$ref": "#/$defs/sourceApplicability" },
+        "applicability_evidence": { "$ref": "#/$defs/applicabilityEvidence" },
         "valid_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" },
         "known_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" }
       }
@@ -58,7 +59,8 @@
     }
   },
   "$defs": {
-    "opaqueRef": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,48}:[A-Za-z0-9._-]{1,128}$" },
+    "opaqueRef": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,48}:[A-Za-z0-9._-]{1,128}$", "not": { "pattern": "(?:\\b(?:ghp_|github_pat_|sk-|xox[baprs]-|AIza)[A-Za-z0-9_-]{8,}|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Tt][Oo][Kk][Ee][Nn]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll])" } },
+    "publicSafeIdentifier": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$", "not": { "pattern": "(?:\\b(?:ghp_|github_pat_|sk-|xox[baprs]-|AIza)[A-Za-z0-9_-]{8,}|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Tt][Oo][Kk][Ee][Nn]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll])" } },
     "entityRef": {
       "type": "object",
       "additionalProperties": false,
@@ -70,12 +72,18 @@
         "content_hash_alg": { "const": "sha256" }
       }
     },
+    "sourcePacketRef": {
+      "allOf": [
+        { "$ref": "#/$defs/entityRef" },
+        { "const": { "entity_id": "bom-supply-chain-risk-public-source-packet-v0", "revision_id": "2026-08-28", "content_id": "sha256:7b2ae1bb16f97a9d62a37ce43db0c38f609d5e2a9279c64ec7e964692c619e57", "content_hash_alg": "sha256" } }
+      ]
+    },
     "assessmentScope": {
       "type": "object",
       "additionalProperties": false,
       "required": ["snapshot_revision", "bom_identity_ref", "bom_revision_ref", "source_system_revision_ref"],
       "properties": {
-        "snapshot_revision": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+        "snapshot_revision": { "$ref": "#/$defs/publicSafeIdentifier" },
         "bom_identity_ref": { "$ref": "#/$defs/opaqueRef" },
         "bom_revision_ref": { "$ref": "#/$defs/opaqueRef" },
         "source_system_revision_ref": { "$ref": "#/$defs/opaqueRef" }
@@ -87,7 +95,7 @@
       "required": ["S1-DODM-4245.15", "S2-DFARS-252.246-7007", "S3-DFARS-252.246-7008", "S4-NIST-MEP-2024", "S5-NIST-SP-800-161R1-UPD1"],
       "properties": {
         "S1-DODM-4245.15": { "$ref": "#/$defs/vocabularyOnly" },
-        "S2-DFARS-252.246-7007": { "$ref": "#/$defs/conditionalSource" },
+        "S2-DFARS-252.246-7007": { "$ref": "#/$defs/dfars7007Applicability" },
         "S3-DFARS-252.246-7008": { "$ref": "#/$defs/conditionalSource" },
         "S4-NIST-MEP-2024": { "$ref": "#/$defs/educationalOnly" },
         "S5-NIST-SP-800-161R1-UPD1": { "$ref": "#/$defs/educationalOnly" }
@@ -98,8 +106,86 @@
     "conditionalSource": {
       "oneOf": [
         { "type": "object", "additionalProperties": false, "required": ["status"], "properties": { "status": { "const": "unknown" } } },
-        { "type": "object", "additionalProperties": false, "required": ["status", "basis_ref"], "properties": { "status": { "enum": ["bound_applicable", "bound_not_applicable"] }, "basis_ref": { "$ref": "#/$defs/opaqueRef" } } }
+        { "type": "object", "additionalProperties": false, "required": ["status", "basis_ref"], "properties": { "status": { "enum": ["bound_applicable", "bound_not_applicable"] }, "basis_ref": { "$ref": "#/$defs/s3ClauseBasis" } } }
       ]
+    },
+    "dfars7007Applicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "clause_incorporation", "cost_accounting_standards_applicability"],
+      "properties": {
+        "status": { "enum": ["bound_applicable", "unknown"] },
+        "clause_incorporation": { "$ref": "#/$defs/s2ClauseGate" },
+        "cost_accounting_standards_applicability": { "$ref": "#/$defs/s2CasGate" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "clause_incorporation": { "properties": { "status": { "const": "affirmative" } }, "required": ["status"] },
+              "cost_accounting_standards_applicability": { "properties": { "status": { "const": "affirmative" } }, "required": ["status"] }
+            },
+            "required": ["clause_incorporation", "cost_accounting_standards_applicability"]
+          },
+          "then": { "properties": { "status": { "const": "bound_applicable" } } },
+          "else": { "properties": { "status": { "const": "unknown" } } }
+        }
+      ]
+    },
+    "dfars7007Gate": {
+      "oneOf": [
+        { "type": "object", "additionalProperties": false, "required": ["status"], "properties": { "status": { "enum": ["unknown", "negative"] } } },
+        { "type": "object", "additionalProperties": false, "required": ["status", "basis_ref"], "properties": { "status": { "const": "affirmative" }, "basis_ref": { "$ref": "#/$defs/opaqueRef" } } }
+      ]
+    },
+    "s2ClauseGate": { "oneOf": [{ "type": "object", "additionalProperties": false, "required": ["status"], "properties": { "status": { "enum": ["unknown", "negative"] } } }, { "type": "object", "additionalProperties": false, "required": ["status", "basis_ref"], "properties": { "status": { "const": "affirmative" }, "basis_ref": { "$ref": "#/$defs/s2ClauseBasis" } } }] },
+    "s2CasGate": { "oneOf": [{ "type": "object", "additionalProperties": false, "required": ["status"], "properties": { "status": { "enum": ["unknown", "negative"] } } }, { "type": "object", "additionalProperties": false, "required": ["status", "basis_ref"], "properties": { "status": { "const": "affirmative" }, "basis_ref": { "$ref": "#/$defs/s2CasBasis" } } }] },
+    "s2ClauseBasis": { "allOf": [{ "$ref": "#/$defs/opaqueRef" }, { "pattern": "^basis:s2_clause-[A-Za-z0-9._-]{1,96}$" }] },
+    "s2CasBasis": { "allOf": [{ "$ref": "#/$defs/opaqueRef" }, { "pattern": "^basis:s2_cas-[A-Za-z0-9._-]{1,96}$" }] },
+    "s3ClauseBasis": { "allOf": [{ "$ref": "#/$defs/opaqueRef" }, { "pattern": "^basis:s3_clause-[A-Za-z0-9._-]{1,96}$" }] },
+    "applicabilityEvidence": {
+      "type": "array",
+      "maxItems": 3,
+      "uniqueItems": true,
+      "allOf": [
+        { "not": { "contains": { "properties": { "source_id": { "const": "S2-DFARS-252.246-7007" }, "gate": { "const": "clause_incorporation" } }, "required": ["source_id", "gate"] }, "minContains": 2 } },
+        { "not": { "contains": { "properties": { "source_id": { "const": "S2-DFARS-252.246-7007" }, "gate": { "const": "cost_accounting_standards_applicability" } }, "required": ["source_id", "gate"] }, "minContains": 2 } },
+        { "not": { "contains": { "properties": { "source_id": { "const": "S3-DFARS-252.246-7008" }, "gate": { "const": "clause_incorporation" } }, "required": ["source_id", "gate"] }, "minContains": 2 } }
+      ],
+      "items": {
+        "oneOf": [
+          {
+            "type": "object", "additionalProperties": false,
+            "required": ["basis_ref", "source_id", "gate", "evidence_class"],
+            "properties": {
+              "basis_ref": { "$ref": "#/$defs/s2ClauseBasis" },
+              "source_id": { "const": "S2-DFARS-252.246-7007" },
+              "gate": { "const": "clause_incorporation" },
+              "evidence_class": { "const": "project_typed_fact" }
+            }
+          },
+          {
+            "type": "object", "additionalProperties": false,
+            "required": ["basis_ref", "source_id", "gate", "evidence_class"],
+            "properties": {
+              "basis_ref": { "$ref": "#/$defs/s2CasBasis" },
+              "source_id": { "const": "S2-DFARS-252.246-7007" },
+              "gate": { "const": "cost_accounting_standards_applicability" },
+              "evidence_class": { "const": "project_typed_fact" }
+            }
+          },
+          {
+            "type": "object", "additionalProperties": false,
+            "required": ["basis_ref", "source_id", "gate", "evidence_class"],
+            "properties": {
+              "basis_ref": { "$ref": "#/$defs/s3ClauseBasis" },
+              "source_id": { "const": "S3-DFARS-252.246-7008" },
+              "gate": { "const": "clause_incorporation" },
+              "evidence_class": { "const": "project_typed_fact" }
+            }
+          }
+        ]
+      }
     },
     "counts": {
       "type": "object",
