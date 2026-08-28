@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.safety_hazard_evaluation_receipt.v0",
+  "title": "SafetyHazardEvaluationReceipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "digests", "counts", "bindings", "effects"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "soulforge.safety_hazard.receipt.v0" },
+    "digests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input_sha256", "assessment_sha256", "domain_result_sha256", "core_admission_sha256"],
+      "properties": {
+        "input_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "assessment_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "domain_result_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "core_admission_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "counts": { "type": "object" },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_packet_ref", "ruleset_ref", "ruleset_revision", "adapter_revision", "execution_mode", "context_generation", "assessment_cutoff_ref", "source_bindings", "accepted_rule_bindings", "core_typed_facts", "admitted_effective_ruleset"],
+      "properties": {
+        "source_packet_ref": { "type": "object" },
+        "ruleset_ref": { "type": "object" },
+        "ruleset_revision": { "type": "string" },
+        "adapter_revision": { "type": "string" },
+        "execution_mode": { "type": "string" },
+        "context_generation": { "type": "number" },
+        "assessment_cutoff_ref": { "type": "object" },
+        "source_bindings": { "type": "array" },
+        "accepted_rule_bindings": { "type": "array" },
+        "core_typed_facts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_version", "project_id", "binding_revision_hash", "source_manifest_ref", "facts_digest", "valid_at", "known_at", "cutoff_valid_at", "cutoff_known_at", "request_digest", "request_binding_ref", "request_cutoff_ref"],
+          "properties": {
+            "schema_version": { "type": "string", "const": "soulforge.typed_project_facts.v0" },
+            "project_id": { "type": "string", "minLength": 1 },
+            "binding_revision_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "source_manifest_ref": { "type": "string", "minLength": 1 },
+            "facts_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "valid_at": { "type": "string", "format": "date-time" },
+            "known_at": { "type": "string", "format": "date-time" },
+            "cutoff_valid_at": { "type": "string", "format": "date-time" },
+            "cutoff_known_at": { "type": "string", "format": "date-time" },
+            "request_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "request_binding_ref": { "type": "object" },
+            "request_cutoff_ref": { "type": "object" }
+          }
+        },
+        "admitted_effective_ruleset": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["ruleset_ref", "source_packet_ref", "assembly_digest", "effective_ruleset_digest", "rule_count", "compilation_trace_schema_version"],
+          "properties": {
+            "ruleset_ref": { "type": "object" },
+            "source_packet_ref": { "type": "object" },
+            "assembly_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "effective_ruleset_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "rule_count": { "type": "number" },
+            "compilation_trace_schema_version": { "type": "string", "const": "soulforge.compilation_trace.v0" }
+          }
+        }
+      }
+    },
+    "effects": { "type": "object" }
+  }
+}
