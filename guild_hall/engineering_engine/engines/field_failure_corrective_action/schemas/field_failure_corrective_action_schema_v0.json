@@ -1,0 +1,312 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.field_failure_corrective_action.schema.v0",
+  "title": "Field Failure and Corrective Action public-safe request shape",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["binding", "cutoffs", "domain_input", "schema_version"],
+  "properties": {
+    "schema_version": { "const": "soulforge.field_failure_corrective_action.request.v0" },
+    "binding": { "$ref": "#/$defs/binding" },
+    "cutoffs": { "$ref": "#/$defs/cutoffs" },
+    "domain_input": { "$ref": "#/$defs/domainInput" }
+  },
+  "$defs": {
+    "refToken": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,255}$"
+    },
+    "revisionRef": {
+      "allOf": [
+        { "$ref": "#/$defs/refToken" },
+        { "not": { "type": "string", "pattern": "(^|[-_.:/])([Ll][Aa][Tt][Ee][Ss][Tt]|[Cc][Uu][Rr][Rr][Ee][Nn][Tt]|[Hh][Ee][Aa][Dd]|[Mm][Aa][Ii][Nn]|[Mm][Aa][Ss][Tt][Ee][Rr]|[Dd][Ee][Vv][Ee][Ll][Oo][Pp]|[Dd][Ee][Vv][Ee][Ll][Oo][Pp][Mm][Ee][Nn][Tt]|[Tt][Rr][Uu][Nn][Kk]|[Ss][Tt][Aa][Bb][Ll][Ee]|[Pp][Rr][Oo][Dd][Uu][Cc][Tt][Ii][Oo][Nn])($|[-_.:/])|[*^~<>]" } }
+      ]
+    },
+    "canonicalInstant": {
+      "type": "string",
+      "pattern": "^(?:(?:[0-9]{4}-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8])))|(?:(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29))T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$"
+    },
+    "contentRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_hash_alg", "content_id", "entity_id", "revision_id"],
+      "properties": {
+        "content_hash_alg": { "const": "sha256" },
+        "content_id": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "entity_id": { "$ref": "#/$defs/refToken" },
+        "revision_id": { "$ref": "#/$defs/refToken" }
+      }
+    },
+    "coreProjectBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binding_revision_hash", "domain_engine_id", "project_id", "schema_version", "source_manifest_ref"],
+      "properties": {
+        "binding_revision_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "domain_engine_id": { "const": "field_failure_corrective_action" },
+        "project_id": { "$ref": "#/$defs/refToken" },
+        "schema_version": { "const": "soulforge.project_binding.v0" },
+        "source_manifest_ref": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "sourceBindingS1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["access_class", "applicability_binding_ref", "source_id", "source_revision_ref"],
+      "properties": {
+        "access_class": { "const": "official_public_html" },
+        "applicability_binding_ref": { "$ref": "#/$defs/refToken" },
+        "source_id": { "const": "S1-NRC-10CFR50-APPB" },
+        "source_revision_ref": { "$ref": "#/$defs/revisionRef" }
+      }
+    },
+    "sourceBindingS2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["access_class", "applicability_binding_ref", "source_id", "source_revision_ref"],
+      "properties": {
+        "access_class": { "const": "official_public_html" },
+        "applicability_binding_ref": { "$ref": "#/$defs/refToken" },
+        "source_id": { "const": "S2-NRC-10CFR21" },
+        "source_revision_ref": { "$ref": "#/$defs/revisionRef" }
+      }
+    },
+    "sourceBindingS3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["access_class", "applicability_binding_ref", "source_id", "source_revision_ref"],
+      "properties": {
+        "access_class": { "const": "official_public_html_with_protected_ibr" },
+        "applicability_binding_ref": { "$ref": "#/$defs/refToken" },
+        "source_id": { "const": "S3-FDA-QMSR-2026" },
+        "source_revision_ref": { "$ref": "#/$defs/revisionRef" }
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project_binding_ref", "ruleset_ref", "source_bindings", "source_packet_ref"],
+      "properties": {
+        "project_binding_ref": { "$ref": "#/$defs/coreProjectBinding" },
+        "ruleset_ref": { "$ref": "#/$defs/contentRef" },
+        "source_packet_ref": { "$ref": "#/$defs/contentRef" },
+        "source_bindings": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "prefixItems": [
+            { "$ref": "#/$defs/sourceBindingS1" },
+            { "$ref": "#/$defs/sourceBindingS2" },
+            { "$ref": "#/$defs/sourceBindingS3" }
+          ],
+          "items": false
+        }
+      }
+    },
+    "cutoffs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["known_at", "valid_at"],
+      "properties": {
+        "known_at": { "$ref": "#/$defs/canonicalInstant" },
+        "valid_at": { "$ref": "#/$defs/canonicalInstant" }
+      }
+    },
+    "linkArray": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/refToken" }
+    },
+    "links": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["affected_asset_refs", "affected_lot_refs", "configuration_refs", "evidence_receipt_refs", "test_refs"],
+      "properties": {
+        "affected_asset_refs": { "$ref": "#/$defs/linkArray" },
+        "affected_lot_refs": { "$ref": "#/$defs/linkArray" },
+        "configuration_refs": { "$ref": "#/$defs/linkArray" },
+        "evidence_receipt_refs": { "allOf": [{ "$ref": "#/$defs/linkArray" }, { "type": "array", "minItems": 1 }] },
+        "test_refs": { "$ref": "#/$defs/linkArray" }
+      }
+    },
+    "emptyEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "maxProperties": 0
+    },
+    "evidenceAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_owner_ref", "corrective_action_ref", "target_date_ref"],
+      "properties": {
+        "action_owner_ref": { "$ref": "#/$defs/refToken" },
+        "corrective_action_ref": { "$ref": "#/$defs/refToken" },
+        "target_date_ref": { "$ref": "#/$defs/refToken" }
+      }
+    },
+    "evidenceChangeRequired": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["change_propagation_review_ref", "related_change_ref"],
+      "properties": {
+        "change_propagation_review_ref": { "$ref": "#/$defs/refToken" },
+        "related_change_ref": { "$ref": "#/$defs/refToken" }
+      }
+    },
+    "evidenceChangeNotRequired": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["change_not_required_basis_ref"],
+      "properties": {
+        "change_not_required_basis_ref": { "$ref": "#/$defs/refToken" }
+      }
+    },
+    "evidenceClosure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["closure_evidence_index_ref", "closure_readiness_review_ref"],
+      "properties": {
+        "closure_evidence_index_ref": { "$ref": "#/$defs/refToken" },
+        "closure_readiness_review_ref": { "$ref": "#/$defs/refToken" }
+      }
+    },
+    "evidenceContainment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["containment_owner_ref", "containment_record_ref", "containment_scope_ref"],
+      "properties": {
+        "containment_owner_ref": { "$ref": "#/$defs/refToken" },
+        "containment_record_ref": { "$ref": "#/$defs/refToken" },
+        "containment_scope_ref": { "$ref": "#/$defs/refToken" }
+      }
+    },
+    "evidenceEffectiveness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["effectiveness_criteria_ref", "effectiveness_owner_ref", "effectiveness_verification_ref"],
+      "properties": {
+        "effectiveness_criteria_ref": { "$ref": "#/$defs/refToken" },
+        "effectiveness_owner_ref": { "$ref": "#/$defs/refToken" },
+        "effectiveness_verification_ref": { "$ref": "#/$defs/refToken" }
+      }
+    },
+    "evidenceIntake": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["failure_description_ref", "intake_owner_ref", "intake_receipt_ref"],
+      "properties": {
+        "failure_description_ref": { "$ref": "#/$defs/refToken" },
+        "intake_owner_ref": { "$ref": "#/$defs/refToken" },
+        "intake_receipt_ref": { "$ref": "#/$defs/refToken" }
+      }
+    },
+    "evidenceRootCause": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root_cause_method_ref", "root_cause_owner_ref", "root_cause_record_ref"],
+      "properties": {
+        "root_cause_method_ref": { "$ref": "#/$defs/refToken" },
+        "root_cause_owner_ref": { "$ref": "#/$defs/refToken" },
+        "root_cause_record_ref": { "$ref": "#/$defs/refToken" }
+      }
+    },
+    "evidenceRecurrence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recurrence_owner_ref", "recurrence_review_ref", "recurrence_scope_ref"],
+      "properties": {
+        "recurrence_owner_ref": { "$ref": "#/$defs/refToken" },
+        "recurrence_review_ref": { "$ref": "#/$defs/refToken" },
+        "recurrence_scope_ref": { "$ref": "#/$defs/refToken" }
+      }
+    },
+    "presentEvidenceByRule": {
+      "type": "object",
+      "oneOf": [
+        { "type": "object", "required": ["evidence", "rule_id"], "properties": { "rule_id": { "const": "FFCA-ACTION-01" }, "evidence": { "$ref": "#/$defs/evidenceAction" } } },
+        { "type": "object", "required": ["change_state", "evidence", "rule_id"], "properties": { "rule_id": { "const": "FFCA-CHANGE-01" }, "change_state": { "const": "required" }, "evidence": { "$ref": "#/$defs/evidenceChangeRequired" } } },
+        { "type": "object", "required": ["change_state", "evidence", "rule_id"], "properties": { "rule_id": { "const": "FFCA-CHANGE-01" }, "change_state": { "const": "not_required" }, "evidence": { "$ref": "#/$defs/evidenceChangeNotRequired" } } },
+        { "type": "object", "required": ["change_state", "evidence", "rule_id"], "properties": { "rule_id": { "const": "FFCA-CHANGE-01" }, "change_state": { "const": "unknown" }, "evidence": { "$ref": "#/$defs/emptyEvidence" } } },
+        { "type": "object", "required": ["evidence", "rule_id"], "properties": { "rule_id": { "const": "FFCA-CLOSURE-01" }, "evidence": { "$ref": "#/$defs/evidenceClosure" } } },
+        { "type": "object", "required": ["evidence", "rule_id"], "properties": { "rule_id": { "const": "FFCA-CONTAIN-01" }, "evidence": { "$ref": "#/$defs/evidenceContainment" } } },
+        { "type": "object", "required": ["evidence", "rule_id"], "properties": { "rule_id": { "const": "FFCA-EFFECT-01" }, "evidence": { "$ref": "#/$defs/evidenceEffectiveness" } } },
+        { "type": "object", "required": ["evidence", "rule_id"], "properties": { "rule_id": { "const": "FFCA-INTAKE-01" }, "evidence": { "$ref": "#/$defs/evidenceIntake" } } },
+        { "type": "object", "required": ["evidence", "rule_id"], "properties": { "rule_id": { "const": "FFCA-RCA-01" }, "evidence": { "$ref": "#/$defs/evidenceRootCause" } } },
+        { "type": "object", "required": ["evidence", "rule_id"], "properties": { "rule_id": { "const": "FFCA-RECURRENCE-01" }, "evidence": { "$ref": "#/$defs/evidenceRecurrence" } } }
+      ]
+    },
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["applicability_state", "case_id", "case_kind", "evidence", "links", "observation_state", "row_id", "rule_id"],
+      "properties": {
+        "applicability_state": { "enum": ["applicable", "not_applicable", "unknown"] },
+        "case_id": { "$ref": "#/$defs/refToken" },
+        "case_kind": { "enum": ["car", "field_failure", "ncr"] },
+        "change_state": { "enum": ["not_required", "required", "unknown"] },
+        "conflict_claim_refs": { "type": "array", "minItems": 2, "maxItems": 2, "uniqueItems": true, "items": { "$ref": "#/$defs/refToken" } },
+        "evidence": { "type": "object" },
+        "links": { "$ref": "#/$defs/links" },
+        "not_applicable_basis_ref": { "$ref": "#/$defs/refToken" },
+        "observation_state": { "enum": ["absent", "conflict", "present", "unknown"] },
+        "row_id": { "$ref": "#/$defs/refToken" },
+        "rule_id": { "enum": ["FFCA-ACTION-01", "FFCA-CHANGE-01", "FFCA-CLOSURE-01", "FFCA-CONTAIN-01", "FFCA-EFFECT-01", "FFCA-INTAKE-01", "FFCA-RCA-01", "FFCA-RECURRENCE-01"] }
+      },
+      "allOf": [
+        {
+          "if": { "type": "object", "required": ["rule_id"], "properties": { "rule_id": { "const": "FFCA-CHANGE-01" } } },
+          "then": { "type": "object", "required": ["change_state"], "properties": { "change_state": { "enum": ["not_required", "required", "unknown"] } } },
+          "else": { "type": "object", "properties": { "change_state": false } }
+        },
+        {
+          "if": { "type": "object", "required": ["applicability_state"], "properties": { "applicability_state": { "const": "not_applicable" } } },
+          "then": {
+            "type": "object",
+            "required": ["not_applicable_basis_ref"],
+            "properties": {
+              "not_applicable_basis_ref": { "$ref": "#/$defs/refToken" },
+              "observation_state": { "const": "unknown" },
+              "evidence": { "$ref": "#/$defs/emptyEvidence" },
+              "conflict_claim_refs": false
+            }
+          },
+          "else": { "type": "object", "properties": { "not_applicable_basis_ref": false } }
+        },
+        {
+          "if": { "type": "object", "required": ["applicability_state"], "properties": { "applicability_state": { "const": "unknown" } } },
+          "then": { "type": "object", "properties": { "observation_state": { "const": "unknown" }, "evidence": { "$ref": "#/$defs/emptyEvidence" } } }
+        },
+        {
+          "if": { "type": "object", "required": ["observation_state"], "properties": { "observation_state": { "const": "conflict" } } },
+          "then": {
+            "type": "object",
+            "required": ["conflict_claim_refs"],
+            "properties": {
+              "conflict_claim_refs": { "type": "array", "minItems": 2, "maxItems": 2, "uniqueItems": true, "items": { "$ref": "#/$defs/refToken" } },
+              "evidence": { "$ref": "#/$defs/emptyEvidence" }
+            }
+          },
+          "else": { "type": "object", "properties": { "conflict_claim_refs": false } }
+        },
+        {
+          "if": { "type": "object", "required": ["observation_state"], "properties": { "observation_state": { "const": "present" } } },
+          "then": { "$ref": "#/$defs/presentEvidenceByRule" },
+          "else": { "type": "object", "properties": { "evidence": { "$ref": "#/$defs/emptyEvidence" } } }
+        }
+      ]
+    },
+    "domainInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rows", "schema_version"],
+      "properties": {
+        "rows": { "type": "array", "minItems": 1, "maxItems": 256, "items": { "$ref": "#/$defs/row" } },
+        "schema_version": { "const": "soulforge.field_failure_corrective_action.domain_input.v0" }
+      }
+    }
+  },
+  "$comment": "Executable validation also enforces reference sorting, dense plain data, exact static source/ruleset bindings, and no quality disposition, technical-change approval, release, or closure-decision authority."
+}
