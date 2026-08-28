@@ -3,7 +3,7 @@
   "engine_root": "guild_hall/engineering_engine",
   "contract_revision": "phase_1_0_contract.v0",
   "derivation": {
-    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness, engines/database_engineering, engines/material_procurement_readiness, engines/reliability_maintainability, engines/calibration_measurement_validity, engines/configuration_change_impact, engines/manufacturing_readiness, engines/field_failure_corrective_action, engines/safety_hazard, engines/pcb_compliance",
+    "module_edges": "parsed from import statements across canonical core, engines/systems_engineering, engines/quality_readiness, engines/database_engineering, engines/material_procurement_readiness, engines/reliability_maintainability, engines/calibration_measurement_validity, engines/configuration_change_impact, engines/manufacturing_readiness, engines/field_failure_corrective_action, engines/safety_hazard, engines/bom_supply_chain_risk, engines/pcb_compliance",
     "areas_covered": [
       "core",
       "engines/systems_engineering",
@@ -16,6 +16,7 @@
       "engines/manufacturing_readiness",
       "engines/field_failure_corrective_action",
       "engines/safety_hazard",
+      "engines/bom_supply_chain_risk",
       "engines/pcb_compliance"
     ],
     "areas_deliberately_excluded": [
@@ -857,6 +858,108 @@
       ],
       "export_count": 15,
       "line_count": 322
+    },
+    {
+      "module": "engines/bom_supply_chain_risk/compiler/bom_supply_chain_risk_compiler_adapter",
+      "area": "engines",
+      "exports": [
+        "BOM_SCR_COMPILER_ADAPTER_SCHEMA_VERSION",
+        "BOM_SCR_COMPILER_ERROR_CODES",
+        "bomSupplyChainRiskCompilerAdapter",
+        "compileBomSupplyChainRiskRules"
+      ],
+      "export_count": 4,
+      "line_count": 269
+    },
+    {
+      "module": "engines/bom_supply_chain_risk/evaluator/bom_supply_chain_risk",
+      "area": "engines",
+      "exports": [
+        "BOM_SCR_ASSESSMENT_SCHEMA_VERSION",
+        "BOM_SCR_DOMAIN_RESULT_SCHEMA_VERSION",
+        "BOM_SCR_EVALUATOR_ERROR_CODES",
+        "BOM_SCR_RECEIPT_SCHEMA_VERSION",
+        "evaluateBomSupplyChainRisk"
+      ],
+      "export_count": 5,
+      "line_count": 1415
+    },
+    {
+      "module": "engines/bom_supply_chain_risk/evaluator/bom_supply_chain_risk_evaluator_adapter",
+      "area": "engines",
+      "exports": [
+        "BOM_SCR_EVALUATOR_ADAPTER_SCHEMA_VERSION",
+        "bomSupplyChainRiskAdapter"
+      ],
+      "export_count": 2,
+      "line_count": 16
+    },
+    {
+      "module": "engines/bom_supply_chain_risk/fixtures/bom_supply_chain_risk_public_synthetic",
+      "area": "engines",
+      "exports": [
+        "buildBomSupplyChainRiskPublicSyntheticObservation",
+        "buildBomSupplyChainRiskPublicSyntheticProfile",
+        "buildBomSupplyChainRiskPublicSyntheticProjectBinding",
+        "buildBomSupplyChainRiskPublicSyntheticTypedFacts",
+        "cloneBomSupplyChainRiskPublicSyntheticObservation"
+      ],
+      "export_count": 5,
+      "line_count": 172
+    },
+    {
+      "module": "engines/bom_supply_chain_risk/rules/bom_supply_chain_risk_rules",
+      "area": "engines",
+      "exports": [
+        "BOM_SCR_RULES",
+        "BOM_SCR_RULESET_REF",
+        "BOM_SCR_RULESET_REVISION",
+        "BOM_SCR_RULESET_SCHEMA_VERSION",
+        "BOM_SCR_SOURCE_PACKET_REF",
+        "BOM_SCR_SOURCE_PACKET_SCHEMA_VERSION",
+        "BOM_SCR_SOURCE_REFERENCES",
+        "deriveBomSupplyChainRiskRulesetRef"
+      ],
+      "export_count": 8,
+      "line_count": 140
+    },
+    {
+      "module": "engines/bom_supply_chain_risk/tools/bom_supply_chain_risk_runner",
+      "area": "engines",
+      "exports": [],
+      "export_count": 0,
+      "line_count": 19
+    },
+    {
+      "module": "engines/bom_supply_chain_risk/topology/bom_supply_chain_risk_module_manifest",
+      "area": "engines",
+      "exports": [
+        "BOM_SCR_MODULE_MANIFEST_SCHEMA_VERSION",
+        "BOM_SCR_OWNED_PATHS",
+        "BOM_SCR_SHARED_DEPENDENCIES",
+        "createBomSupplyChainRiskModuleManifest"
+      ],
+      "export_count": 4,
+      "line_count": 71
+    },
+    {
+      "module": "engines/bom_supply_chain_risk/vocabulary/bom_supply_chain_risk_vocabulary",
+      "area": "engines",
+      "exports": [
+        "ALTERNATE_STATUSES",
+        "BOM_SCR_DOMAIN_ENGINE_ID",
+        "BOM_SCR_SNAPSHOT_KIND",
+        "CONTINUITY_STATUSES",
+        "COUNTERFEIT_CONTROL_STATUSES",
+        "LIFECYCLE_STATUSES",
+        "OBSOLESCENCE_SIGNALS",
+        "RESULT_STATES",
+        "RISK_DIMENSIONS",
+        "SOURCE_APPLICABILITY_STATUSES",
+        "THRESHOLD_METRICS"
+      ],
+      "export_count": 11,
+      "line_count": 73
     },
     {
       "module": "engines/calibration_measurement_validity/compiler/calibration_measurement_validity_compiler_adapter",
@@ -3582,7 +3685,7 @@
       "line_count": 1885
     }
   ],
-  "module_count": 236,
+  "module_count": 244,
   "module_edges": [
     {
       "from": "core/evaluation_runtime/claim_ceilings",
@@ -4455,6 +4558,167 @@
     {
       "from": "core/validators/snapshot",
       "to": "core/validators/minting",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/compiler/bom_supply_chain_risk_compiler_adapter",
+      "to": "core/interfaces/profile_operation_canon",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/compiler/bom_supply_chain_risk_compiler_adapter",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/compiler/bom_supply_chain_risk_compiler_adapter",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/compiler/bom_supply_chain_risk_compiler_adapter",
+      "to": "engines/bom_supply_chain_risk/rules/bom_supply_chain_risk_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/compiler/bom_supply_chain_risk_compiler_adapter",
+      "to": "engines/bom_supply_chain_risk/vocabulary/bom_supply_chain_risk_vocabulary",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/evaluator/bom_supply_chain_risk_evaluator_adapter",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/evaluator/bom_supply_chain_risk_evaluator_adapter",
+      "to": "engines/bom_supply_chain_risk/compiler/bom_supply_chain_risk_compiler_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/evaluator/bom_supply_chain_risk_evaluator_adapter",
+      "to": "engines/bom_supply_chain_risk/evaluator/bom_supply_chain_risk",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/evaluator/bom_supply_chain_risk",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/evaluator/bom_supply_chain_risk",
+      "to": "core/interfaces/profile_operation_canon",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/evaluator/bom_supply_chain_risk",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/evaluator/bom_supply_chain_risk",
+      "to": "core/validators/errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/evaluator/bom_supply_chain_risk",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/evaluator/bom_supply_chain_risk",
+      "to": "engines/bom_supply_chain_risk/rules/bom_supply_chain_risk_rules",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/evaluator/bom_supply_chain_risk",
+      "to": "engines/bom_supply_chain_risk/vocabulary/bom_supply_chain_risk_vocabulary",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/fixtures/bom_supply_chain_risk_public_synthetic",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/rules/bom_supply_chain_risk_rules",
+      "to": "core/validators/canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/rules/bom_supply_chain_risk_rules",
+      "to": "core/validators/fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/rules/bom_supply_chain_risk_rules",
+      "to": "engines/bom_supply_chain_risk/vocabulary/bom_supply_chain_risk_vocabulary",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/tools/bom_supply_chain_risk_runner",
+      "to": "core/interfaces/domain_engine_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/tools/bom_supply_chain_risk_runner",
+      "to": "engines/bom_supply_chain_risk/evaluator/bom_supply_chain_risk_evaluator_adapter",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/tools/bom_supply_chain_risk_runner",
+      "to": "engines/bom_supply_chain_risk/fixtures/bom_supply_chain_risk_public_synthetic",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/bom_supply_chain_risk/topology/bom_supply_chain_risk_module_manifest",
+      "to": "core/validators/fingerprint",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
@@ -9206,7 +9470,7 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 803,
+  "module_edge_count": 826,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -9557,5 +9821,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "2ccd6fd5d9cf189646d95f142c0cda41e17f07fae7b69499e050415b05402ec8"
+  "topology_digest": "2303ff5a4020f21775613e3f3200716fee17574a25a181d5e0091e0563eaacbc"
 }

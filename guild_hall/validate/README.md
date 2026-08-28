@@ -63,6 +63,7 @@
   - `npm run validate:manufacturing-readiness`
   - `npm run validate:field-failure-corrective-action`
   - `npm run validate:safety-hazard`
+  - `npm run validate:bom-supply-chain-risk`
   - `npm run validate:pcb-compliance`
   - `npm run validate:reliability-maintainability`
   - `npm run validate:calibration-measurement-validity`

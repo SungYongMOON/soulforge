@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-28 - BOM & Supply-Chain Risk evidence-readiness Domain Engine main integration
+
+- Integrated the accepted `bom_supply_chain_risk` package behind the unchanged Engineering Engine Core without granting DFARS applicability, contract compliance, supplier approval, counterfeit authentication, procurement, ERP, project acceptance, production, release, canon, or writer authority.
+- Registered its evaluator and root `validate:bom-supply-chain-risk` gate, including 33 package tests for exact BOM identity, Core Typed Facts and four-argument admission, complete Profile operation/trace provenance, dual-gated DFARS evidence membership, closed schemas, replay, and zero-write behavior.
+- Kept DoD/DFARS/NIST source use bounded to a deterministic `source_supported` candidate; clause incorporation, Cost Accounting Standards applicability, and project evidence remain exact caller-supplied facts under human authority.
+
 ## 2026-08-28 - Quality Readiness Q1 source and replay deepening main integration
 
 - Integrated the accepted Q1 deepening surfaces for `quality_readiness`: immutable public source pins, locator-only non-authoritative RAG, Core-compatible Typed Facts/Profile provenance, fixed-point assessment replay, replay-bound observation/guidance/read tools, and seven closed semantic schemas.

@@ -322,6 +322,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk_evaluator_adapter",
+      "id": "engineering_engine::imports.11ce1bb0ec65d4a28e3f69770047559c",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.bom_supply_chain_risk.compiler.bom_supply_chain_risk_compiler_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.calibration_measurement_validity.mcp.calibration_measurement_validity_read_only_mcp",
       "id": "engineering_engine::imports.12317420a52153c21f98c547fde29f9e",
       "label": "imports",
@@ -642,6 +652,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.topology.bom_supply_chain_risk_module_manifest",
+      "id": "engineering_engine::imports.1e96fea4ef75f522ab86d995f4a8a231",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.field_failure_corrective_action.evaluator.field_failure_corrective_action",
       "id": "engineering_engine::imports.1ff2f889e501f26c1ce71c47a22f8ce0",
       "label": "imports",
@@ -732,6 +752,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.rules.bom_supply_chain_risk_rules",
+      "id": "engineering_engine::imports.2752c4ebc62f403d98796ea1539fab6a",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.bom_supply_chain_risk.vocabulary.bom_supply_chain_risk_vocabulary"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.judge_diff",
       "id": "engineering_engine::imports.2764f9d3cc7ac040c82efec5d253e990",
       "label": "imports",
@@ -812,6 +842,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk",
+      "id": "engineering_engine::imports.2beefdc11f3486252779065f3851386d",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability",
       "id": "engineering_engine::imports.2c0e44a77f092eb2823eb4f22b51a2f8",
       "label": "imports",
@@ -829,6 +869,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk",
+      "id": "engineering_engine::imports.2cd129449a73713a77423e4b72a89148",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.bom_supply_chain_risk.rules.bom_supply_chain_risk_rules"
     },
     {
       "evidence_mode": "structural_only",
@@ -1152,6 +1202,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.tools.bom_supply_chain_risk_runner",
+      "id": "engineering_engine::imports.3a4831a840f16331ed33011a8098aa8e",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk_evaluator_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.pcb_compliance.evaluator.pcb_compliance",
       "id": "engineering_engine::imports.3a969877c2e337c35636b26d6b194a7d",
       "label": "imports",
@@ -1199,6 +1259,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.compiler.bom_supply_chain_risk_compiler_adapter",
+      "id": "engineering_engine::imports.3cb93c57667a9ee857ca26f614a80741",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.bom_supply_chain_risk.rules.bom_supply_chain_risk_rules"
     },
     {
       "evidence_mode": "structural_only",
@@ -1279,6 +1349,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.compiler.bom_supply_chain_risk_compiler_adapter",
+      "id": "engineering_engine::imports.405f803c195c04477f34471ab4549840",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
     },
     {
       "evidence_mode": "structural_only",
@@ -1629,6 +1709,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.observation.artifact_observations_from_confirmed"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.compiler.bom_supply_chain_risk_compiler_adapter",
+      "id": "engineering_engine::imports.50cde44db1b68931f16fbd7603f743a9",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
     },
     {
       "evidence_mode": "structural_only",
@@ -2892,6 +2982,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk",
+      "id": "engineering_engine::imports.8ef442aeb8eb501cb352eefcff8bb63b",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.profile_operation_canon"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.evaluator.ax_se_project_role_bound_assessment",
       "id": "engineering_engine::imports.8f03d8fd2fab4ef613ef93abfa031a5f",
       "label": "imports",
@@ -3029,6 +3129,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.paging"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.rules.bom_supply_chain_risk_rules",
+      "id": "engineering_engine::imports.948b5590ee47fd00e6630e794fa23396",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
     },
     {
       "evidence_mode": "structural_only",
@@ -3252,6 +3362,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.compiler.bom_supply_chain_risk_compiler_adapter",
+      "id": "engineering_engine::imports.9c99a12eff264f9376ce89cfa70bbc10",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.profile_operation_canon"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.guidance.instruction_packet",
       "id": "engineering_engine::imports.9d06f81c66b9bd9673f024954a75d20e",
       "label": "imports",
@@ -3432,6 +3552,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.fixtures.bom_supply_chain_risk_public_synthetic",
+      "id": "engineering_engine::imports.a8c230387dc7ead8f72b76c98ee01bce",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::module.ed1b99b09119b32c19fcba1fcbf0dc4b",
       "id": "engineering_engine::imports.a910e357b8a83b1a7f31b1994a76ce9c",
       "label": "imports",
@@ -3592,6 +3722,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk_evaluator_adapter",
+      "id": "engineering_engine::imports.b1934593a151a26b40995fbf2cddda8a",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.manufacturing_readiness.rules.manufacturing_readiness_rules",
       "id": "engineering_engine::imports.b1b776fb5c4e30633d89c7a2d68e9ade",
       "label": "imports",
@@ -3722,6 +3862,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.compiler.bom_supply_chain_risk_compiler_adapter",
+      "id": "engineering_engine::imports.b516bd0b62636ad51e5c3d2442d8fd46",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.bom_supply_chain_risk.vocabulary.bom_supply_chain_risk_vocabulary"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.reliability_maintainability.fixtures.reliability_maintainability_public_synthetic",
       "id": "engineering_engine::imports.b519b605c8a9ad29f8d5302225ce105e",
       "label": "imports",
@@ -3824,6 +3974,16 @@
       "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.reliability_maintainability.evaluator.reliability_maintainability_evaluator_adapter",
       "id": "engineering_engine::imports.bac5330d5d9abb0f38423711506cae08",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk",
+      "id": "engineering_engine::imports.bad0e10d07673d9ac37d763a518f4017",
       "label": "imports",
       "layer": "module",
       "provider_id": "engineering_engine",
@@ -4172,6 +4332,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.tools.bom_supply_chain_risk_runner",
+      "id": "engineering_engine::imports.c9a7af3e30c2081d466891512fe36410",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.bom_supply_chain_risk.fixtures.bom_supply_chain_risk_public_synthetic"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.tools.ax_se_project_role_bound_assessment_runner",
       "id": "engineering_engine::imports.c9aa70d2d05536a47ad1c2d0bdad8547",
       "label": "imports",
@@ -4279,6 +4449,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.systems_engineering.mcp.tools.observe_register"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk_evaluator_adapter",
+      "id": "engineering_engine::imports.cef1cd4c42df0ef7ca8ea1fda114c5bd",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk"
     },
     {
       "evidence_mode": "structural_only",
@@ -6022,6 +6202,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk",
+      "id": "engineering_engine::imports.e48beb2816cdc084d77991d43781f010",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.bom_supply_chain_risk.vocabulary.bom_supply_chain_risk_vocabulary"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.next_steps",
       "id": "engineering_engine::imports.e4d33ceb78393238ce6df555820e17f2",
       "label": "imports",
@@ -6104,6 +6294,16 @@
       "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.field_failure_corrective_action.rules.field_failure_corrective_action_rules",
       "id": "engineering_engine::imports.e8583d7b2aaf22ac374d8607b41e3d6f",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.rules.bom_supply_chain_risk_rules",
+      "id": "engineering_engine::imports.e94b8c073f4a5f0636994cffe8b5baab",
       "label": "imports",
       "layer": "module",
       "provider_id": "engineering_engine",
@@ -6202,6 +6402,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.tools.bom_supply_chain_risk_runner",
+      "id": "engineering_engine::imports.ee35c311c0b470a727da901d234a42b4",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.database_engineering.evaluator.database_project_evidence_adapter",
       "id": "engineering_engine::imports.ee4d9a2b76ac81ab93913963fb7fee0e",
       "label": "imports",
@@ -6239,6 +6449,26 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::core.interfaces.domain_engine_adapter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk",
+      "id": "engineering_engine::imports.engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk.core.validators.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk",
+      "id": "engineering_engine::imports.engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk.core.validators.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::core.validators.errors"
     },
     {
       "evidence_mode": "structural_only",
@@ -8923,6 +9153,94 @@
       "id": "engineering_engine::core.validators.snapshot",
       "kind": "module",
       "label": "core/validators/snapshot",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.bom_supply_chain_risk.compiler.bom_supply_chain_risk_compiler_adapter",
+      "kind": "module",
+      "label": "engines/bom_supply_chain_risk/compiler/bom_supply_chain_risk_compiler_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk",
+      "kind": "module",
+      "label": "engines/bom_supply_chain_risk/evaluator/bom_supply_chain_risk",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk_evaluator_adapter",
+      "kind": "module",
+      "label": "engines/bom_supply_chain_risk/evaluator/bom_supply_chain_risk_evaluator_adapter",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.bom_supply_chain_risk.fixtures.bom_supply_chain_risk_public_synthetic",
+      "kind": "module",
+      "label": "engines/bom_supply_chain_risk/fixtures/bom_supply_chain_risk_public_synthetic",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.bom_supply_chain_risk.rules.bom_supply_chain_risk_rules",
+      "kind": "module",
+      "label": "engines/bom_supply_chain_risk/rules/bom_supply_chain_risk_rules",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.bom_supply_chain_risk.tools.bom_supply_chain_risk_runner",
+      "kind": "module",
+      "label": "engines/bom_supply_chain_risk/tools/bom_supply_chain_risk_runner",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.bom_supply_chain_risk.topology.bom_supply_chain_risk_module_manifest",
+      "kind": "module",
+      "label": "engines/bom_supply_chain_risk/topology/bom_supply_chain_risk_module_manifest",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
+      "id": "engineering_engine::engines.bom_supply_chain_risk.vocabulary.bom_supply_chain_risk_vocabulary",
+      "kind": "module",
+      "label": "engines/bom_supply_chain_risk/vocabulary/bom_supply_chain_risk_vocabulary",
       "layer": "module",
       "parent_id": null,
       "provider_id": "engineering_engine",
@@ -11874,6 +12192,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk_evaluator_adapter",
+          "id": "imports.11ce1bb0ec65d4a28e3f69770047559c",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.bom_supply_chain_risk.compiler.bom_supply_chain_risk_compiler_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.calibration_measurement_validity.mcp.calibration_measurement_validity_read_only_mcp",
           "id": "imports.12317420a52153c21f98c547fde29f9e",
           "label": "imports",
@@ -12162,6 +12489,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.topology.bom_supply_chain_risk_module_manifest",
+          "id": "imports.1e96fea4ef75f522ab86d995f4a8a231",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.field_failure_corrective_action.evaluator.field_failure_corrective_action",
           "id": "imports.1ff2f889e501f26c1ce71c47a22f8ce0",
           "label": "imports",
@@ -12243,6 +12579,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.rules.bom_supply_chain_risk_rules",
+          "id": "imports.2752c4ebc62f403d98796ea1539fab6a",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.bom_supply_chain_risk.vocabulary.bom_supply_chain_risk_vocabulary"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.judge_diff",
           "id": "imports.2764f9d3cc7ac040c82efec5d253e990",
           "label": "imports",
@@ -12315,6 +12660,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk",
+          "id": "imports.2beefdc11f3486252779065f3851386d",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.reliability_maintainability.evaluator.reliability_maintainability",
           "id": "imports.2c0e44a77f092eb2823eb4f22b51a2f8",
           "label": "imports",
@@ -12330,6 +12684,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk",
+          "id": "imports.2cd129449a73713a77423e4b72a89148",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.bom_supply_chain_risk.rules.bom_supply_chain_risk_rules"
         },
         {
           "evidence_mode": "structural_only",
@@ -12621,6 +12984,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.tools.bom_supply_chain_risk_runner",
+          "id": "imports.3a4831a840f16331ed33011a8098aa8e",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk_evaluator_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.pcb_compliance.evaluator.pcb_compliance",
           "id": "imports.3a969877c2e337c35636b26d6b194a7d",
           "label": "imports",
@@ -12663,6 +13035,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.reliability_maintainability.evaluator.reliability_maintainability"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.compiler.bom_supply_chain_risk_compiler_adapter",
+          "id": "imports.3cb93c57667a9ee857ca26f614a80741",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.bom_supply_chain_risk.rules.bom_supply_chain_risk_rules"
         },
         {
           "evidence_mode": "structural_only",
@@ -12735,6 +13116,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.reliability_maintainability.compiler.reliability_maintainability_compiler_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.compiler.bom_supply_chain_risk_compiler_adapter",
+          "id": "imports.405f803c195c04477f34471ab4549840",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
         },
         {
           "evidence_mode": "structural_only",
@@ -13050,6 +13440,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.observation.artifact_observations_from_confirmed"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.compiler.bom_supply_chain_risk_compiler_adapter",
+          "id": "imports.50cde44db1b68931f16fbd7603f743a9",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
         },
         {
           "evidence_mode": "structural_only",
@@ -14187,6 +14586,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk",
+          "id": "imports.8ef442aeb8eb501cb352eefcff8bb63b",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.profile_operation_canon"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.evaluator.ax_se_project_role_bound_assessment",
           "id": "imports.8f03d8fd2fab4ef613ef93abfa031a5f",
           "label": "imports",
@@ -14310,6 +14718,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.paging"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.rules.bom_supply_chain_risk_rules",
+          "id": "imports.948b5590ee47fd00e6630e794fa23396",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
         },
         {
           "evidence_mode": "structural_only",
@@ -14511,6 +14928,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.compiler.bom_supply_chain_risk_compiler_adapter",
+          "id": "imports.9c99a12eff264f9376ce89cfa70bbc10",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.profile_operation_canon"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.guidance.instruction_packet",
           "id": "imports.9d06f81c66b9bd9673f024954a75d20e",
           "label": "imports",
@@ -14673,6 +15099,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.fixtures.bom_supply_chain_risk_public_synthetic",
+          "id": "imports.a8c230387dc7ead8f72b76c98ee01bce",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "module.ed1b99b09119b32c19fcba1fcbf0dc4b",
           "id": "imports.a910e357b8a83b1a7f31b1994a76ce9c",
           "label": "imports",
@@ -14817,6 +15252,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk_evaluator_adapter",
+          "id": "imports.b1934593a151a26b40995fbf2cddda8a",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.manufacturing_readiness.rules.manufacturing_readiness_rules",
           "id": "imports.b1b776fb5c4e30633d89c7a2d68e9ade",
           "label": "imports",
@@ -14934,6 +15378,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.compiler.bom_supply_chain_risk_compiler_adapter",
+          "id": "imports.b516bd0b62636ad51e5c3d2442d8fd46",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.bom_supply_chain_risk.vocabulary.bom_supply_chain_risk_vocabulary"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.reliability_maintainability.fixtures.reliability_maintainability_public_synthetic",
           "id": "imports.b519b605c8a9ad29f8d5302225ce105e",
           "label": "imports",
@@ -15026,6 +15479,15 @@
           "evidence_mode": "structural_only",
           "from": "engines.reliability_maintainability.evaluator.reliability_maintainability_evaluator_adapter",
           "id": "imports.bac5330d5d9abb0f38423711506cae08",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk",
+          "id": "imports.bad0e10d07673d9ac37d763a518f4017",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
@@ -15339,6 +15801,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.tools.bom_supply_chain_risk_runner",
+          "id": "imports.c9a7af3e30c2081d466891512fe36410",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.bom_supply_chain_risk.fixtures.bom_supply_chain_risk_public_synthetic"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.tools.ax_se_project_role_bound_assessment_runner",
           "id": "imports.c9aa70d2d05536a47ad1c2d0bdad8547",
           "label": "imports",
@@ -15435,6 +15906,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.systems_engineering.mcp.tools.observe_register"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk_evaluator_adapter",
+          "id": "imports.cef1cd4c42df0ef7ca8ea1fda114c5bd",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk"
         },
         {
           "evidence_mode": "structural_only",
@@ -17004,6 +17484,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk",
+          "id": "imports.e48beb2816cdc084d77991d43781f010",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.bom_supply_chain_risk.vocabulary.bom_supply_chain_risk_vocabulary"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.next_steps",
           "id": "imports.e4d33ceb78393238ce6df555820e17f2",
           "label": "imports",
@@ -17078,6 +17567,15 @@
           "evidence_mode": "structural_only",
           "from": "engines.field_failure_corrective_action.rules.field_failure_corrective_action_rules",
           "id": "imports.e8583d7b2aaf22ac374d8607b41e3d6f",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.rules.bom_supply_chain_risk_rules",
+          "id": "imports.e94b8c073f4a5f0636994cffe8b5baab",
           "label": "imports",
           "layer": "module",
           "relation": "imports",
@@ -17166,6 +17664,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.tools.bom_supply_chain_risk_runner",
+          "id": "imports.ee35c311c0b470a727da901d234a42b4",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.database_engineering.evaluator.database_project_evidence_adapter",
           "id": "imports.ee4d9a2b76ac81ab93913963fb7fee0e",
           "label": "imports",
@@ -17199,6 +17706,24 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.interfaces.domain_engine_adapter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk",
+          "id": "imports.engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk.core.validators.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk",
+          "id": "imports.engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk.core.validators.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "core.validators.errors"
         },
         {
           "evidence_mode": "structural_only",
@@ -19170,6 +19695,86 @@
           "id": "core.validators.snapshot",
           "kind": "module",
           "label": "core/validators/snapshot",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.bom_supply_chain_risk.compiler.bom_supply_chain_risk_compiler_adapter",
+          "kind": "module",
+          "label": "engines/bom_supply_chain_risk/compiler/bom_supply_chain_risk_compiler_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk",
+          "kind": "module",
+          "label": "engines/bom_supply_chain_risk/evaluator/bom_supply_chain_risk",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.bom_supply_chain_risk.evaluator.bom_supply_chain_risk_evaluator_adapter",
+          "kind": "module",
+          "label": "engines/bom_supply_chain_risk/evaluator/bom_supply_chain_risk_evaluator_adapter",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.bom_supply_chain_risk.fixtures.bom_supply_chain_risk_public_synthetic",
+          "kind": "module",
+          "label": "engines/bom_supply_chain_risk/fixtures/bom_supply_chain_risk_public_synthetic",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.bom_supply_chain_risk.rules.bom_supply_chain_risk_rules",
+          "kind": "module",
+          "label": "engines/bom_supply_chain_risk/rules/bom_supply_chain_risk_rules",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.bom_supply_chain_risk.tools.bom_supply_chain_risk_runner",
+          "kind": "module",
+          "label": "engines/bom_supply_chain_risk/tools/bom_supply_chain_risk_runner",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.bom_supply_chain_risk.topology.bom_supply_chain_risk_module_manifest",
+          "kind": "module",
+          "label": "engines/bom_supply_chain_risk/topology/bom_supply_chain_risk_module_manifest",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
+          "id": "engines.bom_supply_chain_risk.vocabulary.bom_supply_chain_risk_vocabulary",
+          "kind": "module",
+          "label": "engines/bom_supply_chain_risk/vocabulary/bom_supply_chain_risk_vocabulary",
           "layer": "module",
           "parent_id": null,
           "repair_state": "none"
@@ -21181,7 +21786,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "f41ffcec830aab4a8684fc89d04eaba8711e4064090564156b5a55561ed874dd",
+        "digest": "15132cae138b509a0e42ca1eb64caaf3fde0fb5277d36abbb742ea19fe0acdb3",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -22175,13 +22780,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "a322ae5aced646423afa46659bb6ff8c7ebcad8e29e2236ce9594b92490d9c8d",
+  "source_set_digest": "d2eed4047a61c60ea88adb7f189261f3687c24fe0f6ae2158437cac7cfbd96fc",
   "summary": {
-    "edge_count": 853,
-    "node_count": 275,
+    "edge_count": 876,
+    "node_count": 283,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "fadad7d3b7a14b932140791c145e62de3fe6b3dd25026d71757d00bfffe617ea"
+  "topology_digest": "0064c89827f4d12e86dc1a36091c43bece99b6014e29c18a053eba575cd787f2"
 }

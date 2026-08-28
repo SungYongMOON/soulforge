@@ -27,6 +27,7 @@ import "../../engines/configuration_change_impact/evaluator/configuration_change
 import "../../engines/manufacturing_readiness/evaluator/manufacturing_readiness_evaluator_adapter.mjs";
 import "../../engines/field_failure_corrective_action/evaluator/field_failure_corrective_action_evaluator_adapter.mjs";
 import "../../engines/safety_hazard/evaluator/safety_hazard_evaluator_adapter.mjs";
+import "../../engines/bom_supply_chain_risk/evaluator/bom_supply_chain_risk_evaluator_adapter.mjs";
 import "../../engines/pcb_compliance/evaluator/pcb_compliance_evaluator_adapter.mjs";
 
 test("Core Interface: domain engine adapters register and load successfully", () => {
@@ -69,6 +70,10 @@ test("Core Interface: domain engine adapters register and load successfully", ()
   const shAdapter = loadDomainEngineAdapter("safety_hazard");
   assert.equal(shAdapter.domain_engine_id, "safety_hazard");
   assert.ok(validateDomainEngineAdapter(shAdapter));
+
+  const bomScrAdapter = loadDomainEngineAdapter("bom_supply_chain_risk");
+  assert.equal(bomScrAdapter.domain_engine_id, "bom_supply_chain_risk");
+  assert.ok(validateDomainEngineAdapter(bomScrAdapter));
 
   const pcbAdapter = loadDomainEngineAdapter("pcb_compliance");
   assert.equal(pcbAdapter.domain_engine_id, "pcb_compliance");

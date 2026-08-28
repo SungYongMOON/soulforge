@@ -11,6 +11,7 @@ The canonical contracts for domain engines have been physically relocated:
 - Manufacturing Readiness: `guild_hall/engineering_engine/engines/manufacturing_readiness/contracts/`
 - Field Failure Corrective Action: `guild_hall/engineering_engine/engines/field_failure_corrective_action/contracts/`
 - Safety Hazard: `guild_hall/engineering_engine/engines/safety_hazard/contracts/`
+- BOM & Supply-Chain Risk: `guild_hall/engineering_engine/engines/bom_supply_chain_risk/contracts/`
 - PCB Compliance: `guild_hall/engineering_engine/engines/pcb_compliance/contracts/`
 
 This directory is a non-authoritative compatibility pointer and contains no contract definitions.
