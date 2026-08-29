@@ -72,9 +72,30 @@ function strictUtc(value, label) {
   return parsed.toISOString();
 }
 
-function normalizeRecord(raw, args, existing = null) {
-  const project = clampStr(args.project ?? raw.project_code ?? "system", 40);
-  if (!PROJECT_RE.test(project)) fail("invalid_project_code");
+function resolveProjectCode(root, requestedProject) {
+  // Exact legacy alias only: "SYSTEM" resolves to the canonical "system"
+  // ledger directory. No other case-insensitive project matching is applied.
+  // The case-alias scan below runs against this resolved candidate (not the
+  // raw requested value), so a pre-existing case-variant directory for the
+  // resolved candidate — e.g. "_workmeta/SYSTEM" with no canonical
+  // "_workmeta/system" yet — still HOLDs instead of silently writing into
+  // (or alongside) the wrong-case directory.
+  const resolved = requestedProject === "SYSTEM" ? "system" : requestedProject;
+  let dirs = [];
+  try {
+    dirs = readdirSync(join(root, "_workmeta"), { withFileTypes: true })
+      .filter((d) => d.isDirectory()).map((d) => d.name);
+  } catch { /* no _workmeta yet */ }
+  if (dirs.some((d) => d !== resolved && d.toLowerCase() === resolved.toLowerCase())) {
+    fail("project_directory_case_mismatch");
+  }
+  return resolved;
+}
+
+function normalizeRecord(root, raw, args, existing = null) {
+  const requestedProject = clampStr(args.project ?? raw.project_code ?? "system", 40);
+  if (!PROJECT_RE.test(requestedProject)) fail("invalid_project_code");
+  const project = resolveProjectCode(root, requestedProject);
   const requestKind = String(raw.request_kind ?? args["request-kind"] ?? "").trim().toLowerCase();
   if (!SLUG_RE.test(requestKind)) fail("invalid_request_kind_slug (예: review/mail, doc_update/manual)");
   const inputRefs = (Array.isArray(raw.input_refs) ? raw.input_refs : [])
@@ -160,7 +181,7 @@ function main() {
   let raw;
   try { raw = JSON.parse(rawText); } catch (e) { fail("json_parse_error: " + String(e?.message ?? e).slice(0, 120)); }
 
-  let rec = normalizeRecord(raw, args);
+  let rec = normalizeRecord(root, raw, args);
   const p = ledgerPath(root, rec.project_code);
   mkdirSync(join(p, ".."), { recursive: true });
   if (existsSync(p)) {
@@ -173,7 +194,7 @@ function main() {
     }
     if (matches.length >= 1) {
       const existing = matches[0];
-      rec = normalizeRecord(raw, args, existing);
+      rec = normalizeRecord(root, raw, args, existing);
       let candidateForDigest = rec;
       const callerSuppliedClocks = args["occurred-at"] !== undefined
         || args["recorded-at"] !== undefined

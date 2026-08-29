@@ -1,5 +1,22 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-08-29 CURRENT: a bounded self-heal closed three separate gaps without
+> changing any authority. The PLAUD/voice mirror's ctime-only convergence stays
+> digest-bound and fail-closed: a source file whose ctime alone moved between
+> the incremental fast-path scan and end-of-run confirmation now settles only
+> after a bounded re-hash matches the prior checkpoint digest, while any real
+> size/mtime drift or digest mismatch still fails the sync closed exactly as
+> before. The five-field ledger validator now accepts the exact `SYSTEM`
+> legacy alias only inside the canonical `system` ledger directory; every
+> other project/directory case mismatch remains invalid, no ledger was
+> rewritten, and new captures write the canonical `project_code: "system"`.
+> The new report-only Codex retention freshness registrar remains
+> source-only: it plans (and, only given an explicit caller-supplied adapter,
+> attempts) a fixed-identity hidden Scheduled Task, and its reviewed
+> `ops/` PowerShell/VBS procedure stays a live `HOLD` — uninstalled, unstarted,
+> and unexecuted by this repo — until a separate human Owner review installs
+> it.
+>
 > 2026-08-28 LIVE OBSERVATION: the reviewed public tip was fast-forwarded to main,
 > six exact runtime modules were byte-matched with a reversible local backup, and only
 > the owned voice/ingress supervisors were restarted. The first voice cycle recorded

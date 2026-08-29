@@ -188,8 +188,8 @@ export async function stableDigestFile(path, operations = {}) {
   };
 }
 
-async function stableDigest(path) {
-  return stableDigestFile(path);
+async function stableDigest(path, operations) {
+  return stableDigestFile(path, operations);
 }
 
 async function collectLaneFiles(sourceRoot, lanes) {
@@ -566,6 +566,9 @@ export async function syncCopyOnlyMirror(options) {
   const maxNewBytes = Number.isSafeInteger(options.maxNewBytes) ? options.maxNewBytes : 2 * 1024 * 1024 * 1024;
   const now = typeof options.now === "function" ? options.now : () => new Date().toISOString();
   const assertFence = typeof options.assertFence === "function" ? options.assertFence : async () => {};
+  // Test-only seam for the bounded ctime-settle re-observation below; real
+  // callers never set this and it falls through to the real filesystem.
+  const ctimeSettleOperations = options.ctimeSettleOperations || {};
 
   if (!sourceOwnerRef || !/^[A-Za-z0-9_.:-]+$/.test(sourceOwnerRef)) fail("invalid_source_owner_ref");
   if (maxNewFiles < 1 || maxNewBytes < 1) fail("invalid_copy_limit");
@@ -786,7 +789,35 @@ export async function syncCopyOnlyMirror(options) {
 
   for (const file of metadataFastPathFiles) {
     const confirmed = await refreshSourceFileMetadata(file);
-    if (!sameSourceMetadata(file, confirmed)) fail("source_changed_during_incremental_scan");
+    if (sameSourceMetadata(file, confirmed)) continue;
+    if (file.size !== confirmed.size || file.mtime_ms !== confirmed.mtime_ms) {
+      fail("source_changed_during_incremental_scan");
+    }
+    // Size and mtime are still stable; only ctime moved (e.g. a cloud-sync
+    // rehydration touch). Settle it with a bounded re-observation and accept
+    // the drift only if the payload still hashes to the prior checkpoint digest.
+    // stableDigest fails closed with its own internal code (e.g.
+    // source_changed_during_hash) if ctime keeps moving during that bounded
+    // settle; normalize any such failure to the caller-facing incremental
+    // scan code instead of leaking the internal one.
+    let settled;
+    try {
+      settled = await stableDigest(file.path, ctimeSettleOperations);
+    } catch {
+      fail("source_changed_during_incremental_scan");
+    }
+    if (settled.size !== file.size || settled.mtime_ms !== file.mtime_ms) {
+      fail("source_changed_during_incremental_scan");
+    }
+    const entry = checkpoint.files[file.key];
+    if (!entry || entry.sha256 !== settled.sha256) fail("source_changed_during_incremental_scan");
+    checkpoint.files[file.key] = { ...entry, source_observed_ctime_ms: settled.ctime_ms };
+    // This file already counted toward source_files_metadata_unchanged in the
+    // main scan loop; it required a hash here to settle the ctime drift, so
+    // move its count to source_files_hashed instead of leaving it in both —
+    // otherwise the two counters could sum past summary.scanned.
+    summary.source_files_hashed += 1;
+    summary.source_files_metadata_unchanged -= 1;
   }
 
   for (const [key, value] of Object.entries(checkpoint.files)) {

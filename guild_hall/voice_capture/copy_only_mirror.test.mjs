@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, readdir, rm, symlink, utimes, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, rename, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -346,6 +346,133 @@ test("incremental fast path refreshes metadata after retained-custody checks", a
     assert.equal(result.source_files_hashed, 1);
     assert.equal(result.source_files_metadata_unchanged, 0);
     assert.equal(result.copied_version, 1);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("incremental fast path converges a ctime-only drift discovered at confirmation", async () => {
+  const f = await fixture();
+  try {
+    const sourceFile = join(f.source, "sessions", "ctime-drift.txt");
+    const sourceKey = "sessions/ctime-drift.txt";
+    await writeFile(sourceFile, "stable-content");
+    const first = await syncCopyOnlyMirror(options(f, { verificationMode: "incremental" }));
+    assert.equal(first.source_files_hashed, 1);
+    const beforeCheckpoint = JSON.parse(await readFile(f.checkpoint, "utf8"));
+    const priorCtime = beforeCheckpoint.files[sourceKey].source_observed_ctime_ms;
+    const priorSha256 = beforeCheckpoint.files[sourceKey].sha256;
+
+    let bumped = false;
+    const second = await syncCopyOnlyMirror(options(f, {
+      verificationMode: "incremental",
+      assertFence: async ({ phase, source_key: key }) => {
+        if (!bumped && phase === "after_source_file" && key === sourceKey) {
+          bumped = true;
+          await rename(sourceFile, `${sourceFile}.tmp`);
+          await rename(`${sourceFile}.tmp`, sourceFile);
+        }
+      },
+    }));
+    assert.equal(bumped, true);
+    // The row required a re-hash to settle the ctime drift, so it must count
+    // as hashed (not metadata-unchanged) — the two counters must not both
+    // claim this same file, or their sum would exceed summary.scanned.
+    assert.equal(second.source_files_metadata_unchanged, 0);
+    assert.equal(second.source_files_hashed, 1);
+    assert.equal(second.scanned, 1);
+    assert.equal(second.copied_version, 0);
+    assert.equal(second.copied_new, 0);
+    const afterCheckpoint = JSON.parse(await readFile(f.checkpoint, "utf8"));
+    assert.equal(afterCheckpoint.files[sourceKey].sha256, priorSha256);
+    assert.notEqual(afterCheckpoint.files[sourceKey].source_observed_ctime_ms, priorCtime);
+    assert.equal(
+      await readFile(join(f.destination, "live_workspace_capture", "sessions", "ctime-drift.txt"), "utf8"),
+      "stable-content",
+    );
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("incremental fast path normalizes a non-settling ctime drift to the incremental-scan code", async () => {
+  const f = await fixture();
+  try {
+    const sourceFile = join(f.source, "sessions", "ctime-thrash.txt");
+    const sourceKey = "sessions/ctime-thrash.txt";
+    await writeFile(sourceFile, "stable-content");
+    await syncCopyOnlyMirror(options(f, { verificationMode: "incremental" }));
+    const seededStat = await stat(sourceFile);
+
+    let bumped = false;
+    // Synthetic stat/digest sequence for the bounded ctime-settle retry inside
+    // stableDigestFile: size/mtime hold steady but ctime keeps moving across
+    // the before/after/settled snapshots, so the *internal* primitive fails
+    // closed with its own "source_changed_during_hash" code. The outer
+    // incremental scan must translate that into its own safe closed code
+    // rather than leaking the internal one.
+    const statSequence = [
+      { size: seededStat.size, mtimeMs: seededStat.mtimeMs, ctimeMs: 100, isFile: () => true },
+      { size: seededStat.size, mtimeMs: seededStat.mtimeMs, ctimeMs: 200, isFile: () => true },
+      { size: seededStat.size, mtimeMs: seededStat.mtimeMs, ctimeMs: 300, isFile: () => true },
+    ];
+    const ctimeSettleOperations = {
+      statFile: async () => statSequence.shift(),
+      digestFile: async () => "a".repeat(64),
+    };
+
+    await assert.rejects(
+      syncCopyOnlyMirror(options(f, {
+        verificationMode: "incremental",
+        ctimeSettleOperations,
+        assertFence: async ({ phase, source_key: key }) => {
+          if (!bumped && phase === "after_source_file" && key === sourceKey) {
+            bumped = true;
+            // Bump real ctime once so the file enters the settle branch; the
+            // synthetic operations above then drive stableDigestFile's own
+            // internal retry down its failing path deterministically.
+            await rename(sourceFile, `${sourceFile}.tmp`);
+            await rename(`${sourceFile}.tmp`, sourceFile);
+          }
+        },
+      })),
+      { code: "source_changed_during_incremental_scan" },
+    );
+    assert.equal(bumped, true);
+    assert.equal(statSequence.length, 0, "all synthetic stat snapshots must be consumed");
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("incremental fast path still fails closed when confirmation content actually changed", async () => {
+  const f = await fixture();
+  try {
+    const sourceFile = join(f.source, "sessions", "ctime-and-content.txt");
+    const sourceKey = "sessions/ctime-and-content.txt";
+    await writeFile(sourceFile, "stable-content");
+    await syncCopyOnlyMirror(options(f, { verificationMode: "incremental" }));
+    const stableMtime = (await stat(sourceFile)).mtime;
+
+    let bumped = false;
+    await assert.rejects(
+      syncCopyOnlyMirror(options(f, {
+        verificationMode: "incremental",
+        assertFence: async ({ phase, source_key: key }) => {
+          if (!bumped && phase === "after_source_file" && key === sourceKey) {
+            bumped = true;
+            // Same byte length as "stable-content" so size stays identical; only
+            // the payload and (via rename dance) ctime change.
+            await writeFile(sourceFile, "changed-conten");
+            await utimes(sourceFile, stableMtime, stableMtime);
+            await rename(sourceFile, `${sourceFile}.tmp`);
+            await rename(`${sourceFile}.tmp`, sourceFile);
+            await utimes(sourceFile, stableMtime, stableMtime);
+          }
+        },
+      })),
+      { code: "source_changed_during_incremental_scan" },
+    );
   } finally {
     await rm(f.root, { recursive: true, force: true });
   }

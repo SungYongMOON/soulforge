@@ -68,6 +68,37 @@ test("five-field evidence accepts the bounded legacy plus separator but rejects 
   });
 });
 
+test("five-field evidence accepts the exact SYSTEM legacy alias inside the canonical system directory", async () => {
+  const root = await tempRoot();
+  const directory = path.join(root, "system", "reports", "procedure_capture");
+  await mkdir(directory, { recursive: true });
+  const legacyAlias = fiveFieldRecord({ project_code: "SYSTEM" });
+  await writeFile(path.join(directory, "five_field_log.jsonl"), `${JSON.stringify(legacyAlias)}\n`);
+  const result = await validateFiveFieldLedgerSet({ workmetaRoot: root });
+  assert.equal(result.ok, true);
+  assert.equal(result.validated_count, 1);
+});
+
+test("five-field evidence rejects every other project/directory case mismatch", async () => {
+  const root = await tempRoot();
+  const directory = path.join(root, "system", "reports", "procedure_capture");
+  await mkdir(directory, { recursive: true });
+  const wrongCase = fiveFieldRecord({ project_code: "System" });
+  await writeFile(path.join(directory, "five_field_log.jsonl"), `${JSON.stringify(wrongCase)}\n`);
+  assert.deepEqual(await validateFiveFieldLedgerSet({ workmetaRoot: root }), {
+    ok: false, error_codes: ["five_field_record_invalid"], validated_count: 0,
+  });
+
+  const otherRoot = await tempRoot();
+  const otherDirectory = path.join(otherRoot, "widget", "reports", "procedure_capture");
+  await mkdir(otherDirectory, { recursive: true });
+  const otherAlias = fiveFieldRecord({ project_code: "WIDGET" });
+  await writeFile(path.join(otherDirectory, "five_field_log.jsonl"), `${JSON.stringify(otherAlias)}\n`);
+  assert.deepEqual(await validateFiveFieldLedgerSet({ workmetaRoot: otherRoot }), {
+    ok: false, error_codes: ["five_field_record_invalid"], validated_count: 0,
+  });
+});
+
 test("five-field evidence fails closed on malformed or conflicting rows", async () => {
   const root = await tempRoot();
   const directory = path.join(root, "system", "reports", "procedure_capture");

@@ -61,6 +61,13 @@ function safeText(value, max = 2_000) {
     && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value);
 }
 
+// Exact legacy alias only: a record written as `SYSTEM` is accepted inside
+// the canonical `system` ledger directory. No other case mismatch is
+// tolerated and no general case-insensitive project matching is introduced.
+function legacyProjectAlias(recordProjectCode, projectCode) {
+  return projectCode === "system" && recordProjectCode === "SYSTEM";
+}
+
 function validFiveFieldRecord(record, projectCode) {
   if (record === null || typeof record !== "object" || Array.isArray(record)
     || Object.keys(record).some((key) => !FIVE_FIELD_KEYS.has(key))
@@ -68,7 +75,8 @@ function validFiveFieldRecord(record, projectCode) {
     || record.schema_version !== FIVE_FIELD_SCHEMA
     || !SAFE_ID.test(record.id)
     || !SAFE_ID.test(record.session_ref)
-    || record.project_code !== projectCode
+    || (record.project_code !== projectCode
+      && !legacyProjectAlias(record.project_code, projectCode))
     || !SAFE_PROJECT.test(record.project_code)
     || !exactTimestamp(record.at)
     || (record.occurred_at !== undefined && !exactTimestamp(record.occurred_at))

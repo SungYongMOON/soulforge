@@ -426,3 +426,106 @@ TASK pilot. It is not an ISO or other standards-conformity claim.
 - **Thin CLI**: `codex_retention_automation_cli.mjs` provides report-only CLI options (`--local-root`, `--activity-root`, `--catalog-file`, `--expected-digest`, `--json`). Rejects all destructive options.
 - **Night Watch Integration**: Tracked spec `soulforge-lifecycle-retention-report.spec.json` and prompt template `soulforge-lifecycle-retention-report.prompt.txt` default status to `PAUSED`. Renderer `render_local_automation.mjs` supports strict allowlisted spec selection.
 - **Read-Only AX Board Projection**: `ui-workspace/apps/team-ops-board` includes a GET-only loopback Vite server adapter (`/codex-retention.snapshot.json`) and core projection model (`codex-retention-projection.mjs`) displaying Phase 3 summary indicators with zero mutation endpoints and zero raw path exposure.
+
+## Lifecycle Retention Phase 6 (Report-Only Automatic Freshness Registrar, live HOLD)
+
+- **Module**: `codex_retention_refresh_registrar.mjs` deterministically plans and,
+  given an explicit caller-supplied `register` adapter, attempts a Windows
+  Scheduled Task registration that periodically re-runs
+  `codex_retention_automation_cli.mjs` so `reports/codex_retention/current.json`
+  stays inside its 24h freshness window. It never mutates a real scheduled task
+  by itself: `registerCodexRetentionRefreshTask` throws
+  `register_adapter_required` unless the caller injects one, and this package
+  never supplies a live adapter or invokes the `ops/` scripts below.
+- **Fixed Identity and Bounded Refresh**: `TASK_NAME` (`Soulforge-Codex-Retention-Refresh`)
+  and `REFRESH_INTERVAL_HOURS` (6, well inside the 24h window) are fixed
+  constants; a caller-supplied task name that differs is rejected with
+  `task_identity_fixed`.
+- **Hidden, Non-Interactive, Report-Only Launch, Fixed Argument Surface**:
+  `buildHiddenLaunchAction` builds the same hidden-VBS-plus-`powershell.exe
+  -NoProfile -NonInteractive -WindowStyle Hidden` launch shape already used by
+  `guild_hall/voice_capture/ops/`. Every launch argument is checked against the
+  same destructive-token set the CLI itself rejects
+  (`--apply`/`--delete`/`--archive`/`--remove`/`--prune`/`--branch-delete`,
+  `approve`/`apply`/`verify`/`delete`/`archive`/`remove`/`prune`); a match is
+  `HOLD` with `destructive_switch_forbidden`, never a silent drop. The planner
+  has no caller-extensible argument surface: the runtime launcher's parameter
+  set (`-NodePath`/`-SourceScriptPath`/`-LocalRoot`/`-ActivityRoot`) is fixed,
+  and a caller-supplied `extraArgs` is rejected with `extra_args_not_supported`
+  rather than filtered through.
+- **Explicit Existing-Task Observation, Expected-Existing Digest Guard, and
+  Idempotence**: the caller must report what it actually observed —
+  `existingTask: null` for "checked, no existing task" or the exact existing
+  task object for "checked, task present" — before a plan is produced;
+  omitting the field entirely is `HOLD` with `existing_task_observation_required`
+  rather than silently planning a fresh registration that could blind-overwrite
+  an unobserved task. When a task is present, replacing it requires an exact
+  `expectedExistingActionDigest` match against the existing task's action
+  digest; a mismatch is `HOLD`. An existing task whose action digest already
+  equals the freshly computed one returns `NOOP` (`already_registered: true`,
+  with the verified `action_digest` preserved on both the plan and the
+  register receipt) without calling the register adapter, so re-running
+  planning/registration is idempotent.
+- **Disabled/Missing Source and Sanitized Failure Receipts**: a missing or
+  explicitly disabled `codex_retention_automation_cli.mjs` source holds before
+  a plan is built (`source_script_missing_or_disabled` / `source_disabled`).
+  `registerCodexRetentionRefreshTask` retries its injected adapter up to
+  `MAX_REGISTER_ATTEMPTS` (3) times and returns a `FAILED` receipt with the
+  attempt count when every attempt fails. The receipt's `error` field is
+  always a safely shaped closed code (the adapter's own `.code`, when it
+  matches a plain lowercase-identifier pattern, or the generic
+  `register_failed` fallback); an adapter's raw `error.message` is never
+  echoed into the receipt.
+- **Canonical Windows Scheduled Task Procedure (not installed)**:
+  `ops/register-codex-retention-refresh-task.ps1`,
+  `ops/run-codex-retention-refresh.ps1`, and
+  `ops/run-codex-retention-refresh-hidden.vbs` are the reviewed procedure the
+  manager installs later, mirroring the fixed task name, fixed 6-hour refresh
+  interval (not a caller-selectable parameter, matching the JS planner's
+  `REFRESH_INTERVAL_HOURS`), `-Register`/`-Start` opt-in switches (default
+  off), and an exact-existing-task-before-replace guard style already used by
+  `guild_hall/voice_capture/ops/register-continuous-label-supervisor-task.ps1`.
+  Every `Get-ScheduledTask`/`Register-ScheduledTask`/`Export-ScheduledTask`/
+  `Start-ScheduledTask`/`Unregister-ScheduledTask` call is pinned to the same
+  exact root `TaskPath` (`\`). The PowerShell `-ExpectedExistingTaskSha256`
+  guard is a separate, stronger digest domain from the planner's
+  `expectedExistingActionDigest` above: the PowerShell guard computes a
+  SHA-256 over the exact exported Scheduled Task definition XML text
+  (`Export-ScheduledTask -TaskName -TaskPath`, not a direct
+  `%WINDIR%\System32\Tasks` file read), while the planner's action digest
+  hashes only the canonicalized `{execute, args}` launch shape. They are not
+  the same value and are never asserted to be interchangeable; an actual
+  installer bridging planner output into this procedure must export and hash
+  the real task definition, not reuse the planner's action digest as the
+  `-ExpectedExistingTaskSha256` input. Running the script without `-Register`
+  is a pure dry run: when a task is already registered it prints that task's
+  current sanitized exported-XML digest and performs no mutation; an actual
+  `-Register` replacement still requires an exact
+  `-ExpectedExistingTaskSha256` match against that same digest. The first
+  automatic run is always scheduled strictly in the future (one refresh
+  interval after registration, never a fixed past epoch); `-Start` is the only
+  supported way to run the task immediately after registration.
+  Registration is transactional: when replacing an existing task, the exact
+  prior exported XML is captured before the replacement, and if
+  post-registration attestation fails (which now also pins the trigger's
+  enabled state, repetition interval, and duration/stop semantics, not just
+  the interval alone) that exact prior XML is restored; when creating a new
+  task, a failed attestation instead removes only that exact just-created
+  task. This is a bounded rollback scoped to the one `TaskName`/`TaskPath`
+  the script itself just registered, not a general deletion authority, and it
+  is proven by a source-level test asserting `Unregister-ScheduledTask`
+  appears exactly once, inside that bounded rollback path. The hidden VBS
+  launcher's argument quoting doubles any run of trailing backslashes before
+  the closing quote (e.g. an argument that is nothing but a drive letter and
+  a trailing separator), so it can never be mis-parsed by the downstream
+  `CreateProcess` argv parser as escaping the closing quote. These scripts
+  are not executed by this package,
+  by any test, or by any other automation in this repository; installing or
+  starting the real task remains a separate human Owner action. The
+  registrar's Windows-only regression tests instead parse the `.ps1` files'
+  syntax and run the hidden launcher's `QuoteArgument` function verbatim
+  through `cscript.exe` in isolation, never invoking `shell.Run` or any
+  Scheduled Task cmdlet.
+- **No New Board Authority**: this registrar is a dedicated, separate
+  report-only scheduled task rather than new write authority granted to the
+  read-only AX Board runtime described in Phase 3 above.
