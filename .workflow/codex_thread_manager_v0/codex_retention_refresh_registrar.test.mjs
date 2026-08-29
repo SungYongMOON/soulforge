@@ -388,8 +388,13 @@ test("the public ops/ Windows Scheduled Task procedure pins the reviewed hidden 
 
   // Post-registration attestation pins trigger enabled state, repetition
   // interval, and duration/stop semantics, not just the interval alone.
-  assert.match(registrar, /\$EnabledNode\.InnerText -eq "true"/u);
-  assert.match(registrar, /\$StopAtDurationEndNode\.InnerText -eq "false"/u);
+  // Windows omits both the Enabled node (default true) and the
+  // StopAtDurationEnd node (default false) from exported XML when they hold
+  // their default value, so both guards must accept an absent node the same
+  // as its explicit default and only reject an explicit non-default value.
+  assert.match(registrar, /\(\$null -eq \$EnabledNode -or \$EnabledNode\.InnerText -eq "true"\)/u);
+  assert.match(registrar, /\(\$null -eq \$StopAtDurationEndNode -or \$StopAtDurationEndNode\.InnerText -eq "false"\)/u);
+  assert.doesNotMatch(registrarCode, /\$null -ne \$StopAtDurationEndNode -and \$StopAtDurationEndNode\.InnerText -eq "false"/u);
   assert.match(registrar, /IsNullOrEmpty\(\$DurationNode\.InnerText\)/u);
   assert.match(registrar, /\(\[datetime\]\$StartBoundaryNode\.InnerText\) -gt \(Get-Date\)/u);
 

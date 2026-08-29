@@ -190,7 +190,7 @@ $RegistrationValid = $TriggerNodes.Count -eq 1 `
   -and $null -ne $RefreshIntervalNode `
   -and $RefreshIntervalNode.InnerText -eq $ExpectedInterval `
   -and ($null -eq $EnabledNode -or $EnabledNode.InnerText -eq "true") `
-  -and $null -ne $StopAtDurationEndNode -and $StopAtDurationEndNode.InnerText -eq "false" `
+  -and ($null -eq $StopAtDurationEndNode -or $StopAtDurationEndNode.InnerText -eq "false") `
   -and ($null -eq $DurationNode -or [string]::IsNullOrEmpty($DurationNode.InnerText)) `
   -and $null -ne $StartBoundaryNode -and ([datetime]$StartBoundaryNode.InnerText) -gt (Get-Date) `
   -and $RegisteredXml.Task.Settings.MultipleInstancesPolicy -eq "IgnoreNew" `

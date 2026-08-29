@@ -509,7 +509,12 @@ TASK pilot. It is not an ISO or other standards-conformity claim.
   prior exported XML is captured before the replacement, and if
   post-registration attestation fails (which now also pins the trigger's
   enabled state, repetition interval, and duration/stop semantics, not just
-  the interval alone) that exact prior XML is restored; when creating a new
+  the interval alone — the enabled and stop-at-duration-end guards each
+  accept a node that is absent from the exported XML the same as its
+  explicit default, since Windows omits `Enabled` (default `true`) and
+  `StopAtDurationEnd` (default `false`) from the export when they already
+  hold that default, and only reject an explicit non-default value) that
+  exact prior XML is restored; when creating a new
   task, a failed attestation instead removes only that exact just-created
   task. This is a bounded rollback scoped to the one `TaskName`/`TaskPath`
   the script itself just registered, not a general deletion authority, and it
