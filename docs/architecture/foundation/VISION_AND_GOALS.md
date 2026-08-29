@@ -20,6 +20,8 @@
   승인 뒤에만 수행한다.
 - `Soulforge Engineering ERP`는 전체 이름으로 고정하지 않는다. ERP는 전체
   Engineering OS 안의 핵심 제품이며 Engineering Engine과 Agent Platform의 상위 owner가 아니다.
+- Soulforge의 판타지 세계관·철학·명명 문법·영역·세력·확장 규칙은
+  [`SOULFORGE_WORLD_BIBLE_V0.md`](SOULFORGE_WORLD_BIBLE_V0.md)에 Owner 초안으로 보존한다.
 
 ## Owner 큰 비전 재확인 — 2026-08-29
 

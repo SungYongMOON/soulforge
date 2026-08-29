@@ -2,6 +2,7 @@
 
 ## 2026-08-29 - Soulforge Engineering OS 제품군·명명 재기준 초안
 
+- Soulforge를 기능 모음이 아니라 먼저 세계관으로 설계하기 위한 `SOULFORGE_WORLD_BIBLE_V0.md`를 추가했다. 현실 사건→업무 후보→Monster→Hero·Agent·Party 수행→Artifact·Evidence→Knowledge·Skill·Agent Mark 제련 순환, 판타지/업무 이중표시, 영역·세력·명명 문법·자원·역사와 새 개념의 World Balance Review를 Owner 초안으로 보존한다.
 - 지금까지 ERP, 맥락 세계수, Engineering Engine, Task Engine, Chat 예약, Agent Mark, Hermes·Buzz, 외부 시스템 backup으로 흩어진 Owner 비전을 `Soulforge Engineering OS` 하나의 제품군 언어로 정리한 `OWNER_DECISION_DRAFT`를 추가했다.
 - 전체 플랫폼과 `Soulforge ERP`, `Soulforge Engineering Engine`, `Soulforge Agent Platform` 세 제품을 분리하고, Intake & Candidate, Asset Catalog & Custody, Context World Tree, Task & Decision, Digital Workforce Registry, Connector & Ingress, Assurance & Recovery를 공유 Module로 분류했다.
 - 승인 전 Event·Work Candidate와 생성 이유, 실제 Project/Dataset/Template/BOM/Knowledge/Agent/External System 자산, Google Drive 예약 장부 reconciliation, Linear·Slack·Buzz 등 backup을 전체 ERP Asset 생명주기에 포함했다.

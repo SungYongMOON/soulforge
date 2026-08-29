@@ -14,6 +14,7 @@
 | `SOULFORGE_ERP_BOM_HIERARCHY_V0.md` | 저장소 전체를 ERP/BOM 계층으로 읽기 위한 public-safe 구조 지도다. |
 | `DEVELOPMENT_ROADMAP_V0.md` | 큰 개발 방향, active slice, 우선순위 판단의 단일 정본이다. |
 | `VISION_AND_GOALS.md` | 수동 업무를 mission/run truth/canon/autohunt 로 승격하는 장기 비전을 고정한다. |
+| `SOULFORGE_WORLD_BIBLE_V0.md` | Soulforge의 창세 철학, 판타지 업무세계, 영역·세력·명명 문법과 World Balance Review를 Owner 초안으로 보존한다. |
 | `SOULFORGE_ENGINEERING_OS_PRODUCT_FAMILY_REBASELINE_V0.md` | 전체 플랫폼 이름, ERP·Engineering Engine·Agent Platform 제품군, 공유 Module, Asset·Agent·backup 큰그림을 Owner 결정 초안으로 정리한다. |
 | `TARGET_TREE.md` | 목표 루트 트리와 canonical path shape 를 설명한다. |
 | `DOCUMENT_OWNERSHIP.md` | 어떤 문서가 어느 owner 경계를 소유하는지 정한다. |
@@ -40,6 +41,7 @@
 - [`SOULFORGE_ERP_BOM_HIERARCHY_V0.md`](SOULFORGE_ERP_BOM_HIERARCHY_V0.md)
 - [`DEVELOPMENT_ROADMAP_V0.md`](DEVELOPMENT_ROADMAP_V0.md)
 - [`VISION_AND_GOALS.md`](VISION_AND_GOALS.md)
+- [`SOULFORGE_WORLD_BIBLE_V0.md`](SOULFORGE_WORLD_BIBLE_V0.md)
 - [`SOULFORGE_ENGINEERING_OS_PRODUCT_FAMILY_REBASELINE_V0.md`](SOULFORGE_ENGINEERING_OS_PRODUCT_FAMILY_REBASELINE_V0.md)
 - [`TARGET_TREE.md`](TARGET_TREE.md)
 - [`DOCUMENT_OWNERSHIP.md`](DOCUMENT_OWNERSHIP.md)

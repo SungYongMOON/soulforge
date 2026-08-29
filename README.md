@@ -43,6 +43,7 @@ flowchart TD
 - [`docs/architecture/foundation/PROJECT_MAP_V0.md`](docs/architecture/foundation/PROJECT_MAP_V0.md): 멈춘 뒤 다시 잡기 위한 한 장짜리 owner/폴더/게임 루프 지도
 - [`docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md`](docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md): 큰 개발 방향과 현재 우선순위의 단일 정본
 - [`docs/architecture/foundation/VISION_AND_GOALS.md`](docs/architecture/foundation/VISION_AND_GOALS.md): Soulforge의 비전, 목표, 성공 조건
+- [`docs/architecture/foundation/SOULFORGE_WORLD_BIBLE_V0.md`](docs/architecture/foundation/SOULFORGE_WORLD_BIBLE_V0.md): Soulforge의 판타지 세계관·철학·영역·세력·명명 문법과 전체 균형검토 Owner 초안
 - [`docs/architecture/foundation/SOULFORGE_ENGINEERING_OS_PRODUCT_FAMILY_REBASELINE_V0.md`](docs/architecture/foundation/SOULFORGE_ENGINEERING_OS_PRODUCT_FAMILY_REBASELINE_V0.md): `Soulforge Engineering OS` 전체 이름과 ERP·Engineering Engine·Agent Platform 제품군 재기준 Owner 결정 초안
 - [`.registry/README.md`](.registry/README.md): `.registry` skeleton 과 owner 경계
 - [`docs/architecture/foundation/TARGET_TREE.md`](docs/architecture/foundation/TARGET_TREE.md): 새 canonical target tree
