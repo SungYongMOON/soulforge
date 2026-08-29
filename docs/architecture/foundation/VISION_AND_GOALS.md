@@ -70,6 +70,22 @@ Buzz 또는 MCP 중 하나가 아니다. 이들이 source·자산·맥락·판�
 - 특정 AI provider·Plugin·Buzz·Hermes·Linear가 사라져도 Task·자산·맥락·Agent 계보·receipt는 남는다.
 - AI로 일을 늘리는 것이 아니라 반복업무·누락·재작업을 줄여 사람이 설계판단·현장·팀 대화에 집중하게 한다.
 
+### 완성형 설계와 단계적 실현
+
+- 사람·AI 조직도, 프로젝트별 Agent 팀, 전문 Tool Workshop, ERP·Context·Engine·관제·
+  복구·배포·교육의 목표 구조는 처음부터 완성형으로 설계한다.
+- 프로젝트 팀장 Agent와 Deep Context는 프로젝트별로 분리하고, Portfolio는 raw context가
+  아니라 typed state projection만 소비한다.
+- 같은 PC에서 동시에 사용할 수 없는 PowerPoint·Excel·HWPX·Allegro·AutoCAD 같은 Tool은
+  범용 Agent가 임의 전환하지 않고, 전문 Tool Agent와 capacity·queue·lease·receipt가 있는
+  공용 Workshop으로 운영한다.
+- `작게 시작`은 목표 구조를 축소한다는 뜻이 아니다. Agent·Deployment·Tool grant·write
+  authority를 하나씩 제작·검증·배치한다는 뜻이다.
+- 구조 재정리와 실제 현업은 병행한다. 개발1팀을 첫 조직 pilot으로 삼아 read-only 조회,
+  후보·자료 제출, 프로젝트별 Agent 팀, 제한적 쓰기, 평가·확산 순으로 진행한다.
+- 전사 배포를 위해 사람·PC·프로젝트·권한·Plugin·MCP·Agent·Tool·update·rollback·교육·지원
+  구조를 제품 계획에 포함한다.
+
 ## AX Context-to-Execution 운영 북극성
 
 Soulforge의 장기 제품 방향은 단순 통합검색이나 특정 AI provider 자동화가 아니다. 회사와

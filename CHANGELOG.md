@@ -6,6 +6,7 @@
 - 전체 플랫폼과 `Soulforge ERP`, `Soulforge Engineering Engine`, `Soulforge Agent Platform` 세 제품을 분리하고, Intake & Candidate, Asset Catalog & Custody, Context World Tree, Task & Decision, Digital Workforce Registry, Connector & Ingress, Assurance & Recovery를 공유 Module로 분류했다.
 - 승인 전 Event·Work Candidate와 생성 이유, 실제 Project/Dataset/Template/BOM/Knowledge/Agent/External System 자산, Google Drive 예약 장부 reconciliation, Linear·Slack·Buzz 등 backup을 전체 ERP Asset 생명주기에 포함했다.
 - Owner의 큰 비전을 `VISION_AND_GOALS.md`에 다시 기록해, Soulforge를 특정 ERP·세계수·Engine·Task·Chat 예약·Hermes·Buzz·MCP 하나가 아니라 source부터 자산·맥락·판단·업무·Agent 실행·수락·복구까지 이어지는 전체 체계로 고정했다. 비전 내용 기록과 제품군 이름 승인을 분리해 이름은 계속 `OWNER_DECISION_DRAFT`로 유지한다.
+- 완성형 AI 조직을 먼저 설계하고 Agent·Deployment·권한만 하나씩 검증한다는 Owner 원칙, 프로젝트별 팀장·Deep Context 분리, SOUL/Mark/Memory backup·rollback, 단일 PC 전문 Tool Workshop, 운영·유지보수, 팀원 PC 배포·교육, 개발1팀 첫 조직 pilot을 재기준 초안에 추가했다. `SF-P01`~`SF-P09` 논리 포트폴리오와 업무형·판타지 이름 후보는 검토용일 뿐 실제 folder·package·TASK group 생성이나 rename은 하지 않는다.
 - 이번 변경은 명명·구조 검토 문서와 색인만 추가한다. `dev-erp`를 포함한 실제 path/package/DB/TASK/route/runtime rename, writer 변경, 외부 시스템·backup 활성화는 모두 0이며 별도 migration과 Owner 승인을 요구한다.
 
 ## 2026-08-29 - Self-heal green hardening for voice mirror ctime, five-field project identity, and Codex retention freshness

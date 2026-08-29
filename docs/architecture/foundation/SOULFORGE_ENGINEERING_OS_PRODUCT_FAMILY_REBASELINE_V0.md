@@ -327,3 +327,243 @@ AI 기반시스템 회사, 개발1팀 회사, AX·ERP·SYSTEM은 조직·authori
 5. Agent Mark naming을 `Mark`, `Revision`, `Generation` 중 무엇으로 보여줄지.
 
 결정 전에는 이 문서의 권고 이름을 active route·directory·package·DB schema에 적용하지 않는다.
+
+## 17. 완성형 AI 조직과 단계적 구축
+
+목표 AI 조직은 소수 Agent로 시작해 나중에 다시 설계하는 구조가 아니다. 전체 조직도와
+프로젝트별 책임 역할, 공통 Agent, 전문 Tool Agent를 먼저 정의하고 실제 Agent Family·Mark·
+Deployment·권한은 하나씩 검증하며 materialize한다.
+
+```text
+Portfolio Coordination
+├─ typed project state만 소비
+├─ 프로젝트 간 우선순위·충돌·Owner 판단 통합
+└─ raw project context 통합 금지
+
+Project AI Organization A
+├─ Project Manager Agent
+├─ 분야별 책임 Agent
+├─ Project Deep Context
+└─ Project-specific Tool·Artifact·Acceptance
+
+Project AI Organization B
+├─ 별도 Project Manager Agent
+├─ 별도 책임 Agent
+└─ 별도 Deep Context
+```
+
+프로젝트 팀장 Agent를 하나로 통합하지 않는다. 동일 runtime이나 Tool Workshop을 공유할 수는
+있지만 Agent identity, SOUL, memory, project context, authority와 Task lineage는 분리한다.
+
+## 18. 사람·AI Workforce와 Agent 생명주기
+
+ERP의 사람·조직 영역은 사람 사원과 AI 사원의 공통 역할·역량·배정 개념을 제공하되,
+사람 개인정보·인사 권한과 AI runtime·model·memory 권한을 분리한다.
+
+```text
+Workforce
+├─ Human Workforce
+│  ├─ 조직·직책·역할·프로젝트 배정
+│  ├─ 역량·교육·온보딩
+│  └─ privacy·인사 authority
+└─ AI Workforce
+   ├─ Agent Family·Mark·Role·Project Assignment
+   ├─ SOUL·Model·Skill·Tool·Authority
+   ├─ Deployment·Run·Evaluation
+   └─ Memory·Backup·Restore·Rollback·Retirement
+```
+
+### Agent 생성
+
+```text
+조직도상 필요 역할
+  -> Agent Family
+  -> Mark I Candidate
+  -> SOUL·Skill·Tool·authority binding
+  -> synthetic test
+  -> project pilot
+  -> human approval
+  -> deployment
+```
+
+### Agent 변경
+
+기존 Mark를 덮어쓰지 않는다. SOUL, model, reasoning, Skill, Tool, authority, memory policy,
+runtime 또는 project scope가 바뀌면 새 Mark Candidate를 만들고 diff·회귀시험·독립검토·
+승인 뒤 current pointer를 변경한다.
+
+### Agent Memory와 backup
+
+Agent local memory, Project Context, raw chat history를 구분한다. Agent 복구는 `Family + Mark +
+SOUL revision + Skill/Tool version + Project assignment + Memory generation + Deployment + secret_ref`
+가 함께 맞아야 한다. raw chat이나 runtime memory가 accepted project knowledge로 자동 승격되지 않는다.
+
+### Agent 퇴역과 장애
+
+- 신규 Assignment 차단 → 진행 Run 종료·회수 → Task·Artifact·Memory handoff → backup → retired;
+- 장애 시 side effect 확인 → claim·lease 회수 → same Mark 복구 또는 approved prior Mark rollback →
+  incident·개선 후보 기록.
+
+## 19. 전문 Tool Workshop과 Resource Job Shop
+
+PowerPoint, Excel, HWPX, Allegro, AutoCAD, PCB library, 소나·시험 분석처럼 한 PC나 license-bound
+Tool을 동시에 하나만 안정적으로 사용할 수 있는 기능은 전문 Agent와 공용 Workshop으로 둔다.
+
+```text
+Project/Common Agent
+  -> Tool Job 제출
+  -> Workshop Queue
+  -> exact Tool PC Resource Lease (capacity=1)
+  -> Specialist Agent 실행
+  -> validator
+  -> result·artifact·receipt 반환
+```
+
+Workshop은 input/output contract, supported format, Tool·library version, PC/resource identity,
+capacity, priority, lease/fencing, timeout, retry, validation, output custody와 rollback을 소유한다.
+
+| Workshop 후보 | 전담 범위 |
+| --- | --- |
+| 문서 제작소 | 보고서·회의록·업무자료 |
+| 데이터 세탁소 | Excel·CSV·정규화·비교·계산 |
+| HWPX 공방 | HWPX 변환·작성·검증 |
+| 설계 대장간 | Allegro·AutoCAD·PCB·CAD 산출물 |
+| 시험 연구소 | 소나·시험 Dataset·교정·분석 |
+| 발표 공방 | PPT·도식·이미지·렌더 QA |
+| 기록보관소 | 자료 분류·revision·catalog·archive |
+| 복구소 | backup·restore·DR 검증 |
+
+이 이름은 판타지 UI·운영 label 후보이며 실제 package·directory 이름이 아니다.
+
+## 20. 운영·유지보수 정책 범위
+
+### 일일 운영
+
+- Agent·runtime·Connector health, Queue·Lease, 실패 Run, source freshness, backup, project·ACL 혼입 점검;
+- production status는 UI idle이 아니라 exact receipt·readback으로 판단.
+
+### 주간 운영
+
+- Agent 품질·재작업·사람 보정, Skill·Tool drift, memory freshness, unresolved HOLD,
+  restore sample, project별 Agent·Tool capacity 검토.
+
+### 월간 운영
+
+- Agent Mark 개선·퇴역 후보, model·비용·품질 비교, Tool PC capacity, Context 품질,
+  권한·보안·backup coverage와 교육·지원 지표 검토.
+
+### 변경관리
+
+SOUL·model·Tool·Hermes·Buzz·ERP schema·프로젝트 조직 변경은 version pin, acceptance contract,
+회귀시험, 독립검토, staged deployment와 rollback plan을 요구한다.
+
+## 21. 팀원 PC 배포·업데이트·지원
+
+```text
+Team Member Device Profile
+├─ 사람 identity·조직·역할·프로젝트 권한
+├─ ERP account·MCP client·필요 Plugin
+├─ Agent/Runtime binding
+├─ local workspace·outbox·cache
+├─ 사용 가능한 Tool·Workshop
+├─ Secret binding ref
+├─ update ring·current version
+└─ backup·support·recovery policy
+```
+
+배포 절차는 PC 사전점검 → ERP 연결 → Plugin/MCP → project workspace → Agent binding →
+권한검증 → smoke test → 교육 → 지원·복구의 순서를 가진다. update는 pilot → 관리자 →
+개발1팀 → 전사 ring으로 확대하고, 실패 시 prior approved version으로 rollback한다.
+
+## 22. 신규·경력·관리자 교육
+
+| 대상 | 교육 내용 |
+| --- | --- |
+| 공통 | Soulforge 목적, ERP에서 업무·자산 찾기, 후보와 공식 Task, revision, Agent 의뢰, 보안·외부전송 |
+| 신규 | 프로젝트 용어·단계·산출물, 작은 업무, 질문·멘토 검토, Agent 활용 |
+| 경력 | 기존 업무 mapping, 전문 Workshop, 기술수락, Agent 결과 검증, Skill 후보 제안 |
+| 관리자 | 프로젝트별 AI 조직, 역할·권한, HOLD·incident, Agent Mark 승인, 비용·품질·rollback |
+
+교육 이수와 업무권한 개방은 분리한다. 교육 완료가 write·external action 권한을 자동 부여하지 않는다.
+
+## 23. 개발1팀 첫 조직 pilot
+
+```text
+PILOT-0 준비
+  팀원·PC·프로젝트·Tool·권한·교육 inventory
+PILOT-1 읽기 중심
+  ERP·자료·오늘 일·Agent 질의, mutation 0
+PILOT-2 후보·자료 제출
+  Work Candidate·파일·Agent 초안, 사람 검토
+PILOT-3 프로젝트별 AI 팀
+  별도 팀장·책임 Agent, Project Context 격리, Workshop 사용
+PILOT-4 제한적 쓰기
+  검증된 task type, exact writer, rollback 가능한 상태변경
+PILOT-5 평가·확산
+  시간·재작업·오류·사람보정·사용성·교육부담·비용 측정
+```
+
+외부전송·구매·기준선·기술수락·최종완료는 별도 사람 authority를 유지한다.
+
+## 24. 구조 재정리와 실제 현업 병행
+
+```text
+Program A — Architecture & Governance
+  portfolio·name·owner·Interface·storage·deployment·operations·training·migration
+
+Program B — Development Team 1 Field Pilot
+  Chat 예약·공통 Agent·project Agent·Workshop·실제 저위험 Work Unit·관찰 feedback
+```
+
+전체 정리가 끝날 때까지 현업을 미루지 않되, pilot의 임시 우회를 target architecture로
+자동 승격하지 않는다. target organization은 고정하고 Agent·Deployment·권한만 점진적으로 연다.
+
+## 25. 대형 프로젝트 포트폴리오 논리 폴더 초안
+
+아래 `SF-Pxx`는 검토 중 이름과 무관하게 discussion에서 사용하기 위한 stable logical ID 후보다.
+실제 directory, package, DB schema, TASK group을 만들거나 rename하지 않는다.
+
+```text
+Soulforge Portfolio (logical only)
+├─ SF-P01  Work Discovery & Mission
+├─ SF-P02  ERP & Asset Management
+├─ SF-P03  Operations Command
+├─ SF-P04  AI Workforce & Organization
+├─ SF-P05  Knowledge & Ontology
+├─ SF-P06  Engineering Engine Family
+├─ SF-P07  Tool Workshops
+├─ SF-P08  Platform, Security & Recovery
+└─ SF-P09  Deployment, Training & Adoption
+```
+
+| ID | 업무형 이름 후보 | 판타지 label 후보 | 포함 범위 |
+| --- | --- | --- | --- |
+| `SF-P01` | Work Discovery & Mission | Monster Forge | Source event, Chat 예약, Work Candidate, AX 판단, TaskIntent·Work Brief |
+| `SF-P02` | ERP & Asset Management | Vault | Project·Task·Asset·Dataset·BOM·Material·Template·Artifact·Revision |
+| `SF-P03` | Operations Command | Watchtower | 4192, portfolio·project·Agent·Run·Engine·backup read-only projection |
+| `SF-P04` | AI Workforce & Organization | Guild Hall | 사람·AI 조직, 프로젝트별 팀, Agent Mark·Memory, Hermes·Buzz·Codex 운영 |
+| `SF-P05` | Knowledge & Ontology | World Tree | Entity·Context·Evidence·time·ACL·RAG·Wiki·Ontology·지식승격 |
+| `SF-P06` | Engineering Engine Family | Engine Foundry | Engine Core와 현재·미래 Domain Engine별 독립 backlog·version·검증 |
+| `SF-P07` | Tool Workshops | Artisan District | 문서·데이터·HWPX·CAD·PCB·시험·발표·보관·복구 Workshop |
+| `SF-P08` | Platform, Security & Recovery | Bastion | Ingress, identity, secret, storage, runtime foundation, audit, backup·restore |
+| `SF-P09` | Deployment, Training & Adoption | Academy | 다중 PC bootstrap·update·rollback, 팀원 교육·지원, 개발1팀·전사 rollout |
+
+### 포트폴리오 Interface 초안
+
+- `SF-P01`은 Event와 Work Candidate를 만들고 `SF-P02`의 Candidate/Task ledger에 제출한다.
+- `SF-P05`와 `SF-P06`은 accepted context와 engineering finding을 `SF-P01`에 제공한다.
+- `SF-P02`는 공식 Task·자산·revision·acceptance를 소유한다.
+- `SF-P04`는 승인된 Assignment를 exact Agent Mark·Deployment에 결속한다.
+- `SF-P07`은 resource job과 Artifact result를 반환한다.
+- `SF-P03`은 모든 portfolio의 typed projection만 읽고 writer·dispatcher가 되지 않는다.
+- `SF-P08`은 공통 identity·custody·security·recovery Interface를 제공한다.
+- `SF-P09`는 검증된 release를 사람·PC·조직에 배포하고 교육·지원 결과를 환류한다.
+
+## 26. 통합검토 순서 후보
+
+1. Owner vision·현행 inventory·이 문서를 입력 packet으로 고정;
+2. Ultra가 전체 portfolio, Agent 조직, Tool Workshop, 운영·배포·교육과 current path/TASK crosswalk를 통합;
+3. Fable5가 누락·중복·context/authority 혼입·migration 과잉을 독립 red-team;
+4. 필요 시 public-safe packet으로 Pro가 외부 제품·명명·도입·교육 관점을 자문;
+5. Owner가 전체 이름, `SF-Pxx` 범위, 업무형 이름과 판타지 label을 확정;
+6. 그 뒤에만 tracked canon update와 실제 migration plan을 분리 수행.
