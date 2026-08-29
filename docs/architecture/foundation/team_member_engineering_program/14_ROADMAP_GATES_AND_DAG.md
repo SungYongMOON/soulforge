@@ -124,7 +124,7 @@ Integration and handoff:
 
 ## Safe next implementation leaf
 
-`RED-01` was executed on 2026-08-30 and closed GREEN (14/14) with a root-cause correction: production scope-before-cap filtering was already correct, and the failing evidence was fixture time-rot; the fixture is now time-invariant and a deterministic fixed-clock regression pins the property (see 02/13). The leaf contract below is retained as executed history; the next safe stabilization leaf is `RED-02` (topology-oracle contract reconciliation).
+`RED-01` was executed on 2026-08-30 and closed GREEN (14/14) with a root-cause correction: production scope-before-cap filtering was already correct, and the failing evidence was fixture time-rot; the fixture is now time-invariant and a deterministic fixed-clock regression pins the property (see 02/13). `RED-02` was executed the same day and closed GREEN: the versioned contract pin `guild_hall/watchtower/topology/federated_topology.v1.contract.json` is now the single topology oracle for producer and Board tests, with tracked-artifact drift rejected against both the fresh emit and the pin. The leaf contract below is retained as executed history; the next safe stabilization leaves are `RED-03` (renderer writer guard contract) and `RED-04` (Workflow Runner Windows E2E evidence).
 
 | Field | Fixed leaf boundary |
 | --- | --- |

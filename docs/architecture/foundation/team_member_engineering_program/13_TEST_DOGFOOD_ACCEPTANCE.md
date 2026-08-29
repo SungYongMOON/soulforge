@@ -56,7 +56,7 @@ Failure at any point preserves the prior official task/revision and produces `HO
 | Command | Result in this task | Meaning |
 | --- | --- | --- |
 | `node --test ui-workspace/apps/dev-erp/test/context_life_tree.test.mjs` | FAIL at planning time (12 pass / 1 fail); PASS 14/14 after the 2026-08-30 RED-01 leaf | The failing signal was fixture time-rot (absolute seed dates left the 30-day window), not a live scope defect: a fixed-clock probe showed scope filtering already precedes the cap. The leaf made the fixture time-invariant and added a deterministic fixed-clock scope-before-cap regression. |
-| `node --test guild_hall/watchtower/topology_provider_adapters.test.mjs` | PASS: 4 pass | Current adapter tests pass; this does not close the separate topology-oracle reconciliation issue. |
+| `node --test guild_hall/watchtower/topology_provider_adapters.test.mjs` | PASS 4/4 at planning time; PASS 5/5 after the 2026-08-30 RED-02 leaf | The topology-oracle issue is closed: producer and Board expectations now derive from the versioned contract pin `federated_topology.v1.contract.json`, and a new producer test rejects tracked-artifact drift against both the fresh emit and the pin. The Board unified-view suite passes at the real 291-node scale. |
 | `npm.cmd run validate:path-policy:all` | FAIL: 57 tracked violations | Existing debt; this plan's new files must remain clean under changed-scope policy. |
 | `npm.cmd --prefix ui-workspace/apps/dev-erp-mcp test` | BLOCKED | Local dependencies for the package test were missing; no installation was attempted. |
 

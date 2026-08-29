@@ -11,6 +11,18 @@ import {
 
 const DIGEST = "a".repeat(64);
 
+// Single versioned oracle shared with guild_hall/watchtower: expectations come
+// from the tracked contract pin, not remembered counts, so producer topology
+// growth is a deliberate pin update and silent drift fails closed on both sides.
+const TOPOLOGY_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..", "..", "guild_hall", "watchtower", "topology");
+const FEDERATION_ARTIFACT_PATH = join(TOPOLOGY_DIR, "federated_topology.v1.json");
+const TOPOLOGY_CONTRACT = JSON.parse(readFileSync(join(TOPOLOGY_DIR, "federated_topology.v1.contract.json"), "utf8"));
+const contractProvider = (id) => {
+  const entry = TOPOLOGY_CONTRACT.providers.find((candidate) => candidate.provider_id === id);
+  assert.ok(entry, `topology contract provider missing: ${id}`);
+  return entry;
+};
+
 function provider(providerId, overrides = {}) {
   return {
     provider_id: providerId,
@@ -161,30 +173,39 @@ function assertNoVisibleNodeOverlap(nodes) {
   }
 }
 
-test("tracked federation totals remain 4 providers, 74 nodes and 206 provider-local edges", () => {
-  const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..", "..", "guild_hall", "watchtower", "topology", "federated_topology.v1.json");
-  const snapshot = JSON.parse(readFileSync(root, "utf8"));
+test("tracked federation totals match the versioned topology contract pin", () => {
+  const snapshot = JSON.parse(readFileSync(FEDERATION_ARTIFACT_PATH, "utf8"));
   const model = buildUnifiedTopologyViewModel({ lens: "declared_structure", state: "ready", reason: null, snapshot }, null);
   assert.equal(model.available, true);
   assert.deepEqual(
     { providers: model.source.providerCount, nodes: model.source.nodeCount, edges: model.source.edgeCount },
-    { providers: 4, nodes: 74, edges: 206 },
+    {
+      providers: TOPOLOGY_CONTRACT.summary.provider_count,
+      nodes: TOPOLOGY_CONTRACT.summary.node_count,
+      edges: TOPOLOGY_CONTRACT.summary.edge_count,
+    },
   );
-  assert.deepEqual(model.providers.map(({ id, nodeCount, edgeCount }) => ({ id, nodeCount, edgeCount })), [
-    { id: "watchtower", nodeCount: 28, edgeCount: 36 },
-    { id: "engineering_engine", nodeCount: 35, edgeCount: 156 },
-    { id: "knowledge_stack", nodeCount: 7, edgeCount: 9 },
-    { id: "watchtower_notebook_advisory_adapter", nodeCount: 4, edgeCount: 5 },
-  ]);
-  assert.equal(model.nodes.length, 4);
+  const sortById = (entries) => [...entries].sort((left, right) => left.id.localeCompare(right.id, "en"));
+  assert.deepEqual(
+    sortById(model.providers.map(({ id, nodeCount, edgeCount }) => ({ id, nodeCount, edgeCount }))),
+    sortById(TOPOLOGY_CONTRACT.providers.map((entry) => ({
+      id: entry.provider_id,
+      nodeCount: entry.node_count,
+      edgeCount: entry.edge_count,
+    }))),
+  );
+  // 표시 순서는 기억한 상수가 아니라 뷰의 정렬 규칙(watchtower 우선, 나머지 id 알파벳)에서 유도해 고정한다.
+  const expectedProviderOrder = snapshot.providers.map((entry) => entry.provider_id)
+    .sort((left, right) => (left === "watchtower" ? -1 : right === "watchtower" ? 1 : left.localeCompare(right, "en")));
+  assert.deepEqual(model.providers.map(({ id }) => id), expectedProviderOrder);
+  assert.equal(model.nodes.length, TOPOLOGY_CONTRACT.summary.provider_count);
   assert.equal(model.nodes.every((entry) => entry.displayKind === "provider"), true);
   assert.equal(model.diagnostics.crossProviderEdgeCount, 0);
   assert.equal(model.diagnostics.gapLabel, "연결 계약 미선언");
 });
 
-test("tracked Watchtower identity overlays exact 28/28 with no duplicates or invented receipts", () => {
-  const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..", "..", "guild_hall", "watchtower", "topology", "federated_topology.v1.json");
-  const snapshot = JSON.parse(readFileSync(root, "utf8"));
+test("tracked Watchtower identity overlays the full contract-declared node set with no duplicates or invented receipts", () => {
+  const snapshot = JSON.parse(readFileSync(FEDERATION_ARTIFACT_PATH, "utf8"));
   const watchtowerNodes = snapshot.nodes.filter((entry) => entry.provider_id === "watchtower");
   const watchtowerEdges = snapshot.edges.filter((entry) => entry.provider_id === "watchtower");
   const health = {
@@ -209,27 +230,26 @@ test("tracked Watchtower identity overlays exact 28/28 with no duplicates or inv
   };
   const model = buildUnifiedTopologyViewModel({ lens: "declared_structure", state: "ready", reason: null, snapshot }, health);
   assert.equal(model.available, true);
-  assert.equal(model.diagnostics.matchedHealthNodeCount, 28);
-  assert.equal(model.diagnostics.watchtowerDeclaredNodeCount, 28);
+  assert.equal(model.diagnostics.matchedHealthNodeCount, contractProvider("watchtower").node_count);
+  assert.equal(model.diagnostics.watchtowerDeclaredNodeCount, contractProvider("watchtower").node_count);
   assert.deepEqual(model.diagnostics.unmatchedHealthIds, []);
   assert.deepEqual(model.diagnostics.missingWatchtowerIds, []);
   assert.equal(model.source.nodeIds.length, new Set(model.source.nodeIds).size);
-  assert.equal(model.diagnostics.receiptOverlayCount, 36);
+  assert.equal(model.diagnostics.receiptOverlayCount, contractProvider("watchtower").edge_count);
   assert.equal(model.diagnostics.receiptDeliveryProvenCount, 0);
   assert.equal(model.providers.filter((entry) => entry.id !== "watchtower")
     .every((entry) => entry.healthObserved === false && entry.runtimeState === "unknown"), true);
 });
 
 test("size-aware layout has no collisions for all-expanded and single drill-down views", () => {
-  const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..", "..", "guild_hall", "watchtower", "topology", "federated_topology.v1.json");
-  const snapshot = JSON.parse(readFileSync(root, "utf8"));
+  const snapshot = JSON.parse(readFileSync(FEDERATION_ARTIFACT_PATH, "utf8"));
   const allExpanded = {
     providerIds: snapshot.providers.map((entry) => entry.provider_id),
     groupKeys: [...new Set(snapshot.nodes.map((entry) => `${entry.provider_id}::${entry.group ?? "그룹 없음"}`))],
   };
   const expanded = buildUnifiedTopologyViewModel({ lens: "declared_structure", state: "ready", reason: null, snapshot }, null, allExpanded);
-  assert.equal(expanded.nodes.filter((entry) => entry.displayKind === "node").length, 74);
-  assert.equal(expanded.edges.length, 206);
+  assert.equal(expanded.nodes.filter((entry) => entry.displayKind === "node").length, TOPOLOGY_CONTRACT.summary.node_count);
+  assert.equal(expanded.edges.length, TOPOLOGY_CONTRACT.summary.edge_count);
   assertNoVisibleNodeOverlap(expanded.nodes);
 
   const single = buildUnifiedTopologyViewModel(federationProjection(), healthProjection(), {

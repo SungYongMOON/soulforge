@@ -17,6 +17,16 @@ import { composeFederatedTopology, canonicalStringify } from "./topology_federat
 const WATCHTOWER_SOURCE = new URL("./topology.mjs", import.meta.url);
 const ENGINE_SOURCE = new URL("../engineering_engine/topology/engine_topology.json", import.meta.url);
 const CLI = fileURLToPath(new URL("./tools/emit_federated_topology.mjs", import.meta.url));
+const TRACKED_ARTIFACT = fileURLToPath(new URL("./topology/federated_topology.v1.json", import.meta.url));
+// Single versioned oracle: expectations derive from the contract pin instead of
+// remembered counts, so topology growth is a deliberate pin update and silent
+// drift fails closed here and in the Team Ops Board unified-view tests.
+const CONTRACT = JSON.parse(readFileSync(new URL("./topology/federated_topology.v1.contract.json", import.meta.url), "utf8"));
+const contractProvider = (id) => {
+  const entry = CONTRACT.providers.find((provider) => provider.provider_id === id);
+  assert.ok(entry, `contract provider missing: ${id}`);
+  return entry;
+};
 
 function digest(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
@@ -37,10 +47,10 @@ test("allowlisted adapters map exact Watchtower and Engineering Engine inventori
   const watchtower = adaptWatchtowerTopology(topologySkeleton(), watchtowerBytes);
   const engineeringEngine = adaptEngineeringEngineTopology(engineBytes);
 
-  assert.equal(watchtower.nodes.length, 28);
-  assert.equal(watchtower.edges.length, 36);
-  assert.equal(engineeringEngine.nodes.length, 252);
-  assert.equal(engineeringEngine.edges.length, 850);
+  assert.equal(watchtower.nodes.length, contractProvider("watchtower").node_count);
+  assert.equal(watchtower.edges.length, contractProvider("watchtower").edge_count);
+  assert.equal(engineeringEngine.nodes.length, contractProvider("engineering_engine").node_count);
+  assert.equal(engineeringEngine.edges.length, contractProvider("engineering_engine").edge_count);
   assert.equal(watchtower.source.digest, digest(watchtowerBytes));
   assert.equal(engineeringEngine.source.digest, digest(engineBytes));
   assert.equal(watchtower.runtime_state, "unknown");
@@ -55,8 +65,8 @@ test("allowlisted adapters map exact Watchtower and Engineering Engine inventori
   const federation = composeFederatedTopology([watchtower, engineeringEngine]);
   assert.deepEqual(federation.summary, {
     provider_count: 2,
-    node_count: 280,
-    edge_count: 886,
+    node_count: contractProvider("watchtower").node_count + contractProvider("engineering_engine").node_count,
+    edge_count: contractProvider("watchtower").edge_count + contractProvider("engineering_engine").edge_count,
     runtime_authority: false,
     repair_execution_authority: false,
   });
@@ -81,9 +91,9 @@ test("CLI emits canonical bytes only on stdout by default and --check remains re
   const run = spawnSync(process.execPath, [CLI], { encoding: "utf8" });
   assert.equal(run.status, 0, run.stderr);
   const parsed = JSON.parse(run.stdout);
-  assert.equal(parsed.summary.provider_count, 4);
-  assert.equal(parsed.summary.node_count, 291);
-  assert.equal(parsed.summary.edge_count, 900);
+  assert.equal(parsed.summary.provider_count, CONTRACT.summary.provider_count);
+  assert.equal(parsed.summary.node_count, CONTRACT.summary.node_count);
+  assert.equal(parsed.summary.edge_count, CONTRACT.summary.edge_count);
   assert.equal(run.stdout, canonicalStringify(parsed));
 
   const scratch = mkdtempSync(join(tmpdir(), "soulforge-federated-topology-"));
@@ -104,6 +114,35 @@ test("CLI emits canonical bytes only on stdout by default and --check remains re
   }
 });
 
+test("tracked federated topology matches the fresh emit and the versioned contract pin", () => {
+  const tracked = readFileSync(TRACKED_ARTIFACT);
+  const checked = spawnSync(process.execPath, [CLI, "--check", TRACKED_ARTIFACT], { encoding: "utf8" });
+  assert.equal(checked.status, 0, `tracked artifact drifted from fresh emit: ${checked.stderr}`);
+
+  assert.equal(digest(tracked), CONTRACT.artifact_sha256, "contract artifact_sha256 drifted from tracked bytes");
+  const snapshot = JSON.parse(tracked.toString("utf8"));
+  assert.deepEqual(
+    {
+      provider_count: snapshot.summary.provider_count,
+      node_count: snapshot.summary.node_count,
+      edge_count: snapshot.summary.edge_count,
+    },
+    CONTRACT.summary,
+  );
+  const perProvider = new Map(CONTRACT.providers.map((entry) => [entry.provider_id, { node_count: 0, edge_count: 0 }]));
+  for (const node of snapshot.nodes) {
+    assert.ok(perProvider.has(node.provider_id), `node provider outside contract: ${node.provider_id}`);
+    perProvider.get(node.provider_id).node_count += 1;
+  }
+  for (const edge of snapshot.edges) {
+    assert.ok(perProvider.has(edge.provider_id), `edge provider outside contract: ${edge.provider_id}`);
+    perProvider.get(edge.provider_id).edge_count += 1;
+  }
+  for (const entry of CONTRACT.providers) {
+    assert.deepEqual(perProvider.get(entry.provider_id), { node_count: entry.node_count, edge_count: entry.edge_count }, entry.provider_id);
+  }
+});
+
 test("CLI never writes without --out and writes only the requested output", () => {
   const scratch = mkdtempSync(join(tmpdir(), "soulforge-federated-topology-out-"));
   const output = join(scratch, "federation.json");
@@ -111,9 +150,9 @@ test("CLI never writes without --out and writes only the requested output", () =
     const emitted = spawnSync(process.execPath, [CLI, "--out", output], { encoding: "utf8" });
     assert.equal(emitted.status, 0, emitted.stderr);
     const parsed = JSON.parse(readFileSync(output, "utf8"));
-    assert.equal(parsed.summary.provider_count, 4);
-    assert.equal(parsed.summary.node_count, 291);
-    assert.equal(parsed.summary.edge_count, 900);
+    assert.equal(parsed.summary.provider_count, CONTRACT.summary.provider_count);
+    assert.equal(parsed.summary.node_count, CONTRACT.summary.node_count);
+    assert.equal(parsed.summary.edge_count, CONTRACT.summary.edge_count);
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }

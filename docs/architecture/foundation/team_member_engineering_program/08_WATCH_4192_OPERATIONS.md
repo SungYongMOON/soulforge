@@ -36,7 +36,7 @@ The Watch UI cannot execute its own request. A green panel, terminal idle state,
 
 ## Current topology-oracle hold
 
-The public Watchtower topology adapter tests currently pass a federated snapshot contract. A Fable5 advisory found an incompatible topology oracle/count expectation. This plan keeps the issue open until the intended producer, recursive topology scope, and UI oracle are pinned in one versioned contract. The future test must reject node/edge count or digest drift rather than relying on a remembered count.
+RESOLVED 2026-08-30: the intended producer, topology scope, and UI oracle are now pinned in one versioned contract, `guild_hall/watchtower/topology/federated_topology.v1.contract.json` (summary, per-provider counts, artifact SHA-256). The producer test verifies the tracked artifact against the fresh emit and the pin; the Board unified-view tests derive every count expectation from the same pin. Node/edge/provider/digest drift now fails closed on both sides instead of relying on a remembered count; deliberate topology growth updates the pin in the same change.
 
 ## Health model
 

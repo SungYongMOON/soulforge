@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-30 - RED stabilization: life-tree fixture time-rot repair and single topology oracle
+
+- dev-ERP: closed RED-01 with a root-cause correction. A fixed-clock probe proved the non-admin life-tree mailbox scope already filters in SQL before the per-lane cap; the long-failing test was fixture time-rot (absolute 2026-07-12 seeds left the 30-day real-clock window from ~2026-08-11). The HTTP fixture now seeds relative to now with every scope/cap/withholding assertion unchanged, and a new deterministic fixed-clock regression pins scope-before-cap with `CONTEXT_LIFE_TREE_PER_LANE_MAX + 5` newer foreign rows. No production source change; `context_life_tree.test.mjs` 14/14.
+- Watchtower/Board: closed RED-02 by adding the single versioned topology oracle `guild_hall/watchtower/topology/federated_topology.v1.contract.json` (summary, per-provider counts, artifact SHA-256). Producer tests and Board unified-view tests now derive every expectation from the pin instead of remembered counts, and a new producer test rejects tracked-artifact drift against both the fresh emit (`--check`) and the pin. Board unified-view passes at the real 291-node/900-edge scale, including collision-free full expansion.
+- Board classic engine lens: the same sweep exposed that the classic lens only classifies the pre-2026-08-25 flat engine vocabulary and, by its own fail-closed design, renders nothing for the migrated 252-module engine. Its rendering contract is preserved against the tracked legacy artifact fixture (`topology-engine-classic-legacy.fixture.json`, extracted from git history `4f5674fc`), and its tests now pin the honest `engineering_engine_lane_coverage_mismatch` unavailable state for the current artifact. A migrated-engine classic-style lens remains a separate Watch-phase candidate.
+- Validation: watchtower 118 pass, Team Ops Board package 692 pass / 0 fail, dev-ERP 1040 pass with only the 4 pre-existing environment-dependent failures unrelated to these leaves.
+
 ## 2026-08-30 - Team Member Engineering Program Owner-review draft suite
 
 - Added a public-safe, cross-linked foundation plan suite for the staged Team Member Engineering program: Vault/ERP asset and revision records, Forge work generation, shared Engineering MCP and binary-data plane, Guild workforce/Agent Mark, Buzz/Hermes, Watch/4192, Bastion recovery, external connectors, Workshops, deployment packs, test/acceptance, physical compatibility, and runbook catalog.

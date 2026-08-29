@@ -1,0 +1,17 @@
+{
+  "schema_version": "soulforge.watchtower.federated_topology_contract.v1",
+  "artifact": "guild_hall/watchtower/topology/federated_topology.v1.json",
+  "artifact_sha256": "0920e7cbd2a6247508ab287a63115e3c5e35abd39a1fd869d92886e2348d0d5b",
+  "summary": {
+    "provider_count": 4,
+    "node_count": 291,
+    "edge_count": 900
+  },
+  "providers": [
+    { "provider_id": "engineering_engine", "node_count": 252, "edge_count": 850 },
+    { "provider_id": "knowledge_stack", "node_count": 7, "edge_count": 9 },
+    { "provider_id": "watchtower", "node_count": 28, "edge_count": 36 },
+    { "provider_id": "watchtower_notebook_advisory_adapter", "node_count": 4, "edge_count": 5 }
+  ],
+  "update_rule": "This pin is the single versioned oracle for the tracked federated topology. Regenerate the artifact with guild_hall/watchtower/tools/emit_federated_topology.mjs --out and update this contract (counts and artifact_sha256) in the same change. Producer tests and the Team Ops Board unified-view tests both derive their expectations from this file and fail closed on any count, provider, or digest drift."
+}

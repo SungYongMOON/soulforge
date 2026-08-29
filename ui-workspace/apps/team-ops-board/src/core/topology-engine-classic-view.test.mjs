@@ -13,12 +13,24 @@ const ARTIFACT_PATH = join(
 );
 
 const TRACKED_SNAPSHOT = JSON.parse(readFileSync(ARTIFACT_PATH, "utf8"));
-// 기대 수치는 손으로 적지 않고 tracked artifact 의 engineering_engine slice 에서 유도한다.
-// 화면이 지켜야 하는 계약은 "추적된 모듈·간선을 하나도 빠뜨리지 않는다" 이지, 특정 상수가 아니다.
+// 기대 수치는 손으로 적지 않고 versioned contract pin 에서 유도한다 (RED-02).
+// 화면이 지켜야 하는 계약은 "선언된 모듈·간선을 하나도 빠뜨리지 않는다" 이지, 특정 상수가 아니다.
+const TOPOLOGY_CONTRACT = JSON.parse(readFileSync(join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..", "..", "..", "..", "..",
+  "guild_hall", "watchtower", "topology", "federated_topology.v1.contract.json",
+), "utf8"));
+const ENGINE_CONTRACT = TOPOLOGY_CONTRACT.providers.find((entry) => entry.provider_id === "engineering_engine");
 const ENGINE_NODE_COUNT = TRACKED_SNAPSHOT.nodes
   .filter((node) => node.provider_id === "engineering_engine").length;
 const ENGINE_EDGE_COUNT = TRACKED_SNAPSHOT.edges
   .filter((edge) => edge.provider_id === "engineering_engine").length;
+
+// classic lens 는 2026-08-25 물리 migration 이전의 flat engine 어휘(ENGINE_LANES)만
+// 분류할 수 있고, 이주된 엔진에는 자기 설계대로 fail-closed 한다. 렌더링 계약은
+// git 이력의 실제 legacy artifact(4f5674fc, 35/156 engine slice)를 고정 픽스처로 보존해
+// 계속 검증하고, 실 artifact 에 대해서는 정직한 unavailable 상태를 고정한다.
+const LEGACY_FIXTURE_PATH = join(dirname(fileURLToPath(import.meta.url)), "topology-engine-classic-legacy.fixture.json");
 
 function trackedProjection(overrides = {}) {
   return {
@@ -33,27 +45,52 @@ function trackedProjection(overrides = {}) {
   };
 }
 
-test("classic engine view preserves all 35 modules and 156 provider-local import edges", () => {
-  // 추적 artifact 가 실제로 이 규모인지 한 자리에서만 고정한다.
-  assert.deepEqual({ nodes: ENGINE_NODE_COUNT, edges: ENGINE_EDGE_COUNT }, { nodes: 35, edges: 156 });
-  const model = buildEngineeringClassicTopologyViewModel(trackedProjection());
+function legacyProjection(overrides = {}) {
+  return {
+    lens: "declared_structure",
+    state: "ready",
+    reason: null,
+    snapshot: {
+      ...JSON.parse(readFileSync(LEGACY_FIXTURE_PATH, "utf8")),
+      ...overrides.snapshot,
+    },
+    ...overrides,
+  };
+}
+
+test("tracked engine slice matches the contract pin and the classic lens fails closed on the migrated engine", () => {
+  assert.deepEqual(
+    { nodes: ENGINE_NODE_COUNT, edges: ENGINE_EDGE_COUNT },
+    { nodes: ENGINE_CONTRACT.node_count, edges: ENGINE_CONTRACT.edge_count },
+  );
+  const migrated = buildEngineeringClassicTopologyViewModel(trackedProjection());
+  assert.equal(migrated.available, false);
+  assert.equal(migrated.reason, "engineering_engine_lane_coverage_mismatch");
+});
+
+test("classic engine view preserves all 35 legacy modules and 156 provider-local import edges", () => {
+  const legacySnapshot = JSON.parse(readFileSync(LEGACY_FIXTURE_PATH, "utf8"));
+  const legacyEngineNodes = legacySnapshot.nodes.filter((node) => node.provider_id === "engineering_engine").length;
+  const legacyEngineEdges = legacySnapshot.edges.filter((edge) => edge.provider_id === "engineering_engine").length;
+  assert.deepEqual({ nodes: legacyEngineNodes, edges: legacyEngineEdges }, { nodes: 35, edges: 156 });
+  const model = buildEngineeringClassicTopologyViewModel(legacyProjection());
   assert.equal(model.available, true);
   assert.deepEqual(model.source, {
-    nodeCount: ENGINE_NODE_COUNT,
-    edgeCount: ENGINE_EDGE_COUNT,
+    nodeCount: legacyEngineNodes,
+    edgeCount: legacyEngineEdges,
     nodeIds: [...model.source.nodeIds].sort(),
     edgeIds: [...model.source.edgeIds].sort(),
   });
   assert.equal(model.nodes.filter((node) => node.kind === "lane").length, 5);
-  assert.equal(model.nodes.filter((node) => node.kind !== "lane").length, ENGINE_NODE_COUNT);
-  assert.equal(model.edges.length, ENGINE_EDGE_COUNT);
+  assert.equal(model.nodes.filter((node) => node.kind !== "lane").length, legacyEngineNodes);
+  assert.equal(model.edges.length, legacyEngineEdges);
   assert.equal(model.edges.every((edge) => edge.source.startsWith("engineering_engine::")
     && edge.target.startsWith("engineering_engine::") && edge.relation === "imports"), true);
 });
 
 test("classic engine view is fully expanded, deterministic and collision free", () => {
-  const first = buildEngineeringClassicTopologyViewModel(trackedProjection());
-  const second = buildEngineeringClassicTopologyViewModel(trackedProjection());
+  const first = buildEngineeringClassicTopologyViewModel(legacyProjection());
+  const second = buildEngineeringClassicTopologyViewModel(legacyProjection());
   assert.deepEqual(first, second);
   const nodes = first.nodes.filter((node) => node.kind !== "lane");
   for (let leftIndex = 0; leftIndex < nodes.length; leftIndex += 1) {
@@ -73,7 +110,7 @@ test("classic engine view is fully expanded, deterministic and collision free", 
 });
 
 test("classic engine view uses the original shape vocabulary without inventing live health", () => {
-  const model = buildEngineeringClassicTopologyViewModel(trackedProjection());
+  const model = buildEngineeringClassicTopologyViewModel(legacyProjection());
   const nodes = model.nodes.filter((node) => node.kind !== "lane");
   const crosswalkProjection = nodes.find((node) => node.localId === "se_core_crosswalk_projection");
   const crosswalkCaseRun = nodes.find((node) => node.localId === "se_core_crosswalk_case_run");
@@ -121,7 +158,7 @@ test("classic engine view uses the original shape vocabulary without inventing l
 });
 
 test("classic engine view excludes Knowledge and Notebook identities", () => {
-  const model = buildEngineeringClassicTopologyViewModel(trackedProjection());
+  const model = buildEngineeringClassicTopologyViewModel(legacyProjection());
   const allIds = [...model.source.nodeIds, ...model.source.edgeIds].join("\n");
   assert.doesNotMatch(allIds, /knowledge_stack|watchtower_notebook_advisory_adapter/u);
   assert.equal(model.gap, "Watchtower와 Engineering Engine 사이 연결 계약 미선언");

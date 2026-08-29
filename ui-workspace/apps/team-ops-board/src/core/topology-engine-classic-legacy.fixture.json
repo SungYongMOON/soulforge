@@ -1,0 +1,5673 @@
+{
+  "edges": [
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::authority",
+      "id": "engineering_engine::imports.authority.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::authority",
+      "id": "engineering_engine::imports.authority.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::authority",
+      "id": "engineering_engine::imports.authority.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_assessment",
+      "id": "engineering_engine::imports.ax_se_project_assessment.authority",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::authority"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_assessment",
+      "id": "engineering_engine::imports.ax_se_project_assessment.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_assessment",
+      "id": "engineering_engine::imports.ax_se_project_assessment.ceilings",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::ceilings"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_assessment",
+      "id": "engineering_engine::imports.ax_se_project_assessment.custody",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::custody"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_assessment",
+      "id": "engineering_engine::imports.ax_se_project_assessment.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_assessment",
+      "id": "engineering_engine::imports.ax_se_project_assessment.fingerprint",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_assessment",
+      "id": "engineering_engine::imports.ax_se_project_assessment.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_assessment",
+      "id": "engineering_engine::imports.ax_se_project_assessment.minting",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::minting"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_assessment",
+      "id": "engineering_engine::imports.ax_se_project_assessment.snapshot",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::snapshot"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_context_pilot",
+      "id": "engineering_engine::imports.ax_se_project_context_pilot.ax_se_project_role_bound_assessment",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::ax_se_project_role_bound_assessment"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_context_pilot",
+      "id": "engineering_engine::imports.ax_se_project_context_pilot.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_context_pilot",
+      "id": "engineering_engine::imports.ax_se_project_context_pilot.fingerprint",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_context_pilot",
+      "id": "engineering_engine::imports.ax_se_project_context_pilot.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_bound_assessment",
+      "id": "engineering_engine::imports.ax_se_project_role_bound_assessment.ax_se_project_assessment",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::ax_se_project_assessment"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_bound_assessment",
+      "id": "engineering_engine::imports.ax_se_project_role_bound_assessment.ax_se_project_role_roster",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::ax_se_project_role_roster"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_bound_assessment",
+      "id": "engineering_engine::imports.ax_se_project_role_bound_assessment.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_bound_assessment",
+      "id": "engineering_engine::imports.ax_se_project_role_bound_assessment.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_bound_assessment",
+      "id": "engineering_engine::imports.ax_se_project_role_bound_assessment.fingerprint",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_bound_assessment",
+      "id": "engineering_engine::imports.ax_se_project_role_bound_assessment.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_bound_assessment",
+      "id": "engineering_engine::imports.ax_se_project_role_bound_assessment.minting",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::minting"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_roster",
+      "id": "engineering_engine::imports.ax_se_project_role_roster.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_roster",
+      "id": "engineering_engine::imports.ax_se_project_role_roster.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_roster",
+      "id": "engineering_engine::imports.ax_se_project_role_roster.fingerprint",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ax_se_project_role_roster",
+      "id": "engineering_engine::imports.ax_se_project_role_roster.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::canonical",
+      "id": "engineering_engine::imports.canonical.contract_config",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::contract_config"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::canonical",
+      "id": "engineering_engine::imports.canonical.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::capsule",
+      "id": "engineering_engine::imports.capsule.authority",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::authority"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::capsule",
+      "id": "engineering_engine::imports.capsule.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::capsule",
+      "id": "engineering_engine::imports.capsule.contract_config",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::contract_config"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::capsule",
+      "id": "engineering_engine::imports.capsule.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::capsule",
+      "id": "engineering_engine::imports.capsule.graph",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::graph"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::capsule",
+      "id": "engineering_engine::imports.capsule.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::ceilings",
+      "id": "engineering_engine::imports.ceilings.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::common_se_corpus_projection",
+      "id": "engineering_engine::imports.common_se_corpus_projection.authority",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::authority"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::common_se_corpus_projection",
+      "id": "engineering_engine::imports.common_se_corpus_projection.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::common_se_corpus_projection",
+      "id": "engineering_engine::imports.common_se_corpus_projection.capsule",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::capsule"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::common_se_corpus_projection",
+      "id": "engineering_engine::imports.common_se_corpus_projection.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::common_se_corpus_projection",
+      "id": "engineering_engine::imports.common_se_corpus_projection.graph",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::graph"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::common_se_corpus_projection",
+      "id": "engineering_engine::imports.common_se_corpus_projection.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::common_se_corpus_projection",
+      "id": "engineering_engine::imports.common_se_corpus_projection.snapshot",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::snapshot"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::context_receipt",
+      "id": "engineering_engine::imports.context_receipt.authority",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::authority"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::context_receipt",
+      "id": "engineering_engine::imports.context_receipt.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::context_receipt",
+      "id": "engineering_engine::imports.context_receipt.ceilings",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::ceilings"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::context_receipt",
+      "id": "engineering_engine::imports.context_receipt.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::context_receipt",
+      "id": "engineering_engine::imports.context_receipt.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::context_receipt",
+      "id": "engineering_engine::imports.context_receipt.minting",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::minting"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::context_receipt",
+      "id": "engineering_engine::imports.context_receipt.registration",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::registration"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::custody",
+      "id": "engineering_engine::imports.custody.authority",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::authority"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::custody",
+      "id": "engineering_engine::imports.custody.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::custody",
+      "id": "engineering_engine::imports.custody.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::custody",
+      "id": "engineering_engine::imports.custody.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::delivery_receipt",
+      "id": "engineering_engine::imports.delivery_receipt.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::delivery_receipt",
+      "id": "engineering_engine::imports.delivery_receipt.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engine_pass",
+      "id": "engineering_engine::imports.engine_pass.authority",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::authority"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engine_pass",
+      "id": "engineering_engine::imports.engine_pass.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engine_pass",
+      "id": "engineering_engine::imports.engine_pass.contract_config",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::contract_config"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engine_pass",
+      "id": "engineering_engine::imports.engine_pass.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engine_pass",
+      "id": "engineering_engine::imports.engine_pass.fingerprint",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engine_pass",
+      "id": "engineering_engine::imports.engine_pass.minting",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::minting"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engine_pass",
+      "id": "engineering_engine::imports.engine_pass.pipeline",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::pipeline"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engine_pass",
+      "id": "engineering_engine::imports.engine_pass.snapshot",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::snapshot"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engine_self_topology",
+      "id": "engineering_engine::imports.engine_self_topology.custody",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::custody"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engine_self_topology",
+      "id": "engineering_engine::imports.engine_self_topology.delivery_receipt",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::delivery_receipt"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engine_self_topology",
+      "id": "engineering_engine::imports.engine_self_topology.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engine_self_topology",
+      "id": "engineering_engine::imports.engine_self_topology.snapshot",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::snapshot"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::execution_mode",
+      "id": "engineering_engine::imports.execution_mode.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::execution_mode",
+      "id": "engineering_engine::imports.execution_mode.contract_config",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::contract_config"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::execution_mode",
+      "id": "engineering_engine::imports.execution_mode.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::finding",
+      "id": "engineering_engine::imports.finding.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::finding",
+      "id": "engineering_engine::imports.finding.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::fingerprint",
+      "id": "engineering_engine::imports.fingerprint.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::fingerprint",
+      "id": "engineering_engine::imports.fingerprint.contract_config",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::contract_config"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::fingerprint",
+      "id": "engineering_engine::imports.fingerprint.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::graph",
+      "id": "engineering_engine::imports.graph.authority",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::authority"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::graph",
+      "id": "engineering_engine::imports.graph.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::graph",
+      "id": "engineering_engine::imports.graph.ceilings",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::ceilings"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::graph",
+      "id": "engineering_engine::imports.graph.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::graph",
+      "id": "engineering_engine::imports.graph.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::heartbeat",
+      "id": "engineering_engine::imports.heartbeat.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::heartbeat",
+      "id": "engineering_engine::imports.heartbeat.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::identity",
+      "id": "engineering_engine::imports.identity.contract_config",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::contract_config"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::index",
+      "id": "engineering_engine::imports.index.authority",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::authority"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::index",
+      "id": "engineering_engine::imports.index.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::index",
+      "id": "engineering_engine::imports.index.capsule",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::capsule"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::index",
+      "id": "engineering_engine::imports.index.ceilings",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::ceilings"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::index",
+      "id": "engineering_engine::imports.index.contract_config",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::contract_config"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::index",
+      "id": "engineering_engine::imports.index.custody",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::custody"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::index",
+      "id": "engineering_engine::imports.index.delivery_receipt",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::delivery_receipt"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::index",
+      "id": "engineering_engine::imports.index.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::index",
+      "id": "engineering_engine::imports.index.execution_mode",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::execution_mode"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::index",
+      "id": "engineering_engine::imports.index.finding",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::finding"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::index",
+      "id": "engineering_engine::imports.index.fingerprint",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::index",
+      "id": "engineering_engine::imports.index.graph",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::graph"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::index",
+      "id": "engineering_engine::imports.index.heartbeat",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::heartbeat"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::index",
+      "id": "engineering_engine::imports.index.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::index",
+      "id": "engineering_engine::imports.index.lineage",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::lineage"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::index",
+      "id": "engineering_engine::imports.index.mcp_contract",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::mcp_contract"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::index",
+      "id": "engineering_engine::imports.index.minting",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::minting"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::index",
+      "id": "engineering_engine::imports.index.module_binding",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::module_binding"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::index",
+      "id": "engineering_engine::imports.index.pipeline",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::pipeline"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::index",
+      "id": "engineering_engine::imports.index.registration",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::registration"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::index",
+      "id": "engineering_engine::imports.index.snapshot",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::snapshot"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::lineage",
+      "id": "engineering_engine::imports.lineage.authority",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::authority"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::lineage",
+      "id": "engineering_engine::imports.lineage.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::lineage",
+      "id": "engineering_engine::imports.lineage.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::lineage",
+      "id": "engineering_engine::imports.lineage.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::mcp_contract",
+      "id": "engineering_engine::imports.mcp_contract.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::mcp_contract",
+      "id": "engineering_engine::imports.mcp_contract.contract_config",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::contract_config"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::mcp_contract",
+      "id": "engineering_engine::imports.mcp_contract.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::minting",
+      "id": "engineering_engine::imports.minting.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::minting",
+      "id": "engineering_engine::imports.minting.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module_binding",
+      "id": "engineering_engine::imports.module_binding.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module_binding",
+      "id": "engineering_engine::imports.module_binding.contract_config",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::contract_config"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::module_binding",
+      "id": "engineering_engine::imports.module_binding.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::pipeline",
+      "id": "engineering_engine::imports.pipeline.authority",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::authority"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::pipeline",
+      "id": "engineering_engine::imports.pipeline.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::pipeline",
+      "id": "engineering_engine::imports.pipeline.contract_config",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::contract_config"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::pipeline",
+      "id": "engineering_engine::imports.pipeline.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::pipeline",
+      "id": "engineering_engine::imports.pipeline.mcp_contract",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::mcp_contract"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::pipeline",
+      "id": "engineering_engine::imports.pipeline.minting",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::minting"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::pipeline",
+      "id": "engineering_engine::imports.pipeline.registration",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::registration"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::project_context_acceptance_gate",
+      "id": "engineering_engine::imports.project_context_acceptance_gate.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::project_context_acceptance_gate",
+      "id": "engineering_engine::imports.project_context_acceptance_gate.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::project_context_acceptance_gate",
+      "id": "engineering_engine::imports.project_context_acceptance_gate.project_context_generation_candidate",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::project_context_generation_candidate"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::project_context_generation_candidate",
+      "id": "engineering_engine::imports.project_context_generation_candidate.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::project_context_generation_candidate",
+      "id": "engineering_engine::imports.project_context_generation_candidate.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::registration",
+      "id": "engineering_engine::imports.registration.authority",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::authority"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::registration",
+      "id": "engineering_engine::imports.registration.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::registration",
+      "id": "engineering_engine::imports.registration.contract_config",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::contract_config"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::registration",
+      "id": "engineering_engine::imports.registration.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::registration",
+      "id": "engineering_engine::imports.registration.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_crosswalk_case_run",
+      "id": "engineering_engine::imports.se_core_crosswalk_case_run.authority",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::authority"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_crosswalk_case_run",
+      "id": "engineering_engine::imports.se_core_crosswalk_case_run.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_crosswalk_case_run",
+      "id": "engineering_engine::imports.se_core_crosswalk_case_run.capsule",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::capsule"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_crosswalk_case_run",
+      "id": "engineering_engine::imports.se_core_crosswalk_case_run.common_se_corpus_projection",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::common_se_corpus_projection"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_crosswalk_case_run",
+      "id": "engineering_engine::imports.se_core_crosswalk_case_run.engine_pass",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engine_pass"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_crosswalk_case_run",
+      "id": "engineering_engine::imports.se_core_crosswalk_case_run.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_crosswalk_case_run",
+      "id": "engineering_engine::imports.se_core_crosswalk_case_run.se_core_crosswalk_projection",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::se_core_crosswalk_projection"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_crosswalk_case_run",
+      "id": "engineering_engine::imports.se_core_crosswalk_case_run.snapshot",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::snapshot"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_crosswalk_projection",
+      "id": "engineering_engine::imports.se_core_crosswalk_projection.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_crosswalk_projection",
+      "id": "engineering_engine::imports.se_core_crosswalk_projection.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_source_cited_answer_run",
+      "id": "engineering_engine::imports.se_core_source_cited_answer_run.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_source_cited_answer_run",
+      "id": "engineering_engine::imports.se_core_source_cited_answer_run.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_source_cited_answer_run",
+      "id": "engineering_engine::imports.se_core_source_cited_answer_run.se_core_crosswalk_case_run",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::se_core_crosswalk_case_run"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_source_cited_answer_run",
+      "id": "engineering_engine::imports.se_core_source_cited_answer_run.se_core_crosswalk_projection",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::se_core_crosswalk_projection"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::snapshot",
+      "id": "engineering_engine::imports.snapshot.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::snapshot",
+      "id": "engineering_engine::imports.snapshot.ceilings",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::ceilings"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::snapshot",
+      "id": "engineering_engine::imports.snapshot.contract_config",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::contract_config"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::snapshot",
+      "id": "engineering_engine::imports.snapshot.custody",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::custody"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::snapshot",
+      "id": "engineering_engine::imports.snapshot.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::snapshot",
+      "id": "engineering_engine::imports.snapshot.fingerprint",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::fingerprint"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::snapshot",
+      "id": "engineering_engine::imports.snapshot.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::snapshot",
+      "id": "engineering_engine::imports.snapshot.minting",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::minting"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "knowledge_stack::knowledge_access",
+      "id": "knowledge_stack::access_projects_graph",
+      "label": "explicit ledger analysis projection",
+      "layer": "subsystem",
+      "provider_id": "knowledge_stack",
+      "relation": "projects",
+      "to": "knowledge_stack::knowledge_graph"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "knowledge_stack::knowledge_canon",
+      "id": "knowledge_stack::canon_projects_graph",
+      "label": "public canon metadata projection",
+      "layer": "subsystem",
+      "provider_id": "knowledge_stack",
+      "relation": "projects",
+      "to": "knowledge_stack::knowledge_graph"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "knowledge_stack::knowledge_canon",
+      "id": "knowledge_stack::canon_supplies_rag",
+      "label": "safe canon metadata",
+      "layer": "subsystem",
+      "provider_id": "knowledge_stack",
+      "relation": "data",
+      "to": "knowledge_stack::rag"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "knowledge_stack::knowledge_graph",
+      "id": "knowledge_stack::graph_supplies_rag",
+      "label": "safe graph metadata",
+      "layer": "subsystem",
+      "provider_id": "knowledge_stack",
+      "relation": "data",
+      "to": "knowledge_stack::rag"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "knowledge_stack::rag",
+      "id": "knowledge_stack::rag_projects_graph",
+      "label": "metadata-only RAG overlay",
+      "layer": "subsystem",
+      "provider_id": "knowledge_stack",
+      "relation": "projects",
+      "to": "knowledge_stack::knowledge_graph"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "knowledge_stack::rag",
+      "id": "knowledge_stack::rag_records_access",
+      "label": "metadata-only retrieval events",
+      "layer": "subsystem",
+      "provider_id": "knowledge_stack",
+      "relation": "data",
+      "to": "knowledge_stack::knowledge_access"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "knowledge_stack::wiki_cell",
+      "id": "knowledge_stack::wiki_cell_routes_pipeline",
+      "label": "default workflow",
+      "layer": "subsystem",
+      "provider_id": "knowledge_stack",
+      "relation": "control",
+      "to": "knowledge_stack::wiki_pipeline"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "knowledge_stack::wiki_pipeline",
+      "id": "knowledge_stack::wiki_pipeline_advises_rag",
+      "label": "metadata-only refresh handoff",
+      "layer": "subsystem",
+      "provider_id": "knowledge_stack",
+      "relation": "advises",
+      "to": "knowledge_stack::rag"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "knowledge_stack::wiki_pipeline",
+      "id": "knowledge_stack::wiki_pipeline_routes_access",
+      "label": "knowledge access capture stage",
+      "layer": "subsystem",
+      "provider_id": "knowledge_stack",
+      "relation": "control",
+      "to": "knowledge_stack::knowledge_access"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::codex_retention_report",
+      "id": "watchtower::edge.codex_retention_report.consumer_board.data",
+      "label": "보존 스냅샷",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::consumer_board"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::codex_retention_report",
+      "id": "watchtower::edge.codex_retention_report.watchtower_self.control",
+      "label": "보존 보고서 헬스 관측",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "control",
+      "to": "watchtower::watchtower_self"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::gate_five_field",
+      "id": "watchtower::edge.gate_five_field.store_activity_outbox.data",
+      "label": "delta append",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::store_activity_outbox"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::ingress_supervisor",
+      "id": "watchtower::edge.ingress_supervisor.store_mail_events.data",
+      "label": "event append",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::store_mail_events"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::ingress_supervisor",
+      "id": "watchtower::edge.ingress_supervisor.store_voice_custody.data",
+      "label": "custody",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::store_voice_custody"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::ingress_supervisor",
+      "id": "watchtower::edge.ingress_supervisor.watchtower_self.control",
+      "label": "상태 관찰",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "control",
+      "to": "watchtower::watchtower_self"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::local_activity",
+      "id": "watchtower::edge.local_activity.gate_five_field.control",
+      "label": "원장 검증",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "control",
+      "to": "watchtower::gate_five_field"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::local_activity",
+      "id": "watchtower::edge.local_activity.watchtower_self.control",
+      "label": "상태 관찰",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "control",
+      "to": "watchtower::watchtower_self"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::mail_forwarder",
+      "id": "watchtower::edge.mail_forwarder.src_gmail.data",
+      "label": "import",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::src_gmail"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::mail_forwarder",
+      "id": "watchtower::edge.mail_forwarder.watchtower_self.control",
+      "label": "상태 관찰",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "control",
+      "to": "watchtower::watchtower_self"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::slack_batch",
+      "id": "watchtower::edge.slack_batch.store_slack_custody.data",
+      "label": "revision append",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::store_slack_custody"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::slack_batch",
+      "id": "watchtower::edge.slack_batch.watchtower_self.control",
+      "label": "상태 관찰",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "control",
+      "to": "watchtower::watchtower_self"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::src_antigravity",
+      "id": "watchtower::edge.src_antigravity.usage_antigravity_collector.data",
+      "label": "scheduled local read",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::usage_antigravity_collector"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::src_claude",
+      "id": "watchtower::edge.src_claude.usage_claude_collector.data",
+      "label": "on-demand read",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::usage_claude_collector"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::src_codex",
+      "id": "watchtower::edge.src_codex.usage_codex_collector.data",
+      "label": "on-demand read",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::usage_codex_collector"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::src_hiworks",
+      "id": "watchtower::edge.src_hiworks.ingress_supervisor.data",
+      "label": "POP3 수집",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::ingress_supervisor"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::src_hiworks",
+      "id": "watchtower::edge.src_hiworks.mail_forwarder.data",
+      "label": "원본 bytes",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::mail_forwarder"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::src_onedrive",
+      "id": "watchtower::edge.src_onedrive.local_activity.data",
+      "label": "파일 관찰",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::local_activity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::src_plaud",
+      "id": "watchtower::edge.src_plaud.ingress_supervisor.data",
+      "label": "세션 intake",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::ingress_supervisor"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::src_slack",
+      "id": "watchtower::edge.src_slack.slack_batch.data",
+      "label": "일 2회 pull",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::slack_batch"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::store_activity_outbox",
+      "id": "watchtower::edge.store_activity_outbox.consumer_timeline.data",
+      "label": "proxy",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::consumer_timeline"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::store_mail_events",
+      "id": "watchtower::edge.store_mail_events.consumer_timeline.data",
+      "label": "shadow 투영",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::consumer_timeline"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::store_usage_ledger",
+      "id": "watchtower::edge.store_usage_ledger.consumer_board.data",
+      "label": "read-only usage snapshot",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::consumer_board"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::store_voice_custody",
+      "id": "watchtower::edge.store_voice_custody.voice_label_worker.data",
+      "label": "ASR·라벨",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::voice_label_worker"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::store_workmeta",
+      "id": "watchtower::edge.store_workmeta.consumer_board.data",
+      "label": "조직 overlay",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::consumer_board"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::usage_antigravity_collector",
+      "id": "watchtower::edge.usage_antigravity_collector.usage_meter.data",
+      "label": "usage event",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::usage_meter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::usage_antigravity_collector",
+      "id": "watchtower::edge.usage_antigravity_collector.watchtower_self.control",
+      "label": "Antigravity collector health 관찰",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "control",
+      "to": "watchtower::watchtower_self"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::usage_claude_collector",
+      "id": "watchtower::edge.usage_claude_collector.usage_meter.data",
+      "label": "usage event",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::usage_meter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::usage_claude_collector",
+      "id": "watchtower::edge.usage_claude_collector.watchtower_self.control",
+      "label": "Claude collector health 관찰",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "control",
+      "to": "watchtower::watchtower_self"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::usage_codex_collector",
+      "id": "watchtower::edge.usage_codex_collector.usage_meter.data",
+      "label": "usage event",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::usage_meter"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::usage_codex_collector",
+      "id": "watchtower::edge.usage_codex_collector.watchtower_self.control",
+      "label": "Codex collector health 관찰",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "control",
+      "to": "watchtower::watchtower_self"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::usage_meter",
+      "id": "watchtower::edge.usage_meter.store_usage_ledger.data",
+      "label": "validated append",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::store_usage_ledger"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::usage_meter",
+      "id": "watchtower::edge.usage_meter.watchtower_self.control",
+      "label": "usage ledger validation health 관찰",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "control",
+      "to": "watchtower::watchtower_self"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::voice_label_worker",
+      "id": "watchtower::edge.voice_label_worker.consumer_timeline.data",
+      "label": "발생 라벨",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::consumer_timeline"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::voice_label_worker",
+      "id": "watchtower::edge.voice_label_worker.watchtower_self.control",
+      "label": "상태 관찰",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "control",
+      "to": "watchtower::watchtower_self"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::watchtower_self",
+      "id": "watchtower::edge.watchtower_self.consumer_board.data",
+      "label": "판정 스냅샷",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::consumer_board"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower_notebook_advisory_adapter::advisory_boundary",
+      "id": "watchtower_notebook_advisory_adapter::boundary_contains_discovery_workflow",
+      "label": "contains discovery workflow",
+      "layer": "operation",
+      "provider_id": "watchtower_notebook_advisory_adapter",
+      "relation": "contains",
+      "to": "watchtower_notebook_advisory_adapter::discovery_workflow"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower_notebook_advisory_adapter::advisory_boundary",
+      "id": "watchtower_notebook_advisory_adapter::boundary_contains_human_review_handoff",
+      "label": "contains human review handoff",
+      "layer": "operation",
+      "provider_id": "watchtower_notebook_advisory_adapter",
+      "relation": "contains",
+      "to": "watchtower_notebook_advisory_adapter::human_review_handoff"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower_notebook_advisory_adapter::advisory_boundary",
+      "id": "watchtower_notebook_advisory_adapter::boundary_contains_metadata_bridge",
+      "label": "contains metadata bridge",
+      "layer": "module",
+      "provider_id": "watchtower_notebook_advisory_adapter",
+      "relation": "contains",
+      "to": "watchtower_notebook_advisory_adapter::metadata_bridge"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower_notebook_advisory_adapter::discovery_workflow",
+      "id": "watchtower_notebook_advisory_adapter::discovery_advises_human_review",
+      "label": "research delta handoff",
+      "layer": "operation",
+      "provider_id": "watchtower_notebook_advisory_adapter",
+      "relation": "advises",
+      "to": "watchtower_notebook_advisory_adapter::human_review_handoff"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower_notebook_advisory_adapter::metadata_bridge",
+      "id": "watchtower_notebook_advisory_adapter::metadata_projects_human_review",
+      "label": "metadata-only advisory handoff",
+      "layer": "operation",
+      "provider_id": "watchtower_notebook_advisory_adapter",
+      "relation": "projects",
+      "to": "watchtower_notebook_advisory_adapter::human_review_handoff"
+    }
+  ],
+  "nodes": [
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::authority",
+      "kind": "module",
+      "label": "authority",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "subjects",
+      "id": "engineering_engine::ax_se_project_assessment",
+      "kind": "module",
+      "label": "ax_se_project_assessment",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "subjects",
+      "id": "engineering_engine::ax_se_project_context_pilot",
+      "kind": "module",
+      "label": "ax_se_project_context_pilot",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "subjects",
+      "id": "engineering_engine::ax_se_project_role_bound_assessment",
+      "kind": "module",
+      "label": "ax_se_project_role_bound_assessment",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "subjects",
+      "id": "engineering_engine::ax_se_project_role_roster",
+      "kind": "module",
+      "label": "ax_se_project_role_roster",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::canonical",
+      "kind": "module",
+      "label": "canonical",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::capsule",
+      "kind": "module",
+      "label": "capsule",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::ceilings",
+      "kind": "module",
+      "label": "ceilings",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "subjects",
+      "id": "engineering_engine::common_se_corpus_projection",
+      "kind": "module",
+      "label": "common_se_corpus_projection",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::context_receipt",
+      "kind": "module",
+      "label": "context_receipt",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::contract_config",
+      "kind": "module",
+      "label": "contract_config",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::custody",
+      "kind": "module",
+      "label": "custody",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::delivery_receipt",
+      "kind": "module",
+      "label": "delivery_receipt",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "assembly",
+      "id": "engineering_engine::engine_pass",
+      "kind": "module",
+      "label": "engine_pass",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "subjects",
+      "id": "engineering_engine::engine_self_topology",
+      "kind": "module",
+      "label": "engine_self_topology",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::errors",
+      "kind": "module",
+      "label": "errors",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::execution_mode",
+      "kind": "module",
+      "label": "execution_mode",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::finding",
+      "kind": "module",
+      "label": "finding",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::fingerprint",
+      "kind": "module",
+      "label": "fingerprint",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::graph",
+      "kind": "module",
+      "label": "graph",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::heartbeat",
+      "kind": "module",
+      "label": "heartbeat",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::identity",
+      "kind": "module",
+      "label": "identity",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::index",
+      "kind": "module",
+      "label": "index",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::lineage",
+      "kind": "module",
+      "label": "lineage",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::mcp_contract",
+      "kind": "module",
+      "label": "mcp_contract",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::minting",
+      "kind": "module",
+      "label": "minting",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::module_binding",
+      "kind": "module",
+      "label": "module_binding",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::pipeline",
+      "kind": "module",
+      "label": "pipeline",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::project_context_acceptance_gate",
+      "kind": "module",
+      "label": "project_context_acceptance_gate",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::project_context_generation_candidate",
+      "kind": "module",
+      "label": "project_context_generation_candidate",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::registration",
+      "kind": "module",
+      "label": "registration",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "subjects",
+      "id": "engineering_engine::se_core_crosswalk_case_run",
+      "kind": "module",
+      "label": "se_core_crosswalk_case_run",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "subjects",
+      "id": "engineering_engine::se_core_crosswalk_projection",
+      "kind": "module",
+      "label": "se_core_crosswalk_projection",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "subjects",
+      "id": "engineering_engine::se_core_source_cited_answer_run",
+      "kind": "module",
+      "label": "se_core_source_cited_answer_run",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "kernel",
+      "id": "engineering_engine::snapshot",
+      "kind": "module",
+      "label": "snapshot",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "structural",
+      "group": "Knowledge",
+      "id": "knowledge_stack::knowledge_access",
+      "kind": "provider",
+      "label": "Knowledge access",
+      "layer": "subsystem",
+      "parent_id": "knowledge_stack::knowledge_stack",
+      "provider_id": "knowledge_stack",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "structural",
+      "group": "Knowledge",
+      "id": "knowledge_stack::knowledge_canon",
+      "kind": "knowledge",
+      "label": "Knowledge canon package",
+      "layer": "subsystem",
+      "parent_id": "knowledge_stack::knowledge_stack",
+      "provider_id": "knowledge_stack",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "structural",
+      "group": "Knowledge",
+      "id": "knowledge_stack::knowledge_graph",
+      "kind": "knowledge",
+      "label": "Knowledge graph",
+      "layer": "subsystem",
+      "parent_id": "knowledge_stack::knowledge_stack",
+      "provider_id": "knowledge_stack",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "Knowledge",
+      "id": "knowledge_stack::knowledge_stack",
+      "kind": "provider",
+      "label": "Knowledge stack",
+      "layer": "system",
+      "parent_id": null,
+      "provider_id": "knowledge_stack",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "structural",
+      "group": "Knowledge",
+      "id": "knowledge_stack::rag",
+      "kind": "knowledge",
+      "label": "RAG",
+      "layer": "subsystem",
+      "parent_id": "knowledge_stack::knowledge_stack",
+      "provider_id": "knowledge_stack",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "structural",
+      "group": "Knowledge",
+      "id": "knowledge_stack::wiki_cell",
+      "kind": "supervisor",
+      "label": "Knowledge Wiki Cell",
+      "layer": "subsystem",
+      "parent_id": "knowledge_stack::knowledge_stack",
+      "provider_id": "knowledge_stack",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "structural",
+      "group": "Knowledge",
+      "id": "knowledge_stack::wiki_pipeline",
+      "kind": "operation",
+      "label": "Knowledge Wiki Pipeline",
+      "layer": "subsystem",
+      "parent_id": "knowledge_stack::knowledge_stack",
+      "provider_id": "knowledge_stack",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "관측",
+      "id": "watchtower::codex_retention_report",
+      "kind": "worker",
+      "label": "Codex 수명주기 보존 보고서",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "소비",
+      "id": "watchtower::consumer_board",
+      "kind": "consumer",
+      "label": "Workspace Board",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "소비",
+      "id": "watchtower::consumer_timeline",
+      "kind": "consumer",
+      "label": "프로젝트 시간장부 shadow",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "게이트",
+      "id": "watchtower::gate_five_field",
+      "kind": "gate",
+      "label": "five-field 원장 검증",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "수집",
+      "id": "watchtower::ingress_supervisor",
+      "kind": "supervisor",
+      "label": "Five-Lane Ingress 감독",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "수집",
+      "id": "watchtower::local_activity",
+      "kind": "worker",
+      "label": "파일·로컬활동 수집기",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "수집",
+      "id": "watchtower::mail_forwarder",
+      "kind": "worker",
+      "label": "Hiworks→Gmail 수입기",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "수집",
+      "id": "watchtower::slack_batch",
+      "kind": "worker",
+      "label": "Slack 배치 수집기",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "AI 공급자 소스",
+      "id": "watchtower::src_antigravity",
+      "kind": "external",
+      "label": "Antigravity conversation DB",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "AI 공급자 소스",
+      "id": "watchtower::src_claude",
+      "kind": "external",
+      "label": "Claude Code session JSONL",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "AI 공급자 소스",
+      "id": "watchtower::src_codex",
+      "kind": "external",
+      "label": "Codex session JSONL",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "후처리",
+      "id": "watchtower::src_gmail",
+      "kind": "consumer",
+      "label": "Gmail API",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "외부 소스",
+      "id": "watchtower::src_hiworks",
+      "kind": "external",
+      "label": "Hiworks 메일",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "외부 소스",
+      "id": "watchtower::src_onedrive",
+      "kind": "external",
+      "label": "OneDrive worksite",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "외부 소스",
+      "id": "watchtower::src_plaud",
+      "kind": "external",
+      "label": "PLAUD 음성",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "외부 소스",
+      "id": "watchtower::src_slack",
+      "kind": "external",
+      "label": "Slack API",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "후처리",
+      "id": "watchtower::store_activity_outbox",
+      "kind": "store",
+      "label": "파일·활동 delta outbox",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "데이터 평면",
+      "id": "watchtower::store_mail_events",
+      "kind": "store",
+      "label": "메일 event 원장",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "데이터 평면",
+      "id": "watchtower::store_slack_custody",
+      "kind": "store",
+      "label": "Slack custody",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "데이터 평면",
+      "id": "watchtower::store_usage_ledger",
+      "kind": "store",
+      "label": "공유 AI usage-event 원장",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "데이터 평면",
+      "id": "watchtower::store_voice_custody",
+      "kind": "store",
+      "label": "음성 custody",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "데이터 평면",
+      "id": "watchtower::store_workmeta",
+      "kind": "store",
+      "label": "_workmeta 시간장부",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "AI 사용량 수집",
+      "id": "watchtower::usage_antigravity_collector",
+      "kind": "worker",
+      "label": "Antigravity scheduled collector/adapter",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "AI 사용량 수집",
+      "id": "watchtower::usage_claude_collector",
+      "kind": "worker",
+      "label": "Claude scheduled collector/adapter",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "AI 사용량 수집",
+      "id": "watchtower::usage_codex_collector",
+      "kind": "worker",
+      "label": "Codex scheduled collector",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "관측",
+      "id": "watchtower::usage_meter",
+      "kind": "worker",
+      "label": "공통 AI Usage Meter",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "후처리",
+      "id": "watchtower::voice_label_worker",
+      "kind": "worker",
+      "label": "음성 ASR·라벨 워커",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "관측",
+      "id": "watchtower::watchtower_self",
+      "kind": "gate",
+      "label": "Watchtower 검사·판정",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "Notebook advisory",
+      "id": "watchtower_notebook_advisory_adapter::advisory_boundary",
+      "kind": "workbench",
+      "label": "Notebook advisory boundary",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower_notebook_advisory_adapter",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "structural",
+      "group": "Notebook advisory",
+      "id": "watchtower_notebook_advisory_adapter::discovery_workflow",
+      "kind": "operation",
+      "label": "Dual research discovery workflow",
+      "layer": "operation",
+      "parent_id": "watchtower_notebook_advisory_adapter::advisory_boundary",
+      "provider_id": "watchtower_notebook_advisory_adapter",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "structural",
+      "group": "Notebook advisory",
+      "id": "watchtower_notebook_advisory_adapter::human_review_handoff",
+      "kind": "gate",
+      "label": "Human save and export review handoff",
+      "layer": "operation",
+      "parent_id": "watchtower_notebook_advisory_adapter::advisory_boundary",
+      "provider_id": "watchtower_notebook_advisory_adapter",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "structural",
+      "group": "Notebook advisory",
+      "id": "watchtower_notebook_advisory_adapter::metadata_bridge",
+      "kind": "module",
+      "label": "Notebook metadata bridge",
+      "layer": "module",
+      "parent_id": "watchtower_notebook_advisory_adapter::advisory_boundary",
+      "provider_id": "watchtower_notebook_advisory_adapter",
+      "repair_state": "none"
+    }
+  ],
+  "projection_kind": "declared_structure",
+  "providers": [
+    {
+      "authority_boundary": {
+        "answer_authority": false,
+        "owner_approval_authority": false,
+        "runtime_mutation": false,
+        "source_truth": false
+      },
+      "blocker_codes": [
+        "module_load_receipts_absent",
+        "runtime_observation_absent"
+      ],
+      "capabilities": {
+        "diagnose": [
+          "structural_validation"
+        ],
+        "execute_repair": false,
+        "observe": [
+          "declared_structure"
+        ],
+        "propose_repair": []
+      },
+      "claim_ceiling": "observed",
+      "declared_status": "candidate",
+      "edges": [
+        {
+          "evidence_mode": "structural_only",
+          "from": "authority",
+          "id": "imports.authority.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "authority",
+          "id": "imports.authority.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "authority",
+          "id": "imports.authority.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_assessment",
+          "id": "imports.ax_se_project_assessment.authority",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "authority"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_assessment",
+          "id": "imports.ax_se_project_assessment.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_assessment",
+          "id": "imports.ax_se_project_assessment.ceilings",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "ceilings"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_assessment",
+          "id": "imports.ax_se_project_assessment.custody",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "custody"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_assessment",
+          "id": "imports.ax_se_project_assessment.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_assessment",
+          "id": "imports.ax_se_project_assessment.fingerprint",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_assessment",
+          "id": "imports.ax_se_project_assessment.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_assessment",
+          "id": "imports.ax_se_project_assessment.minting",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "minting"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_assessment",
+          "id": "imports.ax_se_project_assessment.snapshot",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "snapshot"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_context_pilot",
+          "id": "imports.ax_se_project_context_pilot.ax_se_project_role_bound_assessment",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "ax_se_project_role_bound_assessment"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_context_pilot",
+          "id": "imports.ax_se_project_context_pilot.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_context_pilot",
+          "id": "imports.ax_se_project_context_pilot.fingerprint",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_context_pilot",
+          "id": "imports.ax_se_project_context_pilot.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_bound_assessment",
+          "id": "imports.ax_se_project_role_bound_assessment.ax_se_project_assessment",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "ax_se_project_assessment"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_bound_assessment",
+          "id": "imports.ax_se_project_role_bound_assessment.ax_se_project_role_roster",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "ax_se_project_role_roster"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_bound_assessment",
+          "id": "imports.ax_se_project_role_bound_assessment.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_bound_assessment",
+          "id": "imports.ax_se_project_role_bound_assessment.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_bound_assessment",
+          "id": "imports.ax_se_project_role_bound_assessment.fingerprint",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_bound_assessment",
+          "id": "imports.ax_se_project_role_bound_assessment.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_bound_assessment",
+          "id": "imports.ax_se_project_role_bound_assessment.minting",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "minting"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_roster",
+          "id": "imports.ax_se_project_role_roster.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_roster",
+          "id": "imports.ax_se_project_role_roster.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_roster",
+          "id": "imports.ax_se_project_role_roster.fingerprint",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ax_se_project_role_roster",
+          "id": "imports.ax_se_project_role_roster.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "canonical",
+          "id": "imports.canonical.contract_config",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "contract_config"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "canonical",
+          "id": "imports.canonical.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "capsule",
+          "id": "imports.capsule.authority",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "authority"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "capsule",
+          "id": "imports.capsule.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "capsule",
+          "id": "imports.capsule.contract_config",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "contract_config"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "capsule",
+          "id": "imports.capsule.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "capsule",
+          "id": "imports.capsule.graph",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "graph"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "capsule",
+          "id": "imports.capsule.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ceilings",
+          "id": "imports.ceilings.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "common_se_corpus_projection",
+          "id": "imports.common_se_corpus_projection.authority",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "authority"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "common_se_corpus_projection",
+          "id": "imports.common_se_corpus_projection.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "common_se_corpus_projection",
+          "id": "imports.common_se_corpus_projection.capsule",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "capsule"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "common_se_corpus_projection",
+          "id": "imports.common_se_corpus_projection.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "common_se_corpus_projection",
+          "id": "imports.common_se_corpus_projection.graph",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "graph"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "common_se_corpus_projection",
+          "id": "imports.common_se_corpus_projection.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "common_se_corpus_projection",
+          "id": "imports.common_se_corpus_projection.snapshot",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "snapshot"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "context_receipt",
+          "id": "imports.context_receipt.authority",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "authority"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "context_receipt",
+          "id": "imports.context_receipt.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "context_receipt",
+          "id": "imports.context_receipt.ceilings",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "ceilings"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "context_receipt",
+          "id": "imports.context_receipt.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "context_receipt",
+          "id": "imports.context_receipt.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "context_receipt",
+          "id": "imports.context_receipt.minting",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "minting"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "context_receipt",
+          "id": "imports.context_receipt.registration",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "registration"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "custody",
+          "id": "imports.custody.authority",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "authority"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "custody",
+          "id": "imports.custody.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "custody",
+          "id": "imports.custody.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "custody",
+          "id": "imports.custody.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "delivery_receipt",
+          "id": "imports.delivery_receipt.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "delivery_receipt",
+          "id": "imports.delivery_receipt.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engine_pass",
+          "id": "imports.engine_pass.authority",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "authority"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engine_pass",
+          "id": "imports.engine_pass.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engine_pass",
+          "id": "imports.engine_pass.contract_config",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "contract_config"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engine_pass",
+          "id": "imports.engine_pass.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engine_pass",
+          "id": "imports.engine_pass.fingerprint",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engine_pass",
+          "id": "imports.engine_pass.minting",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "minting"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engine_pass",
+          "id": "imports.engine_pass.pipeline",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "pipeline"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engine_pass",
+          "id": "imports.engine_pass.snapshot",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "snapshot"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engine_self_topology",
+          "id": "imports.engine_self_topology.custody",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "custody"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engine_self_topology",
+          "id": "imports.engine_self_topology.delivery_receipt",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "delivery_receipt"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engine_self_topology",
+          "id": "imports.engine_self_topology.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engine_self_topology",
+          "id": "imports.engine_self_topology.snapshot",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "snapshot"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "execution_mode",
+          "id": "imports.execution_mode.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "execution_mode",
+          "id": "imports.execution_mode.contract_config",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "contract_config"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "execution_mode",
+          "id": "imports.execution_mode.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "finding",
+          "id": "imports.finding.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "finding",
+          "id": "imports.finding.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "fingerprint",
+          "id": "imports.fingerprint.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "fingerprint",
+          "id": "imports.fingerprint.contract_config",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "contract_config"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "fingerprint",
+          "id": "imports.fingerprint.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "graph",
+          "id": "imports.graph.authority",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "authority"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "graph",
+          "id": "imports.graph.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "graph",
+          "id": "imports.graph.ceilings",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "ceilings"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "graph",
+          "id": "imports.graph.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "graph",
+          "id": "imports.graph.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "heartbeat",
+          "id": "imports.heartbeat.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "heartbeat",
+          "id": "imports.heartbeat.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "identity",
+          "id": "imports.identity.contract_config",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "contract_config"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "index",
+          "id": "imports.index.authority",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "authority"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "index",
+          "id": "imports.index.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "index",
+          "id": "imports.index.capsule",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "capsule"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "index",
+          "id": "imports.index.ceilings",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "ceilings"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "index",
+          "id": "imports.index.contract_config",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "contract_config"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "index",
+          "id": "imports.index.custody",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "custody"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "index",
+          "id": "imports.index.delivery_receipt",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "delivery_receipt"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "index",
+          "id": "imports.index.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "index",
+          "id": "imports.index.execution_mode",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "execution_mode"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "index",
+          "id": "imports.index.finding",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "finding"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "index",
+          "id": "imports.index.fingerprint",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "index",
+          "id": "imports.index.graph",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "graph"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "index",
+          "id": "imports.index.heartbeat",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "heartbeat"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "index",
+          "id": "imports.index.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "index",
+          "id": "imports.index.lineage",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "lineage"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "index",
+          "id": "imports.index.mcp_contract",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "mcp_contract"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "index",
+          "id": "imports.index.minting",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "minting"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "index",
+          "id": "imports.index.module_binding",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "module_binding"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "index",
+          "id": "imports.index.pipeline",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "pipeline"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "index",
+          "id": "imports.index.registration",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "registration"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "index",
+          "id": "imports.index.snapshot",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "snapshot"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "lineage",
+          "id": "imports.lineage.authority",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "authority"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "lineage",
+          "id": "imports.lineage.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "lineage",
+          "id": "imports.lineage.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "lineage",
+          "id": "imports.lineage.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "mcp_contract",
+          "id": "imports.mcp_contract.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "mcp_contract",
+          "id": "imports.mcp_contract.contract_config",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "contract_config"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "mcp_contract",
+          "id": "imports.mcp_contract.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "minting",
+          "id": "imports.minting.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "minting",
+          "id": "imports.minting.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module_binding",
+          "id": "imports.module_binding.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module_binding",
+          "id": "imports.module_binding.contract_config",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "contract_config"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "module_binding",
+          "id": "imports.module_binding.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "pipeline",
+          "id": "imports.pipeline.authority",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "authority"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "pipeline",
+          "id": "imports.pipeline.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "pipeline",
+          "id": "imports.pipeline.contract_config",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "contract_config"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "pipeline",
+          "id": "imports.pipeline.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "pipeline",
+          "id": "imports.pipeline.mcp_contract",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "mcp_contract"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "pipeline",
+          "id": "imports.pipeline.minting",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "minting"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "pipeline",
+          "id": "imports.pipeline.registration",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "registration"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "project_context_acceptance_gate",
+          "id": "imports.project_context_acceptance_gate.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "project_context_acceptance_gate",
+          "id": "imports.project_context_acceptance_gate.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "project_context_acceptance_gate",
+          "id": "imports.project_context_acceptance_gate.project_context_generation_candidate",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "project_context_generation_candidate"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "project_context_generation_candidate",
+          "id": "imports.project_context_generation_candidate.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "project_context_generation_candidate",
+          "id": "imports.project_context_generation_candidate.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "registration",
+          "id": "imports.registration.authority",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "authority"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "registration",
+          "id": "imports.registration.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "registration",
+          "id": "imports.registration.contract_config",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "contract_config"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "registration",
+          "id": "imports.registration.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "registration",
+          "id": "imports.registration.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_crosswalk_case_run",
+          "id": "imports.se_core_crosswalk_case_run.authority",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "authority"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_crosswalk_case_run",
+          "id": "imports.se_core_crosswalk_case_run.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_crosswalk_case_run",
+          "id": "imports.se_core_crosswalk_case_run.capsule",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "capsule"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_crosswalk_case_run",
+          "id": "imports.se_core_crosswalk_case_run.common_se_corpus_projection",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "common_se_corpus_projection"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_crosswalk_case_run",
+          "id": "imports.se_core_crosswalk_case_run.engine_pass",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engine_pass"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_crosswalk_case_run",
+          "id": "imports.se_core_crosswalk_case_run.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_crosswalk_case_run",
+          "id": "imports.se_core_crosswalk_case_run.se_core_crosswalk_projection",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "se_core_crosswalk_projection"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_crosswalk_case_run",
+          "id": "imports.se_core_crosswalk_case_run.snapshot",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "snapshot"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_crosswalk_projection",
+          "id": "imports.se_core_crosswalk_projection.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_crosswalk_projection",
+          "id": "imports.se_core_crosswalk_projection.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_source_cited_answer_run",
+          "id": "imports.se_core_source_cited_answer_run.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_source_cited_answer_run",
+          "id": "imports.se_core_source_cited_answer_run.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_source_cited_answer_run",
+          "id": "imports.se_core_source_cited_answer_run.se_core_crosswalk_case_run",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "se_core_crosswalk_case_run"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_source_cited_answer_run",
+          "id": "imports.se_core_source_cited_answer_run.se_core_crosswalk_projection",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "se_core_crosswalk_projection"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "snapshot",
+          "id": "imports.snapshot.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "snapshot",
+          "id": "imports.snapshot.ceilings",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "ceilings"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "snapshot",
+          "id": "imports.snapshot.contract_config",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "contract_config"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "snapshot",
+          "id": "imports.snapshot.custody",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "custody"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "snapshot",
+          "id": "imports.snapshot.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "snapshot",
+          "id": "imports.snapshot.fingerprint",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "fingerprint"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "snapshot",
+          "id": "imports.snapshot.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "snapshot",
+          "id": "imports.snapshot.minting",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "minting"
+        }
+      ],
+      "label": "Soulforge Engineering Engine declared module topology",
+      "nodes": [
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "authority",
+          "kind": "module",
+          "label": "authority",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "subjects",
+          "id": "ax_se_project_assessment",
+          "kind": "module",
+          "label": "ax_se_project_assessment",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "subjects",
+          "id": "ax_se_project_context_pilot",
+          "kind": "module",
+          "label": "ax_se_project_context_pilot",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "subjects",
+          "id": "ax_se_project_role_bound_assessment",
+          "kind": "module",
+          "label": "ax_se_project_role_bound_assessment",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "subjects",
+          "id": "ax_se_project_role_roster",
+          "kind": "module",
+          "label": "ax_se_project_role_roster",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "canonical",
+          "kind": "module",
+          "label": "canonical",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "capsule",
+          "kind": "module",
+          "label": "capsule",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "ceilings",
+          "kind": "module",
+          "label": "ceilings",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "subjects",
+          "id": "common_se_corpus_projection",
+          "kind": "module",
+          "label": "common_se_corpus_projection",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "context_receipt",
+          "kind": "module",
+          "label": "context_receipt",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "contract_config",
+          "kind": "module",
+          "label": "contract_config",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "custody",
+          "kind": "module",
+          "label": "custody",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "delivery_receipt",
+          "kind": "module",
+          "label": "delivery_receipt",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "assembly",
+          "id": "engine_pass",
+          "kind": "module",
+          "label": "engine_pass",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "subjects",
+          "id": "engine_self_topology",
+          "kind": "module",
+          "label": "engine_self_topology",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "errors",
+          "kind": "module",
+          "label": "errors",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "execution_mode",
+          "kind": "module",
+          "label": "execution_mode",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "finding",
+          "kind": "module",
+          "label": "finding",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "fingerprint",
+          "kind": "module",
+          "label": "fingerprint",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "graph",
+          "kind": "module",
+          "label": "graph",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "heartbeat",
+          "kind": "module",
+          "label": "heartbeat",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "identity",
+          "kind": "module",
+          "label": "identity",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "index",
+          "kind": "module",
+          "label": "index",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "lineage",
+          "kind": "module",
+          "label": "lineage",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "mcp_contract",
+          "kind": "module",
+          "label": "mcp_contract",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "minting",
+          "kind": "module",
+          "label": "minting",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "module_binding",
+          "kind": "module",
+          "label": "module_binding",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "pipeline",
+          "kind": "module",
+          "label": "pipeline",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "project_context_acceptance_gate",
+          "kind": "module",
+          "label": "project_context_acceptance_gate",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "project_context_generation_candidate",
+          "kind": "module",
+          "label": "project_context_generation_candidate",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "registration",
+          "kind": "module",
+          "label": "registration",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "subjects",
+          "id": "se_core_crosswalk_case_run",
+          "kind": "module",
+          "label": "se_core_crosswalk_case_run",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "subjects",
+          "id": "se_core_crosswalk_projection",
+          "kind": "module",
+          "label": "se_core_crosswalk_projection",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "subjects",
+          "id": "se_core_source_cited_answer_run",
+          "kind": "module",
+          "label": "se_core_source_cited_answer_run",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "kernel",
+          "id": "snapshot",
+          "kind": "module",
+          "label": "snapshot",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        }
+      ],
+      "payload_state": "public_safe_contract",
+      "provider_id": "engineering_engine",
+      "provider_kind": "domain_engine",
+      "runtime_state": "unknown",
+      "schema_version": "soulforge.ax_topology.provider.v1",
+      "source": {
+        "digest": "13ee925a28f516e1475f2f85aca908c08b4c9382be67cb88e32df85960ec26fc",
+        "revision": "phase_1_0_contract.v0",
+        "schema_version": "engine_topology.v0",
+        "source_id": "engineering_engine_topology_source"
+      },
+      "validation": {
+        "evidence_ref": "guild_hall/engineering_engine/topology/engine_topology.json",
+        "source_commit": null,
+        "state": "passed",
+        "validator_id": "engineering_engine_topology_adapter.v1"
+      }
+    },
+    {
+      "authority_boundary": {
+        "answer_authority": false,
+        "owner_approval_authority": false,
+        "runtime_mutation": false,
+        "source_truth": false
+      },
+      "blocker_codes": [
+        "runtime_observation_absent"
+      ],
+      "capabilities": {
+        "diagnose": [
+          "source_bundle_integrity",
+          "structural_validation"
+        ],
+        "execute_repair": false,
+        "observe": [
+          "declared_knowledge_contracts"
+        ],
+        "propose_repair": []
+      },
+      "claim_ceiling": "source_supported",
+      "declared_status": "candidate",
+      "edges": [
+        {
+          "evidence_mode": "structural_only",
+          "from": "knowledge_access",
+          "id": "access_projects_graph",
+          "label": "explicit ledger analysis projection",
+          "layer": "subsystem",
+          "relation": "projects",
+          "to": "knowledge_graph"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "knowledge_canon",
+          "id": "canon_projects_graph",
+          "label": "public canon metadata projection",
+          "layer": "subsystem",
+          "relation": "projects",
+          "to": "knowledge_graph"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "knowledge_canon",
+          "id": "canon_supplies_rag",
+          "label": "safe canon metadata",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "rag"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "knowledge_graph",
+          "id": "graph_supplies_rag",
+          "label": "safe graph metadata",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "rag"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "rag",
+          "id": "rag_projects_graph",
+          "label": "metadata-only RAG overlay",
+          "layer": "subsystem",
+          "relation": "projects",
+          "to": "knowledge_graph"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "rag",
+          "id": "rag_records_access",
+          "label": "metadata-only retrieval events",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "knowledge_access"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "wiki_cell",
+          "id": "wiki_cell_routes_pipeline",
+          "label": "default workflow",
+          "layer": "subsystem",
+          "relation": "control",
+          "to": "wiki_pipeline"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "wiki_pipeline",
+          "id": "wiki_pipeline_advises_rag",
+          "label": "metadata-only refresh handoff",
+          "layer": "subsystem",
+          "relation": "advises",
+          "to": "rag"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "wiki_pipeline",
+          "id": "wiki_pipeline_routes_access",
+          "label": "knowledge access capture stage",
+          "layer": "subsystem",
+          "relation": "control",
+          "to": "knowledge_access"
+        }
+      ],
+      "label": "Soulforge declared knowledge stack",
+      "nodes": [
+        {
+          "diagnostic_state": "structural",
+          "group": "Knowledge",
+          "id": "knowledge_access",
+          "kind": "provider",
+          "label": "Knowledge access",
+          "layer": "subsystem",
+          "parent_id": "knowledge_stack",
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "structural",
+          "group": "Knowledge",
+          "id": "knowledge_canon",
+          "kind": "knowledge",
+          "label": "Knowledge canon package",
+          "layer": "subsystem",
+          "parent_id": "knowledge_stack",
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "structural",
+          "group": "Knowledge",
+          "id": "knowledge_graph",
+          "kind": "knowledge",
+          "label": "Knowledge graph",
+          "layer": "subsystem",
+          "parent_id": "knowledge_stack",
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "Knowledge",
+          "id": "knowledge_stack",
+          "kind": "provider",
+          "label": "Knowledge stack",
+          "layer": "system",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "structural",
+          "group": "Knowledge",
+          "id": "rag",
+          "kind": "knowledge",
+          "label": "RAG",
+          "layer": "subsystem",
+          "parent_id": "knowledge_stack",
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "structural",
+          "group": "Knowledge",
+          "id": "wiki_cell",
+          "kind": "supervisor",
+          "label": "Knowledge Wiki Cell",
+          "layer": "subsystem",
+          "parent_id": "knowledge_stack",
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "structural",
+          "group": "Knowledge",
+          "id": "wiki_pipeline",
+          "kind": "operation",
+          "label": "Knowledge Wiki Pipeline",
+          "layer": "subsystem",
+          "parent_id": "knowledge_stack",
+          "repair_state": "none"
+        }
+      ],
+      "payload_state": "public_safe_contract",
+      "provider_id": "knowledge_stack",
+      "provider_kind": "knowledge",
+      "runtime_state": "unknown",
+      "schema_version": "soulforge.ax_topology.provider.v1",
+      "source": {
+        "digest": "a5c4c9f728df535cc96d02d6439231e69e45ce135565847773e059302a57e7c3",
+        "revision": "knowledge_stack_topology.v1",
+        "schema_version": "knowledge_stack_owner_contracts.v1",
+        "source_id": "knowledge_stack_owner_contracts"
+      },
+      "validation": {
+        "evidence_ref": "guild_hall/watchtower/providers/knowledge_stack.mjs",
+        "source_commit": null,
+        "state": "passed",
+        "validator_id": "knowledge_stack_topology_provider.v1"
+      }
+    },
+    {
+      "authority_boundary": {
+        "answer_authority": false,
+        "owner_approval_authority": false,
+        "runtime_mutation": false,
+        "source_truth": false
+      },
+      "blocker_codes": [
+        "delivery_receipts_absent",
+        "runtime_observation_absent"
+      ],
+      "capabilities": {
+        "diagnose": [
+          "structural_validation"
+        ],
+        "execute_repair": false,
+        "observe": [
+          "declared_structure"
+        ],
+        "propose_repair": []
+      },
+      "claim_ceiling": "observed",
+      "declared_status": "active",
+      "edges": [
+        {
+          "evidence_mode": "structural_only",
+          "from": "codex_retention_report",
+          "id": "edge.codex_retention_report.consumer_board.data",
+          "label": "보존 스냅샷",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "consumer_board"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "codex_retention_report",
+          "id": "edge.codex_retention_report.watchtower_self.control",
+          "label": "보존 보고서 헬스 관측",
+          "layer": "subsystem",
+          "relation": "control",
+          "to": "watchtower_self"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "gate_five_field",
+          "id": "edge.gate_five_field.store_activity_outbox.data",
+          "label": "delta append",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "store_activity_outbox"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ingress_supervisor",
+          "id": "edge.ingress_supervisor.store_mail_events.data",
+          "label": "event append",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "store_mail_events"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ingress_supervisor",
+          "id": "edge.ingress_supervisor.store_voice_custody.data",
+          "label": "custody",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "store_voice_custody"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "ingress_supervisor",
+          "id": "edge.ingress_supervisor.watchtower_self.control",
+          "label": "상태 관찰",
+          "layer": "subsystem",
+          "relation": "control",
+          "to": "watchtower_self"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "local_activity",
+          "id": "edge.local_activity.gate_five_field.control",
+          "label": "원장 검증",
+          "layer": "subsystem",
+          "relation": "control",
+          "to": "gate_five_field"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "local_activity",
+          "id": "edge.local_activity.watchtower_self.control",
+          "label": "상태 관찰",
+          "layer": "subsystem",
+          "relation": "control",
+          "to": "watchtower_self"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "mail_forwarder",
+          "id": "edge.mail_forwarder.src_gmail.data",
+          "label": "import",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "src_gmail"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "mail_forwarder",
+          "id": "edge.mail_forwarder.watchtower_self.control",
+          "label": "상태 관찰",
+          "layer": "subsystem",
+          "relation": "control",
+          "to": "watchtower_self"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "slack_batch",
+          "id": "edge.slack_batch.store_slack_custody.data",
+          "label": "revision append",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "store_slack_custody"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "slack_batch",
+          "id": "edge.slack_batch.watchtower_self.control",
+          "label": "상태 관찰",
+          "layer": "subsystem",
+          "relation": "control",
+          "to": "watchtower_self"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "src_antigravity",
+          "id": "edge.src_antigravity.usage_antigravity_collector.data",
+          "label": "scheduled local read",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "usage_antigravity_collector"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "src_claude",
+          "id": "edge.src_claude.usage_claude_collector.data",
+          "label": "on-demand read",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "usage_claude_collector"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "src_codex",
+          "id": "edge.src_codex.usage_codex_collector.data",
+          "label": "on-demand read",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "usage_codex_collector"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "src_hiworks",
+          "id": "edge.src_hiworks.ingress_supervisor.data",
+          "label": "POP3 수집",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "ingress_supervisor"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "src_hiworks",
+          "id": "edge.src_hiworks.mail_forwarder.data",
+          "label": "원본 bytes",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "mail_forwarder"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "src_onedrive",
+          "id": "edge.src_onedrive.local_activity.data",
+          "label": "파일 관찰",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "local_activity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "src_plaud",
+          "id": "edge.src_plaud.ingress_supervisor.data",
+          "label": "세션 intake",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "ingress_supervisor"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "src_slack",
+          "id": "edge.src_slack.slack_batch.data",
+          "label": "일 2회 pull",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "slack_batch"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "store_activity_outbox",
+          "id": "edge.store_activity_outbox.consumer_timeline.data",
+          "label": "proxy",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "consumer_timeline"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "store_mail_events",
+          "id": "edge.store_mail_events.consumer_timeline.data",
+          "label": "shadow 투영",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "consumer_timeline"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "store_usage_ledger",
+          "id": "edge.store_usage_ledger.consumer_board.data",
+          "label": "read-only usage snapshot",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "consumer_board"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "store_voice_custody",
+          "id": "edge.store_voice_custody.voice_label_worker.data",
+          "label": "ASR·라벨",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "voice_label_worker"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "store_workmeta",
+          "id": "edge.store_workmeta.consumer_board.data",
+          "label": "조직 overlay",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "consumer_board"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "usage_antigravity_collector",
+          "id": "edge.usage_antigravity_collector.usage_meter.data",
+          "label": "usage event",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "usage_meter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "usage_antigravity_collector",
+          "id": "edge.usage_antigravity_collector.watchtower_self.control",
+          "label": "Antigravity collector health 관찰",
+          "layer": "subsystem",
+          "relation": "control",
+          "to": "watchtower_self"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "usage_claude_collector",
+          "id": "edge.usage_claude_collector.usage_meter.data",
+          "label": "usage event",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "usage_meter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "usage_claude_collector",
+          "id": "edge.usage_claude_collector.watchtower_self.control",
+          "label": "Claude collector health 관찰",
+          "layer": "subsystem",
+          "relation": "control",
+          "to": "watchtower_self"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "usage_codex_collector",
+          "id": "edge.usage_codex_collector.usage_meter.data",
+          "label": "usage event",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "usage_meter"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "usage_codex_collector",
+          "id": "edge.usage_codex_collector.watchtower_self.control",
+          "label": "Codex collector health 관찰",
+          "layer": "subsystem",
+          "relation": "control",
+          "to": "watchtower_self"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "usage_meter",
+          "id": "edge.usage_meter.store_usage_ledger.data",
+          "label": "validated append",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "store_usage_ledger"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "usage_meter",
+          "id": "edge.usage_meter.watchtower_self.control",
+          "label": "usage ledger validation health 관찰",
+          "layer": "subsystem",
+          "relation": "control",
+          "to": "watchtower_self"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "voice_label_worker",
+          "id": "edge.voice_label_worker.consumer_timeline.data",
+          "label": "발생 라벨",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "consumer_timeline"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "voice_label_worker",
+          "id": "edge.voice_label_worker.watchtower_self.control",
+          "label": "상태 관찰",
+          "layer": "subsystem",
+          "relation": "control",
+          "to": "watchtower_self"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "watchtower_self",
+          "id": "edge.watchtower_self.consumer_board.data",
+          "label": "판정 스냅샷",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "consumer_board"
+        }
+      ],
+      "label": "Soulforge Watchtower declared topology",
+      "nodes": [
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "관측",
+          "id": "codex_retention_report",
+          "kind": "worker",
+          "label": "Codex 수명주기 보존 보고서",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "소비",
+          "id": "consumer_board",
+          "kind": "consumer",
+          "label": "Workspace Board",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "소비",
+          "id": "consumer_timeline",
+          "kind": "consumer",
+          "label": "프로젝트 시간장부 shadow",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "게이트",
+          "id": "gate_five_field",
+          "kind": "gate",
+          "label": "five-field 원장 검증",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "수집",
+          "id": "ingress_supervisor",
+          "kind": "supervisor",
+          "label": "Five-Lane Ingress 감독",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "수집",
+          "id": "local_activity",
+          "kind": "worker",
+          "label": "파일·로컬활동 수집기",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "수집",
+          "id": "mail_forwarder",
+          "kind": "worker",
+          "label": "Hiworks→Gmail 수입기",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "수집",
+          "id": "slack_batch",
+          "kind": "worker",
+          "label": "Slack 배치 수집기",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "AI 공급자 소스",
+          "id": "src_antigravity",
+          "kind": "external",
+          "label": "Antigravity conversation DB",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "AI 공급자 소스",
+          "id": "src_claude",
+          "kind": "external",
+          "label": "Claude Code session JSONL",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "AI 공급자 소스",
+          "id": "src_codex",
+          "kind": "external",
+          "label": "Codex session JSONL",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "후처리",
+          "id": "src_gmail",
+          "kind": "consumer",
+          "label": "Gmail API",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "외부 소스",
+          "id": "src_hiworks",
+          "kind": "external",
+          "label": "Hiworks 메일",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "외부 소스",
+          "id": "src_onedrive",
+          "kind": "external",
+          "label": "OneDrive worksite",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "외부 소스",
+          "id": "src_plaud",
+          "kind": "external",
+          "label": "PLAUD 음성",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "외부 소스",
+          "id": "src_slack",
+          "kind": "external",
+          "label": "Slack API",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "후처리",
+          "id": "store_activity_outbox",
+          "kind": "store",
+          "label": "파일·활동 delta outbox",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "데이터 평면",
+          "id": "store_mail_events",
+          "kind": "store",
+          "label": "메일 event 원장",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "데이터 평면",
+          "id": "store_slack_custody",
+          "kind": "store",
+          "label": "Slack custody",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "데이터 평면",
+          "id": "store_usage_ledger",
+          "kind": "store",
+          "label": "공유 AI usage-event 원장",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "데이터 평면",
+          "id": "store_voice_custody",
+          "kind": "store",
+          "label": "음성 custody",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "데이터 평면",
+          "id": "store_workmeta",
+          "kind": "store",
+          "label": "_workmeta 시간장부",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "AI 사용량 수집",
+          "id": "usage_antigravity_collector",
+          "kind": "worker",
+          "label": "Antigravity scheduled collector/adapter",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "AI 사용량 수집",
+          "id": "usage_claude_collector",
+          "kind": "worker",
+          "label": "Claude scheduled collector/adapter",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "AI 사용량 수집",
+          "id": "usage_codex_collector",
+          "kind": "worker",
+          "label": "Codex scheduled collector",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "관측",
+          "id": "usage_meter",
+          "kind": "worker",
+          "label": "공통 AI Usage Meter",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "후처리",
+          "id": "voice_label_worker",
+          "kind": "worker",
+          "label": "음성 ASR·라벨 워커",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "관측",
+          "id": "watchtower_self",
+          "kind": "gate",
+          "label": "Watchtower 검사·판정",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        }
+      ],
+      "payload_state": "public_safe_contract",
+      "provider_id": "watchtower",
+      "provider_kind": "platform",
+      "runtime_state": "unknown",
+      "schema_version": "soulforge.ax_topology.provider.v1",
+      "source": {
+        "digest": "94295ffa241917e6e552c299a483f9606d7041fe1c2ca51d1ef667788b82a393",
+        "revision": "watchtower_topology.v1",
+        "schema_version": "soulforge.watchtower.topology.v1",
+        "source_id": "watchtower_topology_source"
+      },
+      "validation": {
+        "evidence_ref": "guild_hall/watchtower/topology.mjs",
+        "source_commit": null,
+        "state": "passed",
+        "validator_id": "watchtower_topology_adapter.v1"
+      }
+    },
+    {
+      "authority_boundary": {
+        "answer_authority": false,
+        "owner_approval_authority": false,
+        "runtime_mutation": false,
+        "source_truth": false
+      },
+      "blocker_codes": [
+        "canonical_provider_id_missing"
+      ],
+      "capabilities": {
+        "diagnose": [
+          "authority_boundary",
+          "source_allowlist_integrity"
+        ],
+        "execute_repair": false,
+        "observe": [
+          "advisory_boundary",
+          "declared_structure",
+          "source_contract_digest"
+        ],
+        "propose_repair": []
+      },
+      "claim_ceiling": "source_supported",
+      "declared_status": "hold",
+      "edges": [
+        {
+          "evidence_mode": "structural_only",
+          "from": "advisory_boundary",
+          "id": "boundary_contains_discovery_workflow",
+          "label": "contains discovery workflow",
+          "layer": "operation",
+          "relation": "contains",
+          "to": "discovery_workflow"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "advisory_boundary",
+          "id": "boundary_contains_human_review_handoff",
+          "label": "contains human review handoff",
+          "layer": "operation",
+          "relation": "contains",
+          "to": "human_review_handoff"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "advisory_boundary",
+          "id": "boundary_contains_metadata_bridge",
+          "label": "contains metadata bridge",
+          "layer": "module",
+          "relation": "contains",
+          "to": "metadata_bridge"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "discovery_workflow",
+          "id": "discovery_advises_human_review",
+          "label": "research delta handoff",
+          "layer": "operation",
+          "relation": "advises",
+          "to": "human_review_handoff"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "metadata_bridge",
+          "id": "metadata_projects_human_review",
+          "label": "metadata-only advisory handoff",
+          "layer": "operation",
+          "relation": "projects",
+          "to": "human_review_handoff"
+        }
+      ],
+      "label": "NotebookLM advisory topology adapter",
+      "nodes": [
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "Notebook advisory",
+          "id": "advisory_boundary",
+          "kind": "workbench",
+          "label": "Notebook advisory boundary",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "structural",
+          "group": "Notebook advisory",
+          "id": "discovery_workflow",
+          "kind": "operation",
+          "label": "Dual research discovery workflow",
+          "layer": "operation",
+          "parent_id": "advisory_boundary",
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "structural",
+          "group": "Notebook advisory",
+          "id": "human_review_handoff",
+          "kind": "gate",
+          "label": "Human save and export review handoff",
+          "layer": "operation",
+          "parent_id": "advisory_boundary",
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "structural",
+          "group": "Notebook advisory",
+          "id": "metadata_bridge",
+          "kind": "module",
+          "label": "Notebook metadata bridge",
+          "layer": "module",
+          "parent_id": "advisory_boundary",
+          "repair_state": "none"
+        }
+      ],
+      "payload_state": "public_safe_contract",
+      "provider_id": "watchtower_notebook_advisory_adapter",
+      "provider_kind": "advisory_workbench",
+      "runtime_state": "unknown",
+      "schema_version": "soulforge.ax_topology.provider.v1",
+      "source": {
+        "digest": "2b9c527267fcced9d75f604e8b7bfdcce746d8b2d314c23b6cc6ebb6ffd716ae",
+        "revision": "notebook_advisory_adapter.v1",
+        "schema_version": "soulforge.notebook_advisory_sources.v1",
+        "source_id": "watchtower_notebook_advisory_sources"
+      },
+      "validation": {
+        "evidence_ref": "guild_hall/watchtower/providers/notebook_advisory.test.mjs",
+        "source_commit": null,
+        "state": "passed",
+        "validator_id": "watchtower.notebook_advisory_provider.v1"
+      }
+    }
+  ],
+  "schema_version": "soulforge.ax_topology.federation.v1",
+  "source_set_digest": "845aff4f9ae485bfc6369ba01724b7136b62b7f4d6acc029e597076af59b9b67",
+  "summary": {
+    "edge_count": 206,
+    "node_count": 74,
+    "provider_count": 4,
+    "repair_execution_authority": false,
+    "runtime_authority": false
+  },
+  "topology_digest": "e50d0216eff181e76606355f05a925cb8edce3042ab604ffca4259604d9fada2"
+}
