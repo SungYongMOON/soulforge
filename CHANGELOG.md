@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-30 - Shared Engineering MCP v0 contract module (contract only)
+
+- Added `guild_hall/engineering_mcp/`: the Team Member Engineering Program's shared MCP v0 contract pinned as data — 10 namespaces (`identity/task/work/bundle/artifact/submission/review/context/agent/ops`), 33 minimum tools with per-tool authority ceilings, mandatory idempotency keys and opaque receipt refs on every mutating tool, a structurally enforced ban on bytes/base64/transcript/secret fields, a uniform `not_available` denial envelope, and an exact-revision-only bundle model with no `latest`.
+- Added the compatibility crosswalk for the 17 current shared-surface `dev-erp-mcp` tools — personal ERP 8 + flagged review 1 + copied project-history 2 (pinned as keep_legacy_facade with an explicit never-a-canonical-input-bundle guard) + ingress 6 — with map / keep_legacy_facade / keep_source_query dispositions and guards; the company-mail stdio surface (3 tools) is explicitly excluded as a separate mailbox-scoped server, and the gap register is computed from the contract by the test suite so it cannot rot.
+- Added the adversarial structural validator suite and `npm run validate:engineering-mcp` (9/9), a module manifest, and the guild_hall composition row. The module registers no MCP server, opens no socket, stores no state, and grants no authority; serving any contract tool remains a later facade leaf behind D27/D28/D29 activation and OD-08 physical tuples. The D27/D28/D29 conservative defaults were recorded as design-level decisions in the program decision ledger (physical activation gates unchanged).
+
 ## 2026-08-30 - RED stabilization: life-tree fixture time-rot repair and single topology oracle
 
 - dev-ERP: closed RED-01 with a root-cause correction. A fixed-clock probe proved the non-admin life-tree mailbox scope already filters in SQL before the per-lane cap; the long-failing test was fixture time-rot (absolute 2026-07-12 seeds left the 30-day real-clock window from ~2026-08-11). The HTTP fixture now seeds relative to now with every scope/cap/withholding assertion unchanged, and a new deterministic fixed-clock regression pins scope-before-cap with `CONTEXT_LIFE_TREE_PER_LANE_MAX + 5` newer foreign rows. No production source change; `context_life_tree.test.mjs` 14/14.
