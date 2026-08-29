@@ -1171,7 +1171,14 @@ test("disposable real CLI issues local authority, finalizes plain Markdown, repl
   await fs.mkdir(path.join(disposableRepo, "guild_hall"), { recursive: true });
   await fs.cp(path.join(REPO_ROOT, ".workflow", "report_authoring_v0"), path.join(disposableRepo, ".workflow", "report_authoring_v0"), { recursive: true });
   await fs.cp(path.join(REPO_ROOT, "guild_hall", "workflow_runner"), path.join(disposableRepo, "guild_hall", "workflow_runner"), { recursive: true });
-  await fs.cp(path.join(REPO_ROOT, "node_modules"), path.join(disposableRepo, "node_modules"), { recursive: true });
+  // dereference: the host checkout's node_modules may use a symlinked layout
+  // (e.g. a legacy pnpm install); copying links verbatim needs Windows symlink
+  // privilege and EPERM-aborts the whole E2E before any functional assertion.
+  // Materializing file contents keeps the disposable repo resolvable everywhere.
+  // The runner's link-rejection boundaries live in the production modules
+  // (identity_authority/receipt/artifact/state) and are untouched by this
+  // fixture choice; this suite does not yet exercise them with actual links.
+  await fs.cp(path.join(REPO_ROOT, "node_modules"), path.join(disposableRepo, "node_modules"), { recursive: true, dereference: true });
   const cliPath = path.join(disposableRepo, "guild_hall", "workflow_runner", "cli.mjs");
   const payloadRoot = path.join(disposableRepo, "inputs");
   await fs.mkdir(payloadRoot, { recursive: true });
