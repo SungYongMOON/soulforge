@@ -4,6 +4,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin, PreviewServer, ViteDevServer } from "vite";
 
+import { classifyControlCenterWrite } from "./src/controlCenterWritePolicy";
+
 const API_PREFIX = "/__control_center_api";
 const TEXT_EXTENSIONS = new Set([".md", ".yaml", ".yml", ".json"]);
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "../../..");
@@ -1271,6 +1273,15 @@ async function handleFileRequest(request: IncomingMessage, response: ServerRespo
 
     if (!fileRecord.editable) {
       sendJson(response, 403, { error: `${repoPath} is read-only in the control center.` });
+      return;
+    }
+
+    const writeDecision = classifyControlCenterWrite(repoPath);
+    if (!writeDecision.allowed) {
+      sendJson(response, 403, {
+        error: `${repoPath} is read-only in the control center (${writeDecision.reason}).`,
+        reason: writeDecision.reason
+      });
       return;
     }
 

@@ -19,12 +19,13 @@
 - metadata-only Knowledge Lane display from `operation_board.sections.knowledge_lane`
 - fresh-only Knowledge Lane rendering with sanitized state, claim, helper/bridge/workflow/fixture presence, and private/local evidence count keys
 - gateway notification toggles aligned to the v0 `monster_created` and `mail_received` event set
+- control-center text-file editor behind the dev-server `PUT` route: fail-closed unless `SOULFORGE_CONTROL_CENTER_WRITE_TOKEN` is set and the matching `x-soulforge-write-token` header is sent, limited to cataloged text files, and always read-only for the protected planes (`_workspaces/`, `_workmeta/`, `private-state/`, `guild_hall/state/`) per `src/controlCenterWritePolicy.ts` (`npm run test:write-policy`); known residual: the write follows a pre-existing symlink inside an allowed area (the route cannot create links, so this needs a link already planted in a public dir)
 
 ## 제외 대상
 
 - canonical source resolver
 - integration bridge 실행
-- write-back editor
+- operating-board write-back editor (위 control-center 편집기는 token 미설정 시 완전 비활성이며 보호 평면에는 어떤 경우에도 쓰지 않는다)
 - selection persistence
 - raw `_workspaces`, `_workmeta`, `private-state`, gateway mail body/html/source quote/raw/attachment source display in Dungeon Map
 - Team Operations Console write-back, Smartsheet mutation, automatic completion, automatic project assignment, Calendar mutation, or Telegram send
