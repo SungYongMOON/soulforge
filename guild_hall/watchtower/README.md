@@ -230,7 +230,12 @@ npm run guild-hall:watchtower:probe
 - Local activity uses the scheduler runner's atomic sanitized receipt. A successful no-delta cycle is healthy idle, not failure.
 
 - Board의 5분 companion은 ignored state의 `producer_health/{codex,claude,antigravity,meter}.json`에
-  경로·원문 없는 원자적 heartbeat를 남긴다. period는 300초, grace는 600초다.
+  경로·원문 없는 원자적 heartbeat를 남긴다. `startUsageProducerCompanion`은 이미 진행 중인 sweep과
+  겹치는 tick을 건너뛰므로, 정상 건강한 sweep도 다음 시도가 한 tick(300초) 밀려 시작 간격이
+  600초까지 벌어질 수 있다. 관측된 건강한 전체 sweep 소요시간(312741ms)에서 나온 360초 여유를
+  더해 period는 960초(`USAGE_PRODUCER_HEALTH_PERIOD_SECONDS`, `cli.mjs`)로 다섯 usage 노드
+  (`usage_codex_collector`/`usage_claude_collector`/`usage_antigravity_collector`/`usage_meter`/
+  `store_usage_ledger`)가 공유하고, grace는 기존 600초를 그대로 분리 유지한다.
 - Antigravity lane은 로컬 conversation DB를 읽기 전용으로 수집한다. 앱·계정·로컬 RPC를
   시작하거나 호출하지 않으며, 성공 heartbeat는 issue 없는 collector 실행만 증명한다.
   DB가 0개인 clean no-op은 정상 유휴지만 공급자 가용성 증거는 아니다. issue가 하나라도
@@ -241,7 +246,7 @@ npm run guild-hall:watchtower:probe
 - `activity_changed=false`는 정상 유휴이며 장애 신호가 아니다. 토큰·event 증가는
   `activity_changed=true`라는 정보성 활동 표시일 뿐 health 판정에 참여하지 않는다.
 - 첫 heartbeat가 없거나 손상되면 `unmonitored`(UNKNOWN/HOLD)다. last-good 뒤의 실패는
-  grace 안에서 degraded, 900초를 넘으면 stale이며, `down`은 소유 scheduled task가
-  명시적으로 실행 중이 아니라고 확인된 경우에만 쓴다.
+  grace 안에서 degraded, period+grace(1560초)를 넘으면 stale이며, `down`은 소유 scheduled
+  task가 명시적으로 실행 중이 아니라고 확인된 경우에만 쓴다.
 - 이 heartbeat는 collector/Meter control health만 증명한다. data edge는 별도 receipt가
   없으므로 계속 `unreceipted`이며 provider/account 상태나 완전한 전달을 증명하지 않는다.

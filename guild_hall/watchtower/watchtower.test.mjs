@@ -22,7 +22,7 @@ import {
   summariseEdgeDelivery,
   EDGE_DELIVERY_STATES,
 } from "./topology.mjs";
-import { EXAMPLE_BINDING } from "./cli.mjs";
+import { EXAMPLE_BINDING, USAGE_PRODUCER_HEALTH_PERIOD_SECONDS } from "./cli.mjs";
 
 const NOW = Date.parse("2026-08-07T12:00:00.000Z");
 
@@ -879,7 +879,7 @@ test("probe distinguishes recently attempted failed collector from dead/stale co
     status: "error",
     error_codes: ["usage_event_duplicate_conflict"],
     last_success_at: "2026-08-20T00:00:00.000Z",
-    completed_at: "2026-08-21T11:40:00.000Z", // 20 min old (> 300+600s)
+    completed_at: "2026-08-21T11:30:00.000Z", // 30 min old (> period 960s + grace 600s = 1560s)
   }), "utf8");
 
   const staleResult = await runProbe(probe, { now: nowMs });
@@ -908,6 +908,91 @@ test("probe distinguishes recently attempted failed collector from dead/stale co
   assert.equal(selfRepairResult.activity_state, "retrying");
   assert.equal(selfRepairResult.activity_count, 2);
   assert.equal(selfRepairResult.activity_next_at, "2026-08-21T12:04:00.000Z");
+});
+
+test("usage producer health period absorbs one skipped companion tick without oscillating, but still fails closed", async (t) => {
+  // The companion (ai-usage-producer-companion.mjs) ticks every 300s and skips an
+  // overlapping tick while a sweep is in flight, so a healthy sweep can push the next
+  // heartbeat update out to roughly 600s later; the observed live oscillation sat in the
+  // 388-500s range under the old 300s period. USAGE_PRODUCER_HEALTH_PERIOD_SECONDS (960s)
+  // must absorb that without going non-green, while grace (600s, unchanged) still bounds
+  // detection of a genuinely missed multi-cycle sweep.
+  const root = await mkdtemp(path.join(os.tmpdir(), "sf-wt-usage-period-"));
+  t.after(async () => { await rm(root, { recursive: true, force: true }); });
+  const nowMs = Date.parse("2026-08-29T08:00:00.000Z");
+
+  for (const probeKey of ["usage_codex_collector", "usage_claude_collector", "usage_antigravity_collector", "usage_meter", "store_usage_ledger"]) {
+    const heartbeatPath = path.join(root, `${probeKey}.json`);
+    const probe = { ...EXAMPLE_BINDING.probes[probeKey], path: heartbeatPath };
+    assert.equal(probe.period_seconds, USAGE_PRODUCER_HEALTH_PERIOD_SECONDS, `${probeKey} must share the usage producer health period constant`);
+    assert.equal(probe.grace_seconds, 600, `${probeKey} grace must stay separate from the period change`);
+
+    const writeHeartbeat = (ageSeconds, status) => {
+      const at = new Date(nowMs - ageSeconds * 1000).toISOString();
+      return writeFile(heartbeatPath, JSON.stringify({
+        schema_version: "soulforge.ai_usage_producer_heartbeat.v1",
+        status,
+        error_codes: status === "ok" ? [] : ["collector_failed"],
+        attempted_at: at,
+        completed_at: at,
+        last_success_at: status === "ok" ? at : null,
+      }), "utf8");
+    };
+
+    // GREEN: a heartbeat aged inside the old 388-500s oscillation window stays ok now.
+    await writeHeartbeat(450, "ok");
+    assert.equal((await runProbe(probe, { now: nowMs })).state, "ok", `${probeKey} at 450s must stay ok`);
+
+    // RED->GREEN: just past the new period but inside grace -> degraded, not stale.
+    await writeHeartbeat(USAGE_PRODUCER_HEALTH_PERIOD_SECONDS + 30, "ok");
+    const late = await runProbe(probe, { now: nowMs });
+    assert.equal(late.state, "degraded", `${probeKey} just past the period must degrade`);
+    assert.ok(late.reasons.includes("heartbeat_late"));
+
+    // Beyond period + grace -> stale, so genuinely missed multi-cycle sweeps still alarm.
+    await writeHeartbeat(USAGE_PRODUCER_HEALTH_PERIOD_SECONDS + 600 + 30, "ok");
+    const stale = await runProbe(probe, { now: nowMs });
+    assert.equal(stale.state, "stale", `${probeKey} beyond period+grace must go stale`);
+    assert.ok(stale.reasons.includes("heartbeat_stale"));
+
+    // A fresh heartbeat reporting status error must still degrade immediately regardless of age.
+    await writeHeartbeat(30, "error");
+    const errored = await runProbe(probe, { now: nowMs });
+    assert.equal(errored.state, "degraded", `${probeKey} fresh error status must degrade immediately`);
+    assert.ok(errored.reasons.includes("status_error"));
+  }
+});
+
+test("usage provider source nodes stay unmonitored under the new period and cannot be greened by collector heartbeats", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "sf-wt-usage-provider-"));
+  t.after(async () => { await rm(root, { recursive: true, force: true }); });
+  const nowMs = Date.parse("2026-08-29T08:00:00.000Z");
+  const probes = {};
+  for (const probeKey of ["usage_codex_collector", "usage_claude_collector", "usage_antigravity_collector", "usage_meter", "store_usage_ledger"]) {
+    const heartbeatPath = path.join(root, `${probeKey}.json`);
+    const at = new Date(nowMs - 30_000).toISOString();
+    await writeFile(heartbeatPath, JSON.stringify({
+      schema_version: "soulforge.ai_usage_producer_heartbeat.v1",
+      status: "ok",
+      error_codes: [],
+      attempted_at: at,
+      completed_at: at,
+      last_success_at: at,
+    }), "utf8");
+    probes[probeKey] = { ...EXAMPLE_BINDING.probes[probeKey], path: heartbeatPath };
+  }
+  const snapshot = await composeTopologyHealth(baseBinding(path.join(root, "state"), probes), { now: nowMs });
+  for (const provider of ["codex", "claude", "antigravity"]) {
+    const source = snapshot.nodes.find((node) => node.id === `src_${provider}`);
+    assert.equal(source.health_scope, "provider");
+    assert.deepEqual(source.health, { state: "unmonitored", reasons: ["provider_evidence_absent"], age_seconds: null });
+  }
+  const aggregate = snapshot.nodes.find((node) => node.id === "usage_meter");
+  assert.equal(aggregate.health.state, "ok", "usage_meter's own collector-health probe is now green");
+  for (const probeKey of ["usage_codex_collector", "usage_claude_collector", "usage_antigravity_collector", "store_usage_ledger"]) {
+    const node = snapshot.nodes.find((n) => n.id === probeKey);
+    assert.equal(node.health.state, "ok");
+  }
 });
 
 test("codex retention report probe contract evaluates missing as unmonitored, PASS/HOLD as ok, and stale accurately", async () => {

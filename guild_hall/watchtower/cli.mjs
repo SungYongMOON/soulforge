@@ -48,6 +48,21 @@ function parseArgs(argv) {
   return args;
 }
 
+// The Board's usage-producer companion (ui-workspace/apps/team-ops-board/ops/
+// ai-usage-producer-companion.mjs, DEFAULT_USAGE_PRODUCER_INTERVAL_MS) sweeps
+// every 300s and single-flights: an in-flight sweep silently skips one
+// overlapping tick (startUsageProducerCompanion), so the gap between two sweep
+// attempts can double to 600s. A healthy full sweep has been observed
+// completing in 312741ms; rounding that up to a 360s margin covers normal
+// timing variance in when these five lanes' own heartbeats land inside a
+// sweep. 960s (600s skipped-tick tolerance + 360s duration margin) is the
+// smallest bounded period that keeps a normal healthy cycle - including one
+// skipped tick - green (it clears the ~388-500s ages already observed in
+// production), while grace_seconds stays the existing 600s fail-closed buffer
+// for a genuinely missed multi-cycle sweep (stale beyond period+grace =
+// 1560s / 26 min).
+export const USAGE_PRODUCER_HEALTH_PERIOD_SECONDS = 960;
+
 export const EXAMPLE_BINDING = {
   schema_version: WATCHTOWER_BINDING_SCHEMA_VERSION,
   state_root: "<LOCAL_STATE_ROOT>/watchtower",
@@ -164,7 +179,7 @@ export const EXAMPLE_BINDING = {
       activity_values: ["clear", "retrying", "held"],
       activity_count_field: "backlog_count",
       activity_next_at_field: "next_attempt_at",
-      period_seconds: 300,
+      period_seconds: USAGE_PRODUCER_HEALTH_PERIOD_SECONDS,
       grace_seconds: 600,
       missing_is_unmonitored: true,
       resident_task: "Soulforge-TeamOpsBoard-ReadOnly-v1",
@@ -175,7 +190,7 @@ export const EXAMPLE_BINDING = {
       timestamp_field: "completed_at",
       status_field: "status",
       ok_values: ["ok"],
-      period_seconds: 300,
+      period_seconds: USAGE_PRODUCER_HEALTH_PERIOD_SECONDS,
       grace_seconds: 600,
       missing_is_unmonitored: true,
       resident_task: "Soulforge-TeamOpsBoard-ReadOnly-v1",
@@ -186,7 +201,7 @@ export const EXAMPLE_BINDING = {
       timestamp_field: "completed_at",
       status_field: "status",
       ok_values: ["ok"],
-      period_seconds: 300,
+      period_seconds: USAGE_PRODUCER_HEALTH_PERIOD_SECONDS,
       grace_seconds: 600,
       missing_is_unmonitored: true,
       resident_task: "Soulforge-TeamOpsBoard-ReadOnly-v1",
@@ -197,7 +212,7 @@ export const EXAMPLE_BINDING = {
       timestamp_field: "completed_at",
       status_field: "status",
       ok_values: ["ok"],
-      period_seconds: 300,
+      period_seconds: USAGE_PRODUCER_HEALTH_PERIOD_SECONDS,
       grace_seconds: 600,
       missing_is_unmonitored: true,
       resident_task: "Soulforge-TeamOpsBoard-ReadOnly-v1",
@@ -213,7 +228,7 @@ export const EXAMPLE_BINDING = {
       timestamp_field: "completed_at",
       status_field: "status",
       ok_values: ["ok"],
-      period_seconds: 300,
+      period_seconds: USAGE_PRODUCER_HEALTH_PERIOD_SECONDS,
       grace_seconds: 600,
       missing_is_unmonitored: true,
       resident_task: "Soulforge-TeamOpsBoard-ReadOnly-v1",
