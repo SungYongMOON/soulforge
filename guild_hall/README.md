@@ -45,6 +45,7 @@
   Phase 1–4 baseline 은 `deterministic_only` 이며 학습모델을 호출하지 않는다.
   프로젝트 원문·계약서·source PDF·snapshot payload·secret 은 두지 않는다
 - `engineering_mcp/`: 공유 Engineering MCP v0 **계약 데이터** owner(`identity/task/work/bundle/artifact/submission/review/context/agent/ops` 10 namespace·최소 tool 33종, 현행 `dev-erp-mcp` 공유면 17 tool crosswalk(회사메일 stdio 3종은 명시 제외), 구조 validator). 서버·소켓·상태·authority는 만들지 않으며, facade/adapter 제공은 D27/D28/D29 활성화와 OD-08 물리 tuple을 요구하는 별도 leaf다. 검증은 `npm run validate:engineering-mcp`.
+- `forge_intent/`: Forge work-generation seam의 **in-memory 순수 core** owner(Work Candidate→TaskIntent 불변 digest→승인 기록→주입 writer port 경유 Official Task 등록→Assignment→issued Work Brief). accepted context는 호출자 단언 ref만, writer port는 synthetic adapter만 존재 — 실제 Linear writer binding은 별도 Owner gate. 검증은 `npm run validate:forge-intent`.
 - `vault_revision/`: Vault ArtifactRevision 상태기계의 **in-memory 합성 수직** owner(5-owner 분리, parent/head, 멱등 replay/quarantine, 균일 거부, review·acceptance 분리). 바이트·영속·promoter·실수락 권한 없음 — D27/D29 활성화와 Owner gate 뒤의 별도 leaf. 검증은 `npm run validate:vault-revision`.
 - `requirement_trace/`: 요구사항 추적(RTM) 커버리지 계산의 결정론 순수 함수 owner.
   `engineering_engine/core/validators/` (및 `kernel/` 호환 wrapper) 어휘를 재사용해 커버리지 셀·요구 상태·고아 관측·게이트 준비도와

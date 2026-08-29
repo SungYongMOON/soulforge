@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-30 - Forge work-generation seam core (in-memory only)
+
+- Added `guild_hall/forge_intent/`: the program plan-04 state machine between engineering judgment and the external Official Task writer — Work Candidate (exact caller-asserted accepted-context ref required, facts never synthesized) → TaskIntent with a deterministic order-independent canonical-JSON SHA-256 digest → human/policy approval record (reject/hold blocks permanently; no re-approval) → official-task registration reachable only through a caller-injected writer PORT (approved intent ↔ exactly one task; replay is idempotent with zero double-writes) → assignment under a named authority/epoch/expiry → Work Brief issued only when all eight critical bindings are present.
+- Only synthetic writer adapters exist in this repository, so no Linear or external mutation is reachable; binding a real task writer is a separately Owner-gated leaf. The factory exposes no completion/acceptance surface (pinned by test), added `npm run validate:forge-intent` (8/8), a module manifest, and the guild_hall composition row.
+
 ## 2026-08-30 - Vault ArtifactRevision synthetic vertical (in-memory only)
 
 - Added `guild_hall/vault_revision/`: the program plan-03 artifact state machine as a pure in-memory deterministic core — catalog → submission → custody receipt → scan class → revision candidate (parent/head checked) → review record → human acceptance → accepted head. Five owners (logical/byte/revision/acceptance/backup-restore) stay separate fields; same-actor same-key same-digest submissions replay idempotently while a different digest under the same key quarantines; foreign or absent objects answer one uniform `not_available` with zero existence detail; submitters cannot review their own submission; only the registered acceptance owner can advance the head, and only for an ACCEPT-reviewed exact revision.
