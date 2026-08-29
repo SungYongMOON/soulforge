@@ -124,7 +124,7 @@ Integration and handoff:
 
 ## Safe next implementation leaf
 
-`RED-01` is the safe next leaf: repair the confirmed dev-ERP life-tree non-admin scope-before-cap defect exposed by `ui-workspace/apps/dev-erp/test/context_life_tree.test.mjs`.
+`RED-01` was executed on 2026-08-30 and closed GREEN (14/14) with a root-cause correction: production scope-before-cap filtering was already correct, and the failing evidence was fixture time-rot; the fixture is now time-invariant and a deterministic fixed-clock regression pins the property (see 02/13). The leaf contract below is retained as executed history; the next safe stabilization leaf is `RED-02` (topology-oracle contract reconciliation).
 
 | Field | Fixed leaf boundary |
 | --- | --- |

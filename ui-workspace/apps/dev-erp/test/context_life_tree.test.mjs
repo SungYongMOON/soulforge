@@ -941,6 +941,13 @@ test("non-admin life-tree scope filters mailbox, item, event, Codex, artifact, a
   const project = "P99-AUTH";
   const otherProject = "P99-OTHER";
   const seed = openStore(dbPath);
+  // Time-invariant fixture: the served life tree windows on the real clock, so absolute
+  // seed dates rot out of the 30-day window (observed 2026-08: the fixture's 2026-07-12
+  // literals left the window and hid the scope assertions). Seed relative to now instead;
+  // the fixed-clock deterministic regression at the end of this file pins the same
+  // scope-before-cap property against an absolute-date corpus.
+  const seedMinute = (minutes) => new Date(Date.now() - 12 * 3600000 + minutes * 60000).toISOString();
+  const seedDueKey = new Date(Date.now() + 24 * 3600000).toISOString().slice(0, 10);
   let crossEventId;
   try {
     seed.upsertProject({ id: project, title: "권한 검증", class: "active", data_label: "synthetic" });
@@ -956,33 +963,33 @@ test("non-admin life-tree scope filters mailbox, item, event, Codex, artifact, a
       "INSERT INTO core_mail(id,project_id,at,direction,subject,counterpart,mailbox,data_label) VALUES(?,?,?,?,?,?,?,'synthetic')"
     );
     for (let i = 0; i < 505; i++) {
-      insertMail.run(`${project}:bob-${i}`, project, "2026-07-12T02:00:00Z", "in", `BOB_SECRET_MAIL_${i}`, "BOB_SECRET_COUNTERPART", "bob@example.com");
+      insertMail.run(`${project}:bob-${i}`, project, seedMinute(120), "in", `BOB_SECRET_MAIL_${i}`, "BOB_SECRET_COUNTERPART", "bob@example.com");
     }
-    insertMail.run(`${project}:alice`, project, "2026-07-12T01:00:00Z", "in", "ALICE_VISIBLE_MAIL", "ALICE_COUNTERPART", "alice@example.com");
-    insertMail.run(`${project}:shared`, project, "2026-07-12T00:30:00Z", "in", "SHARED_BLANK_MAILBOX", "SHARED", null);
+    insertMail.run(`${project}:alice`, project, seedMinute(60), "in", "ALICE_VISIBLE_MAIL", "ALICE_COUNTERPART", "alice@example.com");
+    insertMail.run(`${project}:shared`, project, seedMinute(30), "in", "SHARED_BLANK_MAILBOX", "SHARED", null);
 
-    seed.appendEvent({ at: "2026-07-12T01:10:00Z", actor_ref: "alice", actor_kind: "human", kind: "item_status", item_ref: "alice-item", project_ref: project, data_label: "synthetic" });
-    seed.appendEvent({ at: "2026-07-12T01:20:00Z", actor_ref: "bob", actor_kind: "human", kind: "item_status", item_ref: "bob-item", project_ref: project, data_label: "synthetic" });
-    seed.appendEvent({ at: "2026-07-12T01:30:00Z", actor_ref: "alice", actor_kind: "human", kind: "item_status", item_ref: "cross-item", project_ref: project, data_label: "synthetic" });
+    seed.appendEvent({ at: seedMinute(70), actor_ref: "alice", actor_kind: "human", kind: "item_status", item_ref: "alice-item", project_ref: project, data_label: "synthetic" });
+    seed.appendEvent({ at: seedMinute(80), actor_ref: "bob", actor_kind: "human", kind: "item_status", item_ref: "bob-item", project_ref: project, data_label: "synthetic" });
+    seed.appendEvent({ at: seedMinute(90), actor_ref: "alice", actor_kind: "human", kind: "item_status", item_ref: "cross-item", project_ref: project, data_label: "synthetic" });
     crossEventId = seed.db.prepare("SELECT MAX(id) AS id FROM event_log").get().id;
 
     const insertCodex = seed.db.prepare(
       `INSERT INTO codex_thread_message(at,item_id,thread_id,role,text,payload_ref,payload_byte_length,actor_ref,mode,data_label)
        VALUES(?,?,?,?,?,?,?,?,?,?)`
     );
-    insertCodex.run("2026-07-12T01:40:00Z", "alice-item", "alice-thread", "user", "ALICE_TEXT_WITHHELD", null, 10, "alice", "mock", "meta");
-    insertCodex.run("2026-07-12T01:41:00Z", "bob-item", "bob-thread", "user", "BOB_SECRET_CODEX_TEXT", null, 20, "bob", "mock", "meta");
-    seed.upsertArtifact({ id: "bob-artifact", project_id: project, kind: "report", title: "BOB_SECRET_ARTIFACT", pointer: "metadata/bob-artifact", sha256: "b".repeat(64), updated_at: "2026-07-12T01:50:00Z", data_label: "synthetic" });
+    insertCodex.run(seedMinute(100), "alice-item", "alice-thread", "user", "ALICE_TEXT_WITHHELD", null, 10, "alice", "mock", "meta");
+    insertCodex.run(seedMinute(101), "bob-item", "bob-thread", "user", "BOB_SECRET_CODEX_TEXT", null, 20, "bob", "mock", "meta");
+    seed.upsertArtifact({ id: "bob-artifact", project_id: project, kind: "report", title: "BOB_SECRET_ARTIFACT", pointer: "metadata/bob-artifact", sha256: "b".repeat(64), updated_at: seedMinute(110), data_label: "synthetic" });
     seed.addAttachment({ id: "bob-attachment", entity_type: "item", entity_id: "bob-item", name: "BOB_SECRET_ATTACHMENT", created_by: "bob", data_label: "synthetic" });
     seed.db.prepare(
       `INSERT INTO core_deliverable(id,project_id,stage_code,deliverable_no,name,due,produced,review_stage,data_label)
        VALUES(?,?,?,?,?,?,0,0,'synthetic')`
-    ).run("bob-deliverable", project, "120_CDR", "D-BOB", "BOB_SECRET_DELIVERABLE", "2026-07-13");
+    ).run("bob-deliverable", project, "120_CDR", "D-BOB", "BOB_SECRET_DELIVERABLE", seedDueKey);
     seed.db.prepare(
       `INSERT INTO deliverable_input(id,deliverable_id,project_id,stage_code,file_name,source,status,created_at,data_label)
        VALUES(?,?,?,?,?,'erp','received',?,'synthetic')`
-    ).run("bob-input", "bob-deliverable", project, "120_CDR", "BOB_SECRET_FILE", "2026-07-12T01:55:00Z");
-    seed.appendEvent({ at: "2026-07-12T01:56:00Z", actor_ref: "bob", actor_kind: "human", kind: "input_upload", to: "bob-input", project_ref: project, data_label: "synthetic" });
+    ).run("bob-input", "bob-deliverable", project, "120_CDR", "BOB_SECRET_FILE", seedMinute(115));
+    seed.appendEvent({ at: seedMinute(116), actor_ref: "bob", actor_kind: "human", kind: "input_upload", to: "bob-input", project_ref: project, data_label: "synthetic" });
   } finally {
     seed.db.close();
   }
@@ -1023,6 +1030,57 @@ test("non-admin life-tree scope filters mailbox, item, event, Codex, artifact, a
     assert.equal(adminTree.coverage.scope_limited, false);
   } finally {
     await server.stop();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("life-tree mailbox scope excludes foreign rows before the lane cap under a fixed clock", () => {
+  // Deterministic regression for the scope-before-cap property: 505 newer foreign-mailbox
+  // rows must be excluded by the SQL scope filter before the per-lane cap, so the one
+  // authorized older row still projects. The clock is pinned so this corpus never rots
+  // out of the projection window the way the absolute-date HTTP fixture once did.
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-life-scope-cap-"));
+  const project = "P99-CAP";
+  const store = openStore(":memory:");
+  try {
+    store.upsertProject({ id: project, title: "cap 회귀", class: "active", data_label: "synthetic" });
+    const insertMail = store.db.prepare(
+      "INSERT INTO core_mail(id,project_id,at,direction,subject,counterpart,mailbox,data_label) VALUES(?,?,?,?,?,?,?,'synthetic')"
+    );
+    const foreignRows = CONTEXT_LIFE_TREE_PER_LANE_MAX + 5;
+    for (let i = 0; i < foreignRows; i++) {
+      insertMail.run(`${project}:bob-${i}`, project, "2026-07-12T02:00:00Z", "in", `BOB_SECRET_MAIL_${i}`, "BOB", "bob@example.com");
+    }
+    insertMail.run(`${project}:alice`, project, "2026-07-12T01:00:00Z", "in", "ALICE_VISIBLE_MAIL", "AC", "alice@example.com");
+    insertMail.run(`${project}:shared`, project, "2026-07-12T00:30:00Z", "in", "SHARED_BLANK_MAILBOX", "SH", null);
+
+    const tree = buildContextLifeTree(root, project, {
+      store,
+      days: 30,
+      scope: { actor: "alice", assignee_any: ["alice"], mailbox: "alice@example.com" },
+      now: new Date("2026-07-12T12:00:00Z"),
+    });
+    assert.equal(tree.error, undefined);
+    const serialized = JSON.stringify(tree);
+    assert.equal(serialized.includes("BOB_SECRET"), false, "foreign mailbox rows never leak");
+    assert.equal(tree.events.some((event) => event.title === "ALICE_VISIBLE_MAIL"), true,
+      "own mailbox row survives >500 newer foreign rows because scope filters before the cap");
+    assert.equal(tree.events.some((event) => event.title === "SHARED_BLANK_MAILBOX"), true,
+      "blank mailbox stays a shared queue");
+    assert.equal(tree.events.length, 2, "only the authorized and shared rows project");
+    assert.equal(tree.coverage.scope_limited, true);
+
+    const adminTree = buildContextLifeTree(root, project, {
+      store,
+      days: 30,
+      scope: { all: true },
+      now: new Date("2026-07-12T12:00:00Z"),
+    });
+    assert.equal(adminTree.error, undefined);
+    assert.equal(JSON.stringify(adminTree).includes("BOB_SECRET"), true, "team-wide scope remains unscoped");
+    assert.equal(adminTree.coverage.scope_limited, false);
+  } finally {
+    store.db.close();
     rmSync(root, { recursive: true, force: true });
   }
 });
