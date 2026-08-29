@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-30 - Team Member Engineering Program Owner-review draft suite
+
+- Added a public-safe, cross-linked foundation plan suite for the staged Team Member Engineering program: Vault/ERP asset and revision records, Forge work generation, shared Engineering MCP and binary-data plane, Guild workforce/Agent Mark, Buzz/Hermes, Watch/4192, Bastion recovery, external connectors, Workshops, deployment packs, test/acceptance, physical compatibility, and runbook catalog.
+- Kept `dev-erp`, `dev-erp-mcp`, current canonical roots, project workspaces, and runtime paths in reference-in-place compatibility. The draft creates no runtime/configuration/client/connector/credential change, task-writer migration, external action, backup run, or deployment.
+- Recorded owner-decision gates, current red stabilization items, direct-source research limits, physical folder alias inventory, and a one-line non-active roadmap candidate. Product labels remain logical Owner-review labels; no folder/package/DB/route/runtime rename is authorized.
+- Recorded the Owner standing execution delegation for later approved build loops: safe, gated, reference-in-place/default-OFF leaves may continue without repeated confirmation; excluded authority, credential, or physical blockers hold only their branch and require a compact unblock packet. This planning task itself did not activate a service, connect a source, install a client, commit, or push.
+
 ## 2026-08-29 - Soulforge Engineering OS 제품군·명명 재기준 초안
 
 - Soulforge를 기능 모음이 아니라 먼저 세계관으로 설계하기 위한 `SOULFORGE_WORLD_BIBLE_V0.md`를 추가했다. 현실 사건→업무 후보→Monster→Hero·Agent·Party 수행→Artifact·Evidence→Knowledge·Skill·Agent Mark 제련 순환, 판타지/업무 이중표시, 영역·세력·명명 문법·자원·역사와 새 개념의 World Balance Review를 Owner 초안으로 보존한다.

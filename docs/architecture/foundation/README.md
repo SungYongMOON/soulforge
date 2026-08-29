@@ -16,6 +16,7 @@
 | `VISION_AND_GOALS.md` | 수동 업무를 mission/run truth/canon/autohunt 로 승격하는 장기 비전을 고정한다. |
 | `SOULFORGE_WORLD_BIBLE_V0.md` | Soulforge의 창세 철학, 판타지 업무세계, 영역·세력·명명 문법과 World Balance Review를 Owner 초안으로 보존한다. |
 | `SOULFORGE_ENGINEERING_OS_PRODUCT_FAMILY_REBASELINE_V0.md` | 전체 플랫폼 이름, ERP·Engineering Engine·Agent Platform 제품군, 공유 Module, Asset·Agent·backup 큰그림을 Owner 결정 초안으로 정리한다. |
+| `team_member_engineering_program/00_MASTER_INDEX_AND_DECISIONS.md` | 팀원 작업·정본자료 전달, Vault/Forge/Guild/Watch/Bastion, 제품·배포·검증·물리 호환을 Owner 검토용 계획 세트로 연결한다. |
 | `TARGET_TREE.md` | 목표 루트 트리와 canonical path shape 를 설명한다. |
 | `DOCUMENT_OWNERSHIP.md` | 어떤 문서가 어느 owner 경계를 소유하는지 정한다. |
 | `AGENT_EXECUTION_CONTRACT_V0.md` | AI agent 의 가정 노출, 최소 변경, 검증 기준, post-development review gate, secret 경계를 정한다. |
@@ -43,6 +44,7 @@
 - [`VISION_AND_GOALS.md`](VISION_AND_GOALS.md)
 - [`SOULFORGE_WORLD_BIBLE_V0.md`](SOULFORGE_WORLD_BIBLE_V0.md)
 - [`SOULFORGE_ENGINEERING_OS_PRODUCT_FAMILY_REBASELINE_V0.md`](SOULFORGE_ENGINEERING_OS_PRODUCT_FAMILY_REBASELINE_V0.md)
+- [`team_member_engineering_program/00_MASTER_INDEX_AND_DECISIONS.md`](team_member_engineering_program/00_MASTER_INDEX_AND_DECISIONS.md)
 - [`TARGET_TREE.md`](TARGET_TREE.md)
 - [`DOCUMENT_OWNERSHIP.md`](DOCUMENT_OWNERSHIP.md)
 - [`AGENT_EXECUTION_CONTRACT_V0.md`](AGENT_EXECUTION_CONTRACT_V0.md)
