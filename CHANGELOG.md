@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-29 - Soulforge Engineering OS 제품군·명명 재기준 초안
+
+- 지금까지 ERP, 맥락 세계수, Engineering Engine, Task Engine, Chat 예약, Agent Mark, Hermes·Buzz, 외부 시스템 backup으로 흩어진 Owner 비전을 `Soulforge Engineering OS` 하나의 제품군 언어로 정리한 `OWNER_DECISION_DRAFT`를 추가했다.
+- 전체 플랫폼과 `Soulforge ERP`, `Soulforge Engineering Engine`, `Soulforge Agent Platform` 세 제품을 분리하고, Intake & Candidate, Asset Catalog & Custody, Context World Tree, Task & Decision, Digital Workforce Registry, Connector & Ingress, Assurance & Recovery를 공유 Module로 분류했다.
+- 승인 전 Event·Work Candidate와 생성 이유, 실제 Project/Dataset/Template/BOM/Knowledge/Agent/External System 자산, Google Drive 예약 장부 reconciliation, Linear·Slack·Buzz 등 backup을 전체 ERP Asset 생명주기에 포함했다.
+- 이번 변경은 명명·구조 검토 문서와 색인만 추가한다. `dev-erp`를 포함한 실제 path/package/DB/TASK/route/runtime rename, writer 변경, 외부 시스템·backup 활성화는 모두 0이며 별도 migration과 Owner 승인을 요구한다.
+
 ## 2026-08-29 - Self-heal green hardening for voice mirror ctime, five-field project identity, and Codex retention freshness
 
 - Fixed a PLAUD/voice `copy_only_mirror` incremental fast-path crash: a source file whose ctime moved between the metadata-fast-path scan and the end-of-run confirmation (size and mtime unchanged) now converges via a bounded re-hash checked against the prior checkpoint digest instead of failing the whole sync closed; genuine size/mtime drift, a second unstable observation, or a real digest mismatch still fail closed exactly as before, with no source delete/overwrite and no weakened custody or required-coverage guarantees.

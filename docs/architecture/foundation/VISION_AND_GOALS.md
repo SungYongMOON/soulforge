@@ -8,6 +8,18 @@
 ## 한 줄 비전
 
 - Soulforge는 사람이 한 번 수동으로 해낸 일을 reusable canon, held mission, local run truth 로 분해해 다시 자동화 가능한 운영 자산으로 바꾸는 저장소다.
+- 제품 관점의 권고 이름은 `Soulforge Engineering OS`이며, `Soulforge ERP`,
+  `Soulforge Engineering Engine`, `Soulforge Agent Platform` 세 제품군으로 나누는
+  Owner 결정 초안은 [`SOULFORGE_ENGINEERING_OS_PRODUCT_FAMILY_REBASELINE_V0.md`](SOULFORGE_ENGINEERING_OS_PRODUCT_FAMILY_REBASELINE_V0.md)가 소유한다.
+
+## 제품군·명명 재기준 상태
+
+- 현재 재기준 문서는 `OWNER_DECISION_DRAFT`다.
+- 전체 이름과 제품·Module 계층을 먼저 정하고, 실제 `dev-erp` path, package, DB,
+  TASK, route, runtime rename은 caller·pointer·backup·restore dry-run과 별도 Owner
+  승인 뒤에만 수행한다.
+- `Soulforge Engineering ERP`는 전체 이름으로 고정하지 않는다. ERP는 전체
+  Engineering OS 안의 핵심 제품이며 Engineering Engine과 Agent Platform의 상위 owner가 아니다.
 
 ## AX Context-to-Execution 운영 북극성
 
