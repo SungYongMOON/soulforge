@@ -21,6 +21,55 @@
 - `Soulforge Engineering ERP`는 전체 이름으로 고정하지 않는다. ERP는 전체
   Engineering OS 안의 핵심 제품이며 Engineering Engine과 Agent Platform의 상위 owner가 아니다.
 
+## Owner 큰 비전 재확인 — 2026-08-29
+
+- 큰 비전 내용 상태: `OWNER_RECORDED_DIRECTION`
+- 제품군·서브프로젝트 이름 상태: `OWNER_DECISION_DRAFT`
+- 이 기록은 실제 path·package·DB·TASK·route·runtime rename 승인이 아니다.
+
+Soulforge는 회사에서 일어나는 모든 사건과 자산을 기억하고, 체계공학과 전문지식으로
+다음 일을 판단하며, 권한 있는 사람과 버전 관리되는 AI Agent가 그 일을 수행하고,
+검증·수락된 결과를 복구 가능한 회사의 영구 자산으로 축적하는 AI 기반 Engineering
+Operating System을 지향한다.
+
+이 비전에서 Soulforge는 ERP, 세계수, 특정 Engine, Task Engine, Chat 예약, Hermes,
+Buzz 또는 MCP 중 하나가 아니다. 이들이 source·자산·맥락·판단·업무·실행·검증·복구의
+한 생명주기로 이어진 전체 체계다.
+
+### 전체 생명주기
+
+```text
+현실 Source
+  -> 관찰 Event와 Work Candidate
+  -> 후보를 만든 근거·보류·거절·중복·승인 기록
+  -> ERP Asset·Context World Tree·Knowledge
+  -> Engineering Engine의 gap·risk·role·Work Unit 후보
+  -> 사람 또는 exact policy 승인
+  -> Official Task·Assignment·Claim
+  -> exact Agent Mark·Deployment 또는 사람의 local workspace 실행
+  -> Artifact·Dataset·Evidence·Revision 제출
+  -> independent review·technical acceptance·human acceptance
+  -> Task·Asset·World Tree·Knowledge·Agent 개선·Backup/Restore 환류
+```
+
+### 반드시 포함하는 자산
+
+- 프로젝트 계약·요구사항·도면·CAD·코드·소나/시험 Dataset·분석·산출물·Baseline·Release;
+- 제품·보드·Part·BOM Revision·자재·재고·위치·구매·업체·성적서;
+- Template·양식·Sample·Reference·표준·Calculator·Skill·Workflow·Party;
+- 공통·조직·프로젝트 지식, RAG, Wiki, Context와 여러 Engine의 규칙·결과;
+- 사람과 AI Agent Family·Mark·Deployment·Run·Evaluation·Rollback;
+- Gmail·Slack·PLAUD·Buzz·Linear·Drive·Git·NAS 같은 External System과 backup generation;
+- 승인 전 Event·Work Candidate, 생성 이유, `NO_ACTION`, 보류·거절·중복과 승인 결과.
+
+### 불변 원칙
+
+- 모델의 숨은 reasoning 전문이 아니라 source refs·판단요약·정책 revision·confidence·사람 결정을 보존한다.
+- Agent 결과, delivery receipt, consumer acknowledgement, review, human acceptance와 Official Done을 서로 대체하지 않는다.
+- 실제 byte, metadata, relation, revision, acceptance, backup owner를 구분한다.
+- 특정 AI provider·Plugin·Buzz·Hermes·Linear가 사라져도 Task·자산·맥락·Agent 계보·receipt는 남는다.
+- AI로 일을 늘리는 것이 아니라 반복업무·누락·재작업을 줄여 사람이 설계판단·현장·팀 대화에 집중하게 한다.
+
 ## AX Context-to-Execution 운영 북극성
 
 Soulforge의 장기 제품 방향은 단순 통합검색이나 특정 AI provider 자동화가 아니다. 회사와

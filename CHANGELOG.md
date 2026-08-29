@@ -5,6 +5,7 @@
 - 지금까지 ERP, 맥락 세계수, Engineering Engine, Task Engine, Chat 예약, Agent Mark, Hermes·Buzz, 외부 시스템 backup으로 흩어진 Owner 비전을 `Soulforge Engineering OS` 하나의 제품군 언어로 정리한 `OWNER_DECISION_DRAFT`를 추가했다.
 - 전체 플랫폼과 `Soulforge ERP`, `Soulforge Engineering Engine`, `Soulforge Agent Platform` 세 제품을 분리하고, Intake & Candidate, Asset Catalog & Custody, Context World Tree, Task & Decision, Digital Workforce Registry, Connector & Ingress, Assurance & Recovery를 공유 Module로 분류했다.
 - 승인 전 Event·Work Candidate와 생성 이유, 실제 Project/Dataset/Template/BOM/Knowledge/Agent/External System 자산, Google Drive 예약 장부 reconciliation, Linear·Slack·Buzz 등 backup을 전체 ERP Asset 생명주기에 포함했다.
+- Owner의 큰 비전을 `VISION_AND_GOALS.md`에 다시 기록해, Soulforge를 특정 ERP·세계수·Engine·Task·Chat 예약·Hermes·Buzz·MCP 하나가 아니라 source부터 자산·맥락·판단·업무·Agent 실행·수락·복구까지 이어지는 전체 체계로 고정했다. 비전 내용 기록과 제품군 이름 승인을 분리해 이름은 계속 `OWNER_DECISION_DRAFT`로 유지한다.
 - 이번 변경은 명명·구조 검토 문서와 색인만 추가한다. `dev-erp`를 포함한 실제 path/package/DB/TASK/route/runtime rename, writer 변경, 외부 시스템·backup 활성화는 모두 0이며 별도 migration과 Owner 승인을 요구한다.
 
 ## 2026-08-29 - Self-heal green hardening for voice mirror ctime, five-field project identity, and Codex retention freshness

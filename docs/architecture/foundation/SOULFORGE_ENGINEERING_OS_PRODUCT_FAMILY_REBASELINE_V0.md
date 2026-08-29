@@ -14,6 +14,10 @@
 바꾸거나 현재 동작하는 path를 자동으로 새 이름으로 해석하지 않는다. 이름 확정 뒤에도
 실제 rename은 caller·pointer·backup·restore 영향 dry-run과 Owner 승인으로 별도 수행한다.
 
+2026-08-29 Owner는 [`VISION_AND_GOALS.md`](VISION_AND_GOALS.md)의 `Owner 큰 비전 재확인`에
+기록된 전체 방향을 보존하라고 지시했다. 큰 비전 내용은 기록된 Owner 방향이지만, 이 문서의
+제품군·서브프로젝트 이름과 세 제품 분류는 계속 검토 초안이며 Owner 승인 이름이 아니다.
+
 ## 1. 권고하는 전체 이름
 
 > **Soulforge Engineering OS**
