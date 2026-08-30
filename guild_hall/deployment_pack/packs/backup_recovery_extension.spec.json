@@ -21,6 +21,8 @@
       "guild_hall/backup_controller/linear_lb1_one_shot_runner.mjs",
       "guild_hall/backup_controller/linear_lb1_owner_gate.mjs",
       "guild_hall/backup_controller/linear_lb1_owner_gate_v2.mjs",
+      "guild_hall/backup_controller/linear_lb1_physical_cli.mjs",
+      "guild_hall/backup_controller/linear_lb1_physical_one_shot.mjs",
       "guild_hall/backup_controller/linear_lb1_runtime_adapters.mjs",
       "guild_hall/backup_controller/linear_lb1_synthetic_adapters.mjs",
       "guild_hall/backup_controller/linear_lb1_v2.mjs",
@@ -55,6 +57,7 @@
       "guild_hall/backup_controller/linear_lb1_one_shot_runner.test.mjs",
       "guild_hall/backup_controller/linear_lb1_owner_gate.test.mjs",
       "guild_hall/backup_controller/linear_lb1_owner_gate_v2.test.mjs",
+      "guild_hall/backup_controller/linear_lb1_physical_one_shot.test.mjs",
       "guild_hall/backup_controller/linear_lb1_runtime_adapters.test.mjs",
       "guild_hall/backup_controller/linear_lb1_v2.test.mjs",
       "guild_hall/backup_controller/preflight.test.mjs",
@@ -74,6 +77,7 @@
     "guild_hall/backup_controller/linear_lb1_one_shot_runner.test.mjs",
     "guild_hall/backup_controller/linear_lb1_owner_gate.test.mjs",
     "guild_hall/backup_controller/linear_lb1_owner_gate_v2.test.mjs",
+    "guild_hall/backup_controller/linear_lb1_physical_one_shot.test.mjs",
     "guild_hall/backup_controller/linear_lb1_runtime_adapters.test.mjs",
     "guild_hall/backup_controller/linear_lb1_v2.test.mjs",
     "guild_hall/backup_controller/preflight.test.mjs",
@@ -91,6 +95,7 @@
     "guild_hall/backup_controller/linear_lb1_one_shot_runner.test.mjs",
     "guild_hall/backup_controller/linear_lb1_owner_gate.test.mjs",
     "guild_hall/backup_controller/linear_lb1_owner_gate_v2.test.mjs",
+    "guild_hall/backup_controller/linear_lb1_physical_one_shot.test.mjs",
     "guild_hall/backup_controller/linear_lb1_runtime_adapters.test.mjs",
     "guild_hall/backup_controller/linear_lb1_v2.test.mjs",
     "guild_hall/backup_controller/preflight.test.mjs",
@@ -117,6 +122,14 @@
     {
       "path": "guild_hall/backup_controller/linear_lb1_owner_gate_v2.mjs",
       "sha256": "ad75af4c8402a6539d39b7d3a1ca771283653cdc5a74215de6fc092294926b52"
+    },
+    {
+      "path": "guild_hall/backup_controller/linear_lb1_physical_one_shot.mjs",
+      "sha256": "89518eb71d1147671f6a6161ea0c8a8de20f6bd8475c527d5038567e90b59fb8"
+    },
+    {
+      "path": "guild_hall/backup_controller/linear_lb1_physical_one_shot.test.mjs",
+      "sha256": "595a8fa9f50bdc11dbdbb29a0cee52d08b7d12e181ec06f0749ef6bcf0159b30"
     },
     {
       "path": "guild_hall/backup_controller/linear_lb1_runtime_adapters.mjs",

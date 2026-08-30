@@ -339,6 +339,47 @@ reviewed actual-effect binding is supplied. Legacy v2 synthetic snapshots and
 manifests without the additive label/attachment fields remain accepted and
 retain their original exact serialized shape.
 
+### Linear physical one-shot gate
+
+`linear_lb1_physical_one_shot.mjs` is the bounded physical bridge for the first
+actual run. It does not discover a connector, credential, path, writer, or
+reviewer. An exact private config must pass Owner Gate v2 and bind the current
+workspace, a fixed ten-tool read-only Codex Linear capability set, an empty or
+exact content-addressed attachment allowlist, writer-exclusive control/data/
+recovery roots, one opaque durable claim ref, and a create-only generation
+target. The target, claim store, storage authority, writer allowlist, recovery
+binding, and finite reader limits are content-addressed back into the pinned
+Owner packet. The capability set contains no create/update/delete/save/write/mutate
+tool, and its call ledger carries only capability names and input/output hashes.
+Read-only connector errors remain explicit `is_error` ledger rows and are
+counted in the durable generation receipt; they cannot disappear during a retry.
+
+`beginLinearLb1PhysicalSession()` validates ACL/path containment and an empty
+isolated recovery binding before it creates an atomic single-use claim. Only
+after `CLAIM_READY` may the caller collect provider pages. Completion binds the
+page bundle to the body-free connector-effect receipt and records that receipt
+as `CALLER_OBSERVED_SESSION_BOUND` without promoting it to
+independent network or mutation attestation, and writes a new immutable
+generation with no overwrite/delete/prune surface,
+performs exact-byte readback, and copies the same bytes to an isolated recovery
+generation for restore parity. Missing dimensions remain `PARTIAL`; physical
+parity is not human restore acceptance or Official Task completion.
+
+The claim file and every generation/state receipt use exclusive create plus
+file-handle sync. A crash immediately after the synced claim can resume the same
+exact claim before capture; an append-only PID/host-bound session lease prevents
+a second live begin, and Owner/pin/claim expiry is rechecked before capture,
+generation, and restore effects. Any post-capture incomplete state returns a durable
+reconciliation HOLD instead of deleting, overwriting, or silently retrying.
+This is tested process-crash evidence, not an independent power-loss guarantee.
+The body-free connector effect receipt and call-ledger digest are persisted in
+both the control-state chain and generation receipt.
+
+`linear_lb1_physical_cli.mjs --config <private-config>` emits the body-free claim
+receipt, then accepts exactly one private capture envelope on stdin. Raw Linear
+bodies remain in the private input stream and approved generation/recovery
+roots; CLI output contains only refs, digests, counts, coverage, and effects.
+
 ## Validation
 
 ```powershell
@@ -347,4 +388,5 @@ npm.cmd run validate:linear-lb1-owner-gate
 npm.cmd run validate:linear-lb1-v2
 npm.cmd run validate:linear-lb1-runtime-adapters
 node --test guild_hall/backup_controller/linear_lb1_actual_reader.test.mjs
+node --test guild_hall/backup_controller/linear_lb1_physical_one_shot.test.mjs
 ```

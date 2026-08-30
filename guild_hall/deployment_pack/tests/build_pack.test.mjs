@@ -204,7 +204,7 @@ test("the real backup_recovery_extension spec builds: module pack with full-suit
   const built = buildPack(specPath, { rootDir: REPO_ROOT, outDir: tempDir("outBackupRec"), clock: fixedClock, runner: okRunner });
   assert.equal(built.manifest.pack_id, "backup_recovery_extension");
   // Pinned so growth is a conscious re-emit (the emitter's --check gates it).
-  assert.equal(built.manifest.files.length, 51);
+  assert.equal(built.manifest.files.length, 54);
   assert.equal(built.candidate.claimed_gate, "contract",
     "capture/restore/acceptance stay unclaimed - the initial gate needs Owner-side human acceptance");
   const spec = loadPackSpec(specPath);
@@ -214,6 +214,12 @@ test("the real backup_recovery_extension spec builds: module pack with full-suit
   assert.equal(spec.content_roles.validators.includes(
     "guild_hall/backup_controller/linear_lb1_actual_reader.test.mjs",
   ), true, "the actual-reader contract stays in the full installed smoke closure");
+  assert.equal(spec.content_roles.recovery_policy_adapter.includes(
+    "guild_hall/backup_controller/linear_lb1_physical_one_shot.mjs",
+  ), true, "the default-inert physical one-shot travels with its exact private binding gate");
+  assert.equal(spec.content_roles.validators.includes(
+    "guild_hall/backup_controller/linear_lb1_physical_one_shot.test.mjs",
+  ), true, "the physical one-shot hostile suite stays in the full installed smoke closure");
   assert.equal(spec.installed_smoke_entries.length, spec.smoke_test_entries.length,
     "the declared installed smoke is the FULL module suite");
   assert.deepEqual(spec.installed_smoke_excluded, []);
