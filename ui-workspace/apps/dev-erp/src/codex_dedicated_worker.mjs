@@ -612,7 +612,15 @@ export function readWorkerIdentity() {
   if (process.platform === "win32") {
     if (windowsWorkerIdentityCache) return windowsWorkerIdentityCache;
     try {
-      const identityFields = parseWindowsIdentityCsv(execFileSync("whoami.exe", ["/user", "/fo", "csv", "/nh"], {
+      // The identity proof binary is resolved by ABSOLUTE system path, never
+      // PATH: a PATH-planted or PATH-shadowing whoami (e.g. Git Bash's GNU
+      // coreutils, which rejects /user) must not be able to break — or
+      // stand in for — the attested identity source. No SystemRoot means no
+      // proof: fail closed. (SystemRoot integrity itself is the
+      // spawner/service-config's obligation, like the rest of the env.)
+      const systemRoot = process.env.SystemRoot || process.env.windir;
+      if (!systemRoot || !isAbsolute(systemRoot)) fail("worker_identity_unavailable", 500);
+      const identityFields = parseWindowsIdentityCsv(execFileSync(join(systemRoot, "System32", "whoami.exe"), ["/user", "/fo", "csv", "/nh"], {
         encoding: "utf8",
         windowsHide: true,
         timeout: 5000,

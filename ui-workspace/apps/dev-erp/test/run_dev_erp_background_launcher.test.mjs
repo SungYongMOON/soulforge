@@ -799,7 +799,12 @@ async function stopChildProcessTree(child, timeoutMs = 5_000) {
 
 function runCmd(cwd, scriptName, env = testEnvironment(), timeoutMs = 15_000) {
   return new Promise((resolve, reject) => {
-    const child = spawn(CMD, ["/d", "/c", scriptName], {
+    // Invoke by absolute path: on hosts hardened with
+    // NoDefaultCurrentDirectoryInExePath=1, cmd.exe does not resolve bare
+    // names from the working directory, so "start-windows.bat" would fail
+    // with "not recognized" even though it sits in cwd.
+    const scriptPath = path.isAbsolute(scriptName) ? scriptName : path.join(cwd, scriptName);
+    const child = spawn(CMD, ["/d", "/c", scriptPath], {
       cwd,
       windowsHide: true,
       env,

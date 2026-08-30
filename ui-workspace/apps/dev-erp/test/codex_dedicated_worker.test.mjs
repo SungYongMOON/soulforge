@@ -1300,3 +1300,21 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("worker identity fails closed on a non-absolute SystemRoot, instead of falling back to PATH", { skip: process.platform !== "win32" }, async () => {
+  // Subprocess probing cannot reach this guard: libuv restores a MISSING
+  // SYSTEMROOT into Windows children, and a RELATIVE one crashes node
+  // bootstrap before any JS runs. So the guard is exercised in-process.
+  // (Safe: the identity cache is only populated on SUCCESS, and no earlier
+  // test in this file calls readWorkerIdentity in-process.)
+  const { readWorkerIdentity } = await import("../src/codex_dedicated_worker.mjs");
+  const saved = { SystemRoot: process.env.SystemRoot, windir: process.env.windir };
+  try {
+    process.env.SystemRoot = "not-an-absolute-root";
+    process.env.windir = "also-not-absolute";
+    assert.throws(() => readWorkerIdentity(), (error) => String(error?.message ?? error).includes("worker_identity_unavailable"));
+  } finally {
+    if (saved.SystemRoot === undefined) delete process.env.SystemRoot; else process.env.SystemRoot = saved.SystemRoot;
+    if (saved.windir === undefined) delete process.env.windir; else process.env.windir = saved.windir;
+  }
+});
