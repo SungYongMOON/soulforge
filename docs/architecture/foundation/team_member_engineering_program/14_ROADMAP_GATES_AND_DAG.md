@@ -177,6 +177,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `L-DOGFOOD-INT` | `7300e042` | Integration | forge→vault→forge→workshop 체인 + facade 실서빙 교차 증명 |
 | `L-WATCH-SUP-2` | `a46ce965` | Board | hermes_runtime 공급자(clock-less hold 생존, 첫 라이브 실신호) |
 | `L-WATCH-SUP-3` | `f2259887` | Board | backup_restore_readiness 공급자: R3 storage-map overlay 집계 verbatim 번역(위조/비인식 payload는 무공급·hold는 clock-less 생존), 4번째 read-only GET 배선 — endpoint 자체는 private gate |
+| `L-SOURCE-INDEX` | `c62ab68d` | Physical spine | source-lane index 계약: refs-only 레코드 4종 + 결정론 evidence 어셈블러(digest 사슬 파손=조작으로 HOLD·빠진 고리는 부재·no_evidence·타 source/fork 거부) — R3 evidence의 공급 계약 완성 |
 | `L-DEVERP-HOST-RED` | `e27d5c6d` | dev-ERP | worker 신원 바이너리 System32 절대경로 고정(보안 강화) |
 | `L-HPP-PACK` | `8b02724c` | Deployment | dev-ERP 267파일 pack(모듈+데이터 폐포·scan pin 60·smoke 파티션 78+11) |
 | `L-PLAN-TRUTH` | `22c05384` | Program docs | 이 원장 자체(레인×성숙도·trace·register)와 drift 수정 + `validate:plan-truth` |
@@ -211,6 +212,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `validate:path-registry` | 17 | R1 계약: multi-axis 스키마·seed 31행·absolute-path 거부·resolver HOLD 전종·write-guard 매트릭스·updateRecord gate·sub-second/impossible clock 거부·topology 신원 중복·OD-10 fails-closed |
 | `validate:target-materializer` | 10 | R2: canary 승인 gate(HOLD)·registry-driven source lane·dry-run/apply·멱등 replay·foreign payload/hostile root 거부·authenticated plan/receipt·partial-apply recovery·rollback은 빈 self-created 디렉터리만 |
 | `validate:watch-storage-map` | 11 | R3: 기존-노드 backup-readiness overlay·snapshot digest 재계산·safe evidence ref·OD-10 sentinel 전행 HOLD·전행 커버리지·상태 우선순위·N/A·writer/raw/path 금지·drift HOLD |
+| `validate:source-lane-index` | 7 | lane 레코드 4종 refs-only 검증·digest 사슬 조작 HOLD·부재-정직 어셈블리·실 R3 계약 end-to-end(healthy)·scope/fork 거부·legacy note 무영향 |
 | `validate:plan-truth` | check | 이 원장 자체의 정합 — trace 해시가 git에 실재, 등재 validator가 npm script로 실재, lane 참조 ID가 trace로 해소 |
 
 ### Remaining branches
