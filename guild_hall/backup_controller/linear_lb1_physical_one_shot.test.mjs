@@ -60,7 +60,10 @@ function page(workspaceRef) {
     has_more: false,
     catalog: {
       teams: [{ id: "team-1", name: "Engineering", key: "ENG", updated_at: CUTOFF }],
-      projects: [],
+      projects: [
+        { id: "project-1", name: "Project One", team_id: "team-1", updated_at: CUTOFF },
+        { id: "project-2", name: "Project Two Empty", team_id: "team-1", updated_at: CUTOFF },
+      ],
       users: [{ id: "user-1", name: "Owner", email: "owner@example.invalid", updated_at: CUTOFF }],
       statuses: [{ id: "status-1", name: "Todo", type: "unstarted", team_id: "team-1" }],
       labels: [],
@@ -79,7 +82,7 @@ function page(workspaceRef) {
     },
     issues: [{
       id: "issue-1", identifier: "ENG-1", title: "Physical one-shot", priority: 3,
-      team_id: "team-1", project_id: null, assignee_id: "user-1", status_id: "status-1",
+      team_id: "team-1", project_id: "project-1", assignee_id: "user-1", status_id: "status-1",
       parent_id: null, label_ids: [], created_at: CUTOFF, updated_at: CUTOFF,
       started_at: null, completed_at: null, canceled_at: null, archived_at: null,
       due_at: null, deletion: null, relations: [],
@@ -251,8 +254,13 @@ test("durable claim precedes a create-only generation, exact-byte readback, and 
   const result = await session.complete(captureInput(config, session.ready_receipt));
   assert.equal(result.status, "PARTIAL_TECHNICAL_RESTORE_CANDIDATE");
   assert.equal(result.generation.exact_byte_readback, true);
+  assert.equal(result.generation.project_index_exact_byte_readback, true);
+  assert.equal(result.generation.project_count, 2);
+  assert.equal(result.generation.classified_issue_count, 1);
+  assert.equal(result.generation.unassigned_issue_count, 0);
   assert.equal(result.generation.overwrite_allowed, false);
   assert.equal(result.restore.exact_byte_readback, true);
+  assert.equal(result.restore.project_index_parity_complete, true);
   assert.equal(result.restore.human_acceptance, false);
   assert.equal(result.connector_effects.linear_mutations_observed, 0);
   assert.equal(result.connector_effects.evidence_state, "CALLER_OBSERVED_SESSION_BOUND");
@@ -265,11 +273,71 @@ test("durable claim precedes a create-only generation, exact-byte readback, and 
   const stored = await readFile(join(config.generation_root, config.run_key, "run.json"));
   const restored = await readFile(join(config.recovery_root, config.run_key, "run.json"));
   assert.deepEqual(restored, stored);
+  const storedIndex = await readFile(join(config.generation_root, config.run_key, "project-index.json"));
+  const restoredIndex = await readFile(join(config.recovery_root, config.run_key, "project-index.json"));
+  assert.deepEqual(restoredIndex, storedIndex);
   assert.equal(existsSync(join(config.claim_root, `${config.single_use_token_ref.content_id.slice(7)}.claim.json`)), true);
   await assert.rejects(
     () => beginLinearLb1PhysicalSession(JSON.parse(JSON.stringify(config)), { clock, aclProbe: async () => true }),
     (error) => error instanceof LinearLb1PhysicalError && error.code === "linear_lb1_physical_recovery_root_not_empty",
   );
+});
+
+test("a supplied page after a terminal page is refused before generation write", async (t) => {
+  const { root, config } = await fixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const clock = { nowIso: () => NOW, nowMs: () => Date.parse(NOW) };
+  const session = await beginLinearLb1PhysicalSession(JSON.parse(JSON.stringify(config)), {
+    clock, aclProbe: async () => true,
+  });
+  const capture = captureInput(config, session.ready_receipt);
+  capture.pages.push(structuredClone(capture.pages[0]));
+  for (const capability of [
+    "mcp__codex_apps__linear_get_issue",
+    "mcp__codex_apps__linear_list_comments",
+    "mcp__codex_apps__linear_list_issues",
+  ]) {
+    capture.effect_receipt.call_ledger.push({
+      sequence: capture.effect_receipt.call_ledger.length + 1,
+      capability,
+      input_sha256: digest({ capability, extra_page: true }),
+      output_sha256: digest({ capability, extra_page: true, observed: true }),
+      is_error: false,
+    });
+    capture.effect_receipt.capability_counts[capability] += 1;
+  }
+  capture.effect_receipt.network_calls = capture.effect_receipt.call_ledger.length;
+  capture.effect_receipt.call_ledger_sha256 = digest({
+    schema_version: "soulforge.backup_controller.linear_lb1.connector_call_ledger.v0",
+    calls: capture.effect_receipt.call_ledger,
+  });
+  capture.effect_receipt.page_bundle_sha256 = linearLb1PhysicalPageBundleSha256(capture.pages);
+  await assert.rejects(
+    () => session.complete(capture),
+    (error) => error instanceof LinearLb1PhysicalError
+      && error.code === "linear_lb1_physical_page_bundle_unconsumed",
+  );
+  assert.equal(existsSync(join(config.generation_root, config.run_key)), false);
+});
+
+test("a failed provider collection writes no project index and creates no restore artifact", async (t) => {
+  const { root, config } = await fixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const clock = { nowIso: () => NOW, nowMs: () => Date.parse(NOW) };
+  const session = await beginLinearLb1PhysicalSession(JSON.parse(JSON.stringify(config)), {
+    clock, aclProbe: async () => true,
+  });
+  const capture = captureInput(config, session.ready_receipt);
+  capture.pages[0].has_more = true;
+  capture.pages[0].next_cursor = "cursor-next";
+  capture.effect_receipt.page_bundle_sha256 = linearLb1PhysicalPageBundleSha256(capture.pages);
+  const result = await session.complete(capture);
+  assert.equal(result.status, "HOLD_FAILED_COLLECTION");
+  assert.equal(result.generation.project_index_ref, null);
+  assert.equal(result.generation.project_index_exact_byte_readback, false);
+  assert.equal(result.restore, null);
+  assert.equal(existsSync(join(config.generation_root, config.run_key, "project-index.json")), false);
+  assert.equal(existsSync(join(config.recovery_root, config.run_key)), false);
 });
 
 test("path scope rejects alternate streams and recovery escape before filesystem effects", async (t) => {

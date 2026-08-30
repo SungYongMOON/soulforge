@@ -370,6 +370,16 @@ performs exact-byte readback, and copies the same bytes to an isolated recovery
 generation for restore parity. Missing dimensions remain `PARTIAL`; physical
 parity is not human restore acceptance or Official Task completion.
 
+Each non-failed whole-workspace generation also carries one deterministic
+`project-index.json`. The immutable `run.json` remains the only copy of issue,
+description and comment bodies; the project index stores only project/team
+identity, stable digest-derived storage keys, issue IDs, counts and digests.
+Every project in the Linear catalog receives an index row even when it has zero
+issues, and issues with no project go to a separate `unassigned` row. The index
+binds the exact workspace generation and manifest, is written create-only,
+byte-read back, copied to the isolated restore root and revalidated against the
+restored snapshot. A project label or folder name is never used as identity.
+
 The claim file and every generation/state receipt use exclusive create plus
 file-handle sync. A crash immediately after the synced claim can resume the same
 exact claim before capture; an append-only PID/host-bound session lease prevents
@@ -384,6 +394,32 @@ both the control-state chain and generation receipt.
 receipt, then accepts exactly one private capture envelope on stdin. Raw Linear
 bodies remain in the private input stream and approved generation/recovery
 roots; CLI output contains only refs, digests, counts, coverage, and effects.
+
+The connected read-only surface was rechecked on 2026-08-31 and exposed one
+workspace with 12 projects, one team and 72 issues (`includeArchived: true`, no
+project filter). This confirms the collection scope is whole-workspace rather
+than KVDS-only. It does not improve the earlier generation's partial history,
+deletion, attachment-byte or human-acceptance ceiling, and it does not itself
+write a new backup generation.
+
+For the already-retained whole-workspace generation,
+`linear_lb1_project_index_backfill.mjs` provides an explicit-path,
+exact-generation-digest backfill. It verifies the source run, its existing
+create-only generation receipt and the isolated restore copy before adding the
+same `project-index.json` and a separate body-free receipt to both locations.
+Existing exact files replay; divergent files HOLD; `run.json` and the original
+generation receipt are never changed, deleted or reinterpreted. The CLI requires
+an owner-prepared private JSON input and outputs only counts, digests and status.
+Its result remains `PROJECT_INDEX_TECHNICAL_RESTORE_CANDIDATE` with
+`human_acceptance=false`.
+
+The first actual backfill was executed against the retained 2026-08-31
+whole-workspace generation after fresh independent review. Source and isolated
+restore produced the same project-index bytes and exact replay returned four
+`replayed` states. The index covers 12 projects and 72 issues: 47 issues have a
+current project binding, 25 remain `unassigned`, 11 projects are non-empty and
+one catalog project has zero issues. This is an exact classification of that
+retained generation, not a fresh source recapture or a human-accepted restore.
 
 ### Generic Source backup-generation contract
 

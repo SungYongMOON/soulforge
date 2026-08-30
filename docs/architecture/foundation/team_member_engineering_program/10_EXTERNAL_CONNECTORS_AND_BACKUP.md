@@ -40,6 +40,7 @@ owner-approved scope + read-only credential ref
   -> claim one bounded collection run
   -> cursor/pagination capture and dedupe
   -> immutable generation manifest + ordered object digest
+  -> project index for every catalog project + unassigned bucket
   -> create-only backup generation
   -> isolated restore
   -> source/generation reconciliation
@@ -47,6 +48,15 @@ owner-approved scope + read-only credential ref
 ```
 
 The collector must make `partial`, `missing`, `deleted`, `failed`, and `unknown` explicit. A CSV/XLSX export by itself is incomplete. Restore cannot write back to Linear as part of a backup test; it reconstructs an isolated read model and checks generation parity.
+
+The source unit is the entire Linear workspace, not one pilot project. The
+workspace generation is stored once, then a deterministic project index binds
+every catalog project—even a zero-issue project—to its issue refs and places
+project-less issues in `unassigned`. This follows the Slack stable-ID rule but
+does not duplicate descriptions/comments into twelve copies. Project display
+names are mutable labels; workspace/project IDs and generation digests own
+identity. The aggregate manifest must prove every issue appears exactly once in
+a project row or the unassigned row.
 
 The shared Source backup contract now separates technical restore from human
 acceptance. An exact capture and byte-owner manifest can bind a create-only

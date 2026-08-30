@@ -415,6 +415,25 @@ physical movement remain behind private binding/ACL/canary readback and exact
 enforcement wiring. R0 acceptance and OD-10 owner/projection assignments are
 recorded; they do not by themselves activate a writer or physical path.
 
+R4 has a bounded actual-provider foothold, not acceptance. The read-only Linear
+surface was rechecked as one entire workspace with 12 catalog projects, one
+team and 72 issues; the prior physical one-shot already used that whole-workspace
+scope and remains a partial technical restore candidate. The new project-index
+contract classifies every catalog project plus project-less issues against one
+immutable workspace generation and restore copy without duplicating bodies.
+Historical edits/deletions, complete state/assignee/project/due histories,
+attachment bytes, full cutoff reconciliation, recurring capture and human
+restore acceptance remain the R4 exit gap.
+
+The retained generation has now been backfilled create-only with the reviewed
+project index on both the source generation and isolated restore surfaces.
+Exact replay was a no-op. The measured partition is 12 projects / 72 issues,
+with 47 currently project-bound issues, 25 `unassigned`, 11 non-empty projects
+and one zero-issue catalog project. Existing generation bytes and receipts were
+not modified. Because this is a derived classification of the retained
+generation rather than a fresh collection, source changes after that cutoff
+remain unknown.
+
 R5 has begun without physical movement: pure Mail, Slack and Voice/PLAUD
 adapters transform their exact accepted native capture/custody receipts into
 refs-only `capture_generation` records. They emit no backup, restore,

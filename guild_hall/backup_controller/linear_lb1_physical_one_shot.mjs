@@ -32,6 +32,10 @@ import {
   deserializeBackupRunV2,
   serializeBackupRunV2,
 } from "./linear_lb1_v2.mjs";
+import {
+  buildLinearLb1ProjectIndex,
+  verifyLinearLb1ProjectIndex,
+} from "./linear_lb1_project_index.mjs";
 import { evaluateLinearLb1OwnerGateV2 } from "./linear_lb1_owner_gate_v2.mjs";
 import { parseIcaclsWriterExclusive } from "./preflight.mjs";
 
@@ -776,6 +780,9 @@ export async function beginLinearLb1PhysicalSession(rawConfig, options = {}) {
       });
       const sourceScope = config.owner_packet.source;
       const collection = await reader.collectSnapshot(sourceScope);
+      if (pageIndex !== capture.pages.length) {
+        fail("linear_lb1_physical_page_bundle_unconsumed");
+      }
       const run = buildImmutableLinearLb1BackupRunV2({ run_key: config.run_key, collection });
       const bytes = serializeBackupRunV2(run);
       assertGateRuntime(config, clock.nowIso());
@@ -794,10 +801,43 @@ export async function beginLinearLb1PhysicalSession(rawConfig, options = {}) {
       }
       const storedRun = deserializeBackupRunV2(storedBytes);
       const generationDigest = `sha256:${sha256Bytes(storedBytes)}`;
+      let projectIndex = null;
+      let projectIndexBytes = null;
+      let storedProjectIndexBytes = null;
+      let projectIndexFileSha256 = null;
+      let projectIndexRef = null;
+      if (storedRun.revision !== null) {
+        const projectIndexBinding = {
+          source_generation_digest: generationDigest,
+          source_manifest_sha256: `sha256:${storedRun.manifest.manifest_sha256}`,
+        };
+        projectIndex = buildLinearLb1ProjectIndex(storedRun.revision.snapshot, projectIndexBinding);
+        projectIndexBytes = Buffer.from(`${stableJson(projectIndex)}\n`, "utf8");
+        const projectIndexPath = join(generationDirectory, "project-index.json");
+        await writeCreateOnly(projectIndexPath, projectIndexBytes);
+        storedProjectIndexBytes = await readFile(projectIndexPath);
+        if (storedProjectIndexBytes.length !== projectIndexBytes.length
+            || sha256Bytes(storedProjectIndexBytes) !== sha256Bytes(projectIndexBytes)) {
+          fail("linear_lb1_physical_project_index_readback_mismatch");
+        }
+        let readProjectIndex;
+        try { readProjectIndex = JSON.parse(storedProjectIndexBytes.toString("utf8")); }
+        catch { fail("linear_lb1_physical_project_index_readback_mismatch"); }
+        if (!verifyLinearLb1ProjectIndex(readProjectIndex, storedRun.revision.snapshot, projectIndexBinding)) {
+          fail("linear_lb1_physical_project_index_readback_mismatch");
+        }
+        projectIndexFileSha256 = `sha256:${sha256Bytes(storedProjectIndexBytes)}`;
+        projectIndexRef = receiptRef("linear_project_index", {
+          source_generation_digest: generationDigest,
+          project_index_sha256: projectIndex.project_index_sha256,
+          project_index_file_sha256: projectIndexFileSha256,
+        });
+      }
       const generationRef = receiptRef("linear_generation", {
         run_key: config.run_key,
         generation_digest: generationDigest,
         manifest_sha256: storedRun.manifest.manifest_sha256,
+        project_index_sha256: projectIndex?.project_index_sha256 ?? null,
       });
       await writeCreateOnly(join(generationDirectory, "effect-receipt.json"), Buffer.from(`${stableJson(effectReceipt)}\n`, "utf8"));
       const generationReceipt = {
@@ -815,6 +855,13 @@ export async function beginLinearLb1PhysicalSession(rawConfig, options = {}) {
         connector_call_ledger_sha256: effectReceipt.call_ledger_sha256,
         connector_effect_evidence_state: effectReceipt.evidence_state,
         connector_error_calls_observed: connectorErrorCalls,
+        project_index_ref: projectIndexRef,
+        project_index_sha256: projectIndex?.project_index_sha256 ?? null,
+        project_index_file_sha256: projectIndexFileSha256,
+        project_count: projectIndex?.project_count ?? null,
+        classified_issue_count: projectIndex?.classified_issue_count ?? null,
+        unassigned_issue_count: projectIndex?.unassigned_issue_count ?? null,
+        project_index_exact_byte_readback: projectIndex !== null,
         exact_byte_readback: true,
         durability_evidence: "file_handle_sync_plus_exact_byte_readback",
         overwrite_allowed: false,
@@ -826,6 +873,8 @@ export async function beginLinearLb1PhysicalSession(rawConfig, options = {}) {
         generation_ref: generationRef,
         generation_digest: generationDigest,
         connector_effect_receipt_ref: effectReceiptRef,
+        project_index_ref: projectIndexRef,
+        project_index_sha256: projectIndex?.project_index_sha256 ?? null,
         exact_byte_readback: true,
       });
       let restoreReceipt = null;
@@ -845,6 +894,31 @@ export async function beginLinearLb1PhysicalSession(rawConfig, options = {}) {
           fail("linear_lb1_physical_restore_readback_mismatch");
         }
         const restoredRun = deserializeBackupRunV2(restoredBytes);
+        let restoredProjectIndexParity = projectIndex === null;
+        if (projectIndex !== null && storedProjectIndexBytes !== null) {
+          const restoreProjectIndexPath = join(restoreDirectory, "project-index.json");
+          await writeCreateOnly(restoreProjectIndexPath, storedProjectIndexBytes);
+          const restoredProjectIndexBytes = await readFile(restoreProjectIndexPath);
+          if (restoredProjectIndexBytes.length !== storedProjectIndexBytes.length
+              || sha256Bytes(restoredProjectIndexBytes) !== sha256Bytes(storedProjectIndexBytes)) {
+            fail("linear_lb1_physical_project_index_restore_mismatch");
+          }
+          let restoredProjectIndex;
+          try { restoredProjectIndex = JSON.parse(restoredProjectIndexBytes.toString("utf8")); }
+          catch { fail("linear_lb1_physical_project_index_restore_mismatch"); }
+          restoredProjectIndexParity = verifyLinearLb1ProjectIndex(
+            restoredProjectIndex,
+            restoredRun.revision.snapshot,
+            {
+              source_generation_digest: generationDigest,
+              source_manifest_sha256: `sha256:${restoredRun.manifest.manifest_sha256}`,
+            },
+          );
+          if (!restoredProjectIndexParity
+              || `sha256:${sha256Bytes(restoredProjectIndexBytes)}` !== projectIndexFileSha256) {
+            fail("linear_lb1_physical_project_index_restore_mismatch");
+          }
+        }
         const check = checkLinearLb1RestoreV2(storedRun, restoredRun.revision.snapshot, {
           artifact_kinds: ["immutable_revision"],
         });
@@ -855,6 +929,10 @@ export async function beginLinearLb1PhysicalSession(rawConfig, options = {}) {
             restored_digest: `sha256:${sha256Bytes(restoredBytes)}`,
           }),
           generation_ref: generationRef,
+          project_index_ref: projectIndexRef,
+          project_index_sha256: projectIndex?.project_index_sha256 ?? null,
+          project_index_file_sha256: projectIndexFileSha256,
+          project_index_parity_complete: restoredProjectIndexParity,
           exact_byte_readback: true,
           parity_complete: check.complete,
           reconstructable_dimensions: check.reconstructable_dimensions,
@@ -866,6 +944,8 @@ export async function beginLinearLb1PhysicalSession(rawConfig, options = {}) {
           schema_version: "soulforge.backup_controller.linear_lb1.restore_state.v0",
           restore_ref: restoreReceipt.restore_ref,
           generation_ref: generationRef,
+          project_index_ref: projectIndexRef,
+          project_index_parity_complete: restoreReceipt.project_index_parity_complete,
           exact_byte_readback: true,
           parity_complete: restoreReceipt.parity_complete,
         });
@@ -888,7 +968,12 @@ export async function beginLinearLb1PhysicalSession(rawConfig, options = {}) {
           evidence_state: effectReceipt.evidence_state,
           call_ledger_sha256: effectReceipt.call_ledger_sha256,
         },
-        effects: { durable_claim_writes: claimCreated ? 1 : 0, generation_writes: 3, restore_writes: restoreReceipt === null ? 0 : 2, linear_mutations_observed: 0 },
+        effects: {
+          durable_claim_writes: claimCreated ? 1 : 0,
+          generation_writes: projectIndex === null ? 3 : 4,
+          restore_writes: restoreReceipt === null ? 0 : projectIndex === null ? 2 : 3,
+          linear_mutations_observed: 0,
+        },
         official_task_done: false,
         human_acceptance: false,
         claim_ceiling: "technical_restore_candidate_only",
@@ -897,6 +982,7 @@ export async function beginLinearLb1PhysicalSession(rawConfig, options = {}) {
         schema_version: "soulforge.backup_controller.linear_lb1.physical_terminal_state.v0",
         status: result.status,
         generation_ref: generationRef,
+        project_index_ref: projectIndexRef,
         restore_ref: restoreReceipt?.restore_ref ?? null,
         connector_effect_receipt_ref: effectReceiptRef,
         human_acceptance: false,

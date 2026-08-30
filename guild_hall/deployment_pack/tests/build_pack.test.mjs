@@ -204,7 +204,7 @@ test("the real backup_recovery_extension spec builds: module pack with full-suit
   const built = buildPack(specPath, { rootDir: REPO_ROOT, outDir: tempDir("outBackupRec"), clock: fixedClock, runner: okRunner });
   assert.equal(built.manifest.pack_id, "backup_recovery_extension");
   // Pinned so growth is a conscious re-emit (the emitter's --check gates it).
-  assert.equal(built.manifest.files.length, 61);
+  assert.equal(built.manifest.files.length, 66);
   assert.equal(built.candidate.claimed_gate, "contract",
     "capture/restore/acceptance stay unclaimed - the initial gate needs Owner-side human acceptance");
   const spec = loadPackSpec(specPath);
@@ -220,6 +220,18 @@ test("the real backup_recovery_extension spec builds: module pack with full-suit
   assert.equal(spec.content_roles.validators.includes(
     "guild_hall/backup_controller/linear_lb1_physical_one_shot.test.mjs",
   ), true, "the physical one-shot hostile suite stays in the full installed smoke closure");
+  assert.equal(spec.content_roles.recovery_policy_adapter.includes(
+    "guild_hall/backup_controller/linear_lb1_project_index.mjs",
+  ), true, "the whole-workspace project index travels with the physical generation writer");
+  assert.equal(spec.content_roles.validators.includes(
+    "guild_hall/backup_controller/linear_lb1_project_index.test.mjs",
+  ), true, "the project partition and no-body-duplication checks stay in installed smoke");
+  assert.equal(spec.content_roles.recovery_policy_adapter.includes(
+    "guild_hall/backup_controller/linear_lb1_project_index_backfill_cli.mjs",
+  ), true, "the explicit exact-digest backfill CLI travels with the recovery pack");
+  assert.equal(spec.content_roles.validators.includes(
+    "guild_hall/backup_controller/linear_lb1_project_index_backfill.test.mjs",
+  ), true, "create-or-verify replay and drift checks stay in installed smoke");
   assert.equal(spec.installed_smoke_entries.length, spec.smoke_test_entries.length,
     "the declared installed smoke is the FULL module suite");
   assert.deepEqual(spec.installed_smoke_excluded, []);

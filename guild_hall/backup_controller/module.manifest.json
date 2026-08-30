@@ -1,7 +1,7 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "backup_controller",
-  "module_version": "0.4.0",
+  "module_version": "0.5.0",
   "interface_version": "backup_controller.v0",
   "schema_versions": [
     "soulforge.backup_controller.linear_lb1.snapshot.v2",
@@ -11,6 +11,8 @@
     "soulforge.backup_controller.linear_lb1.restore_check.v2",
     "soulforge.backup_controller.linear_lb1.actual_reader.v0",
     "soulforge.backup_controller.linear_lb1.actual_provider_page.v0",
+    "soulforge.backup_controller.linear_lb1.project_index.v0",
+    "soulforge.backup_controller.linear_lb1.project_index_backfill_receipt.v0",
     "soulforge.backup_controller.linear_lb1.physical_one_shot_config.v0",
     "soulforge.backup_controller.linear_lb1.physical_capture_input.v0",
     "soulforge.backup_controller.linear_lb1.connector_effect_receipt.v0",
@@ -25,6 +27,8 @@
   "capabilities_provided": [
     "backup.linear_lb1_v2_immutable_generation.v0",
     "backup.linear_whole_workspace_read_normalizer.v0",
+    "backup.linear_whole_workspace_project_index.v0",
+    "backup.linear_project_index_create_only_backfill.v0",
     "backup.linear_isolated_restore_check.v0",
     "backup.linear_physical_one_shot_create_only.v0",
     "backup.source_generation_restore_contract.v0",
@@ -53,6 +57,8 @@
   "validators": [
     "node --test guild_hall/backup_controller/activation.test.mjs",
     "node --test guild_hall/backup_controller/linear_lb1_actual_reader.test.mjs",
+    "node --test guild_hall/backup_controller/linear_lb1_project_index.test.mjs",
+    "node --test guild_hall/backup_controller/linear_lb1_project_index_backfill.test.mjs",
     "node --test guild_hall/backup_controller/linear_lb1_physical_one_shot.test.mjs",
     "node --test guild_hall/backup_controller/linear_lb1_v2.test.mjs guild_hall/backup_controller/linear_lb1_owner_gate_v2.test.mjs guild_hall/backup_controller/linear_lb1_one_shot_runner.test.mjs",
     "node --test guild_hall/backup_controller/linear_lb1_runtime_adapters.test.mjs",
@@ -60,5 +66,5 @@
   ],
   "release_digest": null,
   "deprecation_state": "active",
-  "authority_notes": "Feature-OFF backup composition plus Linear, generic Source, Buzz and Hermes backup-generation contracts. The generic Source binder emits a backup pointer immediately but emits an accepted restore_test only from a separately verified human-acceptance envelope; pending technical restore remains a candidate. Buzz separates Postgres/media/Git/Redis capture, isolated restore, audit, identity recovery and human backup acceptance. Hermes binds Agent Mark/Deployment, runtime/profile, instructions, skills/tools, exact session crosswalk, memory/schedule, backup/restore and acceptance refs while keeping Agent readiness, Task Done and accepted context unevaluated. These public contracts perform no provider/filesystem/runtime/network/clock effect and do not grant source, task, artifact, Agent or completion authority. Actual binding, bytes, service quiescence, restore execution and human acceptance remain separate private gates."
+  "authority_notes": "Feature-OFF backup composition plus Linear, generic Source, Buzz and Hermes backup-generation contracts. Linear whole-workspace generations carry a deterministic project index covering every catalog project and an unassigned bucket; the index stores refs/counts only, binds the immutable workspace generation, and is restore-checked without duplicating issue bodies. The generic Source binder emits a backup pointer immediately but emits an accepted restore_test only from a separately verified human-acceptance envelope; pending technical restore remains a candidate. Buzz separates Postgres/media/Git/Redis capture, isolated restore, audit, identity recovery and human backup acceptance. Hermes binds Agent Mark/Deployment, runtime/profile, instructions, skills/tools, exact session crosswalk, memory/schedule, backup/restore and acceptance refs while keeping Agent readiness, Task Done and accepted context unevaluated. These public contracts do not grant source, task, artifact, Agent or completion authority. Actual binding, provider bytes, service quiescence, recurring execution and human acceptance remain separate private gates."
 }

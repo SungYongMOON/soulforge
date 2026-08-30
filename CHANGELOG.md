@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-08-31 - Linear whole-workspace backup gains exact all-project classification
+
+- Added a deterministic project index over an immutable Linear whole-workspace generation. Every catalog project is represented even with zero issues, project-less issues are retained under `unassigned`, and the aggregate proves every issue is classified exactly once.
+- Kept descriptions and comments single-copy inside the sealed workspace run. The project index contains stable IDs, digest-derived storage keys, counts and issue refs only; mutable project names never become folder identity.
+- Bound `project-index.json` to the exact generation and manifest, create-only write/readback, isolated restore copy and restored-snapshot verification. The physical result remains a technical restore candidate and never implies Human Acceptance or Official Done.
+- Rechecked the connected Linear read surface without a project filter: one workspace, 12 projects, one team and 72 issues. The earlier physical run was therefore already workspace-wide, not KVDS-only; historical revision/deletion/attachment-byte/cutoff gaps still keep it partial.
+- Added an explicit-path, exact-digest, create-or-verify backfill for the retained physical generation and its isolated restore copy. It adds only project-index/receipt files, replays exact bytes, rejects divergence and never changes `run.json` or the original generation receipt.
+- Executed the reviewed backfill once on the latest retained whole-workspace generation and repeated it as an exact replay. Source and isolated restore match: 12 projects, 72 issues, 47 current project bindings, 25 unassigned issues, 11 non-empty projects and one zero-issue catalog project. All four first writes were create-only and all four replay states were `replayed`; human acceptance and Official Done remain false.
+- Re-emitted Backup-Recovery at 66 files, 21 installed smoke entries, no exclusions and 19 reviewed content pins.
+
 ## 2026-08-31 - NAS source assets and NAS backup targets are explicitly separated
 
 - Clarified that a NAS backup target receives protected Soulforge/ERP/HPP/project generations, while a NAS source asset represents engineering or shared data that already lives on NAS and enters the source catalog only through its own capture/custody policy.
