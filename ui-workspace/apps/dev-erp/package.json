@@ -43,6 +43,7 @@
     "validate:task-engine-c00b-binding-v1": "node --check tools/task_engine_inventory_c00b_binding_producer.mjs && node --test test/task_engine_inventory_c00b_binding_producer.test.mjs",
     "validate:task-execution-core-poc": "node --check src/task_execution_core.mjs && node --check src/task_execution_sqlite_event_store.mjs && node --check src/task_execution_fixture_adapters.mjs && node --test test/task_execution_core.test.mjs",
     "validate:candidate-execution-coordinator": "node --check src/role_capability_matcher.mjs && node --check src/assignment_policy.mjs && node --check src/candidate_execution_coordinator.mjs && node --test test/role_capability_matcher.test.mjs test/assignment_policy.test.mjs test/candidate_execution_coordinator.test.mjs",
+    "validate:candidate-execution-authority-adapter": "node --check src/candidate_execution_authority_adapter.mjs && node --test test/candidate_execution_authority_adapter.test.mjs",
     "validate:hermes-bot-submit-executor": "node --check src/hermes_bot_submit_executor.mjs && node --test test/hermes_bot_submit_executor.test.mjs",
     "validate:voice-first-shadow": "node --check src/hourly_shadow_cycle_contract.mjs && node --check src/project_decision_ledger.mjs && node --check src/portfolio_decision_projection.mjs && node --check src/shadow_evaluator.mjs && node --check test/voice_first_shadow.test.mjs && node --test test/voice_first_shadow.test.mjs",
     "auto:intake": "node tools/auto_intake_cycle.mjs",

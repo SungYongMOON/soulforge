@@ -11,6 +11,12 @@
       ".party/pcb_revision_library_cell/party.yaml",
       ".party/systems_engineering_cell/party.yaml",
       "docs/architecture/workspace/examples/task_execution_core_poc/task_execution_core.synthetic.json",
+      "guild_hall/agent_observation/agent_authority_verification.mjs",
+      "guild_hall/agent_observation/agent_mark_lineage.mjs",
+      "guild_hall/agent_observation/agent_registry.mjs",
+      "guild_hall/agent_observation/agent_workforce_revision_catalog.mjs",
+      "guild_hall/agent_observation/guard_primitives.mjs",
+      "guild_hall/agent_observation/observation_internals.mjs",
       "guild_hall/ai_usage_meter/evidence_ledger.mjs",
       "guild_hall/battle_log/battle_log.mjs",
       "guild_hall/doctor/platform_binary_check.mjs",
@@ -59,6 +65,7 @@
       "ui-workspace/apps/dev-erp/src/assignment_policy.mjs",
       "ui-workspace/apps/dev-erp/src/autosync.mjs",
       "ui-workspace/apps/dev-erp/src/calendar.mjs",
+      "ui-workspace/apps/dev-erp/src/candidate_execution_authority_adapter.mjs",
       "ui-workspace/apps/dev-erp/src/candidate_execution_coordinator.mjs",
       "ui-workspace/apps/dev-erp/src/chat_pipeline.mjs",
       "ui-workspace/apps/dev-erp/src/codex_attachment_registry.mjs",
@@ -215,6 +222,7 @@
       "ui-workspace/apps/dev-erp/test/autosync_idempotency.test.mjs",
       "ui-workspace/apps/dev-erp/test/branch_story.test.mjs",
       "ui-workspace/apps/dev-erp/test/calendar.test.mjs",
+      "ui-workspace/apps/dev-erp/test/candidate_execution_authority_adapter.test.mjs",
       "ui-workspace/apps/dev-erp/test/candidate_execution_coordinator.test.mjs",
       "ui-workspace/apps/dev-erp/test/codex_attachment_registry.test.mjs",
       "ui-workspace/apps/dev-erp/test/codex_bridge_process.test.mjs",
@@ -969,6 +977,7 @@
     "test/autosync_idempotency.test.mjs",
     "test/branch_story.test.mjs",
     "test/calendar.test.mjs",
+    "test/candidate_execution_authority_adapter.test.mjs",
     "test/candidate_execution_coordinator.test.mjs",
     "test/codex_attachment_registry.test.mjs",
     "test/codex_bridge_process.test.mjs",
@@ -1062,6 +1071,7 @@
     "test/autosync_idempotency.test.mjs",
     "test/branch_story.test.mjs",
     "test/calendar.test.mjs",
+    "test/candidate_execution_authority_adapter.test.mjs",
     "test/candidate_execution_coordinator.test.mjs",
     "test/codex_attachment_registry.test.mjs",
     "test/codex_bridge_process.test.mjs",
@@ -1852,6 +1862,26 @@
     {
       "path": ".party/knowledge_ingest_cell/party.yaml",
       "sha256": "7131398f93a81d7510d501a055230d4bce1ce84d99245acbfc9d0c03fb4b0055"
+    },
+    {
+      "path": "guild_hall/agent_observation/agent_authority_verification.mjs",
+      "sha256": "adab76dacde97831f32959722c3936efea070a479abb372fa052c430efff9131"
+    },
+    {
+      "path": "guild_hall/agent_observation/agent_mark_lineage.mjs",
+      "sha256": "52523a13af4100dff05efd66bd116857c6988dd3b1457a05cb90712401ea1b96"
+    },
+    {
+      "path": "guild_hall/agent_observation/agent_workforce_revision_catalog.mjs",
+      "sha256": "c7c39bf7dce64822e8da861ed69b514d2ac1d814ca3ce8aa6e7f84216faa59ad"
+    },
+    {
+      "path": "guild_hall/agent_observation/guard_primitives.mjs",
+      "sha256": "713b54a58d54cba46d14d9d2dc992248bbade2efa4e8cab9f013a4c2467a19e3"
+    },
+    {
+      "path": "guild_hall/agent_observation/observation_internals.mjs",
+      "sha256": "582f84cb8d84f6f7404f513f995a3d815c8c7f7e84c85d66f27a942ba55b4dbb"
     },
     {
       "path": "guild_hall/battle_log/battle_log.mjs",

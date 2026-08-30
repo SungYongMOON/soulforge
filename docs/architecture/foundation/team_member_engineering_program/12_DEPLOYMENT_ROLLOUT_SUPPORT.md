@@ -58,6 +58,13 @@ Every pack and every contained Module publishes a manifest describing owner, sem
 
 ## Current state
 
+The Project AI Team Pack still has no tracked spec, but its input-admission
+contract now exists. A separately trusted Project Mark approval/current state
+and one current verified Agent binding per required
+manager/responsibility/specialist/common role are mandatory. It prepares
+refs-only future pack input and performs no profile creation, runtime
+configuration, pack emission or release.
+
 The multi-PC/bootstrap and skill-sync documentation is reusable guidance, not a deployed Team Client Pack. No client is installed, no update ring is activated, and no physical user/device credential is created by this plan.
 
 ## Related plans

@@ -148,9 +148,11 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | Mail/Slack/Voice/PC-activity source-lane capture adapters | DONE `L-MAIL-SOURCE-LANE`,`L-SLACK-SOURCE-LANE`,`L-VOICE-SOURCE-LANE`,`L-PC-ACTIVITY-SOURCE` | — | GATED (실 receipt caller·private record store; Cloud/Git/NAS native receipt 없음) | GATED |
 | Source/Buzz/Hermes backup-generation contracts | DONE `L-BACKUP-GEN-CONTRACTS` (generic Source acceptance separation + Buzz multi-store digest + Hermes Agent custody manifest; effects 0) | Backup-Recovery current closure에 포함 | GATED (actual bytes/quiesce/restore/human authority) | GATED |
 | Agent workforce lineage | DONE `L-AGENT-MARK-CONTRACT`,`L-AGENT-REVISION-CATALOG`,`L-AGENT-AUTH-VERIFY` | GATED (`project_ai_team_pack`) | GATED (verified receipt durable writer·deployment activation) | GATED |
+| Project AI Team Pack admission | DONE (Project Mark authority pin/current state + four role classes + current verified Agent bindings; emits refs-only future input) | GATED (actual approved inputs; no tracked spec) | GATED | GATED |
+| Candidate execution authority admission | DONE (coordinator-native packets + current verified Agent/assignment/tool/slot binding; execute/claim 0) | — | GATED (Forge/Linear→Coordinator packet seam + durable ledger) | GATED |
 | Tool workshop | DONE `L-WORKSHOP-CORE` | DONE `L-PACK-BUILDER` (4-file pack, install+smoke green) | GATED (물리 Tool PC·runner) | GATED |
-| Deployment pack (contract·builder·spec 4종/5종 중 project_ai_team만 외부 gate) | DONE `L-PACK-CONTRACT` | DONE `L-PACK-BUILDER`,`L-HPP-PACK`,`L-DEP-DELIVERY`,`L-GITFREE-ATTEST`,`L-LIFECYCLE` + current Backup-Recovery **61파일·19 smoke·pin 19**, hpp **941파일·91/91**, team_client **216파일·78 smoke·Board 732 tests**; pack 존재는 physical readiness/acceptance 무주장 | — | GATED |
-| Module operability gate (manifest·의존·cycle·preflight) | DONE `L-MODOP-GATE` + risk-based 등재 (current **28 manifest**, import scan 1,195파일/2,660 edge·cycle 0; file_activity native receipt owner 등재, 잔여 22 dir 명시 미등재) | n/a | — | — |
+| Deployment pack (contract·builder·spec 4종/5종 중 project_ai_team만 외부 gate) | DONE `L-PACK-CONTRACT` | DONE existing leaves + current Backup-Recovery **61파일·19 smoke·pin 19**, hpp **949파일·92 smoke·pin 67**, team_client **216파일·78 smoke·Board 732 tests**; project_ai_team spec은 actual approved input 전 absent | — | GATED |
+| Module operability gate (manifest·의존·cycle·preflight) | DONE `L-MODOP-GATE` + risk-based 등재 (current **28 manifest**, import scan 1,197파일/2,667 edge·cycle 0; 잔여 22 dir 명시 미등재) | n/a | — | — |
 | Cross-module integration (plan-13 module-integration rung) | DONE `L-DOGFOOD-INT` | — | — | — |
 | Physical spine (plan-17 R1–R5 contracts) | DONE `L-PHYS-SPINE`,`L-PHYS-SPINE-HARDEN`,`L-SOURCE-LANE-LEDGER`,`L-ASSET-CLASS-LEDGER` + source adapters (seed 40행) | — | GATED (private binding/record writer·canary readback·enforcement·actual backup/restore) | GATED |
 | dev-ERP host gates | DONE `L-DEVERP-HOST-RED` + PATH 실행파일 전면 고정 (합성 아님 — 실 host 스위트 green; whoami에 이어 git(부팅 buildSeq 포함)·where·taskkill·cmd·python까지 System32 절대경로/`DEV_ERP_GIT_EXE`·`DEV_ERP_PYTHON` pin/resolver로 고정, where 자체 cwd도 System32로 중립화 — **server·worker·bridge 프로세스의 PATH 해석 잔존 0**; 예외 장부=dev CLI 유틸(doctor·verify-gate·probe·se-report·release-audit·payload-backup)과 ops 런처 ps1의 node 해석(서버 프로세스 밖, CHANGELOG에 명시); 이 lane만 이 칸을 host-gate 증거로 사용) | (hpp pack로 포장됨) | 기존 운영면(본 프로그램 범위 밖) | — |
@@ -237,6 +239,8 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `validate:file-activity-history-contract` | 10 | PC-activity adapter가 소비하는 native project/source coverage receipt owner 계약 |
 | `validate:backup-generation-contracts` | 33 | generic Source 9 + Buzz 15 + Hermes 9; independent acceptance pin·multi-store generation digest·Task/Agent/context 경계 분리 |
 | `validate:agent-observation` | 332 | 기존 observation/usage/result/job-shop + lineage 12 + revision catalog 16 + trusted-pin/current-authority verifier 9 |
+| `validate:project-ai-team-pack-admission` | 9 | Project Mark 별도 authority + manager/responsibility/specialist/common current Agent bindings·중복/교차scope/만료 거부 |
+| `validate:candidate-execution-authority-adapter` | 6 | candidate/task/assignment/match + verified Agent/current assignment·slot·tool/model binding; 실행 전 admission only |
 | `validate:plan-truth` | check | 이 원장 자체의 정합 — trace 해시가 git에 실재, 등재 validator가 npm script로 실재, lane 참조 ID가 trace로 해소 |
 
 ### Remaining branches

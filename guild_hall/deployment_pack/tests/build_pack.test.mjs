@@ -375,7 +375,7 @@ test("end to end against the REAL tracked hpp_server_pack spec: build, install, 
     // The set is the computed import closure PLUS the fs-read data closure
     // PLUS the vendored npm closure (yaml + ajv and its runtime deps under
     // payload-root node_modules) — pinned so growth is a conscious re-emit.
-    assert.equal(built.manifest.files.length, 941);
+    assert.equal(built.manifest.files.length, 949);
     assert.equal(built.candidate.claimed_gate, "contract");
     assert.equal(built.manifest.files.some((entry) => entry.path.startsWith("guild_hall/")), true,
       "the pack carries the guild_hall modules the server actually imports");

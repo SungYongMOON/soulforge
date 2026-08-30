@@ -1,13 +1,13 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "deployment_pack_contract",
-  "module_version": "0.2.0",
+  "module_version": "0.3.0",
   "interface_version": "deployment_pack.v0",
-  "schema_versions": ["soulforge.deployment_pack_contract.v0"],
+  "schema_versions": ["soulforge.deployment_pack_contract.v0", "soulforge.deployment_pack.project_ai_team_pack_admission.v0", "soulforge.deployment_pack.approved_project_ai_team_mark.v0", "soulforge.deployment_pack.project_ai_team_topology.v0", "soulforge.deployment_pack.project_ai_team_mark_authority_pin.v0", "soulforge.deployment_pack.project_ai_team_mark_authority_current_state.v0"],
   "owner": "guild_hall/deployment_pack",
-  "capabilities_provided": ["deployment.pack_catalog.v0", "deployment.release_gate_ladder.v0", "deployment.rollout_ring_ladder.v0", "operations.runbook_catalog.v0", "deployment.pack_builder_cli.v0"],
-  "capabilities_required": [],
-  "required_dependencies": [],
+  "capabilities_provided": ["deployment.pack_catalog.v0", "deployment.release_gate_ladder.v0", "deployment.rollout_ring_ladder.v0", "operations.runbook_catalog.v0", "deployment.pack_builder_cli.v0", "deployment.project_ai_team_pack_admission.v0"],
+  "capabilities_required": ["agent.authority_verification_contract.v0", "agent.workforce_lineage_contract.v0"],
+  "required_dependencies": ["agent_observation"],
   "optional_dependencies": [],
   "compatible_version_ranges": { "node": ">=20" },
   "startup_order": null,
@@ -21,8 +21,8 @@
   "backup_class": "versioned_source",
   "migration_version": null,
   "rollback_version": "git_revert_of_this_module_only",
-  "validators": ["node --test guild_hall/deployment_pack/tests/deployment_pack_contract.test.mjs", "node --test guild_hall/deployment_pack/tests/build_pack.test.mjs"],
+  "validators": ["node --test guild_hall/deployment_pack/tests/deployment_pack_contract.test.mjs", "node --test guild_hall/deployment_pack/tests/build_pack.test.mjs", "npm.cmd run validate:project-ai-team-pack-admission"],
   "release_digest": null,
   "deprecation_state": "active_draft",
-  "authority_notes": "Release contract plus an isolated pack builder CLI: builds go to untracked dist/ with validate-before-write, exact-pin scan review, and declared installed-smoke partitions, and claim at most the contract gate. No service start, ring promotion, publication, or physical deployment happens here. A manifest may claim status released only with the full 15-gate evidence ladder through acceptance; a folder or artifact existing proves nothing. Every physical ring remains a later Owner-gated leaf."
+  "authority_notes": "Release contract, isolated pack builder and Project AI Team Pack admission input contract. Project Mark approval requires its own trusted authority pin/current state, and every role slot requires a separately verified current Agent Mark/Deployment/Memory binding; neither can substitute for the other. Admission prepares public-safe binding/runtime refs only and creates no profile, runtime config, pack spec, release or authority. Actual project_ai_team_pack spec remains absent until real approved bindings are supplied."
 }

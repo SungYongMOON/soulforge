@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-31 - Project AI Team and Candidate Execution gain separate authority-admission gates
+
+- Added the future Project AI Team Pack input-admission contract. A Project Mark needs its own trusted authority pin/current state, and manager/responsibility/specialist/common slots each need a distinct current verified Agent Mark/Deployment/Memory binding. It emits refs-only `approved_project_mark_deployment_bindings` and runtime references; no profile, runtime, pack spec or release is created.
+- Added a Candidate Execution authority adapter before Coordinator execution. It binds coordinator-native candidate/task/assignment/match packets to current verified Agent, assignment/authority/tool epochs, role/capability, Bot/profile/session/deployment and requested/observed model/effort. Success is admission only; execute, claim, Linear mutation, Agent creation and Official Done remain false.
+- Re-emitted HPP Server to 949 files with 92 declared smoke entries, no exclusions and 67 reviewed pins so Candidate Execution authority admission and its Agent-authority dependencies travel with the server closure. Project AI Team Pack admission remains deployment source tooling for a future approved-input pack and is not claimed inside HPP; no Project AI Team spec or runtime was created.
+- The exact Forge/Linear task and issued Work Brief to coordinator-native packet admission remains a separate required seam; neither package eligibility nor Agent authority admission substitutes for it.
+
 ## 2026-08-31 - Asset evidence, Agent authority and PC activity receive exact contract seams
 
 - Added an append-only in-memory revision/evidence ledger for all nine registered asset classes. It keeps five-owner refs, monotonic revision/supersession, separate acceptance/backup/restore evidence and project/organization isolation, while projections explicitly keep acceptance/byte/backup authority false.
