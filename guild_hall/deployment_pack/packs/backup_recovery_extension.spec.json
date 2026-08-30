@@ -16,6 +16,7 @@
       "guild_hall/backup_controller/executors.mjs",
       "guild_hall/backup_controller/fixed_process.mjs",
       "guild_hall/backup_controller/linear_lb1.mjs",
+      "guild_hall/backup_controller/linear_lb1_actual_reader.mjs",
       "guild_hall/backup_controller/linear_lb1_fixture.mjs",
       "guild_hall/backup_controller/linear_lb1_one_shot_runner.mjs",
       "guild_hall/backup_controller/linear_lb1_owner_gate.mjs",
@@ -50,6 +51,7 @@
       "guild_hall/backup_controller/daily_cycle.test.mjs",
       "guild_hall/backup_controller/executors.test.mjs",
       "guild_hall/backup_controller/linear_lb1.test.mjs",
+      "guild_hall/backup_controller/linear_lb1_actual_reader.test.mjs",
       "guild_hall/backup_controller/linear_lb1_one_shot_runner.test.mjs",
       "guild_hall/backup_controller/linear_lb1_owner_gate.test.mjs",
       "guild_hall/backup_controller/linear_lb1_owner_gate_v2.test.mjs",
@@ -68,6 +70,7 @@
     "guild_hall/backup_controller/daily_cycle.test.mjs",
     "guild_hall/backup_controller/executors.test.mjs",
     "guild_hall/backup_controller/linear_lb1.test.mjs",
+    "guild_hall/backup_controller/linear_lb1_actual_reader.test.mjs",
     "guild_hall/backup_controller/linear_lb1_one_shot_runner.test.mjs",
     "guild_hall/backup_controller/linear_lb1_owner_gate.test.mjs",
     "guild_hall/backup_controller/linear_lb1_owner_gate_v2.test.mjs",
@@ -84,6 +87,7 @@
     "guild_hall/backup_controller/daily_cycle.test.mjs",
     "guild_hall/backup_controller/executors.test.mjs",
     "guild_hall/backup_controller/linear_lb1.test.mjs",
+    "guild_hall/backup_controller/linear_lb1_actual_reader.test.mjs",
     "guild_hall/backup_controller/linear_lb1_one_shot_runner.test.mjs",
     "guild_hall/backup_controller/linear_lb1_owner_gate.test.mjs",
     "guild_hall/backup_controller/linear_lb1_owner_gate_v2.test.mjs",
@@ -112,27 +116,27 @@
     },
     {
       "path": "guild_hall/backup_controller/linear_lb1_owner_gate_v2.mjs",
-      "sha256": "66dc02f2073b173a964483d329391866ff7550f5fa0b73f002d5df6cd55aed36"
+      "sha256": "ad75af4c8402a6539d39b7d3a1ca771283653cdc5a74215de6fc092294926b52"
     },
     {
       "path": "guild_hall/backup_controller/linear_lb1_runtime_adapters.mjs",
-      "sha256": "93a3a872eb8c0b1977566cd65a229805e26b52f4739f74e3c842bd33c7c1b9a8"
+      "sha256": "589e97556d76b3d94794e56589afd9558925548d70d28be60829690bb400835a"
     },
     {
       "path": "guild_hall/backup_controller/linear_lb1_runtime_adapters.test.mjs",
-      "sha256": "963b9e55c93f1886d2e5d0977b273b7c6dae793bde95b68ac821fdf080d703d6"
+      "sha256": "0f20dda4204c9d3eb81535bb3e68597f1bc2f8c84574069f7b852cf470bc0cc8"
     },
     {
       "path": "guild_hall/backup_controller/linear_lb1_v2.mjs",
-      "sha256": "8d91c64c88297e02559cefcd9583c4e72337a82fbc587e34701a5e36fe7e8b9f"
+      "sha256": "662a208bf8b0893aca76e61e426eb055a4536db1f70982ba9967171fc648aedd"
     },
     {
       "path": "guild_hall/backup_controller/linear_lb1_v2.test.mjs",
-      "sha256": "0b5cfcaa43dac01c8bbf2c26b418d5f60ba77581ddb8bd33d1b19c2ae63f2471"
+      "sha256": "12d6f423f5e55818db65af9371d6c36840f88a782796ac473b549487f5655d60"
     },
     {
       "path": "guild_hall/backup_controller/linear_lb1_v2_fixture.mjs",
-      "sha256": "a9a8cc0b85b8f4879f9a80422ebe0967e0616520115346893d5f84a8ce05b49b"
+      "sha256": "952a6f7595588617714d8ca299101ee6c55d712947b5b2e1c3e87734707b3cf3"
     },
     {
       "path": "guild_hall/ingress/recovery.mjs",

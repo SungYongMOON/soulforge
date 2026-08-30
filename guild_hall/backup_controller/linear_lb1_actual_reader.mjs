@@ -405,7 +405,16 @@ export const HELD_LINEAR_LB1_ACTUAL_READER = Object.freeze({
   feature_state: "off",
   authority_state: "hold",
   collectSnapshot() { throw new LinearLb1ActualReaderError("linear_lb1_actual_reader_hold"); },
-  getEffects() { return Object.freeze({ provider_calls: 0, network_calls: 0, linear_mutations: 0, mutation_evidence: "attested_feature_off" }); },
+  getEffects() {
+    return Object.freeze({
+      provider_calls: 0,
+      network_calls: 0,
+      network_calls_evidence: "ATTESTED_FEATURE_OFF",
+      network_calls_evidence_ref: null,
+      linear_mutations: 0,
+      mutation_evidence: "attested_feature_off",
+    });
+  },
 });
 
 export function createLinearLb1ActualReader(config = {}) {
@@ -443,7 +452,11 @@ export function createLinearLb1ActualReader(config = {}) {
       attachment_policy_ref: attachmentPolicy.policyRef,
       attachment_allowlist_sha256: attachmentAllowlistSha256,
       provider_calls: providerCallCount,
-      network_calls: providerCallCount,
+      // An invocation of the injected seam proves only that this adapter asked
+      // it for a page. It does not prove a network request happened.
+      network_calls: null,
+      network_calls_evidence: "UNKNOWN",
+      network_calls_evidence_ref: null,
       storage_writes: 0,
       cursor_ledger_sha256: ledger.length === 0 ? null : sha256(stableJson(ledger)),
       cutoff_at: cutoffAt,
@@ -577,7 +590,9 @@ export function createLinearLb1ActualReader(config = {}) {
     getEffects() {
       return Object.freeze({
         provider_calls: providerCalls,
-        network_calls: providerCalls,
+        network_calls: null,
+        network_calls_evidence: "UNKNOWN",
+        network_calls_evidence_ref: null,
         linear_mutations: null,
         mutation_evidence: "unknown_injected_provider",
       });

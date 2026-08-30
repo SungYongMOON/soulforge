@@ -1,7 +1,7 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "backup_controller",
-  "module_version": "0.2.0",
+  "module_version": "0.2.1",
   "interface_version": "backup_controller.v0",
   "schema_versions": [
     "soulforge.backup_controller.linear_lb1.snapshot.v2",
@@ -45,5 +45,5 @@
   ],
   "release_digest": null,
   "deprecation_state": "active",
-  "authority_notes": "Risk-based enrollment: this module is a DIRECT dependency of the team_client pack closure(s). Purpose: feature-OFF single-writer daily backup composition plus a default-OFF refs-only Linear whole-workspace read normalizer and immutable generation/restore contract. The actual reader discovers no credential, owns no network/storage writer, and exposes no Linear mutation method; mutation evidence for an injected provider remains UNKNOWN until a reviewed runtime binding supplies it. Physical source reads, create-only target writes, isolated restore, human review, scheduling, and retention deletion remain separately bound runtime gates. This manifest records operability metadata only and grants no runtime, service, writer, or authority; the module's README/contract stays authoritative."
+  "authority_notes": "Risk-based enrollment: this module is a DIRECT dependency of the team_client and backup_recovery_extension pack closures. Purpose: feature-OFF single-writer daily backup composition plus a default-OFF Linear whole-workspace read normalizer and immutable generation/restore contract. The actual reader discovers no credential, owns no HTTP or storage writer, and exposes no Linear mutation method. Injected readPage invocations are recorded only as provider_calls; network_calls remains UNKNOWN unless a separate exact independent binding is supplied. Legacy v2 private single-use token material is never echoed by gate or runner receipts, while the ref-bound v2 profile uses an opaque token ref. Physical source reads, create-only target writes, isolated restore, human review, scheduling, and retention deletion remain separately bound runtime gates. This manifest records operability metadata only and grants no runtime, service, writer, or authority; the module's README/contract stays authoritative."
 }

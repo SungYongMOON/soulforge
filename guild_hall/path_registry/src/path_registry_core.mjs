@@ -101,8 +101,23 @@ function assertRefOrNull(value, field) {
   return assertRef(value, field);
 }
 
-function assertClock(value, field) {
+function parseClock(value, field) {
   if (typeof value !== "string" || !ISO.test(value)) fail("clock_invalid", field);
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) fail("clock_invalid", field);
+  // Date.parse normalizes impossible calendar dates (for example, February
+  // 30) instead of rejecting every one. Compare the normalized instant back
+  // to the supplied ISO form so expiry and authorization never consume a
+  // silently repaired or NaN clock.
+  const normalized = value.replace(/(?:\.(\d{1,3}))?Z$/u, (_match, fractional) => (
+    `.${(fractional ?? "").padEnd(3, "0")}Z`
+  ));
+  if (new Date(timestamp).toISOString() !== normalized) fail("clock_invalid", field);
+  return timestamp;
+}
+
+function assertClock(value, field) {
+  parseClock(value, field);
   return value;
 }
 
@@ -302,10 +317,7 @@ function validateAuthority(authority) {
   return deepFreeze(result);
 }
 
-const registryIdentities = new WeakSet();
-
-export function createPathRegistry({ authority, rows }) {
-  const validatedAuthority = validateAuthority(authority);
+function validateRecords(rows) {
   if (!Array.isArray(rows)) fail("rows_invalid", "rows");
   const records = new Map();
   const claimedTopologyNodes = new Map();
@@ -323,6 +335,31 @@ export function createPathRegistry({ authority, rows }) {
     }
     records.set(record.logical_path_id, record);
   }
+  return records;
+}
+
+function snapshotBody(registryRevision, authority, records) {
+  return {
+    schema: PATH_REGISTRY_SCHEMA,
+    registry_revision: registryRevision,
+    authority,
+    rows: [...records.values()]
+      .sort((a, b) => (a.logical_path_id < b.logical_path_id ? -1 : 1)),
+  };
+}
+
+function snapshotDigest(body) {
+  return `sha256:${createHash("sha256")
+    .update("soulforge.path_registry.snapshot.v0\0")
+    .update(canonicalStringify(body))
+    .digest("hex")}`;
+}
+
+const registryIdentities = new WeakSet();
+
+export function createPathRegistry({ authority, rows }) {
+  const validatedAuthority = validateAuthority(authority);
+  const records = validateRecords(rows);
   const registry = Object.freeze({
     schema: PATH_REGISTRY_SCHEMA,
     registry_revision: 1,
@@ -422,7 +459,7 @@ export function resolvePath(registry, logicalPathId, actorContext) {
   try {
     assertRef(node_ref, "actor.node_ref");
     assertRef(project_scope_ref, "actor.project_scope_ref");
-    assertClock(evaluation_time, "actor.evaluation_time");
+    parseClock(evaluation_time, "actor.evaluation_time");
   } catch {
     return hold("actor_context_invalid");
   }
@@ -448,7 +485,8 @@ export function resolvePath(registry, logicalPathId, actorContext) {
   // Numeric comparison: lexicographic ISO ordering breaks on optional
   // fractional seconds ("…00.5Z" sorts before "…00Z").
   if (binding.expires_at !== null
-      && Date.parse(binding.expires_at) <= Date.parse(evaluation_time)) {
+      && parseClock(binding.expires_at, "binding.expires_at")
+        <= parseClock(evaluation_time, "actor.evaluation_time")) {
     return hold("binding_expired");
   }
   return Object.freeze({
@@ -541,22 +579,35 @@ export function authorizeOperation(registry, request) {
 
 export function registrySnapshot(registry) {
   if (authenticRegistry(registry) === null) return hold("registry_unavailable");
-  const rows = [...registry.records.values()]
-    .sort((a, b) => (a.logical_path_id < b.logical_path_id ? -1 : 1));
-  const body = {
-    schema: PATH_REGISTRY_SCHEMA,
-    registry_revision: registry.registry_revision,
-    authority: registry.authority,
-    rows,
-  };
-  const canonical = canonicalStringify(body);
+  const body = snapshotBody(registry.registry_revision, registry.authority, registry.records);
   return deepFreeze({
     ...body,
-    snapshot_digest: `sha256:${createHash("sha256")
-      .update("soulforge.path_registry.snapshot.v0\0")
-      .update(canonical)
-      .digest("hex")}`,
+    snapshot_digest: snapshotDigest(body),
   });
+}
+
+// Consumer-facing verification: snapshots are transferable plain data, so a
+// consumer must reconstruct the validated body and recompute its digest rather
+// than treating a present digest string as evidence of integrity.
+export function verifyRegistrySnapshot(snapshot) {
+  if (snapshot === null || typeof snapshot !== "object"
+      || snapshot.schema !== PATH_REGISTRY_SCHEMA
+      || !Number.isInteger(snapshot.registry_revision) || snapshot.registry_revision < 1
+      || typeof snapshot.snapshot_digest !== "string") {
+    return hold("snapshot_invalid");
+  }
+  try {
+    const authority = validateAuthority(snapshot.authority);
+    const records = validateRecords(snapshot.rows);
+    const body = snapshotBody(snapshot.registry_revision, authority, records);
+    const computedDigest = snapshotDigest(body);
+    if (snapshot.snapshot_digest !== computedDigest) {
+      return hold("snapshot_digest_mismatch");
+    }
+    return deepFreeze({ ...body, snapshot_digest: computedDigest });
+  } catch {
+    return hold("snapshot_invalid");
+  }
 }
 
 // Readiness is a claim gate, not a health probe: while any authority role or

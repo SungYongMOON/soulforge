@@ -7,13 +7,14 @@ import { test } from "node:test";
 import { createPathRegistry, registrySnapshot } from "../src/path_registry_core.mjs";
 import { SEED_AUTHORITY, seedRows } from "../data/registry_seed_v0.mjs";
 import {
+  APPROVED_EMPTY_MATERIALIZATION_ROOT_REF,
   applyTargetMaterialization,
   planTargetMaterialization,
   rollbackTargetMaterialization,
 } from "../src/target_materializer.mjs";
 
 const SNAPSHOT = registrySnapshot(createPathRegistry({ authority: SEED_AUTHORITY, rows: seedRows() }));
-const ROOT_REF = "canary.synthetic_test_root.v0";
+const ROOT_REF = APPROVED_EMPTY_MATERIALIZATION_ROOT_REF;
 
 function freshRoots() {
   const containment = mkdtempSync(join(tmpdir(), "sf-materializer-"));
@@ -40,6 +41,13 @@ test("planning holds without an exact approved canary root ref (OD-10)", () => {
     planTargetMaterialization({
       registry_snapshot: SNAPSHOT,
       approved_empty_materialization_root_ref: "hold:od-10.materializer_canary_root",
+    }).hold_code,
+    "materialization_root_unapproved",
+  );
+  assert.equal(
+    planTargetMaterialization({
+      registry_snapshot: SNAPSHOT,
+      approved_empty_materialization_root_ref: "canary.synthetic_test_root.v0",
     }).hold_code,
     "materialization_root_unapproved",
   );
@@ -173,7 +181,7 @@ test("hostile root admission and tampered plans reject", () => {
     const escape = applyTargetMaterialization(tampered, {
       root_path: root, containment_root: containment, mode: "apply",
     });
-    assert.equal(escape.hold_code, "rel_path_invalid");
+    assert.equal(escape.hold_code, "plan_untrusted");
 
     assert.equal(
       applyTargetMaterialization(plannedNow(), {
@@ -181,6 +189,76 @@ test("hostile root admission and tampered plans reject", () => {
       }).hold_code,
       "mode_invalid",
     );
+  } finally {
+    rmSync(containment, { recursive: true, force: true });
+  }
+});
+
+test("apply and rollback require exact authenticated plan and receipt identities", () => {
+  const { containment, root } = freshRoots();
+  try {
+    const plan = plannedNow();
+    const forgedPlan = { ...plan };
+    assert.equal(
+      applyTargetMaterialization(forgedPlan, {
+        root_path: root, containment_root: containment, mode: "apply",
+      }).hold_code,
+      "plan_untrusted",
+    );
+    assert.ok(!existsSync(join(root, "00_CATALOG")));
+
+    const applied = applyTargetMaterialization(plan, {
+      root_path: root, containment_root: containment, mode: "apply",
+    });
+    assert.equal(applied.status, "applied");
+    const forgedReceipt = {
+      ...applied,
+      created: ["00_CATALOG"],
+    };
+    assert.equal(
+      rollbackTargetMaterialization(forgedReceipt, {
+        root_path: root, containment_root: containment,
+      }).hold_code,
+      "receipt_untrusted",
+    );
+    assert.ok(existsSync(join(root, "00_CATALOG")));
+
+    const rollback = rollbackTargetMaterialization(applied, {
+      root_path: root, containment_root: containment,
+    });
+    assert.equal(rollback.status, "rolled_back");
+  } finally {
+    rmSync(containment, { recursive: true, force: true });
+  }
+});
+
+test("mid-apply failure retains authenticated recovery evidence and never deletes payload", () => {
+  const { containment, root } = freshRoots();
+  try {
+    writeFileSync(join(root, "70_QUARANTINE"), "foreign payload");
+    const held = applyTargetMaterialization(plannedNow(), {
+      root_path: root, containment_root: containment, mode: "apply",
+    });
+    assert.equal(held.hold_code, "planned_path_occupied");
+    assert.equal(held.recovery_receipt.status, "recovery_required");
+    assert.ok(held.recovery_receipt.created.includes("00_CATALOG"));
+    assert.ok(existsSync(join(root, "00_CATALOG")));
+
+    const forgedRecovery = { ...held.recovery_receipt };
+    assert.equal(
+      rollbackTargetMaterialization(forgedRecovery, {
+        root_path: root, containment_root: containment,
+      }).hold_code,
+      "receipt_untrusted",
+    );
+    assert.ok(existsSync(join(root, "70_QUARANTINE")));
+
+    const recovered = rollbackTargetMaterialization(held.recovery_receipt, {
+      root_path: root, containment_root: containment,
+    });
+    assert.equal(recovered.status, "rolled_back");
+    assert.ok(!existsSync(join(root, "00_CATALOG")));
+    assert.ok(existsSync(join(root, "70_QUARANTINE")));
   } finally {
     rmSync(containment, { recursive: true, force: true });
   }

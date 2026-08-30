@@ -782,19 +782,34 @@ function validateZeroEffects(effects) {
 const ACTUAL_COLLECTOR_FIELDS = Object.freeze([
   "adapter_ref", "attachment_allowlist_sha256", "attachment_policy_ref", "count_reconciled",
   "cursor_ledger_sha256", "cutoff_at", "feature_state", "kind",
-  "network_calls", "observed_issue_count", "page_count", "provider_calls", "source_count",
+  "network_calls", "network_calls_evidence", "network_calls_evidence_ref", "observed_issue_count", "page_count", "provider_calls", "source_count",
   "storage_writes", "terminal_cursor", "terminal_page_observed",
 ]);
+
+const ACTUAL_NETWORK_CALL_EVIDENCE = Object.freeze({
+  UNKNOWN: "UNKNOWN",
+  EXACT_INDEPENDENT_BINDING: "EXACT_INDEPENDENT_BINDING",
+});
 
 function normalizeActualCollector(value, { failed = false } = {}) {
   const collector = snapshotPlainData(value, "linear_lb1_v2_actual_collector_invalid");
   exactKeys(collector, ACTUAL_COLLECTOR_FIELDS, "linear_lb1_v2_actual_collector_invalid");
   if (collector.kind !== "linear_read_only_provider" || collector.feature_state !== "actual_read_only"
       || collector.storage_writes !== 0 || !Number.isSafeInteger(collector.provider_calls) || collector.provider_calls < 0
-      || collector.network_calls !== collector.provider_calls || !Number.isSafeInteger(collector.page_count)
+      || !Number.isSafeInteger(collector.page_count)
       || collector.page_count < 0 || !Number.isSafeInteger(collector.observed_issue_count)
       || collector.observed_issue_count < 0 || typeof collector.terminal_page_observed !== "boolean"
       || typeof collector.count_reconciled !== "boolean") {
+    fail("linear_lb1_v2_actual_collector_invalid");
+  }
+  const networkCallsUnknown = collector.network_calls === null
+    && collector.network_calls_evidence === ACTUAL_NETWORK_CALL_EVIDENCE.UNKNOWN
+    && collector.network_calls_evidence_ref === null;
+  const networkCallsIndependentlyBound = Number.isSafeInteger(collector.network_calls) && collector.network_calls >= 0
+    && collector.network_calls_evidence === ACTUAL_NETWORK_CALL_EVIDENCE.EXACT_INDEPENDENT_BINDING;
+  if (networkCallsIndependentlyBound) {
+    exactRef(collector.network_calls_evidence_ref, "linear_lb1_v2_actual_collector_invalid");
+  } else if (!networkCallsUnknown) {
     fail("linear_lb1_v2_actual_collector_invalid");
   }
   exactRef(collector.adapter_ref, "linear_lb1_v2_actual_collector_invalid");
@@ -824,6 +839,8 @@ function actualEffects(collector) {
     provider_calls: collector.provider_calls,
     storage_writes: 0,
     network_calls: collector.network_calls,
+    network_calls_evidence: collector.network_calls_evidence,
+    network_calls_evidence_ref: collector.network_calls_evidence_ref,
     filesystem_writes: 0,
     scheduler_changes: 0,
   });

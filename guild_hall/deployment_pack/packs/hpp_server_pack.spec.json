@@ -1955,7 +1955,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/mailbox_env.mjs",
-      "sha256": "07e4b1b7bcefc4a8068947e93dc7ec267b3c6946dd91e2f0360bfe3d97677fe3"
+      "sha256": "9e1a0023a62f0a576aea847811fa1270c31823fedc655a0f8dcf04108e17902d"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/role_capability_matcher.mjs",
@@ -2007,7 +2007,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/core.test.mjs",
-      "sha256": "324faa93e30714403509b6bfb60b1e4a89c123ba5d95aae2f21bed7fa94dd1ba"
+      "sha256": "78269d422990de73077c087b97044e40ec842483b0a7fc3b02e7f5b53bf5813f"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/erp_mcp_server.test.mjs",

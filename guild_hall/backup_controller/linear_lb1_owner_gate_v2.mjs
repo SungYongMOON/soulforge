@@ -37,10 +37,14 @@ export const LINEAR_LB1_OWNER_GATE_V2_CODES = Object.freeze({
 
 const C = LINEAR_LB1_OWNER_GATE_V2_CODES;
 
-const PACKET_FIELDS = Object.freeze([
+const LEGACY_PACKET_FIELDS = Object.freeze([
   "schema_version", "feature_state", "owner_decision", "writer_identity",
   "source", "target", "claim_store", "adapters", "artifact_layout",
-  "resource_limits", "retention", "failure_policy", "restore_acceptance", "capture_consistency", "one_shot",
+  "resource_limits", "retention", "failure_policy", "restore_acceptance", "one_shot",
+]);
+
+const REF_BOUND_PACKET_FIELDS = Object.freeze([
+  ...LEGACY_PACKET_FIELDS.slice(0, -1), "capture_consistency", "one_shot",
 ]);
 
 const DECISION_FIELDS = Object.freeze([
@@ -61,11 +65,19 @@ const TARGET_FIELDS = Object.freeze([
   "create_only", "overwrite_allowed", "public_share_allowed",
 ]);
 
-const CLAIM_STORE_FIELDS = Object.freeze([
+const LEGACY_CLAIM_STORE_FIELDS = Object.freeze([
+  "claim_store_ref", "single_use_token",
+]);
+
+const REF_BOUND_CLAIM_STORE_FIELDS = Object.freeze([
   "claim_store_ref", "single_use_token_ref",
 ]);
 
-const ADAPTER_FIELDS = Object.freeze([
+const LEGACY_ADAPTER_FIELDS = Object.freeze([
+  "linear_reader_adapter_ref", "storage_adapter_ref",
+]);
+
+const REF_BOUND_ADAPTER_FIELDS = Object.freeze([
   "attachment_allowlist_sha256", "attachment_policy_ref", "linear_reader_adapter_ref", "storage_adapter_ref",
 ]);
 
@@ -235,6 +247,12 @@ function packetFingerprint(packet) {
     .update(`${PACKET_HASH_DOMAIN}\0${stableJson(packet)}`, "utf8").digest("hex")}`;
 }
 
+function packetProfile(packet) {
+  if (exactKeys(packet, REF_BOUND_PACKET_FIELDS)) return "ref_bound";
+  if (exactKeys(packet, LEGACY_PACKET_FIELDS)) return "legacy";
+  return null;
+}
+
 function deepFreeze(value) {
   if (value !== null && typeof value === "object") {
     for (const child of Object.values(value)) deepFreeze(child);
@@ -326,20 +344,29 @@ function parseTarget(value, blockers) {
   }
 }
 
-function parseClaimStore(value, blockers) {
-  if (!exactKeys(value, CLAIM_STORE_FIELDS) || !exactRef(value.claim_store_ref)
+function parseClaimStore(value, profile, blockers) {
+  if (profile === "legacy") {
+    if (!exactKeys(value, LEGACY_CLAIM_STORE_FIELDS) || !exactRef(value.claim_store_ref)
+        || typeof value.single_use_token !== "string" || !SAFE_ID.test(value.single_use_token)
+        || value.single_use_token.length < 8) {
+      blockers.add(C.CLAIM_STORE_REQUIRED);
+    }
+    return;
+  }
+  if (!exactKeys(value, REF_BOUND_CLAIM_STORE_FIELDS) || !exactRef(value.claim_store_ref)
       || !exactRef(value.single_use_token_ref)) {
     blockers.add(C.CLAIM_STORE_REQUIRED);
   }
 }
 
-function parseAdapters(value, blockers) {
-  if (!exactKeys(value, ADAPTER_FIELDS)
-      || !exactRef(value.linear_reader_adapter_ref)
-      || !exactRef(value.storage_adapter_ref)
-      || !exactRef(value.attachment_policy_ref)
-      || !HASH.test(value.attachment_allowlist_sha256)
-      || value.attachment_policy_ref.content_id !== value.attachment_allowlist_sha256) {
+function parseAdapters(value, profile, blockers) {
+  const legacyShape = profile === "legacy" && exactKeys(value, LEGACY_ADAPTER_FIELDS)
+    && exactRef(value.linear_reader_adapter_ref) && exactRef(value.storage_adapter_ref);
+  const refBoundShape = profile === "ref_bound" && exactKeys(value, REF_BOUND_ADAPTER_FIELDS)
+    && exactRef(value.linear_reader_adapter_ref) && exactRef(value.storage_adapter_ref)
+    && exactRef(value.attachment_policy_ref) && HASH.test(value.attachment_allowlist_sha256)
+    && value.attachment_policy_ref.content_id === value.attachment_allowlist_sha256;
+  if (!legacyShape && !refBoundShape) {
     blockers.add(C.ADAPTER_REFS_REQUIRED);
   }
 }
@@ -428,7 +455,8 @@ function authority(ready) {
   };
 }
 
-function bindingReceipt(packet, pin) {
+function bindingReceipt(packet, pin, profile) {
+  const refBound = profile === "ref_bound";
   return {
     trusted_pin_content_id: exactRef(pin?.gate_ref) ? pin.gate_ref.content_id : null,
     trusted_pin_valid_at: exactInstant(pin?.valid_at) ? pin.valid_at : null,
@@ -438,24 +466,24 @@ function bindingReceipt(packet, pin) {
       ? packet.owner_decision.expires_at_utc : null,
     writer_id: packet?.writer_identity?.writer_id ?? null,
     epoch: packet?.writer_identity?.epoch ?? null,
-    single_use_token_ref_present: exactRef(packet?.claim_store?.single_use_token_ref),
-    single_use_token_ref: exactRef(packet?.claim_store?.single_use_token_ref)
+    single_use_token_ref_present: refBound && exactRef(packet?.claim_store?.single_use_token_ref),
+    single_use_token_ref: refBound && exactRef(packet?.claim_store?.single_use_token_ref)
       ? packet.claim_store.single_use_token_ref : null,
     run_limit: packet?.one_shot?.run_limit === 1 ? 1 : null,
     create_only: packet?.target?.create_only === true,
     overwrite_allowed: packet?.target?.overwrite_allowed === true,
     restore_check_required: packet?.restore_acceptance?.restore_check_required === true,
-    consistency_mode: packet?.capture_consistency?.mode ?? null,
-    attachment_policy_ref: exactRef(packet?.adapters?.attachment_policy_ref)
+    consistency_mode: refBound ? packet?.capture_consistency?.mode ?? null : null,
+    attachment_policy_ref: refBound && exactRef(packet?.adapters?.attachment_policy_ref)
       ? packet.adapters.attachment_policy_ref : null,
-    attachment_allowlist_sha256: HASH.test(packet?.adapters?.attachment_allowlist_sha256)
+    attachment_allowlist_sha256: refBound && HASH.test(packet?.adapters?.attachment_allowlist_sha256)
       ? packet.adapters.attachment_allowlist_sha256 : null,
     technical_single_use_enforced: false,
     consumption_state: "not_consumed_by_gate",
   };
 }
 
-function result(blockers, packetSha256, packet, pin) {
+function result(blockers, packetSha256, packet, pin, profile) {
   const blockerCodes = [...blockers].sort(codepointCompare);
   const ready = blockerCodes.length === 0;
   return deepFreeze({
@@ -476,7 +504,7 @@ function result(blockers, packetSha256, packet, pin) {
         monthly_generations: packet.retention.monthly_generations,
         rpo_hours: packet.retention.rpo_hours,
       } : null,
-      consistency_mode: packet?.capture_consistency?.mode ?? null,
+      consistency_mode: profile === "ref_bound" ? packet?.capture_consistency?.mode ?? null : null,
     },
     receipt: {
       schema_version: LINEAR_LB1_OWNER_GATE_V2_RECEIPT_SCHEMA_VERSION,
@@ -490,11 +518,11 @@ function result(blockers, packetSha256, packet, pin) {
         epoch: packet.writer_identity.epoch,
       } : null,
       claim_store_ref: packet?.claim_store?.claim_store_ref ?? null,
-      single_use_token_ref_present: exactRef(packet?.claim_store?.single_use_token_ref),
-      single_use_token_ref: exactRef(packet?.claim_store?.single_use_token_ref)
+      single_use_token_ref_present: profile === "ref_bound" && exactRef(packet?.claim_store?.single_use_token_ref),
+      single_use_token_ref: profile === "ref_bound" && exactRef(packet?.claim_store?.single_use_token_ref)
         ? packet.claim_store.single_use_token_ref : null,
       authority: authority(ready),
-      binding: bindingReceipt(packet, pin),
+      binding: bindingReceipt(packet, pin, profile),
       effects: { ...LINEAR_LB1_ZERO_EFFECTS },
       claim_ceiling: "owner_policy_and_runtime_binding_only",
     },
@@ -504,10 +532,11 @@ function result(blockers, packetSha256, packet, pin) {
 export function evaluateLinearLb1OwnerGateV2(packetInput, trustedExpectedPinInput) {
   const packet = snapshotPlainData(packetInput);
   const trustedPin = snapshotPlainData(trustedExpectedPinInput);
-  if (packet === null) return result(new Set([C.INPUT_INVALID]), null, null, null);
+  if (packet === null) return result(new Set([C.INPUT_INVALID]), null, null, null, null);
 
   const packetSha256 = packetFingerprint(packet);
   const blockers = new Set();
+  const profile = packetProfile(packet);
   let pin = null;
   if (trustedExpectedPinInput === null || trustedExpectedPinInput === undefined) {
     blockers.add(C.TRUSTED_PIN_REQUIRED);
@@ -517,25 +546,25 @@ export function evaluateLinearLb1OwnerGateV2(packetInput, trustedExpectedPinInpu
   if (pin !== null && pin.expected_packet_sha256 !== packetSha256) {
     blockers.add(C.TRUSTED_PIN_MISMATCH);
   }
-  if (!exactKeys(packet, PACKET_FIELDS)
+  if (profile === null
       || packet.schema_version !== LINEAR_LB1_OWNER_GATE_V2_PACKET_SCHEMA_VERSION
       || packet.feature_state !== "off") {
     blockers.add(C.INPUT_INVALID);
-    return result(blockers, packetSha256, null, pin);
+    return result(blockers, packetSha256, null, pin, null);
   }
 
   parseDecision(packet.owner_decision, pin, blockers);
   parseWriterIdentity(packet.writer_identity, blockers);
   parseSource(packet.source, blockers);
   parseTarget(packet.target, blockers);
-  parseClaimStore(packet.claim_store, blockers);
-  parseAdapters(packet.adapters, blockers);
+  parseClaimStore(packet.claim_store, profile, blockers);
+  parseAdapters(packet.adapters, profile, blockers);
   parseArtifactLayout(packet.artifact_layout, blockers);
   parseResourceLimits(packet.resource_limits, blockers);
   parseRetention(packet.retention, blockers);
   parseFailurePolicy(packet.failure_policy, blockers);
   parseRestoreAcceptance(packet.restore_acceptance, blockers);
-  parseCaptureConsistency(packet.capture_consistency, blockers);
+  if (profile === "ref_bound") parseCaptureConsistency(packet.capture_consistency, blockers);
   parseOneShot(packet.one_shot, blockers);
-  return result(blockers, packetSha256, packet, pin);
+  return result(blockers, packetSha256, packet, pin, profile);
 }

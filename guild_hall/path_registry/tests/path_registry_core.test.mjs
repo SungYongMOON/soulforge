@@ -365,6 +365,41 @@ test("sub-second expiry compares numerically, not lexicographically", () => {
   assert.equal(resolvePath(registry, "lane.mail_capture", ACTOR).status, "resolved");
 });
 
+test("impossible and NaN ISO clocks fail before expiry and authorization", () => {
+  const hostileClocks = [
+    "2026-02-30T12:00:00Z",
+    "2026-13-01T12:00:00Z",
+  ];
+  for (const expiresAt of hostileClocks) {
+    assert.throws(
+      () => synRegistry([synRow({
+        binding_refs: [{
+          binding_ref: "binding.hostile_clock", node_ref: "node.dev_pc_1", role: "current",
+          binding_revision: 1, binding_epoch: 3, expires_at: expiresAt,
+          registered_by: "writer.binding_svc",
+        }],
+      })]),
+      /clock_invalid/,
+      expiresAt,
+    );
+  }
+
+  const registry = synRegistry([synRow({})]);
+  for (const evaluationTime of hostileClocks) {
+    const actor = { ...ACTOR, evaluation_time: evaluationTime };
+    assert.equal(
+      resolvePath(registry, "lane.mail_capture", actor).hold_code,
+      "actor_context_invalid",
+      evaluationTime,
+    );
+    assert.equal(
+      mutate(registry, { actor }).hold_code,
+      "actor_context_invalid",
+      evaluationTime,
+    );
+  }
+});
+
 // --- Binding registration under resolved authority ---
 
 test("registerBinding: writer identity, ambiguity, and revision bump", () => {

@@ -113,6 +113,20 @@ export function approvedV2Packet() {
   };
 }
 
+function approvedLegacyV2Packet() {
+  const packet = approvedV2Packet();
+  delete packet.capture_consistency;
+  packet.claim_store = {
+    claim_store_ref: ref("claim_store_01"),
+    single_use_token: "legacy-single-use-token-001",
+  };
+  packet.adapters = {
+    linear_reader_adapter_ref: ref("linear_reader_01"),
+    storage_adapter_ref: ref("storage_adapter_01"),
+  };
+  return packet;
+}
+
 export function trustedPinFor(packet) {
   const preview = evaluateLinearLb1OwnerGateV2(packet, null);
   const packetSha256 = preview.receipt.packet_sha256;
@@ -181,6 +195,21 @@ test("an approved private data-root generation target is accepted without weaken
   assert.equal(result.receipt.binding.create_only, true);
   assert.equal(result.receipt.binding.overwrite_allowed, false);
   assert.equal(result.receipt.authority.storage_write_allowed, true);
+});
+
+test("legacy valid v2 packets remain evaluable without exposing private single-use token material", () => {
+  const packet = approvedLegacyV2Packet();
+  const token = packet.claim_store.single_use_token;
+  const result = evaluateLinearLb1OwnerGateV2(packet, trustedPinFor(packet));
+
+  assert.equal(result.gate.status, "READY_FOR_ONE_SHOT");
+  assert.equal(result.gate.consistency_mode, null);
+  assert.equal(result.receipt.single_use_token_ref_present, false);
+  assert.equal(result.receipt.single_use_token_ref, null);
+  assert.equal(result.receipt.binding.attachment_policy_ref, null);
+  assert.equal(result.receipt.binding.attachment_allowlist_sha256, null);
+  assert.equal(JSON.stringify(result).includes(token), false);
+  assert.equal(Object.hasOwn(result.receipt, "single_use_token"), false);
 });
 
 test("default packet remains HOLD until owner decision, refs, adapters, layout, and limits are bound", () => {

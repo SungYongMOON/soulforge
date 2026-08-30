@@ -4,7 +4,7 @@
 // under one approved empty canary root. It never moves, copies, renames,
 // deletes, or opens any payload byte (existing payload move 0), it is
 // idempotent under replay, and its rollback removes only still-empty
-// directories that this operation's receipt says it created.
+// directories authenticated as created by that exact operation.
 //
 // The approved root ref is an OD-10 Owner decision: without an exact
 // non-hold `approved_empty_materialization_root_ref`, planning returns a
@@ -27,6 +27,7 @@ import {
 import { PATH_REGISTRY_SCHEMA } from "./path_registry_core.mjs";
 
 export const TARGET_MATERIALIZER_SCHEMA = "soulforge.target_materializer.v0";
+export const APPROVED_EMPTY_MATERIALIZATION_ROOT_REF = "pathref:recovery.physical_spine_canary";
 
 const REF = /^[a-z][a-z0-9_.:/-]{1,160}$/;
 const SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$/;
@@ -83,6 +84,13 @@ const STATIC_TREE = Object.freeze([
   "99_RESTORE_REQUEST_REFS",
 ]);
 
+// A caller-visible receipt is useful recovery evidence, but its public fields
+// are not authority to delete anything. These private identity maps bind a
+// plan and its apply/recovery receipts to this module invocation only. They
+// deliberately make serialization/reconstruction ineligible for rollback.
+const trustedPlans = new WeakMap();
+const trustedReceipts = new WeakMap();
+
 function hold(holdCode, detail) {
   return Object.freeze({
     status: "hold",
@@ -97,6 +105,92 @@ function deepFreeze(value) {
     Object.freeze(value);
   }
   return value;
+}
+
+function sameStringList(left, right) {
+  return Array.isArray(left) && Array.isArray(right)
+    && left.length === right.length
+    && left.every((value, index) => value === right[index]);
+}
+
+function trustedPlanFor(plan) {
+  if (plan === null || typeof plan !== "object" || plan.status !== "planned"
+      || plan.schema !== TARGET_MATERIALIZER_SCHEMA || !Array.isArray(plan.directories)) {
+    return { error: hold("plan_invalid") };
+  }
+  const trusted = trustedPlans.get(plan);
+  if (trusted === undefined) return { error: hold("plan_untrusted") };
+  if (plan.approved_empty_materialization_root_ref !== trusted.approved_root_ref
+      || plan.registry_snapshot_digest !== trusted.registry_snapshot_digest
+      || !sameStringList(plan.directories, trusted.directories)) {
+    return { error: hold("plan_untrusted") };
+  }
+  return { trusted };
+}
+
+function issueReceipt({
+  status, trustedPlan, admission, created, existing, uncertain_paths = [],
+}) {
+  const receipt = deepFreeze({
+    status,
+    schema: TARGET_MATERIALIZER_SCHEMA,
+    approved_empty_materialization_root_ref: trustedPlan.approved_root_ref,
+    registry_snapshot_digest: trustedPlan.registry_snapshot_digest,
+    root_commitment: admission.local_path_commitment_sha256,
+    planned_count: trustedPlan.directories.length,
+    created: [...created],
+    existing: [...existing],
+    ...(uncertain_paths.length > 0 ? { uncertain_paths: [...uncertain_paths] } : {}),
+    payload_moved: 0,
+  });
+  trustedReceipts.set(receipt, Object.freeze({
+    status,
+    approved_root_ref: trustedPlan.approved_root_ref,
+    registry_snapshot_digest: trustedPlan.registry_snapshot_digest,
+    root_commitment: admission.local_path_commitment_sha256,
+    created: Object.freeze([...created]),
+  }));
+  return receipt;
+}
+
+function holdWithRecovery(holdCode, detail, {
+  mode, trustedPlan, admission, created, existing, uncertain_paths,
+}) {
+  if (mode !== "apply" || (created.length === 0 && uncertain_paths.length === 0)) {
+    return hold(holdCode, detail);
+  }
+  const recoveryReceipt = issueReceipt({
+    status: "recovery_required",
+    trustedPlan,
+    admission,
+    created,
+    existing,
+    uncertain_paths,
+  });
+  return deepFreeze({
+    status: "hold",
+    hold_code: holdCode,
+    ...(detail === undefined ? {} : { detail }),
+    recovery_receipt: recoveryReceipt,
+  });
+}
+
+function trustedReceiptFor(receipt) {
+  if (receipt === null || typeof receipt !== "object"
+      || (receipt.status !== "applied" && receipt.status !== "recovery_required")
+      || receipt.schema !== TARGET_MATERIALIZER_SCHEMA || !Array.isArray(receipt.created)) {
+    return { error: hold("receipt_invalid") };
+  }
+  const trusted = trustedReceipts.get(receipt);
+  if (trusted === undefined) return { error: hold("receipt_untrusted") };
+  if (receipt.status !== trusted.status
+      || receipt.approved_empty_materialization_root_ref !== trusted.approved_root_ref
+      || receipt.registry_snapshot_digest !== trusted.registry_snapshot_digest
+      || receipt.root_commitment !== trusted.root_commitment
+      || !sameStringList(receipt.created, trusted.created)) {
+    return { error: hold("receipt_untrusted") };
+  }
+  return { trusted };
 }
 
 function sourceLaneId(logicalPathId) {
@@ -121,7 +215,8 @@ export function planTargetMaterialization({
   approved_empty_materialization_root_ref,
 } = {}) {
   const rootRef = approved_empty_materialization_root_ref;
-  if (typeof rootRef !== "string" || !REF.test(rootRef) || rootRef.startsWith("hold:")) {
+  if (rootRef !== APPROVED_EMPTY_MATERIALIZATION_ROOT_REF
+      || !REF.test(rootRef) || rootRef.startsWith("hold:")) {
     return hold("materialization_root_unapproved", "od-10_canary_root_decision_required");
   }
   // Consumer-side shape check only: the digest is carried as a label; the
@@ -156,13 +251,19 @@ export function planTargetMaterialization({
     // target tree may never grow a secret directory.
     if (relPath.toLowerCase().includes("secret")) return hold("secret_dir_forbidden", relPath);
   }
-  return deepFreeze({
+  const plan = deepFreeze({
     status: "planned",
     schema: TARGET_MATERIALIZER_SCHEMA,
     approved_empty_materialization_root_ref: rootRef,
     registry_snapshot_digest: registry_snapshot.snapshot_digest,
     directories: sorted,
   });
+  trustedPlans.set(plan, Object.freeze({
+    approved_root_ref: rootRef,
+    registry_snapshot_digest: registry_snapshot.snapshot_digest,
+    directories: Object.freeze([...sorted]),
+  }));
+  return plan;
 }
 
 function admitRoot(rootPath, containmentRoot) {
@@ -189,12 +290,11 @@ function statPlanned(absolute) {
 }
 
 export function applyTargetMaterialization(plan, { root_path, containment_root, mode } = {}) {
-  if (plan === null || typeof plan !== "object" || plan.status !== "planned"
-      || plan.schema !== TARGET_MATERIALIZER_SCHEMA || !Array.isArray(plan.directories)) {
-    return hold("plan_invalid");
-  }
+  const planOutcome = trustedPlanFor(plan);
+  if (planOutcome.error) return planOutcome.error;
+  const { trusted: trustedPlan } = planOutcome;
   if (mode !== "dry-run" && mode !== "apply") return hold("mode_invalid");
-  for (const relPath of plan.directories) {
+  for (const relPath of trustedPlan.directories) {
     if (!validRelPath(relPath)) return hold("rel_path_invalid", relPath);
   }
   const admission = admitRoot(root_path, containment_root);
@@ -203,7 +303,7 @@ export function applyTargetMaterialization(plan, { root_path, containment_root, 
   // The approved root must contain nothing but (previously materialized)
   // planned directories: any foreign top-level entry means this is not the
   // approved empty canary root and nothing proceeds.
-  const topLevelPlanned = new Set(plan.directories.map((relPath) => relPath.split("/")[0]));
+  const topLevelPlanned = new Set(trustedPlan.directories.map((relPath) => relPath.split("/")[0]));
   let topLevel;
   try {
     topLevel = readdirSync(root_path);
@@ -216,11 +316,14 @@ export function applyTargetMaterialization(plan, { root_path, containment_root, 
 
   const created = [];
   const existing = [];
-  for (const relPath of plan.directories) {
+  const uncertainPaths = [];
+  for (const relPath of trustedPlan.directories) {
     const absolute = join(root_path, ...relPath.split("/"));
     const status = statPlanned(absolute);
     if (status.present && !status.safe) {
-      return hold("planned_path_occupied", `${relPath}:${status.reason}`);
+      return holdWithRecovery("planned_path_occupied", `${relPath}:${status.reason}`, {
+        mode, trustedPlan, admission, created, existing, uncertain_paths: uncertainPaths,
+      });
     }
     if (status.present) {
       existing.push(relPath);
@@ -233,33 +336,54 @@ export function applyTargetMaterialization(plan, { root_path, containment_root, 
       try {
         mkdirSync(absolute);
       } catch {
-        return hold("mkdir_failed", relPath);
+        // A failed mkdir can race with another creator. Preserve the path as
+        // uncertain evidence but never grant rollback authority over it.
+        if (statPlanned(absolute).present) uncertainPaths.push(relPath);
+        return holdWithRecovery("mkdir_failed", relPath, {
+          mode, trustedPlan, admission, created, existing, uncertain_paths: uncertainPaths,
+        });
       }
       const verify = statPlanned(absolute);
-      if (!verify.present || !verify.safe) return hold("planned_path_occupied", relPath);
+      if (!verify.present || !verify.safe) {
+        // mkdir returned, but a post-create race made ownership unsafe to
+        // prove. It stays in recovery evidence and is never removed.
+        uncertainPaths.push(relPath);
+        return holdWithRecovery("planned_path_occupied", relPath, {
+          mode, trustedPlan, admission, created, existing, uncertain_paths: uncertainPaths,
+        });
+      }
     }
     created.push(relPath);
   }
-  return deepFreeze({
-    status: mode === "apply" ? "applied" : "dry_run",
-    schema: TARGET_MATERIALIZER_SCHEMA,
-    registry_snapshot_digest: plan.registry_snapshot_digest,
-    root_commitment: admission.local_path_commitment_sha256,
-    planned_count: plan.directories.length,
+  if (mode === "dry-run") {
+    return deepFreeze({
+      status: "dry_run",
+      schema: TARGET_MATERIALIZER_SCHEMA,
+      approved_empty_materialization_root_ref: trustedPlan.approved_root_ref,
+      registry_snapshot_digest: trustedPlan.registry_snapshot_digest,
+      root_commitment: admission.local_path_commitment_sha256,
+      planned_count: trustedPlan.directories.length,
+      created,
+      existing,
+      payload_moved: 0,
+    });
+  }
+  return issueReceipt({
+    status: "applied",
+    trustedPlan,
+    admission,
     created,
     existing,
-    payload_moved: 0,
   });
 }
 
 export function rollbackTargetMaterialization(receipt, { root_path, containment_root } = {}) {
-  if (receipt === null || typeof receipt !== "object" || receipt.status !== "applied"
-      || receipt.schema !== TARGET_MATERIALIZER_SCHEMA || !Array.isArray(receipt.created)) {
-    return hold("receipt_invalid");
-  }
+  const receiptOutcome = trustedReceiptFor(receipt);
+  if (receiptOutcome.error) return receiptOutcome.error;
+  const { trusted: trustedReceipt } = receiptOutcome;
   const admission = admitRoot(root_path, containment_root);
   if (admission.status === "hold") return admission;
-  if (admission.local_path_commitment_sha256 !== receipt.root_commitment) {
+  if (admission.local_path_commitment_sha256 !== trustedReceipt.root_commitment) {
     return hold("root_commitment_mismatch");
   }
   const removed = [];
@@ -267,7 +391,7 @@ export function rollbackTargetMaterialization(receipt, { root_path, containment_
   // Deepest-first, and only directories this receipt created and that are
   // still empty: rmdir refuses non-empty, so a foreign or later payload can
   // never be deleted by rollback.
-  const ordered = [...receipt.created].sort().reverse();
+  const ordered = [...trustedReceipt.created].sort().reverse();
   for (const relPath of ordered) {
     if (!validRelPath(relPath)) return hold("rel_path_invalid", relPath);
     const absolute = join(root_path, ...relPath.split("/"));

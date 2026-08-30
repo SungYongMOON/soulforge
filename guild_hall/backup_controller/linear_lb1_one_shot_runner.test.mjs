@@ -159,6 +159,20 @@ function makeClosedRequest(token = "single-use-token-001", targetId = "target-re
   };
 }
 
+function makeLegacyV2Request(token = "legacy-single-use-token-001", targetId = "target-revision-legacy-001") {
+  const request = makeClosedRequest(token, targetId);
+  delete request.capture_consistency;
+  request.claim_store = {
+    claim_store_ref: CLAIM_REF,
+    single_use_token: token,
+  };
+  request.adapters = {
+    linear_reader_adapter_ref: READER_REF,
+    storage_adapter_ref: STORAGE_REF,
+  };
+  return request;
+}
+
 function trustedPinFor(packet) {
   const preview = evaluateLinearLb1OwnerGateV2(packet, null);
   const packetSha256 = preview.receipt.packet_sha256;
@@ -229,6 +243,29 @@ test("successful async one-shot execution follows gate -> claim -> read -> seal 
   assert.equal(claimStore.isConsumed(request.claim_store.single_use_token_ref), true);
   assert.equal(storageAdapter.hasRevision(expectedKeyPrefix), true);
   assert.equal(Object.isFrozen(result), true);
+});
+
+test("legacy v2 private claim tokens remain consumable without appearing in the result", async () => {
+  const claimStore = createInMemoryClaimStore({ claim_store_ref: CLAIM_REF, async: true });
+  const linearReaderAdapter = createSyntheticLinearReaderAdapter({
+    adapter_ref: READER_REF,
+    fixture: makeCompleteLinearLb1V2Fixture(),
+    async: true,
+  });
+  const storageAdapter = createInMemoryStorageAdapter({ adapter_ref: STORAGE_REF, async: true });
+  const runner = createLinearLb1OneShotRunner({
+    claimStore,
+    linearReaderAdapter,
+    storageAdapter,
+    clock: makeTestClock("2026-08-20T00:30:00.000Z"),
+  });
+  const request = makeLegacyV2Request();
+  const result = await runner.execute(request, trustedPinFor(request));
+
+  assert.equal(result.status, "RESTORE_REVIEW_CANDIDATE");
+  assert.equal(result.claim_consumed, true);
+  assert.equal(JSON.stringify(result).includes(request.claim_store.single_use_token), false);
+  assert.equal(Object.hasOwn(result.gate_result.receipt, "single_use_token"), false);
 });
 test("synchronous adapters are safely supported by async execute", async () => {
   const claimStore = createInMemoryClaimStore({ claim_store_ref: CLAIM_REF, async: false });

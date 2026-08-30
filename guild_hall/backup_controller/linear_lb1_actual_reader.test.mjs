@@ -193,6 +193,8 @@ test("default OFF reader has zero effects and cannot read", async () => {
   assert.deepEqual(HELD_LINEAR_LB1_ACTUAL_READER.getEffects(), {
     provider_calls: 0,
     network_calls: 0,
+    network_calls_evidence: "ATTESTED_FEATURE_OFF",
+    network_calls_evidence_ref: null,
     linear_mutations: 0,
     mutation_evidence: "attested_feature_off",
   });
@@ -228,7 +230,57 @@ test("whole-workspace reader paginates and normalizes labels plus approved attac
     "issue", "description", "comments", "waiting_info", "completion_record", "evidence_refs", "cutoff_completeness",
   ]);
   assert.deepEqual(reader.getEffects(), {
-    provider_calls: 2, network_calls: 2, linear_mutations: null, mutation_evidence: "unknown_injected_provider",
+    provider_calls: 2,
+    network_calls: null,
+    network_calls_evidence: "UNKNOWN",
+    network_calls_evidence_ref: null,
+    linear_mutations: null,
+    mutation_evidence: "unknown_injected_provider",
+  });
+});
+
+test("injected readPage calls remain network UNKNOWN unless an exact independent binding is supplied", async () => {
+  const reader = createLinearLb1ActualReader(readerConfig(async () => page({
+    issues: [rawIssue()], pageCatalog: catalog(),
+  })));
+  const collection = await reader.collectSnapshot(sourceScope());
+
+  assert.equal(collection.collector.provider_calls, 1);
+  assert.equal(collection.collector.network_calls, null);
+  assert.equal(collection.collector.network_calls_evidence, "UNKNOWN");
+  assert.equal(collection.collector.network_calls_evidence_ref, null);
+
+  const unsupportedCount = {
+    ...collection.collector,
+    network_calls: collection.collector.provider_calls,
+  };
+  assert.throws(() => collectActualLinearLb1V2Snapshot(collection.snapshot, {
+    status: collection.collection_status,
+    missing_dimensions: collection.declared_missing_dimensions,
+    errors: collection.errors,
+    collector: unsupportedCount,
+  }), /linear_lb1_v2_actual_collector_invalid/);
+
+  const independentBindingRef = ref("network-effect-binding-01");
+  const independentlyBound = collectActualLinearLb1V2Snapshot(collection.snapshot, {
+    status: collection.collection_status,
+    missing_dimensions: collection.declared_missing_dimensions,
+    errors: collection.errors,
+    collector: {
+      ...collection.collector,
+      network_calls: 3,
+      network_calls_evidence: "EXACT_INDEPENDENT_BINDING",
+      network_calls_evidence_ref: independentBindingRef,
+    },
+  });
+  assert.deepEqual(independentlyBound.effects, {
+    provider_calls: 1,
+    storage_writes: 0,
+    network_calls: 3,
+    network_calls_evidence: "EXACT_INDEPENDENT_BINDING",
+    network_calls_evidence_ref: independentBindingRef,
+    filesystem_writes: 0,
+    scheduler_changes: 0,
   });
 });
 
@@ -299,7 +351,13 @@ test("normalized actual collection seals, byte-round-trips, and restores without
   assert.equal(run.manifest.collection_evidence.cursor_ledger_sha256, collection.collector.cursor_ledger_sha256);
   assert.equal(run.manifest.collection_evidence.attachment_allowlist_sha256, ATTACHMENT_POLICY_REF.content_id);
   assert.deepEqual(run.effects, {
-    provider_calls: 1, storage_writes: 0, network_calls: 1, filesystem_writes: 0, scheduler_changes: 0,
+    provider_calls: 1,
+    storage_writes: 0,
+    network_calls: null,
+    network_calls_evidence: "UNKNOWN",
+    network_calls_evidence_ref: null,
+    filesystem_writes: 0,
+    scheduler_changes: 0,
   });
   const restore = checkLinearLb1RestoreV2(run, readback.revision.snapshot, { artifact_kinds: ["immutable_revision"] });
   assert.equal(restore.complete, false);

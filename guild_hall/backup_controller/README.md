@@ -315,21 +315,29 @@ or deletion watermark, `cutoff_completeness` remains `PARTIAL` even after a
 terminal page. Whole-workspace arrays are capped consistently at 100,000 issues;
 the reader fails closed at its lower Owner-bound resource limit.
 
-The v2 Owner packet is refs-only: its single-use claim is an opaque
-`single_use_token_ref`, not token material. The packet also pins a
+The ref-bound v2 Owner-packet profile is refs-only: its single-use claim is an
+opaque `single_use_token_ref`, not token material. It also pins a
 `capture_consistency` decision (`quiesced` or Owner-accepted non-quiesced),
-cutoff/cursor requirements, and the rule that incompatible source drift becomes
-`PARTIAL/HOLD`. The actual reader feeds the existing immutable generation,
-serialization, exact-byte readback, and isolated restore functions through a
-distinct actual-provenance contract. Its manifest binds adapter/cursor-ledger
-evidence and records observed provider/network calls; it cannot be sealed as
-feature-OFF synthetic data. Physical storage remains a separate runtime gate,
-and injected-provider mutation evidence is explicitly `UNKNOWN`, never inferred
-from the read-only interface. The existing one-shot runner still treats
-synthetic adapter evidence as its only success authority until a reviewed
-actual-effect binding is supplied. Legacy v2 synthetic snapshots and manifests
-without the additive label/attachment fields remain accepted and retain their
-original exact serialized shape.
+cutoff/cursor requirements, attachment policy, and the rule that incompatible
+source drift becomes `PARTIAL/HOLD`. Exact legacy v2 synthetic packets remain
+accepted through their original private `single_use_token` shape so existing
+callers do not break; that material stays inside claim consumption and is never
+included in gate or runner receipts.
+
+The actual reader feeds the existing immutable generation, serialization,
+exact-byte readback, and isolated restore functions through a distinct
+actual-provenance contract. Its manifest binds adapter/cursor-ledger evidence
+and records injected reader invocations as `provider_calls`; an injected
+`readPage` invocation is not network evidence, so `network_calls` is `null`
+with state `UNKNOWN`. A non-null network count is valid only with an exact
+independent binding ref, which this foundation does not create. It cannot be
+sealed as feature-OFF synthetic data. Physical storage remains a separate
+runtime gate, and injected-provider mutation evidence is explicitly `UNKNOWN`,
+never inferred from the read-only interface. The existing one-shot runner still
+treats synthetic adapter evidence as its only success authority until a
+reviewed actual-effect binding is supplied. Legacy v2 synthetic snapshots and
+manifests without the additive label/attachment fields remain accepted and
+retain their original exact serialized shape.
 
 ## Validation
 

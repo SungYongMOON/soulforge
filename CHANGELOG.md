@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-31 - Linear LB1 actual-reader repair remains default-OFF
+
+- The Backup-Recovery extension now includes `linear_lb1_actual_reader.mjs` and its full test in the generated source closure: 51 files, 15 declared smoke entries, and no exclusions. This is an enrollment and spec-drift repair only; it does not claim a fresh isolated-install smoke receipt, any Linear credential/client access, a storage write, a restore acceptance, or an actual one-shot.
+- An injected `readPage` invocation is recorded only as a reader invocation. It no longer becomes a `network_calls` count: the default evidence is `UNKNOWN` with `network_calls: null`; a non-null count requires a separately exact independent binding ref. Actual backup remains `HOLD_BEFORE_WRITE`.
+- Owner-gate v2 retains an exact legacy packet compatibility path so prior synthetic callers with a private `single_use_token` do not break. Token material remains inside claim consumption and is absent from gate and runner results; the ref-bound v2 profile uses only `single_use_token_ref` and carries the actual-reader attachment/consistency bindings.
+
 ## 2026-08-30 - Physical spine R1-R3 contract surfaces land fails-closed (guild_hall/path_registry)
 
 - New module `guild_hall/path_registry` pins plan-17's R1-R3 as pure in-memory contract surfaces: the ten-class physical-root enum and multi-axis record schema, a no-fallback resolver whose every failure is a stable typed HOLD, and operation-aware write authorization bound to exact registry revision + binding epoch + writer identity (append-vs-overwrite, current/target fencing, sole-writer revocation, and a GLOBAL delete/move gate until the R7 migration leaf). The tracked seed registers 31 public-safe rows - 10 roots, 7 canonical roots, `_workmeta`/`private-state` as explicit multi-axis nested planes, and all 12 plan-10 sources with the 4 unobserved lanes as explicit `held` rows - under four `hold:od-10.*` authority sentinels, so every mutating authorization fails closed (`authority_unresolved_od10`) and `registryReadiness` reports HOLD. No live writer, guard hook, or binding value exists anywhere in the module.

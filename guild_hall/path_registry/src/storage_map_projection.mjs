@@ -17,7 +17,10 @@
 // explicit registry record. No writer fields, raw bodies, credentials, or
 // absolute paths. This module files nothing and executes nothing.
 
-import { PATH_REGISTRY_SCHEMA } from "./path_registry_core.mjs";
+import {
+  authorityHolds,
+  verifyRegistrySnapshot,
+} from "./path_registry_core.mjs";
 import { PANEL_STATES } from "../../watch_panel_contract/src/watch_panel_contract.mjs";
 
 export const STORAGE_MAP_SCHEMA = "soulforge.watch_storage_map.v0";
@@ -25,11 +28,17 @@ export const STORAGE_MAP_SCHEMA = "soulforge.watch_storage_map.v0";
 export const STORAGE_MAP_ROW_KINDS = Object.freeze(["root", "source", "asset_class"]);
 
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
+const REF = /^[a-z][a-z0-9_.:/-]{1,160}$/;
 
 const EVIDENCE_KEYS = Object.freeze([
   "binding_state", "latest_capture_ref", "backup_generation_ref",
   "freshness_state", "retention_policy_ref", "rpo_policy_ref",
   "restore_test_ref", "human_acceptance_state", "evidence_at",
+]);
+
+const EVIDENCE_REF_KEYS = Object.freeze([
+  "latest_capture_ref", "backup_generation_ref", "retention_policy_ref",
+  "rpo_policy_ref", "restore_test_ref",
 ]);
 
 const BINDING_STATES = Object.freeze(["bound", "unbound", "unavailable"]);
@@ -66,6 +75,20 @@ function absolutePathLeak(value) {
       || value.startsWith("//") || value.startsWith("/") || value.includes("\\"));
 }
 
+function publicSafeOpaqueRef(value) {
+  return typeof value === "string" && REF.test(value)
+    && !value.startsWith("hold:") && !absolutePathLeak(value);
+}
+
+function containsOd10Hold(value) {
+  if (typeof value === "string") return value.startsWith("hold:od-10.");
+  if (Array.isArray(value)) return value.some(containsOd10Hold);
+  if (value && typeof value === "object") {
+    return Object.values(value).some(containsOd10Hold);
+  }
+  return false;
+}
+
 function validateEvidence(record, id) {
   if (record === null || typeof record !== "object" || Array.isArray(record)) {
     return { error: hold("evidence_invalid", id) };
@@ -79,6 +102,10 @@ function validateEvidence(record, id) {
     }
     if (absolutePathLeak(record[key])) {
       return { error: hold("evidence_absolute_path", `${id}:${key}`) };
+    }
+    if (EVIDENCE_REF_KEYS.includes(key) && record[key] !== undefined
+        && !publicSafeOpaqueRef(record[key])) {
+      return { error: hold("evidence_ref_invalid", `${id}:${key}`) };
     }
   }
   if (typeof record.evidence_at !== "string" || !ISO.test(record.evidence_at)) {
@@ -103,7 +130,10 @@ function rowKindFor(registryRowKind) {
   return "root";
 }
 
-function watchStateFor(record, evidence) {
+function watchStateFor(record, evidence, authorityUnresolved) {
+  if (authorityUnresolved) {
+    return { watch_state: "hold", hold_code: "authority_unresolved_od10" };
+  }
   if (record.current_state === "held" || record.current_state === "unknown"
       || record.current_state === "deprecated") {
     return { watch_state: "hold", hold_code: "record_held" };
@@ -140,16 +170,12 @@ export function aggregateStorageMapState(states) {
 }
 
 export function buildStorageMap({ registry_snapshot, evidence = {}, unclassified_count = 0 } = {}) {
-  if (registry_snapshot === null || typeof registry_snapshot !== "object"
-      || registry_snapshot.schema !== PATH_REGISTRY_SCHEMA
-      || typeof registry_snapshot.snapshot_digest !== "string"
-      || !Array.isArray(registry_snapshot.rows)) {
-    return hold("snapshot_invalid");
-  }
+  const verifiedSnapshot = verifyRegistrySnapshot(registry_snapshot);
+  if (verifiedSnapshot.status === "hold") return verifiedSnapshot;
   if (!Number.isInteger(unclassified_count) || unclassified_count < 0) {
     return hold("unclassified_count_invalid");
   }
-  const known = new Set(registry_snapshot.rows.map((row) => row.logical_path_id));
+  const known = new Set(verifiedSnapshot.rows.map((row) => row.logical_path_id));
   for (const id of Object.keys(evidence)) {
     // Registry-driven coverage: evidence can qualify registered rows, never
     // add rows the registry does not know.
@@ -158,8 +184,9 @@ export function buildStorageMap({ registry_snapshot, evidence = {}, unclassified
 
   const rows = [];
   const aggregateInputs = [];
+  const globalAuthorityUnresolved = authorityHolds(verifiedSnapshot).length > 0;
   let expected = 0;
-  for (const record of registry_snapshot.rows) {
+  for (const record of verifiedSnapshot.rows) {
     const applicable = record.applicability !== "not_applicable";
     let rowEvidence;
     if (evidence[record.logical_path_id] !== undefined) {
@@ -167,8 +194,11 @@ export function buildStorageMap({ registry_snapshot, evidence = {}, unclassified
       if (outcome.error) return outcome.error;
       rowEvidence = outcome.evidence;
     }
-    const state = applicable
-      ? watchStateFor(record, rowEvidence)
+    const authorityUnresolved = globalAuthorityUnresolved || containsOd10Hold(record);
+    const state = authorityUnresolved
+      ? watchStateFor(record, rowEvidence, true)
+      : applicable
+        ? watchStateFor(record, rowEvidence, false)
       : { watch_state: "unknown", hold_code: null };
     if (applicable) {
       expected += 1;
@@ -182,8 +212,8 @@ export function buildStorageMap({ registry_snapshot, evidence = {}, unclassified
       row_kind: rowKindFor(record.row_kind),
       logical_id: record.logical_path_id,
       physical_root_class: record.physical_root_class,
-      registry_snapshot_ref: registry_snapshot.snapshot_digest,
-      registry_snapshot_digest: registry_snapshot.snapshot_digest,
+      registry_snapshot_ref: verifiedSnapshot.snapshot_digest,
+      registry_snapshot_digest: verifiedSnapshot.snapshot_digest,
       registry_record_ref: record.logical_path_id,
       topology_node_refs: [...(record.topology_node_refs ?? [])],
       binding_state: rowEvidence?.binding_state ?? "unknown",
@@ -209,20 +239,23 @@ export function buildStorageMap({ registry_snapshot, evidence = {}, unclassified
   }
   for (const row of rows) row.coverage_expected = expected;
 
-  if (unclassified_count > 0) aggregateInputs.push("hold");
+  if (globalAuthorityUnresolved || unclassified_count > 0) aggregateInputs.push("hold");
   const aggregate = aggregateStorageMapState(aggregateInputs);
+  const summaryHoldCode = unclassified_count > 0
+    ? "unclassified_paths"
+    : globalAuthorityUnresolved ? "authority_unresolved_od10" : undefined;
   return deepFreeze({
     status: "projected",
     schema: STORAGE_MAP_SCHEMA,
     projection_kind: "backup_readiness_overlay",
-    registry_snapshot_digest: registry_snapshot.snapshot_digest,
+    registry_snapshot_digest: verifiedSnapshot.snapshot_digest,
     rows,
     summary: {
       coverage_registered: known.size,
       coverage_expected: expected,
       unclassified_count,
       aggregate_state: aggregate,
-      ...(unclassified_count > 0 ? { hold_code: "unclassified_paths" } : {}),
+      ...(summaryHoldCode === undefined ? {} : { hold_code: summaryHoldCode }),
     },
   });
 }
