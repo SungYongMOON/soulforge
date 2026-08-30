@@ -46,7 +46,9 @@ export const PACK_CATALOG = Object.freeze([
   }),
   Object.freeze({
     pack_id: "backup_recovery_extension",
-    contains: Object.freeze(["recovery_policy_adapter", "test_fixtures"]),
+    // shared_modules/manifests/validators joined when the tracked spec
+    // landed (the hpp/team_client precedent).
+    contains: Object.freeze(["recovery_policy_adapter", "test_fixtures", "shared_modules", "manifests", "validators"]),
     must_not_contain: Object.freeze(["secret_backup", "unapproved_source_bytes"]),
     initial_release_gate: "capture + isolated restore + human restore acceptance",
   }),

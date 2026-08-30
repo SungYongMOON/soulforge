@@ -66,6 +66,10 @@ test("catalog pins the five packs with boundaries, and schema/enums match the pl
   for (const role of ["shared_modules", "manifests", "validators"]) {
     assert.equal(teamClient.contains.includes(role), true, `team_client contains ${role}`);
   }
+  const backupRecovery = PACK_CATALOG.find((entry) => entry.pack_id === "backup_recovery_extension");
+  for (const role of ["shared_modules", "manifests", "validators"]) {
+    assert.equal(backupRecovery.contains.includes(role), true, `backup_recovery contains ${role}`);
+  }
 });
 
 test("a draft manifest with complete references validates; missing manuals fail closed", () => {

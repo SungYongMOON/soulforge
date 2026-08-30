@@ -199,6 +199,20 @@ test("the real team_client_pack spec builds: source pack with shared-module clos
   assert.equal(spec.test_cwd, "ui-workspace/apps/team-ops-board");
 });
 
+test("the real backup_recovery_extension spec builds: module pack with full-suite smoke, feature-OFF only", () => {
+  const specPath = join(REPO_ROOT, "guild_hall", "deployment_pack", "packs", "backup_recovery_extension.spec.json");
+  const built = buildPack(specPath, { rootDir: REPO_ROOT, outDir: tempDir("outBackupRec"), clock: fixedClock, runner: okRunner });
+  assert.equal(built.manifest.pack_id, "backup_recovery_extension");
+  // Pinned so growth is a conscious re-emit (the emitter's --check gates it).
+  assert.equal(built.manifest.files.length, 49);
+  assert.equal(built.candidate.claimed_gate, "contract",
+    "capture/restore/acceptance stay unclaimed - the initial gate needs Owner-side human acceptance");
+  const spec = loadPackSpec(specPath);
+  assert.equal(spec.installed_smoke_entries.length, spec.smoke_test_entries.length,
+    "the declared installed smoke is the FULL module suite");
+  assert.deepEqual(spec.installed_smoke_excluded, []);
+});
+
 test("a same-outDir rebuild clears the pack dir: dropped files can never survive as orphans", () => {
   const root = syntheticRoot();
   const extraPath = join(root, "guild_hall", "tool_workshop", "src", "dropped_later.mjs");

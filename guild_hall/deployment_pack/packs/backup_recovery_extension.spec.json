@@ -1,0 +1,142 @@
+{
+  "schema": "soulforge.deployment_pack_spec.v0",
+  "pack_id": "backup_recovery_extension",
+  "version": "0.1.0",
+  "content_roles": {
+    "recovery_policy_adapter": [
+      "guild_hall/backup_controller/README.md",
+      "guild_hall/backup_controller/activation.mjs",
+      "guild_hall/backup_controller/activation.schema.json",
+      "guild_hall/backup_controller/activation_cli.mjs",
+      "guild_hall/backup_controller/automation.mjs",
+      "guild_hall/backup_controller/automation_cli.mjs",
+      "guild_hall/backup_controller/binding.schema.json",
+      "guild_hall/backup_controller/cli.mjs",
+      "guild_hall/backup_controller/controller.mjs",
+      "guild_hall/backup_controller/executors.mjs",
+      "guild_hall/backup_controller/fixed_process.mjs",
+      "guild_hall/backup_controller/linear_lb1.mjs",
+      "guild_hall/backup_controller/linear_lb1_fixture.mjs",
+      "guild_hall/backup_controller/linear_lb1_one_shot_runner.mjs",
+      "guild_hall/backup_controller/linear_lb1_owner_gate.mjs",
+      "guild_hall/backup_controller/linear_lb1_owner_gate_v2.mjs",
+      "guild_hall/backup_controller/linear_lb1_runtime_adapters.mjs",
+      "guild_hall/backup_controller/linear_lb1_synthetic_adapters.mjs",
+      "guild_hall/backup_controller/linear_lb1_v2.mjs",
+      "guild_hall/backup_controller/linear_lb1_v2_fixture.mjs",
+      "guild_hall/backup_controller/preflight.mjs",
+      "guild_hall/backup_controller/quiesced_automation_cli.mjs",
+      "guild_hall/backup_controller/receipts.mjs",
+      "guild_hall/backup_controller/recovery_worker.mjs",
+      "guild_hall/backup_controller/retention_canary_gate.mjs",
+      "guild_hall/backup_controller/retention_preservation_gate.mjs",
+      "guild_hall/backup_controller/runtime_ops_worker.mjs",
+      "guild_hall/backup_controller/windows_task_bridge.ps1",
+      "guild_hall/backup_controller/writer_quiesce.mjs",
+      "guild_hall/backup_controller/writer_quiesce.schema.json"
+    ],
+    "shared_modules": [
+      "guild_hall/ingress/collector.mjs",
+      "guild_hall/ingress/recovery.mjs",
+      "guild_hall/shared/physical_path_identity.mjs",
+      "ui-workspace/apps/dev-erp/tools/runtime_ops.mjs"
+    ],
+    "manifests": [
+      "guild_hall/backup_controller/module.manifest.json"
+    ],
+    "validators": [
+      "guild_hall/backup_controller/activation.test.mjs",
+      "guild_hall/backup_controller/controller.test.mjs",
+      "guild_hall/backup_controller/daily_cycle.test.mjs",
+      "guild_hall/backup_controller/executors.test.mjs",
+      "guild_hall/backup_controller/linear_lb1.test.mjs",
+      "guild_hall/backup_controller/linear_lb1_one_shot_runner.test.mjs",
+      "guild_hall/backup_controller/linear_lb1_owner_gate.test.mjs",
+      "guild_hall/backup_controller/linear_lb1_owner_gate_v2.test.mjs",
+      "guild_hall/backup_controller/linear_lb1_runtime_adapters.test.mjs",
+      "guild_hall/backup_controller/linear_lb1_v2.test.mjs",
+      "guild_hall/backup_controller/preflight.test.mjs",
+      "guild_hall/backup_controller/retention_canary_gate.test.mjs",
+      "guild_hall/backup_controller/retention_preservation_gate.test.mjs",
+      "guild_hall/backup_controller/writer_quiesce.test.mjs"
+    ]
+  },
+  "test_concurrency": 4,
+  "smoke_test_entries": [
+    "guild_hall/backup_controller/activation.test.mjs",
+    "guild_hall/backup_controller/controller.test.mjs",
+    "guild_hall/backup_controller/daily_cycle.test.mjs",
+    "guild_hall/backup_controller/executors.test.mjs",
+    "guild_hall/backup_controller/linear_lb1.test.mjs",
+    "guild_hall/backup_controller/linear_lb1_one_shot_runner.test.mjs",
+    "guild_hall/backup_controller/linear_lb1_owner_gate.test.mjs",
+    "guild_hall/backup_controller/linear_lb1_owner_gate_v2.test.mjs",
+    "guild_hall/backup_controller/linear_lb1_runtime_adapters.test.mjs",
+    "guild_hall/backup_controller/linear_lb1_v2.test.mjs",
+    "guild_hall/backup_controller/preflight.test.mjs",
+    "guild_hall/backup_controller/retention_canary_gate.test.mjs",
+    "guild_hall/backup_controller/retention_preservation_gate.test.mjs",
+    "guild_hall/backup_controller/writer_quiesce.test.mjs"
+  ],
+  "installed_smoke_entries": [
+    "guild_hall/backup_controller/activation.test.mjs",
+    "guild_hall/backup_controller/controller.test.mjs",
+    "guild_hall/backup_controller/daily_cycle.test.mjs",
+    "guild_hall/backup_controller/executors.test.mjs",
+    "guild_hall/backup_controller/linear_lb1.test.mjs",
+    "guild_hall/backup_controller/linear_lb1_one_shot_runner.test.mjs",
+    "guild_hall/backup_controller/linear_lb1_owner_gate.test.mjs",
+    "guild_hall/backup_controller/linear_lb1_owner_gate_v2.test.mjs",
+    "guild_hall/backup_controller/linear_lb1_runtime_adapters.test.mjs",
+    "guild_hall/backup_controller/linear_lb1_v2.test.mjs",
+    "guild_hall/backup_controller/preflight.test.mjs",
+    "guild_hall/backup_controller/retention_canary_gate.test.mjs",
+    "guild_hall/backup_controller/retention_preservation_gate.test.mjs",
+    "guild_hall/backup_controller/writer_quiesce.test.mjs"
+  ],
+  "installed_smoke_excluded": [],
+  "release_notes_ref": "release_notes.backup_recovery_extension.v0_1_0",
+  "install_manual_ref": "manual.install.backup_recovery_extension",
+  "upgrade_manual_ref": "manual.upgrade.backup_recovery_extension",
+  "rollback_manual_ref": "manual.rollback.backup_recovery_extension",
+  "support_owner_ref": "owner.platform_support",
+  "secret_refs": [],
+  "content_scan_reviewed_files": [
+    {
+      "path": "guild_hall/backup_controller/linear_lb1.mjs",
+      "sha256": "805246620d3c7e071d670de3ebb97874695879f2ffadf7f60c1102f99c9b212e"
+    },
+    {
+      "path": "guild_hall/backup_controller/linear_lb1_owner_gate.mjs",
+      "sha256": "d0467829277697706428b7f4486a976e70d82f6f0ca02fbd34654c1d73300b5c"
+    },
+    {
+      "path": "guild_hall/backup_controller/linear_lb1_owner_gate_v2.mjs",
+      "sha256": "66dc02f2073b173a964483d329391866ff7550f5fa0b73f002d5df6cd55aed36"
+    },
+    {
+      "path": "guild_hall/backup_controller/linear_lb1_runtime_adapters.mjs",
+      "sha256": "93a3a872eb8c0b1977566cd65a229805e26b52f4739f74e3c842bd33c7c1b9a8"
+    },
+    {
+      "path": "guild_hall/backup_controller/linear_lb1_runtime_adapters.test.mjs",
+      "sha256": "963b9e55c93f1886d2e5d0977b273b7c6dae793bde95b68ac821fdf080d703d6"
+    },
+    {
+      "path": "guild_hall/backup_controller/linear_lb1_v2.mjs",
+      "sha256": "8d91c64c88297e02559cefcd9583c4e72337a82fbc587e34701a5e36fe7e8b9f"
+    },
+    {
+      "path": "guild_hall/backup_controller/linear_lb1_v2.test.mjs",
+      "sha256": "0b5cfcaa43dac01c8bbf2c26b418d5f60ba77581ddb8bd33d1b19c2ae63f2471"
+    },
+    {
+      "path": "guild_hall/backup_controller/linear_lb1_v2_fixture.mjs",
+      "sha256": "a9a8cc0b85b8f4879f9a80422ebe0967e0616520115346893d5f84a8ce05b49b"
+    },
+    {
+      "path": "guild_hall/ingress/recovery.mjs",
+      "sha256": "f1a24c44353217a006609c3b3e4f7653b8b3c188ec9a369945965a4a349391ff"
+    }
+  ]
+}

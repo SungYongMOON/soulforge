@@ -30,5 +30,5 @@
   ],
   "release_digest": null,
   "deprecation_state": "active",
-  "authority_notes": "Risk-based enrollment: this module is a DIRECT dependency of the team_client pack closure(s). Purpose: feature-OFF single-writer daily backup composition with activation/binding validation and one durable state ledger. This manifest records operability metadata only and grants no runtime, service, writer, or authority; the module's own README/contract stays authoritative. Representative validator listed; the module's full suite runs in its owning validate script, and the module CODE is additionally exercised by the consuming apps' suites inside the packs' installed smoke (the module's own suite does not run there)."
+  "authority_notes": "Risk-based enrollment: this module is a DIRECT dependency of the team_client pack closure(s). Purpose: feature-OFF single-writer daily backup composition with activation/binding validation and one durable state ledger. This manifest records operability metadata only and grants no runtime, service, writer, or authority; the module's own README/contract stays authoritative. Representative validator listed; the module's full suite runs in its owning validate script AND as the backup_recovery_extension pack's own installed smoke (14/14), while the consuming apps' suites exercise the module CODE indirectly."
 }
