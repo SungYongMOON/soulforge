@@ -35,7 +35,9 @@ Soulforge Engineering OS             source_checkout
                                       project_work_root
                                       tool_root
                                       recovery_root
+                                      external_runtime_root
                                       external_owner_store
+                                      secret_owner_root
 ```
 
 A product can use several physical roots, and a physical root can serve several products. Product folders are catalog views and release manifests, not a reason to duplicate bytes or create competing sources of truth.
@@ -53,7 +55,27 @@ Host-local path values remain private/runtime configuration. Read-only metadata 
 | `project_work_root` | `COMMON`, `MFG`, `PJT`, `TOOL`; project/year/role branches | operational Bot/project work organization, not Official Task or artifact truth |
 | `tool_root` | specialist tool support | tool/runtime owner, not project canon by itself |
 | `recovery_root` | isolated recovery-test targets | test-only recovery surface |
+| `external_runtime_root` | source-local Buzz/Hermes and later managed runtime bindings | external/runtime owner; not Soulforge installed runtime or ERP truth |
 | `external_owner_store` | source SaaS, Drive, NAS, source repositories | original/source-local authority under its ACL |
+| `secret_owner_root` | OS/Secret Manager protected identity and credential custody | never materialized in public canon or `data_root`; registry stores `secret_ref` only |
+
+### Alias crosswalk with plan 15
+
+| Plan 15 alias | Plan 17 root class |
+| --- | --- |
+| `source_checkout` | `source_checkout` |
+| `runtime_checkout` | `runtime_root` |
+| `data_plane` | `data_root` |
+| `control_plane` | `control_root` |
+| `buzz_runtime` | `external_runtime_root` |
+| `bot_worktree` | `project_work_root` |
+
+`_workmeta` and `private-state` are nested private repositories whose current
+physical containment may be under a source checkout, but their logical records
+belong to `data_root` and `control_root` respectively. `_workspaces` is a
+project-materialization surface mapped to `project_work_root` or the exact
+approved `external_owner_store` binding by project policy. R1 must register
+these as explicit multi-axis rows rather than infer ownership from containment.
 
 The current `data_root` already has mail, Slack, voice, PC activity, team-file, run-log, quarantine, runtime, checkpoint, receipt, and timeline surfaces. The problem is not an empty disk: people see processing stages while they need a stable source- and asset-oriented catalog view. Linear, cloud/Drive, Buzz, Hermes, knowledge, and cross-project asset views are not yet materialized as one coherent ERP-facing catalog.
 
@@ -69,18 +91,25 @@ data_root/
 │  ├─ storage-classes/
 │  ├─ asset-classes/
 │  └─ legacy-path-map/
-├─ 10_EXTERNAL_SOURCES/
+├─ 10_SOURCE_CAPTURE_CATALOG/
 │  ├─ linear/
 │  ├─ slack/
 │  ├─ mail/
 │  ├─ voice-plaud/
 │  ├─ cloud-drive/
 │  ├─ buzz/
+│  ├─ hermes/
 │  ├─ pc-activity/
 │  ├─ team-files/
 │  └─ run-logs/
 ├─ 20_PROJECTS/
 │  └─ <project-ref>/
+├─ 25_EVENT_TIMELINE/
+│  ├─ occurrences/
+│  ├─ correlations/
+│  ├─ decisions/
+│  ├─ validity-intervals/
+│  └─ supersession/
 ├─ 30_KNOWLEDGE/
 │  ├─ source-catalog/
 │  ├─ ontology/
@@ -121,14 +150,19 @@ data_root/
 
 This view does not require all bytes to move. A catalog entry may point to a current approved source/custody root, immutable revision store, backup generation, or rebuildable projection. A physical copy is permitted only by its source-kind policy and exact promotion/backup gate.
 
+`25_EVENT_TIMELINE` is durable event memory for the World Tree and company
+history; `90_PROJECTIONS` is rebuildable presentation. They must not be merged.
+The `secret_owner_root` has no directory in this target tree: plaintext secret
+material is a forbidden materialization class.
+
 ## Uniform external-source lane
 
 ```text
-10_EXTERNAL_SOURCES/<source-id>/
+10_SOURCE_CAPTURE_CATALOG/<source-id>/
 ├─ binding/
 ├─ capture-generations/
 ├─ manifests/
-├─ backup-generations/
+├─ backup-generation-refs/
 ├─ restore-tests/
 ├─ receipts/
 ├─ quarantine-refs/
@@ -136,7 +170,13 @@ This view does not require all bytes to move. A catalog entry may point to a cur
 └─ legacy-path-map/
 ```
 
-`legacy-path-map` is metadata, not a symlink, silent fallback, or second writer. Each source remains independently scoped, credentialed, retained, backed up, and restored.
+`legacy-path-map` is metadata, not a symlink, silent fallback, or second writer.
+`backup-generation-refs` points to the canonical generation/index owned by
+`60_BACKUP_GENERATIONS`; it never duplicates generation bytes. Each source
+remains independently scoped, credentialed, retained, backed up, and restored.
+`pc-activity`, `team-files`, and `run-logs` use `source_class: internal_capture`;
+Linear, Slack, mail, voice, cloud, Buzz, and Hermes use the exact external or
+runtime source class rather than being silently treated as equivalent.
 
 ## Path Registry contract
 
@@ -158,7 +198,21 @@ Every registered path record contains at least:
 | `manifest_ref` / `latest_receipt_ref` | exact evidence without payload |
 | `migration_ref` / `rollback_ref` | bounded change and recovery pointers |
 
-Callers use a resolver such as `resolve(logical_path_id, actor_context)` and do not embed new absolute paths. An unregistered write fails closed. The resolver is not source truth, task, acceptance, or promotion authority.
+Callers use a resolver such as `resolve(logical_path_id, actor_context)` and do
+not embed new absolute paths. Registry schema version and resolver version are
+explicit. Registry unavailable, schema incompatible, ambiguous binding, scope
+mismatch, expired binding, or unregistered write returns a stable HOLD with no
+legacy/default/environment fallback. The write guard initially binds the R1/R2
+materializer and every newly changed program writer; existing live collectors
+remain reference-in-place until their named R5 migration leaf, where guard
+adoption and writer cutover are proven. The resolver is not source truth, task,
+acceptance, or promotion authority.
+
+When the same source has both data and control paths, payload/capture/generation
+bytes and their manifests resolve under `data_root`; writer authority, leases,
+operational checkpoints, rollback instructions, and control receipts resolve
+under `control_root`. A control receipt may reference data but cannot own or
+rewrite it.
 
 ## Existing-path migration rule
 
@@ -190,6 +244,10 @@ rpo_policy_state | migration_state | evidence_at | owner_pointer | hold_code
 
 Missing evidence renders `unknown` or `hold`, never green. 4192 excludes source bodies, project payload, credentials, private Agent memory, deep Buzz/Hermes sessions, and raw logs. It files an approval request at most; Bastion owns any later action execution.
 
+Adapters map source/storage states into plan 08's Watch-local enum
+`healthy|degraded|stale|unavailable|unknown|hold`; no source-specific state
+silently widens that enum or creates a green state.
+
 ## Original-vision coverage checklist
 
 | Class | Included examples |
@@ -213,15 +271,18 @@ This is broader than the first Linear or KVDS vertical. A first vertical proves 
 | Order | Leaf | Exit evidence |
 | --- | --- | --- |
 | R0 | Physical Architecture rebaseline | reviewed root/data/source/asset map and no-move contract |
-| R1 | Path Registry + resolver contract | current paths registered by private binding refs; unregistered write fails closed |
-| R2 | Target folder materializer | dry-run/apply to an approved root, idempotent replay, existing payload move 0 |
-| R3 | 4192 Storage & Backup Map | full source/root row coverage, unknown without evidence, no writer/raw fields |
+| R1 | Path Registry + resolver contract | `validate:path-registry` target: schema/version/root/owner/current-target rows, no fallback, guarded program writers, unregistered write fails closed |
+| R2 | Target folder materializer | `validate:target-materializer` target: exact `approved_empty_materialization_root_ref`, dry-run/apply, idempotent replay, existing payload move 0, rollback removes only empty directories created by this operation |
+| R3 | 4192 Storage & Backup Map | `validate:watch-storage-map` target: full source/root row coverage, state-adapter mapping, unknown without evidence, no writer/raw fields |
 | R4 | Linear whole-workspace actual backup | capture, immutable generation, readback, isolated restore, human acceptance |
 | R5 | Existing source lanes | Slack, mail, voice, cloud, Buzz, Hermes, knowledge, project assets — one at a time |
 | R6 | Agent/project/tool bindings | Project AI Team Pack, Team Client, Workshop, actual project vertical |
 | R7 | Physical migration/retirement | caller, restore, compatibility, rollback, and Owner gates pass |
 
-R0–R3 are the organization spine and precede new product/provider expansion. R4 starts after external/storage/restore gates. R5–R7 remain incremental and do not justify a big-bang relocation.
+R0–R3 are the organization spine and precede remaining actual-provider and
+physical expansion; they do not retroactively block the already-completed
+synthetic MCP/Vault/Forge leaves. R4 starts after external/storage/restore
+gates. R5–R7 remain incremental and do not justify a big-bang relocation.
 
 ## Acceptance and stop conditions
 

@@ -50,6 +50,9 @@ Failure at any point preserves the prior official task/revision and produces `HO
 | Watch/Bastion | Projection no-writer tests, incident/action receipt separation, restore/recovery tests |
 | Connectors | Cursor/dedupe/coverage/partial/deletion, capture manifest, source binding, isolated restore/reconciliation |
 | Packs/modules | Manifest/schema compatibility, dependency DAG/cycle check, startup preflight, upgrade/rollback/install/smoke, SBOM/checksum evidence |
+| Path Registry/resolver | Exact schema/version/root/owner coverage, private binding refs, ambiguity/expiry/scope/unavailable HOLD, no fallback, guarded unregistered-write rejection |
+| Folder materializer | Approved empty canary root, dry-run/apply parity, path containment, idempotent replay, existing-payload move 0, empty-created-directory rollback |
+| 4192 Storage Map | All registered root/source rows, source-to-panel state mapping, unknown-without-evidence, no raw/secret/writer fields, safe owner pointers |
 
 ## Current measured validation facts
 

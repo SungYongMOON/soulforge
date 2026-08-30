@@ -9,15 +9,17 @@ The active repository roadmap is not changed by this suite. These are implementa
 ```mermaid
 flowchart LR
   R[RED stabilization] --> P[Plan/canon acceptance]
+  P --> M[Team Member MCP foundations]
   P --> O[Physical organization spine]
-  O --> M[Team Member MCP foundations]
   M --> V[Vault ArtifactRevision vertical]
   V --> F[Forge actual vertical]
+  O --> F
   F --> G[Guild / Buzz one-seat pilot]
   G --> W[Watch / Bastion projection & recovery]
   W --> T[First Tool Workshop]
   T --> D[Deployment, education, team pilot]
   P --> X[External connector backup lanes]
+  O --> X
   X --> W
 ```
 

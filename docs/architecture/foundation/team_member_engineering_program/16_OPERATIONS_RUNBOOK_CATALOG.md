@@ -18,6 +18,9 @@ Manuals describe a bounded approved procedure. They do not store credentials, ra
 | 4192 incident response | Watch operator | interpret health/freshness, open safe pointer, request action, validate Bastion receipt | request-to-receipt trace |
 | External connector backup/restore | Connector operator | source scope, read-only capture, cursor/dedupe, generation/manifest, isolated restore/reconciliation | human restore acceptance |
 | Workshop operator | Tool operator | request/lease/fence, input/output bundle, validator, timeout/retry/rollback, capacity management | lease + validator + custody receipt |
+| Path Registry and resolver | Platform operator | schema/version, root and owner rows, private binding refs, lookup/HOLD behavior, write-guard coverage, legacy migration state | complete registry validation and no-fallback/unregistered-write tests |
+| Target folder materializer | Platform operator | approved empty root, dry-run/apply, created-directory ledger, idempotent replay, empty-only rollback, stop conditions | materializer receipt and rollback rehearsal |
+| 4192 Storage & Backup Map | Watch operator | root/source row interpretation, state mapping, freshness, backup/restore evidence, unclassified paths, safe owner pointers | full-coverage no-writer projection test |
 | New-hire training | New team member | work/material distinction, security, HOLD/escalation, submission practice | supervised synthetic task |
 | Experienced-hire training | Experienced team member | revision/review/Workshop/tool verification, project isolation | low-risk approved practice loop |
 | Manager training | Manager | task/assignment/acceptance separation, packs, approval, incident/rollback, cost/quality | decision simulation / signed acknowledgement |
@@ -37,3 +40,4 @@ If a runbook reaches excluded authority, unavailable credential, or missing phys
 - [Team rollout](12_DEPLOYMENT_ROLLOUT_SUPPORT.md)
 - [Bastion security/recovery](09_BASTION_SECURITY_RECOVERY.md)
 - [Testing/acceptance](13_TEST_DOGFOOD_ACCEPTANCE.md)
+- [Physical architecture and Path Registry](17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md)
