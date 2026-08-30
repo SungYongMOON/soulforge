@@ -49,8 +49,9 @@ test("every enrolled real manifest passes the completeness schema, and the disco
   const paths = discoverManifestPaths();
   // 9 program manifests + 16 risk-based enrollments (the guild_hall modules
   // the hpp/team_client pack closures DIRECTLY depend on; the remaining
-  // legacy dirs stay deliberately unenrolled per the Owner order).
-  assert.equal(paths.length, 25, paths.join(","));
+  // legacy dirs stay deliberately unenrolled per the Owner order)
+  // + 1 physical-spine module (path_registry, plan-17 R1-R3).
+  assert.equal(paths.length, 26, paths.join(","));
   assert.equal(paths.includes("ui-workspace/apps/team-ops-board/module.manifest.json"), true, "the Board is enrolled");
   for (const relPath of paths) {
     const verdict = validateModuleManifest(loadManifest(relPath));
@@ -131,7 +132,7 @@ test("the aggregate preflight is green on the current repository", () => {
   const receipt = runPreflight();
   assert.deepEqual(receipt.problems, []);
   assert.equal(receipt.ok, true);
-  assert.equal(receipt.manifest_count, 25);
+  assert.equal(receipt.manifest_count, 26);
   assert.equal(receipt.scanned_modules > 1000, true);
   // Absence is visible, not silent: unenrolled legacy guild_hall modules are
   // counted in the receipt (enrolling them is deliberate follow-on work).

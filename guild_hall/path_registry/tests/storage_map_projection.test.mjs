@@ -1,0 +1,162 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import { createPathRegistry, registrySnapshot } from "../src/path_registry_core.mjs";
+import { SEED_AUTHORITY, seedRows } from "../data/registry_seed_v0.mjs";
+import {
+  aggregateStorageMapState,
+  buildStorageMap,
+} from "../src/storage_map_projection.mjs";
+import { PANEL_STATES } from "../../watch_panel_contract/src/watch_panel_contract.mjs";
+
+const SNAPSHOT = registrySnapshot(createPathRegistry({ authority: SEED_AUTHORITY, rows: seedRows() }));
+
+const FULL_EVIDENCE = Object.freeze({
+  binding_state: "bound",
+  latest_capture_ref: "capture.mail.gen-104",
+  backup_generation_ref: "backup.mail.gen-104",
+  freshness_state: "fresh",
+  retention_policy_ref: "policy.retention.mail.v0",
+  rpo_policy_ref: "policy.rpo.mail.v0",
+  restore_test_ref: "restore_test.mail.2026-08-29",
+  human_acceptance_state: "accepted",
+  evidence_at: "2026-08-30T11:00:00Z",
+});
+
+test("full registry-driven coverage: one row per registry row, digest-bound", () => {
+  const map = buildStorageMap({ registry_snapshot: SNAPSHOT });
+  assert.equal(map.status, "projected");
+  assert.equal(map.rows.length, SNAPSHOT.rows.length);
+  assert.equal(new Set(map.rows.map((row) => row.row_key)).size, map.rows.length);
+  for (const row of map.rows) {
+    assert.equal(row.registry_snapshot_digest, SNAPSHOT.snapshot_digest);
+    assert.ok(PANEL_STATES.includes(row.watch_state), row.watch_state);
+  }
+  assert.equal(map.summary.coverage_registered, 31);
+  assert.equal(map.summary.coverage_expected, 31);
+});
+
+test("no evidence is never green: unknown rows, held rows hold, aggregate holds", () => {
+  const map = buildStorageMap({ registry_snapshot: SNAPSHOT });
+  const byId = new Map(map.rows.map((row) => [row.logical_id, row]));
+  assert.equal(byId.get("source.mail").watch_state, "unknown");
+  assert.equal(byId.get("source.mail").coverage_state, "missing_evidence");
+  assert.equal(byId.get("source.linear").watch_state, "hold");
+  assert.equal(byId.get("source.linear").hold_code, "record_held");
+  assert.equal(map.summary.aggregate_state, "hold");
+  assert.ok(map.rows.every((row) => row.watch_state !== "healthy"));
+});
+
+test("evidence drives states: healthy, degraded, stale, unavailable", () => {
+  const map = buildStorageMap({
+    registry_snapshot: SNAPSHOT,
+    evidence: {
+      "source.mail": FULL_EVIDENCE,
+      "source.slack": { ...FULL_EVIDENCE, restore_test_ref: undefined },
+      "source.voice_plaud": { ...FULL_EVIDENCE, freshness_state: "stale" },
+      "source.buzz": { ...FULL_EVIDENCE, binding_state: "unavailable" },
+    },
+  });
+  const byId = new Map(map.rows.map((row) => [row.logical_id, row]));
+  assert.equal(byId.get("source.mail").watch_state, "healthy");
+  assert.equal(byId.get("source.slack").watch_state, "degraded");
+  assert.equal(byId.get("source.voice_plaud").watch_state, "stale");
+  assert.equal(byId.get("source.buzz").watch_state, "unavailable");
+});
+
+test("evidence cannot add rows, carry raw/writer fields, or leak paths", () => {
+  assert.equal(
+    buildStorageMap({
+      registry_snapshot: SNAPSHOT,
+      evidence: { "source.ghost": FULL_EVIDENCE },
+    }).hold_code,
+    "evidence_unregistered",
+  );
+  assert.equal(
+    buildStorageMap({
+      registry_snapshot: SNAPSHOT,
+      evidence: { "source.mail": { ...FULL_EVIDENCE, raw_message: "leak" } },
+    }).hold_code,
+    "evidence_forbidden_field",
+  );
+  assert.equal(
+    buildStorageMap({
+      registry_snapshot: SNAPSHOT,
+      evidence: { "source.mail": { ...FULL_EVIDENCE, sole_writer_ref: "writer.x" } },
+    }).hold_code,
+    "evidence_forbidden_field",
+  );
+  assert.equal(
+    buildStorageMap({
+      registry_snapshot: SNAPSHOT,
+      evidence: { "source.mail": { ...FULL_EVIDENCE, backup_generation_ref: ["C:", "backups", "mail"].join("/") } },
+    }).hold_code,
+    "evidence_absolute_path",
+  );
+});
+
+test("rows expose no writer or raw fields", () => {
+  const map = buildStorageMap({ registry_snapshot: SNAPSHOT });
+  for (const row of map.rows) {
+    for (const forbidden of ["write_policy", "sole_writer_ref", "authorized_writer_refs",
+      "raw_message", "message_body", "secret", "binding_refs"]) {
+      assert.ok(!(forbidden in row), `${row.logical_id}:${forbidden}`);
+    }
+  }
+});
+
+test("unclassified paths force a drift hold; forged snapshots reject", () => {
+  const map = buildStorageMap({ registry_snapshot: SNAPSHOT, unclassified_count: 3 });
+  assert.equal(map.summary.aggregate_state, "hold");
+  assert.equal(map.summary.hold_code, "unclassified_paths");
+  assert.ok(map.rows.every((row) => row.path_drift_state === "drift"));
+  assert.equal(buildStorageMap({ registry_snapshot: { schema: "forged" } }).hold_code, "snapshot_invalid");
+  assert.equal(
+    buildStorageMap({ registry_snapshot: SNAPSHOT, unclassified_count: -1 }).hold_code,
+    "unclassified_count_invalid",
+  );
+});
+
+test("state precedence is deterministic: hold > unavailable > stale > degraded > unknown > healthy", () => {
+  assert.equal(aggregateStorageMapState(["healthy", "unknown", "degraded"]), "degraded");
+  assert.equal(aggregateStorageMapState(["healthy", "stale", "degraded"]), "stale");
+  assert.equal(aggregateStorageMapState(["unavailable", "stale"]), "unavailable");
+  assert.equal(aggregateStorageMapState(["healthy", "hold"]), "hold");
+  assert.equal(aggregateStorageMapState(["healthy", "healthy"]), "healthy");
+  assert.equal(aggregateStorageMapState([]), "unknown");
+  assert.equal(aggregateStorageMapState(["green_is_not_a_state"]), "hold");
+});
+
+test("not_applicable rows are excluded from expected coverage and aggregate", () => {
+  const rows = seedRows()
+    .filter((row) => ["source.mail", "source.slack"].includes(row.logical_path_id))
+    .map((row) => ({
+      ...row,
+      current_state: "current",
+      applicability: row.logical_path_id === "source.slack" ? "not_applicable" : "applicable",
+    }));
+  const snapshot = registrySnapshot(createPathRegistry({ authority: SEED_AUTHORITY, rows }));
+  const map = buildStorageMap({
+    registry_snapshot: snapshot,
+    evidence: { "source.mail": FULL_EVIDENCE },
+  });
+  const byId = new Map(map.rows.map((row) => [row.logical_id, row]));
+  // The N/A row still renders (visible, not silent) but is excluded from
+  // expected coverage and cannot drag the aggregate to unknown.
+  assert.equal(byId.get("source.slack").applicability_state, "not_applicable");
+  assert.equal(byId.get("source.slack").watch_state, "unknown");
+  assert.equal(map.summary.coverage_registered, 2);
+  assert.equal(map.summary.coverage_expected, 1);
+  assert.equal(map.summary.aggregate_state, "healthy");
+});
+
+test("a fully evidenced small registry can aggregate healthy (no held rows)", () => {
+  const rows = seedRows().filter((row) => row.logical_path_id === "source.mail")
+    .map((row) => ({ ...row, current_state: "current" }));
+  const snapshot = registrySnapshot(createPathRegistry({ authority: SEED_AUTHORITY, rows }));
+  const map = buildStorageMap({
+    registry_snapshot: snapshot,
+    evidence: { "source.mail": FULL_EVIDENCE },
+  });
+  assert.equal(map.summary.aggregate_state, "healthy");
+});
