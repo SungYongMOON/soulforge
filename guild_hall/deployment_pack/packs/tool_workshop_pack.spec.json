@@ -1,0 +1,17 @@
+{
+  "schema": "soulforge.deployment_pack_spec.v0",
+  "pack_id": "tool_workshop_pack",
+  "version": "0.1.0",
+  "content_roles": {
+    "resource_lease_helper": ["guild_hall/tool_workshop/src/tool_workshop_core.mjs"],
+    "validators": ["guild_hall/tool_workshop/tests/tool_workshop_core.test.mjs"],
+    "workshop_docs": ["guild_hall/tool_workshop/README.md", "guild_hall/tool_workshop/module.manifest.json"]
+  },
+  "smoke_test_entries": ["guild_hall/tool_workshop/tests/tool_workshop_core.test.mjs"],
+  "release_notes_ref": "release_notes.tool_workshop_pack.v0_1_0",
+  "install_manual_ref": "manual.install.tool_workshop_pack",
+  "upgrade_manual_ref": "manual.upgrade.tool_workshop_pack",
+  "rollback_manual_ref": "manual.rollback.tool_workshop_pack",
+  "support_owner_ref": "owner.platform_support",
+  "secret_refs": []
+}
