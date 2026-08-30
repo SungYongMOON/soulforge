@@ -6,6 +6,7 @@ import {
   collectWatchEvidences,
   hostStatsEvidence,
   receiptExpiryEvidence,
+  storageMapEvidence,
 } from "./watch-evidence-suppliers.mjs";
 import { buildWatchPanelBoardViewModel } from "./watch-panel-view.mjs";
 
@@ -121,4 +122,57 @@ test("agent-runtime mapping: source-asserted hold, observability aggregation, ac
     ["connector_freshness", "hermes_runtime", "hpp_host"]);
   assert.deepEqual(collectWatchEvidences({ agentRuntime: { observed_at: OBSERVED, status: "ready" } }), [],
     "a receipt-expiry-shaped payload fed into the agent-runtime slot supplies nothing");
+});
+
+test("storage-map supplier translates the REAL R3 overlay aggregate verbatim", async () => {
+  // Pin against the actual contract, not a hand-shaped fixture: the seed
+  // registry's projection is the exact payload a future runtime would serve.
+  const { createPathRegistry, registrySnapshot } = await import(
+    "../../../../../guild_hall/path_registry/src/path_registry_core.mjs"
+  );
+  const { buildStorageMap } = await import(
+    "../../../../../guild_hall/path_registry/src/storage_map_projection.mjs"
+  );
+  const { SEED_AUTHORITY, seedRows } = await import(
+    "../../../../../guild_hall/path_registry/data/registry_seed_v0.mjs"
+  );
+  const seedMap = buildStorageMap({
+    registry_snapshot: registrySnapshot(createPathRegistry({ authority: SEED_AUTHORITY, rows: seedRows() })),
+  });
+  assert.equal(seedMap.summary.aggregate_state, "hold", "seed sentinels must aggregate hold");
+
+  // A served hold survives clock-less (the decided hermes rule) and with a clock.
+  const clockless = storageMapEvidence(seedMap);
+  assert.equal(clockless.domain, "backup_restore_readiness");
+  assert.equal(clockless.asserted_state, "hold");
+  assert.equal(clockless.evidence_at, null);
+  const clocked = storageMapEvidence({ ...seedMap, observed_at: OBSERVED });
+  assert.equal(clocked.asserted_state, "hold");
+  assert.equal(clocked.evidence_at, OBSERVED);
+
+  // Non-hold states require the serving clock; with one they map verbatim.
+  const healthyShape = {
+    schema: seedMap.schema,
+    projection_kind: seedMap.projection_kind,
+    registry_snapshot_digest: seedMap.registry_snapshot_digest,
+    summary: { ...seedMap.summary, aggregate_state: "healthy" },
+  };
+  assert.equal(storageMapEvidence(healthyShape), null, "non-hold without clock supplies nothing");
+  assert.equal(storageMapEvidence({ ...healthyShape, observed_at: OBSERVED }).asserted_state, "healthy");
+  assert.equal(storageMapEvidence({ ...healthyShape, observed_at: OBSERVED, summary: { aggregate_state: "stale" } }).asserted_state, "stale");
+
+  // Forged or foreign envelopes supply NOTHING — never a fabricated state.
+  assert.equal(storageMapEvidence(null), null);
+  assert.equal(storageMapEvidence({ ...healthyShape, observed_at: OBSERVED, schema: "forged" }), null);
+  assert.equal(storageMapEvidence({ ...healthyShape, observed_at: OBSERVED, projection_kind: "source_display" }), null);
+  assert.equal(storageMapEvidence({ ...healthyShape, observed_at: OBSERVED, registry_snapshot_digest: "sha256:short" }), null);
+  assert.equal(storageMapEvidence({ ...healthyShape, observed_at: OBSERVED, summary: { aggregate_state: "green" } }), null,
+    "a green-like state outside the panel enum is unrecognized");
+
+  // Four-source collection composes and the view-model renders the domain.
+  const evidences = collectWatchEvidences({ storageMap: { ...seedMap, observed_at: OBSERVED } });
+  assert.equal(evidences.length, 1);
+  const view = buildWatchPanelBoardViewModel({ now: NOW_FRESH, evidences });
+  const row = view.rows.find((entry) => entry.domain === "backup_restore_readiness");
+  assert.equal(row.state, "hold");
 });

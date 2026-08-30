@@ -34,6 +34,19 @@
 //     never map. Zero configured bots -> unknown (health of nothing is not
 //     healthy).
 //
+//   backup_restore_readiness <- /storage-map.snapshot.json
+//     the plan-17 R3 storage-map projection (path_registry owner;
+//     schema soulforge.watch_storage_map.v0, projection_kind
+//     backup_readiness_overlay). Its summary.aggregate_state is ALREADY the
+//     plan-08 panel enum, computed by the R3 contract's deterministic
+//     precedence over registry rows + evidence refs — the supplier
+//     translates it verbatim and never widens it. A `hold` aggregate
+//     survives clock-less (same decided rule as hermes_runtime's asserted
+//     hold); any non-hold state without a serving clock supplies nothing.
+//     The endpoint itself does not exist until the private
+//     binding/ACL-gated runtime emits the snapshot — until then this
+//     domain honestly renders unknown/no_evidence.
+//
 // The watchtower topology snapshot (cost_usage candidate) is NOT mapped
 // yet: its refresh_state on this machine is "unconfigured" (no binding),
 // so the ok-path payload shape is unobservable here — mapping it would be
@@ -133,10 +146,51 @@ export function agentRuntimeEvidence(envelope) {
   };
 }
 
+const STORAGE_MAP_SCHEMA = "soulforge.watch_storage_map.v0";
+const STORAGE_MAP_DIGEST = /^sha256:[0-9a-f]{64}$/;
+const STORAGE_MAP_STATES = Object.freeze([
+  "healthy", "degraded", "stale", "unavailable", "unknown", "hold",
+]);
+
+export function storageMapEvidence(envelope) {
+  if (!envelope || typeof envelope !== "object") return null;
+  // Shape gate: only a genuine R3 backup-readiness overlay projection is a
+  // recognized source; anything else supplies NOTHING (no fabricated state).
+  if (envelope.schema !== STORAGE_MAP_SCHEMA
+    || envelope.projection_kind !== "backup_readiness_overlay"
+    || typeof envelope.registry_snapshot_digest !== "string"
+    || !STORAGE_MAP_DIGEST.test(envelope.registry_snapshot_digest)
+    || !envelope.summary || typeof envelope.summary !== "object") {
+    return null;
+  }
+  const asserted = envelope.summary.aggregate_state;
+  if (typeof asserted !== "string" || !STORAGE_MAP_STATES.includes(asserted)) return null;
+  const observedAt = isoOrNull(envelope.observed_at);
+  // The R3 aggregate is a source-asserted judgment; a hold survives without
+  // a serving clock (the hermes_runtime rule — hold is maximally
+  // conservative and must not soften to no_evidence). Every other state
+  // requires the serving envelope's observation clock.
+  if (asserted !== "hold" && !observedAt) return null;
+  return {
+    domain: "backup_restore_readiness",
+    asserted_state: asserted,
+    evidence_at: observedAt,
+    owner_pointer: {
+      owner_system: "path_registry",
+      record_kind: "watch_storage_map_projection",
+      record_ref: "endpoint.storage_map.snapshot",
+    },
+  };
+}
+
 // Combine whatever suppliers produced; nulls drop out. The strip feeds this
 // straight into buildWatchPanelBoardViewModel, whose full-coverage rule
 // renders every unsupplied domain as unknown/no_evidence.
-export function collectWatchEvidences({ receiptExpiry, hostStats, agentRuntime } = {}) {
-  return [receiptExpiryEvidence(receiptExpiry), hostStatsEvidence(hostStats), agentRuntimeEvidence(agentRuntime)]
-    .filter((evidence) => evidence !== null);
+export function collectWatchEvidences({ receiptExpiry, hostStats, agentRuntime, storageMap } = {}) {
+  return [
+    receiptExpiryEvidence(receiptExpiry),
+    hostStatsEvidence(hostStats),
+    agentRuntimeEvidence(agentRuntime),
+    storageMapEvidence(storageMap),
+  ].filter((evidence) => evidence !== null);
 }

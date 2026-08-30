@@ -37,20 +37,24 @@ async function fetchJsonOrNull(url: string) {
 }
 
 export function WatchStrip() {
-  const [sources, setSources] = useState<{ receiptExpiry: any; hostStats: any; agentRuntime: any }>({
+  const [sources, setSources] = useState<{ receiptExpiry: any; hostStats: any; agentRuntime: any; storageMap: any }>({
     receiptExpiry: null,
     hostStats: null,
     agentRuntime: null,
+    storageMap: null,
   });
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [receiptExpiry, hostStats, agentRuntime] = await Promise.all([
+      const [receiptExpiry, hostStats, agentRuntime, storageMap] = await Promise.all([
         fetchJsonOrNull("/receipt-expiry.snapshot.json"),
         fetchJsonOrNull("/host-stats.snapshot.json"),
         fetchJsonOrNull("/agent-runtime.snapshot.json?read_only=1"),
+        // Emitted only by the private-binding-gated runtime; absent today,
+        // so backup_restore_readiness renders unknown/no_evidence honestly.
+        fetchJsonOrNull("/storage-map.snapshot.json"),
       ]);
-      if (!cancelled) setSources({ receiptExpiry, hostStats, agentRuntime });
+      if (!cancelled) setSources({ receiptExpiry, hostStats, agentRuntime, storageMap });
     })();
     return () => { cancelled = true; };
   }, []);
@@ -107,7 +111,7 @@ export function WatchStrip() {
         ))}
       </div>
       <small style={{ display: "block", marginTop: "6px", color: "#9ca3af" }}>
-        증거: connector_freshness·hpp_host·hermes_runtime은 Board snapshot의 source-asserted 값(읽기 전용 GET 3건), 나머지는 unknown(무증거는 정상이 아님).
+        증거: connector_freshness·hpp_host·hermes_runtime·backup_restore_readiness는 source-asserted 값(읽기 전용 GET 4건; storage-map은 R3 overlay 집계), 나머지는 unknown(무증거는 정상이 아님).
         표시 전용 표면: probe·writer·요청 filing 없음.
       </small>
     </section>
