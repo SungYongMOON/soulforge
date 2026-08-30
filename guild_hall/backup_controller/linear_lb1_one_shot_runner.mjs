@@ -472,7 +472,7 @@ export function createLinearLb1OneShotRunner(runtimeBinding) {
 
       // 4. Single-use token claim before any provider read
       synthetic_effects.claim_attempts += 1;
-      const singleUseToken = closedRequestSnapshot.claim_store.single_use_token;
+      const singleUseToken = closedRequestSnapshot.claim_store.single_use_token_ref;
       let claimSuccess = false;
       try {
         const rawClaimResult = await claimStore.consumeOnce(singleUseToken, {

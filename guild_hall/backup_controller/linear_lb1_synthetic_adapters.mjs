@@ -50,24 +50,25 @@ export function createInMemoryClaimStore(options = {}) {
     consumeOnce(token, metadata = {}) {
       callCount += 1;
       const doConsume = () => {
-        if (typeof token !== "string" || !token) {
-          return { success: false, error: "INVALID_TOKEN", token };
-        }
-        if (consumed.has(token)) {
+        const tokenKey = typeof token === "string" && token
+          ? token
+          : token && typeof token === "object" && typeof token.content_id === "string" ? token.content_id : null;
+        if (tokenKey === null) return { success: false, error: "INVALID_TOKEN" };
+        if (consumed.has(tokenKey)) {
           return {
             success: false,
             error: "ALREADY_CONSUMED",
-            token,
-            first_consumed_at: consumed.get(token).consumed_at,
+            token_ref: tokenKey,
+            first_consumed_at: consumed.get(tokenKey).consumed_at,
           };
         }
         const record = {
-          token,
+          token_ref: tokenKey,
           consumed_at: new Date().toISOString(),
           metadata: { ...metadata },
         };
-        consumed.set(token, record);
-        return { success: true, token, consumed_at: record.consumed_at };
+        consumed.set(tokenKey, record);
+        return { success: true, token_ref: tokenKey, consumed_at: record.consumed_at };
       };
 
       if (options.failWith) {
@@ -81,7 +82,8 @@ export function createInMemoryClaimStore(options = {}) {
       return doConsume();
     },
     isConsumed(token) {
-      return consumed.has(token);
+      const tokenKey = typeof token === "string" ? token : token?.content_id;
+      return consumed.has(tokenKey);
     },
     getCallCount() {
       return callCount;

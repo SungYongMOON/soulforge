@@ -52,6 +52,7 @@ function ref(seed, contentId) {
 const CLAIM_REF = ref("claim_store_runner_01");
 const READER_REF = ref("linear_reader_runner_01");
 const STORAGE_REF = ref("storage_adapter_runner_01");
+const ATTACHMENT_POLICY_REF = ref("attachment_policy_runner_01");
 
 function makeTestClock(nowIso = "2026-08-20T00:30:00.000Z") {
   let currentMs = Date.parse(nowIso);
@@ -105,11 +106,13 @@ function makeClosedRequest(token = "single-use-token-001", targetId = "target-re
     },
     claim_store: {
       claim_store_ref: CLAIM_REF,
-      single_use_token: token,
+      single_use_token_ref: ref(`single-use-token:${token}`),
     },
     adapters: {
       linear_reader_adapter_ref: READER_REF,
       storage_adapter_ref: STORAGE_REF,
+      attachment_policy_ref: ATTACHMENT_POLICY_REF,
+      attachment_allowlist_sha256: ATTACHMENT_POLICY_REF.content_id,
     },
     artifact_layout: {
       snapshot_schema_version: "soulforge.backup_controller.linear_lb1.snapshot.v2",
@@ -138,6 +141,13 @@ function makeClosedRequest(token = "single-use-token-001", targetId = "target-re
       required_dimensions: [...LINEAR_LB1_V2_DIMENSIONS],
       restore_check_required: true,
       tabular_only_accepted: false,
+    },
+    capture_consistency: {
+      mode: "owner_accepted_non_quiesced",
+      decision_ref: ref("non_quiesced_capture_decision_runner"),
+      cutoff_required: true,
+      cursor_ledger_required: true,
+      drift_policy: "partial_hold_on_incompatible_drift",
     },
     one_shot: {
       run_limit: 1,
@@ -216,7 +226,7 @@ test("successful async one-shot execution follows gate -> claim -> read -> seal 
     restore_checks: 1,
   });
 
-  assert.equal(claimStore.isConsumed("token-success-001"), true);
+  assert.equal(claimStore.isConsumed(request.claim_store.single_use_token_ref), true);
   assert.equal(storageAdapter.hasRevision(expectedKeyPrefix), true);
   assert.equal(Object.isFrozen(result), true);
 });
@@ -272,7 +282,7 @@ test("gate failure halts immediately before claim store mutation (claim_consumed
   assert.equal(result.synthetic_effects.claim_attempts, 0);
   assert.equal(result.synthetic_effects.provider_reads, 0);
   assert.equal(result.synthetic_effects.storage_writes, 0);
-  assert.equal(claimStore.isConsumed("token-gate-fail-001"), false);
+  assert.equal(claimStore.isConsumed(request.claim_store.single_use_token_ref), false);
 });
 
 test("unpinned adapter refs return HOLD before claim with claim_consumed: false", async () => {
@@ -296,7 +306,7 @@ test("unpinned adapter refs return HOLD before claim with claim_consumed: false"
   assert.equal(result.reason, "ADAPTER_REF_MISMATCH");
   assert.equal(result.claim_consumed, false);
   assert.equal(result.synthetic_effects.claim_attempts, 0);
-  assert.equal(claimStore.isConsumed("token-unpinned-001"), false);
+  assert.equal(claimStore.isConsumed(request.claim_store.single_use_token_ref), false);
 });
 
 test("execution time owner decision expiry or pin expiry at runner start produces HOLD with claim_consumed: false", async () => {
@@ -320,7 +330,7 @@ test("execution time owner decision expiry or pin expiry at runner start produce
   assert.equal(result.reason, "OWNER_DECISION_EXPIRED");
   assert.equal(result.claim_consumed, false);
   assert.equal(result.synthetic_effects.claim_attempts, 0);
-  assert.equal(claimStore.isConsumed("token-expired-001"), false);
+  assert.equal(claimStore.isConsumed(request.claim_store.single_use_token_ref), false);
 });
 
 test("replaying same single-use claim token returns HOLD_CONSUMED with claim_consumed: true and no reader calls", async () => {
@@ -648,7 +658,7 @@ test("B1: post-claim clock.nowMs throwing or returning NaN/non-safe integer is n
   assert.equal(result.reason, "CLOCK_INVALID");
   assert.equal(result.claim_consumed, true);
   assert.equal(result.claim_result.success, true);
-  assert.equal(claimStore.isConsumed("token-b1-throw-001"), true);
+  assert.equal(claimStore.isConsumed(request.claim_store.single_use_token_ref), true);
 
   // NaN return on second call
   let nanCallCount = 0;
@@ -1254,7 +1264,7 @@ function createRuntimeFactoryBinding(request, { paginated = false, writeCollisio
     async paginateIssues({ cursor }) {
       if (cursor === null) {
         return {
-          catalog: { teams: baseFixture.teams, projects: baseFixture.projects, assignees: baseFixture.assignees, statuses: baseFixture.statuses },
+          catalog: { teams: baseFixture.teams, projects: baseFixture.projects, assignees: baseFixture.assignees, statuses: baseFixture.statuses, labels: baseFixture.labels },
           issues: [baseFixture.issues[0]], next_cursor: "page-2", has_more: true,
         };
       }

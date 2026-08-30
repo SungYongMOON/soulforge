@@ -281,6 +281,56 @@ for the hourly multi-app writer or explicitly accept a non-quiesced snapshot.
 Without that decision, actual collection and restore acceptance remain `HOLD`;
 the synthetic adapter foundation does not provide writer coordination.
 
+### Linear whole-workspace actual-reader foundation
+
+`linear_lb1_actual_reader.mjs` is the default-OFF, injected read-only boundary
+for a connected Linear workspace. It discovers no credential, owns no HTTP
+client, exposes no mutation method, and accepts only an exact
+`entire_workspace` scope whose workspace and connector refs match the binding.
+The injected `readPage` output is closed data: cursor loops, workspace drift,
+catalog drift, unknown keys, resource overruns, and inconsistent cutoffs fail
+closed without reflecting provider payload.
+
+The actual-reader coverage matrix preserves the existing 18 restore dimensions.
+Current issue labels are covered inside the `issue` dimension. Attachment
+descriptors are accepted only through an Owner-bound attachment-policy ref and
+exact ID allowlist whose canonical digest must equal the policy ref content ID
+and the Owner-packet binding; the current contract always records `bytes_captured: false`
+and never treats provider metadata as immutable attachment bytes. V2 snapshots
+carry a label catalog, per-issue `label_ids`, and typed attachment metadata. Native
+Linear current state can support issue/team/project/user/status/timestamp/due/
+relation catalogs and supplied histories. Deletion completeness, historical
+description/comment revisions, approved attachment bytes, structured
+`waiting_info`, and Soulforge `completion_record` remain `PARTIAL` or `missing`.
+Provider-reported coverage cannot self-promote those dimensions beyond the
+independently declared adapter matrix; changing that ceiling requires a reviewed
+contract revision. A missing dimension always produces a partial generation and
+`HOLD`, never a complete restore claim.
+
+Each accepted provider page is charged against the byte budget before mapping
+and then discarded. The collection persists a digest of the cursor/page ledger,
+the terminal-page observation, page and issue counts, and the bound adapter ref.
+Because the current connector cannot independently reconcile a source-wide count
+or deletion watermark, `cutoff_completeness` remains `PARTIAL` even after a
+terminal page. Whole-workspace arrays are capped consistently at 100,000 issues;
+the reader fails closed at its lower Owner-bound resource limit.
+
+The v2 Owner packet is refs-only: its single-use claim is an opaque
+`single_use_token_ref`, not token material. The packet also pins a
+`capture_consistency` decision (`quiesced` or Owner-accepted non-quiesced),
+cutoff/cursor requirements, and the rule that incompatible source drift becomes
+`PARTIAL/HOLD`. The actual reader feeds the existing immutable generation,
+serialization, exact-byte readback, and isolated restore functions through a
+distinct actual-provenance contract. Its manifest binds adapter/cursor-ledger
+evidence and records observed provider/network calls; it cannot be sealed as
+feature-OFF synthetic data. Physical storage remains a separate runtime gate,
+and injected-provider mutation evidence is explicitly `UNKNOWN`, never inferred
+from the read-only interface. The existing one-shot runner still treats
+synthetic adapter evidence as its only success authority until a reviewed
+actual-effect binding is supplied. Legacy v2 synthetic snapshots and manifests
+without the additive label/attachment fields remain accepted and retain their
+original exact serialized shape.
+
 ## Validation
 
 ```powershell
@@ -288,4 +338,5 @@ npm.cmd run validate:backup-controller
 npm.cmd run validate:linear-lb1-owner-gate
 npm.cmd run validate:linear-lb1-v2
 npm.cmd run validate:linear-lb1-runtime-adapters
+node --test guild_hall/backup_controller/linear_lb1_actual_reader.test.mjs
 ```

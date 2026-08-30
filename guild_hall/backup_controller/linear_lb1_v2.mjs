@@ -48,8 +48,12 @@ const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const HUMAN_ID = /^[A-Z0-9]{1,16}-[0-9]{1,10}$/;
 const ERROR_CODE = /^[a-z][a-z0-9_-]{2,63}$/;
 const SHA256 = /^[a-f0-9]{64}$/;
+const HASH_REF = /^sha256:[a-f0-9]{64}$/u;
+const UUID_V4 = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u;
+const REF_FIELDS = Object.freeze(["content_hash_alg", "content_id", "entity_id", "revision_id"]);
 const REVISION_ID_DOMAIN = "soulforge.backup_controller.linear_lb1.revision.v2";
 const COLLECTION_STATUSES = new Set(["complete", "partial", "failed"]);
+const SOURCE_SCOPE_KINDS = new Set(["public_synthetic_fixture", "linear_read_only_provider"]);
 const TABULAR_ARTIFACT_KINDS = new Set(["sheet", "csv"]);
 const UNSAFE_ERROR_CODE_SEGMENTS = new Set([
   "raw", "payload", "secret", "token", "password", "credential", "cookie", "session", "private", "path",
@@ -60,10 +64,10 @@ const LOCAL_PATH = /(?:^|[\s"'])(?:[A-Za-z]:[\\/]|file:\/\/\/|\/(?:home|Users)\/
 const SECRET = /-----BEGIN [A-Z ]+PRIVATE KEY-----|\bBearer\s+[A-Za-z0-9._~+/=-]{8,}|\b(?:ghp_|github_pat_|sk-|xox[baprs]-|AIza)[A-Za-z0-9_-]{8,}|\b(?:password|passwd|api[_-]?key|access[_-]?token|refresh[_-]?token)\s*[:=]/iu;
 const MAX_CAPS = Object.freeze({
   string_len: 4096,
-  array_len: 500,
+  array_len: 100000,
   object_keys: 64,
   depth: 20,
-  values: 10000,
+  values: 5000000,
 });
 
 function codepointCompare(a, b) {
@@ -117,6 +121,13 @@ function exactKeys(value, expected, code) {
   const actual = Object.keys(value).sort(codepointCompare);
   const wanted = [...expected].sort(codepointCompare);
   if (actual.length !== wanted.length || actual.some((key, index) => key !== wanted[index])) fail(code);
+}
+
+function exactRef(value, code) {
+  exactKeys(value, REF_FIELDS, code);
+  if (!UUID_V4.test(value.entity_id) || !UUID_V4.test(value.revision_id)
+      || !HASH_REF.test(value.content_id) || value.content_hash_alg !== "sha256") fail(code);
+  return value;
 }
 
 function stableJson(value) {
@@ -396,14 +407,45 @@ function validateEvidenceRef(e) {
   }
 }
 
+function validateAttachment(attachment) {
+  exactKeys(attachment, [
+    "attachment_id", "title", "source_url", "mime_type", "size", "content_sha256",
+    "created_at", "updated_at", "availability", "approval_ref", "bytes_captured",
+  ], "linear_lb1_v2_attachment_shape_invalid");
+  requireId(attachment.attachment_id, "linear_lb1_v2_attachment_id_invalid");
+  safeString(attachment.title, "linear_lb1_v2_attachment_title_invalid");
+  safeString(attachment.source_url, "linear_lb1_v2_attachment_url_invalid");
+  safeString(attachment.mime_type, "linear_lb1_v2_attachment_mime_invalid");
+  if (attachment.size !== null && (!Number.isSafeInteger(attachment.size) || attachment.size < 0)) {
+    fail("linear_lb1_v2_attachment_size_invalid");
+  }
+  if (attachment.content_sha256 !== null) {
+    requireSha256(attachment.content_sha256, "linear_lb1_v2_attachment_hash_invalid");
+  }
+  requireIso(attachment.created_at, "linear_lb1_v2_attachment_timestamp_invalid");
+  requireIso(attachment.updated_at, "linear_lb1_v2_attachment_timestamp_invalid");
+  if (!["available", "unavailable", "unknown"].includes(attachment.availability)) {
+    fail("linear_lb1_v2_attachment_availability_invalid");
+  }
+  requireNullableId(attachment.approval_ref, "linear_lb1_v2_attachment_approval_invalid");
+  if (typeof attachment.bytes_captured !== "boolean") fail("linear_lb1_v2_attachment_bytes_state_invalid");
+  if (attachment.bytes_captured === true
+      && (attachment.approval_ref === null || attachment.content_sha256 === null
+        || attachment.size === null || attachment.availability !== "available")) {
+    fail("linear_lb1_v2_attachment_capture_incomplete");
+  }
+}
+
 function validateIssue(issue) {
-  exactKeys(issue, [
+  const baseFields = [
     "issue_id", "human_id", "title", "priority", "team_id", "project_id", "assignee_id",
     "status_id", "parent_issue_id", "created_at", "updated_at", "started_at", "completed_at",
     "canceled_at", "archived_at", "due_at", "tombstone", "relations", "description",
     "comments", "state_history", "assignee_history", "project_history", "due_history",
     "waiting_info", "completion_records", "evidence_refs",
-  ], "linear_lb1_v2_issue_shape_invalid");
+  ];
+  const extended = Object.hasOwn(issue, "label_ids") || Object.hasOwn(issue, "attachments");
+  exactKeys(issue, extended ? [...baseFields, "label_ids", "attachments"] : baseFields, "linear_lb1_v2_issue_shape_invalid");
   requireId(issue.issue_id, "linear_lb1_v2_issue_id_invalid");
   requireHumanId(issue.human_id, "linear_lb1_v2_issue_human_id_invalid");
   safeString(issue.title, "linear_lb1_v2_issue_title_invalid");
@@ -439,6 +481,12 @@ function validateIssue(issue) {
   for (const item of requireArray(issue.waiting_info, "linear_lb1_v2_waiting_invalid")) validateWaitingInfo(item);
   for (const item of requireArray(issue.completion_records, "linear_lb1_v2_completion_invalid")) validateCompletionRecord(item);
   for (const item of requireArray(issue.evidence_refs, "linear_lb1_v2_evidence_invalid")) validateEvidenceRef(item);
+  const labelIds = extended ? requireArray(issue.label_ids, "linear_lb1_v2_issue_labels_invalid") : [];
+  const attachments = extended ? requireArray(issue.attachments, "linear_lb1_v2_attachments_invalid") : [];
+  for (const labelId of labelIds) {
+    requireId(labelId, "linear_lb1_v2_issue_label_invalid");
+  }
+  for (const attachment of attachments) validateAttachment(attachment);
 
   assertUnique(issue.relations, "relation_id", "linear_lb1_v2_relation_duplicate");
   assertUnique(issue.comments, "comment_id", "linear_lb1_v2_comment_duplicate");
@@ -449,6 +497,8 @@ function validateIssue(issue) {
   assertUnique(issue.waiting_info, "ref_id", "linear_lb1_v2_waiting_duplicate");
   assertUnique(issue.completion_records, "ref_id", "linear_lb1_v2_completion_duplicate");
   assertUnique(issue.evidence_refs, "ref_id", "linear_lb1_v2_evidence_duplicate");
+  if (new Set(labelIds).size !== labelIds.length) fail("linear_lb1_v2_issue_label_duplicate");
+  assertUnique(attachments, "attachment_id", "linear_lb1_v2_attachment_duplicate");
 
   // Verify internal comment thread references
   const commentIds = new Set(issue.comments.map((c) => c.comment_id));
@@ -461,10 +511,12 @@ function validateIssue(issue) {
 
 export function normalizeLinearLb1V2Snapshot(snapshot) {
   const copy = snapshotPlainData(snapshot, "linear_lb1_v2_snapshot_shape_invalid");
-  exactKeys(copy, [
+  const baseSnapshotFields = [
     "schema_version", "snapshot_id", "collected_at", "source_scope", "teams",
     "projects", "assignees", "statuses", "cutoff", "issues",
-  ], "linear_lb1_v2_snapshot_shape_invalid");
+  ];
+  const extended = Object.hasOwn(copy, "labels");
+  exactKeys(copy, extended ? [...baseSnapshotFields, "labels"] : baseSnapshotFields, "linear_lb1_v2_snapshot_shape_invalid");
 
   if (copy.schema_version !== LINEAR_LB1_V2_SNAPSHOT_SCHEMA_VERSION) {
     fail("linear_lb1_v2_snapshot_schema_invalid");
@@ -473,7 +525,7 @@ export function normalizeLinearLb1V2Snapshot(snapshot) {
   requireIso(copy.collected_at, "linear_lb1_v2_snapshot_timestamp_invalid");
 
   exactKeys(copy.source_scope, ["kind", "workspace_id", "scope_mode", "team_ids", "project_ids"], "linear_lb1_v2_scope_shape_invalid");
-  if (copy.source_scope.kind !== "public_synthetic_fixture") fail("linear_lb1_v2_scope_kind_invalid");
+  if (!SOURCE_SCOPE_KINDS.has(copy.source_scope.kind)) fail("linear_lb1_v2_scope_kind_invalid");
   requireId(copy.source_scope.workspace_id, "linear_lb1_v2_scope_workspace_invalid");
   if (copy.source_scope.scope_mode !== "entire_workspace" && copy.source_scope.scope_mode !== "allowlist") {
     fail("linear_lb1_v2_scope_mode_invalid");
@@ -523,6 +575,14 @@ export function normalizeLinearLb1V2Snapshot(snapshot) {
     requireId(status.team_id, "linear_lb1_v2_status_team_invalid");
   }
 
+  const labels = extended ? requireArray(copy.labels, "linear_lb1_v2_labels_invalid") : [];
+  for (const label of labels) {
+    exactKeys(label, ["label_id", "name", "updated_at"], "linear_lb1_v2_label_shape_invalid");
+    requireId(label.label_id, "linear_lb1_v2_label_id_invalid");
+    safeString(label.name, "linear_lb1_v2_label_name_invalid");
+    requireIso(label.updated_at, "linear_lb1_v2_label_timestamp_invalid");
+  }
+
   // Cutoff & Pagination
   exactKeys(copy.cutoff, ["cutoff_at", "page_count", "total_issues", "pagination_complete"], "linear_lb1_v2_cutoff_shape_invalid");
   requireIso(copy.cutoff.cutoff_at, "linear_lb1_v2_cutoff_timestamp_invalid");
@@ -536,7 +596,12 @@ export function normalizeLinearLb1V2Snapshot(snapshot) {
     fail("linear_lb1_v2_cutoff_pagination_incomplete");
   }
 
-  for (const issue of requireArray(copy.issues, "linear_lb1_v2_issues_invalid")) validateIssue(issue);
+  for (const issue of requireArray(copy.issues, "linear_lb1_v2_issues_invalid")) {
+    validateIssue(issue);
+    if (Object.hasOwn(issue, "label_ids") !== extended || Object.hasOwn(issue, "attachments") !== extended) {
+      fail("linear_lb1_v2_snapshot_shape_invalid");
+    }
+  }
 
   if (copy.teams.length === 0 || copy.statuses.length === 0 || copy.issues.length === 0) {
     fail("linear_lb1_v2_snapshot_empty_dimension");
@@ -549,6 +614,7 @@ export function normalizeLinearLb1V2Snapshot(snapshot) {
   assertUnique(copy.projects, "project_id", "linear_lb1_v2_project_duplicate");
   assertUnique(copy.assignees, "assignee_id", "linear_lb1_v2_assignee_duplicate");
   assertUnique(copy.statuses, "status_id", "linear_lb1_v2_status_duplicate");
+  assertUnique(labels, "label_id", "linear_lb1_v2_label_duplicate");
   assertUnique(copy.issues, "issue_id", "linear_lb1_v2_issue_duplicate");
   assertUnique(copy.issues, "human_id", "linear_lb1_v2_human_id_duplicate");
 
@@ -556,6 +622,7 @@ export function normalizeLinearLb1V2Snapshot(snapshot) {
   const projectIds = new Set(copy.projects.map((p) => p.project_id));
   const assigneeIds = new Set(copy.assignees.map((a) => a.assignee_id));
   const statusIds = new Set(copy.statuses.map((s) => s.status_id));
+  const labelIds = new Set(labels.map((label) => label.label_id));
   const issueIds = new Set(copy.issues.map((i) => i.issue_id));
 
   // Verify catalog foreign keys
@@ -574,6 +641,9 @@ export function normalizeLinearLb1V2Snapshot(snapshot) {
     if (!statusIds.has(issue.status_id)) fail("linear_lb1_v2_issue_status_uncovered");
     if (issue.parent_issue_id !== null && !issueIds.has(issue.parent_issue_id)) fail("linear_lb1_v2_issue_parent_uncovered");
     if (!assigneeIds.has(issue.description.author_id)) fail("linear_lb1_v2_description_author_uncovered");
+    for (const labelId of issue.label_ids ?? []) {
+      if (!labelIds.has(labelId)) fail("linear_lb1_v2_issue_label_uncovered");
+    }
 
     for (const relation of issue.relations) {
       if (!issueIds.has(relation.target_issue_id)) fail("linear_lb1_v2_relation_target_uncovered");
@@ -605,6 +675,7 @@ export function normalizeLinearLb1V2Snapshot(snapshot) {
   sortBy(copy.projects, "project_id");
   sortBy(copy.assignees, "assignee_id");
   sortBy(copy.statuses, "status_id");
+  if (extended) sortBy(copy.labels, "label_id");
   sortBy(copy.issues, "issue_id");
 
   for (const issue of copy.issues) {
@@ -617,6 +688,8 @@ export function normalizeLinearLb1V2Snapshot(snapshot) {
     sortBy(issue.waiting_info, "ref_id");
     sortBy(issue.completion_records, "ref_id");
     sortBy(issue.evidence_refs, "ref_id");
+    if (Object.hasOwn(issue, "label_ids")) issue.label_ids.sort(codepointCompare);
+    if (Object.hasOwn(issue, "attachments")) sortBy(issue.attachments, "attachment_id");
   }
 
   return deepFreeze(copy);
@@ -646,53 +719,164 @@ function normalizeErrors(errors) {
   return copy;
 }
 
-function collectionEnvelope(collectionStatus, snapshot, missingDimensions, errors) {
+function collectionEnvelope(collectionStatus, snapshot, missingDimensions, errors, collector, effects) {
   return deepFreeze({
     schema_version: LINEAR_LB1_V2_COLLECTION_SCHEMA_VERSION,
-    collector: {
-      kind: "public_synthetic_fixture",
-      feature_state: "off",
-      provider_calls: 0,
-      storage_writes: 0,
-    },
+    collector,
     collection_status: collectionStatus,
     snapshot,
     declared_missing_dimensions: missingDimensions,
     errors,
-    effects: LINEAR_LB1_ZERO_EFFECTS,
+    effects,
   });
+}
+
+function syntheticCollector() {
+  return {
+    kind: "public_synthetic_fixture",
+    feature_state: "off",
+    provider_calls: 0,
+    storage_writes: 0,
+  };
 }
 
 export function collectFeatureOffLinearLb1V2Fixture(snapshot, options = {}) {
   const status = options.status === undefined ? "complete" : options.status;
   if (status !== "complete" && status !== "partial") fail("linear_lb1_v2_collection_status_invalid");
   const normalizedSnapshot = normalizeLinearLb1V2Snapshot(snapshot);
+  if (normalizedSnapshot.source_scope.kind !== "public_synthetic_fixture") {
+    fail("linear_lb1_v2_collection_provenance_mismatch");
+  }
   const missingDimensions = normalizeDimensions(options.missing_dimensions === undefined ? [] : options.missing_dimensions, "linear_lb1_v2_missing_dimensions_invalid");
   const errors = normalizeErrors(options.errors === undefined ? [] : options.errors);
   if (status === "complete" && (missingDimensions.length !== 0 || errors.length !== 0)) fail("linear_lb1_v2_complete_collection_incomplete");
   if (status === "partial" && missingDimensions.length === 0) fail("linear_lb1_v2_partial_collection_without_missing_dimension");
-  return collectionEnvelope(status, normalizedSnapshot, missingDimensions, deepFreeze(errors));
+  return collectionEnvelope(
+    status, normalizedSnapshot, missingDimensions, deepFreeze(errors),
+    syntheticCollector(), LINEAR_LB1_ZERO_EFFECTS,
+  );
 }
 
 export function createFailedFeatureOffLinearLb1V2Collection({ errors }) {
   const normalizedErrors = normalizeErrors(errors);
   if (normalizedErrors.length === 0) fail("linear_lb1_v2_failed_collection_without_error");
-  return collectionEnvelope("failed", null, [...LINEAR_LB1_V2_DIMENSIONS], deepFreeze(normalizedErrors));
+  return collectionEnvelope(
+    "failed", null, [...LINEAR_LB1_V2_DIMENSIONS], deepFreeze(normalizedErrors),
+    syntheticCollector(), LINEAR_LB1_ZERO_EFFECTS,
+  );
+}
+
+function validateEffectsShape(effects) {
+  exactKeys(effects, ["provider_calls", "storage_writes", "network_calls", "filesystem_writes", "scheduler_changes"], "linear_lb1_v2_effects_shape_invalid");
+  for (const value of Object.values(effects)) {
+    if (!Number.isSafeInteger(value) || value < 0) fail("linear_lb1_v2_effects_invalid");
+  }
+  return effects;
 }
 
 function validateZeroEffects(effects) {
-  exactKeys(effects, ["provider_calls", "storage_writes", "network_calls", "filesystem_writes", "scheduler_changes"], "linear_lb1_v2_effects_shape_invalid");
-  for (const value of Object.values(effects)) {
-    if (value !== 0) fail("linear_lb1_v2_effects_not_zero");
-  }
+  validateEffectsShape(effects);
+  for (const value of Object.values(effects)) if (value !== 0) fail("linear_lb1_v2_effects_not_zero");
 }
 
-function normalizeFeatureOffCollection(collection) {
+const ACTUAL_COLLECTOR_FIELDS = Object.freeze([
+  "adapter_ref", "attachment_allowlist_sha256", "attachment_policy_ref", "count_reconciled",
+  "cursor_ledger_sha256", "cutoff_at", "feature_state", "kind",
+  "network_calls", "observed_issue_count", "page_count", "provider_calls", "source_count",
+  "storage_writes", "terminal_cursor", "terminal_page_observed",
+]);
+
+function normalizeActualCollector(value, { failed = false } = {}) {
+  const collector = snapshotPlainData(value, "linear_lb1_v2_actual_collector_invalid");
+  exactKeys(collector, ACTUAL_COLLECTOR_FIELDS, "linear_lb1_v2_actual_collector_invalid");
+  if (collector.kind !== "linear_read_only_provider" || collector.feature_state !== "actual_read_only"
+      || collector.storage_writes !== 0 || !Number.isSafeInteger(collector.provider_calls) || collector.provider_calls < 0
+      || collector.network_calls !== collector.provider_calls || !Number.isSafeInteger(collector.page_count)
+      || collector.page_count < 0 || !Number.isSafeInteger(collector.observed_issue_count)
+      || collector.observed_issue_count < 0 || typeof collector.terminal_page_observed !== "boolean"
+      || typeof collector.count_reconciled !== "boolean") {
+    fail("linear_lb1_v2_actual_collector_invalid");
+  }
+  exactRef(collector.adapter_ref, "linear_lb1_v2_actual_collector_invalid");
+  exactRef(collector.attachment_policy_ref, "linear_lb1_v2_actual_collector_invalid");
+  if (!HASH_REF.test(collector.attachment_allowlist_sha256)
+      || collector.attachment_policy_ref.content_id !== collector.attachment_allowlist_sha256) {
+    fail("linear_lb1_v2_actual_collector_invalid");
+  }
+  if (collector.cursor_ledger_sha256 !== null) requireSha256(collector.cursor_ledger_sha256, "linear_lb1_v2_actual_collector_invalid");
+  if (collector.cutoff_at !== null) requireIso(collector.cutoff_at, "linear_lb1_v2_actual_collector_invalid");
+  if (collector.terminal_cursor !== null) requireId(collector.terminal_cursor, "linear_lb1_v2_actual_collector_invalid");
+  if (collector.source_count !== null && (!Number.isSafeInteger(collector.source_count) || collector.source_count < 0)) {
+    fail("linear_lb1_v2_actual_collector_invalid");
+  }
+  if (collector.count_reconciled !== (collector.source_count !== null && collector.source_count === collector.observed_issue_count)) {
+    fail("linear_lb1_v2_actual_collector_invalid");
+  }
+  if (!failed && (collector.page_count < 1 || collector.provider_calls < 1 || collector.cursor_ledger_sha256 === null
+      || collector.cutoff_at === null || collector.terminal_page_observed !== true)) {
+    fail("linear_lb1_v2_actual_collector_invalid");
+  }
+  return deepFreeze(collector);
+}
+
+function actualEffects(collector) {
+  return deepFreeze({
+    provider_calls: collector.provider_calls,
+    storage_writes: 0,
+    network_calls: collector.network_calls,
+    filesystem_writes: 0,
+    scheduler_changes: 0,
+  });
+}
+
+export function collectActualLinearLb1V2Snapshot(snapshot, options = {}) {
+  const status = options.status;
+  if (status !== "complete" && status !== "partial") fail("linear_lb1_v2_collection_status_invalid");
+  const normalizedSnapshot = normalizeLinearLb1V2Snapshot(snapshot);
+  if (normalizedSnapshot.source_scope.kind !== "linear_read_only_provider") {
+    fail("linear_lb1_v2_collection_provenance_mismatch");
+  }
+  const missingDimensions = normalizeDimensions(options.missing_dimensions ?? [], "linear_lb1_v2_missing_dimensions_invalid");
+  const errors = normalizeErrors(options.errors ?? []);
+  if (status === "complete" && (missingDimensions.length !== 0 || errors.length !== 0)) fail("linear_lb1_v2_complete_collection_incomplete");
+  if (status === "partial" && missingDimensions.length === 0) fail("linear_lb1_v2_partial_collection_without_missing_dimension");
+  const collector = normalizeActualCollector(options.collector);
+  if (collector.observed_issue_count !== normalizedSnapshot.issues.length
+      || collector.page_count !== normalizedSnapshot.cutoff.page_count
+      || collector.cutoff_at !== normalizedSnapshot.cutoff.cutoff_at) {
+    fail("linear_lb1_v2_actual_collector_invalid");
+  }
+  return collectionEnvelope(status, normalizedSnapshot, missingDimensions, deepFreeze(errors), collector, actualEffects(collector));
+}
+
+export function createFailedActualLinearLb1V2Collection({ errors, collector }) {
+  const normalizedErrors = normalizeErrors(errors);
+  if (normalizedErrors.length === 0) fail("linear_lb1_v2_failed_collection_without_error");
+  const normalizedCollector = normalizeActualCollector(collector, { failed: true });
+  return collectionEnvelope(
+    "failed", null, [...LINEAR_LB1_V2_DIMENSIONS], deepFreeze(normalizedErrors),
+    normalizedCollector, actualEffects(normalizedCollector),
+  );
+}
+
+function normalizeLinearLb1Collection(collection) {
   exactKeys(collection, ["schema_version", "collector", "collection_status", "snapshot", "declared_missing_dimensions", "errors", "effects"], "linear_lb1_v2_collection_shape_invalid");
   if (collection.schema_version !== LINEAR_LB1_V2_COLLECTION_SCHEMA_VERSION || !COLLECTION_STATUSES.has(collection.collection_status)) fail("linear_lb1_v2_collection_schema_invalid");
-  exactKeys(collection.collector, ["kind", "feature_state", "provider_calls", "storage_writes"], "linear_lb1_v2_collector_shape_invalid");
-  if (collection.collector.kind !== "public_synthetic_fixture" || collection.collector.feature_state !== "off" || collection.collector.provider_calls !== 0 || collection.collector.storage_writes !== 0) fail("linear_lb1_v2_collector_not_feature_off");
-  validateZeroEffects(collection.effects);
+  let collector;
+  let effects;
+  if (collection.collector?.kind === "public_synthetic_fixture") {
+    exactKeys(collection.collector, ["kind", "feature_state", "provider_calls", "storage_writes"], "linear_lb1_v2_collector_shape_invalid");
+    if (collection.collector.feature_state !== "off" || collection.collector.provider_calls !== 0 || collection.collector.storage_writes !== 0) {
+      fail("linear_lb1_v2_collector_not_feature_off");
+    }
+    validateZeroEffects(collection.effects);
+    collector = syntheticCollector();
+    effects = LINEAR_LB1_ZERO_EFFECTS;
+  } else {
+    collector = normalizeActualCollector(collection.collector, { failed: collection.collection_status === "failed" });
+    effects = actualEffects(collector);
+    if (stableJson(collection.effects) !== stableJson(effects)) fail("linear_lb1_v2_effects_invalid");
+  }
   const missingDimensions = normalizeDimensions(collection.declared_missing_dimensions, "linear_lb1_v2_missing_dimensions_invalid");
   const errors = normalizeErrors(collection.errors);
   let normalizedSnapshot = null;
@@ -700,14 +884,17 @@ function normalizeFeatureOffCollection(collection) {
     if (collection.snapshot !== null || errors.length === 0 || missingDimensions.length !== LINEAR_LB1_V2_DIMENSIONS.length) fail("linear_lb1_v2_failed_collection_invalid");
   } else {
     normalizedSnapshot = normalizeLinearLb1V2Snapshot(collection.snapshot);
+    if (normalizedSnapshot.source_scope.kind !== collector.kind) {
+      fail("linear_lb1_v2_collection_provenance_mismatch");
+    }
     if (collection.collection_status === "complete" && (missingDimensions.length !== 0 || errors.length !== 0)) fail("linear_lb1_v2_complete_collection_incomplete");
     if (collection.collection_status === "partial" && missingDimensions.length === 0) fail("linear_lb1_v2_partial_collection_without_missing_dimension");
   }
-  return collectionEnvelope(collection.collection_status, normalizedSnapshot, missingDimensions, deepFreeze(errors));
+  return collectionEnvelope(collection.collection_status, normalizedSnapshot, missingDimensions, deepFreeze(errors), collector, effects);
 }
 
-function emptyCounts() {
-  return {
+function emptyCounts(extended = false) {
+  const counts = {
     teams: 0,
     projects: 0,
     assignees: 0,
@@ -724,15 +911,21 @@ function emptyCounts() {
     completion_records: 0,
     evidence_refs: 0,
   };
+  if (extended) {
+    counts.labels = 0;
+    counts.attachments = 0;
+  }
+  return counts;
 }
 
-function snapshotCounts(snapshot) {
-  if (snapshot === null) return emptyCounts();
-  const counts = emptyCounts();
+function snapshotCounts(snapshot, extended = snapshot !== null && Object.hasOwn(snapshot, "labels")) {
+  if (snapshot === null) return emptyCounts(extended);
+  const counts = emptyCounts(extended);
   counts.teams = snapshot.teams.length;
   counts.projects = snapshot.projects.length;
   counts.assignees = snapshot.assignees.length;
   counts.statuses = snapshot.statuses.length;
+  if (extended) counts.labels = snapshot.labels.length;
   counts.issues = snapshot.issues.length;
   for (const issue of snapshot.issues) {
     counts.relations += issue.relations.length;
@@ -745,6 +938,7 @@ function snapshotCounts(snapshot) {
     counts.waiting_info += issue.waiting_info.length;
     counts.completion_records += issue.completion_records.length;
     counts.evidence_refs += issue.evidence_refs.length;
+    if (extended) counts.attachments += issue.attachments.length;
   }
   return counts;
 }
@@ -755,6 +949,7 @@ function snapshotTimestampRange(snapshot) {
   for (const team of snapshot.teams) values.push(team.updated_at);
   for (const project of snapshot.projects) values.push(project.updated_at);
   for (const assignee of snapshot.assignees) values.push(assignee.updated_at);
+  for (const label of snapshot.labels ?? []) values.push(label.updated_at);
   for (const issue of snapshot.issues) {
     values.push(issue.created_at, issue.updated_at, issue.description.updated_at);
     if (issue.started_at !== null) values.push(issue.started_at);
@@ -784,30 +979,34 @@ function snapshotTimestampRange(snapshot) {
       if (comp.official_task_done_at !== null) values.push(comp.official_task_done_at);
     }
     for (const ev of issue.evidence_refs) values.push(ev.captured_at);
+    for (const attachment of issue.attachments ?? []) values.push(attachment.created_at, attachment.updated_at);
   }
   values.sort(codepointCompare);
   return { min: values[0], max: values[values.length - 1] };
 }
 
-function coverageForSnapshot(snapshot, missingDimensions) {
+function coverageForSnapshot(snapshot, missingDimensions, { extended = snapshot !== null && Object.hasOwn(snapshot, "labels") } = {}) {
   const missingSet = new Set(missingDimensions);
   return {
     requested_dimensions: [...LINEAR_LB1_V2_DIMENSIONS],
     covered_dimensions: LINEAR_LB1_V2_DIMENSIONS.filter((dimension) => !missingSet.has(dimension)),
     missing_dimensions: [...missingDimensions],
-    counts: snapshotCounts(snapshot),
+    counts: snapshotCounts(snapshot, extended),
     timestamp_range: snapshotTimestampRange(snapshot),
   };
 }
 
 function coverageFor(collection) {
-  return coverageForSnapshot(collection.snapshot, collection.declared_missing_dimensions);
+  return coverageForSnapshot(collection.snapshot, collection.declared_missing_dimensions, {
+    extended: collection.collector.kind === "linear_read_only_provider"
+      || (collection.snapshot !== null && Object.hasOwn(collection.snapshot, "labels")),
+  });
 }
 
-function validateManifestCoverage(coverage, snapshot, runStatus) {
+function validateManifestCoverage(coverage, snapshot, runStatus, { extended = snapshot !== null && Object.hasOwn(snapshot, "labels") } = {}) {
   if (!isPlainRecord(coverage)) fail("linear_lb1_v2_manifest_coverage_invalid");
   const missingDimensions = normalizeDimensions(coverage.missing_dimensions, "linear_lb1_v2_manifest_coverage_invalid");
-  const expected = coverageForSnapshot(snapshot, missingDimensions);
+  const expected = coverageForSnapshot(snapshot, missingDimensions, { extended });
   if (stableJson(coverage) !== stableJson(expected)) fail("linear_lb1_v2_manifest_coverage_invalid");
   if (runStatus === "complete" && missingDimensions.length !== 0) fail("linear_lb1_v2_manifest_coverage_invalid");
   if (runStatus === "partial" && missingDimensions.length === 0) fail("linear_lb1_v2_manifest_coverage_invalid");
@@ -834,14 +1033,17 @@ function validateManifestErrorCodes(errorCodes, runStatus) {
 
 export function buildImmutableLinearLb1BackupRunV2({ run_key: runKey, collection }) {
   requireId(runKey, "linear_lb1_v2_run_key_invalid");
-  const normalizedCollection = normalizeFeatureOffCollection(collection);
+  const normalizedCollection = normalizeLinearLb1Collection(collection);
   const coverage = coverageFor(normalizedCollection);
   const snapshotSha256 = normalizedCollection.snapshot === null ? null : sha256(normalizedCollection.snapshot);
+  const sourceKind = normalizedCollection.collector.kind;
+  const featureState = normalizedCollection.collector.feature_state;
   const manifestBody = {
     schema_version: LINEAR_LB1_V2_MANIFEST_SCHEMA_VERSION,
     run_key: runKey,
-    source_kind: "public_synthetic_fixture",
-    feature_state: "off",
+    source_kind: sourceKind,
+    feature_state: featureState,
+    ...(sourceKind === "linear_read_only_provider" ? { collection_evidence: normalizedCollection.collector } : {}),
     collection_status: normalizedCollection.collection_status,
     snapshot_sha256: snapshotSha256,
     coverage,
@@ -871,30 +1073,40 @@ export function buildImmutableLinearLb1BackupRunV2({ run_key: runKey, collection
   }
   return deepFreeze({
     schema_version: LINEAR_LB1_V2_RUN_SCHEMA_VERSION,
-    feature_state: "off",
+    feature_state: featureState,
     run_key: runKey,
     run_status: normalizedCollection.collection_status,
     revision,
     manifest,
-    effects: LINEAR_LB1_ZERO_EFFECTS,
+    effects: normalizedCollection.effects,
   });
 }
 
 function validateBackupRunV2(run) {
   exactKeys(run, ["schema_version", "feature_state", "run_key", "run_status", "revision", "manifest", "effects"], "linear_lb1_v2_run_shape_invalid");
-  if (run.schema_version !== LINEAR_LB1_V2_RUN_SCHEMA_VERSION || run.feature_state !== "off" || !COLLECTION_STATUSES.has(run.run_status)) {
+  if (run.schema_version !== LINEAR_LB1_V2_RUN_SCHEMA_VERSION || !COLLECTION_STATUSES.has(run.run_status)) {
     fail("linear_lb1_v2_run_schema_invalid");
   }
   requireId(run.run_key, "linear_lb1_v2_run_key_invalid");
-  validateZeroEffects(run.effects);
-  exactKeys(run.manifest, [
+  const baseManifestFields = [
     "schema_version", "run_key", "source_kind", "feature_state", "collection_status",
     "snapshot_sha256", "coverage", "error_codes", "manifest_sha256",
-  ], "linear_lb1_v2_manifest_shape_invalid");
+  ];
+  const actualManifest = run.manifest?.source_kind === "linear_read_only_provider";
+  exactKeys(run.manifest, actualManifest ? [...baseManifestFields, "collection_evidence"] : baseManifestFields,
+    "linear_lb1_v2_manifest_shape_invalid");
   if (run.manifest.schema_version !== LINEAR_LB1_V2_MANIFEST_SCHEMA_VERSION || run.manifest.run_key !== run.run_key
-      || run.manifest.source_kind !== "public_synthetic_fixture" || run.manifest.feature_state !== "off"
+      || !SOURCE_SCOPE_KINDS.has(run.manifest.source_kind) || run.manifest.feature_state !== run.feature_state
       || run.manifest.collection_status !== run.run_status) {
     fail("linear_lb1_v2_manifest_identity_invalid");
+  }
+  if (run.manifest.source_kind === "public_synthetic_fixture") {
+    if (run.feature_state !== "off") fail("linear_lb1_v2_manifest_identity_invalid");
+    validateZeroEffects(run.effects);
+  } else {
+    if (run.feature_state !== "actual_read_only") fail("linear_lb1_v2_manifest_identity_invalid");
+    const collector = normalizeActualCollector(run.manifest.collection_evidence, { failed: run.run_status === "failed" });
+    if (stableJson(run.effects) !== stableJson(actualEffects(collector))) fail("linear_lb1_v2_effects_invalid");
   }
   if ((run.manifest.snapshot_sha256 !== null && !SHA256.test(run.manifest.snapshot_sha256)) || !SHA256.test(run.manifest.manifest_sha256)) {
     fail("linear_lb1_v2_manifest_hash_invalid");
@@ -904,6 +1116,7 @@ function validateBackupRunV2(run) {
     run_key: run.manifest.run_key,
     source_kind: run.manifest.source_kind,
     feature_state: run.manifest.feature_state,
+    ...(actualManifest ? { collection_evidence: run.manifest.collection_evidence } : {}),
     collection_status: run.manifest.collection_status,
     snapshot_sha256: run.manifest.snapshot_sha256,
     coverage: run.manifest.coverage,
@@ -913,7 +1126,9 @@ function validateBackupRunV2(run) {
   if (sha256(manifestBody) !== run.manifest.manifest_sha256) fail("linear_lb1_v2_manifest_digest_invalid");
 
   if (run.revision === null) {
-    validateManifestCoverage(run.manifest.coverage, null, run.run_status);
+    validateManifestCoverage(run.manifest.coverage, null, run.run_status, {
+      extended: run.manifest.source_kind === "linear_read_only_provider",
+    });
     if (run.run_status !== "failed" || run.manifest.snapshot_sha256 !== null) fail("linear_lb1_v2_failed_run_revision_invalid");
     return run;
   }
@@ -938,8 +1153,21 @@ function validateBackupRunV2(run) {
   })) fail("linear_lb1_v2_revision_id_invalid");
 
   const normalizedSnapshot = normalizeLinearLb1V2Snapshot(run.revision.snapshot);
+  if (normalizedSnapshot.source_scope.kind !== run.manifest.source_kind) {
+    fail("linear_lb1_v2_collection_provenance_mismatch");
+  }
   if (sha256(normalizedSnapshot) !== run.revision.snapshot_sha256) fail("linear_lb1_v2_snapshot_digest_invalid");
-  validateManifestCoverage(run.manifest.coverage, normalizedSnapshot, run.run_status);
+  if (run.manifest.source_kind === "linear_read_only_provider") {
+    const evidence = run.manifest.collection_evidence;
+    if (evidence.observed_issue_count !== normalizedSnapshot.issues.length
+        || evidence.page_count !== normalizedSnapshot.cutoff.page_count
+        || evidence.cutoff_at !== normalizedSnapshot.cutoff.cutoff_at) {
+      fail("linear_lb1_v2_actual_collector_invalid");
+    }
+  }
+  validateManifestCoverage(run.manifest.coverage, normalizedSnapshot, run.run_status, {
+    extended: run.manifest.source_kind === "linear_read_only_provider" || Object.hasOwn(normalizedSnapshot, "labels"),
+  });
 
   const revisionBody = {
     revision_id: run.revision.revision_id,
@@ -981,7 +1209,21 @@ export function registerImmutableLinearLb1BackupRunV2(existingRuns, candidateRun
 function projectionV2(snapshot, dimension) {
   switch (dimension) {
     case "issue":
-      return snapshot.issues.map((i) => ({
+      if (!Object.hasOwn(snapshot, "labels")) {
+        return snapshot.issues.map((i) => ({
+          issue_id: i.issue_id,
+          human_id: i.human_id,
+          title: i.title,
+          priority: i.priority,
+          team_id: i.team_id,
+          project_id: i.project_id,
+          assignee_id: i.assignee_id,
+          status_id: i.status_id,
+          parent_issue_id: i.parent_issue_id,
+          tombstone: i.tombstone,
+        }));
+      }
+      return { labels: snapshot.labels, issues: snapshot.issues.map((i) => ({
         issue_id: i.issue_id,
         human_id: i.human_id,
         title: i.title,
@@ -992,7 +1234,8 @@ function projectionV2(snapshot, dimension) {
         status_id: i.status_id,
         parent_issue_id: i.parent_issue_id,
         tombstone: i.tombstone,
-      }));
+        label_ids: i.label_ids,
+      })) };
     case "team":
       return snapshot.teams;
     case "project":
@@ -1002,7 +1245,37 @@ function projectionV2(snapshot, dimension) {
     case "status":
       return snapshot.statuses;
     case "timestamps":
-      return {
+      return Object.hasOwn(snapshot, "labels") ? {
+        collected_at: snapshot.collected_at,
+        cutoff_at: snapshot.cutoff.cutoff_at,
+        teams: snapshot.teams.map((t) => ({ team_id: t.team_id, updated_at: t.updated_at })),
+        projects: snapshot.projects.map((p) => ({ project_id: p.project_id, updated_at: p.updated_at })),
+        assignees: snapshot.assignees.map((a) => ({ assignee_id: a.assignee_id, updated_at: a.updated_at })),
+        labels: snapshot.labels.map((label) => ({ label_id: label.label_id, updated_at: label.updated_at })),
+        issues: snapshot.issues.map((i) => ({
+          issue_id: i.issue_id,
+          created_at: i.created_at,
+          updated_at: i.updated_at,
+          started_at: i.started_at,
+          completed_at: i.completed_at,
+          canceled_at: i.canceled_at,
+          archived_at: i.archived_at,
+          desc_updated_at: i.description.updated_at,
+          comments: i.comments.map((c) => ({
+            comment_id: c.comment_id,
+            created_at: c.created_at,
+            edited_at: c.edited_at,
+            updated_at: c.updated_at,
+            archived_at: c.archived_at,
+            resolved_at: c.resolved_at,
+          })),
+          attachments: i.attachments.map((attachment) => ({
+            attachment_id: attachment.attachment_id,
+            created_at: attachment.created_at,
+            updated_at: attachment.updated_at,
+          })),
+        })),
+      } : {
         collected_at: snapshot.collected_at,
         cutoff_at: snapshot.cutoff.cutoff_at,
         teams: snapshot.teams.map((t) => ({ team_id: t.team_id, updated_at: t.updated_at })),
@@ -1082,6 +1355,7 @@ function projectionV2(snapshot, dimension) {
       return snapshot.issues.map((i) => ({
         issue_id: i.issue_id,
         evidence_refs: i.evidence_refs,
+        ...(Object.hasOwn(i, "attachments") ? { attachments: i.attachments } : {}),
       }));
     case "cutoff_completeness":
       return snapshot.cutoff;
@@ -1111,6 +1385,9 @@ export function checkLinearLb1RestoreV2(backupRun, restoredSnapshot, options = {
   validateBackupRunV2(backupRun);
   const artifactKinds = normalizeArtifactKinds(options.artifact_kinds === undefined ? ["immutable_revision"] : options.artifact_kinds);
   const restored = restoredSnapshot === null ? null : normalizeLinearLb1V2Snapshot(restoredSnapshot);
+  if (restored !== null && restored.source_scope.kind !== backupRun.manifest.source_kind) {
+    fail("linear_lb1_v2_collection_provenance_mismatch");
+  }
   const missing = new Set(backupRun.manifest.coverage.missing_dimensions);
   const reconstructable = [];
   if (backupRun.revision === null || restored === null) {
