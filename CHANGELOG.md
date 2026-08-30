@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-08-31 - Agent workforce lineage is a separate effect-inert contract
+
+- Added a public-safe pure contract for `Agent Family -> Agent Mark -> Deployment -> Run -> Memory Generation`, binding semantic versions, record digests, exact role/capability/tool/authority/project snapshots, requested versus observed model/effort, SOUL/instruction refs, memory lineage and rollback/supersession refs. Missing observed model/effort remains `UNKNOWN`.
+- `agent_record.v1` is explicitly rejected as an Agent Mark. The contract returns only `PREPARED_CONTRACT`; persistence, runtime/config calls, authority activation, external calls, raw memory and plaintext credentials are forbidden. This does not create a durable registry, approved Mark, Hermes/Buzz binding, project deployment or Official Task effect.
+
+## 2026-08-31 - Mail capture receipts enter the common source-lane vocabulary
+
+- Added a pure adapter from an exact body-free continuous mail receipt plus its matching store-validity receipt to one refs-only `source.mail` capture generation. Canonical digest, clock, source/project scope and store consistency are checked; body/path/secret fields, foreign scope, stale/future receipts and forged digests fail closed.
+- The adapter cannot emit backup, restore or human-acceptance evidence. Its end-to-end R3 test therefore renders capture-only Mail as `degraded`, never `healthy`; provider calls, filesystem writes and credentials remain outside the module.
+
 ## 2026-08-31 - Engineering Engine manifest/release bindings resynchronized
 
 - Re-emitted the canonical Engineering Engine code manifest after the PCB compliance fact-admission seam and its related evaluator/topology-oracle changes had landed without a matching generated manifest update. The manifest now enrolls `pcb_compliance_fact_admission.mjs`, covers 820 files, and binds the current tracked topology bytes.

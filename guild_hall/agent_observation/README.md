@@ -20,6 +20,7 @@ fixture와 measured fixture만 사용한다.
 | `guard_primitives.mjs` | 나머지 module이 공유하는 strict input 규칙: safe ID/ref/label 문법, secret 탐지, 로컬 절대경로 탐지, 깊이 한계 scan, deep freeze, canonical digest |
 | `observation_internals.mjs` | **owner 내부 전용** 공유 내부: store handle과 그 뒤에 숨은 state, 단일 hold 어휘표, append·ref helper. public surface가 아니며 이 디렉터리 밖에서 import하지 않는다 |
 | `agent_registry.mjs` | Seam A — durable agent identity, project 바인딩, provider identity crosswalk, memory class |
+| `agent_mark_lineage.mjs` | 별도 workforce asset 계약 — Agent Family→Mark→Deployment→Run→Memory Generation의 version/digest/binding/rollback을 준비하며 `agent_record.v1`을 Mark로 자동 승격하지 않음 |
 | `run_observation.mjs` | Seam B — 관찰된 run, 그 authority와 시각, parent/child run graph |
 | `usage_ledger.mjs` | Seam C — direct usage 귀속과 self/child-direct/subtree rollup |
 | `delivery_evidence.mjs` | Seam D — Result/Delivery Receipt, delivery receipt의 `delivery_target`, Delivery Edge와 consumer 투영 |
@@ -59,6 +60,12 @@ barrel은 다섯 번째 원장이 되지 않도록 공유 state가 아니라 sea
 - `soulforge.agent_observation.p0s1_vertical_result.v1`
 - `soulforge.agent_observation.p0s2_job_shop_result.v1`
 - `soulforge.agent_observation.context_capsule.v1`
+- `soulforge.agent_observation.agent_family.v0`
+- `soulforge.agent_observation.agent_mark.v0`
+- `soulforge.agent_observation.agent_deployment.v0`
+- `soulforge.agent_observation.agent_mark_run.v0`
+- `soulforge.agent_observation.agent_memory_generation.v0`
+- `soulforge.agent_observation.agent_workforce_lineage.v0`
 
 ## 경계
 
@@ -141,8 +148,15 @@ barrel은 다섯 번째 원장이 되지 않도록 공유 state가 아니라 sea
   store는 그런 필드를 애초에 받지 않는다. vertical은 Board 행에 쓸 `display_label` 하나만 받는데,
   이는 표시용이며 identity·parent·project 결정에 전혀 쓰이지 않고 Board label 규칙을 통과해야만
   한다. 모르는 값은 `HOLD`다.
-- Agent local memory는 `cache_only`만 허용한다. 장기 Project Context 정본은 ERP 세계수이며
-  이 module이 소유하지 않는다.
+- 기존 observation `agent_record.memory_class`는 `cache_only`만 허용한다. 별도 lineage
+  contract는 project-scoped memory generation의 refs/classification/retention/recovery 관계를
+  기록할 수 있지만 raw body나 accepted Project Context를 소유·승격하지 않는다. 장기 Project
+  Context 정본은 ERP 세계수이며 이 module이 소유하지 않는다.
+- `agent_mark_lineage.mjs`의 `PREPARED_CONTRACT`는 durable registry, approved Mark,
+  Deployment activation, Run start, memory promotion이 아니다. Family·Mark·Deployment·Run·
+  Memory Generation의 refs/digests와 requested/observed model·effort를 분리해 검증할 뿐이며,
+  persistence/runtime/config/authority/external effect는 전부 false여야 한다. private key/token/raw
+  memory는 구조적으로 거부하고 `secretref:` pointer만 허용한다.
 - AgentRun success는 Official Task Done이 아니다. `result_observed`는 side-effect evidence
   ref가 있을 때만 받아들인다.
 - source 파일에는 NUL byte를 넣지 않는다. grep 기반 validator가 module을 binary로 보고

@@ -46,11 +46,14 @@ mail, rollback, Slack, tool, voice-label, and Watchtower surfaces. Exact paths,
 contents, ACLs, health, and backup completeness remain private or
 `VERIFY_PHYSICAL`.
 
-The correction is important: the estate is not empty, but it lacks one
-source/asset-oriented Path Registry and ERP-facing catalog view. Linear,
+The correction is important: the estate is not empty. A public in-memory Path
+Registry/Storage Map contract now exists with 40 held/reference rows, including
+all plan-10 sources and nine whole-estate asset classes. What is still missing
+is the private physical binding/writer, accepted evidence records, approved
+materializer apply and per-source/asset backup/restore closure. Linear,
 cloud/Drive, Buzz, Hermes, knowledge, and cross-project asset/backup views are
-not yet uniformly materialized. Plan 17 owns the target organization and
-structure-now/movement-later migration rule.
+therefore registered but not yet uniformly materialized or recoverable. Plan
+17 owns the structure-now/movement-later rule.
 
 ## Current components and maturity
 
@@ -60,8 +63,9 @@ structure-now/movement-later migration rule.
 | `ui-workspace/apps/dev-erp-mcp` | Personal ERP MCP, project-history MCP, company-mail query-only MCP, HPP ingress MCP/mTLS source | Reuse/modify; personal MCP default is feature-gated | Shared MCP facade and explicit capability gates |
 | `guild_hall/engineering_engine` | Core plus physical Domain Engine packages and deterministic validators | Reuse as Forge judgment foundation | Accepted-context and real project vertical remain HOLD |
 | `guild_hall/file_activity` | Logical file/content/revision/observation metadata lineage | Reuse for lineage only | It is not a byte vault or recovery system |
-| `guild_hall/backup_controller` | Feature-gated backup/recovery and Linear LB1 synthetic contracts | Reuse for policy/restore gates | Actual connector capture and human restore acceptance are HOLD |
-| `guild_hall/agent_observation` | Registry/observation/usage projection foundations | Reuse as observability support | Not a durable Agent Mark/Deployment authority by itself |
+| `guild_hall/backup_controller` | Feature-gated backup/recovery plus a bounded connected Linear one-shot | Reuse for policy/restore gates | Linear result is `PARTIAL_TECHNICAL_RESTORE_CANDIDATE`; recurring capture and human restore acceptance remain HOLD |
+| `guild_hall/agent_observation` | Observation/usage projection foundations plus pure Agent workforce lineage contract | Reuse as observability and contract support | `PREPARED_CONTRACT` is not a durable Agent Mark/Deployment authority or runtime activation |
+| `guild_hall/path_registry` | R1–R3 registry/materializer/storage-map contracts, source-lane index, held asset rows and Mail capture adapter | Reuse as whole-estate organizing spine | Private bindings, physical apply, enforcement and accepted source/backup evidence remain HOLD |
 | `guild_hall/watchtower` and Team Ops Board | Read/projection and topology adapters | Reuse/modify as Watch | Remain read-only; oracle scope needs reconciliation |
 | `guild_hall/workflow_runner` | Fail-closed workflow state, receipt, artifact, and payload boundaries | Reuse/modify | Windows symlink E2E evidence needs a resolved environment/fixture gate |
 | `ui-workspace/apps/renderer-web` | Control-center UI and a token-gated text `PUT` route | Hold as a writer capability | Requires ownership/guard audit before any use with protected surfaces |
@@ -99,11 +103,12 @@ The ingress MCP exposes `ingress_whoami`, `ingress_prepare_file_upload`, `ingres
 1. No approved D27 custody/promoter/scan/retention/backup/delete authority.
 2. No approved D28 assignment-bound WorkSession/client/outbox/recovery authority.
 3. No D29 accepted-generation ACL, exact canonical bundle, or no-fallback query service.
-4. No durable Agent Mark/Deployment/Run registry with approved project binding.
+4. Pure Agent Family/Mark/Deployment/Run/Memory lineage validation exists, but no durable approved registry/writer with a project binding.
 5. No physical Team Client Pack rollout, Workshop runtime, or external connector backup acceptance.
 6. No task writer migration away from current Linear Official Task SoR.
-7. No whole-estate Path Registry, source/asset catalog materializer,
-   unregistered-write guard, or 4192 Storage & Backup Map.
+7. Whole-estate Path Registry/materializer/Storage Map contracts exist, but no
+   private actual binding, materializer apply/readback, enforcement binding,
+   accepted source/asset record store, or served 4192 snapshot exists.
 
 ## Related plans
 

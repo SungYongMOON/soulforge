@@ -394,6 +394,12 @@ physical movement remain behind private binding/ACL/canary readback and exact
 enforcement wiring. R0 acceptance and OD-10 owner/projection assignments are
 recorded; they do not by themselves activate a writer or physical path.
 
+R5 has begun without physical movement: a pure Mail adapter can now transform
+an exact accepted continuous-ingress receipt plus its matching store-validity
+receipt into a refs-only `capture_generation`. It emits no backup, restore,
+human-acceptance, retention or RPO field, so capture-only evidence remains
+`degraded`. No private record writer or actual receipt caller is activated.
+
 ## Acceptance and stop conditions
 
 The spine is accepted only when every known root/high-value path has one
