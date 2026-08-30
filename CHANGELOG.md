@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-30 - Whole-estate physical architecture and Path Registry plan
+
+- Added Team Member Engineering Program plan 17 to preserve the Owner's whole-estate correction: physical organization covers all sources, projects, knowledge, assets, Agent/runtime state, backup generations, receipts, recovery, and 4192 storage visibility rather than a Linear-only or Agent-only slice.
+- Fixed the working order to `structure now, movement later`: current paths remain reference-in-place while a Path Registry, source-oriented catalog view, unregistered-write guard, target materializer, and read-only 4192 Storage & Backup Map are reviewed. No payload move, directory creation, connector activation, credential access, or external backup run occurs in this documentation slice.
+
 ## 2026-08-30 - plan-13 measured facts re-baselined; a loop-introduced path-probe literal fixed
 
 - plan-13's "Current measured validation facts" table was re-measured live: context_life_tree 14/14, topology adapters 5/5, workflow-runner 36/36 (each confirming its recorded post-leaf state); the dev-erp-mcp package suite moved BLOCKED -> PASS 44/44 under the recorded lockfile-only installs. `validate:path-policy:all` measured 58 mid-loop - and the review PROVED the +1 was loop output, not debt: a drive-path probe literal the L-RED-03 leaf left in renderer-web's control-center write-policy test, deterministically attributed via the plan-freeze git baseline. Fixed in this leaf by probe-string concatenation (the recurring trap the loop already carries a rule for; the tsx runner re-verifies all 10 invalid-shape decisions unchanged), returning the measure to exactly the 57 pre-existing RED-05 debt findings, which stay Owner-held and untouched.

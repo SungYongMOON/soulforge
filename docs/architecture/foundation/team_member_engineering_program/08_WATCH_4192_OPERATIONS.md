@@ -42,6 +42,20 @@ RESOLVED 2026-08-30: the intended producer, topology scope, and UI oracle are no
 
 Every panel reports one of `healthy`, `degraded`, `stale`, `unavailable`, `unknown`, or `hold`, plus an evidence time and owner pointer. Missing evidence is `unknown`, not green. A value is current only if its source-specific freshness window is met. This panel enum is Watch-local; the coarse runtime-availability vocabulary in [07](07_BUZZ_HERMES_COLLABORATION.md) is a distinct source-local enum that adapters map into these panel states rather than merge.
 
+## Storage and backup map
+
+The whole-estate physical organization is specified in
+[17](17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md). 4192 must
+project every registered root and external-source lane through one read-only
+Storage & Backup Map: binding state, latest accepted capture, backup generation,
+coverage, freshness, restore test, human restore acceptance, retention/RPO
+policy presence, migration state, unclassified count, and held reason. Missing
+evidence is `unknown` or `hold`, never green.
+
+Source bodies, project payload, credentials, private Agent memory, deep
+Buzz/Hermes session detail, and raw logs remain excluded. This requirement does
+not authorize a storage writer, migration, backup execution, or recovery action.
+
 ## Independence and release contract
 
 Watch is detachable when it consumes versioned typed projections only. It publishes a module manifest, compatible schema range, capability discovery/readiness, source freshness policies, no-writer proof, synthetic/integration fixtures, UI release note, and rollback behavior. A Watch upgrade may be rolled back without changing Vault, Forge, Guild, Buzz, or Bastion when the projection schema contract remains compatible.
@@ -51,3 +65,4 @@ Watch is detachable when it consumes versioned typed projections only. It publis
 - [Buzz / Hermes boundary](07_BUZZ_HERMES_COLLABORATION.md)
 - [Bastion action/recovery](09_BASTION_SECURITY_RECOVERY.md)
 - [Testing and dogfood](13_TEST_DOGFOOD_ACCEPTANCE.md)
+- [Physical architecture and Path Registry](17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md)

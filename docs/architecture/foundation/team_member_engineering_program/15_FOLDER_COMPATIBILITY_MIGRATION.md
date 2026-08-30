@@ -111,9 +111,17 @@ The manifest declares required/optional dependencies, schema compatibility, data
 4. Deepen or relocate one module only after its prior path remains compatible and every caller/restoration gate passes.
 5. Record release artifact, checksums, SBOM, release notes, install/upgrade/rollback manual; do not deploy it in this planning task.
 
+The Owner's 2026-08-30 whole-estate clarification is detailed in
+[17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md](17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md).
+It changes priority, not the destructive-action boundary: root classes, Path
+Registry, source-oriented catalog view, write guard, and 4192 Storage Map are
+defined now; existing payload relocation remains one bounded class at a time
+after backup/restore/caller/rollback proof.
+
 ## Related plans
 
 - [Deployment packs](12_DEPLOYMENT_ROLLOUT_SUPPORT.md)
 - [Guild runtime](06_GUILD_AGENT_MARK_AND_RUNTIME.md)
 - [Bastion recovery](09_BASTION_SECURITY_RECOVERY.md)
 - [Roadmap](14_ROADMAP_GATES_AND_DAG.md)
+- [Physical architecture and Path Registry](17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md)

@@ -35,11 +35,12 @@ The suite is intentionally split so a later program builder can open the smalles
 | 14 | [Roadmap, gates, DAG](14_ROADMAP_GATES_AND_DAG.md) | Build order, gate register, Fable5 build packet |
 | 15 | [Folder compatibility and migration](15_FOLDER_COMPATIBILITY_MIGRATION.md) | Reference-in-place physical path crosswalk and reuse matrix |
 | 16 | [Operations manual catalog](16_OPERATIONS_RUNBOOK_CATALOG.md) | Required operator and user manuals |
+| 17 | [Physical architecture, Path Registry, and Storage Map](17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md) | Whole-estate root map, source-oriented catalog, migration guard, and 4192 storage view |
 
 ## Reader order
 
 1. Read this index, then [01](01_SYSTEM_CONTEXT_AND_CROSSWALK.md) and [02](02_CURRENT_INVENTORY_AND_GAPS.md).
-2. For an implementation leaf, read its functional owner document plus [13](13_TEST_DOGFOOD_ACCEPTANCE.md), [14](14_ROADMAP_GATES_AND_DAG.md), and [15](15_FOLDER_COMPATIBILITY_MIGRATION.md).
+2. For an implementation leaf, read its functional owner document plus [13](13_TEST_DOGFOOD_ACCEPTANCE.md), [14](14_ROADMAP_GATES_AND_DAG.md), [15](15_FOLDER_COMPATIBILITY_MIGRATION.md), and [17](17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md) when it creates, resolves, stores, backs up, restores, or moves data.
 3. Treat any `CURRENT`, `TARGET`, `HOLD`, and `VERIFY_PHYSICAL` labels literally. A documented target is not a deployed service.
 
 ## Fixed Owner direction used by this draft
@@ -55,6 +56,7 @@ The suite is intentionally split so a later program builder can open the smalles
 | Project-specific AI managers and context remain separate. | Guild identity and deployment can be shared only through explicit grants; no implicit cross-project context retrieval exists. |
 | 4192 is a projection and approval-request surface. | It has no deep Bot state copy, dispatcher, task writer, or recovery-writer authority. |
 | No automatic external send, purchase, technical acceptance, baseline, Official Done, or knowledge promotion. | Those effects require later owner-specific action gates. |
+| The whole physical organization is fixed before further provider/product expansion. | Define root classes, Path Registry, source-oriented catalog, write guard, and 4192 Storage Map now; move existing payload only through later bounded migration leaves. |
 
 ## Explicit contradictions and non-decisions
 
@@ -65,6 +67,7 @@ The suite is intentionally split so a later program builder can open the smalles
 | Engineering Engine `interface_consistency` status | Current tree contains the package, while a retained HOLD row says package creation remains. | Record it as a documentation contradiction. Re-audit before any dependency is taken on it; live/project acceptance remains HOLD either way. |
 | Fable5 runtime observations | The advisory audit contains historical and private-runtime claims that are not reproducible from this public worktree. | Retain only its issue hypotheses and compare them to current public files/tests. Do not claim team-PC readiness from the audit. |
 | Backup readiness | Public synthetic backup and restore contracts exist; actual connector capture and human restore acceptance are separately held. | Require live capture, isolated restore, reconciliation, and human acceptance before rollout. |
+| Logical product map vs physical folder organization | Product seams and Packs exist, but current operational paths are lifecycle-oriented and the source/asset catalog view is not materialized. | Keep existing paths reference-in-place, add the organization spine in plan 17, and prohibit unregistered new paths. |
 
 ## Owner decision register
 
@@ -94,6 +97,7 @@ The standing conservative defaults are current Linear Official Task SoR, referen
 | --- | --- | --- | --- |
 | 2026-08-30 | Plan/review start gate + OD-09 activation | The Human Owner issued the `SOULFORGE COMPLETE BUILD-TO-ACCEPTANCE LOOP` directive instructing a Fable5 program builder to freeze this suite and then continue implementation under the OD-09 standing delegation without intermediate confirmation. OD-01–OD-08 remain undecided and keep their blocking consequences. | Owner directive of 2026-08-30 in the Owner's session; fresh non-authoring completeness review verdict `ACCEPT_FOR_FREEZE` (0 blocker / 0 major; 9 draft findings applied in the freeze commit) |
 | 2026-08-30 | D27/D28/D29 design-level defaults (for the leaf-2 contract/schema work only) | Under OD-09 and the Owner directive's reversible-decision rule, the build loop adopts each gate's proposed conservative default as the DESIGN decision for contract/schema authoring: D27 — pointer/reference first, service inbox is custody only, promotion is a separate sole writer; D28 — one active `{assignment_epoch, account}` primary, plural checkpoints, closeout is never Official Done; D29 — read-only surfaces, explicit project plus approved common revisions, no fallback. Alternatives (copy-first custody, multi-primary sessions, implicit-fallback queries) were rejected as authority-widening and harder to roll back. These remain schema-level choices: physical custody/promoter activation, team WorkSession activation, and any canonical bundle/accepted-history service still require their original gates (OD-01..03 blocking consequences unchanged) plus OD-08 physical tuples. | `guild_hall/engineering_mcp/` module (`npm run validate:engineering-mcp`), its README authority ceilings, and the leaf's fresh independent review |
+| 2026-08-30 | Whole-estate physical organization before expansion | The Owner clarified that the concern is not Linear or Agents alone: every source, project, knowledge, asset, Agent, runtime, backup, receipt, and recovery surface needs a stable physical map so later Agents cannot scatter new paths. Structure/registry/guard/4192 projection are current priority; destructive relocation remains staged. | Owner conversation; plan 17 Owner-review draft; Ultra and Fable5 independent reviews requested before implementation |
 
 ### Standing decision ledger location
 
@@ -122,6 +126,7 @@ The owner decision register in this document is the standing decision ledger tha
 | Test/dogfood/field pilot loop | 13, 14 | Required gate sequence |
 | Fable5 build packet and dependency DAG | 14 | Copy-ready packet and stop semantics |
 | Physical source/runtime/Bot folder packaging | 15 | Reference-in-place and private-alias inventory only |
+| Whole physical architecture, source/asset catalog, Path Registry, and 4192 storage map | 17 | Owner direction captured; implementation and migration remain gated |
 | Current RED stabilization: owner scope, topology oracle, renderer writer, workflow symlink, path policy | 02, 13, 14 | Existing facts/contradictions preserved; first leaf selected |
 
 ## Source register and claim rule

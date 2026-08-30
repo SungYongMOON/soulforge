@@ -209,6 +209,14 @@ read-only snapshot
   `docs/architecture/foundation/team_member_engineering_program/14_ROADMAP_GATES_AND_DAG.md`의
   Executed-leaf ledger가 소유한다. 이 build는 위 AX·SE active slice의 우선순위를
   바꾸지 않으며 actual provider·물리 pilot·ring 승격은 전부 기존 Owner gate 뒤다.
+- adjacent physical-organization rebaseline(2026-08-30): Owner는 Linear나 Agent 한
+  기능이 아니라 Soulforge 전체 source/runtime/data/control/project-work/tool/recovery
+  구조를 먼저 고정하라고 명시했다. 다음 adjacent priority는 기존 payload를 옮기는
+  big-bang migration이 아니라 root class·Path Registry·source/asset catalog view·
+  unregistered-write guard·4192 Storage & Backup Map으로 이루어진 organization spine다.
+  상세 범위, original-vision coverage, R0~R7 순서는
+  `team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md`가
+  소유한다. 실제 이동·새 writer·credential·restore 적용은 계속 기존 Owner gate 뒤다.
 - adjacent Task execution foundation(2026-08-25): 기존 `TaskExecutionCore`/SQLite를
   변경하지 않는 default-OFF in-memory `CandidateExecutionCoordinator` 구조가 exact
   Role/Capability와 actor→agent→Bot→Executor binding, `responsible_ceo_triage`, opaque nested

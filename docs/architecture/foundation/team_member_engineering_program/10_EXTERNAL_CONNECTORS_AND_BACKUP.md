@@ -68,3 +68,4 @@ For each system, prove in order: synthetic fixture → adapter integration with 
 - [Buzz / Hermes](07_BUZZ_HERMES_COLLABORATION.md)
 - [Testing](13_TEST_DOGFOOD_ACCEPTANCE.md)
 - [Roadmap gates](14_ROADMAP_GATES_AND_DAG.md)
+- [Physical architecture and Path Registry](17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md)

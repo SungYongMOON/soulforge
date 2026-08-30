@@ -35,6 +35,23 @@ guild_hall/engineering_engine/engines/
 
 The list is a read-verified selection of the product-relevant roots (repository meta directories such as `.github/` are omitted) instead of a remembered module count. It says nothing about installed services, external credentials, or private workspace payload.
 
+## Supplemental physical-root observation — 2026-08-30
+
+A later metadata-only host inventory confirmed that separate runtime, data,
+control, project-Bot work, tool, and recovery-test root classes already exist.
+The data root contains lifecycle-oriented mail, Slack, voice, PC-activity,
+team-file, run-log, ingress-MCP, quarantine, state, receipt, and timeline
+surfaces; the control root contains backup-controller, history, local-activity,
+mail, rollback, Slack, tool, voice-label, and Watchtower surfaces. Exact paths,
+contents, ACLs, health, and backup completeness remain private or
+`VERIFY_PHYSICAL`.
+
+The correction is important: the estate is not empty, but it lacks one
+source/asset-oriented Path Registry and ERP-facing catalog view. Linear,
+cloud/Drive, Buzz, Hermes, knowledge, and cross-project asset/backup views are
+not yet uniformly materialized. Plan 17 owns the target organization and
+structure-now/movement-later migration rule.
+
 ## Current components and maturity
 
 | Surface | Current public evidence | Maturity for this program | Required next boundary |
@@ -85,6 +102,8 @@ The ingress MCP exposes `ingress_whoami`, `ingress_prepare_file_upload`, `ingres
 4. No durable Agent Mark/Deployment/Run registry with approved project binding.
 5. No physical Team Client Pack rollout, Workshop runtime, or external connector backup acceptance.
 6. No task writer migration away from current Linear Official Task SoR.
+7. No whole-estate Path Registry, source/asset catalog materializer,
+   unregistered-write guard, or 4192 Storage & Backup Map.
 
 ## Related plans
 
@@ -92,3 +111,4 @@ The ingress MCP exposes `ingress_whoami`, `ingress_prepare_file_upload`, `ingres
 - [Watch scope](08_WATCH_4192_OPERATIONS.md)
 - [Tests and red stabilization](13_TEST_DOGFOOD_ACCEPTANCE.md)
 - [Roadmap and first leaf](14_ROADMAP_GATES_AND_DAG.md)
+- [Physical architecture and Path Registry](17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md)

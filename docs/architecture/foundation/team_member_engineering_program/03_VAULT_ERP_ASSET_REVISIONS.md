@@ -143,3 +143,4 @@ Actual template, document, spreadsheet, presentation, HWPX, PDF, CAD, EDA, test,
 - [MCP transfer and WorkSession](05_ENGINEERING_MCP_CLIENT_DATA_PLANE.md)
 - [Bastion recovery](09_BASTION_SECURITY_RECOVERY.md)
 - [External sources](10_EXTERNAL_CONNECTORS_AND_BACKUP.md)
+- [Physical architecture and Path Registry](17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md)
