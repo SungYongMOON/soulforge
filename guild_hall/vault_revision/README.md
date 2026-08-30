@@ -12,6 +12,7 @@ Team Member Engineering Program leaf row-3의 합성 수직이다. plan 03의 ar
 - **Input bundle**(`assembleInputBundle`): exact **accepted** revision만 담는 deep-frozen 불변 manifest(codepoint 정렬 entries + order-independent·locale-무관 sha256 digest). 미수락 entry → `HOLD_BUNDLE_ENTRY_NOT_ACCEPTED`(무기록), absent/foreign entry → 균일 거부, 같은 key·같은 purpose·같은 entry set → 멱등 replay(manifest_digest 반환), 같은 key에 다른 set **또는 다른 purpose** → conflict(`bundle_conflict` 기록 후 거부). `latest`·raw fallback·cross-project entry는 표현 불가능.
 - **Redaction lineage**(`deriveRedactionCandidate`): accepted 원본 revision에서만, 파생 **조상 체인의 어떤 artifact도 아닌** 다른 logical artifact 위에(redaction-of-redaction이 raw 원본 artifact로 되돌아오는 것도 차단), 원본과 **다른** digest로만 파생 후보를 만든다(`redaction_identical_digest`·`redaction_same_artifact`·`HOLD_REDACTION_SOURCE_NOT_ACCEPTED`, 전부 쓰기 전 검증·무기록 실패). 파생 후보의 `derivation`은 {kind, derived_from_revision_id, source_content_id, redaction_profile_ref}를 deep-frozen으로 고정하며 custody·scan·review·acceptance를 **하나도 건너뛰지 않는다**.
 - **External gate**(`registerExternalSubmission`): 경계 밖으로 나가는 등록은 **accepted redaction derivative만** 참조할 수 있다 — accepted라도 raw 원본은 구조적으로 등록 불가(`external_requires_redacted_derivative`), 혼합 목록은 all-or-nothing 거부. 기록의 lineage entry는 chain-complete다: 직접 source(`derived_from_revision_id`)와 파생 체인의 raw 기원(`origin_revision_id`)을 모두 담아 "무엇이, 무엇을 redact해서, 어떤 profile로"에 깊이 2 체인에서도 답한다. idempotency digest는 **destination을 포함**해 같은 key로 다른 목적지 재사용은 replay가 아니라 conflict다. `claim: lineage_registration_only_no_external_send` — **등록일 뿐**이며 어떤 전송 port도 존재하지 않는다.
+- **Hermes submission admission**(`src/hermes_submission_admission.mjs`): result/evidence refs만으로 artifact를 만들 수 없다. 별도 authenticated data-plane custody receipt와 trusted current uploader authority가 project/task/assignment/run/Agent/WorkBrief/logical artifact/parent/file manifest·scan·quarantine·source refs를 모두 정확히 결속할 때만 `PROPOSED` Vault submission input을 만든다. ArtifactRevision/head/acceptance/store mutation은 없다.
 - `eventLog()`는 factory 소유자 전용 신뢰 감사면(무scope)이다 — 다중 테넌트 노출은 별도 scoped adapter를 거쳐야 한다.
 - upload·custody·clean scan은 승격이 아니다. review는 head를 움직이지 못하고, 등록된 acceptance owner의 exact-revision 수락만 head를 전진시킨다. 제출자는 자기 제출을 review할 수 없다.
 - append-only frozen event log; 동일 호출 순서 → byte-동일 로그(결정론).
@@ -20,6 +21,7 @@ Team Member Engineering Program leaf row-3의 합성 수직이다. plan 03의 ar
 
 ```powershell
 npm.cmd run validate:vault-revision
+npm.cmd run validate:hermes-vault-submission-admission
 ```
 
 ## 관련 정본

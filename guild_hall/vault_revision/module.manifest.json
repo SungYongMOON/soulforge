@@ -1,13 +1,13 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "vault_artifact_revision_core",
-  "module_version": "0.2.0",
+  "module_version": "0.3.0",
   "interface_version": "vault_revision.v0",
-  "schema_versions": ["soulforge.vault_artifact_revision_core.v0"],
+  "schema_versions": ["soulforge.vault_artifact_revision_core.v0", "soulforge.vault.authenticated_artifact_custody_receipt.v0", "soulforge.vault.submission_trusted_current.v0", "soulforge.vault.submission_proposal.v0"],
   "owner": "guild_hall/vault_revision",
-  "capabilities_provided": ["vault.artifact_revision_state_machine.v0", "vault.input_bundle_manifest.v0", "vault.redaction_lineage.v0", "vault.external_submission_gate.v0"],
-  "capabilities_required": [],
-  "required_dependencies": [],
+  "capabilities_provided": ["vault.artifact_revision_state_machine.v0", "vault.input_bundle_manifest.v0", "vault.redaction_lineage.v0", "vault.external_submission_gate.v0", "vault.hermes_custody_submission_admission.v0"],
+  "capabilities_required": ["task.candidate_execution_receipt.v1"],
+  "required_dependencies": ["dev_erp_task_execution_surface"],
   "optional_dependencies": [],
   "compatible_version_ranges": { "node": ">=20" },
   "startup_order": null,
@@ -21,8 +21,8 @@
   "backup_class": "not_applicable_no_persistence",
   "migration_version": null,
   "rollback_version": "git_revert_of_this_module_only",
-  "validators": ["node --test guild_hall/vault_revision/tests/artifact_revision_core.test.mjs"],
+  "validators": ["node --test guild_hall/vault_revision/tests/artifact_revision_core.test.mjs", "npm.cmd run validate:hermes-vault-submission-admission"],
   "release_digest": null,
   "deprecation_state": "active_draft",
-  "authority_notes": "Pure in-memory synthetic state machine. Every custody/scan/binding/review/acceptance event is a caller-asserted synthetic fact; the module owns no bytes, persists nothing, promotes nothing, and its acceptance records are not human acceptance of any real artifact. Input bundles pin exact accepted revisions only; redaction derivatives pin lineage without skipping custody/scan/review/acceptance and no real redaction executes here; the external-submission gate is a lineage REGISTRATION that structurally refuses raw originals and owns no transmission port. Physical custody, the promoter sole writer, persistence, and real acceptance stay behind D27/D29 activation and their Owner gates."
+  "authority_notes": "Pure in-memory artifact state machine plus a Hermes-result submission admission contract. Result/evidence refs alone cannot create an artifact; an exact authenticated data-plane custody receipt and trusted current uploader authority must bind project/task/assignment/run/Agent/WorkBrief/logical artifact/parent/file manifest/scan/quarantine/source/result/evidence before a submission proposal is emitted. It creates no ArtifactRevision or accepted head, owns no bytes, persists/transmits nothing, and grants no Task or human acceptance authority."
 }

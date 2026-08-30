@@ -5,7 +5,14 @@
 - Added the future Project AI Team Pack input-admission contract. A Project Mark needs its own trusted authority pin/current state, and manager/responsibility/specialist/common slots each need a distinct current verified Agent Mark/Deployment/Memory binding. It emits refs-only `approved_project_mark_deployment_bindings` and runtime references; no profile, runtime, pack spec or release is created.
 - Added a Candidate Execution authority adapter before Coordinator execution. It binds coordinator-native candidate/task/assignment/match packets to current verified Agent, assignment/authority/tool epochs, role/capability, Bot/profile/session/deployment and requested/observed model/effort. Success is admission only; execute, claim, Linear mutation, Agent creation and Official Done remain false.
 - Re-emitted HPP Server to 949 files with 92 declared smoke entries, no exclusions and 67 reviewed pins so Candidate Execution authority admission and its Agent-authority dependencies travel with the server closure. Project AI Team Pack admission remains deployment source tooling for a future approved-input pack and is not claimed inside HPP; no Project AI Team spec or runtime was created.
-- The exact Forge/Linear task and issued Work Brief to coordinator-native packet admission remains a separate required seam; neither package eligibility nor Agent authority admission substitutes for it.
+- Package eligibility and Agent authority admission remain distinct; neither substitutes for the exact Forge/Linear packet seam recorded in the next entry.
+
+## 2026-08-31 - Forge/Linear packets and Hermes artifacts gain explicit execution-to-custody admissions
+
+- Added the exact Forge/Linear execution packet admission seam. Current Linear Todo evidence, Forge Official Task/Assignment and fully issued Work Brief are bound into coordinator-native TaskRef/WorkBriefRevisionRef/candidate/task packets; draft, stale, revoked, wrong-project/digest/actor/source evidence holds before claim or execution.
+- Added Hermes result-to-Vault submission admission. Result/evidence refs alone cannot create an artifact; a separate authenticated clean data-plane custody receipt and trusted current uploader authority must bind project/task/assignment/run/Agent/WorkBrief/logical artifact/parent/file manifest and digests. Output is only a `PROPOSED` Vault submission input, never a revision/head/acceptance.
+- Enrolled the dev-ERP Candidate Execution subset as an explicit module capability owner so Vault's execution-receipt dependency is no longer an undeclared cross-app schema string. Module operability now covers dev-ERP source cycles alongside guild_hall and Team Ops Board.
+- Re-emitted HPP Server to 952 files with 93 declared smoke entries, no exclusions and 67 reviewed pins so the Forge/Linear seam travels with dev-ERP. Hermes→Vault remains Vault source tooling and is not claimed in HPP.
 
 ## 2026-08-31 - Asset evidence, Agent authority and PC activity receive exact contract seams
 

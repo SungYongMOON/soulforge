@@ -184,6 +184,15 @@
 동작한다는 뜻이며 formal H acceptance, 프로젝트 시간장부(project timeline) 반영 또는 TaskDriver
 운영 승격을 뜻하지 않는다.
 
+2026-08-31 추가 CURRENT: Forge/Linear execution packet admission이 exact
+Official Task·Assignment·issued Work Brief를 coordinator-native TaskRef/
+WorkBriefRevisionRef로 변환·검증하고, Candidate Execution authority admission이
+current verified Agent/assignment/tool/slot binding을 별도 검증한다. 둘 다
+default-OFF admission-only이며 Linear write·claim·execution·Done은 0이다.
+Hermes result의 Vault 진입은 별도 authenticated artifact custody/trusted-current가
+있을 때만 `PROPOSED` submission input을 만들며 revision/head/acceptance를 만들지
+않는다. 실제 provider, durable ledger, KVDS binding/runtime과 human acceptance는 HOLD다.
+
 | 입력·단계 | 현재 상태 | 최신 관찰 근거 | 아직 남은 연결 |
 | --- | --- | --- | --- |
 | local topology validity receipts | `PUBLIC_IMPLEMENTATION_VALIDATED / PRIVATE_RUNTIME_BINDING_DEPLOYED` | Board companion final-ledger validation, Board controller-owned runtime heartbeat, and the all-project local-activity scheduled attempt have separate sanitized receipt contracts. One exact local-activity cycle and two automatic five-minute Board cycles passed; the second ledger cycle had no activity change and remained healthy idle. Missing/invalid evidence is UNKNOWN/HOLD unless the exact owning task is explicitly down | continue routine observation; all topology data edges remain unreceipted and no provider availability is inferred |

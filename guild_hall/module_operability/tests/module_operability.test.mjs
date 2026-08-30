@@ -52,8 +52,9 @@ test("every enrolled real manifest passes the completeness schema, and the disco
   // legacy dirs stay deliberately unenrolled per the Owner order)
   // + 1 physical-spine module (path_registry, plan-17 R1-R5 contracts)
   // + Slack and file-activity receipt-contract owners enrolled for R5 adapters.
-  assert.equal(paths.length, 28, paths.join(","));
+  assert.equal(paths.length, 29, paths.join(","));
   assert.equal(paths.includes("ui-workspace/apps/team-ops-board/module.manifest.json"), true, "the Board is enrolled");
+  assert.equal(paths.includes("ui-workspace/apps/dev-erp/module.manifest.json"), true, "the dev-ERP Task Execution surface is enrolled");
   for (const relPath of paths) {
     const verdict = validateModuleManifest(loadManifest(relPath));
     assert.deepEqual(verdict.problems, [], relPath);
@@ -133,7 +134,7 @@ test("the aggregate preflight is green on the current repository", () => {
   const receipt = runPreflight();
   assert.deepEqual(receipt.problems, []);
   assert.equal(receipt.ok, true);
-  assert.equal(receipt.manifest_count, 28);
+  assert.equal(receipt.manifest_count, 29);
   assert.equal(receipt.scanned_modules > 1000, true);
   // Absence is visible, not silent: unenrolled legacy guild_hall modules are
   // counted in the receipt (enrolling them is deliberate follow-on work).

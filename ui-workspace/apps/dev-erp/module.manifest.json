@@ -1,0 +1,43 @@
+{
+  "schema_version": "soulforge.module_manifest.v0",
+  "module_id": "dev_erp_task_execution_surface",
+  "module_version": "1.0.0",
+  "interface_version": "dev_erp_task_execution.v1",
+  "schema_versions": [
+    "soulforge.candidate_execution.receipt.v1",
+    "soulforge.candidate_execution.candidate_packet.v1",
+    "soulforge.candidate_execution.task_packet.v1",
+    "soulforge.candidate_execution.authority_admission_receipt.v0",
+    "soulforge.forge_linear_execution_packet_admission.v0"
+  ],
+  "owner": "ui-workspace/apps/dev-erp",
+  "capabilities_provided": [
+    "task.candidate_execution_receipt.v1",
+    "task.candidate_execution_packets.v1",
+    "task.candidate_execution_authority_admission.v0",
+    "task.forge_linear_packet_admission.v0"
+  ],
+  "capabilities_required": ["agent.authority_verification_contract.v0"],
+  "required_dependencies": ["agent_observation"],
+  "optional_dependencies": [],
+  "compatible_version_ranges": { "node": ">=20" },
+  "startup_order": null,
+  "feature_flag": "candidate execution and both admission seams are default-OFF until exact external bindings are supplied",
+  "default_state": "candidate_execution_contract_default_off",
+  "health_probe": null,
+  "readiness_probe": null,
+  "config_refs": [],
+  "secret_refs": [],
+  "data_owner": "in_memory_candidate_execution_contract_only",
+  "backup_class": "not_applicable_no_persistence",
+  "migration_version": null,
+  "rollback_version": "git_revert_of_candidate_execution_subset_only",
+  "validators": [
+    "npm.cmd --prefix ui-workspace/apps/dev-erp run validate:candidate-execution-coordinator",
+    "npm.cmd --prefix ui-workspace/apps/dev-erp run validate:candidate-execution-authority-adapter",
+    "npm.cmd --prefix ui-workspace/apps/dev-erp run validate:forge-linear-execution-packet-admission"
+  ],
+  "release_digest": null,
+  "deprecation_state": "active_draft",
+  "authority_notes": "This manifest scopes only the default-OFF Candidate Execution packet/coordinator/admission contract surface inside dev-ERP. It does not describe the whole ERP service, create an Agent, execute Hermes, claim a task, persist a ledger, mutate Linear, or mark Official Done."
+}
