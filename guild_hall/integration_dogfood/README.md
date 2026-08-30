@@ -1,6 +1,6 @@
 # Integration dogfood — 프로그램 체인 교차 검증 (test-only)
 
-Owner: `guild_hall/integration_dogfood`. Status: `CURRENT = cross-module 통합 테스트만`; 실행 코드·상태·authority 없음 — test-only 모듈이라 `module.manifest.json`도 의도적으로 두지 않는다. plan 13(Test, Dogfood, and Acceptance Plan)의 required test ladder에서 **module integration/default-off** 단에 해당하는 첫 합성 조각이다.
+Owner: `guild_hall/integration_dogfood`. Status: `CURRENT = cross-module 통합 테스트만`; 실행 코드·상태·authority 없음 — test-only 모듈이라 `module.manifest.json`도 의도적으로 두지 않는다. plan 13(Test, Dogfood, and Acceptance Plan)의 required test ladder에서 **module integration/default-off** 단에 해당한다.
 
 각 코어는 독립 adversarial suite를 통과했지만 **코어 사이의 계약 결합**은 여기서 처음 증명된다. 모든 사실은 합성(synthetic writer, 호출자 단언 custody/scan, 주입 clock)이며 외부는 접촉하지 않는다.
 
@@ -10,6 +10,29 @@ Owner: `guild_hall/integration_dogfood`. Status: `CURRENT = cross-module 통합 
 - **MCP facade 실서빙**: read facade의 provider를 실제 코어 record 위에 얹어 `task.get_official`/`work.get_brief`/`artifact.get_revision_metadata`가 egress 계약(선언 필드·금지 필드) 안에서 서빙됨을 증명. vault의 균일 거부가 provider 안에서 던져져도 클라이언트에는 facade의 균일 `not_available` 하나로 수렴(내부 log만 `provider_error`).
 - **Redaction·external gate 결합**: accepted raw 원본은 external 등록이 구조적으로 불가하고, redaction 파생만 chain-complete lineage(직접 source+raw origin)로 등록된다.
 - **어휘 동일성**: 균일 거부 코드가 vault·MCP 계약에서 문자 그대로 동일(`not_available`).
+
+## KVDS-shaped 전체 계약 canary
+
+`kvds_full_contract.integration.test.mjs`는 실제 KVDS 원문·private state·provider를
+읽지 않는 public-safe 합성 canary다. 기존 owner API만 조립하여 다음 전체 경계를
+한 번에 검증한다.
+
+- accepted-context ref → Forge intent/승인 → synthetic Linear writer → Official
+  Task·Assignment·issued Work Brief → Forge/Linear admission
+- Agent Family→Mark→Deployment→Memory lineage와 trusted current authority,
+  Project Mark + 네 role-class Project AI Team admission
+- Engineering MCP의 Task·Work Brief·Context·Agent readback
+- Coordinator의 exact Hermes 1회 실행과 idempotent replay `NO_OP`
+- 별도 authenticated artifact custody와 trusted uploader state 없이는 result를
+  Vault submission으로 바꿀 수 없는 경계
+- revision candidate와 독립 review만으로 accepted head가 움직이지 않고, 별도
+  human acceptance 뒤에만 accepted head가 이동하는 경계
+
+이 canary의 `synthetic` Linear writer·Hermes command port·custody·human acceptance는
+모두 메모리 안의 시험 대역이다. 따라서 actual KVDS accepted context, Linear writer,
+Hermes Bot/session, 파일 upload/custody, 사람 수락이나 production readiness를 증명하지
+않는다. project/Work Brief/Agent Mark drift는 Hermes 호출 전에 `HOLD`되고, 성공해도
+`official_task_done=false`, `official_task_mutated=false`다.
 
 ## 검증
 

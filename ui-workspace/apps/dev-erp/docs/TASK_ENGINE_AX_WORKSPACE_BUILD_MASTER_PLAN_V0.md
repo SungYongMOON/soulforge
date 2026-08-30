@@ -191,7 +191,11 @@ current verified Agent/assignment/tool/slot binding을 별도 검증한다. 둘 
 default-OFF admission-only이며 Linear write·claim·execution·Done은 0이다.
 Hermes result의 Vault 진입은 별도 authenticated artifact custody/trusted-current가
 있을 때만 `PROPOSED` submission input을 만들며 revision/head/acceptance를 만들지
-않는다. 실제 provider, durable ledger, KVDS binding/runtime과 human acceptance는 HOLD다.
+않는다. 이 owner API들을 public-safe KVDS-shaped 한 건으로 조립한 전체 계약 canary는
+accepted-context refs→Forge/Linear admission→Agent/Project Team authority→Engineering
+MCP readback→Hermes exact-one run/replay NO_OP→authenticated custody→독립 review→별도
+human acceptance 순서를 검증한다. 이는 전부 메모리 내 합성 대역이며 actual provider,
+durable ledger, KVDS binding/runtime·artifact bytes와 실제 human acceptance는 HOLD다.
 
 | 입력·단계 | 현재 상태 | 최신 관찰 근거 | 아직 남은 연결 |
 | --- | --- | --- | --- |

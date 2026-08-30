@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-31 - KVDS-shaped full contract canary closes the public-safe execution spine
+
+- Added one public-safe synthetic integration canary that composes existing owners from accepted-context references through Forge/Linear packet admission, Agent and Project AI Team authority, Engineering MCP readback, one exact Hermes execution, authenticated artifact custody, independent review and separate human acceptance.
+- The canary proves project, Work Brief and Agent Mark drift hold before Hermes; Coordinator replay is `NO_OP`; a Hermes result cannot create an artifact without a separate custody receipt; candidate and review do not move the accepted Vault head; only explicit human acceptance does.
+- All ports remain in-memory or injected. Actual KVDS context, Linear writer, Hermes Bot/session/runtime, artifact bytes/upload, provider/network/filesystem effects and human acceptance remain unclaimed and gated.
+
 ## 2026-08-31 - Project AI Team and Candidate Execution gain separate authority-admission gates
 
 - Added the future Project AI Team Pack input-admission contract. A Project Mark needs its own trusted authority pin/current state, and manager/responsibility/specialist/common slots each need a distinct current verified Agent Mark/Deployment/Memory binding. It emits refs-only `approved_project_mark_deployment_bindings` and runtime references; no profile, runtime, pack spec or release is created.

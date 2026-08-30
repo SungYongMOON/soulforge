@@ -152,8 +152,8 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | Candidate execution authority admission | DONE `L-CANDIDATE-AUTH-ADMISSION` (coordinator-native packets + current Agent/assignment/tool/slot binding; execute/claim 0) | — | GATED (durable ledger + actual KVDS binding/runtime) | GATED |
 | Tool workshop | DONE `L-WORKSHOP-CORE` | DONE `L-PACK-BUILDER` (4-file pack, install+smoke green) | GATED (물리 Tool PC·runner) | GATED |
 | Deployment pack (contract·builder·spec 4종/5종 중 project_ai_team만 외부 gate) | DONE `L-PACK-CONTRACT` | current Backup-Recovery **61/19**, hpp **952/93/pin67**, team_client **216/78/732**; project_ai_team spec은 actual approved input 전 absent | — | GATED |
-| Module operability gate (manifest·의존·cycle·preflight) | DONE `L-MODOP-GATE` (current **29 manifest**, dev-ERP Task Execution surface 포함, import scan 1,263파일/2,712 edge·cycle 0; 잔여 22 dir) | n/a | — | — |
-| Cross-module integration (plan-13 module-integration rung) | DONE `L-DOGFOOD-INT` | — | — | — |
+| Module operability gate (manifest·의존·cycle·preflight) | DONE `L-MODOP-GATE` (current **29 manifest**, dev-ERP Task Execution surface 포함, import scan 1,264파일/2,728 edge·cycle 0; 잔여 22 dir) | n/a | — | — |
+| Cross-module integration (plan-13 module-integration rung) | DONE `L-DOGFOOD-INT` + pending trace `KVDS full-contract canary` (public-safe synthetic, actual effects 0) | — | GATED (actual accepted KVDS context·Linear writer·Hermes runtime·artifact custody·human acceptance) | GATED |
 | Physical spine (plan-17 R1–R5 contracts) | DONE `L-PHYS-SPINE`,`L-PHYS-SPINE-HARDEN`,`L-SOURCE-LANE-LEDGER`,`L-ASSET-CLASS-LEDGER` + source adapters (seed 40행) | — | GATED (private binding/record writer·canary readback·enforcement·actual backup/restore) | GATED |
 | dev-ERP host gates | DONE `L-DEVERP-HOST-RED` + PATH 실행파일 전면 고정 (합성 아님 — 실 host 스위트 green; whoami에 이어 git(부팅 buildSeq 포함)·where·taskkill·cmd·python까지 System32 절대경로/`DEV_ERP_GIT_EXE`·`DEV_ERP_PYTHON` pin/resolver로 고정, where 자체 cwd도 System32로 중립화 — **server·worker·bridge 프로세스의 PATH 해석 잔존 0**; 예외 장부=dev CLI 유틸(doctor·verify-gate·probe·se-report·release-audit·payload-backup)과 ops 런처 ps1의 node 해석(서버 프로세스 밖, CHANGELOG에 명시); 이 lane만 이 칸을 host-gate 증거로 사용) | (hpp pack로 포장됨) | 기존 운영면(본 프로그램 범위 밖) | — |
 
@@ -228,7 +228,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `validate:tool-workshop` | 8 | lease/fencing/retry/custody |
 | `validate:deployment-pack` | 37 | 계약 7 + builder 16(파티션·pin·builder↔reader 라운드트립·hpp/team_client/backup_recovery 실spec E2E·actual-reader closure 포함) + start/stop 증명 가드 5(env 중화·identity 결속·post-stop 재결속·platform-honest stop·pre-boot 거부) + 생애주기 9(backup/upgrade/rollback/restore·영수증 정직성·half-state coded 거부·traversal 거부·digest recipe pin; reader측 traversal 회귀는 dev-ERP identity suite에 별도) + spec drift `--check` ×3 |
 | `validate:watch-panel-board` | 11 | strip view-model 6 + 공급자 5(storage-map overlay 포함, 실 R3 계약 출력에 결속) |
-| `validate:integration-dogfood` | 4 | cross-module 체인·facade·denial 동일성 |
+| `validate:integration-dogfood` | 5 | 기존 cross-module 체인 4 + KVDS-shaped 전체 계약 canary 1 |
 | `validate:module-operability` | 8 | manifest 스키마·의존·cycle-0 고정·hermes coarse 경계 + preflight receipt |
 | `validate:path-registry` | 17 | R1 계약: multi-axis 스키마·seed 40행(source 12 + asset class 9 포함)·absolute-path 거부·resolver HOLD 전종·write-guard 매트릭스·updateRecord gate·sub-second/impossible clock 거부·topology 신원 중복·OD-10 fails-closed |
 | `validate:target-materializer` | 10 | R2: canary 승인 gate(HOLD)·registry-driven source lane·dry-run/apply·멱등 replay·foreign payload/hostile root 거부·authenticated plan/receipt·partial-apply recovery·rollback은 빈 self-created 디렉터리만 |
