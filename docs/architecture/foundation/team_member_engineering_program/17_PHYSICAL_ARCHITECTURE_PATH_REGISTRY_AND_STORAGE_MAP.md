@@ -47,7 +47,9 @@ A product can use several physical roots, and a physical root can serve several 
 
 ## Current observed public-safe shape
 
-Host-local path values remain private/runtime configuration. Read-only metadata observation confirms these classes exist:
+Host-local path values remain private/runtime configuration. Read-only metadata
+observation confirms the existing classes identified below; target-only rows are
+explicitly labeled and are not existence claims:
 
 | Alias | Observed contents | Current interpretation |
 | --- | --- | --- |
@@ -379,7 +381,8 @@ Hold the affected branch on unknown owner/SoR, secret requirement, cross-project
 ## Current claim ceiling
 
 - `CONFIRMED`: inspected public plan/source/Module/Pack facts only.
-- `OBSERVED_METADATA_ONLY`: runtime/data/control/project-work/external/secret-owner root existence or shape; ownership, contents, ACL, health, and backup completeness need accepted receipts.
+- `OBSERVED_METADATA_ONLY`: evidenced runtime/data/control/project-work and external root existence or shape; ownership, contents, ACL, health, and backup completeness need accepted receipts.
+- `TARGET/VERIFY_PHYSICAL`: `secret_owner_root` and any other target-only root/binding until an accepted existence/ownership receipt is available.
 - `TARGET`: Path Registry, source catalog, 4192 Storage Map, whole-workspace Linear actual backup, and migrations.
 - `HOLD`: physical move/delete/rename, new writer, credential use, restore application, and readiness/promotion until exact gates pass.
 
