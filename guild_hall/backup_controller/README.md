@@ -385,10 +385,43 @@ receipt, then accepts exactly one private capture envelope on stdin. Raw Linear
 bodies remain in the private input stream and approved generation/recovery
 roots; CLI output contains only refs, digests, counts, coverage, and effects.
 
+### Generic Source backup-generation contract
+
+`source_backup_generation_contract.mjs` binds one refs-only source capture to
+an exact byte-owner manifest, create-only backup readback and isolated restore
+readback. It emits the compatible backup pointer immediately, but a pending
+technical restore has `restore_test: null`. Only a separately supplied, exact
+`human_acceptance_verified` envelope bound to the acceptance owner, source,
+project, backup, restore digest and authority receipt can advance the immutable
+receipt and emit an accepted Source Lane restore record. The module performs no
+byte copy, filesystem/provider/network/clock operation or acceptance decision.
+
+### Buzz backup-generation readiness contract
+
+`buzz_backup_generation_manifest.mjs` keeps Postgres logical snapshot, media
+inventory, Git data revision, Redis subset classification, backup capture,
+isolated restore, audit integrity, protected identity recovery and human backup
+acceptance as separate evidence. Redis canonical subsets require backup proof;
+rebuildable/ephemeral subsets require their own deterministic-rebuild or
+exclusion proof. The result never implies Task/result/artifact/knowledge
+acceptance, and secret material is represented only by protected refs.
+
+### Hermes Agent backup manifest contract
+
+`hermes_agent_backup_manifest.mjs` binds exact Agent Mark/Deployment, Hermes
+runtime/profile/bridge/gateway/plugin/config refs, SOUL/instructions,
+skill/workflow/tool allowlists, session store plus verified canonical Bot
+Chat↔Buzz crosswalk, memory generation, schedule definitions, backup membership,
+isolated restore/rollback and human evidence refs. Success means only
+`BACKUP_MANIFEST_READY` at a metadata-contract ceiling; Agent readiness, Task
+Done and accepted Project Context remain unevaluated. Raw chat/prompt/memory/
+tool output and private key/token/path values are forbidden.
+
 ## Validation
 
 ```powershell
 npm.cmd run validate:backup-controller
+npm.cmd run validate:backup-generation-contracts
 npm.cmd run validate:linear-lb1-owner-gate
 npm.cmd run validate:linear-lb1-v2
 npm.cmd run validate:linear-lb1-runtime-adapters

@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-31 - Source, Buzz and Hermes backup-generation contracts separate technical proof from acceptance
+
+- Added a generic refs-only Source backup binder. Exact capture, byte-owner manifest, create-only backup/readback and isolated technical restore can emit a backup pointer, while `restore_test` stays null until a separately verified human-acceptance envelope and independent trusted acceptance pin are bound to the acceptance owner, source/project, generation and readback digest. Pending→accepted advancement and replay are deterministic; in-band self-asserted acceptance fails closed.
+- Added a Buzz backup readiness packet for Postgres snapshot, media inventory, Git revision, Redis canonical/rebuildable/ephemeral proofs, isolated restore, audit integrity, protected identity recovery and human backup acceptance. The backup generation digest is canonically derived from every store component plus scope/deployment/generation refs, so restore and audit cannot repeat an arbitrary unrelated hash. Backup acceptance never becomes Task/result/artifact/knowledge acceptance.
+- Added a Hermes Agent backup manifest contract for Agent Mark/Deployment, runtime/profile/bridge/gateway/plugin, SOUL/instructions, skill/workflow/tool allowlists, verified Bot Chat↔Buzz session crosswalk, memory/schedule custody, backup membership and isolated restore/rollback. `BACKUP_MANIFEST_READY` remains metadata-contract-only; Agent readiness, Task Done and accepted context are unevaluated.
+- Re-emitted Backup-Recovery to 61 files, 19 declared smoke entries, no exclusions and 19 reviewed pins. No source/Buzz/Hermes physical backup or restore was executed by this change.
+
 ## 2026-08-31 - Source evidence, Agent revisions and Engineering MCP gain effect-inert ledgers/transports
 
 - Added a WeakMap-private Source Lane ledger over the four existing record kinds. It append-validates natural identity replay, conflicts, capture generation order, ref reuse, time order and capture→backup→restore digest chains, while projecting only `unknown`, `degraded` or evidence completeness. It has no persistence, byte custody, restore execution, health or acceptance authority.

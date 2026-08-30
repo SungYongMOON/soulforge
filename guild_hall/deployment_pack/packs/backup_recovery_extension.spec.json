@@ -11,10 +11,12 @@
       "guild_hall/backup_controller/automation.mjs",
       "guild_hall/backup_controller/automation_cli.mjs",
       "guild_hall/backup_controller/binding.schema.json",
+      "guild_hall/backup_controller/buzz_backup_generation_manifest.mjs",
       "guild_hall/backup_controller/cli.mjs",
       "guild_hall/backup_controller/controller.mjs",
       "guild_hall/backup_controller/executors.mjs",
       "guild_hall/backup_controller/fixed_process.mjs",
+      "guild_hall/backup_controller/hermes_agent_backup_manifest.mjs",
       "guild_hall/backup_controller/linear_lb1.mjs",
       "guild_hall/backup_controller/linear_lb1_actual_reader.mjs",
       "guild_hall/backup_controller/linear_lb1_fixture.mjs",
@@ -34,6 +36,7 @@
       "guild_hall/backup_controller/retention_canary_gate.mjs",
       "guild_hall/backup_controller/retention_preservation_gate.mjs",
       "guild_hall/backup_controller/runtime_ops_worker.mjs",
+      "guild_hall/backup_controller/source_backup_generation_contract.mjs",
       "guild_hall/backup_controller/windows_task_bridge.ps1",
       "guild_hall/backup_controller/writer_quiesce.mjs",
       "guild_hall/backup_controller/writer_quiesce.schema.json"
@@ -41,6 +44,7 @@
     "shared_modules": [
       "guild_hall/ingress/collector.mjs",
       "guild_hall/ingress/recovery.mjs",
+      "guild_hall/path_registry/src/source_lane_index.mjs",
       "guild_hall/shared/physical_path_identity.mjs",
       "ui-workspace/apps/dev-erp/tools/runtime_ops.mjs"
     ],
@@ -49,9 +53,11 @@
     ],
     "validators": [
       "guild_hall/backup_controller/activation.test.mjs",
+      "guild_hall/backup_controller/buzz_backup_generation_manifest.test.mjs",
       "guild_hall/backup_controller/controller.test.mjs",
       "guild_hall/backup_controller/daily_cycle.test.mjs",
       "guild_hall/backup_controller/executors.test.mjs",
+      "guild_hall/backup_controller/hermes_agent_backup_manifest.test.mjs",
       "guild_hall/backup_controller/linear_lb1.test.mjs",
       "guild_hall/backup_controller/linear_lb1_actual_reader.test.mjs",
       "guild_hall/backup_controller/linear_lb1_one_shot_runner.test.mjs",
@@ -63,15 +69,18 @@
       "guild_hall/backup_controller/preflight.test.mjs",
       "guild_hall/backup_controller/retention_canary_gate.test.mjs",
       "guild_hall/backup_controller/retention_preservation_gate.test.mjs",
+      "guild_hall/backup_controller/source_backup_generation_contract.test.mjs",
       "guild_hall/backup_controller/writer_quiesce.test.mjs"
     ]
   },
   "test_concurrency": 4,
   "smoke_test_entries": [
     "guild_hall/backup_controller/activation.test.mjs",
+    "guild_hall/backup_controller/buzz_backup_generation_manifest.test.mjs",
     "guild_hall/backup_controller/controller.test.mjs",
     "guild_hall/backup_controller/daily_cycle.test.mjs",
     "guild_hall/backup_controller/executors.test.mjs",
+    "guild_hall/backup_controller/hermes_agent_backup_manifest.test.mjs",
     "guild_hall/backup_controller/linear_lb1.test.mjs",
     "guild_hall/backup_controller/linear_lb1_actual_reader.test.mjs",
     "guild_hall/backup_controller/linear_lb1_one_shot_runner.test.mjs",
@@ -83,13 +92,16 @@
     "guild_hall/backup_controller/preflight.test.mjs",
     "guild_hall/backup_controller/retention_canary_gate.test.mjs",
     "guild_hall/backup_controller/retention_preservation_gate.test.mjs",
+    "guild_hall/backup_controller/source_backup_generation_contract.test.mjs",
     "guild_hall/backup_controller/writer_quiesce.test.mjs"
   ],
   "installed_smoke_entries": [
     "guild_hall/backup_controller/activation.test.mjs",
+    "guild_hall/backup_controller/buzz_backup_generation_manifest.test.mjs",
     "guild_hall/backup_controller/controller.test.mjs",
     "guild_hall/backup_controller/daily_cycle.test.mjs",
     "guild_hall/backup_controller/executors.test.mjs",
+    "guild_hall/backup_controller/hermes_agent_backup_manifest.test.mjs",
     "guild_hall/backup_controller/linear_lb1.test.mjs",
     "guild_hall/backup_controller/linear_lb1_actual_reader.test.mjs",
     "guild_hall/backup_controller/linear_lb1_one_shot_runner.test.mjs",
@@ -101,6 +113,7 @@
     "guild_hall/backup_controller/preflight.test.mjs",
     "guild_hall/backup_controller/retention_canary_gate.test.mjs",
     "guild_hall/backup_controller/retention_preservation_gate.test.mjs",
+    "guild_hall/backup_controller/source_backup_generation_contract.test.mjs",
     "guild_hall/backup_controller/writer_quiesce.test.mjs"
   ],
   "installed_smoke_excluded": [],
@@ -111,6 +124,26 @@
   "support_owner_ref": "owner.platform_support",
   "secret_refs": [],
   "content_scan_reviewed_files": [
+    {
+      "path": "guild_hall/backup_controller/README.md",
+      "sha256": "e448beca86eff01f233fe982ab4ea5dde050e65063552c27ed5ff11a51d481c1"
+    },
+    {
+      "path": "guild_hall/backup_controller/buzz_backup_generation_manifest.mjs",
+      "sha256": "e80cbe4ed85c6400c5e17ba950c80bd603ceac0d099979cfbd9b79f62e8a6969"
+    },
+    {
+      "path": "guild_hall/backup_controller/buzz_backup_generation_manifest.test.mjs",
+      "sha256": "72693a8985308d5c246cce1c1dc2e1130372fe41203c7f6dad1d1f254e75d4e9"
+    },
+    {
+      "path": "guild_hall/backup_controller/hermes_agent_backup_manifest.mjs",
+      "sha256": "00cde4d1021ffa798d160fea5f7e1e8c833fd451e3686cc1d2a3daec9ec810da"
+    },
+    {
+      "path": "guild_hall/backup_controller/hermes_agent_backup_manifest.test.mjs",
+      "sha256": "203c124a2525e36b6805ddafae8cd9d4e603f44396cf56feb7925a1a95cd89fa"
+    },
     {
       "path": "guild_hall/backup_controller/linear_lb1.mjs",
       "sha256": "805246620d3c7e071d670de3ebb97874695879f2ffadf7f60c1102f99c9b212e"
@@ -152,8 +185,20 @@
       "sha256": "952a6f7595588617714d8ca299101ee6c55d712947b5b2e1c3e87734707b3cf3"
     },
     {
+      "path": "guild_hall/backup_controller/source_backup_generation_contract.mjs",
+      "sha256": "2463599cfbd11c78fd1143656f503d8a4d16b7e21c99949021287141fe4214ed"
+    },
+    {
+      "path": "guild_hall/backup_controller/source_backup_generation_contract.test.mjs",
+      "sha256": "fcd815c5a2dd5fafd14c6827506d6c19564bde746d155249379a5ee4fd812a14"
+    },
+    {
       "path": "guild_hall/ingress/recovery.mjs",
       "sha256": "f1a24c44353217a006609c3b3e4f7653b8b3c188ec9a369945965a4a349391ff"
+    },
+    {
+      "path": "guild_hall/path_registry/src/source_lane_index.mjs",
+      "sha256": "0ea1e235623afaca4a0993f2046e89da83fb147cf5066a3827db36cc92fb9d3c"
     }
   ]
 }

@@ -15,7 +15,7 @@ Every external system remains source-local for its native objects. A connector/a
 | Gmail / Hiworks / Outlook | Mailbox/message/attachment source | Query-only or bounded custodian under account/mailbox binding | Logical occurrence plus mailbox observation, body/attachment classification, source capture generation and restore | Adapter surfaces exist; no universal source promotion/backup acceptance |
 | PLAUD | Recording/source occurrence | Approved local capture/normalization adapter | Session/time/provenance, derived text policy, delivery acknowledgement, source retention | No automatic task/knowledge authority |
 | Drive | Source warehouse / approved reusable releases | Explicit connector/browser/manual access lane | Release manifest, revision/hash/classification, Drive→staging restore proof | Placement/read does not make canon; actual source access is separate |
-| Buzz | Collaboration message/thread/attachment source | Source-local relay and safe pointer adapter | Source backup generation/manifest/hash, isolated restore, deployment relation | Deep detail belongs to Buzz, not Watch |
+| Buzz | Collaboration message/thread/attachment source | Source-local relay and safe pointer adapter | Postgres/media/Git/Redis-classified backup manifest, isolated restore, audit and identity recovery | Pure readiness contract exists; actual capture/restore/human acceptance remain VERIFY_PHYSICAL |
 | Git | Source/release history | Repository adapter/read-only commit/reference query | Commit/tag/release manifest, dependency/SBOM checks, clone/restore/reproducible build | Public source is versioned; no team-client deployment claim |
 | NAS | Owner-held original/backup target | Explicit owner-authorized source or one-way recovery target | Approved target, manifest/hash, isolated restore; reachability is not approval | No automatic ingest/upload/mutation or assumed access |
 | PC history | Node-local activity/source evidence | Bounded, consented local adapter | Occurrence/receipt/capture generation; no surveillance/transcript collection | Never a replacement task or human acceptance record |
@@ -47,6 +47,12 @@ owner-approved scope + read-only credential ref
 ```
 
 The collector must make `partial`, `missing`, `deleted`, `failed`, and `unknown` explicit. A CSV/XLSX export by itself is incomplete. Restore cannot write back to Linear as part of a backup test; it reconstructs an isolated read model and checks generation parity.
+
+The shared Source backup contract now separates technical restore from human
+acceptance. An exact capture and byte-owner manifest can bind a create-only
+backup pointer and technical restore candidate. It cannot emit an accepted
+restore record until a separately verified authority envelope is bound to the
+acceptance owner, source/project scope, backup generation and restore digest.
 
 ## Chat-ledger reconciliation
 

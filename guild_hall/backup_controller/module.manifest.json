@@ -1,7 +1,7 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "backup_controller",
-  "module_version": "0.3.0",
+  "module_version": "0.4.0",
   "interface_version": "backup_controller.v0",
   "schema_versions": [
     "soulforge.backup_controller.linear_lb1.snapshot.v2",
@@ -13,14 +13,23 @@
     "soulforge.backup_controller.linear_lb1.actual_provider_page.v0",
     "soulforge.backup_controller.linear_lb1.physical_one_shot_config.v0",
     "soulforge.backup_controller.linear_lb1.physical_capture_input.v0",
-    "soulforge.backup_controller.linear_lb1.connector_effect_receipt.v0"
+    "soulforge.backup_controller.linear_lb1.connector_effect_receipt.v0",
+    "soulforge.backup_controller.source_backup_generation_receipt.v0",
+    "soulforge.backup_controller.buzz_backup_generation.packet.v0",
+    "soulforge.backup_controller.buzz_backup_generation.result.v0",
+    "soulforge.backup_controller.hermes_agent_backup.packet.v1",
+    "soulforge.backup_controller.hermes_agent_backup.manifest.v1",
+    "soulforge.backup_controller.hermes_agent_backup.result.v1"
   ],
   "owner": "guild_hall/backup_controller",
   "capabilities_provided": [
     "backup.linear_lb1_v2_immutable_generation.v0",
     "backup.linear_whole_workspace_read_normalizer.v0",
     "backup.linear_isolated_restore_check.v0",
-    "backup.linear_physical_one_shot_create_only.v0"
+    "backup.linear_physical_one_shot_create_only.v0",
+    "backup.source_generation_restore_contract.v0",
+    "backup.buzz_generation_readiness_contract.v0",
+    "backup.hermes_agent_generation_manifest_contract.v1"
   ],
   "capabilities_required": [],
   "required_dependencies": [],
@@ -46,9 +55,10 @@
     "node --test guild_hall/backup_controller/linear_lb1_actual_reader.test.mjs",
     "node --test guild_hall/backup_controller/linear_lb1_physical_one_shot.test.mjs",
     "node --test guild_hall/backup_controller/linear_lb1_v2.test.mjs guild_hall/backup_controller/linear_lb1_owner_gate_v2.test.mjs guild_hall/backup_controller/linear_lb1_one_shot_runner.test.mjs",
-    "node --test guild_hall/backup_controller/linear_lb1_runtime_adapters.test.mjs"
+    "node --test guild_hall/backup_controller/linear_lb1_runtime_adapters.test.mjs",
+    "npm.cmd run validate:backup-generation-contracts"
   ],
   "release_digest": null,
   "deprecation_state": "active",
-  "authority_notes": "Risk-based enrollment: this module is a DIRECT dependency of the team_client and backup_recovery_extension pack closures. Purpose: feature-OFF single-writer daily backup composition plus a default-OFF Linear whole-workspace read normalizer and immutable generation/restore contract. The actual reader discovers no credential, owns no HTTP or storage writer, and exposes no Linear mutation method. The physical one-shot bridge remains inert without an exact private Owner packet, trusted pin, content-addressed read-only connector binding, writer-exclusive roots, and atomic claim; it has no overwrite/delete/prune/scheduler surface. Legacy v2 private single-use token material is never echoed by gate or runner receipts, while the ref-bound v2 profile uses an opaque token ref. Human restore acceptance and any recurring activation remain separate gates. This manifest records operability metadata only and grants no task, source, or completion authority; the module's README/contract stays authoritative."
+  "authority_notes": "Feature-OFF backup composition plus Linear, generic Source, Buzz and Hermes backup-generation contracts. The generic Source binder emits a backup pointer immediately but emits an accepted restore_test only from a separately verified human-acceptance envelope; pending technical restore remains a candidate. Buzz separates Postgres/media/Git/Redis capture, isolated restore, audit, identity recovery and human backup acceptance. Hermes binds Agent Mark/Deployment, runtime/profile, instructions, skills/tools, exact session crosswalk, memory/schedule, backup/restore and acceptance refs while keeping Agent readiness, Task Done and accepted context unevaluated. These public contracts perform no provider/filesystem/runtime/network/clock effect and do not grant source, task, artifact, Agent or completion authority. Actual binding, bytes, service quiescence, restore execution and human acceptance remain separate private gates."
 }

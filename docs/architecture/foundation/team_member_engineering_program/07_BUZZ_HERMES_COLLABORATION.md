@@ -55,6 +55,15 @@ source-local Chat / ledger / scheduler run
 
 Current public documents and code provide selected adapter/runtime evidence, but this plan does not re-observe a live Buzz or Hermes stack. Treat all deep collaboration data and physical availability as `VERIFY_PHYSICAL`.
 
+Public contract progress (2026-08-31): Backup Controller now has pure,
+effect-inert readiness contracts for Buzz and Hermes. Buzz names Postgres,
+media, Git, Redis classification, restore, audit, identity recovery and human
+backup acceptance separately. Hermes names Agent Mark/Deployment, runtime,
+SOUL/capability/session/memory/schedule custody, explicit Bot Chat↔Buzz
+crosswalk, backup membership and restore/rollback. These are metadata contract
+checks only; they do not re-observe the live stack, create a backup generation,
+verify a private key, activate a Bot or make the system recoverable.
+
 The first build order is: (1) define capture-generation schema and source-local backup manifest, (2) prove no-action/dedupe/correction replay on synthetic data, (3) map approved capture to a read-only Vault/ERP projection, (4) connect a single approved Guild deployment in a one-seat test, and only then (5) request a bounded physical pilot.
 
 ## Related plans
