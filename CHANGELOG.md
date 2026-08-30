@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-30 - Board adopts the Watch panel contract (view-model, no page wiring)
+
+- Added `ui-workspace/apps/team-ops-board/src/core/watch-panel-view.mjs`: the Board's Watch health-strip view-model built directly on `guild_hall/watch_panel_contract` as its single source — every panel decision (missing evidence renders `unknown` and never green, over-window evidence degrades to `stale`, `hold` survives, future evidence rejected, forbidden deep-record fields linted, safe-pointer shape) is delegated to the contract's `buildPanel`. The Board adds only display discipline: FULL coverage (all nine contract domains always render, in contract order — an unsupplied domain is an `unknown` row, never absence), a pinned display-severity summary (unrecognized future states deliberately rank worst), and byte-identical determinism.
+- The only mutation reachable is the contract's own approved-action request surface, re-checked structurally at creation; filing executes nothing. The module is browser-safe pure ESM with no writer-shaped API. Vite page wiring (including the fs.allow check for the cross-root contract import) and 4192 adoption remain separate leaves.
+- A fresh independent review returned REVISE and all six findings were applied before commit: same-change doc sync (this entry and plan 14), domain validity now checked before duplicate detection (no misleading codes), severity-set equality with the contract pinned both ways, worst-domain tie-breaking by stable sort pinned, README wording tightened to "mutation은 request surface뿐", and the determinism test upgraded to byte equality. `npm run validate:watch-panel-board` 6/6.
+
 ## 2026-08-30 - Forge Work Brief draft state (in-memory only)
 
 - Extended `guild_hall/forge_intent/` with the pre-issuance draft state: `draftWorkBrief` builds an immutable draft revision chain per assignment where any of the eight critical bindings may still be open — the open set is visible, sorted data (`missing_bindings`), present fields are validated at draft time by the same single validator issuance uses, and non-string/non-array values read as missing rather than being silently stored. Drafts carry `claim: draft_not_issuable_material` and can never appear on the issued-brief surface.
