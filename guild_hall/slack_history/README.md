@@ -105,6 +105,9 @@ exported task XML after mutation. A failed attestation removes the new task or
 restores and re-attests the exact prior exported definition; rollback failure
 leaves the task disabled. The scheduler does not change five-lane writer
 authority; Slack remains the H07 communication-history extension.
+The registrar computes file digests with a local .NET SHA-256 stream helper;
+it does not depend on the optional `Get-FileHash` command being discoverable in
+the noninteractive Windows PowerShell process.
 Its two scheduled launches pass through the runtime-owned hidden VBS launcher;
 the existing PowerShell and Node arguments remain part of the attested action.
 

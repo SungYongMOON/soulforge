@@ -74,6 +74,10 @@ foreach ($RequiredPattern in @(
   'runtime_manifest_sha256',
   'batch_binding_sha256',
   'node_sha256',
+  'function\s+Get-Sha256File',
+  '\[IO\.File\]::Open',
+  '\[IO\.FileShare\]::Read',
+  '\.ComputeHash\(\$Stream\)',
   'ExistingTaskXml',
   'Disable-ScheduledTask',
   'Unregister-ScheduledTask',
@@ -88,10 +92,11 @@ foreach ($ForbiddenPattern in @(
   'New-ScheduledTaskTrigger\s+-Once',
   'RepetitionInterval',
   'Start-ScheduledTask',
-  'Start-Sleep'
+  'Start-Sleep',
+  'Get-FileHash'
 )) {
   if ($Source -match $ForbiddenPattern) {
-    throw "slack batch registrar contains a polling or extra-start structure"
+    throw "slack batch registrar contains a forbidden command or trigger structure"
   }
 }
 if (@($CommandNames | Where-Object { $_ -eq "Register-ScheduledTask" }).Count -ne 2 `

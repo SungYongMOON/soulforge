@@ -59,8 +59,11 @@ test("full registry-driven coverage: one row per registry row, digest-bound", ()
     assert.equal(row.registry_snapshot_digest, SNAPSHOT.snapshot_digest);
     assert.ok(PANEL_STATES.includes(row.watch_state), row.watch_state);
   }
-  assert.equal(map.summary.coverage_registered, 31);
-  assert.equal(map.summary.coverage_expected, 31);
+  assert.equal(map.summary.coverage_registered, 40);
+  assert.equal(map.summary.coverage_expected, 40);
+  const assetRows = map.rows.filter((row) => row.row_kind === "asset_class");
+  assert.equal(assetRows.length, 9);
+  assert.ok(assetRows.every((row) => row.watch_state === "hold"));
 });
 
 test("no evidence is never green: unknown rows, held rows hold, aggregate holds", () => {

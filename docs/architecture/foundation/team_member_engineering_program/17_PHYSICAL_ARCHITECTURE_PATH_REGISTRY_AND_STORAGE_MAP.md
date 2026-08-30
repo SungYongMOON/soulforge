@@ -382,7 +382,11 @@ exist as the synthetic module `guild_hall/path_registry` and the three
 validators above are live npm scripts. Integration hardening `e57c4576`
 adds authenticated materializer receipts and partial-apply recovery, semantic
 clock rejection, registry-digest/safe-ref validation, and OD-10-aware Storage
-Map HOLD behavior (17/10/11 tests). The tracked seed carries four
+Map HOLD behavior (17/10/11 tests). The tracked seed also registers nine
+whole-estate asset classes (knowledge, project assets, artifacts, templates,
+BOM/material, datasets, test results, Engine rules/profiles, and AI workforce)
+as explicit held catalog rows, so an unbound or unprotected asset class cannot
+disappear from registry-driven coverage. The seed carries four
 `hold:od-10.*` authority sentinels, so every mutating authorization fails
 closed and no readiness claim is representable. Enforcement wiring, real
 binding registration, materializer apply on a real root, 4192 wiring, and any

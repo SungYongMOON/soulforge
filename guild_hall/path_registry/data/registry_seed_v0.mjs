@@ -1,12 +1,14 @@
 // Tracked public-safe seed definition for the Path Registry (plan 17, R1).
 //
 // This is a candidate inventory, not an acceptance claim: all four OD-10
-// registry authorities are explicit `hold:od-10.*` sentinels, byte/revision/
-// acceptance/backup owner refs are hold sentinels awaiting the Owner
-// decision, and no row carries a physical binding (the private binding
-// writer does not exist yet). With this seed, every mutating authorization
-// fails closed and `registryReadiness` reports HOLD. No host-local absolute
-// path, credential, or private payload appears here.
+// registry authorities are explicit `hold:od-10.*` activation sentinels.
+// R0 and the OD-10 owner assignments are settled in canon, while private
+// binding bytes, writer-exclusive ACL/readback and activation wiring remain
+// intentionally absent from this public seed. Byte/revision/acceptance/backup
+// owner refs therefore stay held and no row carries a physical binding. With
+// this seed, every mutating authorization fails closed and
+// `registryReadiness` reports HOLD. No host-local absolute path, credential,
+// or private payload appears here.
 
 export const SEED_AUTHORITY = Object.freeze({
   registry_schema_owner: "hold:od-10.registry_schema_owner",
@@ -119,6 +121,28 @@ function sourceRow(id, sourceClass, overrides) {
   });
 }
 
+// Whole-estate asset classes are catalog/index identities, not new byte
+// owners. They live under the data-root catalog plane and remain held until
+// the existing authority for that class supplies an accepted binding and
+// backup evidence. Registering a class makes absence visible in R3/4192; it
+// does not move, copy, accept, or promote any asset.
+function assetClassRow(id, moduleOwnerRef, overrides = {}) {
+  return row({
+    logical_path_id: `asset.${id}`,
+    row_kind: "asset_class",
+    physical_root_class: "data_root",
+    logical_owner_class: "asset_catalog_index",
+    parent_binding_ref: "root.data_root",
+    asset_or_source_class: id,
+    module_owner_ref: moduleOwnerRef,
+    sensitivity: "protected",
+    write_policy: "read_only",
+    backup_class: "authoritative",
+    current_state: "held",
+    ...overrides,
+  });
+}
+
 export function seedRows() {
   return [
     rootRow("source_checkout", {
@@ -207,5 +231,17 @@ export function seedRows() {
     sourceRow("pc_activity", "internal_capture", {}),
     sourceRow("team_files", "internal_capture", {}),
     sourceRow("run_logs", "internal_capture", {}),
+
+    // Original-vision asset classes. These rows index existing owners and
+    // intentionally carry no physical binding or topology identity yet.
+    assetClassRow("knowledge", "guild_hall.knowledge_canon"),
+    assetClassRow("project_assets", "docs.workspace.workspace_project_model"),
+    assetClassRow("artifacts", "guild_hall.vault_revision"),
+    assetClassRow("templates", "docs.workspace.artifact_template_system"),
+    assetClassRow("bom_material", "ui_workspace.dev_erp"),
+    assetClassRow("datasets", "docs.workspace.workspace_project_model"),
+    assetClassRow("test_results", "docs.workspace.workspace_project_model"),
+    assetClassRow("engine_rules_profiles", "guild_hall.engineering_engine"),
+    assetClassRow("ai_workforce", "docs.program.plan06"),
   ];
 }

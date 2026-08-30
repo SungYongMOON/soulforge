@@ -158,6 +158,26 @@ function Get-Sha256Text {
   }
 }
 
+function Get-Sha256File {
+  param([Parameter(Mandatory = $true)][string]$Path)
+  $Stream = [IO.File]::Open(
+    $Path,
+    [IO.FileMode]::Open,
+    [IO.FileAccess]::Read,
+    [IO.FileShare]::Read
+  )
+  try {
+    $Hasher = [Security.Cryptography.SHA256]::Create()
+    try {
+      return ([BitConverter]::ToString($Hasher.ComputeHash($Stream))).Replace("-", "").ToLowerInvariant()
+    } finally {
+      $Hasher.Dispose()
+    }
+  } finally {
+    $Stream.Dispose()
+  }
+}
+
 function ConvertTo-TaskArgument {
   param([Parameter(Mandatory = $true)][string]$Value)
   if ($Value.Contains('"')) { throw "task argument contains an unsupported quote character" }
@@ -213,21 +233,15 @@ if (-not (Test-SameOrChildPath -Parent $RuntimeRoot -Candidate $RuntimeManifestP
   throw "slack batch runtime files escaped the runtime root"
 }
 
-$ActualBatchBindingSha256 = "sha256:" + (
-  Get-FileHash -LiteralPath $BatchBindingPath -Algorithm SHA256
-).Hash.ToLowerInvariant()
+$ActualBatchBindingSha256 = "sha256:" + (Get-Sha256File -Path $BatchBindingPath)
 if ($ActualBatchBindingSha256 -ne $BatchBindingSha256) {
   throw "slack batch binding SHA-256 changed"
 }
-$ActualRuntimeManifestSha256 = "sha256:" + (
-  Get-FileHash -LiteralPath $RuntimeManifestPath -Algorithm SHA256
-).Hash.ToLowerInvariant()
+$ActualRuntimeManifestSha256 = "sha256:" + (Get-Sha256File -Path $RuntimeManifestPath)
 if ($ActualRuntimeManifestSha256 -ne $RuntimeManifestSha256) {
   throw "slack batch runtime manifest SHA-256 changed"
 }
-$ActualNodeSha256 = "sha256:" + (
-  Get-FileHash -LiteralPath $NodePath -Algorithm SHA256
-).Hash.ToLowerInvariant()
+$ActualNodeSha256 = "sha256:" + (Get-Sha256File -Path $NodePath)
 if ($ActualNodeSha256 -ne $NodeSha256) {
   throw "slack batch Node SHA-256 changed"
 }
@@ -344,9 +358,7 @@ if ($Existing) {
   if (-not (Test-Path -LiteralPath $TaskFile -PathType Leaf)) {
     throw "existing slack batch task file is unavailable"
   }
-  $ActualExistingTaskSha256 = (
-    Get-FileHash -LiteralPath $TaskFile -Algorithm SHA256
-  ).Hash.ToUpperInvariant()
+  $ActualExistingTaskSha256 = (Get-Sha256File -Path $TaskFile).ToUpperInvariant()
   if ($ActualExistingTaskSha256 -ne $ExpectedExistingTaskSha256.ToUpperInvariant()) {
     throw "existing slack batch task SHA-256 changed"
   }

@@ -97,7 +97,7 @@ function mutate(registry, overrides = {}) {
 
 test("seed registry validates, holds authority, and blocks readiness", () => {
   const registry = createPathRegistry({ authority: SEED_AUTHORITY, rows: seedRows() });
-  assert.equal(registry.records.size, 31);
+  assert.equal(registry.records.size, 40);
   assert.deepEqual(authorityHolds(registry), [
     "registry_schema_owner", "private_binding_writer",
     "resolver_runtime_owner", "write_policy_owner",
@@ -105,6 +105,24 @@ test("seed registry validates, holds authority, and blocks readiness", () => {
   for (const cls of PHYSICAL_ROOT_CLASSES) {
     assert.ok(registry.records.has(`root.${cls}`), `root.${cls} registered`);
   }
+  assert.deepEqual(
+    [...registry.records.values()]
+      .filter((record) => record.row_kind === "asset_class")
+      .map((record) => record.logical_path_id)
+      .sort(),
+    [
+      "asset.ai_workforce", "asset.artifacts", "asset.bom_material",
+      "asset.datasets", "asset.engine_rules_profiles", "asset.knowledge",
+      "asset.project_assets", "asset.templates", "asset.test_results",
+    ],
+  );
+  assert.ok(
+    [...registry.records.values()]
+      .filter((record) => record.row_kind === "asset_class")
+      .every((record) => record.current_state === "held"
+        && record.binding_refs.length === 0
+        && record.topology_node_refs.length === 0),
+  );
   const readiness = registryReadiness(registry);
   assert.equal(readiness.status, "hold");
   assert.equal(readiness.hold_code, "readiness_blocked");
@@ -132,7 +150,7 @@ test("seed snapshot digest is deterministic and rebuild-stable", () => {
   const b = registrySnapshot(createPathRegistry({ authority: SEED_AUTHORITY, rows: seedRows() }));
   assert.match(a.snapshot_digest, /^sha256:[0-9a-f]{64}$/);
   assert.equal(a.snapshot_digest, b.snapshot_digest);
-  assert.equal(a.rows.length, 31);
+  assert.equal(a.rows.length, 40);
 });
 
 test("secret owner root: read is a secret boundary and contract is pinned", () => {

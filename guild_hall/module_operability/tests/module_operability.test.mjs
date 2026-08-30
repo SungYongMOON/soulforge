@@ -45,7 +45,7 @@ function syntheticManifest(overrides = {}) {
   };
 }
 
-test("every enrolled real manifest passes the completeness schema, and the discovery set is the declared twenty-five", () => {
+test("every enrolled real manifest passes the completeness schema, and the discovery set matches the declared set", () => {
   const paths = discoverManifestPaths();
   // 9 program manifests + 16 risk-based enrollments (the guild_hall modules
   // the hpp/team_client pack closures DIRECTLY depend on; the remaining

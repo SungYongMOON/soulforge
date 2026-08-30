@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 2026-08-31 - Engineering Engine manifest/release bindings resynchronized
+
+- Re-emitted the canonical Engineering Engine code manifest after the PCB compliance fact-admission seam and its related evaluator/topology-oracle changes had landed without a matching generated manifest update. The manifest now enrolls `pcb_compliance_fact_admission.mjs`, covers 820 files, and binds the current tracked topology bytes.
+- Re-emitted the under-construction engine release manifest so its code-manifest digest points at the repaired manifest. The generated topology itself already matched the canonical emitter (253 modules, 852 edges), so no domain rule or topology behavior changed.
+- This is a generated-evidence repair only: it does not promote engine version `0.0.0`, change domain authority, activate a runtime, or claim a project assessment.
+
+## 2026-08-31 - Slack registrar SHA-256 is portable in noninteractive Windows PowerShell
+
+- Replaced the Slack batch Scheduled Task registrar's `Get-FileHash` dependency with a local .NET SHA-256 stream helper. The real Node-spawned Windows PowerShell dry-run and rollback tests now work even when the optional command is not discoverable; binding, runtime, Node and existing-task byte checks retain their exact SHA-256 semantics.
+- Extended the registrar structural guard to require the local helper and reject a future `Get-FileHash` reintroduction. This change registers or starts no task, calls no Slack source and changes no credential or runtime binding.
+
+## 2026-08-31 - Whole-estate asset classes become visible in Path Registry
+
+- Extended the tracked Path Registry seed from 31 to 40 rows with nine explicit `asset_class` identities: knowledge, project assets, artifacts, templates, BOM/material, datasets, test results, Engine rules/profiles and AI workforce. They point to existing owners and remain `held` with no binding or topology identity, so registration cannot be misread as byte custody, acceptance, backup readiness or migration.
+- Storage Map coverage now requires all 40 rows and asserts that the nine unbound asset rows render `hold`. This makes “not registered” distinguishable from “registered but not yet bound/backed up” without moving any existing file or creating a second source of truth.
+
 ## 2026-08-31 - Team Client pack follows the storage-map dependency closure
 
 - Re-emitted `team_client_pack.spec.json` after the existing 4192 watch strip began importing the Path Registry storage-map projection. The calculated source closure is now 214 files with 19 reviewed pins; the three added shared modules are the registry seed, registry core and storage-map projection. The historical 211-file build remains historical evidence rather than the current closure.
