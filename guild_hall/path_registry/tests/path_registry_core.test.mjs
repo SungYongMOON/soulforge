@@ -44,6 +44,7 @@ function synRow(overrides) {
     asset_or_source_class: "source_capture_lane",
     source_class: "external_saas",
     project_or_org_scope_ref: "org:common",
+    topology_node_refs: [],
     binding_refs: [{
       binding_ref: "binding.mail.node1",
       node_ref: "node.dev_pc_1",
@@ -303,6 +304,28 @@ test("current/target fencing: target rows and unbound writes cannot proceed", ()
   assert.equal(mutate(registry, { logical_path_id: "lane.target_row" }).hold_code, "target_not_writable");
   assert.equal(mutate(registry, { logical_path_id: "lane.unbound" }).hold_code, "binding_unbound");
   assert.equal(mutate(registry, { logical_path_id: "lane.ghost" }).hold_code, "unregistered_path");
+});
+
+test("duplicate topology identity is unrepresentable", () => {
+  // Two rows claiming the same existing topology node must fail at
+  // registry construction, not merge into a second source truth.
+  assert.throws(
+    () => synRegistry([
+      synRow({ topology_node_refs: ["watchtower::src_slack"] }),
+      synRow({
+        logical_path_id: "lane.slack_shadow",
+        topology_node_refs: ["watchtower::src_slack"],
+      }),
+    ]),
+    /duplicate_topology_identity/,
+  );
+  // The same node listed twice on one row is equally rejected.
+  assert.throws(
+    () => validateRecord(synRow({
+      topology_node_refs: ["watchtower::src_slack", "watchtower::src_slack"],
+    })),
+    /duplicate_topology_identity/,
+  );
 });
 
 test("updateRecord is a gated surface: OD-10 hold, writer identity, no binding smuggling", () => {

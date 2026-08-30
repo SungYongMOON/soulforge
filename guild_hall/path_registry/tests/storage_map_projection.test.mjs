@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import { createPathRegistry, registrySnapshot } from "../src/path_registry_core.mjs";
@@ -95,14 +96,53 @@ test("evidence cannot add rows, carry raw/writer fields, or leak paths", () => {
   );
 });
 
-test("rows expose no writer or raw fields", () => {
+test("rows expose no writer, raw, or topology-card fields", () => {
   const map = buildStorageMap({ registry_snapshot: SNAPSHOT });
   for (const row of map.rows) {
     for (const forbidden of ["write_policy", "sole_writer_ref", "authorized_writer_refs",
-      "raw_message", "message_body", "secret", "binding_refs"]) {
+      "raw_message", "message_body", "secret", "binding_refs",
+      // Overlay-only: no field a consumer could use to mint a duplicate
+      // source card or competing node health truth.
+      "label", "display_name", "node_kind", "edges", "health_state"]) {
       assert.ok(!(forbidden in row), `${row.logical_id}:${forbidden}`);
     }
   }
+  assert.equal(map.projection_kind, "backup_readiness_overlay");
+});
+
+test("seed source identities resolve to EXISTING pinned topology nodes", () => {
+  // RED-02 pinned artifact is the single topology truth; the overlay reuses
+  // its stable IDs and never mints a node.
+  const topology = JSON.parse(readFileSync(
+    new URL("../../watchtower/topology/federated_topology.v1.json", import.meta.url), "utf8",
+  ));
+  const topologyIds = new Set(topology.nodes.map((node) => node.id));
+  const map = buildStorageMap({ registry_snapshot: SNAPSHOT });
+  const byId = new Map(map.rows.map((row) => [row.logical_id, row]));
+
+  const expectedBindings = {
+    "source.slack": ["watchtower::src_slack"],
+    "source.mail": ["watchtower::src_hiworks", "watchtower::src_gmail"],
+    "source.voice_plaud": ["watchtower::src_plaud"],
+    "source.cloud_drive": ["watchtower::src_onedrive"],
+  };
+  for (const [logicalId, refs] of Object.entries(expectedBindings)) {
+    assert.deepEqual(byId.get(logicalId).topology_node_refs, refs, logicalId);
+    for (const ref of refs) {
+      assert.ok(topologyIds.has(ref), `${ref} must exist in the pinned topology`);
+    }
+  }
+  // Every claimed ref (not just the expected four) must resolve.
+  for (const row of map.rows) {
+    for (const ref of row.topology_node_refs) {
+      assert.ok(topologyIds.has(ref), `${row.logical_id} -> ${ref}`);
+    }
+  }
+  // Linear has no stable topology identity: registry-contract-only row.
+  assert.deepEqual(byId.get("source.linear").topology_node_refs, []);
+  // One topology node never backs two overlay rows.
+  const claimed = map.rows.flatMap((row) => row.topology_node_refs);
+  assert.equal(new Set(claimed).size, claimed.length);
 });
 
 test("unclassified paths force a drift hold; forged snapshots reject", () => {

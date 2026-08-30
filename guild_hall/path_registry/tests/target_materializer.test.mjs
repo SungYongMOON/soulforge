@@ -70,6 +70,7 @@ test("two source rows that collapse to one lane id hold instead of merging", () 
   rows.push({
     ...mail,
     logical_path_id: "source.voice-plaud",
+    topology_node_refs: [],
     binding_refs: [],
   });
   const snapshot = registrySnapshot(createPathRegistry({ authority: SEED_AUTHORITY, rows }));

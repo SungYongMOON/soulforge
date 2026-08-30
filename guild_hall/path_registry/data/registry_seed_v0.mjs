@@ -25,6 +25,10 @@ function row(overrides) {
     module_owner_ref: "hold:od-10.module_owner",
     source_class: null,
     project_or_org_scope_ref: "org:common",
+    // Existing stable 4192 federated-topology identity (RED-02 pinned
+    // artifact) this row resolves to; [] = no stable topology identity
+    // exists yet, so the row appears only through the registry contract.
+    topology_node_refs: [],
     binding_refs: [],
     owner_refs: {
       logical: HOLD_OWNER,
@@ -180,11 +184,22 @@ export function seedRows() {
 
     // Every plan-10 source is a row; lanes without an observed capture lane
     // are explicit HOLD rows (current_state "held"), not omissions.
+    // Linear has NO existing stable topology identity: it appears only
+    // through this registry contract until its lane lands.
     sourceRow("linear", "external_saas", { current_state: "held" }),
-    sourceRow("slack", "external_saas", {}),
-    sourceRow("mail", "external_saas", {}),
-    sourceRow("voice_plaud", "external_saas", {}),
-    sourceRow("cloud_drive", "external_saas", { current_state: "held" }),
+    sourceRow("slack", "external_saas", {
+      topology_node_refs: ["watchtower::src_slack"],
+    }),
+    sourceRow("mail", "external_saas", {
+      topology_node_refs: ["watchtower::src_hiworks", "watchtower::src_gmail"],
+    }),
+    sourceRow("voice_plaud", "external_saas", {
+      topology_node_refs: ["watchtower::src_plaud"],
+    }),
+    sourceRow("cloud_drive", "external_saas", {
+      current_state: "held",
+      topology_node_refs: ["watchtower::src_onedrive"],
+    }),
     sourceRow("buzz", "external_runtime", {}),
     sourceRow("hermes", "external_runtime", {}),
     sourceRow("git", "source_repository", { current_state: "held" }),

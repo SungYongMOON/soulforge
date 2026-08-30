@@ -204,6 +204,19 @@ export function validateRecord(record) {
     fail("record_invalid", "source_class_only_for_sources");
   }
   assertRef(record.project_or_org_scope_ref, "project_or_org_scope_ref");
+  // Existing stable 4192 federated-topology identity this row RESOLVES TO
+  // (e.g. `watchtower::src_slack`). The registry never mints a topology
+  // node: an empty list means no stable topology identity exists yet and the
+  // row appears only through this registry contract (Linear today). One
+  // topology node can be claimed by at most one registry row (checked at
+  // registry construction), so duplicate source identity is unrepresentable.
+  if (!Array.isArray(record.topology_node_refs)) {
+    fail("record_invalid", "topology_node_refs");
+  }
+  record.topology_node_refs.forEach((ref, i) => assertRef(ref, `topology_node_refs[${i}]`));
+  if (new Set(record.topology_node_refs).size !== record.topology_node_refs.length) {
+    fail("duplicate_topology_identity", record.logical_path_id);
+  }
   if (!Array.isArray(record.binding_refs)) fail("record_invalid", "binding_refs");
   // Two current bindings on one node stay representable here on purpose:
   // ambiguity is a resolver-level HOLD, not a silently repaired record.
@@ -259,6 +272,7 @@ export function validateRecord(record) {
     asset_or_source_class: record.asset_or_source_class,
     source_class: record.row_kind === "source" ? record.source_class : null,
     project_or_org_scope_ref: record.project_or_org_scope_ref,
+    topology_node_refs: [...record.topology_node_refs],
     binding_refs: bindings,
     owner_refs: ownerRefs,
     sensitivity: record.sensitivity,
@@ -294,10 +308,18 @@ export function createPathRegistry({ authority, rows }) {
   const validatedAuthority = validateAuthority(authority);
   if (!Array.isArray(rows)) fail("rows_invalid", "rows");
   const records = new Map();
+  const claimedTopologyNodes = new Map();
   for (const row of rows) {
     const record = validateRecord(row);
     if (records.has(record.logical_path_id)) {
       fail("duplicate_logical_path_id", record.logical_path_id);
+    }
+    for (const nodeRef of record.topology_node_refs) {
+      const claimant = claimedTopologyNodes.get(nodeRef);
+      if (claimant !== undefined) {
+        fail("duplicate_topology_identity", `${nodeRef}:${claimant}+${record.logical_path_id}`);
+      }
+      claimedTopologyNodes.set(nodeRef, record.logical_path_id);
     }
     records.set(record.logical_path_id, record);
   }

@@ -1,15 +1,21 @@
 // 4192 Storage & Backup Map projection — plan 17, leaf R3.
 //
-// A read-only, registry-driven projection: every row of the R1 registry
-// snapshot produces exactly one map row (a self-selected subset cannot
-// satisfy coverage), bound to the exact snapshot digest. Missing evidence
+// A read-only, registry-driven BACKUP-READINESS OVERLAY: every row of the
+// R1 registry snapshot produces exactly one map row (a self-selected subset
+// cannot satisfy coverage), bound to the exact snapshot digest. The 4192
+// federated topology (RED-02 pinned artifact) already owns Slack, mail,
+// PLAUD/voice, collector, custody-store node identity and health truth —
+// this projection NEVER mints a topology node, card, or competing health
+// state. Rows resolve to existing stable node IDs via
+// `topology_node_refs`/`registry_record_ref`/`owner_pointer` and add only
+// backup-generation, coverage, freshness, restore-test, path-drift, and
+// HOLD detail; rows carry no display label, node kind, or edge data, so a
+// consumer cannot build a duplicate source card from them. Missing evidence
 // renders `unknown` or `hold`, never green; state precedence is
 // `hold > unavailable > stale > degraded > unknown > healthy`;
 // `not_applicable` rows are excluded from expected coverage only by their
-// explicit registry record. Rows carry owner POINTERS and evidence REFS
-// only — no writer fields, no raw bodies, no credentials, no absolute
-// paths. This module files nothing and executes nothing; it is the
-// consumer-side contract 4192 renders.
+// explicit registry record. No writer fields, raw bodies, credentials, or
+// absolute paths. This module files nothing and executes nothing.
 
 import { PATH_REGISTRY_SCHEMA } from "./path_registry_core.mjs";
 import { PANEL_STATES } from "../../watch_panel_contract/src/watch_panel_contract.mjs";
@@ -179,6 +185,7 @@ export function buildStorageMap({ registry_snapshot, evidence = {}, unclassified
       registry_snapshot_ref: registry_snapshot.snapshot_digest,
       registry_snapshot_digest: registry_snapshot.snapshot_digest,
       registry_record_ref: record.logical_path_id,
+      topology_node_refs: [...(record.topology_node_refs ?? [])],
       binding_state: rowEvidence?.binding_state ?? "unknown",
       latest_capture_ref: rowEvidence?.latest_capture_ref ?? null,
       backup_generation_ref: rowEvidence?.backup_generation_ref ?? null,
@@ -207,6 +214,7 @@ export function buildStorageMap({ registry_snapshot, evidence = {}, unclassified
   return deepFreeze({
     status: "projected",
     schema: STORAGE_MAP_SCHEMA,
+    projection_kind: "backup_readiness_overlay",
     registry_snapshot_digest: registry_snapshot.snapshot_digest,
     rows,
     summary: {
