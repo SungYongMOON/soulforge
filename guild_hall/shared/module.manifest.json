@@ -1,0 +1,34 @@
+{
+  "schema_version": "soulforge.module_manifest.v0",
+  "module_id": "shared",
+  "module_version": "0.1.0",
+  "interface_version": "shared.v0",
+  "schema_versions": [],
+  "owner": "guild_hall/shared",
+  "capabilities_provided": [],
+  "capabilities_required": [],
+  "required_dependencies": [],
+  "optional_dependencies": [
+    "consumed read-only inside the hpp_server+team_client pack closure(s)"
+  ],
+  "compatible_version_ranges": {
+    "node": ">=20"
+  },
+  "startup_order": null,
+  "feature_flag": null,
+  "default_state": "library_source_only_no_service",
+  "health_probe": null,
+  "readiness_probe": null,
+  "config_refs": [],
+  "secret_refs": [],
+  "data_owner": "none_tracked_here_see_module_readme",
+  "backup_class": "not_applicable_no_tracked_persistence",
+  "migration_version": null,
+  "rollback_version": "git_revert_of_this_module_only",
+  "validators": [
+    "node --test guild_hall/shared/ai_work_record_event.test.mjs"
+  ],
+  "release_digest": null,
+  "deprecation_state": "active",
+  "authority_notes": "Risk-based enrollment: this module is a DIRECT dependency of the hpp_server+team_client pack closure(s). Purpose: shared cross-module record/event contracts and helpers. This manifest records operability metadata only and grants no runtime, service, writer, or authority; the module's own README/contract stays authoritative. Representative validator listed; the module's full suite runs in its owning validate script, and the module CODE is additionally exercised by the consuming apps' suites inside the packs' installed smoke (the module's own suite does not run there)."
+}

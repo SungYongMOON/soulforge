@@ -1,0 +1,34 @@
+{
+  "schema_version": "soulforge.module_manifest.v0",
+  "module_id": "gateway",
+  "module_version": "0.1.0",
+  "interface_version": "gateway.v0",
+  "schema_versions": [],
+  "owner": "guild_hall/gateway",
+  "capabilities_provided": [],
+  "capabilities_required": [],
+  "required_dependencies": [],
+  "optional_dependencies": [
+    "consumed read-only inside the hpp_server pack closure(s)"
+  ],
+  "compatible_version_ranges": {
+    "node": ">=20"
+  },
+  "startup_order": null,
+  "feature_flag": null,
+  "default_state": "collector_and_intake_clis_default_off_scheduling_owned_by_runtime_plane",
+  "health_probe": null,
+  "readiness_probe": null,
+  "config_refs": [],
+  "secret_refs": [],
+  "data_owner": "local mail/staging state under guild_hall/state/gateway/** (git-untracked)",
+  "backup_class": "runtime_data_surfaces_owned_by_backup_controller_policy",
+  "migration_version": null,
+  "rollback_version": "git_revert_of_this_module_only",
+  "validators": [
+    "node --test guild_hall/gateway/cli.test.mjs"
+  ],
+  "release_digest": null,
+  "deprecation_state": "active",
+  "authority_notes": "Risk-based enrollment: this module is a DIRECT dependency of the hpp_server pack closure(s). Purpose: mail collection, intake and cross-project staging ingress CLIs (local staging under guild_hall/state). This manifest records operability metadata only and grants no runtime, service, writer, or authority; the module's own README/contract stays authoritative. Representative validator listed; the module's full suite runs in its owning validate script, and the module CODE is additionally exercised by the consuming apps' suites inside the packs' installed smoke (the module's own suite does not run there)."
+}

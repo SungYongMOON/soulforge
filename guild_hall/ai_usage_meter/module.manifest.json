@@ -1,0 +1,34 @@
+{
+  "schema_version": "soulforge.module_manifest.v0",
+  "module_id": "ai_usage_meter",
+  "module_version": "0.1.0",
+  "interface_version": "ai_usage_meter.v0",
+  "schema_versions": [],
+  "owner": "guild_hall/ai_usage_meter",
+  "capabilities_provided": [],
+  "capabilities_required": [],
+  "required_dependencies": [],
+  "optional_dependencies": [
+    "consumed read-only inside the hpp_server+team_client pack closure(s)"
+  ],
+  "compatible_version_ranges": {
+    "node": ">=20"
+  },
+  "startup_order": null,
+  "feature_flag": null,
+  "default_state": "library_source_only_no_service",
+  "health_probe": null,
+  "readiness_probe": null,
+  "config_refs": [],
+  "secret_refs": [],
+  "data_owner": "local usage ledgers under guild_hall/state/** (git-untracked; no conversation payload)",
+  "backup_class": "runtime_data_surfaces_owned_by_backup_controller_policy",
+  "migration_version": null,
+  "rollback_version": "git_revert_of_this_module_only",
+  "validators": [
+    "node --test guild_hall/ai_usage_meter/antigravity_collector.test.mjs"
+  ],
+  "release_digest": null,
+  "deprecation_state": "active",
+  "authority_notes": "Risk-based enrollment: this module is a DIRECT dependency of the hpp_server+team_client pack closure(s). Purpose: Soulforge-wide AI token/credit usage collection, attribution, local ledger/dashboard and query adapters (no conversation payload capture). This manifest records operability metadata only and grants no runtime, service, writer, or authority; the module's own README/contract stays authoritative. Representative validator listed; the module's full suite runs in its owning validate script, and the module CODE is additionally exercised by the consuming apps' suites inside the packs' installed smoke (the module's own suite does not run there)."
+}
