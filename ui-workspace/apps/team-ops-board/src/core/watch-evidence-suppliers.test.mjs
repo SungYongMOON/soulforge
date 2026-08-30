@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  agentRuntimeEvidence,
   collectWatchEvidences,
   hostStatsEvidence,
   receiptExpiryEvidence,
@@ -71,4 +72,53 @@ test("collected evidences feed the strip: distinct reasons separate a live-but-u
   // Nothing supplied at all -> both mappers null out.
   assert.deepEqual(collectWatchEvidences({}), []);
   assert.deepEqual(collectWatchEvidences({ receiptExpiry: { status: "vibes" }, hostStats: {} }), []);
+});
+
+test("agent-runtime mapping: source-asserted hold, observability aggregation, activity never maps", () => {
+  const bot = (kind) => ({ bot_id: "bot.x", state: { kind, value: kind === "observed" ? "working" : null } });
+  const base = { refresh_state: "ready", observed_at: OBSERVED };
+  // Source-asserted hold survives directly — including CLOCK-LESS holds
+  // (the live read module emits observed_at: null when configuration is
+  // unavailable; the panel contract renders hold_asserted without evidence).
+  assert.equal(agentRuntimeEvidence({ refresh_state: "hold", observed_at: OBSERVED, bots: [] }).asserted_state, "hold");
+  const clockless = agentRuntimeEvidence({ refresh_state: "hold", observed_at: null, hold_code: "AGENT_RUNTIME_CONFIGURATION_UNAVAILABLE", bots: [] });
+  assert.equal(clockless.asserted_state, "hold");
+  assert.equal(clockless.evidence_at, null);
+  const clocklessView = buildWatchPanelBoardViewModel({ now: NOW_FRESH, evidences: [clockless] });
+  const holdRow = clocklessView.rows.find((row) => row.domain === "hermes_runtime");
+  assert.equal(holdRow.state, "hold");
+  assert.equal(holdRow.reason, "hold_asserted");
+  // A malformed NON-null clock on a hold is also coerced to a clockless
+  // hold (decided: hold is maximally conservative; dropping it for a bad
+  // clock would soften the signal to no_evidence).
+  const badClockHold = agentRuntimeEvidence({ refresh_state: "hold", observed_at: "yesterday", bots: [] });
+  assert.equal(badClockHold.asserted_state, "hold");
+  assert.equal(badClockHold.evidence_at, null);
+  // Every bot observed -> healthy; activity values (working/idle) are not health.
+  assert.equal(agentRuntimeEvidence({ ...base, bots: [bot("observed"), bot("observed")] }).asserted_state, "healthy");
+  // Any bot the source cannot observe -> degraded (known visibility problem).
+  assert.equal(agentRuntimeEvidence({ ...base, bots: [bot("observed"), bot("unknown")] }).asserted_state, "degraded");
+  // Health of nothing is not healthy.
+  assert.equal(agentRuntimeEvidence({ ...base, bots: [] }).asserted_state, "unknown");
+  // Unrecognized refresh_state, malformed bots, missing clock: supply NOTHING.
+  assert.equal(agentRuntimeEvidence({ ...base, refresh_state: "vibes", bots: [] }), null);
+  assert.equal(agentRuntimeEvidence({ ...base, bots: "not-a-list" }), null);
+  assert.equal(agentRuntimeEvidence({ refresh_state: "ready", bots: [] }), null);
+  assert.equal(agentRuntimeEvidence(null), null);
+  // Prototype-chain-shaped state kinds are not "observed".
+  assert.equal(agentRuntimeEvidence({ ...base, bots: [{ bot_id: "b", state: { kind: "constructor" } }] }).asserted_state, "degraded");
+  const evidence = agentRuntimeEvidence({ ...base, bots: [bot("observed")] });
+  assert.equal(evidence.domain, "hermes_runtime");
+  assert.equal(evidence.evidence_at, OBSERVED);
+  // Three-source collection composes; cross-feeding still nulls out safely.
+  const evidences = collectWatchEvidences({
+    receiptExpiry: { observed_at: OBSERVED, status: "ready" },
+    hostStats: { observed_at: OBSERVED, cpu: {}, memory: {} },
+    agentRuntime: { ...base, bots: [bot("observed")] },
+  });
+  assert.equal(evidences.length, 3);
+  assert.deepEqual(evidences.map((entry) => entry.domain).sort(),
+    ["connector_freshness", "hermes_runtime", "hpp_host"]);
+  assert.deepEqual(collectWatchEvidences({ agentRuntime: { observed_at: OBSERVED, status: "ready" } }), [],
+    "a receipt-expiry-shaped payload fed into the agent-runtime slot supplies nothing");
 });

@@ -7,10 +7,12 @@
 // asserts `unknown` with the observation clock — "the feed is alive, nobody
 // asserts health" — which renders distinctly from a missing feed
 // (reason `as_asserted` vs `no_evidence`). A malformed or unrecognized
-// payload yields NO evidence at all (the strip's full-coverage rule then
-// renders the honest `unknown/no_evidence`), never a fabricated state.
+// ENVELOPE yields NO evidence at all (the strip's full-coverage rule then
+// renders the honest `unknown/no_evidence`), never a fabricated state;
+// malformed ROWS inside a well-formed ready envelope degrade (attention),
+// they never upgrade.
 //
-// Covered domains and sources (both observed live on this machine):
+// Covered domains and sources (all three observed live on this machine):
 //   connector_freshness <- /receipt-expiry.snapshot.json
 //     projection status vocabulary (receipt-expiry-adapter.mjs):
 //       ready (all standing receipts current)      -> healthy
@@ -21,6 +23,16 @@
 //     at page load. The adapter may serve a last-good snapshot on sampler
 //     failure, so evidence_at can be old — the clock is preserved on the
 //     evidence for display; the unknown assertion itself never upgrades.
+//
+//   hermes_runtime <- /agent-runtime.snapshot.json?read_only=1
+//     envelope refresh_state "hold" is a SOURCE-ASSERTED hold -> hold.
+//     refresh_state "ready": a binary rule over the source's own per-bot
+//     OBSERVABILITY assertion (state.kind) — every bot "observed" ->
+//     healthy; any bot NOT observed (incl. a malformed row) -> degraded
+//     (the source says it cannot see some bot: a known visibility problem).
+//     Bot activity values (working/idle/...) are activity, not health, and
+//     never map. Zero configured bots -> unknown (health of nothing is not
+//     healthy).
 //
 // The watchtower topology snapshot (cost_usage candidate) is NOT mapped
 // yet: its refresh_state on this machine is "unconfigured" (no binding),
@@ -84,10 +96,47 @@ export function hostStatsEvidence(snapshot) {
   };
 }
 
+export function agentRuntimeEvidence(envelope) {
+  if (!envelope || typeof envelope !== "object") return null;
+  const observedAt = isoOrNull(envelope.observed_at);
+  let asserted = null;
+  if (envelope.refresh_state === "hold") {
+    // A source-asserted hold may carry NO observation clock (the read module
+    // emits observed_at: null when configuration itself is unavailable);
+    // the panel contract explicitly supports hold without evidence
+    // (reason hold_asserted), so the hold survives clock-less. DECIDED, not
+    // accidental: a malformed non-null clock is likewise coerced to a
+    // clockless hold — hold is the maximally conservative state, and
+    // dropping it for a bad clock would soften the signal to no_evidence.
+    asserted = "hold";
+  } else if (envelope.refresh_state === "ready" && Array.isArray(envelope.bots)) {
+    // A READY assertion without a clock is malformed: supply nothing.
+    if (!observedAt) return null;
+    if (envelope.bots.length === 0) {
+      asserted = "unknown";
+    } else if (envelope.bots.every((bot) => bot && typeof bot === "object" && bot.state?.kind === "observed")) {
+      asserted = "healthy";
+    } else {
+      asserted = "degraded";
+    }
+  }
+  if (asserted === null) return null;
+  return {
+    domain: "hermes_runtime",
+    asserted_state: asserted,
+    evidence_at: observedAt,
+    owner_pointer: {
+      owner_system: "team_ops_board",
+      record_kind: "agent_runtime_snapshot",
+      record_ref: "endpoint.agent_runtime.snapshot",
+    },
+  };
+}
+
 // Combine whatever suppliers produced; nulls drop out. The strip feeds this
 // straight into buildWatchPanelBoardViewModel, whose full-coverage rule
 // renders every unsupplied domain as unknown/no_evidence.
-export function collectWatchEvidences({ receiptExpiry, hostStats } = {}) {
-  return [receiptExpiryEvidence(receiptExpiry), hostStatsEvidence(hostStats)]
+export function collectWatchEvidences({ receiptExpiry, hostStats, agentRuntime } = {}) {
+  return [receiptExpiryEvidence(receiptExpiry), hostStatsEvidence(hostStats), agentRuntimeEvidence(agentRuntime)]
     .filter((evidence) => evidence !== null);
 }

@@ -4,8 +4,8 @@
 // Rendered ONLY when the page URL carries ?watch=1 (see main.tsx) and
 // lazy-loaded, so without the flag the default Board loads none of this
 // module chain and behaves exactly as before. On the flagged path the strip
-// performs exactly two read-only same-origin GETs (the Board's own
-// receipt-expiry and host-stats snapshot endpoints) and translates their
+// performs exactly three read-only same-origin GETs (the Board's own
+// receipt-expiry, host-stats, and agent-runtime snapshot endpoints) and translates their
 // SOURCE-ASSERTED vocabularies through the declared suppliers; every other
 // domain honestly renders the contract's `unknown` — missing evidence is
 // attention, never green. This surface stays display-only: it owns no
@@ -37,18 +37,20 @@ async function fetchJsonOrNull(url: string) {
 }
 
 export function WatchStrip() {
-  const [sources, setSources] = useState<{ receiptExpiry: any; hostStats: any }>({
+  const [sources, setSources] = useState<{ receiptExpiry: any; hostStats: any; agentRuntime: any }>({
     receiptExpiry: null,
     hostStats: null,
+    agentRuntime: null,
   });
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [receiptExpiry, hostStats] = await Promise.all([
+      const [receiptExpiry, hostStats, agentRuntime] = await Promise.all([
         fetchJsonOrNull("/receipt-expiry.snapshot.json"),
         fetchJsonOrNull("/host-stats.snapshot.json"),
+        fetchJsonOrNull("/agent-runtime.snapshot.json?read_only=1"),
       ]);
-      if (!cancelled) setSources({ receiptExpiry, hostStats });
+      if (!cancelled) setSources({ receiptExpiry, hostStats, agentRuntime });
     })();
     return () => { cancelled = true; };
   }, []);
@@ -105,7 +107,7 @@ export function WatchStrip() {
         ))}
       </div>
       <small style={{ display: "block", marginTop: "6px", color: "#9ca3af" }}>
-        증거: connector_freshness·hpp_host는 Board snapshot의 source-asserted 값(읽기 전용 GET 2건), 나머지는 unknown(무증거는 정상이 아님).
+        증거: connector_freshness·hpp_host·hermes_runtime은 Board snapshot의 source-asserted 값(읽기 전용 GET 3건), 나머지는 unknown(무증거는 정상이 아님).
         표시 전용 표면: probe·writer·요청 filing 없음.
       </small>
     </section>
