@@ -1,5 +1,25 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-08-30 CURRENT: three bounded, authority-neutral changes touched the
+> dev-ERP surface (Team Member Engineering Program loop; ledger in
+> `docs/architecture/foundation/team_member_engineering_program/14_ROADMAP_GATES_AND_DAG.md`).
+> (1) The dedicated Codex worker's Windows identity proof now invokes
+> `%SystemRoot%\System32\whoami.exe` by ABSOLUTE path, never PATH (a
+> PATH-shadowing or PATH-planted binary could previously break — or stand in
+> for — the attested identity source), failing closed without a usable
+> absolute SystemRoot; identity-hash inputs are unchanged so provisioned
+> expected-hash values stay valid, and the full suite is 1090 tests / 0 fail
+> on this hardened host (was 4 host-config failures). (2) The dev-ERP server
+> now builds as the tracked `hpp_server_pack` (267-file computed module+data
+> closure; isolated install two-way verified; declared 78/89 installed-copy
+> smoke green with an 11-entry evidence-backed exclusion ledger — ajv/yaml
+> not shipped, git-attestation-bound worker tests) — packaging evidence only,
+> no runtime, scheduler, collector, or TaskDriver change and nothing was
+> activated. (3) The 4192 Board gained a default-OFF `?watch=1` watch strip
+> (lazy-loaded; read-only; three source-asserted suppliers) — the flagless
+> Board is behavior-identical and loads zero watch modules. Collector/scheduler/binding/custody/timeline/
+> context/TaskDriver authorities are all unchanged.
+
 > 2026-08-29 CURRENT: a bounded self-heal closed three separate gaps without
 > changing any authority. The PLAUD/voice mirror's ctime-only convergence stays
 > digest-bound and fail-closed: a source file whose ctime alone moved between

@@ -196,6 +196,19 @@ read-only snapshot
   51/51, 기존 SE-core 348 pass/6 environment skip, Watchtower 44/44, changed path-policy
   0 violations와 fresh Claude Opus B/V 검토를 통과했다. 이는 public deterministic
   candidate acceptance이며 actual-project, live-current 또는 assignment acceptance가 아니다.
+- adjacent Team Member Engineering Program build(2026-08-30): Owner-활성화된
+  PERSISTENT_FINISH_LOOP가 프로그램 plan suite(00–16) 기준으로 합성/격리 leaf
+  22건을 main에 착지시켰다 — MCP 계약+기본 OFF read facade, Vault 상태기계+
+  bundle/redaction/external gate(criterion-1 합성 완결), Forge core+brief draft,
+  Watch/Bastion 계약, capacity-1 Tool Workshop core, Deployment pack 계약+builder+
+  tracked spec 2종(tool_workshop 4파일·hpp_server 267파일: 실 unit gate·격리
+  install 검증·선언 78/89 smoke+제외장부 11), 4192 Board 기본 OFF watch strip과
+  실공급자 3/9, cross-module dogfood 통합 증명, dev-ERP 신원 바이너리 System32
+  고정. 전 leaf가 fresh 비작성 검토를 거쳤고 maturity(합성/package-install/
+  actual-provider/physical-pilot) 분리 원장은
+  `docs/architecture/foundation/team_member_engineering_program/14_ROADMAP_GATES_AND_DAG.md`의
+  Executed-leaf ledger가 소유한다. 이 build는 위 AX·SE active slice의 우선순위를
+  바꾸지 않으며 actual provider·물리 pilot·ring 승격은 전부 기존 Owner gate 뒤다.
 - adjacent Task execution foundation(2026-08-25): 기존 `TaskExecutionCore`/SQLite를
   변경하지 않는 default-OFF in-memory `CandidateExecutionCoordinator` 구조가 exact
   Role/Capability와 actor→agent→Bot→Executor binding, `responsible_ceo_triage`, opaque nested

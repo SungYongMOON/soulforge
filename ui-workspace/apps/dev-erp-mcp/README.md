@@ -1,5 +1,11 @@
 # Soulforge dev-ERP MCP sidecar
 
+> 공유면 crosswalk: 이 sidecar의 공유 표면 tool 17종(개인 ERP 8+flag 1,
+> project-history 2, ingress 6)은 `guild_hall/engineering_mcp/src/compatibility.mjs`가
+> map / keep_legacy_facade / keep_source_query disposition으로 v0 계약과 대조한다
+> (회사메일 stdio 3종은 별도 mailbox-scoped 표면으로 명시 제외). 계약·read facade는
+> `guild_hall/engineering_mcp/`가 소유하며 이 sidecar의 현행 동작을 바꾸지 않는다.
+
 ## 팀원 PC 1회 등록 도구
 
 `ingress:mtls-enrollment`은 client private key를 HPP에서 만들거나 복사하지

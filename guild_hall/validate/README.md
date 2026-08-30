@@ -23,6 +23,11 @@
   - Owner 결정: Windows 긴 경로 지원은 켜지 않는다(OneDrive·탐색기·Office·한컴이 어차피 깨짐). 새 경로는 예산 안에 들어와야 한다 — 총 길이 200자(로컬 checkout 접두 13자 포함), 폴더명 60자, 파일명(확장자 제외) 60자, 슬러그 폴더 안 파일명에 슬러그 반복 금지, 이름 속 해시 16자 이하
   - `npm run validate:path-length`는 변경분(changed scope)을, `npm run validate:path-length:tracked`는 tracked 전체(audit)를 검사한다. `--assert-path <repo-relative> [--kind directory]`로 단건 검사
   - `guard:workmeta-write`가 같은 예산을 write target에 적용한다(`path_budget_*` violation)
+- `plan_truth_check.mjs` (2026-08-30)
+  - Team Member Engineering Program plan-14의 Executed-leaf ledger 정합 검사:
+    trace 표의 커밋 해시가 git에 실재하는지, register의 validator가 npm script로
+    실재하는지, lane 표의 `L-*` 참조가 trace 행으로 해소되는지를 fail-closed 확인
+  - `npm run validate:plan-truth` — 내용 주장은 검사하지 않는다(그건 커밋·리뷰 소유)
 - `workmeta_payload_policy.mjs`
   - `npm run guard:workmeta-write -- --assert-write-target "<target>"`는 `_workmeta` 파일 생성 전에 metadata-only 경계를 검사한다. 디렉터리는 `--target-kind directory`를 추가한다.
   - `npm run validate:workmeta-payload`는 Git ignore 여부와 무관하게 새 runtime residue를 검사하고, 기존 HEAD에 이미 있던 legacy 경로만 grandfather한다.

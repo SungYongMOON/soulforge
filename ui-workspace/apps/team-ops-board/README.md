@@ -33,6 +33,16 @@ length-bounded; filesystem- or URL-like values are rejected.
 - **업무·기록**: current internal work, parent-targeted result delivery,
   browser-local Owner read receipts, accepted/closed history, and the separate
   AI Usage Meter aggregate entry.
+- **Watch strip (기본 OFF, `?watch=1`)**: `guild_hall/watch_panel_contract`를
+  단일 원천으로 소비하는 9-domain full-coverage 건강 스트립. `main.tsx`에서
+  lazy 로드로 gate되어 flag 없는 기본 Board는 strip 모듈 체인을 아예 로드하지
+  않는다(토글은 리로드 필요). 무증거 domain은 `unknown`으로 렌더되며(무증거≠정상),
+  실공급자 3/9 — `connector_freshness`(receipt-expiry projection),
+  `hpp_host`(host-stats, 측정≠단언), `hermes_runtime`(agent-runtime envelope;
+  clock-less source-asserted hold 생존) — 는 source-asserted 값만 번역한다
+  (`src/core/watch-panel-view.mjs`, `src/core/watch-evidence-suppliers.mjs`,
+  검증 `npm run validate:watch-panel-board`). 표시 전용: probe·writer·요청
+  filing 없음.
 - **시스템 토폴로지**: Watchtower W1의 local read-only health projection.
   정상 이외의 모든 노드는 `추적 필요` 큐에서 고정 사유, 근거 소유자,
   마지막 점검/다음 Watchtower 점검/다음 근거 기한 및 복구 가능 범위를 함께 보여준다.

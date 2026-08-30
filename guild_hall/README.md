@@ -59,6 +59,7 @@
   조립하며, 요구 ID는 `observed` candidate로만 다루고 색인을 만들거나 원장에 쓰지 않는다
 - `watchtower/`: 각 owner가 선언한 public-safe 구조를 결정론적으로 합성하고, local probe·receipt가
   제공하는 관측과 선언의 차이를 read-only로 진단하는 AX system-topology owner. 구조선은 health·delivery·수리 권한을 뜻하지 않는다.
+  `topology/federated_topology.v1.contract.json`이 **단일 topology oracle pin**(provider별 노드/간선 수·artifact sha256)이며 producer·Board 테스트가 기대값을 전부 여기서 유도한다 — 구조 성장은 의도적 pin 갱신, 무언의 drift는 양쪽 fail-closed.
 - `healer/`: 24시간 PC self-check 와 activity report writer
 - `shared/`: guild_hall owner 들이 함께 쓰는 repo path / JSON state helper
 - `snapshot/`: UI 와 외부 host 가 읽는 read-only sanitized 상태 projection

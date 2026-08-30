@@ -27,6 +27,7 @@
 | `providers/notebook_advisory.mjs` | Notebook metadata bridge·research workflow·setup 계약을 authority-free HOLD fragment로 변환 |
 | `tools/emit_federated_topology.mjs` | 고정된 tracked source allowlist만 읽어 단일 derived projection을 생성하거나 byte parity를 검사하는 도구 |
 | `topology/federated_topology.v1.json` | UI가 읽을 수 있는 tracked public-safe 선언 구조 projection; runtime truth가 아님 |
+| `topology/federated_topology.v1.contract.json` | **단일 topology oracle pin**(요약·provider별 노드/간선 수·artifact sha256). producer 테스트와 Board unified-view 테스트가 기대값을 전부 이 pin에서 유도하므로, 구조 성장은 의도적 pin 갱신이고 무언의 drift는 양쪽에서 fail-closed다 (`L-RED-02`) |
 | `watchtower.mjs` | binding 검증, probe 4종(jsonl_tail/json_file/dir_latest_mtime/schtask), 판정, 스냅샷 |
 | `internal_receipt_catalog.mjs` | 내부 시한성 영수증 계약 카탈로그, 4분류(same_authority_local_auto_renew/owner_revalidation_required/on_demand_ephemeral_excluded/external_auth_excluded) 검증 및 순수 평가기 |
 | `local_evidence.mjs` | Watchtower 실행 계약, five-field metadata 원장, `_workmeta` payload policy의 독립 검증 receipt |
