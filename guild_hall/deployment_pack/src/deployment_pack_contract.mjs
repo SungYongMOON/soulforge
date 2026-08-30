@@ -24,7 +24,11 @@ export const PACK_CATALOG = Object.freeze([
   }),
   Object.freeze({
     pack_id: "team_client_pack",
-    contains: Object.freeze(["mcp_client_config_templates", "ui", "local_helper_outbox", "learning_material", "safe_diagnostics"]),
+    // shared_modules/manifests/validators joined when the tracked spec
+    // landed: the Board imports guild_hall shared modules cross-root, and
+    // every code pack must be able to carry its own manifests and
+    // validators (the hpp precedent).
+    contains: Object.freeze(["mcp_client_config_templates", "ui", "shared_modules", "local_helper_outbox", "learning_material", "safe_diagnostics", "manifests", "validators"]),
     must_not_contain: Object.freeze(["embedded_credential", "raw_project_data", "implicit_project_grant"]),
     initial_release_gate: "one-seat install, identity/revoke/recovery, exact work/bundle/submission loop",
   }),

@@ -15,62 +15,24 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { SECRET_MATERIAL } from "./build_pack.mjs";
+import {
+  listFiles as libListFiles,
+  listFilesRecursive as libListFilesRecursive,
+  moduleClosure as libModuleClosure,
+} from "./spec_closure_lib.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const APP = "ui-workspace/apps/dev-erp";
 const SPEC_PATH = join(ROOT, "guild_hall", "deployment_pack", "packs", "hpp_server_pack.spec.json");
 
-function listFiles(relDir, suffix) {
-  const absolute = join(ROOT, ...relDir.split("/"));
-  return readdirSync(absolute)
-    .filter((name) => statSync(join(absolute, name)).isFile() && name.endsWith(suffix))
-    .map((name) => `${relDir}/${name}`)
-    .sort();
-}
-
-function listFilesRecursive(relDir) {
-  const absolute = join(ROOT, ...relDir.split("/"));
-  const out = [];
-  for (const name of readdirSync(absolute)) {
-    const child = join(absolute, name);
-    if (statSync(child).isDirectory()) out.push(...listFilesRecursive(`${relDir}/${name}`));
-    else out.push(`${relDir}/${name}`);
-  }
-  return out.sort();
-}
-
-// Relative-import closure walker: the server is NOT self-contained inside
-// its app directory — src/tests/tools import guild_hall shared modules —
-// so the packed file set is the ACTUAL module graph, computed, not assumed.
-// Regex-based specifier extraction is adequate for this codebase's plain
-// static/dynamic import style; only RELATIVE specifiers are followed
-// (node: builtins and bare names have no files to pack).
-const IMPORT_RE = /(?:from\s+|import\s*\(\s*|require\s*\(\s*)["'](\.\.?\/[^"']+)["']/g;
-
-function toPosix(relPath) {
-  return relPath.split("\\").join("/");
-}
-
-function moduleClosure(entryRelPaths) {
-  const visited = new Set();
-  const queue = [...entryRelPaths];
-  while (queue.length > 0) {
-    const rel = toPosix(queue.pop());
-    if (visited.has(rel)) continue;
-    visited.add(rel);
-    if (!/\.(mjs|cjs|js)$/.test(rel)) continue;
-    const source = readFileSync(join(ROOT, ...rel.split("/")), "utf8");
-    for (const match of source.matchAll(IMPORT_RE)) {
-      const resolved = toPosix(
-        join(dirname(rel), match[1]).split("\\").join("/"),
-      );
-      const absolute = join(ROOT, ...resolved.split("/"));
-      if (!existsSync(absolute) || !statSync(absolute).isFile()) continue;
-      if (!visited.has(resolved)) queue.push(resolved);
-    }
-  }
-  return [...visited].sort();
-}
+// Listing + relative-import closure walking live in spec_closure_lib.mjs
+// (one recipe for every pack emitter): the server is NOT self-contained
+// inside its app directory — src/tests/tools import guild_hall shared
+// modules — so the packed file set is the ACTUAL module graph, computed,
+// not assumed.
+const listFiles = (relDir, suffix) => libListFiles(ROOT, relDir, suffix);
+const listFilesRecursive = (relDir) => libListFilesRecursive(ROOT, relDir);
+const moduleClosure = (entryRelPaths) => libModuleClosure(ROOT, entryRelPaths);
 
 const appEntrypoints = [
   `${APP}/server.mjs`,

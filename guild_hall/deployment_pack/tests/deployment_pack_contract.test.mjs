@@ -62,6 +62,10 @@ test("catalog pins the five packs with boundaries, and schema/enums match the pl
   const hpp = PACK_CATALOG.find((entry) => entry.pack_id === "hpp_server_pack");
   assert.equal(hpp.contains.includes("validators"), true);
   assert.equal(hpp.contains.includes("vendored_dependencies"), true);
+  const teamClient = PACK_CATALOG.find((entry) => entry.pack_id === "team_client_pack");
+  for (const role of ["shared_modules", "manifests", "validators"]) {
+    assert.equal(teamClient.contains.includes(role), true, `team_client contains ${role}`);
+  }
 });
 
 test("a draft manifest with complete references validates; missing manuals fail closed", () => {

@@ -184,6 +184,21 @@ test("builder and reader agree: an installed pack's attested identity is the bui
     (error) => error.code === "pack_source_manifest_invalid");
 });
 
+test("the real team_client_pack spec builds: source pack with shared-module closure, full-suite smoke declared", () => {
+  const specPath = join(REPO_ROOT, "guild_hall", "deployment_pack", "packs", "team_client_pack.spec.json");
+  const built = buildPack(specPath, { rootDir: REPO_ROOT, outDir: tempDir("outTeamClient"), clock: fixedClock, runner: okRunner });
+  assert.equal(built.manifest.pack_id, "team_client_pack");
+  // Pinned so growth is a conscious re-emit (the emitter's --check gates it).
+  assert.equal(built.manifest.files.length, 211);
+  assert.equal(built.manifest.files.some((entry) => entry.path.startsWith("guild_hall/")), true,
+    "the Board's cross-root guild_hall imports travel as shared_modules");
+  const spec = loadPackSpec(specPath);
+  assert.equal(spec.installed_smoke_entries.length, spec.smoke_test_entries.length,
+    "the declared installed smoke is the FULL suite");
+  assert.deepEqual(spec.installed_smoke_excluded, []);
+  assert.equal(spec.test_cwd, "ui-workspace/apps/team-ops-board");
+});
+
 test("a same-outDir rebuild clears the pack dir: dropped files can never survive as orphans", () => {
   const root = syntheticRoot();
   const extraPath = join(root, "guild_hall", "tool_workshop", "src", "dropped_later.mjs");

@@ -137,7 +137,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | Watch/Bastion contract | DONE `L-WATCH-BASTION` | — | GATED (실 executor) | GATED |
 | Board/4192 watch vertical | DONE `L-BOARD-VIEWMODEL`,`L-BOARD-PAGE` (기본 OFF `?watch=1`) | n/a (vite 앱) | PARTIAL — 실 read-only 공급자 3/9 domain (`L-WATCH-SUP-1`,`L-WATCH-SUP-2`); watchtower binding 등 잔여 6은 환경 gate | GATED |
 | Tool workshop | DONE `L-WORKSHOP-CORE` | DONE `L-PACK-BUILDER` (4-file pack, install+smoke green) | GATED (물리 Tool PC·runner) | GATED |
-| Deployment pack (contract·builder·spec 2종) | DONE `L-PACK-CONTRACT` | DONE `L-PACK-BUILDER`,`L-HPP-PACK`,`L-DEP-DELIVERY`,`L-GITFREE-ATTEST`,`L-LIFECYCLE` + start/stop 증명 (hpp **941파일**: 실 unit gate·양방향 install 검증·**전 suite 91/91 smoke green·제외 0**·**initial gate 7다리 전부 receipt**(install/start/stop/smoke/upgrade/rollback/restore — 실규모 생애주기 체인은 939-세대 digest 왕복 backup→restore→upgrade→rollback→boot로 실증, 941-세대는 install/smoke/start-stop 재실증) — worker와 server 양쪽이 동봉 pack manifest 검증 후 **재계산** pack_digest를 소스 신원으로 attest(health 라이브 확인); 무서명 manifest의 잔여 신뢰는 외부 pin·전달 채널 소관; gate 자체는 무주장) | — (ring 승격·서비스 상시 기동 없음) | GATED (물리 ring) |
+| Deployment pack (contract·builder·spec 3종) | DONE `L-PACK-CONTRACT` | DONE `L-PACK-BUILDER`,`L-HPP-PACK`,`L-DEP-DELIVERY`,`L-GITFREE-ATTEST`,`L-LIFECYCLE` + start/stop 증명 + Team Client spec (hpp **941파일**: 실 unit gate·양방향 install 검증·**전 suite 91/91 smoke green·제외 0**·**initial gate 7다리 전부 receipt**(install/start/stop/smoke/upgrade/rollback/restore — 실규모 생애주기 체인은 939-세대 digest 왕복 backup→restore→upgrade→rollback→boot로 실증, 941-세대는 install/smoke/start-stop 재실증) — worker와 server 양쪽이 동봉 pack manifest 검증 후 **재계산** pack_digest를 소스 신원으로 attest(health 라이브 확인); 무서명 manifest의 잔여 신뢰는 외부 pin·전달 채널 소관; gate 자체는 무주장. team_client **211파일 소스 pack**: 실 unit gate(Board 723 tests)·양방향 install 검증·**전 suite 77파일 smoke green·제외 0**(UI 빌드는 npm install 요구 — package/sbom gate 소관 무주장)) | — (ring 승격·서비스 상시 기동 없음) | GATED (물리 ring) |
 | Module operability gate (manifest·의존·cycle·preflight) | DONE `L-MODOP-GATE` (check-only; manifest 9종 등재·cycle 0/1,146파일·pcb 절단) | n/a (게이트 자체는 pack 대상 아님) | — (레거시 40 dir 등재는 후속) | — |
 | Cross-module integration (plan-13 module-integration rung) | DONE `L-DOGFOOD-INT` | — | — | — |
 | dev-ERP host gates | DONE `L-DEVERP-HOST-RED` + PATH 실행파일 전면 고정 (합성 아님 — 실 host 스위트 green; whoami에 이어 git(부팅 buildSeq 포함)·where·taskkill·cmd·python까지 System32 절대경로/`DEV_ERP_GIT_EXE`·`DEV_ERP_PYTHON` pin/resolver로 고정, where 자체 cwd도 System32로 중립화 — **server·worker·bridge 프로세스의 PATH 해석 잔존 0**; 예외 장부=dev CLI 유틸(doctor·verify-gate·probe·se-report·release-audit·payload-backup)과 ops 런처 ps1의 node 해석(서버 프로세스 밖, CHANGELOG에 명시); 이 lane만 이 칸을 host-gate 증거로 사용) | (hpp pack로 포장됨) | 기존 운영면(본 프로그램 범위 밖) | — |
@@ -174,6 +174,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `L-GITFREE-ATTEST` | `47e7e8a7` | Deployment | git-free pack-manifest attestation(재계산 digest·`.git` 우선·selfPath)·smoke 제외 0·adversarial 검토 6건 반영 |
 | `L-START-STOP` | `53059a1f` | Deployment | 격리 start/stop 증명(env 중화·health digest 결속·post-stop 재결속·payload byte-clean) |
 | `L-LIFECYCLE` | `0ce4b835` | Deployment | pack 생애주기 backup/upgrade/rollback/restore(관측된 검증만 기록·1세대 보존·traversal 거부) — initial gate 7다리 완결 |
+| `L-PATH-PIN` | `9e9f81b6` | dev-ERP | PATH 실행파일 전면 고정(git 부팅 rung 포함·where cwd 중립화·python) — server·worker·bridge PATH 해석 0 |
 
 ### Current validator register (rebaselined 2026-08-30)
 
@@ -184,7 +185,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `validate:forge-intent` | 13 | core + draft 상태 |
 | `validate:watch-bastion` | 8 | panel 계약 + bastion gate + 인터록 |
 | `validate:tool-workshop` | 8 | lease/fencing/retry/custody |
-| `validate:deployment-pack` | 34 | 계약 7 + builder 14(파티션·pin·builder↔reader 라운드트립·E2E 포함) + start/stop 증명 가드 4(env 중화·identity 결속·post-stop 재결속·pre-boot 거부) + 생애주기 9(backup/upgrade/rollback/restore·영수증 정직성·half-state coded 거부·traversal 거부·digest recipe pin; reader측 traversal 회귀는 dev-erp identity suite에 별도) + spec drift `--check` |
+| `validate:deployment-pack` | 35 | 계약 7 + builder 15(파티션·pin·builder↔reader 라운드트립·hpp/team_client 실spec E2E 포함) + start/stop 증명 가드 4(env 중화·identity 결속·post-stop 재결속·pre-boot 거부) + 생애주기 9(backup/upgrade/rollback/restore·영수증 정직성·half-state coded 거부·traversal 거부·digest recipe pin; reader측 traversal 회귀는 dev-erp identity suite에 별도) + spec drift `--check` ×2 |
 | `validate:watch-panel-board` | 10 | strip view-model 6 + 공급자 4 |
 | `validate:integration-dogfood` | 4 | cross-module 체인·facade·denial 동일성 |
 | `validate:module-operability` | 8 | manifest 스키마·의존·cycle-0 고정·hermes coarse 경계 + preflight receipt |
