@@ -189,7 +189,7 @@ test("the real team_client_pack spec builds: source pack with shared-module clos
   const built = buildPack(specPath, { rootDir: REPO_ROOT, outDir: tempDir("outTeamClient"), clock: fixedClock, runner: okRunner });
   assert.equal(built.manifest.pack_id, "team_client_pack");
   // Pinned so growth is a conscious re-emit (the emitter's --check gates it).
-  assert.equal(built.manifest.files.length, 211);
+  assert.equal(built.manifest.files.length, 214);
   assert.equal(built.manifest.files.some((entry) => entry.path.startsWith("guild_hall/")), true,
     "the Board's cross-root guild_hall imports travel as shared_modules");
   const spec = loadPackSpec(specPath);

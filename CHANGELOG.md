@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-31 - Team Client pack follows the storage-map dependency closure
+
+- Re-emitted `team_client_pack.spec.json` after the existing 4192 watch strip began importing the Path Registry storage-map projection. The calculated source closure is now 214 files with 19 reviewed pins; the three added shared modules are the registry seed, registry core and storage-map projection. The historical 211-file build remains historical evidence rather than the current closure.
+- Updated the real-spec regression pin and current Deployment Pack status text in the same change. This is packaging synchronization only: it does not activate a private storage snapshot, a writer, a service ring or any Linear mutation.
+
 ## 2026-08-31 - Source-lane index contract: R3 evidence gains its supply contract (L-SOURCE-INDEX)
 
 - `guild_hall/path_registry/src/source_lane_index.mjs` pins the four refs-only record kinds that later land under a plan-17 `10_SOURCE_CAPTURE_CATALOG/<id>/` lane - capture generation (immutable, digest + manifest + item count), backup-generation pointer (structurally NO byte/payload field; `60_BACKUP_GENERATIONS` owns the generation), restore test (own ref, isolated root, readback digest, human acceptance), and legacy-path-map note (metadata this module never resolves through - no symlink, fallback, or second writer) - plus `assembleSourceLaneEvidence`, which derives the EXACT nine-key R3 evidence record as a deterministic function of validated records. Nothing is fabricated: a capture->backup->restore digest chain break HOLDs (`backup_digest_mismatch`/`restore_readback_mismatch`) instead of counting, a backup pointer for an older generation never covers the latest capture, missing links stay absent (R3 renders degraded/unknown), zero captures returns `no_evidence` (R3 renders unknown), foreign-source records and forked generation sequences reject, and payload/raw/absolute-path keys are forbidden in every record. An end-to-end test feeds assembled evidence into the real `buildStorageMap` and renders healthy only under resolved synthetic authority. `validate:source-lane-index` (7) enrolled in package.json and the module manifest.

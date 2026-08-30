@@ -118,6 +118,9 @@
       "guild_hall/codex_work_directory/organization-governance-provider.mjs",
       "guild_hall/codex_work_directory/organization_governance.mjs",
       "guild_hall/ingress/writer_authority.mjs",
+      "guild_hall/path_registry/data/registry_seed_v0.mjs",
+      "guild_hall/path_registry/src/path_registry_core.mjs",
+      "guild_hall/path_registry/src/storage_map_projection.mjs",
       "guild_hall/shared/physical_path_identity.mjs",
       "guild_hall/validate/path_length_policy.mjs",
       "guild_hall/validate/workmeta_payload_policy.mjs",
@@ -410,6 +413,10 @@
     {
       "path": "guild_hall/codex_work_directory/organization_governance.mjs",
       "sha256": "272dca74d4a1e730d1ff31fcbfcef8c4e0a0a7c4979f72295677afcbf7b6be20"
+    },
+    {
+      "path": "guild_hall/path_registry/src/storage_map_projection.mjs",
+      "sha256": "16102574c8b85b4082471b161869eec309a0b284e769be79cd135a2e94ab0ab3"
     },
     {
       "path": "guild_hall/watch_panel_contract/src/watch_panel_contract.mjs",
