@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-31 - NAS source assets and NAS backup targets are explicitly separated
+
+- Clarified that a NAS backup target receives protected Soulforge/ERP/HPP/project generations, while a NAS source asset represents engineering or shared data that already lives on NAS and enters the source catalog only through its own capture/custody policy.
+- Defined `60_BACKUP_GENERATIONS/nas` as generations whose protected source kind is NAS; backup destination is owned by the receipt destination reference, not inferred from a folder name.
+- Required 4192 to keep backup/restore readiness and source capture/project-binding/custody readiness as separate rows and prohibited recursive re-ingest of NAS backup copies as new NAS source assets.
+
 ## 2026-08-31 - KVDS-shaped full contract canary closes the public-safe execution spine
 
 - Added one public-safe synthetic integration canary that composes existing owners from accepted-context references through Forge/Linear packet admission, Agent and Project AI Team authority, Engineering MCP readback, one exact Hermes execution, authenticated artifact custody, independent review and separate human acceptance.

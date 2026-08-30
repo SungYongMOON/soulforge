@@ -19,6 +19,19 @@ Team Member Engineering Program plan 17의 R1(Path Registry + resolver), R2(targ
 - **Voice/PLAUD capture adapter** (`src/voice_source_lane_adapter.mjs`): `plaud_import_ready` delivery receipt와 exact one-to-one copy-only custody receipts를 source owner/project/session/recording/digest/count/time으로 결속한다. exact legacy root authority가 receipt에 없는 `legacy_verified`는 거부하고 fresh `live_copy`/digest-bound `immutable_version`만 수락한다. 출력은 capture뿐이며 R3는 degraded다.
 - **PC-activity capture adapter** (`src/pc_activity_source_lane_adapter.mjs`): existing file-activity native project-history coverage receipt가 source owner·project·event count·window·ordered digest를 자체적으로 결속할 때만 `source.pc_activity` capture를 만든다. caller-only query inventory는 project scope가 없어 채택하지 않았고 Cloud/Git/NAS는 exact native capture tuple 부재로 계속 HOLD다.
 
+## NAS 방향 구분
+
+- `source.nas`는 NAS에 원래 존재하는 자료를 가리키는 **NAS source asset**이다.
+  이 row의 capture/custody/backup은 exact native receipt 전까지 HOLD다.
+- Backup Controller의 NAS lane은 Soulforge/ERP/HPP/project 자료를 받는 **NAS
+  backup target**이다. destination readiness와 source capture readiness는 서로
+  다른 증거다.
+- `60_BACKUP_GENERATIONS/nas`는 NAS source asset을 보호한 generation의 index다.
+  Soulforge→NAS destination 여부는 backup receipt의 destination ref가 소유한다.
+- 4192는 두 역할을 별도 row로 투영해야 하며 한쪽 PASS를 다른 쪽 상태로 전이하지
+  않는다. 실제 private evidence가 없으므로 현재 이 모듈은 둘 다 operational
+  green으로 만들지 않는다.
+
 
 ## 외부 blocker (이 모듈이 대체하지 않는 것)
 

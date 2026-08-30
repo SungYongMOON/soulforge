@@ -184,6 +184,27 @@ scope, accepted-generation refs, and status unless an exact custody policy
 separately authorizes bytes. A physical copy is permitted only by its
 source-kind policy and exact promotion/backup gate.
 
+### NAS의 두 역할은 별도 자산이다
+
+`NAS`라는 한 단어를 두 방향에 재사용하지 않는다.
+
+| 역할 | 흐름 | ERP/Registry가 기록하는 것 | 현재 판정 |
+| --- | --- | --- | --- |
+| NAS backup target | Soulforge/ERP/HPP/project custody bytes → approved NAS lane | 보호 대상 source generation, destination custody ref, manifest/hash, backup generation, restore readback·acceptance | Backup Controller 계약 존재; public tree만으로 actual NAS health·최신 backup/restore는 `UNKNOWN/HOLD` |
+| NAS source asset | NAS에 원래 존재하는 설계·시험·공유 자료 → source catalog/custody decision | `source.nas` identity, ACL/owner, observed revision, hash/manifest pointer, project binding, 별도 backup/restore evidence | exact native capture receipt와 source policy가 없어 `HOLD` |
+
+`60_BACKUP_GENERATIONS/nas/`의 `nas`는 **보호 대상 source kind가 NAS**라는
+뜻이다. Soulforge 데이터를 NAS에 보냈다는 뜻은 destination ref/receipt가 소유하며,
+폴더명으로 추정하지 않는다. 반대로 NAS source asset을 ERP DB에 통째로 복제하지
+않는다. 기본은 metadata/pointer이고, bytes는 exact custody policy와 acceptance가
+있을 때만 승인된 byte owner가 보관한다. NAS backup target의 사본을 다시
+`source.nas`로 자동 인입하여 재귀 백업하는 것도 금지한다.
+
+4192는 실제 evidence가 연결될 때 `NAS backup target`과 `NAS source asset`을
+서로 다른 row/status로 보여야 한다. 전자는 backup/restore readiness, 후자는
+capture/project-binding/custody readiness다. 둘 중 하나의 green으로 다른 하나를
+green 처리하지 않는다.
+
 `25_EVENT_TIMELINE_INDEX` indexes durable event memory owned by its exact
 source/project/accepted-context surface; `90_PROJECTIONS` is rebuildable
 presentation. They must not be merged, and the index cannot widen project scope.
