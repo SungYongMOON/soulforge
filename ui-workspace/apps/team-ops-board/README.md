@@ -111,6 +111,26 @@ polling, change any snapshot, or grant runtime/repair authority.
 
 ## Local endpoint and privacy boundary
 
+### Storage & Backup Map read projection
+
+The Board registers exact loopback-only `GET /storage-map.snapshot.json` through
+`src/server/storage-map-adapter.mjs`. Non-GET requests return `405`, remote
+callers return `403`, and the endpoint has no writer or repair surface. It is
+default-OFF: both `TEAM_OPS_STORAGE_MAP_BINDING` and
+`TEAM_OPS_STORAGE_MAP_BINDING_SHA256` must be present at Vite process start.
+The first value names an absolute local binding file and the second pins its
+exact bytes; the binding in turn pins the snapshot bytes and exact Path Registry
+snapshot digest. Stable-file identity checks reject symlink, hardlink and read
+race drift.
+
+Only the exact `soulforge.watch_storage_map.v0` /
+`backup_readiness_overlay` envelope, complete registry-driven rows, recomputed
+aggregate and top-level `observed_at` may reach the browser. Schema/digest/raw/
+path/timestamp drift becomes a fixed metadata-only `unavailable` response with
+no local path or exception text. Without the private binding pair the endpoint
+stays unconfigured; this server seam does not fabricate a public-seed snapshot
+or claim actual backup readiness.
+
 ### Agent Runtime read projection
 
 The Board registers `GET /agent-runtime.snapshot.json?read_only=1` for loopback

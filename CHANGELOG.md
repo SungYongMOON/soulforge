@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-08-31 - Slack and Voice join capture-only source lanes; 4192 gains the gated Storage Map endpoint
+
+- Added pure Slack and Voice/PLAUD capture adapters beside Mail. Slack binds native coverage, cursor and exact raw-ref custody sets; Voice binds `plaud_import_ready` delivery evidence to one-to-one fresh copy-only custody. Both emit only refs-only `capture_generation` records and render `degraded` without backup/restore/acceptance. `legacy_verified` Voice custody remains rejected until a separate exact legacy-path authority exists.
+- Enrolled `slack_history` as the explicit owner of the native coverage/cursor receipt capability consumed by Path Registry. Slack custody validation now requires exactly one accepted event ref per native custody receipt, preventing aggregate 2+0 distributions from masquerading as one-to-one custody.
+- Added the Team Ops Board's exact loopback `GET /storage-map.snapshot.json` server adapter. It is default-OFF and requires both a pinned binding file and a separately pinned R3 snapshot/registry digest; stable-read race, symlink/hardlink, schema, aggregate, raw/path and timestamp drift fail to sanitized `unavailable`. The adapter has no writer or repair surface and supplies no actual private binding.
+- Advanced the Board module manifest to declare its Path Registry projection dependency, storage-map binding schema/capability and validator. The served overlay revalidates exact physical-root/migration enums, cross-row topology identity uniqueness and the unclassified-path drift invariant before returning data.
+- Re-emitted Team Client to 216 files with 78 declared smoke entries, no exclusions and 19 reviewed pins; the current Board suite is 732/732. This packages the server boundary, not an active Storage Map or backup-readiness claim.
+
 ## 2026-08-31 - Agent workforce lineage is a separate effect-inert contract
 
 - Added a public-safe pure contract for `Agent Family -> Agent Mark -> Deployment -> Run -> Memory Generation`, binding semantic versions, record digests, exact role/capability/tool/authority/project snapshots, requested versus observed model/effort, SOUL/instruction refs, memory lineage and rollback/supersession refs. Missing observed model/effort remains `UNKNOWN`.

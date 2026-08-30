@@ -14,6 +14,7 @@ import { createTopologyAdapterPlugin } from "./src/server/topology-adapter.mjs";
 import { createTopologyFederationAdapterPlugin } from "./src/server/topology-federation-adapter.mjs";
 import { createTopologyRecoveryAdapterPlugin } from "./src/server/topology-recovery-adapter.mjs";
 import { createReceiptExpiryServerAdapter } from "./src/server/receipt-expiry-adapter.mjs";
+import { createStorageMapServerAdapter } from "./src/server/storage-map-adapter.mjs";
 import { createCodexRetentionServerAdapter } from "./src/server/codex-retention-adapter.mjs";
 import {
   createTeamOpsBoardRuntimeEnvironment,
@@ -59,6 +60,10 @@ export default defineConfig(async () => ({
     createTopologyFederationAdapterPlugin(),
     createTopologyRecoveryAdapterPlugin({ ownerRoot }),
     createReceiptExpiryServerAdapter({ bindingPath: receiptExpiryBindingPath, ownerRoot }),
+    createStorageMapServerAdapter({
+      bindingPath: process.env.TEAM_OPS_STORAGE_MAP_BINDING,
+      bindingSha256: process.env.TEAM_OPS_STORAGE_MAP_BINDING_SHA256,
+    }),
     createCodexRetentionServerAdapter({ ownerRoot }),
     createHostStatsAdapterPlugin(),
     createClaudeUsageAdapterPlugin(),

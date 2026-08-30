@@ -1,0 +1,35 @@
+{
+  "schema_version": "soulforge.module_manifest.v0",
+  "module_id": "slack_history",
+  "module_version": "1.0.0",
+  "interface_version": "slack_history.v1",
+  "schema_versions": [
+    "soulforge.slack_history.coverage.v1",
+    "soulforge.slack_history.cursor.v1"
+  ],
+  "owner": "guild_hall/slack_history",
+  "capabilities_provided": [
+    "source.slack_history_receipt_contract.v1"
+  ],
+  "capabilities_required": [],
+  "required_dependencies": [],
+  "optional_dependencies": [],
+  "compatible_version_ranges": { "node": ">=20" },
+  "startup_order": null,
+  "feature_flag": "live Slack collection and scheduled registration remain separately bound/default-OFF",
+  "default_state": "contract_and_local_custody_code_available_live_binding_external",
+  "health_probe": null,
+  "readiness_probe": null,
+  "config_refs": [],
+  "secret_refs": [],
+  "data_owner": "private_slack_source_custody_store",
+  "backup_class": "authoritative_requires_separate_restore_acceptance",
+  "migration_version": null,
+  "rollback_version": "git_revert_of_this_module_only",
+  "validators": [
+    "npm.cmd run validate:slack-history"
+  ],
+  "release_digest": null,
+  "deprecation_state": "active",
+  "authority_notes": "This manifest publishes the native Slack coverage/cursor receipt contract used by downstream refs-only adapters. It does not activate a workspace token, Scheduled Task, collector, archive MCP, source call, backup generation, restore acceptance, task mutation, or cross-project access. Raw message and attachment bytes remain in the exact private custody owner under its binding and are never module-manifest payload."
+}

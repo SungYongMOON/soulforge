@@ -82,6 +82,7 @@
       "ui-workspace/apps/team-ops-board/src/server/provider-quota-attempt-log.mjs",
       "ui-workspace/apps/team-ops-board/src/server/provider-quota-receipt-store.mjs",
       "ui-workspace/apps/team-ops-board/src/server/receipt-expiry-adapter.mjs",
+      "ui-workspace/apps/team-ops-board/src/server/storage-map-adapter.mjs",
       "ui-workspace/apps/team-ops-board/src/server/team-ops-board-allowed-hosts.mjs",
       "ui-workspace/apps/team-ops-board/src/server/topology-adapter.mjs",
       "ui-workspace/apps/team-ops-board/src/server/topology-federation-adapter.mjs",
@@ -223,6 +224,7 @@
       "ui-workspace/apps/team-ops-board/src/server/provider-quota-attempt-log.test.mjs",
       "ui-workspace/apps/team-ops-board/src/server/provider-quota-receipt-store.test.mjs",
       "ui-workspace/apps/team-ops-board/src/server/receipt-expiry-adapter.test.mjs",
+      "ui-workspace/apps/team-ops-board/src/server/storage-map-adapter.test.mjs",
       "ui-workspace/apps/team-ops-board/src/server/team-ops-board-allowed-hosts.test.mjs",
       "ui-workspace/apps/team-ops-board/src/server/team-ops-board-runtime-boundary.test.mjs",
       "ui-workspace/apps/team-ops-board/src/server/topology-adapter.test.mjs",
@@ -305,6 +307,7 @@
     "src/server/provider-quota-attempt-log.test.mjs",
     "src/server/provider-quota-receipt-store.test.mjs",
     "src/server/receipt-expiry-adapter.test.mjs",
+    "src/server/storage-map-adapter.test.mjs",
     "src/server/team-ops-board-allowed-hosts.test.mjs",
     "src/server/team-ops-board-runtime-boundary.test.mjs",
     "src/server/topology-adapter.test.mjs",
@@ -384,6 +387,7 @@
     "src/server/provider-quota-attempt-log.test.mjs",
     "src/server/provider-quota-receipt-store.test.mjs",
     "src/server/receipt-expiry-adapter.test.mjs",
+    "src/server/storage-map-adapter.test.mjs",
     "src/server/team-ops-board-allowed-hosts.test.mjs",
     "src/server/team-ops-board-runtime-boundary.test.mjs",
     "src/server/topology-adapter.test.mjs",
@@ -440,7 +444,7 @@
     },
     {
       "path": "ui-workspace/apps/team-ops-board/README.md",
-      "sha256": "6d0254fd82949ec377deb8cb0e64ef17a18d5310675b47b9326f865e630e8ea5"
+      "sha256": "e426a595ffa172424707c141b39a0bc7402f2fc2ca0389a2c8dc339b038a1b91"
     },
     {
       "path": "ui-workspace/apps/team-ops-board/ops/ai-usage-producer-companion.mjs",
