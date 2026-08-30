@@ -52,6 +52,16 @@ only an unverified opaque authority ref. It projects no active Agent or
 Deployment until a separate authority-verifier/writer exists; persistence and
 project runtime activation therefore remain gated.
 
+`agent_authority_verification.mjs` now defines the independent verification
+seam: an unverified approval claim becomes a deterministic verified active-
+binding receipt only when a separately supplied trusted pin and a separate
+trusted current-authority-state bind the exact Owner/authority/verifier,
+project scope, Family·Mark·Deployment·Memory digests, authority receipt,
+evaluation time, validity window, current epoch and revocation list. A
+historical pin cannot remain active after expiry/revocation/epoch advance. The
+verifier performs no catalog mutation, runtime start or Task change; durable
+activation is still a later writer/pilot gate.
+
 ## Project isolation and assignment
 
 - Every project manager/deep-context team is distinct. A shared workforce capability does not imply shared project memory or ACL.
@@ -74,7 +84,7 @@ The tool PC may be physically shared, but its role and project binding are separ
 | `.registry`, `.unit`, `.workflow`, `.party`, `.mission` | REUSE as their existing owner-bound structures | They do not by themselves provide a fleet-wide approved Mark/Deployment registry. |
 | `guild_hall/agent_observation` | REUSE for observation/usage/receipt projections plus the pure Agent workforce lineage contract | `PREPARED_CONTRACT` is not durable registration, deployment acceptance or task authority. |
 | Hermes/Buzz/Codex adapters | REUSE as bounded runtime/collaboration adapters | They do not replace Guild identity/assignment/receipt contracts. |
-| Durable Agent Mark/Deployment/Run catalog, persistence and rollback execution | BUILD | Pure lineage + in-memory revision catalog contracts exist; authority verifier, accepted writer/storage and runtime binding remain gated. |
+| Durable Agent Mark/Deployment/Run catalog, persistence and rollback execution | BUILD | Pure lineage, revision catalog and trusted-pin verifier exist; accepted durable writer/storage and runtime binding remain gated. |
 | Cross-project manager merge or autonomous assignment | DEFER / prohibited | Project isolation stays strict. |
 
 ## Module independence requirement

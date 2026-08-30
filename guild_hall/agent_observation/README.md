@@ -22,6 +22,7 @@ fixture와 measured fixture만 사용한다.
 | `agent_registry.mjs` | Seam A — durable agent identity, project 바인딩, provider identity crosswalk, memory class |
 | `agent_mark_lineage.mjs` | 별도 workforce asset 계약 — Agent Family→Mark→Deployment→Run→Memory Generation의 version/digest/binding/rollback을 준비하며 `agent_record.v1`을 Mark로 자동 승격하지 않음 |
 | `agent_workforce_revision_catalog.mjs` | prepared lineage의 candidate·미검증 approval claim을 WeakMap append-only revision event로 보관; authority receipt를 검증하거나 active Agent를 만들지 않음 |
+| `agent_authority_verification.mjs` | unverified approval claim과 별도 trusted pin을 canonical digest/project/Family-Mark-Deployment-Memory/validity/revocation epoch로 결속해 verified active-binding receipt를 준비 |
 | `run_observation.mjs` | Seam B — 관찰된 run, 그 authority와 시각, parent/child run graph |
 | `usage_ledger.mjs` | Seam C — direct usage 귀속과 self/child-direct/subtree rollup |
 | `delivery_evidence.mjs` | Seam D — Result/Delivery Receipt, delivery receipt의 `delivery_target`, Delivery Edge와 consumer 투영 |
@@ -68,6 +69,8 @@ barrel은 다섯 번째 원장이 되지 않도록 공유 state가 아니라 sea
 - `soulforge.agent_observation.agent_memory_generation.v0`
 - `soulforge.agent_observation.agent_workforce_lineage.v0`
 - `soulforge.agent_observation.agent_workforce_revision_event.v0`
+- `soulforge.agent_observation.agent_authority_trusted_pin.v0`
+- `soulforge.agent_observation.verified_agent_active_binding.v0`
 
 ## 경계
 
@@ -164,6 +167,11 @@ barrel은 다섯 번째 원장이 되지 않도록 공유 state가 아니라 sea
   `authority_receipt_verified: false`다. 따라서 active projection은 비어 있고 claim은
   `unverified_approval_claims`에만 나타난다. exact replay만 NO_OP이고 event/lineage/ref
   divergence, 비단조 semver, 잘못된 supersession/rollback, multi-project head 충돌은 HOLD다.
+- `agent_authority_verification.mjs`는 claim 자체를 authority로 보지 않는다. 별도 trusted pin이
+  Owner/authority/verifier, authority receipt digest, project scope, Family·Mark·Deployment·Memory
+  digest, validity window와 revocation epoch를 모두 정확히 결속할 때만 deterministic
+  `VERIFIED_ACTIVE_BINDING` receipt를 만든다. 그 receipt도 catalog/runtime/task를 변경하지 않으며
+  actual durable writer와 deployment activation의 입력 증거일 뿐이다.
 - AgentRun success는 Official Task Done이 아니다. `result_observed`는 side-effect evidence
   ref가 있을 때만 받아들인다.
 - source 파일에는 NUL byte를 넣지 않는다. grep 기반 validator가 module을 binary로 보고

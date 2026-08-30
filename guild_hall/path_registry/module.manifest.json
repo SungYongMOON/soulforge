@@ -1,13 +1,13 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "path_registry",
-  "module_version": "0.4.0",
+  "module_version": "0.5.0",
   "interface_version": "path_registry.v0",
-  "schema_versions": ["soulforge.path_registry.v0", "soulforge.target_materializer.v0", "soulforge.watch_storage_map.v0", "soulforge.source_lane_index.v0", "soulforge.source_lane_ledger.v0"],
+  "schema_versions": ["soulforge.path_registry.v0", "soulforge.target_materializer.v0", "soulforge.watch_storage_map.v0", "soulforge.source_lane_index.v0", "soulforge.source_lane_ledger.v0", "soulforge.asset_class_revision_ledger.v0"],
   "owner": "guild_hall/path_registry",
-  "capabilities_provided": ["physical.path_registry_contract.v0", "physical.target_materializer.v0", "watch.storage_backup_map_projection.v0", "physical.source_lane_index_contract.v0", "physical.source_lane_ledger_contract.v0", "physical.mail_capture_source_lane_adapter.v0", "physical.slack_capture_source_lane_adapter.v0", "physical.voice_capture_source_lane_adapter.v0"],
-  "capabilities_required": ["source.slack_history_receipt_contract.v1"],
-  "required_dependencies": ["shared", "slack_history", "watch_panel_contract"],
+  "capabilities_provided": ["physical.path_registry_contract.v0", "physical.target_materializer.v0", "watch.storage_backup_map_projection.v0", "physical.source_lane_index_contract.v0", "physical.source_lane_ledger_contract.v0", "physical.asset_class_revision_ledger_contract.v0", "physical.mail_capture_source_lane_adapter.v0", "physical.slack_capture_source_lane_adapter.v0", "physical.voice_capture_source_lane_adapter.v0", "physical.pc_activity_capture_source_lane_adapter.v0"],
+  "capabilities_required": ["source.file_activity_project_history_coverage_contract.v1", "source.slack_history_receipt_contract.v1"],
+  "required_dependencies": ["file_activity", "shared", "slack_history", "watch_panel_contract"],
   "optional_dependencies": [],
   "compatible_version_ranges": { "node": ">=20" },
   "startup_order": null,
@@ -29,9 +29,11 @@
     "node --test guild_hall/path_registry/tests/mail_source_lane_adapter.test.mjs",
     "node --test guild_hall/path_registry/tests/slack_source_lane_adapter.test.mjs",
     "node --test guild_hall/path_registry/tests/voice_source_lane_adapter.test.mjs",
-    "node --test guild_hall/path_registry/tests/source_lane_ledger.test.mjs"
+    "node --test guild_hall/path_registry/tests/source_lane_ledger.test.mjs",
+    "node --test guild_hall/path_registry/tests/asset_class_revision_ledger.test.mjs",
+    "node --test guild_hall/path_registry/tests/pc_activity_source_lane_adapter.test.mjs"
   ],
   "release_digest": null,
   "deprecation_state": "active_draft",
-  "authority_notes": "Plan-17 R1-R3 and bounded R5 contracts only. R0 and OD-10 owner assignments are settled, while the tracked seed intentionally retains private-activation sentinels until binding bytes, ACL/readback, writer and enforcement wiring are accepted. The source-lane ledger is WeakMap-private and process-local: it append-validates refs-only records, replay/conflict/generation/time/digest chains and projects evidence completeness, but provides no persistence or acceptance authority. Mail, Slack and Voice/PLAUD adapters emit capture only; none can make backup, restore or acceptance evidence. No live writer, collector, filesystem guard hook, provider call, payload movement, or 4192 runtime is activated by this module."
+  "authority_notes": "Plan-17 R1-R5 public-safe contracts only. Source and asset-class ledgers are WeakMap-private/process-local: they index refs-only revisions/evidence, replay/conflict/supersession/time/digest chains and nine asset classes but provide no persistence, byte, acceptance, backup or restore authority. Mail, Slack, Voice/PLAUD and project-bound PC-activity coverage adapters emit capture only. Cloud/Git/NAS remain held because no exact native capture receipt was observed. No live writer, collector, filesystem guard hook, provider call, payload movement, or 4192 runtime is activated by this module."
 }

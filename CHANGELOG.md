@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-31 - Asset evidence, Agent authority and PC activity receive exact contract seams
+
+- Added an append-only in-memory revision/evidence ledger for all nine registered asset classes. It keeps five-owner refs, monotonic revision/supersession, separate acceptance/backup/restore evidence and project/organization isolation, while projections explicitly keep acceptance/byte/backup authority false.
+- Added an Agent authority verifier between unverified catalog claims and future activation. A separate trusted pin and a separate trusted current-authority-state must bind the canonical claim digest, Owner/authority/verifier, project, Family/Mark/Deployment/Memory digests, evaluation time, authority receipt, current epoch and revocation list. Historical pins fail after expiry, later revocation or epoch advance; the verifier itself mutates no catalog/runtime/task.
+- Added a capture-only PC-activity adapter over the existing native file-activity project-history coverage receipt. It requires source-owner and project refs carried by the native receipt; the earlier query-only inventory idea was rejected because it lacked project identity. Cloud/Git/NAS remain HOLD without exact native capture receipts.
+
 ## 2026-08-31 - Source, Buzz and Hermes backup-generation contracts separate technical proof from acceptance
 
 - Added a generic refs-only Source backup binder. Exact capture, byte-owner manifest, create-only backup/readback and isolated technical restore can emit a backup pointer, while `restore_test` stays null until a separately verified human-acceptance envelope and independent trusted acceptance pin are bound to the acceptance owner, source/project, generation and readback digest. Pending→accepted advancement and replay are deterministic; in-band self-asserted acceptance fails closed.

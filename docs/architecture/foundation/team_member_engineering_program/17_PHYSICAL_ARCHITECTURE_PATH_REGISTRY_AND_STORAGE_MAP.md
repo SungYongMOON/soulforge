@@ -403,6 +403,10 @@ An in-memory append-only Source Lane ledger now validates exact replay,
 conflict, generation order, ref reuse, time order and capture→backup→restore
 digest chains. It projects evidence completeness but owns no persistence,
 backup bytes, restore execution, health or acceptance.
+The same module now has a separate 9-class asset revision ledger and a
+project-bound PC-activity coverage adapter. Asset revision/acceptance/backup/
+restore evidence remains refs-only and authority-neutral. Cloud, Git and NAS
+stay explicit HOLD rows because no exact native capture receipt was observed.
 The 4192 server now also has a default-OFF GET-only storage-map adapter whose
 binding bytes, snapshot bytes and registry digest are pinned; no actual private
 binding or snapshot is supplied by public code.

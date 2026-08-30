@@ -87,6 +87,11 @@ observation, materialize the owner root, ratify D19/D25/D26, accept H04, or
 activate a collector, reducer, projector, writer, scheduler, classification,
 semantic label, or TaskDriver.
 
+`module.manifest.json` separately enrolls the native project/source-bound
+project-history coverage receipt capability used by refs-only adapters. That
+enrollment grants no watcher, scanner, byte vault, project-context writer or
+backup acceptance authority.
+
 ## Node roles and cadence candidates
 
 | Role | Candidate cadence | Extra triggers |

@@ -1,7 +1,7 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "agent_observation",
-  "module_version": "0.3.0",
+  "module_version": "0.4.0",
   "interface_version": "agent_observation.v0",
   "schema_versions": [
     "soulforge.agent_observation.agent_family.v0",
@@ -10,12 +10,15 @@
     "soulforge.agent_observation.agent_mark_run.v0",
     "soulforge.agent_observation.agent_memory_generation.v0",
     "soulforge.agent_observation.agent_workforce_lineage.v0",
-    "soulforge.agent_observation.agent_workforce_revision_event.v0"
+    "soulforge.agent_observation.agent_workforce_revision_event.v0",
+    "soulforge.agent_observation.agent_authority_trusted_pin.v0",
+    "soulforge.agent_observation.verified_agent_active_binding.v0"
   ],
   "owner": "guild_hall/agent_observation",
   "capabilities_provided": [
     "agent.workforce_lineage_contract.v0",
-    "agent.workforce_revision_catalog_contract.v0"
+    "agent.workforce_revision_catalog_contract.v0",
+    "agent.authority_verification_contract.v0"
   ],
   "capabilities_required": [],
   "required_dependencies": [],
@@ -41,5 +44,5 @@
   ],
   "release_digest": null,
   "deprecation_state": "active",
-  "authority_notes": "Risk-based enrollment: this module is a DIRECT dependency of the team_client pack closure(s). Purpose: provider-neutral observed agent identity, run/usage/receipt projection, a pure public-safe Agent Family-to-Mark-to-Deployment-to-Run-to-Memory Generation lineage contract, and an in-memory append-only revision-catalog contract. agent_record.v1 remains observation identity and is explicitly forbidden as an Agent Mark. The catalog records candidate or unverified approval_claim events only; caller-supplied authority receipt refs are never verified here and active Agent/Deployment rows remain empty. These contracts grant no persistence, runtime/config call, deployment acceptance, authority activation, task mutation, memory promotion, service, or writer. Private keys/tokens/raw memory are forbidden and secret_ref is pointer-only."
+  "authority_notes": "Provider-neutral observed identity/run/usage projections plus pure Agent lineage, revision catalog and authority-verification contracts. The catalog keeps candidate and unverified approval_claim events inactive. Only a separately supplied trusted pin that exactly binds the claim, Owner/authority/verifier, project scope, Family/Mark/Deployment/Memory digests, validity and revocation epoch can produce a verified active-binding receipt. The verifier still performs no catalog mutation, persistence, runtime/task call, approval/promotion or external/clock read. Actual durable writer and deployment remain separate gates."
 }

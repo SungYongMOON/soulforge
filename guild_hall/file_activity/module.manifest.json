@@ -1,0 +1,36 @@
+{
+  "schema_version": "soulforge.module_manifest.v0",
+  "module_id": "file_activity",
+  "module_version": "1.0.0",
+  "interface_version": "file_activity.v1",
+  "schema_versions": [
+    "soulforge.file_history_adapter_result.v1",
+    "soulforge.project_history_coverage_receipt.v1"
+  ],
+  "owner": "guild_hall/file_activity",
+  "capabilities_provided": [
+    "source.file_activity_project_history_coverage_contract.v1"
+  ],
+  "capabilities_required": [],
+  "required_dependencies": ["shared"],
+  "optional_dependencies": [],
+  "compatible_version_ranges": { "node": ">=20" },
+  "startup_order": null,
+  "feature_flag": "project-history adapter is caller-invoked and feature-bound; no watcher or scheduler activation",
+  "default_state": "library_source_only_no_service",
+  "health_probe": null,
+  "readiness_probe": null,
+  "config_refs": [],
+  "secret_refs": [],
+  "data_owner": "project_scoped_file_activity_metadata_lineage",
+  "backup_class": "authoritative_metadata_requires_separate_byte_backup",
+  "migration_version": null,
+  "rollback_version": "git_revert_of_this_module_only",
+  "validators": [
+    "npm.cmd run validate:file-activity",
+    "npm.cmd run validate:file-activity-history-contract"
+  ],
+  "release_digest": null,
+  "deprecation_state": "active",
+  "authority_notes": "Owns file-activity metadata lineage and the native project/source-bound project-history coverage receipt consumed by refs-only adapters. It is not a byte vault, backup acceptance, project context writer, Task state owner, filesystem watcher activation, or source payload authority."
+}
