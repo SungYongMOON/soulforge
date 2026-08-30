@@ -14,9 +14,10 @@
 // filing an approved-action REQUEST through the contract surface is the only
 // mutation reachable from here, and a request executes nothing.
 //
-// Page wiring note: this module and the contract are browser-safe pure ESM,
-// but the contract file lives outside the ui-workspace root — wiring it into
-// the Vite page needs an fs.allow check and stays a separate leaf.
+// Page wiring: consumed by src/watch-strip.tsx behind the default-OFF
+// ?watch=1 flag (lazy-loaded, so the default Board never loads this chain).
+// Measured on vite 7.3.1: module-graph cross-root imports are served in dev
+// without any fs.allow change.
 
 import {
   PANEL_DOMAINS,
