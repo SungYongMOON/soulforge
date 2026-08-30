@@ -45,6 +45,13 @@ permits no persistence, runtime/config call, authority activation, external
 call or raw memory. This closes the contract/schema leaf only; it is not a
 durable catalog, approved Mark, Deployment activation or project pilot.
 
+`agent_workforce_revision_catalog.mjs` adds an append-only in-memory revision
+catalog contract for that prepared metadata. It records exact replay/conflict,
+semver supersession and rollback candidates, but its `approval_claim` carries
+only an unverified opaque authority ref. It projects no active Agent or
+Deployment until a separate authority-verifier/writer exists; persistence and
+project runtime activation therefore remain gated.
+
 ## Project isolation and assignment
 
 - Every project manager/deep-context team is distinct. A shared workforce capability does not imply shared project memory or ACL.
@@ -67,7 +74,7 @@ The tool PC may be physically shared, but its role and project binding are separ
 | `.registry`, `.unit`, `.workflow`, `.party`, `.mission` | REUSE as their existing owner-bound structures | They do not by themselves provide a fleet-wide approved Mark/Deployment registry. |
 | `guild_hall/agent_observation` | REUSE for observation/usage/receipt projections plus the pure Agent workforce lineage contract | `PREPARED_CONTRACT` is not durable registration, deployment acceptance or task authority. |
 | Hermes/Buzz/Codex adapters | REUSE as bounded runtime/collaboration adapters | They do not replace Guild identity/assignment/receipt contracts. |
-| Durable Agent Mark/Deployment/Run catalog, persistence and rollback execution | BUILD | The pure lineage contract exists; accepted writer, storage, promotion and runtime binding remain gated. |
+| Durable Agent Mark/Deployment/Run catalog, persistence and rollback execution | BUILD | Pure lineage + in-memory revision catalog contracts exist; authority verifier, accepted writer/storage and runtime binding remain gated. |
 | Cross-project manager merge or autonomous assignment | DEFER / prohibited | Project isolation stays strict. |
 
 ## Module independence requirement

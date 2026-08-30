@@ -140,18 +140,18 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 
 | Lane | synthetic | package-install | actual-provider | physical-pilot |
 | --- | --- | --- | --- | --- |
-| Engineering MCP (contract·crosswalk·read facade) | DONE `L-MCP-CONTRACT`,`L-MCP-FACADE` | — | GATED (D27/D28/D29 + OD-08) | GATED |
+| Engineering MCP (contract·crosswalk·read facade·stdio seam) | DONE `L-MCP-CONTRACT`,`L-MCP-FACADE` + current default-OFF 21-read-tool stdio contract | — | GATED (real provider/client binding, D27/D28/D29 + OD-08) | GATED |
 | Vault revision (state machine·bundle·redaction·external gate) | DONE `L-VAULT-CORE`,`L-VAULT-C1` (plan-03 criterion 1 합성 범위 완결) | — | GATED (D27/D29, promoter·persistence·실수락) | GATED |
 | Forge intent (core·brief draft) | DONE `L-FORGE-CORE`,`L-FORGE-DRAFT` | — | GATED (row-4-actual: 실 task-writer + accepted context) | GATED |
 | Watch/Bastion contract | DONE `L-WATCH-BASTION` | — | GATED (실 executor) | GATED |
 | Board/4192 watch vertical | DONE `L-BOARD-VIEWMODEL`,`L-BOARD-PAGE`,`L-STORAGE-MAP-SERVER` (기본 OFF `?watch=1`) + `L-WATCH-SUP-3` | n/a (vite 앱) | PARTIAL — 실 read-only 공급자 3/9 domain; storage-map GET server seam은 binding+binding SHA+snapshot SHA+registry digest pin의 기본-OFF 코드까지 완료, 실제 private binding/snapshot은 미주입; watchtower binding 등 잔여 5는 환경 gate | GATED |
 | Mail/Slack/Voice source-lane capture adapters | DONE `L-MAIL-SOURCE-LANE`,`L-SLACK-SOURCE-LANE`,`L-VOICE-SOURCE-LANE` (native capture/custody receipts→refs-only capture generation; backup/restore/acceptance 생성 불가, capture-only R3=`degraded`) | — | GATED (실 receipt caller·private record store) | GATED |
-| Agent workforce lineage | DONE `L-AGENT-MARK-CONTRACT` (pure Family→Mark→Deployment→Run→Memory `PREPARED_CONTRACT`; agent_record≠Mark·effects 0) | GATED (`project_ai_team_pack`) | GATED (durable registry/writer·approved deployment) | GATED |
+| Agent workforce lineage | DONE `L-AGENT-MARK-CONTRACT` + current in-memory revision catalog(candidate·unverified approval claim; active 0) | GATED (`project_ai_team_pack`) | GATED (authority verifier·durable writer·approved deployment) | GATED |
 | Tool workshop | DONE `L-WORKSHOP-CORE` | DONE `L-PACK-BUILDER` (4-file pack, install+smoke green) | GATED (물리 Tool PC·runner) | GATED |
 | Deployment pack (contract·builder·spec 4종/5종 중 project_ai_team만 외부 gate) | DONE `L-PACK-CONTRACT` | DONE `L-PACK-BUILDER`,`L-HPP-PACK`,`L-DEP-DELIVERY`,`L-GITFREE-ATTEST`,`L-LIFECYCLE` + start/stop 증명 + Team Client·Backup-Recovery spec(Backup-Recovery current **54파일·16 smoke·pin 11**, Linear은 `PARTIAL_TECHNICAL_RESTORE_CANDIDATE`/human acceptance=false; hpp **941파일·91/91 smoke·initial gate 7다리 receipt**; team_client current **216파일·78파일 smoke·Board 732 tests·제외 0·pin 19**, storage-map server adapter/test 포함. 각 pack 존재는 ring/service/acceptance를 주장하지 않음) | — (ring 승격·서비스 상시 기동 없음) | GATED (물리 ring) |
-| Module operability gate (manifest·의존·cycle·preflight) | DONE `L-MODOP-GATE` + risk-based 등재 (check-only; current manifest **27종**, import scan 1,177파일/2,628 edge·cycle 0 — Slack receipt owner dependency까지 명시; 잔여 23 dir는 의도적 미등재로 보고) | n/a (게이트 자체는 pack 대상 아님) | — | — |
+| Module operability gate (manifest·의존·cycle·preflight) | DONE `L-MODOP-GATE` + risk-based 등재 (check-only; current manifest **27종**, import scan 1,183파일/2,641 edge·cycle 0 — Slack receipt owner dependency까지 명시; 잔여 23 dir는 의도적 미등재로 보고) | n/a (게이트 자체는 pack 대상 아님) | — | — |
 | Cross-module integration (plan-13 module-integration rung) | DONE `L-DOGFOOD-INT` | — | — | — |
-| Physical spine (plan-17 R1–R3: path registry·materializer·storage map) | DONE `L-PHYS-SPINE`,`L-PHYS-SPINE-HARDEN` (seed 40행 — roots 10·canonical 7·nested plane 2·plan-10 source 12(미관측 lane 4는 명시 held)·whole-estate asset class 9(모두 binding/evidence 전 held); authenticated apply/rollback receipt·semantic clock·OD-10 authority-aware Storage Map·safe evidence refs·snapshot digest recomputation까지 합성 검증) | — | GATED (R0·OD-10 owner/projection 결정은 2026-08-31 기록됨; private binding bytes·writer-exclusive ACL·approved canary physical readback·enforcement wiring은 미결) | GATED |
+| Physical spine (plan-17 R1–R5 contracts) | DONE `L-PHYS-SPINE`,`L-PHYS-SPINE-HARDEN` + source adapters/append-only in-memory ledger (seed 40행; record replay/conflict/generation/time/digest chain) | — | GATED (private binding/record writer·canary readback·enforcement·actual backup/restore) | GATED |
 | dev-ERP host gates | DONE `L-DEVERP-HOST-RED` + PATH 실행파일 전면 고정 (합성 아님 — 실 host 스위트 green; whoami에 이어 git(부팅 buildSeq 포함)·where·taskkill·cmd·python까지 System32 절대경로/`DEV_ERP_GIT_EXE`·`DEV_ERP_PYTHON` pin/resolver로 고정, where 자체 cwd도 System32로 중립화 — **server·worker·bridge 프로세스의 PATH 해석 잔존 0**; 예외 장부=dev CLI 유틸(doctor·verify-gate·probe·se-report·release-audit·payload-backup)과 ops 런처 ps1의 node 해석(서버 프로세스 밖, CHANGELOG에 명시); 이 lane만 이 칸을 host-gate 증거로 사용) | (hpp pack로 포장됨) | 기존 운영면(본 프로그램 범위 밖) | — |
 
 ### Per-leaf durable trace
@@ -207,7 +207,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 
 | Validator | Count | Covers |
 | --- | --- | --- |
-| `validate:engineering-mcp` | 20 | 계약 10 + facade 10 |
+| `validate:engineering-mcp` | 31 | 계약 10 + facade 10 + default-OFF branded stdio seam 11 |
 | `validate:vault-revision` | 16 | 상태기계 + bundle/redaction/external |
 | `validate:forge-intent` | 13 | core + draft 상태 |
 | `validate:watch-bastion` | 8 | panel 계약 + bastion gate + 인터록 |
@@ -223,7 +223,8 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `validate:mail-source-lane-adapter` | 7 | mail continuous/store receipt exact binding·capture-only generation·R3 degraded·raw/path/secret/scope/digest/time 거부·caller key/value error redaction |
 | `validate:slack-source-lane-adapter` | 9 | Slack coverage/cursor/custody exact binding·one-receipt/one-event·zero-event capture·R3 degraded·scope/digest/order/raw/path/secret 거부 |
 | `validate:voice-source-lane-adapter` | 8 | PLAUD import/copy-only custody exact binding·legacy authority HOLD·R3 degraded·scope/session/digest/count/time/raw/path/secret 거부 |
-| `validate:agent-observation` | 307 | 기존 observation/usage/result/job-shop 회귀 + Agent Family→Mark→Deployment→Run→Memory 순수 lineage 12건 |
+| `validate:source-lane-ledger` | 11 | WeakMap append-only ledger·NO_OP/conflict·generation/ref/time/digest chain·unknown/degraded/evidence_complete projection |
+| `validate:agent-observation` | 323 | 기존 observation/usage/result/job-shop + Agent lineage 12 + unverified revision catalog 16 |
 | `validate:plan-truth` | check | 이 원장 자체의 정합 — trace 해시가 git에 실재, 등재 validator가 npm script로 실재, lane 참조 ID가 trace로 해소 |
 
 ### Remaining branches

@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-31 - Source evidence, Agent revisions and Engineering MCP gain effect-inert ledgers/transports
+
+- Added a WeakMap-private Source Lane ledger over the four existing record kinds. It append-validates natural identity replay, conflicts, capture generation order, ref reuse, time order and capture→backup→restore digest chains, while projecting only `unknown`, `degraded` or evidence completeness. It has no persistence, byte custody, restore execution, health or acceptance authority.
+- Added an in-memory Agent workforce revision catalog over revalidated `PREPARED_CONTRACT` metadata. It records candidate and unverified `approval_claim` events with semver/supersession/rollback checks, but caller-supplied authority refs stay unverified and the active Agent/Deployment projection remains empty. No persistence, runtime, task or promotion effect exists.
+- Added a local default-OFF newline JSON-RPC stdio seam for Engineering MCP. It accepts only the module-branded frozen read facade, lists the 21 read tools, refuses mutate/unknown/provider-error/thenable paths uniformly, bounds requests/results/responses and exposes no filesystem/network/credential/provider discovery. Real client/provider wiring remains gated.
+
 ## 2026-08-31 - Slack and Voice join capture-only source lanes; 4192 gains the gated Storage Map endpoint
 
 - Added pure Slack and Voice/PLAUD capture adapters beside Mail. Slack binds native coverage, cursor and exact raw-ref custody sets; Voice binds `plaud_import_ready` delivery evidence to one-to-one fresh copy-only custody. Both emit only refs-only `capture_generation` records and render `degraded` without backup/restore/acceptance. `legacy_verified` Voice custody remains rejected until a separate exact legacy-path authority exists.

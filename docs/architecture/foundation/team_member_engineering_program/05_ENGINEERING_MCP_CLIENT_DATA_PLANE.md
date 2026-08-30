@@ -117,6 +117,12 @@ The current mTLS work is a reusable synthetic foundation: exact private-address 
 
 ## Current implementation reuse
 
+- The shared v0 contract and read-only facade now have a local, default-OFF
+  newline JSON-RPC stdio seam. It accepts only a module-branded frozen facade,
+  exposes the contract's 21 read tools, and has no provider discovery,
+  filesystem, network, credential or mutate surface. This closes the transport
+  contract only; no Team Client configuration or real ERP/Linear/Vault provider
+  is bound, so D27–D29 and D35 remain in force.
 - `dev-erp-mcp/src/tools.mjs`, `src/ingress_tools.mjs`, project-history tools, ticket schemas, and ingress/mTLS tests are retained as compatibility evidence.
 - Ingress already separates metadata control from raw chunk transfer but stops at custody acknowledgement.
 - The project-history service supports a one-time HTTP range response for a copied generation; it is not enough for resumable canonical material bundles.

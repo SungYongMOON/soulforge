@@ -19,6 +19,14 @@ export const FACADE_SCHEMA = "soulforge.engineering_mcp_read_facade.v0";
 export const FACADE_DISABLED_CODE = "facade_disabled";
 export const REQUEST_SHAPE_INVALID_CODE = "request_shape_invalid";
 
+// Module-private brand. Schema strings and similarly-shaped objects are not
+// proof that a caller received the facade through this constructor.
+const READ_FACADES = new WeakSet();
+
+export function isEngineeringMcpReadFacade(candidate) {
+  return Boolean(candidate) && typeof candidate === "object" && READ_FACADES.has(candidate);
+}
+
 const REF = /^[a-z][a-z0-9_.:-]{1,120}$/;
 // Pagination fields are the only optional request fields in v0.
 const OPTIONAL_REQUEST_FIELDS = new Set(["limit", "cursor"]);
@@ -184,5 +192,7 @@ export function createEngineeringMcpReadFacade(config) {
     return Object.freeze([...log]);
   }
 
-  return Object.freeze({ schema: FACADE_SCHEMA, dispatch, readLog });
+  const facade = Object.freeze({ schema: FACADE_SCHEMA, dispatch, readLog });
+  READ_FACADES.add(facade);
+  return facade;
 }

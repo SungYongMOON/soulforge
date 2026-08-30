@@ -1,8 +1,8 @@
-# Engineering MCP — shared v0 contract + read-only facade (no server)
+# Engineering MCP — shared v0 contract + read-only facade + unbound stdio seam
 
-Owner: `guild_hall/engineering_mcp`. Status: `CURRENT = contract data + validators + in-memory read facade(기본 OFF) + tests`; 실제 provider 배선·서버 등록·mutate 제공은 전부 `TARGET`으로 각자의 gate 뒤에 있다.
+Owner: `guild_hall/engineering_mcp`. Status: `CURRENT = contract data + validators + in-memory read facade + local newline JSON-RPC stdio seam(둘 다 기본 OFF) + tests`; 실제 provider 배선·client 등록·mutate 제공은 전부 `TARGET`으로 각자의 gate 뒤에 있다.
 
-이 모듈은 Team Member Engineering Program 계획(05)의 공유 Engineering MCP v0 계약을 **데이터로** 고정한다. 서버를 등록하지 않고, 소켓을 열지 않고, 상태를 저장하지 않으며, 어떤 authority도 만들지 않는다.
+이 모듈은 Team Member Engineering Program 계획(05)의 공유 Engineering MCP v0 계약을 **데이터로** 고정하고, 같은 프로세스에서 명시적으로 주입된 facade만 받는 stdio 전송 경계를 제공한다. 소켓·provider discovery·filesystem·credential·상태 저장은 없으며 어떤 authority도 만들지 않는다.
 
 ## 구성
 
@@ -10,8 +10,10 @@ Owner: `guild_hall/engineering_mcp`. Status: `CURRENT = contract data + validato
 - `src/compatibility.mjs` — 현행 `dev-erp-mcp` 공유면 tool 17종(개인 ERP 8+flag 1, project-history 2, ingress 6)의 crosswalk: `map` / `keep_legacy_facade` / `keep_source_query` + guard. 회사메일 stdio 3종은 별도 mailbox-scoped 표면으로 명시 제외(`EXCLUDED_SURFACES`). `CONTRACT_GAPS`는 map되지 않은 계약 위치 전부(테스트가 계산 일치를 강제하므로 썩지 않는다).
 - `src/validators.mjs` — 순수 구조 검증: 금지 필드 명명-배제 lint(bytes/base64/transcript/raw_prompt/secret류 — 의미론 증명이 아니라 알려진 철자 차단이며 창의적 개명은 review gate 몫), mutate idempotency+receipt, 균일 거부 envelope(`not_available` + string `request_id`만), 완료·수락·승격형 verb 금지 lint(`finalize`/`closeout`는 ceiling이 비완료임을 명시하므로 의도적으로 허용).
 - `src/facade.mjs` — **read-only dispatch facade** (순수 in-memory, 서버·소켓 없음). `enabled: true`가 정확히 boolean으로 오지 않으면 모든 호출이 `facade_disabled`로 fail-closed(기본 OFF; truthy 오설정도 열리지 않음). 클라이언트가 볼 수 있는 결과는 정확히 4가지 — ok / `facade_disabled` / `request_shape_invalid` / 균일 `not_available` — 이며 unknown tool·mutate tool·provider 부재·provider 예외·scope 밖 project·egress 위반은 전부 균일 거부 하나로 수렴한다(정밀 원인은 내부 append-only log의 `outcome`에만: `denied_mutate_tool`/`provider_error`/`egress_forbidden_field` 등, 인자·payload·오류 메시지는 기록하지 않음). egress는 provider 원본이 아니라 JSON round-trip **복사본**을 검사·동결해 반환하고, 선언되지 않은 응답 필드·금지 필드명(중첩 포함, 대소문자 무시)·비-JSON 결과는 거부한다. `project_ref`를 선언한 tool은 caller의 `project_scopes` 안에 있어야 provider에 도달한다.
+- `src/stdio_server.mjs` — **local stdio read seam**. 정확히 constructor가 발행한 frozen facade brand가 있어야 enable되며, 33개 계약 중 read 21개만 `tools/list`에 공개한다. newline JSON-RPC의 initialize/tools/list/tools/call만 bounded 처리하고 mutate·unknown·provider 부재/throw·thenable·보호 egress를 균일 `not_available`로 닫는다. 요청/응답/result byte ceiling과 raw/path/secret guard가 있으며 socket·filesystem·credential·provider discovery는 없다. import 또는 default construction은 OFF다.
 - `tests/engineering_mcp_contract.test.mjs` — adversarial synthetic suite 9종(오염 후보 거부 포함).
 - `tests/engineering_mcp_facade.test.mjs` — facade suite 10종: 기본 OFF 증명(provider 무접촉), 복사본 egress, 균일 거부 동일성(내부 label과 동명의 tool 요청 포함), provider 예외 은닉, egress 3종 거부, scope 선차단, request shape 선검증(비유한 숫자 거부 포함), provider가 받는 frozen args·actorContext 고정, log label 정규화(임의 tool 문자열은 비활성 경로 포함 길이 제한·제어문자 치환 후에만 기록), log 불변·단조.
+- `tests/engineering_mcp_stdio_server.test.mjs` — default-OFF, branded facade, read 21-tool allowlist, 균일 거부, protected ingress/egress, size ceiling, hostile JSON-RPC, newline recovery와 notification 무응답을 고정한다.
 
 ## 검증
 

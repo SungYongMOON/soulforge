@@ -60,7 +60,7 @@ therefore registered but not yet uniformly materialized or recoverable. Plan
 | Surface | Current public evidence | Maturity for this program | Required next boundary |
 | --- | --- | --- | --- |
 | `ui-workspace/apps/dev-erp` | Existing read model, MCP service, current task/UI surfaces, one-shot work-session persistence | Reuse; not the planned full WorkSession or ArtifactRevision service | Preserve compatibility and resolve D27–D29 before new writers |
-| `ui-workspace/apps/dev-erp-mcp` | Personal ERP MCP, project-history MCP, company-mail query-only MCP, HPP ingress MCP/mTLS source | Reuse/modify; personal MCP default is feature-gated | Shared MCP facade and explicit capability gates |
+| `ui-workspace/apps/dev-erp-mcp` + `guild_hall/engineering_mcp` | Existing ERP/ingress services plus shared contract, read facade and default-OFF local stdio seam | Reuse/modify; stdio exposes only 21 read tools over an injected branded facade | Real ERP/Linear/Vault provider and Team Client binding remain gated |
 | `guild_hall/engineering_engine` | Core plus physical Domain Engine packages and deterministic validators | Reuse as Forge judgment foundation | Accepted-context and real project vertical remain HOLD |
 | `guild_hall/file_activity` | Logical file/content/revision/observation metadata lineage | Reuse for lineage only | It is not a byte vault or recovery system |
 | `guild_hall/backup_controller` | Feature-gated backup/recovery plus a bounded connected Linear one-shot | Reuse for policy/restore gates | Linear result is `PARTIAL_TECHNICAL_RESTORE_CANDIDATE`; recurring capture and human restore acceptance remain HOLD |

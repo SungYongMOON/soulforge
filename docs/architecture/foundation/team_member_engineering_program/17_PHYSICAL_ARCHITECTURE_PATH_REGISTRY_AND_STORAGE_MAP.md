@@ -399,6 +399,10 @@ adapters transform their exact accepted native capture/custody receipts into
 refs-only `capture_generation` records. They emit no backup, restore,
 human-acceptance, retention or RPO field, so capture-only evidence remains
 `degraded`. No private record writer or actual receipt caller is activated.
+An in-memory append-only Source Lane ledger now validates exact replay,
+conflict, generation order, ref reuse, time order and capture→backup→restore
+digest chains. It projects evidence completeness but owns no persistence,
+backup bytes, restore execution, health or acceptance.
 The 4192 server now also has a default-OFF GET-only storage-map adapter whose
 binding bytes, snapshot bytes and registry digest are pinned; no actual private
 binding or snapshot is supplied by public code.
