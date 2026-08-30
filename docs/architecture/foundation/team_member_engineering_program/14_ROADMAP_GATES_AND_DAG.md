@@ -153,7 +153,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | Tool workshop | DONE `L-WORKSHOP-CORE` | DONE `L-PACK-BUILDER` (4-file pack, install+smoke green) | GATED (물리 Tool PC·runner) | GATED |
 | Deployment pack (contract·builder·spec 4종/5종 중 project_ai_team만 외부 gate) | DONE `L-PACK-CONTRACT` | current Backup-Recovery **61/19**, hpp **952/93/pin67**, team_client **216/78/732**; project_ai_team spec은 actual approved input 전 absent | — | GATED |
 | Module operability gate (manifest·의존·cycle·preflight) | DONE `L-MODOP-GATE` (current **29 manifest**, dev-ERP Task Execution surface 포함, import scan 1,264파일/2,728 edge·cycle 0; 잔여 22 dir) | n/a | — | — |
-| Cross-module integration (plan-13 module-integration rung) | DONE `L-DOGFOOD-INT` + pending trace `KVDS full-contract canary` (public-safe synthetic, actual effects 0) | — | GATED (actual accepted KVDS context·Linear writer·Hermes runtime·artifact custody·human acceptance) | GATED |
+| Cross-module integration (plan-13 module-integration rung) | DONE `L-DOGFOOD-INT`,`L-KVDS-FULL-CONTRACT` (public-safe synthetic, actual effects 0) | — | GATED (actual accepted KVDS context·Linear writer·Hermes runtime·artifact custody·human acceptance) | GATED |
 | Physical spine (plan-17 R1–R5 contracts) | DONE `L-PHYS-SPINE`,`L-PHYS-SPINE-HARDEN`,`L-SOURCE-LANE-LEDGER`,`L-ASSET-CLASS-LEDGER` + source adapters (seed 40행) | — | GATED (private binding/record writer·canary readback·enforcement·actual backup/restore) | GATED |
 | dev-ERP host gates | DONE `L-DEVERP-HOST-RED` + PATH 실행파일 전면 고정 (합성 아님 — 실 host 스위트 green; whoami에 이어 git(부팅 buildSeq 포함)·where·taskkill·cmd·python까지 System32 절대경로/`DEV_ERP_GIT_EXE`·`DEV_ERP_PYTHON` pin/resolver로 고정, where 자체 cwd도 System32로 중립화 — **server·worker·bridge 프로세스의 PATH 해석 잔존 0**; 예외 장부=dev CLI 유틸(doctor·verify-gate·probe·se-report·release-audit·payload-backup)과 ops 런처 ps1의 node 해석(서버 프로세스 밖, CHANGELOG에 명시); 이 lane만 이 칸을 host-gate 증거로 사용) | (hpp pack로 포장됨) | 기존 운영면(본 프로그램 범위 밖) | — |
 
@@ -199,6 +199,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `L-CANDIDATE-AUTH-ADMISSION` | `849a594f` | Task execution | coordinator-native packets + verified Agent/current assignment/tool/slot admission; execute/claim/Linear 0 |
 | `L-FORGE-LINEAR-ADMISSION` | `21379b37` | Forge / Task execution | exact Official Task·Assignment·issued Brief→structured coordinator packet; read/write/claim 0 |
 | `L-HERMES-VAULT-ADMISSION` | `21379b37` | Vault / Artifact custody | Hermes result + authenticated data-plane custody→PROPOSED submission input; revision/head 0 |
+| `L-KVDS-FULL-CONTRACT` | `397bfd05` | Integration | KVDS-shaped accepted context→Forge/Linear→Agent/Team authority→MCP→Hermes exact-one→custody→review→human acceptance synthetic canary |
 | `L-DEVERP-HOST-RED` | `e27d5c6d` | dev-ERP | worker 신원 바이너리 System32 절대경로 고정(보안 강화) |
 | `L-HPP-PACK` | `8b02724c` | Deployment | dev-ERP 267파일 pack(모듈+데이터 폐포·scan pin 60·smoke 파티션 78+11) |
 | `L-PLAN-TRUTH` | `22c05384` | Program docs | 이 원장 자체(레인×성숙도·trace·register)와 drift 수정 + `validate:plan-truth` |
