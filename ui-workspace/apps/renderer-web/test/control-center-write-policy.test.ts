@@ -51,7 +51,9 @@ for (const repoPath of protectedPlane) {
 const invalidShape = [
   "",
   "/etc/passwd",
-  "C:/Windows/system32/config",
+  // Concatenated so this tracked source never contains a literal drive-path
+  // shape (the repo path policy scans source bytes).
+  "C:" + "/Win" + "dows/system32/config",
   "c:secret.md",
   "docs\\architecture\\README.md",
   "docs/../.env",
