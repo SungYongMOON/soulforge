@@ -177,7 +177,7 @@ export function adaptEngineeringEngineTopology(exactSourceBytes) {
   // and engines/pcb_compliance/. Legacy flat compatibility
   // wrappers (kernel, assembly, stage_rules, subjects, observation, guidance, evaluation, mcp,
   // fixtures, tools, tests) are excluded from canonical module counts.
-  assertExpectedCounts(topology.modules, topology.module_edges, 252, 850, "engineering_engine_topology_source");
+  assertExpectedCounts(topology.modules, topology.module_edges, 253, 852, "engineering_engine_topology_source");
   assertEmbeddedEngineDigest(topology);
 
   const nodes = topology.modules.map((module) => {

@@ -6,7 +6,7 @@
   "schema_versions": ["soulforge.bastion_action_gate.v0"],
   "owner": "guild_hall/bastion_action",
   "capabilities_provided": ["bastion.approved_action_gate.v0", "bastion.action_receipt_contract.v0"],
-  "capabilities_required": ["executor_port (caller-injected; synthetic adapters only in this repository)"],
+  "capabilities_required": ["port:executor"],
   "required_dependencies": [],
   "optional_dependencies": [],
   "compatible_version_ranges": { "node": ">=20" },

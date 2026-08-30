@@ -1,14 +1,14 @@
 {
   "schema_version": "soulforge.watchtower.federated_topology_contract.v1",
   "artifact": "guild_hall/watchtower/topology/federated_topology.v1.json",
-  "artifact_sha256": "0920e7cbd2a6247508ab287a63115e3c5e35abd39a1fd869d92886e2348d0d5b",
+  "artifact_sha256": "d8310ae110ef09d69292f16962ba91c7fc6f60a6f0bf49ded7f0a49c488c856c",
   "summary": {
     "provider_count": 4,
-    "node_count": 291,
-    "edge_count": 900
+    "node_count": 292,
+    "edge_count": 902
   },
   "providers": [
-    { "provider_id": "engineering_engine", "node_count": 252, "edge_count": 850 },
+    { "provider_id": "engineering_engine", "node_count": 253, "edge_count": 852 },
     { "provider_id": "knowledge_stack", "node_count": 7, "edge_count": 9 },
     { "provider_id": "watchtower", "node_count": 28, "edge_count": 36 },
     { "provider_id": "watchtower_notebook_advisory_adapter", "node_count": 4, "edge_count": 5 }

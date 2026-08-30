@@ -167,6 +167,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `L-WATCH-SUP-2` | `a46ce965` | Board | hermes_runtime 공급자(clock-less hold 생존, 첫 라이브 실신호) |
 | `L-DEVERP-HOST-RED` | `e27d5c6d` | dev-ERP | worker 신원 바이너리 System32 절대경로 고정(보안 강화) |
 | `L-HPP-PACK` | `8b02724c` | Deployment | dev-ERP 267파일 pack(모듈+데이터 폐포·scan pin 60·smoke 파티션 78+11) |
+| `L-PLAN-TRUTH` | `22c05384` | Program docs | 이 원장 자체(레인×성숙도·trace·register)와 drift 수정 + `validate:plan-truth` |
 
 ### Current validator register (rebaselined 2026-08-30)
 
@@ -180,6 +181,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `validate:deployment-pack` | 18 | 계약 7 + builder 11(파티션·pin·E2E 포함) + spec drift `--check` |
 | `validate:watch-panel-board` | 10 | strip view-model 6 + 공급자 4 |
 | `validate:integration-dogfood` | 4 | cross-module 체인·facade·denial 동일성 |
+| `validate:module-operability` | 8 | manifest 스키마·의존·cycle-0 고정·hermes coarse 경계 + preflight receipt |
 | `validate:plan-truth` | check | 이 원장 자체의 정합 — trace 해시가 git에 실재, 등재 validator가 npm script로 실재, lane 참조 ID가 trace로 해소 |
 
 ### Remaining branches

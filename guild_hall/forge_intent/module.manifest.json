@@ -6,7 +6,7 @@
   "schema_versions": ["soulforge.forge_intent_core.v0"],
   "owner": "guild_hall/forge_intent",
   "capabilities_provided": ["forge.work_generation_state_machine.v0", "forge.work_brief_draft_state.v0"],
-  "capabilities_required": ["task_writer_port (caller-injected; synthetic adapters only in this repository)"],
+  "capabilities_required": ["port:task_writer"],
   "required_dependencies": [],
   "optional_dependencies": [],
   "compatible_version_ranges": { "node": ">=20" },

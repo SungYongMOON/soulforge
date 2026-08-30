@@ -20,7 +20,7 @@ import {
 } from "../rules/pcb_compliance_rules.mjs";
 import { calculatePcbDerivedRulesetContentId } from "../compiler/pcb_compliance_compiler_adapter.mjs";
 import { isPcbControlledBodyAccessState, isPcbObservationState } from "../vocabulary/pcb_compliance_vocabulary.mjs";
-import { admitPcbCoreTypedFacts } from "./pcb_compliance_evaluator_adapter.mjs";
+import { admitPcbCoreTypedFacts } from "./pcb_compliance_fact_admission.mjs";
 
 const DOMAIN_INPUT_SCHEMA = "soulforge.pcb_compliance.domain_input.v0";
 const ASSESSMENT_SCHEMA = "soulforge.pcb_compliance.assessment.v0";
