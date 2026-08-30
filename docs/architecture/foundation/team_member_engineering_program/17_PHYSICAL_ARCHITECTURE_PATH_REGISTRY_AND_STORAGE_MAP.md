@@ -363,6 +363,16 @@ physical expansion; they do not retroactively block the already-completed
 synthetic MCP/Vault/Forge leaves. R4 starts after external/storage/restore
 gates. R5–R7 remain incremental and do not justify a big-bang relocation.
 
+Execution status (2026-08-30, `L-PHYS-SPINE`): the R1–R3 CONTRACT surfaces
+exist as the synthetic module `guild_hall/path_registry` and the three
+validators above are live npm scripts. The tracked seed carries four
+`hold:od-10.*` authority sentinels, so every mutating authorization fails
+closed and no readiness claim is representable. Enforcement wiring, real
+binding registration, materializer apply on a real root, 4192 wiring, and any
+physical movement remain behind the OD-10 decisions, the R0 acceptance
+record, and the Physical organization gate (see the plan-14
+`physical-spine-activation` unblock packet).
+
 ## Acceptance and stop conditions
 
 The spine is accepted only when every known root/high-value path has one
