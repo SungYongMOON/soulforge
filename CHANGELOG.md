@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-30 - Forge Work Brief draft state (in-memory only)
+
+- Extended `guild_hall/forge_intent/` with the pre-issuance draft state: `draftWorkBrief` builds an immutable draft revision chain per assignment where any of the eight critical bindings may still be open — the open set is visible, sorted data (`missing_bindings`), present fields are validated at draft time by the same single validator issuance uses, and non-string/non-array values read as missing rather than being silently stored. Drafts carry `claim: draft_not_issuable_material` and can never appear on the issued-brief surface.
+- `issueWorkBriefFromDraft` promotes a draft to the one issued Work Brief per assignment in authority-first order: only the assignment's own authority, only the latest draft (`HOLD_STALE_DRAFT`), only a complete draft (the hold names every missing binding), stamping `source_draft_ref`; afterwards further drafting and both issue paths refuse. Draft events record revision and missing-count only, never binding content.
+- Validation was unified into one critical-field validator for both paths, which also closes a coercion hole the review found on the direct path (an array-wrapped digest used to pass the regex via string coercion and land in an issued brief — now `digest_invalid`; a string where a list belongs now fails `text_invalid` instead of a raw TypeError). A fresh independent review returned REVISE (undeclared tightening, an untested cross-assignment guard with dead test code, the TypeError edge, silent-missing semantics, a "servable" wording overclaim, authority-last ordering) and all six findings were fixed with pinned regressions before commit. `npm run validate:forge-intent` 13/13.
+
 ## 2026-08-30 - Vault criterion-1 completion: input bundles, redaction lineage, external gate (in-memory only)
 
 - Extended `guild_hall/vault_revision/` with the remaining synthetic parts of plan-03 criterion 1. Input bundles (`assembleInputBundle`) pin exact ACCEPTED revisions only into a deep-frozen manifest with a codepoint-sorted, order-independent, locale-independent sha256 digest; non-accepted entries hold, absent/foreign entries get the uniform denial, and the idempotency digest covers the purpose so reusing a key for a different purpose conflicts instead of replaying.

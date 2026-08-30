@@ -1,11 +1,11 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "forge_intent_core",
-  "module_version": "0.1.0",
+  "module_version": "0.2.0",
   "interface_version": "forge_intent.v0",
   "schema_versions": ["soulforge.forge_intent_core.v0"],
   "owner": "guild_hall/forge_intent",
-  "capabilities_provided": ["forge.work_generation_state_machine.v0"],
+  "capabilities_provided": ["forge.work_generation_state_machine.v0", "forge.work_brief_draft_state.v0"],
   "capabilities_required": ["task_writer_port (caller-injected; synthetic adapters only in this repository)"],
   "required_dependencies": [],
   "optional_dependencies": [],

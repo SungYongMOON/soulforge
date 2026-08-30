@@ -23,7 +23,15 @@ export const HOLDS = Object.freeze({
   APPROVAL_REQUIRED: "HOLD_APPROVAL_REQUIRED",
   BRIEF_INCOMPLETE: "HOLD_BRIEF_INCOMPLETE",
   ASSIGNMENT_REQUIRED: "HOLD_ASSIGNMENT_REQUIRED",
+  STALE_DRAFT: "HOLD_STALE_DRAFT",
 });
+
+// The eight critical Work Brief bindings (plan 04). A draft may leave any of
+// them empty — visibly — but nothing issues while one is missing.
+export const BRIEF_CRITICAL_FIELDS = Object.freeze([
+  "problem", "requested_outcome", "allowed_write_scope", "required_evidence",
+  "stop_conditions", "escalation_path", "input_bundle_manifest_digest", "required_review_role",
+]);
 
 const REF = /^[a-z][a-z0-9_.:-]{1,120}$/;
 const HEX64 = /^[a-f0-9]{64}$/;
@@ -84,10 +92,71 @@ export function createForgeIntentCore({ taskWriter } = {}) {
   const assignments = new Map(); // assignment_id -> assignment record
   const briefs = new Map();      // brief_id -> issued brief record
   const briefByAssignment = new Map(); // assignment_id -> brief_id (exactly one issued brief)
+  const briefDrafts = new Map(); // assignment_id -> [draft records, oldest first]
+  const draftIndex = new Map();  // draft_ref -> draft record
   const events = [];
 
   function append(kind, payload) {
     events.push(frozen({ seq: events.length + 1, kind, ...payload }));
+  }
+
+  function isPresent(value) {
+    return Array.isArray(value) ? value.length > 0 : typeof value === "string" && value.length > 0;
+  }
+
+  // Validates one PRESENT critical field. This is the ONE validation source
+  // for both the draft path and the issued-brief builder, so a draft can
+  // never hold junk that would later "issue fine" — and a wrong TYPE (a
+  // string where a list belongs) fails with a coded error, never a raw
+  // TypeError.
+  function validateCriticalField(field, value) {
+    switch (field) {
+      case "problem":
+      case "requested_outcome":
+        return assertText(value, field);
+      case "allowed_write_scope":
+        if (!Array.isArray(value)) fail("text_invalid", field);
+        return value.map((entry, index) => assertText(entry, `${field}[${index}]`, 500));
+      case "required_evidence":
+      case "stop_conditions":
+        if (!Array.isArray(value)) fail("text_invalid", field);
+        return value.map((entry, index) => assertText(entry, `${field}[${index}]`, 1000));
+      case "escalation_path":
+        return assertText(value, field, 500);
+      case "required_review_role":
+        return assertRef(value, field);
+      case "input_bundle_manifest_digest":
+        return assertDigest(value, field);
+      default:
+        return fail("critical_field_unknown", field);
+    }
+  }
+
+  // Shared issued-brief builder: the single place an issued Work Brief record
+  // comes into existence, for both the direct path and the draft path.
+  function buildIssuedBrief(briefId, assignment, critical, sourceDraftRef) {
+    if (briefs.has(briefId)) fail("brief_duplicate", briefId);
+    if (briefByAssignment.has(assignment.assignment_id)) {
+      fail("assignment_brief_exists", assignment.assignment_id);
+    }
+    const validated = {};
+    for (const field of BRIEF_CRITICAL_FIELDS) {
+      validated[field] = validateCriticalField(field, critical[field]);
+    }
+    const record = frozen({
+      brief_id: briefId,
+      assignment_id: assignment.assignment_id,
+      task_ref: assignment.task_ref,
+      intent_id: assignment.intent_id,
+      primary_role: assignment.primary_role,
+      ...validated,
+      source_draft_ref: sourceDraftRef ?? null,
+      expires_at: assignment.expires_at,
+    });
+    briefs.set(briefId, record);
+    briefByAssignment.set(assignment.assignment_id, briefId);
+    append("work_brief_issued", { brief_id: briefId, assignment_id: assignment.assignment_id });
+    return record;
   }
 
   return Object.freeze({
@@ -237,30 +306,87 @@ export function createForgeIntentCore({ taskWriter } = {}) {
         if (!present) fail(HOLDS.BRIEF_INCOMPLETE, field);
       }
       if (!/^[a-f0-9]{64}$/.test(input.input_bundle_manifest_digest)) fail("manifest_digest_invalid", "input_bundle_manifest_digest");
+      return buildIssuedBrief(id, assignment, critical, null);
+    },
+
+    // Work Brief DRAFT: an immutable pre-issuance revision whose GAPS are
+    // visible data. A draft is never ISSUABLE material — it can never appear
+    // on the issued-brief surface; issuance is the only path to one.
+    draftWorkBrief(input) {
+      const draftRef = assertRef(input?.draft_ref, "draft_ref");
+      if (draftIndex.has(draftRef)) fail("draft_duplicate", draftRef);
+      const assignment = assignments.get(assertRef(input.assignment_id, "assignment_id"));
+      if (!assignment) fail(HOLDS.ASSIGNMENT_REQUIRED, input.assignment_id);
+      if (briefByAssignment.has(assignment.assignment_id)) {
+        fail("assignment_brief_exists", assignment.assignment_id);
+      }
+      const bindings = {};
+      const missing = [];
+      for (const field of BRIEF_CRITICAL_FIELDS) {
+        const value = input[field];
+        if (!isPresent(value)) {
+          missing.push(field);
+        } else {
+          bindings[field] = validateCriticalField(field, value);
+        }
+      }
+      missing.sort();
+      const list = briefDrafts.get(assignment.assignment_id) ?? [];
       const record = frozen({
-        brief_id: id,
+        draft_ref: draftRef,
         assignment_id: assignment.assignment_id,
-        task_ref: assignment.task_ref,
-        intent_id: assignment.intent_id,
-        primary_role: assignment.primary_role,
-        problem: assertText(critical.problem, "problem"),
-        requested_outcome: assertText(critical.requested_outcome, "requested_outcome"),
-        allowed_write_scope: critical.allowed_write_scope.map((entry, index) => assertText(entry, `allowed_write_scope[${index}]`, 500)),
-        required_evidence: critical.required_evidence.map((entry, index) => assertText(entry, `required_evidence[${index}]`, 1000)),
-        stop_conditions: critical.stop_conditions.map((entry, index) => assertText(entry, `stop_conditions[${index}]`, 1000)),
-        escalation_path: assertText(critical.escalation_path, "escalation_path", 500),
-        required_review_role: assertRef(critical.required_review_role, "required_review_role"),
-        input_bundle_manifest_digest: critical.input_bundle_manifest_digest,
-        expires_at: assignment.expires_at,
+        draft_revision: list.length + 1,
+        bindings,
+        missing_bindings: missing,
+        complete: missing.length === 0,
+        claim: "draft_not_issuable_material",
       });
-      briefs.set(id, record);
-      briefByAssignment.set(assignment.assignment_id, id);
-      append("work_brief_issued", { brief_id: id, assignment_id: assignment.assignment_id });
+      list.push(record);
+      briefDrafts.set(assignment.assignment_id, list);
+      draftIndex.set(draftRef, record);
+      append("work_brief_drafted", {
+        draft_ref: draftRef, assignment_id: assignment.assignment_id,
+        draft_revision: record.draft_revision, missing_count: missing.length,
+      });
       return record;
+    },
+
+    // Issue from a draft: only the LATEST draft of the assignment, only when
+    // it is complete, and only by the assignment's own authority.
+    issueWorkBriefFromDraft(input) {
+      const briefId = assertRef(input?.brief_id, "brief_id");
+      const assignment = assignments.get(assertRef(input.assignment_id, "assignment_id"));
+      if (!assignment) fail(HOLDS.ASSIGNMENT_REQUIRED, input.assignment_id);
+      const draft = draftIndex.get(assertRef(input.draft_ref, "draft_ref"));
+      if (!draft || draft.assignment_id !== assignment.assignment_id) {
+        fail(HOLDS.INPUT_UNAVAILABLE, "draft_ref");
+      }
+      // Authority first: a caller without issuance authority learns nothing
+      // about the draft's freshness or completeness.
+      const issuer = assertRef(input.issuer_ref, "issuer_ref");
+      if (issuer !== assignment.authority_ref) {
+        fail("issuer_not_assignment_authority", issuer);
+      }
+      const list = briefDrafts.get(assignment.assignment_id);
+      const latest = list[list.length - 1];
+      if (draft.draft_ref !== latest.draft_ref) {
+        // Issuing a superseded draft would silently drop the newer revision's
+        // corrections; the caller must re-read and decide.
+        fail(HOLDS.STALE_DRAFT, `latest=${latest.draft_ref}`);
+      }
+      if (!draft.complete) {
+        fail(HOLDS.BRIEF_INCOMPLETE, draft.missing_bindings.join(","));
+      }
+      return buildIssuedBrief(briefId, assignment, draft.bindings, draft.draft_ref);
     },
 
     getIssuedBrief(briefId) {
       return briefs.get(assertRef(briefId, "brief_id")) ?? null;
+    },
+
+    getLatestDraft(assignmentId) {
+      const list = briefDrafts.get(assertRef(assignmentId, "assignment_id")) ?? [];
+      return list.length > 0 ? list[list.length - 1] : null;
     },
 
     eventLog() {
