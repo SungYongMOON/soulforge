@@ -146,7 +146,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | Watch/Bastion contract | DONE `L-WATCH-BASTION` | — | GATED (실 executor) | GATED |
 | Board/4192 watch vertical | DONE `L-BOARD-VIEWMODEL`,`L-BOARD-PAGE`,`L-STORAGE-MAP-SERVER` (기본 OFF `?watch=1`) + `L-WATCH-SUP-3` | n/a (vite 앱) | PARTIAL — 실 read-only 공급자 3/9 domain; storage-map GET server seam은 binding+binding SHA+snapshot SHA+registry digest pin의 기본-OFF 코드까지 완료, 실제 private binding/snapshot은 미주입; watchtower binding 등 잔여 5는 환경 gate | GATED |
 | Mail/Slack/Voice source-lane capture adapters | DONE `L-MAIL-SOURCE-LANE`,`L-SLACK-SOURCE-LANE`,`L-VOICE-SOURCE-LANE` (native capture/custody receipts→refs-only capture generation; backup/restore/acceptance 생성 불가, capture-only R3=`degraded`) | — | GATED (실 receipt caller·private record store) | GATED |
-| Source/Buzz/Hermes backup-generation contracts | DONE (generic Source acceptance separation + Buzz multi-store readiness + Hermes Agent custody manifest; effects 0) | Backup-Recovery current closure에 포함 | GATED (actual bytes/quiesce/restore/human authority) | GATED |
+| Source/Buzz/Hermes backup-generation contracts | DONE `L-BACKUP-GEN-CONTRACTS` (generic Source acceptance separation + Buzz multi-store digest + Hermes Agent custody manifest; effects 0) | Backup-Recovery current closure에 포함 | GATED (actual bytes/quiesce/restore/human authority) | GATED |
 | Agent workforce lineage | DONE `L-AGENT-MARK-CONTRACT`,`L-AGENT-REVISION-CATALOG` (candidate·unverified approval claim; active 0) | GATED (`project_ai_team_pack`) | GATED (authority verifier·durable writer·approved deployment) | GATED |
 | Tool workshop | DONE `L-WORKSHOP-CORE` | DONE `L-PACK-BUILDER` (4-file pack, install+smoke green) | GATED (물리 Tool PC·runner) | GATED |
 | Deployment pack (contract·builder·spec 4종/5종 중 project_ai_team만 외부 gate) | DONE `L-PACK-CONTRACT` | DONE `L-PACK-BUILDER`,`L-HPP-PACK`,`L-DEP-DELIVERY`,`L-GITFREE-ATTEST`,`L-LIFECYCLE` + current Backup-Recovery **61파일·19 smoke·pin 19**, hpp **941파일·91/91**, team_client **216파일·78 smoke·Board 732 tests**; pack 존재는 physical readiness/acceptance 무주장 | — | GATED |
@@ -189,6 +189,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `L-SOURCE-LANE-LEDGER` | `646bfa35` | Physical spine / R5 | refs-only record append ledger·NO_OP/conflict·capture→backup→restore evidence completeness |
 | `L-AGENT-REVISION-CATALOG` | `646bfa35` | Guild / Agent assets | candidate·unverified approval claim revision catalog; active Agent projection 0 |
 | `L-MCP-STDIO` | `646bfa35` | MCP | branded facade only·21 read tools·bounded newline stdio·mutate/provider wiring 0 |
+| `L-BACKUP-GEN-CONTRACTS` | `1a9f41bc` | Backup / R5 | Source trusted acceptance pin·Buzz multi-store digest·Hermes Agent backup manifest 계약; actual effects 0 |
 | `L-DEVERP-HOST-RED` | `e27d5c6d` | dev-ERP | worker 신원 바이너리 System32 절대경로 고정(보안 강화) |
 | `L-HPP-PACK` | `8b02724c` | Deployment | dev-ERP 267파일 pack(모듈+데이터 폐포·scan pin 60·smoke 파티션 78+11) |
 | `L-PLAN-TRUTH` | `22c05384` | Program docs | 이 원장 자체(레인×성숙도·trace·register)와 drift 수정 + `validate:plan-truth` |
