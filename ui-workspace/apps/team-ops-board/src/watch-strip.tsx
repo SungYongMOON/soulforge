@@ -3,13 +3,17 @@
 //
 // Rendered ONLY when the page URL carries ?watch=1 (see main.tsx) and
 // lazy-loaded, so without the flag the default Board loads none of this
-// module chain and behaves exactly as before. No evidence
-// suppliers are wired yet, so every domain honestly renders the contract's
-// `unknown` — missing evidence is attention, never green. This surface is
-// display-only: it owns no writer, no probe, and files nothing.
+// module chain and behaves exactly as before. On the flagged path the strip
+// performs exactly two read-only same-origin GETs (the Board's own
+// receipt-expiry and host-stats snapshot endpoints) and translates their
+// SOURCE-ASSERTED vocabularies through the declared suppliers; every other
+// domain honestly renders the contract's `unknown` — missing evidence is
+// attention, never green. This surface stays display-only: it owns no
+// writer, no probe, and files nothing.
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { buildWatchPanelBoardViewModel } from "./core/watch-panel-view.mjs";
+import { collectWatchEvidences } from "./core/watch-evidence-suppliers.mjs";
 
 const STATE_COLORS: Record<string, string> = {
   healthy: "#2e7d32",
@@ -20,11 +24,46 @@ const STATE_COLORS: Record<string, string> = {
   hold: "#6a1b9a",
 };
 
+async function fetchJsonOrNull(url: string) {
+  try {
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    // A failed read supplies NOTHING; the affected domain then renders the
+    // honest unknown/no_evidence instead of a fabricated state.
+    return null;
+  }
+}
+
 export function WatchStrip() {
-  const view = useMemo(
-    () => buildWatchPanelBoardViewModel({ now: new Date().toISOString(), evidences: [] }),
-    [],
-  );
+  const [sources, setSources] = useState<{ receiptExpiry: any; hostStats: any }>({
+    receiptExpiry: null,
+    hostStats: null,
+  });
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [receiptExpiry, hostStats] = await Promise.all([
+        fetchJsonOrNull("/receipt-expiry.snapshot.json"),
+        fetchJsonOrNull("/host-stats.snapshot.json"),
+      ]);
+      if (!cancelled) setSources({ receiptExpiry, hostStats });
+    })();
+    return () => { cancelled = true; };
+  }, []);
+  const view = useMemo(() => {
+    const now = new Date().toISOString();
+    try {
+      return buildWatchPanelBoardViewModel({ now, evidences: collectWatchEvidences(sources) });
+    } catch {
+      // The contract throws fail-closed (e.g. evidence_in_future under
+      // forward clock skew on a proxied endpoint). The strip owns the guard:
+      // degrade to the all-unknown full-coverage view instead of letting a
+      // render throw blank the whole Board page.
+      return buildWatchPanelBoardViewModel({ now, evidences: [] });
+    }
+  }, [sources]);
   return (
     <section
       aria-label="Watch panel strip (preview)"
@@ -45,13 +84,14 @@ export function WatchStrip() {
           attention {view.summary.attention_count}/{view.summary.total} · worst: {view.summary.worst_state}
           {view.summary.worst_domain ? ` (${view.summary.worst_domain})` : ""}
         </span>
+        <small style={{ color: "#9ca3af" }}>as of {view.now.slice(11, 19)}Z (1회 스냅샷)</small>
       </header>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
         {view.rows.map((row: any) => (
           <span
             key={row.domain}
             data-testid={`watch-row-${row.domain}`}
-            title={`${row.domain}: ${row.state} (${row.reason})`}
+            title={`${row.domain}: ${row.state} (${row.reason})${row.evidence_at ? ` evidence_at=${row.evidence_at}` : ""}`}
             style={{
               padding: "3px 8px",
               borderRadius: "6px",
@@ -65,7 +105,8 @@ export function WatchStrip() {
         ))}
       </div>
       <small style={{ display: "block", marginTop: "6px", color: "#9ca3af" }}>
-        증거 배선 전 프리뷰 — 모든 domain이 unknown(무증거는 정상이 아님). 표시 전용 표면: probe·writer·요청 filing 없음.
+        증거: connector_freshness·hpp_host는 Board snapshot의 source-asserted 값(읽기 전용 GET 2건), 나머지는 unknown(무증거는 정상이 아님).
+        표시 전용 표면: probe·writer·요청 filing 없음.
       </small>
     </section>
   );
