@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-30 - Deployment pack contract: release-gate ladder, rollout rings, runbook catalog (contract only)
+
+- Added `guild_hall/deployment_pack/`: the program plan-12/16 release discipline as data plus validators — the five-pack catalog (HPP Server, Team Client, Tool Workshop, Project AI Team, Backup/Recovery extension) with contains/must-not-contain boundaries that fail closed on plaintext secrets, raw project data, license secrets, and cross-project memory; the monotonic 15-gate release ladder where claiming any gate demands evidence for every earlier gate and `released` status demands the full ladder through acceptance ("a release is not a folder or artifact existing"); the strictly ordered eight-ring rollout ladder requiring a promotion decision, evidence bundle, support owner, rollback target, and known-issues ref per step; and the 13-runbook catalog with mandatory owner/precondition/allowed-action/evidence/rollback fields and a secret-material ban.
+- No build, package, install, deployment, ring promotion, or runbook publication happens in this module; those are later leaves and the physical rings stay Owner-gated. Added `npm run validate:deployment-pack` (7/7), a module manifest, and the guild_hall composition row.
+
 ## 2026-08-30 - First Tool Workshop core: capacity-one lease, fencing, validator retry (in-memory only)
 
 - Added `guild_hall/tool_workshop/`: the program plan-11 job-shop contract — exactly one active lease per workshop resource (busy acquires wait and an idle UI or dead runner is never a release), a monotonic fencing token where an expiry takeover supersedes the stale lease, terminally fails its overrun job, and rejects the zombie writer's late completion with zero promotion; priority-then-submission-order queueing; validator failures consume bounded retries then fail terminally with no custody; successful runs yield only a `done_candidate` custody receipt (`claim: workshop_output_candidate_only`) with no acceptance, promotion, or task-completion surface.
