@@ -35,6 +35,10 @@ import { basename, dirname, join, resolve } from "node:path";
 const PACK_MANIFEST_SCHEMA = "soulforge.deployment_pack_manifest.v0";
 const MAX_WALK_UP = 16;
 const SHA256_HEX = /^[a-f0-9]{64}$/;
+// Same repo-relative path shape the builder enforces: a crafted manifest
+// must not drive verification reads outside the payload dir via
+// traversal-shaped entries.
+const REL_PATH = /^[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*$/;
 
 function fail(code) {
   const error = new Error(code);
@@ -97,7 +101,8 @@ export function readPackSourceIdentity(startDir, { verify = "all", selfPath = nu
     // identity: floor it — a source identity must cover at least one file.
     || manifest.files.length === 0
     || !manifest.files.every((entry) => entry !== null && typeof entry === "object"
-      && typeof entry.path === "string" && entry.path.length > 0
+      && typeof entry.path === "string" && REL_PATH.test(entry.path)
+      && !entry.path.split("/").some((segment) => /^\.+$/.test(segment))
       && typeof entry.sha256 === "string" && SHA256_HEX.test(entry.sha256)
       && Number.isSafeInteger(entry.bytes) && entry.bytes >= 0)) {
     fail("pack_source_manifest_invalid");

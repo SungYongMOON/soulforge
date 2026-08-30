@@ -260,7 +260,8 @@ function cliMain() {
       process.stdout.write(`start/stop proof ok: pack_digest=${receipt.pack_digest} files=${receipt.payload_reverified.files} port_released=${receipt.stop.port_released}\n`);
     })
     .catch((error) => {
-      process.stderr.write(`start/stop proof FAILED: ${error.code ?? error.message}\n`);
+      // error.message carries code:detail — print it whole for diagnosis.
+      process.stderr.write(`start/stop proof FAILED: ${error.message}\n`);
       process.exit(1);
     });
 }

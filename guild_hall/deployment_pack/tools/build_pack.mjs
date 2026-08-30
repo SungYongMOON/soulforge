@@ -47,6 +47,14 @@ function sha256(buffer) {
   return createHash("sha256").update(buffer).digest("hex");
 }
 
+// The canonical pack-digest recipe: compact JSON over the path-sorted
+// {path, sha256, bytes} entries. Exported so lifecycle tooling validates
+// manifests with the SAME recipe the builder stamps (the attestation
+// reader keeps its own copy, pinned to this one by a round-trip test).
+export function recomputePackDigest(entries) {
+  return sha256(Buffer.from(JSON.stringify(entries.map(({ path, sha256: digest, bytes }) => ({ path, sha256: digest, bytes }))), "utf8"));
+}
+
 function assertRelPath(value, field) {
   // All-dot segments ("..", ".", "...") are rejected for canonicality:
   // "./a" and "a" must never count as two distinct files.
@@ -189,7 +197,7 @@ function prepare(spec, { rootDir, runner }) {
   }
   files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   const digestInput = files.map(({ path, sha256: digest, bytes }) => ({ path, sha256: digest, bytes }));
-  const packDigest = sha256(Buffer.from(JSON.stringify(digestInput), "utf8"));
+  const packDigest = recomputePackDigest(digestInput);
 
   const unitCwd = spec.test_cwd ? join(rootDir, ...spec.test_cwd.split("/")) : rootDir;
   const unit = runner(spec.smoke_test_entries, { cwd: unitCwd, concurrency: spec.test_concurrency });

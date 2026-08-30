@@ -125,6 +125,17 @@ test("a tree governed by a .git ancestor refuses pack identity: git wins whereve
   assert.equal(readPackSourceIdentity(moduleDir, { verify: "all" }), null);
 });
 
+test("traversal-shaped manifest entries are invalid even when digest-consistent: no reads outside the payload", () => {
+  const { moduleDir } = installedFixture({
+    mutateManifest: (manifest) => {
+      manifest.files = [{ path: "../escape.mjs", sha256: sha256("x"), bytes: 1 }];
+      manifest.pack_digest = packDigestOf(manifest.files);
+    },
+  });
+  assert.throws(() => readPackSourceIdentity(moduleDir, { verify: "all" }),
+    (error) => error.code === "pack_source_manifest_invalid");
+});
+
 test("outside any installed pack the reader returns null (callers fall through to their own handling)", () => {
   const plain = mkdtempSync(join(tmpdir(), "dev-erp-noPack-"));
   mkdirSync(join(plain, "some", "deep", "dir"), { recursive: true });
