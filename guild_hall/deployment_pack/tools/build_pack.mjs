@@ -308,6 +308,11 @@ export function installPack({ packDir, targetDir, clock }) {
   const manifest = JSON.parse(readFileSync(join(packDir, "pack.manifest.json"), "utf8"));
   const payloadTarget = join(targetDir, "payload");
   cpSync(join(packDir, "payload"), payloadTarget, { recursive: true });
+  // The manifest travels INTO the installed target (beside payload/): it is
+  // the installed copy's source identity, and git-free source attestation
+  // (pack_source_identity) self-verifies against exactly this file.
+  writeFileSync(join(targetDir, "pack.manifest.json"), `${JSON.stringify(manifest, null, 2)}
+`);
   const verdict = verifyInstalledCopy(manifest, payloadTarget);
   if (!verdict.ok) {
     // A failed install leaves NO copied bytes behind: an unverified payload

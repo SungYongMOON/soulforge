@@ -90,6 +90,7 @@
       "ui-workspace/apps/dev-erp/src/mailbox_env.mjs",
       "ui-workspace/apps/dev-erp/src/modules.mjs",
       "ui-workspace/apps/dev-erp/src/morning_brief.mjs",
+      "ui-workspace/apps/dev-erp/src/pack_source_identity.mjs",
       "ui-workspace/apps/dev-erp/src/party_match.mjs",
       "ui-workspace/apps/dev-erp/src/portfolio_decision_projection.mjs",
       "ui-workspace/apps/dev-erp/src/project_decision_ledger.mjs",
@@ -260,6 +261,7 @@
       "ui-workspace/apps/dev-erp/test/mail_thread_key.test.mjs",
       "ui-workspace/apps/dev-erp/test/memory_project_isolation.test.mjs",
       "ui-workspace/apps/dev-erp/test/npm_test_discovery.test.mjs",
+      "ui-workspace/apps/dev-erp/test/pack_source_identity.test.mjs",
       "ui-workspace/apps/dev-erp/test/project_history_copy_adapter_v2.test.mjs",
       "ui-workspace/apps/dev-erp/test/project_history_copy_binding.test.mjs",
       "ui-workspace/apps/dev-erp/test/project_history_copy_one_shot.test.mjs",
@@ -1012,6 +1014,7 @@
     "test/mail_thread_key.test.mjs",
     "test/memory_project_isolation.test.mjs",
     "test/npm_test_discovery.test.mjs",
+    "test/pack_source_identity.test.mjs",
     "test/project_history_copy_adapter_v2.test.mjs",
     "test/project_history_copy_binding.test.mjs",
     "test/project_history_copy_one_shot.test.mjs",
@@ -1059,11 +1062,13 @@
     "test/candidate_execution_coordinator.test.mjs",
     "test/codex_attachment_registry.test.mjs",
     "test/codex_bridge_process.test.mjs",
+    "test/codex_dedicated_worker.test.mjs",
     "test/codex_message_payload_store.test.mjs",
     "test/codex_model_catalog.test.mjs",
     "test/codex_payload_backup.test.mjs",
     "test/codex_payload_owner.test.mjs",
     "test/codex_turn_projection.test.mjs",
+    "test/codex_worker_server_integration.test.mjs",
     "test/codex_workspace_registry.test.mjs",
     "test/completion_knowledge_feed.test.mjs",
     "test/context_diagnostics.test.mjs",
@@ -1101,6 +1106,7 @@
     "test/mail_thread_key.test.mjs",
     "test/memory_project_isolation.test.mjs",
     "test/npm_test_discovery.test.mjs",
+    "test/pack_source_identity.test.mjs",
     "test/project_history_copy_adapter_v2.test.mjs",
     "test/project_history_copy_binding.test.mjs",
     "test/project_history_copy_one_shot.test.mjs",
@@ -1135,16 +1141,7 @@
     "test/workflow_job_service.test.mjs",
     "test/workflow_job_ui_contract.test.mjs"
   ],
-  "installed_smoke_excluded": [
-    {
-      "path": "test/codex_dedicated_worker.test.mjs",
-      "reason": "requires_git_checkout_source_attestation"
-    },
-    {
-      "path": "test/codex_worker_server_integration.test.mjs",
-      "reason": "requires_git_checkout_source_attestation"
-    }
-  ],
+  "installed_smoke_excluded": [],
   "release_notes_ref": "release_notes.hpp_server_pack.v0_1_0",
   "install_manual_ref": "manual.install.hpp_server_pack",
   "upgrade_manual_ref": "manual.upgrade.hpp_server_pack",
@@ -1894,7 +1891,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/server.mjs",
-      "sha256": "bdd216b607be76803a038f588b9220d2095663ea0e17a3c04bae24f5bd2f5bc0"
+      "sha256": "d4ecbae96eb0717f79c97ce34f599453c799ac6fb7449607e1df6d413693a39b"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/accepted_context_query.mjs",
@@ -1914,11 +1911,11 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/codex_dedicated_worker.mjs",
-      "sha256": "6f2b7a7727c6ea50b77ea56ea81047104afff713770d35c42e711415d08748c3"
+      "sha256": "801f3b0f8e4a2ab80afc81d921dc7ae258e01049ebcebb7ddce99777d0f892cc"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/codex_dedicated_worker_client.mjs",
-      "sha256": "24d9713498bdd9082a26993f90a0913c767ffe37a0234502f803fc3948bd30d5"
+      "sha256": "d859ba261cdc1b1403170cedd434fb0a1f5b16e952761e9d32d55142769a5ec2"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/codex_workspace_registry.mjs",
@@ -1990,7 +1987,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/codex_dedicated_worker.test.mjs",
-      "sha256": "88930c713680d553e759af8a9802944080494a7f2b56f2daa370207ad3fc63df"
+      "sha256": "dcaae03ed5bf67e0eba1333b10cc4069dd7df311adbbd9cbc1e18d0edb3fbc45"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/codex_model_catalog.test.mjs",

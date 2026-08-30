@@ -36,6 +36,7 @@ import {
   resolveCodexModelSelection,
   runCodexTaskTurn,
 } from "./codex_bridge.mjs";
+import { readPackSourceIdentity } from "./pack_source_identity.mjs";
 import {
   CodexTurnProjectionError,
   openVerifiedCodexTurnProjection,
@@ -335,6 +336,29 @@ function revalidateWorkerStorageBoundaries(config) {
 }
 
 function readWorkerSourceState() {
+  const gitState = readGitSourceState();
+  if (gitState !== null) return gitState;
+  // Git-free ladder: an INSTALLED pack has no git, but it carries the pack
+  // manifest beside payload/. Boot-verify the ENTIRE installed source
+  // against it (selfPath additionally demands THIS module be among the
+  // verified entries) and attest the recomputed pack_digest (64 hex) as the
+  // source identity; consumers discriminate git commit vs pack digest by
+  // hex LENGTH. Tamper (missing/mismatched manifest file) throws inside —
+  // there is no legitimate "dirty" installed pack — and a tree governed by
+  // a .git ancestor refuses pack identity entirely, so a checkout with a
+  // broken git binary stays fail-closed instead of degrading onto a
+  // plantable manifest.
+  const packState = readPackSourceIdentity(WORKER_SOURCE_DIR, {
+    verify: "all",
+    selfPath: fileURLToPath(import.meta.url),
+  });
+  if (packState !== null) {
+    return Object.freeze({ root: packState.payload_root, commit: packState.pack_digest, clean: true });
+  }
+  fail("worker_source_commit_unavailable", 500);
+}
+
+function readGitSourceState() {
   try {
     const root = realpathSync(String(execFileSync("git", ["rev-parse", "--show-toplevel"], {
       cwd: WORKER_SOURCE_DIR,
@@ -362,7 +386,8 @@ function readWorkerSourceState() {
     return Object.freeze({ root, commit, clean: status.trim() === "" });
   } catch (error) {
     if (error instanceof CodexDedicatedWorkerError) throw error;
-    fail("worker_source_commit_unavailable", 500);
+    // Not a git checkout (or git unavailable): let the pack ladder decide.
+    return null;
   }
 }
 

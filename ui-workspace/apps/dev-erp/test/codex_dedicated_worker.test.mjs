@@ -519,7 +519,8 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
     assert.equal(health.identity.proof_source, process.platform === "win32" ? "windows_whoami" : "os_userinfo");
     assert.equal(Object.hasOwn(health.identity, "name"), false);
     assert.match(health.identity.hash, /^[a-f0-9]{64}$/);
-    assert.match(health.source_commit, /^[a-f0-9]{40}$/);
+    // 40 hex = git commit (dev checkout), 64 hex = pack digest (installed copy).
+    assert.match(health.source_commit, /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/);
     assert.equal(typeof health.source_tree_clean, "boolean");
     assert.equal(health.forbidden_roots_ready, true);
     assert.ok(health.forbidden_root_count >= 5);

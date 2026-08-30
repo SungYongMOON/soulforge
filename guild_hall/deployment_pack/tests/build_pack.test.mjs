@@ -15,6 +15,7 @@ import {
   runInstalledSmoke,
   verifyInstalledCopy,
 } from "../tools/build_pack.mjs";
+import { readPackSourceIdentity } from "../../../ui-workspace/apps/dev-erp/src/pack_source_identity.mjs";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const REAL_SPEC = join(REPO_ROOT, "guild_hall", "deployment_pack", "packs", "tool_workshop_pack.spec.json");
@@ -156,6 +157,31 @@ test("install verifies every digest; a corrupted installed file is named and fai
   assert.throws(() => installPack({ packDir: built.packDir, targetDir: target2, clock: fixedClock }),
     (error) => error.code === "install_integrity_failed");
   assert.equal(existsSync(join(target2, "payload")), false, "a failed install leaves no copied bytes");
+});
+
+test("builder and reader agree: an installed pack's attested identity is the built pack_digest, recomputed", () => {
+  // Round-trip contract with the git-free attestation reader
+  // (ui-workspace/apps/dev-erp/src/pack_source_identity.mjs): the reader
+  // recomputes the digest with the builder's exact recipe, so this test
+  // pins the two recipes to each other — a recipe drift on either side
+  // fails here before it can strand an installed copy.
+  const root = syntheticRoot();
+  const specPath = writeSpec(root, syntheticSpec());
+  const built = buildPack(specPath, { rootDir: root, outDir: tempDir("outIdentity"), clock: fixedClock, runner: okRunner });
+  const target = tempDir("targetIdentity");
+  installPack({ packDir: built.packDir, targetDir: target, clock: fixedClock });
+  const moduleDir = join(target, "payload", "guild_hall", "tool_workshop", "src");
+  const identity = readPackSourceIdentity(moduleDir, { verify: "all" });
+  assert.equal(identity.pack_digest, built.manifest.pack_digest);
+  assert.equal(identity.verified_files, built.manifest.files.length);
+  // A digest edited in place (decoupled from the entries) must be refused:
+  // the reader recomputes rather than echoes.
+  const manifestPath = join(target, "pack.manifest.json");
+  const doctored = JSON.parse(readFileSync(manifestPath, "utf8"));
+  doctored.pack_digest = "e".repeat(64);
+  writeFileSync(manifestPath, JSON.stringify(doctored, null, 2));
+  assert.throws(() => readPackSourceIdentity(moduleDir, { verify: "all" }),
+    (error) => error.code === "pack_source_manifest_invalid");
 });
 
 test("a same-outDir rebuild clears the pack dir: dropped files can never survive as orphans", () => {
@@ -308,7 +334,7 @@ test("end to end against the REAL tracked hpp_server_pack spec: build, install, 
     // The set is the computed import closure PLUS the fs-read data closure
     // PLUS the vendored npm closure (yaml + ajv and its runtime deps under
     // payload-root node_modules) — pinned so growth is a conscious re-emit.
-    assert.equal(built.manifest.files.length, 937);
+    assert.equal(built.manifest.files.length, 939);
     assert.equal(built.candidate.claimed_gate, "contract");
     assert.equal(built.manifest.files.some((entry) => entry.path.startsWith("guild_hall/")), true,
       "the pack carries the guild_hall modules the server actually imports");
@@ -318,7 +344,7 @@ test("end to end against the REAL tracked hpp_server_pack spec: build, install, 
     // subset + evidence-backed exclusion ledger, nothing silent.
     const spec = loadPackSpec(specPath);
     assert.equal(spec.installed_smoke_entries.length + spec.installed_smoke_excluded.length, spec.smoke_test_entries.length);
-    assert.equal(spec.installed_smoke_excluded.length, 2);
+    assert.equal(spec.installed_smoke_excluded.length, 0);
     for (const exclusion of spec.installed_smoke_excluded) {
       assert.match(exclusion.reason, /^requires_git_checkout/, exclusion.path);
     }

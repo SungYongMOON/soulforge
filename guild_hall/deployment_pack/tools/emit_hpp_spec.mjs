@@ -154,17 +154,13 @@ const dataReads = [
   ...readdirSync(join(ROOT, ".party")).map((name) => `.party/${name}/party.yaml`),
 ].filter((rel) => existsSync(join(ROOT, ...rel.split("/"))));
 
-// Installed-copy smoke exclusion ledger — every entry is EVIDENCE-BACKED
-// (each file was run in a clean installed copy and its failure reason
-// verified). The former npm-dependency exclusions (ajv x4, yaml x5) were
-// RESOLVED by the vendored-dependency closure above; what remains is:
-//   git: the dedicated worker attests its source state via git
-//     (worker_source_commit_unavailable in a git-less copy) — its own
-//     git-free-attestation leaf.
-const INSTALLED_SMOKE_EXCLUDED = [
-  { path: "test/codex_dedicated_worker.test.mjs", reason: "requires_git_checkout_source_attestation" },
-  { path: "test/codex_worker_server_integration.test.mjs", reason: "requires_git_checkout_source_attestation" },
-];
+// Installed-copy smoke exclusion ledger — EMPTY as of the git-free
+// attestation leaf: the dedicated worker now falls back to pack-manifest
+// source identity (full boot-verify against the delivered manifest,
+// pack_digest as the 64-hex source identity), so the last two
+// git-checkout-bound tests run in a clean installed copy. The ledger and
+// its partition rule stay in force for any future exclusion.
+const INSTALLED_SMOKE_EXCLUDED = [];
 
 const contentRoles = {
   // Server code plus the cross-root guild_hall modules it actually imports,

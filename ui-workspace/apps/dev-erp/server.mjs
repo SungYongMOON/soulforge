@@ -16,6 +16,7 @@ import {
 import { dirname, isAbsolute, join, extname, resolve, sep, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { readPackSourceIdentity } from "./src/pack_source_identity.mjs";
 import { openStore } from "./src/store.mjs";
 import {
   SHA256_RE as WORKFLOW_SHA256_RE,
@@ -118,12 +119,22 @@ const flag = (name, fallback) => {
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const BACKEND_ROOT = resolve(process.env.DEV_ERP_BACKEND_ROOT || ROOT);
 const RUNTIME_SOURCE_COMMIT = (() => {
+  // Source identity hex: 40 = git commit, 64 = installed-pack digest
+  // (src/pack_source_identity.mjs). Env override -> git -> pack ladder.
   if (Object.hasOwn(process.env, "DEV_ERP_SOURCE_COMMIT")) {
     const configured = String(process.env.DEV_ERP_SOURCE_COMMIT || "").trim().toLowerCase();
-    return /^[a-f0-9]{40}$/.test(configured) ? configured : "";
+    return /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(configured) ? configured : "";
   }
   try { return execSync("git rev-parse HEAD", { cwd: ROOT, encoding: "utf8", timeout: 3000 }).trim(); }
-  catch { return ""; }
+  catch {
+    try {
+      const pack = readPackSourceIdentity(dirname(fileURLToPath(import.meta.url)), {
+        verify: "self", selfPath: fileURLToPath(import.meta.url),
+      });
+      if (pack !== null) return pack.pack_digest;
+    } catch { /* degraded: identity stays empty, match reads false */ }
+    return "";
+  }
 })();
 const CODEX_TASK_BRIDGE_MODE = process.env.DEV_ERP_CODEX_TASK_BRIDGE || "app-server";
 const CODEX_TASK_WORKER_URL = String(process.env.DEV_ERP_CODEX_WORKER_URL || "").trim();
@@ -238,7 +249,7 @@ function codexDedicatedWorkerHealthFromVerified(verified) {
       attestation_verified: verified.verified === true,
       schema_match: attestation.worker_schema === CODEX_DEDICATED_WORKER_VERSION.schema,
       release_match: attestation.worker_release === CODEX_DEDICATED_WORKER_VERSION.release,
-      source_commit_match: /^[a-f0-9]{40}$/.test(RUNTIME_SOURCE_COMMIT)
+      source_commit_match: /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(RUNTIME_SOURCE_COMMIT)
         && attestation.source_commit === RUNTIME_SOURCE_COMMIT,
       source_tree_policy_match: attestation.source_tree_clean === true || !IS_RUNTIME_CHECKOUT,
       boundary_match: attestation.execution_boundary === "dedicated_worker",

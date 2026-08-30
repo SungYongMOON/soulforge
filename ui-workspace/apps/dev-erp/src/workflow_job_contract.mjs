@@ -331,7 +331,8 @@ export function evaluateWorkflowDeploymentAttestation({
       "pass_runner_identity_sha256", "payload_owner_revision", "payload_deny_revision", "receipt_root_revision",
       "acl_probe_revision", "machine_identity_sha256",
     ]) exactString(attestation[field], SHA256_RE, "deployment_attestation_hash_invalid");
-    if (!/^[a-f0-9]{40}$/.test(attestation.source_commit)) fail("deployment_attestation_commit_invalid");
+    // 40 hex = git commit, 64 hex = installed-pack digest (pack_source_identity).
+    if (!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(attestation.source_commit)) fail("deployment_attestation_commit_invalid");
     if (attestation.acl_probe_result !== "passed") fail("deployment_attestation_acl_unproven");
     if (attestation.approved_by !== "owner") fail("deployment_attestation_owner_unapproved");
     if (!Number.isFinite(Date.parse(attestation.issued_at)) || !Number.isFinite(Date.parse(attestation.expires_at))) fail("deployment_attestation_time_invalid");

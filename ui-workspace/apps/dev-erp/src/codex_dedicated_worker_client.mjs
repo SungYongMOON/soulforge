@@ -23,7 +23,9 @@ const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
 const BASE64URL_RE = /^[A-Za-z0-9_-]+$/;
 const NONCE_RE = /^[A-Za-z0-9_-]{43}$/;
 const SHA256_RE = /^[a-f0-9]{64}$/;
-const SOURCE_COMMIT_RE = /^[a-f0-9]{40}$/;
+// Source identity hex: 40 = git commit (dev checkout), 64 = pack digest
+// (installed pack; see src/pack_source_identity.mjs).
+const SOURCE_COMMIT_RE = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
 const AUTH_VERSION = "dwh1";
 const RESPONSE_AUTH_VERSION = "dwhr1";
 const CHANNEL_AEAD_SCHEMA = "dev_erp.codex_worker_channel_aead.v1";

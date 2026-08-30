@@ -137,7 +137,8 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | Watch/Bastion contract | DONE `L-WATCH-BASTION` | — | GATED (실 executor) | GATED |
 | Board/4192 watch vertical | DONE `L-BOARD-VIEWMODEL`,`L-BOARD-PAGE` (기본 OFF `?watch=1`) | n/a (vite 앱) | PARTIAL — 실 read-only 공급자 3/9 domain (`L-WATCH-SUP-1`,`L-WATCH-SUP-2`); watchtower binding 등 잔여 6은 환경 gate | GATED |
 | Tool workshop | DONE `L-WORKSHOP-CORE` | DONE `L-PACK-BUILDER` (4-file pack, install+smoke green) | GATED (물리 Tool PC·runner) | GATED |
-| Deployment pack (contract·builder·spec 2종) | DONE `L-PACK-CONTRACT` | DONE `L-PACK-BUILDER`,`L-HPP-PACK`+의존배송 (hpp 937파일 — vendored npm 폐포 포함: 실 unit gate·양방향 install 검증·선언 87/89 smoke green + 제외장부 2 git-attestation만) | — (ring 승격·서비스 기동 없음) | GATED (물리 ring) |
+| Deployment pack (contract·builder·spec 2종) | DONE `L-PACK-CONTRACT` | DONE `L-PACK-BUILDER`,`L-HPP-PACK`,`L-DEP-DELIVERY` + git-free attestation (hpp 939파일: 실 unit gate·양방향 install 검증·**전 suite 90/90 smoke green·제외 0** — worker가 동봉 pack manifest 전 파일 boot-verify 후 **재계산** pack_digest를 소스 신원으로 attest; 무서명 manifest의 잔여 신뢰는 외부 pin·전달 채널 소관, adversarial 검토 6건 반영) | — (ring 승격·서비스 기동 없음) | GATED (물리 ring) |
+| Module operability gate (manifest·의존·cycle·preflight) | DONE `L-MODOP-GATE` (check-only; manifest 9종 등재·cycle 0/1,146파일·pcb 절단) | n/a (게이트 자체는 pack 대상 아님) | — (레거시 40 dir 등재는 후속) | — |
 | Cross-module integration (plan-13 module-integration rung) | DONE `L-DOGFOOD-INT` | — | — | — |
 | dev-ERP host gates | DONE `L-DEVERP-HOST-RED` (합성 아님 — 실 host 스위트 1090/0-fail·신원 바이너리 System32 고정; 이 lane만 이 칸을 host-gate 증거로 사용) | (hpp pack로 포장됨) | 기존 운영면(본 프로그램 범위 밖) | — |
 
@@ -168,6 +169,8 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `L-DEVERP-HOST-RED` | `e27d5c6d` | dev-ERP | worker 신원 바이너리 System32 절대경로 고정(보안 강화) |
 | `L-HPP-PACK` | `8b02724c` | Deployment | dev-ERP 267파일 pack(모듈+데이터 폐포·scan pin 60·smoke 파티션 78+11) |
 | `L-PLAN-TRUTH` | `22c05384` | Program docs | 이 원장 자체(레인×성숙도·trace·register)와 drift 수정 + `validate:plan-truth` |
+| `L-MODOP-GATE` | `a4a330cb` | Operability | manifest 26필드 스키마·선언 의존·import-cycle validator + preflight + pcb cycle 절단(pin 253/852) |
+| `L-DEP-DELIVERY` | `729b43e3` | Deployment | vendored npm 폐포 6패키지(byte pin 656)·smoke 제외 11→2·`test_concurrency` spec화 |
 
 ### Current validator register (rebaselined 2026-08-30)
 
@@ -178,7 +181,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `validate:forge-intent` | 13 | core + draft 상태 |
 | `validate:watch-bastion` | 8 | panel 계약 + bastion gate + 인터록 |
 | `validate:tool-workshop` | 8 | lease/fencing/retry/custody |
-| `validate:deployment-pack` | 18 | 계약 7 + builder 11(파티션·pin·E2E 포함) + spec drift `--check` |
+| `validate:deployment-pack` | 21 | 계약 7 + builder 14(파티션·pin·builder↔reader 라운드트립·E2E 포함) + spec drift `--check` |
 | `validate:watch-panel-board` | 10 | strip view-model 6 + 공급자 4 |
 | `validate:integration-dogfood` | 4 | cross-module 체인·facade·denial 동일성 |
 | `validate:module-operability` | 8 | manifest 스키마·의존·cycle-0 고정·hermes coarse 경계 + preflight receipt |
@@ -186,7 +189,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 
 ### Remaining branches
 
-Externally gated only — row 4-actual (task-writer binding + accepted context supply), row 5 (D28/D35 activation), row X-actual (connector credentials), physical canaries (OD-08), RED-05 (Owner-held 2026-08-18), and the field pilot (real seats) — plus recorded follow-on leaves: git-free worker source attestation (the last 2 smoke exclusions), remaining dev-erp PATH-resolution sites, isolated server start/stop proof, the three remaining pack specs, remaining watch domain suppliers (watchtower topology where its binding exists), MCP real-provider wiring, physical workshop binding, and the plan-13 ladder rungs above module integration.
+Externally gated only — row 4-actual (task-writer binding + accepted context supply), row 5 (D28/D35 activation), row X-actual (connector credentials), physical canaries (OD-08), RED-05 (Owner-held 2026-08-18), and the field pilot (real seats) — plus recorded follow-on leaves: remaining dev-erp PATH-resolution sites, isolated server start/stop proof, the three remaining pack specs, remaining watch domain suppliers (watchtower topology where its binding exists), MCP real-provider wiring, physical workshop binding, and the plan-13 ladder rungs above module integration.
 
 ### Historical: RED-01 leaf contract (executed)
 
