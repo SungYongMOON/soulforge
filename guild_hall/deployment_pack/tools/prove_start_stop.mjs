@@ -137,6 +137,27 @@ function canListen(port) {
 
 const sleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
 
+// Platform-honest stop plan. posix: SIGTERM reaches server.mjs's
+// SIGTERM handler (shutdownDevErp: close listener, drain codex turns,
+// recover audits, process.exit(0)) — a graceful stop is PROVEN by exit
+// code 0, and anything else fails the proof. win32: ChildProcess.kill is
+// a hard TerminateProcess (handlers never run), so only exit-observed is
+// claimed and the exit code is recorded, never asserted.
+export function stopPlanFor(platform) {
+  if (platform === "win32") {
+    return Object.freeze({
+      expect_exit_code: null,
+      method: "child_kill_terminate",
+      graceful_evidence: "not_claimed_win32_hard_terminate",
+    });
+  }
+  return Object.freeze({
+    expect_exit_code: 0,
+    method: "sigterm_graceful",
+    graceful_evidence: "observed_clean_exit_0_via_sigterm_handler",
+  });
+}
+
 export async function proveStartStop({ targetDir, clock, timeoutMs = 60_000 }) {
   if (typeof clock !== "function") fail("clock_required");
   // A prior run's green receipt must not survive ANY failing run — the
@@ -174,8 +195,12 @@ export async function proveStartStop({ targetDir, clock, timeoutMs = 60_000 }) {
     stderrTail = (stderrTail + chunk.toString()).slice(-2000);
   });
   let exited = false;
+  let exitCode = null;
+  let exitSignal = null;
   const exitPromise = new Promise((resolveExit) => {
-    child.once("exit", () => { exited = true; resolveExit(); });
+    child.once("exit", (code, signal) => {
+      exited = true; exitCode = code; exitSignal = signal; resolveExit();
+    });
   });
 
   try {
@@ -198,10 +223,15 @@ export async function proveStartStop({ targetDir, clock, timeoutMs = 60_000 }) {
     }
     assertStartHealth(health, identity.pack_digest);
 
-    // Stop: terminate, demand observed exit, demand the port truly freed.
-    child.kill();
+    // Stop: platform-honest plan — SIGTERM-graceful on posix (clean exit 0
+    // asserted), hard terminate on win32 (exit observed, code recorded).
+    const plan = stopPlanFor(process.platform);
+    child.kill("SIGTERM");
     await Promise.race([exitPromise, sleep(15_000)]);
     if (!exited) fail("stop_exit_timeout");
+    if (plan.expect_exit_code !== null && exitCode !== plan.expect_exit_code) {
+      fail("stop_not_graceful", `exit_${exitCode}_signal_${exitSignal}`);
+    }
     let portReleased = false;
     for (let attempt = 0; attempt < 10 && !portReleased; attempt += 1) {
       portReleased = await canListen(port);
@@ -223,13 +253,12 @@ export async function proveStartStop({ targetDir, clock, timeoutMs = 60_000 }) {
       verified_files_pre: identity.verified_files,
       health: { source_commit_kind: "pack_digest_64", matches_manifest: true },
       stop: {
-        method: "child_kill_terminate",
+        method: plan.method,
         exit_observed: true,
+        exit_code: exitCode,
+        exit_signal: exitSignal,
         port_released: true,
-        // server.mjs installs SIGINT/SIGTERM shutdown handlers; win32
-        // child.kill is a hard terminate, so graceful-signal-path evidence
-        // is posix-only future work — recorded, not claimed.
-        graceful_signal_evidence: "not_claimed_win32_hard_terminate",
+        graceful_signal_evidence: plan.graceful_evidence,
       },
       payload_reverified: { ok: true, files: postState.files },
       ran_at: clock(),

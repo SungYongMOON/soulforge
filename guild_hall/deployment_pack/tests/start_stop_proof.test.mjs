@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
 
-import { assertPostStopState, assertStartHealth, buildProbeEnv, proveStartStop } from "../tools/prove_start_stop.mjs";
+import { assertPostStopState, assertStartHealth, buildProbeEnv, proveStartStop, stopPlanFor } from "../tools/prove_start_stop.mjs";
 
 const sha256 = (text) => createHash("sha256").update(text).digest("hex");
 const packDigestOf = (entries) => sha256(JSON.stringify(entries.map(({ path, sha256: digest, bytes }) => ({ path, sha256: digest, bytes }))));
@@ -132,6 +132,20 @@ test("start health binds the served identity to the pack digest: git-shaped or m
     "a top-level commit without the attestation envelope is not the contract");
   assert.throws(() => assertStartHealth(null, digest),
     (error) => error.code === "start_health_shape_invalid");
+});
+
+test("the stop plan is platform-honest: posix asserts a clean SIGTERM exit 0, win32 claims terminate only", () => {
+  assert.deepEqual(stopPlanFor("linux"), {
+    expect_exit_code: 0,
+    method: "sigterm_graceful",
+    graceful_evidence: "observed_clean_exit_0_via_sigterm_handler",
+  });
+  assert.deepEqual(stopPlanFor("darwin"), stopPlanFor("linux"), "every posix platform gets the graceful contract");
+  assert.deepEqual(stopPlanFor("win32"), {
+    expect_exit_code: null,
+    method: "child_kill_terminate",
+    graceful_evidence: "not_claimed_win32_hard_terminate",
+  });
 });
 
 test("the prover refuses before any boot: missing payload, missing server, no manifest, tampered target", async () => {
