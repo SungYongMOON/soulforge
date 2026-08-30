@@ -11,6 +11,7 @@ import {
   buildPack,
   installPack,
   loadPackSpec,
+  nodeTestFlags,
   runInstalledSmoke,
   verifyInstalledCopy,
 } from "../tools/build_pack.mjs";
@@ -305,19 +306,21 @@ test("end to end against the REAL tracked hpp_server_pack spec: build, install, 
     const built = buildPack(specPath, { rootDir: REPO_ROOT, outDir: out, clock: fixedClock, runner: okRunner });
     assert.equal(built.manifest.pack_id, "hpp_server_pack");
     // The set is the computed import closure PLUS the fs-read data closure
-    // (cross-root guild_hall modules, served static assets, schemas,
-    // manual/ops data) — pinned so growth is a conscious spec re-emit.
-    assert.equal(built.manifest.files.length, 267);
+    // PLUS the vendored npm closure (yaml + ajv and its runtime deps under
+    // payload-root node_modules) — pinned so growth is a conscious re-emit.
+    assert.equal(built.manifest.files.length, 937);
     assert.equal(built.candidate.claimed_gate, "contract");
     assert.equal(built.manifest.files.some((entry) => entry.path.startsWith("guild_hall/")), true,
       "the pack carries the guild_hall modules the server actually imports");
+    assert.equal(built.manifest.files.some((entry) => entry.path.startsWith("node_modules/yaml/")), true,
+      "the vendored npm closure travels at the payload root");
     // The installed-smoke declaration PARTITIONS the full suite: runnable
     // subset + evidence-backed exclusion ledger, nothing silent.
     const spec = loadPackSpec(specPath);
     assert.equal(spec.installed_smoke_entries.length + spec.installed_smoke_excluded.length, spec.smoke_test_entries.length);
-    assert.equal(spec.installed_smoke_excluded.length, 11);
+    assert.equal(spec.installed_smoke_excluded.length, 2);
     for (const exclusion of spec.installed_smoke_excluded) {
-      assert.match(exclusion.reason, /^(npm_dependency_|requires_git_checkout)/, exclusion.path);
+      assert.match(exclusion.reason, /^requires_git_checkout/, exclusion.path);
     }
     const installed = installPack({ packDir: built.packDir, targetDir: target, clock: fixedClock });
     const smoke = runInstalledSmoke({
@@ -331,4 +334,30 @@ test("end to end against the REAL tracked hpp_server_pack spec: build, install, 
     rmSync(out, { recursive: true, force: true });
     rmSync(target, { recursive: true, force: true });
   }
+});
+
+test("test_concurrency: flag assembly is exact and the spec loader rejects out-of-range values", () => {
+  assert.deepEqual(nodeTestFlags(4), ["--test", "--test-concurrency=4"]);
+  assert.deepEqual(nodeTestFlags(undefined), ["--test"], "unset concurrency keeps node's default");
+  assert.deepEqual(nodeTestFlags(0), ["--test"], "non-positive values never emit a flag");
+  for (const bad of [0, 33, 2.5, "4"]) {
+    const spec = syntheticSpec({ test_concurrency: bad });
+    assert.throws(() => loadPackSpec(writeSpec(tempDir("specConc"), spec)),
+      (error) => error.code === "spec_test_concurrency_invalid", String(bad));
+  }
+  const good = loadPackSpec(writeSpec(tempDir("specConc"), syntheticSpec({ test_concurrency: 4 })));
+  assert.equal(good.test_concurrency, 4);
+});
+
+test("the hpp spec byte-pins every vendored file, so vendored drift fails --check instead of flowing into a pack", () => {
+  const spec = loadPackSpec(join(REPO_ROOT, "guild_hall", "deployment_pack", "packs", "hpp_server_pack.spec.json"));
+  const hashes = spec.vendored_file_sha256;
+  const vendored = spec.content_roles.vendored_dependencies;
+  assert.equal(Object.keys(hashes).length, vendored.length, "one sha per vendored file");
+  for (const rel of vendored) {
+    assert.match(hashes[rel], /^[a-f0-9]{64}$/, rel);
+  }
+  const sample = vendored.find((rel) => rel.endsWith("package.json"));
+  const digest = createHash("sha256").update(readFileSync(join(REPO_ROOT, ...sample.split("/")))).digest("hex");
+  assert.equal(hashes[sample], digest, "recorded sha matches live bytes");
 });

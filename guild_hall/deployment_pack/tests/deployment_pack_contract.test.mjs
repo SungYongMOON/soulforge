@@ -57,8 +57,11 @@ test("catalog pins the five packs with boundaries, and schema/enums match the pl
     assert.equal(pack.must_not_contain.length >= 2, true, pack.pack_id);
     assert.equal(typeof pack.initial_release_gate === "string" && pack.initial_release_gate.length > 10, true, pack.pack_id);
   }
-  // Every pack that ships code must be able to carry its own validators.
-  assert.equal(PACK_CATALOG.find((entry) => entry.pack_id === "hpp_server_pack").contains.includes("validators"), true);
+  // Every pack that ships code must be able to carry its own validators —
+  // and the npm modules those validators resolve (the sbom-gate precursor).
+  const hpp = PACK_CATALOG.find((entry) => entry.pack_id === "hpp_server_pack");
+  assert.equal(hpp.contains.includes("validators"), true);
+  assert.equal(hpp.contains.includes("vendored_dependencies"), true);
 });
 
 test("a draft manifest with complete references validates; missing manuals fail closed", () => {

@@ -71,6 +71,13 @@ export function loadPackSpec(specPath) {
   }
   if (!Array.isArray(raw.smoke_test_entries) || raw.smoke_test_entries.length === 0) fail("spec_smoke_entries_missing");
   for (const entry of raw.smoke_test_entries) assertRelPath(entry, "smoke_test_entries");
+  // Optional test concurrency: suites engineered for a bounded parallelism
+  // (dev-erp runs at 4 — its tests bind ports and temp DBs) declare it;
+  // node's default (per-CPU) can collide them on wide machines.
+  if (raw.test_concurrency !== undefined
+    && !(Number.isSafeInteger(raw.test_concurrency) && raw.test_concurrency > 0 && raw.test_concurrency <= 32)) {
+    fail("spec_test_concurrency_invalid");
+  }
   // Optional test working directory, relative to the repo root at unit time
   // and to the installed payload at smoke time. Suites that assume their
   // app directory as cwd (dev-erp) declare it; entries are relative to it.
@@ -127,8 +134,14 @@ export function loadPackSpec(specPath) {
 
 // Default gate runner: a real `node --test` child process. Tests inject a
 // synthetic runner instead; the CLI uses this one.
-export function nodeTestRunner(entries, { cwd }) {
-  const result = spawnSync(process.execPath, ["--test", ...entries], { cwd, encoding: "utf8" });
+export function nodeTestFlags(concurrency) {
+  const flags = ["--test"];
+  if (Number.isSafeInteger(concurrency) && concurrency > 0) flags.push(`--test-concurrency=${concurrency}`);
+  return flags;
+}
+
+export function nodeTestRunner(entries, { cwd, concurrency }) {
+  const result = spawnSync(process.execPath, [...nodeTestFlags(concurrency), ...entries], { cwd, encoding: "utf8" });
   return {
     ok: result.status === 0,
     summary: `node --test exited ${result.status}`,
@@ -179,7 +192,7 @@ function prepare(spec, { rootDir, runner }) {
   const packDigest = sha256(Buffer.from(JSON.stringify(digestInput), "utf8"));
 
   const unitCwd = spec.test_cwd ? join(rootDir, ...spec.test_cwd.split("/")) : rootDir;
-  const unit = runner(spec.smoke_test_entries, { cwd: unitCwd });
+  const unit = runner(spec.smoke_test_entries, { cwd: unitCwd, concurrency: spec.test_concurrency });
   if (!unit || unit.ok !== true) fail("unit_gate_failed", unit ? unit.summary : "runner_returned_nothing");
 
   const manifest = {
@@ -313,10 +326,10 @@ export function installPack({ packDir, targetDir, clock }) {
 // Isolated smoke: run the pack's own validators INSIDE the installed copy.
 // Same out-of-ladder status as install — evidence, not a claimed gate.
 // testCwd (the spec's test_cwd) is resolved against the installed payload.
-export function runInstalledSmoke({ payloadDir, entries, testCwd, clock, runner = nodeTestRunner }) {
+export function runInstalledSmoke({ payloadDir, entries, testCwd, concurrency, clock, runner = nodeTestRunner }) {
   if (typeof clock !== "function") fail("clock_required");
   const cwd = testCwd ? join(payloadDir, ...testCwd.split("/")) : payloadDir;
-  const result = runner(entries, { cwd });
+  const result = runner(entries, { cwd, concurrency });
   return {
     ok: result?.ok === true,
     summary: result ? result.summary : "runner_returned_nothing",
@@ -356,7 +369,7 @@ function cliMain() {
       // smoke can never silently mean "the excluded part passed too".
       const smokeEntries = spec.installed_smoke_entries ?? spec.smoke_test_entries;
       const excluded = spec.installed_smoke_excluded ?? [];
-      const smoke = runInstalledSmoke({ payloadDir: installed.payloadTarget, entries: smokeEntries, testCwd: spec.test_cwd, clock });
+      const smoke = runInstalledSmoke({ payloadDir: installed.payloadTarget, entries: smokeEntries, testCwd: spec.test_cwd, concurrency: spec.test_concurrency, clock });
       writeFileSync(join(installTarget, "smoke.receipt.json"), `${JSON.stringify({
         receipt: "smoke", ...smoke,
         entries_run: smokeEntries.length,

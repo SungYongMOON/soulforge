@@ -137,7 +137,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | Watch/Bastion contract | DONE `L-WATCH-BASTION` | — | GATED (실 executor) | GATED |
 | Board/4192 watch vertical | DONE `L-BOARD-VIEWMODEL`,`L-BOARD-PAGE` (기본 OFF `?watch=1`) | n/a (vite 앱) | PARTIAL — 실 read-only 공급자 3/9 domain (`L-WATCH-SUP-1`,`L-WATCH-SUP-2`); watchtower binding 등 잔여 6은 환경 gate | GATED |
 | Tool workshop | DONE `L-WORKSHOP-CORE` | DONE `L-PACK-BUILDER` (4-file pack, install+smoke green) | GATED (물리 Tool PC·runner) | GATED |
-| Deployment pack (contract·builder·spec 2종) | DONE `L-PACK-CONTRACT` | DONE `L-PACK-BUILDER`,`L-HPP-PACK` (hpp 267파일: 실 unit gate·양방향 install 검증·선언 78/89 smoke green + 제외장부 11) | — (ring 승격·서비스 기동 없음) | GATED (물리 ring) |
+| Deployment pack (contract·builder·spec 2종) | DONE `L-PACK-CONTRACT` | DONE `L-PACK-BUILDER`,`L-HPP-PACK`+의존배송 (hpp 937파일 — vendored npm 폐포 포함: 실 unit gate·양방향 install 검증·선언 87/89 smoke green + 제외장부 2 git-attestation만) | — (ring 승격·서비스 기동 없음) | GATED (물리 ring) |
 | Cross-module integration (plan-13 module-integration rung) | DONE `L-DOGFOOD-INT` | — | — | — |
 | dev-ERP host gates | DONE `L-DEVERP-HOST-RED` (합성 아님 — 실 host 스위트 1090/0-fail·신원 바이너리 System32 고정; 이 lane만 이 칸을 host-gate 증거로 사용) | (hpp pack로 포장됨) | 기존 운영면(본 프로그램 범위 밖) | — |
 
@@ -186,7 +186,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 
 ### Remaining branches
 
-Externally gated only — row 4-actual (task-writer binding + accepted context supply), row 5 (D28/D35 activation), row X-actual (connector credentials), physical canaries (OD-08), RED-05 (Owner-held 2026-08-18), and the field pilot (real seats) — plus recorded follow-on leaves: dependency delivery for the 89-full pack smoke (ajv·yaml; package/sbom gates), git-free worker source attestation, remaining dev-erp PATH-resolution sites, isolated server start/stop proof, the three remaining pack specs, remaining watch domain suppliers (watchtower topology where its binding exists), MCP real-provider wiring, physical workshop binding, and the plan-13 ladder rungs above module integration.
+Externally gated only — row 4-actual (task-writer binding + accepted context supply), row 5 (D28/D35 activation), row X-actual (connector credentials), physical canaries (OD-08), RED-05 (Owner-held 2026-08-18), and the field pilot (real seats) — plus recorded follow-on leaves: git-free worker source attestation (the last 2 smoke exclusions), remaining dev-erp PATH-resolution sites, isolated server start/stop proof, the three remaining pack specs, remaining watch domain suppliers (watchtower topology where its binding exists), MCP real-provider wiring, physical workshop binding, and the plan-13 ladder rungs above module integration.
 
 ### Historical: RED-01 leaf contract (executed)
 

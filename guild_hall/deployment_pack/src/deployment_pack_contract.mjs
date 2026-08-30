@@ -14,7 +14,11 @@ export const PACK_CATALOG = Object.freeze([
     pack_id: "hpp_server_pack",
     // "validators" added 2026-08-30: every pack carries its own test suite
     // so the installed copy can prove itself (tool_workshop precedent).
-    contains: Object.freeze(["server_modules", "control_data_plane_services", "manifests", "operator_docs", "supported_migrations", "validators"]),
+    // "vendored_dependencies" added the same day: exact hash-pinned npm
+    // package files the suite resolves at runtime (yaml/ajv closure) — the
+    // sbom-gate precursor; a clean installed copy must not reach outside
+    // itself for modules.
+    contains: Object.freeze(["server_modules", "control_data_plane_services", "manifests", "operator_docs", "supported_migrations", "validators", "vendored_dependencies"]),
     must_not_contain: Object.freeze(["project_payload", "plaintext_secrets", "team_client_private_keys"]),
     initial_release_gate: "isolated install/start/stop/smoke/upgrade/rollback/restore proof",
   }),

@@ -87,6 +87,55 @@ const sharedCode = closure.filter((rel) => !rel.startsWith(`${APP}/`));
 // runtime that the import walker cannot see. Enumerated explicitly — the
 // first two smoke rounds in a clean installed copy taught that both the
 // module closure AND the data closure must travel with the pack.
+// Vendored npm closure: the suite's bare specifiers (yaml; ajv/dist/2020)
+// plus ajv's runtime dependencies, packed under node_modules/ at the PAYLOAD
+// ROOT so both guild_hall and ui-workspace consumers resolve them without
+// escaping the installed copy. Exact files, hash-pinned like everything
+// else; scan-regex hits inside vendored files are third-party npm artifacts
+// (upstream-published, hash-pinned), not project secrets. package-lock keeps
+// the local node_modules bytes reproducible; the per-file sha256 map below makes
+// --check byte-exact for vendored content (node_modules is git-ignored,
+// so these hashes are its only byte pin).
+const VENDORED_PACKAGE_ROOTS = [
+  "node_modules/yaml",
+  "node_modules/ajv",
+  "node_modules/fast-deep-equal",
+  "node_modules/fast-uri",
+  "node_modules/json-schema-traverse",
+  "node_modules/require-from-string",
+];
+const VENDOR_JUNK_DIRS = new Set([".github", ".vscode", "test", "tests", "docs", "examples", "benchmark", "spec", "browser"]);
+
+function listVendoredFiles(relRoot) {
+  const absolute = join(ROOT, ...relRoot.split("/"));
+  const out = [];
+  const walk = (dir, prefix) => {
+    for (const name of readdirSync(dir)) {
+      if (VENDOR_JUNK_DIRS.has(name)) continue;
+      const child = join(dir, name);
+      if (statSync(child).isDirectory()) walk(child, `${prefix}/${name}`);
+      else out.push(`${prefix}/${name}`);
+    }
+  };
+  walk(absolute, relRoot);
+  return out.sort();
+}
+
+const vendoredFiles = VENDORED_PACKAGE_ROOTS.flatMap(listVendoredFiles);
+// Per-file sha256 for every vendored file: node_modules is git-ignored, so
+// these hashes are the ONLY byte pin vendored content has — with them the
+// --check re-emit is byte-exact for vendored files too (a hand-edited or
+// corrupted vendored file at unchanged version fails --check instead of
+// flowing silently into a new pack digest). This is the substantive
+// sbom-precursor step, not just metadata.
+const vendoredFileHashes = Object.fromEntries(vendoredFiles.map((rel) => [
+  rel, createHash("sha256").update(readFileSync(join(ROOT, ...rel.split("/")))).digest("hex"),
+]));
+const vendoredPackages = VENDORED_PACKAGE_ROOTS.map((relRoot) => {
+  const meta = JSON.parse(readFileSync(join(ROOT, ...relRoot.split("/"), "package.json"), "utf8"));
+  return { name: meta.name, version: meta.version, license: meta.license ?? "UNKNOWN", root: relRoot };
+});
+
 const dataReads = [
   ...listFiles(`${APP}/docs/contracts`, ".schema.json"),
   `${APP}/manual/manual_faq.json`,
@@ -95,27 +144,24 @@ const dataReads = [
   `${APP}/.gitignore`,
   `${APP}/docs/checklist_phase1.json`,
   "docs/architecture/workspace/examples/task_execution_core_poc/task_execution_core.synthetic.json",
+  `${APP}/docs/CHATBOT_LLM_SETUP.md`,
+  `${APP}/docs/REMOTE_PC_RUNBOOK.md`,
+  `${APP}/docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md`,
+  `${APP}/docs/RUNTIME_OPERATING_CONTRACT_20260617.md`,
+  `${APP}/start-tailscale-windows.bat`,
+  // Party monster-type reverse index: the server loads the canonical
+  // .party/*/party.yaml roster from the repo root.
+  ...readdirSync(join(ROOT, ".party")).map((name) => `.party/${name}/party.yaml`),
 ].filter((rel) => existsSync(join(ROOT, ...rel.split("/"))));
 
 // Installed-copy smoke exclusion ledger — every entry is EVIDENCE-BACKED
 // (each file was run in a clean installed copy and its failure reason
-// verified). Three structural gaps keep these dev-checkout-bound until
-// their own leaves land:
-//   npm deps: the pack ships no node_modules and dev-erp's manifest
-//     declares none — ajv/yaml resolve from parent node_modules only in a
-//     dev checkout (dependency delivery = package/sbom gate territory).
+// verified). The former npm-dependency exclusions (ajv x4, yaml x5) were
+// RESOLVED by the vendored-dependency closure above; what remains is:
 //   git: the dedicated worker attests its source state via git
-//     (worker_source_commit_unavailable in a git-less copy).
+//     (worker_source_commit_unavailable in a git-less copy) — its own
+//     git-free-attestation leaf.
 const INSTALLED_SMOKE_EXCLUDED = [
-  { path: "test/a8_synth_secure_access.test.mjs", reason: "npm_dependency_ajv_not_shipped" },
-  { path: "test/task_engine_inventory.test.mjs", reason: "npm_dependency_ajv_not_shipped" },
-  { path: "test/task_engine_inventory_c00b_binding_producer.test.mjs", reason: "npm_dependency_ajv_not_shipped" },
-  { path: "test/task_engine_inventory_c00b_judge.test.mjs", reason: "npm_dependency_ajv_not_shipped" },
-  { path: "test/adapter_snapshot.test.mjs", reason: "npm_dependency_yaml_not_shipped" },
-  { path: "test/codex_payload_backup.test.mjs", reason: "npm_dependency_yaml_not_shipped" },
-  { path: "test/core.test.mjs", reason: "npm_dependency_yaml_not_shipped" },
-  { path: "test/mail_project_route_backfill.test.mjs", reason: "npm_dependency_yaml_not_shipped" },
-  { path: "test/runtime_release_audit_worker.test.mjs", reason: "npm_dependency_yaml_not_shipped" },
   { path: "test/codex_dedicated_worker.test.mjs", reason: "requires_git_checkout_source_attestation" },
   { path: "test/codex_worker_server_integration.test.mjs", reason: "requires_git_checkout_source_attestation" },
 ];
@@ -127,6 +173,9 @@ const contentRoles = {
   server_modules: [...new Set([...appCode, ...sharedCode, ...listFilesRecursive(`${APP}/static`), ...dataReads])].sort(),
   control_data_plane_services: [
     "ui-workspace/apps/dev-erp/ops/run-dev-erp-background.ps1",
+    "ui-workspace/apps/dev-erp/ops/dev-erp-watchdog.ps1",
+    "ui-workspace/apps/dev-erp/ops/install-dev-erp-nssm.ps1",
+    "ui-workspace/apps/dev-erp/ops/configure-dev-erp-codex-nssm.ps1",
     "ui-workspace/apps/dev-erp/start-windows.bat",
   ],
   manifests: ["ui-workspace/apps/dev-erp/package.json"],
@@ -137,6 +186,7 @@ const contentRoles = {
     "ui-workspace/apps/dev-erp/docs/BROWSER_QA_PROCEDURE.md",
   ],
   validators: listFiles(`${APP}/test`, ".test.mjs"),
+  vendored_dependencies: vendoredFiles,
 };
 
 const reviewed = [];
@@ -158,6 +208,9 @@ const spec = {
   // dev-erp's suite assumes its app directory as cwd; entries are explicit
   // files relative to it (node --test does not discover positional dirs).
   test_cwd: "ui-workspace/apps/dev-erp",
+  // dev-erp's suite is engineered for --test-concurrency=4 (its own npm
+  // test); wider per-CPU defaults collide its port/db fixtures.
+  test_concurrency: 4,
   smoke_test_entries: contentRoles.validators.map((entry) => entry.replace("ui-workspace/apps/dev-erp/", "")),
   installed_smoke_entries: contentRoles.validators
     .map((entry) => entry.replace("ui-workspace/apps/dev-erp/", ""))
@@ -169,6 +222,8 @@ const spec = {
   rollback_manual_ref: "manual.rollback.hpp_server_pack",
   support_owner_ref: "owner.platform_support",
   secret_refs: [],
+  vendored_packages: vendoredPackages,
+  vendored_file_sha256: vendoredFileHashes,
   content_scan_reviewed_files: reviewed,
 };
 
