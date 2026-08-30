@@ -13,6 +13,8 @@
 // one another: logical_owner_ref, byte_owner_ref, revision_owner_ref,
 // acceptance_owner_ref, backup_restore_owner_ref.
 
+import { createHash } from "node:crypto";
+
 export const VAULT_REVISION_SCHEMA = "soulforge.vault_artifact_revision_core.v0";
 
 export const SCAN_CLASSES = Object.freeze([
@@ -28,6 +30,9 @@ export const HOLD_CODES = Object.freeze({
   SCAN_NOT_CLEAN: "HOLD_SCAN_NOT_CLEAN",
   CUSTODY_MISSING: "HOLD_CUSTODY_MISSING",
   BINDING_MISSING: "HOLD_BINDING_MISSING",
+  BUNDLE_ENTRY_NOT_ACCEPTED: "HOLD_BUNDLE_ENTRY_NOT_ACCEPTED",
+  REDACTION_SOURCE_NOT_ACCEPTED: "HOLD_REDACTION_SOURCE_NOT_ACCEPTED",
+  EXTERNAL_ENTRY_NOT_ACCEPTED: "HOLD_EXTERNAL_ENTRY_NOT_ACCEPTED",
 });
 
 export const UNIFORM_DENIAL = Object.freeze({ code: "not_available" });
@@ -51,8 +56,26 @@ function assertSha(value, field) {
   return value;
 }
 
+function deepFreezeInPlace(value) {
+  if (value && typeof value === "object") {
+    Object.freeze(value);
+    for (const key of Object.keys(value)) deepFreezeInPlace(value[key]);
+  }
+  return value;
+}
+
+// Deep-frozen JSON copy: the round trip guarantees acyclicity, and the
+// recursive freeze covers nested structures (derivation, entries, lineage) so
+// no stored record is mutable at ANY depth.
 function frozenClone(value) {
-  return Object.freeze(JSON.parse(JSON.stringify(value)));
+  return deepFreezeInPlace(JSON.parse(JSON.stringify(value)));
+}
+
+// Codepoint comparator: localeCompare is locale-dependent (some locales
+// reorder or even equate ids differing only in punctuation), which would make
+// manifests order-dependent and digests machine-dependent.
+function byCodepoint(a, b) {
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 export function createVaultRevisionCore() {
@@ -64,7 +87,15 @@ export function createVaultRevisionCore() {
   const candidates = new Map();      // artifact_revision_id -> candidate record
   const reviews = new Map();         // review_ref -> review record
   const acceptedHeads = new Map();   // logical_artifact_id -> accepted artifact_revision_id
-  const idempotency = new Map();     // `${actor}:${key}` -> { digest, submission_id }
+  const idempotency = new Map();     // `${actor}\u0000${key}` -> { digest, submission_id }
+  const bundles = new Map();         // bundle_id -> input bundle record
+  const bundleIdem = new Map();      // `${assembler}\u0000${key}` -> { digest, bundle_id }
+  const externals = new Map();       // external_submission_id -> external submission record
+  const externalIdem = new Map();    // `${submitter}\u0000${key}` -> { digest, external_submission_id }
+
+  function sha256Of(value) {
+    return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+  }
 
   function append(kind, payload) {
     const record = frozenClone({ seq: events.length + 1, kind, ...payload });
@@ -100,6 +131,51 @@ export function createVaultRevisionCore() {
     const artifact = artifacts.get(candidate.logical_artifact_id);
     if (artifact.project_ref !== scopeRef) uniformDeny();
     return { candidate, artifact };
+  }
+
+  // Shared candidate builder: EVERY check precedes EVERY write, so a failed
+  // creation (including a failed redaction derivation) records nothing.
+  function buildRevisionCandidate(input, scope, derivation) {
+    const artifact = resolveArtifactInScope(input?.logical_artifact_id, scope);
+    const custodyRecord = custody.get(assertRef(input.custody_receipt_ref, "custody_receipt_ref"));
+    // An absent custody receipt and a custody receipt belonging to another
+    // project are indistinguishable: both would otherwise reveal existence.
+    const custodySubmission = custodyRecord ? submissions.get(custodyRecord.submission_id) : null;
+    if (!custodyRecord || custodySubmission.project_ref !== artifact.project_ref) {
+      fail(HOLD_CODES.CUSTODY_MISSING, "absent_or_out_of_scope");
+    }
+    if (custodyRecord.scan_class !== "clean") fail(HOLD_CODES.SCAN_NOT_CLEAN, custodyRecord.scan_class);
+    const assignmentRef = assertRef(input.assignment_ref, "assignment_ref");
+    if (assignmentRef !== custodySubmission.assignment_ref) {
+      fail(HOLD_CODES.BINDING_MISSING, "assignment_mismatch");
+    }
+    const revisionId = assertRef(input.artifact_revision_id, "artifact_revision_id");
+    if (candidates.has(revisionId)) fail("revision_duplicate", revisionId);
+    const declaredParent = input.parent_revision_id === null ? null : assertRef(input.parent_revision_id, "parent_revision_id");
+    const currentHead = acceptedHeads.get(artifact.logical_artifact_id) ?? null;
+    if (declaredParent !== currentHead) fail(HOLD_CODES.CHANGED_HEAD, `expected=${currentHead}`);
+    const contentId = `sha256:${custodyRecord.stored_sha256}`;
+    if (derivation && contentId === derivation.source_content_id) {
+      // A "redaction" whose bytes equal the source's is a lie: nothing was
+      // removed. Checked before any write.
+      fail("redaction_identical_digest", revisionId);
+    }
+    const record = frozenClone({
+      artifact_revision_id: revisionId,
+      logical_artifact_id: artifact.logical_artifact_id,
+      parent_revision_id: declaredParent,
+      content_id: contentId,
+      custody_receipt_ref: custodyRecord.custody_receipt_ref,
+      submission_id: custodyRecord.submission_id,
+      assignment_ref: assignmentRef,
+      state: "candidate",
+      review_ref: null,
+      acceptance_ref: null,
+      derivation: derivation ?? null,
+    });
+    candidates.set(revisionId, record);
+    append(derivation ? "redaction_candidate_derived" : "revision_candidate_created", { artifact_revision_id: revisionId });
+    return record;
   }
 
   return Object.freeze({
@@ -195,39 +271,36 @@ export function createVaultRevisionCore() {
     // 5) Revision candidate: binding + parent/head check. The promoter role is
     //    the CALLER of this function — a separate sole writer per D27.
     createRevisionCandidate(input, scope) {
-      const artifact = resolveArtifactInScope(input?.logical_artifact_id, scope);
-      const custodyRecord = custody.get(assertRef(input.custody_receipt_ref, "custody_receipt_ref"));
-      // An absent custody receipt and a custody receipt belonging to another
-      // project are indistinguishable: both would otherwise reveal existence.
-      const custodySubmission = custodyRecord ? submissions.get(custodyRecord.submission_id) : null;
-      if (!custodyRecord || custodySubmission.project_ref !== artifact.project_ref) {
-        fail(HOLD_CODES.CUSTODY_MISSING, "absent_or_out_of_scope");
+      return buildRevisionCandidate(input, scope, null);
+    },
+
+    // 5b) Redaction derivative: a NEW candidate on a DIFFERENT logical
+    //     artifact whose lineage pins the exact accepted source revision it
+    //     was redacted from. Redaction never skips custody, scan, review, or
+    //     acceptance — it only adds provenance.
+    deriveRedactionCandidate(input, scope) {
+      const { candidate: source } = resolveCandidateInScope(input?.derived_from_revision_id, scope);
+      if (source.state !== "accepted") {
+        fail(HOLD_CODES.REDACTION_SOURCE_NOT_ACCEPTED, source.state);
       }
-      if (custodyRecord.scan_class !== "clean") fail(HOLD_CODES.SCAN_NOT_CLEAN, custodyRecord.scan_class);
-      const assignmentRef = assertRef(input.assignment_ref, "assignment_ref");
-      if (assignmentRef !== custodySubmission.assignment_ref) {
-        fail(HOLD_CODES.BINDING_MISSING, "assignment_mismatch");
+      const targetArtifactId = assertRef(input.logical_artifact_id, "logical_artifact_id");
+      // A redacted derivative must not continue the revision chain of ANY
+      // artifact in its own ancestry — not just the immediate source's.
+      // Otherwise a redaction-of-a-redaction could land back on the raw
+      // original's artifact and become its accepted head.
+      for (let cursor = source; cursor; cursor = cursor.derivation ? candidates.get(cursor.derivation.derived_from_revision_id) : null) {
+        if (cursor.logical_artifact_id === targetArtifactId) {
+          fail("redaction_same_artifact", targetArtifactId);
+        }
       }
-      const revisionId = assertRef(input.artifact_revision_id, "artifact_revision_id");
-      if (candidates.has(revisionId)) fail("revision_duplicate", revisionId);
-      const declaredParent = input.parent_revision_id === null ? null : assertRef(input.parent_revision_id, "parent_revision_id");
-      const currentHead = acceptedHeads.get(artifact.logical_artifact_id) ?? null;
-      if (declaredParent !== currentHead) fail(HOLD_CODES.CHANGED_HEAD, `expected=${currentHead}`);
-      const record = frozenClone({
-        artifact_revision_id: revisionId,
-        logical_artifact_id: artifact.logical_artifact_id,
-        parent_revision_id: declaredParent,
-        content_id: `sha256:${custodyRecord.stored_sha256}`,
-        custody_receipt_ref: custodyRecord.custody_receipt_ref,
-        submission_id: custodyRecord.submission_id,
-        assignment_ref: assignmentRef,
-        state: "candidate",
-        review_ref: null,
-        acceptance_ref: null,
-      });
-      candidates.set(revisionId, record);
-      append("revision_candidate_created", { artifact_revision_id: revisionId });
-      return record;
+      const profileRef = assertRef(input.redaction_profile_ref, "redaction_profile_ref");
+      const derivation = {
+        kind: "redaction",
+        derived_from_revision_id: source.artifact_revision_id,
+        source_content_id: source.content_id,
+        redaction_profile_ref: profileRef,
+      };
+      return buildRevisionCandidate(input, scope, derivation);
     },
 
     // 6) Review record: ACCEPT/REVISE/HOLD verdict; never changes the head.
@@ -272,6 +345,121 @@ export function createVaultRevisionCore() {
       return updated;
     },
 
+    // 8) Input bundle: an immutable manifest over EXACT accepted revisions.
+    //    No latest, no raw fallback, no cross-project entry can exist in one.
+    assembleInputBundle(input, scope) {
+      const bundleId = assertRef(input?.bundle_id, "bundle_id");
+      const assembler = assertRef(input.assembler_ref, "assembler_ref");
+      const key = assertRef(input.idempotency_key, "idempotency_key");
+      const purpose = assertRef(input.purpose_ref, "purpose_ref");
+      if (!Array.isArray(input.entries) || input.entries.length === 0) fail("bundle_entries_missing");
+      if (new Set(input.entries).size !== input.entries.length) fail("bundle_duplicate_entry");
+      // Validate every entry BEFORE any write: absent/foreign uniform-deny,
+      // non-accepted holds. A failed assembly records nothing.
+      const manifestEntries = input.entries.map((revisionId) => {
+        const { candidate } = resolveCandidateInScope(revisionId, scope);
+        if (candidate.state !== "accepted") {
+          fail(HOLD_CODES.BUNDLE_ENTRY_NOT_ACCEPTED, `${revisionId}=${candidate.state}`);
+        }
+        return {
+          artifact_revision_id: candidate.artifact_revision_id,
+          logical_artifact_id: candidate.logical_artifact_id,
+          content_id: candidate.content_id,
+        };
+      }).sort((a, b) => byCodepoint(a.artifact_revision_id, b.artifact_revision_id));
+      const manifestDigest = sha256Of(manifestEntries);
+      // The idempotency digest also covers the PURPOSE: reusing a key for the
+      // same entries under a different purpose is a conflict, not a replay.
+      const idemDigest = sha256Of({ purpose_ref: purpose, entries: manifestEntries });
+      const idemRef = `${assembler}\u0000${key}`;
+      const prior = bundleIdem.get(idemRef);
+      if (prior) {
+        if (prior.digest === idemDigest) {
+          return frozenClone({ replay: true, bundle_id: prior.bundle_id, manifest_digest: bundles.get(prior.bundle_id).manifest_digest });
+        }
+        append("bundle_conflict", { bundle_id: bundleId, prior_bundle_id: prior.bundle_id });
+        fail("bundle_key_digest_conflict", key);
+      }
+      if (bundles.has(bundleId)) fail("bundle_duplicate", bundleId);
+      const record = frozenClone({
+        bundle_id: bundleId,
+        project_ref: assertRef(scope?.project_ref, "scope.project_ref"),
+        assembler_ref: assembler,
+        purpose_ref: purpose,
+        entries: manifestEntries,
+        manifest_digest: manifestDigest,
+        claim: "exact_accepted_revisions_only",
+      });
+      bundles.set(bundleId, record);
+      bundleIdem.set(idemRef, { digest: idemDigest, bundle_id: bundleId });
+      append("bundle_assembled", { bundle_id: bundleId, manifest_digest: manifestDigest });
+      return record;
+    },
+
+    // 9) External submission registration: the lineage gate for anything that
+    //    leaves the project boundary. Every referenced revision must be an
+    //    ACCEPTED REDACTION DERIVATIVE — a raw original is structurally
+    //    unregistrable here, so "we only ever sent redacted material" is a
+    //    property of the record shape, not of operator discipline. This is a
+    //    registration ONLY: nothing is transmitted and no send port exists.
+    registerExternalSubmission(input, scope) {
+      const externalId = assertRef(input?.external_submission_id, "external_submission_id");
+      const submitter = assertRef(input.submitter_ref, "submitter_ref");
+      const destination = assertRef(input.destination_ref, "destination_ref");
+      const key = assertRef(input.idempotency_key, "idempotency_key");
+      if (!Array.isArray(input.revision_ids) || input.revision_ids.length === 0) fail("external_revisions_missing");
+      if (new Set(input.revision_ids).size !== input.revision_ids.length) fail("external_duplicate_entry");
+      // All-or-nothing: every entry validates before anything is recorded.
+      const lineage = input.revision_ids.map((revisionId) => {
+        const { candidate } = resolveCandidateInScope(revisionId, scope);
+        if (candidate.state !== "accepted") {
+          fail(HOLD_CODES.EXTERNAL_ENTRY_NOT_ACCEPTED, `${revisionId}=${candidate.state}`);
+        }
+        if (!candidate.derivation || candidate.derivation.kind !== "redaction") {
+          fail("external_requires_redacted_derivative", revisionId);
+        }
+        // The lineage entry is CHAIN-COMPLETE: origin_revision_id walks the
+        // derivation chain to the deepest non-derived ancestor, so the record
+        // answers "redacted from what raw origin" even for depth-2 chains.
+        let origin = candidate;
+        while (origin.derivation) origin = candidates.get(origin.derivation.derived_from_revision_id);
+        return {
+          artifact_revision_id: candidate.artifact_revision_id,
+          derived_from_revision_id: candidate.derivation.derived_from_revision_id,
+          origin_revision_id: origin.artifact_revision_id,
+          redaction_profile_ref: candidate.derivation.redaction_profile_ref,
+        };
+      }).sort((a, b) => byCodepoint(a.artifact_revision_id, b.artifact_revision_id));
+      const lineageDigest = sha256Of(lineage);
+      // The idempotency digest also covers the DESTINATION: reusing a key for
+      // the same lineage toward a different destination is a conflict, never
+      // a silent replay bound to the original destination.
+      const idemDigest = sha256Of({ destination_ref: destination, lineage });
+      const idemRef = `${submitter}\u0000${key}`;
+      const prior = externalIdem.get(idemRef);
+      if (prior) {
+        if (prior.digest === idemDigest) {
+          return frozenClone({ replay: true, external_submission_id: prior.external_submission_id, lineage_digest: externals.get(prior.external_submission_id).lineage_digest });
+        }
+        append("external_submission_conflict", { external_submission_id: externalId, prior_external_submission_id: prior.external_submission_id });
+        fail("external_key_digest_conflict", key);
+      }
+      if (externals.has(externalId)) fail("external_submission_duplicate", externalId);
+      const record = frozenClone({
+        external_submission_id: externalId,
+        project_ref: assertRef(scope?.project_ref, "scope.project_ref"),
+        submitter_ref: submitter,
+        destination_ref: destination,
+        lineage,
+        lineage_digest: lineageDigest,
+        claim: "lineage_registration_only_no_external_send",
+      });
+      externals.set(externalId, record);
+      externalIdem.set(idemRef, { digest: idemDigest, external_submission_id: externalId });
+      append("external_submission_registered", { external_submission_id: externalId, lineage_digest: lineageDigest });
+      return record;
+    },
+
     // Read model — scope-checked, uniform denial for foreign projects.
     getAcceptedHead(logicalArtifactId, scope) {
       const artifact = resolveArtifactInScope(logicalArtifactId, scope);
@@ -280,6 +468,20 @@ export function createVaultRevisionCore() {
 
     getRevision(revisionId, scope) {
       return resolveCandidateInScope(revisionId, scope).candidate;
+    },
+
+    getBundle(bundleId, scope) {
+      const scopeRef = assertRef(scope?.project_ref, "scope.project_ref");
+      const record = bundles.get(assertRef(bundleId, "bundle_id"));
+      if (!record || record.project_ref !== scopeRef) uniformDeny();
+      return record;
+    },
+
+    getExternalSubmission(externalId, scope) {
+      const scopeRef = assertRef(scope?.project_ref, "scope.project_ref");
+      const record = externals.get(assertRef(externalId, "external_submission_id"));
+      if (!record || record.project_ref !== scopeRef) uniformDeny();
+      return record;
     },
 
     // Trusted audit surface: the caller of this factory owns the whole core,
