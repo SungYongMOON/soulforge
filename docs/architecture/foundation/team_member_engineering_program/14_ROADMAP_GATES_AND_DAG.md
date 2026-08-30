@@ -145,14 +145,14 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | Forge intent (core·brief draft) | DONE `L-FORGE-CORE`,`L-FORGE-DRAFT` | — | GATED (row-4-actual: 실 task-writer + accepted context) | GATED |
 | Watch/Bastion contract | DONE `L-WATCH-BASTION` | — | GATED (실 executor) | GATED |
 | Board/4192 watch vertical | DONE `L-BOARD-VIEWMODEL`,`L-BOARD-PAGE`,`L-STORAGE-MAP-SERVER` (기본 OFF `?watch=1`) + `L-WATCH-SUP-3` | n/a (vite 앱) | PARTIAL — 실 read-only 공급자 3/9 domain; storage-map GET server seam은 binding+binding SHA+snapshot SHA+registry digest pin의 기본-OFF 코드까지 완료, 실제 private binding/snapshot은 미주입; watchtower binding 등 잔여 5는 환경 gate | GATED |
-| Mail/Slack/Voice/PC-activity source-lane capture adapters | DONE `L-MAIL-SOURCE-LANE`,`L-SLACK-SOURCE-LANE`,`L-VOICE-SOURCE-LANE` + current project-bound PC coverage adapter | — | GATED (실 receipt caller·private record store; Cloud/Git/NAS native receipt 없음) | GATED |
+| Mail/Slack/Voice/PC-activity source-lane capture adapters | DONE `L-MAIL-SOURCE-LANE`,`L-SLACK-SOURCE-LANE`,`L-VOICE-SOURCE-LANE`,`L-PC-ACTIVITY-SOURCE` | — | GATED (실 receipt caller·private record store; Cloud/Git/NAS native receipt 없음) | GATED |
 | Source/Buzz/Hermes backup-generation contracts | DONE `L-BACKUP-GEN-CONTRACTS` (generic Source acceptance separation + Buzz multi-store digest + Hermes Agent custody manifest; effects 0) | Backup-Recovery current closure에 포함 | GATED (actual bytes/quiesce/restore/human authority) | GATED |
-| Agent workforce lineage | DONE `L-AGENT-MARK-CONTRACT`,`L-AGENT-REVISION-CATALOG` + trusted-pin authority verifier | GATED (`project_ai_team_pack`) | GATED (verified receipt durable writer·deployment activation) | GATED |
+| Agent workforce lineage | DONE `L-AGENT-MARK-CONTRACT`,`L-AGENT-REVISION-CATALOG`,`L-AGENT-AUTH-VERIFY` | GATED (`project_ai_team_pack`) | GATED (verified receipt durable writer·deployment activation) | GATED |
 | Tool workshop | DONE `L-WORKSHOP-CORE` | DONE `L-PACK-BUILDER` (4-file pack, install+smoke green) | GATED (물리 Tool PC·runner) | GATED |
 | Deployment pack (contract·builder·spec 4종/5종 중 project_ai_team만 외부 gate) | DONE `L-PACK-CONTRACT` | DONE `L-PACK-BUILDER`,`L-HPP-PACK`,`L-DEP-DELIVERY`,`L-GITFREE-ATTEST`,`L-LIFECYCLE` + current Backup-Recovery **61파일·19 smoke·pin 19**, hpp **941파일·91/91**, team_client **216파일·78 smoke·Board 732 tests**; pack 존재는 physical readiness/acceptance 무주장 | — | GATED |
 | Module operability gate (manifest·의존·cycle·preflight) | DONE `L-MODOP-GATE` + risk-based 등재 (current **28 manifest**, import scan 1,195파일/2,660 edge·cycle 0; file_activity native receipt owner 등재, 잔여 22 dir 명시 미등재) | n/a | — | — |
 | Cross-module integration (plan-13 module-integration rung) | DONE `L-DOGFOOD-INT` | — | — | — |
-| Physical spine (plan-17 R1–R5 contracts) | DONE `L-PHYS-SPINE`,`L-PHYS-SPINE-HARDEN`,`L-SOURCE-LANE-LEDGER` + 9-class asset ledger/source adapters (seed 40행) | — | GATED (private binding/record writer·canary readback·enforcement·actual backup/restore) | GATED |
+| Physical spine (plan-17 R1–R5 contracts) | DONE `L-PHYS-SPINE`,`L-PHYS-SPINE-HARDEN`,`L-SOURCE-LANE-LEDGER`,`L-ASSET-CLASS-LEDGER` + source adapters (seed 40행) | — | GATED (private binding/record writer·canary readback·enforcement·actual backup/restore) | GATED |
 | dev-ERP host gates | DONE `L-DEVERP-HOST-RED` + PATH 실행파일 전면 고정 (합성 아님 — 실 host 스위트 green; whoami에 이어 git(부팅 buildSeq 포함)·where·taskkill·cmd·python까지 System32 절대경로/`DEV_ERP_GIT_EXE`·`DEV_ERP_PYTHON` pin/resolver로 고정, where 자체 cwd도 System32로 중립화 — **server·worker·bridge 프로세스의 PATH 해석 잔존 0**; 예외 장부=dev CLI 유틸(doctor·verify-gate·probe·se-report·release-audit·payload-backup)과 ops 런처 ps1의 node 해석(서버 프로세스 밖, CHANGELOG에 명시); 이 lane만 이 칸을 host-gate 증거로 사용) | (hpp pack로 포장됨) | 기존 운영면(본 프로그램 범위 밖) | — |
 
 ### Per-leaf durable trace
@@ -190,6 +190,9 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `L-AGENT-REVISION-CATALOG` | `646bfa35` | Guild / Agent assets | candidate·unverified approval claim revision catalog; active Agent projection 0 |
 | `L-MCP-STDIO` | `646bfa35` | MCP | branded facade only·21 read tools·bounded newline stdio·mutate/provider wiring 0 |
 | `L-BACKUP-GEN-CONTRACTS` | `1a9f41bc` | Backup / R5 | Source trusted acceptance pin·Buzz multi-store digest·Hermes Agent backup manifest 계약; actual effects 0 |
+| `L-ASSET-CLASS-LEDGER` | `f76df21e` | ERP assets / R5 | 9-class revision·five-owner·acceptance/backup/restore evidence overlay; authority neutral |
+| `L-AGENT-AUTH-VERIFY` | `f76df21e` | Guild / Agent authority | approval claim + trusted pin + current-authority-state exact verification; runtime/task effect 0 |
+| `L-PC-ACTIVITY-SOURCE` | `f76df21e` | Physical spine / PC activity | native project-bound file-activity coverage→capture-only source lane; Cloud/Git/NAS HOLD |
 | `L-DEVERP-HOST-RED` | `e27d5c6d` | dev-ERP | worker 신원 바이너리 System32 절대경로 고정(보안 강화) |
 | `L-HPP-PACK` | `8b02724c` | Deployment | dev-ERP 267파일 pack(모듈+데이터 폐포·scan pin 60·smoke 파티션 78+11) |
 | `L-PLAN-TRUTH` | `22c05384` | Program docs | 이 원장 자체(레인×성숙도·trace·register)와 drift 수정 + `validate:plan-truth` |
