@@ -237,6 +237,18 @@ export function assembleSourceLaneEvidence({
   }
   const latest = captures.reduce((a, b) => (b.generation_seq > a.generation_seq ? b : a));
 
+  // A record clock ahead of the caller-asserted evaluation time is an
+  // impossible observation: a forged future clock must not buy freshness.
+  for (const [record, field] of [
+    ...captures.map((r) => [r, "captured_at"]),
+    ...backups.map((r) => [r, "backed_up_at"]),
+    ...restores.map((r) => [r, "restored_at"]),
+  ]) {
+    if (Date.parse(record[field]) > evaluationTimestamp) {
+      return hold("record_clock_in_future", field);
+    }
+  }
+
   const clocks = [Date.parse(latest.captured_at)];
   const freshness = evaluationTimestamp - Date.parse(latest.captured_at)
     <= freshness_horizon_seconds * 1000 ? "fresh" : "stale";
@@ -244,7 +256,14 @@ export function assembleSourceLaneEvidence({
   // Backup pointer must protect the LATEST generation with the SAME digest;
   // a mismatched digest is fabricated evidence, not a soft miss.
   let backupRef;
-  const backup = backups.find((b) => b.generation_seq === latest.generation_seq);
+  // Conflicting duplicates cannot be resolved first-match: a mismatched
+  // duplicate hiding behind a matching one would mask a digest break, so
+  // any fork in the backup/restore chain HOLDs (set-deterministic output).
+  const latestBackups = backups.filter((b) => b.generation_seq === latest.generation_seq);
+  if (latestBackups.length > 1) {
+    return hold("duplicate_backup_pointer", `gen_${latest.generation_seq}`);
+  }
+  const [backup] = latestBackups;
   if (backup !== undefined) {
     if (backup.content_digest !== latest.content_digest) {
       return hold("backup_digest_mismatch", `gen_${latest.generation_seq}`);
@@ -256,7 +275,11 @@ export function assembleSourceLaneEvidence({
   let restoreRef;
   let acceptance;
   if (backupRef !== undefined) {
-    const restore = restores.find((r) => r.backup_generation_ref === backupRef);
+    const matchingRestores = restores.filter((r) => r.backup_generation_ref === backupRef);
+    if (matchingRestores.length > 1) {
+      return hold("duplicate_restore_test", backupRef);
+    }
+    const [restore] = matchingRestores;
     if (restore !== undefined) {
       if (restore.readback_digest !== latest.content_digest) {
         return hold("restore_readback_mismatch", backupRef);

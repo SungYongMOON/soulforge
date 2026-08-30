@@ -45,7 +45,11 @@
 //     hold); any non-hold state without a serving clock supplies nothing.
 //     The endpoint itself does not exist until the private
 //     binding/ACL-gated runtime emits the snapshot — until then this
-//     domain honestly renders unknown/no_evidence.
+//     domain honestly renders unknown/no_evidence. EMITTER OBLIGATION:
+//     the projection object alone has no clock, so the serving runtime
+//     MUST add a top-level `observed_at` (emission time, ISO-Z) to the
+//     served JSON; emitting the projection verbatim keeps every non-hold
+//     aggregate rendering unknown (safe, but never activates).
 //
 // The watchtower topology snapshot (cost_usage candidate) is NOT mapped
 // yet: its refresh_state on this machine is "unconfigured" (no binding),

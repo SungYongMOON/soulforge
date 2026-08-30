@@ -160,6 +160,23 @@ test("digest breaks are fabricated evidence: the lane HOLDs", () => {
   );
 });
 
+test("chain forks and future clocks hold instead of resolving first-match", () => {
+  // A digest-mismatched duplicate must not hide behind a matching one.
+  assert.equal(
+    assemble({ records: [CAPTURE, BACKUP, { ...BACKUP, backup_generation_ref: "backup.mail.gen-104b", content_digest: OTHER_DIGEST }] }).hold_code,
+    "duplicate_backup_pointer",
+  );
+  assert.equal(
+    assemble({ records: [CAPTURE, BACKUP, RESTORE, { ...RESTORE, restore_test_ref: "restore_test.mail.gen-104b", readback_digest: OTHER_DIGEST }] }).hold_code,
+    "duplicate_restore_test",
+  );
+  // A forged future clock cannot buy freshness.
+  assert.equal(
+    assemble({ records: [{ ...CAPTURE, captured_at: "2026-09-30T00:00:00Z" }] }).hold_code,
+    "record_clock_in_future",
+  );
+});
+
 test("lane scope cannot widen and generations cannot fork", () => {
   assert.equal(
     assemble({ records: [CAPTURE, { ...CAPTURE, source_ref: "source.slack" }] }).hold_code,
