@@ -3,9 +3,9 @@
   "module_id": "path_registry",
   "module_version": "0.1.0",
   "interface_version": "path_registry.v0",
-  "schema_versions": ["soulforge.path_registry.v0", "soulforge.target_materializer.v0", "soulforge.watch_storage_map.v0"],
+  "schema_versions": ["soulforge.path_registry.v0", "soulforge.target_materializer.v0", "soulforge.watch_storage_map.v0", "soulforge.source_lane_index.v0"],
   "owner": "guild_hall/path_registry",
-  "capabilities_provided": ["physical.path_registry_contract.v0", "physical.target_materializer.v0", "watch.storage_backup_map_projection.v0"],
+  "capabilities_provided": ["physical.path_registry_contract.v0", "physical.target_materializer.v0", "watch.storage_backup_map_projection.v0", "physical.source_lane_index_contract.v0"],
   "capabilities_required": [],
   "required_dependencies": ["shared", "watch_panel_contract"],
   "optional_dependencies": [],
@@ -24,9 +24,10 @@
   "validators": [
     "node --test guild_hall/path_registry/tests/path_registry_core.test.mjs",
     "node --test guild_hall/path_registry/tests/target_materializer.test.mjs",
-    "node --test guild_hall/path_registry/tests/storage_map_projection.test.mjs"
+    "node --test guild_hall/path_registry/tests/storage_map_projection.test.mjs",
+    "node --test guild_hall/path_registry/tests/source_lane_index.test.mjs"
   ],
   "release_digest": null,
   "deprecation_state": "active_draft",
-  "authority_notes": "Plan-17 R1-R3 contract surfaces only. The registry is an in-memory contract whose tracked seed carries four hold:od-10.* authority sentinels: every mutating authorization fails closed (authority_unresolved_od10) and registryReadiness reports HOLD until the Owner records the OD-10 decisions. The resolver is not source truth, task, acceptance, or promotion authority; delete/move are globally gated to the R7 migration leaf. The materializer creates empty directories only under an exact Owner-approved empty canary root (no ref -> HOLD), moves zero payload bytes, and its rollback removes only still-empty directories from its own receipt. The storage map is a read-only registry-driven backup-readiness OVERLAY on the existing 4192 federated topology: rows resolve to existing stable node IDs via topology_node_refs (duplicate source identity rejected at construction), never mint a topology node, card, or competing health truth, and carry no display/label/edge fields; missing evidence renders unknown or hold, never green, and rows carry no writer, raw-body, credential, or absolute-path fields. No live writer, collector, filesystem guard hook, or 4192 wiring is activated by this module."
+  "authority_notes": "Plan-17 R1-R3 contract surfaces only. The registry is an in-memory contract whose tracked seed carries four hold:od-10.* authority sentinels: every mutating authorization fails closed (authority_unresolved_od10) and registryReadiness reports HOLD until the Owner records the OD-10 decisions. The resolver is not source truth, task, acceptance, or promotion authority; delete/move are globally gated to the R7 migration leaf. The materializer creates empty directories only under an exact Owner-approved empty canary root (no ref -> HOLD), moves zero payload bytes, and its rollback removes only still-empty directories from its own receipt. The storage map is a read-only registry-driven backup-readiness OVERLAY on the existing 4192 federated topology: rows resolve to existing stable node IDs via topology_node_refs (duplicate source identity rejected at construction), never mint a topology node, card, or competing health truth, and carry no display/label/edge fields; missing evidence renders unknown or hold, never green, and rows carry no writer, raw-body, credential, or absolute-path fields. The source-lane index is a refs-only record contract whose evidence assembler is a deterministic function of validated records: a broken capture->backup->restore digest chain HOLDs as fabricated evidence instead of counting, missing links stay absent, and legacy-path-map notes never resolve or influence evidence. No live writer, collector, filesystem guard hook, or 4192 wiring is activated by this module."
 }
