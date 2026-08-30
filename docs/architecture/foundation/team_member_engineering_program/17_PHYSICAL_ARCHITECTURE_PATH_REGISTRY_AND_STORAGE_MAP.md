@@ -223,10 +223,14 @@ cannot satisfy full coverage.
 
 ## Path Registry contract
 
-R1 cannot begin until the Owner resolves these distinct owners: public registry
-schema/logical-entry owner, private binding writer, resolver runtime Module
-owner, and write-authorization policy owner. Until then they are `HOLD`; a
-platform operator is not automatically any of these owners.
+Owner assignment recorded 2026-08-31: `guild_hall/path_registry` owns the public
+schema/logical entries, resolver runtime, and protected binding-adapter contract;
+actual private binding bytes remain under the `control_root` sole writer.
+`guild_hall/bastion_action` owns operation-aware write-policy validation with
+Human Owner final authority. `guild_hall/watch_panel_contract` owns the 4192
+projection contract and Team Ops Board is the read-only consumer. The approved
+materializer canary logical ref is `pathref:recovery.physical_spine_canary`;
+private physical binding, ACL, and apply/readback evidence remain `HOLD`.
 
 Every registered path record contains at least:
 
@@ -373,15 +377,18 @@ physical expansion; they do not retroactively block the already-completed
 synthetic MCP/Vault/Forge leaves. R4 starts after external/storage/restore
 gates. R5–R7 remain incremental and do not justify a big-bang relocation.
 
-Execution status (2026-08-30, `L-PHYS-SPINE`): the R1–R3 CONTRACT surfaces
+Execution status (2026-08-31, `L-PHYS-SPINE`): the R1–R3 CONTRACT surfaces
 exist as the synthetic module `guild_hall/path_registry` and the three
-validators above are live npm scripts. The tracked seed carries four
+validators above are live npm scripts. Integration hardening `e57c4576`
+adds authenticated materializer receipts and partial-apply recovery, semantic
+clock rejection, registry-digest/safe-ref validation, and OD-10-aware Storage
+Map HOLD behavior (17/10/11 tests). The tracked seed carries four
 `hold:od-10.*` authority sentinels, so every mutating authorization fails
 closed and no readiness claim is representable. Enforcement wiring, real
 binding registration, materializer apply on a real root, 4192 wiring, and any
-physical movement remain behind the OD-10 decisions, the R0 acceptance
-record, and the Physical organization gate (see the plan-14
-`physical-spine-activation` unblock packet).
+physical movement remain behind private binding/ACL/canary readback and exact
+enforcement wiring. R0 acceptance and OD-10 owner/projection assignments are
+recorded; they do not by themselves activate a writer or physical path.
 
 ## Acceptance and stop conditions
 
