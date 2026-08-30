@@ -175,6 +175,9 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `L-START-STOP` | `53059a1f` | Deployment | 격리 start/stop 증명(env 중화·health digest 결속·post-stop 재결속·payload byte-clean) |
 | `L-LIFECYCLE` | `0ce4b835` | Deployment | pack 생애주기 backup/upgrade/rollback/restore(관측된 검증만 기록·1세대 보존·traversal 거부) — initial gate 7다리 완결 |
 | `L-PATH-PIN` | `9e9f81b6` | dev-ERP | PATH 실행파일 전면 고정(git 부팅 rung 포함·where cwd 중립화·python) — server·worker·bridge PATH 해석 0 |
+| `L-TEAM-CLIENT` | `9a2f5191` | Deployment | Team Client 소스 pack 211파일(전 suite 77/723 smoke green·제외 0)·closure lib 추출(byte-동일 증명) |
+| `L-RISK-ENROLL` | `ed40a5a1` | Operability | pack 폐포 직접 의존 legacy 16모듈 최소주장 manifest 등재(9→25, 잔여 24 의도적 유보) |
+| `L-BACKUP-REC` | `18c3f65a` | Deployment | Backup-Recovery pack 49파일(14/14 smoke·커버리지 가드) + project_ai_team BLOCKED packet |
 
 ### Current validator register (rebaselined 2026-08-30)
 
@@ -193,7 +196,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 
 ### Remaining branches
 
-Externally gated only — row 4-actual (task-writer binding + accepted context supply), row 5 (D28/D35 activation), row X-actual (connector credentials), physical canaries (OD-08), RED-05 (Owner-held 2026-08-18), the field pilot (real seats), and **project_ai_team_pack** (`branch_status: BLOCKED_EXTERNAL_AUTHORITY` — its contents are "approved_project_mark_deployment_bindings", which exist NOWHERE as public-safe tracked artifacts; `required_owner_action`: 첫 프로젝트의 approved project mark/deployment binding 계약과 public-safe 표현 승인; `resume_leaf`: emit_project_ai_team_spec — 합성 조작으로 대체하지 않음). Recorded follow-on leaves: remaining watch domain suppliers (watchtower topology where its binding exists), MCP real-provider wiring, physical workshop binding, root-acceptance enrollment of validate:battle-log/agent-observation/ai-usage-meter, posix graceful-stop evidence, and the plan-13 ladder rungs above module integration.
+Externally gated only — row 4-actual (task-writer binding + accepted context supply), row 5 (D28/D35 activation), row X-actual (connector credentials), physical canaries (OD-08), RED-05 (Owner-held 2026-08-18), the field pilot (real seats), and **project_ai_team_pack** (`branch_status: BLOCKED_EXTERNAL_AUTHORITY` — its contents are "approved_project_mark_deployment_bindings", which exist NOWHERE as public-safe tracked artifacts; `required_owner_action`: 첫 프로젝트의 approved project mark/deployment binding 계약과 public-safe 표현 승인; `resume_leaf`: emit_project_ai_team_spec — 합성 조작으로 대체하지 않음). Recorded follow-on leaves: remaining watch domain suppliers (watchtower topology where its binding exists), MCP real-provider wiring, physical workshop binding, posix graceful-stop evidence, and the plan-13 ladder rungs above module integration.
 
 ### Historical: RED-01 leaf contract (executed)
 
