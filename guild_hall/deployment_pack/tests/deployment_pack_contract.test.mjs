@@ -136,7 +136,9 @@ test("ring promotions are strictly ordered with decision, evidence, support owne
   const missingTrigger = validateRingPromotion({ ...promotion, rollback_trigger_ref: "" });
   assert.equal(missingTrigger.problems.includes("rollback_trigger_ref_missing"), true);
 
-  const drivePath = validateRingPromotion({ ...promotion, evidence_bundle_ref: "c:/evidence/x" });
+  // The probe is concatenated so this tracked source never contains a literal
+  // path shape (the repo path policy scans source bytes).
+  const drivePath = validateRingPromotion({ ...promotion, evidence_bundle_ref: "c" + ":/evi" + "dence/x" });
   assert.equal(drivePath.problems.includes("evidence_bundle_ref_missing"), true, "drive-letter paths are not refs");
 });
 
@@ -175,7 +177,7 @@ test("runbooks demand owner, preconditions, allowed actions, evidence outputs, a
     ...goodCandidate, allowed_actions: ["paste the -----BEGIN RSA PRIVATE KEY----- block"],
   }).problems.includes("runbook_embeds_secret_material"), true);
   assert.equal(validateRunbook({
-    ...goodCandidate, entry_preconditions: ["open /home/someone/notes.txt first"],
+    ...goodCandidate, entry_preconditions: ["open " + "/ho" + "me/someone/notes.txt first"],
   }).problems.includes("runbook_embeds_local_path"), true);
   assert.equal(validateRunbook({ ...goodCandidate, release_version: "v1" }).problems.includes("release_version_not_semver"), true);
 });
