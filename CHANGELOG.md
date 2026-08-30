@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-30 - First Tool Workshop core: capacity-one lease, fencing, validator retry (in-memory only)
+
+- Added `guild_hall/tool_workshop/`: the program plan-11 job-shop contract — exactly one active lease per workshop resource (busy acquires wait and an idle UI or dead runner is never a release), a monotonic fencing token where an expiry takeover supersedes the stale lease, terminally fails its overrun job, and rejects the zombie writer's late completion with zero promotion; priority-then-submission-order queueing; validator failures consume bounded retries then fail terminally with no custody; successful runs yield only a `done_candidate` custody receipt (`claim: workshop_output_candidate_only`) with no acceptance, promotion, or task-completion surface.
+- The first registered profile is the Document workshop; tool runs happen outside the core and only synthetic runs exist in this repository. Physical Tool PC/runner binding remains an Owner-gated leaf whose runner must honor the current fencing token as a hard stop. Added `npm run validate:tool-workshop` (7/7), a module manifest, and the guild_hall composition row.
+
 ## 2026-08-30 - Watch panel contract and Bastion action gate (contracts only)
 
 - Added `guild_hall/watch_panel_contract/`: the program plan-08 Watch/4192 correction as code — six-state panel enum with strict freshness semantics (missing evidence renders `unknown`, never green; over-window evidence degrades to `stale` while worse assertions and `hold` survive; future evidence is rejected), nine coarse projection domains, structural exclusion of deep-record/secret vocabulary from panels and pointers, safe deep-link pointers (metadata only), request-filing as the surface's only mutation, and a structural no-writer proof.
