@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-30 - Watch panel contract and Bastion action gate (contracts only)
+
+- Added `guild_hall/watch_panel_contract/`: the program plan-08 Watch/4192 correction as code — six-state panel enum with strict freshness semantics (missing evidence renders `unknown`, never green; over-window evidence degrades to `stale` while worse assertions and `hold` survive; future evidence is rejected), nine coarse projection domains, structural exclusion of deep-record/secret vocabulary from panels and pointers, safe deep-link pointers (metadata only), request-filing as the surface's only mutation, and a structural no-writer proof.
+- Added `guild_hall/bastion_action/`: the plan-09 execution boundary — a filed Watch request executes nothing until Bastion validates the separate human approval (exact request binding), policy (allowed targets/actions), expiry, maintenance lease when the policy demands one, and, for restore/rollback, an exact backup generation carrying an isolated-restore proof ref; only then is the caller-injected executor port touched. Refusals and executions are terminal idempotent receipts per request, and receipts structurally carry no health vocabulary, so a receipt can never impersonate fresh evidence (interlock-tested against the panel contract).
+- Only synthetic executor adapters exist; no real restart/isolation/restore/rollback is reachable. Added `npm run validate:watch-bastion` (7/7), module manifests, and guild_hall composition rows. Wiring 4192/Board onto the contract and binding a real executor remain later Owner-gated leaves.
+
 ## 2026-08-30 - Forge work-generation seam core (in-memory only)
 
 - Added `guild_hall/forge_intent/`: the program plan-04 state machine between engineering judgment and the external Official Task writer — Work Candidate (exact caller-asserted accepted-context ref required, facts never synthesized) → TaskIntent with a deterministic order-independent canonical-JSON SHA-256 digest → human/policy approval record (reject/hold blocks permanently; no re-approval) → official-task registration reachable only through a caller-injected writer PORT (approved intent ↔ exactly one task; replay is idempotent with zero double-writes) → assignment under a named authority/epoch/expiry → Work Brief issued only when all eight critical bindings are present.
