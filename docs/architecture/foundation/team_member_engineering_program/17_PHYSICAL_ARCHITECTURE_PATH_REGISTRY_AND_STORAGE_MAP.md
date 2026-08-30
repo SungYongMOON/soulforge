@@ -316,6 +316,16 @@ watch_state | evidence_at | owner_pointer | hold_code
 
 Missing evidence renders `unknown` or `hold`, never green. 4192 excludes source bodies, project payload, credentials, private Agent memory, deep Buzz/Hermes sessions, and raw logs. It files an approval request at most; Bastion owns any later action execution.
 
+The map is an existing-node backup-readiness projection, not a new source
+display: the 4192 federated topology (RED-02 pinned artifact) already owns
+Slack, mail, PLAUD/voice, collector, and custody-store node identity and
+health truth, so map rows resolve to those stable node IDs via registry
+`topology_node_refs`/`registry_record_ref`/`owner_pointer` and add only
+backup-generation, coverage, freshness, restore-test, path-drift, and HOLD
+overlay/detail. Duplicate source identity is rejected at registry
+construction; a source without an existing stable topology identity (Linear
+today) appears only through the same registry contract.
+
 Adapters map source/storage states into plan 08's Watch-local enum
 `healthy|degraded|stale|unavailable|unknown|hold`; no source-specific state
 silently widens that enum or creates a green state.

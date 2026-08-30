@@ -191,7 +191,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `L-ACCEPT-LANE` | `600db1ea` | Validate | root acceptance lane +3(고아 모듈 suite 등재·양 모드 대칭 pin) |
 | `L-GRACEFUL-CONTRACT` | `7bb3ad07` | Deployment | posix graceful-stop 계약(SIGTERM→exit 0 assert)·win32 무회귀·실행은 BLOCKED_ENVIRONMENT packet |
 | `L-PLAN13-FACTS` | `ac5030f5` | Program docs | plan-13 사실표 재기준(57/58/57 정직 스토리)·L-RED-03 probe 리터럴 근본 수정 |
-| `L-PHYS-SPINE` | `8ddba7cf` | Physical spine | plan-17 R1–R3 계약 수직: no-fallback resolver·operation-aware write guard(delete/move 전역 gate)·빈 디렉터리 전용 materializer·registry-driven storage map — OD-10 sentinel로 mutating 전부 fails-closed |
+| `L-PHYS-SPINE` | `8ddba7cf`+`dafc4fc3` | Physical spine | plan-17 R1–R3 계약 수직: no-fallback resolver·operation-aware write guard(delete/move 전역 gate)·빈 디렉터리 전용 materializer·registry-driven storage map — OD-10 sentinel로 mutating 전부 fails-closed; Owner 정정 반영: R3는 기존 4192 topology 신원 재사용 overlay(중복 source 신원 표현 불가) |
 
 ### Current validator register (rebaselined 2026-08-30)
 
@@ -206,9 +206,9 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `validate:watch-panel-board` | 10 | strip view-model 6 + 공급자 4 |
 | `validate:integration-dogfood` | 4 | cross-module 체인·facade·denial 동일성 |
 | `validate:module-operability` | 8 | manifest 스키마·의존·cycle-0 고정·hermes coarse 경계 + preflight receipt |
-| `validate:path-registry` | 15 | R1 계약: multi-axis 스키마·seed 31행·absolute-path 거부·resolver HOLD 전종·write-guard 매트릭스(append-vs-overwrite·delete/move·stale revision/epoch·current/target fence·revocation)·updateRecord gate·sub-second expiry·OD-10 fails-closed |
+| `validate:path-registry` | 16 | R1 계약: multi-axis 스키마·seed 31행·absolute-path 거부·resolver HOLD 전종·write-guard 매트릭스(append-vs-overwrite·delete/move·stale revision/epoch·current/target fence·revocation)·updateRecord gate·sub-second expiry·topology 신원 중복 거부·OD-10 fails-closed |
 | `validate:target-materializer` | 8 | R2: canary 승인 gate(HOLD)·registry-driven source lane·lane 충돌 HOLD·dry-run/apply·멱등 replay·foreign payload 거부·hostile root/plan 거부·rollback은 빈 self-created 디렉터리만 |
-| `validate:watch-storage-map` | 9 | R3: snapshot digest 결속·전행 커버리지·상태 우선순위(hold>unavailable>stale>degraded>unknown>healthy)·증거 없음은 green 불가·N/A 명시 제외·writer/raw/absolute-path 금지·drift HOLD |
+| `validate:watch-storage-map` | 10 | R3: 기존-노드 backup-readiness overlay(pinned topology 실노드 해소 대조·중복 카드 필드 부재)·snapshot digest 결속·전행 커버리지·상태 우선순위(hold>unavailable>stale>degraded>unknown>healthy)·증거 없음은 green 불가·N/A 명시 제외·writer/raw/absolute-path 금지·drift HOLD |
 | `validate:plan-truth` | check | 이 원장 자체의 정합 — trace 해시가 git에 실재, 등재 validator가 npm script로 실재, lane 참조 ID가 trace로 해소 |
 
 ### Remaining branches
