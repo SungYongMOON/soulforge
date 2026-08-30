@@ -141,8 +141,8 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | Lane | synthetic | package-install | actual-provider | physical-pilot |
 | --- | --- | --- | --- | --- |
 | Engineering MCP (contract·crosswalk·read facade·stdio seam) | DONE `L-MCP-CONTRACT`,`L-MCP-FACADE`,`L-MCP-STDIO` | — | GATED (real provider/client binding, D27/D28/D29 + OD-08) | GATED |
-| Vault revision (state machine·bundle·redaction·external/Hermes custody admission) | DONE `L-VAULT-CORE`,`L-VAULT-C1` + current Hermes result+authenticated custody→PROPOSED submission seam | — | GATED (D27/D29, promoter·persistence·실수락) | GATED |
-| Forge intent / Linear packet admission | DONE `L-FORGE-CORE`,`L-FORGE-DRAFT` + current exact Official Task/Assignment/issued Brief→coordinator packet seam | — | GATED (실 task-writer + accepted context) | GATED |
+| Vault revision (state machine·bundle·redaction·external/Hermes custody admission) | DONE `L-VAULT-CORE`,`L-VAULT-C1`,`L-HERMES-VAULT-ADMISSION` | — | GATED (D27/D29, promoter·persistence·실수락) | GATED |
+| Forge intent / Linear packet admission | DONE `L-FORGE-CORE`,`L-FORGE-DRAFT`,`L-FORGE-LINEAR-ADMISSION` | — | GATED (실 task-writer + accepted context) | GATED |
 | Watch/Bastion contract | DONE `L-WATCH-BASTION` | — | GATED (실 executor) | GATED |
 | Board/4192 watch vertical | DONE `L-BOARD-VIEWMODEL`,`L-BOARD-PAGE`,`L-STORAGE-MAP-SERVER` (기본 OFF `?watch=1`) + `L-WATCH-SUP-3` | n/a (vite 앱) | PARTIAL — 실 read-only 공급자 3/9 domain; storage-map GET server seam은 binding+binding SHA+snapshot SHA+registry digest pin의 기본-OFF 코드까지 완료, 실제 private binding/snapshot은 미주입; watchtower binding 등 잔여 5는 환경 gate | GATED |
 | Mail/Slack/Voice/PC-activity source-lane capture adapters | DONE `L-MAIL-SOURCE-LANE`,`L-SLACK-SOURCE-LANE`,`L-VOICE-SOURCE-LANE`,`L-PC-ACTIVITY-SOURCE` | — | GATED (실 receipt caller·private record store; Cloud/Git/NAS native receipt 없음) | GATED |
@@ -197,6 +197,8 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `L-PC-ACTIVITY-SOURCE` | `f76df21e` | Physical spine / PC activity | native project-bound file-activity coverage→capture-only source lane; Cloud/Git/NAS HOLD |
 | `L-PROJECT-AI-TEAM-ADMISSION` | `849a594f` | Deployment / Guild | independently approved Project Mark + four role classes/current Agent bindings→future pack input; spec/runtime 0 |
 | `L-CANDIDATE-AUTH-ADMISSION` | `849a594f` | Task execution | coordinator-native packets + verified Agent/current assignment/tool/slot admission; execute/claim/Linear 0 |
+| `L-FORGE-LINEAR-ADMISSION` | `21379b37` | Forge / Task execution | exact Official Task·Assignment·issued Brief→structured coordinator packet; read/write/claim 0 |
+| `L-HERMES-VAULT-ADMISSION` | `21379b37` | Vault / Artifact custody | Hermes result + authenticated data-plane custody→PROPOSED submission input; revision/head 0 |
 | `L-DEVERP-HOST-RED` | `e27d5c6d` | dev-ERP | worker 신원 바이너리 System32 절대경로 고정(보안 강화) |
 | `L-HPP-PACK` | `8b02724c` | Deployment | dev-ERP 267파일 pack(모듈+데이터 폐포·scan pin 60·smoke 파티션 78+11) |
 | `L-PLAN-TRUTH` | `22c05384` | Program docs | 이 원장 자체(레인×성숙도·trace·register)와 drift 수정 + `validate:plan-truth` |
