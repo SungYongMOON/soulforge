@@ -1,0 +1,750 @@
+{
+  "schema": "soulforge.deployment_pack_spec.v0",
+  "pack_id": "hpp_server_pack",
+  "version": "0.1.0",
+  "content_roles": {
+    "server_modules": [
+      "docs/architecture/workspace/examples/task_execution_core_poc/task_execution_core.synthetic.json",
+      "guild_hall/ai_usage_meter/evidence_ledger.mjs",
+      "guild_hall/battle_log/battle_log.mjs",
+      "guild_hall/doctor/platform_binary_check.mjs",
+      "guild_hall/engineering_engine/core/validators/canonical.mjs",
+      "guild_hall/engineering_engine/core/validators/contract_config.mjs",
+      "guild_hall/engineering_engine/core/validators/errors.mjs",
+      "guild_hall/engineering_engine/core/validators/identity.mjs",
+      "guild_hall/engineering_engine/core/validators/project_context_acceptance_gate.mjs",
+      "guild_hall/engineering_engine/core/validators/project_context_generation_candidate.mjs",
+      "guild_hall/engineering_engine/kernel/canonical.mjs",
+      "guild_hall/engineering_engine/kernel/identity.mjs",
+      "guild_hall/engineering_engine/kernel/project_context_acceptance_gate.mjs",
+      "guild_hall/engineering_engine/kernel/project_context_generation_candidate.mjs",
+      "guild_hall/gateway/mail_body_excerpt.mjs",
+      "guild_hall/gateway/mail_project_router.mjs",
+      "guild_hall/knowledge_access/knowledge_rag_candidate_ledger.mjs",
+      "guild_hall/knowledge_access/ledger.mjs",
+      "guild_hall/rag/project_pdf_knowledge_projection.mjs",
+      "guild_hall/shared/io.mjs",
+      "guild_hall/shared/physical_path_identity.mjs",
+      "guild_hall/shared/project_history_actual_shadow.mjs",
+      "guild_hall/shared/project_history_envelope.mjs",
+      "guild_hall/shared/project_history_readiness.mjs",
+      "guild_hall/shared/project_history_receipt_adapter_v2.mjs",
+      "guild_hall/snapshot/producer.mjs",
+      "ui-workspace/apps/dev-erp/.gitignore",
+      "ui-workspace/apps/dev-erp/docs/checklist_phase1.json",
+      "ui-workspace/apps/dev-erp/docs/contracts/a8_synth_secure_access_output.v1.schema.json",
+      "ui-workspace/apps/dev-erp/docs/contracts/a8_synth_secure_access_packet.v1.schema.json",
+      "ui-workspace/apps/dev-erp/docs/contracts/personal_work_session_command.v1.schema.json",
+      "ui-workspace/apps/dev-erp/docs/contracts/personal_work_session_outbox_entry.v1.schema.json",
+      "ui-workspace/apps/dev-erp/docs/contracts/task_engine_inventory_c00b_binding_input.v1.schema.json",
+      "ui-workspace/apps/dev-erp/docs/contracts/task_engine_inventory_c00b_receipt.v1.schema.json",
+      "ui-workspace/apps/dev-erp/docs/contracts/task_engine_inventory_manifest.v1.schema.json",
+      "ui-workspace/apps/dev-erp/docs/contracts/task_engine_inventory_safe_aggregate_evidence.v1.schema.json",
+      "ui-workspace/apps/dev-erp/manual/manual_faq.json",
+      "ui-workspace/apps/dev-erp/ops/dev-erp-lan-https-proxy.mjs",
+      "ui-workspace/apps/dev-erp/ops/register-dev-erp-scheduled-task.ps1",
+      "ui-workspace/apps/dev-erp/server.mjs",
+      "ui-workspace/apps/dev-erp/src/accepted_context_query.mjs",
+      "ui-workspace/apps/dev-erp/src/adapter.mjs",
+      "ui-workspace/apps/dev-erp/src/assignment_policy.mjs",
+      "ui-workspace/apps/dev-erp/src/autosync.mjs",
+      "ui-workspace/apps/dev-erp/src/calendar.mjs",
+      "ui-workspace/apps/dev-erp/src/candidate_execution_coordinator.mjs",
+      "ui-workspace/apps/dev-erp/src/chat_pipeline.mjs",
+      "ui-workspace/apps/dev-erp/src/codex_attachment_registry.mjs",
+      "ui-workspace/apps/dev-erp/src/codex_bridge.mjs",
+      "ui-workspace/apps/dev-erp/src/codex_dedicated_worker.mjs",
+      "ui-workspace/apps/dev-erp/src/codex_dedicated_worker_client.mjs",
+      "ui-workspace/apps/dev-erp/src/codex_message_payload_store.mjs",
+      "ui-workspace/apps/dev-erp/src/codex_payload_owner.mjs",
+      "ui-workspace/apps/dev-erp/src/codex_turn_projection.mjs",
+      "ui-workspace/apps/dev-erp/src/codex_workspace_registry.mjs",
+      "ui-workspace/apps/dev-erp/src/codex_workspace_root_isolation_child.cjs",
+      "ui-workspace/apps/dev-erp/src/context_graph.mjs",
+      "ui-workspace/apps/dev-erp/src/context_life_tree.mjs",
+      "ui-workspace/apps/dev-erp/src/erp_mcp_service.mjs",
+      "ui-workspace/apps/dev-erp/src/file_activity_life_tree_projection.mjs",
+      "ui-workspace/apps/dev-erp/src/filevault.mjs",
+      "ui-workspace/apps/dev-erp/src/five_field.mjs",
+      "ui-workspace/apps/dev-erp/src/fixture.mjs",
+      "ui-workspace/apps/dev-erp/src/guide.mjs",
+      "ui-workspace/apps/dev-erp/src/hermes_bot_submit_executor.mjs",
+      "ui-workspace/apps/dev-erp/src/hourly_shadow_cycle_contract.mjs",
+      "ui-workspace/apps/dev-erp/src/knowledge_overview.mjs",
+      "ui-workspace/apps/dev-erp/src/knowledge_registry.mjs",
+      "ui-workspace/apps/dev-erp/src/knowledge_shell.mjs",
+      "ui-workspace/apps/dev-erp/src/lexicon.mjs",
+      "ui-workspace/apps/dev-erp/src/llm.mjs",
+      "ui-workspace/apps/dev-erp/src/mail_collect.mjs",
+      "ui-workspace/apps/dev-erp/src/mail_router_binding.mjs",
+      "ui-workspace/apps/dev-erp/src/mailbox_env.mjs",
+      "ui-workspace/apps/dev-erp/src/modules.mjs",
+      "ui-workspace/apps/dev-erp/src/morning_brief.mjs",
+      "ui-workspace/apps/dev-erp/src/party_match.mjs",
+      "ui-workspace/apps/dev-erp/src/portfolio_decision_projection.mjs",
+      "ui-workspace/apps/dev-erp/src/project_decision_ledger.mjs",
+      "ui-workspace/apps/dev-erp/src/role_capability_matcher.mjs",
+      "ui-workspace/apps/dev-erp/src/runtime_mail_set_reconciliation.mjs",
+      "ui-workspace/apps/dev-erp/src/search.mjs",
+      "ui-workspace/apps/dev-erp/src/shadow_evaluator.mjs",
+      "ui-workspace/apps/dev-erp/src/store.mjs",
+      "ui-workspace/apps/dev-erp/src/task_execution_core.mjs",
+      "ui-workspace/apps/dev-erp/src/task_execution_fixture_adapters.mjs",
+      "ui-workspace/apps/dev-erp/src/task_execution_sqlite_event_store.mjs",
+      "ui-workspace/apps/dev-erp/src/voice_first_hermes_trial_gate.mjs",
+      "ui-workspace/apps/dev-erp/src/voice_first_mutation_canary_gate.mjs",
+      "ui-workspace/apps/dev-erp/src/voice_first_worker_comparison.mjs",
+      "ui-workspace/apps/dev-erp/src/work_session_lifecycle.mjs",
+      "ui-workspace/apps/dev-erp/src/work_session_outbox.mjs",
+      "ui-workspace/apps/dev-erp/src/work_session_source_inventory.mjs",
+      "ui-workspace/apps/dev-erp/src/workflow_job_contract.mjs",
+      "ui-workspace/apps/dev-erp/src/workflow_job_http.mjs",
+      "ui-workspace/apps/dev-erp/src/workflow_job_orchestrator.mjs",
+      "ui-workspace/apps/dev-erp/src/workflow_job_payload_store.mjs",
+      "ui-workspace/apps/dev-erp/src/workflow_job_receipt_store.mjs",
+      "ui-workspace/apps/dev-erp/src/workflow_job_runner_bridge.mjs",
+      "ui-workspace/apps/dev-erp/src/workflow_job_service.mjs",
+      "ui-workspace/apps/dev-erp/static/app.js",
+      "ui-workspace/apps/dev-erp/static/index.html",
+      "ui-workspace/apps/dev-erp/static/skins/README.md",
+      "ui-workspace/apps/dev-erp/static/skins/regions/forest.svg",
+      "ui-workspace/apps/dev-erp/static/skins/regions/guild.svg",
+      "ui-workspace/apps/dev-erp/static/style.css",
+      "ui-workspace/apps/dev-erp/tools/a8_synth_secure_access.mjs",
+      "ui-workspace/apps/dev-erp/tools/ai_proposal_ledger.mjs",
+      "ui-workspace/apps/dev-erp/tools/auto_intake_cycle.mjs",
+      "ui-workspace/apps/dev-erp/tools/backup_db.mjs",
+      "ui-workspace/apps/dev-erp/tools/build_real_meta.mjs",
+      "ui-workspace/apps/dev-erp/tools/chatbot_ollama_smoke.mjs",
+      "ui-workspace/apps/dev-erp/tools/codex_dedicated_worker.mjs",
+      "ui-workspace/apps/dev-erp/tools/codex_payload_backup.mjs",
+      "ui-workspace/apps/dev-erp/tools/codex_permission_boundary_probe.mjs",
+      "ui-workspace/apps/dev-erp/tools/completion_knowledge_feed.mjs",
+      "ui-workspace/apps/dev-erp/tools/completion_ledger.mjs",
+      "ui-workspace/apps/dev-erp/tools/daily_se_report.mjs",
+      "ui-workspace/apps/dev-erp/tools/doctor.mjs",
+      "ui-workspace/apps/dev-erp/tools/export_team_mailboxes.mjs",
+      "ui-workspace/apps/dev-erp/tools/followup_scan.mjs",
+      "ui-workspace/apps/dev-erp/tools/haengbogwan_apply.mjs",
+      "ui-workspace/apps/dev-erp/tools/haengbogwan_candidate_judge.mjs",
+      "ui-workspace/apps/dev-erp/tools/haengbogwan_context_packet.mjs",
+      "ui-workspace/apps/dev-erp/tools/haengbogwan_knowledge_candidates.mjs",
+      "ui-workspace/apps/dev-erp/tools/haengbogwan_project_context.mjs",
+      "ui-workspace/apps/dev-erp/tools/haengbogwan_project_knowledge_overlay.mjs",
+      "ui-workspace/apps/dev-erp/tools/haengbogwan_reading_candidate_judge.mjs",
+      "ui-workspace/apps/dev-erp/tools/haengbogwan_reading_codex_judge.mjs",
+      "ui-workspace/apps/dev-erp/tools/haengbogwan_reading_context_packet.mjs",
+      "ui-workspace/apps/dev-erp/tools/haengbogwan_reading_operational_scorecard.mjs",
+      "ui-workspace/apps/dev-erp/tools/haengbogwan_reading_run.mjs",
+      "ui-workspace/apps/dev-erp/tools/haengbogwan_run.mjs",
+      "ui-workspace/apps/dev-erp/tools/haengbogwan_snapshot.mjs",
+      "ui-workspace/apps/dev-erp/tools/haengbogwan_task_decisions.mjs",
+      "ui-workspace/apps/dev-erp/tools/import_actor_overlay.mjs",
+      "ui-workspace/apps/dev-erp/tools/import_role_overlay.mjs",
+      "ui-workspace/apps/dev-erp/tools/import_team_roster.mjs",
+      "ui-workspace/apps/dev-erp/tools/knowledge_grounding.mjs",
+      "ui-workspace/apps/dev-erp/tools/label_audit.mjs",
+      "ui-workspace/apps/dev-erp/tools/legacy_codex_migration.mjs",
+      "ui-workspace/apps/dev-erp/tools/mail_fingerprint.mjs",
+      "ui-workspace/apps/dev-erp/tools/mail_outlook_shadow_classify.mjs",
+      "ui-workspace/apps/dev-erp/tools/mail_project_route_backfill.mjs",
+      "ui-workspace/apps/dev-erp/tools/mail_project_rule_candidates.mjs",
+      "ui-workspace/apps/dev-erp/tools/mail_receipts.mjs",
+      "ui-workspace/apps/dev-erp/tools/mail_thread_key.mjs",
+      "ui-workspace/apps/dev-erp/tools/mail_to_task_ledger.mjs",
+      "ui-workspace/apps/dev-erp/tools/mail_to_task_pending.mjs",
+      "ui-workspace/apps/dev-erp/tools/mcp_access_admin.mjs",
+      "ui-workspace/apps/dev-erp/tools/memory_ledger.mjs",
+      "ui-workspace/apps/dev-erp/tools/project_history_copy_binding.mjs",
+      "ui-workspace/apps/dev-erp/tools/project_history_copy_one_shot.mjs",
+      "ui-workspace/apps/dev-erp/tools/project_history_copy_projector.mjs",
+      "ui-workspace/apps/dev-erp/tools/project_history_copy_verifier.mjs",
+      "ui-workspace/apps/dev-erp/tools/project_history_copy_windows_path_lock.ps1",
+      "ui-workspace/apps/dev-erp/tools/project_history_copy_xlsx.mjs",
+      "ui-workspace/apps/dev-erp/tools/reconcile_runtime_mail_set.mjs",
+      "ui-workspace/apps/dev-erp/tools/runtime_corrections.mjs",
+      "ui-workspace/apps/dev-erp/tools/runtime_ops.mjs",
+      "ui-workspace/apps/dev-erp/tools/runtime_release_audit.mjs",
+      "ui-workspace/apps/dev-erp/tools/scan_mail_ledger.mjs",
+      "ui-workspace/apps/dev-erp/tools/scan_se_foldertree.mjs",
+      "ui-workspace/apps/dev-erp/tools/sync_project_names.mjs",
+      "ui-workspace/apps/dev-erp/tools/system_mail_rules.mjs",
+      "ui-workspace/apps/dev-erp/tools/task_engine_inventory.mjs",
+      "ui-workspace/apps/dev-erp/tools/task_engine_inventory_c00b_binding_producer.mjs",
+      "ui-workspace/apps/dev-erp/tools/task_engine_inventory_c00b_judge.mjs",
+      "ui-workspace/apps/dev-erp/tools/task_ledger.mjs",
+      "ui-workspace/apps/dev-erp/tools/team_preflight.mjs",
+      "ui-workspace/apps/dev-erp/tools/verify_gate.mjs",
+      "ui-workspace/apps/dev-erp/tools/voice_to_task_candidates.mjs"
+    ],
+    "control_data_plane_services": [
+      "ui-workspace/apps/dev-erp/ops/run-dev-erp-background.ps1",
+      "ui-workspace/apps/dev-erp/start-windows.bat"
+    ],
+    "manifests": [
+      "ui-workspace/apps/dev-erp/package.json"
+    ],
+    "operator_docs": [
+      "ui-workspace/apps/dev-erp/README.md",
+      "ui-workspace/apps/dev-erp/docs/DESIGN.md",
+      "ui-workspace/apps/dev-erp/docs/BROWSER_QA_PROCEDURE.md"
+    ],
+    "validators": [
+      "ui-workspace/apps/dev-erp/test/a8_synth_secure_access.test.mjs",
+      "ui-workspace/apps/dev-erp/test/accepted_context_query.test.mjs",
+      "ui-workspace/apps/dev-erp/test/actor_overlay_import.test.mjs",
+      "ui-workspace/apps/dev-erp/test/adapter_snapshot.test.mjs",
+      "ui-workspace/apps/dev-erp/test/assignment_policy.test.mjs",
+      "ui-workspace/apps/dev-erp/test/auto_intake_cycle.test.mjs",
+      "ui-workspace/apps/dev-erp/test/autosync_idempotency.test.mjs",
+      "ui-workspace/apps/dev-erp/test/branch_story.test.mjs",
+      "ui-workspace/apps/dev-erp/test/calendar.test.mjs",
+      "ui-workspace/apps/dev-erp/test/candidate_execution_coordinator.test.mjs",
+      "ui-workspace/apps/dev-erp/test/codex_attachment_registry.test.mjs",
+      "ui-workspace/apps/dev-erp/test/codex_bridge_process.test.mjs",
+      "ui-workspace/apps/dev-erp/test/codex_dedicated_worker.test.mjs",
+      "ui-workspace/apps/dev-erp/test/codex_message_payload_store.test.mjs",
+      "ui-workspace/apps/dev-erp/test/codex_model_catalog.test.mjs",
+      "ui-workspace/apps/dev-erp/test/codex_payload_backup.test.mjs",
+      "ui-workspace/apps/dev-erp/test/codex_payload_owner.test.mjs",
+      "ui-workspace/apps/dev-erp/test/codex_turn_projection.test.mjs",
+      "ui-workspace/apps/dev-erp/test/codex_worker_server_integration.test.mjs",
+      "ui-workspace/apps/dev-erp/test/codex_workspace_registry.test.mjs",
+      "ui-workspace/apps/dev-erp/test/completion_knowledge_feed.test.mjs",
+      "ui-workspace/apps/dev-erp/test/context_diagnostics.test.mjs",
+      "ui-workspace/apps/dev-erp/test/context_life_tree.test.mjs",
+      "ui-workspace/apps/dev-erp/test/core.test.mjs",
+      "ui-workspace/apps/dev-erp/test/doctor.test.mjs",
+      "ui-workspace/apps/dev-erp/test/erp_mcp_server.test.mjs",
+      "ui-workspace/apps/dev-erp/test/erp_mcp_service.test.mjs",
+      "ui-workspace/apps/dev-erp/test/five_field_capture.test.mjs",
+      "ui-workspace/apps/dev-erp/test/followup_scan.test.mjs",
+      "ui-workspace/apps/dev-erp/test/haengbogwan_apply.test.mjs",
+      "ui-workspace/apps/dev-erp/test/haengbogwan_candidate_judge.test.mjs",
+      "ui-workspace/apps/dev-erp/test/haengbogwan_context_packet.test.mjs",
+      "ui-workspace/apps/dev-erp/test/haengbogwan_knowledge_candidates.test.mjs",
+      "ui-workspace/apps/dev-erp/test/haengbogwan_project_context.test.mjs",
+      "ui-workspace/apps/dev-erp/test/haengbogwan_project_knowledge_overlay.test.mjs",
+      "ui-workspace/apps/dev-erp/test/haengbogwan_reading_engine.test.mjs",
+      "ui-workspace/apps/dev-erp/test/haengbogwan_reading_operational_scorecard.test.mjs",
+      "ui-workspace/apps/dev-erp/test/haengbogwan_reading_run.test.mjs",
+      "ui-workspace/apps/dev-erp/test/haengbogwan_run.test.mjs",
+      "ui-workspace/apps/dev-erp/test/haengbogwan_snapshot.test.mjs",
+      "ui-workspace/apps/dev-erp/test/haengbogwan_task_decisions.test.mjs",
+      "ui-workspace/apps/dev-erp/test/hermes_bot_submit_executor.test.mjs",
+      "ui-workspace/apps/dev-erp/test/knowledge_grounding.test.mjs",
+      "ui-workspace/apps/dev-erp/test/knowledge_loop.test.mjs",
+      "ui-workspace/apps/dev-erp/test/lan_https_proxy.test.mjs",
+      "ui-workspace/apps/dev-erp/test/legacy_codex_migration.test.mjs",
+      "ui-workspace/apps/dev-erp/test/life_tree_ui.test.mjs",
+      "ui-workspace/apps/dev-erp/test/mail_collect_route_backfill.test.mjs",
+      "ui-workspace/apps/dev-erp/test/mail_collect_summary.test.mjs",
+      "ui-workspace/apps/dev-erp/test/mail_fingerprint.test.mjs",
+      "ui-workspace/apps/dev-erp/test/mail_outlook_shadow_classify.test.mjs",
+      "ui-workspace/apps/dev-erp/test/mail_project_route_backfill.test.mjs",
+      "ui-workspace/apps/dev-erp/test/mail_project_rule_candidates.test.mjs",
+      "ui-workspace/apps/dev-erp/test/mail_thread_key.test.mjs",
+      "ui-workspace/apps/dev-erp/test/memory_project_isolation.test.mjs",
+      "ui-workspace/apps/dev-erp/test/npm_test_discovery.test.mjs",
+      "ui-workspace/apps/dev-erp/test/project_history_copy_adapter_v2.test.mjs",
+      "ui-workspace/apps/dev-erp/test/project_history_copy_binding.test.mjs",
+      "ui-workspace/apps/dev-erp/test/project_history_copy_one_shot.test.mjs",
+      "ui-workspace/apps/dev-erp/test/project_history_copy_projector.test.mjs",
+      "ui-workspace/apps/dev-erp/test/project_history_copy_xlsx.test.mjs",
+      "ui-workspace/apps/dev-erp/test/role_capability_matcher.test.mjs",
+      "ui-workspace/apps/dev-erp/test/role_overlay_import.test.mjs",
+      "ui-workspace/apps/dev-erp/test/run_dev_erp_background_launcher.test.mjs",
+      "ui-workspace/apps/dev-erp/test/runtime_mail_set_reconciliation.test.mjs",
+      "ui-workspace/apps/dev-erp/test/runtime_release_audit_worker.test.mjs",
+      "ui-workspace/apps/dev-erp/test/scheduled_task_registration.test.mjs",
+      "ui-workspace/apps/dev-erp/test/stem_reattach.test.mjs",
+      "ui-workspace/apps/dev-erp/test/task_engine_inventory.test.mjs",
+      "ui-workspace/apps/dev-erp/test/task_engine_inventory_c00b_binding_producer.test.mjs",
+      "ui-workspace/apps/dev-erp/test/task_engine_inventory_c00b_judge.test.mjs",
+      "ui-workspace/apps/dev-erp/test/task_execution_core.test.mjs",
+      "ui-workspace/apps/dev-erp/test/team_preflight_read_only.test.mjs",
+      "ui-workspace/apps/dev-erp/test/ui_degraded_state.test.mjs",
+      "ui-workspace/apps/dev-erp/test/verify_gate.test.mjs",
+      "ui-workspace/apps/dev-erp/test/voice_first_hermes_trial_gate.test.mjs",
+      "ui-workspace/apps/dev-erp/test/voice_first_mutation_canary_gate.test.mjs",
+      "ui-workspace/apps/dev-erp/test/voice_first_shadow.test.mjs",
+      "ui-workspace/apps/dev-erp/test/voice_first_worker_comparison.test.mjs",
+      "ui-workspace/apps/dev-erp/test/voice_to_task_candidates.test.mjs",
+      "ui-workspace/apps/dev-erp/test/work_session_source_foundation.test.mjs",
+      "ui-workspace/apps/dev-erp/test/work_session_source_inventory.test.mjs",
+      "ui-workspace/apps/dev-erp/test/workflow_job_contract.test.mjs",
+      "ui-workspace/apps/dev-erp/test/workflow_job_core_contract.test.mjs",
+      "ui-workspace/apps/dev-erp/test/workflow_job_http.test.mjs",
+      "ui-workspace/apps/dev-erp/test/workflow_job_runner_bridge.test.mjs",
+      "ui-workspace/apps/dev-erp/test/workflow_job_server_contract.test.mjs",
+      "ui-workspace/apps/dev-erp/test/workflow_job_service.test.mjs",
+      "ui-workspace/apps/dev-erp/test/workflow_job_ui_contract.test.mjs"
+    ]
+  },
+  "test_cwd": "ui-workspace/apps/dev-erp",
+  "smoke_test_entries": [
+    "test/a8_synth_secure_access.test.mjs",
+    "test/accepted_context_query.test.mjs",
+    "test/actor_overlay_import.test.mjs",
+    "test/adapter_snapshot.test.mjs",
+    "test/assignment_policy.test.mjs",
+    "test/auto_intake_cycle.test.mjs",
+    "test/autosync_idempotency.test.mjs",
+    "test/branch_story.test.mjs",
+    "test/calendar.test.mjs",
+    "test/candidate_execution_coordinator.test.mjs",
+    "test/codex_attachment_registry.test.mjs",
+    "test/codex_bridge_process.test.mjs",
+    "test/codex_dedicated_worker.test.mjs",
+    "test/codex_message_payload_store.test.mjs",
+    "test/codex_model_catalog.test.mjs",
+    "test/codex_payload_backup.test.mjs",
+    "test/codex_payload_owner.test.mjs",
+    "test/codex_turn_projection.test.mjs",
+    "test/codex_worker_server_integration.test.mjs",
+    "test/codex_workspace_registry.test.mjs",
+    "test/completion_knowledge_feed.test.mjs",
+    "test/context_diagnostics.test.mjs",
+    "test/context_life_tree.test.mjs",
+    "test/core.test.mjs",
+    "test/doctor.test.mjs",
+    "test/erp_mcp_server.test.mjs",
+    "test/erp_mcp_service.test.mjs",
+    "test/five_field_capture.test.mjs",
+    "test/followup_scan.test.mjs",
+    "test/haengbogwan_apply.test.mjs",
+    "test/haengbogwan_candidate_judge.test.mjs",
+    "test/haengbogwan_context_packet.test.mjs",
+    "test/haengbogwan_knowledge_candidates.test.mjs",
+    "test/haengbogwan_project_context.test.mjs",
+    "test/haengbogwan_project_knowledge_overlay.test.mjs",
+    "test/haengbogwan_reading_engine.test.mjs",
+    "test/haengbogwan_reading_operational_scorecard.test.mjs",
+    "test/haengbogwan_reading_run.test.mjs",
+    "test/haengbogwan_run.test.mjs",
+    "test/haengbogwan_snapshot.test.mjs",
+    "test/haengbogwan_task_decisions.test.mjs",
+    "test/hermes_bot_submit_executor.test.mjs",
+    "test/knowledge_grounding.test.mjs",
+    "test/knowledge_loop.test.mjs",
+    "test/lan_https_proxy.test.mjs",
+    "test/legacy_codex_migration.test.mjs",
+    "test/life_tree_ui.test.mjs",
+    "test/mail_collect_route_backfill.test.mjs",
+    "test/mail_collect_summary.test.mjs",
+    "test/mail_fingerprint.test.mjs",
+    "test/mail_outlook_shadow_classify.test.mjs",
+    "test/mail_project_route_backfill.test.mjs",
+    "test/mail_project_rule_candidates.test.mjs",
+    "test/mail_thread_key.test.mjs",
+    "test/memory_project_isolation.test.mjs",
+    "test/npm_test_discovery.test.mjs",
+    "test/project_history_copy_adapter_v2.test.mjs",
+    "test/project_history_copy_binding.test.mjs",
+    "test/project_history_copy_one_shot.test.mjs",
+    "test/project_history_copy_projector.test.mjs",
+    "test/project_history_copy_xlsx.test.mjs",
+    "test/role_capability_matcher.test.mjs",
+    "test/role_overlay_import.test.mjs",
+    "test/run_dev_erp_background_launcher.test.mjs",
+    "test/runtime_mail_set_reconciliation.test.mjs",
+    "test/runtime_release_audit_worker.test.mjs",
+    "test/scheduled_task_registration.test.mjs",
+    "test/stem_reattach.test.mjs",
+    "test/task_engine_inventory.test.mjs",
+    "test/task_engine_inventory_c00b_binding_producer.test.mjs",
+    "test/task_engine_inventory_c00b_judge.test.mjs",
+    "test/task_execution_core.test.mjs",
+    "test/team_preflight_read_only.test.mjs",
+    "test/ui_degraded_state.test.mjs",
+    "test/verify_gate.test.mjs",
+    "test/voice_first_hermes_trial_gate.test.mjs",
+    "test/voice_first_mutation_canary_gate.test.mjs",
+    "test/voice_first_shadow.test.mjs",
+    "test/voice_first_worker_comparison.test.mjs",
+    "test/voice_to_task_candidates.test.mjs",
+    "test/work_session_source_foundation.test.mjs",
+    "test/work_session_source_inventory.test.mjs",
+    "test/workflow_job_contract.test.mjs",
+    "test/workflow_job_core_contract.test.mjs",
+    "test/workflow_job_http.test.mjs",
+    "test/workflow_job_runner_bridge.test.mjs",
+    "test/workflow_job_server_contract.test.mjs",
+    "test/workflow_job_service.test.mjs",
+    "test/workflow_job_ui_contract.test.mjs"
+  ],
+  "installed_smoke_entries": [
+    "test/accepted_context_query.test.mjs",
+    "test/actor_overlay_import.test.mjs",
+    "test/assignment_policy.test.mjs",
+    "test/auto_intake_cycle.test.mjs",
+    "test/autosync_idempotency.test.mjs",
+    "test/branch_story.test.mjs",
+    "test/calendar.test.mjs",
+    "test/candidate_execution_coordinator.test.mjs",
+    "test/codex_attachment_registry.test.mjs",
+    "test/codex_bridge_process.test.mjs",
+    "test/codex_message_payload_store.test.mjs",
+    "test/codex_model_catalog.test.mjs",
+    "test/codex_payload_owner.test.mjs",
+    "test/codex_turn_projection.test.mjs",
+    "test/codex_workspace_registry.test.mjs",
+    "test/completion_knowledge_feed.test.mjs",
+    "test/context_diagnostics.test.mjs",
+    "test/context_life_tree.test.mjs",
+    "test/doctor.test.mjs",
+    "test/erp_mcp_server.test.mjs",
+    "test/erp_mcp_service.test.mjs",
+    "test/five_field_capture.test.mjs",
+    "test/followup_scan.test.mjs",
+    "test/haengbogwan_apply.test.mjs",
+    "test/haengbogwan_candidate_judge.test.mjs",
+    "test/haengbogwan_context_packet.test.mjs",
+    "test/haengbogwan_knowledge_candidates.test.mjs",
+    "test/haengbogwan_project_context.test.mjs",
+    "test/haengbogwan_project_knowledge_overlay.test.mjs",
+    "test/haengbogwan_reading_engine.test.mjs",
+    "test/haengbogwan_reading_operational_scorecard.test.mjs",
+    "test/haengbogwan_reading_run.test.mjs",
+    "test/haengbogwan_run.test.mjs",
+    "test/haengbogwan_snapshot.test.mjs",
+    "test/haengbogwan_task_decisions.test.mjs",
+    "test/hermes_bot_submit_executor.test.mjs",
+    "test/knowledge_grounding.test.mjs",
+    "test/knowledge_loop.test.mjs",
+    "test/lan_https_proxy.test.mjs",
+    "test/legacy_codex_migration.test.mjs",
+    "test/life_tree_ui.test.mjs",
+    "test/mail_collect_route_backfill.test.mjs",
+    "test/mail_collect_summary.test.mjs",
+    "test/mail_fingerprint.test.mjs",
+    "test/mail_outlook_shadow_classify.test.mjs",
+    "test/mail_project_rule_candidates.test.mjs",
+    "test/mail_thread_key.test.mjs",
+    "test/memory_project_isolation.test.mjs",
+    "test/npm_test_discovery.test.mjs",
+    "test/project_history_copy_adapter_v2.test.mjs",
+    "test/project_history_copy_binding.test.mjs",
+    "test/project_history_copy_one_shot.test.mjs",
+    "test/project_history_copy_projector.test.mjs",
+    "test/project_history_copy_xlsx.test.mjs",
+    "test/role_capability_matcher.test.mjs",
+    "test/role_overlay_import.test.mjs",
+    "test/run_dev_erp_background_launcher.test.mjs",
+    "test/runtime_mail_set_reconciliation.test.mjs",
+    "test/scheduled_task_registration.test.mjs",
+    "test/stem_reattach.test.mjs",
+    "test/task_execution_core.test.mjs",
+    "test/team_preflight_read_only.test.mjs",
+    "test/ui_degraded_state.test.mjs",
+    "test/verify_gate.test.mjs",
+    "test/voice_first_hermes_trial_gate.test.mjs",
+    "test/voice_first_mutation_canary_gate.test.mjs",
+    "test/voice_first_shadow.test.mjs",
+    "test/voice_first_worker_comparison.test.mjs",
+    "test/voice_to_task_candidates.test.mjs",
+    "test/work_session_source_foundation.test.mjs",
+    "test/work_session_source_inventory.test.mjs",
+    "test/workflow_job_contract.test.mjs",
+    "test/workflow_job_core_contract.test.mjs",
+    "test/workflow_job_http.test.mjs",
+    "test/workflow_job_runner_bridge.test.mjs",
+    "test/workflow_job_server_contract.test.mjs",
+    "test/workflow_job_service.test.mjs",
+    "test/workflow_job_ui_contract.test.mjs"
+  ],
+  "installed_smoke_excluded": [
+    {
+      "path": "test/a8_synth_secure_access.test.mjs",
+      "reason": "npm_dependency_ajv_not_shipped"
+    },
+    {
+      "path": "test/task_engine_inventory.test.mjs",
+      "reason": "npm_dependency_ajv_not_shipped"
+    },
+    {
+      "path": "test/task_engine_inventory_c00b_binding_producer.test.mjs",
+      "reason": "npm_dependency_ajv_not_shipped"
+    },
+    {
+      "path": "test/task_engine_inventory_c00b_judge.test.mjs",
+      "reason": "npm_dependency_ajv_not_shipped"
+    },
+    {
+      "path": "test/adapter_snapshot.test.mjs",
+      "reason": "npm_dependency_yaml_not_shipped"
+    },
+    {
+      "path": "test/codex_payload_backup.test.mjs",
+      "reason": "npm_dependency_yaml_not_shipped"
+    },
+    {
+      "path": "test/core.test.mjs",
+      "reason": "npm_dependency_yaml_not_shipped"
+    },
+    {
+      "path": "test/mail_project_route_backfill.test.mjs",
+      "reason": "npm_dependency_yaml_not_shipped"
+    },
+    {
+      "path": "test/runtime_release_audit_worker.test.mjs",
+      "reason": "npm_dependency_yaml_not_shipped"
+    },
+    {
+      "path": "test/codex_dedicated_worker.test.mjs",
+      "reason": "requires_git_checkout_source_attestation"
+    },
+    {
+      "path": "test/codex_worker_server_integration.test.mjs",
+      "reason": "requires_git_checkout_source_attestation"
+    }
+  ],
+  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_0",
+  "install_manual_ref": "manual.install.hpp_server_pack",
+  "upgrade_manual_ref": "manual.upgrade.hpp_server_pack",
+  "rollback_manual_ref": "manual.rollback.hpp_server_pack",
+  "support_owner_ref": "owner.platform_support",
+  "secret_refs": [],
+  "content_scan_reviewed_files": [
+    {
+      "path": "guild_hall/battle_log/battle_log.mjs",
+      "sha256": "9ebf6764a932922ff566373be8c4610eb538fcc2b87c26498e285a43dd4f9d9a"
+    },
+    {
+      "path": "guild_hall/engineering_engine/core/validators/project_context_acceptance_gate.mjs",
+      "sha256": "5d599cc4982cdc72596877c7730b0395e8ef5aac30fdf34961450b809a47b8a8"
+    },
+    {
+      "path": "guild_hall/engineering_engine/core/validators/project_context_generation_candidate.mjs",
+      "sha256": "5b86c004005859c8b7daa6356a3f179cf56a04d42c8322b5d713355b3630795d"
+    },
+    {
+      "path": "guild_hall/knowledge_access/knowledge_rag_candidate_ledger.mjs",
+      "sha256": "49525827145899df4d549709a9f1d2a97dad38e260c42ef1781bc984fc7aba20"
+    },
+    {
+      "path": "guild_hall/knowledge_access/ledger.mjs",
+      "sha256": "59e18e845d06a383d2a22809cd66f78eb8cbae27f6916b13c7dddb73a083c230"
+    },
+    {
+      "path": "guild_hall/shared/project_history_receipt_adapter_v2.mjs",
+      "sha256": "66ac8ecb892d5bfd05ebd061b89b27b915ff6cdaa012b7ae0cb40094304fe700"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/README.md",
+      "sha256": "dd42c4b5d9ccf3232c676661fe3e29ba6cd923c7b0befc94f673e81cca29b089"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/manual/manual_faq.json",
+      "sha256": "bca3bb5091d345241ed507534acad154c1dca24d549e87568c90773c2f415e2e"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/ops/run-dev-erp-background.ps1",
+      "sha256": "6972b53cdc9b2f0da71a025b4c45138469b9b2e86d5b5e652260c1c2398cbedc"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/server.mjs",
+      "sha256": "bdd216b607be76803a038f588b9220d2095663ea0e17a3c04bae24f5bd2f5bc0"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/accepted_context_query.mjs",
+      "sha256": "9b953f0021f3393a108598c5a63add015cd6a47b8ca0244014a8cd727630777d"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/assignment_policy.mjs",
+      "sha256": "b2fc370e1e31e0476f068dc58dfccc1427770edc6b86919b77f16793b17a3ff5"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/candidate_execution_coordinator.mjs",
+      "sha256": "e2eb7c6b2443dd359f3d40185eb0a8e47faa4bf2e728c3a6c76651817f6b1db0"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/codex_bridge.mjs",
+      "sha256": "ec6d97cd5f2e97bbd20805a5680ab59ebebc85221a0d6b05501b195cf6a8d84d"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/codex_dedicated_worker.mjs",
+      "sha256": "6f2b7a7727c6ea50b77ea56ea81047104afff713770d35c42e711415d08748c3"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/codex_dedicated_worker_client.mjs",
+      "sha256": "24d9713498bdd9082a26993f90a0913c767ffe37a0234502f803fc3948bd30d5"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/codex_workspace_registry.mjs",
+      "sha256": "18c79f637dfa29f482fa744eb3889b17011805f694cc8446e0732c50b5268558"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/codex_workspace_root_isolation_child.cjs",
+      "sha256": "63cfc09a516de9068ede9657d3a9a886f5abecfee68b2e399e70afb76da0b1d8"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/file_activity_life_tree_projection.mjs",
+      "sha256": "edd6715bfb91d3341578d7d6c80701f117ece7b366a7bab0ebdbf1db6ce4d5e4"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/hermes_bot_submit_executor.mjs",
+      "sha256": "67968a1157808aee77481aed53aceb868d00a40dedc9c4f90b700fb55ce19611"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/hourly_shadow_cycle_contract.mjs",
+      "sha256": "e2f57258190d17b07b2eb759ff7ce643b023fb7dfda28533b97f4990382ab60c"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/knowledge_overview.mjs",
+      "sha256": "54b23540c0990aa884744dfd182912b8d384bd99c2a94b2a2ca76aade978235d"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/knowledge_shell.mjs",
+      "sha256": "a9e8d0352049a072f91c071cf8bf1cb6da0b02911c1981047e1b72511bd71159"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/lexicon.mjs",
+      "sha256": "dfdd35a651fb29cb4cd6f2e21043fb15d15cc9d5230ede6d4d6f26d00189a57a"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/mailbox_env.mjs",
+      "sha256": "e7df271184c519ac46eddaca33b9c1c5cf20dcdfca4a5f453e5fb00e8aba73ce"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/role_capability_matcher.mjs",
+      "sha256": "5120af40806a08b555d74f4af416e6e693f0a7a86477d75315eae68adc9cb58a"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/store.mjs",
+      "sha256": "921f7931d40c1fcd0bef51bc65745ae703b997c69e051fb9ace903b24f8e388f"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/voice_first_hermes_trial_gate.mjs",
+      "sha256": "449ec81cc2a30331503e6b97e3c8e2790db2b55aaa4d5fde318841aec45880cc"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/voice_first_mutation_canary_gate.mjs",
+      "sha256": "4f9b25a2cf45e1cf470f00f8bd85cfbecb77a39ea2d739e963b6a24fbc03bb44"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/voice_first_worker_comparison.mjs",
+      "sha256": "1a4f62d251b0735ffa838baa71484a82edf215e617e27f89724416b60fc26416"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/static/app.js",
+      "sha256": "8a8c21caeab0afd413f0c8e4ab05cc704c6f523e9dbc1dbf0293b6cc25165fe0"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/static/style.css",
+      "sha256": "517eb375466d8bc61cf692ab54b9d590772f3c4af6213577e124f7a2ec3c3ad6"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/codex_bridge_process.test.mjs",
+      "sha256": "f70f2ec6652d7086f946d5ee80a18133d046ca837ae5e65f110b49b76737065b"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/codex_dedicated_worker.test.mjs",
+      "sha256": "88930c713680d553e759af8a9802944080494a7f2b56f2daa370207ad3fc63df"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/codex_model_catalog.test.mjs",
+      "sha256": "c0c2d29c17b990a3232151463759964640f4ab62dd06d54c3154cc67e69470b4"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/codex_worker_server_integration.test.mjs",
+      "sha256": "838f3adfd8e96d7c982a61226f849981fd4312901516be28c147bd3c90c6b934"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/context_life_tree.test.mjs",
+      "sha256": "6a274af0474cb1a7074f99acbdd81e12f125f9a1b519f8d6f48a6019d2f443c9"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/core.test.mjs",
+      "sha256": "96d8a65e8439655d42ff8f8c3753da16d7c96617fa0a214e6178ee59f33d2c04"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/erp_mcp_server.test.mjs",
+      "sha256": "d121e6c83a0499be4393b8f4b2ed0f23c57cba18b1c592963195cbbb0215ca73"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/erp_mcp_service.test.mjs",
+      "sha256": "24035d1164ad94c64b001a7f46df8151991e107ab244c3c5dcff9365b4e874dc"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/run_dev_erp_background_launcher.test.mjs",
+      "sha256": "6ced046303f78da0b60dd625ff87c13e0f90c2144c30e9be43bd1f4c57947e48"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/runtime_release_audit_worker.test.mjs",
+      "sha256": "0b11ee293ff050d0265f4c7223cfe9710f0ffa03217a25f4d81f55c42644f769"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/voice_first_shadow.test.mjs",
+      "sha256": "6e66f0c57a771244744b387b5944bd2d08cc0c456f8cadc79a870df02a71985c"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/work_session_source_foundation.test.mjs",
+      "sha256": "ce6f200688d3ea40db1c5d777bd31dd4f2cc791acaa044d1b519d661e10aaaa0"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/workflow_job_core_contract.test.mjs",
+      "sha256": "145b808d4f4b10d4bdacf9b14da0a1a398920e9af9a887fc3163d90957c4bb31"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/workflow_job_service.test.mjs",
+      "sha256": "8b21594ae3634bb949448bc9ccffc1bd617e4a571975cbeb674e35dc55d11a02"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/tools/a8_synth_secure_access.mjs",
+      "sha256": "815582e60adb4be20215e9ce0634ee52928a649a578152fa4f12fb48729452c8"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/tools/codex_dedicated_worker.mjs",
+      "sha256": "5ba6424db70f00fb7815aaa5eb9a4c26b817d4cdda82dcc428469330ceca55cc"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/tools/completion_knowledge_feed.mjs",
+      "sha256": "fe1d499462aeb02e2b7c733d968bc5e668589abb4b09638312a343c56beaa212"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/tools/export_team_mailboxes.mjs",
+      "sha256": "fe055290e811d5fe718c5a7385c781260945fd23c448f9838bd6a3e52daad173"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/tools/haengbogwan_candidate_judge.mjs",
+      "sha256": "6b99d45266919226be63a4f92e4c172a9378ef041fa6ed857d23efddb431c4dd"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/tools/haengbogwan_project_context.mjs",
+      "sha256": "1f1c4c6546042c1cc090981f5424a8b119d0d87282bf8c6cccf3ef9733d9a60e"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/tools/haengbogwan_project_knowledge_overlay.mjs",
+      "sha256": "6d58919853377a91a5a93d2c64a983e371494ce0ee7762de9712edddd408748b"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/tools/haengbogwan_reading_codex_judge.mjs",
+      "sha256": "d1166d6f2afa0f990ebcd9d24cbfa6351d4fd21f7e11898f8e285aa0e7f5e5e7"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/tools/haengbogwan_snapshot.mjs",
+      "sha256": "17c5220c7bc3c414c8e52cc1855848e677a962b21f37db5ad9f7c07b32c7cc57"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/tools/import_team_roster.mjs",
+      "sha256": "616f2d1401aabd9cebb60979e41a610db7cb0bb4146eb532dc321437d723876d"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/tools/runtime_release_audit.mjs",
+      "sha256": "449ccc199ab8e4802749a474aa11ef04f7ee23153cad1ee245bd3d96b9adb63a"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/tools/task_engine_inventory.mjs",
+      "sha256": "36e2d6e07226d3b6f24d0de33e68a06eb36d1273fdaaaebe81c378d508e5f1e5"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/tools/task_engine_inventory_c00b_binding_producer.mjs",
+      "sha256": "0ec2222b5f2a48ef4282a2d6ea72e1063293cd7d3bd394bdaf6222f374e225aa"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/tools/task_engine_inventory_c00b_judge.mjs",
+      "sha256": "10814487b500d319a18b64005a8262077b7ebf77a1cf3c8eeff672b90d26565e"
+    }
+  ]
+}

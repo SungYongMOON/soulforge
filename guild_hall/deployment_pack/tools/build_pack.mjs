@@ -35,7 +35,7 @@ export const PACK_MANIFEST_SCHEMA = "soulforge.deployment_pack_manifest.v0";
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 // Repo-relative POSIX path: no absolute, no drive letter, no traversal.
 const REL_PATH = /^[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*$/;
-const SECRET_MATERIAL = /password|passwd|api[_-]?key|token_value|secret_value|private[_ ]key|BEGIN [A-Z ]+KEY/i;
+export const SECRET_MATERIAL = /password|passwd|api[_-]?key|token_value|secret_value|private[_ ]key|BEGIN [A-Z ]+KEY/i;
 
 function fail(code, detail) {
   const error = new Error(detail ? `${code}:${detail}` : code);
@@ -71,6 +71,57 @@ export function loadPackSpec(specPath) {
   }
   if (!Array.isArray(raw.smoke_test_entries) || raw.smoke_test_entries.length === 0) fail("spec_smoke_entries_missing");
   for (const entry of raw.smoke_test_entries) assertRelPath(entry, "smoke_test_entries");
+  // Optional test working directory, relative to the repo root at unit time
+  // and to the installed payload at smoke time. Suites that assume their
+  // app directory as cwd (dev-erp) declare it; entries are relative to it.
+  if (raw.test_cwd !== undefined) assertRelPath(raw.test_cwd, "test_cwd");
+  // Optional installed-copy smoke DECLARATION: when a suite cannot fully run
+  // in a clean installed copy (parent node_modules dependencies, git-checkout
+  // attestation, external tooling), the spec declares the runnable subset
+  // AND an exclusion ledger with a reason per excluded entry. Exclusions are
+  // visible data, never silence: every excluded entry must name a reason,
+  // and entries may not appear in both lists.
+  if (raw.installed_smoke_entries !== undefined) {
+    if (!Array.isArray(raw.installed_smoke_entries) || raw.installed_smoke_entries.length === 0) {
+      fail("spec_installed_smoke_invalid");
+    }
+    for (const entry of raw.installed_smoke_entries) assertRelPath(entry, "installed_smoke_entries");
+    if (!Array.isArray(raw.installed_smoke_excluded)) fail("spec_installed_smoke_exclusions_missing");
+    const included = new Set(raw.installed_smoke_entries);
+    for (const exclusion of raw.installed_smoke_excluded) {
+      if (!exclusion || typeof exclusion !== "object") fail("spec_installed_smoke_invalid");
+      assertRelPath(exclusion.path, "installed_smoke_excluded.path");
+      if (typeof exclusion.reason !== "string" || exclusion.reason.length === 0 || exclusion.reason.length > 200) {
+        fail("spec_installed_smoke_invalid", exclusion.path);
+      }
+      if (included.has(exclusion.path)) fail("spec_installed_smoke_overlap", exclusion.path);
+    }
+    // The declaration must PARTITION the full smoke set: nothing dropped
+    // silently between the two lists.
+    const declared = new Set([...raw.installed_smoke_entries, ...raw.installed_smoke_excluded.map((entry) => entry.path)]);
+    for (const entry of raw.smoke_test_entries) {
+      if (!declared.has(entry)) fail("spec_installed_smoke_partition_incomplete", entry);
+    }
+  }
+  // Optional pinned scan-review ledger: each entry accepts secret-REGEX hits
+  // inside ONE exact file content (path + sha256). Reviewed means a human/
+  // reviewer confirmed the hits are identifiers or synthetic fixtures, not
+  // material. Any edit to a pinned file invalidates the pin (stale), and a
+  // pin whose file no longer hits at all must be pruned (unused) — the
+  // ledger can never silently rot in either direction.
+  if (raw.content_scan_reviewed_files !== undefined) {
+    if (!Array.isArray(raw.content_scan_reviewed_files)) fail("spec_scan_review_invalid");
+    const seenPins = new Set();
+    for (const entry of raw.content_scan_reviewed_files) {
+      if (!entry || typeof entry !== "object") fail("spec_scan_review_invalid");
+      assertRelPath(entry.path, "content_scan_reviewed_files.path");
+      if (typeof entry.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(entry.sha256)) {
+        fail("spec_scan_review_invalid", entry.path);
+      }
+      if (seenPins.has(entry.path)) fail("spec_scan_review_duplicate", entry.path);
+      seenPins.add(entry.path);
+    }
+  }
   return raw;
 }
 
@@ -89,6 +140,12 @@ export function nodeTestRunner(entries, { cwd }) {
 function prepare(spec, { rootDir, runner }) {
   const files = [];
   const seen = new Set();
+  const reviewedPins = new Map();
+  for (const entry of spec.content_scan_reviewed_files ?? []) {
+    reviewedPins.set(entry.path, entry.sha256);
+  }
+  const consumedPins = new Set();
+  let reviewedHitFiles = 0;
   for (const [role, rolePaths] of Object.entries(spec.content_roles)) {
     for (const relPath of rolePaths) {
       if (seen.has(relPath)) fail("spec_duplicate_file", relPath);
@@ -97,18 +154,32 @@ function prepare(spec, { rootDir, runner }) {
       if (!absolute.startsWith(resolve(rootDir) + sep)) fail("spec_path_escapes_root", relPath);
       if (!existsSync(absolute)) fail("spec_file_missing", relPath);
       const bytes = readFileSync(absolute);
+      const digest = sha256(bytes);
       // must-not-contain, enforced on CONTENT: any secret-material shape in
-      // any packed file refuses the whole build. The receipt names the path
-      // only, never the matching content.
-      if (SECRET_MATERIAL.test(bytes.toString("utf8"))) fail("pack_contains_secret_material", relPath);
-      files.push({ path: relPath, role, sha256: sha256(bytes), bytes: bytes.length, content: bytes });
+      // any packed file refuses the whole build — unless the spec carries an
+      // exact reviewed pin for THIS content. The receipt names paths only,
+      // never matching content.
+      if (SECRET_MATERIAL.test(bytes.toString("utf8"))) {
+        const pinned = reviewedPins.get(relPath);
+        if (pinned === undefined) fail("pack_contains_secret_material", relPath);
+        if (pinned !== digest) fail("scan_review_pin_stale", relPath);
+        consumedPins.add(relPath);
+        reviewedHitFiles += 1;
+      }
+      files.push({ path: relPath, role, sha256: digest, bytes: bytes.length, content: bytes });
     }
+  }
+  // A pin whose file is absent from the pack or no longer hits is ledger
+  // rot: prune it deliberately, never carry it silently.
+  for (const pinPath of reviewedPins.keys()) {
+    if (!consumedPins.has(pinPath)) fail("scan_review_pin_unused", pinPath);
   }
   files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   const digestInput = files.map(({ path, sha256: digest, bytes }) => ({ path, sha256: digest, bytes }));
   const packDigest = sha256(Buffer.from(JSON.stringify(digestInput), "utf8"));
 
-  const unit = runner(spec.smoke_test_entries, { cwd: rootDir });
+  const unitCwd = spec.test_cwd ? join(rootDir, ...spec.test_cwd.split("/")) : rootDir;
+  const unit = runner(spec.smoke_test_entries, { cwd: unitCwd });
   if (!unit || unit.ok !== true) fail("unit_gate_failed", unit ? unit.summary : "runner_returned_nothing");
 
   const manifest = {
@@ -144,7 +215,10 @@ function prepare(spec, { rootDir, runner }) {
   const verdict = validatePackReleaseManifest(candidate);
   if (!verdict.ok) fail("contract_gate_failed", verdict.problems.join(","));
 
-  return { files, manifest, candidate, unitSummary: unit.summary };
+  return {
+    files, manifest, candidate, unitSummary: unit.summary,
+    scan: { reviewed_hit_files: reviewedHitFiles, reviewed_pins: reviewedPins.size },
+  };
 }
 
 export function buildPack(specPath, { rootDir, outDir, clock, runner = nodeTestRunner }) {
@@ -171,7 +245,11 @@ export function buildPack(specPath, { rootDir, outDir, clock, runner = nodeTestR
   writeFileSync(join(packDir, "release.candidate.json"), stableJson(prepared.candidate));
   writeFileSync(join(receiptsDir, "build.receipt.json"), stableJson({
     receipt: "build", pack_digest: prepared.manifest.pack_digest,
-    file_count: prepared.files.length, built_at: clock(),
+    file_count: prepared.files.length,
+    // The scan-review ledger is VISIBLE in the receipt: how many packed
+    // files carry secret-regex hits accepted under exact reviewed pins.
+    content_scan: prepared.scan,
+    built_at: clock(),
   }));
   writeFileSync(join(receiptsDir, "unit.receipt.json"), stableJson({
     receipt: "unit", summary: prepared.unitSummary, ran_at: clock(),
@@ -234,9 +312,11 @@ export function installPack({ packDir, targetDir, clock }) {
 
 // Isolated smoke: run the pack's own validators INSIDE the installed copy.
 // Same out-of-ladder status as install — evidence, not a claimed gate.
-export function runInstalledSmoke({ payloadDir, entries, clock, runner = nodeTestRunner }) {
+// testCwd (the spec's test_cwd) is resolved against the installed payload.
+export function runInstalledSmoke({ payloadDir, entries, testCwd, clock, runner = nodeTestRunner }) {
   if (typeof clock !== "function") fail("clock_required");
-  const result = runner(entries, { cwd: payloadDir });
+  const cwd = testCwd ? join(payloadDir, ...testCwd.split("/")) : payloadDir;
+  const result = runner(entries, { cwd });
   return {
     ok: result?.ok === true,
     summary: result ? result.summary : "runner_returned_nothing",
@@ -271,8 +351,18 @@ function cliMain() {
     process.stdout.write(`installed+verified ${installed.manifest.files.length} files at ${installed.payloadTarget}\n`);
     if (args.includes("--smoke")) {
       const spec = loadPackSpec(specPath);
-      const smoke = runInstalledSmoke({ payloadDir: installed.payloadTarget, entries: spec.smoke_test_entries, clock });
-      writeFileSync(join(installTarget, "smoke.receipt.json"), `${JSON.stringify({ receipt: "smoke", ...smoke }, null, 2)}\n`);
+      // The installed-copy smoke runs the DECLARED runnable subset when one
+      // exists; the exclusion ledger travels into the receipt so a green
+      // smoke can never silently mean "the excluded part passed too".
+      const smokeEntries = spec.installed_smoke_entries ?? spec.smoke_test_entries;
+      const excluded = spec.installed_smoke_excluded ?? [];
+      const smoke = runInstalledSmoke({ payloadDir: installed.payloadTarget, entries: smokeEntries, testCwd: spec.test_cwd, clock });
+      writeFileSync(join(installTarget, "smoke.receipt.json"), `${JSON.stringify({
+        receipt: "smoke", ...smoke,
+        entries_run: smokeEntries.length,
+        excluded_count: excluded.length,
+        excluded: excluded,
+      }, null, 2)}\n`);
       if (!smoke.ok) {
         process.stderr.write("smoke FAILED in installed copy\n");
         process.exit(1);

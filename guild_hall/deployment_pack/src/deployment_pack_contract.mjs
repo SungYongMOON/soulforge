@@ -12,7 +12,9 @@ export const DEPLOYMENT_PACK_SCHEMA = "soulforge.deployment_pack_contract.v0";
 export const PACK_CATALOG = Object.freeze([
   Object.freeze({
     pack_id: "hpp_server_pack",
-    contains: Object.freeze(["server_modules", "control_data_plane_services", "manifests", "operator_docs", "supported_migrations"]),
+    // "validators" added 2026-08-30: every pack carries its own test suite
+    // so the installed copy can prove itself (tool_workshop precedent).
+    contains: Object.freeze(["server_modules", "control_data_plane_services", "manifests", "operator_docs", "supported_migrations", "validators"]),
     must_not_contain: Object.freeze(["project_payload", "plaintext_secrets", "team_client_private_keys"]),
     initial_release_gate: "isolated install/start/stop/smoke/upgrade/rollback/restore proof",
   }),

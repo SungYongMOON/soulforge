@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -217,6 +218,115 @@ test("end to end against the REAL tracked spec: build, install, and smoke the ac
     const spec = loadPackSpec(REAL_SPEC);
     const smoke = runInstalledSmoke({ payloadDir: installed.payloadTarget, entries: spec.smoke_test_entries, clock: fixedClock });
     assert.equal(smoke.ok, true, `the real workshop suite must pass inside the installed copy: ${smoke.summary}`);
+  } finally {
+    rmSync(out, { recursive: true, force: true });
+    rmSync(target, { recursive: true, force: true });
+  }
+});
+
+test("scan-review pins accept exact reviewed content and rot in neither direction", () => {
+  const root = syntheticRoot({ fileContent: "const login = { password: \"hunter2-fixture\" };\n" });
+  const coreBytes = readFileSync(join(root, "guild_hall", "tool_workshop", "src", "tool_workshop_core.mjs"));
+  const coreSha = createHash("sha256").update(coreBytes).digest("hex");
+  const basePins = [{ path: "guild_hall/tool_workshop/src/tool_workshop_core.mjs", sha256: coreSha }];
+  // 1) Exact pin: the hit is accepted, and the receipt makes it VISIBLE.
+  const okBuild = buildPack(
+    writeSpec(tempDir("specPin"), syntheticSpec({ content_scan_reviewed_files: basePins })),
+    { rootDir: root, outDir: tempDir("outPin"), clock: fixedClock, runner: okRunner },
+  );
+  const receipt = JSON.parse(readFileSync(join(okBuild.packDir, "receipts", "build.receipt.json"), "utf8"));
+  assert.deepEqual(receipt.content_scan, { reviewed_hit_files: 1, reviewed_pins: 1 });
+  // 2) Stale pin: editing the pinned file demands a re-review.
+  const staleSpec = syntheticSpec({
+    content_scan_reviewed_files: [{ path: basePins[0].path, sha256: "b".repeat(64) }],
+  });
+  assert.throws(() => buildPack(writeSpec(tempDir("specStale"), staleSpec),
+    { rootDir: root, outDir: tempDir("outStale"), clock: fixedClock, runner: okRunner }),
+  (error) => error.code === "scan_review_pin_stale");
+  // 3) Unused pin: a pin whose file no longer hits must be pruned.
+  const cleanRoot = syntheticRoot();
+  const cleanBytes = readFileSync(join(cleanRoot, "guild_hall", "tool_workshop", "src", "tool_workshop_core.mjs"));
+  const cleanSha = createHash("sha256").update(cleanBytes).digest("hex");
+  assert.throws(() => buildPack(
+    writeSpec(tempDir("specUnused"), syntheticSpec({
+      content_scan_reviewed_files: [{ path: basePins[0].path, sha256: cleanSha }],
+    })),
+    { rootDir: cleanRoot, outDir: tempDir("outUnused"), clock: fixedClock, runner: okRunner },
+  ), (error) => error.code === "scan_review_pin_unused");
+  // 4) Unpinned hits still refuse exactly as before.
+  assert.throws(() => buildPack(writeSpec(tempDir("specNoPin"), syntheticSpec()),
+    { rootDir: root, outDir: tempDir("outNoPin"), clock: fixedClock, runner: okRunner }),
+  (error) => error.code === "pack_contains_secret_material");
+  // 5) Malformed ledger entries fail at spec load.
+  for (const bad of [[{ path: "guild_hall/x.mjs" }], [{ path: "../evil", sha256: "a".repeat(64) }], "not-a-list"]) {
+    assert.throws(() => loadPackSpec(writeSpec(tempDir("specBadPin"), syntheticSpec({ content_scan_reviewed_files: bad }))),
+      (error) => String(error.code).startsWith("spec_"), JSON.stringify(bad).slice(0, 40));
+  }
+});
+
+test("the installed-smoke declaration must partition the full smoke set with reasons, no overlap, no silence", () => {
+  const entry = "guild_hall/tool_workshop/tests/tool_workshop_core.test.mjs";
+  // Runnable subset + exclusion ledger covering the rest -> valid.
+  const good = syntheticSpec({
+    smoke_test_entries: [entry, "guild_hall/tool_workshop/src/tool_workshop_core.mjs"],
+    installed_smoke_entries: [entry],
+    installed_smoke_excluded: [{ path: "guild_hall/tool_workshop/src/tool_workshop_core.mjs", reason: "npm_dependency_example" }],
+  });
+  assert.equal(loadPackSpec(writeSpec(tempDir("specPart"), good)).installed_smoke_excluded.length, 1);
+  // A smoke entry in neither list is silent dropping -> refused.
+  assert.throws(() => loadPackSpec(writeSpec(tempDir("specPart"), syntheticSpec({
+    smoke_test_entries: [entry, "guild_hall/tool_workshop/src/tool_workshop_core.mjs"],
+    installed_smoke_entries: [entry],
+    installed_smoke_excluded: [],
+  }))), (error) => error.code === "spec_installed_smoke_partition_incomplete");
+  // The same entry in both lists is contradictory -> refused.
+  assert.throws(() => loadPackSpec(writeSpec(tempDir("specPart"), syntheticSpec({
+    smoke_test_entries: [entry],
+    installed_smoke_entries: [entry],
+    installed_smoke_excluded: [{ path: entry, reason: "x_reason" }],
+  }))), (error) => error.code === "spec_installed_smoke_overlap");
+  // An exclusion without a reason is not a ledger -> refused.
+  assert.throws(() => loadPackSpec(writeSpec(tempDir("specPart"), syntheticSpec({
+    smoke_test_entries: [entry],
+    installed_smoke_entries: [entry],
+    installed_smoke_excluded: [{ path: "guild_hall/tool_workshop/src/tool_workshop_core.mjs", reason: "" }],
+  }))), (error) => error.code === "spec_installed_smoke_invalid");
+});
+
+test("end to end against the REAL tracked hpp_server_pack spec: build, install, and subset-smoke the actual server pack", () => {
+  const out = tempDir("outHpp");
+  const target = tempDir("targetHpp");
+  try {
+    const specPath = join(REPO_ROOT, "guild_hall", "deployment_pack", "packs", "hpp_server_pack.spec.json");
+    // The unit gate here is a synthetic runner: the REAL full-suite unit and
+    // smoke gates ran via the CLI evidence run (receipts in dist/); this
+    // repo test proves build/install mechanics on the real 154-file set
+    // plus a REAL smoke SUBSET inside the installed copy.
+    const built = buildPack(specPath, { rootDir: REPO_ROOT, outDir: out, clock: fixedClock, runner: okRunner });
+    assert.equal(built.manifest.pack_id, "hpp_server_pack");
+    // The set is the computed import closure PLUS the fs-read data closure
+    // (cross-root guild_hall modules, served static assets, schemas,
+    // manual/ops data) — pinned so growth is a conscious spec re-emit.
+    assert.equal(built.manifest.files.length, 267);
+    assert.equal(built.candidate.claimed_gate, "contract");
+    assert.equal(built.manifest.files.some((entry) => entry.path.startsWith("guild_hall/")), true,
+      "the pack carries the guild_hall modules the server actually imports");
+    // The installed-smoke declaration PARTITIONS the full suite: runnable
+    // subset + evidence-backed exclusion ledger, nothing silent.
+    const spec = loadPackSpec(specPath);
+    assert.equal(spec.installed_smoke_entries.length + spec.installed_smoke_excluded.length, spec.smoke_test_entries.length);
+    assert.equal(spec.installed_smoke_excluded.length, 11);
+    for (const exclusion of spec.installed_smoke_excluded) {
+      assert.match(exclusion.reason, /^(npm_dependency_|requires_git_checkout)/, exclusion.path);
+    }
+    const installed = installPack({ packDir: built.packDir, targetDir: target, clock: fixedClock });
+    const smoke = runInstalledSmoke({
+      payloadDir: installed.payloadTarget,
+      entries: ["test/five_field_capture.test.mjs"],
+      testCwd: "ui-workspace/apps/dev-erp",
+      clock: fixedClock,
+    });
+    assert.equal(smoke.ok, true, `real subset smoke inside the installed copy: ${smoke.summary}`);
   } finally {
     rmSync(out, { recursive: true, force: true });
     rmSync(target, { recursive: true, force: true });
