@@ -270,16 +270,21 @@ hard-codes zero external effects: missing evidence is `UNKNOWN`, malformed or
 counter-mismatched evidence is `HOLD`, and zero is emitted only from exact
 synthetic-only adapter attestation reconciled with runner invocation counters.
 
-Actual authorized Linear/Drive clients, credential values, provider/network
-calls, filesystem backup writes, human restore acceptance, and the first
-one-shot remain absent and `HOLD`. A 24-hour scheduler, heartbeat, and topology
-projection belong to the post-one-shot `LB2` activation lane, not this adapter
-foundation.
+This runtime-adapter foundation still creates no authorized Linear/Drive
+client, discovers no credential value, and performs no physical write by
+itself. Separately, the physical gate below has now completed one bounded
+entire-workspace run through the connected read-only Linear surface and wrote
+one immutable generation plus an exact-byte isolated restore copy. Its status
+is only `PARTIAL_TECHNICAL_RESTORE_CANDIDATE`: provider calls were observed,
+independent network attestation remains `UNKNOWN`, and human restore acceptance
+is false. A 24-hour scheduler, heartbeat, and topology projection remain in the
+post-one-shot `LB2` activation lane.
 
-Before an actual LB1 snapshot, the Owner must either establish a quiesced window
-for the hourly multi-app writer or explicitly accept a non-quiesced snapshot.
-Without that decision, actual collection and restore acceptance remain `HOLD`;
-the synthetic adapter foundation does not provide writer coordination.
+Before a later recurring or full-acceptance LB1 snapshot, the Owner must either
+establish a quiesced window for the hourly multi-app writer or explicitly
+accept a non-quiesced snapshot. The first bounded physical one-shot does not
+provide writer coordination and does not close recurring collection or human
+restore acceptance.
 
 ### Linear whole-workspace actual-reader foundation
 

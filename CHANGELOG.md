@@ -4,6 +4,7 @@
 
 - Re-emitted `team_client_pack.spec.json` after the existing 4192 watch strip began importing the Path Registry storage-map projection. The calculated source closure is now 214 files with 19 reviewed pins; the three added shared modules are the registry seed, registry core and storage-map projection. The historical 211-file build remains historical evidence rather than the current closure.
 - Updated the real-spec regression pin and current Deployment Pack status text in the same change. This is packaging synchronization only: it does not activate a private storage snapshot, a writer, a service ring or any Linear mutation.
+- Fresh integration review also advanced stale current-truth text for Backup-Recovery: the current generated closure is 54 files, 16 declared smoke entries, no exclusions and 11 reviewed pins. The executed Linear result remains only a partial technical restore candidate; earlier 49/14 and 51/15 figures are retained solely as historical closure evidence.
 
 ## 2026-08-31 - Source-lane index contract: R3 evidence gains its supply contract (L-SOURCE-INDEX)
 
