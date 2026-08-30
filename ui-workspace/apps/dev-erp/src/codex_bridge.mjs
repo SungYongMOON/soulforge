@@ -18,6 +18,8 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 
+import { system32Exe } from "./win_system_exe.mjs";
+
 export const CODEX_TASK_BRIDGE_VERSION = Object.freeze({
   release: "v0.8.0",
   source: "src/codex_bridge.mjs",
@@ -290,8 +292,13 @@ function resolveWindowsCodexDirectSpawnSpec(appServerArgs) {
   add(raw);
   if (raw && !/[\\/:]/.test(raw)) {
     try {
-      const found = spawnSync("where.exe", [raw], { encoding: "utf8", windowsHide: true, stdio: ["ignore", "pipe", "ignore"], timeout: 5000 });
-      if (!found.error && found.status === 0) {
+      // where.exe itself is invoked by ABSOLUTE System32 path, never PATH;
+      // without a usable SystemRoot the where-based candidates are simply
+      // skipped (the remaining candidates + the downstream command-identity
+      // hash gate still apply).
+      const whereExe = system32Exe("where.exe");
+      const found = whereExe === null ? null : spawnSync(whereExe, [raw], { encoding: "utf8", windowsHide: true, stdio: ["ignore", "pipe", "ignore"], timeout: 5000 });
+      if (found && !found.error && found.status === 0) {
         for (const line of String(found.stdout || "").split(/\r?\n/)) add(line);
       }
     } catch {}
@@ -315,8 +322,17 @@ function codexCommandSpawnSpec(args) {
   if (process.platform !== "win32") return { command: CODEX_BIN, args };
   const direct = resolveWindowsCodexDirectSpawnSpec(args);
   if (direct) return direct;
+  // The .cmd-shim fallback needs a shell — the PINNED System32 cmd.exe,
+  // never PATH. Without a usable SystemRoot there is no trusted shell:
+  // fail closed instead of letting a planted cmd.exe launch the bridge.
+  const shell = system32Exe("cmd.exe");
+  if (shell === null) {
+    const error = new Error("codex_command_shell_unavailable");
+    error.code = "codex_command_shell_unavailable";
+    throw error;
+  }
   return {
-    command: "cmd.exe",
+    command: shell,
     args: ["/d", "/s", "/c", [CODEX_BIN, ...args].map(quoteCmdArg).join(" ")],
   };
 }
@@ -576,10 +592,15 @@ export function probeCodexPermissionBoundary({
   }
 }
 
-export function codexAppServerProcessTreeKillSpec(pid, platform = process.platform) {
+export function codexAppServerProcessTreeKillSpec(pid, platform = process.platform, env = process.env) {
   const n = Number(pid);
   if (platform !== "win32" || !Number.isInteger(n) || n <= 0) return null;
-  return { command: "taskkill.exe", args: ["/pid", String(n), "/T", "/F"] };
+  // Absolute System32 path, never PATH: a planted taskkill would run with
+  // the server's authority. No usable SystemRoot -> no tree-kill spec, and
+  // the caller falls back to the in-process ChildProcess.kill.
+  const taskkill = system32Exe("taskkill.exe", env);
+  if (taskkill === null) return null;
+  return { command: taskkill, args: ["/pid", String(n), "/T", "/F"] };
 }
 
 export function stopCodexAppServerProcess(child, { platform = process.platform, spawnSyncImpl = spawnSync, preferChildKill = false } = {}) {

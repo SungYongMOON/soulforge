@@ -105,6 +105,7 @@
       "ui-workspace/apps/dev-erp/src/voice_first_hermes_trial_gate.mjs",
       "ui-workspace/apps/dev-erp/src/voice_first_mutation_canary_gate.mjs",
       "ui-workspace/apps/dev-erp/src/voice_first_worker_comparison.mjs",
+      "ui-workspace/apps/dev-erp/src/win_system_exe.mjs",
       "ui-workspace/apps/dev-erp/src/work_session_lifecycle.mjs",
       "ui-workspace/apps/dev-erp/src/work_session_outbox.mjs",
       "ui-workspace/apps/dev-erp/src/work_session_source_inventory.mjs",
@@ -286,6 +287,7 @@
       "ui-workspace/apps/dev-erp/test/voice_first_shadow.test.mjs",
       "ui-workspace/apps/dev-erp/test/voice_first_worker_comparison.test.mjs",
       "ui-workspace/apps/dev-erp/test/voice_to_task_candidates.test.mjs",
+      "ui-workspace/apps/dev-erp/test/win_system_exe.test.mjs",
       "ui-workspace/apps/dev-erp/test/work_session_source_foundation.test.mjs",
       "ui-workspace/apps/dev-erp/test/work_session_source_inventory.test.mjs",
       "ui-workspace/apps/dev-erp/test/workflow_job_contract.test.mjs",
@@ -1039,6 +1041,7 @@
     "test/voice_first_shadow.test.mjs",
     "test/voice_first_worker_comparison.test.mjs",
     "test/voice_to_task_candidates.test.mjs",
+    "test/win_system_exe.test.mjs",
     "test/work_session_source_foundation.test.mjs",
     "test/work_session_source_inventory.test.mjs",
     "test/workflow_job_contract.test.mjs",
@@ -1131,6 +1134,7 @@
     "test/voice_first_shadow.test.mjs",
     "test/voice_first_worker_comparison.test.mjs",
     "test/voice_to_task_candidates.test.mjs",
+    "test/win_system_exe.test.mjs",
     "test/work_session_source_foundation.test.mjs",
     "test/work_session_source_inventory.test.mjs",
     "test/workflow_job_contract.test.mjs",
@@ -1891,7 +1895,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/server.mjs",
-      "sha256": "d4ecbae96eb0717f79c97ce34f599453c799ac6fb7449607e1df6d413693a39b"
+      "sha256": "1a1d0efb0f502995f84014b078e85ee6644f8eb2a43032725f10401321dbc99d"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/accepted_context_query.mjs",
@@ -1907,11 +1911,11 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/codex_bridge.mjs",
-      "sha256": "ec6d97cd5f2e97bbd20805a5680ab59ebebc85221a0d6b05501b195cf6a8d84d"
+      "sha256": "19444af58c8508bd65cbb440cd1f07cea3b2c590b0e392da00cca63035b29f76"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/codex_dedicated_worker.mjs",
-      "sha256": "801f3b0f8e4a2ab80afc81d921dc7ae258e01049ebcebb7ddce99777d0f892cc"
+      "sha256": "d6579f3991d900d19f1959b6d5c329b777143ebf33267a98be34f81deee9c58e"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/codex_dedicated_worker_client.mjs",
@@ -1951,7 +1955,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/mailbox_env.mjs",
-      "sha256": "e7df271184c519ac46eddaca33b9c1c5cf20dcdfca4a5f453e5fb00e8aba73ce"
+      "sha256": "07e4b1b7bcefc4a8068947e93dc7ec267b3c6946dd91e2f0360bfe3d97677fe3"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/role_capability_matcher.mjs",
@@ -1983,7 +1987,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/codex_bridge_process.test.mjs",
-      "sha256": "f70f2ec6652d7086f946d5ee80a18133d046ca837ae5e65f110b49b76737065b"
+      "sha256": "dfa7ecc20f4855c532fcbd289a1c1412e33eec80a4fd2a8b591cf3a537ad42c4"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/codex_dedicated_worker.test.mjs",
@@ -2003,7 +2007,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/core.test.mjs",
-      "sha256": "96d8a65e8439655d42ff8f8c3753da16d7c96617fa0a214e6178ee59f33d2c04"
+      "sha256": "324faa93e30714403509b6bfb60b1e4a89c123ba5d95aae2f21bed7fa94dd1ba"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/erp_mcp_server.test.mjs",

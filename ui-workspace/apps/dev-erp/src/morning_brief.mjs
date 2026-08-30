@@ -9,6 +9,8 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 
+import { resolvePythonExecutable } from "./win_system_exe.mjs";
+
 const HIDDEN_STATUSES = new Set(["done", "archived", "unclassified"]);
 
 // 로컬(서버 PC) 기준 날짜키 — UTC slice 는 아침 시간대에 전날로 밀린다.
@@ -152,7 +154,7 @@ export function resolveSenderEnvPath(store, { repoRoot, override = "" } = {}) {
 
 // guild_hall 발송 캡슐 호출. EMAIL_SEND_ENABLED 는 이 spawn 에만 주입(secret 파일 무수정).
 // 본문은 임시파일로 전달 — argv 는 Windows 32K 한계에서 spawn 이 동기 throw 한다(적대검토 실측).
-export function sendBriefMail({ repoRoot, envFile, to, subject, text, html = "", pythonBin = process.env.DEV_ERP_PYTHON || "python", timeoutMs = 60000, dryRun = false }) {
+export function sendBriefMail({ repoRoot, envFile, to, subject, text, html = "", pythonBin = null, timeoutMs = 60000, dryRun = false }) {
   return new Promise((resolvePromise) => {
     let tmp = null;
     let child = null;
@@ -167,7 +169,15 @@ export function sendBriefMail({ repoRoot, envFile, to, subject, text, html = "",
         "--json", "--approved-by", "owner_20260704_morning_brief_v1", "--source-ref", "dev-erp:morning_brief"];
       if (html) args.push("--body-html-file", join(tmp, "body.html"));
       if (dryRun) args.push("--dry-run");
-      child = spawn(pythonBin, args, { env: { ...process.env, EMAIL_SEND_ENABLED: "true" }, windowsHide: true });
+      // python via the env pin (DEV_ERP_PYTHON, validated absolute file) or
+      // the pinned System32 where.exe — never a bare PATH name in the mail
+      // send path; explicit pythonBin stays for tests.
+      const resolvedPython = pythonBin !== null ? { command: pythonBin } : resolvePythonExecutable();
+      if (resolvedPython.command === null) {
+        cleanup();
+        return resolvePromise({ ok: false, code: null, result: null, error: resolvedPython.reason });
+      }
+      child = spawn(resolvedPython.command, args, { env: { ...process.env, EMAIL_SEND_ENABLED: "true" }, windowsHide: true });
     } catch (e) {
       cleanup();
       return resolvePromise({ ok: false, code: null, result: null, error: `spawn_failed:${e.message}`.slice(0, 400) });

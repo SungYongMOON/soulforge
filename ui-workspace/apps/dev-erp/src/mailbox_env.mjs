@@ -8,6 +8,8 @@ import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync, rmSync,
 import { dirname, resolve, sep } from "node:path";
 import { createHash } from "node:crypto";
 
+import { resolvePythonExecutable } from "./win_system_exe.mjs";
+
 export const MAILBOX_ENV_DIR_REL = "guild_hall/state/gateway/mailbox/state";
 
 function mailboxConfigRoot(repoRoot, privateRoot = "") {
@@ -141,6 +143,7 @@ function safeMailTestErrorCode(raw) {
     "hiworks_source_missing", "hiworks_disabled", "parse_error", "connection_test_partial",
     "mailbox_private_config_root_required", "mailbox_env_ref_noncanonical", "mailbox_env_path_unsafe",
     "mailbox_credential_file_missing", "test_run_error",
+    "python_pin_invalid", "python_unresolved",
   ]);
   return allowed.has(code) ? code : "connection_test_failed";
 }
@@ -157,14 +160,18 @@ export async function runMailboxConnectionDryRun({
   envRef,
   privateRoot = "",
   execFile,
-  pythonBin = process.platform === "win32" ? "python" : "python3",
+  pythonBin = null,
   timeout = 25000,
 } = {}) {
   const presence = mailboxCredentialState(repoRoot, accountKey, envRef, { privateRoot });
   if (!presence.exists) return { ok: false, fetched: 0, error: presence.error, message: "" };
+  // python via the env pin or the pinned System32 where.exe (never a bare
+  // PATH name from this live route); explicit pythonBin stays for tests.
+  const python = pythonBin !== null ? { command: pythonBin } : resolvePythonExecutable();
+  if (python.command === null) return { ok: false, fetched: 0, error: python.reason, message: "" };
   try {
     const { stdout } = await execFile(
-      pythonBin,
+      python.command,
       ["guild_hall/gateway/mail_fetch/cli.py", "--env-file", mailboxEnvRelPath(accountKey), "--dry-run", "--limit", "3", "--once", "--json"],
       { cwd: resolve(repoRoot), timeout, maxBuffer: 4 * 1024 * 1024 },
     );

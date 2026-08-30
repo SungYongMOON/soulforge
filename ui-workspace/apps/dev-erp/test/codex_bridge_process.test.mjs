@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import path, { join } from "node:path";
 import { createInterface } from "node:readline";
 import test from "node:test";
 
@@ -49,17 +49,26 @@ function pidExists(pid) {
   }
 }
 
-test("codex bridge process cleanup uses Windows process-tree kill", () => {
-  assert.deepEqual(codexAppServerProcessTreeKillSpec(1234, "win32"), {
-    command: "taskkill.exe",
+test("codex bridge process cleanup uses Windows process-tree kill via the ABSOLUTE System32 taskkill", () => {
+  const winRoot = ["C:", "Windows"].join(path.sep);
+  assert.deepEqual(codexAppServerProcessTreeKillSpec(1234, "win32", { SystemRoot: winRoot }), {
+    command: path.join(winRoot, "System32", "taskkill.exe"),
     args: ["/pid", "1234", "/T", "/F"],
   });
+  // Real env: still absolute, never the bare PATH name.
+  const live = codexAppServerProcessTreeKillSpec(1234, "win32");
+  if (live !== null) {
+    assert.equal(path.isAbsolute(live.command), true);
+    assert.equal(live.command.toLowerCase().endsWith(path.join("system32", "taskkill.exe")), true);
+  }
 });
 
-test("codex bridge process cleanup ignores invalid or non-Windows pids", () => {
+test("codex bridge process cleanup ignores invalid or non-Windows pids, and no SystemRoot means no tree-kill spec", () => {
   assert.equal(codexAppServerProcessTreeKillSpec(1234, "linux"), null);
   assert.equal(codexAppServerProcessTreeKillSpec(0, "win32"), null);
   assert.equal(codexAppServerProcessTreeKillSpec("abc", "win32"), null);
+  assert.equal(codexAppServerProcessTreeKillSpec(1234, "win32", {}), null,
+    "without a usable SystemRoot the caller falls back to in-process child.kill, never PATH taskkill");
 });
 
 test("codex bridge process cleanup stops the Windows process tree first", () => {
@@ -75,7 +84,8 @@ test("codex bridge process cleanup stops the Windows process tree first", () => 
 
   assert.equal(stopped, true);
   assert.equal(calls.length, 1);
-  assert.equal(calls[0][0], "taskkill.exe");
+  assert.equal(path.isAbsolute(calls[0][0]), true, "tree-kill runs the pinned System32 taskkill, never PATH");
+  assert.equal(calls[0][0].toLowerCase().endsWith(path.join("system32", "taskkill.exe")), true);
   assert.deepEqual(calls[0][1], ["/pid", "1234", "/T", "/F"]);
   assert.equal(calls[0][2].windowsHide, true);
 });

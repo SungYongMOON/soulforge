@@ -7,7 +7,7 @@ import { createServer } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
 import { createServer as createNetServer } from "node:net";
 import { createHash, randomBytes, randomUUID, X509Certificate } from "node:crypto";
-import { execFile, execSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
 import {
   closeSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync,
@@ -17,6 +17,7 @@ import { dirname, isAbsolute, join, extname, resolve, sep, basename } from "node
 import { fileURLToPath } from "node:url";
 
 import { readPackSourceIdentity } from "./src/pack_source_identity.mjs";
+import { resolveGitExecutable } from "./src/win_system_exe.mjs";
 import { openStore } from "./src/store.mjs";
 import {
   SHA256_RE as WORKFLOW_SHA256_RE,
@@ -125,8 +126,18 @@ const RUNTIME_SOURCE_COMMIT = (() => {
     const configured = String(process.env.DEV_ERP_SOURCE_COMMIT || "").trim().toLowerCase();
     return /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(configured) ? configured : "";
   }
-  try { return execSync("git rev-parse HEAD", { cwd: ROOT, encoding: "utf8", timeout: 3000 }).trim(); }
-  catch {
+  // No shell, no PATH search: git via the env pin or the pinned System32
+  // where.exe (src/win_system_exe.mjs). An INVALID pin is a config error:
+  // it surfaces as a degraded identity (match reads false) instead of
+  // silently rerouting to another rung.
+  const git = resolveGitExecutable();
+  if (git.reason === "git_pin_invalid") return "";
+  try {
+    if (git.command === null) throw new Error(git.reason);
+    return execFileSync(git.command, ["rev-parse", "HEAD"], {
+      cwd: ROOT, encoding: "utf8", timeout: 3000, windowsHide: true, stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
     try {
       const pack = readPackSourceIdentity(dirname(fileURLToPath(import.meta.url)), {
         verify: "self", selfPath: fileURLToPath(import.meta.url),
@@ -483,8 +494,16 @@ const SKIN_ROOTS = [...new Set([
   join(HERE, "static", "skins"),
 ].filter(Boolean).map((p) => resolve(p)))];
 // 4번째 버전 세그먼트 = dev-erp 경로 커밋수(자동 증가). 매 dev-erp 배포(커밋)마다 +1 → '버전이 그대로'를 수동 깜빡임 없이 방지. git 없으면 0(best-effort).
+// PATH·셸 불사용: RUNTIME_SOURCE_COMMIT과 같은 resolver 경유(부팅 시 실행되는
+// 경로라 planted git이 서버 권한으로 뜨면 안 됨 — adversarial 검토 실측 지적).
 function erpBuildSeq() {
-  try { return Number(execSync("git rev-list --count HEAD -- .", { cwd: HERE, encoding: "utf8" }).trim()) || 0; } catch { return 0; }
+  try {
+    const git = resolveGitExecutable();
+    if (git.command === null) return 0;
+    return Number(execFileSync(git.command, ["rev-list", "--count", "HEAD", "--", "."], {
+      cwd: HERE, encoding: "utf8", timeout: 3000, windowsHide: true, stdio: ["ignore", "pipe", "ignore"],
+    }).trim()) || 0;
+  } catch { return 0; }
 }
 const ERP_VERSION = Object.freeze({
   release: `v1.4.0.${erpBuildSeq()}`,   // MAJOR.MINOR.PATCH.BUILD — 기능 묶음=PATCH 수동, 매 배포=BUILD 자동

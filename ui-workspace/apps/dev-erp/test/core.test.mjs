@@ -6675,7 +6675,7 @@ test("MAILBOX-TEST: canonical private credential presence gates dry-run and stat
     assert.equal(mailboxCredentialState(root, accountKey, "guild_hall/state/gateway/mailbox/state/other.env", { privateRoot }).error, "mailbox_env_ref_noncanonical");
     let called = 0;
     const missing = await runMailboxConnectionDryRun({
-      repoRoot: root, accountKey, envRef, privateRoot,
+      repoRoot: root, accountKey, envRef, privateRoot, pythonBin: "synthetic-python",
       execFile: async () => { called += 1; return { stdout: "{}" }; },
     });
     assert.equal(missing.error, "mailbox_credential_file_missing");
@@ -6688,6 +6688,9 @@ test("MAILBOX-TEST: canonical private credential presence gates dry-run and stat
       accountKey,
       envRef,
       privateRoot,
+      // Explicit pythonBin keeps this contract test hermetic: the injected
+      // execFile never launches anything, and the real resolver stays out.
+      pythonBin: "synthetic-python",
       execFile: async (_bin, args) => {
         called += 1;
         assert.ok(args.includes("--dry-run"));

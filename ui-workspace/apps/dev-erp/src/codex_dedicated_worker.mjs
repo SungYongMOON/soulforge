@@ -37,6 +37,7 @@ import {
   runCodexTaskTurn,
 } from "./codex_bridge.mjs";
 import { readPackSourceIdentity } from "./pack_source_identity.mjs";
+import { resolveGitExecutable } from "./win_system_exe.mjs";
 import {
   CodexTurnProjectionError,
   openVerifiedCodexTurnProjection,
@@ -360,14 +361,25 @@ function readWorkerSourceState() {
 
 function readGitSourceState() {
   try {
-    const root = realpathSync(String(execFileSync("git", ["rev-parse", "--show-toplevel"], {
+    // git is never resolved by execFile's own PATH search on win32: the
+    // DEV_ERP_GIT_EXE pin wins, else a lookup through the PINNED System32
+    // where.exe. An INVALID pin is a config error and fails the probe —
+    // it must never silently degrade to the pack ladder or to PATH.
+    const git = resolveGitExecutable();
+    if (git.command === null) {
+      if (git.reason === "git_pin_invalid") fail("worker_source_commit_unavailable", 500);
+      // Unresolvable git (no SystemRoot / no git on the host): let the
+      // pack ladder decide, exactly like a non-git checkout.
+      return null;
+    }
+    const root = realpathSync(String(execFileSync(git.command, ["rev-parse", "--show-toplevel"], {
       cwd: WORKER_SOURCE_DIR,
       encoding: "utf8",
       windowsHide: true,
       timeout: WORKER_SOURCE_GIT_TIMEOUT_MS,
       stdio: ["ignore", "pipe", "ignore"],
     })).trim());
-    const commit = String(execFileSync("git", ["rev-parse", "--verify", "HEAD"], {
+    const commit = String(execFileSync(git.command, ["rev-parse", "--verify", "HEAD"], {
       cwd: WORKER_SOURCE_DIR,
       encoding: "utf8",
       windowsHide: true,
@@ -375,7 +387,7 @@ function readGitSourceState() {
       stdio: ["ignore", "pipe", "ignore"],
     })).trim().toLowerCase();
     if (!/^[a-f0-9]{40}$/.test(commit)) fail("worker_source_commit_unavailable", 500);
-    const status = String(execFileSync("git", ["status", "--porcelain=v1", "--untracked-files=normal"], {
+    const status = String(execFileSync(git.command, ["status", "--porcelain=v1", "--untracked-files=normal"], {
       cwd: WORKER_SOURCE_DIR,
       encoding: "utf8",
       windowsHide: true,

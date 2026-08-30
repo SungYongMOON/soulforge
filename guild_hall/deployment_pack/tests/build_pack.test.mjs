@@ -327,14 +327,14 @@ test("end to end against the REAL tracked hpp_server_pack spec: build, install, 
     const specPath = join(REPO_ROOT, "guild_hall", "deployment_pack", "packs", "hpp_server_pack.spec.json");
     // The unit gate here is a synthetic runner: the REAL full-suite unit and
     // smoke gates ran via the CLI evidence run (receipts in dist/); this
-    // repo test proves build/install mechanics on the real 154-file set
+    // repo test proves build/install mechanics on the real pinned file set
     // plus a REAL smoke SUBSET inside the installed copy.
     const built = buildPack(specPath, { rootDir: REPO_ROOT, outDir: out, clock: fixedClock, runner: okRunner });
     assert.equal(built.manifest.pack_id, "hpp_server_pack");
     // The set is the computed import closure PLUS the fs-read data closure
     // PLUS the vendored npm closure (yaml + ajv and its runtime deps under
     // payload-root node_modules) — pinned so growth is a conscious re-emit.
-    assert.equal(built.manifest.files.length, 939);
+    assert.equal(built.manifest.files.length, 941);
     assert.equal(built.candidate.claimed_gate, "contract");
     assert.equal(built.manifest.files.some((entry) => entry.path.startsWith("guild_hall/")), true,
       "the pack carries the guild_hall modules the server actually imports");
