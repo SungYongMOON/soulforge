@@ -178,6 +178,9 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `L-TEAM-CLIENT` | `9a2f5191` | Deployment | Team Client 소스 pack 211파일(전 suite 77/723 smoke green·제외 0)·closure lib 추출(byte-동일 증명) |
 | `L-RISK-ENROLL` | `ed40a5a1` | Operability | pack 폐포 직접 의존 legacy 16모듈 최소주장 manifest 등재(9→25, 잔여 24 의도적 유보) |
 | `L-BACKUP-REC` | `18c3f65a` | Deployment | Backup-Recovery pack 49파일(14/14 smoke·커버리지 가드) + project_ai_team BLOCKED packet |
+| `L-ACCEPT-LANE` | `600db1ea` | Validate | root acceptance lane +3(고아 모듈 suite 등재·양 모드 대칭 pin) |
+| `L-GRACEFUL-CONTRACT` | `7bb3ad07` | Deployment | posix graceful-stop 계약(SIGTERM→exit 0 assert)·win32 무회귀·실행은 BLOCKED_ENVIRONMENT packet |
+| `L-PLAN13-FACTS` | `ac5030f5` | Program docs | plan-13 사실표 재기준(57/58/57 정직 스토리)·L-RED-03 probe 리터럴 근본 수정 |
 
 ### Current validator register (rebaselined 2026-08-30)
 
