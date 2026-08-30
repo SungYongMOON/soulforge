@@ -148,8 +148,8 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | Mail/Slack/Voice/PC-activity source-lane capture adapters | DONE `L-MAIL-SOURCE-LANE`,`L-SLACK-SOURCE-LANE`,`L-VOICE-SOURCE-LANE`,`L-PC-ACTIVITY-SOURCE` | — | GATED (실 receipt caller·private record store; Cloud/Git/NAS native receipt 없음) | GATED |
 | Source/Buzz/Hermes backup-generation contracts | DONE `L-BACKUP-GEN-CONTRACTS` (generic Source acceptance separation + Buzz multi-store digest + Hermes Agent custody manifest; effects 0) | Backup-Recovery current closure에 포함 | GATED (actual bytes/quiesce/restore/human authority) | GATED |
 | Agent workforce lineage | DONE `L-AGENT-MARK-CONTRACT`,`L-AGENT-REVISION-CATALOG`,`L-AGENT-AUTH-VERIFY` | GATED (`project_ai_team_pack`) | GATED (verified receipt durable writer·deployment activation) | GATED |
-| Project AI Team Pack admission | DONE (Project Mark authority pin/current state + four role classes + current verified Agent bindings; emits refs-only future input) | GATED (actual approved inputs; no tracked spec) | GATED | GATED |
-| Candidate execution authority admission | DONE (coordinator-native packets + current verified Agent/assignment/tool/slot binding; execute/claim 0) | — | GATED (Forge/Linear→Coordinator packet seam + durable ledger) | GATED |
+| Project AI Team Pack admission | DONE `L-PROJECT-AI-TEAM-ADMISSION` (Project Mark authority + four role classes + verified Agent bindings; refs-only future input) | GATED (actual approved inputs; no tracked spec) | GATED | GATED |
+| Candidate execution authority admission | DONE `L-CANDIDATE-AUTH-ADMISSION` (coordinator-native packets + current Agent/assignment/tool/slot binding; execute/claim 0) | — | GATED (Forge/Linear→Coordinator packet seam + durable ledger) | GATED |
 | Tool workshop | DONE `L-WORKSHOP-CORE` | DONE `L-PACK-BUILDER` (4-file pack, install+smoke green) | GATED (물리 Tool PC·runner) | GATED |
 | Deployment pack (contract·builder·spec 4종/5종 중 project_ai_team만 외부 gate) | DONE `L-PACK-CONTRACT` | DONE existing leaves + current Backup-Recovery **61파일·19 smoke·pin 19**, hpp **949파일·92 smoke·pin 67**, team_client **216파일·78 smoke·Board 732 tests**; project_ai_team spec은 actual approved input 전 absent | — | GATED |
 | Module operability gate (manifest·의존·cycle·preflight) | DONE `L-MODOP-GATE` + risk-based 등재 (current **28 manifest**, import scan 1,197파일/2,667 edge·cycle 0; 잔여 22 dir 명시 미등재) | n/a | — | — |
@@ -195,6 +195,8 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `L-ASSET-CLASS-LEDGER` | `f76df21e` | ERP assets / R5 | 9-class revision·five-owner·acceptance/backup/restore evidence overlay; authority neutral |
 | `L-AGENT-AUTH-VERIFY` | `f76df21e` | Guild / Agent authority | approval claim + trusted pin + current-authority-state exact verification; runtime/task effect 0 |
 | `L-PC-ACTIVITY-SOURCE` | `f76df21e` | Physical spine / PC activity | native project-bound file-activity coverage→capture-only source lane; Cloud/Git/NAS HOLD |
+| `L-PROJECT-AI-TEAM-ADMISSION` | `849a594f` | Deployment / Guild | independently approved Project Mark + four role classes/current Agent bindings→future pack input; spec/runtime 0 |
+| `L-CANDIDATE-AUTH-ADMISSION` | `849a594f` | Task execution | coordinator-native packets + verified Agent/current assignment/tool/slot admission; execute/claim/Linear 0 |
 | `L-DEVERP-HOST-RED` | `e27d5c6d` | dev-ERP | worker 신원 바이너리 System32 절대경로 고정(보안 강화) |
 | `L-HPP-PACK` | `8b02724c` | Deployment | dev-ERP 267파일 pack(모듈+데이터 폐포·scan pin 60·smoke 파티션 78+11) |
 | `L-PLAN-TRUTH` | `22c05384` | Program docs | 이 원장 자체(레인×성숙도·trace·register)와 drift 수정 + `validate:plan-truth` |
