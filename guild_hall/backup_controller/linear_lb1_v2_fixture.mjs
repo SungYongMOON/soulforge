@@ -83,6 +83,13 @@ export function makeCompleteLinearLb1V2Fixture() {
         team_id: "synthetic-team-001",
       },
     ],
+    labels: [
+      {
+        label_id: "synthetic-label-backup",
+        name: "backup",
+        updated_at: "2026-08-20T08:00:00.000Z",
+      },
+    ],
     cutoff: {
       cutoff_at: "2026-08-20T09:00:00.000Z",
       page_count: 1,
@@ -226,6 +233,22 @@ export function makeCompleteLinearLb1V2Fixture() {
             availability: "available",
           },
         ],
+        label_ids: ["synthetic-label-backup"],
+        attachments: [
+          {
+            attachment_id: "synthetic-attachment-001",
+            title: "approved-evidence.txt",
+            source_url: "https://uploads.linear.app/synthetic/approved-evidence.txt",
+            mime_type: "text/plain",
+            size: 32,
+            content_sha256: sha256Text("Synthetic approved attachment bytes"),
+            created_at: "2026-08-20T08:22:00.000Z",
+            updated_at: "2026-08-20T08:22:00.000Z",
+            availability: "available",
+            approval_ref: "synthetic-attachment-approval-001",
+            bytes_captured: true,
+          },
+        ],
       },
       {
         issue_id: "issue-002",
@@ -274,6 +297,8 @@ export function makeCompleteLinearLb1V2Fixture() {
             availability: "available",
           },
         ],
+        label_ids: [],
+        attachments: [],
       },
     ],
   };

@@ -60,11 +60,13 @@ export function approvedV2Packet() {
     },
     claim_store: {
       claim_store_ref: ref("claim_store_01"),
-      single_use_token: "single-use-claim-token-uuid-001",
+      single_use_token_ref: ref("single-use-claim-token-ref-001"),
     },
     adapters: {
       linear_reader_adapter_ref: ref("linear_reader_01"),
       storage_adapter_ref: ref("storage_adapter_01"),
+      attachment_policy_ref: ref("attachment_policy_01"),
+      attachment_allowlist_sha256: ref("attachment_policy_01").content_id,
     },
     artifact_layout: {
       snapshot_schema_version: "soulforge.backup_controller.linear_lb1.snapshot.v2",
@@ -93,6 +95,13 @@ export function approvedV2Packet() {
       required_dimensions: [...LINEAR_LB1_V2_DIMENSIONS],
       restore_check_required: true,
       tabular_only_accepted: false,
+    },
+    capture_consistency: {
+      mode: "owner_accepted_non_quiesced",
+      decision_ref: ref("non_quiesced_capture_decision_01"),
+      cutoff_required: true,
+      cursor_ledger_required: true,
+      drift_policy: "partial_hold_on_incompatible_drift",
     },
     one_shot: {
       run_limit: 1,
@@ -132,6 +141,7 @@ test("an exact approved LB1 v2 policy and runtime binding opens one read-only ba
   assert.equal(result.receipt.binding.create_only, true);
   assert.equal(result.receipt.binding.overwrite_allowed, false);
   assert.equal(result.receipt.binding.restore_check_required, true);
+  assert.equal(result.receipt.binding.attachment_allowlist_sha256, packet.adapters.attachment_policy_ref.content_id);
   assert.equal(result.receipt.binding.technical_single_use_enforced, false);
   assert.equal(result.receipt.binding.consumption_state, "not_consumed_by_gate");
   assert.equal(result.receipt.binding.trusted_pin_expires_at, "2026-08-21T00:00:00.000Z");
@@ -143,11 +153,10 @@ test("an exact approved LB1 v2 policy and runtime binding opens one read-only ba
     scheduler_changes: 0,
   });
 
-  // Gate receipt MUST NOT expose raw single_use_token or writer hostname
+  // Gate receipt carries an opaque ref only, never token material or writer hostname.
   assert.equal(Object.hasOwn(result.receipt, "single_use_token"), false);
-  assert.equal(result.receipt.single_use_token_present, true);
-  assert.equal(typeof result.receipt.single_use_token_sha256, "string");
-  assert.equal(result.receipt.single_use_token_sha256.length, 64);
+  assert.equal(result.receipt.single_use_token_ref_present, true);
+  assert.equal(result.receipt.single_use_token_ref.content_hash_alg, "sha256");
   assert.deepEqual(result.receipt.writer_identity, {
     writer_id: "soulforge-main-node-01",
     epoch: 1,
@@ -160,6 +169,18 @@ test("an exact approved LB1 v2 policy and runtime binding opens one read-only ba
   assert.equal(Object.isFrozen(result), true);
   assert.equal(Object.isFrozen(result.gate), true);
   assert.equal(Object.isFrozen(result.receipt), true);
+});
+
+test("an approved private data-root generation target is accepted without weakening create-only policy", () => {
+  const packet = approvedV2Packet();
+  packet.target.kind = "private_data_root_generation";
+  packet.target.display_label = "Soulforge private Linear generation root";
+  const result = evaluateLinearLb1OwnerGateV2(packet, trustedPinFor(packet));
+
+  assert.equal(result.gate.status, "READY_FOR_ONE_SHOT");
+  assert.equal(result.receipt.binding.create_only, true);
+  assert.equal(result.receipt.binding.overwrite_allowed, false);
+  assert.equal(result.receipt.authority.storage_write_allowed, true);
 });
 
 test("default packet remains HOLD until owner decision, refs, adapters, layout, and limits are bound", () => {
@@ -278,11 +299,11 @@ test("each v2 start policy fails at its own stable gate code", () => {
     },
     {
       code: "LINEAR_LB1_GATE_V2_CLAIM_STORE_REQUIRED",
-      mutate(packet) { packet.claim_store.single_use_token = "short"; },
+      mutate(packet) { packet.claim_store.single_use_token_ref = { bad: true }; },
     },
     {
       code: "LINEAR_LB1_GATE_V2_ADAPTER_REFS_REQUIRED",
-      mutate(packet) { packet.adapters.linear_reader_adapter_ref = null; },
+      mutate(packet) { packet.adapters.attachment_allowlist_sha256 = ref("different_attachment_policy").content_id; },
     },
     {
       code: "LINEAR_LB1_GATE_V2_ARTIFACT_LAYOUT_REQUIRED",
@@ -303,6 +324,10 @@ test("each v2 start policy fails at its own stable gate code", () => {
     {
       code: "LINEAR_LB1_GATE_V2_RESTORE_ACCEPTANCE_REQUIRED",
       mutate(packet) { packet.restore_acceptance.tabular_only_accepted = true; },
+    },
+    {
+      code: "LINEAR_LB1_GATE_V2_CONSISTENCY_POLICY_REQUIRED",
+      mutate(packet) { packet.capture_consistency.drift_policy = "ignore_drift"; },
     },
     {
       code: "LINEAR_LB1_GATE_V2_ONE_SHOT_POLICY_REQUIRED",

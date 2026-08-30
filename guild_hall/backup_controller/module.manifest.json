@@ -1,11 +1,23 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "backup_controller",
-  "module_version": "0.1.0",
+  "module_version": "0.2.0",
   "interface_version": "backup_controller.v0",
-  "schema_versions": [],
+  "schema_versions": [
+    "soulforge.backup_controller.linear_lb1.snapshot.v2",
+    "soulforge.backup_controller.linear_lb1.collection.v2",
+    "soulforge.backup_controller.linear_lb1.manifest.v2",
+    "soulforge.backup_controller.linear_lb1.run.v2",
+    "soulforge.backup_controller.linear_lb1.restore_check.v2",
+    "soulforge.backup_controller.linear_lb1.actual_reader.v0",
+    "soulforge.backup_controller.linear_lb1.actual_provider_page.v0"
+  ],
   "owner": "guild_hall/backup_controller",
-  "capabilities_provided": [],
+  "capabilities_provided": [
+    "backup.linear_lb1_v2_immutable_generation.v0",
+    "backup.linear_whole_workspace_read_normalizer.v0",
+    "backup.linear_isolated_restore_check.v0"
+  ],
   "capabilities_required": [],
   "required_dependencies": [],
   "optional_dependencies": [
@@ -26,9 +38,12 @@
   "migration_version": null,
   "rollback_version": "git_revert_of_this_module_only",
   "validators": [
-    "node --test guild_hall/backup_controller/activation.test.mjs"
+    "node --test guild_hall/backup_controller/activation.test.mjs",
+    "node --test guild_hall/backup_controller/linear_lb1_actual_reader.test.mjs",
+    "node --test guild_hall/backup_controller/linear_lb1_v2.test.mjs guild_hall/backup_controller/linear_lb1_owner_gate_v2.test.mjs guild_hall/backup_controller/linear_lb1_one_shot_runner.test.mjs",
+    "node --test guild_hall/backup_controller/linear_lb1_runtime_adapters.test.mjs"
   ],
   "release_digest": null,
   "deprecation_state": "active",
-  "authority_notes": "Risk-based enrollment: this module is a DIRECT dependency of the team_client pack closure(s). Purpose: feature-OFF single-writer daily backup composition with activation/binding validation and one durable state ledger. This manifest records operability metadata only and grants no runtime, service, writer, or authority; the module's own README/contract stays authoritative. Representative validator listed; the module's full suite runs in its owning validate script AND as the backup_recovery_extension pack's own installed smoke (14/14), while the consuming apps' suites exercise the module CODE indirectly."
+  "authority_notes": "Risk-based enrollment: this module is a DIRECT dependency of the team_client pack closure(s). Purpose: feature-OFF single-writer daily backup composition plus a default-OFF refs-only Linear whole-workspace read normalizer and immutable generation/restore contract. The actual reader discovers no credential, owns no network/storage writer, and exposes no Linear mutation method; mutation evidence for an injected provider remains UNKNOWN until a reviewed runtime binding supplies it. Physical source reads, create-only target writes, isolated restore, human review, scheduling, and retention deletion remain separately bound runtime gates. This manifest records operability metadata only and grants no runtime, service, writer, or authority; the module's README/contract stays authoritative."
 }

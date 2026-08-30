@@ -328,7 +328,7 @@ function validateDeclaredMissingDimensions(value) {
 function snapshotClientCollection(raw, maxArrayItems) {
   const copy = snapshotClientData(raw, maxArrayItems);
   if (!copy) return { failed: "provider_error" };
-  if (exactKeys(copy, ["schema_version", "snapshot_id", "collected_at", "source_scope", "teams", "projects", "assignees", "statuses", "cutoff", "issues"])) {
+  if (exactKeys(copy, ["schema_version", "snapshot_id", "collected_at", "source_scope", "teams", "projects", "assignees", "statuses", "labels", "cutoff", "issues"])) {
     return { snapshot: copy, status: "complete", missingDimensions: [], errors: [] };
   }
   if (exactKeys(copy, ["snapshot", "collection_status", "declared_missing_dimensions", "errors"])
@@ -468,7 +468,7 @@ export function createLinearLb1RuntimeReaderAdapter(config = {}) {
             cursor = page.next_cursor;
           }
           const catalog = pages.find((page) => page.catalog !== null)?.catalog;
-          if (!catalog || !exactKeys(catalog, ["assignees", "projects", "statuses", "teams"])) return failedCollection("provider_page_shape_invalid");
+          if (!catalog || !exactKeys(catalog, ["assignees", "labels", "projects", "statuses", "teams"])) return failedCollection("provider_page_shape_invalid");
           const now = readPinnedClock(config.clock);
           if (!now || !withinBudget(config.clock, start.nowMs, resourceLimits.max_runtime_ms)) return failedCollection("provider_timeout");
           const issues = pages.flatMap((page) => page.issues);
@@ -480,7 +480,7 @@ export function createLinearLb1RuntimeReaderAdapter(config = {}) {
               kind: "public_synthetic_fixture", workspace_id: scope.workspace_ref.entity_id,
               scope_mode: scope.scope_mode, team_ids: [...scope.team_ids], project_ids: [...scope.project_ids],
             },
-            teams: catalog.teams, projects: catalog.projects, assignees: catalog.assignees, statuses: catalog.statuses,
+            teams: catalog.teams, projects: catalog.projects, assignees: catalog.assignees, statuses: catalog.statuses, labels: catalog.labels,
             cutoff: { cutoff_at: now.nowIso, page_count: pages.length, total_issues: issues.length, pagination_complete: true },
             issues,
           };
@@ -497,10 +497,6 @@ export function createLinearLb1RuntimeReaderAdapter(config = {}) {
       if (!withinBudget(config.clock, start.nowMs, resourceLimits.max_runtime_ms)) return failedCollection("provider_timeout");
       const collection = snapshotClientCollection(clientResult, resourceLimits.max_issues);
       if (collection.failed) return failedCollection(collection.failed);
-      if (Array.isArray(collection.snapshot?.issues)
-          && collection.snapshot.issues.length > Math.min(resourceLimits.max_issues, 500)) {
-        return failedCollection("resource_limit_exceeded");
-      }
       if (!scopeContainsSnapshot(collection.snapshot, scope)) return failedCollection("read_failed");
       if (collection.snapshot.issues.length > resourceLimits.max_issues
           || Buffer.byteLength(stableJson(collection.snapshot), "utf8") > resourceLimits.max_total_bytes) return failedCollection("read_failed");
@@ -741,9 +737,10 @@ export function createLinearLb1RuntimeClaimAdapter(config = {}) {
     claim_store_ref: Object.freeze({ ...config.claim_store_ref }),
     async consumeOnce(singleUseToken, metadataInput = {}) {
       invocations += 1;
-      if (typeof singleUseToken !== "string" || !SAFE_ID.test(singleUseToken) || singleUseToken.length < 8 || !safeString(singleUseToken)) {
-        return Object.freeze({ success: false, error: "INVALID_TOKEN" });
-      }
+      const tokenRef = snapshotPlainData(singleUseToken);
+      const legacySyntheticToken = typeof singleUseToken === "string" && SAFE_ID.test(singleUseToken)
+        && singleUseToken.length >= 8 && safeString(singleUseToken);
+      if (!exactRef(tokenRef) && !legacySyntheticToken) return Object.freeze({ success: false, error: "INVALID_TOKEN" });
       const metadataCopy = snapshotPlainData(metadataInput);
       if (!metadataCopy || !exactKeys(metadataCopy, ["packet_sha256"]) || !HASH_REF.test(metadataCopy.packet_sha256)) {
         return Object.freeze({ success: false, error: "CLAIM_METADATA_INVALID" });
@@ -751,7 +748,7 @@ export function createLinearLb1RuntimeClaimAdapter(config = {}) {
       const now = readPinnedClock(config.clock);
       const expiresAt = Date.parse(config.claim_expires_at);
       if (!now || now.nowMs >= expiresAt) return Object.freeze({ success: false, error: "CLAIM_EXPIRED" });
-      const tokenDigest = `sha256:${sha256(singleUseToken)}`;
+      const tokenDigest = exactRef(tokenRef) ? tokenRef.content_id : `sha256:${sha256(singleUseToken)}`;
       revocationCalls += 1;
       let revocation;
       try {

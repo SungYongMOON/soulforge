@@ -43,6 +43,8 @@ function manifestBodyForForgery(forged) {
     run_key: forged.manifest.run_key,
     source_kind: forged.manifest.source_kind,
     feature_state: forged.manifest.feature_state,
+    ...(Object.hasOwn(forged.manifest, "collection_evidence")
+      ? { collection_evidence: forged.manifest.collection_evidence } : {}),
     collection_status: forged.manifest.collection_status,
     snapshot_sha256: forged.manifest.snapshot_sha256,
     coverage: forged.manifest.coverage,
@@ -99,6 +101,52 @@ test("feature-OFF v2 fixture collector covers all 18 requested synthetic dimensi
   // Verify mutation of source does not affect frozen collection
   source.issues[0].status_id = "status-done";
   assert.equal(collection.snapshot.issues[0].status_id, "status-in-progress");
+});
+
+test("legacy v2 snapshots and serialized runs remain byte-contract compatible", () => {
+  const legacy = JSON.parse(JSON.stringify(makeCompleteLinearLb1V2Fixture()));
+  delete legacy.labels;
+  for (const issue of legacy.issues) {
+    delete issue.label_ids;
+    delete issue.attachments;
+  }
+  const collection = collectFeatureOffLinearLb1V2Fixture(legacy);
+  assert.equal(Object.hasOwn(collection.snapshot, "labels"), false);
+  const run = buildImmutableLinearLb1BackupRunV2({ run_key: "linear-lb1-v2-legacy-run", collection });
+  assert.equal(Object.hasOwn(run.manifest, "collection_evidence"), false);
+  assert.equal(Object.hasOwn(run.manifest.coverage.counts, "labels"), false);
+  assert.equal(Object.hasOwn(run.manifest.coverage.counts, "attachments"), false);
+  const readback = deserializeBackupRunV2(serializeBackupRunV2(run));
+  assert.deepEqual(readback, run);
+  assert.equal(checkLinearLb1RestoreV2(run, legacy).complete, true);
+});
+
+test("synthetic and actual snapshot provenance cannot be crossed or forged self-consistently", () => {
+  const actualKindSnapshot = JSON.parse(JSON.stringify(makeCompleteLinearLb1V2Fixture()));
+  actualKindSnapshot.source_scope.kind = "linear_read_only_provider";
+  assert.throws(
+    () => collectFeatureOffLinearLb1V2Fixture(actualKindSnapshot),
+    (error) => error instanceof LinearLb1V2Error && error.code === "linear_lb1_v2_collection_provenance_mismatch",
+  );
+
+  const run = buildImmutableLinearLb1BackupRunV2({
+    run_key: "linear-lb1-v2-forged-provenance",
+    collection: collectFeatureOffLinearLb1V2Fixture(makeCompleteLinearLb1V2Fixture()),
+  });
+  const forged = JSON.parse(JSON.stringify(run));
+  forged.revision.snapshot.source_scope.kind = "linear_read_only_provider";
+  forged.revision.snapshot_sha256 = sha256ForForgery(forged.revision.snapshot);
+  forged.manifest.snapshot_sha256 = forged.revision.snapshot_sha256;
+  refreshForgedRunHashes(forged, { deriveRevisionId: true });
+  const bytes = Buffer.from(JSON.stringify(forged), "utf8");
+  assert.throws(
+    () => deserializeBackupRunV2(bytes),
+    (error) => error instanceof LinearLb1V2Error && error.code === "linear_lb1_v2_collection_provenance_mismatch",
+  );
+  assert.throws(
+    () => checkLinearLb1RestoreV2(forged, forged.revision.snapshot),
+    (error) => error instanceof LinearLb1V2Error && error.code === "linear_lb1_v2_collection_provenance_mismatch",
+  );
 });
 
 test("faithful private payload: bodies allow file URLs, Windows paths, secrets and newlines, while public fields guard them", () => {

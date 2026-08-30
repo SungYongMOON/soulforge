@@ -32,6 +32,7 @@ export const LINEAR_LB1_OWNER_GATE_V2_CODES = Object.freeze({
   FAILURE_POLICY_REQUIRED: "LINEAR_LB1_GATE_V2_FAILURE_POLICY_REQUIRED",
   RESTORE_ACCEPTANCE_REQUIRED: "LINEAR_LB1_GATE_V2_RESTORE_ACCEPTANCE_REQUIRED",
   ONE_SHOT_POLICY_REQUIRED: "LINEAR_LB1_GATE_V2_ONE_SHOT_POLICY_REQUIRED",
+  CONSISTENCY_POLICY_REQUIRED: "LINEAR_LB1_GATE_V2_CONSISTENCY_POLICY_REQUIRED",
 });
 
 const C = LINEAR_LB1_OWNER_GATE_V2_CODES;
@@ -39,7 +40,7 @@ const C = LINEAR_LB1_OWNER_GATE_V2_CODES;
 const PACKET_FIELDS = Object.freeze([
   "schema_version", "feature_state", "owner_decision", "writer_identity",
   "source", "target", "claim_store", "adapters", "artifact_layout",
-  "resource_limits", "retention", "failure_policy", "restore_acceptance", "one_shot",
+  "resource_limits", "retention", "failure_policy", "restore_acceptance", "capture_consistency", "one_shot",
 ]);
 
 const DECISION_FIELDS = Object.freeze([
@@ -61,11 +62,11 @@ const TARGET_FIELDS = Object.freeze([
 ]);
 
 const CLAIM_STORE_FIELDS = Object.freeze([
-  "claim_store_ref", "single_use_token",
+  "claim_store_ref", "single_use_token_ref",
 ]);
 
 const ADAPTER_FIELDS = Object.freeze([
-  "linear_reader_adapter_ref", "storage_adapter_ref",
+  "attachment_allowlist_sha256", "attachment_policy_ref", "linear_reader_adapter_ref", "storage_adapter_ref",
 ]);
 
 const ARTIFACT_LAYOUT_FIELDS = Object.freeze([
@@ -87,6 +88,10 @@ const FAILURE_FIELDS = Object.freeze([
 const RESTORE_FIELDS = Object.freeze([
   "human_reviewer_ref", "required_dimensions", "restore_check_required",
   "tabular_only_accepted",
+]);
+
+const CONSISTENCY_FIELDS = Object.freeze([
+  "mode", "decision_ref", "cutoff_required", "cursor_ledger_required", "drift_policy",
 ]);
 
 const ONE_SHOT_FIELDS = Object.freeze([
@@ -307,7 +312,8 @@ function parseSource(value, blockers) {
 }
 
 function parseTarget(value, blockers) {
-  if (!exactKeys(value, TARGET_FIELDS) || value.kind !== "google_drive_folder"
+  if (!exactKeys(value, TARGET_FIELDS)
+      || (value.kind !== "google_drive_folder" && value.kind !== "private_data_root_generation")
       || typeof value.display_label !== "string" || value.display_label.length < 1
       || value.display_label.length > 80 || value.create_only !== true
       || value.overwrite_allowed !== false || value.public_share_allowed !== false) {
@@ -322,8 +328,7 @@ function parseTarget(value, blockers) {
 
 function parseClaimStore(value, blockers) {
   if (!exactKeys(value, CLAIM_STORE_FIELDS) || !exactRef(value.claim_store_ref)
-      || typeof value.single_use_token !== "string" || !SAFE_ID.test(value.single_use_token)
-      || value.single_use_token.length < 8) {
+      || !exactRef(value.single_use_token_ref)) {
     blockers.add(C.CLAIM_STORE_REQUIRED);
   }
 }
@@ -331,7 +336,10 @@ function parseClaimStore(value, blockers) {
 function parseAdapters(value, blockers) {
   if (!exactKeys(value, ADAPTER_FIELDS)
       || !exactRef(value.linear_reader_adapter_ref)
-      || !exactRef(value.storage_adapter_ref)) {
+      || !exactRef(value.storage_adapter_ref)
+      || !exactRef(value.attachment_policy_ref)
+      || !HASH.test(value.attachment_allowlist_sha256)
+      || value.attachment_policy_ref.content_id !== value.attachment_allowlist_sha256) {
     blockers.add(C.ADAPTER_REFS_REQUIRED);
   }
 }
@@ -387,6 +395,17 @@ function parseRestoreAcceptance(value, blockers) {
   }
 }
 
+function parseCaptureConsistency(value, blockers) {
+  if (!exactKeys(value, CONSISTENCY_FIELDS)
+      || (value.mode !== "quiesced" && value.mode !== "owner_accepted_non_quiesced")
+      || !exactRef(value.decision_ref)
+      || value.cutoff_required !== true
+      || value.cursor_ledger_required !== true
+      || value.drift_policy !== "partial_hold_on_incompatible_drift") {
+    blockers.add(C.CONSISTENCY_POLICY_REQUIRED);
+  }
+}
+
 function parseOneShot(value, blockers) {
   if (!exactKeys(value, ONE_SHOT_FIELDS) || value.run_limit !== 1
       || value.writer_kind !== "append_only_revision"
@@ -419,13 +438,18 @@ function bindingReceipt(packet, pin) {
       ? packet.owner_decision.expires_at_utc : null,
     writer_id: packet?.writer_identity?.writer_id ?? null,
     epoch: packet?.writer_identity?.epoch ?? null,
-    single_use_token_present: Boolean(packet?.claim_store?.single_use_token),
-    single_use_token_sha256: packet?.claim_store?.single_use_token
-      ? createHash("sha256").update(packet.claim_store.single_use_token).digest("hex") : null,
+    single_use_token_ref_present: exactRef(packet?.claim_store?.single_use_token_ref),
+    single_use_token_ref: exactRef(packet?.claim_store?.single_use_token_ref)
+      ? packet.claim_store.single_use_token_ref : null,
     run_limit: packet?.one_shot?.run_limit === 1 ? 1 : null,
     create_only: packet?.target?.create_only === true,
     overwrite_allowed: packet?.target?.overwrite_allowed === true,
     restore_check_required: packet?.restore_acceptance?.restore_check_required === true,
+    consistency_mode: packet?.capture_consistency?.mode ?? null,
+    attachment_policy_ref: exactRef(packet?.adapters?.attachment_policy_ref)
+      ? packet.adapters.attachment_policy_ref : null,
+    attachment_allowlist_sha256: HASH.test(packet?.adapters?.attachment_allowlist_sha256)
+      ? packet.adapters.attachment_allowlist_sha256 : null,
     technical_single_use_enforced: false,
     consumption_state: "not_consumed_by_gate",
   };
@@ -452,6 +476,7 @@ function result(blockers, packetSha256, packet, pin) {
         monthly_generations: packet.retention.monthly_generations,
         rpo_hours: packet.retention.rpo_hours,
       } : null,
+      consistency_mode: packet?.capture_consistency?.mode ?? null,
     },
     receipt: {
       schema_version: LINEAR_LB1_OWNER_GATE_V2_RECEIPT_SCHEMA_VERSION,
@@ -465,9 +490,9 @@ function result(blockers, packetSha256, packet, pin) {
         epoch: packet.writer_identity.epoch,
       } : null,
       claim_store_ref: packet?.claim_store?.claim_store_ref ?? null,
-      single_use_token_present: Boolean(packet?.claim_store?.single_use_token),
-      single_use_token_sha256: packet?.claim_store?.single_use_token
-        ? createHash("sha256").update(packet.claim_store.single_use_token).digest("hex") : null,
+      single_use_token_ref_present: exactRef(packet?.claim_store?.single_use_token_ref),
+      single_use_token_ref: exactRef(packet?.claim_store?.single_use_token_ref)
+        ? packet.claim_store.single_use_token_ref : null,
       authority: authority(ready),
       binding: bindingReceipt(packet, pin),
       effects: { ...LINEAR_LB1_ZERO_EFFECTS },
@@ -510,6 +535,7 @@ export function evaluateLinearLb1OwnerGateV2(packetInput, trustedExpectedPinInpu
   parseRetention(packet.retention, blockers);
   parseFailurePolicy(packet.failure_policy, blockers);
   parseRestoreAcceptance(packet.restore_acceptance, blockers);
+  parseCaptureConsistency(packet.capture_consistency, blockers);
   parseOneShot(packet.one_shot, blockers);
   return result(blockers, packetSha256, packet, pin);
 }

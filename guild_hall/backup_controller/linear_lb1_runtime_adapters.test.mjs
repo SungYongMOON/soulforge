@@ -58,6 +58,7 @@ const CREDENTIAL_REF = ref("credential_runtime_01");
 const TARGET_REF = ref("target_runtime_01");
 const AUTHORITY_REF = ref("storage_authority_runtime_01");
 const REVIEWER_REF = ref("human_reviewer_runtime_01");
+const ATTACHMENT_POLICY_REF = ref("attachment_policy_runtime_01");
 
 function makeTestClock(nowIso = "2026-08-20T00:30:00.000Z") {
   let currentMs = Date.parse(nowIso);
@@ -111,11 +112,13 @@ function makeClosedRequest(token = "single-use-token-runtime-001", targetId = "t
     },
     claim_store: {
       claim_store_ref: CLAIM_REF,
-      single_use_token: token,
+      single_use_token_ref: ref(`single-use-token:${token}`),
     },
     adapters: {
       linear_reader_adapter_ref: READER_REF,
       storage_adapter_ref: STORAGE_REF,
+      attachment_policy_ref: ATTACHMENT_POLICY_REF,
+      attachment_allowlist_sha256: ATTACHMENT_POLICY_REF.content_id,
     },
     artifact_layout: {
       snapshot_schema_version: "soulforge.backup_controller.linear_lb1.snapshot.v2",
@@ -144,6 +147,13 @@ function makeClosedRequest(token = "single-use-token-runtime-001", targetId = "t
       required_dimensions: [...LINEAR_LB1_V2_DIMENSIONS],
       restore_check_required: true,
       tabular_only_accepted: false,
+    },
+    capture_consistency: {
+      mode: "owner_accepted_non_quiesced",
+      decision_ref: ref("non_quiesced_capture_decision_runtime"),
+      cutoff_required: true,
+      cursor_ledger_required: true,
+      drift_policy: "partial_hold_on_incompatible_drift",
     },
     one_shot: {
       run_limit: 1,
@@ -470,6 +480,7 @@ test("Reader adapter handles pagination, page limits, and detects infinite pagin
             projects: baseFixture.projects,
             assignees: baseFixture.assignees,
             statuses: baseFixture.statuses,
+            labels: baseFixture.labels,
           },
           issues: [baseFixture.issues[0]],
           next_cursor: "page-2-cursor",
@@ -502,6 +513,7 @@ test("Reader adapter handles pagination, page limits, and detects infinite pagin
           projects: baseFixture.projects,
           assignees: baseFixture.assignees,
           statuses: baseFixture.statuses,
+          labels: baseFixture.labels,
         },
         issues: [baseFixture.issues[0]],
         next_cursor: "infinite-loop-cursor",
@@ -527,6 +539,7 @@ test("Reader adapter handles pagination, page limits, and detects infinite pagin
           projects: baseFixture.projects,
           assignees: baseFixture.assignees,
           statuses: baseFixture.statuses,
+          labels: baseFixture.labels,
         },
         issues: [],
         next_cursor: `cursor-${pagesCount}`,
@@ -924,10 +937,21 @@ test("regression: hostile client return graphs and resource-size overflow are sa
     const value = await makeSnapshot(scope); value.self = value; return value;
   })));
   assert.deepEqual((await cyclicReader.collectSnapshot(source)).errors, [{ code: "provider_error" }]);
-  const oversizedReader = createLinearLb1RuntimeReaderAdapter(makeReaderConfig(makeHostileClient(async (scope) => {
-    const value = await makeSnapshot(scope); value.issues = Array.from({ length: 501 }, () => JSON.parse(JSON.stringify(value.issues[0]))); value.cutoff.total_issues = 501; return value;
+  const aboveLegacyCapReader = createLinearLb1RuntimeReaderAdapter(makeReaderConfig(makeHostileClient(async (scope) => {
+    const value = await makeSnapshot(scope);
+    value.issues = Array.from({ length: 501 }, (_, index) => ({
+      ...JSON.parse(JSON.stringify(value.issues[0])),
+      issue_id: `runtime-issue-${index + 1}`,
+      human_id: `RUN-${index + 1}`,
+      parent_issue_id: null,
+      relations: [],
+    }));
+    value.cutoff.total_issues = 501;
+    return value;
   }), { resource_limits: { ...makeClosedRequest().resource_limits, max_issues: 1000 } }));
-  assert.deepEqual((await oversizedReader.collectSnapshot(source)).errors, [{ code: "resource_limit_exceeded" }]);
+  const aboveLegacyCap = await aboveLegacyCapReader.collectSnapshot(source);
+  assert.equal(aboveLegacyCap.collection_status, "complete", JSON.stringify(aboveLegacyCap.errors));
+  assert.equal(aboveLegacyCap.snapshot.issues.length, 501);
   const nonNfcReader = createLinearLb1RuntimeReaderAdapter(makeReaderConfig(makeHostileClient(async (scope) => {
     const value = await makeSnapshot(scope); value.snapshot_id = "e\u0301"; return value;
   })));
