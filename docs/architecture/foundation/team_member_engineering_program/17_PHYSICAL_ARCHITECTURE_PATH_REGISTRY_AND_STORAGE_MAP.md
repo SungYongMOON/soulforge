@@ -27,17 +27,20 @@ The immediate goal is **structure now, movement later**. Defining and enforcing 
 ## Product and physical axes
 
 ```text
-Product axis                         Physical-root axis
-Soulforge Engineering OS             source_checkout
-├─ Soulforge ERP                     runtime_root
-├─ Soulforge Engineering Engine      data_root
-└─ Soulforge Agent Platform          control_root
-                                      project_work_root
-                                      tool_root
-                                      recovery_root
-                                      external_runtime_root
-                                      external_owner_store
-                                      secret_owner_root
+Product axis (stable IDs; display names remain draft)
+product.erp       Soulforge ERP
+product.engine    Soulforge Engineering Engine
+product.agent     Soulforge Agent Platform
+
+Portfolio axis
+SF-P01 Work Discovery     SF-P02 ERP & Assets       SF-P03 Operations
+SF-P04 AI Workforce       SF-P05 Knowledge          SF-P06 Engine Family
+SF-P07 Tool Workshops     SF-P08 Security/Recovery  SF-P09 Adoption
+
+Physical-root axis (independent enum)
+source_checkout | runtime_root | data_root | control_root | project_work_root
+tool_root | recovery_root | external_runtime_root | external_owner_store
+secret_owner_root
 ```
 
 A product can use several physical roots, and a physical root can serve several products. Product folders are catalog views and release manifests, not a reason to duplicate bytes or create competing sources of truth.
@@ -57,7 +60,7 @@ Host-local path values remain private/runtime configuration. Read-only metadata 
 | `recovery_root` | isolated recovery-test targets | test-only recovery surface |
 | `external_runtime_root` | source-local Buzz/Hermes and later managed runtime bindings | external/runtime owner; not Soulforge installed runtime or ERP truth |
 | `external_owner_store` | source SaaS, Drive, NAS, source repositories | original/source-local authority under its ACL |
-| `secret_owner_root` | OS/Secret Manager protected identity and credential custody | never materialized in public canon or `data_root`; registry stores `secret_ref` only |
+| `secret_owner_root` | OS/Secret Manager protected identity and credential custody | `TARGET/VERIFY_PHYSICAL`; never materialized in public canon or `data_root`; registry stores `secret_ref` only |
 
 ### Alias crosswalk with plan 15
 
@@ -65,9 +68,9 @@ Host-local path values remain private/runtime configuration. Read-only metadata 
 | --- | --- |
 | `source_checkout` | `source_checkout` |
 | `runtime_checkout` | `runtime_root` |
-| `data_plane` | `data_root` |
+| `data_plane` | mixed legacy container: classify child bindings as `data_root`, `runtime_root`, or `secret_owner_root`; no whole-root mapping |
 | `control_plane` | `control_root` |
-| `buzz_runtime` | `external_runtime_root` |
+| `buzz_runtime` | mixed legacy container: classify source/data/backup children under `external_owner_store` or `data_root`, and executable/session children under `external_runtime_root` |
 | `bot_worktree` | `project_work_root` |
 
 `_workmeta` and `private-state` are nested private repositories whose current
@@ -76,6 +79,22 @@ belong to `data_root` and `control_root` respectively. `_workspaces` is a
 project-materialization surface mapped to `project_work_root` or the exact
 approved `external_owner_store` binding by project policy. R1 must register
 these as explicit multi-axis rows rather than infer ownership from containment.
+
+The seven canonical roots remain the public structural authority and take
+precedence over physical aliases:
+
+| Canonical root | Physical interpretation |
+| --- | --- |
+| `.registry` | canonical catalog/knowledge/skill/tool owner inside `source_checkout` |
+| `.unit` | active Unit owner inside `source_checkout`; runtime bindings remain separate |
+| `.workflow` | workflow canon inside `source_checkout` |
+| `.party` | reusable orchestration template canon inside `source_checkout` |
+| `.mission` | held mission plan owner inside `source_checkout` |
+| `guild_hall` | cross-project Module owner inside `source_checkout`; runtime state binds separately |
+| `_workspaces` | project materialization root, additionally registered under `project_work_root` or exact external binding |
+
+Physical-root classes are aliases for storage/runtime resolution, not new
+canonical roots or replacement owner surfaces.
 
 The current `data_root` already has mail, Slack, voice, PC activity, team-file, run-log, quarantine, runtime, checkpoint, receipt, and timeline surfaces. The problem is not an empty disk: people see processing stages while they need a stable source- and asset-oriented catalog view. Linear, cloud/Drive, Buzz, Hermes, knowledge, and cross-project asset views are not yet materialized as one coherent ERP-facing catalog.
 
@@ -99,18 +118,20 @@ data_root/
 │  ├─ cloud-drive/
 │  ├─ buzz/
 │  ├─ hermes/
+│  ├─ git/
+│  ├─ nas/
 │  ├─ pc-activity/
 │  ├─ team-files/
 │  └─ run-logs/
-├─ 20_PROJECTS/
+├─ 20_PROJECT_ASSET_INDEX/
 │  └─ <project-ref>/
-├─ 25_EVENT_TIMELINE/
+├─ 25_EVENT_TIMELINE_INDEX/
 │  ├─ occurrences/
 │  ├─ correlations/
 │  ├─ decisions/
 │  ├─ validity-intervals/
 │  └─ supersession/
-├─ 30_KNOWLEDGE/
+├─ 30_KNOWLEDGE_INDEX/
 │  ├─ source-catalog/
 │  ├─ ontology/
 │  ├─ project-context/
@@ -125,7 +146,7 @@ data_root/
 │  ├─ datasets/
 │  ├─ test-results/
 │  └─ revisions/
-├─ 50_AI_WORKFORCE/
+├─ 50_AI_WORKFORCE_INDEX/
 │  ├─ agent-families/
 │  ├─ agent-marks/
 │  ├─ runtime-profiles/
@@ -140,20 +161,37 @@ data_root/
 │  ├─ cloud/
 │  ├─ buzz/
 │  ├─ hermes/
+│  ├─ git/
+│  ├─ nas/
 │  └─ projects/
 ├─ 70_QUARANTINE/
-├─ 80_RECEIPTS/
+├─ 80_CUSTODY_RECEIPT_INDEX/
 ├─ 90_PROJECTIONS/
 │  └─ watch-4192/
-└─ 99_RESTORE_STAGING/
+└─ 99_RESTORE_REQUEST_REFS/
 ```
 
-This view does not require all bytes to move. A catalog entry may point to a current approved source/custody root, immutable revision store, backup generation, or rebuildable projection. A physical copy is permitted only by its source-kind policy and exact promotion/backup gate.
+This target is an ERP-facing catalog/index view, not a second project-context,
+timeline, ontology, Agent-memory, receipt, or recovery-byte authority. Entries
+point to current approved source/custody owners, immutable revision stores,
+backup generations, or rebuildable projections. `_workmeta/<project>/` remains
+project-context canon; approved source/Drive lineage remains ontology authority;
+source-native, routing, project, and accepted World-Tree timelines retain their
+distinct owners. `20`, `25`, `30`, and `50` store pointers, typed relations,
+scope, accepted-generation refs, and status unless an exact custody policy
+separately authorizes bytes. A physical copy is permitted only by its
+source-kind policy and exact promotion/backup gate.
 
-`25_EVENT_TIMELINE` is durable event memory for the World Tree and company
-history; `90_PROJECTIONS` is rebuildable presentation. They must not be merged.
+`25_EVENT_TIMELINE_INDEX` indexes durable event memory owned by its exact
+source/project/accepted-context surface; `90_PROJECTIONS` is rebuildable
+presentation. They must not be merged, and the index cannot widen project scope.
 The `secret_owner_root` has no directory in this target tree: plaintext secret
 material is a forbidden materialization class.
+
+Custody/data receipts may be indexed at `80`; writer-authority, lease,
+operational checkpoint, action, and rollback receipts remain under
+`control_root`. `99` contains restore request/proof refs only. Actual restore
+bytes and staging targets belong under an exact `recovery_root` binding.
 
 ## Uniform external-source lane
 
@@ -175,21 +213,31 @@ material is a forbidden materialization class.
 `60_BACKUP_GENERATIONS`; it never duplicates generation bytes. Each source
 remains independently scoped, credentialed, retained, backed up, and restored.
 `pc-activity`, `team-files`, and `run-logs` use `source_class: internal_capture`;
-Linear, Slack, mail, voice, cloud, Buzz, and Hermes use the exact external or
-runtime source class rather than being silently treated as equivalent.
+Linear, Slack, mail, voice, cloud, Buzz, Hermes, Git, and NAS use the exact
+external/runtime/source-owner class rather than being silently treated as
+equivalent. The R1 source inventory is registry-driven and contains every Plan
+10 source as a row, including explicit `HOLD` rows; a self-selected source list
+cannot satisfy full coverage.
 
 ## Path Registry contract
+
+R1 cannot begin until the Owner resolves these distinct owners: public registry
+schema/logical-entry owner, private binding writer, resolver runtime Module
+owner, and write-authorization policy owner. Until then they are `HOLD`; a
+platform operator is not automatically any of these owners.
 
 Every registered path record contains at least:
 
 | Field | Meaning |
 | --- | --- |
 | `logical_path_id` | stable caller-facing ID, independent of drive letter |
-| `root_class` | source, runtime, data, control, project work, tool, recovery, external owner |
-| `product_refs` | ERP, Engine, Agent Platform consumers; never inferred ownership |
+| `physical_root_class` | exact enum: `source_checkout`, `runtime_root`, `data_root`, `control_root`, `project_work_root`, `tool_root`, `recovery_root`, `external_runtime_root`, `external_owner_store`, `secret_owner_root` |
+| `logical_owner_class` / `parent_binding_ref` | logical authority and physical-containment relation are separate |
+| `product_refs` / `portfolio_refs` | stable `product.*` and `SF-Pxx` IDs; display names remain draft |
 | `module_owner_ref` | exact Module/interface owner |
 | `asset_or_source_class` | source, project, knowledge, artifact, agent, backup, receipt, projection, etc. |
-| `physical_binding_ref` | private/runtime binding ref; no public absolute path |
+| `project_or_org_scope_ref` | exact project or approved organization/common scope; no implicit cross-project view |
+| `binding_refs` | current/target/shared/PC-local binding refs with node/site, binding revision, epoch, and expiry; no public absolute path |
 | five owner refs | logical, byte, revision, acceptance, backup/restore owners |
 | `sensitivity` / `acl_policy_ref` | access classification and current authorization source |
 | `write_policy` | sole writer, append/create-only, read-only, rebuild-only, or forbidden |
@@ -208,6 +256,14 @@ remain reference-in-place until their named R5 migration leaf, where guard
 adoption and writer cutover are proven. The resolver is not source truth, task,
 acceptance, or promotion authority.
 
+Write authorization is operation-aware and binds exact registry revision,
+binding epoch, writer identity, actor scope, and operation
+`read|create|append|overwrite|delete|move`. `read_only`, `forbidden`, stale
+current/target bindings, unauthorized overwrite/delete, and wrong sole writer
+are denied before filesystem access. Tests must cover append-vs-overwrite,
+delete/move denial, stale resolution, current/target fencing, and writer
+revocation rather than only unregistered paths.
+
 When the same source has both data and control paths, payload/capture/generation
 bytes and their manifests resolve under `data_root`; writer authority, leases,
 operational checkpoints, rollback instructions, and control receipts resolve
@@ -225,21 +281,35 @@ read-only inventory
   -> isolated restore/readback
   -> caller and dependency map
   -> bounded materialization canary
-  -> caller switch with compatibility adapter
+  -> writer quiescence and cutover epoch/fence
+  -> compare-and-swap caller switch with compatibility adapter
   -> rollback rehearsal
   -> later retirement decision
 ```
 
 Move, rename, delete, junction replacement, mirror/purge, and writer migration are forbidden until their exact leaf passes. New captures may adopt a target lane earlier only when old/new writers cannot conflict and source policy authorizes the target.
 
+R2 reuses or matches the hardened path primitives already present in
+`guild_hall/shared/knowledge_root_resolver.mjs`. It rejects junction/reparse
+substitution, UNC/device paths outside the approved class, alternate data
+streams, Unicode/Windows alias collisions, traversal, and component-by-component
+realpath containment drift. Every newly materialized HPP data surface is
+classified in the same slice as backed up, deterministically rebuildable, or
+forbidden, and its recovery policy plus synthetic restore fixture change
+together.
+
 ## 4192 Storage & Backup Map
 
 4192 owns a read-only projection over registered roots and source lanes. It shows root/source identity, owner pointer, binding availability, latest accepted capture and backup generation, coverage, freshness, retention/RPO policy presence, isolated restore/readback, human restore acceptance, unclassified path count, path drift, migration state, and held reason.
 
 ```text
-source_id | binding_state | latest_capture_ref | backup_generation_ref
-coverage_state | freshness_state | restore_test_ref | human_acceptance_state
-rpo_policy_state | migration_state | evidence_at | owner_pointer | hold_code
+row_key | row_kind(root|source|asset_class) | logical_id | physical_root_class
+registry_snapshot_ref | registry_snapshot_digest | registry_record_ref
+binding_state | latest_capture_ref | backup_generation_ref | coverage_state
+coverage_registered | coverage_expected | unclassified_count | path_drift_state
+freshness_state | retention_policy_state | rpo_policy_state | restore_test_ref
+human_acceptance_state | migration_state | applicability_state
+watch_state | evidence_at | owner_pointer | hold_code
 ```
 
 Missing evidence renders `unknown` or `hold`, never green. 4192 excludes source bodies, project payload, credentials, private Agent memory, deep Buzz/Hermes sessions, and raw logs. It files an approval request at most; Bastion owns any later action execution.
@@ -247,6 +317,10 @@ Missing evidence renders `unknown` or `hold`, never green. 4192 excludes source 
 Adapters map source/storage states into plan 08's Watch-local enum
 `healthy|degraded|stale|unavailable|unknown|hold`; no source-specific state
 silently widens that enum or creates a green state.
+`not_applicable` rows are excluded from expected coverage only by an explicit
+registry record. Aggregate precedence is deterministic:
+`hold > unavailable > stale > degraded > unknown > healthy`; no evidence is
+`unknown`, not `not_applicable` or green.
 
 ## Original-vision coverage checklist
 
@@ -257,12 +331,15 @@ silently widens that enum or creates a green state.
 | project assets | source, sonar/test data, BOM/material/inventory, templates, references, artifacts, baselines/releases |
 | knowledge/world tree | source catalog, ontology, evidence/claim/decision/time/ACL, project context, RAG/Wiki/NotebookLM |
 | Engineering Engine | Core, Domain Engine, rule/profile/binding/result revisions |
+| reusable execution canon | Skill, Workflow, Party, Mission, canon-to-mission promotion and local run-truth refs |
+| human workforce | organization, role, onboarding/training, privacy/classification and authorized project scope |
 | AI workforce | organization graph, Agent Family, Mark, runtime profile, Deployment, Run, memory generation, skill/tool policy |
-| collaboration | Slack, mail, voice/PLAUD, Buzz, channel/thread/attachment pointer and receipts |
+| collaboration/source estate | Linear, Slack, mail, voice/PLAUD, cloud/Drive, Buzz, Git, NAS, PC/internal captures, channel/thread/attachment pointer and receipts |
 | team execution | MCP, authenticated binary plane, Team Client, local outbox/checkpoint, Tool Workshop |
 | observation | 4192 product/source/storage/backup/restore/usage/health projections |
 | assurance and recovery | custody, quarantine, validation, review, human acceptance, backup, restore, rollback, audit |
 | rollout and support | Server/Client/Workshop/Project-AI-Team/Backup Packs, training, device/ring/support evidence |
+| isolation | separate project-manager/deep-context bindings, no implicit cross-project memory/source fallback |
 
 This is broader than the first Linear or KVDS vertical. A first vertical proves interfaces; it does not reduce the final scope.
 
@@ -271,11 +348,11 @@ This is broader than the first Linear or KVDS vertical. A first vertical proves 
 | Order | Leaf | Exit evidence |
 | --- | --- | --- |
 | R0 | Physical Architecture rebaseline | reviewed root/data/source/asset map and no-move contract |
-| R1 | Path Registry + resolver contract | `validate:path-registry` target: schema/version/root/owner/current-target rows, no fallback, guarded program writers, unregistered write fails closed |
-| R2 | Target folder materializer | `validate:target-materializer` target: exact `approved_empty_materialization_root_ref`, dry-run/apply, idempotent replay, existing payload move 0, rollback removes only empty directories created by this operation |
-| R3 | 4192 Storage & Backup Map | `validate:watch-storage-map` target: full source/root row coverage, state-adapter mapping, unknown without evidence, no writer/raw fields |
+| R1 | Path Registry + resolver contract | `validate:path-registry` target: exact owner decisions; schema/version/root/logical-owner/scope/current-target binding rows; operation-aware grant; no fallback; guarded writers; unregistered/stale/wrong-writer operation fails closed |
+| R2 | Target folder materializer | `validate:target-materializer` target: exact `approved_empty_materialization_root_ref`, hostile Windows/reparse/realpath guards, HPP backup classification, dry-run/apply, idempotent replay, existing payload move 0, rollback removes only empty directories created by this operation |
+| R3 | 4192 Storage & Backup Map | `validate:watch-storage-map` target: registry snapshot digest, full registry-driven source/root coverage, row totals/unclassified/drift, state precedence and N/A, unknown without evidence, no writer/raw fields |
 | R4 | Linear whole-workspace actual backup | capture, immutable generation, readback, isolated restore, human acceptance |
-| R5 | Existing source lanes | Slack, mail, voice, cloud, Buzz, Hermes, knowledge, project assets — one at a time |
+| R5 | Existing source lanes | Slack, mail, voice, cloud, Buzz, Hermes, Git, NAS, PC/internal captures, knowledge, project assets — one at a time |
 | R6 | Agent/project/tool bindings | Project AI Team Pack, Team Client, Workshop, actual project vertical |
 | R7 | Physical migration/retirement | caller, restore, compatibility, rollback, and Owner gates pass |
 
@@ -286,14 +363,23 @@ gates. R5–R7 remain incremental and do not justify a big-bang relocation.
 
 ## Acceptance and stop conditions
 
-The spine is accepted only when every known root/high-value path has one registry row or an explicit unclassified/HOLD finding; root classes remain distinct; current and target cannot silently both write; private/raw/secret data stays out of public canon and 4192; source-specific backup evidence cannot be substituted; the materializer is idempotent, path-bounded, non-destructive, and rollback-aware; ambiguous/unregistered writes fail closed; and focused validators plus fresh independent review pass.
+The spine is accepted only when every known root/high-value path has one
+unambiguous multi-axis registry entry or an explicit unclassified/HOLD finding;
+the seven canonical roots keep precedence; registry/schema/resolver/binding/
+write-policy owners are exact; root classes remain distinct; current and target
+cannot silently both write; project scope cannot widen; private/raw/secret data
+stays out of public canon and 4192; source-specific backup evidence cannot be
+substituted; the materializer is idempotent, hostile-path guarded,
+non-destructive, and rollback-aware; operation-aware authorization rejects
+ambiguous/unregistered/stale/wrong-writer actions; 4192 coverage is
+registry-driven; and focused validators plus fresh independent review pass.
 
 Hold the affected branch on unknown owner/SoR, secret requirement, cross-project leak, path overlap, missing restore proof, writer conflict, unresolved caller, destructive migration, or false readiness claim.
 
 ## Current claim ceiling
 
-- `CONFIRMED`: public plan/source/module/pack foundations and metadata-observed root classes.
-- `OBSERVED_METADATA_ONLY`: runtime/data/control/project-work shape; contents, ACL, health, and backup completeness need accepted receipts.
+- `CONFIRMED`: inspected public plan/source/Module/Pack facts only.
+- `OBSERVED_METADATA_ONLY`: runtime/data/control/project-work/external/secret-owner root existence or shape; ownership, contents, ACL, health, and backup completeness need accepted receipts.
 - `TARGET`: Path Registry, source catalog, 4192 Storage Map, whole-workspace Linear actual backup, and migrations.
 - `HOLD`: physical move/delete/rename, new writer, credential use, restore application, and readiness/promotion until exact gates pass.
 

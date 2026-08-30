@@ -4,7 +4,11 @@
 
 ## Priority and dependency DAG
 
-The active repository roadmap is not changed by this suite. These are implementation candidates after Owner review; no row authorizes execution by itself.
+The active read-only AX/SE slice is not replaced by this suite. The Owner's
+2026-08-30 physical-organization clarification does change the adjacent program
+priority: R0–R3 gate every new path/storage/writer and actual-provider/physical
+expansion leaf, while already-completed pure synthetic contracts remain valid.
+No row authorizes execution by itself.
 
 ```mermaid
 flowchart LR
@@ -31,7 +35,7 @@ RED stabilization semantics: RED-01 is the serial row-0 leaf. RED-02 (topology-o
 | --- | --- | --- | --- |
 | 0 | RED-01 life-tree scope-before-cap repair | Current failing test and scoped owner | Test first; owned row survives foreign-row cap; fresh review |
 | 1 | Plan/canon rebaseline | Owner review of this suite | Accepted draft decision and trace matrix; no runtime change |
-| 1A | Physical organization spine | Plan 17 Owner/fresh review, metadata-only inventory | Root/Path Registry contract, target materializer, write guard, and 4192 Storage Map; existing payload move 0 |
+| 1A (next adjacent; non-retroactive) | Physical organization spine | Plan 17 Owner/fresh review, metadata-only inventory, OD-10 owner decisions | Root/Path Registry contract, target materializer, write guard, and 4192 Storage Map; existing payload move 0 |
 | 2 | Engineering MCP contract/schemas | D27–D29 design decisions | Schema/tool compatibility and adversarial synthetic suite |
 | 3 | Vault ArtifactRevision vertical | D27/D29 + exact custody policy | One artifact candidate/review/acceptance synthetic vertical |
 | 4 | Forge actual vertical | D27/D28/D29 closed plus accepted context and task-writer agreement | One TaskIntent/Work Brief/assignment default-off vertical (not the later physical field pilot) |

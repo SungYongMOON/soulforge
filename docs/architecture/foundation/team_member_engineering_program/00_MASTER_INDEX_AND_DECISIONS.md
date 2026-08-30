@@ -84,6 +84,7 @@ These are the only authority choices still needed to move from a plan candidate 
 | OD-07 | Product/pack names and user-facing labels | Keep logical labels and existing paths until separately approved | No rename or release branding |
 | OD-08 | Each physical site, credential, source scope, and low-risk pilot tuple | One seat, one project, bounded file/work item, explicit expiry | No actual network, connector, or team rollout |
 | OD-09 | Standing execution delegation after plan/review start gate | Continue all safe in-scope leaves using frozen canon, existing interfaces, and the conservative defaults below; do not repeat settled Owner questions | Only the affected branch blocks when excluded authority, credential, or physical state is genuinely required |
+| OD-10 / R0–R3 | Path Registry schema/logical owner, private-binding writer, resolver runtime owner, operation-aware write-policy owner, exact root enum, materializer canary root, and 4192 projection owner | Keep all owner refs explicit; canonical roots retain precedence; no fallback; target directories only under an approved empty canary root | No R1 implementation, materializer apply, write-guard enforcement, or Storage Map readiness claim |
 
 ### OD-09 standing execution defaults and limits
 

@@ -4,6 +4,7 @@
 
 - Added Team Member Engineering Program plan 17 to preserve the Owner's whole-estate correction: physical organization covers all sources, projects, knowledge, assets, Agent/runtime state, backup generations, receipts, recovery, and 4192 storage visibility rather than a Linear-only or Agent-only slice.
 - Fixed the working order to `structure now, movement later`: current paths remain reference-in-place while a Path Registry, source-oriented catalog view, unregistered-write guard, target materializer, and read-only 4192 Storage & Backup Map are reviewed. No payload move, directory creation, connector activation, credential access, or external backup run occurs in this documentation slice.
+- Reconciled the first Fable5 and Ultra reviews before main integration: mixed legacy roots are subtree-classified; canonical-root and project/ontology/timeline authorities are preserved; Git/NAS/Hermes/secret/event coverage is explicit; Path Registry ownership and operation-aware write fencing, hostile-path materialization, registry-driven 4192 coverage, control-vs-custody receipts, and recovery-root staging are now required. The proposed R1–R3 validators remain target names and no implementation/readiness claim is made.
 
 ## 2026-08-30 - plan-13 measured facts re-baselined; a loop-introduced path-probe literal fixed
 
