@@ -1,7 +1,7 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "backup_controller",
-  "module_version": "0.2.1",
+  "module_version": "0.3.0",
   "interface_version": "backup_controller.v0",
   "schema_versions": [
     "soulforge.backup_controller.linear_lb1.snapshot.v2",
@@ -10,13 +10,17 @@
     "soulforge.backup_controller.linear_lb1.run.v2",
     "soulforge.backup_controller.linear_lb1.restore_check.v2",
     "soulforge.backup_controller.linear_lb1.actual_reader.v0",
-    "soulforge.backup_controller.linear_lb1.actual_provider_page.v0"
+    "soulforge.backup_controller.linear_lb1.actual_provider_page.v0",
+    "soulforge.backup_controller.linear_lb1.physical_one_shot_config.v0",
+    "soulforge.backup_controller.linear_lb1.physical_capture_input.v0",
+    "soulforge.backup_controller.linear_lb1.connector_effect_receipt.v0"
   ],
   "owner": "guild_hall/backup_controller",
   "capabilities_provided": [
     "backup.linear_lb1_v2_immutable_generation.v0",
     "backup.linear_whole_workspace_read_normalizer.v0",
-    "backup.linear_isolated_restore_check.v0"
+    "backup.linear_isolated_restore_check.v0",
+    "backup.linear_physical_one_shot_create_only.v0"
   ],
   "capabilities_required": [],
   "required_dependencies": [],
@@ -40,10 +44,11 @@
   "validators": [
     "node --test guild_hall/backup_controller/activation.test.mjs",
     "node --test guild_hall/backup_controller/linear_lb1_actual_reader.test.mjs",
+    "node --test guild_hall/backup_controller/linear_lb1_physical_one_shot.test.mjs",
     "node --test guild_hall/backup_controller/linear_lb1_v2.test.mjs guild_hall/backup_controller/linear_lb1_owner_gate_v2.test.mjs guild_hall/backup_controller/linear_lb1_one_shot_runner.test.mjs",
     "node --test guild_hall/backup_controller/linear_lb1_runtime_adapters.test.mjs"
   ],
   "release_digest": null,
   "deprecation_state": "active",
-  "authority_notes": "Risk-based enrollment: this module is a DIRECT dependency of the team_client and backup_recovery_extension pack closures. Purpose: feature-OFF single-writer daily backup composition plus a default-OFF Linear whole-workspace read normalizer and immutable generation/restore contract. The actual reader discovers no credential, owns no HTTP or storage writer, and exposes no Linear mutation method. Injected readPage invocations are recorded only as provider_calls; network_calls remains UNKNOWN unless a separate exact independent binding is supplied. Legacy v2 private single-use token material is never echoed by gate or runner receipts, while the ref-bound v2 profile uses an opaque token ref. Physical source reads, create-only target writes, isolated restore, human review, scheduling, and retention deletion remain separately bound runtime gates. This manifest records operability metadata only and grants no runtime, service, writer, or authority; the module's README/contract stays authoritative."
+  "authority_notes": "Risk-based enrollment: this module is a DIRECT dependency of the team_client and backup_recovery_extension pack closures. Purpose: feature-OFF single-writer daily backup composition plus a default-OFF Linear whole-workspace read normalizer and immutable generation/restore contract. The actual reader discovers no credential, owns no HTTP or storage writer, and exposes no Linear mutation method. The physical one-shot bridge remains inert without an exact private Owner packet, trusted pin, content-addressed read-only connector binding, writer-exclusive roots, and atomic claim; it has no overwrite/delete/prune/scheduler surface. Legacy v2 private single-use token material is never echoed by gate or runner receipts, while the ref-bound v2 profile uses an opaque token ref. Human restore acceptance and any recurring activation remain separate gates. This manifest records operability metadata only and grants no task, source, or completion authority; the module's README/contract stays authoritative."
 }

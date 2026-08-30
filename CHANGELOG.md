@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-31 - Linear LB1 first physical one-shot produces a partial restore candidate
+
+- Added the default-inert `linear_lb1_physical_one_shot` bridge and CLI. An exact Owner Gate v2 packet content-addresses the workspace, ten-name read-only connector capability set, metadata-only attachment policy, control/data/recovery roots, writer allowlist, finite limits, durable claim and create-only storage authority. Pairwise path isolation, reparse/UNC/ADS guards, broad-name/SID rejection, atomic claim/session fencing, expiry rechecks, crash-resume/reconciliation states, no overwrite/delete/prune/scheduler surface, file-handle sync and exact-byte readback are pinned by 15 focused tests plus fresh B/V `ACCEPT`.
+- Executed one bounded entire-workspace run through the connected read-only Linear surface: 72 issues, 146 current comments, 12 projects, 8 workspace+team labels and 29 attachment metadata records were observed. Attachment allowlist stayed empty and bytes captured stayed false. The body-free call ledger records 156 read calls, three retained transient read errors and zero mutation-capable calls/effects; network attestation remains caller-observed rather than independently signed.
+- Immutable generation `sha256:9981ee7099b9c4ebf9c1aceba58d28b7d4b0a38fb99540852714483b9b4e7e65` passed create-only write and exact-byte readback. The isolated recovery copy has the same digest and reconstructs team/project/assignee/status/timestamp/due/relation dimensions. The run remains `PARTIAL_TECHNICAL_RESTORE_CANDIDATE`: deletion completeness, description/comment revisions, state/assignee/project/due history, structured Waiting/Completion, attachment evidence and full cutoff reconciliation are missing; human acceptance, Official Done and recurring activation remain false.
+- Earlier claims and failed generations were preserved rather than overwritten or removed. Path Registry/4192 receive only the metadata integration packet; Fable-owned R5-A registry/Board files remain unchanged and public registry activation remains HOLD.
+
 ## 2026-08-31 - Linear LB1 actual-reader repair remains default-OFF
 
 - The Backup-Recovery extension now includes `linear_lb1_actual_reader.mjs` and its full test in the generated source closure: 51 files, 15 declared smoke entries, and no exclusions. This is an enrollment and spec-drift repair only; it does not claim a fresh isolated-install smoke receipt, any Linear credential/client access, a storage write, a restore acceptance, or an actual one-shot.
