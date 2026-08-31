@@ -78,9 +78,10 @@ Initial classification candidate:
 
 | Product owner | Product-specific current source candidates | Shared dependencies, not copied source |
 | --- | --- | --- |
-| `product.erp` | `dev-erp`, `dev-erp-mcp`, Vault Revision, Forge Intent and exact ERP composition code | Path Registry, Backup/Recovery, RAG/Knowledge, identity/policy contracts |
+| `product.erp` | `dev-erp`, `dev-erp-mcp`, Vault Revision and exact ERP composition code | Path Registry, Backup/Recovery, RAG/Knowledge, identity/policy contracts |
 | `product.engine` | Engineering Engine Core, Domain Engines, profiles, bindings and engine release | accepted-context/query, shared validation and custody refs |
 | `product.agent` | Agent Observation, execution coordination, Engineering MCP, Hermes/Buzz Adapters, Tool Workshop and Deployment Pack composition | Path Registry, Backup/Recovery, identity/authority, Ledger contracts |
+| shared candidate intake | `Forge Intent` compatibility implementation pending PC2 classification | Product-neutral candidate envelope and adapters; no Official Task, assignment or acceptance writer |
 | shared operations | 4192/Watch and Bastion integration | typed read projections and approved action Interfaces only |
 
 The classification is not final merely because a path is listed. PC2 must

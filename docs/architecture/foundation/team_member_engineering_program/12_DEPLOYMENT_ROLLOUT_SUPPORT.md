@@ -74,11 +74,12 @@ team-member PC setup. The current time-boxed target is an internal release
 candidate, not full-company production.
 
 The Owner-confirmed first target is one Owner-PC seat using the same setup intended
-for a team member. The included Slice covers install/doctor, project/authority
+for a team member. The included Slice covers the current validated HPP Server/Backup
+Pack baseline, install/doctor, project/authority
 readback, approved Task/material read-only access, Buzz or MCP delivery, person-
 managed local work, result/Evidence candidate submission, review/HOLD display,
 coarse Soulforge Operations Console health, one synthetic isolated-restore
-measurement and synchronized install/use/recovery manuals.
+measurement, synchronized install/use/recovery manuals and a known-issue list.
 
 Linear automatic mutation, non-canary external send, automatic Official Done,
 final technical acceptance, public release, Project AI Team scale-out, team-wide

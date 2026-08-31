@@ -24,6 +24,8 @@ PHYSICAL_PILOTED     실제 PC·source·project에서 bounded 실행됨
 HOLD                 정확한 blocker가 있어 진행하지 않음
 OPEN_GRILL           Owner 결정이 남음
 OWNER_DEFERRED       Owner가 재진입 조건까지 결정을 미룸; 그 전에는 다시 묻지 않음
+OPEN                 Owner decision register에서 아직 결정이 남음
+CONFIRMED_*_HOLD     방향은 확정됐지만 suffix가 지시하는 측정·물리 evidence Gate가 남음
 TARGET               목표 구조이며 아직 materialize하지 않음
 ```
 
@@ -175,7 +177,7 @@ label을 함께 제공한다.
 내부 구조가 안정된 뒤 별도 naming 단계에서 표시명만 결정한다. 그 전에는 초안 이름을
 코드·경로·authority에 결속하지 않는다.
 
-우선 보정 대상은 P03(read-only인데 Command로 읽힘), P04(사람 조직도 포함),
+우선 보정 대상은 P04(사람 조직도 포함),
 P06(제품명과 중복), P08(Agent Platform과 Platform 단어 충돌)이다.
 
 `Vault`, `Forge`, `Guild`, `Watch`, `Bastion`은 현재 logical product/module owner와 판타지
@@ -424,7 +426,9 @@ Connector record 최소 필드:
 - update/rollback/uninstall state.
 
 M13 Operations Console은 설치된 App/Connector 목록·권한·상태를 보여주고 요청을 받는다.
-실제 credential 보관과 action authorization은 Bastion/ERP policy owner가 집행한다.
+실제 credential 보관은 지정 secret owner가 소유한다. Bastion은 action authorization을
+write 전에 검증하고 runtime에서 집행하며, ERP AuthorityPolicy sole writer만 canonical
+policy를 적용한다.
 
 ## M10. 업무 실행·위임 authority
 
@@ -685,7 +689,7 @@ Fresh Grill은 Owner 결정과 명시적 보류·재진입 조건을 닫았다. 
 | B Product Composition | product.manifest·Module classification·product validators | 제품별 source home+Shared 원칙, exact root는 PC4 evidence 뒤 |
 | C SE Workspace & Metadata | variant crosswalk·metadata mirror·project ledger rules | supported variants와 migration policy |
 | D Connector & Backup | connector catalog·collection/backup split·NAS DR contract | synthetic restore 측정 후 RPO/RTO; physical binding 별도 Gate |
-| E Authority & Operations UI | grant/revoke schema·read projection·Bastion request seam | ERP writer·Bastion enforcement·Console request/read separation |
+| E Authority & Operations UI | grant/revoke schema·read projection·Bastion request seam | ERP sole writer·Bastion validation/enforcement·Console request/read separation; OD-11 risk/action taxonomy `OPEN` |
 | F Manual & Internal Release | manual catalog/templates·release sync validator·RC checklist | Owner PC one-seat Slice와 Markdown→HTML book 원칙 |
 
 공유 파일·schema·writer는 한 Lane만 소유하고 다른 Lane은 Interface ref만 사용한다. 구현 TASK는
@@ -702,7 +706,7 @@ physical binding, runtime activation, authority mutation, backup-ready 또는 re
 | 1 | 이름 구조는 stable ID·기능 설명·software brand·fantasy Skin·compatibility handle을 분리. 공식 기능 설명은 `Soulforge Operations Console` | software brand와 세 제품 표시명은 내부 구조 안정 후 naming 단계 |
 | 2 | Monster/Quest/Mission/Boss/Reward 의미를 공식 workflow vocabulary에 결속하지 않고 `OWNER_DEFERRED` | 별도 naming/Game UX 단계 |
 | 3 | 제품별 visible source home + Shared 영역 원칙 확정; 현재 path는 compatibility-first | PC1–PC3 evidence 뒤 PC4에서 exact root spelling/location 결정 |
-| 4 | ERP AuthorityPolicy store sole writer, Bastion validation/enforcement/STOP, Console request/read only | schema 구현과 physical writer activation은 각 Gate 뒤 |
+| 4 | ERP AuthorityPolicy store sole writer, Bastion validation/enforcement/STOP, Console request/read only | risk/action class taxonomy는 OD-11 `OPEN`; schema 구현과 physical writer activation은 각 Gate 뒤 |
 | 5 | 이번 주 RC는 Owner PC one-seat safe closed loop; Linear auto-write·외부 자동전송·auto Done·team rollout 제외 | one-seat evidence 3–5회와 별도 ring promotion |
 | 6 | `체계개발/LIG 넥스원/A` 신규 프로젝트 우선; 기존 프로젝트는 개별 dry-run·승인 | 다른 variant source 재기준 또는 project별 migration packet |
 | 7 | 합성 restore→Owner 수락, 이후 승인된 저위험 프로젝트→프로젝트 책임자 수락; Backup 운영자 self-accept 금지 | 첫 restore 측정 뒤 RPO/RTO, private evidence 뒤 NAS target/binding |

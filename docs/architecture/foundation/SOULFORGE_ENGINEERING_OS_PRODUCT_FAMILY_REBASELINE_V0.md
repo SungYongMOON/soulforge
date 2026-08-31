@@ -538,7 +538,7 @@ Program B — Development Team 1 Field Pilot
 Soulforge Portfolio (logical only)
 ├─ SF-P01  Work Discovery & Mission
 ├─ SF-P02  ERP & Asset Management
-├─ SF-P03  Operations Command
+├─ SF-P03  Operations Console
 ├─ SF-P04  AI Workforce & Organization
 ├─ SF-P05  Knowledge & Ontology
 ├─ SF-P06  Engineering Engine Family
@@ -551,7 +551,7 @@ Soulforge Portfolio (logical only)
 | --- | --- | --- | --- |
 | `SF-P01` | Work Discovery & Mission | Monster Forge | Source event, Chat 예약, Work Candidate, AX 판단, TaskIntent·Work Brief |
 | `SF-P02` | ERP & Asset Management | Vault | Project·Task·Asset·Dataset·BOM·Material·Template·Artifact·Revision |
-| `SF-P03` | Operations Command | Watchtower | 4192, portfolio·project·Agent·Run·Engine·backup read-only projection |
+| `SF-P03` | Operations Console | Watchtower | 4192, portfolio·project·Agent·Run·Engine·backup read-only projection |
 | `SF-P04` | AI Workforce & Organization | Guild Hall | 사람·AI 조직, 프로젝트별 팀, Agent Mark·Memory, Hermes·Buzz·Codex 운영 |
 | `SF-P05` | Knowledge & Ontology | World Tree | Entity·Context·Evidence·time·ACL·RAG·Wiki·Ontology·지식승격 |
 | `SF-P06` | Engineering Engine Family | Engine Foundry | Engine Core와 현재·미래 Domain Engine별 독립 backlog·version·검증 |

@@ -18,7 +18,7 @@ candidate → vetted → installed_off → configured → granted → active
 The catalog records stable connector/app ID, version, managed/custom/hybrid
 ownership, source/action capabilities, account/project binding, read/write scope,
 expiry/revocation, `secret_ref`, health/freshness/cursor, data/retention/backup
-class, update/rollback and uninstall state. Operations Command may display and
+class, update/rollback and uninstall state. Soulforge Operations Console may display and
 request these changes; it does not own credentials or silently activate actions.
 
 ## Collection, custody, sync and NAS disaster backup

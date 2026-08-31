@@ -41,7 +41,7 @@ RED stabilization semantics: RED-01 is the serial row-0 leaf. RED-02 (topology-o
 | 1A (next adjacent; non-retroactive) | Physical organization spine | Plan 17 Owner/fresh review, metadata-only inventory, OD-10 owner decisions | Root/Path Registry contract, target materializer, write guard, and 4192 Storage Map; existing payload move 0 |
 | 1B (adjacent plan/review lane) | Ledger Catalog + Event Spine + RAG/mining contract | Existing product/portfolio/physical maps, exhaustive metadata-only ledger/RAG inventory, integrated Ultra/Fable5 findings and fresh corrected-document review | LR0A/LR0B frozen; LR1 may create Catalog contract/rows/validator only; no runtime DB or migration yet |
 | 1C (adjacent productization lane) | Product Composition & Source Ownership Map | Product-family decision, current 29-manifest/4-spec audit, caller graph and no-overlap writer scope | Three no-move `product.manifest` contracts plus complete Product-owned/Shared Module classification; source move/copy/new top-level root 0 |
-| 1D (Owner decision lane; `DECISION_CLOSED`) | Owner Master Map + Fresh Grill | `SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md`, fixed decisions, exact Grill frontier | Owner decisions and explicit deferred/re-entry triggers appended to Plan 00; shared understanding + explicit Grill exit; implementation 0 |
+| 1D (Owner decision lane; `PARTIAL_CLOSURE_OD11_OPEN`) | Owner Master Map + Fresh Grill | `SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md`, fixed decisions, exact Grill frontier | Twelve answers and explicit deferred/re-entry triggers appended to Plan 00; authority risk/action taxonomy remains OD-11 `OPEN`; implementation 0 |
 | 1E (post-Grill candidate lanes) | Master Map A–F | 1D decision closure, owner/writer map and each lane's remaining evidence Gate | Product composition, SE workspace/metadata, connector/backup, authority/operations UI and manual/internal release may proceed only where prerequisites and write ownership are disjoint; naming remains Owner-deferred |
 | 2 | Engineering MCP contract/schemas | D27–D29 design decisions | Schema/tool compatibility and adversarial synthetic suite |
 | 3 | Vault ArtifactRevision vertical | D27/D29 + exact custody policy | One artifact candidate/review/acceptance synthetic vertical |
@@ -73,9 +73,10 @@ RED stabilization semantics: RED-01 is the serial row-0 leaf. RED-02 (topology-o
 
 Post-Grill lane mapping: `A→Naming/World Skin`, `B→Product Composition`,
 `C→SE Workspace/Metadata`, `D→Connector/Backup`, `E→Authority/Operations UI`,
-`F→Manual/Internal Release`. 1D is decision-closed; these remain candidate lanes
-and do not supersede the active Roadmap slice. Lane A stays Owner-deferred until
-the naming/Game UX re-entry trigger.
+`F→Manual/Internal Release`. The twelve Grill answers are closed, but 1D retains
+OD-11 for the risk/action taxonomy. These remain candidate lanes and do not
+supersede the active Roadmap slice. Lane A stays Owner-deferred until the
+naming/Game UX re-entry trigger; Lane E cannot define generic grants before OD-11.
 
 ## Ledger/RAG/Process-Mining lane — target sequence
 
