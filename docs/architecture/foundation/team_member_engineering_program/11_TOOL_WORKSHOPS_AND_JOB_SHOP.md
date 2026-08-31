@@ -240,8 +240,20 @@ settling with configured MCP enabled, each profile exposed its different allowed
 write/read tool and calls succeeded, but generic read-only MCP prompt/resource
 helper tools also remained visible. The production Agent remains `HOLD` until an
 exact Buzz managed-Agent save/readback proves the approved profile, environment,
-startup readiness and tool list. Real PPT, Linear, NAS, `_workspaces`, OneDrive
-and acceptance effects remain zero.
+startup readiness and tool list.
+
+A later bounded physical-file pilot used only synthetic PPT content and the two
+approved logical pilot roots. It preserved `C0000`, the good slide-3 `C0001`, a
+bad slide-4 branch `C0002`, and a corrected branch `C0003` from `C0001`; only
+`C0003` was finalized as `R0001/V1.1`. Independent hash/readback verification
+and four-slide PNG rendering passed, and the wrong branch did not enter the
+candidate revision. This advances the PPT Workshop fixture to
+`physical_file_candidate_verified`; it does not accept the artifact, approve a
+backup, bind a production runner, or authorize real project payload. Linear,
+NAS, `_workspaces`, OneDrive and acceptance effects remain zero. Buzz Agent
+creation/channel smoke are still held because the interactive desktop session
+could not be controlled reliably; the profile MCP used for the pilot was a
+temporary loopback process and was stopped after the run.
 
 ## Build skeleton
 
@@ -249,7 +261,13 @@ Each future Workshop module contains an owner README, module manifest, interface
 
 ## Current status
 
-The repository has tool-related skills and artifacts, but no approved physical Team Workshop runtime/lease system is claimed by this plan. Build one first Workshop only after the Team Member MCP and Vault revision vertical prove their core contracts, unless its inputs/effects are fully isolated and separately approved.
+The repository has tool-related skills, the in-memory capacity/fence core, and a
+bounded synthetic PPTX file fixture with one private file-level candidate test.
+No approved production Team Workshop runtime/lease service, persistent MCP
+service, Buzz Agent binding, or real-project file authority is claimed by this
+plan. Build the first production Workshop only after the Team Member MCP and
+Vault revision vertical prove their core contracts, unless its inputs/effects
+are fully isolated and separately approved.
 
 ## Related plans
 

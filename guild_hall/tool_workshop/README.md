@@ -1,6 +1,6 @@
 # Tool Workshop — capacity-one lease/fence/validator core (in-memory only)
 
-Owner: `guild_hall/tool_workshop`. Status: `CURRENT = 순수 코어 + adversarial 테스트`; 물리 Tool PC·실제 렌더러/HWPX/CAD 실행·runner binding은 `TARGET`(별도 Owner gate).
+Owner: `guild_hall/tool_workshop`. Status: `CURRENT = 순수 코어 + adversarial 테스트 + 합성 PPTX 파일 pilot fixture`; production Tool PC·상주 runner·Buzz identity binding과 HWPX/CAD 실행은 `TARGET`(별도 Owner gate).
 
 Program plan 11의 첫 Workshop 수직이다. 첫 프로파일로는 plan 11 표의 첫 행인 **Document 공방**(`DOCUMENT_WORKSHOP_PROFILE`)을 선택했다 — 실제 도구는 밖에 있고, 이 코어는 자원 계약만 소유한다.
 
@@ -26,6 +26,21 @@ multi-project FIFO(`A1 -> B1 -> A2 -> B2`)를 함께 검사한다. 별도
 Hermes profile Tool 분리 실험용이며 canonical validator가 실제 Hermes 설치나
 provider를 요구하지 않도록 분리한다. 그 물리 실행 결과는 project-private review
 packet이 소유하고, public module은 runtime/Buzz/NAS/PPTX effect를 주장하지 않는다.
+
+`fixtures/ppt_workshop_pilot_mcp.py`는 다음 단계의 public-safe 합성 PPTX
+파일 fixture다. caller가 승인한 두 root만 받고 `Cxxxx` create-only checkpoint,
+`Rxxxx` candidate revision, hash/readback, Job/Work Product 이중 receipt를 만든다.
+`tests/ppt_workshop_pilot_core_test.py`는 좋은 checkpoint에서 다시 branch하여
+잘못된 후속 수정이 최종 revision에 섞이지 않는지, overwrite와 path escape가
+fail-closed인지 검사한다. 이 Python 시험은 `mcp`와 `python-pptx`가 설치된
+격리 runtime에서 실행한다. 의존성을 repository의 canonical Node validator에
+강제로 추가하지 않는다.
+
+2026-08-31 private pilot에서는 실제 합성 PPTX bytes로 `C0000 -> C0001 ->
+C0002(bad)`와 `C0001 -> C0003(corrected) -> R0001/V1.1`을 만들고 독립
+verifier hash/readback 및 4-slide PNG render를 통과했다. 이는 특정 pilot
+artifact의 `verified_completion_candidate` 근거일 뿐 Human Acceptance, backup
+acceptance, production Buzz readiness 또는 일반 project payload 권한이 아니다.
 
 ## 관련 정본
 
