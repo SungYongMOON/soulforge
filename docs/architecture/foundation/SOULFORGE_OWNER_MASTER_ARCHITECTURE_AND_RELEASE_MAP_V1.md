@@ -522,8 +522,9 @@ Soulforge Operations Console(compatibility handle 4192)에 `Authority & Access` 
 - before/after/readback·audit receipt.
 
 Operations Console UI는 writer가 아니다. Owner-authenticated grant/revoke request를 만들고,
-Bastion/ERP policy owner가 검증·적용·readback한 receipt를 다시 보여준다. emergency STOP과
-revoke는 별도 안전 Interface를 가진다.
+Bastion이 write 전 검증을 수행한 뒤 ERP AuthorityPolicy sole writer만 canonical policy를
+적용한다. Bastion은 runtime enforcement와 emergency STOP/revoke를 집행하고, Console은
+적용·readback receipt를 표시한다.
 
 ## M13. Soulforge Operations Console App Platform(compatibility handle 4192)
 
@@ -610,9 +611,9 @@ manual/
 ```
 
 Manual 내용 정본은 Markdown과 versioned image asset이다. 사용자용 기본 projection은
-표지·장·목차·검색·그림 확대·반응형 화면·책 넘김 효과를 갖는 interactive HTML book으로
-만들고, 접근 가능한 연속 읽기 모드와 인쇄용 PDF를 같은 source에서 생성한다. HTML의
-page-turn UI와 PDF는 projection이며 내용 정본이나 별도 authority가 아니다.
+interactive HTML book이며, 접근 가능한 연속 읽기 모드와 인쇄용 PDF를 같은 source에서
+생성한다. 표지·장·목차·검색·그림 확대·반응형 화면·책 넘김 효과는 확정 요구가 아니라
+`TARGET projection requirements` 후보다. HTML UI와 PDF는 내용 정본이나 별도 authority가 아니다.
 
 Manual contract 필드:
 

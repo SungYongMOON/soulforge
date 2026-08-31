@@ -72,20 +72,22 @@ The suite is intentionally split so a later program builder can open the smalles
 
 ## Owner decision register
 
-These are the only authority choices still needed to move from a plan candidate to bounded implementation. A later builder must stop at the relevant row rather than infer it.
+This register preserves both unresolved authority choices and settled/deferred
+Owner directions. A later builder follows the explicit status and blocks only
+the remaining consequence; it must not re-ask or infer a settled/deferred row.
 
-| ID | Decision required | Default proposed for review | Blocking consequence if undecided |
-| --- | --- | --- | --- |
-| OD-01 / D27 | Per-source custody, quarantine/promoter, retention/legal hold, scan, ACL, backup, delete authority | Pointer/reference first; service inbox is custody only; promotion is a separate sole writer | No physical upload promotion or project byte copy |
-| OD-02 / D28 | WorkSession actor chain, node/thread capability, outbox protection/SLA, handoff, completion approver | One active `{assignment_epoch, account}` primary; checkpoints plural; closeout is never Official Done | No team WorkSession activation |
-| OD-03 / D29 | Accepted-generation pointer, query ACL/existence policy, exact revision downloads, team candidate authority | ERP UI/MCP read only; explicit project plus approved common revision; no fallback | No canonical input-bundle service or accepted-history query |
-| OD-04 / D35 | Client plugin package, trust, active binding, hooks, local outbox lifecycle | Feature-OFF per-PC client with visible binding state and OS-protected credentials | No client install or hook activation |
-| OD-05 / D36 | Project context writer and ERP read-model owner | One append writer; ERP/MCP are projection/query only | No persistent accepted-context feedback writer |
-| OD-06 | Numeric RPO/RTO and recovery evidence retention by data class | Measure the first synthetic isolated restore before setting numeric targets; first canary accepted by Owner, later project restore by that project owner | No team-wide recovery promise |
-| OD-07 | Product/pack names and user-facing labels | Naming fields are separated, but actual product/brand/Game UX names are Owner-deferred until a later naming stage | No rename or release branding |
-| OD-08 | Each physical site, credential, source scope, and low-risk pilot tuple | First target is Owner PC one-seat with team-equivalent setup; exact site/device/credential/project tuple and expiry remain separately gated | No actual network, connector, or team rollout |
-| OD-09 | Standing execution delegation after plan/review start gate | Continue all safe in-scope leaves using frozen canon, existing interfaces, and the conservative defaults below; do not repeat settled Owner questions | Only the affected branch blocks when excluded authority, credential, or physical state is genuinely required |
-| OD-10 / R0–R3 | Path Registry schema/logical owner, private-binding writer, resolver runtime owner, operation-aware write-policy owner, exact root enum, materializer canary root, and 4192 projection owner | Owner assignments are settled; the public 41-row contract seed separates ERP `_workspaces` from the Bot execution work root and keeps activation sentinels until private binding/ACL/readback exists | No private binding registration, materializer physical apply, write-guard enforcement, served snapshot, or Storage Map readiness claim |
+| ID | Status | Decision or gate | Current Owner direction | Remaining blocking consequence |
+| --- | --- | --- | --- | --- |
+| OD-01 / D27 | `OPEN` | Per-source custody, quarantine/promoter, retention/legal hold, scan, ACL, backup, delete authority | Pointer/reference first; service inbox is custody only; promotion is a separate sole writer | No physical upload promotion or project byte copy |
+| OD-02 / D28 | `OPEN` | WorkSession actor chain, node/thread capability, outbox protection/SLA, handoff, completion approver | One active `{assignment_epoch, account}` primary; checkpoints plural; closeout is never Official Done | No team WorkSession activation |
+| OD-03 / D29 | `OPEN` | Accepted-generation pointer, query ACL/existence policy, exact revision downloads, team candidate authority | ERP UI/MCP read only; explicit project plus approved common revision; no fallback | No canonical input-bundle service or accepted-history query |
+| OD-04 / D35 | `OPEN` | Client plugin package, trust, active binding, hooks, local outbox lifecycle | Feature-OFF per-PC client with visible binding state and OS-protected credentials | No client install or hook activation |
+| OD-05 / D36 | `OPEN` | Project context writer and ERP read-model owner | One append writer; ERP/MCP are projection/query only | No persistent accepted-context feedback writer |
+| OD-06 | `CONFIRMED_MEASUREMENT_HOLD` | Numeric RPO/RTO and recovery evidence retention by data class | Restore order and acceptors are settled; measure the first synthetic isolated restore before setting numeric targets | No numeric RPO/RTO or team-wide recovery promise before measurement |
+| OD-07 | `OWNER_DEFERRED` | Product/pack names and user-facing labels | Naming fields are separated; actual product/brand/Game UX names wait for the later naming stage | No rename or release branding before the re-entry trigger |
+| OD-08 | `CONFIRMED_DIRECTION / HOLD_PHYSICAL_TUPLE` | Each physical site, credential, source scope, and low-risk pilot tuple | First target is Owner PC one-seat with team-equivalent setup | No actual network, connector, or team rollout until the exact site/device/credential/project tuple and expiry pass |
+| OD-09 | `CONFIRMED` | Standing execution delegation after plan/review start gate | Continue all safe in-scope leaves using frozen canon, existing interfaces, and the conservative defaults below; do not repeat settled Owner questions | Only the affected branch blocks when excluded authority, credential, or physical state is genuinely required |
+| OD-10 / R0–R3 | `CONFIRMED_CONTRACT / HOLD_PHYSICAL_ACTIVATION` | Path Registry schema/logical owner, private-binding writer, resolver runtime owner, operation-aware write-policy owner, exact root enum, materializer canary root, and 4192 projection owner | Owner assignments are settled; the public 41-row contract seed separates ERP `_workspaces` from the Bot execution work root and keeps activation sentinels until private binding/ACL/readback exists | No private binding registration, materializer physical apply, write-guard enforcement, served snapshot, or Storage Map readiness claim |
 
 ### OD-09 standing execution defaults and limits
 
