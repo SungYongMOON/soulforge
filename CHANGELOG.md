@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-09-01 - Buzz native Hermes usage and capability boundaries are documented
+
+- Added an Owner quick-start for native Hermes gateway Bots: use exact `-Hermes` channel/DM identities and do not start a replaced managed Agent from the Buzz `Agents` page.
+- Documented that profile MCP include lists carry into native Buzz turns, while Skill files additionally require the Buzz `skills` Toolset; Skill writes stay behind explicit approval.
+- Added the required live allow/deny matrix for registered and unregistered MCP Tools and Skills, plus no-file-effect verification for forbidden write/finalize probes.
+- Added ordered troubleshooting for identity selection, gateway connection, allow-list/mention gates, MCP readiness, include lists, Skill loading and duplicate-zero relay evidence.
+- Added cleanup boundaries: an old managed definition and stale channel membership may be removed only after exact Owner authorization, without deleting the retained Hermes profile, native key, session or work-product data.
+
 ## 2026-08-31 - Synthetic PPT Workshop proves branch-safe physical file revisioning
 
 - Added a bounded PPTX Workshop MCP fixture and tests for approved-root confinement, exact initial Job-request binding, create-only `Cxxxx` checkpoints, `Rxxxx` candidate finalization, hash/readback verification and separate Job/Work Product receipts.

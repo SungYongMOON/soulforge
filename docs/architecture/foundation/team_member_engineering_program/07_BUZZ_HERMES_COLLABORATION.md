@@ -336,9 +336,9 @@ accepted.
 | Buzz Project / repository container | One bounded pilot container has been physically observed; exact identity and binding remain project-private |
 | Repository contents and local checkout | Empty/no push and no approved physical clone were observed for the pilot; no local clone or role worktree is claimed |
 | Bot project work root and human work root | Their distinct owner concepts are confirmed; exact physical bindings and writer enforcement remain private/held |
-| Tool Workshop folders/runtime | Target folders remain unmaterialized; two isolated local Hermes synthetic profiles and one zero-effect MCP were exercised, not a physical PPT file runner |
+| Tool Workshop folders/runtime | A bounded private synthetic PPT runner and two isolated Hermes profiles passed file/checkpoint/revision tests; real-project input/custody/promotion remain held |
 | NAS connection | Physical capability assessment is `SUPPORTED_WITH_GAPS`; destination, capacity, snapshot/immutable policy, whole-volume backup and restore canary remain private/HOLD |
-| Hermes Tool Bot permission pilot | Standalone and ACP-shaped candidate/verifier calls passed with profile-specific write/read separation; Buzz managed-Agent save/readback remains pending and configured-MCP startup/cache limitations keep production on HOLD |
+| Hermes Tool Bot permission pilot | Native Buzz gateway calls passed the registered/unregistered MCP and Skill matrix with duplicate zero and no file effects; the Buzz Desktop managed-Agent reply path remains HOLD |
 | Project Git Evidence Intake | Contract and bounded pilot plan exist; no webhook, persistent intake coordinator or automatic completion is active |
 | Human Acceptance / promoter | Required and separate; no automatic promotion is active |
 | Linear State Writer | `HOLD`; Project Git, Buzz message, Pulse and Agent self-report cannot mark Official Done |
@@ -405,14 +405,98 @@ reply per explicit mention, and negative-tool denial. If Buzz injects a wider
 session MCP set, profile schemas drift, or a first turn races discovery, hold the
 Agent before any real file, Linear, NAS or `_workspaces` action.
 
+### Owner quick start for native Hermes Bots in Buzz
+
+Use the native Hermes gateway path for an existing persistent Hermes profile.
+It runs outside Buzz Desktop's managed-Agent process tree and joins Buzz as a
+normal member identity. The native identity is already running; it is **not**
+started from the Buzz `Agents` page.
+
+#### Choose the correct identity
+
+| Visible identity | Meaning | Use |
+| --- | --- | --- |
+| `<role> Bot` | Buzz Desktop managed Agent definition | Do not use after native-gateway migration unless that runtime has its own passed reply-delivery gate |
+| `<role> Bot-Hermes` | Native Hermes gateway identity | Use this exact name in Channel/DM mentions |
+
+The `-Hermes` suffix is an operating convention that prevents autocomplete and
+human operators from mixing a stopped managed Agent with the live native
+gateway. A native identity may appear under channel members or New Message
+rather than as an Agent card.
+
+#### Send a request
+
+1. Open the exact project/access channel.
+2. Type the exact native identity, for example
+   `@<PPT Bot-Hermes> <project-ref> <artifact-ref> <request>`.
+3. For a verifier, include the exact candidate/revision ref and expected hash.
+4. Keep one request in one message. Use the thread only for that request's
+   clarification and result.
+5. Treat the response as a candidate/result receipt, not Human Acceptance,
+   promotion or Official Done.
+
+#### How MCP and Skill permissions carry into Buzz
+
+- Native gateway messages use the same `HERMES_HOME`, model, SOUL, MCP include
+  list and local session owner as the Hermes profile.
+- A registered MCP Tool is callable through Buzz; a Tool omitted from that
+  profile's include list must be absent and return an unavailable/deny result.
+- A Skill file alone is **not** enough. The profile also needs the `skills`
+  Toolset enabled for the `buzz` platform before `skill_view` and the Skill
+  index are injected into the Buzz turn.
+- When read access to Skills is enabled, keep `skills.write_approval: true` so
+  create/edit/patch/delete requests stage for explicit review rather than
+  mutating the Skill immediately.
+- Keep background review, Curator and memory-based Skill suggestion disabled
+  for a fixed-purpose Tool Bot unless a separate learning policy authorizes it.
+- A verifier that should have no Skill access keeps the Buzz platform Toolset
+  list empty and carries only its explicitly included read/verify MCP Tools.
+
+The minimum live capability matrix is:
+
+| Probe | Expected result |
+| --- | --- |
+| registered MCP Tool | one successful real call and bounded result |
+| unregistered MCP Tool | unavailable/denied, call count zero |
+| registered Skill | actual `skill_view` succeeds |
+| unregistered Skill | unavailable, no `skill_view` call |
+| forbidden write/finalize | payload/revision tree digest unchanged |
+
+#### If the Bot does not answer
+
+Check in this order:
+
+1. the mention uses the exact `-Hermes` name, not an old managed Agent;
+2. the native gateway reports running and Buzz connected;
+3. the project channel is in the gateway watch list and the sender is in the
+   allow-list;
+4. channel requests include an explicit mention when `require_mention=true`;
+5. the required MCP service passes readiness before the gateway starts;
+6. the profile's include list contains the requested MCP Tool;
+7. Skill requests also have the Buzz `skills` Toolset enabled;
+8. relay metadata shows one request, one response and duplicate zero.
+
+Do not work around a missing Tool by widening every MCP/Toolset, copying
+credentials into Buzz, or editing the local identity store directly.
+
+#### Clean up the replaced managed Agent
+
+After the native identity passes connection, allow/deny and one-reply smoke,
+stop the old managed Agent. Archive/delete its managed definition and remove its
+stale channel membership only with exact Owner authorization and after verifying
+the `-Hermes` identity is the one being retained. Deleting the managed
+definition does not authorize deleting the Hermes profile, native key, gateway
+session or work-product data.
+
 ## Current status and later build slices
 
 Current public documents and code provide selected adapter/runtime evidence. A
-bounded local metadata-only pilot re-observed the Buzz Agent roster and two new
-isolated Hermes profiles without reading credentials or collaboration payloads.
-It did not create a Buzz managed Agent, join a channel or run a real project
-file. Treat deep collaboration data, identity save/readback and physical Tool
-availability as `VERIFY_PHYSICAL`.
+bounded private pilot created two isolated native Hermes gateway identities,
+joined one project channel, and exercised registered/unregistered MCP and Skill
+behavior without reading credentials or real-project payload. This validates
+the native gateway capability boundary for synthetic use only. Actual login
+auto-recovery, real-project Tool input/custody, Human Acceptance, promotion and
+old managed-identity cleanup remain separately gated.
 
 Public contract progress (2026-08-31): Backup Controller now has pure,
 effect-inert readiness contracts for Buzz and Hermes. Buzz names Postgres,
