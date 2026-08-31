@@ -22,6 +22,7 @@ IMPLEMENTED          실제 코드·문서·Interface가 존재함
 VALIDATED            결정론 검증이 통과함
 PHYSICAL_PILOTED     실제 PC·source·project에서 bounded 실행됨
 HOLD                 정확한 blocker가 있어 진행하지 않음
+UNKNOWN              필요한 현재 evidence가 없어 상태를 단정할 수 없음
 OPEN_GRILL           Owner 결정이 남음
 OWNER_DEFERRED       Owner가 재진입 조건까지 결정을 미룸; 그 전에는 다시 묻지 않음
 OPEN                 Owner decision register에서 아직 결정이 남음
@@ -95,12 +96,12 @@ capability/backlog ownership map이다. portfolio별 exact Product-owned/Shared/
 
 ### 권한을 한눈에 보는 표
 
-| Component | Read | Request/Approve | Validate | Technical enforce/STOP | Canonical policy write | Final acceptance |
-| --- | --- | --- | --- | --- | --- | --- |
-| Operations Console | O | O | - | - | - | - |
-| Bastion | 필요한 범위 | - | O | O | - | - |
-| ERP AuthorityPolicy | O | - | - | - | O | - |
-| Human Owner / designated authority | O | O | 정책·수락 판단 | - | ERP authorized writer를 통해서만 | 유보·위임 범위에 따라 O |
+| Component | Read | Request | Approve | Validate | Technical enforce/STOP | Canonical policy write | Final acceptance |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Operations Console | O | 요청만 O | - | - | - | - | - |
+| Bastion | 필요한 범위 | - | - | O | O | - | - |
+| ERP AuthorityPolicy | O | - | - | - | - | O | - |
+| Human Owner / designated authority | O | O | 유보·위임 범위에 따라 O | 정책·수락 판단 | - | ERP authorized writer를 통해서만 | 유보·위임 범위에 따라 O |
 
 ### 처음 읽는 사람을 위한 용어
 
