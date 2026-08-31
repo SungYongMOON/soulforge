@@ -19,11 +19,19 @@ const CANDIDATE_ARTIFACTS = Object.freeze({
   hpp_server_operator: "hpp_server_operator.v0.md",
   team_client_install_use_revoke_recovery: "team_client_install_use_revoke_recovery.v0.md",
   mcp_material_receive_result_submit: "mcp_material_receive_result_submit.v0.md",
+  vault_artifact_revision_promotion: "vault_artifact_revision_promotion.v0.md",
+  forge_work_generation_review: "forge_work_generation_review.v0.md",
+  agent_mark_deployment_run: "agent_mark_deployment_run.v0.md",
+  buzz_hermes_operations_recovery: "buzz_hermes_operations_recovery.v0.md",
   external_connector_backup_restore: "external_connector_backup_restore.v0.md",
+  workshop_operator: "workshop_operator.v0.md",
   watch_4192_incident_response: "watch_4192_incident_response.v0.md",
   path_registry_resolver: "path_registry_resolver.v0.md",
   target_folder_materializer: "target_folder_materializer.v0.md",
   watch_4192_storage_backup_map: "watch_4192_storage_backup_map.v0.md",
+  new_hire_training: "new_hire_training.v0.md",
+  experienced_hire_training: "experienced_hire_training.v0.md",
+  manager_training: "manager_training.v0.md",
 });
 
 function catalog() {
@@ -61,7 +69,7 @@ function hppManual(candidate) {
   return candidate.manuals.find((manual) => manual.semantic_role === "hpp_server_operator");
 }
 
-test("the tracked public catalog binds eight current candidate artifacts without inventing release acceptance", () => {
+test("the tracked public catalog binds all sixteen current candidate artifacts without inventing release acceptance", () => {
   const tracked = catalog();
   assert.equal(tracked.schema, MANUAL_RELEASE_CATALOG_SCHEMA);
   assert.equal(tracked.catalog_version, "0.1.0");
@@ -70,23 +78,16 @@ test("the tracked public catalog binds eight current candidate artifacts without
   assert.deepEqual(validateManualReleaseCatalog(tracked), { ok: true, problems: [] });
   for (const manual of tracked.manuals) {
     const filename = CANDIDATE_ARTIFACTS[manual.semantic_role];
-    if (filename) {
-      const artifact = readFileSync(join(MODULE_ROOT, "manuals", filename));
-      assert.equal(manual.state, "candidate", manual.semantic_role);
-      assert.equal(manual.artifact_ref, `artifact.manual.${manual.semantic_role}.v0_1_0`);
-      assert.equal(manual.content_digest, `sha256:${createHash("sha256").update(artifact).digest("hex")}`);
-      assert.equal(manual.compatibility_range, ">=0.1.0 <1.0.0");
-      assert.equal(manual.stale_state, "current");
-      assert.equal(manual.last_verified_release, null);
-      assert.equal(manual.exercise_receipt_ref, null);
-      assert.equal(artifact.toString("utf8").includes(`Artifact ref: \`${manual.artifact_ref}\``), true);
-    } else {
-      assert.equal(manual.state, "hold", manual.semantic_role);
-      assert.equal(manual.artifact_ref, null, manual.semantic_role);
-      assert.equal(manual.content_digest, null, manual.semantic_role);
-      assert.equal(manual.stale_state, "manual_absent", manual.semantic_role);
-      assert.equal(manual.exercise_receipt_ref, null, manual.semantic_role);
-    }
+    assert.equal(typeof filename, "string", manual.semantic_role);
+    const artifact = readFileSync(join(MODULE_ROOT, "manuals", filename));
+    assert.equal(manual.state, "candidate", manual.semantic_role);
+    assert.equal(manual.artifact_ref, `artifact.manual.${manual.semantic_role}.v0_1_0`);
+    assert.equal(manual.content_digest, `sha256:${createHash("sha256").update(artifact).digest("hex")}`);
+    assert.equal(manual.compatibility_range, ">=0.1.0 <1.0.0");
+    assert.equal(manual.stale_state, "current");
+    assert.equal(manual.last_verified_release, null);
+    assert.equal(manual.exercise_receipt_ref, null);
+    assert.equal(artifact.toString("utf8").includes(`Artifact ref: \`${manual.artifact_ref}\``), true);
   }
 });
 

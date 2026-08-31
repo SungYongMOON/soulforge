@@ -46,10 +46,9 @@ same manual source rather than independently drifting documents.
 The Deployment Pack `RUNBOOK_CATALOG`, tracked catalog and this semantic owner
 now use the exact same ordered 16 roles. The pure resolver binds procedure refs
 to semantic role, artifact digest, compatibility range, last verified release,
-stale state and exercise receipt. Eight Owner-PC slice roles have actual
-Markdown bytes and exact digest as `candidate/current`; the other eight remain
-`HOLD/manual_absent`. Candidate rows still lack exercise and verified-release
-receipts, so `RELEASE_HOLD` remains.
+stale state and exercise receipt. All 16 roles have actual Markdown bytes and
+exact digests as `candidate/current`. Every candidate still lacks exercise and
+verified-release receipts, so `RELEASE_HOLD` remains.
 
 The Master Map's ten `manual/` directories are a proposed physical projection,
 not a second role catalog. The pure HTML renderer can create a self-contained

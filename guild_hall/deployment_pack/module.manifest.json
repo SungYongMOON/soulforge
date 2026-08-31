@@ -1,7 +1,7 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "deployment_pack_contract",
-  "module_version": "0.4.0",
+  "module_version": "0.4.1",
   "interface_version": "deployment_pack.v0",
   "schema_versions": ["soulforge.deployment_pack_contract.v0", "soulforge.deployment_pack.manual_release_catalog.v0", "soulforge.deployment_pack.manual_release_resolution.v0", "soulforge.deployment_pack.manual_html_projection.v0", "soulforge.deployment_pack.internal_rc_prephysical_readiness.v0", "soulforge.deployment_pack.project_ai_team_pack_admission.v0", "soulforge.deployment_pack.approved_project_ai_team_mark.v0", "soulforge.deployment_pack.project_ai_team_topology.v0", "soulforge.deployment_pack.project_ai_team_mark_authority_pin.v0", "soulforge.deployment_pack.project_ai_team_mark_authority_current_state.v0"],
   "owner": "guild_hall/deployment_pack",
@@ -24,5 +24,5 @@
   "validators": ["node --test guild_hall/deployment_pack/tests/deployment_pack_contract.test.mjs", "node --test guild_hall/deployment_pack/tests/manual_release_resolver.test.mjs", "node --test guild_hall/deployment_pack/tests/manual_html_projection.test.mjs", "node --test guild_hall/deployment_pack/tests/internal_rc_prephysical_readiness.test.mjs", "node --test guild_hall/deployment_pack/tests/build_pack.test.mjs", "npm.cmd run validate:project-ai-team-pack-admission"],
   "release_digest": null,
   "deprecation_state": "active_draft",
-  "authority_notes": "Release contract, isolated pack builder, public-safe manual-release candidates/HTML projection, Internal RC prephysical readiness binder, and Project AI Team Pack admission input contract. Eight manuals have exact candidate bytes/digests but no exercise acceptance; eight remain absent, so catalog and release stay HOLD. The readiness binder returns only HOLD or READY_FOR_ONE_PHYSICAL_SEAT_GATE from injected public-safe evidence; it installs nothing and cannot claim Internal RC/release. Project Mark approval requires its own trusted authority pin/current state, and every role slot requires a separately verified current Agent binding. Actual project_ai_team_pack spec remains absent until real approved bindings are supplied."
+  "authority_notes": "Release contract, isolated pack builder, public-safe manual-release candidates/HTML projection, Internal RC prephysical readiness binder, and Project AI Team Pack admission input contract. All sixteen manuals have exact candidate bytes/digests but no exercise or last-verified release acceptance, so catalog and release stay HOLD. The readiness binder returns only HOLD or READY_FOR_ONE_PHYSICAL_SEAT_GATE from injected public-safe evidence; it installs nothing and cannot claim Internal RC/release. Project Mark approval requires its own trusted authority pin/current state, and every role slot requires a separately verified current Agent binding. Actual project_ai_team_pack spec remains absent until real approved bindings are supplied."
 }

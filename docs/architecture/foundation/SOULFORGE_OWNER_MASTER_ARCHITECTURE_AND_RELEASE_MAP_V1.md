@@ -137,7 +137,7 @@ capability/backlog ownership map이다. portfolio별 exact Product-owned/Shared/
 | M12 | Owner grant/revoke/STOP UI | TARGET |
 | M13 | Soulforge Operations Console Apps·분석·관제 | foundation 부분, product shell TARGET |
 | M14 | World Tree 고정 I/O seam | TARGET, internal engine OPEN |
-| M15 | Manual-as-Release | 8 candidate/8 absent·resolver/HTML VALIDATED, exercise RELEASE_HOLD |
+| M15 | Manual-as-Release | 16 candidate·resolver/HTML VALIDATED, exercise/last-verified RELEASE_HOLD |
 | M16 | 개발1팀 one-seat/internal RC→pilot | prephysical binder VALIDATED, current public evidence HOLD |
 
 ## Master Layer ID 규칙
@@ -733,8 +733,8 @@ Release Gate는 기능/Interface/화면 변경 시 관련 manual mapping과 재�
 
 Deployment Pack의 `RUNBOOK_CATALOG`와 tracked catalog는 Plan 16 exact 16-role 순서로
 정합화됐고, pure resolver가 procedure ref를 semantic role·artifact digest·호환범위·
-last-verified release·exercise receipt에 결속한다. Owner-PC slice 8개 role은 실제
-Markdown+sha256이 있는 `candidate/current`, 나머지 8개는 `HOLD/manual_absent`다.
+last-verified release·exercise receipt에 결속한다. 16개 role 모두 실제
+Markdown+sha256이 있는 `candidate/current`지만 exercise·last-verified release는 없다.
 Candidate도 exercise/last-verified receipt가 없으므로 `RELEASE_HOLD`가 유지된다. Pure HTML
 renderer는 self-contained projection과 digest receipt만 만들며 persisted release artifact나
 content authority를 만들지 않는다.
@@ -845,7 +845,7 @@ secret을 tracked canon에 남기지 않는다.
 | Connector lifecycle·Authority UI | OD-11 pure contract VALIDATED, ERP/Bastion/Console live integration HOLD |
 | Collection/Backup 구분 | synthetic canary VALIDATED, actual Human acceptance·RPO/RTO·NAS HOLD |
 | World Tree seam | input/output TARGET, internal engine OPEN |
-| Manuals | 8 candidate/8 absent·resolver/HTML VALIDATED, exercise/release sync HOLD |
+| Manuals | 16 candidate·resolver/HTML VALIDATED, exercise/last-verified/release sync HOLD |
 | Development Team 1 RC | prephysical binder VALIDATED, current evidence HOLD; credentials/physical gates 남음 |
 
 ## 상세 owner 문서

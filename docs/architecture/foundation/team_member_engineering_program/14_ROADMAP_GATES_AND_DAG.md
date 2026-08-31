@@ -240,7 +240,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | Module operability gate (manifest·의존·cycle·preflight) | DONE `L-MODOP-GATE` (current **30 manifest**, authority taxonomy 포함, import scan 1,521파일/2,754 edge·cycle 0; 잔여 23 dir 중 Agent Platform은 composition-only) | n/a | — | — |
 | Product composition PC1–PC3 | DONE (3 manifests·7 owned/23 Shared·unresolved 0·no-move) | n/a | GATED (release digest·PC4 root·migration) | GATED |
 | OD-11 authority taxonomy | DONE (pure/default-OFF R0–R4·EV1–EV3, R3/R4 grant 0) | n/a | GATED (ERP writer·Bastion runtime·Console action) | GATED |
-| Manual release/projection | PARTIAL (8 candidate/current + 8 absent; deterministic HTML renderer) | HPP/Team/Backup refs resolve to candidate/HOLD | GATED (exercise·last-verified·build_pack integration) | GATED |
+| Manual release/projection | PARTIAL (16 candidate/current; deterministic HTML renderer; exercise 0) | HPP/Team/Backup refs resolve to candidate/HOLD | GATED (exercise·last-verified·build_pack integration) | GATED |
 | Synthetic recovery + Internal RC preflight | DONE contract (technical restore + separate acceptance seam + HOLD/READY binder) | Backup-Recovery closure | GATED (actual Human pin·device/project/credential binding) | GATED |
 | Cross-module integration (plan-13 module-integration rung) | DONE `L-DOGFOOD-INT`,`L-KVDS-FULL-CONTRACT` (public-safe synthetic, actual effects 0) | — | GATED (actual accepted KVDS context·Linear writer·Hermes runtime·artifact custody·human acceptance) | GATED |
 | Physical spine (plan-17 R1–R5 contracts) | DONE `L-PHYS-SPINE`,`L-PHYS-SPINE-HARDEN`,`L-SOURCE-LANE-LEDGER`,`L-ASSET-CLASS-LEDGER` + source adapters (seed 41행; ERP `_workspaces`/Bot work root 분리) | — | GATED (private binding/record writer·canary readback·enforcement·actual backup/restore) | GATED |
@@ -323,7 +323,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `validate:module-operability` | 8 | manifest 스키마·의존·cycle-0 고정·hermes coarse 경계 + preflight receipt |
 | `validate:product-composition` | 4 + preflight | 3 products·30 Modules exact set·7 owned/23 Shared·no-move/not-released |
 | `validate:authority-taxonomy` | 34 | A/JM/R/EV 분리·R3/R4 거부·scope/evidence/rate/expiry/replay/STOP |
-| `validate:manual-release` | 12 | 8 candidate/8 absent exact catalog·resolver·missing/stale/digest/version/exercise HOLD |
+| `validate:manual-release` | 12 | 16 candidate exact catalog·resolver·missing/stale/digest/version/exercise HOLD |
 | `validate:manual-projection` | 5 | deterministic accessible self-contained HTML·no raw/remote/local unsafe content·all tracked candidates renderable |
 | `validate:internal-rc-prephysical` | 5 | current public HOLD·synthetic READY gate·exact evidence/freshness/no-I/O |
 | `validate:synthetic-recovery-canary` | 17 | temp-only backup/readback/restore·parity/gap·distinct Human acceptance seam |

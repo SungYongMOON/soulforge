@@ -226,14 +226,15 @@ read-only snapshot
 - adjacent Internal RC contract build(2026-09-01): OD-11 pure taxonomy는 기존 A0~A6와
   별도 R0~R4·EV1~EV3를 결속하고 R3/R4 grant를 거부한다(34 tests, writer/runtime 0).
   세 no-move product manifests는 enrolled 30 Module을 7 Product-owned/23 Shared로
-  분류한다(4 tests+preflight, release/root migration 0). Manual resolver는 exact 16-role
-  catalog를 고정하지만 실제 artifact가 없어 전 row `HOLD`다(11 tests). Synthetic recovery
+  분류한다(4 tests+preflight, release/root migration 0). Manual resolver의 첫 contract-only
+  측정은 actual artifact 0·전 row `HOLD`였다(11 tests); 이 과거 상태는 바로 아래
+  manual/preflight leaf의 16 candidate·12-test 상태로 대체됐다. Synthetic recovery
   canary는 temp-only backup/readback/isolated restore와 별도 Human acceptance seam을
   검증한다(17 tests, actual acceptance/NAS/RPO/RTO 0). Pack specs는 HPP 964,
   Team Client 216, Backup-Recovery 72 files로 재계산되고 deployment suite 37/37이
   통과했다. 이는 one-seat physical Gate의 준비 증거이며 설치·RC 수락은 아니다.
-- adjacent Internal RC manual/preflight leaf(2026-09-01): Owner-PC slice manual 8종은
-  actual Markdown+sha256 `candidate/current`, 나머지 8종은 absent HOLD다. Pure HTML
+- adjacent Internal RC manual/preflight leaf(2026-09-01): exact 16-role manual 전부가
+  actual Markdown+sha256 `candidate/current`이며 exercise·last-verified release는 HOLD다. Pure HTML
   renderer는 self-contained accessible projection을 만들지만 release artifact를 쓰지 않는다
   (5 tests). Pure readiness binder는 exact pack/product/manual/authority/recovery/device evidence를
   검사하고 current public packet을 HOLD, 완전한 합성 packet만

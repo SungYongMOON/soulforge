@@ -63,7 +63,7 @@ test("renders every tracked candidate manual and binds its catalog digest", () =
     "utf8",
   ));
   const candidates = catalog.manuals.filter((manual) => manual.state === "candidate");
-  assert.equal(candidates.length, 8);
+  assert.equal(candidates.length, 16);
   for (const manual of candidates) {
     const markdown = readFileSync(
       new URL(`../manuals/${manual.semantic_role}.v0.md`, import.meta.url),
