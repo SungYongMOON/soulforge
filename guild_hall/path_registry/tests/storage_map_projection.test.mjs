@@ -59,8 +59,16 @@ test("full registry-driven coverage: one row per registry row, digest-bound", ()
     assert.equal(row.registry_snapshot_digest, SNAPSHOT.snapshot_digest);
     assert.ok(PANEL_STATES.includes(row.watch_state), row.watch_state);
   }
-  assert.equal(map.summary.coverage_registered, 40);
-  assert.equal(map.summary.coverage_expected, 40);
+  assert.equal(map.summary.coverage_registered, 41);
+  assert.equal(map.summary.coverage_expected, 41);
+  assert.equal(
+    map.rows.find((row) => row.logical_id === "workroot.bot_execution")?.row_kind,
+    "work_root",
+  );
+  assert.equal(
+    map.rows.find((row) => row.logical_id === "canon.workspaces")?.row_kind,
+    "root",
+  );
   const assetRows = map.rows.filter((row) => row.row_kind === "asset_class");
   assert.equal(assetRows.length, 9);
   assert.ok(assetRows.every((row) => row.watch_state === "hold"));

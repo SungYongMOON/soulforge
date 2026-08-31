@@ -77,10 +77,13 @@ explicitly labeled and are not existence claims:
 
 `_workmeta` and `private-state` are nested private repositories whose current
 physical containment may be under a source checkout, but their logical records
-belong to `data_root` and `control_root` respectively. `_workspaces` is a
-project-materialization surface mapped to `project_work_root` or the exact
-approved `external_owner_store` binding by project policy. R1 must register
-these as explicit multi-axis rows rather than infer ownership from containment.
+belong to `data_root` and `control_root` respectively. `_workspaces` is the
+ERP/Vault-owned canonical project-file materialization surface and is registered
+under `data_root`; an owner-approved shared worksite may supply the exact bytes
+through a private binding, but the stable ERP address remains
+`_workspaces/<project_code>`. `bot_worktree` is a different mutable Agent work
+surface under `project_work_root`. R1 must register these as separate multi-axis
+rows rather than infer ownership from containment.
 
 The seven canonical roots remain the public structural authority and take
 precedence over physical aliases:
@@ -93,7 +96,7 @@ precedence over physical aliases:
 | `.party` | reusable orchestration template canon inside `source_checkout` |
 | `.mission` | held mission plan owner inside `source_checkout` |
 | `guild_hall` | cross-project Module owner inside `source_checkout`; runtime state binds separately |
-| `_workspaces` | project materialization root, additionally registered under `project_work_root` or exact external binding |
+| `_workspaces` | ERP/Vault canonical project-file materialization root under `data_root`; exact shared-worksite bytes may bind privately without changing the ERP address |
 
 Physical-root classes are aliases for storage/runtime resolution, not new
 canonical roots or replacement owner surfaces.
@@ -262,22 +265,26 @@ Soulforge Engineering OS
 │  ├─ source collectors, leases, checkpoints and rollback receipts
 │  └─ ledger-relay/{checkpoints,reconciliation,poison-holds,health}/
 │
-├─ project_work_root/
-│  └─ <project_code>/
-│     ├─ source-contract/  requirements/  design/
-│     ├─ bom-material-purchase/  test-sonar-datasets/
-│     ├─ artifacts-reports/  review-evidence/  baselines-releases/
-│     ├─ reference_payloads/rag/                     # isolated project RAG
-│     ├─ analytics/{process_mining,learning_datasets}/
-│     └─ local-authoring-cache/                      # never canonical by folder alone
+├─ _workspaces/                                      # ERP/Vault canonical file materialization
+│  ├─ <project_code>/
+│  │  ├─ source-contract/  requirements/  design/
+│  │  ├─ bom-material-purchase/  test-sonar-datasets/
+│  │  ├─ artifacts-reports/  review-evidence/  baselines-releases/
+│  │  ├─ reference_payloads/rag/                    # isolated project RAG
+│  │  └─ analytics/{process_mining,learning_datasets}/
+│  ├─ knowledge/rag/                                # approved common knowledge payload/index
+│  ├─ system/
+│  │  ├─ rag/                                       # common metadata projections
+│  │  └─ analytics/                                 # approved cross-project derivatives only
+│  └─ _local/<node_id>/                             # PC-local scratch/cache, not canonical
+├─ project_work_root/                               # mutable Agent work surface, never ERP canon
+│  └─ workroot.bot_execution/
+│     ├─ COMMON/  MFG/  PJT/  TOOL/
+│     └─ <project>/<role>/{work,cache,outbox,result_refs,evidence_refs}/
 ├─ _workmeta/<project_code>/                         # compact metadata only
 │  ├─ daily_ledger/  log/events/  runs/  reports/
 │  ├─ project_context/{events,decisions,summary_revisions,accepted_generations}/
 │  └─ knowledge_rag_candidate_ledger/
-├─ _workspaces/knowledge/rag/                        # approved common knowledge payload/index
-├─ _workspaces/system/
-│  ├─ rag/                                           # common metadata projections
-│  └─ analytics/                                     # approved cross-project derivatives only
 │
 ├─ tool_root/
 │  └─ <workshop>/<version>/{adapter,lease,health,release}/
@@ -470,7 +477,7 @@ watch_state | evidence_at | owner_pointer | hold_code
 Missing evidence renders `unknown` or `hold`, never green. 4192 excludes source bodies, project payload, credentials, private Agent memory, deep Buzz/Hermes sessions, and raw logs. It files an approval request at most; Bastion owns any later action execution.
 
 The current implemented R3 projection remains limited to
-`root|source|asset_class` and its reviewed 40-row seed. LR3 may add a separate
+`root|source|asset_class|work_root` and its reviewed 41-row seed. LR3 may add a separate
 read-only Ledger coverage/lag projection after LR1 Catalog rows exist; LR5 may
 add RAG generation freshness; LR9 closes the combined product coverage. Those
 later rows must reuse Catalog identities and cannot be fabricated by the Board

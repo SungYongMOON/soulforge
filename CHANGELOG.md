@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-31 - ERP canonical workspaces and mutable Bot work roots are separated
+
+- Corrected the physical architecture so `_workspaces/<project_code>` is the ERP/Vault canonical project-file materialization surface under `data_root`, not an Agent worktree. An approved shared worksite may back the bytes, but the stable ERP address and revision/acceptance boundary remain separate.
+- Registered `workroot.bot_execution` as the distinct mutable Agent work surface under `project_work_root` for the existing `COMMON`/`MFG`/`PJT`/`TOOL` organization. No host-local path is stored and its actual binding/writer/backup remain held.
+- Advanced the public Path Registry seed from 40 to 41 rows and added a regression that prevents `_workspaces` and the Bot work root from collapsing into the same logical owner or data class. No folder was moved, created, bound, or activated.
+
 ## 2026-08-31 - Ledger, RAG, project analytics and learning-data plan is consolidated
 
 - Recorded the Owner north-star that every meaningful project activity needs stable case/work/activity identity, three clocks, actor/Agent/Tool/profile/input/output/result/review/acceptance lineage so project closeout can analyze contribution, duration, wait, bottleneck, rework, quality, cost, strengths and weaknesses.

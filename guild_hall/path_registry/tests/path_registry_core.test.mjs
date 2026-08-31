@@ -97,7 +97,7 @@ function mutate(registry, overrides = {}) {
 
 test("seed registry validates, holds authority, and blocks readiness", () => {
   const registry = createPathRegistry({ authority: SEED_AUTHORITY, rows: seedRows() });
-  assert.equal(registry.records.size, 40);
+  assert.equal(registry.records.size, 41);
   assert.deepEqual(authorityHolds(registry), [
     "registry_schema_owner", "private_binding_writer",
     "resolver_runtime_owner", "write_policy_owner",
@@ -122,6 +122,34 @@ test("seed registry validates, holds authority, and blocks readiness", () => {
       .every((record) => record.current_state === "held"
         && record.binding_refs.length === 0
         && record.topology_node_refs.length === 0),
+  );
+  assert.deepEqual(
+    {
+      physical_root_class: registry.records.get("canon.workspaces").physical_root_class,
+      logical_owner_class: registry.records.get("canon.workspaces").logical_owner_class,
+      asset_or_source_class: registry.records.get("canon.workspaces").asset_or_source_class,
+      write_policy: registry.records.get("canon.workspaces").write_policy,
+    },
+    {
+      physical_root_class: "data_root",
+      logical_owner_class: "erp_project_materialization",
+      asset_or_source_class: "project_canonical_materialization",
+      write_policy: "sole_writer",
+    },
+  );
+  assert.deepEqual(
+    {
+      physical_root_class: registry.records.get("workroot.bot_execution").physical_root_class,
+      logical_owner_class: registry.records.get("workroot.bot_execution").logical_owner_class,
+      asset_or_source_class: registry.records.get("workroot.bot_execution").asset_or_source_class,
+      backup_class: registry.records.get("workroot.bot_execution").backup_class,
+    },
+    {
+      physical_root_class: "project_work_root",
+      logical_owner_class: "agent_runtime_work_surface",
+      asset_or_source_class: "agent_work_surface",
+      backup_class: "runtime_local",
+    },
   );
   const readiness = registryReadiness(registry);
   assert.equal(readiness.status, "hold");
@@ -150,7 +178,7 @@ test("seed snapshot digest is deterministic and rebuild-stable", () => {
   const b = registrySnapshot(createPathRegistry({ authority: SEED_AUTHORITY, rows: seedRows() }));
   assert.match(a.snapshot_digest, /^sha256:[0-9a-f]{64}$/);
   assert.equal(a.snapshot_digest, b.snapshot_digest);
-  assert.equal(a.rows.length, 40);
+  assert.equal(a.rows.length, 41);
 });
 
 test("secret owner root: read is a secret boundary and contract is pinned", () => {

@@ -13,7 +13,7 @@ This document uses stable physical aliases instead of publishing host-local abso
 | `data_plane` | Separate existing folders for backups, configuration, ingress, ingress-MCP, manifests, quarantine, runtime, secrets, state, and timeline | Runtime/custody data owner; secrets are excluded from plan inspection/copy. |
 | `control_plane` | Separate backup, history, ingress, local-activity, mail, rollback, tools, voice-label, and Watch control surfaces | Protected controller/config/receipt owner, distinct from data and checkout. |
 | `buzz_runtime` | Existing backup, data, installer, log, runtime, server, and source surfaces | Buzz-native operational owner; deep collaboration data stays source-local. |
-| `bot_worktree` | Existing `COMMON`, `MFG`, `PJT`, and `TOOL` hierarchy | Operational/project Bot work organization; not a second Official Task SoR. |
+| `bot_worktree` | Existing `COMMON`, `MFG`, `PJT`, and `TOOL` hierarchy | Mutable Agent work surface under `project_work_root`; not `_workspaces`, ERP canon, or a second Official Task SoR. |
 
 ### Existing project-Bot compatibility semantics
 
@@ -71,6 +71,14 @@ project_teams/<project-ref>/<role-id>/
 ```
 
 Project context remains a separately owned accepted-context/Vault surface. Client-local memory is disposable/recoverable runtime state; neither becomes a default cross-project knowledge store. Existing Bot role folders remain reference-in-place operational views until their bindings, callers, backup/restore, and Official-SoR non-conflict gates pass.
+
+`_workspaces/<project_code>` is not part of this Bot folder model. It is the
+ERP/Vault canonical project-file materialization address. Bots work in the
+separate `bot_worktree` and submit result/evidence through the approved data
+plane. ERP/Vault controls how the submitted project asset is revisioned and
+materialized in `_workspaces`; the materialized revision may still be candidate,
+under review, accepted, baselined, or released. A file's presence identifies the
+canonical ERP surface, not any one of those acceptance states.
 
 ## Module skeleton rule
 

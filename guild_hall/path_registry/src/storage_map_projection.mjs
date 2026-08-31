@@ -25,7 +25,7 @@ import { PANEL_STATES } from "../../watch_panel_contract/src/watch_panel_contrac
 
 export const STORAGE_MAP_SCHEMA = "soulforge.watch_storage_map.v0";
 
-export const STORAGE_MAP_ROW_KINDS = Object.freeze(["root", "source", "asset_class"]);
+export const STORAGE_MAP_ROW_KINDS = Object.freeze(["root", "work_root", "source", "asset_class"]);
 
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
 const REF = /^[a-z][a-z0-9_.:/-]{1,160}$/;
@@ -125,6 +125,7 @@ function validateEvidence(record, id) {
 }
 
 function rowKindFor(registryRowKind) {
+  if (registryRowKind === "work_root") return "work_root";
   if (registryRowKind === "source") return "source";
   if (registryRowKind === "asset_class") return "asset_class";
   return "root";

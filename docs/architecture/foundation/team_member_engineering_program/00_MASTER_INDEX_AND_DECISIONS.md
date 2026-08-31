@@ -84,7 +84,7 @@ These are the only authority choices still needed to move from a plan candidate 
 | OD-07 | Product/pack names and user-facing labels | Keep logical labels and existing paths until separately approved | No rename or release branding |
 | OD-08 | Each physical site, credential, source scope, and low-risk pilot tuple | One seat, one project, bounded file/work item, explicit expiry | No actual network, connector, or team rollout |
 | OD-09 | Standing execution delegation after plan/review start gate | Continue all safe in-scope leaves using frozen canon, existing interfaces, and the conservative defaults below; do not repeat settled Owner questions | Only the affected branch blocks when excluded authority, credential, or physical state is genuinely required |
-| OD-10 / R0–R3 | Path Registry schema/logical owner, private-binding writer, resolver runtime owner, operation-aware write-policy owner, exact root enum, materializer canary root, and 4192 projection owner | Owner assignments are settled; the public 40-row contract seed keeps activation sentinels until private binding/ACL/readback exists | No private binding registration, materializer physical apply, write-guard enforcement, served snapshot, or Storage Map readiness claim |
+| OD-10 / R0–R3 | Path Registry schema/logical owner, private-binding writer, resolver runtime owner, operation-aware write-policy owner, exact root enum, materializer canary root, and 4192 projection owner | Owner assignments are settled; the public 41-row contract seed separates ERP `_workspaces` from the Bot execution work root and keeps activation sentinels until private binding/ACL/readback exists | No private binding registration, materializer physical apply, write-guard enforcement, served snapshot, or Storage Map readiness claim |
 
 ### OD-09 standing execution defaults and limits
 
@@ -147,7 +147,7 @@ The owner decision register in this document is the standing decision ledger tha
 | Test/dogfood/field pilot loop | 13, 14 | Required gate sequence |
 | Fable5 build packet and dependency DAG | 14 | Copy-ready packet and stop semantics |
 | Physical source/runtime/Bot folder packaging | 15 | Reference-in-place and private-alias inventory only |
-| Whole physical architecture, source/asset catalog, Path Registry, and 4192 storage map | 17 | R1–R3 public contract implemented with 40-row held/reference seed; private activation and migration remain gated |
+| Whole physical architecture, source/asset catalog, Path Registry, and 4192 storage map | 17 | R1–R3 public contract implemented with 41-row held/reference seed, including separate ERP `_workspaces` and Bot execution work-root rows; private activation and migration remain gated |
 | Cross-product Ledger, RAG outbox, project closeout analytics, Process Mining and learning datasets | product rebaseline §26, 02, 14, 15 | Current ledgers/RAG inventoried; integration contract and implementation remain review-gated |
 | Independent Fable 5 + Sol Ultra Ledger/RAG review disposition | product rebaseline §27, 00 decision ledger, 14 LR0/LR1 gate | Architecture accepted; LR0 contract correction in progress; runtime/store/index/dataset effects remain HOLD |
 | Current RED stabilization: owner scope, topology oracle, renderer writer, workflow symlink, path policy | 02, 13, 14 | Existing facts/contradictions preserved; first leaf selected |

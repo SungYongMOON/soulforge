@@ -206,7 +206,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | Deployment pack (contract·builder·spec 4종/5종 중 project_ai_team만 외부 gate) | DONE `L-PACK-CONTRACT` | current Backup-Recovery **66/21/pin19**, hpp **952/93/pin67**, team_client **216/78/732**; project_ai_team spec은 actual approved input 전 absent | — | GATED |
 | Module operability gate (manifest·의존·cycle·preflight) | DONE `L-MODOP-GATE` (current **29 manifest**, dev-ERP Task Execution surface 포함, import scan 1,269파일/2,738 edge·cycle 0; 잔여 22 dir) | n/a | — | — |
 | Cross-module integration (plan-13 module-integration rung) | DONE `L-DOGFOOD-INT`,`L-KVDS-FULL-CONTRACT` (public-safe synthetic, actual effects 0) | — | GATED (actual accepted KVDS context·Linear writer·Hermes runtime·artifact custody·human acceptance) | GATED |
-| Physical spine (plan-17 R1–R5 contracts) | DONE `L-PHYS-SPINE`,`L-PHYS-SPINE-HARDEN`,`L-SOURCE-LANE-LEDGER`,`L-ASSET-CLASS-LEDGER` + source adapters (seed 40행) | — | GATED (private binding/record writer·canary readback·enforcement·actual backup/restore) | GATED |
+| Physical spine (plan-17 R1–R5 contracts) | DONE `L-PHYS-SPINE`,`L-PHYS-SPINE-HARDEN`,`L-SOURCE-LANE-LEDGER`,`L-ASSET-CLASS-LEDGER` + source adapters (seed 41행; ERP `_workspaces`/Bot work root 분리) | — | GATED (private binding/record writer·canary readback·enforcement·actual backup/restore) | GATED |
 | dev-ERP host gates | DONE `L-DEVERP-HOST-RED` + PATH 실행파일 전면 고정 (합성 아님 — 실 host 스위트 green; whoami에 이어 git(부팅 buildSeq 포함)·where·taskkill·cmd·python까지 System32 절대경로/`DEV_ERP_GIT_EXE`·`DEV_ERP_PYTHON` pin/resolver로 고정, where 자체 cwd도 System32로 중립화 — **server·worker·bridge 프로세스의 PATH 해석 잔존 0**; 예외 장부=dev CLI 유틸(doctor·verify-gate·probe·se-report·release-audit·payload-backup)과 ops 런처 ps1의 node 해석(서버 프로세스 밖, CHANGELOG에 명시); 이 lane만 이 칸을 host-gate 증거로 사용) | (hpp pack로 포장됨) | 기존 운영면(본 프로그램 범위 밖) | — |
 
 ### Per-leaf durable trace
@@ -284,7 +284,7 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `validate:watch-panel-board` | 11 | strip view-model 6 + 공급자 5(storage-map overlay 포함, 실 R3 계약 출력에 결속) |
 | `validate:integration-dogfood` | 5 | 기존 cross-module 체인 4 + KVDS-shaped 전체 계약 canary 1 |
 | `validate:module-operability` | 8 | manifest 스키마·의존·cycle-0 고정·hermes coarse 경계 + preflight receipt |
-| `validate:path-registry` | 17 | R1 계약: multi-axis 스키마·seed 40행(source 12 + asset class 9 포함)·absolute-path 거부·resolver HOLD 전종·write-guard 매트릭스·updateRecord gate·sub-second/impossible clock 거부·topology 신원 중복·OD-10 fails-closed |
+| `validate:path-registry` | 17 | R1 계약: multi-axis 스키마·seed 41행(source 12 + asset class 9 + Bot work root 1 포함)·ERP `_workspaces`/Bot work root 분리·absolute-path 거부·resolver HOLD 전종·write-guard 매트릭스·updateRecord gate·sub-second/impossible clock 거부·topology 신원 중복·OD-10 fails-closed |
 | `validate:target-materializer` | 10 | R2: canary 승인 gate(HOLD)·registry-driven source lane·dry-run/apply·멱등 replay·foreign payload/hostile root 거부·authenticated plan/receipt·partial-apply recovery·rollback은 빈 self-created 디렉터리만 |
 | `validate:watch-storage-map` | 11 | R3: 기존-노드 backup-readiness overlay·snapshot digest 재계산·safe evidence ref·OD-10 sentinel 전행 HOLD·전행 커버리지·상태 우선순위·N/A·writer/raw/path 금지·drift HOLD |
 | `validate:source-lane-index` | 8 | lane 레코드 4종 refs-only 검증·digest 사슬 조작 HOLD·부재-정직 어셈블리·실 R3 계약 end-to-end(healthy)·scope/fork 거부·legacy note 무영향 |

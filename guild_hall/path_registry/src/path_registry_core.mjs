@@ -28,7 +28,7 @@ export const PHYSICAL_ROOT_CLASSES = Object.freeze([
 ]);
 
 export const ROW_KINDS = Object.freeze([
-  "root", "canonical_root", "nested_plane", "source", "asset_class",
+  "root", "canonical_root", "nested_plane", "work_root", "source", "asset_class",
 ]);
 
 export const SOURCE_CLASSES = Object.freeze([

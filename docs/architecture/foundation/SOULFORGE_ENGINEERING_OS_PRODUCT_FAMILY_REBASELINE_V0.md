@@ -174,7 +174,7 @@ External System Assets
 ├─ .mission/                       held execution plan
 ├─ guild_hall/state/gateway/       cross-project source ingress/staging
 ├─ _workspaces/
-│  ├─ <project_code>/              실제 프로젝트 source·Dataset·산출물
+│  ├─ <project_code>/              ERP/Vault 프로젝트 정본 파일 materialization
 │  ├─ SE_TEMPLATE_LIBRARY/         실제 Template·양식·샘플
 │  ├─ knowledge/                   공통·조직·Domain source 자료
 │  └─ system/                      project-agnostic reusable lab material
@@ -186,6 +186,11 @@ External System Assets
 ERP 제품이 모든 자산을 논리적으로 관리하더라도 모든 byte를 ERP SQLite 안에 넣지 않는다.
 실제 payload는 자산별 owner store에 두고 ERP는 stable ID·revision·권한·관계·검색·승격·복구를
 통합한다.
+
+`_workspaces/<project_code>`는 Bot scratch나 자유 편집 worktree가 아니라 ERP/Vault가 관리하는
+프로젝트 정본 파일 주소다. 실제 bytes가 owner-approved shared worksite에 있어도 이 주소가
+materialized view를 제공한다. 단, 폴더에 있다는 사실만으로 특정 revision이 Accepted·Baseline·
+Release가 되는 것은 아니며 그 상태는 revision/acceptance metadata가 별도로 소유한다.
 
 프로젝트 안에서 사람이 보는 논리 Asset Tree는 다음 범주를 가져야 한다.
 
