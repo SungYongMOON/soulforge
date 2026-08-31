@@ -44,6 +44,7 @@ RED stabilization semantics: RED-01 is the serial row-0 leaf. RED-02 (topology-o
 | 3 | Vault ArtifactRevision vertical | D27/D29 + exact custody policy | One artifact candidate/review/acceptance synthetic vertical |
 | 4 | Forge actual vertical | D27/D28/D29 closed plus accepted context and task-writer agreement | One TaskIntent/Work Brief/assignment default-off vertical (not the later physical field pilot) |
 | 5 | Guild/Buzz one-seat | D28/D35 plus project isolation | One approved deployment and bounded collaboration/capture path |
+| 5A | Buzz Project Git Evidence Intake pilot | Plan 07 contract, exact project/access channel/repo/ref/Agent bindings, synthetic intake/Verifier gates, and project-private receipt owner | One actual low-risk terminal receipt read and verified with Linear writes, webhook, automatic Done, artifact acceptance, and raw payload copy all 0 |
 | 6 | Watch/Bastion | Coarse projection contract and recovery policy | No-writer Watch plus action/restore receipt path |
 | 7 | First Tool Workshop | Core work/bundle/revision proof | One capacity-one tool, lease/fence/validator vertical |
 | 8 | Deployment/education | Pack release evidence and support ownership | One-seat → repeated 3–5 → team pilot evidence |
@@ -63,6 +64,7 @@ RED stabilization semantics: RED-01 is the serial row-0 leaf. RED-02 (topology-o
 | Restore | Actual capture, isolated restore, reconciliation, human restore acceptance | Recovery/rollout claim |
 | Physical organization | Registered owner/SoR/root class, current/target binding, no-writer-conflict, backup/restore and rollback evidence | Unregistered write, big-bang move, silent fallback, false storage/backup readiness |
 | Ledger/RAG/mining contract | Complete Ledger Catalog taxonomy and inventory; producer/logical/infrastructure/consumer owner roles; case/activity issuer; assignment/run/object refs; collection+effective clocks; typed causal relations; owner-local outbox/reconciliation; scoped storage; raw/body boundary; project/common RAG ACL/index/invalidation; Dataset consent/leakage/duplicate/bias/label/approval gates; fresh Ultra+Fable5 review | New generic ledger writer, operational DB migration, automatic RAG indexing/promotion, training-data export or people-performance inference |
+| Buzz Project Git Evidence pilot | Exact private project/access-channel/repository/ref/Agent binding; public-safe terminal-receipt contract; synthetic replay, stale-revision, foreign-project and history-rewrite rejection; one-shot read-only intake; artifact/validator/Work Brief/blocker verification; Human Owner review and rollback | All-commit triggers, webhook/runtime activation, persistent coordinator, Pulse state writer, Linear mutation/Done, Artifact/Evidence acceptance, accepted-context promotion, raw project payload copy, or project-wide rollout |
 
 ## Ledger/RAG/Process-Mining lane — target sequence
 

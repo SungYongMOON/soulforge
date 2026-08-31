@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-08-31 - Buzz operating surfaces and Project Git Evidence Intake are bounded
+
+- Defined Channel/DM as instruction and collaboration source, Pulse as important-status projection, Project as project/access scope, and Project Git as a source-local Agent Evidence submission surface rather than a new task or acceptance truth owner.
+- Preserved Linear as Official Task current-state, Vault/ERP Artifact/Evidence acceptance, and the separate AgentRun, Project Decision, Linear backup and Hermes profile/session/memory ledgers.
+- Required an explicit terminal receipt before a Git commit can become a read-only completion candidate; Git commit, AgentRun success, Evidence verification, Human Acceptance and Official Done remain distinct gates.
+- Added the bounded one-project pilot sequence and fail-closed entry/exit rules. Webhook, persistent coordinator, Pulse automation, Linear writer/Done, Artifact acceptance, accepted-context promotion and raw CAD/ERP/project payload copy remain `HOLD`.
+- Recorded that actual project identity and physical binding/receipt belong only in project-private `_workmeta`; public plan documents keep generic `<project_code>` placeholders.
+
 ## 2026-08-31 - ERP canonical workspaces and mutable Bot work roots are separated
 
 - Corrected the physical architecture so `_workspaces/<project_code>` is the ERP/Vault canonical project-file materialization surface under `data_root`, not an Agent worktree. An approved shared worksite may back the bytes, but the stable ERP address and revision/acceptance boundary remain separate.
