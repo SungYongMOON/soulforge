@@ -111,6 +111,52 @@ The manifest declares required/optional dependencies, schema compatibility, data
 4. Deepen or relocate one module only after its prior path remains compatible and every caller/restoration gate passes.
 5. Record release artifact, checksums, SBOM, release notes, install/upgrade/rollback manual; do not deploy it in this planning task.
 
+## Target Ledger, RAG, analytics, and learning-data placement (logical only)
+
+No directory below is created or treated as active by this plan. Existing ledgers
+stay reference-in-place until owner, caller, persistence, backup/restore and
+compatibility gates pass.
+
+```text
+source_checkout/
+└─ guild_hall/event_ledger/                    # TARGET shared mechanical module
+   ├─ README.md  module.manifest.json
+   ├─ schemas/{event_envelope,ledger_catalog,source,task,execution,artifact,agent,knowledge,backup}.schema.json
+   ├─ src/{catalog,store,append,projection,outbox,reconciliation,export}.mjs
+   ├─ adapters/  tests/  fixtures/  migrations/  recovery/  manual/
+
+data_plane/
+├─ ingress/{mail,slack,voice,linear,pc_activity,team_files,run_logs}/
+├─ state/ledger/
+│  ├─ event_ledger.sqlite{,-wal,-shm}
+│  ├─ cursor/  outbox/  health/
+│  └─ exports/YYYY-MM/*.jsonl
+├─ timeline/{source_arrival,project,organization}/
+└─ 60_BACKUP_GENERATIONS/{ledger,linear,slack,mail,voice,buzz,hermes,projects}/
+
+_workmeta/<project_code>/
+├─ daily_ledger/YYYY/
+├─ log/events/YYYY/MM/battle_events.jsonl
+├─ runs/<run_id>/{run,validation,closeout}_receipt.*
+├─ reports/{procedure_capture,knowledge_access,review,source_coverage}/
+├─ project_context/{events,decisions,summary_revisions,accepted_generations}/
+└─ knowledge_rag_candidate_ledger/events/YYYY/MM/*.jsonl
+
+_workspaces/knowledge/rag/                    # common RAG payload/index generations
+_workspaces/<project_code>/reference_payloads/rag/  # TARGET isolated project RAG
+_workspaces/system/analytics/process_mining/<dataset_id>/<version>/
+_workspaces/system/learning_datasets/<dataset_id>/<version>/
+```
+
+The event store is initially a single-writer SQLite WAL candidate behind an API/
+MCP port, not a file share opened by clients. Raw bytes stay in their source/custody
+owner. `_workmeta` remains metadata-only. RAG indexes are rebuildable projections;
+the exact source/ledger cutoff, generation/evaluation/active-pointer history is
+persisted separately. Mining/learning datasets are derived assets with manifest,
+source digests, ACL/consent/redaction policy, feature/label definitions, split,
+quality review, retention and rollback. Operational ledgers are never copied into
+training corpora by default.
+
 The Owner's 2026-08-30 whole-estate clarification is detailed in
 [17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md](17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md).
 It changes priority, not the destructive-action boundary: root classes, Path

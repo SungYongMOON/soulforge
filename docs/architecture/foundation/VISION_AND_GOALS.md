@@ -72,6 +72,31 @@ Buzz 또는 MCP 중 하나가 아니다. 이들이 source·자산·맥락·판�
 - 특정 AI provider·Plugin·Buzz·Hermes·Linear가 사라져도 Task·자산·맥락·Agent 계보·receipt는 남는다.
 - AI로 일을 늘리는 것이 아니라 반복업무·누락·재작업을 줄여 사람이 설계판단·현장·팀 대화에 집중하게 한다.
 
+### 프로젝트 사후분석·Process Mining·학습데이터 북극성
+
+Soulforge는 현재 상태만 보여주는 시스템이 아니다. 프로젝트 종료 뒤에도 동일한
+업무·활동·시간·사람·Agent·Tool·Source·Artifact·Review·Acceptance 계보를 재생하여
+다음을 근거 있게 분석할 수 있어야 한다.
+
+- 누가 어떤 역할로 어떤 일을 얼마나 수행했는가;
+- 생성→시작→대기→재개→결과→검토→수락에 각각 얼마가 걸렸는가;
+- 어떤 Source·Engine·Agent Mark·model·Skill·Tool·revision을 사용했는가;
+- 어느 handoff·approval·Tool capacity·source gap에서 병목과 재작업이 생겼는가;
+- 결함·수정·실패·rollback이 어떤 품질·일정·비용 결과를 만들었는가;
+- 조직·프로세스·Agent·Tool의 강점·약점과 다음 개선 후보는 무엇인가.
+
+따라서 모든 의미 있는 상태변화는 stable case/work/activity code, project/task/assignment/run/
+artifact refs, `occurred_at`·`observed_at`·`recorded_at`, actor/Agent/Tool/profile revision,
+input/output/evidence refs, result/review/acceptance/correction 상태를 가진 append-only Event로
+남겨야 한다. 현재 projection이나 폴더명만으로 과거를 추정하지 않는다.
+
+운영 Ledger를 곧바로 학습데이터로 사용하지 않는다. 학습·Process Mining 데이터는
+exact ledger cutoff/digest, project/ACL/consent, redaction/de-identification policy, feature/label
+definition, train/validation/test split, 품질평가, dataset revision과 사람 승인을 가진 별도
+파생 Dataset이다. 원문 대화, 숨은 reasoning, credential, secret, 승인되지 않은 고객·국방·
+프로젝트 payload는 자동 학습에 들어가지 않는다. 학습 결과도 Agent Mark·Skill·model 개선
+후보일 뿐 자동 배포·권한 확대·정본 승격이 아니다.
+
 ### 완성형 설계와 단계적 실현
 
 - 사람·AI 조직도, 프로젝트별 Agent 팀, 전문 Tool Workshop, ERP·Context·Engine·관제·

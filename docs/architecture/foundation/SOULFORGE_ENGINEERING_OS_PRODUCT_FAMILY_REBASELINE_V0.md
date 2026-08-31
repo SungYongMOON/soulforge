@@ -562,11 +562,59 @@ Soulforge Portfolio (logical only)
 - `SF-P08`은 공통 identity·custody·security·recovery Interface를 제공한다.
 - `SF-P09`는 검증된 release를 사람·PC·조직에 배포하고 교육·지원 결과를 환류한다.
 
-## 26. 통합검토 순서 후보
+## 26. Shared Ledger, Process Mining, and Learning Dataset Plane
+
+Ledger는 네 번째 제품이 아니라 세 제품과 아홉 portfolio를 가로지르는 공통 plane이다.
+ERP는 업무·자산·현재 projection과 catalog를, Engineering Engine은 rule evaluation·finding을,
+Agent Platform은 Agent/Deployment/Run/Tool 실행을 각각 소유한다. 공통 Ledger Module은
+append/idempotency/clock/predecessor/outbox/replay/export 같은 기계 계약만 소유하고 Domain
+의미·수락·권한을 가져오지 않는다. 4192는 typed projection만 읽고 writer가 되지 않는다.
+
+| Portfolio | Ledger family | 최소 분석 가능 질문 |
+| --- | --- | --- |
+| SF-P01 | source occurrence, candidate, decision, no-action/hold/reject/approve | 어떤 사건이 왜 업무가 되었거나 되지 않았는가 |
+| SF-P02 | task, asset, BOM/material, ArtifactRevision, review/acceptance | 무엇이 언제 어떤 revision으로 완료·수락됐는가 |
+| SF-P03 | health, incident, usage, cost, queue/wait | 병목·장애·비용·capacity가 어디에 있었는가 |
+| SF-P04 | person/Agent Mark, deployment, WorkSession, run, delivery/ack/result | 누가·어떤 Agent/모델/도구로 얼마나 일했는가 |
+| SF-P05 | source revision, knowledge access, RAG index/eval/invalidation/promotion | 어떤 근거와 지식이 결과에 쓰였고 언제 stale해졌는가 |
+| SF-P06 | rule/profile/binding, typed facts, Engine evaluation/finding | 어떤 규칙·관측·판단이 업무와 결과에 영향을 줬는가 |
+| SF-P07 | resource job, lease/fence, tool/library version, artifact result | 전문 Tool 대기·실행·재작업 병목은 무엇인가 |
+| SF-P08 | identity/grant, custody, backup/restore, audit | 어떤 상태를 어느 세대에서 복구·검증할 수 있는가 |
+| SF-P09 | pack/release/install/update/training/support | 배포·교육·지원이 성과와 오류에 어떤 영향을 줬는가 |
+
+공통 Event Envelope는 최소 `event_id`, `ledger_id`, schema/event type, `case_ref`,
+project/task/work/activity code, actor/person/Agent/Tool/profile refs, `occurred_at`, `observed_at`,
+`recorded_at`, from/to lifecycle, predecessor/idempotency, input/output/evidence/review/acceptance refs를
+가진다. raw bytes와 긴 body는 owner store에 두고 Ledger는 exact revision pointer/hash만 가진다.
+현재 상태는 Event replay의 rebuildable projection이며 과거 Event를 update/delete하지 않는다.
+
+Source capture와 Event append가 성공하는 동일 transaction에서 metadata-only RAG outbox를
+생성할 수 있다. RAG worker는 비동기로 exact source revision을 추출·색인하고 Index Generation,
+evaluation, active/stale/superseded pointer와 receipt를 남긴다. RAG 실패는 Source/Ledger commit을
+되돌리지 않으며 재시도·재구축이 가능해야 한다. Structured task/time/count 질의는 DB projection,
+근거·대화·문서 검색은 RAG를 사용한다.
+
+Process Mining·분석·학습 pipeline은 별도 authority chain을 가진다.
+
+```text
+accepted ledger cutoff + source/artifact refs
+  -> consent/ACL/redaction/de-identification
+  -> versioned process-mining/learning dataset
+  -> feature/label/split manifest + quality review
+  -> offline analysis/evaluation
+  -> process/Skill/Agent Mark/model improvement candidate
+  -> human review and staged deployment
+```
+
+Dataset은 case/activity/timestamp/resource/duration/wait/rework/error/result/quality/cost fields와
+source lineage를 보존해야 한다. 사람 평가·성과평가로 사용할 때는 별도 정책과 설명가능성·
+오류정정·접근권한이 필요하며, 자동 인사평가나 개인 감시로 확장하지 않는다.
+
+## 27. 통합검토 순서 후보
 
 1. Owner vision·현행 inventory·이 문서를 입력 packet으로 고정;
-2. Ultra가 전체 portfolio, Agent 조직, Tool Workshop, 운영·배포·교육과 current path/TASK crosswalk를 통합;
-3. Fable5가 누락·중복·context/authority 혼입·migration 과잉을 독립 red-team;
+2. Ultra가 전체 portfolio, Ledger family, 사후분석·Process Mining·학습데이터, Agent 조직, Tool Workshop, 운영·배포·교육과 current path/TASK crosswalk를 통합;
+3. Fable5가 장부 누락·중복·시간/case/activity/lineage 단절·RAG outbox/복구 gap·context/authority 혼입·migration 과잉을 독립 red-team;
 4. 필요 시 public-safe packet으로 Pro가 외부 제품·명명·도입·교육 관점을 자문;
 5. Owner가 전체 이름, `SF-Pxx` 범위, 업무형 이름과 판타지 label을 확정;
 6. 그 뒤에만 tracked canon update와 실제 migration plan을 분리 수행.

@@ -110,6 +110,35 @@ The ingress MCP exposes `ingress_whoami`, `ingress_prepare_file_upload`, `ingres
    private actual binding, materializer apply/readback, enforcement binding,
    accepted source/asset record store, or served 4192 snapshot exists.
 
+## Ledger, RAG, and analytics inventory rebaseline — 2026-08-31
+
+This is a metadata/path/code inventory, not a claim that every ledger row, RAG
+index, ACL, source revision, search result or backup is current or correct.
+
+| Family | Current durable/source-local evidence | Contract-only or missing boundary |
+| --- | --- | --- |
+| Source | actual mail/Slack/voice/PC activity custody, cursors, receipts and source-arrival files; Linear whole-workspace generation/index | common Source Lane ledger is WeakMap/in-memory; accepted cross-source/project timeline incomplete |
+| Work/Task | Linear is current Official Task SoR; Task Execution and WorkSession SQLite foundations exist default-OFF | Forge candidate/decision and production Task Event/Decision ledger not persistently joined |
+| Artifact/Asset | file-activity lineage and actual backup generations | Vault ArtifactRevision and Asset Class ledgers remain in-memory; human acceptance ledger absent |
+| Agent/Execution | Buzz/Hermes native stores, Battle Log, five-field and usage ledgers | Agent Mark/Deployment canonical ledger and persistent Coordinator claim/result custody absent |
+| Knowledge/RAG | Source Cards, source-text indexes, retrieval traces/evaluations, candidate and knowledge-access ledgers | no central Index Generation catalog/active pointer/invalidation/outbox; project isolation and restore acceptance incomplete |
+| Engine | Core/13 Domain packages, rules/profiles and many bounded run receipts | no unified accepted Engine Evaluation/Finding ledger tied to downstream outcome |
+| Tool | capacity-one job/lease/fencing contracts | physical Workshop job/result histories not uniformly persisted |
+| Recovery/Operations | Backup Controller generations/receipts, Watch/usage/health histories | human restore acceptance, unified incident/support/training ledgers and complete 4192 projection absent |
+
+Observed metadata counts include approximately 15,090 files under the knowledge
+work surface (about 2,804 RAG, 1,304 Source Card, 1,180 common, 525 domain), 709
+system RAG report/ledger files, and project-local daily/five-field/knowledge-access/
+procedure/run evidence. Counts prove presence only; they do not prove freshness,
+dedupe, source parity, project isolation, quality or active status.
+
+The next architecture leaf is not a mega-ledger migration. It first registers
+each ledger's stable ID, product/portfolio owner, SoR, schema, case/activity/time
+contract, sole writer, storage backend, project/ACL scope, retention, backup,
+restore, projection, mining eligibility and current gap. Only after fresh review
+may one provider-neutral Event Store/Outbox port be implemented. Existing source-
+local and project-local ledgers remain reference-in-place.
+
 ## Related plans
 
 - [Vault asset architecture](03_VAULT_ERP_ASSET_REVISIONS.md)

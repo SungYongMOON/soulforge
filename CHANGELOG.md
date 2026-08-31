@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-31 - Ledger, RAG, project analytics and learning-data plan is consolidated
+
+- Recorded the Owner north-star that every meaningful project activity needs stable case/work/activity identity, three clocks, actor/Agent/Tool/profile/input/output/result/review/acceptance lineage so project closeout can analyze contribution, duration, wait, bottleneck, rework, quality, cost, strengths and weaknesses.
+- Classified Ledger as a shared plane across the three products and nine portfolios, with RAG as a rebuildable projection and 4192 as a read-only consumer rather than additional truth owners.
+- Added a metadata-only current inventory of persistent, source-local, project-local, in-memory and missing ledger/RAG surfaces, plus the target source/runtime/project/RAG/mining folder placement without moving existing payloads.
+- Added the review-gated LR0-LR10 roadmap from Ledger Catalog and Event Store/Outbox through project-isolated RAG, Process Mining, approved learning/evaluation datasets and 4192 projection. No runtime DB, migration, automatic indexing, training export or people-performance decision was activated.
+
 ## 2026-08-31 - Linear whole-workspace backup gains exact all-project classification
 
 - Added a deterministic project index over an immutable Linear whole-workspace generation. Every catalog project is represented even with zero issues, project-less issues are retained under `unassigned`, and the aggregate proves every issue is classified exactly once.

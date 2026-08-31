@@ -15,9 +15,12 @@ flowchart LR
   R[RED stabilization] --> P[Plan/canon acceptance]
   P --> M[Team Member MCP foundations]
   P --> O[Physical organization spine]
+  P --> L[Ledger/RAG/mining rebaseline]
+  O --> L
   M --> V[Vault ArtifactRevision vertical]
   V --> F[Forge actual vertical]
   O --> F
+  L --> F
   F --> G[Guild / Buzz one-seat pilot]
   G --> W[Watch / Bastion projection & recovery]
   W --> T[First Tool Workshop]
@@ -36,6 +39,7 @@ RED stabilization semantics: RED-01 is the serial row-0 leaf. RED-02 (topology-o
 | 0 | RED-01 life-tree scope-before-cap repair | Current failing test and scoped owner | Test first; owned row survives foreign-row cap; fresh review |
 | 1 | Plan/canon rebaseline | Owner review of this suite | Accepted draft decision and trace matrix; no runtime change |
 | 1A (next adjacent; non-retroactive) | Physical organization spine | Plan 17 Owner/fresh review, metadata-only inventory, OD-10 owner decisions | Root/Path Registry contract, target materializer, write guard, and 4192 Storage Map; existing payload move 0 |
+| 1B (adjacent plan/review lane) | Ledger Catalog + Event Spine + RAG/mining contract | Existing product/portfolio/physical maps, metadata-only ledger/RAG inventory, fresh Ultra/Fable5 review | Every ledger owner/SoR/schema/case/activity/time/writer/storage/backup/mining field mapped; no runtime DB or migration yet |
 | 2 | Engineering MCP contract/schemas | D27–D29 design decisions | Schema/tool compatibility and adversarial synthetic suite |
 | 3 | Vault ArtifactRevision vertical | D27/D29 + exact custody policy | One artifact candidate/review/acceptance synthetic vertical |
 | 4 | Forge actual vertical | D27/D28/D29 closed plus accepted context and task-writer agreement | One TaskIntent/Work Brief/assignment default-off vertical (not the later physical field pilot) |
@@ -58,6 +62,31 @@ RED stabilization semantics: RED-01 is the serial row-0 leaf. RED-02 (topology-o
 | Human acceptance | Reviewer/acceptor and artifact/task relation | Artifact/baseline acceptance and Official Task completion update |
 | Restore | Actual capture, isolated restore, reconciliation, human restore acceptance | Recovery/rollout claim |
 | Physical organization | Registered owner/SoR/root class, current/target binding, no-writer-conflict, backup/restore and rollback evidence | Unregistered write, big-bang move, silent fallback, false storage/backup readiness |
+| Ledger/RAG/mining contract | Complete product/portfolio ledger map; stable case/work/activity codes and three clocks; raw/body boundary; RAG outbox/index/invalidation; dataset consent/ACL/redaction/feature/label/split/quality/approval; fresh Ultra+Fable5 review | New generic ledger writer, operational DB migration, automatic RAG indexing/promotion, training-data export or people-performance inference |
+
+## Ledger/RAG/Process-Mining lane — target sequence
+
+```text
+LR0  audit result + owner map freeze
+ → LR1  Ledger Catalog contract
+ → LR2  provider-neutral append-only Event Store/Outbox port
+ → LR3  Linear/Slack/Mail/Voice/PC adapters + reconciliation
+ → LR4  Candidate/Task/WorkSession/Agent/Artifact/Engine/Tool event adapters
+ → LR5  RAG Outbox + Index Generation/active/stale/invalidation ledger
+ → LR6  one isolated project RAG and exact rebuild/restore
+ → LR7  process-mining dataset v0 + post-project analysis fixture
+ → LR8  approved learning/evaluation dataset v0 (no automatic training)
+ → LR9  4192 read-only coverage/lag/quality/cost projection
+ → LR10 repeated project closeout pilot and owner decision
+```
+
+Current state is `LR0_REVIEW_PENDING`: the metadata audit exists in this plan
+delta, but no central Ledger Catalog/Event Store/RAG Outbox/mining dataset or
+training export is created. Existing persistent, source-local, project-local and
+in-memory ledgers remain under their current owners. LR1 cannot begin until fresh
+Ultra checks completeness/portfolio/folder/analytics alignment and fresh Fable5
+red-teams omissions, duplicate truths, time/case/activity breaks, privacy and
+learning-data leakage.
 
 ## Standing execution delegation
 
