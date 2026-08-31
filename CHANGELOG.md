@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-08-31 - Buzz Project Git and NAS-backed artifact versioning are integrated
+
+- Consolidated the Owner-facing operating flow from Linear task and Buzz collaboration through human/Bot/Tool work roots, large-payload custody, Project Git terminal receipts, read-only verification, Human Acceptance, approved `_workspaces` materialization and the separate Linear writer.
+- Defined the proposed coordinator-clone, isolated Agent worktree and Tool Workshop job relationship without recording host-local bindings or creating any folder, clone, runtime or writer.
+- Added a file-class placement matrix: source code stays in its native repository, lightweight manifests/validators/receipts use Project Git, and CAD/PCB/DXF/office/test/media payload bytes remain in an owner-approved worksite or NAS with immutable hashes and revision pointers.
+- Required exact share registration, file history or snapshots, retention, separate backup and isolated restore evidence before a NAS-mounted folder is called version-controlled. RAID or a mapped drive alone is not sufficient.
+- Preserved Project Git as an Evidence candidate source, `_workspaces` as the accepted current-revision view, Linear as Official Task state, and Human Acceptance plus authorized promotion as separate gates. Automatic intake, promotion and Linear Done remain `HOLD`.
+
 ## 2026-08-31 - Buzz operating surfaces and Project Git Evidence Intake are bounded
 
 - Defined Channel/DM as instruction and collaboration source, Pulse as important-status projection, Project as project/access scope, and Project Git as a source-local Agent Evidence submission surface rather than a new task or acceptance truth owner.
