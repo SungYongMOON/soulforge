@@ -6,6 +6,49 @@
 
 Every external system remains source-local for its native objects. A connector/adaptor is not proof of source truth, approval, writer authority, or successful backup. Each source needs an explicit identity/project binding, read/write scope, immutable capture generation, retention/ACL policy, backup manifest/hash, isolated restore method, and acceptance evidence.
 
+## Connector/App lifecycle
+
+Connectors are installable, removable and independently versioned capabilities:
+
+```text
+candidate → vetted → installed_off → configured → granted → active
+→ degraded|held → upgrade|rollback → revoke → uninstall → tombstone
+```
+
+The catalog records stable connector/app ID, version, managed/custom/hybrid
+ownership, source/action capabilities, account/project binding, read/write scope,
+expiry/revocation, `secret_ref`, health/freshness/cursor, data/retention/backup
+class, update/rollback and uninstall state. Operations Command may display and
+request these changes; it does not own credentials or silently activate actions.
+
+## Collection, custody, sync and NAS disaster backup
+
+These terms are not interchangeable.
+
+| Term | Meaning |
+| --- | --- |
+| Capture/Collection | read/observe data from a source |
+| Custody/Ingest | preserve exact bytes/manifest in an approved D: or owner store |
+| Sync/Materialization | expose the same source/revision through a work or ERP view |
+| Backup/DR | copy an accepted protected generation to the company NAS for server-PC failure recovery |
+| Restore | reconstruct the generation in an isolated target and reconcile it |
+| Human Restore Acceptance | authorized person accepts the restored state |
+
+```text
+source → D: capture/custody                  # not backup
+accepted protected generation → company NAS # backup
+NAS → isolated restore → reconciliation → human acceptance
+```
+
+NAS source assets and NAS backup targets stay separate; a backup copy cannot be
+recursively re-ingested as a new source.
+
+The current D: project byte owner remains the exact per-project approved backing
+worksite already bound to `_workspaces/<project_code>` where such a binding
+exists. No new company-wide D: canonical root is implied. Moving a project to a
+different backing root requires private Path Registry binding, sole writer/ACL,
+caller/Junction migration, backup/restore and rollback acceptance.
+
 ## Connector matrix
 
 | System | Source-local SoR / objects | Connector and scope | Capture/revision/backup model | Current plan state |

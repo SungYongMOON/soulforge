@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-31 - Owner Master Architecture and Release Map becomes the M0-M16 navigation baseline
+
+- Added one owner-facing Master Map covering the Soulforge worldview and optional Game Skin, three products and nine portfolios, product/shared source composition, Module/Pack/runtime structure, human/Bot/ERP work surfaces, SE-variant project trees, project-local metadata and ledgers, Connector lifecycle, risk-based delegated execution, NAS disaster backup, Owner authority UI, Operations Command Apps, fixed World-Tree input/output seams, manual-as-release and the Development Team 1 internal release target.
+- Recorded every unresolved choice as an `OPEN_GRILL` frontier instead of silently finalizing product names, 4192 naming, Boss semantics, product-root migration, authority classes, SE variant priority, release scope or NAS RPO/RTO.
+- Distinguished architecture/program documents from release-bound user/operator manuals and added product/manual synchronization as a release Gate. No product, folder, schema, runtime, Connector, credential, authority, NAS backup or deployment was created or activated.
+- Corrected the Master hierarchy to `M0`–`M16` so it cannot collide with the pre-existing ERP BOM `L0`–`L5`; recorded game-term, 4192 naming, Forge ownership, SE-variant, human-work-root, Connector lifecycle, authority-policy, manual-catalog and one-seat-vs-team-release gaps as explicit Grill/HOLD items.
+
 ## 2026-08-31 - Product composition and source ownership are re-audited
 
 - Recorded the Owner target that ERP, Engineering Engine and Agent Platform each need a visible product source composition while shared Modules retain one owner and one Implementation behind versioned Interfaces.

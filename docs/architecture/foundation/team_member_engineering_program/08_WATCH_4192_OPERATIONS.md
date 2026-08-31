@@ -56,6 +56,33 @@ Source bodies, project payload, credentials, private Agent memory, deep
 Buzz/Hermes session detail, and raw logs remain excluded. This requirement does
 not authorize a storage writer, migration, backup execution, or recovery action.
 
+## Operations Command App Platform target
+
+`4192` is a development identifier, not the final product name. The final
+meaningful product name is `OPEN_GRILL`. Its target is a detachable Operations
+Command/App Platform that adds versioned Apps without turning the UI into each
+domain's source of truth.
+
+Initial Apps cover Product/System Health, Project/Task/Run/Artifact projection,
+Agent/Tool/Workshop status, Connector/App install/version/scope/freshness,
+Storage/Collection/Backup/Restore, Token/Quota/Cost, Authority & Access and
+Incident/Action Request.
+
+Later Apps may expose Process Mining, activity/time/rework/cost, request-channel
+mix, project/work type diversity, Agent/Tool performance, bottleneck analysis and
+R&D source crawling/candidate discovery. These remain evidence-backed
+projections; no automatic personnel score, surveillance expansion or domain
+acceptance is allowed.
+
+### Owner Authority & Access App
+
+The Owner must be able to request grant, expiry, revoke and emergency STOP for
+Person/Agent/Device/Connector × Project/TaskType/Action capability envelopes.
+The UI shows current A0–A6/JM state, writer epoch, scope, expiry, revocation and
+before/after/readback receipts. Watch remains request/projection only;
+Bastion/ERP policy owners validate and apply the mutation through an
+Owner-authenticated Interface.
+
 ## Independence and release contract
 
 Watch is detachable when it consumes versioned typed projections only. It publishes a module manifest, compatible schema range, capability discovery/readiness, source freshness policies, no-writer proof, synthetic/integration fixtures, UI release note, and rollback behavior. A Watch upgrade may be rolled back without changing Vault, Forge, Guild, Buzz, or Bastion when the projection schema contract remains compatible.

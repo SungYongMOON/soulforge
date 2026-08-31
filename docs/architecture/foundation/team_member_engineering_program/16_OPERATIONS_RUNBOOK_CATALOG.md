@@ -29,6 +29,25 @@ Manuals describe a bounded approved procedure. They do not store credentials, ra
 
 The initial implementation creates a public-safe catalog and templates, then one manual at a time with an owner-approved pilot. An instruction needing secret plaintext, a private project path, excluded external send, or an unavailable account/hardware stops and directs the operator to an unblock packet. Existing-binding read-only collection, isolated/default-OFF service work, backup/restore, and a previously gated canary may proceed only when the standing delegation and that leaf's exact gates both permit them.
 
+## Manual-as-release synchronization
+
+Manuals are versioned product/Pack release artifacts, not optional prose. Every
+manual binds product/Pack/Interface versions, audience, prerequisites,
+allowed/forbidden actions, steps, expected readback/evidence, recovery/rollback,
+escalation and last verified release.
+
+The product release manifest maintains a coverage map from changed capability,
+schema, UI route, installer, authority policy and recovery procedure to the
+affected manuals. A release Gate fails when a required manual is missing, stale,
+references an unsupported version, or lacks a current install/smoke/restore/user
+exercise. New-hire, experienced-user and operator views are projections from the
+same manual source rather than independently drifting documents.
+
+Current gap: this document lists 16 manual roles while the Deployment Pack
+`RUNBOOK_CATALOG` has 13 entries. Path Registry, Target Materializer and 4192
+Storage Map coverage plus actual manual artifact/digest/version resolution remain
+`RELEASE_HOLD` until reconciled and validated.
+
 ## Standing execution and blocked-branch procedure
 
 After the plan/review start gate, an operator or builder uses the Owner decision ledger before asking a question. Settled safe actions proceed under the relevant runbook; the standing defaults are Linear SoR, reference-in-place, no implicit fallback, proposal-only LLM, default-OFF/canary-first, and Watch read/approval-request only.

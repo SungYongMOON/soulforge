@@ -14,6 +14,7 @@
 | `SOULFORGE_ERP_BOM_HIERARCHY_V0.md` | 저장소 전체를 ERP/BOM 계층으로 읽기 위한 public-safe 구조 지도다. |
 | `DEVELOPMENT_ROADMAP_V0.md` | 큰 개발 방향, active slice, 우선순위 판단의 단일 정본이다. |
 | `VISION_AND_GOALS.md` | 수동 업무를 mission/run truth/canon/autohunt 로 승격하는 장기 비전을 고정한다. |
+| `SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md` | Owner·신입·개발자·Agent가 M0~M16 전체 제품·폴더·업무·백업·권한·관제·매뉴얼·출시 상태를 한 장에서 읽고 상세 owner 문서로 내려가는 최상위 항법 정본이다. |
 | `SOULFORGE_WORLD_BIBLE_V0.md` | Soulforge의 창세 철학, 판타지 업무세계, 영역·세력·명명 문법과 World Balance Review를 Owner 초안으로 보존한다. |
 | `SOULFORGE_ENGINEERING_OS_PRODUCT_FAMILY_REBASELINE_V0.md` | 전체 플랫폼 이름, ERP·Engineering Engine·Agent Platform 제품군, 공유 Module, Asset·Agent·backup 큰그림을 Owner 결정 초안으로 정리한다. |
 | `team_member_engineering_program/00_MASTER_INDEX_AND_DECISIONS.md` | 팀원 작업·정본자료 전달, Vault/Forge/Guild/Watch/Bastion, 제품·배포·검증·물리 호환을 Owner 검토용 계획 세트로 연결한다. |
@@ -42,6 +43,7 @@
 - [`SOULFORGE_ERP_BOM_HIERARCHY_V0.md`](SOULFORGE_ERP_BOM_HIERARCHY_V0.md)
 - [`DEVELOPMENT_ROADMAP_V0.md`](DEVELOPMENT_ROADMAP_V0.md)
 - [`VISION_AND_GOALS.md`](VISION_AND_GOALS.md)
+- [`SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md`](SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md)
 - [`SOULFORGE_WORLD_BIBLE_V0.md`](SOULFORGE_WORLD_BIBLE_V0.md)
 - [`SOULFORGE_ENGINEERING_OS_PRODUCT_FAMILY_REBASELINE_V0.md`](SOULFORGE_ENGINEERING_OS_PRODUCT_FAMILY_REBASELINE_V0.md)
 - [`team_member_engineering_program/00_MASTER_INDEX_AND_DECISIONS.md`](team_member_engineering_program/00_MASTER_INDEX_AND_DECISIONS.md)

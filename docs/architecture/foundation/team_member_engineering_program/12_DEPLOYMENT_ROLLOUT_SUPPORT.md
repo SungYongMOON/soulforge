@@ -67,6 +67,20 @@ configuration, pack emission or release.
 
 The multi-PC/bootstrap and skill-sync documentation is reusable guidance, not a deployed Team Client Pack. No client is installed, no update ring is activated, and no physical user/device credential is created by this plan.
 
+## Development Team 1 internal release target
+
+The first audience is Development Team 1 plus the Owner using an equivalent
+team-member PC setup. The current time-boxed target is an internal release
+candidate, not full-company production.
+
+The exact included/excluded Slice is `OPEN_GRILL`. The candidate minimum covers
+one HPP/Backup build, one Owner/Team Client seat, project/authority readback,
+read-only Task/material access, Buzz or MCP delivery, local work, result/Evidence
+candidate submission, review/HOLD display, coarse Operations Command health,
+one NAS backup/isolated restore rehearsal and synchronized install/use/recovery
+manuals. Linear auto-Done, unrestricted writes, Project AI Team scale-out and
+broad rollout remain excluded until their own Gates pass.
+
 ## Related plans
 
 - [MCP client architecture](05_ENGINEERING_MCP_CLIENT_DATA_PLANE.md)
