@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-31 - Owner Fresh Grill decisions are recorded as a review candidate
+
+- Recorded the Owner's Fresh Grill closure over exact baseline `c1f2ff453e7e137725924cd1352c5153c472c5ec`: product and game names remain `OWNER_DEFERRED`, while `Soulforge Operations Console` becomes the official functional description and `4192` remains a compatibility handle.
+- Fixed the long-range product-home plus Shared source principle, product-neutral Shared Candidate Intake, ERP AuthorityPolicy sole writer, Bastion validation/STOP boundary, and Operations Console request/read-only boundary without creating a source root, schema or runtime writer.
+- Selected an Owner-PC one-seat internal RC, new `체계개발/LIG 넥스원/A` foldertree priority, synthetic restore measurement before numeric RPO/RTO, Owner/project-owner restore acceptance separation, Bot-root Buzz Git placement and person-managed human folders.
+- Selected Markdown plus versioned images as manual truth and an interactive HTML book as the default projection. All physical installation, private binding, recovery-ready, team rollout, final naming and production claims remain `HOLD` or `OWNER_DEFERRED` pending their exact gates and review.
+
 ## 2026-08-31 - Fable 5 continuity revisions are integrated into the Owner Master Map
 
 - Completed the exact 18-point Owner correction trace and corrected the `sf-p05` owner name to `Knowledge & Ontology`.

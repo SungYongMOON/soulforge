@@ -26,7 +26,7 @@ Each pack has its own product ID, semantic version, release manifest, package ch
 | MCP client | Versioned client and compatibility range; capability discovery before use. |
 | Buzz / collaboration | Optional source/deployment adapter, never a required task truth. |
 | Codex/Hermes binding | Exact approved Agent Mark/Deployment ref when used; requested/observed runtime fields kept separate. |
-| Local workspace | Approved local authoring root; inputs are immutable package-relative bundle material. |
+| Local workspace | Person-managed company-convention authoring folder; inputs are immutable package-relative bundle material. No Agent monitoring or automatic ingest. |
 | Outbox/cache | Client-local bounded state with D28 retention/recovery policy; no raw transcript capture. |
 | Allowed tools | Versioned allowlist and Workshop capability/lease requirement. |
 | Secret references | `secret_ref` only; provisioning happens outside Git/chat/installer payload. |
@@ -73,13 +73,18 @@ The first audience is Development Team 1 plus the Owner using an equivalent
 team-member PC setup. The current time-boxed target is an internal release
 candidate, not full-company production.
 
-The exact included/excluded Slice is `OPEN_GRILL`. The candidate minimum covers
-one HPP/Backup build, one Owner/Team Client seat, project/authority readback,
-read-only Task/material access, Buzz or MCP delivery, local work, result/Evidence
-candidate submission, review/HOLD display, coarse Operations Command health,
-one NAS backup/isolated restore rehearsal and synchronized install/use/recovery
-manuals. Linear auto-Done, unrestricted writes, Project AI Team scale-out and
-broad rollout remain excluded until their own Gates pass.
+The Owner-confirmed first target is one Owner-PC seat using the same setup intended
+for a team member. The included Slice covers install/doctor, project/authority
+readback, approved Task/material read-only access, Buzz or MCP delivery, person-
+managed local work, result/Evidence candidate submission, review/HOLD display,
+coarse Soulforge Operations Console health, one synthetic isolated-restore
+measurement and synchronized install/use/recovery manuals.
+
+Linear automatic mutation, non-canary external send, automatic Official Done,
+final technical acceptance, public release, Project AI Team scale-out, team-wide
+rollout, numeric recovery promise and NAS recovery-ready claims remain excluded.
+The exact physical device/credential/project tuple still requires the normal
+canary Gate; this decision installs or activates nothing.
 
 ## Related plans
 

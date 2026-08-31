@@ -4,7 +4,17 @@
 
 ## Purpose and authority
 
-Forge turns accepted facts, accepted context, and bounded engineering knowledge into a Work Candidate, TaskIntent, Work Brief, and role proposal. Forge is an engineering judgment and work-generation seam; it does not become a byte vault, an Official Task writer, a final technical acceptance authority, or a project-wide raw-memory collector.
+`Forge` is a compatibility/plan label for a product-neutral Shared Candidate
+Intake seam; its final name is Owner-deferred. Each model or domain Adapter may
+discover work candidates differently. The shared seam does not own that strategy:
+it normalizes provenance, evidence, dedupe, status, stop conditions and review
+routing into a common candidate envelope before any ERP promotion Gate.
+
+The seam may turn accepted facts, accepted context, bounded engineering knowledge
+or another approved model/domain proposal into a Work Candidate, TaskIntent, Work
+Brief, and role proposal. It does not become a byte vault, an Official Task writer,
+a final technical acceptance authority, a project-wide raw-memory collector, or
+an ERP-owned discovery algorithm.
 
 The existing Engineering Engine assembly model remains decisive for its own scope: Core and Domain Engines evaluate bounded evidence; Organization Profile, Project Profile, Project Binding, Typed Facts, and Effective Rule Set stay distinct. Engine output is a finding/risk/gap/role/work candidate until a human or exact approved policy accepts the next action.
 
@@ -13,7 +23,7 @@ The existing Engineering Engine assembly model remains decisive for its own scop
 | State | Minimum input | Owner / actor | Output | Never implies |
 | --- | --- | --- | --- | --- |
 | `accepted_context_ref` | Explicit accepted revision/generation and source scope | Context acceptance authority | Exact context pointer | Live/current project completeness |
-| `forge_work_candidate` | Accepted context plus Engine finding/rule provenance | Forge | Candidate, rationale, confidence, stop conditions | Official task or assignment |
+| `forge_work_candidate` | Accepted context plus model/domain/Engine provenance | Originating Adapter + Shared Candidate Intake | Candidate, rationale, confidence, stop conditions | Official task or assignment |
 | `task_intent` | Candidate plus requested task change and expected prior state | Forge / authorized requester | Immutable intent digest | Applied task mutation |
 | `work_brief_candidate` | Intent plus proposed role/capability/input/output | Forge | Draft brief and route proposal | A claim or tool grant |
 | `approved_task_intent` | Human/exact policy decision | Approval authority | Approval record references | Successful current task write |

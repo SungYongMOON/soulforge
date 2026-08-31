@@ -41,8 +41,8 @@ RED stabilization semantics: RED-01 is the serial row-0 leaf. RED-02 (topology-o
 | 1A (next adjacent; non-retroactive) | Physical organization spine | Plan 17 Owner/fresh review, metadata-only inventory, OD-10 owner decisions | Root/Path Registry contract, target materializer, write guard, and 4192 Storage Map; existing payload move 0 |
 | 1B (adjacent plan/review lane) | Ledger Catalog + Event Spine + RAG/mining contract | Existing product/portfolio/physical maps, exhaustive metadata-only ledger/RAG inventory, integrated Ultra/Fable5 findings and fresh corrected-document review | LR0A/LR0B frozen; LR1 may create Catalog contract/rows/validator only; no runtime DB or migration yet |
 | 1C (adjacent productization lane) | Product Composition & Source Ownership Map | Product-family decision, current 29-manifest/4-spec audit, caller graph and no-overlap writer scope | Three no-move `product.manifest` contracts plus complete Product-owned/Shared Module classification; source move/copy/new top-level root 0 |
-| 1D (Owner decision lane) | Owner Master Map + Fresh Grill | `SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md`, fixed decisions, exact OPEN_GRILL frontier | Naming/world-skin, source-root, authority, release Slice, SE variant, NAS DR and manual-format decisions appended to Plan 00; implementation 0 |
-| 1E (post-Grill candidate lanes) | Master Map A–F | 1D Human Owner decision closure and owner/writer map | Naming/Skin, product composition, SE workspace/metadata, connector/backup, authority/operations UI, manual/internal release may run in parallel only where write ownership is disjoint |
+| 1D (Owner decision lane; `DECISION_CLOSED`) | Owner Master Map + Fresh Grill | `SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md`, fixed decisions, exact Grill frontier | Owner decisions and explicit deferred/re-entry triggers appended to Plan 00; shared understanding + explicit Grill exit; implementation 0 |
+| 1E (post-Grill candidate lanes) | Master Map A–F | 1D decision closure, owner/writer map and each lane's remaining evidence Gate | Product composition, SE workspace/metadata, connector/backup, authority/operations UI and manual/internal release may proceed only where prerequisites and write ownership are disjoint; naming remains Owner-deferred |
 | 2 | Engineering MCP contract/schemas | D27–D29 design decisions | Schema/tool compatibility and adversarial synthetic suite |
 | 3 | Vault ArtifactRevision vertical | D27/D29 + exact custody policy | One artifact candidate/review/acceptance synthetic vertical |
 | 4 | Forge actual vertical | D27/D28/D29 closed plus accepted context and task-writer agreement | One TaskIntent/Work Brief/assignment default-off vertical (not the later physical field pilot) |
@@ -69,12 +69,13 @@ RED stabilization semantics: RED-01 is the serial row-0 leaf. RED-02 (topology-o
 | Ledger/RAG/mining contract | Complete Ledger Catalog taxonomy and inventory; producer/logical/infrastructure/consumer owner roles; case/activity issuer; assignment/run/object refs; collection+effective clocks; typed causal relations; owner-local outbox/reconciliation; scoped storage; raw/body boundary; project/common RAG ACL/index/invalidation; Dataset consent/leakage/duplicate/bias/label/approval gates; fresh Ultra+Fable5 review | New generic ledger writer, operational DB migration, automatic RAG indexing/promotion, training-data export or people-performance inference |
 | Buzz Project Git Evidence pilot | Exact private project/access-channel/repository/ref/Agent binding; public-safe terminal-receipt contract; synthetic replay, stale-revision, foreign-project and history-rewrite rejection; one-shot read-only intake; artifact/validator/Work Brief/blocker verification; Human Owner review and rollback | All-commit triggers, webhook/runtime activation, persistent coordinator, Pulse state writer, Linear mutation/Done, Artifact/Evidence acceptance, accepted-context promotion, raw project payload copy, or project-wide rollout |
 | Product composition/source ownership | Every source Module has one logical owner and Interface; product-specific vs shared classification; three product dependency closures; product tests/Packs/release/rollback refs; fresh review | New top-level `products`/`shared` root, source move/copy, duplicate Implementation, compatibility removal, product release claim |
-| Owner Master Map / Grill | Deterministic validators, fresh Sol/xhigh integration/decision tree, one Fable 5 continuity red-team over an exact stable commit, then Human Owner Grill; each answer updates the decision register and frontier | Re-asking settled decisions, duplicate same-role review, implementation during Grill, implicit naming/root/authority/release approval |
+| Owner Master Map / Grill | Deterministic validators, exact stable input, continuity review, Human Owner decisions, decision-register sync, shared-understanding confirmation and explicit Grill exit | Re-asking settled or Owner-deferred decisions before their trigger, implementation during Grill, implicit naming/root/authority/release approval |
 
 Post-Grill lane mapping: `A→Naming/World Skin`, `B→Product Composition`,
 `C→SE Workspace/Metadata`, `D→Connector/Backup`, `E→Authority/Operations UI`,
-`F→Manual/Internal Release`. These are candidate lanes until the Human Owner
-closes 1D; they do not supersede the active Roadmap slice.
+`F→Manual/Internal Release`. 1D is decision-closed; these remain candidate lanes
+and do not supersede the active Roadmap slice. Lane A stays Owner-deferred until
+the naming/Game UX re-entry trigger.
 
 ## Ledger/RAG/Process-Mining lane — target sequence
 
@@ -129,16 +130,18 @@ PC0  current source/Module/Pack audit
  → PC1  three no-move product.manifest contracts
  → PC2  Product-owned vs Shared Module map + dependency/Interface closure
  → PC3  product-level integration validators and release/Pack composition
- → PC4  Owner decision: keep current roots or approve products/shared target roots
+ → PC4  confirm exact root spelling/location within the Owner-approved product-home+Shared principle
  → PC5  move one Module with compatibility Adapter + rollback proof
  → PC6  repeated migration; retire prior path only after caller/readback acceptance
 ```
 
-Current state is `PC0_AUDIT_COMPLETE / PC1_NOT_IMPLEMENTED`. Overnight work
+Current state is `PC0_AUDIT_COMPLETE / PC1_NOT_IMPLEMENTED`. The Owner confirmed
+the long-range product-home+Shared composition principle but not an immediate
+physical path or migration. Overnight work
 created the Module/Pack foundation and program documents, not the three product
 composition manifests or physical product-first roots. PC1 reuses those
 artifacts and must not rebuild them. PC4 is the earliest point where a new
-top-level root may be approved; PC0–PC3 move zero source files.
+top-level root spelling/location may be approved; PC0–PC3 move zero source files.
 
 ## Standing execution delegation
 

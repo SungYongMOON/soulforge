@@ -169,14 +169,15 @@ verify a private key, activate a Bot or make the system recoverable.
 
 The first build order is: (1) define capture-generation schema and source-local backup manifest, (2) prove no-action/dedupe/correction replay on synthetic data, (3) map approved capture to a read-only Vault/ERP projection, (4) connect a single approved Guild deployment in a one-seat test, and only then (5) request a bounded physical pilot.
 
-## OPEN_GRILL — Project Git local placement
+## Owner decision — Project Git local placement
 
-The Buzz Project Git integration clone and per-Agent worktrees need one exact
-physical class and binding owner. The current recommendation is one project
-shared integration clone plus role-scoped isolated worktrees under the registered
-Bot execution root. They must not be placed in ERP `_workspaces` or a human
-authoring root. No clone, relocation or binding change occurs before the Grill
-decision and Path Registry/private-binding gate.
+The Owner selected one project-shared integration clone plus role-scoped isolated
+Agent worktrees under the registered Bot execution root. They must not be placed
+in ERP `_workspaces` or a human authoring root. Path Registry owns the logical
+placement and the protected private-binding owner remains the only physical
+binding writer. This decision creates no clone, relocation, binding or live Buzz
+effect; the exact private project/repository/ref/Agent tuple still requires its
+normal canary Gate.
 
 ## Related plans
 

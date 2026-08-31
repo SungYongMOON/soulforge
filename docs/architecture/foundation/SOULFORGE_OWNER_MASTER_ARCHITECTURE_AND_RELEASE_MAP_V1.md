@@ -4,8 +4,8 @@
 
 | 항목 | 값 |
 | --- | --- |
-| 상태 | `OWNER_WORKING_BASELINE / OPEN_GRILL_DECISIONS` |
-| 기준 commit | `main@7783d95f` 이후 Owner 보정 통합본 |
+| 상태 | `OWNER_WORKING_BASELINE / GRILL_DECISIONS_RECORDED` |
+| 기준 commit | Fresh Grill 입력 `main@c1f2ff453e7e137725924cd1352c5153c472c5ec` 이후 Owner 결정 통합본 |
 | 목적 | Owner·신입·개발자·Agent가 Soulforge 전체를 한 장에서 읽고 상세 owner 문서로 내려가는 최상위 항법 정본 |
 | 소유 | `docs/architecture/foundation` cross-root owner |
 | 비권한 | 이 문서만으로 제품명 확정, 폴더 이동, runtime 활성화, Connector 설치, 권한 부여, 배포, 최종수락을 만들지 않음 |
@@ -23,6 +23,7 @@ VALIDATED            결정론 검증이 통과함
 PHYSICAL_PILOTED     실제 PC·source·project에서 bounded 실행됨
 HOLD                 정확한 blocker가 있어 진행하지 않음
 OPEN_GRILL           Owner 결정이 남음
+OWNER_DEFERRED       Owner가 재진입 조건까지 결정을 미룸; 그 전에는 다시 묻지 않음
 TARGET               목표 구조이며 아직 materialize하지 않음
 ```
 
@@ -42,9 +43,9 @@ Source → Event/Candidate → Context/Knowledge → Engineering Judgment
 
 | Layer | 한 줄 목적 | 현재 |
 | --- | --- | --- |
-| M0 | 세계관·Game Skin·현실 authority | 방향 CONFIRMED, 용어 OPEN_GRILL |
-| M1 | 세 제품과 의미 있는 이름 | 구조 CONFIRMED, 이름 OPEN_GRILL |
-| M2 | 아홉 portfolio의 제3자용 설명 | stable ID CONFIRMED, 이름 OPEN_GRILL |
+| M0 | 세계관·Game Skin·현실 authority | 방향 CONFIRMED, 용어 OWNER_DEFERRED |
+| M1 | 세 제품과 의미 있는 이름 | 구조 CONFIRMED, 이름 OWNER_DEFERRED |
+| M2 | 아홉 portfolio의 제3자용 설명 | stable ID·설명 CONFIRMED, 이름 OWNER_DEFERRED |
 | M3 | 제품별 Source Composition·migration | plan VALIDATED, manifests 미구현 |
 | M4 | Shared deep Module과 Interface | 원칙 CONFIRMED, 분류 TARGET |
 | M5 | Runtime·Pack·Release | Pack foundation 부분 VALIDATED |
@@ -55,10 +56,10 @@ Source → Event/Candidate → Context/Knowledge → Engineering Judgment
 | M10 | risk/capability 기반 자율실행과 escalation | 방향 CONFIRMED, policy registry TARGET |
 | M11 | Collection/Custody와 NAS Backup/DR | 구분 CONFIRMED, actual DR HOLD |
 | M12 | Owner grant/revoke/STOP UI | TARGET |
-| M13 | Operations Command Apps·분석·관제 | foundation 부분, product shell TARGET |
+| M13 | Soulforge Operations Console Apps·분석·관제 | foundation 부분, product shell TARGET |
 | M14 | World Tree 고정 I/O seam | TARGET, internal engine OPEN |
 | M15 | Manual-as-Release | catalog 존재, sync validator HOLD |
-| M16 | 개발1팀 one-seat/internal RC→pilot | 목표 CONFIRMED, exact Slice OPEN_GRILL |
+| M16 | 개발1팀 one-seat/internal RC→pilot | Owner PC one-seat Slice CONFIRMED, 물리 실행 HOLD |
 
 ## Master Layer ID 규칙
 
@@ -108,45 +109,47 @@ Soulforge의 판타지 세계관은 제거하지 않는다. 회사의 실제 Tas
 | 주요 Stage/Gate | Boss Gate | 사람·정책 Gate를 대체하지 않음 |
 | 운영관제 | Watchtower | read-only projection |
 
-`Boss`의 최종 의미는 `OPEN_GRILL`이다. 권고안은 사람이나 경쟁자가 아니라
-`중요 Stage 통과, 통합검증, Human-Accepted Release`처럼 팀이 함께 닫는 큰 목표다.
-제품 출시 전체를 한 번의 Boss로 볼지, Stage별 Boss를 둘지는 이름/UX 결정에서 닫는다.
+`Boss`를 포함한 게임 용어의 최종 의미는 `OWNER_DEFERRED`다. 사람이나 경쟁자를
+가리키지 않고 중요한 Stage·통합검증·Human-Accepted Release 같은 팀 목표의 선택형
+Skin 후보로만 남긴다. 내부 구조가 안정되고 별도 naming/Game UX 단계가 열리기 전에는
+제품 출시 전체 또는 Stage별 의미를 다시 묻거나 권한·상태·경로에 결속하지 않는다.
 
 판타지 Skin은 참여·성취·팀 경험의 Edge가 될 수 있지만 별도 Task truth, 자동 인사점수,
 완료 authority, 보상·징계 원장을 만들지 않는다.
 
-현재 game-term 충돌은 `OPEN_GRILL`이다. Monster는 Event/Candidate/Approved Task 중
-문서별 의미가 다르고, Quest와 Mission의 차이는 고정되지 않았으며, Reward는 현행
-authority 정의가 없다. Boss는 하나의 완료 boolean이 아니라 deliverable→review→
-acceptance→Official Done Gate sequence를 시각화해야 한다. Reward를 유지한다면
-Human-Accepted Outcome과 reusable asset에서 파생한 UI engagement projection으로만 둔다.
+현재 game-term 충돌은 `OWNER_DEFERRED`다. Monster·Quest·Mission·Boss·Reward는
+문서별 초안 의미가 다르므로 공식 workflow vocabulary, 코드 enum, 폴더명 또는 authority로
+사용하지 않는다. 별도 naming/Game UX 단계가 열리면 deliverable→review→acceptance→
+Official Done Gate와의 관계를 다시 설계한다.
 
-`Mission`은 현재 `.mission` held-plan canon, 판타지 업무 용어, `sf-p01` 공식명에 동시에
-쓰인다. 셋의 이름을 그대로 유지할지 구분할지는 `OPEN_GRILL`이며, Reward를 유지하기로
-하면 World Bible과 Shared Glossary를 같은 결정에서 갱신한다.
+`Mission`은 현재 `.mission` held-plan canon, 판타지 업무 용어, `sf-p01` 초안 이름에
+동시에 쓰인다. 이 중 `.mission`의 기존 기술 owner만 유지하고 나머지 표시명·Skin 의미는
+`OWNER_DEFERRED`로 둔다. 재개 시 World Bible과 Shared Glossary를 같은 결정에서 갱신한다.
 
 상세 owner: [`SOULFORGE_WORLD_BIBLE_V0.md`](SOULFORGE_WORLD_BIBLE_V0.md).
 
 ## M1. 제품 계층과 명명
 
 현재 기능형 제품 ID는 다음 세 개로 고정한다. 사람에게 보이는 최종 제품명은
-`OPEN_GRILL`이며 stable ID와 분리한다.
+`OWNER_DEFERRED`이며 stable ID와 분리한다. 이름 구조는 `stable_id`, 기능 설명,
+소프트웨어 브랜드명, 선택형 fantasy Skin명, compatibility handle을 서로 다른 필드로 둔다.
 
 | Stable product ID | 현재 기능명 | 목적 | 최종 표시명 |
 | --- | --- | --- | --- |
-| `product.erp` | Soulforge ERP | Task·프로젝트·자료·BOM·Artifact·지식·정본 | `OPEN_GRILL` |
-| `product.engine` | Soulforge Engineering Engine | 체계공학·품질·안전·PCB·조달 등 결정론 판단 | `OPEN_GRILL` |
-| `product.agent` | Soulforge Agent Platform | AI 조직·Agent·Hermes·Buzz·MCP·Tool Workshop | `OPEN_GRILL` |
+| `product.erp` | Soulforge ERP | Task·프로젝트·자료·BOM·Artifact·지식·정본 | `OWNER_DEFERRED` |
+| `product.engine` | Soulforge Engineering Engine | 체계공학·품질·안전·PCB·조달 등 결정론 판단 | `OWNER_DEFERRED` |
+| `product.agent` | Soulforge Agent Platform | AI 조직·Agent·Hermes·Buzz·MCP·Tool Workshop | `OWNER_DEFERRED` |
 
-`4192`도 임시 개발명이다. 최종 명칭은 `OPEN_GRILL`이며 역할은 M13의
-Operations Command/App Platform이다. 제품명은 의미, 발음, 외부 설명, 판타지 세계관,
-source/package migration 비용을 함께 비교한다. 이름 변경은 display name부터 적용하고
-stable ID·Interface·기존 path는 migration Gate 전까지 유지한다.
+`4192`는 compatibility/runtime handle이다. 공식 기능 설명은
+`Soulforge Operations Console`로 확정했고, 사람이 기억하고 부를 소프트웨어 브랜드명은
+`OWNER_DEFERRED`다. 소개 구조는 `[소프트웨어명] — Soulforge Operations Console`이다.
+이름 변경은 display name부터 적용하고 stable ID·Interface·기존 path는 migration Gate
+전까지 유지한다.
 
 4192에는 runtime/compatibility handle `4192`, app `Team Ops Board`, logical seam
-`Watch`, fantasy label `Watchtower`, portfolio 후보 `Operations Command`가 겹친다.
-최종 결정은 stable ID, 공식 업무명, 선택형 판타지명, runtime compatibility name을
-분리해야 하며 `Command`가 read-only authority와 충돌하지 않는지도 검토한다.
+`Watch`, fantasy label 후보 `Watchtower`가 겹친다. `Soulforge Operations Console`은
+공식 기능 설명이고 네 번째 제품이 아니다. `Watch`·`Watchtower`의 최종 표시 의미와
+브랜드명은 naming 단계까지 보류한다.
 
 상세 owner:
 [`SOULFORGE_ENGINEERING_OS_PRODUCT_FAMILY_REBASELINE_V0.md`](SOULFORGE_ENGINEERING_OS_PRODUCT_FAMILY_REBASELINE_V0.md).
@@ -160,7 +163,7 @@ label을 함께 제공한다.
 | --- | --- | --- | --- |
 | `sf-p01` | 외부 사건에서 해야 할 일을 발견·분류·제안 | Work Discovery & Mission | Monster Forge |
 | `sf-p02` | 프로젝트 업무·자료·BOM·Artifact revision을 관리 | ERP & Asset Management | Vault |
-| `sf-p03` | 제품·업무·Agent·자원·비용·백업을 관측 | Operations Command | Watchtower |
+| `sf-p03` | 제품·업무·Agent·자원·비용·백업을 관측 | Operations Console | Watchtower |
 | `sf-p04` | 사람·AI 조직, Agent Mark·Deployment·Run을 관리 | AI Workforce & Organization | Guild Hall |
 | `sf-p05` | Context·Evidence·Ontology·RAG·지식을 관리 | Knowledge & Ontology | World Tree |
 | `sf-p06` | 공학 규칙과 실제 관측을 비교해 gap·risk를 판단 | Engineering Engine Family | Engine Foundry |
@@ -168,8 +171,9 @@ label을 함께 제공한다.
 | `sf-p08` | identity·권한·custody·backup·restore를 보호 | Platform, Security & Recovery | Bastion |
 | `sf-p09` | 설치·업데이트·교육·지원·조직 확산을 운영 | Deployment, Training & Adoption | Academy |
 
-최종 한국어/영어/판타지 이름은 `OPEN_GRILL`이다. 설명 문장은 제품명보다 먼저
-고정하며, 제3자가 이름만 보고도 입력·출력·비권한을 알 수 있어야 한다.
+최종 한국어/영어/판타지 이름은 `OWNER_DEFERRED`다. 설명 문장과 stable ID는 유지하고,
+내부 구조가 안정된 뒤 별도 naming 단계에서 표시명만 결정한다. 그 전에는 초안 이름을
+코드·경로·authority에 결속하지 않는다.
 
 우선 보정 대상은 P03(read-only인데 Command로 읽힘), P04(사람 조직도 포함),
 P06(제품명과 중복), P08(Agent Platform과 Platform 단어 충돌)이다.
@@ -223,9 +227,11 @@ legacy 단어·폴더명을 바로 삭제하지 않는다. 최종 naming grammar
 결정된 뒤 display/manifest부터 바꾸고, caller·Pack·backup·rollback 증거가 있는 Module만
 하나씩 이동한다.
 
-Forge의 제품 귀속은 `OPEN_GRILL`이다. 현재 문서는 Forge를 ERP candidate/intent seam,
-별도 logical owner와 판타지명으로 혼용한다. PC1 product manifest 전 하나의 계층과
-제품 owner를 선택한다.
+업무후보 접수는 특정 제품이나 단일 모델이 소유하지 않는 Shared Candidate Intake
+Module로 둔다. 각 모델·domain Adapter는 서로 다른 방식으로 후보를 발견할 수 있고,
+공용 Module은 출처·근거·중복·상태·검토 route를 같은 envelope로 정규화해 ERP 승격
+Gate로 전달한다. ERP는 검토·승격된 Task 정본을 소유할 뿐 후보 발견 전략을 소유하지
+않는다. `Forge`는 compatibility/초안 label이며 최종 이름은 `OWNER_DEFERRED`다.
 
 상세 owner: team program [Plan 15](team_member_engineering_program/15_FOLDER_COMPATIBILITY_MIGRATION.md).
 
@@ -277,22 +283,23 @@ upgrade/rollback/restore, manual과 support lifecycle을 가진다. Pack 존재�
 ## M6. 물리 작업공간·Buzz Git
 
 ```text
-human_work_root               사람 작업·작성 surface
+human_work_root               사람 self-managed 작업·작성 surface(manual-only)
 bot_work_root                 Bot 작업·cache·outbox surface
 _workspaces                   ERP/Vault canonical file materialization
 _workmeta                     project/system metadata ledger
 ```
 
-현재 host-local physical values는 private binding에서만 관리한다. Owner가 확인한
-human/Bot 실제 경로는 각각 `human_work_root`와 `bot_work_root` alias로 표현하고 public
-문서에 drive path를 고정하지 않는다.
+현재 host-local physical values는 private binding에서만 관리한다. `bot_work_root`는
+등록된 Bot 실행영역 alias로 표현하고 public 문서에 drive path를 고정하지 않는다.
+`human_work_root`는 회사가 제시할 수 있는 사람용 표준 폴더 틀의 편의 label일 뿐,
+Path Registry root class나 자동 관리 binding으로 활성화하지 않는다.
 
 현재 호환명 crosswalk는 다음과 같다. `bot_work_root`는 Owner-facing alias,
 `bot_worktree`는 기존 plan 호환명, `project_work_root`는 Path Registry physical class,
-`workroot.bot_execution`은 logical registry row다. `human_work_root`는 아직 등록되지 않은
-private alias 후보이며, existing root class로 분류하거나 explicit HOLD row를 만들기 전에는
-물리 activation을 하지 않는다. 해소 결정은 Plan 17 R1 root classification과 Fresh Grill
-frontier가 함께 소유한다.
+`workroot.bot_execution`은 logical registry row다. `human_work_root`는 manual-only/HOLD
+label이다. 사람은 회사 표준 틀 안에서 폴더를 스스로 만들고 관리하며, Agent가 이를
+감시·자동수집·준수검사·자동백업하지 않는다. 시스템 관리 경계는 검토·수락된 자료가
+ERP `_workspaces`에 materialize될 때 시작한다.
 
 `bot_work_root` current shape:
 
@@ -300,18 +307,18 @@ frontier가 함께 소유한다.
 COMMON/  MFG/  PJT/<year>/<project>/<role>/{RULES,WORK,...}  TOOL/
 ```
 
-Buzz Project Git의 local integration clone과 Agent worktree 위치는 Plan 07의 Grill/검토로
-확정한다. 현재 권고는 project shared integration clone + role별 isolated worktree를
-`bot_work_root` 아래에 두고 `_workspaces`·`human_work_root`에는 두지 않는 것이다.
+Buzz Project Git의 project shared integration clone과 role별 isolated Agent worktree는
+`bot_work_root` 아래에 둔다. `_workspaces`나 사람 작업폴더에는 두지 않는다. 이 결정은
+logical placement만 고정하며 실제 clone·relocation·private binding을 승인하지 않는다.
 
 Bot/Human 모두 `_workspaces` accepted/current input을 checkout/copy해 작업하고, 결과는
 동일한 custody/review/promoter Gate를 거쳐 `_workspaces`로 돌아간다.
 
-`human_work_root`는 human work/source surface로 관찰됐지만 exact Path Registry
-logical/byte/revision/acceptance/backup owner가 미등록이므로 `HOLD`다. `_workspaces`는
-project/non-project Junction과 plain child가 섞여 있어 각 direct child를 project,
-reserved system/library, local/legacy/unclassified로 분류해야 한다. nested
-`_workspaces/_workmeta`는 root sibling `_workmeta`와 다른 legacy/unclassified 후보다.
+사람 작업폴더는 정본·revision·acceptance·backup owner가 아니며 문서 전달·제출은 기존의
+사람 중심 방식도 허용한다. 자동 연결은 `HOLD`다. `_workspaces`는 project/non-project
+Junction과 plain child가 섞여 있어 각 direct child를 project, reserved system/library,
+local/legacy/unclassified로 분류해야 한다. nested `_workspaces/_workmeta`는 root sibling
+`_workmeta`와 다른 legacy/unclassified 후보다.
 
 ## M7. `_workspaces` 프로젝트 정본 폴더트리
 
@@ -336,6 +343,11 @@ _workspaces/<project_code>/
 | 탐색개발 / 공통 / 없음 | bundled | 탐색개발 source 기반 재기준 필요 |
 | 운용연구개발 / 공통 / 없음 | bundled | 성능개량/현존전력 track 분리 필요 |
 | 응용연구·시험개발 | proposal/audit only | production variant 아님 |
+
+Owner 우선순위는 `체계개발 / LIG 넥스원 / A` 신규 프로젝트부터 정식 적용하는 것이다.
+기존 프로젝트는 일괄 migration하지 않고 프로젝트별 dry-run, pointer 영향 검토와 Owner
+승인 뒤 전환한다. 다른 bundled variant와 `일반SE/공통/없음`은 source 재기준과 검증 전
+production default로 승격하지 않는다.
 
 체계개발 current generated spine은 030 SRR, 060 SFR, 090 PDR, 120 CDR,
 150 TRR_DT, 180 FCA_OT, 210 PCA, 240 LL이다. `일반SE/공통/없음`은 229 generated
@@ -411,7 +423,7 @@ Connector record 최소 필드:
 - backup/restore/data-retention class;
 - update/rollback/uninstall state.
 
-M13 Operations Command는 설치된 App/Connector 목록·권한·상태를 보여주고 요청을 받는다.
+M13 Operations Console은 설치된 App/Connector 목록·권한·상태를 보여주고 요청을 받는다.
 실제 credential 보관과 action authorization은 Bastion/ERP policy owner가 집행한다.
 
 ## M10. 업무 실행·위임 authority
@@ -421,9 +433,11 @@ type·Action·Project별 capability envelope를 부여·해제한다.
 
 Standing Authority Policy 최소 shape는 `{subject, project, task_type, capability,
 action, risk_ceiling, evidence_threshold, rate_limit, expiry, rollback}`이다.
-ERP는 policy·assignment·grant intent의 SoR 후보, Bastion은 validation/enforcement/
-emergency revoke/privileged action owner, Operations Command는 read-only projection과
-Owner request surface다. exact sole writer는 `OPEN_GRILL`이다.
+ERP AuthorityPolicy store가 canonical policy의 sole writer다. Bastion은 write 전 검증,
+runtime enforcement, privileged action과 emergency revoke/STOP을 소유한다. Soulforge
+Operations Console은 read-only projection과 Owner-authenticated request surface이며
+policy를 직접 쓰지 않는다. 이 owner 분리는 schema/Interface 결정이고 writer activation은
+별도 Gate 뒤다.
 
 ```text
 Owner policy/grant
@@ -487,9 +501,15 @@ backing worksite를 우선 재사용한다. 다른 human/project root로 바꾸�
 Registry binding, writer/ACL, caller, backup/restore와 rollback을 갖춘 project-by-project
 migration이며 자동 정본 전환이 아니다.
 
+첫 recovery canary는 합성 generation을 격리 복원해 Owner가 수락하고, 다음 단계에서
+승인된 저위험 실제 프로젝트 한 건을 복원해 해당 프로젝트 책임자가 수락한다. Backup
+운영자는 evidence를 만들지만 자기 결과를 단독 수락하지 않는다. 첫 시험에서 실제
+복구시간과 누락량을 측정한 뒤 data class별 RPO/RTO를 결정하며, 그 전에는 수치 SLA나
+NAS recovery-ready를 주장하지 않는다.
+
 ## M12. Owner 권한 부여·해제 UI
 
-Operations Command(현재 4192)에 `Authority & Access` App을 둔다.
+Soulforge Operations Console(compatibility handle 4192)에 `Authority & Access` App을 둔다.
 
 표시·요청 기능:
 
@@ -501,11 +521,11 @@ Operations Command(현재 4192)에 `Authority & Access` App을 둔다.
 - external action/approval policy;
 - before/after/readback·audit receipt.
 
-Operations Command UI는 writer가 아니다. Owner-authenticated grant/revoke request를 만들고,
+Operations Console UI는 writer가 아니다. Owner-authenticated grant/revoke request를 만들고,
 Bastion/ERP policy owner가 검증·적용·readback한 receipt를 다시 보여준다. emergency STOP과
 revoke는 별도 안전 Interface를 가진다.
 
-## M13. Operations Command App Platform(현재 4192)
+## M13. Soulforge Operations Console App Platform(compatibility handle 4192)
 
 4192를 고정 기능 하나가 아니라 Soulforge 운영 App Platform으로 발전시킨다.
 
@@ -539,7 +559,9 @@ revision·ACL·consent·acceptance owner를 요구하며, 운영 권한이 Datas
 schema, App version/manual/support/grant 상태가 필요하다. 현재 구현은 일부 supplier와
 projection foundation이며 product/app shell은 `TARGET`이다.
 
-최종 제품명은 `OPEN_GRILL`이다.
+공식 기능 설명은 `Soulforge Operations Console`이다. 사람이 기억하고 부를 소프트웨어
+브랜드명은 `OWNER_DEFERRED`이며 `[소프트웨어명] — Soulforge Operations Console`
+구조로 나중에 정한다. `4192`는 그때까지 compatibility/runtime handle로 유지한다.
 
 ## M14. Context World Tree Input/Output Contract
 
@@ -587,6 +609,11 @@ manual/
 └─ release-notes-known-issues/
 ```
 
+Manual 내용 정본은 Markdown과 versioned image asset이다. 사용자용 기본 projection은
+표지·장·목차·검색·그림 확대·반응형 화면·책 넘김 효과를 갖는 interactive HTML book으로
+만들고, 접근 가능한 연속 읽기 모드와 인쇄용 PDF를 같은 source에서 생성한다. HTML의
+page-turn UI와 PDF는 projection이며 내용 정본이나 별도 authority가 아니다.
+
 Manual contract 필드:
 
 - product/Pack/interface version;
@@ -610,22 +637,25 @@ coverage와 실제 manual artifact/digest/version resolver가 없어 `RELEASE_HO
 목표 사용자는 우선 개발1팀과 Owner 본인이다. 이번 주 목표는 전체 OS 완성이 아니라
 `Development Team 1 Internal Release Candidate`다.
 
-첫 physical target이 `one seat`인지 곧바로 `development-team pilot`인지 `OPEN_GRILL`이다.
-권고는 Owner PC를 팀원과 같은 설정으로 사용하는 one-seat RC 뒤 동일 증거를 3~5회
-반복하고 team ring으로 승격하는 것이다.
+첫 target은 Owner PC를 팀원과 같은 설정으로 사용하는 one-seat RC다. 이 한 자리에서
+accepted flow를 검증한 뒤 동일 증거를 3~5회 반복하고 별도 promotion decision으로
+development-team pilot ring에 진입한다.
 
-최소 출시 Slice 후보:
+Owner-confirmed 최소 Slice:
 
 1. HPP Server/Backup Pack의 현재 validated build;
-2. Owner 또는 팀원 중 `OPEN_GRILL`로 고른 exact one-seat Team Client 설치·진단;
+2. Owner PC의 exact one-seat Team Client 설치·진단;
 3. 프로젝트·권한 binding readback;
 4. Linear/ERP의 승인된 Task·자료 read-only 조회;
 5. Buzz 연결 또는 MCP로 Task/자료 전달;
 6. 사람/Bot local work 후 result/Evidence candidate 제출;
 7. 자동 Done 없이 review/HOLD 표시;
 8. 4192의 coarse health·Connector·Backup·Authority projection;
-9. current data generation의 NAS backup + isolated restore rehearsal;
-10. 설치·사용·복구·지원 manual과 known-issue list.
+9. 합성 generation의 isolated restore canary와 실제 시간·누락량 측정;
+10. 설치·사용·복구·지원 manual, interactive HTML book projection과 known-issue list.
+
+제외 범위는 Linear 자동변경, 비 canary 외부 자동전송, 자동 Official Done, 최종 기술수락,
+정식 출시, 팀 전체 배포, 실제 NAS recovery-ready와 credential scope 확대다.
 
 출시 상태는 `internal_rc`, `pilot`, `production`을 분리한다. 현재 실제 credential·Team Client
 실좌석·NAS restore·Linear writer·Project AI Team Pack이 모두 닫혔다고 주장하지 않는다.
@@ -645,71 +675,62 @@ Architecture가 바뀌면 Manual 영향표가 갱신되고, 제품이 Release되
 
 ## 병렬 구현 Lane과 의존성
 
-Fresh Grill로 OPEN 결정을 닫은 뒤 다음을 병렬 실행할 수 있다. 아래 A~F는 Plan 14에
-등록된 post-Grill candidate lane이며 Grill 종료 전 active implementation queue가 아니다.
+Fresh Grill은 Owner 결정과 명시적 보류·재진입 조건을 닫았다. 아래 A~F는 Plan 14에
+등록된 post-Grill candidate lane이며 active Roadmap slice나 자동 구현 승인이 아니다.
 
 | Lane | 병렬 가능 범위 | 선행 Owner 결정 |
 | --- | --- | --- |
-| A Naming & World Skin | 이름 후보·UX vocabulary·same-data skin spec | 제품/4192 naming 방향, Boss 의미 |
-| B Product Composition | product.manifest·Module classification·product validators | physical source root는 PC4까지 미룰 수 있음 |
+| A Naming & World Skin | 이름 후보·UX vocabulary·same-data skin spec | `OWNER_DEFERRED`; 내부 구조 안정 후 별도 재개 |
+| B Product Composition | product.manifest·Module classification·product validators | 제품별 source home+Shared 원칙, exact root는 PC4 evidence 뒤 |
 | C SE Workspace & Metadata | variant crosswalk·metadata mirror·project ledger rules | supported variants와 migration policy |
-| D Connector & Backup | connector catalog·collection/backup split·NAS DR contract | NAS target/RPO/RTO·credential owner |
-| E Authority & Operations UI | grant/revoke schema·read projection·Bastion request seam | risk/action classes와 Owner grant rules |
-| F Manual & Internal Release | manual catalog/templates·release sync validator·RC checklist | 이번 주 최소 출시 Slice |
+| D Connector & Backup | connector catalog·collection/backup split·NAS DR contract | synthetic restore 측정 후 RPO/RTO; physical binding 별도 Gate |
+| E Authority & Operations UI | grant/revoke schema·read projection·Bastion request seam | ERP writer·Bastion enforcement·Console request/read separation |
+| F Manual & Internal Release | manual catalog/templates·release sync validator·RC checklist | Owner PC one-seat Slice와 Markdown→HTML book 원칙 |
 
 공유 파일·schema·writer는 한 Lane만 소유하고 다른 Lane은 Interface ref만 사용한다. 구현 TASK는
 Terra/max, 독립검토는 fresh policy profile을 사용한다.
 
-## Fresh Grill Decision Tree
+## Fresh Grill Decision Closure
 
-Settled decisions are not asked again. Initial frontier:
+2026-08-31 Human Owner가 공통 이해를 확인하고 Grill 종료를 명시했다. 아래 결정이나
+의도적 보류는 재진입 조건 전까지 다시 묻지 않는다. `implementation 0`이며 이름 변경,
+physical binding, runtime activation, authority mutation, backup-ready 또는 release 승인이 아니다.
 
-1. Product/Operations Command final naming brief and fantasy Skin position;
-2. Monster/Quest/Mission/Boss/Reward lifecycle semantics와 M1/M2 naming grammar;
-3. final product source-root option at PC4(`products/shared` vs current-root composition);
-4. authority grant/revoke risk classes, AuthorityPolicy exact sole writer와 Operations Command UI scope;
-5. this-week Development Team 1 Internal RC exact included/excluded capabilities;
-6. SE foldertree variant priority and existing-project migration policy;
-7. NAS DR target, RPO/RTO, first restore canary와 Human Restore Acceptance acceptor;
-8. Forge product/layer owner와 Manual 정본 format(Markdown+projection 후보);
-9. one-seat RC와 development-team pilot 중 이번 주 exact 목표;
-10. Buzz Project Git integration clone·Agent worktree의 physical class와 binding owner;
-11. `.mission` canon/판타지 Mission/portfolio 명칭, Vault·Forge·Guild·Watch·Bastion의
-    업무 owner명과 skin label 분리 방식;
-12. `human_work_root`를 existing Path Registry root class로 분류할지 explicit HOLD row로
-    등록할지와 Plan 17 R1 owner.
+| # | Decision closure | Re-entry trigger |
+| --- | --- | --- |
+| 1 | 이름 구조는 stable ID·기능 설명·software brand·fantasy Skin·compatibility handle을 분리. 공식 기능 설명은 `Soulforge Operations Console` | software brand와 세 제품 표시명은 내부 구조 안정 후 naming 단계 |
+| 2 | Monster/Quest/Mission/Boss/Reward 의미를 공식 workflow vocabulary에 결속하지 않고 `OWNER_DEFERRED` | 별도 naming/Game UX 단계 |
+| 3 | 제품별 visible source home + Shared 영역 원칙 확정; 현재 path는 compatibility-first | PC1–PC3 evidence 뒤 PC4에서 exact root spelling/location 결정 |
+| 4 | ERP AuthorityPolicy store sole writer, Bastion validation/enforcement/STOP, Console request/read only | schema 구현과 physical writer activation은 각 Gate 뒤 |
+| 5 | 이번 주 RC는 Owner PC one-seat safe closed loop; Linear auto-write·외부 자동전송·auto Done·team rollout 제외 | one-seat evidence 3–5회와 별도 ring promotion |
+| 6 | `체계개발/LIG 넥스원/A` 신규 프로젝트 우선; 기존 프로젝트는 개별 dry-run·승인 | 다른 variant source 재기준 또는 project별 migration packet |
+| 7 | 합성 restore→Owner 수락, 이후 승인된 저위험 프로젝트→프로젝트 책임자 수락; Backup 운영자 self-accept 금지 | 첫 restore 측정 뒤 RPO/RTO, private evidence 뒤 NAS target/binding |
+| 8 | 모델별 discovery는 독립, Shared Candidate Intake가 envelope를 정규화; manual source는 Markdown+images, 기본 projection은 interactive HTML book | `Forge` 명칭은 naming 단계; manual artifact 구현은 release lane |
+| 9 | one-seat가 first physical target이며 team pilot은 후속 ring | 5와 동일 |
+| 10 | Buzz Project Git shared integration clone과 role-isolated Agent worktree는 Bot work root | exact private project/repo/ref/binding canary Gate |
+| 11 | `.mission` 기술 owner만 유지하고 cross-layer 표시명·Skin label은 `OWNER_DEFERRED` | 2와 동일 |
+| 12 | 사람 폴더는 회사 표준 틀을 개인이 자율 관리하는 manual-only surface; Agent 감시·자동수집·준수검사 없음. 관리 경계는 ERP `_workspaces`부터 | 별도 Owner 결정 없이는 Path Registry root/binding 활성화 금지 |
 
-Grill은 질문마다 권고안·선택지·영향을 제공하고, Owner 답변을 Plan 00 decision register에
-append한다. frontier가 비고 Owner가 이해 일치를 확인한 뒤에만 구현으로 전환한다.
-
-검토 역할은 중복시키지 않는다.
-
-```text
-deterministic validators
-→ fresh Sol/xhigh: 통합·결정 의존성·Grill
-→ Fable 5: 과거계획 누락·세계관/용어 연속성·문서모순 red-team
-→ Human Owner: 결정·Grill 종료·구현 전환
-```
-
-Fable 5 결과는 advisory이며 source truth나 Owner 승인을 만들지 않는다. 안정된 exact commit
-하나만 입력으로 주고 raw transcript·private payload·secret은 전달하지 않는다.
+검토 역할은 deterministic validators→fresh integration/review→Human Owner 순서를 유지한다.
+Advisory review는 source truth나 Owner 승인을 만들지 않으며 raw transcript·private payload·
+secret을 tracked canon에 남기지 않는다.
 
 ## 현재 상태 요약
 
 | 계층 | 상태 |
 | --- | --- |
-| 세계관·불변법칙 | `CONFIRMED`, 명칭/게임 UX 일부 `OPEN_GRILL` |
-| 세 제품·아홉 portfolio | 구조 `CONFIRMED`, 표시명 `OPEN_GRILL` |
+| 세계관·불변법칙 | `CONFIRMED`, 명칭/게임 UX `OWNER_DEFERRED` |
+| 세 제품·아홉 portfolio | 구조·설명 `CONFIRMED`, 표시명 `OWNER_DEFERRED` |
 | Module/Pack foundation | `IMPLEMENTED/VALIDATED` 부분, 물리 rollout 아님 |
 | Product Source Composition | plan `VALIDATED`, product.manifest 미구현 |
-| 사람/Bot/ERP 작업면 분리 | contract `CONFIRMED`, private writer bindings 일부 HOLD |
-| SE workspace dynamic tree | generator 존재, variant별 source maturity 차이 |
+| 사람/Bot/ERP 작업면 분리 | contract `CONFIRMED`; 사람 폴더 manual-only, private Bot binding HOLD |
+| SE workspace dynamic tree | 신규 체계개발/LIG/A 우선 CONFIRMED, 다른 variant·기존 migration gated |
 | `_workmeta` mirror/ledger placement | 원칙 CONFIRMED, stage mirror schema TARGET |
-| Connector lifecycle·Authority UI | TARGET |
-| Collection/Backup 구분 | 방향 CONFIRMED, NAS actual acceptance HOLD |
+| Connector lifecycle·Authority UI | owner/writer separation CONFIRMED, implementation TARGET |
+| Collection/Backup 구분 | canary/acceptor CONFIRMED, numeric RPO/RTO·NAS physical acceptance HOLD |
 | World Tree seam | input/output TARGET, internal engine OPEN |
-| Manuals | catalog 존재, release-version sync 구현 필요 |
-| Development Team 1 RC | 목표 CONFIRMED, exact Slice/credentials/physical gates OPEN |
+| Manuals | Markdown+image source/HTML-book projection CONFIRMED, release sync 구현 필요 |
+| Development Team 1 RC | Owner PC one-seat Slice CONFIRMED, credentials/physical gates HOLD |
 
 ## 상세 owner 문서
 

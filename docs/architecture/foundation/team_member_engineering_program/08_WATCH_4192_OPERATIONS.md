@@ -56,12 +56,13 @@ Source bodies, project payload, credentials, private Agent memory, deep
 Buzz/Hermes session detail, and raw logs remain excluded. This requirement does
 not authorize a storage writer, migration, backup execution, or recovery action.
 
-## Operations Command App Platform target
+## Soulforge Operations Console App Platform target
 
-`4192` is a development identifier, not the final product name. The final
-meaningful product name is `OPEN_GRILL`. Its target is a detachable Operations
-Command/App Platform that adds versioned Apps without turning the UI into each
-domain's source of truth.
+`4192` remains the compatibility/runtime handle. The official functional
+description is `Soulforge Operations Console`; the memorable software brand is
+Owner-deferred and will later use `[software name] — Soulforge Operations
+Console`. This is a detachable App Platform, not a fourth product, and adds
+versioned Apps without turning the UI into each domain's source of truth.
 
 Initial Apps cover Product/System Health, Project/Task/Run/Artifact projection,
 Agent/Tool/Workshop status, Connector/App install/version/scope/freshness,
@@ -79,9 +80,10 @@ acceptance is allowed.
 The Owner must be able to request grant, expiry, revoke and emergency STOP for
 Person/Agent/Device/Connector × Project/TaskType/Action capability envelopes.
 The UI shows current A0–A6/JM state, writer epoch, scope, expiry, revocation and
-before/after/readback receipts. Watch remains request/projection only;
-Bastion/ERP policy owners validate and apply the mutation through an
-Owner-authenticated Interface.
+before/after/readback receipts. Watch remains request/projection only. The ERP
+AuthorityPolicy store is the canonical sole writer; Bastion performs pre-write
+validation, enforcement and emergency STOP. Neither the UI nor a projected
+receipt may write policy directly.
 
 ## Independence and release contract
 

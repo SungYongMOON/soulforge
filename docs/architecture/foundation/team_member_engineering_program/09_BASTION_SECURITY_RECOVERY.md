@@ -69,6 +69,16 @@ RPO and RTO are owner decisions by data class. This plan does not invent a numer
 5. human restore acceptance; and
 6. a documented rollback/incident route.
 
+### Owner recovery-canary decision
+
+The first internal-RC recovery proof uses a synthetic generation restored to an
+isolated target and accepted by the Human Owner. A later approved low-risk real
+project canary is accepted by that project's responsible owner. The Backup
+operator supplies manifests, hashes, reconciliation and readback evidence but
+must not self-accept the restore. Numeric RPO/RTO remain unset until the first
+canary measures actual recovery time and recoverable-data gap; no team-wide SLA
+or NAS recovery-ready claim follows from this design decision.
+
 ## Recovery actions and Watch
 
 Watch/4192 may request a restart, isolation, restore, or rollback. Bastion validates exact target, policy, actor, expiry, maintenance/lease conditions, and backup generation before executing. It emits an action receipt, never a fabricated green health state. A restore does not accept a project artifact or complete a task.

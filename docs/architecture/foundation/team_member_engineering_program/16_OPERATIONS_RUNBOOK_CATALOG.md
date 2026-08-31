@@ -52,6 +52,12 @@ The 16-role table is the semantic owner. The Master Map's ten `manual/`
 directories are a proposed physical projection only, and the 13-entry code
 catalog is an incomplete implementation surface until all three reconcile.
 
+The Owner-selected authoring source is Markdown plus versioned image assets.
+The default user projection is an interactive HTML book, with an accessible
+linear HTML view and print PDF produced from the same source. These projections
+are not separate manual truths. Their renderer, content digest, product/Pack
+compatibility range and last verified release remain part of the release Gate.
+
 ## Standing execution and blocked-branch procedure
 
 After the plan/review start gate, an operator or builder uses the Owner decision ledger before asking a question. Settled safe actions proceed under the relevant runbook; the standing defaults are Linear SoR, reference-in-place, no implicit fallback, proposal-only LLM, default-OFF/canary-first, and Watch read/approval-request only.
