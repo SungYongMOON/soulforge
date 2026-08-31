@@ -202,7 +202,7 @@ creating or moving physical product roots.
 | Program plan | documents `00` through `17` exist | whole-system architecture and gates are documented |
 | Module manifests | 30 tracked `module.manifest.json` files | enrolled set includes the pure OD-11 authority taxonomy |
 | Unenrolled `guild_hall` directories | 23 reported by operability preflight | not every source directory is enrolled; Agent Platform is composition-only |
-| Import graph | 1,517 files / 2,752 edges / cycle 0 | current enrolled source dependencies are mechanically cycle-free |
+| Import graph | 1,521 files / 2,754 edges / cycle 0 | current enrolled source dependencies are mechanically cycle-free |
 | Pack catalog | five Pack kinds defined | packaging contract exists |
 | Tracked Pack specs | four: HPP Server, Team Client, Tool Workshop, Backup-Recovery | Project AI Team Pack remains gated/absent |
 | Product roots | ERP is partially concentrated at `ui-workspace/apps/dev-erp`; Engine at `guild_hall/engineering_engine`; Agent Platform source remains distributed | product release/composition ownership is uneven |

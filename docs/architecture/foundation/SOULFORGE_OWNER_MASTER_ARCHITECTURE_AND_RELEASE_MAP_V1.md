@@ -137,8 +137,8 @@ capability/backlog ownership map이다. portfolio별 exact Product-owned/Shared/
 | M12 | Owner grant/revoke/STOP UI | TARGET |
 | M13 | Soulforge Operations Console Apps·분석·관제 | foundation 부분, product shell TARGET |
 | M14 | World Tree 고정 I/O seam | TARGET, internal engine OPEN |
-| M15 | Manual-as-Release | 16-role catalog·resolver VALIDATED, actual manuals RELEASE_HOLD |
-| M16 | 개발1팀 one-seat/internal RC→pilot | Owner PC one-seat Slice CONFIRMED, 물리 실행 HOLD |
+| M15 | Manual-as-Release | 8 candidate/8 absent·resolver/HTML VALIDATED, exercise RELEASE_HOLD |
+| M16 | 개발1팀 one-seat/internal RC→pilot | prephysical binder VALIDATED, current public evidence HOLD |
 
 ## Master Layer ID 규칙
 
@@ -283,7 +283,7 @@ Fresh audit 기준:
 - Program plan `00`~`17` 존재;
 - enrolled Module manifest 30개;
 - 미등록 `guild_hall` directory 23개(새 Agent Platform composition-only directory 포함);
-- import graph 1,517 files / 2,752 edges / cycle 0;
+- import graph 1,521 files / 2,754 edges / cycle 0;
 - Pack 종류 5개, tracked Pack spec 4개;
 - 세 제품의 no-move `product.manifest`와 30 Module Product-owned/Shared 분류 존재;
 - product-first physical root와 product release는 아직 없음.
@@ -733,9 +733,11 @@ Release Gate는 기능/Interface/화면 변경 시 관련 manual mapping과 재�
 
 Deployment Pack의 `RUNBOOK_CATALOG`와 tracked catalog는 Plan 16 exact 16-role 순서로
 정합화됐고, pure resolver가 procedure ref를 semantic role·artifact digest·호환범위·
-last-verified release·exercise receipt에 결속한다. 현재 실제 manual artifact가 없으므로
-16개 row 모두 `HOLD/manual_absent`이며 `RELEASE_HOLD`가 유지된다. build_pack integration과
-실제 Markdown/image/HTML/PDF artifact 제작은 후속 Gate다.
+last-verified release·exercise receipt에 결속한다. Owner-PC slice 8개 role은 실제
+Markdown+sha256이 있는 `candidate/current`, 나머지 8개는 `HOLD/manual_absent`다.
+Candidate도 exercise/last-verified receipt가 없으므로 `RELEASE_HOLD`가 유지된다. Pure HTML
+renderer는 self-contained projection과 digest receipt만 만들며 persisted release artifact나
+content authority를 만들지 않는다.
 
 ## M16. 개발1팀 주간 출시 목표
 
@@ -764,6 +766,12 @@ Owner-confirmed 최소 Slice:
 
 출시 상태는 `internal_rc`, `pilot`, `production`을 분리한다. 현재 실제 credential·Team Client
 실좌석·NAS restore·Linear writer·Project AI Team Pack이 모두 닫혔다고 주장하지 않는다.
+
+Pure prephysical readiness binder는 exact HPP/Team/Backup pack, product composition,
+manual resolution, authority, recovery, support/rollback, device/project/credential evidence를
+한 packet으로 검사한다. 현재 public evidence는 manual exercise·Human acceptance·device
+binding이 없어 `HOLD`이고, 완전한 합성 packet만 `READY_FOR_ONE_PHYSICAL_SEAT_GATE`까지
+도달한다. 이는 설치나 Internal RC 수락이 아니다.
 
 ## 전체 문서 세트와 Manual의 차이
 
@@ -837,8 +845,8 @@ secret을 tracked canon에 남기지 않는다.
 | Connector lifecycle·Authority UI | OD-11 pure contract VALIDATED, ERP/Bastion/Console live integration HOLD |
 | Collection/Backup 구분 | synthetic canary VALIDATED, actual Human acceptance·RPO/RTO·NAS HOLD |
 | World Tree seam | input/output TARGET, internal engine OPEN |
-| Manuals | 16-role resolver VALIDATED, actual artifacts·release sync RELEASE_HOLD |
-| Development Team 1 RC | Owner PC one-seat Slice CONFIRMED, credentials/physical gates HOLD |
+| Manuals | 8 candidate/8 absent·resolver/HTML VALIDATED, exercise/release sync HOLD |
+| Development Team 1 RC | prephysical binder VALIDATED, current evidence HOLD; credentials/physical gates 남음 |
 
 ## 상세 owner 문서
 

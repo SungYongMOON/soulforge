@@ -8,7 +8,7 @@ import { PACK_CATALOG, RUNBOOK_CATALOG } from "./deployment_pack_contract.mjs";
 
 export const MANUAL_RELEASE_CATALOG_SCHEMA = "soulforge.deployment_pack.manual_release_catalog.v0";
 export const MANUAL_RELEASE_CATALOG_STATES = Object.freeze(["ready", "release_hold"]);
-export const MANUAL_STATES = Object.freeze(["ready", "hold"]);
+export const MANUAL_STATES = Object.freeze(["ready", "candidate", "hold"]);
 export const MANUAL_STALE_STATES = Object.freeze(["current", "stale", "manual_absent"]);
 export const MANUAL_PROCEDURE_FIELDS = Object.freeze([
   "install_manual_ref",
@@ -169,10 +169,13 @@ function validateManualRow(manual, problems) {
   }
   validateCoverage(manual.coverage, problems);
 
-  if (manual.state === "ready") {
+  if (["ready", "candidate"].includes(manual.state)) {
     if (!validOpaqueRef(manual.artifact_ref)) addProblem(problems, "manual_artifact_ref_invalid");
     if (!isContentDigest(manual.content_digest)) addProblem(problems, "manual_content_digest_invalid");
     if (!isValidCompatibilityRange(manual.compatibility_range)) addProblem(problems, "manual_compatibility_invalid");
+  }
+  if (manual.state === "candidate" && manual.stale_state !== "current") {
+    addProblem(problems, "manual_candidate_not_current");
   }
 }
 
@@ -245,8 +248,9 @@ function validatePackRequirements(catalog, manualRows, problems) {
   }
 }
 
-// HOLD rows are valid catalog evidence: they say the semantic role is known but
-// an artifact, verification, or exercise is not currently releaseable.
+// HOLD rows say the semantic role has no artifact. Candidate rows bind a
+// current, digested artifact but still require verified release and exercise
+// acceptance before any release claim is allowed.
 export function validateManualReleaseCatalog(catalog) {
   const problems = [];
   if (!record(catalog)) return { ok: false, problems: ["catalog_shape_invalid"] };
@@ -345,10 +349,12 @@ function resolutionFor(procedureRef, mapping, manual) {
 }
 
 function evaluateManual(manual, { packId, procedureRef, releaseVersion }, problems) {
-  if (!manual || manual.state !== "ready" || manual.artifact_ref === null || manual.content_digest === null) {
+  if (!manual || manual.state === "hold" || manual.stale_state === "manual_absent"
+    || manual.artifact_ref === null || manual.content_digest === null) {
     addProblem(problems, "manual_absent");
     return;
   }
+  if (manual.state === "candidate") addProblem(problems, "manual_candidate_unexercised");
   if (manual.stale_state !== "current") addProblem(problems, "manual_stale");
   if (!isSemanticVersion(manual.last_verified_release)) {
     addProblem(problems, "manual_last_verified_release_missing");

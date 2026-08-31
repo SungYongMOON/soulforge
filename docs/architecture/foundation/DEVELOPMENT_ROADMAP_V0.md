@@ -232,6 +232,13 @@ read-only snapshot
   검증한다(17 tests, actual acceptance/NAS/RPO/RTO 0). Pack specs는 HPP 964,
   Team Client 216, Backup-Recovery 72 files로 재계산되고 deployment suite 37/37이
   통과했다. 이는 one-seat physical Gate의 준비 증거이며 설치·RC 수락은 아니다.
+- adjacent Internal RC manual/preflight leaf(2026-09-01): Owner-PC slice manual 8종은
+  actual Markdown+sha256 `candidate/current`, 나머지 8종은 absent HOLD다. Pure HTML
+  renderer는 self-contained accessible projection을 만들지만 release artifact를 쓰지 않는다
+  (5 tests). Pure readiness binder는 exact pack/product/manual/authority/recovery/device evidence를
+  검사하고 current public packet을 HOLD, 완전한 합성 packet만
+  `READY_FOR_ONE_PHYSICAL_SEAT_GATE`로 판정한다(5 tests). Actual exercise·Human acceptance·
+  device/credential/project binding·install/doctor receipt는 계속 physical Gate 뒤다.
 - adjacent Task execution foundation(2026-08-25): 기존 `TaskExecutionCore`/SQLite를
   변경하지 않는 default-OFF in-memory `CandidateExecutionCoordinator` 구조가 exact
   Role/Capability와 actor→agent→Bot→Executor binding, `responsible_ceo_triage`, opaque nested

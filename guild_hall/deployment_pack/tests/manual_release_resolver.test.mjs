@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,6 +15,16 @@ import {
 
 const MODULE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const CATALOG_PATH = join(MODULE_ROOT, "manuals", "manual_release_catalog.v0.json");
+const CANDIDATE_ARTIFACTS = Object.freeze({
+  hpp_server_operator: "hpp_server_operator.v0.md",
+  team_client_install_use_revoke_recovery: "team_client_install_use_revoke_recovery.v0.md",
+  mcp_material_receive_result_submit: "mcp_material_receive_result_submit.v0.md",
+  external_connector_backup_restore: "external_connector_backup_restore.v0.md",
+  watch_4192_incident_response: "watch_4192_incident_response.v0.md",
+  path_registry_resolver: "path_registry_resolver.v0.md",
+  target_folder_materializer: "target_folder_materializer.v0.md",
+  watch_4192_storage_backup_map: "watch_4192_storage_backup_map.v0.md",
+});
 
 function catalog() {
   return JSON.parse(readFileSync(CATALOG_PATH, "utf8"));
@@ -50,7 +61,7 @@ function hppManual(candidate) {
   return candidate.manuals.find((manual) => manual.semantic_role === "hpp_server_operator");
 }
 
-test("the tracked public catalog keeps all 16 semantic rows visible without inventing a completed manual", () => {
+test("the tracked public catalog binds eight current candidate artifacts without inventing release acceptance", () => {
   const tracked = catalog();
   assert.equal(tracked.schema, MANUAL_RELEASE_CATALOG_SCHEMA);
   assert.equal(tracked.catalog_version, "0.1.0");
@@ -58,21 +69,40 @@ test("the tracked public catalog keeps all 16 semantic rows visible without inve
   assert.deepEqual(tracked.manuals.map((manual) => manual.semantic_role), RUNBOOK_CATALOG);
   assert.deepEqual(validateManualReleaseCatalog(tracked), { ok: true, problems: [] });
   for (const manual of tracked.manuals) {
-    assert.equal(manual.state, "hold", manual.semantic_role);
-    assert.equal(manual.artifact_ref, null, manual.semantic_role);
-    assert.equal(manual.content_digest, null, manual.semantic_role);
-    assert.equal(manual.stale_state, "manual_absent", manual.semantic_role);
-    assert.equal(manual.exercise_receipt_ref, null, manual.semantic_role);
+    const filename = CANDIDATE_ARTIFACTS[manual.semantic_role];
+    if (filename) {
+      const artifact = readFileSync(join(MODULE_ROOT, "manuals", filename));
+      assert.equal(manual.state, "candidate", manual.semantic_role);
+      assert.equal(manual.artifact_ref, `artifact.manual.${manual.semantic_role}.v0_1_0`);
+      assert.equal(manual.content_digest, `sha256:${createHash("sha256").update(artifact).digest("hex")}`);
+      assert.equal(manual.compatibility_range, ">=0.1.0 <1.0.0");
+      assert.equal(manual.stale_state, "current");
+      assert.equal(manual.last_verified_release, null);
+      assert.equal(manual.exercise_receipt_ref, null);
+      assert.equal(artifact.toString("utf8").includes(`Artifact ref: \`${manual.artifact_ref}\``), true);
+    } else {
+      assert.equal(manual.state, "hold", manual.semantic_role);
+      assert.equal(manual.artifact_ref, null, manual.semantic_role);
+      assert.equal(manual.content_digest, null, manual.semantic_role);
+      assert.equal(manual.stale_state, "manual_absent", manual.semantic_role);
+      assert.equal(manual.exercise_receipt_ref, null, manual.semantic_role);
+    }
   }
 });
 
-test("the resolver maps explicit draft-manifest procedure refs, but the tracked HOLD catalog stops release claims", () => {
+test("the resolver maps explicit draft-manifest procedure refs, but the tracked candidate catalog stops release claims", () => {
   const result = resolveManualRelease(catalog(), hppRequest());
   assert.equal(result.ok, false);
   assert.equal(result.status, "hold");
-  for (const expected of ["catalog_release_hold", "manual_absent"]) {
+  for (const expected of [
+    "catalog_release_hold",
+    "manual_candidate_unexercised",
+    "manual_last_verified_release_missing",
+    "manual_exercise_missing",
+  ]) {
     assert.equal(result.problems.includes(expected), true, expected);
   }
+  assert.equal(result.problems.includes("manual_absent"), false);
   assert.deepEqual(result.required_roles, ["hpp_server_operator"]);
   assert.deepEqual(result.resolutions.map((resolution) => resolution.procedure_ref), [
     "manual.install.hpp_server_pack",
@@ -81,9 +111,9 @@ test("the resolver maps explicit draft-manifest procedure refs, but the tracked 
   ]);
   for (const resolution of result.resolutions) {
     assert.equal(resolution.semantic_role, "hpp_server_operator");
-    assert.equal(resolution.artifact_ref, null);
-    assert.equal(resolution.content_digest, null);
-    assert.equal(resolution.stale_state, "manual_absent");
+    assert.equal(resolution.artifact_ref, "artifact.manual.hpp_server_operator.v0_1_0");
+    assert.match(resolution.content_digest, /^sha256:[a-f0-9]{64}$/u);
+    assert.equal(resolution.stale_state, "current");
   }
 });
 
@@ -136,6 +166,10 @@ test("hostile catalog and request states fail closed for digest, version, mappin
   assert.deepEqual(validateManualReleaseCatalog(noExercise), { ok: true, problems: [] });
   assert.equal(resolveManualRelease(noExercise, hppRequest()).problems.includes("manual_exercise_missing"), true);
 
+  const candidateNotCurrent = catalog();
+  hppManual(candidateNotCurrent).stale_state = "stale";
+  assert.equal(validateManualReleaseCatalog(candidateNotCurrent).problems.includes("manual_candidate_not_current"), true);
+
   const unmapped = resolveManualRelease(readyCatalog(), {
     pack_id: "hpp_server_pack",
     version: "0.1.0",
@@ -157,4 +191,27 @@ test("hostile catalog and request states fail closed for digest, version, mappin
   hppManual(localPath).artifact_ref = "c" + ":/local-artifact";
   assert.equal(validateManualReleaseCatalog(localPath).problems.includes("manual_artifact_ref_invalid"), true);
   assert.equal(validateManualReleaseCatalog(localPath).problems.includes("catalog_local_path_forbidden"), true);
+});
+
+test("candidate_unexercised is distinct from an absent manual", () => {
+  const candidate = catalog();
+  candidate.catalog_state = "ready";
+  const candidateResult = resolveManualRelease(candidate, hppRequest());
+  assert.equal(candidateResult.problems.includes("manual_candidate_unexercised"), true);
+  assert.equal(candidateResult.problems.includes("manual_absent"), false);
+  assert.equal(candidateResult.problems.includes("manual_last_verified_release_missing"), true);
+  assert.equal(candidateResult.problems.includes("manual_exercise_missing"), true);
+
+  const absent = catalog();
+  absent.catalog_state = "ready";
+  Object.assign(hppManual(absent), {
+    state: "hold",
+    artifact_ref: null,
+    content_digest: null,
+    compatibility_range: null,
+    stale_state: "manual_absent",
+  });
+  const absentResult = resolveManualRelease(absent, hppRequest());
+  assert.equal(absentResult.problems.includes("manual_absent"), true);
+  assert.equal(absentResult.problems.includes("manual_candidate_unexercised"), false);
 });

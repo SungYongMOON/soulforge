@@ -2,6 +2,8 @@
 
 ## 2026-09-01 - Internal RC contract foundations are implemented in parallel
 
+- Added eight public-safe Owner-PC candidate manuals with exact content digests while keeping eight roles absent and all release state held; added a deterministic accessible self-contained HTML projection and a pure Internal RC prephysical readiness binder that reports the current public packet as HOLD.
+- Registered `validate:manual-projection` and `validate:internal-rc-prephysical` in both root modes. Actual exercise receipts, device/project/credential binding, Human acceptance, install/doctor evidence and one-seat ring promotion remain physical gates.
 - Closed OD-11 at contract level with a pure/default-OFF authority taxonomy that preserves A0–A6, separates R0–R4 and EV1–EV3, limits R1/R2 to one exact effect within four hours, requires separate Human approval for R2, and structurally refuses R3 grants and R4 authoring. No ERP writer, Bastion runtime or Console mutation was activated.
 - Added three no-move product manifests and a check-only product preflight covering the exact enrolled set: 30 Modules, 7 Product-owned and 23 Shared, with source move/copy false and release/root migration held.
 - Reconciled the Deployment Pack runbook catalog to all 16 Plan-16 roles and added a pure manual-release resolver. Every tracked role remains `HOLD/manual_absent`; no manual or release readiness was fabricated.

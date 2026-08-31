@@ -85,8 +85,10 @@ Current pre-physical evidence: HPP 964-file, Team Client 216-file and
 Backup-Recovery 72-file tracked specs pass the 37-test deployment suite; product
 composition and 16-role manual resolution contracts are green; the synthetic
 restore canary is green but has no actual Human acceptance. Actual manual
-artifacts, device enrollment, credential/project tuple, install receipt and
-one-seat user exercise remain `HOLD`.
+coverage is partial: eight Owner-PC candidate Markdown artifacts are digest-bound
+but unexercised, and eight roles remain absent. The pure readiness binder therefore
+returns `HOLD` for current public evidence. Device enrollment, credential/project
+tuple, install receipt, Human acceptance and one-seat user exercise remain `HOLD`.
 
 Linear automatic mutation, non-canary external send, automatic Official Done,
 final technical acceptance, public release, Project AI Team scale-out, team-wide
