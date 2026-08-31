@@ -52,7 +52,24 @@ test("catalog pins the five packs with boundaries, and schema/enums match the pl
   assert.deepEqual(RELEASE_GATES.slice(0, 3), ["build", "unit", "contract"]);
   assert.deepEqual(RELEASE_GATES.slice(-2), ["canary", "acceptance"]);
   assert.equal(ROLLOUT_RINGS.length, 8);
-  assert.equal(RUNBOOK_CATALOG.length, 13);
+  assert.deepEqual(RUNBOOK_CATALOG, [
+    "hpp_server_operator",
+    "team_client_install_use_revoke_recovery",
+    "mcp_material_receive_result_submit",
+    "vault_artifact_revision_promotion",
+    "forge_work_generation_review",
+    "agent_mark_deployment_run",
+    "buzz_hermes_operations_recovery",
+    "watch_4192_incident_response",
+    "external_connector_backup_restore",
+    "workshop_operator",
+    "path_registry_resolver",
+    "target_folder_materializer",
+    "watch_4192_storage_backup_map",
+    "new_hire_training",
+    "experienced_hire_training",
+    "manager_training",
+  ]);
   for (const pack of PACK_CATALOG) {
     assert.equal(pack.must_not_contain.length >= 2, true, pack.pack_id);
     assert.equal(typeof pack.initial_release_gate === "string" && pack.initial_release_gate.length > 10, true, pack.pack_id);

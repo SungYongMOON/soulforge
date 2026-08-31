@@ -1,0 +1,70 @@
+{
+  "schema_version": "soulforge.product_manifest.v0",
+  "product_id": "product.agent",
+  "product_version": "0.1.0",
+  "composition_root": "guild_hall/agent_platform",
+  "composition_mode": "composition_only_no_runtime",
+  "owned_module_pins": [
+    {
+      "module_id": "agent_observation",
+      "interface_version": "agent_observation.v0",
+      "module_manifest_ref": "guild_hall/agent_observation/module.manifest.json"
+    },
+    {
+      "module_id": "ai_usage_meter",
+      "interface_version": "ai_usage_meter.v0",
+      "module_manifest_ref": "guild_hall/ai_usage_meter/module.manifest.json"
+    },
+    {
+      "module_id": "codex_work_directory",
+      "interface_version": "codex_work_directory.v0",
+      "module_manifest_ref": "guild_hall/codex_work_directory/module.manifest.json"
+    },
+    {
+      "module_id": "tool_workshop_core",
+      "interface_version": "tool_workshop.v0",
+      "module_manifest_ref": "guild_hall/tool_workshop/module.manifest.json"
+    }
+  ],
+  "shared_module_pins": [],
+  "required_interface_pins": [],
+  "unresolved_interface_pins": [],
+  "source_refs": [
+    {
+      "ref": "guild_hall/agent_platform",
+      "purpose": "composition_root"
+    },
+    {
+      "ref": "guild_hall/agent_observation",
+      "purpose": "owned_module_source"
+    },
+    {
+      "ref": "guild_hall/ai_usage_meter",
+      "purpose": "owned_module_source"
+    },
+    {
+      "ref": "guild_hall/codex_work_directory",
+      "purpose": "owned_module_source"
+    },
+    {
+      "ref": "guild_hall/tool_workshop",
+      "purpose": "owned_module_source"
+    }
+  ],
+  "entrypoint_refs": [],
+  "validator_refs": [
+    "guild_hall/module_operability/tests/product_composition.test.mjs",
+    "guild_hall/module_operability/tools/product_preflight.mjs"
+  ],
+  "pack_state": "HOLD",
+  "pack_refs": [],
+  "release_state": "not_released",
+  "release_refs": [],
+  "migration_state": "reference_in_place_no_move",
+  "source_move": false,
+  "source_copy": false,
+  "rollback_state": "HOLD",
+  "rollback_refs": [],
+  "deprecation_state": "active_no_deprecation",
+  "authority_notes": "Composition-only Agent Platform contract. This directory owns no implementation, runtime, module manifest, authority, Pack, or release; the four pinned modules retain their existing owners. Source moves, source copies, rollback proof, deployment, and product release remain HOLD."
+}

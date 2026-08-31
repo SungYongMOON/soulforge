@@ -79,6 +79,13 @@ must not self-accept the restore. Numeric RPO/RTO remain unset until the first
 canary measures actual recovery time and recoverable-data gap; no team-wide SLA
 or NAS recovery-ready claim follows from this design decision.
 
+Current public implementation: `guild_hall/backup_controller` provides a
+temp-only synthetic fixture/runner and a separate acceptance seam. The runner
+proves create-only backup, full hash readback, isolated restore and item/byte
+parity/gap/elapsed receipt; a distinct out-of-band Human Owner pin is still
+required. Backup operator self-acceptance, NAS/recovery-ready and RPO/RTO claims
+remain structurally blocked.
+
 ## Recovery actions and Watch
 
 Watch/4192 may request a restart, isolation, restore, or rollback. Bastion validates exact target, policy, actor, expiry, maintenance/lease conditions, and backup generation before executing. It emits an action receipt, never a fabricated green health state. A restore does not accept a project artifact or complete a task.

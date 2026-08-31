@@ -40,6 +40,9 @@
       "guild_hall/backup_controller/retention_preservation_gate.mjs",
       "guild_hall/backup_controller/runtime_ops_worker.mjs",
       "guild_hall/backup_controller/source_backup_generation_contract.mjs",
+      "guild_hall/backup_controller/synthetic_recovery_canary_acceptance.mjs",
+      "guild_hall/backup_controller/synthetic_recovery_canary_fixture.mjs",
+      "guild_hall/backup_controller/synthetic_recovery_canary_runner.mjs",
       "guild_hall/backup_controller/windows_task_bridge.ps1",
       "guild_hall/backup_controller/writer_quiesce.mjs",
       "guild_hall/backup_controller/writer_quiesce.schema.json"
@@ -75,6 +78,9 @@
       "guild_hall/backup_controller/retention_canary_gate.test.mjs",
       "guild_hall/backup_controller/retention_preservation_gate.test.mjs",
       "guild_hall/backup_controller/source_backup_generation_contract.test.mjs",
+      "guild_hall/backup_controller/synthetic_recovery_canary_acceptance.test.mjs",
+      "guild_hall/backup_controller/synthetic_recovery_canary_fixture.test.mjs",
+      "guild_hall/backup_controller/synthetic_recovery_canary_runner.test.mjs",
       "guild_hall/backup_controller/writer_quiesce.test.mjs"
     ]
   },
@@ -100,6 +106,9 @@
     "guild_hall/backup_controller/retention_canary_gate.test.mjs",
     "guild_hall/backup_controller/retention_preservation_gate.test.mjs",
     "guild_hall/backup_controller/source_backup_generation_contract.test.mjs",
+    "guild_hall/backup_controller/synthetic_recovery_canary_acceptance.test.mjs",
+    "guild_hall/backup_controller/synthetic_recovery_canary_fixture.test.mjs",
+    "guild_hall/backup_controller/synthetic_recovery_canary_runner.test.mjs",
     "guild_hall/backup_controller/writer_quiesce.test.mjs"
   ],
   "installed_smoke_entries": [
@@ -123,6 +132,9 @@
     "guild_hall/backup_controller/retention_canary_gate.test.mjs",
     "guild_hall/backup_controller/retention_preservation_gate.test.mjs",
     "guild_hall/backup_controller/source_backup_generation_contract.test.mjs",
+    "guild_hall/backup_controller/synthetic_recovery_canary_acceptance.test.mjs",
+    "guild_hall/backup_controller/synthetic_recovery_canary_fixture.test.mjs",
+    "guild_hall/backup_controller/synthetic_recovery_canary_runner.test.mjs",
     "guild_hall/backup_controller/writer_quiesce.test.mjs"
   ],
   "installed_smoke_excluded": [],
@@ -135,7 +147,7 @@
   "content_scan_reviewed_files": [
     {
       "path": "guild_hall/backup_controller/README.md",
-      "sha256": "8cba05fde1c74c47e248d80582457c4cf9fed8a0ca22f5f154426146c12b76dd"
+      "sha256": "d59cd28de6bd8223cfd13d64669845ec7bc433cbeaa262595566a8db31bfd166"
     },
     {
       "path": "guild_hall/backup_controller/buzz_backup_generation_manifest.mjs",

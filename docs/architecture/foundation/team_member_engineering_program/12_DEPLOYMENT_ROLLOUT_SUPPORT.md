@@ -81,6 +81,13 @@ managed local work, result/Evidence candidate submission, review/HOLD display,
 coarse Soulforge Operations Console health, one synthetic isolated-restore
 measurement, synchronized install/use/recovery manuals and a known-issue list.
 
+Current pre-physical evidence: HPP 964-file, Team Client 216-file and
+Backup-Recovery 72-file tracked specs pass the 37-test deployment suite; product
+composition and 16-role manual resolution contracts are green; the synthetic
+restore canary is green but has no actual Human acceptance. Actual manual
+artifacts, device enrollment, credential/project tuple, install receipt and
+one-seat user exercise remain `HOLD`.
+
 Linear automatic mutation, non-canary external send, automatic Official Done,
 final technical acceptance, public release, Project AI Team scale-out, team-wide
 rollout, numeric recovery promise and NAS recovery-ready claims remain excluded.

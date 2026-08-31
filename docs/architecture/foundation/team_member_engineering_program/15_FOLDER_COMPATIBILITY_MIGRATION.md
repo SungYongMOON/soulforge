@@ -52,11 +52,11 @@ Implementation.
   separate `guild_hall` owners.
 - Engineering Engine already has the clearest product-local source root at
   `guild_hall/engineering_engine`.
-- Agent Platform source is distributed across Agent Observation, Engineering
-  MCP, Tool Workshop, Deployment Pack and runtime Adapters; no composition root
-  exists.
-- 29 Module manifests and four tracked Pack specs exist, but no
-  `product.manifest` exists for ERP, Engine or Agent Platform.
+- Agent Platform implementation source remains distributed across Agent
+  Observation, Engineering MCP, Tool Workshop, Deployment Pack and runtime
+  Adapters; `guild_hall/agent_platform` is a composition-only root.
+- 30 Module manifests, four tracked Pack specs and three no-move
+  `product.manifest` contracts exist. Product release and physical roots do not.
 
 ### PC1 — no-move composition manifests
 
@@ -64,9 +64,9 @@ Before creating or moving a product folder, register the current owners through
 three product manifests:
 
 ```text
-ui-workspace/apps/dev-erp/product.manifest.json             # TARGET product.erp composition
-guild_hall/engineering_engine/product.manifest.json         # TARGET product.engine composition
-guild_hall/agent_platform/product.manifest.json              # TARGET product.agent composition-only root
+ui-workspace/apps/dev-erp/product.manifest.json             # CURRENT product.erp composition
+guild_hall/engineering_engine/product.manifest.json         # CURRENT product.engine composition
+guild_hall/agent_platform/product.manifest.json             # CURRENT product.agent composition-only root
 ```
 
 Each manifest records product ID/version, product-specific Module refs, shared
@@ -84,15 +84,15 @@ Initial classification candidate:
 | shared candidate intake | `Forge Intent` compatibility implementation pending PC2 classification | Product-neutral candidate envelope and adapters; no Official Task, assignment or acceptance writer |
 | shared operations | 4192/Watch and Bastion integration | typed read projections and approved action Interfaces only |
 
-The classification is not final merely because a path is listed. PC2 must
-resolve one logical owner, one Interface and current callers for every Module.
+The current catalog classifies the exact enrolled set as 7 Product-owned and 23
+Shared Modules, with one current implementation owner and Interface pin per row.
+Newly enrolled Modules must be added explicitly or the preflight fails.
 
 ### PC2–PC3 — classification and product release closure
 
-PC2 classifies every current Module as Product-owned or Shared and pins one
-owner, one Interface, current callers and rejected duplicate paths. PC3 adds
-product-level dependency closure, integration validators, Pack/release refs and
-rollback/deprecation evidence without moving source.
+PC2's enrolled-30 classification and PC3's no-move product preflight are
+validated. Pack/release refs remain `HOLD/not_released`; full source-tree
+classification, release digest and physical migration are not claimed.
 
 ### PC4 — physical product-root decision
 

@@ -1,0 +1,41 @@
+{
+  "schema_version": "soulforge.product_manifest.v0",
+  "product_id": "product.engine",
+  "product_version": "0.1.0",
+  "composition_root": "guild_hall/engineering_engine",
+  "composition_mode": "reference_only_no_move",
+  "owned_module_pins": [
+    {
+      "module_id": "engineering_engine",
+      "interface_version": "engineering_engine.v0",
+      "module_manifest_ref": "guild_hall/engineering_engine/module.manifest.json"
+    }
+  ],
+  "shared_module_pins": [],
+  "required_interface_pins": [],
+  "unresolved_interface_pins": [],
+  "source_refs": [
+    {
+      "ref": "guild_hall/engineering_engine",
+      "purpose": "composition_root"
+    }
+  ],
+  "entrypoint_refs": [
+    "guild_hall/engineering_engine/core"
+  ],
+  "validator_refs": [
+    "guild_hall/module_operability/tests/product_composition.test.mjs",
+    "guild_hall/module_operability/tools/product_preflight.mjs"
+  ],
+  "pack_state": "HOLD",
+  "pack_refs": [],
+  "release_state": "not_released",
+  "release_refs": [],
+  "migration_state": "reference_in_place_no_move",
+  "source_move": false,
+  "source_copy": false,
+  "rollback_state": "HOLD",
+  "rollback_refs": [],
+  "deprecation_state": "active_no_deprecation",
+  "authority_notes": "No-move Engineering Engine composition contract only. The current engineering_engine owner and its domain implementations remain in place. Product Pack/release closure, rollback proof, deployment, deprecation, and any physical product-root migration remain HOLD."
+}

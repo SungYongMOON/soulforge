@@ -1,0 +1,307 @@
+{
+  "schema": "soulforge.deployment_pack.manual_release_catalog.v0",
+  "catalog_version": "0.1.0",
+  "catalog_state": "release_hold",
+  "manuals": [
+    {
+      "semantic_role": "hpp_server_operator",
+      "state": "hold",
+      "artifact_ref": null,
+      "content_digest": null,
+      "compatibility_range": null,
+      "last_verified_release": null,
+      "stale_state": "manual_absent",
+      "coverage": {
+        "pack_ids": ["hpp_server_pack"],
+        "procedure_refs": [
+          "manual.install.hpp_server_pack",
+          "manual.upgrade.hpp_server_pack",
+          "manual.rollback.hpp_server_pack"
+        ]
+      },
+      "exercise_receipt_ref": null
+    },
+    {
+      "semantic_role": "team_client_install_use_revoke_recovery",
+      "state": "hold",
+      "artifact_ref": null,
+      "content_digest": null,
+      "compatibility_range": null,
+      "last_verified_release": null,
+      "stale_state": "manual_absent",
+      "coverage": {
+        "pack_ids": ["team_client_pack"],
+        "procedure_refs": [
+          "manual.install.team_client_pack",
+          "manual.upgrade.team_client_pack",
+          "manual.rollback.team_client_pack"
+        ]
+      },
+      "exercise_receipt_ref": null
+    },
+    {
+      "semantic_role": "mcp_material_receive_result_submit",
+      "state": "hold",
+      "artifact_ref": null,
+      "content_digest": null,
+      "compatibility_range": null,
+      "last_verified_release": null,
+      "stale_state": "manual_absent",
+      "coverage": { "pack_ids": [], "procedure_refs": [] },
+      "exercise_receipt_ref": null
+    },
+    {
+      "semantic_role": "vault_artifact_revision_promotion",
+      "state": "hold",
+      "artifact_ref": null,
+      "content_digest": null,
+      "compatibility_range": null,
+      "last_verified_release": null,
+      "stale_state": "manual_absent",
+      "coverage": { "pack_ids": [], "procedure_refs": [] },
+      "exercise_receipt_ref": null
+    },
+    {
+      "semantic_role": "forge_work_generation_review",
+      "state": "hold",
+      "artifact_ref": null,
+      "content_digest": null,
+      "compatibility_range": null,
+      "last_verified_release": null,
+      "stale_state": "manual_absent",
+      "coverage": { "pack_ids": [], "procedure_refs": [] },
+      "exercise_receipt_ref": null
+    },
+    {
+      "semantic_role": "agent_mark_deployment_run",
+      "state": "hold",
+      "artifact_ref": null,
+      "content_digest": null,
+      "compatibility_range": null,
+      "last_verified_release": null,
+      "stale_state": "manual_absent",
+      "coverage": { "pack_ids": ["project_ai_team_pack"], "procedure_refs": [] },
+      "exercise_receipt_ref": null
+    },
+    {
+      "semantic_role": "buzz_hermes_operations_recovery",
+      "state": "hold",
+      "artifact_ref": null,
+      "content_digest": null,
+      "compatibility_range": null,
+      "last_verified_release": null,
+      "stale_state": "manual_absent",
+      "coverage": { "pack_ids": [], "procedure_refs": [] },
+      "exercise_receipt_ref": null
+    },
+    {
+      "semantic_role": "watch_4192_incident_response",
+      "state": "hold",
+      "artifact_ref": null,
+      "content_digest": null,
+      "compatibility_range": null,
+      "last_verified_release": null,
+      "stale_state": "manual_absent",
+      "coverage": { "pack_ids": [], "procedure_refs": [] },
+      "exercise_receipt_ref": null
+    },
+    {
+      "semantic_role": "external_connector_backup_restore",
+      "state": "hold",
+      "artifact_ref": null,
+      "content_digest": null,
+      "compatibility_range": null,
+      "last_verified_release": null,
+      "stale_state": "manual_absent",
+      "coverage": {
+        "pack_ids": ["backup_recovery_extension"],
+        "procedure_refs": [
+          "manual.install.backup_recovery_extension",
+          "manual.upgrade.backup_recovery_extension",
+          "manual.rollback.backup_recovery_extension"
+        ]
+      },
+      "exercise_receipt_ref": null
+    },
+    {
+      "semantic_role": "workshop_operator",
+      "state": "hold",
+      "artifact_ref": null,
+      "content_digest": null,
+      "compatibility_range": null,
+      "last_verified_release": null,
+      "stale_state": "manual_absent",
+      "coverage": {
+        "pack_ids": ["tool_workshop_pack"],
+        "procedure_refs": [
+          "manual.install.tool_workshop_pack",
+          "manual.upgrade.tool_workshop_pack",
+          "manual.rollback.tool_workshop_pack"
+        ]
+      },
+      "exercise_receipt_ref": null
+    },
+    {
+      "semantic_role": "path_registry_resolver",
+      "state": "hold",
+      "artifact_ref": null,
+      "content_digest": null,
+      "compatibility_range": null,
+      "last_verified_release": null,
+      "stale_state": "manual_absent",
+      "coverage": { "pack_ids": [], "procedure_refs": [] },
+      "exercise_receipt_ref": null
+    },
+    {
+      "semantic_role": "target_folder_materializer",
+      "state": "hold",
+      "artifact_ref": null,
+      "content_digest": null,
+      "compatibility_range": null,
+      "last_verified_release": null,
+      "stale_state": "manual_absent",
+      "coverage": { "pack_ids": [], "procedure_refs": [] },
+      "exercise_receipt_ref": null
+    },
+    {
+      "semantic_role": "watch_4192_storage_backup_map",
+      "state": "hold",
+      "artifact_ref": null,
+      "content_digest": null,
+      "compatibility_range": null,
+      "last_verified_release": null,
+      "stale_state": "manual_absent",
+      "coverage": { "pack_ids": [], "procedure_refs": [] },
+      "exercise_receipt_ref": null
+    },
+    {
+      "semantic_role": "new_hire_training",
+      "state": "hold",
+      "artifact_ref": null,
+      "content_digest": null,
+      "compatibility_range": null,
+      "last_verified_release": null,
+      "stale_state": "manual_absent",
+      "coverage": { "pack_ids": [], "procedure_refs": [] },
+      "exercise_receipt_ref": null
+    },
+    {
+      "semantic_role": "experienced_hire_training",
+      "state": "hold",
+      "artifact_ref": null,
+      "content_digest": null,
+      "compatibility_range": null,
+      "last_verified_release": null,
+      "stale_state": "manual_absent",
+      "coverage": { "pack_ids": [], "procedure_refs": [] },
+      "exercise_receipt_ref": null
+    },
+    {
+      "semantic_role": "manager_training",
+      "state": "hold",
+      "artifact_ref": null,
+      "content_digest": null,
+      "compatibility_range": null,
+      "last_verified_release": null,
+      "stale_state": "manual_absent",
+      "coverage": { "pack_ids": [], "procedure_refs": [] },
+      "exercise_receipt_ref": null
+    }
+  ],
+  "pack_requirements": [
+    {
+      "pack_id": "hpp_server_pack",
+      "required_roles": ["hpp_server_operator"]
+    },
+    {
+      "pack_id": "team_client_pack",
+      "required_roles": ["team_client_install_use_revoke_recovery"]
+    },
+    {
+      "pack_id": "tool_workshop_pack",
+      "required_roles": ["workshop_operator"]
+    },
+    {
+      "pack_id": "project_ai_team_pack",
+      "required_roles": ["agent_mark_deployment_run"]
+    },
+    {
+      "pack_id": "backup_recovery_extension",
+      "required_roles": ["external_connector_backup_restore"]
+    }
+  ],
+  "procedure_mappings": [
+    {
+      "pack_id": "hpp_server_pack",
+      "procedure_ref": "manual.install.hpp_server_pack",
+      "procedure_kind": "install",
+      "semantic_role": "hpp_server_operator"
+    },
+    {
+      "pack_id": "hpp_server_pack",
+      "procedure_ref": "manual.upgrade.hpp_server_pack",
+      "procedure_kind": "upgrade",
+      "semantic_role": "hpp_server_operator"
+    },
+    {
+      "pack_id": "hpp_server_pack",
+      "procedure_ref": "manual.rollback.hpp_server_pack",
+      "procedure_kind": "rollback",
+      "semantic_role": "hpp_server_operator"
+    },
+    {
+      "pack_id": "team_client_pack",
+      "procedure_ref": "manual.install.team_client_pack",
+      "procedure_kind": "install",
+      "semantic_role": "team_client_install_use_revoke_recovery"
+    },
+    {
+      "pack_id": "team_client_pack",
+      "procedure_ref": "manual.upgrade.team_client_pack",
+      "procedure_kind": "upgrade",
+      "semantic_role": "team_client_install_use_revoke_recovery"
+    },
+    {
+      "pack_id": "team_client_pack",
+      "procedure_ref": "manual.rollback.team_client_pack",
+      "procedure_kind": "rollback",
+      "semantic_role": "team_client_install_use_revoke_recovery"
+    },
+    {
+      "pack_id": "tool_workshop_pack",
+      "procedure_ref": "manual.install.tool_workshop_pack",
+      "procedure_kind": "install",
+      "semantic_role": "workshop_operator"
+    },
+    {
+      "pack_id": "tool_workshop_pack",
+      "procedure_ref": "manual.upgrade.tool_workshop_pack",
+      "procedure_kind": "upgrade",
+      "semantic_role": "workshop_operator"
+    },
+    {
+      "pack_id": "tool_workshop_pack",
+      "procedure_ref": "manual.rollback.tool_workshop_pack",
+      "procedure_kind": "rollback",
+      "semantic_role": "workshop_operator"
+    },
+    {
+      "pack_id": "backup_recovery_extension",
+      "procedure_ref": "manual.install.backup_recovery_extension",
+      "procedure_kind": "install",
+      "semantic_role": "external_connector_backup_restore"
+    },
+    {
+      "pack_id": "backup_recovery_extension",
+      "procedure_ref": "manual.upgrade.backup_recovery_extension",
+      "procedure_kind": "upgrade",
+      "semantic_role": "external_connector_backup_restore"
+    },
+    {
+      "pack_id": "backup_recovery_extension",
+      "procedure_ref": "manual.rollback.backup_recovery_extension",
+      "procedure_kind": "rollback",
+      "semantic_role": "external_connector_backup_restore"
+    }
+  ]
+}

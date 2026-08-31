@@ -125,19 +125,19 @@ capability/backlog ownership map이다. portfolio별 exact Product-owned/Shared/
 | M0 | 세계관·Game Skin·현실 authority | 방향 CONFIRMED, 용어 OWNER_DEFERRED |
 | M1 | 세 제품과 의미 있는 이름 | 구조 CONFIRMED, 이름 OWNER_DEFERRED |
 | M2 | 아홉 portfolio의 제3자용 설명 | stable ID·설명 CONFIRMED, 이름 OWNER_DEFERRED |
-| M3 | 제품별 Source Composition·migration | plan VALIDATED, manifests 미구현 |
+| M3 | 제품별 Source Composition·migration | 3 manifests·30 Module 분류 VALIDATED, release/root migration HOLD |
 | M4 | Shared deep Module과 Interface | 원칙 CONFIRMED, 분류 TARGET |
 | M5 | Runtime·Pack·Release | Pack foundation 부분 VALIDATED |
 | M6 | 사람/Bot/ERP 물리 작업면·Buzz Git | 구조 CONFIRMED, private binding 일부 HOLD |
 | M7 | SE variant 기반 `_workspaces` 프로젝트 정본 | generator 존재, variant maturity 차이 |
 | M8 | project `_workmeta`·Ledger 배치 | 원칙 CONFIRMED, stage crosswalk TARGET |
 | M9 | Connector/App 설치·권한·업데이트·제거 | TARGET |
-| M10 | risk/capability 기반 자율실행과 escalation | 방향 CONFIRMED, policy registry TARGET |
-| M11 | Collection/Custody와 NAS Backup/DR | 구분 CONFIRMED, actual DR HOLD |
+| M10 | risk/capability 기반 자율실행과 escalation | OD-11 v0 pure contract VALIDATED, writer/runtime HOLD |
+| M11 | Collection/Custody와 NAS Backup/DR | synthetic canary VALIDATED, actual DR/Human acceptance HOLD |
 | M12 | Owner grant/revoke/STOP UI | TARGET |
 | M13 | Soulforge Operations Console Apps·분석·관제 | foundation 부분, product shell TARGET |
 | M14 | World Tree 고정 I/O seam | TARGET, internal engine OPEN |
-| M15 | Manual-as-Release | catalog 존재, sync validator HOLD |
+| M15 | Manual-as-Release | 16-role catalog·resolver VALIDATED, actual manuals RELEASE_HOLD |
 | M16 | 개발1팀 one-seat/internal RC→pilot | Owner PC one-seat Slice CONFIRMED, 물리 실행 HOLD |
 
 ## Master Layer ID 규칙
@@ -281,14 +281,15 @@ guild_hall/backup_controller/
 Fresh audit 기준:
 
 - Program plan `00`~`17` 존재;
-- enrolled Module manifest 29개;
-- 미등록 `guild_hall` directory 22개;
-- import graph 1,269 files / 2,738 edges / cycle 0;
+- enrolled Module manifest 30개;
+- 미등록 `guild_hall` directory 23개(새 Agent Platform composition-only directory 포함);
+- import graph 1,517 files / 2,752 edges / cycle 0;
 - Pack 종류 5개, tracked Pack spec 4개;
-- 세 제품의 `product.manifest`와 product-first physical root는 아직 없음.
+- 세 제품의 no-move `product.manifest`와 30 Module Product-owned/Shared 분류 존재;
+- product-first physical root와 product release는 아직 없음.
 
-따라서 현재 상태는 `MODULE_AND_PACK_FOUNDATION_DONE /
-PRODUCT_SOURCE_COMPOSITION_NOT_DONE`이다.
+따라서 현재 상태는 `PRODUCT_COMPOSITION_CONTRACT_VALIDATED /
+PRODUCT_RELEASE_AND_PHYSICAL_ROOT_HOLD`다.
 
 PC0~PC6 순서:
 
@@ -531,6 +532,21 @@ Owner policy/grant
 현재 A0~A6/JM 사다리를 재사용한다. 다음은 계속 사람 Gate다: 대외전송·계약·구매·
 예산·보안공개·중대 기술기준·Baseline·최종 기술수락·고위험 Official Done.
 
+OD-11 v0는 A0~A6를 바꾸지 않고 별도 위험·증거 축을 결속한다.
+
+| Risk | 허용 범위 | 최소 증거·기본 한도 |
+| --- | --- | --- |
+| `R0` | A0 read·Shadow, effect 0 | `EV1`, exact scope/ref |
+| `R1` | owned append 또는 candidate-only create | `EV2`, exact owner/scope, 1 effect, 최대 4시간 |
+| `R2` | bounded internal create/update canary | `EV3`, 별도 Human approval, 1 effect, 최대 4시간 |
+| `R3` | foreign mutate·auto-Done·physical dispatch | v0 grant 불가 |
+| `R4` | 외부전송·금전·기준선·최종수락·ACL/credential·파괴·재위임 | policy authoring 자체 거부 |
+
+JM·model·reasoning effort는 권한을 올리거나 내리는 근거가 아니다. Wildcard,
+cross-project widening, evidence self-approval, stale/expired/revoked policy, rate/replay
+우회는 fail-closed다. 이 pure/default-OFF contract는 ERP writer, Bastion runtime,
+Console action을 활성화하지 않는다.
+
 업무 흐름:
 
 ```text
@@ -587,6 +603,11 @@ migration이며 자동 정본 전환이 아니다.
 운영자는 evidence를 만들지만 자기 결과를 단독 수락하지 않는다. 첫 시험에서 실제
 복구시간과 누락량을 측정한 뒤 data class별 RPO/RTO를 결정하며, 그 전에는 수치 SLA나
 NAS recovery-ready를 주장하지 않는다.
+
+현재 public-safe synthetic runner는 temp-only bytes의 create-only backup, full hash
+readback, isolated restore, item/byte parity·gap·elapsed receipt까지 검증한다. 실제 Human
+Owner acceptance pin은 아직 공급되지 않았고, Backup operator self-accept는 구조적으로
+거부된다.
 
 ## M12. Owner 권한 부여·해제 UI
 
@@ -710,9 +731,11 @@ Manual contract 필드:
 Release Gate는 기능/Interface/화면 변경 시 관련 manual mapping과 재검증이 없으면 실패해야 한다.
 신입·기존 팀원·운영자 교육은 같은 manual source에서 audience별 projection을 만든다.
 
-현재 문서 catalog는 16개 manual 역할을 요구하지만 Deployment Pack 코드의
-`RUNBOOK_CATALOG`는 13개다. Path Registry, Target Materializer, 4192 Storage Map manual
-coverage와 실제 manual artifact/digest/version resolver가 없어 `RELEASE_HOLD`다.
+Deployment Pack의 `RUNBOOK_CATALOG`와 tracked catalog는 Plan 16 exact 16-role 순서로
+정합화됐고, pure resolver가 procedure ref를 semantic role·artifact digest·호환범위·
+last-verified release·exercise receipt에 결속한다. 현재 실제 manual artifact가 없으므로
+16개 row 모두 `HOLD/manual_absent`이며 `RELEASE_HOLD`가 유지된다. build_pack integration과
+실제 Markdown/image/HTML/PDF artifact 제작은 후속 Gate다.
 
 ## M16. 개발1팀 주간 출시 목표
 
@@ -786,7 +809,7 @@ physical binding, runtime activation, authority mutation, backup-ready 또는 re
 | 1 | 이름 구조는 stable ID·기능 설명·software brand·fantasy Skin·compatibility handle을 분리. 공식 기능 설명은 `Soulforge Operations Console` | software brand와 세 제품 표시명은 내부 구조 안정 후 naming 단계 |
 | 2 | Monster/Quest/Mission/Boss/Reward 의미를 공식 workflow vocabulary에 결속하지 않고 `OWNER_DEFERRED` | 별도 naming/Game UX 단계 |
 | 3 | 제품별 visible source home + Shared 영역 원칙 확정; 현재 path는 compatibility-first | PC1–PC3 evidence 뒤 PC4에서 exact root spelling/location 결정 |
-| 4 | ERP AuthorityPolicy store sole writer, Bastion validation/enforcement/STOP, Console request/read only | risk/action class taxonomy는 OD-11 `OPEN`; schema 구현과 physical writer activation은 각 Gate 뒤 |
+| 4 | ERP AuthorityPolicy store sole writer, Bastion validation/enforcement/STOP, Console request/read only; OD-11 R0~R4·EV1~EV3 v0 채택 | pure contract만 VALIDATED; policy persistence·writer/runtime/Console activation은 각 Gate 뒤 |
 | 5 | 이번 주 RC는 Owner PC one-seat safe closed loop; Linear auto-write·외부 자동전송·auto Done·team rollout 제외 | one-seat evidence 3–5회와 별도 ring promotion |
 | 6 | `체계개발/LIG 넥스원/A` 신규 프로젝트 우선; 기존 프로젝트는 개별 dry-run·승인 | 다른 variant source 재기준 또는 project별 migration packet |
 | 7 | 합성 restore→Owner 수락, 이후 승인된 저위험 프로젝트→프로젝트 책임자 수락; Backup 운영자 self-accept 금지 | 첫 restore 측정 뒤 RPO/RTO, private evidence 뒤 NAS target/binding |
@@ -807,14 +830,14 @@ secret을 tracked canon에 남기지 않는다.
 | 세계관·불변법칙 | `CONFIRMED`, 명칭/게임 UX `OWNER_DEFERRED` |
 | 세 제품·아홉 portfolio | 구조·설명 `CONFIRMED`, 표시명 `OWNER_DEFERRED` |
 | Module/Pack foundation | `IMPLEMENTED/VALIDATED` 부분, 물리 rollout 아님 |
-| Product Source Composition | plan `VALIDATED`, product.manifest 미구현 |
+| Product Source Composition | 3 product manifests·30 Module classification VALIDATED, release/root migration HOLD |
 | 사람/Bot/ERP 작업면 분리 | contract `CONFIRMED`; 사람 폴더 manual-only, private Bot binding HOLD |
 | SE workspace dynamic tree | 신규 체계개발/LIG/A 우선 CONFIRMED, 다른 variant·기존 migration gated |
 | `_workmeta` mirror/ledger placement | 원칙 CONFIRMED, stage mirror schema TARGET |
-| Connector lifecycle·Authority UI | owner/writer separation CONFIRMED, implementation TARGET |
-| Collection/Backup 구분 | canary/acceptor CONFIRMED, numeric RPO/RTO·NAS physical acceptance HOLD |
+| Connector lifecycle·Authority UI | OD-11 pure contract VALIDATED, ERP/Bastion/Console live integration HOLD |
+| Collection/Backup 구분 | synthetic canary VALIDATED, actual Human acceptance·RPO/RTO·NAS HOLD |
 | World Tree seam | input/output TARGET, internal engine OPEN |
-| Manuals | Markdown+image source/HTML-book projection CONFIRMED, release sync 구현 필요 |
+| Manuals | 16-role resolver VALIDATED, actual artifacts·release sync RELEASE_HOLD |
 | Development Team 1 RC | Owner PC one-seat Slice CONFIRMED, credentials/physical gates HOLD |
 
 ## 상세 owner 문서

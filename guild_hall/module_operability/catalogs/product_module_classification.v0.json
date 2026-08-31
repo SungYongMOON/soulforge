@@ -1,0 +1,316 @@
+{
+  "schema_version": "soulforge.product_module_classification.v0",
+  "catalog_version": "0.1.0",
+  "product_manifest_refs": [
+    "ui-workspace/apps/dev-erp/product.manifest.json",
+    "guild_hall/engineering_engine/product.manifest.json",
+    "guild_hall/agent_platform/product.manifest.json"
+  ],
+  "migration_state": "reference_in_place_no_move",
+  "source_move": false,
+  "source_copy": false,
+  "modules": [
+    {
+      "module_id": "agent_observation",
+      "interface_version": "agent_observation.v0",
+      "module_manifest_ref": "guild_hall/agent_observation/module.manifest.json",
+      "implementation_owner": "guild_hall/agent_observation",
+      "classification": "product_owned",
+      "product_id": "product.agent",
+      "current_caller_module_ids": ["deployment_pack_contract", "dev_erp_task_execution_surface"],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "ai_usage_meter",
+      "interface_version": "ai_usage_meter.v0",
+      "module_manifest_ref": "guild_hall/ai_usage_meter/module.manifest.json",
+      "implementation_owner": "guild_hall/ai_usage_meter",
+      "classification": "product_owned",
+      "product_id": "product.agent",
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "authority_taxonomy_contract",
+      "interface_version": "authority_taxonomy.v0",
+      "module_manifest_ref": "guild_hall/authority_taxonomy/module.manifest.json",
+      "implementation_owner": "guild_hall/authority_taxonomy",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "backup_controller",
+      "interface_version": "backup_controller.v0",
+      "module_manifest_ref": "guild_hall/backup_controller/module.manifest.json",
+      "implementation_owner": "guild_hall/backup_controller",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "bastion_action_gate",
+      "interface_version": "bastion_action.v0",
+      "module_manifest_ref": "guild_hall/bastion_action/module.manifest.json",
+      "implementation_owner": "guild_hall/bastion_action",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "battle_log",
+      "interface_version": "battle_log.v0",
+      "module_manifest_ref": "guild_hall/battle_log/module.manifest.json",
+      "implementation_owner": "guild_hall/battle_log",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "codex_work_directory",
+      "interface_version": "codex_work_directory.v0",
+      "module_manifest_ref": "guild_hall/codex_work_directory/module.manifest.json",
+      "implementation_owner": "guild_hall/codex_work_directory",
+      "classification": "product_owned",
+      "product_id": "product.agent",
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "deployment_pack_contract",
+      "interface_version": "deployment_pack.v0",
+      "module_manifest_ref": "guild_hall/deployment_pack/module.manifest.json",
+      "implementation_owner": "guild_hall/deployment_pack",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "dev_erp_task_execution_surface",
+      "interface_version": "dev_erp_task_execution.v1",
+      "module_manifest_ref": "ui-workspace/apps/dev-erp/module.manifest.json",
+      "implementation_owner": "ui-workspace/apps/dev-erp",
+      "classification": "product_owned",
+      "product_id": "product.erp",
+      "current_caller_module_ids": ["vault_artifact_revision_core"],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "doctor",
+      "interface_version": "doctor.v0",
+      "module_manifest_ref": "guild_hall/doctor/module.manifest.json",
+      "implementation_owner": "guild_hall/doctor",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "engineering_engine",
+      "interface_version": "engineering_engine.v0",
+      "module_manifest_ref": "guild_hall/engineering_engine/module.manifest.json",
+      "implementation_owner": "guild_hall/engineering_engine",
+      "classification": "product_owned",
+      "product_id": "product.engine",
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "engineering_mcp_contract",
+      "interface_version": "engineering_mcp.v0",
+      "module_manifest_ref": "guild_hall/engineering_mcp/module.manifest.json",
+      "implementation_owner": "guild_hall/engineering_mcp",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "file_activity",
+      "interface_version": "file_activity.v1",
+      "module_manifest_ref": "guild_hall/file_activity/module.manifest.json",
+      "implementation_owner": "guild_hall/file_activity",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": ["path_registry"],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "forge_intent_core",
+      "interface_version": "forge_intent.v0",
+      "module_manifest_ref": "guild_hall/forge_intent/module.manifest.json",
+      "implementation_owner": "guild_hall/forge_intent",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "gateway",
+      "interface_version": "gateway.v0",
+      "module_manifest_ref": "guild_hall/gateway/module.manifest.json",
+      "implementation_owner": "guild_hall/gateway",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "ingress",
+      "interface_version": "ingress.v0",
+      "module_manifest_ref": "guild_hall/ingress/module.manifest.json",
+      "implementation_owner": "guild_hall/ingress",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "knowledge_access",
+      "interface_version": "knowledge_access.v0",
+      "module_manifest_ref": "guild_hall/knowledge_access/module.manifest.json",
+      "implementation_owner": "guild_hall/knowledge_access",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "module_operability",
+      "interface_version": "module_operability.v0",
+      "module_manifest_ref": "guild_hall/module_operability/module.manifest.json",
+      "implementation_owner": "guild_hall/module_operability",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "path_registry",
+      "interface_version": "path_registry.v0",
+      "module_manifest_ref": "guild_hall/path_registry/module.manifest.json",
+      "implementation_owner": "guild_hall/path_registry",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": ["team_ops_board"],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "rag",
+      "interface_version": "rag.v0",
+      "module_manifest_ref": "guild_hall/rag/module.manifest.json",
+      "implementation_owner": "guild_hall/rag",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "shared",
+      "interface_version": "shared.v0",
+      "module_manifest_ref": "guild_hall/shared/module.manifest.json",
+      "implementation_owner": "guild_hall/shared",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": ["file_activity", "path_registry"],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "slack_history",
+      "interface_version": "slack_history.v1",
+      "module_manifest_ref": "guild_hall/slack_history/module.manifest.json",
+      "implementation_owner": "guild_hall/slack_history",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": ["path_registry"],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "snapshot",
+      "interface_version": "snapshot.v0",
+      "module_manifest_ref": "guild_hall/snapshot/module.manifest.json",
+      "implementation_owner": "guild_hall/snapshot",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "team_ops_board",
+      "interface_version": "team_ops_board.v0",
+      "module_manifest_ref": "ui-workspace/apps/team-ops-board/module.manifest.json",
+      "implementation_owner": "ui-workspace/apps/team-ops-board",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "tool_workshop_core",
+      "interface_version": "tool_workshop.v0",
+      "module_manifest_ref": "guild_hall/tool_workshop/module.manifest.json",
+      "implementation_owner": "guild_hall/tool_workshop",
+      "classification": "product_owned",
+      "product_id": "product.agent",
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "validate",
+      "interface_version": "validate.v0",
+      "module_manifest_ref": "guild_hall/validate/module.manifest.json",
+      "implementation_owner": "guild_hall/validate",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "vault_artifact_revision_core",
+      "interface_version": "vault_revision.v0",
+      "module_manifest_ref": "guild_hall/vault_revision/module.manifest.json",
+      "implementation_owner": "guild_hall/vault_revision",
+      "classification": "product_owned",
+      "product_id": "product.erp",
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "voice_capture",
+      "interface_version": "voice_capture.v0",
+      "module_manifest_ref": "guild_hall/voice_capture/module.manifest.json",
+      "implementation_owner": "guild_hall/voice_capture",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "watch_panel_contract",
+      "interface_version": "watch_panel.v0",
+      "module_manifest_ref": "guild_hall/watch_panel_contract/module.manifest.json",
+      "implementation_owner": "guild_hall/watch_panel_contract",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": ["path_registry", "team_ops_board"],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "watchtower",
+      "interface_version": "watchtower.v0",
+      "module_manifest_ref": "guild_hall/watchtower/module.manifest.json",
+      "implementation_owner": "guild_hall/watchtower",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    }
+  ],
+  "unresolved_interfaces": [],
+  "authority_notes": "PC1-PC3 check-only classification of the exact currently enrolled Module set. Each row keeps one current implementation owner and one interface pin; product ownership is limited to the seven Owner-directed rows, while every remaining enrolled Module is Shared. Product release, Pack closure, source moves, source copies, and migration activation remain HOLD."
+}

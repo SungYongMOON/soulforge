@@ -129,6 +129,18 @@
       "ui-workspace/apps/dev-erp/static/app.js",
       "ui-workspace/apps/dev-erp/static/index.html",
       "ui-workspace/apps/dev-erp/static/skins/README.md",
+      "ui-workspace/apps/dev-erp/static/skins/dungeons/_p1.png",
+      "ui-workspace/apps/dev-erp/static/skins/dungeons/_p10.png",
+      "ui-workspace/apps/dev-erp/static/skins/dungeons/_p11.png",
+      "ui-workspace/apps/dev-erp/static/skins/dungeons/_p2.png",
+      "ui-workspace/apps/dev-erp/static/skins/dungeons/_p3.png",
+      "ui-workspace/apps/dev-erp/static/skins/dungeons/_p4.png",
+      "ui-workspace/apps/dev-erp/static/skins/dungeons/_p5.png",
+      "ui-workspace/apps/dev-erp/static/skins/dungeons/_p6.png",
+      "ui-workspace/apps/dev-erp/static/skins/dungeons/_p7.png",
+      "ui-workspace/apps/dev-erp/static/skins/dungeons/_p8.png",
+      "ui-workspace/apps/dev-erp/static/skins/dungeons/_p9.png",
+      "ui-workspace/apps/dev-erp/static/skins/main.png",
       "ui-workspace/apps/dev-erp/static/skins/regions/forest.svg",
       "ui-workspace/apps/dev-erp/static/skins/regions/guild.svg",
       "ui-workspace/apps/dev-erp/static/style.css",
@@ -1188,7 +1200,7 @@
     },
     {
       "name": "fast-uri",
-      "version": "3.1.3",
+      "version": "3.1.6",
       "license": "BSD-3-Clause",
       "root": "node_modules/fast-uri"
     },
@@ -1845,10 +1857,10 @@
     "node_modules/fast-uri/LICENSE": "b010b0dfdfdb23d7396e03b82cd4621fc9bb8f95d6b0aea70b9c24e12074c786",
     "node_modules/fast-uri/README.md": "55449f95eb4b7b69f7a97eca943de1e30d7ebcad2e323753e44cf44669133c5f",
     "node_modules/fast-uri/eslint.config.js": "52e3a2601a98f23c954d664ab8de95fddb390789f8b067815e484b010d3da2d0",
-    "node_modules/fast-uri/index.js": "44c999f7f1470664259e3027bf890d0fd7c0c5563c4030bb660c9bdda06568d6",
-    "node_modules/fast-uri/lib/schemes.js": "0f9497f8e43c9b002d79c8a916709daa4ae8a6462735b1b5dc6ad587a28a5064",
-    "node_modules/fast-uri/lib/utils.js": "3394986f9670b821493943faafe5d83ccc15109aba908f1b5dd017e27b0d0ea7",
-    "node_modules/fast-uri/package.json": "1b2be7d3d7da1ae91bc607016f4a3ecb60308c3b84f5e3ee571e8b5b5558e108",
+    "node_modules/fast-uri/index.js": "45b52d2d77365bcc8a41bfac0223482bf73e3bedf7d232027b4b27544f40097b",
+    "node_modules/fast-uri/lib/schemes.js": "c2c61d3fd0bc63a587100928a399e75be8c420d210c439d75f7346da4aa4f3c3",
+    "node_modules/fast-uri/lib/utils.js": "a523a2da0a4cc3354d6d171107ee9af303ba6437d6db228be0a629e9698d1602",
+    "node_modules/fast-uri/package.json": "d62cb9be0a111b42131b264efe1fee4638a5f643ff25fe0bc3627675a9b92a8b",
     "node_modules/fast-uri/tsconfig.json": "6bbba68684f6d6f1613d9ae79de617c25d8d749f30942307faee46a6d2fd721f",
     "node_modules/fast-uri/types/index.d.ts": "84bcc7c6b06f4d643a55dc63b56be0c81d990f8d549b66ea615c553268774dc3",
     "node_modules/fast-uri/types/index.test-d.ts": "ad36147194c3ecfaecf55d75dd22f0b2c6b4ca476d6450cd307dceaf39012b46",
@@ -1914,7 +1926,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/README.md",
-      "sha256": "dd42c4b5d9ccf3232c676661fe3e29ba6cd923c7b0befc94f673e81cca29b089"
+      "sha256": "56edca84b22534066942f595ef0adf61f23c774bd5b18dec68a58f7c0db95f6e"
     },
     {
       "path": "ui-workspace/apps/dev-erp/docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md",

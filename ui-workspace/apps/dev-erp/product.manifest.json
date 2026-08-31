@@ -1,0 +1,60 @@
+{
+  "schema_version": "soulforge.product_manifest.v0",
+  "product_id": "product.erp",
+  "product_version": "0.1.0",
+  "composition_root": "ui-workspace/apps/dev-erp",
+  "composition_mode": "reference_only_no_move",
+  "owned_module_pins": [
+    {
+      "module_id": "dev_erp_task_execution_surface",
+      "interface_version": "dev_erp_task_execution.v1",
+      "module_manifest_ref": "ui-workspace/apps/dev-erp/module.manifest.json"
+    },
+    {
+      "module_id": "vault_artifact_revision_core",
+      "interface_version": "vault_revision.v0",
+      "module_manifest_ref": "guild_hall/vault_revision/module.manifest.json"
+    }
+  ],
+  "shared_module_pins": [],
+  "required_interface_pins": [
+    {
+      "module_id": "agent_observation",
+      "interface_version": "agent_observation.v0",
+      "module_manifest_ref": "guild_hall/agent_observation/module.manifest.json"
+    }
+  ],
+  "unresolved_interface_pins": [],
+  "source_refs": [
+    {
+      "ref": "ui-workspace/apps/dev-erp",
+      "purpose": "composition_root"
+    },
+    {
+      "ref": "guild_hall/vault_revision",
+      "purpose": "owned_module_source"
+    },
+    {
+      "ref": "ui-workspace/apps/dev-erp-mcp",
+      "purpose": "source_ref_only"
+    }
+  ],
+  "entrypoint_refs": [
+    "ui-workspace/apps/dev-erp/src"
+  ],
+  "validator_refs": [
+    "guild_hall/module_operability/tests/product_composition.test.mjs",
+    "guild_hall/module_operability/tools/product_preflight.mjs"
+  ],
+  "pack_state": "HOLD",
+  "pack_refs": [],
+  "release_state": "not_released",
+  "release_refs": [],
+  "migration_state": "reference_in_place_no_move",
+  "source_move": false,
+  "source_copy": false,
+  "rollback_state": "HOLD",
+  "rollback_refs": [],
+  "deprecation_state": "active_no_deprecation",
+  "authority_notes": "No-move ERP composition contract only. dev-ERP and Vault stay at their current owners; dev-erp-mcp is a source reference only, not an enrolled Module pin. Pack, release, migration, rollback proof, deployment, and any source relocation remain HOLD."
+}

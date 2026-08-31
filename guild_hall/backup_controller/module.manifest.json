@@ -1,7 +1,7 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "backup_controller",
-  "module_version": "0.5.0",
+  "module_version": "0.6.0",
   "interface_version": "backup_controller.v0",
   "schema_versions": [
     "soulforge.backup_controller.linear_lb1.snapshot.v2",
@@ -21,7 +21,10 @@
     "soulforge.backup_controller.buzz_backup_generation.result.v0",
     "soulforge.backup_controller.hermes_agent_backup.packet.v1",
     "soulforge.backup_controller.hermes_agent_backup.manifest.v1",
-    "soulforge.backup_controller.hermes_agent_backup.result.v1"
+    "soulforge.backup_controller.hermes_agent_backup.result.v1",
+    "soulforge.backup_controller.synthetic_recovery_canary.fixture.v0",
+    "soulforge.backup_controller.synthetic_recovery_canary.receipt.v0",
+    "soulforge.backup_controller.synthetic_recovery_canary.acceptance.v0"
   ],
   "owner": "guild_hall/backup_controller",
   "capabilities_provided": [
@@ -33,7 +36,9 @@
     "backup.linear_physical_one_shot_create_only.v0",
     "backup.source_generation_restore_contract.v0",
     "backup.buzz_generation_readiness_contract.v0",
-    "backup.hermes_agent_generation_manifest_contract.v1"
+    "backup.hermes_agent_generation_manifest_contract.v1",
+    "backup.synthetic_recovery_canary_runner.v0",
+    "backup.synthetic_recovery_canary_acceptance_seam.v0"
   ],
   "capabilities_required": [],
   "required_dependencies": [],
@@ -62,9 +67,10 @@
     "node --test guild_hall/backup_controller/linear_lb1_physical_one_shot.test.mjs",
     "node --test guild_hall/backup_controller/linear_lb1_v2.test.mjs guild_hall/backup_controller/linear_lb1_owner_gate_v2.test.mjs guild_hall/backup_controller/linear_lb1_one_shot_runner.test.mjs",
     "node --test guild_hall/backup_controller/linear_lb1_runtime_adapters.test.mjs",
-    "npm.cmd run validate:backup-generation-contracts"
+    "npm.cmd run validate:backup-generation-contracts",
+    "npm.cmd run validate:synthetic-recovery-canary"
   ],
   "release_digest": null,
   "deprecation_state": "active",
-  "authority_notes": "Feature-OFF backup composition plus Linear, generic Source, Buzz and Hermes backup-generation contracts. Linear whole-workspace generations carry a deterministic project index covering every catalog project and an unassigned bucket; the index stores refs/counts only, binds the immutable workspace generation, and is restore-checked without duplicating issue bodies. The generic Source binder emits a backup pointer immediately but emits an accepted restore_test only from a separately verified human-acceptance envelope; pending technical restore remains a candidate. Buzz separates Postgres/media/Git/Redis capture, isolated restore, audit, identity recovery and human backup acceptance. Hermes binds Agent Mark/Deployment, runtime/profile, instructions, skills/tools, exact session crosswalk, memory/schedule, backup/restore and acceptance refs while keeping Agent readiness, Task Done and accepted context unevaluated. These public contracts do not grant source, task, artifact, Agent or completion authority. Actual binding, provider bytes, service quiescence, recurring execution and human acceptance remain separate private gates."
+  "authority_notes": "Feature-OFF backup composition plus Linear, generic Source, Buzz and Hermes backup-generation contracts and a public-safe synthetic recovery canary. The canary creates deterministic temp-only bytes, a create-only backup, full hash readback and isolated restore receipt; only a separate out-of-band Human Owner pin with a distinct backup operator can accept that exact technical receipt. It cannot claim NAS, RPO/RTO, recovery-ready or Internal RC. Linear whole-workspace generations retain their deterministic project index, and Buzz/Hermes retain separate custody and acceptance boundaries. These public contracts do not grant source, task, artifact, Agent or completion authority. Actual binding, provider bytes, service quiescence, recurring execution and human acceptance remain separate private gates."
 }

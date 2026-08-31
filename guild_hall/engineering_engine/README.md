@@ -1,5 +1,10 @@
 # guild_hall/engineering_engine
 
+`product.manifest.json` is the no-move `product.engine` composition contract.
+It points to this existing Engine owner and Shared dependencies; it creates no
+new runtime, source copy, release or physical product root. Validate through
+`npm.cmd run validate:product-composition`.
+
 ## Package Architecture & Layout
 
 The Engineering Engine is structured into an orchestration Core, decoupled Domain Engines, and public-safe Engineering Profiles:

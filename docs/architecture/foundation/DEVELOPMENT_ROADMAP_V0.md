@@ -223,6 +223,15 @@ read-only snapshot
   닫았지만, Lane F의 support/rollback evidence와 Plan 12 physical ring gate는 아직
   통과하지 않았다. Team rollout,
   production readiness, live connector write와 NAS recovery-ready 주장은 계속 HOLD다.
+- adjacent Internal RC contract build(2026-09-01): OD-11 pure taxonomy는 기존 A0~A6와
+  별도 R0~R4·EV1~EV3를 결속하고 R3/R4 grant를 거부한다(34 tests, writer/runtime 0).
+  세 no-move product manifests는 enrolled 30 Module을 7 Product-owned/23 Shared로
+  분류한다(4 tests+preflight, release/root migration 0). Manual resolver는 exact 16-role
+  catalog를 고정하지만 실제 artifact가 없어 전 row `HOLD`다(11 tests). Synthetic recovery
+  canary는 temp-only backup/readback/isolated restore와 별도 Human acceptance seam을
+  검증한다(17 tests, actual acceptance/NAS/RPO/RTO 0). Pack specs는 HPP 964,
+  Team Client 216, Backup-Recovery 72 files로 재계산되고 deployment suite 37/37이
+  통과했다. 이는 one-seat physical Gate의 준비 증거이며 설치·RC 수락은 아니다.
 - adjacent Task execution foundation(2026-08-25): 기존 `TaskExecutionCore`/SQLite를
   변경하지 않는 default-OFF in-memory `CandidateExecutionCoordinator` 구조가 exact
   Role/Capability와 actor→agent→Bot→Executor binding, `responsible_ceo_triage`, opaque nested

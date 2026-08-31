@@ -1,5 +1,10 @@
 # dev-erp — 개발팀 운영 콕핏 (P1: 읽기 전용)
 
+`product.manifest.json` is the no-move `product.erp` composition contract. It
+pins the current ERP-owned Modules and Shared Interface dependencies without
+moving source, changing Linear Official Task ownership, activating a writer, or
+claiming a product release. Validate through `npm.cmd run validate:product-composition`.
+
 ## Task Execution Core 최소 POC
 
 `src/task_execution_core.mjs`는 Linear Official Task를 변경하지 않고 합성 fixture에서만

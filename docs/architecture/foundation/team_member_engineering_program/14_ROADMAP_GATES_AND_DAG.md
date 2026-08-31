@@ -40,8 +40,8 @@ RED stabilization semantics: RED-01 is the serial row-0 leaf. RED-02 (topology-o
 | 1 | Plan/canon rebaseline | Owner review of this suite | Accepted draft decision and trace matrix; no runtime change |
 | 1A (next adjacent; non-retroactive) | Physical organization spine | Plan 17 Owner/fresh review, metadata-only inventory, OD-10 owner decisions | Root/Path Registry contract, target materializer, write guard, and 4192 Storage Map; existing payload move 0 |
 | 1B (adjacent plan/review lane) | Ledger Catalog + Event Spine + RAG/mining contract | Existing product/portfolio/physical maps, exhaustive metadata-only ledger/RAG inventory, integrated Ultra/Fable5 findings and fresh corrected-document review | LR0A/LR0B frozen; LR1 may create Catalog contract/rows/validator only; no runtime DB or migration yet |
-| 1C (adjacent productization lane) | Product Composition & Source Ownership Map | Product-family decision, current 29-manifest/4-spec audit, caller graph and no-overlap writer scope | Three no-move `product.manifest` contracts plus complete Product-owned/Shared Module classification; source move/copy/new top-level root 0 |
-| 1D (Owner decision lane; `PARTIAL_CLOSURE_OD11_OPEN`) | Owner Master Map + Fresh Grill | `SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md`, fixed decisions, exact Grill frontier | Twelve answers and explicit deferred/re-entry triggers appended to Plan 00; authority risk/action taxonomy remains OD-11 `OPEN`; implementation 0 |
+| 1C (adjacent productization lane; `CONTRACT_VALIDATED`) | Product Composition & Source Ownership Map | Product-family decision, current 30-manifest/4-spec audit, caller graph and no-overlap writer scope | Three no-move `product.manifest` contracts plus 7 Product-owned/23 Shared exact classification; source move/copy/new top-level root 0, release HOLD |
+| 1D (Owner decision lane; `OD11_V0_CONFIRMED`) | Owner Master Map + Fresh Grill | `SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md`, fixed decisions, exact Grill frontier | Twelve Grill answers plus OD-11 conservative R0–R4/EV1–EV3 v0 recorded; live policy writer/runtime/Console integration 0 |
 | 1E (post-Grill candidate lanes) | Master Map A–F | 1D decision closure, owner/writer map and each lane's remaining evidence Gate | Product composition, SE workspace/metadata, connector/backup, authority/operations UI and manual/internal release may proceed only where prerequisites and write ownership are disjoint; naming remains Owner-deferred |
 | 2 | Engineering MCP contract/schemas | D27–D29 design decisions | Schema/tool compatibility and adversarial synthetic suite |
 | 3 | Vault ArtifactRevision vertical | D27/D29 + exact custody policy | One artifact candidate/review/acceptance synthetic vertical |
@@ -73,10 +73,10 @@ RED stabilization semantics: RED-01 is the serial row-0 leaf. RED-02 (topology-o
 
 Post-Grill lane mapping: `A→Naming/World Skin`, `B→Product Composition`,
 `C→SE Workspace/Metadata`, `D→Connector/Backup`, `E→Authority/Operations UI`,
-`F→Manual/Internal Release`. The twelve Grill answers are closed, but 1D retains
-OD-11 for the risk/action taxonomy. These remain candidate lanes and do not
-supersede the active Roadmap slice. Lane A stays Owner-deferred until the
-naming/Game UX re-entry trigger; Lane E cannot define generic grants before OD-11.
+`F→Manual/Internal Release`. The twelve Grill answers and OD-11 v0 are closed at
+contract level. These remain candidate lanes and do not supersede the active
+Roadmap slice. Lane A stays Owner-deferred until the naming/Game UX re-entry
+trigger; Lane E still cannot activate a writer/runtime without its separate Gates.
 
 ## Ledger/RAG/Process-Mining lane — target sequence
 
@@ -136,13 +136,12 @@ PC0  current source/Module/Pack audit
  → PC6  repeated migration; retire prior path only after caller/readback acceptance
 ```
 
-Current state is `PC0_AUDIT_COMPLETE / PC1_NOT_IMPLEMENTED`. The Owner confirmed
-the long-range product-home+Shared composition principle but not an immediate
-physical path or migration. Overnight work
-created the Module/Pack foundation and program documents, not the three product
-composition manifests or physical product-first roots. PC1 reuses those
-artifacts and must not rebuild them. PC4 is the earliest point where a new
-top-level root spelling/location may be approved; PC0–PC3 move zero source files.
+Current state is `PC1_COMPLETE / PC2_COMPLETE_ENROLLED_30 /
+PC3_CONTRACT_VALIDATED_RELEASE_HOLD / PC4_HOLD`. Three manifests and the dynamic
+catalog classify 7 Product-owned and 23 Shared Modules, with no source move/copy
+and no product release. The Owner confirmed the long-range product-home+Shared
+principle but not an immediate physical path or migration. PC4 is the earliest
+point where a new top-level root spelling/location may be approved.
 
 ## Standing execution delegation
 
@@ -237,8 +236,8 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | Project AI Team Pack admission | DONE `L-PROJECT-AI-TEAM-ADMISSION` (Project Mark authority + four role classes + verified Agent bindings; refs-only future input) | GATED (actual approved inputs; no tracked spec) | GATED | GATED |
 | Candidate execution authority admission | DONE `L-CANDIDATE-AUTH-ADMISSION` (coordinator-native packets + current Agent/assignment/tool/slot binding; execute/claim 0) | — | GATED (durable ledger + actual KVDS binding/runtime) | GATED |
 | Tool workshop | DONE `L-WORKSHOP-CORE` | DONE `L-PACK-BUILDER` (4-file pack, install+smoke green) | GATED (물리 Tool PC·runner) | GATED |
-| Deployment pack (contract·builder·spec 4종/5종 중 project_ai_team만 외부 gate) | DONE `L-PACK-CONTRACT` | current Backup-Recovery **66/21/pin19**, hpp **952/93/pin67**, team_client **216/78/732**; project_ai_team spec은 actual approved input 전 absent | — | GATED |
-| Module operability gate (manifest·의존·cycle·preflight) | DONE `L-MODOP-GATE` (current **29 manifest**, dev-ERP Task Execution surface 포함, import scan 1,269파일/2,738 edge·cycle 0; 잔여 22 dir) | n/a | — | — |
+| Deployment pack (contract·builder·spec 4종/5종 중 project_ai_team만 외부 gate) | DONE `L-PACK-CONTRACT` | current Backup-Recovery **72/24/pin19**, hpp **964/93/pin67**, team_client **216/78/732**; project_ai_team spec은 actual approved input 전 absent | — | GATED |
+| Module operability gate (manifest·의존·cycle·preflight) | DONE `L-MODOP-GATE` (current **30 manifest**, authority taxonomy 포함, import scan 1,517파일/2,752 edge·cycle 0; 잔여 23 dir 중 Agent Platform은 composition-only) | n/a | — | — |
 | Cross-module integration (plan-13 module-integration rung) | DONE `L-DOGFOOD-INT`,`L-KVDS-FULL-CONTRACT` (public-safe synthetic, actual effects 0) | — | GATED (actual accepted KVDS context·Linear writer·Hermes runtime·artifact custody·human acceptance) | GATED |
 | Physical spine (plan-17 R1–R5 contracts) | DONE `L-PHYS-SPINE`,`L-PHYS-SPINE-HARDEN`,`L-SOURCE-LANE-LEDGER`,`L-ASSET-CLASS-LEDGER` + source adapters (seed 41행; ERP `_workspaces`/Bot work root 분리) | — | GATED (private binding/record writer·canary readback·enforcement·actual backup/restore) | GATED |
 | dev-ERP host gates | DONE `L-DEVERP-HOST-RED` + PATH 실행파일 전면 고정 (합성 아님 — 실 host 스위트 green; whoami에 이어 git(부팅 buildSeq 포함)·where·taskkill·cmd·python까지 System32 절대경로/`DEV_ERP_GIT_EXE`·`DEV_ERP_PYTHON` pin/resolver로 고정, where 자체 cwd도 System32로 중립화 — **server·worker·bridge 프로세스의 PATH 해석 잔존 0**; 예외 장부=dev CLI 유틸(doctor·verify-gate·probe·se-report·release-audit·payload-backup)과 ops 런처 ps1의 node 해석(서버 프로세스 밖, CHANGELOG에 명시); 이 lane만 이 칸을 host-gate 증거로 사용) | (hpp pack로 포장됨) | 기존 운영면(본 프로그램 범위 밖) | — |
@@ -318,6 +317,10 @@ Maturity states are DISJOINT claims and nothing above a proven state is implied:
 | `validate:watch-panel-board` | 11 | strip view-model 6 + 공급자 5(storage-map overlay 포함, 실 R3 계약 출력에 결속) |
 | `validate:integration-dogfood` | 5 | 기존 cross-module 체인 4 + KVDS-shaped 전체 계약 canary 1 |
 | `validate:module-operability` | 8 | manifest 스키마·의존·cycle-0 고정·hermes coarse 경계 + preflight receipt |
+| `validate:product-composition` | 4 + preflight | 3 products·30 Modules exact set·7 owned/23 Shared·no-move/not-released |
+| `validate:authority-taxonomy` | 34 | A/JM/R/EV 분리·R3/R4 거부·scope/evidence/rate/expiry/replay/STOP |
+| `validate:manual-release` | 11 | 16-role exact catalog·resolver·missing/stale/digest/version/exercise HOLD |
+| `validate:synthetic-recovery-canary` | 17 | temp-only backup/readback/restore·parity/gap·distinct Human acceptance seam |
 | `validate:path-registry` | 17 | R1 계약: multi-axis 스키마·seed 41행(source 12 + asset class 9 + Bot work root 1 포함)·ERP `_workspaces`/Bot work root 분리·absolute-path 거부·resolver HOLD 전종·write-guard 매트릭스·updateRecord gate·sub-second/impossible clock 거부·topology 신원 중복·OD-10 fails-closed |
 | `validate:target-materializer` | 10 | R2: canary 승인 gate(HOLD)·registry-driven source lane·dry-run/apply·멱등 replay·foreign payload/hostile root 거부·authenticated plan/receipt·partial-apply recovery·rollback은 빈 self-created 디렉터리만 |
 | `validate:watch-storage-map` | 11 | R3: 기존-노드 backup-readiness overlay·snapshot digest 재계산·safe evidence ref·OD-10 sentinel 전행 HOLD·전행 커버리지·상태 우선순위·N/A·writer/raw/path 금지·drift HOLD |

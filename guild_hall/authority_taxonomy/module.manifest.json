@@ -1,0 +1,43 @@
+{
+  "schema_version": "soulforge.module_manifest.v0",
+  "module_id": "authority_taxonomy_contract",
+  "module_version": "0.1.0",
+  "interface_version": "authority_taxonomy.v0",
+  "schema_versions": [
+    "soulforge.authority_taxonomy.v0",
+    "soulforge.authority_taxonomy.admission_request.v0",
+    "soulforge.authority_taxonomy.admission_receipt.v0",
+    "soulforge.authority_taxonomy.current_state.v0",
+    "soulforge.authority_taxonomy.human_approval.v0",
+    "soulforge.authority_taxonomy.replay_rate_guard.v0",
+    "soulforge.authority_taxonomy.stop_deny.v0"
+  ],
+  "owner": "guild_hall/authority_taxonomy",
+  "capabilities_provided": [
+    "authority.action_risk_evidence_taxonomy.v0",
+    "authority.contract_admission_receipt.v0",
+    "authority.stop_subtractive_deny.v0"
+  ],
+  "capabilities_required": [],
+  "required_dependencies": [],
+  "optional_dependencies": [],
+  "compatible_version_ranges": { "node": ">=20" },
+  "startup_order": null,
+  "feature_flag": null,
+  "default_state": "pure_default_off_contract_only_no_persistence",
+  "health_probe": null,
+  "readiness_probe": null,
+  "config_refs": [],
+  "secret_refs": [],
+  "data_owner": "none_in_memory_only",
+  "backup_class": "not_applicable_no_persistence",
+  "migration_version": null,
+  "rollback_version": "git_revert_of_this_module_only",
+  "validators": [
+    "node --check guild_hall/authority_taxonomy/src/authority_taxonomy.mjs",
+    "node --test guild_hall/authority_taxonomy/tests/authority_taxonomy.test.mjs"
+  ],
+  "release_digest": null,
+  "deprecation_state": "active_draft",
+  "authority_notes": "Pure default-OFF taxonomy and admission-receipt contract only. A0-A6 action authority, R0-R4 risk, EV1-EV3 evidence, and exact action/scope are independently bound. R3 is non-grantable and R4 authoring is unrepresentable/refused. JM/model/effort cannot grant authority. STOP is subtract-only. The module has no policy writer, clock, persistence, ERP/Bastion/Console/runtime/action port, or external effect; an ADMISSION_CANDIDATE grants no authority and performs no effect."
+}

@@ -160,7 +160,9 @@ export function validateRingPromotion(candidate) {
   return { ok: problems.length === 0, problems };
 }
 
-// Plan-16 runbook catalog (13 manuals) and the per-runbook required fields.
+// Plan-16 semantic runbook catalog (16 roles) and the per-runbook required
+// fields.  The three physical-spine roles sit before the training projections,
+// exactly as they do in the owner catalog.
 export const RUNBOOK_CATALOG = Object.freeze([
   "hpp_server_operator",
   "team_client_install_use_revoke_recovery",
@@ -172,6 +174,9 @@ export const RUNBOOK_CATALOG = Object.freeze([
   "watch_4192_incident_response",
   "external_connector_backup_restore",
   "workshop_operator",
+  "path_registry_resolver",
+  "target_folder_materializer",
+  "watch_4192_storage_backup_map",
   "new_hire_training",
   "experienced_hire_training",
   "manager_training",

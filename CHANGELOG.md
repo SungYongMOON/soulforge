@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-09-01 - Internal RC contract foundations are implemented in parallel
+
+- Closed OD-11 at contract level with a pure/default-OFF authority taxonomy that preserves A0–A6, separates R0–R4 and EV1–EV3, limits R1/R2 to one exact effect within four hours, requires separate Human approval for R2, and structurally refuses R3 grants and R4 authoring. No ERP writer, Bastion runtime or Console mutation was activated.
+- Added three no-move product manifests and a check-only product preflight covering the exact enrolled set: 30 Modules, 7 Product-owned and 23 Shared, with source move/copy false and release/root migration held.
+- Reconciled the Deployment Pack runbook catalog to all 16 Plan-16 roles and added a pure manual-release resolver. Every tracked role remains `HOLD/manual_absent`; no manual or release readiness was fabricated.
+- Added a temp-only synthetic recovery canary and separate Human Owner acceptance seam covering create-only backup, full hash readback, isolated restore, parity/gap/elapsed receipts and self-accept/replay/corruption/path guards. Actual acceptance, NAS, RPO/RTO and recovery-ready remain held.
+- Restored the lockfile dependency environment, upgraded vulnerable transitive `fast-uri` from 3.1.3 to 3.1.6 without force, and reached zero `npm audit` vulnerabilities. Re-emitted tracked specs: HPP 964 files/93 smoke/pin67, Team Client 216/78/pin19, Backup-Recovery 72/24/pin19; deployment tests pass 37/37.
+- Registered focused root-gate validators for authority taxonomy, product composition, manual release and synthetic recovery canary. Existing unrelated `.gitignore` and `signoise.run/` working state was preserved.
+
 ## 2026-08-31 - Owner Fresh Grill decisions are recorded as a review candidate
 
 - Separated Plan 00 decision states so settled, deferred, measurement-held, physical-held and open rows cannot be reinterpreted as one unresolved gate; clarified that ERP alone writes canonical AuthorityPolicy while Bastion validates/enforces and the Console only requests/displays receipts.

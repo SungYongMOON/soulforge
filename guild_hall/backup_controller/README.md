@@ -7,6 +7,19 @@ disable, and restore only the exact Windows tasks pinned by a private
 SHA-256-bound sidecar. The hourly tick API remains available for compatibility
 and still dispatches at most one stage.
 
+## Synthetic recovery canary v0
+
+`synthetic_recovery_canary_{fixture,runner,acceptance}.mjs` is a public-safe,
+temp-only pre-physical proof. It generates deterministic synthetic bytes below
+the OS temporary root, creates one create-only backup generation, performs full
+manifest/hash readback and an isolated restore, then reports item/byte parity,
+gap and elapsed time without copying payload bytes into the receipt. A separate
+out-of-band Human Owner acceptance pin must bind the exact technical receipt;
+the backup operator cannot self-accept, and replay/conflict/expiry/revocation
+fail closed. A green result means only `synthetic restore canary accepted`. It
+does not prove NAS readiness, numeric RPO/RTO, real-project recovery or Internal
+RC acceptance.
+
 ## Authority boundary
 
 - A daily automation invocation accepts exactly one argument:

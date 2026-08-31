@@ -193,25 +193,25 @@ source-local and project-local ledgers remain reference-in-place.
 
 ## Product source-composition audit — 2026-08-31
 
-The overnight Fable5 build completed substantial Module, Pack and program work,
-but it did not create the three product source-composition roots proposed in the
-later Owner review.
+The initial overnight build completed substantial Module, Pack and program work.
+The later Internal RC contract slice added no-move product composition without
+creating or moving physical product roots.
 
-| Surface | Fresh observation at `main@af8f0323` | Productization meaning |
+| Surface | Current observed contract state | Productization meaning |
 | --- | --- | --- |
 | Program plan | documents `00` through `17` exist | whole-system architecture and gates are documented |
-| Module manifests | 29 tracked `module.manifest.json` files | Module owner/dependency/validator metadata exists for the enrolled set |
-| Unenrolled `guild_hall` directories | 22 reported by operability preflight | not every source directory is enrolled as a Module |
-| Import graph | 1,269 files / 2,738 edges / cycle 0 | current enrolled source dependencies are mechanically cycle-free |
+| Module manifests | 30 tracked `module.manifest.json` files | enrolled set includes the pure OD-11 authority taxonomy |
+| Unenrolled `guild_hall` directories | 23 reported by operability preflight | not every source directory is enrolled; Agent Platform is composition-only |
+| Import graph | 1,517 files / 2,752 edges / cycle 0 | current enrolled source dependencies are mechanically cycle-free |
 | Pack catalog | five Pack kinds defined | packaging contract exists |
 | Tracked Pack specs | four: HPP Server, Team Client, Tool Workshop, Backup-Recovery | Project AI Team Pack remains gated/absent |
 | Product roots | ERP is partially concentrated at `ui-workspace/apps/dev-erp`; Engine at `guild_hall/engineering_engine`; Agent Platform source remains distributed | product release/composition ownership is uneven |
-| `product.manifest` | none observed | no three-product composition manifest, product dependency closure or product release digest exists |
+| `product.manifest` | three no-move manifests; exact catalog = 7 Product-owned + 23 Shared | composition contract exists; release digest and physical migration do not |
 | `products/` or equivalent product source root | absent | no physical product-first source migration was performed |
 
-Therefore the overnight work is `MODULE_AND_PACK_FOUNDATION_DONE`, not
-`PRODUCT_SOURCE_COMPOSITION_DONE`. Recreating the completed Module/Pack work is
-prohibited; the next source-organization slice must classify and compose the
+Therefore the current ceiling is `PRODUCT_COMPOSITION_CONTRACT_VALIDATED /
+PRODUCT_RELEASE_AND_PHYSICAL_ROOT_HOLD`. Recreating the completed Module/Pack
+work is prohibited; the next source-organization slice must deepen and release
 existing owners without copying source or moving files first.
 
 ## Related plans
