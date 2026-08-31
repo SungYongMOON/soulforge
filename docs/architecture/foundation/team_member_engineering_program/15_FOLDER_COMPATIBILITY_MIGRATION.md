@@ -13,7 +13,12 @@ This document uses stable physical aliases instead of publishing host-local abso
 | `data_plane` | Separate existing folders for backups, configuration, ingress, ingress-MCP, manifests, quarantine, runtime, secrets, state, and timeline | Runtime/custody data owner; secrets are excluded from plan inspection/copy. |
 | `control_plane` | Separate backup, history, ingress, local-activity, mail, rollback, tools, voice-label, and Watch control surfaces | Protected controller/config/receipt owner, distinct from data and checkout. |
 | `buzz_runtime` | Existing backup, data, installer, log, runtime, server, and source surfaces | Buzz-native operational owner; deep collaboration data stays source-local. |
+| `human_work_root` | Existing person-managed project hierarchy outside Soulforge | Manual-only human work surface; not monitored, canonical, or nested under `soulforge_root`. |
 | `bot_worktree` | Existing `COMMON`, `MFG`, `PJT`, and `TOOL` hierarchy | Mutable Agent work surface under `project_work_root`; not `_workspaces`, ERP canon, or a second Official Task SoR. |
+
+`human_work_root` and `bot_worktree`/`project_work_root` are physical siblings of
+the Soulforge installation, not descendants of its source, runtime, data, or
+control roots. Exact local paths remain in the private physical-root inventory.
 
 ### Existing project-Bot compatibility semantics
 

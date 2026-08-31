@@ -219,6 +219,13 @@ Official Done Gate와의 관계를 다시 설계한다.
 | `product.engine` | Soulforge Engineering Engine | 체계공학·품질·안전·PCB·조달 등 결정론 판단 | `OWNER_DEFERRED` |
 | `product.agent` | Soulforge Agent Platform | AI 조직·Agent·Hermes·Buzz·MCP·Tool Workshop | `OWNER_DEFERRED` |
 
+제품 수는 이 세 개다. `sf-p01`~`sf-p09` Portfolio, Operations Console,
+Context World Tree, Shared Candidate Intake, Universal Client, Connector,
+Tool Workshop, Backup/Recovery는 별도 제품으로 재분류하지 않는다. Context World
+Tree와 Knowledge Asset 관리는 ERP 내부 기능이며, Engineering Engine은 지식의 공학
+평가를, Agent Platform은 승인된 실행을 소유한다. Portfolio·App·Module·Pack을 제품
+폴더로 승격해 제품 수를 늘리는 해석은 금지한다.
+
 `4192`는 compatibility/runtime handle이다. 공식 기능 설명은
 `Soulforge Operations Console`로 확정했고, 사람이 기억하고 부를 소프트웨어 브랜드명은
 `OWNER_DEFERRED`다. 소개 구조는 `[소프트웨어명] — Soulforge Operations Console`이다.
@@ -249,6 +256,10 @@ label을 함께 제공한다.
 | `sf-p07` | CAD·PCB·문서·시험 등 전문 Tool 자원을 운영 | Tool Workshops | Artisan District |
 | `sf-p08` | identity·권한·custody·backup·restore를 보호 | Platform, Security & Recovery | Bastion |
 | `sf-p09` | 설치·업데이트·교육·지원·조직 확산을 운영 | Deployment, Training & Adoption | Academy |
+
+`sf-p01`~`sf-p07`은 사람이 인식하는 일곱 핵심 기능영역이고, `sf-p08`~`sf-p09`는
+전 영역을 지탱하는 보호·복구와 배포·교육 지원영역이다. 아홉 행 모두 Portfolio이며
+제품·독립 소프트웨어·최상위 source root의 개수를 뜻하지 않는다.
 
 최종 한국어/영어/판타지 이름은 `OWNER_DEFERRED`다. 설명 문장과 stable ID는 유지하고,
 내부 구조가 안정된 뒤 별도 naming 단계에서 표시명만 결정한다. 그 전에는 초안 이름을
@@ -368,6 +379,11 @@ bot_work_root                 Bot 작업·cache·outbox surface
 _workspaces                   ERP/Vault canonical file materialization
 _workmeta                     project/system metadata ledger
 ```
+
+`human_work_root`와 `bot_work_root`는 둘 다 `soulforge_root` 바깥의 독립 물리
+작업면이다. Soulforge source/runtime/data/control 하위에 만들지 않으며,
+`_workspaces`·`_workmeta`와도 합치지 않는다. 정확한 host-local 경로는 private
+physical-root inventory가 소유한다.
 
 현재 host-local physical values는 private binding에서만 관리한다. `bot_work_root`는
 등록된 Bot 실행영역 alias로 표현하고 public 문서에 drive path를 고정하지 않는다.

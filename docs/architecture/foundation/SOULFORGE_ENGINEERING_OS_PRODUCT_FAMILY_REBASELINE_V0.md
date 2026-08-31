@@ -72,6 +72,11 @@ Soulforge Engineering OS
    └─ Agent Family·Mark·Deployment·Run과 MCP·runtime·협업 Adapter를 다루는 실행 제품
 ```
 
+이 세 행만 제품이다. 아래 Portfolio와 `Context World Tree`, Operations Console,
+Universal Client, Shared Candidate Intake, Connector, Tool Workshop,
+Backup/Recovery는 ERP·Engine·Agent Platform 또는 Shared plane의 App·Module·Pack이며
+별도 제품 source root를 만들지 않는다.
+
 세 제품은 상하 대체관계가 아니다. ERP가 기록과 자산을 소유하고, Engineering Engine이
 read-only 판단을 제공하며, Agent Platform이 승인된 Work Unit을 실행한다.
 
@@ -546,6 +551,9 @@ Soulforge Portfolio (logical only)
 ├─ SF-P08  Platform, Security & Recovery
 └─ SF-P09  Deployment, Training & Adoption
 ```
+
+P01~P07은 핵심 기능영역, P08~P09는 공통 지원영역이다. 이 아홉 Portfolio는
+세 제품을 가로지르는 관리 단위이며 제품 수나 독립 설치 소프트웨어 수가 아니다.
 
 | ID | 업무형 이름 후보 | 판타지 label 후보 | 포함 범위 |
 | --- | --- | --- | --- |

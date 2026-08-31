@@ -2,6 +2,7 @@
 
 ## 2026-09-01 - Internal RC contract foundations are implemented in parallel
 
+- Reaffirmed the original product boundary after Owner correction: three products only; ERP retains Knowledge Assets and Context World Tree, P01–P07 are core portfolios, P08–P09 are support portfolios, and Portfolio/App/Module/Pack labels must not become extra product roots. Human and Bot work roots are external physical siblings of Soulforge; exact local paths are recorded only in private metadata.
 - Rebased the physical target after Owner correction: the current high-performance PC is the Main Node and future Owner/team Windows PCs receive identical Universal Client bytes. Added a seven-Cell Main Node profile, check-only R7 relocation chain, shared deployment Doctor, and same-binary capability/outbox/no-reboot Client core.
 - Replaced the mislabeled 216-file 4192 Board `team_client_pack` closure with a 19-file Universal Client `0.2.0` source Pack; 4192 stays on the Main Node. The Pack now imports a self-contained mTLS/MCP transport bundle, native ERP client, Doctor and local-outbox surfaces in installed smoke and carries a durable WorkSession outbox. Enrolled the Client as the eighth product-owned Module (31 total, 23 Shared).
 - Enforced `reboot: forbidden` in every Pack and removed the dev-ERP watchdog's last-resort Windows reboot interface. The HPP `0.1.1` Pack now carries Voice, Ingress and Local Activity runtime entrypoints plus their data closure: 1,018 files, 93 installed smoke entries and 72 reviewed pins.

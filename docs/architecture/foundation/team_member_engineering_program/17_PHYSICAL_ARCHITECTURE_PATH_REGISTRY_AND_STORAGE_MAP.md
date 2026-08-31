@@ -227,6 +227,19 @@ runtime, project payload, knowledge, Ledger, backup and external owners without
 claiming that target-only folders already exist. Existing paths stay in place;
 the indented product groups are catalog/release views, not a move instruction.
 
+The view is logical, not containment. Physical work roots are siblings:
+
+```text
+host storage
+├─ soulforge_root/                 # source/runtime/data/control/canon
+├─ human_work_root/                # person-managed work; outside Soulforge
+└─ project_work_root/              # Bot work; outside Soulforge
+   └─ workroot.bot_execution/
+```
+
+Only reviewed/accepted results cross from either external work root into ERP
+`_workspaces`; compact run/binding receipts cross into `_workmeta`.
+
 ```text
 Soulforge Engineering OS
 ├─ source_checkout/                                  # public code, canon, contracts
@@ -289,7 +302,6 @@ Soulforge Engineering OS
 │  ├─ system/
 │  │  ├─ rag/                                       # common metadata projections
 │  │  └─ analytics/                                 # approved cross-project derivatives only
-│  └─ _local/<node_id>/                             # PC-local scratch/cache, not canonical
 ├─ project_work_root/                               # mutable Agent work surface, never ERP canon
 │  └─ workroot.bot_execution/
 │     ├─ COMMON/  MFG/  PJT/  TOOL/
@@ -309,6 +321,10 @@ Soulforge Engineering OS
 │  └─ original ACL, retention, legal hold and source-local history
 └─ secret_owner_root/                                # TARGET/VERIFY_PHYSICAL, secret_ref only
 ```
+
+An existing `_workspaces/_local` child is legacy/unclassified state, not a target
+work root. New human or Bot scratch/cache/outbox material must not be created
+under `_workspaces`.
 
 The portfolio overlay is stable across this tree:
 

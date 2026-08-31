@@ -143,10 +143,10 @@ _workspaces/
 ```
 
 - public repo 에서는 `_workspaces/README.md` 만 추적한다.
-- `_workspaces/<project_code>/` 는 local/private project worksite 로만 materialize 한다.
+- `_workspaces/<project_code>/` 는 ERP/Vault가 관리하는 프로젝트 정본 원자료·파일 revision의 local/private materialization 주소다. 사람·Bot의 자유 작업폴더가 아니다.
 - `_workspaces` 는 더 이상 cross-project ingress root 를 두지 않는다.
 - assigned execution plan owner 는 `_workspaces/` 나 `_workmeta/` 가 아니라 `.mission/` 이 소유한다.
-- raw execution truth와 artifact의 owner는 `_workspaces/<project_code>/...`, `_workspaces/_local/<node_id>/...` 또는 owner-approved worksite다. `_workmeta/<project_code>/runs/<run_id>/`는 compact execution metadata owner다.
+- raw execution truth와 검토 전 작업물은 Soulforge 바깥의 `human_work_root` 또는 `bot_work_root`가 소유한다. 검토·custody·revision Gate를 통과한 프로젝트 원자료와 산출 revision만 `_workspaces/<project_code>/...`에 materialize하며, `_workmeta/<project_code>/runs/<run_id>/`는 compact execution metadata만 소유한다.
 - project-side monster record owner 는 `_workmeta/<project_code>/monsters/` 다.
 - `dungeons/`, `analytics/`, `nightly_healing/`, `reports/`, `log/`, `artifacts/` 도 public tracking 대상이 아니다.
 - tracked workspace sample 이 필요하면 `_workspaces/` 아래가 아니라 `docs/architecture/workspace/examples/` 아래에 둔다.
@@ -200,6 +200,6 @@ _workmeta/
 - `guild_hall/state/**` 는 local-only state 이다.
 - project candidate root 는 `_workspaces/<project_code>/` direct child 구조를 사용한다.
 - project-side monster record 는 `_workmeta/<project_code>/monsters/` 아래에 둔다.
-- raw execution truth와 artifact는 workspace/worksite에 두고, `_workmeta/<project_code>/runs/<run_id>/`에는 pointer, hash, status와 compact receipt만 둔다.
+- raw execution truth와 검토 전 작업물은 외부 사람/Bot work root에 두고, ERP가 관리하는 프로젝트 원자료·revision만 `_workspaces`에 materialize한다. `_workmeta/<project_code>/runs/<run_id>/`에는 pointer, hash, status와 compact receipt만 둔다.
 - `.run/` 루트는 새 정본에 포함하지 않는다.
 - public repo 에서는 `_workspaces/README.md` 만 추적한다.
