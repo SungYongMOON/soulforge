@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-31 - Product composition and source ownership are re-audited
+
+- Recorded the Owner target that ERP, Engineering Engine and Agent Platform each need a visible product source composition while shared Modules retain one owner and one Implementation behind versioned Interfaces.
+- Re-audited the overnight build at `main@af8f0323`: plans 00–17, 29 enrolled Module manifests, five Pack contracts/four tracked Pack specs and a cycle-free 1,269-file/2,738-edge import graph exist. No three-product `product.manifest`, `products/` root or physical product-first source migration exists.
+- Added the PC0–PC6 no-big-bang plan: first compose existing paths through three product manifests, then classify Product-owned versus Shared Modules, add product integration/release gates, obtain a separate root decision, and move at most one Module at a time with compatibility and rollback evidence. No source file, product root, Pack or runtime was created or moved.
+- Re-emitted the existing Team Client Pack specification after the program-document delta changed its calculated source closure; it remains 216 files with 19 reviewed pins and the full Deployment Pack validator passes 37/37.
+
 ## 2026-08-31 - Buzz operating surfaces and Project Git Evidence Intake are bounded
 
 - Defined Channel/DM as instruction and collaboration source, Pulse as important-status projection, Project as project/access scope, and Project Git as a source-local Agent Evidence submission surface rather than a new task or acceptance truth owner.

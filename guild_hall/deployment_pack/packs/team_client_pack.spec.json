@@ -420,7 +420,7 @@
     },
     {
       "path": "guild_hall/path_registry/src/storage_map_projection.mjs",
-      "sha256": "16102574c8b85b4082471b161869eec309a0b284e769be79cd135a2e94ab0ab3"
+      "sha256": "2129ea95500b01cc51a65ce9193a18d489435dfd7308861920c9f1aead32210c"
     },
     {
       "path": "guild_hall/watch_panel_contract/src/watch_panel_contract.mjs",
