@@ -35,6 +35,8 @@ test("루트 게이트: 앱 테스트 스텝이 validate·done-check 양 모드�
     ['"manual-release"', "npm run validate:manual-release"],
     ['"manual-projection"', "npm run validate:manual-projection"],
     ['"internal-rc-prephysical"', "npm run validate:internal-rc-prephysical"],
+    ['"main-node-deployment"', "npm run validate:main-node-deployment"],
+    ['"universal-client"', "npm run validate:universal-client"],
     ['"dev-erp-mcp"', "npm run validate:dev-erp-mcp"],
     ['"codex-work-directory"', "npm run validate:codex-work-directory"],
     ['"engineering-engine-ax-se-project-assessment"',

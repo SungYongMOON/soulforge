@@ -41,7 +41,13 @@ const appEntrypoints = [
   ...listFiles(`${APP}/tools`, ".mjs"),
   ...listFiles(`${APP}/test`, ".test.mjs"),
 ];
-const closure = moduleClosure(appEntrypoints);
+const operationalEntrypoints = [
+  "guild_hall/ingress/continuous_supervisor_cli.mjs",
+  "guild_hall/local_activity/cli.mjs",
+  "guild_hall/local_activity/store_validity_cli.mjs",
+  "guild_hall/voice_capture/continuous_label_supervisor_cli.mjs",
+];
+const closure = moduleClosure([...appEntrypoints, ...operationalEntrypoints]);
 const appCode = closure.filter((rel) => rel.startsWith(`${APP}/`) && !rel.startsWith(`${APP}/test/`));
 const sharedCode = closure.filter((rel) => !rel.startsWith(`${APP}/`));
 
@@ -100,6 +106,10 @@ const vendoredPackages = VENDORED_PACKAGE_ROOTS.map((relRoot) => {
 
 const dataReads = [
   ...listFiles(`${APP}/docs/contracts`, ".schema.json"),
+  ...listFiles("guild_hall/ingress", ".schema.json"),
+  ...listFiles("guild_hall/local_activity", ".schema.json"),
+  ...listFiles("guild_hall/shared", ".schema.json"),
+  ...listFiles("guild_hall/voice_capture", ".schema.json"),
   `${APP}/manual/manual_faq.json`,
   `${APP}/tools/project_history_copy_windows_path_lock.ps1`,
   `${APP}/ops/register-dev-erp-scheduled-task.ps1`,
@@ -135,6 +145,14 @@ const contentRoles = {
     "ui-workspace/apps/dev-erp/ops/install-dev-erp-nssm.ps1",
     "ui-workspace/apps/dev-erp/ops/configure-dev-erp-codex-nssm.ps1",
     "ui-workspace/apps/dev-erp/start-windows.bat",
+    "guild_hall/ingress/ops/register-continuous-ingress-supervisor-task.ps1",
+    "guild_hall/ingress/ops/run-continuous-ingress-supervisor.ps1",
+    "guild_hall/local_activity/ops/register-hpp-local-activity-task.ps1",
+    "guild_hall/local_activity/ops/run-hpp-local-activity-hidden.vbs",
+    "guild_hall/local_activity/ops/run-hpp-local-activity.ps1",
+    "guild_hall/voice_capture/ops/register-continuous-label-supervisor-task.ps1",
+    "guild_hall/voice_capture/ops/run-continuous-label-supervisor-hidden.vbs",
+    "guild_hall/voice_capture/ops/run-continuous-label-supervisor.ps1",
   ],
   manifests: ["ui-workspace/apps/dev-erp/package.json"],
   operator_docs: [
@@ -161,7 +179,13 @@ reviewed.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 const spec = {
   schema: "soulforge.deployment_pack_spec.v0",
   pack_id: "hpp_server_pack",
-  version: "0.1.0",
+  version: "0.1.1",
+  host_effect_policy: {
+    reboot: "forbidden",
+    driver_change: "forbidden",
+    system_update: "forbidden",
+    service_restart_scope: "pack_services_only",
+  },
   content_roles: contentRoles,
   // dev-erp's suite assumes its app directory as cwd; entries are explicit
   // files relative to it (node --test does not discover positional dirs).
@@ -174,7 +198,7 @@ const spec = {
     .map((entry) => entry.replace("ui-workspace/apps/dev-erp/", ""))
     .filter((entry) => !INSTALLED_SMOKE_EXCLUDED.some((exclusion) => exclusion.path === entry)),
   installed_smoke_excluded: INSTALLED_SMOKE_EXCLUDED,
-  release_notes_ref: "release_notes.hpp_server_pack.v0_1_0",
+  release_notes_ref: "release_notes.hpp_server_pack.v0_1_1",
   install_manual_ref: "manual.install.hpp_server_pack",
   upgrade_manual_ref: "manual.upgrade.hpp_server_pack",
   rollback_manual_ref: "manual.rollback.hpp_server_pack",

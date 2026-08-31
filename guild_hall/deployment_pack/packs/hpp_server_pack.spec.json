@@ -1,7 +1,13 @@
 {
   "schema": "soulforge.deployment_pack_spec.v0",
   "pack_id": "hpp_server_pack",
-  "version": "0.1.0",
+  "version": "0.1.1",
+  "host_effect_policy": {
+    "reboot": "forbidden",
+    "driver_change": "forbidden",
+    "system_update": "forbidden",
+    "service_restart_scope": "pack_services_only"
+  },
   "content_roles": {
     "server_modules": [
       ".party/daily_automation_party/party.yaml",
@@ -30,19 +36,65 @@
       "guild_hall/engineering_engine/kernel/identity.mjs",
       "guild_hall/engineering_engine/kernel/project_context_acceptance_gate.mjs",
       "guild_hall/engineering_engine/kernel/project_context_generation_candidate.mjs",
+      "guild_hall/file_activity/file_activity.mjs",
       "guild_hall/forge_intent/src/forge_intent_core.mjs",
       "guild_hall/gateway/mail_body_excerpt.mjs",
       "guild_hall/gateway/mail_project_router.mjs",
+      "guild_hall/ingress/collector.mjs",
+      "guild_hall/ingress/continuous_binding.schema.json",
+      "guild_hall/ingress/continuous_runner.mjs",
+      "guild_hall/ingress/continuous_supervisor.mjs",
+      "guild_hall/ingress/continuous_supervisor_cli.mjs",
+      "guild_hall/ingress/legacy_mail_custody_binding.schema.json",
+      "guild_hall/ingress/legacy_mail_source_binding.schema.json",
+      "guild_hall/ingress/local_outbox_binding.schema.json",
+      "guild_hall/ingress/mail_bridge.mjs",
+      "guild_hall/ingress/writer_authority.mjs",
+      "guild_hall/ingress/writer_authority.schema.json",
+      "guild_hall/ingress/writer_authority_renewal.mjs",
+      "guild_hall/ingress/writer_authority_renewal_policy.schema.json",
       "guild_hall/knowledge_access/knowledge_rag_candidate_ledger.mjs",
       "guild_hall/knowledge_access/ledger.mjs",
+      "guild_hall/local_activity/cli.mjs",
+      "guild_hall/local_activity/local_activity.mjs",
+      "guild_hall/local_activity/store_validity_cli.mjs",
       "guild_hall/rag/project_pdf_knowledge_projection.mjs",
+      "guild_hall/shared/ai_work_record_event.v1.schema.json",
       "guild_hall/shared/io.mjs",
       "guild_hall/shared/physical_path_identity.mjs",
       "guild_hall/shared/project_history_actual_shadow.mjs",
+      "guild_hall/shared/project_history_actual_shadow_generation.v1.schema.json",
+      "guild_hall/shared/project_history_actual_shadow_packet.v1.schema.json",
       "guild_hall/shared/project_history_envelope.mjs",
       "guild_hall/shared/project_history_readiness.mjs",
+      "guild_hall/shared/project_history_receipt_adapter_request.v2.schema.json",
       "guild_hall/shared/project_history_receipt_adapter_v2.mjs",
+      "guild_hall/shared/project_timeline_projection.v1.schema.json",
+      "guild_hall/shared/python_bin.mjs",
+      "guild_hall/shared/scope_timeline_binding.v1.schema.json",
+      "guild_hall/shared/source_timeline_annotation.mjs",
+      "guild_hall/shared/source_timeline_annotation.v1.schema.json",
       "guild_hall/snapshot/producer.mjs",
+      "guild_hall/town_crier/runtime.mjs",
+      "guild_hall/voice_capture/bounded_strong_asr_request.schema.json",
+      "guild_hall/voice_capture/bounded_strong_asr_revision.schema.json",
+      "guild_hall/voice_capture/continuous_label_supervisor.mjs",
+      "guild_hall/voice_capture/continuous_label_supervisor_cli.mjs",
+      "guild_hall/voice_capture/continuous_label_worker.mjs",
+      "guild_hall/voice_capture/copy_only_mirror.mjs",
+      "guild_hall/voice_capture/delivery_receipt.mjs",
+      "guild_hall/voice_capture/local_asr.mjs",
+      "guild_hall/voice_capture/plaud_ingest.mjs",
+      "guild_hall/voice_capture/plaud_writer_cutover_receipt.mjs",
+      "guild_hall/voice_capture/plaud_writer_cutover_receipt.schema.json",
+      "guild_hall/voice_capture/project_context_card.schema.json",
+      "guild_hall/voice_capture/semantic_asr_comparison.schema.json",
+      "guild_hall/voice_capture/semantic_label_run.schema.json",
+      "guild_hall/voice_capture/semantic_labeling.mjs",
+      "guild_hall/voice_capture/voice_capture.mjs",
+      "guild_hall/voice_capture/voice_hpp_continuity_receipt.schema.json",
+      "guild_hall/voice_capture/voice_semantic_sweep.mjs",
+      "guild_hall/voice_capture/voice_timeline_adapter.mjs",
       "ui-workspace/apps/dev-erp/.gitignore",
       "ui-workspace/apps/dev-erp/docs/CHATBOT_LLM_SETUP.md",
       "ui-workspace/apps/dev-erp/docs/REMOTE_PC_RUNBOOK.md",
@@ -216,7 +268,15 @@
       "ui-workspace/apps/dev-erp/ops/dev-erp-watchdog.ps1",
       "ui-workspace/apps/dev-erp/ops/install-dev-erp-nssm.ps1",
       "ui-workspace/apps/dev-erp/ops/configure-dev-erp-codex-nssm.ps1",
-      "ui-workspace/apps/dev-erp/start-windows.bat"
+      "ui-workspace/apps/dev-erp/start-windows.bat",
+      "guild_hall/ingress/ops/register-continuous-ingress-supervisor-task.ps1",
+      "guild_hall/ingress/ops/run-continuous-ingress-supervisor.ps1",
+      "guild_hall/local_activity/ops/register-hpp-local-activity-task.ps1",
+      "guild_hall/local_activity/ops/run-hpp-local-activity-hidden.vbs",
+      "guild_hall/local_activity/ops/run-hpp-local-activity.ps1",
+      "guild_hall/voice_capture/ops/register-continuous-label-supervisor-task.ps1",
+      "guild_hall/voice_capture/ops/run-continuous-label-supervisor-hidden.vbs",
+      "guild_hall/voice_capture/ops/run-continuous-label-supervisor.ps1"
     ],
     "manifests": [
       "ui-workspace/apps/dev-erp/package.json"
@@ -1173,7 +1233,7 @@
     "test/workflow_job_ui_contract.test.mjs"
   ],
   "installed_smoke_excluded": [],
-  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_0",
+  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_1",
   "install_manual_ref": "manual.install.hpp_server_pack",
   "upgrade_manual_ref": "manual.upgrade.hpp_server_pack",
   "rollback_manual_ref": "manual.rollback.hpp_server_pack",
@@ -1921,8 +1981,28 @@
       "sha256": "59e18e845d06a383d2a22809cd66f78eb8cbae27f6916b13c7dddb73a083c230"
     },
     {
+      "path": "guild_hall/shared/ai_work_record_event.v1.schema.json",
+      "sha256": "a2553d76b11ad3703b70185123ab2f1ee21078f1276e8d3bab1cff61b4c8632c"
+    },
+    {
       "path": "guild_hall/shared/project_history_receipt_adapter_v2.mjs",
       "sha256": "66ac8ecb892d5bfd05ebd061b89b27b915ff6cdaa012b7ae0cb40094304fe700"
+    },
+    {
+      "path": "guild_hall/shared/source_timeline_annotation.mjs",
+      "sha256": "20dbcff9ff1aa87e1d132d2e57a69ee267e0cf42683f0b56b89decc27cd4ef6e"
+    },
+    {
+      "path": "guild_hall/voice_capture/delivery_receipt.mjs",
+      "sha256": "80a493ecb5e7489eff390e6f73ce6ff6c66b136900c1ca0728c6fc79f8d24ae5"
+    },
+    {
+      "path": "guild_hall/voice_capture/local_asr.mjs",
+      "sha256": "b8688a99e8c7a6fe0d5556b93d80e797443f48ec5e2f2dd443f8f4318f407d78"
+    },
+    {
+      "path": "guild_hall/voice_capture/semantic_labeling.mjs",
+      "sha256": "6846cc51bfb7a9c3b101db8d4763ec28ef0368e68929be04b71098c287d5b8e8"
     },
     {
       "path": "ui-workspace/apps/dev-erp/README.md",
@@ -1930,7 +2010,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md",
-      "sha256": "c46019781af2b3cc04bf72b3f917a5388155c50b9b64e049afc13db65973a9bc"
+      "sha256": "818a4f77ad237b79cdd5217a759e2c5d0ba74dc0433210dd64d3c7b6ac734922"
     },
     {
       "path": "ui-workspace/apps/dev-erp/manual/manual_faq.json",
@@ -2054,7 +2134,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/core.test.mjs",
-      "sha256": "78269d422990de73077c087b97044e40ec842483b0a7fc3b02e7f5b53bf5813f"
+      "sha256": "a2ff9c0b06b48e158c45f40b1cfd1df72b464eef401e80dafa068d5552e98d83"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/erp_mcp_server.test.mjs",

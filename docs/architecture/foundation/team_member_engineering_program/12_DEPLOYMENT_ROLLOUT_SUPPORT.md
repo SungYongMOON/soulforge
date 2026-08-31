@@ -69,26 +69,32 @@ The multi-PC/bootstrap and skill-sync documentation is reusable guidance, not a 
 
 ## Development Team 1 internal release target
 
-The first audience is Development Team 1 plus the Owner using an equivalent
-team-member PC setup. The current time-boxed target is an internal release
-candidate, not full-company production.
+The first runtime target is the current high-performance PC as the single
+Soulforge Main Node. Owner and team-member Windows PCs use the same Universal
+Client bytes later; only server-observed capability/project/device grants alter
+their enabled views. The current target is an internal release candidate, not
+full-company production.
 
-The Owner-confirmed first target is one Owner-PC seat using the same setup intended
-for a team member. The included Slice covers the current validated HPP Server/Backup
-Pack baseline, install/doctor, project/authority
+The Owner-confirmed first sequence is Main Node in-place packaging and local
+integration, then one external physical Universal Client seat. The included
+Slice covers the current validated HPP Server/Backup Pack baseline, install/doctor, project/authority
 readback, approved Task/material read-only access, Buzz or MCP delivery, person-
 managed local work, result/Evidence candidate submission, review/HOLD display,
 coarse Soulforge Operations Console health, one synthetic isolated-restore
 measurement, synchronized install/use/recovery manuals and a known-issue list.
 
-Current pre-physical evidence: HPP 964-file, Team Client 216-file and
-Backup-Recovery 72-file tracked specs pass the 37-test deployment suite; product
+Current pre-physical evidence: HPP 1,018-file `0.1.1`, Universal Client 19-file
+`team_client_pack@0.2.0` and Backup-Recovery 72-file tracked specs pass the
+38-test deployment suite; product
 composition and 16-role manual resolution contracts are green; the synthetic
 restore canary is green but has no actual Human acceptance. All 16 manual roles
 have digest-bound candidate Markdown artifacts, but every role remains unexercised
 and lacks a last-verified release. The pure readiness binder therefore
-returns `HOLD` for current public evidence. Device enrollment, credential/project
-tuple, install receipt, Human acceptance and one-seat user exercise remain `HOLD`.
+returns `HOLD` for external physical evidence. Main Node installation and the
+Universal Client source-Pack isolated copy/readback/restore pass locally; the
+installed smoke imports the bundled transport but does not bind a physical endpoint or credential. The existing ingress suite
+passes a three-virtual-seat isolation/revoke/restart E2E. External device enrollment,
+credential/project tuple, Human acceptance and physical-seat user exercise remain `HOLD`.
 
 Linear automatic mutation, non-canary external send, automatic Official Done,
 final technical acceptance, public release, Project AI Team scale-out, team-wide

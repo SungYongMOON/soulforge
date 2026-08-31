@@ -48,12 +48,14 @@ export const OWNED_MODULE_IDS_BY_PRODUCT = Object.freeze({
     "ai_usage_meter",
     "codex_work_directory",
     "tool_workshop_core",
+    "universal_client",
   ]),
 });
 
 const ENROLLED_APP_MANIFEST_REFS = Object.freeze([
   "ui-workspace/apps/dev-erp/module.manifest.json",
   "ui-workspace/apps/team-ops-board/module.manifest.json",
+  "ui-workspace/apps/soulforge-universal-client/module.manifest.json",
 ]);
 const DEV_ERP_MCP_SOURCE_REF = "ui-workspace/apps/dev-erp-mcp";
 const AGENT_PLATFORM_ALLOWED_ENTRIES = new Set(["README.md", "product.manifest.json"]);

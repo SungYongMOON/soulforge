@@ -1,4 +1,4 @@
-# Team Client install, use, revoke, and recovery — Owner-PC one-seat candidate
+# Universal Client install, use, revoke, and recovery — physical-seat candidate
 
 - Artifact ref: `artifact.manual.team_client_install_use_revoke_recovery.v0_1_0`
 - Compatibility: `>=0.1.0 <1.0.0`
@@ -6,12 +6,12 @@
 
 ## Purpose
 
-Describe the bounded Team Client path for one Owner-PC seat: package validation, identity/binding readback, approved read-only use, visible revoke/recovery handling, and evidence collection. It does not enroll a device or activate a client by itself.
+Describe the bounded Universal Client path for Owner and team-member Windows PCs. The installed bytes are identical; server-observed capability, project and device state controls the enabled view. The procedure covers package validation, identity/binding readback, approved read-only use, visible revoke/recovery handling, and evidence collection. It does not enroll a device or activate a physical client by itself.
 
 ## Prerequisites
 
 - An Owner-approved one-seat device, identity, project scope, and expiry tuple exists outside this public manual.
-- The Team Client Pack version is compatible with this artifact and the physical enrollment authority is available.
+- The `team_client_pack` compatibility ID resolves to the Universal Client version and the physical enrollment authority is available.
 - The operator can inspect public-safe readback fields only; protected credential material remains outside Git and chat.
 
 ## Allowed and forbidden actions
@@ -27,9 +27,8 @@ npm.cmd run validate:dev-erp-mcp
 node guild_hall/deployment_pack/tools/build_pack.mjs --spec guild_hall/deployment_pack/packs/team_client_pack.spec.json --out APPROVED_STAGING_OUTPUT --install-verify APPROVED_ISOLATED_TARGET --smoke
 ```
 
-- `ui-workspace/apps/dev-erp-mcp/src/ingress_mtls_enrollment.mjs` exposes `prepareIngressMtlsEnrollment`, `signIngressMtlsEnrollment`, and `finalizeIngressMtlsEnrollment` for the separately authorized enrollment path.
-- `ui-workspace/apps/dev-erp-mcp/ingress_mtls_enrollment_cli.mjs` accepts only the `prepare`, `sign`, and `finalize` interface stages; it is not a substitute for the protected authority gate.
-- `guild_hall/ingress/local_outbox.mjs` and `guild_hall/ingress/local_outbox_cli.mjs` define the bounded local-outbox receipt surface.
+- Enrollment `prepare/sign/finalize` remains external operator tooling and is deliberately not shipped inside the Client Pack because signing is Main Node authority.
+- The Pack ships a self-contained mTLS/MCP transport bundle, native ERP client, immutable local-outbox algorithm, and Universal Client durable ordered-ACK store. A physical binding still requires separately delivered OS-protected credential references.
 
 ## Expected readback and evidence
 
@@ -48,6 +47,7 @@ Revoke/re-enroll and uninstall are authorized operator actions, not automatic re
 
 ## Known issues
 
-- The tracked Team Client evidence is synthetic/package-level; no physical device enrollment is recorded.
-- WorkSession/outbox operational policy and final human acceptance remain separate gates.
-- This candidate has no `last_verified_release` and no one-seat exercise receipt, so it cannot release the Team Client Pack.
+- The tracked Universal Client evidence is source-Pack/installed-copy/synthetic level; no physical device enrollment or endpoint binding is recorded.
+- The durable outbox is refs-only and cannot turn an acknowledgement into Official Done or accepted knowledge.
+- There is no physical UI shell or OS-protected credential adapter yet.
+- This candidate has no `last_verified_release` and no physical-seat exercise receipt, so it cannot release the Universal Client Pack.

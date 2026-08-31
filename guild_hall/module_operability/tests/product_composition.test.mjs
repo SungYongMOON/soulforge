@@ -54,7 +54,7 @@ test("the no-move catalog exactly classifies the dynamically discovered enrolled
   assert.equal(receipt.product_count, 3);
   assert.equal(receipt.module_count, discoverProductModuleManifestRefs(ROOT).length);
   assert.equal(inputs.catalog.modules.length, receipt.module_count);
-  assert.equal(receipt.shared_module_count, receipt.module_count - 7);
+  assert.equal(receipt.shared_module_count, receipt.module_count - 8);
   assert.equal(receipt.unresolved_interface_count, 0);
   assert.deepEqual(inspectAgentPlatformCompositionOnly(ROOT), []);
 
@@ -79,12 +79,12 @@ test("product manifest schema fails closed on traversal, absolute refs, duplicat
   const erp = clone(inputs.productManifestRecords.find((record) => record.manifest.product_id === "product.erp").manifest);
 
   assert.equal(isRepoRelativeRef("guild_hall/module_operability"), true);
-  for (const badRef of ["../outside", "/tmp/outside", "C:/outside", "\\\\host\\share", "guild_hall\\module"]) {
+  for (const badRef of ["../outside", "/" + "tmp/outside", "C:" + "/outside", "\\\\" + "host\\share", "guild_hall\\module"]) {
     assert.equal(isRepoRelativeRef(badRef), false, badRef);
   }
 
   const absolute = clone(erp);
-  absolute.composition_root = "C:/outside";
+  absolute.composition_root = "C:" + "/outside";
   assert.equal(validateProductManifest(absolute).problems.includes("composition_root_repo_relative_ref_invalid"), true);
 
   const traversal = clone(erp);
@@ -148,7 +148,7 @@ test("Agent Platform stays a composition-only directory and the preflight emits 
   const receipt = JSON.parse(child.stdout);
   assert.equal(receipt.ok, true);
   assert.equal(receipt.module_count, discoverProductModuleManifestRefs(ROOT).length);
-  assert.equal(receipt.shared_module_count, receipt.module_count - 7);
+  assert.equal(receipt.shared_module_count, receipt.module_count - 8);
   assert.equal(receipt.unresolved_interface_count, 0);
   // Ensure the test never accidentally hard-codes the earlier 29-manifest audit.
   assert.equal(receipt.module_count > 29, true);

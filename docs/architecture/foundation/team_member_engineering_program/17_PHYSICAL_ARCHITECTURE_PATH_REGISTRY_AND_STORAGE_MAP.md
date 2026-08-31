@@ -47,6 +47,21 @@ A product can use several physical roots, and a physical root can serve several 
 
 ## Current observed public-safe shape
 
+2026-09-01 local Main Node canary: the active runtime root was reduced to two
+registered children, `server-pack` and `source-lanes`, without rebooting the PC.
+The previous full runtime checkout and exact task/config/state definitions are
+retained only in the recovery plane. HPP runs from one versioned release/current
+pointer, while the Slack source lane keeps its own versioned runtime and a
+digest-fenced binding/state migration receipt. This is local operational
+evidence, not external physical-seat, NAS-restore, release or production proof.
+
+Role axes are also separate. `main_node` is the deployment-topology role of this
+physical server, while its existing local bootstrap identity remains `tool_pc`
+for CAD/Office/EDA execution and Local Activity rules. The Main Node profile
+contains the Tool Workshop Cell. A single-value bootstrap identity is not
+silently rewritten to fake a multi-role schema; callers must choose the correct
+axis explicitly.
+
 Host-local path values remain private/runtime configuration. Read-only metadata
 observation confirms the existing classes identified below; target-only rows are
 explicitly labeled and are not existence claims:

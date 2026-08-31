@@ -60,7 +60,7 @@ Source → Event/Candidate → Context/Knowledge → Engineering Judgment
 | Product maturity | Architecture/contract baseline; 일부 Module·Pack은 구현·검증됨 |
 | Production release | `NOT_RELEASED` |
 | Physical rollout | `HOLD`; accepted physical canary는 현재 관찰되지 않음 |
-| First release target | Owner PC one-seat internal RC |
+| First release target | 현재 고성능 PC Main Node internal RC → 동일 Universal Client 첫 물리 좌석 |
 
 ### 목표 Golden Journey — one-seat physical execution 전
 
@@ -125,7 +125,7 @@ capability/backlog ownership map이다. portfolio별 exact Product-owned/Shared/
 | M0 | 세계관·Game Skin·현실 authority | 방향 CONFIRMED, 용어 OWNER_DEFERRED |
 | M1 | 세 제품과 의미 있는 이름 | 구조 CONFIRMED, 이름 OWNER_DEFERRED |
 | M2 | 아홉 portfolio의 제3자용 설명 | stable ID·설명 CONFIRMED, 이름 OWNER_DEFERRED |
-| M3 | 제품별 Source Composition·migration | 3 manifests·30 Module 분류 VALIDATED, release/root migration HOLD |
+| M3 | 제품별 Source Composition·migration | 3 manifests·31 Module 분류 VALIDATED, release migration HOLD |
 | M4 | Shared deep Module과 Interface | 원칙 CONFIRMED, 분류 TARGET |
 | M5 | Runtime·Pack·Release | Pack foundation 부분 VALIDATED |
 | M6 | 사람/Bot/ERP 물리 작업면·Buzz Git | 구조 CONFIRMED, private binding 일부 HOLD |
@@ -138,7 +138,7 @@ capability/backlog ownership map이다. portfolio별 exact Product-owned/Shared/
 | M13 | Soulforge Operations Console Apps·분석·관제 | foundation 부분, product shell TARGET |
 | M14 | World Tree 고정 I/O seam | TARGET, internal engine OPEN |
 | M15 | Manual-as-Release | 16 candidate·resolver/HTML VALIDATED, exercise/last-verified RELEASE_HOLD |
-| M16 | 개발1팀 one-seat/internal RC→pilot | prephysical binder VALIDATED, current public evidence HOLD |
+| M16 | 개발1팀 Main Node/internal RC→Universal Client pilot | Main Node local canary·3-seat virtual VALIDATED, external physical seat HOLD |
 
 ## Master Layer ID 규칙
 
@@ -281,11 +281,11 @@ guild_hall/backup_controller/
 Fresh audit 기준:
 
 - Program plan `00`~`17` 존재;
-- enrolled Module manifest 30개;
+- enrolled Module manifest 31개;
 - 미등록 `guild_hall` directory 23개(새 Agent Platform composition-only directory 포함);
-- import graph 1,521 files / 2,754 edges / cycle 0;
+- import graph 1,532 files / 2,763 edges / cycle 0;
 - Pack 종류 5개, tracked Pack spec 4개;
-- 세 제품의 no-move `product.manifest`와 30 Module Product-owned/Shared 분류 존재;
+- 세 제품의 no-move `product.manifest`와 31 Module Product-owned/Shared 분류 존재;
 - product-first physical root와 product release는 아직 없음.
 
 따라서 현재 상태는 `PRODUCT_COMPOSITION_CONTRACT_VALIDATED /
@@ -744,14 +744,15 @@ content authority를 만들지 않는다.
 목표 사용자는 우선 개발1팀과 Owner 본인이다. 이번 주 목표는 전체 OS 완성이 아니라
 `Development Team 1 Internal Release Candidate`다.
 
-첫 target은 Owner PC를 팀원과 같은 설정으로 사용하는 one-seat RC다. 이 한 자리에서
-accepted flow를 검증한 뒤 동일 증거를 3~5회 반복하고 별도 promotion decision으로
-development-team pilot ring에 진입한다.
+첫 target은 현재 고성능 PC를 Main Node의 단일 활성 runtime 구조로 재구성하는 local RC다.
+그 다음 Owner PC와 팀원 PC에 같은 Universal Client bytes를 설치하고 서버가 반환하는
+device/project/capability에 따라 메뉴만 달리한다. 외부 물리 PC가 연결되기 전에는 동일
+Client Pack의 격리 설치와 3-seat virtual E2E까지만 검증한다.
 
 Owner-confirmed 최소 Slice:
 
-1. HPP Server/Backup Pack의 현재 validated build;
-2. Owner PC의 exact one-seat Team Client 설치·진단;
+1. HPP Server/Backup Pack의 현재 validated build와 no-reboot Main Node runtime;
+2. 동일 기능 Universal Client Pack의 격리 설치·진단과 첫 외부 물리 좌석 Gate;
 3. 프로젝트·권한 binding readback;
 4. Linear/ERP의 승인된 Task·자료 read-only 조회;
 5. Buzz 연결 또는 MCP로 Task/자료 전달;
@@ -764,8 +765,9 @@ Owner-confirmed 최소 Slice:
 제외 범위는 Linear 자동변경, 비 canary 외부 자동전송, 자동 Official Done, 최종 기술수락,
 정식 출시, 팀 전체 배포, 실제 NAS recovery-ready와 credential scope 확대다.
 
-출시 상태는 `internal_rc`, `pilot`, `production`을 분리한다. 현재 실제 credential·Team Client
-실좌석·NAS restore·Linear writer·Project AI Team Pack이 모두 닫혔다고 주장하지 않는다.
+출시 상태는 `internal_rc`, `pilot`, `production`을 분리한다. 현재 외부 Windows PC credential·
+Universal Client 실좌석·NAS restore·Linear writer·Project AI Team Pack이 모두 닫혔다고
+주장하지 않는다.
 
 Pure prephysical readiness binder는 exact HPP/Team/Backup pack, product composition,
 manual resolution, authority, recovery, support/rollback, device/project/credential evidence를
@@ -838,7 +840,7 @@ secret을 tracked canon에 남기지 않는다.
 | 세계관·불변법칙 | `CONFIRMED`, 명칭/게임 UX `OWNER_DEFERRED` |
 | 세 제품·아홉 portfolio | 구조·설명 `CONFIRMED`, 표시명 `OWNER_DEFERRED` |
 | Module/Pack foundation | `IMPLEMENTED/VALIDATED` 부분, 물리 rollout 아님 |
-| Product Source Composition | 3 product manifests·30 Module classification VALIDATED, release/root migration HOLD |
+| Product Source Composition | 3 product manifests·31 Module classification VALIDATED, external release migration HOLD |
 | 사람/Bot/ERP 작업면 분리 | contract `CONFIRMED`; 사람 폴더 manual-only, private Bot binding HOLD |
 | SE workspace dynamic tree | 신규 체계개발/LIG/A 우선 CONFIRMED, 다른 variant·기존 migration gated |
 | `_workmeta` mirror/ledger placement | 원칙 CONFIRMED, stage mirror schema TARGET |

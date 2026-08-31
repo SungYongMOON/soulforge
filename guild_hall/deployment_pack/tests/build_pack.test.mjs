@@ -49,6 +49,12 @@ function syntheticSpec(overrides = {}) {
     schema: "soulforge.deployment_pack_spec.v0",
     pack_id: "tool_workshop_pack",
     version: "0.1.0",
+    host_effect_policy: {
+      reboot: "forbidden",
+      driver_change: "forbidden",
+      system_update: "forbidden",
+      service_restart_scope: "pack_services_only",
+    },
     content_roles: {
       resource_lease_helper: ["guild_hall/tool_workshop/src/tool_workshop_core.mjs"],
       validators: ["guild_hall/tool_workshop/tests/tool_workshop_core.test.mjs"],
@@ -92,6 +98,32 @@ test("secret material in any packed file refuses the whole build and writes noth
     (error) => error.code === "pack_contains_secret_material" && !error.message.includes("hunter2"),
     "the refusal names the path, never the content");
   assert.equal(existsSync(join(out, "tool_workshop_pack")), false, "a refused build leaves no artifact");
+});
+
+test("every Pack forbids host reboot and executable reboot surfaces fail closed before write", () => {
+  const invalidPolicy = writeSpec(tempDir("specHostPolicy"), syntheticSpec({
+    host_effect_policy: {
+      reboot: "allowed",
+      driver_change: "forbidden",
+      system_update: "forbidden",
+      service_restart_scope: "pack_services_only",
+    },
+  }));
+  assert.throws(() => loadPackSpec(invalidPolicy), (error) => error.code === "spec_host_effect_policy_invalid");
+
+  const root = syntheticRoot();
+  const rebootPath = join(root, "guild_hall", "tool_workshop", "src", "reboot.ps1");
+  writeFileSync(rebootPath, "& shutdown.exe /r /t 60\n");
+  const specPath = writeSpec(root, syntheticSpec({
+    content_roles: {
+      resource_lease_helper: ["guild_hall/tool_workshop/src/reboot.ps1"],
+      validators: ["guild_hall/tool_workshop/tests/tool_workshop_core.test.mjs"],
+    },
+  }));
+  const out = tempDir("outReboot");
+  assert.throws(() => buildPack(specPath, { rootDir: root, outDir: out, clock: fixedClock, runner: okRunner }),
+    (error) => error.code === "pack_reboot_surface_forbidden");
+  assert.equal(existsSync(join(out, "tool_workshop_pack")), false);
 });
 
 test("spec path shapes fail closed: traversal, absolute, drive-letter, unknown pack, bad semver, foreign role", () => {
@@ -184,19 +216,24 @@ test("builder and reader agree: an installed pack's attested identity is the bui
     (error) => error.code === "pack_source_manifest_invalid");
 });
 
-test("the real team_client_pack spec builds: source pack with shared-module closure, full-suite smoke declared", () => {
+test("the real team_client_pack spec builds the Universal Client source set with a full installed smoke", () => {
   const specPath = join(REPO_ROOT, "guild_hall", "deployment_pack", "packs", "team_client_pack.spec.json");
   const built = buildPack(specPath, { rootDir: REPO_ROOT, outDir: tempDir("outTeamClient"), clock: fixedClock, runner: okRunner });
   assert.equal(built.manifest.pack_id, "team_client_pack");
   // Pinned so growth is a conscious re-emit (the emitter's --check gates it).
-  assert.equal(built.manifest.files.length, 216);
-  assert.equal(built.manifest.files.some((entry) => entry.path.startsWith("guild_hall/")), true,
-    "the Board's cross-root guild_hall imports travel as shared_modules");
+  assert.equal(built.manifest.files.length, 19);
+  assert.equal(built.manifest.version, "0.2.0");
+  assert.equal(built.manifest.files.some((entry) => entry.path.startsWith("ui-workspace/apps/soulforge-universal-client/")), true);
+  assert.equal(built.manifest.files.some((entry) => entry.path.startsWith("ui-workspace/apps/team-ops-board/")), false,
+    "4192 server code does not travel to client seats");
+  assert.equal(built.manifest.files.some((entry) => entry.path.endsWith("generated/ingress_mtls_client.bundle.mjs")), true,
+    "the installed Client carries a self-contained mTLS/MCP transport bundle");
+  assert.equal(built.manifest.host_effect_policy.reboot, "forbidden");
   const spec = loadPackSpec(specPath);
   assert.equal(spec.installed_smoke_entries.length, spec.smoke_test_entries.length,
     "the declared installed smoke is the FULL suite");
   assert.deepEqual(spec.installed_smoke_excluded, []);
-  assert.equal(spec.test_cwd, "ui-workspace/apps/team-ops-board");
+  assert.equal(spec.test_cwd, undefined);
 });
 
 test("the real backup_recovery_extension spec builds: module pack with full-suite smoke, feature-OFF only", () => {
@@ -387,12 +424,14 @@ test("end to end against the REAL tracked hpp_server_pack spec: build, install, 
     // The set is the computed import closure PLUS the fs-read data closure
     // PLUS the vendored npm closure (yaml + ajv and its runtime deps under
     // payload-root node_modules) — pinned so growth is a conscious re-emit.
-    assert.equal(built.manifest.files.length, 964);
+    assert.equal(built.manifest.files.length, 1018);
     assert.equal(built.candidate.claimed_gate, "contract");
     assert.equal(built.manifest.files.some((entry) => entry.path.startsWith("guild_hall/")), true,
       "the pack carries the guild_hall modules the server actually imports");
     assert.equal(built.manifest.files.some((entry) => entry.path.startsWith("node_modules/yaml/")), true,
       "the vendored npm closure travels at the payload root");
+    assert.equal(built.manifest.files.some((entry) => entry.path.endsWith("dev-erp-watchdog.ps1")), true,
+      "the service-only watchdog travels after its PC-reboot surface is removed");
     // The installed-smoke declaration PARTITIONS the full suite: runnable
     // subset + evidence-backed exclusion ledger, nothing silent.
     const spec = loadPackSpec(specPath);

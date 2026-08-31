@@ -1,0 +1,13 @@
+{
+  "name": "@soulforge/universal-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "One Soulforge Windows client surface with server-authorized capability projection, ordered WorkSession outbox, and no-reboot lifecycle coordination",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  }
+}

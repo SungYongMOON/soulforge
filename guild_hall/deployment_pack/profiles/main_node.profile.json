@@ -1,0 +1,61 @@
+{
+  "schema_version": "soulforge.deployment_pack.main_node_profile.v0",
+  "profile_id": "main_node",
+  "profile_ref": "deployment-profile:main-node/v1",
+  "node_role": "main_node",
+  "pack_ref": "pack:main-node/v1",
+  "service_ref": "service:main-node-control/v1",
+  "root_alias": "root:main-node",
+  "cells": [
+    {
+      "cell_ref": "cell:data-custody",
+      "service_ref": "service:data-custody-control/v1"
+    },
+    {
+      "cell_ref": "cell:backup-recovery",
+      "service_ref": "service:backup-recovery-control/v1"
+    },
+    {
+      "cell_ref": "cell:core-server",
+      "service_ref": "service:core-server-control/v1"
+    },
+    {
+      "cell_ref": "cell:collaboration",
+      "service_ref": "service:collaboration-projection/v1"
+    },
+    {
+      "cell_ref": "cell:agent-runtime",
+      "service_ref": "service:agent-runtime-coordinator/v1"
+    },
+    {
+      "cell_ref": "cell:tool-workshop",
+      "service_ref": "service:tool-workshop-coordinator/v1"
+    },
+    {
+      "cell_ref": "cell:operations",
+      "service_ref": "service:operations-control/v1"
+    }
+  ],
+  "startup_order": [
+    "cell:data-custody",
+    "cell:backup-recovery",
+    "cell:core-server",
+    "cell:collaboration",
+    "cell:agent-runtime",
+    "cell:tool-workshop",
+    "cell:operations"
+  ],
+  "reboot_policy": "forbidden",
+  "external_runtime_owners": [
+    {
+      "runtime_ref": "external-runtime:buzz",
+      "owner_ref": "owner:external-buzz",
+      "managed_by_main_node": false
+    },
+    {
+      "runtime_ref": "external-runtime:hermes",
+      "owner_ref": "owner:external-hermes",
+      "managed_by_main_node": false
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "schema_version": "soulforge.product_module_classification.v0",
-  "catalog_version": "0.1.0",
+  "catalog_version": "0.2.0",
   "product_manifest_refs": [
     "ui-workspace/apps/dev-erp/product.manifest.json",
     "guild_hall/engineering_engine/product.manifest.json",
@@ -17,7 +17,7 @@
       "implementation_owner": "guild_hall/agent_observation",
       "classification": "product_owned",
       "product_id": "product.agent",
-      "current_caller_module_ids": ["deployment_pack_contract", "dev_erp_task_execution_surface"],
+      "current_caller_module_ids": ["deployment_pack_contract", "dev_erp_task_execution_surface", "doctor"],
       "rejected_duplicate_source_paths": []
     },
     {
@@ -261,6 +261,16 @@
       "rejected_duplicate_source_paths": []
     },
     {
+      "module_id": "universal_client",
+      "interface_version": "universal_client.v0",
+      "module_manifest_ref": "ui-workspace/apps/soulforge-universal-client/module.manifest.json",
+      "implementation_owner": "ui-workspace/apps/soulforge-universal-client",
+      "classification": "product_owned",
+      "product_id": "product.agent",
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": ["ui-workspace/apps/team-ops-board"]
+    },
+    {
       "module_id": "validate",
       "interface_version": "validate.v0",
       "module_manifest_ref": "guild_hall/validate/module.manifest.json",
@@ -312,5 +322,5 @@
     }
   ],
   "unresolved_interfaces": [],
-  "authority_notes": "PC1-PC3 check-only classification of the exact currently enrolled Module set. Each row keeps one current implementation owner and one interface pin; product ownership is limited to the seven Owner-directed rows, while every remaining enrolled Module is Shared. Product release, Pack closure, source moves, source copies, and migration activation remain HOLD."
+  "authority_notes": "PC1-PC3 check-only classification of the exact currently enrolled Module set. Each row keeps one current implementation owner and one interface pin; product ownership is limited to the eight Owner-directed rows, including the same-binary Universal Client, while every remaining enrolled Module is Shared. Product release and physical migration remain HOLD."
 }

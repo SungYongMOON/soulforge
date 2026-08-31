@@ -25,7 +25,7 @@
       "semantic_role": "team_client_install_use_revoke_recovery",
       "state": "candidate",
       "artifact_ref": "artifact.manual.team_client_install_use_revoke_recovery.v0_1_0",
-      "content_digest": "sha256:d724059955e9a63d5aa4d6ce01fac0038ae4d8f4bdf068714d91b790229a00f2",
+      "content_digest": "sha256:83545f9a026a4b6a1f50c182084141b886014d793813597ad0cfdf24c97ecc94",
       "compatibility_range": ">=0.1.0 <1.0.0",
       "last_verified_release": null,
       "stale_state": "current",

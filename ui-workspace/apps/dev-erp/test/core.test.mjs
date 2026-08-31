@@ -5266,6 +5266,8 @@ test("server: 운영 4300은 runtime checkout 전용이고 개발 기본 포트�
   assert.match(watchdog, /codex_worker_attestation_verified/);
   assert.match(watchdog, /codex_worker_identity_separate/);
   assert.doesNotMatch(watchdog, /manual node process started|Start-Process -FilePath "cmd\.exe"/);
+  assert.doesNotMatch(watchdog, /AllowReboot|Request-WatchdogReboot|Restart-Computer|shutdown\.exe\s+\/r/i);
+  assert.match(watchdog, /reboot_policy = "forbidden"/);
   assert.match(nssm, /\$ChatThink = 0/);
   assert.match(nssm, /\[ValidateSet\("stub"\)\]/);
   assert.match(nssm, /ERP_CHAT_THINK=\$ChatThink/);

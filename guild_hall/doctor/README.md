@@ -16,6 +16,10 @@
   - 경로, 계정 식별자, workspace alias, target tail, 파일명, raw error 를 출력하지 않고 상태와 개수만 보고한다
 - `reporting.mjs`
   - human/json 출력 렌더링과 fatal payload 조립을 맡는 내부 helper
+- `deployment_readiness.mjs`
+  - Main Node와 Universal Client의 exact injected evidence를 같은 interface로 평가한다
+  - Pack 양방향 digest, Module/Product preflight, service source digest, Path Registry current binding, backup/restore, rollback, capability scope, single-active-root와 reboot 금지를 확인한다
+  - 결과는 `HOLD` 또는 `READY_FOR_ISOLATED_CANARY`뿐이며 install·release·acceptance·runtime operation 권한은 항상 0이다
 - `live_checks.py`
   - `guild-hall:doctor --live` 가 쓰는 외부 인증/연결 점검기
   - Hiworks POP3 / Hiworks SMTP / Telegram 을 개별 live check 로 보고한다

@@ -1,13 +1,13 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "doctor",
-  "module_version": "0.1.0",
+  "module_version": "0.2.0",
   "interface_version": "doctor.v0",
-  "schema_versions": [],
+  "schema_versions": ["soulforge.doctor.deployment_readiness_input.v0", "soulforge.doctor.deployment_readiness_result.v0"],
   "owner": "guild_hall/doctor",
-  "capabilities_provided": [],
+  "capabilities_provided": ["doctor.deployment_readiness.v0"],
   "capabilities_required": [],
-  "required_dependencies": [],
+  "required_dependencies": ["agent_observation"],
   "optional_dependencies": [
     "consumed read-only inside the hpp_server pack closure(s)"
   ],
@@ -26,9 +26,10 @@
   "migration_version": null,
   "rollback_version": "git_revert_of_this_module_only",
   "validators": [
-    "node --test guild_hall/doctor/codex_runtime_checks.test.mjs"
+    "node --test guild_hall/doctor/codex_runtime_checks.test.mjs",
+    "node --test guild_hall/doctor/deployment_readiness.test.mjs"
   ],
   "release_digest": null,
   "deprecation_state": "active",
-  "authority_notes": "Risk-based enrollment: this module is a DIRECT dependency of the hpp_server pack closure(s). Purpose: clone/bootstrap readiness checks and local doctor status CLI. This manifest records operability metadata only and grants no runtime, service, writer, or authority; the module's own README/contract stays authoritative. Representative validator listed; the module's full suite runs in its owning validate script, and the module CODE is additionally exercised by the consuming apps' suites inside the packs' installed smoke (the module's own suite does not run there)."
+  "authority_notes": "Risk-based enrollment: this module is a DIRECT dependency of the hpp_server and Universal Client pack closures. Besides clone/bootstrap checks, its pure deployment-readiness evaluator accepts exact injected Main Node or Universal Client evidence and returns only HOLD or READY_FOR_ISOLATED_CANARY. It performs no I/O, install, service action, reboot, release or acceptance."
 }

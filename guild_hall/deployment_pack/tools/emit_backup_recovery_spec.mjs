@@ -91,6 +91,12 @@ const spec = {
   schema: "soulforge.deployment_pack_spec.v0",
   pack_id: "backup_recovery_extension",
   version: "0.1.0",
+  host_effect_policy: {
+    reboot: "forbidden",
+    driver_change: "forbidden",
+    system_update: "forbidden",
+    service_restart_scope: "pack_services_only",
+  },
   content_roles: contentRoles,
   // Tests run from the repo root (they resolve module files via their own
   // import.meta paths); bounded parallelism as everywhere.

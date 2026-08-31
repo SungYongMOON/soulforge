@@ -367,8 +367,8 @@ It does this:
 3. if unhealthy, restart or start `dev-erp-codex-worker` first, then `dev-erp`
 4. fail closed when either service is missing; there is no single-process fallback
 5. write JSONL events under `logs\watchdog`
-6. after repeated failed recoveries, optionally request Windows reboot only
-   when `-AllowReboot` is explicitly passed
+6. after repeated failed recoveries, log a `reboot_policy=forbidden` HOLD and
+   leave recovery to the operator; the watchdog has no PC-reboot interface
 
 Suggested scheduled task action:
 
@@ -376,14 +376,9 @@ Suggested scheduled task action:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File <runtime-root>\ui-workspace\apps\dev-erp\ops\dev-erp-watchdog.ps1 -RuntimeRoot <runtime-root>
 ```
 
-Optional last-resort reboot action:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File <runtime-root>\ui-workspace\apps\dev-erp\ops\dev-erp-watchdog.ps1 -RuntimeRoot <runtime-root> -AllowReboot -FailureThreshold 3 -RebootCooldownHours 6
-```
-
-Do not enable `-AllowReboot` until the owner approves it. A NAS outage, audit
-warning, or planned maintenance marker must not reboot the PC.
+PC reboot is not a recovery action. A NAS outage, audit warning, planned
+maintenance marker, repeated health failure, dependency update or Pack install
+must stop at HOLD and leave Windows running.
 
 ## Health Checks
 
@@ -667,5 +662,5 @@ The owner must approve:
 - final team opening
 - firewall inbound rule for LAN HTTP
 - NSSM installation or update on the company PC
-- enabling watchdog `-AllowReboot`
+- introducing any watchdog or Pack path that can request a PC reboot
 - Tailscale Funnel or public internet exposure

@@ -80,7 +80,7 @@ and fails closed if the DB, source metadata, backup, receipt, or commit drifts.
 
 The first-release maintenance procedure is documented in
 [`RUNTIME_MAINTENANCE_RUNBOOK_20260618.md`](RUNTIME_MAINTENANCE_RUNBOOK_20260618.md).
-It covers service restart, watchdog behavior, optional last-resort reboot,
+It covers service restart, watchdog behavior with PC reboot structurally forbidden,
 health checks, WAL-safe DB backups, NAS restore-test reports, update procedure,
 and troubleshooting.
 

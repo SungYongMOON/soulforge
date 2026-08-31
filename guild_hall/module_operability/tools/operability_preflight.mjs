@@ -31,6 +31,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 export const ENROLLED_APP_MANIFESTS = Object.freeze([
   "ui-workspace/apps/dev-erp/module.manifest.json",
   "ui-workspace/apps/team-ops-board/module.manifest.json",
+  "ui-workspace/apps/soulforge-universal-client/module.manifest.json",
 ]);
 
 export function discoverManifestPaths() {
@@ -97,7 +98,7 @@ export function runPreflight() {
   const dependencyVerdict = checkDeclaredDependencies(manifests);
   for (const code of dependencyVerdict.problems) problems.push(`dependency:${code}`);
 
-  const cycleRoots = ["guild_hall", "ui-workspace/apps/dev-erp/src", "ui-workspace/apps/team-ops-board/src"];
+  const cycleRoots = ["guild_hall", "ui-workspace/apps/dev-erp/src", "ui-workspace/apps/team-ops-board/src", "ui-workspace/apps/soulforge-universal-client/src"];
   const cycleResult = findImportCycles(ROOT, cycleRoots);
   for (const cycle of cycleResult.cycles) {
     problems.push(`import_cycle:${cycle.join(" -> ")}`);

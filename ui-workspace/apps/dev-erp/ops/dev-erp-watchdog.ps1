@@ -12,10 +12,7 @@ param(
   [int]$ChatContextTurns = 5,
   [int]$ChatTimeoutMs = 45000,
   [int]$QueueWaitMs = 60000,
-  [int]$LlmConcurrency = 1,
-  [int]$FailureThreshold = 3,
-  [int]$RebootCooldownHours = 6,
-  [switch]$AllowReboot
+  [int]$LlmConcurrency = 1
 )
 
 $ErrorActionPreference = "Stop"
@@ -65,7 +62,6 @@ function Read-WatchdogState {
   }
   return [pscustomobject]@{
     consecutive_failures = 0
-    last_reboot_requested_at = $null
   }
 }
 
@@ -76,7 +72,6 @@ function Save-WatchdogState($State) {
 function Reset-WatchdogFailures {
   Save-WatchdogState ([pscustomobject]@{
     consecutive_failures = 0
-    last_reboot_requested_at = (Read-WatchdogState).last_reboot_requested_at
   })
 }
 
@@ -89,38 +84,9 @@ function Register-WatchdogFailure {
   $count = $previous + 1
   $state = [pscustomobject]@{
     consecutive_failures = $count
-    last_reboot_requested_at = $state.last_reboot_requested_at
   }
   Save-WatchdogState $state
   return $state
-}
-
-function Test-RebootCooldown($State) {
-  if (-not $State.last_reboot_requested_at) { return $true }
-  try {
-    $last = [datetime]::Parse($State.last_reboot_requested_at)
-    return ((Get-Date) - $last).TotalHours -ge $RebootCooldownHours
-  } catch {
-    return $true
-  }
-}
-
-function Request-WatchdogReboot($State) {
-  if (-not $AllowReboot) { return $false }
-  if ([int]$State.consecutive_failures -lt $FailureThreshold) { return $false }
-  if (-not (Test-RebootCooldown $State)) { return $false }
-
-  $updated = [pscustomobject]@{
-    consecutive_failures = [int]$State.consecutive_failures
-    last_reboot_requested_at = (Get-Date).ToString("o")
-  }
-  Save-WatchdogState $updated
-  Write-WatchdogLog "reboot_requested" "watchdog requested a Windows reboot after repeated recovery failures" @{
-    consecutive_failures = [int]$State.consecutive_failures
-    cooldown_hours = $RebootCooldownHours
-  }
-  & shutdown.exe /r /t 60 /c "dev-ERP watchdog recovery failed repeatedly; reboot scheduled in 60 seconds."
-  return $true
 }
 
 if (Test-Path -LiteralPath $MaintenanceMarker) {
@@ -172,9 +138,8 @@ if (Test-DevErpHealth) {
 }
 
 $state = Register-WatchdogFailure
-if (Request-WatchdogReboot $state) {
-  exit 2
+Write-WatchdogLog "failed" "health check still failed after recovery; PC reboot is forbidden" @{
+  consecutive_failures = [int]$state.consecutive_failures
+  reboot_policy = "forbidden"
 }
-
-Write-WatchdogLog "failed" "health check still failed after recovery" @{ consecutive_failures = [int]$state.consecutive_failures }
 exit 2

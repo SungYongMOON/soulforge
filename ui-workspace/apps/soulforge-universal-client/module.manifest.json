@@ -1,0 +1,44 @@
+{
+  "schema_version": "soulforge.module_manifest.v0",
+  "module_id": "universal_client",
+  "module_version": "0.1.0",
+  "interface_version": "universal_client.v0",
+  "schema_versions": [
+    "soulforge.universal_client.session.v0",
+    "soulforge.universal_client.projection.v0",
+    "soulforge.universal_client.work_session_outbox.v0",
+    "soulforge.universal_client.durable_outbox.v0",
+    "soulforge.universal_client.update_receipt.v0"
+  ],
+  "owner": "ui-workspace/apps/soulforge-universal-client",
+  "capabilities_provided": [
+    "client.capability_projection.v0",
+    "client.bundled_mtls_transport.v0",
+    "client.work_session_outbox.v0",
+    "client.durable_outbox_store.v0",
+    "client.no_reboot_update_coordination.v0"
+  ],
+  "capabilities_required": [],
+  "required_dependencies": [],
+  "optional_dependencies": [],
+  "compatible_version_ranges": {
+    "node": ">=22.5"
+  },
+  "startup_order": null,
+  "feature_flag": null,
+  "default_state": "contract_only_no_live_transport_no_service",
+  "health_probe": null,
+  "readiness_probe": null,
+  "config_refs": [],
+  "secret_refs": [],
+  "data_owner": "device_local_refs_only_state",
+  "backup_class": "versioned_source_plus_preserved_local_outbox",
+  "migration_version": null,
+  "rollback_version": "previous_verified_client_release_pointer",
+  "validators": [
+    "node --test ui-workspace/apps/soulforge-universal-client/test/universal_client_core.test.mjs ui-workspace/apps/soulforge-universal-client/test/bundled_transport.test.mjs ui-workspace/apps/soulforge-universal-client/test/update_coordinator.test.mjs ui-workspace/apps/soulforge-universal-client/test/work_session_outbox.test.mjs ui-workspace/apps/soulforge-universal-client/test/durable_outbox_store.test.mjs"
+  ],
+  "release_digest": null,
+  "deprecation_state": "active_draft",
+  "authority_notes": "Same installed bytes for Owner and team members; only server-observed capability/project/device state changes the projection. The installed source Pack carries a self-contained mTLS/MCP transport bundle and a digest-bound durable outbox with atomic replace, file sync, single-writer lock and restart recovery. The module grants no authority, completes no Official Task, promotes no knowledge, embeds no credential, and rejects reboot-requiring lifecycle operations. Physical UI shell, OS-protected credential delivery, endpoint enrollment, physical-seat acceptance and rollout remain HOLD."
+}

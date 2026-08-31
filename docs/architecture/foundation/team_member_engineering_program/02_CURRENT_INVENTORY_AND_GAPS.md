@@ -206,7 +206,7 @@ creating or moving physical product roots.
 | Pack catalog | five Pack kinds defined | packaging contract exists |
 | Tracked Pack specs | four: HPP Server, Team Client, Tool Workshop, Backup-Recovery | Project AI Team Pack remains gated/absent |
 | Product roots | ERP is partially concentrated at `ui-workspace/apps/dev-erp`; Engine at `guild_hall/engineering_engine`; Agent Platform source remains distributed | product release/composition ownership is uneven |
-| `product.manifest` | three no-move manifests; exact catalog = 7 Product-owned + 23 Shared | composition contract exists; release digest and physical migration do not |
+| `product.manifest` | three no-move manifests; exact catalog = 8 Product-owned + 23 Shared | Universal Client is enrolled; release digest and external physical rollout do not exist |
 | `products/` or equivalent product source root | absent | no physical product-first source migration was performed |
 
 Therefore the current ceiling is `PRODUCT_COMPOSITION_CONTRACT_VALIDATED /

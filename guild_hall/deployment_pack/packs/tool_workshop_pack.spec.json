@@ -2,6 +2,12 @@
   "schema": "soulforge.deployment_pack_spec.v0",
   "pack_id": "tool_workshop_pack",
   "version": "0.1.0",
+  "host_effect_policy": {
+    "reboot": "forbidden",
+    "driver_change": "forbidden",
+    "system_update": "forbidden",
+    "service_restart_scope": "pack_services_only"
+  },
   "content_roles": {
     "resource_lease_helper": ["guild_hall/tool_workshop/src/tool_workshop_core.mjs"],
     "validators": ["guild_hall/tool_workshop/tests/tool_workshop_core.test.mjs"],

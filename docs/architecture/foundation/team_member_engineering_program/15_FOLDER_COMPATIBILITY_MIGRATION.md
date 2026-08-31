@@ -55,7 +55,7 @@ Implementation.
 - Agent Platform implementation source remains distributed across Agent
   Observation, Engineering MCP, Tool Workshop, Deployment Pack and runtime
   Adapters; `guild_hall/agent_platform` is a composition-only root.
-- 30 Module manifests, four tracked Pack specs and three no-move
+- 31 Module manifests, four tracked Pack specs and three no-move
   `product.manifest` contracts exist. Product release and physical roots do not.
 
 ### PC1 — no-move composition manifests
@@ -84,7 +84,7 @@ Initial classification candidate:
 | shared candidate intake | `Forge Intent` compatibility implementation pending PC2 classification | Product-neutral candidate envelope and adapters; no Official Task, assignment or acceptance writer |
 | shared operations | 4192/Watch and Bastion integration | typed read projections and approved action Interfaces only |
 
-The current catalog classifies the exact enrolled set as 7 Product-owned and 23
+The current catalog classifies the exact enrolled set as 8 Product-owned and 23
 Shared Modules, with one current implementation owner and Interface pin per row.
 Newly enrolled Modules must be added explicitly or the preflight fails.
 

@@ -9,7 +9,7 @@ Manuals describe a bounded approved procedure. They do not store credentials, ra
 | Manual | Audience | Required contents | Completion evidence |
 | --- | --- | --- | --- |
 | HPP Server operator | Operator | pack install/start/stop/doctor, health, dependency compatibility, incident boundary, safe upgrade/rollback | versioned install/smoke/rollback receipt |
-| Team Client install/use/revoke/recovery | Team member + operator | enroll, identity preflight, bundle use, outbox recovery, revoke/re-enroll, uninstall | one-seat identity/recovery test |
+| Universal Client install/use/revoke/recovery (`team_client_pack` compatibility ID) | Team member + operator | same binary, capability menu, enroll, identity preflight, bundle use, ordered outbox/ACK, revoke/re-enroll, no-reboot update/rollback/uninstall | isolated install + three-seat identity/recovery test; external physical seat separate |
 | MCP material receive/result submit | Team member | Work Brief, manifest verification, local workspace, checkpoint, ticket/upload/receipt, hold/error recovery | exact bundle + submission/custody proof |
 | Vault artifact revision/promotion | Vault operator/reviewer | candidate, parent/head, scan/quarantine, review, human acceptance, baseline/release separation | accepted/rejected revision record |
 | Forge work-generation review | Engineer/reviewer | accepted context, candidate/TaskIntent/Work Brief, role proposal, approval, Linear handoff | decision and no-action/reject trace |

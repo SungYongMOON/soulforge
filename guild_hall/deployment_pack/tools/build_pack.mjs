@@ -36,6 +36,8 @@ const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 // Repo-relative POSIX path: no absolute, no drive letter, no traversal.
 const REL_PATH = /^[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*$/;
 export const SECRET_MATERIAL = /password|passwd|api[_-]?key|token_value|secret_value|private[_ ]key|BEGIN [A-Z ]+KEY/i;
+const REBOOT_EXECUTION_SURFACE = /(?:shutdown(?:\.exe)?\s+\/r\b|Restart-Computer\b|InitiateSystemShutdown)/i;
+const HOST_EFFECT_POLICY_FIELDS = ["reboot", "driver_change", "system_update", "service_restart_scope"];
 
 function fail(code, detail) {
   const error = new Error(detail ? `${code}:${detail}` : code);
@@ -71,6 +73,14 @@ export function loadPackSpec(specPath) {
   const pack = PACK_CATALOG.find((entry) => entry.pack_id === raw.pack_id);
   if (!pack) fail("pack_id_unknown", String(raw.pack_id));
   if (typeof raw.version !== "string" || !SEMVER.test(raw.version)) fail("version_not_semver", String(raw.version));
+  if (!raw.host_effect_policy || typeof raw.host_effect_policy !== "object" || Array.isArray(raw.host_effect_policy)
+    || Object.keys(raw.host_effect_policy).sort().join(",") !== [...HOST_EFFECT_POLICY_FIELDS].sort().join(",")
+    || raw.host_effect_policy.reboot !== "forbidden"
+    || raw.host_effect_policy.driver_change !== "forbidden"
+    || raw.host_effect_policy.system_update !== "forbidden"
+    || raw.host_effect_policy.service_restart_scope !== "pack_services_only") {
+    fail("spec_host_effect_policy_invalid");
+  }
   if (!raw.content_roles || typeof raw.content_roles !== "object") fail("spec_roles_missing");
   for (const [role, files] of Object.entries(raw.content_roles)) {
     if (!pack.contains.includes(role)) fail("spec_role_not_in_pack_boundary", role);
@@ -176,6 +186,12 @@ function prepare(spec, { rootDir, runner }) {
       if (!existsSync(absolute)) fail("spec_file_missing", relPath);
       const bytes = readFileSync(absolute);
       const digest = sha256(bytes);
+      if (spec.host_effect_policy.reboot === "forbidden"
+        && /\.(?:ps1|bat|cmd|vbs|mjs|js)$/i.test(relPath)
+        && !/(?:^|\/)(?:test|tests)(?:\/|$)/i.test(relPath)
+        && REBOOT_EXECUTION_SURFACE.test(bytes.toString("utf8"))) {
+        fail("pack_reboot_surface_forbidden", relPath);
+      }
       // must-not-contain, enforced on CONTENT: any secret-material shape in
       // any packed file refuses the whole build — unless the spec carries an
       // exact reviewed pin for THIS content. The receipt names paths only,
@@ -209,6 +225,7 @@ function prepare(spec, { rootDir, runner }) {
     version: spec.version,
     files: digestInput,
     content_roles: Object.fromEntries(Object.entries(spec.content_roles).map(([role, rolePaths]) => [role, [...rolePaths].sort()])),
+    host_effect_policy: { ...spec.host_effect_policy },
     pack_digest: packDigest,
     claim: "pack_build_artifact_not_a_release",
   };
@@ -221,6 +238,7 @@ function prepare(spec, { rootDir, runner }) {
     contents: Object.keys(spec.content_roles).sort(),
     config_refs: [],
     secret_refs: Array.isArray(spec.secret_refs) ? spec.secret_refs : [],
+    host_effect_policy: { ...spec.host_effect_policy },
     release_notes_ref: spec.release_notes_ref,
     install_manual_ref: spec.install_manual_ref,
     upgrade_manual_ref: spec.upgrade_manual_ref,
