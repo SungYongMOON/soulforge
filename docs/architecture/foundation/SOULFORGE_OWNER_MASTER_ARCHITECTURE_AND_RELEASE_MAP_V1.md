@@ -29,6 +29,14 @@ CONFIRMED_*_HOLD     방향은 확정됐지만 suffix가 지시하는 측정·�
 TARGET               목표 구조이며 아직 materialize하지 않음
 ```
 
+외부·사용자 화면에서는 위 내부 상태를 한 줄에 섞지 않고 세 축으로 보여준다.
+
+| 축 | 표시 예 | 질문 |
+| --- | --- | --- |
+| Decision | `DECIDED / OPEN / DEFERRED` | 무엇이 결정됐는가? |
+| Build maturity | `TARGET / IMPLEMENTED / VALIDATED / PILOTED` | 어디까지 만들어지고 검증됐는가? |
+| Activation | `HOLD / CANARY / ACTIVE` | 실제 환경에서 켜졌는가? |
+
 ## 0. 한 줄 북극성
 
 > Soulforge는 현실의 사건을 맥락·지식·공학판단으로 업무화하고, 권한 범위 안의
@@ -41,7 +49,74 @@ Source → Event/Candidate → Context/Knowledge → Engineering Judgment
 → Review/Acceptance → ERP Canon/Ledger/Backup → 다음 개선
 ```
 
-## Owner one-screen index
+## 1. Soulforge in 5 minutes
+
+### 현재 Release banner
+
+| 항목 | 현재 |
+| --- | --- |
+| Product maturity | Architecture/contract baseline; 일부 Module·Pack은 구현·검증됨 |
+| Production release | `NOT_RELEASED` |
+| Physical rollout | 별도 Gate를 통과한 canary 외 `HOLD` |
+| First release target | Owner PC one-seat internal RC |
+
+### 사람이 실제로 사용하는 한 개의 Golden Journey
+
+```text
+업무·자료·사건 도착
+→ 여러 model/domain이 독립적으로 후보 발견
+→ Shared Candidate Intake가 근거·중복·상태·검토 route 정규화
+→ Context/Engineering 판단
+→ Linear/ERP의 공식 Task·자료 확인
+→ Buzz 또는 MCP로 사람·Agent에게 전달
+→ 각자의 local workspace에서 작업
+→ Result·Evidence candidate 제출
+→ 독립검토·사람/정책 수락
+→ ERP canon·Ledger·Backup과 다음 개선에 반영
+```
+
+Shared Candidate Intake는 네 번째 제품이나 Task SoR가 아니다. 여러 discovery source가
+같은 승격 Gate로 들어가기 위한 product-neutral Shared Module이다.
+
+### 세 제품과 cross-product surface
+
+| 구분 | 사용자가 보는 역할 |
+| --- | --- |
+| Soulforge ERP | 공식 Task, 프로젝트 자료, BOM, Artifact revision, accepted record를 관리 |
+| Soulforge Engineering Engine | 승인된 사실·지식과 공학 규칙을 비교해 gap·risk·다음 일 후보를 제안 |
+| Soulforge Agent Platform | 프로젝트별 AI 조직, Agent Mark, Hermes·Buzz·MCP·Tool Workshop 실행기반을 관리 |
+| Soulforge Operations Console | 세 제품과 공통 Module의 상태를 읽고 승인된 action을 요청하는 cross-product 운영화면; 네 번째 제품이 아님 |
+| Shared capability plane | Candidate Intake, Ledger, Authority, Path Registry, Backup/Recovery, common schema처럼 한 owner·한 구현·versioned Interface로 공유 |
+
+`sf-p01`~`sf-p09`는 위 세 제품 밑의 고정 하위폴더가 아니라 제품을 가로지르는
+capability/backlog ownership map이다. portfolio별 exact Product-owned/Shared/consumer
+분류는 PC2 대상이며, 그 전에는 물리 source 배치를 추정하지 않는다.
+
+### 권한을 한눈에 보는 표
+
+| Component | Read | Request | Validate | Enforce/STOP | Canonical policy write | Final acceptance |
+| --- | --- | --- | --- | --- | --- | --- |
+| Operations Console | O | O | - | - | - | - |
+| Bastion | 필요한 범위 | - | O | O | - | - |
+| ERP AuthorityPolicy | O | - | - | - | O | - |
+| Human Owner / designated authority | O | O | 정책별 | 정책별 | authorized writer를 통해 | 유보·위임 범위에 따라 O |
+
+### 처음 읽는 사람을 위한 용어
+
+| 용어 | 쉬운 뜻 |
+| --- | --- |
+| Canon | 회사가 현재 정본으로 인정하는 기록·revision |
+| SoR | 해당 상태를 최종적으로 소유하는 시스템 |
+| Sole writer | 같은 정본을 바꾸도록 허용된 단 하나의 writer |
+| Candidate | 아직 공식 Task·지식·Artifact로 수락되지 않은 제안 |
+| Promotion | 검토·권한 Gate 뒤 candidate를 상위 정본 상태로 올리는 일 |
+| Materialization | 다른 owner의 bytes를 안정된 project view에서 보이게 하는 것 |
+| Binding | logical ID와 실제 project·runtime·path를 결속한 승인 관계 |
+| Receipt | 누가 무엇을 언제 실행·검증했는지 남기는 영수증 |
+| Custody | exact bytes·hash·manifest를 통제된 owner가 보관하는 상태 |
+| Accepted | 정해진 수락 authority를 통과한 상태; 파일 존재나 Agent success와 다름 |
+
+## Master Navigation Index
 
 | Layer | 한 줄 목적 | 현재 |
 | --- | --- | --- |
@@ -695,7 +770,10 @@ Fresh Grill은 Owner 결정과 명시적 보류·재진입 조건을 닫았다. 
 공유 파일·schema·writer는 한 Lane만 소유하고 다른 Lane은 Interface ref만 사용한다. 구현 TASK는
 Terra/max, 독립검토는 fresh policy profile을 사용한다.
 
-## Fresh Grill Decision Closure
+## Architecture Decision Baseline — 2026-08-31
+
+`Fresh Grill`은 이 baseline을 만든 내부 검토 process alias다. 다음 표는 제품 출시 Gate가
+아니라 이 architecture revision에서 유지·보류할 결정을 기록한다.
 
 2026-08-31 Human Owner가 공통 이해를 확인하고 Grill 종료를 명시했다. 아래 결정이나
 의도적 보류는 재진입 조건 전까지 다시 묻지 않는다. `implementation 0`이며 이름 변경,
