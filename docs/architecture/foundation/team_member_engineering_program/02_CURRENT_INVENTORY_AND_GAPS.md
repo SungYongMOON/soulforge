@@ -191,6 +191,29 @@ eligibility. Only after LR1 exit review may a provider-neutral envelope/outbox/
 reconciliation conformance port and one scoped Event Store pilot begin. Existing
 source-local and project-local ledgers remain reference-in-place.
 
+## Product source-composition audit — 2026-08-31
+
+The overnight Fable5 build completed substantial Module, Pack and program work,
+but it did not create the three product source-composition roots proposed in the
+later Owner review.
+
+| Surface | Fresh observation at `main@af8f0323` | Productization meaning |
+| --- | --- | --- |
+| Program plan | documents `00` through `17` exist | whole-system architecture and gates are documented |
+| Module manifests | 29 tracked `module.manifest.json` files | Module owner/dependency/validator metadata exists for the enrolled set |
+| Unenrolled `guild_hall` directories | 22 reported by operability preflight | not every source directory is enrolled as a Module |
+| Import graph | 1,269 files / 2,738 edges / cycle 0 | current enrolled source dependencies are mechanically cycle-free |
+| Pack catalog | five Pack kinds defined | packaging contract exists |
+| Tracked Pack specs | four: HPP Server, Team Client, Tool Workshop, Backup-Recovery | Project AI Team Pack remains gated/absent |
+| Product roots | ERP is partially concentrated at `ui-workspace/apps/dev-erp`; Engine at `guild_hall/engineering_engine`; Agent Platform source remains distributed | product release/composition ownership is uneven |
+| `product.manifest` | none observed | no three-product composition manifest, product dependency closure or product release digest exists |
+| `products/` or equivalent product source root | absent | no physical product-first source migration was performed |
+
+Therefore the overnight work is `MODULE_AND_PACK_FOUNDATION_DONE`, not
+`PRODUCT_SOURCE_COMPOSITION_DONE`. Recreating the completed Module/Pack work is
+prohibited; the next source-organization slice must classify and compose the
+existing owners without copying source or moving files first.
+
 ## Related plans
 
 - [Vault asset architecture](03_VAULT_ERP_ASSET_REVISIONS.md)

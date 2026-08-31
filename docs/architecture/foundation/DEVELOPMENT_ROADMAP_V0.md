@@ -217,6 +217,11 @@ read-only snapshot
   상세 범위, original-vision coverage, R0~R7 순서는
   `team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md`가
   소유한다. 실제 이동·새 writer·credential·restore 적용은 계속 기존 Owner gate 뒤다.
+- adjacent internal-release candidate(2026-08-31): Owner Master Map M16의
+  Development Team 1 internal RC는 이번 주 time-boxed 목표 후보다. 현 active slice를
+  대체하지 않으며 Fresh Grill이 exact one-seat, 포함/제외 capability, support/rollback
+  owner를 닫은 뒤 Plan 14 lane F와 Plan 12 ring gate로만 시작한다. Team rollout,
+  production readiness, live connector write와 NAS recovery-ready 주장은 계속 HOLD다.
 - adjacent Task execution foundation(2026-08-25): 기존 `TaskExecutionCore`/SQLite를
   변경하지 않는 default-OFF in-memory `CandidateExecutionCoordinator` 구조가 exact
   Role/Capability와 actor→agent→Bot→Executor binding, `responsible_ceo_triage`, opaque nested

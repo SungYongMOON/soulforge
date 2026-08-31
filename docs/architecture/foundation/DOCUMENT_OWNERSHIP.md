@@ -32,6 +32,11 @@
 
 ## owner별 문서 경계
 
+`SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md`는 cross-root 항법·상태·
+결정 frontier만 소유한다. 제품·workspace·Module·backup·manual의 상세 계약은 기존
+owner 문서를 가리키며 복제·대체하지 않는다. Master Map과 owner 문서가 다르면 해당
+owner 문서가 우선하고 같은 변경에서 Master Map을 갱신한다.
+
 | owner | 문서에 반드시 남겨야 할 것 | 문서에서 제거해야 할 것 |
 | --- | --- | --- |
 | `.registry` | species/class/skill/tool/knowledge canon 구조와 설명, future public-safe Organization Profile catalog envelope | active runtime, project-local truth, private customer/contract profile payload, workflow/party owner 서술 |

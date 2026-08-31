@@ -267,11 +267,9 @@ Soulforge Engineering OS
 │
 ├─ _workspaces/                                      # ERP/Vault canonical file materialization
 │  ├─ <project_code>/
-│  │  ├─ source-contract/  requirements/  design/
-│  │  ├─ bom-material-purchase/  test-sonar-datasets/
-│  │  ├─ artifacts-reports/  review-evidence/  baselines-releases/
-│  │  ├─ reference_payloads/rag/                    # isolated project RAG
-│  │  └─ analytics/{process_mining,learning_datasets}/
+│  │  ├─ PROJECT_ID.txt  plan_manifest.json  plan_progress.json
+│  │  ├─ task/exclusion CSV  folder index
+│  │  └─ <approved SE variant-defined stage>/<numbered artifact>/<task>/...
 │  ├─ knowledge/rag/                                # approved common knowledge payload/index
 │  ├─ system/
 │  │  ├─ rag/                                       # common metadata projections
@@ -311,6 +309,14 @@ No existing Module is moved merely to make the tree look tidy. A current folder
 that does not yet fit the view receives a Path Registry row and compatibility
 mapping first. A target-only folder remains `TARGET/HOLD` until owner, writer,
 binding, ACL, backup and restore gates pass.
+
+`_workspaces/<project_code>` does not use one universal hand-written category
+tree. The approved `se_foldertree_generate` variant for business type, prime
+contractor, quality grade and profile owns the stage/artifact numbering. A
+project can therefore have a different generated subtree without changing the
+stable ERP project root. Project RAG, analytics and reusable temp folders must
+bind to exact generated stage/artifact IDs or an approved project-root extension;
+they are not silently inserted as generic siblings into every project.
 
 ### NAS의 두 역할은 별도 자산이다
 

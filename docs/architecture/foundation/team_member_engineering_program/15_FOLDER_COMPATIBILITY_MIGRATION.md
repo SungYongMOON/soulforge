@@ -38,6 +38,86 @@ Use current canonical owners; do not create a new top-level source root without 
 
 Every new module receives an exact owner path before code is created. Ad hoc root folders, parallel “new platform” trees, and scattered copies of module logic are prohibited.
 
+## Product composition and source-ownership target
+
+The three logical products need visible composition roots, but shared Modules
+must not be copied into all three products. Source overlap is allowed only as a
+versioned Interface dependency; one Module keeps one owner and one
+Implementation.
+
+### PC0 — current source/Module/Pack audit
+
+- ERP product-specific source is partly concentrated in
+  `ui-workspace/apps/dev-erp`, while Vault/Forge and related Modules remain under
+  separate `guild_hall` owners.
+- Engineering Engine already has the clearest product-local source root at
+  `guild_hall/engineering_engine`.
+- Agent Platform source is distributed across Agent Observation, Engineering
+  MCP, Tool Workshop, Deployment Pack and runtime Adapters; no composition root
+  exists.
+- 29 Module manifests and four tracked Pack specs exist, but no
+  `product.manifest` exists for ERP, Engine or Agent Platform.
+
+### PC1 — no-move composition manifests
+
+Before creating or moving a product folder, register the current owners through
+three product manifests:
+
+```text
+ui-workspace/apps/dev-erp/product.manifest.json             # TARGET product.erp composition
+guild_hall/engineering_engine/product.manifest.json         # TARGET product.engine composition
+guild_hall/agent_platform/product.manifest.json              # TARGET product.agent composition-only root
+```
+
+Each manifest records product ID/version, product-specific Module refs, shared
+Module dependencies, UI/entrypoint refs, required Interface versions, validator
+closure, Pack/release refs, migration/rollback and deprecation state. It points
+to existing source; it does not duplicate files or imply deployment.
+
+Initial classification candidate:
+
+| Product owner | Product-specific current source candidates | Shared dependencies, not copied source |
+| --- | --- | --- |
+| `product.erp` | `dev-erp`, `dev-erp-mcp`, Vault Revision, Forge Intent and exact ERP composition code | Path Registry, Backup/Recovery, RAG/Knowledge, identity/policy contracts |
+| `product.engine` | Engineering Engine Core, Domain Engines, profiles, bindings and engine release | accepted-context/query, shared validation and custody refs |
+| `product.agent` | Agent Observation, execution coordination, Engineering MCP, Hermes/Buzz Adapters, Tool Workshop and Deployment Pack composition | Path Registry, Backup/Recovery, identity/authority, Ledger contracts |
+| shared operations | 4192/Watch and Bastion integration | typed read projections and approved action Interfaces only |
+
+The classification is not final merely because a path is listed. PC2 must
+resolve one logical owner, one Interface and current callers for every Module.
+
+### PC2–PC3 — classification and product release closure
+
+PC2 classifies every current Module as Product-owned or Shared and pins one
+owner, one Interface, current callers and rejected duplicate paths. PC3 adds
+product-level dependency closure, integration validators, Pack/release refs and
+rollback/deprecation evidence without moving source.
+
+### PC4 — physical product-root decision
+
+The long-range product-first target may use either a new top-level `products/`
+root or a `guild_hall/products/` hierarchy. This is an Owner decision because it
+changes the canonical source tree. The candidate shape is:
+
+```text
+products/                                    # TARGET/OWNER_DECISION; not created
+├─ erp/{apps,modules,interfaces,tests,manual,release}/
+├─ engineering-engine/{core,domains,profiles,bindings,tests,manual,release}/
+└─ agent-platform/{modules,interfaces,tests,manual,release}/
+
+shared/                                      # TARGET/OWNER_DECISION; not created
+├─ ledger/  identity-authority/  path-registry/
+├─ custody-transfer/  backup-recovery/  policy/
+└─ schemas/  validation/
+```
+
+PC4 cannot begin until PC1–PC3 have accepted root ownership candidates,
+caller/import graph, Path Registry, Module/Pack manifests, product integration
+tests and release/rollback closure. PC5 may then move one Module while a
+compatibility Adapter keeps the prior path usable; PC6 repeats the bounded move
+and retires a prior path only after caller/readback acceptance. No big-bang
+move, copy, symlink tree or source duplication is allowed.
+
 ## Target installed/runtime layout (logical only)
 
 Current layouts are intentionally kept separate. This plan does not recommend merging them under a new common runtime parent before a private inventory, caller graph, backup/restore, and migration-risk review. The target layout is an alias model for pack manifests:
@@ -169,14 +249,21 @@ _workmeta/<project_code>/
 
 _workspaces/system/rag/                        # public-safe/common metadata projections only
 _workspaces/knowledge/rag/                     # approved project-agnostic common payload/index
-_workspaces/<project_code>/reference_payloads/rag/  # isolated project payload/index
-_workspaces/<project_code>/analytics/
-├─ process_mining/<dataset_id>/<version>/
-└─ learning_datasets/<dataset_id>/<version>/
+_workspaces/<project_code>/<approved-variant-stage>/<artifact>/
+└─ project-local RAG/analytics payload or index  # exact stage/artifact binding
+_workspaces/<project_code>/<approved-project-root-extension>/
+└─ project-local RAG/analytics payload or index  # separately approved extension
 _workspaces/system/analytics/                  # cross-project only after Owner/ACL/consent approval
 ├─ process_mining/<dataset_id>/<version>/
 └─ learning_datasets/<dataset_id>/<version>/
 ```
+
+There is no universal project-root `reference_payloads/rag/` or `analytics/`
+sibling. A project-local RAG or analytics dataset must bind to an exact generated
+stage/artifact ID, or to a separately approved project-root extension registered
+by the SE variant and Path Registry policy. Older project-knowledge documents
+that still name a generic sibling are compatibility/migration inputs, not
+activation authority; their callers and pointers must be reconciled before use.
 
 The Catalog is central, but Event storage is partitioned by project/organization,
 ACL, retention, legal hold and recovery blast radius. A single-writer SQLite WAL
