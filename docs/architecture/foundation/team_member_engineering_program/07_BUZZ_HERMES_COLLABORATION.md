@@ -125,10 +125,11 @@ receipt. That writer is currently `HOLD`.
 ## Owner-facing integrated Project and version-control model
 
 The operating rule is: **Buzz is the collaboration entrance, Project Git is the
-lightweight work-evidence ledger, an owner-approved worksite such as NAS owns
-large payload bytes, `_workspaces` exposes the accepted current revision, and
-Linear remains the Official Task current-state owner.** These surfaces complement
-one another; none may silently replace another.
+lightweight work-evidence ledger, the project Bot work-product owner keeps
+mutable and candidate payload bytes, `_workspaces` is the later accepted/current
+view, NAS is a one-way backup/DR destination, and Linear remains the Official
+Task current-state owner.** These surfaces complement one another; none may
+silently replace another.
 
 ```mermaid
 flowchart LR
@@ -138,7 +139,7 @@ flowchart LR
   B --> A["Bot execution work root<br/>role WORK + isolated worktree"]
   B --> T["Tool Workshop job<br/>INPUT / WORK / OUTPUT / VALIDATION"]
 
-  H --> P["Owner-approved worksite / NAS<br/>actual CAD, PCB, office, data and media bytes"]
+  H --> P["Project shared WORK_PRODUCTS<br/>actual CAD, PCB, office, data and media candidates"]
   A --> M["Manifest + hash + validator + terminal receipt"]
   T --> P
   P --> M
@@ -150,6 +151,7 @@ flowchart LR
   X -->|held or rejected| R["HOLD / correction / supersession"]
   X --> W["Separate sole Linear State Writer"]
   W --> L
+  P -. closed revision backup .-> N["NAS backup / DR<br/>generation, readback and restore proof"]
 
   B -. important projection only .-> U["Pulse<br/>milestone / blocker / decision needed"]
 
@@ -160,7 +162,7 @@ flowchart LR
   classDef gate fill:#fee2e2,stroke:#dc2626,color:#111827;
   classDef unknown fill:#e5e7eb,stroke:#6b7280,color:#111827;
 
-  class H,A,T,P input;
+  class H,A,T,P,N input;
   class M,V,W process;
   class B,G,U collab;
   class L,C truth;
@@ -193,10 +195,13 @@ share names, ACLs, and writer bindings stay in their private owner surfaces.
 
 <human_work_root>/<project>/                 mutable human authoring
 
-<owner_approved_worksite>/<project>/         actual large/source payload bytes
-└─ candidate and/or accepted revisions       NAS is allowed when policy-gated
+<project_work_root>/PJT/<year>/<project>/SHARED/WORK_PRODUCTS/
+└─ <artifact-id>/{WORKING,CHECKPOINTS,REVISIONS,VALIDATION,RECEIPTS}
+                                              mutable/candidate project payloads
 
 <data_root>/_workspaces/<project_code>/       stable accepted-revision view
+
+<backup_owner>/<project>/<generation>/        one-way NAS backup/DR only
 ```
 
 The proposed central Project Git clone has one coordinator/integrator writer.
@@ -217,7 +222,7 @@ Registry, ACL, backup, rollback, and writer approval.
 | Source code owned by a code repository | Its approved code repository | Commit/ref or a small integration receipt when needed | Keep code history in its native repo; do not duplicate the whole repo into the project ledger |
 | Small Markdown, YAML, scripts and public-safe project automation | Project Git when approved | File itself | Branch/review/commit are appropriate |
 | Terminal receipt, artifact manifest, digest, validator result and decision record | Project Git | File itself | Use unique Task/Run paths; do not make one shared append-only Markdown file the concurrent ledger |
-| CAD, PCB, DXF, STEP, office files, test data, media and other large/generated payload | Owner-approved worksite or NAS | Logical artifact ref, immutable content hash, size/type, producer/run, validator and revision/supersession refs | Bytes stay outside Project Git by default, even when a format is technically text |
+| CAD, PCB, DXF, STEP, office files, test data, media and other large/generated payload | Project `SHARED/WORK_PRODUCTS` until accepted | Logical artifact ref, immutable content hash, size/type, producer/run, validator and revision/supersession refs | Bytes stay outside Project Git by default, even when a format is technically text; NAS is backup, not the working owner |
 | Mail, voice, ERP export, raw customer/project source or protected dataset | Source owner, `_workspaces`, or another approved worksite | Sanitized metadata pointer only when authorized | Raw/private payload must not enter the repository |
 | Hermes profile, memory, session, credentials, cache and process state | Hermes/runtime and secret owners | Stable public identity/runtime refs only | Never commit the profile wholesale |
 | Accepted current project revision | Backing approved worksite, exposed through `_workspaces/<project_code>` | Acceptance/promotion receipt or hash pointer only | `_workspaces` is not a Bot worktree and is not a Git clone destination |
@@ -290,7 +295,7 @@ Official references:
    competing task truth in the Buzz Tasks view.
 4. Human and Agents work in their separate mutable roots. Tool jobs produce large
    bytes and validation outside Git.
-5. Store actual large payload in an approved worksite/NAS revision location and
+5. Store actual large payload in the exact project `WORK_PRODUCTS` revision and
    calculate a content hash. Do not treat a path or filename as immutable identity.
 6. Commit the small manifest, validator result and explicit terminal receipt to
    the Agent branch/worktree; review and integrate it through Project Git.
@@ -309,17 +314,20 @@ Linear task: produce a reviewed DXF revision
   -> Buzz thread: exact instruction and clarifications
   -> Tool job: immutable input + bounded CAD run
   -> Tool output: candidate.dxf + validation result
-  -> approved NAS/worksite: candidate payload revision
+  -> project WORK_PRODUCTS: candidate payload revision
   -> Project Git: path/ref + SHA-256 + tool/version + run + validator receipt
   -> independent review
   -> Human Acceptance
-  -> accepted backing worksite / _workspaces view
+  -> accepted/current _workspaces view
   -> separate Linear transition
+  -> one-way NAS backup generation and isolated restore proof
 ```
 
-The DXF does not have to be committed to Git. NAS history/snapshot protects the
-payload revision; Project Git preserves the reviewable engineering ledger that
-explains which exact bytes were produced, verified, superseded, and accepted.
+The DXF does not have to be committed to Git. The project work-product owner
+keeps the candidate bytes and immutable revisions; NAS protects closed revisions
+as a separate backup axis. Project Git preserves the reviewable engineering
+ledger that explains which exact bytes were produced, verified, superseded, and
+accepted.
 
 ### Current state and stop lines
 
@@ -328,8 +336,9 @@ explains which exact bytes were produced, verified, superseded, and accepted.
 | Buzz Project / repository container | One bounded pilot container has been physically observed; exact identity and binding remain project-private |
 | Repository contents and local checkout | Empty/no push and no approved physical clone were observed for the pilot; no local clone or role worktree is claimed |
 | Bot project work root and human work root | Their distinct owner concepts are confirmed; exact physical bindings and writer enforcement remain private/held |
-| Tool Workshop folders/runtime | Target shape only; no physical Workshop job/lease runtime is claimed |
-| NAS connection | An owner worksite may be NAS-backed, but version history, snapshot policy, backup target and restore test must be verified per exact share |
+| Tool Workshop folders/runtime | Target folders remain unmaterialized; two isolated local Hermes synthetic profiles and one zero-effect MCP were exercised, not a physical PPT file runner |
+| NAS connection | Physical capability assessment is `SUPPORTED_WITH_GAPS`; destination, capacity, snapshot/immutable policy, whole-volume backup and restore canary remain private/HOLD |
+| Hermes Tool Bot permission pilot | Standalone and ACP-shaped candidate/verifier calls passed with profile-specific write/read separation; Buzz managed-Agent save/readback remains pending and configured-MCP startup/cache limitations keep production on HOLD |
 | Project Git Evidence Intake | Contract and bounded pilot plan exist; no webhook, persistent intake coordinator or automatic completion is active |
 | Human Acceptance / promoter | Required and separate; no automatic promotion is active |
 | Linear State Writer | `HOLD`; Project Git, Buzz message, Pulse and Agent self-report cannot mark Official Done |
@@ -371,9 +380,39 @@ branch-local `HOLD`.
 - Deployment bindings use stable public identity/runtime refs and `secret_ref`; key material stays in the OS/secret owner.
 - Bot identity/session history must be handed off through explicit binding/supersession/receipt, not inferred from a title or idle process.
 
+### Hermes profile to Buzz managed-runtime permission pilot
+
+The first Tool Bot pilot uses two different Hermes profiles and two different
+Agent identities: one candidate-only PPT executor and one independent read-only
+work-product verifier. They do not share `HERMES_HOME`, session, memory, writer,
+workspace, Agent Mark or Deployment. Automatic background skill review,
+curator, memory nudge and the Skill-management tool are disabled; each profile
+starts from an explicit Skill/MCP allowlist.
+
+Buzz's Hermes runtime currently defaults `HERMES_ACP_SKIP_CONFIGURED_MCP=1` so
+the ACP host can pass session MCP servers explicitly. A bounded physical probe
+found that this flag is not itself a sufficient deny gate: cached profile MCP
+schemas may still be visible, while opt-in configured-MCP discovery is
+asynchronous and needs a short settle period before the first turn. After
+settling, the profile-specific include lists preserved the different write/read
+tools and both permitted calls succeeded with zero external effects. Generic
+read-only MCP prompt/resource helper tools remained visible.
+
+Therefore the Buzz pilot is not production-enabled merely because standalone
+Hermes passes. Entry requires exact managed-agent env/readback, deterministic
+startup readiness, the same profile-local allowlist after `session/new`, one
+reply per explicit mention, and negative-tool denial. If Buzz injects a wider
+session MCP set, profile schemas drift, or a first turn races discovery, hold the
+Agent before any real file, Linear, NAS or `_workspaces` action.
+
 ## Current status and later build slices
 
-Current public documents and code provide selected adapter/runtime evidence, but this plan does not re-observe a live Buzz or Hermes stack. Treat all deep collaboration data and physical availability as `VERIFY_PHYSICAL`.
+Current public documents and code provide selected adapter/runtime evidence. A
+bounded local metadata-only pilot re-observed the Buzz Agent roster and two new
+isolated Hermes profiles without reading credentials or collaboration payloads.
+It did not create a Buzz managed Agent, join a channel or run a real project
+file. Treat deep collaboration data, identity save/readback and physical Tool
+availability as `VERIFY_PHYSICAL`.
 
 Public contract progress (2026-08-31): Backup Controller now has pure,
 effect-inert readiness contracts for Buzz and Hermes. Buzz names Postgres,

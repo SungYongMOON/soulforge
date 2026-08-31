@@ -148,6 +148,14 @@ project_teams/<project-ref>/<role-id>/
   workspace_cache_outbox/    # client/runtime-local state under policy
   result_evidence_refs
   backup_restore_refs
+
+project_work_root/
+├─ TOOL/<tool>/JOBS/<project-ref>/<job-id>/
+│  └─ {REQUEST,INPUT,WORK,OUTPUT,CHECKPOINTS,VALIDATION,RECEIPT}
+└─ PJT/<year>/<project>/SHARED/
+   ├─ WORK_PRODUCTS/<artifact-id>/
+   │  └─ {WORKING,CHECKPOINTS,REVISIONS,VALIDATION,RECEIPTS}
+   └─ PROJECT_GIT/                         # metadata/evidence only
 ```
 
 Project context remains a separately owned accepted-context/Vault surface. Client-local memory is disposable/recoverable runtime state; neither becomes a default cross-project knowledge store. Existing Bot role folders remain reference-in-place operational views until their bindings, callers, backup/restore, and Official-SoR non-conflict gates pass.
@@ -159,6 +167,13 @@ plane. ERP/Vault controls how the submitted project asset is revisioned and
 materialized in `_workspaces`; the materialized revision may still be candidate,
 under review, accepted, baselined, or released. A file's presence identifies the
 canonical ERP surface, not any one of those acceptance states.
+
+The `WORK_PRODUCTS` and Tool `JOBS` names above are target children under the
+already registered Bot execution root, not new top-level roots. They must not be
+materialized until private project/tool bindings, one-writer/lease, retention,
+cleanup, data-plane handoff, backup and rollback gates pass. A later Owner target
+may narrow `_workspaces` to accepted/current materialization; current workspace
+canon and existing payloads are not silently reclassified by this target block.
 
 ## Module skeleton rule
 

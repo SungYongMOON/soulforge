@@ -49,6 +49,32 @@ exists. No new company-wide D: canonical root is implied. Moving a project to a
 different backing root requires private Path Registry binding, sole writer/ACL,
 caller/Junction migration, backup/restore and rollback acceptance.
 
+### Windows Tool work products to Synology-class NAS
+
+The Tool Workshop target keeps working/candidate bytes on the registered local
+project-work root and uses NAS only as a one-way Backup/DR destination. The
+layers are intentionally different:
+
+| Layer | Role |
+| --- | --- |
+| desktop file Backup Task | selected closed work-product/checkpoint/revision folders to NAS, file/folder restore |
+| whole-PC/custom-volume backup | local volume or whole-seat disaster recovery |
+| NAS Btrfs snapshot/immutable retention | rollback/protect the data after it arrives on NAS |
+| NAS secondary/offsite backup or replication | protect against NAS/site loss |
+
+The bounded physical assessment found the requested architecture supportable but
+not yet operationally ready. Device/filesystem and selected package capability
+were observed privately; destination capacity, exact Team Folder, whole-volume
+backup installation, snapshot schedule/immutability, encryption-key custody,
+offsite target and restore performance remain `HOLD`.
+
+Revision close enqueues backup immediately and periodic reconciliation catches
+missed events. Trust requires source digest, native task completion, destination
+readback or isolated restore, restored digest equality and a receipt. Mapped-
+drive copy, sync completion, snapshot existence or backup-job success alone is
+insufficient. Initial lag/RPO/RTO thresholds are proposals until a synthetic
+file canary measures transfer and restore time.
+
 ## Connector matrix
 
 | System | Source-local SoR / objects | Connector and scope | Capture/revision/backup model | Current plan state |

@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-08-31 - Hermes Tool Bot permissions, work-product revisions and NAS backup are piloted together
+
+- Defined the project-owned `WORK_PRODUCTS` surface, Tool `JOBS`, meaningful-edit checkpoints, immutable candidate revisions, human display versions, copy/hash/readback finalization, FIFO capacity-one execution and two-phase cache cleanup without materializing the target folders.
+- Separated project work-product bytes, Project Git metadata, later `_workspaces` materialization, final release storage and one-way NAS Backup/DR. A mapped-drive copy or sync/backup success does not prove recoverability; isolated restore digest equality remains required.
+- Added a public-safe loopback artifact-isolation MCP and deterministic multi-project FIFO test. PowerPoint Skill tests pass 21/21, Tool Workshop/FIFO tests pass 9/9, and direct MCP stdio smoke calls all three synthetic tools with zero effects.
+- Created two isolated local Hermes pilot profiles: candidate-only PPT executor and independent read-only verifier. Built-in tools, automatic Skill review, curator, memory nudge and Skill-management capability are disabled; profile-specific MCP include lists deny the opposite write/verify capability.
+- Standalone Hermes allowed calls, negative-tool denials and named A/B session isolation passed. ACP/Buzz-shaped probes proved the permitted candidate and verifier calls after configured-MCP discovery settled, while also exposing a startup/schema-cache limitation: `HERMES_ACP_SKIP_CONFIGURED_MCP=1` is not a sufficient deny gate and generic read-only MCP helper tools remain visible.
+- No real PPTX, project payload, NAS setting, Linear state, `_workspaces`, OneDrive, Buzz membership or managed-Agent identity was changed. Production Buzz registration remains behind exact draft/save/readback and first-turn tool-list gates.
+
 ## 2026-08-31 - Fable 5 continuity revisions are integrated into the Owner Master Map
 
 - Completed the exact 18-point Owner correction trace and corrected the `sf-p05` owner name to `Knowledge & Ontology`.

@@ -20,6 +20,13 @@ Program plan 11의 첫 Workshop 수직이다. 첫 프로파일로는 plan 11 표
 npm.cmd run validate:tool-workshop
 ```
 
+이 validator는 기존 capacity/fence/candidate 계약과 같은-priority
+multi-project FIFO(`A1 -> B1 -> A2 -> B2`)를 함께 검사한다. 별도
+`fixtures/artifact_isolation_mcp.py`와 Python/ACP probe는 public-safe synthetic
+Hermes profile Tool 분리 실험용이며 canonical validator가 실제 Hermes 설치나
+provider를 요구하지 않도록 분리한다. 그 물리 실행 결과는 project-private review
+packet이 소유하고, public module은 runtime/Buzz/NAS/PPTX effect를 주장하지 않는다.
+
 ## 관련 정본
 
 - `docs/architecture/foundation/team_member_engineering_program/11_TOOL_WORKSHOPS_AND_JOB_SHOP.md`

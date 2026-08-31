@@ -64,6 +64,19 @@ explicitly labeled and are not existence claims:
 | `external_owner_store` | source SaaS, Drive, NAS, source repositories | original/source-local authority under its ACL |
 | `secret_owner_root` | OS/Secret Manager protected identity and credential custody | `TARGET/VERIFY_PHYSICAL`; never materialized in public canon or `data_root`; registry stores `secret_ref` only |
 
+Target child classification under the existing `project_work_root`:
+
+| Logical child | Owner/classification |
+| --- | --- |
+| `workroot.bot_execution/TOOL/<tool>/JOBS/<project>/<job>` | Tool Workshop execution/cache/outbox; bounded retention, never ERP canon |
+| `workroot.bot_execution/PJT/<year>/<project>/SHARED/WORK_PRODUCTS/<artifact>` | project Agent organization mutable/candidate payload and revision owner |
+| `workroot.bot_execution/PJT/<year>/<project>/SHARED/PROJECT_GIT` | source-local integration/evidence metadata checkout, not payload or task truth |
+| NAS backup generation for the above | separate `external_owner_store` Backup/DR destination with manifest/readback/restore evidence |
+
+These rows are target logical children only. Exact drive/share paths, ACL,
+writer epoch, retention, backup binding and restore target stay in private
+bindings; current folder existence does not activate them.
+
 ### Alias crosswalk with plan 15
 
 | Plan 15 alias | Plan 17 root class |

@@ -77,6 +77,17 @@ Tool-specific agents and workshops are Guild-operational objects with a separate
 
 The tool PC may be physically shared, but its role and project binding are separated. A capacity-one license/tool may not be inferred available from a process name or a dashboard's idle state. Workshop detail is specified in [11](11_TOOL_WORKSHOPS_AND_JOB_SHOP.md).
 
+The first Tool Bot pilot separates the candidate executor and independent
+verifier into distinct Hermes profiles, Agent identities, sessions, workspaces
+and writer authority. Their Agent Marks must pin the exact SOUL revision,
+requested/observed model and effort, Skill list, built-in Tool list, MCP server
+and per-tool include list. A standalone profile test is not a Buzz Deployment;
+the Buzz-managed `hermes-acp` binding needs a separate Deployment/readback and
+must fail closed if ACP startup or session MCP injection widens the tool set.
+Automatic Skill/background-review/curator capability remains off for this
+bounded executor class. The independent verifier must never share the executor's
+Mark, Deployment, artifact writer, session or workspace.
+
 ## Current reuse and HOLD
 
 | Current surface | Treatment | Limit |
