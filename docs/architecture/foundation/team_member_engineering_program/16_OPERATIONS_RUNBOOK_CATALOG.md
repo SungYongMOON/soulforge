@@ -48,6 +48,10 @@ Current gap: this document lists 16 manual roles while the Deployment Pack
 Storage Map coverage plus actual manual artifact/digest/version resolution remain
 `RELEASE_HOLD` until reconciled and validated.
 
+The 16-role table is the semantic owner. The Master Map's ten `manual/`
+directories are a proposed physical projection only, and the 13-entry code
+catalog is an incomplete implementation surface until all three reconcile.
+
 ## Standing execution and blocked-branch procedure
 
 After the plan/review start gate, an operator or builder uses the Owner decision ledger before asking a question. Settled safe actions proceed under the relevant runbook; the standing defaults are Linear SoR, reference-in-place, no implicit fallback, proposal-only LLM, default-OFF/canary-first, and Watch read/approval-request only.

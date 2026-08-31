@@ -64,7 +64,32 @@ Source → Event/Candidate → Context/Knowledge → Engineering Judgment
 
 이 문서의 계층 ID는 `M0`~`M16`이다. 대화에서 사용한 L0~L16 설명을 같은 순서로
 옮겼지만, 기존 `SOULFORGE_ERP_BOM_HIERARCHY_V0.md`가 이미 별도 의미의 L0~L5를
-사용하므로 둘을 혼동하지 않는다.
+사용하므로 둘을 혼동하지 않는다. `DEVELOPMENT_ROADMAP_V0.md`의 `M1`, `M2-*`는
+Roadmap milestone ID이므로 항상 `Master M*`, `Roadmap M*`, `ERP BOM L*`처럼 owner를
+붙여 표기한다.
+
+### Owner 18-point correction trace
+
+| # | Owner correction | Master owner |
+| --- | --- | --- |
+| 1 | 4192와 제품에 의미 있는 최종 명칭 필요 | M1·M13 |
+| 2 | 판타지 세계관과 game-like work를 유지/제외할지 명시 | M0 |
+| 3 | ERP·Engine·Agent Platform의 통일된 제품명 필요 | M1 |
+| 4 | 제3자가 이해하는 portfolio 설명과 용어 필요 | M2 |
+| 5 | 제품 source folder의 naming·migration 원칙 필요 | M3 |
+| 6 | Shared Module·Pack·제품 source의 관계 설명 필요 | M4·M5 |
+| 7 | Buzz Project Git clone/worktree 위치를 협업 owner와 확정 | M6 |
+| 8 | `_workspaces`는 SE variant/stage/artifact 규칙으로 생성 | M7 |
+| 9 | `_workmeta`는 project-local companion metadata와 장부만 소유 | M8 |
+| 10 | 외부 App/Connector의 설치·권한·업데이트·제거 lifecycle 필요 | M9 |
+| 11 | Owner 건별 승인이 아닌 risk/capability 위임 실행 | M10 |
+| 12 | Collection/Custody와 NAS disaster Backup/Restore를 분리 | M11 |
+| 13 | Owner가 grant/revoke/STOP하는 제품 UI 필요 | M12 |
+| 14 | 4192를 운영 App Platform과 분석 도구로 확장 | M13 |
+| 15 | World Tree 내부 구현은 보류하되 I/O seam은 고정 | M14 |
+| 16 | 운영 Manual을 제품 Release와 함께 versioning·검증 | M15 |
+| 17 | 개발1팀 대상 internal RC를 이번 주 목표로 검토 | M16 |
+| 18 | Architecture 문서와 사용자/운영 Manual의 역할 차이 명시 | M15 뒤 crosswalk |
 
 ## M0. 세계관·게임 경험·현실 authority
 
@@ -95,6 +120,10 @@ Soulforge의 판타지 세계관은 제거하지 않는다. 회사의 실제 Tas
 authority 정의가 없다. Boss는 하나의 완료 boolean이 아니라 deliverable→review→
 acceptance→Official Done Gate sequence를 시각화해야 한다. Reward를 유지한다면
 Human-Accepted Outcome과 reusable asset에서 파생한 UI engagement projection으로만 둔다.
+
+`Mission`은 현재 `.mission` held-plan canon, 판타지 업무 용어, `sf-p01` 공식명에 동시에
+쓰인다. 셋의 이름을 그대로 유지할지 구분할지는 `OPEN_GRILL`이며, Reward를 유지하기로
+하면 World Bible과 Shared Glossary를 같은 결정에서 갱신한다.
 
 상세 owner: [`SOULFORGE_WORLD_BIBLE_V0.md`](SOULFORGE_WORLD_BIBLE_V0.md).
 
@@ -133,7 +162,7 @@ label을 함께 제공한다.
 | `sf-p02` | 프로젝트 업무·자료·BOM·Artifact revision을 관리 | ERP & Asset Management | Vault |
 | `sf-p03` | 제품·업무·Agent·자원·비용·백업을 관측 | Operations Command | Watchtower |
 | `sf-p04` | 사람·AI 조직, Agent Mark·Deployment·Run을 관리 | AI Workforce & Organization | Guild Hall |
-| `sf-p05` | Context·Evidence·Ontology·RAG·지식을 관리 | Knowledge & Context | World Tree |
+| `sf-p05` | Context·Evidence·Ontology·RAG·지식을 관리 | Knowledge & Ontology | World Tree |
 | `sf-p06` | 공학 규칙과 실제 관측을 비교해 gap·risk를 판단 | Engineering Engine Family | Engine Foundry |
 | `sf-p07` | CAD·PCB·문서·시험 등 전문 Tool 자원을 운영 | Tool Workshops | Artisan District |
 | `sf-p08` | identity·권한·custody·backup·restore를 보호 | Platform, Security & Recovery | Bastion |
@@ -144,6 +173,10 @@ label을 함께 제공한다.
 
 우선 보정 대상은 P03(read-only인데 Command로 읽힘), P04(사람 조직도 포함),
 P06(제품명과 중복), P08(Agent Platform과 Platform 단어 충돌)이다.
+
+`Vault`, `Forge`, `Guild`, `Watch`, `Bastion`은 현재 logical product/module owner와 판타지
+label로 함께 쓰인다. 모두 Forge와 같은 명명 검토 대상이며, stable 업무 owner와 선택형
+skin label을 분리하기 전에는 어느 한 의미를 canon으로 추정하지 않는다.
 
 ## M3. 제품 Source Code와 명명·migration
 
@@ -218,6 +251,11 @@ one Module → one owner → one Implementation → one versioned Interface
 - common Schema/Validation;
 - Knowledge/RAG Interface 중 project-independent 부분.
 
+제품 재기준 문서에는 Task & Decision, Context World Tree 등 domain capability 7종도
+Shared 후보로 기록돼 있다. 위 infrastructure 후보 8종과 합쳐 단일 candidate inventory로
+분류하되, `여러 제품이 사용한다`는 사실만으로 infrastructure Shared Module이 되는 것은
+아니다. PC2에서 exact owner·Interface·Implementation을 하나씩 결정한다.
+
 Module 삭제 시 복잡성이 여러 caller로 다시 퍼진다면 깊은 Module이다. 단순 pass-through와
 한 번만 쓰는 abstraction은 Shared로 승격하지 않는다.
 
@@ -248,6 +286,13 @@ _workmeta                     project/system metadata ledger
 현재 host-local physical values는 private binding에서만 관리한다. Owner가 확인한
 human/Bot 실제 경로는 각각 `human_work_root`와 `bot_work_root` alias로 표현하고 public
 문서에 drive path를 고정하지 않는다.
+
+현재 호환명 crosswalk는 다음과 같다. `bot_work_root`는 Owner-facing alias,
+`bot_worktree`는 기존 plan 호환명, `project_work_root`는 Path Registry physical class,
+`workroot.bot_execution`은 logical registry row다. `human_work_root`는 아직 등록되지 않은
+private alias 후보이며, existing root class로 분류하거나 explicit HOLD row를 만들기 전에는
+물리 activation을 하지 않는다. 해소 결정은 Plan 17 R1 root classification과 Fresh Grill
+frontier가 함께 소유한다.
 
 `bot_work_root` current shape:
 
@@ -310,6 +355,10 @@ variant에서 folder exclusion 차이가 없어 quality grade와 generation prof
 
 `_workmeta/<project_code>`는 그 프로젝트 metadata만 소유한다. 모든 회사 장부를 한 프로젝트
 아래에 넣지 않는다.
+
+아래는 complete current inventory가 아니라 target crosswalk다. 현행 owner 문서의
+`monsters/`, `autohunt/`, `dungeons/`, `nightly_healing/`, `analytics/`, `artifacts/` 등
+기존 child는 그대로 유효하며 조용히 교체하지 않는다.
 
 ```text
 _workmeta/<project_code>/
@@ -401,6 +450,16 @@ Chat/Source가 Task 후보 생성
 
 팀원은 Buzz에서 지시하거나 MCP로 할 일·자료를 받아 같은 폐루프를 사용한다.
 
+반복 가능한 실행지식은 별도 승격 루프를 따른다.
+
+```text
+manual work + project-local Run truth → reviewed Skill/Workflow/Party/Mission candidate
+→ canon promotion gate → reusable execution canon → bounded Autohunt reuse
+```
+
+Run 성공이나 반복 빈도만으로 자동 승격하지 않으며 source support, regression evidence,
+owner surface와 promotion authority가 모두 닫혀야 한다.
+
 ## M11. Collection/Custody와 NAS Backup
 
 용어를 분리한다.
@@ -472,6 +531,9 @@ revoke는 별도 안전 Interface를 가진다.
 
 개인 자동 점수·감시·인사평가는 금지한다. Process Mining 결과는 근거·누락률·불확실성·
 정정권을 함께 보여준다. 각 App은 versioned Interface와 detachable deployment를 가진다.
+`mining_eligible`, `learning_eligible`, `people_analytics_allowed`는 서로 독립적인
+deny-by-default flag다. 운영 Ledger를 분석/학습 Dataset으로 바꾸는 작업은 별도 dataset
+revision·ACL·consent·acceptance owner를 요구하며, 운영 권한이 Dataset 권한을 대신하지 않는다.
 
 이를 위해 `Product/App Manifest`, navigation/composition Interface, compatible projection
 schema, App version/manual/support/grant 상태가 필요하다. 현재 구현은 일부 supplier와
@@ -508,7 +570,8 @@ pointer를 남기는 것이다. 내부 graph/vector/relational engine 선택과 
 
 운영매뉴얼은 부속 문서가 아니라 제품 Release의 필수 Artifact다.
 
-각 제품/Pack release는 다음 문서를 version과 함께 결속한다.
+각 제품/Pack release는 다음 문서를 version과 함께 결속한다. 아래 10개 폴더는
+`TARGET PHYSICAL PROJECTION`이며 semantic owner는 Plan 16의 16-role catalog다.
 
 ```text
 manual/
@@ -554,7 +617,7 @@ coverage와 실제 manual artifact/digest/version resolver가 없어 `RELEASE_HO
 최소 출시 Slice 후보:
 
 1. HPP Server/Backup Pack의 현재 validated build;
-2. Owner PC와 팀원 PC 한 자리 Team Client 설치·진단;
+2. Owner 또는 팀원 중 `OPEN_GRILL`로 고른 exact one-seat Team Client 설치·진단;
 3. 프로젝트·권한 binding readback;
 4. Linear/ERP의 승인된 Task·자료 read-only 조회;
 5. Buzz 연결 또는 MCP로 Task/자료 전달;
@@ -582,7 +645,8 @@ Architecture가 바뀌면 Manual 영향표가 갱신되고, 제품이 Release되
 
 ## 병렬 구현 Lane과 의존성
 
-Fresh Grill로 OPEN 결정을 닫은 뒤 다음을 병렬 실행할 수 있다.
+Fresh Grill로 OPEN 결정을 닫은 뒤 다음을 병렬 실행할 수 있다. 아래 A~F는 Plan 14에
+등록된 post-Grill candidate lane이며 Grill 종료 전 active implementation queue가 아니다.
 
 | Lane | 병렬 가능 범위 | 선행 Owner 결정 |
 | --- | --- | --- |
@@ -603,12 +667,17 @@ Settled decisions are not asked again. Initial frontier:
 1. Product/Operations Command final naming brief and fantasy Skin position;
 2. Monster/Quest/Mission/Boss/Reward lifecycle semantics와 M1/M2 naming grammar;
 3. final product source-root option at PC4(`products/shared` vs current-root composition);
-4. authority grant/revoke risk classes and Operations Command UI scope;
+4. authority grant/revoke risk classes, AuthorityPolicy exact sole writer와 Operations Command UI scope;
 5. this-week Development Team 1 Internal RC exact included/excluded capabilities;
 6. SE foldertree variant priority and existing-project migration policy;
-7. NAS DR target, RPO/RTO and first restore canary;
+7. NAS DR target, RPO/RTO, first restore canary와 Human Restore Acceptance acceptor;
 8. Forge product/layer owner와 Manual 정본 format(Markdown+projection 후보);
-9. one-seat RC와 development-team pilot 중 이번 주 exact 목표.
+9. one-seat RC와 development-team pilot 중 이번 주 exact 목표;
+10. Buzz Project Git integration clone·Agent worktree의 physical class와 binding owner;
+11. `.mission` canon/판타지 Mission/portfolio 명칭, Vault·Forge·Guild·Watch·Bastion의
+    업무 owner명과 skin label 분리 방식;
+12. `human_work_root`를 existing Path Registry root class로 분류할지 explicit HOLD row로
+    등록할지와 Plan 17 R1 owner.
 
 Grill은 질문마다 권고안·선택지·영향을 제공하고, Owner 답변을 Plan 00 decision register에
 append한다. frontier가 비고 Owner가 이해 일치를 확인한 뒤에만 구현으로 전환한다.

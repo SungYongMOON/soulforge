@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-31 - Fable 5 continuity revisions are integrated into the Owner Master Map
+
+- Completed the exact 18-point Owner correction trace and corrected the `sf-p05` owner name to `Knowledge & Ontology`.
+- Qualified Master, Roadmap and ERP BOM IDs; registered the Mission, fantasy/logical-owner, work-root alias and Buzz Project Git placement conflicts as explicit Grill decisions.
+- Reconciled Shared Module candidate sets, removed the generic project-root RAG/analytics target, clarified current versus target `_workmeta` and manual projections, and added deny-by-default mining, learning and people-analytics gates.
+- Registered the A-F post-Grill lanes and Development Team 1 internal RC as adjacent candidates without replacing the current Roadmap active slice. No name, physical binding, runtime, authority or release was activated.
+
 ## 2026-08-31 - Owner Master Architecture and Release Map becomes the M0-M16 navigation baseline
 
 - Added one owner-facing Master Map covering the Soulforge worldview and optional Game Skin, three products and nine portfolios, product/shared source composition, Module/Pack/runtime structure, human/Bot/ERP work surfaces, SE-variant project trees, project-local metadata and ledgers, Connector lifecycle, risk-based delegated execution, NAS disaster backup, Owner authority UI, Operations Command Apps, fixed World-Tree input/output seams, manual-as-release and the Development Team 1 internal release target.

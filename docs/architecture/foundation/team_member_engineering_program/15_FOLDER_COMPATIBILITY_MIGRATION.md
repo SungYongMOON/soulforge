@@ -249,14 +249,21 @@ _workmeta/<project_code>/
 
 _workspaces/system/rag/                        # public-safe/common metadata projections only
 _workspaces/knowledge/rag/                     # approved project-agnostic common payload/index
-_workspaces/<project_code>/reference_payloads/rag/  # isolated project payload/index
-_workspaces/<project_code>/analytics/
-├─ process_mining/<dataset_id>/<version>/
-└─ learning_datasets/<dataset_id>/<version>/
+_workspaces/<project_code>/<approved-variant-stage>/<artifact>/
+└─ project-local RAG/analytics payload or index  # exact stage/artifact binding
+_workspaces/<project_code>/<approved-project-root-extension>/
+└─ project-local RAG/analytics payload or index  # separately approved extension
 _workspaces/system/analytics/                  # cross-project only after Owner/ACL/consent approval
 ├─ process_mining/<dataset_id>/<version>/
 └─ learning_datasets/<dataset_id>/<version>/
 ```
+
+There is no universal project-root `reference_payloads/rag/` or `analytics/`
+sibling. A project-local RAG or analytics dataset must bind to an exact generated
+stage/artifact ID, or to a separately approved project-root extension registered
+by the SE variant and Path Registry policy. Older project-knowledge documents
+that still name a generic sibling are compatibility/migration inputs, not
+activation authority; their callers and pointers must be reconciled before use.
 
 The Catalog is central, but Event storage is partitioned by project/organization,
 ACL, retention, legal hold and recovery blast radius. A single-writer SQLite WAL

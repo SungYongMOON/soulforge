@@ -42,6 +42,7 @@ RED stabilization semantics: RED-01 is the serial row-0 leaf. RED-02 (topology-o
 | 1B (adjacent plan/review lane) | Ledger Catalog + Event Spine + RAG/mining contract | Existing product/portfolio/physical maps, exhaustive metadata-only ledger/RAG inventory, integrated Ultra/Fable5 findings and fresh corrected-document review | LR0A/LR0B frozen; LR1 may create Catalog contract/rows/validator only; no runtime DB or migration yet |
 | 1C (adjacent productization lane) | Product Composition & Source Ownership Map | Product-family decision, current 29-manifest/4-spec audit, caller graph and no-overlap writer scope | Three no-move `product.manifest` contracts plus complete Product-owned/Shared Module classification; source move/copy/new top-level root 0 |
 | 1D (Owner decision lane) | Owner Master Map + Fresh Grill | `SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md`, fixed decisions, exact OPEN_GRILL frontier | Naming/world-skin, source-root, authority, release Slice, SE variant, NAS DR and manual-format decisions appended to Plan 00; implementation 0 |
+| 1E (post-Grill candidate lanes) | Master Map A–F | 1D Human Owner decision closure and owner/writer map | Naming/Skin, product composition, SE workspace/metadata, connector/backup, authority/operations UI, manual/internal release may run in parallel only where write ownership is disjoint |
 | 2 | Engineering MCP contract/schemas | D27–D29 design decisions | Schema/tool compatibility and adversarial synthetic suite |
 | 3 | Vault ArtifactRevision vertical | D27/D29 + exact custody policy | One artifact candidate/review/acceptance synthetic vertical |
 | 4 | Forge actual vertical | D27/D28/D29 closed plus accepted context and task-writer agreement | One TaskIntent/Work Brief/assignment default-off vertical (not the later physical field pilot) |
@@ -69,6 +70,11 @@ RED stabilization semantics: RED-01 is the serial row-0 leaf. RED-02 (topology-o
 | Buzz Project Git Evidence pilot | Exact private project/access-channel/repository/ref/Agent binding; public-safe terminal-receipt contract; synthetic replay, stale-revision, foreign-project and history-rewrite rejection; one-shot read-only intake; artifact/validator/Work Brief/blocker verification; Human Owner review and rollback | All-commit triggers, webhook/runtime activation, persistent coordinator, Pulse state writer, Linear mutation/Done, Artifact/Evidence acceptance, accepted-context promotion, raw project payload copy, or project-wide rollout |
 | Product composition/source ownership | Every source Module has one logical owner and Interface; product-specific vs shared classification; three product dependency closures; product tests/Packs/release/rollback refs; fresh review | New top-level `products`/`shared` root, source move/copy, duplicate Implementation, compatibility removal, product release claim |
 | Owner Master Map / Grill | Deterministic validators, fresh Sol/xhigh integration/decision tree, one Fable 5 continuity red-team over an exact stable commit, then Human Owner Grill; each answer updates the decision register and frontier | Re-asking settled decisions, duplicate same-role review, implementation during Grill, implicit naming/root/authority/release approval |
+
+Post-Grill lane mapping: `A→Naming/World Skin`, `B→Product Composition`,
+`C→SE Workspace/Metadata`, `D→Connector/Backup`, `E→Authority/Operations UI`,
+`F→Manual/Internal Release`. These are candidate lanes until the Human Owner
+closes 1D; they do not supersede the active Roadmap slice.
 
 ## Ledger/RAG/Process-Mining lane — target sequence
 
