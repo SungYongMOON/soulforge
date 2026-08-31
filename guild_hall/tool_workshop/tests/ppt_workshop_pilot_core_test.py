@@ -137,6 +137,22 @@ class PptWorkshopPilotTests(unittest.TestCase):
                 "C9999", "C0001", 3, "No parent",
             )
 
+    def test_edit_and_finalize_require_the_original_job_binding(self):
+        module = load_module()
+        module.initialize_synthetic_ppt("PILOT-PROJECT", "ART-PILOT-PPT-001", "JOB-0001")
+        with self.assertRaisesRegex(FileNotFoundError, "job_request_missing"):
+            module.edit_slide_checkpoint(
+                "PILOT-PROJECT", "ART-PILOT-PPT-001", "JOB-OTHER",
+                "C0000", "C0001", 3, "Wrong job",
+            )
+        self.assertFalse(
+            (
+                Path(os.environ["PPT_JOB_ROOT"])
+                / "PILOT-PROJECT"
+                / "JOB-OTHER"
+            ).exists()
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

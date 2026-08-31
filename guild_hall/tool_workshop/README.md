@@ -32,7 +32,9 @@ packet이 소유하고, public module은 runtime/Buzz/NAS/PPTX effect를 주장�
 `Rxxxx` candidate revision, hash/readback, Job/Work Product 이중 receipt를 만든다.
 `tests/ppt_workshop_pilot_core_test.py`는 좋은 checkpoint에서 다시 branch하여
 잘못된 후속 수정이 최종 revision에 섞이지 않는지, overwrite와 path escape가
-fail-closed인지 검사한다. 이 Python 시험은 `mcp`와 `python-pptx`가 설치된
+fail-closed인지 검사한다. 편집과 finalization은 최초 `REQUEST/request.json`의
+exact project/artifact/job binding이 없거나 다르면 새 Job을 만들지 않고 거부한다.
+이 Python 시험은 `mcp`와 `python-pptx`가 설치된
 격리 runtime에서 실행한다. 의존성을 repository의 canonical Node validator에
 강제로 추가하지 않는다.
 

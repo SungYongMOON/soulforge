@@ -2,7 +2,7 @@
 
 ## 2026-08-31 - Synthetic PPT Workshop proves branch-safe physical file revisioning
 
-- Added a bounded PPTX Workshop MCP fixture and tests for approved-root confinement, create-only `Cxxxx` checkpoints, `Rxxxx` candidate finalization, hash/readback verification and separate Job/Work Product receipts.
+- Added a bounded PPTX Workshop MCP fixture and tests for approved-root confinement, exact initial Job-request binding, create-only `Cxxxx` checkpoints, `Rxxxx` candidate finalization, hash/readback verification and separate Job/Work Product receipts.
 - Ran one private synthetic-file pilot that kept a good slide-3 checkpoint, preserved a deliberately wrong slide-4 branch, branched again from the good checkpoint, and finalized only the corrected branch as `R0001/V1.1`. Independent verification and four-slide PNG rendering passed.
 - Kept Human Acceptance, backup acceptance, real project payload, Linear, NAS, `_workspaces` and OneDrive effects at zero. The temporary loopback MCP was stopped after the pilot.
 - Buzz managed-Agent creation and channel smoke remain `HOLD`: Windows desktop input capture returned access denied, so no UI bypass or direct identity-store mutation was attempted. The tested Hermes profiles exist, but their pilot MCP is not a production-managed service.

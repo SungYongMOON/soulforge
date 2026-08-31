@@ -84,6 +84,25 @@ def _write_json_create_only(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
 
 
+def _require_job_binding(binding: dict[str, Path | str]) -> None:
+    job_dir = binding["job_dir"]
+    assert isinstance(job_dir, Path)
+    request_path = job_dir / "REQUEST" / "request.json"
+    if not request_path.is_file():
+        raise FileNotFoundError("job_request_missing")
+    try:
+        request = json.loads(request_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError("job_request_invalid") from exc
+    expected = {
+        "project_ref": binding["project"],
+        "artifact_ref": binding["artifact"],
+        "job_ref": binding["job"],
+    }
+    if any(request.get(key) != value for key, value in expected.items()):
+        raise PermissionError("job_binding_mismatch")
+
+
 def initialize_synthetic_ppt(project_ref: str, artifact_ref: str, job_ref: str) -> dict:
     binding = _bindings(project_ref, artifact_ref, job_ref)
     job_dir = binding["job_dir"]
@@ -113,11 +132,15 @@ def initialize_synthetic_ppt(project_ref: str, artifact_ref: str, job_ref: str) 
     _write_json_create_only(
         job_dir / "REQUEST" / "request.json",
         {
+            "schema_version": "soulforge.synthetic_ppt_job_request.v1",
             "project_ref": binding["project"],
             "artifact_ref": binding["artifact"],
             "job_ref": binding["job"],
             "kind": "synthetic_ppt_pilot",
             "authority_ceiling": "workshop_output_candidate_only",
+            "real_project_payload": False,
+            "human_acceptance": False,
+            "backup_acceptance": False,
         },
     )
     payload = {
@@ -145,6 +168,7 @@ def edit_slide_checkpoint(
     replacement_text: str,
 ) -> dict:
     binding = _bindings(project_ref, artifact_ref, job_ref)
+    _require_job_binding(binding)
     artifact_dir = binding["artifact_dir"]
     assert isinstance(artifact_dir, Path)
     parent = _require(parent_checkpoint, CHECKPOINT, "parent_checkpoint")
@@ -203,6 +227,7 @@ def finalize_candidate_revision(
     display_version: str,
 ) -> dict:
     binding = _bindings(project_ref, artifact_ref, job_ref)
+    _require_job_binding(binding)
     artifact_dir = binding["artifact_dir"]
     assert isinstance(artifact_dir, Path)
     checkpoint = _require(checkpoint_id, CHECKPOINT, "checkpoint_id")
