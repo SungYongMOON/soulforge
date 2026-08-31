@@ -6,6 +6,12 @@
 - Classified Ledger as a shared plane across the three products and nine portfolios, with RAG as a rebuildable projection and 4192 as a read-only consumer rather than additional truth owners.
 - Added a metadata-only current inventory of persistent, source-local, project-local, in-memory and missing ledger/RAG surfaces, plus the target source/runtime/project/RAG/mining folder placement without moving existing payloads.
 - Added the review-gated LR0-LR10 roadmap from Ledger Catalog and Event Store/Outbox through project-isolated RAG, Process Mining, approved learning/evaluation datasets and 4192 projection. No runtime DB, migration, automatic indexing, training export or people-performance decision was activated.
+- Integrated the Owner-provided fresh Fable 5 (`ACCEPT_WITH_REVISIONS`) and Sol Ultra (`REVISE`) advisory reviews without copying their raw reports. The architecture remains accepted while LR0/LR1 readiness is revised.
+- Added the missing Ledger Catalog taxonomy and portfolio-role ownership, case/activity issuer, assignment/run/object refs, collection/effective clocks, typed causal relations, owner-local outbox/reconciliation and project/organization-scoped Event Store rule. One enterprise SQLite and cross-store “same transaction” claims are explicitly rejected.
+- Added complete current-ledger inventory rows including Chat 1h/3h and Google Sheet evidence, plus RAG generation/invalidation, Dataset leakage/duplicate/bias/label/consent guards and deny-by-default mining/learning/people-analysis eligibility.
+- Replaced the conflicting `data_plane` target with registered `data_root`/`control_root` ownership, registry-generated backup classes, project/common RAG isolation and project/cross-project analytics locations. Added one complete whole-product/whole-folder target view without moving or creating target-only directories.
+- Split LR0 entry, LR1 deliverables and LR1 exit evidence so Catalog rows and the payload-free golden trace are no longer circular pre-LR1 prerequisites. Runtime store, adapters, automatic RAG and Dataset export remain later gated work.
+- A fresh non-authoring Level-2 review returned `ACCEPT`; its only non-blocking clarity note was closed by naming SF-P03 directly in the shared Ledger/4192 flow. LR1 start remains an Owner working-plan decision rather than an automatic consequence of review.
 
 ## 2026-08-31 - Linear whole-workspace backup gains exact all-project classification
 

@@ -526,6 +526,9 @@ Program B — Development Team 1 Field Pilot
 아래 `SF-Pxx`는 검토 중 이름과 무관하게 discussion에서 사용하기 위한 stable logical ID 후보다.
 실제 directory, package, DB schema, TASK group을 만들거나 rename하지 않는다.
 
+사람이 보는 표기는 `SF-P01`처럼 대문자를 사용하고, 기계 wire ID는 현행 Path Registry와
+맞춰 `sf-p01`처럼 소문자로 정규화한다. display label과 wire ID를 같은 필드로 비교하지 않는다.
+
 ```text
 Soulforge Portfolio (logical only)
 ├─ SF-P01  Work Discovery & Mission
@@ -567,14 +570,39 @@ Soulforge Portfolio (logical only)
 Ledger는 네 번째 제품이 아니라 세 제품과 아홉 portfolio를 가로지르는 공통 plane이다.
 ERP는 업무·자산·현재 projection과 catalog를, Engineering Engine은 rule evaluation·finding을,
 Agent Platform은 Agent/Deployment/Run/Tool 실행을 각각 소유한다. 공통 Ledger Module은
-append/idempotency/clock/predecessor/outbox/replay/export 같은 기계 계약만 소유하고 Domain
-의미·수락·권한을 가져오지 않는다. 4192는 typed projection만 읽고 writer가 되지 않는다.
+catalog, envelope validation, append/idempotency, clock/relation, owner-local outbox relay,
+reconciliation, replay/export 같은 기계 계약만 소유하고 Domain 의미·수락·권한을 가져오지
+않는다. 4192는 typed projection만 읽고 writer가 되지 않는다.
+
+### Ledger Catalog와 owner 관계
+
+중앙에 두는 것은 하나의 전사 event database가 아니라 `Ledger Catalog`다. 실제 Event Store는
+프로젝트·조직·source·retention·ACL·legal-hold 경계에 따라 분할할 수 있다. 단일 SQLite WAL은
+한 프로젝트 bounded pilot 후보일 뿐 전사 target이 아니다.
+
+각 Catalog row는 다음을 구분한다.
+
+```text
+ledger_id / ledger_kind
+producer_portfolio / logical_owner_portfolio / infrastructure_portfolio / consumer_portfolios
+SoR / sole_writer / schema_revision
+case_type / case_issuer / activity_registry_ref / clock_contract_ref / relation_contract_ref
+storage_class / project_or_org_scope / ACL / retention / legal_hold
+backup_restore_class / projection_refs / review_acceptance_owner
+mining_eligible / learning_eligible / people_analytics_allowed   # 모두 deny-by-default
+current_state / gap / evidence_ref
+```
+
+`ledger_kind`는 최소 `source_sor`, `event_ledger`, `receipt_store`, `cursor`, `current_state`,
+`projection`, `backup_generation`, `dataset`을 구분한다. 같은 사건을 여러 요약 장부가 가리킬
+수는 있지만 원천 occurrence 하나와 projection/summary 관계를 결속하고 별도 사건으로 중복
+계산하지 않는다.
 
 | Portfolio | Ledger family | 최소 분석 가능 질문 |
 | --- | --- | --- |
 | SF-P01 | source occurrence, candidate, decision, no-action/hold/reject/approve | 어떤 사건이 왜 업무가 되었거나 되지 않았는가 |
 | SF-P02 | task, asset, BOM/material, ArtifactRevision, review/acceptance | 무엇이 언제 어떤 revision으로 완료·수락됐는가 |
-| SF-P03 | health, incident, usage, cost, queue/wait | 병목·장애·비용·capacity가 어디에 있었는가 |
+| SF-P03 | health/incident/action projection, coverage, lag, quality, aggregate cost | 병목·장애·비용·capacity가 어디에 있었는가 |
 | SF-P04 | person/Agent Mark, deployment, WorkSession, run, delivery/ack/result | 누가·어떤 Agent/모델/도구로 얼마나 일했는가 |
 | SF-P05 | source revision, knowledge access, RAG index/eval/invalidation/promotion | 어떤 근거와 지식이 결과에 쓰였고 언제 stale해졌는가 |
 | SF-P06 | rule/profile/binding, typed facts, Engine evaluation/finding | 어떤 규칙·관측·판단이 업무와 결과에 영향을 줬는가 |
@@ -582,17 +610,61 @@ append/idempotency/clock/predecessor/outbox/replay/export 같은 기계 계약�
 | SF-P08 | identity/grant, custody, backup/restore, audit | 어떤 상태를 어느 세대에서 복구·검증할 수 있는가 |
 | SF-P09 | pack/release/install/update/training/support | 배포·교육·지원이 성과와 오류에 어떤 영향을 줬는가 |
 
-공통 Event Envelope는 최소 `event_id`, `ledger_id`, schema/event type, `case_ref`,
-project/task/work/activity code, actor/person/Agent/Tool/profile refs, `occurred_at`, `observed_at`,
-`recorded_at`, from/to lifecycle, predecessor/idempotency, input/output/evidence/review/acceptance refs를
-가진다. raw bytes와 긴 body는 owner store에 두고 Ledger는 exact revision pointer/hash만 가진다.
-현재 상태는 Event replay의 rebuildable projection이며 과거 Event를 update/delete하지 않는다.
+### Case, Activity, Time, Relation
 
-Source capture와 Event append가 성공하는 동일 transaction에서 metadata-only RAG outbox를
-생성할 수 있다. RAG worker는 비동기로 exact source revision을 추출·색인하고 Index Generation,
-evaluation, active/stale/superseded pointer와 receipt를 남긴다. RAG 실패는 Source/Ledger commit을
-되돌리지 않으며 재시도·재구축이 가능해야 한다. Structured task/time/count 질의는 DB projection,
-근거·대화·문서 검색은 RAG를 사용한다.
+`case_ref`는 공통 Module이 임의 발급하는 전역 업무 ID가 아니다. primary lifecycle의 Domain
+owner가 `case_type`과 함께 발급하고 Ledger Catalog가 issuer와 형식을 등록한다. Project, Task,
+Assignment, Run, ArtifactRevision, Backup Generation은 서로 다른 object이며, 여러 object를 한
+process 분석에 결속할 때 `object_refs`와 typed relation을 사용한다.
+
+`activity_code`의 의미와 version은 originating portfolio/domain owner가 등록하고 공통 Module은
+`activity_definition_ref`와 형식만 검증한다. `activity_instance_ref`는 실제 한 번의 발생·실행을
+식별한다. `assignment_ref`와 `run_ref`는 해당되는 Task/Execution event에서 필수이고, 적용되지
+않는 event는 Catalog의 applicability로 명시한다.
+
+공통 Event Envelope는 최소 다음을 가진다.
+
+```text
+event_id / ledger_id / schema_revision / event_type
+case_ref / case_type / object_refs
+project_ref / work_ref / task_ref / assignment_ref / run_ref
+activity_code / activity_definition_ref / activity_instance_ref
+actor_ref / role_at_event_ref / organization_at_event_ref
+agent_mark_ref / deployment_ref / tool_ref / profile_ref
+occurred_at / observed_at / recorded_at / effective_from / effective_to
+from_state / to_state / relation_refs / idempotency_key
+source_revision_ref / artifact_revision_ref / backup_generation_ref
+input_refs / output_refs / evidence_refs / review_refs / acceptance_refs
+coverage_ref / reconciliation_state / correction_or_supersession_ref
+```
+
+`relation_refs`의 공통 vocabulary는 최소 `precedes`, `depends_on`, `forks_from`, `joins`,
+`hands_off_to`, `rework_of`, `reopens`, `corrects`, `rolls_back`, `supersedes`를 구분한다.
+Waiting은 단일 duration 숫자가 아니라 `Working -> Waiting -> Working|Closed` 전이와 원인·resolver
+refs로 계산한다. review, acceptance, restore, restore acceptance도 서로 다른 event/time 의미다.
+`occurred/observed/recorded`는 수집 clock이고, `effective_from/to`는 사실·role·ACL·binding의
+유효기간이다. 기존 Domain의 `valid_at/known_at`, `reviewed_at`, `accepted_at`, `restored_at`은
+Catalog clock mapping을 통해 연결한다.
+
+raw bytes와 긴 body는 owner store에 두고 Ledger는 exact revision pointer/hash만 가진다. 현재
+상태는 Event replay의 rebuildable projection이며 과거 Event를 update/delete하지 않는다. 정정과
+삭제·철회는 append-only correction/invalidation event로 남긴다.
+
+### Outbox와 RAG lifecycle
+
+Source capture와 Event append를 다른 저장소에 걸친 하나의 distributed transaction으로
+주장하지 않는다. authoritative owner-local transaction이 source/event와 metadata-only outbox를
+같이 commit하고, 공통 relay는 outbox identity·idempotency·retry·poison HOLD·reconciliation을
+통해 scoped Event Store와 RAG worker에 전달한다. RAG 실패는 Source/Ledger commit을 되돌리지
+않는다.
+
+RAG worker는 exact source revision set과 ACL-policy revision을 결속해 extraction/parser/chunker/
+tokenizer/embedding/model/backend/library revision을 가진 Index Generation을 만들고 evaluation 뒤
+active pointer를 전환한다. lifecycle은 `active -> stale -> superseded|rebuild_required -> rebuilt`를
+구분하며 source revision, ACL, legal hold, deletion, correction 변경은 invalidation을 발생시킨다.
+pre-retrieval과 post-retrieval 모두 ACL을 적용하고 project/common index를 섞거나 foreign existence를
+노출하지 않는다. byte-identical exact rebuild lane과 evaluation-equivalent rebuild lane을 구분한다.
+Structured task/time/count 질의는 DB projection, 근거·대화·문서 검색은 RAG를 사용한다.
 
 Process Mining·분석·학습 pipeline은 별도 authority chain을 가진다.
 
@@ -608,9 +680,36 @@ accepted ledger cutoff + source/artifact refs
 
 Dataset은 case/activity/timestamp/resource/duration/wait/rework/error/result/quality/cost fields와
 source lineage를 보존해야 한다. 사람 평가·성과평가로 사용할 때는 별도 정책과 설명가능성·
-오류정정·접근권한이 필요하며, 자동 인사평가나 개인 감시로 확장하지 않는다.
+오류정정·이의제기·접근권한이 필요하며, 자동 인사평가나 개인 감시로 확장하지 않는다.
 
-## 27. 통합검토 순서 후보
+Dataset manifest는 exact cutoff/generation/query digest, source/Artifact revision closure, purpose,
+legal basis/consent revision과 withdrawal, `label_authority`, annotator/reviewer, uncertainty/dispute/
+correction lineage, temporal split cutoff, same case/actor/artifact group split 금지, project/customer/
+organization leakage guard, exact/near duplicate 검사, feature builder·library·environment revision,
+retention/delete/legal-hold propagation, quality/bias/privacy review와 Human approval ref를 가진다.
+검증되지 않은 Agent 결과는 event로 보존할 수 있지만 ground-truth label로 사용하지 않는다.
+`mining_eligible`, `learning_eligible`, `people_analytics_allowed`는 서로 다른 deny-by-default 상태다.
+
+## 27. 2026-08-31 독립검토 통합판정
+
+Owner가 제공한 fresh Fable 5 검토는 `ACCEPT_WITH_REVISIONS`, Sol Ultra 검토는 `REVISE`였다.
+두 결과는 북극성 구조를 부정하지 않았고, LR1 진입 준비도에 서로 다른 강도를 적용했다.
+
+통합판정은 다음과 같다.
+
+| 대상 | 통합판정 |
+| --- | --- |
+| 세 제품·아홉 portfolio·Ledger 공통 plane | `ACCEPT` |
+| Linear Official Task SoR, reference-in-place, 4192 read-only, five-owner | `ACCEPT` |
+| 현재 문서의 LR0 종료·LR1 준비 주장 | `REVISE` |
+| 전사 단일 Event SQLite, 자동 RAG, Process Mining/학습 export | `HOLD` |
+
+채택한 보정은 Ledger Catalog taxonomy, case/activity issuer, assignment/run refs, effective clock,
+typed causal relations, owner-local outbox/reconciliation, scoped Event Store, project/common RAG·Dataset
+격리, learning/people-analysis deny-by-default다. Sol 검토의 `pre-LR1` 목록 중 Catalog row 작성과
+golden trace는 LR1의 산출물·종료조건이므로 LR0 진입조건으로 순환시키지 않는다.
+
+## 28. 통합검토 순서 후보
 
 1. Owner vision·현행 inventory·이 문서를 입력 packet으로 고정;
 2. Ultra가 전체 portfolio, Ledger family, 사후분석·Process Mining·학습데이터, Agent 조직, Tool Workshop, 운영·배포·교육과 current path/TASK crosswalk를 통합;

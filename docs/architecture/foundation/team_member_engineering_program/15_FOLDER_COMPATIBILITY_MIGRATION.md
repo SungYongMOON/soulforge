@@ -121,18 +121,35 @@ compatibility gates pass.
 source_checkout/
 └─ guild_hall/event_ledger/                    # TARGET shared mechanical module
    ├─ README.md  module.manifest.json
-   ├─ schemas/{event_envelope,ledger_catalog,source,task,execution,artifact,agent,knowledge,backup}.schema.json
+   ├─ schemas/{event_envelope,ledger_catalog,case_activity,relation,outbox,reconciliation}.schema.json
    ├─ src/{catalog,store,append,projection,outbox,reconciliation,export}.mjs
    ├─ adapters/  tests/  fixtures/  migrations/  recovery/  manual/
 
-data_plane/
-├─ ingress/{mail,slack,voice,linear,pc_activity,team_files,run_logs}/
-├─ state/ledger/
-│  ├─ event_ledger.sqlite{,-wal,-shm}
-│  ├─ cursor/  outbox/  health/
-│  └─ exports/YYYY-MM/*.jsonl
-├─ timeline/{source_arrival,project,organization}/
-└─ 60_BACKUP_GENERATIONS/{ledger,linear,slack,mail,voice,buzz,hermes,projects}/
+data_root/
+├─ 00_CATALOG/
+│  └─ ledger-catalog/                          # rows/manifests only; not event bodies
+├─ 10_SOURCE_CAPTURE_CATALOG/<source-id>/      # refs to source-native custody/cursors/outboxes
+├─ 25_EVENT_TIMELINE_INDEX/                    # refs/index over exact owner timelines
+├─ 30_KNOWLEDGE_INDEX/rag/
+│  ├─ generation-catalog/  evaluation/  active-pointer/  invalidation/
+├─ 45_EVENT_STORES/                            # TARGET scoped stores, never one enterprise DB
+│  ├─ projects/<project-ref>/<store-id>/
+│  └─ organizations/<approved-org-scope>/<store-id>/
+├─ 60_BACKUP_GENERATIONS/
+│  └─ <registered-source-or-data-class-id>/    # registry-generated; no second hard-coded list
+├─ 80_CUSTODY_RECEIPT_INDEX/
+└─ 90_PROJECTIONS/{watch-4192,ledger-coverage}/
+
+control_root/
+└─ ledger-relay/
+   ├─ checkpoints/  reconciliation/  poison-holds/  health/
+   └─ rollback-receipts/
+
+external_owner_store or existing source-local data owner/
+└─ <source>/
+   ├─ authoritative-records/
+   ├─ cursor/                                  # where that source already owns it
+   └─ transactional-outbox/                    # same owner-local transaction, if supported
 
 _workmeta/<project_code>/
 ├─ daily_ledger/YYYY/
@@ -142,20 +159,42 @@ _workmeta/<project_code>/
 ├─ project_context/{events,decisions,summary_revisions,accepted_generations}/
 └─ knowledge_rag_candidate_ledger/events/YYYY/MM/*.jsonl
 
-_workspaces/knowledge/rag/                    # common RAG payload/index generations
-_workspaces/<project_code>/reference_payloads/rag/  # TARGET isolated project RAG
-_workspaces/system/analytics/process_mining/<dataset_id>/<version>/
-_workspaces/system/learning_datasets/<dataset_id>/<version>/
+_workspaces/system/rag/                        # public-safe/common metadata projections only
+_workspaces/knowledge/rag/                     # approved project-agnostic common payload/index
+_workspaces/<project_code>/reference_payloads/rag/  # isolated project payload/index
+_workspaces/<project_code>/analytics/
+├─ process_mining/<dataset_id>/<version>/
+└─ learning_datasets/<dataset_id>/<version>/
+_workspaces/system/analytics/                  # cross-project only after Owner/ACL/consent approval
+├─ process_mining/<dataset_id>/<version>/
+└─ learning_datasets/<dataset_id>/<version>/
 ```
 
-The event store is initially a single-writer SQLite WAL candidate behind an API/
-MCP port, not a file share opened by clients. Raw bytes stay in their source/custody
-owner. `_workmeta` remains metadata-only. RAG indexes are rebuildable projections;
-the exact source/ledger cutoff, generation/evaluation/active-pointer history is
-persisted separately. Mining/learning datasets are derived assets with manifest,
-source digests, ACL/consent/redaction policy, feature/label definitions, split,
-quality review, retention and rollback. Operational ledgers are never copied into
-training corpora by default.
+The Catalog is central, but Event storage is partitioned by project/organization,
+ACL, retention, legal hold and recovery blast radius. A single-writer SQLite WAL
+behind an API/MCP port is allowed only for one bounded single-project pilot; it is
+not the enterprise target and is never a file share opened by clients.
+
+Source-native cursor and transactional outbox stay with the authoritative owner.
+The central relay owns only delivery checkpoint, reconciliation and poison/HOLD
+state. A source-local commit and a central append are not described as one
+distributed transaction. Existing `ingress` lifecycle folders remain
+reference-in-place and are registered beneath `10_SOURCE_CAPTURE_CATALOG`; this
+target block does not create a competing capture writer.
+
+Raw bytes stay in their source/custody owner. `_workmeta` remains metadata-only;
+`summary_revisions` and `accepted_generations` keep compact refs/digests rather
+than source bodies. RAG indexes are rebuildable projections; the exact source/
+ledger cutoff, generation/evaluation/active-pointer/invalidation history has a
+separate metadata owner and backup class. Mining/learning datasets are derived
+assets with project/org scope, manifest, source digests, ACL/consent/redaction,
+feature/label authority, temporal/group split, duplicate/leakage/bias review,
+retention and rollback. Operational ledgers are never copied into training
+corpora by default.
+
+Domain Modules depend on a shared envelope/writer port; `event_ledger` does not
+import Domain semantics. This keeps the dependency direction one-way and allows
+the existing module cycle validator to reject a future adapter/store cycle.
 
 The Owner's 2026-08-30 whole-estate clarification is detailed in
 [17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md](17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md).

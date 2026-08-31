@@ -101,6 +101,24 @@ The standing conservative defaults are current Linear Official Task SoR, referen
 | 2026-08-30 | Whole-estate physical organization before expansion | The Owner clarified that the concern is not Linear or Agents alone: every source, project, knowledge, asset, Agent, runtime, backup, receipt, and recovery surface needs a stable physical map so later Agents cannot scatter new paths. Structure/registry/guard/4192 projection are current priority; destructive relocation remains staged. | Owner conversation; plan 17 Owner-review draft; Ultra and Fable5 independent reviews requested before implementation |
 | 2026-08-31 | R0 acceptance and OD-10 owner assignment | The Owner directed main integration and continued execution of the reviewed physical-spine plan. `guild_hall/path_registry` owns the public schema/logical entries, resolver runtime, and protected private-binding adapter contract; actual binding bytes stay under the private `control_root` sole writer. `guild_hall/bastion_action` owns operation-aware write-policy validation with Human Owner final authority. `guild_hall/watch_panel_contract` owns the 4192 storage-projection contract and Team Ops Board is the read-only consumer. The materializer canary uses logical ref `pathref:recovery.physical_spine_canary`; its private physical binding and ACL must pass before apply. | Owner directive in this CEO thread; Fable5 and Ultra plan-17 reviews; integrated R1–R3 contract evidence `8ddba7cf` + `dafc4fc3` |
 | 2026-08-31 | Shared Ledger/RAG/mining north-star | The Owner directed that every product/portfolio preserve connected work/activity codes and exact time/actor/Agent/Tool/source/result/review/acceptance lineage so project closeout can reconstruct contribution, duration, bottleneck, rework, quality, cost, strengths, weaknesses and improvement candidates. Ledger is a shared plane, RAG is a rebuildable projection, and Process Mining/learning data is a separately approved versioned derivative rather than raw operational surveillance. | Owner directive in this CEO thread; product/ledger/RAG metadata audit at public `main@23be18a7`; fresh Ultra and Fable5 review required before implementation |
+| 2026-08-31 | Ledger/RAG independent review integration | Fable 5 returned `ACCEPT_WITH_REVISIONS`; Sol Ultra returned `REVISE`. The integrated decision accepts the three-product/nine-portfolio/shared-plane north star and requires LR0 contract correction before LR1: Ledger Catalog taxonomy; case/activity issuer; assignment/run refs; effective clocks and typed relations; owner-local outbox/reconciliation; scoped Event Stores; project/common RAG and Dataset isolation; deny-by-default mining/learning/people analytics. Catalog rows and the payload-free golden trace are LR1 deliverable/exit gates, not circular pre-LR1 prerequisites. A fresh non-authoring Level-2 review of the corrected documents returned `ACCEPT`; LR1 start remains a Human Owner working-plan decision. | Owner-provided fresh advisory reports over `e283ab9a`; integrated decision in product rebaseline §27 and plan 14; private metadata-only review packet `ledger_rag_rebaseline_20260831_01` |
+
+### Ledger/RAG review disposition
+
+The reviews are advisory evidence, not authority by themselves. Their common
+findings and accepted differences are stored as contract decisions instead of
+copying raw prompts or reports into canon.
+
+| Finding | Disposition |
+| --- | --- |
+| Product/portfolio direction is sound | `ACCEPT` — do not redesign the three products or nine portfolio map |
+| Case/activity/assignment/run identity is incomplete | `ACCEPT_REVISION` — define issuer, applicability and wire fields before a writer |
+| Activity taxonomy owner was missing from the shorter Fable exit list | `ACCEPT_REVISION` — originating domain owns meaning/version; shared ledger validates format |
+| Domain-specific time/relation evidence exists but no cross-product contract exists | `ACCEPT_REVISION` — preserve domain owners and add shared clock/relation mapping |
+| One enterprise SQLite is a valid target | `REJECT` — only one bounded project pilot may use SQLite; Catalog is central, stores are scoped |
+| Cross-store source capture and central append are one transaction | `REJECT` — use authoritative owner-local transactional outbox plus idempotent relay/reconciliation |
+| All Catalog rows and a golden trace must exist before LR1 begins | `REVISE_SEQUENCE` — they are LR1 deliverables and exit evidence; LR0 freezes their contract |
+| Existing sufficient seams should be redesigned | `REJECT` — preserve Linear SoR, five-owner, reference-in-place, 4192 read-only and RAG authority separation |
 
 ### Standing decision ledger location
 
@@ -131,6 +149,7 @@ The owner decision register in this document is the standing decision ledger tha
 | Physical source/runtime/Bot folder packaging | 15 | Reference-in-place and private-alias inventory only |
 | Whole physical architecture, source/asset catalog, Path Registry, and 4192 storage map | 17 | R1–R3 public contract implemented with 40-row held/reference seed; private activation and migration remain gated |
 | Cross-product Ledger, RAG outbox, project closeout analytics, Process Mining and learning datasets | product rebaseline §26, 02, 14, 15 | Current ledgers/RAG inventoried; integration contract and implementation remain review-gated |
+| Independent Fable 5 + Sol Ultra Ledger/RAG review disposition | product rebaseline §27, 00 decision ledger, 14 LR0/LR1 gate | Architecture accepted; LR0 contract correction in progress; runtime/store/index/dataset effects remain HOLD |
 | Current RED stabilization: owner scope, topology oracle, renderer writer, workflow symlink, path policy | 02, 13, 14 | Existing facts/contradictions preserved; first leaf selected |
 
 ## Source register and claim rule

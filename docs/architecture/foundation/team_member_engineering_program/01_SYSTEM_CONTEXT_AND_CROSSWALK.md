@@ -64,6 +64,36 @@ The arrows indicate references and explicitly approved calls, not an automatic p
 | Watch / 4192 | Typed read projection and approval requests | Aggregate health and safe deep-link pointers | Deep Bot record duplication, task writer, restart/restore writer |
 | Bastion | Identity, transfer guard, custody policy, backup, restore/recovery evidence | Approved policy/binding refs and operational receipts | Product-domain acceptance and hidden external action |
 
+## Cross-cutting Ledger and analytics plane
+
+Ledger is not another product box. Every product keeps its own meaning and
+writer while a shared mechanical contract makes events joinable over time.
+
+```mermaid
+flowchart LR
+  P1[SF-P01 Source/Candidate] --> C[Ledger Catalog]
+  P2[SF-P02 Task/Asset] --> C
+  P4[SF-P04 Agent/Run] --> C
+  P5[SF-P05 Knowledge/RAG] --> C
+  P6[SF-P06 Engine Finding] --> C
+  P7[SF-P07 Tool Job] --> C
+  P8[SF-P08 Backup/Incident] --> C
+  P9[SF-P09 Deploy/Training] --> C
+  C --> S[Scoped Event Stores and owner-local outbox reconciliation]
+  S --> Q[Structured query and current projections]
+  S --> R[Project-isolated RAG generations]
+  S --> D[Approved Process-Mining or Learning Dataset]
+  Q --> W[SF-P03 Operations / 4192 read-only view]
+  R --> W
+  D --> H{Human review and approval}
+```
+
+The Catalog is central; Event Stores are partitioned by project, organization,
+ACL, retention and legal-hold boundary. Source Truth, Ledger Event, RAG
+Projection, Dataset and Accepted Knowledge remain distinct. Failing RAG or
+analytics cannot roll back a source commit, mutate Linear, accept an artifact,
+promote knowledge, or score a person.
+
 ## End-to-end state boundaries
 
 ```text

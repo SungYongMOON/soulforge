@@ -126,18 +126,70 @@ index, ACL, source revision, search result or backup is current or correct.
 | Tool | capacity-one job/lease/fencing contracts | physical Workshop job/result histories not uniformly persisted |
 | Recovery/Operations | Backup Controller generations/receipts, Watch/usage/health histories | human restore acceptance, unified incident/support/training ledgers and complete 4192 projection absent |
 
+### Ledger Catalog input inventory
+
+This table is the complete public-plan input for LR1. It classifies a surface;
+it does not claim current data completeness, live connectivity, or acceptance.
+The future Catalog must preserve every row, including `HOLD`, in-memory and
+projection-only rows, instead of counting only durable databases.
+
+| Surface | Current class / owner | Required LR1 gap or guard |
+| --- | --- | --- |
+| Linear Official Task | external source-local SoR | preserve full history/deletion/attachment/cutoff as explicit coverage gaps; no writer migration |
+| Linear Backup Generation | durable technical generation / Backup Controller | fresh generation, exact cutoff, isolated restore and human restore acceptance |
+| Linear Project Index | rebuildable generation projection | bind every catalog project plus unassigned; never task truth or a body copy |
+| Slack raw/revision/cursor | source-local custody | retention/legal hold, complete history, backup/restore acceptance |
+| Mail raw/cursor/receipt | source-local custody | cross-mailbox occurrence reconciliation remains separate from source truth |
+| Voice/PLAUD receipt | source/workspace custody | transcript/speaker/task authority remains outside the receipt |
+| PC/File Activity | project-local observation and derived history | collector coverage, absence/delete authority and project timeline mapping |
+| Chat 1h/3h schedules and Google Sheet ledger | external source-local Automation Definition/Run and candidate evidence | exact Catalog row, sole writer, source refs, `NO_ACTION`, error/recovery and accepted ERP projection |
+| Daily Work Ledger | project/system metadata ledger | summary/projection relation to source occurrences; not Official Task/time truth |
+| Battle Log | project append ledger + rendered projection | occurrence dedupe and case/activity mapping; not acceptance truth |
+| Five-field / AI work result ledger | project metadata proxy | workflow/run/Task correlation; never hidden reasoning or Official Done |
+| AI Usage Meter | PC-local durable measurement ledger | provider billing evidence label, rate-card join and outcome relation |
+| Knowledge Access Ledger | project/system metadata ledger | adapter coverage for retrieve/cite/apply and source revision binding |
+| RAG Candidate Ledger | project/system candidate ledger | candidate only; generation/promotion authority remains separate |
+| Retrieval Trace/Evaluation | rebuildable metadata projection | benchmark/evaluation revision and active-generation binding |
+| Buzz Postgres/audit/media/Git refs | external runtime/source-local SoR | actual coverage, store classification, backup/restore and identity recovery |
+| Hermes session/memory/schedule refs | external runtime owner | Agent Mark/Deployment binding, backup membership and accepted-context non-promotion |
+| Task Execution SQLite POC | in-memory SQLite by current contract | persistence forbidden until scoped store contract and writer gate |
+| WorkSession foundation | legacy one-shot + default-OFF lifecycle foundation | accepted lifecycle owner, assignment/run refs and durable replay |
+| Agent Observation | in-memory run/usage/result/evidence producer | durable accepted writer; consumer acknowledgement remains distinct from delivery |
+| Agent Mark Revision Catalog | in-memory revision catalog | verified durable activation writer and project binding |
+| Forge Candidate/TaskIntent | in-memory candidate/decision state | persistent candidate/decision ledger and Linear reconciliation |
+| Vault ArtifactRevision | in-memory revision/acceptance state | actual custody, reviewer and human acceptance writer |
+| Source Lane Ledger | in-memory refs-only reconciliation | source-native owner remains SoR; persistence and backup are not implied |
+| Asset Class Revision Ledger | in-memory refs-only catalog | five-owner/acceptance evidence only; not Vault byte or acceptance authority |
+| Backup/Restore records | durable controller state + receipts | per-class coverage, technical restore and human restore acceptance separation |
+| Watch/4192 history | read-only projection | incident/action/usage/task/source writers stay in their owner modules |
+| Engine rule/evaluation/finding | canon + distributed receipts | accepted finding disposition and downstream outcome relation |
+| Tool Workshop job/lease/result | in-memory capacity/fencing contracts | persistent physical job/run/result timeline and resource relation |
+| Deployment/Training/Support | pack/release artifacts, missing operational ledger | durable install/update/training/support owner and evidence |
+| `activity` recent context | local/private summary ledger | exact source/project occurrence mapping; projection only |
+| `local_activity` work context | machine-local candidate ledger | WorkSession/Official Task non-equivalence and durable correlation |
+| `run_history` | feature-OFF in-memory adapter | persistent writer/owner and run correlation absent |
+| `schedule_history` | feature-OFF in-memory adapter | live scheduler owner, Automation Definition/Run refs absent |
+
+Portfolio references in LR1 are not a flat list. Each row records
+`producer_portfolio`, `logical_owner_portfolio`, `infrastructure_portfolio` and
+`consumer_portfolios`. Human display IDs are `SF-Pxx`; canonical wire IDs are
+lowercase `sf-pxx`. A default `sf-p08` infrastructure mapping cannot be used as
+evidence that the source or ledger is logically owned by SF-P08.
+
 Observed metadata counts include approximately 15,090 files under the knowledge
 work surface (about 2,804 RAG, 1,304 Source Card, 1,180 common, 525 domain), 709
 system RAG report/ledger files, and project-local daily/five-field/knowledge-access/
 procedure/run evidence. Counts prove presence only; they do not prove freshness,
 dedupe, source parity, project isolation, quality or active status.
 
-The next architecture leaf is not a mega-ledger migration. It first registers
-each ledger's stable ID, product/portfolio owner, SoR, schema, case/activity/time
-contract, sole writer, storage backend, project/ACL scope, retention, backup,
-restore, projection, mining eligibility and current gap. Only after fresh review
-may one provider-neutral Event Store/Outbox port be implemented. Existing source-
-local and project-local ledgers remain reference-in-place.
+The next architecture leaf is not a mega-ledger migration. LR0 freezes the
+taxonomy, owner roles, case/activity/time/relation semantics, storage partition
+and deny-by-default governance. LR1 then registers every row above with stable
+ID, SoR, schema, sole writer, scoped storage, ACL/retention, backup/restore,
+projection, review/acceptance and separate mining/learning/people-analysis
+eligibility. Only after LR1 exit review may a provider-neutral envelope/outbox/
+reconciliation conformance port and one scoped Event Store pilot begin. Existing
+source-local and project-local ledgers remain reference-in-place.
 
 ## Related plans
 

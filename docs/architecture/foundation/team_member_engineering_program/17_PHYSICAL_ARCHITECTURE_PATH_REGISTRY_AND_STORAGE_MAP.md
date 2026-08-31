@@ -111,6 +111,8 @@ data_root/
 │  ├─ owners/
 │  ├─ storage-classes/
 │  ├─ asset-classes/
+│  ├─ ledger-catalog/
+│  ├─ case-activity-registry/
 │  └─ legacy-path-map/
 ├─ 10_SOURCE_CAPTURE_CATALOG/
 │  ├─ linear/
@@ -139,6 +141,10 @@ data_root/
 │  ├─ project-context/
 │  ├─ accepted-generations/
 │  ├─ rag-indexes/
+│  │  ├─ generation-catalog/
+│  │  ├─ evaluation/
+│  │  ├─ active-pointer/
+│  │  └─ invalidation/
 │  ├─ wiki-projections/
 │  └─ notebooklm-bindings/
 ├─ 40_ASSETS/
@@ -148,6 +154,9 @@ data_root/
 │  ├─ datasets/
 │  ├─ test-results/
 │  └─ revisions/
+├─ 45_EVENT_STORES/
+│  ├─ projects/<project-ref>/<store-id>/
+│  └─ organizations/<approved-org-scope>/<store-id>/
 ├─ 50_AI_WORKFORCE_INDEX/
 │  ├─ agent-families/
 │  ├─ agent-marks/
@@ -155,17 +164,11 @@ data_root/
 │  ├─ deployments/
 │  ├─ runs/
 │  └─ memory-generations/
+├─ 55_ANALYTICS_DATASET_INDEX/
+│  ├─ process-mining/
+│  └─ learning-evaluation/
 ├─ 60_BACKUP_GENERATIONS/
-│  ├─ linear/
-│  ├─ slack/
-│  ├─ mail/
-│  ├─ voice/
-│  ├─ cloud/
-│  ├─ buzz/
-│  ├─ hermes/
-│  ├─ git/
-│  ├─ nas/
-│  └─ projects/
+│  └─ <registered-source-or-data-class-id>/
 ├─ 70_QUARANTINE/
 ├─ 80_CUSTODY_RECEIPT_INDEX/
 ├─ 90_PROJECTIONS/
@@ -184,6 +187,124 @@ scope, accepted-generation refs, and status unless an exact custody policy
 separately authorizes bytes. A physical copy is permitted only by its
 source-kind policy and exact promotion/backup gate.
 
+`60_BACKUP_GENERATIONS` is generated from registered source/data classes rather
+than maintained as a second hand-written source list. Linear, Slack, mail,
+voice, cloud, Buzz, Hermes, Git, NAS, projects, scoped ledger stores and RAG
+generation metadata appear only when their Path Registry class and backup policy
+exist. A missing class remains visible as `HOLD`; it is never omitted to make
+coverage look complete.
+
+`45_EVENT_STORES` is not one enterprise database. The central Catalog records
+each store, but Event bytes are partitioned by project/approved organization,
+ACL, retention, legal hold and restore blast radius. A SQLite WAL store is
+permitted only for the first bounded single-project pilot behind an API/MCP port.
+Source-native cursor and transactional outbox remain with their authoritative
+source/data owner; `control_root/ledger-relay/**` owns only relay checkpoints,
+reconciliation, poison/HOLD and rollback receipts.
+
+## Whole-product and whole-folder target map
+
+This is the one-page folder view for the full plan. It combines product source,
+runtime, project payload, knowledge, Ledger, backup and external owners without
+claiming that target-only folders already exist. Existing paths stay in place;
+the indented product groups are catalog/release views, not a move instruction.
+
+```text
+Soulforge Engineering OS
+├─ source_checkout/                                  # public code, canon, contracts
+│  ├─ docs/architecture/
+│  │  ├─ foundation/                                 # vision, products, roadmap, glossary
+│  │  ├─ guild_hall/                                 # organization/engine/knowledge policies
+│  │  └─ workspace/                                  # project/workspace/file rules
+│  ├─ product.erp/                                   # logical view; current paths below
+│  │  ├─ ui-workspace/apps/dev-erp/
+│  │  ├─ ui-workspace/apps/dev-erp-mcp/
+│  │  └─ guild_hall/{file_activity,requirement_trace}/
+│  ├─ product.engine/
+│  │  └─ guild_hall/engineering_engine/{core,engines,profiles,bindings,tests}/
+│  ├─ product.agent/
+│  │  ├─ guild_hall/{engineering_mcp,agent_observation,ai_usage_meter}/
+│  │  ├─ guild_hall/{tool_workshop,deployment_pack}/
+│  │  └─ .registry/  .unit/  .workflow/  .party/  .mission/
+│  ├─ shared.platform/
+│  │  ├─ guild_hall/{path_registry,backup_controller,rag}/
+│  │  ├─ guild_hall/{gateway,ingress,bastion_action,watch_panel_contract}/
+│  │  ├─ guild_hall/event_ledger/                    # TARGET mechanical module
+│  │  └─ ui-workspace/apps/team-ops-board/           # 4192 read-only view
+│  └─ module manifests, schemas, tests, validators, manuals, release evidence
+│
+├─ runtime_root/                                     # installed Server/Client modules
+│  ├─ server-pack/<version>/
+│  ├─ team-client/<version>/
+│  └─ runtime health/release refs
+├─ external_runtime_root/
+│  ├─ buzz/<deployment>/
+│  ├─ hermes/<agent-deployment>/
+│  └─ managed connector runtime refs
+│
+├─ data_root/                                        # complete tree defined above
+│  ├─ 00_CATALOG/                                    # Path/Asset/Ledger/Case/Activity
+│  ├─ 10_SOURCE_CAPTURE_CATALOG/                     # Linear/Slack/Mail/PLAUD/Drive/...
+│  ├─ 20_PROJECT_ASSET_INDEX/
+│  ├─ 25_EVENT_TIMELINE_INDEX/
+│  ├─ 30_KNOWLEDGE_INDEX/                            # Context/Ontology/RAG metadata
+│  ├─ 40_ASSETS/                                     # Artifact/Template/BOM/Dataset refs
+│  ├─ 45_EVENT_STORES/                               # project/org scoped, TARGET
+│  ├─ 50_AI_WORKFORCE_INDEX/                         # Family/Mark/Deployment/Run/Memory
+│  ├─ 55_ANALYTICS_DATASET_INDEX/
+│  ├─ 60_BACKUP_GENERATIONS/                         # registry-generated classes
+│  ├─ 70_QUARANTINE/
+│  ├─ 80_CUSTODY_RECEIPT_INDEX/
+│  ├─ 90_PROJECTIONS/watch-4192/
+│  └─ 99_RESTORE_REQUEST_REFS/
+├─ control_root/
+│  ├─ path/private bindings and write-policy state
+│  ├─ source collectors, leases, checkpoints and rollback receipts
+│  └─ ledger-relay/{checkpoints,reconciliation,poison-holds,health}/
+│
+├─ project_work_root/
+│  └─ <project_code>/
+│     ├─ source-contract/  requirements/  design/
+│     ├─ bom-material-purchase/  test-sonar-datasets/
+│     ├─ artifacts-reports/  review-evidence/  baselines-releases/
+│     ├─ reference_payloads/rag/                     # isolated project RAG
+│     ├─ analytics/{process_mining,learning_datasets}/
+│     └─ local-authoring-cache/                      # never canonical by folder alone
+├─ _workmeta/<project_code>/                         # compact metadata only
+│  ├─ daily_ledger/  log/events/  runs/  reports/
+│  ├─ project_context/{events,decisions,summary_revisions,accepted_generations}/
+│  └─ knowledge_rag_candidate_ledger/
+├─ _workspaces/knowledge/rag/                        # approved common knowledge payload/index
+├─ _workspaces/system/
+│  ├─ rag/                                           # common metadata projections
+│  └─ analytics/                                     # approved cross-project derivatives only
+│
+├─ tool_root/
+│  └─ <workshop>/<version>/{adapter,lease,health,release}/
+├─ recovery_root/
+│  └─ <restore-operation>/{staging,readback,receipt}/
+├─ external_owner_store/
+│  ├─ linear/  slack/  mail/  voice-plaud/  cloud-drive/
+│  ├─ buzz/  hermes/  git/  nas/  team-files/
+│  └─ original ACL, retention, legal hold and source-local history
+└─ secret_owner_root/                                # TARGET/VERIFY_PHYSICAL, secret_ref only
+```
+
+The portfolio overlay is stable across this tree:
+
+```text
+sf-p01 Work Discovery        sf-p02 ERP & Assets
+sf-p03 Operations            sf-p04 AI Workforce
+sf-p05 Knowledge             sf-p06 Engineering Engine
+sf-p07 Tool Workshops        sf-p08 Security & Recovery
+sf-p09 Deployment & Adoption
+```
+
+No existing Module is moved merely to make the tree look tidy. A current folder
+that does not yet fit the view receives a Path Registry row and compatibility
+mapping first. A target-only folder remains `TARGET/HOLD` until owner, writer,
+binding, ACL, backup and restore gates pass.
+
 ### NAS의 두 역할은 별도 자산이다
 
 `NAS`라는 한 단어를 두 방향에 재사용하지 않는다.
@@ -193,8 +314,9 @@ source-kind policy and exact promotion/backup gate.
 | NAS backup target | Soulforge/ERP/HPP/project custody bytes → approved NAS lane | 보호 대상 source generation, destination custody ref, manifest/hash, backup generation, restore readback·acceptance | Backup Controller 계약 존재; public tree만으로 actual NAS health·최신 backup/restore는 `UNKNOWN/HOLD` |
 | NAS source asset | NAS에 원래 존재하는 설계·시험·공유 자료 → source catalog/custody decision | `source.nas` identity, ACL/owner, observed revision, hash/manifest pointer, project binding, 별도 backup/restore evidence | exact native capture receipt와 source policy가 없어 `HOLD` |
 
-`60_BACKUP_GENERATIONS/nas/`의 `nas`는 **보호 대상 source kind가 NAS**라는
-뜻이다. Soulforge 데이터를 NAS에 보냈다는 뜻은 destination ref/receipt가 소유하며,
+`60_BACKUP_GENERATIONS/<registered-source-or-data-class-id>/`의 `source.nas` class는
+**보호 대상 source kind가 NAS**라는 뜻이다. Soulforge 데이터를 NAS에 보냈다는 뜻은
+destination ref/receipt가 소유하며,
 폴더명으로 추정하지 않는다. 반대로 NAS source asset을 ERP DB에 통째로 복제하지
 않는다. 기본은 metadata/pointer이고, bytes는 exact custody policy와 acceptance가
 있을 때만 승인된 byte owner가 보관한다. NAS backup target의 사본을 다시
@@ -260,7 +382,7 @@ Every registered path record contains at least:
 | `logical_path_id` | stable caller-facing ID, independent of drive letter |
 | `physical_root_class` | exact enum: `source_checkout`, `runtime_root`, `data_root`, `control_root`, `project_work_root`, `tool_root`, `recovery_root`, `external_runtime_root`, `external_owner_store`, `secret_owner_root` |
 | `logical_owner_class` / `parent_binding_ref` | logical authority and physical-containment relation are separate |
-| `product_refs` / `portfolio_refs` | stable `product.*` and `SF-Pxx` IDs; display names remain draft |
+| `product_refs` / portfolio-role refs | stable `product.*` IDs plus canonical lowercase `producer_portfolio`, `logical_owner_portfolio`, `infrastructure_portfolio`, `consumer_portfolios`; `SF-Pxx` is the human display form |
 | `module_owner_ref` | exact Module/interface owner |
 | `asset_or_source_class` | source, project, knowledge, artifact, agent, backup, receipt, projection, etc. |
 | `project_or_org_scope_ref` | exact project or approved organization/common scope; no implicit cross-project view |
@@ -272,6 +394,12 @@ Every registered path record contains at least:
 | `current_state` | current, target, reference-in-place, migrating, deprecated, held, unknown |
 | `manifest_ref` / `latest_receipt_ref` | exact evidence without payload |
 | `migration_ref` / `rollback_ref` | bounded change and recovery pointers |
+
+Ledger/Data rows also bind `ledger_catalog_ref`, `case_activity_contract_ref`,
+`clock_relation_contract_ref`, and separate `mining_eligible`,
+`learning_eligible`, `people_analytics_allowed` deny-by-default fields. A flat
+default infrastructure portfolio cannot stand in for the producer or logical
+owner.
 
 Callers use a resolver such as `resolve(logical_path_id, actor_context)` and do
 not embed new absolute paths. Registry schema version and resolver version are
@@ -340,6 +468,13 @@ watch_state | evidence_at | owner_pointer | hold_code
 ```
 
 Missing evidence renders `unknown` or `hold`, never green. 4192 excludes source bodies, project payload, credentials, private Agent memory, deep Buzz/Hermes sessions, and raw logs. It files an approval request at most; Bastion owns any later action execution.
+
+The current implemented R3 projection remains limited to
+`root|source|asset_class` and its reviewed 40-row seed. LR3 may add a separate
+read-only Ledger coverage/lag projection after LR1 Catalog rows exist; LR5 may
+add RAG generation freshness; LR9 closes the combined product coverage. Those
+later rows must reuse Catalog identities and cannot be fabricated by the Board
+or silently added to the current R3 enum.
 
 The map is an existing-node backup-readiness projection, not a new source
 display: the 4192 federated topology (RED-02 pinned artifact) already owns
