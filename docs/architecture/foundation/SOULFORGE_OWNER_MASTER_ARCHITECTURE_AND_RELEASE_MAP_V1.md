@@ -29,13 +29,14 @@ CONFIRMED_*_HOLD     방향은 확정됐지만 suffix가 지시하는 측정·�
 TARGET               목표 구조이며 아직 materialize하지 않음
 ```
 
-외부·사용자 화면에서는 위 내부 상태를 한 줄에 섞지 않고 세 축으로 보여준다.
+아래 세 축은 first-reader 문서의 presentation shorthand이며 새 상태기계가 아니다.
+실제 판정은 각 owner의 exact canonical status와 evidence ref를 그대로 사용한다.
 
 | 축 | 표시 예 | 질문 |
 | --- | --- | --- |
-| Decision | `DECIDED / OPEN / DEFERRED` | 무엇이 결정됐는가? |
-| Build maturity | `TARGET / IMPLEMENTED / VALIDATED / PILOTED` | 어디까지 만들어지고 검증됐는가? |
-| Activation | `HOLD / CANARY / ACTIVE` | 실제 환경에서 켜졌는가? |
+| Decision | `CONFIRMED / OPEN / OWNER_DEFERRED` | 무엇이 결정됐는가? |
+| Build maturity | `TARGET / IMPLEMENTED / VALIDATED / PHYSICAL_PILOTED` | 어디까지 만들어지고 검증됐는가? |
+| Activation | exact owner status; evidence가 없으면 `UNKNOWN/HOLD` | 실제 환경에서 켜졌는가? |
 
 ## 0. 한 줄 북극성
 
@@ -57,10 +58,10 @@ Source → Event/Candidate → Context/Knowledge → Engineering Judgment
 | --- | --- |
 | Product maturity | Architecture/contract baseline; 일부 Module·Pack은 구현·검증됨 |
 | Production release | `NOT_RELEASED` |
-| Physical rollout | 별도 Gate를 통과한 canary 외 `HOLD` |
+| Physical rollout | `HOLD`; accepted physical canary는 현재 관찰되지 않음 |
 | First release target | Owner PC one-seat internal RC |
 
-### 사람이 실제로 사용하는 한 개의 Golden Journey
+### 목표 Golden Journey — one-seat physical execution 전
 
 ```text
 업무·자료·사건 도착
@@ -82,11 +83,11 @@ Shared Candidate Intake는 네 번째 제품이나 Task SoR가 아니다. 여러
 
 | 구분 | 사용자가 보는 역할 |
 | --- | --- |
-| Soulforge ERP | 공식 Task, 프로젝트 자료, BOM, Artifact revision, accepted record를 관리 |
+| Soulforge ERP | Linear Official Task current-state를 참조·reconcile하고 프로젝트 자료, BOM, Artifact revision, accepted record를 관리 |
 | Soulforge Engineering Engine | 승인된 사실·지식과 공학 규칙을 비교해 gap·risk·다음 일 후보를 제안 |
 | Soulforge Agent Platform | 프로젝트별 AI 조직, Agent Mark, Hermes·Buzz·MCP·Tool Workshop 실행기반을 관리 |
 | Soulforge Operations Console | 세 제품과 공통 Module의 상태를 읽고 승인된 action을 요청하는 cross-product 운영화면; 네 번째 제품이 아님 |
-| Shared capability plane | Candidate Intake, Ledger, Authority, Path Registry, Backup/Recovery, common schema처럼 한 owner·한 구현·versioned Interface로 공유 |
+| Shared capability plane | Candidate Intake, Ledger, Authority Interface, Path Registry, Backup/Recovery, common schema를 제품 간 공유; 각 owned Module은 한 owner·한 구현을 갖지만 Authority domain 전체의 writer·validator·executor는 분리 |
 
 `sf-p01`~`sf-p09`는 위 세 제품 밑의 고정 하위폴더가 아니라 제품을 가로지르는
 capability/backlog ownership map이다. portfolio별 exact Product-owned/Shared/consumer
@@ -94,12 +95,12 @@ capability/backlog ownership map이다. portfolio별 exact Product-owned/Shared/
 
 ### 권한을 한눈에 보는 표
 
-| Component | Read | Request | Validate | Enforce/STOP | Canonical policy write | Final acceptance |
+| Component | Read | Request/Approve | Validate | Technical enforce/STOP | Canonical policy write | Final acceptance |
 | --- | --- | --- | --- | --- | --- | --- |
 | Operations Console | O | O | - | - | - | - |
 | Bastion | 필요한 범위 | - | O | O | - | - |
 | ERP AuthorityPolicy | O | - | - | - | O | - |
-| Human Owner / designated authority | O | O | 정책별 | 정책별 | authorized writer를 통해 | 유보·위임 범위에 따라 O |
+| Human Owner / designated authority | O | O | 정책·수락 판단 | - | ERP authorized writer를 통해서만 | 유보·위임 범위에 따라 O |
 
 ### 처음 읽는 사람을 위한 용어
 
