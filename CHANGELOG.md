@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-09-01 - HPP server Pack 0.1.4 installed-smoke correction
+
+- Bumped the immutable HPP server Pack to `0.1.4` after `0.1.3` correctly
+  failed installed-copy smoke. The failed checks exercised development-only
+  mock Codex bridges that the runtime checkout deliberately refuses. Source
+  checkout tests still execute those mock cases; installed-copy smoke now
+  records seven explicit runtime skips instead of weakening the production
+  boundary. The new Pack contains 1,020 files and 94 installed smoke entries.
+- Built and hash-verified `0.1.4` under the target D: install root. Physical
+  activation, Scheduled Task rebinding, and service health remain separate
+  cutover evidence and are not implied by the Pack existing.
+
 ## 2026-09-01 - dev-ERP versioned server-pack runtime recognition
 
 - Updated the dev-ERP 4300-port runtime guard to recognize both the retained
