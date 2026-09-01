@@ -11,6 +11,12 @@
 - Built and hash-verified `0.1.4` under the target D: install root. Physical
   activation, Scheduled Task rebinding, and service health remain separate
   cutover evidence and are not implied by the Pack existing.
+- Correction after activation rehearsal: a later full-manifest readback found
+  765 of 1,020 `0.1.4` payload files missing despite the earlier green smoke.
+  The candidate was removed from the active install set and retained in local
+  recovery for audit; the Main Node rolled back without reboot to the fully
+  verified `0.1.2` generation. Root cause remains `UNKNOWN`, so another upgrade
+  requires a new immutable version and post-install custody protection.
 
 ## 2026-09-01 - dev-ERP versioned server-pack runtime recognition
 
