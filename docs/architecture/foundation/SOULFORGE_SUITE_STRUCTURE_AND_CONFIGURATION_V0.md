@@ -2,11 +2,11 @@
 
 ## 상태
 
-- 상태: `OWNER_AUTHORIZED_STAGED_MIGRATION / TARGET_TOP_LEVEL_MATERIALIZED / INTERNAL_TREE_HOLD`
+- 상태: `OWNER_AUTHORIZED_STAGED_MIGRATION / TARGET_TOP_LEVEL_MATERIALIZED / G0_DOCUMENT_RECONCILIATION_ACCEPTED / R2_PHYSICAL_APPLY_HOLD`
 - 기준일: 2026-09-01
 - 목적: Core·App·Project Pack·Adapter·Shared, 개발·설치·데이터·정본·복구와 전체 형상관리 규칙을 한 문서에서 고정한다.
-- Owner 실행지시(2026-09-01): 비어 있는 `D:\Soulforge`에 목표 구조를 새로 만들고, `C:\Soulforge`의 전체 estate를 backup·copy·digest·restore·service-canary·rollback Gate로 단계 전환한다. 전환 중 Buzz·Hermes·4192·BuzzServer를 정지할 수 있으나 PC 재부팅은 금지한다. 기존 `C:\Soulforge`의 retire/delete는 새 경로 검증과 별도 수락 전까지 수행하지 않는다.
-- 현재 물리상태: `D:\Soulforge`와 합의된 9개 top-level child는 빈 디렉터리로 생성됐고 foreign top-level entry, payload copy, service/Junction/writer change는 0이다. `data/{worldtree,rune,guild,...}` view와 Plan 17의 numbered physical spine, 그리고 `dev/install/private-state/packages/local-recovery`와 Plan 17 root class 명칭의 충돌은 G0 문서 재조정 전까지 `INTERNAL_TREE_HOLD`다.
+- Owner 실행지시(2026-09-01): 비어 있는 `<TARGET_SOULFORGE_ROOT>`에 목표 구조를 새로 만들고, `<LEGACY_SOULFORGE_ROOT>`의 전체 estate를 backup·copy·digest·restore·service-canary·rollback Gate로 단계 전환한다. 전환 중 Buzz·Hermes·4192·BuzzServer를 정지할 수 있으나 PC 재부팅은 금지한다. 기존 `<LEGACY_SOULFORGE_ROOT>`의 retire/delete는 새 경로 검증과 별도 수락 전까지 수행하지 않는다.
+- 현재 물리상태: `<TARGET_SOULFORGE_ROOT>`와 합의된 9개 top-level child는 빈 디렉터리로 생성됐고 foreign top-level entry, payload copy, service/Junction/writer change는 0이다. G0 문서 재조정은 fresh Level 2 review에서 수락됐으며 `<TARGET_SOULFORGE_ROOT>/data`의 유일한 물리 manifest를 Plan 17 numbered data spine으로 정하고, 이전 `data/{worldtree,rune,guild,apps,analytics}` 표현을 Path Registry의 논리 product/owner facet으로만 남긴다. R2 actual apply는 계속 private binding·writer-exclusive ACL·empty-root readback 전까지 `HOLD`다.
 - 비효과: 이 문서만으로 Junction·active pointer·service·writer·DB·Task·credential·제품 Release를 자동 전환하지 않는다.
 - 정확한 host-local current/target 경로: private physical-root inventory가 소유한다.
 
@@ -19,14 +19,17 @@
 
 ## 2. 안정 ID와 working name
 
-| 안정 ID | working product name | folder slug | 기능 설명 |
+| 안정 ID | working product name | logical slug (not a physical data directory) | 기능 설명 |
 | --- | --- | --- | --- |
 | `product.erp` | World Tree | `worldtree` | Task·Project·Asset·BOM·Context·Knowledge·정본 |
 | `product.engine` | Rune | `rune` | 공통 Core·Domain Rune·Profile 조립·평가·Rune Factory |
 | `product.agent` | Guild | `guild` | Agent Family·Mark·조직·Deployment·Run·MCP·Tool 실행 |
 
-working name과 folder slug는 stable ID를 대체하지 않는다. 표시명이나 경로가 바뀌어도
-configuration item ID와 version lineage는 유지한다.
+working name과 logical slug는 stable ID를 대체하지 않는다. 표시명이나 경로가 바뀌어도
+configuration item ID와 version lineage는 유지한다. `World Tree`, `Rune`, `Guild`, App,
+analytics는 Path Registry의 `product_refs`·logical-owner·asset-class facet으로 해소하며
+`<TARGET_SOULFORGE_ROOT>/data/worldtree`, `rune`, `guild`, `apps`, `analytics` 같은 product-named
+physical data directory를 인가하지 않는다.
 
 ## 3. Core·App·Project Pack·Shared·Adapter
 
@@ -70,6 +73,43 @@ App 이름은 Project 이름이 아니다. 한 App이 여러 Project를 처리�
 
 ## 5. 개발·설치·데이터 물리 계층
 
+G0 reconciliation accepted state의 9개 Suite top-level path는 Plan 17 physical-root
+class와 다음처럼 대응한다. 이 표는 actual binding, writer, ACL, pointer, service를
+수락하거나 자동 생성하지 않는다.
+
+| `<TARGET_SOULFORGE_ROOT>` top-level path | Plan 17 physical-root class | G0 accepted boundary |
+| --- | --- | --- |
+| `dev` | `source_checkout` | source/canon surface; exact local binding remains private. |
+| `install` | `runtime_root` | versioned runtime family; activation remains separately gated. |
+| `data` | `data_root` | only the Plan 17 numbered physical data manifest. |
+| `_workspaces` | logical `data_root` sibling | ERP/Vault canonical project-file materialization address. |
+| `_workmeta` | logical `data_root` sibling | metadata-only project plane. |
+| `control` | `control_root` | protected operation, policy, and receipt plane. |
+| `private-state` | `control_root` | nested private state plane; not an independent data owner. |
+| `packages` | `runtime_root` family | inactive/create-only until a separate package gate. |
+| `local-recovery` | `recovery_root` | recovery-test surface only. |
+
+`project_work_root`, human work, Bot work, `external_runtime_root`,
+`external_owner_store`, `secret_owner_root`, and `tool_root` remain explicit
+Path Registry bindings. They are not additional auto-created `<TARGET_SOULFORGE_ROOT>`
+top-level folders.
+
+This is a target physical classification, not a claim that legacy bytes already
+migrated. Existing legacy runtime, data, control, tool, and recovery roots stay
+reference-in-place per class/R5 leaf; the legacy data root's numbered Plan 17
+view, lifecycle directories, and secret-owner child do not authorize copying
+anything into the new target. Secret-owner material is never materialized under
+`data`.
+
+The current tracked seed is also reference-in-place, not proof of this target
+sibling topology: `canon.workspaces` currently has parent
+`root.data_root`, while `plane.workmeta` and `plane.private_state` currently
+have parent `root.source_checkout`. Root class is not an address. In particular,
+`install` and inactive `packages`, and `control` and `private-state`, require
+separate target `logical_path_id`, `binding_ref`, `parent_binding_ref`, and
+binding epoch with no fallback or ambiguous resolution. Exact target row/binding
+migration is a named pre-R2 blocker; current Registry consistency is not claimed.
+
 ```text
 <soulforge_root>/
 ├─ dev/
@@ -90,34 +130,49 @@ App 이름은 Project 이름이 아니다. 한 App이 여러 Project를 처리�
 │  │  ├─ runtime/ manifests/ manual/
 │  │  └─ release.json
 │  └─ current -> releases/<active-version>
-├─ data/
-│  ├─ worldtree/
-│  ├─ rune/
-│  ├─ guild/
-│  ├─ apps/
-│  ├─ analytics/ learning-evaluation/
-│  └─ backup-generations/ custody-receipts/ quarantine/
-├─ _workspaces/
-├─ _workmeta/
-├─ private-state/
-├─ control/
-├─ packages/
-└─ local-recovery/
+├─ data/                        # sole physical manifest: Plan 17 numbered data spine
+│  ├─ 00_CATALOG/               # catalog/owner/class indexes
+│  ├─ 10_SOURCE_CAPTURE_CATALOG/
+│  ├─ 20_PROJECT_ASSET_INDEX/
+│  ├─ 25_EVENT_TIMELINE_INDEX/
+│  ├─ 30_KNOWLEDGE_INDEX/
+│  ├─ 40_ASSETS/
+│  ├─ 45_EVENT_STORES/
+│  ├─ 50_AI_WORKFORCE_INDEX/
+│  ├─ 55_ANALYTICS_DATASET_INDEX/
+│  ├─ 60_BACKUP_GENERATIONS/
+│  ├─ 70_QUARANTINE/
+│  ├─ 80_CUSTODY_RECEIPT_INDEX/
+│  ├─ 90_PROJECTIONS/
+│  └─ 99_RESTORE_REQUEST_REFS/
+├─ _workspaces/                 # logical data_root sibling; ERP/Vault project bytes
+├─ _workmeta/                   # logical data_root sibling; metadata-only
+├─ private-state/               # control_root private plane
+├─ control/                     # control_root operation/policy/receipt plane
+├─ packages/                    # runtime_root family; inactive/create-only
+└─ local-recovery/              # recovery_root only
 ```
 
-`dev`는 코드, `install`은 검증된 실행본, `data`는 운영 DB·Event·Source capture,
-`_workspaces`는 프로젝트 정본 bytes, `_workmeta`는 Workspace 파일 이력, `control`은
-실행 설정·권한·전환 receipt다. 사람과 Bot work root는 Soulforge 밖의 독립 물리 작업면이다.
+`dev`는 코드, `install`은 검증된 실행본, `data`는 Plan 17의 운영 DB·Event·Source
+capture·catalog/index manifest, `_workspaces`는 프로젝트 정본 bytes, `_workmeta`는
+Workspace metadata, `control`은 실행 설정·권한·전환 receipt다. `data`의 complete
+child manifest는 Plan 17만 소유하며, 이 Suite diagram은 별도 directory creation이나
+root approval을 뜻하지 않는다. 사람과 Bot work root는 Soulforge 밖의 독립 물리 작업면이다.
 
 ## 6. World Tree 데이터 owner
 
 World Tree ERP 관리 데이터는 세 면의 합이다.
 
 ```text
-data/worldtree/       구조화 DB·Source capture·Event·Catalog·Knowledge·Ledger
-_workspaces/          프로젝트 원자료·Artifact·Dataset·Baseline·Release bytes
-_workmeta/            Workspace 파일 first-seen·hash·revision·path·Task·Run·receipt
+data/                  Plan 17 numbered Catalog·Source·Event·Knowledge·Asset·AI·Analytics indexes
+_workspaces/           프로젝트 원자료·Artifact·Dataset·Baseline·Release bytes
+_workmeta/             Workspace 파일 first-seen·hash·revision·path·Task·Run·receipt metadata
 ```
+
+`data/worldtree/` is not a target directory. World Tree is the logical ERP
+product/owner facet across the numbered data spine and the two logical
+`data_root` siblings; Rune, Guild, App, and analytics use the same multi-axis
+Path Registry rule.
 
 Source capture의 metadata는 실제 payload와 같은 Generation에 먼저 기록한다.
 World Tree Catalog가 전사 관계를 소유하고, 특정 Project에 연결된 pointer와 파일 이력만

@@ -1,16 +1,17 @@
 # Physical Architecture, Path Registry, and Storage Map
 
-> Status: `OWNER_AUTHORIZED_STAGED_MIGRATION / TARGET_TOP_LEVEL_MATERIALIZED / INTERNAL_TREE_HOLD` — the Human Owner confirmed the whole-estate direction and staged execution. `D:\Soulforge` top-level exists with payload copy 0, while the exact internal tree remains held at G0 document reconciliation.
+> Status: `OWNER_AUTHORIZED_STAGED_MIGRATION / TARGET_TOP_LEVEL_MATERIALIZED / G0_DOCUMENT_RECONCILIATION_ACCEPTED / R2_PHYSICAL_APPLY_HOLD` — the Human Owner confirmed the whole-estate direction and staged execution. `<TARGET_SOULFORGE_ROOT>` top-level exists with payload copy 0; fresh Level 2 review accepted the G0 document reconciliation, and R2 actual apply remains held.
 
 ## Owner execution directive — 2026-09-01
 
-- `D:\Soulforge`가 비어 있는 상태에서 목표 root를 새로 materialize하고, 현재 `C:\Soulforge` 전체 estate를 단계적으로 전환한다.
+- `<TARGET_SOULFORGE_ROOT>`가 비어 있는 상태에서 목표 root를 새로 materialize하고, 현재 `<LEGACY_SOULFORGE_ROOT>` 전체 estate를 단계적으로 전환한다.
 - Owner는 전환 시 Buzz·Hermes·4192·BuzzServer 정지를 허용했다. 서비스는 copy-only staging 동안 계속 운영할 수 있고, writer/pointer cutover 직전에 한 번만 quiesce한다.
 - PC 재부팅은 이번 migration의 허용 수단이 아니다.
 - 실제 이동은 `inventory freeze -> target manifest -> empty-root materialization -> copy-only staging -> digest/Git/DB/restore verification -> service quiescence -> pointer/service cutover -> canary -> rollback rehearsal -> later C: retirement decision` 순서다.
-- `C:\Soulforge`와 사용자 소유 dirty state는 새 경로의 readback·rollback·fresh review가 닫힐 때까지 보존한다. reset, stash, force, purge, broad delete는 금지한다.
+- `<LEGACY_SOULFORGE_ROOT>`와 사용자 소유 dirty state는 새 경로의 readback·rollback·fresh review가 닫힐 때까지 보존한다. reset, stash, force, purge, broad delete는 금지한다.
 - Terra/max가 단일 integration writer를 맡고, 격리된 Gemini 3.7 Flash lane은 public-safe inventory 또는 script/test 후보만 만들며, Opus 5/high는 구현과 분리된 fresh review를 맡는다. 외부 모델은 path/service/writer/acceptance authority와 fallback을 얻지 않는다.
 - 이 지시는 R2~R7의 Owner gate를 여는 방향 결정이며, 각 leaf의 private binding·ACL·backup·restore·caller·rollback 증거를 생략하는 big-bang 승인이 아니다.
+- G0 accepted reconciliation은 `<TARGET_SOULFORGE_ROOT>/data`의 sole physical manifest를 아래 Plan 17 numbered data spine으로 고정한다. `World Tree`, `Rune`, `Guild`, Apps, analytics는 Path Registry product/owner/asset facets이며 product-named data directory를 인가하지 않는다. 이 문서 재조정은 actual root approval, writer authority, private binding, ACL, or canary readback를 늘리지 않는다.
 
 ## Purpose
 
@@ -55,6 +56,23 @@ secret_owner_root
 
 A product can use several physical roots, and a physical root can serve several products. Product folders are catalog views and release manifests, not a reason to duplicate bytes or create competing sources of truth.
 
+The accepted G0 reconciliation applies that separation directly to the target Suite layout:
+the nine `<TARGET_SOULFORGE_ROOT>` top-level paths are target aliases for the physical-root
+classes documented in `SOULFORGE_SUITE_STRUCTURE_AND_CONFIGURATION_V0.md`, while
+the Plan 17 numbered data spine is the only physical child manifest of `data`.
+Project/human/Bot/external/secret/tool roots remain exact Registry bindings and
+are not auto-created Suite top-level directories.
+
+The current tracked seed remains reference-in-place rather than current proof of
+that target sibling topology: `canon.workspaces` is parented by
+`root.data_root`, and `plane.workmeta` plus `plane.private_state` are parented
+by `root.source_checkout`. A physical-root class is not an address. `install`
+and inactive `packages`, and `control` and `private-state`, must receive unique
+target `logical_path_id`, `binding_ref`, `parent_binding_ref`, and binding epoch;
+resolver fallback or ambiguous target resolution is prohibited. The exact target
+row/binding migration is a named pre-R2 blocker, so current Registry consistency
+is not claimed.
+
 ## Current observed public-safe shape
 
 2026-09-01 local Main Node canary: the active runtime root was reduced to two
@@ -75,6 +93,13 @@ axis explicitly.
 Host-local path values remain private/runtime configuration. Read-only metadata
 observation confirms the existing classes identified below; target-only rows are
 explicitly labeled and are not existence claims:
+
+This target classification does not assert that legacy bytes have migrated.
+Legacy runtime, data, control, tool, and recovery roots remain
+reference-in-place and move only by their exact R5/R7 class leaf. The legacy
+data root can already contain a numbered Plan 17 view beside lifecycle-oriented
+children and a secret-owner child; that does not authorize a bulk copy, and
+secret-owner material never becomes a `data_root` materialization class.
 
 | Alias | Observed contents | Current interpretation |
 | --- | --- | --- |
@@ -131,6 +156,10 @@ The current `data_root` already has mail, Slack, voice, PC activity, team-file, 
 ## Target data-root catalog view
 
 Numeric prefixes are presentation order, not authority or database keys.
+This code block is the sole physical manifest for `<TARGET_SOULFORGE_ROOT>/data` when an
+exact R2 canary is authorized; it is not a claim that the internal tree has
+been applied. The materializer creates empty directories only under its exact
+approved canary binding, and cannot copy/move payloads or materialize secrets.
 
 ```text
 data_root/
@@ -196,7 +225,8 @@ data_root/
 │  ├─ process-mining/
 │  └─ learning-evaluation/
 ├─ 60_BACKUP_GENERATIONS/
-│  └─ <registered-source-or-data-class-id>/
+│  ├─ <registered-source-or-data-class-id>/
+│  └─ projects/
 ├─ 70_QUARANTINE/
 ├─ 80_CUSTODY_RECEIPT_INDEX/
 ├─ 90_PROJECTIONS/

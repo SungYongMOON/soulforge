@@ -1,10 +1,10 @@
 # Physical Folder Compatibility, Packaging, and Migration Map
 
-> Status: `OWNER_REVIEW_DRAFT` — suite state, owner decisions, and claim rules are governed by [00_MASTER_INDEX_AND_DECISIONS.md](00_MASTER_INDEX_AND_DECISIONS.md).
+> Status: `OWNER_REVIEW_DRAFT / G0_DOCUMENT_RECONCILIATION_ACCEPTED / R2_PHYSICAL_APPLY_HOLD` — suite state, owner decisions, and claim rules are governed by [00_MASTER_INDEX_AND_DECISIONS.md](00_MASTER_INDEX_AND_DECISIONS.md). Fresh Level 2 review accepted the G0 document reconciliation; it does not authorize an R2 apply.
 
 ## Public-safe inventory convention
 
-This document uses stable physical aliases instead of publishing host-local absolute paths. Exact local roots and bindings remain private/runtime configuration. The aliases are `OBSERVED_METADATA_ONLY` as of this planning task: directory shape was read-only observed, while operational ownership, health, contents, ACLs, backups, and runtime activation remain `VERIFY_PHYSICAL` unless a separately accepted receipt says otherwise.
+This document uses stable physical aliases instead of publishing host-local absolute paths. Exact local roots and bindings remain private/runtime configuration. `<LEGACY_SOULFORGE_ROOT>` means the current legacy estate root and `<TARGET_SOULFORGE_ROOT>` means the Owner-directed empty target root; both are public-safe placeholders, not physical binding values. The aliases are `OBSERVED_METADATA_ONLY` as of this planning task: directory shape was read-only observed, while operational ownership, health, contents, ACLs, backups, and runtime activation remain `VERIFY_PHYSICAL` unless a separately accepted receipt says otherwise.
 
 | Alias | Observed current role/layout | Owner interpretation |
 | --- | --- | --- |
@@ -19,6 +19,33 @@ This document uses stable physical aliases instead of publishing host-local abso
 `human_work_root` and `bot_worktree`/`project_work_root` are physical siblings of
 the Soulforge installation, not descendants of its source, runtime, data, or
 control roots. Exact local paths remain in the private physical-root inventory.
+
+## G0 Plan 17 data-manifest reconciliation — accepted
+
+`<TARGET_SOULFORGE_ROOT>/data` has one physical target manifest only: the numbered Plan 17
+data spine in [17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md](17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md).
+`World Tree`, `Rune`, `Guild`, Apps, and analytics are Path Registry product,
+logical-owner, and asset-class facets; they do not create or authorize
+product-named data directories. The target top-level classification is:
+`dev=source_checkout`; `install` and inactive/create-only `packages` are the
+`runtime_root` family; `data=data_root`; `_workspaces`/`_workmeta` are logical
+`data_root` siblings; `control=control_root` and `private-state=control_root`; and
+`local-recovery=recovery_root`. The authoritative nine-row crosswalk is in the
+Suite structure baseline.
+
+This crosswalk is target binding topology, not a statement that the current
+Registry already has those sibling bindings. A root class is not an address:
+`install` and inactive `packages`, and `control` and `private-state`, each need
+their own target `logical_path_id`, `binding_ref`, `parent_binding_ref`, and
+binding epoch. Resolution remains no-fallback and rejects ambiguity; the exact
+target-row/binding migration is a named pre-R2 blocker.
+
+Project/human/Bot/external/secret/tool roots remain explicit private bindings,
+not auto-created `<TARGET_SOULFORGE_ROOT>` top-level folders. This is target
+classification only: legacy runtime/data/control/tool/recovery roots remain
+reference-in-place until their per-class R5/R7 leaf, and the observed legacy
+data view plus lifecycle directories and secret-owner child do not authorize
+copying. Secret-owner material is forbidden from target `data` materialization.
 
 ### Existing project-Bot compatibility semantics
 
@@ -211,6 +238,11 @@ No directory below is created or treated as active by this plan. Existing ledger
 stay reference-in-place until owner, caller, persistence, backup/restore and
 compatibility gates pass.
 
+The `data_root` names below are Plan 17 physical-manifest references, not a
+second compatibility manifest. In particular, `ledger-coverage` is a logical
+4192 projection identity and does not authorize a second `90_PROJECTIONS`
+directory; the full materializable tree remains Plan 17's owner surface.
+
 ```text
 source_checkout/
 └─ guild_hall/event_ledger/                    # TARGET shared mechanical module
@@ -221,18 +253,23 @@ source_checkout/
 
 data_root/
 ├─ 00_CATALOG/
-│  └─ ledger-catalog/                          # rows/manifests only; not event bodies
+│  ├─ ledger-catalog/                          # rows/manifests only; not event bodies
+│  └─ case-activity-registry/                  # registry refs, not event bodies
 ├─ 10_SOURCE_CAPTURE_CATALOG/<source-id>/      # refs to source-native custody/cursors/outboxes
 ├─ 25_EVENT_TIMELINE_INDEX/                    # refs/index over exact owner timelines
-├─ 30_KNOWLEDGE_INDEX/rag/
+├─ 30_KNOWLEDGE_INDEX/rag-indexes/
 │  ├─ generation-catalog/  evaluation/  active-pointer/  invalidation/
 ├─ 45_EVENT_STORES/                            # TARGET scoped stores, never one enterprise DB
 │  ├─ projects/<project-ref>/<store-id>/
 │  └─ organizations/<approved-org-scope>/<store-id>/
+├─ 55_ANALYTICS_DATASET_INDEX/
+│  ├─ process-mining/
+│  └─ learning-evaluation/
 ├─ 60_BACKUP_GENERATIONS/
-│  └─ <registered-source-or-data-class-id>/    # registry-generated; no second hard-coded list
+│  ├─ <registered-source-or-data-class-id>/    # registry-generated; no second hard-coded list
+│  └─ projects/
 ├─ 80_CUSTODY_RECEIPT_INDEX/
-└─ 90_PROJECTIONS/{watch-4192,ledger-coverage}/
+└─ 90_PROJECTIONS/watch-4192/
 
 control_root/
 └─ ledger-relay/

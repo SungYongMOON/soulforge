@@ -1,5 +1,13 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -15,6 +23,71 @@ import {
 
 const SNAPSHOT = registrySnapshot(createPathRegistry({ authority: SEED_AUTHORITY, rows: seedRows() }));
 const ROOT_REF = APPROVED_EMPTY_MATERIALIZATION_ROOT_REF;
+const PLAN17_DOCUMENT_URL = new URL(
+  "../../../docs/architecture/foundation/team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md",
+  import.meta.url,
+);
+
+function documentCodeBlockAfter(heading) {
+  const documentText = readFileSync(PLAN17_DOCUMENT_URL, "utf8");
+  const headingOffset = documentText.indexOf(heading);
+  assert.notEqual(headingOffset, -1, `missing Plan 17 heading: ${heading}`);
+  const openingOffset = documentText.indexOf("```text", headingOffset);
+  assert.notEqual(openingOffset, -1, `missing Plan 17 code block after: ${heading}`);
+  const bodyStart = openingOffset + "```text".length;
+  const closingOffset = documentText.indexOf("```", bodyStart);
+  assert.notEqual(closingOffset, -1, `unterminated Plan 17 code block after: ${heading}`);
+  return documentText.slice(bodyStart, closingOffset).trim();
+}
+
+function documentedDataRootPaths() {
+  const lines = documentCodeBlockAfter("## Target data-root catalog view").split(/\r?\n/u);
+  assert.equal(lines.shift(), "data_root/");
+  const stack = [];
+  const paths = [];
+  for (const line of lines) {
+    const match = line.match(/^((?:│  |   )*)(?:├─ |└─ )(.+)$/u);
+    assert.ok(match, `unrecognized Plan 17 tree line: ${line}`);
+    const level = match[1].length / 3;
+    assert.equal(Number.isInteger(level), true, `invalid Plan 17 tree indentation: ${line}`);
+    stack.length = level;
+    const segments = match[2].replace(/\/$/u, "").split("/");
+    const firstDynamicSegment = segments.findIndex((segment) => segment.startsWith("<"));
+    const staticSegments = firstDynamicSegment === -1
+      ? segments
+      : segments.slice(0, firstDynamicSegment);
+    if (staticSegments.length === 0) continue;
+    const path = [...stack, ...staticSegments].join("/");
+    paths.push(path);
+    stack.push(...staticSegments);
+  }
+  return paths;
+}
+
+function documentedSourceLaneDirectories() {
+  const lines = documentCodeBlockAfter("## Uniform external-source lane").split(/\r?\n/u);
+  assert.equal(lines.shift(), "10_SOURCE_CAPTURE_CATALOG/<source-id>/");
+  return lines.map((line) => {
+    const match = line.match(/^(?:├─ |└─ )([A-Za-z0-9-]+)\/$/u);
+    assert.ok(match, `unrecognized Plan 17 source-lane line: ${line}`);
+    return match[1];
+  });
+}
+
+function documentedMaterializerDirectories() {
+  const paths = new Set(documentedDataRootPaths());
+  const sourceLanePrefix = "10_SOURCE_CAPTURE_CATALOG/";
+  const sourceLanes = [...paths].filter((path) => (
+    path.startsWith(sourceLanePrefix) && !path.slice(sourceLanePrefix.length).includes("/")
+  ));
+  for (const sourceLane of sourceLanes) {
+    for (const directory of documentedSourceLaneDirectories()) {
+      paths.add(`${sourceLane}/${directory}`);
+    }
+    paths.add(`60_BACKUP_GENERATIONS/${sourceLane.slice(sourceLanePrefix.length)}`);
+  }
+  return [...paths].sort();
+}
 
 function freshRoots() {
   const containment = mkdtempSync(join(tmpdir(), "sf-materializer-"));
@@ -70,6 +143,10 @@ test("plan is registry-driven: every seed source lane appears, no secret dir", (
   assert.ok(plan.directories.includes("90_PROJECTIONS/watch-4192"));
   assert.ok(plan.directories.every((dir) => !dir.toLowerCase().includes("secret")));
   assert.equal(plan.registry_snapshot_digest, SNAPSHOT.snapshot_digest);
+});
+
+test("Plan 17 documented data spine and materializer plan have exact parity", () => {
+  assert.deepEqual(plannedNow().directories, documentedMaterializerDirectories());
 });
 
 test("two source rows that collapse to one lane id hold instead of merging", () => {
