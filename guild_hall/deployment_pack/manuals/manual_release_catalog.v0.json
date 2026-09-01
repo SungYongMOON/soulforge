@@ -109,7 +109,7 @@
       "semantic_role": "external_connector_backup_restore",
       "state": "candidate",
       "artifact_ref": "artifact.manual.external_connector_backup_restore.v0_1_0",
-      "content_digest": "sha256:a0843ef1c5345b2608d09ddcaadab7cbe3a17f0f2a8f71f97efe6519b74d9987",
+      "content_digest": "sha256:231655b2b605acd4b9931fafa1cae6d9c517b548a4c8aaa9b68f7f8c564ccce8",
       "compatibility_range": ">=0.1.0 <1.0.0",
       "last_verified_release": null,
       "stale_state": "current",
