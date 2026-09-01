@@ -2,17 +2,20 @@
 
 ## 상태
 
-- 상태: `OWNER_WORKING_BASELINE / NO_PHYSICAL_MIGRATION`
+- 상태: `OWNER_AUTHORIZED_STAGED_MIGRATION / TARGET_TOP_LEVEL_MATERIALIZED / INTERNAL_TREE_HOLD`
 - 기준일: 2026-09-01
-- 목적: Core·App·Add-on·Adapter·Shared, 개발·설치·데이터·정본·복구와 전체 형상관리 규칙을 한 문서에서 고정한다.
-- 비효과: 이 문서는 폴더 생성·이동·Junction 변경·서비스 전환·제품 Release를 실행하지 않는다.
+- 목적: Core·App·Project Pack·Adapter·Shared, 개발·설치·데이터·정본·복구와 전체 형상관리 규칙을 한 문서에서 고정한다.
+- Owner 실행지시(2026-09-01): 비어 있는 `D:\Soulforge`에 목표 구조를 새로 만들고, `C:\Soulforge`의 전체 estate를 backup·copy·digest·restore·service-canary·rollback Gate로 단계 전환한다. 전환 중 Buzz·Hermes·4192·BuzzServer를 정지할 수 있으나 PC 재부팅은 금지한다. 기존 `C:\Soulforge`의 retire/delete는 새 경로 검증과 별도 수락 전까지 수행하지 않는다.
+- 현재 물리상태: `D:\Soulforge`와 합의된 9개 top-level child는 빈 디렉터리로 생성됐고 foreign top-level entry, payload copy, service/Junction/writer change는 0이다. `data/{worldtree,rune,guild,...}` view와 Plan 17의 numbered physical spine, 그리고 `dev/install/private-state/packages/local-recovery`와 Plan 17 root class 명칭의 충돌은 G0 문서 재조정 전까지 `INTERNAL_TREE_HOLD`다.
+- 비효과: 이 문서만으로 Junction·active pointer·service·writer·DB·Task·credential·제품 Release를 자동 전환하지 않는다.
 - 정확한 host-local current/target 경로: private physical-root inventory가 소유한다.
 
 ## 1. 한 줄 구조
 
 > Soulforge는 하나의 Software Suite다. `World Tree`는 업무·자산·지식 정본,
 > `Rune`은 공학 판단, `Guild`는 사람·AI 실행조직을 소유한다. App은 이 Core들을
-> 사람이 사용하게 하고, Add-on은 선택 기능을 확장하며, Adapter는 외부 시스템을 연결한다.
+> 사람이 사용하게 하고, Project Pack은 한 프로젝트의 정본·Rune·Guild·Adapter binding을
+> 한 project identity로 결속하며, Adapter는 외부 시스템을 연결한다.
 
 ## 2. 안정 ID와 working name
 
@@ -25,13 +28,13 @@
 working name과 folder slug는 stable ID를 대체하지 않는다. 표시명이나 경로가 바뀌어도
 configuration item ID와 version lineage는 유지한다.
 
-## 3. Core·App·Add-on·Shared·Adapter
+## 3. Core·App·Project Pack·Shared·Adapter
 
 | 분류 | 판정 질문 | 소유하는 것 | 예 |
 | --- | --- | --- | --- |
 | Core | 회사 핵심 정본·규칙·실행체계를 소유하는가 | 작은 Interface 뒤의 핵심 구현과 상태계약 | World Tree, Rune, Guild |
 | App | 사용자가 직접 실행하는 완성 프로그램인가 | 화면·사용 흐름·App 설정·cache | Intelligence, Rune Lab, Watch, Client |
-| Add-on | Host Core/App 없이는 의미가 없는 선택형 확장인가 | 한 Domain/Tool의 독립 package와 version | Sonar, Safety Rune, PPT Tool |
+| Project Pack | Soulforge에 한 프로젝트를 탑재·비활성화·복구하기 위한 결속 묶음인가 | project identity, folder contract, Rune Set/Profile, Guild organization, Adapter/ACL/backup/manual refs | KVDS, MSH, SAS, AUV |
 | Shared Module | 두 개 이상의 실제 caller가 같은 기능을 사용하는가 | 공통 Interface와 한 구현 | Identity, Path Registry, Backup, CM |
 | Adapter | 외부 시스템을 내부 Interface에 연결하는가 | source/action 변환과 source-specific retry/error | Linear, Slack, PLAUD, Buzz, NAS |
 
@@ -54,10 +57,8 @@ Soulforge Suite
 │  ├─ Guild
 │  ├─ Watch
 │  └─ Client
-├─ Add-ons
-│  ├─ Intelligence Domains
-│  ├─ Domain Runes
-│  └─ Guild Tools
+├─ Project Packs
+│  └─ KVDS / MSH / SAS / AUV / future projects
 ├─ Adapters
 │  └─ Linear / Slack / Mail / PLAUD / Drive / Buzz / Hermes / Git / NAS
 └─ Shared Modules
@@ -75,7 +76,6 @@ App 이름은 Project 이름이 아니다. 한 App이 여러 Project를 처리�
 │  ├─ main/                       # Git main checkout
 │  │  ├─ core/{worldtree,rune,guild}/
 │  │  ├─ apps/
-│  │  ├─ addons/
 │  │  ├─ adapters/
 │  │  ├─ shared/
 │  │  ├─ .registry/ .unit/ .workflow/ .party/ .mission/
@@ -86,7 +86,7 @@ App 이름은 Project 이름이 아니다. 한 App이 여러 Project를 처리�
 │  └─ cache/
 ├─ install/
 │  ├─ releases/<suite-version>/
-│  │  ├─ core/ apps/ addons/ adapters/ shared/
+│  │  ├─ core/ apps/ adapters/ shared/
 │  │  ├─ runtime/ manifests/ manual/
 │  │  └─ release.json
 │  └─ current -> releases/<active-version>
@@ -94,7 +94,7 @@ App 이름은 Project 이름이 아니다. 한 App이 여러 Project를 처리�
 │  ├─ worldtree/
 │  ├─ rune/
 │  ├─ guild/
-│  ├─ apps/ addons/
+│  ├─ apps/
 │  ├─ analytics/ learning-evaluation/
 │  └─ backup-generations/ custody-receipts/ quarantine/
 ├─ _workspaces/
@@ -138,15 +138,15 @@ World Tree Catalog가 전사 관계를 소유하고, 특정 Project에 연결된
 ERP 운영 DB를 Git revert로 되돌리지 않는다. 잘못된 상태는 Correction/Supersession Event로
 고치고, DB 손상·migration 실패는 Point-in-Time/Backup Restore를 사용한다.
 
-## 8. App·Add-on 설치와 제거
+## 8. App·Project Pack 설치와 제거
 
 Source 폴더는 개발 자산이고 uninstall 대상이 아니다. 설치·제거는 `install` release package와
 Runtime Registry를 대상으로 한다.
 
 - App 제거: App runtime·cache·등록을 제거하고 Core 정본은 보존한다.
-- Add-on 제거: 해당 확장 Runtime을 비활성·제거하고 생성된 accepted asset와 과거 receipt는 보존한다.
+- Project Pack 비활성화: project binding과 실행 Runtime을 비활성화하고 `_workspaces/<project_code>`, `_workmeta/<project_code>`, accepted asset와 과거 receipt는 보존한다. Project Pack 제거는 프로젝트 자료 삭제를 뜻하지 않는다.
 - Shared 제거: active caller가 있으면 거부한다.
-- Core 제거: 모든 dependent App/Add-on, data export, restore proof와 Owner Gate가 필요하다.
+- Core 제거: 모든 dependent App/Project Pack, data export, restore proof와 Owner Gate가 필요하다.
 
 ## 9. 형상관리
 
@@ -157,8 +157,8 @@ ci:core:worldtree
 ci:core:rune
 ci:core:guild
 ci:app:watch
-ci:addon:intelligence.sonar
 ci:rune:safety
+ci:project-pack:P26-014
 ci:agent:kvds-se
 ci:artifact:P26-014:...
 ci:path:workspace:P26-014
@@ -174,7 +174,7 @@ Suite Release는 독립 version을 한 matrix로 pin한다.
 suite_release: 2026.09.1
 core: { worldtree: 1.4.0, rune: 2.0.0, guild: 0.9.0 }
 apps: { watch: 1.2.0, intelligence: 0.5.0 }
-addons: { intelligence.sonar: 0.4.0, rune.safety: 3.1.0 }
+project_packs: { P26-014: 0.1.0 }
 schemas: { worldtree: 7 }
 rollback_release: 2026.08.4
 ```

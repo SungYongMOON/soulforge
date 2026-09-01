@@ -1,6 +1,16 @@
 # Physical Architecture, Path Registry, and Storage Map
 
-> Status: `OWNER_REVIEW_DRAFT` — the Human Owner confirmed on 2026-08-30 that the whole Soulforge physical organization must be fixed before further product expansion. This document records that direction without moving, copying, or deleting any existing payload.
+> Status: `OWNER_AUTHORIZED_STAGED_MIGRATION / TARGET_TOP_LEVEL_MATERIALIZED / INTERNAL_TREE_HOLD` — the Human Owner confirmed the whole-estate direction and staged execution. `D:\Soulforge` top-level exists with payload copy 0, while the exact internal tree remains held at G0 document reconciliation.
+
+## Owner execution directive — 2026-09-01
+
+- `D:\Soulforge`가 비어 있는 상태에서 목표 root를 새로 materialize하고, 현재 `C:\Soulforge` 전체 estate를 단계적으로 전환한다.
+- Owner는 전환 시 Buzz·Hermes·4192·BuzzServer 정지를 허용했다. 서비스는 copy-only staging 동안 계속 운영할 수 있고, writer/pointer cutover 직전에 한 번만 quiesce한다.
+- PC 재부팅은 이번 migration의 허용 수단이 아니다.
+- 실제 이동은 `inventory freeze -> target manifest -> empty-root materialization -> copy-only staging -> digest/Git/DB/restore verification -> service quiescence -> pointer/service cutover -> canary -> rollback rehearsal -> later C: retirement decision` 순서다.
+- `C:\Soulforge`와 사용자 소유 dirty state는 새 경로의 readback·rollback·fresh review가 닫힐 때까지 보존한다. reset, stash, force, purge, broad delete는 금지한다.
+- Terra/max가 단일 integration writer를 맡고, 격리된 Gemini 3.7 Flash lane은 public-safe inventory 또는 script/test 후보만 만들며, Opus 5/high는 구현과 분리된 fresh review를 맡는다. 외부 모델은 path/service/writer/acceptance authority와 fallback을 얻지 않는다.
+- 이 지시는 R2~R7의 Owner gate를 여는 방향 결정이며, 각 leaf의 private binding·ACL·backup·restore·caller·rollback 증거를 생략하는 big-bang 승인이 아니다.
 
 ## Purpose
 
