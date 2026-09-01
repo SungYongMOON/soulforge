@@ -20,9 +20,13 @@ import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 
 import { readWorkerIdentity, startCodexDedicatedWorker } from "../src/codex_dedicated_worker.mjs";
+import { isRuntimeCheckout } from "../src/runtime_checkout.mjs";
 
 const APP_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const TEMP_ROOT = realpathSync(tmpdir());
+const MOCK_ONLY_SKIP = isRuntimeCheckout(APP_ROOT)
+  ? "mock worker is intentionally unavailable in an installed runtime checkout"
+  : false;
 
 function freePort() {
   return new Promise((resolve, reject) => {
@@ -96,7 +100,7 @@ async function waitForProjectionManifest(projectionRoot) {
   throw new Error("turn_projection_manifest_timeout");
 }
 
-test("ERP delegates model, workspace, attachment, and turn execution to the attested dedicated worker", async () => {
+test("ERP delegates model, workspace, attachment, and turn execution to the attested dedicated worker", { skip: MOCK_ONLY_SKIP }, async () => {
   const root = mkdtempSync(join(TEMP_ROOT, "dev-erp-worker-integration-"));
   const workerHome = join(root, "worker-home");
   const workspaceRoot = join(root, "team-share", "project-56");

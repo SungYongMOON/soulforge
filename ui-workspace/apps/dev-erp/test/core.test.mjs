@@ -9,6 +9,7 @@ import { validateRelPointer, safeSegment, safeWorkspacePath, safeUploadTarget, c
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isRuntimeCheckout } from "../src/runtime_checkout.mjs";
 
 import {
   openStore,
@@ -61,6 +62,9 @@ import { backupRuntimeDb, restoreTestRuntimeDb, runtimeHealthCheck } from "../to
 import { runRuntimeReleaseAudit } from "../tools/runtime_release_audit.mjs";
 
 const APP_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
+const MOCK_ONLY_SKIP = isRuntimeCheckout(APP_DIR)
+  ? "mock bridge is intentionally unavailable in an installed runtime checkout"
+  : false;
 const windowsAbsolute = (...segments) => ["C:", ...segments].join("\\");
 const posixAbsolute = (...segments) => ["", ...segments].join("/");
 
@@ -1724,7 +1728,7 @@ test("knowledge shell: API routes return metadata-only shapes", async () => {
   }
 });
 
-test("server: ERP status buttons emit AX work lifecycle hooks", async () => {
+test("server: ERP status buttons emit AX work lifecycle hooks", { skip: MOCK_ONLY_SKIP }, async () => {
   const root = mkdtempSync(join(tmpdir(), "dev-erp-work-hooks-"));
   try {
     const codexHome = join(root, "codex-home");
@@ -1956,7 +1960,7 @@ test("server: empty DB stays empty unless fixture loading is explicit", async ()
   }
 });
 
-test("server: Codex task mock bridge opens a separate task thread API", async () => {
+test("server: Codex task mock bridge opens a separate task thread API", { skip: MOCK_ONLY_SKIP }, async () => {
   const root = mkdtempSync(join(tmpdir(), "dev-erp-codex-task-"));
   try {
     const codexHome = join(root, "codex-home");
@@ -2312,7 +2316,7 @@ test("server: Codex task mock bridge opens a separate task thread API", async ()
   }
 });
 
-test("server: bound Codex thread and attachments enforce current workspace principal authorization", async () => {
+test("server: bound Codex thread and attachments enforce current workspace principal authorization", { skip: MOCK_ONLY_SKIP }, async () => {
   const root = mkdtempSync(join(tmpdir(), "dev-erp-codex-principal-"));
   try {
     const codexHome = join(root, "codex-home");
@@ -2422,7 +2426,7 @@ test("server: bound Codex thread and attachments enforce current workspace princ
   }
 });
 
-test("server: Codex admission is item/global bounded and shutdown leaves no started audit", async () => {
+test("server: Codex admission is item/global bounded and shutdown leaves no started audit", { skip: MOCK_ONLY_SKIP }, async () => {
   const root = mkdtempSync(join(tmpdir(), "dev-erp-codex-admission-"));
   try {
     const codexHome = join(root, "codex-home");
@@ -2602,7 +2606,7 @@ test("server: Codex admission is item/global bounded and shutdown leaves no star
   }
 });
 
-test("server: Codex task service tier 제거 — ALLOW_FAST 여도 tier 옵션 없음(fast 못 켬)", async () => {
+test("server: Codex task service tier 제거 — ALLOW_FAST 여도 tier 옵션 없음(fast 못 켬)", { skip: MOCK_ONLY_SKIP }, async () => {
   const root = mkdtempSync(join(tmpdir(), "dev-erp-codex-tier-"));
   try {
     const codexHome = join(root, "codex-home");

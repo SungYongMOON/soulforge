@@ -14,8 +14,12 @@ import {
   resolveCodexModelSelection,
   runCodexTaskTurn,
 } from "../src/codex_bridge.mjs";
+import { isRuntimeCheckout } from "../src/runtime_checkout.mjs";
 
 const APP_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
+const MOCK_ONLY_SKIP = isRuntimeCheckout(APP_DIR)
+  ? "mock bridge is intentionally unavailable in an installed runtime checkout"
+  : false;
 
 function freePort() {
   return new Promise((resolve, reject) => {
@@ -329,7 +333,7 @@ test("fallback is only GPT-5.5 and the UI does not hardcode GPT-5.6", () => {
   assert.match(app, /taskCodexEffortOptions/);
 });
 
-test("ERP rejects client model slugs outside the discovered-or-fallback catalog", async () => {
+test("ERP rejects client model slugs outside the discovered-or-fallback catalog", { skip: MOCK_ONLY_SKIP }, async () => {
   const dir = mkdtempSync(join(tmpdir(), "dev-erp-codex-model-route-"));
   const codexHome = join(dir, "codex-home");
   const workspaceRoot = join(dir, "team", "approved", "model-route");

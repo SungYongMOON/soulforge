@@ -1,7 +1,7 @@
 {
   "schema": "soulforge.deployment_pack_spec.v0",
   "pack_id": "hpp_server_pack",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "host_effect_policy": {
     "reboot": "forbidden",
     "driver_change": "forbidden",
@@ -1237,7 +1237,7 @@
     "test/workflow_job_ui_contract.test.mjs"
   ],
   "installed_smoke_excluded": [],
-  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_2",
+  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_4",
   "install_manual_ref": "manual.install.hpp_server_pack",
   "upgrade_manual_ref": "manual.upgrade.hpp_server_pack",
   "rollback_manual_ref": "manual.rollback.hpp_server_pack",
@@ -2126,11 +2126,11 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/codex_model_catalog.test.mjs",
-      "sha256": "c0c2d29c17b990a3232151463759964640f4ab62dd06d54c3154cc67e69470b4"
+      "sha256": "2faf63f1184e91324f3516ae2216012aee01ea77e7a994b27c424c26137c19b7"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/codex_worker_server_integration.test.mjs",
-      "sha256": "838f3adfd8e96d7c982a61226f849981fd4312901516be28c147bd3c90c6b934"
+      "sha256": "30bbeb7a8da388fb1c9a6def12efc1aa8fc7ad3fc2e06a100df35a15dc1c906c"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/context_life_tree.test.mjs",
@@ -2138,7 +2138,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/core.test.mjs",
-      "sha256": "35c56f754dc957c98c253c1c6ce79aacff1c22127490d2e87a88ca0101c05935"
+      "sha256": "7f021be48797100757e4ac720240f199abe43b4d5b3e1750675ab8c9d48287fa"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/erp_mcp_server.test.mjs",
