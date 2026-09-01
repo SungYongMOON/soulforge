@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-09-01 - dev-ERP versioned server-pack runtime recognition
+
+- Updated the dev-ERP 4300-port runtime guard to recognize both the retained
+  legacy `Soulforge-runtime` checkout shape and the official versioned
+  `install/server-pack/<semantic-version>/payload` shape. Development,
+  `source_checkout`, non-versioned `latest`, and install-like lookalikes stay
+  denied by structural path-segment tests. This changes no service, port,
+  runtime binding, or installed payload.
+
 ## 2026-09-01 - Internal RC contract foundations are implemented in parallel
 
 - Authorized the staged `<LEGACY_SOULFORGE_ROOT>` to `<TARGET_SOULFORGE_ROOT>` physical migration direction: create the empty target root, preserve the current root until verified rollback, allow bounded Buzz/Hermes/4192/BuzzServer quiescence without reboot, and bind execution to Terra/max single-writer integration with isolated Gemini 3.7 Flash support and fresh Opus 5 review. Reframed generic Add-ons as Project Packs that bind project identity across World Tree, Rune, Guild, and Adapters without owning or deleting project payload.

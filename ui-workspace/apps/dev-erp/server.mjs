@@ -17,6 +17,7 @@ import { dirname, isAbsolute, join, extname, resolve, sep, basename } from "node
 import { fileURLToPath } from "node:url";
 
 import { readPackSourceIdentity } from "./src/pack_source_identity.mjs";
+import { isRuntimeCheckout } from "./src/runtime_checkout.mjs";
 import { resolveGitExecutable } from "./src/win_system_exe.mjs";
 import { openStore } from "./src/store.mjs";
 import {
@@ -436,7 +437,6 @@ const KNOWLEDGE_INDEX_ROOT = knowledgeIndexRootFromShellRoot(KNOWLEDGE_SHELL_ROO
 const BACKEND_WORKMETA_ROOT = join(BACKEND_ROOT, "_workmeta");
 const FILEIO = process.env.DEV_ERP_FILEIO === "1" || process.argv.includes("--fileio");
 const UPLOAD_MAX = Number(process.env.DEV_ERP_UPLOAD_MAX || 50 * 1024 * 1024); // 50MB 기본 상한
-const isRuntimeCheckout = (p) => /(^|[\\/])Soulforge-runtime([\\/]|$)/i.test(resolve(p));
 const IS_RUNTIME_CHECKOUT = isRuntimeCheckout(ROOT) || isRuntimeCheckout(HERE);
 const RUNTIME_PORT = Number(process.env.DEV_ERP_RUNTIME_PORT || 4300);
 const DEV_PORT = Number(process.env.DEV_ERP_DEV_PORT || 4310);

@@ -5238,7 +5238,7 @@ test("server: 운영 4300은 runtime checkout 전용이고 개발 기본 포트�
   const watchdog = readFileSync(join(APP_DIR, "ops", "dev-erp-watchdog.ps1"), "utf8");
   const nssm = readFileSync(join(APP_DIR, "ops", "install-dev-erp-nssm.ps1"), "utf8");
   const codexNssm = readFileSync(join(APP_DIR, "ops", "configure-dev-erp-codex-nssm.ps1"), "utf8");
-  assert.match(server, /Soulforge-runtime/);
+  assert.match(server, /runtime_checkout\.mjs/);
   assert.match(server, /DEV_PORT = Number\(process\.env\.DEV_ERP_DEV_PORT \|\| 4310\)/);
   assert.match(server, /PORT === RUNTIME_PORT && !IS_RUNTIME_CHECKOUT/);
   assert.match(server, /DEV_ERP_ALLOW_DEV_4300/);

@@ -282,7 +282,8 @@ HTTPS proxy/tunnel 뒤에서만 로그인 세션이 정상 유지된다. 첫 관
 
 포트 운영 원칙:
 
-- runtime checkout 운영본만 `4300`을 쓴다.
+- legacy `Soulforge-runtime` 또는 versioned
+  `install/server-pack/<semantic-version>/payload` runtime 운영본만 `4300`을 쓴다.
 - 개발 checkout 은 기본 `4310`을 쓴다.
 - 개발/작업본에서 `4300`을 쓰려 하면 서버가 기본 거부한다. 긴급 예외만
   `DEV_ERP_ALLOW_DEV_4300=1` 또는 `--allow-dev-4300`으로 명시한다.

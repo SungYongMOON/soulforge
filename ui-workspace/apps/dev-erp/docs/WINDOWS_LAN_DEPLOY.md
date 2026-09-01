@@ -24,10 +24,12 @@ owner 승인 gate 는 [`RUNTIME_OPERATING_CONTRACT_20260617.md`](RUNTIME_OPERATI
 backup/restore-test, and incident troubleshooting are tracked in
 [`RUNTIME_MAINTENANCE_RUNBOOK_20260618.md`](RUNTIME_MAINTENANCE_RUNBOOK_20260618.md).
 
-포트는 checkout 경계를 겸한다. `<runtime-checkout>`만
-운영 포트 `4300`을 사용한다. `<dev-checkout>` 등 개발/작업본은
-기본 `4310`을 사용하고, `4300` 실행은 서버가 기본 거부한다. 따라서 4300에
-보이는 화면은 항상 운영본이어야 한다.
+포트는 checkout 경계를 겸한다. legacy `<runtime-checkout>`의
+`Soulforge-runtime/...` 경로와, 공식 설치본의
+`<suite>/install/server-pack/<numeric-x.y.z>/payload` 및 그 하위 경로만 운영 포트
+`4300`을 사용한다. `<dev-checkout>`, `source_checkout`, `latest`처럼 버전이
+고정되지 않은 install 유사 경로는 기본 `4310`을 사용하고, `4300` 실행은 서버가
+기본 거부한다. 따라서 4300에 보이는 화면은 항상 인식된 운영본이어야 한다.
 
 ## 0. 최신 코드 받기 (Windows 서버 PC — Soulforge 이미 설치됨)
 수동 복사 불필요. 그 PC에서 **`/soulforge-github-down`** 실행 → 공개 repo 최신(개발 PC에서 올린 변경)

@@ -172,6 +172,11 @@ Soulforge 정본 구조의 authority 는 아니다.
 `<dev-checkout>` 는 개발, 패치, 검토, commit/push 의 자리다. `<runtime-checkout>`
 은 승인된 commit 을 받아 실제 서버 프로세스를 돌리는 자리다.
 
+4300 포트 보호에서 server는 legacy `Soulforge-runtime` 경로와 versioned
+`<suite>\install\server-pack\<numeric-x.y.z>\payload`와 그 하위 경로만 runtime으로 인식한다.
+`source_checkout`, `latest`, 또는 이름만 비슷한 install 경로는 runtime이 아니며
+기본 4310을 유지한다.
+
 `<runtime-checkout>\DATA`는 ERP가 추가로 관리해야 하는 파일이 생길 때만 쓰는
 runtime-local 보조 영역이다. 기존 Soulforge `_workspaces`, Codex message/attachment
 payload owner, runtime SQLite, secret/Codex home 경계를 옮기지 않는다. 이 폴더는

@@ -1,7 +1,7 @@
 {
   "schema": "soulforge.deployment_pack_spec.v0",
   "pack_id": "hpp_server_pack",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "host_effect_policy": {
     "reboot": "forbidden",
     "driver_change": "forbidden",
@@ -156,6 +156,7 @@
       "ui-workspace/apps/dev-erp/src/portfolio_decision_projection.mjs",
       "ui-workspace/apps/dev-erp/src/project_decision_ledger.mjs",
       "ui-workspace/apps/dev-erp/src/role_capability_matcher.mjs",
+      "ui-workspace/apps/dev-erp/src/runtime_checkout.mjs",
       "ui-workspace/apps/dev-erp/src/runtime_mail_set_reconciliation.mjs",
       "ui-workspace/apps/dev-erp/src/search.mjs",
       "ui-workspace/apps/dev-erp/src/shadow_evaluator.mjs",
@@ -354,6 +355,7 @@
       "ui-workspace/apps/dev-erp/test/role_capability_matcher.test.mjs",
       "ui-workspace/apps/dev-erp/test/role_overlay_import.test.mjs",
       "ui-workspace/apps/dev-erp/test/run_dev_erp_background_launcher.test.mjs",
+      "ui-workspace/apps/dev-erp/test/runtime_checkout.test.mjs",
       "ui-workspace/apps/dev-erp/test/runtime_mail_set_reconciliation.test.mjs",
       "ui-workspace/apps/dev-erp/test/runtime_release_audit_worker.test.mjs",
       "ui-workspace/apps/dev-erp/test/scheduled_task_registration.test.mjs",
@@ -1110,6 +1112,7 @@
     "test/role_capability_matcher.test.mjs",
     "test/role_overlay_import.test.mjs",
     "test/run_dev_erp_background_launcher.test.mjs",
+    "test/runtime_checkout.test.mjs",
     "test/runtime_mail_set_reconciliation.test.mjs",
     "test/runtime_release_audit_worker.test.mjs",
     "test/scheduled_task_registration.test.mjs",
@@ -1205,6 +1208,7 @@
     "test/role_capability_matcher.test.mjs",
     "test/role_overlay_import.test.mjs",
     "test/run_dev_erp_background_launcher.test.mjs",
+    "test/runtime_checkout.test.mjs",
     "test/runtime_mail_set_reconciliation.test.mjs",
     "test/runtime_release_audit_worker.test.mjs",
     "test/scheduled_task_registration.test.mjs",
@@ -1233,7 +1237,7 @@
     "test/workflow_job_ui_contract.test.mjs"
   ],
   "installed_smoke_excluded": [],
-  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_1",
+  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_2",
   "install_manual_ref": "manual.install.hpp_server_pack",
   "upgrade_manual_ref": "manual.upgrade.hpp_server_pack",
   "rollback_manual_ref": "manual.rollback.hpp_server_pack",
@@ -2006,7 +2010,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/README.md",
-      "sha256": "56edca84b22534066942f595ef0adf61f23c774bd5b18dec68a58f7c0db95f6e"
+      "sha256": "0e39f038d13f768d4bba53765bda5b8bbc52000071e383903b26ae03da4b31b5"
     },
     {
       "path": "ui-workspace/apps/dev-erp/docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md",
@@ -2022,7 +2026,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/server.mjs",
-      "sha256": "1a1d0efb0f502995f84014b078e85ee6644f8eb2a43032725f10401321dbc99d"
+      "sha256": "d1729378875a565a70ec59e1cc5e88fef35d82a12f73e0b8d68eac419e8b7786"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/accepted_context_query.mjs",
@@ -2134,7 +2138,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/core.test.mjs",
-      "sha256": "a2ff9c0b06b48e158c45f40b1cfd1df72b464eef401e80dafa068d5552e98d83"
+      "sha256": "35c56f754dc957c98c253c1c6ce79aacff1c22127490d2e87a88ca0101c05935"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/erp_mcp_server.test.mjs",
