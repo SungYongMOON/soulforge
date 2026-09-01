@@ -4,7 +4,7 @@
 
 - 정본 루트 구조를 고정한다.
 - 일곱 canonical root 의 owner 경계와 `guild_hall` / `_workspaces` public-private tracking 원칙을 같은 문서에서 본다.
-- Soulforge root 아래 nested private repo `_workmeta/` 가 project metadata 와 runtime truth 를 어떻게 담는지도 같이 본다.
+- current legacy nested private repo `_workmeta/` 의 activity history와 future target `_workmeta`의 canonical byte-lineage를 구분해 본다.
 
 ## 새 정본 루트 트리
 
@@ -81,6 +81,7 @@
 │   └── state/
 ├── _workspaces/
 │   └── README.md
+├── _workmeta/                  # nested private plane; target content is lineage-only
 ├── docs/
 │   └── architecture/
 │       ├── foundation/
@@ -98,7 +99,7 @@
 - `guild_hall/` 은 cross-project 기능 owner 루트이고, 실제 local state 는 `guild_hall/state/**` 아래에서만 materialize 한다.
 - 위 트리의 `guild_hall/` 자식은 **대표 예시**다. 자식 전체의 정본 열거는 `guild_hall/README.md` 의 `## 구성` 이 소유한다. 이 문서는 root 경계를 고정하고, root 내부 자식 목록은 owner-local README 를 따른다.
 - `engineering_profiles/`, `engineering_engine/core/`, `engineering_engine/engines/`는 2026-08-25 물리 migration이 완료되었다. legacy flat entry points는 호환 re-export로 유지되며, 조립 모델 및 계약은 `docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`가 소유한다.
-- `.registry/engineering_profiles/**`에는 public-safe schema·identity·ref·hash·synthetic example만 허용한다. 실제 고객·계약·회사-private profile payload는 `_workspaces` owner에 두고 `_workmeta`에는 metadata receipt만 둔다.
+- `.registry/engineering_profiles/**`에는 public-safe schema·identity·ref·hash·synthetic example만 허용한다. 실제 고객·계약·회사-private profile payload는 current legacy worksite owner에 두고 current legacy `_workmeta`에는 metadata receipt만 둔다. future target `_workmeta`는 canonical byte-lineage 전용이다.
 - 기존 tracked LIG-named overlay는 target catalog가 아니라 legacy classification `HOLD`다. source/public-safe 분류 뒤 private relocation 또는 synthetic/ref replacement를 통과해야 한다.
 
 ## `guild_hall` local operations state
@@ -133,7 +134,7 @@ guild_hall/
 - `town_crier` 는 notify queue 와 Telegram transport 를 소유한다.
 - `night_watch` 와 `dungeon_assignment` 는 cross-project 운영 자리만 먼저 잠근다.
 
-## `_workspaces` local materialization
+## Current legacy worksite and future target admission
 
 ```text
 _workspaces/
@@ -142,16 +143,21 @@ _workspaces/
     └── ... actual project files ...
 ```
 
+| Surface | Current legacy state | Future target state |
+| --- | --- | --- |
+| `_workspaces/<project_code>/` | reference-in-place mixed authoring/worksite; `canonical=false` by default and potentially mutable until a scoped Legacy Freeze | accepts only Human/project-authority accepted exact canonical bytes/revisions |
+| `_workmeta/<project_code>/` | reference-in-place activity/operation history; individual append-only events may be immutable but the store and writers are not globally frozen | canonical byte-lineage metadata only; no new run/worklog/battle/task/collector/analytics/procedure-capture writer |
+
 - public repo 에서는 `_workspaces/README.md` 만 추적한다.
-- `_workspaces/<project_code>/` 는 ERP/Vault가 관리하는 프로젝트 정본 원자료·파일 revision의 local/private materialization 주소다. 사람·Bot의 자유 작업폴더가 아니다.
-- `_workspaces` 는 더 이상 cross-project ingress root 를 두지 않는다.
 - assigned execution plan owner 는 `_workspaces/` 나 `_workmeta/` 가 아니라 `.mission/` 이 소유한다.
-- raw execution truth와 검토 전 작업물은 Soulforge 바깥의 `human_work_root` 또는 `bot_work_root`가 소유한다. 검토·custody·revision Gate를 통과한 프로젝트 원자료와 산출 revision만 `_workspaces/<project_code>/...`에 materialize하며, `_workmeta/<project_code>/runs/<run_id>/`는 compact execution metadata만 소유한다.
-- project-side monster record owner 는 `_workmeta/<project_code>/monsters/` 다.
-- `dungeons/`, `analytics/`, `nightly_healing/`, `reports/`, `log/`, `artifacts/` 도 public tracking 대상이 아니다.
+- raw execution truth와 검토 전 작업물은 Soulforge 바깥의 `human_work_root` 또는 `bot_work_root`가 소유한다.
+- current legacy `_workspaces` and `_workmeta` remain authoritative for their existing noncanonical history until separately accepted Event Timeline, Analytics, or AI Workforce writers exist.
+- exact Agent Mark, Deployment, Run, session, and tool evidence가 있을 때만 AI Workforce projection을 만들 수 있다.
+- W-AUTH, Canonical Empty-State Genesis, and applicable Legacy Freeze are `HOLD / not created`; no target writer, binding, or data move is authorized by this tree.
+- one-artifact canary의 accepted input source revision/digest와 staged candidate revision/content digest는 분리한다. candidate는 target 밖 isolated staging에만 두며, producer/build ref와 reviewer-independence receipt를 갖춘 review 및 Human/project-authority acceptance 뒤에 named sole publisher가 exact bytes와 canonical byte-lineage를 atomically publish한다. `pre_publish_readiness`와 `post_publish_closure`는 같은 PASS가 아니다.
 - tracked workspace sample 이 필요하면 `_workspaces/` 아래가 아니라 `docs/architecture/workspace/examples/` 아래에 둔다.
 
-## `_workmeta` nested private repo
+## Current legacy `_workmeta` nested private repo (reference-in-place only)
 
 ```text
 _workmeta/
@@ -173,8 +179,8 @@ _workmeta/
     └── artifacts/
 ```
 
-- `_workmeta/` 는 Soulforge root 아래 nested private repo 다.
-- project contract, project-side monster record, autohunt policy와 compact execution metadata는 `_workmeta/<project_code>/` 아래에 둔다. raw execution truth와 artifact는 두지 않는다.
+- `_workmeta/` 는 Soulforge root 아래 nested private repo 다. 위 legacy tree는 current history shape이며 future target tree가 아니다.
+- current legacy project contract, project-side monster record, autohunt policy와 compact execution metadata는 `_workmeta/<project_code>/` 아래에 남을 수 있다. raw execution truth와 artifact는 두지 않는다.
 
 ## 루트별 owner 의미
 
@@ -186,7 +192,8 @@ _workmeta/
 | `.party/` | independent workflow-chain orchestration template | party workflow-chain/loadout, entry workflow, allowed workflow set, chain-level observations | workflow 내부 step/profile, raw battle log, project-specific operational metrics |
 | `.mission/` | held mission plan owner | mission plan, readiness, public-safe dispatch / resolve metadata | raw run dump, project-local truth |
 | `guild_hall/` | cross-project 기능 owner root | 운영 owner(gateway, town_crier, night_watch, dungeon_assignment), knowledge supply·projection owner, cross-project 결정론 domain engine 계약·kernel·public-safe fixture, 그리고 각 owner 문서 | local state, mailbox dump, Telegram env, queue state, project payload, 계약 원문, source PDF, snapshot payload, secret |
-| `_workspaces/` | local-only project worksite | `README.md` only | per-project 내용 전체 |
+| `_workspaces/` | current legacy local worksite / future accepted-byte materialization plane | `README.md` only | per-project 내용 전체 |
+| `_workmeta/` | nested private current-history / future canonical-byte-lineage plane | none; untracked private content only | all per-project `_workmeta` content, project-private metadata, raw payload, secret, unredacted runtime state |
 
 ## 고정 규칙
 
@@ -196,10 +203,11 @@ _workmeta/
 - `guild_hall` 은 cross-project ingress, notify, night watch, assignment 운영을 소유한다.
 - `guild_hall` 은 추가로 cross-project **결정론 domain engine 계약과 kernel** 을 소유한다. 이 범위에는 project payload, 계약 원문, runtime state, secret 을 두지 않는다.
 - Engineering Engine target은 shared Core와 독립 Domain Engine package를 분리한다. Organization Profile과 Project Profile을 별도 엔진으로 만들지 않으며 overlay는 Profile의 내부 구현이다.
-- Project Profile·Project Binding·Typed Facts·Effective Rule Set payload는 `_workspaces/<project_code>/**`에 두고 `_workmeta`에는 pointer·hash·status·compact receipt만 둔다.
+- Current legacy Project Profile·Project Binding·Typed Facts·Effective Rule Set payload는 current legacy `_workspaces/<project_code>/**`에 두고 current legacy `_workmeta`에는 pointer·hash·status·compact receipt만 둔다. Future target `_workmeta`에는 canonical byte-lineage만 둔다.
 - `guild_hall/state/**` 는 local-only state 이다.
-- project candidate root 는 `_workspaces/<project_code>/` direct child 구조를 사용한다.
-- project-side monster record 는 `_workmeta/<project_code>/monsters/` 아래에 둔다.
-- raw execution truth와 검토 전 작업물은 외부 사람/Bot work root에 두고, ERP가 관리하는 프로젝트 원자료·revision만 `_workspaces`에 materialize한다. `_workmeta/<project_code>/runs/<run_id>/`에는 pointer, hash, status와 compact receipt만 둔다.
+- current legacy project candidate root 는 `_workspaces/<project_code>/` direct child 구조를 사용한다. target project structure is not inferred from this historical tree.
+- current legacy project-side monster record 는 `_workmeta/<project_code>/monsters/` 아래에 둔다; future target `_workmeta`에는 쓰지 않는다.
+- raw execution truth와 검토 전 작업물은 외부 사람/Bot work root에 둔다. Current legacy ERP-materialized history remains in place; future target project bytes require W-AUTH, Genesis, applicable Freeze, review, and authority acceptance. No target `_workmeta/<project_code>/runs/<run_id>/` path is created.
+- future target `_workmeta` is nested private/untracked: its canonical byte-lineage content, as well as all current legacy per-project content, never enters the public repo. Public documents may describe the contract only; public-safe samples stay under `docs/architecture/workspace/examples/`.
 - `.run/` 루트는 새 정본에 포함하지 않는다.
 - public repo 에서는 `_workspaces/README.md` 만 추적한다.

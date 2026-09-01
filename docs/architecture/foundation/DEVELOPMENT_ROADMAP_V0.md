@@ -116,7 +116,8 @@ the 2026-08-14 M2 Project Context and Knowledge View vertical described below.
 - `Agent_Fantasy_Vision_Phases_WorldBible.md` 는 제품 감각과 세계관 phase 를 설명하되, active development queue 는 이 문서가 소유한다.
 - `.mission/**` 은 실행 계획과 readiness 를 소유한다. 큰 방향이 실제 실행 단위로 잘렸을 때만 mission 으로 내려간다.
 - `ui-workspace/docs/**` 는 UI 구현 세부 계획을 소유한다. UI 전체 우선순위는 이 문서에서 먼저 정한다.
-- `_workmeta/**` 는 project-local evidence, worklog, promotion candidate 를 소유한다. 큰 제품 방향을 `_workmeta` 에만 남기지 않는다.
+- current legacy `_workmeta/**` 는 project-local evidence, worklog, promotion candidate 를 소유한다. 큰 제품 방향을 `_workmeta` 에만 남기지 않는다.
+- 이 문서의 아래 legacy `_workmeta/**` 경로는 모두 current reference-in-place route다. W-AUTH, Genesis, applicable Freeze, named sole writer가 adopted 되기 전에는 future target `_workmeta`에 run/worklog/report/queue/knowledge-access history를 새로 쓰지 않는다. designated Event Timeline/Analytics/AI Workforce writer가 accepted 되기 전까지 legacy source가 해당 noncanonical history의 authority다.
 
 ## 개발 예정 저장 규칙
 
@@ -125,10 +126,10 @@ the 2026-08-14 M2 Project Context and Knowledge View vertical described below.
 1. 아직 owner, 입력, 출력, 검증이 불명확하면 새 파일을 만들지 않고 이 문서의 `다음 후보` 또는 `현재 보류` 수준으로만 남긴다.
 2. public-safe 이고 Soulforge 전체 우선순위에 영향을 주면 이 문서에 한 줄 후보로만 남긴다.
 3. 특정 owner 로 내려갈 만큼 구체적이면 아래 `구체화 규칙` 표의 저장 위치로 보낸다.
-4. project-local 이거나 raw/private 근거가 섞이면 `_workmeta/<project_code>/reports/procedure_capture/` 또는 해당 project 의 queue 로 보낸다.
-5. agent 가 발견했지만 아직 owner-approved 가 아닌 구현 작업도 별도 후보 장부에 흩어두지 않고 `_workmeta/<project_code>/dev_worker_queue/*.yaml` 에 `status: proposed` 로 둔다.
-6. project 가 불명확하지만 Soulforge system/reusable 후보가 분명하면 `_workmeta/system/dev_worker_queue/*.yaml` 에 `status: proposed` 로 둔다.
-7. 바로 실행 가능한 public-safe 개발 작업은 `.mission/<mission_id>/dev_worker_request.yaml` 처럼 명시 task packet 으로 만들 수 있고, private/system 작업은 같은 `dev_worker_queue` packet 을 `status: approved` 또는 `status: queued` 로 올린다.
+4. project-local 이거나 raw/private 근거가 섞이면 current legacy `_workmeta/<project_code>/reports/procedure_capture/` 또는 해당 project 의 legacy queue 로 보낸다.
+5. agent 가 발견했지만 아직 owner-approved 가 아닌 구현 작업도 별도 후보 장부에 흩어두지 않고 current legacy `_workmeta/<project_code>/dev_worker_queue/*.yaml` 에 `status: proposed` 로 둔다.
+6. project 가 불명확하지만 Soulforge system/reusable 후보가 분명하면 current legacy `_workmeta/system/dev_worker_queue/*.yaml` 에 `status: proposed` 로 둔다.
+7. 바로 실행 가능한 public-safe 개발 작업은 `.mission/<mission_id>/dev_worker_request.yaml` 처럼 명시 task packet 으로 만들 수 있고, private/system 작업은 same current legacy `dev_worker_queue` packet 을 `status: approved` 또는 `status: queued` 로 올린다.
 8. 기존 `dev_worker_candidate_queue` 는 legacy migration input 으로만 취급한다. 새 개발 항목은 넣지 않고, 기존 항목은 내용 보존과 reader 호환성을 확인한 뒤 `dev_worker_queue` 로 이관한다.
 
 ### 아이디어 캡처 계단
@@ -138,10 +139,10 @@ the 2026-08-14 M2 Project Context and Knowledge View vertical described below.
 | 상태 | 판단 기준 | 저장 위치 | 금지 |
 | --- | --- | --- | --- |
 | 말로 던진 아이디어 | owner, 입력, 출력, 검증 중 하나라도 불명확함 | 이 문서의 `다음 후보` 또는 `현재 보류` 한 줄 | 별도 `TODO`, 임의 `*_plan.md`, README backlog |
-| system/reusable 후보 | Soulforge 공통 개발 후보지만 아직 승인/실행 조건이 덜 닫힘 | `_workmeta/system/dev_worker_queue/*.yaml` with `status: proposed` | 별도 후보 장부 생성, public canon 승격 주장 |
-| project-local 후보 | 특정 project 의 private 근거, 업무 맥락, raw/source 포인터가 필요함 | `_workmeta/<project_code>/dev_worker_queue/*.yaml` with `status: proposed` | public repo 기록, raw payload 복사, 후보/실행 장부 분산 |
+| system/reusable 후보 | Soulforge 공통 개발 후보지만 아직 승인/실행 조건이 덜 닫힘 | current legacy `_workmeta/system/dev_worker_queue/*.yaml` with `status: proposed` | 별도 후보 장부 생성, public canon 승격 주장, target `_workmeta` write |
+| project-local 후보 | 특정 project 의 private 근거, 업무 맥락, raw/source 포인터가 필요함 | current legacy `_workmeta/<project_code>/dev_worker_queue/*.yaml` with `status: proposed` | public repo 기록, raw payload 복사, 후보/실행 장부 분산, target `_workmeta` write |
 | 실행 준비 완료 | owner, 입력, 출력, 경계, 완료 기준, validator 가 닫힘 | public-safe 는 `.mission/<mission_id>/dev_worker_request.yaml`, private/system 은 같은 `dev_worker_queue` packet 을 `status: approved` 또는 `status: queued` 로 승격 | owner 선택이 필요한 항목을 실행 상태로 밀어 넣기 |
-| 지식/RAG 후보 | 개발할 코드보다 source 사용, 반복 질문, 지식 접근, RAG metadata 정리가 핵심임 | `_workmeta/<project_code>/reports/procedure_capture/**`, `_workmeta/<project_code>/reports/knowledge_access/**`, 또는 system/reusable 은 `_workmeta/system/**` | source text/chunk/body 를 public repo 또는 `_workmeta` 에 저장 |
+| 지식/RAG 후보 | 개발할 코드보다 source 사용, 반복 질문, 지식 접근, RAG metadata 정리가 핵심임 | current legacy `_workmeta/<project_code>/reports/procedure_capture/**`, `_workmeta/<project_code>/reports/knowledge_access/**`, 또는 system/reusable 은 current legacy `_workmeta/system/**` | source text/chunk/body 를 public repo 또는 `_workmeta` 에 저장, target `_workmeta` write |
 
 닫힌 항목(`completed`/`promoted`/`rejected`/`dropped`/`cancelled`)은 큐 가시성을 위해 `dev_worker_queue/archive/<year>/` 로 이동만 한다(내용 불변, `archive/ARCHIVE_INDEX.md` 에 이동 기록). 기존 `dev_worker_candidate_queue/archive/**` 는 legacy archive 로 보존하되 새 이동 대상이 아니다.
 
@@ -228,6 +229,7 @@ read-only snapshot
   task-local Sol/high authority annex and N0–N11 DAG; this Roadmap adds no role
   authority. Only N0/N1 read-only preparation may start, and N2+ remains HOLD
   under that owner packet.
+- adjacent greenfield workspace canonical-store/W-AUTH correction(2026-09-01): Plan 17 plus the workspace contracts distinguish potentially mutable reference-in-place legacy `_workspaces`/`_workmeta` from empty target canonical stores. Only Human/project-authority accepted exact bytes may enter target `_workspaces`; target `_workmeta` holds only their byte-lineage. W-AUTH separates input source revision/digest from candidate revision/content digest; Genesis requires authoritative backup classification/synthetic restore; scoped Legacy Freeze governs legacy origins; N8.5-WS-PUBLISH alone performs named-sole-writer atomic publication after distinct pre-publish readiness and post-publish closure. NW leaves cannot bind/write either workspace target store. Current legacy sources remain authoritative for noncanonical history until an accepted Event Timeline, Analytics, or AI Workforce writer exists. Contract only: writer, binding, file migration, and physical target state remain unchanged.
 - adjacent internal-release candidate(2026-08-31): Owner Master Map M16의
   Development Team 1 internal RC는 이번 주 time-boxed 목표 후보다. 현 active slice를
   대체하지 않는다. Fresh Grill decision gate는 exact one-seat와 포함/제외 capability를
@@ -698,11 +700,12 @@ Confirmed owner intent:
 Owner split:
 
 - Project ledger agents: write one daily metadata ledger per project under the
-  project-local `_workmeta/<project_code>/daily_ledger/**` surface.
+  **current legacy** project-local `_workmeta/<project_code>/daily_ledger/**` surface;
+  future target `_workmeta` is not this writer's destination.
 - Company general/unresolved ledger agent: writes one daily metadata ledger
-  under `_workmeta/P00-000_INBOX/daily_ledger/**` for real company work that is
+  under current legacy `_workmeta/P00-000_INBOX/daily_ledger/**` for real company work that is
   not assigned to a project yet or is intentionally project-less.
-- Soulforge ledger agent: writes daily metadata ledgers under
+- Soulforge ledger agent: writes daily metadata ledgers under current legacy
   `_workmeta/system/daily_ledger/<subledger_id>/**` using
   `docs/architecture/workspace/DAILY_WORK_LEDGER_TAXONOMY_V0.md`. Soulforge
   work must not collapse into one owner-facing `system` bucket.

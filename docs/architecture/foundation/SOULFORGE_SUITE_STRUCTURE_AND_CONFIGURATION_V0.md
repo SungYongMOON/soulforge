@@ -6,7 +6,7 @@
 - 기준일: 2026-09-01
 - 목적: Core·App·Project Pack·Adapter·Shared, 개발·설치·데이터·정본·복구와 전체 형상관리 규칙을 한 문서에서 고정한다.
 - Owner 실행지시(2026-09-01): 비어 있는 `<TARGET_SOULFORGE_ROOT>`에 목표 구조를 새로 만들고, `<LEGACY_SOULFORGE_ROOT>`의 전체 estate를 backup·copy·digest·restore·service-canary·rollback Gate로 단계 전환한다. 전환 중 Buzz·Hermes·4192·BuzzServer를 정지할 수 있으나 PC 재부팅은 금지한다. 기존 `<LEGACY_SOULFORGE_ROOT>`의 retire/delete는 새 경로 검증과 별도 수락 전까지 수행하지 않는다.
-- 현재 물리상태: `<TARGET_SOULFORGE_ROOT>`와 합의된 9개 top-level child는 빈 디렉터리로 생성됐고 foreign top-level entry, payload copy, service/Junction/writer change는 0이다. G0 문서 재조정은 fresh Level 2 review에서 수락됐으며 `<TARGET_SOULFORGE_ROOT>/data`의 유일한 물리 manifest를 Plan 17 numbered data spine으로 정하고, 이전 `data/{worldtree,rune,guild,apps,analytics}` 표현을 Path Registry의 논리 product/owner facet으로만 남긴다. R2 actual apply는 계속 private binding·writer-exclusive ACL·empty-root readback 전까지 `HOLD`다.
+- 현재 물리상태: `<TARGET_SOULFORGE_ROOT>`와 합의된 9개 top-level child는 빈 디렉터리로 생성됐고 foreign top-level entry, payload copy, service/Junction/writer change는 0이다. 빈 top-level directory는 target binding, ACL, sole writer, Canonical Empty-State Genesis, 또는 target store materialization이 아니다. G0 문서 재조정은 fresh Level 2 review에서 수락됐으며 `<TARGET_SOULFORGE_ROOT>/data`의 유일한 물리 manifest를 Plan 17 numbered data spine으로 정하고, 이전 `data/{worldtree,rune,guild,apps,analytics}` 표현을 Path Registry의 논리 product/owner facet으로만 남긴다. R2 actual apply는 계속 private binding·writer-exclusive ACL·empty-root readback 전까지 `HOLD`다.
 - 비효과: 이 문서만으로 Junction·active pointer·service·writer·DB·Task·credential·제품 Release를 자동 전환하지 않는다.
 - 정확한 host-local current/target 경로: private physical-root inventory가 소유한다.
 
@@ -82,8 +82,8 @@ class와 다음처럼 대응한다. 이 표는 actual binding, writer, ACL, poin
 | `dev` | `source_checkout` | source/canon surface; exact local binding remains private. |
 | `install` | `runtime_root` | versioned runtime family; activation remains separately gated. |
 | `data` | `data_root` | only the Plan 17 numbered physical data manifest. |
-| `_workspaces` | logical `data_root` sibling | ERP/Vault canonical project-file materialization address. |
-| `_workmeta` | logical `data_root` sibling | metadata-only project plane. |
+| `_workspaces` | logical `data_root` sibling | future ERP/Vault accepted canonical project-byte materialization address; current legacy worksite is reference-in-place. |
+| `_workmeta` | logical `data_root` sibling | future canonical byte-lineage-only plane; current legacy operation history is reference-in-place. |
 | `control` | `control_root` | protected operation, policy, and receipt plane. |
 | `private-state` | `control_root` | nested private state plane; not an independent data owner. |
 | `packages` | `runtime_root` family | inactive/create-only until a separate package gate. |
@@ -154,19 +154,21 @@ migration is a named pre-R2 blocker; current Registry consistency is not claimed
 ```
 
 `dev`는 코드, `install`은 검증된 실행본, `data`는 Plan 17의 운영 DB·Event·Source
-capture·catalog/index manifest, `_workspaces`는 프로젝트 정본 bytes, `_workmeta`는
-Workspace metadata, `control`은 실행 설정·권한·전환 receipt다. `data`의 complete
+capture·catalog/index manifest, future target `_workspaces`는 authority-accepted 프로젝트
+정본 bytes, future target `_workmeta`는 그 canonical byte-lineage, `control`은 실행 설정·권한·전환 receipt다. `data`의 complete
 child manifest는 Plan 17만 소유하며, 이 Suite diagram은 별도 directory creation이나
-root approval을 뜻하지 않는다. 사람과 Bot work root는 Soulforge 밖의 독립 물리 작업면이다.
+root approval을 뜻하지 않는다. current legacy `_workspaces`/`_workmeta`는 actual
+Legacy Freeze 전 reference-in-place이고 기존 history의 source authority로 남는다. 사람과 Bot work root는 Soulforge 밖의 독립 물리 작업면이다.
 
 ## 6. World Tree 데이터 owner
 
-World Tree ERP 관리 데이터는 세 면의 합이다.
+World Tree ERP 관리 데이터는 세 면의 합이다. 아래의 future target semantics와 current
+legacy semantics를 섞지 않는다.
 
 ```text
 data/                  Plan 17 numbered Catalog·Source·Event·Knowledge·Asset·AI·Analytics indexes
-_workspaces/           프로젝트 원자료·Artifact·Dataset·Baseline·Release bytes
-_workmeta/             Workspace 파일 first-seen·hash·revision·path·Task·Run·receipt metadata
+target _workspaces/    authority-accepted exact project bytes / Artifact / Dataset / Baseline / Release
+target _workmeta/      only the canonical byte-lineage for those accepted bytes
 ```
 
 `data/worldtree/` is not a target directory. World Tree is the logical ERP
@@ -175,18 +177,20 @@ product/owner facet across the numbered data spine and the two logical
 Path Registry rule.
 
 Source capture의 metadata는 실제 payload와 같은 Generation에 먼저 기록한다.
-World Tree Catalog가 전사 관계를 소유하고, 특정 Project에 연결된 pointer와 파일 이력만
-`_workmeta/<project_code>`에 투영한다. `_workmeta`를 모든 Source metadata의 실시간 원장으로
-확대하지 않는다.
+World Tree Catalog가 전사 관계를 소유한다. current legacy project pointer와 file/activity
+history는 reference-in-place source로 남고, Event Timeline/Analytics/AI Workforce target
+writer가 별도 acceptance를 받기 전에는 target `_workmeta`로 옮겨 쓰지 않는다. AI Workforce
+projection은 exact Agent Mark/Deployment/Run/session/tool attribution이 있을 때만 허용한다.
+`_workmeta`를 모든 Source metadata의 실시간 원장으로 확대하지 않는다.
 
 ## 7. Metadata와 Git
 
 | 면 | 실시간 정본 | Git 역할 |
 | --- | --- | --- |
 | 개발 Source | Git main/tag | primary version control |
-| Workspace 파일 이력 | `_workmeta` append metadata | Private Git 비교·복구 |
+| Current legacy Workspace 파일 이력 | current legacy `_workmeta` append metadata under its existing contract | Private Git 비교·복구; target lineage와 혼동 금지 |
 | ERP 운영 데이터 | DB Event·Revision·Ledger | `private-state/erp-projection`의 결정론 snapshot/diff |
-| Project bytes | `_workspaces` Revision | bytes는 NAS, metadata는 `_workmeta` Git |
+| Future accepted project bytes | target `_workspaces` canonical revision + target `_workmeta` lineage | bytes는 NAS, lineage metadata는 approved private route; current legacy history remains reference-in-place until its retention decision |
 | Rune | Source Git + Rune Release + Active Pointer | code/rule/history diff |
 | Agent | Family·Mark·Deployment·Memory Generation | definition/receipt projection only |
 
@@ -275,16 +279,22 @@ local-recovery   같은 PC에서 update/migration 실패를 빠르게 rollback
 NAS generation   PC·disk 전체 장애에서 새 PC로 복구
 ```
 
-NAS Generation은 source refs, install release, World Tree DB snapshot, `_workspaces`,
-`_workmeta`, private-state projections, control bindings, packages와 manifest/hash/restore receipt를
-묶는다. 임시 cache·깨진 candidate·중간 test output은 기본 백업 대상이 아니다.
+NAS Generation은 source refs, install release, World Tree DB snapshot, **current authoritative
+legacy** `_workspaces`/`_workmeta` preservation generation, private-state projections, control
+bindings, packages와 manifest/hash/restore receipt를 묶는다. The default is `KEEP` for those
+current legacy stores until N11 has an explicit retention/legacy-binding retirement decision;
+their presence does not make their contents target canon. Target `_workspaces` accepted bytes and
+target `_workmeta` canonical lineage are added only after actual authority-accepted atomic
+publication creates real target content. 임시 cache·깨진 candidate·중간 test output은 기본 백업 대상이 아니다.
 
 ## 13. 외부 작업면
 
 사람 작업 root와 Bot 작업 root는 Soulforge 밖에 둔다. 두 면의 작업 중 파일·cache·outbox는
-ERP 정본이 아니다. 검토·custody·revision Gate를 통과한 결과만 `_workspaces`로 들어가고,
-compact relation/receipt만 `_workmeta`에 들어간다. 정확한 host-local binding은 public 문서가
-아닌 private physical-root inventory가 소유한다.
+ERP 정본이 아니다. Unaccepted candidate는 target 밖 isolated staging에 남는다. independent
+review와 Human/project-authority acceptance 뒤에만 exact bytes와 canonical byte-lineage가
+atomically target `_workspaces`/`_workmeta`에 들어간다. noncanonical work history는 future
+Event Timeline/Analytics/AI Workforce route가 accepted 되기 전까지 current legacy source에
+남는다. 정확한 host-local binding은 public 문서가 아닌 private physical-root inventory가 소유한다.
 
 ## 14. 다음 실행 Gate
 

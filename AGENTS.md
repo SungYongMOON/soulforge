@@ -14,8 +14,9 @@
 ## 안전·저장 경계
 
 - public repo에는 기능 코드, 구조 문서와 public-safe example만 둔다.
-- `_workmeta/<project_code>/`는 private metadata-only plane이다. 문서·메일·첨부·산출 원문은 `_workspaces/**` 또는 owner-approved shared worksite에 두고 `_workmeta`에는 포인터·해시·상태만 남긴다.
-- `_workmeta`에 파일이나 디렉터리를 만들기 전 `npm run guard:workmeta-write -- --assert-write-target "<target>"`를 실행한다. 디렉터리는 `--target-kind directory`를 추가한다. 거부된 대상은 생성하지 말고 `_workspaces/**` 또는 owner-approved worksite로 바꾼 뒤 `_workmeta`에는 compact metadata receipt만 남긴다.
+- current legacy `_workmeta/<project_code>/`는 private metadata-only companion plane이다. 문서·메일·첨부·산출 원문은 current legacy `_workspaces/**` 또는 owner-approved shared worksite에 두고 current legacy `_workmeta`에는 포인터·해시·상태만 남긴다. current store는 actual Legacy Freeze 전 reference-in-place이며 writer가 남아 있을 수 있다.
+- future target `_workspaces`에는 Human/project authority가 accepted 한 exact canonical bytes만, future target `_workmeta`에는 그 canonical byte-lineage만 들어간다. target에는 run, worklog, battle, task, collector, analytics, procedure-capture를 새로 쓰지 않는다. W-AUTH, Canonical Empty-State Genesis, and applicable Legacy Freeze가 adopted 되기 전에는 target binding/write/materialization을 하지 않는다.
+- `_workmeta`에 파일이나 디렉터리를 만들기 전 `npm run guard:workmeta-write -- --assert-write-target "<target>"`를 실행한다. 이 guard는 current legacy metadata-write target 검사일 뿐 future target canonical admission이나 writer authority를 만들지 않는다. 디렉터리는 `--target-kind directory`를 추가한다. 거부된 대상은 생성하지 말고 current legacy `_workspaces/**` 또는 owner-approved worksite로 바꾼 뒤 current legacy `_workmeta`에는 compact metadata receipt만 남긴다.
 - cross-project 보호 상태는 `private-state/`에 두며, 저장 위치나 공개 가능성이 불명확하면 public으로 올리지 않고 private 또는 `HOLD`로 해석한다.
 - `.env`, token, password, cookie, session, credential JSON의 값이나 내용을 읽거나 출력하지 않는다. 필요한 경로와 Owner가 직접 처리할 단계만 안내한다.
 - 삭제·이동·외부 전송·업로드·권한·결제·writer/route 활성화처럼 되돌리기 어려운 행위는 정확한 범위의 명시적 권한 없이는 실행하지 않는다.
@@ -58,7 +59,7 @@
 - 폴더 구조나 owner 책임이 바뀌면 `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`에 따라 관련 README와 architecture 문서를 같은 변경에서 갱신한다.
 - public 구조·기능·설치·운영 규칙 변경은 `docs/architecture/foundation/CHANGELOG_POLICY_V0.md`에 따라 `CHANGELOG.md`를, private continuity data plane 구조·운영 규칙 변경은 같은 정책에 따라 `private-state/CHANGELOG.md`를 갱신한다.
 - 개발 예정과 후보는 임의 TODO 파일이 아니라 `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md`의 저장 규칙을 따른다.
-- 반복 절차와 promotion-ready 근거는 `_workmeta/PROCEDURE_CAPTURE_RULE.md`에 따라 metadata-only로 남긴다.
+- 반복 절차와 promotion-ready 근거는 `_workmeta/PROCEDURE_CAPTURE_RULE.md`에 따라 current legacy metadata-only route에 남긴다. Event Timeline/Analytics/AI Workforce target writer가 없으면 그 legacy source가 history authority로 남으며, target `_workmeta`로 옮겨 쓰지 않는다.
 
 ## 완료·Git
 
@@ -66,7 +67,7 @@
 - 완료 보고 전 실행 계약의 knowledge trigger check를 수행한다.
 - 완료 보고 전 대화에서 드러난 반복 실수·미정 규칙·자동 guard 후보를 확인하고 `규칙 강화 체크:`로 닫는다. 누락 검출 경계는 `guild_hall/knowledge_access/README.md`를 따른다.
 - skill 생성·수정은 실행 계약의 first-build verification gate 전에는 production-ready로 보고하지 않는다.
-- public 변경, project metadata, cross-project 보호 상태는 각각 public repo, `_workmeta`, `private-state`에 분리하고 원문·secret을 commit하지 않는다.
+- public 변경, current legacy project metadata, cross-project 보호 상태는 각각 public repo, current legacy `_workmeta`, `private-state`에 분리하고 원문·secret을 commit하지 않는다. target canonical byte-lineage는 별도 adopted W-AUTH/Genesis/Freeze 및 sole-writer route가 열리기 전까지 생성하지 않는다.
 - commit 전 status와 diff를 확인하고 작업자 도구·모델과 실제 검증 결과를 남긴다. clean bounded slice는 commit+push+self-verify로 닫는다.
 
 ## 제외

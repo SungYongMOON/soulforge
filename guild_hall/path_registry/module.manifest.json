@@ -1,11 +1,11 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "path_registry",
-  "module_version": "0.5.0",
+  "module_version": "0.6.0",
   "interface_version": "path_registry.v0",
-  "schema_versions": ["soulforge.path_registry.v0", "soulforge.target_materializer.v0", "soulforge.watch_storage_map.v0", "soulforge.source_lane_index.v0", "soulforge.source_lane_ledger.v0", "soulforge.asset_class_revision_ledger.v0"],
+  "schema_versions": ["soulforge.path_registry.v0", "soulforge.target_materializer.v0", "soulforge.workspace_greenfield_admission.v1", "soulforge.watch_storage_map.v0", "soulforge.source_lane_index.v0", "soulforge.source_lane_ledger.v0", "soulforge.asset_class_revision_ledger.v0"],
   "owner": "guild_hall/path_registry",
-  "capabilities_provided": ["physical.path_registry_contract.v0", "physical.target_materializer.v0", "watch.storage_backup_map_projection.v0", "physical.source_lane_index_contract.v0", "physical.source_lane_ledger_contract.v0", "physical.asset_class_revision_ledger_contract.v0", "physical.mail_capture_source_lane_adapter.v0", "physical.slack_capture_source_lane_adapter.v0", "physical.voice_capture_source_lane_adapter.v0", "physical.pc_activity_capture_source_lane_adapter.v0"],
+  "capabilities_provided": ["physical.path_registry_contract.v0", "physical.target_materializer.v0", "physical.workspace_greenfield_admission_gate.v1", "watch.storage_backup_map_projection.v0", "physical.source_lane_index_contract.v0", "physical.source_lane_ledger_contract.v0", "physical.asset_class_revision_ledger_contract.v0", "physical.mail_capture_source_lane_adapter.v0", "physical.slack_capture_source_lane_adapter.v0", "physical.voice_capture_source_lane_adapter.v0", "physical.pc_activity_capture_source_lane_adapter.v0"],
   "capabilities_required": ["source.file_activity_project_history_coverage_contract.v1", "source.slack_history_receipt_contract.v1"],
   "required_dependencies": ["file_activity", "shared", "slack_history", "watch_panel_contract"],
   "optional_dependencies": [],
@@ -24,6 +24,7 @@
   "validators": [
     "node --test guild_hall/path_registry/tests/path_registry_core.test.mjs",
     "node --test guild_hall/path_registry/tests/target_materializer.test.mjs",
+    "node --test guild_hall/path_registry/tests/workspace_greenfield_admission_gate.test.mjs",
     "node --test guild_hall/path_registry/tests/storage_map_projection.test.mjs",
     "node --test guild_hall/path_registry/tests/source_lane_index.test.mjs",
     "node --test guild_hall/path_registry/tests/mail_source_lane_adapter.test.mjs",
@@ -35,5 +36,5 @@
   ],
   "release_digest": null,
   "deprecation_state": "active_draft",
-  "authority_notes": "Plan-17 R1-R5 public-safe contracts only. Source and asset-class ledgers are WeakMap-private/process-local: they index refs-only revisions/evidence, replay/conflict/supersession/time/digest chains and nine asset classes but provide no persistence, byte, acceptance, backup or restore authority. Mail, Slack, Voice/PLAUD and project-bound PC-activity coverage adapters emit capture only. Cloud/Git/NAS remain held because no exact native capture receipt was observed. No live writer, collector, filesystem guard hook, provider call, payload movement, or 4192 runtime is activated by this module."
+  "authority_notes": "Plan-17 R1-R5 public-safe contracts only. The v1 workspace greenfield admission gate checks a separately trusted closed-packet digest pin, phase-specific pre-publish readiness versus post-publish closure, accepted input provenance distinct from exact-copy or derived candidate bytes, dual authoritative-target Genesis, explicit Legacy Freeze origin/custody/admission, candidate-bound independent review and authority acceptance, dual-Genesis publisher/binding/generation cross-binding plus correction policy, branch isolation, and replay digest parity. It cannot resolve a target, inspect bytes, bind a store, write an ACL, publish a revision, or grant acceptance. Source and asset-class ledgers are WeakMap-private/process-local: they index refs-only revisions/evidence, replay/conflict/supersession/time/digest chains and nine asset classes but provide no persistence, byte, acceptance, backup or restore authority. Mail, Slack, Voice/PLAUD and project-bound PC-activity coverage adapters emit capture only. Cloud/Git/NAS remain held because no exact native capture receipt was observed. No live writer, collector, filesystem guard hook, provider call, payload movement, or 4192 runtime is activated by this module."
 }

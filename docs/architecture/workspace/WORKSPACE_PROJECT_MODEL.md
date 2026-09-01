@@ -2,9 +2,9 @@
 
 ## 목적
 
-- `_workspaces/<project_code>/` 직행 구조를 고정한다.
+- current historical `_workspaces/<project_code>/` direct structure와 future target canonical store binding을 구분한다.
 - public repo 와 local/private project worksite 의 경계를 명확히 한다.
-- `_workmeta/<project_code>/` 가 소유하는 운영 계약, binding, 실행 기록 메타데이터의 위치를 고정한다.
+- current legacy `_workmeta/<project_code>/` 의 운영 기록과 future target `_workmeta` 의 canonical byte-lineage를 혼동하지 않게 한다.
 - 실제 HWP/HWPX, Excel, PDF, PPT, 압축파일, 메일 파일 같은 원문 파일은 `_workmeta` 가 아니라 `_workspaces` 또는 owner-approved shared worksite 에 둔다는 경계를 고정한다.
 - HWP 원문은 먼저 HWPX 로 정규화하고, 본문 분석은 HWPX 파생본을 대상으로 한다는 전사 처리 순서를 고정한다.
 - held mission plan owner 는 `.mission/` 이고, `_workspaces/` 는 project-local worksite owner, `_workmeta/` 는 companion private metadata owner 임을 고정한다.
@@ -39,6 +39,10 @@ flowchart TD
   WM --> AR["artifacts/"]
 ```
 
+이 도식은 **current legacy** companion shape만 보여 준다. 아래 greenfield
+correction의 target stores에는 `runs/`, `dungeons/`, `analytics/`, `reports/`,
+`log/`, `artifacts/` 같은 운영 history tree를 만들거나 기록하지 않는다.
+
 ## public repo 구조
 
 ```text
@@ -46,7 +50,116 @@ _workspaces/
 └── README.md
 ```
 
-## local/private materialization
+## 2026-09-01 greenfield canonical-store correction
+
+이 절은 current historical binding과 future target binding을 분리하는 public-safe
+계약 후보다. 이 변경은 writer, binding, ACL, file copy/move, legacy-row rewrite,
+또는 실제 target store materialization을 수행하거나 주장하지 않는다.
+
+### current historical binding과 future target binding
+
+| Surface | Current historical binding | Future target binding |
+| --- | --- | --- |
+| `_workspaces` | mixed authoring/worksite reference-in-place다. 기존 bytes와 project-local authoring 상태는 보존하지만 기본값은 `canonical=false`다. 실제 Legacy Freeze 전에는 writer가 남아 있을 수 있다. | logical target store는 `EMPTY`로 시작하며, Human 또는 project authority가 exact revision을 accepted 한 canonical bytes만 받는다. |
+| `_workmeta` | reference-in-place legacy activity/operation history다. 기존 worklog, run, battle, task, agent operation, collector 기록은 보존하지만 canonical acceptance truth는 아니다. 개별 append-only event/receipt가 불변인 경우에도 store 전체나 writer가 Freeze된 것은 아니다. | logical target store는 `EMPTY`로 시작하며 canonical byte-lineage metadata만 둔다. 일반 worklog/run/battle/task/agent operation/collector/analytics/procedure-capture history는 여기에 새로 쓰지 않는다. |
+
+Target `_workmeta`의 허용 metadata는 logical artifact/file ID, exact hash, revision과
+parent, custody, acceptance, baseline/release, source/evidence refs,
+correction/supersession, backup/restore refs로 한정한다. Top-level folder가 존재한다는
+사실만으로 target binding, ACL, sole writer, Genesis 또는 accepted canonical state가
+생기지 않는다.
+
+`canonical byte/revision`은 authority가 exact bytes와 lineage를 수락한 artifact 상태다.
+Ontology/knowledge canon, workflow canon, 또는 public documentation canon과 같은 뜻이 아니며,
+서로의 수락 근거를 대신하지 않는다.
+
+### noncanonical history routing과 attribution guard
+
+- future target에서 project/task/file-observation/decision/worklog/collector event는 Organization
+  World Tree, Event Timeline, Analytics의 work-event route가 소유한다. 이 writer가 실제로
+  존재하고 acceptance를 받기 전까지 current legacy source가 해당 history의 authoritative
+  reference-in-place source다.
+- exact agent/deployment/run/session/tool join evidence가 있을 때만 해당 event를 AI Workforce에
+  추가 projection할 수 있다. Human, mixed, automation, unknown attribution은 Event Timeline
+  work event로 남긴다.
+- ambiguous legacy attribution은 audit `HOLD`다. Original legacy rows는 rewrite하지 않으며,
+  모든 projection은 source ref, time, scope, attribution, version, correction을 보존한다.
+- folder 또는 task title, time proximity, Bot root, service account, product, host, path parent,
+  session co-occurrence, ticket/PR prose로 Agent를 추론하지 않는다. Actor identity도
+  canonicality를 뜻하지 않는다.
+
+### W-AUTH, Genesis, Legacy Freeze, and one-artifact canary
+
+Workspace-related Plan 17 N2 binding 또는 N7 staging 전에 Human-adopted `W-AUTH` gate가
+반드시 exact owner/reviewer/evidence refs와 함께 아래 한 상태를 분류한다. `unknown`은
+`HOLD`이며 bulk migration은 허용하지 않는다.
+
+| W-AUTH state | Meaning |
+| --- | --- |
+| `working` | mutable authoring/worksite bytes; canonical acceptance 없음 |
+| `candidate` | review/promotion 후보; 아직 canonical 아님 |
+| `accepted` | Human/project authority가 exact revision을 수락함 |
+| `baseline` | accepted baseline/release reference |
+| `temp_cache` | rebuildable or temporary bytes; promotion 대상 아님 |
+| `audit_only` | lineage/audit proof only; canonical byte owner 아님 |
+| `unknown` | classification evidence 부족; `HOLD` |
+
+The three receipts are future records with current status `HOLD / not created`;
+this public contract neither fabricates nor accepts one.
+
+| Receipt | Applies when | Required fields for an adopted receipt | Does not prove |
+| --- | --- | --- | --- |
+| `W-AUTH` | each legacy or external source revision considered for the workspace branch | `w_auth_ref`, `subject_ref`, exact `input_source_revision_ref`/`input_source_digest`, `scope_ref`, classification, `owner_ref`/`reviewer_ref`/`evidence_ref`/`input_authority_acceptance_ref`, `issued_at`, supersession/baseline refs; the enclosing packet is externally pinned by `trusted_packet_digest` | target binding, copy, target write, or acceptance of a different candidate revision |
+| Canonical Empty-State Genesis | once per exact target-store binding and generation; repeat after binding, ACL, writer, or generation change | receipt/version ID, both target logical binding refs, empty readbacks, **one shared sole-writer ref** for both target stores, generation ID, `legacy_rows_imported: false`, **`backup_classification: authoritative`** plus classification ref, synthetic restore-gate/evidence refs, rollback ref, `approved_correction_supersession_policy_ref`, authority ref | that any artifact is canonical or that legacy stores are frozen; `rebuildable`, `runtime_local`, or `forbidden` is not a target-store Genesis pass |
+| Legacy Freeze | only when a selected legacy source must supply the one-artifact workspace canary | common `applicability`, `origin_kind`, `applicability_reason_ref`, `origin_ref`, `custody_ref`, `admission_ref`, `scope_ref`, input source revision/digest; applicable legacy origin additionally needs freeze/current-binding/writer-quiescence/readback/source-pointer/retention/expiry/authority refs; `not_applicable` needs `origin_kind: external_nonlegacy` and all legacy-only fields `null`; the enclosing packet is externally pinned by `trusted_packet_digest` | global legacy-store immutability, retirement, or acceptance of target bytes |
+
+`npm.cmd run validate:workspace-greenfield-admission` validates only the closed,
+refs-only contract shape above (including branch isolation and ordered promotion)
+for schema `soulforge.workspace_greenfield_admission.v1`. It invokes
+`evaluateWorkspaceGreenfieldAdmission(packet, { phase, trusted_packet_digest })`,
+where the trusted digest must equal the canonical packet digest. It does not inspect
+a private store, prove a receipt is current, grant a writer, or turn the current
+`HOLD / not created` status into adoption.
+
+An adopted `W-AUTH` state of `accepted` or `baseline` is the only source admission
+state for a target canonical byte. `working`, `candidate`, `temp_cache`,
+`audit_only`, and `unknown` never admit target bytes. There is no vague
+`policy-admitted` bypass.
+
+The only promotion canary is one project / one artifact. Its exact accepted input
+source and any new candidate derivative are different identities. The candidate stays
+in an isolated staging surface **outside** the target stores:
+
+```text
+accepted/baseline `input_source_revision_ref` + `input_source_digest`
+-> isolated staging outside target with `candidate_revision_ref` + `candidate_content_digest` + `candidate_relation`
+-> candidate byte/hash readback + `producer_ref`/`build_ref` + `reviewer_ref`/`independence_receipt_ref`
+-> Human/project authority acceptance of that exact candidate revision
+-> the Genesis-shared sole publisher atomically publishes accepted bytes and canonical lineage into both target stores
+-> active-pointer readback + replay `NO_OP` proof + correction/supersession readiness
+```
+
+`candidate_relation: exact_copy` requires candidate revision and digest to equal the
+input; `derived_revision` requires a different candidate revision while its digest
+may stay equal or differ. `pre_publish_readiness` validates only the refs-only entry evidence and returns
+`pre_publish_ready`/`not_published`; its publication and active-pointer refs are
+`null`, and it never writes a target. `post_publish_closure` requires those actual
+publisher refs and returns `post_publish_closed`; its `correction_supersession_policy_ref`
+must equal Genesis `approved_correction_supersession_policy_ref`. Its replay proof binds
+`phase_operation_ref`, idempotency key, original/replay request digests,
+prior-receipt/readback digests, replay receipt, and `no_op`; it cannot be claimed by
+the pre-publish packet.
+Rollback removes only operation-created unaccepted staging. It never removes the
+legacy source or its history. No non-workspace (`NW`) leaf, scanner, collector,
+scheduler, or legacy run/worklog writer may bind, write, or infer either **workspace
+target store**.
+
+Unless a target binding has passed the applicable W-AUTH, Genesis, and Freeze
+gates, the remaining sections of this document are **unconditionally historical
+current-worksite conventions**. They are reference-in-place descriptions, not
+target acceptance, target writer authority, or target folder shape.
+
+## Historical current/private materialization (reference-in-place only)
 
 ```text
 _workspaces/
@@ -67,13 +180,13 @@ _workspaces/
 │   ├── common/
 │   │   ├── company/ ... company-wide operating/common source sets ...
 │   │   └── <domain_engine_id>/ ... organization-neutral domain sources ...
-│   └── organizations/                 target; Owner-approved materialization only
+│   └── organizations/                 historical planned; Owner-approved materialization only
 │       └── <organization_id>/<domain_engine_id>/ ... repeatable private profile sources ...
 └── <project_code>/
     ├── <stage>/<artifact>/00_Temp/
     │   ├── template_snapshot/
     │   └── workflow_candidate/
-    ├── engineering/                   target project-private engine application plane
+    ├── engineering/                   current legacy project-private engine application plane
     │   ├── profiles/
     │   ├── bindings/
     │   ├── facts/
@@ -104,9 +217,9 @@ _workmeta/
     └── artifacts/
 ```
 
-## 정본 규칙
+## Historical current-worksite rules (reference-in-place only)
 
-- `_workspaces/<project_code>/` 가 실제 과제 현장 materialization root 다.
+- Current historical `_workspaces/<project_code>/` is the reference-in-place project worksite materialization root and is `canonical=false` by default. Future target canonical acceptance follows the greenfield correction above.
 - durable project-specific source payload, derived text, RAG index, Wiki body,
   context packet, and run payload are rooted in the owning
   `_workspaces/<project_code>/` view. An owner-approved shared worksite may back
@@ -120,10 +233,10 @@ _workmeta/
 - `_workspaces/knowledge/common/company/**` is company-wide operating/common source
   material that does not implement a named customer/prime-contractor tailoring Profile.
   `_workspaces/knowledge/organizations/<organization_id>/<domain_engine_id>/**` is a
-  separate target for sourcebound-reviewed material that repeats across projects for one
+  separate historical planned materialization for sourcebound-reviewed material that repeats across projects for one
   named organization. Project-only payload never moves there automatically.
-- `_workspaces/<project_code>/engineering/{profiles,bindings,facts,runtime}/**` is the
-  target project-private owner for Project Profile, Project Binding, Typed Project Facts,
+- current legacy `_workspaces/<project_code>/engineering/{profiles,bindings,facts,runtime}/**` is the
+  current project-private owner for Project Profile, Project Binding, Typed Project Facts,
   Effective Rule Set and run payload. These runtime/compiled artifacts are not canon and
   must remain reproducible from exact refs.
 - `_workspaces/SE_TEMPLATE_LIBRARY/` 는 reusable SE artifact materials 의 canonical actual-file library/store 다. pointer-only reference folder 도 아니고 project execution baseline 도 아니다.
@@ -137,7 +250,7 @@ _workmeta/
 - `_workspaces/<project_code>/<stage>/<artifact>/00_Temp/workflow_candidate/` 는 concrete run 에서 추출한 project-local workflow/rule candidate 를 두는 곳이며 `.workflow` canon 이 아니다.
 - 실제 프로젝트가 다른 경로에 이미 있으면 `_workspaces/<project_code>/` direct child 로 보이도록 local-only directory link 를 둘 수 있다.
 - 다른 owner PC 에서도 같은 실자료를 읽어야 하는 프로젝트는 실제 파일을 owner-approved shared worksite 에 두고, `_workspaces/<project_code>/` 는 그 위치를 가리키는 link view 로 둔다.
-- owner-approved shared worksite 의 상위 cloud/company root 는 link target 을 해석하기 위한 외부 루트일 수는 있지만 `_workspaces/company` 같은 direct child 로 materialize 하지 않는다.
+- owner-approved shared worksite 의 상위 cloud/company root 는 link destination을 해석하기 위한 외부 루트일 수는 있지만 `_workspaces/company` 같은 direct child 로 materialize 하지 않는다.
 - `_workspaces` direct child 는 `<project_code>/`, reserved `SE_TEMPLATE_LIBRARY/`, reserved `system/`, reserved `_local/`, reserved `_local_hold/`, 또는 owner-approved non-project alias 로 제한한다.
 - 같은 `_workspaces/<name>` 경로가 PC마다 다른 실제 폴더를 뜻하면 안 된다. PC별 scratch, cache, local tool install, temporary output 은 `_workspaces/_local/<node_id>/` 아래에 두고, migration 보존본은 `_workspaces/_local_hold/<workspace_alias>/` 아래에 둔다.
 - Allegro, Cadence, OrCAD, GPU/large-memory local LLM 같은 tool-worker PC 설치본과 license-bound runtime 은 `_workspaces/system/` 공유 자료가 아니다. 도구 설치, cache, scratch, temporary export 는 `_workspaces/_local/<node_id>/...` 또는 owner-approved local OS/tool 위치에 두고, owner 가 분류한 산출물만 `_workspaces/<project_code>/...`, `_workspaces/system/...`, 또는 `_workspaces/knowledge/...` 로 보낸다.
@@ -207,7 +320,7 @@ _workmeta/
 
 - public repo 에서는 `_workspaces/README.md` 만 추적한다.
 - 실제 `<project_code>` 와 그 하위 파일은 local environment 에서만 materialize 한다.
-- shared worksite target 의 실제 host-local path 는 public tracked 문서에 남기지 않고 owner-only binding 또는 workmeta note 로만 기록한다.
+- shared worksite destination의 실제 host-local path 는 public tracked 문서에 남기지 않고 owner-only binding 또는 workmeta note 로만 기록한다.
 - `company/`, `personal/`, cloud root mirror 같은 historical branch shape 는 정본이 아니며, scanner 는 warning 후 skip 하고 repair 는 root junction pointer 만 제거한다.
 - canonical 문서에는 실제 project code, 실제 과제명, 외부 로컬 경로, private workspace 경로 예시를 적지 않는다.
 - tracked 정본 문서와 public-safe example 에서는 실제 과제 식별자 대신 `demo_project`, `example_project`, `Example Project` 같은 generic placeholder 만 쓴다.

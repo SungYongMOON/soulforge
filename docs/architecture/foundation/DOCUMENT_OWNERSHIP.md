@@ -11,7 +11,7 @@
 - `docs/architecture/foundation/` 는 canonical roots 의 cross-root canon 을 고정한다.
 - 아래 표의 `docs/architecture/<group>/*.md` 같은 wildcard 는 문서군 전체를 선적재하라는 뜻이 아니다. 그 문서군 `README.md` 의 문서 역할 색인을 먼저 읽고 필요한 문서만 연다. 새 문서를 추가하면 같은 변경에서 그 색인에 한 줄을 남긴다.
 - 각 owner 루트가 materialize 되면 해당 루트 바로 아래 `README.md` 와 owner-local 문서가 그 owner의 상세 운영 정본이 된다.
-- `_workspaces/<project_code>/` 아래 문서와 실행 산출물은 local/private owner 영역으로 관리한다.
+- current legacy `_workspaces/<project_code>/` 아래 문서와 실행 산출물은 local/private owner 영역으로 관리한다. future target `_workspaces`/`_workmeta`는 greenfield W-AUTH/Genesis/Freeze contract가 adopted 되기 전에는 writer가 없다.
 
 ## 현재 public canon 과 owner-local 정본
 
@@ -24,8 +24,9 @@
 | `.party/` | reusable workflow-chain party template + template-level stats | `docs/architecture/foundation/TARGET_TREE.md`, `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md` | `.party/README.md`, `.party/docs/` |
 | `.mission/` | held mission plan owner | `docs/architecture/foundation/TARGET_TREE.md`, `docs/architecture/workspace/MISSION_MODEL.md` | `.mission/README.md` |
 | `guild_hall/` | cross-project 기능 owner root (ingress, notify, assignment, night watch 운영 + knowledge supply·projection + 결정론 domain engine) | `guild_hall/README.md`, 각 owner-local `guild_hall/<owner>/README.md`, `docs/architecture/guild_hall/*.md` | `guild_hall/state/**` (local-only, untracked) |
-| `guild_hall/engineering_engine/` | shared Engineering Engine Core와 독립 Domain Engine package 구현 owner | `docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`, `guild_hall/engineering_engine/README.md`, domain manual | project/organization payload는 `_workspaces`, metadata receipt는 `_workmeta` |
-| `_workspaces/` | local-only project materialization mount point | `_workspaces/README.md`, `docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md` | `_workmeta/<project_code>/` 와 project-local 문서 |
+| `guild_hall/engineering_engine/` | shared Engineering Engine Core와 독립 Domain Engine package 구현 owner | `docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`, `guild_hall/engineering_engine/README.md`, domain manual | current legacy project/organization payload는 `_workspaces`, current legacy metadata receipt는 `_workmeta`; future target metadata is byte-lineage only |
+| `_workspaces/` | current legacy local worksite / future accepted-byte materialization mount point | `_workspaces/README.md`, `docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md` | current legacy `_workmeta/<project_code>/` 와 project-local 문서; future target only after adopted W-AUTH/Genesis/Freeze |
+| `_workmeta/` | current legacy activity-history companion / future canonical byte-lineage plane | `docs/architecture/workspace/WORKMETA_RESOLVE_CONTRACT.md`, `docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md` | nested private/untracked content only: current legacy operational metadata or future canonical byte-lineage; never runs/worklogs/battles/tasks/collector/analytics in target |
 | `docs/architecture/foundation/` | 저장소 차원의 구조 canon | `docs/architecture/foundation/README.md`, `docs/architecture/foundation/*.md` | 해당 없음 |
 | `docs/architecture/workspace/` | `_workspaces` 구조와 보안 정책 canon | `docs/architecture/workspace/README.md`, `docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md` | 해당 없음 |
 | `ui-workspace/` | 파생 UI consumer workspace | `ui-workspace/README.md` 와 하위 README | 각 하위 패키지/앱 로컬 README |
@@ -46,7 +47,7 @@ owner 문서가 우선하고 같은 변경에서 Master Map을 갱신한다.
 | `.mission` | mission plan, readiness, resolved assignment 구조 | raw run log, project-local worksite truth |
 | `guild_hall` | cross-project ingress/notify/assignment/night-watch 기능, knowledge supply·projection owner, 결정론 domain engine 계약·kernel·public-safe fixture, 각 owner 문서, `guild-hall:*` 명령 표면 | `guild_hall/state/**` local state, mailbox dump, Telegram env, queue/log truth, project-local worksite truth, project payload·계약 원문·source PDF·snapshot payload·secret |
 | `guild_hall/engineering_engine` | Core orchestration Interface·common guard·receipt와 Domain compiler/evaluator Adapter package 계약·fixture·test·manual·topology | Organization/Project Profile private payload, Project Binding source body, Typed Facts/Effective Rule Set runtime payload, customer contract 원문 |
-| `_workspaces` | local-only project materialization mount 정책, `_workspaces/<project_code>/` 구조, private organization/project profile·binding·facts·runtime payload owner | helper directory 를 project root 로 문서화, per-project 실자료 public 추적, mission assignment owner 서술 |
+| `_workspaces` / `_workmeta` | current legacy reference-in-place worksite/history contract와 future target accepted-byte/lineage-only admission boundary | helper directory 를 project root 로 문서화, per-project 실자료 public 추적, mission assignment owner 서술, target `_workmeta`에 run/worklog/battle/task/collector/analytics writer 부여 |
 
 ## 적용 규칙
 
@@ -55,5 +56,5 @@ owner 문서가 우선하고 같은 변경에서 Master Map을 갱신한다.
 3. `.workflow/history` 는 curated/sanitized learning summary 만 public repo 에 남긴다.
 4. `.workflow/<workflow_id>/calibrations/` 는 public-safe synthetic/redacted fixture 로 수행한 workflow-level profile calibration archive 만 남긴다. 실제 프로젝트 원문, private transcript, secret, project-local raw run truth 는 넣지 않는다.
 5. `.party/stats` 는 chain-level fit/observation summary 만 public repo 에 남긴다.
-6. `_workspaces/README.md` 를 제외한 per-project 문서와 실자료는 public tracking 대상이 아니다.
+6. `_workspaces/README.md` 를 제외한 per-project 문서와 실자료는 public tracking 대상이 아니다. current legacy source remains authoritative for noncanonical history until the designated Event Timeline, Analytics, or AI Workforce writer exists and is accepted.
 7. 폴더 구조나 owner 책임이 바뀌면 같은 변경 안에서 해당 README 와 foundation 문서를 함께 갱신한다.

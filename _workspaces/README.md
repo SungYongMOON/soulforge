@@ -18,6 +18,28 @@
 - 다른 PC 에서 repo 를 clone 해도 실제 `_workspaces/**` 실자료는 따라오지 않으며, local runtime 은 각 PC 에서 다시 materialize 해야 한다.
 - 선택된 project-side 기록만 이어서 보존해야 하면 public repo 가 아니라 별도 private state repo 로 mirror 한다.
 
+## 2026-09-01 greenfield target correction
+
+위와 아래의 detailed local layout은 **current legacy worksite**를 설명한다.
+It remains reference-in-place and potentially mutable until an actual scoped Legacy
+Freeze; individual append-only historical event/receipt may be immutable without
+freezing the whole store or its writers.
+
+The future target `_workspaces` is not a new authoring/worklog root. It accepts
+only exact canonical bytes for a revision after Human/project-authority acceptance.
+An unaccepted canary/candidate stays in an isolated staging area outside the target.
+Only after review and acceptance may the exact bytes and corresponding canonical
+byte-lineage be published atomically. Target `_workmeta` is lineage-only; no new
+run, worklog, battle, task, collector, analytics, or procedure-capture tree may be
+created there.
+
+Until named Event Timeline, Analytics, and AI Workforce writers exist and are
+accepted, noncanonical history remains authoritative in its current legacy source.
+AI Workforce attribution additionally requires exact Agent Mark, Deployment, Run,
+session, and tool evidence; no folder, title, time proximity, host, or Bot label is
+an attribution shortcut. W-AUTH, Canonical Empty-State Genesis, and applicable
+Legacy Freeze are currently `HOLD / not created`; this README creates none.
+
 ## public repo view
 
 ```text
@@ -25,7 +47,7 @@ _workspaces/
 └── README.md
 ```
 
-## local project worksite view
+## Historical current local project worksite view (reference-in-place only)
 
 ```text
 _workspaces/
@@ -66,7 +88,7 @@ _workspaces/
     └── ... actual project files ...
 ```
 
-## owner 경계
+## Historical current-worksite owner boundary (reference-in-place only)
 
 - `_workspaces/<project_code>/` 는 실제 프로젝트 파일, 산출물, 로컬 운영 상태를 보여주는 materialization site 다.
 - `_workspaces/SE_TEMPLATE_LIBRARY/` 는 reusable SE artifact materials 의 canonical actual-file library/store 다. pointer-only reference folder 도 아니고 project execution baseline 도 아니다.

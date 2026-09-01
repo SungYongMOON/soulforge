@@ -21,6 +21,32 @@ ERP 사용자가 동시에 바꿀 때 파일의 이름이나 timestamp를 source
 이 계약은 metadata lineage다. 실제 파일 byte의 version backup이나 복구 보장은
 소유하지 않는다.
 
+## 1A. 2026-09-01 greenfield canonical-store correction
+
+이 계약의 current MVP state는 **reconciled legacy activity state**다.
+기존 `revision_state.json` 파일명과 observation/revision DAG는 보존하며 rename, writer
+change, binding change, 또는 migration을 수행하지 않는다. 이 문서에서 historical
+`canonical state`, `canonical revision`, `canonical packet`이라고 읽히던 표현은 sole
+reconciler의 activity reconciliation/projection을 뜻할 뿐, future target의 accepted
+canonical byte, acceptance truth, baseline, 또는 release truth를 뜻하지 않는다.
+
+first-seen, hash, path, task, run, ERP upload, 또는 collector observation은 logical
+file/revision activity lineage를 만들 수 있어도 accepted canonical truth나 baseline을
+만들지 않는다. 이 metadata lineage는 유용하게 보존한다. 개별 append-only event 또는
+receipt가 불변인 경우에도 current legacy store 전체나 its writer가 Freeze된 것은 아니다. Target
+canonicality는 별도 W-AUTH와 Human/project-authority acceptance evidence가 있을 때만
+판단하며, 이 contract는 그 writer를 활성화하지 않는다.
+
+### Sections 2 onward are historical current-activity only
+
+아래의 producer, node outbox, `_workmeta/**/reports/file_activity`, checkpoint,
+rebuild, and projection rules are all current legacy activity contracts다. They do
+not define a future target `_workmeta` writer or target canonical revision format.
+Future target canonical byte-lineage is admitted only by the greenfield
+W-AUTH/Genesis/Freeze path in `WORKSPACE_PROJECT_MODEL.md`; noncanonical activity
+history remains source-authoritative in the legacy route until a separately
+accepted Event Timeline, Analytics, or AI Workforce writer exists.
+
 ## 2. 역할과 writer
 
 | producer | 역할 | 쓰기 범위 |
@@ -28,7 +54,7 @@ ERP 사용자가 동시에 바꿀 때 파일의 이름이나 timestamp를 source
 | `work_pc` | 일반 프로젝트 작업·기본 삭제 authority | 자기 node observation partition |
 | `tool_pc` | 고성능 도구 실행·export 관측 | 자기 node observation partition |
 | `portable_dev_pc` | 이동 개발·간헐 관측 | 자기 node observation partition, non-authoritative |
-| `always_on_node` | packet ingress와 reconciliation | exactly one primary만 canonical state/projection |
+| `always_on_node` | packet ingress와 reconciliation | exactly one primary만 reconciled legacy activity state/projection |
 | ERP | 인증된 upload commit | ERP event/input owner |
 
 한 물리 PC가 `tool_pc`와 24시간 운영을 함께 하더라도 clone/identity를 분리한다.
@@ -64,6 +90,11 @@ content_id      = "sha256:" + full_sha256
 revision_id     = H(logical_file_id + sorted(parent_revision_ids) + content_id + size)
 observation_id  = H(packet_id + normalized_relative_path + stat/hash evidence)
 ```
+
+여기서 `first_accepted_create_evidence_id`의 `accepted`는 current legacy
+reconciler가 activity event를 수용했다는 뜻뿐이다. Human/project authority가 future
+target canonical byte를 수락했다는 뜻이 아니며, 그 target admission은 별도 W-AUTH가
+소유한다.
 
 `A -> B -> A`에서 세 번째 A는 parent가 B이므로 첫 A와 다른 revision이다.
 
@@ -112,7 +143,7 @@ scan은 stat-first다. 이전 stable stat tuple이 같을 때만 verified hash�
 
 v1 cache는 schema/field exact allowlist, raw+NFC relative path, collision keys,
 path fingerprint, stat tuple, SHA-256 형식, original verified UTC 시각, producer
-node/source scan/source observation/canonical packet digest provenance, producer chain,
+node/source scan/source observation/reconciled activity packet digest provenance, producer chain,
 entry 상한을 모두 통과해야 한다. incremental scan에서는 unknown/raw/missing/불일치 entry가 하나라도 있거나
 verification 시각이 현재 scan보다 미래이거나 scan clock이 cache `updated_at`보다
 회귀하면 cache 전체를 거부한다. 형식상 유효한 legacy v0 cache도 strict schema
@@ -137,7 +168,7 @@ provenance는 live activation blocker로 남는다.
 - cloud placeholder를 강제로 hydrate하지 않는다.
 - hash 전후 descriptor stat이 달라지면 결과를 폐기한다.
 - budget/size/lock/permission 때문에 full hash가 없으면 `hash_pending|unreadable|
-  not_allowed`; canonical revision을 만들지 않는다.
+  not_allowed`; reconciled legacy activity revision을 만들지 않는다.
 - weak/sample hash는 후보 정렬에만 쓸 수 있고 identity가 될 수 없다.
 
 모든 scan packet은 `complete|partial|failed`, limits/errors, prior scan ID와 node
@@ -204,7 +235,7 @@ guild_hall/state/local/file_activity/<project>/<binding>/<node>/
 ```
 
 현재 MVP durable node outbox, monthly metadata partition, checkpoint, bounded
-projection과 derived state(logical/revision graph 자체는 아직 선형 증가):
+projection과 reconciled legacy activity state(logical/revision graph 자체는 아직 선형 증가):
 
 ```text
 _workmeta/<project_code>/reports/file_activity/
@@ -227,13 +258,13 @@ monthly event에 남긴 뒤 실제 적용 또는 nonretryable 전환 시 receipt
 projection `partition_refs`가 5,000개를 넘지 않게 한다.
 
 `--apply`는 모든 immutable ref를 먼저 conflict preflight하고 event/checkpoint,
-canonical state, bounded projection을 publish한 뒤 receipt를 마지막 terminal commit
+reconciled legacy activity state, bounded projection을 publish한 뒤 receipt를 마지막 terminal commit
 marker로 쓴다. 따라서 immutable conflict나 중간 실패가 state 적용 전 receipt만 남겨
 재시도를 막을 수 없다. 읽기·쓰기 모두 repo root부터 leaf parent까지 existing path
 component의 symlink를 거부한다.
 
 `events`는 한 reconcile의 strict metadata-only event envelope다. checkpoint는
-canonical full `revision_state`와 digest를 256 MiB 안에 불변 저장한다. `rebuild`는
+full reconciled legacy activity `revision_state`와 digest를 256 MiB 안에 불변 저장한다. `rebuild`는
 기본 dry-run이고 `--apply`에서 checkpoint state만 복원한다. checkpoint tail replay는
 지원하지 않으며 최신 reviewed checkpoint만 사용할 수 있다. archive-before-eviction,
 parent anchor를 남기는 superseded revision compaction, checkpoint+tail replay와 full
@@ -324,4 +355,4 @@ monthly receipt/event/checkpoint, checkpoint-only rebuild, 24시간 TTL/provenan
 precomputed life-tree projection adapter, exact ERP dedupe validator는 synthetic candidate로
 구현되었지만 위 live gate를 대신하지 않는다.
 
-이 gate 전에는 scheduler, watcher, network transfer, canonical private writer를 켜지 않는다.
+이 gate 전에는 scheduler, watcher, network transfer, 또는 future target canonical private writer를 켜지 않는다.

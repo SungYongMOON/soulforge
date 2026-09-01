@@ -2,8 +2,8 @@
 
 Soulforge는 일곱 개의 canonical root 와 project-local materialization 정책을 고정하는 설계 저장소다.
 루트는 owner 경계, public/private tracking 원칙, 파생 UI 계약을 관리한다.
-현재 보유한 mission plan 은 `.mission/` 이 들고, cross-project 운영 ingress/state 는 `guild_hall/` 이 들고, 실제 프로젝트 현장 데이터는 `_workspaces/<project_code>/` 에, private runtime truth 와 project metadata 는 Soulforge root 아래 nested private repo `_workmeta/<project_code>/` 에 둔다.
-특정 프로젝트에 속하지 않는 reusable workflow 실험은 reserved `_workspaces/system/` 과 `_workmeta/system/` lab lane 에 둔다. 여러 PC 가 같은 `_workspaces/<name>` 을 쓸 때는 같은 shared view 를 보게 하고, PC-local scratch/cache 는 `_workspaces/_local/<node_id>/` 로 분리한다.
+현재 보유한 mission plan 은 `.mission/` 이 들고, cross-project 운영 ingress/state 는 `guild_hall/` 이 든다. current legacy project worksite와 companion metadata는 reference-in-place `_workspaces/<project_code>/`, `_workmeta/<project_code>/`에 남아 있으며 actual Legacy Freeze 전에는 기존 writer가 남아 있을 수 있다.
+future target stores는 별도 greenfield canonical plane이다. target `_workspaces`는 Human/project authority가 accepted 한 exact canonical bytes만, target `_workmeta`는 그 byte-lineage만 받는다. target에는 run/worklog/battle/task/collector/analytics history를 새로 쓰지 않는다. 여러 PC의 current legacy shared view와 PC-local scratch/cache 정책은 workspace contract가 소유한다.
 
 ## 정본 7축
 
@@ -34,8 +34,8 @@ flowchart TD
   S --> UI["ui-workspace<br/>derived UI consumer workspace"]
   MI --> MP["mission.yaml / readiness.yaml<br/>resolved plan owner"]
   GH --> GHS["state/**<br/>local-only gateway / town_crier / night_watch / dev_worker"]
-  M --> PR["<project_code><br/>actual project files"]
-  WM --> PA["<project_code><br/>project metadata, bindings, and run truth"]
+  M --> PR["<project_code><br/>current legacy worksite / future accepted bytes"]
+  WM --> PA["<project_code><br/>current legacy metadata / future byte-lineage only"]
 ```
 
 ## 상위 지도
@@ -85,7 +85,7 @@ flowchart TD
 
 - 루트 `README.md` 는 상위 지도만 유지한다.
 - `.registry` 는 outer canon/store owner 다.
-- Soulforge 핵심 개념은 ontology-style 로 읽되, 규칙은 public foundation 문서에 두고 project-local instance 는 `_workmeta/<project_code>/ontology/` 에서만 둔다.
+- Soulforge 핵심 개념은 ontology-style 로 읽되, 규칙은 public foundation 문서에 둔다. `ontology canon`은 관계/의미 model의 정본이고 `canonical byte/revision`은 authority가 exact artifact bytes를 수락한 상태이므로 서로 다르다. current legacy project-local ontology instance는 existing metadata contract가 소유하며 future target `_workmeta`에는 canonical byte-lineage만 둔다.
 - `.unit` 는 active agent unit owner 다.
 - `.workflow` 와 `.party` 는 `.registry` 아래로 넣지 않는 독립 orchestration root 다.
 - `.mission` 은 held mission plan 과 readiness owner 다.
@@ -95,10 +95,10 @@ flowchart TD
 - cross-project 운영 명령 표면은 `guild-hall:*` 만 canonical 로 사용한다.
 - `guild_hall/state/**` 는 local-only cross-project state 이며 public repo 에 올리지 않는다.
 - 기능 코드, 구조 문서, public-safe sample 변경은 public repo 에 commit/push 한다.
-- 보호 대상 업무 데이터는 project-local metadata 면 Soulforge root 아래 nested `_workmeta/` repo 에, cross-project continuity data 면 nested `private-state/` repo 에만 commit/push 한다.
+- 보호 대상 업무 데이터는 current legacy project-local metadata 면 Soulforge root 아래 nested `_workmeta/` repo 에, cross-project continuity data 면 nested `private-state/` repo 에만 commit/push 한다. future target canonical byte-lineage는 W-AUTH, Genesis, applicable Legacy Freeze, sole-writer route가 adopted 되기 전까지 만들지 않는다.
 - species canon 은 `species/<species_id>/species.yaml` 와 `heroes:` inline 모델을 사용한다.
-- `_workspaces/<project_code>/` 실제 과제 내용은 public GitHub 에 올리지 않으며, 로컬 환경에서만 materialize 한다.
-- `_workmeta/<project_code>/` 는 Soulforge root 아래 nested private repo 이다.
+- current legacy `_workspaces/<project_code>/` 실제 과제 내용은 public GitHub 에 올리지 않으며, 로컬 환경에서만 materialize 한다. future target workspace에는 accepted canonical bytes만 atomic byte+lineage publication으로 들어간다.
+- current legacy `_workmeta/<project_code>/` 는 Soulforge root 아래 nested private repo 이다. future target `_workmeta`는 canonical byte-lineage metadata 전용이며 operation history의 새 writer가 아니다.
 - assigned execution plan 과 mission-level 배정 owner 는 `_workspaces/` 나 `_workmeta/` 가 아니라 `.mission/` 이 소유한다.
 - tracked workspace sample 은 `_workspaces/` 아래가 아니라 `docs/architecture/workspace/examples/` 아래로만 둘 수 있다.
 - `.run/` 루트는 새 정본에 포함하지 않는다.
