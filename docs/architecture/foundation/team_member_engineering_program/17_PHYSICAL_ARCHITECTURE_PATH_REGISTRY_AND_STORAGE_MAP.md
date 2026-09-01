@@ -9,9 +9,94 @@
 - PC 재부팅은 이번 migration의 허용 수단이 아니다.
 - 실제 이동은 `inventory freeze -> target manifest -> empty-root materialization -> copy-only staging -> digest/Git/DB/restore verification -> service quiescence -> pointer/service cutover -> canary -> rollback rehearsal -> later C: retirement decision` 순서다.
 - `<LEGACY_SOULFORGE_ROOT>`와 사용자 소유 dirty state는 새 경로의 readback·rollback·fresh review가 닫힐 때까지 보존한다. reset, stash, force, purge, broad delete는 금지한다.
-- Terra/max가 단일 integration writer를 맡고, 격리된 Gemini 3.7 Flash lane은 public-safe inventory 또는 script/test 후보만 만들며, Opus 5/high는 구현과 분리된 fresh review를 맡는다. 외부 모델은 path/service/writer/acceptance authority와 fallback을 얻지 않는다.
+- Terra/max는 bounded task executor이며 leaf contract가 명시할 때만 repo integration writer를 맡는다. 격리된 Gemini 3.7 Flash lane은 public-safe inventory 또는 script/test 후보만 만들며, Opus5/high는 구현과 분리된 fresh review를 맡는다. Terra/max는 control_root, guild_hall/path_registry, guild_hall/backup_controller의 writer credential을 가정하지 않으며, 외부 모델은 path/service/writer/acceptance authority와 fallback을 얻지 않는다.
 - 이 지시는 R2~R7의 Owner gate를 여는 방향 결정이며, 각 leaf의 private binding·ACL·backup·restore·caller·rollback 증거를 생략하는 big-bang 승인이 아니다.
 - G0 accepted reconciliation은 `<TARGET_SOULFORGE_ROOT>/data`의 sole physical manifest를 아래 Plan 17 numbered data spine으로 고정한다. `World Tree`, `Rune`, `Guild`, Apps, analytics는 Path Registry product/owner/asset facets이며 product-named data directory를 인가하지 않는다. 이 문서 재조정은 actual root approval, writer authority, private binding, ACL, or canary readback를 늘리지 않는다.
+
+## Fresh Fable5 REVISE — task-local execution correction
+
+This correction makes the staged direction executable without turning a model
+profile, a root class, or a precreated folder into inferred authority. The
+already precreated empty target top-level folders are address placeholders only:
+they name intended target addresses, but are not a partial R2 apply, a private
+binding, an ACL result, a writer grant, or evidence that the Plan 17 data spine
+has been materialized. They do not relax any N2–N11 gate below.
+
+### Sol/high technical progression lead authority annex (task-local)
+
+This annex describes a task-local role only. It does not create a task, agent,
+thread, writer, Registry row, binding, service action, or physical path. A
+Sol/high lead may be instantiated or continued only for N0/N1 read-only
+preparation from an explicit Owner-authorized task packet; it may define later
+technical sequencing and leaf criteria there, but does not enter N2+ execution.
+If the requested profile is unavailable, unobserved, or mismatched, the lead is
+not instantiated or continued and sequencing returns HOLD to the Human Owner.
+No fallback model, role, or authority is inferred from this annex.
+
+| Field | Bounded rule |
+| --- | --- |
+| Profile class | technical_direction_acceptance_responsibility |
+| Requested runtime | gpt-5.6-sol/high. This is a request only; an observed runtime profile is reported only when the runtime itself exposes it. If unavailable, unobserved, or mismatched, do not instantiate or continue the lead; return sequencing HOLD to the Human Owner with no fallback. |
+| Technical remit | Own technical sequencing; state each leaf contract and technical acceptance criteria; route explicitly bounded Terra/max deliverable tasks; integrate evidence; and escalate contradictory, missing, or blocked evidence to the Human Owner. A technical readiness conclusion is only ready or HOLD advice, never Human acceptance. |
+| No inferred authority | Does not own path, service, writer, ACL, private binding, NAS, Human acceptance, or retirement authority. It cannot approve a root, choose a physical address, alter an ACL, stop a service, write a private binding, accept a NAS restore, or retire a legacy surface. |
+| Per-leaf implementation | Terra/max is the bounded task executor and may be repo integration writer only when that exact leaf contract grants it. Named sole-writer adapters perform actual mutations; Terra/max only integrates receipts when it lacks that grant and never assumes control_root, guild_hall/path_registry, or guild_hall/backup_controller writer credentials. The Sol/high lead can route only an already-authorized bounded packet and cannot widen its write paths or stop conditions. |
+| Shadow and review lanes | Gemini 3.7 Flash is public-safe shadow only: read-only inventory plus non-authoritative script/test candidates. Opus5/high performs fresh review independent of implementation. N2, N5, and N9 require a fresh independent Opus5/high advisory review receipt in addition to deterministic evidence; that receipt grants no authority, and a missing or mismatched receipt is HOLD under this Owner packet. Neither lane receives path, service, writer, acceptance, or fallback authority. |
+| Human gates | Human Owner gates and the existing named owner surfaces remain unchanged at every physical, service, ACL, restore, cutover, acceptance, and retirement decision. |
+
+### N0–N11 executable dependency DAG
+
+N0 and N1 are independent read-only preparation leaves. Their receipts, plus
+the Owner private physical-root inventory, join N2:
+
+N0 + N1 + Owner private physical-root inventory -> N2 -> N3 -> N4 -> N5 -> N6 -> N7 -> N8 -> N9 -> N10 -> N11.
+
+A physical-root class is a class, not an address. Every target sibling still
+needs its own logical_path_id, binding_ref, parent_binding_ref, and binding
+epoch; no root class, precreated folder, resolver fallback, or scanner result
+may supply an address by inference. Public plan receipts use logical refs and
+digests only, never private host path values.
+
+| Gate | Entry / dependencies | Exact owner | Output / receipt | Validator or manual evidence | Rollback | Stop condition |
+| --- | --- | --- | --- | --- | --- | --- |
+| N0 — task/service/writer disposition | No dependency; read-only only. Enumerate each task, caller, service, writer, and rollback owner before any physical action. | Human Owner accepts the disposition; Terra/max writes the read-only packet only if its N0 contract grants it; Sol/high coordinates technical sequencing only during N0/N1. | Named task/service/writer/caller matrix, including the currently named Buzz, Hermes, 4192, and BuzzServer services and a separate HOLD list for the 13 writer-risk scheduled tasks; placeholder-reconciliation receipt for each of the already precreated nine empty top-level directories with creator/writer-authority ref, creation-time ref, current ACL/readback, and exact disposition. | Owner-confirmed matrix and placeholder receipt; manual check that no service, task, writer, schedule, or placeholder changed. | Discard or supersede the draft; no runtime state exists to roll back. | Any unknown owner, caller, writer, rollback owner, placeholder creator/writer authority, creation-time ref, ACL/readback, or disposition; any request to stop a service or one of the 13 scheduled tasks without a new Human decision. |
+| N1 — cloud junction and ADS evidence | No dependency; read-only evidence collection and caller map only. Actual cloud/root observation is limited to the scope the Owner admits. | Terra/max is bounded executor/read-only evidence writer only if its N1 contract grants it; Human Owner retains access/admission authority. | Public-safe junction/reparse and ADS evidence summary, caller map, and private evidence refs; no private absolute path or ADS payload is copied into the plan. | Read-only private readback; hardened containment/reparse/ADS checks; ambiguous or unavailable observation is recorded as HOLD. | None; the leaf has no mutation. | Unknown junction target, ADS, containment, source scope, or permission; no legacy/default fallback. |
+| N2 — private target binding registration | N0 and N1 receipts, plus the Owner private physical-root inventory. The inventory is an input, not scanner output. | Human Owner supplies/adopts the private inventory; the named control_root sole-writer adapter performs the actual private binding mutation; guild_hall/path_registry owns public logical rows; Terra/max integrates receipts and never writes the binding. | Private current/target binding registration with unique logical IDs, binding refs, parent refs, epochs, writer policy, and provenance receipt. | Private control_root readback plus npm.cmd run validate:path-registry and a fresh independent Opus5/high advisory review receipt; the advisory grants no authority, and missing/mismatch is HOLD under this Owner packet. Public output remains refs/digests only. | The control_root sole writer revokes the candidate binding or restores the prior binding; no folder/materialization change is allowed. | Missing, ambiguous, overlapping, stale, or untrusted inventory/binding; non-sole writer; unresolved target sibling identity; missing/mismatched Opus5/high advisory receipt. |
+| N3 — writer-exclusive ACL canary/readback | Accepted N2 binding and an explicit Human ACL action gate. | Human Owner authorizes the ACL action; the named control_root sole-writer adapter performs and records the ACL mutation/canary; Terra/max integrates receipts and never writes ACL state. | Exact-bound canary ACL receipt showing intended writer allow, wrong-writer deny, and readback. | Private ACL readback plus operation-aware wrong-writer/stale-binding denial evidence. | Restore the exact prior ACL through the authorized control_root writer; remove only the isolated canary artifact it created. | Inherited/ambiguous ACL, unbounded root, wrong-writer success, missing readback, or any ACL scope broader than the canary. |
+| N4 — private Registry-admitted scanner and inventory freeze | Accepted N2 and N3; scanner starts after binding registration, never before it. | guild_hall/path_registry owns Registry admission; control_root sole writer records private scanner state; Terra/max executes the bounded scanner leaf only if its N4 contract grants it. | Binding-scoped private inventory-freeze receipt, Registry snapshot digest, class coverage, and explicit unclassified/HOLD rows. | npm.cmd run validate:path-registry plus private scan/readback proving every result resolved through the admitted binding. | Revoke the freeze/snapshot pointer while retaining immutable receipts; no payload is changed. | Any unregistered, unbound, overlapping, drifting, or scope-widening path; missing N2 provenance; scanner requests an inferred address. |
+| N5 — R2 internal-spine canary | Accepted N4 freeze, N3 ACL evidence, the exact approved empty canary binding, and the N0 nine-placeholder reconciliation receipt. | guild_hall/path_registry owns the approved R2 materializer contract; the named materializer adapter performs any actual mutation; control_root sole writer supplies binding/admission; Terra/max is bounded executor/integration writer only if the N5 contract grants it and never assumes those writer credentials. | Internal-spine canary receipt: exact logical canary ref, zero payload copy/move, created-directory manifest, realpath/reparse/ADS readback, idempotent replay result, and an explicit exclusion list for all nine precreated top-level placeholders from the operation-created rollback manifest. | npm.cmd run validate:target-materializer plus private exact-root readback/replay and a fresh independent Opus5/high advisory review receipt; the advisory grants no authority, and missing/mismatch is HOLD under this Owner packet. | Remove only empty directories proven by the operation-created manifest; that manifest explicitly excludes all nine precreated top-level placeholders. If any placeholder must be removed, stop until its separate authorized removal is completed before N5; N5 rollback never removes it. | Any payload, wrong root, reparse/ADS/containment failure, missing private binding/ACL evidence, non-idempotent result, missing/mismatched Opus5/high advisory receipt, or a precreated placeholder appearing in the operation-created manifest. |
+| N6 — DB handle and quiescence rehearsal | Accepted N5; N0 named service/DB owner map; no pointer change. | N0-accepted named service and DB owners execute the rehearsal; Terra/max integrates evidence; Human Owner gates any actual service stop. | Per-service DB-handle inventory and quiesce/release/reopen rehearsal receipt with no cutover pointer. | Manual service/DB owner readback; handle release/reopen evidence; explicit confirmation that no unapproved scheduled task stopped. | Named service owner reopens/resumes only the rehearsed service; no pointer state is changed. | Unresolved handle, writer, service owner, or recovery behavior; need to stop an unnamed service or any of the 13 scheduled tasks without Human decision; any need for host reboot. |
+| N7 — copy-only per-class staging | Accepted N5 and N6; N4 freeze identifies one class at a time. | The exact leaf contract names the per-class staging writer; Terra/max is bounded executor/integration writer only when that contract grants it; the exact source byte owner supplies read-only origin; control_root sole writer records control receipts. | Create-only per-class staging manifest, source/destination digests, applicable Git/DB readback, and proof that callers and source writers remain unchanged. | Per-class manifest/hash parity and applicable Git/DB checks; manual source-owner confirmation of copy-only scope. | Delete only staging copies proven by the operation-created manifest; preserve the unchanged source and receipts. | Digest mismatch, source-writer conflict, caller/pointer change, unsupported source policy, or incomplete class evidence. |
+| N8 — local-recovery restore and rollback | Accepted N7 staging evidence for the selected class. | guild_hall/backup_controller owns the recovery contract; the named recovery adapter performs actual recovery mutations; Terra/max executes/integrates the isolated leaf only if its contract grants it and never assumes backup-controller writer credentials; the exact recovery_root binding owner admits the target. | Isolated local-recovery restore, parity/readback, and rollback rehearsal receipt. | Local isolated restore plus manifest/hash and applicable DB parity; rollback readback proves the prior local state remains recoverable. | Use the rehearsed local recovery path and remove only operation-created isolated staging. | Restore/parity/rollback mismatch, missing recovery binding, or any attempt to apply recovery to a live cutover surface. |
+| N9 — quiesce, CAS pointer/service cutover, and canary | Accepted N6 rehearsal, N7 staging, N8 local-recovery receipt, and an event-specific Human cutover gate. | Human Owner opens the cutover gate; N0-named service owners quiesce/resume; the named control_root sole-writer adapter performs the CAS pointer; Terra/max integrates receipts and never assumes pointer-writer credentials. | Quiesce receipt, CAS epoch/pointer receipt, service cutover receipt, compatibility state, post-cutover canary evidence, and—if N9 stopped 4192—a resumed/healthy 4192 readback before N10. | DB-handle release, exact CAS/current-target fencing, named-service health/canary, stale-writer denial readback, and a fresh independent Opus5/high advisory review receipt; the advisory grants no authority, and missing/mismatch is HOLD under this Owner packet. | CAS back to the exact prior pointer/epoch and resume only named services through their owners; never use reboot, broad delete, or path replacement. | Missing N8 local recovery evidence, failed canary, mismatch between current/target fence, unapproved service/scheduled-task stop, any need for host reboot, or missing/mismatched Opus5/high advisory receipt. |
+| N10 — observation and Human cutover acceptance | Accepted N9 canary and, if N9 stopped 4192, resumed/healthy 4192 readback before the defined observation window. | Human Owner alone accepts or rejects cutover; 4192 remains read-only observer; Terra/max integrates evidence. | Observation-window receipt, 4192 read-only status evidence, and Human cutover acceptance or rejection receipt. | npm.cmd run validate:watch-storage-map plus manual review of no raw/writer fields, the resumed/healthy 4192 readback when applicable, and the Human decision. | If rejected or degraded, execute only N9's exact rollback; do not retire any legacy surface. | Observation failure, missing/rejected Human acceptance, false-green/unknown evidence, absent 4192 resumed/healthy evidence when N9 stopped it, or a request to treat technical integration as Human acceptance. |
+| N11 — retirement | Accepted N10 Human cutover acceptance and a separately rehearsed and accepted NAS restore; NAS restore is not an N9 cutover prerequisite. | Human Owner alone decides retirement after an authorized NAS custodian/Owner restore acceptance; Terra/max cannot retire. | Rehearsed/accepted NAS restore receipt, retained accepted NAS/recovery-generation ref, retention/legacy-binding decision, and explicit Human retirement decision. | Private NAS restore rehearsal/readback and Human acceptance evidence; verify that the retirement target, retained accepted NAS/recovery generation, and recovery path are exact. | No irreversible retirement occurs without the Human decision; any post-decision recovery rebinds through the retained accepted NAS/recovery generation only after a Human rebind decision. | Missing/failed/rehearsed-unaccepted NAS restore, missing retained accepted generation, missing Human retirement or rebind decision, unresolved retention/legal hold, or any delete/retire action outside the exact approved target. |
+
+### Cycle breaks and non-inference rules
+
+- Owner private physical-root inventory seeds N2 before the N4 scanner. The
+  scanner validates only an already admitted binding, so it cannot become the
+  source of the address or a circular prerequisite for its own binding.
+- N8 local-recovery restore and rollback gates N9 cutover. A separately
+  rehearsed and accepted NAS restore gates only N11 retirement, so NAS evidence
+  does not deadlock the reversible local cutover path.
+- N0 keeps stopping the 13 writer-risk scheduled tasks beyond the currently
+  named services as a Human decision. The Sol/high role, Terra/max, Gemini, and
+  Opus cannot convert that HOLD into a stop action.
+- A root class is never an address. The top-level placeholders, Registry
+  class, scanner, or resolver cannot select a private physical root, infer ACL
+  scope, or create a second writer.
+
+### Start boundary
+
+May start now, with zero mutation: this authority annex; Sol/high lead
+creation/continuation for N0/N1 only; N0 and N1 read-only drafts; the caller
+map; a binding-schema packet; and Human/NAS receipt templates. Any actual
+private/cloud observation remains limited to explicit Owner-admitted read scope
+and must stop on ambiguity.
+
+Actual N2 control_root binding write, N3 ACL action, N4 scanner/inventory
+freeze, N5 and later canary/staging/recovery/cutover/acceptance/retirement
+leaves remain HOLD pending their listed evidence and Human gates.
 
 ## Purpose
 

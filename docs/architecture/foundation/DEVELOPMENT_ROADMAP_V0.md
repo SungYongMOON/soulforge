@@ -217,13 +217,17 @@ read-only snapshot
   상세 범위, original-vision coverage, R0~R7 순서는
   `team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md`가
   소유한다. 실제 이동·새 writer·credential·restore 적용은 계속 기존 Owner gate 뒤다.
-- adjacent staged physical migration authorization(2026-09-01): Owner는 현재 비어 있는
-  `D:\Soulforge` 목표 root 생성과 전체 estate의 단계 전환을 승인했고, cutover 시
+- adjacent staged physical migration authorization and Fable5/Opus execution correction(2026-09-01): Owner는 현재 비어 있는
+  `<TARGET_SOULFORGE_ROOT>` 목표 root 생성과 전체 estate의 단계 전환을 승인했고, cutover 시
   Buzz·Hermes·4192·BuzzServer 정지를 허용했으며 PC 재부팅은 금지했다. 이는 R2~R7을
-  순차 실행하라는 방향 승인이지 big-bang move/delete 승인이 아니다. Terra/max 단일
-  integration writer, Gemini 3.7 Flash 격리 inventory/build 보조, Opus 5/high fresh review,
-  copy-only staging·digest·restore·rollback·compatibility Gate를 사용한다. 기존
-  `C:\Soulforge`와 사용자 소유 dirty state는 새 경로 수락 전까지 보존한다.
+  순차 실행하라는 방향 승인이지 big-bang move/delete 승인이 아니다. copy-only staging·
+  digest·restore·rollback·compatibility Gate를 사용하며, 기존
+  `<LEGACY_SOULFORGE_ROOT>`와 사용자 소유 dirty state는 새 경로 수락 전까지 보존한다.
+  Exact executor/writer/reviewer/Human-gate boundaries, N0 placeholder reconciliation,
+  no-reboot, 4192-resume, and NAS-retirement rules are owned solely by Plan 17's
+  task-local Sol/high authority annex and N0–N11 DAG; this Roadmap adds no role
+  authority. Only N0/N1 read-only preparation may start, and N2+ remains HOLD
+  under that owner packet.
 - adjacent internal-release candidate(2026-08-31): Owner Master Map M16의
   Development Team 1 internal RC는 이번 주 time-boxed 목표 후보다. 현 active slice를
   대체하지 않는다. Fresh Grill decision gate는 exact one-seat와 포함/제외 capability를

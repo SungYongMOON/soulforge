@@ -21,6 +21,8 @@
 - Restored the lockfile dependency environment and upgraded vulnerable transitive `fast-uri` from 3.1.3 to 3.1.6 without force. The root dependency audit reached zero findings; the UI workspace cleared its high/moderate findings and retains one low, development-only nested `tsx`/`esbuild` advisory that is not shipped in the self-contained Universal Client transport bundle. The initial HPP 964/Team Client 216/Backup 72 and 37-test evidence is retained as history and superseded above by the no-reboot Main Node/Universal Client Pack leaf.
 - Registered focused root-gate validators for authority taxonomy, product composition, manual release and synthetic recovery canary. Existing unrelated `.gitignore` and `signoise.run/` working state was preserved.
 
+- Applied fresh Fable5 REVISE and Opus findings to the staged physical-migration plan: the N0 placeholder reconciliation, no-reboot stops, named-adapter writer boundary, N2/N5/N9 independent advisory receipts, profile-unavailable HOLD, 4192 resume gate, and rehearsed NAS-retirement recovery rules are explicit; only N0/N1 preparation may start.
+
 ## 2026-08-31 - Owner Fresh Grill decisions are recorded as a review candidate
 
 - Separated Plan 00 decision states so settled, deferred, measurement-held, physical-held and open rows cannot be reinterpreted as one unresolved gate; clarified that ERP alone writes canonical AuthorityPolicy while Bastion validates/enforces and the Console only requests/displays receipts.

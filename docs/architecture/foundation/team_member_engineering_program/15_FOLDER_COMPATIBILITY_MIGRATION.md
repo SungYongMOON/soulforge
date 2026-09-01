@@ -47,6 +47,10 @@ reference-in-place until their per-class R5/R7 leaf, and the observed legacy
 data view plus lifecycle directories and secret-owner child do not authorize
 copying. Secret-owner material is forbidden from target `data` materialization.
 
+The precreated empty top-level folders are address placeholders, not a partial
+R2 apply; the N0–N11 execution gates and task-local authority annex are owned
+by Plan 17.
+
 ### Existing project-Bot compatibility semantics
 
 The observed `bot_worktree` project hierarchy includes year/project/role branches. One current project tree has role folders such as Board, configuration, schedule, system engineering, quality, safety, software, test, and shared areas; its Board branch carries inbox/ready/active/review/hold/done working states. Another project includes PM/system engineering/shared/test roles, with PM backup/rules/work areas.
