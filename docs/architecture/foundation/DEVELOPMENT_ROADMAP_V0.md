@@ -230,7 +230,9 @@ read-only snapshot
   authority. Only N0/N1 read-only preparation may start, and N2+ remains HOLD
   under that owner packet.
 - adjacent greenfield workspace canonical-store/W-AUTH correction(2026-09-01): Plan 17 plus the workspace contracts distinguish potentially mutable reference-in-place legacy `_workspaces`/`_workmeta` from empty target canonical stores. Only Human/project-authority accepted exact bytes may enter target `_workspaces`; target `_workmeta` holds only their byte-lineage. W-AUTH separates input source revision/digest from candidate revision/content digest; Genesis requires authoritative backup classification/synthetic restore; scoped Legacy Freeze governs legacy origins; N8.5-WS-PUBLISH alone performs named-sole-writer atomic publication after distinct pre-publish readiness and post-publish closure. NW leaves cannot bind/write either workspace target store. Current legacy sources remain authoritative for noncanonical history until an accepted Event Timeline, Analytics, or AI Workforce writer exists. Contract only: writer, binding, file migration, and physical target state remain unchanged.
-- adjacent N2 private-binding contract(2026-09-01): Path Registry models nine unbound target siblings and an atomic all-nine binding set. The default-OFF private control-store contract requires exact Suite/target identities and a separately pinned writer-exclusive ACL admission before any `target.control` state write. Contract tests are executable; actual private generation, ACL change, Registry activation, or file movement remains HOLD until the N2 action packet and fresh review pass.
+- adjacent N2 private-binding application(2026-09-01): Path Registry models nine target siblings and an atomic all-nine binding set. One exact private control generation passed the pinned writer-exclusive ACL admission, registered all nine bindings, and replayed as `NO_OP`; target `_workspaces` and `_workmeta` remain empty. This opens address resolution only. It does not grant the shared canonical publisher, project acceptance, project-byte migration, NAS backup, or legacy retirement authority.
+- adjacent runtime cutover correction(2026-09-01): Source checkout, versioned Server Pack and Slack source-lane bytes are materialized under the D target with no reboot. HPP `0.1.4` initially passed build/install/smoke but a later full-manifest readback found 765 of 1,020 payload files missing, so it was quarantined and the Main Node rolled back to the full-readback-clean `0.1.2` generation. ERP is healthy and digest-bound on `0.1.2`; Ingress restart remains HOLD until its pre-cutover lease expires. Cause of the post-smoke payload loss is `UNKNOWN`, so no release or production claim follows.
+- adjacent Backup Controller topology-v2 preflight(2026-09-01): the legacy v1 containment contract cannot represent the separated D installed runtime, external ERP data owner, C transition metadata sources, and empty D canonical targets. A new pure/default-OFF v2 schema and preflight binds those resources plus rollback by exact owner/epoch/digest and separate ERP root/file evidence. It authorizes no private binding or NAS run; actual v2 adapter, installed Pack, private evidence, backup generation, restore and Human acceptance remain HOLD.
 - adjacent internal-release candidate(2026-08-31): Owner Master Map M16의
   Development Team 1 internal RC는 이번 주 time-boxed 목표 후보다. 현 active slice를
   대체하지 않는다. Fresh Grill decision gate는 exact one-seat와 포함/제외 capability를
@@ -244,9 +246,10 @@ read-only snapshot
   측정은 actual artifact 0·전 row `HOLD`였다(11 tests); 이 과거 상태는 바로 아래
   manual/preflight leaf의 16 candidate·12-test 상태로 대체됐다. Synthetic recovery
   canary는 temp-only backup/readback/isolated restore와 별도 Human acceptance seam을
-  검증한다(17 tests, actual acceptance/NAS/RPO/RTO 0). Pack specs는 HPP 1,018,
-  Universal Client 19, Backup-Recovery 72 files로 재계산되고 deployment suite 38/38이
-  통과했다. 이는 one-seat physical Gate의 준비 증거이며 설치·RC 수락은 아니다.
+  검증한다(17 tests, actual acceptance/NAS/RPO/RTO 0). Current tracked Pack specs는 HPP 1,020,
+  Universal Client 19, Backup-Recovery 76 files로 재계산됐고 focused validators가 통과했다.
+  Active HPP는 위 rollback correction에 따라 `0.1.2`다. 이는 one-seat physical Gate의 준비
+  증거이며 설치·RC 수락은 아니다.
 - adjacent Internal RC manual/preflight leaf(2026-09-01): exact 16-role manual 전부가
   actual Markdown+sha256 `candidate/current`이며 exercise·last-verified release는 HOLD다. Pure HTML
   renderer는 self-contained accessible projection을 만들지만 release artifact를 쓰지 않는다

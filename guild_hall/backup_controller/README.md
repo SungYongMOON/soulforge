@@ -20,6 +20,24 @@ fail closed. A green result means only `synthetic restore canary accepted`. It
 does not prove NAS readiness, numeric RPO/RTO, real-project recovery or Internal
 RC acceptance.
 
+## Target topology v2 preflight (default OFF)
+
+`binding_v2.schema.json` and `preflight_v2.mjs` describe the migration topology
+without reusing the legacy v1 containment model. They keep the installed
+controller/runtime, the external ERP database owner, the two C transition
+metadata sources, the two empty D canonical targets, and the rollback target as
+distinct owner/epoch/digest-bound resources. The ERP database file and its
+owning directory are inspected separately, so a root/file type mix-up cannot
+pass. Fallback, overlap, reparse/symlink state, stale evidence, wrong runtime
+root, pack drift, raw data, secrets, and local paths all fail closed.
+
+This surface is pure and `feature_state: off`. `PREFLIGHT_OFF_READY` means only
+that an injected public-safe topology packet is internally coherent. It grants
+no binding activation, NAS write, backup run, source promotion, canonical
+target write, or retirement authority. The existing v1 runtime and actual
+private binding remain unchanged until a separately approved v2 adapter and
+installed Pack exist.
+
 ## Authority boundary
 
 - A daily automation invocation accepts exactly one argument:

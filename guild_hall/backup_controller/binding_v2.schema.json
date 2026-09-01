@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.backup_controller.binding.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "controller_id",
+    "feature_state",
+    "binding_ref",
+    "binding_digest",
+    "binding_epoch",
+    "fallback_allowed",
+    "installed_controller",
+    "external_erp_data_owner",
+    "transition_metadata_owners",
+    "canonical_targets",
+    "rollback_target"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.backup_controller.binding.v2" },
+    "controller_id": { "const": "soulforge-backup-controller" },
+    "feature_state": { "const": "off" },
+    "binding_ref": { "$ref": "#/$defs/ref" },
+    "binding_digest": { "$ref": "#/$defs/digest" },
+    "binding_epoch": { "type": "integer", "minimum": 1 },
+    "fallback_allowed": { "const": false },
+    "installed_controller": { "$ref": "#/$defs/installedController" },
+    "external_erp_data_owner": { "$ref": "#/$defs/externalErpOwner" },
+    "transition_metadata_owners": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "$ref": "#/$defs/transitionSource" }
+    },
+    "canonical_targets": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "$ref": "#/$defs/canonicalTarget" }
+    },
+    "rollback_target": { "$ref": "#/$defs/rollbackTarget" }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._:-]{1,160}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "installedController": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "controller_owner_ref",
+        "owner_epoch",
+        "controller_ref",
+        "runtime_ref",
+        "runtime_digest",
+        "runtime_root_ref",
+        "runtime_root_digest",
+        "installed_pack_ref",
+        "installed_pack_digest"
+      ],
+      "properties": {
+        "controller_owner_ref": { "$ref": "#/$defs/ref" },
+        "owner_epoch": { "type": "integer", "minimum": 1 },
+        "controller_ref": { "$ref": "#/$defs/ref" },
+        "runtime_ref": { "$ref": "#/$defs/ref" },
+        "runtime_digest": { "$ref": "#/$defs/digest" },
+        "runtime_root_ref": { "$ref": "#/$defs/ref" },
+        "runtime_root_digest": { "$ref": "#/$defs/digest" },
+        "installed_pack_ref": { "$ref": "#/$defs/ref" },
+        "installed_pack_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "externalErpOwner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner_ref",
+        "owner_epoch",
+        "source_plane",
+        "data_kind",
+        "data_ref",
+        "data_digest",
+        "source_root_kind",
+        "source_root_ref",
+        "source_root_digest",
+        "fallback_allowed"
+      ],
+      "properties": {
+        "owner_ref": { "$ref": "#/$defs/ref" },
+        "owner_epoch": { "type": "integer", "minimum": 1 },
+        "source_plane": { "const": "external_d_data" },
+        "data_kind": { "const": "file" },
+        "data_ref": { "$ref": "#/$defs/ref" },
+        "data_digest": { "$ref": "#/$defs/digest" },
+        "source_root_kind": { "const": "directory" },
+        "source_root_ref": { "$ref": "#/$defs/ref" },
+        "source_root_digest": { "$ref": "#/$defs/digest" },
+        "fallback_allowed": { "const": false }
+      }
+    },
+    "transitionSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "owner_ref",
+        "owner_epoch",
+        "source_plane",
+        "source_ref",
+        "source_digest",
+        "source_root_ref",
+        "source_root_digest",
+        "source_state",
+        "fallback_allowed"
+      ],
+      "properties": {
+        "source_id": {
+          "enum": [
+            "c_project_metadata_transition",
+            "c_cross_project_state_transition"
+          ]
+        },
+        "owner_ref": { "$ref": "#/$defs/ref" },
+        "owner_epoch": { "type": "integer", "minimum": 1 },
+        "source_plane": { "const": "c_transition" },
+        "source_ref": { "$ref": "#/$defs/ref" },
+        "source_digest": { "$ref": "#/$defs/digest" },
+        "source_root_ref": { "$ref": "#/$defs/ref" },
+        "source_root_digest": { "$ref": "#/$defs/digest" },
+        "source_state": { "const": "legacy_transition_source" },
+        "fallback_allowed": { "const": false }
+      }
+    },
+    "canonicalTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_id",
+        "owner_ref",
+        "owner_epoch",
+        "target_plane",
+        "target_ref",
+        "target_digest",
+        "target_root_ref",
+        "target_root_digest",
+        "target_state",
+        "source_eligible"
+      ],
+      "properties": {
+        "target_id": {
+          "enum": [
+            "d_workspace_canonical_target",
+            "d_workmeta_canonical_target"
+          ]
+        },
+        "owner_ref": { "$ref": "#/$defs/ref" },
+        "owner_epoch": { "type": "integer", "minimum": 1 },
+        "target_plane": { "const": "d_canonical" },
+        "target_ref": { "$ref": "#/$defs/ref" },
+        "target_digest": { "$ref": "#/$defs/digest" },
+        "target_root_ref": { "$ref": "#/$defs/ref" },
+        "target_root_digest": { "$ref": "#/$defs/digest" },
+        "target_state": { "const": "empty_canonical_only" },
+        "source_eligible": { "const": false }
+      }
+    },
+    "rollbackTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner_ref",
+        "owner_epoch",
+        "rollback_ref",
+        "rollback_digest",
+        "rollback_root_ref",
+        "rollback_root_digest",
+        "state"
+      ],
+      "properties": {
+        "owner_ref": { "$ref": "#/$defs/ref" },
+        "owner_epoch": { "type": "integer", "minimum": 1 },
+        "rollback_ref": { "$ref": "#/$defs/ref" },
+        "rollback_digest": { "$ref": "#/$defs/digest" },
+        "rollback_root_ref": { "$ref": "#/$defs/ref" },
+        "rollback_root_digest": { "$ref": "#/$defs/digest" },
+        "state": { "const": "verified_empty_rollback_target" }
+      }
+    }
+  }
+}

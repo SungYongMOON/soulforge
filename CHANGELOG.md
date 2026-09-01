@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2026-09-01 - Backup Controller target-topology v2 preflight
+
+- Added a pure/default-OFF topology-v2 contract that separates installed
+  controller identity, the external ERP data owner, C transition metadata
+  sources, empty D canonical targets, and rollback. Exact owner/epoch/digest
+  evidence, separate ERP root/file inspection, and overlap/reparse/symlink/
+  stale/wrong-runtime/pack-drift refusals close the gap that prevents the
+  legacy v1 binding from representing the new physical layout.
+- This is check-only. Actual private v2 binding, installed adapter, NAS backup,
+  source bytes, recurring operation and Human restore acceptance remain HOLD.
+
 ## 2026-09-01 - HPP server Pack 0.1.4 installed-smoke correction
 
 - Bumped the immutable HPP server Pack to `0.1.4` after `0.1.3` correctly
