@@ -54,6 +54,7 @@
     "validate:path-registry": "node --check guild_hall/path_registry/src/path_registry_core.mjs && node --check guild_hall/path_registry/data/registry_seed_v0.mjs && node --test guild_hall/path_registry/tests/path_registry_core.test.mjs",
     "validate:target-materializer": "node --check guild_hall/path_registry/src/target_materializer.mjs && node --test guild_hall/path_registry/tests/target_materializer.test.mjs",
     "validate:workspace-greenfield-admission": "node --check guild_hall/path_registry/src/workspace_greenfield_admission_gate.mjs && node --test guild_hall/path_registry/tests/workspace_greenfield_admission_gate.test.mjs",
+    "validate:private-target-binding-control-store": "node --check guild_hall/path_registry/src/private_target_binding_control_store_core.mjs && node --check guild_hall/path_registry/src/private_target_binding_control_store.mjs && node --test guild_hall/path_registry/tests/private_target_binding_control_store.test.mjs",
     "validate:watch-storage-map": "node --check guild_hall/path_registry/src/storage_map_projection.mjs && node --test guild_hall/path_registry/tests/storage_map_projection.test.mjs",
     "validate:source-lane-index": "node --check guild_hall/path_registry/src/source_lane_index.mjs && node --test guild_hall/path_registry/tests/source_lane_index.test.mjs",
     "validate:mail-source-lane-adapter": "node --check guild_hall/path_registry/src/mail_source_lane_adapter.mjs && node --test guild_hall/path_registry/tests/mail_source_lane_adapter.test.mjs",

@@ -70,6 +70,57 @@ export const BINDING_ROLES = Object.freeze(["current", "target"]);
 
 export const OD10_HOLD_PREFIX = "hold:od-10.";
 
+// Public-safe target Suite topology. Basenames are portable child names, not
+// host-local paths. Every row is a direct sibling under the same private
+// target-Suite-root binding; physical-root class stays an independent axis.
+export const TARGET_SIBLING_BINDING_MAP = Object.freeze({
+  "target.dev": Object.freeze({
+    physical_basename: "dev",
+    physical_root_class: "source_checkout",
+    parent_binding_ref: "binding.target-suite-root",
+  }),
+  "target.install": Object.freeze({
+    physical_basename: "install",
+    physical_root_class: "runtime_root",
+    parent_binding_ref: "binding.target-suite-root",
+  }),
+  "target.data": Object.freeze({
+    physical_basename: "data",
+    physical_root_class: "data_root",
+    parent_binding_ref: "binding.target-suite-root",
+  }),
+  "target.workspaces": Object.freeze({
+    physical_basename: "_workspaces",
+    physical_root_class: "data_root",
+    parent_binding_ref: "binding.target-suite-root",
+  }),
+  "target.workmeta": Object.freeze({
+    physical_basename: "_workmeta",
+    physical_root_class: "data_root",
+    parent_binding_ref: "binding.target-suite-root",
+  }),
+  "target.control": Object.freeze({
+    physical_basename: "control",
+    physical_root_class: "control_root",
+    parent_binding_ref: "binding.target-suite-root",
+  }),
+  "target.private_state": Object.freeze({
+    physical_basename: "private-state",
+    physical_root_class: "control_root",
+    parent_binding_ref: "binding.target-suite-root",
+  }),
+  "target.packages": Object.freeze({
+    physical_basename: "packages",
+    physical_root_class: "runtime_root",
+    parent_binding_ref: "binding.target-suite-root",
+  }),
+  "target.local_recovery": Object.freeze({
+    physical_basename: "local-recovery",
+    physical_root_class: "recovery_root",
+    parent_binding_ref: "binding.target-suite-root",
+  }),
+});
+
 const REF = /^[a-z][a-z0-9_.:/-]{1,160}$/;
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
 
@@ -402,6 +453,9 @@ export function registerBinding(registry, logicalPathId, binding, { writer_ident
   }
   const record = registry.records.get(logicalPathId);
   if (record === undefined) return hold("unregistered_path");
+  if (Object.hasOwn(TARGET_SIBLING_BINDING_MAP, logicalPathId)) {
+    return hold("target_binding_set_required");
+  }
   const validated = validateBinding(
     { ...binding, registered_by: writer_identity },
     "binding",
@@ -418,6 +472,109 @@ export function registerBinding(registry, logicalPathId, binding, { writer_ident
   });
   const records = new Map(registry.records);
   records.set(logicalPathId, updated);
+  return nextRegistry(registry, records);
+}
+
+function hasExactKeys(value, expectedKeys) {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  const actual = Object.keys(value).sort();
+  const expected = [...expectedKeys].sort();
+  return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
+}
+
+const BINDING_SET_ENTRY_KEYS = Object.freeze(["logical_path_id", "binding"]);
+const UNREGISTERED_BINDING_KEYS = Object.freeze([
+  "binding_ref", "node_ref", "role", "binding_revision", "binding_epoch", "expires_at",
+]);
+
+// Atomic N2-oriented target binding registration. The public Registry owns only
+// logical rows; callers supply private binding facts through the sole writer.
+// All entries are validated against the same immutable revision before a new
+// revision is produced, so a bad member cannot leave a partially registered set.
+export function registerBindingSet(registry, entries, { writer_identity } = {}) {
+  if (authenticRegistry(registry) === null) return hold("registry_unavailable");
+  if (isHoldRef(registry.authority.private_binding_writer)) {
+    return hold("authority_unresolved_od10", "private_binding_writer");
+  }
+  if (writer_identity !== registry.authority.private_binding_writer) {
+    return hold("binding_writer_unauthorized");
+  }
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return hold("binding_set_entries_required");
+  }
+  const expectedLogicalPathIds = Object.keys(TARGET_SIBLING_BINDING_MAP);
+  if (entries.length !== expectedLogicalPathIds.length) {
+    return hold("binding_set_membership_mismatch");
+  }
+
+  const priorBindingRefs = new Set();
+  for (const record of registry.records.values()) {
+    for (const binding of record.binding_refs) priorBindingRefs.add(binding.binding_ref);
+  }
+
+  const seenLogicalPathIds = new Set();
+  const seenBindingRefs = new Set();
+  const pending = [];
+  let bindingEpoch = null;
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index];
+    if (!hasExactKeys(entry, BINDING_SET_ENTRY_KEYS)
+        || !hasExactKeys(entry.binding, UNREGISTERED_BINDING_KEYS)) {
+      return hold("binding_set_entry_invalid", `entry:${index}`);
+    }
+
+    let logicalPathId;
+    let binding;
+    try {
+      logicalPathId = assertRef(entry.logical_path_id, `entries[${index}].logical_path_id`);
+      binding = validateBinding(
+        { ...entry.binding, registered_by: writer_identity },
+        `entries[${index}].binding`,
+      );
+    } catch (error) {
+      return hold("binding_set_entry_invalid", error?.code || `entry:${index}`);
+    }
+    if (!Object.hasOwn(TARGET_SIBLING_BINDING_MAP, logicalPathId)) {
+      return hold("binding_set_membership_mismatch");
+    }
+    if (seenLogicalPathIds.has(logicalPathId)) {
+      return hold("binding_set_duplicate_logical_path_id", logicalPathId);
+    }
+    if (seenBindingRefs.has(binding.binding_ref)) {
+      return hold("binding_set_duplicate_binding_ref", binding.binding_ref);
+    }
+    seenLogicalPathIds.add(logicalPathId);
+    seenBindingRefs.add(binding.binding_ref);
+
+    const record = registry.records.get(logicalPathId);
+    if (record === undefined) return hold("unregistered_path");
+    if (record.current_state !== "target") {
+      return hold("binding_set_target_row_required", logicalPathId);
+    }
+    if (binding.role !== "target") {
+      return hold("binding_set_target_role_required", logicalPathId);
+    }
+    if (bindingEpoch === null) bindingEpoch = binding.binding_epoch;
+    if (binding.binding_epoch !== bindingEpoch) {
+      return hold("binding_set_epoch_mismatch");
+    }
+    if (priorBindingRefs.has(binding.binding_ref) || record.binding_refs.length > 0) {
+      return hold("binding_set_binding_conflict", logicalPathId);
+    }
+    pending.push({ logicalPathId, binding });
+  }
+  if (expectedLogicalPathIds.some((logicalPathId) => !seenLogicalPathIds.has(logicalPathId))) {
+    return hold("binding_set_membership_mismatch");
+  }
+
+  const records = new Map(registry.records);
+  for (const { logicalPathId, binding } of pending) {
+    const record = records.get(logicalPathId);
+    records.set(logicalPathId, deepFreeze({
+      ...record,
+      binding_refs: Object.freeze([deepFreeze(binding)]),
+    }));
+  }
   return nextRegistry(registry, records);
 }
 

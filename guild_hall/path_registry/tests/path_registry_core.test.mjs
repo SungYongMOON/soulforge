@@ -6,12 +6,14 @@ import {
   authorityHolds,
   createPathRegistry,
   registerBinding,
+  registerBindingSet,
   registryReadiness,
   registrySnapshot,
   resolvePath,
   updateRecord,
   validateRecord,
   PHYSICAL_ROOT_CLASSES,
+  TARGET_SIBLING_BINDING_MAP,
 } from "../src/path_registry_core.mjs";
 import { SEED_AUTHORITY, seedRows } from "../data/registry_seed_v0.mjs";
 
@@ -97,7 +99,7 @@ function mutate(registry, overrides = {}) {
 
 test("seed registry validates, holds authority, and blocks readiness", () => {
   const registry = createPathRegistry({ authority: SEED_AUTHORITY, rows: seedRows() });
-  assert.equal(registry.records.size, 41);
+  assert.equal(registry.records.size, 50);
   assert.deepEqual(authorityHolds(registry), [
     "registry_schema_owner", "private_binding_writer",
     "resolver_runtime_owner", "write_policy_owner",
@@ -173,12 +175,71 @@ test("seed registry validates, holds authority, and blocks readiness", () => {
   assert.equal(bindingDenied.hold_code, "authority_unresolved_od10");
 });
 
+test("seed exposes nine distinct held target sibling rows without physical bindings", () => {
+  const registry = createPathRegistry({ authority: SEED_AUTHORITY, rows: seedRows() });
+  const expected = [
+    ["target.dev", "dev", "source_checkout"],
+    ["target.install", "install", "runtime_root"],
+    ["target.data", "data", "data_root"],
+    ["target.workspaces", "_workspaces", "data_root"],
+    ["target.workmeta", "_workmeta", "data_root"],
+    ["target.control", "control", "control_root"],
+    ["target.private_state", "private-state", "control_root"],
+    ["target.packages", "packages", "runtime_root"],
+    ["target.local_recovery", "local-recovery", "recovery_root"],
+  ];
+
+  assert.deepEqual(
+    Object.entries(TARGET_SIBLING_BINDING_MAP).map(([logicalPathId, entry]) => [
+      logicalPathId,
+      entry.physical_basename,
+      entry.physical_root_class,
+    ]),
+    expected,
+  );
+  assert.deepEqual(
+    expected.map(([logicalPathId, _physicalBasename, physicalRootClass]) => {
+      const record = registry.records.get(logicalPathId);
+      return [
+        record?.logical_path_id,
+        record?.physical_root_class,
+        record?.parent_binding_ref,
+        record?.current_state,
+        record?.binding_refs.length,
+      ];
+    }),
+    expected.map(([logicalPathId, _physicalBasename, physicalRootClass]) => [
+      logicalPathId,
+      physicalRootClass,
+      "binding.target-suite-root",
+      "target",
+      0,
+    ]),
+  );
+  const targetControl = registry.records.get("target.control");
+  assert.deepEqual({
+    write_policy: targetControl.write_policy,
+    sole_writer_ref: targetControl.sole_writer_ref,
+    authorized_writer_refs: targetControl.authorized_writer_refs,
+    backup_class: targetControl.backup_class,
+    current_state: targetControl.current_state,
+    binding_count: targetControl.binding_refs.length,
+  }, {
+    write_policy: "sole_writer",
+    sole_writer_ref: "hold:od-10.private_binding_writer",
+    authorized_writer_refs: ["hold:od-10.private_binding_writer"],
+    backup_class: "authoritative",
+    current_state: "target",
+    binding_count: 0,
+  });
+});
+
 test("seed snapshot digest is deterministic and rebuild-stable", () => {
   const a = registrySnapshot(createPathRegistry({ authority: SEED_AUTHORITY, rows: seedRows() }));
   const b = registrySnapshot(createPathRegistry({ authority: SEED_AUTHORITY, rows: seedRows() }));
   assert.match(a.snapshot_digest, /^sha256:[0-9a-f]{64}$/);
   assert.equal(a.snapshot_digest, b.snapshot_digest);
-  assert.equal(a.rows.length, 41);
+  assert.equal(a.rows.length, 50);
 });
 
 test("secret owner root: read is a secret boundary and contract is pinned", () => {
@@ -472,4 +533,205 @@ test("registerBinding: writer identity, ambiguity, and revision bump", () => {
   const snapA = registrySnapshot(registry);
   const snapB = registrySnapshot(bound);
   assert.notEqual(snapA.snapshot_digest, snapB.snapshot_digest);
+});
+
+function targetBindingEntries() {
+  return [
+    "target.dev",
+    "target.install",
+    "target.data",
+    "target.workspaces",
+    "target.workmeta",
+    "target.control",
+    "target.private_state",
+    "target.packages",
+    "target.local_recovery",
+  ].map((logicalPathId, index) => ({
+    logical_path_id: logicalPathId,
+    binding: {
+      binding_ref: `binding.target-row-${index + 1}`,
+      node_ref: "node.target-suite-1",
+      role: "target",
+      binding_revision: 1,
+      binding_epoch: 1,
+      expires_at: null,
+    },
+  }));
+}
+
+test("registerBindingSet atomically registers the exact nine target siblings once", () => {
+  const registry = createPathRegistry({ authority: SYN_AUTHORITY, rows: seedRows() });
+  const entries = targetBindingEntries();
+  const inputBefore = structuredClone(entries);
+
+  const registered = registerBindingSet(registry, entries, {
+    writer_identity: "writer.binding_svc",
+  });
+
+  assert.equal(registered.registry_revision, registry.registry_revision + 1);
+  assert.deepEqual(entries, inputBefore);
+  for (const entry of entries) {
+    assert.equal(registry.records.get(entry.logical_path_id).binding_refs.length, 0);
+    assert.deepEqual(registered.records.get(entry.logical_path_id).binding_refs, [{
+      ...entry.binding,
+      registered_by: "writer.binding_svc",
+    }]);
+  }
+  assert.equal(
+    registerBindingSet(registered, entries, { writer_identity: "writer.binding_svc" }).hold_code,
+    "binding_set_binding_conflict",
+  );
+  assert.equal(registered.registry_revision, registry.registry_revision + 1);
+});
+
+test("target sibling bindings cannot bypass the atomic set through registerBinding", () => {
+  const registry = createPathRegistry({ authority: SYN_AUTHORITY, rows: seedRows() });
+  const singular = registerBinding(
+    registry,
+    "target.dev",
+    targetBindingEntries()[0].binding,
+    { writer_identity: "writer.binding_svc" },
+  );
+  assert.equal(singular.status, "hold");
+  assert.equal(singular.hold_code, "target_binding_set_required");
+  assert.equal(registry.records.get("target.dev").binding_refs.length, 0);
+  assert.equal(registry.registry_revision, 1);
+});
+
+test("registerBindingSet fails closed without partial registration", () => {
+  const registry = createPathRegistry({ authority: SYN_AUTHORITY, rows: seedRows() });
+  const entries = targetBindingEntries();
+  const beforeDigest = registrySnapshot(registry).snapshot_digest;
+  const assertUnchanged = (outcome, holdCode) => {
+    assert.equal(outcome.hold_code, holdCode);
+    assert.equal(outcome.status, "hold");
+    assert.equal(registry.registry_revision, 1);
+    assert.equal(registrySnapshot(registry).snapshot_digest, beforeDigest);
+    for (const entry of entries) {
+      assert.equal(registry.records.get(entry.logical_path_id).binding_refs.length, 0);
+    }
+  };
+
+  assertUnchanged(
+    registerBindingSet(registry, entries, { writer_identity: "writer.intruder" }),
+    "binding_writer_unauthorized",
+  );
+  assertUnchanged(
+    registerBindingSet(registry, [], { writer_identity: "writer.binding_svc" }),
+    "binding_set_entries_required",
+  );
+  assertUnchanged(
+    registerBindingSet(registry, entries.slice(0, 1), { writer_identity: "writer.binding_svc" }),
+    "binding_set_membership_mismatch",
+  );
+  assertUnchanged(
+    registerBindingSet(registry, entries.slice(0, 8), { writer_identity: "writer.binding_svc" }),
+    "binding_set_membership_mismatch",
+  );
+  assertUnchanged(
+    registerBindingSet(registry, [
+      ...entries,
+      {
+        logical_path_id: "target.extra",
+        binding: {
+          ...entries[0].binding,
+          binding_ref: "binding.target-row-extra",
+        },
+      },
+    ], { writer_identity: "writer.binding_svc" }),
+    "binding_set_membership_mismatch",
+  );
+  assertUnchanged(
+    registerBindingSet(registry, [
+      ...entries.slice(0, 8),
+      { ...entries[8], logical_path_id: "target.local_recover" },
+    ], { writer_identity: "writer.binding_svc" }),
+    "binding_set_membership_mismatch",
+  );
+  assertUnchanged(
+    registerBindingSet(registry, [
+      ...entries.slice(0, 8),
+      { ...entries[8], logical_path_id: entries[0].logical_path_id },
+    ], { writer_identity: "writer.binding_svc" }),
+    "binding_set_duplicate_logical_path_id",
+  );
+  assertUnchanged(
+    registerBindingSet(registry, [
+      ...entries.slice(0, 8),
+      { ...entries[8], binding: { ...entries[8].binding, binding_ref: entries[0].binding.binding_ref } },
+    ], { writer_identity: "writer.binding_svc" }),
+    "binding_set_duplicate_binding_ref",
+  );
+  assertUnchanged(
+    registerBindingSet(registry, [
+      ...entries.slice(0, 8),
+      {
+        ...entries[8],
+        binding: { ...entries[8].binding, role: "current" },
+      },
+    ], { writer_identity: "writer.binding_svc" }),
+    "binding_set_target_role_required",
+  );
+  assertUnchanged(
+    registerBindingSet(registry, [
+      ...entries.slice(0, 8),
+      { ...entries[8], logical_path_id: "target.not_registered" },
+    ], { writer_identity: "writer.binding_svc" }),
+    "binding_set_membership_mismatch",
+  );
+  assertUnchanged(
+    registerBindingSet(registry, entries.map((entry, index) => (
+      index === 8
+        ? { ...entry, binding: { ...entry.binding, binding_epoch: 2 } }
+        : entry
+    )), { writer_identity: "writer.binding_svc" }),
+    "binding_set_epoch_mismatch",
+  );
+
+  const missingRowRegistry = createPathRegistry({
+    authority: SYN_AUTHORITY,
+    rows: seedRows().filter((row) => row.logical_path_id !== "target.local_recovery"),
+  });
+  const missingRow = registerBindingSet(
+    missingRowRegistry,
+    entries,
+    { writer_identity: "writer.binding_svc" },
+  );
+  assert.equal(missingRow.hold_code, "unregistered_path");
+  assert.equal(missingRowRegistry.registry_revision, 1);
+  assert.equal(missingRowRegistry.records.get("target.dev").binding_refs.length, 0);
+
+  const wrongStateRegistry = createPathRegistry({
+    authority: SYN_AUTHORITY,
+    rows: seedRows().map((row) => (
+      row.logical_path_id === "target.dev" ? { ...row, current_state: "current" } : row
+    )),
+  });
+  const wrongState = registerBindingSet(
+    wrongStateRegistry,
+    entries,
+    { writer_identity: "writer.binding_svc" },
+  );
+  assert.equal(wrongState.hold_code, "binding_set_target_row_required");
+  assert.equal(wrongStateRegistry.registry_revision, 1);
+});
+
+test("registerBindingSet rejects OD-10 held authority and an existing target binding clash", () => {
+  const held = createPathRegistry({ authority: SEED_AUTHORITY, rows: seedRows() });
+  assert.equal(
+    registerBindingSet(held, targetBindingEntries(), { writer_identity: "writer.binding_svc" }).hold_code,
+    "authority_unresolved_od10",
+  );
+
+  const registry = createPathRegistry({ authority: SYN_AUTHORITY, rows: seedRows() });
+  const first = targetBindingEntries();
+  const bound = registerBindingSet(registry, first, { writer_identity: "writer.binding_svc" });
+  const conflict = registerBindingSet(bound, targetBindingEntries().map((entry, index) => (
+    index === 0
+      ? { ...entry, binding: { ...entry.binding, binding_ref: "binding.target-row-replacement" } }
+      : entry
+  )), { writer_identity: "writer.binding_svc" });
+  assert.equal(conflict.hold_code, "binding_set_binding_conflict");
+  assert.equal(conflict.status, "hold");
+  assert.equal(bound.registry_revision, registry.registry_revision + 1);
 });

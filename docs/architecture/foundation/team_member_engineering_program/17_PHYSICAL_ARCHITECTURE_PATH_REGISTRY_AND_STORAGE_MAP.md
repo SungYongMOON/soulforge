@@ -782,6 +782,16 @@ physical movement remain behind private binding/ACL/canary readback and exact
 enforcement wiring. R0 acceptance and OD-10 owner/projection assignments are
 recorded; they do not by themselves activate a writer or physical path.
 
+N2 contract update (2026-09-01): nine target Suite sibling rows and an atomic
+all-nine in-memory binding-set gate are public-safe and default held. A private
+`target.control` generation-store adapter has executable tests for exact
+Suite/target identity, externally pinned writer-exclusive ACL admission,
+create-only immutable generations, CAS pointer transitions, stale-lock recovery,
+revocation/reactivation, and path-free receipts. This is `CONTRACT_READY` only:
+the first actual private generation, ACL mutation, Registry activation, and all
+payload/file movement remain `HOLD` pending the exact N2 action packet and fresh
+review/readback.
+
 R4 has a bounded actual-provider foothold, not acceptance. The read-only Linear
 surface was rechecked as one entire workspace with 12 catalog projects, one
 team and 72 issues; the prior physical one-shot already used that whole-workspace

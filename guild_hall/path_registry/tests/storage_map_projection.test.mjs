@@ -59,8 +59,8 @@ test("full registry-driven coverage: one row per registry row, digest-bound", ()
     assert.equal(row.registry_snapshot_digest, SNAPSHOT.snapshot_digest);
     assert.ok(PANEL_STATES.includes(row.watch_state), row.watch_state);
   }
-  assert.equal(map.summary.coverage_registered, 41);
-  assert.equal(map.summary.coverage_expected, 41);
+  assert.equal(map.summary.coverage_registered, 50);
+  assert.equal(map.summary.coverage_expected, 50);
   assert.equal(
     map.rows.find((row) => row.logical_id === "workroot.bot_execution")?.row_kind,
     "work_root",
@@ -72,6 +72,12 @@ test("full registry-driven coverage: one row per registry row, digest-bound", ()
   const assetRows = map.rows.filter((row) => row.row_kind === "asset_class");
   assert.equal(assetRows.length, 9);
   assert.ok(assetRows.every((row) => row.watch_state === "hold"));
+  const targetRows = map.rows.filter((row) => row.logical_id.startsWith("target."));
+  assert.equal(targetRows.length, 9);
+  assert.ok(targetRows.every((row) => row.migration_state === "target"
+    && row.coverage_state === "missing_evidence"
+    && row.watch_state === "hold"
+    && row.hold_code === "authority_unresolved_od10"));
 });
 
 test("no evidence is never green: unknown rows, held rows hold, aggregate holds", () => {

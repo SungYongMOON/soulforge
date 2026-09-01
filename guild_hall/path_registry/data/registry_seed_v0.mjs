@@ -10,6 +10,8 @@
 // `registryReadiness` reports HOLD. No host-local absolute path, credential,
 // or private payload appears here.
 
+import { TARGET_SIBLING_BINDING_MAP } from "../src/path_registry_core.mjs";
+
 export const SEED_AUTHORITY = Object.freeze({
   registry_schema_owner: "hold:od-10.registry_schema_owner",
   private_binding_writer: "hold:od-10.private_binding_writer",
@@ -68,6 +70,28 @@ function rootRow(cls, overrides) {
       acceptance: HOLD_OWNER,
       backup_restore: HOLD_OWNER,
     },
+    ...overrides,
+  });
+}
+
+// Target Suite sibling rows are public-safe topology declarations only. Their
+// parent binding refs express the intended containment relation, while their
+// empty `binding_refs` arrays deliberately prove that N2 has not registered a
+// physical address, writer, ACL, or epoch yet.
+function targetRow(logicalPathId, overrides = {}) {
+  const topology = TARGET_SIBLING_BINDING_MAP[logicalPathId];
+  return row({
+    logical_path_id: logicalPathId,
+    row_kind: "root",
+    physical_root_class: topology.physical_root_class,
+    logical_owner_class: "target_suite_sibling",
+    parent_binding_ref: topology.parent_binding_ref,
+    asset_or_source_class: "target_suite_surface",
+    module_owner_ref: "docs.foundation.suite_structure",
+    sensitivity: "protected",
+    write_policy: "read_only",
+    backup_class: "authoritative",
+    current_state: "target",
     ...overrides,
   });
 }
@@ -165,6 +189,57 @@ export function seedRows() {
     rootRow("secret_owner_root", {
       sensitivity: "secret_ref_only", write_policy: "forbidden", backup_class: "forbidden",
       current_state: "target",
+    }),
+
+    // The nine target Suite siblings intentionally do not reuse the current
+    // reference-in-place rows below. A physical-root class is not an address:
+    // these public rows remain unbound and held until N2's private control-root
+    // sole writer admits exact binding refs, epochs, and readback evidence.
+    targetRow("target.dev"),
+    targetRow("target.install"),
+    targetRow("target.data"),
+    targetRow("target.workspaces", {
+      row_kind: "canonical_root",
+      logical_owner_class: "erp_target_canonical_materialization",
+      asset_or_source_class: "project_canonical_materialization",
+      product_refs: ["product.erp"],
+      portfolio_refs: ["sf-p02"],
+      module_owner_ref: "docs.workspace.project_model",
+      write_policy: "sole_writer",
+      sole_writer_ref: "hold:od-10.canonical_publisher",
+    }),
+    targetRow("target.workmeta", {
+      row_kind: "nested_plane",
+      logical_owner_class: "canonical_byte_lineage_plane",
+      asset_or_source_class: "canonical_byte_lineage",
+      product_refs: ["product.erp"],
+      portfolio_refs: ["sf-p02"],
+      module_owner_ref: "docs.workspace.project_model",
+      write_policy: "sole_writer",
+      sole_writer_ref: "hold:od-10.canonical_publisher",
+    }),
+    targetRow("target.control", {
+      write_policy: "sole_writer",
+      sole_writer_ref: "hold:od-10.private_binding_writer",
+      authorized_writer_refs: ["hold:od-10.private_binding_writer"],
+      backup_class: "authoritative",
+    }),
+    targetRow("target.private_state", {
+      row_kind: "nested_plane",
+      logical_owner_class: "target_private_continuity_plane",
+      asset_or_source_class: "target_private_continuity_plane",
+    }),
+    targetRow("target.packages", {
+      logical_owner_class: "target_inactive_package_plane",
+      asset_or_source_class: "target_inactive_package_surface",
+      write_policy: "append_create_only",
+    }),
+    targetRow("target.local_recovery", {
+      logical_owner_class: "target_local_recovery_plane",
+      asset_or_source_class: "target_local_recovery_surface",
+      write_policy: "rebuild_only",
+      sole_writer_ref: "hold:od-10.recovery_writer",
+      backup_class: "rebuildable",
     }),
 
     canonRow("registry"),
