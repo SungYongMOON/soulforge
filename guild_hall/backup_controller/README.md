@@ -70,16 +70,27 @@ observed state and compares:
 The one declared containment pair is the ERP database inside its owning
 directory. Every other containment between bound resources is an overlap.
 
+Before every payload hash or read, the actual reader strictly validates every
+`manifest.files[].path` and `installed_pack.controller_entry_relpath` as a safe
+normalized relative POSIX path (rejecting empty/dot/all-dot, absolute,
+drive-qualified, UNC/device, URL-like, backslash, traversal, normalized-path
+mismatch, duplicate and escaping paths) and validates the declared manifest
+recipe/digest structure before reading referenced payload bytes.
+
 ```
-node guild_hall/backup_controller/topology_v2_cli.mjs check --binding <absolute-path>
+node guild_hall/backup_controller/topology_v2_cli.mjs check --binding <absolute-path> [--evidence-out <absolute-path>]
 node guild_hall/backup_controller/topology_v2_cli.mjs generate --draft <absolute-path> --out <absolute-path>
 ```
 
 `generate` is the author-time leg that derives the frozen binding from observed
 state; freezing its output is what gives every later `check` something to fail
 against. A first `check` immediately after a `generate` therefore proves
-coherence, not drift. Neither mode prints an absolute path, and a green `check`
-is still `feature_state: off`: it authorizes no activation and no backup.
+coherence, not drift. Output and evidence paths are strictly confined to the
+approved control directory derived from the exact input binding or draft, use
+create-only and atomic temp-write/rename/readback semantics, and refuse
+protected/canonical/legacy/source roots and existing destinations. Neither mode
+prints an absolute path, and a green `check` is still `feature_state: off`: it
+authorizes no activation and no backup.
 
 ## Authority boundary
 

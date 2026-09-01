@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 
@@ -14,6 +14,7 @@ import {
   computeRealpathDigest,
   computeResourceIdentityDigest,
   generatePublicBindingV2,
+  isSafeRelativePosixPath,
   pathIdentity,
 } from './topology_v2_actual_reader.mjs';
 
@@ -197,7 +198,6 @@ test('a clean tree produces evidence the pure judge accepts', () => {
   assert.equal(verdict.activation_authority, false);
   assert.equal(verdict.backup_run_authorized, false);
 });
-
 test('every emitted string passes the shared local-path and secret guards', () => {
   const privateBinding = frozenPrivateBinding();
   const read = buildTopologyV2Evidence({ privateBinding, port: makePort(makeTree()), clock: CLOCK });
@@ -414,4 +414,194 @@ test('resource identity binds role, owner and location; realpath identity binds 
   assert.notEqual(digest, computeResourceIdentityDigest({ ...base, identity: `${base.identity}-2` }));
   assert.notEqual(digest, computeRealpathDigest(base.identity));
   assert.equal(computeRealpathDigest(base.identity), computeRealpathDigest(base.identity));
+});
+
+test('isSafeRelativePosixPath strictly accepts valid relative POSIX paths and rejects hostile shapes', () => {
+  // Valid paths
+  assert.equal(isSafeRelativePosixPath('README.md'), true);
+  assert.equal(isSafeRelativePosixPath('guild_hall/backup_controller/controller.mjs'), true);
+  assert.equal(isSafeRelativePosixPath('a-b_c.1/d.json'), true);
+
+  // Rejections: non-string, empty, null, types
+  assert.equal(isSafeRelativePosixPath(''), false);
+  assert.equal(isSafeRelativePosixPath(null), false);
+  assert.equal(isSafeRelativePosixPath(undefined), false);
+  assert.equal(isSafeRelativePosixPath(123), false);
+  assert.equal(isSafeRelativePosixPath({}), false);
+
+  // Rejections: traversal and dot / all-dot
+  assert.equal(isSafeRelativePosixPath('.'), false);
+  assert.equal(isSafeRelativePosixPath('..'), false);
+  assert.equal(isSafeRelativePosixPath('...'), false);
+  assert.equal(isSafeRelativePosixPath('....'), false);
+  assert.equal(isSafeRelativePosixPath('../evil.mjs'), false);
+  assert.equal(isSafeRelativePosixPath('a/../b'), false);
+  assert.equal(isSafeRelativePosixPath('a/../../b'), false);
+  assert.equal(isSafeRelativePosixPath('a/./b'), false);
+  assert.equal(isSafeRelativePosixPath('a/.../b'), false);
+
+  // Rejections: backslash, colon, absolute, drive, UNC, URL
+  assert.equal(isSafeRelativePosixPath('a\\b'), false);
+  assert.equal(isSafeRelativePosixPath('guild_hall\\backup_controller\\controller.mjs'), false);
+  assert.equal(isSafeRelativePosixPath('/etc/hosts'), false);
+  assert.equal(isSafeRelativePosixPath('//server/share/file.mjs'), false);
+  assert.equal(isSafeRelativePosixPath(`${'C'}:/windows/system32`), false);
+  assert.equal(isSafeRelativePosixPath(`${'D'}:file.mjs`), false);
+  assert.equal(isSafeRelativePosixPath('http://example.com/payload'), false);
+  assert.equal(isSafeRelativePosixPath('file:///etc/hosts'), false);
+
+  // Rejections: normalized mismatch (leading/trailing/double slashes)
+  assert.equal(isSafeRelativePosixPath('/guild_hall/backup_controller'), false);
+  assert.equal(isSafeRelativePosixPath('guild_hall/backup_controller/'), false);
+  assert.equal(isSafeRelativePosixPath('guild_hall//backup_controller'), false);
+  assert.equal(isSafeRelativePosixPath('a\0b'), false);
+});
+
+test('manifest path validation fails closed on hostile paths before any payload file is hashed', () => {
+  const privateBinding = frozenPrivateBinding();
+  const hostilePathCases = [
+    '../outside.mjs',
+    '../../etc/hosts',
+    'guild_hall/../controller.mjs',
+    'guild_hall/./controller.mjs',
+    'guild_hall/.../controller.mjs',
+    '.',
+    '..',
+    '...',
+    '/etc/hosts',
+    '//server/share/payload.mjs',
+    `${'C'}:/evil.mjs`,
+    `${'D'}:payload.mjs`,
+    'guild_hall\\controller.mjs',
+    'http://example.com/payload.mjs',
+    'guild_hall//backup_controller/controller.mjs',
+    'guild_hall/backup_controller/controller.mjs/',
+  ];
+
+  for (const hostilePath of hostilePathCases) {
+    let payloadReadAttempted = false;
+    const files = [
+      { path: hostilePath, sha256: sha256('x'), bytes: 1 },
+    ];
+    const hostileManifest = {
+      schema: 'soulforge.deployment_pack_manifest.v0',
+      pack_digest: recomputePackDigest(files),
+      files,
+    };
+    const tree = makeTree({
+      [`${PACK_ROOT}\\pack.manifest.json`]: {
+        kind: 'file',
+        is_symlink: false,
+        content: JSON.stringify(hostileManifest),
+      },
+    });
+    const port = makePort(tree);
+    const origHashFile = port.hashFile;
+    port.hashFile = (path) => {
+      if (path.includes('payload')) {
+        payloadReadAttempted = true;
+      }
+      return origHashFile(path);
+    };
+
+    const read = buildTopologyV2Evidence({ privateBinding, port, clock: CLOCK });
+    assert.equal(read.status, TOPOLOGY_V2_ACTUAL_READER_STATUS.HOLD, `expected HOLD for hostile path: ${hostilePath}`);
+    assert.deepEqual(read.holds, [HC.INSTALLED_PACK_MANIFEST_INVALID], `expected manifest invalid for: ${hostilePath}`);
+    assert.equal(payloadReadAttempted, false, `payload read must not be attempted for hostile path: ${hostilePath}`);
+  }
+});
+
+test('manifest duplicate paths and recipe/digest mismatch fail closed before payload read', () => {
+  const privateBinding = frozenPrivateBinding();
+
+  // Duplicate path in manifest
+  const dupFiles = [
+    { path: 'guild_hall/backup_controller/README.md', sha256: sha256('# 1\n'), bytes: 4 },
+    { path: 'guild_hall/backup_controller/README.md', sha256: sha256('# 2\n'), bytes: 4 },
+  ];
+  const dupManifest = {
+    schema: 'soulforge.deployment_pack_manifest.v0',
+    pack_digest: recomputePackDigest(dupFiles),
+    files: dupFiles,
+  };
+  const dupTree = makeTree({
+    [`${PACK_ROOT}\\pack.manifest.json`]: {
+      kind: 'file',
+      is_symlink: false,
+      content: JSON.stringify(dupManifest),
+    },
+  });
+  let payloadReadAttempted = false;
+  const dupPort = makePort(dupTree);
+  const origHash = dupPort.hashFile;
+  dupPort.hashFile = (path) => {
+    if (path.includes('payload')) payloadReadAttempted = true;
+    return origHash(path);
+  };
+  const dupRead = buildTopologyV2Evidence({ privateBinding, port: dupPort, clock: CLOCK });
+  assert.equal(dupRead.status, TOPOLOGY_V2_ACTUAL_READER_STATUS.HOLD);
+  assert.deepEqual(dupRead.holds, [HC.INSTALLED_PACK_MANIFEST_INVALID]);
+  assert.equal(payloadReadAttempted, false);
+
+  // Recipe digest mismatch: declared pack_digest does not match recomputed manifest digest
+  const validFiles = manifestEntries();
+  const tamperedDigestManifest = {
+    schema: 'soulforge.deployment_pack_manifest.v0',
+    pack_digest: sha256('tampered-digest'),
+    files: validFiles,
+  };
+  const mismatchTree = makeTree({
+    [`${PACK_ROOT}\\pack.manifest.json`]: {
+      kind: 'file',
+      is_symlink: false,
+      content: JSON.stringify(tamperedDigestManifest),
+    },
+  });
+  payloadReadAttempted = false;
+  const mismatchPort = makePort(mismatchTree);
+  mismatchPort.hashFile = (path) => {
+    if (path.includes('payload')) payloadReadAttempted = true;
+    return origHash(path);
+  };
+  const mismatchRead = buildTopologyV2Evidence({ privateBinding, port: mismatchPort, clock: CLOCK });
+  assert.equal(mismatchRead.status, TOPOLOGY_V2_ACTUAL_READER_STATUS.HOLD);
+  assert.deepEqual(mismatchRead.holds, [HC.INSTALLED_PACK_MANIFEST_INVALID]);
+  assert.equal(payloadReadAttempted, false);
+});
+
+test('hostile installed_pack.controller_entry_relpath fails private binding validation and generation', () => {
+  const privateBinding = frozenPrivateBinding();
+  const hostileRelpaths = [
+    '../../controller.mjs',
+    '/controller.mjs',
+    'guild_hall\\controller.mjs',
+    `${'C'}:/controller.mjs`,
+    '.',
+    '..',
+    '...',
+    'guild_hall/./controller.mjs',
+    'guild_hall/../controller.mjs',
+    '',
+  ];
+
+  for (const hostileRelpath of hostileRelpaths) {
+    const corrupted = {
+      ...privateBinding,
+      installed_pack: {
+        ...privateBinding.installed_pack,
+        controller_entry_relpath: hostileRelpath,
+      },
+    };
+    const read = buildTopologyV2Evidence({ privateBinding: corrupted, port: makePort(makeTree()), clock: CLOCK });
+    assert.equal(read.status, TOPOLOGY_V2_ACTUAL_READER_STATUS.HOLD, `expected HOLD for controller relpath: ${hostileRelpath}`);
+    assert.deepEqual(read.holds, [HC.PRIVATE_BINDING_INVALID]);
+
+    const generated = generatePublicBindingV2({
+      privateBinding: corrupted,
+      port: makePort(makeTree()),
+      refs: REFS,
+      packDigest: `sha256:${packManifest().pack_digest}`,
+    });
+    assert.equal(generated, null, `expected null generated binding for: ${hostileRelpath}`);
+  }
 });

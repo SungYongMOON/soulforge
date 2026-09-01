@@ -104,6 +104,30 @@ const SHA256_PREFIXED = /^sha256:[a-f0-9]{64}$/u;
 const SHA256_HEX = /^[a-f0-9]{64}$/u;
 const UTC_MS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 
+const SAFE_POSIX_REL_PATH = /^[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*$/u;
+
+/**
+ * Validates a safe normalized relative POSIX path.
+ * Rejects:
+ * - non-string or empty string
+ * - backslashes or colons (drives, URLs, streams)
+ * - NUL bytes or control characters
+ * - leading slash, trailing slash, double slashes
+ * - dot (.) or all-dot (.., ..., etc.) segments
+ * - traversal or escaping segments
+ * - characters outside the safe POSIX identifier/filename character set
+ */
+export function isSafeRelativePosixPath(relPath) {
+  if (typeof relPath !== 'string' || relPath.length === 0) return false;
+  if (relPath.includes('\\') || relPath.includes(':') || relPath.includes('\0')) return false;
+  if (!SAFE_POSIX_REL_PATH.test(relPath)) return false;
+  const segments = relPath.split('/');
+  for (const segment of segments) {
+    if (/^\.+$/u.test(segment)) return false;
+  }
+  return true;
+}
+
 function isPlainObject(value) {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
   const proto = Object.getPrototypeOf(value);
@@ -168,7 +192,7 @@ function validPrivateBinding(binding) {
     || typeof binding.receipt_ref !== 'string') return false;
   if (!exactKeys(binding.installed_pack, INSTALLED_PACK_FIELDS)) return false;
   if (typeof binding.installed_pack.installed_root_path !== 'string'
-    || typeof binding.installed_pack.controller_entry_relpath !== 'string') return false;
+    || !isSafeRelativePosixPath(binding.installed_pack.controller_entry_relpath)) return false;
   if (!isPlainObject(binding.inspection_refs)
     || !TOPOLOGY_V2_RESOURCE_IDS.every((id) => typeof binding.inspection_refs[id] === 'string')
     || Object.keys(binding.inspection_refs).length !== TOPOLOGY_V2_RESOURCE_IDS.length) return false;
@@ -328,10 +352,27 @@ export function buildTopologyV2Evidence({ privateBinding, port, clock } = {}) {
   }
   if (!isPlainObject(manifest) || typeof manifest.pack_digest !== 'string'
     || !SHA256_HEX.test(manifest.pack_digest) || !Array.isArray(manifest.files)
-    || manifest.files.length === 0
-    || !manifest.files.every((entry) => isPlainObject(entry) && typeof entry.path === 'string'
-      && typeof entry.sha256 === 'string' && SHA256_HEX.test(entry.sha256)
-      && Number.isSafeInteger(entry.bytes) && entry.bytes >= 0)) {
+    || manifest.files.length === 0) {
+    return hold([...holds, HC.INSTALLED_PACK_MANIFEST_INVALID], evaluatedAt);
+  }
+
+  const seenManifestPaths = new Set();
+  for (const entry of manifest.files) {
+    if (!isPlainObject(entry) || typeof entry.path !== 'string'
+      || !isSafeRelativePosixPath(entry.path)
+      || typeof entry.sha256 !== 'string' || !SHA256_HEX.test(entry.sha256)
+      || !Number.isSafeInteger(entry.bytes) || entry.bytes < 0) {
+      return hold([...holds, HC.INSTALLED_PACK_MANIFEST_INVALID], evaluatedAt);
+    }
+    if (seenManifestPaths.has(entry.path)) {
+      return hold([...holds, HC.INSTALLED_PACK_MANIFEST_INVALID], evaluatedAt);
+    }
+    seenManifestPaths.add(entry.path);
+  }
+
+  // Validate the manifest recipe/digest structure before reading referenced payload bytes:
+  // Declared pack_digest must match the recomputed digest over declared manifest files.
+  if (recomputePackDigest(manifest.files) !== manifest.pack_digest) {
     return hold([...holds, HC.INSTALLED_PACK_MANIFEST_INVALID], evaluatedAt);
   }
 
@@ -495,6 +536,11 @@ export function generatePublicBindingV2({ privateBinding, port, refs, packDigest
   if (!validPort(port)) return null;
   if (!isPlainObject(privateBinding) || !isPlainObject(privateBinding.resources)) return null;
   if (!isPlainObject(refs) || typeof packDigest !== 'string' || !SHA256_PREFIXED.test(packDigest)) return null;
+  if (!isPlainObject(privateBinding.installed_pack)
+    || typeof privateBinding.installed_pack.installed_root_path !== 'string'
+    || !isSafeRelativePosixPath(privateBinding.installed_pack.controller_entry_relpath)) {
+    return null;
+  }
   const identityOf = (resourceId) => {
     const declared = privateBinding.resources[resourceId];
     const real = port.realpath(declared.path);

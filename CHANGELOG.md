@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-09-02 - Backup Controller topology v2 path and CLI output confinement hardening, Pack 0.1.3
+
+- Hardened `topology_v2_actual_reader.mjs` with strict relative POSIX path validation (`isSafeRelativePosixPath`) for all manifest `files[].path` and `installed_pack.controller_entry_relpath`. Rejects empty/dot/all-dot, absolute, drive-qualified, UNC/device, URL-like, backslash, traversal, normalized-path mismatch, duplicate and escaping paths before opening or hashing any payload file on disk.
+- Added manifest recipe/digest structure verification (`recomputePackDigest(manifest.files) === manifest.pack_digest`) before reading referenced payload bytes, failing closed with `TOPOLOGY_V2_ACTUAL_INSTALLED_PACK_MANIFEST_INVALID`.
+- Closed `topology_v2_cli.mjs` output overwrite and escape gaps: `--out` and `--evidence-out` paths are strictly confined to the approved control directory derived from the exact input binding/draft, refuse protected/canonical/legacy/source roots (`_workspaces`, `_workmeta`, `private-state`, ERP roots, runtime checkout), enforce create-only semantics (refusing existing destinations), and use atomic temp-write, readback verification, rename, and destination readback semantics with automatic partial-write cleanup.
+- Added hostile tests in `topology_v2_actual_reader.test.mjs` and dedicated `topology_v2_cli.test.mjs` for traversal, absolute, drive, UNC, backslash, dot, all-dot, duplicate paths, arbitrary output roots, protected-root targeting, overwrite refusal, partial-write cleanup, and replay behavior.
+- Bumped Backup-Recovery Pack spec to `0.1.3` in `emit_backup_recovery_spec.mjs` and `backup_recovery_extension.spec.json` with added `topology_v2_cli.test.mjs` validator and updated release notes ref.
+
 ## 2026-09-02 - Backup Controller topology v2 actual reader and Pack 0.1.2
 
 - Added the read-only other half of the default-OFF topology v2 preflight.
