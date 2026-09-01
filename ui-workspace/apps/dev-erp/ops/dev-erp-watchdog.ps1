@@ -12,17 +12,48 @@ param(
   [int]$ChatContextTurns = 5,
   [int]$ChatTimeoutMs = 45000,
   [int]$QueueWaitMs = 60000,
-  [int]$LlmConcurrency = 1
+  [int]$LlmConcurrency = 1,
+  [string]$BackendRoot = "",
+  [string]$DatabasePath = "",
+  [string]$LogRoot = ""
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "runtime-path-contract.ps1")
 
 $App = Join-Path $RuntimeRoot "ui-workspace\apps\dev-erp"
-$LogDir = Join-Path $App "logs\watchdog"
+$InstalledLayout = Get-DevErpInstalledLayout -PathValue $App
+
+if ([string]::IsNullOrWhiteSpace($BackendRoot) -and $InstalledLayout.installed) {
+  $BackendRoot = $InstalledLayout.suite_root
+}
+if (-not [string]::IsNullOrWhiteSpace($BackendRoot)) {
+  $BackendRoot = Assert-DevErpExternalRuntimePath -Name "BackendRoot" -PathValue $BackendRoot -InstalledLayout $InstalledLayout
+}
+if ($InstalledLayout.installed -and [string]::IsNullOrWhiteSpace($DatabasePath)) {
+  throw "Installed runtime watchdog requires an explicit external -DatabasePath."
+}
+if (-not [string]::IsNullOrWhiteSpace($DatabasePath)) {
+  $DatabasePath = Assert-DevErpExternalRuntimePath -Name "DatabasePath" -PathValue $DatabasePath -InstalledLayout $InstalledLayout
+}
+
+if ([string]::IsNullOrWhiteSpace($LogRoot)) {
+  if (-not [string]::IsNullOrWhiteSpace($env:DEV_ERP_LOG_ROOT)) {
+    $LogRoot = $env:DEV_ERP_LOG_ROOT
+  } else {
+    if ($InstalledLayout.installed) {
+      $LogRoot = Join-Path $InstalledLayout.control_root "runtime-logs\dev-erp"
+    } else {
+      $LogRoot = Join-Path $App "logs"
+    }
+  }
+}
+$LogRoot = Assert-DevErpExternalRuntimePath -Name "LogRoot" -PathValue $LogRoot -InstalledLayout $InstalledLayout
+$LogDir = Join-Path $LogRoot "watchdog"
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 $LogPath = Join-Path $LogDir ("watchdog-" + (Get-Date -Format "yyyy-MM-dd") + ".jsonl")
 $StatePath = Join-Path $LogDir "watchdog-state.json"
-$MaintenanceMarker = Join-Path $App "logs\maintenance.lock"
+$MaintenanceMarker = Join-Path $LogRoot "maintenance.lock"
 
 function Write-WatchdogLog($Status, $Message, $Extra = @{}) {
   $row = [ordered]@{

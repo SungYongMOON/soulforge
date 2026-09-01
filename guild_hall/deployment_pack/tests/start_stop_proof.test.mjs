@@ -43,7 +43,9 @@ test("probe env is neutralized, not inherited: DEV_ERP_* wiped, git context stri
   assert.equal(env.DEV_ERP_AUTOSYNC, "0");
   assert.equal(env.DEV_ERP_NO_TLS, "1");
   assert.equal(env.DEV_ERP_CODEX_TASK_BRIDGE, "mock", "the probe can never launch anything external");
-  for (const key of ["DEV_ERP_BACKEND_ROOT", "DEV_ERP_CODEX_HOME", "DEV_ERP_CODEX_WORKSPACE_REGISTRY"]) {
+  assert.equal("DEV_ERP_BACKEND_ROOT" in env, false,
+    "the real installed-server proof must exercise the explicit --backend_root contract, not an env fallback");
+  for (const key of ["DEV_ERP_CODEX_HOME", "DEV_ERP_CODEX_WORKSPACE_REGISTRY"]) {
     assert.equal(env[key].startsWith(probeDir + sep), true, `${key} must live under the probe dir`);
   }
 });

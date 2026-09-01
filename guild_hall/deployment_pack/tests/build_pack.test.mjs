@@ -241,7 +241,7 @@ test("the real backup_recovery_extension spec builds: module pack with full-suit
   const built = buildPack(specPath, { rootDir: REPO_ROOT, outDir: tempDir("outBackupRec"), clock: fixedClock, runner: okRunner });
   assert.equal(built.manifest.pack_id, "backup_recovery_extension");
   // Pinned so growth is a conscious re-emit (the emitter's --check gates it).
-  assert.equal(built.manifest.files.length, 72);
+  assert.equal(built.manifest.files.length, 76);
   assert.equal(built.candidate.claimed_gate, "contract",
     "capture/restore/acceptance stay unclaimed - the initial gate needs Owner-side human acceptance");
   const spec = loadPackSpec(specPath);
@@ -269,6 +269,12 @@ test("the real backup_recovery_extension spec builds: module pack with full-suit
   assert.equal(spec.content_roles.validators.includes(
     "guild_hall/backup_controller/linear_lb1_project_index_backfill.test.mjs",
   ), true, "create-or-verify replay and drift checks stay in installed smoke");
+  assert.equal(spec.content_roles.recovery_policy_adapter.includes(
+    "guild_hall/backup_controller/preflight_v2.mjs",
+  ), true, "the default-OFF target-topology preflight travels with the recovery pack");
+  assert.equal(spec.content_roles.validators.includes(
+    "guild_hall/backup_controller/preflight_v2.test.mjs",
+  ), true, "the target-topology hostile suite stays in installed smoke");
   assert.equal(spec.installed_smoke_entries.length, spec.smoke_test_entries.length,
     "the declared installed smoke is the FULL module suite");
   assert.deepEqual(spec.installed_smoke_excluded, []);
@@ -424,7 +430,7 @@ test("end to end against the REAL tracked hpp_server_pack spec: build, install, 
     // The set is the computed import closure PLUS the fs-read data closure
     // PLUS the vendored npm closure (yaml + ajv and its runtime deps under
     // payload-root node_modules) — pinned so growth is a conscious re-emit.
-    assert.equal(built.manifest.files.length, 1020);
+    assert.equal(built.manifest.files.length, 1022);
     assert.equal(built.candidate.claimed_gate, "contract");
     assert.equal(built.manifest.files.some((entry) => entry.path.startsWith("guild_hall/")), true,
       "the pack carries the guild_hall modules the server actually imports");
@@ -432,6 +438,8 @@ test("end to end against the REAL tracked hpp_server_pack spec: build, install, 
       "the vendored npm closure travels at the payload root");
     assert.equal(built.manifest.files.some((entry) => entry.path.endsWith("dev-erp-watchdog.ps1")), true,
       "the service-only watchdog travels after its PC-reboot surface is removed");
+    assert.equal(built.manifest.files.some((entry) => entry.path.endsWith("runtime-path-contract.ps1")), true,
+      "the shared installed-root and mutable-control-root contract travels with every launcher");
     // The installed-smoke declaration PARTITIONS the full suite: runnable
     // subset + evidence-backed exclusion ledger, nothing silent.
     const spec = loadPackSpec(specPath);

@@ -18,6 +18,7 @@ param(
   [string]$MorningBriefDomainAllow = "",
   [switch]$EnableCodexWorker,
   [string]$BackendRoot = "",
+  [string]$LogRoot = "",
   [string]$DatabasePath = "",
   [string]$TlsCertPath = "",
   [string]$TlsKeyPath = "",
@@ -27,6 +28,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "runtime-path-contract.ps1")
 
 function Resolve-ExplicitTlsPath {
   param(
@@ -88,22 +90,40 @@ if (-not $NodeCmd) { throw "node.exe not found." }
 $NodeExe = [IO.Path]::GetFullPath($NodeCmd.Source)
 $ListenHost = if ($ListenOnLan) { "0.0.0.0" } else { "127.0.0.1" }
 
+$InstalledLayout = Get-DevErpInstalledLayout -PathValue $App
+
 if ([string]::IsNullOrWhiteSpace($BackendRoot)) {
   if (-not [string]::IsNullOrWhiteSpace($env:DEV_ERP_BACKEND_ROOT)) {
     $BackendRoot = $env:DEV_ERP_BACKEND_ROOT
+  } elseif ($InstalledLayout.installed) {
+    $BackendRoot = $InstalledLayout.suite_root
   } else {
     $RuntimeRoot = (Resolve-Path -LiteralPath (Join-Path $App "..\..\..")).Path
     $BackendRoot = Join-Path (Split-Path -Parent $RuntimeRoot) "Soulforge"
   }
 }
-$BackendRoot = [IO.Path]::GetFullPath($BackendRoot)
+$BackendRoot = Assert-DevErpExternalRuntimePath -Name "BackendRoot" -PathValue $BackendRoot -InstalledLayout $InstalledLayout
+
+if ([string]::IsNullOrWhiteSpace($LogRoot)) {
+  if (-not [string]::IsNullOrWhiteSpace($env:DEV_ERP_LOG_ROOT)) {
+    $LogRoot = $env:DEV_ERP_LOG_ROOT
+  } elseif ($InstalledLayout.installed) {
+    $LogRoot = Join-Path $InstalledLayout.control_root "runtime-logs\dev-erp"
+  } else {
+    $LogRoot = Join-Path $App "logs"
+  }
+}
+$LogRoot = Assert-DevErpExternalRuntimePath -Name "LogRoot" -PathValue $LogRoot -InstalledLayout $InstalledLayout
 
 $DatabaseSummary = "default"
+if ($InstalledLayout.installed -and [string]::IsNullOrWhiteSpace($DatabasePath)) {
+  throw "Installed runtime requires an explicit external -DatabasePath."
+}
 if (-not [string]::IsNullOrWhiteSpace($DatabasePath)) {
   if (-not [IO.Path]::IsPathRooted($DatabasePath)) {
     $DatabasePath = Join-Path $App $DatabasePath
   }
-  $DatabasePath = [IO.Path]::GetFullPath($DatabasePath)
+  $DatabasePath = Assert-DevErpExternalRuntimePath -Name "DatabasePath" -PathValue $DatabasePath -InstalledLayout $InstalledLayout
   $DatabaseSummary = "explicit"
 }
 
@@ -112,6 +132,7 @@ $ProcessArgs = @(
   "--host", $ListenHost,
   "--port", [string]$Port,
   "--knowledge_shell_root", $BackendRoot,
+  "--backend_root", $BackendRoot,
   "--no-real-meta",
   "--no-fixture"
 )
@@ -351,8 +372,9 @@ if ($EnableCodexWorker) {
   }
 }
 $env:DEV_ERP_BACKEND_ROOT = $BackendRoot
+$env:DEV_ERP_LOG_ROOT = $LogRoot
 
-$LogDir = Join-Path $App "logs\service"
+$LogDir = Join-Path $LogRoot "service"
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 
 function ConvertTo-ProcessArgument {

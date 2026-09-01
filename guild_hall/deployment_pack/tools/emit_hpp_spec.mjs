@@ -140,6 +140,7 @@ const contentRoles = {
   // fs-read data closure above.
   server_modules: [...new Set([...appCode, ...sharedCode, ...listFilesRecursive(`${APP}/static`), ...dataReads])].sort(),
   control_data_plane_services: [
+    "ui-workspace/apps/dev-erp/ops/runtime-path-contract.ps1",
     "ui-workspace/apps/dev-erp/ops/run-dev-erp-background.ps1",
     "ui-workspace/apps/dev-erp/ops/dev-erp-watchdog.ps1",
     "ui-workspace/apps/dev-erp/ops/install-dev-erp-nssm.ps1",
@@ -179,7 +180,7 @@ reviewed.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 const spec = {
   schema: "soulforge.deployment_pack_spec.v0",
   pack_id: "hpp_server_pack",
-  version: "0.1.4",
+  version: "0.1.6",
   host_effect_policy: {
     reboot: "forbidden",
     driver_change: "forbidden",
@@ -198,7 +199,7 @@ const spec = {
     .map((entry) => entry.replace("ui-workspace/apps/dev-erp/", ""))
     .filter((entry) => !INSTALLED_SMOKE_EXCLUDED.some((exclusion) => exclusion.path === entry)),
   installed_smoke_excluded: INSTALLED_SMOKE_EXCLUDED,
-  release_notes_ref: "release_notes.hpp_server_pack.v0_1_4",
+  release_notes_ref: "release_notes.hpp_server_pack.v0_1_6",
   install_manual_ref: "manual.install.hpp_server_pack",
   upgrade_manual_ref: "manual.upgrade.hpp_server_pack",
   rollback_manual_ref: "manual.rollback.hpp_server_pack",

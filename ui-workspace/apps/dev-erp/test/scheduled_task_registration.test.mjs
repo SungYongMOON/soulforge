@@ -10,6 +10,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.resolve(HERE, "..");
 const SOURCE_LAUNCHER = path.join(APP, "ops", "run-dev-erp-background.ps1");
 const SOURCE_REGISTRAR = path.join(APP, "ops", "register-dev-erp-scheduled-task.ps1");
+const SOURCE_RUNTIME_PATH_CONTRACT = path.join(APP, "ops", "runtime-path-contract.ps1");
 const WINDOWS_ROOT = process.env.SystemRoot || process.env.WINDIR || path.parse(process.execPath).root;
 const POWERSHELL = path.join(
   WINDOWS_ROOT,
@@ -44,16 +45,20 @@ function runPowerShellCommand(command) {
   });
 }
 
-async function createFixture() {
+async function createFixture({ installedRuntime = false } = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), "dev-erp-scheduled-task-"));
-  const app = path.join(root, "ui-workspace", "apps", "dev-erp");
+  const runtimeRoot = installedRuntime
+    ? path.join(root, "install", "server-pack", "0.1.5", "payload")
+    : root;
+  const app = path.join(runtimeRoot, "ui-workspace", "apps", "dev-erp");
   const ops = path.join(app, "ops");
   await mkdir(ops, { recursive: true });
   const launcher = path.join(ops, "run-dev-erp-background.ps1");
   const registrar = path.join(ops, "register-dev-erp-scheduled-task.ps1");
   await copyFile(SOURCE_LAUNCHER, launcher);
   await copyFile(SOURCE_REGISTRAR, registrar);
-  return { root, app, launcher, registrar };
+  await copyFile(SOURCE_RUNTIME_PATH_CONTRACT, path.join(ops, "runtime-path-contract.ps1"));
+  return { root, runtimeRoot, app, launcher, registrar };
 }
 
 function task({
@@ -83,11 +88,37 @@ function invokeRegistrar(fixture, inventory, rawArguments = "", extra = []) {
   const command = [
     ...inventoryPrelude(inventory),
     ...extra,
-    `& ${powerShellLiteral(fixture.registrar)} -RuntimeRoot ${powerShellLiteral(fixture.root)} ${rawArguments}`,
+    `& ${powerShellLiteral(fixture.registrar)} -RuntimeRoot ${powerShellLiteral(fixture.runtimeRoot)} ${rawArguments}`,
     "if ($null -ne $global:RegistrationCapture) { 'CAPTURE=' + ($global:RegistrationCapture | ConvertTo-Json -Compress -Depth 5) }",
   ].join("; ");
   return runPowerShellCommand(command);
 }
+
+test("installed scheduled-task registration requires an explicit rooted external database", {
+  skip: process.platform !== "win32",
+}, async () => {
+  const fixture = await createFixture({ installedRuntime: true });
+  try {
+    const missing = await invokeRegistrar(fixture, []);
+    assert.notEqual(missing.code, 0);
+    assert.match(`${missing.stdout}\n${missing.stderr}`, /explicit rooted external DatabasePath/);
+
+    const relative = await invokeRegistrar(fixture, [], "-DatabasePath data\\dev-erp.db");
+    assert.notEqual(relative.code, 0);
+    assert.match(`${relative.stdout}\n${relative.stderr}`, /explicit rooted external DatabasePath/);
+
+    const inside = await invokeRegistrar(fixture, [], `-DatabasePath ${powerShellLiteral(path.join(fixture.app, "data", "dev-erp.db"))}`);
+    assert.notEqual(inside.code, 0);
+    assert.match(`${inside.stdout}\n${inside.stderr}`, /DatabasePath must resolve outside/);
+
+    const externalDb = path.join(fixture.root, "control", "runtime-state", "dev-erp.db");
+    const valid = await invokeRegistrar(fixture, [], `-DatabasePath ${powerShellLiteral(externalDb)}`);
+    assert.equal(valid.code, 0, `${valid.stdout}\n${valid.stderr}`);
+    assert.match(valid.stdout, /audit passed/);
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
 
 function legacyLauncherAction(fixture) {
   return `-NoProfile -ExecutionPolicy Bypass -File "${fixture.launcher}" -SecureCookie`;

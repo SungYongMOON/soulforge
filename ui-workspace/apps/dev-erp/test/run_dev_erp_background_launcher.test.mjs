@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import { mkdtemp, mkdir, copyFile, readFile, rm, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdtemp, mkdir, copyFile, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { request } from "node:http";
 import net from "node:net";
 import os from "node:os";
@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SOURCE_LAUNCHER = path.resolve(HERE, "..", "ops", "run-dev-erp-background.ps1");
+const SOURCE_RUNTIME_PATH_CONTRACT = path.resolve(HERE, "..", "ops", "runtime-path-contract.ps1");
 const SOURCE_START_BAT = path.resolve(HERE, "..", "start-windows.bat");
 const PROTECTED_RUNTIME_PORT = 4300;
 const WINDOWS_ROOT = process.env.SystemRoot || process.env.WINDIR || path.parse(process.execPath).root;
@@ -92,6 +93,28 @@ function windowsCommandLine(arguments_) {
   }).join(" ");
 }
 
+async function snapshotTree(root) {
+  const rows = [];
+  const walk = async (directory, prefix = "") => {
+    const entries = await readdir(directory, { withFileTypes: true });
+    for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+      const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+      const absolute = path.join(directory, entry.name);
+      if (entry.isDirectory()) await walk(absolute, relative);
+      else {
+        const bytes = await readFile(absolute);
+        rows.push({
+          path: relative,
+          bytes: bytes.length,
+          sha256: createHash("sha256").update(bytes).digest("hex"),
+        });
+      }
+    }
+  };
+  await walk(root);
+  return rows;
+}
+
 async function reservePort(excluded = new Set()) {
   while (true) {
     const port = await new Promise((resolve, reject) => {
@@ -151,22 +174,29 @@ async function createLauncherFixture({
   parentControlPort = 0,
   shutdownExitCode = 0,
   autoExitMilliseconds = 0,
+  installedRuntime = false,
 } = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), "dev-erp-launcher-"));
-  const app = path.join(root, "ui-workspace", "apps", "dev-erp");
+  const stateRoot = path.join(root, "fixture-state");
+  const app = installedRuntime
+    ? path.join(root, "install", "server-pack", "0.1.5", "payload", "ui-workspace", "apps", "dev-erp")
+    : path.join(root, "ui-workspace", "apps", "dev-erp");
   const ops = path.join(app, "ops");
   await mkdir(ops, { recursive: true });
+  await mkdir(stateRoot, { recursive: true });
   const launcher = path.join(ops, "run-dev-erp-background.ps1");
   const serverPath = path.join(app, "server.mjs");
   const shutdownToken = randomUUID();
   await copyFile(SOURCE_LAUNCHER, launcher);
+  await copyFile(SOURCE_RUNTIME_PATH_CONTRACT, path.join(ops, "runtime-path-contract.ps1"));
   await writeFile(serverPath, `
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
+const stateRoot = ${JSON.stringify(stateRoot)};
 const value = (name, fallback) => {
   const index = process.argv.indexOf(name);
   return index >= 0 ? process.argv[index + 1] : fallback;
@@ -178,9 +208,16 @@ const delegateListener = ${JSON.stringify(delegateListener)};
 const parentControlPort = ${JSON.stringify(parentControlPort)};
 const shutdownExitCode = ${JSON.stringify(shutdownExitCode)};
 const autoExitMilliseconds = ${JSON.stringify(autoExitMilliseconds)};
-writeFileSync(path.join(here, "fixture.pid"), String(process.pid));
-writeFileSync(path.join(here, "fixture.argv.json"), JSON.stringify(process.argv.slice(1)));
-writeFileSync(path.join(here, "fixture.env.json"), JSON.stringify({
+const databasePath = value("--db", "");
+if (databasePath) {
+  mkdirSync(path.dirname(databasePath), { recursive: true });
+  writeFileSync(databasePath, "fixture-db");
+  writeFileSync(databasePath + "-wal", "fixture-wal");
+  writeFileSync(databasePath + "-shm", "fixture-shm");
+}
+writeFileSync(path.join(stateRoot, "fixture.pid"), String(process.pid));
+writeFileSync(path.join(stateRoot, "fixture.argv.json"), JSON.stringify(process.argv.slice(1)));
+writeFileSync(path.join(stateRoot, "fixture.env.json"), JSON.stringify({
   chat_provider: process.env.ERP_CHAT_PROVIDER || null,
   mail_collect: process.env.DEV_ERP_MAIL_COLLECT_SEC || null,
   auto_intake: process.env.DEV_ERP_AUTO_INTAKE || null,
@@ -214,7 +251,7 @@ const server = createServer((req, res) => {
 });
 if (delegateListener) {
   server.listen(parentControlPort, "127.0.0.1", () => {
-    writeFileSync(path.join(here, "parent-control-ready"), "ready");
+    writeFileSync(path.join(stateRoot, "parent-control-ready"), "ready");
     const child = spawn(process.execPath, [
       path.join(here, "delegated-listener.mjs"),
       String(port),
@@ -252,10 +289,10 @@ setTimeout(() => server.close(() => process.exit(0)), 60_000).unref();
     app,
     launcher,
     serverPath,
-    pidFile: path.join(app, "fixture.pid"),
-    envFile: path.join(app, "fixture.env.json"),
-    argvFile: path.join(app, "fixture.argv.json"),
-    parentControlReadyFile: path.join(app, "parent-control-ready"),
+    pidFile: path.join(stateRoot, "fixture.pid"),
+    envFile: path.join(stateRoot, "fixture.env.json"),
+    argvFile: path.join(stateRoot, "fixture.argv.json"),
+    parentControlReadyFile: path.join(stateRoot, "parent-control-ready"),
     shutdownToken,
   };
 }
@@ -362,6 +399,57 @@ test("background launcher defaults to loopback core-only posture and requires op
   }
 });
 
+test("runtime-pack launcher defaults backend and logs outside immutable payload", {
+  skip: process.platform !== "win32",
+}, async () => {
+  const fixture = await createLauncherFixture({ installedRuntime: true });
+  const port = await reservePort();
+  let fixtureStarted = false;
+  try {
+    const payloadRoot = path.join(fixture.root, "install", "server-pack", "0.1.5", "payload");
+    const payloadBefore = await snapshotTree(payloadRoot);
+    const databasePath = path.join(fixture.root, "control", "runtime-state", "dev-erp.db");
+    const result = await runPowerShell(fixture.launcher, ["-Port", String(port), "-DatabasePath", databasePath]);
+    fixtureStarted = result.code === 0;
+    assert.equal(result.code, 0, `${result.stdout}\n${result.stderr}`);
+    await waitForHttp(port);
+    const suiteRoot = fixture.root;
+    const argv = JSON.parse(await readFile(fixture.argvFile, "utf8"));
+    assert.deepEqual(argv.slice(0, 10), [
+      fixture.serverPath,
+      "--host", "127.0.0.1",
+      "--port", String(port),
+      "--knowledge_shell_root", suiteRoot,
+      "--backend_root", suiteRoot,
+      "--no-real-meta",
+    ]);
+    assert.equal(argv.includes(path.join(fixture.app, "logs")), false);
+    const serviceLogRoot = path.join(suiteRoot, "control", "runtime-logs", "dev-erp", "service");
+    assert.equal(await readFile(path.join(serviceLogRoot, "dev-erp.out.log"), "utf8"), "");
+    assert.equal(await readFile(path.join(fixture.app, "logs", "service", "dev-erp.out.log"), "utf8").then(() => true, () => false), false);
+    assert.equal(await readFile(databasePath, "utf8"), "fixture-db");
+    assert.equal(await readFile(`${databasePath}-wal`, "utf8"), "fixture-wal");
+    assert.equal(await readFile(`${databasePath}-shm`, "utf8"), "fixture-shm");
+
+    const payloadDb = await runPowerShell(fixture.launcher, ["-Port", String(await reservePort()), "-DatabasePath", path.join(fixture.app, "data", "dev-erp.db"), "-DryRun"]);
+    assert.notEqual(payloadDb.code, 0);
+    assert.match(`${payloadDb.stdout}\n${payloadDb.stderr}`, /DatabasePath must resolve outside/);
+    const payloadBackend = await runPowerShell(fixture.launcher, ["-Port", String(await reservePort()), "-DatabasePath", databasePath, "-BackendRoot", path.join(fixture.app, "data"), "-DryRun"]);
+    assert.notEqual(payloadBackend.code, 0);
+    assert.match(`${payloadBackend.stdout}\n${payloadBackend.stderr}`, /BackendRoot must resolve outside/);
+    const payloadLogs = await runPowerShell(fixture.launcher, ["-Port", String(await reservePort()), "-DatabasePath", databasePath, "-LogRoot", path.join(fixture.app, "logs"), "-DryRun"]);
+    assert.notEqual(payloadLogs.code, 0);
+    assert.match(`${payloadLogs.stdout}\n${payloadLogs.stderr}`, /LogRoot must resolve outside/);
+    await shutdownFixture(port, fixture.shutdownToken);
+    fixtureStarted = false;
+    assert.deepEqual(await snapshotTree(payloadRoot), payloadBefore,
+      "installed launcher must leave every payload path, byte count, and digest unchanged");
+  } finally {
+    if (fixtureStarted) await shutdownFixture(port, fixture.shutdownToken);
+    await removeFixtureRoot(fixture.root);
+  }
+});
+
 test("foreground launcher remains attached and returns the exact Node exit status", {
   skip: process.platform !== "win32",
 }, async () => {
@@ -376,6 +464,7 @@ test("foreground launcher remains attached and returns the exact Node exit statu
     "--host", "127.0.0.1",
     "--port", String(port),
     "--knowledge_shell_root", fixture.root,
+    "--backend_root", fixture.root,
     "--no-real-meta",
     "--no-fixture",
     "--db", databasePath,
@@ -458,6 +547,7 @@ test("background launcher passes explicit split TLS paths without reporting them
       "--host", "127.0.0.1",
       "--port", String(port),
       "--knowledge_shell_root", fixture.root,
+      "--backend_root", fixture.root,
       "--no-real-meta",
       "--no-fixture",
       "--tls-cert", certPath,
@@ -591,6 +681,7 @@ test("background launcher rejects changed and extra argv for the same executable
         "--host", "127.0.0.1",
         "--port", String(port),
         "--knowledge_shell_root", fixture.root,
+        "--backend_root", fixture.root,
         "--no-real-meta",
         "--no-fixture",
       ];

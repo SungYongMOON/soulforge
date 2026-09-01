@@ -70,7 +70,6 @@ export function buildProbeEnv({ probeDir, targetDir = null, baseEnv = {} }) {
   env.DEV_ERP_AUTOSYNC = "0";
   env.DEV_ERP_NO_TLS = "1";
   env.DEV_ERP_CODEX_TASK_BRIDGE = "mock";
-  env.DEV_ERP_BACKEND_ROOT = join(probeDir, "backend");
   env.DEV_ERP_CODEX_HOME = join(probeDir, "codex-home");
   env.DEV_ERP_CODEX_WORKSPACE_REGISTRY = join(probeDir, "codex-workspaces.runtime.json");
   return env;
@@ -183,7 +182,10 @@ export async function proveStartStop({ targetDir, clock, timeoutMs = 60_000 }) {
 
   const port = await freePort();
   const child = spawn(process.execPath, [
-    "server.mjs", "--db", join(probeDir, "erp.db"), "--port", String(port),
+    "server.mjs",
+    "--backend_root", join(probeDir, "backend"),
+    "--db", join(probeDir, "erp.db"),
+    "--port", String(port),
   ], {
     cwd: appDir,
     windowsHide: true,

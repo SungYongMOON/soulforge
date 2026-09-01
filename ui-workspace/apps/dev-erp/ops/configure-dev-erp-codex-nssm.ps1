@@ -5,10 +5,14 @@ param(
   [string]$HostName = "127.0.0.1",
   [int]$Port = 4300,
   [string]$NodeExe = "node.exe",
-  [string]$NssmExe = "nssm.exe"
+  [string]$NssmExe = "nssm.exe",
+  [string]$BackendRoot = "",
+  [string]$DatabasePath = "",
+  [string]$LogRoot = ""
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "runtime-path-contract.ps1")
 
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
@@ -35,7 +39,22 @@ if ($identityMissing -or $identitySame -or $erpUsesSystem -or $workerUsesSystem)
   throw "ERP and Codex worker services must use distinct non-SYSTEM Windows identities."
 }
 
-$LogDir = Join-Path $App "logs\service"
+$InstalledLayout = Get-DevErpInstalledLayout -PathValue $App
+if ([string]::IsNullOrWhiteSpace($BackendRoot) -and $InstalledLayout.installed) { $BackendRoot = $InstalledLayout.suite_root }
+if (-not [string]::IsNullOrWhiteSpace($BackendRoot)) {
+  $BackendRoot = Assert-DevErpExternalRuntimePath -Name "BackendRoot" -PathValue $BackendRoot -InstalledLayout $InstalledLayout
+}
+if ($InstalledLayout.installed -and [string]::IsNullOrWhiteSpace($DatabasePath)) {
+  throw "Installed runtime NSSM configuration requires an explicit external -DatabasePath."
+}
+if (-not [string]::IsNullOrWhiteSpace($DatabasePath)) {
+  $DatabasePath = Assert-DevErpExternalRuntimePath -Name "DatabasePath" -PathValue $DatabasePath -InstalledLayout $InstalledLayout
+}
+if ([string]::IsNullOrWhiteSpace($LogRoot)) {
+  $LogRoot = if ($InstalledLayout.installed) { Join-Path $InstalledLayout.control_root "runtime-logs\dev-erp" } else { Join-Path $App "logs" }
+}
+$LogRoot = Assert-DevErpExternalRuntimePath -Name "LogRoot" -PathValue $LogRoot -InstalledLayout $InstalledLayout
+$LogDir = Join-Path $LogRoot "service"
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 
 function Invoke-Nssm([string[]]$Arguments) {
@@ -60,7 +79,12 @@ function Set-NssmProcess($Name, $Parameters, $StdoutName, $StderrName) {
 }
 
 Set-NssmProcess $WorkerServiceName "tools/codex_dedicated_worker.mjs" "codex-worker.out.log" "codex-worker.err.log"
-Set-NssmProcess $ErpServiceName "server.mjs --host $HostName --port $Port" "dev-erp.out.log" "dev-erp.err.log"
+$ErpParameters = "server.mjs --host $HostName --port $Port"
+if (-not [string]::IsNullOrWhiteSpace($BackendRoot)) {
+  $ErpParameters += " --knowledge_shell_root `"$BackendRoot`" --backend_root `"$BackendRoot`""
+}
+if (-not [string]::IsNullOrWhiteSpace($DatabasePath)) { $ErpParameters += " --db `"$DatabasePath`"" }
+Set-NssmProcess $ErpServiceName $ErpParameters "dev-erp.out.log" "dev-erp.err.log"
 Invoke-Nssm @("set", $ErpServiceName, "DependOnService", $WorkerServiceName)
 
 Write-Output "Configured two pre-provisioned NSSM services without reading or writing their secret environments."

@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## 2026-09-01 - HPP server Pack 0.1.6 explicit backend-root contract
+
+- Added one shared Windows runtime-path contract for launcher, watchdog, NSSM
+  and Scheduled Task registration. Versioned and `current` installed layouts
+  preserve drive/UNC roots; installed launches require backend, logs, database,
+  WAL/SHM and other mutable runtime state outside the immutable Pack payload.
+  Payload-contained overrides fail before process or task mutation, while the
+  development checkout keeps its existing local defaults.
+- Added installed-launcher pre/post payload inventory verification and exact
+  database/WAL/SHM/log location checks. Review held `0.1.5` because direct
+  NSSM service arguments changed only the knowledge root, not the server's
+  backend write root. `0.1.6` adds an explicit `--backend_root` server contract
+  and exercises it through the real installed-server start/stop proof.
+- The HPP `0.1.6` candidate contains
+  1,022 files and 95 smoke entries; build, installed-copy two-way verification,
+  source parity and installed smoke passed with pack digest
+  `df77a864a1b804a4b45f44f2a624c9f29a8bc1f3ceb6d5ee2a1d89cf08caec1b`.
+  Existence is not activation or release; the active generation remains
+  `0.1.2` until a separate reviewed cutover canary.
+
 ## 2026-09-01 - Backup Controller target-topology v2 preflight
 
 - Added a pure/default-OFF topology-v2 contract that separates installed

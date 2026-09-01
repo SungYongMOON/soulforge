@@ -119,7 +119,10 @@ const flag = (name, fallback) => {
 // 파일 IO(산출물 입력파일 업/다운로드)는 기본 OFF. 켜기: DEV_ERP_FILEIO=1 또는 --fileio.
 // 모든 경로는 <ROOT>/_workspaces 아래로만(filevault path-safety). 절대경로·../·심볼릭 탈출 차단.
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-const BACKEND_ROOT = resolve(process.env.DEV_ERP_BACKEND_ROOT || ROOT);
+const BACKEND_ROOT_FLAG = String(flag("backend_root", "") || "").trim();
+const BACKEND_ROOT_ENV = String(process.env.DEV_ERP_BACKEND_ROOT || "").trim();
+const BACKEND_ROOT_CONFIGURED = !!(BACKEND_ROOT_FLAG || BACKEND_ROOT_ENV);
+const BACKEND_ROOT = resolve(BACKEND_ROOT_FLAG || BACKEND_ROOT_ENV || ROOT);
 const RUNTIME_SOURCE_COMMIT = (() => {
   // Source identity hex: 40 = git commit, 64 = installed-pack digest
   // (src/pack_source_identity.mjs). Env override -> git -> pack ladder.
@@ -965,7 +968,7 @@ function codexPayloadOwnerState() {
     workspaceOwnerRoot,
     ownerBase,
     roots,
-    configured: !IS_RUNTIME_CHECKOUT || !!String(process.env.DEV_ERP_BACKEND_ROOT || "").trim(),
+    configured: !IS_RUNTIME_CHECKOUT || BACKEND_ROOT_CONFIGURED,
   });
 }
 let codexPayloadOwnerPinnedRevision = null;

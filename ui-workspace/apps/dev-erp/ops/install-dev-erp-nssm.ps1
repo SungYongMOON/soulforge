@@ -14,10 +14,14 @@ param(
   [int]$ChatTimeoutMs = 45000,
   [int]$QueueWaitMs = 60000,
   [int]$LlmConcurrency = 1,
+  [string]$BackendRoot = "",
+  [string]$DatabasePath = "",
+  [string]$LogRoot = "",
   [switch]$DevelopmentOnly
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "runtime-path-contract.ps1")
 
 if (-not $DevelopmentOnly) {
   throw "This legacy single-service installer is development-only. Production requires distinct ERP and Codex worker identities; use configure-dev-erp-codex-nssm.ps1 after both services are owner-provisioned."
@@ -33,7 +37,22 @@ if (-not (Test-Path -LiteralPath $App)) {
   throw "dev-ERP app directory not found: $App"
 }
 
-$LogDir = Join-Path $App "logs\service"
+$InstalledLayout = Get-DevErpInstalledLayout -PathValue $App
+if ([string]::IsNullOrWhiteSpace($BackendRoot) -and $InstalledLayout.installed) { $BackendRoot = $InstalledLayout.suite_root }
+if (-not [string]::IsNullOrWhiteSpace($BackendRoot)) {
+  $BackendRoot = Assert-DevErpExternalRuntimePath -Name "BackendRoot" -PathValue $BackendRoot -InstalledLayout $InstalledLayout
+}
+if ($InstalledLayout.installed -and [string]::IsNullOrWhiteSpace($DatabasePath)) {
+  throw "Installed runtime requires an explicit external -DatabasePath."
+}
+if (-not [string]::IsNullOrWhiteSpace($DatabasePath)) {
+  $DatabasePath = Assert-DevErpExternalRuntimePath -Name "DatabasePath" -PathValue $DatabasePath -InstalledLayout $InstalledLayout
+}
+if ([string]::IsNullOrWhiteSpace($LogRoot)) {
+  $LogRoot = if ($InstalledLayout.installed) { Join-Path $InstalledLayout.control_root "runtime-logs\dev-erp" } else { Join-Path $App "logs" }
+}
+$LogRoot = Assert-DevErpExternalRuntimePath -Name "LogRoot" -PathValue $LogRoot -InstalledLayout $InstalledLayout
+$LogDir = Join-Path $LogRoot "service"
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 $Stdout = Join-Path $LogDir "dev-erp.out.log"
 $Stderr = Join-Path $LogDir "dev-erp.err.log"
@@ -44,7 +63,12 @@ if (-not $service) {
 }
 
 & $NssmExe set $ServiceName AppDirectory $App
-& $NssmExe set $ServiceName AppParameters "server.mjs --host $HostName --port $Port"
+$AppParameters = "server.mjs --host $HostName --port $Port"
+if (-not [string]::IsNullOrWhiteSpace($BackendRoot)) {
+  $AppParameters += " --knowledge_shell_root `"$BackendRoot`" --backend_root `"$BackendRoot`""
+}
+if (-not [string]::IsNullOrWhiteSpace($DatabasePath)) { $AppParameters += " --db `"$DatabasePath`"" }
+& $NssmExe set $ServiceName AppParameters $AppParameters
 & $NssmExe set $ServiceName AppEnvironmentExtra `
   "ERP_CHAT_PROVIDER=$ChatProvider" `
   "ERP_CHAT_MODEL=$ChatModel" `

@@ -10,6 +10,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "runtime-path-contract.ps1")
 
 function Resolve-LexicalPath {
   param(
@@ -187,12 +188,16 @@ function Test-SamePath {
 $RuntimeRoot = (Resolve-Path -LiteralPath $RuntimeRoot).Path
 $App = (Resolve-Path -LiteralPath (Join-Path $RuntimeRoot "ui-workspace\apps\dev-erp")).Path
 $LauncherPath = (Resolve-Path -LiteralPath (Join-Path $App "ops\run-dev-erp-background.ps1")).Path
+$InstalledLayout = Get-DevErpInstalledLayout -PathValue $App
+if ($InstalledLayout.installed -and ([string]::IsNullOrWhiteSpace($DatabasePath) -or -not [IO.Path]::IsPathRooted($DatabasePath))) {
+  throw "Installed runtime scheduled-task registration requires an explicit rooted external DatabasePath."
+}
 if ([string]::IsNullOrWhiteSpace($DatabasePath)) {
   $DatabasePath = Join-Path $App "data\dev-erp.db"
 } elseif (-not [IO.Path]::IsPathRooted($DatabasePath)) {
   $DatabasePath = Join-Path $App $DatabasePath
 }
-$DatabasePath = [IO.Path]::GetFullPath($DatabasePath)
+$DatabasePath = Assert-DevErpExternalRuntimePath -Name "DatabasePath" -PathValue $DatabasePath -InstalledLayout $InstalledLayout
 
 $PowerShellCommand = Get-Command powershell.exe -ErrorAction Stop
 $PowerShellExe = [IO.Path]::GetFullPath($PowerShellCommand.Source)
