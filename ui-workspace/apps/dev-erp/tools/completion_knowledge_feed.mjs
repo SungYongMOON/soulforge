@@ -8,7 +8,7 @@ import {
   renameSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -89,6 +89,11 @@ function monthStamp(value) {
 
 function isInside(parent, child) {
   const rel = relative(resolve(parent), resolve(child));
+  // On Windows, relative() across two different roots returns the ABSOLUTE
+  // destination, which contains no "..". Without this a path on another
+  // drive reads as inside, and the ledger path-escape guard below is the
+  // one that has to catch it.
+  if (isAbsolute(rel)) return false;
   return rel === "" || (!rel.startsWith("..") && !rel.includes(`..${sep}`));
 }
 

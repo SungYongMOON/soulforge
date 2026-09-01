@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { relative } from "node:path";
+import { join, parse, relative, resolve, sep } from "node:path";
 import test from "node:test";
 
 import {
@@ -37,6 +37,22 @@ test("synthetic recovery fixture is deterministic and materialized only below te
 test("synthetic recovery fixture refuses a non-temp workspace", async () => {
   await assert.rejects(
     () => createSyntheticRecoveryCanaryFixture({ workspace_root: process.cwd() }),
+    (error) => error instanceof SyntheticRecoveryCanaryFixtureError
+      && error.code === "synthetic_recovery_canary_fixture_temp_root_required",
+  );
+});
+
+test("the temp-root guard holds across filesystem roots, not only across parent hops", { skip: process.platform !== "win32" ? "win32-only: relative() only returns an absolute path across roots" : false }, async () => {
+  // relative() from the temp root to a path on ANOTHER drive returns that
+  // absolute path — no "..", so a hop-only containment check reads a whole
+  // other drive as inside temp. The roots are assembled from parts here: a
+  // literal drive-rooted path in source bytes is a tracked path-policy
+  // violation.
+  const tempDriveLetter = parse(resolve(tmpdir())).root.slice(0, 1).toUpperCase();
+  const otherDriveLetter = tempDriveLetter === "C" ? "D" : "C";
+  const otherRoot = `${otherDriveLetter}:${sep}`;
+  await assert.rejects(
+    () => createSyntheticRecoveryCanaryFixture({ workspace_root: join(otherRoot, "soulforge-canary-cross-root-probe") }),
     (error) => error instanceof SyntheticRecoveryCanaryFixtureError
       && error.code === "synthetic_recovery_canary_fixture_temp_root_required",
   );

@@ -1,7 +1,7 @@
 {
   "schema": "soulforge.deployment_pack_spec.v0",
   "pack_id": "hpp_server_pack",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "host_effect_policy": {
     "reboot": "forbidden",
     "driver_change": "forbidden",
@@ -1241,7 +1241,7 @@
     "test/workflow_job_ui_contract.test.mjs"
   ],
   "installed_smoke_excluded": [],
-  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_6",
+  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_7",
   "install_manual_ref": "manual.install.hpp_server_pack",
   "upgrade_manual_ref": "manual.upgrade.hpp_server_pack",
   "rollback_manual_ref": "manual.rollback.hpp_server_pack",
@@ -2186,7 +2186,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/tools/completion_knowledge_feed.mjs",
-      "sha256": "fe1d499462aeb02e2b7c733d968bc5e668589abb4b09638312a343c56beaa212"
+      "sha256": "1a4258fefd41df4026112db2a2449fb89315c4d95b556655ea5fe368b987b1f9"
     },
     {
       "path": "ui-workspace/apps/dev-erp/tools/export_team_mailboxes.mjs",

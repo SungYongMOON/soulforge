@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.backup_controller.topology_v2_private_binding.v0",
+  "title": "Topology v2 private binding",
+  "description": "Lives only on the protected control root. It is the ONLY place absolute paths appear in the topology v2 lane: the reader maps these paths to refs and digests, and the emitted preflight packet stays public-safe. resources.external_erp_data.owner_ref must equal resources.external_erp_root.owner_ref, because the judge derives both inspections from one external ERP owner record. The other six owner_ref values must be pairwise distinct.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "binding_epoch",
+    "evaluation_ref",
+    "clock_ref",
+    "receipt_ref",
+    "inspection_refs",
+    "installed_pack",
+    "resources",
+    "public_binding"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.backup_controller.topology_v2_private_binding.v0" },
+    "binding_epoch": { "type": "integer", "minimum": 1 },
+    "evaluation_ref": { "$ref": "#/$defs/ref" },
+    "clock_ref": { "$ref": "#/$defs/ref" },
+    "receipt_ref": { "$ref": "#/$defs/ref" },
+    "inspection_refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "installed_controller_runtime",
+        "external_erp_root",
+        "external_erp_data",
+        "c_project_metadata_transition",
+        "c_cross_project_state_transition",
+        "d_workspace_canonical_target",
+        "d_workmeta_canonical_target",
+        "rollback_target"
+      ],
+      "patternProperties": { "^[a-z_]+$": { "$ref": "#/$defs/ref" } }
+    },
+    "installed_pack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["installed_root_path", "controller_entry_relpath"],
+      "properties": {
+        "installed_root_path": { "type": "string", "minLength": 1 },
+        "controller_entry_relpath": { "type": "string", "minLength": 1 }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "installed_controller_runtime",
+        "external_erp_root",
+        "external_erp_data",
+        "c_project_metadata_transition",
+        "c_cross_project_state_transition",
+        "d_workspace_canonical_target",
+        "d_workmeta_canonical_target",
+        "rollback_target"
+      ],
+      "patternProperties": { "^[a-z_]+$": { "$ref": "#/$defs/resource" } }
+    },
+    "public_binding": { "$ref": "soulforge.backup_controller.binding.v2" }
+  },
+  "$defs": {
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9._:-]{1,160}$" },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "owner_ref"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "owner_ref": { "$ref": "#/$defs/ref" }
+      }
+    }
+  }
+}

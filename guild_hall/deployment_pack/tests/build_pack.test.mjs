@@ -241,7 +241,7 @@ test("the real backup_recovery_extension spec builds: module pack with full-suit
   const built = buildPack(specPath, { rootDir: REPO_ROOT, outDir: tempDir("outBackupRec"), clock: fixedClock, runner: okRunner });
   assert.equal(built.manifest.pack_id, "backup_recovery_extension");
   // Pinned so growth is a conscious re-emit (the emitter's --check gates it).
-  assert.equal(built.manifest.files.length, 76);
+  assert.equal(built.manifest.files.length, 82);
   assert.equal(built.candidate.claimed_gate, "contract",
     "capture/restore/acceptance stay unclaimed - the initial gate needs Owner-side human acceptance");
   const spec = loadPackSpec(specPath);
@@ -257,6 +257,15 @@ test("the real backup_recovery_extension spec builds: module pack with full-suit
   assert.equal(spec.content_roles.validators.includes(
     "guild_hall/backup_controller/linear_lb1_physical_one_shot.test.mjs",
   ), true, "the physical one-shot hostile suite stays in the full installed smoke closure");
+  assert.equal(spec.content_roles.recovery_policy_adapter.includes(
+    "guild_hall/backup_controller/topology_v2_actual_reader.mjs",
+  ), true, "the read-only topology v2 actual reader travels with its pure judge");
+  assert.equal(spec.content_roles.validators.includes(
+    "guild_hall/backup_controller/topology_v2_actual_reader.test.mjs",
+  ), true, "the topology v2 reader suite stays in the full installed smoke closure");
+  assert.equal(spec.content_roles.shared_modules.includes(
+    "guild_hall/deployment_pack/tools/build_pack.mjs",
+  ), false, "the pack builder must not travel inside a feature-OFF read-only pack");
   assert.equal(spec.content_roles.recovery_policy_adapter.includes(
     "guild_hall/backup_controller/linear_lb1_project_index.mjs",
   ), true, "the whole-workspace project index travels with the physical generation writer");

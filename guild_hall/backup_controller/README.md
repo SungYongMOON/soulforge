@@ -35,8 +35,51 @@ This surface is pure and `feature_state: off`. `PREFLIGHT_OFF_READY` means only
 that an injected public-safe topology packet is internally coherent. It grants
 no binding activation, NAS write, backup run, source promotion, canonical
 target write, or retirement authority. The existing v1 runtime and actual
-private binding remain unchanged until a separately approved v2 adapter and
-installed Pack exist.
+private binding remain unchanged.
+
+### Topology v2 actual reader (read-only)
+
+`topology_v2_actual_reader.mjs` is the other half of that pure judge: it turns
+REAL local resources into exactly the packet `preflight_v2.mjs` accepts.
+`topology_v2_actual_port.mjs` is the only `node:fs` surface it is given, and
+every call on it is a read — there is no create, write, move, delete, mount or
+spawn in the lane.
+
+Absolute paths live in one place: a private binding on the protected control
+root, shaped by `topology_v2_private_binding.schema.json`. Everything the
+reader EMITS is a ref, a digest, a boolean, an epoch or an enum, so the packet
+survives the shared local-path and secret guards; a test walks every emitted
+string to keep that true.
+
+The public-safe v2 binding is not regenerated per run. It is carried frozen
+inside the private binding, and each run re-derives resource identity from
+observed state and compares:
+
+- `resource_digest` folds role, owner, kind and where the resource ACTUALLY
+  resolves, so a resource that moved cannot present the frozen identity;
+- `realpath_digest` binds location alone, and the judge requires all eight to
+  be distinct;
+- `is_symlink` and a resolution-drift `reparse_tag` cover links and junctions,
+  including a reparse point anywhere in the ancestry;
+- the two canonical targets and the rollback target are checked EMPTY here,
+  because the pure judge cannot look;
+- the installed pack is re-hashed file by file and its digest recomputed with
+  the builder's own recipe, so one changed installed byte moves
+  `pack_readback_digest` and the judge refuses.
+
+The one declared containment pair is the ERP database inside its owning
+directory. Every other containment between bound resources is an overlap.
+
+```
+node guild_hall/backup_controller/topology_v2_cli.mjs check --binding <absolute-path>
+node guild_hall/backup_controller/topology_v2_cli.mjs generate --draft <absolute-path> --out <absolute-path>
+```
+
+`generate` is the author-time leg that derives the frozen binding from observed
+state; freezing its output is what gives every later `check` something to fail
+against. A first `check` immediately after a `generate` therefore proves
+coherence, not drift. Neither mode prints an absolute path, and a green `check`
+is still `feature_state: off`: it authorizes no activation and no backup.
 
 ## Authority boundary
 

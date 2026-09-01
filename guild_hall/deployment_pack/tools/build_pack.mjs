@@ -27,6 +27,7 @@ import { dirname, join, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { recomputePackDigest } from "../../shared/pack_digest_recipe.mjs";
 import { PACK_CATALOG, validatePackReleaseManifest } from "../src/deployment_pack_contract.mjs";
 
 export const PACK_SPEC_SCHEMA = "soulforge.deployment_pack_spec.v0";
@@ -49,13 +50,11 @@ function sha256(buffer) {
   return createHash("sha256").update(buffer).digest("hex");
 }
 
-// The canonical pack-digest recipe: compact JSON over the path-sorted
-// {path, sha256, bytes} entries. Exported so lifecycle tooling validates
-// manifests with the SAME recipe the builder stamps (the attestation
-// reader keeps its own copy, pinned to this one by a round-trip test).
-export function recomputePackDigest(entries) {
-  return sha256(Buffer.from(JSON.stringify(entries.map(({ path, sha256: digest, bytes }) => ({ path, sha256: digest, bytes }))), "utf8"));
-}
+// The canonical pack-digest recipe now lives in guild_hall/shared so a
+// reader can recompute a pack digest without importing this builder. It is
+// re-exported here because lifecycle tooling and the attestation round-trip
+// test already reach for it through the builder.
+export { recomputePackDigest };
 
 function assertRelPath(value, field) {
   // All-dot segments ("..", ".", "...") are rejected for canonicality:

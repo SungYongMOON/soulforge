@@ -1,7 +1,7 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "backup_controller",
-  "module_version": "0.7.0",
+  "module_version": "0.8.0",
   "interface_version": "backup_controller.v0",
   "schema_versions": [
     "soulforge.backup_controller.linear_lb1.snapshot.v2",
@@ -27,7 +27,9 @@
     "soulforge.backup_controller.synthetic_recovery_canary.acceptance.v0",
     "soulforge.backup_controller.binding.v2",
     "soulforge.backup_controller.preflight_v2_input.v0",
-    "soulforge.backup_controller.preflight_v2_result.v0"
+    "soulforge.backup_controller.preflight_v2_result.v0",
+    "soulforge.backup_controller.topology_v2_private_binding.v0",
+    "soulforge.backup_controller.topology_v2_actual_reader.v0"
   ],
   "owner": "guild_hall/backup_controller",
   "capabilities_provided": [
@@ -42,7 +44,8 @@
     "backup.hermes_agent_generation_manifest_contract.v1",
     "backup.synthetic_recovery_canary_runner.v0",
     "backup.synthetic_recovery_canary_acceptance_seam.v0",
-    "backup.topology_v2_default_off_preflight.v0"
+    "backup.topology_v2_default_off_preflight.v0",
+    "backup.topology_v2_actual_read_only_evidence_reader.v0"
   ],
   "capabilities_required": [],
   "required_dependencies": [
@@ -79,5 +82,5 @@
   ],
   "release_digest": null,
   "deprecation_state": "active",
-  "authority_notes": "Feature-OFF backup composition plus Linear, generic Source, Buzz and Hermes backup-generation contracts, a public-safe synthetic recovery canary, and a default-OFF topology-v2 preflight. Topology v2 separates the installed controller, external ERP data owner, C transition metadata sources, empty D canonical targets and rollback target by exact owner/epoch/digest evidence; even a green preflight grants neither activation nor NAS backup authority. The canary creates deterministic temp-only bytes, a create-only backup, full hash readback and isolated restore receipt; only a separate out-of-band Human Owner pin with a distinct backup operator can accept that exact technical receipt. It cannot claim NAS, RPO/RTO, recovery-ready or Internal RC. Linear whole-workspace generations retain their deterministic project index, and Buzz/Hermes retain separate custody and acceptance boundaries. These public contracts do not grant source, task, artifact, Agent or completion authority. Actual binding, provider bytes, service quiescence, recurring execution and human acceptance remain separate private gates."
+  "authority_notes": "Feature-OFF backup composition plus Linear, generic Source, Buzz and Hermes backup-generation contracts, a public-safe synthetic recovery canary, and a default-OFF topology-v2 preflight with its read-only actual reader. Topology v2 separates the installed controller, external ERP data owner, C transition metadata sources, empty D canonical targets and rollback target by exact owner/epoch/digest evidence; even a green preflight grants neither activation nor NAS backup authority. The actual reader only reads: it maps a protected-control-root private binding to refs and digests, re-derives every resource identity from observed state against the frozen public binding, and emits a packet that carries no absolute path. The canary creates deterministic temp-only bytes, a create-only backup, full hash readback and isolated restore receipt; only a separate out-of-band Human Owner pin with a distinct backup operator can accept that exact technical receipt. It cannot claim NAS, RPO/RTO, recovery-ready or Internal RC. Linear whole-workspace generations retain their deterministic project index, and Buzz/Hermes retain separate custody and acceptance boundaries. These public contracts do not grant source, task, artifact, Agent or completion authority. Actual binding, provider bytes, service quiescence, recurring execution and human acceptance remain separate private gates."
 }

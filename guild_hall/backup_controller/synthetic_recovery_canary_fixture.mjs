@@ -7,7 +7,7 @@
 import { createHash } from "node:crypto";
 import { lstat, mkdir, mkdtemp, open, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 export const SYNTHETIC_RECOVERY_CANARY_FIXTURE_SCHEMA =
   "soulforge.backup_controller.synthetic_recovery_canary_fixture.v0";
@@ -52,6 +52,10 @@ function containedBy(parent, child) {
   const parentPath = resolve(parent);
   const childPath = resolve(child);
   const pathRelative = relative(parentPath, childPath);
+  // On Windows, relative() across two different roots returns the ABSOLUTE
+  // destination, which contains no "..". Without this the temp-root guard
+  // reads any path on another drive as contained.
+  if (isAbsolute(pathRelative)) return false;
   return pathRelative === "" || (!pathRelative.startsWith(`..${sep}`)
     && pathRelative !== ".." && !pathRelative.includes(`..${sep}`));
 }

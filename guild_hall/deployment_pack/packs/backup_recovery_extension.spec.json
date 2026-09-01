@@ -1,7 +1,7 @@
 {
   "schema": "soulforge.deployment_pack_spec.v0",
   "pack_id": "backup_recovery_extension",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "host_effect_policy": {
     "reboot": "forbidden",
     "driver_change": "forbidden",
@@ -51,6 +51,10 @@
       "guild_hall/backup_controller/synthetic_recovery_canary_acceptance.mjs",
       "guild_hall/backup_controller/synthetic_recovery_canary_fixture.mjs",
       "guild_hall/backup_controller/synthetic_recovery_canary_runner.mjs",
+      "guild_hall/backup_controller/topology_v2_actual_port.mjs",
+      "guild_hall/backup_controller/topology_v2_actual_reader.mjs",
+      "guild_hall/backup_controller/topology_v2_cli.mjs",
+      "guild_hall/backup_controller/topology_v2_private_binding.schema.json",
       "guild_hall/backup_controller/windows_task_bridge.ps1",
       "guild_hall/backup_controller/writer_quiesce.mjs",
       "guild_hall/backup_controller/writer_quiesce.schema.json"
@@ -60,6 +64,7 @@
       "guild_hall/ingress/collector.mjs",
       "guild_hall/ingress/recovery.mjs",
       "guild_hall/path_registry/src/source_lane_index.mjs",
+      "guild_hall/shared/pack_digest_recipe.mjs",
       "guild_hall/shared/physical_path_identity.mjs",
       "ui-workspace/apps/dev-erp/tools/runtime_ops.mjs"
     ],
@@ -91,6 +96,7 @@
       "guild_hall/backup_controller/synthetic_recovery_canary_acceptance.test.mjs",
       "guild_hall/backup_controller/synthetic_recovery_canary_fixture.test.mjs",
       "guild_hall/backup_controller/synthetic_recovery_canary_runner.test.mjs",
+      "guild_hall/backup_controller/topology_v2_actual_reader.test.mjs",
       "guild_hall/backup_controller/writer_quiesce.test.mjs"
     ]
   },
@@ -120,6 +126,7 @@
     "guild_hall/backup_controller/synthetic_recovery_canary_acceptance.test.mjs",
     "guild_hall/backup_controller/synthetic_recovery_canary_fixture.test.mjs",
     "guild_hall/backup_controller/synthetic_recovery_canary_runner.test.mjs",
+    "guild_hall/backup_controller/topology_v2_actual_reader.test.mjs",
     "guild_hall/backup_controller/writer_quiesce.test.mjs"
   ],
   "installed_smoke_entries": [
@@ -147,10 +154,11 @@
     "guild_hall/backup_controller/synthetic_recovery_canary_acceptance.test.mjs",
     "guild_hall/backup_controller/synthetic_recovery_canary_fixture.test.mjs",
     "guild_hall/backup_controller/synthetic_recovery_canary_runner.test.mjs",
+    "guild_hall/backup_controller/topology_v2_actual_reader.test.mjs",
     "guild_hall/backup_controller/writer_quiesce.test.mjs"
   ],
   "installed_smoke_excluded": [],
-  "release_notes_ref": "release_notes.backup_recovery_extension.v0_1_1",
+  "release_notes_ref": "release_notes.backup_recovery_extension.v0_1_2",
   "install_manual_ref": "manual.install.backup_recovery_extension",
   "upgrade_manual_ref": "manual.upgrade.backup_recovery_extension",
   "rollback_manual_ref": "manual.rollback.backup_recovery_extension",
@@ -163,7 +171,7 @@
     },
     {
       "path": "guild_hall/backup_controller/README.md",
-      "sha256": "f847196b25ff3bbe1b07c7c31704a49c6d20b2e7cca21637f77bb5f6fef5e8ce"
+      "sha256": "c5765eb266631087e0a8336c264a1c6fa247bf376f559182b1a7ca601eecc1ae"
     },
     {
       "path": "guild_hall/backup_controller/buzz_backup_generation_manifest.mjs",

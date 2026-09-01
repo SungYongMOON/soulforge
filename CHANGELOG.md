@@ -1,5 +1,49 @@
 # CHANGELOG
 
+## 2026-09-02 - Backup Controller topology v2 actual reader and Pack 0.1.2
+
+- Added the read-only other half of the default-OFF topology v2 preflight.
+  `preflight_v2.mjs` keeps its no-filesystem contract; the new
+  `topology_v2_actual_reader.mjs` turns real local resources into exactly the
+  packet that judge accepts, through one injected read-only `node:fs` port in
+  `topology_v2_actual_port.mjs`. Absolute paths live only in a private binding
+  on the protected control root, shaped by
+  `topology_v2_private_binding.schema.json`; every emitted value is a ref,
+  digest, boolean, epoch or enum, and a test walks each emitted string through
+  the shared local-path and secret guards.
+- The public-safe v2 binding is carried frozen inside the private binding
+  rather than regenerated per run, so each run re-derives resource identity
+  from observed state and fails closed against it. Beyond the pure judge the
+  reader adds observed-realpath identity, symlink and resolution-drift reparse
+  detection, emptiness checks on the two canonical targets and the rollback
+  target, and a full installed-pack readback that re-hashes every manifested
+  file and recomputes the digest with the builder recipe.
+- Extracted that recipe to `guild_hall/shared/pack_digest_recipe.mjs` and
+  re-exported it from the builder. A reader must recompute a pack digest
+  without importing a builder that can copy, install and remove trees; a test
+  now asserts the builder never travels inside this feature-OFF pack.
+- Fixed the same cross-root containment hole in two guards that the C-to-D
+  split made reachable: on win32 `path.relative()` across two roots returns the
+  ABSOLUTE destination, which contains no `..`, so a hop-only check read a
+  whole other drive as contained. The synthetic recovery canary's temp-root
+  guard and the dev-ERP completion-feed ledger path-escape guard now refuse an
+  absolute result, matching the `isAbsolute` guard the other two containment
+  helpers in the tree already carried. A cross-root regression test pins it.
+- The Backup-Recovery Pack is `0.1.2`: 82 files, 26 smoke entries, 0 exclusions,
+  22 scan pins, pack digest
+  `f79f48039a456226e2e19365a4072058259c2b8a1391d7bf0a8a30c3a00b2469`.
+  Build, installed-copy two-way verification and full installed smoke passed.
+  Existence is not activation: `binding_v2.schema.json` pins `feature_state` to
+  the constant `off`, and a passing preflight still returns
+  `backup_run_authorized: false`. NAS write, restore and Human acceptance stay
+  HOLD.
+- Bumped the HPP server Pack spec to `0.1.7` because the completion-feed fix
+  changes a file that spec pins, and an immutable Pack version must not build
+  to two different byte sets. The `0.1.7` candidate is SPEC ONLY - not built,
+  not installed, not activated. Its unit gate needs port 4300, which the live
+  ERP holds, so building it requires a deliberate ERP quiesce. The active
+  generation remains `0.1.6`.
+
 ## 2026-09-01 - HPP server Pack 0.1.6 explicit backend-root contract
 
 - Added one shared Windows runtime-path contract for launcher, watchdog, NSSM
