@@ -81,6 +81,53 @@ against. A first `check` immediately after a `generate` therefore proves
 coherence, not drift. Neither mode prints an absolute path, and a green `check`
 is still `feature_state: off`: it authorizes no activation and no backup.
 
+## NAS disaster-recovery binding (default OFF)
+
+`nas_dr_private_binding.schema.json`, `nas_dr_binding.schema.json` and
+`nas_dr_preflight.mjs` describe the native-SMB DR destination that replaces the
+RaiDrive-addressed lane. The NAS is a disaster-recovery target, not a working
+drive, so `is_working_drive`, `raidrive_allowed` and
+`drive_letter_mapping_allowed` are all `const false`.
+
+The two schemas split by what may hold a path. The private binding, which lives
+on the protected control root, is the only place a literal UNC may appear; its
+`unc_share` pattern accepts exactly two backslashes, one non-RaiDrive host label
+and one share label, so a RaiDrive host, a drive letter and any deeper path all
+fail the pattern instead of being normalized away. Lane segments never come from
+that string. The public-safe binding carries refs, digests, booleans, epochs and
+enums only, which is what lets the shared local-path and secret guards scan it
+whole before a single field is read.
+
+Two generation families stay separated by fixed namespace segments —
+`legacy-freeze/<epoch>/` and `d-generations/<generation_id>/` — because legacy
+preservation and D-canonical custody must not share one generation id space.
+Neither family may be retired by deletion.
+
+The pure judge additionally requires three distinct non-administrator service
+principals for writing, restore verification and operation; a human break-glass
+account that is never an automated writer; a declared effective access for every
+subject class including an explicit `deny` for ordinary users and guests; the
+five source-set classes with their excluded set; a `wal_safe_logical_export` or
+closed-generation capture for runtime state rather than a live file copy;
+sole-writer fencing with a replay NO_OP; a two-phase staging close that never
+exposes a partial generation in the current projection; manifest completeness
+with two-way readback; retention floors with a low-space stop; destination
+identity drift detection; and a named human acceptance that cannot be any of the
+producing identities.
+
+```
+npm.cmd run validate:backup-nas-dr
+```
+
+`NAS_DR_BINDING_OFF_READY` means only that a declared OFF binding is internally
+coherent and separates duties correctly. The verdict returns
+`destination_reachability_proven`, `acl_effect_proven`,
+`restore_readiness_proven`, `activation_authority` and `backup_run_authorized`
+as `false` on purpose. A schema existing, a NAS folder existing, or a write
+receipt existing is not backup-ready and not restore-ready. Service identity
+creation, credential entry, ACL measurement, the actual generations and human
+restore acceptance remain separate gates outside this module.
+
 ## Authority boundary
 
 - A daily automation invocation accepts exactly one argument:

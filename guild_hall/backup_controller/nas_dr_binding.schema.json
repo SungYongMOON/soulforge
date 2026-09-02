@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.backup_controller.nas_dr_binding.v0",
+  "title": "Public-safe NAS DR binding for the D-canonical era",
+  "description": "The destination is a DR target, not a working drive. Every value here is a ref, a digest, a boolean, an epoch or an enum, so the shared local-path and secret guards can scan it whole. The literal UNC lives only in the private binding. feature_state is const off at v0: this schema cannot describe an active writer.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "controller_id",
+    "feature_state",
+    "binding_ref",
+    "binding_digest",
+    "binding_epoch",
+    "destination",
+    "generation_families",
+    "principals",
+    "access_expectations",
+    "source_sets",
+    "excluded_classes",
+    "fencing",
+    "close_protocol",
+    "manifest_policy",
+    "retention",
+    "acceptance"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.backup_controller.nas_dr_binding.v0" },
+    "controller_id": { "const": "soulforge-backup-controller" },
+    "feature_state": { "const": "off" },
+    "binding_ref": { "$ref": "#/$defs/ref" },
+    "binding_digest": { "$ref": "#/$defs/digest" },
+    "binding_epoch": { "type": "integer", "minimum": 1 },
+    "destination": { "$ref": "#/$defs/destination" },
+    "generation_families": {
+      "description": "Exactly two families, never merged. Legacy preservation and D-canonical custody must not share a generation id space.",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "$ref": "#/$defs/generationFamily" }
+    },
+    "principals": { "$ref": "#/$defs/principals" },
+    "access_expectations": {
+      "description": "The effective ACL outcome each subject class must be proven to have. Proof is a separate measured gate; declaring it here authorizes nothing.",
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 8,
+      "items": { "$ref": "#/$defs/accessExpectation" }
+    },
+    "source_sets": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": { "$ref": "#/$defs/sourceSet" }
+    },
+    "excluded_classes": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": { "enum": ["secret", "temp_or_cache", "active_worktree_scratch", "tool_transient_data"] }
+    },
+    "fencing": { "$ref": "#/$defs/fencing" },
+    "close_protocol": { "$ref": "#/$defs/closeProtocol" },
+    "manifest_policy": { "$ref": "#/$defs/manifestPolicy" },
+    "retention": { "$ref": "#/$defs/retention" },
+    "acceptance": { "$ref": "#/$defs/acceptance" }
+  },
+  "$defs": {
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9._:-]{1,160}$" },
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "destination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "purpose",
+        "host_ref",
+        "share_ref",
+        "volume_ref",
+        "filesystem",
+        "identity_digest",
+        "drive_letter_mapping_allowed",
+        "raidrive_allowed",
+        "is_working_drive"
+      ],
+      "properties": {
+        "kind": { "const": "smb_native_share" },
+        "purpose": { "const": "disaster_recovery_target" },
+        "host_ref": { "$ref": "#/$defs/ref" },
+        "share_ref": { "$ref": "#/$defs/ref" },
+        "volume_ref": { "$ref": "#/$defs/ref" },
+        "filesystem": { "enum": ["btrfs", "ext4"] },
+        "identity_digest": {
+          "description": "Folds host, share, volume and filesystem identity. A NAS rebuild, a share recreation or a volume swap moves this digest, so a drifted destination refuses instead of silently inheriting the old binding.",
+          "$ref": "#/$defs/digest"
+        },
+        "drive_letter_mapping_allowed": { "const": false },
+        "raidrive_allowed": { "const": false },
+        "is_working_drive": { "const": false }
+      }
+    },
+    "generationFamily": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "namespace_segment", "generation_id_grammar", "retire_by_deletion_allowed"],
+      "properties": {
+        "family": { "enum": ["LEGACY_FREEZE", "D_CANONICAL"] },
+        "namespace_segment": { "enum": ["legacy-freeze", "d-generations"] },
+        "generation_id_grammar": { "enum": ["epoch", "generation_id"] },
+        "retire_by_deletion_allowed": { "const": false }
+      }
+    },
+    "principals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["writer", "restore_verifier", "operator", "break_glass_admin"],
+      "properties": {
+        "writer": { "$ref": "#/$defs/servicePrincipal" },
+        "restore_verifier": { "$ref": "#/$defs/servicePrincipal" },
+        "operator": { "$ref": "#/$defs/servicePrincipal" },
+        "break_glass_admin": { "$ref": "#/$defs/humanAdminPrincipal" }
+      }
+    },
+    "servicePrincipal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["principal_ref", "group_ref", "is_administrator", "is_human_account", "secret_ref"],
+      "properties": {
+        "principal_ref": { "$ref": "#/$defs/ref" },
+        "group_ref": { "$ref": "#/$defs/ref" },
+        "is_administrator": { "const": false },
+        "is_human_account": { "const": false },
+        "secret_ref": {
+          "description": "A protected-storage target name. Never a password, token or credential value.",
+          "$ref": "#/$defs/ref"
+        }
+      }
+    },
+    "humanAdminPrincipal": {
+      "description": "The human recovery account. It exists so a person can recover, and must never be an automated writer.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["principal_ref", "is_human_account", "automated_use_allowed"],
+      "properties": {
+        "principal_ref": { "$ref": "#/$defs/ref" },
+        "is_human_account": { "const": true },
+        "automated_use_allowed": { "const": false }
+      }
+    },
+    "accessExpectation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject_class", "subject_ref", "effective_access"],
+      "properties": {
+        "subject_class": {
+          "enum": ["writer", "restore_verifier", "operator", "break_glass_admin", "ordinary_user", "guest", "anonymous_service"]
+        },
+        "subject_ref": { "$ref": "#/$defs/ref" },
+        "effective_access": { "enum": ["read_write", "read_only", "deny"] }
+      }
+    },
+    "sourceSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "class",
+        "source_ref",
+        "source_owner_ref",
+        "revision_pin_kind",
+        "acceptance_ref",
+        "backup_owner_ref",
+        "capture_method"
+      ],
+      "properties": {
+        "class": {
+          "enum": ["runtime_state", "canonical_payload", "canonical_lineage", "software_and_pack", "collector_state"]
+        },
+        "source_ref": { "$ref": "#/$defs/ref" },
+        "source_owner_ref": { "$ref": "#/$defs/ref" },
+        "revision_pin_kind": { "enum": ["content_digest", "generation_id", "commit_sha", "epoch"] },
+        "acceptance_ref": { "$ref": "#/$defs/ref" },
+        "backup_owner_ref": { "$ref": "#/$defs/ref" },
+        "capture_method": {
+          "description": "A live database file is never copied in place; it leaves through a WAL-safe logical export.",
+          "enum": ["copy_only_file_walk", "wal_safe_logical_export", "closed_generation_reference"]
+        }
+      }
+    },
+    "fencing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sole_writer", "lease_ref", "lease_seconds", "epoch", "replay_is_no_op"],
+      "properties": {
+        "sole_writer": { "const": true },
+        "lease_ref": { "$ref": "#/$defs/ref" },
+        "lease_seconds": { "type": "integer", "minimum": 60, "maximum": 86400 },
+        "epoch": { "type": "integer", "minimum": 1 },
+        "replay_is_no_op": { "const": true }
+      }
+    },
+    "closeProtocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "partial_visible_in_current_projection", "finalize_within_same_share"],
+      "properties": {
+        "mode": { "const": "two_phase_staging_then_verified" },
+        "partial_visible_in_current_projection": { "const": false },
+        "finalize_within_same_share": { "const": true }
+      }
+    },
+    "manifestPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["completeness_required", "digest_algorithm", "records_excluded_set", "two_way_readback"],
+      "properties": {
+        "completeness_required": { "const": true },
+        "digest_algorithm": { "const": "sha256" },
+        "records_excluded_set": { "const": true },
+        "two_way_readback": { "const": true }
+      }
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rpo_minutes", "rto_minutes", "keep_generations", "min_free_bytes", "low_space_stop", "quota_state"],
+      "properties": {
+        "rpo_minutes": { "type": "integer", "minimum": 1, "maximum": 43200 },
+        "rto_minutes": { "type": "integer", "minimum": 1, "maximum": 43200 },
+        "keep_generations": { "type": "integer", "minimum": 2, "maximum": 365 },
+        "min_free_bytes": { "type": "integer", "minimum": 1 },
+        "low_space_stop": { "const": true },
+        "quota_state": { "enum": ["disabled", "enabled"] }
+      }
+    },
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["named_human_ref", "self_accept_allowed", "isolated_restore_required", "production_overwrite_allowed"],
+      "properties": {
+        "named_human_ref": { "$ref": "#/$defs/ref" },
+        "self_accept_allowed": { "const": false },
+        "isolated_restore_required": { "const": true },
+        "production_overwrite_allowed": { "const": false }
+      }
+    }
+  }
+}

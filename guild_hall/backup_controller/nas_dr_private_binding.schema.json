@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.backup_controller.nas_dr_private_binding.v0",
+  "title": "Private NAS DR binding: the one place a literal destination path may live",
+  "description": "Lives on the protected control root, never in the public tree and never inside a preflight packet. The pure judge never reads this file; a reader derives refs and digests from it. Native SMB only: a RaiDrive host or a drive-letter destination fails the pattern instead of being normalized away.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "controller_id",
+    "feature_state",
+    "binding_ref",
+    "binding_epoch",
+    "destination",
+    "namespaces",
+    "principals"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.backup_controller.nas_dr_private_binding.v0" },
+    "controller_id": { "const": "soulforge-backup-controller" },
+    "feature_state": { "const": "off" },
+    "binding_ref": { "$ref": "#/$defs/ref" },
+    "binding_epoch": { "type": "integer", "minimum": 1 },
+    "destination": { "$ref": "#/$defs/smbDestination" },
+    "namespaces": { "$ref": "#/$defs/namespaces" },
+    "principals": { "$ref": "#/$defs/principals" }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._:-]{1,160}$"
+    },
+    "smbDestination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "unc_share", "host_label", "share_label", "volume_label", "filesystem"],
+      "properties": {
+        "kind": { "const": "smb_native_share" },
+        "unc_share": {
+          "description": "Exactly two backslashes, a host label that is NOT a RaiDrive virtual host, one share label, and nothing after it. A drive letter cannot match, and neither can a deeper path: the lane segments come from namespaces, never from this string.",
+          "type": "string",
+          "pattern": "^\\\\\\\\(?![Rr][Aa][Ii][Dd][Rr][Ii][Vv][Ee][-_])[A-Za-z0-9][A-Za-z0-9.-]{0,62}\\\\[A-Za-z0-9][A-Za-z0-9._-]{0,62}$"
+        },
+        "host_label": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9.-]{0,62}$" },
+        "share_label": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$" },
+        "volume_label": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9 ._-]{0,62}$" },
+        "filesystem": { "enum": ["btrfs", "ext4"] },
+        "drive_letter_mapping_allowed": { "const": false },
+        "raidrive_allowed": { "const": false }
+      }
+    },
+    "namespaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["legacy_freeze_segment", "d_generations_segment"],
+      "properties": {
+        "legacy_freeze_segment": { "const": "legacy-freeze" },
+        "d_generations_segment": { "const": "d-generations" }
+      }
+    },
+    "principals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["writer_credential_ref", "restore_verifier_credential_ref"],
+      "properties": {
+        "writer_credential_ref": {
+          "description": "A Windows protected-storage target NAME only. A password, token or any other secret value must never appear in this file.",
+          "$ref": "#/$defs/ref"
+        },
+        "restore_verifier_credential_ref": { "$ref": "#/$defs/ref" }
+      }
+    }
+  }
+}
