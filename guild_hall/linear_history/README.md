@@ -194,7 +194,9 @@ arguments: `--repository-root`, `--runtime-root`, `--binding`,
 Health codes worth watching: `private_json_digest_mismatch` (binding drifted),
 `required_forbidden_root_missing`, `lease_unavailable` (abandoned lock; manual
 recovery only), `workspace_mismatch`, `api_key_unavailable`,
-`linear_auth_failed`, `linear_rate_limited`, `custody_digest_conflict`.
+`linear_auth_failed`, `linear_rate_limited`, `linear_graphql_<code>` (Linear
+answered a GraphQL request or validation error, including HTTP 400 bodies such
+as `linear_graphql_input_error`), `custody_digest_conflict`.
 
 ## Activation order (Main Node)
 

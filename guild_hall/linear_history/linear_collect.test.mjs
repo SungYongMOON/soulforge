@@ -901,6 +901,7 @@ test("the GraphQL call is read-only, bounded, and redacts the credential in ever
   assert.equal(requests[0].init.method, "POST");
   assert.equal(requests[0].init.headers.authorization, SYNTHETIC_API_KEY);
   assert.equal(requests[0].init.redirect, "error");
+  assert.equal(JSON.parse(requests[0].init.body).operationName, "SoulforgeLinearViewerOrganization");
   const oauthCall = createLinearGraphqlCall({ api_key: `lin_oauth_${"z9".repeat(12)}`, fetch_impl: respond(200, { data: {} }), timeout_ms: 1_000 });
   await oauthCall("linear.read.viewer_organization", LINEAR_QUERY_DOCUMENTS["linear.read.viewer_organization"], {});
   assert.equal(requests[1].init.headers.authorization, `Bearer lin_oauth_${"z9".repeat(12)}`);
@@ -910,6 +911,10 @@ test("the GraphQL call is read-only, bounded, and redacts the credential in ever
     [403, {}, "linear_auth_failed"],
     [429, {}, "linear_rate_limited"],
     [500, {}, "linear_http_failed"],
+    [400, {}, "linear_http_failed"],
+    [400, "invalid", "linear_http_failed"],
+    [400, { errors: [{ message: "operation does not exist", extensions: { code: "INPUT_ERROR", type: "invalid input" } }] }, "linear_graphql_input_error"],
+    [400, { errors: [{ message: "Cannot query field", extensions: { code: "GRAPHQL_VALIDATION_FAILED" } }] }, "linear_graphql_graphql_validation_failed"],
     [200, "invalid", "linear_response_invalid"],
     [200, { errors: [{ message: "Authentication required", extensions: { code: "AUTHENTICATION_ERROR" } }] }, "linear_graphql_authentication_error"],
     [200, { errors: [{ message: "x" }] }, "linear_graphql_error"],

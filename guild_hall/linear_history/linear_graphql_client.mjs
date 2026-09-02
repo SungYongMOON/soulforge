@@ -195,6 +195,26 @@ function safeToken(value) {
   return /^[a-z][a-z0-9_]{0,60}$/u.test(candidate) ? candidate : null;
 }
 
+const OPERATION_NAME_PATTERN = /^\s*query\s+([A-Za-z_][A-Za-z0-9_]*)/u;
+
+// The request `operationName` must name the operation written in the document
+// (`SoulforgeLinear*`); Linear answers HTTP 400 `INPUT_ERROR` "operation does
+// not exist" before authentication when it does not. The lane's `linear.read.*`
+// ids stay internal to the transport and receipts.
+function documentOperationName(document) {
+  const match = OPERATION_NAME_PATTERN.exec(document);
+  return match === null ? undefined : match[1];
+}
+
+function graphqlErrorCode(body) {
+  if (body === null || typeof body !== "object" || Array.isArray(body)
+    || !Array.isArray(body.errors) || body.errors.length === 0) {
+    return null;
+  }
+  const code = safeToken(body.errors[0]?.extensions?.code ?? body.errors[0]?.extensions?.type);
+  return code ? `linear_graphql_${code}` : "linear_graphql_error";
+}
+
 export function createLinearGraphqlCall({
   api_key: apiKey,
   fetch_impl: fetchImpl = globalThis.fetch,
@@ -226,7 +246,7 @@ export function createLinearGraphqlCall({
           "content-type": "application/json",
           accept: "application/json",
         },
-        body: JSON.stringify({ query: document, variables, operationName }),
+        body: JSON.stringify({ query: document, variables, operationName: documentOperationName(document) }),
         signal: controller.signal,
         redirect: "error",
       });
@@ -241,12 +261,18 @@ export function createLinearGraphqlCall({
         fail("linear_auth_failed", "Linear rejected the configured credential");
       }
       if (response.status === 429) fail("linear_rate_limited", "Linear rate limit reached");
-      if (!response.ok) fail("linear_http_failed", `Linear HTTP status ${response.status}`);
       try {
         body = await response.json();
       } catch (error) {
         if (controller.signal.aborted) fail("linear_http_timeout", "Linear response exceeded its bounded timeout");
+        if (!response.ok) fail("linear_http_failed", `Linear HTTP status ${response.status}`);
         fail("linear_response_invalid", "Linear response was not JSON");
+      }
+      if (!response.ok) {
+        // Linear reports request and validation problems as HTTP 400 with a
+        // GraphQL `errors` body; surface that code instead of a bare HTTP failure
+        // so a health receipt can name the offending query.
+        fail(graphqlErrorCode(body) ?? "linear_http_failed", `Linear HTTP status ${response.status}`);
       }
     } finally {
       clearTimeout(timeout);
@@ -255,8 +281,7 @@ export function createLinearGraphqlCall({
       fail("linear_response_invalid", "Linear response envelope was not an object");
     }
     if (Array.isArray(body.errors) && body.errors.length > 0) {
-      const code = safeToken(body.errors[0]?.extensions?.code ?? body.errors[0]?.extensions?.type);
-      fail(code ? `linear_graphql_${code}` : "linear_graphql_error", "Linear returned a GraphQL error");
+      fail(graphqlErrorCode(body), "Linear returned a GraphQL error");
     }
     if (body.data === null || typeof body.data !== "object") {
       fail("linear_response_invalid", "Linear response had no data");

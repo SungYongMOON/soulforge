@@ -52,6 +52,12 @@
   `docs/architecture/workspace/examples/linear_collect_lane/`,
   `docs/architecture/foundation/team_member_engineering_program/10_EXTERNAL_CONNECTORS_AND_BACKUP.md`,
   `guild_hall/module_operability/catalogs/product_module_classification.v0.json`, `package.json`.
+- Activation fixes found on the Main Node (2026-09-02): the registrar now pins
+  `StopAtDurationEnd=false` on the 15-minute repetition trigger (PowerShell
+  emits `true` without a Duration, which failed the exported-XML attestation),
+  and the GraphQL client sends the document's own operation name and surfaces
+  non-2xx GraphQL error codes as `linear_graphql_<code>` instead of a bare
+  `linear_http_failed`.
 
 ## 2026-09-02 - HPP server Pack 0.1.7 becomes the active production generation
 
