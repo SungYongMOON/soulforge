@@ -409,6 +409,11 @@ $TriggerEvery15 = New-ScheduledTaskTrigger `
   -Once `
   -At ([DateTime]::Today) `
   -RepetitionInterval (New-TimeSpan -Minutes 15)
+# New-ScheduledTaskTrigger emits StopAtDurationEnd=true even when no
+# Duration is set (observed on PowerShell 5.1 / Windows 11), which the
+# exported-XML attestation below rejects; the indefinite 15-minute repetition
+# must never stop at a duration end.
+$TriggerEvery15.Repetition.StopAtDurationEnd = $false
 $Principal = New-ScheduledTaskPrincipal `
   -UserId $CurrentUser `
   -LogonType Interactive `

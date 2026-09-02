@@ -63,6 +63,8 @@ foreach ($RequiredPattern in @(
   "local-name\(\)='Repetition'",
   "local-name\(\)='Interval'",
   'RegisteredInterval\s+-eq\s+"PT15M"',
+  '\$TriggerEvery15\.Repetition\.StopAtDurationEnd\s*=\s*\$false',
+  'RegisteredStopAtDurationEnd\s+-ne\s+"true"',
   "local-name\(\)='ExecutionTimeLimit'",
   'RegisteredExecutionTimeLimit\s+-eq\s+"PT10M"',
   "local-name\(\)='RestartOnFailure'",

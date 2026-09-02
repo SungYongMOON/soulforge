@@ -1265,12 +1265,13 @@ test("PowerShell registrar removes a newly registered task when XML attestation 
     "$global:LinearTaskRegisterCount = 0",
     "$global:LinearTaskDisableCount = 0",
     "$global:LinearTaskUnregisterCount = 0",
+    "$global:LinearTaskTriggerStopAtDurationEnd = $null",
     "function Get-ScheduledTask { [CmdletBinding()] param([string]$TaskName) if ($global:LinearTaskExists) { return [pscustomobject]@{ State = 'Ready' } } return $null }",
     "function New-ScheduledTaskAction { [CmdletBinding()] param($Execute,$Argument,$WorkingDirectory) return [pscustomobject]@{} }",
-    "function New-ScheduledTaskTrigger { [CmdletBinding()] param([switch]$Once,$At,$RepetitionInterval) return [pscustomobject]@{} }",
+    "function New-ScheduledTaskTrigger { [CmdletBinding()] param([switch]$Once,$At,$RepetitionInterval) return [pscustomobject]@{ Repetition = [pscustomobject]@{ Interval = 'PT15M'; Duration = $null; StopAtDurationEnd = $true } } }",
     "function New-ScheduledTaskPrincipal { [CmdletBinding()] param($UserId,$LogonType,$RunLevel) return [pscustomobject]@{} }",
     "function New-ScheduledTaskSettingsSet { [CmdletBinding()] param($MultipleInstances,$RestartCount,$RestartInterval,$ExecutionTimeLimit,[switch]$StartWhenAvailable,[switch]$Hidden,[switch]$AllowStartIfOnBatteries,[switch]$DontStopIfGoingOnBatteries) return [pscustomobject]@{} }",
-    "function Register-ScheduledTask { [CmdletBinding()] param($TaskName,$Action,$Trigger,$Principal,$Settings,$Description,[switch]$Force,$Xml) $global:LinearTaskRegisterCount += 1; $global:LinearTaskExists = $true; return [pscustomobject]@{} }",
+    "function Register-ScheduledTask { [CmdletBinding()] param($TaskName,$Action,$Trigger,$Principal,$Settings,$Description,[switch]$Force,$Xml) if ($null -ne $Trigger) { $global:LinearTaskTriggerStopAtDurationEnd = @($Trigger)[0].Repetition.StopAtDurationEnd }; $global:LinearTaskRegisterCount += 1; $global:LinearTaskExists = $true; return [pscustomobject]@{} }",
     "function Export-ScheduledTask { [CmdletBinding()] param($TaskName) return '<Task><Triggers /></Task>' }",
     "function Disable-ScheduledTask { [CmdletBinding()] param($TaskName) $global:LinearTaskDisableCount += 1; return [pscustomobject]@{} }",
     "function Unregister-ScheduledTask { [CmdletBinding(SupportsShouldProcess=$true,ConfirmImpact='High')] param($TaskName) $global:LinearTaskUnregisterCount += 1; $global:LinearTaskExists = $false }",
@@ -1283,7 +1284,7 @@ test("PowerShell registrar removes a newly registered task when XML attestation 
     "try { & $env:LINEAR_TASK_REGISTRAR @Common -Register -ExpectedDryRunDigest $Match.Groups[1].Value -Confirm:$false } catch { $Caught = $true; $CaughtMessage = $_.Exception.Message }",
     "$WrongDigest = $false",
     "try { & $env:LINEAR_TASK_REGISTRAR @Common -Register -ExpectedDryRunDigest ('sha256:' + ('0' * 64)) -Confirm:$false } catch { $WrongDigest = $true }",
-    "[ordered]@{ caught=$Caught; caught_message=$CaughtMessage; wrong_digest_refused=$WrongDigest; register_count=$global:LinearTaskRegisterCount; disable_count=$global:LinearTaskDisableCount; unregister_count=$global:LinearTaskUnregisterCount; exists=$global:LinearTaskExists } | ConvertTo-Json -Compress",
+    "[ordered]@{ caught=$Caught; caught_message=$CaughtMessage; wrong_digest_refused=$WrongDigest; register_count=$global:LinearTaskRegisterCount; disable_count=$global:LinearTaskDisableCount; unregister_count=$global:LinearTaskUnregisterCount; exists=$global:LinearTaskExists; trigger_stop_at_duration_end=$global:LinearTaskTriggerStopAtDurationEnd } | ConvertTo-Json -Compress",
     "",
   ].join("\r\n"), "utf8");
   const { stdout, stderr } = await execFileAsync(powershellPath(), [
@@ -1297,4 +1298,5 @@ test("PowerShell registrar removes a newly registered task when XML attestation 
   assert.equal(result.disable_count, 1, result.caught_message);
   assert.equal(result.unregister_count, 1, result.caught_message);
   assert.equal(result.exists, false, result.caught_message);
+  assert.equal(result.trigger_stop_at_duration_end, false, result.caught_message);
 });
