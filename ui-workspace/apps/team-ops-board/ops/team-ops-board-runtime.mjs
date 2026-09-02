@@ -31,6 +31,10 @@ import {
 import { resolveTeamOpsBoardAllowedHosts } from "../src/server/team-ops-board-allowed-hosts.mjs";
 import { startUsageProducerCompanion } from "./ai-usage-producer-companion.mjs";
 import { startRecoveryCompanion } from "../../../../guild_hall/watchtower/recovery_runtime.mjs";
+import {
+  SOULFORGE_STATE_ROOT_ENV,
+  readSoulforgeRootOverride,
+} from "../../../../guild_hall/shared/soulforge_state_root.mjs";
 
 export const TEAM_OPS_BOARD_RUNTIME_SCHEMA = "soulforge.team_ops_board.runtime.v1";
 export const TEAM_OPS_BOARD_RUNTIME_HOST = "127.0.0.1";
@@ -63,6 +67,7 @@ const RUNTIME_ENVIRONMENT_ALLOWLIST = Object.freeze([
   "WINDIR",
   "SOULFORGE_AI_USAGE_METER_STATE_ROOT",
   "SOULFORGE_AI_USAGE_PROJECT_ROOT",
+  SOULFORGE_STATE_ROOT_ENV,
   "TEAM_OPS_BOARD_ALLOWED_HOSTS",
   "TEAM_OPS_BOARD_ANTIGRAVITY_STATE_DB",
   "TEAM_OPS_BOARD_ANTIGRAVITY_QUOTA_LIVE_REFRESH",
@@ -143,6 +148,7 @@ const SAFE_FAILURE_CLASSES = new Set([
   "control_unavailable",
   "health_failed",
   "identity_mismatch",
+  "owner_root_override_invalid",
   "owner_root_unavailable",
   "pilot_required",
   "port_unavailable",
@@ -741,10 +747,19 @@ export function deriveAllowedHostFromServeStatus(status) {
 export function createScheduledRuntimeEnvironment({
   baseEnvironment = {},
   ownerRoot,
+  stateRoot = null,
   serveStatus,
 } = {}) {
   if (typeof ownerRoot !== "string" || !path.isAbsolute(ownerRoot)) fail("owner_root_unavailable");
-  const operationsRoot = path.join(path.resolve(ownerRoot), "guild_hall", "state", "operations");
+  const resolvedOwnerRoot = path.resolve(ownerRoot);
+  // The state root defaults to the owner root's guild_hall/state subtree; the
+  // scheduled controller passes the SOULFORGE_STATE_ROOT override here instead
+  // when one is set, so every Board binding below moves together.
+  const resolvedStateRoot = stateRoot === null
+    ? path.join(resolvedOwnerRoot, "guild_hall", "state")
+    : stateRoot;
+  if (typeof resolvedStateRoot !== "string" || !path.isAbsolute(resolvedStateRoot)) fail("owner_root_unavailable");
+  const operationsRoot = path.join(resolvedStateRoot, "operations");
   const boardStateRoot = path.join(operationsRoot, "team_ops_board");
   const usageRoot = path.join(operationsRoot, "ai_usage_meter");
   const env = {};
@@ -763,12 +778,13 @@ export function createScheduledRuntimeEnvironment({
     TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY: path.join(boardStateRoot, "thread_visibility.v1.json"),
     TEAM_OPS_BOARD_THREAD_RESULT_GATE_REGISTRY: path.join(boardStateRoot, "thread_result_gate.v1.json"),
     SOULFORGE_AI_USAGE_METER_STATE_ROOT: usageRoot,
-    SOULFORGE_AI_USAGE_PROJECT_ROOT: path.resolve(ownerRoot),
+    SOULFORGE_AI_USAGE_PROJECT_ROOT: resolvedOwnerRoot,
+    [SOULFORGE_STATE_ROOT_ENV]: resolvedStateRoot,
     TEAM_OPS_BOARD_LIFECYCLE_SNAPSHOT: path.join(usageRoot, "lifecycle", "current.json"),
     TEAM_OPS_BOARD_LIFECYCLE_DISABLE_CONTROL: path.join(usageRoot, "control", "emergency-disable.v1.json"),
     TEAM_OPS_BOARD_WATCHTOWER_POINTER: path.join(operationsRoot, "watchtower", "binding.pointer.json"),
     TEAM_OPS_BOARD_ORGANIZATION_GOVERNANCE_OVERLAY: path.join(
-      path.resolve(ownerRoot),
+      resolvedOwnerRoot,
       "_workmeta",
       "system",
       "bindings",
@@ -1507,10 +1523,42 @@ async function readServeStatus(env = process.env) {
   }
 }
 
+// Owner root and state root for the scheduled controller. With
+// SOULFORGE_OWNER_ROOT / SOULFORGE_STATE_ROOT set (validated by the shared
+// resolver) Git is not consulted at all, and a set-but-invalid override fails
+// closed as owner_root_override_invalid instead of falling back to Git. With
+// neither set the roots are exactly the previous Git-derived values.
+export async function resolveScheduledRuntimeRoots(env = process.env, {
+  resolveGitOwnerRoot = resolveOwnerRoot,
+  codeRoot = SOULFORGE_ROOT,
+} = {}) {
+  let override = null;
+  try {
+    override = readSoulforgeRootOverride(env);
+  } catch {
+    fail("owner_root_override_invalid");
+  }
+  if (override !== null) {
+    return {
+      source: override.source,
+      ownerRoot: override.ownerRoot ?? codeRoot,
+      stateRoot: override.stateRoot,
+    };
+  }
+  const ownerRoot = await resolveGitOwnerRoot(env);
+  return {
+    source: "git",
+    ownerRoot,
+    stateRoot: path.join(ownerRoot, "guild_hall", "state"),
+  };
+}
+
 async function deriveScheduledRuntimeEnvironment(env = process.env) {
+  const roots = await resolveScheduledRuntimeRoots(env);
   return createScheduledRuntimeEnvironment({
     baseEnvironment: env,
-    ownerRoot: await resolveOwnerRoot(env),
+    ownerRoot: roots.ownerRoot,
+    stateRoot: roots.stateRoot,
     serveStatus: await readServeStatus(env),
   });
 }
@@ -2004,9 +2052,18 @@ async function runWorker(runId, env = process.env) {
     const vite = await import("vite");
     previewServer = await vite.preview(createPreviewConfig());
     if (!(await headLoopback())) fail("health_failed");
+    // The controller supplies SOULFORGE_STATE_ROOT (the owner root's
+    // guild_hall/state by default, or the override). Both companions bind
+    // their operations-state paths from it instead of re-deriving them from
+    // the owner root, so an override moves the whole cluster together.
+    const operationsStateRoot = typeof workerEnv[SOULFORGE_STATE_ROOT_ENV] === "string"
+      && path.isAbsolute(workerEnv[SOULFORGE_STATE_ROOT_ENV])
+      ? path.join(workerEnv[SOULFORGE_STATE_ROOT_ENV], "operations")
+      : undefined;
     usageProducerCompanion = startUsageProducerCompanion({
       repoRoot: SOULFORGE_ROOT,
       projectRoot: workerEnv.SOULFORGE_AI_USAGE_PROJECT_ROOT,
+      operationsStateRoot,
       stateRoot: workerEnv.SOULFORGE_AI_USAGE_METER_STATE_ROOT,
       registryPath: workerEnv.TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY,
       watchtowerPointerPath: workerEnv.TEAM_OPS_BOARD_WATCHTOWER_POINTER,
@@ -2014,6 +2071,11 @@ async function runWorker(runId, env = process.env) {
     recoveryCompanion = startRecoveryCompanion({
       repoRoot: SOULFORGE_ROOT,
       projectRoot: workerEnv.SOULFORGE_AI_USAGE_PROJECT_ROOT,
+      ...(operationsStateRoot === undefined ? {} : {
+        bindingPath: path.join(operationsStateRoot, "watchtower", "recovery.binding.json"),
+        evidenceRoot: path.join(operationsStateRoot, "watchtower", "external_evidence"),
+        watchtowerPointerPath: path.join(operationsStateRoot, "watchtower", "binding.pointer.json"),
+      }),
     });
     await writeJsonAtomic(paths.state, {
       ...transitionRuntimeState(startingState, "preview_ready"),

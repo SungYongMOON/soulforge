@@ -6,6 +6,7 @@ import { lstat, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
+import { readSoulforgeRootOverride } from "../../../../../guild_hall/shared/soulforge_state_root.mjs";
 import {
   buildAntigravityQuotaSnapshot,
   buildAntigravityQuotaStatus,
@@ -48,18 +49,21 @@ export function isAntigravityQuotaLiveRefreshEnabled(env = process.env) {
 }
 
 export function resolveAntigravityQuotaCachePath(env = process.env) {
+  // SOULFORGE_STATE_ROOT wins over any owner root; the explicit owner root
+  // (SOULFORGE_AI_USAGE_PROJECT_ROOT) wins over SOULFORGE_OWNER_ROOT. A
+  // set-but-invalid override throws (fail closed) instead of returning null.
+  const override = readSoulforgeRootOverride(env);
   const ownerRoot = env?.SOULFORGE_AI_USAGE_PROJECT_ROOT;
-  if (typeof ownerRoot === "string" && path.isAbsolute(ownerRoot)) {
-    return path.join(
-      path.resolve(ownerRoot),
-      "guild_hall",
-      "state",
-      "operations",
-      "team_ops_board",
-      "antigravity_quota.last.json",
-    );
+  let stateRoot = null;
+  if (override?.source === "state_root") {
+    stateRoot = override.stateRoot;
+  } else if (typeof ownerRoot === "string" && path.isAbsolute(ownerRoot)) {
+    stateRoot = path.join(path.resolve(ownerRoot), "guild_hall", "state");
+  } else if (override !== null) {
+    stateRoot = override.stateRoot;
   }
-  return null;
+  if (stateRoot === null) return null;
+  return path.join(stateRoot, "operations", "team_ops_board", "antigravity_quota.last.json");
 }
 
 export function resolveAntigravityCliPath(env = process.env) {

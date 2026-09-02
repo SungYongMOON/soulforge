@@ -2,6 +2,7 @@ import { mkdir, open, readFile, rename, unlink } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { resolveSoulforgeStateRoot } from "../../../../../guild_hall/shared/soulforge_state_root.mjs";
 import {
   THREAD_ENROLLMENT_SCHEMA,
   createEmptyThreadEnrollmentRegistry,
@@ -299,9 +300,12 @@ export function reconcileThreadEnrollment(registryInput, projectedThreads = []) 
   };
 }
 
-export function defaultThreadEnrollmentRegistryPath() {
+// Default registry: this checkout's guild_hall/state unless SOULFORGE_STATE_ROOT
+// / SOULFORGE_OWNER_ROOT redirect the state root (an invalid value throws).
+export function defaultThreadEnrollmentRegistryPath(env = process.env) {
   const here = dirname(fileURLToPath(import.meta.url));
-  return resolve(here, "..", "..", "..", "..", "..", "guild_hall", "state", "operations", "team_ops_board", "thread_visibility.v1.json");
+  const stateRoot = resolveSoulforgeStateRoot(env, () => resolve(here, "..", "..", "..", "..", "..", "guild_hall", "state"));
+  return join(stateRoot, "operations", "team_ops_board", "thread_visibility.v1.json");
 }
 
 export async function readThreadEnrollmentRegistry(path) {

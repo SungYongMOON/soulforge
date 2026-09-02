@@ -12,7 +12,8 @@ const ALLOWLISTED_ERRORS = new Set([
   "report_only_destructive_option_forbidden",
   "invalid_lifecycle_retention_report_arguments",
   "invalid_expected_digest_format",
-  "invalid_main_ref"
+  "invalid_main_ref",
+  "soulforge_root_override_invalid"
 ]);
 
 export async function main(argv = process.argv.slice(2), { env = process.env, stdout = process.stdout, stderr = process.stderr } = {}) {
@@ -41,7 +42,8 @@ export async function main(argv = process.argv.slice(2), { env = process.env, st
     }
     return 0;
   } catch (error) {
-    const errCode = ALLOWLISTED_ERRORS.has(error?.message) ? error.message : "lifecycle_retention_cli_failed";
+    const candidate = typeof error?.code === "string" ? error.code : error?.message;
+    const errCode = ALLOWLISTED_ERRORS.has(candidate) ? candidate : "lifecycle_retention_cli_failed";
     stderr.write(`${errCode}\n`);
     return 2;
   }

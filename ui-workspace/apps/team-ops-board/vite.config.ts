@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readSoulforgeRootOverride } from "../../../guild_hall/shared/soulforge_state_root.mjs";
 import { createAiUsageAdapterPlugin } from "./src/server/ai-usage-adapter.mjs";
 import { createAgentRuntimeSnapshotAdapterPluginFromEnvironment } from "./src/server/agent-runtime-snapshot-adapter.mjs";
 import { createAntigravityQuotaAdapterPlugin } from "./src/server/antigravity-quota-adapter.mjs";
@@ -27,27 +28,39 @@ const boardTopologyOptions = createTeamOpsBoardTopologyOptions(boardEnvironment)
 const boardAllowedHosts = resolveTeamOpsBoardAllowedHosts();
 const boardRoot = path.dirname(fileURLToPath(import.meta.url));
 const soulforgeRoot = path.resolve(boardRoot, "../../..");
+// Fail closed: a set-but-invalid SOULFORGE_OWNER_ROOT / SOULFORGE_STATE_ROOT
+// throws here and the Board refuses to start instead of serving another root.
+const rootOverride = readSoulforgeRootOverride(process.env);
 const configuredOwnerRoot = process.env.SOULFORGE_AI_USAGE_PROJECT_ROOT;
 const ownerRoot = typeof configuredOwnerRoot === "string" && path.isAbsolute(configuredOwnerRoot)
   ? path.resolve(configuredOwnerRoot)
-  : soulforgeRoot;
+  : rootOverride?.ownerRoot ?? soulforgeRoot;
+// State paths: SOULFORGE_STATE_ROOT > <owner root>/guild_hall/state, where the
+// owner root is the explicit SOULFORGE_AI_USAGE_PROJECT_ROOT, then
+// SOULFORGE_OWNER_ROOT, then this checkout.
+const stateRoot = rootOverride?.source === "state_root"
+  ? rootOverride.stateRoot
+  : path.join(ownerRoot, "guild_hall", "state");
+const operationsRoot = path.join(stateRoot, "operations");
 const providerQuotaReceiptPath = path.join(
-  ownerRoot,
-  "guild_hall",
-  "state",
-  "operations",
+  operationsRoot,
   "provider_quota",
   "claude",
   "statusline",
   "provider_quota.receipt.v1.json",
 );
 const receiptExpiryBindingPath = path.join(
-  ownerRoot,
-  "guild_hall",
-  "state",
-  "operations",
+  operationsRoot,
   "team_ops_board",
   "receipt_expiry_binding.v1.json",
+);
+const topologyRecoveryEvidenceRoot = path.join(operationsRoot, "watchtower", "external_evidence");
+const codexRetentionReportPath = path.join(
+  operationsRoot,
+  "soulforge_activity",
+  "reports",
+  "codex_retention",
+  "current.json",
 );
 
 export default defineConfig(async () => ({
@@ -58,13 +71,13 @@ export default defineConfig(async () => ({
     createAiUsageAdapterPlugin(),
     createTopologyAdapterPlugin(boardTopologyOptions),
     createTopologyFederationAdapterPlugin(),
-    createTopologyRecoveryAdapterPlugin({ ownerRoot }),
+    createTopologyRecoveryAdapterPlugin({ ownerRoot, evidenceRoot: topologyRecoveryEvidenceRoot }),
     createReceiptExpiryServerAdapter({ bindingPath: receiptExpiryBindingPath, ownerRoot }),
     createStorageMapServerAdapter({
       bindingPath: process.env.TEAM_OPS_STORAGE_MAP_BINDING,
       bindingSha256: process.env.TEAM_OPS_STORAGE_MAP_BINDING_SHA256,
     }),
-    createCodexRetentionServerAdapter({ ownerRoot }),
+    createCodexRetentionServerAdapter({ ownerRoot, reportPath: codexRetentionReportPath }),
     createHostStatsAdapterPlugin(),
     createClaudeUsageAdapterPlugin(),
     createAntigravityUsageAdapterPlugin(),

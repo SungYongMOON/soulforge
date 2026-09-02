@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { createHash } from "node:crypto";
 
+import { resolveSoulforgeStateRoot } from "../../guild_hall/shared/soulforge_state_root.mjs";
+
 const execFile = promisify(execFileCallback);
 
 export const LIFECYCLE_RETENTION_REPORT_SCHEMA = "soulforge.codex_thread_manager.lifecycle_retention_report.v1";
@@ -195,14 +197,19 @@ export function defaultRepoRoot() {
   return resolve(here, "..", "..");
 }
 
-export function defaultLifecycleRetentionReportPaths({ repoRoot = defaultRepoRoot() } = {}) {
+// State paths follow SOULFORGE_STATE_ROOT / SOULFORGE_OWNER_ROOT when set
+// (fail closed on an invalid value); otherwise they stay under the repo root's
+// own guild_hall/state exactly as before. `repo_root` is never redirected: it
+// keeps naming the checkout used for `git worktree list` and the docs scan.
+export function defaultLifecycleRetentionReportPaths({ repoRoot = defaultRepoRoot(), env = process.env } = {}) {
   const root = resolve(repoRoot);
+  const stateRoot = resolveSoulforgeStateRoot(env, () => join(root, "guild_hall", "state"));
   return {
     repo_root: root,
-    enrollment_path: join(root, "guild_hall", "state", "operations", "team_ops_board", "thread_visibility.v1.json"),
-    lifecycle_path: join(root, "guild_hall", "state", "operations", "ai_usage_meter", "lifecycle", "current.json"),
-    result_gate_path: join(root, "guild_hall", "state", "operations", "team_ops_board", "thread_result_gate.v1.json"),
-    task_worktree_binding_path: join(root, "guild_hall", "state", "operations", "team_ops_board", "task_worktree_binding.v1.json")
+    enrollment_path: join(stateRoot, "operations", "team_ops_board", "thread_visibility.v1.json"),
+    lifecycle_path: join(stateRoot, "operations", "ai_usage_meter", "lifecycle", "current.json"),
+    result_gate_path: join(stateRoot, "operations", "team_ops_board", "thread_result_gate.v1.json"),
+    task_worktree_binding_path: join(stateRoot, "operations", "team_ops_board", "task_worktree_binding.v1.json")
   };
 }
 

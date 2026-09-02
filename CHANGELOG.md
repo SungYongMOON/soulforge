@@ -1,5 +1,66 @@
 # CHANGELOG
 
+## 2026-09-02 - Operations cluster owner-root / state-root override (Option B)
+
+- Revision: branch `claude/ops-owner-root-override` (single commit on top of
+  `ef9b0e66`; not merged, not deployed).
+- Added one explicit override for the Workspace Board runtime (port 4192) and
+  its two companions, the AI usage meter CLI and hook, and the Codex retention
+  refresh: `SOULFORGE_OWNER_ROOT` (absolute checkout-like root whose
+  `guild_hall/state` subtree is used) and the finer `SOULFORGE_STATE_ROOT`
+  (absolute path that replaces `<owner root>/guild_hall/state`). One shared
+  resolver, `guild_hall/shared/soulforge_state_root.mjs`, serves all three, so
+  one state root moves the whole cluster together. Precedence everywhere:
+  explicit flag or file-specific env (`--state-root`, `--registry`,
+  `TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY`,
+  `SOULFORGE_AI_USAGE_METER_STATE_ROOT`, `-ActivityRoot`, ...) >
+  `SOULFORGE_STATE_ROOT` > `SOULFORGE_OWNER_ROOT` > the Git-derived or
+  checkout-relative default.
+- Fail closed: a value that is set but empty, relative, missing, or not a
+  directory stops the scheduled Board controller before it forks a child
+  (`owner_root_override_invalid`), makes the meter hook exit 1 without writing
+  anywhere (no `CODEX_HOME/usage-meter` fallback), and exits the retention CLI
+  with code 2 (`soulforge_root_override_invalid`). Messages name the variable
+  and the reason, never the configured path. With both variables unset every
+  derived path and failure code is byte-identical to before, which the new
+  tests assert literally; the only new observable is that the Board child now
+  receives `SOULFORGE_STATE_ROOT` explicitly.
+- Board: with an override the controller does not run Git; the scheduled
+  environment, `vite.config.ts`, the enrollment / result-gate /
+  organization-catalog defaults, the Antigravity quota cache, the Watchtower
+  pointer default, the topology-recovery evidence root, the Codex-retention
+  report path, and both companions (usage producer `provider_quota`, recovery
+  companion binding, evidence root, and pointer) bind from the state root. The
+  recovery companion now passes its evidence root and pointer into the cycle
+  it runs instead of letting the cycle re-derive them.
+- Meter: every command that accepts `--state-root` except the read-only
+  `usage-projection` now defaults to `SOULFORGE_AI_USAGE_METER_STATE_ROOT`,
+  then the shared override, when the flag is omitted; without any of the
+  three the previous `state_root_required` failures stay.
+- Retention: `--activity-root` and the state files the report reads follow
+  the override; `--local-root` defaults to `SOULFORGE_OWNER_ROOT` or the
+  checkout and is never redirected by `SOULFORGE_STATE_ROOT`. The `ops/`
+  registrar and launcher keep their explicit `-LocalRoot`/`-ActivityRoot`.
+  `activity_log.loadNodeIdentity` reads `local/node_identity.yaml` under the
+  state root.
+- 운영 영향: this is a code and documentation change only. No runtime was
+  activated, retargeted, stopped, or started; no Scheduled Task, `.codex`
+  hook file, or environment variable was modified; the installed C: lanes keep
+  running exactly as before. Relocating the cluster to `D:` remains a
+  separate Owner-executed step (lane v2 build, one-time copy of the
+  `operations/` state, environment values) documented in the D: cutover
+  packet, and the enrollment split-brain warning there applies until the
+  variables are set for agent sessions too.
+- 관련 경로: `guild_hall/shared/soulforge_state_root.mjs`,
+  `ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs`,
+  `ui-workspace/apps/team-ops-board/ops/ai-usage-producer-companion.mjs`,
+  `ui-workspace/apps/team-ops-board/vite.config.ts`,
+  `ui-workspace/apps/team-ops-board/src/{core,server}/*` default-path
+  resolvers, `guild_hall/watchtower/recovery_runtime.mjs`,
+  `guild_hall/ai_usage_meter/cli.mjs`,
+  `.workflow/codex_thread_manager_v0/{codex_retention_automation_cli,lifecycle_retention,lifecycle_retention_cli}.mjs`,
+  `guild_hall/activity/activity_log.mjs`, and the three owner READMEs.
+
 ## 2026-09-02 - HPP server Pack 0.1.7 becomes the active production generation
 
 - Activated the immutable HPP server Pack `0.1.7` as the Main Node's current

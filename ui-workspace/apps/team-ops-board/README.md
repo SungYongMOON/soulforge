@@ -244,7 +244,11 @@ guild_hall/state/operations/team_ops_board/thread_visibility.v1.json
 ```
 
 Override that path only for local operations or tests with
-`TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY`. Set
+`TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY`. When that variable is absent, the
+default path itself follows the shared `SOULFORGE_STATE_ROOT` /
+`SOULFORGE_OWNER_ROOT` override described under the Windows runtime wrapper,
+so the enrollment, result-gate, and organization-catalog CLIs run from a
+checkout and a relocated Board serve the same registry. Set
 `TEAM_OPS_BOARD_LIVE_THREADS_DISABLED=1` or `disabled: true` in the local
 registry to stop observation and enrollment writes immediately.
 
@@ -607,6 +611,52 @@ remains `running`, the controller records a metadata-only receipt and restarts
 only its Board child after an unexpected exit or non-ready observation, with at
 most three retries and a one-second backoff. Each child owns a new runtime
 generation and heartbeat.
+
+#### Owner-root and state-root override
+
+By default the scheduled controller derives the owner root from Git as
+described above and reads and writes every Board binding under that
+checkout's `guild_hall/state/operations/`. Two environment variables, read by
+the controller from its own process environment through
+`guild_hall/shared/soulforge_state_root.mjs`, relocate that state to a
+directory that is not a Git checkout:
+
+| Variable | Meaning |
+| --- | --- |
+| `SOULFORGE_OWNER_ROOT` | Absolute path to a checkout-like root. Its `guild_hall/state` subtree becomes the state root; the root itself stays the owner root for the `_workmeta` governance overlay and the recovery companion's `_workmeta` checks. Git is not consulted. |
+| `SOULFORGE_STATE_ROOT` | Absolute path that replaces `<owner root>/guild_hall/state` directly. Every operations binding (`team_ops_board`, `ai_usage_meter`, `watchtower`, `provider_quota`, `soulforge_activity`) resolves under `<state root>/operations/`. When it is set without `SOULFORGE_OWNER_ROOT`, the owner root is this module tree's own root (an installed lane), so the `_workmeta` overlay reports missing/hold. |
+
+Precedence, highest first:
+
+1. A file-specific explicit flag or environment variable (`--registry`,
+   `TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY`,
+   `TEAM_OPS_BOARD_THREAD_RESULT_GATE_REGISTRY`,
+   `TEAM_OPS_BOARD_ORGANIZATION_CATALOG`, `TEAM_OPS_BOARD_WATCHTOWER_POINTER`,
+   `SOULFORGE_AI_USAGE_METER_STATE_ROOT`, ...). Inside the Board child these
+   are the values the controller assembled, exactly as before.
+2. `SOULFORGE_STATE_ROOT`.
+3. `SOULFORGE_OWNER_ROOT`; inside the Board child the controller-supplied
+   `SOULFORGE_AI_USAGE_PROJECT_ROOT` plays this role.
+4. The Git-derived owner root (scheduled controller) or this checkout (`vite`
+   dev mode and the enrollment, result-gate, and organization CLIs).
+
+The override fails closed. A variable that is set but empty, relative,
+missing, or not a directory stops the scheduled controller before any Board
+child is forked, with the sanitized failure class
+`owner_root_override_invalid` in the `controller_preflight` receipt, and makes
+`vite.config.ts`, the CLIs, and the quota-cache resolver throw
+`soulforge_root_override_invalid`; nothing falls back to Git or to the
+checkout, and the message names only the variable and the reason. With
+neither variable set every path is byte-identical to the previous derivation;
+the only visible difference is that the Board child now receives
+`SOULFORGE_STATE_ROOT` explicitly (equal to `<owner root>/guild_hall/state`),
+so its adapters and both companions bind from one value instead of
+re-deriving it. The AI usage meter CLI and the Codex retention refresh honour
+the same two variables (`guild_hall/ai_usage_meter/README.md`,
+`.workflow/codex_thread_manager_v0/README.md`), so one shared state root
+moves the whole cluster together. The variables are process environment only:
+they never enter the Scheduled Task definition, action digest, state records,
+or logs, and this documentation activates nothing by itself.
 
 ### Collection liveness evidence
 

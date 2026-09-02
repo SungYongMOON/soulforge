@@ -653,6 +653,7 @@ export function startRecoveryCompanion({
   projectRoot = repoRoot,
   bindingPath = path.join(projectRoot, "guild_hall", "state", "operations", "watchtower", "recovery.binding.json"),
   evidenceRoot = path.join(projectRoot, "guild_hall", "state", "operations", "watchtower", "external_evidence"),
+  watchtowerPointerPath = path.join(projectRoot, "guild_hall", "state", "operations", "watchtower", "binding.pointer.json"),
   intervalMs = DEFAULT_RECOVERY_INTERVAL_MS,
   loadBinding = async () => validateRecoveryBinding(JSON.parse(await readFile(bindingPath, "utf8"))),
   runCycle = runRecoveryCycle,
@@ -670,7 +671,7 @@ export function startRecoveryCompanion({
     if (stopped || inFlight !== null) return inFlight;
     const attemptedAt = now().toISOString();
     inFlight = Promise.resolve(loadBinding())
-      .then((binding) => runCycle({ repoRoot, projectRoot, binding }))
+      .then((binding) => runCycle({ repoRoot, projectRoot, binding, evidenceRoot, watchtowerPointerPath }))
       .then(
         () => receipt(attemptedAt, "ok", null),
         (error) => receipt(attemptedAt, "error", safeSupervisorErrorCode(error)),

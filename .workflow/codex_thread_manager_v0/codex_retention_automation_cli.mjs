@@ -6,6 +6,10 @@ import {
   DEFAULT_LIFECYCLE_RETENTION_FEATURE_CATALOG
 } from "./codex_retention_automation.mjs";
 import { defaultRepoRoot } from "./lifecycle_retention.mjs";
+import {
+  SOULFORGE_ROOT_OVERRIDE_INVALID,
+  readSoulforgeRootOverride
+} from "../../guild_hall/shared/soulforge_state_root.mjs";
 
 const DESTRUCTIVE_OPTIONS = Object.freeze(new Set([
   "--apply", "--delete", "--archive", "--remove", "--prune", "--branch-delete"
@@ -90,6 +94,21 @@ function parseArgs(argv) {
   return args;
 }
 
+// Root defaults for the thin CLI. Explicit `--local-root` / `--activity-root`
+// always win. Without them the repo root is SOULFORGE_OWNER_ROOT or this
+// checkout, and the activity root is `<state root>/operations/soulforge_activity`
+// where the state root is SOULFORGE_STATE_ROOT, then `<repo root>/guild_hall/state`.
+// A set-but-invalid override throws `soulforge_root_override_invalid`.
+export function resolveCodexRetentionCliRoots({ localRoot = null, activityRoot = null } = {}, env = process.env) {
+  const override = readSoulforgeRootOverride(env);
+  const repoRoot = localRoot ? resolve(localRoot) : (override?.ownerRoot ?? defaultRepoRoot());
+  const stateRoot = override === null ? resolve(repoRoot, "guild_hall", "state") : override.stateRoot;
+  return {
+    repoRoot,
+    activityRoot: activityRoot ? resolve(activityRoot) : resolve(stateRoot, "operations", "soulforge_activity")
+  };
+}
+
 export async function cliMain(argv = process.argv.slice(2)) {
   let parsedArgs;
   try {
@@ -107,10 +126,15 @@ export async function cliMain(argv = process.argv.slice(2)) {
     return;
   }
 
-  const repoRoot = parsedArgs.localRoot ? resolve(parsedArgs.localRoot) : defaultRepoRoot();
-  const activityRoot = parsedArgs.activityRoot
-    ? resolve(parsedArgs.activityRoot)
-    : resolve(repoRoot, "guild_hall", "state", "operations", "soulforge_activity");
+  let roots;
+  try {
+    roots = resolveCodexRetentionCliRoots(parsedArgs);
+  } catch (err) {
+    process.stderr.write(`${err?.code === SOULFORGE_ROOT_OVERRIDE_INVALID ? err.code : "root_resolution_failed"}\n`);
+    process.exitCode = 2;
+    return;
+  }
+  const { repoRoot, activityRoot } = roots;
 
   let catalog = DEFAULT_LIFECYCLE_RETENTION_FEATURE_CATALOG;
   if (parsedArgs.catalogFile) {

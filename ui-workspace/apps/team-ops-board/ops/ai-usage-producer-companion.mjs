@@ -797,14 +797,24 @@ export async function loadCurrentThreadIds(registryPath) {
 export async function runClaudeQuotaSweep({
   repoRoot,
   projectRoot = repoRoot,
+  operationsStateRoot = null,
   run = execFileAsync,
   childTimeoutMs = DEFAULT_USAGE_PRODUCER_CHILD_TIMEOUT_MS,
 } = {}) {
   if (!path.isAbsolute(repoRoot ?? "") || !path.isAbsolute(projectRoot ?? "")) {
     return { status: "hold", error_code: "quota_root_unavailable" };
   }
+  // operationsStateRoot is the `<state root>/operations` directory the Board
+  // controller derived (SOULFORGE_STATE_ROOT); without it the quota state stays
+  // under the owner root exactly as before.
+  const operationsRoot = operationsStateRoot === null
+    ? path.join(projectRoot, "guild_hall", "state", "operations")
+    : operationsStateRoot;
+  if (typeof operationsRoot !== "string" || !path.isAbsolute(operationsRoot)) {
+    return { status: "hold", error_code: "quota_root_unavailable" };
+  }
   const collector = path.join(repoRoot, "ui-workspace", "apps", "team-ops-board", "src", "server", "claude-oauth-usage-collector.mjs");
-  const stateRoot = path.join(projectRoot, "guild_hall", "state", "operations", "provider_quota", "claude");
+  const stateRoot = path.join(operationsRoot, "provider_quota", "claude");
   try {
     await run(process.execPath, [
       collector,
@@ -1225,6 +1235,7 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
 export function startUsageProducerCompanion({
   repoRoot,
   projectRoot = repoRoot,
+  operationsStateRoot = null,
   stateRoot,
   registryPath,
   watchtowerPointerPath,
@@ -1248,7 +1259,7 @@ export function startUsageProducerCompanion({
   };
   const triggerQuota = () => {
     if (stopped || quotaInFlight !== null) return quotaInFlight;
-    quotaInFlight = containSweepFailure(() => quotaSweep({ repoRoot, projectRoot }))
+    quotaInFlight = containSweepFailure(() => quotaSweep({ repoRoot, projectRoot, operationsStateRoot }))
       .finally(() => { quotaInFlight = null; });
     return quotaInFlight;
   };

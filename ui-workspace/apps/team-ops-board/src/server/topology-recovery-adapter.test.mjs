@@ -405,3 +405,21 @@ test("legacy v1 and v2 cycle receipts on disk are never reinterpreted as v3 and 
   assert.equal(p2.state, "unavailable");
   assert.equal(p2.cycle, null);
 });
+
+test("reader prefers an explicit evidence root over the owner-root derivation", async () => {
+  const ownerRoot = path.join(tmpdir(), `topology-recovery-owner-${process.pid}-${Date.now()}`);
+  const evidenceRoot = path.join(tmpdir(), `topology-recovery-evidence-${process.pid}-${Date.now()}`);
+  await mkdir(evidenceRoot, { recursive: true });
+  await writeFile(path.join(evidenceRoot, "recovery_cycle.json"), JSON.stringify(cycle()), "utf8");
+
+  const ready = await readTopologyRecoveryProjection({ ownerRoot, evidenceRoot, now: () => NOW });
+  assert.equal(ready.state, "ready");
+  assert.equal(ready.cycle.recovery.length, 1);
+
+  // Without the explicit root the same owner root has no evidence at all.
+  const unavailable = await readTopologyRecoveryProjection({ ownerRoot, now: () => NOW });
+  assert.equal(unavailable.state, "unavailable");
+  // A relative evidence root is ignored in favour of the owner-root derivation.
+  const relative = await readTopologyRecoveryProjection({ ownerRoot, evidenceRoot: "relative", now: () => NOW });
+  assert.equal(relative.state, "unavailable");
+});
