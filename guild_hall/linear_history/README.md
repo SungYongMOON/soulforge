@@ -150,6 +150,8 @@ custody root, never in receipts, health, lane records, or stdout.
 Linear's float-typed `WorkflowState.position` is stored as its decimal text
 (for example `"1.5"`) because canonical custody digests admit only safe
 integers; every other numeric field is integral in Linear and stays a number.
+Provider text is stored NFC-normalized (canonically equivalent to the provider
+bytes) because the same digest contract requires NFC strings.
 
 `read_evidence` envelopes are `soulforge.linear_collect.read_evidence_envelope.v1`
 whose `evidence` member is an exact

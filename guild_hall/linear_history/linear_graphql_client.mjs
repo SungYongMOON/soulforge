@@ -442,7 +442,9 @@ function text(value, field, { nullable = false, max = MAX_TEXT_LENGTH } = {}) {
   if (typeof value !== "string" || value.length > max) {
     fail("provider_shape_invalid", `Expected bounded text for ${field}`);
   }
-  return value;
+  // Custody digests require NFC; provider text is canonically equivalent
+  // after normalization, so it is stored in that form.
+  return value.normalize("NFC");
 }
 
 function nullableText(value, field, max) {

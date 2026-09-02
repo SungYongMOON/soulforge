@@ -51,6 +51,7 @@ import {
   assertReadOnlyDocument,
   commentsWindowDocument,
   createLinearGraphqlCall,
+  normalizeIssue,
   issuesWindowDocument,
   loadLinearApiKey,
 } from "./linear_graphql_client.mjs";
@@ -879,6 +880,23 @@ test("the API key is read only from the fenced private file and never appears in
     loadLinearApiKey({ api_key_env: "LINEAR_TEST_KEY", api_key_file: null }, { LINEAR_TEST_KEY: "not-a-key" }, boundary),
     (error) => error.code === "api_key_unavailable" && !error.message.includes("not-a-key"),
   );
+});
+
+test("provider text is stored in NFC so custody digests stay canonical", () => {
+  const node = {
+    id: "11111111-1111-4111-8111-111111111111", identifier: "SYN-1", number: 1,
+    title: "Cafe\u0301", description: "Cafe\u0301 body", priority: 0, priorityLabel: null, estimate: null,
+    url: null, branchName: null, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
+    archivedAt: null, startedAt: null, completedAt: null, canceledAt: null, dueDate: null,
+    team: { id: "22222222-2222-4222-8222-222222222222", key: "SYN" },
+    state: { id: "33333333-3333-4333-8333-333333333333", name: "Todo", type: "unstarted" },
+    assignee: null, creator: null, project: null, cycle: null, parent: null,
+    labels: { nodes: [] }, relations: { nodes: [] },
+  };
+  const issue = normalizeIssue(node);
+  assert.equal(issue.title, "Caf\u00e9");
+  assert.equal(issue.description, "Caf\u00e9 body");
+  assert.equal(issue.title.normalize("NFC"), issue.title);
 });
 
 test("the GraphQL call is read-only, bounded, and redacts the credential in every failure", async () => {
