@@ -1,5 +1,54 @@
 # CHANGELOG
 
+## 2026-09-02 - Native-SMB NAS disaster-recovery contract and the first verified generations
+
+- Added a default-OFF NAS disaster-recovery binding pair. The legacy binding could
+  not express the destination at all: its only network resource kind forces a
+  RaiDrive host prefix and `additionalProperties` is false, while topology v2 has
+  no destination concept. Rather than mutate the live legacy binding, this is a
+  separate contract, so the retained legacy generations were never exposed to a
+  schema change.
+- The pair splits by what may hold a path, because the shared guard treats any
+  literal UNC as an absolute path and would reject a judged packet containing one.
+  The private binding on the protected control root is the only place a literal
+  UNC may live; the public-safe binding carries refs, digests, booleans, epochs
+  and enums. The judge separates legacy preservation from D-canonical custody into
+  two families on fixed namespace segments, requires three distinct
+  non-administrator service principals with distinct stored credentials, a human
+  break-glass account that can never be an automated writer, one access row per
+  known subject class with deny required for ordinary users, guests and anonymous
+  services, the five source-set classes with their excluded set, a WAL-safe export
+  rather than a live file copy for runtime state, sole-writer fencing with a replay
+  NO_OP, a two-phase staging close that never exposes a partial generation,
+  manifest completeness with two-way readback, retention floors with a low-space
+  stop, destination identity drift detection, and a named human acceptance that is
+  none of the producing identities.
+- An adversarial review defeated three headline guarantees with one-line inputs and
+  all were fixed: anonymous access could be granted because the class was in the
+  schema enum but absent from the required-access map; identity distinctness used
+  raw string equality on a case-insensitive identity system, so one principal
+  spelled three ways passed as three; and neither digest was ever recomputed, so
+  drift detection only detected a drift someone chose to declare. The RaiDrive name
+  screen had eight bypasses while falsely rejecting legitimate shares the legacy
+  schema allowed, and is now relabelled honestly: a name pattern cannot decide that
+  a mount is native SMB, so the private binding carries a provider check that
+  starts unmeasured. Pin independence remains undecidable for a pure judge, so the
+  verdict says so rather than letting a pass read as proof. The test suite was
+  rebuilt for mutation resistance, from 11 of 14 surviving a refuse-everything stub
+  to 3 of 20.
+- Recorded the Owner terminology decision in the shared glossary: a backup
+  generation is counted as `N차 백업본` and a collection sequence as `수집 회차` in
+  conversation and Korean documents, while code, folder and schema names stay
+  English. Custody and disaster recovery remain different axes and the two words
+  are not interchangeable.
+- Operational note, values in private receipts only: the first two D-canonical
+  generations were created and verified against a native SMB destination, and the
+  legacy daily lane was turned off through its contracted feature-state gate after
+  the replacement passed an isolated restore. Nothing was deleted; the legacy
+  generations, the previous binding and activation, and the wedged controller
+  ledger were all preserved under retained names. Recurring schedule, retention
+  activation and human restore acceptance remain separate gates.
+
 ## 2026-09-02 - Agent router refreshed for the D: relocation (AGENTS.md; GEMINI.md pointer)
 
 - Rewrote `AGENTS.md` so every coding agent reads one router after the

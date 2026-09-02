@@ -30,6 +30,8 @@
 | RAG | `Retrieval-Augmented Generation` | 질문이나 검토 전에 source/ref 를 찾아 답변에 연결하는 방식 | Soulforge 에서는 기본적으로 metadata-only 로 다루며, source text lane 은 owner-approved private 경계가 필요하다. |
 | Ledger Plane | 공통 장부 계층 | 세 제품과 아홉 portfolio의 사건을 안정된 ID·시간·관계로 연결하는 공통 기계 계약 | 네 번째 제품이나 하나의 전사 mega-database가 아니다. Domain 의미·수락·권한은 각 owner가 유지한다. |
 | Ledger Catalog | 장부 등록부 | 각 장부·receipt·cursor·state·projection·backup·dataset의 owner, SoR, writer, schema, scope, 저장·복구·분석 자격을 등록하는 중앙 metadata catalog | Event body를 한곳에 모으거나 source-local 정본을 대체하지 않는다. |
+| N차 백업본 | `backup generation`, `generation_id` | 한 번의 백업으로 만들어진 불변 세대 하나. 대화와 한국어 문서에서는 `1차 백업본`처럼 센다 (2026-09-02 Owner 결정). | 코드·폴더·스키마 이름은 영어를 유지한다. 세대가 존재한다는 것만으로 restore-ready가 아니며 격리 복원과 사람 수락은 별도 gate다. |
+| 수집 회차 | `collection generation_seq` | 수집 lane이 한 번 돈 회차. 대화와 한국어 문서에서는 `3회차 수집`처럼 센다 (2026-09-02 Owner 결정). | 백업 세대와 다른 축이다. 수집(custody)은 백업(DR)이 아니므로 두 단어를 섞어 쓰지 않는다. |
 | Event Envelope | 사건 봉투 | event, case/object, activity, actor/Agent/Tool, clock, relation, source/result/review/acceptance ref를 공통 형식으로 결속한 metadata-only 사건 계약 | raw body, hidden reasoning, Task/Artifact acceptance 자체가 아니다. |
 | Case Ref | 분석 사례 참조 | primary lifecycle의 Domain owner가 `case_type`과 함께 발급하는 process 분석 단위 | Project·Task·Run·Artifact를 하나의 ID로 뭉개지 않는다. 여러 object는 typed relation으로 연결한다. |
 | Activity Code | 활동 코드 | originating Domain owner가 의미와 version을 등록한 재사용 가능 활동 종류 | 실제 한 번의 실행은 `activity_instance_ref`로 구분하며, 공통 Ledger Module이 의미를 임의 발급하지 않는다. |
