@@ -6,6 +6,7 @@ import test from "node:test";
 import {
   ACTIVITY_EVENT_SCHEMA_VERSION,
   appendActivityEvent,
+  defaultActivityRoot,
   loadNodeIdentity,
   refreshLatestContext,
   sanitizeActivityValue,
@@ -697,6 +698,39 @@ async function writeMailCandidate(queueRoot, overrides = {}) {
     "utf8",
   );
 }
+
+test("defaultActivityRoot follows SOULFORGE_STATE_ROOT / SOULFORGE_OWNER_ROOT and keeps the repo-root default when unset", async () => {
+  const repoRoot = path.resolve(os.tmpdir(), "soulforge-activity-root-repo");
+  const stateRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-activity-root-state-"));
+  const ownerRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-activity-root-owner-"));
+  try {
+    const previousDefault = path.join(repoRoot, "guild_hall", "state", "operations", "soulforge_activity");
+    assert.equal(defaultActivityRoot(repoRoot, {}), previousDefault);
+    assert.equal(defaultActivityRoot(repoRoot, { UNRELATED: "x" }), previousDefault);
+    assert.equal(
+      defaultActivityRoot(repoRoot, { SOULFORGE_STATE_ROOT: stateRoot }),
+      path.join(path.resolve(stateRoot), "operations", "soulforge_activity"),
+    );
+    assert.equal(
+      defaultActivityRoot(repoRoot, { SOULFORGE_OWNER_ROOT: ownerRoot }),
+      path.join(path.resolve(ownerRoot), "guild_hall", "state", "operations", "soulforge_activity"),
+    );
+    assert.equal(
+      defaultActivityRoot(repoRoot, { SOULFORGE_OWNER_ROOT: ownerRoot, SOULFORGE_STATE_ROOT: stateRoot }),
+      path.join(path.resolve(stateRoot), "operations", "soulforge_activity"),
+    );
+    for (const env of [
+      { SOULFORGE_STATE_ROOT: path.join("relative", "state") },
+      { SOULFORGE_STATE_ROOT: path.join(stateRoot, "missing") },
+      { SOULFORGE_OWNER_ROOT: "" },
+    ]) {
+      assert.throws(() => defaultActivityRoot(repoRoot, env), (error) => error?.code === "soulforge_root_override_invalid");
+    }
+  } finally {
+    await rm(stateRoot, { recursive: true, force: true });
+    await rm(ownerRoot, { recursive: true, force: true });
+  }
+});
 
 test("loadNodeIdentity follows SOULFORGE_STATE_ROOT / SOULFORGE_OWNER_ROOT and keeps the repo-root default when unset", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-activity-identity-repo-"));

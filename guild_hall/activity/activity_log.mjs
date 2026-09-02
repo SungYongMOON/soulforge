@@ -25,8 +25,15 @@ const SECRET_TEXT_PATTERNS = [
 ];
 const HTML_BODY_PATTERN = /<!doctype html|<html[\s>]|<body[\s>]|<\/body>|<\/html>/i;
 
-export function defaultActivityRoot(repoRoot) {
-  return path.join(repoRoot, "guild_hall", "state", "operations", "soulforge_activity");
+// The activity root lives under the state root: SOULFORGE_STATE_ROOT /
+// SOULFORGE_OWNER_ROOT when set (fail closed on an invalid value), otherwise
+// `<repoRoot>/guild_hall/state/operations/soulforge_activity` exactly as
+// before. Every writer that takes the default (activity CLI, healer,
+// night_watch, dev_worker, mail projection, retention event append) therefore
+// lands beside the retention report instead of in a checkout-relative tree.
+export function defaultActivityRoot(repoRoot, env = process.env) {
+  const stateRoot = resolveSoulforgeStateRoot(env, () => path.join(repoRoot, "guild_hall", "state"));
+  return path.join(stateRoot, "operations", "soulforge_activity");
 }
 
 export async function appendActivityEvent(options = {}) {

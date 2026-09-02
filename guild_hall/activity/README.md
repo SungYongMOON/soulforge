@@ -4,6 +4,7 @@
 
 - `activity/` 는 Soulforge 전체 recent-context 장부를 쓰고 재생성하는 구현 surface 다.
 - active write target 은 local-only `guild_hall/state/operations/soulforge_activity/**` 이며 public Git 에 올리지 않는다.
+- 기본 activity root(`defaultActivityRoot`)는 `guild_hall/shared/soulforge_state_root.mjs` 의 공용 override 를 따른다. `SOULFORGE_STATE_ROOT` 또는 `SOULFORGE_OWNER_ROOT` 가 설정되면 `<state root>/operations/soulforge_activity` 가 되고(값이 잘못되면 `soulforge_root_override_invalid` 로 fail-closed), 둘 다 없으면 종전과 같은 `<repo root>/guild_hall/state/operations/soulforge_activity` 다. 명시적 `--activity-root` / `activityRoot` 는 언제나 우선한다.
 
 ## 명령
 

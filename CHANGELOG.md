@@ -129,6 +129,14 @@
   before/after listing (name, size, mtime) of the checkout's own
   `reports/codex_retention` directory instead of probing a sentinel file
   that nothing ever wrote.
+- Review fix A2 (2026-09-02): `activity_log.defaultActivityRoot` now resolves
+  under the shared override too (`<state root>/operations/soulforge_activity`,
+  fail closed on an invalid value, byte-identical when unset), so the
+  retention Activity event append and every other activity writer that takes
+  the default root (activity CLI, healer, night_watch, dev_worker, mail
+  candidate projection) land beside the retention report instead of in a
+  checkout-relative tree; an explicit `--activity-root` / `activityRoot`
+  still wins.
 - 관련 경로: `guild_hall/shared/soulforge_state_root.mjs`,
   `ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs`,
   `ui-workspace/apps/team-ops-board/ops/ai-usage-producer-companion.mjs`,
