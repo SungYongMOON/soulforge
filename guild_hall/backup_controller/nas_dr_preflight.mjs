@@ -13,7 +13,10 @@
  */
 
 import {
+  TOO_DEEP,
   deepFreeze,
+  digestOf,
+  findUnknownKeyDeep,
   guardEntry,
   isDenseArray,
   isPlainObject,
@@ -85,6 +88,57 @@ const REQUIRED_EXCLUDED_CLASSES = Object.freeze([
   'secret', 'temp_or_cache', 'active_worktree_scratch', 'tool_transient_data',
 ]);
 
+// The shared guard scans string VALUES, and only checks unknown keys at the top
+// level. A secret- or path-shaped string parked in a KEY would otherwise ride
+// through, so this module names every key it accepts at any depth and rejects
+// anything else deeply.
+const ALLOWED_KEYS_DEEP = new Set([
+  ...TOP_LEVEL_KEYS,
+  'kind', 'purpose', 'host_ref', 'share_ref', 'volume_ref', 'filesystem', 'identity_digest',
+  'drive_letter_mapping_allowed', 'raidrive_allowed', 'is_working_drive',
+  'family', 'namespace_segment', 'generation_id_grammar', 'retire_by_deletion_allowed',
+  'writer', 'restore_verifier', 'operator', 'break_glass_admin',
+  'principal_ref', 'group_ref', 'is_administrator', 'is_human_account', 'secret_ref',
+  'automated_use_allowed',
+  'subject_class', 'subject_ref', 'effective_access',
+  'class', 'source_ref', 'source_owner_ref', 'revision_pin_kind', 'acceptance_ref',
+  'backup_owner_ref', 'capture_method',
+  'sole_writer', 'lease_ref', 'lease_seconds', 'epoch', 'replay_is_no_op',
+  'mode', 'partial_visible_in_current_projection', 'finalize_within_same_share',
+  'completeness_required', 'digest_algorithm', 'records_excluded_set', 'two_way_readback',
+  'rpo_minutes', 'rto_minutes', 'keep_generations', 'min_free_bytes', 'low_space_stop',
+  'quota_state',
+  'named_human_ref', 'self_accept_allowed', 'isolated_restore_required',
+  'production_overwrite_allowed',
+]);
+Object.freeze(ALLOWED_KEYS_DEEP);
+
+// Windows account names are case-insensitive, and a trailing dot or surrounding
+// whitespace resolves to the same principal. Comparing raw strings would let
+// "svc.a", "SVC.A" and "svc.a." read as three identities when they are one, which
+// would defeat duty separation, the break-glass rule and non-self acceptance at
+// the same time.
+function identityKey(value) {
+  if (typeof value !== 'string') return null;
+  return value.trim().replace(/[.\s]+$/u, '').toLowerCase();
+}
+
+const distinctIdentities = (refs) => new Set(refs.map(identityKey)).size;
+const includesIdentity = (refs, candidate) => {
+  const key = identityKey(candidate);
+  return key !== null && refs.map(identityKey).includes(key);
+};
+
+// Self-seal: the declared digest must recompute over the record's own remaining
+// content. Without this the digest is a label that any edit can carry along, and
+// "drift detection" would only detect a drift somebody chose to declare.
+function sealMatches(record, field) {
+  if (!isPlainObject(record) || typeof record[field] !== 'string') return false;
+  const body = { ...record };
+  delete body[field];
+  return record[field] === digestOf(body);
+}
+
 // The two families are addressed by fixed segments. A family that claims the
 // other family's segment would let one generation id space overwrite the other.
 const FAMILY_SEGMENT = Object.freeze({
@@ -102,7 +156,14 @@ const REQUIRED_ACCESS = Object.freeze({
   break_glass_admin: 'read_write',
   ordinary_user: 'deny',
   guest: 'deny',
+  // Unauthenticated access is the one row most likely to become a real grant if
+  // it is merely omitted, so it is required and pinned to deny like the rest.
+  anonymous_service: 'deny',
 });
+
+// A subject class outside this set has no required outcome, so an extra row could
+// carry any access an ACL applier would later honour. The set is closed.
+const KNOWN_SUBJECT_CLASSES = Object.freeze(Object.keys(REQUIRED_ACCESS));
 
 const isDigest = (value) => typeof value === 'string' && /^sha256:[a-f0-9]{64}$/u.test(value);
 const isPositiveInt = (value, max) => Number.isSafeInteger(value) && value >= 1 && value <= max;
@@ -134,6 +195,10 @@ export function evaluateNasDrPreflight(rawBinding, trustedPin) {
   if (guarded.status !== 'OK') return refuse([guarded.hold_code]);
 
   const b = guarded.value;
+  const deepUnknown = findUnknownKeyDeep(b, ALLOWED_KEYS_DEEP);
+  if (deepUnknown === TOO_DEEP) return refuse([H.INPUT_TOO_DEEP]);
+  if (deepUnknown !== null) return refuse([H.RAW_OR_UNKNOWN_FIELD_FORBIDDEN]);
+
   const blockers = [];
   const add = (code) => { if (!blockers.includes(code)) blockers.push(code); };
 
@@ -152,6 +217,11 @@ export function evaluateNasDrPreflight(rawBinding, trustedPin) {
     || !isPositiveInt(b.binding_epoch, Number.MAX_SAFE_INTEGER)) {
     add(H.BINDING_SHAPE_INVALID);
   }
+  // Two independent conditions: the digest must recompute over this binding's own
+  // content, AND it must equal the separately supplied pin. A caller that derives
+  // the pin from the binding still cannot hide an edit, because any edit moves the
+  // recomputed digest and fails the seal.
+  if (!sealMatches(b, 'binding_digest')) add(H.BINDING_DIGEST_MISMATCH);
   if (b.binding_digest !== trustedPin.binding_digest) add(H.BINDING_DIGEST_MISMATCH);
   if (b.feature_state !== 'off') add(H.DEFAULT_OFF_REQUIRED);
   if (Number.isSafeInteger(b.binding_epoch) && b.binding_epoch < trustedPin.minimum_epoch) {
@@ -174,9 +244,22 @@ export function evaluateNasDrPreflight(rawBinding, trustedPin) {
       || !['btrfs', 'ext4'].includes(dest.filesystem)) {
       add(H.BINDING_SHAPE_INVALID);
     }
-    if (!isDigest(dest.identity_digest)) add(H.BINDING_SHAPE_INVALID);
-    else if (dest.identity_digest !== trustedPin.destination_identity_digest) {
-      add(H.DESTINATION_IDENTITY_DRIFT);
+    // The identity digest must actually fold the four identity fields, so a NAS
+    // rebuild, a recreated share or a swapped volume moves it whether or not
+    // anyone remembers to update it.
+    if (!isDigest(dest.identity_digest)) {
+      add(H.BINDING_SHAPE_INVALID);
+    } else {
+      const recomputed = digestOf({
+        host_ref: dest.host_ref,
+        share_ref: dest.share_ref,
+        volume_ref: dest.volume_ref,
+        filesystem: dest.filesystem,
+      });
+      if (dest.identity_digest !== recomputed
+        || dest.identity_digest !== trustedPin.destination_identity_digest) {
+        add(H.DESTINATION_IDENTITY_DRIFT);
+      }
     }
   }
 
@@ -214,16 +297,22 @@ export function evaluateNasDrPreflight(rawBinding, trustedPin) {
     const services = [p.writer, p.restore_verifier, p.operator];
     if (services.some(serviceProblems)) add(H.SERVICE_PRINCIPAL_INVALID);
     const refs = services.map((s) => (isPlainObject(s) ? s.principal_ref : null));
-    if (refs.every((r) => typeof r === 'string') && new Set(refs).size !== 3) {
+    // Distinctness is over normalized identities, not raw strings.
+    if (refs.every((r) => typeof r === 'string') && distinctIdentities(refs) !== 3) {
+      add(H.DUTY_SEPARATION_REQUIRED);
+    }
+    // Three roles sharing one stored credential is one identity wearing three hats.
+    const secretRefs = services.map((s) => (isPlainObject(s) ? s.secret_ref : null));
+    if (secretRefs.every((r) => typeof r === 'string') && distinctIdentities(secretRefs) !== 3) {
       add(H.DUTY_SEPARATION_REQUIRED);
     }
     const admin = p.break_glass_admin;
     if (!isPlainObject(admin) || !isSafeRef(admin.principal_ref)
-      || admin.is_human_account !== true) {
+      || admin.is_human_account !== true || admin.is_administrator !== true) {
       add(H.BINDING_SHAPE_INVALID);
     } else {
       if (admin.automated_use_allowed !== false) add(H.HUMAN_ADMIN_AS_WRITER_FORBIDDEN);
-      if (refs.includes(admin.principal_ref)) add(H.HUMAN_ADMIN_AS_WRITER_FORBIDDEN);
+      if (includesIdentity(refs, admin.principal_ref)) add(H.HUMAN_ADMIN_AS_WRITER_FORBIDDEN);
     }
     principalRefs = {
       writer: refs[0], restore_verifier: refs[1], operator: refs[2],
@@ -236,10 +325,17 @@ export function evaluateNasDrPreflight(rawBinding, trustedPin) {
   if (!isDenseArray(access) || !access.every(isPlainObject)) {
     add(H.BINDING_SHAPE_INVALID);
   } else {
+    // Exactly the known classes, once each. An unrecognized class has no required
+    // outcome, so an extra row is a grant nobody reviewed.
+    if (access.length !== KNOWN_SUBJECT_CLASSES.length) add(H.ACCESS_EXPECTATION_INCOMPLETE);
     const seen = new Map();
     for (const row of access) {
       if (!isSafeRef(row.subject_ref) || typeof row.subject_class !== 'string') {
         add(H.BINDING_SHAPE_INVALID);
+        continue;
+      }
+      if (!KNOWN_SUBJECT_CLASSES.includes(row.subject_class)) {
+        add(H.ACCESS_EXPECTATION_MISMATCH);
         continue;
       }
       if (seen.has(row.subject_class)) add(H.ACCESS_EXPECTATION_MISMATCH);
@@ -250,7 +346,12 @@ export function evaluateNasDrPreflight(rawBinding, trustedPin) {
       if (row === undefined) { add(H.ACCESS_EXPECTATION_INCOMPLETE); continue; }
       if (row.effective_access !== expected) add(H.ACCESS_EXPECTATION_MISMATCH);
       const bound = principalRefs?.[subjectClass];
-      if (typeof bound === 'string' && row.subject_ref !== bound) {
+      if (typeof bound === 'string' && !includesIdentity([bound], row.subject_ref)) {
+        add(H.ACCESS_EXPECTATION_MISMATCH);
+      }
+      // A denied class must not name an identity that another row grants.
+      if (expected === 'deny' && principalRefs !== null
+        && includesIdentity(Object.values(principalRefs), row.subject_ref)) {
         add(H.ACCESS_EXPECTATION_MISMATCH);
       }
     }
@@ -335,7 +436,7 @@ export function evaluateNasDrPreflight(rawBinding, trustedPin) {
   if (!isPlainObject(a) || a.self_accept_allowed !== false) add(H.SELF_ACCEPTANCE_FORBIDDEN);
   // The person who accepts a restore must not be one of the identities that produced it.
   if (isPlainObject(a) && principalRefs !== null
-    && Object.values(principalRefs).includes(a.named_human_ref)) {
+    && includesIdentity(Object.values(principalRefs), a.named_human_ref)) {
     add(H.SELF_ACCEPTANCE_FORBIDDEN);
   }
 
@@ -352,6 +453,12 @@ export function evaluateNasDrPreflight(rawBinding, trustedPin) {
     destination_reachability_proven: false,
     acl_effect_proven: false,
     restore_readiness_proven: false,
+    // A pure judge cannot tell whether the caller fetched the pin from an
+    // independent approved store or simply read it back off this binding. The
+    // self-seal makes a SILENT edit impossible, because any edit moves the
+    // recomputed digest. It cannot make a dishonest caller impossible. Stating
+    // that here stops a consumer reading this verdict as proof of independence.
+    pin_independence_is_caller_obligation: true,
     blockers: Object.freeze([]),
   });
 }
@@ -366,6 +473,7 @@ function refuse(blockers) {
     destination_reachability_proven: false,
     acl_effect_proven: false,
     restore_readiness_proven: false,
+    pin_independence_is_caller_obligation: true,
     blockers: Object.freeze([...blockers]),
   });
 }

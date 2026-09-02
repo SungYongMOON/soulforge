@@ -41,10 +41,10 @@
     },
     "principals": { "$ref": "#/$defs/principals" },
     "access_expectations": {
-      "description": "The effective ACL outcome each subject class must be proven to have. Proof is a separate measured gate; declaring it here authorizes nothing.",
+      "description": "The effective ACL outcome each subject class must be proven to have. Exactly one row per known class, no more: an unrecognized extra row would be a grant nobody reviewed. Proof is a separate measured gate; declaring it here authorizes nothing.",
       "type": "array",
-      "minItems": 6,
-      "maxItems": 8,
+      "minItems": 7,
+      "maxItems": 7,
       "items": { "$ref": "#/$defs/accessExpectation" }
     },
     "source_sets": {
@@ -137,13 +137,14 @@
       }
     },
     "humanAdminPrincipal": {
-      "description": "The human recovery account. It exists so a person can recover, and must never be an automated writer.",
+      "description": "The human recovery account. It is an administrator on purpose, which is exactly why it must never be an automated writer.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["principal_ref", "is_human_account", "automated_use_allowed"],
+      "required": ["principal_ref", "is_human_account", "is_administrator", "automated_use_allowed"],
       "properties": {
         "principal_ref": { "$ref": "#/$defs/ref" },
         "is_human_account": { "const": true },
+        "is_administrator": { "const": true },
         "automated_use_allowed": { "const": false }
       }
     },

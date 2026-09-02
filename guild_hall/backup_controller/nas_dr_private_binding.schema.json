@@ -30,23 +30,44 @@
       "type": "string",
       "pattern": "^[a-z][a-z0-9._:-]{1,160}$"
     },
+    "credentialTargetRef": {
+      "description": "A Windows protected-storage target NAME, never a credential value. The required dotted namespace is what makes that structural: a bare token or key shape has no dot and cannot match. A password, token or key must never appear in this file.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{1,40}(?:[.][a-z0-9][a-z0-9_-]{0,40}){1,6}$"
+    },
     "smbDestination": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "unc_share", "host_label", "share_label", "volume_label", "filesystem"],
+      "required": [
+        "kind",
+        "unc_share",
+        "volume_label",
+        "filesystem",
+        "drive_letter_mapping_allowed",
+        "raidrive_allowed",
+        "provider_check"
+      ],
       "properties": {
         "kind": { "const": "smb_native_share" },
         "unc_share": {
-          "description": "Exactly two backslashes, a host label that is NOT a RaiDrive virtual host, one share label, and nothing after it. A drive letter cannot match, and neither can a deeper path: the lane segments come from namespaces, never from this string.",
+          "description": "Exactly two backslashes, one host, one share, and nothing after it. A drive letter, a device or extended-length prefix, an admin share, a trailing separator and any deeper path all fail: lane segments come from namespaces, never from this string. The host must not contain 'raidrive' in any case or position. That name screen is a naming-convention SCREEN, not a provider guarantee: a RaiDrive virtual host can be given any name, so only the runtime provider_check below can decide that a mount is really native SMB.",
           "type": "string",
-          "pattern": "^\\\\\\\\(?![Rr][Aa][Ii][Dd][Rr][Ii][Vv][Ee][-_])[A-Za-z0-9][A-Za-z0-9.-]{0,62}\\\\[A-Za-z0-9][A-Za-z0-9._-]{0,62}$"
+          "pattern": "^\\\\\\\\(?![A-Za-z0-9._-]*[Rr][Aa][Ii][Dd][Rr][Ii][Vv][Ee])[A-Za-z0-9][A-Za-z0-9_-]{0,62}(?:[.][A-Za-z0-9][A-Za-z0-9_-]{0,62})*\\\\(?![A-Za-z][$]$)(?![Aa][Dd][Mm][Ii][Nn][$]$)(?![Ii][Pp][Cc][$]$)(?![Pp][Rr][Ii][Nn][Tt][$]$)[A-Za-z0-9_][A-Za-z0-9 ._$-]{0,61}[A-Za-z0-9_$]$"
         },
-        "host_label": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9.-]{0,62}$" },
-        "share_label": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$" },
         "volume_label": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9 ._-]{0,62}$" },
         "filesystem": { "enum": ["btrfs", "ext4"] },
         "drive_letter_mapping_allowed": { "const": false },
-        "raidrive_allowed": { "const": false }
+        "raidrive_allowed": { "const": false },
+        "provider_check": {
+          "description": "The runtime gate that actually decides native SMB. A name pattern cannot: this must be measured against the live mount provider before any write, and it is not satisfied by this file existing.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required", "measured"],
+          "properties": {
+            "required": { "const": true },
+            "measured": { "const": false }
+          }
+        }
       }
     },
     "namespaces": {
@@ -63,11 +84,8 @@
       "additionalProperties": false,
       "required": ["writer_credential_ref", "restore_verifier_credential_ref"],
       "properties": {
-        "writer_credential_ref": {
-          "description": "A Windows protected-storage target NAME only. A password, token or any other secret value must never appear in this file.",
-          "$ref": "#/$defs/ref"
-        },
-        "restore_verifier_credential_ref": { "$ref": "#/$defs/ref" }
+        "writer_credential_ref": { "$ref": "#/$defs/credentialTargetRef" },
+        "restore_verifier_credential_ref": { "$ref": "#/$defs/credentialTargetRef" }
       }
     }
   }

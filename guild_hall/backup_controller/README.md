@@ -91,12 +91,33 @@ drive, so `is_working_drive`, `raidrive_allowed` and
 
 The two schemas split by what may hold a path. The private binding, which lives
 on the protected control root, is the only place a literal UNC may appear; its
-`unc_share` pattern accepts exactly two backslashes, one non-RaiDrive host label
-and one share label, so a RaiDrive host, a drive letter and any deeper path all
-fail the pattern instead of being normalized away. Lane segments never come from
-that string. The public-safe binding carries refs, digests, booleans, epochs and
-enums only, which is what lets the shared local-path and secret guards scan it
-whole before a single field is read.
+`unc_share` pattern accepts exactly two backslashes, one host and one share, so a
+drive letter, a device or extended-length prefix, an admin share, a trailing
+separator and any deeper path all fail instead of being normalized away. Lane
+segments never come from that string. The public-safe binding carries refs,
+digests, booleans, epochs and enums only, which is what lets the shared
+local-path and secret guards scan it whole before a single field is read.
+
+The host must not contain `raidrive` in any case or position, but that is a
+naming-convention **screen, not a provider guarantee**: a RaiDrive virtual host
+can be given any name, so no string pattern can decide that a mount is really
+native SMB. The private binding therefore also carries a `provider_check` that
+starts `measured: false`; only a runtime probe of the live mount provider can
+close it, and it must be closed before any write.
+
+The judge additionally seals both digests. `binding_digest` must recompute over
+the binding's own remaining content, and `identity_digest` must recompute over
+the destination's host, share, volume and filesystem — so a moved destination
+moves its digest whether or not anyone remembers to update it, and a silent edit
+is impossible. Pin independence itself is a caller obligation a pure judge cannot
+verify, so the verdict says so in `pin_independence_is_caller_obligation` rather
+than letting a consumer read the pass as proof.
+
+Identity comparisons are normalized before they are compared. Windows account
+names are case-insensitive and a trailing dot resolves to the same principal, so
+`svc.a`, `SVC.A` and `svc.a.` are one identity here. Without that, duty
+separation, the break-glass rule and non-self acceptance would all fall to the
+same one-line input.
 
 Two generation families stay separated by fixed namespace segments —
 `legacy-freeze/<epoch>/` and `d-generations/<generation_id>/` — because legacy
@@ -104,16 +125,22 @@ preservation and D-canonical custody must not share one generation id space.
 Neither family may be retired by deletion.
 
 The pure judge additionally requires three distinct non-administrator service
-principals for writing, restore verification and operation; a human break-glass
-account that is never an automated writer; a declared effective access for every
-subject class including an explicit `deny` for ordinary users and guests; the
-five source-set classes with their excluded set; a `wal_safe_logical_export` or
-closed-generation capture for runtime state rather than a live file copy;
-sole-writer fencing with a replay NO_OP; a two-phase staging close that never
-exposes a partial generation in the current projection; manifest completeness
-with two-way readback; retention floors with a low-space stop; destination
-identity drift detection; and a named human acceptance that cannot be any of the
-producing identities.
+principals for writing, restore verification and operation, with distinct stored
+credentials; a human break-glass account that is an administrator on purpose and
+therefore never an automated writer; exactly one access row per known subject
+class with `deny` required for ordinary users, guests and anonymous services —
+an unrecognized extra row is refused, because a class with no required outcome is
+a grant nobody reviewed; the five source-set classes with their excluded set; a
+`wal_safe_logical_export` or closed-generation capture for runtime state rather
+than a live file copy; sole-writer fencing with a replay NO_OP; a two-phase
+staging close that never exposes a partial generation in the current projection;
+manifest completeness with two-way readback; retention floors with a low-space
+stop; and a named human acceptance that is none of the producing identities.
+
+Because the shared guard scans string values and checks unknown keys only at the
+top level, this module also rejects unknown keys at any depth. That is what
+closes the key-position vector: a secret- or path-shaped string parked in a KEY
+rather than a value would otherwise ride through.
 
 ```
 npm.cmd run validate:backup-nas-dr
