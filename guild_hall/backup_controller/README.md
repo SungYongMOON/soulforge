@@ -155,6 +155,42 @@ receipt existing is not backup-ready and not restore-ready. Service identity
 creation, credential entry, ACL measurement, the actual generations and human
 restore acceptance remain separate gates outside this module.
 
+### NAS DR generation runner
+
+`nas_dr_runner.mjs` executes that contract against a real destination. Its shape
+is a direct answer to how the previous lane failed: that lane wedged a checkpoint
+in `running` and then failed silently every night for eighteen days, because a
+bound source path had moved and nothing said so out loud.
+
+So the runner keeps **no persistent run lock**. A crashed run leaves only a
+`_staging_` directory, which the next run discards once it ages past the
+configured window; a dead run can never block a live one. Every run writes
+`health.json` at the destination root, success or failure, carrying the last
+status, the newest verified generation and the free space observed at start —
+which makes silence detectable, since a stale health file means the runner itself
+stopped running. Free space is read from the server rather than from the number
+Windows reports for the mount, because a mount can report a synthetic constant
+that no low-space stop would ever trip.
+
+Every live database leaves through `VACUUM INTO` and is `quick_check`ed before it
+is staged; `-wal` and `-shm` files are never copied. Credential-shaped filenames
+are matched by name and never opened. Retention never removes the newest verified
+generation and never drops below its floor.
+
+```
+node guild_hall/backup_controller/nas_dr_runner.mjs --config <path> --dry-run
+node guild_hall/backup_controller/nas_dr_runner.mjs --config <path>
+node guild_hall/backup_controller/nas_dr_runner.mjs --config <path> --health
+npm.cmd run validate:backup-nas-dr-runner
+```
+
+The config refusals are unit-tested rather than described: a drive-letter or
+RaiDrive destination, a retention floor below two generations, a missing
+low-space floor, a wrong schema version and an empty source set each fail closed
+with a named reason. A run that completes is a verified generation and nothing
+more — isolated restore and human acceptance remain separate gates, and enabling
+a recurring schedule is an Owner decision the runner cannot make for itself.
+
 ## Authority boundary
 
 - A daily automation invocation accepts exactly one argument:

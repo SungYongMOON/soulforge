@@ -32,7 +32,11 @@
     "soulforge.backup_controller.topology_v2_actual_reader.v0",
     "soulforge.backup_controller.nas_dr_binding.v0",
     "soulforge.backup_controller.nas_dr_private_binding.v0",
-    "soulforge.backup_controller.nas_dr_preflight_result.v0"
+    "soulforge.backup_controller.nas_dr_preflight_result.v0",
+    "soulforge.backup_controller.nas_dr_runner_config.v0",
+    "soulforge.backup_controller.nas_dr_generation_manifest.v0",
+    "soulforge.backup_controller.nas_dr_generation_receipt.v0",
+    "soulforge.backup_controller.nas_dr_health.v0"
   ],
   "owner": "guild_hall/backup_controller",
   "capabilities_provided": [
@@ -49,7 +53,8 @@
     "backup.synthetic_recovery_canary_acceptance_seam.v0",
     "backup.topology_v2_default_off_preflight.v0",
     "backup.topology_v2_actual_read_only_evidence_reader.v0",
-    "backup.nas_dr_default_off_binding_preflight.v0"
+    "backup.nas_dr_default_off_binding_preflight.v0",
+    "backup.nas_dr_generation_runner.v0"
   ],
   "capabilities_required": [],
   "required_dependencies": [
@@ -83,9 +88,10 @@
     "npm.cmd run validate:backup-generation-contracts",
     "npm.cmd run validate:synthetic-recovery-canary",
     "npm.cmd run validate:backup-topology-v2",
-    "npm.cmd run validate:backup-nas-dr"
+    "npm.cmd run validate:backup-nas-dr",
+    "npm.cmd run validate:backup-nas-dr-runner"
   ],
   "release_digest": null,
   "deprecation_state": "active",
-  "authority_notes": "Feature-OFF backup composition plus Linear, generic Source, Buzz and Hermes backup-generation contracts, a public-safe synthetic recovery canary, and a default-OFF topology-v2 preflight with its read-only actual reader. Topology v2 separates the installed controller, external ERP data owner, C transition metadata sources, empty D canonical targets and rollback target by exact owner/epoch/digest evidence; even a green preflight grants neither activation nor NAS backup authority. The actual reader only reads: it maps a protected-control-root private binding to refs and digests, re-derives every resource identity from observed state against the frozen public binding, and emits a packet that carries no absolute path. The canary creates deterministic temp-only bytes, a create-only backup, full hash readback and isolated restore receipt; only a separate out-of-band Human Owner pin with a distinct backup operator can accept that exact technical receipt. It cannot claim NAS, RPO/RTO, recovery-ready or Internal RC. Linear whole-workspace generations retain their deterministic project index, and Buzz/Hermes retain separate custody and acceptance boundaries. These public contracts do not grant source, task, artifact, Agent or completion authority. Actual binding, provider bytes, service quiescence, recurring execution and human acceptance remain separate private gates. A separate default-OFF NAS DR binding pair covers the native-SMB disaster-recovery destination: the private binding is the only place a literal UNC may live and its pattern refuses a RaiDrive host, a drive letter and any deeper path, while the public-safe binding carries refs, digests and enums only. Its pure judge checks the two separated generation families, three distinct non-administrator service principals, a human break-glass account that can never be an automated writer, the declared effective access for ordinary users and guests, the five source-set classes with their excluded set, sole-writer fencing with replay NO_OP, two-phase staging close with no partial exposure, manifest completeness, retention floors with a low-space stop, destination identity drift, and named non-self human acceptance. feature_state is const off: a coherent binding proves neither share reachability, nor a measured ACL, nor a backup, nor a restore."
+  "authority_notes": "Feature-OFF backup composition plus Linear, generic Source, Buzz and Hermes backup-generation contracts, a public-safe synthetic recovery canary, and a default-OFF topology-v2 preflight with its read-only actual reader. Topology v2 separates the installed controller, external ERP data owner, C transition metadata sources, empty D canonical targets and rollback target by exact owner/epoch/digest evidence; even a green preflight grants neither activation nor NAS backup authority. The actual reader only reads: it maps a protected-control-root private binding to refs and digests, re-derives every resource identity from observed state against the frozen public binding, and emits a packet that carries no absolute path. The canary creates deterministic temp-only bytes, a create-only backup, full hash readback and isolated restore receipt; only a separate out-of-band Human Owner pin with a distinct backup operator can accept that exact technical receipt. It cannot claim NAS, RPO/RTO, recovery-ready or Internal RC. Linear whole-workspace generations retain their deterministic project index, and Buzz/Hermes retain separate custody and acceptance boundaries. These public contracts do not grant source, task, artifact, Agent or completion authority. Actual binding, provider bytes, service quiescence, recurring execution and human acceptance remain separate private gates. A separate default-OFF NAS DR binding pair covers the native-SMB disaster-recovery destination: the private binding is the only place a literal UNC may live and its pattern refuses a RaiDrive host, a drive letter and any deeper path, while the public-safe binding carries refs, digests and enums only. Its pure judge checks the two separated generation families, three distinct non-administrator service principals, a human break-glass account that can never be an automated writer, the declared effective access for ordinary users and guests, the five source-set classes with their excluded set, sole-writer fencing with replay NO_OP, two-phase staging close with no partial exposure, manifest completeness, retention floors with a low-space stop, destination identity drift, and named non-self human acceptance. feature_state is const off: a coherent binding proves neither share reachability, nor a measured ACL, nor a backup, nor a restore. A NAS DR generation runner executes that contract: it keeps no persistent run lock, so a crashed run leaves only a discardable staging directory and can never wedge the next night; it writes a health file at the destination on every run, success or failure, so silence is itself detectable; every live database leaves through a logical export rather than a file copy; credential-shaped filenames are matched by name and never opened; and retention never removes the newest verified generation nor drops below its floor. Its config refusals are unit-tested: a drive-letter or RaiDrive destination, a retention floor below two, a missing low-space floor, a wrong schema and an empty source set all fail closed."
 }
