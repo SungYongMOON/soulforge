@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## 2026-09-02 - Team pilot access model fixed to Buzz plus bot-mediated MCP (plan 18 draft)
+
+- Added `docs/architecture/foundation/team_member_engineering_program/18_TEAM_PILOT_ACCESS_AND_RELEASE_PLAN_V0.md`
+  (`OWNER_REVIEW_DRAFT`) recording the Owner direction of 2026-09-02: team
+  members reach Soulforge through Buzz (client per seat, server on the Main
+  Node) and through MCP called on their behalf by Hermes bots on the Main Node;
+  the browser ERP stays loopback for Owner supervision; World Tree accepts only
+  accepted bytes via MCP; result registration is a submission receipt and
+  Linear `done` follows human acceptance (manual click in the pilot, sole
+  writer later); the work process is submitted as a five-field summary with
+  revision/tool/time refs, never as raw chat. Plan 00 index gained row 18.
+- Impact: documentation only. No runtime, connector, credential, writer,
+  listener, Buzz project, or Hermes profile changed; ERP 4300 and MCP 4311
+  remain loopback. Next action: Owner closes plan 18 §7 items 1, 2 and 5 (bot
+  roster, Buzz project/channel shape, reviewer) before the team pilot ring.
+- Later the same day the Owner chose composition re-cut (B) over code rewrite
+  (A): plan 18 gained §12 `Soulforge Team Pilot 1` composition (contents, per-user
+  surfaces, held/hidden surfaces, code scope limited to one 4192 read/link panel
+  and one ERP filter), §13 bot roster structure as a projection of the existing
+  organization chart (project → tool workshop → common → platform; 16 `role_code`
+  ↔ 15 responsibility lanes + team lead; Board/governance-overlay field vocabulary
+  reused, no new schema) and §14 decision record. Actual profile names stay out
+  of public canon; a metadata-only roster draft lives under
+  `_workmeta/system/reports/team_pilot/`. Plan 00 decision ledger gained the
+  dated row. Roster exposure, Buzz project shape, and reviewer remain undecided.
+
 ## 2026-09-02 - HPP server Pack 0.1.7 becomes the active production generation
 
 - Activated the immutable HPP server Pack `0.1.7` as the Main Node's current
