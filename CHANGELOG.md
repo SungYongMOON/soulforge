@@ -62,7 +62,8 @@
 ## 2026-09-02 - Operations cluster owner-root / state-root override (Option B)
 
 - Revision: branch `claude/ops-owner-root-override` (single commit on top of
-  `ef9b0e66`; not merged, not deployed).
+  `ef9b0e66`), merged into the 2026-09-02 integration branch together with
+  the review fixes listed at the end of this entry; not deployed.
 - Added one explicit override for the Workspace Board runtime (port 4192) and
   its two companions, the AI usage meter CLI and hook, and the Codex retention
   refresh: `SOULFORGE_OWNER_ROOT` (absolute checkout-like root whose
@@ -110,6 +111,24 @@
   `operations/` state, environment values) documented in the D: cutover
   packet, and the enrollment split-brain warning there applies until the
   variables are set for agent sessions too.
+- Review fixes (2026-09-02, integration branch, independent reviewer
+  findings A1-A4): the scheduled controller now also validates the derived
+  `<owner root>/guild_hall/state` directory when only `SOULFORGE_OWNER_ROOT`
+  is set (`owner_root_override_invalid` before any child is forked; an owner
+  root without that subtree would otherwise have let the child create an
+  empty state tree beside the real one), and `soulforge_root_override_invalid`
+  is a sanitized failure class. The child environment now carries
+  `TEAM_OPS_BOARD_ORGANIZATION_CATALOG` explicitly (same derivation as the
+  other Board bindings) so a worktree or installed lane cannot re-derive the
+  catalog from its own module tree; this corrects the "only new observable"
+  sentence above: the child receives two explicit values, not one. The shared
+  resolver trims values and refuses a driveless `\path` root on Windows
+  (`drive_or_unc_required`), and the owner READMEs state that the roots must
+  be real directories (junction/symlink/`subst` aliases are refused by the
+  downstream reparse seams). The retention CLI test now compares a
+  before/after listing (name, size, mtime) of the checkout's own
+  `reports/codex_retention` directory instead of probing a sentinel file
+  that nothing ever wrote.
 - 관련 경로: `guild_hall/shared/soulforge_state_root.mjs`,
   `ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs`,
   `ui-workspace/apps/team-ops-board/ops/ai-usage-producer-companion.mjs`,

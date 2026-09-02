@@ -85,6 +85,61 @@ test("forward-slash spelling of an existing absolute directory is normalized", a
   assert.equal(override.stateRoot, path.resolve(stateRoot));
 });
 
+test("surrounding whitespace is trimmed before validation and never reaches the resolved root", async (t) => {
+  const stateRoot = await tempRoot(t);
+  const ownerRoot = await tempRoot(t);
+  const override = readSoulforgeRootOverride({
+    [SOULFORGE_OWNER_ROOT_ENV]: `  ${ownerRoot}\t`,
+    [SOULFORGE_STATE_ROOT_ENV]: `${stateRoot}   `,
+  });
+  assert.deepEqual(override, {
+    source: "state_root",
+    ownerRoot: path.resolve(ownerRoot),
+    stateRoot: path.resolve(stateRoot),
+  });
+  assert.equal(
+    readSoulforgeRootOverride({ [SOULFORGE_OWNER_ROOT_ENV]: ` ${ownerRoot} ` }).stateRoot,
+    path.join(path.resolve(ownerRoot), "guild_hall", "state"),
+  );
+  // A trailing newline (a common Scheduled Task / shell artifact) is whitespace and is trimmed too.
+  assert.equal(readSoulforgeRootOverride({ [SOULFORGE_STATE_ROOT_ENV]: `${stateRoot}\n` }).stateRoot, path.resolve(stateRoot));
+});
+
+test("Windows: a rooted-but-driveless value is refused; drive and UNC roots pass the root check", async (t) => {
+  const stateRoot = await tempRoot(t);
+  // `<sep>driveless` is absolute on the native platform but carries no drive
+  // or UNC root; the win32 rule is exercised on every platform by injection.
+  const driveless = `${path.sep}driveless`;
+  assertOverrideRejected(
+    () => readSoulforgeRootOverride({ [SOULFORGE_STATE_ROOT_ENV]: driveless }, { platform: "win32" }),
+    SOULFORGE_STATE_ROOT_ENV,
+    "drive_or_unc_required",
+  );
+  assertOverrideRejected(
+    () => readSoulforgeRootOverride({ [SOULFORGE_OWNER_ROOT_ENV]: driveless }, { platform: "win32" }),
+    SOULFORGE_OWNER_ROOT_ENV,
+    "drive_or_unc_required",
+  );
+  if (process.platform === "win32") {
+    assertOverrideRejected(
+      () => readSoulforgeRootOverride({ [SOULFORGE_STATE_ROOT_ENV]: "\\driveless" }),
+      SOULFORGE_STATE_ROOT_ENV,
+      "drive_or_unc_required",
+    );
+    // An existing drive-rooted directory still passes on the real platform.
+    assert.equal(readSoulforgeRootOverride({ [SOULFORGE_STATE_ROOT_ENV]: stateRoot }).stateRoot, path.resolve(stateRoot));
+    // A UNC root passes the root check (existence is proven by the injected stat).
+    const directory = { isDirectory: () => true };
+    assert.equal(
+      readSoulforgeRootOverride(
+        { [SOULFORGE_STATE_ROOT_ENV]: "\\\\server\\share\\state" },
+        { stat: () => directory },
+      ).stateRoot,
+      path.resolve("\\\\server\\share\\state"),
+    );
+  }
+});
+
 test("fail closed: relative, missing, file, empty, and control-character values refuse without echoing the value", async (t) => {
   const root = await tempRoot(t);
   const file = path.join(root, "not-a-directory.txt");
@@ -118,8 +173,10 @@ test("fail closed: relative, missing, file, empty, and control-character values 
     SOULFORGE_STATE_ROOT_ENV,
     "empty",
   );
+  // Whitespace control characters at the ends are trimmed; an embedded
+  // non-whitespace control character is still refused.
   assertOverrideRejected(
-    () => readSoulforgeRootOverride({ [SOULFORGE_STATE_ROOT_ENV]: `${root}\n` }),
+    () => readSoulforgeRootOverride({ [SOULFORGE_STATE_ROOT_ENV]: `${root}${path.sep}${String.fromCharCode(1)}sub` }),
     SOULFORGE_STATE_ROOT_ENV,
     "control_character",
   );

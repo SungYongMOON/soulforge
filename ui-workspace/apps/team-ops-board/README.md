@@ -645,13 +645,23 @@ missing, or not a directory stops the scheduled controller before any Board
 child is forked, with the sanitized failure class
 `owner_root_override_invalid` in the `controller_preflight` receipt, and makes
 `vite.config.ts`, the CLIs, and the quota-cache resolver throw
-`soulforge_root_override_invalid`; nothing falls back to Git or to the
-checkout, and the message names only the variable and the reason. With
+`soulforge_root_override_invalid` (also a sanitized failure class); nothing
+falls back to Git or to the checkout, and the message names only the variable
+and the reason. Values are trimmed first, a driveless `\path` spelling is
+refused on Windows (`drive_or_unc_required`), and with `SOULFORGE_OWNER_ROOT`
+alone the controller additionally requires `<owner root>/guild_hall/state` to
+exist as a directory before it forks, so an owner root without a state tree
+cannot make the child create an empty one. The roots must be real
+directories, not junctions, symlinks, or `subst` drives: the recovery
+companion and the retention writer refuse reparse points downstream. With
 neither variable set every path is byte-identical to the previous derivation;
 the only visible difference is that the Board child now receives
-`SOULFORGE_STATE_ROOT` explicitly (equal to `<owner root>/guild_hall/state`),
-so its adapters and both companions bind from one value instead of
-re-deriving it. The AI usage meter CLI and the Codex retention refresh honour
+`SOULFORGE_STATE_ROOT` (equal to `<owner root>/guild_hall/state`) and
+`TEAM_OPS_BOARD_ORGANIZATION_CATALOG`
+(`<state root>/operations/team_ops_board/organization_catalog.v1.json`, the
+same value its adapter would derive) explicitly, so its adapters and both
+companions bind from one value instead of re-deriving it from their own
+module tree. The AI usage meter CLI and the Codex retention refresh honour
 the same two variables (`guild_hall/ai_usage_meter/README.md`,
 `.workflow/codex_thread_manager_v0/README.md`), so one shared state root
 moves the whole cluster together. The variables are process environment only:

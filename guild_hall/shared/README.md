@@ -275,7 +275,7 @@ still a separate Owner gate.
 - `project_history_actual_shadow_{packet,generation}.v1.schema.json`: input/output strict schemas
 - `ai_work_record_event.v1.schema.json`: strict common AI work record event contract
 - `ai_work_record_event.mjs`: pure canonical digest, event validator, and chain reducer
-- `soulforge_state_root.mjs`: 공용 `SOULFORGE_OWNER_ROOT` / `SOULFORGE_STATE_ROOT` override resolver (fail-closed, 값 미출력). Workspace Board runtime, AI usage meter, Codex retention refresh가 같은 state root를 읽도록 한다
+- `soulforge_state_root.mjs`: 공용 `SOULFORGE_OWNER_ROOT` / `SOULFORGE_STATE_ROOT` override resolver (fail-closed, 값 미출력). Workspace Board runtime, AI usage meter, Codex retention refresh가 같은 state root를 읽도록 한다. 값은 trim 뒤 검증하고 Windows에서는 drive 또는 UNC root가 없는 `\path` 표기를 `drive_or_unc_required`로 거부한다. 존재·디렉터리 여부만 증명하므로 지정 root는 junction·symlink·`subst` alias가 아닌 실제 디렉터리여야 한다(하위 writer의 realpath/reparse seam이 alias를 거부한다)
 
 ## 상태
 

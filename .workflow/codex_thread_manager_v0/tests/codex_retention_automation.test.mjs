@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, writeFile, mkdir, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, writeFile, mkdir, rm, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
@@ -1174,10 +1174,32 @@ test("defaultLifecycleRetentionReportPaths follows the state root override and k
   }
 });
 
+// Name, size, and mtime of every entry in the checkout's own retention report
+// directory (null when it does not exist), so a run under an override is
+// proven not to create, replace, or touch anything there.
+async function checkoutRetentionReportListing() {
+  const directory = path.join(
+    defaultRepoRoot(), "guild_hall", "state", "operations", "soulforge_activity", "reports", "codex_retention",
+  );
+  let names;
+  try {
+    names = (await readdir(directory)).sort();
+  } catch {
+    return null;
+  }
+  const listing = [];
+  for (const name of names) {
+    const info = await stat(path.join(directory, name));
+    listing.push({ name, size: info.size, mtimeMs: info.mtimeMs, directory: info.isDirectory() });
+  }
+  return listing;
+}
+
 test("CLI main refuses a set-but-invalid override before touching any root, and lands the report under a valid SOULFORGE_STATE_ROOT", async () => {
   const root = await tempDir();
   const stateRoot = path.join(root, "state-root");
   await mkdir(stateRoot, { recursive: true });
+  const checkoutListingBefore = await checkoutRetentionReportListing();
 
   let stdoutBuf = "";
   let stderrBuf = "";
@@ -1201,9 +1223,10 @@ test("CLI main refuses a set-but-invalid override before touching any root, and 
     const reportFile = path.join(stateRoot, "operations", "soulforge_activity", "reports", "codex_retention", "current.json");
     assert.ok((await stat(reportFile)).isFile());
     assert.equal(JSON.parse(stdoutBuf).digest, JSON.parse(await readFile(reportFile, "utf8")).digest);
-    assert.equal(
-      await stat(path.join(defaultRepoRoot(), "guild_hall", "state", "operations", "soulforge_activity", "reports", "codex_retention", ".override-test-sentinel")).catch(() => null),
-      null
+    assert.deepEqual(
+      await checkoutRetentionReportListing(),
+      checkoutListingBefore,
+      "the checkout's own reports/codex_retention directory must be untouched under an override"
     );
   } finally {
     process.stdout.write = origStdout;

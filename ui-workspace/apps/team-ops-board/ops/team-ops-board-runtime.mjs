@@ -9,6 +9,7 @@ import {
   readFile,
   rename,
   rm,
+  stat,
   writeFile,
 } from "node:fs/promises";
 import { request } from "node:http";
@@ -164,6 +165,7 @@ const SAFE_FAILURE_CLASSES = new Set([
   "runtime_worker_absent",
   "runtime_worker_failed",
   "serve_state_unsafe",
+  "soulforge_root_override_invalid",
   "termination_capture_failed",
   "task_definition_mismatch",
   "task_intent_unavailable",
@@ -777,6 +779,10 @@ export function createScheduledRuntimeEnvironment({
     ),
     TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY: path.join(boardStateRoot, "thread_visibility.v1.json"),
     TEAM_OPS_BOARD_THREAD_RESULT_GATE_REGISTRY: path.join(boardStateRoot, "thread_result_gate.v1.json"),
+    // Same derivation as defaultLegacyOrganizationCatalogPath, made explicit so
+    // a child forked from a worktree or an installed lane never re-derives the
+    // catalog from its own module tree.
+    TEAM_OPS_BOARD_ORGANIZATION_CATALOG: path.join(boardStateRoot, "organization_catalog.v1.json"),
     SOULFORGE_AI_USAGE_METER_STATE_ROOT: usageRoot,
     SOULFORGE_AI_USAGE_PROJECT_ROOT: resolvedOwnerRoot,
     [SOULFORGE_STATE_ROOT_ENV]: resolvedStateRoot,
@@ -1527,7 +1533,12 @@ async function readServeStatus(env = process.env) {
 // SOULFORGE_OWNER_ROOT / SOULFORGE_STATE_ROOT set (validated by the shared
 // resolver) Git is not consulted at all, and a set-but-invalid override fails
 // closed as owner_root_override_invalid instead of falling back to Git. With
-// neither set the roots are exactly the previous Git-derived values.
+// SOULFORGE_OWNER_ROOT alone the shared resolver validates only the owner
+// root, so the derived `<owner root>/guild_hall/state` is checked here as
+// well: an owner root without that subtree must refuse before a child is
+// forked, otherwise the child would create a fresh, empty state tree beside
+// the real one. With neither set the roots are exactly the previous
+// Git-derived values.
 export async function resolveScheduledRuntimeRoots(env = process.env, {
   resolveGitOwnerRoot = resolveOwnerRoot,
   codeRoot = SOULFORGE_ROOT,
@@ -1539,6 +1550,15 @@ export async function resolveScheduledRuntimeRoots(env = process.env, {
     fail("owner_root_override_invalid");
   }
   if (override !== null) {
+    if (override.source === "owner_root") {
+      let info = null;
+      try {
+        info = await stat(override.stateRoot);
+      } catch {
+        fail("owner_root_override_invalid");
+      }
+      if (!info.isDirectory()) fail("owner_root_override_invalid");
+    }
     return {
       source: override.source,
       ownerRoot: override.ownerRoot ?? codeRoot,

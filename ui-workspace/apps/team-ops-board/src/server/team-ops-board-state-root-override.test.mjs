@@ -1,9 +1,10 @@
 // Proves the SOULFORGE_OWNER_ROOT / SOULFORGE_STATE_ROOT override contract for
 // the Board: unset means byte-identical defaults, the state root moves every
 // operations binding together, the finer variable wins, and a set-but-invalid
-// value refuses instead of falling back to Git or the checkout.
+// value (including an owner root without a guild_hall/state directory)
+// refuses instead of falling back to Git or the checkout.
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -72,12 +73,23 @@ function previousScheduledEnvironment(ownerRoot, operationsRoot) {
   };
 }
 
-test("unset: the scheduled environment is the previous owner-root derivation plus one explicit SOULFORGE_STATE_ROOT", () => {
+// The two values the controller now passes explicitly on top of the previous
+// derivation: the state root itself and the legacy organization catalog (the
+// same path defaultLegacyOrganizationCatalogPath derives from that state root).
+function explicitScheduledValues(stateRoot) {
+  return {
+    SOULFORGE_STATE_ROOT: stateRoot,
+    TEAM_OPS_BOARD_ORGANIZATION_CATALOG: path.join(stateRoot, "operations", "team_ops_board", "organization_catalog.v1.json"),
+  };
+}
+
+test("unset: the scheduled environment is the previous owner-root derivation plus explicit SOULFORGE_STATE_ROOT and organization catalog", () => {
   const ownerRoot = path.resolve(tmpdir(), "board-owner-root");
   const environment = createScheduledRuntimeEnvironment({ ownerRoot, serveStatus: SERVE_STATUS, baseEnvironment: {} });
+  const stateRoot = path.join(path.resolve(ownerRoot), "guild_hall", "state");
   const expected = {
-    ...previousScheduledEnvironment(ownerRoot, path.join(path.resolve(ownerRoot), "guild_hall", "state", "operations")),
-    SOULFORGE_STATE_ROOT: path.join(path.resolve(ownerRoot), "guild_hall", "state"),
+    ...previousScheduledEnvironment(ownerRoot, path.join(stateRoot, "operations")),
+    ...explicitScheduledValues(stateRoot),
   };
   assert.deepEqual(environment, expected);
   assert.deepEqual(
@@ -92,13 +104,17 @@ test("state root: every operations binding moves under it while owner-root surfa
   const environment = createScheduledRuntimeEnvironment({ ownerRoot, stateRoot, serveStatus: SERVE_STATUS, baseEnvironment: {} });
   assert.deepEqual(environment, {
     ...previousScheduledEnvironment(ownerRoot, path.join(stateRoot, "operations")),
-    SOULFORGE_STATE_ROOT: stateRoot,
+    ...explicitScheduledValues(stateRoot),
   });
   const ownerState = path.join(path.resolve(ownerRoot), "guild_hall");
   for (const [name, value] of Object.entries(environment)) {
     assert.equal(String(value).startsWith(ownerState), false, `${name} must not stay under the owner root guild_hall subtree`);
   }
   assert.equal(environment.SOULFORGE_AI_USAGE_PROJECT_ROOT, path.resolve(ownerRoot));
+  assert.equal(
+    environment.TEAM_OPS_BOARD_ORGANIZATION_CATALOG,
+    path.join(stateRoot, "operations", "team_ops_board", "organization_catalog.v1.json"),
+  );
   assert.throws(
     () => createScheduledRuntimeEnvironment({ ownerRoot, stateRoot: path.join("relative", "state"), serveStatus: SERVE_STATUS }),
     /owner_root_unavailable/u,
@@ -120,7 +136,13 @@ test("controller roots: unset uses Git, an override skips Git, the finer variabl
 
   const mustNotCallGit = async () => { throw new Error("git must not be consulted under an override"); };
   const stateRoot = await tempDir(t, "state");
+  // An owner root is only usable alone when its guild_hall/state subtree exists.
   const ownerRoot = await tempDir(t, "owner");
+  await mkdir(path.join(ownerRoot, "guild_hall", "state"), { recursive: true });
+  const bareOwnerRoot = await tempDir(t, "owner-bare");
+  const fileStateOwnerRoot = await tempDir(t, "owner-file-state");
+  await mkdir(path.join(fileStateOwnerRoot, "guild_hall"), { recursive: true });
+  await writeFile(path.join(fileStateOwnerRoot, "guild_hall", "state"), "not a directory", "utf8");
   const codeRoot = path.resolve(tmpdir(), "board-lane-root");
   assert.deepEqual(
     await resolveScheduledRuntimeRoots({ SOULFORGE_STATE_ROOT: stateRoot }, { resolveGitOwnerRoot: mustNotCallGit, codeRoot }),
@@ -132,6 +154,14 @@ test("controller roots: unset uses Git, an override skips Git, the finer variabl
       { resolveGitOwnerRoot: mustNotCallGit, codeRoot },
     ),
     { source: "state_root", ownerRoot: path.resolve(ownerRoot), stateRoot: path.resolve(stateRoot) },
+  );
+  // With the finer variable set, the owner root's own guild_hall/state is not consulted.
+  assert.deepEqual(
+    await resolveScheduledRuntimeRoots(
+      { SOULFORGE_STATE_ROOT: stateRoot, SOULFORGE_OWNER_ROOT: bareOwnerRoot },
+      { resolveGitOwnerRoot: mustNotCallGit, codeRoot },
+    ),
+    { source: "state_root", ownerRoot: path.resolve(bareOwnerRoot), stateRoot: path.resolve(stateRoot) },
   );
   assert.deepEqual(
     await resolveScheduledRuntimeRoots({ SOULFORGE_OWNER_ROOT: ownerRoot }, { resolveGitOwnerRoot: mustNotCallGit, codeRoot }),
@@ -148,15 +178,24 @@ test("controller roots: unset uses Git, an override skips Git, the finer variabl
     { SOULFORGE_OWNER_ROOT: path.join("relative", "owner") },
     { SOULFORGE_OWNER_ROOT: path.join(ownerRoot, "missing"), SOULFORGE_STATE_ROOT: stateRoot },
     { SOULFORGE_STATE_ROOT: "" },
+    // Owner root alone whose guild_hall/state is missing or is a file: the
+    // controller must refuse rather than let the child create a fresh tree.
+    { SOULFORGE_OWNER_ROOT: bareOwnerRoot },
+    { SOULFORGE_OWNER_ROOT: fileStateOwnerRoot },
   ]) {
     await assert.rejects(
       resolveScheduledRuntimeRoots(env, { resolveGitOwnerRoot: mustNotCallGit, codeRoot }),
       (error) => error?.code === "owner_root_override_invalid",
+      JSON.stringify(Object.keys(env)),
     );
   }
   assert.equal(
     sanitizeRuntimeFailure(Object.assign(new Error("redacted"), { code: "owner_root_override_invalid" })),
     "owner_root_override_invalid",
+  );
+  assert.equal(
+    sanitizeRuntimeFailure(Object.assign(new Error("redacted"), { code: "soulforge_root_override_invalid" })),
+    "soulforge_root_override_invalid",
   );
 });
 
@@ -197,6 +236,14 @@ test("default state paths: unset equals the checkout-relative default, override 
   assert.equal(
     defaultLegacyOrganizationCatalogPath({ ...stateEnv, TEAM_OPS_BOARD_ORGANIZATION_CATALOG: "explicit-catalog" }),
     "explicit-catalog",
+  );
+  // The controller's explicit catalog value is exactly what the adapter would
+  // derive from the same (existing) state root, so nothing moves.
+  assert.equal(
+    createScheduledRuntimeEnvironment({
+      ownerRoot: path.resolve(ownerRoot), stateRoot: path.resolve(stateRoot), serveStatus: SERVE_STATUS, baseEnvironment: {},
+    }).TEAM_OPS_BOARD_ORGANIZATION_CATALOG,
+    defaultLegacyOrganizationCatalogPath(stateEnv),
   );
   assert.equal(defaultTopologyPointerPath(stateEnv), underState("watchtower", "binding.pointer.json"));
   assert.equal(defaultTopologyPointerPath(ownerEnv), underOwner("watchtower", "binding.pointer.json"));
