@@ -27,7 +27,8 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
-  existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync,
+  closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync,
+  renameSync, rmSync, statSync, writeFileSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -49,6 +50,22 @@ const IS_DB = /\.(db|sqlite|sqlite3)$/i;
 const IS_DB_SIDECAR = /\.(db|sqlite|sqlite3)-(wal|shm)$/i;
 
 const sha256 = (buf) => createHash("sha256").update(buf).digest("hex");
+
+/** Exported for testing: a .db suffix is a naming convention, the header is the fact. */
+export function looksLikeSqliteHeader(first16) {
+  return Buffer.from(first16).subarray(0, 15).toString("latin1") === "SQLite format 3";
+}
+
+function isSqlite(absPath) {
+  try {
+    const fd = openSync(absPath, "r");
+    try {
+      const buf = Buffer.alloc(16);
+      readSync(fd, buf, 0, 16, 0);
+      return looksLikeSqliteHeader(buf);
+    } finally { closeSync(fd); }
+  } catch { return false; }
+}
 const nowIso = () => new Date().toISOString();
 const stamp = () => new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
 
@@ -193,7 +210,10 @@ function main() {
   };
 
   const exportDb = (absSrc, rel) => {
-    const out = join(tmpDir, rel.replace(/[\\/]/g, "_"));
+    // Name the export by a digest of its path, not by the flattened path itself:
+    // a deep source path flattens into a filename that exceeds the limit and the
+    // export then fails for a reason that has nothing to do with the database.
+    const out = join(tmpDir, sha256(Buffer.from(rel, "utf8")).slice(0, 32) + ".db");
     try {
       if (existsSync(out)) rmSync(out, { force: true });
       const live = new DatabaseSync(absSrc, { readOnly: true });
@@ -230,7 +250,11 @@ function main() {
         } else if (d.isFile()) {
           if (SECRET_NAME.test(rel)) { skippedSecret++; continue; }
           if (IS_DB_SIDECAR.test(d.name)) continue;
-          if (IS_DB.test(d.name)) { exportDb(abs, prefix + "/" + rel); n++; continue; }
+          // A .db suffix is a naming convention, not a format. Chrome shader
+          // caches and similar files carry it without being SQLite, and trying to
+          // VACUUM one produces a database failure that misreports a plain file.
+          // Decide by the header, then copy or export accordingly.
+          if (IS_DB.test(d.name) && isSqlite(abs)) { exportDb(abs, prefix + "/" + rel); n++; continue; }
           try { stage(prefix + "/" + rel, abs); n++; } catch { /* vanished mid-run; absence is recorded by the manifest */ }
         }
       }
