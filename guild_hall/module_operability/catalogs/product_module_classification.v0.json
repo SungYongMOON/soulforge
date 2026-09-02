@@ -17,7 +17,7 @@
       "implementation_owner": "guild_hall/agent_observation",
       "classification": "product_owned",
       "product_id": "product.agent",
-      "current_caller_module_ids": ["deployment_pack_contract", "dev_erp_task_execution_surface", "doctor"],
+      "current_caller_module_ids": ["backup_controller", "deployment_pack_contract", "dev_erp_task_execution_surface", "doctor"],
       "rejected_duplicate_source_paths": []
     },
     {
