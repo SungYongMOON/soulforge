@@ -175,6 +175,13 @@
 - 2026-09-02 오후 Option B 착지: 브랜치 `claude/ops-owner-root-override`(커밋 `2c14021`, base `ef9b0e66`)에 `guild_hall/shared/soulforge_state_root.mjs` + Board 런타임·enrollment·catalog·topology, usage meter CLI, 정리기 CLI/등록기 재정의. 우선순위 = 파일별 명시 flag/env > `SOULFORGE_STATE_ROOT` > `SOULFORGE_OWNER_ROOT` > git-derived; 잘못된 값은 fail-closed, 미설정 시 바이트 동일(테스트로 고정). Board 737/739(실패 2는 main 기존), meter 156/156. main 병합은 Owner `github-up` 결정. Phase 2는 lane v2를 이 커밋에 고정해 `SOULFORGE_STATE_ROOT=D:\Soulforge-control\ops-lane`(공유 root 하나) + copy-only 상태 이전으로 진행(packet §9·§10).
 - 2026-09-02 13시대 준비 결과(영수증 `local-recovery/c-state-snapshot-20260902/`): 옛집 `guild_hall/state` 스냅샷 116,262 files(실패 0, sha256 manifest), 운영 lane `install/source-lanes/operations-lane-v1`(source 437f8c96 고정, import 폐포 92 files, `vite`·`yaml` 의존 동봉). 메일 전달기·Codex 정리기는 즉시 전환 가능(Phase 1). **상황판 4192·usage meter·정리기 상태는 한 owner-root 묶음**으로, 런타임이 `git rev-parse --git-common-dir`로 root를 정해 `<root>/guild_hall/state/operations/**`에 고정 결합함 → 상태를 `D:\Soulforge-control`로 옮기려면 `SOULFORGE_OWNER_ROOT`/`SOULFORGE_STATE_ROOT` 재정의(Option B) 코드 변경 뒤 lane v2로 Phase 2 전환.
 
+## 13B. 병합 기록 — 2026-09-02 저녁
+
+- fresh Level 2 검토(비작성 reviewer)가 두 브랜치에 `REVISE`(override: 파생 state root 오류 종류 가림 1 major + minor 6; linear: 활성화 사실과 다른 "미활성" 문서 1 major, 실행 시간 상한 vs lease 1 major, README의 Slack private 파일명 노출 등 minor 7)를 냈고, 통합 브랜치 `claude/integration-20260902`에서 7커밋으로 전부 수정(문서화 아닌 코드 수정 포함: 파생 state root 검증·`activity_log` 기본 root 재정의·조직 catalog env 명시·win32 드라이브 root 요구·8분 실행 상한+`run_deadline_reached` gap·CLI argv guard·pure-Node validator·main의 `agent_observation` caller 카탈로그 1줄).
+- 검증: module-operability 8/8, product-composition 4/4(main 기존 실패 해소), linear-collect 33/33, ai-usage-meter 156/156, codex-retention 26/26, shared 162/162, Board 737/739(기존 2건).
+- main `ef9b0e66` → `1aec216d`(18 commits, fast-forward) push, `D:\Soulforge\dev\source_checkout` 동일 커밋으로 갱신. 이로써 C: dev checkout과 D: checkout 모두 재정의 코드를 가져 Codex 훅·enrollment CLI의 split-brain이 닫힘(이미 떠 있던 세션은 재시작 후 적용).
+- 주장 상한: `validated_private / internal_rc candidate`. Level 3(fresh B/V)은 미실행.
+
 ## 14. Owner 결정 기록 — 2026-09-02
 
 | 결정 | 상태 |
