@@ -15,11 +15,26 @@ non-quiesced snapshots are accepted.
 
 ## Current posture
 
-- Code state: **candidate**. No private binding, API key, runtime lane copy,
-  or Scheduled Task exists in this repository or is created by it.
-- Activation is `HOLD` until the Owner places the key file, writes the private
-  binding, emits the runtime lane, and runs the registrar (dry-run, then
-  `-Register`). See "Activation order" below.
+- Claim ceiling: **activated internal_rc candidate, observed**. Not
+  production-ready.
+- Activated on the Main Node on 2026-09-02 under the Owner's explicit chat
+  authorization. What exists there, as recorded in the private activation
+  receipt (kept outside this repository): the Scheduled Task
+  `Soulforge-HPP-Linear-Collect` (one time trigger repeating every 15
+  minutes, `PT15M`) is registered and active; the read-only API key file was
+  placed by the Owner and has never been read by an agent; the private
+  binding is at revision v3; custody under
+  `<private_root>/ingress/linear/<url_key>/` held 84 issues, 185 comments,
+  and 12 projects after a one-time operator backfill; repeated runs are
+  idempotent (identical custody bytes are no-ops, receipts stay refs-only).
+- Human / Level-3 independent review has **not** been done. Until it closes,
+  the collected custody is observed source material, not validated history,
+  and nothing here may be described as production-ready.
+- The repository itself still contains no private binding, key, runtime lane
+  copy, or Scheduled Task; those exist only on the Main Node. Re-running the
+  activation order below is how a lane rebuild (for example this revision's
+  run deadline) reaches the live task; until then the task keeps executing
+  the previously emitted `linear-collect-v1` runtime.
 - The lane sends only GraphQL `query` documents to `https://api.linear.app/graphql`.
   There is no mutation document, no write helper, and no write capability name
   anywhere in the module; the lane test scans the sources for both.
@@ -50,7 +65,7 @@ Exact keys, all required:
 | Key | Rule |
 | --- | --- |
 | `schema_version` | `soulforge.linear_collect.binding.v1` |
-| `feature_enabled` | must be `true` (a disabled binding is rejected, not skipped) |
+| `feature_enabled` | must be `true`. `false` is a fail-closed rejection, not a pause: every scheduled run writes an `error` health receipt (`binding_feature_must_be_on`) and exits 1 until the binding is fixed or the task is disabled |
 | `lane_id` | opaque safe ref, e.g. `hpp-linear-collect` |
 | `private_root` | absolute; must exist; disjoint from every forbidden root |
 | `data_root` | absolute strict child of `private_root`; the Linear custody root (`<data_root>/<url_key>/...`); disjoint from `state_root` and every forbidden root |
@@ -86,26 +101,20 @@ and require the file to be a strict child of `private_root`, outside
 check. `linear_graphql_client.mjs` `loadLinearApiKey` applies exactly that
 rule to `credentials.api_key_env` / `credentials.api_key_file`.
 
-On the Main Node the Slack lane's private config directory was observed by
-directory listing only (no file contents were read) as
-`<PRIVATE_ROOT>\config\slack_history\` holding `slack_batch_live.binding.json`,
-`bindings\<PROJECT>.json`, and `credentials\user_access_token.txt`, where
-`<PRIVATE_ROOT>` is the `Soulforge-data` root on the Main Node's data drive
-(the coordinator-fixed value; tracked files keep the placeholder because the
-repository path policy rejects concrete local absolute paths). The Linear lane
-uses the sibling layout with the coordinator-fixed file name:
+The Linear lane's private layout, with placeholders (`<PRIVATE_ROOT>` is the
+Main Node's private data root; tracked files never carry the concrete local
+absolute path because the repository path policy rejects it):
 
 ```text
 <PRIVATE_ROOT>\config\linear_history\linear_collect.binding.json           # private binding (pinned by SHA-256)
-<PRIVATE_ROOT>\config\linear_history\credentials\linear_api_key.txt       # Owner writes the Linear API key here
+<PRIVATE_ROOT>\config\linear_history\credentials\linear_api_key.txt       # Owner-placed Linear API key
 <PRIVATE_ROOT>\ingress\linear\                                           # data_root (custody), never holds the key
 ```
 
 Binding fields: `credentials.api_key_file` is that absolute path;
 `credentials.api_key_env` stays `null` on the Main Node (the Scheduled Task
-has no such variable). The Owner is creating a read-only scoped personal API
-key named `soulforge-collect`; a key with write scopes is never required
-because the lane only sends `query` documents.
+has no such variable). A key with write scopes is never required because the
+lane only sends `query` documents.
 
 Rules for `linear_api_key.txt`:
 
@@ -226,13 +235,21 @@ arguments: `--repository-root`, `--runtime-root`, `--binding`,
 `--expected-binding-sha256`, `--state-root`.
 
 Health codes worth watching: `private_json_digest_mismatch` (binding drifted),
-`required_forbidden_root_missing`, `lease_unavailable` (abandoned lock; manual
-recovery only), `workspace_mismatch`, `api_key_unavailable`,
+`binding_feature_must_be_on` (`feature_enabled: false`; rejected on every run,
+never a pause), `required_forbidden_root_missing`, `lease_unavailable`
+(abandoned lock; manual recovery only), `workspace_mismatch`, `api_key_unavailable`,
 `linear_auth_failed`, `linear_rate_limited`, `linear_graphql_<code>` (Linear
 answered a GraphQL request or validation error, including HTTP 400 bodies such
 as `linear_graphql_input_error`), `custody_digest_conflict`.
 
-## Activation order (Main Node)
+## Activation order (Main Node; executed 2026-09-02)
+
+This sequence was executed once on 2026-09-02 (see "Current posture"). It is
+also the re-registration procedure after any lane rebuild: re-emit (step 1),
+recompute the manifest digest (step 3), and run the registrar with
+`-Register -ExpectedDryRunDigest` plus `-ExpectedExistingTaskSha256` of the
+live task (step 5). The private binding and key file are not touched by a
+rebuild unless the binding contract changed.
 
 1. Emit the runtime lane: `node guild_hall/linear_history/linear_runtime_manifest_emitter.mjs --source-root <repo> --target-root <install root>/source-lanes/linear-collect-v1 --write`.
 2. Owner writes `credentials\linear_api_key.txt` and the private binding under `<PRIVATE_ROOT>\config\linear_history\`.

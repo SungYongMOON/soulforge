@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 2026-09-02 - Linear read-only collection lane v1 (code candidate, activation HOLD)
+## 2026-09-02 - Linear read-only collection lane v1 (activated internal_rc candidate, observed; Level-3 review pending)
 
 - Added `guild_hall/linear_history/`, a read-only Linear collection lane for
   the Main Node that mirrors the Slack batch lane's operating pattern: one
@@ -39,14 +39,29 @@
   operability enrollment, the `validate:linear-collect` npm script, a
   public-safe example binding under
   `docs/architecture/workspace/examples/linear_collect_lane/`, and the plan-10
-  Linear row update (collection lane v1 code: candidate; activation HOLD).
-- 운영 영향: none yet. Nothing is activated by this revision: no private
-  binding, key file, runtime lane copy, or Scheduled Task exists in the
-  repository or is created by it. Activation requires the Owner-placed
-  `credentials\linear_api_key.txt` under the private `config\linear_history\`
-  root, the private binding, the emitted `source-lanes/linear-collect-v1`
-  runtime copy, and the registrar dry-run/register sequence. Collection is not
-  backup: LB1 generations stay in `backup_controller/`.
+  Linear row (its current activation state is stated below).
+- 운영 영향 (corrected 2026-09-02, integration branch): the lane WAS activated
+  on the Main Node on 2026-09-02 under the Owner's explicit chat
+  authorization. Observed there and recorded in the private activation
+  receipt (kept outside this repository): the Scheduled Task
+  `Soulforge-HPP-Linear-Collect` (`PT15M`) is registered and active; the
+  read-only key file was placed by the Owner and has never been read by an
+  agent; the private binding is at v3; custody under
+  `<private_root>/ingress/linear/<url_key>/` held 84 issues, 185 comments,
+  and 12 projects after a one-time operator backfill; repeated runs are
+  idempotent. Human / Level-3 independent review has not been done, so the
+  claim ceiling is "activated internal_rc candidate, observed": not
+  production-ready. The repository itself still contains no private binding,
+  key, runtime lane copy, or Scheduled Task. Collection is not backup: LB1
+  generations stay in `backup_controller/`.
+- Correction (2026-09-02): the earlier text of this entry, carried in the
+  lane branch commits, read "운영 영향: none yet. Nothing is activated by this
+  revision ... Activation requires the Owner-placed key file, the private
+  binding, the emitted runtime copy, and the registrar dry-run/register
+  sequence." That wording was already false at review time because the
+  same-day activation had not been recorded here; the paragraph above
+  supersedes it, and the plan-10 Linear row and the module README posture
+  were rewritten to the same state.
 - 관련 경로: `guild_hall/linear_history/`, `guild_hall/path_registry/src/linear_source_lane_adapter.mjs`,
   `guild_hall/path_registry/tests/linear_source_lane_adapter.test.mjs`,
   `docs/architecture/workspace/examples/linear_collect_lane/`,
