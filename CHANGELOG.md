@@ -1,5 +1,44 @@
 # CHANGELOG
 
+## 2026-09-02 - HPP server Pack 0.1.7 becomes the active production generation
+
+- Activated the immutable HPP server Pack `0.1.7` as the Main Node's current
+  generation and demoted the verified `0.1.6` to the retained previous/rollback
+  generation. `0.1.2` and `0.1.1` stay retained and were not deleted; a live
+  voice-label supervisor still executes from `0.1.2`. This supersedes the
+  `0.1.6` note above, which recorded `0.1.2` as active pending a reviewed
+  cutover.
+- Verified `0.1.7` before and again immediately before the pointer swap: the
+  manifest digest recomputes from its own entries, 1,022 files pass two-way
+  installed verification with zero mismatches and zero unmanifested extras, and
+  the installed smoke ran all 95 entries with no exclusions. Pack digest
+  `d73af755c87d62b41a552d8918a8840225c7a51487c6d44808e206f380079daf`. The
+  `0.1.6` rollback generation was re-verified to the same standard first, so the
+  retained rollback path is measured rather than assumed.
+- Retargeted only the Main Node ERP Scheduled Task, through the repository's own
+  registrar and its disabled same-database handoff rather than by hand. The
+  registrar refused while the task was still enabled, and the re-registered task
+  keeps its logon trigger, interactive limited principal, instance policy,
+  restart policy and credential-free posture.
+- Quiesced the ERP alone. Stopping the task left an orphaned Node child holding
+  the runtime port, which was identified by full command line and terminated
+  exactly before any pointer or task mutation; the port was confirmed released
+  first. Ingress, voice labelling, the Workspace Board and the external WSL
+  relay kept the same process identities across the cutover, and no PC reboot
+  occurred.
+- Post-cutover readback: ERP HTTP 200, runtime attestation source commit equal
+  to the `0.1.7` pack digest, release and build values unchanged, database
+  `quick_check` ok with zero foreign-key violations and an unchanged table
+  count, and the runtime port owned by the `0.1.7` process under the `0.1.7`
+  launcher.
+- Known residual: the non-ERP HPP lanes still reference older retained
+  generations, which the cutover authorization placed out of scope because
+  moving them would require stopping running non-target supervisors. Every
+  referenced generation is retained and byte-verified, so no lane path is
+  broken. Whether those lanes also move to `0.1.7` is an owner decision.
+- No repository code changed in this cutover. Existing unrelated `.gitignore`
+  and `signoise.run/` working state was preserved.
+
 ## 2026-09-02 - Backup Controller topology v2 actual reader and Pack 0.1.2
 
 - Added the read-only other half of the default-OFF topology v2 preflight.
