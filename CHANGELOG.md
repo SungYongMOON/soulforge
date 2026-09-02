@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## 2026-09-02 - Agent router refreshed for the D: relocation (AGENTS.md; GEMINI.md pointer)
+
+- Rewrote `AGENTS.md` so every coding agent reads one router after the
+  2026-09-02 relocation: Codex reads it directly, `CLAUDE.md` and the new
+  `GEMINI.md` each contain only `@AGENTS.md`. New sections: work location
+  and execution planes (code work in the `dev` checkout or its worktrees;
+  operations only from `install/server-pack/<x.y.z>` or
+  `install/source-lanes/<lane>-vN` through each lane registrar; state-root
+  precedence explicit flag/env > `SOULFORGE_STATE_ROOT` >
+  `SOULFORGE_OWNER_ROOT` > git-derived, fail-closed), the four-way lane
+  cutover rule (collector pin, binding digest, launcher, state-digest fence
+  together; registrar only; between triggers with no lease; rename, never
+  delete; receipts under `local-recovery/`), collection-vs-backup axes, the
+  lane credential-file rule (format checks only, values never recorded), the
+  team pilot access model pointer (plan 18: Buzz + bot-mediated MCP,
+  registration is not Done, five-field process summary, no persona names for
+  project bots), and the multi-branch merge procedure (fresh non-author
+  review, integration branch, validators green, fast-forward). Host-local
+  paths appear only as placeholders. No policy owner changed; detailed
+  policies stay with their owner documents.
+
 ## 2026-09-02 - Linear read-only collection lane v1 (activated internal_rc candidate, observed; Level-3 review pending)
 
 - Added `guild_hall/linear_history/`, a read-only Linear collection lane for
