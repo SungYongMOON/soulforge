@@ -217,7 +217,17 @@
       "implementation_owner": "guild_hall/shared",
       "classification": "shared",
       "product_id": null,
-      "current_caller_module_ids": ["file_activity", "path_registry"],
+      "current_caller_module_ids": ["file_activity", "linear_history", "path_registry"],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "linear_history",
+      "interface_version": "linear_history.v1",
+      "module_manifest_ref": "guild_hall/linear_history/module.manifest.json",
+      "implementation_owner": "guild_hall/linear_history",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": ["path_registry"],
       "rejected_duplicate_source_paths": []
     },
     {

@@ -1,5 +1,58 @@
 # CHANGELOG
 
+## 2026-09-02 - Linear read-only collection lane v1 (code candidate, activation HOLD)
+
+- Added `guild_hall/linear_history/`, a read-only Linear collection lane for
+  the Main Node that mirrors the Slack batch lane's operating pattern: one
+  SHA-256-pinned private binding (`soulforge.linear_collect.binding.v1`) with
+  exact repository/runtime `forbidden_roots`, writer authority/epoch fencing,
+  a fail-closed lease, an exact-runtime launcher (Node and runtime-manifest
+  sha pins, full-tree inventory, `--verify-only`), a `--preflight`/`--apply`
+  CLI reachable only through the launcher attestation, and a dry-run-first
+  Scheduled Task registrar (`Soulforge-HPP-Linear-Collect`, one time trigger
+  repeating every 15 minutes, IgnoreNew, 10-minute execution limit, exported
+  XML attestation, rollback). The registrar's structural guard and real
+  Windows PowerShell dry-run/rollback harness tests run on Windows.
+- The lane sends only GraphQL `query` documents; there is no mutation
+  document, no write helper, and no write capability name in the module, and
+  the lane test scans every source file for both. The API key is read through
+  the binding's `credentials` object (`api_key_env`, then the fenced
+  `api_key_file`) with the Slack lane's exact credential boundary rule
+  (`private_root` strict child, outside `data_root` and every forbidden root,
+  normal single-link file of 1..4096 bytes, realpath and opened-handle
+  identity checks). The key value is never logged, persisted, or echoed.
+- Delta capture is a bounded `updatedAt` window with a re-read overlap and an
+  explicit backfill continuation when `max_pages_per_run` is reached; custody
+  is create-only content-digested JSON under `<data_root>/<url_key>/{workspace,
+  teams,users,projects,labels,states,cycles,issues,comments,read_evidence}`;
+  each run writes a refs-only receipt (`soulforge.linear_collect.run_receipt.v1`),
+  a nine-key `capture_generation` lane record for `source.linear`, the cursor
+  state, and a health receipt that is written before any fail-closed rejection
+  returns (closing the Slack lane's silent exit-1 gap for a broken binding).
+- Each observed issue also yields an envelope whose `evidence` member is an
+  exact `soulforge.linear.official_task_read_evidence.v0` record; the lane test
+  admits an emitted Todo record through
+  `ui-workspace/apps/dev-erp/src/forge_linear_execution_packet_admission.mjs`.
+- Added `guild_hall/path_registry/src/linear_source_lane_adapter.mjs` (pure
+  receipt to `capture_generation` adapter, R3 storage map stays `degraded` for
+  capture-only evidence), the `linear_history` module manifest, catalog and
+  operability enrollment, the `validate:linear-collect` npm script, a
+  public-safe example binding under
+  `docs/architecture/workspace/examples/linear_collect_lane/`, and the plan-10
+  Linear row update (collection lane v1 code: candidate; activation HOLD).
+- 운영 영향: none yet. Nothing is activated by this revision: no private
+  binding, key file, runtime lane copy, or Scheduled Task exists in the
+  repository or is created by it. Activation requires the Owner-placed
+  `credentials\linear_api_key.txt` under the private `config\linear_history\`
+  root, the private binding, the emitted `source-lanes/linear-collect-v1`
+  runtime copy, and the registrar dry-run/register sequence. Collection is not
+  backup: LB1 generations stay in `backup_controller/`.
+- 관련 경로: `guild_hall/linear_history/`, `guild_hall/path_registry/src/linear_source_lane_adapter.mjs`,
+  `guild_hall/path_registry/tests/linear_source_lane_adapter.test.mjs`,
+  `docs/architecture/workspace/examples/linear_collect_lane/`,
+  `docs/architecture/foundation/team_member_engineering_program/10_EXTERNAL_CONNECTORS_AND_BACKUP.md`,
+  `guild_hall/module_operability/catalogs/product_module_classification.v0.json`, `package.json`.
+
 ## 2026-09-02 - HPP server Pack 0.1.7 becomes the active production generation
 
 - Activated the immutable HPP server Pack `0.1.7` as the Main Node's current
