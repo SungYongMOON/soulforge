@@ -105,17 +105,44 @@ function freeBytes(uncRoot) {
   return Number(nums[0].replace(/,/g, ""));
 }
 
+/**
+ * Order generations by when they were actually finalized, never by name.
+ * Sorting by id looks right while every id shares one prefix and silently
+ * inverts the moment two prefixes coexist — which would let retention treat an
+ * older generation as the newest and prune the one it promised to keep.
+ * Exported for testing.
+ */
+export function orderGenerations(list) {
+  return [...list].sort((a, b) => {
+    const at = Date.parse(a.finalized_at ?? "") || 0;
+    const bt = Date.parse(b.finalized_at ?? "") || 0;
+    if (at !== bt) return at - bt;
+    return a.id < b.id ? -1 : 1;
+  });
+}
+
 function listGenerations(root) {
   if (!existsSync(root)) return [];
-  return readdirSync(root, { withFileTypes: true })
+  const rows = readdirSync(root, { withFileTypes: true })
     .filter((d) => d.isDirectory() && !d.name.startsWith("_staging_"))
     .map((d) => {
       const receiptPath = join(root, d.name, "receipt.json");
       let receipt = null;
       try { receipt = JSON.parse(readFileSync(receiptPath, "utf8").replace(/^﻿/, "")); } catch { /* unverified */ }
-      return { id: d.name, verified: receipt !== null && String(receipt.status).startsWith("verified"), receipt };
-    })
-    .sort((a, b) => (a.id < b.id ? -1 : 1));
+      let finalized = receipt?.finalized_at ?? null;
+      if (!finalized) {
+        // No receipt to trust, so fall back to the directory's own timestamp
+        // rather than to its name.
+        try { finalized = new Date(statSync(join(root, d.name)).mtimeMs).toISOString(); } catch { /* leave null */ }
+      }
+      return {
+        id: d.name,
+        verified: receipt !== null && String(receipt.status).startsWith("verified"),
+        finalized_at: finalized,
+        receipt,
+      };
+    });
+  return orderGenerations(rows);
 }
 
 function writeHealth(root, body) {
