@@ -17,7 +17,12 @@
       "implementation_owner": "guild_hall/agent_observation",
       "classification": "product_owned",
       "product_id": "product.agent",
-      "current_caller_module_ids": ["backup_controller", "deployment_pack_contract", "dev_erp_task_execution_surface", "doctor"],
+      "current_caller_module_ids": [
+        "backup_controller",
+        "deployment_pack_contract",
+        "dev_erp_task_execution_surface",
+        "doctor"
+      ],
       "rejected_duplicate_source_paths": []
     },
     {
@@ -97,7 +102,9 @@
       "implementation_owner": "ui-workspace/apps/dev-erp",
       "classification": "product_owned",
       "product_id": "product.erp",
-      "current_caller_module_ids": ["vault_artifact_revision_core"],
+      "current_caller_module_ids": [
+        "vault_artifact_revision_core"
+      ],
       "rejected_duplicate_source_paths": []
     },
     {
@@ -137,7 +144,9 @@
       "implementation_owner": "guild_hall/file_activity",
       "classification": "shared",
       "product_id": null,
-      "current_caller_module_ids": ["path_registry"],
+      "current_caller_module_ids": [
+        "path_registry"
+      ],
       "rejected_duplicate_source_paths": []
     },
     {
@@ -197,7 +206,9 @@
       "implementation_owner": "guild_hall/path_registry",
       "classification": "shared",
       "product_id": null,
-      "current_caller_module_ids": ["team_ops_board"],
+      "current_caller_module_ids": [
+        "team_ops_board"
+      ],
       "rejected_duplicate_source_paths": []
     },
     {
@@ -217,7 +228,24 @@
       "implementation_owner": "guild_hall/shared",
       "classification": "shared",
       "product_id": null,
-      "current_caller_module_ids": ["file_activity", "linear_history", "path_registry"],
+      "current_caller_module_ids": [
+        "buzz_history",
+        "file_activity",
+        "linear_history",
+        "path_registry"
+      ],
+      "rejected_duplicate_source_paths": []
+    },
+    {
+      "module_id": "buzz_history",
+      "interface_version": "buzz_history.v1",
+      "module_manifest_ref": "guild_hall/buzz_history/module.manifest.json",
+      "implementation_owner": "guild_hall/buzz_history",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": [
+        "path_registry"
+      ],
       "rejected_duplicate_source_paths": []
     },
     {
@@ -227,7 +255,9 @@
       "implementation_owner": "guild_hall/linear_history",
       "classification": "shared",
       "product_id": null,
-      "current_caller_module_ids": ["path_registry"],
+      "current_caller_module_ids": [
+        "path_registry"
+      ],
       "rejected_duplicate_source_paths": []
     },
     {
@@ -237,7 +267,9 @@
       "implementation_owner": "guild_hall/slack_history",
       "classification": "shared",
       "product_id": null,
-      "current_caller_module_ids": ["path_registry"],
+      "current_caller_module_ids": [
+        "path_registry"
+      ],
       "rejected_duplicate_source_paths": []
     },
     {
@@ -278,7 +310,9 @@
       "classification": "product_owned",
       "product_id": "product.agent",
       "current_caller_module_ids": [],
-      "rejected_duplicate_source_paths": ["ui-workspace/apps/team-ops-board"]
+      "rejected_duplicate_source_paths": [
+        "ui-workspace/apps/team-ops-board"
+      ]
     },
     {
       "module_id": "validate",
@@ -317,7 +351,10 @@
       "implementation_owner": "guild_hall/watch_panel_contract",
       "classification": "shared",
       "product_id": null,
-      "current_caller_module_ids": ["path_registry", "team_ops_board"],
+      "current_caller_module_ids": [
+        "path_registry",
+        "team_ops_board"
+      ],
       "rejected_duplicate_source_paths": []
     },
     {

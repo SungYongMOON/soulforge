@@ -1,0 +1,33 @@
+{
+  "schema_version": "soulforge.buzz_collect.binding.v1",
+  "feature_enabled": true,
+  "lane_id": "hpp-buzz-collect",
+  "private_root": "<PRIVATE_ROOT>",
+  "data_root": "<PRIVATE_ROOT>/ingress/buzz",
+  "state_root": "<PRIVATE_ROOT>/buzz_history/state",
+  "forbidden_roots": [
+    "<REPOSITORY_ROOT>",
+    "<RUNTIME_ROOT>"
+  ],
+  "writer": {
+    "authority_id": "hpp-buzz-collect-writer",
+    "epoch": 1
+  },
+  "relay": {
+    "relay_key": "relay-main",
+    "liveness_url": "http://127.0.0.1:3100/_liveness",
+    "wsl_executable": "<WSL_EXECUTABLE>",
+    "wsl_distro": "ExampleDistro",
+    "mount_prefix": "/mnt",
+    "postgres_container": "example-postgres-1",
+    "db_name": "example",
+    "db_user": "example"
+  },
+  "cursor": {
+    "overlap_seconds": 300,
+    "initial_received_at": null,
+    "row_limit": 5000,
+    "timeout_ms": 120000,
+    "run_deadline_ms": 480000
+  }
+}

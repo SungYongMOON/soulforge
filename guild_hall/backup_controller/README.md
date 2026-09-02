@@ -637,11 +637,74 @@ isolated restore/rollback and human evidence refs. Success means only
 Done and accepted Project Context remain unevaluated. Raw chat/prompt/memory/
 tool output and private key/token/path values are forbidden.
 
+### Buzz controller backup index (recorder)
+
+`buzz_backup_generation_index.mjs` + `_cli.mjs` read the backup the Buzz relay
+already makes for itself — `<buzz_root>/backup/{postgres,redis,minio,git}` plus
+`<buzz_root>/logs/backup/receipts.jsonl` — and write an index of it. It
+re-computes each file's SHA-256, matches it against the receipt's 16-hex digest
+prefix (`digest_verified`), and publishes create-only to
+`60_BACKUP_GENERATIONS/buzz/buzz-controller-<stamp>/index.json` plus
+`10_SOURCE_CAPTURE_CATALOG/buzz/{backup-generation-refs,restore-tests}/<stamp>.json`.
+
+Three refusals are the point of the module:
+
+- **No byte is copied.** `bytes_duplicated: 0` and `claim_ceiling: index_only`
+  are in the output because an index is not a backup.
+- **Nothing under `<buzz_root>` is written, renamed, or deleted**, and a
+  credential-shaped file there is named but never opened.
+- **No restore is claimed.** Soulforge performed no isolated restore and holds
+  no readback digest, so the controller's own weekly restore test is recorded
+  as a `buzz_restore_test_observation.v0` with
+  `human_acceptance_state: "pending"` and its blocking reasons — never as a
+  `restore_test` lane record, which would be fabricated evidence.
+
+The real `backup_generation_pointer` is a `soulforge.source_lane_index.v0`
+record and is **withheld** unless the caller supplies the collection
+`generation_seq` the backup covers. `--plan` is the default; `--apply` writes.
+Independent of the v1 binding: roots come from arguments only.
+
+### Hermes profile snapshot (Sigil inventory)
+
+`hermes_profile_snapshot.mjs` + `_cli.mjs` inventory `<hermes_home>/profiles/*`
+by class: `SOUL.md` bytes are copied (this is the Sigil) and verified by an
+isolated readback — copied out to a temporary directory and re-hashed there, so
+the check reads what was written rather than the buffer that wrote it. Config
+files give a digest and size; `skills/`, `hooks/`, `plans/`, `cron/` give names
+only; `sessions/`, `memories/`, `workspace(s)/` and `*.db` give counts and bytes
+only; `.env`, `auth.json` and `auth.lock` give existence and size and are never
+opened and never hashed; `logs/` and `cache/` are not walked at all.
+
+Output is create-only:
+`60_BACKUP_GENERATIONS/hermes/hermes-profiles-<stamp>/{generation.json,payload/<profile>/SOUL.md}`,
+`10_SOURCE_CAPTURE_CATALOG/hermes/backup-generation-refs/<stamp>.json`, and
+`50_AI_WORKFORCE_INDEX/runtime-profiles/<profile>.json` (an Agent Mark **seed**,
+`agent_mark_state: "seed_not_accepted"`).
+
+`claim_ceiling: inventory_v0`. **No database byte is captured.** The cutover
+audit found 45 of the profiles' 159 SQLite files with a live write-ahead log
+held open by a running `serve` process: a file copy of one is torn AND misses
+whatever is still only in the WAL. A generation that includes databases must use
+`sqlite3` online backup or `VACUUM INTO`, and must pass the destination as a SQL
+single-quoted literal — `JSON.stringify`'s double quotes make SQLite read it as
+an identifier and the statement dies with "no such column". `dev-erp.db` has the
+same property and the same rule.
+
+Liveness is never guessed: `--running-profiles` is supplied by the operator, or
+every profile's `running` field is `null` with the `running_state_unknown` gap
+recorded. This module enumerates no processes.
+
+Hermes has no capture lane, so there is no collection generation to point at;
+the catalog file carries a withheld-record note
+(`hermes_backup_generation_ref.v0`) unless `--generation-seq` is supplied.
+
 ## Validation
 
 ```powershell
 npm.cmd run validate:backup-controller
 npm.cmd run validate:backup-generation-contracts
+npm.cmd run validate:buzz-backup-index
+npm.cmd run validate:hermes-profile-snapshot
 npm.cmd run validate:linear-lb1-owner-gate
 npm.cmd run validate:linear-lb1-v2
 npm.cmd run validate:linear-lb1-runtime-adapters

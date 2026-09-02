@@ -1,0 +1,43 @@
+{
+  "schema_version": "soulforge.module_manifest.v0",
+  "module_id": "buzz_history",
+  "module_version": "0.1.0",
+  "interface_version": "buzz_history.v1",
+  "schema_versions": [
+    "soulforge.buzz_collect.binding.v1",
+    "soulforge.buzz_collect.state.v1",
+    "soulforge.buzz_collect.cursor.v1",
+    "soulforge.buzz_collect.run_receipt.v1",
+    "soulforge.buzz_collect.health.v1",
+    "soulforge.buzz_collect.custody_object.v1",
+    "soulforge.buzz_collect.runtime_manifest.v1",
+    "soulforge.buzz_collect.synthetic_fixture.v1",
+    "buzz_export.v1"
+  ],
+  "owner": "guild_hall/buzz_history",
+  "capabilities_provided": [
+    "source.buzz_collect_receipt_contract.v1"
+  ],
+  "capabilities_required": [],
+  "required_dependencies": ["shared"],
+  "optional_dependencies": [],
+  "compatible_version_ranges": { "node": ">=20" },
+  "startup_order": null,
+  "feature_flag": "live Buzz collection and scheduled registration remain separately bound/default-OFF; activation requires the private binding and the registrar dry-run/register sequence",
+  "default_state": "contract_and_local_custody_code_available_live_binding_external",
+  "health_probe": null,
+  "readiness_probe": null,
+  "config_refs": [],
+  "secret_refs": [],
+  "data_owner": "private_buzz_source_custody_store",
+  "backup_class": "collection_only_not_backup_backup_generations_remain_backup_controller",
+  "migration_version": null,
+  "rollback_version": "git_revert_of_this_module_only",
+  "validators": [
+    "npm.cmd run validate:buzz-collect",
+    "npm.cmd run validate:buzz-collect:windows"
+  ],
+  "release_digest": null,
+  "deprecation_state": "active_draft",
+  "authority_notes": "Read-only Buzz relay collection lane (HPP, every 15 minutes) that publishes the refs-only run receipt contract consumed by the path_registry Buzz source-lane adapter. It holds no credential of any kind: the relay's PostgreSQL is reached over the container's local socket by a manifest-pinned exporter script running inside a session PostgreSQL itself holds read-only, so the binding has no credentials key and a binding that declares one is refused. The only two reads per run are a loopback _liveness GET pinned to the 127.0.0.1 literal and one bounded export process; every staged export file is re-hashed against the exporter meta before a byte is parsed. The lane owns no relay writer, task writer, backup generation, restore, or acceptance authority, and the community signing key is removed inside PostgreSQL so it never leaves the database. Collection is not backup: backup generations remain owned by backup_controller."
+}

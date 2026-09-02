@@ -36,7 +36,12 @@
     "soulforge.backup_controller.nas_dr_runner_config.v0",
     "soulforge.backup_controller.nas_dr_generation_manifest.v0",
     "soulforge.backup_controller.nas_dr_generation_receipt.v0",
-    "soulforge.backup_controller.nas_dr_health.v0"
+    "soulforge.backup_controller.nas_dr_health.v0",
+    "soulforge.backup_controller.buzz_backup_generation_index.v0",
+    "soulforge.backup_controller.buzz_restore_test_observation.v0",
+    "soulforge.backup_controller.hermes_profile_snapshot.v0",
+    "soulforge.backup_controller.hermes_runtime_profile.v0",
+    "soulforge.backup_controller.hermes_backup_generation_ref.v0"
   ],
   "owner": "guild_hall/backup_controller",
   "capabilities_provided": [
@@ -54,7 +59,9 @@
     "backup.topology_v2_default_off_preflight.v0",
     "backup.topology_v2_actual_read_only_evidence_reader.v0",
     "backup.nas_dr_default_off_binding_preflight.v0",
-    "backup.nas_dr_generation_runner.v0"
+    "backup.nas_dr_generation_runner.v0",
+    "backup.buzz_controller_generation_index.v0",
+    "backup.hermes_profile_sigil_inventory.v0"
   ],
   "capabilities_required": [],
   "required_dependencies": [
@@ -89,7 +96,9 @@
     "npm.cmd run validate:synthetic-recovery-canary",
     "npm.cmd run validate:backup-topology-v2",
     "npm.cmd run validate:backup-nas-dr",
-    "npm.cmd run validate:backup-nas-dr-runner"
+    "npm.cmd run validate:backup-nas-dr-runner",
+    "npm.cmd run validate:buzz-backup-index",
+    "npm.cmd run validate:hermes-profile-snapshot"
   ],
   "release_digest": null,
   "deprecation_state": "active",

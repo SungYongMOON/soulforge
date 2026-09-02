@@ -1,5 +1,9 @@
 * text=auto eol=lf
 
+# The Buzz exporter is executed by bash inside WSL and the lane refuses it
+# outright if its bytes contain a carriage return.
+guild_hall/buzz_history/*.sh text eol=lf
+
 *.bmp binary
 *.docx binary
 *.gif binary

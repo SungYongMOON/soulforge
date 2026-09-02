@@ -1,5 +1,77 @@
 # CHANGELOG
 
+## 2026-09-03 - Buzz collection Tributary, the Buzz backup index and the Hermes Sigil inventory
+
+- Added `guild_hall/buzz_history/`, a read-only 15-minute HPP collection lane for
+  the Buzz relay, built as a copy of the Linear lane's operating pattern wherever
+  the boundary is the same: SHA-256-pinned private binding, exact repository and
+  runtime forbidden roots, writer authority/epoch fencing, a fail-closed lease, the
+  health receipt written before any rejection returns, refs-only receipts and
+  create-only content-addressed custody.
+- The lane holds **no credential at all**, and that is a structural property rather
+  than a configuration choice. The relay's PostgreSQL is reached over the
+  container's local socket by a manifest-pinned exporter running inside a session
+  PostgreSQL itself holds read-only, so the binding has no `credentials` key and the
+  registrar refuses a binding that declares one, that carries a Nostr secret key, or
+  that carries a JWT-shaped value. The community `signing_key` is removed inside
+  PostgreSQL and never leaves the database.
+- Each run makes exactly two reads: a loopback `_liveness` GET pinned to the
+  `127.0.0.1` literal so no name lookup can move the probe off the host, and one
+  bounded export process. The transport stages four files and the runner re-hashes
+  every one of them against the exporter's own meta, checks the declared row counts,
+  and validates each row's exact key set before a byte reaches custody. A failed run
+  keeps its staging directory, because that is the only evidence of what it read.
+- Two watermarks and a per-community audit sequence replace the single provider
+  window, and a watermark only ever advances to an instant the run actually
+  observed — with no rows it does not move at all, so a row arriving with an earlier
+  `received_at` than the wall clock cannot be skipped. A run that filled its row
+  limit without moving either watermark reports `export_truncated` rather than
+  presenting a stall as a completed capture.
+- Tombstones carry the same full row projection as live events on purpose: an event
+  created and soft-deleted between two runs would otherwise never have its bytes
+  captured at all. Export values are NFC-normalized and any number a JSON parser
+  cannot round-trip exactly becomes its decimal string, because custody digests
+  admit only safe integers and NFC strings.
+- Added the matching `path_registry` Buzz source-lane adapter
+  (`physical.buzz_capture_source_lane_adapter.v0`). Unlike the Linear adapter it
+  takes the run's completion instant as `captured_at`: the Buzz window has no upper
+  bound, so completion is the only instant that honestly bounds what the capture
+  contains.
+- Added `buzz_backup_generation_index` to `backup_controller`. The Buzz relay
+  already backs itself up daily; what Soulforge lacked was any record that it
+  exists. The indexer re-hashes each backup file, matches it against the
+  controller's receipt digest prefix, and publishes refs, digests and byte counts
+  with `bytes_duplicated: 0` and `claim_ceiling: index_only`. It writes nothing
+  under the controller root and never opens a credential-shaped file there.
+- Added `hermes_profile_snapshot` to `backup_controller` — the Sigil inventory of
+  the Hermes bot profiles, which had no Soulforge record of any kind. `SOUL.md` is
+  copied and verified by an isolated readback; config gives a digest and size;
+  capabilities and schedules give names; sessions, memories, workspaces and
+  databases give counts and bytes; `.env`, `auth.json` and `auth.lock` give
+  existence and size and are never opened and never hashed; logs and cache are not
+  walked. `claim_ceiling: inventory_v0`.
+- No database byte is captured, and the reason is measured rather than cautious: 45
+  of the profiles' 159 SQLite files had a live write-ahead log held open by a
+  running process, so a file copy would be torn and would also miss whatever is
+  only in the WAL. A generation that includes databases must use `sqlite3` online
+  backup or `VACUUM INTO`.
+- Both recorders refuse to fabricate the evidence they lack. Soulforge has performed
+  no isolated restore, so the Buzz recorder emits a restore-test **observation**
+  with its blocking reasons instead of a `restore_test` lane record; and neither
+  recorder invents a `backup_generation_pointer` when no collection generation
+  exists to point at — it is withheld and the withholding is reported.
+- Liveness is never guessed: the Hermes snapshot takes the running-profile list from
+  the operator or reports `running: null` with a `running_state_unknown` gap. It
+  enumerates no processes.
+- Recorded the Owner's 2026-09-03 world-name decision in the shared glossary as a
+  three-layer table with the origin of each name, and declared `Canto I · The
+  Kindling, Gram` in Master Map M0. These are display names only: file, folder,
+  schema, module and CLI identifiers are unchanged, and the older Monster/Quest/Boss
+  game-term conflicts remain `OWNER_DEFERRED`.
+- Nothing here is activated. The Buzz lane is built and locally validated but not
+  registered; Scheduled Task registration, binding placement and any `--apply` of
+  either recorder await Owner approval.
+
 ## 2026-09-02 - Native-SMB NAS disaster-recovery contract and the first verified generations
 
 - Added a default-OFF NAS disaster-recovery binding pair. The legacy binding could

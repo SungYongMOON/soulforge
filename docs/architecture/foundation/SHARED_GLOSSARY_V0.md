@@ -137,6 +137,67 @@ Soulforge 화면과 문서에 나오는 게임식 이름을 일반 업무 용어
 | species / class / hero | 실행 프로필 분류 | `.registry/species`, `.registry/classes` | 모델/역할 조합을 게임식 이름으로 분류한 것 |
 | promotion (승격) | 정식 절차 등록 | `.registry`, `.workflow` | 반복 검증된 작업 방식을 재사용 가능한 정본으로 올리는 일 |
 
+## 세계 이름 (Owner 확정 2026-09-03)
+
+이 절은 **표시명만** 고정한다. 파일·폴더·스키마·모듈·CLI 식별자는 바꾸지 않으며,
+문서·화면·예약작업 이름·CHANGELOG 제목에만 쓴다. 한국어 운영 표기
+(`1차 백업본`, `3회차 수집`)는 위 표 그대로 유지한다.
+
+### 층 1 · 시대 Canto — 제련 공정
+
+| 이름 | 뜻 | 이름 유래 |
+| --- | --- | --- |
+| Canto I · The Kindling | 현재 시대. 불을 지피는 단계 | canto는 단테 『신곡』과 스펜서 『선녀여왕』의 장(章) 단위. kindling은 고대 노르드어 `kynda`(불을 붙이다)에서 왔다. |
+| Canto II · The Forging | 벼리는 단계 | 같은 제련 공정 축의 다음 단계. |
+| Canto III · The Tempering | 담금질로 굳히는 단계 | tempering은 금속을 재가열해 인성을 얻는 실제 열처리 공정. |
+
+### 층 2 · 보물 — Soulforge 자신의 레벨(출시 코드명)
+
+| 이름 | 버전대 | 이름 유래 |
+| --- | --- | --- |
+| Gram | 0.1.x (현재) | 『에다』에서 시구르드가 파프니르를 벤 검. 부러진 뒤 다시 벼려진 검이라는 점이 이 단계와 맞는다. |
+| Gungnir | 0.2.x | 오딘의 창. 겨눈 것을 빗나가지 않는다. |
+| Draupnir | 0.3.x | 오딘의 반지. 아홉 밤마다 같은 무게의 반지 여덟 개를 낳는다(증식). |
+| Mjölnir | 0.4.x | 토르의 망치. 드베르그가 벼린 보물 중 가장 강한 것. |
+
+코드명은 CHANGELOG 제목과 Vigil 머리에만 쓴다. 고정 이름(층 3)은 멈추고
+코드명만 바뀐다.
+
+### 층 3 · 대장간 부품 — 시스템 부품
+
+| 이름 | 가리키는 것 | 이름 유래 |
+| --- | --- | --- |
+| Ore | 원천 자료 원본 | 제련 전의 광석. |
+| Tributary | 수집 lane | 본류로 흘러드는 지류(支流). |
+| Ingot | Heartwood 안의 사본(custody) | 제련해 굳힌 주괴. |
+| Heartwood | private data root | 나무 한가운데의 심재(心材). 살아 있는 부분이 아니라 무게를 견디는 부분. |
+| Hearth | AI 모델·연산 | 대장간 화덕. |
+| Rune | 엔진 (기존 이름) | 새긴 글자가 힘을 갖는다는 노르드 문자. |
+| Bellows | 예약작업·자동화 | 풀무. 사람이 붙어 있지 않아도 바람을 계속 넣는 것. |
+| Anvil | 정본(canon) | 모루. 때리는 쪽이 아니라 받치는 쪽이 형태를 정한다. |
+| Hammer | Task Engine | 망치. |
+| Guild | 사람+봇 조직 (기존 이름) | 중세 장인 길드. |
+| Quench | 검증·검토 관문 | 담금질. 통과해야 단단해진다. |
+| Covenant | 정본 승격 3규칙 (W-AUTH · Canonical Empty-State Genesis · Legacy Freeze) | 언약궤(Ark of the Covenant). 함부로 열 수 없는 계약. |
+| Tongs | MCP 문 | 집게. 뜨거운 것을 맨손으로 잡지 않기 위한 유일한 도구. |
+| Vigil | 4192 감시면 | 로마의 야경대 `Vigiles`. |
+| Sigil | Hermes 프로필(SOUL) 스냅샷 | 『솔로몬의 열쇠』의 인장(sigil). 존재를 부르는 표식. |
+| Reliquary | 백업 | 성유물함. 사본은 `N차 백업본` 번호로만 센다. |
+| World Tree | ERP (기존 이름) | 위그드라실. |
+| Soulforge | 전체 (기존 이름) | — |
+
+Vigil은 **네 곳을 한 묶음으로만** 바꾼다: 탭 제목 `Soulforge Vigil` ·
+예약작업 `Soulforge-Vigil-ReadOnly-v1` · lane 폴더 `vigil-lane-v3` ·
+`08_WATCH_4192_OPERATIONS.md` 제목. 포트 4192는 유지한다.
+
+한 문장 요약: "Ore가 Tributary를 타고 Heartwood에 Ingot으로 쌓이고, Hearth의
+불과 Bellows의 바람으로 Guild가 Anvil 위에서 Hammer를 휘둘러 Gram을 벼린다.
+Quench와 Covenant가 단단하게 하고, Tongs만이 뜨거운 것을 잡으며, Vigil이 밤을
+지키고, Reliquary가 남는다."
+
+미결정(Owner 판단 대기): 길드 계급 Master(사람)·Journeyman(봇)·Apprentice(창구 봇),
+팀 산출물 이름(예: Commission).
+
 ## 짧은 상태 구분
 
 ```text

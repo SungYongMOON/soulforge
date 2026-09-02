@@ -122,7 +122,7 @@ capability/backlog ownership map이다. portfolio별 exact Product-owned/Shared/
 
 | Layer | 한 줄 목적 | 현재 |
 | --- | --- | --- |
-| M0 | 세계관·Game Skin·현실 authority | 방향 CONFIRMED, 용어 OWNER_DEFERRED |
+| M0 | 세계관·Game Skin·현실 authority | 방향 CONFIRMED, 세계 이름 3층 CONFIRMED (Canto I · The Kindling, Gram), game-term(Monster·Quest·Boss) OWNER_DEFERRED |
 | M1 | 세 제품과 의미 있는 이름 | 구조 CONFIRMED, 이름 OWNER_DEFERRED |
 | M2 | 아홉 portfolio의 제3자용 설명 | stable ID·설명 CONFIRMED, 이름 OWNER_DEFERRED |
 | M3 | 제품별 Source Composition·migration | 3 manifests·31 Module 분류 VALIDATED, release migration HOLD |
@@ -204,6 +204,21 @@ Official Done Gate와의 관계를 다시 설계한다.
 `Mission`은 현재 `.mission` held-plan canon, 판타지 업무 용어, `sf-p01` 초안 이름에
 동시에 쓰인다. 이 중 `.mission`의 기존 기술 owner만 유지하고 나머지 표시명·Skin 의미는
 `OWNER_DEFERRED`로 둔다. 재개 시 World Bible과 Shared Glossary를 같은 결정에서 갱신한다.
+
+### 세계 이름 한 벌 (Owner 확정 2026-09-03)
+
+현재 선언: **Canto I · The Kindling, Gram**.
+
+Owner가 2026-09-03에 확정한 세 층은 위의 `OWNER_DEFERRED` 항목과 **다른 집합**이다.
+확정된 것은 시대(Canto = 제련 공정), Soulforge 자신의 레벨(보물 코드명
+Gram → Gungnir → Draupnir → Mjölnir), 그리고 시스템 부품의 대장간 이름
+(Ore·Tributary·Ingot·Heartwood·Hearth·Bellows·Anvil·Hammer·Quench·Covenant·
+Tongs·Vigil·Sigil·Reliquary)뿐이다. Monster·Quest·Mission·Boss·Reward의
+game-term 충돌은 위에 적힌 대로 여전히 `OWNER_DEFERRED`이며 이 결정이 풀지 않는다.
+
+이 이름들은 **표시명 계층**이다. 파일·폴더·스키마·모듈·CLI 식별자는 바꾸지 않고
+문서·화면·예약작업 이름·CHANGELOG 제목에만 쓴다. 전체 표와 이름 유래는
+[`SHARED_GLOSSARY_V0.md`](SHARED_GLOSSARY_V0.md)의 `세계 이름` 절이 소유한다.
 
 상세 owner: [`SOULFORGE_WORLD_BIBLE_V0.md`](SOULFORGE_WORLD_BIBLE_V0.md).
 
