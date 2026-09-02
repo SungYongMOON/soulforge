@@ -57,7 +57,8 @@
   emits `true` without a Duration, which failed the exported-XML attestation),
   and the GraphQL client sends the document's own operation name and surfaces
   non-2xx GraphQL error codes as `linear_graphql_<code>` instead of a bare
-  `linear_http_failed`.
+  `linear_http_failed`; workflow-state `position` is stored as decimal text and
+  provider text is NFC-normalized so custody digests stay canonical.
 
 ## 2026-09-02 - HPP server Pack 0.1.7 becomes the active production generation
 
