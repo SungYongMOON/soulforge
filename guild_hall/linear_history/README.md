@@ -183,6 +183,18 @@ and tampered records HOLD.
   `polling_cannot_prove_hard_deletes`.
 - The workspace `urlKey` (and `organization_id` when pinned) is verified on
   every run before anything is written.
+- One-time operator backfill (re-collect history after activation):
+  `cursor.initial_updated_at` only seeds the first window, so widening it later
+  has no effect once a watermark is persisted. To re-read history, copy
+  `state/linear-collect.json` aside (custody is never touched), and between
+  runs write the same state back with
+  `cursor.backfill = { lower: <earliest updatedAt>, upper: <watermark>,
+  resume_watermark: <watermark>, stall_count: 0 }` through
+  `atomicWritePrivateJson` from `linear_custody.mjs`, validating it with
+  `validateLinearCollectState` first. The next run reads that window in the
+  `backfill` phase, narrows it across runs if the page cap is hit, then resumes
+  normal deltas from the watermark; generation numbering continues and
+  identical custody bytes stay no-ops.
 
 ## Run modes
 
