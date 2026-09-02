@@ -1342,3 +1342,40 @@ test("runtime gates every exact source-emitted backup activation error to backup
     assert.equal(receipt.consecutive_failures, 0, `consecutive_failures for ${errorCode}`);
   }
 });
+
+test("startRecoveryCompanion hands its evidence root and Watchtower pointer to the cycle, defaulting both from the project root", async () => {
+  const projectRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-recovery-companion-roots-"));
+  const received = [];
+  const runCycle = async (options) => { received.push(options); };
+
+  const defaults = startRecoveryCompanion({
+    repoRoot: projectRoot,
+    projectRoot,
+    intervalMs: 60_000,
+    loadBinding: async () => binding("observe"),
+    runCycle,
+  });
+  await defaults.stop();
+  const operations = path.join(projectRoot, "guild_hall", "state", "operations");
+  assert.equal(received.length, 1);
+  assert.equal(received[0].evidenceRoot, path.join(operations, "watchtower", "external_evidence"));
+  assert.equal(received[0].watchtowerPointerPath, path.join(operations, "watchtower", "binding.pointer.json"));
+  assert.equal(received[0].projectRoot, projectRoot);
+
+  const evidenceRoot = path.join(projectRoot, "moved-state", "operations", "watchtower", "external_evidence");
+  const watchtowerPointerPath = path.join(projectRoot, "moved-state", "operations", "watchtower", "binding.pointer.json");
+  const moved = startRecoveryCompanion({
+    repoRoot: projectRoot,
+    projectRoot,
+    evidenceRoot,
+    watchtowerPointerPath,
+    intervalMs: 60_000,
+    loadBinding: async () => binding("observe"),
+    runCycle,
+  });
+  await moved.stop();
+  assert.equal(received.length, 2);
+  assert.equal(received[1].evidenceRoot, evidenceRoot);
+  assert.equal(received[1].watchtowerPointerPath, watchtowerPointerPath);
+  assert.equal(received[1].projectRoot, projectRoot, "the owner root stays the project root for _workmeta checks");
+});

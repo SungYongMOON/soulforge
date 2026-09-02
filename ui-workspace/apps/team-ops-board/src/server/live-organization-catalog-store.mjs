@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { resolveSoulforgeStateRoot } from "../../../../../guild_hall/shared/soulforge_state_root.mjs";
 import {
   defaultOrganizationGovernanceOverlayPath,
   readOrganizationGovernanceSource
@@ -18,7 +19,8 @@ export function defaultLegacyOrganizationCatalogPath(env = process.env) {
     return env.TEAM_OPS_BOARD_ORGANIZATION_CATALOG;
   }
   const here = dirname(fileURLToPath(import.meta.url));
-  return resolve(here, "..", "..", "..", "..", "..", "guild_hall", "state", "operations", "team_ops_board", "organization_catalog.v1.json");
+  const stateRoot = resolveSoulforgeStateRoot(env, () => resolve(here, "..", "..", "..", "..", "..", "guild_hall", "state"));
+  return join(stateRoot, "operations", "team_ops_board", "organization_catalog.v1.json");
 }
 
 export function defaultOrganizationCatalogPath(env = process.env) {

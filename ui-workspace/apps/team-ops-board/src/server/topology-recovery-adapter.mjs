@@ -257,6 +257,7 @@ async function readBoundedJson(file) {
 
 export async function readTopologyRecoveryProjection({
   ownerRoot,
+  evidenceRoot: configuredEvidenceRoot = null,
   now = Date.now,
   maxAgeMs = DEFAULT_MAX_AGE_MS,
 } = {}) {
@@ -265,7 +266,11 @@ export async function readTopologyRecoveryProjection({
   let evidenceRoot;
   let cycle;
   try {
-    evidenceRoot = resolveTopologyRecoveryEvidenceRoot(ownerRoot);
+    // An explicit evidence root (vite.config.ts derives it from the state
+    // root) wins; otherwise the owner root's guild_hall/state subtree is used.
+    evidenceRoot = typeof configuredEvidenceRoot === "string" && path.isAbsolute(configuredEvidenceRoot)
+      ? path.resolve(configuredEvidenceRoot)
+      : resolveTopologyRecoveryEvidenceRoot(ownerRoot);
     cycle = validateTopologyRecoveryCycle(
       await readBoundedJson(path.join(evidenceRoot, "recovery_cycle.json")),
       { now: observedNow },

@@ -6,6 +6,7 @@ import test from "node:test";
 import {
   ACTIVITY_EVENT_SCHEMA_VERSION,
   appendActivityEvent,
+  loadNodeIdentity,
   refreshLatestContext,
   sanitizeActivityValue,
 } from "./activity_log.mjs";
@@ -696,3 +697,35 @@ async function writeMailCandidate(queueRoot, overrides = {}) {
     "utf8",
   );
 }
+
+test("loadNodeIdentity follows SOULFORGE_STATE_ROOT / SOULFORGE_OWNER_ROOT and keeps the repo-root default when unset", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-activity-identity-repo-"));
+  const stateRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-activity-identity-state-"));
+  const ownerRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-activity-identity-owner-"));
+  try {
+    await writeNodeIdentity(repoRoot);
+    await writeNodeIdentity(ownerRoot);
+    await mkdir(path.join(stateRoot, "local"), { recursive: true });
+    await writeFile(
+      path.join(stateRoot, "local", "node_identity.yaml"),
+      ["schema_version: soulforge.local_node.v0", "node_id: moved_node_01", "node_role: always_on_node"].join("\n"),
+      "utf8",
+    );
+
+    assert.equal((await loadNodeIdentity(repoRoot, {})).node_id, "test_node_01");
+    assert.equal((await loadNodeIdentity(repoRoot, { SOULFORGE_STATE_ROOT: stateRoot })).node_id, "moved_node_01");
+    assert.equal((await loadNodeIdentity(repoRoot, { SOULFORGE_OWNER_ROOT: ownerRoot })).node_id, "test_node_01");
+    assert.equal(
+      (await loadNodeIdentity(repoRoot, { SOULFORGE_OWNER_ROOT: ownerRoot, SOULFORGE_STATE_ROOT: stateRoot })).node_id,
+      "moved_node_01",
+    );
+    await assert.rejects(
+      loadNodeIdentity(repoRoot, { SOULFORGE_STATE_ROOT: path.join("relative", "state") }),
+      (error) => error?.code === "soulforge_root_override_invalid",
+    );
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+    await rm(stateRoot, { recursive: true, force: true });
+    await rm(ownerRoot, { recursive: true, force: true });
+  }
+});

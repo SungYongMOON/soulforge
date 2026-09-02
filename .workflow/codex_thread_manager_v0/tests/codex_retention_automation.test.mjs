@@ -14,8 +14,8 @@ import {
   MAX_SETTLE_ITERATIONS,
   runCodexRetentionAutomationInternal
 } from "../codex_retention_automation_internal.mjs";
-import { cliMain } from "../codex_retention_automation_cli.mjs";
-import { defaultRepoRoot } from "../lifecycle_retention.mjs";
+import { cliMain, resolveCodexRetentionCliRoots } from "../codex_retention_automation_cli.mjs";
+import { defaultLifecycleRetentionReportPaths, defaultRepoRoot } from "../lifecycle_retention.mjs";
 
 async function tempDir() {
   return mkdtemp(path.join(os.tmpdir(), "codex-retention-test-"));
@@ -1076,6 +1076,141 @@ test("a timestamp whose ISO form is not the canonical length is refused", async 
       /invalid_time/u
     );
   } finally {
+    await cleanDir(root);
+  }
+});
+
+test("CLI root defaults: explicit flags win, then SOULFORGE_STATE_ROOT, then SOULFORGE_OWNER_ROOT, then the checkout", async () => {
+  const root = await tempDir();
+  try {
+    const stateRoot = path.join(root, "state-root");
+    const ownerRoot = path.join(root, "owner-root");
+    await mkdir(stateRoot, { recursive: true });
+    await mkdir(ownerRoot, { recursive: true });
+    const local = path.join(root, "local-root");
+    const explicitActivity = path.join(root, "explicit-activity");
+    const checkout = defaultRepoRoot();
+    const activityUnder = (stateRootValue) => path.resolve(stateRootValue, "operations", "soulforge_activity");
+
+    // unset: byte-identical to the previous derivation
+    assert.deepEqual(resolveCodexRetentionCliRoots({}, {}), {
+      repoRoot: checkout,
+      activityRoot: path.resolve(checkout, "guild_hall", "state", "operations", "soulforge_activity")
+    });
+    assert.deepEqual(resolveCodexRetentionCliRoots({ localRoot: local }, {}), {
+      repoRoot: path.resolve(local),
+      activityRoot: path.resolve(local, "guild_hall", "state", "operations", "soulforge_activity")
+    });
+
+    // state root: the activity default moves; the repo root is untouched
+    assert.deepEqual(resolveCodexRetentionCliRoots({}, { SOULFORGE_STATE_ROOT: stateRoot }), {
+      repoRoot: checkout,
+      activityRoot: activityUnder(stateRoot)
+    });
+    assert.deepEqual(resolveCodexRetentionCliRoots({ localRoot: local }, { SOULFORGE_STATE_ROOT: stateRoot }), {
+      repoRoot: path.resolve(local),
+      activityRoot: activityUnder(stateRoot)
+    });
+    assert.equal(
+      resolveCodexRetentionCliRoots({ activityRoot: explicitActivity }, { SOULFORGE_STATE_ROOT: stateRoot }).activityRoot,
+      path.resolve(explicitActivity)
+    );
+
+    // owner root: both defaults derive from it; the finer state root still wins for activity
+    assert.deepEqual(resolveCodexRetentionCliRoots({}, { SOULFORGE_OWNER_ROOT: ownerRoot }), {
+      repoRoot: path.resolve(ownerRoot),
+      activityRoot: path.resolve(ownerRoot, "guild_hall", "state", "operations", "soulforge_activity")
+    });
+    assert.deepEqual(resolveCodexRetentionCliRoots({}, { SOULFORGE_OWNER_ROOT: ownerRoot, SOULFORGE_STATE_ROOT: stateRoot }), {
+      repoRoot: path.resolve(ownerRoot),
+      activityRoot: activityUnder(stateRoot)
+    });
+
+    // fail closed
+    assert.throws(
+      () => resolveCodexRetentionCliRoots({}, { SOULFORGE_STATE_ROOT: path.join("relative", "state") }),
+      (err) => err?.code === "soulforge_root_override_invalid"
+    );
+    assert.throws(
+      () => resolveCodexRetentionCliRoots({ localRoot: local }, { SOULFORGE_OWNER_ROOT: path.join(root, "missing") }),
+      (err) => err?.code === "soulforge_root_override_invalid"
+    );
+  } finally {
+    await cleanDir(root);
+  }
+});
+
+test("defaultLifecycleRetentionReportPaths follows the state root override and keeps repo_root on the checkout", async () => {
+  const root = await tempDir();
+  try {
+    const stateRoot = path.join(root, "state-root");
+    await mkdir(stateRoot, { recursive: true });
+    const repoRoot = path.join(root, "repo");
+    const legacy = path.join(repoRoot, "guild_hall", "state", "operations");
+
+    assert.deepEqual(defaultLifecycleRetentionReportPaths({ repoRoot, env: {} }), {
+      repo_root: path.resolve(repoRoot),
+      enrollment_path: path.join(legacy, "team_ops_board", "thread_visibility.v1.json"),
+      lifecycle_path: path.join(legacy, "ai_usage_meter", "lifecycle", "current.json"),
+      result_gate_path: path.join(legacy, "team_ops_board", "thread_result_gate.v1.json"),
+      task_worktree_binding_path: path.join(legacy, "team_ops_board", "task_worktree_binding.v1.json")
+    });
+
+    const moved = path.join(path.resolve(stateRoot), "operations");
+    assert.deepEqual(defaultLifecycleRetentionReportPaths({ repoRoot, env: { SOULFORGE_STATE_ROOT: stateRoot } }), {
+      repo_root: path.resolve(repoRoot),
+      enrollment_path: path.join(moved, "team_ops_board", "thread_visibility.v1.json"),
+      lifecycle_path: path.join(moved, "ai_usage_meter", "lifecycle", "current.json"),
+      result_gate_path: path.join(moved, "team_ops_board", "thread_result_gate.v1.json"),
+      task_worktree_binding_path: path.join(moved, "team_ops_board", "task_worktree_binding.v1.json")
+    });
+
+    assert.throws(
+      () => defaultLifecycleRetentionReportPaths({ repoRoot, env: { SOULFORGE_STATE_ROOT: path.join(root, "missing") } }),
+      (err) => err?.code === "soulforge_root_override_invalid"
+    );
+  } finally {
+    await cleanDir(root);
+  }
+});
+
+test("CLI main refuses a set-but-invalid override before touching any root, and lands the report under a valid SOULFORGE_STATE_ROOT", async () => {
+  const root = await tempDir();
+  const stateRoot = path.join(root, "state-root");
+  await mkdir(stateRoot, { recursive: true });
+
+  let stdoutBuf = "";
+  let stderrBuf = "";
+  const origStdout = process.stdout.write;
+  const origStderr = process.stderr.write;
+  const origExit = process.exitCode;
+  const origStateRoot = process.env.SOULFORGE_STATE_ROOT;
+  process.stdout.write = (chunk) => { stdoutBuf += chunk; return true; };
+  process.stderr.write = (chunk) => { stderrBuf += chunk; return true; };
+  try {
+    process.env.SOULFORGE_STATE_ROOT = path.join("relative", "state");
+    await cliMain(["--local-root", defaultRepoRoot()]);
+    assert.equal(process.exitCode, 2);
+    assert.equal(stderrBuf.trim(), "soulforge_root_override_invalid");
+    assert.equal(await stat(path.join(stateRoot, "operations")).catch(() => null), null);
+
+    stdoutBuf = ""; stderrBuf = "";
+    process.env.SOULFORGE_STATE_ROOT = stateRoot;
+    await cliMain(["--local-root", defaultRepoRoot(), "--json"]);
+    assert.equal(process.exitCode, 0, stderrBuf);
+    const reportFile = path.join(stateRoot, "operations", "soulforge_activity", "reports", "codex_retention", "current.json");
+    assert.ok((await stat(reportFile)).isFile());
+    assert.equal(JSON.parse(stdoutBuf).digest, JSON.parse(await readFile(reportFile, "utf8")).digest);
+    assert.equal(
+      await stat(path.join(defaultRepoRoot(), "guild_hall", "state", "operations", "soulforge_activity", "reports", "codex_retention", ".override-test-sentinel")).catch(() => null),
+      null
+    );
+  } finally {
+    process.stdout.write = origStdout;
+    process.stderr.write = origStderr;
+    process.exitCode = origExit;
+    if (origStateRoot === undefined) delete process.env.SOULFORGE_STATE_ROOT;
+    else process.env.SOULFORGE_STATE_ROOT = origStateRoot;
     await cleanDir(root);
   }
 });

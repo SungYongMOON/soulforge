@@ -9,6 +9,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 
+import { resolveSoulforgeStateRoot } from "../../../../../guild_hall/shared/soulforge_state_root.mjs";
+
 export const TOPOLOGY_SNAPSHOT_PATH = "/topology-health.snapshot.json";
 export const TOPOLOGY_PROJECTION_ENVELOPE_SCHEMA = "soulforge.team_ops_board.topology_projection.v1";
 export const TOPOLOGY_HEALTH_SNAPSHOT_SCHEMA = "soulforge.watchtower.topology_health.v2";
@@ -24,10 +26,13 @@ export const TOPOLOGY_EDGE_FLOWS = Object.freeze(["data", "control"]);
 
 const MODULE_ROOT = dirname(fileURLToPath(import.meta.url));
 const WATCHTOWER_CLI_PATH = resolve(MODULE_ROOT, "../../../../../guild_hall/watchtower/cli.mjs");
-const DEFAULT_POINTER_PATH = resolve(
-  MODULE_ROOT,
-  "../../../../../guild_hall/state/operations/watchtower/binding.pointer.json",
-);
+
+// Default Watchtower pointer: this checkout's guild_hall/state unless
+// SOULFORGE_STATE_ROOT / SOULFORGE_OWNER_ROOT redirect the state root.
+export function defaultTopologyPointerPath(env = process.env) {
+  const stateRoot = resolveSoulforgeStateRoot(env, () => resolve(MODULE_ROOT, "../../../../../guild_hall/state"));
+  return join(stateRoot, "operations", "watchtower", "binding.pointer.json");
+}
 const MAX_SNAPSHOT_BYTES = 1_048_576;
 const MAX_NODES = 500;
 const MAX_EDGES = 2_000;
@@ -550,7 +555,7 @@ export function runWatchtowerProbe({
   });
 }
 
-export async function resolveBindingPath(pointerPath = DEFAULT_POINTER_PATH) {
+export async function resolveBindingPath(pointerPath = defaultTopologyPointerPath()) {
   const pointer = JSON.parse(await readFile(pointerPath, "utf8"));
   if (pointer === null || typeof pointer !== "object" || typeof pointer.binding_path !== "string"
     || pointer.binding_path.length === 0) {
@@ -560,7 +565,7 @@ export async function resolveBindingPath(pointerPath = DEFAULT_POINTER_PATH) {
 }
 
 export async function readBoundTopologySnapshot({
-  pointerPath = DEFAULT_POINTER_PATH,
+  pointerPath = defaultTopologyPointerPath(),
   resolveBinding = resolveBindingPath,
   now = Date.now,
 } = {}) {
@@ -583,7 +588,7 @@ export async function readBoundTopologySnapshot({
 
 export function createTopologyAdapter({
   readOnlyPilot = false,
-  pointerPath = process.env.TEAM_OPS_BOARD_WATCHTOWER_POINTER || DEFAULT_POINTER_PATH,
+  pointerPath = process.env.TEAM_OPS_BOARD_WATCHTOWER_POINTER || defaultTopologyPointerPath(),
   runProbe = runWatchtowerProbe,
   resolveBinding = resolveBindingPath,
   readSnapshot = readBoundTopologySnapshot,

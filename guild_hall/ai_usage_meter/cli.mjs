@@ -85,6 +85,10 @@ import {
   persistJsonlLifecycleSnapshot,
   reconcileJsonlLifecycle,
 } from "./jsonl_lifecycle.mjs";
+import {
+  SOULFORGE_ROOT_OVERRIDE_INVALID,
+  readSoulforgeRootOverride,
+} from "../shared/soulforge_state_root.mjs";
 
 const MODULE_ROOT = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_RATE_CARD = path.join(MODULE_ROOT, "rate_card.v1.json");
@@ -219,6 +223,23 @@ async function resolveCanonicalHookStateRoot(cwd = process.cwd()) {
   }
 }
 
+// Meter state root under the shared SOULFORGE_STATE_ROOT / SOULFORGE_OWNER_ROOT
+// override, or null when neither is set. A set-but-invalid override throws
+// `soulforge_root_override_invalid` (fail closed) instead of falling back.
+function overrideMeterStateRoot(env = process.env) {
+  const override = readSoulforgeRootOverride(env);
+  return override === null ? null : path.join(override.stateRoot, "operations", "ai_usage_meter");
+}
+
+// `--state-root` > SOULFORGE_AI_USAGE_METER_STATE_ROOT > SOULFORGE_STATE_ROOT >
+// SOULFORGE_OWNER_ROOT > null (each command keeps its existing state_root_required failure).
+function stateRootOption(options, env = process.env) {
+  const explicitStateRoot = value(options, "state-root", null);
+  if (explicitStateRoot !== null) return explicitStateRoot;
+  if (env.SOULFORGE_AI_USAGE_METER_STATE_ROOT) return env.SOULFORGE_AI_USAGE_METER_STATE_ROOT;
+  return overrideMeterStateRoot(env);
+}
+
 async function resolveHookStateRoot(options, cwd = process.cwd()) {
   const explicitStateRoot = value(options, "state-root", null);
   if (typeof explicitStateRoot === "string") {
@@ -226,6 +247,10 @@ async function resolveHookStateRoot(options, cwd = process.cwd()) {
   }
   if (process.env.SOULFORGE_AI_USAGE_METER_STATE_ROOT) {
     return { stateRoot: path.resolve(process.env.SOULFORGE_AI_USAGE_METER_STATE_ROOT), fallbackReason: null };
+  }
+  const overrideStateRoot = overrideMeterStateRoot();
+  if (overrideStateRoot !== null) {
+    return { stateRoot: overrideStateRoot, fallbackReason: null };
   }
   return resolveCanonicalHookStateRoot(cwd);
 }
@@ -375,7 +400,7 @@ async function instructionManifestCommand(options) {
   });
   let persistence = null;
   if (flag(options, "apply")) {
-    const stateRoot = value(options, "state-root", null);
+    const stateRoot = stateRootOption(options);
     if (!stateRoot) fail("state_root_required_for_apply");
     persistence = await persistInstructionManifest(path.resolve(String(stateRoot)), manifest);
   }
@@ -403,7 +428,7 @@ async function evidenceRecordCommand(options) {
   const record = selected.validate(await readJsonFile(input, "evidence_input_invalid"));
   let persistence = null;
   if (flag(options, "apply")) {
-    const stateRoot = value(options, "state-root", null);
+    const stateRoot = stateRootOption(options);
     if (!stateRoot) fail("state_root_required_for_apply");
     persistence = await selected.persist(path.resolve(String(stateRoot)), record);
   }
@@ -439,7 +464,7 @@ async function collectCommand(options) {
     && !value(options, "to");
   const repoRoot = await findRepoRoot(process.cwd());
   let config = await loadEffectiveConfig(options, { repoRoot });
-  config = await dynamicConfig(config, value(options, "state-root"));
+  config = await dynamicConfig(config, stateRootOption(options));
   if (value(options, "service-tier")) config.service_tier = String(value(options, "service-tier"));
   const rateCard = await loadRateCard(path.resolve(value(options, "rate-card", DEFAULT_RATE_CARD)));
   const collected = await collectUsageEvents({
@@ -454,7 +479,7 @@ async function collectCommand(options) {
   let persistence = null;
   let coverage = null;
   if (flag(options, "apply")) {
-    const stateRoot = value(options, "state-root");
+    const stateRoot = stateRootOption(options);
     if (!stateRoot) fail("state_root_required_for_apply");
     const resolvedStateRoot = path.resolve(String(stateRoot));
     persistence = await persistUsageEvents(resolvedStateRoot, events, { isolateConflicts: true });
@@ -502,7 +527,7 @@ async function collectCommand(options) {
 
 async function backfillPlanCommand(options) {
   if (flag(options, "apply")) fail("backfill_plan_apply_unsupported");
-  const stateRoot = value(options, "state-root", null);
+  const stateRoot = stateRootOption(options);
   if (!stateRoot) fail("state_root_required");
   const sessionsRoot = path.resolve(value(options, "sessions-root", path.join(defaultCodexRoot(), "sessions")));
   const explicitFiles = values(options, "session-file").map((item) => path.resolve(String(item)));
@@ -538,7 +563,7 @@ async function backfillPlanCommand(options) {
 async function collectClaudeCommand(options) {
   const projectsRoot = path.resolve(String(value(options, "projects-root", defaultClaudeProjectsRoot())));
   const maxAgeDays = positiveIntegerOption(options, "max-age-days", DEFAULT_CLAUDE_MAX_AGE_DAYS);
-  const stateRoot = value(options, "state-root", null);
+  const stateRoot = stateRootOption(options);
   const resolvedStateRoot = stateRoot === null ? null : path.resolve(String(stateRoot));
   const config = await loadEffectiveConfig(options, { repoRoot: null });
   const collected = await collectClaudeUsageEvents({
@@ -576,7 +601,7 @@ async function collectClaudeCommand(options) {
 async function collectAntigravityCommand(options) {
   const cliRoot = path.resolve(String(value(options, "cli-root", defaultAntigravityCliRoot())));
   const maxAgeDays = positiveIntegerOption(options, "max-age-days", 45);
-  const stateRoot = value(options, "state-root", null);
+  const stateRoot = stateRootOption(options);
   const config = await loadEffectiveConfig(options, { repoRoot: null });
   const collected = await collectAntigravityUsageEvents({ cliRoot, config, maxAgeDays });
   const events = filterEvents(collected.events, options);
@@ -602,14 +627,14 @@ async function collectAntigravityCommand(options) {
 }
 
 async function reportCommand(options) {
-  const stateRoot = value(options, "state-root");
+  const stateRoot = stateRootOption(options);
   if (!stateRoot) fail("state_root_required");
   const events = filterEvents(await loadPersistedUsageEvents(path.resolve(String(stateRoot))), options);
   return summarizeUsageEvents(events);
 }
 
 async function bindCommand(options) {
-  const stateRoot = value(options, "state-root");
+  const stateRoot = stateRootOption(options);
   if (!stateRoot) fail("state_root_required");
   const threadId = value(options, "thread-id");
   const workId = value(options, "work-id");
@@ -626,7 +651,7 @@ async function bindCommand(options) {
 }
 
 async function dashboardCommand(options) {
-  const stateRoot = value(options, "state-root");
+  const stateRoot = stateRootOption(options);
   if (!stateRoot) fail("state_root_required");
   const root = path.resolve(String(stateRoot));
   const events = filterEvents(await loadPersistedUsageEvents(root), options);
@@ -662,7 +687,7 @@ async function dashboardCommand(options) {
 }
 
 async function boardSnapshotCommand(options) {
-  const stateRoot = value(options, "state-root", null);
+  const stateRoot = stateRootOption(options);
   const output = value(options, "output", null);
   if (!stateRoot) fail("state_root_required");
   if (!output) fail("board_snapshot_output_required");
@@ -677,7 +702,7 @@ async function boardSnapshotCommand(options) {
 }
 
 async function boardHistorySnapshotCommand(options) {
-  const stateRoot = value(options, "state-root", null);
+  const stateRoot = stateRootOption(options);
   const output = value(options, "output", null);
   if (!stateRoot) fail("state_root_required");
   if (!output) fail("board_history_snapshot_output_required");
@@ -739,7 +764,7 @@ async function usageProjectionCommand(options) {
 }
 
 async function lifecycleSnapshotCommand(options) {
-  const stateRoot = value(options, "state-root", null);
+  const stateRoot = stateRootOption(options);
   if (!stateRoot) fail("state_root_required");
   const snapshot = createLifecycleSnapshot(
     await loadLifecycleReceipts(path.resolve(String(stateRoot))),
@@ -815,7 +840,7 @@ async function lifecycleReconcileCommand(options) {
 }
 
 async function csvCommand(options) {
-  const stateRoot = value(options, "state-root");
+  const stateRoot = stateRootOption(options);
   const output = value(options, "output");
   if (!stateRoot) fail("state_root_required");
   if (!output) fail("output_required");
@@ -828,7 +853,7 @@ async function csvCommand(options) {
 async function doctorCommand(options) {
   const codexRoot = defaultCodexRoot();
   const sessionsRoot = path.resolve(value(options, "sessions-root", path.join(codexRoot, "sessions")));
-  const stateRoot = value(options, "state-root");
+  const stateRoot = stateRootOption(options);
   const sessionFiles = await findCodexSessionFiles(sessionsRoot);
   const latest = sessionFiles.at(-1) ?? null;
   const checks = {
@@ -1023,6 +1048,9 @@ async function hookCommand(options) {
       await writeHookHealth(stateRoot, "ok", rootResolution.fallbackReason);
     }
   } catch (error) {
+    // A set-but-invalid SOULFORGE_STATE_ROOT / SOULFORGE_OWNER_ROOT must not be
+    // recorded into the CODEX_HOME fallback root: surface it and write nothing.
+    if (error?.code === SOULFORGE_ROOT_OVERRIDE_INVALID) throw error;
     if (isStopDeliveryPath) {
       observeStopDelivery("failed", typeof error?.code === "string" ? error.code : "hook_failed");
     }
@@ -1068,6 +1096,7 @@ function help() {
       "--rate-card <rate card JSON>",
       "--service-tier standard|fast",
       "--state-root <local state directory>",
+      "--state-root omitted: SOULFORGE_AI_USAGE_METER_STATE_ROOT, then SOULFORGE_STATE_ROOT/operations/ai_usage_meter, then SOULFORGE_OWNER_ROOT/guild_hall/state/operations/ai_usage_meter; hook/disable/enable/lifecycle-reconcile then fall back to the git common checkout (usage-projection always requires an explicit --state-root)",
       "instruction-manifest: [--cwd <path>] [--repo-root <path>] [--approved-root <path> (repeatable)] [--model-id <id>] [--reasoning-effort <effort>] [--disable-feature <feature>] [--apply]",
       "evidence-record: --kind work_run|quality_result|tool_event|replay_receipt --input <JSON path> [--state-root <path> --apply]",
       "dashboard: --output <HTML path> (defaults to <state-root>/dashboard.html)",

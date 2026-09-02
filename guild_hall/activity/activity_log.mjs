@@ -9,6 +9,7 @@ import {
   relativeToRepoOrAbsolute,
   writeJson,
 } from "../shared/io.mjs";
+import { resolveSoulforgeStateRoot } from "../shared/soulforge_state_root.mjs";
 
 export const ACTIVITY_EVENT_SCHEMA_VERSION = "soulforge.activity.event.v1";
 export const LATEST_CONTEXT_SCHEMA_VERSION = "soulforge.activity.latest_context.v1";
@@ -140,8 +141,12 @@ export async function readRecentActivityEvents(options = {}) {
   return sortEventsNewestFirst(events).slice(0, limit);
 }
 
-export async function loadNodeIdentity(repoRoot) {
-  const identityPath = path.join(repoRoot, "guild_hall", "state", "local", "node_identity.yaml");
+// The node identity lives under the state root: SOULFORGE_STATE_ROOT /
+// SOULFORGE_OWNER_ROOT when set (fail closed on an invalid value), otherwise
+// `<repoRoot>/guild_hall/state` exactly as before.
+export async function loadNodeIdentity(repoRoot, env = process.env) {
+  const stateRoot = resolveSoulforgeStateRoot(env, () => path.join(repoRoot, "guild_hall", "state"));
+  const identityPath = path.join(stateRoot, "local", "node_identity.yaml");
 
   if (!(await pathExists(identityPath))) {
     return normalizeIdentity({});

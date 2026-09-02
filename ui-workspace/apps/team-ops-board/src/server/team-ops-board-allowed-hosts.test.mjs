@@ -82,8 +82,17 @@ test("Vite server and preview share the resolver result and never allow every ho
     configSource,
     /process\.env\.SOULFORGE_AI_USAGE_PROJECT_ROOT/u,
   );
+  // The provider-quota receipt still binds to the stable owner root, now through
+  // the shared state root: SOULFORGE_STATE_ROOT when set, else the owner root's
+  // guild_hall/state subtree. Neither may fall back to the active code worktree.
   assert.match(
     configSource,
-    /path\.join\(\s*ownerRoot,\s*"guild_hall",\s*"state",\s*"operations",\s*"provider_quota"/u,
+    /const stateRoot = rootOverride\?\.source === "state_root"\s*\?\s*rootOverride\.stateRoot\s*:\s*path\.join\(ownerRoot,\s*"guild_hall",\s*"state"\);/u,
   );
+  assert.match(configSource, /const operationsRoot = path\.join\(stateRoot,\s*"operations"\);/u);
+  assert.match(
+    configSource,
+    /path\.join\(\s*operationsRoot,\s*"provider_quota"/u,
+  );
+  assert.doesNotMatch(configSource, /path\.join\(\s*soulforgeRoot,\s*"guild_hall"/u);
 });

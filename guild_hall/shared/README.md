@@ -275,6 +275,7 @@ still a separate Owner gate.
 - `project_history_actual_shadow_{packet,generation}.v1.schema.json`: input/output strict schemas
 - `ai_work_record_event.v1.schema.json`: strict common AI work record event contract
 - `ai_work_record_event.mjs`: pure canonical digest, event validator, and chain reducer
+- `soulforge_state_root.mjs`: 공용 `SOULFORGE_OWNER_ROOT` / `SOULFORGE_STATE_ROOT` override resolver (fail-closed, 값 미출력). Workspace Board runtime, AI usage meter, Codex retention refresh가 같은 state root를 읽도록 한다
 
 ## 상태
 

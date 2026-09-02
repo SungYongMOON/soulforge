@@ -165,6 +165,14 @@ Hook input에서는 `hook_event_name`, session/turn/agent ID, agent type, reason
 
 프로젝트 hook의 state root는 입력 `cwd`나 linked worktree 경로로 결정하지 않는다. `--state-root`, `SOULFORGE_AI_USAGE_METER_STATE_ROOT`가 있으면 그 값을 우선하고, 없으면 runtime의 `git rev-parse --git-common-dir`에서 검증한 non-bare common checkout root를 사용한다. 그러므로 main checkout과 linked worktree는 같은 local meter state와 emergency disable marker를 공유한다. common root가 없거나 unsafe하면 임의 workspace state를 만들지 않고 `CODEX_HOME/usage-meter`로 fallback하며 health에 `hook_common_root_*` reason code를 남긴다. 이 경로 자체는 receipt나 snapshot에 저장하지 않는다.
 
+### 공용 state root override
+
+Workspace Board runtime, 이 미터, Codex retention refresh는 한 cluster이므로 같은 두 환경 변수를 `guild_hall/shared/soulforge_state_root.mjs`로 함께 읽는다. `SOULFORGE_OWNER_ROOT`는 checkout처럼 생긴 root의 절대 경로이며 그 아래 `guild_hall/state`가 state root가 된다. `SOULFORGE_STATE_ROOT`는 `<owner root>/guild_hall/state`를 직접 대체하는 절대 경로이며 둘 다 있으면 더 세밀한 `SOULFORGE_STATE_ROOT`가 이긴다. 미터 state root는 그 아래 `operations/ai_usage_meter`다.
+
+우선순위(높은 것부터): `--state-root` > `SOULFORGE_AI_USAGE_METER_STATE_ROOT` > `SOULFORGE_STATE_ROOT/operations/ai_usage_meter` > `SOULFORGE_OWNER_ROOT/guild_hall/state/operations/ai_usage_meter` > 기존 기본값. 기존 기본값은 `hook`/`disable`/`enable`/`lifecycle-reconcile`에서는 위의 git common checkout(없으면 `CODEX_HOME/usage-meter`)이고, `--state-root`를 받는 나머지 명령(`collect`, `collect-claude`, `collect-antigravity`, `report`, `bind`, `dashboard`, `csv`, `board-snapshot`, `board-history-snapshot`, `lifecycle-snapshot`, `backfill-plan`, `instruction-manifest --apply`, `evidence-record --apply`)에서는 종전과 같은 `state_root_required` 실패다. `usage-projection`만 예외로 항상 명시적 `--state-root`를 요구한다.
+
+fail-closed: override 변수가 설정됐지만 비어 있거나 상대 경로이거나 존재하지 않거나 디렉터리가 아니면 어떤 경로에도 쓰지 않고 `soulforge_root_override_invalid`로 끝난다. hook은 exit 1과 stderr JSON으로 알리고 stdout `{}`도 내지 않으며 `CODEX_HOME/usage-meter`로 조용히 내려가지 않는다. 오류 메시지는 변수 이름과 사유만 담고 설정된 경로 값은 출력하지 않는다. 두 변수가 모두 없으면 모든 경로와 실패 코드가 종전과 바이트 단위로 같다. 이 값은 process 환경에만 있고 receipt, snapshot, health에 저장하지 않는다.
+
 프로젝트 hook은 빠른 관찰 경로일 뿐이며, Codex managed worktree에서 해당 프로젝트 hook이 실제로 실행된다는 coverage를 주장하지 않는다. hook receipt가 없거나 stale하면 `lifecycle-reconcile`이 정확한 `CODEX_HOME/sessions` JSONL의 `session_meta`, `task_started`, `task_complete`, `sub_agent_activity`만 다시 읽는 metadata-only fallback이다. 이 fallback은 prompt, assistant message, reasoning, tool I/O, `cwd`, transcript path, secret을 저장하거나 출력하지 않는다.
 
 `lifecycle-reconcile`의 기본은 read-only이며, `--thread-id <exact ID>`는 해당 ID만, 무필터 호출은 기본 200개 UUID-native session group만 읽고 `coverage.next_after_thread_id` cursor를 돌려 bounded sweep을 이어 간다. `--apply`만 Git-ignored `lifecycle/jsonl/current.json`에 strict `source=jsonl_metadata` snapshot(coverage, health, staleness, exact parent link)을 저장하고, Board 호환 `lifecycle/current.json`에는 root의 active/stopped를 `SessionStart`/`Stop`, 확인된 child의 active/stopped를 `SubagentStart`/`SubagentStop`으로 mirror한다. 두 projection 모두 `result_pending`이며 PASS·업무 완료 권한이 아니다. emergency disable이 있으면 producer는 JSONL을 읽거나 state를 쓰지 않는다.
@@ -377,7 +385,9 @@ root; repeated disable/enable calls are idempotent and the hook remains
 non-blocking.
 
 `disable`/`enable` is run without `--state-root` from any normal or linked
-worktree resolves the same canonical common-checkout marker used by the hook.
+worktree resolves the same canonical common-checkout marker used by the hook
+(or the shared `SOULFORGE_STATE_ROOT` / `SOULFORGE_OWNER_ROOT` override when
+one is set, with the same precedence and fail-closed rule as the hook).
 Use an explicit state root only for an intentional local override or recovery
 operation.
 

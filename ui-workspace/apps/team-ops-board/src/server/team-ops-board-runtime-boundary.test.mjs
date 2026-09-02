@@ -1435,7 +1435,14 @@ test("Vite config registers GET-only /codex-retention.snapshot.json with stable 
   );
   assert.match(
     configSource,
-    /createCodexRetentionServerAdapter\(\{\s*ownerRoot\s*\}\)/u,
+    /createCodexRetentionServerAdapter\(\{\s*ownerRoot,\s*reportPath:\s*codexRetentionReportPath\s*\}\)/u,
+  );
+  // The report path is derived from the shared state root (owner root's
+  // guild_hall/state unless SOULFORGE_STATE_ROOT relocates it), never from the
+  // active code worktree.
+  assert.match(
+    configSource,
+    /const codexRetentionReportPath = path\.join\(\s*operationsRoot,\s*"soulforge_activity",\s*"reports",\s*"codex_retention",\s*"current\.json",?\s*\);/u,
   );
   assert.doesNotMatch(configSource, /codexRetention.*(?:write|repair|mutate|post)/iu);
 });
