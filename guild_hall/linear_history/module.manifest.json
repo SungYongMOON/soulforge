@@ -34,7 +34,8 @@
   "migration_version": null,
   "rollback_version": "git_revert_of_this_module_only",
   "validators": [
-    "npm.cmd run validate:linear-collect"
+    "npm.cmd run validate:linear-collect",
+    "npm.cmd run validate:linear-collect:windows"
   ],
   "release_digest": null,
   "deprecation_state": "active_draft",

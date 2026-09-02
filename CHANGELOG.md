@@ -73,6 +73,14 @@
   Main Node task keeps running the previously emitted `linear-collect-v1`
   runtime until the Owner re-emits the lane and re-registers with the new
   manifest digest.
+- Review fixes B4/B5 (2026-09-02): `validate:linear-collect` is now pure
+  Node on every platform; the PowerShell structural guard moved to
+  `validate:linear-collect:windows` (win32 only, listed in the module
+  manifest and README). `linear_collect_cli.mjs` runs `main` only when it is
+  the invoked entrypoint (`process.argv[1]`, which the launcher sets), the
+  same guard the launcher and emitter already use, so importing the module
+  for its parser no longer parses the importer's argv or sets the exit code;
+  the lane test imports it to prove that.
 ## 2026-09-02 - Operations cluster owner-root / state-root override (Option B)
 
 - Revision: branch `claude/ops-owner-root-override` (single commit on top of

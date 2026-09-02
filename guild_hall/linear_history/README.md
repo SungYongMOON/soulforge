@@ -264,6 +264,14 @@ as `linear_graphql_input_error`), `custody_digest_conflict`.
 ## Validation
 
 ```powershell
-npm.cmd run validate:linear-collect
+npm.cmd run validate:linear-collect            # pure Node on every platform: syntax checks + lane and adapter tests
+npm.cmd run validate:linear-collect:windows    # win32 only: PowerShell structural guard for the registrar
 npm.cmd run validate:module-operability
 ```
+
+`validate:linear-collect` is pure Node and runs on every platform. The
+PowerShell structural guard (`ops/test-register-linear-collect-hpp-task.ps1`)
+lives behind `validate:linear-collect:windows` and is run only on Windows;
+the lane test's real PowerShell dry-run/rollback harness cases skip
+themselves off win32. Run both scripts on the Main Node before re-emitting
+or re-registering the lane.

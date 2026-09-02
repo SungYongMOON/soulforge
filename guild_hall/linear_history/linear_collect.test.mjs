@@ -1354,6 +1354,42 @@ const COMMON_SPLAT = [
   "}",
 ];
 
+test("importing the CLI module performs no work: main runs only when the CLI is the invoked entrypoint", async () => {
+  // This test file is process.argv[1] here, so the CLI's invoked-path guard
+  // must keep main() from parsing the runner's argv, printing a rejection,
+  // or setting the exit code.
+  const exitCodeBefore = process.exitCode;
+  const cli = await import("./linear_collect_cli.mjs");
+  assert.equal(process.exitCode, exitCodeBefore);
+  assert.equal(typeof cli.parseLinearCollectArguments, "function");
+  assert.throws(
+    () => cli.parseLinearCollectArguments(["--apply"]),
+    (error) => error?.code === "cli_argument_missing",
+  );
+  assert.throws(
+    () => cli.parseLinearCollectArguments(["--apply", "--preflight"]),
+    (error) => error?.code === "cli_mode_invalid",
+  );
+  assert.deepEqual(
+    cli.parseLinearCollectArguments([
+      "--preflight",
+      "--repository-root", "r",
+      "--runtime-root", "t",
+      "--binding", "b",
+      "--expected-binding-sha256", "s",
+      "--state-root", "x",
+    ]),
+    {
+      mode: "preflight",
+      repository_root: "r",
+      runtime_root: "t",
+      binding_path: "b",
+      expected_binding_sha256: "s",
+      state_root: "x",
+    },
+  );
+});
+
 test("PowerShell registrar dry-run is deterministic and performs no task mutation", {
   skip: process.platform !== "win32",
 }, async () => {
