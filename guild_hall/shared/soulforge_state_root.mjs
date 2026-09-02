@@ -64,8 +64,9 @@ function hasControlCharacter(value) {
   return false;
 }
 
-// Windows: `X:\` (or `X:/`) drive roots and `\\server\share` (or `//server/share`)
-// UNC roots. A bare `\` root is rooted only relative to the current drive.
+// Windows: a drive root (letter, colon, separator) or a UNC root (two
+// separators, server, share). A bare separator root is rooted only relative
+// to the current drive and is refused.
 const WINDOWS_DRIVE_OR_UNC_ROOT = /^(?:[A-Za-z]:[\\/]|[\\/]{2}[^\\/]+[\\/][^\\/]+)/u;
 
 function validateOverride(variable, raw, stat, platform) {
