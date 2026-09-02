@@ -33,6 +33,8 @@ import {
 } from "./linear_collect_receipt.mjs";
 import {
   LINEAR_COLLECT_BINDING_SCHEMA_VERSION,
+  LINEAR_COLLECT_DEFAULT_RUN_DEADLINE_MS,
+  LINEAR_COLLECT_MAX_RUN_DEADLINE_MS,
   LinearCollectError,
   advanceCursor,
   laneRecordFromReceipt,
@@ -40,6 +42,7 @@ import {
   preflightLinearCollect,
   readEvidenceDigest,
   readEvidenceRecordForIssue,
+  runDeadlineMsFor,
   runLinearCollect,
   validateLinearCollectBinding,
 } from "./linear_collect_runner.mjs";
@@ -251,6 +254,10 @@ test("binding validation fails closed on schema, feature, roots, writer, secret 
     ["scope ref hold", (b) => { b.workspace.project_scope_map[0].project_scope_ref = "hold:unmapped"; }, "project_scope_map_invalid"],
     ["overlap too large", (b) => { b.cursor.overlap_seconds = 86_401; }, "cursor_policy_invalid"],
     ["page size", (b) => { b.cursor.page_size = 101; }, "cursor_policy_invalid"],
+    ["run deadline below one second", (b) => { b.cursor.run_deadline_ms = 999; }, "cursor_policy_invalid"],
+    ["run deadline at the task limit", (b) => { b.cursor.run_deadline_ms = LINEAR_COLLECT_MAX_RUN_DEADLINE_MS + 1; }, "cursor_policy_invalid"],
+    ["run deadline not an integer", (b) => { b.cursor.run_deadline_ms = "480000"; }, "cursor_policy_invalid"],
+    ["unknown cursor key", (b) => { b.cursor.deadline_ms = 480_000; }, "exact_keys_required"],
     ["state inside data root", (b) => { b.state_root = path.join(b.data_root, "state"); }, "data_root_state_overlap"],
   ];
   for (const [name, mutate, expected] of cases) {
@@ -526,6 +533,88 @@ test("max-pages exhaustion opens an explicit backfill window that converges with
   assert.equal(firstReceipt.cursor_after.backfill.upper, "2026-09-01T00:50:00.000Z");
 });
 
+test("the in-process run deadline caps a run under a fake clock, records run_deadline_reached, releases the lease, and the next run continues", async () => {
+  const lane = await createLaneFixture({ cursor: { page_size: 2, max_pages_per_run: 50, run_deadline_ms: 1_000 } });
+  const fixture = await loadSyntheticLinearFixture(FIXTURE_PATH);
+  const clock = fixedClock("2026-09-01T02:00:00.000Z");
+  // Every provider read advances the fake clock by 300 ms, so the workspace
+  // read and the first catalog pages consume the 1 s deadline before the issue
+  // and comment windows are opened: those collections are capped by the
+  // deadline (0 pages) rather than by max_pages_per_run (50).
+  const advancingFactory = () => async () => {
+    const inner = await createSyntheticLinearTransport(fixture, { page_size: 2, order: "descending" });
+    const tick = () => clock.set(new Date(clock.clock.now().getTime() + 300).toISOString());
+    return {
+      kind: inner.kind,
+      async readWorkspace() { tick(); return inner.readWorkspace(); },
+      async readCatalogPage(kind, after) { tick(); return inner.readCatalogPage(kind, after); },
+      async readIssuesPage(request) { tick(); return inner.readIssuesPage(request); },
+      async readCommentsPage(request) { tick(); return inner.readCommentsPage(request); },
+    };
+  };
+  const first = await runLinearCollect({
+    ...lane.options,
+    transport_factory: advancingFactory(),
+    clock: clock.clock,
+    run_id: "run-deadline-0",
+  });
+  assert.equal(first.status, "ok");
+  assert.equal(first.window_phase, "delta");
+  assert.equal(first.backfill_pending, true);
+  for (const gap of ["run_deadline_reached", "max_pages_continuation_pending", "catalog_continuation_pending"]) {
+    assert.ok(first.coverage_gaps.includes(gap), gap);
+  }
+  assert.ok(first.read_calls < 1 + 6 + 1 + 1, `stopped early after ${first.read_calls} reads`);
+  assert.equal(first.objects.issues.observed, 0);
+  assert.equal(first.objects.comments.observed, 0);
+  assert.ok(first.objects_created > 0, "objects read before the deadline are kept");
+  const firstReceipt = await readJson(path.join(lane.stateRoot, "receipts", "run-deadline-0.json"));
+  validateLinearCollectRunReceipt(firstReceipt);
+  assert.equal(firstReceipt.status, "ok");
+  assert.ok(firstReceipt.coverage_gaps.includes("run_deadline_reached"));
+  assert.equal(firstReceipt.cursor_after.watermark, null);
+  // A deadline cap with no progress keeps the whole window and is not a stall.
+  assert.deepEqual(firstReceipt.cursor_after.backfill, {
+    lower: "1970-01-01T00:00:00.000Z",
+    upper: "2026-09-01T02:00:00.000Z",
+    resume_watermark: "2026-09-01T02:00:00.000Z",
+    stall_count: 0,
+  });
+  const health = await healthOf(lane);
+  assert.equal(health.status, "ok");
+  assert.equal(health.backfill_pending, true);
+  assert.ok(health.coverage_gaps.includes("run_deadline_reached"));
+
+  // The lease was released in `finally`: the continuation run acquires it and
+  // finishes the backfill without the deadline (no clock advance per read).
+  clock.set("2026-09-01T02:15:00.000Z");
+  const second = await runLinearCollect({
+    ...lane.options,
+    transport_factory: syntheticFactory(fixture, { page_size: 2, order: "descending" }),
+    clock: clock.clock,
+    run_id: "run-deadline-1",
+  });
+  assert.equal(second.status, "ok");
+  assert.equal(second.window_phase, "backfill");
+  assert.equal(second.backfill_pending, false);
+  assert.equal(second.coverage_gaps.includes("run_deadline_reached"), false);
+  assert.equal((await readdir(path.join(lane.custodyRoot, "issues"))).length, 6);
+  assert.equal((await readdir(path.join(lane.custodyRoot, "comments"))).length, 5);
+  const state = await readJson(path.join(lane.stateRoot, "state", "linear-collect.json"));
+  assert.equal(state.cursor.backfill, null);
+  assert.equal(state.cursor.watermark, "2026-09-01T02:00:00.000Z");
+  const secondHealth = await healthOf(lane);
+  assert.deepEqual(secondHealth.coverage_gaps, ["polling_cannot_prove_hard_deletes"]);
+
+  // Default and bounds: 8 minutes unless the binding narrows/widens it, and the
+  // widest value stays below the registrar's PT10M ExecutionTimeLimit.
+  assert.equal(runDeadlineMsFor({}), LINEAR_COLLECT_DEFAULT_RUN_DEADLINE_MS);
+  assert.equal(LINEAR_COLLECT_DEFAULT_RUN_DEADLINE_MS, 8 * 60 * 1000);
+  assert.equal(runDeadlineMsFor({ run_deadline_ms: 120_000 }), 120_000);
+  assert.ok(LINEAR_COLLECT_MAX_RUN_DEADLINE_MS + 60_000 <= 10 * 60 * 1000, "max deadline plus one request timeout fits the task limit");
+  assert.doesNotThrow(() => validateLinearCollectBinding({ ...lane.binding, cursor: { ...lane.binding.cursor, run_deadline_ms: 480_000 } }));
+});
+
 test("order detection and cursor advancement are deterministic", () => {
   assert.equal(observeOrder([]), "unknown");
   assert.equal(observeOrder(["2026-01-01T00:00:00.000Z"]), "unknown");
@@ -568,7 +657,26 @@ test("order detection and cursor advancement are deterministic", () => {
   assert.equal(stalled.cursor.backfill, null);
   assert.equal(stalled.cursor.watermark, window.resume_watermark);
   assert.ok(stallGaps.has("backfill_stalled_window_advanced"));
-  for (const gap of [...gaps, ...stallGaps]) assert.ok(LINEAR_COLLECT_COVERAGE_GAPS.includes(gap), gap);
+
+  // A deadline-capped collection that could not narrow keeps the window and
+  // leaves the stall count untouched instead of advancing past revisions.
+  const deadlineGaps = new Set();
+  const deadlineStalled = advanceCursor({
+    cursor: stalledCursor,
+    window: { ...window, phase: "backfill" },
+    collections: [{ capped: true, deadline: true, timestamps: [], order: "unknown" }],
+    gaps: deadlineGaps,
+  });
+  assert.deepEqual(deadlineStalled.cursor.backfill, {
+    lower: window.lower,
+    upper: window.upper,
+    resume_watermark: window.resume_watermark,
+    stall_count: 1,
+  });
+  assert.equal(deadlineStalled.cursor.watermark, null);
+  assert.equal(deadlineGaps.has("backfill_stalled_window_advanced"), false);
+  assert.ok(deadlineGaps.has("max_pages_continuation_pending"));
+  for (const gap of [...gaps, ...stallGaps, ...deadlineGaps]) assert.ok(LINEAR_COLLECT_COVERAGE_GAPS.includes(gap), gap);
 });
 
 // ---------------------------------------------------------------------------

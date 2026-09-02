@@ -14,6 +14,10 @@ collection lane). Every value is synthetic:
   value itself is never stored in a binding, receipt, custody object, log, or
   this repository.
 - `workspace.url_key`, the project UUID, and `project_scope_ref` are invented.
+- `cursor.run_deadline_ms` is the only optional key. It shows the default
+  (480000 ms = 8 minutes); omit it to get the same value. The lane bounds it
+  to 1000..540000 so the in-process deadline always ends before the
+  registrar's 10-minute Scheduled Task execution limit.
 
 The lane test binds the placeholders to temporary directories and validates
 the result with `validateLinearCollectBinding`, so this example cannot drift

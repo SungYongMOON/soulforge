@@ -31,6 +31,7 @@ export const LINEAR_COLLECT_COVERAGE_GAPS = Object.freeze([
   "backfill_stalled_window_advanced",
   "polling_cannot_prove_hard_deletes",
   "catalog_continuation_pending",
+  "run_deadline_reached",
 ]);
 
 const RECEIPT_FIELDS = Object.freeze([

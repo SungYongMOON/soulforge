@@ -53,6 +53,14 @@ export const LINEAR_READ_EVIDENCE_ENVELOPE_SCHEMA_VERSION = "soulforge.linear_co
 export const LINEAR_COLLECT_LEASE_NAME = "linear-collect.lock";
 export const LINEAR_SOURCE_REF = "source.linear";
 export const LINEAR_COLLECT_HEALTH_LANE = "linear_collect";
+// In-process run deadline. The registrar's Scheduled Task ExecutionTimeLimit
+// is PT10M; the lane stops opening new pages well before that so the receipt,
+// cursor, state, health, and lease release always complete inside the task
+// limit instead of being killed mid-write. The optional binding key
+// `cursor.run_deadline_ms` may narrow or widen it, bounded so the deadline
+// plus one request timeout (<= 60 s) stays below the task limit.
+export const LINEAR_COLLECT_DEFAULT_RUN_DEADLINE_MS = 8 * 60 * 1000;
+export const LINEAR_COLLECT_MAX_RUN_DEADLINE_MS = 9 * 60 * 1000;
 
 const BINDING_FIELDS = Object.freeze([
   "schema_version",
@@ -79,6 +87,7 @@ const CURSOR_POLICY_FIELDS = Object.freeze([
   "max_pages_per_run",
   "timeout_ms",
 ]);
+const CURSOR_POLICY_OPTIONAL_FIELDS = Object.freeze(["run_deadline_ms"]);
 const STATE_FIELDS = Object.freeze([
   "schema_version",
   "lane_id",
@@ -283,7 +292,14 @@ export function validateLinearCollectBinding(binding) {
     }
     previousProjectId = entry.linear_project_id;
   });
-  exactKeys(binding.cursor, CURSOR_POLICY_FIELDS, "$binding.cursor");
+  plainRecord(binding.cursor, "$binding.cursor");
+  exactKeys(
+    binding.cursor,
+    Object.hasOwn(binding.cursor, "run_deadline_ms")
+      ? [...CURSOR_POLICY_FIELDS, ...CURSOR_POLICY_OPTIONAL_FIELDS]
+      : CURSOR_POLICY_FIELDS,
+    "$binding.cursor",
+  );
   const boundedInteger = (value, minimum, maximum, target) => {
     if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
       fail("cursor_policy_invalid", target, `Expected an integer from ${minimum} to ${maximum}`);
@@ -296,6 +312,14 @@ export function validateLinearCollectBinding(binding) {
   boundedInteger(binding.cursor.page_size, 1, 100, "$binding.cursor.page_size");
   boundedInteger(binding.cursor.max_pages_per_run, 1, 200, "$binding.cursor.max_pages_per_run");
   boundedInteger(binding.cursor.timeout_ms, 100, 60_000, "$binding.cursor.timeout_ms");
+  if (Object.hasOwn(binding.cursor, "run_deadline_ms")) {
+    boundedInteger(
+      binding.cursor.run_deadline_ms,
+      1_000,
+      LINEAR_COLLECT_MAX_RUN_DEADLINE_MS,
+      "$binding.cursor.run_deadline_ms",
+    );
+  }
   absolutePath(binding.data_root, "$binding.data_root");
   if (!isPathWithin(binding.private_root, binding.data_root, true)) {
     fail("data_root_not_strict_private_child", "$binding.data_root", "Data root must be a strict child of the private root");
@@ -327,6 +351,13 @@ export function validateLinearCollectBinding(binding) {
   }
   assertNoEmbeddedSecret(binding, "$binding");
   return binding;
+}
+
+// Effective in-process deadline for one run, from the validated cursor policy.
+export function runDeadlineMsFor(policy) {
+  return Object.hasOwn(policy, "run_deadline_ms")
+    ? policy.run_deadline_ms
+    : LINEAR_COLLECT_DEFAULT_RUN_DEADLINE_MS;
 }
 
 export function identityDigestForBinding(binding) {
@@ -536,6 +567,7 @@ export async function writeLinearCollectHealth(stateRoot, {
   watermark = null,
   backfillPending = null,
   objectsCreated = null,
+  coverageGaps = null,
   now = () => new Date(),
 }) {
   const prior = await readPrivateJson(stateRoot, ["health", "linear_collect.json"]).catch(() => null);
@@ -558,6 +590,11 @@ export async function writeLinearCollectHealth(stateRoot, {
     backfill_pending: succeeded ? backfillPending
       : (priorValid && typeof prior.backfill_pending === "boolean" ? prior.backfill_pending : null),
     objects_created: succeeded ? objectsCreated : null,
+    // Sorted coverage gaps of the last successful run (`run_deadline_reached`,
+    // `max_pages_continuation_pending`, ...), kept across a failed run like
+    // the watermark so an operator sees why a backfill is still pending.
+    coverage_gaps: succeeded ? coverageGaps
+      : (priorValid && Array.isArray(prior.coverage_gaps) ? prior.coverage_gaps : null),
   };
   await atomicWritePrivateJson(stateRoot, ["health", "linear_collect.json"], record);
   return record;
@@ -767,7 +804,11 @@ export function advanceCursor({ cursor, window, collections, gaps }) {
   }
   const stalled = remaining.lower === window.lower && remaining.upper === window.upper;
   const priorStalls = cursor.backfill?.stall_count ?? 0;
-  const stallCount = stalled ? priorStalls + 1 : 0;
+  // A cap forced by the run deadline read fewer pages than the policy allows,
+  // so it is not evidence that the window cannot narrow: it neither counts as
+  // a stall nor resets one. Only a max-pages cap that could not narrow does.
+  const deadlineCapped = capped.some((entry) => entry.deadline === true);
+  const stallCount = stalled ? (deadlineCapped ? priorStalls : priorStalls + 1) : 0;
   if (stallCount >= 2) {
     gaps.add("backfill_stalled_window_advanced");
     return {
@@ -880,17 +921,23 @@ function emptyObjectCounts() {
   return Object.fromEntries(LINEAR_COLLECT_OBJECT_KINDS.map((kind) => [kind, { observed: 0, created: 0, unchanged: 0 }]));
 }
 
+// Reads one collection page by page. The run is capped either by the policy's
+// max_pages_per_run or, checked before every page is opened, by the run
+// deadline; `deadline: true` tells the caller which one so the receipt can
+// carry `run_deadline_reached` and the cursor can keep the backfill window.
 async function collectPages({
   policy,
   readPage,
   onNode,
   timestamps,
+  deadlineReached = () => false,
 }) {
   const seenCursors = new Set();
   let after = null;
   let pages = 0;
   while (true) {
-    if (pages >= policy.max_pages_per_run) return { capped: true, pages };
+    if (pages >= policy.max_pages_per_run) return { capped: true, deadline: false, pages };
+    if (deadlineReached()) return { capped: true, deadline: true, pages };
     const page = await readPage(after);
     pages += 1;
     if (!Array.isArray(page?.nodes)) fail("transport_page_invalid", "$transport", "Transport page nodes must be an array");
@@ -898,7 +945,7 @@ async function collectPages({
       timestamps.push(node.updated_at);
       await onNode(node);
     }
-    if (page.has_next_page !== true) return { capped: false, pages };
+    if (page.has_next_page !== true) return { capped: false, deadline: false, pages };
     if (typeof page.end_cursor !== "string" || seenCursors.has(page.end_cursor)) {
       fail("provider_cursor_loop", "$transport", "Provider continuation cursor repeated or missing");
     }
@@ -981,6 +1028,8 @@ export async function runLinearCollect({
     state = loaded === null ? initialState(context) : validateLinearCollectState(loaded, context);
     cursorBefore = structuredClone(state.cursor);
     window = planWindow(cursorBefore, binding.cursor, attemptedAt);
+    const deadlineAt = Date.parse(attemptedAt) + runDeadlineMsFor(binding.cursor);
+    const deadlineReached = () => clock.now().getTime() >= deadlineAt;
 
     const transport = await transportFactory({ binding, context });
     observed = observeTransport(transport);
@@ -1000,8 +1049,10 @@ export async function runLinearCollect({
         readPage: (after) => observed.readCatalogPage(kind, after),
         onNode: (node) => recordObject(kind, node.id, node, node.updated_at),
         timestamps: [],
+        deadlineReached,
       });
       if (result.capped) gaps.add("catalog_continuation_pending");
+      if (result.deadline) gaps.add("run_deadline_reached");
     }
 
     const collections = [];
@@ -1015,16 +1066,24 @@ export async function runLinearCollect({
         await recordObject("read_evidence", issue.id, evidence.envelope, issue.updated_at);
       },
       timestamps: issueTimestamps,
+      deadlineReached,
     });
-    collections.push({ capped: issues.capped, timestamps: issueTimestamps, order: observeOrder(issueTimestamps) });
+    if (issues.deadline) gaps.add("run_deadline_reached");
+    collections.push({
+      capped: issues.capped, deadline: issues.deadline, timestamps: issueTimestamps, order: observeOrder(issueTimestamps),
+    });
     const commentTimestamps = [];
     const comments = await collectPages({
       policy: binding.cursor,
       readPage: (after) => observed.readCommentsPage({ lower: window.lower, upper: window.upper, after }),
       onNode: (comment) => recordObject("comments", comment.id, comment, comment.updated_at),
       timestamps: commentTimestamps,
+      deadlineReached,
     });
-    collections.push({ capped: comments.capped, timestamps: commentTimestamps, order: observeOrder(commentTimestamps) });
+    if (comments.deadline) gaps.add("run_deadline_reached");
+    collections.push({
+      capped: comments.capped, deadline: comments.deadline, timestamps: commentTimestamps, order: observeOrder(commentTimestamps),
+    });
 
     const advanced = advanceCursor({ cursor: cursorBefore, window, collections, gaps });
     const completedAt = clock.now().toISOString();
@@ -1083,6 +1142,7 @@ export async function runLinearCollect({
       watermark: advanced.cursor.watermark,
       backfillPending: advanced.cursor.backfill !== null,
       objectsCreated: created,
+      coverageGaps: receipt.coverage_gaps,
       now: clock.now,
     });
     return {

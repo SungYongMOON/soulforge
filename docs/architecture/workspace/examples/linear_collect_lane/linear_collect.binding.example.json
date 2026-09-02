@@ -32,6 +32,7 @@
     "initial_updated_at": null,
     "page_size": 50,
     "max_pages_per_run": 20,
-    "timeout_ms": 15000
+    "timeout_ms": 15000,
+    "run_deadline_ms": 480000
   }
 }

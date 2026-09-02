@@ -67,6 +67,7 @@ Exact keys, all required:
 | `cursor.page_size` | 1..100 |
 | `cursor.max_pages_per_run` | 1..200 pages per collection per run |
 | `cursor.timeout_ms` | 100..60000 per HTTP request |
+| `cursor.run_deadline_ms` | optional (the only optional key); 1000..540000, default 480000 (8 minutes). In-process run deadline checked before every page is opened; it must stay below the registrar's `PT10M` `ExecutionTimeLimit`, and the upper bound leaves one request timeout (`timeout_ms` <= 60 s) plus the receipt/state/health/lease writes inside that limit |
 
 Token-like values (`lin_api_...`, `lin_oauth_...`, Slack, JWT) and secret-named
 fields are rejected anywhere in the binding. The tracked public-safe sample is
@@ -177,8 +178,24 @@ and tampered records HOLD.
   `max_pages_continuation_pending`, keeps the watermark, and persists a
   `backfill` window narrowed by the observed order (descending -> upper bound,
   ascending -> lower bound). Later runs finish the backfill before resuming
-  normal deltas; a backfill that cannot narrow twice in a row is advanced with
-  the explicit gap `backfill_stalled_window_advanced`.
+  normal deltas.
+- Run deadline: before every page is opened the runner checks the in-process
+  deadline (`cursor.run_deadline_ms`, default 8 minutes). When it is reached
+  the current and every remaining collection return capped, the run still
+  ends normally (`status: ok`, receipt, cursor, state, health written, lease
+  released in `finally`) with the coverage gap `run_deadline_reached` in the
+  receipt and in `health/linear_collect.json` `coverage_gaps`, and the same
+  backfill continuation applies. A deadline cap is not counted as a backfill
+  stall, so a slow provider cannot make the watermark advance past unread
+  revisions. The registrar's `PT10M` `ExecutionTimeLimit` is unchanged; the
+  deadline exists so the task limit never kills the process mid-write.
+- A backfill that cannot narrow twice in a row (two consecutive max-pages caps
+  whose observed order did not move either bound) is advanced with the
+  explicit gap `backfill_stalled_window_advanced`. This drops the un-narrowed
+  window: revisions inside it that were never read may be skipped until a
+  later delta re-observes the object or an operator backfill re-reads the
+  window. Treat that gap in a receipt as a coverage loss to investigate, not
+  as a completed backfill.
 - Polling cannot prove hard deletes; every receipt carries
   `polling_cannot_prove_hard_deletes`.
 - The workspace `urlKey` (and `organization_id` when pinned) is verified on

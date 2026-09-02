@@ -59,6 +59,20 @@
   non-2xx GraphQL error codes as `linear_graphql_<code>` instead of a bare
   `linear_http_failed`; workflow-state `position` is stored as decimal text and
   provider text is NFC-normalized so custody digests stay canonical.
+- Review fix B2 (2026-09-02, integration branch): the runner now enforces an
+  in-process run deadline, checked before every page is opened (default 8
+  minutes; optional binding key `cursor.run_deadline_ms`, bounded
+  1000..540000 so it always ends before the registrar's unchanged `PT10M`
+  `ExecutionTimeLimit` with one request timeout of slack). Reaching it caps
+  the current and remaining collections exactly like `max_pages_per_run`, so
+  the run still ends normally with receipt, cursor, state, health, and lease
+  release, records the new coverage gap `run_deadline_reached` in the receipt
+  and in the health receipt's new `coverage_gaps` list, and leaves the
+  existing backfill continuation to the next trigger. A deadline cap is not
+  counted as a backfill stall. Covered by a fake-clock lane test. The live
+  Main Node task keeps running the previously emitted `linear-collect-v1`
+  runtime until the Owner re-emits the lane and re-registers with the new
+  manifest digest.
 ## 2026-09-02 - Operations cluster owner-root / state-root override (Option B)
 
 - Revision: branch `claude/ops-owner-root-override` (single commit on top of
