@@ -5,9 +5,9 @@
   "interface_version": "path_registry.v0",
   "schema_versions": ["soulforge.path_registry.v0", "soulforge.target_materializer.v0", "soulforge.workspace_greenfield_admission.v1", "soulforge.private_target_binding_control_store.v0", "soulforge.private_target_binding_set.v0", "soulforge.private_target_binding_acl_admission.v0", "soulforge.private_target_binding_lock_break.v0", "soulforge.private_target_binding_reactivation.v0", "soulforge.watch_storage_map.v0", "soulforge.source_lane_index.v0", "soulforge.source_lane_ledger.v0", "soulforge.asset_class_revision_ledger.v0"],
   "owner": "guild_hall/path_registry",
-  "capabilities_provided": ["physical.path_registry_contract.v0", "physical.target_materializer.v0", "physical.workspace_greenfield_admission_gate.v1", "physical.private_target_binding_control_store.v0", "watch.storage_backup_map_projection.v0", "physical.source_lane_index_contract.v0", "physical.source_lane_ledger_contract.v0", "physical.asset_class_revision_ledger_contract.v0", "physical.mail_capture_source_lane_adapter.v0", "physical.slack_capture_source_lane_adapter.v0", "physical.voice_capture_source_lane_adapter.v0", "physical.pc_activity_capture_source_lane_adapter.v0"],
-  "capabilities_required": ["source.file_activity_project_history_coverage_contract.v1", "source.slack_history_receipt_contract.v1"],
-  "required_dependencies": ["file_activity", "shared", "slack_history", "watch_panel_contract"],
+  "capabilities_provided": ["physical.path_registry_contract.v0", "physical.target_materializer.v0", "physical.workspace_greenfield_admission_gate.v1", "physical.private_target_binding_control_store.v0", "watch.storage_backup_map_projection.v0", "physical.source_lane_index_contract.v0", "physical.source_lane_ledger_contract.v0", "physical.asset_class_revision_ledger_contract.v0", "physical.mail_capture_source_lane_adapter.v0", "physical.slack_capture_source_lane_adapter.v0", "physical.voice_capture_source_lane_adapter.v0", "physical.pc_activity_capture_source_lane_adapter.v0", "physical.linear_capture_source_lane_adapter.v0"],
+  "capabilities_required": ["source.file_activity_project_history_coverage_contract.v1", "source.slack_history_receipt_contract.v1", "source.linear_collect_receipt_contract.v1"],
+  "required_dependencies": ["file_activity", "linear_history", "shared", "slack_history", "watch_panel_contract"],
   "optional_dependencies": [],
   "compatible_version_ranges": { "node": ">=20" },
   "startup_order": null,
@@ -34,7 +34,8 @@
     "node --test guild_hall/path_registry/tests/voice_source_lane_adapter.test.mjs",
     "node --test guild_hall/path_registry/tests/source_lane_ledger.test.mjs",
     "node --test guild_hall/path_registry/tests/asset_class_revision_ledger.test.mjs",
-    "node --test guild_hall/path_registry/tests/pc_activity_source_lane_adapter.test.mjs"
+    "node --test guild_hall/path_registry/tests/pc_activity_source_lane_adapter.test.mjs",
+    "node --test guild_hall/path_registry/tests/linear_source_lane_adapter.test.mjs"
   ],
   "release_digest": null,
   "deprecation_state": "active_draft",

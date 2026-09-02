@@ -30,6 +30,7 @@ locator or live activation authority.
   실제 Linear Issue·Comment·사람·과제·Work Brief·credential·외부 effect는 포함하지 않는다.
 - coverage input builder sample 은 같은 폴더의 `coverage_input_builder_synthetic_v0.json` 으로 두며, 합성 요구 ID 색인·Needs 정책·산출물 관측 요청과 손으로 유도한 admit/hold·Needs·관측 fan-out·커버리지 기대 결과만 둔다. 식별자·기기/기능 코드·절·쪽·span·digest 는 전부 이 파일용으로 지어낸 값이고 실제 문서 본문·요구 원문·bracket title 은 두지 않는다.
 - SE stage rule sample 은 `se_stage_rules/` 아래에 `guild_hall/engineering_engine/stage_rules/` 순수 컴파일러용 합성 compiled variant, 합성 과제 overlay, 금지 연산 negative overlay 와 손으로 유도한 기대 결과만 둔다. 사업유형·발주처·게이트 이름·task·조건 토큰·시각·digest 는 전부 이 파일용으로 지어낸 값이고 실제 규정 조문·과제 자료·발주처 요청 원문은 두지 않는다. `artifact_type_id` 토큰과 gate 번호만 실제 공유 어휘다.
+- Linear collection lane sample 은 `linear_collect_lane/` 아래에 `guild_hall/linear_history/` private binding 의 public-safe 모양만 둔다. host-local 절대경로는 `<PRIVATE_ROOT>` 류 placeholder 로 두고 API key 값·실제 workspace·project 식별자는 넣지 않는다.
 - temporal knowledge binding sample 은 `temporal_knowledge_binding/` 아래에 exact source revision과 project/gate/branch/task/artifact 지식 적용 관계의 metadata-only template만 둔다.
 - Soulforge report format sample 은 `soulforge_report_format/` 아래에 Markdown 정본 template 과 standalone HTML companion template 만 둔다.
 - presentation artifact render sample 은 `presentation_artifact_render/` 아래에 합성 approved-content fixture만 두며 실제 PPTX와 팀 템플릿 파일은 `_workspaces`에 둔다.

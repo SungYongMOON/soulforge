@@ -31,6 +31,11 @@
 - `run_history/`: feature-OFF H05 exact workflow-receipt adapter, replay, and six-state coverage evidence
 - `schedule_history/`: synthetic-only H03B external schedule identity, immutable revision, replay, and coverage candidate
 - `slack_history/`: feature-OFF H07 Slack workspace/channel/message revision, cursor, dedupe, and coverage foundation
+- `linear_history/`: read-only HPP Linear collection lane (every 15 minutes) mirroring the Slack batch lane: SHA-256-pinned
+  private binding with a `credentials.api_key_file` pointer, exact forbidden roots, writer fence, health-before-reject, bounded `updatedAt`
+  delta window with backfill continuation, create-only content-digested custody, refs-only run receipts,
+  `official_task_read_evidence`-compatible envelopes, and an exact-runtime launcher/registrar; activation is `HOLD` until
+  the private binding, Owner-placed API key, and registrar run exist. Collection is not backup (LB1 stays in `backup_controller/`)
 - `backup_controller/`: feature-OFF, single-writer daily backup composition with
   exact activation/binding validation, one durable state ledger, live preflight,
   fixed handlers, and an hourly-tick compatibility API

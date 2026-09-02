@@ -1,0 +1,42 @@
+{
+  "schema_version": "soulforge.module_manifest.v0",
+  "module_id": "linear_history",
+  "module_version": "0.1.0",
+  "interface_version": "linear_history.v1",
+  "schema_versions": [
+    "soulforge.linear_collect.binding.v1",
+    "soulforge.linear_collect.state.v1",
+    "soulforge.linear_collect.cursor.v1",
+    "soulforge.linear_collect.run_receipt.v1",
+    "soulforge.linear_collect.health.v1",
+    "soulforge.linear_collect.custody_object.v1",
+    "soulforge.linear_collect.read_evidence_envelope.v1",
+    "soulforge.linear_collect.runtime_manifest.v1",
+    "soulforge.linear_collect.synthetic_fixture.v1"
+  ],
+  "owner": "guild_hall/linear_history",
+  "capabilities_provided": [
+    "source.linear_collect_receipt_contract.v1"
+  ],
+  "capabilities_required": [],
+  "required_dependencies": ["shared"],
+  "optional_dependencies": [],
+  "compatible_version_ranges": { "node": ">=20" },
+  "startup_order": null,
+  "feature_flag": "live Linear collection and scheduled registration remain separately bound/default-OFF; activation requires the private binding, the Owner-placed API key file, and the registrar dry-run/register sequence",
+  "default_state": "contract_and_local_custody_code_available_live_binding_external",
+  "health_probe": null,
+  "readiness_probe": null,
+  "config_refs": [],
+  "secret_refs": [],
+  "data_owner": "private_linear_source_custody_store",
+  "backup_class": "collection_only_not_backup_lb1_generations_remain_backup_controller",
+  "migration_version": null,
+  "rollback_version": "git_revert_of_this_module_only",
+  "validators": [
+    "npm.cmd run validate:linear-collect"
+  ],
+  "release_digest": null,
+  "deprecation_state": "active_draft",
+  "authority_notes": "Read-only Linear collection lane (HPP, every 15 minutes) that publishes the refs-only run receipt contract consumed by the path_registry Linear source-lane adapter and emits official_task_read_evidence-compatible envelopes for Forge/ERP admission. It sends only GraphQL query documents, never a mutation, and owns no Linear writer, task writer, backup generation, restore, or acceptance authority. The API key is read only through the private binding's credentials (api_key_env, then the fenced api_key_file) using the Slack lane's credential boundary rule and is never logged, persisted, or returned. Collection is not backup: LB1 backup generations remain owned by backup_controller."
+}

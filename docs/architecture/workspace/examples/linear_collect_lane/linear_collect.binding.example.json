@@ -1,0 +1,37 @@
+{
+  "schema_version": "soulforge.linear_collect.binding.v1",
+  "feature_enabled": true,
+  "lane_id": "hpp-linear-collect",
+  "private_root": "<PRIVATE_ROOT>",
+  "data_root": "<PRIVATE_ROOT>/ingress/linear",
+  "state_root": "<PRIVATE_ROOT>/linear_history/state",
+  "forbidden_roots": [
+    "<REPOSITORY_ROOT>",
+    "<RUNTIME_ROOT>"
+  ],
+  "writer": {
+    "authority_id": "hpp-linear-collect-writer",
+    "epoch": 1
+  },
+  "credentials": {
+    "api_key_env": null,
+    "api_key_file": "<PRIVATE_ROOT>/config/linear_history/credentials/linear_api_key.txt"
+  },
+  "workspace": {
+    "url_key": "example-workspace",
+    "organization_id": null,
+    "project_scope_map": [
+      {
+        "linear_project_id": "5e6f7081-92a3-4ebf-80d1-4c5d6e7f8091",
+        "project_scope_ref": "project:example-alpha"
+      }
+    ]
+  },
+  "cursor": {
+    "overlap_seconds": 300,
+    "initial_updated_at": null,
+    "page_size": 50,
+    "max_pages_per_run": 20,
+    "timeout_ms": 15000
+  }
+}
