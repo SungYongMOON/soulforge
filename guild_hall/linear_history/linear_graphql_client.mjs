@@ -457,6 +457,17 @@ function nullableNumber(value, field) {
   return value;
 }
 
+// Linear types `WorkflowState.position` as Float and fractional positions are
+// normal (states inserted between neighbours). Custody digests admit only safe
+// integers, so the value is kept as its shortest round-trip decimal text.
+function nullableDecimalText(value, field) {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    fail("provider_shape_invalid", `Expected a finite number for ${field}`);
+  }
+  return String(value);
+}
+
 function nullableBoolean(value, field) {
   if (value === null || value === undefined) return null;
   if (typeof value !== "boolean") fail("provider_shape_invalid", `Expected a boolean for ${field}`);
@@ -581,7 +592,7 @@ export function normalizeState(node) {
     description: nullableText(node.description, "state.description"),
     type: text(node.type, "state.type", { max: 64 }),
     color: nullableText(node.color, "state.color", 32),
-    position: nullableNumber(node.position, "state.position"),
+    position: nullableDecimalText(node.position, "state.position"),
     created_at: iso(node.createdAt, "state.createdAt"),
     updated_at: iso(node.updatedAt, "state.updatedAt"),
     archived_at: nullableIso(node.archivedAt, "state.archivedAt"),

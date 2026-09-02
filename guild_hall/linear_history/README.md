@@ -147,6 +147,9 @@ content digest. Identical bytes are a no-op; different bytes at the same path
 fail closed as `custody_digest_conflict`; nothing is overwritten or deleted.
 Issue/comment bodies and user e-mail addresses live only under this private
 custody root, never in receipts, health, lane records, or stdout.
+Linear's float-typed `WorkflowState.position` is stored as its decimal text
+(for example `"1.5"`) because canonical custody digests admit only safe
+integers; every other numeric field is integral in Linear and stays a number.
 
 `read_evidence` envelopes are `soulforge.linear_collect.read_evidence_envelope.v1`
 whose `evidence` member is an exact
