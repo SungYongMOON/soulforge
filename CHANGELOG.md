@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## 2026-09-03 - Do not launch desktop clients from packaged agent sessions
+
+- `AGENTS.md` now states the execution-surface rule that a desktop client app must
+  never be spawned from inside an MSIX-packaged agent session. A packaged parent
+  makes Windows redirect that app's `%LOCALAPPDATA%`/`%APPDATA%` writes into the
+  session's private virtual store, so the user data silently forks away from the
+  real path while both copies keep working. Driving an already-running window is
+  unaffected - what matters is only which process spawns the executable.
+- The same rule fixes how any agent may assert what is on disk under the user's
+  AppData: a packaged session sees a merged view, so existence and content claims
+  must be cross-checked from at least two of WSL `/mnt/c`, a UNC `\\localhost\C$`
+  path (not subject to per-package redirection), and a scheduled-task context.
+- This is recorded from an operating failure that recurred: a client identity store
+  forked on 2026-08-29, was restored to the real path, and forked again on
+  2026-09-01 when the app was next launched from a packaged session - which
+  presented as the app offering to create a new identity. Lane-specific launch task
+  names and the drift detector stay with the lane's own runbook, outside this repo.
+
 ## 2026-09-03 - Buzz collection Tributary, the Buzz backup index and the Hermes Sigil inventory
 
 - Added `guild_hall/buzz_history/`, a read-only 15-minute HPP collection lane for
