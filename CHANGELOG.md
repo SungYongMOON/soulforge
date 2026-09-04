@@ -1,5 +1,35 @@
 # CHANGELOG
 
+## 2026-09-04 - Register the new collection and backup lanes in the Watchtower topology
+
+- The lanes that landed on the D: checkout on 2026-09-02/03 had no node in
+  `guild_hall/watchtower/topology.mjs`, so the supervision surface could not report
+  them at all - not even as unmonitored. A lane that is absent from the topology is
+  indistinguishable from a lane that is healthy, which is the failure shape behind a
+  collector going quiet without anyone noticing.
+- Added ten nodes: external sources `src_linear`, `src_buzz`, `src_agent_runtime`;
+  scheduled workers `linear_collect`, `buzz_collect`, `backup_buzz_server`,
+  `backup_agent_runtime`; and stores `store_linear_custody`, `store_buzz_custody`,
+  `store_backup_generations`. Eight data edges carry each source to its worker and
+  each worker to its store, and four `node_health_only` control edges make the four
+  workers observable by `watchtower_self`.
+- This is a **declaration only**. Probe keys name entries the local binding owns;
+  the binding holds the real paths, periods and thresholds and is untracked. Until
+  an Owner adds those probe entries every new node reports its declared
+  `unmonitored_reason` rather than green, which is the honest state: the lanes run,
+  and Watchtower does not yet watch them.
+- No lane code changed. Each collection lane already writes one receipt per run
+  under `<state_root>/receipts/`, which a `dir_latest_mtime` or `json_file` probe
+  reads as a heartbeat, so registration required no new emitter.
+- The versioned pins moved with the topology in the same change, as
+  `federated_topology.v1.contract.json` requires: watchtower 28/36 to 38/48,
+  federation summary 292/902 to 302/914, and the tracked artifact regenerated to
+  `sha256:5f06a6b9...`. `topology_provider_adapters.mjs` and the count assertions in
+  `watchtower.test.mjs` were updated to match.
+- Scope boundary: alerting and self-heal remain W2 behind their own Owner gate. This
+  change makes the new lanes visible to the W1 judgement surface and does not route
+  any notification.
+
 ## 2026-09-03 - Do not launch desktop clients from packaged agent sessions
 
 - `AGENTS.md` now states the execution-surface rule that a desktop client app must

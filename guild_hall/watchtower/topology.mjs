@@ -106,6 +106,22 @@ export const TOPOLOGY_NODES = Object.freeze([
   { id: "store_usage_ledger", label: "공유 AI usage-event 원장", kind: "store", group: "데이터 평면", probe: "store_usage_ledger", operation_mode: "structural", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 3, row: 5.4 },
   { id: "watchtower_self", label: "Watchtower 검사·판정", kind: "gate", group: "관측", probe: "watchtower_self", operation_mode: "scheduled", health_scope: "self", unmonitored_reason: "independent_evidence_absent", col: 3, row: 7.2 },
 
+  // D: 이관 후 신설된 수집·백업 lane (2026-09-02~03).
+  // probe 키는 선언만이며 실제 경로·주기·임계값은 local binding 이 소유한다.
+  // binding 에 해당 probe 가 없으면 unmonitored_reason 으로 미감시가 그대로 드러난다.
+  { id: "src_linear", label: "Linear API", kind: "external", group: "외부 소스", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 0, row: 8.1 },
+  { id: "src_buzz", label: "Buzz relay", kind: "external", group: "외부 소스", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 0, row: 9 },
+  { id: "src_agent_runtime", label: "Hermes 런타임·Buzz 클라이언트", kind: "external", group: "외부 소스", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 0, row: 10.8 },
+
+  { id: "linear_collect", label: "Linear 수집기", kind: "worker", group: "수집", probe: "linear_collect", operation_mode: "scheduled", health_scope: "node", unmonitored_reason: "collector_evidence_absent", col: 1, row: 8.1 },
+  { id: "buzz_collect", label: "Buzz 수집기", kind: "worker", group: "수집", probe: "buzz_collect", operation_mode: "scheduled", health_scope: "node", unmonitored_reason: "collector_evidence_absent", col: 1, row: 9 },
+  { id: "backup_buzz_server", label: "Buzz 서버 백업", kind: "worker", group: "백업", probe: "backup_buzz_server", operation_mode: "scheduled", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 1, row: 9.9 },
+  { id: "backup_agent_runtime", label: "에이전트 런타임 백업", kind: "worker", group: "백업", probe: "backup_agent_runtime", operation_mode: "scheduled", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 1, row: 10.8 },
+
+  { id: "store_linear_custody", label: "Linear custody", kind: "store", group: "데이터 평면", probe: "store_linear_custody", operation_mode: "structural", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 2, row: 8.1 },
+  { id: "store_buzz_custody", label: "Buzz custody", kind: "store", group: "데이터 평면", probe: "store_buzz_custody", operation_mode: "structural", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 2, row: 9 },
+  { id: "store_backup_generations", label: "백업 세대", kind: "store", group: "백업", probe: "store_backup_generations", operation_mode: "structural", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 2, row: 10.35 },
+
   // 소비 표면
   { id: "consumer_timeline", label: "프로젝트 시간장부 shadow", kind: "consumer", group: "소비", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 4, row: 1.4 },
   { id: "consumer_board", label: "Workspace Board", kind: "consumer", group: "소비", probe: "consumer_board", operation_mode: "resident", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 4, row: 5.4 },
@@ -159,6 +175,19 @@ export const TOPOLOGY_EDGES = Object.freeze([
   { from: "usage_antigravity_collector", to: "watchtower_self", label: "Antigravity collector health 관찰", flow: "control", scope: "usage_collector_health_only", receipt: null, unreceipted_reason: "probe_observation_only" },
   { from: "usage_meter", to: "watchtower_self", label: "usage ledger validation health 관찰", flow: "control", scope: "usage_meter_health_only", receipt: null, unreceipted_reason: "probe_observation_only" },
   { from: "codex_retention_report", to: "watchtower_self", label: "보존 보고서 헬스 관측", flow: "control", scope: "node_health_only", receipt: null, unreceipted_reason: "probe_observation_only" },
+  { from: "src_linear", to: "linear_collect", label: "15분 read-only pull", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
+  { from: "linear_collect", to: "store_linear_custody", label: "custody append", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
+  { from: "src_buzz", to: "buzz_collect", label: "15분 read-only export", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
+  { from: "buzz_collect", to: "store_buzz_custody", label: "custody append", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
+  { from: "src_buzz", to: "backup_buzz_server", label: "일 1회 서버 백업", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
+  { from: "backup_buzz_server", to: "store_backup_generations", label: "세대 적재", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
+  { from: "src_agent_runtime", to: "backup_agent_runtime", label: "일 1회 트리·DB 스냅샷", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
+  { from: "backup_agent_runtime", to: "store_backup_generations", label: "세대 적재", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
+
+  { from: "linear_collect", to: "watchtower_self", label: "상태 관찰", flow: "control", scope: "node_health_only", receipt: null, unreceipted_reason: "probe_observation_only" },
+  { from: "buzz_collect", to: "watchtower_self", label: "상태 관찰", flow: "control", scope: "node_health_only", receipt: null, unreceipted_reason: "probe_observation_only" },
+  { from: "backup_buzz_server", to: "watchtower_self", label: "상태 관찰", flow: "control", scope: "node_health_only", receipt: null, unreceipted_reason: "probe_observation_only" },
+  { from: "backup_agent_runtime", to: "watchtower_self", label: "상태 관찰", flow: "control", scope: "node_health_only", receipt: null, unreceipted_reason: "probe_observation_only" },
   { from: "watchtower_self", to: "consumer_board", label: "판정 스냅샷", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent" },
 ]);
 

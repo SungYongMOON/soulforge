@@ -29,8 +29,8 @@ const NOW = Date.parse("2026-08-07T12:00:00.000Z");
 test("topology models scheduled local usage producers and structural routes", () => {
   const nodesById = new Map(TOPOLOGY_NODES.map((node) => [node.id, node]));
   assert.equal(nodesById.size, TOPOLOGY_NODES.length);
-  assert.equal(TOPOLOGY_NODES.length, 28);
-  assert.equal(TOPOLOGY_EDGES.length, 36);
+  assert.equal(TOPOLOGY_NODES.length, 38);
+  assert.equal(TOPOLOGY_EDGES.length, 48);
   assert.equal(validateTopologyDefinition().nodes, TOPOLOGY_NODES);
   for (const edge of TOPOLOGY_EDGES) {
     assert.ok(nodesById.has(edge.from), `missing source ${edge.from}`);
@@ -86,7 +86,7 @@ test("topology models scheduled local usage producers and structural routes", ()
 
   const watchtowerInputs = TOPOLOGY_EDGES.filter((edge) => edge.to === "watchtower_self");
   const watchtowerOutputs = TOPOLOGY_EDGES.filter((edge) => edge.from === "watchtower_self");
-  assert.equal(watchtowerInputs.length, 10);
+  assert.equal(watchtowerInputs.length, 14);
   assert.ok(watchtowerInputs.every((edge) => edge.flow === "control" && typeof edge.scope === "string"));
   assert.deepEqual(watchtowerOutputs.map(({ from, to, label, flow }) => ({ from, to, label, flow })), [
     { from: "watchtower_self", to: "consumer_board", label: "판정 스냅샷", flow: "data" },
@@ -637,10 +637,10 @@ test("tracking covers remaining structural absences plus one degraded probe with
   const tracked = snapshot.nodes.filter((node) => Object.hasOwn(node, "tracking"));
   const healthy = snapshot.nodes.filter((node) => node.health.state === "ok");
 
-  assert.equal(snapshot.summary.unmonitored, 9);
+  assert.equal(snapshot.summary.unmonitored, 12);
   assert.equal(snapshot.summary.degraded, 1);
-  assert.equal(tracked.length, 10);
-  assert.equal(healthy.length, 18);
+  assert.equal(tracked.length, 13);
+  assert.equal(healthy.length, 25);
   assert.ok(healthy.every((node) => !Object.hasOwn(node, "tracking")));
   assert.ok(tracked.every((node) => node.tracking.node_id === node.id && node.tracking.repair_action === null));
 

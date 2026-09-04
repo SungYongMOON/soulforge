@@ -8612,6 +8612,66 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "watchtower::backup_agent_runtime",
+      "id": "watchtower::edge.backup_agent_runtime.store_backup_generations.data",
+      "label": "세대 적재",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::store_backup_generations"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::backup_agent_runtime",
+      "id": "watchtower::edge.backup_agent_runtime.watchtower_self.control",
+      "label": "상태 관찰",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "control",
+      "to": "watchtower::watchtower_self"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::backup_buzz_server",
+      "id": "watchtower::edge.backup_buzz_server.store_backup_generations.data",
+      "label": "세대 적재",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::store_backup_generations"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::backup_buzz_server",
+      "id": "watchtower::edge.backup_buzz_server.watchtower_self.control",
+      "label": "상태 관찰",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "control",
+      "to": "watchtower::watchtower_self"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::buzz_collect",
+      "id": "watchtower::edge.buzz_collect.store_buzz_custody.data",
+      "label": "custody append",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::store_buzz_custody"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::buzz_collect",
+      "id": "watchtower::edge.buzz_collect.watchtower_self.control",
+      "label": "상태 관찰",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "control",
+      "to": "watchtower::watchtower_self"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "watchtower::codex_retention_report",
       "id": "watchtower::edge.codex_retention_report.consumer_board.data",
       "label": "보존 스냅샷",
@@ -8664,6 +8724,26 @@
       "evidence_mode": "structural_only",
       "from": "watchtower::ingress_supervisor",
       "id": "watchtower::edge.ingress_supervisor.watchtower_self.control",
+      "label": "상태 관찰",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "control",
+      "to": "watchtower::watchtower_self"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::linear_collect",
+      "id": "watchtower::edge.linear_collect.store_linear_custody.data",
+      "label": "custody append",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::store_linear_custody"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::linear_collect",
+      "id": "watchtower::edge.linear_collect.watchtower_self.control",
       "label": "상태 관찰",
       "layer": "subsystem",
       "provider_id": "watchtower",
@@ -8732,6 +8812,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "watchtower::src_agent_runtime",
+      "id": "watchtower::edge.src_agent_runtime.backup_agent_runtime.data",
+      "label": "일 1회 트리·DB 스냅샷",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::backup_agent_runtime"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "watchtower::src_antigravity",
       "id": "watchtower::edge.src_antigravity.usage_antigravity_collector.data",
       "label": "scheduled local read",
@@ -8739,6 +8829,26 @@
       "provider_id": "watchtower",
       "relation": "data",
       "to": "watchtower::usage_antigravity_collector"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::src_buzz",
+      "id": "watchtower::edge.src_buzz.backup_buzz_server.data",
+      "label": "일 1회 서버 백업",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::backup_buzz_server"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::src_buzz",
+      "id": "watchtower::edge.src_buzz.buzz_collect.data",
+      "label": "15분 read-only export",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::buzz_collect"
     },
     {
       "evidence_mode": "structural_only",
@@ -8779,6 +8889,16 @@
       "provider_id": "watchtower",
       "relation": "data",
       "to": "watchtower::mail_forwarder"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower::src_linear",
+      "id": "watchtower::edge.src_linear.linear_collect.data",
+      "label": "15분 read-only pull",
+      "layer": "subsystem",
+      "provider_id": "watchtower",
+      "relation": "data",
+      "to": "watchtower::linear_collect"
     },
     {
       "evidence_mode": "structural_only",
@@ -11884,6 +12004,39 @@
     },
     {
       "diagnostic_state": "validator_backed",
+      "group": "백업",
+      "id": "watchtower::backup_agent_runtime",
+      "kind": "worker",
+      "label": "에이전트 런타임 백업",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "백업",
+      "id": "watchtower::backup_buzz_server",
+      "kind": "worker",
+      "label": "Buzz 서버 백업",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "수집",
+      "id": "watchtower::buzz_collect",
+      "kind": "worker",
+      "label": "Buzz 수집기",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
       "group": "관측",
       "id": "watchtower::codex_retention_report",
       "kind": "worker",
@@ -11940,6 +12093,17 @@
     {
       "diagnostic_state": "validator_backed",
       "group": "수집",
+      "id": "watchtower::linear_collect",
+      "kind": "worker",
+      "label": "Linear 수집기",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "수집",
       "id": "watchtower::local_activity",
       "kind": "worker",
       "label": "파일·로컬활동 수집기",
@@ -11972,10 +12136,32 @@
     },
     {
       "diagnostic_state": "validator_backed",
+      "group": "외부 소스",
+      "id": "watchtower::src_agent_runtime",
+      "kind": "external",
+      "label": "Hermes 런타임·Buzz 클라이언트",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
       "group": "AI 공급자 소스",
       "id": "watchtower::src_antigravity",
       "kind": "external",
       "label": "Antigravity conversation DB",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "외부 소스",
+      "id": "watchtower::src_buzz",
+      "kind": "external",
+      "label": "Buzz relay",
       "layer": "subsystem",
       "parent_id": null,
       "provider_id": "watchtower",
@@ -12028,6 +12214,17 @@
     {
       "diagnostic_state": "validator_backed",
       "group": "외부 소스",
+      "id": "watchtower::src_linear",
+      "kind": "external",
+      "label": "Linear API",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "외부 소스",
       "id": "watchtower::src_onedrive",
       "kind": "external",
       "label": "OneDrive worksite",
@@ -12064,6 +12261,39 @@
       "id": "watchtower::store_activity_outbox",
       "kind": "store",
       "label": "파일·활동 delta outbox",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "백업",
+      "id": "watchtower::store_backup_generations",
+      "kind": "store",
+      "label": "백업 세대",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "데이터 평면",
+      "id": "watchtower::store_buzz_custody",
+      "kind": "store",
+      "label": "Buzz custody",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "데이터 평면",
+      "id": "watchtower::store_linear_custody",
+      "kind": "store",
+      "label": "Linear custody",
       "layer": "subsystem",
       "parent_id": null,
       "provider_id": "watchtower",
@@ -22704,6 +22934,60 @@
       "edges": [
         {
           "evidence_mode": "structural_only",
+          "from": "backup_agent_runtime",
+          "id": "edge.backup_agent_runtime.store_backup_generations.data",
+          "label": "세대 적재",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "store_backup_generations"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "backup_agent_runtime",
+          "id": "edge.backup_agent_runtime.watchtower_self.control",
+          "label": "상태 관찰",
+          "layer": "subsystem",
+          "relation": "control",
+          "to": "watchtower_self"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "backup_buzz_server",
+          "id": "edge.backup_buzz_server.store_backup_generations.data",
+          "label": "세대 적재",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "store_backup_generations"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "backup_buzz_server",
+          "id": "edge.backup_buzz_server.watchtower_self.control",
+          "label": "상태 관찰",
+          "layer": "subsystem",
+          "relation": "control",
+          "to": "watchtower_self"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "buzz_collect",
+          "id": "edge.buzz_collect.store_buzz_custody.data",
+          "label": "custody append",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "store_buzz_custody"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "buzz_collect",
+          "id": "edge.buzz_collect.watchtower_self.control",
+          "label": "상태 관찰",
+          "layer": "subsystem",
+          "relation": "control",
+          "to": "watchtower_self"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "codex_retention_report",
           "id": "edge.codex_retention_report.consumer_board.data",
           "label": "보존 스냅샷",
@@ -22751,6 +23035,24 @@
           "evidence_mode": "structural_only",
           "from": "ingress_supervisor",
           "id": "edge.ingress_supervisor.watchtower_self.control",
+          "label": "상태 관찰",
+          "layer": "subsystem",
+          "relation": "control",
+          "to": "watchtower_self"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "linear_collect",
+          "id": "edge.linear_collect.store_linear_custody.data",
+          "label": "custody append",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "store_linear_custody"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "linear_collect",
+          "id": "edge.linear_collect.watchtower_self.control",
           "label": "상태 관찰",
           "layer": "subsystem",
           "relation": "control",
@@ -22812,12 +23114,39 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "src_agent_runtime",
+          "id": "edge.src_agent_runtime.backup_agent_runtime.data",
+          "label": "일 1회 트리·DB 스냅샷",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "backup_agent_runtime"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "src_antigravity",
           "id": "edge.src_antigravity.usage_antigravity_collector.data",
           "label": "scheduled local read",
           "layer": "subsystem",
           "relation": "data",
           "to": "usage_antigravity_collector"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "src_buzz",
+          "id": "edge.src_buzz.backup_buzz_server.data",
+          "label": "일 1회 서버 백업",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "backup_buzz_server"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "src_buzz",
+          "id": "edge.src_buzz.buzz_collect.data",
+          "label": "15분 read-only export",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "buzz_collect"
         },
         {
           "evidence_mode": "structural_only",
@@ -22854,6 +23183,15 @@
           "layer": "subsystem",
           "relation": "data",
           "to": "mail_forwarder"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "src_linear",
+          "id": "edge.src_linear.linear_collect.data",
+          "label": "15분 read-only pull",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "linear_collect"
         },
         {
           "evidence_mode": "structural_only",
@@ -23031,6 +23369,36 @@
       "nodes": [
         {
           "diagnostic_state": "validator_backed",
+          "group": "백업",
+          "id": "backup_agent_runtime",
+          "kind": "worker",
+          "label": "에이전트 런타임 백업",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "백업",
+          "id": "backup_buzz_server",
+          "kind": "worker",
+          "label": "Buzz 서버 백업",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "수집",
+          "id": "buzz_collect",
+          "kind": "worker",
+          "label": "Buzz 수집기",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
           "group": "관측",
           "id": "codex_retention_report",
           "kind": "worker",
@@ -23082,6 +23450,16 @@
         {
           "diagnostic_state": "validator_backed",
           "group": "수집",
+          "id": "linear_collect",
+          "kind": "worker",
+          "label": "Linear 수집기",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "수집",
           "id": "local_activity",
           "kind": "worker",
           "label": "파일·로컬활동 수집기",
@@ -23111,10 +23489,30 @@
         },
         {
           "diagnostic_state": "validator_backed",
+          "group": "외부 소스",
+          "id": "src_agent_runtime",
+          "kind": "external",
+          "label": "Hermes 런타임·Buzz 클라이언트",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
           "group": "AI 공급자 소스",
           "id": "src_antigravity",
           "kind": "external",
           "label": "Antigravity conversation DB",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "외부 소스",
+          "id": "src_buzz",
+          "kind": "external",
+          "label": "Buzz relay",
           "layer": "subsystem",
           "parent_id": null,
           "repair_state": "none"
@@ -23162,6 +23560,16 @@
         {
           "diagnostic_state": "validator_backed",
           "group": "외부 소스",
+          "id": "src_linear",
+          "kind": "external",
+          "label": "Linear API",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "외부 소스",
           "id": "src_onedrive",
           "kind": "external",
           "label": "OneDrive worksite",
@@ -23195,6 +23603,36 @@
           "id": "store_activity_outbox",
           "kind": "store",
           "label": "파일·활동 delta outbox",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "백업",
+          "id": "store_backup_generations",
+          "kind": "store",
+          "label": "백업 세대",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "데이터 평면",
+          "id": "store_buzz_custody",
+          "kind": "store",
+          "label": "Buzz custody",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "데이터 평면",
+          "id": "store_linear_custody",
+          "kind": "store",
+          "label": "Linear custody",
           "layer": "subsystem",
           "parent_id": null,
           "repair_state": "none"
@@ -23316,7 +23754,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "94295ffa241917e6e552c299a483f9606d7041fe1c2ca51d1ef667788b82a393",
+        "digest": "e8233bdf53d4183a54be2ca7afbdca4942901eb16b7b85821e6298e27a4570b3",
         "revision": "watchtower_topology.v1",
         "schema_version": "soulforge.watchtower.topology.v1",
         "source_id": "watchtower_topology_source"
@@ -23463,13 +23901,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "0e6f3de84825220cc04d08befa6c3ab42b972adb87672051b8ed0233748060e3",
+  "source_set_digest": "0eba506405d05184ec9a75a874ccca53ee5d0f8e4a1abadad9659684fb98978b",
   "summary": {
-    "edge_count": 902,
-    "node_count": 292,
+    "edge_count": 914,
+    "node_count": 302,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "e75717c9374651d4184a16f2df7b4d61ba48f50434eaf736f1c32d114e6e9153"
+  "topology_digest": "a0cbe559861d78b4740d83af1ff7e1f453e0b9eca9363560aeefc504d46ab7dd"
 }
