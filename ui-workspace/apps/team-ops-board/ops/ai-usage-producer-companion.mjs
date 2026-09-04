@@ -862,7 +862,11 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
     : null;
   const commands = [
     lifecycleArgs,
-    [cli, "collect", "--project-root", projectRoot, "--state-root", stateRoot, "--apply"],
+    // Bounded like its two siblings below. Unbounded, this sweep grows with the
+    // whole session history until it exceeds `childOptions`'s shared buffer -
+    // which is exactly how this lane died on 2026-09-02 while Claude and
+    // Antigravity, both bounded, stayed healthy.
+    [cli, "collect", "--project-root", projectRoot, "--state-root", stateRoot, "--max-age-days", "2", "--apply"],
     [cli, "collect-claude", "--state-root", stateRoot, "--max-age-days", "2", "--apply"],
     [cli, "collect-antigravity", "--state-root", stateRoot, "--max-age-days", "2", "--apply"],
   ].filter(Boolean);

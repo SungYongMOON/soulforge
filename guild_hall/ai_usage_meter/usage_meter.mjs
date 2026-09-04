@@ -1445,10 +1445,35 @@ async function walk(root, predicate, output = []) {
   return output;
 }
 
-export async function findCodexSessionFiles(sessionsRoot) {
-  return walk(path.resolve(sessionsRoot), (file) => (
+// `maxAgeDays` is optional and bounds the sweep by file mtime. Without it this
+// walk returns every rollout ever written, so the collector's output grows
+// without limit while its Claude and Antigravity siblings stay flat at two days
+// - which is why only the Codex lane eventually exceeded the producer's shared
+// child buffer and died with ERR_CHILD_PROCESS_STDIO_MAXBUFFER on 2026-09-02.
+// A bound is the fix; a larger buffer would only move the date.
+//
+// Bounding is not free: a bounded sweep can no longer claim it saw the whole
+// sessions root, so the caller must drop its authoritative-coverage claim when
+// it passes one. Silently under-reporting while still claiming completeness
+// would be worse than the crash.
+export async function findCodexSessionFiles(sessionsRoot, { maxAgeDays = null, now = Date.now } = {}) {
+  const files = await walk(path.resolve(sessionsRoot), (file) => (
     path.basename(file).startsWith("rollout-") && file.endsWith(".jsonl")
   ));
+  if (!Number.isSafeInteger(maxAgeDays) || maxAgeDays <= 0) return files;
+  const cutoff = (typeof now === "function" ? now() : now) - (maxAgeDays * 86400000);
+  const kept = [];
+  for (const file of files) {
+    try {
+      const info = await stat(file);
+      if (info.mtimeMs >= cutoff) kept.push(file);
+    } catch {
+      // An unreadable entry is kept rather than dropped: the sweep must not
+      // silently shrink because a file could not be stat'ed.
+      kept.push(file);
+    }
+  }
+  return kept;
 }
 
 export async function findSessionFileById(sessionsRoot, sessionId) {

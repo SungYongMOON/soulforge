@@ -2281,3 +2281,42 @@ test("regression: isolated persistence preserves conflicted pending files and co
     rm(state, { recursive: true, force: true }),
   ]);
 });
+
+test("findCodexSessionFiles bounds the sweep by age only when asked", async () => {
+  const { findCodexSessionFiles } = await import("./usage_meter.mjs");
+  const root = await mkdtemp(path.join(os.tmpdir(), "sf-codex-age-"));
+  try {
+    const now = Date.parse("2026-09-04T00:00:00.000Z");
+    const day = 86400000;
+    const files = [
+      ["rollout-fresh-aaaaaaaa.jsonl", now - day],          // 1일 전
+      ["rollout-edge-bbbbbbbb.jsonl", now - (2 * day) + 1000], // 경계 안쪽
+      ["rollout-old-cccccccc.jsonl", now - (30 * day)],     // 30일 전
+    ];
+    for (const [name, mtime] of files) {
+      const file = path.join(root, name);
+      await writeFile(file, "{}\n", "utf8");
+      await utimes(file, new Date(mtime), new Date(mtime));
+    }
+    // 이름 규칙에 맞지 않는 파일은 나이와 무관하게 애초에 대상이 아니다.
+    await writeFile(path.join(root, "notes.txt"), "x", "utf8");
+
+    const unbounded = await findCodexSessionFiles(root);
+    assert.equal(unbounded.length, 3, "제한이 없으면 전부 돌려준다");
+
+    const bounded = await findCodexSessionFiles(root, { maxAgeDays: 2, now });
+    assert.deepEqual(
+      bounded.map((file) => path.basename(file)).sort(),
+      ["rollout-edge-bbbbbbbb.jsonl", "rollout-fresh-aaaaaaaa.jsonl"],
+      "2일 창 밖의 rollout 은 빠지고 경계 안쪽은 남는다",
+    );
+
+    // 0 과 음수는 제한으로 치지 않는다: 실수로 전체 수집이 꺼지면 안 된다.
+    for (const maxAgeDays of [0, -1, null, "2"]) {
+      const result = await findCodexSessionFiles(root, { maxAgeDays, now });
+      assert.equal(result.length, 3, `maxAgeDays=${maxAgeDays} 는 제한이 아니다`);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

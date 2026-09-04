@@ -456,6 +456,15 @@ async function evidenceRecordCommand(options) {
 
 async function collectCommand(options) {
   const sessionsRoot = path.resolve(value(options, "sessions-root", path.join(defaultCodexRoot(), "sessions")));
+  // Optional, and unset by default so an operator asking for everything still
+  // gets everything. The scheduled producer passes one; see the note on
+  // findCodexSessionFiles for why the unbounded sweep eventually fails.
+  // `value` returns null, not undefined, when a flag is absent - so the absent
+  // case must be tested against null or an unbounded sweep silently becomes a
+  // bounded one and loses its authoritative-coverage claim.
+  const maxAgeDays = values(options, "max-age-days").length === 0
+    ? null
+    : positiveIntegerOption(options, "max-age-days", 0);
   const explicitFiles = values(options, "session-file").map((item) => path.resolve(String(item)));
   const scopedThreadIds = values(options, "thread-id").map(String);
   const sessionFiles = explicitFiles.length
@@ -464,12 +473,16 @@ async function collectCommand(options) {
       ? [...new Set((await Promise.all(scopedThreadIds.map((threadId) => (
         findSessionFilesById(sessionsRoot, threadId)
       )))).flat())].sort((left, right) => left.localeCompare(right, "en"))
-      : await findCodexSessionFiles(sessionsRoot);
+      : await findCodexSessionFiles(sessionsRoot, { maxAgeDays });
   const scopedFilterNames = [
     "organization-id", "team-id", "project-id", "work-id", "thread-id", "turn-id",
     "model-id", "agent-id",
   ];
+  // A bounded sweep is a scoped request, not a full read of the sessions root.
+  // Keeping the authoritative claim while bounding the walk would report a
+  // shrinking window as complete coverage.
   const authoritativeCoverage = explicitFiles.length === 0
+    && maxAgeDays === null
     && scopedFilterNames.every((name) => values(options, name).length === 0)
     && !value(options, "from")
     && !value(options, "to");
@@ -1112,6 +1125,7 @@ function help() {
       "evidence-record: --kind work_run|quality_result|tool_event|replay_receipt --input <JSON path> [--state-root <path> --apply]",
       "dashboard: --output <HTML path> (defaults to <state-root>/dashboard.html)",
       "csv: --output <CSV path> [--group-by work]",
+      "collect: [--sessions-root <path>] [--max-age-days N] [--state-root <path>] [--apply]",
       "collect-claude: [--projects-root <Claude projects directory>] [--max-age-days N] [--state-root <path>] [--apply]",
       "collect-antigravity: [--cli-root <Antigravity CLI directory>] [--max-age-days N] [--state-root <path>] [--apply]",
       "backfill-plan: --state-root <local state directory> [--from <ISO timestamp>] [--to <ISO timestamp>] (always dry-run)",

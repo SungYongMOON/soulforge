@@ -1,5 +1,33 @@
 # CHANGELOG
 
+## 2026-09-04 - Bound the Codex usage sweep by age
+
+- The Codex usage lane died on 2026-09-02 with `ERR_CHILD_PROCESS_STDIO_MAXBUFFER`
+  and had been dead since. The cause is visible in the producer's own command list:
+  `collect-claude` and `collect-antigravity` are both bounded by `--max-age-days 2`,
+  while the Codex `collect` command took no age bound and supported none. Its output
+  therefore grew with the whole session history while its two siblings stayed flat,
+  until it exceeded the 4 MiB buffer they all share. Both siblings are healthy and
+  only Codex died, which is the asymmetry that identifies the cause.
+- `findCodexSessionFiles` now takes an optional `maxAgeDays` and filters by file
+  mtime; the scheduled producer passes `--max-age-days 2`, the same window its
+  siblings use. A larger buffer was rejected as the fix because it would only move
+  the date.
+- Bounding costs a claim, and the claim is dropped rather than quietly kept: a
+  bounded sweep is a scoped request, so `authoritative_latest_updated` is now false
+  whenever `--max-age-days` is passed. Reporting a shrinking window as full coverage
+  would be worse than the crash it replaces.
+- The flag stays unset by default, so an operator asking for everything still gets
+  everything. A file that cannot be `stat`'ed is kept rather than dropped - the
+  sweep must not silently shrink because of an unreadable entry - and `0`, negative
+  values and non-integers are not treated as bounds, so a malformed argument cannot
+  disable collection.
+- Regression test pins all of it: unbounded returns every rollout, a two-day bound
+  keeps the boundary file and drops the thirty-day one, and `0`/`-1`/`null`/`"2"`
+  are each rejected as bounds.
+- Validation run: `validate:ai-usage-meter` 155 pass / 0 fail (154 before this
+  change), `validate:path-policy` 0 violations on 4 changed files.
+
 ## 2026-09-04 - Raise the usage-meter git read out of a 4 KiB buffer
 
 - `gitOutput` in `guild_hall/ai_usage_meter/cli.mjs` ran `git rev-parse` under
