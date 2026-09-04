@@ -1,5 +1,40 @@
 # CHANGELOG
 
+## 2026-09-04 - A write boundary an agent packet cannot declare its way past
+
+- `dev_worker` bounds an agent by its packet's own `allowed_write_paths`. That is a
+  per-packet fence, and a fence a packet declares is a fence a packet can move:
+  nothing stopped a packet from naming the very files that decide what the agent is
+  allowed to do. No bad intent is needed for that - "the check keeps failing" is the
+  ordinary road to a widened fence, and an agent measured by green checks has every
+  reason to take it.
+- `guild_hall/shared/agent_write_boundary.mjs` is a tracked deny list checked **in
+  addition to** `allowed_write_paths`, never instead of it, and no packet can
+  satisfy it by declaring anything. It covers the recovery action allowlist, the
+  diagnostic table, the circuit breaker, the alert policy, the path registry, the
+  state-root resolver, the auto-approval policy, the packet eligibility gate, the
+  agent's own prompt and schedule, the validators, `AGENTS.md`, the execution
+  contract, `private-state/` and CI workflows - each with its reason recorded beside
+  it.
+- It lives in `guild_hall/shared/` deliberately, because `guild_hall/dev_worker/` is
+  one of the auto-approval safe prefixes. A deny list the agent may auto-approve
+  edits to is not a deny list, and the list includes itself and the validators for
+  the same reason.
+- Two ways past it are closed by test. A wide path swallows what it contains, so
+  `guild_hall/` and `.` are denied for containing denied entries rather than
+  matching one. And spelling does not help: backslashes, a leading `./` and
+  surrounding whitespace all normalise to the same path.
+- Owner approval does not open a denied path, and the reason is reported ahead of
+  the approval gate to make that explicit. Approval widens which work may proceed,
+  not where an agent may write.
+- Enforced in code at both entry points - `normalizeTaskPacket` marks the packet
+  ineligible with `denied_write_paths:<paths>`, and the auto-approval path refuses
+  before the safe-list is consulted so a denied path that also sits under a safe
+  prefix cannot slip through. The prompt is not the enforcement; it never was.
+- Validation run: `validate:dev-worker` 31 pass / 0 fail (18 before, now covering
+  the boundary suite and the archive suite too), module-operability 0 violations,
+  path-policy 0 violations on 6 changed files, canon 0 errors.
+
 ## 2026-09-04 - What the facilities bot still needs, against what dev_worker already is
 
 - Owner settled the supervising bot's character: a facilities manager. It fixes the

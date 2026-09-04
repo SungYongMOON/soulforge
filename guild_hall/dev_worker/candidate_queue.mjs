@@ -5,6 +5,8 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+
+import { findDeniedAgentWritePaths } from "../shared/agent_write_boundary.mjs";
 import { normalizeRepoPath, pathExists } from "../shared/io.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -459,6 +461,16 @@ function evaluateAutoApproval(raw, candidate, missing) {
     return autoApprovalResult(false, `risk_level_not_allowed:${riskLevel || "missing"}`, riskLevel);
   }
 
+  // The global boundary is checked before the auto-approval safe-list, so a
+  // candidate cannot be auto-approved into a denied path even if that path also
+  // happens to sit under a safe prefix.
+  const deniedHits = findDeniedAgentWritePaths(candidate.allowed_write_paths);
+  if (deniedHits.length > 0) {
+    return {
+      approved: false,
+      reason: `denied_write_paths:${[...new Set(deniedHits.map((hit) => hit.denied))].sort().join(",")}`,
+    };
+  }
   const unsafePath = findUnsafeAutoApprovalPath(raw?.allowed_write_paths, candidate.allowed_write_paths);
   if (unsafePath) {
     return autoApprovalResult(false, `write_path_not_allowed:${unsafePath}`, riskLevel);

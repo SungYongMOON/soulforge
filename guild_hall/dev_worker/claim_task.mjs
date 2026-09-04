@@ -5,6 +5,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
+import { findDeniedAgentWritePaths } from "../shared/agent_write_boundary.mjs";
 import {
   appendActivityEvent,
   defaultActivityRoot,
@@ -59,19 +60,30 @@ export function normalizeTaskPacket(raw, source) {
   if (allowedWritePaths.length === 0) {
     missing.push("allowed_write_paths");
   }
+  // The packet declares its own fence, so the fence alone cannot protect the
+  // files that decide what an agent may do. This check is in addition to
+  // `allowed_write_paths`, never instead of it, and no packet can satisfy it by
+  // declaring anything - which is the point.
+  const deniedWritePaths = findDeniedAgentWritePaths(allowedWritePaths);
   if (acceptanceChecks.length === 0) {
     missing.push("acceptance_checks");
   }
 
   const approvalBlocked = approvalRequired && !approval.approved;
-  const eligible = missing.length === 0 && ELIGIBLE_STATUSES.has(status) && !approvalBlocked;
+  const eligible = missing.length === 0 && deniedWritePaths.length === 0
+    && ELIGIBLE_STATUSES.has(status) && !approvalBlocked;
+  // Reported before the approval gate on purpose: an approved packet that reaches
+  // a denied path is still refused. Owner approval widens what work may proceed,
+  // not what an agent may write.
   const ineligibleReason = eligible
     ? null
     : missing.length > 0
       ? `missing_required_fields:${missing.join(",")}`
-      : !ELIGIBLE_STATUSES.has(status)
-        ? `status_not_eligible:${status || "missing"}`
-        : "owner_approval_required";
+      : deniedWritePaths.length > 0
+        ? `denied_write_paths:${[...new Set(deniedWritePaths.map((hit) => hit.denied))].sort().join(",")}`
+        : !ELIGIBLE_STATUSES.has(status)
+          ? `status_not_eligible:${status || "missing"}`
+          : "owner_approval_required";
 
   return {
     ...source,
@@ -84,6 +96,7 @@ export function normalizeTaskPacket(raw, source) {
     summary,
     branch_slug: branchSlug,
     allowed_write_paths: allowedWritePaths,
+    denied_write_paths: deniedWritePaths,
     acceptance_checks: acceptanceChecks,
     stop_conditions: normalizeStringArray(raw?.stop_conditions),
     draft_branch_allowed: parseBoolean(raw?.draft_branch_allowed, false),

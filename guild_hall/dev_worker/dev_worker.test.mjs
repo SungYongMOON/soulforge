@@ -1138,3 +1138,69 @@ test("candidate queue auto-approval rejects boundary-bypass candidates", async (
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("자기 울타리를 쓰기 대상으로 삼은 packet 은 거부된다", () => {
+  const source = {
+    source_kind: "mission",
+    source_order: 10,
+    packet_path: "packet.yaml",
+    packet_ref: ".mission/sample/dev_worker_request.yaml",
+  };
+  const base = {
+    schema_version: "soulforge.dev_worker_request.v0",
+    task_id: "widen-the-fence",
+    status: "ready",
+    summary: "Fix the failing check.",
+    acceptance_checks: ["npm run validate:canon"],
+  };
+
+  // 나쁜 의도가 필요 없다. "검사가 자꾸 막힌다" 가 울타리를 넓히는 흔한 경로다.
+  for (const requested of [
+    "guild_hall/watchtower/health_recovery_coordinator.mjs",  // 자기 복구 허용 목록
+    "guild_hall/dev_worker/candidate_queue.mjs",              // 자기 승인 정책
+    "guild_hall/validate/",                                   // 위반을 판정하는 검사기
+    "guild_hall/shared/agent_write_boundary.mjs",             // 이 목록 자신
+    "AGENTS.md",                                              // 규칙 자체
+    "guild_hall/",                                            // 위 전부를 삼키는 넓은 경로
+  ]) {
+    const task = normalizeTaskPacket({ ...base, allowed_write_paths: [requested] }, source);
+    assert.equal(task.eligible, false, requested);
+    assert.match(task.ineligible_reason, /^denied_write_paths:/u, requested);
+    assert.ok(task.denied_write_paths.length > 0);
+  }
+});
+
+test("오너가 승인해도 금지 경로는 열리지 않는다", () => {
+  // 승인은 어떤 일을 진행해도 되는지를 넓히는 것이지,
+  // 에이전트가 어디에 쓸 수 있는지를 넓히는 것이 아니다.
+  const task = normalizeTaskPacket(
+    {
+      schema_version: "soulforge.dev_worker_request.v0",
+      task_id: "approved-but-denied",
+      status: "ready",
+      summary: "Owner approved this.",
+      allowed_write_paths: ["guild_hall/path_registry/src/path_registry_core.mjs"],
+      acceptance_checks: ["npm run validate:canon"],
+      owner_approval: { required: true, approved: true },
+    },
+    { source_kind: "mission", source_order: 10, packet_path: "p.yaml", packet_ref: ".mission/s/dev_worker_request.yaml" },
+  );
+  assert.equal(task.eligible, false);
+  assert.match(task.ineligible_reason, /^denied_write_paths:/u);
+});
+
+test("경계 밖 packet 은 그대로 통과한다", () => {
+  const task = normalizeTaskPacket(
+    {
+      schema_version: "soulforge.dev_worker_request.v0",
+      task_id: "ordinary-work",
+      status: "ready",
+      summary: "Do a bounded thing.",
+      allowed_write_paths: ["guild_hall/watchtower/topology.mjs", "CHANGELOG.md"],
+      acceptance_checks: ["npm run validate:canon"],
+    },
+    { source_kind: "mission", source_order: 10, packet_path: "p.yaml", packet_ref: ".mission/s/dev_worker_request.yaml" },
+  );
+  assert.equal(task.eligible, true);
+  assert.deepEqual(task.denied_write_paths, []);
+});
