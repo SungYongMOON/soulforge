@@ -78,6 +78,23 @@ const BINDING_FIELDS = Object.freeze([
   "relay",
   "cursor",
 ]);
+// `control_root` is optional and exists for one reason: the target physical
+// architecture splits the data plane from the control plane into sibling roots
+// (`<TARGET_SOULFORGE_ROOT>/data` and `/control`), while this lane was built
+// against the legacy shape where custody and lane state shared one private
+// root. Plan 17 makes that split explicit - the target data root is an
+// ERP-facing catalog view and "not a receipt authority", and source-native
+// cursors stay with their owner - so a lane whose state root must be a strict
+// child of its private root cannot express the target at all: covering both
+// planes would force `private_root` up to `<TARGET_SOULFORGE_ROOT>`, which
+// contains the repository and runtime roots and therefore fails closed on
+// `private_forbidden_overlap`.
+//
+// When absent, every path rule below is byte-identical to before: the state
+// root stays a strict child of the private root. When present, the state root
+// is bound to the control root instead, and the control root inherits the same
+// disjointness the private root has always had.
+const BINDING_OPTIONAL_FIELDS = Object.freeze(["control_root"]);
 const WRITER_FIELDS = Object.freeze(["authority_id", "epoch"]);
 const RELAY_FIELDS = Object.freeze([
   "relay_key",
@@ -286,7 +303,11 @@ export function custodyRootFor(binding) {
 }
 
 export function validateBuzzCollectBinding(binding) {
-  exactKeys(binding, BINDING_FIELDS, "$binding");
+  exactKeys(
+    binding,
+    Object.hasOwn(binding, "control_root") ? [...BINDING_FIELDS, ...BINDING_OPTIONAL_FIELDS] : BINDING_FIELDS,
+    "$binding",
+  );
   if (binding.schema_version !== BUZZ_COLLECT_BINDING_SCHEMA_VERSION) {
     fail("binding_schema_invalid", "$binding.schema_version", "Unexpected binding schema version");
   }
@@ -296,7 +317,15 @@ export function validateBuzzCollectBinding(binding) {
   safeRef(binding.lane_id, "$binding.lane_id");
   absolutePath(binding.private_root, "$binding.private_root");
   absolutePath(binding.state_root, "$binding.state_root");
-  if (!isPathWithin(binding.private_root, binding.state_root, true)) {
+  if (Object.hasOwn(binding, "control_root")) {
+    absolutePath(binding.control_root, "$binding.control_root");
+    if (pathsOverlap(binding.control_root, binding.private_root)) {
+      fail("control_private_overlap", "$binding.control_root", "Control root must be disjoint from the private root");
+    }
+    if (!isPathWithin(binding.control_root, binding.state_root, true)) {
+      fail("state_root_not_strict_control_child", "$binding.state_root", "State root must be inside control root");
+    }
+  } else if (!isPathWithin(binding.private_root, binding.state_root, true)) {
     fail("state_root_not_strict_private_child", "$binding.state_root", "State root must be inside private root");
   }
   if (!Array.isArray(binding.forbidden_roots)
@@ -312,7 +341,8 @@ export function validateBuzzCollectBinding(binding) {
       fail("duplicate_forbidden_root", `$binding.forbidden_roots[${index}]`, "Forbidden roots must be unique");
     }
     forbidden.add(normalized);
-    if (pathsOverlap(binding.private_root, value) || pathsOverlap(binding.state_root, value)) {
+    if (pathsOverlap(binding.private_root, value) || pathsOverlap(binding.state_root, value)
+      || (Object.hasOwn(binding, "control_root") && pathsOverlap(binding.control_root, value))) {
       fail("private_forbidden_overlap", "$binding.private_root", "Private roots must be disjoint from forbidden roots");
     }
   });
@@ -536,7 +566,19 @@ export async function resolveLaneContext({
     fail("binding_outside_private_root", "$binding_path", "Binding escaped private root");
   }
   const canonicalStateRoot = await canonicalPlannedDirectory(binding.state_root, "$binding.state_root");
-  if (!isPathWithin(canonicalPrivateRoot, canonicalStateRoot, true)) {
+  // Realpath is re-resolved here rather than trusted from validation, so a
+  // junction or reparse point cannot move the state root across planes between
+  // the schema check and the run.
+  let canonicalControlRoot = null;
+  if (Object.hasOwn(binding, "control_root")) {
+    canonicalControlRoot = await canonicalExistingDirectory(binding.control_root, "$binding.control_root");
+    if (pathsOverlap(canonicalControlRoot, canonicalPrivateRoot)) {
+      fail("control_private_overlap", "$binding.control_root", "Control root must be disjoint from the private root");
+    }
+    if (!isPathWithin(canonicalControlRoot, canonicalStateRoot, true)) {
+      fail("state_root_not_strict_control_child", "$binding.state_root", "State root escaped control root");
+    }
+  } else if (!isPathWithin(canonicalPrivateRoot, canonicalStateRoot, true)) {
     fail("state_root_not_strict_private_child", "$binding.state_root", "State root escaped private root");
   }
   if (registeredStateRoot !== undefined && !samePath(registeredStateRoot, canonicalStateRoot)) {
@@ -562,7 +604,8 @@ export async function resolveLaneContext({
     if (pathsOverlap(canonicalPrivateRoot, root)
       || pathsOverlap(canonicalStateRoot, root)
       || pathsOverlap(canonicalCustodyRoot, root)
-      || pathsOverlap(provisional.path, root)) {
+      || pathsOverlap(provisional.path, root)
+      || (canonicalControlRoot !== null && pathsOverlap(canonicalControlRoot, root))) {
       fail("private_public_runtime_overlap", target, "Private binding, state and custody must be disjoint");
     }
     if (!binding.forbidden_roots.some((entry) => samePath(entry, root))) {

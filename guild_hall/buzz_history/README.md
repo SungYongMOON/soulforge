@@ -80,7 +80,8 @@ Exact keys, all required. **There is no `credentials` key.**
 | `lane_id` | opaque safe ref, e.g. `hpp-buzz-collect` |
 | `private_root` | absolute; must exist; disjoint from every forbidden root |
 | `data_root` | absolute strict child of `private_root`; the Buzz custody root (`<data_root>/<relay_key>/…`); disjoint from `state_root` and every forbidden root |
-| `state_root` | absolute strict child of `private_root`; disjoint from `data_root` |
+| `state_root` | absolute strict child of `private_root` - or of `control_root` when that key is present; disjoint from `data_root` |
+| `control_root` | **optional**; absolute; must exist; disjoint from `private_root` and from every forbidden root. Present only for the split-plane layout, where custody lives under the data root and lane state under the sibling control root. Absent, every path rule is exactly as before |
 | `forbidden_roots` | >= 2 unique absolute roots; must contain the exact repository root and runtime root passed at run time |
 | `writer.authority_id`, `writer.epoch` | safe ref + positive integer; persisted state is fenced to both |
 | `relay.relay_key` | slug naming the custody subfolder, e.g. `relay-main`; one private root can hold several relays without mixing |
@@ -94,7 +95,7 @@ Exact keys, all required. **There is no `credentials` key.**
 | `cursor.initial_received_at` | `null` (from the beginning of the relay) or the first `received_at` lower bound |
 | `cursor.row_limit` | 1..50000 rows per stream per run |
 | `cursor.timeout_ms` | 1000..300000 for the single export process; must not exceed `cursor.run_deadline_ms` |
-| `cursor.run_deadline_ms` | optional (the only optional key); 1000..540000, default 480000 (8 minutes). It must stay below the registrar's `PT10M` `ExecutionTimeLimit` so the receipt/state/health/lease writes always finish inside the task limit |
+| `cursor.run_deadline_ms` | optional; 1000..540000, default 480000 (8 minutes). It must stay below the registrar's `PT10M` `ExecutionTimeLimit` so the receipt/state/health/lease writes always finish inside the task limit |
 
 The tracked public-safe sample is
 `docs/architecture/workspace/examples/buzz_collect_lane/buzz_collect.binding.example.json`;

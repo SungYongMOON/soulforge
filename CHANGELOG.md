@@ -1,5 +1,48 @@
 # CHANGELOG
 
+## 2026-09-04 - Let the Buzz lane bind its state root to a control root
+
+- Owner decision: the data root moves to its target position under
+  `<TARGET_SOULFORGE_ROOT>`, one lane at a time. Preparing the first lane surfaced
+  a contract conflict that had to be fixed before any path could move.
+- The conflict: the target physical architecture splits the data plane from the
+  control plane into sibling roots, and plan 17 is explicit that the target data
+  root is an ERP-facing catalog view, "not a receipt authority", with source-native
+  cursors staying with their owner. Lane state - lease, cursor, health, receipts -
+  therefore belongs under `control`, while custody belongs under
+  `data/10_SOURCE_CAPTURE_CATALOG/buzz`, a slot that already exists and is empty.
+  But the lane required `state_root` to be a strict child of `private_root`, so
+  covering both planes would force `private_root` up to `<TARGET_SOULFORGE_ROOT>`,
+  which contains the repository and runtime roots and fails closed on
+  `private_forbidden_overlap`. The lane was built against the legacy single-root
+  shape and could not express the target at all.
+- Adds an optional `control_root` to `soulforge.buzz_collect.binding.v1`. When it is
+  present the state root must be a strict child of it; when it is absent every path
+  rule is exactly as before, so the running binding keeps working unchanged and no
+  re-registration is forced by this commit alone.
+- The optional key does not widen any boundary. A declared control root must exist,
+  must be disjoint from the private root, and inherits the same
+  forbidden-root disjointness the private root has always had; the state root must
+  still be disjoint from the data root and from the repository and runtime roots.
+  `resolveLaneContext` re-resolves it through realpath rather than trusting the
+  schema check, so a junction cannot move the state root across planes between
+  validation and the run. Three fail-closed cases are pinned by test
+  (`control_private_overlap`, `state_root_not_strict_control_child`,
+  `private_forbidden_overlap` via the control root), plus a positive case proving a
+  state root outside the private root is accepted only because the control root
+  bounds it, and that removing the control root while keeping the split path fails.
+- The PowerShell registrar takes a matching optional `-ControlRoot` and applies the
+  same three disjointness checks before planning; without it the registrar's own
+  private-child assertion is unchanged.
+- Scope: Buzz only. The Linear lane has the same contract shape and needs the same
+  change before it can move; it is deliberately left for its own bounded slice.
+- Validation run: buzz_collect 19 pass / 1 fail, where the failure is the
+  Windows-path translation test that also fails on unmodified main@b1aa2a9d in this
+  Linux environment. path-registry 22/22, module-operability 0 violations,
+  path-policy 0 violations on 4 changed files. No binding was rewritten, no task
+  re-registered, and no byte moved. Level 3 fresh B/V not run - claim ceiling
+  validated_private.
+
 ## 2026-09-04 - Probe scaffold for the new lanes, and the W2 alerting design draft
 
 - `EXAMPLE_BINDING` in `guild_hall/watchtower/cli.mjs` now carries probe entries for

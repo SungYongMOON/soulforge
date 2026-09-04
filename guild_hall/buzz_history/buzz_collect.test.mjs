@@ -552,6 +552,37 @@ test("a filled row limit is reported, and a window that cannot advance is report
   await rm(stuck.root, { recursive: true, force: true });
 });
 
+test("an optional control root re-parents the state root without loosening any boundary", async () => {
+  const lane = await createLaneFixture();
+
+  // Absent: unchanged. The state root stays a strict child of the private root
+  // and the validated binding is byte-identical to the input.
+  assert.deepEqual(validateBuzzCollectBinding(structuredClone(lane.binding)), lane.binding);
+
+  // Present: the state root may leave the private root entirely, which is the
+  // whole point - the target architecture puts custody under the data root and
+  // lane state under the sibling control root.
+  const split = structuredClone(lane.binding);
+  split.control_root = `${lane.binding.private_root}_control`;
+  split.state_root = `${split.control_root}/buzz_history/state`;
+  const validated = validateBuzzCollectBinding(split);
+  assert.equal(validated.control_root, split.control_root);
+  assert.equal(validated.state_root, split.state_root);
+
+  // The state root is no longer inside the private root, and that is accepted
+  // only because the control root now bounds it.
+  assert.ok(!split.state_root.startsWith(`${split.private_root}/`));
+
+  // Dropping the control root while keeping the split state root fails closed
+  // rather than silently accepting an unbounded state root.
+  const orphaned = structuredClone(split);
+  delete orphaned.control_root;
+  assert.throws(
+    () => validateBuzzCollectBinding(orphaned),
+    (error) => error instanceof BuzzCollectError && error.code === "state_root_not_strict_private_child",
+  );
+});
+
 test("the binding is fail-closed on every boundary it declares", async () => {
   const lane = await createLaneFixture();
   const base = () => structuredClone(lane.binding);
@@ -593,6 +624,20 @@ test("the binding is fail-closed on every boundary it declares", async () => {
     // The scan stays as the layer that would catch it if a future key set
     // ever admitted a free-form object.
     ["exact_keys_required", (binding) => { binding.relay.signing_key = "x"; }],
+    // A declared control root must still be disjoint from the private root and
+    // from every forbidden root, and must actually parent the state root.
+    // Otherwise the optional key would be a way around the boundaries the
+    // required keys enforce.
+    ["control_private_overlap", (binding) => {
+      binding.control_root = binding.private_root;
+    }],
+    ["state_root_not_strict_control_child", (binding) => {
+      binding.control_root = `${binding.private_root}_control`;
+    }],
+    ["private_forbidden_overlap", (binding) => {
+      binding.control_root = binding.forbidden_roots[0];
+      binding.state_root = `${binding.forbidden_roots[0]}/state`;
+    }],
   ];
 
   for (const [expected, mutate] of cases) {

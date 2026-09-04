@@ -4,6 +4,10 @@ param(
   [Parameter(Mandatory = $true)][string]$RepoRoot,
   [Parameter(Mandatory = $true)][string]$PrivateRoot,
   [Parameter(Mandatory = $true)][string]$StateRoot,
+  # Optional, and only for the split-plane layout: when the state root lives
+  # under the control root instead of the private root, the registrar must be
+  # told which root bounds it. Omitted, every check below is unchanged.
+  [string]$ControlRoot,
   [Parameter(Mandatory = $true)][string]$BindingPath,
   [Parameter(Mandatory = $true)][string]$BindingSha256,
   [Parameter(Mandatory = $true)][string]$RuntimeManifestPath,
@@ -209,6 +213,9 @@ $RuntimeRoot = Resolve-CanonicalDirectory -Path $RuntimeRoot
 $RepoRoot = Resolve-CanonicalDirectory -Path $RepoRoot
 $PrivateRoot = Resolve-CanonicalDirectory -Path $PrivateRoot
 $StateRoot = Resolve-PlannedDirectory -Path $StateRoot
+if ($PSBoundParameters.ContainsKey("ControlRoot") -and $ControlRoot) {
+  $ControlRoot = Resolve-CanonicalDirectory -Path $ControlRoot
+}
 $BindingPath = Resolve-CanonicalFile -Path $BindingPath
 $RuntimeManifestPath = Resolve-CanonicalFile -Path $RuntimeManifestPath
 $NodePath = Resolve-CanonicalFile -Path $NodePath
@@ -221,7 +228,15 @@ Assert-DisjointPath -Left $PrivateRoot -Right $RuntimeRoot
 Assert-DisjointPath -Left $PrivateRoot -Right $RepoRoot
 Assert-DisjointPath -Left $StateRoot -Right $RuntimeRoot
 Assert-DisjointPath -Left $StateRoot -Right $RepoRoot
-if (-not (Test-SameOrChildPath -Parent $PrivateRoot -Candidate $StateRoot -Strict)) {
+if ($ControlRoot) {
+  Assert-DisjointPath -Left $ControlRoot -Right $RuntimeRoot
+  Assert-DisjointPath -Left $ControlRoot -Right $RepoRoot
+  Assert-DisjointPath -Left $ControlRoot -Right $PrivateRoot
+  if (-not (Test-SameOrChildPath -Parent $ControlRoot -Candidate $StateRoot -Strict)) {
+    throw "buzz collect state root must be a strict control-root child"
+  }
+}
+elseif (-not (Test-SameOrChildPath -Parent $PrivateRoot -Candidate $StateRoot -Strict)) {
   throw "buzz collect state root must be a strict private-root child"
 }
 if (-not (Test-SameOrChildPath -Parent $PrivateRoot -Candidate $BindingPath -Strict) `
