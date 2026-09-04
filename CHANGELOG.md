@@ -1,5 +1,45 @@
 # CHANGELOG
 
+## 2026-09-04 - Watchtower alert policy (the suppression half of W2)
+
+- Adds `guild_hall/watchtower/alert_policy.mjs`, a pure function between the
+  judgement and whatever delivers a message. It takes the snapshot, the prior
+  ledger and a clock, and returns the requests to send plus the next ledger. It
+  performs no I/O, opens no channel, and knows nothing about Buzz - so it lands
+  ahead of the open delivery decision without waiting on it.
+- Its subject is suppression, not transport, which is the finding the design draft
+  rests on. Watchtower judges every few minutes and a fault can last days; sending
+  per judgement would ring hundreds of times for one fault and get the channel
+  muted, leaving W2 worse than W1. The rules are therefore mostly about staying
+  quiet: fire on transition rather than on state; while the fault persists re-fire
+  on a widening 1h/4h/24h backoff and daily after that; fire on recovery only if
+  the fault was actually reported; never alert `unmonitored`.
+- The `unmonitored` rule is not a detail. It is a declaration that no probe is
+  bound, not a fault, and on a first run it would fire for every unbound node at
+  once - the fastest possible way to get the channel muted. A test pins that five
+  unmonitored nodes produce zero requests, and that neither direction across
+  `unmonitored` counts as a fault or a recovery.
+- Recovery is gated on having reported the fault. Otherwise the first message a
+  person receives is "it is fixed" about something they were never told was broken.
+- A fault that returns after recovery restarts its backoff, and a fault that
+  changes kind (`stale` to `down`) alerts immediately rather than waiting out the
+  previous backoff, because that is a different fault. `since` tracks when the node
+  entered its state, so a fault keeps its real age across a restart.
+- The ledger holds only what the rules need - last state, since, last notified,
+  notify count - and drops nodes absent from the snapshot, so a deleted node cannot
+  fire later. A corrupt or foreign-schema ledger is treated as empty rather than
+  trusted.
+- Requests carry no path and no secret: reason codes are filtered to a safe shape
+  and capped, and the rendered line is plain Korean with the machine codes left in
+  the request for the delivery receipt.
+- The behaviour test that matters most runs sixty simulated days of a permanent
+  fault at the real five-minute judgement cadence and asserts fewer than seventy
+  alerts, against the 17,280 that firing per judgement would produce.
+- Validation run: `validate:watchtower` 130 pass / 1 fail, where the failure is the
+  usage-provider test that also fails on unmodified `main@b1aa2a9d`;
+  `alert_policy` 12/12; module-operability 0 violations; path-policy 0 violations.
+  Delivery remains unbuilt and the W2 gate stays closed.
+
 ## 2026-09-04 - W2 alerting goes to Buzz, not Telegram
 
 - Owner chose Buzz as the alert channel. The draft is updated rather than rewritten:
