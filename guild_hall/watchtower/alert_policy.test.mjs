@@ -177,3 +177,85 @@ test("the rendered line is plain Korean with no code or path", () => {
 test("default backoff is the documented 1h / 4h / 24h", () => {
   assert.deepEqual([...DEFAULT_BACKOFF_SECONDS], [3600, 14400, 86400]);
 });
+
+test("a fault self-repair is handling stays quiet; one it refuses alerts at once", () => {
+  const both = snap(["a", "down"], ["b", "down"]);
+  const out = planAlerts({
+    snapshot: both,
+    ledger: createEmptyAlertLedger(),
+    now: T0,
+    recovery: {
+      a: { disposition: "bounded_retry" },        // 코디네이터가 처리 중
+      b: { disposition: "owner_action_required" }, // 사람이 필요하다고 판정
+    },
+  });
+  assert.deepEqual(out.requests.map((r) => r.node_id), ["b"]);
+  assert.equal(out.requests[0].event, "node_down");
+  assert.equal(out.requests[0].disposition, "owner_action_required");
+});
+
+test("2026-09-04 재현: owner_action_required 200건이 알림 1통이 된다", () => {
+  // 그날 실제 모양 - 노드 8개가 2시간 동안 5분마다 같은 판정을 받았다.
+  const nodes = [
+    "usage_codex_collector", "usage_claude_collector", "usage_antigravity_collector",
+    "usage_meter", "store_usage_ledger", "store_workmeta", "gate_five_field",
+    "watchtower_self",
+  ];
+  const snapshot = snap(...nodes.map((id) => [id, "stale", { age: 160000 }]));
+  const recovery = Object.fromEntries(nodes.map((id) => [id, { disposition: "owner_action_required" }]));
+
+  let ledger = createEmptyAlertLedger();
+  let now = T0;
+  const perNode = new Map(nodes.map((id) => [id, 0]));
+  let judgements = 0;
+  for (let sweep = 0; sweep < 25; sweep += 1) {       // 2시간 / 5분 = 25회차
+    const out = planAlerts({ snapshot, ledger, now, recovery });
+    judgements += snapshot.nodes.length;
+    for (const request of out.requests) perNode.set(request.node_id, perNode.get(request.node_id) + 1);
+    ledger = out.ledger;
+    now += 5 * 60_000;
+  }
+  const total = [...perNode.values()].reduce((sum, count) => sum + count, 0);
+  assert.equal(judgements, 200, "그날 실제 판정 건수와 같은 조건이다");
+  // 노드당 2통: 최초 발화 + 1시간 백오프 1회. 2시간 창이라 4시간 단계는 아직이다.
+  assert.ok([...perNode.values()].every((count) => count === 2), "노드당 2통");
+  assert.equal(total, 16, `판정 200건 -> 알림 ${total}통`);
+});
+
+test("self-repair that never succeeds becomes reportable after the grace", () => {
+  // 코디네이터가 "고칠 수 있다"고 하면서 영원히 못 고치는 경우. 밖에서 보면
+  // 건강한 것과 구분이 안 되므로, 유예를 넘기면 알린다.
+  const snapshot = snap(["a", "down"]);
+  const recovery = { a: { disposition: "auto_repairable" } };
+  let out = planAlerts({ snapshot, ledger: createEmptyAlertLedger(), now: T0, recovery });
+  assert.deepEqual(out.requests, [], "유예 안에서는 조용하다");
+
+  out = planAlerts({ snapshot, ledger: out.ledger, now: T0 + 59 * 60_000, recovery });
+  assert.deepEqual(out.requests, [], "59분에도 조용하다");
+
+  out = planAlerts({ snapshot, ledger: out.ledger, now: T0 + 61 * 60_000, recovery });
+  assert.equal(out.requests.length, 1);
+  assert.equal(out.requests[0].event, "node_repair_stalled");
+  assert.match(renderAlertText(out.requests[0]), /자동으로 고치지 못하고 있습니다/u);
+});
+
+test("missing recovery evidence alerts rather than staying silent", () => {
+  // 복구 정보가 아예 없거나 그 노드만 빠져 있으면, 조용히 있는 쪽이 아니라
+  // 알리는 쪽으로 기운다. 침묵이 증거 부재의 결과가 되면 안 된다.
+  for (const recovery of [null, {}, { other: { disposition: "auto_repairable" } }, { a: {} }]) {
+    const out = planAlerts({ snapshot: snap(["a", "down"]), ledger: createEmptyAlertLedger(), now: T0, recovery });
+    assert.equal(out.requests.length, 1, `recovery=${JSON.stringify(recovery)}`);
+    assert.equal(out.requests[0].disposition, null);
+  }
+});
+
+test("recovery handled quietly still records state, and its recovery is not announced", () => {
+  const recovery = { a: { disposition: "bounded_retry" } };
+  const quiet = planAlerts({ snapshot: snap(["a", "down"]), ledger: createEmptyAlertLedger(), now: T0, recovery });
+  assert.deepEqual(quiet.requests, []);
+  assert.equal(quiet.ledger.nodes.a.last_state, "down");
+
+  // 알린 적 없으니 복구도 알리지 않는다 - 스스로 고친 것은 이력에만 남는다.
+  const fixed = planAlerts({ snapshot: snap(["a", "ok"]), ledger: quiet.ledger, now: T0 + 10 * 60_000, recovery });
+  assert.deepEqual(fixed.requests, [], "스스로 고친 건은 알리지 않는다");
+});

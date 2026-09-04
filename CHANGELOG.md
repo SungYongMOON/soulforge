@@ -1,5 +1,32 @@
 # CHANGELOG
 
+## 2026-09-04 - Alert on what self-repair will not fix, not on faults
+
+- The alert policy now reads the recovery coordinator's disposition before deciding
+  anything. A fault is not news; a fault self-repair will not or cannot fix is.
+- The evidence for that is from this morning. Between 03:07 and 05:07 the
+  coordinator judged 200 consecutive events, classified every one of them as
+  `task_action_path_drift`, and refused every one as `owner_action_required` - which
+  was right, because the fault was a drifted probe path that no restart could fix.
+  It correctly declined to restart eight healthy tasks 200 times. The failure was
+  never the judgement; it was that nobody heard it for two days.
+- So `owner_action_required` and `fail_closed_quiesce` alert at once, while
+  `auto_repairable`, `bounded_retry` and `quarantine_and_continue` stay quiet - work
+  in progress is not an alert - and a fault self-repair handles on its own is never
+  announced at all, only recorded, which is the posture the Owner asked for.
+- Two rules keep that from becoming a new blind spot. A missing disposition alerts
+  rather than silencing, so silence is never the product of absent evidence. And a
+  fault that outlives a one-hour grace stays reportable as `node_repair_stalled`
+  even while the coordinator still calls it repairable - because a coordinator that
+  retries forever and never succeeds is indistinguishable from a healthy one from
+  the outside, which is the exact shape this gate exists to catch.
+- The regression test replays this morning: eight nodes, twenty-five sweeps, the
+  same 200 judgements, and asserts sixteen alerts - two per node, the first plus one
+  backoff repeat inside the two-hour window - instead of 200.
+- Validation run: `validate:watchtower` 135 pass / 1 fail (the usage-provider test
+  that also fails on unmodified `main@b1aa2a9d`), `alert_policy` 17/17, path-policy
+  0 violations. Delivery is still unbuilt and the W2 gate stays closed.
+
 ## 2026-09-04 - Watchtower alert policy (the suppression half of W2)
 
 - Adds `guild_hall/watchtower/alert_policy.mjs`, a pure function between the

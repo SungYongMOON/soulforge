@@ -29,8 +29,25 @@ export const ALERT_LEDGER_SCHEMA = "soulforge.watchtower.alert_ledger.v1";
 export const ALERT_REQUEST_SCHEMA = "soulforge.watchtower.alert_request.v1";
 
 export const ALERT_EVENTS = Object.freeze([
-  "node_down", "node_stale", "node_degraded", "node_recovered",
+  "node_down", "node_stale", "node_degraded", "node_recovered", "node_repair_stalled",
 ]);
+
+// Self-repair runs before this policy and is usually right: on 2026-09-04 it
+// classified 200 consecutive events correctly and refused every one of them,
+// because the fault was a drifted path that no restart could fix. So a fault
+// alone is not news - a fault that self-repair will not or cannot fix is.
+//
+// These dispositions mean a person is required. Anything else means the
+// coordinator is still working, and working is not an alert.
+const HUMAN_REQUIRED_DISPOSITIONS = Object.freeze([
+  "owner_action_required", "fail_closed_quiesce",
+]);
+
+// ... with one exception, and it is the failure shape this whole gate exists to
+// prevent. A coordinator that retries forever and never succeeds looks exactly
+// like a healthy one from the outside. So a fault that outlives this grace stays
+// reportable even while the coordinator calls it repairable.
+export const DEFAULT_REPAIR_GRACE_SECONDS = 3600;
 
 // A fault is a state a person should hear about. `unmonitored` is deliberately
 // absent (rule 4), and so is `ok`.
@@ -77,6 +94,11 @@ function readLedgerNodes(ledger) {
  * @param {object|null} input.ledger     prior ledger, or null on first run
  * @param {number} input.now             epoch ms
  * @param {string[]|null} input.eligible  node ids allowed to alert; null = all
+ * @param {object} input.recovery       nodeId -> {disposition}, from the recovery
+ *                                      coordinator. An absent entry is treated as
+ *                                      "unknown", which alerts: silence must never
+ *                                      be the result of missing evidence.
+ * @param {number} input.repairGraceSeconds
  * @param {number[]} input.backoffSeconds
  * @returns {{requests: object[], ledger: object}}
  */
@@ -86,6 +108,8 @@ export function planAlerts({
   now = Date.now(),
   eligible = null,
   backoffSeconds = DEFAULT_BACKOFF_SECONDS,
+  recovery = null,
+  repairGraceSeconds = DEFAULT_REPAIR_GRACE_SECONDS,
 } = {}) {
   const nodes = Array.isArray(snapshot?.nodes) ? snapshot.nodes : [];
   const prior = readLedgerNodes(ledger);
@@ -114,16 +138,30 @@ export function planAlerts({
     let notifyCount = changed ? 0 : (Number.isSafeInteger(was?.notify_count) ? was.notify_count : 0);
 
     const permitted = allow === null || allow.has(id);
+
+    // Whether a person is needed for this fault, decided before the transition
+    // and backoff rules so that a self-repairable fault never starts a series.
+    const disposition = recovery === null || typeof recovery !== "object"
+      ? null
+      : (typeof recovery[id]?.disposition === "string" ? recovery[id].disposition : null);
+    const faultSeconds = Math.max(0, (now - Date.parse(since)) / 1000);
+    const reportable = disposition === null
+      || HUMAN_REQUIRED_DISPOSITIONS.includes(disposition)
+      || faultSeconds >= (Number.isSafeInteger(repairGraceSeconds) && repairGraceSeconds > 0
+        ? repairGraceSeconds : DEFAULT_REPAIR_GRACE_SECONDS);
+    const stalled = reportable && disposition !== null
+      && !HUMAN_REQUIRED_DISPOSITIONS.includes(disposition);
+
     let emit = null;
 
-    if (isFault(state) && permitted) {
+    if (isFault(state) && permitted && reportable) {
       if (notifyCount === 0) {
-        emit = EVENT_BY_STATE[state];                       // rule 1
+        emit = stalled ? "node_repair_stalled" : EVENT_BY_STATE[state];   // rule 1
       } else {
         const due = Date.parse(notifiedAt ?? "");
         const waited = Number.isFinite(due) ? (now - due) / 1000 : Infinity;
         if (waited >= backoffSecondsFor(notifyCount, backoffSeconds)) {
-          emit = EVENT_BY_STATE[state];                     // rule 2
+          emit = stalled ? "node_repair_stalled" : EVENT_BY_STATE[state]; // rule 2
         }
       }
     } else if (state === "ok" && changed && isFault(wasState) && permitted
@@ -143,6 +181,7 @@ export function planAlerts({
         previous_state: wasState,
         age_seconds: ageSeconds,
         since,
+        disposition,
         repeat_index: emit === "node_recovered" ? 0 : notifyCount,
         reasons: safeReasons(node?.health?.reasons),
         observed_at: nowIso,
@@ -175,6 +214,9 @@ export function planAlerts({
 export function renderAlertText(request) {
   const label = typeof request?.label === "string" ? request.label : request?.node_id;
   if (request?.event === "node_recovered") return `${label}가 정상으로 돌아왔습니다.`;
+  if (request?.event === "node_repair_stalled") {
+    return `${label}를 자동으로 고치지 못하고 있습니다.\n한 시간 넘게 같은 상태입니다.`;
+  }
   const age = Number.isSafeInteger(request?.age_seconds) ? request.age_seconds : null;
   const howLong = age === null ? null
     : age >= 86400 ? `${Math.floor(age / 86400)}일째`
