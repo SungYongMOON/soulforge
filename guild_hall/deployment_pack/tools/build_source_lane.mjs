@@ -178,7 +178,13 @@ export function parseLaneManifest(text) {
 
 // Read the previous lane's own manifest, keep the carried prefixes, and prove
 // every one of those files still hashes to what that manifest says.
-export function verifyCarriedForward(previousLaneRoot, spec) {
+//
+// `keepBytes` returns the verified bytes alongside the row. A lane carries
+// thousands of small files across a mounted filesystem where per-file cost
+// dominates, so reading each one twice - once to verify, once to copy - is not
+// just slower, it opens a window in which the bytes verified and the bytes
+// copied are not the same bytes.
+export function verifyCarriedForward(previousLaneRoot, spec, { keepBytes = false } = {}) {
   const manifestPath = join(previousLaneRoot, MANIFEST_SHA256_NAME);
   if (!existsSync(manifestPath)) fail("previous_lane_manifest_absent", manifestPath);
   const all = parseLaneManifest(readFileSync(manifestPath, "utf8"));
@@ -189,8 +195,10 @@ export function verifyCarriedForward(previousLaneRoot, spec) {
     const filePath = join(previousLaneRoot, row.path);
     if (!existsSync(filePath)) { drift.push({ path: row.path, reason: "absent" }); continue; }
     if (lstatSync(filePath).isSymbolicLink()) { drift.push({ path: row.path, reason: "symlink" }); continue; }
-    const actual = sha256(readFileSync(filePath));
-    if (actual !== row.sha256) drift.push({ path: row.path, reason: "digest_mismatch" });
+    const bytes = readFileSync(filePath);
+    const actual = sha256(bytes);
+    if (actual !== row.sha256) { drift.push({ path: row.path, reason: "digest_mismatch" }); continue; }
+    if (keepBytes) row.bytes = bytes;
   }
   if (drift.length > 0) {
     fail("carried_forward_drift", `${drift.length} file(s), first=${drift[0].path}:${drift[0].reason}`);
@@ -240,7 +248,7 @@ export function buildSourceLane({ repoRoot, spec, previousLaneRoot, outRoot, now
 
   const commit = requireCleanTree(repo);
   const tracked = selectTrackedFiles(repo, commit, spec);
-  const carried = verifyCarriedForward(previous, spec);
+  const carried = verifyCarriedForward(previous, spec, { keepBytes: true });
 
   const trackedPaths = new Set(tracked.map((r) => r.path));
   const overlap = carried.filter((r) => trackedPaths.has(r.path)).map((r) => r.path);
@@ -258,12 +266,10 @@ export function buildSourceLane({ repoRoot, spec, previousLaneRoot, outRoot, now
     staged.push({ path: row.path, bytes, sha256: sha256(bytes), origin: "tracked" });
   }
   for (const row of carried) {
-    const bytes = readFileSync(join(previous, row.path));
-    // Already verified above; recomputing here keeps the staged digest and the
-    // bytes we are about to write from being two separate reads.
-    const digest = sha256(bytes);
-    if (digest !== row.sha256) fail("carried_forward_drift", row.path);
-    staged.push({ path: row.path, bytes, sha256: digest, origin: "carried_forward" });
+    // These are the very bytes verifyCarriedForward hashed, not a second read
+    // of the same path.
+    if (!Buffer.isBuffer(row.bytes)) fail("carried_forward_bytes_absent", row.path);
+    staged.push({ path: row.path, bytes: row.bytes, sha256: row.sha256, origin: "carried_forward" });
   }
   staged.sort((a, b) => Buffer.compare(Buffer.from(a.path), Buffer.from(b.path)));
 
