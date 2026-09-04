@@ -270,6 +270,52 @@ export const EXAMPLE_BINDING = {
       period_seconds: 300, grace_seconds: 600, missing_is_unmonitored: true,
       resident_task: "Soulforge-TeamOpsBoard-ReadOnly-v1",
     },
+    // D: 이관 후 신설된 수집·백업 lane (2026-09-02~03).
+    //
+    // 수집 lane 은 실행마다 `<state_root>/receipts/<run_id>.json` 을 하나 만든다.
+    // 변화가 없어 custody 가 늘지 않는 회차도 영수증은 쓰이므로, 영수증 디렉터리의
+    // 최신 mtime 이 그 lane 의 하트비트다. 별도 emitter 를 만들 필요가 없다.
+    // custody 디렉터리를 대신 보면 안 된다 - 조용한 15분은 정상이므로 거짓 경보가 된다.
+    linear_collect: {
+      kind: "dir_latest_mtime",
+      path: "<LOCAL_LINEAR_COLLECT_STATE_ROOT>/receipts",
+      period_seconds: 900,
+      grace_seconds: 900,
+      missing_is_unmonitored: true,
+      scheduled_task: "Soulforge-HPP-Linear-Collect",
+    },
+    buzz_collect: {
+      kind: "dir_latest_mtime",
+      path: "<LOCAL_BUZZ_COLLECT_STATE_ROOT>/receipts",
+      period_seconds: 900,
+      grace_seconds: 900,
+      missing_is_unmonitored: true,
+      scheduled_task: "Soulforge-HPP-Buzz-Collect",
+    },
+    // 백업 job 은 Soulforge 밖의 controller 가 소유하므로 읽을 하트비트 파일이 없다.
+    // 예약작업의 마지막 실행 결과를 직접 조회하는 편이 정확하고, 새 계약을 만들지 않는다.
+    // 일 1회 job 이므로 창은 24시간 + 6시간 유예로 둔다.
+    backup_buzz_server: {
+      kind: "schtask",
+      task_name: "<LOCAL_BUZZ_SERVER_BACKUP_TASK>",
+      operation_mode: "scheduled",
+      period_seconds: 86400,
+      grace_seconds: 21600,
+    },
+    backup_agent_runtime: {
+      kind: "schtask",
+      task_name: "<LOCAL_AGENT_RUNTIME_BACKUP_TASK>",
+      operation_mode: "scheduled",
+      period_seconds: 86400,
+      grace_seconds: 21600,
+    },
+    // store_linear_custody / store_buzz_custody / store_backup_generations 는
+    // 일부러 비워 둔다. 다른 store probe 는 lane 이 쓰는 store-validity 파일
+    // (`soulforge.<lane>.store_validity.v1`: attempted_at·completed_at·status·
+    // validation_scope·validation_digest·validated_count)을 읽는데, 이 세 lane 은
+    // 아직 그 파일을 만들지 않는다. 없는 파일을 가리키는 probe 를 넣는 것보다
+    // 선언된 unmonitored_reason 을 그대로 보이는 편이 정직하다. emitter 가 생기면
+    // 위 store_slack_custody 와 같은 모양으로 채운다.
     watchtower_self: {
       kind: "json_file",
       path: "<LOCAL_STATE_ROOT>/operations/watchtower/external_evidence/watchtower_self.json",

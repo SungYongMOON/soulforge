@@ -1,5 +1,39 @@
 # CHANGELOG
 
+## 2026-09-04 - Probe scaffold for the new lanes, and the W2 alerting design draft
+
+- `EXAMPLE_BINDING` in `guild_hall/watchtower/cli.mjs` now carries probe entries for
+  the four new scheduled workers, so an Owner creating a local binding fills in
+  placeholders instead of writing seven probes from scratch. The scaffold cannot
+  fire on its own: every entry keeps the file's `missing_is_unmonitored` habit and
+  the paths are `<LOCAL_...>` placeholders.
+- The two collection lanes probe `<state_root>/receipts` with `dir_latest_mtime` at
+  900s. The receipt is the heartbeat: a lane writes one per run even when nothing
+  changed, so it stays fresh through quiet periods. Watching the custody directory
+  instead would be wrong - a silent fifteen minutes is normal there, and the probe
+  would raise a false alarm.
+- The two backup jobs probe with `schtask` at 86400s + 21600s grace. Those jobs are
+  owned by a controller outside Soulforge and write no heartbeat Soulforge can read,
+  so asking the scheduled task for its last result is both more accurate than a
+  proxy file and free of a new contract.
+- `store_linear_custody`, `store_buzz_custody` and `store_backup_generations` are
+  deliberately left without probes, with the reason recorded inline. Every other
+  store probe reads a `store_validity` health file its lane emits, and these three
+  lanes emit none; pointing a probe at a file nothing writes would trade an honest
+  `unmonitored` for a false `down`.
+- Added `guild_hall/watchtower/W2_ALERTING_DESIGN_V0.md`, an `OWNER_REVIEW_DRAFT`
+  for the alerting half of the W2 gate the module README has held open. Its finding
+  is that the missing piece is not transport - `town_crier` already queues, sends and
+  retries - but suppression: `enqueueNotification` has no content-level dedupe, so a
+  lane down for three days would ring 864 times at a five-minute cadence and the
+  person would mute it, leaving W2 worse than W1. The draft therefore fires on state
+  transition only, backs off 1h/4h/24h/daily while a node stays down, notifies on
+  recovery, and never alerts `unmonitored`, which is a declaration rather than a
+  fault. It also notes that adding a fourth `watchtower` scope alongside the existing
+  gateway/mission/healer events inherits town_crier's fail-safe: with no policy file
+  the scope returns `disabled`, so landing the code sends nothing until an Owner
+  turns it on. No alerting code was written and the W2 gate stays closed.
+
 ## 2026-09-04 - Register the new collection and backup lanes in the Watchtower topology
 
 - The lanes that landed on the D: checkout on 2026-09-02/03 had no node in
