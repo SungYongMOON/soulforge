@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## 2026-09-04 - W2 alerting goes to Buzz, not Telegram
+
+- Owner chose Buzz as the alert channel. The draft is updated rather than rewritten:
+  the suppression policy that is its substance is channel-neutral, and only the
+  delivery section changes.
+- Buzz is the better destination for the reason that matters - team members already
+  use it as their intake surface, so alerts land where someone is already looking,
+  while Telegram is one person's private channel that would need moving again when
+  the pilot widens.
+- It costs something, and the draft now says so plainly: **Soulforge has no path
+  that writes to Buzz.** The `buzz_history` lane reads only, and that is a
+  structural guarantee rather than a setting - the PostgreSQL session is itself
+  read-only and a test scans the sources for write-statement shapes. Reusing that
+  lane for delivery would mean breaking that guarantee, which this design refuses
+  to buy. The delivery path is therefore separate, touches none of the lane's code,
+  binding or state, and reaches the relay through its public interface with
+  credentials the Owner places.
+- That leaves one open decision - how Soulforge posts into a Buzz channel (via the
+  Hermes bot or a separate deliverer) and who owns those credentials - recorded as
+  the first blocker of the delivery half.
+- The work splits cleanly as a result: the alert policy is a pure function with no
+  dependency on that decision and can be built now, while delivery waits. That
+  split is not a workaround; it follows from the finding in section 3 that the
+  substance of W2 is suppression, not transport.
+
 ## 2026-09-04 - Bound the Codex usage sweep by age
 
 - The Codex usage lane died on 2026-09-02 with `ERR_CHILD_PROCESS_STDIO_MAXBUFFER`

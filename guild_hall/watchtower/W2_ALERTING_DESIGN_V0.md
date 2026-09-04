@@ -4,7 +4,7 @@
 | --- | --- |
 | 상태 | `OWNER_REVIEW_DRAFT` / `canon_candidate` |
 | 주장 한계 | `관찰됨` — 기존 두 모듈의 소스를 읽고 설계했을 뿐 구현·검증은 없음 |
-| 기준일 | 2026-09-04 |
+| 기준일 | 2026-09-04 (채널 결정 반영) |
 | 소유 | `guild_hall/watchtower` (W2 범위) |
 | 비권한 | 이 문서만으로 알림을 켜거나, town_crier 계약을 바꾸거나, 예약작업을 등록하지 않음 |
 
@@ -25,11 +25,11 @@ W1은 판정한다. 그리고 아무에게도 말하지 않는다.
 | --- | --- |
 | `watchtower.mjs` `composeTopologyHealth` | 노드별 `{state, reasons, age_seconds}` 판정 |
 | `watchtower.mjs` `writeTopologyHealthSnapshot` | `<state_root>/snapshot/topology_health.v2.json` |
-| `town_crier/runtime.mjs` `emitNotification` | scope 정책 확인 → queue 적재 |
-| `town_crier` runner | queue 소비 → Telegram 전송, `attempt_count` 재시도 |
+| `town_crier/runtime.mjs` | Telegram 전달자. **이 갈래에서는 쓰지 않는다**(§5) — 다만 queue·재시도·정책 게이트의 참고 구현이다 |
 | `NOTIFY_BRIEF_FORMAT_V0.md` | 한국어 brief 표시 규칙 |
 
-**새로 만들 전송로는 없다.** 빠진 것은 판정과 큐 사이의 한 조각이다.
+판정과 표시는 이미 있다. 빠진 것은 **억제 정책**(§3·§4)과 **Buzz 전달자**(§5) 둘이며,
+그중 값이 있는 쪽은 억제 정책이다.
 
 ## 3. 그냥 이으면 안 되는 이유 — 알림 폭주
 
@@ -68,22 +68,52 @@ composeTopologyHealth ──▶ alert_policy ──▶ emitNotification ──�
 `{last_state, since, last_notified_at, notify_count}`만 둔다. 경로·임계값은 계속 binding이
 소유하고 장부에는 넣지 않는다.
 
-## 5. town_crier 계약 변경 — scope 하나
+## 5. 전달 경로 — Buzz (Owner 2026-09-04)
 
-`emitNotification`의 scope는 `gateway`와 `mission` 둘뿐이고, 허용 event 표에는
-`healer`가 이미 세 번째 자리로 들어가 있다. 같은 모양으로 넷째를 추가한다.
+Owner가 채널을 Buzz로 지정했다. 기존 `town_crier`(Telegram)는 이 갈래의 전달자가
+아니며, 이 설계는 그것을 대체하지 않고 그대로 둔다.
 
-```js
-export const WATCHTOWER_NOTIFY_EVENTS = ["node_down", "node_stale", "node_recovered"];
-```
+Buzz 를 고르면 얻는 것이 하나 있다. 팀원이 이미 Buzz 를 창구로 쓰므로(계획 18 §3),
+알림이 사람이 이미 보고 있는 곳으로 간다. 텔레그램은 Owner 한 사람의 개인 채널이라
+파일럿 뒤 팀으로 넓힐 때 한 번 더 옮겨야 한다.
 
-`emitNotification`에 `watchtower` scope 분기와 `watchtowerNotifyStatus`를 더한다. 정책
-파일이 없으면 `disabled`를 반환하는 기존 fail-safe를 그대로 따르므로, **Owner가 켜기
-전에는 코드가 들어가도 한 통도 나가지 않는다.** 이것이 이 변경을 안전하게 만드는 지점이다.
+대신 값을 치러야 한다. **Soulforge 는 아직 Buzz 에 쓰는 경로가 없다.**
+
+| 방향 | 현재 |
+| --- | --- |
+| Buzz → Soulforge | `guild_hall/buzz_history` 수집 lane. **읽기 전용이 구조적 보장**이다 - PostgreSQL 세션 자체가 read-only 이고, 테스트가 소스에서 쓰기 SQL 형태를 스캔한다 |
+| Soulforge → Buzz | **없음.** 계획 18 §4 는 Hermes 봇이 "결과를 Buzz 로 회신" 한다고 적지만 그 회신은 봇의 행위이지 Soulforge 의 출력 경로가 아니다 |
+
+그러므로 이 갈래는 수집 lane 을 재사용할 수 **없다.** 재사용하려면 그 lane 의
+읽기 전용 보장을 깨야 하고, 그것은 이 설계가 사려는 값이 아니다. 전달자는 별도이며
+경계는 다음과 같다.
+
+- 수집 lane 의 자격증명 없음/읽기 전용 성질은 그대로 둔다. 알림 전달자는 그 lane 의
+  코드도, 바인딩도, 상태도 건드리지 않는다.
+- 전달자는 relay 데이터베이스에 직접 쓰지 않는다. 채널에 글을 넣는 것은 relay 의
+  공개 인터페이스를 통해야 하며, 그 인터페이스와 자격증명은 Owner 가 배치한다.
+- 무엇을 보내는지는 §6 그대로다. 채널만 바뀐다.
+
+`OPEN`: Soulforge 가 Buzz 채널에 글을 넣는 정확한 방법(Hermes 봇 경유인지, 별도
+전달자인지)과 그 자격증명 소유자는 아직 정해지지 않았다. 이것이 이 갈래의 첫
+blocker 이며, 알림 정책(§4)은 그와 무관하게 먼저 만들 수 있다.
+
+### 순서가 갈린다
+
+이 결정으로 작업이 둘로 나뉜다.
+
+| 부분 | 의존 |
+| --- | --- |
+| 알림 정책 (`alert_policy`) — 전이 판정·백오프·복구·억제 | **없음.** 순수 함수이며 지금 만들 수 있다 |
+| 전달자 (Buzz 로 실제 발송) | 위 `OPEN` 결정 뒤 |
+
+정책이 본체이고 전달은 얇은 껍데기이므로(§3 이 그 이유다) 이 순서가 낭비를 만들지
+않는다. 정책은 "보낼 요청 목록"을 내고 전달자는 그것을 소비할 뿐이다.
 
 ## 6. 메시지 — 세 줄
 
-`NOTIFY_BRIEF_FORMAT_V0`에 따라 한국어 문장형, 절대경로·secret·내부 ID 없음.
+`NOTIFY_BRIEF_FORMAT_V0`의 표시 규칙을 따른다 - 한국어 문장형, 절대경로·secret·내부
+ID 없음. 그 문서는 Telegram 을 전제로 쓰였지만 표시 원칙은 채널 비종속이다.
 
 ```text
 Linear 수집기가 45분째 응답이 없습니다.
@@ -102,7 +132,8 @@ Linear 수집기가 45분째 응답이 없습니다.
 | 2 | 어느 노드가 울릴 자격이 있나 | 수집·백업 워커 4개부터. store와 external은 제외 |
 | 3 | 백오프 간격 | 1h → 4h → 24h → 매일 |
 | 4 | 조용한 시간 | 없음(백업 실패는 새벽에 난다). 필요하면 후속 |
-| 5 | 채널 | 기존 Telegram 하나 재사용, 새 채널 없음 |
+| 5 | 채널 | **Buzz (Owner 확정 2026-09-04)**. Telegram 은 이 갈래에서 쓰지 않는다 |
+| 6 | Buzz 에 넣는 방법 | `OPEN` — Hermes 봇 경유 / 별도 전달자 / 자격증명 소유자 |
 
 1번이 닫히기 전에는 구현하지 않는다.
 
@@ -115,6 +146,7 @@ self-heal·자동 재시작·예약작업 조작, 새 전송 채널, 새 알림 
 
 - `alert_policy`는 순수 함수로 둔다. 스냅샷 두 개와 장부를 받아 요청 목록을 내는 형태라
   네트워크 없이 전이·백오프·복구·미감시 제외를 결정론 테스트로 고정할 수 있다.
-- town_crier scope 추가는 기존 `town_crier.test.mjs`의 허용 event 검사 경로를 그대로 탄다.
+- 전달자는 Buzz 수집 lane 과 코드·바인딩·상태를 공유하지 않는다. 그 lane 의 읽기 전용
+  소스 스캔 테스트가 그대로 통과해야 한다.
 - 실제 발화는 `--apply` 없이는 하지 않는 기존 bridge 관행(`assign_notify_bridge.mjs`)을 따른다.
 - 알림 정책을 바꾸는 변경이므로 실행 계약상 Level 2 이상, 실제 발화 활성화는 Level 3.
