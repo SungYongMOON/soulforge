@@ -562,8 +562,16 @@ export async function resolveLaneContext({
   const provisional = await readPinnedJsonFile(plannedBindingPath, expectedBindingSha256, "$binding");
   const binding = validateBuzzCollectBinding(provisional.value);
   const canonicalPrivateRoot = await canonicalExistingDirectory(binding.private_root, "$binding.private_root");
-  if (!isPathWithin(canonicalPrivateRoot, provisional.path, true)) {
-    fail("binding_outside_private_root", "$binding_path", "Binding escaped private root");
+  // The binding is policy, and policy is control-plane material. When the two
+  // planes are split the binding follows the state root into the control root;
+  // only custody stays behind in the data root. Checking it against the wrong
+  // root would either strand the binding in a catalog view that plan 17 says
+  // holds no such bytes, or leave it unbounded.
+  const canonicalBindingParentRoot = Object.hasOwn(binding, "control_root")
+    ? await canonicalExistingDirectory(binding.control_root, "$binding.control_root")
+    : canonicalPrivateRoot;
+  if (!isPathWithin(canonicalBindingParentRoot, provisional.path, true)) {
+    fail("binding_outside_private_root", "$binding_path", "Binding escaped its declared root");
   }
   const canonicalStateRoot = await canonicalPlannedDirectory(binding.state_root, "$binding.state_root");
   // Realpath is re-resolved here rather than trusted from validation, so a

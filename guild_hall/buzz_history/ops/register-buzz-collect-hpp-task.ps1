@@ -239,9 +239,10 @@ if ($ControlRoot) {
 elseif (-not (Test-SameOrChildPath -Parent $PrivateRoot -Candidate $StateRoot -Strict)) {
   throw "buzz collect state root must be a strict private-root child"
 }
-if (-not (Test-SameOrChildPath -Parent $PrivateRoot -Candidate $BindingPath -Strict) `
+$BindingParentRoot = if ($ControlRoot) { $ControlRoot } else { $PrivateRoot }
+if (-not (Test-SameOrChildPath -Parent $BindingParentRoot -Candidate $BindingPath -Strict) `
     -or (Test-SameOrChildPath -Parent $StateRoot -Candidate $BindingPath)) {
-  throw "buzz collect binding must be private and disjoint from state"
+  throw "buzz collect binding must be inside its declared root and disjoint from state"
 }
 if (-not (Test-SameOrChildPath -Parent $RuntimeRoot -Candidate $RuntimeManifestPath -Strict) `
     -or -not (Test-SameOrChildPath -Parent $RuntimeRoot -Candidate $Launcher -Strict)) {

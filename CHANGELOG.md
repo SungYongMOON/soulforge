@@ -31,6 +31,11 @@
   `private_forbidden_overlap` via the control root), plus a positive case proving a
   state root outside the private root is accepted only because the control root
   bounds it, and that removing the control root while keeping the split path fails.
+- The binding file follows the state root. A binding is policy, and policy is
+  control-plane material, so when `control_root` is present the binding must be a
+  strict child of it rather than of the private root. Checking it against the
+  private root would strand it in a catalog view plan 17 says holds no such bytes.
+  Absent the key, the rule is the private root exactly as before.
 - The PowerShell registrar takes a matching optional `-ControlRoot` and applies the
   same three disjointness checks before planning; without it the registrar's own
   private-child assertion is unchanged.
