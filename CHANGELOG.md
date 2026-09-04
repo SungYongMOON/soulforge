@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## 2026-09-04 - Raise the usage-meter git read out of a 4 KiB buffer
+
+- `gitOutput` in `guild_hall/ai_usage_meter/cli.mjs` ran `git rev-parse` under
+  `maxBuffer: 4096`. That ceiling covers stdout and stderr together, and only
+  stdout is this caller's to predict: git writes advice and warnings to stderr for
+  conditions the caller does not control, and a repository carrying leftover
+  `.git/objects/**/tmp_obj_*` or stale `*.lock` files emits one warning line per
+  file. Roughly thirty such lines were enough to kill a one-line read with
+  `ERR_CHILD_PROCESS_STDIO_MAXBUFFER`.
+- Raised to 1 MiB and set `GIT_ADVICE=0` so the common case produces no advice at
+  all. The ceiling stays bounded on purpose - an unbounded buffer would trade this
+  failure for a memory one.
+- Scope note, recorded because it is the more useful half of the finding: this is a
+  latent bug at a different call site from the one that stopped the Codex usage
+  lane on 2026-09-02. That lane's child runs under
+  `ai-usage-producer-companion.mjs`'s shared 4 MiB `childOptions`, and the
+  asymmetry that explains it is visible in the command list - `collect-claude` and
+  `collect-antigravity` are both bounded by `--max-age-days 2`, while the Codex
+  `collect` command takes no age bound and supports none, so its output grows
+  without limit while its two siblings stay flat. Both siblings are healthy and
+  only Codex exceeded the shared buffer. The fix is an age bound on the Codex
+  collector rather than a larger buffer, which would only move the date; that is a
+  collector change and is left for its own bounded slice.
+- Validation run: `validate:ai-usage-meter` 154 pass / 0 fail.
+
 ## 2026-09-04 - Let the Buzz lane bind its state root to a control root
 
 - Owner decision: the data root moves to its target position under

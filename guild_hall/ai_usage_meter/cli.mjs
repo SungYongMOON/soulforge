@@ -188,7 +188,18 @@ async function gitOutput(args, cwd) {
     cwd,
     windowsHide: true,
     timeout: 2000,
-    maxBuffer: 4096,
+    // `maxBuffer` caps stdout AND stderr, and only stdout is ours to predict.
+    // These are one-line `rev-parse` reads, but git writes advice and warnings
+    // to stderr for conditions this caller does not control - a repository with
+    // leftover `.git/objects/**/tmp_obj_*` or stale `*.lock` files emits one
+    // warning line per file. At the previous 4 KiB ceiling roughly thirty such
+    // lines were enough to kill the read with ERR_CHILD_PROCESS_STDIO_MAXBUFFER,
+    // which is what stopped the Codex usage collector from 2026-09-02. The
+    // ceiling stays bounded - an unbounded buffer would trade this failure for
+    // a memory one - but is now far above any plausible advice volume, and
+    // advice is silenced so the common case produces none at all.
+    maxBuffer: 1024 * 1024,
+    env: { ...process.env, GIT_ADVICE: "0" },
   });
   return String(stdout).replace(/\r?\n$/u, "");
 }
