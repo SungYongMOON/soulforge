@@ -7,11 +7,24 @@
   placeholders instead of writing seven probes from scratch. The scaffold cannot
   fire on its own: every entry keeps the file's `missing_is_unmonitored` habit and
   the paths are `<LOCAL_...>` placeholders.
-- The two collection lanes probe `<state_root>/receipts` with `dir_latest_mtime` at
-  900s. The receipt is the heartbeat: a lane writes one per run even when nothing
-  changed, so it stays fresh through quiet periods. Watching the custody directory
-  instead would be wrong - a silent fifteen minutes is normal there, and the probe
-  would raise a false alarm.
+- The two collection lanes probe `<state_root>/health/<lane>.json` as `json_file`
+  against the lane's own `soulforge.<lane>_collect.health.v1` contract, at 900s with
+  900s grace. That file is refreshed every run even when the run created nothing, so
+  it stays fresh through quiet periods, and unlike a directory mtime it carries
+  `status`, `error_codes` and `last_success_at` for the probe to judge. Watching the
+  custody directory instead would be wrong - a silent fifteen minutes is normal
+  there, and the probe would raise a false alarm.
+- Checked against the two live lanes on 2026-09-04 01:47 KST: both health files
+  validate against the declared field contract and both judge `ok` at 128s and 131s
+  of age. This is a read of the running system, not a synthetic fixture.
+- The collection probe paths sit under the legacy data root, and the scaffold says so
+  inline. The Suite target for `data_root` is `<TARGET_SOULFORGE_ROOT>/data`, whose
+  nine top-level children exist as empty directories with R2 actual apply still on
+  `HOLD`, so the lanes legitimately run from the legacy location today. When that
+  move happens this binding is the fifth item to update alongside the four
+  `AGENTS.md` §13A require together - collector pin, binding digest, launcher, and
+  the state digest fence. Left out, both lanes would quietly report `down` from the
+  first run after the move.
 - The two backup jobs probe with `schtask` at 86400s + 21600s grace. Those jobs are
   owned by a controller outside Soulforge and write no heartbeat Soulforge can read,
   so asking the scheduled task for its last result is both more accurate than a

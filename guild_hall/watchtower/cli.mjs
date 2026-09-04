@@ -272,21 +272,47 @@ export const EXAMPLE_BINDING = {
     },
     // D: 이관 후 신설된 수집·백업 lane (2026-09-02~03).
     //
-    // 수집 lane 은 실행마다 `<state_root>/receipts/<run_id>.json` 을 하나 만든다.
-    // 변화가 없어 custody 가 늘지 않는 회차도 영수증은 쓰이므로, 영수증 디렉터리의
-    // 최신 mtime 이 그 lane 의 하트비트다. 별도 emitter 를 만들 필요가 없다.
-    // custody 디렉터리를 대신 보면 안 된다 - 조용한 15분은 정상이므로 거짓 경보가 된다.
+    // 경로 주의: 아래 두 lane 의 state root 는 현재 legacy data root 아래에 있다.
+    // Suite 목표 구조는 `<TARGET_SOULFORGE_ROOT>/data`(`data_root` class)이고
+    // 9개 top-level child 는 빈 디렉터리로만 만들어져 있으며 R2 actual apply 는
+    // `HOLD` 다(SOULFORGE_SUITE_STRUCTURE_AND_CONFIGURATION_V0 §G0, plan 17
+    // reference-in-place). 그 이사가 실제로 일어나면 이 binding 은 AGENTS.md §13A
+    // 의 네 묶음(수집기 pin · 바인딩 digest · launcher · 상태 digest 울타리)과
+    // 함께 갱신해야 하는 다섯 번째 항목이다. 여기만 남겨두면 이사 다음 회차부터
+    // 두 lane 이 조용히 `down` 으로 뜬다.
+    //
+    // 수집 lane 은 실행마다 `<state_root>/health/<lane>.json` 을 갱신한다. 변화가 없어
+    // custody 가 늘지 않는 회차에도 갱신되므로 이것이 그 lane 의 하트비트다. custody
+    // 디렉터리를 대신 보면 안 된다 - 조용한 15분은 정상이므로 거짓 경보가 된다.
     linear_collect: {
-      kind: "dir_latest_mtime",
-      path: "<LOCAL_LINEAR_COLLECT_STATE_ROOT>/receipts",
+      kind: "json_file",
+      path: "<LOCAL_LINEAR_COLLECT_STATE_ROOT>/health/linear_collect.json",
+      expected_schema_version: "soulforge.linear_collect.health.v1",
+      required_fields: ["attempted_at", "completed_at", "last_success_at", "status", "lane", "error_codes"],
+      required_string_fields: ["status", "lane"],
+      expected_field_values: { lane: "linear_collect" },
+      required_timestamp_fields: ["attempted_at", "completed_at"],
+      nullable_timestamp_fields: ["last_success_at"],
+      timestamp_field: "completed_at",
+      status_field: "status",
+      ok_values: ["ok"],
       period_seconds: 900,
       grace_seconds: 900,
       missing_is_unmonitored: true,
       scheduled_task: "Soulforge-HPP-Linear-Collect",
     },
     buzz_collect: {
-      kind: "dir_latest_mtime",
-      path: "<LOCAL_BUZZ_COLLECT_STATE_ROOT>/receipts",
+      kind: "json_file",
+      path: "<LOCAL_BUZZ_COLLECT_STATE_ROOT>/health/buzz_collect.json",
+      expected_schema_version: "soulforge.buzz_collect.health.v1",
+      required_fields: ["attempted_at", "completed_at", "last_success_at", "status", "lane", "error_codes"],
+      required_string_fields: ["status", "lane"],
+      expected_field_values: { lane: "buzz_collect" },
+      required_timestamp_fields: ["attempted_at", "completed_at"],
+      nullable_timestamp_fields: ["last_success_at"],
+      timestamp_field: "completed_at",
+      status_field: "status",
+      ok_values: ["ok"],
       period_seconds: 900,
       grace_seconds: 900,
       missing_is_unmonitored: true,
@@ -312,10 +338,11 @@ export const EXAMPLE_BINDING = {
     // store_linear_custody / store_buzz_custody / store_backup_generations 는
     // 일부러 비워 둔다. 다른 store probe 는 lane 이 쓰는 store-validity 파일
     // (`soulforge.<lane>.store_validity.v1`: attempted_at·completed_at·status·
-    // validation_scope·validation_digest·validated_count)을 읽는데, 이 세 lane 은
-    // 아직 그 파일을 만들지 않는다. 없는 파일을 가리키는 probe 를 넣는 것보다
-    // 선언된 unmonitored_reason 을 그대로 보이는 편이 정직하다. emitter 가 생기면
-    // 위 store_slack_custody 와 같은 모양으로 채운다.
+    // validation_scope·validation_digest·validated_count)을 읽는데, 이 세 lane 의
+    // health 파일은 lane 실행 사실만 말하고 저장된 bytes 의 유효성은 말하지 않는다.
+    // 없는 계약을 있는 것처럼 가리키는 것보다 선언된 unmonitored_reason 을 그대로
+    // 보이는 편이 정직하다. store-validity emitter 가 생기면 위 store_slack_custody 와
+    // 같은 모양으로 채운다.
     watchtower_self: {
       kind: "json_file",
       path: "<LOCAL_STATE_ROOT>/operations/watchtower/external_evidence/watchtower_self.json",
