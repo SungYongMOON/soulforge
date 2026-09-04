@@ -1,5 +1,42 @@
 # CHANGELOG
 
+## 2026-09-04 - Project self-repair history into the durable activity ledger
+
+- `recovery_history.json` is a 200-entry rolling buffer. It answers "what is
+  happening now" and cannot answer "what happened": this morning those 200 entries
+  covered two hours, and the 2026-09-02 events that started the incident had already
+  been pushed out. Self-repair judged for two days and left no durable trace of any
+  of it.
+- No new store and no new schema. The durable ledger already exists -
+  `guild_hall/activity` owns the append-only
+  `<state root>/operations/soulforge_activity/events/**` store, and
+  `soulforge.activity.event.v1` already carries scope/action/result/summary, which
+  is the shape a repair record needs. `recovery_activity_projection.mjs` projects
+  one into the other and writes nothing itself.
+- The projection is deliberately not one row per judgement. That ledger held
+  seventeen rows for the whole of September; pouring 200 identical judgements into
+  it would destroy the surface it exists to preserve. Repeats collapse into
+  *episodes* - runs of consecutive judgements sharing (node, diagnostic, outcome) -
+  and an episode produces at most two rows: one when it opens, one when it closes
+  carrying how long it lasted and how many judgements it took. The regression test
+  replays this morning and asserts eight rows for the same 200 judgements.
+- A watermark makes re-reading the rolling buffer idempotent, so the same entries
+  cannot produce a second row. Episodes for nodes the coordinator stops reporting
+  are closed explicitly, because an episode left open would carry a resolved fault
+  forward forever.
+- Rows the coordinator refused (`owner_action_required`, `denied`) close as `hold`
+  and set `carry_forward`, so an unresolved repair surfaces in `latest_context`
+  without anyone scanning summaries. A repair that succeeded records as `ok` and is
+  not carried forward - self-repair that works stays quiet, which is the posture the
+  Owner asked for.
+- A test runs the projection's output through the real `buildActivityEvent` rather
+  than asserting on shape alone: a projection that produces rows the ledger rejects
+  is not a projection.
+- Validation run: `validate:watchtower` 142 pass / 1 fail (the usage-provider test
+  that also fails on unmodified `main@b1aa2a9d`), the new suite 7/7,
+  module-operability 0 violations, path-policy 0 violations. Nothing is wired to
+  write yet; the caller that appends is part of the delivery slice.
+
 ## 2026-09-04 - Alert on what self-repair will not fix, not on faults
 
 - The alert policy now reads the recovery coordinator's disposition before deciding
