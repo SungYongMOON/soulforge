@@ -1,0 +1,58 @@
+{
+  "schema": "soulforge.source_lane_spec.v0",
+  "lane_id": "operations-lane",
+  "description": "The lane the Team Ops Board scheduled task executes: the Board runtime, Watchtower, the AI usage meter, the mail forwarder, and the Codex retention worker. Its included-path set is the one operations-lane-v1 and v2 were assembled from; this spec is the first machine-readable statement of it.",
+  "tracked_paths": [
+    ".workflow/codex_thread_manager_v0/",
+    "guild_hall/activity/",
+    "guild_hall/ai_usage_meter/",
+    "guild_hall/backup_controller/",
+    "guild_hall/codex_work_directory/",
+    "guild_hall/gateway/mail_send/",
+    "guild_hall/ingress/",
+    "guild_hall/path_registry/",
+    "guild_hall/shared/",
+    "guild_hall/validate/",
+    "guild_hall/voice_capture/",
+    "guild_hall/watch_panel_contract/",
+    "guild_hall/watchtower/",
+    "ui-workspace/apps/team-ops-board/",
+    "package.json",
+    "package-lock.json",
+    "ui-workspace/package.json",
+    "ui-workspace/package-lock.json"
+  ],
+  "tracked_excludes": [
+    "ui-workspace/apps/team-ops-board/evidence/",
+    "ui-workspace/apps/team-ops-board/node_modules/",
+    "ui-workspace/apps/team-ops-board/dist/"
+  ],
+  "carried_forward_prefixes": [
+    "node_modules/yaml/",
+    "ui-workspace/apps/team-ops-board/dist/",
+    "ui-workspace/node_modules/"
+  ],
+  "carried_forward_rationale": {
+    "node_modules/yaml/": "yaml runtime dependency; not tracked, and rebuilding it would need a registry the lane host is not required to reach.",
+    "ui-workspace/node_modules/": "vite + @vitejs/plugin-react runtime closure. Deliberately the runtime closure only, not the build closure.",
+    "ui-workspace/apps/team-ops-board/dist/": "gitignored vite output. Carry it forward only while no client source under ui-workspace/apps/team-ops-board/src (excluding src/server) has changed since the previous lane's commit; otherwise rebuild it and stage it as a fresh previous-lane input."
+  },
+  "entry_points": [
+    ".workflow/codex_thread_manager_v0/codex_retention_automation_cli.mjs",
+    ".workflow/codex_thread_manager_v0/ops/run-codex-retention-refresh-hidden.vbs",
+    ".workflow/codex_thread_manager_v0/ops/run-codex-retention-refresh.ps1",
+    "guild_hall/activity/activity_log.mjs",
+    "guild_hall/ai_usage_meter/cli.mjs",
+    "guild_hall/gateway/mail_send/gmail_original_importer.py",
+    "guild_hall/gateway/mail_send/hiworks_gmail_forwarder.py",
+    "guild_hall/gateway/mail_send/ops/run-hiworks-gmail-forwarder-hidden.vbs",
+    "guild_hall/gateway/mail_send/ops/run-hiworks-gmail-forwarder.ps1",
+    "guild_hall/shared/soulforge_state_root.mjs",
+    "guild_hall/watchtower/cli.mjs",
+    "ui-workspace/apps/team-ops-board/dist/index.html",
+    "ui-workspace/apps/team-ops-board/ops/ai-usage-producer-companion.mjs",
+    "ui-workspace/apps/team-ops-board/ops/team-ops-board-hidden-launcher.vbs",
+    "ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs",
+    "ui-workspace/apps/team-ops-board/vite.config.ts"
+  ]
+}

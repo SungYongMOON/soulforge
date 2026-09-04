@@ -20,6 +20,34 @@ Main Node profile이 Tool Workshop Cell을 포함해 두 역할의 결합을 명
 - **Internal RC prephysical readiness** (`src/internal_rc_prephysical_readiness.mjs`) — exact pack/product/manual/authority/recovery/binding evidence를 주입받아 exhaustive `HOLD` 또는 `READY_FOR_ONE_PHYSICAL_SEAT_GATE`만 반환하는 no-I/O binder. 현재 public evidence는 manual exercise·Human acceptance·device binding이 없어 HOLD다.
 - secret_refs는 참조만: base64 자료처럼 보이는 값은 거부.
 
+## Source-lane builder (`tools/build_source_lane.mjs`)
+
+**Pack과 lane은 다른 물건이다.** Pack은 tracked 파일만의 순수 함수라 spec에서 전부 재현된다. Lane은 예약 작업이 실제로 실행하는 저장소 사본이고, tracked 파일 외에 **미추적 의존 closure**(`ui-workspace/node_modules/`, `node_modules/yaml/`)와 **gitignore된 빌드 산출물**(Board의 vite `dist/`)을 함께 담는다. 그래서 pack builder로는 만들 수 없다.
+
+운영 lane(`operations-lane-v2`, 2026-09-02 구축)은 `scratchpad/`의 스크립트로 조립되었고 그 스크립트는 D: 이관 과정에서 사라졌다. 결과: **아무도 lane을 다시 만들 수 없었고, 그 뒤 저장소에 들어온 수정은 전부 저장소에만 남았다.** 감시 시스템(watchtower·Board·usage meter)은 lane에만 존재하므로 release train이 아예 없는 상태였다. 이 도구는 그 구멍을 메운다.
+
+무엇을 증명하는가:
+
+- **tracked = 커밋 그 자체**: 복사할 바이트로 git blob object id를 재계산해 `ls-tree`의 oid와 대조한다. 작업 디렉터리가 커밋과 다른 파일은 lane에 들어올 수 없다. worktree가 clean해야 시작하므로 기록된 커밋이 lane 전체에 대한 참인 주장이다.
+- **carried_forward = 증거를 동반한 상속**: 미추적 closure는 이전 lane에서 복사하되, **전량을 재해시해 그 lane 자신의 manifest와 대조한 뒤에만** 복사한다. 다시 만들지 않고, 그렇다고 믿지도 않는다.
+- **origin은 파일당 하나**: tracked ∩ carried = ∅. spec 단계에서 carried prefix가 tracked path 안에 있으면 거부한다(해당 exclude가 선언된 경우만 허용).
+- **validate-before-write**: 위 전부와 entry point 존재 확인이 끝나기 전에는 출력 1바이트도 쓰지 않는다. 쓴 뒤에는 방금 발행한 manifest로 전량 재해시한다.
+- 경로 shape은 spec·git·이전 lane manifest **세 입력 모두**에 적용된다. dot-segment(`.`/`..`)는 문자 클래스만으로는 걸러지지 않으므로 별도 검사한다.
+
+무엇을 하지 않는가: 예약 작업 등록·수정, 이전 lane 삭제, ring 승격, release gate 주장. **Cutover는 Owner 단계이며 복사가 아니라 묶음이다** — collector pin, binding digest, launcher, state digest fence, 그리고 recovery binding의 `action_digest` 재핀. 이 도구는 그 묶음의 입력만 만든다. 출력 디렉터리가 비어있지 않으면 거부하는 것도 같은 이유다(제자리 덮어쓰기는 탈락한 파일이 살아남는 경로다).
+
+```
+node guild_hall/deployment_pack/tools/build_source_lane.mjs \
+  --spec guild_hall/deployment_pack/lanes/operations_lane.spec.json \
+  --previous-lane <이전 lane 루트> --out <새 lane 루트> [--repo <저장소 루트>]
+
+node guild_hall/deployment_pack/tools/build_source_lane.mjs --verify <lane 루트>
+```
+
+`--verify`는 lane을 자기 manifest로 전량 재해시한다(런타임이 추가한 미등재 파일은 무시). 검증: `npm.cmd run validate:source-lane`.
+
+`dist/`를 carry forward 하는 것은 **이전 lane의 커밋 이후 Board 클라이언트 소스(`ui-workspace/apps/team-ops-board/src`, `src/server` 제외)가 바뀌지 않은 동안만** 정당하다. 바뀌었다면 vite 빌드를 다시 돌려 그 결과를 담은 lane을 previous-lane 입력으로 삼아야 한다. spec의 `carried_forward_rationale`에 같은 조건이 적혀 있다.
+
 ## Pack builder (`tools/build_pack.mjs`)
 
 §3 위임의 isolated/default-OFF package 작업 범위에서 tracked spec(`packs/*.spec.json`) 1개를 미추적 `dist/`로 빌드한다. 규율:

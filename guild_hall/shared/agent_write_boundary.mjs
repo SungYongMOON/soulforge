@@ -59,6 +59,10 @@ export const AGENT_DENIED_WRITE_PATHS = Object.freeze([
   // 무엇이 위반인지 판정하는 검사기. 이것을 고칠 수 있으면 위반이 사라진다.
   { path: "guild_hall/validate/", why: "the validators that decide what counts as a violation" },
 
+  // 어떤 바이트가 운영에 도달하는지 정하는 조립 도구. 저장소 안의 코드는
+  // 이것을 통과해야만 실행되므로, 여기를 고칠 수 있으면 검증 전체를 우회할 수 있다.
+  { path: "guild_hall/deployment_pack/tools/", why: "what bytes reach a running lane at all" },
+
   // 실행 계약과 라우터. 규칙 자체.
   { path: "AGENTS.md", why: "the agent instruction router" },
   { path: "docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md", why: "the execution contract" },
