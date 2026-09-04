@@ -1,5 +1,44 @@
 # CHANGELOG
 
+## 2026-09-04 - What the facilities bot still needs, against what dev_worker already is
+
+- Owner settled the supervising bot's character: a facilities manager. It fixes the
+  building on its own, never touches the tenants' belongings, does not make keys,
+  and keeps a log. Building means the system itself - code, config, scheduled tasks,
+  lanes. Tenants' belongings means work data. That boundary is what makes the
+  autonomy safe, and it is also why fixing our own program is not a security
+  problem.
+- Written down before building anything, because most of it already exists.
+  `dev_worker` already runs `gpt-5.3-codex` on a four-hour paused schedule through
+  preflight, candidate promotion, task claim, branch, implement, acceptance checks,
+  commit, push and an activity event - and already forbids editing `main`, merging,
+  reading secrets, and writing outside a packet's `allowed_write_paths`.
+- Five gaps remain, and the first is the largest: **the bot waits for a work order.**
+  Its only task sources are three queues someone else files into. A facilities
+  manager notices the broken light. What is missing is the bridge that reads the
+  recovery and activity ledgers and files candidate packets itself - and this
+  morning's 200 `task_action_path_drift` judgements are its first input, producing
+  the packet "turn this diagnostic into a deterministic rule". The bot's scorecard
+  is not how many faults it fixed but how many kinds of fault stopped needing a
+  person.
+- Second: `allowed_write_paths` is set per packet, so a packet can name the bot's
+  own guardrails - the recovery action allowlist, the path registry, the
+  auto-approval policy itself. No bad intent is required; "the check keeps failing"
+  is the usual road to a widened fence. A global deny list is needed, and it has to
+  live outside what the bot may write.
+- Third: immediate repair and durable repair both exist and do not know about each
+  other. The coordinator closed 200 events as `owner_action_required` this morning
+  and no packet was ever created. That is the same bridge as the first gap.
+- Fourth: the bot stops at pushing a branch, which is the right default here,
+  because a commit does not change operations - re-registering a versioned lane copy
+  does, and whoever can do that can stop collection. Deploy therefore splits into a
+  bot-built packet and a registrar that checks its digest, which the existing
+  `register-*-task.ps1` already supports.
+- Fifth: if the bot becomes the ledger's only reader, its own silence reproduces
+  this morning's two days one level up. A watchdog is needed, and it must be dumb
+  and live elsewhere - one that dies for the same reason the bot did is not a
+  watchdog.
+
 ## 2026-09-04 - Project self-repair history into the durable activity ledger
 
 - `recovery_history.json` is a 200-entry rolling buffer. It answers "what is
