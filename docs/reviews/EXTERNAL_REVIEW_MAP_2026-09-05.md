@@ -44,10 +44,16 @@ connector. The reviewer packet (`npm run export:reviewer-packet`) bundles them.
   private receipts; public documents cite digests only.
 - Where it runs, which a repository index cannot show at all: the HPP server
   pack is 0.1.7 (current) with 0.1.6 as previous, but the scheduled tasks do not
-  follow the `current` pointer - they pin a payload path down to the version
-  (`0.1.6`, as read from the task definitions on 2026-09-04). The Board, the
-  watch surface and the usage meter do not run from the pack at all; they run
-  from `install/source-lanes/operations-lane-v2`. So `main` is not what runs,
+  follow the `current` pointer - they pin a payload path down to the version,
+  and as read from the task definitions on 2026-09-05 the versions are split:
+  the ERP server task runs `0.1.7`, while the continuous ingress, PC activity
+  and voice ASR tasks still pin `0.1.6`. The Board, the watch surface, the usage
+  meter, the Hiworks forwarder and the Codex retention task do not run from the
+  pack at all; they run from `install/source-lanes/operations-lane-v2`, and the
+  Linear, Buzz and Slack collectors from their own `source-lanes/<lane>-v1`.
+  One task (the NAS DR backup runner) still executes from the legacy checkout,
+  against the work-location rule in `AGENTS.md`; it is listed for cleanup, not
+  hidden. So `main` is not what runs,
   and a reviewer who reads the repository is reading a different artifact from
   the one in production. The source commit each lane carries is recorded in that
   lane's `LANE_MANIFEST.md`, and the lane can be re-verified against its own
@@ -59,7 +65,7 @@ connector. The reviewer packet (`npm run export:reviewer-packet`) bundles them.
 
 | # | External step | Soulforge artifact | Status (2026-09-05) |
 | --- | --- | --- | --- |
-| 1 | Fix the current baseline (repo, branch, commit, running version) | `install/server-pack/<x.y.z>` digests, `install/source-lanes/<lane>/LANE_MANIFEST.md`, `CHANGELOG.md`, cutover receipts under `local-recovery/` (private) | 부분: pack digests and the HPP 0.1.7 cutover receipt exist, and each lane records its source commit - but no single public artifact yet answers "which commit is running where" for all five scheduled tasks at once |
+| 1 | Fix the current baseline (repo, branch, commit, running version) | `install/server-pack/<x.y.z>` digests, `install/source-lanes/<lane>/LANE_MANIFEST.md`, `CHANGELOG.md`, cutover receipts under `local-recovery/` (private) | 부분: pack digests and the HPP 0.1.7 cutover receipt exist, and each lane records its source commit - but the scheduled tasks are split across versions (ERP on `0.1.7`; continuous ingress, PC activity and voice ASR still on `0.1.6`; one runner still on the legacy checkout) and no single public artifact yet answers "which commit is running where" for every task at once |
 | 2 | Fix the release scope (users, representative task, in and out) | Plan 18 §1–§7 (Team Pilot 1), `DEVELOPMENT_ROADMAP_V0.md` | 부분: access model and ladder fixed; pilot bot exposure and tool allowlists are open Owner decisions |
 | 3 | Confirm structure and data ownership | `DOCUMENT_OWNERSHIP.md`, plan 17, `guild_hall/path_registry/`, `WORKSPACE_PROJECT_MODEL.md` | 구현 확인: owners and storage classes declared; the target `_workspaces` binding stays HOLD until the three Covenant rules are adopted |
 | 4 | Verify the D: relocation (restart, no old-path dependence, no double writers) | Cutover receipts; `AGENTS.md` state-root precedence; `guild_hall/shared/soulforge_state_root.mjs` | 부분: relocation and cutover done; the host reboot test has not been performed (it needs the Owner's direct approval); `SOULFORGE_OWNER_ROOT` stays on the legacy checkout by design until Legacy Freeze |

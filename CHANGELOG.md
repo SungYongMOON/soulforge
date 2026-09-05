@@ -2,6 +2,15 @@
 
 ## 2026-09-05 - README one-pager, reviewer packet exporter and the first external review map (Gram 0.1.x)
 
+- Correction (same day, second pass): the "where it runs" statement now records
+  the actual split read from the scheduled task definitions on 2026-09-05. The
+  ERP server task runs pack `0.1.7`; the continuous ingress, PC-activity and
+  voice-ASR tasks still pin `0.1.6`; the Board, watch surface, usage meter,
+  Hiworks forwarder and Codex retention run from `operations-lane-v2`; the
+  Linear, Buzz and Slack collectors from their own source lanes; and one runner
+  (NAS DR backup) still executes from the legacy checkout, which is recorded as
+  a cleanup item rather than omitted. The earlier wording implied every task
+  pinned `0.1.6`.
 - `README.md` now opens with "Soulforge 한 장": the one-line definition (people
   and AI perform work together and the system keeps origin, judgment, result,
   verification and responsibility connected), the three products under their
