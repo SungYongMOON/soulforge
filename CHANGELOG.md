@@ -1,5 +1,33 @@
 # CHANGELOG
 
+## 2026-09-05 - Close the Tailscale loopback gap on the Agent Runtime endpoint too
+
+- team-ops-board: `GET /agent-runtime.snapshot.json?read_only=1` rested on the
+  same trust assumption the rung 1 Level 2 review found on the pending-review
+  endpoint (M1/M8): a loopback socket address was taken as proof that the
+  caller is the Owner's own local process, but Tailscale Serve can proxy a
+  tailnet peer's request to this host's `127.0.0.1`. The endpoint now also
+  rejects (`403`, checked before the method check) any request carrying a
+  proxy-passage marker header (`X-Forwarded-For`/`X-Forwarded-Host`/
+  `X-Forwarded-Proto`/`Forwarded`/`Tailscale-User-Login`), with the same
+  header list and the same check order as the pending-review adapter. This
+  matters because the ready projection carries, per configured bot, the
+  `agent_id`, the durable Hermes session key, the live Hermes session id, and
+  the provider-reported model, which the Board README already classifies as
+  local ignored runtime data rather than tracked identity metadata. The only
+  other observable change is that a remote non-GET request now reports `403`
+  instead of `405`; the response body and headers are otherwise unchanged.
+- Operational impact: none until the Board lane is rebuilt and re-registered
+  from a commit containing this change. Thirteen other loopback-only Board
+  endpoints (including `/codex-threads.snapshot.json`) still rely on the socket
+  address alone; they are recorded as a follow-up and not changed here.
+- Verification: the adapter's own test file with a new proxy-marker case, the
+  team-ops-board suite, `tsc --noEmit`, `vite build`, and
+  `validate:path-policy` on the changed scope.
+- Related paths: `ui-workspace/apps/team-ops-board/src/server/agent-runtime-snapshot-adapter.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/agent-runtime-snapshot-adapter.test.mjs`,
+  `ui-workspace/apps/team-ops-board/README.md`.
+
 ## 2026-09-05 - README one-pager, reviewer packet exporter and the first external review map (Gram 0.1.x)
 
 - Correction (same day, second pass): the "where it runs" statement now records

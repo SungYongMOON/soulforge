@@ -8,6 +8,17 @@ export const HERMES_AGENT_RUNTIME_URL_ENV = "TEAM_OPS_HERMES_AGENT_RUNTIME_URL";
 export const HERMES_AGENT_RUNTIME_BINDINGS_ENV = "TEAM_OPS_HERMES_AGENT_RUNTIME_BINDINGS";
 
 const DEFAULT_MAX_RESPONSE_BYTES = 262_144;
+// A proxy hop (Tailscale Serve, or any other reverse proxy landing on this
+// loopback port) rewrites the socket-level remoteAddress to 127.0.0.1 but
+// leaves one of these behind. Presence of any one is treated as "not a direct
+// local caller", regardless of what the socket address says.
+const PROXY_MARKER_HEADERS = Object.freeze([
+  "x-forwarded-for",
+  "x-forwarded-host",
+  "x-forwarded-proto",
+  "forwarded",
+  "tailscale-user-login",
+]);
 
 const FIXED_HOLD_PROJECTION = Object.freeze({
   schema_version: "soulforge.agent_runtime_read_projection.v1",
@@ -35,6 +46,11 @@ function writeJson(response, projection) {
 
 function isLoopbackAddress(address) {
   return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
+}
+
+function hasProxyPassageMarker(headers) {
+  if (headers === null || typeof headers !== "object") return false;
+  return PROXY_MARKER_HEADERS.some((name) => headers[name] !== undefined);
 }
 
 function fixedError(code, message) {
@@ -109,14 +125,20 @@ export function createAgentRuntimeSnapshotAdapterPlugin(options = {}) {
         next();
         return;
       }
-      if (request.method !== "GET") {
-        response.statusCode = 405;
-        response.setHeader("Allow", "GET");
+      // Loopback/proxy trust is checked before the method, so a proxied or
+      // remote caller gets the same fail-closed 403 regardless of verb. A
+      // loopback socket address alone does not prove the caller is the
+      // Owner's own local process: Tailscale Serve lands a tailnet peer's
+      // request on 127.0.0.1 too (Level 2 review finding M1/M8, the same
+      // guard as the ERP pending-review adapter).
+      if (!isLoopbackAddress(request.socket?.remoteAddress) || hasProxyPassageMarker(request.headers)) {
+        response.statusCode = 403;
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket?.remoteAddress)) {
-        response.statusCode = 403;
+      if (request.method !== "GET") {
+        response.statusCode = 405;
+        response.setHeader("Allow", "GET");
         response.end();
         return;
       }
