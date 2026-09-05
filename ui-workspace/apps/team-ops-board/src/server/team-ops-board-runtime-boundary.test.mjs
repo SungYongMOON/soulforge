@@ -183,7 +183,7 @@ test("manual and scheduled workers forward the opt-in ERP review pair only as st
   assert.deepEqual(createRuntimeWorkerEnvironment({ TEAM_OPS_ERP_REVIEW_TOKEN_FILE: 42 }), {});
 
   const syntheticDrive = `${String.fromCharCode(67)}${String.fromCharCode(58)}`;
-  const ownerRoot = path.win32.join(syntheticDrive, "owner-root");
+  const ownerRoot = path.resolve(tmpdir(), "owner-root");
   const serveStatus = {
     AllowFunnel: { "board.example.ts.net:443": false },
     Web: { "board.example.ts.net:443": { Handlers: { "/": { Proxy: "http://127.0.0.1:4192" } } } },
@@ -601,7 +601,7 @@ test("termination receipts distinguish evidence classes without private identifi
 
 test("scheduled worker derives private bindings in memory and keeps quota OFF", () => {
   const syntheticDrive = `${String.fromCharCode(67)}${String.fromCharCode(58)}`;
-  const ownerRoot = path.win32.join(syntheticDrive, "owner-root");
+  const ownerRoot = path.resolve(tmpdir(), "owner-root");
   const serveStatus = {
     AllowFunnel: { "board.example.ts.net:443": false },
     Web: {
@@ -644,11 +644,7 @@ test("scheduled worker derives private bindings in memory and keeps quota OFF", 
   );
   assert.equal(
     environment.TEAM_OPS_HERMES_AGENT_RUNTIME_BINDINGS,
-    // createScheduledRuntimeEnvironment joins the owner-root-derived paths with
-    // path.win32 (the scheduled runtime only ever runs on the real Windows
-    // owner PC), so the expected value has to be built the same way to give
-    // the same verdict on every host this test runs on.
-    path.win32.join(ownerRoot, "guild_hall", "state", "operations", "team_ops_board", "agent_runtime_binding.v1.json"),
+    path.join(ownerRoot, "guild_hall", "state", "operations", "team_ops_board", "agent_runtime_binding.v1.json"),
   );
   assert.equal("TEAM_OPS_BOARD_EXACT_THREAD_BINDINGS" in environment, false);
   assert.equal("TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ" in environment, false);
