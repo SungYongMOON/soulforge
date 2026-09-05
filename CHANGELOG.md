@@ -8,7 +8,7 @@
 - 무엇(1, 동작 변경): 8건은 테스트가 win32 전용 로직을 호스트 `path`(리눅스에선 posix)로
   검증하고 있었다 — `src/win_system_exe.mjs`의 `system32Exe`가 `path.isAbsolute`/`path.join`을
   썼는데, 이 함수의 입력(`SystemRoot`)은 항상 Windows 형식이라 리눅스 호스트에서
-  posix `isAbsolute("C:/Windows")`가 거짓이 되어 null을 반환했다. `system32Exe`와
+  posix `isAbsolute("<SystemRoot>")`가 거짓이 되어 null을 반환했다. `system32Exe`와
   `resolveViaWhere`의 절대경로 판정을 `path.win32`로 고정하고(호스트 무관, 실제 Windows에서는
   `path.win32 === path`라 동작 불변), `test/win_system_exe.test.mjs`·
   `test/codex_bridge_process.test.mjs`의 win32 fixture(`WIN_ROOT` 등)도 `path.win32.join`/
