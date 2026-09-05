@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import test from "node:test";
+import test, { after, before } from "node:test";
 import {
   ACTIVITY_EVENT_SCHEMA_VERSION,
   appendActivityEvent,
@@ -13,6 +13,20 @@ import {
 } from "./activity_log.mjs";
 import { mergeActivitySurfaces, syncActivityToPrivateState } from "./activity_sync.mjs";
 import { projectMailCandidatesToActivity } from "./mail_candidate_projection.mjs";
+
+
+// loadNodeIdentity() resolves the state root through SOULFORGE_STATE_ROOT / SOULFORGE_OWNER_ROOT
+// (the 2026-09-02 override). On a host that sets them the fixture identity under the temp repo
+// is shadowed by the real node identity, so the file pins a clean environment for its duration.
+const STATE_ROOT_ENV = ["SOULFORGE_STATE_ROOT", "SOULFORGE_OWNER_ROOT"];
+const savedStateRootEnv = Object.fromEntries(STATE_ROOT_ENV.map((key) => [key, process.env[key]]));
+before(() => { for (const key of STATE_ROOT_ENV) delete process.env[key]; });
+after(() => {
+  for (const key of STATE_ROOT_ENV) {
+    if (savedStateRootEnv[key] === undefined) delete process.env[key];
+    else process.env[key] = savedStateRootEnv[key];
+  }
+});
 
 test("appendActivityEvent writes monthly event ledger and latest context", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-activity-"));
