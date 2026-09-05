@@ -255,7 +255,7 @@ test("explicit disabled handoff registers only a current-user Interactive foregr
     const result = await invokeRegistrar(
       fixture,
       [existing],
-      `-Register -SecureCookie -HandoffFromTaskId ${powerShellLiteral(taskId)} -Confirm:$false`,
+      `-Register -SecureCookie -EnableMcp -EnableMcpReviewRead -HandoffFromTaskId ${powerShellLiteral(taskId)} -Confirm:$false`,
       REGISTER_MOCKS,
     );
     assert.equal(result.code, 0, result.stderr);
@@ -276,7 +276,49 @@ test("explicit disabled handoff registers only a current-user Interactive foregr
     assert.match(capture.Action.Arguments, /-Foreground/);
     assert.match(capture.Action.Arguments, /-DatabasePath/);
     assert.match(capture.Action.Arguments, /-SecureCookie/);
+    assert.match(capture.Action.Arguments, /-EnableMcp\b/);
+    assert.match(capture.Action.Arguments, /-EnableMcpReviewRead/);
     assert.match(capture.Description, /no stored credentials/i);
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("scheduled-task registration keeps MCP review-read switches OFF by default and requires -EnableMcp", {
+  skip: process.platform !== "win32",
+}, async () => {
+  const fixture = await createFixture();
+  const taskName = "Soulforge dev-ERP foreground";
+  const taskId = `\\${taskName}`;
+  const existing = task({
+    name: taskName,
+    enabled: false,
+    args: legacyLauncherAction(fixture),
+    workingDirectory: fixture.app,
+  });
+  try {
+    const defaultOff = await invokeRegistrar(
+      fixture,
+      [existing],
+      `-Register -HandoffFromTaskId ${powerShellLiteral(taskId)} -Confirm:$false`,
+      REGISTER_MOCKS,
+    );
+    assert.equal(defaultOff.code, 0, defaultOff.stderr);
+    const captureLine = defaultOff.stdout.split(/\r?\n/).find((line) => line.startsWith("CAPTURE="));
+    assert.ok(captureLine, defaultOff.stdout);
+    const capture = JSON.parse(captureLine.slice("CAPTURE=".length));
+    assert.doesNotMatch(capture.Action.Arguments, /-EnableMcp\b/);
+    assert.doesNotMatch(capture.Action.Arguments, /-EnableMcpReviewRead/);
+
+    // -EnableMcpReviewRead requires -EnableMcp at registration time too, so a
+    // misconfigured registration cannot be created that would only fail later
+    // when the scheduled task actually launches.
+    const reviewReadWithoutMcp = await invokeRegistrar(fixture, [], "-EnableMcpReviewRead");
+    assert.notEqual(reviewReadWithoutMcp.code, 0);
+    assert.match(
+      `${reviewReadWithoutMcp.stdout}\n${reviewReadWithoutMcp.stderr}`,
+      /-EnableMcpReviewRead requires -EnableMcp/,
+    );
   } finally {
     await rm(fixture.root, { recursive: true, force: true });
   }

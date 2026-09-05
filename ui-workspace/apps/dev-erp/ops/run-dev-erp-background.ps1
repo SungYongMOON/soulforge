@@ -17,6 +17,8 @@ param(
   [string]$MorningBriefPublicUrl = "",
   [string]$MorningBriefDomainAllow = "",
   [switch]$EnableCodexWorker,
+  [switch]$EnableMcp,
+  [switch]$EnableMcpReviewRead,
   [string]$BackendRoot = "",
   [string]$LogRoot = "",
   [string]$DatabasePath = "",
@@ -49,6 +51,9 @@ function Resolve-ExplicitTlsPath {
 
 if ($EnableAutoIntake -and -not $EnableMailCollect) {
   throw "-EnableAutoIntake requires -EnableMailCollect."
+}
+if ($EnableMcpReviewRead -and -not $EnableMcp) {
+  throw "-EnableMcpReviewRead requires -EnableMcp."
 }
 if ($EnableLocalLlm) {
   throw "-EnableLocalLlm is disabled by the 2026-07-23 owner policy. Use the separate RAG session runtime."
@@ -248,6 +253,8 @@ if ($EnableAutoIntake) { $EnabledIntegrations += "auto-intake" }
 if ($EnableAutosync) { $EnabledIntegrations += "autosync" }
 if ($EnableMorningBrief) { $EnabledIntegrations += "morning-brief" }
 if ($EnableCodexWorker) { $EnabledIntegrations += "codex-worker" }
+if ($EnableMcp) { $EnabledIntegrations += "mcp" }
+if ($EnableMcpReviewRead) { $EnabledIntegrations += "mcp-review-read" }
 $IntegrationSummary = if ($EnabledIntegrations.Count) { $EnabledIntegrations -join "," } else { "none" }
 
 if ($DryRun) {
@@ -363,6 +370,12 @@ if ($EnableMorningBrief) {
   $env:DEV_ERP_MORNING_BRIEF_HHMM = $MorningBriefHhmm
   $env:DEV_ERP_PUBLIC_URL = $MorningBriefPublicUrl
   $env:DEV_ERP_BRIEF_DOMAIN_ALLOW = $MorningBriefDomainAllow
+}
+if ($EnableMcp) {
+  $env:DEV_ERP_MCP_ENABLED = "1"
+}
+if ($EnableMcpReviewRead) {
+  $env:DEV_ERP_MCP_REVIEW_READ = "1"
 }
 
 $env:DEV_ERP_CODEX_TASK_BRIDGE = "worker"

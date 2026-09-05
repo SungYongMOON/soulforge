@@ -5,6 +5,8 @@ param(
   [string]$TaskName = "Soulforge dev-ERP foreground",
   [string]$DatabasePath = "",
   [switch]$SecureCookie,
+  [switch]$EnableMcp,
+  [switch]$EnableMcpReviewRead,
   [switch]$Register,
   [string[]]$HandoffFromTaskId = @()
 )
@@ -199,6 +201,10 @@ if ([string]::IsNullOrWhiteSpace($DatabasePath)) {
 }
 $DatabasePath = Assert-DevErpExternalRuntimePath -Name "DatabasePath" -PathValue $DatabasePath -InstalledLayout $InstalledLayout
 
+if ($EnableMcpReviewRead -and -not $EnableMcp) {
+  throw "-EnableMcpReviewRead requires -EnableMcp."
+}
+
 $PowerShellCommand = Get-Command powershell.exe -ErrorAction Stop
 $PowerShellExe = [IO.Path]::GetFullPath($PowerShellCommand.Source)
 $ActionArguments = @(
@@ -210,6 +216,8 @@ $ActionArguments = @(
   "-DatabasePath", $DatabasePath
 )
 if ($SecureCookie) { $ActionArguments += "-SecureCookie" }
+if ($EnableMcp) { $ActionArguments += "-EnableMcp" }
+if ($EnableMcpReviewRead) { $ActionArguments += "-EnableMcpReviewRead" }
 $ActionArgumentLine = ($ActionArguments | ForEach-Object { ConvertTo-TaskArgument -Value $_ }) -join " "
 
 $Tasks = @(Get-ScheduledTask -ErrorAction Stop)

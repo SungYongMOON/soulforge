@@ -223,6 +223,8 @@ writeFileSync(path.join(stateRoot, "fixture.env.json"), JSON.stringify({
   auto_intake: process.env.DEV_ERP_AUTO_INTAKE || null,
   autosync: process.env.DEV_ERP_AUTOSYNC || null,
   morning_brief: process.env.DEV_ERP_MORNING_BRIEF || null,
+  mcp_enabled: process.env.DEV_ERP_MCP_ENABLED || null,
+  mcp_review_read: process.env.DEV_ERP_MCP_REVIEW_READ || null,
   fileio: process.env.DEV_ERP_FILEIO || null,
   self_register: process.env.DEV_ERP_ALLOW_SELF_REGISTER || null,
   codex_bridge: process.env.DEV_ERP_CODEX_TASK_BRIDGE || null,
@@ -389,11 +391,13 @@ test("background launcher defaults to loopback core-only posture and requires op
       "-MorningBriefPublicUrl", "https://erp.invalid",
       "-MorningBriefDomainAllow", "example.invalid",
       "-EnableCodexWorker",
+      "-EnableMcp",
+      "-EnableMcpReviewRead",
     ]);
     assert.equal(optedIn.code, 0, optedIn.stderr);
     assert.match(optedIn.stdout, /host=0\.0\.0\.0/);
     assert.match(optedIn.stdout, /secure-cookie=on/);
-    assert.match(optedIn.stdout, /integrations=lan,mail-collect,auto-intake,autosync,morning-brief,codex-worker/);
+    assert.match(optedIn.stdout, /integrations=lan,mail-collect,auto-intake,autosync,morning-brief,codex-worker,mcp,mcp-review-read/);
   } finally {
     await removeFixtureRoot(fixture.root);
   }
@@ -727,6 +731,8 @@ test("background launcher strips inherited sensitive env and restores only expli
       "-MorningBriefPublicUrl", "https://erp.invalid",
       "-MorningBriefDomainAllow", "example.invalid",
       "-EnableCodexWorker",
+      "-EnableMcp",
+      "-EnableMcpReviewRead",
     ], testEnvironment({
       DEV_ERP_FILEIO: "1",
       DEV_ERP_ALLOW_SELF_REGISTER: "1",
@@ -755,6 +761,8 @@ test("background launcher strips inherited sensitive env and restores only expli
     assert.equal(env.auto_intake, "1");
     assert.equal(env.autosync, "1");
     assert.equal(env.morning_brief, "1");
+    assert.equal(env.mcp_enabled, "1");
+    assert.equal(env.mcp_review_read, "1");
     assert.equal(env.codex_bridge, "worker");
     assert.equal(env.codex_worker_url, "https://worker.invalid");
     assert.equal(env.codex_worker_token_present, true);
@@ -814,6 +822,8 @@ test("background launcher replaces only an exact executable and full command-lin
       auto_intake: null,
       autosync: null,
       morning_brief: null,
+      mcp_enabled: null,
+      mcp_review_read: null,
       fileio: null,
       self_register: null,
       codex_bridge: "worker",
@@ -1166,6 +1176,48 @@ test("background launcher defaults to mutation routes OFF on port 4300 when flag
     assert.equal(bothIntegrations.has("auto-intake"), true);
     assert.equal(bothIntegrations.has("autosync"), true);
     assert.equal(bothIntegrations.has("mail-collect"), true);
+  } finally {
+    await removeFixtureRoot(fixture.root);
+  }
+});
+
+test("background launcher defaults MCP review-read integrations OFF and requires -EnableMcp", {
+  skip: process.platform !== "win32",
+}, async () => {
+  const fixture = await createLauncherFixture();
+  try {
+    const port = await reservePort();
+    const base = ["-Port", String(port), "-BackendRoot", fixture.root, "-DryRun"];
+    const safe = await runPowerShell(fixture.launcher, base);
+    assert.equal(safe.code, 0, safe.stderr);
+    const safeIntegrations = parseLauncherIntegrations(safe.stdout);
+    assert.equal(safeIntegrations.has("mcp"), false);
+    assert.equal(safeIntegrations.has("mcp-review-read"), false);
+
+    // -EnableMcp alone enables only the base bearer-token MCP surface (agenda,
+    // mail, artifacts, tokens); it does not imply review-read.
+    const mcpOnly = await runPowerShell(fixture.launcher, [...base, "-EnableMcp"]);
+    assert.equal(mcpOnly.code, 0, mcpOnly.stderr);
+    const mcpOnlyIntegrations = parseLauncherIntegrations(mcpOnly.stdout);
+    assert.equal(mcpOnlyIntegrations.has("mcp"), true);
+    assert.equal(mcpOnlyIntegrations.has("mcp-review-read"), false);
+
+    // -EnableMcpReviewRead requires -EnableMcp per launcher parameter contract,
+    // matching server.mjs's own ERP_MCP_REVIEW_READ = ERP_MCP_ENABLED && ... coupling
+    // (unpaired DEV_ERP_MCP_REVIEW_READ=1 alone would be a silent no-op there).
+    const reviewReadWithoutMcp = await runPowerShell(fixture.launcher, [...base, "-EnableMcpReviewRead"]);
+    assert.notEqual(reviewReadWithoutMcp.code, 0);
+    assert.match(
+      `${reviewReadWithoutMcp.stdout}\n${reviewReadWithoutMcp.stderr}`,
+      /-EnableMcpReviewRead requires -EnableMcp/,
+    );
+
+    // Both flags opted in together
+    const bothOptedIn = await runPowerShell(fixture.launcher, [...base, "-EnableMcp", "-EnableMcpReviewRead"]);
+    assert.equal(bothOptedIn.code, 0, bothOptedIn.stderr);
+    const bothIntegrations = parseLauncherIntegrations(bothOptedIn.stdout);
+    assert.equal(bothIntegrations.has("mcp"), true);
+    assert.equal(bothIntegrations.has("mcp-review-read"), true);
   } finally {
     await removeFixtureRoot(fixture.root);
   }
