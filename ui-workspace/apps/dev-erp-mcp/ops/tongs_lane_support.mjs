@@ -38,7 +38,18 @@ export const TONGS_HEARTBEAT_STATUSES = Object.freeze([
   "error",
 ]);
 export const TONGS_STATE_DIRNAME = "operations/tongs";
-export const TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS = 5 * 60 * 1000; // matches the registered task's 5-minute recheck
+export const TONGS_LOCK_SCHEMA = "soulforge.tongs_lane.run_lock.v1";
+// The registered task's own trigger repeats every PT5M (300000ms). A max-age
+// equal to that interval leaves a reuse decision with essentially zero
+// margin against ordinary Task Scheduler lateness (sleep/resume, load, a
+// slow previous tick): the very first late trigger flips reuse -> start and
+// races the still-live incumbent for its own port (see run-tongs-loopback.ps1
+// Sync-TongsService's adopt path, added for exactly that race). The single
+// constant below is the one place this repository's three tongs-lane files
+// (this module, run-tongs-loopback.ps1, register-tongs-task.ps1) agree on;
+// it must stay at least 2x the registrar's repetition interval.
+export const TONGS_REGISTERED_TRIGGER_INTERVAL_MS = 5 * 60 * 1000;
+export const TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS = 720000; // 2.4x TONGS_REGISTERED_TRIGGER_INTERVAL_MS
 
 const HEARTBEAT_FIELDS = Object.freeze(["schema_version", "status", "observed_at", "pid", "listen"]);
 const LISTEN_RE = /^127\.0\.0\.1:([0-9]{1,5})$/;
@@ -145,6 +156,7 @@ export function evaluateTongsPreflight({
   nodePathPresent,
   entryPathPresent,
   entryInsideLaneRoot,
+  moduleResolves,
   ingressRequested,
   ingressConfigPresent = null,
   ingressConfigValid = null,
@@ -153,6 +165,14 @@ export function evaluateTongsPreflight({
     node_path_present: nodePathPresent === true,
     entry_path_present: entryPathPresent === true,
     entry_inside_lane_root: entryInsideLaneRoot === true,
+    // Presence alone ("the file exists") cannot see a missing third-party
+    // package: a lane assembled with the wrong --previous-lane carries the
+    // entry file but not its node_modules closure and dies at spawn with
+    // ERR_MODULE_NOT_FOUND. The caller proves this the only safe way without
+    // opening a socket: a real dynamic import() of the entry file itself
+    // (see cmdPreflight), which resolves every static import the module
+    // graph needs and never runs the module's own guarded main-block.
+    module_resolves: moduleResolves === true,
   };
   if (ingressRequested) {
     checks.ingress_config_present = ingressConfigPresent === true;
@@ -162,6 +182,17 @@ export function evaluateTongsPreflight({
     .filter(([, ok]) => !ok)
     .map(([name]) => name);
   return { ok: failedChecks.length === 0, checks, failed_checks: failedChecks };
+}
+
+// Concurrency-lock decision: pure, so the reclaim-a-dead-holder's-lock branch
+// is reachable from a synthetic node:test case without ever touching a real
+// pid or the filesystem. The caller (cmdAcquireLock) is the only impure half:
+// it reads the lock file, probes the recorded pid with a real liveness check,
+// and writes the new lock file when this function says to.
+export function evaluateLockClaim({ existingLock, holderAlive }) {
+  if (!existingLock) return { acquired: true };
+  if (holderAlive) return { acquired: false, holder_pid: existingLock.pid };
+  return { acquired: true, reclaimed_from_pid: existingLock.pid };
 }
 
 const SUMMARY_PRIORITY = Object.freeze(["error", "starting", "degraded", "stopped", "ready"]);
@@ -309,10 +340,33 @@ async function cmdPreflight(args) {
   const relative = path.relative(laneRoot, entryPath);
   const entryInsideLaneRoot = relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
 
+  // A real dynamic import of the entry file, never the guarded top-level
+  // "start the server" block: every entry this repository ships guards that
+  // block with `if (import.meta.url === pathToFileURL(process.argv[1] ...))`,
+  // and process.argv[1] here is this CLI's own path, not entryPath, so the
+  // guard is always false and no socket ever opens. What this DOES exercise
+  // is every static `import` the module graph needs — the only way to catch
+  // a lane whose --previous-lane did not actually carry
+  // @modelcontextprotocol/sdk or zod before it dies at real spawn time with
+  // ERR_MODULE_NOT_FOUND (see docs/TONGS_LANE_RUNBOOK_V0.md §4).
+  let moduleResolves = false;
+  let moduleResolutionErrorCode = null;
+  if (entryPathPresent) {
+    try {
+      await import(pathToFileURL(entryPath).href);
+      moduleResolves = true;
+    } catch (error) {
+      moduleResolutionErrorCode = error?.code ?? "module_resolution_failed";
+    }
+  } else {
+    moduleResolutionErrorCode = "entry_path_absent";
+  }
+
   let ingressConfigPresent = null;
   let ingressConfigValid = null;
   let ingressConfigErrorCode = null;
   let resolvedListen = null;
+  let ingressEnabled = null;
   if (ingressRequested) {
     const ingressConfigPath = requireAbsolute(ingressConfigArgument, "ingress-config");
     ingressConfigPresent = await isNormalFile(ingressConfigPath);
@@ -322,6 +376,7 @@ async function cmdPreflight(args) {
         const { loadIngressMcpConfig } = await import(pathToFileURL(servicePath).href);
         const config = await loadIngressMcpConfig(ingressConfigPath);
         resolvedListen = `${config.listenHost}:${config.listenPort}`;
+        ingressEnabled = config.enabled === true;
         ingressConfigValid = true;
       } catch (error) {
         ingressConfigValid = false;
@@ -336,6 +391,7 @@ async function cmdPreflight(args) {
     nodePathPresent,
     entryPathPresent,
     entryInsideLaneRoot,
+    moduleResolves,
     ingressRequested,
     ingressConfigPresent,
     ingressConfigValid,
@@ -345,12 +401,93 @@ async function cmdPreflight(args) {
       ...result,
       network_used: false,
       resolved_listen: resolvedListen,
+      // null when ingress was never requested; true/false once a
+      // structurally valid binding was actually loaded. A caller that sees
+      // `ok:true, ingress_enabled:false` knows a real run will not start
+      // that service at all (see run-tongs-loopback.ps1's skip branch)
+      // rather than reading a green preflight as "ingress will come up".
+      ingress_enabled: ingressEnabled,
       ingress_config_error_code: ingressConfigErrorCode,
+      module_resolution_error_code: moduleResolutionErrorCode,
     },
     null,
     2,
   )}\n`);
   process.exitCode = result.ok ? 0 : 1;
+}
+
+// Concurrency lock: defense-in-depth against a manual run overlapping the
+// registered task's own tick, or two manual runs (the registered task itself
+// is already covered by MultipleInstances=IgnoreNew, which this lock does not
+// replace). Deliberately best-effort, not a distributed lock: the read of the
+// existing holder and the write of a new lock are two separate filesystem
+// operations, so a race between two launches started in the same instant can
+// still both win. What it does reliably prevent is the far more likely case:
+// a stale lock left by a launch that crashed or was killed without cleaning up.
+async function cmdAcquireLock(args) {
+  const stateRoot = requireAbsolute(args["state-root"], "state-root");
+  const pid = Number(args.pid);
+  if (!isPositiveInt(pid)) fail("tongs_lock_pid_invalid");
+  const lockDirectory = path.join(stateRoot, ...TONGS_STATE_DIRNAME.split("/"));
+  await ensureNormalDirectory(lockDirectory);
+  const lockPath = path.join(lockDirectory, "run.lock.v1.json");
+
+  // Fail closed on anything other than "the file genuinely does not exist
+  // yet" — matching readHeartbeatFile's own convention below. An earlier
+  // version treated any read/parse error as "no lock", which silently
+  // granted acquisition over a lock file that merely could not be parsed
+  // (observed for real against a BOM-prefixed file while writing this test's
+  // own fixture) — exactly the failure mode this lock exists to prevent.
+  let existingLock = null;
+  try {
+    existingLock = JSON.parse(await readFile(lockPath, "utf8"));
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      existingLock = null;
+    } else {
+      fail("tongs_lock_unreadable");
+    }
+  }
+
+  let holderAlive = false;
+  if (existingLock && isPositiveInt(existingLock.pid)) {
+    try {
+      process.kill(existingLock.pid, 0);
+      holderAlive = true;
+    } catch (error) {
+      // ESRCH: no such process; the holder is gone and the lock is stale.
+      // EPERM: it exists but this account cannot signal it — treat that as
+      // alive rather than risk two supervisors running at once.
+      holderAlive = error?.code === "EPERM";
+    }
+  }
+
+  const decision = evaluateLockClaim({ existingLock, holderAlive });
+  if (decision.acquired) {
+    const record = { schema_version: TONGS_LOCK_SCHEMA, pid, acquired_at: new Date().toISOString() };
+    await writeJsonAtomic(lockPath, record);
+  }
+  process.stdout.write(`${JSON.stringify(decision, null, 2)}\n`);
+  process.exitCode = decision.acquired ? 0 : 1;
+}
+
+async function cmdReleaseLock(args) {
+  const stateRoot = requireAbsolute(args["state-root"], "state-root");
+  const pid = Number(args.pid);
+  if (!isPositiveInt(pid)) fail("tongs_lock_pid_invalid");
+  const lockPath = path.join(stateRoot, ...TONGS_STATE_DIRNAME.split("/"), "run.lock.v1.json");
+  let released = false;
+  try {
+    const existing = JSON.parse(await readFile(lockPath, "utf8"));
+    if (existing?.pid === pid) {
+      await rm(lockPath, { force: true });
+      released = true;
+    }
+  } catch {
+    // Nothing to release, or the file is unreadable: either way this run
+    // never held a lock worth reporting a failure over.
+  }
+  process.stdout.write(`${JSON.stringify({ released }, null, 2)}\n`);
 }
 
 async function main(argv) {
@@ -361,11 +498,13 @@ async function main(argv) {
     "write-heartbeat": cmdWriteHeartbeat,
     "read-heartbeat": cmdReadHeartbeat,
     decide: cmdDecide,
+    "acquire-lock": cmdAcquireLock,
+    "release-lock": cmdReleaseLock,
   };
   const handler = handlers[subcommand];
   if (!handler) {
     process.stdout.write(
-      "usage: tongs_lane_support.mjs <preflight|write-heartbeat|read-heartbeat|decide> [--flags]\n",
+      "usage: tongs_lane_support.mjs <preflight|write-heartbeat|read-heartbeat|decide|acquire-lock|release-lock> [--flags]\n",
     );
     process.exitCode = 1;
     return;

@@ -27,6 +27,18 @@
   file, and it never reads or prints a secret/credential value (an
   -IngressConfigPath, if given, is structural binding JSON with no bearer
   token in it; see ../schema/ingress_mcp_binding.v1.schema.json).
+
+  -NodeSha256 mirrors register-linear-collect-hpp-task.ps1's own gate: the
+  caller must already know and assert the digest of the node.exe this task
+  will run (compute it once with `Get-FileHash -Algorithm SHA256 <NodePath>`
+  and pass it as "sha256:<hex>"). This script recomputes the actual digest of
+  -NodePath and throws on any mismatch, and the value is folded into the plan
+  digest so it cannot be swapped without the dry-run digest also changing.
+
+  ConfirmImpact is "High": real registration (-Register -DryRun:$false)
+  prompts for confirmation unless the caller also passes -Confirm:$false,
+  which a non-interactive session must supply explicitly (dry-run never
+  prompts; it returns before ShouldProcess is reached).
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = "High")]
@@ -34,17 +46,36 @@ param(
   [Parameter(Mandatory = $true)][string]$LaneRoot,
   [Parameter(Mandatory = $true)][string]$StateRoot,
   [Parameter(Mandatory = $true)][string]$NodePath,
+  [Parameter(Mandatory = $true)][string]$NodeSha256,
+  # M3: this registrar bakes -ErpListenHost straight into the registered
+  # task's action line; a bad value must never even reach the plan digest.
+  [ValidateScript({
+    if ($_ -ne "127.0.0.1") {
+      throw "tongs registration requires -ErpListenHost 127.0.0.1 (loopback only); refusing '$_'"
+    }
+    $true
+  })]
   [string]$ErpListenHost = "127.0.0.1",
   [int]$ErpListenPort = 4311,
   [string]$ErpBaseUrl = "http://127.0.0.1:4300",
   [string]$IngressConfigPath,
-  [int]$MaxHeartbeatAgeMs = 300000,
+  # M2: must match ops/tongs_lane_support.mjs's TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS
+  # (>= 2x the PT5M repetition interval this task registers below).
+  [int]$MaxHeartbeatAgeMs = 720000,
   [int]$HealthTimeoutSeconds = 30,
   [string]$TaskName = "Soulforge-Tongs-Loopback-v1",
   [string]$ExpectedDryRunDigest,
   [switch]$DryRun,
   [switch]$Register
 )
+
+# M2: fail the registration outright if a caller overrides -MaxHeartbeatAgeMs
+# down to something that no longer clears the shared 2x-the-trigger-interval
+# floor, rather than silently baking a self-defeating value into the task.
+$MinimumSafeMaxHeartbeatAgeMs = 600000
+if ($MaxHeartbeatAgeMs -lt $MinimumSafeMaxHeartbeatAgeMs) {
+  throw "tongs registration -MaxHeartbeatAgeMs ($MaxHeartbeatAgeMs) must be >= $MinimumSafeMaxHeartbeatAgeMs (2x the PT5M repetition interval)"
+}
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -140,6 +171,15 @@ function Get-XmlNodeText {
 $LaneRoot = Resolve-CanonicalDirectory -Path $LaneRoot
 $StateRoot = Resolve-PlannedDirectory -Path $StateRoot
 $NodePath = Resolve-CanonicalFile -Path $NodePath
+
+# node.exe digest 기록(m12): 이 등록기가 실제로 등록하려는 node.exe가 Owner가
+# 안다고 주장하는 바로 그 바이너리인지 확인한다. linear 등록기와 같은 계약 —
+# 값은 caller가 미리 알고 넘겨야 하며, 여기서는 재계산해 대조만 한다.
+$ActualNodeSha256 = "sha256:" + (Get-Sha256File -Path $NodePath)
+if ($ActualNodeSha256 -ne $NodeSha256) {
+  throw "tongs registration node.exe digest mismatch: expected $NodeSha256 actual $ActualNodeSha256"
+}
+
 $AppRoot = Resolve-CanonicalDirectory -Path (Join-Path $LaneRoot "ui-workspace\apps\dev-erp-mcp")
 $OpsRoot = Resolve-CanonicalDirectory -Path (Join-Path $AppRoot "ops")
 $Launcher = Resolve-CanonicalFile -Path (Join-Path $OpsRoot "run-tongs-loopback.ps1")
@@ -222,11 +262,13 @@ $Plan = [ordered]@{
   task_name               = $TaskName
   trigger_kind            = "at_logon_plus_repetition"
   repetition_interval     = "PT5M"
+  trigger_user            = $CurrentUser
   user_sid                = $CurrentSid
   lane_root               = $LaneRoot
   state_root              = $StateRoot
   erp_listen              = "$($ErpListenHost):$($ErpListenPort)"
   ingress_requested        = $IngressRequested
+  node_sha256             = $ActualNodeSha256
   launcher_sha256         = $LauncherSha256
   hidden_launcher_sha256  = $HiddenLauncherSha256
   ingress_config_sha256   = $IngressConfigSha256
@@ -251,7 +293,9 @@ $Action = New-ScheduledTaskAction -Execute $WScriptExe -Argument $HiddenActionAr
 # -AtLogOn has no -RepetitionInterval parameter set of its own; the
 # documented workaround is to harvest a throwaway "Once" trigger's Repetition
 # CIM instance and copy it onto the real trigger.
-$Trigger = New-ScheduledTaskTrigger -AtLogOn
+# -User $CurrentUser (m8): without it, UserId is empty and the trigger fires
+# on ANY user's logon on this host, not only the registering user's.
+$Trigger = New-ScheduledTaskTrigger -AtLogOn -User $CurrentUser
 $RepetitionSource = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 5)
 $Trigger.Repetition = $RepetitionSource.Repetition
 $Trigger.Repetition.StopAtDurationEnd = $false
@@ -275,8 +319,18 @@ try {
   $TriggerNodes = @($TriggersNode.ChildNodes | Where-Object { $_.NodeType -eq [System.Xml.XmlNodeType]::Element })
 
   $RegisteredKind = $(if ($TriggerNodes.Count -eq 1) { $TriggerNodes[0].LocalName } else { $null })
-  $RegisteredInterval = Get-XmlNodeText -Parent $(if ($TriggerNodes.Count -eq 1) { $TriggerNodes[0] } else { $null }) -XPath "./*[local-name()='Repetition']/*[local-name()='Interval']"
-  $RegisteredStopAtDurationEnd = Get-XmlNodeText -Parent $(if ($TriggerNodes.Count -eq 1) { $TriggerNodes[0] } else { $null }) -XPath "./*[local-name()='Repetition']/*[local-name()='StopAtDurationEnd']"
+  $SingleTriggerNode = $(if ($TriggerNodes.Count -eq 1) { $TriggerNodes[0] } else { $null })
+  $RegisteredInterval = Get-XmlNodeText -Parent $SingleTriggerNode -XPath "./*[local-name()='Repetition']/*[local-name()='Interval']"
+  $RegisteredStopAtDurationEnd = Get-XmlNodeText -Parent $SingleTriggerNode -XPath "./*[local-name()='Repetition']/*[local-name()='StopAtDurationEnd']"
+  # m7: the runbook claims the 5-minute repetition is indefinite. A present,
+  # non-empty Duration would mean Task Scheduler actually bounded it — that
+  # is exactly what the -Once Repetition CIM copy workaround is supposed to
+  # avoid (verified in-memory, without registering, in the 2026-09-06 review's
+  # C24), so attest its absence instead of only asserting Interval/StopAtEnd.
+  $RegisteredDuration = Get-XmlNodeText -Parent $SingleTriggerNode -XPath "./*[local-name()='Repetition']/*[local-name()='Duration']"
+  # m8: UserId must be exactly the registering user, never empty (empty means
+  # "any user's logon" — verified in-memory in the same review's C24).
+  $RegisteredTriggerUserId = Get-XmlNodeText -Parent $SingleTriggerNode -XPath "./*[local-name()='UserId']"
   $RegisteredCommand = Get-XmlNodeText -Parent $ExecNode -XPath "./*[local-name()='Command']"
   $RegisteredArguments = Get-XmlNodeText -Parent $ExecNode -XPath "./*[local-name()='Arguments']"
   $RegisteredWorkingDirectory = Get-XmlNodeText -Parent $ExecNode -XPath "./*[local-name()='WorkingDirectory']"
@@ -288,6 +342,8 @@ try {
     -and $RegisteredKind -eq "LogonTrigger" `
     -and $RegisteredInterval -eq "PT5M" `
     -and $RegisteredStopAtDurationEnd -ne "true" `
+    -and $RegisteredDuration -eq "" `
+    -and $RegisteredTriggerUserId -eq $CurrentUser `
     -and $RegisteredHidden -eq "true" `
     -and $RegisteredMultipleInstances -eq "IgnoreNew" `
     -and $RegisteredLogon -eq "InteractiveToken" `

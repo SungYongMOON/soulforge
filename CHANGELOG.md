@@ -1,5 +1,85 @@
 # CHANGELOG
 
+## 2026-09-06 - Tongs(MCP 문) loopback lane: fresh review's M1–M6 + minors closed, still not registered
+
+- 판단 표기: 개발 후보 수정. 아래 "Tongs(MCP 문) loopback lane + registrar prepared" 커밋에 대한
+  fresh non-author Level 2 검토(`REVIEW_PACKET_20260906_tongs_t.yaml`, 32건 명령·관찰,
+  결론 "revise")가 잡은 major 6건(M1–M6)과 minor 12건 중 9건("반드시" 표시분)을 이 개정에서
+  고쳤다. 새 owner decision이나 정본 승격이 아니다 — 아직 등록도, 상시 기동도, credential 발급도
+  없다.
+- 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: **M1**(재기동 경합) — 재기동이 결정된 시점에 이전 프로세스가 포트를 쥐고 있으면 새 자식이
+  `EADDRINUSE`로 죽어도 헬스 프로브가 옛 프로세스에서 200을 받아 그 죽은 자식의 pid를 `ready`로
+  기록하던 결함을 고쳤다. 지금은 자식 spawn → 짧은 대기 → `HasExited` 확인 →
+  `Get-NetTCPConnection`의 실제 포트 소유 pid가 새 자식과 같을 때만 `ready`, 아니면 그 포트의
+  실제(검증된) 소유자를 `action:"adopt"`로 채택하거나 `status:"error"`로 실패를 그대로 보고한다.
+  `Test-ProcessAlive`도 pid 존재만이 아니라 프로세스 이름(`node`)·시작 시각·명령행까지 본다.
+  **M2**(신선도 창) — `MaxHeartbeatAgeMs` 기본을 5분(트리거 간격과 동일, 사실상 여유 없음)에서
+  720000(12분, 트리거 간격의 2.4배)으로 올렸고, 이 상수를 `tongs_lane_support.mjs` 한 곳에서만
+  정의해 `run-tongs-loopback.ps1`·`register-tongs-task.ps1`이 그 값을 그대로 쓰며, 등록기는
+  `-MaxHeartbeatAgeMs`가 5분 반복의 2배 밑이면 등록 자체를 거부한다. **M3**(loopback 미강제) —
+  두 launcher/registrar 스크립트 모두 `-ErpListenHost`를 `127.0.0.1`만 받도록
+  `ValidateScript`로 막았고(다른 값은 spawn은커녕 preflight도 가기 전에 throw), 두 자식 프로세스의
+  환경에 `ERP_MCP_ALLOW_INSECURE_HTTP = "0"`을 명시해 로그온 세션에 남은 `1`이 자식에 전달되지
+  않게 했다(부모 세션에 `1`을 심어 두고 자식이 `0`을 보는지 실측). **M4**(런북 오문) — "두 프로세스
+  모두 코드가 loopback을 강제한다"는 틀린 문장을 고쳐, ingress MCP는 우회 없이 강제되고 개인 ERP
+  MCP는 `ERP_MCP_ALLOW_INSECURE_HTTP` 미설정일 때만 강제되며 그래서 이 launcher가 그 변수를
+  0으로 못박는다고 정정했다. **M5**(§9 명령 오류) — `ingress:admin`은 루트 스크립트가 아니라서
+  `npm.cmd --prefix ui-workspace/apps/dev-erp-mcp run ingress:admin --`로 고쳤고,
+  `dev-erp:mcp-token`에 운영 팩 payload의 `dev-erp.db` 경로를 가리키는 `--db`를 추가했다(기본값은
+  checkout 사본이라 `account_not_found`로 실패했다). **M6**(빌드 레시피 불능) — 추적 spec
+  `guild_hall/deployment_pack/lanes/tongs_lane.spec.json`을 추가했다(`operations_lane.spec.json`
+  형식을 따름, 실제 import 그래프를 스크립트로 추적해 도출). `operations-lane-v2`를 포함해 현존하는
+  어떤 `install/source-lanes/*` lane의 manifest도 `@modelcontextprotocol/sdk`·`zod`를 들고 있지
+  않다는 사실을 실측했고(그래서 `--previous-lane`은 그 둘을 실제로 든 스테이징 디렉터리여야 한다는
+  것을 런북에 적었다), `-NodePath`를 시스템 node 경로로(lane 안 `node.exe`는 없다), preflight에
+  `module_resolves` 체크(entry를 `import()`로 직접 열어 실패를 소켓 없이 잡음, 최상위 "서버 기동"
+  블록은 실행하지 않음)를 추가했다. **minor(9건)**: preflight의 `module_resolves`(위와 동일),
+  ingress `enabled:false`면 스폰하지 않고 `action:"skipped"`+`status:"stopped"`로 기록, 동시 실행
+  잠금(`<StateRoot>/operations/tongs/run.lock.v1.json`, pid 기반, 손상된 락 파일은 조용히 내주지
+  않고 실행 자체를 실패 처리), 자식 로그 truncate 대신 회전(`.1`~`.5`, rename이 막히면 조용히
+  건너뜀), heartbeat 쓰기 실패를 더 이상 `Out-Null`로 삼키지 않고 exit≠0, 새 스크립트
+  `ops/stop-tongs-loopback.ps1`(heartbeat pid가 살아있고 `node`이며 그 포트를 실제로 쥐고 있을
+  때만 멈춤 — 자기 자식만 종료), `-AtLogOn -User`로 로그온 트리거를 등록 계정으로 한정,
+  등록기의 plan에 `node_sha256`(신규 필수 `-NodeSha256`과 대조) 포함, `validate:tongs-lane`을
+  `run_root_acceptance.mjs`의 `validate`·`done-check` 두 모드에 배선하고
+  `run_root_acceptance_steps.test.mjs`에 그 배선을 고정하는 검사를 추가.
+- 발견: 재기동 경합·신선도 창·loopback 우회는 서로 독립이 아니라 한 사슬이었다 — 신선도 창이
+  트리거 간격과 같으면 통상적인 지연만으로 재기동이 결정되고, 재기동이 결정된 시점에 이전
+  프로세스가 아직 살아 있으면 M1의 경합이 재현되며, `-ErpListenHost` 미검증은 그 재기동을
+  loopback 밖으로도 열어 둘 수 있었다. 검증 중 이 개정 자신의 코드에서도 두 개의 실제 버그를
+  라이브 실행으로 잡았다(정적 검사로는 안 잡혔다): PowerShell의 `[Nullable[datetime]]` 파라미터가
+  값이 있어도 `.HasValue`/`.Value`를 못 쓰는 상태로 바인딩되는 경우가 있어 `Test-ProcessAlive`의
+  시작 시각 대조가 매번 예외를 던졌고(고침: 타입 없는 파라미터로 교체), `acquire-lock`이 잠금
+  파일을 못 읽으면(BOM 등) "잠금 없음"으로 취급해 살아있는 소유자가 있어도 조용히 넘겨줬다(고침:
+  읽기 실패는 이제 실행 자체를 실패 처리 — 회귀 테스트 추가).
+- 검증: `node --test ops/tongs_lane_support.test.mjs` 16/16(신규 6건 포함 — 신선도 창 상수 관계,
+  `evaluateLockClaim`, module-resolution 실패, ingress `enabled:false` preflight, lock CLI
+  왕복, 손상된 락 파일 fail-closed 회귀), PowerShell 파서로 `.ps1` 3개(신규
+  `stop-tongs-loopback.ps1` 포함) 구문 확인, `node guild_hall/validate/local_absolute_path_policy.mjs
+  --scope changed` 0건, `npm run validate:display-terms` ok,
+  `node --test guild_hall/validate/run_root_acceptance_steps.test.mjs` 5/5(tongs-lane 배선 포함),
+  기존 `dev-erp-mcp` 테스트 스위트 유지. 워크트리(`feat/tongs-lane`)에서 임시 고포트(48601 등)로
+  실제 재현: 시작→재사용→(강제 종료 뒤) 자가복구, `-MaxHeartbeatAgeMs 1`로 옛 검토의 C15(살아있는
+  incumbent인데 신선도만 만료)가 이제 `action:"adopt"`+진짜 pid로 바뀜, `-ErpListenHost 127.0.0.2`로
+  옛 검토의 C17이 이제 파라미터 바인딩 단계에서 즉시 거부(포트 리스너 0개)로 바뀜, 동시 실행 잠금이
+  실제 별도 프로세스를 대상으로 막고 풀림, ingress `enabled:false` binding이 스폰 없이
+  `skipped`/`stopped`로 기록됨, `stop-tongs-loopback.ps1`이 실제 서비스를 검증 후 정지하고 조작된
+  heartbeat(다른 프로세스를 가리킴)에는 `verification_failed`로 아무것도 건드리지 않음을 확인.
+  매 시나리오 뒤 자신이 띄운 프로세스만 종료했고 4300·4192는 시작부터 끝까지 관측만(listener 1개
+  유지) 했다. lane 빌드 자체의 실측(스테이징 previous-lane 생성, 실제 build, `--verify`, 빌드된
+  lane에서 `-Preflight` 재확인)은 이 항목 이후 커밋에 별도로 기록한다.
+- 운영 영향: 없음. 예약작업 미등록(`Get-ScheduledTask Soulforge-Tongs-Loopback-v1` => False),
+  프로세스 미상시기동, credential 미발급 — 전부 Owner의 별도 단계다.
+- 관련 경로: `ui-workspace/apps/dev-erp-mcp/ops/tongs_lane_support.mjs`,
+  `ui-workspace/apps/dev-erp-mcp/ops/tongs_lane_support.test.mjs`,
+  `ui-workspace/apps/dev-erp-mcp/ops/run-tongs-loopback.ps1`,
+  `ui-workspace/apps/dev-erp-mcp/ops/stop-tongs-loopback.ps1`(신규),
+  `ui-workspace/apps/dev-erp-mcp/ops/register-tongs-task.ps1`,
+  `ui-workspace/apps/dev-erp-mcp/docs/TONGS_LANE_RUNBOOK_V0.md`,
+  `guild_hall/deployment_pack/lanes/tongs_lane.spec.json`(신규),
+  `guild_hall/validate/run_root_acceptance.mjs`, `guild_hall/validate/run_root_acceptance_steps.test.mjs`.
+
 ## 2026-09-06 - Tongs(MCP 문) loopback lane + registrar prepared, not registered
 
 - 판단 표기: 개발 후보 준비. 새 owner decision이나 정본 승격이 아니라, 기존 `dev-erp-mcp`
