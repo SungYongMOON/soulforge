@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-09-05 - Execution examples: a home for concrete scenarios (Gram 0.1.x)
+
+- 날짜: 2026-09-05. Revision: main after the lane merges.
+- 무엇: `docs/architecture/foundation/EXECUTION_EXAMPLES_V0.md`를 새로 두고, Owner가 말한 장면을 카드(EX-nnn)로 저장한다. 첫 카드 EX-001은 슬라이드 형태 보존 외부 저작·내부 결속(형태만 밖으로, 내용은 안에서 결속)이다. 로드맵 `개발 예정 저장 규칙`에 9번(카드 저장 위치와 포인터 규칙)을 넣고 `다음 후보` 28행이 EX-001을 가리킨다. foundation README 색인에 한 줄 추가.
+- 운영 영향: 없음. 문서만이며 실행 예약이 없다.
+- 관련 경로: `docs/architecture/foundation/EXECUTION_EXAMPLES_V0.md`, `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md`, `docs/architecture/foundation/README.md`.
+
 ## 2026-09-05 - dev-erp: nine Linux-only test failures from GitHub Validate's first reach of the dev-erp test stage
 
 - 날짜: 2026-09-05. GitHub Validate(ubuntu-latest, Node 22)가 7주 만에 처음 `npm --prefix

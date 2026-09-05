@@ -131,6 +131,7 @@ the 2026-08-14 M2 Project Context and Knowledge View vertical described below.
 6. project 가 불명확하지만 Soulforge system/reusable 후보가 분명하면 current legacy `_workmeta/system/dev_worker_queue/*.yaml` 에 `status: proposed` 로 둔다.
 7. 바로 실행 가능한 public-safe 개발 작업은 `.mission/<mission_id>/dev_worker_request.yaml` 처럼 명시 task packet 으로 만들 수 있고, private/system 작업은 same current legacy `dev_worker_queue` packet 을 `status: approved` 또는 `status: queued` 로 올린다.
 8. 기존 `dev_worker_candidate_queue` 는 legacy migration input 으로만 취급한다. 새 개발 항목은 넣지 않고, 기존 항목은 내용 보존과 reader 호환성을 확인한 뒤 `dev_worker_queue` 로 이관한다.
+9. 장면 단위의 구체 실행 예시(누가·무엇을·어디까지)는 `EXECUTION_EXAMPLES_V0.md`에 카드로 두고, 이 문서의 `다음 후보` 행이 카드 ID(예: EX-001)를 가리킨다. 카드는 결정이 아니며 상태선을 갖고, 구체화되면 owner 문서로 내려가고 카드에는 포인터만 남긴다.
 
 ### 아이디어 캡처 계단
 
@@ -1112,7 +1113,7 @@ Start condition:
 | 25 | Chat-first·MCP-first connected reasoning workspace | Owner 계정의 ChatGPT plan/model/app 제약을 재확인하고, compact 구현 패킷과 품질 gate 및 첫 read-only Smartsheet 대표 업무를 확정 | `.workflow/external_reasoning_workspace_v0`, `docs/architecture/guild_hall`, `guild_hall/ai_usage_meter`, external ChatGPT app/MCP setup |
 | 26 | 산출물별 문서 검사기(content checker) — 파일 유무·해시 관측을 넘어 산출물 종류별 검사기(양식 준수·필수 절/항 누락·요구 ID 커버·논리 일관성)를 붙이고, 검사 점수를 `CoverageObservation.checker_scores[]`로 요구항목·산출물에 매칭. 자동 점수는 상한을 두고 사람 확인 항목으로만 100%(Innoslate/OpsLevel 방식). 첫 검사기 후보 = 요구사항 ID 색인 seam(2026-08-17 착수)·양식 검사(HWPX 구조 validator 재사용) | Owner 2026-08-17 제안. `PROJECT_REQUIREMENT_TRACE_MODEL_V0.md` R3(투영)·엔진 observations 자동 생성이 먼저 닫히고, 검사기별 점수 스키마·상한 규칙을 Owner가 정하면 시작 | `guild_hall/rag`(추출·검사 seam), `guild_hall/engineering_engine`(관측 입력), `docs/architecture/workspace` |
 | 27 | 팀원 Engineering MCP·Vault/Forge/Guild/Watch/Bastion 통합 프로그램 | Owner가 `team_member_engineering_program` 계획 세트의 start gate를 승인하면, D27/D28/D29 등 leaf별 gate를 지키며 safe in-scope branch를 연속 실행; excluded authority/state branch만 HOLD | `docs/architecture/foundation`, `guild_hall`, `ui-workspace`, existing owner paths only |
-| 28 | 슬라이드 형태 보존 외부 저작·내부 결속(Owner 2026-09-05 아이디어): PPT를 Computer Use로 정밀 조작할 수 있음을 확인. 슬라이드별 형태(글자 수·그림 수·자리)만 담은 더미 자료를 외부 Hearth에 주고, 외부가 슬라이드별 간격·배치를 조정해 돌려주면 내부 로컬 Hearth가 스타일은 두고 글·그림만 실제 값으로 교체한다. 실제 내용은 밖으로 나가지 않는다. E05 v0.2 WA03(PPT 경로)·AF08(긴 명칭 결속 뒤 품질)의 대안이자 plan 11 PPT 봇 적격 시험 후보 | Tool Workshop PPT 봇 자리와 E05 첫 적격 패키지(G2 WA03)가 열림. 실행 예약 없음, 아이디어 단계 | `docs/architecture/foundation/team_member_engineering_program/11_TOOL_WORKSHOPS_AND_JOB_SHOP.md`, `docs/reviews/` §7 |
+| 28 | 슬라이드 형태 보존 외부 저작·내부 결속(Owner 2026-09-05 아이디어): PPT를 Computer Use로 정밀 조작할 수 있음을 확인. 슬라이드별 형태(글자 수·그림 수·자리)만 담은 더미 자료를 외부 Hearth에 주고, 외부가 슬라이드별 간격·배치를 조정해 돌려주면 내부 로컬 Hearth가 스타일은 두고 글·그림만 실제 값으로 교체한다. 실제 내용은 밖으로 나가지 않는다. E05 v0.2 WA03(PPT 경로)·AF08(긴 명칭 결속 뒤 품질)의 대안이자 plan 11 PPT 봇 적격 시험 후보 | Tool Workshop PPT 봇 자리와 E05 첫 적격 패키지(G2 WA03)가 열림. 실행 예약 없음, 아이디어 단계 | `EXECUTION_EXAMPLES_V0.md` EX-001, `docs/architecture/foundation/team_member_engineering_program/11_TOOL_WORKSHOPS_AND_JOB_SHOP.md`, `docs/reviews/` §7 |
 
 후보 10~21 의 출처는 2026-06-12 Fable5 심층 검증이다. 10~17 의 상세 후보
 패킷은 `_workmeta/system/dev_worker_queue/` 에 `status: proposed`
