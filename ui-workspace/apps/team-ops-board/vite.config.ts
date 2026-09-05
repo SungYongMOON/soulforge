@@ -16,6 +16,9 @@ import { createTopologyAdapterPlugin } from "./src/server/topology-adapter.mjs";
 import { createTopologyFederationAdapterPlugin } from "./src/server/topology-federation-adapter.mjs";
 import { createTopologyRecoveryAdapterPlugin } from "./src/server/topology-recovery-adapter.mjs";
 import { createReceiptExpiryServerAdapter } from "./src/server/receipt-expiry-adapter.mjs";
+import { createScheduledTasksAdapterPlugin } from "./src/server/scheduled-tasks-adapter.mjs";
+import { createSecureWorkStatusAdapterPlugin } from "./src/server/secure-work-status-adapter.mjs";
+import { createTongsHeartbeatAdapterPlugin } from "./src/server/tongs-heartbeat-adapter.mjs";
 import { createStorageMapServerAdapter } from "./src/server/storage-map-adapter.mjs";
 import { createCodexRetentionServerAdapter } from "./src/server/codex-retention-adapter.mjs";
 import {
@@ -56,6 +59,9 @@ const receiptExpiryBindingPath = path.join(
   "receipt_expiry_binding.v1.json",
 );
 const topologyRecoveryEvidenceRoot = path.join(operationsRoot, "watchtower", "external_evidence");
+// 다른 lane 이 쓰는 두 상태 파일. Vigil 은 읽기만 하며, 없으면 화면이 unknown 이다.
+const secureWorkStatusPath = path.join(operationsRoot, "secure_work", "status.json");
+const tongsHeartbeatPath = path.join(operationsRoot, "tongs", "heartbeat.json");
 const codexRetentionReportPath = path.join(
   operationsRoot,
   "soulforge_activity",
@@ -80,6 +86,11 @@ export default defineConfig(async () => ({
       bindingSha256: process.env.TEAM_OPS_STORAGE_MAP_BINDING_SHA256,
     }),
     createCodexRetentionServerAdapter({ ownerRoot, reportPath: codexRetentionReportPath }),
+    // 대장간 지도 첫 화면의 세 근거면. 셋 다 loopback GET 전용 읽기이며 근거가
+    // 없으면 unknown 으로 남는다(초록으로 올라가지 않는다).
+    createScheduledTasksAdapterPlugin(),
+    createSecureWorkStatusAdapterPlugin({ statusPath: secureWorkStatusPath }),
+    createTongsHeartbeatAdapterPlugin({ heartbeatPath: tongsHeartbeatPath }),
     createHostStatsAdapterPlugin(),
     createClaudeUsageAdapterPlugin(),
     createAntigravityUsageAdapterPlugin(),
