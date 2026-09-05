@@ -66,6 +66,7 @@ test("루트 게이트: 앱 테스트 스텝이 validate·done-check 양 모드�
     ['"calibration-measurement-validity"', "npm run validate:calibration-measurement-validity"],
     ['"engine-release"', "npm run validate:engine-release"],
     ['"watchtower"', "npm run validate:watchtower"],
+    ['"secure-work"', "npm run validate:secure-work"],
   ];
   for (const [stepId, command] of requiredSteps) {
     const occurrences = source.split(stepId).length - 1;
@@ -85,6 +86,15 @@ test("루트 게이트: display-terms 스텝이 두 모드 모두 path-policy �
       lines[pathPolicyIndex + 1],
       '["display-terms", "npm run validate:display-terms"],',
       "display-terms step must immediately follow path-policy",
+    );
+    // secure-work's own validator (node --check + node --test, no Python/venv
+    // dependency) sits right after display-terms so a from-scratch checkout
+    // with no E14 kit or venv bound still gates on it in both modes -- see
+    // guild_hall/secure_work/README.md and SECURE_WORK_CYCLE_V0.md B4.
+    assert.equal(
+      lines[pathPolicyIndex + 2],
+      '["secure-work", "npm run validate:secure-work"],',
+      "secure-work step must immediately follow display-terms",
     );
   }
   // The path-policy step next to it is itself wired at "tracked" scope, not "changed": its command

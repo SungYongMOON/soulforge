@@ -14,7 +14,8 @@
 그래서 작업자를 모델이 아니라 scripted worker로 두고, 외부 route와 보관 route를 의도적으로
 바인딩하지 않은 채 전체 사슬을 돌렸다.
 
-## 무엇이 실제로 돌았는가 (2026-09-05 관측)
+## 무엇이 실제로 돌았는가 (2026-09-05 관측, UTC — receipt·event 타임스탬프 기준. 커밋
+날짜·CHANGELOG 날짜는 KST(+9)라 하루 차이로 보일 수 있다)
 
 | 확인 | 관측값 |
 | --- | --- |
@@ -42,8 +43,8 @@
 | M07 | Mission State Engine | kit journal(SQLite CAS·멱등·attempt 불확실성) | — | `KIT_REFERENCE` |
 | M08 | Result Binder | kit 구조검사 + literal-safe Markdown 복원 | — | `KIT_REFERENCE` |
 | M09 | Validator Host | ValidationReport 생성(구조·유출검사 결과 요약) | BIND06 | `PARTIAL` · 의미 검토 `NOT_RUN` |
-| M10 | Custody | 로컬 outbox + Tongs ingress 클라이언트 뼈대 | BIND07 | `LOCAL_ONLY` · 업로드 `NOT_BOUND` |
-| — | 상태 투영 | Vigil이 읽을 수 있는 상태 요약 1파일 | BIND08 | `BOUND` |
+| M10 | Custody | 로컬 outbox + Tongs(MCP 문) ingress 클라이언트 뼈대 | BIND07 | `LOCAL_ONLY` · 업로드 `NOT_BOUND` |
+| — | 상태 투영 | Vigil(포트 4192)이 읽을 수 있는 상태 요약 1파일 | BIND08 | `BOUND` |
 
 ### 남은 binding
 
@@ -51,21 +52,31 @@
 | --- | --- | --- |
 | BIND01 | 실제 업무 자료 소스(승인된 저장 위치, identity 검사) | 실자료 canary에 대한 Owner 결정. 지금은 합성 디렉터리 하나만 읽는다 |
 | BIND02 | 모델 제안의 품질 판정과 실패 모드 계측 | 반복 실행 표본. 1회 관측으로는 품질을 주장하지 않는다 |
-| BIND03 | 운영 키 소유자(OS 보호 저장소 또는 사내 KeyService) | 지금 키 래퍼는 파일 권한뿐인 시험 전용이다 |
+| BIND03 | 운영 키 소유자(OS 보호 저장소 또는 사내 KeyService) | 지금 키 래퍼는 시험 전용이고, Windows에서는 `0o600`이 적용되지 않아 상속 ACL로 로컬 사용자 모두가 읽을 수 있다 |
 | BIND04 | 실제 분류·공개 권한자 | 사이클 1호의 승인자는 합성 자료에 대한 운영자이며 분류 권한자가 아니다 |
-| BIND05 | 외부 provider route | Owner가 키 한 줄 파일을 배치하고 route를 명시적으로 켜야 한다. **이번 lane 호출 0회** |
-| BIND06 | 독립 의미 검토자 | 구조 통과는 의미 통과가 아니다. 작성자와 분리된 검토가 필요하다 |
-| BIND07 | Tongs 보관 | Owner가 bearer를 발급하고 ingress를 켜야 한다. **이번 lane 업로드 0회** |
-| BIND08 | Vigil 화면 노출 | 상태 파일은 있고, 화면에 띄우는 것은 Vigil 쪽 결정이다 |
+| BIND05 | 외부 provider route | Owner가 키 한 줄 파일을 배치하고 route를 명시적으로 켜야 한다. **이번 lane 호출 0회.** BIND09가 닫히기 전에는 켜지 않는다 |
+| BIND06 | 독립 의미 검토자 | 구조 통과는 의미 통과가 아니다. 작성자와 분리된 검토가 필요하다. 사람 승인자와 lane 작성자의 분리도 여기서 닫는다 |
+| BIND07 | Tongs(MCP 문) 보관 | Owner가 bearer를 발급하고 ingress를 켜야 한다. **이번 lane 업로드 0회** |
+| BIND08 | Vigil(포트 4192) 화면 노출 | 상태 파일은 있고, 화면에 띄우는 것은 Vigil 쪽 결정이다 |
+| BIND09 | 허가 주체의 신원 결속(신뢰 키 등록소 또는 OS 사용자 결속) | permit은 이제 설정에 고정된 신뢰 공개키로만 검증되어 자기 서명은 막혔지만, 그 신뢰 키를 누가 쥐고 있는지에 대한 신원 등록소는 아직 없다. 지금은 신뢰 서명키·job store 쓰기 권한이 곧 전송 허가다. BIND05를 켜기 전에 닫혀야 한다 |
+| BIND10 | 누적 공개 원장(security 요약 B8) | `released_history`가 매 job `[]`로 고정돼 있다. 같은 승인된 문장이 새 mission_id로 반복 재공개돼도 누적 기록이 없다. requester·mission family 단위로 살아남는 저장소와 "무엇을 공개로 친다"의 정의(패킷 필드? candidate bytes? 어느 round?)를 Owner가 정해야 닫힌다 |
 
 ## 경계가 실제로 닫혔는지 확인한 방법
 
 1. **허가 없는 전송 0.** permit 파일이 없는 상태에서 `advance`는 `RELEASE_REVIEW`에서
    `PERMIT_REQUIRED`로 멈췄다. permit은 정확한 request bytes·route digest·job·mission·round·
    review·policy epoch에 묶이고 1회용이며, kit journal이 permit id 유일성을 durable하게 잡는다.
+   단, 이 permit이 증명하는 것은 "설정에 고정된 신뢰 공개키(BIND09)로 서명이 검증됐다"까지다.
+   검증 공개키는 이제 `permit_trust_pubkey_path`에서만 읽고 permit 파일 자신이 자칭하는 값은
+   신뢰하지 않으므로 자기 서명 permit(다른 키쌍으로 서명한 permit.json을 직접 써넣는 것)은
+   거부된다(검토자 재현 2026-09-06 및 회귀 시험). 다만 그 신뢰 키를 누가 쥐고 있는지에 대한
+   신원 등록소는 없다 — 신뢰 서명키와 job store 쓰기 권한을 함께 쥔 무엇이든 permit을 승인할
+   수 있다. 필드 검토 원장도 서명 없는 평범한 파일이다.
 2. **검토 없는 literal 0.** 필드 검토 원장이 없을 때 M03은 `FIELD_REVIEW_REQUIRED`로 실패하고
    job은 `HOLD`로 내려갔다(관측: 46개 KEEP_REVIEWED 후보 전부 미승인). 원장을 채운 뒤에만
-   `RELEASE_REVIEW`로 올라간다.
+   `RELEASE_REVIEW`로 올라간다. 사이클 1호에서 그 46건의 필드 검토와 전송 허가는 모두 합성
+   자료에 대해 lane 작성자 본인(`operator.cycle1.builder`)이 승인했고 사람의 별도 결정이
+   아니다 — 합성 한정이며, 승인자와 작성자를 분리하는 것은 BIND06에서다.
 3. **packet에 원문·경로·매핑 없음.** 나가는 bytes를 대상으로 자동 검사(원본 파일명, 소스 참조,
    host 경로, file URI, 슬롯 뒤에 숨긴 실제 값)와 손 확인을 함께 했다. 9개 슬롯 값
    (고객명·과제명·금액·메일주소·전압 2종·응답시간 2종·변경 후보 전압) 어느 것도 packet에 없고,
@@ -104,6 +115,8 @@
 2. Tongs 보관 1건과 `verified_server_ack` 영수증.
 3. 독립 의미 검토자 붙이기(작성자와 분리).
 4. 로컬 관리자 제안 품질을 여러 번 관측해 CODE 재도출과의 차이를 계측.
+5. permit 신뢰 키의 신원 결속(BIND09) — 신뢰 키 등록소 또는 OS 사용자 결속. BIND05 전에 닫는다.
+6. 누적 공개 원장(BIND10) — requester·mission family 단위로 살아남는 저장소를 설계한다.
 
 ## 관련 문서
 

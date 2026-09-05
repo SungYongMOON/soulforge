@@ -1,5 +1,80 @@
 # CHANGELOG
 
+## 2026-09-06 (KST) - 보호 가공 업무 lane fresh 검토 반영: permit 신뢰 키 결속·키 권한 정직화·게이트 배선
+
+- 날짜: 2026-09-06 (KST, 커밋 시각 기준. 관측 타임스탬프는 이 항목 안에서 UTC로 표기).
+  Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: 사이클 1호(바로 아래 항목)에 대한 `inspector_and_judge` fresh 검토가 4건의 차단(B1~B4)과
+  N1·N3·N9·N10을 지적했고, 전부 이 커밋에서 고쳤다.
+  **B1 permit 자기참조.** `engine.py` step_dispatch가 permit 파일 안의 `public_key_hex`로
+  자기 서명을 검증해, 위조 permit(공격자 자신의 키쌍으로 서명)이 `sfx permit approve` 없이도
+  dispatch를 통과했다(검토자 재현: RELEASE_REVIEW→CUSTODY_PENDING 완주). 고침: 검증 공개키를
+  이제 설정에 고정된 신뢰 키(`permit_trust_pubkey_path`)에서만 읽고, permit의 `issuer_key_id`가
+  그 키의 fingerprint와 일치해야 한다. `sfx permit approve`도 신뢰 개인키
+  (`permit_trust_signing_key_path`)가 없으면 `PERMIT_SIGNER_UNBOUND`로 서명을 거부한다(더는
+  매 승인마다 키쌍을 새로 만들어 자기 자신을 검증하지 않는다). 신뢰 키가 없으면
+  `PERMIT_TRUST_UNBOUND`로 어떤 permit도 수락하지 않는다. 합성 파일럿용 임시 키쌍을 만드는
+  새 명령 `sfx keys init-pilot --out <dir>`는 pilot root 밖에만 쓰고, 이미 있으면 거부하며,
+  stdout과 옆의 README에 "시험 전용, Owner 키로 교체 전 BIND05 금지"를 명시한다. 남은 binding
+  표에 BIND09(허가 주체의 신원 결속)를 추가했다 — 지금 실제 경계는 "신뢰 서명키·job store에
+  쓸 수 있는가"이고, 신원 등록소는 아직 없다.
+  **B2 키 보호 문서의 과장.** `LocalFileKeyWrapper`가 `os.open(...,0o600)`으로 vault 키를
+  만들지만 Windows에서는 그 모드가 무시되고 상위 디렉터리 ACL을 상속해 로컬 사용자 전원이
+  읽을 수 있었다(`icacls` 관측: 상속 ACE, `BUILTIN\Users:(I)(RX)`). README·CYCLE 문서의 "파일
+  권한으로만 보호"라는 문장이 사실과 달랐다. 고침: 키 생성 시 Windows면 `icacls
+  /inheritance:r /grant:r "%USERNAME%:F"`를 시도하고, 결과(적용/실패, 값·경로는 미기록)를 키
+  옆 영수증 파일에 남기며, 실패하면 `doctor` 표에 경고가 뜬다. 문서 문장을 관측 사실로 고쳤다.
+  **B3** `DEVELOPMENT_ROADMAP_V0.md`의 후보 번호 중복(28·28, 사이클 1호가 새로 붙인 행과
+  기존 PPT 아이디어 행)을 새 행 쪽만 30으로 고쳤다. **B4** `validate:secure-work`가 CI가
+  실행하는 `npm run done:check`을 포함해 어떤 집계 목록에도 없었다 — `run_root_acceptance.mjs`의
+  validate·done-check 두 배열 모두, `display-terms` 바로 뒤에 추가했고(둘 다 Node뿐이라 kit·venv
+  없이도 돈다), 위치와 존재를 잠그는 회귀 시험을 추가했다.
+  **N1** 유출 검사가 vault를 못 읽으면(`bindings_digest.json`이 가리키는 slot을 vault가 못 찾는
+  경우) `except Exception: return []`로 조용히 통과시켰다 — 고침: `BoundValuesUnavailable`을
+  일으켜 receipt·event 쓰기 자체를 `LEAK_GUARD_UNAVAILABLE`로 거부한다(binding이 아직 없는
+  이른 단계의 빈 목록은 그대로 정상). **N3** 엔진이 scripted worker만 호출하고 OpenRouter
+  transport는 절대 선택하지 않는다는 것을 스파이 transport로 잠그는 회귀 시험을 추가했다(전에는
+  하드코딩된 속성 하나가 그 보장의 전부였다). **N9** 사이클 1호의 필드 검토 46건과 전송 허가는
+  모두 lane 작성자 본인(`operator.cycle1.builder`)이 합성 자료에 대해 승인했고 사람의 별도
+  결정이 아니었다는 것을 README·CYCLE 문서에 명시했다(승인자·작성자 분리는 BIND06). **N10**
+  `released_history`가 매 job `[]`로 고정된 이유를 TODO가 아니라 HOLD 사유로 코드 주석에
+  남기고, 남은 binding 표에 BIND10(누적 공개 원장)을 추가했다 — 재구성 구현은 저장소·정의가
+  없어 이번에는 하지 않았다.
+  비차단으로 함께 고친 것: 첫 등장 표시명 병기(Tongs(MCP 문)·Vigil(포트 4192)), 관측
+  타임스탬프의 시간대 표기(UTC vs KST) 명시, `guild_hall/secure_work`가 아직
+  `module.manifest.json`이 없는 이유 한 줄, 아무 데도 값을 채우지 않는
+  `guard.scan_log_line`의 `key_material` 채널 제거.
+- 관측: pytest는 kit 바인딩 시 12 → 26 passed(신규 14건), kit 미바인딩 시 10 passed·2 skipped
+  → 14 passed·12 skipped. `npm run validate:secure-work` 5/5 그대로.
+  `node --test run_root_acceptance_steps.test.mjs` 5/5. 실제 host(Windows)에서 재현:
+  `sfx keys init-pilot`으로 만든 신뢰 키는 `icacls`로 현재 사용자 단독 `(F)`만 남았다(관측
+  2026-09-06, UTC 기준 실행 로그 20:2x). 새 합성 job(`o_c85d01f5ef0ac82a421667c07d3d4be0`)이
+  13개 상태 전이·13개 영수증으로 사이클 1호와 동일하게 완주했고(`external_network_calls: 0`,
+  `worker: SCRIPTED_NOT_LLM`, `custody_state: LOCAL_OUTBOX_ONLY`, `accepted: false`), permit.json은
+  이제 `public_key_hex` 없이 `issuer_key_id`(신뢰 키 fingerprint)만 갖는다. 별도 job에서 검토자의
+  step8과 동일한 위조 permit(공격자 자신의 키쌍 서명)을 다시 시도했고, 이번에는
+  `PERMIT_ISSUER_UNKNOWN`으로 `step_dispatch`에서 거부됐다(고치기 전에는 `CUSTODY_PENDING`까지
+  완주했었다).
+- 운영 영향: 없음. 외부 모델 호출 0회, 외부 업로드 0회, 예약작업·팩·플래그·서비스·포트 변경
+  없음. 새 config 필드 `permit_trust_pubkey_path`·`permit_trust_signing_key_path`는 optional이라
+  이 필드가 없는 예전 config도 그대로 로드되지만(unbound), permit 승인·검증은 즉시
+  `PERMIT_SIGNER_UNBOUND`/`PERMIT_TRUST_UNBOUND`로 막힌다 — Owner가 실 사용 전에 반드시
+  채워야 한다(합성 파일럿은 `sfx keys init-pilot`로 즉시 자가 발급 가능).
+- 남은 위험: permit 신뢰 키의 신원 결속(BIND09)이 아직 없다 — 지금 실제 경계는 "신뢰
+  서명키·job store 쓰기 권한"이며, BIND05(외부 route)는 이것이 닫히기 전에는 켜지 않는다.
+  누적 공개 원장(BIND10)도 없다. 사이클 1호의 필드 검토·전송 허가 승인자와 작성자 분리(BIND06)
+  도 아직이다. Windows ACL 잠금은 최선 노력이며 실패해도 쓰기를 막지 않고 경고만 한다(관측된
+  이 host에서는 성공).
+- 검사: pytest(kit 바인딩) 26/26, pytest(kit 미바인딩) 14 passed·12 skipped,
+  `npm run validate:secure-work` 5/5, `node --test
+  guild_hall/validate/run_root_acceptance_steps.test.mjs` 5/5, `npm run validate:path-policy:all`
+  (tracked, violations 0), `npm run validate:display-terms`(14/14, 위반 57 전부 baseline,
+  unexempted 0), `npm run validate:canon`(138 checked, 0/0), `npm run
+  validate:module-operability`(8/8, preflight ok), `npm run validate:product-composition`.
+- 관련 경로: `guild_hall/secure_work/`, `docs/architecture/guild_hall/SECURE_WORK_CYCLE_V0.md`,
+  `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md`, `guild_hall/validate/`,
+  `package.json`.
+
 ## 2026-09-06 - 보호 가공 업무 lane 사이클 1호: 합성 미션 한 건이 접수부터 로컬 보관까지 돌았다
 
 - 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
