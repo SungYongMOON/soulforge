@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-09-05 - First green-through of done:check beyond the path policy (Gram 0.1.x)
+
+- 날짜: 2026-09-05. Revision: merged lanes A(fix/ci-path-policy-tracked)·B(feat/rung1-pending-review)·C(fix/external-review-repro)·D(docs/vocabulary-reset-1) on main, then two integration fixes found by the first GitHub Validate run that passed the path policy in seven weeks (run 33954869887) and by the local `npm run done:check` that followed.
+- 무엇: (1) `guild_hall/engineering_engine/topology/engine_manifest.sha256`와 `engine_release.json`을 재발행했다. 엔진 README가 2026-09-01에 바뀐 뒤 code manifest가 갱신되지 않아 `manifest_blob_integrity` 적합성 검사가 CI에서 실패했다. 엔진 코드·규칙 층은 바뀌지 않았고 ENGINE_VERSION은 그대로다. (2) 부팅 다이제스트 가드(`guild_hall/validate/boot_digest_guard.mjs`)의 Lean Root 계약을 현행 AGENTS.md에 맞췄다: 필수 포인터의 절 제목을 `## 팀원·봇·조직 라우팅`(2026-09-02 개정 제목)으로, 줄 상한을 80에서 90으로(개정 뒤 86~87줄). `guild_hall/knowledge_access/README.md` 포인터는 AGENTS.md의 기존 지식 authority 줄에 같은 줄로 되살렸다. 다이제스트(`AGENT_BOOT_DIGEST_V0.md`)에 2026-09-02~05 AGENTS 개정(작업 위치·실행면·팀 창구·표시명) 요약 절을 넣고 manifest를 재서명했다.
+- 운영 영향: 없음. 검사기와 문서만 바뀌었다. 예약작업·팩·플래그·서비스는 그대로다. 줄 상한 90은 Owner가 AGENTS.md를 80줄로 다시 줄이기로 하면 되돌린다.
+- 관련 경로: `guild_hall/engineering_engine/topology/`, `guild_hall/validate/boot_digest_guard.mjs`, `docs/architecture/foundation/AGENT_BOOT_DIGEST_V0.md`, `docs/architecture/foundation/AGENT_BOOT_DIGEST_V0.sources.json`, `AGENTS.md`.
+
 ## 2026-09-05 - Team Pilot rung 1: the ERP "검사 중" filter and the 4192 pending-review panel
 
 - Plan 18 §12 allowed exactly two pieces of code for Team Pilot 1 ("4192 패널

@@ -18,7 +18,7 @@ export const SOURCES = [
 ];
 export const MAX_LINES = 100;
 export const ROOT_MIN_LINES = 50;
-export const ROOT_MAX_LINES = 80;
+export const ROOT_MAX_LINES = 90; // 2026-09-02~05 Owner 루트 개정으로 86~87줄; 다시 줄이려면 Owner 결정
 export const ROOT_REQUIRED_SNIPPETS = [
   "AGENT_EXECUTION_CONTRACT_V0.md",
   "DEVELOPMENT_ROADMAP_V0.md",
@@ -28,7 +28,7 @@ export const ROOT_REQUIRED_SNIPPETS = [
   "CODEX_WORK_DIRECTORY_V1.md",
   "TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md",
   "ONTOLOGY_CANON_OPERATING_POLICY_V0.md",
-  "## 실시간 음성 비서·조직 라우팅",
+  "## 팀원·봇·조직 라우팅",
   "대상 task의 model·reasoning effort를 유지",
   "SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md",
   "private-state/CHANGELOG.md",
