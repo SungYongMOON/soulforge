@@ -38,6 +38,7 @@ test("루트 게이트: 앱 테스트 스텝이 validate·done-check 양 모드�
     ['"main-node-deployment"', "npm run validate:main-node-deployment"],
     ['"universal-client"', "npm run validate:universal-client"],
     ['"dev-erp-mcp"', "npm run validate:dev-erp-mcp"],
+    ['"tongs-lane"', "npm run validate:tongs-lane"],
     ['"codex-work-directory"', "npm run validate:codex-work-directory"],
     ['"engineering-engine-ax-se-project-assessment"',
       "npm run validate:engineering-engine-ax-se-project-assessment"],
