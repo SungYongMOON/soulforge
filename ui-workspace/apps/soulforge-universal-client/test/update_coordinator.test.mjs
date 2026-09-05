@@ -96,6 +96,24 @@ test("state confirmed not preserved after rollback is HOLD, not a false ROLLED_B
   ]);
 });
 
+test("candidate state failure followed by a post-rollback state failure is HOLD and names the rollback verdict", async () => {
+  const effects = adapter();
+  effects.verifyStatePreserved = async () => {
+    effects.calls.push("state");
+    return { ok: false }; // fails for the candidate AND again for the restored release
+  };
+  const result = await coordinateClientUpdate(input(), effects);
+  assert.equal(result.status, UPDATE_STATUS.HOLD);
+  assert.equal(
+    result.hold_code,
+    "ROLLBACK_STATE_NOT_PRESERVED",
+    "the receipt has one hold_code field, so the rollback verdict replaces the candidate's CLIENT_STATE_NOT_PRESERVED cause",
+  );
+  assert.equal(result.current_release_ref, "release.client.0_1_0");
+  assert.equal(result.outbox_preserved, false);
+  assert.deepEqual(effects.calls.slice(-5), ["stop", "switch:release.client.0_1_0", "start", "health", "state"]);
+});
+
 test("state that cannot be verified after rollback (verifyStatePreserved throws) HOLDs instead of assuming success", async () => {
   const effects = adapter({ healthy: false }); // candidate health fails, triggering rollback
   effects.verifyStatePreserved = async () => {
@@ -146,7 +164,7 @@ test("a restored release that itself fails health is HOLD, not a false ROLLED_BA
   assert.equal(result.status, UPDATE_STATUS.HOLD, "an unhealthy restored release must not be reported as a successful rollback");
   assert.equal(result.hold_code, "ROLLBACK_HEALTH_FAILED");
   assert.equal(result.current_release_ref, "release.client.0_1_0", "switchCurrent(rollback) itself succeeded (observed), independent of the health verdict that follows");
-  assert.equal(result.outbox_preserved, false, "보존을 확인하지 않았으므로 참을 주장하지 않는다");
+  assert.equal(result.outbox_preserved, false, "state preservation was never checked, so it must not be claimed");
   assert.ok(!effects.calls.includes("state"), "state must not be checked when the restored release itself is unhealthy");
   assert.deepEqual(effects.calls, [
     "stop", `switch:${CANDIDATE_RELEASE_REF}`, "start", `health:${CANDIDATE_RELEASE_REF}`,
