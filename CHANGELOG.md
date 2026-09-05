@@ -5,7 +5,9 @@
 - 날짜: 2026-09-05. Revision: the Git commit containing this entry owns the exact revision.
 - 무엇: part 1 added `SHARED_GLOSSARY_V0.md`'s "옛 표기 → 표시명 대조표" and the world names
   themselves; this slice substitutes the retired technical labels for the adopted forge display
-  names in running prose across the reviewer packet's 15 documents, the guild_hall organization
+  names in running prose across 11 of the reviewer packet's 15 documents (the other 3 already had
+  zero occurrences; `README.md`'s own remaining occurrence is cleaned up in this revision), the
+  guild_hall organization
   document that used the retired `Task Engine` label (`PROJECT_WORK_ORGANIZATION_AND_TASK_ROUTING_V0.md`),
   `EXTERNAL_REVIEW_MAP_2026-09-05.md`, and plan 08's title/body (`08_WATCH_4192_OPERATIONS.md`,
   filename unchanged). Vigil(포트 4192), World Tree(코드 dev-erp, 포트 4300), Hammer(Task Engine),
@@ -27,16 +29,22 @@
   only; `AGENT_BOOT_DIGEST_V0.md`'s own retired-term example list was rephrased to point at the
   glossary section instead of naming examples inline, matching `AGENTS.md`'s existing phrasing).
 - 운영 영향: 없음. 문서 표시명과 검사기·다이제스트 서명만 바뀌었다. 예약작업·팩·플래그·서비스·포트·
-  파일 경로는 그대로다. 이 슬라이스가 손댄 21개 파일에서는 `validate:display-terms` 위반 0(README.md의
-  "Vigil 두 작업(상황판·감시면)" 한 곳은 예약작업 이름이 아직 안 바뀐 사실을 그대로 적은 것이라 의도적
-  예외로 남긴다); tracked 전체 트리에는 이번 슬라이스가 다루지 않은 다른 문서에 남은 잔여 사용이
-  있고(주로 team_member_engineering_program의 다른 plan 문서와 guild_hall의 다른 문서), 다음 조각의
-  범위다. 문서·CHANGELOG·주석의 Windows 드라이브 문자 절대경로 리터럴 금지는
-  `local_absolute_path_policy.mjs --scope changed`로 재확인했다(위반 0).
+  파일 경로는 그대로다. 이 슬라이스가 실제로 손댄 20개 파일에는 은퇴 표시어 위반이 남아 있지 않다;
+  tracked 전체 트리에는 이 슬라이스가 다루지 않은 다른 문서에 남은 잔여 위반이 57건 / 24개 파일
+  있다(`SOULFORGE_ENGINEERING_OS_PRODUCT_FAMILY_REBASELINE_V0.md`,
+  `SOULFORGE_SUITE_STRUCTURE_AND_CONFIGURATION_V0.md`, `VISION_AND_GOALS.md`,
+  team_member_engineering_program 9종, guild_hall 문서 3종, `docs/architecture/workspace/**` 5종,
+  예시 README 4종); `guild_hall/validate/retired_display_terms_baseline.json`이 그 24개 파일만
+  면제하고, `npm run validate:display-terms`는 이제 tracked scope + 이 baseline을 실행하는 게이트라
+  clean tree에서도 초록이며, 다음 조각의 범위다. 문서·CHANGELOG·주석의 Windows 드라이브 문자
+  절대경로 리터럴 금지는 `local_absolute_path_policy.mjs --scope changed`로 재확인했다(위반 0).
+- 폴더명 표기: plan 17 `control_root` 표에 남은 `` `Watchtower` `` 백틱은 은퇴 표시어 치환 대상이
+  아니라 `control_root` 아래 실제 폴더명을 식별자로 표기한 것이다(디렉터리 이름은 바꾸지 않는다).
 - 관련 경로: `guild_hall/validate/retired_display_terms_policy.mjs`,
   `guild_hall/validate/retired_display_terms_policy.test.mjs`,
+  `guild_hall/validate/retired_display_terms_baseline.json`, `guild_hall/validate/README.md`,
   `guild_hall/validate/run_root_acceptance.mjs`, `guild_hall/validate/run_root_acceptance_steps.test.mjs`,
-  `package.json`, `AGENTS.md`, `docs/architecture/foundation/AGENT_BOOT_DIGEST_V0.md`,
+  `package.json`, `README.md`, `AGENTS.md`, `docs/architecture/foundation/AGENT_BOOT_DIGEST_V0.md`,
   `docs/architecture/foundation/AGENT_BOOT_DIGEST_V0.sources.json`,
   `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md`,
   `docs/architecture/foundation/SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md`,

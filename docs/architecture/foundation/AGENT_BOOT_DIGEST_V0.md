@@ -41,7 +41,7 @@ context 경계 너머로 넘길 때만 필수(자율 루프 종료·compact·cle
 - 코드 작업은 D: dev checkout(`<TARGET_SOULFORGE_ROOT>/dev/source_checkout`)·그 worktree에서만. 운영은 어떤 checkout에서도 실행하지 않는다(버전 박힌 `install/server-pack/<x.y.z>/payload`·`install/source-lanes/<lane>-vN`만). 패키지형(MSIX) 에이전트 세션에서 데스크톱 클라이언트 앱을 직접 실행하지 않는다(AppData 가상화).
 - 상태 root 우선순위: 파일별 flag/env > `SOULFORGE_STATE_ROOT` > `SOULFORGE_OWNER_ROOT` > git-derived, 잘못되면 fail-closed. lane 경로 전환은 수집기 pin·바인딩 digest·VBS/launcher·상태 digest 울타리 넷을 한 묶음으로 갱신하고 launcher `--preflight`로 확인한다.
 - 팀원 창구 = Buzz + Main Node Hermes 봇이 대신 호출하는 MCP. 브라우저 World Tree(코드 dev-erp, 포트 4300)는 Owner loopback. 결과 등록은 제출 영수증이고 Linear done은 검토→사람 수락 뒤 사람이 누른다. 봇 명부는 조직도의 투영, 실제 ID는 private 명부에만.
-- 표시명은 `SHARED_GLOSSARY_V0.md` §세계 이름만 쓴다. 은퇴한 표시어(같은 문서 §옛 표기 → 표시명 대조표)는 새로 쓰지 않고, 식별자(파일·폴더·포트·예약작업 ID)는 바꾸지 않으며 첫 등장에 괄호로 한 번 병기한다.
+- 표시명은 `SHARED_GLOSSARY_V0.md` §세계 이름만 쓴다. 은퇴한 표시어(Vigil(4192·상황판), Hammer(Task Engine), Tributary(수집 lane), Tongs(MCP 문) 등, 같은 문서 §옛 표기 → 표시명 대조표)는 새로 쓰지 않고, 식별자(파일·폴더·포트·예약작업 ID)는 바꾸지 않으며 첫 등장에 괄호로 한 번 병기한다.
 
 ## 4. AI 작업 규약
 

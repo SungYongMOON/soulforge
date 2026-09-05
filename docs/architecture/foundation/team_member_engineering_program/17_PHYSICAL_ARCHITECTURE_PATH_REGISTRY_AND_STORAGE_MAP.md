@@ -603,7 +603,7 @@ schema/logical entries, resolver runtime, and protected binding-adapter contract
 actual private binding bytes remain under the `control_root` sole writer.
 `guild_hall/bastion_action` owns operation-aware write-policy validation with
 Human Owner final authority. `guild_hall/watch_panel_contract` owns the Vigil
-projection contract and Vigil is the read-only consumer. The approved
+projection contract and `team-ops-board` is the read-only consumer. The approved
 materializer canary logical ref is `pathref:recovery.physical_spine_canary`;
 private physical binding, ACL, and apply/readback evidence remain `HOLD`.
 

@@ -104,7 +104,7 @@ Forge
   경험을 조직의 재사용 가능한 역량으로 제련하는 작동원리
 ```
 
-Soulforge는 ERP·세계수·Engine·Task Engine·Chat 예약·Hermes·Buzz·MCP 중 하나가 아니다.
+Soulforge는 ERP·세계수·Rune·Hammer·Chat 예약·Hermes·Buzz·MCP 중 하나가 아니다.
 이 기관들이 source·자산·맥락·판단·업무·실행·수락·복구의 한 순환으로 연결된 전체 세계다.
 
 ## 2. 창세 순환

@@ -4,7 +4,7 @@
 
 ## Purpose and correction
 
-Vigil is the Vigil projection: an aggregate, typed, read-only operational view plus an approval-request surface. It is not a copied Buzz chat browser, a generic Bot session/memory inspector, a task writer, a queue, a control-plane executor, or a recovery controller.
+Vigil is the Watch projection: an aggregate, typed, read-only operational view plus an approval-request surface. It is not a copied Buzz chat browser, a generic Bot session/memory inspector, a task writer, a queue, a control-plane executor, or a recovery controller.
 
 An exact safe pointer may open the owning Buzz record when the caller is authorized. Vigil retains only pointer metadata, not copied raw collaboration content.
 

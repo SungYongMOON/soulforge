@@ -195,7 +195,7 @@ read-only snapshot
   UNKNOWN·conflict·authority 회귀시험, (4) 관련 validator, (5) 독립 review가 모두
   통과해야 한다. 그 전에는 actual project-ready 또는 accepted로 부르지 않는다.
 - accepted public slice(2026-08-14): 위 assessment v0와 zero-write runner는 focused
-  51/51, 기존 SE-core 348 pass/6 environment skip, Vigil 44/44, changed path-policy
+  51/51, 기존 SE-core 348 pass/6 environment skip, `validate:watchtower` 44/44, changed path-policy
   0 violations와 fresh Claude Opus B/V 검토를 통과했다. 이는 public deterministic
   candidate acceptance이며 actual-project, live-current 또는 assignment acceptance가 아니다.
 - adjacent Team Member Engineering Program build(2026-08-30): Owner-활성화된
@@ -992,7 +992,7 @@ Step 2/3/4 implementation status:
 
 ## Active Slice 001
 
-## Development candidate - Vigil v0 clickable mockup
+## Development candidate - Vigil(코드 team-ops-board) v0 clickable mockup
 
 Status: MVP 0 clickable mockup delivered 2026-06-04. Owner decisions closed
 2026-06-12: truth posture hybrid (Smartsheet stays the official project

@@ -152,7 +152,7 @@ Roadmap milestone ID이므로 항상 `Master M*`, `Roadmap M*`, `ERP BOM L*`처�
 
 | # | Owner correction | Master owner |
 | --- | --- | --- |
-| 1 | Vigil과 제품에 의미 있는 최종 명칭 필요 | M1·M13 |
+| 1 | Vigil(포트 4192)과 제품에 의미 있는 최종 명칭 필요 | M1·M13 |
 | 2 | 판타지 세계관과 game-like work를 유지/제외할지 명시 | M0 |
 | 3 | ERP·Engine·Agent Platform의 통일된 제품명 필요 | M1 |
 | 4 | 제3자가 이해하는 portfolio 설명과 용어 필요 | M2 |

@@ -47,7 +47,7 @@ connector. The reviewer packet (`npm run export:reviewer-packet`) bundles them.
   follow the `current` pointer - they pin a payload path down to the version,
   and as read from the task definitions on 2026-09-05 the versions are split:
   the World Tree server task runs `0.1.7`, while the continuous ingress, PC activity
-  and voice ASR tasks still pin `0.1.6`. The Board, the watch surface, the usage
+  and voice ASR tasks still pin `0.1.6`. The two Vigil tasks(`상황판`·`감시면` 예약작업), the usage
   meter, the Hiworks forwarder and the Codex retention task do not run from the
   pack at all; they run from `install/source-lanes/operations-lane-v2`, and the
   Linear, Buzz and Slack collectors from their own `source-lanes/<lane>-v1`.
@@ -69,7 +69,7 @@ connector. The reviewer packet (`npm run export:reviewer-packet`) bundles them.
 | 2 | Fix the release scope (users, representative task, in and out) | Plan 18 §1–§7 (Team Pilot 1), `DEVELOPMENT_ROADMAP_V0.md` | 부분: access model and ladder fixed; pilot bot exposure and tool allowlists are open Owner decisions |
 | 3 | Confirm structure and data ownership | `DOCUMENT_OWNERSHIP.md`, plan 17, `guild_hall/path_registry/`, `WORKSPACE_PROJECT_MODEL.md` | 구현 확인: owners and storage classes declared; the target `_workspaces` binding stays HOLD until the three Covenant rules are adopted |
 | 4 | Verify the D: relocation (restart, no old-path dependence, no double writers) | Cutover receipts; `AGENTS.md` state-root precedence; `guild_hall/shared/soulforge_state_root.mjs` | 부분: relocation and cutover done; the host reboot test has not been performed (it needs the Owner's direct approval); `SOULFORGE_OWNER_ROOT` stays on the legacy checkout by design until Legacy Freeze |
-| 5 | One representative task end to end (start → execute → review → record, with recovery) | Plan 18 pilot flow (Buzz → bot → MCP submit → human acceptance); `ui-workspace/apps/dev-erp` | 문서만 + 부분: the Tongs and submission receipts exist; a full pilot round with a team member has not been run |
+| 5 | One representative task end to end (start → execute → review → record, with recovery) | Plan 18 pilot flow (Buzz → bot → MCP submit → human acceptance); `ui-workspace/apps/dev-erp` | 문서만 + 부분: the Tongs(MCP gate) and submission receipts exist; a full pilot round with a team member has not been run |
 | 6 | Permission and project isolation, including direct API calls | MCP allowlists, `AI_ORGANIZATION_MODEL_OPERATING_POLICY_V0.md`, project taxonomy, forbidden-root fences in every lane | 부분: fences and read allowlists exist; an adversarial API-level isolation test is not recorded |
 | 7 | Install, update and restore rehearsal | Server-pack generations, `backup_controller` synthetic restore canary, NAS DR contract (default OFF), the Linear generation with human acceptance | 부분: the Linear generation was restored and accepted; the D: canonical generation is staged, restore test pending |
 | 8 | A manual that matches the real screens | Team picture-book (planned after the pilot decisions); lane READMEs; `docs/architecture/workspace/` | 미구현: no end-user manual yet; operator READMEs exist |
@@ -114,7 +114,7 @@ holds pass 1, so it flagged the mismatch and re-judged its 12 items as
 | EXT-09 | permOf default-allow in UI | — | F09 | lane C: separate "UI 표기" from "server bypass" |
 | EXT-10 | chat text persisted in localStorage | — | F10, REV-10 | lane C reports facts + 3 options; Owner policy |
 | EXT-11 | app.js / server.mjs size, feature boundaries | — | F11, REV-26 | held, not a defect |
-| EXT-12 | Vigil is observation, not user app; new shell proposal (B안), 03 PRD | F07 | F12, §4 B, 03 | not adopted for pilot (구성 개편 B); hold as input |
+| EXT-12 | Vigil(Board) is observation, not user app; new shell proposal (B안), 03 PRD | F07 | F12, §4 B, 03 | not adopted for pilot (구성 개편 B); hold as input |
 | EXT-13 | Source composition ≠ release; no GitHub Release | F08 (part) | F13, REV-25/32 | by design: release unit = install/server-pack/<x.y.z> digest pack + cutover receipt; manual binding stays EXT-07 |
 | EXT-14 | Dependency advisories untriaged | F11 | F14, REV-04 | open, low; counts not re-verified |
 | EXT-15 | update_coordinator rollback receipt over-claims | F02 (reviewer reports 4 PASS/3 FAIL with injected adapter, patch attached) | REV-22 | lane C: reproduce in our tree first; attached patch not applied |
