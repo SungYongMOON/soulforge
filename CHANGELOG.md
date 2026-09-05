@@ -1,5 +1,39 @@
 # CHANGELOG
 
+## 2026-09-06 - World Tree (dev-erp): the last non-hermetic launcher test fixed, 0.1.8 unit gate unblocked
+
+- 날짜: 2026-09-06. `run_dev_erp_background_launcher.test.mjs`(1121행)의 "background
+  launcher defaults to mutation routes OFF on port 4300 when flags are absent" 케이스가
+  실제 포트 4300을 쥔 프로덕션 World Tree(dev-erp) 프로세스 때문에 이 PC에서 항상
+  실패해, 오늘 HPP 0.1.8 팩 unit gate(97파일 1,136 테스트)가 1131 pass/1 fail/4 skip로
+  이 1건에 막혀 있었다(어제 `bbb00136` 커밋과
+  `local-recovery/hpp-018-spec-only-build-blocked-20260906/unit_gate_failure_excerpt.txt`가
+  이미 known 상태로 기록). CHANGELOG의 09-02·09-05 여러 항목이 같은 사실을 반복
+  언급했던 바로 그 실패다.
+- 무엇: 포트 충돌이 아니라 밀폐성 결함이었다 — 이 파일의 다른 모든 프리플라이트
+  케이스는 `reservePort()`로 4300을 제외한 빈 임시 포트를 골라 쓰는데, 이 케이스
+  하나만 `"-Port", "4300"`을 리터럴로 넘겨 `run-dev-erp-background.ps1`의 실제
+  `Get-NetTCPConnection`/`Get-CimInstance Win32_Process` 프리플라이트가 실제 호스트의
+  4300 리스너(운영 World Tree)를 그대로 검사하게 만들었다. 이 케이스가 검증하는 내용
+  (뮤테이션 라우트 기본 OFF, `-EnableAutosync`는 `-EnableMailCollect` 불필요,
+  `-EnableAutoIntake`는 필요)은 포트 값 자체와 무관해서, 새 injection seam 없이 같은
+  파일의 기존 관례(`reservePort()`)만 그대로 적용해 임시 포트로 바꾸고 `stdout`의
+  `port=` 단언도 그 값에 맞춘 동적 정규식으로 바꿨다. `run-dev-erp-background.ps1`은
+  손대지 않았다. 같은 파일의 다른 "4300" 케이스 2건(`start-windows.bat` fixture)은
+  네트워크를 전혀 건드리지 않는 합성 `server.mjs`라 이미 밀폐돼 있어 범위 밖으로
+  남겨뒀다.
+- 검증: 단일 케이스(`--test-name-pattern`)와 파일 전체(14/14)를 이 PC(운영 World
+  Tree가 실제로 4300을 쥔 상태)에서 통과 확인했고, `npm --prefix
+  ui-workspace/apps/dev-erp test` 전체는 1136 tests / 1132 pass / 0 fail / 4
+  skip(수정 전 1131 pass / 1 fail)로 초록이다. `node
+  guild_hall/validate/local_absolute_path_policy.mjs --scope changed`와 `node
+  guild_hall/validate/retired_display_terms_policy.mjs --scope changed` 모두 0
+  violations.
+- 운영 영향: 없음. 테스트 파일 1개, 6줄만 바뀌었다. `run-dev-erp-background.ps1`의
+  프리플라이트 로직·기본값·계약은 그대로다. 예약작업·포트·바인딩 변경 없음.
+- 관련 경로: `ui-workspace/apps/dev-erp/test/run_dev_erp_background_launcher.test.mjs`.
+- Revision: the Git commit containing this entry owns the exact revision.
+
 ## 2026-09-05 - Vocabulary: ERP's Context World Tree module now displays as 맥락·지식(sf-p05)
 
 - 판단 표기: Owner 판단 B, 총괄 권고로 적용. 되돌리려면 이 커밋만 revert하면 된다.

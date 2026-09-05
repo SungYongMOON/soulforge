@@ -1123,10 +1123,11 @@ test("background launcher defaults to mutation routes OFF on port 4300 when flag
 }, async () => {
   const fixture = await createLauncherFixture();
   try {
-    const base = ["-Port", "4300", "-BackendRoot", fixture.root, "-DryRun"];
+    const port = await reservePort();
+    const base = ["-Port", String(port), "-BackendRoot", fixture.root, "-DryRun"];
     const safe = await runPowerShell(fixture.launcher, base);
     assert.equal(safe.code, 0, safe.stderr);
-    assert.match(safe.stdout, /port=4300/);
+    assert.match(safe.stdout, new RegExp(`port=${port}`));
     const safeIntegrations = parseLauncherIntegrations(safe.stdout);
     assert.equal(safeIntegrations.has("auto-intake"), false);
     assert.equal(safeIntegrations.has("autosync"), false);
