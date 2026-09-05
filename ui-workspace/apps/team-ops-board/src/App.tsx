@@ -2825,12 +2825,17 @@ function fleetObservedAgoLabel(observedAt: string): string {
   return `${Math.round(minutes / 1440)}일 전 관측`;
 }
 
-function fleetCreditLabel(totals: any): string {
+function fleetCreditValue(totals: any): string {
   // The generic Meter aggregate has no model-prefix provider attribution.
-  const credits = totals?.credits === null || totals?.credits === undefined
+  return totals?.credits === null || totals?.credits === undefined
     ? "미확정"
     : Math.round(totals.credits).toLocaleString("en-US");
-  return `Meter 크레딧 ${credits}`;
+}
+
+function fleetCreditLabel(totals: any): string {
+  // 접두사를 뺀 숫자만 필요하면 fleetCreditValue 를 직접 써라 — 문자열
+  // replace 로 접두사를 벗기면 이 문구가 바뀔 때 조용히 no-op 이 된다.
+  return `Meter 크레딧 ${fleetCreditValue(totals)}`;
 }
 
 const FLEET_TOKEN_PROVIDERS = [
@@ -4164,7 +4169,7 @@ function ForgeUsagePanel({ usage, pending }: { usage: any; pending: boolean }) {
             <div><dt>오늘</dt><dd>{fleetTokenLabel(windows.calendar_day?.totals?.total_tokens)}</dd></div>
             <div><dt>이번 주</dt><dd>{fleetTokenLabel(windows.calendar_week?.totals?.total_tokens)}</dd></div>
             <div><dt>전체</dt><dd>{fleetTokenLabel(windows.all_time?.totals?.total_tokens)}</dd></div>
-            <div><dt>주간 크레딧</dt><dd>{fleetCreditLabel(windows.calendar_week?.totals).replace("Meter 크레딧 ", "")}</dd></div>
+            <div><dt>주간 크레딧</dt><dd>{fleetCreditValue(windows.calendar_week?.totals)}</dd></div>
           </dl>
           {latestProviderDay !== null && (
             <ul className="forge-provider-bars" aria-label={`제공자별 토큰 · ${latestProviderDay.date}`}>
@@ -4191,6 +4196,17 @@ function ForgeUsagePanel({ usage, pending }: { usage: any; pending: boolean }) {
   );
 }
 
+// storage-map-adapter.mjs 가 낼 수 있는 사유 코드는 닫힌 집합이다(정의:
+// src/server/storage-map-adapter.mjs 의 fixedUnavailable 호출부). 코드는 안전하고
+// 닫혀 있지만 그 자체로는 사람이 읽는 문구가 아니므로, 실행 계약이 요구하는 대로
+// 평이한 한국어 설명을 코드보다 먼저 보여준다(코드는 부차적 위치로 남긴다).
+const STORAGE_MAP_REASON_LABELS: Record<string, string> = {
+  storage_map_binding_unconfigured: "비공개 바인딩 없음",
+  storage_map_binding_unavailable: "바인딩 읽기 실패",
+  storage_map_disabled_by_binding: "바인딩에서 꺼둠",
+  storage_map_snapshot_unavailable: "스냅샷 읽기 실패",
+};
+
 function ForgeCustodyPanel({ storageMap, pendingReviews }: { storageMap: any; pendingReviews: any }) {
   const storageStatus = typeof storageMap?.status === "string" ? storageMap.status : "unknown";
   const storageReason = typeof storageMap?.reason === "string" ? storageMap.reason : null;
@@ -4205,11 +4221,22 @@ function ForgeCustodyPanel({ storageMap, pendingReviews }: { storageMap: any; pe
       <dl className="forge-metric-list">
         <div>
           <dt>저장·백업 지도</dt>
-          <dd>{storageStatus === "ready" ? "관측" : "unknown"}{storageReason === null ? "" : ` · ${storageReason}`}</dd>
+          <dd>
+            {storageStatus === "ready" ? "관측" : "unknown"}
+            {storageReason === null ? "" : (
+              <>
+                {" · "}
+                {STORAGE_MAP_REASON_LABELS[storageReason] ?? "보류 · 알 수 없는 사유"}
+                {" "}<code>{storageReason}</code>
+              </>
+            )}
+          </dd>
         </div>
         <div>
           <dt>World Tree 제출 대기</dt>
-          <dd>{review.state === "ready" ? `${review.counts.pending}건` : `읽기 보류 · ${review.holdCode}`}</dd>
+          <dd>{review.state === "ready" ? `${review.counts.pending}건` : (
+            <>읽기 보류 · {review.holdLabel} <code>{review.holdCode}</code></>
+          )}</dd>
         </div>
       </dl>
       <p className="forge-panel-foot">

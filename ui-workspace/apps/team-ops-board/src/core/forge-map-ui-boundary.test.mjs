@@ -52,7 +52,10 @@ test("표면은 순수 view-model 을 쓰고 상태 계산을 스스로 발명�
   assert.match(block, /buildHostStatsViewModel\(hostStats\)/u);
   assert.match(block, /fleetTokenLabel\(windows\.calendar_day\?\.totals\?\.total_tokens\)/u);
   assert.match(block, /fleetTokenLabel\(windows\.calendar_week\?\.totals\?\.total_tokens\)/u);
-  assert.match(block, /fleetCreditLabel\(/u);
+  // fleetCreditValue 는 fleetCreditLabel 안의 같은 계산을 그대로 꺼내 쓰는
+  // 값-only 헬퍼다(문자열 replace 로 접두사를 벗기던 자리를 대체) — 새 산식이
+  // 아니라 기존 계산의 재노출이므로 이 자리에서 허용한다.
+  assert.match(block, /fleetCreditValue\(/u);
   assert.match(block, /buildErpPendingReviewViewModel\(pendingReviews\)/u);
   assert.equal(block.includes("FLEET_TOKEN_PROVIDERS"), true, "제공자 목록도 기존 상수를 쓴다");
 });

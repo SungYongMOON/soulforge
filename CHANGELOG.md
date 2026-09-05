@@ -23,14 +23,22 @@
   `guild_hall/watchtower/topology.mjs` 명부를 직접 읽어 확인한다. 토큰 합계와 호스트
   자원은 기존 사용량 계산 함수를 그대로 재사용하며 새 산식을 만들지 않았다.
 - 새 endpoint 3개 (모두 loopback 전용 GET, `no-store`+`nosniff`, writer 0):
-  `GET /scheduled-tasks.snapshot.json`은 Windows에서만 `schtasks /query /fo csv /v`를
-  60초 TTL로 한 번 읽고, 이름이 `Soulforge-`·`Buzz`·`Hermes`로 시작하는 작업만
-  이름·상태·마지막 실행·마지막 결과 코드·다음 실행·파생 `healthy`·트리거 수로 투영한다.
-  `HostName`·`Author`·`Task To Run`·`Start In`·`Comment`·`Run As User`와 일정 열은 헤더
-  색인 단계에서 버려지므로 명령행·인자·경로·계정이 브라우저로 갈 경로 자체가 없다. 열은
-  위치가 아니라 이름표(영어·한국어 콘솔 로캘)로 찾는다 — 한 칸만 밀려도 전체 명령행이
-  이름 칸에 들어오기 때문이며, 모르는 로캘은 fail-closed다. 비Windows·실패·시한 초과·
-  출력 과대·헤더 불명은 모두 사유 코드가 붙은 `unavailable`이다.
+  `GET /scheduled-tasks.snapshot.json`은 Windows에서만 PowerShell 구조화 조회
+  (`Get-ScheduledTask | Where-Object … | ForEach-Object { Get-ScheduledTaskInfo … } |
+  ConvertTo-Json`) 한 번을 60초 TTL로 읽고, 이름이 `Soulforge-`·`Buzz`·`Hermes`로
+  시작하는 작업만 이름·상태·마지막 실행·마지막 결과 코드·다음 실행·파생 `healthy`·같은
+  이름으로 겹친 개체 수로 투영한다. PowerShell 스크립트 자체가 이 다섯 필드만 고르므로
+  Actions(명령행·인자)·Principal(계정)·Author·TaskPath·HostName은 애초에 선택하지
+  않는다 — 다섯 필드 중 하나라도 없거나 여분이거나 모양이 틀리면(이름이 정규식을 못
+  통과하는 경우 포함) 그 행만 조용히 건너뛰지 않고 투영 전체를
+  `unavailable`(`scheduled_tasks_output_malformed`)로 닫는다. allowlist 접두사 밖의
+  이름은 모양은 멀쩡하므로 그 작업 하나만 조용히 뺀다 — 그건 고장이 아니라 이
+  endpoint가 원래 하는 일이다. 비Windows·실패·시한 초과·출력 과대·JSON 파싱 실패는
+  모두 사유 코드가 붙은 `unavailable`이다. (수정: 이전 버전은 `schtasks /query /fo csv
+  /v` 콘솔 CSV를 직접 파싱했는데, 다른 작업의 명령행 칸에 이스케이프되지 않은 `"` 하나만
+  있어도 뒤따르는 물리 줄들이 한 행으로 합쳐지고 그 행이 이름 검사에서 조용히 탈락해
+  이 host에서 Soulforge-* 11개가 전부 빠진 채로 `state: "ready"`를 냈다 — PowerShell
+  개체 조회는 텍스트를 파싱하지 않으므로 그 파싱 층 자체가 없다.)
   `GET /tongs.snapshot.json`과 `GET /secure-work.snapshot.json`은 state root 아래
   `operations/tongs/heartbeat.json`과 `operations/secure_work/status.json` 파일 하나씩만
   읽는다(둘 다 다른 lane이 쓰고 Vigil은 읽기만 한다). 파일 없음은 `unknown`(회색),
@@ -38,12 +46,15 @@
   시각·나이·900초 신선도·듣는 loopback 포트만 내고 `pid`와 listen 호스트 문자열은 형식만
   검사한 뒤 버린다. 외부 작업 사이클은 상태별 건수만 내고 `last_job`·`last_receipt_ref`
   값은 버린다.
-- 검증: `npm run validate:team-ops-app` 834/834 통과(769 → 834, 신규 65). 신규 테스트는
-  매핑 전수·집계 우선순위·미매핑 카운트, 합성 CSV 파싱·allowlist·필드 제한·비Windows
-  unavailable, 두 상태 파일의 없음→unknown·규격 위반→unavailable, 그리고 UI 경계(writer
-  동사 부재·경로 미노출·키보드 접근·밝은 테마 토큰)를 덮는다. `npx vite build` 성공,
+- 검증: `npm run validate:team-ops-app` 844/844 통과(769 → 844, 신규 75). 신규 테스트는
+  매핑 전수·집계 우선순위·미매핑 카운트, 합성 PowerShell JSON 파싱·allowlist·필드
+  제한·비정상 출력 fail-closed·비Windows unavailable, 두 상태 파일의 없음→unknown·
+  규격 위반→unavailable, 그리고 UI 경계(writer 동사 부재·경로 미노출·키보드 접근·밝은
+  테마 토큰)를 덮는다. `npx vite build` 성공,
   `node guild_hall/validate/local_absolute_path_policy.mjs --scope tracked` 위반 0,
-  `npm run validate:display-terms` exit 0.
+  `npm run validate:display-terms` exit 0. 임시 포트(4198)에 띄워 실측:
+  `/scheduled-tasks.snapshot.json`이 Soulforge-* 11개를 포함해 20개를 냈고(이 host의
+  Get-ScheduledTask 전수와 일치), 명령행·경로·계정·pid·호스트명은 응답 본문에 0건.
 - 운영 영향: 없음. 운영 lane을 재빌드하기 전에는 포트 4192에 반영되지 않는다. 예약작업·팩·
   플래그·포트·경로는 그대로이며 이 변경은 실행 중인 프로세스를 만지지 않는다.
 - 관련 경로: `ui-workspace/apps/team-ops-board/src/core/forge-map-view.mjs`,

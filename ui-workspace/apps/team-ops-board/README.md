@@ -178,33 +178,43 @@ holds no writer, action request, or repair control.
 
 `GET /scheduled-tasks.snapshot.json` (`src/server/scheduled-tasks-adapter.mjs`)
 is loopback-only, GET-only (`405` otherwise, `403` for a remote caller),
-`no-store` + `nosniff`. On Windows it runs exactly one
-`schtasks /query /fo csv /v` behind a 60-second TTL cache and a single-flight
-guard; on any other platform it never spawns anything and returns a fixed
-`unavailable`. A non-zero exit, a spawn failure, a timeout, oversized output, or
-an unrecognised header row is the same fail-closed `unavailable` with a
-lowercase reason code.
+`no-store` + `nosniff`. On Windows it runs exactly one PowerShell structured
+query behind a 60-second TTL cache and a single-flight guard: `Get-ScheduledTask
+| Where-Object { … } | ForEach-Object { Get-ScheduledTaskInfo … } |
+ConvertTo-Json`; on any other platform it never spawns anything and returns a
+fixed `unavailable`. A non-zero exit, a spawn failure, a timeout, oversized
+output, or a JSON payload that does not match the expected five-field shape is
+the same fail-closed `unavailable` (`scheduled_tasks_output_malformed` covers a
+parse failure, a missing or extra field, a wrong field type, or a name that
+fails its own shape check) — a partial list is never reported as `ready`.
 
-Only tasks whose leaf name starts with `Soulforge-`, `Buzz`, or `Hermes` are
+Only tasks whose name starts with `Soulforge-`, `Buzz`, or `Hermes` are
 projected; every other scheduled task on the host is dropped, since the name
-alone can describe the Owner's unrelated software. The projection carries
-**name, status, last run, last result, next run, a derived `healthy` boolean and
-a trigger count** — nothing else. `HostName`, `Author`, `Task To Run`,
-`Start In`, `Comment`, `Run As User`, and the schedule columns never leave the
-adapter: the header-index step drops them, so there is no later path for a
-command line, argument, account, or absolute path to reach the browser. Column
-lookup is by header label (English and Korean console locales) rather than by
-position, because a single shifted column would put the full command line into
-the name field; an unknown locale therefore fails closed instead. Task-folder
-paths are reduced to the leaf name, and run times are folded to a locale-free
-`YYYY-MM-DD HH:MM` (an unparsable time becomes `null`, never a passed-through
-string). `healthy` is true only for last results `0`, `267009` (running) and
-`267011` (not yet run) on a task that is not `Disabled`; an unreadable result
-code is not green. The adapter contains no create/delete/run/end/change verb.
+alone can describe the Owner's unrelated software. A well-formed name outside
+that prefix set is ordinary filtering and is simply excluded, not a fault. The
+projection carries **name, status, last run, last result, next run, a derived
+`healthy` boolean and a count of same-named entries collapsed into this row**
+— nothing else. The PowerShell script selects only five fields (`TaskName`,
+`State`, `LastRunTime`, `LastTaskResult`, `NextRunTime`) and never selects
+`Actions` (command line and arguments), `Principal` (the run-as account),
+`Author`, `TaskPath`, or `HostName` — the guarantee is a fixed five-field
+allowlist chosen on the PowerShell side, plus a strict name pattern and prefix
+check on the Node side, not the absence of a parsing step to exploit. Task
+names arrive already reduced to their leaf form by `Get-ScheduledTask` itself,
+and run times are folded to a locale-free `YYYY-MM-DD HH:MM` (an unparsable
+time becomes `null`, never a passed-through string). `healthy` is true only
+for last results `0`, `267009` (running) and `267011` (not yet run) on a task
+that is not `Disabled`; an unreadable result code is not green. The adapter
+contains no create/delete/run/end/change verb.
 
-This endpoint shows what the running process is permitted to enumerate. The
-registered Vigil task sees the Owner's own tasks; a lower-integrity shell may
-see a smaller list.
+An earlier CSV-parsing implementation (`schtasks /query /fo csv /v`) could
+silently lose rows — an unescaped `"` in another task's command-line column
+made the parser merge several physical lines into one, which then failed its
+own name check and was dropped without moving `state` away from `ready`. The
+current PowerShell object pipeline has no console text to parse, so that
+failure mode does not apply; a permission explanation (a lower-integrity shell
+seeing fewer tasks) was considered and ruled out on this host — the same
+non-elevated process enumerates the full allowlisted set.
 
 ### Tongs heartbeat and 외부 작업 사이클 read projections
 
