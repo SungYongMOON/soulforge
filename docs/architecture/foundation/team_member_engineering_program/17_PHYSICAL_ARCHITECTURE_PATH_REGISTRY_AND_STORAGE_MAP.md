@@ -5,7 +5,7 @@
 ## Owner execution directive — 2026-09-01
 
 - `<TARGET_SOULFORGE_ROOT>`가 비어 있는 상태에서 목표 root를 새로 materialize하고, 현재 `<LEGACY_SOULFORGE_ROOT>` 전체 estate를 단계적으로 전환한다.
-- Owner는 전환 시 Buzz·Hermes·4192·BuzzServer 정지를 허용했다. 서비스는 copy-only staging 동안 계속 운영할 수 있고, writer/pointer cutover 직전에 한 번만 quiesce한다.
+- Owner는 전환 시 Buzz·Hermes·Vigil(포트 4192)·BuzzServer 정지를 허용했다. 서비스는 copy-only staging 동안 계속 운영할 수 있고, writer/pointer cutover 직전에 한 번만 quiesce한다.
 - PC 재부팅은 이번 migration의 허용 수단이 아니다.
 - 실제 이동은 `inventory freeze -> target manifest -> empty-root materialization -> copy-only staging -> digest/Git/DB/restore verification -> service quiescence -> pointer/service cutover -> canary -> rollback rehearsal -> later C: retirement decision` 순서다.
 - `<LEGACY_SOULFORGE_ROOT>`와 사용자 소유 dirty state는 새 경로의 readback·rollback·fresh review가 닫힐 때까지 보존한다. reset, stash, force, purge, broad delete는 금지한다.
@@ -115,7 +115,7 @@ co-occurrence, ticket/PR prose, or actor identity.
 
 | Gate | Entry / dependencies | Exact owner | Output / receipt | Validator or manual evidence | Rollback | Stop condition |
 | --- | --- | --- | --- | --- | --- | --- |
-| N0 — task/service/writer disposition | No dependency; read-only only. Enumerate each task, caller, service, writer, and rollback owner before any physical action. | Human Owner accepts the disposition; Terra/max writes the read-only packet only if its N0 contract grants it; Sol/high coordinates technical sequencing only during N0/N1. | N0-v2 accepted matrix names the exact 13 writer-risk scheduled tasks, with a standing narrow authorization for **temporary stop only at N6/N9**, no reboot, and required re-enable/readback; it does not authorize an N0/earlier stop or any other task. Include named Buzz, Hermes, 4192, and BuzzServer services plus placeholder reconciliation. | Owner-confirmed N0-v2 matrix; manual check that no service, task, writer, schedule, or placeholder changed. | Discard or supersede the draft; no runtime state exists to roll back. | Any unknown owner, caller, writer, rollback owner, placeholder creator/writer authority, creation-time ref, ACL/readback, or disposition; any stop before N6/N9, any non-N0-v2 task, host reboot, or absent exact stop/re-enable/readback surface. |
+| N0 — task/service/writer disposition | No dependency; read-only only. Enumerate each task, caller, service, writer, and rollback owner before any physical action. | Human Owner accepts the disposition; Terra/max writes the read-only packet only if its N0 contract grants it; Sol/high coordinates technical sequencing only during N0/N1. | N0-v2 accepted matrix names the exact 13 writer-risk scheduled tasks, with a standing narrow authorization for **temporary stop only at N6/N9**, no reboot, and required re-enable/readback; it does not authorize an N0/earlier stop or any other task. Include named Buzz, Hermes, Vigil, and BuzzServer services plus placeholder reconciliation. | Owner-confirmed N0-v2 matrix; manual check that no service, task, writer, schedule, or placeholder changed. | Discard or supersede the draft; no runtime state exists to roll back. | Any unknown owner, caller, writer, rollback owner, placeholder creator/writer authority, creation-time ref, ACL/readback, or disposition; any stop before N6/N9, any non-N0-v2 task, host reboot, or absent exact stop/re-enable/readback surface. |
 | N1 — cloud junction and ADS evidence | No dependency; read-only evidence collection and caller map only. The adopted current N1 set is a legacy observation inventory, not a target binding, Freeze, Genesis, or target-writer proof. Actual cloud/root observation is limited to the scope the Owner admits. | Terra/max is bounded executor/read-only evidence writer only if its N1 contract grants it; Human Owner retains access/admission authority. | Public-safe junction/reparse and ADS evidence summary, caller map, and private evidence refs; no private absolute path or ADS payload is copied into the plan. | Read-only private readback; hardened containment/reparse/ADS checks; ambiguous or unavailable observation is recorded as HOLD. | None; the leaf has no mutation. | Unknown junction target, ADS, containment, source scope, or permission; no legacy/default fallback. |
 | N2 — private target binding registration | For **both NW and WS**: N0-v2, the adopted applicable N1 observation receipt, and Owner private physical-root inventory. WS additionally requires branch-local W-AUTH, Genesis, and applicable Freeze. The inventory is an input, not scanner output. | Human Owner supplies/adopts the private inventory; the named control_root sole-writer adapter performs the actual private binding mutation; guild_hall/path_registry owns public logical rows; Terra/max integrates receipts and never writes the binding. | Private current/target binding registration with unique logical IDs, binding refs, parent refs, epochs, writer policy, and provenance receipt. | Private control_root readback plus npm.cmd run validate:path-registry and a fresh independent Opus5/high advisory review receipt; the advisory grants no authority, and missing/mismatch is HOLD under this Owner packet. Public output remains refs/digests only. | The control_root sole writer revokes the candidate binding or restores the prior binding; no folder/materialization change is allowed. | Missing adopted applicable N1 observation, ambiguous, overlapping, stale, or untrusted inventory/binding; non-sole writer; unresolved target sibling identity; missing/mismatched Opus5/high advisory receipt. |
 | N3 — writer-exclusive ACL canary/readback | Accepted N2 binding and an explicit Human ACL action gate. | Human Owner authorizes the ACL action; the named control_root sole-writer adapter performs and records the ACL mutation/canary; Terra/max integrates receipts and never writes ACL state. | Exact-bound canary ACL receipt showing intended writer allow, wrong-writer deny, and readback. | Private ACL readback plus operation-aware wrong-writer/stale-binding denial evidence. | Restore the exact prior ACL through the authorized control_root writer; remove only the isolated canary artifact it created. | Inherited/ambiguous ACL, unbounded root, wrong-writer success, missing readback, or any ACL scope broader than the canary. |
@@ -125,8 +125,8 @@ co-occurrence, ticket/PR prose, or actor identity.
 | N7 — copy-only per-class staging | Accepted N5 and N6; N4 freeze identifies one class at a time. In WS, staging remains outside target and does not publish canonical bytes/lineage. | The exact leaf contract names the per-class staging writer; Terra/max is bounded executor/integration writer only when that contract grants it; the exact source byte owner supplies read-only origin; control_root sole writer records control receipts. | Create-only per-class staging manifest, source/destination digests, applicable Git/DB readback, and proof that callers and source writers remain unchanged. | Per-class manifest/hash parity and applicable Git/DB checks; manual source-owner confirmation of copy-only scope. | Delete only staging copies proven by the operation-created manifest; preserve the unchanged source and receipts. | Digest mismatch, source-writer conflict, caller/pointer change, unsupported source policy, incomplete class evidence, or any target publication before Human/project-authority acceptance. |
 | N8 — local-recovery restore and rollback | Accepted N7 staging evidence for the selected class. | guild_hall/backup_controller owns the recovery contract; the named recovery adapter performs actual recovery mutations; Terra/max executes/integrates the isolated leaf only if its contract grants it and never assumes backup-controller writer credentials; the exact recovery_root binding owner admits the target. | Isolated local-recovery restore, parity/readback, and rollback rehearsal receipt. | Local isolated restore plus manifest/hash and applicable DB parity; rollback readback proves the prior local state remains recoverable. | Use the rehearsed local recovery path and remove only operation-created isolated staging. | Restore/parity/rollback mismatch, missing recovery binding, or any attempt to apply recovery to a live cutover surface. |
 | N8.5-WS-PUBLISH — accepted bytes + lineage publication | `pre_publish_readiness`, accepted N8-WS recovery evidence, exact accepted `input_source_revision_ref`/`input_source_digest`, exact staged `candidate_revision_ref`/`candidate_content_digest` plus `candidate_relation`, `producer_ref`/`build_ref`, `reviewer_ref`/`independence_receipt_ref`/`review_ref`, authority acceptance, an external `trusted_packet_digest`, and the Genesis-shared `publisher_ref` sole writer. | Human/project authority accepts the exact candidate; the Genesis-shared target publisher performs the single atomic target publication. Terra/max may only integrate public-safe receipts when the leaf contract says so. | One `post_publish_closure` atomic publication receipt binding `phase_operation_ref`, input source, candidate/relation, target bytes ref, canonical lineage ref, `publisher_ref`, `target_workspaces_binding_ref`, `target_workmeta_binding_ref`, shared `generation_ref`, idempotency key, `correction_supersession_policy_ref` **equal to Genesis `approved_correction_supersession_policy_ref`**, active-pointer readback, and replay `original_request_digest`/`replay_request_digest`/`prior_receipt_digest`/`replay_readback_digest` parity proof. | Private publisher readback proves bytes and lineage committed together, one publisher equality with both Genesis sole writers, binding equality with both Genesis bindings, shared-generation equality, Genesis-approved correction policy equality, digest/ref parity, wrong writer denial, replay `NO_OP`, and no candidate existed inside target before acceptance. Independent review must carry producer/build refs and a reviewer-separation/independence receipt. | Before atomic commit, remove only operation-created external staging. After accepted commit, do not delete accepted bytes; publish a correction/supersession or restore the prior active pointer only through the same named authority/writer contract. | Missing pre-publish phase, shared sole publisher/both target bindings/shared generation, source/candidate relation, independent-review separation, acceptance, atomicity/readback, idempotency/replay digest parity, Genesis-approved correction-supersession policy, or any attempt to publish an unaccepted candidate. |
-| N9 — quiesce, CAS pointer/service cutover, and canary | NW: accepted N6/N7/N8-NW evidence plus an event-specific Human cutover gate. WS: accepted N8.5-WS-PUBLISH `post_publish_closure` in addition. N9 never accepts or publishes an unaccepted candidate. | Human Owner opens the cutover gate; N0-named service owners quiesce/resume; the named control_root sole-writer adapter performs the CAS pointer; Terra/max integrates receipts and never assumes pointer-writer credentials. The standing stop authorization remains exact N0-v2 13 only, temporary, N9-only, no reboot. | Quiesce receipt, CAS epoch/pointer receipt, service cutover receipt, compatibility state, post-cutover canary evidence, and—if N9 stopped 4192—a resumed/healthy 4192 readback before N10. | DB-handle release, exact `service_db_owner`, sole stop/re-enable/readback surface, exact authorized-task stop/readback/re-enable/readback, CAS/current-target fencing, named-service health/canary, stale-writer denial readback, and a fresh independent Opus5/high advisory review receipt; the advisory grants no authority, and missing/mismatch is HOLD under this Owner packet. | CAS back to the exact prior pointer/epoch and resume only named services through their owners; never use reboot, broad delete, or path replacement. | Missing N8 local recovery evidence, failed canary, missing WS post-publish closure, mismatch between current/target fence, any stop outside N0-v2 exact 13 at N9, missing stop/re-enable/readback surface, any need for host reboot, or missing/mismatched Opus5/high advisory receipt. |
-| N10 — observation and Human cutover acceptance | Accepted N9 canary and, if N9 stopped 4192, resumed/healthy 4192 readback before the defined observation window. Any WS observation covers only already accepted canonical bytes/lineage, never an unaccepted staging candidate. | Human Owner alone accepts or rejects cutover; 4192 remains read-only observer; Terra/max integrates evidence. | Observation-window receipt, 4192 read-only status evidence, and Human cutover acceptance or rejection receipt. | npm.cmd run validate:watch-storage-map plus manual review of no raw/writer fields, the resumed/healthy 4192 readback when applicable, and the Human decision. | If rejected or degraded, execute only N9's exact rollback; do not retire any legacy surface. | Observation failure, missing/rejected Human acceptance, false-green/unknown evidence, absent 4192 resumed/healthy evidence when N9 stopped it, or a request to treat technical integration as Human acceptance. |
+| N9 — quiesce, CAS pointer/service cutover, and canary | NW: accepted N6/N7/N8-NW evidence plus an event-specific Human cutover gate. WS: accepted N8.5-WS-PUBLISH `post_publish_closure` in addition. N9 never accepts or publishes an unaccepted candidate. | Human Owner opens the cutover gate; N0-named service owners quiesce/resume; the named control_root sole-writer adapter performs the CAS pointer; Terra/max integrates receipts and never assumes pointer-writer credentials. The standing stop authorization remains exact N0-v2 13 only, temporary, N9-only, no reboot. | Quiesce receipt, CAS epoch/pointer receipt, service cutover receipt, compatibility state, post-cutover canary evidence, and—if N9 stopped Vigil—a resumed/healthy Vigil readback before N10. | DB-handle release, exact `service_db_owner`, sole stop/re-enable/readback surface, exact authorized-task stop/readback/re-enable/readback, CAS/current-target fencing, named-service health/canary, stale-writer denial readback, and a fresh independent Opus5/high advisory review receipt; the advisory grants no authority, and missing/mismatch is HOLD under this Owner packet. | CAS back to the exact prior pointer/epoch and resume only named services through their owners; never use reboot, broad delete, or path replacement. | Missing N8 local recovery evidence, failed canary, missing WS post-publish closure, mismatch between current/target fence, any stop outside N0-v2 exact 13 at N9, missing stop/re-enable/readback surface, any need for host reboot, or missing/mismatched Opus5/high advisory receipt. |
+| N10 — observation and Human cutover acceptance | Accepted N9 canary and, if N9 stopped Vigil, resumed/healthy Vigil readback before the defined observation window. Any WS observation covers only already accepted canonical bytes/lineage, never an unaccepted staging candidate. | Human Owner alone accepts or rejects cutover; Vigil remains read-only observer; Terra/max integrates evidence. | Observation-window receipt, Vigil read-only status evidence, and Human cutover acceptance or rejection receipt. | npm.cmd run validate:watch-storage-map plus manual review of no raw/writer fields, the resumed/healthy Vigil readback when applicable, and the Human decision. | If rejected or degraded, execute only N9's exact rollback; do not retire any legacy surface. | Observation failure, missing/rejected Human acceptance, false-green/unknown evidence, absent Vigil resumed/healthy evidence when N9 stopped it, or a request to treat technical integration as Human acceptance. |
 | N11 — retirement | Accepted N10 Human cutover acceptance and a separately rehearsed and accepted NAS restore; NAS restore is not an N9 cutover prerequisite. For legacy history, retirement also requires an explicit retention/legacy-binding decision and proof that the future Event Timeline/Analytics/AI Workforce route owning a noncanonical history is accepted; otherwise legacy source remains authoritative reference-in-place. | Human Owner alone decides retirement after an authorized NAS custodian/Owner restore acceptance; Terra/max cannot retire. | Rehearsed/accepted NAS restore receipt, retained accepted NAS/recovery-generation ref, retention/legacy-binding decision, and explicit Human retirement decision. | Private NAS restore rehearsal/readback and Human acceptance evidence; verify that the retirement target, retained accepted NAS/recovery generation, and recovery path are exact. | No irreversible retirement occurs without the Human decision; any post-decision recovery rebinds through the retained accepted NAS/recovery generation only after a Human rebind decision. | Missing/failed/rehearsed-unaccepted NAS restore, missing retained accepted generation, missing Human retirement or rebind decision, unresolved retention/legal hold, absent accepted noncanonical-history owner route, or any delete/retire action outside the exact approved target. |
 
 ### Cycle breaks and non-inference rules
@@ -167,7 +167,7 @@ Soulforge already has product seams, Modules, Packs, source connectors, Agent pr
 - where each logical asset class belongs;
 - how current paths remain usable while target organization is introduced;
 - how a caller resolves a path without embedding a host-local absolute path;
-- how 4192 reports storage, capture, backup, restore, and migration readiness; and
+- how Vigil reports storage, capture, backup, restore, and migration readiness; and
 - which evidence is required before a physical move or readiness claim.
 
 The immediate goal is **structure now, movement later**. Defining and enforcing the map cannot be deferred; destructive relocation can and must be staged.
@@ -177,7 +177,7 @@ The immediate goal is **structure now, movement later**. Defining and enforcing 
 1. The scope is the whole Soulforge estate, not Linear or the Agent Platform alone.
 2. Linear, Slack, mail, voice/PLAUD, cloud/Drive, Buzz, PC activity, team files, and later connectors must appear through the same source-oriented catalog shape.
 3. Project assets, knowledge/ontology/context, AI workforce assets, artifacts, templates, BOM/material data, datasets, backup generations, receipts, and restore evidence must be locatable without reading conversation history.
-4. 4192 must expose a read-only Storage & Backup Map for all registered roots and sources without exposing raw bodies, private memory, credentials, or deep collaboration data.
+4. Vigil must expose a read-only Storage & Backup Map for all registered roots and sources without exposing raw bodies, private memory, credentials, or deep collaboration data.
 5. Existing source/runtime/data/control/Bot paths are registered first. They are migrated one bounded class at a time only after backup, restore, caller, and rollback evidence passes.
 6. New work resolves a registered logical path or stops with an unregistered-path HOLD.
 
@@ -252,7 +252,7 @@ secret-owner material never becomes a `data_root` materialization class.
 | `source_checkout` | canonical roots, docs, `guild_hall`, UI workspace | public source/canon, not runtime data |
 | `runtime_root` | runtime checkout and installed compatibility surfaces | runtime compatibility, not a new canon |
 | `data_root` | backups, config, ingress, ingress-MCP, manifests, quarantine, runtime, state, timeline | existing custody/data plane with mixed lifecycle-oriented layout |
-| `control_root` | backup controller, history, ingress control, local activity, mail, rollback, Slack, tools, voice label, Watchtower | protected control and receipt plane |
+| `control_root` | backup controller, history, ingress control, local activity, mail, rollback, Slack, tools, voice label, `Watchtower` | protected control and receipt plane |
 | `project_work_root` | `COMMON`, `MFG`, `PJT`, `TOOL`; project/year/role branches | operational Bot/project work organization, not Official Task or artifact truth |
 | `tool_root` | specialist tool support | tool/runtime owner, not project canon by itself |
 | `recovery_root` | isolated recovery-test targets | test-only recovery surface |
@@ -554,7 +554,7 @@ destination ref/receipt가 소유하며,
 있을 때만 승인된 byte owner가 보관한다. NAS backup target의 사본을 다시
 `source.nas`로 자동 인입하여 재귀 백업하는 것도 금지한다.
 
-4192는 실제 evidence가 연결될 때 `NAS backup target`과 `NAS source asset`을
+Vigil은 실제 evidence가 연결될 때 `NAS backup target`과 `NAS source asset`을
 서로 다른 row/status로 보여야 한다. 전자는 backup/restore readiness, 후자는
 capture/project-binding/custody readiness다. 둘 중 하나의 green으로 다른 하나를
 green 처리하지 않는다.
@@ -602,8 +602,8 @@ Owner assignment recorded 2026-08-31: `guild_hall/path_registry` owns the public
 schema/logical entries, resolver runtime, and protected binding-adapter contract;
 actual private binding bytes remain under the `control_root` sole writer.
 `guild_hall/bastion_action` owns operation-aware write-policy validation with
-Human Owner final authority. `guild_hall/watch_panel_contract` owns the 4192
-projection contract and Team Ops Board is the read-only consumer. The approved
+Human Owner final authority. `guild_hall/watch_panel_contract` owns the Vigil
+projection contract and Vigil is the read-only consumer. The approved
 materializer canary logical ref is `pathref:recovery.physical_spine_canary`;
 private physical binding, ACL, and apply/readback evidence remain `HOLD`.
 
@@ -685,9 +685,9 @@ classified in the same slice as backed up, deterministically rebuildable, or
 forbidden, and its recovery policy plus synthetic restore fixture change
 together.
 
-## 4192 Storage & Backup Map
+## Vigil Storage & Backup Map
 
-4192 owns a read-only projection over registered roots and source lanes. It shows root/source identity, owner pointer, binding availability, latest accepted capture and backup generation, coverage, freshness, retention/RPO policy presence, isolated restore/readback, human restore acceptance, unclassified path count, path drift, migration state, and held reason.
+Vigil owns a read-only projection over registered roots and source lanes. It shows root/source identity, owner pointer, binding availability, latest accepted capture and backup generation, coverage, freshness, retention/RPO policy presence, isolated restore/readback, human restore acceptance, unclassified path count, path drift, migration state, and held reason.
 
 ```text
 row_key | row_kind(root|source|asset_class) | logical_id | physical_root_class
@@ -699,17 +699,17 @@ human_acceptance_state | migration_state | applicability_state
 watch_state | evidence_at | owner_pointer | hold_code
 ```
 
-Missing evidence renders `unknown` or `hold`, never green. 4192 excludes source bodies, project payload, credentials, private Agent memory, deep Buzz/Hermes sessions, and raw logs. It files an approval request at most; Bastion owns any later action execution.
+Missing evidence renders `unknown` or `hold`, never green. Vigil excludes source bodies, project payload, credentials, private Agent memory, deep Buzz/Hermes sessions, and raw logs. It files an approval request at most; Bastion owns any later action execution.
 
 The current implemented R3 projection remains limited to
 `root|source|asset_class|work_root` and its reviewed 41-row seed. LR3 may add a separate
 read-only Ledger coverage/lag projection after LR1 Catalog rows exist; LR5 may
 add RAG generation freshness; LR9 closes the combined product coverage. Those
-later rows must reuse Catalog identities and cannot be fabricated by the Board
+later rows must reuse Catalog identities and cannot be fabricated by Vigil
 or silently added to the current R3 enum.
 
 The map is an existing-node backup-readiness projection, not a new source
-display: the 4192 federated topology (RED-02 pinned artifact) already owns
+display: the Vigil federated topology (RED-02 pinned artifact) already owns
 Slack, mail, PLAUD/voice, collector, and custody-store node identity and
 health truth, so map rows resolve to those stable node IDs via registry
 `topology_node_refs`/`registry_record_ref`/`owner_pointer` and add only
@@ -740,7 +740,7 @@ registry record. Aggregate precedence is deterministic:
 | AI workforce | organization graph, Agent Family, Mark, runtime profile, Deployment, Run, memory generation, skill/tool policy |
 | collaboration/source estate | Linear, Slack, mail, voice/PLAUD, cloud/Drive, Buzz, Git, NAS, PC/internal captures, channel/thread/attachment pointer and receipts |
 | team execution | MCP, authenticated binary plane, Team Client, local outbox/checkpoint, Tool Workshop |
-| observation | 4192 product/source/storage/backup/restore/usage/health projections |
+| observation | Vigil product/source/storage/backup/restore/usage/health projections |
 | assurance and recovery | custody, quarantine, validation, review, human acceptance, backup, restore, rollback, audit |
 | rollout and support | Server/Client/Workshop/Project-AI-Team/Backup Packs, training, device/ring/support evidence |
 | isolation | separate project-manager/deep-context bindings, no implicit cross-project memory/source fallback |
@@ -754,7 +754,7 @@ This is broader than the first Linear or KVDS vertical. A first vertical proves 
 | R0 | Physical Architecture rebaseline | reviewed root/data/source/asset map and no-move contract |
 | R1 | Path Registry + resolver contract | `validate:path-registry` target: exact owner decisions; schema/version/root/logical-owner/scope/current-target binding rows; operation-aware grant; no fallback; guarded writers; unregistered/stale/wrong-writer operation fails closed |
 | R2 | Target folder materializer | `validate:target-materializer` target: exact `approved_empty_materialization_root_ref`, hostile Windows/reparse/realpath guards, HPP backup classification, dry-run/apply, idempotent replay, existing payload move 0, rollback removes only empty directories created by this operation |
-| R3 | 4192 Storage & Backup Map | `validate:watch-storage-map` target: registry snapshot digest, full registry-driven source/root coverage, row totals/unclassified/drift, state precedence and N/A, unknown without evidence, no writer/raw fields |
+| R3 | Vigil Storage & Backup Map | `validate:watch-storage-map` target: registry snapshot digest, full registry-driven source/root coverage, row totals/unclassified/drift, state precedence and N/A, unknown without evidence, no writer/raw fields |
 | R4 | Linear whole-workspace actual backup | capture, immutable generation, readback, isolated restore, human acceptance |
 | R5 | Existing source lanes | Slack, mail, voice, cloud, Buzz, Hermes, Git, NAS, PC/internal captures, knowledge, project assets — one at a time |
 | R6 | Agent/project/tool bindings | Project AI Team Pack, Team Client, Workshop, actual project vertical |
@@ -777,7 +777,7 @@ as explicit held catalog rows, so an unbound or unprotected asset class cannot
 disappear from registry-driven coverage. The seed carries four
 `hold:od-10.*` authority sentinels, so every mutating authorization fails
 closed and no readiness claim is representable. Enforcement wiring, real
-binding registration, materializer apply on a real root, 4192 wiring, and any
+binding registration, materializer apply on a real root, Vigil wiring, and any
 physical movement remain behind private binding/ACL/canary readback and exact
 enforcement wiring. R0 acceptance and OD-10 owner/projection assignments are
 recorded; they do not by themselves activate a writer or physical path.
@@ -824,7 +824,7 @@ The same module now has a separate 9-class asset revision ledger and a
 project-bound PC-activity coverage adapter. Asset revision/acceptance/backup/
 restore evidence remains refs-only and authority-neutral. Cloud, Git and NAS
 stay explicit HOLD rows because no exact native capture receipt was observed.
-The 4192 server now also has a default-OFF GET-only storage-map adapter whose
+The Vigil server now also has a default-OFF GET-only storage-map adapter whose
 binding bytes, snapshot bytes and registry digest are pinned; no actual private
 binding or snapshot is supplied by public code.
 
@@ -835,10 +835,10 @@ unambiguous multi-axis registry entry or an explicit unclassified/HOLD finding;
 the seven canonical roots keep precedence; registry/schema/resolver/binding/
 write-policy owners are exact; root classes remain distinct; current and target
 cannot silently both write; project scope cannot widen; private/raw/secret data
-stays out of public canon and 4192; source-specific backup evidence cannot be
+stays out of public canon and Vigil; source-specific backup evidence cannot be
 substituted; the materializer is idempotent, hostile-path guarded,
 non-destructive, and rollback-aware; operation-aware authorization rejects
-ambiguous/unregistered/stale/wrong-writer actions; 4192 coverage is
+ambiguous/unregistered/stale/wrong-writer actions; Vigil coverage is
 registry-driven; and focused validators plus fresh independent review pass.
 
 Hold the affected branch on unknown owner/SoR, secret requirement, cross-project leak, path overlap, missing restore proof, writer conflict, unresolved caller, destructive migration, or false readiness claim.
@@ -848,7 +848,7 @@ Hold the affected branch on unknown owner/SoR, secret requirement, cross-project
 - `CONFIRMED`: inspected public plan/source/Module/Pack facts only.
 - `OBSERVED_METADATA_ONLY`: evidenced runtime/data/control/project-work and external root existence or shape; ownership, contents, ACL, health, and backup completeness need accepted receipts.
 - `TARGET/VERIFY_PHYSICAL`: `secret_owner_root` and any other target-only root/binding until an accepted existence/ownership receipt is available.
-- `TARGET`: Path Registry, source catalog, 4192 Storage Map, whole-workspace Linear actual backup, and migrations.
+- `TARGET`: Path Registry, source catalog, Vigil Storage Map, whole-workspace Linear actual backup, and migrations.
 - `HOLD`: physical move/delete/rename, new writer, credential use, restore application, and readiness/promotion until exact gates pass.
 
 ## Related plans
@@ -857,7 +857,7 @@ Hold the affected branch on unknown owner/SoR, secret requirement, cross-project
 - [Vault / ERP asset revisions](03_VAULT_ERP_ASSET_REVISIONS.md)
 - [Engineering MCP, client, data plane](05_ENGINEERING_MCP_CLIENT_DATA_PLANE.md)
 - [Guild Agent Mark and runtime](06_GUILD_AGENT_MARK_AND_RUNTIME.md)
-- [Watch / 4192 operations](08_WATCH_4192_OPERATIONS.md)
+- [Vigil operations](08_WATCH_4192_OPERATIONS.md)
 - [Bastion security and recovery](09_BASTION_SECURITY_RECOVERY.md)
 - [External connectors and backup](10_EXTERNAL_CONNECTORS_AND_BACKUP.md)
 - [Deployment and rollout](12_DEPLOYMENT_ROLLOUT_SUPPORT.md)

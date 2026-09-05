@@ -31,7 +31,7 @@ public-safe 한글 표시명을 사용한다. 프로젝트 코드, 사람 이름
 
 ## 실행 authority 경계
 
-이 문서는 조직 역할과 Codex 조정 절차만 정의한다. Task Engine/AX의 업무·분장
+이 문서는 조직 역할과 Codex 조정 절차만 정의한다. Hammer(Task Engine)/AX의 업무·분장
 후보 생성, 승인·적용, 수행 agent 후보와 accepted assignment 이후 실행 흐름은
 다음 정본을 따르며 여기서 다시 정의하지 않는다.
 
@@ -40,7 +40,7 @@ public-safe 한글 표시명을 사용한다. 프로젝트 코드, 사람 이름
 
 프로젝트 총괄 CEO/업무운영·팀장은 목표·우선순위·책임 경계와 불명확한 분류를
 판단한다. Codex 팀장 스레드는 이 정책을 적용하는 지속형 조정 surface일 뿐,
-위 정본의 Task Engine authority를 대체하지 않는다.
+위 정본의 Hammer authority를 대체하지 않는다.
 
 이 프로젝트 조직 계약은 프로젝트 귀속이 확인된 업무에만 적용한다. `[SYSTEM]`,
 AX, ERP의 비프로젝트 업무는 각 owner의 기존 routing을 유지하고, `COMMON`의

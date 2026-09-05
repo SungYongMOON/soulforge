@@ -18,7 +18,7 @@ owners are unchanged: `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`.
 | One-line definition ("사람과 AI가 함께 업무를 수행하고 출처·판단·결과·검증·책임을 연결해서 남기는 엔지니어링 업무 시스템") | **Accept** | Matches the canon. Adopted as the public one-liner in `README.md`. |
 | Three-part split (업무 기반 / 엔진 / 에이전트 플랫폼) | **Accept with names** | These are World Tree (ERP), Rune (Engineering Engine), Guild (Agent Platform). See the Master Map. |
 | "실행 성공 ≠ 업무 완료" | **Accept** | Already canon: registration is a submission receipt; `done` is review → human acceptance → sole writer (`AGENTS.md`, plan 18). |
-| First-release framing (the team performs tasks and reviews results; agent management is an execution feature inside) | **Yes** | This is the Team Pilot access model in plan 18: Buzz + bot-mediated MCP for the team, browser ERP as the Owner's loopback. |
+| First-release framing (the team performs tasks and reviews results; agent management is an execution feature inside) | **Yes** | This is the Team Pilot access model in plan 18: Buzz + bot-mediated MCP for the team, browser World Tree as the Owner's loopback. |
 | Google Drive "제품기획실" folder tree | **Do not create** | It would become a second canon. External drafts are reference material kept in a worksite, never promoted. |
 | App menu proposal and option B (keep the core, redesign the UI) | **Hold as input** | Reasonable, but the reviewer never saw the running app. Re-evaluate after a packet-based pass. |
 
@@ -37,8 +37,8 @@ connector. The reviewer packet (`npm run export:reviewer-packet`) bundles them.
   generation): plan 10, `guild_hall/backup_controller/README.md`.
 - The Team Pilot access model, bot roster rules and release ladder: plan 18.
 - The physical spine and path registry: plan 17, `guild_hall/path_registry/`.
-- What is actually running today: 15-minute read-only collection lanes for
-  Linear and Buzz (both observed `status: ok` on 2026-09-05); the 4192 watch
+- What is actually running today: 15-minute read-only Tributary lanes for
+  Linear and Buzz (both observed `status: ok` on 2026-09-05); the Vigil watch
   surface; the first D: canonical backup generation staged and verified
   (promotion and isolated restore pending human acceptance). Evidence lives in
   private receipts; public documents cite digests only.
@@ -46,7 +46,7 @@ connector. The reviewer packet (`npm run export:reviewer-packet`) bundles them.
   pack is 0.1.7 (current) with 0.1.6 as previous, but the scheduled tasks do not
   follow the `current` pointer - they pin a payload path down to the version,
   and as read from the task definitions on 2026-09-05 the versions are split:
-  the ERP server task runs `0.1.7`, while the continuous ingress, PC activity
+  the World Tree server task runs `0.1.7`, while the continuous ingress, PC activity
   and voice ASR tasks still pin `0.1.6`. The Board, the watch surface, the usage
   meter, the Hiworks forwarder and the Codex retention task do not run from the
   pack at all; they run from `install/source-lanes/operations-lane-v2`, and the
@@ -65,11 +65,11 @@ connector. The reviewer packet (`npm run export:reviewer-packet`) bundles them.
 
 | # | External step | Soulforge artifact | Status (2026-09-05) |
 | --- | --- | --- | --- |
-| 1 | Fix the current baseline (repo, branch, commit, running version) | `install/server-pack/<x.y.z>` digests, `install/source-lanes/<lane>/LANE_MANIFEST.md`, `CHANGELOG.md`, cutover receipts under `local-recovery/` (private) | 부분: pack digests and the HPP 0.1.7 cutover receipt exist, and each lane records its source commit - but the scheduled tasks are split across versions (ERP on `0.1.7`; continuous ingress, PC activity and voice ASR still on `0.1.6`; one runner still on the legacy checkout) and no single public artifact yet answers "which commit is running where" for every task at once |
+| 1 | Fix the current baseline (repo, branch, commit, running version) | `install/server-pack/<x.y.z>` digests, `install/source-lanes/<lane>/LANE_MANIFEST.md`, `CHANGELOG.md`, cutover receipts under `local-recovery/` (private) | 부분: pack digests and the HPP 0.1.7 cutover receipt exist, and each lane records its source commit - but the scheduled tasks are split across versions (World Tree on `0.1.7`; continuous ingress, PC activity and voice ASR still on `0.1.6`; one runner still on the legacy checkout) and no single public artifact yet answers "which commit is running where" for every task at once |
 | 2 | Fix the release scope (users, representative task, in and out) | Plan 18 §1–§7 (Team Pilot 1), `DEVELOPMENT_ROADMAP_V0.md` | 부분: access model and ladder fixed; pilot bot exposure and tool allowlists are open Owner decisions |
 | 3 | Confirm structure and data ownership | `DOCUMENT_OWNERSHIP.md`, plan 17, `guild_hall/path_registry/`, `WORKSPACE_PROJECT_MODEL.md` | 구현 확인: owners and storage classes declared; the target `_workspaces` binding stays HOLD until the three Covenant rules are adopted |
 | 4 | Verify the D: relocation (restart, no old-path dependence, no double writers) | Cutover receipts; `AGENTS.md` state-root precedence; `guild_hall/shared/soulforge_state_root.mjs` | 부분: relocation and cutover done; the host reboot test has not been performed (it needs the Owner's direct approval); `SOULFORGE_OWNER_ROOT` stays on the legacy checkout by design until Legacy Freeze |
-| 5 | One representative task end to end (start → execute → review → record, with recovery) | Plan 18 pilot flow (Buzz → bot → MCP submit → human acceptance); `ui-workspace/apps/dev-erp` | 문서만 + 부분: the MCP gate and submission receipts exist; a full pilot round with a team member has not been run |
+| 5 | One representative task end to end (start → execute → review → record, with recovery) | Plan 18 pilot flow (Buzz → bot → MCP submit → human acceptance); `ui-workspace/apps/dev-erp` | 문서만 + 부분: the Tongs and submission receipts exist; a full pilot round with a team member has not been run |
 | 6 | Permission and project isolation, including direct API calls | MCP allowlists, `AI_ORGANIZATION_MODEL_OPERATING_POLICY_V0.md`, project taxonomy, forbidden-root fences in every lane | 부분: fences and read allowlists exist; an adversarial API-level isolation test is not recorded |
 | 7 | Install, update and restore rehearsal | Server-pack generations, `backup_controller` synthetic restore canary, NAS DR contract (default OFF), the Linear generation with human acceptance | 부분: the Linear generation was restored and accepted; the D: canonical generation is staged, restore test pending |
 | 8 | A manual that matches the real screens | Team picture-book (planned after the pilot decisions); lane READMEs; `docs/architecture/workspace/` | 미구현: no end-user manual yet; operator READMEs exist |
@@ -114,7 +114,7 @@ holds pass 1, so it flagged the mismatch and re-judged its 12 items as
 | EXT-09 | permOf default-allow in UI | — | F09 | lane C: separate "UI 표기" from "server bypass" |
 | EXT-10 | chat text persisted in localStorage | — | F10, REV-10 | lane C reports facts + 3 options; Owner policy |
 | EXT-11 | app.js / server.mjs size, feature boundaries | — | F11, REV-26 | held, not a defect |
-| EXT-12 | Board is observation, not user app; new shell proposal (B안), 03 PRD | F07 | F12, §4 B, 03 | not adopted for pilot (구성 개편 B); hold as input |
+| EXT-12 | Vigil is observation, not user app; new shell proposal (B안), 03 PRD | F07 | F12, §4 B, 03 | not adopted for pilot (구성 개편 B); hold as input |
 | EXT-13 | Source composition ≠ release; no GitHub Release | F08 (part) | F13, REV-25/32 | by design: release unit = install/server-pack/<x.y.z> digest pack + cutover receipt; manual binding stays EXT-07 |
 | EXT-14 | Dependency advisories untriaged | F11 | F14, REV-04 | open, low; counts not re-verified |
 | EXT-15 | update_coordinator rollback receipt over-claims | F02 (reviewer reports 4 PASS/3 FAIL with injected adapter, patch attached) | REV-22 | lane C: reproduce in our tree first; attached patch not applied |
@@ -128,7 +128,7 @@ holds pass 1, so it flagged the mismatch and re-judged its 12 items as
 | --- | --- | --- |
 | CE-01 | Bot identity overrides requester authority; cross-project mixing in one bot session | rung 2 acceptance test; plan 18 §4 (no cross-project context) |
 | CE-02 | Submission stored, response lost, user retries → duplicate review items | rung 1/2; ingress receipt idempotency (same request+digest → same result, different digest → HOLD) |
-| CE-03 | Pending-review query failure rendered as "0 items" | **lane B acceptance criterion**: only a verified 0 is "none"; flag OFF / denied / timeout / stale are distinct states; filter never shows other projects; 4192 stays read+link |
+| CE-03 | Pending-review query failure rendered as "0 items" | **lane B acceptance criterion**: only a verified 0 is "none"; flag OFF / denied / timeout / stale are distinct states; filter never shows other projects; Vigil stays read+link |
 | CE-04 | Reviewed revision ≠ revision marked done | rung 2; receipt task/submission/revision/digest must match the reviewed object; no inheritance of old acceptance |
 | CE-05 | Reusing a stamp across versions or backup generations | rung 1 stamps: 0.1.7 cutover acceptance and synthetic-restore acceptance are separate objects; Linear acceptance is not D: acceptance |
 

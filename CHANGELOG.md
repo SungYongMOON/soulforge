@@ -1,5 +1,50 @@
 # CHANGELOG
 
+## 2026-09-05 - Vocabulary reset, part 2 (docs body + retired-term checker)
+
+- 날짜: 2026-09-05. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: part 1 added `SHARED_GLOSSARY_V0.md`'s "옛 표기 → 표시명 대조표" and the world names
+  themselves; this slice substitutes the retired technical labels for the adopted forge display
+  names in running prose across the reviewer packet's 15 documents, the guild_hall organization
+  document that used the retired `Task Engine` label (`PROJECT_WORK_ORGANIZATION_AND_TASK_ROUTING_V0.md`),
+  `EXTERNAL_REVIEW_MAP_2026-09-05.md`, and plan 08's title/body (`08_WATCH_4192_OPERATIONS.md`,
+  filename unchanged). Vigil(포트 4192), World Tree(코드 dev-erp, 포트 4300), Hammer(Task Engine),
+  Tributary(수집 lane), Tongs(MCP 문), Sigil(Hermes 프로필 스냅샷), Reliquary(백업 세대) and
+  Rune(판단 Engine) now carry their first-appearance identifier once per document where the
+  retired form actually occurred; identifiers, code fences, backticked spans, link
+  targets and CHANGELOG history were left untouched, and the AX/ERP/SYSTEM organization-branch
+  code, the Vault/ERP asset-tier pairing in plan 00/17, and the Master Map's own distinct "Context
+  World Tree" knowledge concept were deliberately left alone as different, unrelated uses of the
+  same letters. Added `guild_hall/validate/retired_display_terms_policy.mjs` (+ test): a
+  deterministic scanner over tracked `README.md`, `AGENTS.md`, `docs/architecture/**/*.md` and
+  `docs/reviews/*.md` (excluding `docs/reviews/exchange/**`) for a curated subset of the glossary's
+  retired-term column — multi-word phrases and specific proper nouns only, with every excluded
+  column entry named and reasoned in `EXCLUDED_COLUMN_ENTRIES_V0` because its bare form (정본,
+  조직, 검증, 백업, 모델, 원본, source, canon, ERP, ...) collides with this repository's own
+  everyday vocabulary. Wired as `npm run validate:display-terms` and a `display-terms` step
+  immediately after `path-policy` in both `run_root_acceptance.mjs` modes. Re-signed the boot
+  digest manifest for the `AGENTS.md`/`DEVELOPMENT_ROADMAP_V0.md` byte changes (display names
+  only; `AGENT_BOOT_DIGEST_V0.md`'s own retired-term example list was rephrased to point at the
+  glossary section instead of naming examples inline, matching `AGENTS.md`'s existing phrasing).
+- 운영 영향: 없음. 문서 표시명과 검사기·다이제스트 서명만 바뀌었다. 예약작업·팩·플래그·서비스·포트·
+  파일 경로는 그대로다. 이 슬라이스가 손댄 21개 파일에서는 `validate:display-terms` 위반 0(README.md의
+  "Vigil 두 작업(상황판·감시면)" 한 곳은 예약작업 이름이 아직 안 바뀐 사실을 그대로 적은 것이라 의도적
+  예외로 남긴다); tracked 전체 트리에는 이번 슬라이스가 다루지 않은 다른 문서에 남은 잔여 사용이
+  있고(주로 team_member_engineering_program의 다른 plan 문서와 guild_hall의 다른 문서), 다음 조각의
+  범위다. 문서·CHANGELOG·주석의 Windows 드라이브 문자 절대경로 리터럴 금지는
+  `local_absolute_path_policy.mjs --scope changed`로 재확인했다(위반 0).
+- 관련 경로: `guild_hall/validate/retired_display_terms_policy.mjs`,
+  `guild_hall/validate/retired_display_terms_policy.test.mjs`,
+  `guild_hall/validate/run_root_acceptance.mjs`, `guild_hall/validate/run_root_acceptance_steps.test.mjs`,
+  `package.json`, `AGENTS.md`, `docs/architecture/foundation/AGENT_BOOT_DIGEST_V0.md`,
+  `docs/architecture/foundation/AGENT_BOOT_DIGEST_V0.sources.json`,
+  `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md`,
+  `docs/architecture/foundation/SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md`,
+  `docs/architecture/foundation/SOULFORGE_WORLD_BIBLE_V0.md`,
+  `docs/architecture/foundation/TARGET_TREE.md`, `docs/architecture/foundation/team_member_engineering_program/`
+  (00, 08, 10, 17, 18), `docs/architecture/guild_hall/PROJECT_WORK_ORGANIZATION_AND_TASK_ROUTING_V0.md`,
+  `docs/reviews/EXTERNAL_REVIEW_MAP_2026-09-05.md`.
+
 ## 2026-09-05 - Vigil (team-ops-board): six Linux-only GitHub Validate failures made hermetic
 
 - 날짜: 2026-09-05. GitHub Validate(ubuntu-latest, Node 22)가 Vigil(포트 4192, 코드

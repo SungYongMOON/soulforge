@@ -152,7 +152,7 @@ Roadmap milestone ID이므로 항상 `Master M*`, `Roadmap M*`, `ERP BOM L*`처�
 
 | # | Owner correction | Master owner |
 | --- | --- | --- |
-| 1 | 4192와 제품에 의미 있는 최종 명칭 필요 | M1·M13 |
+| 1 | Vigil과 제품에 의미 있는 최종 명칭 필요 | M1·M13 |
 | 2 | 판타지 세계관과 game-like work를 유지/제외할지 명시 | M0 |
 | 3 | ERP·Engine·Agent Platform의 통일된 제품명 필요 | M1 |
 | 4 | 제3자가 이해하는 portfolio 설명과 용어 필요 | M2 |
@@ -165,7 +165,7 @@ Roadmap milestone ID이므로 항상 `Master M*`, `Roadmap M*`, `ERP BOM L*`처�
 | 11 | Owner 건별 승인이 아닌 risk/capability 위임 실행 | M10 |
 | 12 | Collection/Custody와 NAS disaster Backup/Restore를 분리 | M11 |
 | 13 | Owner가 grant/revoke/STOP하는 제품 UI 필요 | M12 |
-| 14 | 4192를 운영 App Platform과 분석 도구로 확장 | M13 |
+| 14 | Vigil을 운영 App Platform과 분석 도구로 확장 | M13 |
 | 15 | World Tree 내부 구현은 보류하되 I/O seam은 고정 | M14 |
 | 16 | 운영 Manual을 제품 Release와 함께 versioning·검증 | M15 |
 | 17 | 개발1팀 대상 internal RC를 이번 주 목표로 검토 | M16 |
@@ -186,7 +186,7 @@ Soulforge의 판타지 세계관은 제거하지 않는다. 회사의 실제 Tas
 | 실행 | Battle | AgentRun/WorkSession이 실제 기록 |
 | 산출물·Evidence | Artifact·Relic·Battle Log | Vault revision/receipt가 실제 정본 |
 | 주요 Stage/Gate | Boss Gate | 사람·정책 Gate를 대체하지 않음 |
-| 운영관제 | Watchtower | read-only projection |
+| 운영관제 | Vigil | read-only projection |
 
 `Boss`를 포함한 게임 용어의 최종 의미는 `OWNER_DEFERRED`다. 사람이나 경쟁자를
 가리키지 않고 중요한 Stage·통합검증·Human-Accepted Release 같은 팀 목표의 선택형
@@ -249,7 +249,7 @@ Tree와 Knowledge Asset 관리는 ERP 내부 기능이며, Engineering Engine은
 이름 변경은 display name부터 적용하고 stable ID·Interface·기존 path는 migration Gate
 전까지 유지한다.
 
-4192에는 runtime/compatibility handle `4192`, app `Team Ops Board`, logical seam
+Vigil에는 runtime/compatibility handle `4192`, app `Team Ops Board`, logical seam
 `Watch`, fantasy label 후보 `Watchtower`가 겹친다. `Soulforge Operations Console`은
 공식 기능 설명이고 네 번째 제품이 아니다. `Watch`·`Watchtower`의 최종 표시 의미와
 브랜드명은 naming 단계까지 보류한다.
@@ -266,7 +266,7 @@ label을 함께 제공한다.
 | --- | --- | --- | --- |
 | `sf-p01` | 외부 사건에서 해야 할 일을 발견·분류·제안 | Work Discovery & Mission | Monster Forge |
 | `sf-p02` | 프로젝트 업무·자료·BOM·Artifact revision을 관리 | ERP & Asset Management | Vault |
-| `sf-p03` | 제품·업무·Agent·자원·비용·백업을 관측 | Operations Console | Watchtower |
+| `sf-p03` | 제품·업무·Agent·자원·비용·백업을 관측 | Operations Console | Vigil |
 | `sf-p04` | 사람·AI 조직, Agent Mark·Deployment·Run을 관리 | AI Workforce & Organization | Guild Hall |
 | `sf-p05` | Context·Evidence·Ontology·RAG·지식을 관리 | Knowledge & Ontology | World Tree |
 | `sf-p06` | 공학 규칙과 실제 관측을 비교해 gap·risk를 판단 | Engineering Engine Family | Engine Foundry |
@@ -663,7 +663,7 @@ Bastion이 write 전 검증을 수행한 뒤 ERP AuthorityPolicy sole writer만 
 
 ## M13. Soulforge Operations Console App Platform(compatibility handle 4192)
 
-4192를 고정 기능 하나가 아니라 Soulforge 운영 App Platform으로 발전시킨다.
+Vigil을 고정 기능 하나가 아니라 Soulforge 운영 App Platform으로 발전시킨다.
 
 초기 Apps:
 
@@ -791,7 +791,7 @@ Owner-confirmed 최소 Slice:
 5. Buzz 연결 또는 MCP로 Task/자료 전달;
 6. 사람/Bot local work 후 result/Evidence candidate 제출;
 7. 자동 Done 없이 review/HOLD 표시;
-8. 4192의 coarse health·Connector·Backup·Authority projection;
+8. Vigil의 coarse health·Connector·Backup·Authority projection;
 9. 합성 generation의 isolated restore canary와 실제 시간·누락량 측정;
 10. 설치·사용·복구·지원 manual, interactive HTML book projection과 known-issue list.
 

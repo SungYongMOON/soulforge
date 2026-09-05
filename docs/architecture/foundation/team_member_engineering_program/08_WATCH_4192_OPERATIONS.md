@@ -1,12 +1,12 @@
-# Watch / 4192 Operations and Control Architecture
+# Vigil(포트 4192) Operations and Control Architecture
 
 > Status: `OWNER_REVIEW_DRAFT` — suite state, owner decisions, and claim rules are governed by [00_MASTER_INDEX_AND_DECISIONS.md](00_MASTER_INDEX_AND_DECISIONS.md).
 
 ## Purpose and correction
 
-4192 is the Watch projection: an aggregate, typed, read-only operational view plus an approval-request surface. It is not a copied Buzz chat browser, a generic Bot session/memory inspector, a task writer, a queue, a control-plane executor, or a recovery controller.
+Vigil is the Vigil projection: an aggregate, typed, read-only operational view plus an approval-request surface. It is not a copied Buzz chat browser, a generic Bot session/memory inspector, a task writer, a queue, a control-plane executor, or a recovery controller.
 
-An exact safe pointer may open the owning Buzz record when the caller is authorized. Watch retains only pointer metadata, not copied raw collaboration content.
+An exact safe pointer may open the owning Buzz record when the caller is authorized. Vigil retains only pointer metadata, not copied raw collaboration content.
 
 ## Required coarse projection
 
@@ -32,7 +32,7 @@ An exact safe pointer may open the owning Buzz record when the caller is authori
   -> receipt returns to Watch as a new projection
 ```
 
-The Watch UI cannot execute its own request. A green panel, terminal idle state, or a provider response cannot replace an action receipt or human acceptance.
+The Vigil UI cannot execute its own request. A green panel, terminal idle state, or a provider response cannot replace an action receipt or human acceptance.
 
 ## Current topology-oracle hold
 
@@ -40,12 +40,12 @@ RESOLVED 2026-08-30: the intended producer, topology scope, and UI oracle are no
 
 ## Health model
 
-Every panel reports one of `healthy`, `degraded`, `stale`, `unavailable`, `unknown`, or `hold`, plus an evidence time and owner pointer. Missing evidence is `unknown`, not green. A value is current only if its source-specific freshness window is met. This panel enum is Watch-local; the coarse runtime-availability vocabulary in [07](07_BUZZ_HERMES_COLLABORATION.md) is a distinct source-local enum that adapters map into these panel states rather than merge.
+Every panel reports one of `healthy`, `degraded`, `stale`, `unavailable`, `unknown`, or `hold`, plus an evidence time and owner pointer. Missing evidence is `unknown`, not green. A value is current only if its source-specific freshness window is met. This panel enum is Vigil-local; the coarse runtime-availability vocabulary in [07](07_BUZZ_HERMES_COLLABORATION.md) is a distinct source-local enum that adapters map into these panel states rather than merge.
 
 ## Storage and backup map
 
 The whole-estate physical organization is specified in
-[17](17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md). 4192 must
+[17](17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md). Vigil must
 project every registered root and external-source lane through one read-only
 Storage & Backup Map: binding state, latest accepted capture, backup generation,
 coverage, freshness, restore test, human restore acceptance, retention/RPO
@@ -80,14 +80,14 @@ acceptance is allowed.
 The Owner must be able to request grant, expiry, revoke and emergency STOP for
 Person/Agent/Device/Connector × Project/TaskType/Action capability envelopes.
 The UI shows current A0–A6/JM state, writer epoch, scope, expiry, revocation and
-before/after/readback receipts. Watch remains request/projection only. The ERP
+before/after/readback receipts. Vigil remains request/projection only. The ERP
 AuthorityPolicy store is the canonical sole writer; Bastion performs pre-write
 validation, enforcement and emergency STOP. Neither the UI nor a projected
 receipt may write policy directly.
 
 ## Independence and release contract
 
-Watch is detachable when it consumes versioned typed projections only. It publishes a module manifest, compatible schema range, capability discovery/readiness, source freshness policies, no-writer proof, synthetic/integration fixtures, UI release note, and rollback behavior. A Watch upgrade may be rolled back without changing Vault, Forge, Guild, Buzz, or Bastion when the projection schema contract remains compatible.
+Vigil is detachable when it consumes versioned typed projections only. It publishes a module manifest, compatible schema range, capability discovery/readiness, source freshness policies, no-writer proof, synthetic/integration fixtures, UI release note, and rollback behavior. A Vigil upgrade may be rolled back without changing Vault, Forge, Guild, Buzz, or Bastion when the projection schema contract remains compatible.
 
 ## Related plans
 

@@ -161,7 +161,7 @@ the 2026-08-14 M2 Project Context and Knowledge View vertical described below.
 
 ## 현재 큰 방향
 
-Soulforge는 현실 업무를 게임식 운영 루프로 바꾸는 시스템이다. 이 운영 루프가 장기 북극성이고, 2026-08-14 owner 결정 기준 현재 active build는 프로젝트 상태를 읽어 다음 engineering mission을 제안하는 read-only AX·SE 판단 Engine이다. dev-ERP는 폐기하지 않고 장기 통합 자산·운영 표면으로 유지하되 전면 개편은 후속 phase로 둔다.
+Soulforge는 현실 업무를 게임식 운영 루프로 바꾸는 시스템이다. 이 운영 루프가 장기 북극성이고, 2026-08-14 owner 결정 기준 현재 active build는 프로젝트 상태를 읽어 다음 engineering mission을 제안하는 read-only AX·SE Rune(판단 Engine)이다. World Tree(코드 dev-erp, 포트 4300)는 폐기하지 않고 장기 통합 자산·운영 표면으로 유지하되 전면 개편은 후속 phase로 둔다.
 
 현재 큰 방향은 아래 하나다.
 
@@ -195,7 +195,7 @@ read-only snapshot
   UNKNOWN·conflict·authority 회귀시험, (4) 관련 validator, (5) 독립 review가 모두
   통과해야 한다. 그 전에는 actual project-ready 또는 accepted로 부르지 않는다.
 - accepted public slice(2026-08-14): 위 assessment v0와 zero-write runner는 focused
-  51/51, 기존 SE-core 348 pass/6 environment skip, Watchtower 44/44, changed path-policy
+  51/51, 기존 SE-core 348 pass/6 environment skip, Vigil 44/44, changed path-policy
   0 violations와 fresh Claude Opus B/V 검토를 통과했다. 이는 public deterministic
   candidate acceptance이며 actual-project, live-current 또는 assignment acceptance가 아니다.
 - adjacent Team Member Engineering Program build(2026-08-30): Owner-활성화된
@@ -204,8 +204,8 @@ read-only snapshot
   bundle/redaction/external gate(criterion-1 합성 완결), Forge core+brief draft,
   Watch/Bastion 계약, capacity-1 Tool Workshop core, Deployment pack 계약+builder+
   tracked spec 2종(tool_workshop 4파일·hpp_server 267파일: 실 unit gate·격리
-  install 검증·선언 78/89 smoke+제외장부 11), 4192 Board 기본 OFF watch strip과
-  실공급자 3/9, cross-module dogfood 통합 증명, dev-ERP 신원 바이너리 System32
+  install 검증·선언 78/89 smoke+제외장부 11), Vigil(포트 4192) 기본 OFF watch strip과
+  실공급자 3/9, cross-module dogfood 통합 증명, World Tree 신원 바이너리 System32
   고정. 전 leaf가 fresh 비작성 검토를 거쳤고 maturity(합성/package-install/
   actual-provider/physical-pilot) 분리 원장은
   `docs/architecture/foundation/team_member_engineering_program/14_ROADMAP_GATES_AND_DAG.md`의
@@ -215,26 +215,26 @@ read-only snapshot
   기능이 아니라 Soulforge 전체 source/runtime/data/control/project-work/tool/recovery
   구조를 먼저 고정하라고 명시했다. 다음 adjacent priority는 기존 payload를 옮기는
   big-bang migration이 아니라 root class·Path Registry·source/asset catalog view·
-  unregistered-write guard·4192 Storage & Backup Map으로 이루어진 organization spine다.
+  unregistered-write guard·Vigil Storage & Backup Map으로 이루어진 organization spine다.
   상세 범위, original-vision coverage, R0~R7 순서는
   `team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md`가
   소유한다. 실제 이동·새 writer·credential·restore 적용은 계속 기존 Owner gate 뒤다.
 - adjacent staged physical migration authorization and Fable5/Opus execution correction(2026-09-01): Owner는 현재 비어 있는
   `<TARGET_SOULFORGE_ROOT>` 목표 root 생성과 전체 estate의 단계 전환을 승인했고, cutover 시
-  Buzz·Hermes·4192·BuzzServer 정지를 허용했으며 PC 재부팅은 금지했다. 이는 R2~R7을
+  Buzz·Hermes·Vigil·BuzzServer 정지를 허용했으며 PC 재부팅은 금지했다. 이는 R2~R7을
   순차 실행하라는 방향 승인이지 big-bang move/delete 승인이 아니다. copy-only staging·
   digest·restore·rollback·compatibility Gate를 사용하며, 기존
   `<LEGACY_SOULFORGE_ROOT>`와 사용자 소유 dirty state는 새 경로 수락 전까지 보존한다.
   Exact executor/writer/reviewer/Human-gate boundaries, N0 placeholder reconciliation,
-  no-reboot, 4192-resume, and NAS-retirement rules are owned solely by Plan 17's
+  no-reboot, Vigil-resume, and NAS-retirement rules are owned solely by Plan 17's
   task-local Sol/high authority annex and N0–N11 DAG; this Roadmap adds no role
   authority. Only N0/N1 read-only preparation may start, and N2+ remains HOLD
   under that owner packet.
 - adjacent greenfield workspace canonical-store/W-AUTH correction(2026-09-01): Plan 17 plus the workspace contracts distinguish potentially mutable reference-in-place legacy `_workspaces`/`_workmeta` from empty target canonical stores. Only Human/project-authority accepted exact bytes may enter target `_workspaces`; target `_workmeta` holds only their byte-lineage. W-AUTH separates input source revision/digest from candidate revision/content digest; Genesis requires authoritative backup classification/synthetic restore; scoped Legacy Freeze governs legacy origins; N8.5-WS-PUBLISH alone performs named-sole-writer atomic publication after distinct pre-publish readiness and post-publish closure. NW leaves cannot bind/write either workspace target store. Current legacy sources remain authoritative for noncanonical history until an accepted Event Timeline, Analytics, or AI Workforce writer exists. Contract only: writer, binding, file migration, and physical target state remain unchanged.
 - adjacent N2 private-binding application(2026-09-01): Path Registry models nine target siblings and an atomic all-nine binding set. One exact private control generation passed the pinned writer-exclusive ACL admission, registered all nine bindings, and replayed as `NO_OP`; target `_workspaces` and `_workmeta` remain empty. This opens address resolution only. It does not grant the shared canonical publisher, project acceptance, project-byte migration, NAS backup, or legacy retirement authority.
-- adjacent runtime cutover correction(2026-09-01): Source checkout, versioned Server Pack and Slack source-lane bytes are materialized under the D target with no reboot. HPP `0.1.4` initially passed build/install/smoke but a later full-manifest readback found 765 of 1,020 payload files missing, so it was quarantined and the Main Node rolled back to the full-readback-clean `0.1.2` generation. Review then held `0.1.5` because direct NSSM arguments did not alter the server backend write root. The corrected `0.1.6` candidate moves backend/log/DB runtime state outside immutable payload, binds all launch surfaces to one path contract plus explicit server `--backend_root`, and passed 1,022-file build/install/two-way readback, 95-entry installed smoke and real-server start/stop proof; it is not active until separate review/cutover. ERP is digest-bound on `0.1.2`; Ingress restart remains HOLD until its pre-cutover lease expires. Cause of the `0.1.4` post-smoke payload loss is `UNKNOWN`, so no release or production claim follows.
-- adjacent Backup Controller topology-v2 preflight(2026-09-01): the legacy v1 containment contract cannot represent the separated D installed runtime, external ERP data owner, C transition metadata sources, and empty D canonical targets. A new pure/default-OFF v2 schema and preflight binds those resources plus rollback by exact owner/epoch/digest and separate ERP root/file evidence. It authorizes no private binding or NAS run; actual v2 adapter, installed Pack, private evidence, backup generation, restore and Human acceptance were HOLD at that point and are superseded by the 2026-09-02 entry below.
-- adjacent D-target runtime freeze and topology-v2 actual seam(2026-09-02): the Main Node runs on HPP `0.1.6` with `current -> 0.1.6` and `previous -> 0.1.2`; both retained generations plus the older `0.1.1` slot now pass full two-way readback with mismatch 0 after unmanifested runtime-log residue was preserved to local recovery and removed from the `0.1.1` payload. An isolated upgrade/backup/rollback/restore ladder over the real retained generations passed, so the standing rollback promise is verified rather than assumed. ERP answers HTTP 200 on port 4300 with a health identity equal to the active Pack digest, the external database quick-check is ok, and no reboot occurred. Backup Controller topology v2 gained its read-only actual reader, an exact private binding on the protected D control root, and immutable Backup-Recovery Pack `0.1.2` (82 files, 26 installed smoke entries); the first check-only preflight against the real topology returned `PREFLIGHT_OFF_READY` and two drift probes proved the frozen binding refuses observed drift. `feature_state` stays `off` and `backup_run_authorized` stays false, so NAS generation, isolated restore and Human restore acceptance remain HOLD. The operational data and control planes still live on the flat `<TARGET_SOULFORGE_SIBLING_ROOTS>` by contract, the 187-directory D data skeleton holds zero files, and both D canonical stores remain exactly empty. Three services are still rooted on the C transition checkout with named blockers, and no legacy, OneDrive or project byte was deleted.
+- adjacent runtime cutover correction(2026-09-01): Source checkout, versioned Server Pack and Slack source-lane bytes are materialized under the D target with no reboot. HPP `0.1.4` initially passed build/install/smoke but a later full-manifest readback found 765 of 1,020 payload files missing, so it was quarantined and the Main Node rolled back to the full-readback-clean `0.1.2` generation. Review then held `0.1.5` because direct NSSM arguments did not alter the server backend write root. The corrected `0.1.6` candidate moves backend/log/DB runtime state outside immutable payload, binds all launch surfaces to one path contract plus explicit server `--backend_root`, and passed 1,022-file build/install/two-way readback, 95-entry installed smoke and real-server start/stop proof; it is not active until separate review/cutover. World Tree is digest-bound on `0.1.2`; Ingress restart remains HOLD until its pre-cutover lease expires. Cause of the `0.1.4` post-smoke payload loss is `UNKNOWN`, so no release or production claim follows.
+- adjacent Backup Controller topology-v2 preflight(2026-09-01): the legacy v1 containment contract cannot represent the separated D installed runtime, external World Tree data owner, C transition metadata sources, and empty D canonical targets. A new pure/default-OFF v2 schema and preflight binds those resources plus rollback by exact owner/epoch/digest and separate World Tree root/file evidence. It authorizes no private binding or NAS run; actual v2 adapter, installed Pack, private evidence, backup generation, restore and Human acceptance were HOLD at that point and are superseded by the 2026-09-02 entry below.
+- adjacent D-target runtime freeze and topology-v2 actual seam(2026-09-02): the Main Node runs on HPP `0.1.6` with `current -> 0.1.6` and `previous -> 0.1.2`; both retained generations plus the older `0.1.1` slot now pass full two-way readback with mismatch 0 after unmanifested runtime-log residue was preserved to local recovery and removed from the `0.1.1` payload. An isolated upgrade/backup/rollback/restore ladder over the real retained generations passed, so the standing rollback promise is verified rather than assumed. World Tree answers HTTP 200 on port 4300 with a health identity equal to the active Pack digest, the external database quick-check is ok, and no reboot occurred. Backup Controller topology v2 gained its read-only actual reader, an exact private binding on the protected D control root, and immutable Backup-Recovery Pack `0.1.2` (82 files, 26 installed smoke entries); the first check-only preflight against the real topology returned `PREFLIGHT_OFF_READY` and two drift probes proved the frozen binding refuses observed drift. `feature_state` stays `off` and `backup_run_authorized` stays false, so NAS generation, isolated restore and Human restore acceptance remain HOLD. The operational data and control planes still live on the flat `<TARGET_SOULFORGE_SIBLING_ROOTS>` by contract, the 187-directory D data skeleton holds zero files, and both D canonical stores remain exactly empty. Three services are still rooted on the C transition checkout with named blockers, and no legacy, OneDrive or project byte was deleted.
 - adjacent internal-release candidate(2026-08-31): Owner Master Map M16의
   Development Team 1 internal RC는 이번 주 time-boxed 목표 후보다. 현 active slice를
   대체하지 않는다. Fresh Grill decision gate는 exact one-seat와 포함/제외 capability를
@@ -266,7 +266,7 @@ read-only snapshot
   replay `NO_OP`/conflict `HOLD`, metadata-only attribution을 합성 검증했다. `AI 실행 후보`는
   GPT/ingress prefilter marker일 뿐이다. Owner 승인 team-only 합성 `SON-59` 1건은 Codex Linear
   connector, exact 제품 총괄 Bot/session, 기본 Hermes runner를 통해 marker digest 일치와
-  same-process replay `NO_OP`, 4192 matched Bot `working→idle`, Official Done/mutation false를
+  same-process replay `NO_OP`, Vigil matched Bot `working→idle`, Official Done/mutation false를
   관찰했다. 이 adjacent foundation은 현재 AX·SE active slice와 P5→P8 순서를 대체하거나
   unlock하지 않으며, live collector/organization source, persistent ledger, scheduler, writer,
   automatic assignment, 실업무 Work Brief와 production route는 계속 `HOLD`다.
@@ -364,7 +364,7 @@ read-only snapshot
       packet으로 결속하는 pure start Gate까지 구현됐다.
       synthetic-only runtime adapter binding과 runner effect-evidence v3 foundation은 구현됐지만,
       실제 authorized Linear/Drive client binding, webhook, scheduler와 actual one-shot은 없다.
-      Task Engine 마스터플랜 §12의 `LB1` exact start Gate가 통과되면 P5 전에도 one-shot
+      Hammer(Task Engine) 마스터플랜 §12의 `LB1` exact start Gate가 통과되면 P5 전에도 one-shot
       read-only backup pilot을 병렬로 시작할 수 있다. 첫 pilot은 Linear mutation·webhook 등록·예약 실행 없이 bounded
       snapshot/API read를 승인된 private backup target에 새 revision으로 저장하고 manifest/hash/
       coverage와 restore check를 남긴다. 이 support lane은 P4/P5/P6/P7/P8 acceptance를 증명하거나
@@ -388,7 +388,7 @@ read-only snapshot
 
 ### 2026-08-21 Owner 완료 지도 — 현재 위치·남은 Gate·종료선
 
-한 줄 결론: **판단 Engine과 P4/P5/Linear의 feature-OFF 기반 코드는 통합됐지만,
+한 줄 결론: **Rune과 P4/P5/Linear의 feature-OFF 기반 코드는 통합됐지만,
 실제 프로젝트 지식·실제 Linear 백업·accepted context·Task mutation을 끝까지 증명한
 운영 폐루프는 아직 없다.** 아래 `C0~C6`은 이 절에서만 쓰는 완료 조각 이름이며 기존
 P0~P10 또는 Knowledge P4/P5 단계 번호를 바꾸지 않는다.
@@ -449,19 +449,19 @@ Portfolio Projection, Meaningful/Skillable Work Unit과 Capability Learning Loop
 저장 authority, 실제 파일 상태, 독립검토 대기시간은 제외한다. 다과제 완전자율 운영의
 종료 시점은 A/B writer 선택, 운영 품질 근거와 보안정책이 아직 미정이므로 `UNKNOWN`이다.
 
-- ERP position: dev-ERP는 mail, voice, schedule, artifact, skill, 발주 이력, task,
-  project memory를 연결할 장기 통합 자산·운영 표면이다. 전면 개편은 위 판단 Engine과
-  source-bound context gate 이후로 유예한다. 아래 dev-ERP 중심 기록과
+- World Tree position: World Tree는 mail, voice, schedule, artifact, skill, 발주 이력, task,
+  project memory를 연결할 장기 통합 자산·운영 표면이다. 전면 개편은 위 Rune과
+  source-bound context gate 이후로 유예한다. 아래 World Tree 중심 기록과
   `ENGINE_EXPANSION_MASTER_PLAN_20260702.md`는 당시 설계 history이며 현재 실행 큐가 아니다.
 
-### 2026-06~2026-07 dev-ERP 중심 history
+### 2026-06~2026-07 World Tree 중심 history
 
-- 당시 active slice: **dev-erp (사내 개발팀 운영 콕핏)**. 정본:
+- 당시 active slice: **World Tree** (사내 개발팀 운영 콕핏). 정본:
   `ui-workspace/apps/dev-erp/docs/DESIGN.md`,
   `ui-workspace/apps/dev-erp/docs/MASTER_PLAN_20260613.md`; 당시 작업 큐:
   `ui-workspace/apps/dev-erp/docs/SLICES_INDEX.md`. `checklist_phase1.json`은 완료된 P1
   이력 체크리스트로 보존한다.
-- 당시 상태 해석: 2026-06 실제 개발의 대부분이 dev-erp(읽기 콕핏 P1 → 할일쓰기 P2 → 재고/BOM/부품 P3 → 챗봇 RAG/Ollama → 매뉴얼/FAQ, run1~17)에 집중됐고 owner 1순위가 이쪽으로 이동했다.
+- 당시 상태 해석: 2026-06 실제 개발의 대부분이 World Tree(읽기 콕핏 P1 → 할일쓰기 P2 → 재고/BOM/부품 P3 → 챗봇 RAG/Ollama → 매뉴얼/FAQ, run1~17)에 집중됐고 owner 1순위가 이쪽으로 이동했다.
 - active sub-slice(2026-07-12): `ENGINE-12-CONTEXT-LIFE-TREE`가 source-local 시간 이력을
   읽기 전용 사건축과 일별 과제 생명수로 투영한다. 네 PC/ERP 파일 이력은 logical file,
   immutable revision, node observation을 분리하고 24시간 hash-cache TTL, 월별 receipt/event,
@@ -483,7 +483,7 @@ Portfolio Projection, Meaningful/Skillable Work Unit과 Capability Learning Loop
   policy authority 아래에서 engineering task 후보 생성, project routing, 정확히 하나의
   주관 책임 role과 협업·검토 role 지정, 재분류·에스컬레이션, 실행 agent/capability
   선택을 소유한다. 순서는 accepted P5 context → P6 TaskIntent 후보 → P7
-  `why/why-now`·authority·idempotency TaskDriver → P8 원자적 ERP 기록이며, ERP는
+  `why/why-now`·authority·idempotency TaskDriver → P8 원자적 World Tree 기록이며, World Tree는
   정본 기록면이지 engineering judge가 아니고 MCP는 transport/query interface일 뿐이다.
   accepted assignment 전에는 WorkSession/AgentRun을 열지 않으며 closeout·agent success는
   공식 완료가 아니다. 이 결정은 schema·entity·runtime을 추가하거나 feature-OFF 및
@@ -494,7 +494,7 @@ Portfolio Projection, Meaningful/Skillable Work Unit과 Capability Learning Loop
   그대로 유지한다. 두 CEO의 cross-branch 자동 routing은 별도 governance
   overlay 또는 directory v2 계약·validator·Owner 승인 전까지
   `HOLD/non-routable`이다.
-- historical 판단(2026-06-14): 당시 active slice는 dev-erp였고 `snapshot_to_operation_board_v0`는 '다음 후보'로 내렸다. 이 우선순위는 위 2026-08-14 active slice 결정으로 대체됐으며, 스펙은 아래 'Active Slice 001' 절에 history로 보존한다.
+- historical 판단(2026-06-14): 당시 active slice는 World Tree였고 `snapshot_to_operation_board_v0`는 '다음 후보'로 내렸다. 이 우선순위는 위 2026-08-14 active slice 결정으로 대체됐으며, 스펙은 아래 'Active Slice 001' 절에 history로 보존한다.
 
 ### Owner-approved adjacent lane — AI usage meter
 
@@ -511,7 +511,7 @@ Portfolio Projection, Meaningful/Skillable Work Unit과 Capability Learning Loop
   사람 확인` 방향을 승인했다. 이 장비 지정은 아래 2026-07-18 결정으로 대체됐지만,
   AI 임시 확정 방향과 PLAUD 단독 정본 채택의 별도 파일럿 경계는 유지한다.
 - 2026-07-18 owner는 회사 NAS에 접근할 수 있고 장시간 고성능 처리가 가능한 HPP를
-  voice processing, central ingress/custody, Task Engine/AX의 정상 운영
+  voice processing, central ingress/custody, Hammer/AX의 정상 운영
   operational-primary TARGET으로 재지정했다. 맥미니는 경량 상시 감시·source
   spool·fallback/mirror와 별도 worktree의 public 개발면을 맡는다. HPP가 꺼져 있거나
   exact binding/cutover receipt가 아직 없을 때는 기존 맥미니 writer를 즉시 끄지 않고
@@ -531,7 +531,7 @@ Portfolio Projection, Meaningful/Skillable Work Unit과 Capability Learning Loop
 Current structural target:
 
 - Keep the read-only AX·SE project assessment Engine as the current active
-  slice. Preserve dev-ERP as the deferred integrated operating surface and
+  slice. Preserve World Tree as the deferred integrated operating surface and
   `snapshot_to_operation_board_v0` as a structural north-star/history surface.
 - Use `systems_engineering_cell` as the party/loadout for SE assistant requests.
 - Use `se_assistant_operating_loop_v0` as the request-level router before
@@ -544,7 +544,7 @@ Current structural target:
 - Keep stage readiness, review approval, verification acceptance, and public
   canon promotion outside the assistant's authority.
 
-현재 AX·SE Engine은 이 program의 판단 kernel을 먼저 닫는 slice다. 기존 SE assistant party/router는 요청·workflow routing을 계속 소유하지만 판단 결과를 승인하거나 project/ERP를 쓰지 않는다. 장기 snapshot UI와 후속 dev-ERP 통합은 이 read-only 판단 계약이 안정된 뒤 연결한다.
+현재 AX·SE Engine은 이 program의 판단 kernel을 먼저 닫는 slice다. 기존 SE assistant party/router는 요청·workflow routing을 계속 소유하지만 판단 결과를 승인하거나 project/World Tree를 쓰지 않는다. 장기 snapshot UI와 후속 World Tree 통합은 이 read-only 판단 계약이 안정된 뒤 연결한다.
 
 핵심 owner 분리:
 
@@ -992,7 +992,7 @@ Step 2/3/4 implementation status:
 
 ## Active Slice 001
 
-## Development candidate - Team Ops Board v0 clickable mockup
+## Development candidate - Vigil v0 clickable mockup
 
 Status: MVP 0 clickable mockup delivered 2026-06-04. Owner decisions closed
 2026-06-12: truth posture hybrid (Smartsheet stays the official project
@@ -1024,7 +1024,7 @@ Non-goals:
 - Mail body, attachment, secret, or credential handling.
 - Existing renderer reuse.
 - AI automatic priority, owner, or status decisions.
-- Full ERP scope (ERP 범위는 후속 전면 개편 대상인 dev-ERP 앱이 소유한다).
+- Full World Tree scope (World Tree 범위는 후속 전면 개편 대상인 World Tree 앱이 소유한다).
 
 Development packet:
 
@@ -1121,15 +1121,15 @@ Start condition:
 로 두며, owner 승인 전에는 `approved` 또는 `queued` 상태로 승격하지 않는다. 기존 `dev_worker_candidate_queue` 참조는 legacy path 로 이관 대상이다.
 
 추가(2026-06-14, Opus 2차 검증 + owner 결정): `snapshot_to_operation_board_v0`
-는 과거 active slice였으나 당시 active가 dev-erp로 바뀌며 다음 후보로 내려갔다.
+는 과거 active slice였으나 당시 active가 World Tree로 바뀌며 다음 후보로 내려갔다.
 2026-08-14 기준 시작 조건은 read-only AX·SE 판단과 source-bound context projection이
 안정되고 owner가 snapshot UI 재개를 정하는 것이다. 내려갈 owner:
 `guild_hall/snapshot`, `docs/architecture/guild_hall`, `ui-workspace`. 스펙은
 위 'Active Slice 001' 절에 보존.
 
-추가(2026-06-22, dev-erp 메일 수집 통합 작업 중 발견): 후보 22 는 개인별 메일 뷰가
+추가(2026-06-22, World Tree 메일 수집 통합 작업 중 발견): 후보 22 는 개인별 메일 뷰가
 비는 실제 증상이다 — 게이트웨이가 메일을 workspace 버킷(`company_mailbox`)으로 묶어
-`core_mail.mailbox` 가 계정 이메일이 아니라서, ERP "보기 대상"(계정별) 필터가 매칭하지
+`core_mail.mailbox` 가 계정 이메일이 아니라서, World Tree "보기 대상"(계정별) 필터가 매칭하지
 못한다. owner 메타(`team_cli` 의 `event.metadata.mailbox.email`)는 후보 큐엔 있으나
 원장 21컬럼·core_mail 까지 흐르지 않는다. 후보 23 은 단일 누적 CSV 원장(`메일_이력.csv`)이
 git 추적 대상으로 무한 성장하고 scan 이 매 수집마다 전건 재파싱하는 장기 확장성 문제다.
@@ -1258,13 +1258,13 @@ raw 산출물·private 수치는 `_workmeta` 영수증을 가리키고 여기엔
 | --- | --- | --- | --- | --- | --- |
 | 2026-08-17 | M2-2 첫 실제 pilot | Owner-frozen launch/packet/grant/root 고정 뒤 수동 zero-write pilot 1회 | KVDS(P26-014) packet(120_CDR 14 requirement·관측 5·논리 역할 6·common 1)으로 runner 1회 PASS, domain UNKNOWN | 관측 5건은 사람이 폴더 1곳에서 손으로 넣음(자동 공급은 P4 몫); 로드맵 순서 그대로 | private run `ax_se_project_context_pilot_20260817_01`; 마스터플랜 CURRENT 표 "맥락·세계수·할일" 행 |
 | 2026-08-17 | PDF 근거 읽기(admission+tracer) | Feature-OFF 합성 검증만 | 실제 KVDS 계약자료 텍스트 PDF 2건 admission+tracer 각 1회 PASS(인용 3+3) | 8-16 HOLD 원인은 driver의 상대경로 launchPath였음(프로그램 결함 아님) → 절대경로 preflight를 driver 규칙으로 고정 | private run `project_pdf_rag_pilot_20260817_01` |
-| 2026-08-17 | MCP(내려받기·올리기·검토·승인) | 계획에 MCP 단계 번호 없음(P5D·P8·AX01/AXCP01·D28/D29/D35에 분산) | 개인 ERP MCP에 feature-OFF 조회 확장 3종(agenda no-due bucket, reviewer read-only, audit token ref) 착지 `main@8d702252`; 승인/거부 MCP는 D04로 미구현 | 계획이 비워둔 "검토자 read-only"를 앞당김(활성화는 여전히 D28/D29·Owner) | CHANGELOG 2026-08-17 항목, ERP-MCP-V0.md |
+| 2026-08-17 | MCP(내려받기·올리기·검토·승인) | 계획에 MCP 단계 번호 없음(P5D·P8·AX01/AXCP01·D28/D29/D35에 분산) | 개인 World Tree MCP에 feature-OFF 조회 확장 3종(agenda no-due bucket, reviewer read-only, audit token ref) 착지 `main@8d702252`; 승인/거부 MCP는 D04로 미구현 | 계획이 비워둔 "검토자 read-only"를 앞당김(활성화는 여전히 D28/D29·Owner) | CHANGELOG 2026-08-17 항목, ERP-MCP-V0.md |
 | 2026-08-17 | 과제 맥락 메모리 구조(Owner 질문) | 계획에 결정 없음(PROJECT_CONTEXT_GRAPH_MODEL·M2-3A만) | 설계 초안 `PROJECT_REQUIREMENT_TRACE_MODEL_V0.md`(DRAFT/canon_candidate): 사실 원장+재생 투영+수락 게이트+얇은 카드, Graph DB 미도입 트리거, RTM 계산 규칙, D37~D41 제안 | 새 결정 항목 D37~D41 제안(Owner 승인 전 후보) | 해당 문서 |
 | 2026-08-17 | 마스터플랜 문서 정합 | CURRENT 표 유지 지침 :99-111 | :30 CURRENT 셀 08-17 보정, :56 HISTORICAL 태그, C09A evidence 정정, 남은 운영 게이트에 P6 삽입 | 07-31 이후 갱신 누락분 정정 | 이 커밋 |
 | 2026-08-17 | P4/M2-3 첫 조각 실측 | P4는 M2-2 pilot 뒤 착수, RAG/Wiki는 revision 영수증 필수 | 요구사항 ID 색인 seam(`guild_hall/rag/project_pdf_requirement_index.mjs`, feature-OFF·zero-write) 착지 `main@1262dfd8` 후 pinned KVDS 요구사양서에 1회 실행: **118개 ID / 33쪽**, TBC 19·TBD 9, 중복 ID 4, 라벨 없는 언급 18, 라벨만 18 | 계획엔 없던 "측정 조각"을 앞세움(P4 크기 산정용); 첫 시도는 transient admission HOLD 후 재시도 PASS; profile v0.1 후보(단위 대괄호 제목 오탐·언급-only 처리) | private run `project_pdf_requirement_index_pilot_20260817_01`(pending Owner ratification), index는 project plane `reference_payloads/knowledge_extract/20260817_requirement_index/` |
 | 2026-08-17 | M2-2 pilot 관측 확대(run 02) | "관측 확대 뒤 2차 pilot" (CURRENT 표 남은 연결) | run 01의 미관측 9개 중 4개(HRS·SRS·HDD 최종본, STP)를 03_Out 직접 확인으로 absence_confirmed 관측(증거=슬롯 카운트 JSON) → runner 1회 PASS: satisfied 5/missing 4/unknown 5, assessment UNKNOWN, mission 3(CDRL 취합·3D STEP·발표자료 취합) | Owner 야간 포괄 승인 근거로 실행(pending ratification); 남은 unknown 5는 STR·3D STEP·시험문서·CDRL·발표자료 취합(발표자료는 PART3 부분본만 존재) | private run `ax_se_project_context_pilot_20260817_02` |
 | 2026-08-17 | 요구사항 ID 색인 profile v0.1 | — | `kr_defense_spec_v0_1` 추가(요구사양 라벨 뒤 제목·단위 대괄호 건너뜀·mentions_by_id·malformed_labels·id_family) `main@08c2ba0d`, KVDS 재실행: 118행 동일, 제목 24행 정상 추출, mention 108키 | 실측 품질 문제 3건을 결정론 규칙으로 정정 | private receipt(run project_pdf_requirement_index_pilot_20260817_01) |
-| 2026-08-17 | Board classic engine view | 33모듈 topology 소비 | ENGINE_LANES 29→33·테스트를 tracked artifact에서 유도·README 수치 정합 `main@d8c3fa8e`; phase_1_integration_receipt는 비결정론(run_id 시각)+bundle 외부라 미갱신(사유 기록) | agent 위생 | CHANGELOG 08-17 항목 |
+| 2026-08-17 | Vigil classic engine view | 33모듈 topology 소비 | ENGINE_LANES 29→33·테스트를 tracked artifact에서 유도·README 수치 정합 `main@d8c3fa8e`; phase_1_integration_receipt는 비결정론(run_id 시각)+bundle 외부라 미갱신(사유 기록) | agent 위생 | CHANGELOG 08-17 항목 |
 | 2026-08-17 | 요구사항 추적 모델 R1(순수 함수) | 설계 §8 R1: 계약 고정 + `computeRequirementCoverage` + fixture(1주차) | 당일 착지 `main@ee1002b1`: `guild_hall/requirement_trace/requirement_coverage.mjs`(bitemporal replay·coverage cells·fail-closed 상태·orphan 보존·gate 진입/성공 분리, kernel 어휘 재사용, fs/clock/net 0), fixture, 테스트 18/18, relation matrix `canon_candidate` 관계 3 | 설계 §5.3과 다른 판단 3건 소스 주석에 명시(supersession 2-pass, known_at≥valid_at 미강제, firstMark=MARK_ORDER 최소); D37~D41 Owner 결정 전 candidate | CHANGELOG 08-17 항목 |
 | 2026-08-18 | Owner 결정 D37·D38 + 야간 실행 ratify + push | 야간 요약의 결정 5개 | Owner 승인(추천안 그대로): 야간 실행 2건 ratify, D37 = 자동 추출 요구 ID는 candidate만, D38 = Needs는 기존 `stage_expected_artifact_policy` 확장(새 store 없음), path-policy 48건 정리는 보류, public main push(`bc4b4915..d82d755a`) | `_workmeta` 실행 영수증은 launch 파일의 절대경로 pin이 workmeta path-policy에 걸려 커밋 보류(정책 판단 필요) | 설계 문서 §8.2, private upload receipt 2026-08-18 |
 | 2026-08-18 | 요구사항 추적 R2 준비(coverage input builder) | 설계 §8 R2: 원장 writer + owner 승인 소량 pin 시드(2주차) | writer 대신 순수 **입력 생성기** `guild_hall/requirement_trace/coverage_input_builder.mjs` 착지 `main@fe13cb40`: 요구 ID 색인(candidate) + Needs 정책(`soulforge.requirement_needs_policy.v0`, D38 확장 계약) + 산출물 존재 관측 → R1 입력·manifest·영수증; 중복 ID 전행 보류(D40)·기능코드 미매핑 보류·문서 revision 불일치 시 stale·cutoff 역전 거부; 테스트 26 + R1 18 = 44/44; fresh 3-lens 리뷰 → major 1건(cutoff 역전 fail-open) 수정 | 원장 writer는 아직 없음(R2 본체는 Owner의 Needs 정책·중복 4쌍 판정 뒤); "시드는 owner pin부터"라는 설계 문구와 달리 118 candidate 전량을 **candidate 라벨로** 통과시켜 규모를 측정함 | CHANGELOG 08-18 항목, requirement_trace README |
@@ -1279,8 +1279,8 @@ raw 산출물·private 수치는 `_workmeta` 영수증을 가리키고 여기엔
 | 2026-08-18 | ① 일반 SE 바닥층(Owner: "체계공학이면 최소 이건 있어야") | 로드맵에 없음(공통 스타터 45줄뿐, 체크리스트 행 0) | 공개 원문 3종(NASA NPR 7123.1D·DoD SE Guidebook 2022·NASA SE Handbook) 확보·추출 → 스펙 `generic_se_base`(9게이트 229 task, must_have 132) + compiled JSON + 컴파일러 등급 `general_se_guidance`·어휘 30 + 테스트 35/35 (`main@77e53af2`); CDR 비교 ① 38 / ② 16 / KVDS 27, 공유 9 | 4층(일반SE·방사청·발주처·과제)이 전부 실체를 가짐; ①↔② 토큰 별칭 정합은 다음 | private intake `generic_se_sources_intake_20260818`, compare receipt `se_stage_rules/generic_layer_cdr_compare_20260818` |
 | 2026-08-18 | 엔진 개발 매뉴얼(Owner: "항목을 어떻게 구했는지 기록에 있어야, 다른 LLM이 이어받게, 책처럼") | 로드맵에 없음(설계 문서·README·CHANGELOG에 흩어져 있음) | `guild_hall/engineering_engine/manual/` 9장(목적·4층·항목 도출 방법·어휘·컴파일러·요구추적·실행기록·결정·다음 작업) + ① 도출 기록 `references/generic_se_base_derivation_v0.md`(행별 인용·정정·미결, 스크립트 생성) + 도출 작업 파일 private 보관·영수증; 출처 정정(① 행은 NPR·DoD SEG만 인용, Handbook은 추출만·미반영) | 정본이 아니라 정본의 지도; 202행 = 셀 수(산출물 종류 100), must_have 124(합성 132→critic 정정) | receipt `se_stage_rules/generic_se_base_derivation_20260818` |
 | 2026-08-18 | 엔진 판단 전 단계 확대(Owner: "엔진 판단 단계를 전부 다 만들자") | R3: CDR 1단계 packet→runner 1회 | P26-014 SRR·SFR·PDR·CDR·TRR·FCA·PCA 7단계 각각 ②+③+④ 컴파일→packet→zero-write runner 1회(재실행 바이트 동일): 요구 104 = 충족 5/결손 4/불명 95; CDR 27 정책 재실행(5/4/18) | 다른 단계는 관측을 아직 안 넣어 불명; 로컬 폴더 03_Out 스캔은 산출물 0. 관측 확대(문서 색인·메일 첨부→artifact_observations, 자동 분류는 candidate)가 다음 조각. 000_REF 비엔진 단계, 240_LL 정본 필수 없음 | private run `ax_se_project_context_pilot_20260818_04`, compile `stage_rules_20260818_02` |
-| 2026-08-20 | Task Execution Core 최소 POC + Linear 백업 범위 검토 | P5→P6→P7→P8 뒤 승인된 TaskDriver/TaskEngine writer와 AgentRun 후속 gate | Drive v3.1을 우선해 Linear Official Todo를 읽기만 하는 feature-OFF Module을 dev-ERP에 격리 구현: Candidate 차단, Work Brief·Executor·authority gate, task별 active AgentRun 1개, append-only provider/run event, Waiting/terminal receipt, crash/retry HOLD, idempotent replay. CSV/Sheets/API/webhook의 Linear 백업 데이터 범위를 문서로 검토 | phase를 앞당긴 operational activation이 아니라 public-synthetic contract harness. `core_item`·Linear·MCP·scheduler·외부 effect·live backup 0, P5~P8 acceptance 0 | `ui-workspace/apps/dev-erp/docs/task_execution_core_poc/`, `validate:task-execution-core-poc` |
-| 2026-08-20 | Linear 백업 support-lane 시작 순서 확정 | 백업은 Task 실행과 별도라는 구조만 있었고 시작 Gate가 없었음 | 실제 기능은 여전히 0. Task Engine 마스터플랜 §12 `LB1`의 단일 exact start Gate 뒤 one-shot read-only snapshot/API pilot을 P5 전 병렬 지원선으로 시작하고, restore 검증 뒤에만 예약 자동화를 별도 승인한다 | 백업 성공은 accepted Context·TaskIntent·TaskDriver·AgentRun 또는 Linear writer 준비 완료를 뜻하지 않음. live Task 실행은 P5→P10 순서 유지 | `LINEAR_BACKUP_SCOPE_REVIEW.md`, Task Engine 마스터플랜 §12 split lanes |
+| 2026-08-20 | Task Execution Core 최소 POC + Linear 백업 범위 검토 | P5→P6→P7→P8 뒤 승인된 TaskDriver/TaskEngine writer와 AgentRun 후속 gate | Drive v3.1을 우선해 Linear Official Todo를 읽기만 하는 feature-OFF Module을 World Tree에 격리 구현: Candidate 차단, Work Brief·Executor·authority gate, task별 active AgentRun 1개, append-only provider/run event, Waiting/terminal receipt, crash/retry HOLD, idempotent replay. CSV/Sheets/API/webhook의 Linear 백업 데이터 범위를 문서로 검토 | phase를 앞당긴 operational activation이 아니라 public-synthetic contract harness. `core_item`·Linear·MCP·scheduler·외부 effect·live backup 0, P5~P8 acceptance 0 | `ui-workspace/apps/dev-erp/docs/task_execution_core_poc/`, `validate:task-execution-core-poc` |
+| 2026-08-20 | Linear 백업 support-lane 시작 순서 확정 | 백업은 Task 실행과 별도라는 구조만 있었고 시작 Gate가 없었음 | 실제 기능은 여전히 0. Hammer 마스터플랜 §12 `LB1`의 단일 exact start Gate 뒤 one-shot read-only snapshot/API pilot을 P5 전 병렬 지원선으로 시작하고, restore 검증 뒤에만 예약 자동화를 별도 승인한다 | 백업 성공은 accepted Context·TaskIntent·TaskDriver·AgentRun 또는 Linear writer 준비 완료를 뜻하지 않음. live Task 실행은 P5→P10 순서 유지 | `LINEAR_BACKUP_SCOPE_REVIEW.md`, Hammer 마스터플랜 §12 split lanes |
 | 2026-08-20 | Engineering Engine release manifest 안전보정 | 새 `mcp/stage_rules/observation/guidance`가 release manifest 범위 밖이었음 | Git-index exact 184-file allowlist, untracked·omission·duplicate·malformed-NUL fail-close, explicit generation-base provenance와 MCP compatibility consumer를 구현·통합. fresh 독립검토 ACCEPT | manifest 28/28, MCP 135/135, stage 53/53, observation 67/67, guidance 55/55. MCP 등록·runtime·write authority는 계속 OFF | `guild_hall/engineering_engine/{tools,tests,topology,mcp}`, CHANGELOG 08-20 |
 | 2026-08-20 | P4 project PDF RAG·Thin Wiki projection candidate | P4 첫 조각은 요구 ID zero-write 색인뿐이고 trusted retrieval/Wiki/P5 input seam 없음 | 이미 admitted된 PDF revision 하나에서 exact trusted digest를 요구하는 project-local RAG·Thin Wiki sibling candidate와 P5 non-accepted input을 생성·조회하는 public feature-OFF Module 통합. recomputed forgery·getter/alias·supersession-gap 방어, fresh+Opus 검토 후 기술 ACCEPT | main 환경에서 focused 13/13, root isolation 21/21, 기존 PDF ingest/launch/admission/tracer/index 전부 PASS. 실제 project persistence·KVDS body pilot·P5 acceptance는 HOLD | `guild_hall/rag/project_pdf_knowledge_projection.mjs`, focused validator, CHANGELOG 08-20 |
 | 2026-08-20 | P4 bounded actual-pilot runner foundation | projection candidate는 있었지만 actual launch/authority/output을 한 번의 create-only 시도로 묶는 executor가 없었음 | raw-byte-pinned authority packet을 body-free attempt claim으로 admission 전에 소비하고 admission/projection 각 1회, exact candidate+claim 두 파일만 허용하는 feature-OFF runner/CLI 통합. pre-write HOLD replay·partial publish·foreign binding·payload echo를 fail-close | fresh Level-2 재검토 ACCEPT; main runner 13/13, admission 17/17, projection 13/13. actual KVDS 실행·운영 RAG/Wiki writer·P5 acceptance는 HOLD | `guild_hall/rag/project_pdf_knowledge_pilot_runner*.mjs`, CHANGELOG 08-20 |
@@ -1289,23 +1289,23 @@ raw 산출물·private 수치는 `_workmeta` 영수증을 가리키고 여기엔
 | 2026-08-20 | Linear LB1 exact Owner start Gate | LB1 시작 조건은 문서 표에만 있고 Owner 결정·workspace/credential·Drive target·보존/복원 정책을 기계적으로 결속하지 못함 | `evaluateLinearLb1OwnerGate(packet, trustedExpectedPin)` pure Module로 full packet pin, pending/approved 결정, read-only scope, create-only Drive target, retention/RPO, partial HOLD와 human restore acceptance를 fail-close. 제안 기본안은 ref·Owner 승인 부재로 명시 HOLD | focused 8/8, backup-controller 63/63. provider/storage/network/filesystem/scheduler effect 0; 실제 Linear/Drive access·LB1 run은 exact Owner 승인 전 HOLD | `guild_hall/backup_controller/linear_lb1_owner_gate*.mjs`, CHANGELOG 08-20 |
 | 2026-08-21 | P4 direct-path preparation gate | 실제 P4 시도가 OneDrive reparse 가능성 아래 admission HOLD로 소비됐고, 새 authority packet 생성 전 direct/non-reparse 사전검사와 정본 packet builder가 없었음 | authentic admission launch inspection을 재사용해 launch/root/ancestor/leaf/output을 metadata-only 검사하고 기존 authority-packet-v0만 canonical 생성하는 Preparation Module 통합. request/accessor·forged grant·fsutil 4390/path 혼동·packet drift를 fail-close | Flash 3.7 High builder + Opus 5 반복 executable review 최종 ACCEPT; main preparation 18/18, runner 13/13 PASS. PDF body/copy/write 0; actual new authority·local staging·P4 실행은 Owner gate HOLD | `guild_hall/rag/project_pdf_knowledge_pilot_{packet_contract,preparation}.mjs`, CHANGELOG 08-21 |
 | 2026-08-21 | Linear LB1 v2 feature-OFF Bound Runner | v1은 metadata/hash 중심 합성 계약이라 whole-workspace body/history와 stored-byte restore, durable claim ordering을 표현하지 못했고 Gate도 실제 실행 Adapter와 결속되지 않았음 | v1을 보존한 별도 v2 18차원 snapshot/manifest/restore + full-packet Gate v2 + async Bound Runner 통합. claim-before-read, exact synthetic Adapter refs, limits/expiry, create-only memory store, exact-byte readback, body-free result와 post-claim `HOLD_CONSUMED` 고정 | Flash 3.7 High builder + Opus 5 반복 executable review 최종 ACCEPT; main v2 44/44, backup-controller 107/107 PASS. 실제 Linear/Drive/provider/storage/filesystem/scheduler effect 0; external Adapters·Owner binding·human restore는 HOLD | `guild_hall/backup_controller/linear_lb1_{v2,owner_gate_v2,one_shot_runner,synthetic_adapters}.mjs`, CHANGELOG 08-21 |
-| 2026-08-21 | Owner 완료 지도와 예상 기간 고정 | 기반 코드 완료와 actual evidence·운영 activation이 한 문장에 섞여 전체 진행도를 오해하기 쉬웠음 | `C0~C6`으로 code foundation→actual P4/Linear→accepted P5→proposal shadow→bounded mutation canary의 의존관계와 세 종료선을 명시 | 현재 목표는 병렬 1~2 작업주 추정(외부 승인·계정 대기 제외). plan-only이며 runtime·authority·write activation 0 | 이 문서의 `Owner 완료 지도`, Task Engine 마스터플랜의 owner-facing completion horizon |
-| 2026-08-21 | Chat 1시간 Shadow Bot 검증·Worker 접점 계획 | Chat Scheduled Task의 live-source 추론과 Soulforge C3/C5 제품 기반이 같은 완료 상태처럼 보였음 | Owner-observed Bot은 실제 판단·오류 표본을 만들고 Worker는 Cycle Contract·Decision Ledger·Shadow Evaluator·Accepted Context Query를 제공하도록 역할을 분리. retrieval/reasoning/effect 세 지표와 B0~B5 gate, Flash-ready/미결정 항목을 Task Engine 마스터플랜에 고정 | plan-only. 실제 Scheduled Task 설정·app 권한·run history는 독립 미확인이고 Gmail/Linear mutation·C6 activation 0 | Task Engine 마스터플랜 `Chat 1-hour Shadow Bot lane`, CHANGELOG 08-21 |
-| 2026-08-21 | Grill Me `HB-DEC-01` 점진 실행 C 채택 | Shadow-only 유지와 전면 자동 실행 사이의 장기 권한 방향이 미결이었음 | 연결된 업무 전반은 계속 Shadow 판단하되 실제 mutation은 C5 품질근거를 통과한 저위험 task type·capability부터 하나씩 확대. 월간 자료수합은 첫 후보 예시이며 전체 Bot 범위가 아님 | 방향만 확정. 첫 task type, Source scope, app effect, ledger, Prompt, threshold는 후속 결정이며 현재 Linear mutation·C6 activation 0 | Task Engine 마스터플랜 Grill Me decision register, Owner conversation decision 2026-08-21 |
-| 2026-08-21 | Voice-First Bot/Agent 운영모델 v0.2 확정 | Voice·Project Agent·Portfolio·Worker·Skill 학습과 권한 사다리가 여러 대화·초안에 흩어져 있었음 | Thin Voice Context+Deep Project Context, Project 격리/Portfolio projection, `JM6×A0~A6`, Project×TaskType×Action Canary, Voice receipt 4층, Decision Ledger, Meaningful Work Unit→Skill/Workflow/Party 승격과 VF-0~VF-8 실행순서를 하나의 Owner-confirmed 정본으로 고정 | plan finalization이며 실제 Chat task, app permission, Hermes/Grok install, external account, runtime, Linear mutation은 0. exact runtime binding은 각 실행 packet에서 별도 승인 | `SOULFORGE_VOICE_FIRST_BOT_AGENT_OPERATING_MODEL_V0_2.md`, Task Engine master plan, CHANGELOG 08-21 |
-| 2026-08-21 | `VF-1/C0` mutation default-OFF | 4300 launcher의 auto-intake/autosync 암묵 기본값을 제거하고 합성 restart/launcher RED→GREEN으로 고정 | `start-windows.bat`의 두 port-derived enable만 제거하고 explicit env·PowerShell switch opt-in은 보존; focused 2/2, launcher 13/13, core 290/290, fresh independent review `ACCEPT` | live runtime·Scheduled Task·Linear/Gmail/Slack/Calendar/Drive mutation 0; `VF-2` 미착수, actual mutation canary는 `C6`와 별도 Owner 승인 전 `HOLD` | `start-windows.bat`, `run_dev_erp_background_launcher.test.mjs`, `MAIL_TO_TASK_INTAKE.md`, Task Engine master plan |
-| 2026-08-21 | `VF-2/VF-3` Shadow Cycle·Decision Ledger foundation | Hourly Cycle Contract, in-memory Project Decision Ledger, Portfolio Projection, ShadowEvaluator가 문서 제안만 있고 코드·회귀시험은 없었음 | required-source manifest·A0 선언·payload/graph bound를 fail-close하는 branded cycle, per-project cursor/digest chain·replay/NO_OP/supersession, identical-horizon typed portfolio, ground-truth 분리 quality receipt를 public-synthetic 순수 모듈로 구현 | 53/53 + Task Core 28/28, fresh Opus 5 4회 revision 뒤 final `ACCEPT`; 실제 Scheduled Task prompt/read/app binding, persistent writer, live quality metric, external effect 0/HOLD | dev-ERP `hourly_shadow_cycle_contract`, `project_decision_ledger`, `portfolio_decision_projection`, `shadow_evaluator` |
+| 2026-08-21 | Owner 완료 지도와 예상 기간 고정 | 기반 코드 완료와 actual evidence·운영 activation이 한 문장에 섞여 전체 진행도를 오해하기 쉬웠음 | `C0~C6`으로 code foundation→actual P4/Linear→accepted P5→proposal shadow→bounded mutation canary의 의존관계와 세 종료선을 명시 | 현재 목표는 병렬 1~2 작업주 추정(외부 승인·계정 대기 제외). plan-only이며 runtime·authority·write activation 0 | 이 문서의 `Owner 완료 지도`, Hammer 마스터플랜의 owner-facing completion horizon |
+| 2026-08-21 | Chat 1시간 Shadow Bot 검증·Worker 접점 계획 | Chat Scheduled Task의 live-source 추론과 Soulforge C3/C5 제품 기반이 같은 완료 상태처럼 보였음 | Owner-observed Bot은 실제 판단·오류 표본을 만들고 Worker는 Cycle Contract·Decision Ledger·Shadow Evaluator·Accepted Context Query를 제공하도록 역할을 분리. retrieval/reasoning/effect 세 지표와 B0~B5 gate, Flash-ready/미결정 항목을 Hammer 마스터플랜에 고정 | plan-only. 실제 Scheduled Task 설정·app 권한·run history는 독립 미확인이고 Gmail/Linear mutation·C6 activation 0 | Hammer 마스터플랜 `Chat 1-hour Shadow Bot lane`, CHANGELOG 08-21 |
+| 2026-08-21 | Grill Me `HB-DEC-01` 점진 실행 C 채택 | Shadow-only 유지와 전면 자동 실행 사이의 장기 권한 방향이 미결이었음 | 연결된 업무 전반은 계속 Shadow 판단하되 실제 mutation은 C5 품질근거를 통과한 저위험 task type·capability부터 하나씩 확대. 월간 자료수합은 첫 후보 예시이며 전체 Bot 범위가 아님 | 방향만 확정. 첫 task type, Source scope, app effect, ledger, Prompt, threshold는 후속 결정이며 현재 Linear mutation·C6 activation 0 | Hammer 마스터플랜 Grill Me decision register, Owner conversation decision 2026-08-21 |
+| 2026-08-21 | Voice-First Bot/Agent 운영모델 v0.2 확정 | Voice·Project Agent·Portfolio·Worker·Skill 학습과 권한 사다리가 여러 대화·초안에 흩어져 있었음 | Thin Voice Context+Deep Project Context, Project 격리/Portfolio projection, `JM6×A0~A6`, Project×TaskType×Action Canary, Voice receipt 4층, Decision Ledger, Meaningful Work Unit→Skill/Workflow/Party 승격과 VF-0~VF-8 실행순서를 하나의 Owner-confirmed 정본으로 고정 | plan finalization이며 실제 Chat task, app permission, Hermes/Grok install, external account, runtime, Linear mutation은 0. exact runtime binding은 각 실행 packet에서 별도 승인 | `SOULFORGE_VOICE_FIRST_BOT_AGENT_OPERATING_MODEL_V0_2.md`, Hammer master plan, CHANGELOG 08-21 |
+| 2026-08-21 | `VF-1/C0` mutation default-OFF | 4300 launcher의 auto-intake/autosync 암묵 기본값을 제거하고 합성 restart/launcher RED→GREEN으로 고정 | `start-windows.bat`의 두 port-derived enable만 제거하고 explicit env·PowerShell switch opt-in은 보존; focused 2/2, launcher 13/13, core 290/290, fresh independent review `ACCEPT` | live runtime·Scheduled Task·Linear/Gmail/Slack/Calendar/Drive mutation 0; `VF-2` 미착수, actual mutation canary는 `C6`와 별도 Owner 승인 전 `HOLD` | `start-windows.bat`, `run_dev_erp_background_launcher.test.mjs`, `MAIL_TO_TASK_INTAKE.md`, Hammer master plan |
+| 2026-08-21 | `VF-2/VF-3` Shadow Cycle·Decision Ledger foundation | Hourly Cycle Contract, in-memory Project Decision Ledger, Portfolio Projection, ShadowEvaluator가 문서 제안만 있고 코드·회귀시험은 없었음 | required-source manifest·A0 선언·payload/graph bound를 fail-close하는 branded cycle, per-project cursor/digest chain·replay/NO_OP/supersession, identical-horizon typed portfolio, ground-truth 분리 quality receipt를 public-synthetic 순수 모듈로 구현 | 53/53 + Task Core 28/28, fresh Opus 5 4회 revision 뒤 final `ACCEPT`; 실제 Scheduled Task prompt/read/app binding, persistent writer, live quality metric, external effect 0/HOLD | World Tree `hourly_shadow_cycle_contract`, `project_decision_ledger`, `portfolio_decision_projection`, `shadow_evaluator` |
 | 2026-08-22 | `VF-4/C2` Linear LB1 runtime adapter foundation | v2 Gate/Runner는 synthetic adapter만 있었고 actual-client binding seam과 truthful effect evidence가 없었음 | capability-allowlisted synthetic-only reader/storage/claim binding, immutable scope/target/authority, runner result v3 effect-evidence reconciliation을 구현 | adapter 22/22, LB1 50/50, Backup Controller 135/135, fresh Opus 5 adapter+runner `ACCEPT`; authorized real clients·one-shot·human restore·LB2 scheduler는 0/HOLD | `linear_lb1_runtime_adapters*`, `linear_lb1_one_shot_runner*`, Backup Controller README |
-| 2026-08-22 | Hourly Multi-App Work Intake Bot v0.4.0 Owner configuration report | 기존 Owner-confirmed plan은 현재 Bot을 A0 Shadow로 기록 | Owner가 기존 `업무 인입 감시` ID/매시간/활성 상태를 유지하며 Linear·Slack·Calendar·Drive bounded write, Gmail Draft-only, `gmail_sent=0`, 실행당 effect≤5, destructive/계약·비용·기술기준·대외약속 금지를 설정했다고 보고 | repo/agent가 설정을 변경하거나 first run을 관찰한 것은 아님. exact prompt digest·실제 app mutation/readback·prohibited effect 0은 첫 v0.4.0 run 뒤 검증 전 `UNKNOWN/HOLD` | Voice-First 운영모델·Task Engine CURRENT truth sync |
+| 2026-08-22 | Hourly Multi-App Work Intake Bot v0.4.0 Owner configuration report | 기존 Owner-confirmed plan은 현재 Bot을 A0 Shadow로 기록 | Owner가 기존 `업무 인입 감시` ID/매시간/활성 상태를 유지하며 Linear·Slack·Calendar·Drive bounded write, Gmail Draft-only, `gmail_sent=0`, 실행당 effect≤5, destructive/계약·비용·기술기준·대외약속 금지를 설정했다고 보고 | repo/agent가 설정을 변경하거나 first run을 관찰한 것은 아님. exact prompt digest·실제 app mutation/readback·prohibited effect 0은 첫 v0.4.0 run 뒤 검증 전 `UNKNOWN/HOLD` | Voice-First 운영모델·Hammer CURRENT truth sync |
 | 2026-08-22 | Voice-First Fable 재검토·first v0.4.0 receipt | Fable 5가 `489e3812`를 독립 재검토해 engine manifest 회귀와 LB1 counter·Accepted Context generation fencing 결함을 재현했고, Scheduled 결과가 일반 채팅으로 열리는 project-context gap을 확인 | 세 blocking defect에 RED→GREEN 보정을 적용하고 manifest/topology를 canonical 재생성했다. Shadow·launcher root validator alias도 정본 명령에 추가했다. Scheduled detail의 first receipt는 Linear 5·다른 앱 0·`gmail_sent=0`을 보고했으나 provider/app readback은 별도 HOLD로 유지한다 | LB1 51/51·Backup 136/136, acceptance/query 31/31+P5 12/12, manifest/topology·Shadow 53/53·launcher 13/13 PASS. root `done:check`는 기존 path-policy 51건으로 RED | `linear_lb1_one_shot_runner*`, `accepted_context_query*`, engine manifest/topology, root validators, Voice-First owner docs |
 | 2026-08-22 | Hourly intake v0.4.1 project-context fail-closed update | v0.4.0 결과가 project path가 아닌 일반 채팅으로 열려 project memory/instruction 자동 상속을 가정할 수 없었음 | 기존 예약을 in-place 수정해 project scope·지침 v1.0 snapshot·`DO_NOT_ASSUME`·`HOLD_PROJECT_CONTEXT/effect=0`과 receipt fields를 추가. 새 origin/receipt/output은 `V041`, 기존 `V040`과 `V041`은 모두 application echo로 인식한다. ID·매시간·활성은 유지하고 새 예약은 만들지 않음 | 저장 후 9,396자 prompt exact readback, version/revision/project refs/gate/hold/output/origin 일치. first v0.4.1 run·provider/app readback은 대기 | Chat Scheduled detail과 Voice-First owner docs |
 | 2026-08-22 | `VF-5` Accepted Generation + Context Query foundation | P5 authentic candidate는 있었지만 human-review content binding, append-only generation/CAS와 accepted-context query가 없었음 | candidate canonical review digest, exact reviewed-membership/coverage/supersession gate, in-memory append-only accepted manifest/receipt, mandatory ACL·uniform no-leak·generation-pinned query를 public-synthetic으로 구현 | acceptance/query 30/30, candidate 12/12, readiness 34/34, Task Core 28/28, fresh Opus 5 `ACCEPT`; actual human/HPP writer/private persistence/live query 0/HOLD | `project_context_generation_candidate`, `project_context_acceptance_gate`, `accepted_context_query`, root acceptance wiring |
 | 2026-08-22 | `VF-6` Hermes proposal-runtime trial gate foundation | Hermes exact version/identity/tool/memory/custody/rollback 조건이 문서 HP-HERMES에만 있고 executable gate는 없었음 | immutable version/host/isolation digests, one-seat/account/project mapping, read/query/candidate-only tool include-list, forbidden tool digest, delivery idempotency, memory/transcript/attachment/rollback/time-window를 검증하는 pure proposal gate 구현 | Hermes gate 10/10, fresh Opus 5 `ACCEPT`; proposal authority/effects false/0, actual install·doctor·credential·MCP/scheduler 0/HOLD | `voice_first_hermes_trial_gate*`, root worker-runtime validator |
 | 2026-08-22 | `VF-7` same-WorkUnit worker comparison foundation | Codex·Flash·Grok run을 같은 input/validator/quality basis로 비교하는 cohort receipt가 없었음 | exact Work Unit/run/validator/reviewer/quality/harness basis, causal timestamps, complete measurements, tie-aware no-selection을 검증하는 pure comparison receipt 구현 | comparison 14/14 + canonical evidence 2/2, fresh Opus 5 `ACCEPT`; actual provider runs·selection authority·auto-deploy 0 | `voice_first_worker_comparison*`, ai usage metadata-only evidence validator |
 | 2026-08-22 | `VF-8/C6` bounded mutation canary gate foundation | exact canary tuple·C5/Owner trusted pins·single-use claim·CAS/fencing·readback·compensation을 함께 검증하는 executable gate가 없었음 | synthetic-only adapter와 atomic claim store로 tuple rate cap, terminal success/failure replay, tuple-bound digest readback, non-destructive voided/superseded compensation idempotency를 구현 | canary 17/17, Task Core 28/28, Shadow 53/53, Accepted Context 30/30, fresh Opus 5 `ACCEPT`; `actual_canary_readiness=false`, live provider effect 0 | `voice_first_mutation_canary_gate*`, root acceptance wiring |
-| 2026-08-23 | Agent Observation P0~P2 foundation 현재 상태 정합 | owner README는 범위를 P0-S1/P0-S2로만 적었고 receipt v1 표기와 "Hermes를 넣으면 2.29 MB 영속 상태 마이그레이션"이라는 잘못된 근거가 남아 있었으며 P2가 화면 완료처럼 읽혔음 | 한 파일이던 관찰 표면을 Agent Registry·Run Observation·Usage Ledger·Evidence/Receipt 네 seam으로 나누고 private 공유 내부 `observation_internals.mjs`와 호환 barrel `agent_observation.mjs`을 두었다. delivery 영수증은 `result_receipt.v2`에서 `delivery_target`(target run/agent/work-unit)을 필수로 싣고 관찰된 run·project·agent·work unit에 대해 검사한다. Board view-model foundation은 투영을 panel 행으로 바꾸는 순수 builder로만 존재한다. 독립 검토가 지목한 세 경계는 RED를 먼저 잡고 보정했다 — (1) Board view가 알 수 없는 `hold_code`를 화면에 되쓰지 않고 고정 문구 하나로만 닫는다, (2) meter lineage key는 맨 앞 `/root` segment만 이름으로 면제하고 알려진 로컬 경로 모양은 meter root 아래 숨은 것까지 행에서 제외한다, (3) target run 시작 전에 관찰된 delivery receipt는 `DELIVERY_TARGET_TEMPORAL_INVERSION`으로 막고 동시각은 받아들이며 원장에 아무것도 append하지 않는다 | `delivery_target`은 producer가 관찰한 **의도된 hand-over 상대**이지 consumer의 수신 확인이 아니다. P2는 screen·route·server·runtime 배선이 없고 4192 런타임이 이 module을 import하지 않으며 가시적 배선과 live producer 활성화는 `HOLD`다. 위 세 보정도 view-model과 pure store 계약 안에서만 닫힌 것이고 런타임 배선을 만들지 않는다. Hermes meter mapping은 enum 확장이 가산적이라는 사실과 무관하게, 실제 collector가 token 신뢰도 의미를 증명하기 전까지 계속 보류다 | `guild_hall/agent_observation/**`(2026-08-23 관찰 `validate:agent-observation` 293/293), `ui-workspace/apps/team-ops-board/src/core/agent-observation-view.*`(`validate:team-ops-app` 631/631), owner README, CHANGELOG 08-23 |
+| 2026-08-23 | Agent Observation P0~P2 foundation 현재 상태 정합 | owner README는 범위를 P0-S1/P0-S2로만 적었고 receipt v1 표기와 "Hermes를 넣으면 2.29 MB 영속 상태 마이그레이션"이라는 잘못된 근거가 남아 있었으며 P2가 화면 완료처럼 읽혔음 | 한 파일이던 관찰 표면을 Agent Registry·Run Observation·Usage Ledger·Evidence/Receipt 네 seam으로 나누고 private 공유 내부 `observation_internals.mjs`와 호환 barrel `agent_observation.mjs`을 두었다. delivery 영수증은 `result_receipt.v2`에서 `delivery_target`(target run/agent/work-unit)을 필수로 싣고 관찰된 run·project·agent·work unit에 대해 검사한다. Vigil view-model foundation은 투영을 panel 행으로 바꾸는 순수 builder로만 존재한다. 독립 검토가 지목한 세 경계는 RED를 먼저 잡고 보정했다 — (1) Vigil view가 알 수 없는 `hold_code`를 화면에 되쓰지 않고 고정 문구 하나로만 닫는다, (2) meter lineage key는 맨 앞 `/root` segment만 이름으로 면제하고 알려진 로컬 경로 모양은 meter root 아래 숨은 것까지 행에서 제외한다, (3) target run 시작 전에 관찰된 delivery receipt는 `DELIVERY_TARGET_TEMPORAL_INVERSION`으로 막고 동시각은 받아들이며 원장에 아무것도 append하지 않는다 | `delivery_target`은 producer가 관찰한 **의도된 hand-over 상대**이지 consumer의 수신 확인이 아니다. P2는 screen·route·server·runtime 배선이 없고 Vigil 런타임이 이 module을 import하지 않으며 가시적 배선과 live producer 활성화는 `HOLD`다. 위 세 보정도 view-model과 pure store 계약 안에서만 닫힌 것이고 런타임 배선을 만들지 않는다. Hermes meter mapping은 enum 확장이 가산적이라는 사실과 무관하게, 실제 collector가 token 신뢰도 의미를 증명하기 전까지 계속 보류다 | `guild_hall/agent_observation/**`(2026-08-23 관찰 `validate:agent-observation` 293/293), `ui-workspace/apps/team-ops-board/src/core/agent-observation-view.*`(`validate:team-ops-app` 631/631), owner README, CHANGELOG 08-23 |
 | 2026-08-23 | Hermes Desktop install-only 현재 상태 | `VF-6` Hermes proposal-runtime trial gate는 executable 계약만 있고 실제 설치 상태 기록이 없었음 | 공식 NousResearch 배포원에서 Hermes Desktop을 설치하고 agent `v0.20.5` 설치를 확인했다. 숨김 local boot smoke 1회가 성공했고 그 뒤 관련 프로세스를 모두 정지했다 | OAuth·로그인·provider 연결·API key·MCP·scheduler·channel·Probe는 어느 것도 하지 않았다. 서명되지 않은 로컬 실행 파일과 dependency audit high 4·critical 0이 남아 있어 security `HOLD`를 유지한다. 로컬 machine 경로와 credential은 기록하지 않는다 | Owner-observed install-only 보고, `voice_first_hermes_trial_gate*`(계약만, 설치·실행 권한 없음), CHANGELOG 08-23 |
-| 2026-08-25 | Candidate Execution Coordinator first bounded live canary | feature-OFF public-synthetic 구조가 실제 Linear marker→exact Bot command→4192 readback을 아직 증명하지 못했음 | Owner 승인 team-only 합성 `SON-59`와 `AI 실행 후보` label을 Codex Linear connector로 만들고, Role/Capability→responsible triage→Coordinator→기본 Hermes runner로 exact 제품 총괄 `gpt-5.6-terra` session에 1회 전달 | marker digest 일치, candidate run/receipt exact Bot 귀속, same-process replay `NO_OP`, 4192 matched 1·`working→idle`, Linear Todo/label 유지, Official Done/mutation false. Connector/label은 authority가 아니며 persistent ledger·scheduler·writer·automatic assignment·실업무 Work Brief·production route는 `HOLD` | `SON-59` metadata-only Evidence comment, 4192 read-only projection, post-development review packet, CHANGELOG 08-25 |
+| 2026-08-25 | Candidate Execution Coordinator first bounded live canary | feature-OFF public-synthetic 구조가 실제 Linear marker→exact Bot command→Vigil readback을 아직 증명하지 못했음 | Owner 승인 team-only 합성 `SON-59`와 `AI 실행 후보` label을 Codex Linear connector로 만들고, Role/Capability→responsible triage→Coordinator→기본 Hermes runner로 exact 제품 총괄 `gpt-5.6-terra` session에 1회 전달 | marker digest 일치, candidate run/receipt exact Bot 귀속, same-process replay `NO_OP`, Vigil matched 1·`working→idle`, Linear Todo/label 유지, Official Done/mutation false. Connector/label은 authority가 아니며 persistent ledger·scheduler·writer·automatic assignment·실업무 Work Brief·production route는 `HOLD` | `SON-59` metadata-only Evidence comment, Vigil read-only projection, post-development review packet, CHANGELOG 08-25 |
 | 2026-08-25 | Engineering Engine 조립 모델과 package 표준 결정 | current main은 SE가 flat `contracts/stage_rules/subjects/tests/...`를 쓰고, 별도 E01 candidate branch(`codex/quality-engine-v0@f306f3c7`)도 같은 flat category에 prefix 파일을 더해 Compiler·Overlay를 제품 계층처럼 읽기 쉬웠음 | Owner가 `Engine Core / Domain Engine / Organization Profile / Project Profile / Project Binding / Effective Rule Set` 용어와 두 흐름(규칙 조립 vs evidence→Typed Facts)을 승인. target `core/ + engines/<domain>/` package와 organization/project storage owner, migration gate를 정본 문서·SE manual·source model·TARGET_TREE에 기록 | 이번 slice는 documentation decision만 수행하고 file relocation·schema 발행·E01 merge·E02 생성은 0. E02 전 SE+E01 two-adapter conformance→Core Interface 동결→SE/E01 migration→Profile provenance→zero-write replay를 닫아야 함 | `docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`, Engineering Engine README/manual, `SE_STAGE_RULE_SOURCE_MODEL_V0.md` |
 | 2026-08-25 | Engineering Engine 물리 package layout migration | 조립 모델 승인 뒤 물리 마이그레이션 착수 | shared core/ + engines/systems_engineering/ + engines/quality_readiness/(E01) 통합, .registry/engineering_profiles/ schema/catalog 구축, Core Domain Adapter 인터페이스 및 two-domain conformance suite 구현, legacy re-export stubs 보존, release/topology/manifest 재생성 및 검증 완료 | E02(interface_consistency) 확장은 의도적으로 미포함, zero-write replay 및 provenance 100% 보존 | CHANGELOG 08-25, core_domain_conformance.test.mjs, validate:quality-readiness, validate:engineering-engine-core-domain |
 

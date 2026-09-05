@@ -29,7 +29,7 @@ These terms are not interchangeable.
 | --- | --- |
 | Capture/Collection | read/observe data from a source |
 | Custody/Ingest | preserve exact bytes/manifest in an approved D: or owner store |
-| Sync/Materialization | expose the same source/revision through a work or ERP view |
+| Sync/Materialization | expose the same source/revision through a work or World Tree(코드 dev-erp, 포트 4300) view |
 | Backup/DR | copy an accepted protected generation to the company NAS for server-PC failure recovery |
 | Restore | reconstruct the generation in an isolated target and reconcile it |
 | Human Restore Acceptance | authorized person accepts the restored state |
@@ -110,7 +110,7 @@ acceptance owner, source/project scope, backup generation and restore digest.
 
 ## Chat-ledger reconciliation
 
-Chat-created ledgers are covered as external/source-local systems even when a Google Sheet is used. A capture generation records why a row/candidate exists, no-action/dedupe/correction/supersession, schedule/run identity, source refs, reviewer/acceptance, freshness, and downstream ERP/Linear reconciliation status. No source sheet or chat transcript becomes ERP truth until its immutable capture and accepted projection pass their own gate.
+Chat-created ledgers are covered as external/source-local systems even when a Google Sheet is used. A capture generation records why a row/candidate exists, no-action/dedupe/correction/supersession, schedule/run identity, source refs, reviewer/acceptance, freshness, and downstream World Tree/Linear reconciliation status. No source sheet or chat transcript becomes World Tree truth until its immutable capture and accepted projection pass their own gate.
 
 ## Connector lifecycle and detachment
 

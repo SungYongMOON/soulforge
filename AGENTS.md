@@ -14,11 +14,11 @@
 ## 작업 위치와 실행면 (2026-09-02 D: 이관 이후)
 
 - 코드 작업은 Git `dev` checkout(현재 `<TARGET_SOULFORGE_ROOT>/dev/source_checkout`) 또는 그 worktree에서 한다. 옛 legacy checkout은 legacy `_workmeta`/`_workspaces` 정션의 owner로만 남기며 새 코드 작업 기본 위치가 아니다.
-- 운영 실행은 어떤 checkout에서도 하지 않는다. 운영 포트 4300은 버전이 박힌 `install/server-pack/<x.y.z>/payload`만 사용하고, 아직 Pack에 없는 운영 lane(상황판·수집기·전달기·정리기)은 `install/source-lanes/<lane>-vN`에서만 실행한다. 예약작업은 해당 lane의 등록기(`register-*-task.ps1`)로만 등록한다.
+- 운영 실행은 어떤 checkout에서도 하지 않는다. 운영 포트 4300은 버전이 박힌 `install/server-pack/<x.y.z>/payload`만 사용하고, 아직 Pack에 없는 운영 lane(Vigil(포트 4192)·수집기·전달기·정리기)은 `install/source-lanes/<lane>-vN`에서만 실행한다. 예약작업은 해당 lane의 등록기(`register-*-task.ps1`)로만 등록한다.
 - 데스크톱 클라이언트 앱은 **패키지형(MSIX) 에이전트 세션에서 직접 실행하지 않는다**. 패키지 세션이 앱을 낳으면 그 앱의 `%LOCALAPPDATA%`·`%APPDATA%` 쓰기가 세션 전용 가상 저장소로 리다이렉트되어 사용자 데이터가 실경로와 갈라진다(Buzz Desktop에서 2026-08-29·09-01 두 번 발생해 기존 신원이 사라지고 새 신원 생성 화면이 떴다). 기동은 등록된 비패키지 예약작업으로만 하며, 이미 떠 있는 창을 조작하는 것은 무관하다. 같은 이유로 사용자 AppData 경로의 존부·내용 판정은 패키지 세션의 관측을 신뢰하지 않고 WSL의 C: 드라이브 drvfs 마운트, UNC `\\localhost\C$\...`, 예약작업 컨텍스트 중 둘 이상으로 교차 검증한다. lane별 예약작업 이름·드리프트 감지기는 해당 lane runbook이 소유한다.
 - 운영 상태 root는 `SOULFORGE_STATE_ROOT`(공유 상태 root)와 `SOULFORGE_OWNER_ROOT`(legacy `_workmeta` overlay용 checkout root)가 정하며, 우선순위는 파일별 명시 flag/env > `SOULFORGE_STATE_ROOT` > `SOULFORGE_OWNER_ROOT` > git-derived다. 값이 잘못되면 fail-closed이며 조용한 fallback을 만들지 않는다.
 - 경로가 바뀌는 lane 전환은 **수집기 pin · 바인딩 digest · VBS/launcher · 채널/상태 digest 울타리** 넷을 한 묶음으로 갱신하고, 재등록 직후 launcher `--preflight`를 등록된 인자로 확인한다. 전환은 트리거 사이 시간에, lease가 없을 때만 하며 이전 lane 사본은 삭제하지 않고 rename 보존하고 영수증은 `local-recovery/`에 남긴다.
-- 수집(collection/custody)과 백업(backup/DR)은 다른 축이다. 현재 수집 lane은 메일·음성·PC파일·Codex 작업맥락·Slack·Linear 6종이며 custody는 백업이 아니다.
+- 수집(collection/custody)과 백업(backup/DR)은 다른 축이다. 현재 Tributary(수집 lane)는 메일·음성·PC파일·Codex 작업맥락·Slack·Linear 6종이며 custody는 백업이 아니다.
 - 정확한 host-local 경로·binding 값은 private inventory가 소유한다. public 문서·commit·CHANGELOG에는 `<TARGET_SOULFORGE_ROOT>`, `<private_root>` 같은 자리표시자만 쓴다.
 
 ## 안전·저장 경계
@@ -35,17 +35,17 @@
 
 ## 작업별 라우팅
 
-- Task Engine의 collector, scheduler, binding, custody, timeline, context 또는 TaskDriver를 바꾸면 `ui-workspace/apps/dev-erp/docs/TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md`의 최신 CURRENT 상태표를 같은 변경에서 갱신한다.
+- Hammer(Task Engine)의 collector, scheduler, binding, custody, timeline, context 또는 TaskDriver를 바꾸면 `ui-workspace/apps/dev-erp/docs/TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md`의 최신 CURRENT 상태표를 같은 변경에서 갱신한다.
 - 새 HPP 최상위 data surface는 `guild_hall/backup_controller/README.md`의 backup/restore 분류와 synthetic restore gate를 따른다.
 - 지식 authority와 저장·투영·재해복구 경계는 `docs/architecture/guild_hall/ONTOLOGY_CANON_OPERATING_POLICY_V0.md`를 따른다 지식 접근 원장은 `guild_hall/knowledge_access/README.md`가 소유한다.
 - manager route는 `docs/architecture/guild_hall/CODEX_WORK_DIRECTORY_V1.md`에서 exact resolve하고 ambiguous, stale, unknown route에는 자동 전송하지 않는다.
-- Task Engine/AX 표시 용어는 `docs/architecture/foundation/SHARED_GLOSSARY_V0.md`를 따른다.
+- Hammer/AX 표시 용어는 `docs/architecture/foundation/SHARED_GLOSSARY_V0.md`를 따른다.
 - Soulforge 최신화·다른 PC 준비 요청은 설치된 `soulforge-github-down` skill, `docs/architecture/bootstrap/BOOTSTRAP_PROFILES_V0.md`, `docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md`를 따른다.
 - SE 폴더 생성·정리·rename은 `docs/architecture/workspace/SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md`를 따르며 실제 rename 전 dry-run, pointer migration plan과 Owner 승인을 요구한다.
 
 ## 팀원·봇·조직 라우팅
 
-- 팀원 접속 경로는 Buzz(팀원 PC 클라이언트, Main Node 서버)와 Main Node의 Hermes 봇이 대신 호출하는 MCP다. 브라우저 ERP는 Owner 감독용 loopback으로 두고 팀에 열지 않는다. World Tree(ERP)에는 MCP를 통한 수락 정본만 들어간다.
+- 팀원 접속 경로는 Buzz(팀원 PC 클라이언트, Main Node 서버)와 Main Node의 Hermes 봇이 대신 호출하는 MCP다. 브라우저 World Tree(코드 dev-erp, 포트 4300)는 Owner 감독용 loopback으로 두고 팀에 열지 않는다. World Tree에는 MCP를 통한 수락 정본만 들어간다.
 - 결과 등록은 제출 영수증일 뿐이다. Linear `done`은 검토 → 사람 수락 → 지정 sole writer 순서이며 파일럿에서는 사람이 직접 누른다. 작업 과정은 원문 대화가 아니라 5필드 요약과 refs로 결과와 같은 꾸러미로 제출한다.
 - 봇 명부는 조직도의 투영이다. 페르소나 이름은 계속 쓰는 봇(공통 운영·툴 공방)에만 붙이고 프로젝트 봇은 `과제코드 + 직책`으로 표기하며 판타지 직책은 표시 별칭이다. 실제 프로필 이름·ID·Bot Chat 값은 private 명부에만 둔다.
 - 음성 세션은 사람 Owner의 짧은 비서·라우터이며 CEO나 기술 승인권자가 아니다. 다른 task 전송은 Owner가 그 음성 세션에서 명시적으로 요청한 경우에만 하고 대상 task의 model·reasoning effort를 유지한다. 목적지가 모호하면 먼저 확인한다.

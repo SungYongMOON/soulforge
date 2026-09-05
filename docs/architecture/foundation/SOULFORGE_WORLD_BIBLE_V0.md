@@ -142,7 +142,7 @@ Soulforge는 ERP·세계수·Engine·Task Engine·Chat 예약·Hermes·Buzz·MCP
 | Artifact·Dataset | Loot·Artifact·Relic |
 | Evidence·Receipt | Battle Log·Chronicle |
 | Knowledge·Ontology | World Tree·Library |
-| Operations Projection | Watchtower |
+| Operations Projection | Vigil |
 
 실제 데이터는 하나다. 업무 화면과 판타지 화면은 같은 Task·Asset·Agent·Event를 다른
 렌즈로 보여준다. 판타지 UI가 별도 Task truth, 완료 상태, 점수 authority 또는 사람평가

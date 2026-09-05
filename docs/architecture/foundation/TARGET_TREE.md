@@ -207,7 +207,7 @@ _workmeta/
 - `guild_hall/state/**` 는 local-only state 이다.
 - current legacy project candidate root 는 `_workspaces/<project_code>/` direct child 구조를 사용한다. target project structure is not inferred from this historical tree.
 - current legacy project-side monster record 는 `_workmeta/<project_code>/monsters/` 아래에 둔다; future target `_workmeta`에는 쓰지 않는다.
-- raw execution truth와 검토 전 작업물은 외부 사람/Bot work root에 둔다. Current legacy ERP-materialized history remains in place; future target project bytes require W-AUTH, Genesis, applicable Freeze, review, and authority acceptance. No target `_workmeta/<project_code>/runs/<run_id>/` path is created.
+- raw execution truth와 검토 전 작업물은 외부 사람/Bot work root에 둔다. Current legacy World Tree(코드 dev-erp, 포트 4300)-materialized history remains in place; future target project bytes require W-AUTH, Genesis, applicable Freeze, review, and authority acceptance. No target `_workmeta/<project_code>/runs/<run_id>/` path is created.
 - future target `_workmeta` is nested private/untracked: its canonical byte-lineage content, as well as all current legacy per-project content, never enters the public repo. Public documents may describe the contract only; public-safe samples stay under `docs/architecture/workspace/examples/`.
 - `.run/` 루트는 새 정본에 포함하지 않는다.
 - public repo 에서는 `_workspaces/README.md` 만 추적한다.
