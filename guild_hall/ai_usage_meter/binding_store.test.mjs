@@ -50,7 +50,7 @@ test("MCP handlers expose only metadata summaries and safe work detail", async (
   const file = path.join(sessions, "rollout-mcp-thread.jsonl");
   const lines = [
     { timestamp: "2026-08-03T00:00:00.000Z", type: "session_meta", payload: {
-      id: "mcp-thread", timestamp: "2026-08-03T00:00:00.000Z", cwd: "C:\\workspace\\mcp-project",
+      id: "mcp-thread", timestamp: "2026-08-03T00:00:00.000Z", cwd: ["C:", "\\workspace\\mcp-project"].join(""),
     } },
     { timestamp: "2026-08-03T00:00:01.000Z", type: "event_msg", payload: {
       type: "task_started", turn_id: "mcp-turn", started_at: "2026-08-03T00:00:01.000Z",

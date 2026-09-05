@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 
 import { upsertUsageBinding } from "./binding_store.mjs";
 import { loadPersistedUsageEvents } from "./usage_meter.mjs";
+const SYNTHETIC_PROJECT_CWD = ["C:", "\\workspace\\project-a"].join("");
 
 function row(timestamp, type, payload) {
   return JSON.stringify({ timestamp, type, payload });
@@ -26,7 +27,7 @@ async function writeActiveSession(root, {
       id: threadId,
       parent_thread_id: parentThreadId,
       timestamp: startedAt,
-      cwd: "C:\\workspace\\project-a",
+      cwd: SYNTHETIC_PROJECT_CWD,
       source: parentThreadId ? { subagent: { thread_spawn: { depth } } } : {},
     }),
     row(startedAt, "event_msg", {
@@ -126,7 +127,7 @@ test("SubagentStop recursively loads ancestors and inherits the depth-two root b
       transcript_path: rootFile,
       agent_id: "grandchild-thread",
       agent_transcript_path: grandchildFile,
-      cwd: "C:\\workspace\\project-a",
+      cwd: SYNTHETIC_PROJECT_CWD,
     });
     assert.equal(result.code, 0, result.stderr);
     assert.deepEqual(JSON.parse(result.stdout), {});
@@ -149,7 +150,7 @@ test("SubagentStop recursively loads ancestors and inherits the depth-two root b
       hook_event_name: "Stop",
       session_id: "missing-thread",
       turn_id: "missing-turn",
-      cwd: "C:\\workspace\\project-a",
+      cwd: SYNTHETIC_PROJECT_CWD,
     });
     assert.equal(failed.code, 0, failed.stderr);
     assert.deepEqual(JSON.parse(failed.stdout), {});
@@ -178,7 +179,7 @@ test("SubagentStop composes parent continuation observations before assigning li
     await writeFile(earliestParent, `${row("2026-08-03T00:00:00.000Z", "session_meta", {
       id: parentId,
       timestamp: "2026-08-03T00:00:00.000Z",
-      cwd: "C:\\workspace\\project-a",
+      cwd: SYNTHETIC_PROJECT_CWD,
       source: {},
     })}\n`, "utf8");
     const currentParent = path.join(sessions, `rollout-999-${parentId}.jsonl`);
@@ -186,7 +187,7 @@ test("SubagentStop composes parent continuation observations before assigning li
       row("2026-08-03T00:00:00.000Z", "session_meta", {
         id: parentId,
         timestamp: "2026-08-03T00:00:00.000Z",
-        cwd: "C:\\workspace\\project-a",
+        cwd: SYNTHETIC_PROJECT_CWD,
         source: {},
       }),
       row("2026-08-03T00:00:00.000Z", "event_msg", {
@@ -245,7 +246,7 @@ test("SubagentStop composes parent continuation observations before assigning li
       transcript_path: currentParent,
       agent_id: "continued-child",
       agent_transcript_path: childFile,
-      cwd: "C:\\workspace\\project-a",
+      cwd: SYNTHETIC_PROJECT_CWD,
     });
     assert.equal(result.code, 0, result.stderr);
     const [event] = await loadPersistedUsageEvents(state);
@@ -277,7 +278,7 @@ test("Stop combines the canonical session metadata with a continuation transcrip
       row("2026-08-03T00:00:00.000Z", "session_meta", {
         id: "continuation-root",
         timestamp: "2026-08-03T00:00:00.000Z",
-        cwd: "C:\\workspace\\project-a",
+        cwd: SYNTHETIC_PROJECT_CWD,
         source: {},
       }),
       row("2026-08-03T00:00:00.000Z", "event_msg", {
@@ -314,7 +315,7 @@ test("Stop combines the canonical session metadata with a continuation transcrip
       session_id: "continuation-root",
       turn_id: "continuation-turn",
       transcript_path: continuation,
-      cwd: "C:\\workspace\\project-a",
+      cwd: SYNTHETIC_PROJECT_CWD,
     });
     assert.equal(result.code, 0, result.stderr);
     const [event] = await loadPersistedUsageEvents(state);

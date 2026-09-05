@@ -7,7 +7,7 @@
   "service_tier": "standard",
   "project_bindings": [
     {
-      "cwd_prefix": "C:/example/workspace/project-a",
+      "cwd_prefix": "<LOCAL_WORKSPACE_ROOT>/project-a",
       "project_id": "project-a",
       "team_id": "team-a"
     }
