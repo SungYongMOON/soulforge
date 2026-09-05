@@ -28,7 +28,7 @@
 - 장면
   1. 접수: 아이디어·버그 리포트가 한 접수함에 쌓인다. 저장 위치는 새로 만들지 않고 로드맵 저장 규칙을 따른다: 아이디어는 로드맵 `다음 후보` 한 줄 + 이 문서의 카드, 실행 후보와 버그는 current legacy `_workmeta/system/dev_worker_queue/*.yaml`(`status: proposed`). 채널 후보는 Buzz 봇 DM("버그: …"), Vigil(포트 4192)의 작업 칩, Tongs(코드 dev-erp-mcp)의 제출 도구.
   2. 분류: 개선 그룹의 팀장 역할(Sol급 외부 Hearth)이 접수 건을 읽어 재현 가능 여부·범위·위험을 적고, 지시서(목표·착지점·완료 정의·검증·금지)를 만든다. 오늘 lane A~G의 인수인계문 형식이 그 원형이다.
-  3. 착수: 짧은 경로에 worktree 하나를 만들고(`D:\Soulforge\dev\model-worktrees\<짧은이름>`, node_modules 정션 공유) 결과물 TASK(Terra급 = Sonnet)가 브랜치에서 고친다. push·main 병합·예약작업·플래그 변경은 금지.
+  3. 착수: 짧은 경로에 worktree 하나를 만들고(`<TARGET_SOULFORGE_ROOT>/dev/model-worktrees/<짧은이름>`, node_modules 정션 공유) 결과물 TASK(Terra급 = Sonnet)가 브랜치에서 고친다. push·main 병합·예약작업·플래그 변경은 금지.
   4. 시험: 그 worktree에서 관련 validator와 테스트를 돌리고, 실패 테스트 먼저(RED) → 수정(GREEN) 기록을 남긴다. 정션 worktree에서 못 믿는 검사(deployment-pack)는 병합 뒤 원 checkout에서 다시 돈다.
   5. 검토: 비작성자 fresh Level 2(Sol급 = Opus/Fable)가 diff·검증 결과·경계를 보고 ACCEPT/REVISE/HOLD. REVISE면 수정 작업자가 고치고 다시 검토.
   6. 병합: 통합 세션이 fast-forward로 main에 얹고 push. CI(Quench)가 초록이어야 다음 접수 건으로 넘어간다. 빨가면 그 단계가 새 접수 건이 된다(오늘 CI 복구가 정확히 이 순서로 8회 돌았다).
