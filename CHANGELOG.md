@@ -1,5 +1,45 @@
 # CHANGELOG
 
+## 2026-09-06 - Tongs(MCP 문) loopback lane + registrar prepared, not registered
+
+- 판단 표기: 개발 후보 준비. 새 owner decision이나 정본 승격이 아니라, 기존 `dev-erp-mcp`
+  sidecar(README에 이미 있던 두 프로세스 계약)를 상시 기동하는 source lane과 예약작업 등록기를
+  만들었을 뿐이다. 관찰: 4311은 이 작업 전후로 계속 아무것도 듣지 않는다.
+- 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: `ui-workspace/apps/dev-erp-mcp/ops/`에 `tongs_lane_support.mjs`(heartbeat 레코드 검증,
+  재사용/재기동 결정, preflight 판정 — 순수 함수 + 얇은 CLI), 그 node:test 스위트
+  (`tongs_lane_support.test.mjs`, 10/10), `run-tongs-loopback.ps1`(개인 ERP MCP `server.mjs` +
+  선택적 ingress MCP `ingress_server.mjs`를 관리하는 loopback 런처, `-Preflight` 지원, heartbeat를
+  `<StateRoot>/operations/tongs/<service>.heartbeat.v1.json`에 `{status, observed_at, pid, listen}`
+  형식으로 기록), `run-tongs-hidden.vbs`(linear/buzz 수집 lane과 같은 generic argv-forwarding
+  hidden launcher), `register-tongs-task.ps1`(예약작업 `Soulforge-Tongs-Loopback-v1`, 로그온 +
+  5분 반복 트리거, `-DryRun` 기본, 이미 등록돼 있으면 교체 없이 보고만)를 추가했다. 러너북
+  `docs/TONGS_LANE_RUNBOOK_V0.md`에 바인딩 계약(자리표시자만), lane 빌드 인자 형태, Owner가 실행할
+  토큰 발급 명령(개인 ERP MCP bearer 1줄 + ingress registry init/issue 2줄), 봇 "강도담"용 파일럿
+  허용 도구 14개(개인 ERP MCP 8 + ingress MCP 6) 제안과 명시 제외(review 도구, project-history,
+  회사메일 stdio, LAN)를 적었다. 루트 `README.md` "어디서 도는가" 문단에 한 줄, `package.json`에
+  `validate:tongs-lane` 검증 스크립트를 더했다.
+- 발견: 4311은 개인 ERP MCP 하나만의 기본 bind다 — ingress MCP는 자체 기본 포트가 없고 private
+  binding JSON(`--config`)에서만 `listen_port`를 받으며 그 binding은 `enabled: false`가 기본이다.
+  즉 Tongs는 최대 두 개의 독립 Node 프로세스이지 하나가 아니다. 이 사실을 런북과 커밋 보고에 함께
+  적었다.
+- 검증: `node --check`(새 `.mjs` 전부), `node --test tongs_lane_support.test.mjs`(10/10, 실제
+  `ingress_mcp_service.mjs`의 `loadIngressMcpConfig()`를 부르는 실패 경로 포함), PowerShell 파서로
+  `.ps1` 두 개 구문 확인, worktree(`feat/tongs-lane`)에서 실제 `run-tongs-loopback.ps1`을 임시
+  고포트(48311)로 3회 실행해 시작→재사용→(강제 종료 뒤) 자가복구까지 확인하고 4311은 그동안 계속
+  무음이었음을 `Get-NetTCPConnection`으로 재확인, `register-tongs-task.ps1`을 dry-run으로 실행해
+  실제 예약작업이 생기지 않음을 확인, `node guild_hall/validate/local_absolute_path_policy.mjs
+  --scope changed` 0건, `npm run validate:display-terms` ok, 기존 `dev-erp-mcp` 테스트
+  스위트 44/44 통과 유지.
+- 운영 영향: 없음. 예약작업 미등록, 프로세스 미상시기동, credential 미발급 — 전부 Owner의 별도
+  단계다.
+- 관련 경로: `ui-workspace/apps/dev-erp-mcp/ops/tongs_lane_support.mjs`,
+  `ui-workspace/apps/dev-erp-mcp/ops/tongs_lane_support.test.mjs`,
+  `ui-workspace/apps/dev-erp-mcp/ops/run-tongs-loopback.ps1`,
+  `ui-workspace/apps/dev-erp-mcp/ops/run-tongs-hidden.vbs`,
+  `ui-workspace/apps/dev-erp-mcp/ops/register-tongs-task.ps1`,
+  `ui-workspace/apps/dev-erp-mcp/docs/TONGS_LANE_RUNBOOK_V0.md`, `README.md`, `package.json`.
+
 ## 2026-09-06 - secure-work 사이클에 Buzz DM 창구를 열고 lane 빌더의 Windows CLI 가드를 고침
 
 - 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
