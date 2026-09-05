@@ -1,5 +1,42 @@
 # CHANGELOG
 
+## 2026-09-06 - 보호 가공 업무 lane 사이클 1호: 합성 미션 한 건이 접수부터 로컬 보관까지 돌았다
+
+- 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: 업무 원문을 로컬에 둔 채 공개 가능한 packet만 내보내고 결과를 로컬에서 복원·검증하는
+  lane을 `guild_hall/secure_work/`에 만들었다. 계약은 새로 만들지 않았다. 입출력·상태·오류
+  규격은 저장소 밖 읽기 전용 원본인 E14 모듈 계약 kit(M01~M10)이, 업무 recipe와 합성 fixture는
+  E13 인계 패키지가 소유하며 vendoring하지 않는다. 저장소에는 그 포트에 붙인 어댑터, 상태
+  진행 엔진, 유출 검사, 영수증만 둔다. 진입점은 Node `sfx.mjs`(설정을 읽고 인터프리터를 찾아
+  인자와 종료 코드만 통과시키는 얇은 층)이고 엔진은 Python이다 — kit 참조 코어가 Python이라
+  Node 재구현은 kit 구현 계약이 금지한 재발명이기 때문이며, 그 이유를 README에 적었다.
+  명령은 `doctor` `request` `advance` `permit approve|deny` `status` `events`다.
+- 관측: 두 kit의 `file_manifest.json` 전수 대조 일치(E14 321/321, E13 70/70, 미등재·누락 0).
+  kit 자체 오프라인 검사 재현 — E14 pytest 88 passed, E14 offline roundtrip
+  `OFFLINE_REFERENCE_COMPLETE`, E13 pytest 79 passed(한국어 Windows 로캘에서는 UTF-8 모드가
+  필요했고, kit은 읽기 전용으로 유지해 결과물은 저장소 밖에 썼다). 합성 미션 1건(E13 fixture
+  6종 → recipe R1-07)이 13개 상태 전이를 거쳐 로컬 outbox까지 갔다: 필드 55개 중 토큰 9개를
+  슬롯으로 분리, 로컬 모델 실제 호출 1회(43개 제안 전부 CODE 선택 범위 안), 봉인된 binding 9,
+  scripted worker 1회, 구조검사 `STRUCTURAL_PASS_SEMANTIC_REVIEW_REQUIRED`, 슬롯 9개 전부
+  로컬 복원. 나가는 bytes에 슬롯 뒤 실제 값·원본 파일명·host 경로·digest 없음(자동 검사 + 손
+  확인). 검토 원장이 없을 때 M03은 `HOLD`, permit이 없을 때 `RELEASE_REVIEW`, bearer가 없을 때
+  `CUSTODY_PENDING`에서 각각 멈췄다.
+- 운영 영향: 없음. 외부 모델 호출 0회, 외부 업로드 0회, 예약작업·팩·플래그·서비스·포트 변경
+  없음. 새로 쓰는 곳은 저장소 밖 작업 루트와 상태 요약 1파일
+  (`<STATE_ROOT>/ops-lane/operations/secure_work/status.json`, 원문·매핑 없음)뿐이다. 저장소
+  안에는 실제 host 경로를 두지 않고 자리표시자와 설정 주입만 쓴다. 외부 provider 키와 Tongs
+  bearer는 Owner가 `<private_root>/config/secure_work/credentials/`에 배치하며, 이 lane은
+  존재와 크기만 확인하고 값을 읽지 않는다.
+- 한계: 합성 자료만 사용했다. 사이클 1호의 작업자는 모델이 아니라 scripted worker이고, 외부
+  route와 보관 route는 의도적으로 미바인딩이다. 유출 검사는 유한한 검사이며 자동 분류기가
+  아니다. 키 래퍼는 파일 권한뿐인 시험 전용이고, 승인자는 분류 권한자가 아니다. 의미 검토는
+  `NOT_RUN`이며 결과는 언제나 후보다.
+- 검사: `npm run validate:secure-work`(Node 진입점 fail-closed 경계 5건) 통과. 어댑터 경계
+  pytest 12건은 kit과 venv가 있는 호스트에서 통과(kit 미바인딩 환경에서는 2건 skip).
+- 관련 경로: `guild_hall/secure_work/`,
+  `docs/architecture/guild_hall/SECURE_WORK_CYCLE_V0.md`,
+  `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md`, `package.json`.
+
 ## 2026-09-06 - World Tree (dev-erp): background launcher can now opt into MCP review-read, ops has not re-registered yet
 
 - 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
