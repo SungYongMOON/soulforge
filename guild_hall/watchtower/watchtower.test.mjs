@@ -981,7 +981,12 @@ test("usage provider source nodes stay unmonitored under the new period and cann
     }), "utf8");
     probes[probeKey] = { ...EXAMPLE_BINDING.probes[probeKey], path: heartbeatPath };
   }
-  const snapshot = await composeTopologyHealth(baseBinding(path.join(root, "state"), probes), { now: nowMs });
+  // usage_meter carries a resident_task, so without a stub the composer would query the host's real
+  // Task Scheduler and the verdict would depend on where the test runs.
+  const snapshot = await composeTopologyHealth(baseBinding(path.join(root, "state"), probes), {
+    now: nowMs,
+    run_schtasks: async () => "Running",
+  });
   for (const provider of ["codex", "claude", "antigravity"]) {
     const source = snapshot.nodes.find((node) => node.id === `src_${provider}`);
     assert.equal(source.health_scope, "provider");
