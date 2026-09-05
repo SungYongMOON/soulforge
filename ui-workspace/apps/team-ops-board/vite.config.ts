@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { readSoulforgeRootOverride } from "../../../guild_hall/shared/soulforge_state_root.mjs";
 import { createAiUsageAdapterPlugin } from "./src/server/ai-usage-adapter.mjs";
 import { createAgentRuntimeSnapshotAdapterPluginFromEnvironment } from "./src/server/agent-runtime-snapshot-adapter.mjs";
+import { createErpPendingReviewAdapterPluginFromEnvironment } from "./src/server/erp-pending-review-adapter.mjs";
 import { createAntigravityQuotaAdapterPlugin } from "./src/server/antigravity-quota-adapter.mjs";
 import { createAntigravityUsageAdapterPlugin } from "./src/server/antigravity-usage-adapter.mjs";
 import { createClaudeUsageAdapterPlugin } from "./src/server/claude-usage-adapter.mjs";
@@ -67,6 +68,7 @@ export default defineConfig(async () => ({
   plugins: [
     react(),
     await createAgentRuntimeSnapshotAdapterPluginFromEnvironment(),
+    createErpPendingReviewAdapterPluginFromEnvironment(),
     createLiveThreadAdapterPlugin({ env: boardEnvironment }),
     createAiUsageAdapterPlugin(),
     createTopologyAdapterPlugin(boardTopologyOptions),

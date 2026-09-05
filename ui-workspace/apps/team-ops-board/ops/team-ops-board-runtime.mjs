@@ -29,6 +29,10 @@ import {
   HERMES_AGENT_RUNTIME_BINDINGS_ENV,
   HERMES_AGENT_RUNTIME_URL_ENV,
 } from "../src/server/agent-runtime-snapshot-adapter.mjs";
+import {
+  ERP_REVIEW_TOKEN_FILE_ENV,
+  ERP_REVIEW_URL_ENV,
+} from "../src/server/erp-pending-review-adapter.mjs";
 import { resolveTeamOpsBoardAllowedHosts } from "../src/server/team-ops-board-allowed-hosts.mjs";
 import { startUsageProducerCompanion } from "./ai-usage-producer-companion.mjs";
 import { startRecoveryCompanion } from "../../../../guild_hall/watchtower/recovery_runtime.mjs";
@@ -77,6 +81,8 @@ const RUNTIME_ENVIRONMENT_ALLOWLIST = Object.freeze([
   "TEAM_OPS_BOARD_HOST_DISK_ROOTS",
   HERMES_AGENT_RUNTIME_BINDINGS_ENV,
   HERMES_AGENT_RUNTIME_URL_ENV,
+  ERP_REVIEW_TOKEN_FILE_ENV,
+  ERP_REVIEW_URL_ENV,
   "TEAM_OPS_BOARD_LIFECYCLE_DISABLE_CONTROL",
   "TEAM_OPS_BOARD_LIFECYCLE_SNAPSHOT",
   "TEAM_OPS_BOARD_ORGANIZATION_CATALOG",
@@ -797,6 +803,11 @@ export function createScheduledRuntimeEnvironment({
       "organization_governance_overlay.v1.json",
     ),
   });
+  // ERP 승인 대기 읽기는 opt-in 이다: Owner 가 user env 로 둔 자격증명 파일 경로(와 선택적 loopback URL)만
+  // 문자열일 때 그대로 전달한다. 값이 없으면 4192 패널은 링크만 모드로 남는다. 여기서 값을 만들지 않는다.
+  for (const name of [ERP_REVIEW_TOKEN_FILE_ENV, ERP_REVIEW_URL_ENV]) {
+    if (typeof baseEnvironment?.[name] === "string") env[name] = baseEnvironment[name];
+  }
   delete env[TEAM_OPS_BOARD_CLAUDE_QUOTA_READ];
   delete env[TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ];
   validateRuntimeLaunchEnvironment(env);

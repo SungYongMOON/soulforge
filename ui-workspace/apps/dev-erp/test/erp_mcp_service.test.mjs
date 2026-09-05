@@ -325,6 +325,11 @@ test("ERP MCP pending review list is admin only and omits proposal payloads", ()
     assert.equal(result.work_sessions[0].project_id, "P26-MCP");
     assert.equal(result.work_sessions[0].summary.length, 500);
     assert.equal(result.work_sessions[0].artifact_count, 0);
+    // "검사 중" 판정용 읽기 필드(additive): 할 일 상태. done/archived 가 아니면 제출됨·미수락.
+    assert.equal(result.work_sessions[0].item_status, "open");
+    // item_title 은 이 조회에 없다(M4): bearer 라우트·MCP 도구 응답까지 그대로 나가므로, 할 일 제목은
+    // 웹 "검사 중" 화면 전용으로 cookie 라우트가 서버 측에서만 붙인다.
+    assert.equal("item_title" in result.work_sessions[0], false);
 
     const serialized = JSON.stringify(result);
     assert.equal(serialized.includes("PROPOSAL_PAYLOAD_SECRET"), false);
@@ -332,6 +337,7 @@ test("ERP MCP pending review list is admin only and omits proposal payloads", ()
     assert.equal(serialized.includes("payload_json"), false);
     assert.equal(serialized.includes(SYNTHETIC_HOST_ABSOLUTE_PATH_PREFIX), false);
     assert.equal(serialized.includes(f.root), false);
+    assert.equal(serialized.includes("Alice due task"), false);
   } finally {
     f.close();
   }

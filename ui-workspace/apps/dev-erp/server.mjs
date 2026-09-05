@@ -3108,6 +3108,29 @@ const server = createServer(async (req, res) => {
       if (!canAccessItem(req, itemId)) return send(res, 403, { error: "item_forbidden" });
       return send(res, 200, { work_sessions: erpMcp.listWorkSessionsForItem(me, itemId) });
     }
+    // Owner "검사 중" 필터(cookie, admin 전용, read-only). bearer /api/mcp/reviews/pending 과 같은 조회를
+    // 재사용하며 승인·완료·상태변경 경로는 없다(수락은 기존 제안 큐·할 일 화면에서 사람이 한다).
+    if (ERP_MCP_REVIEW_READ && path === "/api/reviews/pending" && req.method === "GET") {
+      const me = requireAdmin(req);
+      if (!me) return send(res, 403, { error: "admin_only" });
+      const result = erpMcp.pendingReviews(me, { days: qp.days, limit: qp.limit });
+      // item_title 은 bearer 라우트·MCP 도구 응답에는 없다(M4). 이 화면은 사람이 직접 보는 웹 화면이므로
+      // 여기서만 서버 측에 제목을 붙인다 — 별도 store 조회일 뿐 pendingReviews 의 반환 모양은 바꾸지 않는다.
+      const workSessions = result.work_sessions.map((row) => ({
+        ...row,
+        item_title: String(store.itemById(row.item_id)?.title ?? "").slice(0, 200),
+      }));
+      // cookie 조회도 bearer 라우트처럼 감사 행을 남긴다(M10). bearer 는 mcp_tool_call 로 남으므로
+      // 여기는 store.appendEvent 의 human 조회 패턴을 그대로 재사용하고 kind 로만 구분한다(새 스키마 없음).
+      store.appendEvent({
+        actor_ref: me.username,
+        actor_kind: "human",
+        kind: "reviews_pending_view",
+        used_refs: ["erp_mcp"],
+        data_label: "meta",
+      });
+      return send(res, 200, { ...result, work_sessions: workSessions });
+    }
     if (path === "/api/items/counts") {
       const assignee_any = viewIdentities(req, qp);
       return send(res, 200, store.itemCounts({ project: qp.project, assignee_any }));

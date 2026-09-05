@@ -6979,3 +6979,39 @@ a:focus-visible {
   .hermes-bot-open-actions .hermes-bot-open { display: none; }
   .hermes-bot-open-actions .hermes-bot-open-mobile-note { display: inline; }
 }
+
+/* ERP 승인 대기 패널 (플랜 18 §12) — owner 표면, 읽기 전용 + ERP loopback 안전 링크 */
+.erp-review-surface {
+  background: #0b0f13;
+  border: 1px solid #1c242d;
+  border-radius: 10px;
+  padding: 12px 14px 10px;
+  display: grid;
+  gap: 8px;
+}
+.erp-review-surface.is-hold { border-color: #5a4a1f; }
+.erp-review-counts { display: flex; flex-wrap: wrap; gap: 6px 14px; color: #c9d6de; font-size: 12px; }
+.erp-review-count { color: #e2eaee; font-weight: 600; }
+.erp-review-hold { margin: 0; color: #f0d9a3; font-size: 12px; }
+.erp-review-hold code { margin-left: 6px; color: #8a99a3; font-size: 11px; }
+.erp-review-empty { margin: 0; color: #8a99a3; font-size: 12px; }
+.erp-review-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.erp-review-open { color: #8dbffc; font-size: 12px; overflow-wrap: anywhere; }
+.erp-review-open:focus-visible { outline: 2px solid #8dbffc; outline-offset: 2px; }
+.erp-review-open-note { color: #77848d; font-size: 12px; }
+.erp-review-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #16202a;
+  color: #c9d6de;
+  border: 1px solid #2d3d49;
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.erp-review-refresh:focus-visible { outline: 2px solid #8dbffc; outline-offset: 2px; }
+@media (max-width: 390px) {
+  .erp-review-surface { padding: 0.75rem; }
+}

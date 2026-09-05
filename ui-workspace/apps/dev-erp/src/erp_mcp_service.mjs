@@ -655,9 +655,14 @@ export function createErpMcpService({
        WHERE p.status='pending' AND p.at>=?
        ORDER BY p.at DESC,p.id DESC LIMIT ?`,
     ).all(since, boundedLimit);
+    // item_status 는 "제출됨·미수락" 판정용 읽기 필드다(done/archived 가 아니면 검사 중).
+    // 수락은 이 서비스가 아니라 사람이 기존 할 일 화면에서 상태를 바꾸는 것뿐이다.
+    // item_title 은 여기 없다: 이 조회는 bearer 라우트·MCP 도구 응답까지 그대로 나가므로, 할 일 제목은
+    // 웹 "검사 중" 화면 전용으로 cookie 라우트가 이 결과를 받은 뒤 서버 측에서만 붙인다.
     const workSessions = db.prepare(
       `SELECT w.id,w.item_id,w.summary,w.artifact_ids_json,w.created_at,
-              i.project_id AS project_id,a.username AS username
+              i.project_id AS project_id,i.status AS item_status,
+              a.username AS username
        FROM erp_mcp_work_session w
        LEFT JOIN core_item i ON i.id=w.item_id
        LEFT JOIN core_account a ON a.id=w.account_id
@@ -667,6 +672,7 @@ export function createErpMcpService({
       work_session_id: row.id,
       item_id: row.item_id,
       project_id: row.project_id || null,
+      item_status: row.item_status || null,
       username: row.username || null,
       created_at: row.created_at,
       summary: String(row.summary || "").slice(0, 500),

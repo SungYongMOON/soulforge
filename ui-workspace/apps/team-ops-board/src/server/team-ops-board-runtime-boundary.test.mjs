@@ -171,6 +171,40 @@ test("manual worker preserves one-sided Agent Runtime string configuration witho
   });
 });
 
+test("manual and scheduled workers forward the opt-in ERP review pair only as strings and never invent it", () => {
+  const worker = createRuntimeWorkerEnvironment({
+    TEAM_OPS_ERP_REVIEW_TOKEN_FILE: "sentinel-token-file-path",
+    TEAM_OPS_ERP_REVIEW_URL: "sentinel-erp-url",
+    TEAM_OPS_ERP_REVIEW_TOKEN: "must-not-forward",
+  });
+  assert.equal(worker.TEAM_OPS_ERP_REVIEW_TOKEN_FILE, "sentinel-token-file-path");
+  assert.equal(worker.TEAM_OPS_ERP_REVIEW_URL, "sentinel-erp-url");
+  assert.equal("TEAM_OPS_ERP_REVIEW_TOKEN" in worker, false);
+  assert.deepEqual(createRuntimeWorkerEnvironment({ TEAM_OPS_ERP_REVIEW_TOKEN_FILE: 42 }), {});
+
+  const syntheticDrive = `${String.fromCharCode(67)}${String.fromCharCode(58)}`;
+  const ownerRoot = path.win32.join(syntheticDrive, "owner-root");
+  const serveStatus = {
+    AllowFunnel: { "board.example.ts.net:443": false },
+    Web: { "board.example.ts.net:443": { Handlers: { "/": { Proxy: "http://127.0.0.1:4192" } } } },
+  };
+  const absent = createScheduledRuntimeEnvironment({ ownerRoot, serveStatus, baseEnvironment: {} });
+  assert.equal("TEAM_OPS_ERP_REVIEW_TOKEN_FILE" in absent, false);
+  assert.equal("TEAM_OPS_ERP_REVIEW_URL" in absent, false);
+  const present = createScheduledRuntimeEnvironment({
+    ownerRoot,
+    serveStatus,
+    baseEnvironment: {
+      TEAM_OPS_ERP_REVIEW_TOKEN_FILE: "sentinel-token-file-path",
+      TEAM_OPS_ERP_REVIEW_URL: "sentinel-erp-url",
+      TEAM_OPS_ERP_REVIEW_TOKEN: "must-not-forward",
+    },
+  });
+  assert.equal(present.TEAM_OPS_ERP_REVIEW_TOKEN_FILE, "sentinel-token-file-path");
+  assert.equal(present.TEAM_OPS_ERP_REVIEW_URL, "sentinel-erp-url");
+  assert.equal("TEAM_OPS_ERP_REVIEW_TOKEN" in present, false);
+});
+
 test("runtime preview is fixed to strict loopback 4192", () => {
   const config = createPreviewConfig();
   assert.equal(TEAM_OPS_BOARD_RUNTIME_HOST, "127.0.0.1");

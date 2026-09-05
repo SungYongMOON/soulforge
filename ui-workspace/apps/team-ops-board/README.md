@@ -200,6 +200,78 @@ unrelated values. A missing binding file, a one-sided manual configuration, or
 an unavailable listener remains the same fail-closed `HOLD`; no title, cwd,
 credential, or secret is used to derive or complete the pair.
 
+### ERP pending review read projection (검사 중)
+
+The Board registers `GET /erp-pending-reviews.snapshot.json?read_only=1` for
+loopback clients only: exact query, `405` for non-GET, `403` for remote
+callers, `no-store` and `nosniff` (the same base guards as the Agent Runtime
+endpoint), plus one guard specific to this endpoint — a request carrying any
+proxy-passage marker header (`X-Forwarded-For`, `X-Forwarded-Host`,
+`X-Forwarded-Proto`, `Forwarded`, `Tailscale-User-Login`) is rejected `403`
+even from a loopback socket, checked before the method. Tailscale Serve can
+proxy a tailnet peer's request to this host's `127.0.0.1`, so a loopback
+socket address alone no longer proves the caller is the Owner's own local
+process (Level 2 review finding M1). It feeds the owner-surface panel
+"검사 중 · ERP 제출 대기" (Team Pilot plan 18 §12: one read-only panel plus one
+safe link, no writer). The panel never approves, completes, or changes a task;
+acceptance stays a human action on the ERP loopback screen, and Linear `done`
+stays a human click.
+
+Two modes, both honest:
+
+- **Link-only (default).** Without `TEAM_OPS_ERP_REVIEW_TOKEN_FILE` the endpoint
+  returns a fixed `soulforge.erp_pending_review_read_projection.v1` HOLD with
+  `hold_code: ERP_REVIEW_UNCONFIGURED`, zero counts, and the safe link
+  `http://127.0.0.1:4300/?view=mod:reviews` (the ERP web "검사 중" filter; it only
+  opens in a browser on the Main Node itself). No upstream request is made.
+- **Read and link.** When `TEAM_OPS_ERP_REVIEW_TOKEN_FILE` names an absolute local
+  one-line credential file that the Owner placed under the private lane
+  credential root (the Board never learns that root; a shape check only:
+  regular non-symlink file, 16-512 bytes, no BOM, exactly one line, no
+  whitespace), the adapter performs one bearer `GET /api/mcp/reviews/pending`
+  against `TEAM_OPS_ERP_REVIEW_URL` (optional; default
+  `http://127.0.0.1:4300/api/mcp/reviews/pending`, loopback http on an explicit
+  port only). The file is re-read before every upstream read, so placing,
+  rotating, or removing it needs no Board restart; the value goes into the
+  Authorization header and nowhere else. Because each bearer read is audited by
+  the ERP as an `mcp_tool_call` event, the adapter serves a cached projection for
+  60 seconds and the panel polls every 5 minutes ("다시 읽기 (최대 60초 캐시)"
+  manual button, which surfaces the cache honestly rather than bypassing it).
+
+The transport itself still reads the exact ERP envelope and validates every
+row (proposal and work-session ids, refs, submitter, timestamps, item status;
+submission summaries and item titles are validated then discarded so raw work
+text never reaches this process). None of that per-row detail leaves the
+adapter, though: the projection this endpoint serves to the Board carries
+**counts and a status distribution only** — proposal/work-session counts, an
+unaccepted count, an unknown-status count, a pending total, the observed-at
+time, and the safe ERP link. There is no username, item id, project id,
+proposal id, or work-session id anywhere in the response (Level 2 review
+finding M1). A `ready` snapshot whose own `erp_link.url` fails the loopback
+check is treated as `ERP_REVIEW_RESPONSE_MALFORMED` rather than silently
+rendered with the default link substituted in (M6). Every failure becomes a
+fixed hold code shown in the panel with a Korean reason and without any path,
+token, or exception text: `ERP_REVIEW_CREDENTIAL_MISSING`,
+`ERP_REVIEW_CREDENTIAL_INVALID`, `ERP_REVIEW_CREDENTIAL_PATH_INVALID`,
+`ERP_REVIEW_URL_INVALID`, `ERP_REVIEW_DISCONNECTED`, `ERP_REVIEW_TIMEOUT`,
+`ERP_REVIEW_UNAUTHORIZED` (expired/revoked token or non-admin account),
+`ERP_REVIEW_ROUTE_DISABLED` (the ERP runs without `DEV_ERP_MCP_REVIEW_READ=1`,
+which only the Owner/cutover session turns on), `ERP_REVIEW_RATE_LIMITED`,
+`ERP_REVIEW_RESPONSE_MALFORMED`, `ERP_REVIEW_RESPONSE_OVERSIZE`. Names,
+titles, and item/project identifiers stay behind the ERP's own loopback
+"검사 중" filter (post-login, Owner surface) — this Board panel only ever
+answers "how many, and what state", never "which one".
+
+"검사 중" means: `ai_proposal` rows still `pending` plus MCP work-session
+submissions whose task is not yet `done`/`archived`. An older ERP envelope
+without `item_status` is accepted and counted as "상태 미확인" rather than as
+pending. The ERP MCP token has no per-tool scope, so the Owner should issue a
+dedicated admin token labelled for the Board and revoke it independently; the
+transport source is pinned by tests to this single GET path. The scheduled
+controller and the manual worker forward `TEAM_OPS_ERP_REVIEW_TOKEN_FILE` and
+`TEAM_OPS_ERP_REVIEW_URL` only when they are already strings in the Owner's
+environment and never derive them.
+
 Vite exposes `GET /codex-threads.snapshot.json` only to loopback clients. The
 adapter starts its own short-lived official `codex app-server` stdio client,
 sends `initialize` then `initialized`, and cursor-paginates `thread/list`. It

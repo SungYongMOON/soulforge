@@ -457,6 +457,34 @@ test("ERP MCP reviewer read routes stay read-only and audited when enabled", asy
     const pendingText = JSON.stringify(pending);
     assert.equal(pendingText.includes("payload_json"), false);
     assert.equal(pendingText.includes(artifactRoot), false);
+    // "검사 중" 판정용 읽기 필드: 할 일이 done/archived 가 아니면 제출됨·미수락.
+    assert.equal(pending.work_sessions[0].item_status, "open");
+    // item_title 은 bearer 라우트·MCP 도구 응답에는 없다(M4): 이 조회를 그대로 쓰는 모든 호출자에게 나가므로,
+    // 할 일 제목은 웹 "검사 중" 화면 전용으로 cookie 라우트가 서버 측에서만 붙인다.
+    assert.equal("item_title" in pending.work_sessions[0], false);
+
+    // Owner "검사 중" 필터(cookie, admin 전용)는 같은 pendingReviews 조회를 재사용하고 웹 화면 전용으로
+    // item_title 을 서버 측에서 붙이며, bearer 라우트처럼 감사 event 를 남긴다(다른 kind 로 구분, M10).
+    const webPendingResponse = await fetch(`${base}/api/reviews/pending?days=7&limit=5`, { headers: { Cookie: cookie } });
+    assert.equal(webPendingResponse.status, 200);
+    const webPending = await webPendingResponse.json();
+    assert.deepEqual(webPending.work_sessions.map((row) => row.work_session_id), pending.work_sessions.map((row) => row.work_session_id));
+    assert.equal(webPending.work_sessions[0].item_title, "Reviewer visibility task");
+    assert.equal(JSON.stringify(webPending).includes("payload_json"), false);
+    assert.equal((await fetch(`${base}/api/reviews/pending`)).status, 401);
+    assert.equal((await fetch(`${base}/api/accounts`, {
+      method: "POST",
+      headers: { Cookie: cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ username: "member", password: "memberpass123", role: "member" }),
+    })).status, 200);
+    const memberLogin = await fetch(`${base}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: "member", password: "memberpass123" }),
+    });
+    assert.equal(memberLogin.status, 200);
+    const memberCookie = memberLogin.headers.get("set-cookie")?.split(";")[0];
+    assert.equal((await fetch(`${base}/api/reviews/pending`, { headers: { Cookie: memberCookie } })).status, 403);
 
     const sessionsResponse = await fetch(`${base}/api/items/work-sessions?item_id=${item.id}`, {
       headers: { Cookie: cookie },
@@ -472,7 +500,10 @@ test("ERP MCP reviewer read routes stay read-only and audited when enabled", asy
     try {
       assert.equal(verify.db.prepare(
         "SELECT COUNT(*) AS n FROM event_log WHERE kind='mcp_tool_call' AND note='tool=reviews_pending'",
-      ).get().n, 1);
+      ).get().n, 1); // bearer 감사(mcp_tool_call) 는 bearer 호출 1회만큼만 남는다.
+      assert.equal(verify.db.prepare(
+        "SELECT COUNT(*) AS n FROM event_log WHERE kind='reviews_pending_view' AND actor_ref='owner'",
+      ).get().n, 1); // cookie /api/reviews/pending 도 감사 행을 남긴다(M10, 다른 kind 로 구분).
       // read-only: 검토 조회는 제안·업무·작업 세션 row 를 만들거나 바꾸지 않는다.
       assert.equal(verify.db.prepare("SELECT COUNT(*) AS n FROM erp_mcp_work_session").get().n, 1);
       assert.equal(verify.db.prepare("SELECT status FROM ai_proposal WHERE target_ref=?").get(item.id)?.status, undefined);
@@ -547,11 +578,12 @@ test("ERP MCP audit records an opaque credential id and reviewer reads stay flag
     const auth = { Authorization: `Bearer ${issued.token}` };
     assert.equal((await fetch(`${base}/api/mcp/whoami`, { headers: auth })).status, 200);
 
-    // 검토자 조회 flag 는 별도이며 미설정이면 두 라우트 모두 열리지 않는다.
+    // 검토자 조회 flag 는 별도이며 미설정이면 세 라우트 모두 열리지 않는다.
     assert.equal((await fetch(`${base}/api/mcp/reviews/pending`, { headers: auth })).status, 404);
     assert.equal((await fetch(`${base}/api/items/work-sessions?item_id=${item.id}`, {
       headers: { Cookie: cookie },
     })).status, 404);
+    assert.equal((await fetch(`${base}/api/reviews/pending`, { headers: { Cookie: cookie } })).status, 404);
 
     const bytes = Buffer.from("audit provenance bytes", "utf8");
     const preparedResponse = await fetch(`${base}/api/mcp/uploads/prepare`, {

@@ -80,6 +80,7 @@ import {
 import { readCollapsedPanelIds, setPanelCollapsed } from "./core/panel-collapse.mjs";
 import { projectHermesBotsSnapshot } from "./core/hermes-bots-adapter.mjs";
 import { formatUsage as formatHermesBotUsage, formatHeartbeat as formatHermesBotHeartbeat } from "./core/hermes-bot-harness.mjs";
+import { buildErpPendingReviewViewModel } from "./core/erp-pending-review-view.mjs";
 import { buildTopologyConnectionDiagnostic, isTopologyDiagnosticNode } from "./core/topology-connection-diagnostics.mjs";
 import {
   buildTopologyRecoverySupervision,
@@ -1101,6 +1102,7 @@ function App() {
           {surface === "owner" && <FleetUsageCards usage={aiUsageProjection} providers={providerSnapshots} pending={aiUsagePending} />}
           {surface === "owner" && <FleetStatusRows projection={topologyProjection} />}
           {surface === "owner" && <HermesBotPanel />}
+          {surface === "owner" && <ErpPendingReviewPanel />}
           {surface === "owner" && (
             <RealtimeDashboard
               projection={projection}
@@ -1669,6 +1671,85 @@ function HermesBotCard({ row }: { row: any }) {
         <span className="hermes-bot-open-mobile-note">모바일에서는 열기 미지원</span>
       </div>
     </article>
+  );
+}
+
+// ERP 승인 대기 패널(플랜 18 §12 "4192 패널 1개"). 읽기 전용 projection + ERP loopback "검사 중" 화면으로 가는 안전 링크만 있다.
+// 이 패널은 수락·완료·상태변경을 하지 않는다. 자격증명이 없으면 링크만 모드로 동작하고 보류 사유 코드를 그대로 보여 준다.
+// Tailscale Serve가 tailnet 사용자의 요청도 이 호스트에는 loopback으로 도착시키므로(Level 2 검토 M1),
+// 이 패널이 받는 projection은 건수·상태 분포·관측 시각·ERP 링크만 담는다. 이름·제목·항목 ID·과제 ID는
+// 여기 없다 — ERP 필터(로그인 뒤, Owner loopback)에서만 본다.
+// 폴링은 5분 간격이다(ERP 가 bearer 읽기마다 감사 event 를 남기므로 어댑터 최소 간격과 함께 상한을 둔다).
+const ERP_PENDING_REVIEW_POLL_INTERVAL_MS = 300_000;
+
+function ErpPendingReviewPanel() {
+  const panel = usePersistentPanelCollapse("owner.erp_pending_reviews");
+  const [erpReviewSnapshot, setErpReviewSnapshot] = useState<any>(null);
+  const [erpReviewRefreshTick, setErpReviewRefreshTick] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    let generation = 0;
+    let controller: AbortController | null = null;
+    const load = async () => {
+      const requestGeneration = ++generation;
+      controller?.abort();
+      controller = new AbortController();
+      try {
+        const response = await fetch("/erp-pending-reviews.snapshot.json?read_only=1", { cache: "no-store", signal: controller.signal });
+        if (!response.ok) throw new Error("erp_pending_reviews_snapshot_unavailable");
+        const nextSnapshot = await response.json();
+        if (!cancelled && requestGeneration === generation) setErpReviewSnapshot(nextSnapshot);
+      } catch {
+        if (!cancelled && requestGeneration === generation) setErpReviewSnapshot(null);
+      }
+    };
+    void load();
+    const timer = window.setInterval(() => { void load(); }, ERP_PENDING_REVIEW_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      generation += 1;
+      controller?.abort();
+      window.clearInterval(timer);
+    };
+  }, [erpReviewRefreshTick]);
+  const model = useMemo(() => buildErpPendingReviewViewModel(erpReviewSnapshot), [erpReviewSnapshot]);
+  return (
+    <section className={`erp-review-surface is-${model.state}${panel.collapsed ? " is-collapsed" : ""}`} aria-labelledby="erp-review-heading" data-testid="erp-pending-review-panel" data-collapsed={panel.collapsed || undefined} data-state={model.state}>
+      <header className="realtime-headline">
+        <div>
+          <span>ERP PENDING REVIEW</span>
+          <h2 id="erp-review-heading">검사 중 · ERP 제출 대기</h2>
+          <p>제출 영수증은 완료가 아닙니다 · 수락은 ERP loopback 화면에서 사람이 하고 Linear done 도 사람이 누릅니다</p>
+        </div>
+        <PanelCollapseButton panelId="owner.erp_pending_reviews" label="검사 중 패널" collapsed={panel.collapsed} onToggle={panel.toggle} />
+      </header>
+      <CollapsiblePanelBody panelId="owner.erp_pending_reviews" collapsed={panel.collapsed}>
+        {/* 건수·상태 분포뿐이다: 이름·제목·항목 ID·과제 ID는 이 패널에 오지 않는다(M1). 세부 내용은 ERP 필터에서. */}
+        <div className="erp-review-counts" role="status">
+          <span className="erp-review-count">검사 중 {model.counts.pending}건</span>
+          <span>제안 {model.counts.proposals}</span>
+          <span>제출 {model.counts.sessionsUnaccepted}</span>
+          {model.counts.sessionsUnknown > 0 && <span>상태 미확인 {model.counts.sessionsUnknown}</span>}
+          <span>{model.state === "ready" ? `${formatRefreshTime(model.observedAt)} 관측` : "읽기 보류"}</span>
+        </div>
+        {model.state !== "ready" && (
+          <p className="erp-review-hold">
+            읽기 보류: {model.holdLabel} <code>{model.holdCode}</code>
+          </p>
+        )}
+        {model.state === "ready" && model.counts.pending === 0 && (
+          <p className="erp-review-empty">검사 중인 제출·제안이 없습니다</p>
+        )}
+        <div className="erp-review-actions">
+          <a className="erp-review-open" href={model.linkUrl} target="_blank" rel="noopener noreferrer">ERP에서 검사 중 열기</a>
+          <span className="erp-review-open-note">Main Node 로컬 브라우저에서만 열립니다 · {model.linkMode === "read_and_link" ? "읽기+링크" : "링크만"}</span>
+          <button type="button" className="erp-review-refresh" onClick={() => setErpReviewRefreshTick((tick) => tick + 1)}>
+            <RefreshCw size={14} aria-hidden="true" />
+            다시 읽기 (최대 60초 캐시)
+          </button>
+        </div>
+      </CollapsiblePanelBody>
+    </section>
   );
 }
 

@@ -47,7 +47,9 @@ function codexBridgePart(source = state.version?.runtime?.codex_task) {
 const state = {
   mode: localStorage.getItem("dev_erp_mode") || "business",
   // 새로고침 시 보던 화면 유지. 컨텍스트(hubProject/knowSel) 필요한 project·knowledge 는 home 으로 폴백.
-  view: ["home", "projects", "items", "guide", "mail", "artifacts", "search", "mod:calendar"].includes(localStorage.getItem("dev_erp_view")) ? localStorage.getItem("dev_erp_view") : "home",
+  // 4192 상황판의 안전 링크 착지용 딥링크는 `?view=mod:reviews` 하나만 받는다(고정 allowlist, 다른 값은 무시).
+  view: new URLSearchParams(location.search).get("view") === "mod:reviews" ? "mod:reviews"
+    : ["home", "projects", "items", "guide", "mail", "artifacts", "search", "mod:reviews", "mod:calendar"].includes(localStorage.getItem("dev_erp_view")) ? localStorage.getItem("dev_erp_view") : "home",
   lex: {},
   version: VERSION_FALLBACK,
   projectFilter: "",
@@ -78,6 +80,11 @@ const state = {
   connection: { status: "checking", failure: null },
   booted: false
 };
+// 4192 딥링크(`?view=mod:reviews`) 적용 뒤에는 주소창에서 지운다(공유·새로고침 시 재노출 방지, m12).
+// 다음 새로고침은 beforeunload 가 저장한 dev_erp_view 로 같은 화면을 유지한다(아래 리스너).
+if (new URLSearchParams(location.search).get("view") === "mod:reviews") {
+  try { history.replaceState(null, "", location.pathname + location.hash); } catch { /* noop */ }
+}
 // 새로고침/이동 시 "보던 페이지에서" 유지: 언로드 직전 현재 위치(페이지 offset·뷰)를 저장 → 시작 시 위에서 복원.
 window.addEventListener("beforeunload", () => {
   try {
@@ -1429,7 +1436,7 @@ const NAV_TREE = [
       { b: "캘린더", f: "성좌 달력", items: ["mod:calendar"] },
     ] },
     { g: "work_flow", b: "승인·현황", f: "재가·전황", subs: [
-      { b: "승인 대기", f: "재가 대기", items: ["mod:proposals"] },
+      { b: "승인 대기", f: "재가 대기", items: ["mod:proposals", "mod:reviews"] },
       { b: "단계·게이트", f: "관문", items: ["mod:gates", "mod:schedule"] },
       { b: "투입 분석", f: "전훈 분석", items: ["mod:analytics"] },
     ] },
@@ -1524,6 +1531,7 @@ const VIRTUAL_NAV = {
   "mod:recipe": { b: "작성법 위저드", f: "제작 비법서" },
   "mod:embeds": { b: "외부 시트", f: "외부 점술판" },
   "mod:proposals": { b: "제안 큐", f: "제안 두루마리" },
+  "mod:reviews": { b: "검사 중", f: "검사 중" },
 };
 function navButton(v) {
   if (v.startsWith("soon:")) {                          // 준비 중 슬롯 — 비활성, 구조만 노출
@@ -3584,6 +3592,78 @@ async function renderProposals() {
       if (resp.ok) { b.disabled = true; b.textContent = L.prop_mem_added ?? "✓ 메모리"; toast(`${b.dataset.memRef} ${L.prop_mem_added_toast ?? "메모리에 추가됨 — 다음 시작에 주입"}`, "ok"); }
       else { const er = await resp.json().catch(() => ({})); toast((L.prop_mem_fail ?? "메모리 추가 실패") + (er.error ? ` (${er.error})` : ""), "error"); }
     });
+  });
+}
+
+// Owner "검사 중" 필터(플랜 18 §12) — 제출됨·미수락 목록 1화면. read-only: 이 화면에는 승인·완료·상태변경 버튼이 없다.
+// 데이터는 bearer /api/mcp/reviews/pending 과 같은 pendingReviews 조회(cookie /api/reviews/pending, admin, flag ON 일 때만 라우트 등록).
+// 수락은 사람이 기존 화면에서 한다: 제안 → 제안 큐(승인/반려), 제출 → 할 일 상태 변경. Linear done 도 사람이 누른다.
+// 자동 Done 없음, self-accept 없음(본인 제출 행은 "할 일 열기" 버튼을 비활성화하고 문구를 붙이지만
+// 이는 표시 수준일 뿐이다 — 실제 강제는 writer 측 규칙으로 후속 작업이다, m3).
+const REVIEW_ACCEPTED_STATUSES = new Set(["done", "archived"]);
+function reviewSessionAccepted(s) { return REVIEW_ACCEPTED_STATUSES.has(String(s?.item_status ?? "")); }
+async function loadPendingReviews() {
+  // 404 = 서버 플래그 OFF(라우트 미등록), 403 = 관리자 아님. 둘 다 연결 오류가 아니라 화면 안내로 바꾼다.
+  const res = await request("/api/reviews/pending?days=14&limit=50", { acceptedDomainStatuses: [403, 404] });
+  if (res.status === 404) return { state: "flag_off" };
+  if (res.status === 403) return { state: "admin_only" };
+  return { state: "ok", data: await res.json() };
+}
+async function renderPendingReviews() {
+  const L = state.lex;
+  const hint = `<p class="dim mini">${esc(L.review_pending_hint ?? "제출 영수증은 완료가 아닙니다. 수락은 사람이 기존 화면에서 합니다.")}</p>`;
+  let r;
+  try { r = await loadPendingReviews(); } catch { r = { state: "error" }; }
+  if (r.state !== "ok") {
+    const msg = r.state === "flag_off" ? (L.review_pending_flag_off ?? "DEV_ERP_MCP_REVIEW_READ=1 일 때만 읽힙니다")
+      : r.state === "admin_only" ? (L.review_pending_admin_only ?? "관리자 계정만 볼 수 있는 화면입니다")
+      : (L.qe_mail_none ?? "불러오지 못했습니다");
+    $("#view").innerHTML = `<div class="empty">${esc(msg)}</div>${hint}`;
+    return;
+  }
+  const proposals = Array.isArray(r.data?.proposals) ? r.data.proposals : [];
+  const sessionsAll = Array.isArray(r.data?.work_sessions) ? r.data.work_sessions : [];
+  const showAccepted = !!state.reviewShowAccepted;
+  const sessions = showAccepted ? sessionsAll : sessionsAll.filter((s) => !reviewSessionAccepted(s));
+  const pendingCount = proposals.length + sessionsAll.filter((s) => !reviewSessionAccepted(s)).length;
+  const me = state.account?.username ?? null;
+  const propRows = proposals.length
+    ? `<table><tbody>${proposals.map((p) => `<tr data-review-prop="${esc(p.id)}">
+        <td><span class="badge">${esc(p.kind === "completion_digest" ? (L.prop_kind_digest ?? "완료 요약") : eventKindLabel(p.kind))}</span></td>
+        <td class="dim">${esc(p.project_ref ?? "")}</td>
+        <td class="dim">${esc(p.item_ref ?? "")}</td>
+        <td class="dim">${esc(p.source ?? "")}</td>
+        <td class="dim num">${esc(localTime(p.at))}</td>
+        <td><button class="fav-chip review-open-proposals">${esc(L.review_pending_open_proposals ?? "제안 큐에서 결정")}</button></td>
+      </tr>`).join("")}</tbody></table>`
+    : "";
+  const sessRows = sessions.length
+    ? `<table><tbody>${sessions.map((s) => {
+        const accepted = reviewSessionAccepted(s);
+        const self = !!me && s.username === me;
+        return `<tr data-review-session="${esc(s.work_session_id)}" data-item="${esc(s.item_id ?? "")}" data-proj="${esc(s.project_id ?? "")}" data-title="${esc(s.item_title ?? "")}">
+        <td><span class="mini-title">${esc(s.item_title || s.item_id || "")}</span></td>
+        <td class="dim">${esc(s.project_id ?? "")}</td>
+        <td class="dim">${esc(s.username ?? "")}${self ? ` <span class="badge amber">${esc(L.review_pending_self ?? "본인 제출 — 다른 검토자 수락 필요")}</span>` : ""}</td>
+        <td class="dim num">${esc(localTime(s.created_at))}</td>
+        <td class="dim num">${esc(String(s.artifact_count ?? 0))}</td>
+        <td>${accepted ? `<span class="badge green">${esc(L.review_pending_accepted ?? "수락됨")}</span> ` : ""}${s.item_status ? statusBadge(s.item_status) : ""}</td>
+        <td><button class="fav-chip review-open-item"${self ? ` disabled title="${esc(L.review_pending_self ?? "본인 제출 — 다른 검토자 수락 필요")}"` : ""}>${esc(L.review_pending_open_item ?? "할 일 열기 (상태 변경)")}</button></td>
+      </tr>`; }).join("")}</tbody></table>`
+    : "";
+  const windowText = String(L.review_pending_window ?? "최근 {n}일").replace("{n}", String(r.data?.days ?? 14));
+  $("#view").innerHTML = `<div class="filters">
+      <span class="dim">${esc(L.review_pending_title ?? "검사 중")} (${pendingCount}) · ${esc(windowText)}</span>
+      <label class="dim mini"><input type="checkbox" id="reviewShowAccepted"${showAccepted ? " checked" : ""}> ${esc(L.review_pending_show_accepted ?? "수락된 최근 제출도 보기")}</label>
+    </div>${hint}
+    <h3 class="dim mini">${esc(L.review_pending_sec_proposals ?? "AI 제안 (승인 필요)")} (${proposals.length})</h3>${propRows || `<div class="empty">${esc(L.prop_empty ?? "대기 중 제안 없음")}</div>`}
+    <h3 class="dim mini">${esc(L.review_pending_sec_sessions ?? "MCP 제출 (사람 수락 대기)")} (${sessions.length})</h3>${sessRows || `<div class="empty">${esc(L.review_pending_empty ?? "검사 중인 제출·제안 없음")}</div>`}`;
+  $("#reviewShowAccepted")?.addEventListener("change", (e) => { state.reviewShowAccepted = !!e.target.checked; render(); });
+  $("#view").querySelectorAll(".review-open-proposals").forEach((b) =>
+    b.addEventListener("click", () => { state.view = "mod:proposals"; render(); }));
+  $("#view").querySelectorAll("[data-review-session]").forEach((tr) => {
+    tr.querySelector(".review-open-item")?.addEventListener("click", () =>
+      openItemQuickEdit(tr.dataset.item, tr.dataset.proj, tr.dataset.title));
   });
 }
 
@@ -8132,6 +8212,7 @@ async function render() {
   if (state.view === "mod:recipe") { $("#viewTitle").textContent = state.lex.recipe_title; logView(state.view); return renderRecipe(); }
   if (state.view === "mod:embeds") { $("#viewTitle").textContent = state.lex.embed_title; logView(state.view); return renderEmbeds(); }
   if (state.view === "mod:proposals") { $("#viewTitle").textContent = state.lex.prop_queue_title; logView(state.view); return renderProposals(); }
+  if (state.view === "mod:reviews") { $("#viewTitle").textContent = state.lex.review_pending_title ?? "검사 중"; logView(state.view); return renderPendingReviews(); }
   if (state.view === "mod:inventory") { const m=(state.modules??[]).find(x=>x.id==="inventory"); $("#viewTitle").textContent=m?.nav??"재고"; logView(state.view); return renderInventory(); }
   if (state.view === "mod:boards") { const m=(state.modules??[]).find(x=>x.id==="boards"); $("#viewTitle").textContent=m?.nav??"보드/BOM"; logView(state.view); return renderBoards(); }
   if (state.view === "mod:stockwatch") { const m=(state.modules??[]).find(x=>x.id==="stockwatch"); $("#viewTitle").textContent=m?.nav??"부품감시"; logView(state.view); return renderStockwatch(); }
