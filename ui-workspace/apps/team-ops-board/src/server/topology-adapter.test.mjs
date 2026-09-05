@@ -399,6 +399,22 @@ test("observed non-green gate_five_field accepts manual repairability and reject
   staleSnapshot.summary.stale += 1;
   assert.equal(validateTopologyHealthSnapshot(staleSnapshot, { now: NOW }), staleSnapshot);
 
+  // Observed down state (scheduled task disabled, age unknown) also accepts manual repairability:
+  const downSnapshot = structuredClone(snapshot);
+  const downFiveField = downSnapshot.nodes.find((node) => node.id === "gate_five_field");
+  downFiveField.health = { state: "down", reasons: ["task_disabled"], age_seconds: null };
+  downFiveField.tracking = tracking("gate_five_field", "task_disabled", {
+    evidenceOwner: "five_field_event_validator",
+    escalationOwner: "five_field_owner",
+    repairability: "manual",
+    verificationState: "observed",
+    lastCheckedAt: "2026-08-08T06:00:00.000Z",
+    nextCheckAt: "2026-08-08T06:05:00.000Z",
+  });
+  downSnapshot.summary.degraded -= 1;
+  downSnapshot.summary.down += 1;
+  assert.equal(validateTopologyHealthSnapshot(downSnapshot, { now: NOW }), downSnapshot);
+
   // Negative test: observed non-ok gate_five_field must NOT accept not_available repairability
   expectInvalid((candidate) => {
     candidate.nodes.find((node) => node.id === "gate_five_field").health = { state: "degraded", reasons: ["heartbeat_late"], age_seconds: 350 };
@@ -470,6 +486,22 @@ test("observed non-green watchtower_self accepts manual repairability and reject
   staleSnapshot.summary.degraded -= 1;
   staleSnapshot.summary.stale += 1;
   assert.equal(validateTopologyHealthSnapshot(staleSnapshot, { now: NOW }), staleSnapshot);
+
+  // Observed down state (scheduled task disabled, age unknown) also accepts manual repairability:
+  const downSnapshot = structuredClone(snapshot);
+  const downSelf = downSnapshot.nodes.find((node) => node.id === "watchtower_self");
+  downSelf.health = { state: "down", reasons: ["task_disabled"], age_seconds: null };
+  downSelf.tracking = tracking("watchtower_self", "task_disabled", {
+    evidenceOwner: "independent_watchdog",
+    escalationOwner: "watchtower_owner",
+    repairability: "manual",
+    verificationState: "observed",
+    lastCheckedAt: "2026-08-08T06:00:00.000Z",
+    nextCheckAt: "2026-08-08T06:05:00.000Z",
+  });
+  downSnapshot.summary.degraded -= 1;
+  downSnapshot.summary.down += 1;
+  assert.equal(validateTopologyHealthSnapshot(downSnapshot, { now: NOW }), downSnapshot);
 
   // Negative test: observed non-ok watchtower_self must NOT accept not_available repairability
   expectInvalid((candidate) => {
@@ -545,6 +577,22 @@ test("observed non-green store_workmeta accepts manual repairability and rejects
   staleSnapshot.summary.degraded -= 1;
   staleSnapshot.summary.stale += 1;
   assert.equal(validateTopologyHealthSnapshot(staleSnapshot, { now: NOW }), staleSnapshot);
+
+  // Observed down state (probe source missing, age unknown) also accepts manual repairability:
+  const downSnapshot = structuredClone(snapshot);
+  const downWorkmeta = downSnapshot.nodes.find((node) => node.id === "store_workmeta");
+  downWorkmeta.health = { state: "down", reasons: ["source_missing"], age_seconds: null };
+  downWorkmeta.tracking = tracking("store_workmeta", "source_missing", {
+    evidenceOwner: "workmeta_owner_bounded_validator",
+    escalationOwner: "workmeta_owner",
+    repairability: "manual",
+    verificationState: "observed",
+    lastCheckedAt: "2026-08-08T06:00:00.000Z",
+    nextCheckAt: "2026-08-08T06:05:00.000Z",
+  });
+  downSnapshot.summary.degraded -= 1;
+  downSnapshot.summary.down += 1;
+  assert.equal(validateTopologyHealthSnapshot(downSnapshot, { now: NOW }), downSnapshot);
 
   // Negative test: observed non-ok store_workmeta must NOT accept not_available repairability
   expectInvalid((candidate) => {
