@@ -53,11 +53,25 @@ test("retired display term policy ignores backticked and code-fenced spans", () 
 test("retired display term policy ignores path/URL-adjacent tokens", () => {
   const text = [
     "정본 경로: `ui-workspace/apps/team-ops-board/src/core`.",
-    "폴더 이름은 watch-4192/ 아래에 남는다.",
+    "폴더 이름은 install/watch-4192/ 아래에 남는다.",
     "문서 참조는 [Vigil operations](08_WATCH_4192_OPERATIONS.md) 형태를 쓴다.",
   ].join("\n");
 
   assert.equal(findRetiredDisplayTermViolations(text, "example.md").length, 0);
+});
+
+test("retired display term policy narrows the slash exclusion to whole path-shaped tokens", () => {
+  const oneSidedEnumeration = findRetiredDisplayTermViolations(
+    "Task Engine/AX 표기는 산문 열거이지 파일 경로가 아니다.",
+    "example.md",
+  );
+  assert.deepEqual(oneSidedEnumeration.map((violation) => violation.term), ["Task Engine"]);
+
+  const realPath = findRetiredDisplayTermViolations(
+    "정본 경로 guild_hall/validate/x.mjs 는 산문 열거가 아니라 실제 파일이다.",
+    "example.md",
+  );
+  assert.equal(realPath.length, 0);
 });
 
 test("retired display term policy keeps the '포트 4192' identifier context clean", () => {

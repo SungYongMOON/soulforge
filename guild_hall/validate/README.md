@@ -36,6 +36,14 @@
 - `run_ui_workspace_command.mjs`
   - root npm script 에서 `ui-workspace` script 를 실행하는 portability wrapper
   - `UI_LINT_CANONICAL_ROOT` 기본값을 설정하고 Windows 에서는 `npm.cmd`, 그 외 환경에서는 `npm` 을 직접 실행
+- `retired_display_terms_policy.mjs` (2026-09-05)
+  - tracked `README.md`/`AGENTS.md`/`docs/architecture/**/*.md`/`docs/reviews/*.md` 본문에 은퇴한
+    표시어(`docs/architecture/foundation/SHARED_GLOSSARY_V0.md` §옛 표기 → 표시명 대조표)가 그대로
+    남았는지 검사
+  - `npm run validate:display-terms`(tracked scope + `retired_display_terms_baseline.json` 베이스라인
+    게이트: baseline 밖 파일의 위반은 실패, baseline 파일의 위반만 면제, baseline 파일이 이미
+    깨끗해지면 exit 0 경고로 제거를 권고) · `:changed`(개발 중 빠른 확인) ·
+    `:tracked`(baseline 없는 수동 전체 감사 — 잔여 위반이 있으면 적색이 정상이다)
 - `role_boundary_validate.mjs`
   - local `node_identity.yaml` 의 `primary_writer.public_repo` 를 읽고, non-primary node 가 protected public contract 문서를 수정했는지 검사
   - `guild_hall/state/local/node_identity.yaml` 이 없는 CI/public-only 환경에서는 advisory warning 으로만 처리

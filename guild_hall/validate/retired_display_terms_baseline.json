@@ -1,0 +1,31 @@
+{
+  "schema_version": "soulforge.retired_display_terms_baseline.v0",
+  "created_at": "2026-09-05",
+  "reason": "3부 전 잔여",
+  "files": [
+    "docs/architecture/foundation/SOULFORGE_ENGINEERING_OS_PRODUCT_FAMILY_REBASELINE_V0.md",
+    "docs/architecture/foundation/SOULFORGE_SUITE_STRUCTURE_AND_CONFIGURATION_V0.md",
+    "docs/architecture/foundation/VISION_AND_GOALS.md",
+    "docs/architecture/foundation/team_member_engineering_program/01_SYSTEM_CONTEXT_AND_CROSSWALK.md",
+    "docs/architecture/foundation/team_member_engineering_program/02_CURRENT_INVENTORY_AND_GAPS.md",
+    "docs/architecture/foundation/team_member_engineering_program/05_ENGINEERING_MCP_CLIENT_DATA_PLANE.md",
+    "docs/architecture/foundation/team_member_engineering_program/07_BUZZ_HERMES_COLLABORATION.md",
+    "docs/architecture/foundation/team_member_engineering_program/09_BASTION_SECURITY_RECOVERY.md",
+    "docs/architecture/foundation/team_member_engineering_program/13_TEST_DOGFOOD_ACCEPTANCE.md",
+    "docs/architecture/foundation/team_member_engineering_program/14_ROADMAP_GATES_AND_DAG.md",
+    "docs/architecture/foundation/team_member_engineering_program/15_FOLDER_COMPATIBILITY_MIGRATION.md",
+    "docs/architecture/foundation/team_member_engineering_program/16_OPERATIONS_RUNBOOK_CATALOG.md",
+    "docs/architecture/guild_hall/AI_USAGE_METER_V1.md",
+    "docs/architecture/guild_hall/CODEX_LIFECYCLE_RETENTION_OPERATIONS_V0.md",
+    "docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md",
+    "docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md",
+    "docs/architecture/workspace/PROJECT_TASK_ENGINE_LIFECYCLE_V0.md",
+    "docs/architecture/workspace/SOURCE_TIMELINE_ANNOTATION_V1.md",
+    "docs/architecture/workspace/VOICE_CAPTURE_MVP_V0.md",
+    "docs/architecture/workspace/VOICE_RECORDING_LIBRARY_V0.md",
+    "docs/architecture/workspace/examples/README.md",
+    "docs/architecture/workspace/examples/buzz_collect_lane/README.md",
+    "docs/architecture/workspace/examples/linear_collect_lane/README.md",
+    "docs/architecture/workspace/examples/task_engine_history_foundation/README.md"
+  ]
+}

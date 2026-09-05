@@ -87,14 +87,22 @@ test("루트 게이트: display-terms 스텝이 두 모드 모두 path-policy �
       "display-terms step must immediately follow path-policy",
     );
   }
-  // Wired at "changed" scope, like path-policy's day-to-day script: a newly introduced lint rule
-  // should ratchet forward on touched files rather than fail the whole gate on every pre-existing,
-  // out-of-scope use elsewhere in the tree. `validate:display-terms:tracked` stays available as a
-  // manual, whole-tree audit command.
+  // The path-policy step next to it is itself wired at "tracked" scope, not "changed": its command
+  // calls `validate:path-policy:all`, which runs `local_absolute_path_policy.mjs --scope tracked`,
+  // so the gate exercises every tracked document even on a clean tree. `validate:display-terms`
+  // now matches that: it is the tracked-scope gate with a baseline exemption file
+  // (`retired_display_terms_baseline.json`), so a clean tree still scans the whole tree instead of
+  // trivially passing with zero files considered. A violation outside the baseline still fails the
+  // run; a violation inside a baselined file is exempted; and a baselined file with zero current
+  // violations only warns (see `guild_hall/validate/README.md`) without failing, as a prompt to trim
+  // the baseline. `validate:display-terms:changed` stays available for a fast during-edit check, and
+  // `validate:display-terms:tracked` stays available as a baseline-free, manual, whole-tree audit
+  // that may legitimately show red.
   assert.equal(
     rootPackage.scripts["validate:display-terms"],
-    "node --test guild_hall/validate/retired_display_terms_policy.test.mjs && node guild_hall/validate/retired_display_terms_policy.mjs --scope changed",
+    "node --test guild_hall/validate/retired_display_terms_policy.test.mjs && node guild_hall/validate/retired_display_terms_policy.mjs --scope tracked --baseline guild_hall/validate/retired_display_terms_baseline.json",
   );
+  assert.equal(rootPackage.scripts["validate:display-terms:changed"], "node guild_hall/validate/retired_display_terms_policy.mjs --scope changed");
   assert.equal(rootPackage.scripts["validate:display-terms:tracked"], "node guild_hall/validate/retired_display_terms_policy.mjs --scope tracked");
 });
 

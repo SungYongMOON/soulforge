@@ -26,9 +26,15 @@
 // column, each of which is still verified (by test) to be a verbatim substring of that column.
 //
 //   node guild_hall/validate/retired_display_terms_policy.mjs [--scope changed|tracked]
-//        [--include-nested] [--json]
+//        [--include-nested] [--json] [--baseline <path-to-baseline.json>]
 //
-// Exit 0 when no violation is found; exit 1 on any violation or scan failure.
+// --baseline names a JSON file (see retired_display_terms_baseline.json) whose "files" array lists
+// paths allowed to keep pre-existing violations. A violation in a baselined file is exempted from
+// the exit code; a violation in any other file still fails the run. A baselined file with zero
+// current violations prints a warning recommending its removal from the baseline, without failing.
+//
+// Exit 0 when no non-exempted violation is found; exit 1 on any non-exempted violation or scan
+// failure.
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -143,7 +149,8 @@ async function main() {
     reports.push(await scanGitRepo(repo, { scope }));
   }
 
-  const report = buildReport({ scope, repoTargets: reports });
+  const baseline = args.baseline ? await loadBaseline(root, args.baseline) : null;
+  const report = buildReport({ scope, repoTargets: reports, baseline });
   if (args.json) {
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
   } else {
@@ -268,6 +275,7 @@ async function scanGitRepo(repo, { scope }) {
     ...repo,
     present: true,
     ok: violations.length === 0 && listing.failures.length === 0 && !trackedScopeEmpty,
+    structural_ok: listing.failures.length === 0 && !trackedScopeEmpty,
     scope,
     files_considered: files.length,
     files_scanned: filesScanned,
@@ -487,12 +495,31 @@ function isInsideBackticks(line, matchIndex) {
   return backtickCount % 2 === 1;
 }
 
-// A term is a path/URL token, not a display-term mention, when a slash or backslash is
-// immediately adjacent on either side (e.g. `ui-workspace/apps/dev-erp`, `watch-4192/`).
+// A term is a path/URL token, not a display-term mention, only when the WHOLE whitespace-delimited
+// token that contains it is itself path-shaped (e.g. `ui-workspace/apps/dev-erp`,
+// `guild_hall/watchtower/x.mjs`). A slash or backslash immediately adjacent on just one side is not
+// enough by itself: prose enumerations such as "Task Engine/AX", "Watch/4192" or "4192/Bastion" put
+// exactly one slash next to a retired term without being a real path. A token counts as path-shaped
+// only when it has a file-extension dot, two or more path separators, or any backslash.
 function isSlashAdjacent(line, matchIndex, length) {
   const before = matchIndex > 0 ? line[matchIndex - 1] : "";
   const after = matchIndex + length < line.length ? line[matchIndex + length] : "";
-  return before === "/" || before === "\\" || after === "/" || after === "\\";
+  if (before !== "/" && before !== "\\" && after !== "/" && after !== "\\") {
+    return false;
+  }
+
+  let start = matchIndex;
+  while (start > 0 && !/\s/.test(line[start - 1])) {
+    start -= 1;
+  }
+  let end = matchIndex + length;
+  while (end < line.length && !/\s/.test(line[end])) {
+    end += 1;
+  }
+
+  const token = line.slice(start, end);
+  const separatorCount = (token.match(/[/\\]/g) ?? []).length;
+  return token.includes(".") || token.includes("\\") || separatorCount >= 2;
 }
 
 // A term is a link target, not a display-term mention, when it falls inside the "(...)" of a
@@ -510,7 +537,32 @@ function isInsideMarkdownLinkTarget(line, matchIndex) {
   return false;
 }
 
-function buildReport({ scope, repoTargets }) {
+async function loadBaseline(root, relativePath) {
+  const absolutePath = path.resolve(root, relativePath);
+  let raw;
+  try {
+    raw = await fs.readFile(absolutePath, "utf8");
+  } catch (error) {
+    throw new Error(`Failed to read --baseline file '${relativePath}': ${error.message}`);
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new Error(`Failed to parse --baseline file '${relativePath}' as JSON: ${error.message}`);
+  }
+  if (!Array.isArray(parsed.files)) {
+    throw new Error(`--baseline file '${relativePath}' must have a "files" array`);
+  }
+  return {
+    path: relativePath,
+    created_at: parsed.created_at ?? null,
+    reason: parsed.reason ?? null,
+    files: parsed.files,
+  };
+}
+
+function buildReport({ scope, repoTargets, baseline }) {
   const violations = repoTargets.flatMap((repo) =>
     repo.violations.map((violation) => ({
       repo: repo.id,
@@ -523,16 +575,39 @@ function buildReport({ scope, repoTargets }) {
       ...item,
     })),
   );
+
+  let baselineReport = null;
+  let unexemptedViolations = violations;
+  if (baseline) {
+    const baselineFiles = new Set(baseline.files);
+    unexemptedViolations = violations.filter((violation) => !baselineFiles.has(violation.file));
+    const violatingFiles = new Set(violations.map((violation) => violation.file));
+    const staleEntries = baseline.files.filter((file) => !violatingFiles.has(file));
+    baselineReport = {
+      path: baseline.path,
+      created_at: baseline.created_at,
+      reason: baseline.reason,
+      files_total: baseline.files.length,
+      exempted_violations_total: violations.length - unexemptedViolations.length,
+      stale_entries: staleEntries,
+    };
+  }
+
+  const ok = baseline
+    ? unexemptedViolations.length === 0 && repoTargets.every((repo) => repo.structural_ok)
+    : violations.length === 0 && repoTargets.every((repo) => repo.ok);
+
   return {
     schema_version: schemaVersion,
     generated_at: new Date().toISOString(),
-    ok: violations.length === 0 && repoTargets.every((repo) => repo.ok),
+    ok,
     scope,
     summary: {
       repo_count: repoTargets.length,
       files_considered: sum(repoTargets, "files_considered"),
       files_scanned: sum(repoTargets, "files_scanned"),
       violations_total: violations.length,
+      unexempted_violations_total: unexemptedViolations.length,
       skipped_total: skipped.length,
     },
     repos: repoTargets.map((repo) => ({
@@ -546,6 +621,8 @@ function buildReport({ scope, repoTargets }) {
       skipped_total: repo.skipped.length,
     })),
     violations,
+    unexempted_violations: baseline ? unexemptedViolations : null,
+    baseline: baselineReport,
     skipped,
   };
 }
@@ -561,14 +638,31 @@ function printHuman(report) {
     `violations: ${report.summary.violations_total}`,
   ];
 
-  if (report.violations.length > 0) {
+  if (report.baseline) {
+    lines.push(
+      `baseline: ${report.baseline.path} (${report.baseline.files_total} files, ` +
+        `${report.baseline.exempted_violations_total} exempted, ` +
+        `${report.summary.unexempted_violations_total} unexempted)`,
+    );
+  }
+
+  const violationsToShow = report.baseline ? report.unexempted_violations : report.violations;
+  if (violationsToShow.length > 0) {
     lines.push("");
-    lines.push("Violations:");
-    for (const violation of report.violations.slice(0, 200)) {
+    lines.push(report.baseline ? "Unexempted violations:" : "Violations:");
+    for (const violation of violationsToShow.slice(0, 200)) {
       lines.push(`- ${violation.repo}:${violation.file}:${violation.line}:${violation.column} '${violation.term}' -> ${violation.display}`);
     }
-    if (report.violations.length > 200) {
-      lines.push(`- ... ${report.violations.length - 200} more`);
+    if (violationsToShow.length > 200) {
+      lines.push(`- ... ${violationsToShow.length - 200} more`);
+    }
+  }
+
+  if (report.baseline && report.baseline.stale_entries.length > 0) {
+    lines.push("");
+    lines.push("Warning: no current violation in these baselined files; remove them from the baseline:");
+    for (const file of report.baseline.stale_entries) {
+      lines.push(`- ${file}`);
     }
   }
 
