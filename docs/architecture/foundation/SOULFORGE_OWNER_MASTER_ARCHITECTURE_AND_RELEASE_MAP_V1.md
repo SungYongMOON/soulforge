@@ -215,6 +215,8 @@ Gram → Gungnir → Draupnir → Mjölnir), 그리고 시스템 부품의 대�
 (Ore·Tributary·Ingot·Heartwood·Hearth·Bellows·Anvil·Hammer·Quench·Covenant·
 Tongs·Vigil·Sigil·Reliquary)뿐이다. Monster·Quest·Mission·Boss·Reward의
 game-term 충돌은 위에 적힌 대로 여전히 `OWNER_DEFERRED`이며 이 결정이 풀지 않는다.
+업무는 게임 층(몬스터·던전·배틀·배틀로그)으로, 시스템 부품은 대장간 층으로 부른다.
+세계관 한 장은 World Bible 0장이 소유한다.
 
 이 이름들은 **표시명 계층**이다. 파일·폴더·스키마·모듈·CLI 식별자는 바꾸지 않고
 문서·화면·예약작업 이름·CHANGELOG 제목에만 쓴다. 전체 표와 이름 유래는

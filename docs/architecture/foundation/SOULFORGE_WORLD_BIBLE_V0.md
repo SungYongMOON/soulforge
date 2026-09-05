@@ -9,10 +9,86 @@
 | 목적 | 기능별 문서 위에서 Soulforge의 철학·세계 법칙·영역·세력·명명·확장 규칙을 하나로 보존 |
 | 이름 효력 | 모든 이름은 Owner 검토 전 후보 |
 | 금지 | 실제 폴더·package·DB·TASK·route·runtime rename 또는 신규 조직 자동 생성 |
+| 0장 상태 | `OWNER_REVIEW_DRAFT` (2026-09-05 추가) |
 
 이 문서는 Soulforge를 기능 모음이 아니라 먼저 세계관으로 설계하기 위한 최상위 Owner 초안이다.
 구체 제품·운영 구조는 [`SOULFORGE_ENGINEERING_OS_PRODUCT_FAMILY_REBASELINE_V0.md`](SOULFORGE_ENGINEERING_OS_PRODUCT_FAMILY_REBASELINE_V0.md)가
 상세히 보조한다. 두 문서 모두 실제 migration 승인이나 완료 증거가 아니다.
+
+## 0. 세계관 한 장 (Owner 검토 초안, 2026-09-05)
+
+상태: Owner 검토 초안(OWNER_REVIEW_DRAFT), 2026-09-05.
+
+### 1. 세계 — 대장간, 그리고 밀려오는 몬스터
+
+Soulforge는 대장간이다. 밖에서는 몬스터(외부 업무: 메일·Slack·Linear·고객 요청)가 파도처럼 계속 밀려온다. 대장간은 그 몬스터에 맞춰 무기를 계속 진화시켜 무찌른다. 무기는 도구·봇·절차·지식이고, 쓰고 나면 쌓인다. 쌓인 무기가 다음 파도를 더 쉽게 만든다. 이것이 세계의 순환이며 이름이 아니라 개념이다. 타워 디펜스에 가깝다.
+
+대장간 안에서는 현실의 사건(Ore)이 지류(Tributary)를 타고 심재(Heartwood)에 주괴(Ingot)로 쌓이고, 화덕(Hearth)의 불과 풀무(Bellows)의 바람으로 길드(Guild)가 모루(Anvil) 위에서 망치(Hammer)를 휘둘러 무기를 벼린다. 담금질(Quench)과 언약(Covenant)이 그것을 단단하게 하고, 집게(Tongs)만이 뜨거운 것을 잡으며, 야경(Vigil)이 밤을 지키고, 성유물함(Reliquary)이 남는다. 세계수(World Tree)에는 벼려진 정본만 걸리고, 룬(Rune)은 무엇이 빠졌는지 판단한다.
+
+두 층은 섞이지 않는다. 업무는 게임 층(몬스터·던전·배틀·배틀로그)으로 부르고, 시스템 부품은 대장간 층으로 부른다. 기술 식별자(포트·코드 이름·경로)는 이름이 아니라 주소이므로 첫 등장에 괄호로 한 번만 붙인다.
+
+### 2. 시대 — Canto I · The Kindling (불 지피기)
+
+- 시대는 제련 공정을 따라 셋이다. Canto I · The Kindling(불 지피기) → Canto II · The Forging(벼리기) → Canto III · The Tempering(담금질로 굳히기). 지금은 I이다.
+- Kindling의 뜻: 불은 붙었으나 모루 위에 아직 정본 물건이 없다. 이 시대가 끝나는 조건은 첫 정본(Genesis) 1건과 팀원 2명이 각 한 바퀴를 돈 기록이다.
+- 시대는 공정이고 보물은 레벨이다. 고정 이름(부품)은 멈추고 코드명만 바뀐다.
+
+### 3. 보물 — Gram (0.1.x)
+
+벼리고 있는 보물은 Soulforge 자신이다. Gram(0.1.x, 현재) → Gungnir(0.2.x) → Draupnir(0.3.x) → Mjölnir(0.4.x). 코드명은 CHANGELOG 제목과 Vigil 머리에만 쓴다. 출시 단위의 기능명은 "Soulforge Team Pilot 1"이며 브랜드명은 보류다.
+
+### 4. 부품 — 앱과 모듈은 무엇인가
+
+| 표시명 | 비유 | 실제(식별자, 바꾸지 않음) | 2026-09-05 상태 |
+| --- | --- | --- | --- |
+| World Tree | 세계수. 정본과 업무가 걸리는 나무 | ERP, 코드 `dev-erp`, 포트 4300 | 켜짐(0.1.7). 팀 비개방, Owner loopback |
+| Rune | 룬. 규칙과 판단이 새겨진 글자 | Engineering Engine, `guild_hall/engineering_engine` | KVDS 7단계 판단 각 1회 |
+| Guild | 길드. 사람과 봇의 조직 | `guild_hall`, 조직 문서 5종, Hermes 봇 | 프로필 34, 명부 0 |
+| Ore | 광석. 원천 자료 원본 | source | 흘러드는 중 |
+| Tributary | 지류. 광석을 실어 오는 물길 | 수집 lane 7(메일·음성·PC 파일·Codex 작업맥락·Slack·Linear·Buzz), `install/source-lanes` | 7줄기 흐름, Linear·Buzz 15분 |
+| Ingot | 주괴. 굳혀 둔 사본 | custody | 쌓이는 중 |
+| Heartwood | 심재. 무게를 견디는 비공개 창고 | private data root | 살아 있음 |
+| Hearth | 화덕. AI 모델과 연산 | Codex·Claude·GPT·로컬 모델, Sol/Terra/Luna 등급 | 불 붙음 |
+| Bellows | 풀무. 사람이 없어도 바람을 넣는 것 | 예약작업(schtasks) | 8종 rc=0, 판본 혼재(0.1.7/0.1.6/v2/legacy 1) |
+| Anvil | 모루. 형태를 정하는 받침, 곧 정본 | Covenant 뒤의 target `_workspaces`·`_workmeta` | 비어 있음. 정본 0 |
+| Hammer | 망치. 업무를 치는 엔진 | Task Engine | 있음. 한 바퀴 0 |
+| Quench | 담금질. 검증과 검토 관문 | `validate:*`, `done:check`, review gate | CI 1단계 빨강 |
+| Covenant | 언약궤. 정본 승격 3규칙 | W-AUTH · Canonical Empty-State Genesis · Legacy Freeze | 채택 전 |
+| Tongs | 집게. 뜨거운 것을 잡는 유일한 도구, MCP 문 | `dev-erp-mcp`(4311), `engineering_mcp` | 읽기 8·제출 6, 봇 경유만 |
+| Vigil | 야경대. 감시면 | Board(포트 4192), `guild_hall/watchtower` 모듈 | 켜짐 |
+| Sigil | 인장. 봇의 SOUL 스냅샷 | `hermes_profile_snapshot` | 코드만, 운영 전 |
+| Reliquary | 성유물함. 백업 | `backup_controller`, N차 백업본 | Linear 1세대 수락, 1차 백업본 staged |
+
+### 5. 지금 상태 — 대장간의 밤
+
+불은 붙었고, 일곱 지류가 심재로 흐르고, 풀무는 돈다. 성유물함에 1차 백업본이 들었으나 도장은 아직이다. 야경은 서 있다. 그러나 모루 위에는 아무 물건도 없고, 망치는 한 바퀴도 치지 않았으며, 담금질 첫 문은 빨갛고, 언약궤는 닫혀 있고, 길드에는 명부가 없다. 이것이 Canto I이다.
+
+사다리: 1칸 Owner 한 바퀴 + 도장 2개 → 2칸 팀원 2명 각 1건 → 3칸 첫 정본(Genesis)·봇 명부·Reliquary 실동작·원격 Tongs.
+
+### 6. 은퇴하는 말
+
+- 은퇴하는 것은 기술 층의 표시어뿐이다: 4192, 상황판, Team Ops Board, ERP/dev-erp(표시), Task Engine, 수집 lane, MCP 문, 백업(표시), 3규칙, 예약작업(표시). 대조표대로 대장간 이름으로 바꾸고 첫 등장에 식별자를 괄호로 한 번 병기한다.
+- 게임 층은 업무를 부르는 말로 남는다: 몬스터(외부 업무), 던전(프로젝트), 배틀(실행), 배틀로그(실행 기록). 기존 뜻 그대로이며 이 장은 새 뜻을 만들지 않는다. Quest·Boss·Reward처럼 뜻이 문서마다 달랐던 말은 Master Map M0의 보류(OWNER_DEFERRED)를 유지한다.
+- 식별자(`guild_hall/gateway`, `night_watch`, `healer`, `town_crier`, `.party`, `.mission`, `.registry/species`·`classes`, 포트 4192, 코드 `dev-erp`)는 바꾸지 않는다.
+- 유지하는 고유명: Soulforge, World Tree, Rune, Guild, Buzz, Hermes, Linear, Codex, Claude, GPT, Main Node, Universal Client, Team Pilot 1, NAS. 외부 제품·물리 노드·출시 기능명이다.
+- CHANGELOG 과거 항목은 역사라 고치지 않는다.
+
+### 7. 아직 이름이 없는 자리 — Owner 선택 (급하지 않음)
+
+게임 층을 남기므로 새 이름이 필요한 자리는 둘뿐이고, 둘 다 한국어로 두어도 된다.
+
+| 자리 | 지금 부르는 말 | 후보 (유래) | 비고 |
+| --- | --- | --- | --- |
+| 길드 계급 | 사람, 봇, 창구 봇 | Master(사람) · Journeyman(봇) · Apprentice(창구 봇). Owner 09-03 안 | 봇 명부의 판타지 별칭 자리 |
+| 팀 산출물(제출물) | 산출물, 제출물 | Commission(길드에 들어온 주문; 라틴 committere) | 09-03에 나온 후보 |
+
+결정 전에는 한국어 표기를 쓴다. 이 두 자리는 lane D를 막지 않는다.
+
+### 8. 규칙 — 지침에 박을 문장
+
+AGENTS.md "안전·저장 경계" 아래 한 줄: "문서·화면·예약작업 이름·CHANGELOG 제목·보고에는 `SHARED_GLOSSARY_V0.md` §세계 이름의 표시명을 쓴다. 은퇴한 표시어(같은 절의 대조표)는 새로 쓰지 않는다. 파일·폴더·포트·스키마·예약작업 ID 같은 식별자는 바꾸지 않으며 첫 등장에 괄호로 한 번 병기한다."
+
+같이 놓는 것: 용어집 §옛 표기 → 표시명 대조표(식별자 열 포함), README "Soulforge 한 장"을 §5 문장으로 교체, Master Map M0의 game-term 문단에 "업무는 게임 층, 부품은 대장간 층" 한 줄과 이 장으로 가는 포인터를 추가(OWNER_DEFERRED 항목은 그대로), 검사기 후보(문서 본문의 은퇴 표시어 검출, 식별자 문맥 예외)는 D-2에서.
 
 ## 1. 세계의 핵심 정의
 

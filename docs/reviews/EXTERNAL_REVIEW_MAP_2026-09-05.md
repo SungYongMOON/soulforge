@@ -86,3 +86,54 @@ closed), 문서만 (contract or plan only), 미구현.
 - Do not create parallel document stores (cloud folders) for the same content.
 - A reviewer that could not read the code cannot judge release readiness, and this
   map does not claim otherwise.
+
+## 5. Two external document sets and one key
+
+Status: `reference_only`, appended 2026-09-05. The keys below (`EXT-nn`, `CE-nn`) are
+the only identifiers external reviewers should cite from now on; each row carries
+"document version + original ID + claim" so no finding is closed by number alone.
+
+The external reviewer produced two passes on 2026-09-05. Pass 1
+(`ChatGPT_제품기획실_20260905`, ~11:00 KST) has findings F01–F12 and work items
+SF-001–SF-034. Pass 2 (`ChatGPT_제품화·앱설계_2026-09-05/v0.1_main-b1aa2a9_구조검토·출시계획`,
+~11:05 KST) has findings F01–F14 and work items REV-01–32 with different numbering.
+Our first reply (afternoon) cited pass-2 numbers; the reviewer thread that answered
+holds pass 1, so it flagged the mismatch and re-judged its 12 items as
+`02_재판정_v0.2_회신반영_패킷대기.md` (pass-1 folder). The union is 18 distinct claims:
+
+| Key | Claim | Pass 1 | Pass 2 | Status (2026-09-05 pm) |
+| --- | --- | --- | --- | --- |
+| EXT-01 | CI Validate fails at path policy | F01 | F01, REV-02 | 57/17 classified; lane A running; still red |
+| EXT-02 | No branch protection / rulesets | F05 | F02, REV-03 | Owner sets after CI green |
+| EXT-03 | Which commit runs where is unverified from GitHub | F10 (part) | F03, REV-01/05 | partial: README §어디서 도는가 + LANE_MANIFEST + build_source_lane --verify; one-page receipt for all tasks pending |
+| EXT-04 | Universal Client is headless, no physical seat | F06 | F04, REV-13/14 | out of Team Pilot 1 by Owner decision 09-02 (Buzz + bot MCP); ring 3+ |
+| EXT-05 | Authority contract vs live enforcement; RUNE-first vs Linear SoR | F03 | F05, REV-07 | HOLD by design; pilot = human acceptance + human Linear done |
+| EXT-06 | Recovery not human-accepted | F09 | F06, REV-19/20 | Linear generation restored byte-identical + human-accepted 09-02; D: canonical gen staged, stamp pending |
+| EXT-07 | Manuals never exercised / last-verified | F08 (part) | F07, REV-21 | open |
+| EXT-08 | app.js unguarded localStorage JSON.parse ×10 | — | F08, REV-09 | lane C reproducing |
+| EXT-09 | permOf default-allow in UI | — | F09 | lane C: separate "UI 표기" from "server bypass" |
+| EXT-10 | chat text persisted in localStorage | — | F10, REV-10 | lane C reports facts + 3 options; Owner policy |
+| EXT-11 | app.js / server.mjs size, feature boundaries | — | F11, REV-26 | held, not a defect |
+| EXT-12 | Board is observation, not user app; new shell proposal (B안), 03 PRD | F07 | F12, §4 B, 03 | not adopted for pilot (구성 개편 B); hold as input |
+| EXT-13 | Source composition ≠ release; no GitHub Release | F08 (part) | F13, REV-25/32 | by design: release unit = install/server-pack/<x.y.z> digest pack + cutover receipt; manual binding stays EXT-07 |
+| EXT-14 | Dependency advisories untriaged | F11 | F14, REV-04 | open, low; counts not re-verified |
+| EXT-15 | update_coordinator rollback receipt over-claims | F02 (reviewer reports 4 PASS/3 FAIL with injected adapter, patch attached) | REV-22 | lane C: reproduce in our tree first; attached patch not applied |
+| EXT-16 | Master Map M8 `_workmeta` text vs 09-01 target correction | F04 | — | doc-sync candidate; Genesis stays rung 3 |
+| EXT-17 | Launch identity / packaged-session AppData split | F10 | REV-06 | rule landed in AGENTS.md 09-03; drift detector owned by lane runbooks |
+| EXT-18 | Work history → reusable Workflow promotion | F12 | REV-31 | long-term; excluded from rung 1 |
+
+## 6. Counterexamples the reviewer proposed (test candidates, not incidents)
+
+| Key | Failure mode | Where it lands |
+| --- | --- | --- |
+| CE-01 | Bot identity overrides requester authority; cross-project mixing in one bot session | rung 2 acceptance test; plan 18 §4 (no cross-project context) |
+| CE-02 | Submission stored, response lost, user retries → duplicate review items | rung 1/2; ingress receipt idempotency (same request+digest → same result, different digest → HOLD) |
+| CE-03 | Pending-review query failure rendered as "0 items" | **lane B acceptance criterion**: only a verified 0 is "none"; flag OFF / denied / timeout / stale are distinct states; filter never shows other projects; 4192 stays read+link |
+| CE-04 | Reviewed revision ≠ revision marked done | rung 2; receipt task/submission/revision/digest must match the reviewed object; no inheritance of old acceptance |
+| CE-05 | Reusing a stamp across versions or backup generations | rung 1 stamps: 0.1.7 cutover acceptance and synthetic-restore acceptance are separate objects; Linear acceptance is not D: acceptance |
+
+## 7. External execution advisory (E07, E05 v0.2)
+
+- Direction accepted as design candidate (three-axis separation; external authoring; local CODE enforcement; Qwen-off default loop). No new product/DB/root. Landing: P07 Tool Workshops (plan 11, one bot per tool, capacity-1 lease, candidate custody receipt) + P08 (plan 09); entry only via plan 05/09. Research lineage ("Master v0.11", Stage0) stays outside canon.
+- Reviewer's zone map accepted as explanation: P = Heartwood/Anvil, W = export-approved surface inside a Tool Workshop, B = Tongs + Quench, M = Hearth's external-model role. X1–X3 are execution modes, not names.
+- First qualification package registered as candidate (not scheduled): E05.G0 conditions; E05.G1 = OP01, OP04, LG01, LG03, LG05, LG06, PR02, AT01, AT12, RT01, RT04, AF01; E05.G2 = WA02 → HWPX bot, WA03 → PPT bot. AF01 reuses candidate custody receipt; PF01 and PF02 are reported separately. Runs only after rung 3 and only on synthetic data.

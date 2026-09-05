@@ -198,6 +198,46 @@ Quench와 Covenant가 단단하게 하고, Tongs만이 뜨거운 것을 잡으�
 미결정(Owner 판단 대기): 길드 계급 Master(사람)·Journeyman(봇)·Apprentice(창구 봇),
 팀 산출물 이름(예: Commission).
 
+## 옛 표기 → 표시명 대조표 (2026-09-05)
+
+이 표는 문서·화면·예약작업 이름·CHANGELOG 제목·보고에서 옛 표시어 대신 위
+"세계 이름" 절의 표시명을 쓰기 위한 대조표다. 뜻과 이름 유래는 층 3(대장간
+부품) 표를 가리키며 여기서 다시 적지 않는다. 이 표가 다루는 것은 **기술
+표시어**뿐이다. 몬스터·던전·배틀·배틀로그 같은 게임 층 용어는 업무를 부르는
+말로 남기며 이 표에 행을 만들지 않는다(기존 "게임 용어 ↔ 업무 용어 대조표"
+절 참조). "그대로 두는 식별자" 열은 파일·경로·포트·예약작업 ID처럼 바꾸지
+않는 것만 적는다.
+
+| 표시명 | 이제 쓰지 않는 표기 | 그대로 두는 식별자 | 첫 등장 표기 |
+| --- | --- | --- | --- |
+| Vigil | 4192, 4192 감시면, 상황판, Team Ops Board, Ops Board, Board, Watchtower(표시명으로 쓸 때) | 포트 4192, `team-ops-board`, `guild_hall/watchtower`, 예약작업 `Soulforge-TeamOpsBoard-ReadOnly-v1`(개명은 cutover 몫), lane 폴더 | Vigil(포트 4192) |
+| World Tree | ERP, dev-ERP, dev-erp(표시), 브라우저 ERP | `ui-workspace/apps/dev-erp`, 포트 4300, `dev-erp.db`, 예약작업 `Soulforge-MainNode-ERP` | World Tree(코드 dev-erp, 포트 4300) |
+| Rune | 엔진, 판단 Engine, Engineering Engine(표시) | `guild_hall/engineering_engine`, `engineering_mcp` | Rune(Engineering Engine) |
+| Hammer | Task Engine, 할일 엔진 | `TASK_ENGINE_*` 문서명, `task_driver.mjs` | Hammer(Task Engine) |
+| Guild | 조직, AI 조직, Agent Platform(표시) | `guild_hall/`, 조직 문서 파일명 | Guild(Agent Platform) |
+| Tributary | 수집 lane, collection lane, ingress lane | `install/source-lanes/<lane>-vN`, `guild_hall/ingress`, `*_history/` | Tributary(수집 lane) |
+| Ingot | custody 사본, 수집 사본 | custody 경로·스키마 | Ingot(custody) |
+| Ore | 원천 자료, 원본, source | source 스키마·경로 | Ore(원천 자료) |
+| Heartwood | private data root, `<private_root>` 표시, D: 데이터 루트 | `SOULFORGE_STATE_ROOT`, `<private_root>` 자리표시자, 실제 경로 | Heartwood(private data root) |
+| Hearth | 모델, LLM, Codex/Claude/GPT(역할로 부를 때) | 모델 ID, AI_ORGANIZATION 정책의 Sol/Terra/Luna | Hearth(AI 모델·연산) |
+| Bellows | 예약작업, scheduled task, 자동화(표시) | schtasks 작업명, `register-*-task.ps1` | Bellows(예약작업) |
+| Anvil | 정본, canon(표시) | `.registry` 등 정본 7축 경로 | Anvil(정본) |
+| Quench | 검증 관문, review gate, validator(표시) | `validate:*`, `done:check`, `.workflow/post_development_review_gate_v0` | Quench(검증·검토 관문) |
+| Covenant | 3규칙, 정본 승격 3규칙 | W-AUTH·Canonical Empty-State Genesis·Legacy Freeze 문서명 | Covenant(정본 승격 3규칙) |
+| Tongs | MCP 문, MCP gate, MCP 창구 | `dev-erp-mcp`, `engineering_mcp`, 포트 4311 | Tongs(MCP 문) |
+| Sigil | Hermes 프로필 스냅샷, SOUL 스냅샷 | `hermes_profile_snapshot.mjs` | Sigil(Hermes 프로필 스냅샷) |
+| Reliquary | 백업, backup, DR(표시), 백업 세대 | `backup_controller`, `60_BACKUP_GENERATIONS`, "N차 백업본"(한국어 운영 표기는 유지) | Reliquary(백업) |
+| Canto I · The Kindling | 현재 phase, 현 단계(시대를 뜻할 때) | 없음 | Canto I · The Kindling |
+| Gram | 0.1.x(코드명 자리), internal RC 이름(보물을 뜻할 때) | 버전 문자열 0.1.x, 팩 번호 | Gram(0.1.x) |
+
+그대로 두는 고유명(이름 안 바꿈): Soulforge, Buzz, Hermes, Linear, Codex, Claude, GPT,
+Main Node, HPP, Universal Client, Team Pilot 1, NAS. 외부 제품·물리 노드·출시 단위
+기능명이다.
+
+Owner 결정 대기 1건: `guild_hall/watchtower` 모듈의 표시명. 기본안 = 식별자 Watchtower
+유지, 표시는 "Vigil의 경보·자가복구 모듈". 결정 전에는 기본안으로 쓰고 표에
+"(기본안)" 표기.
+
 ## 짧은 상태 구분
 
 ```text

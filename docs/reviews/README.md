@@ -11,6 +11,8 @@
 | --- | --- |
 | `EXTERNAL_REVIEW_MAP_<date>.md` | 외부 검토 한 건을 정본에 대응시킨 표. 무엇이 맞고, 무엇을 못 봤고, 점검표 항목이 우리 산출물 어디에 있는지 |
 | `reviewer_packet_<date>.md` (+ `.manifest.json`) | `npm run export:reviewer-packet`이 만든 공개 안전 패킷. 생성물이라 추적하지 않는다(`.gitignore`). 외부에 줄 때는 이 파일 하나만 준다 |
+| `READING_LIST.md` | 패킷 매니페스트의 14개 문서를 GitHub blob URL로 나열한 읽기 순서표. 첨부가 안 보일 때 패킷 대신 준다 |
+| `exchange/` | 외부 조언자와의 문서 왕복 규약과 실제 왕복 문서(`YYYY-MM-DD_soulforge_to_<who>_NN.md`) |
 
 ## 외부 작업공간 포인터 (제안함, 정본 아님)
 

@@ -31,6 +31,7 @@
 - `.env`, token, password, cookie, session, credential JSON의 값이나 내용을 읽거나 출력하지 않는다. lane 자격증명은 `<private_root>/config/<lane>/credentials/` 아래 한 줄 파일이며 Owner만 배치한다. 형식 검사(존재·크기·한 줄·BOM)만 허용하고 값은 어떤 로그·영수증·문서에도 남기지 않는다.
 - 삭제·이동·외부 전송·업로드·권한·결제·writer/route 활성화처럼 되돌리기 어려운 행위는 정확한 범위의 명시적 권한 없이는 실행하지 않는다. 실행 환경의 권한 시스템이 명령을 거부하면 우회하지 않고 일관된 상태에서 멈춘 뒤 거부된 명령을 그대로 보고한다.
 - 상세 workspace 경계는 `docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md`를 따른다. HWP는 `docs/architecture/workspace/HWP_NORMALIZATION_V0.md`에 따라 HWPX로 정규화한 뒤 읽고, PLAUD 시간은 `docs/architecture/workspace/PLAUD_ADOPTION_DECISION_V0.md`를 따른다.
+- 문서·화면·예약작업 이름·CHANGELOG 제목·보고에는 `SHARED_GLOSSARY_V0.md` §세계 이름의 표시명을 쓴다. 은퇴한 표시어(같은 절의 대조표)는 새로 쓰지 않는다. 파일·폴더·포트·스키마·예약작업 ID 같은 식별자는 바꾸지 않으며 첫 등장에 괄호로 한 번 병기한다.
 
 ## 작업별 라우팅
 

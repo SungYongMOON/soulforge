@@ -129,6 +129,30 @@
   2026-09-05 with the 15-minute cadence. Recorded because the packet is the one
   document an outside reviewer sees, so an unstated gap between the repository
   and production becomes their starting premise.
+- Vocabulary reset, part 1 (docs only). `SHARED_GLOSSARY_V0.md` gained an "옛
+  표기 → 표시명 대조표" (retiring-notation to display-name table): which old
+  technical labels (4192, 상황판, ERP, Task Engine, MCP 문, 예약작업, 정본, and
+  others) retire in favor of the forge display names (Vigil, World Tree,
+  Hammer, Tongs, Bellows, Anvil, and the rest), which identifiers stay
+  unchanged (ports, paths, scheduled-task IDs), and each name's
+  first-appearance notation. `README.md`'s "Soulforge 한 장" was rewritten with
+  the same display names; the facts it reports are unchanged (what runs, the
+  version split, the staged backup generation, CI still red), and its
+  one-liner now opens with two sentences from the World Bible's monster/weapon
+  cycle. Game-layer terms (monster, dungeon, battle, battle log) are kept as
+  the words for describing work, per Owner correction; only technical display
+  words retire. Added `docs/reviews/exchange/` (the round-trip protocol with
+  external advisors, plus the two Soulforge-to-GPT reply documents carried
+  over verbatim) and `docs/reviews/READING_LIST.md` (the reviewer packet's
+  fourteen documents as GitHub blob URLs, for when an attachment does not come
+  through), and appended the EXT-01..18 / CE-01..05 / E07-E05 addendum to
+  `EXTERNAL_REVIEW_MAP_2026-09-05.md`. `SOULFORGE_WORLD_BIBLE_V0.md` gained an
+  `OWNER_REVIEW_DRAFT` chapter 0 (the one-page worldview: the forge, the
+  Canto/Gram era and treasure levels, the parts table, current state, the
+  retiring-word list); Master Map M0 now points to it, and `AGENTS.md` gained
+  one rule line naming the glossary as the source of display names. No file,
+  folder, port, schema, or scheduled-task identifier changed; display names
+  only.
 - Reproduced and judged four external (GPT) code-level review findings on a
   separate branch (`fix/external-review-repro`) against this commit, failing
   test first. Two were confirmed and fixed. `ui-workspace/apps/dev-erp/static/app.js`
