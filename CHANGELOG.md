@@ -1,5 +1,47 @@
 # CHANGELOG
 
+## 2026-09-05 - Vigil (team-ops-board): six Linux-only GitHub Validate failures made hermetic
+
+- 날짜: 2026-09-05. GitHub Validate(ubuntu-latest, Node 22)가 Vigil(포트 4192, 코드
+  `team-ops-board`)의 `npm run validate:team-ops-app` 단계에 도달했고, 769건 중 6건이
+  리눅스에서만 실패했다(Windows Owner PC에서는 769/769). 원인은 두 갈래다.
+- 무엇(1, 테스트 전용, 2건): `ops/ai-usage-producer-companion.test.mjs`의 heartbeat
+  케이스 하나가 이 파일의 다른 모든 케이스와 달리 이미 import돼 있던 `os.tmpdir()`
+  대신 Windows 전용 `process.env.TEMP`를 `path.join`에 그대로 넘겨, 그 변수가 없는
+  리눅스에서 `path.join(undefined, ...)`으로 즉시 던졌다 — `tmpdir()`로 맞췄다.
+  `src/server/live-thread-lifecycle-reconcile.test.mjs`의 `defaultCodexSessionsRoot`
+  테스트는 `CODEX_HOME`에 win32 리터럴 fixture를 줬는데, 이 함수는 CODEX_HOME을
+  (이 파일의 `sessionsRoot`/`stateRoot` 해석, 그리고 `provider-limits-adapter.mjs`의
+  자매 함수와 마찬가지로) 실행 호스트별 실제 Codex 설치 경로로 보고 호스트 네이티브
+  `path.resolve`로 처리한다 — 계약대로 맞는 것은 구현이 아니라 win32 리터럴을 쓴
+  테스트 쪽이었다. `os.tmpdir()` 기반의 호스트 중립 실제 절대경로로 fixture와 기대값을
+  같은 host `path.resolve`/`path.join`으로 다시 계산하게 했다.
+- 무엇(2, 동작 변경, `ops/team-ops-board-runtime.mjs`): 나머지 4건은
+  `createScheduledTaskDefinition`/`createScheduledTaskPowerShellSpec`의 `SystemRoot`
+  처리와 `createScheduledRuntimeEnvironment`의 owner-root/state-root 처리가 호스트
+  `path`(리눅스에선 posix)로 절대경로를 판정·조합하고 있었다. 이 값들은 실제 Windows
+  Task Scheduler 예약작업과 git 파생 또는 `SOULFORGE_OWNER_ROOT`/`SOULFORGE_STATE_ROOT`
+  owner root라 항상 Windows 형식이므로, 세 함수의 절대경로 판정·resolve·join을
+  `path.win32`로 고정했다(호스트 무관, 실제 Windows에서는 `path.win32 === path`라 동작
+  불변). `team-ops-board-runtime-boundary.test.mjs`의 win32 fixture 대조값 하나를 같은
+  `path.win32.join`으로 맞췄고, 별도 항목으로 「CLI and failure output remain bounded to
+  public-safe classes」케이스는 ambient `SystemRoot`/`<SystemRoot 대체 WINDIR>`가 둘 다
+  없는 호스트에서 `createScheduledTaskDefinition()`이 fail-closed(`task_unavailable`)
+  하던 것을, 그 테스트 범위에서만 `SystemRoot`를 스텁하고 `t.after`로 복원하도록 고쳤다
+  (같은 케이스 안의 `scheduledTaskUnregisterIsSafe`/`scheduledTaskInspectionIsTriggerlessLegacy`
+  호출부는 definition을 주입할 인자가 없어 내부에서 같은 ambient 기본값을 다시 부르므로,
+  겉에서 만든 definition만 다른 값으로 바꾸면 두 쪽의 `action_digest`가 어긋난다).
+- 운영 영향: 예약작업이 실제로 도는 유일한 곳인 Windows Owner PC에서는
+  `path.win32 === path`라 이 세 함수의 반환값이 문자 그대로 동일하다 — 이 diff의 유일한
+  실동작 변경은 비Windows 호스트에서 같은 순수 함수를 호출했을 때 더 이상 현재
+  작업 디렉터리가 섞인 값을 반환하지 않는다는 것뿐이다. 예약작업 등록·트리거·경로·
+  포트·바인딩·quota 게이트는 그대로다. 리눅스 CI 재실행으로 최종 확인 필요(이 세션은
+  Windows에서만 검증했다).
+- 관련 경로: `ui-workspace/apps/team-ops-board/ops/ai-usage-producer-companion.test.mjs`,
+  `ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/live-thread-lifecycle-reconcile.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/team-ops-board-runtime-boundary.test.mjs`.
+- Revision: the Git commit containing this entry owns the exact revision.
 ## 2026-09-05 - Execution examples: a home for concrete scenarios (Gram 0.1.x)
 
 - 날짜: 2026-09-05. Revision: main after the lane merges.

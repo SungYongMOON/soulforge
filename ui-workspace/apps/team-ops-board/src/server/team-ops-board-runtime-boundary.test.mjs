@@ -644,7 +644,11 @@ test("scheduled worker derives private bindings in memory and keeps quota OFF", 
   );
   assert.equal(
     environment.TEAM_OPS_HERMES_AGENT_RUNTIME_BINDINGS,
-    path.join(ownerRoot, "guild_hall", "state", "operations", "team_ops_board", "agent_runtime_binding.v1.json"),
+    // createScheduledRuntimeEnvironment joins the owner-root-derived paths with
+    // path.win32 (the scheduled runtime only ever runs on the real Windows
+    // owner PC), so the expected value has to be built the same way to give
+    // the same verdict on every host this test runs on.
+    path.win32.join(ownerRoot, "guild_hall", "state", "operations", "team_ops_board", "agent_runtime_binding.v1.json"),
   );
   assert.equal("TEAM_OPS_BOARD_EXACT_THREAD_BINDINGS" in environment, false);
   assert.equal("TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ" in environment, false);
@@ -814,7 +818,7 @@ test("stale-owner recovery requires every exact absence proof", () => {
   assert.equal(classifyRuntimeRecovery({ ...safe, state: null }), "unsafe");
 });
 
-test("CLI and failure output remain bounded to public-safe classes", () => {
+test("CLI and failure output remain bounded to public-safe classes", (t) => {
   for (const command of [
     "task-register", "task-status", "task-run", "task-stop", "task-fault", "task-unregister",
     "status", "health", "stop", "recover", "--help",
@@ -843,6 +847,20 @@ test("CLI and failure output remain bounded to public-safe classes", () => {
   ]);
   assert.equal(JSON.stringify(publicState).includes("must-not-project"), false);
 
+  // scheduledTaskUnregisterIsSafe and two of the scheduledTaskInspection*
+  // calls below take no definition argument, so they always compare against
+  // createScheduledTaskDefinition()'s own bare (ambient SystemRoot/WINDIR)
+  // default — there is no injection point to pass a synthetic definition
+  // through them instead. Stub SystemRoot for this test only (t.after
+  // restores it) so that default resolves the same absolute Windows path on
+  // every host, rather than throwing task_unavailable where neither ambient
+  // variable is set.
+  const previousSystemRoot = process.env.SystemRoot;
+  process.env.SystemRoot = path.win32.join(`${String.fromCharCode(67)}${String.fromCharCode(58)}`, "Windows");
+  t.after(() => {
+    if (previousSystemRoot === undefined) delete process.env.SystemRoot;
+    else process.env.SystemRoot = previousSystemRoot;
+  });
   const definition = createScheduledTaskDefinition();
   const inspection = {
     exists: true,

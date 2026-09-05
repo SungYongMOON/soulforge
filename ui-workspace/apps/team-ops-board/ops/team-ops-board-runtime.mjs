@@ -510,7 +510,11 @@ export function createScheduledTaskDefinition({
   systemRoot = process.env.SystemRoot || process.env.WINDIR,
 } = {}) {
   if (typeof systemRoot !== "string" || systemRoot.trim() === "") fail("task_unavailable");
-  const execute = path.join(path.resolve(systemRoot), "System32", "wscript.exe");
+  // This Task Scheduler action only ever runs on the real Windows owner PC, so
+  // systemRoot is always a Windows path regardless of the host this pure
+  // function happens to be evaluated on (a no-op on real Windows, since host
+  // path === path.win32 there).
+  const execute = path.win32.join(path.win32.resolve(systemRoot), "System32", "wscript.exe");
   const argumentsValue = [
     "//B",
     "//NoLogo",
@@ -620,8 +624,8 @@ export function createScheduledTaskPowerShellSpec(operation, {
     );
   }
   script.push("[Console]::Out.Write(($o|ConvertTo-Json -Compress))");
-  const powershell = path.join(
-    path.resolve(systemRoot),
+  const powershell = path.win32.join(
+    path.win32.resolve(systemRoot),
     "System32",
     "WindowsPowerShell",
     "v1.0",
@@ -758,18 +762,23 @@ export function createScheduledRuntimeEnvironment({
   stateRoot = null,
   serveStatus,
 } = {}) {
-  if (typeof ownerRoot !== "string" || !path.isAbsolute(ownerRoot)) fail("owner_root_unavailable");
-  const resolvedOwnerRoot = path.resolve(ownerRoot);
+  // ownerRoot/stateRoot are the real Windows owner PC's git-derived or
+  // SOULFORGE_OWNER_ROOT/SOULFORGE_STATE_ROOT-overridden roots (the scheduled
+  // runtime this environment feeds only ever runs there), so every join below
+  // is pinned to path.win32 rather than the host path module (a no-op on real
+  // Windows, since host path === path.win32 there).
+  if (typeof ownerRoot !== "string" || !path.win32.isAbsolute(ownerRoot)) fail("owner_root_unavailable");
+  const resolvedOwnerRoot = path.win32.resolve(ownerRoot);
   // The state root defaults to the owner root's guild_hall/state subtree; the
   // scheduled controller passes the SOULFORGE_STATE_ROOT override here instead
   // when one is set, so every Board binding below moves together.
   const resolvedStateRoot = stateRoot === null
-    ? path.join(resolvedOwnerRoot, "guild_hall", "state")
+    ? path.win32.join(resolvedOwnerRoot, "guild_hall", "state")
     : stateRoot;
-  if (typeof resolvedStateRoot !== "string" || !path.isAbsolute(resolvedStateRoot)) fail("owner_root_unavailable");
-  const operationsRoot = path.join(resolvedStateRoot, "operations");
-  const boardStateRoot = path.join(operationsRoot, "team_ops_board");
-  const usageRoot = path.join(operationsRoot, "ai_usage_meter");
+  if (typeof resolvedStateRoot !== "string" || !path.win32.isAbsolute(resolvedStateRoot)) fail("owner_root_unavailable");
+  const operationsRoot = path.win32.join(resolvedStateRoot, "operations");
+  const boardStateRoot = path.win32.join(operationsRoot, "team_ops_board");
+  const usageRoot = path.win32.join(operationsRoot, "ai_usage_meter");
   const env = {};
   for (const name of SCHEDULED_OS_ENVIRONMENT_ALLOWLIST) {
     if (typeof baseEnvironment?.[name] === "string") env[name] = baseEnvironment[name];
@@ -779,23 +788,23 @@ export function createScheduledRuntimeEnvironment({
     TEAM_OPS_BOARD_ANTIGRAVITY_QUOTA_LIVE_REFRESH: "1",
     TEAM_OPS_BOARD_ALLOWED_HOSTS: deriveAllowedHostFromServeStatus(serveStatus),
     [HERMES_AGENT_RUNTIME_URL_ENV]: TEAM_OPS_BOARD_AGENT_RUNTIME_PILOT_URL,
-    [HERMES_AGENT_RUNTIME_BINDINGS_ENV]: path.join(
+    [HERMES_AGENT_RUNTIME_BINDINGS_ENV]: path.win32.join(
       boardStateRoot,
       TEAM_OPS_BOARD_AGENT_RUNTIME_BINDING_FILENAME,
     ),
-    TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY: path.join(boardStateRoot, "thread_visibility.v1.json"),
-    TEAM_OPS_BOARD_THREAD_RESULT_GATE_REGISTRY: path.join(boardStateRoot, "thread_result_gate.v1.json"),
+    TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY: path.win32.join(boardStateRoot, "thread_visibility.v1.json"),
+    TEAM_OPS_BOARD_THREAD_RESULT_GATE_REGISTRY: path.win32.join(boardStateRoot, "thread_result_gate.v1.json"),
     // Same derivation as defaultLegacyOrganizationCatalogPath, made explicit so
     // a child forked from a worktree or an installed lane never re-derives the
     // catalog from its own module tree.
-    TEAM_OPS_BOARD_ORGANIZATION_CATALOG: path.join(boardStateRoot, "organization_catalog.v1.json"),
+    TEAM_OPS_BOARD_ORGANIZATION_CATALOG: path.win32.join(boardStateRoot, "organization_catalog.v1.json"),
     SOULFORGE_AI_USAGE_METER_STATE_ROOT: usageRoot,
     SOULFORGE_AI_USAGE_PROJECT_ROOT: resolvedOwnerRoot,
     [SOULFORGE_STATE_ROOT_ENV]: resolvedStateRoot,
-    TEAM_OPS_BOARD_LIFECYCLE_SNAPSHOT: path.join(usageRoot, "lifecycle", "current.json"),
-    TEAM_OPS_BOARD_LIFECYCLE_DISABLE_CONTROL: path.join(usageRoot, "control", "emergency-disable.v1.json"),
-    TEAM_OPS_BOARD_WATCHTOWER_POINTER: path.join(operationsRoot, "watchtower", "binding.pointer.json"),
-    TEAM_OPS_BOARD_ORGANIZATION_GOVERNANCE_OVERLAY: path.join(
+    TEAM_OPS_BOARD_LIFECYCLE_SNAPSHOT: path.win32.join(usageRoot, "lifecycle", "current.json"),
+    TEAM_OPS_BOARD_LIFECYCLE_DISABLE_CONTROL: path.win32.join(usageRoot, "control", "emergency-disable.v1.json"),
+    TEAM_OPS_BOARD_WATCHTOWER_POINTER: path.win32.join(operationsRoot, "watchtower", "binding.pointer.json"),
+    TEAM_OPS_BOARD_ORGANIZATION_GOVERNANCE_OVERLAY: path.win32.join(
       resolvedOwnerRoot,
       "_workmeta",
       "system",

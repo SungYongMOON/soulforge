@@ -251,7 +251,7 @@ test("Claude quota sweep uses the gated sanitized collector independently", asyn
 });
 
 test("producer heartbeat retains last-good and never treats idle activity as failure", async (t) => {
-  const root = await import("node:fs/promises").then(({ mkdtemp }) => mkdtemp(path.join(process.env.TEMP, "usage-heartbeat-")));
+  const root = await import("node:fs/promises").then(({ mkdtemp }) => mkdtemp(path.join(tmpdir(), "usage-heartbeat-")));
   t.after(async () => { await import("node:fs/promises").then(({ rm }) => rm(root, { recursive: true, force: true })); });
   let tick = 0;
   const now = () => new Date(Date.parse("2026-08-11T00:00:00.000Z") + tick++ * 1_000);

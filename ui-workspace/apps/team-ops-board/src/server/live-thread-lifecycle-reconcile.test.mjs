@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import test from "node:test";
 
 import {
@@ -63,8 +65,18 @@ test("automatic lifecycle reconciliation times out fail-closed and rejects unsaf
 });
 
 test("default Codex sessions root uses only the configured CODEX_HOME", () => {
+  // defaultCodexSessionsRoot resolves CODEX_HOME with the host path module (it
+  // is a real Codex-install directory, native to whatever OS this runs on —
+  // unlike the Windows Task Scheduler paths elsewhere in this app, there is no
+  // single-platform contract to pin here). A hardcoded win32 literal would
+  // only round-trip through host `resolve`/`join` on an actual Windows box, so
+  // this fixture is a real absolute directory built with the host `path`
+  // module (via os.tmpdir()) and the expected value is computed the same way,
+  // giving the same verdict on every host platform.
+  const configuredHome = join(tmpdir(), "configured", "codex");
+  const ignoredHome = join(tmpdir(), "ignored-home");
   assert.equal(defaultCodexSessionsRoot({
-    env: { CODEX_HOME: `${"C:"}/configured/codex` },
-    home: () => `${"C:"}/ignored-home`
-  }), `${"C:"}\\configured\\codex\\sessions`);
+    env: { CODEX_HOME: configuredHome },
+    home: () => ignoredHome
+  }), join(resolve(configuredHome), "sessions"));
 });
