@@ -135,8 +135,17 @@ or claim actual backup readiness.
 
 The Board registers `GET /agent-runtime.snapshot.json?read_only=1` for loopback
 clients only. The exact query is required, non-GET methods return `405`, and
-non-loopback callers return `403`. Responses are JSON with `Cache-Control:
-no-store` and `X-Content-Type-Options: nosniff`.
+non-loopback callers return `403`. A request carrying any proxy-passage marker
+header (`X-Forwarded-For`, `X-Forwarded-Host`, `X-Forwarded-Proto`,
+`Forwarded`, `Tailscale-User-Login`) is also rejected `403`, even from a
+loopback socket, and this loopback/proxy check runs before the method check so
+a proxied or remote caller gets the same fail-closed `403` regardless of verb.
+Tailscale Serve can proxy a tailnet peer's request to this host's `127.0.0.1`,
+so a loopback socket address alone does not prove the caller is the Owner's
+own local process (Level 2 review finding M1); the ready projection carries each
+configured bot's `agent_id`, durable Hermes session key, live session id, and
+provider-reported model, none of which belongs off this host. Responses are
+JSON with `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`.
 
 The endpoint consumes the provider-neutral Agent Runtime read Module. Its Hermes
 Adapter requests only `session.active_list` with `metadata_only: true`; it never

@@ -13,6 +13,7 @@ import {
 } from "./agent-runtime-snapshot-adapter.mjs";
 
 const SYNTHETIC_BINDING_PATH = path.resolve("synthetic-agent-runtime-bindings.json");
+const PROXY_MARKER_HEADER_NAMES = ["x-forwarded-for", "x-forwarded-host", "x-forwarded-proto", "forwarded", "tailscale-user-login"];
 
 function captureMiddleware(plugin, surface = "configureServer") {
   let middleware;
@@ -47,6 +48,7 @@ function loopbackRequest(overrides = {}) {
     method: "GET",
     url: `${AGENT_RUNTIME_SNAPSHOT_PATH}?read_only=1`,
     socket: { remoteAddress: "127.0.0.1" },
+    headers: {},
     ...overrides,
   };
 }
@@ -111,6 +113,51 @@ test("the endpoint allows only loopback GET with the exact read_only query on de
     const unrelated = await invoke(middleware, loopbackRequest({ url: "/other.json" }));
     assert.deepEqual(unrelated, { next: true }, surface);
   }
+});
+
+test("a request carrying a proxy-passage header is rejected 403 even from a loopback socket, before the method check (M1/M8)", async () => {
+  const plugin = createAgentRuntimeSnapshotAdapterPlugin();
+  for (const surface of ["configureServer", "configurePreviewServer"]) {
+    const middleware = captureMiddleware(plugin, surface);
+    for (const header of PROXY_MARKER_HEADER_NAMES) {
+      const proxied = await invoke(middleware, loopbackRequest({ headers: { [header]: "anything" } }));
+      assert.equal(proxied.statusCode, 403, `${surface}: ${header}`);
+      assert.equal(proxied.body, "", `${surface}: ${header} carries no body`);
+      assert.deepEqual(proxied.headers, {}, `${surface}: ${header} sets no response header`);
+      // Same header plus a non-GET verb still reports 403, not 405: loopback/proxy
+      // trust is checked before the method (M8).
+      const proxiedPost = await invoke(middleware, loopbackRequest({ method: "POST", headers: { [header]: "anything" } }));
+      assert.equal(proxiedPost.statusCode, 403, `${surface}: ${header} + POST`);
+    }
+    // A remote socket with a non-GET verb is likewise 403 first, not 405 (M8).
+    const remotePost = await invoke(middleware, loopbackRequest({ method: "POST", socket: { remoteAddress: "100.64.0.9" } }));
+    assert.equal(remotePost.statusCode, 403, surface);
+    // A plain loopback GET with no proxy marker header still works, and a
+    // request without any headers bag is not mistaken for a proxy hop.
+    assert.equal((await invoke(middleware, loopbackRequest({ headers: {} }))).statusCode, 200, surface);
+    assert.equal((await invoke(middleware, loopbackRequest({ headers: undefined }))).statusCode, 200, surface);
+  }
+
+  // With a configured transport the guard fires before any upstream read: a
+  // proxied caller gets 403 and the gateway is never contacted, so no bot
+  // identity, session key, or live session id can leave for that caller.
+  let exchanges = 0;
+  const configured = captureMiddleware(createAgentRuntimeSnapshotAdapterPlugin({
+    bindings: [{
+      bot_id: "synthetic-bot",
+      agent_id: "synthetic-agent",
+      display_label: "Synthetic Bot",
+      hermes_session_key: "synthetic-key",
+    }],
+    exchangeFrame: async () => {
+      exchanges += 1;
+      return JSON.stringify({ id: 1, result: { sessions: [] } });
+    },
+  }));
+  const proxiedConfigured = await invoke(configured, loopbackRequest({ headers: { "x-forwarded-for": "100.64.0.9" } }));
+  assert.equal(proxiedConfigured.statusCode, 403);
+  assert.equal(proxiedConfigured.body, "");
+  assert.equal(exchanges, 0, "no gateway exchange for a proxied request");
 });
 
 test("an explicitly injected bounded transport and exact binding flow through the deep read Module", async () => {
