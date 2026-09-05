@@ -30,6 +30,7 @@ import { createHash } from "node:crypto";
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 
 export const SOURCE_LANE_SPEC_SCHEMA = "soulforge.source_lane_spec.v0";
 export const SOURCE_LANE_RECEIPT_SCHEMA = "soulforge.source_lane_build_receipt.v0";
@@ -417,7 +418,17 @@ async function main(argv) {
   process.stdout.write(`${JSON.stringify(receipt, null, 2)}\n`);
 }
 
-if (process.argv[1] && import.meta.url === `file://${process.argv[1].replace(/\\/gu, "/")}`) {
+// `pathToFileURL` (not a manual `file://` + backslash-to-slash template) is the
+// part that matters on Windows: a drive-letter absolute path needs a third
+// leading slash right after the "file:" scheme, matching the shape
+// `import.meta.url` actually has, that a plain string template never adds --
+// so the old `file://` + backslash-to-slash template could never equal
+// `import.meta.url` for any Windows invocation, relative or absolute. That
+// left this guard silently skipping `main()` (exit 0, no output, nothing
+// built or verified) on every Windows CLI run. The exported functions were
+// unaffected (the test suite calls them directly, never through this guard),
+// which is why the gap went unnoticed.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main(process.argv.slice(2)).catch((error) => {
     process.stderr.write(`${error.code ?? "error"}: ${error.message}\n`);
     process.exitCode = 1;
