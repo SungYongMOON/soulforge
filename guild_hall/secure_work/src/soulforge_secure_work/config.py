@@ -42,6 +42,16 @@ class Config:
     status_path: Path
     recipe_root: Path
     adapters: dict = field(default_factory=dict)
+    # The one key a permit is ever checked against. Never read from a permit
+    # file itself -- that would let anything that can write the job store mint
+    # its own accepted permit (BIND09; see SECURE_WORK_CYCLE_V0.md). Optional at
+    # parse time so a config that predates this field still loads; every code
+    # path that needs the key fails closed (PERMIT_TRUST_UNBOUND) when it is
+    # None or the file it names is absent.
+    permit_trust_pubkey_path: Path | None = None
+    # The matching private half. Only `sfx permit approve` touches this, and
+    # only to sign; the engine's verification path never reads it.
+    permit_trust_signing_key_path: Path | None = None
 
     # Directories under the pilot root. All synthetic in cycle 1.
     @property
@@ -107,6 +117,18 @@ def _require_abs(raw: object, key: str) -> Path:
     return candidate
 
 
+def _optional_abs(raw: object, key: str) -> Path | None:
+    """Unset is allowed (the caller fails closed at use-time); present-but-wrong is not."""
+    if raw is None:
+        return None
+    if not isinstance(raw, str) or not raw:
+        raise ConfigError("CONFIG_FIELD_MISSING", key)
+    candidate = Path(raw)
+    if not candidate.is_absolute():
+        raise ConfigError("CONFIG_PATH_NOT_ABSOLUTE", key)
+    return candidate
+
+
 def load(path: str | os.PathLike[str] | None = None) -> Config:
     raw_path = path or os.environ.get(CONFIG_ENV)
     if not raw_path:
@@ -130,6 +152,10 @@ def load(path: str | os.PathLike[str] | None = None) -> Config:
     adapters = data.get("adapters")
     if not isinstance(adapters, dict):
         raise ConfigError("CONFIG_FIELD_MISSING", "adapters")
+    permit_trust_pubkey_path = _optional_abs(
+        data.get("permit_trust_pubkey_path"), "permit_trust_pubkey_path")
+    permit_trust_signing_key_path = _optional_abs(
+        data.get("permit_trust_signing_key_path"), "permit_trust_signing_key_path")
     return Config(
         path=config_path,
         kit_root=kit_root,
@@ -137,4 +163,6 @@ def load(path: str | os.PathLike[str] | None = None) -> Config:
         status_path=status_path,
         recipe_root=recipe_root,
         adapters=adapters,
+        permit_trust_pubkey_path=permit_trust_pubkey_path,
+        permit_trust_signing_key_path=permit_trust_signing_key_path,
     )

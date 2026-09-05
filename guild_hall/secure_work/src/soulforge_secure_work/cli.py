@@ -6,6 +6,7 @@
     sfx status [--job <job>]
     sfx permit approve|deny --job <job> --actor <ref>
     sfx events --job <job>
+    sfx keys init-pilot --out <dir>
 
 Output is JSON on stdout so a caller can read it without parsing prose. Errors
 are a JSON object with a code, never a stack trace with a payload in it.
@@ -17,7 +18,8 @@ import json
 import sys
 from pathlib import Path
 
-from .config import ConfigError, load
+from . import authority
+from .config import Config, ConfigError, load
 from .engine import EngineStop, Lane
 
 
@@ -52,7 +54,27 @@ def _parser() -> argparse.ArgumentParser:
 
     events = sub.add_parser("events", help="the job's event ledger")
     events.add_argument("--job", required=True)
+
+    keys = sub.add_parser("keys", help="local pilot key material (synthetic only)")
+    keys_sub = keys.add_subparsers(dest="keys_command", required=True)
+    init_pilot = keys_sub.add_parser(
+        "init-pilot",
+        help="generate a synthetic permit trust key pair outside the pilot root")
+    init_pilot.add_argument("--out", required=True)
     return parser
+
+
+def _run_keys_command(args: argparse.Namespace, config: Config) -> int:
+    if args.keys_command != "init-pilot":
+        _emit({"ok": False, "code": "UNKNOWN_COMMAND"})
+        return 2
+    try:
+        result = authority.generate_pilot_trust_keypair(Path(args.out), config.pilot_root)
+    except authority.PermitAuthorityError as error:
+        _emit({"ok": False, "code": error.code, "detail": error.detail})
+        return 2
+    _emit({"ok": True, "command": "keys.init-pilot", **result})
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -62,6 +84,12 @@ def main(argv: list[str] | None = None) -> int:
     except ConfigError as error:
         _emit({"ok": False, "code": error.code})
         return 2
+
+    if args.command == "keys":
+        # Pure key material generation. Deliberately does not require the kit
+        # to be bound: it has nothing to do with mission processing.
+        return _run_keys_command(args, config)
+
     try:
         lane = Lane(config)
     except Exception as error:  # noqa: BLE001 - reported as a code, never a payload

@@ -95,8 +95,7 @@ def test_guard_passes_a_body_that_only_holds_opaque_tokens():
 
 
 def test_guard_flags_a_withheld_value_in_a_log_line():
-    findings = guard.scan_log_line('{"note":"금액: 732641원"}',
-                                   bound_values=["732641원"], key_material=[])
+    findings = guard.scan_log_line('{"note":"금액: 732641원"}', bound_values=["732641원"])
     assert [finding.code for finding in findings] == ["BOUND_VALUE_IN_LOG"]
 
 

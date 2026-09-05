@@ -19,6 +19,8 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import winsec
+
 
 class AdapterUnavailable(RuntimeError):
     def __init__(self, module: str, reason: str) -> None:
@@ -157,13 +159,20 @@ class LocalManagerAdapter:
 class LocalFileKeyWrapper:
     """TEST-ONLY key wrapper.
 
-    The wrapping key is a local file protected by filesystem permissions only.
-    It is not an OS key store, not a KMS and not an operational key owner; the
-    E14 kit calls this class of wrapper `KEY_WRAPPER_TEST_ONLY` and this lane
-    keeps that label. Synthetic material only.
+    The wrapping key is a local file. `0o600` is requested at creation, but on
+    Windows that mode is not enforced -- CPython maps it to the read-only
+    attribute only, and the real ACL comes from the parent directory (observed
+    2026-09-06: BUILTIN\\Users held inherited read access). This class also
+    tries an explicit ACL lockdown (`winsec.restrict_to_current_user`) right
+    after creating the file and records what happened next to the key, never
+    what the key contains. It is not an OS key store, not a KMS and not an
+    operational key owner; the E14 kit calls this class of wrapper
+    `KEY_WRAPPER_TEST_ONLY` and this lane keeps that label. Synthetic material
+    only.
     """
 
     KEY_ID = "LOCAL_FILE_TEST_ONLY"
+    ACL_RECEIPT_SCHEMA = "soulforge.secure_work.keywrap_acl.v0"
 
     def __init__(self, path: Path) -> None:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -179,9 +188,27 @@ class LocalFileKeyWrapper:
             finally:
                 os.close(handle)
             del material
+            lockdown = winsec.restrict_to_current_user(self.path)
+            self._acl_receipt_path.write_text(json.dumps({
+                "schema": self.ACL_RECEIPT_SCHEMA,
+                **lockdown.as_dict(),
+            }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         self._key = self.path.read_bytes()
         if len(self._key) != 32:
             raise AdapterUnavailable("M04", "key_wrapper_shape")
+
+    @property
+    def _acl_receipt_path(self) -> Path:
+        return self.path.with_name(self.path.name + ".acl_receipt.json")
+
+    def acl_lockdown_receipt(self) -> dict | None:
+        """What happened the one time this key file was created. No value or path in it."""
+        if not self._acl_receipt_path.is_file():
+            return None
+        try:
+            return json.loads(self._acl_receipt_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
 
     def wrap(self, dek: bytes) -> tuple[str, bytes]:
         nonce = secrets.token_bytes(12)
@@ -209,7 +236,23 @@ class VaultAdapter:
             return Probe(self.module, self.name, "AVAILABLE", "test key wrapper not yet created")
         if shape != "present":
             return Probe(self.module, self.name, "UNAVAILABLE", f"key wrapper {shape}")
-        return Probe(self.module, self.name, "AVAILABLE", "test key wrapper present")
+        warning = self._acl_warning()
+        detail = "test key wrapper present" + (f"; WARNING {warning}" if warning else "")
+        return Probe(self.module, self.name, "AVAILABLE", detail)
+
+    def _acl_warning(self) -> str | None:
+        """Surface a failed ACL lockdown here so an operator sees it without
+        having to open the vault. Never reads the key material itself."""
+        receipt_path = self.keywrap_path.with_name(self.keywrap_path.name + ".acl_receipt.json")
+        if not receipt_path.is_file():
+            return None
+        try:
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return "acl_receipt_unreadable"
+        if receipt.get("applied") is False:
+            return f"acl_lockdown_failed:{receipt.get('detail', 'UNKNOWN')}"
+        return None
 
     def open(self, job_id: str):
         from sf_sewe.vault import SqliteBindingVault

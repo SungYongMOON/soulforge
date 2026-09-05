@@ -49,13 +49,18 @@ def scan_released_bytes(body: bytes, *, source_refs: list[str], source_names: li
     return findings
 
 
-def scan_log_line(line: str, *, bound_values: list[str], key_material: list[str]) -> list[Finding]:
-    """Receipts and events must not carry mappings, key bytes or raw source."""
+def scan_log_line(line: str, *, bound_values: list[str]) -> list[Finding]:
+    """Receipts and events must not carry mappings or raw source values.
+
+    There is no separate `key_material` channel: nothing in this lane ever
+    holds key bytes in a variable available to a log call (the vault key
+    wrapper reads its key straight from a file into the AES-GCM primitive and
+    nowhere else; a signing key is loaded, used and `del`-ed within one
+    function). A channel with nothing to feed it is dead code, not defence in
+    depth, so it was removed rather than kept unused.
+    """
     findings: list[Finding] = []
     for value in bound_values:
         if value and value in line:
             findings.append(Finding(code="BOUND_VALUE_IN_LOG", where="line"))
-    for secret in key_material:
-        if secret and secret in line:
-            findings.append(Finding(code="KEY_MATERIAL_IN_LOG", where="line"))
     return findings

@@ -37,6 +37,14 @@ class EngineStop(RuntimeError):
         super().__init__(code if not detail else f"{code}: {detail}")
 
 
+class BoundValuesUnavailable(RuntimeError):
+    """The vault could not answer what a slot's bound value is.
+
+    Raised, never swallowed: a receipt or event write that cannot check for a
+    withheld value must not be allowed to proceed as if the check had passed.
+    """
+
+
 def _opaque(*parts: str) -> str:
     return "o_" + hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()[:32]
 
@@ -167,8 +175,7 @@ class Lane:
         if facts:
             record["facts"] = facts
         line = json.dumps(record, ensure_ascii=False, sort_keys=True)
-        findings = guard.scan_log_line(line, bound_values=self._bound_values(job),
-                                       key_material=[])
+        findings = guard.scan_log_line(line, bound_values=self._guarded_bound_values(job))
         if findings:
             raise EngineStop("EVENT_WOULD_LEAK", findings[0].code)
         with path.open("a", encoding="utf-8") as handle:
@@ -181,19 +188,24 @@ class Lane:
         body = {"schema": "soulforge.secure_work.receipt.v0", "job_id": job.job_id,
                 "seq": seq, "action": action, "observed_at": _now(), **payload}
         text = json.dumps(body, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-        findings = guard.scan_log_line(text, bound_values=self._bound_values(job),
-                                       key_material=[])
+        findings = guard.scan_log_line(text, bound_values=self._guarded_bound_values(job))
         if findings:
             raise EngineStop("RECEIPT_WOULD_LEAK", findings[0].code)
         (job.receipts / name).write_text(text, encoding="utf-8")
         return f"{job.job_id}/{name}"
 
     def _bound_values(self, job: Job) -> list[str]:
+        """The exact values a slot exists to withhold, held in memory for one scan.
+
+        Fails closed: once a binding index exists, a value that cannot be
+        resolved raises `BoundValuesUnavailable` rather than being silently
+        treated as "nothing to check". Before any binding index exists (no
+        `bindings_digest.json` yet) there is genuinely nothing to withhold, so
+        an empty list there is correct, not a fallback.
+        """
         path = job.path("bindings_digest.json")
         if not path.is_file():
             return []
-        # Only the values that a slot exists to withhold are checked, and they
-        # are held in memory for the length of one scan.
         vault, connection = self.vault.open(job.job_id)
         try:
             index = json.loads(path.read_text(encoding="utf-8"))
@@ -203,10 +215,23 @@ class Lane:
                                        index["source_bundle_sha256"])
                 values.append(record.value)
             return values
-        except Exception:
-            return []
+        except Exception as error:
+            raise BoundValuesUnavailable(type(error).__name__) from error
         finally:
             connection.close()
+
+    def _guarded_bound_values(self, job: Job) -> list[str]:
+        """`_bound_values`, with an unavailable vault turned into a bounded stop.
+
+        Every write path that must not leak a bound value calls this, never
+        `_bound_values` directly, so a vault outage refuses the write
+        (`LEAK_GUARD_UNAVAILABLE`) instead of writing as if the scan had
+        already found nothing.
+        """
+        try:
+            return self._bound_values(job)
+        except BoundValuesUnavailable as error:
+            raise EngineStop("LEAK_GUARD_UNAVAILABLE", str(error)) from error
 
     def refresh_status(self, last_job: str | None = None,
                        last_receipt_ref: str | None = None) -> dict:
@@ -505,9 +530,12 @@ class Lane:
         record = self._permit_record(job)
         if record is None:
             raise EngineStop("PERMIT_REQUIRED", "sfx permit approve <job>")
+        fingerprint, trust_pubkey = self._trusted_permit_key(record)
         body = job.path("body.bin").read_bytes()
         permit = self.models.SignedPermit.model_validate(record["permit"])
-        public_keys = {record["key_id"]: authority.load_public_key(record["public_key_hex"])}
+        # The verification key always comes from the pinned trust file, never
+        # from the permit record being checked -- see BIND09 / authority.py.
+        public_keys = {fingerprint: trust_pubkey}
         transport_id = job.data.get("transport_id", self.scripted.name)
         self.transition(job, "RUNNING", "model.dispatch.begin",
                         f"evidence.attempt.{job.data['request_sha256'][:12]}",
@@ -518,10 +546,13 @@ class Lane:
             with tempfile.TemporaryDirectory(prefix="sfx_worker_") as workdir:
                 transport = _BoundTransport(self.scripted, Path(workdir))
                 dispatch = self.runtime.DispatchReference(handle, transport, public_keys)
-                state, reply = dispatch.send(
-                    attempt_id, permit, body, job.data["route_sha256"], job.job_id,
-                    job.data["mission_id"], job.data["round"], job.data["review_ref"],
-                    job.data["policy_epoch"], transport_id, authority.utc_now())
+                try:
+                    state, reply = dispatch.send(
+                        attempt_id, permit, body, job.data["route_sha256"], job.job_id,
+                        job.data["mission_id"], job.data["round"], job.data["review_ref"],
+                        job.data["policy_epoch"], transport_id, authority.utc_now())
+                except self.codec.ContractViolation as violation:
+                    raise EngineStop("PERMIT_INVALID", violation.code) from violation
         finally:
             handle.close()
         if state != "RESPONSE_RECEIVED" or reply is None:
@@ -755,14 +786,18 @@ class Lane:
         if not job.path("body.bin").is_file():
             raise EngineStop("PACKET_NOT_PREPARED", "advance to RELEASE_REVIEW first")
         body = job.path("body.bin").read_bytes()
-        record, _ = authority.issue_permit(
-            self.models, self.permits, self.codec.canonical, self.codec.digest,
-            job_id=job.job_id, mission_id=job.data["mission_id"],
-            round_index=job.data["round"], body=body,
-            route_digest=job.data["route_sha256"], review_ref=job.data["review_ref"],
-            policy_epoch=job.data["policy_epoch"],
-            audience=job.data.get("transport_id", self.scripted.name),
-            lifetime_seconds=PERMIT_LIFETIME_SECONDS, actor_ref=actor_ref)
+        try:
+            record, _ = authority.issue_permit(
+                self.models, self.permits, self.codec.canonical, self.codec.digest,
+                job_id=job.job_id, mission_id=job.data["mission_id"],
+                round_index=job.data["round"], body=body,
+                route_digest=job.data["route_sha256"], review_ref=job.data["review_ref"],
+                policy_epoch=job.data["policy_epoch"],
+                audience=job.data.get("transport_id", self.scripted.name),
+                lifetime_seconds=PERMIT_LIFETIME_SECONDS, actor_ref=actor_ref,
+                trust_signing_key_path=self.config.permit_trust_signing_key_path)
+        except authority.PermitAuthorityError as error:
+            raise EngineStop(error.code, error.detail) from error
         job.path("permit.json").write_text(
             json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         seq = self.append_event(job, "release.issue", self.phase(job), self.phase(job),
@@ -792,6 +827,27 @@ class Lane:
         if not path.is_file():
             return None
         return json.loads(path.read_text(encoding="utf-8"))
+
+    def _trusted_permit_key(self, record: dict) -> tuple[str, object]:
+        """The one key a permit is ever checked against, and a fingerprint match.
+
+        Never trusts anything the permit record itself carries: the trust
+        public key always comes from `config.permit_trust_pubkey_path`, a
+        location the permit cannot influence. Raises `EngineStop` with
+        `PERMIT_TRUST_UNBOUND` if that file is not configured or absent (no
+        permit is accepted while unbound) and with `PERMIT_ISSUER_UNKNOWN` if
+        the record's `issuer_key_id` does not match the trusted key's own
+        fingerprint -- a cheap, explicit check ahead of the cryptographic one
+        `dispatch.send` performs.
+        """
+        try:
+            fingerprint, trust_pubkey = authority.load_trust_pubkey(
+                self.config.permit_trust_pubkey_path)
+        except authority.PermitAuthorityError as error:
+            raise EngineStop(error.code, error.detail) from error
+        if record.get("issuer_key_id") != fingerprint:
+            raise EngineStop("PERMIT_ISSUER_UNKNOWN", record.get("issuer_key_id") or "MISSING")
+        return fingerprint, trust_pubkey
 
     # -- helpers -----------------------------------------------------------
 
@@ -845,6 +901,13 @@ class Lane:
             "header_profile_sha256": header_digest,
             "codec_version": "1.0.0",
             "destination_profile": transport_id})
+        # HOLD, not TODO: this lane does not keep a cumulative disclosure
+        # ledger across jobs (BIND10 / security digest B8). Closing it needs a
+        # store keyed by requester or mission family that survives across
+        # jobs, and an Owner decision on what "already released" counts as
+        # (packet fields, candidate bytes, which round) -- neither exists yet.
+        # Until then this stays an honestly empty wire field rather than a
+        # partial, unverified reconstruction from receipts.
         body = self.codec.canonical({"packet": packet.model_dump(mode="json"),
                                      "released_history": []})
         review_ref = f"review.packet.{job.job_id[2:14]}"
@@ -881,6 +944,13 @@ class Lane:
             "AVAILABLE" if ledger.loaded else "UNAVAILABLE",
             "synthetic pilot ledger" if ledger.synthetic else
             ("ledger present" if ledger.loaded else "ledger file missing")))
+        try:
+            authority.load_trust_pubkey(self.config.permit_trust_pubkey_path)
+            trust_state, trust_detail = "AVAILABLE", "trusted verification key bound"
+        except authority.PermitAuthorityError as error:
+            trust_state = "UNAVAILABLE"
+            trust_detail = f"{error.code}: no permit will be accepted"
+        rows.append(adapters_module.Probe("M05", "permit_trust_key", trust_state, trust_detail))
         return [row.as_row() for row in rows]
 
 
