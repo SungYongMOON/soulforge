@@ -1,0 +1,19 @@
+{
+  "schema": "soulforge.source_lane_spec.v0",
+  "lane_id": "secure-work-lane-v1",
+  "description": "The lane the secure-work cycle CLI (`sfx`) runs from on demand -- no registered scheduled task calls it. Carries the Node wrapper (guild_hall/secure_work/sfx.mjs), the Python engine package, its tests, and the README. The E14/E13 contract kit, the Python venv, and the pilot's job/vault/outbox state all live outside this lane (tool_root / pilot_root) and are reached only through the absolute paths named in a host-local config JSON pointed to by SOULFORGE_SECURE_WORK_CONFIG -- this lane never carries them.",
+  "tracked_paths": [
+    "guild_hall/secure_work/"
+  ],
+  "tracked_excludes": [],
+  "carried_forward_prefixes": [
+    "lane_bootstrap_placeholder/"
+  ],
+  "carried_forward_rationale": {
+    "lane_bootstrap_placeholder/": "guild_hall/secure_work/sfx.mjs imports only Node built-ins (node:child_process, node:fs, node:path, node:process, node:url -- verified by reading the file); it has zero third-party node_modules dependencies. The Python engine's dependencies live in an external venv (tool_root, e.g. a directory named secure-work-venv) that this lane never copies -- it is reached only through the absolute runtime.python_executable path named in the host-local config JSON, itself outside the repository and outside this lane. So this lane's real untracked closure is empty. build_source_lane.mjs's verifyCarriedForward() currently requires a non-empty carried set and a previous lane manifest that names at least one matching file (see guild_hall/deployment_pack/tools/build_source_lane.mjs, the previous_lane_manifest_absent and carried_set_empty checks); there was no prior secure-work lane to inherit from on this first build. This single placeholder file exists only to satisfy that structural invariant -- it carries no runtime behavior and nothing under guild_hall/secure_work reads it. Recorded here as a discovered gap in the shared tool: a lane with a genuinely empty untracked closure cannot build without a synthetic previous-lane input today."
+  },
+  "entry_points": [
+    "guild_hall/secure_work/sfx.mjs",
+    "guild_hall/secure_work/src/soulforge_secure_work/cli.py"
+  ]
+}
