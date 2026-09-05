@@ -180,7 +180,9 @@ async function scanWorkmetaTree({ repoRoot, workmetaRoot }) {
         continue;
       }
       if (entry.isSymbolicLink()) {
-        recordTargetViolations(absolutePath, relativeToWorkmeta, "file");
+        // A symlink is judged by its own name only: a blocked payload extension is a violation,
+        // anything else is left alone and the target is never followed.
+        recordTargetViolations(absolutePath, relativeToWorkmeta, "symlink");
         continue;
       }
       if (entry.isDirectory()) {
@@ -223,12 +225,12 @@ function classifyWorkmetaTarget(relativeToWorkmeta, targetKind) {
   if (parts.some((part) => generatedDirectoryPatterns.some((pattern) => pattern.test(part)))) {
     violations.push({ id: "generated_runtime_path_in_workmeta" });
   }
-  if (targetKind === "file") {
+  if (targetKind === "file" || targetKind === "symlink") {
     const basename = parts.at(-1) ?? "";
     const extension = path.extname(basename).toLowerCase();
     if (blockedWorkmetaPayloadExtensions.has(extension)) {
       violations.push({ id: "blocked_payload_extension_in_workmeta", extension });
-    } else if (!allowedWorkmetaMetadataExtensions.has(extension) && basename !== ".gitignore") {
+    } else if (targetKind === "file" && !allowedWorkmetaMetadataExtensions.has(extension) && basename !== ".gitignore") {
       violations.push({ id: "non_metadata_file_type_in_workmeta", extension: extension || "<none>" });
     }
   }
