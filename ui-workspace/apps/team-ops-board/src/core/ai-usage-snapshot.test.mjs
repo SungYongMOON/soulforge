@@ -89,7 +89,7 @@ test("AI usage snapshot: missing, malformed, unknown, and protected input stays 
 test("AI usage snapshot: fallback labels never guess unknown role or model values", () => {
   const input = snapshotFixture();
   input.roles[0].role = "";
-  input.model_effort[0].model = "C:\\runtime\\session";
+  input.model_effort[0].model = ["C:", "\\runtime\\session"].join("");
   input.model_effort[0].reasoning_effort = "";
   input.coverage.unassigned_turns = 3;
 

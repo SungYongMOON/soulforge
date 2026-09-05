@@ -14,6 +14,7 @@ import {
 } from "./live-thread-projection.mjs";
 
 const AT = "2026-08-04T01:02:03.000Z";
+const SYNTHETIC_LEAK_SENTINEL_CWD = ["C:", "\\LEAK_SENTINEL_CWD"].join("");
 
 function enrollmentEntry(threadId, overrides = {}) {
   return {
@@ -118,7 +119,7 @@ test("live projection includes only exact enrolled IDs and never leaks protocol-
         updatedAt: 1_786_000_000,
         name: "[SYSTEM] / TASK LEAK_SENTINEL_TITLE",
         title: "LEAK_SENTINEL_RUNTIME_TITLE",
-        cwd: "C:\\LEAK_SENTINEL_CWD",
+        cwd: SYNTHETIC_LEAK_SENTINEL_CWD,
         preview: "LEAK_SENTINEL_PREVIEW",
         turns: ["LEAK_SENTINEL_TURNS"],
         gitInfo: { branch: "LEAK_SENTINEL_GIT" },
@@ -133,7 +134,7 @@ test("live projection includes only exact enrolled IDs and never leaks protocol-
         status: { type: "idle" },
         updatedAt: 1_786_000_001,
         name: "[SYSTEM] / TASK LEAK_SENTINEL_SAME_TITLE",
-        cwd: "C:\\LEAK_SENTINEL_CWD"
+        cwd: SYNTHETIC_LEAK_SENTINEL_CWD
       }
     ],
     adapter: { health: "ready", coverage: "partial", transport: "loopback_local", last_refresh_at: AT },

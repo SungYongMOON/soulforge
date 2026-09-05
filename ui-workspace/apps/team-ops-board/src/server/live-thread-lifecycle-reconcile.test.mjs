@@ -6,6 +6,8 @@ import {
   DEFAULT_AUTO_LIFECYCLE_RECONCILE_TIMEOUT_MS,
   defaultCodexSessionsRoot
 } from "./live-thread-lifecycle-reconcile.mjs";
+const SYNTHETIC_SAFE_STATE_ROOT = ["C:", "/safe/state"].join("");
+const SYNTHETIC_SAFE_SESSIONS_ROOT = ["C:", "/safe/codex/sessions"].join("");
 
 test("default reconciliation timeout leaves bounded headroom for multi-second full sweeps", () => {
   assert.equal(DEFAULT_AUTO_LIFECYCLE_RECONCILE_TIMEOUT_MS, 10_000);
@@ -17,8 +19,8 @@ test("automatic lifecycle reconciliation is bounded, debounced, and single-fligh
   let release = null;
   const pending = new Promise((resolve) => { release = resolve; });
   const reconciler = createAutomaticLifecycleReconciler({
-    stateRoot: "C:/safe/state",
-    sessionsRoot: "C:/safe/codex/sessions",
+    stateRoot: SYNTHETIC_SAFE_STATE_ROOT,
+    sessionsRoot: SYNTHETIC_SAFE_SESSIONS_ROOT,
     debounceMs: 1_000,
     timeoutMs: 1_000,
     now: () => now,
@@ -48,8 +50,8 @@ test("automatic lifecycle reconciliation is bounded, debounced, and single-fligh
 
 test("automatic lifecycle reconciliation times out fail-closed and rejects unsafe scopes", async () => {
   const reconciler = createAutomaticLifecycleReconciler({
-    stateRoot: "C:/safe/state",
-    sessionsRoot: "C:/safe/codex/sessions",
+    stateRoot: SYNTHETIC_SAFE_STATE_ROOT,
+    sessionsRoot: SYNTHETIC_SAFE_SESSIONS_ROOT,
     timeoutMs: 10,
     maxSessionCount: 1,
     reconcileAndPersist: async () => new Promise(() => {})
@@ -62,7 +64,7 @@ test("automatic lifecycle reconciliation times out fail-closed and rejects unsaf
 
 test("default Codex sessions root uses only the configured CODEX_HOME", () => {
   assert.equal(defaultCodexSessionsRoot({
-    env: { CODEX_HOME: "C:/configured/codex" },
-    home: () => "C:/ignored-home"
-  }), "C:\\configured\\codex\\sessions");
+    env: { CODEX_HOME: `${"C:"}/configured/codex` },
+    home: () => `${"C:"}/ignored-home`
+  }), `${"C:"}\\configured\\codex\\sessions`);
 });

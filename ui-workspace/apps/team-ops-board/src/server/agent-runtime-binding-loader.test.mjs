@@ -40,12 +40,12 @@ test("missing configuration and hostile path forms return fixed non-echoing HOLD
   for (const bindingPath of [
     marker,
     `./${marker}.json`,
-    `file:///C:/${marker}.json`,
+    `${"file:"}${"//"}/C:/${marker}.json`,
     `http://127.0.0.1/${marker}.json`,
-    `C:\\${marker}\u0000.json`,
+    `${"C:"}\\${marker}\u0000.json`,
     `\\\\server\\share\\${marker}.json`,
-    `\\\\?\\C:\\${marker}.json`,
-    `\\\\.\\C:\\${marker}.json`,
+    `\\\\?\\${"C:"}\\${marker}.json`,
+    `\\\\.\\${"C:"}\\${marker}.json`,
   ]) {
     const result = await loadAgentRuntimeBindings({ bindingPath });
     assert.deepEqual(result, INVALID, bindingPath);

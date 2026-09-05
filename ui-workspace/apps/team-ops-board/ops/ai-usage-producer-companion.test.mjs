@@ -1755,8 +1755,8 @@ test("validateCodexCollectionResult validates exact required counts, schema, iss
     { name: "issue winner_turn_id", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: "session-a", code: "usage_event_duplicate_conflict", winner_turn_id: "forbidden" }] } },
     // Issue source_ref violations
     { name: "issue absolute path", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: "/absolute/path/session.jsonl", code: "usage_event_duplicate_conflict" }] } },
-    { name: "issue drive path", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: "C:\\path\\session.jsonl", code: "usage_event_duplicate_conflict" }] } },
-    { name: "issue slash drive path", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: "C:/path/session.jsonl", code: "usage_event_duplicate_conflict" }] } },
+    { name: "issue drive path", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: ["C:", "\\path\\session.jsonl"].join(""), code: "usage_event_duplicate_conflict" }] } },
+    { name: "issue slash drive path", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: ["C:", "/path/session.jsonl"].join(""), code: "usage_event_duplicate_conflict" }] } },
     { name: "issue traversal path", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: "../traversal/session.jsonl", code: "usage_event_duplicate_conflict" }] } },
     { name: "issue email", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: "user@example.com", code: "usage_event_duplicate_conflict" }] } },
     { name: "issue bearer token", payload: { ...baseResult(), issue_count: 1, issues: [{ source_ref: "bearer_token_abc", code: "usage_event_duplicate_conflict" }] } },

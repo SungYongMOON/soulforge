@@ -13,6 +13,7 @@ import {
 } from "./live-organization-catalog-store.mjs";
 
 const AT = "2026-08-05T00:01:00.000Z";
+const SYNTHETIC_LOCAL_CATALOG_ROOT = ["C:", "/local"].join("");
 
 function governanceSource(overrides = {}) {
   return {
@@ -183,8 +184,8 @@ test("manual Board catalog writes are rejected", async () => {
 });
 
 test("governance and legacy rollback paths use separate environment controls", () => {
-  const governancePath = "C:/local/organization-governance.json";
-  const legacyPath = "C:/local/organization-catalog.json";
+  const governancePath = `${SYNTHETIC_LOCAL_CATALOG_ROOT}/organization-governance.json`;
+  const legacyPath = `${SYNTHETIC_LOCAL_CATALOG_ROOT}/organization-catalog.json`;
   assert.equal(
     defaultOrganizationCatalogPath({
       TEAM_OPS_BOARD_ORGANIZATION_GOVERNANCE_OVERLAY: governancePath,

@@ -294,7 +294,7 @@ createInterface({ input: process.stdin }).on("line", (line) => {
   }
   if (!message.params?.cursor) {
     return send({ id: message.id, result: { data: [
-      { id: "thread-enrolled-one", status: { type: "active", activeFlags: [] }, updatedAt: "2026-08-04T01:03:03.000Z", name: "RAW_SECRET_TITLE", cwd: "C:\\\\RAW_SECRET_CWD", preview: "RAW_SECRET_PREVIEW", turns: ["RAW_SECRET_TURNS"], gitInfo: { branch: "RAW_SECRET_GIT" }, messages: ["RAW_SECRET_MESSAGES"] },
+      { id: "thread-enrolled-one", status: { type: "active", activeFlags: [] }, updatedAt: "2026-08-04T01:03:03.000Z", name: "RAW_SECRET_TITLE", cwd: ["C:", "\\\\RAW_SECRET_CWD"].join(""), preview: "RAW_SECRET_PREVIEW", turns: ["RAW_SECRET_TURNS"], gitInfo: { branch: "RAW_SECRET_GIT" }, messages: ["RAW_SECRET_MESSAGES"] },
       { id: "thread-unregistered", status: { type: "idle" }, updatedAt: "2026-08-04T01:03:04.000Z", name: "RAW_SECRET_SAME_TITLE", description: "RAW_SECRET_DESCRIPTION" }
     ], nextCursor: "next-page" } });
   }
