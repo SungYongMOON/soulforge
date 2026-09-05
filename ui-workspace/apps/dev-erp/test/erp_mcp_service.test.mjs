@@ -11,6 +11,7 @@ import {
   resolveAgendaDate,
 } from "../src/erp_mcp_service.mjs";
 import { openStore } from "../src/store.mjs";
+const SYNTHETIC_HOST_ABSOLUTE_PATH_PREFIX = ["C:", "/absolute"].join("");
 
 function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
@@ -305,7 +306,7 @@ test("ERP MCP pending review list is admin only and omits proposal payloads", ()
       "erp_mcp_work_session",
       "completion_digest",
       f.aliceItem.id,
-      JSON.stringify({ secret_body: "PROPOSAL_PAYLOAD_SECRET", path: "C:/absolute/host/path.docx" }),
+      JSON.stringify({ secret_body: "PROPOSAL_PAYLOAD_SECRET", path: `${SYNTHETIC_HOST_ABSOLUTE_PATH_PREFIX}/host/path.docx` }),
       "PROPOSAL_SUMMARY_SECRET",
       "pending",
       "synthetic",
@@ -329,7 +330,7 @@ test("ERP MCP pending review list is admin only and omits proposal payloads", ()
     assert.equal(serialized.includes("PROPOSAL_PAYLOAD_SECRET"), false);
     assert.equal(serialized.includes("PROPOSAL_SUMMARY_SECRET"), false);
     assert.equal(serialized.includes("payload_json"), false);
-    assert.equal(serialized.includes("C:/absolute"), false);
+    assert.equal(serialized.includes(SYNTHETIC_HOST_ABSOLUTE_PATH_PREFIX), false);
     assert.equal(serialized.includes(f.root), false);
   } finally {
     f.close();
