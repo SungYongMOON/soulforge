@@ -109,6 +109,132 @@ updates keep the Owner's layout preference. Invalid, unknown, or inaccessible
 storage fails open to the fully expanded layout. This preference does not stop
 polling, change any snapshot, or grant runtime/repair authority.
 
+## 대장간 첫 화면 (forge map)
+
+The first tab is `대장간`, the default landing surface. It answers one question
+in a single read-only screen: **is our own structure actually running right
+now** — is anything coming in, what is broken, where the custody copies sit, and
+how many tokens were spent. The agent organization chart and the Codex thread
+board stay where they were (조직도 / 업무 현황·이력 tabs); Buzz is the surface
+that shows agents, so the first screen does not repeat them.
+
+The layout reuses the three bands of the 총괄 forge map: 사람의 물길
+(Buzz → Hermes 봇 → Tongs → World Tree → Vigil), 자료의 물길
+(Tributary → Heartwood → Reliquary, with Hearth alongside), and 받치는 것
+(Bellows · 외부 작업 사이클 · Rune · Quench). Each part is one box coloured by
+its live state.
+
+`src/core/forge-map-view.mjs` is the whole calculation: a pure function with no
+fetch, timer, file, or writer. It owns the node→part map, so a new Watchtower
+node must be given a home there (a paired test walks the tracked
+`guild_hall/watchtower/topology.mjs` node list and fails when one is
+unmapped). A node the map does not know is **not** hidden: it lands in a `기타`
+box whose count is shown on screen.
+
+| 부품 | 근거 | Watchtower 노드 |
+| --- | --- | --- |
+| Buzz | 없음 (회색) | — |
+| Hermes 봇 | topology | `src_agent_runtime` |
+| Tongs | `/tongs.snapshot.json` | — |
+| World Tree | topology | `consumer_timeline` |
+| Vigil | topology | `consumer_board`, `watchtower_self`, `codex_retention_report` |
+| Tributary | topology | `src_hiworks`, `src_plaud`, `src_slack`, `src_onedrive`, `src_gmail`, `src_linear`, `src_buzz`, `ingress_supervisor`, `mail_forwarder`, `slack_batch`, `local_activity`, `linear_collect`, `buzz_collect`, `voice_label_worker` |
+| Heartwood | topology | `store_mail_events`, `store_voice_custody`, `store_slack_custody`, `store_activity_outbox`, `store_usage_ledger`, `store_linear_custody`, `store_buzz_custody` |
+| Reliquary | topology | `backup_buzz_server`, `backup_agent_runtime`, `store_backup_generations` |
+| Hearth | topology | `src_codex`, `src_claude`, `src_antigravity`, `usage_codex_collector`, `usage_claude_collector`, `usage_antigravity_collector`, `usage_meter` |
+| Bellows | `/scheduled-tasks.snapshot.json` | — |
+| 외부 작업 사이클 | `/secure-work.snapshot.json` | — |
+| Rune | 없음 (회색) | — |
+| Quench | topology | `gate_five_field`, `store_workmeta` |
+
+A part's colour is a deterministic priority fold over its contributing states:
+
+```text
+hold > down > stale > degraded > unknown > ok
+```
+
+`unknown` outranking `ok` is the point of the screen. A part whose every node is
+`unmonitored`, or which has no evidence supplier at all, stays grey — never
+green (plan 08 §Health model: missing evidence is `unknown`, not green). The
+Watchtower node vocabulary is folded into this one by mapping `unmonitored` to
+`unknown` only; `ok`≙plan-08 `healthy` and `down`≙plan-08 `unavailable`. A state
+string this screen does not recognise is raised to `hold`, never silently
+ignored. Two parts (Buzz, Rune) and one supplier (Tongs, until its lane writes a
+heartbeat) are grey today, which is the honest answer: Vigil has no probe for
+them yet.
+
+Alongside the map: 고장·주의 (degraded/down/stale nodes with reason codes and
+their part name), 자원 (host-stats CPU/memory/disk/uptime), 토큰·크레딧 (the AI
+usage meter's own day/week/all-time totals and its own per-provider daily row —
+this surface invents no new arithmetic, it reuses the usage tab's functions),
+저장·백업 (storage map state, honestly `unknown · storage_map_binding_unconfigured`
+until the private binding pair exists, plus the World Tree submission-pending
+count), and the Bellows table. Selecting a part opens a read-only inspector with
+that part's nodes and reason codes; the only navigation is back to the existing
+시스템 토폴로지 tab. The surface polls its own four snapshots every 60 seconds and
+holds no writer, action request, or repair control.
+
+### Bellows scheduled-task read projection
+
+`GET /scheduled-tasks.snapshot.json` (`src/server/scheduled-tasks-adapter.mjs`)
+is loopback-only, GET-only (`405` otherwise, `403` for a remote caller),
+`no-store` + `nosniff`. On Windows it runs exactly one
+`schtasks /query /fo csv /v` behind a 60-second TTL cache and a single-flight
+guard; on any other platform it never spawns anything and returns a fixed
+`unavailable`. A non-zero exit, a spawn failure, a timeout, oversized output, or
+an unrecognised header row is the same fail-closed `unavailable` with a
+lowercase reason code.
+
+Only tasks whose leaf name starts with `Soulforge-`, `Buzz`, or `Hermes` are
+projected; every other scheduled task on the host is dropped, since the name
+alone can describe the Owner's unrelated software. The projection carries
+**name, status, last run, last result, next run, a derived `healthy` boolean and
+a trigger count** — nothing else. `HostName`, `Author`, `Task To Run`,
+`Start In`, `Comment`, `Run As User`, and the schedule columns never leave the
+adapter: the header-index step drops them, so there is no later path for a
+command line, argument, account, or absolute path to reach the browser. Column
+lookup is by header label (English and Korean console locales) rather than by
+position, because a single shifted column would put the full command line into
+the name field; an unknown locale therefore fails closed instead. Task-folder
+paths are reduced to the leaf name, and run times are folded to a locale-free
+`YYYY-MM-DD HH:MM` (an unparsable time becomes `null`, never a passed-through
+string). `healthy` is true only for last results `0`, `267009` (running) and
+`267011` (not yet run) on a task that is not `Disabled`; an unreadable result
+code is not green. The adapter contains no create/delete/run/end/change verb.
+
+This endpoint shows what the running process is permitted to enumerate. The
+registered Vigil task sees the Owner's own tasks; a lower-integrity shell may
+see a smaller list.
+
+### Tongs heartbeat and 외부 작업 사이클 read projections
+
+`GET /tongs.snapshot.json` (`src/server/tongs-heartbeat-adapter.mjs`) and
+`GET /secure-work.snapshot.json` (`src/server/secure-work-status-adapter.mjs`)
+each read exactly one file under the resolved state root — `operations/tongs/
+heartbeat.json` and `operations/secure_work/status.json` — with the same state
+root precedence every other adapter uses (`SOULFORGE_STATE_ROOT` >
+`SOULFORGE_OWNER_ROOT` > this checkout's `guild_hall/state`). Those files are
+written by their own lanes; Vigil only reads them. Both endpoints keep the same
+loopback/GET/`no-store`/`nosniff` guards and a 30-second TTL cache, and neither
+holds a writer verb.
+
+Three states, and the difference between the last two matters: `ready` when the
+document validates, `unknown` when the file is simply absent (no evidence, grey
+on the map), and `unavailable` when a file exists but breaks its schema (an
+observed fault, amber on the map).
+
+The Tongs projection carries `status` (`listening` / `starting` / `stopped`), the
+observation time, an age, a freshness boolean against a 900-second window, and
+the listening loopback port as an integer. `pid` and the `listen` host string are
+validated and then dropped — a non-loopback listen address is a schema violation
+rather than a value to display. A stale heartbeat keeps its last known status and
+is shown as `낡음`, never as current; a future timestamp is never called fresh.
+
+The 외부 작업 사이클 projection carries the observation time and a
+state→count map only. `last_job` and `last_receipt_ref` are shape-checked and
+then discarded: this panel answers "how many, in which stage", never "which
+one".
+
 ## Local endpoint and privacy boundary
 
 ### Storage & Backup Map read projection

@@ -1,5 +1,61 @@
 # CHANGELOG
 
+## 2026-09-06 - Vigil 첫 화면을 대장간 부품 지도 한 장으로 (읽기 전용 endpoint 3개 신설)
+
+- 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: Vigil(포트 4192, 코드 `ui-workspace/apps/team-ops-board`)에 첫 탭 `대장간`을 만들고
+  기본 진입 표면으로 두었다. 화면 하나가 "우리 구조가 지금 실제로 돌고 있는가"에 답한다.
+  총괄 대장간 지도 그림 1의 세 띠(사람의 물길 · 자료의 물길 · 받치는 것) 배치를 뼈대로,
+  부품 13개(Buzz · Hermes 봇 · Tongs · World Tree · Vigil · Tributary · Heartwood ·
+  Reliquary · Hearth · Bellows · 외부 작업 사이클 · Rune · Quench)를 SVG 상자로 그리고
+  실시간 상태색을 칠한다. 상자를 고르면 그 부품의 노드와 사유 코드가 옆 패널에 뜨고,
+  이동 단추는 기존 시스템 토폴로지 탭으로만 보낸다. 곁에 고장·주의 목록, 호스트 자원,
+  토큰·크레딧, 저장·백업 네 패널과 Bellows 예약 작업 표를 붙였다. 에이전트 조직도와
+  Codex thread 판은 첫 화면에서 빼고 기존 탭에 그대로 두었다(Owner 결정: 에이전트 표시는
+  Buzz가 소유).
+- 상태 계산: 순수 함수 `src/core/forge-map-view.mjs` 하나가 소유한다. 노드→부품 매핑,
+  `hold > down > stale > degraded > unknown > ok` 우선순위 집계, 미매핑 노드의 `기타`
+  수 노출이 전부 여기 있고 fetch·타이머·writer가 없다. `unknown`이 `ok`보다 세다: 근거가
+  없는 부품은 회색으로 남고 초록으로 올라가지 않는다(plan 08 §Health model). Watchtower
+  노드 enum은 `unmonitored`만 `unknown`으로 접어 들어오며 `ok`≙plan-08 `healthy`,
+  `down`≙plan-08 `unavailable`이다. 이 화면이 모르는 상태 문자열은 조용히 무시하지 않고
+  `hold`로 올린다. 추적 중인 Watchtower 노드가 전부 어느 부품엔가 속하는지는 테스트가
+  `guild_hall/watchtower/topology.mjs` 명부를 직접 읽어 확인한다. 토큰 합계와 호스트
+  자원은 기존 사용량 계산 함수를 그대로 재사용하며 새 산식을 만들지 않았다.
+- 새 endpoint 3개 (모두 loopback 전용 GET, `no-store`+`nosniff`, writer 0):
+  `GET /scheduled-tasks.snapshot.json`은 Windows에서만 `schtasks /query /fo csv /v`를
+  60초 TTL로 한 번 읽고, 이름이 `Soulforge-`·`Buzz`·`Hermes`로 시작하는 작업만
+  이름·상태·마지막 실행·마지막 결과 코드·다음 실행·파생 `healthy`·트리거 수로 투영한다.
+  `HostName`·`Author`·`Task To Run`·`Start In`·`Comment`·`Run As User`와 일정 열은 헤더
+  색인 단계에서 버려지므로 명령행·인자·경로·계정이 브라우저로 갈 경로 자체가 없다. 열은
+  위치가 아니라 이름표(영어·한국어 콘솔 로캘)로 찾는다 — 한 칸만 밀려도 전체 명령행이
+  이름 칸에 들어오기 때문이며, 모르는 로캘은 fail-closed다. 비Windows·실패·시한 초과·
+  출력 과대·헤더 불명은 모두 사유 코드가 붙은 `unavailable`이다.
+  `GET /tongs.snapshot.json`과 `GET /secure-work.snapshot.json`은 state root 아래
+  `operations/tongs/heartbeat.json`과 `operations/secure_work/status.json` 파일 하나씩만
+  읽는다(둘 다 다른 lane이 쓰고 Vigil은 읽기만 한다). 파일 없음은 `unknown`(회색),
+  파일은 있는데 규격 위반은 `unavailable`(관측된 고장)로 구분한다. Tongs는 status·관측
+  시각·나이·900초 신선도·듣는 loopback 포트만 내고 `pid`와 listen 호스트 문자열은 형식만
+  검사한 뒤 버린다. 외부 작업 사이클은 상태별 건수만 내고 `last_job`·`last_receipt_ref`
+  값은 버린다.
+- 검증: `npm run validate:team-ops-app` 834/834 통과(769 → 834, 신규 65). 신규 테스트는
+  매핑 전수·집계 우선순위·미매핑 카운트, 합성 CSV 파싱·allowlist·필드 제한·비Windows
+  unavailable, 두 상태 파일의 없음→unknown·규격 위반→unavailable, 그리고 UI 경계(writer
+  동사 부재·경로 미노출·키보드 접근·밝은 테마 토큰)를 덮는다. `npx vite build` 성공,
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope tracked` 위반 0,
+  `npm run validate:display-terms` exit 0.
+- 운영 영향: 없음. 운영 lane을 재빌드하기 전에는 포트 4192에 반영되지 않는다. 예약작업·팩·
+  플래그·포트·경로는 그대로이며 이 변경은 실행 중인 프로세스를 만지지 않는다.
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/core/forge-map-view.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/scheduled-tasks-adapter.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/tongs-heartbeat-adapter.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/secure-work-status-adapter.mjs`,
+  `ui-workspace/apps/team-ops-board/src/App.tsx`,
+  `ui-workspace/apps/team-ops-board/src/team-ops.css`,
+  `ui-workspace/apps/team-ops-board/vite.config.ts`,
+  `ui-workspace/apps/team-ops-board/README.md`,
+  `docs/architecture/foundation/team_member_engineering_program/08_WATCH_4192_OPERATIONS.md`.
+
 ## 2026-09-06 (KST) - 보호 가공 업무 lane fresh 검토 반영: permit 신뢰 키 결속·키 권한 정직화·게이트 배선
 
 - 날짜: 2026-09-06 (KST, 커밋 시각 기준. 관측 타임스탬프는 이 항목 안에서 UTC로 표기).

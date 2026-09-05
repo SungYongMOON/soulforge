@@ -38,6 +38,10 @@ The Vigil UI cannot execute its own request. A green panel, terminal idle state,
 
 RESOLVED 2026-08-30: the intended producer, topology scope, and UI oracle are now pinned in one versioned contract, `guild_hall/watchtower/topology/federated_topology.v1.contract.json` (summary, per-provider counts, artifact SHA-256). The producer test verifies the tracked artifact against the fresh emit and the pin; the Board unified-view tests derive every count expectation from the same pin. Node/edge/provider/digest drift now fails closed on both sides instead of relying on a remembered count; deliberate topology growth updates the pin in the same change.
 
+## First screen = 부품 지도 (2026-09-06)
+
+Vigil의 첫 화면은 부품 지도 한 장이다: 대장간 부품(Buzz · Hermes 봇 · Tongs · World Tree · Vigil · Tributary · Heartwood · Reliquary · Hearth · Bellows · 외부 작업 사이클 · Rune · Quench)마다 상자 하나를 두고, 소속 관측 노드(`guild_hall/watchtower` 판정) 상태를 `hold > down > stale > degraded > unknown > ok` 우선순위로 접어 색만 칠한다. 근거가 없는 부품은 회색으로 남으며 초록으로 올라가지 않고, 어느 부품에도 매핑되지 않은 노드는 숨기지 않고 `기타` 수로 드러낸다. Guild 조직도와 Codex thread 판은 첫 화면에서 빼고 기존 탭에 그대로 둔다(Owner 결정: 에이전트 표시는 Buzz가 소유). 읽기 전용이며 새 writer·요청 표면을 만들지 않는다.
+
 ## Health model
 
 Every panel reports one of `healthy`, `degraded`, `stale`, `unavailable`, `unknown`, or `hold`, plus an evidence time and owner pointer. Missing evidence is `unknown`, not green. A value is current only if its source-specific freshness window is met. This panel enum is Vigil-local; the coarse runtime-availability vocabulary in [07](07_BUZZ_HERMES_COLLABORATION.md) is a distinct source-local enum that adapters map into these panel states rather than merge.
