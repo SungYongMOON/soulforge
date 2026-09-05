@@ -1,7 +1,7 @@
 {
   "schema": "soulforge.deployment_pack_spec.v0",
   "pack_id": "hpp_server_pack",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "host_effect_policy": {
     "reboot": "forbidden",
     "driver_change": "forbidden",
@@ -1247,7 +1247,7 @@
     "test/workflow_job_ui_contract.test.mjs"
   ],
   "installed_smoke_excluded": [],
-  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_8",
+  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_9",
   "install_manual_ref": "manual.install.hpp_server_pack",
   "upgrade_manual_ref": "manual.upgrade.hpp_server_pack",
   "rollback_manual_ref": "manual.rollback.hpp_server_pack",
@@ -2020,11 +2020,11 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/README.md",
-      "sha256": "0e39f038d13f768d4bba53765bda5b8bbc52000071e383903b26ae03da4b31b5"
+      "sha256": "b29e456d30ee59b764ed3399b45b858bc81d583c2b96bce4feb9d0bb0280182d"
     },
     {
       "path": "ui-workspace/apps/dev-erp/docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md",
-      "sha256": "818a4f77ad237b79cdd5217a759e2c5d0ba74dc0433210dd64d3c7b6ac734922"
+      "sha256": "6e80151e95e802ea4dc68a585252cec0bfd360a6c9e78ea511d2a8983466fe2a"
     },
     {
       "path": "ui-workspace/apps/dev-erp/manual/manual_faq.json",
@@ -2032,7 +2032,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/ops/run-dev-erp-background.ps1",
-      "sha256": "f9e0aaaa0d46f2ec729057cbd3b21a36286870cda4784f16abd777b3ae343905"
+      "sha256": "c9e131d77480a181632ee39cdc5f71535fd57271381ffbeab170d4ef22cdd1fa"
     },
     {
       "path": "ui-workspace/apps/dev-erp/server.mjs",
@@ -2160,7 +2160,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/run_dev_erp_background_launcher.test.mjs",
-      "sha256": "ce1832990e8104b31452c20c8172f7ac078fe9ee41d87e62e03def9c555dc262"
+      "sha256": "76d01055348f3755ad56e9b1832073351879a8ffef3bd53a45a3df52f656a0ba"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/runtime_release_audit_worker.test.mjs",
