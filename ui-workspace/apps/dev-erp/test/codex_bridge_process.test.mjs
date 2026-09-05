@@ -18,6 +18,11 @@ import {
   windowsCodexDirectSpawnSpec,
 } from "../src/codex_bridge.mjs";
 
+// Synthetic Windows SystemRoot fixture. Built with path.win32 (never the host
+// path module) so the win32-branch assertions below give the same verdict on
+// every host platform, not just on a real Windows box.
+const WIN_ROOT = ["C:", "Windows"].join(path.win32.sep);
+
 async function withTimeout(promise, ms, message) {
   let timer;
   try {
@@ -50,9 +55,8 @@ function pidExists(pid) {
 }
 
 test("codex bridge process cleanup uses Windows process-tree kill via the ABSOLUTE System32 taskkill", () => {
-  const winRoot = ["C:", "Windows"].join(path.sep);
-  assert.deepEqual(codexAppServerProcessTreeKillSpec(1234, "win32", { SystemRoot: winRoot }), {
-    command: path.join(winRoot, "System32", "taskkill.exe"),
+  assert.deepEqual(codexAppServerProcessTreeKillSpec(1234, "win32", { SystemRoot: WIN_ROOT }), {
+    command: path.win32.join(WIN_ROOT, "System32", "taskkill.exe"),
     args: ["/pid", "1234", "/T", "/F"],
   });
   // Real env: still absolute, never the bare PATH name.
@@ -76,6 +80,7 @@ test("codex bridge process cleanup stops the Windows process tree first", () => 
   const child = { pid: 1234, exitCode: null, signalCode: null, kill: () => { calls.push(["kill"]); return true; } };
   const stopped = stopCodexAppServerProcess(child, {
     platform: "win32",
+    env: { SystemRoot: WIN_ROOT },
     spawnSyncImpl: (command, args, options) => {
       calls.push([command, args, options]);
       return { status: 0 };
@@ -84,8 +89,8 @@ test("codex bridge process cleanup stops the Windows process tree first", () => 
 
   assert.equal(stopped, true);
   assert.equal(calls.length, 1);
-  assert.equal(path.isAbsolute(calls[0][0]), true, "tree-kill runs the pinned System32 taskkill, never PATH");
-  assert.equal(calls[0][0].toLowerCase().endsWith(path.join("system32", "taskkill.exe")), true);
+  assert.equal(path.win32.isAbsolute(calls[0][0]), true, "tree-kill runs the pinned System32 taskkill, never PATH");
+  assert.equal(calls[0][0].toLowerCase().endsWith(path.win32.join("system32", "taskkill.exe")), true);
   assert.deepEqual(calls[0][1], ["/pid", "1234", "/T", "/F"]);
   assert.equal(calls[0][2].windowsHide, true);
 });
@@ -95,6 +100,7 @@ test("codex bridge process cleanup falls back to child kill", () => {
   const child = { pid: 1234, exitCode: null, signalCode: null, kill: () => { calls.push(["kill"]); return true; } };
   const stopped = stopCodexAppServerProcess(child, {
     platform: "win32",
+    env: { SystemRoot: WIN_ROOT },
     spawnSyncImpl: () => {
       calls.push(["taskkill"]);
       return { status: 1 };
@@ -123,6 +129,7 @@ test("codex bridge process cleanup never skips Windows process-tree kill for dir
   const stopped = stopCodexAppServerProcess(child, {
     platform: "win32",
     preferChildKill: true,
+    env: { SystemRoot: WIN_ROOT },
     spawnSyncImpl: () => { calls.push(["taskkill"]); return { status: 0 }; },
   });
 

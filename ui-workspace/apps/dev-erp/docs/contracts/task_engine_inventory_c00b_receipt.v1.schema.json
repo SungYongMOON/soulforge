@@ -48,7 +48,7 @@
     "c00a_receipt_digest": { "$ref": "#/$defs/digest" },
     "c00q_full_bv_receipt_digest": { "$ref": "#/$defs/digest" },
     "frozen_c00q_tool_digest": { "const": "sha256:36e2d6e07226d3b6f24d0de33e68a06eb36d1273fdaaaebe81c378d508e5f1e5" },
-    "frozen_c00q_test_digest": { "const": "sha256:36f31964f54ad667e0257631d04eca9f03af4c5f28d1a465b158390f0017d6d6" },
+    "frozen_c00q_test_digest": { "const": "sha256:d066ec6b3b3b97bb6675ab999678662dba2fa2f3c49ddc8b5f6b6308ae6a65e7" },
     "frozen_c00q_schema_digest": { "const": "sha256:72bf55f30f136f1d30a83b280254eb3b0908c2a85d7e906dd10a6033e92f1f4c" },
     "producer_descriptor_digest": { "$ref": "#/$defs/digest" },
     "producer_manifest_digest": { "$ref": "#/$defs/digest" },

@@ -4541,7 +4541,12 @@ const server = createServer(async (req, res) => {
     return send(res, 404, "not found", "text/plain");
   } catch (error) {
     // BE-3: 내부 예외 메시지(SQLite 바인드·JSON 파서 등)를 클라이언트에 노출하지 않음 — 서버 로그에만 남기고 일반화 응답.
-    if (error?.code === "too_large") return send(res, 413, { error: "request_too_large" });
+    // readRawBody 는 상한 초과 시 for-await-of 루프 안에서 throw 하고, 그 abrupt completion 이
+    // req 스트림을 destroy 한다 — 아직 소켓에 도착 중/대기 중인 본문 바이트를 다 비우기 전에.
+    // keep-alive 로 응답하면 클라이언트 커넥션 풀이 이 소켓을 재사용 가능하다고 오판해 다음
+    // 요청을 여기로 보낼 수 있다(관측: Linux CI 에서만 재현 — 소켓 버퍼링 타이밍 차이).
+    // Connection: close 로 명시해 클라이언트가 이 소켓을 절대 재사용하지 않게 한다.
+    if (error?.code === "too_large") return send(res, 413, { error: "request_too_large" }, "application/json", { Connection: "close" });
     if (error instanceof ErpMcpError) return send(res, error.status, { error: error.code });
     const redactedPath = path.replace(/(\/api\/mcp\/uploads\/)[^/]+/g, "$1<redacted>");
     console.error("[dev-erp] unhandled:", req.method, redactedPath, error?.stack ?? error);

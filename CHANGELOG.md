@@ -1,5 +1,51 @@
 # CHANGELOG
 
+## 2026-09-05 - dev-erp: nine Linux-only test failures from GitHub Validate's first reach of the dev-erp test stage
+
+- 날짜: 2026-09-05. GitHub Validate(ubuntu-latest, Node 22)가 7주 만에 처음 `npm --prefix
+  ui-workspace/apps/dev-erp test` 단계에 도달했고(run 33956979903), 1133건 중 9건이
+  리눅스에서만 실패했다(Windows에서는 통과). 원인은 두 갈래다.
+- 무엇(1, 동작 변경): 8건은 테스트가 win32 전용 로직을 호스트 `path`(리눅스에선 posix)로
+  검증하고 있었다 — `src/win_system_exe.mjs`의 `system32Exe`가 `path.isAbsolute`/`path.join`을
+  썼는데, 이 함수의 입력(`SystemRoot`)은 항상 Windows 형식이라 리눅스 호스트에서
+  posix `isAbsolute("C:/Windows")`가 거짓이 되어 null을 반환했다. `system32Exe`와
+  `resolveViaWhere`의 절대경로 판정을 `path.win32`로 고정하고(호스트 무관, 실제 Windows에서는
+  `path.win32 === path`라 동작 불변), `test/win_system_exe.test.mjs`·
+  `test/codex_bridge_process.test.mjs`의 win32 fixture(`WIN_ROOT` 등)도 `path.win32.join`/
+  `path.win32.sep`로 맞췄다. 나머지 1건(`server: Codex task mock bridge opens a separate
+  task thread API`, `TypeError: fetch failed`)은 실패 직전 요청이 `CODEX_TASK_JSON_MAX`
+  (256KiB)를 넘는 본문을 보내는 케이스였다 — `readRawBody`가 상한 초과 시 `for-await-of`
+  루프 안에서 throw하는데, 그 abrupt completion이 아직 본문을 다 비우기 전에 `req` 스트림을
+  destroy해 keep-alive 소켓을 다음 요청이 재사용하기에 위험한 상태로 남길 수 있다(리눅스
+  CI에서만 관측 — 소켓 버퍼링 타이밍 차이로 추정, 이 세션에서 리눅스로 직접 재현하지는
+  못했다). `server.mjs`가 `too_large`를 잡는 지점에서 응답에 `Connection: close`를 명시해
+  클라이언트가 그 소켓을 재사용하지 않게 했다 — 이 부분만 실제 서버 응답 헤더가 바뀐다.
+- 무엇(2, 테스트 전용): 나머지 1건(`task_engine_inventory.test.mjs`의 Ajv 2020 스키마 테스트)은
+  Node의 실험적 `node:sqlite` 모듈이 스폰된 CLI 서브프로세스 stderr에 처음 한 번
+  `ExperimentalWarning`을 찍어 `stderr === ''` 단언이 깨졌다. `spawnCli`가 서브프로세스
+  env에 `NODE_NO_WARNINGS: "1"`을 명시해, 호출 셸이 우연히 갖고 있던 환경변수에 기대지
+  않게 했다. 이 테스트 파일의 바이트가 `task_engine_inventory_c00b_judge.mjs`/
+  `task_engine_inventory_c00b_binding_producer.mjs`의 하드바인드 `FROZEN_C00Q.test_blob`/
+  `test_digest`와 `docs/contracts/task_engine_inventory_c00b_receipt.v1.schema.json`의
+  `frozen_c00q_test_digest` const로 고정되어 있어, 파일이 바뀐 만큼 이 세 곳의 핀도 같은
+  새 git-blob-sha1/sha256 값으로 함께 갱신했다(재계산값이 `git hash-object`와 일치 확인).
+- 운영 영향: `/api/codex-task/*` 같은 dev-erp JSON 엔드포인트가 `CODEX_TASK_JSON_MAX`를
+  넘는 요청을 거부할 때 그 응답의 keep-alive 커넥션을 더 이상 재사용하지 않는다(항상
+  안전한 방향의 변경, 다른 응답 형식·상태코드는 그대로). C00B 심사기의 frozen C00Q
+  판정 기준이 새 `task_engine_inventory.test.mjs` 바이트로 갱신됐을 뿐 판정 로직·스키마
+  계약은 그대로다. 예약작업·플래그·포트·바인딩 변경 없음. 리눅스 CI 재실행으로 최종
+  확인 필요(이 세션은 Windows에서만 검증했다).
+- 관련 경로: `ui-workspace/apps/dev-erp/src/win_system_exe.mjs`,
+  `ui-workspace/apps/dev-erp/src/codex_bridge.mjs`, `ui-workspace/apps/dev-erp/server.mjs`,
+  `ui-workspace/apps/dev-erp/test/win_system_exe.test.mjs`,
+  `ui-workspace/apps/dev-erp/test/codex_bridge_process.test.mjs`,
+  `ui-workspace/apps/dev-erp/test/task_engine_inventory.test.mjs`,
+  `ui-workspace/apps/dev-erp/test/task_engine_inventory_c00b_judge.test.mjs`,
+  `ui-workspace/apps/dev-erp/tools/task_engine_inventory_c00b_judge.mjs`,
+  `ui-workspace/apps/dev-erp/tools/task_engine_inventory_c00b_binding_producer.mjs`,
+  `ui-workspace/apps/dev-erp/docs/contracts/task_engine_inventory_c00b_receipt.v1.schema.json`.
+- Revision: the Git commit containing this entry owns the exact revision.
+
 ## 2026-09-05 - team-ops-board storage-map adapter: stop failing closed on the `work_root` row kind
 
 - 날짜: 2026-09-05.

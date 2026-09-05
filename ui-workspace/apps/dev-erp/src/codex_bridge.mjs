@@ -603,12 +603,12 @@ export function codexAppServerProcessTreeKillSpec(pid, platform = process.platfo
   return { command: taskkill, args: ["/pid", String(n), "/T", "/F"] };
 }
 
-export function stopCodexAppServerProcess(child, { platform = process.platform, spawnSyncImpl = spawnSync, preferChildKill = false } = {}) {
+export function stopCodexAppServerProcess(child, { platform = process.platform, env = process.env, spawnSyncImpl = spawnSync, preferChildKill = false } = {}) {
   if (!child || child.exitCode !== null || child.signalCode !== null) return false;
   if (platform !== "win32" && preferChildKill) {
     try { if (child.kill()) return true; } catch {}
   }
-  const killSpec = codexAppServerProcessTreeKillSpec(child.pid, platform);
+  const killSpec = codexAppServerProcessTreeKillSpec(child.pid, platform, env);
   if (killSpec) {
     try {
       // Keep shutdown bounded. A stalled taskkill must yield quickly to the direct

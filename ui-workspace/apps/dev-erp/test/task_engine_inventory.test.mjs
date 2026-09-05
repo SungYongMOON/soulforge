@@ -214,9 +214,14 @@ function runCli(root, descriptor, args = null) {
 function spawnCli(root, descriptor) {
   const descriptorPath = join(root, "descriptor-spawn.json");
   writeFileSync(descriptorPath, JSON.stringify(descriptor), "utf8");
+  // NODE_NO_WARNINGS: this test asserts a clean stderr, but TOOL imports the
+  // experimental node:sqlite module, which prints an ExperimentalWarning to
+  // stderr the first time any process touches it. Without this, the
+  // assertion's outcome silently depends on whatever ambient NODE_OPTIONS/
+  // NODE_NO_WARNINGS the invoking shell happens to already have set.
   const execution = spawnSync(process.execPath, [
     TOOL, "--query-only", "--json", "--descriptor", descriptorPath,
-  ], { cwd: APP, encoding: "utf8", windowsHide: true });
+  ], { cwd: APP, encoding: "utf8", windowsHide: true, env: { ...process.env, NODE_NO_WARNINGS: "1" } });
   return { ...execution, descriptorPath };
 }
 

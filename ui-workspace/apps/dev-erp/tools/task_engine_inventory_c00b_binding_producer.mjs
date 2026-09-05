@@ -32,8 +32,8 @@ const SET_ARRAY_KEYS = new Set([
 const FROZEN_C00Q = Object.freeze({
   tool_blob: "379945f0e2e1d6f3566f2c4479caf2887b011998",
   tool_digest: "sha256:36e2d6e07226d3b6f24d0de33e68a06eb36d1273fdaaaebe81c378d508e5f1e5",
-  test_blob: "ca20b035c14651764dc92627ce4bcd72e6a06361",
-  test_digest: "sha256:36f31964f54ad667e0257631d04eca9f03af4c5f28d1a465b158390f0017d6d6",
+  test_blob: "a9653570ab5506dded04fd6b5c172084435f400f",
+  test_digest: "sha256:d066ec6b3b3b97bb6675ab999678662dba2fa2f3c49ddc8b5f6b6308ae6a65e7",
   schema_blob: "21595a7ba61a3570221d63a45c4b90f27e4aa01c",
   schema_digest: "sha256:72bf55f30f136f1d30a83b280254eb3b0908c2a85d7e906dd10a6033e92f1f4c",
 });

@@ -29,14 +29,14 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync, statSync } from "node:fs";
-import { dirname, isAbsolute, join } from "node:path";
+import { dirname, isAbsolute, join, win32 } from "node:path";
 
 export function system32Exe(name, env = process.env) {
   const systemRoot = env.SystemRoot || env.windir;
-  if (typeof systemRoot !== "string" || systemRoot.trim().length === 0 || !isAbsolute(systemRoot)) {
+  if (typeof systemRoot !== "string" || systemRoot.trim().length === 0 || !win32.isAbsolute(systemRoot)) {
     return null;
   }
-  return join(systemRoot, "System32", name);
+  return win32.join(systemRoot, "System32", name);
 }
 
 function isAbsoluteFile(candidate) {
@@ -71,7 +71,7 @@ function resolveViaWhere(name, env, runWhere) {
   if (cacheable && whereCache.has(name)) return whereCache.get(name);
   // Only absolute .exe hits count: a .cmd/.bat shim cannot be execFile'd
   // without a shell, and a relative line would reintroduce cwd semantics.
-  const first = runWhere(whereExe, name).find((line) => isAbsolute(line) && /\.exe$/i.test(line)) ?? null;
+  const first = runWhere(whereExe, name).find((line) => win32.isAbsolute(line) && /\.exe$/i.test(line)) ?? null;
   if (cacheable) whereCache.set(name, first);
   return first;
 }

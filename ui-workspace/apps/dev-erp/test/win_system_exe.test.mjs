@@ -3,18 +3,18 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve, sep } from "node:path";
+import { dirname, join, resolve, win32 } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { resolveGitExecutable, resolvePythonExecutable, system32Exe } from "../src/win_system_exe.mjs";
 
 const APP_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-const WIN_ROOT = ["C:", "Windows"].join(sep);
+const WIN_ROOT = ["C:", "Windows"].join(win32.sep);
 
 test("system32Exe joins an absolute SystemRoot and fails closed on anything less", () => {
-  assert.equal(system32Exe("taskkill.exe", { SystemRoot: WIN_ROOT }), join(WIN_ROOT, "System32", "taskkill.exe"));
-  assert.equal(system32Exe("cmd.exe", { windir: WIN_ROOT }), join(WIN_ROOT, "System32", "cmd.exe"), "windir is the fallback spelling");
+  assert.equal(system32Exe("taskkill.exe", { SystemRoot: WIN_ROOT }), win32.join(WIN_ROOT, "System32", "taskkill.exe"));
+  assert.equal(system32Exe("cmd.exe", { windir: WIN_ROOT }), win32.join(WIN_ROOT, "System32", "cmd.exe"), "windir is the fallback spelling");
   assert.equal(system32Exe("cmd.exe", {}), null, "no SystemRoot -> no PATH fallback, null");
   assert.equal(system32Exe("cmd.exe", { SystemRoot: "" }), null);
   assert.equal(system32Exe("cmd.exe", { SystemRoot: "Windows" }), null, "a relative SystemRoot is not a trusted root");
@@ -46,7 +46,7 @@ test("resolvePythonExecutable follows the same ladder with DEV_ERP_PYTHON and py
     { command: pinned, source: "env_pin" });
   assert.deepEqual(resolvePythonExecutable({ env: { DEV_ERP_PYTHON: join(dir, "ghost.exe") }, platform: "win32" }),
     { command: null, reason: "python_pin_invalid" });
-  const pyAbs = ["C:", "Interp", "python.exe"].join(sep);
+  const pyAbs = ["C:", "Interp", "python.exe"].join(win32.sep);
   const calls = [];
   assert.deepEqual(resolvePythonExecutable({
     env: { SystemRoot: WIN_ROOT }, platform: "win32",
@@ -79,7 +79,7 @@ test("the REAL where lookup never selects a binary from the caller's cwd (plante
 });
 
 test("resolveGitExecutable on win32 goes through the pinned System32 where.exe and accepts only absolute .exe hits", () => {
-  const gitAbs = ["C:", "Tools", "Git", "cmd", "git.exe"].join(sep);
+  const gitAbs = ["C:", "Tools", "Git", "cmd", "git.exe"].join(win32.sep);
   const calls = [];
   const resolved = resolveGitExecutable({
     env: { SystemRoot: WIN_ROOT },
@@ -90,7 +90,7 @@ test("resolveGitExecutable on win32 goes through the pinned System32 where.exe a
     },
   });
   assert.deepEqual(resolved, { command: gitAbs, source: "where" });
-  assert.deepEqual(calls, [[join(WIN_ROOT, "System32", "where.exe"), "git.exe"]],
+  assert.deepEqual(calls, [[win32.join(WIN_ROOT, "System32", "where.exe"), "git.exe"]],
     "where.exe itself is invoked by absolute System32 path");
   assert.deepEqual(resolveGitExecutable({ env: { SystemRoot: WIN_ROOT }, platform: "win32", runWhere: () => [] }),
     { command: null, reason: "git_unresolved" });
