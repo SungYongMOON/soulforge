@@ -165,4 +165,4 @@ verifier: approve/request-changes/hold 판정 (request-changes면 자동 재루�
 - uv run python은 Hermes venv 외 파이썬 선택 → venv python.exe 직접 경로 실행
 - youtube-transcript-api는 이미 hermes-agent venv에 설치됨 (youtube-content 스킬)
 - git-bash tasklist 조건필터는 //FI 형태
-- 서브에이전트 리서치 산출물이 C:\Soulforge 루트에 생성되는 사고 1회 → 패킷에 산출 경로 명시로 교정
+- 서브에이전트 리서치 산출물이 legacy Soulforge checkout 루트(<LEGACY_SOULFORGE_ROOT>)에 생성되는 사고 1회 → 패킷에 산출 경로 명시로 교정

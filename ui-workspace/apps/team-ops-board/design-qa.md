@@ -3,9 +3,9 @@
 ## 비교 기준
 
 - 원본 시안
-  - `C:/Users/user/.codex/generated_images/019fc80b-487e-7182-9fb0-27ab6c269518/exec-96a78023-51fa-4c7d-9a89-075b5b2c44e4.png` — 실시간 현황
-  - `C:/Users/user/.codex/generated_images/019fc80b-487e-7182-9fb0-27ab6c269518/exec-927ecfca-9358-493e-a1a0-4eaad58948d1.png` — 조직 트리
-  - `C:/Users/user/.codex/generated_images/019fc80b-487e-7182-9fb0-27ab6c269518/exec-99d6e363-af02-4e8a-ba5f-1868fd75d847.png` — 책임 흐름
+  - `<CODEX_HOME>/generated_images/019fc80b-487e-7182-9fb0-27ab6c269518/exec-96a78023-51fa-4c7d-9a89-075b5b2c44e4.png` — 실시간 현황
+  - `<CODEX_HOME>/generated_images/019fc80b-487e-7182-9fb0-27ab6c269518/exec-927ecfca-9358-493e-a1a0-4eaad58948d1.png` — 조직 트리
+  - `<CODEX_HOME>/generated_images/019fc80b-487e-7182-9fb0-27ab6c269518/exec-99d6e363-af02-4e8a-ba5f-1868fd75d847.png` — 책임 흐름
 - 저장된 브라우저 증거
   - `evidence/realtime-desktop-1487x1058.png`
   - `evidence/organization-tree-desktop-1487x1058.png`
@@ -202,7 +202,7 @@ final result: passed
 
 ### Visual target and evidence
 
-- Reference: `C:/Users/user/AppData/Local/Temp/codex-clipboard-f840a618-92ec-40ac-a0c8-42aaa3b7a957.png`
+- Reference: `<LOCAL_TEMP>/codex-clipboard-f840a618-92ec-40ac-a0c8-42aaa3b7a957.png`
 - Reference intent: dark topology canvas, compact nodes, visible parent/child connectors, and state-first scanning. The Owner explicitly rejected a free-form radial graph; the accepted layout is a fixed small manager anchor with its first exact responsibility immediately to the right, later responsibilities stacked below, and exact TASK descendants one column farther right.
 - Rendered desktop: `evidence/organization-operational-topology-desktop-1280x900.png`
 - Rendered narrow viewport: `evidence/organization-operational-topology-mobile-548x882.png`
@@ -239,17 +239,17 @@ final result: passed
 
 ## Source truth
 
-- Existing screen capture: `C:/Users/user/AppData/Local/Temp/codex-clipboard-cc1b66c4-30ec-4362-a45d-afa672336316.png` — 1491×684
-- Shape and topology reference: `C:/Users/user/AppData/Local/Temp/codex-clipboard-d7ba9875-4c7c-496f-a824-68cbc52e2b29.png` — 1072×678
-- Density reference: `C:/Users/user/AppData/Local/Temp/codex-clipboard-85081270-6837-440b-a0d7-af2418597e37.png` — 800×451
+- Existing screen capture: `<LOCAL_TEMP>/codex-clipboard-cc1b66c4-30ec-4362-a45d-afa672336316.png` — 1491×684
+- Shape and topology reference: `<LOCAL_TEMP>/codex-clipboard-d7ba9875-4c7c-496f-a824-68cbc52e2b29.png` — 1072×678
+- Density reference: `<LOCAL_TEMP>/codex-clipboard-85081270-6837-440b-a0d7-af2418597e37.png` — 800×451
 - Reference video: `https://www.youtube.com/watch?v=DcEJSGlc2-o`
 
 ## Implementation evidence
 
-- Final initial view: `C:/Users/user/AppData/Local/Temp/codex-ax-topology-audit-20260808/15-final-topology-initial.png` — 809×882
-- Final Watchtower focus: `C:/Users/user/AppData/Local/Temp/codex-ax-topology-audit-20260808/14-final-watchtower-focused.png` — 809×882
-- Full overview: `C:/Users/user/AppData/Local/Temp/codex-ax-topology-audit-20260808/02-revised-topology-full.png` — 1265×1232
-- Focused path: `C:/Users/user/AppData/Local/Temp/codex-ax-topology-audit-20260808/03-focused-ingress-path.png` — 1265×1238
+- Final initial view: `<LOCAL_TEMP>/codex-ax-topology-audit-20260808/15-final-topology-initial.png` — 809×882
+- Final Watchtower focus: `<LOCAL_TEMP>/codex-ax-topology-audit-20260808/14-final-watchtower-focused.png` — 809×882
+- Full overview: `<LOCAL_TEMP>/codex-ax-topology-audit-20260808/02-revised-topology-full.png` — 1265×1232
+- Focused path: `<LOCAL_TEMP>/codex-ax-topology-audit-20260808/03-focused-ingress-path.png` — 1265×1238
 - Tablet override request: 760×900; captured output `04-tablet-760.png` — 1265×1232 after in-app browser display scaling
 - Mobile override request: 480×820; captured output `05-mobile-480.png` — 1265×1232 after in-app browser display scaling
 - State: live Watchtower W1 projection, 22 nodes, selected-path interaction checked against `Five-Lane Ingress 감독`
@@ -291,10 +291,10 @@ final_result: passed for the requested desktop topology; narrow breakpoint evide
 
 ### Source truth and implementation evidence
 
-- Source live-status capture: `C:/Users/user/.codex/codex-remote-attachments/019fdfb5-428d-7e71-8534-8062cfcd152c/1F664B6F-EF7C-4912-8F2C-C6B2252DDD98/1-사진-1.jpg` — 590×1280
-- Source selected-gate capture: `C:/Users/user/.codex/codex-remote-attachments/019fdfb5-428d-7e71-8534-8062cfcd152c/1F664B6F-EF7C-4912-8F2C-C6B2252DDD98/2-사진-2.jpg` — 590×1280
-- Fixed live-status capture: `C:/Users/user/AppData/Local/Temp/codex-ax-topology-audit-20260808/21-mobile-live-status-matched-fixed.png` — 375×812
-- Fixed selected-gate capture: `C:/Users/user/AppData/Local/Temp/codex-ax-topology-audit-20260808/20-mobile-topology-gate-selected-fixed.png` — 375×812
+- Source live-status capture: `<CODEX_HOME>/codex-remote-attachments/019fdfb5-428d-7e71-8534-8062cfcd152c/1F664B6F-EF7C-4912-8F2C-C6B2252DDD98/1-사진-1.jpg` — 590×1280
+- Source selected-gate capture: `<CODEX_HOME>/codex-remote-attachments/019fdfb5-428d-7e71-8534-8062cfcd152c/1F664B6F-EF7C-4912-8F2C-C6B2252DDD98/2-사진-2.jpg` — 590×1280
+- Fixed live-status capture: `<LOCAL_TEMP>/codex-ax-topology-audit-20260808/21-mobile-live-status-matched-fixed.png` — 375×812
+- Fixed selected-gate capture: `<LOCAL_TEMP>/codex-ax-topology-audit-20260808/20-mobile-topology-gate-selected-fixed.png` — 375×812
 - Browser CSS viewport: 390×844, device scale 1. The in-app browser screenshot surface excluded its surrounding chrome and produced a 375×812 PNG; comparisons therefore use the same visible content regions rather than pixel-for-pixel device chrome.
 - State: dark mobile Board, explicit SYSTEM Owner-result row and selected `five-field 원장 검증` gate.
 - Full-view comparison: each source and its fixed implementation were opened together in one comparison input.
