@@ -118,18 +118,7 @@ node guild_hall/deployment_pack/tools/build_source_lane.mjs `
 (`build_source_lane.mjs` 자체 주석).
 
 > **알려진 결함(이 lane과 무관, 도구 자체의 문제 — 이 개정에서 실제 커밋으로 빌드해 보다가 실측했다):**
-> 위 CLI 명령을 그대로 PowerShell/cmd에서 실행하면 이 Windows host에서는 **아무 출력도 없이 exit
-> 0으로 끝나고 아무것도 만들어지지 않는다.** `build_source_lane.mjs` 맨 아래의 "이 파일이 진입점인가"
-> 가드가 `import.meta.url`과 `process.argv[1]`로 손으로 만든 file: 스킴 문자열을 비교하는데, 드라이브
-> 문자 절대경로에서는 `import.meta.url` 쪽 슬래시 개수(스킴 뒤 슬래시 3개)와 손으로 만든 쪽(스킴
-> 뒤 슬래시 2개)이 어긋나 그 둘이 절대 같을 수 없어 `main()`이 전혀 실행되지 않는다 — POSIX
-> 절대경로(`/`로 시작)에서만 경로 자체의 맨 앞 슬래시가 세 번째 슬래시를 채워 우연히 개수가 맞는
-> 코드다. Owner가 실제로 빌드할 때는 반드시 먼저
-> `node --check guild_hall/deployment_pack/tools/build_source_lane.mjs`로 통사만 확인한 뒤, 이 개정의
-> 검증에서 쓴 방식대로 `buildSourceLane()`/`verifyLane()`을 직접 import해 호출하는 짧은 wrapper
-> 스크립트로 실행하거나(이 개정 커밋 보고에 실제로 쓴 wrapper 경로가 있다), 이 CLI 가드 자체를
-> 고치는 별도 수정을 먼저 받는다. 이 lane의 파일은 하나도 건드리지 않는 결함이라 이 개정의 범위
-> 밖에서 별도로 고친다.
+> 참고(2026-09-06): 이 CLI 진입 가드는 Windows 드라이브 문자 경로에서 `import.meta.url`과 손으로 만든 file: 문자열의 슬래시 수가 달라 **조용히 아무것도 만들지 않던** 결함이 있었고, main `a137b11b`(pathToFileURL 비교)에서 고쳐졌다. 그 커밋 이전 판본에서는 `buildSourceLane()`/`verifyLane()`을 직접 import하는 짧은 wrapper로 실행해야 한다.
 
 빌드 뒤 무결성 재확인:
 
@@ -147,7 +136,7 @@ node guild_hall/deployment_pack/tools/build_source_lane.mjs --verify <TARGET_SOU
 그리고 `erp_mcp.checks.module_resolves == true`를 확인. 이 순서로 실제 검증한 기록은 이 개정의
 커밋 보고에 있다(스크래치 lane 경로 포함).
 
-**`-NodePath`는 lane 안의 파일이 아니라 시스템 node 경로다(M6c).** `carried_forward_prefixes`는
+**`-NodePath`는 lane 안의 파일이 아니라 시스템 node 경로다(M6c).** 아래 명령의 `<NODE_EXE_PATH>`는 시스템 node 실행 파일 경로(예: Program Files의 nodejs)로 치환한다. `carried_forward_prefixes`는
 디렉터리 프리픽스만 받으므로 이 spec으로는 lane root에 `node.exe`가 생기지 않는다 — 형제 lane의
 등록기(`guild_hall/linear_history/ops/register-linear-collect-hpp-task.ps1`)도 같은 이유로
 시스템 node 경로를 받고 그 파일의 SHA-256을 등록 시점에만 대조한다(§6 참고, `register-tongs-task.ps1`의
@@ -169,7 +158,7 @@ JSON이 `loadIngressMcpConfig()`로 구조 검증을 통과하는지와 그 `ena
 & ui-workspace/apps/dev-erp-mcp/ops/run-tongs-loopback.ps1 `
   -LaneRoot <TARGET_SOULFORGE_ROOT>/install/source-lanes/tongs-lane-v1 `
   -StateRoot <private_root>/state `
-  -NodePath <TARGET_SOULFORGE_ROOT>/install/source-lanes/tongs-lane-v1/node.exe `
+  -NodePath <NODE_EXE_PATH> `
   -Preflight
 ```
 
@@ -272,7 +261,7 @@ $NodeSha256 = "sha256:" + (Get-FileHash -Algorithm SHA256 <NodePath>).Hash.ToLow
 & ui-workspace/apps/dev-erp-mcp/ops/register-tongs-task.ps1 `
   -LaneRoot <TARGET_SOULFORGE_ROOT>/install/source-lanes/tongs-lane-v1 `
   -StateRoot <private_root>/state `
-  -NodePath <TARGET_SOULFORGE_ROOT>/install/source-lanes/tongs-lane-v1/node.exe `
+  -NodePath <NODE_EXE_PATH> `
   -NodeSha256 $NodeSha256
 # -> "tongs loopback task dry-run attested: plan_digest=sha256:... trigger=at_logon+PT5M mutation=false"
 
@@ -282,7 +271,7 @@ $NodeSha256 = "sha256:" + (Get-FileHash -Algorithm SHA256 <NodePath>).Hash.ToLow
 & ui-workspace/apps/dev-erp-mcp/ops/register-tongs-task.ps1 `
   -LaneRoot <TARGET_SOULFORGE_ROOT>/install/source-lanes/tongs-lane-v1 `
   -StateRoot <private_root>/state `
-  -NodePath <TARGET_SOULFORGE_ROOT>/install/source-lanes/tongs-lane-v1/node.exe `
+  -NodePath <NODE_EXE_PATH> `
   -NodeSha256 $NodeSha256 `
   -ExpectedDryRunDigest sha256:<위에서 나온 값> -Register -DryRun:$false
 ```
