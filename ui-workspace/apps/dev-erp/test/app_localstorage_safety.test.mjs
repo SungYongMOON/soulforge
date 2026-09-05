@@ -70,15 +70,19 @@ function sliceBalancedBlock(source, startMarker) {
 // 있을 때만 붙인다: base(이 fix 이전)에는 그 함수가 아예 없고, state 슬라이스는 원문 그대로
 // (그때는 순수 JSON.parse 호출) 평가되어 손상값에 실제로 throw 해야 결함 재현이 된다. 리터럴
 // 함수명으로 슬라이스 존재 자체를 요구하면 base 에서 "헬퍼 부재"라는 엉뚱한 사유로 실패한다.
+// The Team Pilot rung-1 screens read `location.search` inside the top-level state block
+// (deep link `?view=mod:reviews`). Node has no `location`; a fixed stub keeps the slice evaluable.
+const LOCATION_STUB = Object.freeze({ search: "", pathname: "/", hash: "", href: "/" });
+
 function loadState(localStorage, { warn = () => {} } = {}) {
   const helperSource = sliceBalancedBlock(APP_SOURCE, "function safeLocalJSON(key, fallback") ?? "";
   const stateSource = sliceBalancedBlock(APP_SOURCE, "const state = {");
   assert.ok(stateSource, "source slice: const state = {...}; not found");
   const fn = new Function(
-    "localStorage", "VERSION_FALLBACK", "console",
+    "localStorage", "VERSION_FALLBACK", "console", "location",
     `${helperSource}\n${stateSource}\nreturn state;`,
   );
-  return fn(localStorage, {}, { warn });
+  return fn(localStorage, {}, { warn }, LOCATION_STUB);
 }
 
 const CORRUPT_CASES = [
@@ -135,8 +139,9 @@ test("the dashLayout() saved-layout read (external review 2026-09-05, key EXT-08
   const readSource = sourceSlice('const saved = safeLocalJSON("dev_erp_widgets"', ");");
   const run = (localStorage) => new Function(
     "localStorage",
+    "location",
     `${helperSource}\n${readSource}\nreturn saved;`,
-  )(localStorage);
+  )(localStorage, LOCATION_STUB);
 
   assert.equal(run(makeLocalStorage({})), null, "absent key falls back to null (existing default branch)");
   assert.equal(run(makeLocalStorage({ dev_erp_widgets: "{{{ not json" })), null, "malformed JSON no longer throws — falls back to null");
