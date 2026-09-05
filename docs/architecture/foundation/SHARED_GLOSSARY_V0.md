@@ -210,10 +210,10 @@ Quench와 Covenant가 단단하게 하고, Tongs만이 뜨거운 것을 잡으�
 
 | 표시명 | 이제 쓰지 않는 표기 | 그대로 두는 식별자 | 첫 등장 표기 |
 | --- | --- | --- | --- |
-| Vigil | 4192, 4192 감시면, 상황판, Team Ops Board, Ops Board, Board, Watchtower(표시명으로 쓸 때) | 포트 4192, `team-ops-board`, `guild_hall/watchtower`, 예약작업 `Soulforge-TeamOpsBoard-ReadOnly-v1`(개명은 cutover 몫), lane 폴더 | Vigil(포트 4192) |
+| Vigil (Watchtower 모듈 표시는 'Vigil의 경보·자가복구 모듈', 기본안) | 4192, 4192 감시면, 상황판, Team Ops Board, Ops Board, Board, Watchtower(표시명으로 쓸 때) | 포트 4192, `team-ops-board`, `guild_hall/watchtower`(코드·폴더). 예약작업 이름·lane 폴더·탭 제목은 위 절의 4곳 한 묶음 개명 대상(cutover 세션 몫, 아직 미개명) | Vigil(포트 4192) |
 | World Tree | ERP, dev-ERP, dev-erp(표시), 브라우저 ERP | `ui-workspace/apps/dev-erp`, 포트 4300, `dev-erp.db`, 예약작업 `Soulforge-MainNode-ERP` | World Tree(코드 dev-erp, 포트 4300) |
 | Rune | 엔진, 판단 Engine, Engineering Engine(표시) | `guild_hall/engineering_engine`, `engineering_mcp` | Rune(Engineering Engine) |
-| Hammer | Task Engine, 할일 엔진 | `TASK_ENGINE_*` 문서명, `task_driver.mjs` | Hammer(Task Engine) |
+| Hammer | Task Engine, 할일 엔진 | `TASK_ENGINE_*` 문서명 | Hammer(Task Engine) |
 | Guild | 조직, AI 조직, Agent Platform(표시) | `guild_hall/`, 조직 문서 파일명 | Guild(Agent Platform) |
 | Tributary | 수집 lane, collection lane, ingress lane | `install/source-lanes/<lane>-vN`, `guild_hall/ingress`, `*_history/` | Tributary(수집 lane) |
 | Ingot | custody 사본, 수집 사본 | custody 경로·스키마 | Ingot(custody) |

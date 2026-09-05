@@ -21,7 +21,7 @@
 
 ### 1. 세계 — 대장간, 그리고 밀려오는 몬스터
 
-Soulforge는 대장간이다. 밖에서는 몬스터(외부 업무: 메일·Slack·Linear·고객 요청)가 파도처럼 계속 밀려온다. 대장간은 그 몬스터에 맞춰 무기를 계속 진화시켜 무찌른다. 무기는 도구·봇·절차·지식이고, 쓰고 나면 쌓인다. 쌓인 무기가 다음 파도를 더 쉽게 만든다. 이것이 세계의 순환이며 이름이 아니라 개념이다. 타워 디펜스에 가깝다.
+Soulforge는 대장간이다. 밖에서는 몬스터(밖에서 오는 업무)가 파도처럼 계속 밀려온다. 대장간은 그 몬스터에 맞춰 무기를 계속 진화시켜 무찌른다. 무기는 도구·봇·절차·지식이고, 쓰고 나면 쌓인다. 쌓인 무기가 다음 파도를 더 쉽게 만든다. 이것이 세계의 순환이며 이름이 아니라 개념이다. 타워 디펜스에 가깝다.
 
 대장간 안에서는 현실의 사건(Ore)이 지류(Tributary)를 타고 심재(Heartwood)에 주괴(Ingot)로 쌓이고, 화덕(Hearth)의 불과 풀무(Bellows)의 바람으로 길드(Guild)가 모루(Anvil) 위에서 망치(Hammer)를 휘둘러 무기를 벼린다. 담금질(Quench)과 언약(Covenant)이 그것을 단단하게 하고, 집게(Tongs)만이 뜨거운 것을 잡으며, 야경(Vigil)이 밤을 지키고, 성유물함(Reliquary)이 남는다. 세계수(World Tree)에는 벼려진 정본만 걸리고, 룬(Rune)은 무엇이 빠졌는지 판단한다.
 
@@ -43,18 +43,18 @@ Soulforge는 대장간이다. 밖에서는 몬스터(외부 업무: 메일·Slac
 | --- | --- | --- | --- |
 | World Tree | 세계수. 정본과 업무가 걸리는 나무 | ERP, 코드 `dev-erp`, 포트 4300 | 켜짐(0.1.7). 팀 비개방, Owner loopback |
 | Rune | 룬. 규칙과 판단이 새겨진 글자 | Engineering Engine, `guild_hall/engineering_engine` | KVDS 7단계 판단 각 1회 |
-| Guild | 길드. 사람과 봇의 조직 | `guild_hall`, 조직 문서 5종, Hermes 봇 | 프로필 34, 명부 0 |
+| Guild | 길드. 사람과 봇의 조직 | `guild_hall`, 조직 문서 5종, Hermes 봇 | Hermes 프로필 다수(09-02 관측), 명부 0 |
 | Ore | 광석. 원천 자료 원본 | source | 흘러드는 중 |
 | Tributary | 지류. 광석을 실어 오는 물길 | 수집 lane 7(메일·음성·PC 파일·Codex 작업맥락·Slack·Linear·Buzz), `install/source-lanes` | 7줄기 흐름, Linear·Buzz 15분 |
 | Ingot | 주괴. 굳혀 둔 사본 | custody | 쌓이는 중 |
 | Heartwood | 심재. 무게를 견디는 비공개 창고 | private data root | 살아 있음 |
 | Hearth | 화덕. AI 모델과 연산 | Codex·Claude·GPT·로컬 모델, Sol/Terra/Luna 등급 | 불 붙음 |
-| Bellows | 풀무. 사람이 없어도 바람을 넣는 것 | 예약작업(schtasks) | 8종 rc=0, 판본 혼재(0.1.7/0.1.6/v2/legacy 1) |
+| Bellows | 풀무. 사람이 없어도 바람을 넣는 것 | 예약작업(schtasks) | 수집 예약작업 8종 09-03 관측 rc=0(plan 18 §13A·README 참조), 판본 혼재(0.1.7/0.1.6/v2/legacy 1) |
 | Anvil | 모루. 형태를 정하는 받침, 곧 정본 | Covenant 뒤의 target `_workspaces`·`_workmeta` | 비어 있음. 정본 0 |
 | Hammer | 망치. 업무를 치는 엔진 | Task Engine | 있음. 한 바퀴 0 |
 | Quench | 담금질. 검증과 검토 관문 | `validate:*`, `done:check`, review gate | CI 1단계 빨강 |
 | Covenant | 언약궤. 정본 승격 3규칙 | W-AUTH · Canonical Empty-State Genesis · Legacy Freeze | 채택 전 |
-| Tongs | 집게. 뜨거운 것을 잡는 유일한 도구, MCP 문 | `dev-erp-mcp`(4311), `engineering_mcp` | 읽기 8·제출 6, 봇 경유만 |
+| Tongs | 집게. 뜨거운 것을 잡는 유일한 도구, MCP 문 | `dev-erp-mcp`(4311), `engineering_mcp` | 읽기 8·제출 6(plan 18 §5), 봇 경유만 |
 | Vigil | 야경대. 감시면 | Board(포트 4192), `guild_hall/watchtower` 모듈 | 켜짐 |
 | Sigil | 인장. 봇의 SOUL 스냅샷 | `hermes_profile_snapshot` | 코드만, 운영 전 |
 | Reliquary | 성유물함. 백업 | `backup_controller`, N차 백업본 | Linear 1세대 수락, 1차 백업본 staged |
@@ -86,7 +86,7 @@ Soulforge는 대장간이다. 밖에서는 몬스터(외부 업무: 메일·Slac
 
 ### 8. 규칙 — 지침에 박을 문장
 
-AGENTS.md "안전·저장 경계" 아래 한 줄: "문서·화면·예약작업 이름·CHANGELOG 제목·보고에는 `SHARED_GLOSSARY_V0.md` §세계 이름의 표시명을 쓴다. 은퇴한 표시어(같은 절의 대조표)는 새로 쓰지 않는다. 파일·폴더·포트·스키마·예약작업 ID 같은 식별자는 바꾸지 않으며 첫 등장에 괄호로 한 번 병기한다."
+AGENTS.md "안전·저장 경계" 아래 한 줄: "문서·화면·예약작업 이름·CHANGELOG 제목·보고에는 `SHARED_GLOSSARY_V0.md` §세계 이름의 표시명을 쓴다. 은퇴한 표시어(같은 문서 §옛 표기 → 표시명 대조표)는 새로 쓰지 않는다. 파일·폴더·포트·스키마·예약작업 ID 같은 식별자는 바꾸지 않으며 첫 등장에 괄호로 한 번 병기한다."
 
 같이 놓는 것: 용어집 §옛 표기 → 표시명 대조표(식별자 열 포함), README "Soulforge 한 장"을 §5 문장으로 교체, Master Map M0의 game-term 문단에 "업무는 게임 층, 부품은 대장간 층" 한 줄과 이 장으로 가는 포인터를 추가(OWNER_DEFERRED 항목은 그대로), 검사기 후보(문서 본문의 은퇴 표시어 검출, 식별자 문맥 예외)는 D-2에서.
 

@@ -34,6 +34,7 @@ export const REVIEWER_PACKET_MAX_BYTES = 2_000_000;
 // Ordered reading list. Each entry: relative path, short reason, optional line cap.
 export const REVIEWER_PACKET_DOCUMENTS = Object.freeze([
   { path: "README.md", reason: "one-page identity, canon roots, reading order" },
+  { path: "docs/architecture/foundation/SOULFORGE_WORLD_BIBLE_V0.md", reason: "world one-page, era, current state, retired display terms" },
   { path: "docs/architecture/foundation/SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md", reason: "master map M0-M16, current declaration" },
   { path: "docs/architecture/foundation/SHARED_GLOSSARY_V0.md", reason: "shared vocabulary and the world-name table with origins" },
   { path: "docs/architecture/foundation/DOCUMENT_OWNERSHIP.md", reason: "who owns which document" },
