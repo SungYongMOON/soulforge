@@ -109,11 +109,11 @@ async function rollbackCandidate(adapter, request, holdCode) {
     status: restored ? UPDATE_STATUS.ROLLED_BACK : UPDATE_STATUS.HOLD,
     hold_code: restored ? holdCode : (rollbackOk ? "ROLLBACK_HEALTH_FAILED" : "ROLLBACK_INCOMPLETE_HOLD"),
     service_ref: request.serviceRef,
-    current_release_ref: restored ? request.rollback : null,
+    current_release_ref: rollbackOk ? request.rollback : null,
     candidate_release_ref: request.candidate,
     reboot_requested: false,
     effects_performed: null,
-    outbox_preserved: restored,
+    outbox_preserved: rollbackOk,
   });
 }
 

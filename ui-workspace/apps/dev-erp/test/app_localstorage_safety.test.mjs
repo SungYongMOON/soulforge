@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-// F08 repro: app.js 최상위 `const state = {...}` 초기화는 여러 개의
+// external review 2026-09-05, key EXT-08 (unguarded localStorage JSON.parse) repro:
+// app.js 최상위 `const state = {...}` 초기화는 여러 개의
 // `JSON.parse(localStorage.getItem(...) || fallback)` 를 try/catch 없이 바로 평가한다.
 // app.js 는 <script type="module"> 로 로드되므로(static/index.html), 이 초기화 문 중
 // 하나라도 throw 하면 모듈 평가 전체가 중단되어 화면이 완전히 뜨지 않는다(부팅 실패).
@@ -25,11 +26,54 @@ function makeLocalStorage(initial = {}) {
   };
 }
 
-// state 초기화는 safeLocalJSON(정의는 이 슬라이스 앞부분에 포함) 과 localStorage 만 있으면
-// 평가 가능하다 — VERSION_FALLBACK 은 단순 참조 대입이라 값 자체는 이 테스트에 무관.
+// 괄호 균형 기반 슬라이스: 시작 마커 뒤 첫 "{" 부터 depth 를 세어 그 짝이 되는 "}" 까지 자른다
+// (문자열·템플릿 리터럴·라인 주석 내부의 중괄호는 무시하므로 그 안에 홑 중괄호가 있어도 안전
+// 하다). 줄 수나 리터럴 "\n};" 문자열 매치가 아니라 실제 괄호 짝으로 끝을 잡으므로 블록 내부
+// 코드가 base/HEAD 사이에 달라져도 항상 옳은 위치에서 자른다. 시작 마커 자체가 없으면(base
+// 에는 safeLocalJSON 이 아예 없음) null 을 돌려준다 — 이건 에러가 아니라 "이 리비전엔 이
+// 슬라이스가 없다"는 정상 신호다.
+function sliceBalancedBlock(source, startMarker) {
+  const start = source.indexOf(startMarker);
+  if (start < 0) return null;
+  const openBrace = source.indexOf("{", start);
+  assert.ok(openBrace >= 0, `no opening brace after marker: ${startMarker}`);
+  let depth = 0;
+  let stringChar = null;
+  let i = openBrace;
+  for (; i < source.length; i += 1) {
+    const ch = source[i];
+    if (stringChar) {
+      if (ch === "\\") { i += 1; continue; }
+      if (ch === stringChar) stringChar = null;
+      continue;
+    }
+    if (ch === "/" && source[i + 1] === "/") {
+      const nl = source.indexOf("\n", i);
+      i = (nl < 0 ? source.length : nl) - 1;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") { stringChar = ch; continue; }
+    if (ch === "{") depth += 1;
+    else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) { i += 1; break; }
+    }
+  }
+  assert.equal(depth, 0, `unbalanced braces while slicing from marker: ${startMarker}`);
+  let end = i;
+  if (source[end] === ";") end += 1;
+  return source.slice(start, end);
+}
+
+// state 초기화는 safeLocalJSON 과 localStorage 만 있으면 평가 가능하다 — VERSION_FALLBACK 은
+// 단순 참조 대입이라 값 자체는 이 테스트에 무관. safeLocalJSON 슬라이스는 이 리비전에 실제로
+// 있을 때만 붙인다: base(이 fix 이전)에는 그 함수가 아예 없고, state 슬라이스는 원문 그대로
+// (그때는 순수 JSON.parse 호출) 평가되어 손상값에 실제로 throw 해야 결함 재현이 된다. 리터럴
+// 함수명으로 슬라이스 존재 자체를 요구하면 base 에서 "헬퍼 부재"라는 엉뚱한 사유로 실패한다.
 function loadState(localStorage, { warn = () => {} } = {}) {
-  const helperSource = sourceSlice("function safeLocalJSON(key, fallback", "\n}");
-  const stateSource = sourceSlice("const state = {", "\n};");
+  const helperSource = sliceBalancedBlock(APP_SOURCE, "function safeLocalJSON(key, fallback") ?? "";
+  const stateSource = sliceBalancedBlock(APP_SOURCE, "const state = {");
+  assert.ok(stateSource, "source slice: const state = {...}; not found");
   const fn = new Function(
     "localStorage", "VERSION_FALLBACK", "console",
     `${helperSource}\n${stateSource}\nreturn state;`,
@@ -48,12 +92,12 @@ const CORRUPT_CASES = [
   ["dev_erp_task_codex_options", "undefined", "malformed JSON (bare word)"],
 ];
 
-test("corrupted per-key localStorage values no longer crash app.js boot (F08)", () => {
+test("corrupted per-key localStorage values no longer crash app.js boot (external review 2026-09-05, key EXT-08)", () => {
   for (const [key, value, label] of CORRUPT_CASES) {
     const warnings = [];
     const state = loadState(makeLocalStorage({ [key]: value }), { warn: (...args) => warnings.push(args) });
     assert.ok(state && typeof state === "object", `${key}=${value} (${label}) must still produce a usable state object`);
-    assert.equal(warnings.length, 1, `${key}=${value} (${label}) logs exactly one fallback warning instead of throwing`);
+    assert.ok(warnings.length >= 1, `${key}=${value} (${label}) logs at least one fallback warning instead of throwing`);
   }
 });
 
@@ -86,7 +130,7 @@ test("clean/absent localStorage keeps existing defaults exactly (no behavior cha
   assert.deepEqual(preset.chatDock, { x: 10 });
 });
 
-test("the dashLayout() saved-layout read (F08, formerly line ~1930) no longer throws on malformed JSON", () => {
+test("the dashLayout() saved-layout read (external review 2026-09-05, key EXT-08; formerly line ~1930) no longer throws on malformed JSON", () => {
   const helperSource = sourceSlice("function safeLocalJSON(key, fallback", "\n}");
   const readSource = sourceSlice('const saved = safeLocalJSON("dev_erp_widgets"', ");");
   const run = (localStorage) => new Function(

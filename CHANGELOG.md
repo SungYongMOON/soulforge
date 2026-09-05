@@ -147,6 +147,13 @@
   re-check; a failing or unreadable result now HOLDs with
   `hold_code: "ROLLBACK_HEALTH_FAILED"` instead. Two findings were judged
   without a code change: `permOf()`'s default-allow in `app.js` gates nothing
+  server-side today — 코드상 rbac_permission writer 가 없다(server.mjs 이력
+  전체에 setPermission 호출 없음) — a minimal diff is proposed but held for an
+  Owner decision; local chat-log retention in `app.js` is recorded as a
+  three-option policy choice, not a bug. No GPT-authored patch bytes were
+  applied; nothing here touched `main` or was pushed.
+- 운영 영향: 이 수정은 저장소에만 있으며 `install/server-pack/<x.y.z>/payload`
+  재빌드와 예약작업 재pin 전에는 운영 포트 4300에 반영되지 않는다.
   server-side today (nothing ever writes a role's `rbac_permission` row in
   the running app, so the fallback is the only path any account has ever
   taken in production) — a minimal diff is proposed but held for an Owner

@@ -3,11 +3,13 @@ import assert from "node:assert/strict";
 
 import { UPDATE_STATUS, coordinateClientUpdate } from "../src/runtime/update_coordinator.mjs";
 
+const CANDIDATE_RELEASE_REF = "release.client.0_2_0";
+
 function input(overrides = {}) {
   return {
     service_ref: "service.universal-client",
     current_release_ref: "release.client.0_1_0",
-    candidate_release_ref: "release.client.0_2_0",
+    candidate_release_ref: CANDIDATE_RELEASE_REF,
     candidate_digest: `sha256:${"a".repeat(64)}`,
     rollback_release_ref: "release.client.0_1_0",
     state_ref: "state.client.device-1",
@@ -29,7 +31,7 @@ function adapter({ healthy = true, rebootRequired = false } = {}) {
       calls.push("health");
       // `healthy` gates only the candidate's own check; the restored (rollback)
       // release defaults to healthy unless a test overrides checkHealth locally.
-      const isCandidate = release_ref === "release.client.0_2_0";
+      const isCandidate = release_ref === CANDIDATE_RELEASE_REF;
       return { ok: isCandidate ? healthy : true };
     },
     verifyStatePreserved: async () => { calls.push("state"); return { ok: true }; },
@@ -40,7 +42,7 @@ test("verified update restarts only the client, preserves state, and never reque
   const effects = adapter();
   const result = await coordinateClientUpdate(input(), effects);
   assert.equal(result.status, UPDATE_STATUS.UPDATED);
-  assert.deepEqual(effects.calls, ["stop", "switch:release.client.0_2_0", "start", "health", "state"]);
+  assert.deepEqual(effects.calls, ["stop", `switch:${CANDIDATE_RELEASE_REF}`, "start", "health", "state"]);
   assert.equal(result.reboot_requested, false);
   assert.equal(result.outbox_preserved, true);
 });
@@ -84,7 +86,7 @@ test("failed health rolls the pointer back and restarts the previous client", as
   assert.equal(result.status, UPDATE_STATUS.ROLLED_BACK);
   assert.deepEqual(effects.calls, [
     "stop",
-    "switch:release.client.0_2_0",
+    `switch:${CANDIDATE_RELEASE_REF}`,
     "start",
     "health",
     "stop",
@@ -104,10 +106,10 @@ test("a restored release that itself fails health is HOLD, not a false ROLLED_BA
   const result = await coordinateClientUpdate(input(), effects);
   assert.equal(result.status, UPDATE_STATUS.HOLD, "an unhealthy restored release must not be reported as a successful rollback");
   assert.equal(result.hold_code, "ROLLBACK_HEALTH_FAILED");
-  assert.equal(result.current_release_ref, null, "current release is unconfirmed when the restored client itself fails health");
-  assert.equal(result.outbox_preserved, false);
+  assert.equal(result.current_release_ref, "release.client.0_1_0", "switchCurrent(rollback) itself succeeded (observed), independent of the health verdict that follows");
+  assert.equal(result.outbox_preserved, true, "stop/switch/start all reported ok — the mechanical rollback completed regardless of the health verdict");
   assert.deepEqual(effects.calls, [
-    "stop", "switch:release.client.0_2_0", "start", "health:release.client.0_2_0",
+    "stop", `switch:${CANDIDATE_RELEASE_REF}`, "start", `health:${CANDIDATE_RELEASE_REF}`,
     "stop", "switch:release.client.0_1_0", "start", "health:release.client.0_1_0",
   ]);
 });
@@ -139,7 +141,7 @@ test("a partial rollback (switchCurrent failure) still HOLDs as incomplete and n
   assert.equal(result.hold_code, "ROLLBACK_INCOMPLETE_HOLD");
   assert.equal(result.current_release_ref, null);
   assert.deepEqual(effects.calls, [
-    "stop", "switch:release.client.0_2_0", "start", "health",
+    "stop", `switch:${CANDIDATE_RELEASE_REF}`, "start", "health",
     "stop", "switch:release.client.0_1_0", "start",
   ], "health is checked once for the candidate and is not re-checked when the rollback itself did not complete");
 });
