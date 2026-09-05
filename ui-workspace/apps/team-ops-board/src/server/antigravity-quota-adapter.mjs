@@ -14,6 +14,7 @@ import {
   parseAntigravityUsageCliOutput,
   staleAntigravityQuotaSnapshot,
 } from "../core/antigravity-quota.mjs";
+import { isDirectLoopbackCaller } from "./loopback-caller-guard.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -39,10 +40,6 @@ const CLI_ENVIRONMENT_ALLOWLIST = Object.freeze([
   "USERPROFILE",
   "WINDIR",
 ]);
-
-function isLoopbackAddress(address) {
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
-}
 
 export function isAntigravityQuotaLiveRefreshEnabled(env = process.env) {
   return env?.[TEAM_OPS_BOARD_ANTIGRAVITY_QUOTA_LIVE_REFRESH] === "1";
@@ -285,14 +282,19 @@ export function createAntigravityQuotaAdapterPlugin(options = {}) {
         next();
         return;
       }
-      if (request.method !== "GET") {
-        response.statusCode = 405;
-        response.setHeader("Allow", "GET");
+      // Loopback/proxy trust is checked before the method, so a proxied or
+      // remote caller gets the same fail-closed 403 regardless of verb: a
+      // loopback socket address alone does not prove the caller is the
+      // Owner's own local process (Level 2 review finding M1/M8; the shared
+      // rule lives in loopback-caller-guard.mjs).
+      if (!isDirectLoopbackCaller(request)) {
+        response.statusCode = 403;
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket.remoteAddress)) {
-        response.statusCode = 403;
+      if (request.method !== "GET") {
+        response.statusCode = 405;
+        response.setHeader("Allow", "GET");
         response.end();
         return;
       }

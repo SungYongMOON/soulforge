@@ -7,6 +7,7 @@ import { promises as fsPromises } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { HOST_STATS_SCHEMA_VERSION, cpuPercentFromSamples } from "../core/host-stats.mjs";
+import { isDirectLoopbackCaller } from "./loopback-caller-guard.mjs";
 
 export const HOST_STATS_SNAPSHOT_PATH = "/host-stats.snapshot.json";
 export const DEFAULT_HOST_STATS_SAMPLE_TTL_MS = 5_000;
@@ -31,10 +32,6 @@ function candidateDriveRoots(env = process.env) {
 }
 
 const DEFAULT_DISK_ROOTS = Object.freeze(candidateDriveRoots());
-
-function isLoopbackAddress(address) {
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
-}
 
 function roundPercent(value) {
   return Math.round(Math.min(100, Math.max(0, value)) * 10) / 10;
@@ -185,14 +182,19 @@ export function createHostStatsAdapterPlugin(options = {}) {
         next();
         return;
       }
-      if (request.method !== "GET") {
-        response.statusCode = 405;
-        response.setHeader("Allow", "GET");
+      // Loopback/proxy trust is checked before the method, so a proxied or
+      // remote caller gets the same fail-closed 403 regardless of verb: a
+      // loopback socket address alone does not prove the caller is the
+      // Owner's own local process (Level 2 review finding M1/M8; the shared
+      // rule lives in loopback-caller-guard.mjs).
+      if (!isDirectLoopbackCaller(request)) {
+        response.statusCode = 403;
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket.remoteAddress)) {
-        response.statusCode = 403;
+      if (request.method !== "GET") {
+        response.statusCode = 405;
+        response.setHeader("Allow", "GET");
         response.end();
         return;
       }

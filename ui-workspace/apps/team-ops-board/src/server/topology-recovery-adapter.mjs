@@ -1,6 +1,8 @@
 import { lstat, readFile } from "node:fs/promises";
 import path from "node:path";
 
+import { isDirectLoopbackCaller } from "./loopback-caller-guard.mjs";
+
 export const TOPOLOGY_RECOVERY_PATH = "/topology-recovery.snapshot.json";
 // v3 carries the supervision fields, the bounded sanitized history (v2), the
 // supervisor attempt receipt, and diagnostic gating. A v1 or v2 cycle receipt is never reinterpreted as v3.
@@ -94,10 +96,6 @@ function exactTimestamp(value) {
   const milliseconds = Date.parse(value);
   if (!Number.isFinite(milliseconds) || new Date(milliseconds).toISOString() !== value) return null;
   return milliseconds;
-}
-
-function isLoopbackAddress(address) {
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
 }
 
 function optionalTimestamp(value) {
@@ -326,14 +324,19 @@ export function createTopologyRecoveryAdapterPlugin(options = {}) {
         next();
         return;
       }
-      if (request.method !== "GET") {
-        response.statusCode = 405;
-        response.setHeader("Allow", "GET");
+      // Loopback/proxy trust is checked before the method, so a proxied or
+      // remote caller gets the same fail-closed 403 regardless of verb: a
+      // loopback socket address alone does not prove the caller is the
+      // Owner's own local process (Level 2 review finding M1/M8; the shared
+      // rule lives in loopback-caller-guard.mjs).
+      if (!isDirectLoopbackCaller(request)) {
+        response.statusCode = 403;
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket.remoteAddress)) {
-        response.statusCode = 403;
+      if (request.method !== "GET") {
+        response.statusCode = 405;
+        response.setHeader("Allow", "GET");
         response.end();
         return;
       }

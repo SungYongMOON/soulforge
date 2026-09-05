@@ -111,11 +111,38 @@ polling, change any snapshot, or grant runtime/repair authority.
 
 ## Local endpoint and privacy boundary
 
+Every Board read endpoint is loopback-only and shares one caller rule, kept
+once in `src/server/loopback-caller-guard.mjs`: the request must arrive on a
+loopback socket (`127.0.0.1`, `::1`, `::ffff:127.0.0.1`) and carry none of
+the proxy-passage marker headers `X-Forwarded-For`, `X-Forwarded-Host`,
+`X-Forwarded-Proto`, `Forwarded`, `Tailscale-User-Login`. Anything else is
+answered `403` with an empty body, and that check runs before the method
+check, so a remote or proxied caller gets the same fail-closed `403` for any
+verb. Tailscale Serve (or any reverse proxy on this host) lands a tailnet
+peer's request on `127.0.0.1` too, so a loopback socket address alone does not
+prove the caller is the Owner's own local process (Level 2 review finding
+M1/M8). Only the presence of a marker is inspected; no header value is read,
+kept, or logged. The fifteen endpoints under the rule are
+`/storage-map.snapshot.json`, `/agent-runtime.snapshot.json`,
+`/erp-pending-reviews.snapshot.json`, `/codex-threads.snapshot.json`,
+`/ai-usage-meter.snapshot.json`, `/antigravity-quota.snapshot.json`,
+`/antigravity-usage.snapshot.json`, `/claude-usage.snapshot.json`,
+`/codex-retention.snapshot.json`, `/host-stats.snapshot.json`,
+`/provider-limits.snapshot.json`, `/receipt-expiry.snapshot.json`,
+`/topology-health.snapshot.json`, `/topology-federation.snapshot.json`, and
+`/topology-recovery.snapshot.json`. Each adapter's test file carries the same
+proxy-marker case and `src/server/loopback-caller-guard.test.mjs` pins the
+rule itself. One consequence worth knowing: a Board page opened through
+Tailscale Serve (see the optional tailnet Host allowlist below) still loads,
+but every one of these projections answers `403` to that browser, so those
+panels cannot show data from this host off-host.
+
 ### Storage & Backup Map read projection
 
 The Board registers exact loopback-only `GET /storage-map.snapshot.json` through
 `src/server/storage-map-adapter.mjs`. Non-GET requests return `405`, remote
-callers return `403`, and the endpoint has no writer or repair surface. It is
+or proxied callers return `403` (the shared caller rule above, checked before
+the method), and the endpoint has no writer or repair surface. It is
 default-OFF: both `TEAM_OPS_STORAGE_MAP_BINDING` and
 `TEAM_OPS_STORAGE_MAP_BINDING_SHA256` must be present at Vite process start.
 The first value names an absolute local binding file and the second pins its
@@ -281,8 +308,13 @@ controller and the manual worker forward `TEAM_OPS_ERP_REVIEW_TOKEN_FILE` and
 `TEAM_OPS_ERP_REVIEW_URL` only when they are already strings in the Owner's
 environment and never derive them.
 
-Vite exposes `GET /codex-threads.snapshot.json` only to loopback clients. The
-adapter starts its own short-lived official `codex app-server` stdio client,
+Vite exposes `GET /codex-threads.snapshot.json` only to direct loopback
+clients: a remote or proxied caller gets `403` before the method check (the
+shared caller rule above). That matters here because the projection carries,
+per enrolled thread, the `thread_id`, `display_label`, `parent_thread_id`,
+`thread_kind`, `organization_group_id`, `status`, and `updated_at`, none of
+which belongs off this host. The adapter starts its own short-lived official
+`codex app-server` stdio client,
 sends `initialize` then `initialized`, and cursor-paginates `thread/list`. It
 prefers `useStateDbOnly`; a server that rejects that parameter is retried once
 without it.
@@ -298,8 +330,11 @@ results in no custom host exception.
 
 This setting changes only Vite Host-header allowance. It does not change the
 loopback bind, expose a network service, or override any read-only pilot
-disable. Keep actual host, account, and device values out of tracked files and
-documentation.
+disable, and it does not admit a proxied caller to the read endpoints: a
+request that arrives through Tailscale Serve carries proxy-passage markers,
+so every projection endpoint answers it `403` (the caller rule at the top of
+this section). Keep actual host, account, and device values out of tracked
+files and documentation.
 
 The client is bounded by page, item, protocol-byte, line-byte, timeout, cache,
 and single-flight limits. It builds the response from an allowlist and discards
@@ -953,7 +988,9 @@ The page intentionally shows only Watchtower and Engineering Engine; Knowledge
 and Notebook remain available through the federation endpoint but are not rendered
 in this operational view.
 
-Vite exposes `GET /topology-federation.snapshot.json` to loopback clients only.
+Vite exposes `GET /topology-federation.snapshot.json` to direct loopback
+clients only; a remote or proxied caller gets `403` before the method check
+(the shared caller rule under "Local endpoint and privacy boundary").
 The adapter reads one fixed tracked repo path:
 
 ```text
@@ -990,7 +1027,7 @@ delivery verdicts, while all Engine edges remain declared-structure-only.
 Tests are deterministic and synthetic and never need the running 4192 service:
 `src/server/topology-federation-adapter.test.mjs` covers artifact validation,
 digest and projection-mismatch rejection, forbidden authority claims, fail-closed
-reads, stale retention, and the loopback/method/path guards;
+reads, stale retention, and the loopback/proxy-marker/method/path guards;
 `src/core/topology-federation-view.test.mjs` covers the source projection;
 `src/core/topology-engine-classic-view.test.mjs` covers exact Engine totals,
 deterministic collision-free full expansion, original shape vocabulary, provider
@@ -1001,7 +1038,9 @@ surfaces, visible directed edges, controls, and accessibility boundaries.
 ## AI Usage Meter stays separate
 
 The Board exposes a credential-free same-origin loopback endpoint at
-`/ai-usage-meter.snapshot.json?read_only=1`. `read_only=1` is mandatory. A
+`/ai-usage-meter.snapshot.json?read_only=1`; a remote or proxied caller gets
+`403` before the method check (the shared caller rule under "Local endpoint
+and privacy boundary"). `read_only=1` is mandatory. A
 diagnostics refresh may add `refresh=1`, which bypasses the validated in-memory
 cache to re-read the local meter projection while joining any existing in-flight
 computation without starting duplicates. Normal polling inside the 60-second TTL
@@ -1090,7 +1129,7 @@ evidence stays `확인 불가` instead of becoming a pass or a fault.
 
 ## Codex Lifecycle Retention Phase 3 Read-only Projection
 
-The Board exposes `GET /codex-retention.snapshot.json` exclusively to loopback clients (`127.0.0.1`, `::1`).
+The Board exposes `GET /codex-retention.snapshot.json` exclusively to direct loopback clients (`127.0.0.1`, `::1`); a remote or proxied caller gets `403` before the method check (the shared caller rule under "Local endpoint and privacy boundary").
 - **Endpoint**: `/codex-retention.snapshot.json` (GET-only, non-GET returns 405 Method Not Allowed).
 - **Core Module**: `src/core/codex-retention-projection.mjs` stable-reads `<ownerRoot>/guild_hall/state/operations/soulforge_activity/reports/codex_retention/current.json`.
 - **Sanitization & Safety**: Strictly validates `soulforge.codex_thread_manager.codex_retention_automation_report.v1`, SHA-256 digest, generated_at ISO timestamp, and summary metrics. Zero raw path exposure, zero raw logs/prompts/reasoning exposure.

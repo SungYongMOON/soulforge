@@ -14,6 +14,7 @@ import {
 } from "../core/provider-limits.mjs";
 import { createProviderQuotaAttemptLog } from "./provider-quota-attempt-log.mjs";
 import { createProviderQuotaReceiptStore } from "./provider-quota-receipt-store.mjs";
+import { isDirectLoopbackCaller } from "./loopback-caller-guard.mjs";
 
 export const PROVIDER_LIMITS_SNAPSHOT_PATH = "/provider-limits.snapshot.json";
 export const DEFAULT_PROVIDER_LIMITS_TTL_MS = 60_000;
@@ -25,10 +26,6 @@ const CODEX_TAIL_BYTES = 262_144;
 const CLAUDE_STATUSLINE_SOURCE = "claude_code_statusline_rate_limits";
 const CLAUDE_COMPAT_SOURCE = "claude_orca_compat_receipt";
 const CLAUDE_OAUTH_SOURCE = "claude_oauth_usage_sanitized";
-
-function isLoopbackAddress(address) {
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
-}
 
 function defaultCodexSessionsRoot(env = process.env) {
   const home = typeof env.CODEX_HOME === "string" && env.CODEX_HOME.trim()
@@ -285,14 +282,19 @@ export function createProviderLimitsAdapterPlugin(options = {}) {
         next();
         return;
       }
-      if (request.method !== "GET") {
-        response.statusCode = 405;
-        response.setHeader("Allow", "GET");
+      // Loopback/proxy trust is checked before the method, so a proxied or
+      // remote caller gets the same fail-closed 403 regardless of verb: a
+      // loopback socket address alone does not prove the caller is the
+      // Owner's own local process (Level 2 review finding M1/M8; the shared
+      // rule lives in loopback-caller-guard.mjs).
+      if (!isDirectLoopbackCaller(request)) {
+        response.statusCode = 403;
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket.remoteAddress)) {
-        response.statusCode = 403;
+      if (request.method !== "GET") {
+        response.statusCode = 405;
+        response.setHeader("Allow", "GET");
         response.end();
         return;
       }

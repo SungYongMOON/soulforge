@@ -1,84 +1,12 @@
-// host-stats-adapter.test.mjs — 샘플러의 TTL 억제(실패 지속 중 포함)와
-// 멈춘 statfs에 대한 마감시한 회귀를 고정한다.
-
 import assert from "node:assert/strict";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
-import { HOST_STATS_SNAPSHOT_PATH, createHostStatsAdapterPlugin, createHostStatsSampler } from "./host-stats-adapter.mjs";
-
-function incrementingCpus() {
-  let counter = 0;
-  return () => {
-    counter += 50;
-    return [{ times: { user: counter, nice: 0, sys: 0, idle: 1_000 + counter, irq: 0 } }];
-  };
-}
-
-test("TTL suppresses re-sampling even while sampling persistently fails", async () => {
-  let clock = 0;
-  let cpuCalls = 0;
-  const sampler = createHostStatsSampler({
-    cpus: () => {
-      cpuCalls += 1;
-      return [];
-    },
-    totalmem: () => 100,
-    freemem: () => 50,
-    uptime: () => 10,
-    statfs: null,
-    cpuSampleDelayMs: 0,
-    sampleTtlMs: 5_000,
-    sampleTimeoutMs: 500,
-    now: () => clock,
-  });
-
-  assert.equal(await sampler.readSnapshot(), null);
-  const callsAfterFirstAttempt = cpuCalls;
-  assert.ok(callsAfterFirstAttempt > 0);
-
-  clock += 100;
-  assert.equal(await sampler.readSnapshot(), null);
-  assert.equal(cpuCalls, callsAfterFirstAttempt);
-
-  clock += 5_000;
-  await sampler.readSnapshot();
-  assert.ok(cpuCalls > callsAfterFirstAttempt);
-});
-
-test("hanging statfs hits the sample deadline, serves null, and recovers after TTL", async () => {
-  let clock = 0;
-  let hang = true;
-  let statfsCalls = 0;
-  const sampler = createHostStatsSampler({
-    cpus: incrementingCpus(),
-    totalmem: () => 1_000,
-    freemem: () => 400,
-    uptime: () => 77,
-    statfs: () => {
-      statfsCalls += 1;
-      return hang ? new Promise(() => {}) : Promise.resolve({ bsize: 1, blocks: 100, bavail: 40 });
-    },
-    diskRoots: [`${String.fromCharCode(67)}:/`],
-    cpuSampleDelayMs: 0,
-    sampleTtlMs: 5_000,
-    sampleTimeoutMs: 40,
-    now: () => clock,
-  });
-
-  assert.equal(await sampler.readSnapshot(), null);
-  assert.equal(statfsCalls, 1);
-
-  clock += 100;
-  assert.equal(await sampler.readSnapshot(), null);
-  assert.equal(statfsCalls, 1);
-
-  hang = false;
-  clock += 5_000;
-  const snapshot = await sampler.readSnapshot();
-  assert.ok(snapshot !== null);
-  assert.equal(snapshot.disks.length, 1);
-  assert.equal(snapshot.disks[0].drive, "C:");
-});
+import {
+  ANTIGRAVITY_USAGE_SNAPSHOT_PATH,
+  createAntigravityUsageAdapterPlugin,
+} from "./antigravity-usage-adapter.mjs";
 
 // --- proxy-passage marker guard (Level 2 review finding M1/M8) ----------------
 // Mirrors the reference case on the ERP pending-review and Agent Runtime
@@ -104,7 +32,7 @@ function invokeGuard(middleware, request) {
   });
 }
 
-async function assertRejectsProxiedCallers(plugin, loopbackRequest, readCount = () => 0) {
+async function assertRejectsProxiedCallers(plugin, loopbackRequest) {
   for (const surface of ["configureServer", "configurePreviewServer"]) {
     const middleware = captureGuardMiddleware(plugin, surface);
     for (const header of PROXY_MARKER_HEADER_NAMES) {
@@ -120,7 +48,6 @@ async function assertRejectsProxiedCallers(plugin, loopbackRequest, readCount = 
     // A remote socket with a non-GET verb is likewise 403 first, not 405 (M8).
     const remotePost = await invokeGuard(middleware, loopbackRequest({ method: "POST", socket: { remoteAddress: "100.64.0.9" } }));
     assert.equal(remotePost.statusCode, 403, surface);
-    assert.equal(readCount(), 0, `${surface}: nothing was read for a proxied or remote caller`);
     // A plain loopback caller with no marker passes the guard and reaches the
     // method check, and a request without any headers bag is not mistaken for a
     // proxy hop.
@@ -130,32 +57,28 @@ async function assertRejectsProxiedCallers(plugin, loopbackRequest, readCount = 
     assert.equal((await invokeGuard(middleware, loopbackRequest({ method: "POST", headers: undefined }))).statusCode, 405, surface);
   }
 }
+
 test("a request carrying a proxy-passage header is rejected 403 even from a loopback socket, before the method check (M1/M8)", async () => {
-  let samples = 0;
-  const plugin = createHostStatsAdapterPlugin({
-    cpus: () => {
-      samples += 1;
-      return [{ times: { user: 10, nice: 0, sys: 0, idle: 1_000, irq: 0 } }];
-    },
-    totalmem: () => 100,
-    freemem: () => 50,
-    uptime: () => 10,
-    statfs: null,
-    cpuSampleDelayMs: 0,
-    now: () => 0,
+  // A state.vscdb path that does not exist: the reader fails closed to null and
+  // the test never opens the Owner's real IDE database.
+  const plugin = createAntigravityUsageAdapterPlugin({
+    dbPath: join(tmpdir(), "team-ops-antigravity-usage-guard-missing", "state.vscdb"),
   });
   const loopbackRequest = (overrides = {}) => ({
     method: "GET",
-    url: HOST_STATS_SNAPSHOT_PATH,
+    url: ANTIGRAVITY_USAGE_SNAPSHOT_PATH,
     socket: { remoteAddress: "127.0.0.1" },
     headers: {},
     ...overrides,
   });
-  await assertRejectsProxiedCallers(plugin, loopbackRequest, () => samples);
+  await assertRejectsProxiedCallers(plugin, loopbackRequest);
 
-  // A plain loopback GET still samples the (synthetic) host and is answered 200.
+  // A plain loopback GET still reaches the reader and is answered 200 (null:
+  // the synthetic database does not exist).
   const middleware = captureGuardMiddleware(plugin, "configureServer");
-  assert.equal((await invokeGuard(middleware, loopbackRequest())).statusCode, 200);
-  assert.ok(samples > 0);
+  const served = await invokeGuard(middleware, loopbackRequest());
+  assert.equal(served.statusCode, 200);
+  assert.equal(served.headers["Cache-Control"], "no-store");
+  assert.equal(JSON.parse(served.body), null);
   assert.equal((await invokeGuard(middleware, loopbackRequest({ headers: undefined }))).statusCode, 200);
 });

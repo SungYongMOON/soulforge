@@ -3,13 +3,7 @@ import {
   unavailableProjection,
   CODEX_RETENTION_ENDPOINT_PATH
 } from "../core/codex-retention-projection.mjs";
-
-function isLoopbackAddress(remoteAddress) {
-  if (!remoteAddress) return false;
-  return remoteAddress === "127.0.0.1"
-    || remoteAddress === "::1"
-    || remoteAddress === "::ffff:127.0.0.1";
-}
+import { isDirectLoopbackCaller } from "./loopback-caller-guard.mjs";
 
 export function createCodexRetentionServerAdapter(options = {}) {
   const configure = (server) => {
@@ -28,15 +22,20 @@ export function createCodexRetentionServerAdapter(options = {}) {
         return;
       }
 
-      if (request.method !== "GET") {
-        response.statusCode = 405;
-        response.setHeader("Allow", "GET");
+      // Loopback/proxy trust is checked before the method, so a proxied or
+      // remote caller gets the same fail-closed 403 regardless of verb: a
+      // loopback socket address alone does not prove the caller is the
+      // Owner's own local process (Level 2 review finding M1/M8; the shared
+      // rule lives in loopback-caller-guard.mjs).
+      if (!isDirectLoopbackCaller(request)) {
+        response.statusCode = 403;
         response.end();
         return;
       }
 
-      if (!isLoopbackAddress(request.socket?.remoteAddress)) {
-        response.statusCode = 403;
+      if (request.method !== "GET") {
+        response.statusCode = 405;
+        response.setHeader("Allow", "GET");
         response.end();
         return;
       }

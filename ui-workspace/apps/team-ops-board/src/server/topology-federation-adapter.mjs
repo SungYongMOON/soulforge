@@ -17,6 +17,7 @@ import {
   canonicalStringify,
   composeFederatedTopology,
 } from "../../../../../guild_hall/watchtower/topology_federation.mjs";
+import { isDirectLoopbackCaller } from "./loopback-caller-guard.mjs";
 
 export const TOPOLOGY_FEDERATION_SNAPSHOT_PATH = "/topology-federation.snapshot.json";
 export const TOPOLOGY_FEDERATION_PROJECTION_SCHEMA = "soulforge.team_ops_board.topology_federation_projection.v1";
@@ -57,10 +58,6 @@ function isPlainObject(value) {
 function hasExactKeys(value, allowed) {
   const keys = Object.keys(value);
   return keys.length === allowed.size && keys.every((key) => allowed.has(key));
-}
-
-function isLoopbackAddress(address) {
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
 }
 
 // 실패 사유는 코드 형태로만 통과시킨다. 원문 메시지에는 경로가 섞일 수 있다.
@@ -191,14 +188,19 @@ export function createTopologyFederationAdapterPlugin(options = {}) {
         next();
         return;
       }
-      if (request.method !== "GET") {
-        response.statusCode = 405;
-        response.setHeader("Allow", "GET");
+      // Loopback/proxy trust is checked before the method, so a proxied or
+      // remote caller gets the same fail-closed 403 regardless of verb: a
+      // loopback socket address alone does not prove the caller is the
+      // Owner's own local process (Level 2 review finding M1/M8; the shared
+      // rule lives in loopback-caller-guard.mjs).
+      if (!isDirectLoopbackCaller(request)) {
+        response.statusCode = 403;
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket.remoteAddress)) {
-        response.statusCode = 403;
+      if (request.method !== "GET") {
+        response.statusCode = 405;
+        response.setHeader("Allow", "GET");
         response.end();
         return;
       }

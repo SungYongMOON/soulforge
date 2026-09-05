@@ -836,3 +836,86 @@ test("normal 30-second polling stays cached under the default 60-second TTL", as
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+// --- proxy-passage marker guard (Level 2 review finding M1/M8) ----------------
+// Mirrors the reference case on the ERP pending-review and Agent Runtime
+// adapters. The rule itself lives in loopback-caller-guard.mjs; this case pins
+// that this endpoint applies it, and applies it before its method check.
+const PROXY_MARKER_HEADER_NAMES = ["x-forwarded-for", "x-forwarded-host", "x-forwarded-proto", "forwarded", "tailscale-user-login"];
+
+function captureGuardMiddleware(plugin, surface) {
+  let middleware;
+  plugin[surface]({ middlewares: { use(handler) { middleware = handler; } } });
+  return middleware;
+}
+
+function invokeGuard(middleware, request) {
+  return new Promise((resolve) => {
+    const response = {
+      statusCode: 0,
+      headers: {},
+      setHeader(name, value) { this.headers[name] = value; },
+      end(body = "") { resolve({ statusCode: this.statusCode, headers: this.headers, body }); },
+    };
+    middleware(request, response, () => resolve({ next: true }));
+  });
+}
+
+async function assertRejectsProxiedCallers(plugin, loopbackRequest, readCount = () => 0) {
+  for (const surface of ["configureServer", "configurePreviewServer"]) {
+    const middleware = captureGuardMiddleware(plugin, surface);
+    for (const header of PROXY_MARKER_HEADER_NAMES) {
+      const proxied = await invokeGuard(middleware, loopbackRequest({ headers: { [header]: "anything" } }));
+      assert.equal(proxied.statusCode, 403, `${surface}: ${header}`);
+      assert.equal(proxied.body, "", `${surface}: ${header} carries no body`);
+      assert.deepEqual(proxied.headers, {}, `${surface}: ${header} sets no response header`);
+      // Same header plus a non-GET verb still reports 403, not 405: loopback/proxy
+      // trust is checked before the method (M8).
+      const proxiedPost = await invokeGuard(middleware, loopbackRequest({ method: "POST", headers: { [header]: "anything" } }));
+      assert.equal(proxiedPost.statusCode, 403, `${surface}: ${header} + POST`);
+    }
+    // A remote socket with a non-GET verb is likewise 403 first, not 405 (M8).
+    const remotePost = await invokeGuard(middleware, loopbackRequest({ method: "POST", socket: { remoteAddress: "100.64.0.9" } }));
+    assert.equal(remotePost.statusCode, 403, surface);
+    assert.equal(readCount(), 0, `${surface}: nothing was read for a proxied or remote caller`);
+    // A plain loopback caller with no marker passes the guard and reaches the
+    // method check, and a request without any headers bag is not mistaken for a
+    // proxy hop.
+    const plainPost = await invokeGuard(middleware, loopbackRequest({ method: "POST" }));
+    assert.equal(plainPost.statusCode, 405, surface);
+    assert.equal(plainPost.headers.Allow, "GET", surface);
+    assert.equal((await invokeGuard(middleware, loopbackRequest({ method: "POST", headers: undefined }))).statusCode, 405, surface);
+  }
+}
+test("a request carrying a proxy-passage header is rejected 403 even from a loopback socket, before the method check (M1/M8)", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "team-ops-ai-usage-guard-"));
+  try {
+    let reads = 0;
+    const plugin = createAiUsageAdapterPlugin({
+      registryPath: join(directory, "missing-visibility.json"),
+      env: ENV,
+      readUsageProjection: async () => {
+        reads += 1;
+        return readOnlyFixture();
+      }
+    });
+    const loopbackRequest = (overrides = {}) => ({
+      method: "GET",
+      url: `${AI_USAGE_SNAPSHOT_PATH}?${AI_USAGE_READ_ONLY_QUERY_KEY}=1`,
+      socket: { remoteAddress: "127.0.0.1" },
+      headers: {},
+      ...overrides
+    });
+    await assertRejectsProxiedCallers(plugin, loopbackRequest, () => reads);
+
+    // Past the guard and the method check the exact read_only query is still
+    // required: a plain loopback GET without it reports 400, not 403.
+    for (const surface of ["configureServer", "configurePreviewServer"]) {
+      const middleware = captureGuardMiddleware(plugin, surface);
+      assert.equal((await invokeGuard(middleware, loopbackRequest({ url: AI_USAGE_SNAPSHOT_PATH }))).statusCode, 400, surface);
+      assert.equal((await invokeGuard(middleware, loopbackRequest({ url: AI_USAGE_SNAPSHOT_PATH, headers: undefined }))).statusCode, 400, surface);
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

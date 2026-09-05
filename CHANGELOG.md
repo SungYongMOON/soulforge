@@ -1,5 +1,55 @@
 # CHANGELOG
 
+## 2026-09-05 - Close the Tailscale loopback gap on every Board read endpoint through one shared caller rule
+
+- 날짜: 2026-09-05. Revision: branch `claude/optimistic-napier-eec3ff` on main
+  `830c9955`, with the Agent Runtime endpoint fix (entry below) cherry-picked in
+  first as its own commit.
+- 무엇: the thirteen remaining loopback-only read endpoints of team-ops-board
+  (`/codex-threads.snapshot.json`, `/ai-usage-meter.snapshot.json`,
+  `/antigravity-quota.snapshot.json`, `/antigravity-usage.snapshot.json`,
+  `/claude-usage.snapshot.json`, `/codex-retention.snapshot.json`,
+  `/host-stats.snapshot.json`, `/provider-limits.snapshot.json`,
+  `/receipt-expiry.snapshot.json`, `/storage-map.snapshot.json`,
+  `/topology-health.snapshot.json`, `/topology-federation.snapshot.json`,
+  `/topology-recovery.snapshot.json`) trusted a loopback socket address alone,
+  the gap the rung 1 Level 2 review named on the pending-review endpoint
+  (M1/M8). Each now rejects (`403`, empty body, checked before the method
+  check) any request carrying a proxy-passage marker header
+  (`X-Forwarded-For`/`X-Forwarded-Host`/`X-Forwarded-Proto`/`Forwarded`/
+  `Tailscale-User-Login`), with the same header list and check order as the two
+  endpoints fixed earlier. With fifteen users the rule now lives once, in
+  `src/server/loopback-caller-guard.mjs` (`isDirectLoopbackCaller`): the two
+  previously fixed adapters and the thirteen others import it, and every
+  adapter dropped its private copy of the loopback predicate. Each adapter test
+  file carries the proxy-marker case (`antigravity-usage` and `claude-usage`
+  had no test file and got one), and the helper has its own test. The Board
+  README's "Local endpoint and privacy boundary" section now states the shared
+  rule once and lists the fifteen endpoints, and the per-endpoint sections point
+  at it. `/codex-threads.snapshot.json` was done first: per enrolled thread it
+  serves `thread_id`, `display_label`, `parent_thread_id`, `thread_kind`,
+  `organization_group_id`, `status`, and `updated_at`.
+- 운영 영향: none until the Board lane is rebuilt and re-registered from a
+  commit containing this change. After that: a remote or proxied non-GET
+  request reports `403` instead of `405`; and a Board page opened through
+  Tailscale Serve (the optional tailnet Host allowlist) still loads, but every
+  projection endpoint answers `403` to that browser, so those panels cannot
+  show data from this host off-host. Direct local callers are unaffected, a
+  request without any headers bag is still served, and no header value is
+  read, kept, or logged. This closes the follow-up recorded in the entry below.
+- 검증 (worker: Claude Code / Claude Fable 5.1, worktree on `830c9955`):
+  team-ops-board `npm run test` 787 tests, 785 pass, 2 fail = the same two
+  pre-existing `storage-map-adapter.test.mjs` cases that fail on the untouched
+  tree (770 tests, 768 pass, 2 fail, measured first in the same environment);
+  the fifteen proxy-marker cases and the four helper cases pass; `tsc --noEmit`
+  exit 0; `vite build` exit 0; `local_absolute_path_policy.mjs --scope changed`
+  0 violations.
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/server/loopback-caller-guard.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/loopback-caller-guard.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/*-adapter.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/*-adapter.test.mjs`,
+  `ui-workspace/apps/team-ops-board/README.md`.
+
 ## 2026-09-05 - Close the Tailscale loopback gap on the Agent Runtime endpoint too
 
 - team-ops-board: `GET /agent-runtime.snapshot.json?read_only=1` rested on the

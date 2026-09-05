@@ -11,6 +11,7 @@ import {
 import { validateWriterAuthorityRecord } from "../../../../../guild_hall/ingress/writer_authority.mjs";
 import { validateActivationSidecar } from "../../../../../guild_hall/backup_controller/activation.mjs";
 import { validatePlaudCutoverReceipt } from "../../../../../guild_hall/voice_capture/plaud_writer_cutover_receipt.mjs";
+import { isDirectLoopbackCaller } from "./loopback-caller-guard.mjs";
 
 export const RECEIPT_EXPIRY_PATH = "/receipt-expiry.snapshot.json";
 export const RECEIPT_EXPIRY_PROJECTION_ENVELOPE_SCHEMA = "soulforge.team_ops_board.receipt_expiry_projection.v1";
@@ -24,13 +25,6 @@ const SHA256 = /^[a-f0-9]{64}$/;
 const STANDING_CONTRACT_CATALOG = Object.freeze(getStandingRuntimeBlockingCatalog());
 const STANDING_CONTRACT_IDS = Object.freeze(STANDING_CONTRACT_CATALOG.map((c) => c.contract_id));
 const STANDING_CONTRACT_COUNT = STANDING_CONTRACT_IDS.length;
-
-function isLoopbackAddress(remoteAddress) {
-  if (!remoteAddress) return false;
-  return remoteAddress === "127.0.0.1"
-    || remoteAddress === "::1"
-    || remoteAddress === "::ffff:127.0.0.1";
-}
 
 function exactKeys(value, expected, code) {
   if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error(code);
@@ -403,15 +397,20 @@ export function createReceiptExpiryServerAdapter(options = {}) {
         return;
       }
 
-      if (request.method !== "GET") {
-        response.statusCode = 405;
-        response.setHeader("Allow", "GET");
+      // Loopback/proxy trust is checked before the method, so a proxied or
+      // remote caller gets the same fail-closed 403 regardless of verb: a
+      // loopback socket address alone does not prove the caller is the
+      // Owner's own local process (Level 2 review finding M1/M8; the shared
+      // rule lives in loopback-caller-guard.mjs).
+      if (!isDirectLoopbackCaller(request)) {
+        response.statusCode = 403;
         response.end();
         return;
       }
 
-      if (!isLoopbackAddress(request.socket?.remoteAddress)) {
-        response.statusCode = 403;
+      if (request.method !== "GET") {
+        response.statusCode = 405;
+        response.setHeader("Allow", "GET");
         response.end();
         return;
       }
