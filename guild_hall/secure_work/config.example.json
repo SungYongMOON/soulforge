@@ -1,0 +1,40 @@
+{
+  "schema": "soulforge.secure_work.config.v0",
+  "note": "Copy this outside the repository, fill in real host paths, and point SOULFORGE_SECURE_WORK_CONFIG at the copy. Placeholders below are never resolved by code.",
+  "kit_root": "<TOOL_ROOT>/secure-work-kit/<E14 contract kit>/soulforge_e14_system",
+  "recipe_root": "<TOOL_ROOT>/secure-work-kit/<E13 handoff>/recipes",
+  "pilot_root": "<PILOT_ROOT>",
+  "status_path": "<STATE_ROOT>/ops-lane/operations/secure_work/status.json",
+  "runtime": {
+    "python_executable": "<TOOL_ROOT>/secure-work-venv/Scripts/python.exe"
+  },
+  "adapters": {
+    "g2": {
+      "kind": "openai_compatible.local",
+      "enabled": true,
+      "base_url": "http://127.0.0.1:18080/v1",
+      "model": "auto",
+      "timeout_s": 180
+    },
+    "transport": {
+      "kind": "scripted.subprocess",
+      "enabled": true,
+      "python_executable": "<TOOL_ROOT>/secure-work-venv/Scripts/python.exe",
+      "key_file": "<private_root>/config/secure_work/credentials/openrouter.key",
+      "base_url": "https://openrouter.ai/api/v1",
+      "model": "<owner-pinned model id>",
+      "live_enabled": false
+    },
+    "custody": {
+      "kind": "tongs.ingress_client",
+      "enabled": false,
+      "ingress_client_cli": "<REPO_ROOT>/ui-workspace/apps/dev-erp-mcp/ingress_client_cli.mjs",
+      "ingress_url": "http://127.0.0.1:4312",
+      "ingress_health_url": "http://127.0.0.1:4312/health",
+      "control_url": "http://127.0.0.1:4311",
+      "control_health_url": "http://127.0.0.1:4311/health",
+      "token_file": "<private_root>/config/secure_work/credentials/tongs_ingress.bearer",
+      "live_enabled": false
+    }
+  }
+}
