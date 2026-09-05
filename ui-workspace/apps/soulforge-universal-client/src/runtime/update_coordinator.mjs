@@ -92,16 +92,28 @@ async function rollbackCandidate(adapter, request, holdCode) {
   catch { rollbackOk = false; }
   try { await requireOk(adapter.startClient({ service_ref: request.serviceRef }), "rollback_start_failed"); }
   catch { rollbackOk = false; }
+  // A mechanically complete rollback (stop/switch/start all reported ok) is not
+  // itself proof the restored release is healthy — re-verify the same way the
+  // forward path verifies the candidate, instead of reporting ROLLED_BACK on
+  // trust. An unreadable status (checkHealth throws) is treated as unhealthy.
+  let rollbackHealthy = false;
+  if (rollbackOk) {
+    try {
+      const health = await adapter.checkHealth({ service_ref: request.serviceRef, release_ref: request.rollback });
+      rollbackHealthy = !!health && health.ok === true;
+    } catch { rollbackHealthy = false; }
+  }
+  const restored = rollbackOk && rollbackHealthy;
   return freeze({
     schema_version: UPDATE_RECEIPT_SCHEMA,
-    status: rollbackOk ? UPDATE_STATUS.ROLLED_BACK : UPDATE_STATUS.HOLD,
-    hold_code: rollbackOk ? holdCode : "ROLLBACK_INCOMPLETE_HOLD",
+    status: restored ? UPDATE_STATUS.ROLLED_BACK : UPDATE_STATUS.HOLD,
+    hold_code: restored ? holdCode : (rollbackOk ? "ROLLBACK_HEALTH_FAILED" : "ROLLBACK_INCOMPLETE_HOLD"),
     service_ref: request.serviceRef,
-    current_release_ref: rollbackOk ? request.rollback : null,
+    current_release_ref: restored ? request.rollback : null,
     candidate_release_ref: request.candidate,
     reboot_requested: false,
     effects_performed: null,
-    outbox_preserved: rollbackOk,
+    outbox_preserved: restored,
   });
 }
 

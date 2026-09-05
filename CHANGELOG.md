@@ -129,6 +129,30 @@
   2026-09-05 with the 15-minute cadence. Recorded because the packet is the one
   document an outside reviewer sees, so an unstated gap between the repository
   and production becomes their starting premise.
+- Reproduced and judged four external (GPT) code-level review findings on a
+  separate branch (`fix/external-review-repro`) against this commit, failing
+  test first. Two were confirmed and fixed. `ui-workspace/apps/dev-erp/static/app.js`
+  loads as `<script type="module">`, and its top-level `const state = {...}`
+  ran five `JSON.parse(localStorage.getItem(...) || ...)` calls with no
+  try/catch — one corrupted key threw and aborted the whole module evaluation,
+  not just one widget. Added a `safeLocalJSON()` helper (try/catch + shape
+  check + default) at those five initializer fields plus `dashLayout()`'s
+  saved-layout read; new test `test/app_localstorage_safety.test.mjs`. The
+  four other sites the review flagged already had try/catch and are
+  unchanged. Separately, `update_coordinator.mjs` (soulforge-universal-client)
+  reported `ROLLED_BACK` once stop/switch/start each returned `ok:true`,
+  without ever re-checking health on the restored release — an old release
+  that restarts but is itself unhealthy (or whose health probe throws) was
+  reported as a successful rollback. Added a gated post-restart health
+  re-check; a failing or unreadable result now HOLDs with
+  `hold_code: "ROLLBACK_HEALTH_FAILED"` instead. Two findings were judged
+  without a code change: `permOf()`'s default-allow in `app.js` gates nothing
+  server-side today (nothing ever writes a role's `rbac_permission` row in
+  the running app, so the fallback is the only path any account has ever
+  taken in production) — a minimal diff is proposed but held for an Owner
+  decision; local chat-log retention in `app.js` is recorded as a three-option
+  policy choice, not a bug. No GPT-authored patch bytes were applied; nothing
+  here touched `main` or was pushed.
 - Revision: branch `fix/ci-path-policy-tracked`, 7 commits on top of this same
   day's `d0258af3` (6 fix commits plus this changelog entry), not yet merged
   or pushed. Fixed every one of the 57 tracked-scope violations

@@ -44,6 +44,25 @@ function codexBridgePart(source = state.version?.runtime?.codex_task) {
   };
 }
 
+// 손상된 localStorage 값(깨진 JSON, 잘못된 타입)이 부팅 자체를 막지 않게 하는 안전 읽기.
+// state 초기화는 모듈 최상위에서 도는 단일 표현식이라 여기서 하나라도 throw 하면
+// 전체 app.js 모듈 평가가 중단된다 — 실패는 조용히 기본값으로 폴백하고 throw 하지 않는다.
+function safeLocalJSON(key, fallback, isValid = () => true) {
+  const raw = localStorage.getItem(key);
+  if (raw == null) return fallback;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!isValid(parsed)) {
+      console.warn(`[dev-erp] localStorage(${key}) 예상과 다른 타입 — 기본값 사용`);
+      return fallback;
+    }
+    return parsed;
+  } catch (error) {
+    console.warn(`[dev-erp] localStorage(${key}) 손상(JSON 파싱 실패) — 기본값 사용`, error);
+    return fallback;
+  }
+}
+
 const state = {
   mode: localStorage.getItem("dev_erp_mode") || "business",
   // 새로고침 시 보던 화면 유지. 컨텍스트(hubProject/knowSel) 필요한 project·knowledge 는 home 으로 폴백.
@@ -57,17 +76,17 @@ const state = {
   navTop: localStorage.getItem("dev_erp_navtop") || "work",       // L1 대분류(상단 가로)
   navGroup: localStorage.getItem("dev_erp_navgroup") || "work_mine", // L2 중분류(상단 가로, 섹터)
   knowGroup: "standards", knowSel: null, _knowCache: null, // 지식: 현재 분야그룹 / 선택 항목 / canon 캐시
-  navFold: new Set(JSON.parse(localStorage.getItem("dev_erp_navfold") || "[]")), // 좌측 L3 접힘 키
-  pins: JSON.parse(localStorage.getItem("dev_erp_pins") || "[]"),
+  navFold: new Set(safeLocalJSON("dev_erp_navfold", [], Array.isArray)), // 좌측 L3 접힘 키
+  pins: safeLocalJSON("dev_erp_pins", [], Array.isArray),
   // P2b: 계정/권한. 익명(account=null)이면 앱은 현행대로(전체 접근·localStorage).
   account: null, perms: [], accountCount: 0, allowSelfRegister: false,
   mineOnly: localStorage.getItem("dev_erp_mine") !== "0", // 내 할 일: 기본 '내 일만'(로그인 시). 익명이면 무시.
   suggestedMine: localStorage.getItem("dev_erp_sug_mine") === "1", // B-5 제안 수신함: '내게 제안된 것만' 렌즈(분류 필요 탭)
   chatLog: [],
   chatThread: null,
-  chatDock: JSON.parse(localStorage.getItem("dev_erp_chat_dock") || "{}"),
-  taskCodexDock: JSON.parse(localStorage.getItem("dev_erp_task_codex_dock") || "{}"),
-  taskCodexOptions: JSON.parse(localStorage.getItem("dev_erp_task_codex_options") || "{}"),
+  chatDock: safeLocalJSON("dev_erp_chat_dock", {}, (v) => !!v && typeof v === "object" && !Array.isArray(v)),
+  taskCodexDock: safeLocalJSON("dev_erp_task_codex_dock", {}, (v) => !!v && typeof v === "object" && !Array.isArray(v)),
+  taskCodexOptions: safeLocalJSON("dev_erp_task_codex_options", {}, (v) => !!v && typeof v === "object" && !Array.isArray(v)),
   poProject: "",
   poParty: "",
   ctProject: "",
@@ -1935,7 +1954,7 @@ const DASH_PRESETS = {
 };
 
 function dashLayout() {
-  const saved = JSON.parse(localStorage.getItem("dev_erp_widgets") || "null");
+  const saved = safeLocalJSON("dev_erp_widgets", null, Array.isArray);
   if (Array.isArray(saved) && saved.length && saved.every((x) => x && WIDGET_CATALOG.includes(x.id) && "x" in x)) {
     return saved.map((x) => ({
       id: x.id,
