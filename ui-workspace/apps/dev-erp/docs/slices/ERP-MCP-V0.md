@@ -56,7 +56,7 @@ flowchart LR
 | flag | 표면 | 켰을 때 추가되는 것 |
 | --- | --- | --- |
 | `DEV_ERP_MCP_AGENDA_NO_DUE` | `erp_get_my_agenda` 응답 | 담당 identity 스코프의 마감일 없는 open 항목 `no_due_open` 배열(최대 200, `done`/`archived`/`unclassified` 제외). 미배정 공용 풀은 노출하지 않는다 |
-| `DEV_ERP_MCP_REVIEW_READ` | cookie `GET /api/items/work-sessions`, bearer `GET /api/mcp/reviews/pending` | 검토자 read-only 조회. 항목 세션 조회는 admin 또는 담당자만, pending 목록은 admin 전용이며 `payload_json`·제안 원문·절대경로를 반환하지 않는다 |
+| `DEV_ERP_MCP_REVIEW_READ` | cookie `GET /api/items/work-sessions`, bearer `GET /api/mcp/reviews/pending`, cookie `GET /api/reviews/pending` + 웹 화면 `업무 관리 › 승인·현황 › 검사 중`(`?view=mod:reviews` 딥링크, 적용 뒤 `history.replaceState`로 주소창에서 지운다) | 검토자 read-only 조회. 항목 세션 조회는 admin 또는 담당자만, pending 목록(bearer·cookie 모두)은 admin 전용이며 `payload_json`·제안 원문·절대경로를 반환하지 않는다. work_session 행은 `item_status`를 돌려주어 "제출됨·미수락"(`done`/`archived` 아님)을 판정한다. `item_title`은 `pendingReviews`(따라서 bearer 라우트·MCP 도구 응답)에는 없다 — 웹 화면 전용으로 cookie 라우트가 `store.itemById`를 통해 서버 측에서만 붙인다. 이 cookie 조회도 bearer처럼 감사 event(`kind=reviews_pending_view`)를 남긴다. "검사 중" 화면은 승인·완료·상태변경 버튼이 없고 기존 제안 큐·할 일 화면으로 보내며, 본인 제출은 "할 일 열기" 버튼 비활성화 + 문구로 표시만 한다(강제는 writer 측 후속 작업) |
 | `DEV_ERP_MCP_AUDIT_TOKEN_REF` | `mcp_tool_call` 감사 event | `note`에 `token=<opaque token id>`, `used_refs`에 `erp_mcp_access_token:<id>` 추가. 평문 token과 `token_hash`는 기록하지 않고 upload ticket 경로는 `token=ticket`이며 `actor_kind`는 현행 `human` 유지 |
 
 sidecar의 `erp_list_pending_reviews`(READ_ONLY)는 `ERP_MCP_REVIEW_TOOLS=1`일 때만 등록되고

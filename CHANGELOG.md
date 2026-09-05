@@ -1,5 +1,80 @@
 # CHANGELOG
 
+## 2026-09-05 - Team Pilot rung 1: the ERP "검사 중" filter and the 4192 pending-review panel
+
+- Plan 18 §12 allowed exactly two pieces of code for Team Pilot 1 ("4192 패널
+  1개(읽기+링크), ERP 필터 1개"); both land here without a new schema, a new
+  writer, a renamed or moved source, or any Linear write.
+- dev-erp: the existing admin reviewer query `pendingReviews` gains one additive
+  read field on each work-session row (`item_status`) so "제출됨·미수락" can be
+  judged as "the task is not yet `done`/`archived`". A cookie route
+  `GET /api/reviews/pending` (admin only, registered only when
+  `DEV_ERP_MCP_REVIEW_READ=1`) feeds a new virtual view
+  `업무 관리 › 승인·현황 › 검사 중` that lists pending AI proposals and recent MCP
+  submissions with a default "unaccepted only" filter. `item_title` is not part
+  of `pendingReviews` at all (so it never reaches the bearer route or an MCP
+  tool caller); the cookie route alone attaches it server-side, via
+  `store.itemById`, for this human-facing screen only, and now leaves its own
+  audit row (`kind=reviews_pending_view`) the same way the bearer route already
+  did. The screen has no approve/complete/status button: proposals link to the
+  existing 제안 큐, MCP submissions open the existing task quick-edit where a
+  human changes status, and a submitter's own row shows a disabled "할 일 열기"
+  button plus "본인 제출 — 다른 검토자 수락 필요" (display only; enforcement is a
+  writer-side follow-up, not built here). The fixed deep link `?view=mod:reviews`
+  is the only URL parameter the client accepts, and is stripped from the address
+  bar with `history.replaceState` once applied. With the flag off the screen
+  renders a notice that the Owner/cutover session turns it on; nothing here
+  turns it on.
+- team-ops-board: a loopback-only `GET /erp-pending-reviews.snapshot.json?read_only=1`
+  adapter and an owner-surface panel "검사 중 · ERP 제출 대기". A Level 2 review
+  found that Tailscale Serve can proxy a tailnet peer's request to this host's
+  `127.0.0.1`, so a loopback socket address alone does not prove the caller is
+  the Owner's own local process; the endpoint now also rejects (`403`, checked
+  before the method) any request carrying a proxy-passage marker header
+  (`X-Forwarded-For`/`X-Forwarded-Host`/`X-Forwarded-Proto`/`Forwarded`/
+  `Tailscale-User-Login`), and the projection it serves carries **counts and a
+  status distribution only** — proposal/work-session counts, an unaccepted
+  count, an unknown-status count, a pending total, the observed-at time, and
+  the safe ERP link. There is no username, item id, project id, proposal id, or
+  work-session id anywhere in the response; names, titles, and identifiers stay
+  behind the ERP's own loopback "검사 중" filter (post-login, Owner surface). A
+  `ready` snapshot whose own `erp_link.url` fails the loopback check now holds
+  as `ERP_REVIEW_RESPONSE_MALFORMED` instead of silently rendering with the
+  default link substituted in. Default mode is link-only (fixed HOLD
+  `ERP_REVIEW_UNCONFIGURED` plus the safe ERP link). When the Owner places a
+  one-line admin MCP token file under the private lane credential root and
+  names it in `TEAM_OPS_ERP_REVIEW_TOKEN_FILE`, the adapter performs one bearer
+  GET against the ERP pending-review route, validates the exact envelope,
+  reduces it to the aggregate projection above (summaries, titles, and every
+  other per-row field are validated then discarded before the counts are
+  taken), caches for 60 s, and polls every 5 min because the ERP audits each
+  read; the panel's manual button reads "다시 읽기 (최대 60초 캐시)" so it never
+  implies a bypass it does not perform. A response body that overruns the
+  transport's size bound now also destroys the upstream stream instead of
+  leaving it to close on its own. Every failure is a fixed hold code
+  (credential shape, URL, disconnected, timeout, unauthorized, route disabled,
+  rate limited, malformed, oversize) shown with a Korean reason and never with
+  a path, token, or exception text. The runtime wrapper forwards the two
+  opt-in environment names only when the Owner already set them; it never
+  derives them.
+- Operational impact: none until the Owner/cutover session (1) adds
+  `DEV_ERP_MCP_ENABLED=1` / `DEV_ERP_MCP_REVIEW_READ=1` to the Main Node ERP
+  task, (2) rebuilds and re-registers the Board lane with this branch, and
+  (3) optionally issues a dedicated admin MCP token for the Board. The rehearsal
+  procedure for the Owner one-loop (Linear -> input bundle -> MCP submission ->
+  4192 "검사 중" -> ERP loopback acceptance -> human Linear done) lives with the
+  planning session's scratch material, not in this repository.
+- Verification: dev-erp suite, team-ops-board suite plus typecheck and build, and
+  `validate:path-policy` on the changed scope; both screens were exercised
+  against a throwaway ERP and Board with synthetic data on non-operational
+  ports, confirming the Board response carries no `username`/`item_id`/
+  `project_id`/`item_title` key. Two pre-existing failures are unchanged: the
+  non-hermetic launcher test while the operational ERP holds port 4300, and the
+  storage-map adapter's `authority_boundary` expectation.
+- Related paths: `ui-workspace/apps/dev-erp/{server.mjs,src/erp_mcp_service.mjs,static/app.js,docs/slices/ERP-MCP-V0.md}`,
+  `ui-workspace/apps/team-ops-board/{src/server/erp-*.mjs,src/core/erp-pending-review-view.mjs,src/App.tsx,src/team-ops.css,README.md}`,
+  `docs/architecture/foundation/team_member_engineering_program/18_TEAM_PILOT_ACCESS_AND_RELEASE_PLAN_V0.md` (§5 row).
+
 ## 2026-09-05 - README one-pager, reviewer packet exporter and the first external review map (Gram 0.1.x)
 
 - Correction (same day, second pass): the "where it runs" statement now records
