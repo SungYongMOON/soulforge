@@ -5,7 +5,10 @@ import {
   CURRENT_STATES,
   PHYSICAL_ROOT_CLASSES,
 } from "../../../../../guild_hall/path_registry/src/path_registry_core.mjs";
-import { aggregateStorageMapState } from "../../../../../guild_hall/path_registry/src/storage_map_projection.mjs";
+import {
+  STORAGE_MAP_ROW_KINDS,
+  aggregateStorageMapState,
+} from "../../../../../guild_hall/path_registry/src/storage_map_projection.mjs";
 import { readStableFile } from "./receipt-expiry-adapter.mjs";
 
 export const STORAGE_MAP_PATH = "/storage-map.snapshot.json";
@@ -15,7 +18,7 @@ export const STORAGE_MAP_SCHEMA = "soulforge.watch_storage_map.v0";
 const SHA256 = /^sha256:[0-9a-f]{64}$/u;
 const SAFE_REF = /^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,191}$/u;
 const WATCH_STATES = new Set(["healthy", "degraded", "stale", "unavailable", "unknown", "hold"]);
-const ROW_KINDS = new Set(["root", "source", "asset_class"]);
+const ROW_KINDS = new Set(STORAGE_MAP_ROW_KINDS);
 const ROOT_CLASSES = new Set(PHYSICAL_ROOT_CLASSES);
 const MIGRATION_STATES = new Set(CURRENT_STATES);
 const BINDING_STATES = new Set(["bound", "unbound", "unavailable", "unknown"]);

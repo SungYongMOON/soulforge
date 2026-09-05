@@ -1,5 +1,34 @@
 # CHANGELOG
 
+## 2026-09-05 - team-ops-board storage-map adapter: stop failing closed on the `work_root` row kind
+
+- 날짜: 2026-09-05.
+- 무엇: `ui-workspace/apps/team-ops-board/src/server/storage-map-adapter.mjs`의
+  fail-closed snapshot validator가 `row_kind`를 로컬에 하드코딩한
+  `["root", "source", "asset_class"]`로만 허용했다. 2026-08-31 커밋
+  `34cd15c8` (`fix(storage): separate ERP workspaces from Bot work roots`)가
+  정본 `guild_hall/path_registry/src/storage_map_projection.mjs`의
+  `STORAGE_MAP_ROW_KINDS`에 `"work_root"`를 추가하고 registry seed에
+  `workroot.bot_execution`(`row_kind: work_root`) 행을 더했지만, 이
+  앱 레벨 어댑터의 복제 allowlist는 갱신되지 않았다. 그 결과 정상 서명된
+  최신 스냅샷도 어댑터 내부에서 `storage_map_row_invalid`로 던져지고, 바깥
+  catch가 이를 뭉뚱그려 `storage_map_snapshot_unavailable`로 fail-closed
+  시켰다(`storage-map-adapter.test.mjs` 769개 중 2개, `git bisect`로
+  `34cd15c8`을 첫 빨강 커밋으로 확인, 다른 원인 없음). 어댑터가 이미
+  `PHYSICAL_ROOT_CLASSES`/`CURRENT_STATES`를 프로젝션 모듈·registry core에서
+  직접 import하던 기존 패턴을 따라, `STORAGE_MAP_ROW_KINDS`도 같은 방식으로
+  import해 로컬 하드코딩 사본을 제거했다. 테스트 파일과 기대값은 바뀌지
+  않았다(이미 현행 계약과 일치).
+- 운영 영향: team-ops-board가 서비스하는 storage-map 스냅샷 엔드포인트
+  (`/storage-map.snapshot.json`)가 `work_root` 종류 행(현재
+  `workroot.bot_execution` 1건)이 포함된 스냅샷에서도 정상 응답한다.
+  스키마·enum·fail-closed 경계·mutation capability는 그대로다. 예약작업·
+  플래그·바인딩 변경 없음.
+- 관련 경로:
+  `ui-workspace/apps/team-ops-board/src/server/storage-map-adapter.mjs`,
+  `guild_hall/path_registry/src/storage_map_projection.mjs`.
+- Revision: the Git commit containing this entry owns the exact revision.
+
 ## 2026-09-05 - First green-through of done:check beyond the path policy (Gram 0.1.x)
 
 - 날짜: 2026-09-05. Revision: merged lanes A(fix/ci-path-policy-tracked)·B(feat/rung1-pending-review)·C(fix/external-review-repro)·D(docs/vocabulary-reset-1) on main, then two integration fixes found by the first GitHub Validate run that passed the path policy in seven weeks (run 33954869887) and by the local `npm run done:check` that followed.
