@@ -8,6 +8,13 @@ import test from "node:test";
 import { BackupControllerError } from "./controller.mjs";
 import { runQuiescedDailyAutomation, validateWriterQuiesceConfig } from "./writer_quiesce.mjs";
 
+
+// The quiesce module validates sidecar and state refs with path.win32 because it drives the
+// Windows Task Scheduler. Fixtures built under os.tmpdir() only make sense where that is a
+// Windows path, so the filesystem-backed cases run on win32 and are skipped elsewhere
+// (same platform gate as the dev-erp launcher tests).
+const WINDOWS_ONLY = process.platform !== "win32" && "writer quiesce paths are Windows Task Scheduler paths";
+
 function makeConfig(root) {
   return {
     schema_version: "soulforge.backup_controller.writer_quiesce.v1",
@@ -81,7 +88,7 @@ test("config exact-validates task identities and restore modes", () => {
   );
 });
 
-test("writers are quiesced before backup and restored after success", async () => {
+test("writers are quiesced before backup and restored after success", { skip: WINDOWS_ONLY }, async () => {
   await withFixture(async ({ configRef, sha256 }) => {
     const events = [];
     const result = await runQuiescedDailyAutomation({
@@ -111,7 +118,7 @@ test("writers are quiesced before backup and restored after success", async () =
   });
 });
 
-test("writers are restored even when backup fails", async () => {
+test("writers are restored even when backup fails", { skip: WINDOWS_ONLY }, async () => {
   await withFixture(async ({ config, configRef, sha256 }) => {
     const events = [];
     await assert.rejects(
@@ -133,7 +140,7 @@ test("writers are restored even when backup fails", async () => {
   });
 });
 
-test("an unconfirmed continuous-writer restart fails closed and preserves recovery state", async () => {
+test("an unconfirmed continuous-writer restart fails closed and preserves recovery state", { skip: WINDOWS_ONLY }, async () => {
   await withFixture(async ({ config, configRef, sha256 }) => {
     let inspectCount = 0;
     const adapter = fakeAdapter([]);
