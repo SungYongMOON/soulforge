@@ -46,6 +46,17 @@ const binaryExtensions = new Set([
   ".zip",
 ]);
 
+// ignore-문법 파일(.gitignore 등)의 절대경로 앵커 패턴은 POSIX_PATH_RE 오탐 대상이다 —
+// 정규식 완화 대신 basename 정확 매치인 파일만 skip한다. 같은 내용이 다른 파일(.md 등)에
+// 있으면 이 목록에 없으므로 여전히 위반으로 잡힌다.
+const ignoreSyntaxFileNames = new Set([
+  ".gitignore",
+  ".dockerignore",
+  ".npmignore",
+  ".eslintignore",
+  ".prettierignore",
+]);
+
 const secretNameRe = /(^|[\\/])[^\\/]*(?:secret|token|credential|cookie|session|password)[^\\/]*($|[\\/])/i;
 const envNameRe = /(^|[\\/])\.?env(?:\.[^\\/]*)?$/i;
 
@@ -263,6 +274,10 @@ function skipReasonForPath(relativePath) {
   const extension = path.extname(normalized).toLowerCase();
   if (binaryExtensions.has(extension)) {
     return "binary_extension";
+  }
+  const basename = path.basename(normalized).toLowerCase();
+  if (ignoreSyntaxFileNames.has(basename)) {
+    return "ignore_syntax_file";
   }
   if (secretNameRe.test(normalized)) {
     return "secret_like_path";

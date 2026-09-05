@@ -180,6 +180,35 @@ test("local absolute path policy fails closed when tracked scope lists zero file
   assert.equal(report.skipped.some((item) => item.reason === "tracked_scope_empty"), true);
 });
 
+test("local absolute path policy skips ignore-syntax files by exact basename but still flags the same content elsewhere", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(tmpdir(), "path-policy-ignore-syntax-"));
+  const init = spawnSync("git", ["init", "--quiet"], { cwd: repoRoot, encoding: "utf8" });
+  assert.equal(init.status, 0, init.stderr);
+
+  const anchorLine = `${"/"}${"tmp"}/\n`;
+  await fs.writeFile(path.join(repoRoot, ".gitignore"), anchorLine, "utf8");
+  await fs.writeFile(path.join(repoRoot, "notes.md"), anchorLine, "utf8");
+  const add = spawnSync("git", ["add", ".gitignore", "notes.md"], { cwd: repoRoot, encoding: "utf8" });
+  assert.equal(add.status, 0, add.stderr);
+
+  const json = spawnSync(process.execPath, [policyCli, "--root", repoRoot, "--scope", "tracked", "--json"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
+  assert.equal(json.status, 1, json.stderr);
+  const report = JSON.parse(json.stdout);
+
+  assert.equal(report.summary.violations_total, 1);
+  assert.deepEqual(
+    report.violations.map((violation) => ({ file: violation.file, id: violation.id })),
+    [{ file: "notes.md", id: "posix_local_absolute_path" }],
+  );
+  assert.deepEqual(
+    report.skipped.filter((item) => item.path === ".gitignore").map((item) => item.reason),
+    ["ignore_syntax_file"],
+  );
+});
+
 function buildFakeLocalPathFixtures() {
   return {
     windowsRoot: `${"C:"}/Soulforge`,
