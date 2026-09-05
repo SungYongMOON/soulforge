@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-09-06 - Vigil(포트 4192): 운영 lane을 operations-lane-v2에서 v3로 전환
+
+- 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: 예약작업 `Soulforge-TeamOpsBoard-ReadOnly-v1`을 코드가 정한 순서(task-stop → task-stop(의도 stopped 확정) → task-unregister → v3 사본에서 task-register → task-run)로 `install/source-lanes/operations-lane-v3`(source commit `e9c58e2a`, 첫 화면 dist 새로 빌드)로 옮겼다. 확인: 루트 200, 번들에 대장간 첫 화면, 예약작업 스냅샷 ready(20건, Soulforge 11건 전부), 토폴로지 28노드(ok 15·degraded 4·unmonitored 9), 사이클 상태 endpoint ready. v2 폴더는 보존. 영수증은 `local-recovery/vigil-lane-v3-cutover-20260906/`(미추적).
+- 운영 영향: 운영 Vigil이 새 첫 화면·예약작업 표(PowerShell 개체 조회)·보호노드 어댑터 수정을 실행한다. 포트·예약작업 이름·상태 root는 그대로. 롤백은 v2 사본에서 같은 순서.
+- 관련 경로: `README.md`, `install/source-lanes/operations-lane-v3` (host), `ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs`.
+
 ## 2026-09-06 - Tongs(MCP 문) loopback lane: fresh review's M1–M6 + minors closed, still not registered
 
 - 판단 표기: 개발 후보 수정. 아래 "Tongs(MCP 문) loopback lane + registrar prepared" 커밋에 대한
