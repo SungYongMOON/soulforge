@@ -296,6 +296,15 @@ Every integration is explicit opt-in:
 - `-EnableCodexWorker`: pass the already provisioned worker environment through.
   Missing or invalid worker configuration remains fail-closed; this switch does
   not authorize in-process Codex or satisfy the dedicated-worker release gate.
+- `-EnableMcp`: set `DEV_ERP_MCP_ENABLED=1`, turning on the base bearer-token MCP
+  surface (agenda, mail, artifacts, tokens). `-EnableMcpReviewRead` requires this
+  switch and additionally sets `DEV_ERP_MCP_REVIEW_READ=1`, adding the
+  pending-reviews read surface (`GET /api/reviews/pending`, bearer `GET
+  /api/mcp/reviews/pending`, `GET /api/items/work-sessions`). This mirrors
+  `server.mjs`'s own `ERP_MCP_REVIEW_READ = ERP_MCP_ENABLED && ...` coupling so
+  an unpaired review-read switch is never a silent no-op. Both remain OFF until
+  the scheduled task is re-registered with the matching switch(es); see
+  `-EnableMcp`/`-EnableMcpReviewRead` on `ops/register-dev-erp-scheduled-task.ps1`.
 
 Do not combine these switches merely to reproduce the former broad launcher.
 Enable only the reviewed integration set. Task Scheduler registration uses the

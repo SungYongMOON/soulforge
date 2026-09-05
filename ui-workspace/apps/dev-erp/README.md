@@ -293,7 +293,8 @@ Task Scheduler를 쓸 때의 tracked 경로는 `ops/register-dev-erp-scheduled-t
 기본 호출은 audit-only이고, `-Register`를 명시해야 현재 사용자의 로그온 작업을
 만든다. 이 작업은 `run-dev-erp-background.ps1 -Foreground`를 실행해 Node 종료까지
 살아 있고 Node exit status를 Scheduler에 반환한다. credential 저장이나 pre-login
-service 등록은 하지 않는다. 인계·rollback 절차는
+service 등록은 하지 않는다. 인계·rollback 절차와 런처 opt-in 스위치 전체 목록(신규
+`-EnableMcp`/`-EnableMcpReviewRead` 포함)은
 [`docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md`](docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md)를 따른다.
 
 - 요구: Node.js 22.5+ (내장 `node:sqlite` 사용. 외부 패키지 0개)

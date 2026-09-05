@@ -1,5 +1,64 @@
 # CHANGELOG
 
+## 2026-09-06 - World Tree (dev-erp): background launcher can now opt into MCP review-read, ops has not re-registered yet
+
+- 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: `run-dev-erp-background.ps1`은 예약작업/백그라운드 경로에서 `DEV_ERP_MCP_ENABLED`나
+  `DEV_ERP_MCP_REVIEW_READ`를 켤 방법이 전혀 없었다. sensitive-env
+  sanitizer(`Test-SensitiveLaunchEnvironmentName`/`Remove-LaunchEnvironment`)가
+  `Start-Process` 전에 상속된 `DEV_ERP_*` env를 전부 지우는데, 기존 opt-in 스위치
+  (`-ListenOnLan/-EnableMailCollect/-EnableAutoIntake/-EnableAutosync/-EnableMorningBrief/-EnableCodexWorker`)
+  중 이 두 값을 되돌려 넣는 것이 없어서, `GET /api/reviews/pending`("업무 관리 › 승인·현황 ›
+  검사 중")과 MCP 관련 읽기가 예약작업으로 기동한 World Tree에서는 절대 켜지지 않았다.
+  `server.mjs` 622~627행을 읽어 `ERP_MCP_REVIEW_READ = ERP_MCP_ENABLED &&
+  DEV_ERP_MCP_REVIEW_READ === "1"`(625행) 커플링을 확인한 뒤 — review-read는 MCP_ENABLED를
+  전제하며, 짝 없는 `DEV_ERP_MCP_REVIEW_READ=1`만 넣으면 서버 쪽에서 조용히 무효가 된다 —
+  기존 `-EnableAutoIntake requires -EnableMailCollect` 패턴을 그대로 따라 명시 스위치
+  `-EnableMcp`(→ `DEV_ERP_MCP_ENABLED=1`, 켰을 때 integrations에 `mcp`)와
+  `-EnableMcpReviewRead`(→ 추가로 `DEV_ERP_MCP_REVIEW_READ=1`, integrations에
+  `mcp-review-read`; `-EnableMcp` 없이 쓰면 launcher가 `-EnableMcpReviewRead requires
+  -EnableMcp.`로 즉시 throw)를 추가했다. 둘 다 기본 OFF이며 아무 스위치도 없으면 기존과
+  바이트 단위로 동일한 동작이다. `register-dev-erp-scheduled-task.ps1`에도 같은 이름의
+  스위치를 `-SecureCookie`와 같은 방식으로 추가해 예약작업 액션 인자에 전달하고, 같은
+  require 검증을 등록 시점에도 반복해 "등록은 되지만 실제 기동할 때마다 throw하는" 상태를
+  만들 수 없게 했다. `docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md`의 opt-in 스위치 목록과
+  `README.md`의 예약작업 단락, plan 18(`18_TEAM_PILOT_ACCESS_AND_RELEASE_PLAN_V0.md`) §5
+  "World Tree 팀 기능 스위치" 행에도 반영했다.
+- 검증: 새로 추가한 테스트 2건 —
+  `run_dev_erp_background_launcher.test.mjs`의 "background launcher defaults MCP
+  review-read integrations OFF and requires -EnableMcp"(스위치 없음/-EnableMcp만/
+  -EnableMcpReviewRead만(throw)/둘 다, 4가지 조합을 `-DryRun`의 `integrations=` 요약으로
+  확인)와 `scheduled_task_registration.test.mjs`의 "scheduled-task registration keeps MCP
+  review-read switches OFF by default and requires -EnableMcp"(mocked
+  `Register-ScheduledTask` 캡처로 기본 OFF와 등록 시점 throw를 확인) — 를 이 PC에서 단일
+  파일 실행으로 먼저 통과 확인했다(각각 15/15, 8/8). 실제 자식 프로세스 env 관측은 기존
+  "background launcher strips inherited sensitive env and restores only explicit
+  opt-ins" 테스트에 `-EnableMcp -EnableMcpReviewRead`를 얹어 `fixture.env.json`의
+  `mcp_enabled`/`mcp_review_read`가 실제로 `"1"`로 전달됨을 같은 실행에서 확인했다(반대로
+  스위치를 껐을 때의 실제 자식 프로세스 관측은 추가하지 않았다 — 같은 `DEV_ERP_` prefix
+  sanitizer가 이미 다른 4개 변수로 검증돼 있어 중복이라고 판단했고, `-DryRun` 기반 부재
+  확인으로 충분하다고 봤다). `npm --prefix ui-workspace/apps/dev-erp test` 전체는 1138
+  tests / 1134 pass / 0 fail / 4 skip으로 초록이다(수정 전 baseline은 같은 명령 기준 1136
+  tests / 1132 pass / 0 fail / 4 skip — 새 테스트 2개만큼 pass가 늘고 회귀·skip 변화는
+  없다). `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed`(changed
+  7개 전부 scanned, violations 0), `node
+  guild_hall/validate/retired_display_terms_policy.mjs --scope changed`(1개 scanned,
+  violations 0, exit 0)도 실행해 통과를 확인했다.
+- 운영 영향: 코드만 바뀌었다. 팩을 이 커밋 이후로 재빌드하고
+  `register-dev-erp-scheduled-task.ps1 -Register -EnableMcp -EnableMcpReviewRead ...`로
+  현재 Main Node 예약작업을 재등록하기 전까지는 운영 포트 4300에 아무 효과가 없다(재등록
+  뒤에도 새 스위치를 명시하지 않으면 그대로 OFF다). 이 작업에서 예약작업이나 운영
+  프로세스는 건드리지 않았다. plan 18 §5의 "승인 대기 화면" 행(`DEV_ERP_MCP_REVIEW_READ
+  OFF, Owner/cutover 세션이 켬`)은 이번 변경으로 자동으로 바뀌지 않으며 별도 owner 판단이
+  필요하다.
+- 관련 경로: `ui-workspace/apps/dev-erp/ops/run-dev-erp-background.ps1`,
+  `ui-workspace/apps/dev-erp/ops/register-dev-erp-scheduled-task.ps1`,
+  `ui-workspace/apps/dev-erp/test/run_dev_erp_background_launcher.test.mjs`,
+  `ui-workspace/apps/dev-erp/test/scheduled_task_registration.test.mjs`,
+  `ui-workspace/apps/dev-erp/docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md`,
+  `ui-workspace/apps/dev-erp/README.md`,
+  `docs/architecture/foundation/team_member_engineering_program/18_TEAM_PILOT_ACCESS_AND_RELEASE_PLAN_V0.md`.
+
 ## 2026-09-06 - Vigil(포트 4192): protected-node repairability contract now matches what the producer actually emits when degraded
 
 - 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
