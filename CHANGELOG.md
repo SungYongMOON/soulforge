@@ -1,5 +1,51 @@
 # CHANGELOG
 
+## 2026-09-05 - README one-pager, reviewer packet exporter and the first external review map (Gram 0.1.x)
+
+- `README.md` now opens with "Soulforge 한 장": the one-line definition (people
+  and AI perform work together and the system keeps origin, judgment, result,
+  verification and responsibility connected), the three products under their
+  world names (World Tree, Rune, Guild), the current declaration `Canto I · The
+  Kindling, Gram 0.1.x`, the forge naming set, what is actually running today,
+  the reading order, and how to hand the project to an outside reviewer.
+- Added `guild_hall/validate/export_reviewer_packet.mjs` with a test and two npm
+  scripts (`export:reviewer-packet`, `validate:reviewer-packet`). It concatenates
+  a fixed, ordered list of fourteen public documents into
+  `docs/reviews/reviewer_packet_<date>.md` with a refs-only manifest (source
+  digests, byte counts, commit). Private nested trees are structurally excluded,
+  the head of `CHANGELOG.md` is capped, and the exporter refuses to write a packet
+  that fails the local absolute-path policy. Generated packets are ignored by Git;
+  the file is what an external model or a newcomer receives instead of repository
+  access.
+- Added `docs/reviews/` (non-canon review records; owner row in
+  `DOCUMENT_OWNERSHIP.md`) with `EXTERNAL_REVIEW_MAP_2026-09-05.md`: the verdict on
+  the external GPT product-planning draft (the infographic describes a different
+  product and is discarded; the one-liner and the "execution success is not task
+  completion" rule are accepted; the first-release framing matches plan 18), the
+  list of what the connector could not read, and the external eight-step checklist
+  mapped to Soulforge artifacts with 구현 확인 / 부분 / 문서만 / 미구현 statuses.
+  No parallel cloud document store is created; external drafts stay reference
+  material.
+- Reworded one sentence each in `AGENTS.md` (the package-session rule) and an
+  older CHANGELOG entry so neither carries a POSIX mount literal; the rules are
+  unchanged and both files now pass `validate:path-policy` in changed scope. The
+  first packet build found them because a packet is refused on any violation.
+- Corrected "what is actually running today" in `README.md` and the review map
+  against measurement before the packet was published. Two things a reviewer
+  would otherwise get wrong. First, the pack version is not the running version:
+  the server pack is 0.1.7 (current) with 0.1.6 as previous, but the scheduled
+  tasks do not follow the `current` pointer - they pin a payload path down to the
+  version, read as `0.1.6` from the task definitions on 2026-09-04. Second, the
+  Board, the watch surface and the usage meter do not run from the pack at all;
+  they run from `install/source-lanes/operations-lane-v2`. Both bullets now say
+  outright that `main` is not what runs and name the artifact that answers the
+  question per lane (`LANE_MANIFEST.md`, re-verifiable with
+  `build_source_lane.mjs --verify`). The Linear and Buzz lane claim was checked
+  rather than assumed and stands: both health files read `status: ok` on
+  2026-09-05 with the 15-minute cadence. Recorded because the packet is the one
+  document an outside reviewer sees, so an unstated gap between the repository
+  and production becomes their starting premise.
+
 ## 2026-09-04 - A write boundary an agent packet cannot declare its way past
 
 - `dev_worker` bounds an agent by its packet's own `allowed_write_paths`. That is a
@@ -391,7 +437,7 @@
   unaffected - what matters is only which process spawns the executable.
 - The same rule fixes how any agent may assert what is on disk under the user's
   AppData: a packaged session sees a merged view, so existence and content claims
-  must be cross-checked from at least two of WSL `/mnt/c`, a UNC `\\localhost\C$`
+  must be cross-checked from at least two of the WSL drvfs mount of the C: drive, a UNC `\\localhost\C$`
   path (not subject to per-package redirection), and a scheduled-task context.
 - This is recorded from an operating failure that recurred: a client identity store
   forked on 2026-08-29, was restored to the real path, and forked again on

@@ -30,6 +30,7 @@
 | `docs/architecture/foundation/` | 저장소 차원의 구조 canon | `docs/architecture/foundation/README.md`, `docs/architecture/foundation/*.md` | 해당 없음 |
 | `docs/architecture/workspace/` | `_workspaces` 구조와 보안 정책 canon | `docs/architecture/workspace/README.md`, `docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md` | 해당 없음 |
 | `ui-workspace/` | 파생 UI consumer workspace | `ui-workspace/README.md` 와 하위 README | 각 하위 패키지/앱 로컬 README |
+| `docs/reviews/` | 비정본 검토 기록: 외부 검토 대응표와 리뷰어 패킷 산출물(생성물, 미추적) | `docs/reviews/README.md` | 해당 없음 (판정은 참고이며 정본 변경은 owner 문서에서만) |
 
 ## owner별 문서 경계
 

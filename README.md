@@ -1,5 +1,16 @@
 # Soulforge
 
+## Soulforge 한 장 (2026-09-05)
+
+- **한 줄**: Soulforge는 사람과 AI가 함께 업무를 수행하고, 그 업무의 출처·판단·결과·검증·책임을 연결해서 남기는 엔지니어링 업무 시스템이다. 모델과 실행기가 바뀌어도 이 연결은 남는다. 실행이 성공한 것과 업무가 완료된 것은 다른 사건이다(등록은 제출 영수증, 완료는 검토 → 사람 수락 → 지정 writer).
+- **세 제품**: **World Tree** = ERP(업무·정본의 집), **Rune** = Engineering Engine(규칙과 검증), **Guild** = Agent Platform(사람과 봇의 조직). 항법은 [`docs/architecture/foundation/SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md`](docs/architecture/foundation/SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md)(M0–M16).
+- **지금 위치**: **Canto I · The Kindling, Gram 0.1.x**. 대장간에 불을 지피는 시대이고, 벼리고 있는 보물은 Soulforge 자신이다. 시대·보물·부품 이름의 뜻과 유래는 [`docs/architecture/foundation/SHARED_GLOSSARY_V0.md`](docs/architecture/foundation/SHARED_GLOSSARY_V0.md) "세계 이름" 절.
+- **대장간 이름 한 벌**: Ore(원천 자료) → Tributary(수집 lane) → Ingot(사본) → Heartwood(비공개 데이터 창고). Hearth(AI 모델·연산), Bellows(예약작업·자동화), Anvil(정본), Hammer(Task Engine), Guild(조직), Quench(검증·검토 관문), Covenant(정본 승격 3규칙: W-AUTH · Canonical Empty-State Genesis · Legacy Freeze), Tongs(MCP 문), Vigil(4192 감시면), Sigil(봇 SOUL 스냅샷), Reliquary(백업; 사본은 "N차 백업본"). 파일·폴더·스키마 식별자는 바꾸지 않고 표시명에만 쓴다.
+- **지금 실제로 도는 것** (2026-09-05): 수집 lane 7종(메일·음성·PC 파일·Codex 작업맥락·Slack·Linear·Buzz; 주기는 lane별, Linear·Buzz는 15분 읽기 전용 — 두 lane의 health는 이 글 작성 시점에 `status: ok`로 관측). 4192 감시면. 1차 백업본은 staged + 검증 완료(승격과 격리 복원은 사람 수락 대기). 수집(custody)은 백업이 아니다. 증거는 비공개 영수증에 있고 공개 문서는 digest만 인용한다.
+- **어디서 도는가 — 저장소를 읽고 운영을 판단하지 말 것**: HPP 서버 팩은 0.1.7(current)·0.1.6(previous)이지만 **예약작업은 `current` 포인터를 따라가지 않고 payload 경로를 판본까지 직접 pin한다**(2026-09-04 작업 정의 판독 기준 `0.1.6`). 상황판·감시면·사용량계는 팩이 아니라 `install/source-lanes/operations-lane-v2`에서 돈다. 그래서 **`main` = 도는 것이 아니다**: main은 운영 lane이 담은 커밋보다 앞서 있을 수 있고, 무엇이 도는지의 정본은 각 lane의 `LANE_MANIFEST.md`가 기록한 source commit이다. lane 무결성은 `node guild_hall/deployment_pack/tools/build_source_lane.mjs --verify <lane 루트>`로 언제든 재확인한다.
+- **읽는 순서**: 이 README → Master Map → 용어집 → `DOCUMENT_OWNERSHIP.md`·`TARGET_TREE.md` → plan 18(팀 파일럿 접속·출시 사다리) → plan 17(물리 구조) → plan 10(수집과 백업).
+- **밖에서 읽을 때**: 저장소 전체를 외부 도구에 연결하지 말고 `npm run export:reviewer-packet`으로 만든 `docs/reviews/reviewer_packet_<date>.md` 하나를 준다(공개 안전 검사 통과본, 위 문서를 순서대로 이어 붙인 것). 비공개 저장소(`_workmeta`, `private-state`)는 밖에서 보이지 않는 것이 맞다. 외부 검토 결과의 대응표는 [`docs/reviews/`](docs/reviews/README.md)에 둔다.
+
 Soulforge는 일곱 개의 canonical root 와 project-local materialization 정책을 고정하는 설계 저장소다.
 루트는 owner 경계, public/private tracking 원칙, 파생 UI 계약을 관리한다.
 현재 보유한 mission plan 은 `.mission/` 이 들고, cross-project 운영 ingress/state 는 `guild_hall/` 이 든다. current legacy project worksite와 companion metadata는 reference-in-place `_workspaces/<project_code>/`, `_workmeta/<project_code>/`에 남아 있으며 actual Legacy Freeze 전에는 기존 writer가 남아 있을 수 있다.

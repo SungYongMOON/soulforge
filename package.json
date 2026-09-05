@@ -23,6 +23,8 @@
     "canon:validate": "npm run guild-hall:validate:canon --",
     "validate:canon": "node guild_hall/validate/canon_validate.mjs",
     "validate:path-policy": "node --test guild_hall/validate/local_absolute_path_policy.test.mjs && node guild_hall/validate/local_absolute_path_policy.mjs --scope changed",
+    "validate:reviewer-packet": "node --check guild_hall/validate/export_reviewer_packet.mjs && node --test guild_hall/validate/export_reviewer_packet.test.mjs && node guild_hall/validate/export_reviewer_packet.mjs --dry-run",
+    "export:reviewer-packet": "node guild_hall/validate/export_reviewer_packet.mjs",
     "validate:path-length": "node --test guild_hall/validate/path_length_policy.test.mjs && node guild_hall/validate/path_length_policy.mjs --scope changed",
     "validate:path-length:tracked": "node guild_hall/validate/path_length_policy.mjs --scope tracked",
     "validate:path-policy:all": "node guild_hall/validate/local_absolute_path_policy.mjs --scope tracked",
