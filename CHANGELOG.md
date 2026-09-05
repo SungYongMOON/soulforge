@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## 2026-09-06 - secure-work 사이클에 Buzz DM 창구를 열고 lane 빌더의 Windows CLI 가드를 고침
+
+- 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: 보호 가공 업무 lane(사이클 1호)에 두 번째 접근 경로(창구 B)를 추가했다. Hermes 봇
+  강도담(루트 프로필)이 Buzz DM에서 "사이클 시험"류 요청을 받으면 그 lane의 `sfx` CLI를
+  대신 실행하고 job id·상태·이벤트 건수·다음 필요 사항을 회신하는 스킬이다.
+  `guild_hall/secure_work/hermes_skill/soulforge/secure-work-cycle/SKILL.md`가 저장소
+  정본이고(host 경로는 자리표시자), 설치 사본은 WSL로 `<home>/skills/soulforge/secure-work-cycle/SKILL.md`에
+  배치했다(git 미커밋, 자리표시자를 lane 빌드 시점 실제 경로로 치환).
+  `guild_hall/deployment_pack/lanes/secure_work_lane.spec.json`으로
+  `install/source-lanes/secure-work-lane-v1`을 처음 빌드했다(등록 예약작업 없음,
+  on-demand CLI 전용) — 이 lane을 빌드하다가 `build_source_lane.mjs`의 자기 호출 가드가
+  Windows drive-letter 경로에서는 절대 참이 될 수 없어(`file://` 수작업 템플릿이 만드는
+  슬래시 2개짜리 URL이 실제 `import.meta.url`의 슬래시 3개짜리 형태와 절대 같을 수 없다)
+  `main()`이 조용히 건너뛰어지는(exit 0, 출력 0, 아무것도 안 만들어짐) 것을 발견해
+  `pathToFileURL` 비교로 고쳤다 — 기존 12개 시험은 export 함수를 직접 불러 이 가드를
+  거치지 않으므로 지금까지 드러나지 않았던 결함이다. 셸 단독 시험(봇 없이, 합성 자료만,
+  기존 pilot의 6개 문서 재사용)에서 합성 job이 RECEIVED→SOURCE_PINNED→G2_PREPARED→
+  RELEASE_REVIEW까지 실제로 진행했고 `PERMIT_REQUIRED`에서 정직하게 멈췄다(승인 문구가
+  없는 셸 시험에서는 `permit approve`를 실행하지 않았다). lane 폴더에서도 같은 `doctor`·
+  `status`를 재현해 동일 결과를 확인했다.
+- 운영 영향: secure-work 사이클의 binding·상태는 바뀌지 않는다(여전히
+  `PILOT_SYNTHETIC_ONLY`) — 새 접근 경로 하나가 늘었을 뿐이다. Hermes 게이트웨이는
+  재시작하지 않았으므로 강도담이 이 스킬 파일을 실제로 읽어 Buzz DM에서 트리거하는지는
+  아직 미확인이다(다음 자연 재시작/세션 갱신 때 반영 — Owner 아침 확인 항목,
+  `SECURE_WORK_CYCLE_V0.md` §창구(B) 참고). `build_source_lane.mjs` CLI 수정은
+  operations-lane을 포함한 다른 모든 lane의 향후 `--verify`/재빌드 CLI 호출에도 적용된다.
+- 관련 경로: `guild_hall/secure_work/hermes_skill/soulforge/secure-work-cycle/SKILL.md`,
+  `guild_hall/deployment_pack/lanes/secure_work_lane.spec.json`,
+  `guild_hall/deployment_pack/tools/build_source_lane.mjs`,
+  `docs/architecture/guild_hall/SECURE_WORK_CYCLE_V0.md` §창구(B),
+  `install/source-lanes/secure-work-lane-v1/LANE_MANIFEST.md`.
+
 ## 2026-09-06 - Vigil 첫 화면을 대장간 부품 지도 한 장으로 (읽기 전용 endpoint 3개 신설)
 
 - 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.

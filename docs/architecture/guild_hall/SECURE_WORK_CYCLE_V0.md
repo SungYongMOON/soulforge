@@ -118,6 +118,80 @@
 5. permit 신뢰 키의 신원 결속(BIND09) — 신뢰 키 등록소 또는 OS 사용자 결속. BIND05 전에 닫는다.
 6. 누적 공개 원장(BIND10) — requester·mission family 단위로 살아남는 저장소를 설계한다.
 
+## 창구(B) — Hermes 봇 강도담 스킬 (2026-09-06)
+
+`feat/secure-work-buzz-skill`(commit `43da5f637f14a6b4805592b9293c6b7a4805cbfb`)에서 Buzz DM
+창구를 열었다. Hermes 루트 프로필(표시명 강도담)이 "사이클 시험"류 요청을 받으면 이 lane의
+`sfx` 명령을 대신 실행하고 결과를 회신하는 스킬이다. 사이클 자체의 binding·상태는 바뀌지
+않았다 — 여전히 `PILOT_SYNTHETIC_ONLY`다. 이 절은 그 스킬·lane·시험 결과만 기록한다.
+
+### 스킬 위치
+
+- 저장소 정본: `guild_hall/secure_work/hermes_skill/soulforge/secure-work-cycle/SKILL.md`.
+  host 경로는 자리표시자(`<SECURE_WORK_LANE>`·`<SECURE_WORK_CONFIG>`·
+  `<SECURE_WORK_PILOT_SOURCE>`)로만 남긴다.
+- 설치 사본(git에 커밋되지 않음, WSL로 배치): `<home>/skills/soulforge/secure-work-cycle/SKILL.md`
+  — 자리표시자를 lane 빌드 시점의 실제 절대경로로 치환한 버전.
+
+### lane 위치
+
+`guild_hall/deployment_pack/lanes/secure_work_lane.spec.json`으로 만든
+`install/source-lanes/secure-work-lane-v1`(등록 예약작업 없음 — on-demand CLI 전용). 빌드
+receipt: source commit `43da5f637f14a6b4805592b9293c6b7a4805cbfb`, 파일 21개(tracked 20 +
+carried forward 1), manifest digest
+`e59e11305dd55db060422686ee321337de0ff02d9853ddf64b6b01933a88c682`. `sfx.mjs`는 Node 내장
+모듈만 import해 실제 미추적 의존성이 없다 — carried forward 1건은 진짜 런타임 파일이
+아니라, `build_source_lane.mjs`의 "carried set이 비면 안 된다"는 불변조건을 만족시키기
+위해 문서화해 둔 placeholder 1개뿐이다(spec의 `carried_forward_rationale` 참고). `--verify`로
+21개 파일 0 실패 확인.
+
+### 함께 고친 것 — `build_source_lane.mjs`의 Windows CLI 가드
+
+이 lane을 처음 빌드하다가 그 도구의 자기 호출 가드(`import.meta.url`을 수작업 `file://` +
+역슬래시치환 템플릿과 비교)가 Windows drive-letter 경로에서는 항상 거짓임을 발견했다 —
+drive-letter 절대경로는 "file:" scheme 바로 뒤에 슬래시가 3개 와야 `import.meta.url`의
+실제 모양과 같아지는데, 그 수작업 템플릿은 슬래시 2개짜리 URL만 만들어 어떤 Windows
+실행에서도 같을 수 없었다. `main()`이 조용히
+건너뛰어져 exit 0·출력 0·아무것도 안 만들어졌다 — 기존 시험 스위트는 export된 함수를
+직접 호출해 이 가드를 거치지 않으므로 지금까지 드러나지 않았다. 표준 idiom인
+`pathToFileURL(argv1).href` 비교로 고쳤고 기존 12개 시험은 그대로 통과한다(export 함수의
+동작 자체는 바뀌지 않았다). 다른 lane의 향후 `--verify`/재빌드 CLI 호출도 이 수정으로
+실제로 동작하게 된다 — 이전까지는 Windows에서 이 도구의 CLI 진입점 자체가 한 번도 실행된
+적이 없었을 가능성이 있다(exported 함수를 직접 부르는 시험 경로만 검증되어 있었다).
+
+### 회신 형식
+
+스킬 본문(두 사본 모두)에 고정: job id·현재 상태(원문 phase + 쉬운 뜻)·이벤트/영수증
+건수·산출 파일명(host 경로 제외)·다음에 필요한 것. 승인은 사람이 대화에 "승인"이라고 쓴
+뒤에만 `sfx permit approve`를 실행한다 — 요청 문구 자체를 승인으로 해석하지 않는다.
+
+### 셸 단독 시험 (2026-09-06, 봇 없이, 합성 자료만)
+
+강도담 게이트웨이를 거치지 않고 스킬이 지시하는 명령을 그대로 실행했다(합성 pilot의 기존
+6개 문서, pilot root는 사이클 1호가 이미 쓰던 것과 동일).
+
+| 명령 | 결과 |
+| --- | --- |
+| `doctor` | M01·M02·M04·M05(원장·신뢰키)·M06(scripted) `AVAILABLE`; M06(openrouter)·M10(전부) `UNAVAILABLE`(키·bearer 없음 — 설계대로) |
+| `request --recipe R1-07` | `job_id o_452459b07c050058ef7ea375c584d7b2`, phase `RECEIVED` |
+| `advance --max-steps 10` | RECEIVED→SOURCE_PINNED→G2_PREPARED→RELEASE_REVIEW, `PERMIT_REQUIRED`에서 정지(`"ok": false`는 오류가 아니라 더 진행할 동작이 없다는 정직한 멈춤) |
+| `status` / `events` | phase `RELEASE_REVIEW`, 이벤트 4건(제출 1 + 전이 3). field review는 필요하지 않았다 — 같은 합성 원문이 앞선 사이클에서 이미 필드 검토를 통과했기 때문 |
+| lane 폴더에서 재실행 | `install/source-lanes/secure-work-lane-v1`로 cd해 같은 `doctor`·`status`를 재현 — 동일 결과 |
+
+`permit approve`/`deny`는 실행하지 않았다 — 사람의 실제 "승인" 문구가 없는 셸 시험에서 그
+경계까지 넘는 것은 스킬 자신이 지키기로 한 규칙과 어긋난다. `RELEASE_REVIEW` /
+`PERMIT_REQUIRED`가 이번 시험의 HOLD 지점이다. 강도담 게이트웨이가 이 새 스킬 파일을
+실제로 읽어 Buzz DM에서 트리거하는지는 확인하지 않았다(재시작 금지 — 아래 Owner 아침
+확인 항목).
+
+### Owner 아침 확인 (재시작 없이)
+
+1. Buzz에서 강도담에게 "사이클 시험"류 문구로 DM을 보내 스킬이 실제로 트리거되는지 본다
+   (다음 정기 재시작이나 기존 세션 갱신 시점에 반영된다 — 이 작업은 재시작을 하지 않았다).
+2. 트리거되면 회신에 job id·phase·이벤트 건수·다음 필요 사항이 위 형식대로 나오는지 본다.
+3. 대화에 "승인"이라고 직접 써서 승인 전에는 `permit approve`가 실행되지 않고, 승인 뒤에는
+   실행된다는 것을 한 번 확인한다.
+
 ## 관련 문서
 
 - [`guild_hall/secure_work/README.md`](../../../guild_hall/secure_work/README.md)

@@ -38,10 +38,10 @@ Buzz DM에서 다음과 같은 문구를 받았을 때 쓴다.
 - `node`(CLI 진입점 실행)와, 실행 시점에 lane 설정 JSON 경로 — 환경변수
   `SOULFORGE_SECURE_WORK_CONFIG` 또는 `--config <path>`로 넘긴다. 이 스킬은 그 경로의
   실제 값을 대화나 로그에 적지 않는다(host 절대경로이기 때문).
-- lane 위치는 `<SECURE_WORK_LANE>`로 아래에 적는다. 저장소 정본 사본(이 파일이 커밋되는
-  경로)에서는 실제 값을 몰라야 하므로 자리표시자로 남긴다 — 설치된 사본
-  (`<home>/skills/soulforge/secure-work-cycle/SKILL.md`)에는 lane 빌드 시점의 실제
-  절대경로가 채워져 있다.
+- lane 절대경로와 pilot source 절대경로가 아래 명령에 필요하다. 이 저장소 정본 사본(이
+  파일이 git에 커밋되는 경로)에서는 실제 값을 몰라야 하므로 자리표시자로만 남긴다 —
+  설치된 사본(`<home>/skills/soulforge/secure-work-cycle/SKILL.md`)에는 lane 빌드
+  시점의 실제 절대경로가 채워져 있다.
 - `sfx keys`, kit·venv·pilot root 바인딩은 전부 Owner가 미리 배치한 설정 파일 소관이다.
   이 스킬은 그 파일을 새로 만들거나 값을 바꾸지 않는다.
 
