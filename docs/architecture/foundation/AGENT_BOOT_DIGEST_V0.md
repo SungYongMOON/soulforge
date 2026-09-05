@@ -83,6 +83,8 @@ acceptance_checks, stop_conditions, origin.evidence_refs.
 승격 금지(무해한 하위 slice 만). 기존 `dev_worker_candidate_queue` 는 legacy
 migration input 이며 새 항목 금지. 닫힌 항목은 `dev_worker_queue/archive/<year>/`.
 금지: 임시 TODO·임의 plan.md·backlog 중복 복제·transcript/raw 저장.
+장면 단위 구체 실행 예시는 `EXECUTION_EXAMPLES_V0.md` 카드(EX-nnn)로 두고 로드맵
+`다음 후보` 행이 카드 ID를 가리킨다(로드맵 저장 규칙 9, 2026-09-05).
 
 ## 7. 처음 잡을 때 읽는 순서 (원본)
 
