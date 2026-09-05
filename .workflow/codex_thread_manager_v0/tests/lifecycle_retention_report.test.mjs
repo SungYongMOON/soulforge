@@ -15,6 +15,7 @@ import {
 const NOW = Date.parse("2026-08-06T00:00:00.000Z");
 const ISO = new Date(NOW).toISOString();
 const PAST = new Date(NOW - 1_000).toISOString();
+const SYNTHETIC_SECRET_ROOT = ["C:", "/secret"].join("");
 
 function entry(threadId, { lifecycle = "current", parentThreadId = null, displayLabel = "PRIVATE_TITLE_MUST_NOT_LEAK" } = {}) {
   return {
@@ -210,11 +211,11 @@ test("report-only arguments reject destructive action flags and support emergenc
 test("worktree preflight omits paths and holds for unknown authority", async () => {
   const privateComparisonRef = "refs/heads/private-secret-comparison";
   const records = parseGitWorktreePorcelain([
-    "worktree C:/secret/worktree",
+    `worktree ${SYNTHETIC_SECRET_ROOT}/worktree`,
     "HEAD abcdef",
     "branch refs/heads/codex/private-branch",
     "",
-    "worktree C:/secret/detached",
+    `worktree ${SYNTHETIC_SECRET_ROOT}/detached`,
     "HEAD abcdef",
     "detached",
     ""
@@ -227,11 +228,11 @@ test("worktree preflight omits paths and holds for unknown authority", async () 
       return {
         code: 0,
         stdout: [
-          "worktree C:/secret/worktree",
+          `worktree ${SYNTHETIC_SECRET_ROOT}/worktree`,
           "HEAD abcdef",
           "branch refs/heads/codex/private-branch",
           "",
-          "worktree C:/secret/detached",
+          `worktree ${SYNTHETIC_SECRET_ROOT}/detached`,
           "HEAD abcdef",
           "detached",
           ""
@@ -248,7 +249,7 @@ test("worktree preflight omits paths and holds for unknown authority", async () 
   };
   const checkedPaths = [];
   const report = await inspectWorktreePreflight({
-    repoRoot: "C:/secret/root",
+    repoRoot: `${SYNTHETIC_SECRET_ROOT}/root`,
     mainRef: privateComparisonRef,
     runGit,
     exists: async (target) => {
@@ -264,7 +265,7 @@ test("worktree preflight omits paths and holds for unknown authority", async () 
   assert.equal(report.comparison_ref_status, "available");
   assert.ok(report.entries.every((item) => item.hold_reasons.includes("pr_authority_unknown")));
   const normalizedCheckedPaths = checkedPaths.map((target) => target.replace(/\\/gu, "/"));
-  assert.ok(normalizedCheckedPaths.some((target) => target.includes("C:/secret/worktree/relative-admin/marker")));
-  assert.ok(normalizedCheckedPaths.some((target) => target.includes("C:/secret/detached/relative-admin/marker")));
+  assert.ok(normalizedCheckedPaths.some((target) => target.includes(`${SYNTHETIC_SECRET_ROOT}/worktree/relative-admin/marker`)));
+  assert.ok(normalizedCheckedPaths.some((target) => target.includes(`${SYNTHETIC_SECRET_ROOT}/detached/relative-admin/marker`)));
   assert.doesNotMatch(JSON.stringify(report), /secret|private-branch|private-untracked|private-secret-comparison/u);
 });

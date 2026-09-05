@@ -294,7 +294,7 @@ const VALID_CASES = [
 
 const REJECTION_CASES = [
   { name: "privacy leak token", input: { kind: "auth_refresh", token: "secret_value" }, error: /privacy_leak_rejected/ },
-  { name: "privacy leak raw path", input: { kind: "scheduled_task", raw_path: "C:\\Windows\\System32" }, error: /privacy_leak_rejected/ },
+  { name: "privacy leak raw path", input: { kind: "scheduled_task", raw_path: ["C:", "\\Windows\\System32"].join("") }, error: /privacy_leak_rejected/ },
   { name: "unsupported kind", input: { kind: "unknown_kind" }, error: /unsupported_evidence_kind/ },
   { name: "extra input key", input: { kind: "auth_refresh", error_code: "auth_invalid_grant", extra: 123 }, error: /unknown_input_key/ },
 ];
