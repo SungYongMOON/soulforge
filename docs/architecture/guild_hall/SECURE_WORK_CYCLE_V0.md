@@ -120,8 +120,8 @@
 
 ## 창구(B) — Hermes 봇 강도담 스킬 (2026-09-06)
 
-`feat/secure-work-buzz-skill`(commit `43da5f637f14a6b4805592b9293c6b7a4805cbfb`)에서 Buzz DM
-창구를 열었다. Hermes 루트 프로필(표시명 강도담)이 "사이클 시험"류 요청을 받으면 이 lane의
+`feat/secure-work-buzz-skill` 브랜치에서 Buzz DM 창구를 열었다. Hermes 루트 프로필(표시명
+강도담)이 "사이클 시험"류 요청을 받으면 이 lane의
 `sfx` 명령을 대신 실행하고 결과를 회신하는 스킬이다. 사이클 자체의 binding·상태는 바뀌지
 않았다 — 여전히 `PILOT_SYNTHETIC_ONLY`다. 이 절은 그 스킬·lane·시험 결과만 기록한다.
 
@@ -137,9 +137,9 @@
 
 `guild_hall/deployment_pack/lanes/secure_work_lane.spec.json`으로 만든
 `install/source-lanes/secure-work-lane-v1`(등록 예약작업 없음 — on-demand CLI 전용). 빌드
-receipt: source commit `43da5f637f14a6b4805592b9293c6b7a4805cbfb`, 파일 21개(tracked 20 +
+receipt: source commit `3e12865e1ede25651aa6fe1e8d4cfaac272f7c2e`, 파일 21개(tracked 20 +
 carried forward 1), manifest digest
-`e59e11305dd55db060422686ee321337de0ff02d9853ddf64b6b01933a88c682`. `sfx.mjs`는 Node 내장
+`b547c7a651c89b4c72d2b7f9de35d07dcda54269b3876e1e8b920fe567906f90`. `sfx.mjs`는 Node 내장
 모듈만 import해 실제 미추적 의존성이 없다 — carried forward 1건은 진짜 런타임 파일이
 아니라, `build_source_lane.mjs`의 "carried set이 비면 안 된다"는 불변조건을 만족시키기
 위해 문서화해 둔 placeholder 1개뿐이다(spec의 `carried_forward_rationale` 참고). `--verify`로
