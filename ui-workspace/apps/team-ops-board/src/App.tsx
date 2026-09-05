@@ -47,6 +47,7 @@ import { siGmail, siGoogledrive } from "simple-icons";
 import { aiUsageProjectionRequest } from "./core/ai-usage-projection-request.mjs";
 import { createUnmeasuredAiUsageSnapshot } from "./core/ai-usage-snapshot.mjs";
 import { buildClaudeQuotaPresentation, selectCodexRateLimitObservation } from "./core/provider-limits.mjs";
+import { FORGE_STATE_LABELS, buildForgeMapViewModel, clampForgeText, estimateForgeTextWidth } from "./core/forge-map-view.mjs";
 import { monotoneAreaPath, monotoneLinePath } from "./core/monotone-area.mjs";
 import { UNMEASURED_REQUEST_FAMILY_LABELS } from "./core/ai-usage-history-snapshot.mjs";
 import {
@@ -122,7 +123,7 @@ import {
 } from "./core/live-thread-ui-model.mjs";
 
 type BoardView = "active" | "history";
-type BoardSurface = "owner" | "organization" | "work" | "system";
+type BoardSurface = "forge" | "owner" | "organization" | "work" | "system";
 
 function compactClock(value: string | null): string {
   if (value === null) return "—";
@@ -134,6 +135,7 @@ function compactClock(value: string | null): string {
 }
 
 const SURFACE_WORDMARKS: Record<BoardSurface, string> = {
+  forge: "FORGE MAP",
   owner: "FLEET MONITOR",
   organization: "ORG TOPOLOGY",
   work: "LEDGER",
@@ -500,7 +502,8 @@ function App() {
   const [projection, setProjection] = useState<any>(() =>
     createUnavailableLiveThreadProjection({ health: "unavailable", enrollmentHealth: "missing" })
   );
-  const [surface, setSurface] = useState<BoardSurface>("owner");
+  // 첫 진입은 대장간 지도다: 구조 전체가 도는지를 한 장으로 먼저 보여 준다.
+  const [surface, setSurface] = useState<BoardSurface>("forge");
   const [organizationSubview, setOrganizationSubview] = useState<OrganizationSubview>("tree");
   const [selectedOrganizationGroupId, setSelectedOrganizationGroupId] = useState<string | null>(null);
   const [view, setView] = useState<BoardView>("active");
@@ -531,7 +534,7 @@ function App() {
   const [providerSnapshots, setProviderSnapshots] = useState<any>(() => createProviderSnapshots());
 
   useEffect(() => {
-    if (surface !== "owner") return undefined;
+    if (surface !== "owner" && surface !== "forge") return undefined;
     let cancelled = false;
     const load = async () => {
       try {
@@ -623,7 +626,7 @@ function App() {
   }, [providerPollingEnabled]);
 
   useEffect(() => {
-    if (surface !== "system" && surface !== "owner") return undefined;
+    if (surface !== "system" && surface !== "owner" && surface !== "forge") return undefined;
     let cancelled = false;
     const load = async (force = false) => {
       setTopologyRefreshing(true);
@@ -942,7 +945,7 @@ function App() {
     disabled: "비상 중지"
   }[String(projection.adapter.health) as "ready" | "partial" | "unavailable" | "error" | "disabled"] ?? "미확정";
 
-  const topActionRefreshing = surface === "system" ? topologyRefreshing : refreshing;
+  const topActionRefreshing = surface === "system" || surface === "forge" ? topologyRefreshing : refreshing;
 
   return (
     <div className="inbox-app live-board-app">
@@ -958,6 +961,9 @@ function App() {
             <span className="live-board-brand-live"><span aria-hidden="true" /> LIVE</span>
           </div>
           <nav className="live-board-primary-nav" aria-label="Workspace Board 화면">
+            <button type="button" data-testid="forge-map-tab" className={surface === "forge" ? "is-active" : ""} aria-pressed={surface === "forge"} onClick={() => setSurface("forge")}>
+              대장간
+            </button>
             <button type="button" data-testid="owner-overview-tab" className={surface === "owner" ? "is-active" : ""} aria-pressed={surface === "owner"} onClick={() => setSurface("owner")}>
               실시간 현황
             </button>
@@ -1000,7 +1006,7 @@ function App() {
               type="button"
               aria-label="지금 갱신"
               title="지금 갱신"
-              onClick={() => surface === "system" ? refreshDiagnostics() : updateProjection(true)}
+              onClick={() => surface === "system" || surface === "forge" ? refreshDiagnostics() : updateProjection(true)}
               disabled={topActionRefreshing}
             >
               <RefreshCw size={15} aria-hidden="true" className={topActionRefreshing ? "is-spinning" : ""} />
@@ -1088,8 +1094,17 @@ function App() {
       />}
 
       <main id="live-board-content" className="live-board-layout" aria-busy={initialProjectionPending || undefined}>
-        <section className="live-board-workspace" data-live-dialog-background aria-label={surface === "owner" ? "Owner 확인 현황" : surface === "organization" ? "정확한 조직 thread 계층" : view === "active" ? "현재 실제 Codex 업무" : "수락·확인 이력"}>
-          {liveProjectionPresentation.should_render_projection ? <>
+        <section className="live-board-workspace" data-live-dialog-background aria-label={surface === "forge" ? "대장간 부품 지도" : surface === "owner" ? "Owner 확인 현황" : surface === "organization" ? "정확한 조직 thread 계층" : view === "active" ? "현재 실제 Codex 업무" : "수락·확인 이력"}>
+          {surface === "forge" && (
+            <ForgeMapSurface
+              topologyProjection={topologyProjection}
+              hostStats={hostStatsSnapshot}
+              usage={aiUsageProjection}
+              usagePending={aiUsagePending}
+              onOpenSystemSurface={() => setSurface("system")}
+            />
+          )}
+          {surface !== "forge" && (liveProjectionPresentation.should_render_projection ? <>
           {surface === "owner" && (
             <SystemStatStrip
               projection={topologyProjection}
@@ -1170,7 +1185,7 @@ function App() {
               onSelect={selectThread}
             />
           ))}
-          </> : <InitialLiveProjectionLoading />}
+          </> : <InitialLiveProjectionLoading />)}
         </section>
 
         {mobileDialogOpen && <div className="live-detail-backdrop" aria-hidden="true" onClick={closeDetail} />}
@@ -3795,6 +3810,464 @@ function LedgerDistribution({ usage, exactTaskLabels }: { usage: any; exactTaskL
         })}
       </div>
       </CollapsiblePanelBody>
+    </section>
+  );
+}
+
+const FORGE_MAP_POLL_INTERVAL_MS = 60_000;
+
+// SVG 배치는 부품 정의의 band/col 힌트에서만 파생한다. 상자를 옮기려면
+// forge-map-view.mjs 한 곳만 고치면 되고 이 파일에는 좌표 목록이 없다.
+const FORGE_BAND_GEOMETRY = [
+  { y: 40, width: 184, stride: 204, arrow: true },
+  { y: 176, width: 235, stride: 255, arrow: true },
+  { y: 312, width: 184, stride: 204, arrow: false },
+];
+const FORGE_BOX_HEIGHT = 96;
+const FORGE_MAP_VIEWBOX = "0 0 1040 436";
+
+function forgeBoxGeometry(component: any) {
+  const band = FORGE_BAND_GEOMETRY[component.band] ?? FORGE_BAND_GEOMETRY[0];
+  return { x: 20 + component.col * band.stride, y: band.y, width: band.width, height: FORGE_BOX_HEIGHT };
+}
+
+// 부품 안에서 읽을 두 번째 줄: 노드가 있으면 상태별 건수, 없으면 근거 설명.
+function forgeComponentDetail(component: any): string {
+  if (component.observedNodeCount > 0) {
+    const parts = [];
+    if (component.counts.ok > 0) parts.push(`정상 ${component.counts.ok}`);
+    for (const state of ["hold", "down", "stale", "degraded"]) {
+      const label = (FORGE_STATE_LABELS as Record<string, string>)[state];
+      if (component.counts[state] > 0) parts.push(`${label} ${component.counts[state]}`);
+    }
+    if (component.counts.unknown > 0) parts.push(`근거없음 ${component.counts.unknown}`);
+    return parts.join(" · ");
+  }
+  if (component.evidenceNote !== null) return component.evidenceNote;
+  if (component.declaredNodeCount > 0) return "이 판본에 노드 없음";
+  return "이 판에 연결된 관측원 없음";
+}
+
+async function forgeFetchJson(path: string, signal: AbortSignal) {
+  try {
+    const response = await fetch(path, { cache: "no-store", signal });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    // 읽기 실패는 아무것도 공급하지 않는다 — 해당 부품은 회색으로 남는다.
+    return null;
+  }
+}
+
+function ForgeMapSurface({ topologyProjection, hostStats, usage, usagePending, onOpenSystemSurface }: {
+  topologyProjection: any;
+  hostStats: any;
+  usage: any;
+  usagePending: boolean;
+  onOpenSystemSurface: () => void;
+}) {
+  const [tongs, setTongs] = useState<any>(null);
+  const [secureWork, setSecureWork] = useState<any>(null);
+  const [scheduledTasks, setScheduledTasks] = useState<any>(null);
+  const [storageMap, setStorageMap] = useState<any>(null);
+  const [pendingReviews, setPendingReviews] = useState<any>(null);
+  const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let controller: AbortController | null = null;
+    const load = async () => {
+      controller?.abort();
+      controller = new AbortController();
+      const signal = controller.signal;
+      const [nextTongs, nextSecureWork, nextTasks, nextStorage, nextReviews] = await Promise.all([
+        forgeFetchJson("/tongs.snapshot.json", signal),
+        forgeFetchJson("/secure-work.snapshot.json", signal),
+        forgeFetchJson("/scheduled-tasks.snapshot.json", signal),
+        forgeFetchJson("/storage-map.snapshot.json", signal),
+        forgeFetchJson("/erp-pending-reviews.snapshot.json?read_only=1", signal),
+      ]);
+      if (cancelled) return;
+      setTongs(nextTongs);
+      setSecureWork(nextSecureWork);
+      setScheduledTasks(nextTasks);
+      setStorageMap(nextStorage);
+      setPendingReviews(nextReviews);
+    };
+    void load();
+    const timer = window.setInterval(() => { void load(); }, FORGE_MAP_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      controller?.abort();
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const model = useMemo(
+    () => buildForgeMapViewModel({ topology: topologyProjection, tongs, secureWork, scheduledTasks }),
+    [topologyProjection, tongs, secureWork, scheduledTasks],
+  );
+  const boxes = useMemo(
+    () => [...model.components, ...(model.other.observedNodeCount > 0 ? [model.other] : [])],
+    [model],
+  );
+  const selected = boxes.find((component: any) => component.id === selectedComponentId) ?? null;
+  const arrows = useMemo(() => {
+    const lines: { key: string; x1: number; x2: number; y: number }[] = [];
+    for (const [bandIndex, band] of FORGE_BAND_GEOMETRY.entries()) {
+      if (!band.arrow) continue;
+      const inBand = model.components
+        .filter((component: any) => component.band === bandIndex)
+        .sort((left: any, right: any) => left.col - right.col);
+      for (let index = 0; index + 1 < inBand.length; index += 1) {
+        const from = forgeBoxGeometry(inBand[index]);
+        const to = forgeBoxGeometry(inBand[index + 1]);
+        lines.push({ key: `${inBand[index].id}->${inBand[index + 1].id}`, x1: from.x + from.width, x2: to.x, y: band.y + 48 });
+      }
+    }
+    return lines;
+  }, [model]);
+
+  return (
+    <div className="forge-surface" data-testid="forge-map-surface">
+      <ForgeMapHeadline model={model} onOpenSystemSurface={onOpenSystemSurface} />
+      <div className="forge-map-body">
+        <figure className="forge-map-figure">
+          <svg
+            className="forge-map-svg"
+            viewBox={FORGE_MAP_VIEWBOX}
+            role="group"
+            aria-label="대장간 부품 지도 — 부품 상자를 고르면 그 부품의 노드와 사유가 옆에 뜹니다"
+            data-testid="forge-map-svg"
+          >
+            <defs>
+              <marker id="forge-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0 0L10 5L0 10z" fill="currentColor" />
+              </marker>
+            </defs>
+            {model.bandLabels.map((label: string, index: number) => (
+              <text key={label} className="forge-band-label" x={20} y={(FORGE_BAND_GEOMETRY[index]?.y ?? 0) - 10}>{label}</text>
+            ))}
+            {arrows.map((arrow) => (
+              <line key={arrow.key} className="forge-map-arrow" x1={arrow.x1 + 2} y1={arrow.y} x2={arrow.x2 - 4} y2={arrow.y} markerEnd="url(#forge-arrow)" />
+            ))}
+            {boxes.map((component: any) => {
+              const box = forgeBoxGeometry(component);
+              const isSelected = component.id === selectedComponentId;
+              const detail = forgeComponentDetail(component);
+              // 상자 밖으로 흘러 옆 부품을 덮지 않도록 그리기 직전에 자른다.
+              const textWidth = box.width - 28;
+              const identifierWidth = textWidth - estimateForgeTextWidth(component.name, 14) - 10;
+              return (
+                <g
+                  key={component.id}
+                  className={`forge-node is-${component.state}${isSelected ? " is-selected" : ""}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isSelected}
+                  aria-label={`${component.name} · ${component.stateLabel} · ${detail}`}
+                  data-testid={`forge-node-${component.id}`}
+                  data-state={component.state}
+                  onClick={() => setSelectedComponentId(isSelected ? null : component.id)}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return;
+                    event.preventDefault();
+                    setSelectedComponentId(isSelected ? null : component.id);
+                  }}
+                >
+                  <rect className="forge-node-box" x={box.x} y={box.y} width={box.width} height={box.height} rx={7} />
+                  <rect className="forge-node-bar" x={box.x} y={box.y} width={5} height={box.height} rx={2.5} />
+                  <text className="forge-node-name" x={box.x + 16} y={box.y + 26}>{component.name}</text>
+                  {estimateForgeTextWidth(component.identifier, 10) <= identifierWidth && (
+                    <text className="forge-node-identifier" x={box.x + box.width - 12} y={box.y + 26} textAnchor="end">{component.identifier}</text>
+                  )}
+                  <text className="forge-node-meaning" x={box.x + 16} y={box.y + 47}>{clampForgeText(component.meaning, textWidth, 11)}</text>
+                  <text className="forge-node-state" x={box.x + 16} y={box.y + 70}>{component.stateLabel}</text>
+                  <text className="forge-node-detail" x={box.x + 16} y={box.y + 86}>{clampForgeText(detail, textWidth, 10.5)}</text>
+                </g>
+              );
+            })}
+          </svg>
+          <figcaption className="forge-map-caption">
+            초록 정상 · 노랑 주의 · 빨강 끊김/낡음 · 보라 보류 · 회색 근거 없음. 회색은 “괜찮다”가 아니라 “이 화면이 아직 못 본다”입니다.
+          </figcaption>
+        </figure>
+        <ForgeInspector component={selected} onClose={() => setSelectedComponentId(null)} onOpenSystemSurface={onOpenSystemSurface} />
+      </div>
+      <div className="forge-panel-grid">
+        <ForgeAttentionPanel model={model} onSelect={setSelectedComponentId} />
+        <ForgeHostPanel hostStats={hostStats} />
+        <ForgeUsagePanel usage={usage} pending={usagePending} />
+        <ForgeCustodyPanel storageMap={storageMap} pendingReviews={pendingReviews} />
+      </div>
+      <ForgeBellowsPanel snapshot={scheduledTasks} />
+    </div>
+  );
+}
+
+function ForgeMapHeadline({ model, onOpenSystemSurface }: { model: any; onOpenSystemSurface: () => void }) {
+  const byState = model.summary.byState;
+  const refresh = model.refreshState === null ? "판정 미확정" : `판정 ${String(model.refreshState).toUpperCase()}`;
+  return (
+    <header className="forge-headline" data-testid="forge-map-headline">
+      <div className="forge-headline-title">
+        <span>FORGE MAP</span>
+        <h2>대장간이 지금 돌고 있는가</h2>
+        <p>읽기 전용 한 장. 부품 {model.summary.componentTotal}개 · 노드 {model.summary.observedNodeTotal}개 관측 · {refresh} · {formatRefreshTime(model.observedAt)} 관측</p>
+      </div>
+      <dl className="forge-headline-stats">
+        <div><dt>정상</dt><dd className="is-ok">{byState.ok}</dd></div>
+        <div><dt>주의</dt><dd className={byState.degraded > 0 ? "is-degraded" : ""}>{byState.degraded}</dd></div>
+        <div><dt>끊김·낡음</dt><dd className={byState.down + byState.stale > 0 ? "is-down" : ""}>{byState.down + byState.stale}</dd></div>
+        <div><dt>근거 없음</dt><dd className={byState.unknown > 0 ? "is-unknown" : ""}>{byState.unknown}</dd></div>
+        <div><dt>미매핑 노드</dt><dd className={model.summary.unmappedNodeCount > 0 ? "is-degraded" : ""}>{model.summary.unmappedNodeCount}</dd></div>
+      </dl>
+      <button type="button" className="forge-headline-link" onClick={onOpenSystemSurface}>
+        노드 단위로 보기
+      </button>
+    </header>
+  );
+}
+
+function ForgeInspector({ component, onClose, onOpenSystemSurface }: {
+  component: any;
+  onClose: () => void;
+  onOpenSystemSurface: () => void;
+}) {
+  if (component === null) {
+    return (
+      <aside className="forge-inspector is-empty" aria-live="polite" data-testid="forge-map-inspector">
+        <p>부품 상자를 고르면 그 부품에 속한 노드와 사유가 여기 뜹니다.</p>
+        <p className="forge-inspector-hint">읽기 전용입니다 · 이 화면에서 고치거나 다시 돌리는 단추는 없습니다.</p>
+      </aside>
+    );
+  }
+  return (
+    <aside className={`forge-inspector is-${component.state}`} aria-live="polite" data-testid="forge-map-inspector">
+      <header>
+        <div>
+          <h3>{component.name} <code>{component.identifier}</code></h3>
+          <p>{component.meaning}</p>
+        </div>
+        <button type="button" className="forge-inspector-close" aria-label="부품 선택 해제" onClick={onClose}>
+          <X size={14} aria-hidden="true" />
+        </button>
+      </header>
+      <p className="forge-inspector-state">
+        <span className={`forge-dot is-${component.state}`} aria-hidden="true" />
+        {component.stateLabel} · 근거 {component.evidenceSourceLabel}
+      </p>
+      {component.evidenceNote !== null && <p className="forge-inspector-note">{component.evidenceNote}</p>}
+      {component.nodes.length > 0 ? (
+        <ul className="forge-inspector-nodes">
+          {component.nodes.map((node: any) => (
+            <li key={node.id} data-state={node.state}>
+              <span className={`forge-dot is-${node.state}`} aria-hidden="true" />
+              <span className="forge-inspector-node-label">{node.label}</span>
+              <code>{node.id}</code>
+              <span className="forge-inspector-node-state">{node.stateLabel}</span>
+              {node.reasons.length > 0 && <span className="forge-inspector-node-reasons">{node.reasons.join(" · ")}</span>}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="forge-inspector-empty">이 부품에는 이 판본이 관측하는 노드가 없습니다.</p>
+      )}
+      <button type="button" className="forge-inspector-link" onClick={onOpenSystemSurface}>
+        시스템 토폴로지에서 노드 보기
+      </button>
+    </aside>
+  );
+}
+
+function ForgeAttentionPanel({ model, onSelect }: { model: any; onSelect: (componentId: string) => void }) {
+  const rows = model.attention.slice(0, 8);
+  return (
+    <section className="forge-panel" aria-labelledby="forge-attention-heading" data-testid="forge-attention-panel">
+      <header>
+        <AlertCircle size={14} aria-hidden="true" />
+        <h3 id="forge-attention-heading">고장·주의</h3>
+        <strong className={model.summary.attentionCount > 0 ? "is-degraded" : ""}>{model.summary.attentionCount}</strong>
+      </header>
+      {rows.length === 0 ? (
+        <p className="forge-panel-empty">
+          관측된 고장 없음. 다만 근거 없는 부품이 {model.summary.unknownComponentCount}개 남아 있어 “전부 정상”이라는 뜻은 아닙니다.
+        </p>
+      ) : (
+        <ul className="forge-attention-list">
+          {rows.map((row: any) => (
+            <li key={row.id}>
+              <button type="button" onClick={() => onSelect(row.componentId)}>
+                <span className={`forge-dot is-${row.state}`} aria-hidden="true" />
+                <span className="forge-attention-component">{row.componentName}</span>
+                <span className="forge-attention-node">{row.label}</span>
+                <span className="forge-attention-reason">{row.reasons.length > 0 ? row.reasons.join(" · ") : row.stateLabel}</span>
+              </button>
+            </li>
+          ))}
+          {model.attention.length > rows.length && (
+            <li className="forge-attention-more">외 {model.attention.length - rows.length}건</li>
+          )}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function ForgeHostPanel({ hostStats }: { hostStats: any }) {
+  const host = useMemo(() => buildHostStatsViewModel(hostStats), [hostStats]);
+  return (
+    <section className="forge-panel" aria-labelledby="forge-host-heading" data-testid="forge-host-panel">
+      <header>
+        <Cpu size={14} aria-hidden="true" />
+        <h3 id="forge-host-heading">자원</h3>
+        <strong>{(host as any).available ? "관측" : "미관측"}</strong>
+      </header>
+      {(host as any).available ? (
+        <dl className="forge-metric-list">
+          {(host as any).cells.map((cell: any) => (
+            <div key={cell.key}>
+              <dt>{cell.label}</dt>
+              <dd>{cell.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="forge-panel-empty">호스트 표본이 아직 없습니다 · 근거 없음</p>
+      )}
+    </section>
+  );
+}
+
+function ForgeUsagePanel({ usage, pending }: { usage: any; pending: boolean }) {
+  const windows = usage?.history?.windows ?? null;
+  const providerDaily = usage?.history?.provider_daily ?? null;
+  const latestProviderDay = Array.isArray(providerDaily) && providerDaily.length > 0
+    ? providerDaily[providerDaily.length - 1]
+    : null;
+  const providerRows = latestProviderDay === null ? [] : FLEET_TOKEN_PROVIDERS.map((provider) => ({
+    ...provider,
+    tokens: latestProviderDay.providers?.find((entry: any) => entry.provider === provider.id)?.total_tokens ?? null,
+  }));
+  const providerMax = Math.max(...providerRows.map((row) => (Number.isFinite(row.tokens) ? Number(row.tokens) : 0)), 1);
+  const measured = usage?.state === "ready" && windows !== null;
+  return (
+    <section className="forge-panel" aria-labelledby="forge-usage-heading" data-testid="forge-usage-panel">
+      <header>
+        <Gauge size={14} aria-hidden="true" />
+        <h3 id="forge-usage-heading">토큰·크레딧</h3>
+        <strong>{pending ? "읽는 중" : measured ? "관측" : "미측정"}</strong>
+      </header>
+      {measured ? (
+        <>
+          <dl className="forge-metric-list">
+            <div><dt>오늘</dt><dd>{fleetTokenLabel(windows.calendar_day?.totals?.total_tokens)}</dd></div>
+            <div><dt>이번 주</dt><dd>{fleetTokenLabel(windows.calendar_week?.totals?.total_tokens)}</dd></div>
+            <div><dt>전체</dt><dd>{fleetTokenLabel(windows.all_time?.totals?.total_tokens)}</dd></div>
+            <div><dt>주간 크레딧</dt><dd>{fleetCreditLabel(windows.calendar_week?.totals).replace("Meter 크레딧 ", "")}</dd></div>
+          </dl>
+          {latestProviderDay !== null && (
+            <ul className="forge-provider-bars" aria-label={`제공자별 토큰 · ${latestProviderDay.date}`}>
+              {providerRows.map((row) => (
+                <li key={row.id}>
+                  <span className="forge-provider-name">{row.label}</span>
+                  <span className="forge-provider-track" aria-hidden="true">
+                    <span
+                      className="forge-provider-fill"
+                      style={{ width: `${Number.isFinite(row.tokens) ? Math.round((Number(row.tokens) / providerMax) * 100) : 0}%` }}
+                    />
+                  </span>
+                  <span className="forge-provider-value">{Number.isFinite(row.tokens) ? fleetTokenLabel(Number(row.tokens)) : "근거 없음"}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="forge-panel-foot">공통 Meter 원장 한 곳에서 읽습니다 · 제공자별은 {latestProviderDay?.date ?? "날짜 미상"} 기준 · 제공자 공식 청구서가 아닙니다</p>
+        </>
+      ) : (
+        <p className="forge-panel-empty">사용량계가 아직 열리지 않았습니다 · 미측정(0이라는 뜻이 아닙니다)</p>
+      )}
+    </section>
+  );
+}
+
+function ForgeCustodyPanel({ storageMap, pendingReviews }: { storageMap: any; pendingReviews: any }) {
+  const storageStatus = typeof storageMap?.status === "string" ? storageMap.status : "unknown";
+  const storageReason = typeof storageMap?.reason === "string" ? storageMap.reason : null;
+  const review = useMemo(() => buildErpPendingReviewViewModel(pendingReviews), [pendingReviews]);
+  return (
+    <section className="forge-panel" aria-labelledby="forge-custody-heading" data-testid="forge-custody-panel">
+      <header>
+        <ArchiveRestore size={14} aria-hidden="true" />
+        <h3 id="forge-custody-heading">저장·백업</h3>
+        <strong className={storageStatus === "ready" ? "" : "is-unknown"}>{storageStatus === "ready" ? "관측" : "근거 없음"}</strong>
+      </header>
+      <dl className="forge-metric-list">
+        <div>
+          <dt>저장·백업 지도</dt>
+          <dd>{storageStatus === "ready" ? "관측" : "unknown"}{storageReason === null ? "" : ` · ${storageReason}`}</dd>
+        </div>
+        <div>
+          <dt>World Tree 제출 대기</dt>
+          <dd>{review.state === "ready" ? `${review.counts.pending}건` : `읽기 보류 · ${review.holdCode}`}</dd>
+        </div>
+      </dl>
+      <p className="forge-panel-foot">
+        Reliquary 상태는 비공개 바인딩이 붙기 전까지 unknown 입니다 · 제출 영수증은 완료가 아니며 수락은 사람이 합니다.
+      </p>
+    </section>
+  );
+}
+
+function ForgeBellowsPanel({ snapshot }: { snapshot: any }) {
+  const state = typeof snapshot?.state === "string" ? snapshot.state : "unknown";
+  const tasks = Array.isArray(snapshot?.tasks) ? snapshot.tasks : [];
+  const summary = snapshot?.summary ?? null;
+  return (
+    <section className="forge-panel forge-bellows" aria-labelledby="forge-bellows-heading" data-testid="forge-bellows-panel">
+      <header>
+        <Clock3 size={14} aria-hidden="true" />
+        <h3 id="forge-bellows-heading">Bellows · 예약 작업</h3>
+        <strong className={summary !== null && summary.failing > 0 ? "is-degraded" : ""}>
+          {state === "ready" ? `${summary?.total ?? tasks.length}건 · 실패 ${summary?.failing ?? 0}` : "근거 없음"}
+        </strong>
+      </header>
+      {state === "ready" && tasks.length > 0 ? (
+        <div className="forge-bellows-scroll">
+          <table className="forge-bellows-table">
+            <caption className="sr-only">이름이 Soulforge-·Buzz·Hermes 로 시작하는 예약 작업의 마지막 실행과 결과</caption>
+            <thead>
+              <tr>
+                <th scope="col">이름</th>
+                <th scope="col">상태</th>
+                <th scope="col">마지막 실행</th>
+                <th scope="col">결과</th>
+                <th scope="col">다음 실행</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tasks.map((task: any) => (
+                <tr key={task.name} data-healthy={task.healthy ? "true" : "false"}>
+                  <th scope="row">{task.name}</th>
+                  <td>{task.status}</td>
+                  <td className="forge-num">{task.last_run_at ?? "—"}</td>
+                  <td className="forge-num">
+                    <span className={task.healthy ? "forge-result is-ok" : "forge-result is-degraded"}>{task.last_result ?? "미상"}</span>
+                  </td>
+                  <td className="forge-num">{task.next_run_at ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="forge-panel-empty">
+          예약 작업 목록을 읽지 못했습니다 · {typeof snapshot?.reason === "string" ? snapshot.reason : "근거 없음"}
+        </p>
+      )}
+      <p className="forge-panel-foot">
+        이름·상태·시각·결과 코드만 읽습니다 · 명령행과 경로는 이 화면에 오지 않으며 여기서 작업을 만들거나 돌리지 않습니다.
+      </p>
     </section>
   );
 }
