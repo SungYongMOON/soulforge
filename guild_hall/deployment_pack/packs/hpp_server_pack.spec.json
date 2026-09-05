@@ -1,7 +1,7 @@
 {
   "schema": "soulforge.deployment_pack_spec.v0",
   "pack_id": "hpp_server_pack",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "host_effect_policy": {
     "reboot": "forbidden",
     "driver_change": "forbidden",
@@ -293,6 +293,7 @@
       "ui-workspace/apps/dev-erp/test/accepted_context_query.test.mjs",
       "ui-workspace/apps/dev-erp/test/actor_overlay_import.test.mjs",
       "ui-workspace/apps/dev-erp/test/adapter_snapshot.test.mjs",
+      "ui-workspace/apps/dev-erp/test/app_localstorage_safety.test.mjs",
       "ui-workspace/apps/dev-erp/test/assignment_policy.test.mjs",
       "ui-workspace/apps/dev-erp/test/auto_intake_cycle.test.mjs",
       "ui-workspace/apps/dev-erp/test/autosync_idempotency.test.mjs",
@@ -353,6 +354,7 @@
       "ui-workspace/apps/dev-erp/test/project_history_copy_one_shot.test.mjs",
       "ui-workspace/apps/dev-erp/test/project_history_copy_projector.test.mjs",
       "ui-workspace/apps/dev-erp/test/project_history_copy_xlsx.test.mjs",
+      "ui-workspace/apps/dev-erp/test/review_pending_ui.test.mjs",
       "ui-workspace/apps/dev-erp/test/role_capability_matcher.test.mjs",
       "ui-workspace/apps/dev-erp/test/role_overlay_import.test.mjs",
       "ui-workspace/apps/dev-erp/test/run_dev_erp_background_launcher.test.mjs",
@@ -1051,6 +1053,7 @@
     "test/accepted_context_query.test.mjs",
     "test/actor_overlay_import.test.mjs",
     "test/adapter_snapshot.test.mjs",
+    "test/app_localstorage_safety.test.mjs",
     "test/assignment_policy.test.mjs",
     "test/auto_intake_cycle.test.mjs",
     "test/autosync_idempotency.test.mjs",
@@ -1111,6 +1114,7 @@
     "test/project_history_copy_one_shot.test.mjs",
     "test/project_history_copy_projector.test.mjs",
     "test/project_history_copy_xlsx.test.mjs",
+    "test/review_pending_ui.test.mjs",
     "test/role_capability_matcher.test.mjs",
     "test/role_overlay_import.test.mjs",
     "test/run_dev_erp_background_launcher.test.mjs",
@@ -1148,6 +1152,7 @@
     "test/accepted_context_query.test.mjs",
     "test/actor_overlay_import.test.mjs",
     "test/adapter_snapshot.test.mjs",
+    "test/app_localstorage_safety.test.mjs",
     "test/assignment_policy.test.mjs",
     "test/auto_intake_cycle.test.mjs",
     "test/autosync_idempotency.test.mjs",
@@ -1208,6 +1213,7 @@
     "test/project_history_copy_one_shot.test.mjs",
     "test/project_history_copy_projector.test.mjs",
     "test/project_history_copy_xlsx.test.mjs",
+    "test/review_pending_ui.test.mjs",
     "test/role_capability_matcher.test.mjs",
     "test/role_overlay_import.test.mjs",
     "test/run_dev_erp_background_launcher.test.mjs",
@@ -1241,7 +1247,7 @@
     "test/workflow_job_ui_contract.test.mjs"
   ],
   "installed_smoke_excluded": [],
-  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_7",
+  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_8",
   "install_manual_ref": "manual.install.hpp_server_pack",
   "upgrade_manual_ref": "manual.upgrade.hpp_server_pack",
   "rollback_manual_ref": "manual.rollback.hpp_server_pack",
@@ -2030,7 +2036,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/server.mjs",
-      "sha256": "0bb5c9ab89613a8ace9098aedd0576a2860fedd7349d24d8e765ac3c2c9b4da3"
+      "sha256": "f5f38d36ebe6d7432bfea8c11f3737737977b06a56e6df19f98612ee0bf5656b"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/accepted_context_query.mjs",
@@ -2046,7 +2052,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/codex_bridge.mjs",
-      "sha256": "19444af58c8508bd65cbb440cd1f07cea3b2c590b0e392da00cca63035b29f76"
+      "sha256": "62743d2b0ac54724a8d9ffc4064aadbb617b5bc588305f94c770189467187ed6"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/codex_dedicated_worker.mjs",
@@ -2086,7 +2092,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/lexicon.mjs",
-      "sha256": "dfdd35a651fb29cb4cd6f2e21043fb15d15cc9d5230ede6d4d6f26d00189a57a"
+      "sha256": "1c9955245f9c589bf5a7b5ecd4111a747b0feb9c935e9758b34957c7df21a8f7"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/mailbox_env.mjs",
@@ -2114,7 +2120,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/static/app.js",
-      "sha256": "8a8c21caeab0afd413f0c8e4ab05cc704c6f523e9dbc1dbf0293b6cc25165fe0"
+      "sha256": "486bde3e14d4f9ac4c5eaeab7f5a0eb47d3d3e38107a158bc3e222012a6db335"
     },
     {
       "path": "ui-workspace/apps/dev-erp/static/style.css",
@@ -2122,7 +2128,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/codex_bridge_process.test.mjs",
-      "sha256": "dfa7ecc20f4855c532fcbd289a1c1412e33eec80a4fd2a8b591cf3a537ad42c4"
+      "sha256": "d614b0770889bb1762353a11b05b31d0f1d408dd53b5c5c6b0eef67fa7262f08"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/codex_dedicated_worker.test.mjs",
@@ -2146,11 +2152,11 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/erp_mcp_server.test.mjs",
-      "sha256": "d121e6c83a0499be4393b8f4b2ed0f23c57cba18b1c592963195cbbb0215ca73"
+      "sha256": "2ab07dda95368619b214913caf4a85dfcc436f4a4b94983d3de07e8be5e3189f"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/erp_mcp_service.test.mjs",
-      "sha256": "24035d1164ad94c64b001a7f46df8151991e107ab244c3c5dcff9365b4e874dc"
+      "sha256": "d82ee924bed2cb8f580d84228a95cece60172d1ca8468f14e25c83e2e4290113"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/run_dev_erp_background_launcher.test.mjs",
@@ -2226,11 +2232,11 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/tools/task_engine_inventory_c00b_binding_producer.mjs",
-      "sha256": "0ec2222b5f2a48ef4282a2d6ea72e1063293cd7d3bd394bdaf6222f374e225aa"
+      "sha256": "4d7713a96bf2609edc0d644cb03ab1aa70f1997deb432158255d5855824bc9d3"
     },
     {
       "path": "ui-workspace/apps/dev-erp/tools/task_engine_inventory_c00b_judge.mjs",
-      "sha256": "10814487b500d319a18b64005a8262077b7ebf77a1cf3c8eeff672b90d26565e"
+      "sha256": "6b810c77b021986bbbc15c285183394901d589572df8186cc1a0d9425608600f"
     }
   ]
 }
