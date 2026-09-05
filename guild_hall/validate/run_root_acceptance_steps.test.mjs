@@ -74,6 +74,30 @@ test("루트 게이트: 앱 테스트 스텝이 validate·done-check 양 모드�
   }
 });
 
+test("루트 게이트: display-terms 스텝이 두 모드 모두 path-policy 바로 뒤에 배선돼 있다", () => {
+  const blocks = source.match(/(?:validate|"done-check"): \[[\s\S]*?\n  \],/g) ?? [];
+  assert.equal(blocks.length, 2);
+  for (const block of blocks) {
+    const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
+    const pathPolicyIndex = lines.findIndex((line) => line.startsWith('["path-policy"'));
+    assert.ok(pathPolicyIndex >= 0, "path-policy step is missing");
+    assert.equal(
+      lines[pathPolicyIndex + 1],
+      '["display-terms", "npm run validate:display-terms"],',
+      "display-terms step must immediately follow path-policy",
+    );
+  }
+  // Wired at "changed" scope, like path-policy's day-to-day script: a newly introduced lint rule
+  // should ratchet forward on touched files rather than fail the whole gate on every pre-existing,
+  // out-of-scope use elsewhere in the tree. `validate:display-terms:tracked` stays available as a
+  // manual, whole-tree audit command.
+  assert.equal(
+    rootPackage.scripts["validate:display-terms"],
+    "node --test guild_hall/validate/retired_display_terms_policy.test.mjs && node guild_hall/validate/retired_display_terms_policy.mjs --scope changed",
+  );
+  assert.equal(rootPackage.scripts["validate:display-terms:tracked"], "node guild_hall/validate/retired_display_terms_policy.mjs --scope tracked");
+});
+
 test("root gates validate AX-SE before Watchtower and Watchtower before its consumer", () => {
   const blocks = source.match(/(?:validate|"done-check"): \[[\s\S]*?\n  \],/g) ?? [];
   assert.equal(blocks.length, 2);

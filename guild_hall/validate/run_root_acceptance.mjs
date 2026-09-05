@@ -9,6 +9,7 @@ const mode = args.mode ?? "validate";
 const STEPS_BY_MODE = {
   validate: [
     ["path-policy", "node --test guild_hall/validate/local_absolute_path_policy.test.mjs && npm run validate:path-policy:all"],
+    ["display-terms", "npm run validate:display-terms"],
     ["engineering-engine-no-duplicate-authority", "npm run validate:engineering-engine-no-duplicate-authority"],
     ["engineering-engine-core-domain", "npm run validate:engineering-engine-core-domain"],
     ["quality-readiness", "npm run validate:quality-readiness"],
@@ -79,6 +80,7 @@ const STEPS_BY_MODE = {
   ],
   "done-check": [
     ["path-policy", "node --test guild_hall/validate/local_absolute_path_policy.test.mjs && npm run validate:path-policy:all"],
+    ["display-terms", "npm run validate:display-terms"],
     ["engineering-engine-no-duplicate-authority", "npm run validate:engineering-engine-no-duplicate-authority"],
     ["engineering-engine-core-domain", "npm run validate:engineering-engine-core-domain"],
     ["quality-readiness", "npm run validate:quality-readiness"],
