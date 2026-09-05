@@ -1,5 +1,34 @@
 # CHANGELOG
 
+## 2026-09-05 - Universal Client rollback receipt: re-verify state preservation, not just health (EXT-15)
+
+- 날짜: 2026-09-05. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: 외부 검토 EXT-15(`update_coordinator rollback receipt over-claims`,
+  `docs/reviews/EXTERNAL_REVIEW_MAP_2026-09-05.md` 참조, 이 커밋에서는 그 파일을 건드리지
+  않음)가 지적한 나머지 절반을 고쳤다. 같은 날 앞선 커밋 `034213e8`이 롤백 뒤 health
+  재확인(`rollbackHealthy`)을 추가했지만, 상태 보존(`adapter.verifyStatePreserved`)은
+  롤백 뒤 다시 부르지 않고 `outbox_preserved: rollbackOk`를 그대로 돌려줘, 후보 쪽 상태
+  보존 검사가 실패해 롤백한 경우에도 `ROLLED_BACK`·`outbox_preserved: true`가 나올 수
+  있었다. `ui-workspace/apps/soulforge-universal-client/src/runtime/update_coordinator.mjs`의
+  `rollbackCandidate()`는 이제 `rollbackOk && rollbackHealthy`일 때만 `verifyStatePreserved`를
+  한 번 더 불러 적용·health·보존 세 증거를 각각 판정한다: 셋 다 참이면 `ROLLED_BACK`, 아니면
+  `HOLD`이며 hold_code는 `!rollbackOk` → `ROLLBACK_INCOMPLETE_HOLD`, `!rollbackHealthy` →
+  `ROLLBACK_HEALTH_FAILED`, 보존 확인이 throw로 불명확하면 `ROLLBACK_STATE_UNVERIFIED`,
+  확인했지만 거짓이면 `ROLLBACK_STATE_NOT_PRESERVED`, 셋 다 참이면 호출자가 준 원래
+  hold_code 순서로 정한다. `outbox_preserved`는 보존을 실제로 확인해 참인 경우에만 true이고
+  그 외(미확인·거짓·throw)는 모두 false다. 실패 먼저 방식으로 고쳤다: 관련 테스트를
+  8개에서 11개로 늘렸다(기존 케이스 분할·확장, 새 HOLD 케이스 2개 추가, 기존 기대값 일부
+  갱신). 고치기 전 소스에 먼저 돌려 5 pass/6 fail을 확인한 뒤, 소스를 고쳐 11/11 초록을
+  확인했다(클라이언트 앱 전체 스위트는 22→25/25). README의 `coordinateClientUpdate()`
+  설명 한 줄에 재확인·미확인 비주장 규칙을 덧붙였다.
+- 운영 영향: 저장소에만 있다. Universal Client는 아직 물리 좌석이 0(pre-physical gate,
+  헤드리스 소스 팩 + synthetic test만 존재)이라 실제 운영 동작 변화는 없다.
+  `guild_hall/deployment_pack/tools/emit_team_client_spec.mjs --check`로 팩 spec pin
+  드리프트만 확인했으며(재발행은 별도 재빌드 세션 몫), 예약작업·포트·바인딩 변경 없음.
+- 관련 경로: `ui-workspace/apps/soulforge-universal-client/src/runtime/update_coordinator.mjs`,
+  `ui-workspace/apps/soulforge-universal-client/test/update_coordinator.test.mjs`,
+  `ui-workspace/apps/soulforge-universal-client/README.md`.
+
 ## 2026-09-05 - Vocabulary reset, part 2 (docs body + retired-term checker)
 
 - 날짜: 2026-09-05. Revision: the Git commit containing this entry owns the exact revision.

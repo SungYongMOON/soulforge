@@ -17,7 +17,9 @@ installer options never grant authority.
   promote knowledge.
 - `coordinateClientUpdate()` stages only the Universal Client service through
   an injected lifecycle adapter, preserves state/outbox, rejects any reboot,
-  and rolls the active release pointer back when candidate health fails.
+  and rolls the active release pointer back when candidate health fails. A
+  rollback re-verifies the restored release's health and state preservation
+  before reporting success, and never reports preservation it could not confirm.
 
 The Main Node keeps ERP, Engineering Engine, Engineering MCP authority, Buzz
 Server, Hermes, 4192 server adapters and Tool Workshop execution. The Client

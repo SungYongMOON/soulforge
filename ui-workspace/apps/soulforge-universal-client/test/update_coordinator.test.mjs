@@ -47,29 +47,66 @@ test("verified update restarts only the client, preserves state, and never reque
   assert.equal(result.outbox_preserved, true);
 });
 
-test("candidate start and state verification failures both restore the previous release", async () => {
-  for (const failAt of ["start", "state"]) {
-    const effects = adapter();
-    if (failAt === "start") {
-      let starts = 0;
-      effects.startClient = async () => {
-        effects.calls.push("start");
-        starts += 1;
-        if (starts === 1) throw new Error("synthetic start failure");
-        return { ok: true };
-      };
-    } else {
-      effects.verifyStatePreserved = async () => {
-        effects.calls.push("state");
-        return { ok: false };
-      };
-    }
-    const result = await coordinateClientUpdate(input(), effects);
-    assert.equal(result.status, UPDATE_STATUS.ROLLED_BACK, failAt);
-    assert.equal(result.current_release_ref, "release.client.0_1_0", failAt);
-    assert.equal(result.outbox_preserved, true, failAt);
-    assert.deepEqual(effects.calls.slice(-4), ["stop", "switch:release.client.0_1_0", "start", "health"], failAt);
-  }
+test("candidate start failure restores the previous release, health and state re-verified", async () => {
+  const effects = adapter();
+  let starts = 0;
+  effects.startClient = async () => {
+    effects.calls.push("start");
+    starts += 1;
+    if (starts === 1) throw new Error("synthetic start failure");
+    return { ok: true };
+  };
+  const result = await coordinateClientUpdate(input(), effects);
+  assert.equal(result.status, UPDATE_STATUS.ROLLED_BACK);
+  assert.equal(result.current_release_ref, "release.client.0_1_0");
+  assert.equal(result.outbox_preserved, true);
+  assert.deepEqual(effects.calls.slice(-5), ["stop", "switch:release.client.0_1_0", "start", "health", "state"]);
+});
+
+test("candidate state-preservation failure restores the previous release, itself verified preserved", async () => {
+  const effects = adapter();
+  let stateChecks = 0;
+  effects.verifyStatePreserved = async () => {
+    effects.calls.push("state");
+    stateChecks += 1;
+    return { ok: stateChecks !== 1 }; // fails only for the candidate's own (first) check
+  };
+  const result = await coordinateClientUpdate(input(), effects);
+  assert.equal(result.status, UPDATE_STATUS.ROLLED_BACK);
+  assert.equal(result.hold_code, "CLIENT_STATE_NOT_PRESERVED");
+  assert.equal(result.current_release_ref, "release.client.0_1_0");
+  assert.equal(result.outbox_preserved, true);
+  assert.deepEqual(effects.calls.slice(-5), ["stop", "switch:release.client.0_1_0", "start", "health", "state"]);
+});
+
+test("state confirmed not preserved after rollback is HOLD, not a false ROLLED_BACK", async () => {
+  const effects = adapter({ healthy: false }); // candidate health fails, triggering rollback
+  effects.verifyStatePreserved = async () => {
+    effects.calls.push("state");
+    return { ok: false };
+  };
+  const result = await coordinateClientUpdate(input(), effects);
+  assert.equal(result.status, UPDATE_STATUS.HOLD, "state confirmed not preserved must not be reported as a successful rollback");
+  assert.equal(result.hold_code, "ROLLBACK_STATE_NOT_PRESERVED");
+  assert.equal(result.current_release_ref, "release.client.0_1_0", "switchCurrent(rollback) itself succeeded (observed), independent of the state verdict that follows");
+  assert.equal(result.outbox_preserved, false);
+  assert.deepEqual(effects.calls, [
+    "stop", `switch:${CANDIDATE_RELEASE_REF}`, "start", "health",
+    "stop", "switch:release.client.0_1_0", "start", "health", "state",
+  ]);
+});
+
+test("state that cannot be verified after rollback (verifyStatePreserved throws) HOLDs instead of assuming success", async () => {
+  const effects = adapter({ healthy: false }); // candidate health fails, triggering rollback
+  effects.verifyStatePreserved = async () => {
+    effects.calls.push("state");
+    throw new Error("state probe unreachable");
+  };
+  const result = await coordinateClientUpdate(input(), effects);
+  assert.equal(result.status, UPDATE_STATUS.HOLD, "an unreadable post-rollback state status must not be treated as success");
+  assert.equal(result.hold_code, "ROLLBACK_STATE_UNVERIFIED");
+  assert.equal(result.current_release_ref, "release.client.0_1_0");
+  assert.equal(result.outbox_preserved, false);
 });
 
 test("candidate requiring reboot HOLDs before any effect", async () => {
@@ -93,8 +130,10 @@ test("failed health rolls the pointer back and restarts the previous client", as
     "switch:release.client.0_1_0",
     "start",
     "health",
+    "state",
   ]);
   assert.equal(result.reboot_requested, false);
+  assert.equal(result.outbox_preserved, true);
 });
 
 test("a restored release that itself fails health is HOLD, not a false ROLLED_BACK", async () => {
@@ -107,7 +146,8 @@ test("a restored release that itself fails health is HOLD, not a false ROLLED_BA
   assert.equal(result.status, UPDATE_STATUS.HOLD, "an unhealthy restored release must not be reported as a successful rollback");
   assert.equal(result.hold_code, "ROLLBACK_HEALTH_FAILED");
   assert.equal(result.current_release_ref, "release.client.0_1_0", "switchCurrent(rollback) itself succeeded (observed), independent of the health verdict that follows");
-  assert.equal(result.outbox_preserved, true, "stop/switch/start all reported ok — the mechanical rollback completed regardless of the health verdict");
+  assert.equal(result.outbox_preserved, false, "보존을 확인하지 않았으므로 참을 주장하지 않는다");
+  assert.ok(!effects.calls.includes("state"), "state must not be checked when the restored release itself is unhealthy");
   assert.deepEqual(effects.calls, [
     "stop", `switch:${CANDIDATE_RELEASE_REF}`, "start", `health:${CANDIDATE_RELEASE_REF}`,
     "stop", "switch:release.client.0_1_0", "start", "health:release.client.0_1_0",
@@ -129,7 +169,7 @@ test("an unreadable health status after rollback (checkHealth throws) HOLDs inst
   assert.equal(result.hold_code, "ROLLBACK_HEALTH_FAILED");
 });
 
-test("a partial rollback (switchCurrent failure) still HOLDs as incomplete and never rechecks health", async () => {
+test("a partial rollback (switchCurrent failure) still HOLDs as incomplete and never rechecks health or state", async () => {
   const effects = adapter({ healthy: false }); // candidate health fails, triggering rollback
   effects.switchCurrent = async (releaseRef) => {
     effects.calls.push(`switch:${releaseRef}`);
@@ -144,6 +184,7 @@ test("a partial rollback (switchCurrent failure) still HOLDs as incomplete and n
     "stop", `switch:${CANDIDATE_RELEASE_REF}`, "start", "health",
     "stop", "switch:release.client.0_1_0", "start",
   ], "health is checked once for the candidate and is not re-checked when the rollback itself did not complete");
+  assert.ok(!effects.calls.includes("state"), "state must not be checked when the rollback itself did not complete");
 });
 
 test("foreign service, wildcard release, secret-shaped input, and missing rollback are rejected", async () => {

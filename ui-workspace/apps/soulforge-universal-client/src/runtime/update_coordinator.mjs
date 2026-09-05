@@ -103,17 +103,39 @@ async function rollbackCandidate(adapter, request, holdCode) {
       rollbackHealthy = !!health && health.ok === true;
     } catch { rollbackHealthy = false; }
   }
-  const restored = rollbackOk && rollbackHealthy;
+  // A rollback that mechanically completed and reports a healthy restored release
+  // has still not shown the outbox survived the round trip: the forward path can
+  // land here precisely because verifyStatePreserved failed on the candidate, and
+  // stop/switch/start/checkHealth say nothing about state. So the three pieces of
+  // evidence this receipt reports — the rollback applied, the restored release is
+  // healthy, and its state survived — are each judged independently: a check we
+  // never reached because an earlier one failed does not inherit a pass, and a
+  // check that threw is recorded as unverified rather than assumed false or true.
+  let statePreserved = false;
+  let stateUnverified = false;
+  if (rollbackOk && rollbackHealthy) {
+    try {
+      const state = await adapter.verifyStatePreserved({ state_ref: request.stateRef, pending_count: request.pending });
+      statePreserved = !!state && state.ok === true;
+    } catch { stateUnverified = true; }
+  }
+  const restored = rollbackOk && rollbackHealthy && statePreserved;
+  let holdReason;
+  if (!rollbackOk) holdReason = "ROLLBACK_INCOMPLETE_HOLD";
+  else if (!rollbackHealthy) holdReason = "ROLLBACK_HEALTH_FAILED";
+  else if (stateUnverified) holdReason = "ROLLBACK_STATE_UNVERIFIED";
+  else if (!statePreserved) holdReason = "ROLLBACK_STATE_NOT_PRESERVED";
+  else holdReason = holdCode;
   return freeze({
     schema_version: UPDATE_RECEIPT_SCHEMA,
     status: restored ? UPDATE_STATUS.ROLLED_BACK : UPDATE_STATUS.HOLD,
-    hold_code: restored ? holdCode : (rollbackOk ? "ROLLBACK_HEALTH_FAILED" : "ROLLBACK_INCOMPLETE_HOLD"),
+    hold_code: holdReason,
     service_ref: request.serviceRef,
     current_release_ref: rollbackOk ? request.rollback : null,
     candidate_release_ref: request.candidate,
     reboot_requested: false,
     effects_performed: null,
-    outbox_preserved: rollbackOk,
+    outbox_preserved: statePreserved,
   });
 }
 
