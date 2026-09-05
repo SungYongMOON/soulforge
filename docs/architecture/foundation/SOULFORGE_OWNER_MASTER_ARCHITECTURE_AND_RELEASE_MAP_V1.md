@@ -237,9 +237,9 @@ game-term 충돌은 위에 적힌 대로 여전히 `OWNER_DEFERRED`이며 이 �
 | `product.agent` | Soulforge Agent Platform | AI 조직·Agent·Hermes·Buzz·MCP·Tool Workshop | `OWNER_DEFERRED` |
 
 제품 수는 이 세 개다. `sf-p01`~`sf-p09` Portfolio, Operations Console,
-Context World Tree, Shared Candidate Intake, Universal Client, Connector,
-Tool Workshop, Backup/Recovery는 별도 제품으로 재분류하지 않는다. Context World
-Tree와 Knowledge Asset 관리는 ERP 내부 기능이며, Engineering Engine은 지식의 공학
+맥락·지식(sf-p05, 기존 Context World Tree), Shared Candidate Intake, Universal Client, Connector,
+Tool Workshop, Backup/Recovery는 별도 제품으로 재분류하지 않는다. 맥락·지식과
+Knowledge Asset 관리는 ERP 내부 기능이며, Engineering Engine은 지식의 공학
 평가를, Agent Platform은 승인된 실행을 소유한다. Portfolio·App·Module·Pack을 제품
 폴더로 승격해 제품 수를 늘리는 해석은 금지한다.
 
@@ -365,7 +365,7 @@ one Module → one owner → one Implementation → one versioned Interface
 - common Schema/Validation;
 - Knowledge/RAG Interface 중 project-independent 부분.
 
-제품 재기준 문서에는 Task & Decision, Context World Tree 등 domain capability 7종도
+제품 재기준 문서에는 Task & Decision, 맥락·지식 등 domain capability 7종도
 Shared 후보로 기록돼 있다. 위 infrastructure 후보 8종과 합쳐 단일 candidate inventory로
 분류하되, `여러 제품이 사용한다`는 사실만으로 infrastructure Shared Module이 되는 것은
 아니다. PC2에서 exact owner·Interface·Implementation을 하나씩 결정한다.
@@ -704,7 +704,7 @@ projection foundation이며 product/app shell은 `TARGET`이다.
 브랜드명은 `OWNER_DEFERRED`이며 `[소프트웨어명] — Soulforge Operations Console`
 구조로 나중에 정한다. `4192`는 그때까지 compatibility/runtime handle로 유지한다.
 
-## M14. Context World Tree Input/Output Contract
+## M14. 맥락·지식(sf-p05, 기존 Context World Tree) Input/Output Contract
 
 World Tree 내부 DB/Graph/RAG 구조는 지금 확정하지 않는다. 대신 교체 불가능한 입력·출력 seam을
 먼저 고정한다.

@@ -72,7 +72,7 @@ Soulforge Engineering OS
    └─ Agent Family·Mark·Deployment·Run과 MCP·runtime·협업 Adapter를 다루는 실행 제품
 ```
 
-이 세 행만 제품이다. 아래 Portfolio와 `Context World Tree`, Operations Console,
+이 세 행만 제품이다. 아래 Portfolio와 맥락·지식(sf-p05, 기존 Context World Tree), Operations Console,
 Universal Client, Shared Candidate Intake, Connector, Tool Workshop,
 Backup/Recovery는 ERP·Engine·Agent Platform 또는 Shared plane의 App·Module·Pack이며
 별도 제품 source root를 만들지 않는다.
@@ -88,7 +88,7 @@ read-only 판단을 제공하며, Agent Platform이 승인된 Work Unit을 실�
 | --- | --- | --- |
 | Intake & Candidate | source 관찰, 업무 후보 제안, 후보 검토 | Chat 예약, Gmail·Slack·PLAUD·Buzz, dedupe, project 분류, 보류·거절 |
 | Asset Catalog & Custody | 자산 등록, revision 생성, 자산 조회 | 실제 byte 위치, hash, ACL, quarantine, acceptance, baseline, restore |
-| Context World Tree | accepted context 조회, 관계 연결, 시점 질의 | identity, event, decision, evidence, time, ACL, invalidation |
+| 맥락·지식 | accepted context 조회, 관계 연결, 시점 질의 | identity, event, decision, evidence, time, ACL, invalidation |
 | Task & Decision | 공식 Task 생성·상태변경, 결정 기록 | Linear 연동, sole writer, assignment, idempotency, approval, replay |
 | Digital Workforce Registry | Agent Mark 등록, 배치, Run 기록 | model·SOUL·Skill·Tool·권한·Hermes·Buzz·Codex·rollback |
 | Connector & Ingress | source 조회, 승인 action, payload 제출 | Plugin, managed App, custom MCP, source ACL, custody, retry |
@@ -295,7 +295,7 @@ Candidate Ledger에 결속한다.
 | `dev-ERP` | 제품명 `Soulforge ERP`; 현재 package/path는 compatibility name | 금지·migration 별도 |
 | `AX·SE Engine`, `Engineering Engine` | `Soulforge Engineering Engine` | package path 유지 |
 | AI 기반시스템·agent runtime 묶음 | `Soulforge Agent Platform` | owner·path mapping 뒤 별도 |
-| 맥락 세계수 | ERP의 `Context World Tree` Module | 별도 제품으로 분리하지 않음 |
+| 맥락 세계수 | ERP의 `맥락·지식` Module | 별도 제품으로 분리하지 않음 |
 | Task Engine | ERP의 `Task & Decision` Module | 현행 SoR 결정 전 rename 금지 |
 | Agent Registry/Observation | Agent Platform의 `Digital Workforce Registry` Module | schema/owner 결정 전 materialize 금지 |
 | Chat 1h/3h 예약 | `Rapid Operations Pilot` 운영 lane | 예약 이름·설정 변경 없음 |

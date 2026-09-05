@@ -229,6 +229,7 @@ Quench와 Covenant가 단단하게 하고, Tongs만이 뜨거운 것을 잡으�
 | Reliquary | 백업, backup, DR(표시), 백업 세대 | `backup_controller`, `60_BACKUP_GENERATIONS`, "N차 백업본"(한국어 운영 표기는 유지) | Reliquary(백업) |
 | Canto I · The Kindling | 현재 phase, 현 단계(시대를 뜻할 때) | 없음 | Canto I · The Kindling |
 | Gram | 0.1.x(코드명 자리), internal RC 이름(보물을 뜻할 때) | 버전 문자열 0.1.x, 팩 번호 | Gram(0.1.x) |
+| 맥락·지식 | Context World Tree, 세계수 맥락(기능을 뜻할 때) | sf-p05, PROJECT_CONTEXT_GRAPH_V0.md, context.* MCP | 맥락·지식(sf-p05, 기존 Context World Tree) |
 
 그대로 두는 고유명(이름 안 바꿈): Soulforge, Buzz, Hermes, Linear, Codex, Claude, GPT,
 Main Node, HPP, Universal Client, Team Pilot 1, NAS. 외부 제품·물리 노드·출시 단위

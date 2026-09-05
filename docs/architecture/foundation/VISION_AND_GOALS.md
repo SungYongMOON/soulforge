@@ -44,7 +44,7 @@ Buzz 또는 MCP 중 하나가 아니다. 이들이 source·자산·맥락·판�
 현실 Source
   -> 관찰 Event와 Work Candidate
   -> 후보를 만든 근거·보류·거절·중복·승인 기록
-  -> ERP Asset·Context World Tree·Knowledge
+  -> ERP Asset·맥락·지식(sf-p05, 기존 Context World Tree)·Knowledge
   -> Engineering Engine의 gap·risk·role·Work Unit 후보
   -> 사람 또는 exact policy 승인
   -> Official Task·Assignment·Claim

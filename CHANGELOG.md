@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## 2026-09-05 - Vocabulary: ERP's Context World Tree module now displays as 맥락·지식(sf-p05)
+
+- 판단 표기: Owner 판단 B, 총괄 권고로 적용. 되돌리려면 이 커밋만 revert하면 된다.
+- 날짜: 2026-09-05. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: ERP 내부 기능 "Context World Tree"(sf-p05)의 표시명을 "맥락·지식"으로 바꿨다. 전체
+  제품 표시명 World Tree(ERP)는 그대로 두고, sf-p05 기능만 구분한다. 정본 문서 4종
+  (`SOULFORGE_ENGINEERING_OS_PRODUCT_FAMILY_REBASELINE_V0.md` 3곳,
+  `SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md` M1 3곳 + M14 제목,
+  `team_member_engineering_program/00_MASTER_INDEX_AND_DECISIONS.md` 1곳, `VISION_AND_GOALS.md`
+  1곳)에서 각 문서 첫 등장을 "맥락·지식(sf-p05, 기존 Context World Tree)"로, 이후 등장을
+  "맥락·지식"으로 바꿨다. Master Map M14 제목은 앵커·링크 부재를 `grep -rn "M14"`로 확인한
+  뒤 명시적으로 긴 형태를 그대로 썼다. 줄바꿈으로 갈라져 있던 M1의 두 번째 등장("Context
+  World\nTree와")도 잡아 반영했고, 이때 조사를 "와"에서 "과"로 맞췄다("맥락·지식과"). 발신
+  원문인 `docs/reviews/exchange/**`와 생성물인 `docs/reviews/reviewer_packet_*`는 손대지
+  않았다. `sf-p05`, `PROJECT_CONTEXT_GRAPH_V0.md` 파일명, API, 경로, `context.*` MCP
+  네임스페이스 같은 식별자는 바꾸지 않았다. `SHARED_GLOSSARY_V0.md` §옛 표기 → 표시명
+  대조표에 새 행을 추가했고, `guild_hall/validate/retired_display_terms_policy.mjs`의
+  enforced 목록(`RETIRED_TERMS_POLICY_V0`)에는 넣지 않되, 그 옆 `EXCLUDED_COLUMN_ENTRIES_V0`에
+  "Context World Tree"와 "세계수 맥락(기능을 뜻할 때)" 두 토큰을 사유와 함께 등록해 검사기의
+  완결성 테스트(enforced 목록은 glossary 열의 부분집합이고 나머지 모든 열 토큰은 exclusion
+  사유로 설명돼야 한다)를 깨지 않게 했다(`node --test
+  guild_hall/validate/retired_display_terms_policy.test.mjs` 14/14 통과로 확인 — 행 추가만으로는
+  안 깨진다는 원래 가정은 이 completeness 요구 때문에 실제로는 틀렸었고, exclusion 항목
+  추가로 바로잡았다).
+- 운영 영향: 없음. 표시명과 문서 텍스트만 바뀌었다. 예약작업·팩·플래그·서비스·포트·파일 경로는
+  그대로다.
+- 관련 경로: `docs/architecture/foundation/SOULFORGE_ENGINEERING_OS_PRODUCT_FAMILY_REBASELINE_V0.md`,
+  `docs/architecture/foundation/SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md`,
+  `docs/architecture/foundation/team_member_engineering_program/00_MASTER_INDEX_AND_DECISIONS.md`,
+  `docs/architecture/foundation/VISION_AND_GOALS.md`,
+  `docs/architecture/foundation/SHARED_GLOSSARY_V0.md`,
+  `guild_hall/validate/retired_display_terms_policy.mjs`.
+
 ## 2026-09-05 - Worldview doc-sync for external review EXT-16 (World Bible ch.0, Master Map M8, review map)
 
 - 날짜: 2026-09-05. Revision: the Git commit containing this entry owns the exact revision.
