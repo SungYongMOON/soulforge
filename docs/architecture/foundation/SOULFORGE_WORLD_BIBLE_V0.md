@@ -7,7 +7,7 @@
 | 상태 | `OWNER_WORLDVIEW_CAPTURE_DRAFT` |
 | 기준일 | 2026-08-29 |
 | 목적 | 기능별 문서 위에서 Soulforge의 철학·세계 법칙·영역·세력·명명·확장 규칙을 하나로 보존 |
-| 이름 효력 | 모든 이름은 Owner 검토 전 후보 |
+| 이름 효력 | 부품 표시명(층 3)은 2026-09-03 Owner 확정(SHARED_GLOSSARY_V0.md §세계 이름). 출시 브랜드명·길드 계급명·팀 산출물 이름은 후보. 세계관 서술(0장 이하)은 검토 중 |
 | 금지 | 실제 폴더·package·DB·TASK·route·runtime rename 또는 신규 조직 자동 생성 |
 | 0장 상태 | `OWNER_REVIEW_DRAFT` (2026-09-05 추가) |
 
@@ -17,13 +17,13 @@
 
 ## 0. 세계관 한 장 (Owner 검토 초안, 2026-09-05)
 
-상태: Owner 검토 초안(OWNER_REVIEW_DRAFT), 2026-09-05.
+상태: Owner 검토 초안(OWNER_REVIEW_DRAFT), 2026-09-05. 외부 검토 EXT-16 반영 2026-09-05 밤.
 
 ### 1. 세계 — 대장간, 그리고 밀려오는 몬스터
 
 Soulforge는 대장간이다. 밖에서는 몬스터(밖에서 오는 업무)가 파도처럼 계속 밀려온다. 대장간은 그 몬스터에 맞춰 무기를 계속 진화시켜 무찌른다. 무기는 도구·봇·절차·지식이고, 쓰고 나면 쌓인다. 쌓인 무기가 다음 파도를 더 쉽게 만든다. 이것이 세계의 순환이며 이름이 아니라 개념이다. 타워 디펜스에 가깝다.
 
-대장간 안에서는 현실의 사건(Ore)이 지류(Tributary)를 타고 심재(Heartwood)에 주괴(Ingot)로 쌓이고, 화덕(Hearth)의 불과 풀무(Bellows)의 바람으로 길드(Guild)가 모루(Anvil) 위에서 망치(Hammer)를 휘둘러 무기를 벼린다. 담금질(Quench)과 언약(Covenant)이 그것을 단단하게 하고, 집게(Tongs)만이 뜨거운 것을 잡으며, 야경(Vigil)이 밤을 지키고, 성유물함(Reliquary)이 남는다. 세계수(World Tree)에는 벼려진 정본만 걸리고, 룬(Rune)은 무엇이 빠졌는지 판단한다.
+대장간 안에서는 현실의 사건(Ore)이 지류(Tributary)를 타고 심재(Heartwood)에 주괴(Ingot)로 쌓이고, 화덕(Hearth)의 불과 풀무(Bellows)의 바람으로 길드(Guild)가 모루(Anvil) 위에서 망치(Hammer)를 휘둘러 무기를 벼린다. 담금질(Quench)과 언약(Covenant)이 그것을 단단하게 하고, 집게(Tongs)만이 뜨거운 것을 잡으며, 야경(Vigil)이 밤을 지키고, 성유물함(Reliquary)이 남는다. 세계수(World Tree)에는 벼려진 정본이 걸리고 아직 벼리는 것은 "검사 중"으로 보이기만 하며, 룬(Rune)은 무엇이 빠졌는지 판단한다.
 
 두 층은 섞이지 않는다. 업무는 게임 층(몬스터·던전·배틀·배틀로그)으로 부르고, 시스템 부품은 대장간 층으로 부른다. 기술 식별자(포트·코드 이름·경로)는 이름이 아니라 주소이므로 첫 등장에 괄호로 한 번만 붙인다.
 
@@ -50,18 +50,20 @@ Soulforge는 대장간이다. 밖에서는 몬스터(밖에서 오는 업무)가
 | Heartwood | 심재. 무게를 견디는 비공개 창고 | private data root | 살아 있음 |
 | Hearth | 화덕. AI 모델과 연산 | Codex·Claude·GPT·로컬 모델, Sol/Terra/Luna 등급 | 불 붙음 |
 | Bellows | 풀무. 사람이 없어도 바람을 넣는 것 | 예약작업(schtasks) | 수집 예약작업 8종 09-03 관측 rc=0(plan 18 §13A·README 참조), 판본 혼재(0.1.7/0.1.6/v2/legacy 1) |
-| Anvil | 모루. 형태를 정하는 받침, 곧 정본 | Covenant 뒤의 target `_workspaces`·`_workmeta` | 비어 있음. 정본 0 |
+| Anvil | 모루. 형태를 정하는 받침, 곧 정본 | Covenant 뒤의 target `_workspaces`·`_workmeta` | 비어 있음. 새 정본면의 Genesis 수락 0건(기존 규칙·절차 정본 7축은 별개) |
 | Hammer | 망치. 업무를 치는 엔진 | Task Engine | 있음. 한 바퀴 0 |
-| Quench | 담금질. 검증과 검토 관문 | `validate:*`, `done:check`, review gate | CI 1단계 빨강 |
+| Quench | 담금질. 검증과 검토 관문 | `validate:*`, `done:check`, review gate | Validate 초록(09-05) · 설치 팩 검사 미완 · 사람 수락 미완 |
 | Covenant | 언약궤. 정본 승격 3규칙 | W-AUTH · Canonical Empty-State Genesis · Legacy Freeze | 채택 전 |
 | Tongs | 집게. 뜨거운 것을 잡는 유일한 도구, MCP 문 | `dev-erp-mcp`(4311), `engineering_mcp` | 읽기 8·제출 6(plan 18 §5), 봇 경유만 |
 | Vigil | 야경대. 감시면 | Board(포트 4192), `guild_hall/watchtower` 모듈 | 켜짐 |
 | Sigil | 인장. 봇의 SOUL 스냅샷 | `hermes_profile_snapshot` | 코드만, 운영 전 |
 | Reliquary | 성유물함. 백업 | `backup_controller`, N차 백업본 | Linear 1세대 수락, 1차 백업본 staged |
 
+Guild(Agent Platform)의 실행 정체성은 Sigil로 특정하지만, 그것만으로 권한을 얻지는 않는다. 결과는 Quench를 거쳐 권한 있는 사람이 수락하며, 파일럿의 Linear Done은 사람이 처리한다.
+
 ### 5. 지금 상태 — 대장간의 밤
 
-불은 붙었고, 일곱 지류가 심재로 흐르고, 풀무는 돈다. 성유물함에 1차 백업본이 들었으나 도장은 아직이다. 야경은 서 있다. 그러나 모루 위에는 아무 물건도 없고, 망치는 한 바퀴도 치지 않았으며, 담금질 첫 문은 빨갛고, 언약궤는 닫혀 있고, 길드에는 명부가 없다. 이것이 Canto I이다.
+불은 붙었고, 일곱 지류가 심재로 흐르고, 풀무는 돈다. 성유물함에 1차 백업본이 들었으나 도장은 아직이다. 야경은 서 있다. 그러나 모루 위에는 아무 물건도 없고, 망치는 한 바퀴도 치지 않았으며, 담금질 첫 문은 열렸으나 팩 검사와 도장은 아직이고, 언약궤는 닫혀 있고, 길드에는 명부가 없다. 이것이 Canto I이다.
 
 사다리: 1칸 Owner 한 바퀴 + 도장 2개 → 2칸 팀원 2명 각 1건 → 3칸 첫 정본(Genesis)·봇 명부·Reliquary 실동작·원격 Tongs.
 

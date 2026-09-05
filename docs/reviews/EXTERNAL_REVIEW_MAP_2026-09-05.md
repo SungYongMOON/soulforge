@@ -101,6 +101,9 @@ Our first reply (afternoon) cited pass-2 numbers; the reviewer thread that answe
 holds pass 1, so it flagged the mismatch and re-judged its 12 items as
 `02_재판정_v0.2_회신반영_패킷대기.md` (pass-1 folder). The union is 18 distinct claims:
 
+Reviewer verdict received 2026-09-05 pm: 2 resolved (EXT-01, EXT-08), 7 corrected, 9 kept; the
+one disagreement (EXT-15) was confirmed against code.
+
 | Key | Claim | Pass 1 | Pass 2 | Status (2026-09-05 pm) |
 | --- | --- | --- | --- | --- |
 | EXT-01 | CI Validate fails at path policy | F01 | F01, REV-02 | 57/17 classified; lane A running; still red |
@@ -117,8 +120,8 @@ holds pass 1, so it flagged the mismatch and re-judged its 12 items as
 | EXT-12 | Vigil(Board) is observation, not user app; new shell proposal (B안), 03 PRD | F07 | F12, §4 B, 03 | not adopted for pilot (구성 개편 B); hold as input |
 | EXT-13 | Source composition ≠ release; no GitHub Release | F08 (part) | F13, REV-25/32 | by design: release unit = install/server-pack/<x.y.z> digest pack + cutover receipt; manual binding stays EXT-07 |
 | EXT-14 | Dependency advisories untriaged | F11 | F14, REV-04 | open, low; counts not re-verified |
-| EXT-15 | update_coordinator rollback receipt over-claims | F02 (reviewer reports 4 PASS/3 FAIL with injected adapter, patch attached) | REV-22 | lane C: reproduce in our tree first; attached patch not applied |
-| EXT-16 | Master Map M8 `_workmeta` text vs 09-01 target correction | F04 | — | doc-sync candidate; Genesis stays rung 3 |
+| EXT-15 | update_coordinator rollback receipt over-claims | F02 (reviewer reports 4 PASS/3 FAIL with injected adapter, patch attached) | REV-22 | resolved on main: lane C added the post-rollback health re-check; lane H (fix/ext15-rollback-state-preserved) adds the post-rollback state-preservation re-check and stops reporting outbox_preserved=true without evidence; attached patch never applied |
+| EXT-16 | Master Map M8 `_workmeta` text vs 09-01 target correction | F04 | — | doc-sync applied 2026-09-05 pm: World Bible ch.0 (name effect, canon-0 scope, Quench colour, candidates visible as "검사 중", Sigil/Guild/Quench sentence) and Master Map M8 (target byte-lineage vs current history owner); Genesis stays rung 3 |
 | EXT-17 | Launch identity / packaged-session AppData split | F10 | REV-06 | rule landed in AGENTS.md 09-03; drift detector owned by lane runbooks |
 | EXT-18 | Work history → reusable Workflow promotion | F12 | REV-31 | long-term; excluded from rung 1 |
 
@@ -131,6 +134,11 @@ holds pass 1, so it flagged the mismatch and re-judged its 12 items as
 | CE-03 | Pending-review query failure rendered as "0 items" | **lane B acceptance criterion**: only a verified 0 is "none"; flag OFF / denied / timeout / stale are distinct states; filter never shows other projects; Vigil stays read+link |
 | CE-04 | Reviewed revision ≠ revision marked done | rung 2; receipt task/submission/revision/digest must match the reviewed object; no inheritance of old acceptance |
 | CE-05 | Reusing a stamp across versions or backup generations | rung 1 stamps: 0.1.7 cutover acceptance and synthetic-restore acceptance are separate objects; Linear acceptance is not D: acceptance |
+
+Test-procedure draft (24 input variants, none executed) by the external reviewer, 2026-09-05 pm,
+kept as a non-canon document in the Owner's Drive inbox folder (ChatGPT_제품기획실_20260905, file
+03_시험절차_CE-01~05_2026-09-05.md); CE-03 applies the lane B acceptance criterion unchanged and
+marks server-side self-accept enforcement as not yet implemented.
 
 ## 7. External execution advisory (E07, E05 v0.2)
 

@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## 2026-09-05 - Worldview doc-sync for external review EXT-16 (World Bible ch.0, Master Map M8, review map)
+
+- 날짜: 2026-09-05. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: 외부 검토(EXT-16)가 지적한 세계관 문서-Master Map 서술 충돌을 반영했다.
+  `SOULFORGE_WORLD_BIBLE_V0.md` 0장: 문서 상태표의 "이름 효력" 행을 부품 표시명(층 3,
+  2026-09-03 Owner 확정)과 세계관 서술(검토 중)로 분리했고, "세계수(World Tree)에는 벼려진
+  정본만 걸리고"를 정본과 "검사 중" 후보를 구분하는 문장으로, Anvil 상태 "정본 0"을 "새
+  정본면의 Genesis 수락 0건(기존 규칙·절차 정본 7축은 별개)"으로, Quench 상태 "CI 1단계
+  빨강"을 오늘 그린이 된 GitHub Validate(main 012ace08, run 33960470197)를 반영해 "Validate
+  초록(09-05) · 설치 팩 검사 미완 · 사람 수락 미완"으로, §5의 "담금질 첫 문은 빨갛고"를 "열렸으나
+  팩 검사와 도장은 아직이고"로 고쳤다. §4 표 아래에 Guild(Agent Platform)·Sigil·Quench·Linear
+  Done의 관계를 명시하는 한 문단을 추가하고, 0장 상태 줄에 이번 반영 표시를 덧붙였다.
+  `SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md` M8에는 target(미래) `_workmeta`가
+  byte-lineage만 갖고 `daily_ledger/`·`log/events/`·`runs/` 같은 업무·실행 이력 child는 current
+  legacy 소유면이라는 한 문단을 추가했다. `docs/reviews/EXTERNAL_REVIEW_MAP_2026-09-05.md`는
+  EXT-15(resolved: lane C 재확인 + lane H 상태보존 재확인) EXT-16(doc-sync applied) 상태를
+  갱신하고, 외부 검토자의 판정 수신 요약(2 resolved · 7 corrected · 9 kept · 이견 1건 코드로
+  확인)과 24개 미실행 시험절차 초안이 놓인 위치를 기록했다.
+- 운영 영향: 없음. 문서 서술과 상태 표기만 바뀌었다. 예약작업·팩·플래그·서비스·포트·파일 경로는
+  그대로다.
+- 관련 경로: `docs/architecture/foundation/SOULFORGE_WORLD_BIBLE_V0.md`,
+  `docs/architecture/foundation/SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md`,
+  `docs/reviews/EXTERNAL_REVIEW_MAP_2026-09-05.md`.
+
 ## 2026-09-05 - Universal Client rollback receipt: re-verify state preservation, not just health (EXT-15)
 
 - 날짜: 2026-09-05. Revision: the Git commit containing this entry owns the exact revision.
@@ -29,6 +53,7 @@
 - 관련 경로: `ui-workspace/apps/soulforge-universal-client/src/runtime/update_coordinator.mjs`,
   `ui-workspace/apps/soulforge-universal-client/test/update_coordinator.test.mjs`,
   `ui-workspace/apps/soulforge-universal-client/README.md`.
+
 
 ## 2026-09-05 - Vocabulary reset, part 2 (docs body + retired-term checker)
 

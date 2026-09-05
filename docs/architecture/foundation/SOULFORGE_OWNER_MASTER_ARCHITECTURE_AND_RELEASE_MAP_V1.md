@@ -515,6 +515,11 @@ Ledger owner 규칙:
 - Linear/Slack/Buzz/PLAUD native history: source-local owner, project에는 pointer만;
 - public Git에는 raw/private ledger를 넣지 않음.
 
+target(미래) `_workmeta`는 accepted canonical bytes의 byte-lineage만 갖는다. 위 트리의
+`daily_ledger/` `log/events/` `runs/` 같은 업무·실행 이력 child는 current legacy `_workmeta`의
+소유면이며, Legacy Freeze와 Genesis 전에는 새 target 면에 임시 저장하지 않는다(외부 검토
+EXT-16, 2026-09-05).
+
 ## M9. Connector/App 설치·운영 생명주기
 
 External Connector는 계속 추가·삭제될 수 있는 설치형 capability다.
