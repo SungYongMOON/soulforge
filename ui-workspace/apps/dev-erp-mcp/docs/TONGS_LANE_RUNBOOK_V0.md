@@ -115,7 +115,23 @@ node guild_hall/deployment_pack/tools/build_source_lane.mjs `
 ```
 
 빌드는 바이트만 만든다 — 예약작업을 등록·수정하거나 이전 lane을 건드리지 않는다
-(`build_source_lane.mjs` 자체 주석). 빌드 뒤 무결성 재확인:
+(`build_source_lane.mjs` 자체 주석).
+
+> **알려진 결함(이 lane과 무관, 도구 자체의 문제 — 이 개정에서 실제 커밋으로 빌드해 보다가 실측했다):**
+> 위 CLI 명령을 그대로 PowerShell/cmd에서 실행하면 이 Windows host에서는 **아무 출력도 없이 exit
+> 0으로 끝나고 아무것도 만들어지지 않는다.** `build_source_lane.mjs` 맨 아래의 "이 파일이 진입점인가"
+> 가드가 `import.meta.url`과 `process.argv[1]`로 손으로 만든 file: 스킴 문자열을 비교하는데, 드라이브
+> 문자 절대경로에서는 `import.meta.url` 쪽 슬래시 개수(스킴 뒤 슬래시 3개)와 손으로 만든 쪽(스킴
+> 뒤 슬래시 2개)이 어긋나 그 둘이 절대 같을 수 없어 `main()`이 전혀 실행되지 않는다 — POSIX
+> 절대경로(`/`로 시작)에서만 경로 자체의 맨 앞 슬래시가 세 번째 슬래시를 채워 우연히 개수가 맞는
+> 코드다. Owner가 실제로 빌드할 때는 반드시 먼저
+> `node --check guild_hall/deployment_pack/tools/build_source_lane.mjs`로 통사만 확인한 뒤, 이 개정의
+> 검증에서 쓴 방식대로 `buildSourceLane()`/`verifyLane()`을 직접 import해 호출하는 짧은 wrapper
+> 스크립트로 실행하거나(이 개정 커밋 보고에 실제로 쓴 wrapper 경로가 있다), 이 CLI 가드 자체를
+> 고치는 별도 수정을 먼저 받는다. 이 lane의 파일은 하나도 건드리지 않는 결함이라 이 개정의 범위
+> 밖에서 별도로 고친다.
+
+빌드 뒤 무결성 재확인:
 
 ```powershell
 node guild_hall/deployment_pack/tools/build_source_lane.mjs --verify <TARGET_SOULFORGE_ROOT>/install/source-lanes/tongs-lane-v1
