@@ -1,5 +1,40 @@
 # CHANGELOG
 
+## 2026-09-06 - Vigil(포트 4192): protected-node repairability contract now matches what the producer actually emits when degraded
+
+- 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: 운영에서 관측된 결함(2026-09-06, D: 이관 뒤 `_workmeta` 경로 소실)을 고쳤다.
+  `ui-workspace/apps/team-ops-board/src/server/topology-adapter.mjs`의
+  `PROTECTED_NODE_CONTRACTS`에서 `store_workmeta`와 `watchtower_self`의
+  `tracking.repairability` 기대값이 문자열 `"not_available"`로 고정돼 있었다. 생산자
+  (`guild_hall/watchtower/watchtower.mjs`의 `nonGreenTracking`)는 이 세 보호 노드
+  (`gate_five_field`도 포함) 모두 같은 규칙으로 `repairability`를 낸다: `health.state`가
+  `unmonitored`일 때만 `"not_available"`이고, `degraded`·`stale`·`down`처럼 실제로 관측된
+  비정상 상태에서는 `"manual"`이다(`isStructuralAbsence`가 `unmonitored`를 전제로만 참이
+  되므로). `gate_five_field` 계약은 이미 조건부 형태
+  `{ observed: "manual", unmonitored: "not_available" }`였지만 나머지 둘은 아니었다. 그
+  결과 `store_workmeta`가 `unmonitored`가 아닌 다른 비정상 상태(예:
+  `_workmeta` 경로 소실로 인한 `status_error` degraded)로 관측되면 protected-node 계약
+  불일치로 스냅샷 전체가 `topology_snapshot_protected_node_invalid`로 폐기돼 Vigil 화면이
+  "미구성"으로 보였다. `expectedProtectedRepairability(...)` 함수 자체는 이미 조건부 형태를
+  지원했으므로 바꾸지 않았고, `watchtower_self`·`store_workmeta` 두 계약 항목의
+  `repairability` 값만 `gate_five_field`와 같은 조건부 형태로 맞췄다.
+  `topology-adapter.test.mjs`에 두 테스트(`observed non-green watchtower_self ...`,
+  `observed non-green store_workmeta ...`)를 추가해 degraded/stale 관측을 수락하고
+  틀린 repairability(`not_available`/`automatic`)와 unmonitored 상태의 `manual`은 계속
+  거부하는지 확인했다. 수정 전 새 테스트 2개가 정확히 이 결함으로 실패하는 것을 먼저
+  확인한 뒤(24개 중 22 pass·2 fail) 계약을 고쳐 26/26 통과를 확인했다. 이어
+  `npm run validate:team-ops-app`(core·server·ops 전체, 771/771), `npm run
+  validate:path-policy`(changed, 이 커밋의 변경 파일 3개 전부 scanned, violations 0), `npm run
+  validate:display-terms`(tracked, 57건 모두 기존 baseline 예외, 신규 위반 0, exit 0)를
+  모두 실행해 통과를 확인했다.
+- 운영 영향: 없음(대기). Vigil lane 재빌드 전에는 운영 포트 4192에 반영되지 않는다. 지금 운영은
+  정션 우회로 정상이며, 이 커밋은 `fix/vigil-protected-repairability` 브랜치의 별도
+  worktree에서 만들어졌고 원 checkout이나 운영 실행면은 건드리지 않았다.
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/server/topology-adapter.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/topology-adapter.test.mjs`,
+  `guild_hall/watchtower/watchtower.mjs`(읽기 전용 참조, 변경 없음).
+
 ## 2026-09-06 - World Tree (dev-erp): the last non-hermetic launcher test fixed, 0.1.8 unit gate unblocked
 
 - 날짜: 2026-09-06. `run_dev_erp_background_launcher.test.mjs`(1121행)의 "background
@@ -33,6 +68,7 @@
   프리플라이트 로직·기본값·계약은 그대로다. 예약작업·포트·바인딩 변경 없음.
 - 관련 경로: `ui-workspace/apps/dev-erp/test/run_dev_erp_background_launcher.test.mjs`.
 - Revision: the Git commit containing this entry owns the exact revision.
+
 
 ## 2026-09-05 - Vocabulary: ERP's Context World Tree module now displays as 맥락·지식(sf-p05)
 

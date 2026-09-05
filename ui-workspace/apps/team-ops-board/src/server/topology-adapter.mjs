@@ -150,7 +150,7 @@ const PROTECTED_NODE_CONTRACTS = new Map([
     unmonitoredReasons: ["independent_evidence_absent", "probe_unbound", "heartbeat_receipt_unavailable", "source_missing"], observedAllowed: true,
     tracking: {
       evidenceOwner: "independent_watchdog", escalationOwner: "watchtower_owner",
-      repairability: "not_available",
+      repairability: { observed: "manual", unmonitored: "not_available" },
     },
   }],
   ["gate_five_field", {
@@ -166,7 +166,7 @@ const PROTECTED_NODE_CONTRACTS = new Map([
     unmonitoredReasons: ["independent_evidence_absent", "probe_unbound", "heartbeat_receipt_unavailable", "source_missing"], observedAllowed: true,
     tracking: {
       evidenceOwner: "workmeta_owner_bounded_validator", escalationOwner: "workmeta_owner",
-      repairability: "not_available",
+      repairability: { observed: "manual", unmonitored: "not_available" },
     },
   }],
 ]);

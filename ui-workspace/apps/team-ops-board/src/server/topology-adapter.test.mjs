@@ -437,6 +437,151 @@ test("observed non-green gate_five_field accepts manual repairability and reject
   }, "topology_snapshot_protected_node_invalid");
 });
 
+test("observed non-green watchtower_self accepts manual repairability and rejects wrong repairabilities or absent semantics", () => {
+  const snapshot = sampleSnapshot();
+  const self = snapshot.nodes.find((node) => node.id === "watchtower_self");
+  self.health = { state: "degraded", reasons: ["status_error"], age_seconds: 350 };
+  self.tracking = tracking("watchtower_self", "status_error", {
+    evidenceOwner: "independent_watchdog",
+    escalationOwner: "watchtower_owner",
+    repairability: "manual",
+    verificationState: "observed",
+    lastCheckedAt: "2026-08-08T06:00:00.000Z",
+    nextCheckAt: "2026-08-08T06:05:00.000Z",
+  });
+  snapshot.summary.unmonitored -= 1;
+  snapshot.summary.degraded += 1;
+
+  // The truthfully observed degraded watchtower_self with manual repairability must validate:
+  assert.equal(validateTopologyHealthSnapshot(snapshot, { now: NOW }), snapshot);
+
+  // Observed stale state also accepts manual repairability:
+  const staleSnapshot = structuredClone(snapshot);
+  const staleSelf = staleSnapshot.nodes.find((node) => node.id === "watchtower_self");
+  staleSelf.health = { state: "stale", reasons: ["heartbeat_stale"], age_seconds: 900 };
+  staleSelf.tracking = tracking("watchtower_self", "heartbeat_stale", {
+    evidenceOwner: "independent_watchdog",
+    escalationOwner: "watchtower_owner",
+    repairability: "manual",
+    verificationState: "observed",
+    lastCheckedAt: "2026-08-08T06:00:00.000Z",
+    nextCheckAt: "2026-08-08T06:05:00.000Z",
+  });
+  staleSnapshot.summary.degraded -= 1;
+  staleSnapshot.summary.stale += 1;
+  assert.equal(validateTopologyHealthSnapshot(staleSnapshot, { now: NOW }), staleSnapshot);
+
+  // Negative test: observed non-ok watchtower_self must NOT accept not_available repairability
+  expectInvalid((candidate) => {
+    candidate.nodes.find((node) => node.id === "watchtower_self").health = { state: "degraded", reasons: ["status_error"], age_seconds: 350 };
+    candidate.nodes.find((node) => node.id === "watchtower_self").tracking = tracking("watchtower_self", "status_error", {
+      evidenceOwner: "independent_watchdog",
+      escalationOwner: "watchtower_owner",
+      repairability: "not_available",
+      verificationState: "observed",
+      lastCheckedAt: "2026-08-08T06:00:00.000Z",
+      nextCheckAt: "2026-08-08T06:05:00.000Z",
+    });
+    candidate.summary.unmonitored -= 1;
+    candidate.summary.degraded += 1;
+  }, "topology_snapshot_protected_node_invalid");
+
+  // Negative test: observed non-ok must NOT accept automatic repairability
+  expectInvalid((candidate) => {
+    candidate.nodes.find((node) => node.id === "watchtower_self").health = { state: "degraded", reasons: ["status_error"], age_seconds: 350 };
+    candidate.nodes.find((node) => node.id === "watchtower_self").tracking = tracking("watchtower_self", "status_error", {
+      evidenceOwner: "independent_watchdog",
+      escalationOwner: "watchtower_owner",
+      repairability: "automatic",
+      verificationState: "observed",
+      lastCheckedAt: "2026-08-08T06:00:00.000Z",
+      nextCheckAt: "2026-08-08T06:05:00.000Z",
+    });
+    candidate.summary.unmonitored -= 1;
+    candidate.summary.degraded += 1;
+  }, "topology_snapshot_protected_node_invalid");
+
+  // Negative test: unmonitored / evidence-absent watchtower_self still requires not_available repairability
+  expectInvalid((candidate) => {
+    candidate.nodes.find((node) => node.id === "watchtower_self").tracking.repairability = "manual";
+  }, "topology_snapshot_protected_node_invalid");
+});
+
+test("observed non-green store_workmeta accepts manual repairability and rejects wrong repairabilities or absent semantics", () => {
+  // Reproduces the reported operational regression: after the D: checkout migration the
+  // _workmeta path went missing, the bounded validator observed status_error, and the
+  // protected-node contract's fixed not_available expectation discarded the whole snapshot
+  // (topology_snapshot_protected_node_invalid) instead of accepting the truthfully observed
+  // degraded store_workmeta with manual repairability.
+  const snapshot = sampleSnapshot();
+  const workmeta = snapshot.nodes.find((node) => node.id === "store_workmeta");
+  workmeta.health = { state: "degraded", reasons: ["status_error"], age_seconds: 350 };
+  workmeta.tracking = tracking("store_workmeta", "status_error", {
+    evidenceOwner: "workmeta_owner_bounded_validator",
+    escalationOwner: "workmeta_owner",
+    repairability: "manual",
+    verificationState: "observed",
+    lastCheckedAt: "2026-08-08T06:00:00.000Z",
+    nextCheckAt: "2026-08-08T06:05:00.000Z",
+  });
+  snapshot.summary.unmonitored -= 1;
+  snapshot.summary.degraded += 1;
+
+  // The truthfully observed degraded store_workmeta with manual repairability must validate:
+  assert.equal(validateTopologyHealthSnapshot(snapshot, { now: NOW }), snapshot);
+
+  // Observed stale state also accepts manual repairability:
+  const staleSnapshot = structuredClone(snapshot);
+  const staleWorkmeta = staleSnapshot.nodes.find((node) => node.id === "store_workmeta");
+  staleWorkmeta.health = { state: "stale", reasons: ["heartbeat_stale"], age_seconds: 900 };
+  staleWorkmeta.tracking = tracking("store_workmeta", "heartbeat_stale", {
+    evidenceOwner: "workmeta_owner_bounded_validator",
+    escalationOwner: "workmeta_owner",
+    repairability: "manual",
+    verificationState: "observed",
+    lastCheckedAt: "2026-08-08T06:00:00.000Z",
+    nextCheckAt: "2026-08-08T06:05:00.000Z",
+  });
+  staleSnapshot.summary.degraded -= 1;
+  staleSnapshot.summary.stale += 1;
+  assert.equal(validateTopologyHealthSnapshot(staleSnapshot, { now: NOW }), staleSnapshot);
+
+  // Negative test: observed non-ok store_workmeta must NOT accept not_available repairability
+  expectInvalid((candidate) => {
+    candidate.nodes.find((node) => node.id === "store_workmeta").health = { state: "degraded", reasons: ["status_error"], age_seconds: 350 };
+    candidate.nodes.find((node) => node.id === "store_workmeta").tracking = tracking("store_workmeta", "status_error", {
+      evidenceOwner: "workmeta_owner_bounded_validator",
+      escalationOwner: "workmeta_owner",
+      repairability: "not_available",
+      verificationState: "observed",
+      lastCheckedAt: "2026-08-08T06:00:00.000Z",
+      nextCheckAt: "2026-08-08T06:05:00.000Z",
+    });
+    candidate.summary.unmonitored -= 1;
+    candidate.summary.degraded += 1;
+  }, "topology_snapshot_protected_node_invalid");
+
+  // Negative test: observed non-ok must NOT accept automatic repairability
+  expectInvalid((candidate) => {
+    candidate.nodes.find((node) => node.id === "store_workmeta").health = { state: "degraded", reasons: ["status_error"], age_seconds: 350 };
+    candidate.nodes.find((node) => node.id === "store_workmeta").tracking = tracking("store_workmeta", "status_error", {
+      evidenceOwner: "workmeta_owner_bounded_validator",
+      escalationOwner: "workmeta_owner",
+      repairability: "automatic",
+      verificationState: "observed",
+      lastCheckedAt: "2026-08-08T06:00:00.000Z",
+      nextCheckAt: "2026-08-08T06:05:00.000Z",
+    });
+    candidate.summary.unmonitored -= 1;
+    candidate.summary.degraded += 1;
+  }, "topology_snapshot_protected_node_invalid");
+
+  // Negative test: unmonitored / evidence-absent store_workmeta still requires not_available repairability
+  expectInvalid((candidate) => {
+    candidate.nodes.find((node) => node.id === "store_workmeta").tracking.repairability = "manual";
+  }, "topology_snapshot_protected_node_invalid");
+});
+
 test("healthy self, five-field, and workmeta nodes omit non-green tracking", () => {
   const snapshot = sampleSnapshot();
   for (const id of ["watchtower_self", "gate_five_field", "store_workmeta"]) {
