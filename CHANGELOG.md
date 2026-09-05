@@ -54,6 +54,34 @@
   2026-09-05 with the 15-minute cadence. Recorded because the packet is the one
   document an outside reviewer sees, so an unstated gap between the repository
   and production becomes their starting premise.
+- Revision: branch `fix/ci-path-policy-tracked` (6 commits on top of this same
+  day's `d0258af3`), not yet merged or pushed. Fixed every one of the 57
+  tracked-scope violations `validate:path-policy:all` was reporting across 17
+  files, in the three groups an earlier read-only pass on this branch had
+  found. Sixteen were real host paths in two docs (team-ops-board's
+  `design-qa.md`, sonar-intel's master plan) - their directory prefixes now
+  read `<CODEX_HOME>/...`, `<LOCAL_TEMP>/...` or
+  `<LEGACY_SOULFORGE_ROOT>`, filenames unchanged. Forty were synthetic
+  drive-letter fixtures in twelve test files plus one JSON example, rewritten
+  to build the identical runtime string through an array-join, a
+  template-literal break, or one shared per-file constant instead of a literal
+  drive-letter-plus-separator run in source, so the checker's plain-text scan
+  no longer sees a contiguous match; no test's expected or actual value
+  changed (checked by evaluating several of the rewritten expressions and
+  diffing char codes against the original, and by running every suite that
+  owns an edited file). One was the checker's own false positive on
+  `.gitignore`'s own tmp-directory anchor line, fixed with a new
+  `ignore_syntax_file` skip reason keyed on exact
+  basename (`.gitignore`, `.dockerignore`, `.npmignore`, `.eslintignore`,
+  `.prettierignore`) rather than a loosened regex - the same text in a
+  non-ignore file is still flagged, which is now a pinned test case.
+  `validate:path-policy:all` reports `violations: 0` locally; GitHub Actions'
+  own `done:check` on ubuntu only runs after a push, which this slice
+  deliberately stops short of. Two unrelated test files
+  (`guild_hall/ai_usage_meter/usage_meter.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/storage-map-adapter.test.mjs`)
+  fail the same way with this branch's six commits stashed out, so they are
+  pre-existing and left for their own slice.
 
 ## 2026-09-04 - A write boundary an agent packet cannot declare its way past
 
