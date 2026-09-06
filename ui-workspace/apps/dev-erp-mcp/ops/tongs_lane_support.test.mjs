@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,15 +15,18 @@ import {
   TONGS_REGISTERED_TRIGGER_INTERVAL_MS,
   TONGS_SERVICES,
   TONGS_STATE_DIRNAME,
+  TONGS_STATE_ROOT_ENV,
   buildTongsHeartbeatRecord,
   decideTongsSupervisorAction,
   evaluateLockClaim,
   evaluateTongsPreflight,
   isValidListenTarget,
   isValidTongsHeartbeatRecord,
+  startTongsHeartbeatRefreshLoop,
   summarizeTongsLane,
   tongsHeartbeatIsFresh,
   tongsHeartbeatPath,
+  writeTongsHeartbeatFile,
 } from "./tongs_lane_support.mjs";
 import {
   HEARTBEAT_FIELDS as SHARED_HEARTBEAT_FIELDS,
@@ -33,6 +36,7 @@ import {
   TONGS_HEARTBEAT_STATUSES as SHARED_TONGS_HEARTBEAT_STATUSES,
   TONGS_SERVICES as SHARED_TONGS_SERVICES,
   TONGS_STATE_DIRNAME as SHARED_TONGS_STATE_DIRNAME,
+  TONGS_STATE_ROOT_ENV as SHARED_TONGS_STATE_ROOT_ENV,
   isValidListenTarget as sharedIsValidListenTarget,
   isValidTongsHeartbeatRecord as sharedIsValidTongsHeartbeatRecord,
   tongsHeartbeatPath as sharedTongsHeartbeatPath,
@@ -66,6 +70,7 @@ test("this module's contract exports are the exact guild_hall/shared bindings, n
   assert.strictEqual(TONGS_HEARTBEAT_STATUSES, SHARED_TONGS_HEARTBEAT_STATUSES);
   assert.strictEqual(TONGS_SERVICES, SHARED_TONGS_SERVICES);
   assert.strictEqual(TONGS_STATE_DIRNAME, SHARED_TONGS_STATE_DIRNAME);
+  assert.strictEqual(TONGS_STATE_ROOT_ENV, SHARED_TONGS_STATE_ROOT_ENV);
   assert.strictEqual(isValidListenTarget, sharedIsValidListenTarget);
   assert.strictEqual(isValidTongsHeartbeatRecord, sharedIsValidTongsHeartbeatRecord);
   assert.strictEqual(tongsHeartbeatPath, sharedTongsHeartbeatPath);
@@ -311,6 +316,152 @@ test("summarizeTongsLane folds per-service heartbeats with a worst-first priorit
     summarizeTongsLane({ erpHeartbeat: { bogus: true } }).overall_status,
     "error",
   );
+});
+
+// --- L2, 2026-09-06 review: server.mjs's own in-process heartbeat refresh.
+// Before this, nothing inside the long-running erp_mcp process itself kept
+// observed_at moving — only a fresh launcher invocation (this CLI's
+// write-heartbeat verb, run-tongs-loopback.ps1's Sync-TongsService) ever
+// rewrote the file, and that launcher's own header comment says the design
+// leans on the registered task's PT5M repetition to supply those fresh
+// invocations. writeTongsHeartbeatFile is the same build+write+read-back path
+// the CLI verb below uses, exported so server.mjs can call it in-process on a
+// timer instead of shelling out to a fresh node process every tick.
+
+test("writeTongsHeartbeatFile writes, verifies by reading back, and still fails closed on an invalid record", async (t) => {
+  const scratch = await mkdtemp(path.join(tmpdir(), "tongs-lane-support-test-"));
+  t.after(async () => rm(scratch, { recursive: true, force: true }));
+  const stateRoot = path.join(scratch, "state");
+  const observedAt = new Date().toISOString();
+
+  const result = await writeTongsHeartbeatFile(stateRoot, "erp_mcp", {
+    status: "ready",
+    pid: 4242,
+    listen: "127.0.0.1:4311",
+    observedAt,
+  });
+  assert.equal(result.path, tongsHeartbeatPath(stateRoot, "erp_mcp"));
+  assert.equal(result.record.status, "ready");
+  assert.equal(result.record.observed_at, observedAt);
+  assert.equal(isValidTongsHeartbeatRecord(result.record), true);
+
+  // A second write with a later observed_at must actually move the on-disk
+  // value forward — the exact property the refresh loop below depends on.
+  const later = new Date(Date.parse(observedAt) + 60_000).toISOString();
+  const second = await writeTongsHeartbeatFile(stateRoot, "erp_mcp", {
+    status: "ready", pid: 4242, listen: "127.0.0.1:4311", observedAt: later,
+  });
+  assert.equal(second.record.observed_at, later);
+  assert.notEqual(second.record.observed_at, result.record.observed_at);
+
+  // "ready" without pid/listen is the one combination
+  // isValidTongsHeartbeatRecord always rejects: buildTongsHeartbeatRecord
+  // (called inside writeTongsHeartbeatFile) must fail closed before writing
+  // anything, exactly like the CLI verb already did.
+  await assert.rejects(
+    writeTongsHeartbeatFile(stateRoot, "erp_mcp", { status: "ready", pid: null, listen: null }),
+    (error) => error?.code === "tongs_heartbeat_invalid",
+  );
+
+  // A relative state root must fail closed the same way the CLI's own
+  // requireAbsolute(args["state-root"]) already did — this function is now a
+  // second public entry point into the same write path (server.mjs's refresh
+  // loop calls it directly, without going through the CLI's own guard), so
+  // it must not mkdir a relative path against this process's own cwd.
+  await assert.rejects(
+    writeTongsHeartbeatFile(path.join("relative", "state"), "erp_mcp", { status: "starting" }),
+    (error) => error?.code === "tongs_state_root_invalid",
+  );
+});
+
+// setInterval is mocked (fake, tick-driven) but setImmediate is deliberately
+// left real: a real setImmediate only fires once the *entire* current
+// microtask queue has drained, which is what actually waits out
+// startTongsHeartbeatRefreshLoop's internal
+// Promise.resolve().then(refresh).catch(onError).finally() chain — however
+// many microtask ticks that chain needs — without this test having to guess
+// or hard-code that tick count.
+function flushMicrotasks() {
+  return new Promise((resolve) => { setImmediate(resolve); });
+}
+
+test("startTongsHeartbeatRefreshLoop refreshes on each tick, single-flights, and stops cleanly (fake timers)", async (t) => {
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  const calls = [];
+  let releaseCurrentCall = null;
+  const loop = startTongsHeartbeatRefreshLoop({
+    intervalMs: 60_000,
+    refresh: () => new Promise((resolve) => {
+      calls.push(calls.length);
+      releaseCurrentCall = resolve;
+    }),
+  });
+  assert.equal(calls.length, 0, "must not refresh immediately — the launcher already wrote the first heartbeat");
+
+  t.mock.timers.tick(60_000);
+  await flushMicrotasks();
+  assert.equal(calls.length, 1);
+
+  // A second tick while the first refresh is still in flight must not start
+  // an overlapping call — same single-flight shape as
+  // ai-usage-producer-companion.mjs's own companion timers.
+  t.mock.timers.tick(60_000);
+  await flushMicrotasks();
+  assert.equal(calls.length, 1, "an in-flight refresh must not overlap with a new one");
+
+  releaseCurrentCall();
+  await flushMicrotasks();
+  t.mock.timers.tick(60_000);
+  await flushMicrotasks();
+  assert.equal(calls.length, 2, "once the prior refresh settles, the next tick may fire");
+
+  releaseCurrentCall();
+  await loop.stop();
+  t.mock.timers.tick(600_000);
+  assert.equal(calls.length, 2, "stop() must clear the interval — no ticks reach refresh afterward");
+});
+
+test("startTongsHeartbeatRefreshLoop contains a rejected refresh into onError instead of throwing (fake timers)", async (t) => {
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  const errors = [];
+  const loop = startTongsHeartbeatRefreshLoop({
+    intervalMs: 1_000,
+    refresh: () => Promise.reject(new Error("boom")),
+    onError: (error) => errors.push(error.message),
+  });
+  t.mock.timers.tick(1_000);
+  await flushMicrotasks();
+  assert.deepEqual(errors, ["boom"]);
+  await loop.stop();
+});
+
+test("startTongsHeartbeatRefreshLoop rejects an invalid refresh function or interval up front", () => {
+  assert.throws(() => startTongsHeartbeatRefreshLoop({ refresh: null }), (error) => error?.code === "tongs_heartbeat_refresh_fn_invalid");
+  assert.throws(
+    () => startTongsHeartbeatRefreshLoop({ refresh: () => {}, intervalMs: 0 }),
+    (error) => error?.code === "tongs_heartbeat_refresh_interval_invalid",
+  );
+});
+
+test("the refresh loop wired to a real writer keeps observed_at moving on a real (short) interval", async (t) => {
+  const scratch = await mkdtemp(path.join(tmpdir(), "tongs-lane-support-test-"));
+  t.after(async () => rm(scratch, { recursive: true, force: true }));
+  const stateRoot = path.join(scratch, "state");
+  await writeTongsHeartbeatFile(stateRoot, "erp_mcp", {
+    status: "ready", pid: 4242, listen: "127.0.0.1:4311",
+  });
+  const first = (await readFile(tongsHeartbeatPath(stateRoot, "erp_mcp"), "utf8"));
+  const loop = startTongsHeartbeatRefreshLoop({
+    intervalMs: 5,
+    refresh: () => writeTongsHeartbeatFile(stateRoot, "erp_mcp", {
+      status: "ready", pid: 4242, listen: "127.0.0.1:4311",
+    }),
+  });
+  await new Promise((resolve) => { setTimeout(resolve, 60); });
+  await loop.stop();
+  const second = await readFile(tongsHeartbeatPath(stateRoot, "erp_mcp"), "utf8");
+  assert.notEqual(second, first, "at least one real tick must have rewritten the heartbeat file");
+  assert.equal(isValidTongsHeartbeatRecord(JSON.parse(second)), true);
 });
 
 // --- CLI round-trip: proves the argv plumbing and file I/O without ever

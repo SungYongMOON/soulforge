@@ -21,6 +21,7 @@ import {
   TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS,
   TONGS_HEARTBEAT_SCHEMA,
   TONGS_HEARTBEAT_STATUSES,
+  isValidTongsHeartbeatRecord,
   tongsHeartbeatPath,
 } from "../../../../../guild_hall/shared/tongs_heartbeat_contract.mjs";
 
@@ -123,11 +124,64 @@ test("스키마 위반은 전부 unavailable 이고 사유 코드가 붙는다",
   }
 });
 
-test("loopback ipv6·localhost 표기를 받고, ready 가 아닌 상태는 pid·listen 이 null 이어도 된다", () => {
-  for (const listen of ["127.0.0.1:4311", "localhost:4311", "[::1]:4311"]) {
-    const projection = projectTongsHeartbeat(JSON.stringify({ ...VALID, listen }), { nowMs: NOW_MS });
-    assert.equal(projection.state, "ready", `${listen} 는 loopback 이다`);
-    assert.equal(projection.listen_port, 4311);
+// 교차 계약 테스트(M3, 2026-09-06 review): 이 어댑터는 위 "스키마 위반" 표처럼
+// 각 위반을 독자적인 key/schema/status/pid/listen 검사로 손으로 다시 구현한다
+// (guild_hall/shared/tongs_heartbeat_contract.mjs 의 isValidTongsHeartbeatRecord를
+// 직접 호출하지 않는다 — 이 어댑터가 브라우저에 보내는 투영은 그 레코드 자체가
+// 아니라 상태·나이·포트뿐이라서). 두 구현이 조용히 갈라지면(정본은 거부하는데
+// 이 어댑터는 그런 줄 모르고 ready 로 승인) 화면은 거짓 ready 를 보여준다 —
+// M1이 고친 listen 파싱 차이가 정확히 그런 드리프트였다. 이 테스트는 그 계약을
+// 직접 고정한다: 정본이 거부하는 레코드는 무엇이든 이 어댑터도 ready 로 절대
+// 승인하지 않는다.
+test("교차 계약: guild_hall/shared 의 isValidTongsHeartbeatRecord 가 거부하는 레코드는 이 어댑터도 ready 로 승인하지 않는다", () => {
+  const candidates = [
+    VALID,
+    { ...VALID, status: "cooking" },
+    { ...VALID, status: "listening" },
+    { ...VALID, extra: true },
+    { status: "ready", observed_at: VALID.observed_at },
+    { status: VALID.status, observed_at: VALID.observed_at, pid: VALID.pid, listen: VALID.listen },
+    { ...VALID, schema_version: "soulforge.tongs_lane.heartbeat.v0" },
+    { ...VALID, observed_at: "지금" },
+    { ...VALID, pid: 0 },
+    { ...VALID, pid: "4242" },
+    { ...VALID, listen: 4311 },
+    { ...VALID, listen: "0.0.0.0:4311" },
+    { ...VALID, listen: "10.0.0.4:4311" },
+    { ...VALID, listen: "127.0.0.1:80" },
+    { ...VALID, listen: "localhost:4311" },
+    { ...VALID, listen: "[::1]:4311" },
+    { ...VALID, pid: null, listen: null },
+    { ...VALID, listen: null },
+  ];
+  let rejectedByCanon = 0;
+  for (const candidate of candidates) {
+    if (isValidTongsHeartbeatRecord(candidate)) continue;
+    rejectedByCanon += 1;
+    const projection = projectTongsHeartbeat(JSON.stringify(candidate), { nowMs: NOW_MS });
+    assert.notEqual(
+      projection.state,
+      "ready",
+      `정본이 거부하는 ${JSON.stringify(candidate)} 를 어댑터가 ready 로 승인했다`,
+    );
+  }
+  // 이 테스트 자체가 아무것도 거부되지 않는 표로 퇴화하지 않았는지 확인한다.
+  assert.equal(rejectedByCanon > 0, true);
+});
+
+test("listen 은 shared 모듈과 정확히 같은 127.0.0.1:<port> 집합만 받고, ready 가 아닌 상태는 pid·listen 이 null 이어도 된다", () => {
+  const accepted = projectTongsHeartbeat(JSON.stringify({ ...VALID, listen: "127.0.0.1:4311" }), { nowMs: NOW_MS });
+  assert.equal(accepted.state, "ready");
+  assert.equal(accepted.listen_port, 4311);
+  // "localhost:"와 "[::1]:"는 예전 어댑터가 독자 정규식으로 추가로 받아주던
+  // 표기였다 — lane 이 실제로 쓰는 값이 아니고, guild_hall/shared/
+  // tongs_heartbeat_contract.mjs 의 isValidListenTarget/parseTongsListenPort는
+  // 처음부터 "127.0.0.1:"만 받았다. 지금은 이 어댑터도 그 함수를 그대로 써서
+  // 같은 집합만 받는다(2026-09-06 review, M1) — 두 표기 모두 이제는 거부된다.
+  for (const listen of ["localhost:4311", "[::1]:4311"]) {
+    const rejected = projectTongsHeartbeat(JSON.stringify({ ...VALID, listen }), { nowMs: NOW_MS });
+    assert.equal(rejected.state, "unavailable", `${listen} 는 더 이상 받지 않는다`);
+    assert.equal(rejected.reason, "tongs_heartbeat_listen_invalid");
   }
   // lane 이 재기동 판단 사이에 실제로 쓰는 모양: 멈춘 서비스는 pid/listen 이
   // 둘 다 null 이고, 이것은 규격 위반이 아니라 정상 "멈춤" 관측이다(실제 운영

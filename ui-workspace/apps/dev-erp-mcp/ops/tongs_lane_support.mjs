@@ -56,13 +56,15 @@ import {
   TONGS_HEARTBEAT_STATUSES,
   TONGS_SERVICES,
   TONGS_STATE_DIRNAME,
+  TONGS_STATE_ROOT_ENV,
   isValidListenTarget,
   isValidTongsHeartbeatRecord,
   tongsHeartbeatPath,
 } from "../../../../guild_hall/shared/tongs_heartbeat_contract.mjs";
 
 // Re-exported so this module stays the place its own CLI (below) and every
-// existing importer of this module (tongs_lane_support.test.mjs) reach the
+// existing importer of this module (tongs_lane_support.test.mjs, and now
+// server.mjs for TONGS_STATE_ROOT_ENV — 2026-09-06 review, L2) reach the
 // contract from, without redeclaring it. The canonical definitions live in
 // guild_hall/shared/tongs_heartbeat_contract.mjs — see this module's header.
 export {
@@ -73,6 +75,7 @@ export {
   TONGS_HEARTBEAT_STATUSES,
   TONGS_SERVICES,
   TONGS_STATE_DIRNAME,
+  TONGS_STATE_ROOT_ENV,
   isValidListenTarget,
   isValidTongsHeartbeatRecord,
   tongsHeartbeatPath,
@@ -294,13 +297,25 @@ async function readHeartbeatFile(stateRoot, service) {
   return parsed;
 }
 
-async function cmdWriteHeartbeat(args) {
-  const stateRoot = requireAbsolute(args["state-root"], "state-root");
-  const service = requireOneOf(args.service, TONGS_SERVICES, "service");
-  const status = requireOneOf(args.status, TONGS_HEARTBEAT_STATUSES, "status");
-  const pid = args.pid === undefined ? null : Number(args.pid);
-  const listen = args.listen === undefined ? null : String(args.listen);
-  const observedAt = args["observed-at"] === undefined ? new Date().toISOString() : String(args["observed-at"]);
+// Shared core of the "write-heartbeat" CLI verb and any in-process caller
+// (server.mjs's own refresh loop, added 2026-09-06 review, L2) that wants the
+// exact same build-record + atomic-write + read-back-verify path without
+// shelling out to a fresh node process for every tick. Never called with an
+// already-built record: it builds one itself through
+// buildTongsHeartbeatRecord so both callers get the same nullable-field
+// validation before a byte is written.
+export async function writeTongsHeartbeatFile(stateRoot, service, {
+  status,
+  pid = null,
+  listen = null,
+  observedAt = new Date().toISOString(),
+} = {}) {
+  // Fail closed here too, not only in the CLI wrapper below: this is now a
+  // public entry point any in-process caller (server.mjs's refresh loop)
+  // reaches directly, and it must never mkdir a relative path against
+  // whatever the process's own cwd happens to be.
+  stateRoot = requireAbsolute(stateRoot, "state-root");
+  requireOneOf(service, TONGS_SERVICES, "service");
   const record = buildTongsHeartbeatRecord({ status, pid, listen, observedAt });
   await ensureNormalDirectory(path.join(stateRoot, ...TONGS_STATE_DIRNAME.split("/")));
   const target = tongsHeartbeatPath(stateRoot, service);
@@ -309,6 +324,57 @@ async function cmdWriteHeartbeat(args) {
   if (!readBack || readBack.observed_at !== record.observed_at || readBack.status !== record.status) {
     fail("tongs_heartbeat_readback_mismatch");
   }
+  return { path: target, record: readBack };
+}
+
+// Generic, timer-injectable keep-alive loop: while running, calls `refresh`
+// every intervalMs and never lets a rejected refresh escape as an unhandled
+// rejection or stop future ticks. Owns no knowledge of heartbeats, files, or
+// state roots itself — the caller's `refresh` closure supplies that — so this
+// stays exercisable with node:test's mock timers without touching a real
+// filesystem or clock (2026-09-06 review, L2: the erp_mcp Tongs process had no
+// mechanism at all to keep its own heartbeat's observed_at fresh between
+// launcher invocations; see this module's header and
+// docs/TONGS_LANE_RUNBOOK_V0.md §5 for why that gap matters).
+export function startTongsHeartbeatRefreshLoop({
+  refresh,
+  intervalMs = 60_000,
+  onError = () => {},
+} = {}) {
+  if (typeof refresh !== "function") fail("tongs_heartbeat_refresh_fn_invalid");
+  if (!Number.isSafeInteger(intervalMs) || intervalMs <= 0) fail("tongs_heartbeat_refresh_interval_invalid");
+  let stopped = false;
+  let inFlight = null;
+  const trigger = () => {
+    if (stopped || inFlight !== null) return inFlight;
+    inFlight = Promise.resolve()
+      .then(() => refresh())
+      .catch(onError)
+      .finally(() => { inFlight = null; });
+    return inFlight;
+  };
+  const timer = setInterval(() => { void trigger(); }, intervalMs);
+  // Never the reason this process stays alive: the socket the caller already
+  // holds open is that reason. Mirrors ai-usage-producer-companion.mjs's own
+  // companion timers.
+  timer.unref?.();
+  return {
+    async stop() {
+      stopped = true;
+      clearInterval(timer);
+      await inFlight?.catch(() => {});
+    },
+  };
+}
+
+async function cmdWriteHeartbeat(args) {
+  const stateRoot = requireAbsolute(args["state-root"], "state-root");
+  const service = requireOneOf(args.service, TONGS_SERVICES, "service");
+  const status = requireOneOf(args.status, TONGS_HEARTBEAT_STATUSES, "status");
+  const pid = args.pid === undefined ? null : Number(args.pid);
+  const listen = args.listen === undefined ? null : String(args.listen);
+  const observedAt = args["observed-at"] === undefined ? new Date().toISOString() : String(args["observed-at"]);
+  const { path: target, record: readBack } = await writeTongsHeartbeatFile(stateRoot, service, { status, pid, listen, observedAt });
   process.stdout.write(`${JSON.stringify({ ok: true, path: target, record: readBack }, null, 2)}\n`);
 }
 

@@ -1,9 +1,16 @@
 #!/usr/bin/env node
 import { createServer } from "node:http";
+import { isAbsolute } from "node:path";
+import process from "node:process";
 import { pathToFileURL } from "node:url";
 
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
+import {
+  TONGS_STATE_ROOT_ENV,
+  startTongsHeartbeatRefreshLoop,
+  writeTongsHeartbeatFile,
+} from "./ops/tongs_lane_support.mjs";
 import { ErpClient } from "./src/erp_client.mjs";
 import { createErpMcpToolServer } from "./src/tools.mjs";
 
@@ -139,11 +146,53 @@ function option(name, fallback) {
   return index >= 0 ? args[index + 1] : fallback;
 }
 
+// While running as the Tongs(MCP 문) lane's erp_mcp service, keep this
+// process's own heartbeat file fresh instead of depending on a future
+// launcher invocation to rewrite it (2026-09-06 review, L2 — a live heartbeat
+// was observed stuck at its first-launch timestamp with the server still up,
+// and run-tongs-loopback.ps1's own header says the design otherwise leans on
+// the registered task's PT5M repetition to supply the next rewrite). Opt-in
+// and silent everywhere else server.mjs runs (bare `node server.mjs`, this
+// file's own test suite, any non-Tongs caller): SOULFORGE_TONGS_STATE_ROOT is
+// unset there, so this returns null and starts no timer.
+//
+// This does not replace the launcher's own write: run-tongs-loopback.ps1
+// still writes the authoritative first "ready" heartbeat only after its own
+// external /health probe and port-ownership check succeed. This loop just
+// keeps that same claim's observed_at moving while the process that made it
+// is still the one holding the port.
+export const TONGS_HEARTBEAT_REFRESH_INTERVAL_MS = 60_000;
+
+export function maybeStartTongsHeartbeatRefresh({
+  env = process.env,
+  host,
+  port,
+  pid = process.pid,
+  intervalMs = TONGS_HEARTBEAT_REFRESH_INTERVAL_MS,
+  startLoop = startTongsHeartbeatRefreshLoop,
+  writeHeartbeat = writeTongsHeartbeatFile,
+  onError = (error) => {
+    console.error(`[dev-erp-mcp] tongs heartbeat refresh failed: ${error?.code || error?.message || error}`);
+  },
+} = {}) {
+  const stateRoot = env?.[TONGS_STATE_ROOT_ENV];
+  if (typeof stateRoot !== "string" || !isAbsolute(stateRoot)) return null;
+  const listen = `${host}:${port}`;
+  return startLoop({
+    intervalMs,
+    onError,
+    refresh: () => writeHeartbeat(stateRoot, "erp_mcp", { status: "ready", pid, listen }),
+  });
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
   const host = option("host", process.env.ERP_MCP_HOST || "127.0.0.1");
   const port = Number(option("port", process.env.ERP_MCP_PORT || 4311));
   const server = createErpMcpHttpServer();
   server.listen(port, host, () => {
     console.log(`[dev-erp-mcp] listening on ${host}:${port}; ERP API ${process.env.ERP_MCP_ERP_BASE_URL || "http://127.0.0.1:4300"}`);
+    if (maybeStartTongsHeartbeatRefresh({ host, port })) {
+      console.log(`[dev-erp-mcp] tongs heartbeat refresh loop started for erp_mcp (every ${TONGS_HEARTBEAT_REFRESH_INTERVAL_MS}ms)`);
+    }
   });
 }

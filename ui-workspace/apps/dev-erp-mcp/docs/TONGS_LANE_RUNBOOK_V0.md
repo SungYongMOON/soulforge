@@ -270,7 +270,9 @@ ingress MCP는 opt-in이라 단일 값 스냅샷의 대상이 아니다), 신선
 (`TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS`)의 정본은 `guild_hall/shared/tongs_heartbeat_contract.mjs`다.
 위 배경의 수정 직후에는 이 lane 자신의 `ops/tongs_lane_support.mjs`가 정본이었으나, 그 설계는
 team-ops-board가 dev-erp-mcp를 import하는 첫 app-to-app edge였다(세션
-`claude_20260906_team_ops_adapter_enum_drift_audit`가 Owner 결정 보류로 잡아둔 지점) — Vigil은
+`claude_20260906_team_ops_adapter_enum_drift_audit`가 Owner 결정 보류로 잡아둔 지점).
+심박 계약의 정본은 `guild_hall/shared/tongs_heartbeat_contract.mjs`다(총괄 결정, Owner 위임
+2026-09-06; 앱 간 import 없음). Vigil은
 dev-erp-mcp의 파일을 싣지 않는 빌드된 source lane에서 실행되므로, 그 edge는 dev에서는 resolve되고
 빌드된 lane에서는 `ERR_MODULE_NOT_FOUND`로 죽는다. 지금은 두 앱 누구도 상대를 import하지 않는다:
 `ops/tongs_lane_support.mjs`는 `guild_hall/shared/tongs_heartbeat_contract.mjs`를 import해 그대로
@@ -292,6 +294,13 @@ checkout의 `guild_hall/state`다 — AGENTS.md의 일반 state root 우선순�
 `vite.config.ts`의 기존 주석 "Fail closed ... refuses to start"). 설정하지 않으면 이 변수는
 그냥 없는 것으로 보고 일반 우선순위로 내려간다 — Vigil의 다른 상태 파일(secure_work 등)과 같은
 동작이다.
+
+오늘 이 호스트에서는 `SOULFORGE_STATE_ROOT`가 이미 lane의 `-StateRoot`와 같은 값이라 추가 설정
+없이 해석된다. 두 값이 갈라질 수 있는 호스트에서는 `SOULFORGE_TONGS_STATE_ROOT`에 lane의
+`-StateRoot`를 그대로 준다(2026-09-06 review, H2 — 이 문단과 §6 모두 이전에는 두 변수 설정이
+항상 필요한 것처럼 읽혔다. 우선순위 체인 자체는 위 문단 그대로이고, 이 문장은 "지금 이 host에서
+관측한 사실"과 "값이 갈라질 수 있는 host에서 해야 할 일"을 구분할 뿐, fail-closed 규칙을
+바꾸지 않는다).
 
 **단위 테스트.** `ui-workspace/apps/team-ops-board/src/server/tongs-heartbeat-adapter.test.mjs`가
 (1) 실제 파일명(`erp_mcp.heartbeat.v1.json`)으로 쓰인 fixture를 읽어 ok(ready+fresh)/stale/absent를
@@ -343,7 +352,9 @@ Vigil(`ui-workspace/apps/team-ops-board`)을 띄우는 프로세스 환경에도
 이 값을 Vigil 쪽에 실제로 반영하는 것은 Vigil 실행 lane의 등록기(cutover 세션 몫)이 하는
 별도 단계다. 두 값이 갈라지면 lane은 정상 기동해도 `/tongs.snapshot.json`은 `unknown`으로
 남는다(§5.1의 "배경" 참고) — Vigil 쪽 값을 확인하지 않고는 이 lane의 등록만으로 화면이
-올라온다고 주장하지 않는다.
+올라온다고 주장하지 않는다. §5.1의 "상태 root" 문단이 정정한 그대로: 오늘 이 호스트에서는
+Vigil의 일반 `SOULFORGE_STATE_ROOT`가 이미 위 `-StateRoot`와 같은 값이라 이 export 없이도
+해석되지만, 두 값이 갈라질 수 있는 host에서는 이 export가 여전히 필요하다.
 
 예약작업 `Soulforge-Tongs-Loopback-v1`의 트리거는 로그온(AtLogOn, 등록을 실행하는 바로 그 계정의
 로그온에만 반응하도록 `-User`를 명시한다 — m8, 2026-09-06 검토가 잡음: `-User` 없이는 UserId가

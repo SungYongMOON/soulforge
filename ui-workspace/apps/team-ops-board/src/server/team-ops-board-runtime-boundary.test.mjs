@@ -7,6 +7,8 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { TONGS_STATE_ROOT_ENV } from "./tongs-heartbeat-adapter.mjs";
+
 import {
   TEAM_OPS_BOARD_AGENT_RUNTIME_BINDING_FILENAME,
   TEAM_OPS_BOARD_AGENT_RUNTIME_PILOT_URL,
@@ -203,6 +205,49 @@ test("manual and scheduled workers forward the opt-in ERP review pair only as st
   assert.equal(present.TEAM_OPS_ERP_REVIEW_TOKEN_FILE, "sentinel-token-file-path");
   assert.equal(present.TEAM_OPS_ERP_REVIEW_URL, "sentinel-erp-url");
   assert.equal("TEAM_OPS_ERP_REVIEW_TOKEN" in present, false);
+});
+
+// H1, 2026-09-06 review: SOULFORGE_TONGS_STATE_ROOT used to reach nowhere —
+// createScheduledRuntimeEnvironment built the forked Vigil child's entire
+// environment from an OS allowlist plus explicit derived keys, so a host that
+// exported this variable never saw it survive into the child process the
+// tongs-heartbeat-adapter actually runs inside. Pins the fix as an explicit
+// pass-through: forwarded verbatim when the host set it as a string, never
+// invented, and independent of SOULFORGE_STATE_ROOT (the two may diverge —
+// docs/TONGS_LANE_RUNBOOK_V0.md §3/§5.1).
+test("scheduled worker forwards the opt-in Tongs state-root override only as a string and never invents it", () => {
+  const ownerRoot = path.resolve(tmpdir(), "owner-root");
+  const serveStatus = {
+    AllowFunnel: { "board.example.ts.net:443": false },
+    Web: { "board.example.ts.net:443": { Handlers: { "/": { Proxy: "http://127.0.0.1:4192" } } } },
+  };
+  const absent = createScheduledRuntimeEnvironment({ ownerRoot, serveStatus, baseEnvironment: {} });
+  assert.equal(TONGS_STATE_ROOT_ENV in absent, false);
+
+  const present = createScheduledRuntimeEnvironment({
+    ownerRoot,
+    serveStatus,
+    baseEnvironment: { [TONGS_STATE_ROOT_ENV]: "sentinel-tongs-state-root" },
+  });
+  assert.equal(present[TONGS_STATE_ROOT_ENV], "sentinel-tongs-state-root");
+
+  // A non-string value must not be forwarded either — same guard shape as
+  // every other opt-in pass-through in this function.
+  const nonString = createScheduledRuntimeEnvironment({
+    ownerRoot,
+    serveStatus,
+    baseEnvironment: { [TONGS_STATE_ROOT_ENV]: 42 },
+  });
+  assert.equal(TONGS_STATE_ROOT_ENV in nonString, false);
+
+  // Independent of SOULFORGE_STATE_ROOT: setting the general override alone
+  // must not invent a value for the Tongs-specific one.
+  const generalRootOnly = createScheduledRuntimeEnvironment({
+    ownerRoot,
+    serveStatus,
+    baseEnvironment: { SOULFORGE_STATE_ROOT: path.resolve(tmpdir(), "general-state-root") },
+  });
+  assert.equal(TONGS_STATE_ROOT_ENV in generalRootOnly, false);
 });
 
 test("runtime preview is fixed to strict loopback 4192", () => {

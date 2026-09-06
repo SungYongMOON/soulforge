@@ -27,7 +27,7 @@
 
 import { readFile, lstat } from "node:fs/promises";
 import { statSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 
@@ -38,8 +38,20 @@ import {
   TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS,
   TONGS_HEARTBEAT_SCHEMA,
   TONGS_HEARTBEAT_STATUSES,
+  TONGS_STATE_ROOT_ENV,
+  parseTongsListenPort,
   tongsHeartbeatPath,
 } from "../../../../../guild_hall/shared/tongs_heartbeat_contract.mjs";
+
+// Re-exported so this module stays the place its own importers (this app's
+// team-ops-board-runtime.mjs and every test below) reach the name from,
+// without redeclaring it. The canonical binding lives in
+// guild_hall/shared/tongs_heartbeat_contract.mjs (2026-09-06 review, L2 —
+// server.mjs's own heartbeat-refresh loop needed the exact same name and
+// would otherwise have had to either import this team-ops-board file across
+// the app boundary the rest of this file's header explains never happens, or
+// redeclare the string a third time).
+export { TONGS_STATE_ROOT_ENV };
 
 export const TONGS_SNAPSHOT_PATH = "/tongs.snapshot.json";
 export const TONGS_PROJECTION_SCHEMA = "soulforge.team_ops_board.tongs_projection.v1";
@@ -54,11 +66,8 @@ export const DEFAULT_TONGS_TTL_MS = 30_000;
 // 어댑터가 독자적으로 900 을 추측해 lane 의 실제 재기동 판단 창(720)과 어긋나
 // 있었다.
 export const DEFAULT_TONGS_FRESHNESS_WINDOW_SECONDS = TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS / 1000;
-export const TONGS_STATE_ROOT_ENV = "SOULFORGE_TONGS_STATE_ROOT";
 
 const MAX_BYTES = 16 * 1024;
-// `127.0.0.1:4311`, `localhost:4311`, `[::1]:4311` 만 받는다. 바깥 주소는 규격 위반이다.
-const LISTEN_RE = /^(?:127\.0\.0\.1|localhost|\[::1\]):(\d{2,5})$/u;
 
 const MODULE_ROOT = dirname(fileURLToPath(import.meta.url));
 
@@ -155,9 +164,14 @@ export function projectTongsHeartbeat(raw, {
   }
   let listenPort = null;
   if (typeof document.listen === "string") {
-    const listenMatch = LISTEN_RE.exec(document.listen);
-    listenPort = listenMatch === null ? null : Number(listenMatch[1]);
-    if (listenPort === null || listenPort < 1024 || listenPort > 65_535) {
+    // Same accepted set as the lane writer's own isValidTongsHeartbeatRecord:
+    // exactly "127.0.0.1:<port>" in the ephemeral+registered range. This used
+    // to be a second, looser regex here (also accepting "localhost:" and
+    // "[::1]:", which the lane never writes) that could silently drift from
+    // the shared rule; now both sides parse through the same function
+    // (2026-09-06 review, M1).
+    listenPort = parseTongsListenPort(document.listen);
+    if (listenPort === null) {
       return envelope({ state: "unavailable", reason: "tongs_heartbeat_listen_invalid", nowMs });
     }
   }

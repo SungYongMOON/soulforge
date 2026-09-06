@@ -5,7 +5,13 @@ import test from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
-import { assertSafeBindHost, createErpMcpHttpServer } from "../server.mjs";
+import {
+  TONGS_HEARTBEAT_REFRESH_INTERVAL_MS,
+  assertSafeBindHost,
+  createErpMcpHttpServer,
+  maybeStartTongsHeartbeatRefresh,
+} from "../server.mjs";
+import { TONGS_STATE_ROOT_ENV } from "../ops/tongs_lane_support.mjs";
 import { ErpClient } from "../src/erp_client.mjs";
 
 const TICKET = `sfup_v1_${"a".repeat(43)}`;
@@ -271,4 +277,69 @@ test("ERP upstream client rejects origin changes and redirect following", async 
   await client.request("/api/mcp/whoami", { token: "synthetic-token" });
   await client.upload("/api/mcp/uploads/synthetic-ticket", Buffer.from("x"));
   assert.deepEqual(optionsSeen.map((options) => options.redirect), ["error", "error"]);
+});
+
+// L2, 2026-09-06 review: outside the Tongs lane (bare `node server.mjs`, this
+// very test file, any other caller) SOULFORGE_TONGS_STATE_ROOT is unset, so
+// this must start nothing — the wiring is opt-in, never a default-on timer.
+test("maybeStartTongsHeartbeatRefresh starts no loop when SOULFORGE_TONGS_STATE_ROOT is unset or unusable", () => {
+  const startLoop = () => { throw new Error("must not be called"); };
+  assert.equal(
+    maybeStartTongsHeartbeatRefresh({ env: {}, host: "127.0.0.1", port: 4311, startLoop }),
+    null,
+  );
+  assert.equal(
+    maybeStartTongsHeartbeatRefresh({
+      env: { [TONGS_STATE_ROOT_ENV]: "" }, host: "127.0.0.1", port: 4311, startLoop,
+    }),
+    null,
+  );
+  // A relative path is never a valid state root anywhere else in this
+  // repository's fail-closed root resolvers either.
+  assert.equal(
+    maybeStartTongsHeartbeatRefresh({
+      env: { [TONGS_STATE_ROOT_ENV]: "relative/state" }, host: "127.0.0.1", port: 4311, startLoop,
+    }),
+    null,
+  );
+});
+
+test("maybeStartTongsHeartbeatRefresh wires the loop to this process's own pid, listen address, and the lane's erp_mcp service", () => {
+  // Built from character codes, not a literal drive-root string, so this
+  // synthetic sentinel never reads as a real local absolute path to
+  // guild_hall/validate/local_absolute_path_policy.mjs's source-byte scan —
+  // same convention team-ops-board-runtime-boundary.test.mjs already uses.
+  const syntheticDrive = `${String.fromCharCode(67)}${String.fromCharCode(58)}`;
+  const stateRoot = process.platform === "win32"
+    ? `${syntheticDrive}\\Soulforge-control\\ops-lane`
+    : "/soulforge-control/ops-lane";
+  const startLoopCalls = [];
+  const writeHeartbeatCalls = [];
+  const fakeHandle = { stop: async () => {} };
+  const startLoop = (options) => { startLoopCalls.push(options); return fakeHandle; };
+  const writeHeartbeat = async (...args) => { writeHeartbeatCalls.push(args); return { ok: true }; };
+
+  const handle = maybeStartTongsHeartbeatRefresh({
+    env: { [TONGS_STATE_ROOT_ENV]: stateRoot },
+    host: "127.0.0.1",
+    port: 4311,
+    pid: 4242,
+    startLoop,
+    writeHeartbeat,
+  });
+
+  assert.equal(handle, fakeHandle);
+  assert.equal(startLoopCalls.length, 1);
+  assert.equal(startLoopCalls[0].intervalMs, TONGS_HEARTBEAT_REFRESH_INTERVAL_MS);
+  assert.equal(typeof startLoopCalls[0].refresh, "function");
+  assert.equal(typeof startLoopCalls[0].onError, "function");
+
+  // The refresh closure must call the injected writer with exactly the
+  // service/status/pid/listen the launcher's own Sync-TongsService already
+  // uses for a verified-ready erp_mcp — this loop only keeps that same claim
+  // moving, never invents a different one.
+  void startLoopCalls[0].refresh();
+  assert.deepEqual(writeHeartbeatCalls, [
+    [stateRoot, "erp_mcp", { status: "ready", pid: 4242, listen: "127.0.0.1:4311" }],
+  ]);
 });

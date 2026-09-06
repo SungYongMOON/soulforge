@@ -51,6 +51,80 @@
 - 운영 영향: 문서 전용 변경이다. 코드·권한·MCP allowlist·예약작업은 바뀌지 않는다. `validate:display-terms`(tracked, 신규 위반 0)와 `validate:path-policy:all`(tracked, 위반 0) 통과.
 - 관련 경로: `docs/architecture/foundation/team_member_engineering_program/18_TEAM_PILOT_ACCESS_AND_RELEASE_PLAN_V0.md`, `docs/architecture/guild_hall/AI_ORGANIZATION_MODEL_OPERATING_POLICY_V0.md`.
 
+## 2026-09-06 - Tongs(MCP 문)·Vigil(포트 4192): fresh 검토가 잡은 H1·M1-M4·L1-L2를 고쳤다
+
+- 판단 표기: 개발 후보 수정. `lane/tongs-heartbeat-contract` 브랜치의 직전 두 개정(하트비트 계약을
+  `guild_hall/shared`로 이관, listen 계약 정정)에 대한 fresh non-author 검토가 잡은 H1 1건·M1-M4
+  4건·L1-L2 2건을 이 개정에서 고쳤다. 새 owner decision이나 정본 승격이 아니다.
+- 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: **H1**(상태 root가 Vigil 자식에 닿지 않음) — `team-ops-board-runtime.mjs`의 예약
+  컨트롤러가 `forkChild`로 띄우는 Vigil 자식 프로세스 환경은 OS 변수 allowlist와 명시로 지은 값만
+  으로 새로 지어져서, 호스트가 `SOULFORGE_TONGS_STATE_ROOT`를 export해도 그 자식은 절대 보지
+  못했다(어댑터가 실제로 도는 프로세스가 바로 그 자식이다). `createScheduledRuntimeEnvironment`에
+  ERP 승인 대기 pair와 같은 모양의 opt-in pass-through를 추가했다(`SOULFORGE_STATE_ROOT`와
+  독립, 문자열일 때만 그대로 전달, 값을 짓지 않음) — 배선을 고정하는 테스트를 추가했다. **M1**
+  (listen 파싱 이중화) — 어댑터가 독자 정규식으로 `127.0.0.1:`/`localhost:`/`[::1]:`를 받았지만
+  `guild_hall/shared/tongs_heartbeat_contract.mjs`의 `isValidTongsHeartbeatRecord`는
+  `127.0.0.1:`만 받아, 두 검증이 조용히 갈라져 있었다. 공유 모듈에 `parseTongsListenPort()`를
+  추가해 `isValidListenTarget`이 그 함수를 쓰게 하고, 어댑터도 자신의 정규식을 버리고 같은 함수를
+  쓰도록 고쳐 두 표기(`localhost`/`[::1]`)를 이제 거부한다 — 그 좁아진 동작을 그 두 표기를
+  고정했던 테스트에 반영했다. **M2** — 어댑터의 미사용 `join` import를 지웠다. **M3** — 정본
+  `isValidTongsHeartbeatRecord`가 거부하는 레코드는 무엇이든 이 어댑터도 `ready`로 승인하지
+  않는다는 교차 계약 테스트를 추가했다(M1이 고치기 전에는 이 표의 `localhost`/`[::1]` 조합에서
+  실패했을 것이다). **M4** — `validate:tongs-lane`이 `guild_hall/shared/
+  tongs_heartbeat_contract.mjs` 자체의 구문도 `node --check`로 먼저 확인하도록 했다(이전에는 이
+  lane 자신의 `tongs_lane_support.mjs`만 확인해, 두 앱이 함께 가져다 쓰는 정본 모듈은 각 앱
+  자신의 test 스위트가 우연히 그 모듈을 import할 때만 파싱됐다). **L2**(하트비트가 살아있는 동안
+  갱신되지 않음) — `run-tongs-loopback.ps1`의 설계는 예약작업의 PT5M 반복이 이 launcher를 다시
+  불러 재기록하는 것에 의존한다(스크립트 자신의 header 주석이 그렇게 적는다). 관측된 host에서는
+  erp_mcp 하트비트가 최초 기록 시각(10:14:32)에 멈춰 있었고 그 프로세스는 살아 있었으며 해당
+  예약작업은 `NextRunTime`이 없었다. 이 개정은 그 관측의 정확한 근본 원인(등록된 반복 트리거
+  자체가 실제로 재발화하지 않는지, 아니면 재발화는 하되 `run-tongs-loopback.ps1`이 매번 하트비트
+  기록 전에 조용히 실패하는지)을 여기서 확정하지 않는다 — 그 확정에는 살아있는 예약작업/프로세스
+  관측이 필요하고 이 세션은 그것을 건드리지 않았다. 대신 그 불확실성 자체에 기대지 않는 더 견고한
+  고침을 넣었다: `server.mjs`(erp_mcp) 자신이 `SOULFORGE_TONGS_STATE_ROOT`가 설정된 동안 자기
+  하트비트를 60초마다 갱신하는 타이머를 갖는다(opt-in — 그 변수가 없으면 아무 것도 하지 않아
+  Tongs lane 밖의 모든 기존 호출은 동작이 그대로다). `tongs_lane_support.mjs`에 재사용 가능한
+  `writeTongsHeartbeatFile()`과 타이머-주입 가능한 `startTongsHeartbeatRefreshLoop()`를
+  추가했고(둘 다 그 상수/함수를 다시 만들지 않도록 `TONGS_STATE_ROOT_ENV`를
+  `guild_hall/shared/tongs_heartbeat_contract.mjs`로 승격해 어댑터·이 모듈 둘 다 재노출한다),
+  `run-tongs-loopback.ps1`이 그 상태 root를 erp_mcp 자식 환경에 `SOULFORGE_TONGS_STATE_ROOT`로
+  전달하도록 고쳤다. `node:test`의 fake timer로 타이머 동작(단일 실행 보장, 겹침 없음, `stop()`
+  배출)을 고정하고, 실제 파일에 짧은 실제 간격으로 두 번 이상 기록되는지도 별도로 확인했다.
+  ingress_mcp는 이 개정에서 같은 갱신 루프를 받지 않는다(opt-in이고 기본 OFF인 서비스까지
+  넓히는 것은 이번 관측된 결함의 범위 밖이다) — `run-tongs-loopback.ps1`은 그 자식에도 같은 상태
+  root 값을 전달하도록만 고쳐 뒀다. **H2**(런북·CHANGELOG 과잉 주장) — §5.1/§6과 바로 앞
+  개정의 CHANGELOG 항목이 두 상태 root 변수를 항상 둘 다 맞춰야 하는 것처럼 적었다. 관측된
+  사실(오늘 이 host에서는 `SOULFORGE_STATE_ROOT`가 이미 이 lane의 `-StateRoot`와 같아 추가
+  설정 없이 해석된다)과 두 값이 갈라질 수 있는 host에서 해야 할 일을 구분하도록 정정했고, 심박
+  계약의 정본이 `guild_hall/shared/tongs_heartbeat_contract.mjs`라는 결정 문장(총괄 결정, Owner
+  위임 2026-09-06; 앱 간 import 없음)을 §5.1에 추가했다. 확인:
+  `npm --prefix ui-workspace/apps/team-ops-board run test`(854/854, H1 배선 테스트·M3 교차
+  계약 테스트 포함), `npm --prefix ui-workspace/apps/dev-erp-mcp run test`(46/46, L2 배선
+  테스트 포함), `npm run validate:tongs-lane`(22/22, 신규 `writeTongsHeartbeatFile`/
+  `startTongsHeartbeatRefreshLoop` 테스트 포함), `npm run validate:path-policy:all`(0 위반),
+  `npm run validate:display-terms`(기존 baseline과 동일, 신규 위반 0건) 전부 통과.
+- 운영 영향: 이 개정은 코드와 문서만 고친다 — 이 세션은 아무 예약작업도 다시 등록하지 않았고
+  살아있는 Tongs(포트 4311)·Vigil(포트 4192) 프로세스도 건드리지 않았다. H1·M1의 고침은
+  team-ops-board(Vigil) 쪽 파일에만 있으므로 운영 lane(현재 installed `operations-lane-v3`)이
+  이 커밋을 담아 다시 빌드되고 그 버전으로 예약작업이 다시 등록돼야 화면에 닿는다(installed
+  `operations-lane-v3`는 지금도 옛 어댑터를 그대로 담고 있다). L2의 고침(`server.mjs`·
+  `run-tongs-loopback.ps1`)은 Tongs lane 자신의 payload이므로 별도로 그 lane을 다음 버전
+  (`tongs-lane-v2`)으로 다시 빌드하고 그 버전으로 `Soulforge-Tongs-Loopback-v1`을 다시 등록해야
+  실제 erp_mcp 프로세스가 이 타이머를 갖는다 — 두 lane은 서로 다른 빌드/등록 단계이고, 하나만
+  하면 다른 쪽 프로세스는 이 개정 이전 동작 그대로 남는다.
+- 관련 경로: `guild_hall/shared/tongs_heartbeat_contract.mjs`,
+  `ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/tongs-heartbeat-adapter.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/tongs-heartbeat-adapter.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/team-ops-board-runtime-boundary.test.mjs`,
+  `ui-workspace/apps/dev-erp-mcp/ops/tongs_lane_support.mjs`,
+  `ui-workspace/apps/dev-erp-mcp/ops/tongs_lane_support.test.mjs`,
+  `ui-workspace/apps/dev-erp-mcp/ops/run-tongs-loopback.ps1`,
+  `ui-workspace/apps/dev-erp-mcp/server.mjs`,
+  `ui-workspace/apps/dev-erp-mcp/test/server.test.mjs`,
+  `ui-workspace/apps/dev-erp-mcp/docs/TONGS_LANE_RUNBOOK_V0.md` §5.1·§6, `package.json`.
+
 ## 2026-09-06 - Tongs(MCP 문)·Vigil(포트 4192): 하트비트 계약을 한 곳에서 정의해 등록 뒤 unknown으로 남던 결함을 고쳤다
 
 - 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
@@ -79,10 +153,13 @@
   포함), `npm --prefix ui-workspace/apps/dev-erp-mcp run test`(44/44), `npm run
   validate:path-policy`, `npm run validate:display-terms`(기존 baseline과 동일, 신규 위반 0건)
   전부 통과.
-- 운영 영향: 다음에 이 lane을 등록할 때, 등록에 쓴 `-StateRoot`와 정확히 같은 값을 Vigil을
-  띄우는 프로세스 환경의 `SOULFORGE_TONGS_STATE_ROOT`로도 export해야 화면이 올라온다(둘 중
-  하나만 있으면 그 프로세스는 계속 `unknown`으로 남는다 — fail-closed이지 자동 동기화가 아니다).
-  이 변경 자체는 아직 등록·상시 기동·credential 발급을 만들지 않는다.
+- 운영 영향: 오늘 이 호스트에서는 Vigil의 일반 `SOULFORGE_STATE_ROOT`가 이미 이 lane의
+  `-StateRoot`와 같은 값이라 `SOULFORGE_TONGS_STATE_ROOT` export 없이도 해석된다(2026-09-06
+  review, H2 — 이전 판은 두 값을 항상 둘 다 맞춰야 하는 것처럼 적었다). 두 값이 갈라질 수 있는
+  host에서는 다음에 이 lane을 등록할 때 등록에 쓴 `-StateRoot`와 정확히 같은 값을 Vigil을
+  띄우는 프로세스 환경의 `SOULFORGE_TONGS_STATE_ROOT`로도 export해야 화면이 올라온다(그 host에서
+  둘 중 하나만 있으면 그 프로세스는 계속 `unknown`으로 남는다 — fail-closed이지 자동 동기화가
+  아니다). 이 변경 자체는 아직 등록·상시 기동·credential 발급을 만들지 않는다.
 - 관련 경로: `ui-workspace/apps/dev-erp-mcp/ops/tongs_lane_support.mjs`,
   `guild_hall/shared/tongs_heartbeat_contract.mjs`,
   `ui-workspace/apps/team-ops-board/src/server/tongs-heartbeat-adapter.mjs`,

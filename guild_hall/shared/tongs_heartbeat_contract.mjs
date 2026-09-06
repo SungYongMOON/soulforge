@@ -68,6 +68,14 @@ export const TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS = 720000;
 // This exact field set is also the allowed-keys contract Vigil's adapter
 // validates an on-disk heartbeat against.
 export const HEARTBEAT_FIELDS = Object.freeze(["schema_version", "status", "observed_at", "pid", "listen"]);
+// The env var name both the writer and the reader agree on for the lane's own
+// state root, independent of the general SOULFORGE_STATE_ROOT/
+// SOULFORGE_OWNER_ROOT override (docs/TONGS_LANE_RUNBOOK_V0.md §3/§5.1 — the
+// two are allowed to diverge). Canonical here, not in either app, so neither
+// tongs-heartbeat-adapter.mjs (Vigil, the reader) nor tongs_lane_support.mjs
+// (the Tongs lane's own launcher support, the writer) can drift from the
+// other's name for it; both import and re-export this exact binding.
+export const TONGS_STATE_ROOT_ENV = "SOULFORGE_TONGS_STATE_ROOT";
 
 const LISTEN_RE = /^127\.0\.0\.1:([0-9]{1,5})$/;
 
@@ -81,12 +89,24 @@ function fail(code) {
   throw error;
 }
 
-export function isValidListenTarget(value) {
-  if (typeof value !== "string") return false;
+// Parses a listen string against the exact same rule isValidListenTarget
+// enforces and returns the port number, or null if the string is not
+// "127.0.0.1:<port>" with the port inside the ephemeral+registered range
+// [1024, 65535]. Exported so a consumer that also wants the numeric port
+// (tongs-heartbeat-adapter.mjs's projection) does not hand-roll a second
+// regex that can drift from this one's accepted set (2026-09-06 review, M1 —
+// the adapter used to accept "localhost:" and "[::1]:" too, which this
+// module's isValidTongsHeartbeatRecord never did).
+export function parseTongsListenPort(value) {
+  if (typeof value !== "string") return null;
   const match = LISTEN_RE.exec(value);
-  if (!match) return false;
+  if (!match) return null;
   const port = Number(match[1]);
-  return Number.isSafeInteger(port) && port >= 1024 && port <= 65535;
+  return Number.isSafeInteger(port) && port >= 1024 && port <= 65535 ? port : null;
+}
+
+export function isValidListenTarget(value) {
+  return parseTongsListenPort(value) !== null;
 }
 
 // Exact-keys, fail-closed record validator, matching the convention every

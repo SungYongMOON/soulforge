@@ -527,6 +527,12 @@ try {
         # M3: this launcher pins loopback itself; an inherited "1" in the
         # logon session must never loosen a child it spawns.
         ERP_MCP_ALLOW_INSECURE_HTTP = "0"
+        # L2 (2026-09-06 review): the exact -StateRoot this launcher was given,
+        # so server.mjs's own heartbeat-refresh loop (guild_hall/shared/
+        # tongs_heartbeat_contract.mjs's TONGS_STATE_ROOT_ENV) can keep this
+        # service's own erp_mcp.heartbeat.v1.json observed_at moving while it
+        # runs, instead of depending only on a future launcher invocation.
+        SOULFORGE_TONGS_STATE_ROOT  = $StateRoot
       }
   }
 

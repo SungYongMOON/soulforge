@@ -33,6 +33,7 @@ import {
   ERP_REVIEW_TOKEN_FILE_ENV,
   ERP_REVIEW_URL_ENV,
 } from "../src/server/erp-pending-review-adapter.mjs";
+import { TONGS_STATE_ROOT_ENV } from "../src/server/tongs-heartbeat-adapter.mjs";
 import { resolveTeamOpsBoardAllowedHosts } from "../src/server/team-ops-board-allowed-hosts.mjs";
 import { startUsageProducerCompanion } from "./ai-usage-producer-companion.mjs";
 import { startRecoveryCompanion } from "../../../../guild_hall/watchtower/recovery_runtime.mjs";
@@ -809,6 +810,20 @@ export function createScheduledRuntimeEnvironment({
       "organization_governance_overlay.v1.json",
     ),
   });
+  // SOULFORGE_TONGS_STATE_ROOT is the Tongs lane's own optional state-root
+  // override (guild_hall/shared/tongs_heartbeat_contract.mjs; resolved by
+  // tongs-heartbeat-adapter.mjs's resolveTongsStateRoot). Unlike
+  // SOULFORGE_STATE_ROOT_ENV just above, this function must not derive a
+  // value for it: the two variables are independent config channels that are
+  // allowed to diverge (docs/TONGS_LANE_RUNBOOK_V0.md §3/§5.1), so this only
+  // forwards whatever the host actually set — same opt-in shape as the ERP
+  // review pair below. Before this pass-through existed, a host where the two
+  // roots differ would never reach the adapter running inside this forked
+  // child, and /tongs.snapshot.json would stay stuck on the checkout/owner-
+  // root default no matter what the operator exported (2026-09-06 review, H1).
+  if (typeof baseEnvironment?.[TONGS_STATE_ROOT_ENV] === "string") {
+    env[TONGS_STATE_ROOT_ENV] = baseEnvironment[TONGS_STATE_ROOT_ENV];
+  }
   // ERP 승인 대기 읽기는 opt-in 이다: Owner 가 user env 로 둔 자격증명 파일 경로(와 선택적 loopback URL)만
   // 문자열일 때 그대로 전달한다. 값이 없으면 4192 패널은 링크만 모드로 남는다. 여기서 값을 만들지 않는다.
   for (const name of [ERP_REVIEW_TOKEN_FILE_ENV, ERP_REVIEW_URL_ENV]) {
