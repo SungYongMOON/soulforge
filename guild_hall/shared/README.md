@@ -276,6 +276,7 @@ still a separate Owner gate.
 - `ai_work_record_event.v1.schema.json`: strict common AI work record event contract
 - `ai_work_record_event.mjs`: pure canonical digest, event validator, and chain reducer
 - `soulforge_state_root.mjs`: 공용 `SOULFORGE_OWNER_ROOT` / `SOULFORGE_STATE_ROOT` override resolver (fail-closed, 값 미출력). Workspace Board runtime, AI usage meter, Codex retention refresh가 같은 state root를 읽도록 한다. 값은 trim 뒤 검증하고 Windows에서는 drive 또는 UNC root가 없는 `\path` 표기를 `drive_or_unc_required`로 거부한다. 존재·디렉터리 여부만 증명하므로 지정 root는 junction·symlink·`subst` alias가 아닌 실제 디렉터리여야 한다(하위 writer의 realpath/reparse seam이 alias를 거부한다)
+- `tongs_heartbeat_contract.mjs`: Tongs(코드 `dev-erp-mcp`) loopback lane의 heartbeat 계약 — state root 아래 `operations/tongs/<service>.heartbeat.v1.json` 파일 이름(`erp_mcp`·`ingress_mcp`), 정확한 5필드 레코드(`schema_version`·`status`·`observed_at`·`pid`·`listen`), status 어휘(`starting`/`ready`/`degraded`/`stopped`/`error`), 사유 코드가 붙는 validator. 쓰는 쪽(`ui-workspace/apps/dev-erp-mcp/ops/tongs_lane_support.mjs`, 재export)과 읽는 쪽(Vigil의 `ui-workspace/apps/team-ops-board/src/server/tongs-heartbeat-adapter.mjs`)이 같은 export를 import하며 앱 간 import는 없다. 순수 모듈이며 파일·시계·소켓·writer가 없다
 
 ## 상태
 

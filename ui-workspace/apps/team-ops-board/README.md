@@ -218,27 +218,48 @@ non-elevated process enumerates the full allowlisted set.
 
 ### Tongs heartbeat and 외부 작업 사이클 read projections
 
-`GET /tongs.snapshot.json` (`src/server/tongs-heartbeat-adapter.mjs`) and
+`GET /tongs.snapshot.json` (`src/server/tongs-heartbeat-adapter.mjs`) reads the
+two per-service heartbeat files the Tongs lane actually writes under the resolved
+state root — `operations/tongs/erp_mcp.heartbeat.v1.json` (the personal ERP MCP,
+default 127.0.0.1:4311) and `operations/tongs/ingress_mcp.heartbeat.v1.json` (the
+feature-gated ingress MCP, only when configured) — and
 `GET /secure-work.snapshot.json` (`src/server/secure-work-status-adapter.mjs`)
-each read exactly one file under the resolved state root — `operations/tongs/
-heartbeat.json` and `operations/secure_work/status.json` — with the same state
+reads exactly one, `operations/secure_work/status.json`. Both use the same state
 root precedence every other adapter uses (`SOULFORGE_STATE_ROOT` >
 `SOULFORGE_OWNER_ROOT` > this checkout's `guild_hall/state`). Those files are
 written by their own lanes; Vigil only reads them. Both endpoints keep the same
 loopback/GET/`no-store`/`nosniff` guards and a 30-second TTL cache, and neither
 holds a writer verb.
 
+The Tongs file names, the exact five-field record (`schema_version`, `status`,
+`observed_at`, `pid`, `listen`) and the status vocabulary are owned by
+`guild_hall/shared/tongs_heartbeat_contract.mjs`; the writer
+(`ui-workspace/apps/dev-erp-mcp/ops/tongs_lane_support.mjs`) and this adapter
+import the same exports, and `tongs-heartbeat-adapter.test.mjs` reads a file the
+real writer CLI produced. Until 2026-09-06 the adapter read a `heartbeat.json`
+with its own guessed schema that the lane never wrote, so a healthy lane would
+have stayed `unknown` forever. The Tongs lane's registered `-StateRoot` must be
+the same directory as this state root — the lane's `preflight --state-root`
+refuses a divergent one — otherwise the heartbeat is written where no reader
+looks.
+
 Three states, and the difference between the last two matters: `ready` when the
 document validates, `unknown` when the file is simply absent (no evidence, grey
 on the map), and `unavailable` when a file exists but breaks its schema (an
 observed fault, amber on the map).
 
-The Tongs projection carries `status` (`listening` / `starting` / `stopped`), the
-observation time, an age, a freshness boolean against a 900-second window, and
-the listening loopback port as an integer. `pid` and the `listen` host string are
-validated and then dropped — a non-loopback listen address is a schema violation
-rather than a value to display. A stale heartbeat keeps its last known status and
-is shown as `낡음`, never as current; a future timestamp is never called fresh.
+The Tongs projection (`soulforge.team_ops_board.tongs_projection.v2`) carries,
+at the top level for the 4311 service, `status` (`starting` / `ready` /
+`degraded` / `stopped` / `error`), the observation time, an age, a freshness
+boolean against a 900-second window, and the listening loopback port as an
+integer; `services.erp_mcp` and `services.ingress_mcp` carry the same fields per
+service (`null` when that file is absent). The map colours the box by the 4311
+service (`ready` ok, `starting`/`degraded` degraded, `stopped`/`error` down) and
+lowers it for an ingress `degraded`/`error` only; an ingress `stopped` is the
+normal feature-OFF state. `pid` and the `listen` host string are validated and
+then dropped — a non-loopback listen address is a schema violation rather than a
+value to display. A stale heartbeat keeps its last known status and is shown as
+`낡음`, never as current; a future timestamp is never called fresh.
 
 The 외부 작업 사이클 projection carries the observation time and a
 state→count map only. `last_job` and `last_receipt_ref` are shape-checked and

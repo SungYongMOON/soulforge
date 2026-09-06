@@ -15,9 +15,13 @@
 // evidence ingress MCP (`ingress_server.mjs`, loopback-only port chosen by a
 // private binding file, feature OFF by default). Each gets its own heartbeat
 // file at "<state-root>/operations/tongs/<service>.heartbeat.v1.json" where
-// <service> is "erp_mcp" or "ingress_mcp". Every file is the exact
-// {status, observed_at, pid, listen} shape Vigil's future probe reads, plus a
-// schema_version field every other state file in this repository carries.
+// <service> is "erp_mcp" or "ingress_mcp". File name, exact record shape and
+// status vocabulary are owned by guild_hall/shared/tongs_heartbeat_contract.mjs,
+// which Vigil's reader (team-ops-board/src/server/tongs-heartbeat-adapter.mjs)
+// imports as well — this module re-exports those names so its CLI and tests
+// keep one import surface. The <state-root> must be the shared state root
+// Vigil resolves (SOULFORGE_STATE_ROOT > SOULFORGE_OWNER_ROOT/guild_hall/state);
+// `preflight --state-root` checks exactly that, see cmdPreflight.
 //
 // See ui-workspace/apps/dev-erp-mcp/docs/TONGS_LANE_RUNBOOK_V0.md for the full
 // contract this module implements a slice of.
@@ -28,16 +32,26 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-export const TONGS_HEARTBEAT_SCHEMA = "soulforge.tongs_lane.heartbeat.v1";
-export const TONGS_SERVICES = Object.freeze(["erp_mcp", "ingress_mcp"]);
-export const TONGS_HEARTBEAT_STATUSES = Object.freeze([
-  "starting",
-  "ready",
-  "degraded",
-  "stopped",
-  "error",
-]);
-export const TONGS_STATE_DIRNAME = "operations/tongs";
+import { comparablePathIdentity } from "../../../../guild_hall/shared/physical_path_identity.mjs";
+import { readSoulforgeRootOverride } from "../../../../guild_hall/shared/soulforge_state_root.mjs";
+import {
+  TONGS_HEARTBEAT_SCHEMA,
+  TONGS_HEARTBEAT_STATUSES,
+  TONGS_SERVICES,
+  TONGS_STATE_DIRNAME,
+  isValidListenTarget,
+  isValidTongsHeartbeatRecord,
+  tongsHeartbeatPathSegments,
+} from "../../../../guild_hall/shared/tongs_heartbeat_contract.mjs";
+
+export {
+  TONGS_HEARTBEAT_SCHEMA,
+  TONGS_HEARTBEAT_STATUSES,
+  TONGS_SERVICES,
+  TONGS_STATE_DIRNAME,
+  isValidListenTarget,
+  isValidTongsHeartbeatRecord,
+};
 export const TONGS_LOCK_SCHEMA = "soulforge.tongs_lane.run_lock.v1";
 // The registered task's own trigger repeats every PT5M (300000ms). A max-age
 // equal to that interval leaves a reuse decision with essentially zero
@@ -50,9 +64,6 @@ export const TONGS_LOCK_SCHEMA = "soulforge.tongs_lane.run_lock.v1";
 // it must stay at least 2x the registrar's repetition interval.
 export const TONGS_REGISTERED_TRIGGER_INTERVAL_MS = 5 * 60 * 1000;
 export const TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS = 720000; // 2.4x TONGS_REGISTERED_TRIGGER_INTERVAL_MS
-
-const HEARTBEAT_FIELDS = Object.freeze(["schema_version", "status", "observed_at", "pid", "listen"]);
-const LISTEN_RE = /^127\.0\.0\.1:([0-9]{1,5})$/;
 
 export class TongsLaneError extends Error {
   constructor(code) {
@@ -68,32 +79,6 @@ function fail(code) {
 
 function isPositiveInt(value) {
   return Number.isSafeInteger(value) && value > 0;
-}
-
-export function isValidListenTarget(value) {
-  if (typeof value !== "string") return false;
-  const match = LISTEN_RE.exec(value);
-  if (!match) return false;
-  const port = Number(match[1]);
-  return Number.isSafeInteger(port) && port >= 1024 && port <= 65535;
-}
-
-// Exact-keys, fail-closed record validator, matching the convention every
-// other lane's state schema in this repository uses.
-export function isValidTongsHeartbeatRecord(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const keys = Object.keys(value).sort();
-  const expected = [...HEARTBEAT_FIELDS].sort();
-  if (keys.length !== expected.length || keys.some((key, index) => key !== expected[index])) return false;
-  if (value.schema_version !== TONGS_HEARTBEAT_SCHEMA) return false;
-  if (!TONGS_HEARTBEAT_STATUSES.includes(value.status)) return false;
-  if (typeof value.observed_at !== "string" || !Number.isFinite(Date.parse(value.observed_at))) return false;
-  if (value.pid !== null && !isPositiveInt(value.pid)) return false;
-  if (value.listen !== null && !isValidListenTarget(value.listen)) return false;
-  // A "ready" service without a pid and a listen address is a contradiction;
-  // every other status may leave either or both null.
-  if (value.status === "ready" && (value.pid === null || value.listen === null)) return false;
-  return true;
 }
 
 export function buildTongsHeartbeatRecord({
@@ -116,7 +101,7 @@ export function buildTongsHeartbeatRecord({
 export function tongsHeartbeatPath(stateRoot, service) {
   if (typeof stateRoot !== "string" || !path.isAbsolute(stateRoot)) fail("tongs_state_root_invalid");
   if (!TONGS_SERVICES.includes(service)) fail("tongs_service_invalid");
-  return path.join(stateRoot, ...TONGS_STATE_DIRNAME.split("/"), `${service}.heartbeat.v1.json`);
+  return path.join(stateRoot, ...tongsHeartbeatPathSegments(service));
 }
 
 export function tongsHeartbeatIsFresh(record, { now = Date.now(), maxAgeMs } = {}) {
@@ -160,6 +145,9 @@ export function evaluateTongsPreflight({
   ingressRequested,
   ingressConfigPresent = null,
   ingressConfigValid = null,
+  // null = not applicable (no --state-root given, or no shared state root
+  // declared in the environment); otherwise the caller's real comparison.
+  stateRootMatchesSharedStateRoot = null,
 }) {
   const checks = {
     node_path_present: nodePathPresent === true,
@@ -177,6 +165,13 @@ export function evaluateTongsPreflight({
   if (ingressRequested) {
     checks.ingress_config_present = ingressConfigPresent === true;
     checks.ingress_config_valid = ingressConfigPresent === true && ingressConfigValid === true;
+  }
+  // Vigil reads the heartbeat only under the shared state root
+  // (guild_hall/shared/soulforge_state_root.mjs). A lane registered with a
+  // -StateRoot that differs from it writes a heartbeat nobody projects, so
+  // when the host declares a shared root the two must be the same directory.
+  if (stateRootMatchesSharedStateRoot !== null) {
+    checks.state_root_matches_shared_state_root = stateRootMatchesSharedStateRoot === true;
   }
   const failedChecks = Object.entries(checks)
     .filter(([, ok]) => !ok)
@@ -387,6 +382,34 @@ async function cmdPreflight(args) {
     }
   }
 
+  // --state-root (optional; the launcher always passes it): compare the
+  // lane's heartbeat root with the shared state root the operations cluster
+  // resolves from SOULFORGE_STATE_ROOT / SOULFORGE_OWNER_ROOT. Only the
+  // comparison result and the resolver's error code are reported — never the
+  // environment's configured value (the resolver's own convention).
+  let stateRoot = null;
+  let stateRootMatchesSharedStateRoot = null;
+  let sharedStateRootSource = null;
+  let sharedStateRootErrorCode = null;
+  let sharedStateRootErrorReason = null;
+  if (args["state-root"] !== undefined) {
+    stateRoot = requireAbsolute(args["state-root"], "state-root");
+    try {
+      const override = readSoulforgeRootOverride(process.env);
+      if (override !== null) {
+        sharedStateRootSource = override.source;
+        stateRootMatchesSharedStateRoot =
+          comparablePathIdentity(path.resolve(override.stateRoot)) === comparablePathIdentity(stateRoot);
+      }
+    } catch (error) {
+      // A declared-but-invalid shared root fails closed, like every other
+      // consumer of the resolver: the comparison cannot be made, so it fails.
+      stateRootMatchesSharedStateRoot = false;
+      sharedStateRootErrorCode = error?.code ?? "shared_state_root_unresolvable";
+      sharedStateRootErrorReason = error?.reason ?? null;
+    }
+  }
+
   const result = evaluateTongsPreflight({
     nodePathPresent,
     entryPathPresent,
@@ -395,11 +418,19 @@ async function cmdPreflight(args) {
     ingressRequested,
     ingressConfigPresent,
     ingressConfigValid,
+    stateRootMatchesSharedStateRoot,
   });
   process.stdout.write(`${JSON.stringify(
     {
       ...result,
       network_used: false,
+      state_root: stateRoot,
+      // "state_root" / "owner_root" when the environment declares a shared
+      // root; null when it declares none (check not applicable) or when
+      // --state-root was not given.
+      shared_state_root_source: sharedStateRootSource,
+      shared_state_root_error_code: sharedStateRootErrorCode,
+      shared_state_root_error_reason: sharedStateRootErrorReason,
       resolved_listen: resolvedListen,
       // null when ingress was never requested; true/false once a
       // structurally valid binding was actually loaded. A caller that sees

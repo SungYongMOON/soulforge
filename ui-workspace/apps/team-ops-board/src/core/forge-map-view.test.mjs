@@ -4,6 +4,9 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+// node 쪽 테스트만 계약 모듈을 본다. 지도 모듈 자체는 브라우저 번들이라 guild_hall 을 import 하지 않는다.
+import { TONGS_HEARTBEAT_STATUSES } from "../../../../../guild_hall/shared/tongs_heartbeat_contract.mjs";
+
 import {
   FORGE_COMPONENTS,
   clampForgeText,
@@ -194,11 +197,68 @@ test("Tongs 색은 하트비트를 따르고 없음과 깨짐을 구분한다", 
   assert.equal(tongsOf(null).state, "unknown");
   assert.equal(tongsOf({ state: "unknown", reason: "tongs_heartbeat_absent" }).state, "unknown");
   assert.equal(tongsOf({ state: "unavailable", reason: "tongs_heartbeat_status_unexpected" }).state, "degraded");
-  assert.equal(tongsOf({ state: "ready", status: "listening", listen_port: 4311, fresh: true }).state, "ok");
-  assert.equal(tongsOf({ state: "ready", status: "listening", listen_port: 4311, fresh: false }).state, "stale");
-  assert.equal(tongsOf({ state: "ready", status: "starting", listen_port: 4311, fresh: true }).state, "degraded");
-  assert.equal(tongsOf({ state: "ready", status: "stopped", listen_port: 4311, fresh: true }).state, "down");
-  assert.match(tongsOf({ state: "ready", status: "listening", listen_port: 4311, fresh: true }).evidenceNote, /4311/u);
+  // lane 계약의 status 어휘(guild_hall/shared/tongs_heartbeat_contract.mjs) 그대로.
+  const ready = (overrides = {}) => ({ state: "ready", status: "ready", listen_port: 4311, fresh: true, ...overrides });
+  assert.equal(tongsOf(ready()).state, "ok");
+  assert.equal(tongsOf(ready({ fresh: false })).state, "stale");
+  assert.equal(tongsOf(ready({ status: "starting" })).state, "degraded");
+  assert.equal(tongsOf(ready({ status: "degraded" })).state, "degraded");
+  assert.equal(tongsOf(ready({ status: "stopped", listen_port: null })).state, "down");
+  assert.equal(tongsOf(ready({ status: "error", listen_port: null })).state, "down");
+  // 옛 어댑터 어휘는 계약 밖이다: 초록으로 올라가지 않는다.
+  assert.equal(tongsOf(ready({ status: "listening" })).state, "unknown");
+  assert.match(tongsOf(ready()).evidenceNote, /4311/u);
+  assert.match(tongsOf(ready({ fresh: false })).evidenceNote, /하트비트 낡음/u);
+  assert.match(tongsOf(ready({ status: "stopped", listen_port: null })).evidenceNote, /멈춤 · 포트 미상/u);
+});
+
+test("Tongs 의 ingress 서비스는 degraded/error/규격 위반일 때만 상자를 내리고 stopped 는 정상이다", () => {
+  const tongsOf = (tongs) => buildForgeMapViewModel({ tongs }).components.find((c) => c.id === "tongs");
+  const service = (overrides = {}) => ({
+    state: "ready", reason: null, status: "ready", listen_port: 48611, fresh: true, ...overrides,
+  });
+  const withIngress = (ingress, erpStatus = "ready") => ({
+    state: "ready",
+    status: erpStatus,
+    listen_port: erpStatus === "ready" ? 4311 : null,
+    fresh: true,
+    services: { erp_mcp: service({ status: erpStatus, listen_port: erpStatus === "ready" ? 4311 : null }), ingress_mcp: ingress },
+  });
+  assert.equal(tongsOf(withIngress(null)).state, "ok");
+  const off = withIngress(service({ status: "stopped", listen_port: null }));
+  assert.equal(tongsOf(off).state, "ok");
+  assert.match(tongsOf(off).evidenceNote, /ingress 꺼짐/u);
+  assert.equal(tongsOf(withIngress(service())).state, "ok");
+  assert.match(tongsOf(withIngress(service())).evidenceNote, /ingress 포트 48611/u);
+  assert.equal(tongsOf(withIngress(service({ status: "starting", listen_port: null }))).state, "ok");
+  assert.equal(tongsOf(withIngress(service({ status: "error", listen_port: null }))).state, "degraded");
+  assert.equal(tongsOf(withIngress(service({ status: "degraded" }))).state, "degraded");
+  const broken = withIngress({ state: "unavailable", reason: "tongs_heartbeat_unparsable" });
+  assert.equal(tongsOf(broken).state, "degraded");
+  assert.match(tongsOf(broken).evidenceNote, /ingress 규격 위반 · tongs_heartbeat_unparsable/u);
+  // erp 가 이미 끊김이면 ingress 가 끌어올리지도, 더 내리지도 못한다.
+  assert.equal(tongsOf(withIngress(service(), "stopped")).state, "down");
+  assert.equal(tongsOf(withIngress(service({ status: "error", listen_port: null }), "stopped")).state, "down");
+});
+
+test("Tongs 상태표는 계약 enum 전체를 덮고 계약 밖 단어는 어느 층에서도 초록으로 두지 않는다", () => {
+  const tongsOf = (tongs) => buildForgeMapViewModel({ tongs }).components.find((c) => c.id === "tongs");
+  // 계약의 모든 status 는 지도가 아는 색으로 떨어진다 — 계약에 status 가 하나 늘면 여기서 잡힌다.
+  for (const status of TONGS_HEARTBEAT_STATUSES) {
+    const { state } = tongsOf({ state: "ready", status, listen_port: status === "ready" ? 4311 : null, fresh: true });
+    assert.ok(["ok", "degraded", "down"].includes(state), `${status} -> ${state} 는 지도의 색이어야 한다`);
+  }
+  // 계약 밖 단어: 최상위는 회색(근거 없음), ingress 는 상자를 주의로 내린다.
+  assert.equal(tongsOf({ state: "ready", status: "cooking", listen_port: 4311, fresh: true }).state, "unknown");
+  const oddIngress = {
+    state: "ready", status: "ready", listen_port: 4311, fresh: true,
+    services: {
+      erp_mcp: { state: "ready", reason: null, status: "ready", listen_port: 4311, fresh: true },
+      ingress_mcp: { state: "ready", reason: null, status: "cooking", listen_port: null, fresh: true },
+    },
+  };
+  assert.equal(tongsOf(oddIngress).state, "degraded");
+  assert.match(tongsOf(oddIngress).evidenceNote, /ingress 상태 cooking/u);
 });
 
 test("외부 작업 사이클 색은 상태 파일의 건수를 따른다", () => {

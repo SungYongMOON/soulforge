@@ -328,6 +328,44 @@ function buildTopologyNodeRows(topology) {
 // ── 부품 전용 근거 판독기 ─────────────────────────────────────────────────
 // 각 판독기는 { state, note, detail } 만 돌려준다. 경로·비밀·원문은 오지 않는다.
 
+// Tongs lane 의 status 어휘(guild_hall/shared/tongs_heartbeat_contract.mjs) -> 지도 상태.
+// 최상위 status 는 4311 을 답하는 erp_mcp 의 것이다. ingress 는 설정된 경우에만 있고
+// feature OFF 가 기본이라 `stopped` 가 정상이므로 색을 내리지 않는다 — `degraded`/
+// `error`(그리고 규격 위반)일 때만 상자를 주의로 내린다.
+const TONGS_STATUS_TO_FORGE_STATE = Object.freeze({
+  ready: "ok",
+  starting: "degraded",
+  degraded: "degraded",
+  stopped: "down",
+  error: "down",
+});
+const TONGS_STATUS_WORDS = Object.freeze({
+  ready: null,
+  starting: "기동 중",
+  degraded: "이상",
+  stopped: "멈춤",
+  error: "오류",
+});
+
+function readTongsIngressEvidence(service) {
+  if (service === null || typeof service !== "object") return null;
+  if (service.state === "unavailable") {
+    return { attention: true, note: `ingress 규격 위반 · ${safeCode(service.reason)}` };
+  }
+  if (service.state !== "ready" || typeof service.status !== "string") return null;
+  if (service.status === "ready") {
+    const port = Number.isSafeInteger(service.listen_port) ? ` ${service.listen_port}` : " 미상";
+    return { attention: false, note: `ingress 포트${port}` };
+  }
+  if (service.status === "degraded" || service.status === "error") {
+    return { attention: true, note: `ingress ${TONGS_STATUS_WORDS[service.status]}` };
+  }
+  if (service.status === "starting") return { attention: false, note: "ingress 기동 중" };
+  if (service.status === "stopped") return { attention: false, note: "ingress 꺼짐" };
+  // 계약 밖의 상태 단어는 조용히 초록으로 두지 않는다 — 최상위와 같은 규칙.
+  return { attention: true, note: `ingress 상태 ${safeCode(service.status)}` };
+}
+
 function readTongsEvidence(snapshot) {
   if (snapshot === null || typeof snapshot !== "object") {
     return { state: "unknown", note: "읽기 실패 · 근거 없음" };
@@ -343,17 +381,21 @@ function readTongsEvidence(snapshot) {
     return { state: "unknown", note: "상태 미확정" };
   }
   const status = typeof snapshot.status === "string" ? snapshot.status : "unknown";
-  const listen = Number.isSafeInteger(snapshot.listen_port) ? `듣는 포트 ${snapshot.listen_port}` : "포트 미상";
-  const staleNote = snapshot.fresh === false ? " · 하트비트 낡음" : "";
-  if (status === "listening") {
-    return {
-      state: snapshot.fresh === false ? "stale" : "ok",
-      note: `${listen}${staleNote}`,
-    };
+  const mapped = TONGS_STATUS_TO_FORGE_STATE[status];
+  // 계약 밖의 상태 단어는 초록으로 올라가지 않는다.
+  if (mapped === undefined) return { state: "unknown", note: `상태 ${safeCode(status)}` };
+  let state = mapped === "ok" && snapshot.fresh === false ? "stale" : mapped;
+  const parts = [];
+  if (TONGS_STATUS_WORDS[status] !== null) parts.push(TONGS_STATUS_WORDS[status]);
+  parts.push(Number.isSafeInteger(snapshot.listen_port) ? `듣는 포트 ${snapshot.listen_port}` : "포트 미상");
+  if (snapshot.fresh === false) parts.push("하트비트 낡음");
+  const services = snapshot.services !== null && typeof snapshot.services === "object" ? snapshot.services : {};
+  const ingress = readTongsIngressEvidence(services.ingress_mcp ?? null);
+  if (ingress !== null) {
+    parts.push(ingress.note);
+    if (ingress.attention) state = aggregateForgeComponentState([state, "degraded"]);
   }
-  if (status === "starting") return { state: "degraded", note: `기동 중 · ${listen}${staleNote}` };
-  if (status === "stopped") return { state: "down", note: `멈춤 · ${listen}${staleNote}` };
-  return { state: "unknown", note: `상태 ${status}` };
+  return { state, note: parts.join(" · ") };
 }
 
 function readSecureWorkEvidence(snapshot) {

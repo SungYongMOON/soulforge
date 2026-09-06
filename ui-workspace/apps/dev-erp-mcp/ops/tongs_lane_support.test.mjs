@@ -603,3 +603,100 @@ async function mkdtempWriteFixture(directory, entryPath) {
   await mkdir(directory, { recursive: true });
   await writeFile(entryPath, "// synthetic fixture entry point, not a real server\n", "utf8");
 }
+
+// --- shared state root check: the heartbeat is only ever projected by Vigil
+// from the shared state root (guild_hall/shared/soulforge_state_root.mjs), so
+// preflight must refuse a -StateRoot that differs from it. These cases pin
+// the environment explicitly instead of inheriting this host's own
+// SOULFORGE_STATE_ROOT / SOULFORGE_OWNER_ROOT.
+function environmentWithoutSharedRoot() {
+  const env = { ...process.env };
+  delete env.SOULFORGE_STATE_ROOT;
+  delete env.SOULFORGE_OWNER_ROOT;
+  return env;
+}
+
+test("evaluateTongsPreflight adds the shared-state-root check only when a comparison was possible", () => {
+  const base = { nodePathPresent: true, entryPathPresent: true, entryInsideLaneRoot: true, moduleResolves: true, ingressRequested: false };
+  const notApplicable = evaluateTongsPreflight({ ...base });
+  assert.equal(notApplicable.ok, true);
+  assert.equal("state_root_matches_shared_state_root" in notApplicable.checks, false);
+  const matching = evaluateTongsPreflight({ ...base, stateRootMatchesSharedStateRoot: true });
+  assert.equal(matching.ok, true);
+  assert.equal(matching.checks.state_root_matches_shared_state_root, true);
+  const diverging = evaluateTongsPreflight({ ...base, stateRootMatchesSharedStateRoot: false });
+  assert.equal(diverging.ok, false);
+  assert.deepEqual(diverging.failed_checks, ["state_root_matches_shared_state_root"]);
+});
+
+test("CLI preflight --state-root passes, fails, or stays not-applicable against the shared state root", async (t) => {
+  const scratch = await mkdtemp(path.join(tmpdir(), "tongs-lane-support-test-"));
+  t.after(async () => rm(scratch, { recursive: true, force: true }));
+  const { mkdir: mkdirFixture } = await import("node:fs/promises");
+  const sharedRoot = path.join(scratch, "shared-state");
+  const otherRoot = path.join(scratch, "other-state");
+  await mkdirFixture(sharedRoot, { recursive: true });
+  await mkdirFixture(otherRoot, { recursive: true });
+  const realLaneRoot = path.resolve(HERE, "..");
+  const baseArguments = [
+    CLI_PATH, "preflight",
+    "--node-path", process.execPath,
+    "--entry-path", path.join(realLaneRoot, "server.mjs"),
+    "--lane-root", realLaneRoot,
+  ];
+  const run = (stateRoot, env) => {
+    const result = spawnSync(process.execPath, [...baseArguments, "--state-root", stateRoot], { env });
+    return { status: result.status, json: JSON.parse(result.stdout.toString()), stderr: result.stderr.toString() };
+  };
+
+  // No shared root declared: the check is not applicable and preflight passes.
+  const undeclared = run(otherRoot, environmentWithoutSharedRoot());
+  assert.equal(undeclared.status, 0, undeclared.stderr);
+  assert.equal(undeclared.json.ok, true);
+  assert.equal("state_root_matches_shared_state_root" in undeclared.json.checks, false);
+  assert.equal(undeclared.json.shared_state_root_source, null);
+  assert.equal(undeclared.json.state_root, path.resolve(otherRoot));
+
+  // SOULFORGE_STATE_ROOT declared and equal: passes. On a case-insensitive
+  // host the argument is deliberately spelled in a different case, so the
+  // comparison's case folding (comparablePathIdentity) is really exercised
+  // rather than a byte-identical string.
+  const sameSpelling = process.platform === "win32" ? sharedRoot.toUpperCase() : sharedRoot;
+  const same = run(sameSpelling, { ...environmentWithoutSharedRoot(), SOULFORGE_STATE_ROOT: sharedRoot });
+  assert.equal(same.status, 0, same.stderr);
+  assert.equal(same.json.checks.state_root_matches_shared_state_root, true);
+  assert.equal(same.json.shared_state_root_source, "state_root");
+  assert.equal(same.json.state_root, path.resolve(sameSpelling));
+
+  // Declared and different: fails closed with exactly this check.
+  const different = run(otherRoot, { ...environmentWithoutSharedRoot(), SOULFORGE_STATE_ROOT: sharedRoot });
+  assert.equal(different.status, 1);
+  assert.equal(different.json.ok, false);
+  assert.deepEqual(different.json.failed_checks, ["state_root_matches_shared_state_root"]);
+  assert.equal(different.json.shared_state_root_error_code, null);
+
+  // SOULFORGE_OWNER_ROOT alone declares <owner root>/guild_hall/state.
+  const ownerRoot = path.join(scratch, "owner");
+  await mkdirFixture(path.join(ownerRoot, "guild_hall", "state"), { recursive: true });
+  const viaOwner = run(path.join(ownerRoot, "guild_hall", "state"), { ...environmentWithoutSharedRoot(), SOULFORGE_OWNER_ROOT: ownerRoot });
+  assert.equal(viaOwner.status, 0, viaOwner.stderr);
+  assert.equal(viaOwner.json.checks.state_root_matches_shared_state_root, true);
+  assert.equal(viaOwner.json.shared_state_root_source, "owner_root");
+
+  // Declared but invalid (missing directory): the resolver fails closed and so
+  // does this check; the configured value itself is never echoed.
+  const missingShared = path.join(scratch, "does-not-exist");
+  const invalid = run(sharedRoot, { ...environmentWithoutSharedRoot(), SOULFORGE_STATE_ROOT: missingShared });
+  assert.equal(invalid.status, 1);
+  assert.equal(invalid.json.checks.state_root_matches_shared_state_root, false);
+  assert.equal(invalid.json.shared_state_root_error_code, "soulforge_root_override_invalid");
+  assert.equal(invalid.json.shared_state_root_error_reason, "missing");
+  assert.equal(JSON.stringify(invalid.json).includes("does-not-exist"), false);
+
+  // Without --state-root nothing changes for callers that never passed it.
+  const omitted = spawnSync(process.execPath, baseArguments, { env: { ...environmentWithoutSharedRoot(), SOULFORGE_STATE_ROOT: sharedRoot } });
+  assert.equal(omitted.status, 0, omitted.stderr.toString());
+  const omittedJson = JSON.parse(omitted.stdout.toString());
+  assert.equal(omittedJson.state_root, null);
+  assert.equal("state_root_matches_shared_state_root" in omittedJson.checks, false);
+});

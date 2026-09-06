@@ -335,14 +335,22 @@ if ($IngressRequested) {
 }
 
 # ---- preflight: read-only, no socket, no process spawn, no heartbeat write ----
+# --state-root: Vigil projects the heartbeat only from the shared state root
+# (SOULFORGE_STATE_ROOT > SOULFORGE_OWNER_ROOT/guild_hall/state, see
+# guild_hall/shared/soulforge_state_root.mjs), so preflight refuses a -StateRoot
+# that differs from it whenever this host declares one (check
+# state_root_matches_shared_state_root; not applicable when the environment
+# declares no shared root). A heartbeat written anywhere else is never read.
 $ErpPreflight = Invoke-Support -SupportArguments @(
-  "preflight", "--node-path", $NodePath, "--entry-path", $ErpEntry, "--lane-root", $AppRoot
+  "preflight", "--node-path", $NodePath, "--entry-path", $ErpEntry, "--lane-root", $AppRoot,
+  "--state-root", $StateRoot
 )
 $IngressPreflight = $null
 if ($IngressRequested) {
   $IngressPreflight = Invoke-Support -SupportArguments @(
     "preflight", "--node-path", $NodePath, "--entry-path", $IngressEntry,
-    "--lane-root", $AppRoot, "--ingress-config", $IngressConfigPath
+    "--lane-root", $AppRoot, "--ingress-config", $IngressConfigPath,
+    "--state-root", $StateRoot
   )
 }
 # $IngressPreflight stays $null when ingress was never requested; guard the

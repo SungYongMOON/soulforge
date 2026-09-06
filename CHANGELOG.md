@@ -1,5 +1,68 @@
 # CHANGELOG
 
+## 2026-09-06 - Tongs(MCP 문) heartbeat와 Vigil(포트 4192) 투영의 계약 정합: 파일 이름·레코드·state root
+
+- 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: `install/source-lanes/tongs-lane-v1`을 실제로 빌드해 임시 포트로 띄워 보니 lane은
+  `<state root>/operations/tongs/erp_mcp.heartbeat.v1.json`을 쓰는데, Vigil의 어댑터
+  (`tongs-heartbeat-adapter.mjs`)는 lane이 한 번도 쓴 적 없는 `operations/tongs/heartbeat.json`을
+  자기 추정 규격(`schema` 선택 키, `listening`/`starting`/`stopped`, pid/listen null 불허)으로
+  읽고 있었다 — 등록 뒤 4311이 멀쩡해도 `GET /tongs.snapshot.json`은 영원히
+  `state:"unknown", reason:"tongs_heartbeat_absent"`였을 것이다(두 앱 모두 2026-09-06 커밋
+  `ef2fe032`/`d67d4b7b`; 같은 날의 어댑터 enum 감사가 Owner 결정 대기로 남긴 4중 불일치).
+  생산자(lane) 쪽 규격이 런북과 fresh 검토를 거친 정본이므로 Vigil을 그쪽에 맞췄다.
+  (1) 계약을 `guild_hall/shared/tongs_heartbeat_contract.mjs`(서비스별 파일 이름, 정확한 5필드
+  레코드, `status` 어휘, 사유 코드가 붙는 validator) 한 곳으로 옮기고, writer
+  (`ui-workspace/apps/dev-erp-mcp/ops/tongs_lane_support.mjs`, 같은 이름을 재export)와 reader가
+  같은 export를 import한다 — 앱 간 import는 만들지 않았다.
+  (2) 어댑터는 `erp_mcp`(4311)를 최상위로, `ingress_mcp`를 `services`로 투영하고 투영 스키마는
+  `soulforge.team_ops_board.tongs_projection.v2`다. vite는 파일 경로 대신 state root를 넘긴다.
+  대장간 지도는 `ready`→정상, `starting`/`degraded`→주의, `stopped`/`error`→끊김이고 ingress는
+  `degraded`/`error`/규격 위반일 때만 주의로 내린다(`stopped`는 feature OFF의 정상 상태).
+  (3) state root 정합: Vigil은 공유 state root(`SOULFORGE_STATE_ROOT` >
+  `<SOULFORGE_OWNER_ROOT>/guild_hall/state`)만 읽으므로, lane의 `preflight`가 `--state-root`를
+  받아 `state_root_matches_shared_state_root`를 검사하고 `run-tongs-loopback.ps1`이 매 실행에
+  그 인자를 넘긴다 — 호스트가 공유 root를 선언했는데 `-StateRoot`가 다르면 등록도 기동도 거부,
+  선언 값이 잘못됐으면 fail-closed, 선언이 없으면 적용하지 않는다. 환경변수의 값은 출력하지
+  않는다. `tongs_lane.spec.json`의 tracked_paths에 shared 모듈 둘을 추가했다.
+- 검증: `node --test guild_hall/shared/tongs_heartbeat_contract.test.mjs` 5/5(신규),
+  `npm run validate:tongs-lane` 18/18(신규 2 — preflight state root 미선언·일치·불일치·잘못된
+  선언·owner_root 경로), `npm run validate:shared` 174/174, `npm run validate:team-ops-app`
+  852/852(신규 회귀 — lane의 실제 writer CLI가 디스크에 쓴 파일을 어댑터가 그대로 읽음, 옛 어휘
+  `listening`은 계약 밖으로 거부, 지도 색 규칙과 ingress 규칙), `npm --prefix
+  ui-workspace/apps/dev-erp-mcp test` 44/44, `tsc --noEmit`·`vite build` 성공, `.ps1` 3개
+  파서 오류 0, path policy(changed) 위반 0, display-terms(tracked+baseline) 미면제 위반 0.
+  임시 실측(지속 프로세스 없음): 실제 writer CLI로 스크래치 state root에 `erp_mcp`(ready, 4311)·
+  `ingress_mcp`(stopped)를 쓰고 `SOULFORGE_STATE_ROOT`를 그 root로 둔 채, 이 워크트리의 실제
+  `vite.config.ts`로 vite preview를 loopback 고포트(48197)에 한 번 띄워 `GET /tongs.snapshot.json`이
+  200·`no-store`·`nosniff`와 함께 `state:"ready", status:"ready", listen_port:4311,
+  services.ingress_mcp.status:"stopped"`를 내는 것을 확인했다(같은 프로세스 안에서 즉시 종료).
+  fresh non-author Level 2 검토(Opus, 읽기 전용, 명령 6종 독립 재현): 판정 revise → 반영 — 런북 §3/§5/§6가
+  코드보다 강하게 말하던 보장을 정직화(state root 검사는 호스트가 공유 root를 선언한 경우에만 적용되고,
+  Vigil의 셋째 fallback은 자기 checkout/lane의 `guild_hall/state`; dry-run의 `shared_state_root_source`가
+  `null`이면 등록 전에 환경변수부터 확인), 새 preflight 출력 필드 넷 기재, 지도의 계약 밖 ingress 상태어를
+  주의로(초록 금지), 지도 상태표가 계약 enum 전체를 덮는지 고정하는 테스트, state root 검사의 대소문자
+  접기를 실제로 다른 표기로 검증. 반영 뒤 재검증: `validate:tongs-lane` 18/18, `validate:team-ops-app`
+  852/852, `tsc`·`vite build` 성공, path policy 0, display-terms 미면제 0.
+- 운영 영향: 코드만 바뀌었다. 운영 Vigil(`operations-lane-v3`)과 이미 빌드된 `tongs-lane-v1`은
+  각각 lane을 다시 빌드하기 전까지 옛 코드다(Vigil은 옛 파일 이름을 계속 읽어 `unknown`, Tongs는
+  state root 검사 없음). Tongs 등록 시 `-StateRoot`는 Vigil이 쓰는 공유 state root와 같은 값이어야
+  하며(런북 §5 "Vigil 투영 계약"), 다르면 등록기의 preflight 게이트가 막는다. 예약작업·포트·등록·
+  실행 중인 프로세스는 만지지 않았다.
+- 관련 경로: `guild_hall/shared/tongs_heartbeat_contract.mjs`(신규),
+  `guild_hall/shared/tongs_heartbeat_contract.test.mjs`(신규), `guild_hall/shared/README.md`,
+  `guild_hall/deployment_pack/lanes/tongs_lane.spec.json`,
+  `ui-workspace/apps/dev-erp-mcp/ops/tongs_lane_support.mjs`,
+  `ui-workspace/apps/dev-erp-mcp/ops/tongs_lane_support.test.mjs`,
+  `ui-workspace/apps/dev-erp-mcp/ops/run-tongs-loopback.ps1`,
+  `ui-workspace/apps/dev-erp-mcp/docs/TONGS_LANE_RUNBOOK_V0.md`,
+  `ui-workspace/apps/team-ops-board/src/server/tongs-heartbeat-adapter.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/tongs-heartbeat-adapter.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/core/forge-map-view.mjs`,
+  `ui-workspace/apps/team-ops-board/src/core/forge-map-view.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/core/forge-map-ui-boundary.test.mjs`,
+  `ui-workspace/apps/team-ops-board/vite.config.ts`, `ui-workspace/apps/team-ops-board/README.md`.
+
 ## 2026-09-06 - Vigil(포트 4192): 운영 lane을 operations-lane-v2에서 v3로 전환
 
 - 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.

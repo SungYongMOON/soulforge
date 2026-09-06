@@ -154,7 +154,9 @@ test("vite 는 세 어댑터를 등록하고 상태 파일 경로는 state root 
   assert.match(config, /import \{ createTongsHeartbeatAdapterPlugin \} from "\.\/src\/server\/tongs-heartbeat-adapter\.mjs";/u);
   assert.match(config, /createScheduledTasksAdapterPlugin\(\),/u);
   assert.match(config, /createSecureWorkStatusAdapterPlugin\(\{ statusPath: secureWorkStatusPath \}\)/u);
-  assert.match(config, /createTongsHeartbeatAdapterPlugin\(\{ heartbeatPath: tongsHeartbeatPath \}\)/u);
+  assert.match(config, /createTongsHeartbeatAdapterPlugin\(\{ stateRoot \}\)/u);
   assert.match(config, /const secureWorkStatusPath = path\.join\(operationsRoot, "secure_work", "status\.json"\);/u);
-  assert.match(config, /const tongsHeartbeatPath = path\.join\(operationsRoot, "tongs", "heartbeat\.json"\);/u);
+  // Tongs 파일 이름은 vite.config 가 아니라 계약 모듈(guild_hall/shared/tongs_heartbeat_contract.mjs)
+  // 이 정한다. lane 이 쓰지 않는 옛 단일 파일 경로가 다시 생기면 실패한다.
+  assert.doesNotMatch(config, /"tongs", "heartbeat\.json"/u);
 });

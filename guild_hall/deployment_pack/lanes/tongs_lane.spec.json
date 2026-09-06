@@ -1,11 +1,13 @@
 {
   "schema": "soulforge.source_lane_spec.v0",
   "lane_id": "tongs-lane-v1",
-  "description": "The lane Soulforge-Tongs-Loopback-v1 will execute: the personal ERP MCP (server.mjs, default 127.0.0.1:4311) and, only when configured, the feature-gated HPP evidence ingress MCP (ingress_server.mjs). tracked_paths and carried_forward_prefixes were derived by tracing every import server.mjs and ingress_server.mjs actually reach (relative imports followed to their local files, bare specifiers collected as the third-party closure), not guessed — see docs/TONGS_LANE_RUNBOOK_V0.md §4 for the 2026-09-06 review finding (M6) that made this tracing necessary: no existing install/source-lanes/* lane's manifest carries @modelcontextprotocol/sdk or zod, so --previous-lane cannot be an as-is existing lane.",
+  "description": "The lane Soulforge-Tongs-Loopback-v1 will execute: the personal ERP MCP (server.mjs, default 127.0.0.1:4311) and, only when configured, the feature-gated HPP evidence ingress MCP (ingress_server.mjs). tracked_paths and carried_forward_prefixes were derived by tracing every import server.mjs and ingress_server.mjs actually reach (relative imports followed to their local files, bare specifiers collected as the third-party closure), not guessed — see docs/TONGS_LANE_RUNBOOK_V0.md §4 for the 2026-09-06 review finding (M6) that made this tracing necessary: no existing install/source-lanes/* lane's manifest carries @modelcontextprotocol/sdk or zod, so --previous-lane cannot be an as-is existing lane. ops/tongs_lane_support.mjs (also an entry point) additionally reaches guild_hall/shared/physical_path_identity.mjs, guild_hall/shared/soulforge_state_root.mjs and guild_hall/shared/tongs_heartbeat_contract.mjs (2026-09-06: the heartbeat contract Vigil reads lives in that shared module, and preflight compares -StateRoot with the shared state root).",
   "tracked_paths": [
     "ui-workspace/apps/dev-erp-mcp/",
     "guild_hall/ingress/local_outbox.mjs",
     "guild_hall/shared/physical_path_identity.mjs",
+    "guild_hall/shared/soulforge_state_root.mjs",
+    "guild_hall/shared/tongs_heartbeat_contract.mjs",
     "package.json",
     "package-lock.json",
     "ui-workspace/package.json",
