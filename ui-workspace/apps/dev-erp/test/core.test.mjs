@@ -62,6 +62,7 @@ import { backupRuntimeDb, restoreTestRuntimeDb, runtimeHealthCheck } from "../to
 import { runRuntimeReleaseAudit } from "../tools/runtime_release_audit.mjs";
 
 const APP_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
+const PROTECTED_RUNTIME_PORT = 4300;
 const MOCK_ONLY_SKIP = isRuntimeCheckout(APP_DIR)
   ? "mock bridge is intentionally unavailable in an installed runtime checkout"
   : false;
@@ -99,6 +100,18 @@ function freePort() {
       s.close(() => resolve(port));
     });
   });
+}
+
+// "Nothing listens here" sentinel for require-live audits: a just-released
+// loopback port, never the protected runtime port 4300 and never a port the
+// caller's fixture already holds. The former literal 65534 sat inside the
+// Windows dynamic range that listen(0) draws from, so any concurrent listener
+// could turn the fail-closed live probe into a real health read.
+async function reservePort(excluded = new Set()) {
+  while (true) {
+    const port = await freePort();
+    if (port !== PROTECTED_RUNTIME_PORT && !excluded.has(port)) return port;
+  }
 }
 
 function testServerEnv(extra = {}) {
@@ -1055,7 +1068,7 @@ test("runtime release audit: require-live rejects Git and NAS skip flags", async
       skipGit: true,
       skipNas: true,
       requireLive: true,
-      port: 65534,
+      port: await reservePort(),
     });
     const codes = result.blockers.map((issue) => issue.code);
     assert.ok(codes.includes("release_skip_git_forbidden"));
@@ -1090,7 +1103,7 @@ test("runtime release audit: exact approved commit mismatch and origin verificat
       nasRoot: false,
       requireLive: true,
       expectedCommit: expected,
-      port: 65534,
+      port: await reservePort(),
     });
     const codes = result.blockers.map((issue) => issue.code);
     assert.ok(codes.includes("source_git_expected_commit_mismatch"));
@@ -1139,7 +1152,7 @@ test("runtime release audit: require-live validates and probes the runtime-local
       requireLive: true,
       codexHome,
       codexTrustDomain: "runtime-test-domain",
-      port: 65534,
+      port: await reservePort(),
     });
     const check = result.checks.codex_workspace_registry;
     assert.equal(check.configured, true);
@@ -1195,7 +1208,7 @@ test("runtime release audit: Codex registry failures stay sanitized and unavaila
       requireLive: true,
       codexHome,
       codexTrustDomain: "runtime-test-domain",
-      port: 65534,
+      port: await reservePort(),
     };
 
     const invalid = await runRuntimeReleaseAudit(baseOptions);

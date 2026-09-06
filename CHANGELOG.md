@@ -1,5 +1,71 @@
 # CHANGELOG
 
+## 2026-09-06 - World Tree (dev-erp): require-live 감사 테스트 6건의 고정 포트 65534를 빈 포트 예약으로 교체, HPP 0.1.9 설치본 smoke 1회 실패 조사
+
+- 판단 표기: 테스트 밀폐성 수정 + 조사 기록. 기능 코드·운영 스크립트·팩 빌더는 바꾸지 않았다.
+  새 owner decision이나 정본 승격이 아니다.
+- 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
+- 배경: HPP 서버 팩 0.1.9 빌드 중 설치본 smoke(`build_pack.mjs ... --smoke`)가 exit 1로 한 번
+  실패했고, 곧바로 같은 트리를 처음부터 다시 빌드·설치·smoke 하자 동일 `pack_digest`로 통과했다.
+  팩 빌더의 `nodeTestRunner`는 `node --test` 출력을 버리고 종료 코드만 남기므로 어느 테스트가
+  왜 실패했는지는 남아 있지 않다(UNKNOWN).
+- 무엇: `test/core.test.mjs` 4건, `test/codex_payload_backup.test.mjs` 1건,
+  `test/runtime_release_audit_worker.test.mjs` 1건 — 총 6건의
+  `runRuntimeReleaseAudit({ requireLive: true, port: 65534 })` 호출이 "65534에는 아무도 듣지
+  않는다"는 가정으로 live 헬스 프로브(`checkLiveServer`의 `fetch` + netstat 스캔)가 fail-closed
+  되기를 기대하고 있었다. 65534는 Windows 동적 포트 범위(이 PC: 49152부터 16384개) 안이고 이
+  PC의 할당기는 순차 증가라(연속 `listen(0)` 8회 = 54247…54254) 같은 suite의
+  `reservePort()`/`freePort()`(`listen(0)`)든 호스트의 다른 어떤 프로세스든 언젠가 65534를 받는다.
+  이 6건을 파일별 `reservePort()`(4300과 호출자 fixture 포트를 제외한, 방금 해제된 loopback
+  포트) 헬퍼로 바꿨다 — `run_dev_erp_background_launcher.test.mjs`가 이미 쓰는 관례이며
+  `23c3d782`(포트 4300 케이스)와 같은 부류의 수정이다. `core.test.mjs`는 기존 `freePort()` 위에
+  얇게 얹었고 나머지 두 파일은 같은 모양의 헬퍼를 파일 안에 두었다(테스트 파일끼리 import 하면
+  테스트가 두 번 실행되므로 공유 모듈로 빼지 않았다). `codex_dedicated_worker.test.mjs`의
+  65534는 `ready.port + 1` 산술의 상한 폴백(의도된 불일치 포트)이라 성격이 달라 그대로 두었다.
+  두 파일이 팩 spec의 content-scan 검토 pin 대상이라 `emit_hpp_spec.mjs`로 spec을 다시 emit
+  했다 — 바뀐 것은 그 두 파일의 sha256 pin 2줄뿐이고, secret 정규식 히트(core 147건·worker
+  1건, 전부 합성 fixture 문자열)는 수정 전후 동일함을 대조했다.
+- 발견: (1) 65534에 실제 리스너를 심어 감사기를 돌리면 blocker 집합이 20개 → 43~45개(`live_*`
+  24개 추가, `live_health_unreachable` 소멸)로 바뀌므로 비밀폐성은 실재한다. (2) 그러나 이
+  6건의 단언은 모두 live 프로브 이전에 만들어지는 코드(`release_skip_*`, `source_git_*`,
+  `codex_workspace_*`, `codex_payload_restore_*`, `codex_active_write_grant_*`)만 보고 live
+  프로브는 코드를 더할 뿐이라, JSON 응답·무응답(hang)·즉시 끊김 리스너 어느 경우에도 6건(패턴
+  "runtime release audit" 14건)이 통과했다 — 즉 이 포트만으로는 smoke의 exit 1을 설명하지
+  못하며 실패 원인은 UNKNOWN으로 남는다. (3) 별개의 잠재 요인: `nodeTestRunner`의 `spawnSync`에
+  `maxBuffer`가 없어 기본 1 MiB를 넘는 출력이 나오면 자식이 `ENOBUFS`로 죽고 `status: null` →
+  smoke 실패로 기록된다(실측: 1,100 KiB를 쓰는 자식 = status null / SIGTERM / ENOBUFS). 정상
+  출력은 약 110 KB라 평소엔 9배 여유가 있다. 실패한 smoke의 `smoke.receipt.json`의 `summary`가
+  `node --test exited null`이면 이 경로, `exited 1`이면 실제 테스트 실패다. (4) 설치 경로 길이:
+  설치본을 깊은 임시 디렉터리(payload root 192자)에 두고 smoke를 돌리면
+  `project_history_copy_*` 테스트 25건이 매번 15초 타임아웃(`secure_path_lock_failed: Windows
+  path lock helper timed out`)으로 실패하고 한 회가 133초 → 316초가 된다. 원인은
+  `project_history_copy_projector.mjs`가 `powershell.exe -File <helper.ps1>`로 띄우는 헬퍼의
+  절대 경로가 266자가 되어 Windows PowerShell 5.1이 파일을 열지 못하고(exit 0xFFFD0000, "-File
+  인수가 존재하지 않음") 즉시 종료하는데, spawn이 `stdio: "ignore"`이고 종료를 보지 않아 15초
+  뒤 타임아웃으로만 보인다는 것이다(같은 헬퍼를 152자 경로에서 열면 정상). 이번 0.1.9 실패의
+  원인은 아니지만(그 smoke는 짧은 대상 경로에서 통과했다) 설치 대상 경로가 payload root 기준
+  약 188자를 넘으면 설치본 smoke와 이 기능이 확정적으로 깨진다.
+- 검증: `npm --prefix ui-workspace/apps/dev-erp test` 1138 tests / 1134 pass / 0 fail / 4
+  skip(symlink 권한 skip 4건; 수정 전 기준선 1138/1134/0/4와 동일, 135초); 6건 패턴 실행 —
+  수정 전 65534에 JSON·hang 리스너를 심어도 14/14, 수정 후 리스너 유무 모두 14/14;
+  `emit_hpp_spec.mjs --check` ok(1024 files, 72 pins); `local_absolute_path_policy --scope
+  changed` 0건; `path_length_policy --scope changed` 0건; `retired_display_terms_policy` 57건
+  전부 baseline 면제(0 unexempted); 설치본 smoke(`--install-verify` 대상을 짧은 경로에 두고 `runInstalledSmoke`를 출력 보존 runner로 실행) 수정본 5/5 통과(각 1138/1132/0/6 — 설치본 명시 skip 2건 추가, 132~140초, `pack_digest` 1465a28c…); 수정 전 트리(HEAD 4b26177b, `pack_digest` 52781d4d…) 3/3 통과(각 1138/1132/0/6, 134~141초; 그 트리의 unit gate는 1138/1134/0/4). 수정 전후 합계 8회 중 0회 실패로 원래의 1회 실패는 재현되지 않았다.
+- 운영 영향: 설치된 0.1.9 팩은 그대로다. 이 개정의 트리로 다시 빌드하면 테스트 파일 2건 + spec
+  pin이 바뀌어 `pack_digest`가 달라지므로, 다음 빌드는 `emit_hpp_spec.mjs`의 version(현재
+  "0.1.9")을 올린 뒤 emit 해서 별도 버전으로 낸다 — 같은 버전 문자열에 다른 digest를 두 개 만들지
+  않는다. `--install-verify` 대상은 payload root가 188자를 넘지 않는 짧은 경로로 둔다. 스킨 PNG
+  12장(`static/skins/main.png`, `dungeons/_p1~11.png`)은 git-ignored 로컬 자산인데 spec이 live
+  트리에서 집어넣으므로, 이 파일들이 없는 worktree에서 emit 하면 spec에서 12줄이 사라진다(이번엔
+  main checkout에서 복사해 두고 emit 했다).
+- 관련 경로: `ui-workspace/apps/dev-erp/test/core.test.mjs`,
+  `ui-workspace/apps/dev-erp/test/codex_payload_backup.test.mjs`,
+  `ui-workspace/apps/dev-erp/test/runtime_release_audit_worker.test.mjs`,
+  `ui-workspace/apps/dev-erp/tools/runtime_release_audit.mjs`(무변경),
+  `ui-workspace/apps/dev-erp/tools/project_history_copy_projector.mjs`(무변경, 헬퍼 spawn),
+  `guild_hall/deployment_pack/packs/hpp_server_pack.spec.json`,
+  `guild_hall/deployment_pack/tools/build_pack.mjs`(무변경, `nodeTestRunner`).
+
 ## 2026-09-06 - Vigil(포트 4192): 운영 lane을 operations-lane-v2에서 v3로 전환
 
 - 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.

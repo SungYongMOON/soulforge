@@ -2148,7 +2148,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/core.test.mjs",
-      "sha256": "7f021be48797100757e4ac720240f199abe43b4d5b3e1750675ab8c9d48287fa"
+      "sha256": "103392e6af1e93fdebd269fc5f5c39e024ddfe866ce70dddc8158d72ba844ab6"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/erp_mcp_server.test.mjs",
@@ -2164,7 +2164,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/runtime_release_audit_worker.test.mjs",
-      "sha256": "0b11ee293ff050d0265f4c7223cfe9710f0ffa03217a25f4d81f55c42644f769"
+      "sha256": "2259ea91f80ec7ef3398169e76aeed56b1d294569f21000b2d1712f93db0ebcd"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/voice_first_shadow.test.mjs",
