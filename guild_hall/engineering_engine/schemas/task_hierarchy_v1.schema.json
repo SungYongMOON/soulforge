@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.engineering_engine.task_hierarchy.v1",
+  "title": "TaskHierarchyNode",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "layer",
+    "id",
+    "owner_authority",
+    "applicability",
+    "depends_on",
+    "dependency_scope",
+    "preconditions",
+    "completion_contract",
+    "evidence_refs",
+    "blueprint_ref",
+    "state",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "soulforge.engineering_engine.task_hierarchy.v1"
+    },
+    "layer": {
+      "type": "string",
+      "enum": ["Stage", "WorkPackage", "Task", "Step", "Action"]
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "owner_authority": {
+      "type": "string",
+      "const": "rune"
+    },
+    "applicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["business_type", "prime_contractor", "quality_grade", "applies_when"],
+      "properties": {
+        "business_type": { "type": "string", "minLength": 1 },
+        "prime_contractor": { "type": "string", "minLength": 1 },
+        "quality_grade": { "type": "string", "minLength": 1 },
+        "applies_when": {
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "depends_on": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "dependency_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["same_stage", "earlier_stage", "forward_stage", "out_of_scope", "unresolved"],
+      "properties": {
+        "same_stage": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "earlier_stage": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "forward_stage": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "out_of_scope": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "unresolved": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "satisfied_inputs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "blocked_by": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "preconditions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["invariant_id", "kind", "state"],
+        "properties": {
+          "invariant_id": { "type": "string", "minLength": 1 },
+          "kind": { "type": "string", "const": "precondition" },
+          "state": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "completion_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["invariant_ids", "minimum_presence_rule", "required_evidence"],
+      "properties": {
+        "invariant_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "minimum_presence_rule": {
+          "type": "string",
+          "enum": ["present", "present_or_not_applicable", "optional_context"]
+        },
+        "required_evidence": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ref_kind", "exact_ref", "sha256"],
+        "properties": {
+          "ref_kind": { "type": "string", "minLength": 1 },
+          "exact_ref": { "type": "string", "minLength": 1 },
+          "sha256": { "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "blueprint_ref": {
+      "required": ["workflow_id", "version", "version_source"],
+      "additionalProperties": false,
+      "properties": {
+        "workflow_id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "version_source": { "type": "string", "const": "id_suffix" }
+      }
+    },
+    "state": {
+      "type": "string",
+      "enum": ["READY", "BLOCKED_INPUT", "BLOCKED_PRECONDITION", "WORKFLOW_GAP", "SATISFIED", "UNKNOWN"]
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "const": "observed"
+    },
+    "steps": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_level", "evidence_rank", "evidence_record", "depends_on_origin"],
+      "properties": {
+        "evidence_level": {
+          "type": "string",
+          "enum": [
+            "regulation_mandated",
+            "guidebook_recommended",
+            "prime_contract",
+            "general_se_guidance",
+            "internal_management",
+            "unstated"
+          ]
+        },
+        "evidence_rank": { "type": "number" },
+        "evidence_record": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "depends_on_origin": {
+          "type": "string",
+          "enum": ["canonical", "generic_layer_projection", "mixed"]
+        }
+      }
+    },
+    "order_index": { "type": "number" },
+    "dependents_count": { "type": "number" },
+    "engine_requirement_id": { "type": "string", "minLength": 1 },
+    "alias": { "type": "string", "minLength": 1 },
+    "observation_state": { "type": "string", "minLength": 1 },
+    "stage_code": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$" },
+    "stage_sequence": { "type": "number" },
+    "work_package_key": { "type": "string", "minLength": 1 },
+    "title_ko": { "type": "string", "minLength": 1 },
+    "owner_domain_rune": { "type": "string", "minLength": 1 },
+    "artifact_type_id": { "type": "string", "minLength": 1 },
+    "node_kind": { "type": "string", "enum": ["artifact", "activity", "decision"] },
+    "gate_role": { "type": "string", "enum": ["core", "entry", "supporting"] },
+    "task_id": { "type": "string", "minLength": 1 },
+    "workflow_id": { "type": "string", "minLength": 1 },
+    "step_id": { "type": "string", "minLength": 1 },
+    "seq": { "type": "number" },
+    "action_kind": { "type": "string", "minLength": 1 },
+    "effect_class": { "type": "string", "minLength": 1 },
+    "receipt_required": { "type": "boolean" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "layer": { "const": "Stage" } } },
+      "then": {
+        "required": ["stage_code", "stage_sequence"],
+        "properties": {
+          "id": { "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "layer": { "const": "WorkPackage" } } },
+      "then": {
+        "required": ["stage_code", "work_package_key", "title_ko", "owner_domain_rune"],
+        "properties": {
+          "id": { "pattern": "^wp:[A-Za-z0-9][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.-]*$" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "layer": { "const": "Task" } } },
+      "then": {
+        "required": [
+          "stage_code",
+          "artifact_type_id",
+          "node_kind",
+          "gate_role",
+          "satisfied_inputs",
+          "blocked_by",
+          "steps"
+        ],
+        "properties": {
+          "id": { "pattern": "^task:[A-Za-z0-9][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.-]*$" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "layer": { "const": "Step" } } },
+      "then": {
+        "required": ["task_id", "workflow_id", "step_id", "seq"],
+        "properties": {
+          "id": {
+            "pattern": "^step:task:[A-Za-z0-9][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.-]*$"
+          },
+          "blueprint_ref": { "type": "object" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "layer": { "const": "Action" } } },
+      "then": {
+        "required": ["step_id", "action_kind", "effect_class", "receipt_required"],
+        "properties": {
+          "id": {
+            "pattern": "^action:step:task:[A-Za-z0-9][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.-]*$"
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "blueprint_ref": { "const": null } } },
+      "then": { "properties": { "steps": { "maxItems": 0 } } }
+    }
+  ]
+}

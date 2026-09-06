@@ -15,4 +15,15 @@ The canonical contracts for domain engines have been physically relocated:
 - Interface Consistency: `guild_hall/engineering_engine/engines/interface_consistency/contracts/`
 - PCB Compliance: `guild_hall/engineering_engine/engines/pcb_compliance/contracts/`
 
-This directory is a non-authoritative compatibility pointer and contains no contract definitions.
+This directory is a non-authoritative compatibility pointer for the per-engine contracts listed
+above and contains no definitions for those. It also owns one cross-engine contract of its own,
+which does not belong to any single domain engine above:
+
+- **Task hierarchy (candidate, not canon)**: `task_hierarchy_v1.md` +
+  `../schemas/task_hierarchy_v1.schema.json` — the Stage / WorkPackage / Task / Step / Action
+  machine contract that Rune (`engineering_engine`)'s stage order (`orderStageWork`) projects
+  into. Read-only with respect to Rune: it never feeds back into the compiler, its rules, or its
+  MCP surface.
+- **Follow-up, not yet added**: `task_invariants_v0.json` — the five cross-blueprint invariants
+  (`INV-PROC-01` … `INV-BASE-05`) that populate `task_hierarchy_v1`'s `preconditions[]` and
+  `completion_contract`. Planned for the next commit in the same lane; not present yet.

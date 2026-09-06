@@ -1,5 +1,41 @@
 # CHANGELOG
 
+## 2026-09-06 - Rune(Engineering Engine) task hierarchy 계약 v1(candidate) 추가
+
+- 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: Rune(Engineering Engine, `guild_hall/engineering_engine`)이 이미 내는 Stage 순서
+  (`orderStageWork`)가 투영될 자리인 `task_hierarchy_v1` 기계 계약을 후보(candidate, 정본
+  아님)로 추가했다. `guild_hall/engineering_engine/contracts/task_hierarchy_v1.md`(계약
+  문서: Stage→WorkPackage→Task→Step→Action 5계층 id 규칙·필수 필드·공통 필드·§3.3 Rune
+  출력 매핑표 — 브리프가 인용한 줄 번호를 `stage_rule_compiler.mjs`에서 직접 재확인했고
+  필드명 불일치는 발견하지 못했다. Task/Step/Action에 stage_code·task_id·workflow_id·
+  step_id를 브리프의 "필수" 표에 없던 필드로 추가했는데, 각 계층의 id 규칙이 그 필드
+  없이는 재구성될 수 없어서다 — 문서에 근거를 남겼다)와
+  `guild_hall/engineering_engine/schemas/task_hierarchy_v1.schema.json`(JSON Schema
+  draft 2020-12, `additionalProperties:false`, 계층별 id 패턴, `blueprint_ref`가 null이면
+  `steps`가 빈 배열이어야 하는 조건)을 새로 만들고, 같은 폴더에 무의존 JSON-Schema
+  서브셋 검증기(`task_hierarchy_v1_schema_validator.mjs` — `safety_hazard` 엔진의 기존
+  검증기와 같은 접근을 이 계약 소유 폴더에 맞게 복제·확장)를 두었다.
+  `guild_hall/engineering_engine/contracts/tests/task_hierarchy_contract.test.mjs`
+  (T-01: 스키마 자기 유효성, 계층별 최소 유효 인스턴스 5종, 반례 3종 — 여분 필드·잘못된
+  id·`blueprint_ref`가 null인데 `steps`가 비어있지 않음)를 새 위치에 추가했다
+  (`guild_hall/engineering_engine/tests/`는 그 폴더 자신의 README가 "legacy forwarding
+  stub 전용"이라 명시해 피했다). `package.json`에 `validate:task-hierarchy-contract`를
+  배선했고(12 test 모두 pass), `guild_hall/engineering_engine/contracts/README.md`에 새
+  계약을 등재하며 `task_invariants_v0`를 다음 커밋 후속으로 표기했다.
+- 운영 영향: 순수 데이터 계약과 읽기 전용 시험뿐이다. Rune 컴파일러·MCP·어휘 파일·
+  예약작업·포트는 전혀 건드리지 않았다. `npm run validate`/`done:check`의 기존 마스터
+  게이트(`run_root_acceptance.mjs`)에는 아직 배선하지 않았다 — 이 계약 test는 지금은
+  `npm run validate:task-hierarchy-contract`로만 실행된다. D46/D47이 아직 owner 승인
+  전 제안이라 이 계약 전체가 candidate이며, 승인 전까지는 어떤 소비자도 정본으로 인용할
+  수 없다(계약 문서 §8에 무엇이 무효가 되는지 적었다).
+- 관련 경로: `guild_hall/engineering_engine/contracts/task_hierarchy_v1.md`,
+  `guild_hall/engineering_engine/contracts/README.md`,
+  `guild_hall/engineering_engine/contracts/tests/task_hierarchy_contract.test.mjs`,
+  `guild_hall/engineering_engine/schemas/task_hierarchy_v1.schema.json`,
+  `guild_hall/engineering_engine/schemas/task_hierarchy_v1_schema_validator.mjs`,
+  `package.json`(`validate:task-hierarchy-contract`).
+
 ## 2026-09-06 - 운영 전환 3건: World Tree 0.1.9(변형 B) · Vigil operations-lane-v4 · Tongs tongs-lane-v2 등록
 
 - 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
