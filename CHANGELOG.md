@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 2026-09-07 - README 어디서 도는가 정정(관측 대조) + 정본 로드맵에 대장간 세계·세 창 등록
+
+- 날짜: 2026-09-07. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: 별도 Fable 세션의 신선한 눈 검토(2026-09-06 밤, 예약작업 인자·포트·프로세스 직접 관측)가 README
+  §어디서 도는가의 세 문장이 관측과 다르다고 잡았다. (1) Hiworks 전달기·Codex 보존 예약작업은 v4가 아니라
+  `operations-lane-v2`를 가리킨다, (2) 서버팩 정션은 `current`→0.1.7·`previous`→0.1.6이다(운영은 0.1.9를
+  직접 pin하므로 실행과 무관), (3) 문단 끝에 "Tongs는 등록 전"이라는 옛 문장이 남아 있었다(같은 문단 앞쪽의
+  tongs-lane-v2 등록 기록과 모순). 셋을 관측대로 고치고, Vigil 예약작업은 관측된 1개로 적었으며, 18080
+  로컬 모델 서버가 예약작업 없이 수동 기동 상태라는 사실을 추가했다.
+  같은 커밋에서 `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md`에 "Owner-directed adjacent lane —
+  대장간 세계·세 창" 절과 plan-delta 1행, 다음 후보 2행(팀 노출 경로, README-예약작업 대조 guard)을 등록했다.
+  검토가 지적한 대로 2026-09-06의 로드맵·브리프·명세는 사설 인수인계 폴더에만 있어 AGENTS.md를 읽는
+  빌더가 다른 active slice를 보게 돼 있었다. 등록은 위임 결정의 기록이지 정본 승격이 아니다. 로드맵이 boot
+  digest 원천이라 `boot_digest_guard.mjs --update`로 재서명했다.
+- 검증: `validate:display-terms`(신규 0) · `validate:path-policy:all`(0) · `boot_digest_guard.test.mjs`.
+
 ## 2026-09-06 - Vigil(team-ops-board, 포트 4192): 디자인 토큰 단일 원천(S1) 추가
 
 - 날짜: 2026-09-06. Revision: 이 항목을 담은 git commit이 정확한 revision을 정한다.

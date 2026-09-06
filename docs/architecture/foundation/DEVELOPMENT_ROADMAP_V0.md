@@ -542,6 +542,26 @@ Portfolio Projection, Meaningful/Skillable Work Unit과 Capability Learning Loop
 - 검증: `npm run validate:sonar-intel`. 첫 수집 실행 수치는 `CHANGELOG.md`의 같은 날짜
   항목이 소유한다.
 
+### Owner-directed adjacent lane — 대장간 세계·세 창(작업대 · 세계 · 소나 인텔) (2026-09-06)
+
+- 2026-09-06 Owner가 "폴더에 파일이 쌓이는 것이 아니라 마을이 지어지는 것을 보며 일한다"는 방향을 정하고
+  세부 결정을 총괄 세션에 위임했다. 세 창 = **작업대**(회의록·보고서·업무일지 한 번 클릭 → 봇이 스킬로 수행,
+  요청서 접수만이 Vigil의 쓰기) · **세계**(과제별 마을 + 부품 지도, 줌 1단 '구시가'가 시스템 마을, 시뮬레이션
+  0인 뷰어) · **소나 인텔**(위 인접 lane). 짓는 순서는 그림이 아니라 체계공학 순서이며 Rune(`engineering_engine`)의
+  판정(DAG)과 일치한다. 워크플로는 정본으로 굳히지 않고(versioned Blueprint), 방식과 무관한 필수만 결과·증거
+  조건으로 검사한다. 결과는 언제나 후보이고 사람이 수락해야 정본이 된다.
+- 이 lane은 현재 read-only AX·SE active slice를 대체하지 않는 위임 결정 기록이며 정본 승격이 아니다. 로드맵
+  단위(1-1~4-3), 브리프·명세·계약(결속 계약 v0.1, `task_hierarchy_v1` candidate)은 사설 인수인계 폴더
+  (`<handoff package>`)와 `docs/reviews/` 왕복 기록이 소유하고, 이 문서에는 상세 backlog를 복제하지 않는다.
+- 저장소에 들어간 첫 조각(2026-09-06): `task_hierarchy_v1` 계약(candidate,
+  `guild_hall/engineering_engine/engines/systems_engineering/{contracts,schemas,tests}/`), Vigil 디자인 시스템 S1
+  (`ui-workspace/apps/team-ops-board/src/design/`), 집게(Tongs) 심박 계약(`guild_hall/shared/`), 소나 인텔 Goal #1.
+- 착수 순서(2026-09-07, 외부 검토 2회 반영): 결속 계약 커밋 0 + 공유 반례 fixture → 실과제 1개 world-state
+  산출기 → 세계 정적 진입 페이지(`App.tsx` 무접촉) → 작업대 접수(별도 프로세스/플래그, READ_ONLY_PILOT 의미 불변)
+  → Rune 커밋 2(계약 정합 폐쇄) → 소나 인텔 읽기 패널. 팀 노출 경로(파일럿 규칙상 4192·4300은 Owner loopback)와
+  승인 principal 분리는 Owner 결정 항목이다.
+- 검증: 단위별 `validate:*` + `done:check`; 외부 검토 기록은 `docs/reviews/EXTERNAL_REVIEW_MAP_2026-09-06.md`.
+
 ## SE assistant program direction
 
 Current structural target:
@@ -1123,6 +1143,8 @@ Start condition:
 | 19 | V0 문서 버전 승격/유지 기준 정의 | 없음 - 기준 한 장이면 충분 | `docs/architecture/foundation` |
 | 20 | knowledge/RAG 문서 통합 색인 | 분산 문서 8+건 목록 확정 | `docs/architecture/foundation`, `docs/architecture/workspace` |
 | 21 | Python 테스트 커버리지 확장 (town_crier, mail_send 등) | 없음 - synthetic fixture 로 가능 | `guild_hall` |
+| 22 | 팀원이 세계를 보는 통로(강도담이 하루 1회 세계 정적 페이지 스냅샷을 Buzz 채널에 읽기 전용 배포, 쓰기 0·loopback 유지) | owner 가 노출 방식을 정함(FRESH_REVIEW 2026-09-06 질문 2) | `guild_hall/gateway`, `ui-workspace/apps/team-ops-board`, plan 18 |
+| 23 | README §어디서 도는가 대조 guard(예약작업 인자·포트를 읽어 문단의 lane·판본 주장을 검증) | 없음 - 읽기 전용, Windows 게이트 | `guild_hall/validate`, `README.md` |
 | 22 | 메일 수집 계정별 owner 메타 → core_mail (개인별 메일 뷰) | 메일 수집 통합 완료(자동 15분+수동 버튼); Codex 원장 스키마에서 owner 필드 위치(신규 컬럼 vs `메일함` 재정의) 확정 | `guild_hall/gateway`, `ui-workspace/apps/dev-erp`, `docs/architecture/workspace` |
 | 23 | 메일 원장 시간 분할 + 증분 스캔 (무한 누적 대비) | owner 가 분할 단위(연/월) 정함; Codex 원장 표준 `soulforge.project_mail_history.private.v1` 변경 조율 | `guild_hall/gateway`, `docs/architecture/workspace`, `_workmeta` |
 | 24 | Rhino x Claude Code 연결 패턴 검토 | engineering co-pilot / SE assistant lane 재개 시 owner 가 Rhino 자동화 연결 필요성을 정함; 공개 영상 source ref 를 먼저 검토 | `.workflow`, `_workmeta/system`, external host setup |
@@ -1325,6 +1347,7 @@ raw 산출물·private 수치는 `_workmeta` 영수증을 가리키고 여기엔
 | 2026-08-25 | Candidate Execution Coordinator first bounded live canary | feature-OFF public-synthetic 구조가 실제 Linear marker→exact Bot command→Vigil readback을 아직 증명하지 못했음 | Owner 승인 team-only 합성 `SON-59`와 `AI 실행 후보` label을 Codex Linear connector로 만들고, Role/Capability→responsible triage→Coordinator→기본 Hermes runner로 exact 제품 총괄 `gpt-5.6-terra` session에 1회 전달 | marker digest 일치, candidate run/receipt exact Bot 귀속, same-process replay `NO_OP`, Vigil matched 1·`working→idle`, Linear Todo/label 유지, Official Done/mutation false. Connector/label은 authority가 아니며 persistent ledger·scheduler·writer·automatic assignment·실업무 Work Brief·production route는 `HOLD` | `SON-59` metadata-only Evidence comment, Vigil read-only projection, post-development review packet, CHANGELOG 08-25 |
 | 2026-08-25 | Engineering Engine 조립 모델과 package 표준 결정 | current main은 SE가 flat `contracts/stage_rules/subjects/tests/...`를 쓰고, 별도 E01 candidate branch(`codex/quality-engine-v0@f306f3c7`)도 같은 flat category에 prefix 파일을 더해 Compiler·Overlay를 제품 계층처럼 읽기 쉬웠음 | Owner가 `Engine Core / Domain Engine / Organization Profile / Project Profile / Project Binding / Effective Rule Set` 용어와 두 흐름(규칙 조립 vs evidence→Typed Facts)을 승인. target `core/ + engines/<domain>/` package와 organization/project storage owner, migration gate를 정본 문서·SE manual·source model·TARGET_TREE에 기록 | 이번 slice는 documentation decision만 수행하고 file relocation·schema 발행·E01 merge·E02 생성은 0. E02 전 SE+E01 two-adapter conformance→Core Interface 동결→SE/E01 migration→Profile provenance→zero-write replay를 닫아야 함 | `docs/architecture/guild_hall/ENGINE_CORE_DOMAIN_PROFILE_ASSEMBLY_MODEL_V0.md`, Engineering Engine README/manual, `SE_STAGE_RULE_SOURCE_MODEL_V0.md` |
 | 2026-08-25 | Engineering Engine 물리 package layout migration | 조립 모델 승인 뒤 물리 마이그레이션 착수 | shared core/ + engines/systems_engineering/ + engines/quality_readiness/(E01) 통합, .registry/engineering_profiles/ schema/catalog 구축, Core Domain Adapter 인터페이스 및 two-domain conformance suite 구현, legacy re-export stubs 보존, release/topology/manifest 재생성 및 검증 완료 | E02(interface_consistency) 확장은 의도적으로 미포함, zero-write replay 및 provenance 100% 보존 | CHANGELOG 08-25, core_domain_conformance.test.mjs, validate:quality-readiness, validate:engineering-engine-core-domain |
+| 2026-09-07 | 대장간 세계·세 창 lane 등록 | 2026-09-06의 로드맵·브리프·명세·계약이 사설 인수인계 폴더에만 있어 이 문서를 읽는 빌더가 다른 active slice를 보게 돼 있었음(FRESH_REVIEW 2026-09-06 Q3-6) | Owner-directed adjacent lane 절 1개 + 다음 후보 22·23 등록, 정본 승격 아님. 첫 조각은 이미 main(계약 v1 candidate·디자인 시스템 S1·집게 심박·소나 인텔 #1). 착수 순서는 외부 검토 2회(GPT 재자문 06, 신선한 눈)로 정정된 순서를 따른다 |
 
 ## 갱신 규칙
 
