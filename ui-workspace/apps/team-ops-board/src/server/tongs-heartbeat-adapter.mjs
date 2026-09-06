@@ -3,8 +3,12 @@
 //
 // 읽는 것은 하나뿐이다: `<tongs state root>/operations/tongs/erp_mcp.heartbeat.v1.json`
 // (경로 조각과 파일명은 이 어댑터가 다시 짓지 않고
-// ui-workspace/apps/dev-erp-mcp/ops/tongs_lane_support.mjs — Tongs lane 자체의
-// 정본 계약 모듈 — 에서 그대로 가져온다). 그 파일은 Tongs lane 이 쓰고 이
+// guild_hall/shared/tongs_heartbeat_contract.mjs — Tongs lane 과 이 어댑터가
+// 함께 가져다 쓰는 정본 계약 모듈 — 에서 그대로 가져온다. Vigil(이 앱)은 빌드된
+// source lane에서 실행되고 그 lane 은 dev-erp-mcp 의 파일을 싣지 않으므로, 이
+// 어댑터는 Tongs lane 자신의 모듈(ui-workspace/apps/dev-erp-mcp/ops/
+// tongs_lane_support.mjs)을 직접 import 하지 않는다 — 계약은 두 앱이 함께
+// import 하는 guild_hall/shared 에만 둔다). 그 파일은 Tongs lane 이 쓰고 이
 // 어댑터는 절대 쓰지 않는다. 하트비트가 없으면 `unknown`(회색)이고, 있는데
 // 규격을 어기면 `unavailable`(관측된 고장)이다.
 //
@@ -35,7 +39,7 @@ import {
   TONGS_HEARTBEAT_SCHEMA,
   TONGS_HEARTBEAT_STATUSES,
   tongsHeartbeatPath,
-} from "../../../dev-erp-mcp/ops/tongs_lane_support.mjs";
+} from "../../../../../guild_hall/shared/tongs_heartbeat_contract.mjs";
 
 export const TONGS_SNAPSHOT_PATH = "/tongs.snapshot.json";
 export const TONGS_PROJECTION_SCHEMA = "soulforge.team_ops_board.tongs_projection.v1";

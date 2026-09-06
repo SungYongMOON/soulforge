@@ -195,7 +195,8 @@ Task Scheduler의 job-object 종료 시맨틱이 자식 프로세스를 거둬�
 스스로 복구한다.
 
 **신선도 창(M2).** `MaxHeartbeatAgeMs` 기본값은 720000(12분) — 등록된 예약작업의 5분 반복(300000ms)의
-2.4배다. 이 상수는 `tongs_lane_support.mjs`의 `TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS`
+2.4배다. 이 상수는 `guild_hall/shared/tongs_heartbeat_contract.mjs`의
+`TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS`(`ops/tongs_lane_support.mjs`가 그대로 re-export)
 (`TONGS_REGISTERED_TRIGGER_INTERVAL_MS`의 배수 관계로 node:test가 고정) 한 곳에서만 정의되고,
 `run-tongs-loopback.ps1`과 `register-tongs-task.ps1`은 그 값을 문자 그대로 복사한 기본값을 쓴다 —
 셋이 갈라지지 않게, `register-tongs-task.ps1`은 호출자가 `-MaxHeartbeatAgeMs`를 5분 반복의 2배(600000)
@@ -262,15 +263,22 @@ entry의 **절대 경로 전체**가 명령행에 실제로 들어있는지까�
 `tongs_heartbeat_absent`를 보고했다(lane builder가 실측, 2026-09-06). 지금은 아래처럼
 한 계약을 양쪽이 그대로 가져다 쓴다.
 
-**계약의 정본.** `ops/tongs_lane_support.mjs`가 파일명 패턴(`tongsHeartbeatPath()` +
-`TONGS_STATE_DIRNAME`), 필드 집합(`HEARTBEAT_FIELDS`), 스키마 문자열(`TONGS_HEARTBEAT_SCHEMA`),
-상태 어휘(`TONGS_HEARTBEAT_STATUSES`), Vigil이 보는 서비스(`TONGS_ALWAYS_MANAGED_SERVICE` =
-`"erp_mcp"` — ingress MCP는 opt-in이라 단일 값 스냅샷의 대상이 아니다), 신선도/재기동 판단 창
-(`TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS`)을 소유한다.
-`ui-workspace/apps/team-ops-board/src/server/tongs-heartbeat-adapter.mjs`는 이 다섯 상수/함수를
-전부 이 모듈에서 직접 import한다 — 자기 나름의 복사본을 다시 만들지 않는다(그래서 다시 갈라질
-수 없다). Vigil의 신선도 창도 같은 `TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS`를 초 단위로 그대로 쓴다
-(예전엔 독자적으로 900초를 추측해 lane의 실제 판단 창인 720초와도 어긋나 있었다).
+**계약의 정본 (2026-09-06 재배치).** 파일명 패턴(`tongsHeartbeatPath()` + `TONGS_STATE_DIRNAME`),
+필드 집합(`HEARTBEAT_FIELDS`), 스키마 문자열(`TONGS_HEARTBEAT_SCHEMA`), 상태 어휘
+(`TONGS_HEARTBEAT_STATUSES`), Vigil이 보는 서비스(`TONGS_ALWAYS_MANAGED_SERVICE` = `"erp_mcp"` —
+ingress MCP는 opt-in이라 단일 값 스냅샷의 대상이 아니다), 신선도/재기동 판단 창
+(`TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS`)의 정본은 `guild_hall/shared/tongs_heartbeat_contract.mjs`다.
+위 배경의 수정 직후에는 이 lane 자신의 `ops/tongs_lane_support.mjs`가 정본이었으나, 그 설계는
+team-ops-board가 dev-erp-mcp를 import하는 첫 app-to-app edge였다(세션
+`claude_20260906_team_ops_adapter_enum_drift_audit`가 Owner 결정 보류로 잡아둔 지점) — Vigil은
+dev-erp-mcp의 파일을 싣지 않는 빌드된 source lane에서 실행되므로, 그 edge는 dev에서는 resolve되고
+빌드된 lane에서는 `ERR_MODULE_NOT_FOUND`로 죽는다. 지금은 두 앱 누구도 상대를 import하지 않는다:
+`ops/tongs_lane_support.mjs`는 `guild_hall/shared/tongs_heartbeat_contract.mjs`를 import해 그대로
+re-export할 뿐이고(자신의 CLI와 기존 importer인 `ops/tongs_lane_support.test.mjs`가 계속 동작하도록),
+`tongs-heartbeat-adapter.mjs`는 같은 모듈을 `ops/tongs_lane_support.mjs`를 거치지 않고
+guild_hall/shared에서 직접 import한다. Vigil의 신선도 창도 같은
+`TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS`를 초 단위로 그대로 쓴다(예전엔 독자적으로 900초를 추측해
+lane의 실제 판단 창인 720초와도 어긋나 있었다).
 
 **상태 root — 명시 env, fail-closed, 조용한 대체 없음.** 이 lane의 `-StateRoot`와 Vigil의 일반
 state root는 서로 다른 값을 가리켜도 되는 독립된 설정 채널이므로(위 배경 참고), 어댑터는 그 둘이
@@ -287,10 +295,14 @@ checkout의 `guild_hall/state`다 — AGENTS.md의 일반 state root 우선순�
 
 **단위 테스트.** `ui-workspace/apps/team-ops-board/src/server/tongs-heartbeat-adapter.test.mjs`가
 (1) 실제 파일명(`erp_mcp.heartbeat.v1.json`)으로 쓰인 fixture를 읽어 ok(ready+fresh)/stale/absent를
-올바르게 판정하는지, (2) 어댑터의 기본 경로가 `tongs_lane_support.mjs`의 `tongsHeartbeatPath()` +
-`TONGS_ALWAYS_MANAGED_SERVICE`를 **같은 함수 호출로** 그대로 재현하는지(계약 테스트 — 두 값이
-우연히 같은 문자열이 아니라 같은 호출 결과라서 갈라질 수 없음을 증명), (3)
-`SOULFORGE_TONGS_STATE_ROOT`의 우선순위·fail-closed 동작을 검증한다.
+올바르게 판정하는지, (2) 어댑터의 기본 경로가 `guild_hall/shared/tongs_heartbeat_contract.mjs`의
+`tongsHeartbeatPath()` + `TONGS_ALWAYS_MANAGED_SERVICE`를 **같은 함수 호출로** 그대로 재현하는지
+(계약 테스트 — 두 값이 우연히 같은 문자열이 아니라 같은 호출 결과라서 갈라질 수 없음을 증명), (3)
+그 상태 어휘(`TONGS_STATUS_VALUES`)가 `TONGS_HEARTBEAT_STATUSES`와 참조까지 같은지(`===`), (4)
+`SOULFORGE_TONGS_STATE_ROOT`의 우선순위·fail-closed 동작을 검증한다. `ops/tongs_lane_support.test.mjs`
+쪽에도 대응하는 계약 테스트가 있다 — 이 모듈이 re-export하는 상수/함수 전부가
+`guild_hall/shared/tongs_heartbeat_contract.mjs`의 바로 그 바인딩인지(`===`) 검증해, 이 모듈이
+독자 복사본을 다시 만들면 값이 우연히 같아도 이 테스트가 실패한다.
 
 ## 6. 등록 — dry-run 먼저, 그다음 실제
 
@@ -451,7 +463,8 @@ node guild_hall/validate/run_root_acceptance.mjs --mode validate
 npm --prefix ui-workspace/apps/team-ops-board run test
 ```
 
-`validate:tongs-lane`은 이 lane 자신의 `ops/tongs_lane_support.mjs`만 본다(§5.1의 계약 정본).
+`validate:tongs-lane`은 이 lane 자신의 `ops/tongs_lane_support.mjs`(§5.1의 계약 정본인
+`guild_hall/shared/tongs_heartbeat_contract.mjs`를 re-export하는 진입점)와 그 테스트만 본다.
 §5.1이 정의하는 계약을 Vigil 쪽이 실제로 지키는지는 여기 포함되지 않으므로, 그 계약을 건드릴 때는
 위 `npm --prefix ui-workspace/apps/team-ops-board run test`(특히
 `src/server/tongs-heartbeat-adapter.test.mjs`)도 함께 초록이어야 한다.

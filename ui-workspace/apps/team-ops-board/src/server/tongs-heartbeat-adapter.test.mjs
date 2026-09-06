@@ -9,6 +9,7 @@ import {
   TONGS_PROJECTION_SCHEMA,
   TONGS_SNAPSHOT_PATH,
   TONGS_STATE_ROOT_ENV,
+  TONGS_STATUS_VALUES,
   createTongsHeartbeatAdapterPlugin,
   createTongsHeartbeatReader,
   defaultTongsHeartbeatPath,
@@ -19,8 +20,9 @@ import {
   TONGS_ALWAYS_MANAGED_SERVICE,
   TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS,
   TONGS_HEARTBEAT_SCHEMA,
+  TONGS_HEARTBEAT_STATUSES,
   tongsHeartbeatPath,
-} from "../../../dev-erp-mcp/ops/tongs_lane_support.mjs";
+} from "../../../../../guild_hall/shared/tongs_heartbeat_contract.mjs";
 
 const NOW_MS = Date.parse("2026-09-06T04:00:00.000Z");
 // Tongs lane 이 실제로 쓰는 모양 그대로다(schema_version 필수, status "ready") —
@@ -183,11 +185,13 @@ test("기본 경로는 state root 아래 operations/tongs/erp_mcp.heartbeat.v1.j
   });
 });
 
-// 계약 테스트: Tongs lane 이 실제로 쓰는 파일명(tongs_lane_support.mjs 의
-// tongsHeartbeatPath + TONGS_ALWAYS_MANAGED_SERVICE)과 이 어댑터가 기본으로
-// 읽으려는 파일명이 같은 상수/함수에서 나온다는 것을 직접 증명한다 — 두 값이
-// 우연히 같은 문자열이라서가 아니라 같은 함수 호출의 결과라서 절대 갈라질 수
-// 없다는 것을 확인한다.
+// 계약 테스트: Tongs lane 이 실제로 쓰는 파일명(guild_hall/shared/
+// tongs_heartbeat_contract.mjs 의 tongsHeartbeatPath + TONGS_ALWAYS_MANAGED_SERVICE)과
+// 이 어댑터가 기본으로 읽으려는 파일명이 같은 상수/함수에서 나온다는 것을 직접
+// 증명한다 — 두 값이 우연히 같은 문자열이라서가 아니라 같은 함수 호출의
+// 결과라서 절대 갈라질 수 없다는 것을 확인한다. 이 파일 자신도 그 함수를
+// guild_hall/shared 에서 직접 import 한다(dev-erp-mcp 의 tongs_lane_support.mjs를
+// 거치지 않는다) — team-ops-board -> dev-erp-mcp import edge 는 어디에도 없다.
 test("계약: 어댑터의 기본 경로는 lane writer 와 같은 tongsHeartbeatPath() 호출에서 나온다", async () => {
   await withTempDir(async (dir) => {
     await mkdir(join(dir, "state"), { recursive: true });
@@ -197,6 +201,15 @@ test("계약: 어댑터의 기본 경로는 lane writer 와 같은 tongsHeartbea
     assert.equal(adapterPath, laneWriterPath);
     assert.equal(TONGS_ALWAYS_MANAGED_SERVICE, "erp_mcp");
   });
+});
+
+// 계약 테스트: 어댑터가 재노출하는 상태 어휘(TONGS_STATUS_VALUES)는
+// guild_hall/shared/tongs_heartbeat_contract.mjs 의 TONGS_HEARTBEAT_STATUSES와
+// 참조가 같다(===) — 값만 우연히 같은 복사본이 아니라 정확히 같은 배열
+// 객체라서, 그 정본이 바뀌면 이 어댑터도 자동으로 같이 바뀌고 절대 따로
+// 갈라질 수 없다는 것을 증명한다.
+test("계약: 어댑터의 상태 어휘는 guild_hall/shared 의 배열과 같은 참조다(복사본이 아니다)", () => {
+  assert.strictEqual(TONGS_STATUS_VALUES, TONGS_HEARTBEAT_STATUSES);
 });
 
 test("state root: SOULFORGE_TONGS_STATE_ROOT 가 일반 SOULFORGE_STATE_ROOT 보다 우선하고, 없으면 그리로 내려간다", async () => {

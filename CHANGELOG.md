@@ -61,27 +61,35 @@
   `SOULFORGE_OWNER_ROOT`뿐 — lane 자신의 독립된 `-StateRoot` 등록 파라미터는 보지 않음)이 전부
   따로 추측된 상태였다. 그 결과 lane을 정확히 등록해도 `/tongs.snapshot.json`이 `unknown` /
   `tongs_heartbeat_absent`를 보고했다. 고침: 파일명 패턴·필드 집합·스키마 문자열·상태 어휘·
-  신선도 창(초 단위, 이제 lane 자신의 재기동 판단 창 720초와 일치)의 정본을 lane의
-  `ops/tongs_lane_support.mjs` 한 곳으로 모으고, Vigil의 어댑터가 그 다섯 상수/함수를 그대로
-  import하도록 고쳤다(더 이상 자기 사본을 만들지 않음). `vite.config.ts`가 따로 짓던 세 번째
+  신선도 창(초 단위, 이제 lane 자신의 재기동 판단 창 720초와 일치)의 정본을
+  `guild_hall/shared/tongs_heartbeat_contract.mjs` 한 곳으로 모으고(같은 날 안의 후속 개정 —
+  lane의 `ops/tongs_lane_support.mjs`는 이제 그 모듈을 re-export만 한다), Vigil의 어댑터가 그
+  상수/함수를 `ops/tongs_lane_support.mjs`를 거치지 않고 `guild_hall/shared`에서 직접
+  import하도록 고쳤다(더 이상 자기 사본을 만들지 않고, team-ops-board가 dev-erp-mcp를 import하는
+  edge도 없다). `vite.config.ts`가 따로 짓던 세 번째
   (그리고 틀린) 경로 계산도 제거했다. 상태 root는 두 쪽이 우연히 같다고 가정하지 않고, Vigil
   프로세스 환경의 새 `SOULFORGE_TONGS_STATE_ROOT`(명시, fail-closed, 조용한 대체 없음 — 값이
   설정됐는데 절대·존재 디렉터리가 아니면 Vigil이 시작을 거부한다)가 최우선이고 없으면 기존
   일반 우선순위로 내려간다. 첫 화면(`forge-map-view.mjs`)의 상태 문자열 매칭도 실제 어휘로
   맞췄다. 계약 테스트(어댑터의 기본 경로가 lane writer와 같은 `tongsHeartbeatPath()` 호출에서
-  나옴을 직접 증명)와 실제 파일명 fixture 기반 ok/stale/absent 테스트를 추가했다. 확인:
-  `npm run validate:tongs-lane`(16/16), `npm --prefix ui-workspace/apps/team-ops-board run
-  test`(851/851, 신규 tongs 어댑터 테스트 21건 포함), `npm run validate:path-policy`,
-  `npm run validate:display-terms`(기존 baseline과 동일, 신규 위반 0건) 전부 통과.
+  나옴을 직접 증명)와 실제 파일명 fixture 기반 ok/stale/absent 테스트를 추가했다. 계약 정본을
+  `guild_hall/shared/tongs_heartbeat_contract.mjs`로 옮긴 같은 날 후속 개정은 두 쪽 모두에 참조
+  동일성(`===`) 계약 테스트를 추가했다. 확인: `npm run validate:tongs-lane`(17/17),
+  `npm --prefix ui-workspace/apps/team-ops-board run test`(852/852, 신규 tongs 어댑터 테스트
+  포함), `npm --prefix ui-workspace/apps/dev-erp-mcp run test`(44/44), `npm run
+  validate:path-policy`, `npm run validate:display-terms`(기존 baseline과 동일, 신규 위반 0건)
+  전부 통과.
 - 운영 영향: 다음에 이 lane을 등록할 때, 등록에 쓴 `-StateRoot`와 정확히 같은 값을 Vigil을
   띄우는 프로세스 환경의 `SOULFORGE_TONGS_STATE_ROOT`로도 export해야 화면이 올라온다(둘 중
   하나만 있으면 그 프로세스는 계속 `unknown`으로 남는다 — fail-closed이지 자동 동기화가 아니다).
   이 변경 자체는 아직 등록·상시 기동·credential 발급을 만들지 않는다.
 - 관련 경로: `ui-workspace/apps/dev-erp-mcp/ops/tongs_lane_support.mjs`,
+  `guild_hall/shared/tongs_heartbeat_contract.mjs`,
   `ui-workspace/apps/team-ops-board/src/server/tongs-heartbeat-adapter.mjs`,
   `ui-workspace/apps/team-ops-board/vite.config.ts`,
   `ui-workspace/apps/team-ops-board/src/core/forge-map-view.mjs`,
   `guild_hall/shared/soulforge_state_root.mjs`,
+  `guild_hall/deployment_pack/lanes/tongs_lane.spec.json`,
   `ui-workspace/apps/dev-erp-mcp/docs/TONGS_LANE_RUNBOOK_V0.md` §5.1.
 
 ## 2026-09-06 - Vigil(포트 4192): 운영 lane을 operations-lane-v2에서 v3로 전환

@@ -16,21 +16,28 @@
 // private binding file, feature OFF by default). Each gets its own heartbeat
 // file at "<state-root>/operations/tongs/<service>.heartbeat.v1.json" where
 // <service> is "erp_mcp" or "ingress_mcp". Every file is the exact
-// {schema_version, status, observed_at, pid, listen} shape this module's
+// {schema_version, status, observed_at, pid, listen} shape
+// guild_hall/shared/tongs_heartbeat_contract.mjs's
 // HEARTBEAT_FIELDS/TONGS_HEARTBEAT_SCHEMA/TONGS_HEARTBEAT_STATUSES pin.
 //
-// This module is the one place the heartbeat contract (file name pattern,
-// directory under the state root, field set, status vocabulary, and the
-// service Vigil watches) is defined — not just for the writer above, but for
-// Vigil's read-only probe too:
-// ui-workspace/apps/team-ops-board/src/server/tongs-heartbeat-adapter.mjs
-// imports TONGS_HEARTBEAT_SCHEMA, TONGS_HEARTBEAT_STATUSES, HEARTBEAT_FIELDS,
-// TONGS_ALWAYS_MANAGED_SERVICE, tongsHeartbeatPath, and
-// isValidTongsHeartbeatRecord directly from here instead of re-declaring its
-// own copy, so the two sides cannot drift apart the way they did before
-// 2026-09-06 (see docs/TONGS_LANE_RUNBOOK_V0.md's contract section for the
-// history: the adapter used to guess a different file name and a different
-// status vocabulary).
+// The heartbeat contract itself (file name pattern, directory under the
+// state root, field set, status vocabulary, watched service, and the
+// nullable-field rule a record must satisfy) is NOT defined here — it lives
+// in guild_hall/shared/tongs_heartbeat_contract.mjs, imported and re-exported
+// below so this module's own CLI and every existing importer of this module
+// keep working unchanged. Vigil's read-only probe
+// (ui-workspace/apps/team-ops-board/src/server/tongs-heartbeat-adapter.mjs)
+// imports the same contract directly from guild_hall/shared, not from this
+// module: Vigil runs from a built source lane that does not carry
+// dev-erp-mcp's files, so a direct import from here would resolve in dev but
+// fail at runtime in the built lane. A 2026-09-06 audit (session
+// claude_20260906_team_ops_adapter_enum_drift_audit) held a direct
+// team-ops-board -> dev-erp-mcp import pending an Owner decision on where the
+// contract should live — guild_hall/shared/tongs_heartbeat_contract.mjs is
+// that decision (see that module's own header for the full rationale, and
+// docs/TONGS_LANE_RUNBOOK_V0.md §5.1 for the contract history: the adapter
+// used to guess a different file name and a different status vocabulary
+// before 2026-09-06).
 //
 // See ui-workspace/apps/dev-erp-mcp/docs/TONGS_LANE_RUNBOOK_V0.md for the full
 // contract this module implements a slice of.
@@ -41,22 +48,36 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-export const TONGS_HEARTBEAT_SCHEMA = "soulforge.tongs_lane.heartbeat.v1";
-export const TONGS_SERVICES = Object.freeze(["erp_mcp", "ingress_mcp"]);
-export const TONGS_HEARTBEAT_STATUSES = Object.freeze([
-  "starting",
-  "ready",
-  "degraded",
-  "stopped",
-  "error",
-]);
-export const TONGS_STATE_DIRNAME = "operations/tongs";
-// The service every Tongs registration always manages (see the runbook's §2
-// table: the personal ERP MCP is "항상 관리 대상"/always managed, the ingress
-// MCP is opt-in and OFF by default). A read-only external probe that wants a
-// single "is Tongs up" answer — Vigil's team-ops-board snapshot — watches
-// exactly this service rather than aggregating both.
-export const TONGS_ALWAYS_MANAGED_SERVICE = "erp_mcp";
+import {
+  HEARTBEAT_FIELDS,
+  TONGS_ALWAYS_MANAGED_SERVICE,
+  TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS,
+  TONGS_HEARTBEAT_SCHEMA,
+  TONGS_HEARTBEAT_STATUSES,
+  TONGS_SERVICES,
+  TONGS_STATE_DIRNAME,
+  isValidListenTarget,
+  isValidTongsHeartbeatRecord,
+  tongsHeartbeatPath,
+} from "../../../../guild_hall/shared/tongs_heartbeat_contract.mjs";
+
+// Re-exported so this module stays the place its own CLI (below) and every
+// existing importer of this module (tongs_lane_support.test.mjs) reach the
+// contract from, without redeclaring it. The canonical definitions live in
+// guild_hall/shared/tongs_heartbeat_contract.mjs — see this module's header.
+export {
+  HEARTBEAT_FIELDS,
+  TONGS_ALWAYS_MANAGED_SERVICE,
+  TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS,
+  TONGS_HEARTBEAT_SCHEMA,
+  TONGS_HEARTBEAT_STATUSES,
+  TONGS_SERVICES,
+  TONGS_STATE_DIRNAME,
+  isValidListenTarget,
+  isValidTongsHeartbeatRecord,
+  tongsHeartbeatPath,
+};
+
 export const TONGS_LOCK_SCHEMA = "soulforge.tongs_lane.run_lock.v1";
 // The registered task's own trigger repeats every PT5M (300000ms). A max-age
 // equal to that interval leaves a reuse decision with essentially zero
@@ -68,12 +89,6 @@ export const TONGS_LOCK_SCHEMA = "soulforge.tongs_lane.run_lock.v1";
 // (this module, run-tongs-loopback.ps1, register-tongs-task.ps1) agree on;
 // it must stay at least 2x the registrar's repetition interval.
 export const TONGS_REGISTERED_TRIGGER_INTERVAL_MS = 5 * 60 * 1000;
-export const TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS = 720000; // 2.4x TONGS_REGISTERED_TRIGGER_INTERVAL_MS
-
-// Exported: this exact field set is also the allowed-keys contract Vigil's
-// adapter validates an on-disk heartbeat against (see the module header).
-export const HEARTBEAT_FIELDS = Object.freeze(["schema_version", "status", "observed_at", "pid", "listen"]);
-const LISTEN_RE = /^127\.0\.0\.1:([0-9]{1,5})$/;
 
 export class TongsLaneError extends Error {
   constructor(code) {
@@ -91,32 +106,6 @@ function isPositiveInt(value) {
   return Number.isSafeInteger(value) && value > 0;
 }
 
-export function isValidListenTarget(value) {
-  if (typeof value !== "string") return false;
-  const match = LISTEN_RE.exec(value);
-  if (!match) return false;
-  const port = Number(match[1]);
-  return Number.isSafeInteger(port) && port >= 1024 && port <= 65535;
-}
-
-// Exact-keys, fail-closed record validator, matching the convention every
-// other lane's state schema in this repository uses.
-export function isValidTongsHeartbeatRecord(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const keys = Object.keys(value).sort();
-  const expected = [...HEARTBEAT_FIELDS].sort();
-  if (keys.length !== expected.length || keys.some((key, index) => key !== expected[index])) return false;
-  if (value.schema_version !== TONGS_HEARTBEAT_SCHEMA) return false;
-  if (!TONGS_HEARTBEAT_STATUSES.includes(value.status)) return false;
-  if (typeof value.observed_at !== "string" || !Number.isFinite(Date.parse(value.observed_at))) return false;
-  if (value.pid !== null && !isPositiveInt(value.pid)) return false;
-  if (value.listen !== null && !isValidListenTarget(value.listen)) return false;
-  // A "ready" service without a pid and a listen address is a contradiction;
-  // every other status may leave either or both null.
-  if (value.status === "ready" && (value.pid === null || value.listen === null)) return false;
-  return true;
-}
-
 export function buildTongsHeartbeatRecord({
   status,
   pid = null,
@@ -132,12 +121,6 @@ export function buildTongsHeartbeatRecord({
   };
   if (!isValidTongsHeartbeatRecord(record)) fail("tongs_heartbeat_invalid");
   return record;
-}
-
-export function tongsHeartbeatPath(stateRoot, service) {
-  if (typeof stateRoot !== "string" || !path.isAbsolute(stateRoot)) fail("tongs_state_root_invalid");
-  if (!TONGS_SERVICES.includes(service)) fail("tongs_service_invalid");
-  return path.join(stateRoot, ...TONGS_STATE_DIRNAME.split("/"), `${service}.heartbeat.v1.json`);
 }
 
 export function tongsHeartbeatIsFresh(record, { now = Date.now(), maxAgeMs } = {}) {

@@ -7,9 +7,14 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
 import {
+  HEARTBEAT_FIELDS,
+  TONGS_ALWAYS_MANAGED_SERVICE,
   TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS,
   TONGS_HEARTBEAT_SCHEMA,
+  TONGS_HEARTBEAT_STATUSES,
   TONGS_REGISTERED_TRIGGER_INTERVAL_MS,
+  TONGS_SERVICES,
+  TONGS_STATE_DIRNAME,
   buildTongsHeartbeatRecord,
   decideTongsSupervisorAction,
   evaluateLockClaim,
@@ -20,6 +25,18 @@ import {
   tongsHeartbeatIsFresh,
   tongsHeartbeatPath,
 } from "./tongs_lane_support.mjs";
+import {
+  HEARTBEAT_FIELDS as SHARED_HEARTBEAT_FIELDS,
+  TONGS_ALWAYS_MANAGED_SERVICE as SHARED_TONGS_ALWAYS_MANAGED_SERVICE,
+  TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS as SHARED_TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS,
+  TONGS_HEARTBEAT_SCHEMA as SHARED_TONGS_HEARTBEAT_SCHEMA,
+  TONGS_HEARTBEAT_STATUSES as SHARED_TONGS_HEARTBEAT_STATUSES,
+  TONGS_SERVICES as SHARED_TONGS_SERVICES,
+  TONGS_STATE_DIRNAME as SHARED_TONGS_STATE_DIRNAME,
+  isValidListenTarget as sharedIsValidListenTarget,
+  isValidTongsHeartbeatRecord as sharedIsValidTongsHeartbeatRecord,
+  tongsHeartbeatPath as sharedTongsHeartbeatPath,
+} from "../../../../guild_hall/shared/tongs_heartbeat_contract.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CLI_PATH = path.join(HERE, "tongs_lane_support.mjs");
@@ -34,6 +51,25 @@ function readyRecord(overrides = {}) {
     ...overrides,
   };
 }
+
+// Contract test: this module re-exports the heartbeat wire-format contract
+// from guild_hall/shared/tongs_heartbeat_contract.mjs instead of redeclaring
+// it (see this module's own header). Assert reference equality (===), not
+// just equal values, so a future edit that accidentally reintroduces a local
+// copy here — rather than an import — fails this test even if the copy's
+// values happen to still match today.
+test("this module's contract exports are the exact guild_hall/shared bindings, not a local copy", () => {
+  assert.strictEqual(HEARTBEAT_FIELDS, SHARED_HEARTBEAT_FIELDS);
+  assert.strictEqual(TONGS_ALWAYS_MANAGED_SERVICE, SHARED_TONGS_ALWAYS_MANAGED_SERVICE);
+  assert.strictEqual(TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS, SHARED_TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS);
+  assert.strictEqual(TONGS_HEARTBEAT_SCHEMA, SHARED_TONGS_HEARTBEAT_SCHEMA);
+  assert.strictEqual(TONGS_HEARTBEAT_STATUSES, SHARED_TONGS_HEARTBEAT_STATUSES);
+  assert.strictEqual(TONGS_SERVICES, SHARED_TONGS_SERVICES);
+  assert.strictEqual(TONGS_STATE_DIRNAME, SHARED_TONGS_STATE_DIRNAME);
+  assert.strictEqual(isValidListenTarget, sharedIsValidListenTarget);
+  assert.strictEqual(isValidTongsHeartbeatRecord, sharedIsValidTongsHeartbeatRecord);
+  assert.strictEqual(tongsHeartbeatPath, sharedTongsHeartbeatPath);
+});
 
 test("the default heartbeat freshness window is at least 2x the registered task's own repetition interval", () => {
   // M2: a max-age equal to (or barely above) the trigger interval leaves a
