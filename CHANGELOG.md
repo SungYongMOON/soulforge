@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-09-06 - Bellows(예약작업) 판본 드리프트 감지기: 광고 세대 vs 상주 프로세스 세대 (읽기 전용)
+
+- 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: `guild_hall/deployment_pack/tools/detect_runtime_lane_drift.mjs`를 추가했다. `Soulforge-` 접두사 예약작업마다 action 문자열이 가리키는 `install/server-pack/<x.y.z>/payload`·`install/source-lanes/<lane>-vN` 세대를 `Get-ScheduledTask` 개체에서 읽고(`schtasks` 텍스트 미사용, `LastTaskResult`는 int64), `Win32_Process` 명령행에 같은 모듈 루트를 가진 프로세스와 그 자손(생성 시각 기준 PID 재사용 가드)의 세대와 대조해 `drift`/`consistent`/`no_resident`/`unknown`을 낸다. 런처 소스에 `instance.lock`·`Threading.Mutex`·"duplicate launch ignored"가 있으면 `singleton_launcher`로 표시해 rc=0이 작업 증거가 아님을 알리고, 같은 세대라도 sha256 pin 집합이 다르면 `resident_digest_set_differs`를 낸다. 호스트 호출은 PowerShell 조회 1회와 런처 스크립트 읽기뿐이며 정지·시작·등록·해제·kill·쓰기는 하지 않는다(테스트가 조회 스크립트에 변경 cmdlet이 없음을 고정). `--json`(관찰 원본 포함, private 취급)과 `--observation <파일>` 재판정을 지원한다. 합성 관찰 테스트 17건을 `validate:runtime-lane-drift`로 묶어 루트 `validate`·`done:check` 양쪽 게이트에 넣었고(`run_root_acceptance_steps.test.mjs`에 고정) 실행 진입점은 `guild-hall:runtime-lane-drift`다.
+- 운영 영향: 2026-09-06 이 호스트 실측(exit 2): `Soulforge-HPP-Voice-ASR-Label`은 `server-pack 0.1.6`을 광고하지만 2026-09-01부터 `server-pack 0.1.2`의 powershell·node 쌍이 `supervisor.instance.lock`·`Local\Soulforge.HPP.VoiceLabel.Supervisor` lease를 쥔 채 상주하고 15분마다 rc=0을 남긴다(0.1.9 cutover 영수증의 중단 사유와 일치). 연속 ingress·World Tree(`0.1.9`), Vigil(`operations-lane-v4`), Tongs(`tongs-lane-v2`)는 `consistent`, NAS DR 작업은 legacy checkout 실행이라 `unknown`. 이 감지기는 판정만 하며 음성 lane의 0.1.2 상주 감독기 처리(정지는 진행 중 ASR 중단을 뜻함)는 Owner 결정 대기 그대로다. 예약작업·프로세스·Vigil(포트 4192)·Tongs(포트 4311)에 손대지 않았다. 루트 README의 운영 판본 문장을 같은 영수증 기준으로 고쳤다. `emit_hpp_spec.mjs --check`는 worktree에 vendored 입력이 없어 여기서 실행하지 못했고, emitter가 명시 목록만 쓰므로 새 파일은 HPP spec에 들어가지 않는다.
+- 관련 경로: `guild_hall/deployment_pack/tools/detect_runtime_lane_drift.mjs`, `guild_hall/deployment_pack/tests/detect_runtime_lane_drift.test.mjs`, `guild_hall/deployment_pack/README.md`, `guild_hall/validate/run_root_acceptance.mjs`, `guild_hall/validate/run_root_acceptance_steps.test.mjs`, `package.json`, `README.md`, `guild_hall/README.md`.
+
 ## 2026-09-06 - 봇 명부: plan 18 §13과 AI 조직 정책 문서에 보안 분류(G1/G2/G3) 반영
 
 - 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
