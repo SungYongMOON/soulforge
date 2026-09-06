@@ -1,16 +1,22 @@
 # task_hierarchy_v1 (candidate — not canon)
 
 - Status: **candidate**, not accepted canon. This document and its sibling schema
-  (`guild_hall/engineering_engine/schemas/task_hierarchy_v1.schema.json`) describe a proposed
+  (`guild_hall/engineering_engine/engines/systems_engineering/schemas/task_hierarchy_v1.schema.json`) describe a proposed
   machine contract for the layer Rune (`engineering_engine`) does not yet name: what sits between
   a Stage's expected artifacts (which Rune already computes) and the individual Step/Action work
   that produces them.
 - Owner authority for Task creation is Rune (Drive `Soulforge_맥락·메모리·그래프·온톨로지_구현계획_v0.1`
   §15.1). This contract does not change, override, or feed back into any Rune judgement — see
   "One-way rule" below.
-- Owner surface for this contract is `guild_hall/engineering_engine/contracts/`
-  (`docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`), per the 2026-09-06 owner review answer
-  recorded in `RUNE_TASK_GRAPH_PHASE0_BRIEF_2026-09-06.md` §15 row 3.
+- Owner surface for this contract is the `systems_engineering` package
+  (`guild_hall/engineering_engine/engines/systems_engineering/{contracts,schemas,tests}/`), the
+  package whose `orderStageWork` is its only projection source today. The legacy flat
+  `guild_hall/engineering_engine/contracts/` is pointer-only by rule
+  (`tools/validate_no_duplicate_authority.mjs`; the 2026-09-06 review answer recorded in
+  `RUNE_TASK_GRAPH_PHASE0_BRIEF_2026-09-06.md` §15 row 3 had named that directory and CI rejected
+  it the same day). Hoisting to `core/` is deferred until a second engine projects into this
+  contract; that move must also classify the new `core/` subdirectory in
+  `core/tests/zero_time_static_effect.test.mjs`.
 - This contract is Phase 0 commit 1 of 4. `task_invariants_v0` (the five cross-blueprint
   invariants such as "no purchase order before an inventory check"), the field-mapping compiler,
   the artifact-class part table, and the replayable `project_task_graph.v1` projection are
@@ -202,7 +208,7 @@ until then, none of them can mint a `blueprint_ref` under this contract.
 
 ## 7. Follow-ups (not this commit)
 
-- `task_invariants_v0` (`guild_hall/engineering_engine/contracts/task_invariants_v0.json`): the
+- `task_invariants_v0` (`guild_hall/engineering_engine/engines/systems_engineering/contracts/task_invariants_v0.json`): the
   five cross-blueprint invariants (`INV-PROC-01` … `INV-BASE-05`) that populate `preconditions[]`
   and give `completion_contract.invariant_ids[]` real content. Commit 2.
 - The pure-function field mapper (Rune work item → `task_hierarchy_v1.Task`) and its

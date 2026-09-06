@@ -15,17 +15,8 @@ The canonical contracts for domain engines have been physically relocated:
 - Interface Consistency: `guild_hall/engineering_engine/engines/interface_consistency/contracts/`
 - PCB Compliance: `guild_hall/engineering_engine/engines/pcb_compliance/contracts/`
 
-This directory is a non-authoritative compatibility pointer for the per-engine contracts listed
-above and contains no definitions for those. It also owns one cross-engine contract of its own,
-which does not belong to any single domain engine above:
-
-- **Task hierarchy (candidate, not canon)**: `task_hierarchy_v1.md` +
-  `../schemas/task_hierarchy_v1.schema.json` — the Stage / WorkPackage / Task / Step / Action
-  machine contract that Rune (`engineering_engine`)'s stage order (`orderStageWork`) projects
-  into. Read-only with respect to Rune: it never feeds back into the compiler, its rules, or its
-  MCP surface. Its validator (`../schemas/task_hierarchy_v1_schema_validator.mjs`) stays a
-  contracts-local copy for this commit; hoisting it to `guild_hall/shared` is left as a commit-2
-  decision.
-- **Follow-up, not yet added**: `task_invariants_v0.json` — the five cross-blueprint invariants
-  (`INV-PROC-01` … `INV-BASE-05`) that populate `task_hierarchy_v1`'s `preconditions[]` and
-  `completion_contract`. Planned for the next commit in the same lane; not present yet.
+This directory is a non-authoritative compatibility pointer and contains no contract definitions.
+The Task hierarchy contract (`task_hierarchy_v1`, candidate — not canon) lives with its projection
+source in the Systems Engineering package: `engines/systems_engineering/contracts/task_hierarchy_v1.md`
+(+ `engines/systems_engineering/schemas/task_hierarchy_v1.schema.json`, its validator, and
+`engines/systems_engineering/tests/task_hierarchy_contract.test.mjs`).

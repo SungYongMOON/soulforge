@@ -3,11 +3,11 @@
 // the Phase 0 lane — the mapper, the invariants contract, and the projection (T-02..T-10) are
 // later commits and are intentionally not exercised here.
 //
-// Not placed under guild_hall/engineering_engine/tests/: that directory is a documented
-// "Legacy Tests Compatibility Directory" of forwarding stubs for relocated tests (see its own
-// README.md), not a home for new ones. This test is co-located with the contract it exercises,
-// mirroring the contracts/+tests/ and schemas/+tests/ sibling pattern already used by every
-// domain engine under guild_hall/engineering_engine/engines/*/.
+// Placed in the systems_engineering package (contracts/ + schemas/ + tests/ siblings) because the
+// only projection source today is that package's `orderStageWork`, and the legacy flat
+// guild_hall/engineering_engine/contracts/ and tests/ directories are pointer/forwarder-only by
+// rule (tools/validate_no_duplicate_authority.mjs; CI step engineering-engine-no-duplicate-authority
+// rejected the first placement under contracts/ on 2026-09-06).
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -17,10 +17,10 @@ import test from 'node:test';
 import {
   validateJsonSchemaSubset,
   collectSchemaSelfValidityErrors,
-} from '../../schemas/task_hierarchy_v1_schema_validator.mjs';
+} from '../schemas/task_hierarchy_v1_schema_validator.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SCHEMA_PATH = join(HERE, '..', '..', 'schemas', 'task_hierarchy_v1.schema.json');
+const SCHEMA_PATH = join(HERE, '..', 'schemas', 'task_hierarchy_v1.schema.json');
 const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));
 
 function baseCommonFields(overrides = {}) {

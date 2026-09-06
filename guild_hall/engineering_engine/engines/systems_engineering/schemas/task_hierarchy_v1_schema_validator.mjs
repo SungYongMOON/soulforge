@@ -1,10 +1,10 @@
 // Dependency-free JSON Schema (draft 2020-12) SUBSET validator for the task_hierarchy_v1
-// contract (guild_hall/engineering_engine/contracts/task_hierarchy_v1.md +
+// contract (guild_hall/engineering_engine/engines/systems_engineering/contracts/task_hierarchy_v1.md +
 // task_hierarchy_v1.schema.json, sibling file). Modeled on the same dependency-free approach as
 // guild_hall/engineering_engine/engines/safety_hazard/schemas/safety_hazard_schema_validator.mjs
 // (same supported-keyword-or-fail discipline, same recursive shape), duplicated here rather than
-// imported across an engine boundary because task_hierarchy_v1 is a cross-engine contract owned
-// by guild_hall/engineering_engine/contracts/, not by the safety_hazard domain engine.
+// imported across an engine boundary because task_hierarchy_v1 is owned by the systems_engineering
+// package (its projection source), not by the safety_hazard domain engine.
 //
 // Extended with `allOf` / `if` / `then` / `else` beyond the safety_hazard original because
 // task_hierarchy_v1 is a polymorphic document — one schema, five node layers (Stage / WorkPackage

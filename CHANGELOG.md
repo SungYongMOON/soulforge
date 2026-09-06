@@ -1,5 +1,54 @@
 # CHANGELOG
 
+## 2026-09-06 - Rune(Engineering Engine) task hierarchy 계약 v1: 정본 위치를 SE 패키지로 이동, CI 적색 2건 해소
+
+- 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: 바로 아래 항목의 커밋(24c8e220)이 CI `done:check`에서 적색이 났다. 원인은 둘이다.
+  (1) `validate:engineering-engine-no-duplicate-authority`
+  (`guild_hall/engineering_engine/tools/validate_no_duplicate_authority.mjs`)는 legacy flat
+  `guild_hall/engineering_engine/contracts/`에 포인터 `README.md`만 허용하고 하위 폴더를
+  금지하는데, 계약 문서 `task_hierarchy_v1.md`와 `contracts/tests/`가 거기 들어갔다
+  (`DUPLICATE_NON_CODE_CANON`·`UNEXPECTED_SUBDIRECTORY`). (2) 코드 매니페스트
+  `topology/engine_manifest.sha256`는 재발행했지만 그 지문을 묶는
+  `topology/engine_release.json`은 재발행하지 않아 `validate:engine-release`도 실패했다
+  (CI는 첫 실패에서 멈춰 로그에 드러나지 않았고, 로컬 재현으로 찾았다).
+  고친 것: 계약 문서·JSON Schema·무의존 검증기·시험 4개 파일을 투영 원천 `orderStageWork`가
+  있는 Systems Engineering 패키지의 기존 폴더로 `git mv`했다 —
+  `guild_hall/engineering_engine/engines/systems_engineering/contracts/task_hierarchy_v1.md`,
+  같은 패키지 `schemas/task_hierarchy_v1.schema.json` + `task_hierarchy_v1_schema_validator.mjs`,
+  `tests/task_hierarchy_contract.test.mjs`(상대 import·문서 안 경로·`package.json`의
+  `validate:task-hierarchy-contract` 경로를 함께 갱신). 엔진 루트 `schemas/`는 비어서
+  사라졌고 `tools/emit_manifest.mjs`의 `INCLUDED_DIRS`에서 `'schemas'`를 되돌렸다.
+  `contracts/README.md`는 순수 포인터로 되돌리되 새 위치를 가리키는 줄만 남겼고, 엔진
+  README의 구성 목록도 같은 규칙(계약·스키마·검증기·시험은 투영 원천 패키지 안에, 루트
+  `contracts/`는 포인터 전용)으로 고쳤다. 검증기 `.mjs`가 정본 트리(`engines/`) 안으로
+  들어가면서 정적 import 토폴로지가 모듈 253→254(간선 852 동일)로 바뀌어
+  `topology/engine_topology.json`을 재발행하고 `core/tests/topology_edge_oracle.test.mjs`의
+  고정 상수를 254로 올렸다(이 상수는 엔진 통합 때마다 218→…→253으로 갱신돼 온 값이다).
+  그 뒤 `engine_manifest.sha256` → `engine_release.json` 순으로 재발행했다
+  (`generated_from_commit`은 emit 시점 base HEAD인 24c8e220). `core/`에 새 `contracts/`
+  하위 폴더를 만드는 안은 `core/tests/zero_time_static_effect.test.mjs`가 core 하위 폴더
+  전수를 명시 분류하도록 강제해 시험 수정이 따라오므로 택하지 않았고, 계약 문서에 "두 번째
+  엔진이 이 계약으로 투영할 때 `core/`로 올린다"는 조건과 함께 적었다.
+  CI 배선: `validate:task-hierarchy-contract`를 `guild_hall/validate/run_root_acceptance.mjs`의
+  validate·done-check 두 배열에 `task-hierarchy-contract` 단계로 등록했다(브리프가 커밋 4로
+  미뤘던 항목을 당겨 닫음, `run_root_acceptance_steps.test.mjs` 5/5).
+  연쇄(watchtower): 엔진 토폴로지가 연합 토폴로지의 공급자라서 모듈 254는
+  `guild_hall/watchtower/topology_provider_adapters.mjs`의 pin(253/852 → 254/852)과
+  `guild_hall/watchtower/topology/federated_topology.v1.contract.json`(엔진 254, 합계 노드
+  302 → 303, 간선 914 동일, `artifact_sha256`)에도 닿았고, 계약 파일의 `update_rule`대로
+  `tools/emit_federated_topology.mjs --out`으로 `federated_topology.v1.json`을 재발행했다.
+  Vigil(team-ops-board)의 고전 엔진 뷰 `ENGINE_LANES`는 08-25 이전 어휘의 동결 fixture로만
+  시험하므로 손대지 않았다.
+- 검증(로컬, 이 커밋 트리): no-duplicate-authority ok(0건) · task-hierarchy-contract 22/22 ·
+  engineering-engine-core-domain 86/86(토폴로지 오라클·회귀·Phase 1 통합 포함) ·
+  se-stage-rules 53/53 · se-core-eval 351 pass + manifest verify · ax-se-project-assessment
+  103 pass + manifest verify + topology check · engine-release ok · path-policy 0건 ·
+  display-terms 신규 0건 · watchtower 143/143 · team-ops-app 854/854 · `done:check` 73단계 전부
+  초록(단, `ai-usage-meter`의 linked-worktree hook 시험 2건은 이 호스트에서
+  `SOULFORGE_STATE_ROOT`/`SOULFORGE_OWNER_ROOT`가 설정된 셸에서만 실패하는 비밀폐 시험이라
+  두 변수를 지우고 돌려 157/157을 확인했다 — CI 환경에는 그 변수가 없다).
+
 ## 2026-09-06 - Rune(Engineering Engine) task hierarchy 계약 v1(candidate) 추가
 
 - 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.

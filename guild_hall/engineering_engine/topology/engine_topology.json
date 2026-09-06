@@ -3536,6 +3536,16 @@
       "line_count": 2093
     },
     {
+      "module": "engines/systems_engineering/schemas/task_hierarchy_v1_schema_validator",
+      "area": "engines",
+      "exports": [
+        "collectSchemaSelfValidityErrors",
+        "validateJsonSchemaSubset"
+      ],
+      "export_count": 2,
+      "line_count": 154
+    },
+    {
       "module": "engines/systems_engineering/tools/artifact_observation_inventory_runner",
       "area": "engines",
       "exports": [],
@@ -3790,7 +3800,7 @@
       "line_count": 1885
     }
   ],
-  "module_count": 253,
+  "module_count": 254,
   "module_edges": [
     {
       "from": "core/evaluation_runtime/claim_ceilings",
@@ -10108,5 +10118,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "a2d6150a2a08f51f6207064c7255b7e3217d14b4e9da8b751ce7ae01a75200cd"
+  "topology_digest": "6d0170ac0bcd910630259ad026f7ee1f282c62d07f5a60bb0afd492c7bdeab26"
 }

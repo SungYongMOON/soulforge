@@ -11510,6 +11510,17 @@
     {
       "diagnostic_state": "validator_backed",
       "group": "engines",
+      "id": "engineering_engine::engines.systems_engineering.schemas.task_hierarchy_v1_schema_validator",
+      "kind": "module",
+      "label": "engines/systems_engineering/schemas/task_hierarchy_v1_schema_validator",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
       "id": "engineering_engine::engines.systems_engineering.tools.artifact_observation_inventory_runner",
       "kind": "module",
       "label": "engines/systems_engineering/tools/artifact_observation_inventory_runner",
@@ -22315,6 +22326,16 @@
         {
           "diagnostic_state": "validator_backed",
           "group": "engines",
+          "id": "engines.systems_engineering.schemas.task_hierarchy_v1_schema_validator",
+          "kind": "module",
+          "label": "engines/systems_engineering/schemas/task_hierarchy_v1_schema_validator",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
           "id": "engines.systems_engineering.tools.artifact_observation_inventory_runner",
           "kind": "module",
           "label": "engines/systems_engineering/tools/artifact_observation_inventory_runner",
@@ -22699,7 +22720,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "9fc89f8c3f434d6c5123e215fc7f53035f614dd70e358316581b6d2b514a8965",
+        "digest": "3703e873adb193c426755146603b374de5b1bf8d7d12a406d257d0c3f4add4be",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -23901,13 +23922,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "0eba506405d05184ec9a75a874ccca53ee5d0f8e4a1abadad9659684fb98978b",
+  "source_set_digest": "4f4bd60920e5a6e3e90dc78b6fd8b4d25fd36d76c5e1303d1eefa6e05e6fc157",
   "summary": {
     "edge_count": 914,
-    "node_count": 302,
+    "node_count": 303,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "a0cbe559861d78b4740d83af1ff7e1f453e0b9eca9363560aeefc504d46ab7dd"
+  "topology_digest": "48ccbeb5a686fa84fc485fbd01bb830fcc167b11d6dadd0c4c9c1561c8275fda"
 }
