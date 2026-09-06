@@ -1,6 +1,11 @@
 import { lstat, readFile } from "node:fs/promises";
 import path from "node:path";
 
+import {
+  RECOVERY_CIRCUIT_STATES,
+  RECOVERY_OUTCOME_CODES,
+} from "../../../../../guild_hall/watchtower/recovery_supervision.mjs";
+
 export const TOPOLOGY_RECOVERY_PATH = "/topology-recovery.snapshot.json";
 // v3 carries the supervision fields, the bounded sanitized history (v2), the
 // supervisor attempt receipt, and diagnostic gating. A v1 or v2 cycle receipt is never reinterpreted as v3.
@@ -28,13 +33,8 @@ const REPAIRABILITY_SET = new Set([
 ]);
 const ATTEMPT_SET = new Set(["not_attempted", "denied", "succeeded", "failed"]);
 const VERIFICATION_SET = new Set(["not_run", "passed", "failed"]);
-const OUTCOME_SET = new Set([
-  "verified_repair", "not_verified", "owner_action_required",
-  "precondition_unmet", "execution_failed", "postverify_failed",
-  "running_but_stale", "suppressed_backoff", "suppressed_circuit_open",
-  "supervision_unavailable", "not_eligible", "forbidden", "observe_only",
-]);
-const CIRCUIT_SET = new Set(["closed", "open", "half_open"]);
+const OUTCOME_SET = new Set(RECOVERY_OUTCOME_CODES);
+const CIRCUIT_SET = new Set(RECOVERY_CIRCUIT_STATES);
 const ROOT_KEYS = [
   "schema_version", "attempted_at", "completed_at", "mode", "status",
   "state_revalidated", "evidence", "recovery",

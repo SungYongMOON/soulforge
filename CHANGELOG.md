@@ -1,5 +1,56 @@
 # CHANGELOG
 
+## 2026-09-06 - Vigil(team-ops-board) 어댑터 enum allowlist 드리프트 감사: 정본 export 4곳 연결, 계약 불일치 2건 기록
+
+- 날짜: 2026-09-06.
+- 무엇: 2026-09-05 storage-map 어댑터 수정(`work_root` fail-closed)과 같은 안티패턴 —
+  프로젝션/스냅샷을 검증하는 어댑터가 정본 모듈의 enum을 import하지 않고 로컬 Set/배열로
+  복제한 경우 — 을 `ui-workspace/apps/team-ops-board/src/server/`의 비테스트 `.mjs` 전체에서
+  감사했다. 정본 export가 이미 존재하고 값이 동일한(스크립트로 대조) 4곳만 import로 바꿨다:
+  `topology-recovery-adapter.mjs`의 `OUTCOME_SET`·`CIRCUIT_SET` →
+  `guild_hall/watchtower/recovery_supervision.mjs`의 `RECOVERY_OUTCOME_CODES`·
+  `RECOVERY_CIRCUIT_STATES`(둘 다 `06cd8904`에서 동시에 도입된 사본), `topology-adapter.mjs`의
+  `EDGE_DELIVERY_STATE_SET` → `guild_hall/watchtower/topology.mjs`의 `EDGE_DELIVERY_STATES`,
+  `storage-map-adapter.mjs`의 `WATCH_STATES` →
+  `guild_hall/watch_panel_contract/src/watch_panel_contract.mjs`의 `PANEL_STATES`(프로젝션
+  모듈이 `watch_state`를 검증하는 바로 그 상수). 테스트 파일·기대값·스키마·fail-closed 경계는
+  바꾸지 않았다.
+- 정본 export가 없어 import로 바꾸지 않고 기록만 남긴 것(Owner 결정 대기):
+  (1) **Tongs(MCP 문) heartbeat 계약 불일치** — Vigil 어댑터(`tongs-heartbeat-adapter.mjs`,
+  `d67d4b7b`)는 `operations/tongs/heartbeat.json`에서 정확히 `{status, observed_at, pid, listen}`
+  (+선택 `schema`)과 `status ∈ {listening, starting, stopped}`를 요구하지만, lane 쓰기기
+  (`ui-workspace/apps/dev-erp-mcp/ops/tongs_lane_support.mjs`, `ef2fe032`)는
+  `operations/tongs/<service>.heartbeat.v1.json`에 `{schema_version, status, observed_at, pid,
+  listen}`(비-ready 상태는 pid/listen null 허용)과 `TONGS_HEARTBEAT_STATUSES =
+  {starting, ready, degraded, stopped, error}`를 쓴다. 경로·키·상태 어휘·null 허용 넷이 어긋나
+  lane이 실제로 돌아도 Vigil은 `unknown`(경로 불일치) 또는 `unavailable`(키/상태/pid 거부)만
+  보인다. 두 문서(team-ops-board README §Tongs, `TONGS_LANE_RUNBOOK_V0.md`)가 서로 다른
+  어휘를 정본처럼 적고 있어 어느 쪽이 정본인지 먼저 정해야 한다.
+  (2) **`topology-adapter.mjs`의 `UNMONITORED_REASON_SET`(9개)** — Vigil의 경보·자가복구 모듈(`guild_hall/watchtower/watchtower.mjs`)의 probe는 unmonitored 노드의 `reasons`에
+  `task_state_unknown`(schtasks 조회 실패·미인식 상태)과 `source_too_large`·
+  `source_schema_invalid`·`source_required_field_missing`·`source_string_invalid`·
+  `source_timestamp_invalid`·`source_expected_value_invalid`·`source_empty`도 넣을 수 있는데
+  이 값들은 어댑터 allowlist에 없어, 발생 순간 `topology_snapshot_node_evidence_missing`으로
+  topology 스냅샷 전체가 fail-closed 된다(storage-map과 같은 고장 유형, 아직 관측 전).
+  그 밖에 topology 어댑터의 Set 9개(+활동·추적 상태 3개), recovery 어댑터의 Set 5개
+  (+supervisor `ok/error`), storage-map 어댑터의 Set 7개, ERP `ACCEPTED_ITEM_STATUSES`
+  (`done/archived`, 정본은 dev-erp `Store.ITEM_STATUSES`와 `erp_mcp_service.mjs`의 주석),
+  Hermes `OBSERVED_STATES`(앱 안 3중 복제, 정본은 외부 Hermes와 README 한 문장)는 오늘 값은
+  일치하지만 생산자 쪽 상수가 비공개 `const`이거나 인라인 리터럴이어서 같은 드리프트에 노출되어
+  있다.
+- 운영 영향: 응답·스키마·enum 값·mutation capability 변화 없음(4곳 모두 값 동일을 스크립트로
+  확인). Vigil 서버 어댑터가 `guild_hall/watchtower/recovery_supervision.mjs`·
+  `guild_hall/watchtower/topology.mjs`·`guild_hall/watch_panel_contract`를 새로 import한다
+  (federation 어댑터가 이미 watchtower 모듈을 import하던 패턴). 예약작업·플래그·바인딩 변경 없음.
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/server/topology-recovery-adapter.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/topology-adapter.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/storage-map-adapter.mjs`,
+  `guild_hall/watchtower/recovery_supervision.mjs`, `guild_hall/watchtower/topology.mjs`,
+  `guild_hall/watch_panel_contract/src/watch_panel_contract.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/tongs-heartbeat-adapter.mjs`,
+  `ui-workspace/apps/dev-erp-mcp/ops/tongs_lane_support.mjs`.
+- Revision: the Git commit containing this entry owns the exact revision.
+
 ## 2026-09-06 - Tongs(MCP 문) loopback lane: fresh review's M1–M6 + minors closed, still not registered
 
 - 판단 표기: 개발 후보 수정. 아래 "Tongs(MCP 문) loopback lane + registrar prepared" 커밋에 대한
