@@ -140,12 +140,14 @@
 
 명부는 새로 짓지 않고 기존 조직도를 그대로 투영한다. 사람 조직도는 `DEVELOPMENT1_TEAM_AND_AI_PLATFORM_ORGANIZATION_V0.md`, 역할·기본 모델은 `AI_ORGANIZATION_MODEL_OPERATING_POLICY_V0.md`, 프로젝트 15개 책임 분야는 `PROJECT_WORK_ORGANIZATION_AND_TASK_ROUTING_V0.md`가 정본이다. 그룹 순서는 Owner 지시대로 **프로젝트별 → 전문 툴 공방 → 공통 → 플랫폼**이며, 이는 World Bible §6 세력(Project AI Organizations / Tool Workshops / Common AI Workforce / AI Platform Organization)과 Bot 작업 root의 `PJT / TOOL / COMMON` 폴더와 같은 모양이다.
 
-| 그룹 | organization_kind | 구성 | 팀원 노출 |
-| --- | --- | --- | --- |
-| 1 프로젝트별 AI 조직 | `project` | 프로젝트마다 업무운영/팀장 1 + 책임 분야 15 = 최대 16 프로필. 프로젝트 간 맥락 격리 | 프로젝트당 2~3개만(기본안: 팀장 + 시스템공학, 선택: 기술자료·데이터관리) |
-| 2 전문 툴 공방 | `tool_workshop` | **툴마다 봇 1개**(Owner 2026-09-02): 발표(PPT)·한글(HWPX)·엑셀(XLSX)을 각각 별도 봇으로 두고, 뒤에 CAD·PCB·시험 등을 같은 모양으로 추가. 각 봇은 capacity-1 lease, 자기 입력/출력 계약, 자기 validator, 결과는 candidate custody receipt로 반환(11번 계획서, 재기준 §19) | 팀원 직접 호출 없음; 창구 봇이 넘겨서 호출 |
-| 3 공통 AI 인력 | `common` | 조사·검토·검증·형식화·기록 역할(World Bible "Common AI Workforce") | 파일럿 제외 |
-| 4 플랫폼·엔진 | `platform` | Rune factory·실행기반·개발 보조(조직 B) | 팀원 비노출 |
+| 그룹 | organization_kind | 구성 | 팀원 노출 | 보안 분류 |
+| --- | --- | --- | --- | --- |
+| 1 프로젝트별 AI 조직 | `project` | 프로젝트마다 업무운영/팀장 1 + 책임 분야 15 = 최대 16 프로필. 프로젝트 간 맥락 격리 | 프로젝트당 2~3개만(기본안: 팀장 + 시스템공학, 선택: 기술자료·데이터관리) | G3 외부 작업 |
+| 2 전문 툴 공방 | `tool_workshop` | **툴마다 봇 1개**(Owner 2026-09-02): 발표(PPT)·한글(HWPX)·엑셀(XLSX)을 각각 별도 봇으로 두고, 뒤에 CAD·PCB·시험 등을 같은 모양으로 추가. 각 봇은 capacity-1 lease, 자기 입력/출력 계약, 자기 validator, 결과는 candidate custody receipt로 반환(11번 계획서, 재기준 §19) | 팀원 직접 호출 없음; 창구 봇이 넘겨서 호출 | G3 외부 작업 |
+| 3 공통 AI 인력 | `common` | 조사·검토·검증·형식화·기록 역할(World Bible "Common AI Workforce") | 파일럿 제외 | G2 데이터 관리 |
+| 4 플랫폼·엔진 | `platform` | Rune factory·실행기반·개발 보조(조직 B) | 팀원 비노출 | G1 시스템 관리 |
+
+보안 분류(G1 시스템 관리 / G2 데이터 관리 / G3 외부 작업)는 위 조직 그룹과는 별도 축으로, 원본 접근과 외부 전송 경계를 정하는 보안 설계(E08·E12·E14·v0.11)의 역할 분류다(두 번호 체계를 섞지 않는다). 예: G1은 코딩이 같은 시스템 관리·개발 보조 봇, G2는 강도담·알잘이 같은 데이터 관리 봇(원본은 로컬에서만 다룸), G3는 `KVDS 팀장`처럼 가공된 packet만 받는 과제 봇과 툴 공방 봇이다. 규칙(보안 설계 B1~B8): G3에는 원본 전체를 주지 않는다. 전송 전 검토·허가는 사람·정책 관문이 최종이다. 매핑·키·원문·hidden reasoning은 로그에 남기지 않는다. 결과는 항상 후보(검사 중)이며 사람 수락 뒤에만 정본이다. 첫 사이클은 합성 자료만 쓴다.
 
 필드는 새 schema를 만들지 않고 기존 Board/governance overlay 어휘를 재사용한다: `organization_id`, `parent_organization_id`, `organization_kind`, `role_code`, `display_label`, `lifecycle`(`active|held|retired`), `role_binding_id`. 여기에 파일럿용 4칸을 더한다: `profile_ref`(private), `bot_chat_ref`(private), `allowed_tools`(MCP allowlist), `pilot_exposed`(true/false). 기본 모델·추론은 AI_ORG 표를 그대로 따른다(프로젝트 팀장 `Sol/xhigh`, 분야 책임자 `Sol/high`, 결과물 TASK `Terra/max`, 단순 수집 `Luna/medium`).
 
@@ -165,6 +167,7 @@
 - 실제 프로필 이름·Bot Chat·ID는 public 문서에 넣지 않는다(`CODEX_WORK_DIRECTORY_V1` local-only 규칙, `AGENTS.md` roster 규칙). 실제 명부 초안은 private `_workmeta/system/reports/team_pilot/hermes_bot_roster_draft_20260902.md`에 두며(metadata-only, 확정 아님), 확정되면 `_workmeta/system/bindings/`의 governance overlay 형식으로 승격한다(별도 Gate, 이 문서가 승격하지 않음).
 - 이름은 세 층으로 나눈다(Owner 2026-09-02): **이름**(페르소나, 사람 이름처럼) · **직책**(조직도 자리; 업무형 직책이 정본이고 판타지 직책은 같은 자리의 표시 별칭) · **stable id**(불변). 페르소나 이름은 계속 쓰는 봇(공통 운영·툴 공방)에만 붙이고, **프로젝트 봇은 이름 없이 `과제코드 + 직책`**(예: `KVDS 팀장`)으로 표기한다(Owner 2026-09-02: 과제명 페르소나는 헷갈림). 게임 옷을 켜면 직책 별칭만 바뀐다. 실제 이름 값은 private 명부에만 둔다.
 - 명부에 있다고 권한이 생기지 않는다. 각 봇의 `allowed_tools`는 OD-11 R0~R2 범위 안에서만 채우고, R3 이상 행위는 표현 자체를 두지 않는다.
+- 정리 필요(Owner 결정, 확정 아님): KVDS 팀장이 Buzz에 다중 중복 신원으로 남아 있다 → 운영 1개만 남기고 나머지는 `retired`로 정리한다(6 → 1). 길드 계급 표시 별칭 Master(사람)·Journeyman(봇)·Apprentice(창구 봇)의 채택 여부는 미결이다. 강도담(Hermes 루트 프로필)을 G2 정식 구성원으로 둘지, 별도 '루트 진입점' 자리로 둘지도 미결이다.
 
 ## 13A. 옛집→새집 lane 전환 규칙 (2026-09-02 Slack rc=1 사고에서 도출)
 

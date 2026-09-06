@@ -81,6 +81,21 @@ effort를 관찰하지 못했으면 해당 관찰값을 `UNKNOWN`으로 둔다.
 - 둘이 한 turn에 겹치면 더 강한 품질선 또는 명시된 Owner 지시를 적용하고,
   관찰되지 않은 실제 모델은 추정하지 않는다.
 
+## 보안 분류(G1/G2/G3)와 조직 종류
+
+이 절은 보안 설계(E08·E12·E14·v0.11)가 정의한 역할 분류를 이 문서의 역할·모델 체계와 연결한다. G1/G2/G3는 위 "역할별 기본 모델" 표의 개별 역할(CEO·팀장·책임자 등, 모든 조직 종류를 가로지르는 판단 계층)에 각각 매기는 값이 아니라, `18_TEAM_PILOT_ACCESS_AND_RELEASE_PLAN_V0.md` §13이 쓰는 조직 종류(`organization_kind`)에 대응하는 분류다(두 번호 체계를 섞지 않는다).
+
+| organization_kind | 조직 그룹(§13) | 보안 분류 | 원본 접근 | 외부 전송 |
+| --- | --- | --- | --- | --- |
+| `project` | 1 프로젝트별 AI 조직 | G3 외부 작업 | 없음(packet만) | 허가된 bytes만(사람·정책 관문 통과분) |
+| `tool_workshop` | 2 전문 툴 공방 | G3 외부 작업 | 없음(packet만) | 허가된 bytes만(사람·정책 관문 통과분) |
+| `common` | 3 공통 AI 인력 | G2 데이터 관리 | 있음(로컬만) | 금지(가공 packet은 G3로만) |
+| `platform` | 4 플랫폼·엔진 | G1 시스템 관리 | 없음(합성만) | 없음 |
+
+규칙(보안 설계 B1~B8): G3에는 원본 전체를 주지 않는다. 전송 전 검토·허가는 사람·정책 관문이 최종이다. 매핑·키·원문·hidden reasoning은 로그에 남기지 않는다. 결과는 항상 후보(검사 중)이며 사람 수락 뒤에만 정본이다. 첫 사이클은 합성 자료만 쓴다.
+
+정본 봇 명부와 그룹별 구성은 [`../foundation/team_member_engineering_program/18_TEAM_PILOT_ACCESS_AND_RELEASE_PLAN_V0.md`](../foundation/team_member_engineering_program/18_TEAM_PILOT_ACCESS_AND_RELEASE_PLAN_V0.md) §13이 소유한다. 보안 설계 원본(E08·E12·E14·v0.11)은 이 저장소 밖에 있으며 여기서는 이름만 인용한다.
+
 ## 음성 비서
 
 실시간 음성 비서는 사람 Owner의 대표 접점이자 일상 업무 라우터다.
@@ -334,3 +349,4 @@ Owner 승인으로 활성화한다.
 - `CODEX_WORK_DIRECTORY_V1.md`
 - `../foundation/AGENT_EXECUTION_CONTRACT_V0.md`
 - `../../../.workflow/codex_thread_manager_v0/`
+- `../foundation/team_member_engineering_program/18_TEAM_PILOT_ACCESS_AND_RELEASE_PLAN_V0.md`
