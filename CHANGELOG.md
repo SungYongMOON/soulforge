@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-09-06 - 운영 전환 3건: World Tree 0.1.9(변형 B) · Vigil operations-lane-v4 · Tongs tongs-lane-v2 등록
+
+- 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: (1) World Tree(코드 dev-erp, 포트 4300) 예약작업을 팩 0.1.7 → 0.1.9로 전환하고 `-EnableMcp -EnableMcpReviewRead`를 켰다(변형 B). 연속 수집·PC 활동 작업도 0.1.9로. 음성 ASR 작업은 상주 감독기가 팩 0.1.2를 쥐고 있어(싱글톤 lease) 전환하지 않았다(Owner 유지보수 창). (2) Vigil(포트 4192)을 `operations-lane-v3` → `operations-lane-v4`(source commit `d0f95448`, vite 번들 재빌드)로 전환해 Tongs 심박 계약 수정이 화면에 도달했다(`/tongs.snapshot.json` ready·fresh). (3) Tongs(MCP 문, 포트 4311) 상시 기동 예약작업 `Soulforge-Tongs-Loopback-v1`을 `tongs-lane-v1`로 등록한 뒤 같은 날 `tongs-lane-v2`(심박 60초 자체 갱신)로 재등록했다.
+- 운영 영향: 4300은 MCP 검토 조회 라우트가 열렸고(토큰 전에는 401), 4192는 새 lane, 4311이 처음으로 상시 대기한다. 이전 lane 폴더(v3·v1)는 보존. Tongs 작업의 로그온 트리거 반복은 다음 로그온 전까지 미무장(프로세스가 죽으면 수동 기동 필요). README §어디서 도는가 갱신.
+- 관련 경로: `<TARGET_SOULFORGE_ROOT>/local-recovery/erp-019-cutover-20260906/`, `<TARGET_SOULFORGE_ROOT>/local-recovery/vigil-lane-v4-cutover-20260906/`, `<TARGET_SOULFORGE_ROOT>/local-recovery/tongs-lane-v2-cutover-20260906/`, `<TARGET_SOULFORGE_ROOT>/local-recovery/tongs-register-20260906/`, `README.md`.
+
 ## 2026-09-06 - 외부 검토 왕복: GPT 2차 회신(EXT-19~34·CE-06) 기록과 회신 05
 
 - 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
