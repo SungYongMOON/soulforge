@@ -9,6 +9,9 @@ import {
   INGRESS_MCP_AUTH_SCHEMA,
   normalizeIngressAuthRegistry,
 } from "./ingress_mcp_service.mjs";
+import { aclReceiptPath, restrictToCurrentUser, writeAclReceipt } from "./windows_acl_lockdown.mjs";
+
+export const INGRESS_TOKEN_FILE_ACL_SCHEMA = "soulforge.ingress.token_file_acl.v0";
 
 function fail(code, status = 400) {
   const error = new Error(code);
@@ -31,6 +34,11 @@ async function assertNormalParent(path) {
   }
 }
 
+// `mode: 0o600` is not an access control list on Windows: the new file simply
+// inherits the ACL of its parent directory. So the token file is narrowed to
+// the current user right after creation, and the outcome (attempted/applied/
+// detail, never the token or the path) is kept in a sidecar receipt next to it
+// and returned to the caller. A failed lockdown is reported, not hidden.
 async function writeTokenOutput(path, token) {
   await assertNormalParent(path);
   try {
@@ -39,6 +47,19 @@ async function writeTokenOutput(path, token) {
     if (error?.code === "EEXIST") fail("token_output_exists", 409);
     throw error;
   }
+  try {
+    const lockdown = await restrictToCurrentUser(path);
+    await writeAclReceipt(path, INGRESS_TOKEN_FILE_ACL_SCHEMA, lockdown);
+    return lockdown;
+  } catch (error) {
+    await removeTokenOutput(path);
+    throw error;
+  }
+}
+
+async function removeTokenOutput(path) {
+  await rm(path, { force: true }).catch(() => {});
+  await rm(aclReceiptPath(path), { force: true }).catch(() => {});
 }
 
 async function readRegistry(path) {
@@ -158,14 +179,15 @@ export async function issueIngressCredential({
     const next = { ...raw, revision: revision(now), tokens: [...raw.tokens, entry] };
     normalizeIngressAuthRegistry(next);
     let tokenWritten = false;
+    let tokenLockdown = null;
     try {
       if (tokenPath !== null) {
-        await writeTokenOutput(tokenPath, token);
+        tokenLockdown = await writeTokenOutput(tokenPath, token);
         tokenWritten = true;
       }
       await atomicRegistry(path, next);
     } catch (error) {
-      if (tokenWritten) await rm(tokenPath, { force: true }).catch(() => {});
+      if (tokenWritten) await removeTokenOutput(tokenPath);
       throw error;
     }
     const result = {
@@ -175,7 +197,13 @@ export async function issueIngressCredential({
       token_display_policy: tokenPath === null ? "one_time_only" : "protected_file_only",
     };
     if (tokenPath === null) result.token = token;
-    else result.token_file_written = true;
+    else {
+      result.token_file_written = true;
+      result.token_file_acl_lockdown = tokenLockdown;
+      result.warnings = tokenLockdown.attempted && !tokenLockdown.applied
+        ? [`token_file_acl_lockdown_failed:${tokenLockdown.detail}`]
+        : [];
+    }
     return result;
   });
 }

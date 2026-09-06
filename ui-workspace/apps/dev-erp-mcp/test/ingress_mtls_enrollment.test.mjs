@@ -7,8 +7,10 @@ import { tmpdir } from "node:os";
 import { delimiter, resolve } from "node:path";
 import test from "node:test";
 
+import { preflightIngressMtlsCanary } from "../src/ingress_mtls_canary.mjs";
 import { loadIngressMtlsClientBinding } from "../src/ingress_mtls_client.mjs";
 import {
+  INGRESS_MTLS_CLIENT_KEY_ACL_SCHEMA,
   finalizeIngressMtlsEnrollment,
   prepareIngressMtlsEnrollment,
   signIngressMtlsEnrollment,
@@ -82,6 +84,21 @@ test("target-local CSR is signed on HPP and finalized without moving or printing
     assert.equal(request.private_key_transfer_allowed, false);
     assert.equal(request.csr_sha256, hash(await readFile(prepared.csr_path)));
 
+    // `chmod 0o600` is not an ACL on Windows; the lockdown outcome is reported
+    // next to the key and in the result, never assumed and never with key bytes.
+    const keyReceipt = JSON.parse(await readFile(resolve(target, "ingress-client.key.pem.acl_receipt.json"), "utf8"));
+    assert.deepEqual(Object.keys(keyReceipt).sort(), ["applied", "attempted", "detail", "schema"]);
+    assert.equal(keyReceipt.schema, INGRESS_MTLS_CLIENT_KEY_ACL_SCHEMA);
+    assert.deepEqual(prepared.private_key_acl_lockdown, {
+      attempted: keyReceipt.attempted, applied: keyReceipt.applied, detail: keyReceipt.detail,
+    });
+    if (process.platform === "win32") {
+      assert.deepEqual(prepared.private_key_acl_lockdown, { attempted: true, applied: true, detail: "ICACLS_OK" });
+    } else {
+      assert.equal(prepared.private_key_acl_lockdown.attempted, false);
+    }
+    assert.deepEqual(prepared.warnings, []);
+
     const signedPath = resolve(hpp, "workpc_a.crt.pem");
     const signed = await signIngressMtlsEnrollment({
       requestPath: prepared.request_path,
@@ -113,6 +130,12 @@ test("target-local CSR is signed on HPP and finalized without moving or printing
     assert.equal(finalized.status, "target_local_mtls_binding_ready");
     assert.equal(finalized.private_key_value_exposed, false);
     assert.equal(finalized.bearer_issued, false);
+    const expectedKeyAclStatus = process.platform === "win32" ? "applied" : "not_attempted";
+    assert.equal(finalized.private_key_acl_lockdown.status, expectedKeyAclStatus);
+    assert.deepEqual(finalized.warnings, []);
+    const preflight = await preflightIngressMtlsCanary({ bindingPath });
+    assert.equal(preflight.private_key_acl_lockdown.status, expectedKeyAclStatus);
+    assert.deepEqual(preflight.warnings, []);
     const binding = await loadIngressMtlsClientBinding(bindingPath);
     assert.equal(binding.expectedAccountId, "person_a");
     assert.equal(binding.expectedDeviceId, "workpc_a");

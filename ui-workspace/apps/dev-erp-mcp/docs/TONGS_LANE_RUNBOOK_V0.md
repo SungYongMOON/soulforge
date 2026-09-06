@@ -69,7 +69,7 @@ plan digest에 들어가기도 전에 거부된다. LAN 노출·TLS 종단은 �
 | 개인 ERP MCP bearer | World Tree 계정에 묶인 개인 MCP 토큰. 한 줄 파일, Owner 배치 | `<private_root>/config/tongs/credentials/erp_mcp_token.txt` |
 | Ingress 등록부(registry) | `schema_version: soulforge.ingress.mcp_auth_registry.v1`, SHA-256 hash만 저장(평문 토큰 없음) | `<private_root>/config/tongs/credentials/ingress_auth_registry.v1.json` |
 | Ingress binding(`--config`) | `schema/ingress_mcp_binding.v1.schema.json` 그대로. `enabled`는 별도 운영 승인 전 `false` | `<private_root>/config/tongs/ingress_binding.v1.json` |
-| Ingress bearer(발급값) | 팀원/봇 PC의 OS-protected 환경에만 둔다(명령행·binding JSON에는 두지 않음) | `<private_root>/config/tongs/credentials/hermes-kangdodam-01.token.txt` |
+| Ingress bearer(발급값) | 팀원/봇 PC의 OS-protected 환경에만 둔다(명령행·binding JSON에는 두지 않음). Windows에서는 `0o600`이 ACL이 아니므로 `issue`가 출력 파일을 현재 사용자 단독 ACL로 좁히려 시도하고 결과를 `token_file_acl_lockdown`과 옆의 `.acl_receipt.json`으로 남긴다(§9) | `<private_root>/config/tongs/credentials/hermes-kangdodam-01.token.txt` |
 | 상태 root(heartbeat) | `<StateRoot>/operations/tongs/` | §5 참조 |
 
 이 lane의 자격증명 파일 위치는 AGENTS.md의 lane 자격증명 규칙(`<private_root>/config/<lane>/credentials/`
@@ -380,6 +380,13 @@ npm.cmd --prefix ui-workspace/apps/dev-erp-mcp run ingress:admin -- issue --regi
 채운다. `--token-output`이 가리키는 파일은 명령이 새로 만들며, 이미 있으면 registry를 바꾸기 전에
 실패한다(`ingress_access_admin_cli.mjs`의 계약). 평문 토큰은 그 출력 파일에만 있고 stdout·registry
 어디에도 남지 않는다(registry에는 SHA-256 hash만).
+
+Windows에서는 `0o600`이 ACL이 아니라 출력 파일이 디렉터리 ACL을 상속하므로, `issue`는 파일을 만든
+직후 `icacls /inheritance:r /grant:r "%USERNAME%:F"`를 시도하고 stdout의 `token_file_acl_lockdown`과
+출력 파일 옆 `.acl_receipt.json`(시도/적용/사유만, 값·경로 없음)에 결과를 남긴다. `warnings`에
+`token_file_acl_lockdown_failed:*`가 보이면 적용되지 않은 것이므로
+`<private_root>/config/tongs/credentials/` 디렉터리 ACL을 먼저 확인한다(사용자 단독 ACL로 좁힌
+디렉터리 아래라면 파일이 그 좁은 ACL을 상속하지만, 그 확인 없이 적용됐다고 보지 않는다).
 
 ## 10. 검증
 

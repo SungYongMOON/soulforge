@@ -2,6 +2,7 @@ import { X509Certificate } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
 import { createBoundIngressClient, loadIngressMtlsClientBinding } from "./ingress_mtls_client.mjs";
+import { readAclReceipt } from "./windows_acl_lockdown.mjs";
 
 function fail(code, status = 400) {
   const error = new Error(code);
@@ -24,6 +25,9 @@ export async function preflightIngressMtlsCanary({ bindingPath, now = Date.now()
   try { certificate = new X509Certificate(await readFile(binding.clientCertPath)); }
   catch { fail("mtls_client_certificate_not_ready"); }
   const validity = certificateStatus(certificate, now);
+  // The ACL receipt of the private key is written by enrollment `prepare`; a
+  // key created any other way reports `receipt_missing`, never a guessed status.
+  const keyAcl = await readAclReceipt(binding.clientKeyPath);
   return {
     schema_version: "soulforge.ingress.mtls_canary_preflight.v1",
     status: "ready_for_owner_coordinated_probe",
@@ -40,6 +44,8 @@ export async function preflightIngressMtlsCanary({ bindingPath, now = Date.now()
     server_certificate_pin_present: true,
     secret_material_exposed: false,
     live_probe_performed: false,
+    private_key_acl_lockdown: keyAcl,
+    warnings: keyAcl.status === "failed" ? [`private_key_acl_lockdown_failed:${keyAcl.detail}`] : [],
   };
 }
 

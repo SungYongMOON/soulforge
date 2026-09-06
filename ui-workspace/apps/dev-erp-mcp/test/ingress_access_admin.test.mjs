@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
 import {
+  INGRESS_TOKEN_FILE_ACL_SCHEMA,
   initializeIngressAuthRegistry,
   issueIngressCredential,
   listIngressCredentials,
@@ -119,6 +120,23 @@ test("credential issue can commit a token only to a new protected output file", 
     assert.equal(Object.hasOwn(issued, "token"), false);
     assert.match(token, /^sfig_v1_[A-Za-z0-9_-]{43}$/);
     assert.equal(raw.tokens[0].token_hash, hashIngressToken(token));
+
+    // The mode of the token file is not an ACL on Windows, so the issue result
+    // and a sidecar receipt say what the lockdown actually did -- never the
+    // token or the path.
+    const receipt = JSON.parse(await readFile(`${tokenPath}.acl_receipt.json`, "utf8"));
+    assert.deepEqual(Object.keys(receipt).sort(), ["applied", "attempted", "detail", "schema"]);
+    assert.equal(receipt.schema, INGRESS_TOKEN_FILE_ACL_SCHEMA);
+    assert.deepEqual(issued.token_file_acl_lockdown, {
+      attempted: receipt.attempted, applied: receipt.applied, detail: receipt.detail,
+    });
+    assert.equal(JSON.stringify(receipt).includes(token), false);
+    if (process.platform === "win32") {
+      assert.deepEqual(issued.token_file_acl_lockdown, { attempted: true, applied: true, detail: "ICACLS_OK" });
+    } else {
+      assert.equal(issued.token_file_acl_lockdown.attempted, false);
+    }
+    assert.deepEqual(issued.warnings, []);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -153,7 +171,9 @@ test("credential admin CLI requires token-output and omits the token from stdout
     assert.equal(output.token_display_policy, "protected_file_only");
     assert.equal(output.token_file_written, true);
     assert.equal(Object.hasOwn(output, "token"), false);
+    assert.equal(typeof output.token_file_acl_lockdown.applied, "boolean");
     assert.equal(stdout.includes("sfig_v1_"), false);
+    assert.equal(stdout.includes(JSON.stringify(tokenPath).slice(1, -1)), false);
     assert.match((await readFile(tokenPath, "utf8")).trim(), /^sfig_v1_[A-Za-z0-9_-]{43}$/);
   } finally {
     await rm(root, { recursive: true, force: true });

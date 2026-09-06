@@ -1,5 +1,40 @@
 # CHANGELOG
 
+## 2026-09-06 - Windows ACL 감사: `0o600`/`0o700` 사용처 42개 파일 분류, raw secret 2곳에 lockdown 적용
+
+- 판단 표기: 개발 후보 수정(아래 secure-work "B2 키 보호 문서의 과장"의 후속). 그 검토가 잡은
+  "Windows에서 `0o600`은 ACL이 아니다"가 저장소의 다른 `0o600`/`0o700` 사용처에도 그대로 해당하는지
+  전수 분류했다. 새 owner decision이나 정본 승격이 아니다.
+- 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: `guild_hall/secure_work`·`node_modules`를 뺀 42개 파일(코드 35, 테스트 5, 문서 2)의
+  `0o600`/`0o700`을 파일 이름이 아니라 실제로 쓰는 내용으로 분류했다. **raw secret을 쓰는 곳은
+  둘뿐이다** — Tongs(MCP 문) ingress 발급 CLI의 `--token-output` bearer 파일
+  (`ingress_access_admin.mjs`)과 팀원 PC의 mTLS client 개인키(`ingress_mtls_enrollment.mjs`,
+  openssl 생성 뒤 `chmod 0o600`). 나머지는 registry(SHA-256 hash·인증서 지문), lock/lease,
+  custody·payload·index·receipt 같은 비밀 아닌 자료의 위생용 모드였고, 메일 브릿지 capsule은 이미
+  PowerShell DirectorySecurity로 실제 ACL을 fail-closed로 건다. 실측(`icacls`): 드라이브 루트가
+  `Authenticated Users:(M)`·`BUILTIN\Users:(RX)`를 상속시키는 checkout 아래에 `mode: 0o600`으로 만든
+  파일은 두 ACE를 그대로 물려받았고, 사용자 단독 ACL로 좁혀 둔 상태 root 아래에서는 좁은 ACL을
+  물려받았다 — 갭은 출력 위치에 따라 달라지며 파일을 쓰는 코드는 그것을 알 수 없었다. 고침: Node용
+  소형 모듈 `windows_acl_lockdown.mjs`(`winsec.py`와 같은 `icacls /inheritance:r /grant:r
+  "%USERNAME%:F"`, 결과를 `{attempted, applied, detail}`로만 보고, 값·경로 미기록, 예외 없음)를 두고
+  두 곳이 파일 생성 직후 호출한다. 결과는 옆의 `.acl_receipt.json`(schema
+  `soulforge.ingress.token_file_acl.v0` / `soulforge.ingress.mtls_client_key_acl.v0`)과
+  발급·`prepare`·`finalize` 결과의 `token_file_acl_lockdown`/`private_key_acl_lockdown`, 그리고
+  `ingress:mtls-canary preflight`에 나오고, 적용 실패는 `warnings`로 드러난다. 실패해도 파일을 지우지
+  않는다(보고가 먼저, 판단은 운영자). Python과 Node 사이 공용 helper는 만들지 않았다(언어별 소형
+  모듈이 더 단순하고 안전하다).
+- 운영 영향: 이미 발급된 token 파일·개인키에는 소급 적용되지 않는다(`finalize`·preflight는
+  `receipt_missing`을 보인다). 새 발급·등록 결과에 `applied:false`가 보이면 디렉터리 ACL을 먼저 본다.
+  후속 후보(credential 아님, 이번엔 손대지 않음): Python 메일 custody `0o600`(원문 바이트, 상태 root
+  아래)과 Buzz·Slack·Linear custody의 `chmodPrivateBestEffort`, 그리고 Tongs(MCP 문) preflight가
+  credentials 디렉터리의 영수증을 읽는 doctor 확장.
+- 관련 경로: `ui-workspace/apps/dev-erp-mcp/src/windows_acl_lockdown.mjs`,
+  `ui-workspace/apps/dev-erp-mcp/src/ingress_access_admin.mjs`,
+  `ui-workspace/apps/dev-erp-mcp/src/ingress_mtls_enrollment.mjs`,
+  `ui-workspace/apps/dev-erp-mcp/src/ingress_mtls_canary.mjs`, 같은 앱의 test 4개, README와
+  `docs/TONGS_LANE_RUNBOOK_V0.md`.
+
 ## 2026-09-06 - Tongs(MCP 문) loopback lane: fresh review's M1–M6 + minors closed, still not registered
 
 - 판단 표기: 개발 후보 수정. 아래 "Tongs(MCP 문) loopback lane + registrar prepared" 커밋에 대한
