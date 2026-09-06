@@ -16,8 +16,21 @@
 // private binding file, feature OFF by default). Each gets its own heartbeat
 // file at "<state-root>/operations/tongs/<service>.heartbeat.v1.json" where
 // <service> is "erp_mcp" or "ingress_mcp". Every file is the exact
-// {status, observed_at, pid, listen} shape Vigil's future probe reads, plus a
-// schema_version field every other state file in this repository carries.
+// {schema_version, status, observed_at, pid, listen} shape this module's
+// HEARTBEAT_FIELDS/TONGS_HEARTBEAT_SCHEMA/TONGS_HEARTBEAT_STATUSES pin.
+//
+// This module is the one place the heartbeat contract (file name pattern,
+// directory under the state root, field set, status vocabulary, and the
+// service Vigil watches) is defined — not just for the writer above, but for
+// Vigil's read-only probe too:
+// ui-workspace/apps/team-ops-board/src/server/tongs-heartbeat-adapter.mjs
+// imports TONGS_HEARTBEAT_SCHEMA, TONGS_HEARTBEAT_STATUSES, HEARTBEAT_FIELDS,
+// TONGS_ALWAYS_MANAGED_SERVICE, tongsHeartbeatPath, and
+// isValidTongsHeartbeatRecord directly from here instead of re-declaring its
+// own copy, so the two sides cannot drift apart the way they did before
+// 2026-09-06 (see docs/TONGS_LANE_RUNBOOK_V0.md's contract section for the
+// history: the adapter used to guess a different file name and a different
+// status vocabulary).
 //
 // See ui-workspace/apps/dev-erp-mcp/docs/TONGS_LANE_RUNBOOK_V0.md for the full
 // contract this module implements a slice of.
@@ -38,6 +51,12 @@ export const TONGS_HEARTBEAT_STATUSES = Object.freeze([
   "error",
 ]);
 export const TONGS_STATE_DIRNAME = "operations/tongs";
+// The service every Tongs registration always manages (see the runbook's §2
+// table: the personal ERP MCP is "항상 관리 대상"/always managed, the ingress
+// MCP is opt-in and OFF by default). A read-only external probe that wants a
+// single "is Tongs up" answer — Vigil's team-ops-board snapshot — watches
+// exactly this service rather than aggregating both.
+export const TONGS_ALWAYS_MANAGED_SERVICE = "erp_mcp";
 export const TONGS_LOCK_SCHEMA = "soulforge.tongs_lane.run_lock.v1";
 // The registered task's own trigger repeats every PT5M (300000ms). A max-age
 // equal to that interval leaves a reuse decision with essentially zero
@@ -51,7 +70,9 @@ export const TONGS_LOCK_SCHEMA = "soulforge.tongs_lane.run_lock.v1";
 export const TONGS_REGISTERED_TRIGGER_INTERVAL_MS = 5 * 60 * 1000;
 export const TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS = 720000; // 2.4x TONGS_REGISTERED_TRIGGER_INTERVAL_MS
 
-const HEARTBEAT_FIELDS = Object.freeze(["schema_version", "status", "observed_at", "pid", "listen"]);
+// Exported: this exact field set is also the allowed-keys contract Vigil's
+// adapter validates an on-disk heartbeat against (see the module header).
+export const HEARTBEAT_FIELDS = Object.freeze(["schema_version", "status", "observed_at", "pid", "listen"]);
 const LISTEN_RE = /^127\.0\.0\.1:([0-9]{1,5})$/;
 
 export class TongsLaneError extends Error {

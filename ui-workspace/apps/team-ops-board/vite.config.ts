@@ -59,9 +59,12 @@ const receiptExpiryBindingPath = path.join(
   "receipt_expiry_binding.v1.json",
 );
 const topologyRecoveryEvidenceRoot = path.join(operationsRoot, "watchtower", "external_evidence");
-// 다른 lane 이 쓰는 두 상태 파일. Vigil 은 읽기만 하며, 없으면 화면이 unknown 이다.
+// 다른 lane 이 쓰는 상태 파일. Vigil 은 읽기만 하며, 없으면 화면이 unknown 이다.
 const secureWorkStatusPath = path.join(operationsRoot, "secure_work", "status.json");
-const tongsHeartbeatPath = path.join(operationsRoot, "tongs", "heartbeat.json");
+// Tongs 하트비트 경로는 여기서 다시 짓지 않는다 — Tongs lane 의 등록 StateRoot 가
+// 이 Board 의 일반 state root 와 다를 수 있어(TONGS_LANE_RUNBOOK_V0.md §3) 아래
+// createTongsHeartbeatAdapterPlugin() 이 SOULFORGE_TONGS_STATE_ROOT 를 먼저 보고
+// 스스로 계약 경로(tongs-heartbeat-adapter.mjs)를 해석한다.
 const codexRetentionReportPath = path.join(
   operationsRoot,
   "soulforge_activity",
@@ -90,7 +93,7 @@ export default defineConfig(async () => ({
     // 없으면 unknown 으로 남는다(초록으로 올라가지 않는다).
     createScheduledTasksAdapterPlugin(),
     createSecureWorkStatusAdapterPlugin({ statusPath: secureWorkStatusPath }),
-    createTongsHeartbeatAdapterPlugin({ heartbeatPath: tongsHeartbeatPath }),
+    createTongsHeartbeatAdapterPlugin(),
     createHostStatsAdapterPlugin(),
     createClaudeUsageAdapterPlugin(),
     createAntigravityUsageAdapterPlugin(),

@@ -345,14 +345,16 @@ function readTongsEvidence(snapshot) {
   const status = typeof snapshot.status === "string" ? snapshot.status : "unknown";
   const listen = Number.isSafeInteger(snapshot.listen_port) ? `듣는 포트 ${snapshot.listen_port}` : "포트 미상";
   const staleNote = snapshot.fresh === false ? " · 하트비트 낡음" : "";
-  if (status === "listening") {
+  if (status === "ready") {
     return {
       state: snapshot.fresh === false ? "stale" : "ok",
       note: `${listen}${staleNote}`,
     };
   }
   if (status === "starting") return { state: "degraded", note: `기동 중 · ${listen}${staleNote}` };
+  if (status === "degraded") return { state: "degraded", note: `성능 저하 · ${listen}${staleNote}` };
   if (status === "stopped") return { state: "down", note: `멈춤 · ${listen}${staleNote}` };
+  if (status === "error") return { state: "down", note: `오류 · ${listen}${staleNote}` };
   return { state: "unknown", note: `상태 ${status}` };
 }
 

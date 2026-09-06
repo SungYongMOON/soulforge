@@ -10,6 +10,11 @@
 > m1–m12 전부를 이 개정에서 고쳤다 — 재기동 경합(M1)·신선도 창(M2)·loopback 미강제(M3)·이 문서
 > 자체의 틀린 문장(M4)·§9 명령 오류(M5)·§4 빌드 레시피 불능(M6). 아래 각 절의 실제 문장이 이
 > 개정 뒤 상태다.
+>
+> 2026-09-06 후속 개정: 이 lane의 lane builder가 실측한 별도 결함 — Vigil이 이 lane과 다른 파일명·
+> 필드·상태 어휘·상태 root를 가정해 정확한 등록 뒤에도 `/tongs.snapshot.json`이 `unknown`으로
+> 남던 문제 — 를 §5.1 Vigil 계약으로 고쳤다. 위 REVIEW_PACKET_20260906_tongs_t.yaml의 M1–M6과는
+> 무관한 별도 발견이다.
 
 ## 0. 표시명
 
@@ -70,7 +75,7 @@ plan digest에 들어가기도 전에 거부된다. LAN 노출·TLS 종단은 �
 | Ingress 등록부(registry) | `schema_version: soulforge.ingress.mcp_auth_registry.v1`, SHA-256 hash만 저장(평문 토큰 없음) | `<private_root>/config/tongs/credentials/ingress_auth_registry.v1.json` |
 | Ingress binding(`--config`) | `schema/ingress_mcp_binding.v1.schema.json` 그대로. `enabled`는 별도 운영 승인 전 `false` | `<private_root>/config/tongs/ingress_binding.v1.json` |
 | Ingress bearer(발급값) | 팀원/봇 PC의 OS-protected 환경에만 둔다(명령행·binding JSON에는 두지 않음) | `<private_root>/config/tongs/credentials/hermes-kangdodam-01.token.txt` |
-| 상태 root(heartbeat) | `<StateRoot>/operations/tongs/` | §5 참조 |
+| 상태 root(heartbeat) | `<StateRoot>/operations/tongs/` | §5·§5.1 참조 — Vigil 쪽 `SOULFORGE_TONGS_STATE_ROOT`에 **같은 값**을 준다 |
 
 이 lane의 자격증명 파일 위치는 AGENTS.md의 lane 자격증명 규칙(`<private_root>/config/<lane>/credentials/`
 아래 한 줄 파일, Owner만 배치, 형식 검사만 허용)을 그대로 따른다. 값은 이 문서를 포함해 어떤
@@ -243,6 +248,50 @@ entry의 **절대 경로 전체**가 명령행에 실제로 들어있는지까�
 프로세스이며 그 heartbeat가 말하는 포트를 지금 실제로 쥐고 있을 때만 멈춘다 — 셋 중 하나라도
 어긋나면 아무것도 건드리지 않고 `verification_failed`를 보고한다.
 
+## 5.1 Vigil 계약 (2026-09-06 추가)
+
+**배경(고쳐진 결함).** 이 개정 전에는 Vigil(`ui-workspace/apps/team-ops-board`, 포트 4192)의
+읽기 전용 probe(`src/server/tongs-heartbeat-adapter.mjs`)가 이 lane이 실제로 쓰는 파일과
+무관하게 만들어졌다 — 파일명이 고정된 `heartbeat.json`(실제로는 `<service>.heartbeat.v1.json`),
+필드 집합이 `schema_version` 대신 존재하지도 않는 `schema`를 optional로 허용, 상태 어휘가
+`listening/starting/stopped`(실제 lane은 `starting/ready/degraded/stopped/error`를 쓴다)였다.
+게다가 두 쪽의 상태 root 해석이 서로 다른 설정 채널이었다 — 이 lane은 등록 시점의 `-StateRoot`
+파라미터(운영 값은 이 문서에 적지 않는다) 하나만 보고, Vigil은 일반
+`SOULFORGE_STATE_ROOT`/`SOULFORGE_OWNER_ROOT`만 보며 이 checkout의 `guild_hall/state`로
+떨어졌다. 그 결과 정확히 등록해 lane이 살아 있어도 `/tongs.snapshot.json`은 `unknown` /
+`tongs_heartbeat_absent`를 보고했다(lane builder가 실측, 2026-09-06). 지금은 아래처럼
+한 계약을 양쪽이 그대로 가져다 쓴다.
+
+**계약의 정본.** `ops/tongs_lane_support.mjs`가 파일명 패턴(`tongsHeartbeatPath()` +
+`TONGS_STATE_DIRNAME`), 필드 집합(`HEARTBEAT_FIELDS`), 스키마 문자열(`TONGS_HEARTBEAT_SCHEMA`),
+상태 어휘(`TONGS_HEARTBEAT_STATUSES`), Vigil이 보는 서비스(`TONGS_ALWAYS_MANAGED_SERVICE` =
+`"erp_mcp"` — ingress MCP는 opt-in이라 단일 값 스냅샷의 대상이 아니다), 신선도/재기동 판단 창
+(`TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS`)을 소유한다.
+`ui-workspace/apps/team-ops-board/src/server/tongs-heartbeat-adapter.mjs`는 이 다섯 상수/함수를
+전부 이 모듈에서 직접 import한다 — 자기 나름의 복사본을 다시 만들지 않는다(그래서 다시 갈라질
+수 없다). Vigil의 신선도 창도 같은 `TONGS_DEFAULT_MAX_HEARTBEAT_AGE_MS`를 초 단위로 그대로 쓴다
+(예전엔 독자적으로 900초를 추측해 lane의 실제 판단 창인 720초와도 어긋나 있었다).
+
+**상태 root — 명시 env, fail-closed, 조용한 대체 없음.** 이 lane의 `-StateRoot`와 Vigil의 일반
+state root는 서로 다른 값을 가리켜도 되는 독립된 설정 채널이므로(위 배경 참고), 어댑터는 그 둘이
+우연히 같다고 가정하지 않는다. Vigil을 띄우는 프로세스 환경에 `SOULFORGE_TONGS_STATE_ROOT`를
+**이 lane을 등록할 때 넘긴 `-StateRoot`와 정확히 같은 값**으로 설정한다. 우선순위는
+`SOULFORGE_TONGS_STATE_ROOT`(명시) > `SOULFORGE_STATE_ROOT` > `SOULFORGE_OWNER_ROOT` > 이
+checkout의 `guild_hall/state`다 — AGENTS.md의 일반 state root 우선순위(파일별 명시 flag/env가
+최우선)와 같은 모양이다. `SOULFORGE_TONGS_STATE_ROOT`가 설정돼 있는데 절대 경로가 아니거나
+존재하는 디렉터리가 아니면(빈 문자열 포함) 조용히 다음 항으로 넘어가지 않고 Vigil 자체가 시작을
+거부한다(이미 `SOULFORGE_STATE_ROOT`/`SOULFORGE_OWNER_ROOT`가 같은 방식으로 실패한다 —
+`vite.config.ts`의 기존 주석 "Fail closed ... refuses to start"). 설정하지 않으면 이 변수는
+그냥 없는 것으로 보고 일반 우선순위로 내려간다 — Vigil의 다른 상태 파일(secure_work 등)과 같은
+동작이다.
+
+**단위 테스트.** `ui-workspace/apps/team-ops-board/src/server/tongs-heartbeat-adapter.test.mjs`가
+(1) 실제 파일명(`erp_mcp.heartbeat.v1.json`)으로 쓰인 fixture를 읽어 ok(ready+fresh)/stale/absent를
+올바르게 판정하는지, (2) 어댑터의 기본 경로가 `tongs_lane_support.mjs`의 `tongsHeartbeatPath()` +
+`TONGS_ALWAYS_MANAGED_SERVICE`를 **같은 함수 호출로** 그대로 재현하는지(계약 테스트 — 두 값이
+우연히 같은 문자열이 아니라 같은 호출 결과라서 갈라질 수 없음을 증명), (3)
+`SOULFORGE_TONGS_STATE_ROOT`의 우선순위·fail-closed 동작을 검증한다.
+
 ## 6. 등록 — dry-run 먼저, 그다음 실제
 
 `ops/register-tongs-task.ps1`은 `-DryRun`(또는 `-Register` 없이 호출하는 기본값)에서는 아무것도
@@ -275,6 +324,14 @@ $NodeSha256 = "sha256:" + (Get-FileHash -Algorithm SHA256 <NodePath>).Hash.ToLow
   -NodeSha256 $NodeSha256 `
   -ExpectedDryRunDigest sha256:<위에서 나온 값> -Register -DryRun:$false
 ```
+
+**Vigil에 같은 상태 root를 알린다(§5.1 계약).** 위 두 명령의 `-StateRoot`에 넣은 값을 그대로,
+Vigil(`ui-workspace/apps/team-ops-board`)을 띄우는 프로세스 환경에도
+`SOULFORGE_TONGS_STATE_ROOT`로 export한다. 이 등록기 자체는 Vigil의 환경을 건드리지 않는다 —
+이 값을 Vigil 쪽에 실제로 반영하는 것은 Vigil 실행 lane의 등록기(cutover 세션 몫)이 하는
+별도 단계다. 두 값이 갈라지면 lane은 정상 기동해도 `/tongs.snapshot.json`은 `unknown`으로
+남는다(§5.1의 "배경" 참고) — Vigil 쪽 값을 확인하지 않고는 이 lane의 등록만으로 화면이
+올라온다고 주장하지 않는다.
 
 예약작업 `Soulforge-Tongs-Loopback-v1`의 트리거는 로그온(AtLogOn, 등록을 실행하는 바로 그 계정의
 로그온에만 반응하도록 `-User`를 명시한다 — m8, 2026-09-06 검토가 잡음: `-User` 없이는 UserId가
@@ -391,7 +448,13 @@ node guild_hall/validate/local_absolute_path_policy.mjs --scope changed
 npm run validate:display-terms
 npm --prefix ui-workspace/apps/dev-erp-mcp run test
 node guild_hall/validate/run_root_acceptance.mjs --mode validate
+npm --prefix ui-workspace/apps/team-ops-board run test
 ```
+
+`validate:tongs-lane`은 이 lane 자신의 `ops/tongs_lane_support.mjs`만 본다(§5.1의 계약 정본).
+§5.1이 정의하는 계약을 Vigil 쪽이 실제로 지키는지는 여기 포함되지 않으므로, 그 계약을 건드릴 때는
+위 `npm --prefix ui-workspace/apps/team-ops-board run test`(특히
+`src/server/tongs-heartbeat-adapter.test.mjs`)도 함께 초록이어야 한다.
 
 `validate:tongs-lane`은 이제 `run_root_acceptance.mjs`의 `validate`·`done-check` 두 모드 모두에
 배선돼 있다(m10, `guild_hall/validate/run_root_acceptance_steps.test.mjs`가 그 배선을 고정한다) —

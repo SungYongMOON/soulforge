@@ -69,7 +69,14 @@ function hasControlCharacter(value) {
 // to the current drive and is refused.
 const WINDOWS_DRIVE_OR_UNC_ROOT = /^(?:[A-Za-z]:[\\/]|[\\/]{2}[^\\/]+[\\/][^\\/]+)/u;
 
-function validateOverride(variable, raw, stat, platform) {
+// Exported so a consumer with its own file-specific override variable (see
+// this module's own header comment: "explicit flag or file-specific env ...
+// > SOULFORGE_STATE_ROOT > SOULFORGE_OWNER_ROOT > ...") can validate that
+// variable with the exact same fail-closed rules (absolute, no control
+// characters, a real Windows drive/UNC root, and an existing directory)
+// instead of re-implementing or loosening them. Used directly by
+// tongs-heartbeat-adapter.mjs for SOULFORGE_TONGS_STATE_ROOT.
+export function validateOverride(variable, raw, stat, platform) {
   if (typeof raw !== "string" || raw.trim().length === 0) {
     throw new SoulforgeRootOverrideError(variable, "empty");
   }

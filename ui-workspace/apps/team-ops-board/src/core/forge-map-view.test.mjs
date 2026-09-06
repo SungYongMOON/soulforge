@@ -194,11 +194,15 @@ test("Tongs 색은 하트비트를 따르고 없음과 깨짐을 구분한다", 
   assert.equal(tongsOf(null).state, "unknown");
   assert.equal(tongsOf({ state: "unknown", reason: "tongs_heartbeat_absent" }).state, "unknown");
   assert.equal(tongsOf({ state: "unavailable", reason: "tongs_heartbeat_status_unexpected" }).state, "degraded");
-  assert.equal(tongsOf({ state: "ready", status: "listening", listen_port: 4311, fresh: true }).state, "ok");
-  assert.equal(tongsOf({ state: "ready", status: "listening", listen_port: 4311, fresh: false }).state, "stale");
+  // "ready" 는 Tongs lane 이 실제로 쓰는 상태 값이다(tongs_lane_support.mjs의
+  // TONGS_HEARTBEAT_STATUSES) — 예전 "listening" 은 lane 이 절대 쓰지 않는 값이었다.
+  assert.equal(tongsOf({ state: "ready", status: "ready", listen_port: 4311, fresh: true }).state, "ok");
+  assert.equal(tongsOf({ state: "ready", status: "ready", listen_port: 4311, fresh: false }).state, "stale");
   assert.equal(tongsOf({ state: "ready", status: "starting", listen_port: 4311, fresh: true }).state, "degraded");
+  assert.equal(tongsOf({ state: "ready", status: "degraded", listen_port: 4311, fresh: true }).state, "degraded");
   assert.equal(tongsOf({ state: "ready", status: "stopped", listen_port: 4311, fresh: true }).state, "down");
-  assert.match(tongsOf({ state: "ready", status: "listening", listen_port: 4311, fresh: true }).evidenceNote, /4311/u);
+  assert.equal(tongsOf({ state: "ready", status: "error", listen_port: null, fresh: true }).state, "down");
+  assert.match(tongsOf({ state: "ready", status: "ready", listen_port: 4311, fresh: true }).evidenceNote, /4311/u);
 });
 
 test("외부 작업 사이클 색은 상태 파일의 건수를 따른다", () => {

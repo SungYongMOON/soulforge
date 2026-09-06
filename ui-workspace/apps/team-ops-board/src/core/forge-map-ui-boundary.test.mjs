@@ -154,7 +154,10 @@ test("vite 는 세 어댑터를 등록하고 상태 파일 경로는 state root 
   assert.match(config, /import \{ createTongsHeartbeatAdapterPlugin \} from "\.\/src\/server\/tongs-heartbeat-adapter\.mjs";/u);
   assert.match(config, /createScheduledTasksAdapterPlugin\(\),/u);
   assert.match(config, /createSecureWorkStatusAdapterPlugin\(\{ statusPath: secureWorkStatusPath \}\)/u);
-  assert.match(config, /createTongsHeartbeatAdapterPlugin\(\{ heartbeatPath: tongsHeartbeatPath \}\)/u);
+  // Tongs 는 자신의 state root 를 스스로 해석한다(SOULFORGE_TONGS_STATE_ROOT 가
+  // 이 Board 의 일반 state root 와 다를 수 있으므로) — vite.config.ts 는 그
+  // 경로를 다시 짓지 않고 인자 없이 호출한다.
+  assert.match(config, /createTongsHeartbeatAdapterPlugin\(\),/u);
+  assert.equal(config.includes("tongsHeartbeatPath"), false, "vite.config.ts 는 Tongs 경로를 스스로 짓지 않는다");
   assert.match(config, /const secureWorkStatusPath = path\.join\(operationsRoot, "secure_work", "status\.json"\);/u);
-  assert.match(config, /const tongsHeartbeatPath = path\.join\(operationsRoot, "tongs", "heartbeat\.json"\);/u);
 });
