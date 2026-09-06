@@ -13,19 +13,36 @@
 // contract's schema otherwise has no way to carry. Unsupported validation keywords still fail the
 // check rather than being silently ignored, so a schema author cannot rely on a keyword this
 // validator does not actually enforce.
+//
+// Further extended (2026-09-06 review) with: array-form `type` (e.g. `["object", "null"]`) and
+// the `"null"` type name itself, because `blueprint_ref` and `evidence_refs[].sha256` are
+// legitimately nullable and a bare string `type` cannot express that; `minimum` and the
+// `"integer"` type, needed by `Step.seq`; and `not`, needed to say "this layer's node must not
+// carry this Task-only field" without reaching for a boolean `false` sub-schema — this validator
+// does not give a schema-position `false`/`true` any meaning (`collectSchemaSelfValidityErrors`
+// would reject either as "not an object"), so the equivalent constraint is expressed as
+// `{"not": {"required": [...]}}` instead.
 const SUPPORTED_KEYWORDS = new Set([
   '$schema', '$id', 'title', 'type', 'additionalProperties', 'required', 'properties',
   'const', 'enum', 'minLength', 'maxLength', 'pattern', 'items', 'minItems', 'maxItems',
-  'allOf', 'if', 'then', 'else',
+  'minimum', 'allOf', 'if', 'then', 'else', 'not',
 ]);
 
-const typeMatches = (value, type) => (
-  (type === 'object' && value !== null && typeof value === 'object' && !Array.isArray(value))
-  || (type === 'array' && Array.isArray(value))
-  || (type === 'string' && typeof value === 'string')
-  || (type === 'boolean' && typeof value === 'boolean')
-  || (type === 'number' && typeof value === 'number')
-);
+// `type` is usually a single JSON Schema type name, but draft 2020-12 also allows an array of
+// type names (e.g. `["object", "null"]`) to mean "any one of these". Recursing over the array
+// keeps every other call site — which only ever sees a plain string today — unchanged.
+const typeMatches = (value, type) => {
+  if (Array.isArray(type)) return type.some((oneType) => typeMatches(value, oneType));
+  return (
+    (type === 'object' && value !== null && typeof value === 'object' && !Array.isArray(value))
+    || (type === 'array' && Array.isArray(value))
+    || (type === 'string' && typeof value === 'string')
+    || (type === 'boolean' && typeof value === 'boolean')
+    || (type === 'number' && typeof value === 'number')
+    || (type === 'integer' && typeof value === 'number' && Number.isInteger(value))
+    || (type === 'null' && value === null)
+  );
+};
 
 export function validateJsonSchemaSubset(value, schema, path = '$', errors = []) {
   if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
@@ -35,7 +52,8 @@ export function validateJsonSchemaSubset(value, schema, path = '$', errors = [])
     if (!SUPPORTED_KEYWORDS.has(key)) errors.push(`${path}: unsupported schema keyword ${key}`);
   }
   if (schema.type && !typeMatches(value, schema.type)) {
-    errors.push(`${path}: expected ${schema.type}`);
+    const expected = Array.isArray(schema.type) ? schema.type.join(' or ') : schema.type;
+    errors.push(`${path}: expected ${expected}`);
     return errors;
   }
   if (Object.hasOwn(schema, 'const') && value !== schema.const) {
@@ -53,6 +71,11 @@ export function validateJsonSchemaSubset(value, schema, path = '$', errors = [])
     }
     if (typeof schema.pattern === 'string' && !(new RegExp(schema.pattern, 'u')).test(value)) {
       errors.push(`${path}: string does not match pattern`);
+    }
+  }
+  if (typeof value === 'number') {
+    if (typeof schema.minimum === 'number' && value < schema.minimum) {
+      errors.push(`${path}: number is below minimum`);
     }
   }
   if (Array.isArray(value)) {
@@ -81,6 +104,10 @@ export function validateJsonSchemaSubset(value, schema, path = '$', errors = [])
   if (Array.isArray(schema.allOf)) {
     for (const sub of schema.allOf) errors.push(...validateJsonSchemaSubset(value, sub, path, []));
   }
+  if (schema.not) {
+    const notErrors = validateJsonSchemaSubset(value, schema.not, path, []);
+    if (notErrors.length === 0) errors.push(`${path}: value must not match the "not" schema`);
+  }
   if (schema.if) {
     const ifErrors = validateJsonSchemaSubset(value, schema.if, path, []);
     if (ifErrors.length === 0) {
@@ -93,7 +120,7 @@ export function validateJsonSchemaSubset(value, schema, path = '$', errors = [])
 }
 
 // Self-validity helper for T-01: walks every schema-position object reachable from the root
-// (root, property schemas, array `items`, and the `allOf`/`if`/`then`/`else` branches) and
+// (root, property schemas, array `items`, and the `allOf`/`if`/`then`/`else`/`not` branches) and
 // confirms each one only uses supported keywords and that every `pattern` string compiles as a
 // regular expression. This does not re-implement a JSON-Schema-of-JSON-Schema; it only guards the
 // keyword vocabulary this validator itself understands, which is what T-01 needs to know before
@@ -119,6 +146,7 @@ export function collectSchemaSelfValidityErrors(schema, path = '$') {
     if (node.if) visit(node.if, `${at}.if`);
     if (node.then) visit(node.then, `${at}.then`);
     if (node.else) visit(node.else, `${at}.else`);
+    if (node.not) visit(node.not, `${at}.not`);
   };
   visit(schema, path);
   return errors;

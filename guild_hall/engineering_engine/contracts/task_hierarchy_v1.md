@@ -35,15 +35,27 @@ files. Nothing here mints Task instances from real project data — that mapping
 | `Step` | `step:<task_id>:<workflow_id>:<step_id>` | `task_id`, `workflow_id`, `step_id`, `seq`, `blueprint_ref` (must be non-null) | Same shape as `.workflow/<workflow_id>/step_graph.yaml`'s `steps[]` entries (`step_id`, `title`, `actor_slot`, `action.{kind,requires,validates,creates}`, `next.{on_success,on_fail}`) |
 | `Action` | `action:<step_id>:<action_kind>` | `step_id`, `action_kind`, `effect_class`, `receipt_required` | Same `steps[].action.{kind, requires[], validates[], creates[]}` shape, promoted to its own addressable node |
 
-**Id composition note**: `<task_id>` and `<step_id>` in the Step/Action id rules are the *full*
-parent id strings, which already contain colons (a Task id is itself `task:<stage_code>:
-<artifact_type_id>`). Expanded, a Step id therefore reads
-`step:task:<stage_code>:<artifact_type_id>:<workflow_id>:<step_id>` (6 colon-separated segments),
-and an Action id reads
+**Id composition note (corrected 2026-09-06 review, M8)**: only `<task_id>` in the Step id rule
+is a *full* parent id string that already contains colons (a Task id is itself
+`task:<stage_code>:<artifact_type_id>`). The trailing `<step_id>` in that *same* Step id rule is
+**not** a parent id at all — it is the Step's own local `step_graph.yaml` key (e.g.
+`fabrication`), copied straight off the workflow's step list, and carries no colons of its own.
+Expanded, a Step id therefore reads
+`step:task:<stage_code>:<artifact_type_id>:<workflow_id>:<step_id>` (6 colon-separated segments:
+4 from `task_id`, 1 for `workflow_id`, 1 for the Step's own local `step_id`).
+
+In the Action id rule (`action:<step_id>:<action_kind>`), by contrast, `<step_id>` **is** the
+*full* parent Step id string — the same 6-segment value above, not the bare local key. M6 (see
+`Action.step_id` in the schema's `allOf`/`if`/`then` blocks) enforces this with a
+`^step:task:...` pattern on `Action.step_id`, and a Task-hierarchy mapper that copies a Step
+node's own local `step_id` field onto an Action's `step_id` (instead of that Step node's `id`)
+produces a value this schema now rejects. An Action id expands to
 `action:step:task:<stage_code>:<artifact_type_id>:<workflow_id>:<step_id>:<action_kind>`
 (8 segments). The schema's `allOf`/`if`/`then` blocks encode the expanded form, not the
 shorthand — a reader of the raw regex who expects a 3- or 4-segment id will be surprised
-otherwise.
+otherwise, and a reader who assumes `step_id` means the same thing on every layer will be
+equally surprised: it is a local key on `Step` nodes and a full parent-id reference on `Action`
+nodes.
 
 **Design additions beyond the brief's literal field list** (flagged here per the execution
 contract's "surface assumptions" rule, not silently decided):
@@ -73,19 +85,31 @@ contract's "surface assumptions" rule, not silently decided):
   in this contract states how a Task is assigned to one of them. Left open for the owner decision
   already flagged in the brief (§13-3) rather than guessed at here.
 
+**Mapper obligation (2026-09-06 review, M7; enforced starting commit 2)**: a Task node's `id`
+must be composed deterministically from exactly `stage_code` + `artifact_type_id`
+(`task:<stage_code>:<artifact_type_id>`, per the id rule above) — this is the same value a
+downstream consumer joins on as `rune_task_id`. Commit 2's field-mapping compiler test will
+reject any Task node whose `id` cannot be reconstructed from its own `stage_code` /
+`artifact_type_id` fields. The reviewer's rule, verbatim: 소비자가 join하는 키는 `id`(=
+`rune_task_id`)이고, `work_order_ref`는 노드의 `order_index` + 투영 영수증
+`upstream_receipt.output_digests.stages`로 구성한다. 노드에 별도 필드를 만들지 않는다. (A
+consumer's join key is `id`, i.e. `rune_task_id`; `work_order_ref` is built from the node's own
+`order_index` plus the projection receipt's `upstream_receipt.output_digests.stages` — no
+separate field is added to the node for it.)
+
 ## 3. Common fields (all layers)
 
 | Field | Shape | Source |
 | --- | --- | --- |
 | `schema_version` | const `"soulforge.engineering_engine.task_hierarchy.v1"` | This contract |
 | `owner_authority` | const `"rune"` | Drive §15.1 |
-| `applicability` | `{business_type, prime_contractor, quality_grade, applies_when[]\|null}` | `business_type`/`prime_contractor`/`quality_grade` copied from the compiled variant (`stage_rule_compiler.mjs` `VARIANT_FIELDS`, validated `assertSafeString` at `:513`–`:516`); `applies_when` copied per-task, nullable (`:945`–`:946`) |
+| `applicability` | `{business_type, prime_contractor, quality_grade, applies_when[]}` | `business_type`/`prime_contractor`/`quality_grade` copied from the compiled variant (`stage_rule_compiler.mjs` `VARIANT_FIELDS`, validated `assertSafeString` at `:513`–`:516`); `applies_when` copied per-task. The source field is nullable (`:945`–`:946`), but this contract's own schema requires `applies_when` to always be an array (2026-09-06 review, B2/M5) — a mapper (commit 2) coalesces a `null` source value to `[]` before emitting a node; "no conditions" is `[]`, never `null` |
 | `depends_on[]` | array of id tokens | Rune work item `depends_on` (`item.declared`, `stage_rule_compiler.mjs:2003`) |
 | `dependency_scope` | `{same_stage[], earlier_stage[], forward_stage[], out_of_scope[], unresolved[]}` | Rune's `same_stage_inputs`/`earlier_stage_inputs`/`forward_stage_inputs`/`out_of_scope_inputs`/`unresolved_inputs` (`:2004`–`:2008`), renamed without the `_inputs` suffix per the brief's own §3.2 naming |
 | `preconditions[]` | array of `{invariant_id, kind:"precondition", state}` | Populated by `task_invariants_v0` (commit 2). The exact `state` value set for a precondition record is not fixed by this contract — left as a non-empty string pending that commit |
 | `completion_contract` | `{invariant_ids[], minimum_presence_rule, required_evidence[]}` | `minimum_presence_rule` copied verbatim from Rune's `PRESENCE_RULE` enum: `present` \| `present_or_not_applicable` \| `optional_context` (`stage_rule_compiler.mjs:105`–`109`) |
 | `evidence_refs[]` | array of `{ref_kind, exact_ref, sha256\|null}` | Observation/receipt refs. No raw payloads — pointers only |
-| `blueprint_ref` | `{workflow_id, version, version_source:"id_suffix"}` or `null` | `null` ⇒ `state: WORKFLOW_GAP`. `version` is derived from the workflow id's suffix (e.g. `_v0`), **not** a registry field — see "`.workflow` has no `version:` field" below |
+| `blueprint_ref` | `{workflow_id, version, version_source:"id_suffix"}` or `null` | On a `Task` node, `null` ⇒ `state: WORKFLOW_GAP` (schema `allOf`, 2026-09-06 review M4/B3 — see §6). `Stage` and `WorkPackage` nodes are not workflow-bound at all and may carry a `null` `blueprint_ref` with any `state`; this constraint is Task-only. `version` is derived from the workflow id's suffix (e.g. `_v0`), **not** a registry field — see "`.workflow` has no `version:` field" below |
 | `state` | enum `READY \| BLOCKED_INPUT \| BLOCKED_PRECONDITION \| WORKFLOW_GAP \| SATISFIED \| UNKNOWN` | Computed (see §4 mapping table, `ready`/`blocked_by` row) |
 | `claim_ceiling` | const `"observed"` | Same claim ceiling Rune's own receipt carries (`stage_rule_compiler.mjs:2029`) |
 
@@ -97,6 +121,10 @@ Task-only fields carried straight from the Rune work item, not re-derived: `sati
 general_se_guidance \| internal_management \| unstated`, `stage_rule_compiler.mjs:116`),
 `evidence_rank` (number), `evidence_record[]`, and `depends_on_origin` (enum `canonical \|
 generic_layer_projection \| mixed`, `:170`).
+
+`steps` (§2) and `blocked_by` are Task-exclusive: the schema (2026-09-06 review, m12) rejects
+either field on a Stage, WorkPackage, Step, or Action node via `not`/`required`, not just via
+convention.
 
 ## 4. `orderStageWork` → `task_hierarchy_v1` field mapping (verified, no Rune output change)
 
@@ -141,6 +169,13 @@ or its MCP surface. Rune's judgement of what is `ready`, `blocked_by`, or what a
 never recalculated, only copied. This mirrors the brief's own instruction (§3.3, closing bullet)
 verbatim.
 
+The §2 mapper obligation (2026-09-06 review, M7) is part of this same one-way discipline: a
+consumer joins on the Task node's own `id` (= `rune_task_id`), and derives `work_order_ref` from
+that node's `order_index` plus the projection receipt's `upstream_receipt.output_digests.stages`
+— never a new field minted on the node. A consumer that invents its own parallel join key or
+work-order identifier instead of deriving one from what Rune already emits could drift from
+Rune's record without either side noticing; joining on `id` cannot.
+
 ## 6. `.workflow` has no `version:` field (owner decision, 2026-09-06)
 
 None of the 71 entries in `.workflow/index.yaml` carry a `version:` field — the only version
@@ -151,6 +186,19 @@ Instead, `blueprint_ref.version` is derived from the referenced workflow id's su
 knows how `version` was obtained (as opposed to, say, a future registry-native version field).
 Adding a real `version:` field to the registry is left as a `.workflow`-owner decision (see D48
 candidate row, §7 below).
+
+**Unsuffixed workflow ids (2026-09-06 review addendum, B3)**: `version_source: "id_suffix"` is
+undefined when a workflow id carries no `_vN` suffix to derive a version from. Of the 71 entries
+in `.workflow/index.yaml`, 64 carry a `_vN` suffix and 7 do not: `frontline_assault`,
+`build_lineage_map`, `author_skill_package`, `meeting_followup`,
+`device_system_diagram_generation`, `exp_xml_component_materials`, and
+`component_pcb_layout_guide_extraction`. Decision (총괄 review, under Owner delegation): a
+Task whose workflow id has no `_vN` suffix does **not** get a `blueprint_ref` minted for it —
+it is left exactly as if the Task had no workflow reference at all, i.e.
+`blueprint_ref: null`, `state: WORKFLOW_GAP` (§3's `blueprint_ref` row and its Task/
+`blueprint_ref:null` ⇒ `state:WORKFLOW_GAP` schema conditional, M4). A `.workflow`-owner decision
+that adds a real `version:` field (D48 candidate, §7) could retire this gap for those 7 ids;
+until then, none of them can mint a `blueprint_ref` under this contract.
 
 ## 7. Follow-ups (not this commit)
 

@@ -31,7 +31,7 @@ function baseCommonFields(overrides = {}) {
       business_type: 'defense_prime',
       prime_contractor: 'synthetic_prime',
       quality_grade: 'grade_a',
-      applies_when: null,
+      applies_when: [],
     },
     depends_on: [],
     dependency_scope: {
@@ -191,6 +191,88 @@ test('T-01 positive control: non-empty steps is allowed when blueprint_ref is no
 
 test('T-01 negative: a Step node may not carry a null blueprint_ref', () => {
   const instance = stepInstance({ blueprint_ref: null });
+  const errors = validateJsonSchemaSubset(instance, schema);
+  assert.ok(errors.length > 0);
+});
+
+// 2026-09-06 review (B2/M5): blueprint_ref, applicability.applies_when, and
+// evidence_refs[].sha256 previously had no `type`, so a schema-shaped object/array-of-string
+// hole let any JS type through unnoticed. Each now carries an explicit `type` (array-form for
+// the two nullable fields), and these three cases pin the hole shut.
+for (const badBlueprintRef of ['garbage', 42, []]) {
+  test(`T-01 negative: blueprint_ref rejects a non-object, non-null value (${JSON.stringify(badBlueprintRef)})`, () => {
+    const instance = taskInstance({ blueprint_ref: badBlueprintRef });
+    const errors = validateJsonSchemaSubset(instance, schema);
+    assert.ok(errors.length > 0);
+    assert.ok(errors.some((message) => message.includes('$.blueprint_ref') && message.includes('expected')));
+  });
+}
+
+test('T-01 negative: applicability.applies_when rejects a non-array value', () => {
+  const instance = taskInstance({
+    applicability: {
+      business_type: 'defense_prime',
+      prime_contractor: 'synthetic_prime',
+      quality_grade: 'grade_a',
+      applies_when: 'not-an-array',
+    },
+  });
+  const errors = validateJsonSchemaSubset(instance, schema);
+  assert.ok(errors.length > 0);
+  assert.ok(errors.some((message) => message.includes('$.applicability.applies_when') && message.includes('expected')));
+});
+
+test('T-01 negative: evidence_refs[].sha256 rejects a non-string, non-null value', () => {
+  const instance = taskInstance({
+    evidence_refs: [{ ref_kind: 'observation', exact_ref: 'synthetic/path.txt', sha256: 12345 }],
+  });
+  const errors = validateJsonSchemaSubset(instance, schema);
+  assert.ok(errors.length > 0);
+  assert.ok(errors.some((message) => message.includes('$.evidence_refs[0].sha256') && message.includes('expected')));
+});
+
+// 2026-09-06 review (B3/M4): a Task's blueprint_ref is null exactly when its workflow id has no
+// `_vN` suffix (7 of 71 registered workflow ids — see task_hierarchy_v1.md §6) or has no
+// blueprint at all; either way the contract now requires `state: WORKFLOW_GAP` in that case.
+// Stage/WorkPackage nodes are not workflow-bound at all, so a null blueprint_ref leaves their
+// `state` unconstrained (see task_hierarchy_v1.md §3).
+test('T-01 negative: a Task with a null blueprint_ref must be WORKFLOW_GAP, not any other state', () => {
+  const instance = taskInstance({ state: 'READY' });
+  const errors = validateJsonSchemaSubset(instance, schema);
+  assert.ok(errors.length > 0);
+  assert.ok(errors.some((message) => message.includes('$.state') && message.includes('WORKFLOW_GAP')));
+});
+
+test('T-01 positive control: a Stage node may carry a null blueprint_ref with any state (WORKFLOW_GAP rule is Task-only)', () => {
+  const instance = stageInstance({ state: 'SATISFIED' });
+  assert.deepEqual(validateJsonSchemaSubset(instance, schema), []);
+});
+
+// 2026-09-06 review (M6): an Action's step_id names its parent Step node, not a bare
+// step_graph.yaml local key — it must be the Step's own full id (`^step:task:...`, the same
+// pattern the Step layer's own `id` uses).
+test('T-01 negative: an Action node step_id must be the parent Step’s full id, not a bare local key', () => {
+  const instance = actionInstance({ step_id: 'fabrication' });
+  const errors = validateJsonSchemaSubset(instance, schema);
+  assert.ok(errors.length > 0);
+  assert.ok(errors.some((message) => message.includes('$.step_id') && message.includes('pattern')));
+});
+
+// 2026-09-06 review (m12): Step.seq is a zero-based step_graph position, so it carries an
+// integer `minimum: 0` now instead of a bare `number`.
+test('T-01 negative: a Step seq below zero fails the minimum constraint', () => {
+  const instance = stepInstance({ seq: -3 });
+  const errors = validateJsonSchemaSubset(instance, schema);
+  assert.ok(errors.length > 0);
+  assert.ok(errors.some((message) => message.includes('$.seq') && message.includes('minimum')));
+});
+
+// 2026-09-06 review (m12): `steps` and `blocked_by` are Task-only fields (§3); a non-Task node
+// carrying either is rejected via `not`/`required` (this validator gives no meaning to a bare
+// `false` schema in a `properties` position, so that idiomatic JSON-Schema spelling is not
+// available here — see the validator's header comment).
+test('T-01 negative: a Stage node may not carry the Task-only steps field', () => {
+  const instance = stageInstance({ steps: [] });
   const errors = validateJsonSchemaSubset(instance, schema);
   assert.ok(errors.length > 0);
 });

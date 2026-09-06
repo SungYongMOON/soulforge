@@ -23,7 +23,9 @@ which does not belong to any single domain engine above:
   `../schemas/task_hierarchy_v1.schema.json` — the Stage / WorkPackage / Task / Step / Action
   machine contract that Rune (`engineering_engine`)'s stage order (`orderStageWork`) projects
   into. Read-only with respect to Rune: it never feeds back into the compiler, its rules, or its
-  MCP surface.
+  MCP surface. Its validator (`../schemas/task_hierarchy_v1_schema_validator.mjs`) stays a
+  contracts-local copy for this commit; hoisting it to `guild_hall/shared` is left as a commit-2
+  decision.
 - **Follow-up, not yet added**: `task_invariants_v0.json` — the five cross-blueprint invariants
   (`INV-PROC-01` … `INV-BASE-05`) that populate `task_hierarchy_v1`'s `preconditions[]` and
   `completion_contract`. Planned for the next commit in the same lane; not present yet.

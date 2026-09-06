@@ -45,6 +45,7 @@
         "prime_contractor": { "type": "string", "minLength": 1 },
         "quality_grade": { "type": "string", "minLength": 1 },
         "applies_when": {
+          "type": "array",
           "items": { "type": "string", "minLength": 1 }
         }
       }
@@ -108,11 +109,12 @@
         "properties": {
           "ref_kind": { "type": "string", "minLength": 1 },
           "exact_ref": { "type": "string", "minLength": 1 },
-          "sha256": { "pattern": "^[0-9a-f]{64}$" }
+          "sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" }
         }
       }
     },
     "blueprint_ref": {
+      "type": ["object", "null"],
       "required": ["workflow_id", "version", "version_source"],
       "additionalProperties": false,
       "properties": {
@@ -173,7 +175,7 @@
     "task_id": { "type": "string", "minLength": 1 },
     "workflow_id": { "type": "string", "minLength": 1 },
     "step_id": { "type": "string", "minLength": 1 },
-    "seq": { "type": "number" },
+    "seq": { "type": "integer", "minimum": 0 },
     "action_kind": { "type": "string", "minLength": 1 },
     "effect_class": { "type": "string", "minLength": 1 },
     "receipt_required": { "type": "boolean" }
@@ -233,6 +235,9 @@
         "properties": {
           "id": {
             "pattern": "^action:step:task:[A-Za-z0-9][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.-]*$"
+          },
+          "step_id": {
+            "pattern": "^step:task:[A-Za-z0-9][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.-]*$"
           }
         }
       }
@@ -240,6 +245,21 @@
     {
       "if": { "properties": { "blueprint_ref": { "const": null } } },
       "then": { "properties": { "steps": { "maxItems": 0 } } }
+    },
+    {
+      "if": {
+        "properties": { "layer": { "const": "Task" }, "blueprint_ref": { "const": null } }
+      },
+      "then": { "properties": { "state": { "const": "WORKFLOW_GAP" } } }
+    },
+    {
+      "if": { "properties": { "layer": { "const": "Task" } } },
+      "else": {
+        "allOf": [
+          { "not": { "required": ["steps"] } },
+          { "not": { "required": ["blocked_by"] } }
+        ]
+      }
     }
   ]
 }

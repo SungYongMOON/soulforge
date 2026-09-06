@@ -23,6 +23,43 @@
   stub 전용"이라 명시해 피했다). `package.json`에 `validate:task-hierarchy-contract`를
   배선했고(12 test 모두 pass), `guild_hall/engineering_engine/contracts/README.md`에 새
   계약을 등재하며 `task_invariants_v0`를 다음 커밋 후속으로 표기했다.
+- 검토 반영(2026-09-06, 같은 lane 후속 fix commit): fresh reviewer가 위 커밋을 검토해 지적한
+  항목을 모두 닫았다. 스키마 쪽은 `blueprint_ref`·`applicability.applies_when`·
+  `evidence_refs[].sha256`에 `type`이 없어 object/array/string이 아닌 값도 통과하던 구멍을
+  막았다(검증기 `typeMatches`가 배열형 `type`(예: `["object","null"]`)과 `"null"` 타입을
+  새로 지원하게 확장하고, 세 필드에 각각 `["object","null"]`·`array`·`["string","null"]`을
+  달았다). `Task` 노드는 `blueprint_ref`가 `null`이면 `state`가 반드시 `WORKFLOW_GAP`이어야
+  한다는 조건을 스키마 `allOf`로 추가했다(Stage/WorkPackage는 워크플로에 묶이지 않는
+  계층이라 이 제약에서 제외). `.workflow/index.yaml` 71건 중 `_vN` 접미사가 없는 7건
+  (`frontline_assault`·`build_lineage_map`·`author_skill_package`·`meeting_followup`·
+  `device_system_diagram_generation`·`exp_xml_component_materials`·
+  `component_pcb_layout_guide_extraction`)은 `blueprint_ref`를 발급받지 못하고 항상
+  `WORKFLOW_GAP`으로 남는다는 규칙을 계약 §6에 적었다. `Action.step_id`는 부모 Step의 전체
+  id(`^step:task:...`)와 일치해야 한다는 패턴을 추가했고, 이 과정에서 §2의 id 조합 설명이
+  Step 계층 자신의 `step_id`(step_graph 로컬 키)와 Action의 `step_id`(부모 Step의 전체
+  id)를 혼동하던 서술 오류를 바로잡았다. §2/§5에는 매퍼가 지켜야 할 join 규칙 —
+  소비자가 join하는 키는 `id`(=`rune_task_id`)이고 `work_order_ref`는 `order_index` + 투영
+  영수증의 `upstream_receipt.output_digests.stages`로 구성하며 노드에 별도 필드를 두지
+  않는다 — 를 명문화했다. 검증기에 `minimum`·`integer`·`not` 키워드를 추가해 `Step.seq`에
+  `{type:integer, minimum:0}`을 걸고, Task 전용 필드(`steps`·`blocked_by`)를 다른 계층
+  노드가 가지지 못하게 막았다(`not`/`required` 조합 — 이 검증기는 `properties` 자리의
+  bare `false` 스키마에 의미를 주지 않는다). `guild_hall/engineering_engine/tools/
+  emit_manifest.mjs`의 `INCLUDED_DIRS`에 `schemas`를 추가하고(전에는 매니페스트 범위
+  밖이었다), `guild_hall/engineering_engine/README.md` 구성 목록에 `schemas/` 항목을
+  더했다. 이 lane이 새로 만든 파일 때문에 깨져 있던 `engine_manifest.sha256`(`--verify`
+  exit 1)을 재발행해 824/824 일치로 되돌렸다(`--verify` exit 0). `contracts/README.md`에는
+  검증기를 `guild_hall/shared`로 옮기는 결정이 commit 2 몫이라는 한 줄을 남겼다.
+  `package.json`의 `validate:task-hierarchy-contract`는 다른 `validate:engineering-*`
+  항목들 뒤(`validate:engineering-engine-se-core-eval` 다음)로 옮겨 그룹 순서를 맞췄다.
+  Test는 반례 10종을 더해 12 → 22개 모두 pass(`blueprint_ref` 3종·`applies_when` 1종·
+  `sha256` 1종·`WORKFLOW_GAP` 반례/양성 대조 각 1종·`Action.step_id` 패턴 1종·`seq`
+  최솟값 1종·Task 전용 필드 격리 1종). base가 이동한 `main`으로 rebase했고(원 커밋 하나만
+  재적용, base가 `d0f95448` → 새 main tip으로 이동), CHANGELOG 충돌은 두 쪽 항목을 모두
+  남기고 이 항목을 위에 두는 방식으로 풀었다. `validate:task-hierarchy-contract`(22/22)·
+  `validate:engineering-engine-se-core-eval`(351 pass·6 skip — 이 플랫폼이 파일 심볼릭
+  링크 생성을 허용하지 않아 그 경우만 skip)·`validate:path-policy:all`(0 violations)·
+  `validate:display-terms`(57건 모두 기존 baseline, unexempted 0) 네 게이트가 모두
+  초록이다.
 - 운영 영향: 순수 데이터 계약과 읽기 전용 시험뿐이다. Rune 컴파일러·MCP·어휘 파일·
   예약작업·포트는 전혀 건드리지 않았다. `npm run validate`/`done:check`의 기존 마스터
   게이트(`run_root_acceptance.mjs`)에는 아직 배선하지 않았다 — 이 계약 test는 지금은
@@ -34,6 +71,9 @@
   `guild_hall/engineering_engine/contracts/tests/task_hierarchy_contract.test.mjs`,
   `guild_hall/engineering_engine/schemas/task_hierarchy_v1.schema.json`,
   `guild_hall/engineering_engine/schemas/task_hierarchy_v1_schema_validator.mjs`,
+  `guild_hall/engineering_engine/tools/emit_manifest.mjs`,
+  `guild_hall/engineering_engine/topology/engine_manifest.sha256`,
+  `guild_hall/engineering_engine/README.md`,
   `package.json`(`validate:task-hierarchy-contract`).
 
 ## 2026-09-06 - 운영 전환 3건: World Tree 0.1.9(변형 B) · Vigil operations-lane-v4 · Tongs tongs-lane-v2 등록
