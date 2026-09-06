@@ -3,8 +3,9 @@
 > 이 문서가 소나 인텔 플랫폼 프로젝트의 **유일한 정본 계획서**다.
 > 어떤 봇이든 이 문서를 읽으면 대화 맥락 없이 작업을 이어갈 수 있어야 한다.
 - 작성: 2026-08-24, 관리자 봇(bot-message-probe)이 Owner(소나 엔지니어)와 합의
-- 상태: **기획 확정 / 구현 미착수** — 다음 단계는 §9
-- 하위 리서치 원본: 같은 폴더 `research/` 참조
+- 상태: **기획 확정 / v1 Goal #1 구현+첫 수집 완료 (2026-09-06)** — 다음 단계는 §9
+- 하위 리서치 원본: `research_*.md`, `sonar-intel-platform-scout.md` — 이 문서와
+  같은 폴더에 있다(별도 `research/` 하위폴더는 없음)
 
 ---
 
@@ -139,17 +140,25 @@ verifier: approve/request-changes/hold 판정 (request-changes면 자동 재루�
 ## 9. 진행 상태 및 다음 단계
 
 ### 완료
-- [x] 사전 리서치 2건 (A안 유사제품, B안 데이터소스/API) — research/ 폴더
+- [x] 사전 리서치 2건 (A안 유사제품, B안 데이터소스/API) — 같은 폴더의 `research_*.md`/
+      `sonar-intel-platform-scout.md`
 - [x] 키워드 리스트 확정 (§3)
 - [x] 팀 봇 4종 생성 + SOUL.md 주입 (profiles/ 아래 각 프로필)
 - [x] 위치·스택·주기 설계 확정 (§4~6)
 - [x] KIPRIS 가입 완료 (Owner 직접, 2026-08-24)
 
 ### 대기/착수 전 (다음 순서)
-1. [ ] 4봇 모델 등급 high 설정 (hermes profile 설정 또는 kanban --model)
-2. [ ] 본 앱 골격 생성: ui-workspace/apps/sonar-intel/ (워크트리에서)
-3. [ ] v1 Goal #1 발행: CORE DB 스키마 + news_rss/arXiv 수집기 + 첫 수집 성공
-       (성공 기준 = verifier가 실제 실행·DB 행수·스크린샷으로 증명)
+1. [ ] 4봇 모델 등급 high 설정 (hermes profile 설정 또는 kanban --model) — 이 항목은
+       bounded 코딩 작업(아래 2~3) 범위 밖이라 미착수 그대로 둔다.
+2. [x] 본 앱 골격 생성: `ui-workspace/apps/sonar-intel/` (2026-09-06, worktree
+       `lane/sonar-intel-v1-goal1`에서 생성 후 커밋)
+3. [x] v1 Goal #1 발행: CORE DB 스키마(`src/store.mjs`, node:sqlite 우선/JSONL 자동
+       대체) + news_rss/arXiv 수집기 + 첫 수집 성공 (2026-09-06). 실행·검증은 이
+       bounded 코딩 세션이 직접 수행했다(실제 서버 기동+`/api/status` fetch로 카운트
+       확인, `npm run collect` 실제 실행). §8의 독립 `sonar-verifier` 봇 판정 루프는
+       아직 붙지 않았다 — 팀 봇 4종 운영 체계(위 1번)가 서기 전까지는 열린 채로 둔다.
+       실행 수치는 `CHANGELOG.md`의 같은 날짜 항목이 소유한다(계획서에 운영 로그를
+       중복 기록하지 않음).
 4. [ ] v1 Goal #2: OpenAlex+S2 수집기 + 공출현 분석 + 주간 브리핑
 5. [ ] v1 Goal #3: EPO OPS 수집기 + KIPRIS 키 발급 후 활성화
 6. [ ] v2: 프론트엔드 탭 UI (백엔드 안정화 후)
@@ -158,6 +167,7 @@ verifier: approve/request-changes/hold 판정 (request-changes면 자동 재루�
 ### Owner에게 남은 것
 - KIPRIS ServiceKey 발급 (마이페이지에서) → 나오면 백엔드봇에 전달
 - (선택) 논문 소스 노이즈 평가 후 off 결정
+- 4봇 모델 등급 high 설정과 §8 운영 루프 착수 여부 결정
 
 ## 10. 함정·교훈 (재발 방지)
 

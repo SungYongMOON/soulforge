@@ -1,0 +1,54 @@
+{
+  "$note": "SONAR_INTEL_MASTER_PLAN_V1.md §4/§6/§7 확정 소스·주기·약관. 계획서는 sources.yaml을 말하지만 이 앱은 무의존(zero-dependency) 원칙을 지키기 위해 JSON으로 관리한다 (YAML 파서는 외부 라이브러리 필요). enabled:false 소스는 Goal #1 수집기가 호출하지 않는다.",
+  "news_rss": {
+    "enabled": true,
+    "cadence_note": "6시간마다 (plan §6). Goal #1은 스케줄러를 등록하지 않는다 - 수동/온디맨드 실행만 (npm run collect).",
+    "feeds": [
+      {
+        "id": "google_news",
+        "label": "Google News RSS",
+        "enabled": true,
+        "per_keyword": true,
+        "url_template": "https://news.google.com/rss/search?q={query}&hl=ko&gl=KR&ceid=KR:ko",
+        "tou_note": "비공식 피드, 공식 문서 없음. 실측 200 OK (research_api_and_methodology_validation.md §3)."
+      },
+      {
+        "id": "defense_news",
+        "label": "Defense News RSS",
+        "enabled": true,
+        "per_keyword": false,
+        "url": "https://www.defensenews.com/arc/outboundfeeds/rss/",
+        "tou_note": "공식 피드 안내 페이지: defensenews.com/m/rss/. 실측 200 OK."
+      }
+    ]
+  },
+  "arxiv": {
+    "enabled": true,
+    "experimental": true,
+    "cadence_note": "주 1회 (plan §6 - 공식 24h 사이클, 같은 쿼리 하루 2회 이상 불필요). Goal #1은 스케줄러를 등록하지 않는다 - 수동/온디맨드 실행만.",
+    "base_url": "http://export.arxiv.org/api/query",
+    "categories": ["eess.SP", "cs.RO", "cs.CV"],
+    "tou": {
+      "min_request_interval_ms": 3000,
+      "max_concurrent_connections": 1,
+      "source": "info.arxiv.org/help/api/tou.html"
+    },
+    "note": "논문은 노이즈 시 off 예정 (plan §4 설계 원칙 3)."
+  },
+  "openalex": {
+    "enabled": false,
+    "note": "v1 Goal #2 - polite pool 10 req/s, 10만/day, email 파라미터 필요"
+  },
+  "semantic_scholar": {
+    "enabled": false,
+    "note": "v1 Goal #2 - API 키 발급 필요, 기본 1 RPS"
+  },
+  "epo_ops": {
+    "enabled": false,
+    "note": "v1 Goal #3 - OAuth2, 주 4GB 한도"
+  },
+  "kipris": {
+    "enabled": false,
+    "note": "v1 Goal #3 - 회원가입·상품신청·관리자 승인 완료(2026-08-24), ServiceKey 발급 대기"
+  }
+}

@@ -1,5 +1,46 @@
 # CHANGELOG
 
+## 2026-09-06 - 소나 인텔(sonar-intel) v1 Goal #1: 앱 골격 + news_rss/arXiv 수집기 + 첫 실 수집
+
+- 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: `SONAR_INTEL_MASTER_PLAN_V1.md`(2026-08-24 owner 승인) §9 순서 2~3을 구현했다.
+  `ui-workspace/apps/sonar-intel/`에 무의존 Node 서버(`server.mjs`, loopback
+  127.0.0.1:4420 고정 — 다른 확정 포트 4300/4310/4311/4192/4791과 무충돌 확인)와 읽기
+  전용 대시보드(수집 현황 카드 + 시그널 피드), `src/collectors/news_rss.mjs`(Google News
+  RSS 키워드별 + Defense News RSS, 정규식 기반 RSS 파서), `src/collectors/arxiv.mjs`(arXiv
+  ToU 준수 - `src/rate_gate.mjs`로 요청 간 3초 이상·동시 접속 1개 강제, 정규식 기반 Atom
+  파서), `src/store.mjs`(CORE DB - `node:sqlite`를 무플래그로 시도하고 실패 시 자동으로
+  append-only JSONL로 대체하는 동일 인터페이스 폴백, 안정 ID, `erpMapping` nullable 예약
+  필드), `config/keywords.json`+`config/sources.json`(계획서는 yaml이지만 무의존 원칙상
+  JSON, README에 사유 기재), `src/analysis/`(M4 스텁만), `export/snapshot.mjs`(CSV/JSON
+  writer)를 새로 만들었다. 오프라인 fixture 기반 단위test 49건(rate gate, RSS/Atom 파싱,
+  store dedupe/update/no-op 판정, 필수 필드 검증)과 `SONAR_INTEL_NETWORK=1`로만 켜지는
+  실 네트워크 test 3건을 추가했고, 루트에 `validate:sonar-intel`(`npm --prefix
+  ui-workspace/apps/sonar-intel test`) 게이트를 추가해 `guild_hall/validate/
+  run_root_acceptance.mjs`의 validate·done-check 두 모드 모두에 배선했다. 구현 중
+  실제 실행에서 같은 기사가 서로 다른 키워드 검색에 두 번 걸릴 때 `keywordsMatched`가
+  최신 키워드로 덮어써지던 결함과, arXiv 결합 질의(28개 용어 OR)가 매 결과 항목에 검색
+  용어 전체를 무차별로 붙이던 부정확성을 함께 고쳐 각각 test로 고정했다(`store.mjs`의
+  키워드 합집합 병합, `arxiv.mjs`의 `findMatchingTerms` 본문 대조).
+  **첫 실 수집(2026-09-06 01:05:25Z~01:08:03Z UTC, KIPRIS/EPO/OpenAlex/Semantic
+  Scholar는 Goal #2/#3이라 여전히 off)**: news_rss는 fetched 1070(google_news
+  1045 + defense_news 25) · stored(신규+갱신) 1070 · true-duplicate 0, arXiv는
+  fetched/stored 50 · duplicate 0(1페이지, max_results=50). 저장소 최종 distinct
+  행수는 1088(arxiv 50 + defense_news 25 + google_news 1013 - news 쪽 "stored"와
+  distinct 행수 차이 32건은 같은 기사가 둘 이상의 키워드에 걸려 키워드 목록만 갱신된
+  경우이며 신규 기사가 아니다). 서버를 기동해 `/api/status`·`/api/signals`를 직접
+  fetch하고 대시보드 스크린샷으로 카드 수치(1088 items, 50/25/1013)와 시그널 피드를
+  육안 확인한 뒤 정지했다. 이 실행·검증은 이 bounded 코딩 세션이 직접 수행했으며,
+  계획서 §8의 독립 `sonar-verifier` 봇 판정 루프는 아직 붙지 않았다(팀 봇 4종 운영
+  체계가 서기 전까지 열어 둠).
+- 운영 영향: 새 loopback 전용 포트(4420)가 하나 추가된다. 스케줄러(예약작업)는
+  등록하지 않았다 - 수집은 `npm run collect` 수동/온디맨드 실행뿐이다. dev-erp(세계수)
+  데이터베이스나 실행 표면에는 영향이 없다(별도 DB, export/ 스냅샷 교환만 예정). 루트
+  `npm run validate`/`done:check`에 `sonar-intel` 스텝이 새로 실행된다.
+- 관련 경로: `ui-workspace/apps/sonar-intel/**`, `package.json`
+  (`validate:sonar-intel`), `guild_hall/validate/run_root_acceptance.mjs`,
+  `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md`.
+
 ## 2026-09-06 - 봇 명부: plan 18 §13과 AI 조직 정책 문서에 보안 분류(G1/G2/G3) 반영
 
 - 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.

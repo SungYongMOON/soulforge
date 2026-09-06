@@ -1,0 +1,8 @@
+data/
+logs/
+
+# Export snapshots are derived, real-collected-data output, not source. Keep the
+# folder tracked (README explains its contract) but never commit generated files.
+export/*.csv
+export/*.json
+!export/README.md

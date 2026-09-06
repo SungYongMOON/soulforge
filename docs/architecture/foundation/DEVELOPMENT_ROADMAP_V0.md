@@ -526,6 +526,22 @@ Portfolio Projection, Meaningful/Skillable Work Unit과 Capability Learning Loop
   `_workmeta/system/dev_worker_queue/autonomous_voice_context_resolver_v0.yaml`이
   소유하며, public 문서에는 상세 backlog를 복제하지 않는다.
 
+### Owner-approved adjacent lane — 소나 인텔(sonar-intel) 플랫폼 v1
+
+- 2026-08-24 owner가 소나 도메인(SAS/MBES/SSS/FLS + 보조센서 + 부품) 논문·특허·뉴스·부품
+  정보를 자동 수집하는 내부 전용 인텔 플랫폼 구축 방향을 승인했다. LLM 사용은 최소화하고
+  스크립트 파이프라인이 기본이다.
+- v1 Goal #1(본 앱 골격 + news_rss/arXiv 수집기 + CORE DB + 첫 수집)이 2026-09-06
+  `ui-workspace/apps/sonar-intel/`에 구현됐다. 무의존 Node 서버, loopback 전용, LLM 호출
+  0회. `src/store.mjs`는 `node:sqlite`가 플래그 없이 동작하면 그것을 쓰고 아니면 자동으로
+  append-only JSONL로 대체한다.
+- 이 lane은 현재 read-only AX·SE active slice를 대체하지 않는 승인된 인접 구현 작업이다.
+  정본 계획, 스코프, 남은 Goal(#2 OpenAlex/S2/공출현 분석, #3 EPO OPS/KIPRIS)은
+  `ui-workspace/apps/sonar-intel/docs/SONAR_INTEL_MASTER_PLAN_V1.md`가 소유하며, 이
+  문서에는 상세 backlog를 복제하지 않는다.
+- 검증: `npm run validate:sonar-intel`. 첫 수집 실행 수치는 `CHANGELOG.md`의 같은 날짜
+  항목이 소유한다.
+
 ## SE assistant program direction
 
 Current structural target:

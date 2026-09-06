@@ -78,6 +78,7 @@ const STEPS_BY_MODE = {
     ["dev-erp-mcp", "npm run validate:dev-erp-mcp"],
     ["tongs-lane", "npm run validate:tongs-lane"],
     ["team-ops-app", "npm run validate:team-ops-app"],
+    ["sonar-intel", "npm run validate:sonar-intel"],
     ["gateway", "npm run validate:gateway"],
   ],
   "done-check": [
@@ -151,6 +152,7 @@ const STEPS_BY_MODE = {
     ["dev-erp-mcp", "npm run validate:dev-erp-mcp"],
     ["tongs-lane", "npm run validate:tongs-lane"],
     ["team-ops-app", "npm run validate:team-ops-app"],
+    ["sonar-intel", "npm run validate:sonar-intel"],
     ["gateway", "npm run validate:gateway"],
   ],
 };

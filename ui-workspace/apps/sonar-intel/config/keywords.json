@@ -1,0 +1,102 @@
+{
+  "$note": "SONAR_INTEL_MASTER_PLAN_V1.md §3 확정 스코프. 계획서는 keywords.yaml을 말하지만 이 앱은 무의존(zero-dependency) 원칙을 지키기 위해 JSON으로 관리한다 (YAML 파서는 외부 라이브러리 필요). 코드에 키워드를 하드코딩하지 않고 이 파일만 읽는다.",
+  "$usage_note": "used_by는 이 카테고리를 Goal #1 수집기 중 어디에 넣을지 정한다. 'arxiv'=논문 영문 기술용어, 'news'=뉴스 방산·프로그램 용어(+한글). 부품 카테고리는 M2 스카우트 대상이라 Goal #1에서는 어느 수집기에도 연결하지 않는다(used_by: []).",
+  "categories": [
+    {
+      "id": "sonar_systems",
+      "label_ko": "소나 시스템",
+      "used_by": ["arxiv", "news"],
+      "terms": [
+        "synthetic aperture sonar",
+        "SAS",
+        "multibeam echosounder",
+        "MBES",
+        "side-scan sonar",
+        "SSS",
+        "forward-looking sonar",
+        "FLS"
+      ]
+    },
+    {
+      "id": "auxiliary_sensors",
+      "label_ko": "보조센서",
+      "note": "SAS 알고리즘 성능에 직결",
+      "used_by": ["arxiv", "news"],
+      "terms": [
+        "DVL",
+        "doppler velocity log",
+        "sound velocity profiler",
+        "SVP",
+        "inertial measurement unit",
+        "IMU",
+        "inertial navigation system",
+        "INS",
+        "attitude heading reference system",
+        "AHRS",
+        "motion reference unit",
+        "MRU",
+        "hydrophone",
+        "hydrophone array"
+      ]
+    },
+    {
+      "id": "component_categories",
+      "label_ko": "부품 카테고리",
+      "note": "M2 스카우트 대상 - Goal #1 수집기는 이 카테고리를 사용하지 않는다 (used_by 비움)",
+      "used_by": [],
+      "terms": [
+        "transducer",
+        "hydrophone",
+        "wet-mateable connector",
+        "subsea connector",
+        "DVL",
+        "SVP",
+        "IMU",
+        "INS"
+      ]
+    },
+    {
+      "id": "defense_platform",
+      "label_ko": "플랫폼·방산 축",
+      "note": "뉴스 위주 적용",
+      "used_by": ["news"],
+      "terms": [
+        "submarine",
+        "naval sonar",
+        "towed array",
+        "flank array",
+        "bow sonar",
+        "passive sonar",
+        "active sonar",
+        "submarine sonar system",
+        "defense contract"
+      ]
+    },
+    {
+      "id": "algorithms_ml",
+      "label_ko": "알고리즘·ML",
+      "used_by": ["arxiv", "news"],
+      "terms": [
+        "beamforming",
+        "motion compensation",
+        "refraction correction",
+        "underwater object detection",
+        "sonar image segmentation",
+        "ML-based acoustic classification"
+      ]
+    },
+    {
+      "id": "korean_terms",
+      "label_ko": "한글 검색어",
+      "note": "plan §3 KIPRIS 예시 한글 쿼리. 특허(KIPRIS) 연결은 Goal #3이지만, 뉴스 수집에는 Goal #1부터 적용한다.",
+      "used_by": ["news"],
+      "terms": [
+        "소나",
+        "하이드로폰",
+        "음향 센서",
+        "수중 탐지",
+        "수중 커넥터"
+      ]
+    }
+  ]
+}

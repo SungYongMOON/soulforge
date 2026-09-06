@@ -1,0 +1,17 @@
+{
+  "name": "@soulforge/sonar-intel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "소나 도메인 내부 전용 인텔 플랫폼 (v1 Goal #1) - 무의존 Node 서버, LLM 0회 수집 파이프라인",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs",
+    "collect": "node tools/collect_once.mjs",
+    "export:snapshot": "node tools/export_snapshot.mjs",
+    "test": "node --test test/*.test.mjs"
+  }
+}

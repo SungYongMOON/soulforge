@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom">
+  <title>ArXiv Query: search_query=synthetic aperture sonar</title>
+  <id>http://arxiv.org/api/query</id>
+  <updated>2026-09-04T00:00:00-05:00</updated>
+  <opensearch:totalResults>2</opensearch:totalResults>
+  <opensearch:startIndex>0</opensearch:startIndex>
+  <opensearch:itemsPerPage>50</opensearch:itemsPerPage>
+  <entry>
+    <id>http://arxiv.org/abs/2501.01234v2</id>
+    <updated>2026-08-20T12:00:00Z</updated>
+    <published>2025-01-15T09:00:00Z</published>
+    <title>Motion Compensation for Synthetic Aperture Sonar Using Learned Refraction Correction</title>
+    <summary>  We present a motion compensation method for synthetic aperture sonar (SAS)
+  imaging that jointly estimates refraction correction from DVL and INS data.
+  </summary>
+    <author><name>Jane Q. Researcher</name></author>
+    <author><name>Kim Min-jun</name></author>
+    <link href="http://arxiv.org/abs/2501.01234v2" rel="alternate" type="text/html"/>
+    <link title="pdf" href="http://arxiv.org/pdf/2501.01234v2" rel="related" type="application/pdf"/>
+    <arxiv:primary_category xmlns:arxiv="http://arxiv.org/schemas/atom" term="eess.SP" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="eess.SP" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.RO" scheme="http://arxiv.org/schemas/atom"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2502.05678v1</id>
+    <updated>2025-02-10T08:00:00Z</updated>
+    <published>2025-02-10T08:00:00Z</published>
+    <title>Underwater Object Detection in Side-Scan Sonar Imagery via Segmentation Networks</title>
+    <summary>  A segmentation-based pipeline for underwater object detection from
+  side-scan sonar (SSS) imagery is proposed and evaluated on field data.
+  </summary>
+    <author><name>Alex Doe</name></author>
+    <link href="http://arxiv.org/abs/2502.05678v1" rel="alternate" type="text/html"/>
+    <link title="pdf" href="http://arxiv.org/pdf/2502.05678v1" rel="related" type="application/pdf"/>
+    <arxiv:primary_category xmlns:arxiv="http://arxiv.org/schemas/atom" term="cs.CV" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CV" scheme="http://arxiv.org/schemas/atom"/>
+  </entry>
+</feed>

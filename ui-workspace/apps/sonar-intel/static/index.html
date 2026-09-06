@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>소나 인텔 — 대시보드 (v1 Goal #1)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, "Segoe UI", sans-serif; margin: 0; padding: 24px; background: #0f1115; color: #e6e6e6; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: #9aa4b2; font-size: 13px; margin-bottom: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .card { background: #171a21; border: 1px solid #262b36; border-radius: 8px; padding: 14px 16px; }
+  .card .n { font-size: 26px; font-weight: 600; }
+  .card .label { color: #9aa4b2; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #262b36; vertical-align: top; }
+  th { color: #9aa4b2; font-weight: 500; }
+  a { color: #7dc4ff; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .tag { display: inline-block; background: #262b36; border-radius: 4px; padding: 1px 6px; font-size: 11px; margin-right: 4px; }
+  .empty { color: #6b7280; padding: 12px 0; }
+  section { margin-bottom: 28px; }
+</style>
+</head>
+<body>
+  <h1>소나 인텔 (sonar-intel) — v1 Goal #1</h1>
+  <div class="sub">읽기 전용 대시보드. 수집은 <code>npm run collect</code>로만 실행(이 화면에서 트리거하지 않음). 백엔드: <span id="backend">-</span></div>
+
+  <section>
+    <h2>수집 현황</h2>
+    <div class="grid" id="status-cards"><div class="empty">불러오는 중…</div></div>
+    <div id="last-run" class="sub"></div>
+  </section>
+
+  <section>
+    <h2>시그널 피드 (최근 50건)</h2>
+    <table>
+      <thead><tr><th>유형</th><th>소스</th><th>제목</th><th>키워드</th><th>수집시각</th></tr></thead>
+      <tbody id="feed-body"><tr><td colspan="5" class="empty">불러오는 중…</td></tr></tbody>
+    </table>
+  </section>
+
+<script>
+async function loadStatus() {
+  const res = await fetch("/api/status");
+  const data = await res.json();
+  document.getElementById("backend").textContent = data.backend + " (" + data.totalItems + " items)";
+
+  const cardsEl = document.getElementById("status-cards");
+  if (!data.collection.length) {
+    cardsEl.innerHTML = '<div class="empty">아직 수집된 데이터가 없습니다. npm run collect를 실행하세요.</div>';
+  } else {
+    cardsEl.innerHTML = data.collection.map(function (row) {
+      return '<div class="card"><div class="n">' + row.count + '</div>' +
+        '<div class="label">' + row.type + ' · ' + row.source + '</div>' +
+        '<div class="sub">last: ' + (row.lastFetchedAt || "-") + '</div></div>';
+    }).join("");
+  }
+
+  const lastRunEl = document.getElementById("last-run");
+  if (data.lastRun) {
+    lastRunEl.textContent = "마지막 수집 실행: " + data.lastRun.finishedAt + " (fetched " + data.lastRun.totals.fetched +
+      " / stored " + data.lastRun.totals.stored + " / deduped " + data.lastRun.totals.deduped + ")";
+  } else {
+    lastRunEl.textContent = "마지막 수집 실행 기록 없음 (data/last_run.json 없음)";
+  }
+}
+
+function escapeHtml(text) {
+  return String(text == null ? "" : text).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+
+async function loadFeed() {
+  const res = await fetch("/api/signals?limit=50");
+  const data = await res.json();
+  const body = document.getElementById("feed-body");
+  if (!data.items.length) {
+    body.innerHTML = '<tr><td colspan="5" class="empty">아직 시그널이 없습니다.</td></tr>';
+    return;
+  }
+  body.innerHTML = data.items.map(function (item) {
+    const title = item.url
+      ? '<a href="' + encodeURI(item.url) + '" target="_blank" rel="noopener">' + escapeHtml(item.title) + '</a>'
+      : escapeHtml(item.title);
+    const tags = (item.keywordsMatched || []).map(function (k) { return '<span class="tag">' + escapeHtml(k) + '</span>'; }).join("");
+    return '<tr><td>' + escapeHtml(item.type) + '</td><td>' + escapeHtml(item.source) + '</td><td>' + title +
+      '</td><td>' + tags + '</td><td>' + escapeHtml(item.fetchedAt) + '</td></tr>';
+  }).join("");
+}
+
+loadStatus().catch(function (e) { console.error(e); });
+loadFeed().catch(function (e) { console.error(e); });
+</script>
+</body>
+</html>

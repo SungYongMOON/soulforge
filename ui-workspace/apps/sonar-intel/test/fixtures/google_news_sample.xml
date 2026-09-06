@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>"synthetic aperture sonar" - Google News</title>
+    <link>https://news.google.com/</link>
+    <language>ko</language>
+    <item>
+      <title><![CDATA[해군, 차세대 합성개구소나(SAS) 시험평가 착수 - 방위산업뉴스]]></title>
+      <link>https://example-news.test/articles/sas-trial-1</link>
+      <guid isPermaLink="false">CBMiZmh0dHBzOi8vZXhhbXBsZS1uZXdzLnRlc3QvYXJ0aWNsZXMvc2FzLXRyaWFsLTHSAQA</guid>
+      <pubDate>Fri, 04 Sep 2026 01:20:00 GMT</pubDate>
+      <description><![CDATA[해군이 차세대 합성개구소나(SAS) 탑재 무인잠수정 시험평가에 착수했다고 밝혔다.]]></description>
+      <source url="https://example-news.test">방위산업뉴스</source>
+    </item>
+    <item>
+      <title>Underwater sensor firm wins towed array contract - Example Wire</title>
+      <link>https://example-news.test/articles/towed-array-contract</link>
+      <guid isPermaLink="false">CBMiZmh0dHBzOi8vZXhhbXBsZS1uZXdzLnRlc3QvYXJ0aWNsZXMvdG93ZWQtYXJyYXktY29udHJhY3TSAQA</guid>
+      <pubDate>Thu, 03 Sep 2026 14:05:00 GMT</pubDate>
+      <description>A defense contractor announced a new towed array sonar contract.</description>
+      <source url="https://example-wire.test">Example Wire</source>
+    </item>
+    <item>
+      <title><![CDATA[Same article, re-fetched later with an updated summary]]></title>
+      <link>https://example-news.test/articles/sas-trial-1</link>
+      <guid isPermaLink="false">CBMiZmh0dHBzOi8vZXhhbXBsZS1uZXdzLnRlc3QvYXJ0aWNsZXMvc2FzLXRyaWFsLTHSAQA</guid>
+      <pubDate>Fri, 04 Sep 2026 01:20:00 GMT</pubDate>
+      <description><![CDATA[동일 기사 - 저장소 dedupe 시험용(같은 guid, 다른 요약).]]></description>
+      <source url="https://example-news.test">방위산업뉴스</source>
+    </item>
+  </channel>
+</rss>
