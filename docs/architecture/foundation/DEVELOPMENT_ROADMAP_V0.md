@@ -558,7 +558,7 @@ Portfolio Projection, Meaningful/Skillable Work Unit과 Capability Learning Loop
   (`ui-workspace/apps/team-ops-board/src/design/`), 집게(Tongs) 심박 계약(`guild_hall/shared/`), 소나 인텔 Goal #1.
 - 착수 순서(2026-09-07, 외부 검토 2회 반영): 결속 계약 커밋 0 + 공유 반례 fixture → 실과제 1개 world-state
   산출기 → 세계 정적 진입 페이지(`App.tsx` 무접촉) → 작업대 접수(별도 프로세스/플래그, READ_ONLY_PILOT 의미 불변)
-  → Rune 커밋 2(계약 정합 폐쇄) → 소나 인텔 읽기 패널. 팀 노출 경로(파일럿 규칙상 4192·4300은 Owner loopback)와
+  → Rune 커밋 2(계약 정합 폐쇄) → 소나 인텔 읽기 패널. 팀 노출 경로(파일럿 규칙상 Vigil(포트 4192)·World Tree(포트 4300)는 Owner loopback)와
   승인 principal 분리는 Owner 결정 항목이다.
 - 검증: 단위별 `validate:*` + `done:check`; 외부 검토 기록은 `docs/reviews/EXTERNAL_REVIEW_MAP_2026-09-06.md`.
 
