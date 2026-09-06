@@ -1143,7 +1143,7 @@ Start condition:
 | 19 | V0 문서 버전 승격/유지 기준 정의 | 없음 - 기준 한 장이면 충분 | `docs/architecture/foundation` |
 | 20 | knowledge/RAG 문서 통합 색인 | 분산 문서 8+건 목록 확정 | `docs/architecture/foundation`, `docs/architecture/workspace` |
 | 21 | Python 테스트 커버리지 확장 (town_crier, mail_send 등) | 없음 - synthetic fixture 로 가능 | `guild_hall` |
-| 22 | 팀원이 세계를 보는 통로(강도담이 하루 1회 세계 정적 페이지 스냅샷을 Buzz 채널에 읽기 전용 배포, 쓰기 0·loopback 유지) | owner 가 노출 방식을 정함(FRESH_REVIEW 2026-09-06 질문 2) | `guild_hall/gateway`, `ui-workspace/apps/team-ops-board`, plan 18 |
+| 22 | 팀원이 세계를 보는 통로(강도담이 하루 1회 세계 정적 페이지 스냅샷을 Buzz 채널에 읽기 전용 배포, 쓰기 0·loopback 유지) | 충족 — owner 결정 2026-09-07(Buzz 채널 일 1회 읽기 전용 스냅샷), 세계 정적 페이지 뒤 착수 | `guild_hall/gateway`, `ui-workspace/apps/team-ops-board`, plan 18 |
 | 23 | README §어디서 도는가 대조 guard(예약작업 인자·포트를 읽어 문단의 lane·판본 주장을 검증) | 없음 - 읽기 전용, Windows 게이트 | `guild_hall/validate`, `README.md` |
 | 22 | 메일 수집 계정별 owner 메타 → core_mail (개인별 메일 뷰) | 메일 수집 통합 완료(자동 15분+수동 버튼); Codex 원장 스키마에서 owner 필드 위치(신규 컬럼 vs `메일함` 재정의) 확정 | `guild_hall/gateway`, `ui-workspace/apps/dev-erp`, `docs/architecture/workspace` |
 | 23 | 메일 원장 시간 분할 + 증분 스캔 (무한 누적 대비) | owner 가 분할 단위(연/월) 정함; Codex 원장 표준 `soulforge.project_mail_history.private.v1` 변경 조율 | `guild_hall/gateway`, `docs/architecture/workspace`, `_workmeta` |
