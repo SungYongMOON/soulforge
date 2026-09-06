@@ -1,5 +1,32 @@
 # CHANGELOG
 
+## 2026-09-06 - 외부 검토 왕복: GPT 2차 회신(EXT-19~34·CE-06) 기록과 회신 05
+
+- 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: Owner가 붙여넣은 GPT 두 회신 — 작업대(요청 접수)·소나 인텔 관측 신호·선행조건 설계에 대한
+  교차검토(EXT-19~34)와 외부 실행계 자문 스레드의 훈련 코퍼스 v0.1 인도(CE-06) — 를
+  `docs/reviews/EXTERNAL_REVIEW_MAP_2026-09-06.md`에 기록했다. 판정은 동의 3(EXT-25·26·31) ·
+  정정 수용 12(EXT-19·20·21·22·23·27·28·29·30·32·33·34) · 정정 일부 수용 1(EXT-24)이고, CE-06은
+  수신 기록이다. 답장
+  `docs/reviews/exchange/2026-09-06_soulforge_to_gpt_05_forge_world_reply.md`는 접수 ↔ Rune
+  결속 계약(`CONTRACT_INTAKE_RUNE_BINDING_V0`, 공유 키 `(project_code, stage_code,
+  artifact_family_id) = rune_task_id` 포함 8줄 요지)을 문서로 고정하고, §5f가 빠진 v1 사본
+  대신 §5f가 있는 v2 사본(Drive id) 링크로 재검토를 요청했으며, 훈련 코퍼스 세 질문에 답했다
+  (다음 판 C안, 회로/FPGA 과제는 산업용 DAQ·초음파 계측장치로, 공개 기반은 OpenTitan UART부터).
+  반영 위치는 대부분 이 저장소 밖 브리프·명세 문서(non-repo, `<handoff package>`)이며, 이
+  변경에서 코드나 설정은 바꾸지 않았다 — EXT-24가 지적한 `-EnableMcp`/`-EnableMcpReviewRead`
+  플래그가 이미 앞선 커밋(CHANGELOG 09-06 "Tongs·Vigil" 항목, `RUNTIME_MAINTENANCE_RUNBOOK_
+  20260618.md`)에 있다는 사실만 재확인했다. `docs/reviews/READING_LIST.md`는 갱신하지
+  않았다 — 그 목록은 `guild_hall/validate/export_reviewer_packet.mjs`의 고정 문서 목록에서만
+  생성되고 `docs/reviews/exchange/**`나 새 `EXTERNAL_REVIEW_MAP_<date>.md`를 자동 포함하지
+  않는다.
+- 운영 영향: 문서 전용 변경이다. 코드·권한·MCP allowlist·예약작업·runbook은 바뀌지 않는다(runbook
+  "전환 수락 조건" 절 추가는 EXT-24 잔여로 다음 작업대·어댑터 lane 커밋에 남겨 두었다).
+  `validate:display-terms`(scope tracked)와 `validate:path-policy`(scope changed) 통과.
+- 관련 경로: `docs/reviews/EXTERNAL_REVIEW_MAP_2026-09-06.md`,
+  `docs/reviews/exchange/2026-09-06_soulforge_to_gpt_05_forge_world_reply.md`,
+  `docs/reviews/EXTERNAL_REVIEW_MAP_2026-09-05.md`(참조만, 미수정).
+
 ## 2026-09-06 - 소나 인텔(sonar-intel, 포트 4420) v1 Goal #1: 앱 골격 + news_rss/arXiv 수집기 + 첫 실 수집
 
 - 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
