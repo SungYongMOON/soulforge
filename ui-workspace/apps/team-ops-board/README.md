@@ -245,6 +245,50 @@ state→count map only. `last_job` and `last_receipt_ref` are shape-checked and
 then discarded: this panel answers "how many, in which stage", never "which
 one".
 
+## 디자인 토큰(한 원천)
+
+`src/design/design-system.mjs`가 색 역할·타이포그래피·도형 어휘·간격/반경/
+입체/모션·테마 정책의 유일한 원천이다(UX 재설계 지시서 v1 §3, S1). 순수
+데이터 + 순수 함수만 담고 fetch·DOM·타이머·writer가 없다 — 기존
+`src/core/*.mjs`와 같은 경계다. (이 파일은 원래 `tokens.mjs`였다 — 파일명의
+`token` 부분 문자열이 `.gitignore`의 `*token*` secret deny와 path-policy의
+secret-like-path 스킵에 동시에 걸려 실제로는 스캔되지 않고 있었다. 2026-09-06
+fresh review로 `design-system.*`/`lint-literal-colors.*`로 이름을 바꿔 그
+경계를 벗어났다 — "토큰"이라는 말 자체는 계속 쓴다.)
+
+- `src/design/design-system.mjs` — 원천. 토큰 이름은 역할을 말하고 색 이름을
+  쓰지 않는다(`--sf-accent`는 되지만 `--sf-orange`는 안 된다 — 이 규칙은 값에도
+  적용된다, 예: 도형 어휘 값). 이 파일이 literal color를 가져도 되는 유일한
+  파일이다.
+- `src/design/emit-css.mjs` — `design-system.mjs` 값을 `:root` +
+  `[data-theme="light"]` CSS 커스텀 프로퍼티 문자열로 렌더링하는 순수 함수와,
+  그 결과를 커밋된 `src/design/design-system.generated.css`에 쓰는 CLI
+  (`node src/design/emit-css.mjs --write`)다.
+- `src/design/palette.mjs` — 같은 토큰에서 파생한 Canvas 세계 팔레트
+  (`worldFills`, `semanticStrokes`, `forgeColor(role, theme)`). 이 파일도
+  literal color가 없다 — 전부 `design-system.mjs`를 재노출한다.
+- `src/design/FONTS.md` — IBM Plex Sans KR/Mono self-host 방침과 폴백 스택.
+  이 lane은 폰트 파일을 내려받지 않는다.
+
+`npm run validate:design-system`(구문 검사 3개 + `node --test
+src/design/*.test.mjs`)가 로컬 빠른 루프다. 같은 테스트가 이 앱의 기본
+`npm test` glob에도 들어 있어(`src/design/*.test.mjs`) `validate:team-ops-app`
+→ `done:check` 경로로 CI에서도 돈다 — 두 경로 모두 같은 테스트 파일을 돈다.
+고정하는 계약: 토큰 이름(과 값)에 색 단어 없음, 생성된 CSS의 모든 `--sf-*`
+변수가 토큰과 왕복 일치, 팔레트 값이 토큰 값과 같음, `[data-theme="light"]`가
+기존 토큰만 재정의, 그리고 `src/design/**` 안 literal color(hex 또는
+rgba·hsla 함수)가 `design-system.mjs` 바깥에 없음(`lint-literal-colors.test.mjs`
+— 저장소 전체 검사는 이후 단계의 `lint:tokens`가 넓힌다).
+
+테마 극성은 Vigil(team-ops-board, 포트 4192) 전용이다 — dark-first 2-state
+(`:root`=dark 기본값, `[data-theme="light"]`=명시적 override, OS의
+prefers-color-scheme에는 반응하지 않는다). World Tree(코드 dev-erp, 포트
+4300)의 문서 화면은 이 극성을 쓰지 않는다 — 별도의 light 전용 스타일시트(S8)를
+쓴다.
+
+이 토큰은 아직 `App.tsx`나 `team-ops.css`에 배선돼 있지 않다(그 배선과 기존
+literal hex 치환은 각각 후속 단계 몫이다). S1은 원천만 만든다.
+
 ## Local endpoint and privacy boundary
 
 ### Storage & Backup Map read projection

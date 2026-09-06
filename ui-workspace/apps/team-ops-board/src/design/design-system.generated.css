@@ -1,0 +1,68 @@
+/* AUTO-GENERATED — do not hand-edit.
+ * Source: src/design/design-system.mjs (soulforge.team_ops_board.design_tokens.v1)
+ * Regenerate: node src/design/emit-css.mjs --write
+ */
+
+:root {
+  --sf-ground: #0f1116;
+  --sf-glass: rgba(15,17,23,.86);
+  --sf-glass-2: rgba(26,29,38,.92);
+  --sf-glass-line: rgba(255,255,255,.09);
+  --sf-ink-1: #ece9e2;
+  --sf-ink-2: #b7b4ac;
+  --sf-ink-3: #7f7c75;
+  --sf-accent: #ffb347;
+  --sf-ok: #7ddc8a;
+  --sf-warn: #ffd166;
+  --sf-bad: #ff6b6b;
+  --sf-fog: #9aa3ad;
+  --sf-stale: #9aa3ad;
+  --sf-planned: #6fb1ff;
+  --sf-planned-fill: rgba(74,144,217,0.1);
+  --sf-sample: #8a8a8a;
+  --sf-external: #6fb1ff;
+  --sf-hold: #a66cff;
+  --sf-focus: rgba(255,179,71,0.8);
+  --sf-font-kr: "IBM Plex Sans KR", Pretendard, system-ui, "Malgun Gothic", sans-serif;
+  --sf-font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  --sf-weight-regular: 400;
+  --sf-weight-medium: 500;
+  --sf-text-11: 0.6875rem;
+  --sf-text-12: 0.75rem;
+  --sf-text-13: 0.8125rem;
+  --sf-text-15: 0.9375rem;
+  --sf-text-18: 1.125rem;
+  --sf-text-24: 1.5rem;
+  --sf-text-32: 2rem;
+  --sf-numeric-variant: tabular-nums;
+  --sf-s1: 4px;
+  --sf-s2: 8px;
+  --sf-s3: 12px;
+  --sf-s4: 16px;
+  --sf-s5: 24px;
+  --sf-s6: 32px;
+  --sf-s7: 48px;
+  --sf-s8: 64px;
+  --sf-r-sm: 4px;
+  --sf-r-md: 8px;
+  --sf-r-lg: 14px;
+  --sf-elevation-panel: 0 12px 32px rgba(0,0,0,.4);
+  --sf-elevation-drawer: 0 16px 40px rgba(0,0,0,.45);
+  --sf-elevation-modal: 0 24px 64px rgba(0,0,0,.5);
+  --sf-glass-blur: 12px;
+  --sf-focus-offset: 2px;
+  --sf-motion-state: 120ms;
+  --sf-motion-panel: 200ms;
+  --sf-motion-camera: 320ms;
+  --sf-motion-easing: cubic-bezier(.2,.6,.2,1);
+}
+
+[data-theme="light"] {
+  --sf-ground: #f5f4f1;
+  --sf-glass: rgba(255,255,255,.86);
+  --sf-glass-2: rgba(240,239,236,.92);
+  --sf-glass-line: rgba(15,17,23,.09);
+  --sf-ink-1: #1c1c1e;
+  --sf-ink-2: #4a4a4a;
+  --sf-ink-3: #767676;
+}

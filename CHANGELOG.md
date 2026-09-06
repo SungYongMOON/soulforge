@@ -1,5 +1,71 @@
 # CHANGELOG
 
+## 2026-09-06 - Vigil(team-ops-board, 포트 4192): 디자인 토큰 단일 원천(S1) 추가
+
+- 날짜: 2026-09-06. Revision: 이 항목을 담은 git commit이 정확한 revision을 정한다.
+- 무엇: 사람 화면 UX/UI 전면 재검토·재설계 지시서 v1 §3(디자인 시스템)·§7(S1)을
+  구현했다. `ui-workspace/apps/team-ops-board/src/design/`에 색 역할·타이포그래피·
+  도형 어휘·간격/반경/입체/모션·테마 정책의 단일 원천
+  `design-system.mjs`(`schema_version: soulforge.team_ops_board.design_tokens.v1`)를
+  새로 만들었다. 다크 기본값은 프로토타입 `forge_world.html`의 `:root` 블록을
+  그대로 계승했고, 지시서가 정확한 값을 주지 않은 몇 항목(hold=자주색, sample=
+  회색조, `[data-theme="light"]` 재정의 값, 그림자 drawer/modal 2단)은 관찰됨
+  (observed) 수준의 기본값으로 채우고 코드 주석·README에 근거를 남겼다. 같은
+  원천에서 `:root` + `[data-theme="light"]` CSS 커스텀 프로퍼티를 렌더링하는
+  순수 함수와 커밋된 생성 파일을 만드는 `emit-css.mjs`(+ 결정론적
+  `design-system.generated.css`), Canvas 세계 렌더가 쓸 `palette.mjs`
+  (`forgeColor(role, theme)`)를 추가했다. `src/design/**` 안 literal color가
+  `design-system.mjs` 밖에 있으면 실패하는 `lint-literal-colors.test.mjs`를
+  포함해 node --test 14건과 `validate:design-system` npm 스크립트를 새로
+  추가했다. 폰트는 `FONTS.md`로 IBM Plex Sans KR/Mono self-host 방침과 폴백
+  스택만 남기고 파일은 내려받지 않았다. 이 토큰은 아직 `App.tsx`·
+  `team-ops.css`에 배선하지 않았고, `team-ops.css`의 기존 literal hex
+  (1,195개)도 이 변경에서 손대지 않았다 — 둘 다 후속 단계 몫이다.
+- 같은 날 fresh review 반영(원래 커밋 직후, push 전에 고쳤다): 처음 이름
+  `tokens.mjs`/`tokens.generated.css`/`tokens.test.mjs`/`lint-tokens.test.mjs`
+  4개는 파일명의 `token` 부분 문자열이 `.gitignore`의 `*token*` secret deny와
+  `guild_hall/validate/local_absolute_path_policy.mjs`의 secret-like-path
+  스킵 규칙에 동시에 걸렸다 — 커밋은 됐지만 path-policy가 실제로 스캔하지
+  않는 상태였고, `.gitignore`에는 그 4개 경로만 되살리는 `!path` 줄 4개가
+  붙어 있었다. `design-system.mjs`/`design-system.generated.css`/
+  `design-system.test.mjs`/`lint-literal-colors.test.mjs`로 이름을 바꾸고
+  `.gitignore`의 `!path` 4줄을 삭제해 원래의 `*token*` deny 한 줄만 남겼다
+  (`git check-ignore -v`로 4개 파일 모두 더 이상 무시되지 않음을, path-policy
+  `--json` 출력으로 4개 모두 `skipped`가 아니라 실제 스캔 대상에 들었음을
+  확인했다 — "토큰"이라는 말 자체는 prose·주석에서 계속 쓴다). 테스트는
+  team-ops-board 기본 `test` 스크립트 glob에 `src/design/*.test.mjs`를 더해
+  `validate:team-ops-app` → `done:check` 경로로 CI에 편입했다(로컬 빠른
+  루프인 `validate:design-system`은 그대로 둔다). 그 밖에: `palette.mjs`의
+  `worldFills` export 키(`ground`→`terrain`, `groundVariant`→`terrainVariant`,
+  `planned`→`blueprint`)를 worldPalette 쪽 이름과 맞춰, `forgeColor()`/
+  `colorRoles`/`worldFills`를 함께 보는 소비자 기준으로 같은 이름이 서로 다른
+  색을 가리키던 충돌을 없앴다. `lint-literal-colors.test.mjs`의 검사 범위를
+  hex 리터럴에서 `rgba()`/`hsla()` 계열 색 함수 호출까지 넓혔다. 도형 어휘
+  값의 색 단어(`gate: "dashed-border-blue"`, `incident: "orange-outline"`)를
+  역할 이름 참조(`"dashed-border-planned"`, `"accent-outline"`)로 바꾸고, 값도
+  검사하도록 색-단어 금지 테스트를 확장했다. 테마 극성(dark-first 2-state)은
+  그대로 유지하되 이 극성이 Vigil(포트 4192) 전용이며 World Tree(코드
+  dev-erp, 포트 4300) 문서 화면은 별도의 light 전용 스타일시트(S8)를 쓴다는
+  점을 `design-system.mjs` 헤더와 README에 명시했다. `elevation` 옆에
+  `focus-offset: "2px"`(`--sf-focus-offset`) 토큰을 추가했다.
+- 운영 영향: 새 파일 추가 + 기존 4개 파일 rename(경로만 이동, 이력은 git mv로
+  보존) + 소폭 값 수정. 기존 컴포넌트·데이터 계약·읽기 전용 런타임 표면은
+  바뀌지 않았다. npm 스크립트: `validate:design-tokens`를
+  `validate:design-system`로 이름만 바꿨고, 앱 기본 `test` 스크립트 glob에
+  `src/design/*.test.mjs`를 추가했다(CI 표면이 새 테스트를 돈다는 뜻 —
+  실행 시간 소폭 증가 외 다른 영향 없음). 포트·예약작업·writer 변경 없음.
+- 검증: `npm --prefix ui-workspace/apps/team-ops-board run test` 868 pass·0
+  fail(기존 854 + design 14, 회귀 없음 — design 14건이 이제 이 스크립트 안에
+  들어 있다), `validate:design-system` 14 pass·0 fail(로컬 루프에서도 동일
+  파일을 확인), 저장소 `validate:path-policy:all`·`validate:display-terms`
+  둘 다 ok(display-terms는 기존 baseline 57건 그대로, 이 변경으로 인한 신규
+  위반 0; path-policy는 4개 rename 파일이 `skipped`가 아니라 스캔됨을
+  `--json`으로 직접 확인), `tsc --noEmit` 통과, `.gitignore`는 main과 diff
+  없음(rename 전 임시로 추가했던 4줄 allowlist를 되돌렸다).
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/design/`,
+  `ui-workspace/apps/team-ops-board/README.md` §디자인 토큰(한 원천),
+  `ui-workspace/apps/team-ops-board/package.json`, `.gitignore`.
+
 ## 2026-09-06 - Rune(Engineering Engine) task hierarchy 계약 v1: 정본 위치를 SE 패키지로 이동, CI 적색 2건 해소
 
 - 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
