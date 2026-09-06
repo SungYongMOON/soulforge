@@ -1,5 +1,6 @@
 import { lstat, readFile } from "node:fs/promises";
 import path from "node:path";
+import { isDirectLoopbackRequest } from "./loopback-request-guard.mjs";
 
 export const TOPOLOGY_RECOVERY_PATH = "/topology-recovery.snapshot.json";
 // v3 carries the supervision fields, the bounded sanitized history (v2), the
@@ -94,10 +95,6 @@ function exactTimestamp(value) {
   const milliseconds = Date.parse(value);
   if (!Number.isFinite(milliseconds) || new Date(milliseconds).toISOString() !== value) return null;
   return milliseconds;
-}
-
-function isLoopbackAddress(address) {
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
 }
 
 function optionalTimestamp(value) {
@@ -332,7 +329,7 @@ export function createTopologyRecoveryAdapterPlugin(options = {}) {
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket.remoteAddress)) {
+      if (!isDirectLoopbackRequest(request)) {
         response.statusCode = 403;
         response.end();
         return;

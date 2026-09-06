@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import process from "node:process";
 
 import { resolveSoulforgeStateRoot } from "../../../../../guild_hall/shared/soulforge_state_root.mjs";
+import { isDirectLoopbackRequest } from "./loopback-request-guard.mjs";
 
 export const TOPOLOGY_SNAPSHOT_PATH = "/topology-health.snapshot.json";
 export const TOPOLOGY_PROJECTION_ENVELOPE_SCHEMA = "soulforge.team_ops_board.topology_projection.v1";
@@ -185,10 +186,6 @@ const SUPPORTED_KIND_FLOWS = new Set([
   "control:supervisor>gate",
 ]);
 const PRIVACY_KEY_SENTINEL = /(?:^|_)(?:raw|body|html|source_quote|attachment|secret|token|password|passwd|cookie|session|credential|authorization|binding_path|provider_id|email)(?:_|$)/iu;
-
-function isLoopbackAddress(address) {
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
-}
 
 function ageSeconds(timestamp, observedNow) {
   return timestamp === null ? null : Math.max(0, Math.floor((observedNow - timestamp) / 1000));
@@ -744,7 +741,7 @@ export function createTopologyAdapterPlugin(options = {}) {
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket.remoteAddress)) {
+      if (!isDirectLoopbackRequest(request)) {
         response.statusCode = 403;
         response.end();
         return;

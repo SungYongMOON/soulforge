@@ -22,6 +22,7 @@ import {
   buildErpReviewLink,
   createErpLoopbackReviewReadTransport,
 } from "./erp-loopback-review-read-transport.mjs";
+import { isDirectLoopbackRequest } from "./loopback-request-guard.mjs";
 
 export const ERP_PENDING_REVIEWS_SNAPSHOT_PATH = "/erp-pending-reviews.snapshot.json";
 export const ERP_REVIEW_URL_ENV = "TEAM_OPS_ERP_REVIEW_URL";
@@ -31,17 +32,8 @@ export const ERP_REVIEW_DEFAULT_LINK = buildErpReviewLink(ERP_REVIEW_DEFAULT_URL
 
 const DEFAULT_MIN_REFRESH_MS = 60_000;
 const ACCEPTED_ITEM_STATUSES = new Set(["done", "archived"]);
-// A proxy hop (Tailscale Serve, or any other reverse proxy landing on this
-// loopback port) rewrites the socket-level remoteAddress to 127.0.0.1 but
-// leaves one of these behind. Presence of any one is treated as "not a direct
-// local caller", regardless of what the socket address says.
-const PROXY_MARKER_HEADERS = Object.freeze([
-  "x-forwarded-for",
-  "x-forwarded-host",
-  "x-forwarded-proto",
-  "forwarded",
-  "tailscale-user-login",
-]);
+// The proxy-passage marker list and the loopback predicate are shared by every
+// adapter in this directory: see ./loopback-request-guard.mjs.
 export const ERP_REVIEW_PROXIED_REQUEST_REJECTED = "ERP_REVIEW_PROXIED_REQUEST_REJECTED";
 const HOLD_CODES = new Set([
   "ERP_REVIEW_UNCONFIGURED",
@@ -113,15 +105,6 @@ function writeJson(response, projection) {
   response.end(JSON.stringify(projection));
 }
 
-function isLoopbackAddress(address) {
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
-}
-
-function hasProxyPassageMarker(headers) {
-  if (headers === null || typeof headers !== "object") return false;
-  return PROXY_MARKER_HEADERS.some((name) => headers[name] !== undefined);
-}
-
 function createProjectionReader({ readPending, loadCredential, link, minRefreshMs, now }) {
   if (typeof readPending !== "function" || typeof loadCredential !== "function") return null;
   const refreshWindow = Number.isSafeInteger(minRefreshMs) && minRefreshMs >= 0 && minRefreshMs <= 3_600_000
@@ -188,7 +171,7 @@ export function createErpPendingReviewAdapterPlugin({
       }
       // Loopback/proxy trust is checked before the method, so a proxied or
       // remote caller gets the same fail-closed 403 regardless of verb (M8).
-      if (!isLoopbackAddress(request.socket?.remoteAddress) || hasProxyPassageMarker(request.headers)) {
+      if (!isDirectLoopbackRequest(request)) {
         response.statusCode = 403;
         response.end();
         return;

@@ -13,6 +13,7 @@ import {
   guardClaudeUsagePrivacy,
   parseClaudeUsageLine,
 } from "../core/claude-usage.mjs";
+import { isDirectLoopbackRequest } from "./loopback-request-guard.mjs";
 
 export const CLAUDE_USAGE_SNAPSHOT_PATH = "/claude-usage.snapshot.json";
 export const DEFAULT_CLAUDE_USAGE_REFRESH_DEBOUNCE_MS = 30_000;
@@ -21,10 +22,6 @@ export const DEFAULT_CLAUDE_USAGE_MAX_RECORDS = 200_000;
 
 const READ_CHUNK_BYTES = 1_048_576;
 const USAGE_LINE_PREFILTER = '"usage"';
-
-function isLoopbackAddress(address) {
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
-}
 
 function defaultProjectsRoot() {
   return process.env.TEAM_OPS_BOARD_CLAUDE_PROJECTS_ROOT
@@ -249,7 +246,7 @@ export function createClaudeUsageAdapterPlugin(options = {}) {
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket.remoteAddress)) {
+      if (!isDirectLoopbackRequest(request)) {
         response.statusCode = 403;
         response.end();
         return;

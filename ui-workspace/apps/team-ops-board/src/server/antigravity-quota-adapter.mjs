@@ -14,6 +14,7 @@ import {
   parseAntigravityUsageCliOutput,
   staleAntigravityQuotaSnapshot,
 } from "../core/antigravity-quota.mjs";
+import { isDirectLoopbackRequest } from "./loopback-request-guard.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -39,10 +40,6 @@ const CLI_ENVIRONMENT_ALLOWLIST = Object.freeze([
   "USERPROFILE",
   "WINDIR",
 ]);
-
-function isLoopbackAddress(address) {
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
-}
 
 export function isAntigravityQuotaLiveRefreshEnabled(env = process.env) {
   return env?.[TEAM_OPS_BOARD_ANTIGRAVITY_QUOTA_LIVE_REFRESH] === "1";
@@ -291,7 +288,7 @@ export function createAntigravityQuotaAdapterPlugin(options = {}) {
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket.remoteAddress)) {
+      if (!isDirectLoopbackRequest(request)) {
         response.statusCode = 403;
         response.end();
         return;

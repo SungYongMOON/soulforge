@@ -3,13 +3,7 @@ import {
   unavailableProjection,
   CODEX_RETENTION_ENDPOINT_PATH
 } from "../core/codex-retention-projection.mjs";
-
-function isLoopbackAddress(remoteAddress) {
-  if (!remoteAddress) return false;
-  return remoteAddress === "127.0.0.1"
-    || remoteAddress === "::1"
-    || remoteAddress === "::ffff:127.0.0.1";
-}
+import { isDirectLoopbackRequest } from "./loopback-request-guard.mjs";
 
 export function createCodexRetentionServerAdapter(options = {}) {
   const configure = (server) => {
@@ -35,7 +29,7 @@ export function createCodexRetentionServerAdapter(options = {}) {
         return;
       }
 
-      if (!isLoopbackAddress(request.socket?.remoteAddress)) {
+      if (!isDirectLoopbackRequest(request)) {
         response.statusCode = 403;
         response.end();
         return;

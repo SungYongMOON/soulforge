@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import process from "node:process";
 
 import { resolveSoulforgeStateRoot } from "../../../../../guild_hall/shared/soulforge_state_root.mjs";
+import { isDirectLoopbackRequest } from "./loopback-request-guard.mjs";
 
 export const TONGS_SNAPSHOT_PATH = "/tongs.snapshot.json";
 export const TONGS_PROJECTION_SCHEMA = "soulforge.team_ops_board.tongs_projection.v1";
@@ -34,13 +35,6 @@ const MODULE_ROOT = dirname(fileURLToPath(import.meta.url));
 export function defaultTongsHeartbeatPath(env = process.env) {
   const stateRoot = resolveSoulforgeStateRoot(env, () => resolve(MODULE_ROOT, "../../../../../guild_hall/state"));
   return join(stateRoot, "operations", "tongs", "heartbeat.json");
-}
-
-function isLoopbackAddress(remoteAddress) {
-  if (!remoteAddress) return false;
-  return remoteAddress === "127.0.0.1"
-    || remoteAddress === "::1"
-    || remoteAddress === "::ffff:127.0.0.1";
 }
 
 function envelope({
@@ -195,7 +189,7 @@ export function createTongsHeartbeatAdapterPlugin(options = {}) {
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket?.remoteAddress)) {
+      if (!isDirectLoopbackRequest(request)) {
         response.statusCode = 403;
         response.end();
         return;

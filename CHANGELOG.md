@@ -1,5 +1,48 @@
 # CHANGELOG
 
+## 2026-09-06 - Vigil(포트 4192) loopback 읽기 endpoint 18개 전부에 프록시 통과 표식 거부를 공용 guard로 적용
+
+- 판단 표기: 보안 hardening(개발 후보 수정). 새 owner decision이나 정본 승격이 아니다. 어떤
+  endpoint의 projection, cache/TTL, GET 전용 처리도 바꾸지 않았다.
+- 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: 2026-09-05 M1 finding(Tailscale Serve가 tailnet peer의 요청을 이 호스트의 `127.0.0.1`로
+  넘기므로 loopback 소켓 주소만으로는 Owner의 로컬 프로세스임을 증명하지 못함)의 수정은
+  `erp-pending-review-adapter.mjs` 한 곳에만 들어가 있었다. 2026-09-06 fresh Level 2 검토
+  (`feat/vigil-forge-map` 워크트리)가 나머지 14개 adapter와 그 lane이 추가한 3개(scheduled-tasks,
+  tongs-heartbeat, secure-work-status)에는 그 검사가 없음을 짚었고, 임시 dev 서버(127.0.0.1:4198)에
+  `X-Forwarded-For`/`X-Forwarded-Host`를 붙인 curl이 `/tongs.snapshot.json`에서 200을 받는 것을
+  실측했다(이 호스트는 Tailscale IPv4를 갖고 있어 이론이 아니라 실제 노출면). 이 개정은 그 검사를
+  `src/server/loopback-request-guard.mjs`로 끌어올려(`isLoopbackAddress`, `hasProxyPassageMarker`,
+  둘을 합친 `isDirectLoopbackRequest` export) 18개 adapter 전부가 그 한 predicate로 gate하게 했다.
+  각 adapter는 자기 파일의 loopback 함수 사본을 지우고 import 한 줄과 조건 한 줄만 바뀌었으며,
+  검사 위치(ERP adapter만 method 검사 앞, 나머지는 `405` 뒤)와 응답(`403`, 본문 없음)은 원래
+  non-loopback 호출자에게 주던 것과 같다.
+- 검사: `src/server/loopback-request-guard.test.mjs` — helper 단위 검사 3건에 더해, `src/server/`에서
+  `middlewares.use(`를 등록하는 모듈을 디렉터리 스캔으로 열거해 adapter 표(18행)와 집합 일치를
+  요구하고(새 adapter가 표에 없으면 실패), 각 모듈이 공용 guard를 import하며 사설
+  `isLoopbackAddress`·`x-forwarded-` 사본을 갖지 않음을 확인한 뒤, 표의 18개 factory마다
+  `configureServer`·`configurePreviewServer` 두 면 × loopback 주소 3종 × 표식 헤더 5종(+전부 동시)에서
+  `403`·빈 본문·next() 미호출, 원격 소켓 `403`, 무관 경로 next(), 프록시 POST가 기존 순서대로
+  `405`(ERP는 `403`)임을 고정한다. 변이 검사: tongs adapter 하나를 HEAD 판으로 되돌리면 완전성
+  검사와 그 행이 함께 실패함을 확인하고 복원했다.
+- 검증: `npm run validate:team-ops-app` 868/868(기존 846 + 신규 22, 실패 0),
+  `npm --prefix ui-workspace run team-ops-app:build` 성공,
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed` 위반 0. 라이브 재현:
+  워크트리에서 임시 dev 서버(127.0.0.1:4198, `--strictPort`)를 띄워 tongs, host-stats, secure-work,
+  scheduled-tasks, erp-pending-reviews, codex-retention, topology-federation 7개 endpoint에서 plain
+  200, `X-Forwarded-For`+`X-Forwarded-Host` / `X-Forwarded-Proto` / `Forwarded` /
+  `Tailscale-User-Login` 각각 403·본문 0바이트를 확인한 뒤 그 프로세스만(명령행·bash 부모 확인)
+  종료했다. 4192·4300은 관측만 했다(4192 listener pid 불변).
+- 운영 영향: 운영 Vigil(포트 4192)은 규칙상 checkout이 아니라 등록된 lane에서 돌므로 이 변경은
+  다음 lane 갱신·재기동 때 적용된다. 그때까지 운영 4192의 ERP 이외 endpoint는 Tailscale Serve가
+  그 포트를 노출하고 있을 경우 tailnet peer에게 200을 줄 수 있다(각 endpoint의 내용은 README가
+  기술하는 읽기 전용 projection이며 이 개정은 그 내용을 바꾸지 않았다). 로컬 브라우저(직접
+  loopback)에는 표식 헤더가 없으므로 화면 동작은 그대로다.
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/server/loopback-request-guard.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/loopback-request-guard.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/*-adapter.mjs`(18개),
+  `ui-workspace/apps/team-ops-board/README.md` §Shared loopback request guard.
+
 ## 2026-09-06 - Tongs(MCP 문) loopback lane: fresh review's M1–M6 + minors closed, still not registered
 
 - 판단 표기: 개발 후보 수정. 아래 "Tongs(MCP 문) loopback lane + registrar prepared" 커밋에 대한

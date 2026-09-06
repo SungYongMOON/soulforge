@@ -247,6 +247,31 @@ one".
 
 ## Local endpoint and privacy boundary
 
+### Shared loopback request guard
+
+Every read endpoint the Board registers under `src/server/*-adapter.mjs` gates
+on one shared predicate, `isDirectLoopbackRequest` from
+`src/server/loopback-request-guard.mjs`: the socket address must be loopback
+(`127.0.0.1`, `::1`, `::ffff:127.0.0.1`) **and** the request must carry no
+proxy-passage marker header (`X-Forwarded-For`, `X-Forwarded-Host`,
+`X-Forwarded-Proto`, `Forwarded`, `Tailscale-User-Login`). Tailscale Serve, or
+any other reverse proxy landing on this loopback port, rewrites the socket
+address to `127.0.0.1` for a tailnet peer's request but leaves one of those
+headers behind, so a loopback socket alone does not prove the caller is the
+Owner's own local process (Level 2 review finding M1, 2026-09-05). That guard
+first landed on the ERP pending-review endpoint only; a fresh Level 2 review on
+2026-09-06 reproduced `curl -H "X-Forwarded-For: …"` answering `200` on the
+other endpoints of a temporary dev server, and the guard was lifted into the
+shared module and applied to all of them. A proxied request now gets the same
+fail-closed `403` with no body that a remote socket already got, at the same
+point in each adapter's handling, so nothing about what an endpoint projects,
+its cache/TTL, or its GET-only (`405`) handling changed.
+`src/server/loopback-request-guard.test.mjs` enumerates every module in
+`src/server/` that registers a middleware and fails when one is missing from
+its adapter table, keeps a private loopback predicate or marker list instead
+of the shared one, or answers a proxied loopback request with anything but
+`403` — a future adapter cannot skip the guard silently.
+
 ### Storage & Backup Map read projection
 
 The Board registers exact loopback-only `GET /storage-map.snapshot.json` through
@@ -341,10 +366,12 @@ credential, or secret is used to derive or complete the pair.
 The Board registers `GET /erp-pending-reviews.snapshot.json?read_only=1` for
 loopback clients only: exact query, `405` for non-GET, `403` for remote
 callers, `no-store` and `nosniff` (the same base guards as the Agent Runtime
-endpoint), plus one guard specific to this endpoint — a request carrying any
+endpoint), plus the proxy-passage guard that every adapter now shares (see
+"Shared loopback request guard" above) — a request carrying any
 proxy-passage marker header (`X-Forwarded-For`, `X-Forwarded-Host`,
 `X-Forwarded-Proto`, `Forwarded`, `Tailscale-User-Login`) is rejected `403`
-even from a loopback socket, checked before the method. Tailscale Serve can
+even from a loopback socket; this endpoint alone checks it before the method
+(finding M8), the others after their `405` method check. Tailscale Serve can
 proxy a tailnet peer's request to this host's `127.0.0.1`, so a loopback
 socket address alone no longer proves the caller is the Owner's own local
 process (Level 2 review finding M1). It feeds the owner-surface panel

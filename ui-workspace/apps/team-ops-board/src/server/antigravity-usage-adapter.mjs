@@ -10,6 +10,7 @@ import {
   buildAntigravityUsageSnapshot,
   decodeModelCredits,
 } from "../core/antigravity-usage.mjs";
+import { isDirectLoopbackRequest } from "./loopback-request-guard.mjs";
 
 export const ANTIGRAVITY_USAGE_SNAPSHOT_PATH = "/antigravity-usage.snapshot.json";
 export const ANTIGRAVITY_STATE_DB_ENV = "TEAM_OPS_BOARD_ANTIGRAVITY_STATE_DB";
@@ -31,10 +32,6 @@ export function resolveAntigravityStateDbPath(env = process.env) {
   const override = env[ANTIGRAVITY_STATE_DB_ENV];
   if (typeof override === "string" && override.trim() !== "") return override;
   return path.join(env.APPDATA ?? "", "Antigravity IDE", "User", "globalStorage", "state.vscdb");
-}
-
-function isLoopbackAddress(address) {
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
 }
 
 function toReadOnlyUri(dbPath) {
@@ -142,7 +139,7 @@ export function createAntigravityUsageAdapterPlugin(options = {}) {
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket.remoteAddress)) {
+      if (!isDirectLoopbackRequest(request)) {
         response.statusCode = 403;
         response.end();
         return;

@@ -10,6 +10,7 @@ import {
   aggregateStorageMapState,
 } from "../../../../../guild_hall/path_registry/src/storage_map_projection.mjs";
 import { readStableFile } from "./receipt-expiry-adapter.mjs";
+import { isDirectLoopbackRequest } from "./loopback-request-guard.mjs";
 
 export const STORAGE_MAP_PATH = "/storage-map.snapshot.json";
 export const STORAGE_MAP_BINDING_SCHEMA = "soulforge.team_ops_board.storage_map_binding.v1";
@@ -106,10 +107,6 @@ function fixedUnavailable(reason, nowMs) {
       repair_authority: false,
     },
   };
-}
-
-function isLoopbackAddress(address) {
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
 }
 
 function writeJson(response, body) {
@@ -303,7 +300,7 @@ export function createStorageMapServerAdapter(options = {}) {
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket?.remoteAddress)) {
+      if (!isDirectLoopbackRequest(request)) {
         response.statusCode = 403;
         response.end();
         return;
