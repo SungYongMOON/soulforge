@@ -26,7 +26,7 @@
     "enabled": true,
     "experimental": true,
     "cadence_note": "주 1회 (plan §6 - 공식 24h 사이클, 같은 쿼리 하루 2회 이상 불필요). Goal #1은 스케줄러를 등록하지 않는다 - 수동/온디맨드 실행만.",
-    "base_url": "http://export.arxiv.org/api/query",
+    "base_url": "https://export.arxiv.org/api/query",
     "categories": ["eess.SP", "cs.RO", "cs.CV"],
     "tou": {
       "min_request_interval_ms": 3000,

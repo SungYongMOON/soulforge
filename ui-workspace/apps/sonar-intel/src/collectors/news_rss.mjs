@@ -10,6 +10,7 @@
 // fields we need (title/link/guid/pubDate/description/source).
 
 import { computeStableId } from "../store.mjs";
+import { decodeXmlText } from "../xml_text.mjs";
 
 export const DEFAULT_USER_AGENT =
   "sonar-intel-collector/0.1 (+Soulforge internal research pipeline; non-commercial; no public contact)";
@@ -34,16 +35,6 @@ function stripCdata(value) {
   const trimmed = value.trim();
   const cdataMatch = /^<!\[CDATA\[([\s\S]*)\]\]>$/.exec(trimmed);
   return cdataMatch ? cdataMatch[1] : value;
-}
-
-function decodeXmlText(value) {
-  return value
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, "&");
 }
 
 /** Parse an RSS 2.0 document's <item> entries. Pure function, no I/O. */

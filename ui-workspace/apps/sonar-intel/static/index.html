@@ -52,9 +52,9 @@ async function loadStatus() {
     cardsEl.innerHTML = '<div class="empty">아직 수집된 데이터가 없습니다. npm run collect를 실행하세요.</div>';
   } else {
     cardsEl.innerHTML = data.collection.map(function (row) {
-      return '<div class="card"><div class="n">' + row.count + '</div>' +
-        '<div class="label">' + row.type + ' · ' + row.source + '</div>' +
-        '<div class="sub">last: ' + (row.lastFetchedAt || "-") + '</div></div>';
+      return '<div class="card"><div class="n">' + escapeHtml(row.count) + '</div>' +
+        '<div class="label">' + escapeHtml(row.type) + ' · ' + escapeHtml(row.source) + '</div>' +
+        '<div class="sub">last: ' + escapeHtml(row.lastFetchedAt || "-") + '</div></div>';
     }).join("");
   }
 
@@ -82,8 +82,9 @@ async function loadFeed() {
     return;
   }
   body.innerHTML = data.items.map(function (item) {
-    const title = item.url
-      ? '<a href="' + encodeURI(item.url) + '" target="_blank" rel="noopener">' + escapeHtml(item.title) + '</a>'
+    const safe = /^https?:\/\//i.test(item.url) ? item.url : null;
+    const title = safe
+      ? '<a href="' + escapeHtml(safe) + '" target="_blank" rel="noopener">' + escapeHtml(item.title) + '</a>'
       : escapeHtml(item.title);
     const tags = (item.keywordsMatched || []).map(function (k) { return '<span class="tag">' + escapeHtml(k) + '</span>'; }).join("");
     return '<tr><td>' + escapeHtml(item.type) + '</td><td>' + escapeHtml(item.source) + '</td><td>' + title +

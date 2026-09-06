@@ -2,7 +2,7 @@
 
 내부 전용 인텔 도구: 소나 도메인(SAS/MBES/SSS/FLS + 보조센서 + 부품) 관련 뉴스·논문을
 자동 수집해 대시보드에서 본다. LLM 호출 0회. 무의존(zero-dependency) Node 서버 +
-vanilla JS, dev-erp(세계수, `ui-workspace/apps/dev-erp`)와 같은 계열의 무의존 패턴을 따른다.
+vanilla JS, World Tree(코드 dev-erp, 포트 4300, `ui-workspace/apps/dev-erp`)와 같은 계열의 무의존 패턴을 따른다.
 
 정본 계획은 [`docs/SONAR_INTEL_MASTER_PLAN_V1.md`](docs/SONAR_INTEL_MASTER_PLAN_V1.md)다.
 이 README는 실행 방법만 다루고, 스코프·아키텍처·팀 구성 판단은 계획서를 따른다.

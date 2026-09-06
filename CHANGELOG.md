@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 2026-09-06 - 소나 인텔(sonar-intel) v1 Goal #1: 앱 골격 + news_rss/arXiv 수집기 + 첫 실 수집
+## 2026-09-06 - 소나 인텔(sonar-intel, 포트 4420) v1 Goal #1: 앱 골격 + news_rss/arXiv 수집기 + 첫 실 수집
 
 - 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
 - 무엇: `SONAR_INTEL_MASTER_PLAN_V1.md`(2026-08-24 owner 승인) §9 순서 2~3을 구현했다.
@@ -13,9 +13,11 @@
   append-only JSONL로 대체하는 동일 인터페이스 폴백, 안정 ID, `erpMapping` nullable 예약
   필드), `config/keywords.json`+`config/sources.json`(계획서는 yaml이지만 무의존 원칙상
   JSON, README에 사유 기재), `src/analysis/`(M4 스텁만), `export/snapshot.mjs`(CSV/JSON
-  writer)를 새로 만들었다. 오프라인 fixture 기반 단위test 49건(rate gate, RSS/Atom 파싱,
-  store dedupe/update/no-op 판정, 필수 필드 검증)과 `SONAR_INTEL_NETWORK=1`로만 켜지는
-  실 네트워크 test 3건을 추가했고, 루트에 `validate:sonar-intel`(`npm --prefix
+  writer)를 새로 만들었다. 오프라인 fixture 기반 단위test(rate gate, RSS/Atom 파싱,
+  store dedupe/update/no-op 판정, 필수 필드 검증, CSV 이스케이프·포뮬러 인젝션 가드;
+  0 fail — sqlite 가용 시 54 pass·4 skipped, 없으면 50 pass·3 skipped)와
+  `SONAR_INTEL_NETWORK=1`로만 켜지는 실 네트워크 test 3건을 추가했고, 루트에
+  `validate:sonar-intel`(`npm --prefix
   ui-workspace/apps/sonar-intel test`) 게이트를 추가해 `guild_hall/validate/
   run_root_acceptance.mjs`의 validate·done-check 두 모드 모두에 배선했다. 구현 중
   실제 실행에서 같은 기사가 서로 다른 키워드 검색에 두 번 걸릴 때 `keywordsMatched`가
@@ -34,8 +36,9 @@
   계획서 §8의 독립 `sonar-verifier` 봇 판정 루프는 아직 붙지 않았다(팀 봇 4종 운영
   체계가 서기 전까지 열어 둠).
 - 운영 영향: 새 loopback 전용 포트(4420)가 하나 추가된다. 스케줄러(예약작업)는
-  등록하지 않았다 - 수집은 `npm run collect` 수동/온디맨드 실행뿐이다. dev-erp(세계수)
-  데이터베이스나 실행 표면에는 영향이 없다(별도 DB, export/ 스냅샷 교환만 예정). 루트
+  등록하지 않았다 - 수집은 `npm run collect` 수동/온디맨드 실행뿐이다. World Tree(코드
+  dev-erp, 포트 4300) 데이터베이스나 실행 표면에는 영향이 없다(별도 DB, export/ 스냅샷
+  교환만 예정). 루트
   `npm run validate`/`done:check`에 `sonar-intel` 스텝이 새로 실행된다.
 - 관련 경로: `ui-workspace/apps/sonar-intel/**`, `package.json`
   (`validate:sonar-intel`), `guild_hall/validate/run_root_acceptance.mjs`,

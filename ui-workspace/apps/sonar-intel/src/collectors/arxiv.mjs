@@ -15,8 +15,9 @@
 
 import { createRateGate } from "../rate_gate.mjs";
 import { computeStableId } from "../store.mjs";
+import { decodeXmlText } from "../xml_text.mjs";
 
-export const ARXIV_BASE_URL = "http://export.arxiv.org/api/query";
+export const ARXIV_BASE_URL = "https://export.arxiv.org/api/query";
 export const ARXIV_MIN_REQUEST_INTERVAL_MS = 3000;
 export const ARXIV_MAX_CONCURRENT_CONNECTIONS = 1;
 export const DEFAULT_USER_AGENT =
@@ -56,7 +57,7 @@ export function buildArxivUrl({ searchQuery, start = 0, maxResults = 50, sortBy 
 function extractTag(block, tag) {
   const re = new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i");
   const match = re.exec(block);
-  return match ? match[1].trim() : null;
+  return match ? decodeXmlText(match[1]).trim() : null;
 }
 
 function extractAttr(attrsText, name) {

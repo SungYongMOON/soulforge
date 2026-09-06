@@ -24,8 +24,17 @@ const CSV_COLUMNS = [
 
 function csvEscape(value) {
   if (value === null || value === undefined) return "";
-  const text = String(value);
-  if (/[",\n]/.test(text)) {
+  let text = String(value);
+  // Formula-injection guard (CSV/"CSV injection"): a cell opened by Excel/Sheets
+  // that starts with =, +, - or @ can be interpreted as a formula rather than
+  // text. Prefixing a `'` forces text interpretation without changing what a
+  // human reading the raw CSV sees.
+  if (/^[=+\-@]/.test(text)) {
+    text = `'${text}`;
+  }
+  // \r (not just \n) must also force quoting: a bare CR left unquoted can still
+  // be read as a row break by tools that split on \r as well as \n.
+  if (/[",\r\n]/.test(text)) {
     return `"${text.replace(/"/g, '""')}"`;
   }
   return text;

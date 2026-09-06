@@ -17,6 +17,14 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, appendFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+// The app's own root (this file lives at <app>/src/store.mjs), not the caller's
+// process.cwd() — server.mjs, tools/collect_once.mjs and every test import this
+// module from different working directories, and the default store location
+// must not silently move (or fragment into several data/ folders) depending on
+// where the process happened to be launched from.
+const APP_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 /** Namespaced stable id: sha256(naturalKey) truncated, prefixed by namespace. */
 export function computeStableId(namespace, naturalKey) {
@@ -104,7 +112,7 @@ async function detectSqliteModule() {
  * @param {string} [options.jsonlFileName] JSONL filename. Default "intel.jsonl".
  */
 export async function openStore(options = {}) {
-  const dataDir = options.dataDir ?? path.join(process.cwd(), "data");
+  const dataDir = options.dataDir ?? path.join(APP_ROOT, "data");
   if (!existsSync(dataDir)) {
     mkdirSync(dataDir, { recursive: true });
   }

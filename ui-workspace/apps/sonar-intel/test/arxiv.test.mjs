@@ -36,7 +36,7 @@ function immediateGate() {
 test("ToU constants match info.arxiv.org/help/api/tou.html as recorded in the plan (§7)", () => {
   assert.equal(ARXIV_MIN_REQUEST_INTERVAL_MS, 3000);
   assert.equal(ARXIV_MAX_CONCURRENT_CONNECTIONS, 1);
-  assert.equal(ARXIV_BASE_URL, "http://export.arxiv.org/api/query");
+  assert.equal(ARXIV_BASE_URL, "https://export.arxiv.org/api/query");
 });
 
 test("buildArxivSearchQuery ORs terms and ANDs an optional category group", () => {
@@ -83,6 +83,17 @@ test("parseArxivAtom extracts both entries with title/summary collapsed and auth
 test("parseArxivAtom returns an empty array for empty/garbage input", () => {
   assert.deepEqual(parseArxivAtom(""), []);
   assert.deepEqual(parseArxivAtom("<feed></feed>"), []);
+});
+
+test("parseArxivAtom decodes XML entities in tag text (extractTag must not return raw-encoded text)", () => {
+  const xml =
+    "<feed><entry>" +
+    "<id>http://arxiv.org/abs/9999.00001v1</id>" +
+    "<title>Sonar &amp; SAS: a &lt;study&gt;</title>" +
+    "<summary>ok</summary>" +
+    "</entry></feed>";
+  const [entry] = parseArxivAtom(xml);
+  assert.equal(entry.title, "Sonar & SAS: a <study>");
 });
 
 test("normalizeArxivId strips the URL prefix and version suffix", () => {
