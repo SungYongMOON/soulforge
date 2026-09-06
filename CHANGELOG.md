@@ -17,13 +17,21 @@
   파일은 두 ACE를 그대로 물려받았고, 사용자 단독 ACL로 좁혀 둔 상태 root 아래에서는 좁은 ACL을
   물려받았다 — 갭은 출력 위치에 따라 달라지며 파일을 쓰는 코드는 그것을 알 수 없었다. 고침: Node용
   소형 모듈 `windows_acl_lockdown.mjs`(`winsec.py`와 같은 `icacls /inheritance:r /grant:r
-  "%USERNAME%:F"`, 결과를 `{attempted, applied, detail}`로만 보고, 값·경로 미기록, 예외 없음)를 두고
-  두 곳이 파일 생성 직후 호출한다. 결과는 옆의 `.acl_receipt.json`(schema
-  `soulforge.ingress.token_file_acl.v0` / `soulforge.ingress.mtls_client_key_acl.v0`)과
-  발급·`prepare`·`finalize` 결과의 `token_file_acl_lockdown`/`private_key_acl_lockdown`, 그리고
-  `ingress:mtls-canary preflight`에 나오고, 적용 실패는 `warnings`로 드러난다. 실패해도 파일을 지우지
-  않는다(보고가 먼저, 판단은 운영자). Python과 Node 사이 공용 helper는 만들지 않았다(언어별 소형
-  모듈이 더 단순하고 안전하다).
+  "%USERNAME%:F"`, 적용 뒤 같은 계정으로 파일이 열리는지 read-back까지 확인, 값·경로 미기록, 예외
+  없음)를 두고 두 곳이 파일 생성 직후 호출한다. 영수증 `.acl_receipt.json`(schema
+  `soulforge.ingress.token_file_acl.v0` / `soulforge.ingress.mtls_client_key_acl.v0`)에는
+  `{attempted, applied, detail}`이 남고, 발급·`prepare`·`finalize` 결과의
+  `token_file_acl_lockdown`/`private_key_acl_lockdown`과 `ingress:mtls-canary preflight`는 모두 한
+  가지 모양 `{status, detail}`(`applied`/`failed`/`not_attempted`/`receipt_missing`/`receipt_unreadable`)로
+  보고한다. 적용 실패는 `warnings`의 `*_acl_lockdown_failed:*`로, Windows에서 영수증이 없거나 못 읽는
+  파일은 `*_acl_lockdown_unknown:*`로 드러난다. lockdown 실패 자체는 파일을 지우지 않고 보고만
+  한다(판단은 운영자); 영수증 파일을 못 만들면 토큰 파일도 함께 지우고 발급을 실패시킨다. 영수증은
+  링크를 따라가지 않는 배타 생성으로만 쓴다. 좁힌 ACL에는 현재 사용자만 남는다(SYSTEM·Administrators
+  제외, README·런북에 명시). Python과 Node 사이 공용 helper는 만들지 않았다(언어별 소형 모듈이 더
+  단순하고 안전하다). fresh non-author Level 2 검토(Opus)가 35개 코드 파일 분류를 독립 재현해 같은
+  2곳을 얻었고, REVISE 지적(영수증 쓰기 강도·결과 모양 통일·unknown 경고·timeout 분기 순서·SYSTEM
+  제외 문서화)은 같은 개정에서 반영했다. 남은 LOW: 계정 이름 기반 grant(SID 대신) — `winsec.py`와
+  공통, 후속.
 - 운영 영향: 이미 발급된 token 파일·개인키에는 소급 적용되지 않는다(`finalize`·preflight는
   `receipt_missing`을 보인다). 새 발급·등록 결과에 `applied:false`가 보이면 디렉터리 ACL을 먼저 본다.
   후속 후보(credential 아님, 이번엔 손대지 않음): Python 메일 custody `0o600`(원문 바이트, 상태 root

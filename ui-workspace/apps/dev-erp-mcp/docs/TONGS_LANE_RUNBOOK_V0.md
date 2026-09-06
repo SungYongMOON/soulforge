@@ -386,7 +386,9 @@ Windows에서는 `0o600`이 ACL이 아니라 출력 파일이 디렉터리 ACL�
 출력 파일 옆 `.acl_receipt.json`(시도/적용/사유만, 값·경로 없음)에 결과를 남긴다. `warnings`에
 `token_file_acl_lockdown_failed:*`가 보이면 적용되지 않은 것이므로
 `<private_root>/config/tongs/credentials/` 디렉터리 ACL을 먼저 확인한다(사용자 단독 ACL로 좁힌
-디렉터리 아래라면 파일이 그 좁은 ACL을 상속하지만, 그 확인 없이 적용됐다고 보지 않는다).
+디렉터리 아래라면 파일이 그 좁은 ACL을 상속하지만, 그 확인 없이 적용됐다고 보지 않는다). 좁힌 ACL에는
+현재 사용자만 남으므로(상속되던 SYSTEM·Administrators 제외) lane을 다른 계정(서비스 계정)으로 등록하면
+그 파일을 못 읽는다 — 발급과 실행은 같은 계정으로 한다.
 
 ## 10. 검증
 

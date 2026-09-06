@@ -9,7 +9,9 @@ import {
   INGRESS_MCP_AUTH_SCHEMA,
   normalizeIngressAuthRegistry,
 } from "./ingress_mcp_service.mjs";
-import { aclReceiptPath, restrictToCurrentUser, writeAclReceipt } from "./windows_acl_lockdown.mjs";
+import {
+  aclReceiptPath, lockdownWarnings, restrictToCurrentUser, summarizeLockdown, writeAclReceipt,
+} from "./windows_acl_lockdown.mjs";
 
 export const INGRESS_TOKEN_FILE_ACL_SCHEMA = "soulforge.ingress.token_file_acl.v0";
 
@@ -196,13 +198,14 @@ export async function issueIngressCredential({
       credential: publicRecord(entry),
       token_display_policy: tokenPath === null ? "one_time_only" : "protected_file_only",
     };
-    if (tokenPath === null) result.token = token;
-    else {
+    if (tokenPath === null) {
+      result.token = token;
+      result.warnings = [];
+    } else {
+      const summary = summarizeLockdown(tokenLockdown);
       result.token_file_written = true;
-      result.token_file_acl_lockdown = tokenLockdown;
-      result.warnings = tokenLockdown.attempted && !tokenLockdown.applied
-        ? [`token_file_acl_lockdown_failed:${tokenLockdown.detail}`]
-        : [];
+      result.token_file_acl_lockdown = summary;
+      result.warnings = lockdownWarnings("token_file", summary);
     }
     return result;
   });

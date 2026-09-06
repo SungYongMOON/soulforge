@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, rmdir, symlink, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -9,16 +9,14 @@ import { promisify } from "node:util";
 import {
   ACL_RECEIPT_SUFFIX,
   aclReceiptPath,
+  lockdownWarnings,
   readAclReceipt,
   restrictToCurrentUser,
+  summarizeLockdown,
   writeAclReceipt,
 } from "../src/windows_acl_lockdown.mjs";
 
 const execFileAsync = promisify(execFile);
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 test("lockdown is not attempted off Windows and reports missing prerequisites without throwing", async () => {
   const root = await mkdtemp(resolve(tmpdir(), "soulforge-acl-lockdown-"));
@@ -48,7 +46,7 @@ test("lockdown is not attempted off Windows and reports missing prerequisites wi
   }
 });
 
-test("on Windows the lockdown leaves only the current user on the file", async (t) => {
+test("on Windows the lockdown leaves one explicit full-control entry and the file stays readable", async (t) => {
   if (process.platform !== "win32") return t.skip("Windows ACL semantics only");
   const root = await mkdtemp(resolve(tmpdir(), "soulforge-acl-lockdown-win-"));
   const target = resolve(root, "material.bin");
@@ -62,11 +60,27 @@ test("on Windows the lockdown leaves only the current user on the file", async (
     );
     const aces = stdout.split(/\r?\n/).map((line) => line.trim()).filter((line) => /:\(/.test(line));
     assert.equal(aces.length, 1, stdout);
-    assert.match(aces[0], new RegExp(`(^|\\\\)${escapeRegExp(process.env.USERNAME)}:\\(F\\)$`, "i"));
+    assert.match(aces[0], /:\(F\)$/, stdout);
     assert.equal(stdout.includes("(I)"), false, stdout);
     assert.equal(await readFile(target, "utf8"), "synthetic\n");
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("summary and warnings expose one shape and warn on Windows when the lockdown is unknown", () => {
+  assert.deepEqual(summarizeLockdown({ attempted: true, applied: true, detail: "ICACLS_OK" }), { status: "applied", detail: "ICACLS_OK" });
+  assert.deepEqual(summarizeLockdown({ attempted: true, applied: false, detail: "icacls_exit_5" }), { status: "failed", detail: "icacls_exit_5" });
+  assert.deepEqual(summarizeLockdown({ attempted: false, applied: false, detail: "NOT_WINDOWS" }), { status: "not_attempted", detail: "NOT_WINDOWS" });
+  assert.deepEqual(summarizeLockdown(null), { status: "not_attempted", detail: null });
+
+  const failed = { status: "failed", detail: "icacls_exit_5" };
+  assert.deepEqual(lockdownWarnings("private_key", failed, { platform: "linux" }), ["private_key_acl_lockdown_failed:icacls_exit_5"]);
+  assert.deepEqual(lockdownWarnings("private_key", failed, { platform: "win32" }), ["private_key_acl_lockdown_failed:icacls_exit_5"]);
+  assert.deepEqual(lockdownWarnings("private_key", { status: "applied", detail: "ICACLS_OK" }, { platform: "win32" }), []);
+  for (const status of ["receipt_missing", "receipt_unreadable", "not_attempted"]) {
+    assert.deepEqual(lockdownWarnings("token_file", { status, detail: null }, { platform: "win32" }), [`token_file_acl_lockdown_unknown:${status}`]);
+    assert.deepEqual(lockdownWarnings("token_file", { status, detail: null }, { platform: "linux" }), []);
   }
 });
 
@@ -84,6 +98,7 @@ test("receipt carries the schema and outcome only and summarizes for a doctor su
     assert.deepEqual(parsed, { schema: "soulforge.test.acl.v0", attempted: true, applied: false, detail: "icacls_exit_5" });
     assert.deepEqual(await readAclReceipt(target), { status: "failed", detail: "icacls_exit_5" });
 
+    // A stale plain receipt is replaced, exclusively.
     await writeAclReceipt(target, "soulforge.test.acl.v0", { attempted: true, applied: true, detail: "ICACLS_OK" });
     assert.deepEqual(await readAclReceipt(target), { status: "applied", detail: "ICACLS_OK" });
     await writeAclReceipt(target, "soulforge.test.acl.v0", { attempted: false, applied: false, detail: "NOT_WINDOWS" });
@@ -95,6 +110,29 @@ test("receipt carries the schema and outcome only and summarizes for a doctor su
     await writeFile(receiptPath, JSON.stringify({ schema: "x", attempted: "yes" }), "utf8");
     assert.deepEqual(await readAclReceipt(target), { status: "receipt_unreadable", detail: null });
   } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("a planted link at the receipt path is refused for writing and reading", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "soulforge-acl-receipt-link-"));
+  const target = resolve(root, "material.bin");
+  const decoy = resolve(root, "decoy");
+  const receiptPath = aclReceiptPath(target);
+  const junction = process.platform === "win32";
+  try {
+    await writeFile(target, "synthetic\n", { flag: "wx", mode: 0o600 });
+    await mkdir(decoy);
+    // Directory junctions need no privilege on Windows; elsewhere a plain symlink.
+    await symlink(decoy, receiptPath, junction ? "junction" : undefined);
+    await assert.rejects(
+      writeAclReceipt(target, "soulforge.test.acl.v0", { attempted: true, applied: true, detail: "ICACLS_OK" }),
+      /acl_receipt_path_unsafe/,
+    );
+    assert.deepEqual(await readAclReceipt(target), { status: "receipt_unreadable", detail: null });
+  } finally {
+    if (junction) await rmdir(receiptPath).catch(() => {});
+    else await unlink(receiptPath).catch(() => {});
     await rm(root, { recursive: true, force: true });
   }
 });

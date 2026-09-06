@@ -9,6 +9,7 @@ import test from "node:test";
 
 import { preflightIngressMtlsCanary } from "../src/ingress_mtls_canary.mjs";
 import { loadIngressMtlsClientBinding } from "../src/ingress_mtls_client.mjs";
+import { summarizeLockdown } from "../src/windows_acl_lockdown.mjs";
 import {
   INGRESS_MTLS_CLIENT_KEY_ACL_SCHEMA,
   finalizeIngressMtlsEnrollment,
@@ -89,14 +90,10 @@ test("target-local CSR is signed on HPP and finalized without moving or printing
     const keyReceipt = JSON.parse(await readFile(resolve(target, "ingress-client.key.pem.acl_receipt.json"), "utf8"));
     assert.deepEqual(Object.keys(keyReceipt).sort(), ["applied", "attempted", "detail", "schema"]);
     assert.equal(keyReceipt.schema, INGRESS_MTLS_CLIENT_KEY_ACL_SCHEMA);
-    assert.deepEqual(prepared.private_key_acl_lockdown, {
-      attempted: keyReceipt.attempted, applied: keyReceipt.applied, detail: keyReceipt.detail,
-    });
-    if (process.platform === "win32") {
-      assert.deepEqual(prepared.private_key_acl_lockdown, { attempted: true, applied: true, detail: "ICACLS_OK" });
-    } else {
-      assert.equal(prepared.private_key_acl_lockdown.attempted, false);
-    }
+    assert.deepEqual(prepared.private_key_acl_lockdown, summarizeLockdown(keyReceipt));
+    assert.deepEqual(prepared.private_key_acl_lockdown, process.platform === "win32"
+      ? { status: "applied", detail: "ICACLS_OK" }
+      : { status: "not_attempted", detail: "NOT_WINDOWS" });
     assert.deepEqual(prepared.warnings, []);
 
     const signedPath = resolve(hpp, "workpc_a.crt.pem");

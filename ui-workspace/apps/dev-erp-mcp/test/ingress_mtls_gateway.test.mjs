@@ -480,9 +480,12 @@ test("synthetic private-LAN mTLS gateway carries all ingress tools and rejects i
     assert.equal(preflight.status, "ready_for_owner_coordinated_probe");
     assert.equal(preflight.live_probe_performed, false);
     // The key in this fixture came straight from openssl, not from enrollment
-    // `prepare`, so the doctor surface must say it has no receipt, not guess.
+    // `prepare`, so the doctor surface must say it has no receipt, not guess,
+    // and on Windows that unknown state is itself a warning.
     assert.equal(preflight.private_key_acl_lockdown.status, "receipt_missing");
-    assert.deepEqual(preflight.warnings, []);
+    assert.deepEqual(preflight.warnings, process.platform === "win32"
+      ? ["private_key_acl_lockdown_unknown:receipt_missing"]
+      : []);
     const probe = await probeIngressMtlsCanary({
       bindingPath: f.clientBindingPath,
       token: f.token,

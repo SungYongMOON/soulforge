@@ -9,7 +9,9 @@ import { promisify } from "node:util";
 
 import { comparablePathIdentity as comparable } from "../../../../guild_hall/shared/physical_path_identity.mjs";
 import { INGRESS_MTLS_CLIENT_SCHEMA } from "./ingress_mtls_client.mjs";
-import { aclReceiptPath, readAclReceipt, restrictToCurrentUser, writeAclReceipt } from "./windows_acl_lockdown.mjs";
+import {
+  aclReceiptPath, lockdownWarnings, readAclReceipt, restrictToCurrentUser, summarizeLockdown, writeAclReceipt,
+} from "./windows_acl_lockdown.mjs";
 
 export const INGRESS_MTLS_ENROLLMENT_SCHEMA = "soulforge.ingress.mtls_enrollment_request.v1";
 export const INGRESS_MTLS_CLIENT_KEY_ACL_SCHEMA = "soulforge.ingress.mtls_client_key_acl.v0";
@@ -163,8 +165,9 @@ export async function prepareIngressMtlsEnrollment({
     // `finalize` and the canary preflight report. A failed lockdown is
     // returned, not hidden.
     created.push(aclReceiptPath(keyPath));
-    const keyLockdown = await restrictToCurrentUser(keyPath);
-    await writeAclReceipt(keyPath, INGRESS_MTLS_CLIENT_KEY_ACL_SCHEMA, keyLockdown);
+    const keyLockdownOutcome = await restrictToCurrentUser(keyPath);
+    await writeAclReceipt(keyPath, INGRESS_MTLS_CLIENT_KEY_ACL_SCHEMA, keyLockdownOutcome);
+    const keyLockdown = summarizeLockdown(keyLockdownOutcome);
     await runOpenSsl(opensslPath, ["req", "-in", csrPath, "-noout", "-verify"], "mtls_client_csr_invalid");
     const request = {
       schema_version: INGRESS_MTLS_ENROLLMENT_SCHEMA,
@@ -189,9 +192,7 @@ export async function prepareIngressMtlsEnrollment({
       private_key_value_exposed: false,
       private_key_transfer_allowed: false,
       private_key_acl_lockdown: keyLockdown,
-      warnings: keyLockdown.attempted && !keyLockdown.applied
-        ? [`private_key_acl_lockdown_failed:${keyLockdown.detail}`]
-        : [],
+      warnings: lockdownWarnings("private_key", keyLockdown),
     };
   } catch (error) {
     for (const path of created.reverse()) await rm(path, { force: true });
@@ -336,7 +337,7 @@ export async function finalizeIngressMtlsEnrollment({
       bearer_issued: false,
       live_probe_performed: false,
       private_key_acl_lockdown: keyAcl,
-      warnings: keyAcl.status === "failed" ? [`private_key_acl_lockdown_failed:${keyAcl.detail}`] : [],
+      warnings: lockdownWarnings("private_key", keyAcl),
     };
   } catch (error) {
     for (const path of created.reverse()) await rm(path, { force: true });

@@ -20,7 +20,9 @@ Windows에서는 `chmod 0o600`이 ACL이 아니다(파일은 상위 디렉터리
 `ingress-client.key.pem.acl_receipt.json`에 남긴다. `prepare`·`finalize` 결과와
 `ingress:mtls-canary preflight`가 그 영수증을 `private_key_acl_lockdown`으로 보여 주고, 적용
 실패는 `warnings`의 `private_key_acl_lockdown_failed:*`로 드러난다 — 적용됐다고 가정하지 않는다.
-영수증이 없는 키(이 변경 전에 만든 키)는 `receipt_missing`으로 보인다.
+영수증이 없는 키(이 변경 전에 만든 키)는 `receipt_missing`으로 보이고, Windows에서는 그 상태도
+`private_key_acl_lockdown_unknown:*` 경고로 나온다. 좁힌 ACL에는 현재 사용자만 남는다(상속되던
+SYSTEM·Administrators 항목도 빠진다) — 키를 만든 계정과 같은 계정으로 client를 실행할 때만 쓴다.
 
 ```powershell
 # 1) 팀원 PC — 개인키는 이 디렉터리 밖으로 이동하지 않는다.
@@ -207,7 +209,8 @@ SHA-256 hash만 저장하고 목록은 hash도 반환하지 않는다. 출력 �
 명령이 파일을 만든 직후 `icacls /inheritance:r /grant:r "%USERNAME%:F"`로 현재 사용자 단독 ACL을
 시도하고, 결과를 stdout의 `token_file_acl_lockdown`과 출력 파일 옆 `<파일>.acl_receipt.json`(시도/적용/
 사유만, 값·경로 없음)에 남긴다. 적용 실패는 `warnings`의 `token_file_acl_lockdown_failed:*`로 드러나며
-그때는 디렉터리 ACL만이 보호선이다. 현재 공개
+그때는 디렉터리 ACL만이 보호선이다. 좁힌 ACL에는 현재 사용자만 남으므로(SYSTEM·Administrators 제외)
+발급 계정과 실행 계정이 같아야 한다. 현재 공개
 코드와 D runtime feature-OFF 배치만으로 실제 token, LAN listener, TLS proxy, firewall 또는 팀 PC
 등록이 생기지 않는다.
 

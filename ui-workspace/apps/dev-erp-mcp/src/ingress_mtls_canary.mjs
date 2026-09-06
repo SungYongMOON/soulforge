@@ -2,7 +2,7 @@ import { X509Certificate } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
 import { createBoundIngressClient, loadIngressMtlsClientBinding } from "./ingress_mtls_client.mjs";
-import { readAclReceipt } from "./windows_acl_lockdown.mjs";
+import { lockdownWarnings, readAclReceipt } from "./windows_acl_lockdown.mjs";
 
 function fail(code, status = 400) {
   const error = new Error(code);
@@ -45,7 +45,7 @@ export async function preflightIngressMtlsCanary({ bindingPath, now = Date.now()
     secret_material_exposed: false,
     live_probe_performed: false,
     private_key_acl_lockdown: keyAcl,
-    warnings: keyAcl.status === "failed" ? [`private_key_acl_lockdown_failed:${keyAcl.detail}`] : [],
+    warnings: lockdownWarnings("private_key", keyAcl),
   };
 }
 

@@ -19,6 +19,7 @@ import {
   hashIngressToken,
   INGRESS_MCP_CONFIG_SCHEMA,
 } from "../src/ingress_mcp_service.mjs";
+import { summarizeLockdown } from "../src/windows_acl_lockdown.mjs";
 
 const execFileAsync = promisify(execFile);
 const ADMIN_CLI = fileURLToPath(new URL("../ingress_access_admin_cli.mjs", import.meta.url));
@@ -45,6 +46,7 @@ test("credential lifecycle separates person, device, and AI and never lists toke
       now: Date.parse("2026-07-17T00:00:00.000Z"),
     });
     assert.match(issued.token, /^sfig_v1_[A-Za-z0-9_-]{43}$/);
+    assert.deepEqual(issued.warnings, []);
     assert.equal(issued.credential.account_id, "alice");
     assert.equal(issued.credential.device_id, "alice_pc1");
     assert.equal(issued.credential.agent_id, "codex_primary");
@@ -127,15 +129,11 @@ test("credential issue can commit a token only to a new protected output file", 
     const receipt = JSON.parse(await readFile(`${tokenPath}.acl_receipt.json`, "utf8"));
     assert.deepEqual(Object.keys(receipt).sort(), ["applied", "attempted", "detail", "schema"]);
     assert.equal(receipt.schema, INGRESS_TOKEN_FILE_ACL_SCHEMA);
-    assert.deepEqual(issued.token_file_acl_lockdown, {
-      attempted: receipt.attempted, applied: receipt.applied, detail: receipt.detail,
-    });
+    assert.deepEqual(issued.token_file_acl_lockdown, summarizeLockdown(receipt));
     assert.equal(JSON.stringify(receipt).includes(token), false);
-    if (process.platform === "win32") {
-      assert.deepEqual(issued.token_file_acl_lockdown, { attempted: true, applied: true, detail: "ICACLS_OK" });
-    } else {
-      assert.equal(issued.token_file_acl_lockdown.attempted, false);
-    }
+    assert.deepEqual(issued.token_file_acl_lockdown, process.platform === "win32"
+      ? { status: "applied", detail: "ICACLS_OK" }
+      : { status: "not_attempted", detail: "NOT_WINDOWS" });
     assert.deepEqual(issued.warnings, []);
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -171,7 +169,8 @@ test("credential admin CLI requires token-output and omits the token from stdout
     assert.equal(output.token_display_policy, "protected_file_only");
     assert.equal(output.token_file_written, true);
     assert.equal(Object.hasOwn(output, "token"), false);
-    assert.equal(typeof output.token_file_acl_lockdown.applied, "boolean");
+    assert.equal(typeof output.token_file_acl_lockdown.status, "string");
+    assert.ok(Array.isArray(output.warnings));
     assert.equal(stdout.includes("sfig_v1_"), false);
     assert.equal(stdout.includes(JSON.stringify(tokenPath).slice(1, -1)), false);
     assert.match((await readFile(tokenPath, "utf8")).trim(), /^sfig_v1_[A-Za-z0-9_-]{43}$/);
