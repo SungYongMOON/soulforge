@@ -1,5 +1,84 @@
 # CHANGELOG
 
+## 2026-09-06 - Pack builder fresh-spec preflight: tree가 지나간 spec은 빌드 거부
+
+- 판단 표기: 개발 후보 수정(builder gate 추가 + 그 gate가 잡은 tracked spec drift 2건의 검토 후
+  재emit + fresh 비작성 Level 2 검토의 revise 지적 반영). 새 owner decision이나 정본 승격이 아니며
+  pack을 빌드·설치하지 않는다.
+- 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
+- 무엇: `build_pack.mjs`가 pack_id별로 코드 쪽 `PACK_CATALOG`(`src/deployment_pack_contract.mjs`)에
+  박힌 `spec_emitter`를 읽어, scan·hash·unit gate보다 먼저 그 emitter를 새 `--print` 모드(stdout만)로
+  자식 프로세스 실행하고 지금 tree에서 다시 계산한 spec과 tracked spec을 byte 비교한다(emitter
+  `--check`와 같은 비교를 build 시점에 강제). 다르면 `spec_drifted_from_tree`로 거부하며 메시지에
+  tree에만 있는 파일·spec에만 있는 파일·역할 배정 변경·stale/미등재/소멸 scan pin·vendored hash
+  변경·기타 필드(경로만, 각 3개+N)와 재검토 후 실행할 emitter 명령을 적는다. emitter 부재·실패·
+  비객체 출력은 `spec_emitter_failed`(stderr는 첫 줄 200자만 인용). catalog에 emitter가 없는 손편집
+  spec(`tool_workshop_pack`)은 건너뛰되 build receipt `spec_freshness`에 `not_recomputed_no_emitter`로
+  남긴다(통과는 `matches_live_tree`, CLI 출력에도 표시). CLI는 의도된 거부(`fail()`이 `refusal`
+  표식)를 stack 없이 `build refused: <code>:<detail>`로 출력하고 exit 1, Node 시스템 오류는 그대로
+  던진다. 세 emitter(`emit_hpp_spec`·`emit_team_client_spec`·`emit_backup_recovery_spec`)에 `--print`를
+  추가하고, hpp emitter의 `static/` sweep에 `.gitignore`의 로컬 스킨 규칙(`static/skins/dungeons/`,
+  `static/skins/main.*`)을 같은 조건으로 제외해 Owner tree와 청소 checkout이 같은 spec을 내게 했다.
+  tracked spec 3종을 재emit했다(team_client는 byte 동일이라 diff 없음). 테스트 3건 추가: 합성 root에 catalog 경로로 실제 emitter 스크립트를
+  써 넣고 builder의 기본 emitter runner로 emit→build→(파일 추가)→거부(경로·emitter 명령 명시, 산출물
+  0)→재emit→통과→(파일 삭제)→거부, pin된 파일 byte 변경→`scan_review_pin_stale`보다 먼저 drift로
+  거부(경로만)→hit 소멸→거부; catalog pack은 emitter가 없으면 거부(spec으로 opt-out 불가), spec이
+  다른 스크립트를 emitter로 지명해도 실행되지 않음(부작용 파일 부재 확인), 실패 emitter의 stderr 첫
+  줄만 인용, `null` 출력은 `spec_emitter_failed`; catalog의 emitter 3개가 실존 경로·정규식에 맞고
+  spec에는 binding이 없음.
+- 발견: 이 gate를 HEAD의 tracked spec에 걸자 두 spec이 이미 drift였다. (1)
+  `backup_recovery_extension.spec.json`은 마지막 emit(09-02 `5b89d730`) 뒤 09-02 오후~09-03에 들어온
+  12 파일(NAS DR preflight/runner·binding schema 2종, Buzz 백업 세대 색인, Hermes 프로필 스냅샷과
+  각 test 4건)이 spec 밖에 있었고 README pin 1건이 stale, 새 scan hit 7건이 미등재였다 — 이 spec으로
+  pack을 만들면 그 12 파일이 조용히 빠지고 새 test 4건은 smoke에서 돌지 않는다. 7건의 hit가 regex
+  원문·schema 설명문·합성 픽스처(문서화된 예시 키 문자열)뿐임을 작성자와 검토자가 각각 확인하고
+  재emit했다(94 파일·30 smoke·pin 29). (2) `hpp_server_pack.spec.json`(오늘 0.1.9로 재emit된 것)은
+  git-ignored 로컬 스킨 PNG 12개(`static/skins/dungeons/*`, `static/skins/main.png` — Owner PC에만
+  존재)를 담고 있어 청소 checkout·CI·worktree에서는 `spec_file_missing`으로 빌드 불가였고, 테스트
+  pin(1,022)과 spec(1,024)도 어긋나 있었다. 처음엔 청소 tree에서 재emit만 했으나 검토자가 "그러면
+  Owner PC가 거부되는 쪽이 된다"고 지적해, emitter가 그 ignore 규칙을 스스로 제외하도록 고쳐 어느
+  tree에서 emit해도 1,012 파일·97 smoke·pin 72로 같게 했다. 그 스킨이 운영 pack에 실려야 한다면
+  추적 자산으로 승격하거나 byte pin된 vendored 방식으로 실어야 하며(Owner 판단), 아니면 이 상태가
+  맞다. README의 hpp smoke 수 95는 이 개정 전부터 HEAD와 어긋나 있던 값이라 97로 바로잡았다. (3) 두
+  drift가 며칠간 안 잡힌 이유: `validate:deployment-pack`이 `run_root_acceptance.mjs`의
+  `validate`·`done-check` 어느 모드에도 없어 CI가 돌리지 않는다(배선은 이 개정 범위 밖 — hpp 시험이
+  root `node_modules`와 실 smoke를 요구해 별도 판단 필요). (4) 같은 명령의 앞 단계
+  `build_universal_client_bundle.mjs --check`는 tracked bundle(09-01 rebuild) 이후 09-05에
+  dev-erp-mcp 입력이 바뀌어 red다 — 이 개정과 무관하며 손대지 않았다. 오늘 빌드되는
+  `team_client_pack`은 `matches_live_tree` 영수증 아래 그 stale bundle을 싣는다(spec 신선도≠내용
+  신선도, README에 명시).
+- 검토: fresh 비작성 Level 2(inspector+judge) 검토 결론 revise — H1(Owner tree가 거부되는 쪽이
+  됨)·H2/M2(spec이 자기 감사자를 지명, 임의 스크립트 실행면)·M1(`null` 출력 TypeError)·L1(역할
+  변경을 "형식 차이"로 보고)·L2(시스템 오류를 거부로 출력)·L3(stderr 2000자 인용)은 위와 같이
+  고쳤고, M3(emitter pack에서 미등재 hit는 언제나 drift로 먼저 잡히고 재emit이 자동 pin하므로
+  `pack_contains_secret_material`이 구조적으로 안 나옴 — "재검토"는 사람의 약속)는 README 주의문으로
+  남겼다. 보류: L4 운영 manual 3종(`manuals/hpp_server_operator.v0.md` 등)의 빌드 절차 문구 —
+  manual은 `manual_release_catalog.v0.json`의 content digest에 묶여 있어 별도 manual release로
+  갱신한다; spawn 대신 emitter 모듈 import 대안(emitter가 `build_pack.mjs`를 import하는 순환 때문에
+  보류, 코드 주석에 사유 기록). 재검증(round 2) 결론 accept — 새 지적 N1(비정형 pin ledger 출력에서
+  drift describer가 TypeError)·N2(throw하는 emitter는 stderr 첫 줄이 frame header라 실제 오류문이
+  안 실림)도 고쳤다(관용 reader+try/catch, `Error:` 줄 우선). 잔여 위험: hpp의 제외는 2건
+  allowlist라 `static/` 아래 다른 ignored 파일(예: `*token*` 규칙)이 생기면 다시 checkout 의존이
+  된다 — git-aware sweep 전환은 Owner 판단; catalog 행은 `spec_emitter` 키를 반드시 선언한다(null=
+  손편집)이고 unknown pack_id는 preflight에서도 fail-closed.
+- 검증: `node --test` 4개 파일(contract·build_pack·start_stop_proof·pack_lifecycle) 41/41, 세
+  emitter `--check` 모두 ok, `--print` 출력이 tracked spec과 byte 동일(cmp 3/3), ignored 스킨 경로를
+  worktree에 만들어 둔 상태에서도 hpp `--check` ok(Owner tree 재현), builder CLI 실행 — HEAD의 옛
+  spec 2종을 그대로 돌리면 위 (1)(2)가 `build refused: spec_drifted_from_tree:...`(산출물 0)로 나오고,
+  재emit 뒤 `team_client_pack`은 실제 unit gate까지 돌아 `spec_freshness=matches_live_tree`로 빌드됨.
+  `validate:deployment-pack` 전체 체인은 (4) 때문에 이 worktree에서 red이며 그 뒤 단계는 개별 실행으로
+  초록 확인. worktree에는 root·`ui-workspace` `node_modules` 정션(ignored)을 만들어 실행했다.
+- 운영 영향: pack 빌드 절차가 바뀐다 — emit 뒤 tree가 바뀌면 빌드가 거부되므로 재검토·재emit이
+  선행 단계가 된다(`emit_*_spec.mjs --check`를 사람이 기억하지 않아도 된다). 설치·서비스·예약작업
+  변화 없음.
+- 관련 경로: `guild_hall/deployment_pack/tools/build_pack.mjs`,
+  `guild_hall/deployment_pack/src/deployment_pack_contract.mjs`,
+  `guild_hall/deployment_pack/tools/emit_hpp_spec.mjs`,
+  `guild_hall/deployment_pack/tools/emit_team_client_spec.mjs`,
+  `guild_hall/deployment_pack/tools/emit_backup_recovery_spec.mjs`,
+  `guild_hall/deployment_pack/packs/*.spec.json`(hpp·backup_recovery 2종 변경),
+  `guild_hall/deployment_pack/tests/build_pack.test.mjs`, `guild_hall/deployment_pack/README.md`.
+
 ## 2026-09-06 - Tongs(MCP 문) loopback lane: fresh review's M1–M6 + minors closed, still not registered
 
 - 판단 표기: 개발 후보 수정. 아래 "Tongs(MCP 문) loopback lane + registrar prepared" 커밋에 대한

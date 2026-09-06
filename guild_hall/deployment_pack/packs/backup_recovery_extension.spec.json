@@ -18,12 +18,16 @@
       "guild_hall/backup_controller/automation_cli.mjs",
       "guild_hall/backup_controller/binding.schema.json",
       "guild_hall/backup_controller/binding_v2.schema.json",
+      "guild_hall/backup_controller/buzz_backup_generation_index.mjs",
+      "guild_hall/backup_controller/buzz_backup_generation_index_cli.mjs",
       "guild_hall/backup_controller/buzz_backup_generation_manifest.mjs",
       "guild_hall/backup_controller/cli.mjs",
       "guild_hall/backup_controller/controller.mjs",
       "guild_hall/backup_controller/executors.mjs",
       "guild_hall/backup_controller/fixed_process.mjs",
       "guild_hall/backup_controller/hermes_agent_backup_manifest.mjs",
+      "guild_hall/backup_controller/hermes_profile_snapshot.mjs",
+      "guild_hall/backup_controller/hermes_profile_snapshot_cli.mjs",
       "guild_hall/backup_controller/linear_lb1.mjs",
       "guild_hall/backup_controller/linear_lb1_actual_reader.mjs",
       "guild_hall/backup_controller/linear_lb1_fixture.mjs",
@@ -39,6 +43,10 @@
       "guild_hall/backup_controller/linear_lb1_synthetic_adapters.mjs",
       "guild_hall/backup_controller/linear_lb1_v2.mjs",
       "guild_hall/backup_controller/linear_lb1_v2_fixture.mjs",
+      "guild_hall/backup_controller/nas_dr_binding.schema.json",
+      "guild_hall/backup_controller/nas_dr_preflight.mjs",
+      "guild_hall/backup_controller/nas_dr_private_binding.schema.json",
+      "guild_hall/backup_controller/nas_dr_runner.mjs",
       "guild_hall/backup_controller/preflight.mjs",
       "guild_hall/backup_controller/preflight_v2.mjs",
       "guild_hall/backup_controller/quiesced_automation_cli.mjs",
@@ -73,11 +81,13 @@
     ],
     "validators": [
       "guild_hall/backup_controller/activation.test.mjs",
+      "guild_hall/backup_controller/buzz_backup_generation_index.test.mjs",
       "guild_hall/backup_controller/buzz_backup_generation_manifest.test.mjs",
       "guild_hall/backup_controller/controller.test.mjs",
       "guild_hall/backup_controller/daily_cycle.test.mjs",
       "guild_hall/backup_controller/executors.test.mjs",
       "guild_hall/backup_controller/hermes_agent_backup_manifest.test.mjs",
+      "guild_hall/backup_controller/hermes_profile_snapshot.test.mjs",
       "guild_hall/backup_controller/linear_lb1.test.mjs",
       "guild_hall/backup_controller/linear_lb1_actual_reader.test.mjs",
       "guild_hall/backup_controller/linear_lb1_one_shot_runner.test.mjs",
@@ -88,6 +98,8 @@
       "guild_hall/backup_controller/linear_lb1_project_index_backfill.test.mjs",
       "guild_hall/backup_controller/linear_lb1_runtime_adapters.test.mjs",
       "guild_hall/backup_controller/linear_lb1_v2.test.mjs",
+      "guild_hall/backup_controller/nas_dr_preflight.test.mjs",
+      "guild_hall/backup_controller/nas_dr_runner.test.mjs",
       "guild_hall/backup_controller/preflight.test.mjs",
       "guild_hall/backup_controller/preflight_v2.test.mjs",
       "guild_hall/backup_controller/retention_canary_gate.test.mjs",
@@ -103,11 +115,13 @@
   "test_concurrency": 4,
   "smoke_test_entries": [
     "guild_hall/backup_controller/activation.test.mjs",
+    "guild_hall/backup_controller/buzz_backup_generation_index.test.mjs",
     "guild_hall/backup_controller/buzz_backup_generation_manifest.test.mjs",
     "guild_hall/backup_controller/controller.test.mjs",
     "guild_hall/backup_controller/daily_cycle.test.mjs",
     "guild_hall/backup_controller/executors.test.mjs",
     "guild_hall/backup_controller/hermes_agent_backup_manifest.test.mjs",
+    "guild_hall/backup_controller/hermes_profile_snapshot.test.mjs",
     "guild_hall/backup_controller/linear_lb1.test.mjs",
     "guild_hall/backup_controller/linear_lb1_actual_reader.test.mjs",
     "guild_hall/backup_controller/linear_lb1_one_shot_runner.test.mjs",
@@ -118,6 +132,8 @@
     "guild_hall/backup_controller/linear_lb1_project_index_backfill.test.mjs",
     "guild_hall/backup_controller/linear_lb1_runtime_adapters.test.mjs",
     "guild_hall/backup_controller/linear_lb1_v2.test.mjs",
+    "guild_hall/backup_controller/nas_dr_preflight.test.mjs",
+    "guild_hall/backup_controller/nas_dr_runner.test.mjs",
     "guild_hall/backup_controller/preflight.test.mjs",
     "guild_hall/backup_controller/preflight_v2.test.mjs",
     "guild_hall/backup_controller/retention_canary_gate.test.mjs",
@@ -131,11 +147,13 @@
   ],
   "installed_smoke_entries": [
     "guild_hall/backup_controller/activation.test.mjs",
+    "guild_hall/backup_controller/buzz_backup_generation_index.test.mjs",
     "guild_hall/backup_controller/buzz_backup_generation_manifest.test.mjs",
     "guild_hall/backup_controller/controller.test.mjs",
     "guild_hall/backup_controller/daily_cycle.test.mjs",
     "guild_hall/backup_controller/executors.test.mjs",
     "guild_hall/backup_controller/hermes_agent_backup_manifest.test.mjs",
+    "guild_hall/backup_controller/hermes_profile_snapshot.test.mjs",
     "guild_hall/backup_controller/linear_lb1.test.mjs",
     "guild_hall/backup_controller/linear_lb1_actual_reader.test.mjs",
     "guild_hall/backup_controller/linear_lb1_one_shot_runner.test.mjs",
@@ -146,6 +164,8 @@
     "guild_hall/backup_controller/linear_lb1_project_index_backfill.test.mjs",
     "guild_hall/backup_controller/linear_lb1_runtime_adapters.test.mjs",
     "guild_hall/backup_controller/linear_lb1_v2.test.mjs",
+    "guild_hall/backup_controller/nas_dr_preflight.test.mjs",
+    "guild_hall/backup_controller/nas_dr_runner.test.mjs",
     "guild_hall/backup_controller/preflight.test.mjs",
     "guild_hall/backup_controller/preflight_v2.test.mjs",
     "guild_hall/backup_controller/retention_canary_gate.test.mjs",
@@ -171,7 +191,11 @@
     },
     {
       "path": "guild_hall/backup_controller/README.md",
-      "sha256": "c5765eb266631087e0a8336c264a1c6fa247bf376f559182b1a7ca601eecc1ae"
+      "sha256": "f52205499dda0dd074b473deebc3ecba1a5d9a824d83e4d774d6a02cfcecb566"
+    },
+    {
+      "path": "guild_hall/backup_controller/buzz_backup_generation_index.mjs",
+      "sha256": "895480c658f8e1a45d27ebaffe243bd14a6330cc94581316fbd9bc1d31d2fb6e"
     },
     {
       "path": "guild_hall/backup_controller/buzz_backup_generation_manifest.mjs",
@@ -188,6 +212,10 @@
     {
       "path": "guild_hall/backup_controller/hermes_agent_backup_manifest.test.mjs",
       "sha256": "203c124a2525e36b6805ddafae8cd9d4e603f44396cf56feb7925a1a95cd89fa"
+    },
+    {
+      "path": "guild_hall/backup_controller/hermes_profile_snapshot.mjs",
+      "sha256": "6684196de9fcfee414ff04fea02fa0299c8839dfedbcc352d64f13ee5ac26f75"
     },
     {
       "path": "guild_hall/backup_controller/linear_lb1.mjs",
@@ -228,6 +256,26 @@
     {
       "path": "guild_hall/backup_controller/linear_lb1_v2_fixture.mjs",
       "sha256": "952a6f7595588617714d8ca299101ee6c55d712947b5b2e1c3e87734707b3cf3"
+    },
+    {
+      "path": "guild_hall/backup_controller/nas_dr_binding.schema.json",
+      "sha256": "9c1c7cfab462c3bbabd890588723259cb97730b5045246d2f4cccc66cf849fc8"
+    },
+    {
+      "path": "guild_hall/backup_controller/nas_dr_preflight.mjs",
+      "sha256": "e0ac3278a28875b4dbb2974ad249eb96d3ae3f080afc9f95b55ec819d228a502"
+    },
+    {
+      "path": "guild_hall/backup_controller/nas_dr_preflight.test.mjs",
+      "sha256": "10d927a6d6a12dfada7f01bebb2fac68ad15077ebeab8b1565ff73f9a69600e9"
+    },
+    {
+      "path": "guild_hall/backup_controller/nas_dr_private_binding.schema.json",
+      "sha256": "23d96a24d06bc794a8463908e0a2b455d803305725293f93226b2e9caa7108dc"
+    },
+    {
+      "path": "guild_hall/backup_controller/nas_dr_runner.mjs",
+      "sha256": "796c217b9086359cf6c641b2b4494eb3886107d5d8511d1ebe7e12b25d4eea51"
     },
     {
       "path": "guild_hall/backup_controller/preflight_v2.mjs",

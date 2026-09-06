@@ -4,17 +4,19 @@ import { createHash } from "node:crypto";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   PACK_MANIFEST_SCHEMA,
   buildPack,
   installPack,
   loadPackSpec,
+  nodeSpecEmitter,
   nodeTestFlags,
   runInstalledSmoke,
   verifyInstalledCopy,
 } from "../tools/build_pack.mjs";
+import { PACK_CATALOG } from "../src/deployment_pack_contract.mjs";
 import { readPackSourceIdentity } from "../../../ui-workspace/apps/dev-erp/src/pack_source_identity.mjs";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
@@ -230,6 +232,8 @@ test("the real team_client_pack spec builds the Universal Client source set with
     "the installed Client carries a self-contained mTLS/MCP transport bundle");
   assert.equal(built.manifest.host_effect_policy.reboot, "forbidden");
   const spec = loadPackSpec(specPath);
+  assert.deepEqual(built.specFreshness, { verdict: "matches_live_tree", emitter: "guild_hall/deployment_pack/tools/emit_team_client_spec.mjs" },
+    "the build recomputed the spec through the catalog-bound emitter");
   assert.equal(spec.installed_smoke_entries.length, spec.smoke_test_entries.length,
     "the declared installed smoke is the FULL suite");
   assert.deepEqual(spec.installed_smoke_excluded, []);
@@ -240,11 +244,13 @@ test("the real backup_recovery_extension spec builds: module pack with full-suit
   const specPath = join(REPO_ROOT, "guild_hall", "deployment_pack", "packs", "backup_recovery_extension.spec.json");
   const built = buildPack(specPath, { rootDir: REPO_ROOT, outDir: tempDir("outBackupRec"), clock: fixedClock, runner: okRunner });
   assert.equal(built.manifest.pack_id, "backup_recovery_extension");
-  // Pinned so growth is a conscious re-emit (the emitter's --check gates it).
-  assert.equal(built.manifest.files.length, 82);
+  // Pinned so growth is a conscious re-emit (the emitter's --check gates it,
+  // and the builder's fresh-spec preflight refuses a stale spec outright).
+  assert.equal(built.manifest.files.length, 94);
   assert.equal(built.candidate.claimed_gate, "contract",
     "capture/restore/acceptance stay unclaimed - the initial gate needs Owner-side human acceptance");
   const spec = loadPackSpec(specPath);
+  assert.deepEqual(built.specFreshness, { verdict: "matches_live_tree", emitter: "guild_hall/deployment_pack/tools/emit_backup_recovery_spec.mjs" });
   assert.equal(spec.content_roles.recovery_policy_adapter.includes(
     "guild_hall/backup_controller/linear_lb1_actual_reader.mjs",
   ), true, "the default-OFF actual reader travels with its backup contract");
@@ -439,8 +445,12 @@ test("end to end against the REAL tracked hpp_server_pack spec: build, install, 
     // The set is the computed import closure PLUS the fs-read data closure
     // PLUS the vendored npm closure (yaml + ajv and its runtime deps under
     // payload-root node_modules) — pinned so growth is a conscious re-emit.
-    assert.equal(built.manifest.files.length, 1022);
+    // Tracked sources only: git-ignored local assets (static/skins PNGs) are
+    // not part of the set a clean checkout can build.
+    assert.equal(built.manifest.files.length, 1012);
     assert.equal(built.candidate.claimed_gate, "contract");
+    assert.deepEqual(built.specFreshness, { verdict: "matches_live_tree", emitter: "guild_hall/deployment_pack/tools/emit_hpp_spec.mjs" },
+      "the builder recomputed the tracked spec through the catalog-bound emitter before building");
     assert.equal(built.manifest.files.some((entry) => entry.path.startsWith("guild_hall/")), true,
       "the pack carries the guild_hall modules the server actually imports");
     assert.equal(built.manifest.files.some((entry) => entry.path.startsWith("node_modules/yaml/")), true,
@@ -495,4 +505,198 @@ test("the hpp spec byte-pins every vendored file, so vendored drift fails --chec
   const sample = vendored.find((rel) => rel.endsWith("package.json"));
   const digest = createHash("sha256").update(readFileSync(join(REPO_ROOT, ...sample.split("/")))).digest("hex");
   assert.equal(hashes[sample], digest, "recorded sha matches live bytes");
+});
+
+/// The builder binds emitters per pack_id in PACK_CATALOG (never from the
+// spec under audit), so the synthetic root carries a tiny but REAL emitter
+// at the hpp_server_pack emitter path: it enumerates the fixture tree
+// (src/*.mjs, tests/*.test.mjs), pins scan hits with the builder's own
+// regex, and prints the spec in --print mode — the same contract the
+// tracked emit_*_spec.mjs tools implement.
+const CATALOG_EMITTER_REL = "guild_hall/deployment_pack/tools/emit_hpp_spec.mjs";
+const SYNTH_APP = "guild_hall/synthetic_server";
+
+function syntheticCatalogSpec(overrides = {}) {
+  return syntheticSpec({
+    pack_id: "hpp_server_pack",
+    content_roles: {
+      server_modules: [`${SYNTH_APP}/src/core.mjs`],
+      validators: [`${SYNTH_APP}/tests/core.test.mjs`],
+    },
+    smoke_test_entries: [`${SYNTH_APP}/tests/core.test.mjs`],
+    release_notes_ref: "release_notes.hpp_server_pack.v0_1_0",
+    install_manual_ref: "manual.install.hpp_server_pack",
+    upgrade_manual_ref: "manual.upgrade.hpp_server_pack",
+    rollback_manual_ref: "manual.rollback.hpp_server_pack",
+    ...overrides,
+  });
+}
+
+function syntheticCatalogRoot() {
+  const root = tempDir("catalogRoot");
+  mkdirSync(join(root, ...SYNTH_APP.split("/"), "src"), { recursive: true });
+  mkdirSync(join(root, ...SYNTH_APP.split("/"), "tests"), { recursive: true });
+  writeFileSync(join(root, ...SYNTH_APP.split("/"), "src", "core.mjs"), "export const core = 1;\n");
+  writeFileSync(join(root, ...SYNTH_APP.split("/"), "tests", "core.test.mjs"), "// synthetic test file\n");
+  return root;
+}
+
+function writeCatalogEmitter(root, script) {
+  const emitterPath = join(root, ...CATALOG_EMITTER_REL.split("/"));
+  mkdirSync(dirname(emitterPath), { recursive: true });
+  if (script !== undefined) {
+    writeFileSync(emitterPath, script);
+    return;
+  }
+  const buildPackUrl = pathToFileURL(join(REPO_ROOT, "guild_hall", "deployment_pack", "tools", "build_pack.mjs")).href;
+  writeFileSync(emitterPath, [
+    'import { createHash } from "node:crypto";',
+    'import { readdirSync, readFileSync } from "node:fs";',
+    'import { dirname, join, resolve } from "node:path";',
+    'import { fileURLToPath } from "node:url";',
+    `import { SECRET_MATERIAL } from ${JSON.stringify(buildPackUrl)};`,
+    'const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");',
+    'const list = (rel, suffix) => readdirSync(join(ROOT, ...rel.split("/"))).filter((n) => n.endsWith(suffix)).sort().map((n) => rel + "/" + n);',
+    `const contentRoles = { server_modules: list(${JSON.stringify(`${SYNTH_APP}/src`)}, ".mjs"), validators: list(${JSON.stringify(`${SYNTH_APP}/tests`)}, ".test.mjs") };`,
+    "const reviewed = [];",
+    "for (const rel of Object.values(contentRoles).flat()) {",
+    '  const bytes = readFileSync(join(ROOT, ...rel.split("/")));',
+    '  if (SECRET_MATERIAL.test(bytes.toString("utf8"))) reviewed.push({ path: rel, sha256: createHash("sha256").update(bytes).digest("hex") });',
+    "}",
+    `const spec = ${JSON.stringify(syntheticCatalogSpec())};`,
+    "spec.content_roles = contentRoles;",
+    "spec.smoke_test_entries = contentRoles.validators;",
+    "spec.content_scan_reviewed_files = reviewed;",
+    'if (!process.argv.includes("--print")) throw new Error("synthetic emitter only supports --print");',
+    'process.stdout.write(JSON.stringify(spec, null, 2) + "\\n");',
+    "",
+  ].join("\n"));
+}
+
+// The real workflow: emit (recording the review), commit the bytes as the
+// tracked spec, build from them. Uses the builder's own default emitter
+// runner so the child-process contract is exercised for real.
+function emitTrackedSpec(root) {
+  const result = nodeSpecEmitter(CATALOG_EMITTER_REL, { rootDir: root });
+  assert.equal(result.ok, true, result.summary);
+  const specPath = join(root, "spec.json");
+  writeFileSync(specPath, result.emitted);
+  return specPath;
+}
+
+const FRESH = { verdict: "matches_live_tree", emitter: CATALOG_EMITTER_REL };
+
+test("fresh-spec preflight: a spec the live tree has moved past refuses the build, names the drift and the emitter, writes nothing", () => {
+  const root = syntheticCatalogRoot();
+  writeCatalogEmitter(root);
+  const specPath = emitTrackedSpec(root);
+  // In sync: the build runs and the receipt records that the spec was recomputed.
+  const fresh = buildPack(specPath, { rootDir: root, outDir: tempDir("outFresh"), clock: fixedClock, runner: okRunner });
+  assert.deepEqual(fresh.specFreshness, FRESH);
+  const receipt = JSON.parse(readFileSync(join(fresh.packDir, "receipts", "build.receipt.json"), "utf8"));
+  assert.deepEqual(receipt.spec_freshness, FRESH);
+  // A file lands in the tree after the last emit — the silent case: the old
+  // builder packed the stale list and simply omitted it.
+  const lateFile = join(root, ...SYNTH_APP.split("/"), "src", "added_after_emit.mjs");
+  writeFileSync(lateFile, "export const late = true;\n");
+  const outStale = tempDir("outStale");
+  assert.throws(() => buildPack(specPath, { rootDir: root, outDir: outStale, clock: fixedClock, runner: okRunner }),
+    (error) => error.code === "spec_drifted_from_tree" && error.refusal === true
+      && error.message.includes(`1 file(s) in the tree but not in the spec: ${SYNTH_APP}/src/added_after_emit.mjs`)
+      && error.message.includes(`re-emit: node ${CATALOG_EMITTER_REL}`),
+    "the refusal names the drifted path and the emitter to re-run");
+  assert.equal(existsSync(join(outStale, "hpp_server_pack")), false, "a refused build leaves no artifact");
+  // Re-emit (the documented remedy): the build now carries the new file.
+  const reemitted = emitTrackedSpec(root);
+  const rebuilt = buildPack(reemitted, { rootDir: root, outDir: tempDir("outReemit"), clock: fixedClock, runner: okRunner });
+  assert.equal(rebuilt.manifest.files.length, 3);
+  assert.equal(rebuilt.manifest.files.some((entry) => entry.path.endsWith("added_after_emit.mjs")), true);
+  // A file removed after the emit is drift in the other direction.
+  rmSync(lateFile);
+  assert.throws(() => buildPack(reemitted, { rootDir: root, outDir: tempDir("outRemoved"), clock: fixedClock, runner: okRunner }),
+    (error) => error.code === "spec_drifted_from_tree"
+      && error.message.includes(`1 file(s) in the spec but not in the tree: ${SYNTH_APP}/src/added_after_emit.mjs`));
+  // The 2026-09-06 case: a PINNED file's bytes change after the emit. The
+  // preflight names the stale pin up front, before the scan gate would.
+  const core = join(root, ...SYNTH_APP.split("/"), "src", "core.mjs");
+  writeFileSync(core, "const login = { password: \"hunter2-fixture\" };\n");
+  const pinned = emitTrackedSpec(root);
+  const pinnedBuild = buildPack(pinned, { rootDir: root, outDir: tempDir("outPinned"), clock: fixedClock, runner: okRunner });
+  const pinnedReceipt = JSON.parse(readFileSync(join(pinnedBuild.packDir, "receipts", "build.receipt.json"), "utf8"));
+  assert.equal(pinnedReceipt.content_scan.reviewed_hit_files, 1);
+  writeFileSync(core, "const login = { password: \"hunter2-fixture\", retries: 3 };\n");
+  assert.throws(() => buildPack(pinned, { rootDir: root, outDir: tempDir("outPinStale"), clock: fixedClock, runner: okRunner }),
+    (error) => error.code === "spec_drifted_from_tree"
+      && error.message.includes(`1 scan pin(s) stale (pinned bytes changed): ${SYNTH_APP}/src/core.mjs`)
+      && !error.message.includes("hunter2"),
+    "a stale pin is reported as drift, by path only, never content");
+  // A pinned file that stops hitting is ledger rot, named as such.
+  writeFileSync(core, "export const core = 2;\n");
+  assert.throws(() => buildPack(pinned, { rootDir: root, outDir: tempDir("outPinGone"), clock: fixedClock, runner: okRunner }),
+    (error) => error.code === "spec_drifted_from_tree"
+      && error.message.includes(`1 scan pin(s) no longer hit: ${SYNTH_APP}/src/core.mjs`));
+});
+
+test("fresh-spec preflight: the binding is the catalog's, never the spec's — no opt-out, no emitter of the spec's choosing", () => {
+  // No catalog emitter (the real tool_workshop_pack): builds, and the receipt
+  // says the spec was NOT recomputed rather than implying a check.
+  const workshopRoot = syntheticRoot();
+  const plain = buildPack(writeSpec(tempDir("specPlain"), syntheticSpec()), { rootDir: workshopRoot, outDir: tempDir("outPlain"), clock: fixedClock, runner: okRunner });
+  assert.deepEqual(plain.specFreshness, { verdict: "not_recomputed_no_emitter", emitter: null });
+  const receipt = JSON.parse(readFileSync(join(plain.packDir, "receipts", "build.receipt.json"), "utf8"));
+  assert.equal(receipt.spec_freshness.verdict, "not_recomputed_no_emitter");
+  // A catalog-bound pack whose emitter is absent from the tree is refused —
+  // nothing in the spec bytes can turn the preflight off.
+  const root = syntheticCatalogRoot();
+  const outGhost = tempDir("outGhost");
+  assert.throws(() => buildPack(writeSpec(tempDir("specGhost"), syntheticCatalogSpec()),
+    { rootDir: root, outDir: outGhost, clock: fixedClock, runner: okRunner }),
+  (error) => error.code === "spec_emitter_failed" && error.message.includes(`${CATALOG_EMITTER_REL}:emitter_missing`));
+  assert.equal(existsSync(join(outGhost, "hpp_server_pack")), false);
+  // A spec that names some other script as its emitter is ignored AND drifted:
+  // the catalog emitter runs, the spec's script never does.
+  writeCatalogEmitter(root);
+  const sidecar = join(root, "guild_hall", "sidecar.mjs");
+  writeFileSync(sidecar, `import { writeFileSync } from "node:fs"; writeFileSync(${JSON.stringify(join(root, "side_effect.txt"))}, "ran\\n");\n`);
+  const tracked = emitTrackedSpec(root);
+  const doctored = { ...JSON.parse(readFileSync(tracked, "utf8")), spec_emitter: "guild_hall/sidecar.mjs" };
+  assert.throws(() => buildPack(writeSpec(tempDir("specDoctored"), doctored),
+    { rootDir: root, outDir: tempDir("outDoctored"), clock: fixedClock, runner: okRunner }),
+  (error) => error.code === "spec_drifted_from_tree" && error.message.includes("other field(s) differ: spec_emitter"));
+  assert.equal(existsSync(join(root, "side_effect.txt")), false, "the spec cannot choose what the builder executes");
+  // An emitter that trips its own guard: its first stderr line travels, the build stops.
+  writeCatalogEmitter(root, 'process.stderr.write("guard tripped: undeclared test files\\nsecond line stays out\\n"); process.exit(1);\n');
+  const outBroken = tempDir("outBroken");
+  assert.throws(() => buildPack(tracked, { rootDir: root, outDir: outBroken, clock: fixedClock, runner: okRunner }),
+    (error) => error.code === "spec_emitter_failed" && error.message.includes("guard tripped") && !error.message.includes("second line"));
+  assert.equal(existsSync(join(outBroken, "hpp_server_pack")), false);
+  // An emitter whose output is not a spec object is a broken emitter, not drift.
+  writeCatalogEmitter(root, 'process.stdout.write("null\\n");\n');
+  assert.throws(() => buildPack(tracked, { rootDir: root, outDir: tempDir("outNull"), clock: fixedClock, runner: okRunner }),
+    (error) => error.code === "spec_emitter_failed" && error.message.includes("not a spec object"));
+  // A spec-shaped object with a malformed pin ledger is still a coded refusal.
+  writeCatalogEmitter(root, 'process.stdout.write(JSON.stringify({ content_roles: "nope", content_scan_reviewed_files: [null, "x"] }) + "\\n");\n');
+  assert.throws(() => buildPack(tracked, { rootDir: root, outDir: tempDir("outMalformed"), clock: fixedClock, runner: okRunner }),
+    (error) => error.code === "spec_drifted_from_tree" && error.refusal === true);
+  // A throwing emitter: its Error line travels, not the frame header above it.
+  writeCatalogEmitter(root, 'throw new Error("vendored dir missing");\n');
+  assert.throws(() => buildPack(tracked, { rootDir: root, outDir: tempDir("outThrow"), clock: fixedClock, runner: okRunner }),
+    (error) => error.code === "spec_emitter_failed" && error.message.includes("Error: vendored dir missing") && !error.message.includes("\n"));
+  // Injected emitter contract: a non-result is a refusal too.
+  assert.throws(() => buildPack(tracked, { rootDir: root, outDir: tempDir("outInj"), clock: fixedClock, runner: okRunner, emitter: () => undefined }),
+    (error) => error.code === "spec_emitter_failed" && error.message.includes("emitter_returned_nothing"));
+});
+
+test("the catalog binds every emitted pack to a real emitter under the tools dir, and the specs carry no binding of their own", () => {
+  for (const entry of PACK_CATALOG) {
+    assert.equal(Object.hasOwn(entry, "spec_emitter"), true, `${entry.pack_id}: every catalog row declares its binding (null = hand-maintained)`);
+  }
+  const bound = PACK_CATALOG.filter((entry) => entry.spec_emitter !== null);
+  assert.deepEqual(bound.map((entry) => entry.pack_id).sort(), ["backup_recovery_extension", "hpp_server_pack", "team_client_pack"]);
+  for (const entry of bound) {
+    assert.match(entry.spec_emitter, /^guild_hall\/deployment_pack\/tools\/emit_[a-z0-9_]+_spec\.mjs$/, entry.pack_id);
+    assert.equal(existsSync(join(REPO_ROOT, ...entry.spec_emitter.split("/"))), true, entry.spec_emitter);
+    const spec = JSON.parse(readFileSync(join(REPO_ROOT, "guild_hall", "deployment_pack", "packs", `${entry.pack_id}.spec.json`), "utf8"));
+    assert.equal(spec.spec_emitter, undefined, `${entry.pack_id}: the spec under audit does not name its auditor`);
+  }
 });

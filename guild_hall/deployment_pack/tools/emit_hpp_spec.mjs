@@ -5,9 +5,11 @@
 // identifiers/synthetic fixtures only — emitting the spec IS recording that
 // review, so never run it blind.
 //
-//   node guild_hall/deployment_pack/tools/emit_hpp_spec.mjs [--check]
+//   node guild_hall/deployment_pack/tools/emit_hpp_spec.mjs [--check|--print]
 //
 // --check: recompute and diff against the tracked spec; exit 1 on drift.
+// --print: recompute and emit to stdout only, writing nothing — the mode
+//          build_pack.mjs uses for its fresh-spec preflight.
 
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, statSync, writeFileSync, existsSync } from "node:fs";
@@ -134,11 +136,28 @@ const dataReads = [
 // its partition rule stay in force for any future exclusion.
 const INSTALLED_SMOKE_EXCLUDED = [];
 
+// static/ is swept from the LIVE tree, so git-ignored local assets would
+// ride into the tracked spec from whichever checkout emits (2026-09-06: 12
+// skin PNGs present only on the Owner's machine made the spec unbuildable
+// in every clean checkout). Mirror .gitignore's rules for that directory
+// here so the emit is deterministic across trees. Shipping those skins in
+// the pack is an Owner decision: track them or byte-pin them like vendored
+// files, then drop the matching rule.
+const IGNORED_LOCAL_ASSET_RULES = [
+  (rel) => rel.startsWith(`${APP}/static/skins/dungeons/`),
+  (rel) => rel.startsWith(`${APP}/static/skins/main.`),
+];
+const isIgnoredLocalAsset = (rel) => IGNORED_LOCAL_ASSET_RULES.some((rule) => rule(rel));
+
 const contentRoles = {
   // Server code plus the cross-root guild_hall modules it actually imports,
   // the static assets the server serves (validators read them too), and the
   // fs-read data closure above.
-  server_modules: [...new Set([...appCode, ...sharedCode, ...listFilesRecursive(`${APP}/static`), ...dataReads])].sort(),
+  server_modules: [...new Set([
+    ...appCode, ...sharedCode,
+    ...listFilesRecursive(`${APP}/static`).filter((rel) => !isIgnoredLocalAsset(rel)),
+    ...dataReads,
+  ])].sort(),
   control_data_plane_services: [
     "ui-workspace/apps/dev-erp/ops/runtime-path-contract.ps1",
     "ui-workspace/apps/dev-erp/ops/run-dev-erp-background.ps1",
@@ -211,7 +230,9 @@ const spec = {
 };
 
 const emitted = `${JSON.stringify(spec, null, 2)}\n`;
-if (process.argv.includes("--check")) {
+if (process.argv.includes("--print")) {
+  process.stdout.write(emitted);
+} else if (process.argv.includes("--check")) {
   const tracked = existsSync(SPEC_PATH) ? readFileSync(SPEC_PATH, "utf8") : "";
   if (tracked !== emitted) {
     process.stderr.write("hpp_server_pack.spec.json drifts from the live tree (file set or scan pins). Re-review and re-emit.\n");

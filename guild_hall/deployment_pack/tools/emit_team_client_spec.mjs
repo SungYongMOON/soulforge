@@ -2,7 +2,11 @@
 // Client source Pack. The former 4192/Team Ops Board closure was server-side
 // observability code and is intentionally not copied to Windows client seats.
 //
-//   node guild_hall/deployment_pack/tools/emit_team_client_spec.mjs [--check]
+//   node guild_hall/deployment_pack/tools/emit_team_client_spec.mjs [--check|--print]
+//
+// --check: recompute and diff against the tracked spec; exit 1 on drift.
+// --print: recompute and emit to stdout only, writing nothing — the mode
+//          build_pack.mjs uses for its fresh-spec preflight.
 //
 // The Pack remains a source/contract candidate: live mTLS enrollment,
 // OS-protected credentials, dependency delivery, physical installation and
@@ -97,7 +101,9 @@ const spec = {
 };
 
 const emitted = `${JSON.stringify(spec, null, 2)}\n`;
-if (process.argv.includes("--check")) {
+if (process.argv.includes("--print")) {
+  process.stdout.write(emitted);
+} else if (process.argv.includes("--check")) {
   const tracked = existsSync(SPEC_PATH) ? readFileSync(SPEC_PATH, "utf8") : "";
   if (tracked !== emitted) {
     process.stderr.write("team_client_pack.spec.json drifts from the Universal Client source set or scan pins. Re-review and re-emit.\n");
