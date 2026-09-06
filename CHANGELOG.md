@@ -4,7 +4,7 @@
 
 - 날짜: 2026-09-06. Revision: the Git commit containing this entry owns the exact revision.
 - 무엇: `18_TEAM_PILOT_ACCESS_AND_RELEASE_PLAN_V0.md` §13의 조직 그룹 표에 "보안 분류"(G1 시스템 관리 / G2 데이터 관리 / G3 외부 작업) 열을 추가하고, 규칙 문단(원본 비전달·전송 전 사람·정책 관문·매핑/키/원문 로그 금지·결과는 항상 후보·첫 사이클 합성 자료)을 붙였다. `AI_ORGANIZATION_MODEL_OPERATING_POLICY_V0.md`에는 organization_kind ↔ 보안 분류 대응표와 같은 규칙 문단, plan 18 §13 상호 참조, 보안 설계 원본(E08·E12·E14·v0.11, 이 저장소 밖) 이름 인용을 새 절로 추가했다. 정리 필요 항목(KVDS 팀장 중복 신원 6 → 1 정리, 길드 계급 별칭 Master/Journeyman/Apprentice 채택 여부, 강도담의 G2 구성원 대 별도 루트 진입점 위치)은 Owner 결정 대기로 §13에 그대로 남겼다.
-- 운영 영향: 문서 전용 변경이다. 코드·권한·MCP allowlist·예약작업은 바뀌지 않는다. `validate:display-terms`, `validate:path-policy` 통과.
+- 운영 영향: 문서 전용 변경이다. 코드·권한·MCP allowlist·예약작업은 바뀌지 않는다. `validate:display-terms`(tracked, 신규 위반 0)와 `validate:path-policy:all`(tracked, 위반 0) 통과.
 - 관련 경로: `docs/architecture/foundation/team_member_engineering_program/18_TEAM_PILOT_ACCESS_AND_RELEASE_PLAN_V0.md`, `docs/architecture/guild_hall/AI_ORGANIZATION_MODEL_OPERATING_POLICY_V0.md`.
 
 ## 2026-09-06 - Vigil(포트 4192): 운영 lane을 operations-lane-v2에서 v3로 전환

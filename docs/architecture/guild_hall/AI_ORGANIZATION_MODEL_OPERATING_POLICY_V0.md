@@ -85,16 +85,20 @@ effort를 관찰하지 못했으면 해당 관찰값을 `UNKNOWN`으로 둔다.
 
 이 절은 보안 설계(E08·E12·E14·v0.11)가 정의한 역할 분류를 이 문서의 역할·모델 체계와 연결한다. G1/G2/G3는 위 "역할별 기본 모델" 표의 개별 역할(CEO·팀장·책임자 등, 모든 조직 종류를 가로지르는 판단 계층)에 각각 매기는 값이 아니라, `18_TEAM_PILOT_ACCESS_AND_RELEASE_PLAN_V0.md` §13이 쓰는 조직 종류(`organization_kind`)에 대응하는 분류다(두 번호 체계를 섞지 않는다).
 
+이 절의 대응은 plan 18 §13(`canon_candidate`, 확정 아님)의 투영이며 Owner 채택 전까지 확정이 아니다.
+
 | organization_kind | 조직 그룹(§13) | 보안 분류 | 원본 접근 | 외부 전송 |
 | --- | --- | --- | --- | --- |
-| `project` | 1 프로젝트별 AI 조직 | G3 외부 작업 | 없음(packet만) | 허가된 bytes만(사람·정책 관문 통과분) |
-| `tool_workshop` | 2 전문 툴 공방 | G3 외부 작업 | 없음(packet만) | 허가된 bytes만(사람·정책 관문 통과분) |
+| `project` | 1 프로젝트별 AI 조직 | G3 외부 작업 | 없음(packet만) | 허가된 bytes만(M05 permit + 신뢰 키 서명, 사람·정책 관문 통과분) |
+| `tool_workshop` | 2 전문 툴 공방 | G3 외부 작업 | 없음(packet만) | 허가된 bytes만(M05 permit + 신뢰 키 서명, 사람·정책 관문 통과분) |
 | `common` | 3 공통 AI 인력 | G2 데이터 관리 | 있음(로컬만) | 금지(가공 packet은 G3로만) |
 | `platform` | 4 플랫폼·엔진 | G1 시스템 관리 | 없음(합성만) | 없음 |
 
+창구(접수) 봇은 위 네 `organization_kind` 중 하나가 아니라 G2 데이터 관리에 함께 두되 `common`의 '파일럿 제외'는 적용하지 않는다(plan 18 §13 미결 항목).
+
 규칙(보안 설계 B1~B8): G3에는 원본 전체를 주지 않는다. 전송 전 검토·허가는 사람·정책 관문이 최종이다. 매핑·키·원문·hidden reasoning은 로그에 남기지 않는다. 결과는 항상 후보(검사 중)이며 사람 수락 뒤에만 정본이다. 첫 사이클은 합성 자료만 쓴다.
 
-정본 봇 명부와 그룹별 구성은 [`../foundation/team_member_engineering_program/18_TEAM_PILOT_ACCESS_AND_RELEASE_PLAN_V0.md`](../foundation/team_member_engineering_program/18_TEAM_PILOT_ACCESS_AND_RELEASE_PLAN_V0.md) §13이 소유한다. 보안 설계 원본(E08·E12·E14·v0.11)은 이 저장소 밖에 있으며 여기서는 이름만 인용한다.
+정본 봇 명부와 그룹별 구성은 [`../foundation/team_member_engineering_program/18_TEAM_PILOT_ACCESS_AND_RELEASE_PLAN_V0.md`](../foundation/team_member_engineering_program/18_TEAM_PILOT_ACCESS_AND_RELEASE_PLAN_V0.md) §13이 소유한다. 보안 설계 원본(E08·E12·E14·v0.11)은 이 저장소 밖에 있으며 여기서는 이름만 인용한다. 저장소 안 투영은 [`SECURE_WORK_CYCLE_V0.md`](./SECURE_WORK_CYCLE_V0.md)(상태 `PILOT_SYNTHETIC_ONLY`)가 소유한다.
 
 ## 음성 비서
 
