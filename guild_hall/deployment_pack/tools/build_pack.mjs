@@ -157,11 +157,26 @@ export function nodeTestFlags(concurrency) {
   return flags;
 }
 
-export function nodeTestRunner(entries, { cwd, concurrency }) {
-  const result = spawnSync(process.execPath, [...nodeTestFlags(concurrency), ...entries], { cwd, encoding: "utf8" });
+export function nodeTestRunner(entries, { cwd, concurrency, env, timeoutMs = 600_000 }) {
+  const childEnv = { ...(env ?? process.env) };
+  // A caller running under node --test otherwise forces the child into the
+  // internal serialized reporter protocol despite --test-reporter=tap.
+  delete childEnv.NODE_TEST_CONTEXT;
+  const result = spawnSync(process.execPath, [...nodeTestFlags(concurrency), "--test-reporter=tap", ...entries], {
+    cwd, env: childEnv, encoding: "utf8", windowsHide: true, timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024,
+  });
+  const stdout = result.stdout ?? "";
+  const counts = {};
+  for (const key of ["tests", "pass", "fail", "cancelled", "skipped", "todo"]) {
+    const matches = [...stdout.matchAll(new RegExp(`^# ${key} (\\d+)\\r?$`, "gm"))];
+    counts[key] = matches.length ? Number(matches.at(-1)[1]) : null;
+  }
   return {
     ok: result.status === 0,
     summary: `node --test exited ${result.status}`,
+    exit_code: result.status, signal: result.signal, error_code: result.error?.code ?? null,
+    counts, stdout, stderr: result.stderr ?? "",
+    skipped_tests: stdout.split(/\r?\n/).filter((line) => /^\s*(?:not )?ok\b.*# SKIP\b/i.test(line)).map((line) => line.trim()),
   };
 }
 

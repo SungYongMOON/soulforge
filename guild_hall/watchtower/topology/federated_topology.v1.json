@@ -502,6 +502,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.systems_engineering.rules.task_hierarchy_mapper",
+      "id": "engineering_engine::imports.16f481ecff2642a473c9c9d0b9ed4bfd",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.systems_engineering.guidance.guide_cards"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.tools.se_core_source_cited_answer_runner",
       "id": "engineering_engine::imports.170d05778d10a3eb468904b11bdf2b5a",
       "label": "imports",
@@ -6262,6 +6272,16 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.systems_engineering.rules.task_hierarchy_mapper",
+      "id": "engineering_engine::imports.dd092659e0be8bf519e4f23042c456b2",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.systems_engineering.rules.stage_rule_compiler"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::engines.systems_engineering.mcp.tools.next_steps",
       "id": "engineering_engine::imports.dd6068544c51395ded554c8c08d66cb5",
       "label": "imports",
@@ -7879,6 +7899,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::engines.database_engineering.rules.database_engineering_vocabulary"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engines.systems_engineering.rules.task_hierarchy_mapper",
+      "id": "engineering_engine::imports.faecc6dbb8b22e759bccb49acec0152d",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engines.systems_engineering.schemas.task_hierarchy_v1_schema_validator"
     },
     {
       "evidence_mode": "structural_only",
@@ -11510,6 +11540,17 @@
     {
       "diagnostic_state": "validator_backed",
       "group": "engines",
+      "id": "engineering_engine::engines.systems_engineering.rules.task_hierarchy_mapper",
+      "kind": "module",
+      "label": "engines/systems_engineering/rules/task_hierarchy_mapper",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "engines",
       "id": "engineering_engine::engines.systems_engineering.schemas.task_hierarchy_v1_schema_validator",
       "kind": "module",
       "label": "engines/systems_engineering/schemas/task_hierarchy_v1_schema_validator",
@@ -12951,6 +12992,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "core.validators.authority"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.systems_engineering.rules.task_hierarchy_mapper",
+          "id": "imports.16f481ecff2642a473c9c9d0b9ed4bfd",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.systems_engineering.guidance.guide_cards"
         },
         {
           "evidence_mode": "structural_only",
@@ -18138,6 +18188,15 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "engines.systems_engineering.rules.task_hierarchy_mapper",
+          "id": "imports.dd092659e0be8bf519e4f23042c456b2",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.systems_engineering.rules.stage_rule_compiler"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "engines.systems_engineering.mcp.tools.next_steps",
           "id": "imports.dd6068544c51395ded554c8c08d66cb5",
           "label": "imports",
@@ -19593,6 +19652,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "engines.database_engineering.rules.database_engineering_vocabulary"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engines.systems_engineering.rules.task_hierarchy_mapper",
+          "id": "imports.faecc6dbb8b22e759bccb49acec0152d",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engines.systems_engineering.schemas.task_hierarchy_v1_schema_validator"
         },
         {
           "evidence_mode": "structural_only",
@@ -22326,6 +22394,16 @@
         {
           "diagnostic_state": "validator_backed",
           "group": "engines",
+          "id": "engines.systems_engineering.rules.task_hierarchy_mapper",
+          "kind": "module",
+          "label": "engines/systems_engineering/rules/task_hierarchy_mapper",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "engines",
           "id": "engines.systems_engineering.schemas.task_hierarchy_v1_schema_validator",
           "kind": "module",
           "label": "engines/systems_engineering/schemas/task_hierarchy_v1_schema_validator",
@@ -22720,7 +22798,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "3703e873adb193c426755146603b374de5b1bf8d7d12a406d257d0c3f4add4be",
+        "digest": "3c3ed36532952f9ee70a765109a1e276c64caf5e616ba6e8647e7cd788c2877e",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -23922,13 +24000,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "4f4bd60920e5a6e3e90dc78b6fd8b4d25fd36d76c5e1303d1eefa6e05e6fc157",
+  "source_set_digest": "450d719e773f7c5ec2298256c9c036acf053e06373556bed262204e003a4405b",
   "summary": {
-    "edge_count": 914,
-    "node_count": 303,
+    "edge_count": 917,
+    "node_count": 304,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "48ccbeb5a686fa84fc485fbd01bb830fcc167b11d6dadd0c4c9c1561c8275fda"
+  "topology_digest": "d7eab9796fc9200d0b1286e4bcd574256a9cc53285eb6a6bb83092cef867eff2"
 }

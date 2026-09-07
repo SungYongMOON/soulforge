@@ -12,6 +12,7 @@ import {
   installPack,
   loadPackSpec,
   nodeTestFlags,
+  nodeTestRunner,
   runInstalledSmoke,
   verifyInstalledCopy,
 } from "../tools/build_pack.mjs";
@@ -240,11 +241,14 @@ test("the real backup_recovery_extension spec builds: module pack with full-suit
   const specPath = join(REPO_ROOT, "guild_hall", "deployment_pack", "packs", "backup_recovery_extension.spec.json");
   const built = buildPack(specPath, { rootDir: REPO_ROOT, outDir: tempDir("outBackupRec"), clock: fixedClock, runner: okRunner });
   assert.equal(built.manifest.pack_id, "backup_recovery_extension");
-  // Pinned so growth is a conscious re-emit (the emitter's --check gates it).
-  assert.equal(built.manifest.files.length, 82);
+  // The emitter's --check owns closure drift; this test matches its declaration.
+  assert.equal(built.manifest.files.length, Object.values(loadPackSpec(specPath).content_roles).flat().length);
   assert.equal(built.candidate.claimed_gate, "contract",
     "capture/restore/acceptance stay unclaimed - the initial gate needs Owner-side human acceptance");
   const spec = loadPackSpec(specPath);
+  assert.equal(spec.content_roles.vendored_dependencies.some((path) => path === "node_modules/ajv/package.json"), true,
+    "the full installed schema suite resolves its Ajv dependency inside the Pack");
+  assert.equal(Object.keys(spec.vendored_file_sha256).length, spec.content_roles.vendored_dependencies.length);
   assert.equal(spec.content_roles.recovery_policy_adapter.includes(
     "guild_hall/backup_controller/linear_lb1_actual_reader.mjs",
   ), true, "the default-OFF actual reader travels with its backup contract");
@@ -430,21 +434,28 @@ test("end to end against the REAL tracked hpp_server_pack spec: build, install, 
   const target = tempDir("targetHpp");
   try {
     const specPath = join(REPO_ROOT, "guild_hall", "deployment_pack", "packs", "hpp_server_pack.spec.json");
-    // The unit gate here is a synthetic runner: the REAL full-suite unit and
-    // smoke gates ran via the CLI evidence run (receipts in dist/); this
-    // repo test proves build/install mechanics on the real pinned file set
-    // plus a REAL smoke SUBSET inside the installed copy.
+    // This test proves mechanics plus one installed smoke entry. Full-suite
+    // evidence belongs to release_rehearsal.mjs and its actual run receipts.
     const built = buildPack(specPath, { rootDir: REPO_ROOT, outDir: out, clock: fixedClock, runner: okRunner });
     assert.equal(built.manifest.pack_id, "hpp_server_pack");
     // The set is the computed import closure PLUS the fs-read data closure
     // PLUS the vendored npm closure (yaml + ajv and its runtime deps under
     // payload-root node_modules) — pinned so growth is a conscious re-emit.
-    assert.equal(built.manifest.files.length, 1022);
+    const declared = loadPackSpec(specPath);
+    assert.equal(built.manifest.files.length, Object.values(declared.content_roles).flat().length);
     assert.equal(built.candidate.claimed_gate, "contract");
     assert.equal(built.manifest.files.some((entry) => entry.path.startsWith("guild_hall/")), true,
       "the pack carries the guild_hall modules the server actually imports");
     assert.equal(built.manifest.files.some((entry) => entry.path.startsWith("node_modules/yaml/")), true,
       "the vendored npm closure travels at the payload root");
+    assert.equal(built.manifest.files.some((entry) => entry.path.includes("static/skins/dungeons/") || entry.path.includes("static/skins/main.")), false,
+      "owner-local private skin assets never travel in a release");
+    assert.equal(built.manifest.files.some((entry) => entry.path.endsWith("static/skins/regions/forest.svg")), true,
+      "the tracked public region fallback travels with the installed UI");
+    assert.equal(built.manifest.files.some((entry) => entry.path === "guild_hall/workflow_runner/index.mjs"), true,
+      "the ERP's computed core import resolves inside the installed Pack");
+    assert.equal(built.manifest.files.some((entry) => entry.path === ".workflow/report_authoring_v0/runtime_binding.json"), true,
+      "the exact static workflow binding and its declared bundle travel together");
     assert.equal(built.manifest.files.some((entry) => entry.path.endsWith("dev-erp-watchdog.ps1")), true,
       "the service-only watchdog travels after its PC-reboot surface is removed");
     assert.equal(built.manifest.files.some((entry) => entry.path.endsWith("runtime-path-contract.ps1")), true,
@@ -458,13 +469,16 @@ test("end to end against the REAL tracked hpp_server_pack spec: build, install, 
       assert.match(exclusion.reason, /^requires_git_checkout/, exclusion.path);
     }
     const installed = installPack({ packDir: built.packDir, targetDir: target, clock: fixedClock });
+    let observedSmoke;
     const smoke = runInstalledSmoke({
       payloadDir: installed.payloadTarget,
-      entries: ["test/five_field_capture.test.mjs"],
+      entries: ["test/five_field_capture.test.mjs", "test/workflow_job_core_contract.test.mjs"],
       testCwd: "ui-workspace/apps/dev-erp",
       clock: fixedClock,
+      runner: (entries, options) => { observedSmoke = nodeTestRunner(entries, options); return observedSmoke; },
     });
     assert.equal(smoke.ok, true, `real subset smoke inside the installed copy: ${smoke.summary}`);
+    assert.equal(observedSmoke.counts.skipped, 0, "the actual installed workflow core tests execute instead of skipping");
   } finally {
     rmSync(out, { recursive: true, force: true });
     rmSync(target, { recursive: true, force: true });

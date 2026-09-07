@@ -19,6 +19,7 @@ import { createReceiptExpiryServerAdapter } from "./src/server/receipt-expiry-ad
 import { createScheduledTasksAdapterPlugin } from "./src/server/scheduled-tasks-adapter.mjs";
 import { createSecureWorkStatusAdapterPlugin } from "./src/server/secure-work-status-adapter.mjs";
 import { createTongsHeartbeatAdapterPlugin } from "./src/server/tongs-heartbeat-adapter.mjs";
+import { createWorldCoverageAdapterPlugin } from "./src/server/forge-world-coverage-adapter.mjs";
 import { createStorageMapServerAdapter } from "./src/server/storage-map-adapter.mjs";
 import { createCodexRetentionServerAdapter } from "./src/server/codex-retention-adapter.mjs";
 import {
@@ -94,12 +95,16 @@ export default defineConfig(async () => ({
     createScheduledTasksAdapterPlugin(),
     createSecureWorkStatusAdapterPlugin({ statusPath: secureWorkStatusPath }),
     createTongsHeartbeatAdapterPlugin(),
+    createWorldCoverageAdapterPlugin({ stateRoot, projectCodes: ["SOULFORGE", "P26-014"] }),
     createHostStatsAdapterPlugin(),
     createClaudeUsageAdapterPlugin(),
     createAntigravityUsageAdapterPlugin(),
     createAntigravityQuotaAdapterPlugin({ env: boardEnvironment }),
     createProviderLimitsAdapterPlugin({ env: boardEnvironment, providerQuotaReceiptPath })
   ],
+  build: {
+    rollupOptions: { input: { board: path.join(boardRoot, "index.html"), world: path.join(boardRoot, "forge-world.html") } }
+  },
   server: {
     host: "127.0.0.1",
     port: 4192,

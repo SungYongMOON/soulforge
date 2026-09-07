@@ -86,9 +86,9 @@ test('Topology Edge Oracle: independently resolves complete static import/re-exp
   const emittedTopology = buildTopology();
 
   assert.equal(emittedTopology.module_count, oracleResult.moduleCount, 'Module count must match independent scan');
-  assert.equal(emittedTopology.module_count, 254, 'Canonical module count must equal 254');
+  assert.equal(emittedTopology.module_count, 255, 'Canonical module count must equal 255');
   assert.equal(emittedTopology.module_edge_count, oracleResult.edges.length, 'Edge count must match independent scan');
-  assert.equal(emittedTopology.module_edge_count, 852, 'Canonical edge count must equal 852');
+  assert.equal(emittedTopology.module_edge_count, 855, 'Canonical edge count must equal 855');
 });
 
 test('Topology Edge Oracle: representative import syntax is correctly captured', () => {

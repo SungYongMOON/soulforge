@@ -1,5 +1,29 @@
 # Workspace Board — Owner perspective local Codex thread projection
 
+## 세계와 작업대 개발 후보
+
+`/forge-world.html`은 같은 빌드에 포함된 2.5D 해안 기지의 읽기 화면이다. Soulforge 개발과
+프로젝트 부지를 분리하고, `/project-coverage.snapshot.json`이 고정된 메타데이터 파일을
+읽는다. 관측 미연결·구판·상충은 그대로 표시하며 셀 수를 고유 슬롯 수로 세지 않는다.
+현재 구성의 과제는 `SOULFORGE`, `P26-014`이고 생산 파일이 없으면 미확인이다.
+관측 시각을 새로 읽은 시각으로 갱신하지 않는다. 사옥 사진은 외형 참고이며 원본 이미지나
+지도 화면을 배포 자산에 넣지 않는다. `forge-world.html`은 Vite의 명시적 진입점이므로
+개발·설치용 빌드 모두 같은 JS/CSS 번들을 사용한다.
+
+작업대의 `workbench-intake-record`와 `workbench-intake-store`는 접수와 업무 결속을 분리하고
+원자적인 create-only 기록·멱등 재생을 제공한다. 최대 256개/기록 32KiB의 제한이 있는
+저장 범위에서 수정 요청은 같은 요청자·과제·제품·WP·단계·산출물·종류의 기존 parent를
+지목하고 판본 번호를 하나 올려야 한다. 같은 parent의 다음 판본은 하나만 저장하고,
+동일 요청 재시도는 기존 판본을 돌려준다. 비교와 쓰기는 같은 저장 잠금 안에서 수행한다.
+이는 parent 수락이나 실행 완료를 뜻하지 않는다. 이 구현은
+초기 저장소다. `workbench-intake-adapter`는 별도 서버가 현재 인증·CSRF·과제 근거와
+명시적 격리 저장 root를 공급해야 한다. 기본 OFF 또는 read-only pilot에서는 POST가
+405이며 이 Vite 설정에 접수 writer를 자동 등록하지 않는다. 요청의 `RECORDED`와
+서버 저장 확인은 실행·외부 송신·사람 수락을 뜻하지 않는다. 실제 현재 근거 공급자와
+실행 조정기 연결, 운영 배치, 전원 손실 내구성은 이 초기 저장소 시험의 주장 밖이다.
+
+검증: `validate:forge-world`, `validate:workbench-intake`, Board build와 기존 read-only 경계.
+
 The normal Board is a local, read-only, metadata-only projection of actual Codex
 threads. It does not use the former synthetic Owner Inbox in its normal UI.
 

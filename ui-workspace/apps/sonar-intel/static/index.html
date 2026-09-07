@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8" />
-<title>소나 인텔 — 대시보드 (v1 Goal #1)</title>
+<title>소나 인텔 — 자료와 관측 변화</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
   :root { color-scheme: light dark; }
@@ -21,11 +21,24 @@
   .tag { display: inline-block; background: #262b36; border-radius: 4px; padding: 1px 6px; font-size: 11px; margin-right: 4px; }
   .empty { color: #6b7280; padding: 12px 0; }
   section { margin-bottom: 28px; }
+  h2 { font-size: 18px; }
+  button, select, input { font: inherit; color: #e6e6e6; background: #202633; border: 1px solid #657087; border-radius: 5px; padding: 7px 9px; }
+  button { cursor: pointer; }
+  button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid #7dc4ff; outline-offset: 3px; }
+  .controls { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
+  .scroll { overflow-x: auto; }
+  .notice { border-left: 3px solid #7dc4ff; padding: 10px 14px; background: #171a21; line-height: 1.6; }
+  .muted { color: #adb7c8; font-size: 13px; line-height: 1.7; }
+  .evidence { margin: 12px 0; padding: 12px; border: 1px solid #455066; border-radius: 5px; overflow-wrap: anywhere; }
+  #min-frequency { width: 75px; }
+  @media(max-width: 600px) { body { padding: 14px; } table { min-width: 580px; } }
 </style>
 </head>
 <body>
-  <h1>소나 인텔 (sonar-intel) — v1 Goal #1</h1>
-  <div class="sub">읽기 전용 대시보드. 수집은 <code>npm run collect</code>로만 실행(이 화면에서 트리거하지 않음). 백엔드: <span id="backend">-</span></div>
+  <h1>소나 인텔 — 자료와 관측 변화</h1>
+  <div class="sub">수집된 논문·뉴스를 읽고 출처를 확인합니다. 백엔드: <span id="backend">-</span></div>
+  <button id="refresh-results" type="button">최신 결과 다시 읽기</button>
+  <p id="load-error" role="status"></p>
 
   <section>
     <h2>수집 현황</h2>
@@ -33,12 +46,46 @@
     <div id="last-run" class="sub"></div>
   </section>
 
+  <section aria-labelledby="observation-heading">
+    <h2 id="observation-heading">관측 범위</h2>
+    <p id="score-profiles-state" class="notice">예정된 8개 관측 프로필은 아직 구현되지 않았습니다. 종합 점수·군집도 미제공입니다. 아래 수치는 수집 자료의 빈도이며 기술 성능·사업 성공의 예측값이 아닙니다.</p>
+    <p id="analysis-state" class="muted" role="status">분석 결과를 불러오는 중…</p>
+    <div class="scroll"><table><thead><tr><th>출처</th><th>관측 상태</th><th>고유 자료</th><th>날짜 확인 자료</th><th>최근 수집 시각</th></tr></thead><tbody id="coverage-body"></tbody></table></div>
+    <details><summary>집계 범위와 제외 규칙</summary><p id="analysis-rules" class="muted"></p></details>
+  </section>
+
+  <section aria-labelledby="relations-heading">
+    <h2 id="relations-heading">함께 등장한 키워드</h2>
+    <p class="muted">제목·요약에 직접 등장한 설정 용어를 자료당 한 번 셉니다. 검색어 이력은 집계하지 않습니다. 약어·풀네임·포함 용어는 별도 용어이므로 같은 개념끼리 연결될 수 있습니다.</p>
+    <form id="relation-form" class="controls">
+      <label>키워드 <select id="keyword" disabled></select></label>
+      <label>발행 기간 <select id="days"><option value="7">7일</option><option value="14" selected>14일</option><option value="28">28일</option></select></label>
+      <label>최소 자료 수 <input id="min-frequency" type="number" min="1" max="5000" value="1"></label>
+      <button id="relation-load" type="submit" disabled>관계 보기</button>
+    </form>
+    <p id="relation-state" class="muted"></p>
+    <div class="scroll"><table><thead><tr><th>키워드 쌍</th><th>함께 등장한 고유 자료</th><th>근거</th></tr></thead><tbody id="relation-body"></tbody></table></div>
+  </section>
+
+  <section aria-labelledby="weekly-heading">
+    <h2 id="weekly-heading">주간 관측 차이</h2>
+    <p id="weekly-state" class="muted"></p>
+    <p class="muted">UTC 월요일 기준 이번 주 일부와 지난주 전체를 비교합니다. 수집 범위가 불완전하므로 성장률·버스트로 해석하지 않습니다. 이전 분석본이 없어 입력·기준값(P90)·규칙 변경의 기여도는 확인할 수 없습니다.</p>
+    <div class="scroll"><table><thead><tr><th>키워드</th><th>이번 주 일부</th><th>지난주</th><th>자료 수 차이</th><th>근거</th></tr></thead><tbody id="weekly-body"></tbody></table></div>
+  </section>
+
+  <section aria-labelledby="evidence-heading">
+    <h2 id="evidence-heading">선택한 근거 자료</h2>
+    <div id="evidence-detail" aria-live="polite" class="muted">관계 또는 주간 표의 근거 보기를 선택하세요.</div>
+  </section>
+
   <section>
-    <h2>시그널 피드 (최근 50건)</h2>
-    <table>
-      <thead><tr><th>유형</th><th>소스</th><th>제목</th><th>키워드</th><th>수집시각</th></tr></thead>
+    <h2>논문·뉴스 (최근 수집 50건)</h2>
+    <div class="controls"><label>자료 유형 <select id="feed-type"><option value="">전체</option><option value="arxiv">논문</option><option value="news">뉴스</option></select></label></div>
+    <div class="scroll"><table>
+      <thead><tr><th>유형</th><th>소스</th><th>제목</th><th>검색어 이력</th><th>수집시각</th></tr></thead>
       <tbody id="feed-body"><tr><td colspan="5" class="empty">불러오는 중…</td></tr></tbody>
-    </table>
+    </table></div>
   </section>
 
 <script>
@@ -49,7 +96,7 @@ async function loadStatus() {
 
   const cardsEl = document.getElementById("status-cards");
   if (!data.collection.length) {
-    cardsEl.innerHTML = '<div class="empty">아직 수집된 데이터가 없습니다. npm run collect를 실행하세요.</div>';
+    cardsEl.innerHTML = '<div class="empty">아직 수집된 데이터가 없습니다. 관측 범위를 확인할 수 없습니다.</div>';
   } else {
     cardsEl.innerHTML = data.collection.map(function (row) {
       return '<div class="card"><div class="n">' + escapeHtml(row.count) + '</div>' +
@@ -60,8 +107,9 @@ async function loadStatus() {
 
   const lastRunEl = document.getElementById("last-run");
   if (data.lastRun) {
-    lastRunEl.textContent = "마지막 수집 실행: " + data.lastRun.finishedAt + " (fetched " + data.lastRun.totals.fetched +
-      " / stored " + data.lastRun.totals.stored + " / deduped " + data.lastRun.totals.deduped + ")";
+    lastRunEl.textContent = "마지막 수집 실행: " + data.lastRun.finishedAt;
+    if (data.lastRun.totals) lastRunEl.textContent += " (fetched " + data.lastRun.totals.fetched + " / stored " + data.lastRun.totals.stored + " / deduped " + data.lastRun.totals.deduped + ")";
+    if (data.newCollectionSinceAnalysis) lastRunEl.textContent += " · 분석 기준 이후 수집 있음: 분석 결과에는 아직 반영되지 않았습니다.";
   } else {
     lastRunEl.textContent = "마지막 수집 실행 기록 없음 (data/last_run.json 없음)";
   }
@@ -74,7 +122,7 @@ function escapeHtml(text) {
 }
 
 async function loadFeed() {
-  const res = await fetch("/api/signals?limit=50");
+  const res = await fetch("/api/signals?limit=50&type=" + encodeURIComponent(document.getElementById("feed-type").value));
   const data = await res.json();
   const body = document.getElementById("feed-body");
   if (!data.items.length) {
@@ -84,7 +132,7 @@ async function loadFeed() {
   body.innerHTML = data.items.map(function (item) {
     const safe = /^https?:\/\//i.test(item.url) ? item.url : null;
     const title = safe
-      ? '<a href="' + escapeHtml(safe) + '" target="_blank" rel="noopener">' + escapeHtml(item.title) + '</a>'
+      ? '<a href="' + escapeHtml(safe) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(item.title) + '</a>'
       : escapeHtml(item.title);
     const tags = (item.keywordsMatched || []).map(function (k) { return '<span class="tag">' + escapeHtml(k) + '</span>'; }).join("");
     return '<tr><td>' + escapeHtml(item.type) + '</td><td>' + escapeHtml(item.source) + '</td><td>' + title +
@@ -92,8 +140,55 @@ async function loadFeed() {
   }).join("");
 }
 
-loadStatus().catch(function (e) { console.error(e); });
-loadFeed().catch(function (e) { console.error(e); });
+const stateLabels = { off: "꺼짐 · 현재 미관측", collection_failed: "최근 수집 일부 실패", observed_partial: "수집 자료 일부 관측", unobserved: "미관측", unavailable: "확인 불가" };
+let analysisPin = null;
+const countText = (value) => Number.isSafeInteger(value) ? String(value) : "확인 불가";
+function showError(error) { document.getElementById("load-error").textContent = error?.message === "analysis_snapshot_changed" ? "분석본이 바뀌었습니다. 최신 결과 다시 읽기를 눌러 같은 분석본의 근거를 확인하세요." : "자료를 불러오지 못했습니다. 연결과 분석 결과를 확인한 뒤 최신 결과 다시 읽기를 누르세요."; }
+async function json(url) { const response = await fetch(url); if (!response.ok) throw new Error(response.status === 409 ? "analysis_snapshot_changed" : "read_failed"); return response.json(); }
+function evidenceButton(ids) {
+  if (!ids.length) return "—";
+  return '<button type="button" data-evidence="' + escapeHtml(ids.slice(0, 50).join(",")) + '">근거 보기 (' + ids.length + (ids.length > 50 ? ' 중 50' : '') + ')</button>';
+}
+async function loadAnalysis() {
+  const data = await json("/api/analysis");
+  if (!data.corpusDigest) { document.getElementById("analysis-state").textContent = "분석 결과가 아직 없거나 읽을 수 없습니다. 관측 범위·관계·주간 차이를 확인할 수 없습니다."; document.getElementById("weekly-state").textContent = "분석 결과 없음"; return; }
+  analysisPin = { corpus: data.corpusDigest, asOf: data.asOf };
+  document.getElementById("analysis-state").textContent = (stateLabels[data.state] || "확인 불가") + " · 기준 시각 " + data.asOf + " · 자료 " + data.scope.uniqueDocuments + "건 / 날짜 확인 " + data.scope.datedDocuments + "건. 마지막 조회 때 읽은 분석본입니다. 새 배치 결과는 최신 결과 다시 읽기로 반영됩니다.";
+  document.getElementById("coverage-body").innerHTML = data.coverage.map((row) => '<tr><td>' + escapeHtml(row.source) + '</td><td>' + escapeHtml(stateLabels[row.state] || "확인 불가") + '</td><td>' + countText(row.observedDocuments) + '</td><td>' + countText(row.datedDocuments) + '</td><td>' + escapeHtml(row.latestFetchedAt || "확인 불가") + '</td></tr>').join("");
+  const ex = data.exclusions;
+  document.getElementById("analysis-rules").textContent = "자료 판본 " + data.corpusDigest + " · 규칙 " + data.ruleVersion + ". URL의 추적 매개변수와 arXiv 버전을 정리해 중복을 묶습니다. 제목만으로는 합치지 않으며 중계 URL과 출판사 URL의 같은 사건 여부는 확인하지 못합니다. 합쳐진 중복 " + ex.duplicateRows + "행, 충돌 " + ex.conflictingRows + "행, 형식/출처 오류 " + ex.malformed + "행, 수집일 누락 " + ex.missingFetchedAt + "행, 기준 이후 수집 " + ex.afterCutoff + "행, 발행일 누락 " + ex.missingPublishedAt + "건, 미래 발행일 " + ex.futurePublishedAt + "건, 용어 상한 제외 " + ex.excessiveTerms + "행. 과거 시점 검증은 제공하지 않습니다.";
+  document.getElementById("keyword").innerHTML = data.terms.map((term) => '<option>' + escapeHtml(term) + '</option>').join("");
+  document.getElementById("keyword").disabled = !data.terms.length;
+  document.getElementById("relation-load").disabled = !data.terms.length;
+  const weekly = data.weekly;
+  document.getElementById("weekly-state").textContent = "이번 주 " + weekly.currentStart + " ~ " + weekly.currentEnd + " / 지난주 " + weekly.previousStart + " ~ " + weekly.previousEndExclusive + " (종료 제외). 전체 자료 " + countText(weekly.currentCount) + " / " + countText(weekly.previousCount) + " · 차이 " + countText(weekly.delta) + ".";
+  const rows = [{ term: "전체 수집 자료", current: weekly.currentCount, previous: weekly.previousCount, delta: weekly.delta, currentEvidence: weekly.currentEvidence, previousEvidence: weekly.previousEvidence }, ...weekly.terms];
+  document.getElementById("weekly-body").innerHTML = rows.map((row) => '<tr><td>' + escapeHtml(row.term) + '</td><td>' + countText(row.current) + '</td><td>' + countText(row.previous) + '</td><td>' + countText(row.delta) + '</td><td>' + evidenceButton([...row.currentEvidence, ...row.previousEvidence]) + '</td></tr>').join("");
+  if (data.terms.length) await loadRelations();
+}
+let relationRequest = 0;
+async function loadRelations() {
+  const request = ++relationRequest;
+  const params = new URLSearchParams({ ...analysisPin, keyword: document.getElementById("keyword").value, days: document.getElementById("days").value, min: document.getElementById("min-frequency").value });
+  const data = await json("/api/relations?" + params);
+  if (request !== relationRequest) return;
+  document.getElementById("relation-state").textContent = (stateLabels[data.state] || "확인 불가") + " · " + data.start + " ~ " + data.end + " · 이웃 " + data.totalMatchingNeighbors + "개 중 " + data.edges.length + "개 표시 (가나다·알파벳 순, 최대 12개).";
+  document.getElementById("relation-body").innerHTML = data.edges.length ? data.edges.map((edge) => '<tr><td>' + escapeHtml(edge.from) + ' ↔ ' + escapeHtml(edge.to) + '</td><td>' + countText(edge.count) + '</td><td>' + evidenceButton(edge.evidenceIds) + '</td></tr>').join("") : '<tr><td colspan="3">이 조건에서 확인된 관계가 없습니다. 관계가 없다는 증명은 아닙니다.</td></tr>';
+}
+document.addEventListener("click", async (event) => {
+  const button = event.target.closest("button[data-evidence]"); if (!button) return;
+  try {
+    const data = await json("/api/evidence?" + new URLSearchParams({ ...analysisPin, id: button.dataset.evidence }));
+    document.getElementById("evidence-detail").innerHTML = data.items.map((row) => '<article class="evidence"><strong>' + escapeHtml(row.title) + '</strong><p>' + escapeHtml(row.summary) + '</p><p>발행 ' + escapeHtml(row.publishedAt || "확인 불가") + ' · 수집 ' + escapeHtml(row.fetchedAt) + '</p><p>직접 일치: ' + escapeHtml(row.terms.join(", ")) + '</p>' + row.references.map((ref) => '<a href="' + escapeHtml(ref.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(ref.source) + ' 원문</a> · ' + escapeHtml(ref.id)).join('<br>') + '</article>').join("");
+    document.getElementById("evidence-detail").scrollIntoView({ block: "nearest" });
+  } catch (error) { showError(error); }
+});
+document.getElementById("relation-form").addEventListener("submit", (event) => { event.preventDefault(); loadRelations().catch(showError); });
+document.getElementById("feed-type").addEventListener("change", () => loadFeed().catch(showError));
+document.getElementById("refresh-results").addEventListener("click", () => location.reload());
+loadStatus().catch(showError);
+loadFeed().catch(showError);
+loadAnalysis().catch(showError);
 </script>
 </body>
 </html>

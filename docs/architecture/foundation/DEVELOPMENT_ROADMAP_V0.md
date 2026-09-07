@@ -562,6 +562,26 @@ Portfolio Projection, Meaningful/Skillable Work Unit과 Capability Learning Loop
   승인 principal 분리는 Owner 결정 항목이다.
 - 검증: 단위별 `validate:*` + `done:check`; 외부 검토 기록은 `docs/reviews/EXTERNAL_REVIEW_MAP_2026-09-06.md`.
 
+### Owner-directed integrated release-candidate completion (2026-09-07)
+
+- 최신 Owner 지시는 현재 SW 지도와 합의된 로드맵의 구현·통합·검증·패키징·매뉴얼을
+  실사용 가능한 통합 출시 후보까지 이어가는 것이다. Goal 1(첫 통합)·Goal 2(팀원 사용)와
+  개별 단계는 중간 이정표이며 첫 화면·한 업무·한 브랜치 통과로 전체 개발을 종료하지 않는다.
+- 시간·작업량 때문에 후속으로 나눈 운영·업무 SW, 보안·권한·보호 가공, 자료·지식·RAG·Wiki,
+  Rune, Guild·Hermes·Buzz·Tongs, Hammer·Forge, 전문 도구, 소나 인텔, 백업·복구와 설치·교육
+  개발도 포함한다. 새 기능을 무한히 늘리지 않고 각 owner의 현재 범위와 근거를 따른다.
+- 세계 화면은 해안 연구개발기지의 2.5D 표시다. Soulforge 개발과 다른 과제는 각각 별도 부지를
+  가지며, 화면은 원천 SW의 사실을 투영한다. 실제 3D 제작은 범위 밖이다.
+- 개발 빌드·격리 worktree·합성 검증·작업 브랜치 commit/push·검토용 PR 준비를 진행한다.
+  운영 키·실과제 본문·예약작업·운영 설치본과 lane 전환·main 병합·정본 승격·외부 업무자료
+  전송의 기존 경계는 유지한다. 특정 실제 입력이 막혀도 독립적인 개발을 계속한다.
+- 종료 증거는 exact 통합 후보 commit의 필요한 검사·CI·독립 검토, 격리 설치·업데이트·
+  되돌리기·복구, 실제 결과와 맞는 매뉴얼, SW별 개발/검증 현황이다. 미구현·미배선·실패한
+  시험·빠진 패키징은 개발 잔여이며 Owner 준비로 바꾸지 않는다. 운영 활성화·현장 검증·
+  사람 수락은 별도로 남긴다. 현재 이 절은 실행 지시 기록이며 완료·운영 출시 주장이 아니다.
+- 상세 출발 자료는 Owner가 지정한 로컬 handoff의 최신 시작 문서·제작 패킷·시각 합의·
+  통합 로드맵이다. 구현 상세는 기존 모듈 owner, 실행 영수증은 허용된 private 기록면에 둔다.
+
 ## SE assistant program direction
 
 Current structural target:

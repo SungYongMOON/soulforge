@@ -1,5 +1,42 @@
 # CHANGELOG
 
+## 2026-09-07 - 통합 출시 후보 개발: 업무 결속·Rune 투영·해안 기지·설치 검증
+
+- 날짜: 2026-09-07. Revision: 이 항목을 담은 Git commit이 개발 판본을 정한다.
+- 무엇: 현재 전체 로드맵의 개발·통합·패키징·매뉴얼까지 이어가는 Owner 지시를 로드맵에
+  기록했다. 작업대는 요청 전체의 멱등성과 과제·제품·WP 업무 결속을 구분하고 접수 기록을
+  create-only 저장한다. 기본 OFF/읽기 전용 POST는 405이며, 현재 인증·Host·Origin·CSRF·
+  과제 권한 없이는 저장하거나 조회하지 않는다. 현재 근거·인증 공급자와 실행 조정기 배선은
+  아직 필요하며 접수로 모델 실행이나 사람 수락을 만들지 않는다.
+  수정 요청은 같은 요청자·전체 업무 범위·종류의 기존 parent와 연속 판본을 검사하고,
+  동시 요청에서도 다음 판본 하나만 저장한다. 동일 재시도는 이미 저장한 판본으로 돌아간다.
+- Rune은 scoped 기대 업무, WP·Blueprint 관계, 원래 관측 상태와 절차 상태를 분리한다.
+  exact variant/overlay/compiler/work-order를 순수 변환하며 source bytes의 실제 검증과
+  Task 생성·정본 수락 권한을 주장하지 않는다. 독립 검토에서 발견한 경로 참조·순위 형 제약을
+  반례 시험으로 보정했다. 새 변환기의 모듈·간선은 운영 구조 투영과 같은 변경으로 동기화한다.
+- 세계는 별도 2.5D 해안 기지 페이지다. 원천의 고유 산출물 슬롯·미관측·상충·관측 만료를
+  표시하고 견본 수를 분리한다. 사옥 외형은 참고한 native 도형이며 private 사진은 배포하지
+  않는다. 실제 과제 관측 파일·업무 실행 연결·최종 표시 검증은 개발 잔여로 유지한다.
+- 소나 인텔은 기존 CORE의 제목·요약에 실제 등장한 용어로 제한된 공출현과 주간 관측 건수를
+  산출하고 읽기 API·근거 상세로 연결한다. 수집 검색어를 텍스트 근거로 사용하지 않는다.
+  배치 분석은 HTTP 밖에서 수행하고 CORE를 변경하지 않는다. 원자 교체된 분석본과 수집 기록을
+  다시 읽으며 구판 근거 요청은 409로 구분한다. 비공개 주소·서명 URL을 거부하고 새 수집기·
+  종합 점수·군집·예정된 8개 프로필은 구현/근거 조건이 남은 항목으로 표시한다.
+- Pack 리허설은 선언된 전체 source/설치본 시험과 개별 세대 해시를 확인하고 설치·업데이트·
+  되돌리기·복원 증거를 남긴다. 기존 spec에 섞였던 ignored private 스킨은 제외하고 공개
+  fallback을 유지한다. 설치본 의존성·공통 실행기 누락과 시험환경 캐시/경로 문제를 실제
+  실행으로 드러내며, 실패·skip·payload 오염을 성공으로 바꾸지 않는다.
+- 운영 영향: 개발 후보의 코드와 격리 시험만 변경한다. 운영 설치본·예약작업·lane·키·
+  main 병합·외부 업무자료 전송·사람 수락은 수행하지 않는다. 전체 출시 후보와 운영 출시는
+  아직 완료되지 않았으며 남은 기술 개발을 Owner 준비로 대체하지 않는다.
+- 검증: `validate:task-hierarchy-contract`, `validate:task-hierarchy-mapper`,
+  `validate:workbench-intake`, `validate:forge-world`, Board build/typecheck와 관련 구조 검사를
+  수행했다. Pack 실제 리허설 결과·skip·미실행 범위와 최종 통합 검사는 별도 실행 영수증으로
+  추적한다. 새 검증은 root acceptance에 포함한다.
+- 관련 경로: `guild_hall/shared/work_binding.mjs`, `guild_hall/requirement_trace/`,
+  `guild_hall/engineering_engine/`, `guild_hall/deployment_pack/`,
+  `ui-workspace/apps/team-ops-board/`, `ui-workspace/apps/sonar-intel/`, `guild_hall/validate/run_root_acceptance.mjs`.
+
 ## 2026-09-07 - Astra 지침 적용성: 감사·실행 구분과 불필요한 중단 조건 정리
 
 - 날짜: 2026-09-07. Revision: 이 항목을 담은 Git commit이 정확한 revision을 정한다.

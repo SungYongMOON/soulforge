@@ -10,14 +10,16 @@
 // --check: recompute and diff against the tracked spec; exit 1 on drift.
 
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { readFileSync, readdirSync, statSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { SECRET_MATERIAL } from "./build_pack.mjs";
+import { listReleaseStaticAssets } from "./release_static_assets.mjs";
+import { computeBundleDigest, validateRuntimeBinding } from "../../workflow_runner/catalog.mjs";
 import {
   listFiles as libListFiles,
-  listFilesRecursive as libListFilesRecursive,
   moduleClosure as libModuleClosure,
 } from "./spec_closure_lib.mjs";
 
@@ -31,8 +33,17 @@ const SPEC_PATH = join(ROOT, "guild_hall", "deployment_pack", "packs", "hpp_serv
 // modules — so the packed file set is the ACTUAL module graph, computed,
 // not assumed.
 const listFiles = (relDir, suffix) => libListFiles(ROOT, relDir, suffix);
-const listFilesRecursive = (relDir) => libListFilesRecursive(ROOT, relDir);
 const moduleClosure = (entryRelPaths) => libModuleClosure(ROOT, entryRelPaths);
+
+// The ERP bridge resolves this static core through computed URLs, which the
+// relative-import walker cannot see. Carry the exact compiled binding's code,
+// policy and data members; its default route stays disabled and candidate-only.
+const workflowBindingPath = ".workflow/report_authoring_v0/runtime_binding.json";
+const workflowBinding = validateRuntimeBinding(JSON.parse(readFileSync(join(ROOT, workflowBindingPath), "utf8")));
+if (await computeBundleDigest(workflowBinding) !== workflowBinding.bundle_digest) throw new Error("hpp_workflow_core_bundle_digest_mismatch");
+const workflowFiles = [workflowBindingPath, ...workflowBinding.policy_files, ...workflowBinding.runtime_files];
+const trackedWorkflow = spawnSync("git", ["ls-files", "--error-unmatch", "--", ...workflowFiles], { cwd: ROOT, encoding: "utf8", windowsHide: true });
+if (trackedWorkflow.status !== 0) throw new Error("hpp_workflow_core_requires_tracked_public_sources");
 
 const appEntrypoints = [
   `${APP}/server.mjs`,
@@ -47,7 +58,7 @@ const operationalEntrypoints = [
   "guild_hall/local_activity/store_validity_cli.mjs",
   "guild_hall/voice_capture/continuous_label_supervisor_cli.mjs",
 ];
-const closure = moduleClosure([...appEntrypoints, ...operationalEntrypoints]);
+const closure = moduleClosure([...appEntrypoints, ...operationalEntrypoints, ...workflowFiles.filter((rel) => rel.endsWith(".mjs"))]);
 const appCode = closure.filter((rel) => rel.startsWith(`${APP}/`) && !rel.startsWith(`${APP}/test/`));
 const sharedCode = closure.filter((rel) => !rel.startsWith(`${APP}/`));
 
@@ -105,6 +116,7 @@ const vendoredPackages = VENDORED_PACKAGE_ROOTS.map((relRoot) => {
 });
 
 const dataReads = [
+  ...workflowFiles,
   ...listFiles(`${APP}/docs/contracts`, ".schema.json"),
   ...listFiles("guild_hall/ingress", ".schema.json"),
   ...listFiles("guild_hall/local_activity", ".schema.json"),
@@ -136,9 +148,9 @@ const INSTALLED_SMOKE_EXCLUDED = [];
 
 const contentRoles = {
   // Server code plus the cross-root guild_hall modules it actually imports,
-  // the static assets the server serves (validators read them too), and the
-  // fs-read data closure above.
-  server_modules: [...new Set([...appCode, ...sharedCode, ...listFilesRecursive(`${APP}/static`), ...dataReads])].sort(),
+  // Git-tracked public static assets (never ignored owner-local/private skins),
+  // and the fs-read data closure above. Public region SVGs are the fallback.
+  server_modules: [...new Set([...appCode, ...sharedCode, ...listReleaseStaticAssets(ROOT, `${APP}/static`), ...dataReads])].sort(),
   control_data_plane_services: [
     "ui-workspace/apps/dev-erp/ops/runtime-path-contract.ps1",
     "ui-workspace/apps/dev-erp/ops/run-dev-erp-background.ps1",

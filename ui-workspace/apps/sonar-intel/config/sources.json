@@ -37,15 +37,15 @@
   },
   "openalex": {
     "enabled": false,
-    "note": "v1 Goal #2 - polite pool 10 req/s, 10만/day, email 파라미터 필요"
+    "note": "OFF: 현재 계정·요청 종류별 예산·공식 권리 범위를 고정한 뒤 Goal #2 수집기 연결. 초기 polite-pool 가정은 활성화 근거가 아님."
   },
   "semantic_scholar": {
     "enabled": false,
-    "note": "v1 Goal #2 - API 키 발급 필요, 기본 1 RPS"
+    "note": "OFF: 현재 API 권한·예산·권리 범위를 고정한 뒤 Goal #2 수집기 연결."
   },
   "epo_ops": {
     "enabled": false,
-    "note": "v1 Goal #3 - OAuth2, 주 4GB 한도"
+    "note": "OFF: Goal #3. OAuth 권한·공식 주간 경계/동적 제한·원자료 이용 범위 확정 필요."
   },
   "kipris": {
     "enabled": false,

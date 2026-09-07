@@ -99,6 +99,25 @@ public static class SoulforgeProjectHistoryPathLock {
     [DllImport("ntdll.dll")]
     private static extern uint RtlNtStatusToDosError(int status);
 
+    private static string ExtendedLocalPath(string path) {
+        // Node has already resolved and identity-bound the local path. Win32's
+        // legacy MAX_PATH parsing must not reject that same path when a staged
+        // artifact name grows beyond 260 characters. Do not resolve relative,
+        // UNC or device paths here, or normalize dot segments into authority.
+        if (String.IsNullOrEmpty(path)) throw new InvalidOperationException("absolute local path required");
+        string value = path.Replace('/', '\\');
+        if (value.Length < 3 || !Char.IsLetter(value[0]) || value[1] != ':' || value[2] != '\\'
+            || value.IndexOf('\0') >= 0) {
+            throw new InvalidOperationException("absolute local path required");
+        }
+        foreach (string segment in value.Substring(3).Split('\\')) {
+            if (segment == "." || segment == ".." || segment.Contains(":")) {
+                throw new InvalidOperationException("local path contains an unsafe segment");
+            }
+        }
+        return @"\\?\" + value;
+    }
+
     public static SafeFileHandle OpenAndVerify(
         string path,
         string expectedVolume,
@@ -119,7 +138,7 @@ public static class SoulforgeProjectHistoryPathLock {
         uint flags = FILE_FLAG_OPEN_REPARSE_POINT;
         if (directory) flags |= FILE_FLAG_BACKUP_SEMANTICS;
         SafeFileHandle handle = CreateFileW(
-            path,
+            ExtendedLocalPath(path),
             access,
             FILE_SHARE_READ | FILE_SHARE_WRITE,
             IntPtr.Zero,
@@ -160,7 +179,7 @@ public static class SoulforgeProjectHistoryPathLock {
         string expectedSha256
     ) {
         SafeFileHandle handle = CreateFileW(
-            path,
+            ExtendedLocalPath(path),
             GENERIC_READ,
             FILE_SHARE_READ,
             IntPtr.Zero,

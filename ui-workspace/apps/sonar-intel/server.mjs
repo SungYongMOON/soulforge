@@ -10,11 +10,12 @@
 // News/Defense News/arXiv fetch)은 이 서버가 아니라 `npm run collect`(tools/collect_once.mjs)
 // 에서만 일어난다 — HTTP 요청 하나가 실수로 외부 수집을 트리거하는 경로를 만들지 않기 위함.
 import { createServer } from "node:http";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, openSync, fstatSync, readSync, closeSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { openStore } from "./src/store.mjs";
+import { LIMITS, RULE_VERSION, isoDate, safeSourceUrl, selectRelations } from "./src/analysis/index.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -44,6 +45,8 @@ function sendJson(res, status, body) {
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
     "Content-Length": Buffer.byteLength(payload),
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
   });
   res.end(payload);
 }
@@ -52,30 +55,48 @@ function sendHtml(res, status, html) {
   res.writeHead(status, {
     "Content-Type": "text/html; charset=utf-8",
     "Content-Length": Buffer.byteLength(html),
+    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
   });
   res.end(html);
 }
 
-function readLastRun() {
-  const lastRunPath = path.join(DATA_DIR, "last_run.json");
-  if (!existsSync(lastRunPath)) return null;
+function readBoundedJson(file, maximumBytes) {
+  let fd;
   try {
-    return JSON.parse(readFileSync(lastRunPath, "utf8"));
-  } catch {
-    return null;
-  }
+    // One file descriptor pins an atomically published snapshot across rename.
+    fd = openSync(file, "r");
+    const size = fstatSync(fd).size;
+    if (size > maximumBytes) return null;
+    const bytes = Buffer.alloc(size + 1);
+    let count = 0; let read;
+    do { read = readSync(fd, bytes, count, bytes.length - count, null); count += read; } while (read && count < bytes.length);
+    if (count !== size) return null;
+    return JSON.parse(bytes.subarray(0, count).toString("utf8"));
+  } catch { return null; }
+  finally { if (fd !== undefined) closeSync(fd); }
 }
 
-async function main() {
-  const sourcesConfig = loadJsonConfig("sources.json");
-  const keywordsConfig = loadJsonConfig("keywords.json");
-  const store = await openStore({ dataDir: DATA_DIR });
-  console.log(`[sonar-intel] store backend: ${store.backendName} (${store.path})`);
+function lastRunMetadata(run) {
+  const finishedAt = isoDate(run?.finishedAt);
+  if (!finishedAt) return null;
+  const fields = ["fetched", "stored", "deduped"];
+  const totals = fields.every((field) => Number.isSafeInteger(run?.totals?.[field]) && run.totals[field] >= 0)
+    ? Object.fromEntries(fields.map((field) => [field, run.totals[field]])) : null;
+  return { finishedAt, totals };
+}
 
+function readLastRun(dataDir) {
+  return lastRunMetadata(readBoundedJson(path.join(dataDir, "last_run.json"), 256 * 1024));
+}
+
+export function createSonarServer({ store, sourcesConfig, keywordsConfig, analysisReport = null, lastRun = null, dataDir = null }) {
   const indexHtmlPath = path.join(STATIC_DIR, "index.html");
-
   const server = createServer(async (req, res) => {
     try {
+      const origin = `http://${HOST}:${server.address().port}`;
+      if (req.headers.host !== new URL(origin).host || (req.headers.origin && req.headers.origin !== origin) || (req.headers["sec-fetch-site"] && !["same-origin", "none"].includes(req.headers["sec-fetch-site"]))) {
+        sendJson(res, 403, { error: "same_origin_required" }); return;
+      }
       const url = new URL(req.url, `http://${HOST}:${PORT}`);
       const p = url.pathname;
 
@@ -94,14 +115,17 @@ async function main() {
 
       if (p === "/api/status") {
         const enabledSources = summarizeEnabledSources(sourcesConfig);
+        const currentRun = dataDir ? readLastRun(dataDir) : lastRunMetadata(lastRun);
+        const currentAnalysis = dataDir ? readAnalysis(dataDir) : analysisReport;
         sendJson(res, 200, {
           app: "sonar-intel",
           backend: store.backendName,
-          storePath: store.path,
           sources: enabledSources,
           collection: store.summarize(),
           totalItems: store.countItems(),
-          lastRun: readLastRun(),
+          lastRun: currentRun,
+          analysisAsOf: currentAnalysis?.asOf ?? null,
+          newCollectionSinceAnalysis: currentAnalysis && currentRun ? currentRun.finishedAt > currentAnalysis.asOf : null,
         });
         return;
       }
@@ -109,10 +133,34 @@ async function main() {
       if (p === "/api/signals") {
         const type = url.searchParams.get("type") || undefined;
         const source = url.searchParams.get("source") || undefined;
-        const limit = Math.min(Number(url.searchParams.get("limit")) || 50, 200);
-        const items = store.listItems({ type, source, limit });
+        const limit = Number(url.searchParams.get("limit") ?? 50);
+        if (!Number.isInteger(limit) || limit < 1 || limit > 200 || (type && !["news", "arxiv"].includes(type))) { sendJson(res, 400, { error: "invalid_filter" }); return; }
+        const items = store.listItems({ type, source, limit }).map((row) => ({ id: row.id, type: row.type, source: row.source, title: row.title, url: safeSourceUrl(row.url), publishedAt: row.publishedAt, fetchedAt: row.fetchedAt, keywordsMatched: Array.isArray(row.keywordsMatched) ? row.keywordsMatched.filter((term) => typeof term === "string") : [] }));
         sendJson(res, 200, { count: items.length, items });
         return;
+      }
+
+      if (["/api/analysis", "/api/relations", "/api/evidence"].includes(p)) {
+        const currentAnalysis = dataDir ? readAnalysis(dataDir) : analysisReport;
+        if (!currentAnalysis) { sendJson(res, 200, { state: "unavailable", reason: "analysis_snapshot_missing_or_invalid" }); return; }
+        if ((url.searchParams.has("corpus") && url.searchParams.get("corpus") !== currentAnalysis.corpusDigest) || (url.searchParams.has("asOf") && url.searchParams.get("asOf") !== currentAnalysis.asOf)) {
+          sendJson(res, 409, { error: "analysis_snapshot_changed" }); return;
+        }
+        if (p === "/api/analysis") {
+          const { graphs, evidence, ...overview } = currentAnalysis;
+          sendJson(res, 200, overview); return;
+        }
+        if (p === "/api/relations") {
+          try {
+            const result = selectRelations(currentAnalysis, { keyword: url.searchParams.get("keyword"), days: Number(url.searchParams.get("days") ?? 14), min: Number(url.searchParams.get("min") ?? 1) });
+            sendJson(res, 200, result);
+          } catch { sendJson(res, 400, { error: "invalid_relation_filter" }); }
+          return;
+        }
+        const ids = (url.searchParams.get("id") ?? "").split(",");
+        if (ids.length > 50 || ids.some((id) => !/^event_[a-f0-9]{24}$/.test(id))) { sendJson(res, 400, { error: "invalid_evidence_id" }); return; }
+        const items = currentAnalysis.evidence.filter((row) => ids.includes(row.id));
+        sendJson(res, items.length === ids.length ? 200 : 404, items.length === ids.length ? { corpusDigest: currentAnalysis.corpusDigest, items } : { error: "not_found" }); return;
       }
 
       if (p === "/api/keywords") {
@@ -122,12 +170,31 @@ async function main() {
 
       sendJson(res, 404, { error: "not_found", path: p });
     } catch (error) {
-      sendJson(res, 500, { error: "internal_error", message: String(error?.message ?? error) });
+      sendJson(res, 500, { error: "internal_error" });
     }
   });
+  return server;
+}
+
+function readAnalysis(dataDir) {
+  try {
+    const report = readBoundedJson(path.join(dataDir, "analysis.json"), LIMITS.bytes);
+    if (!report || !isoDate(report.asOf) || !/^[a-f0-9]{64}$/.test(report.corpusDigest)) return null;
+    if (report.schema !== "sonar-intel-limited-analysis-v1" || report.ruleVersion !== RULE_VERSION || !Array.isArray(report.evidence) || !Array.isArray(report.terms) || !report.graphs || !report.weekly || !report.coverage) return null;
+    if (report.evidence.length > LIMITS.records || report.terms.length > LIMITS.terms || report.terms.some((term) => typeof term !== "string" || term.length > 120) || report.evidence.some((row) => !Array.isArray(row.references) || row.references.some((ref) => safeSourceUrl(ref.url) !== ref.url))) return null;
+    if ([7, 14, 28].some((days) => !Array.isArray(report.graphs[days]?.edges) || report.graphs[days].edges.length > LIMITS.edges || !Array.isArray(report.graphs[days]?.nodes) || report.graphs[days].nodes.length > LIMITS.terms)) return null;
+    return report;
+  } catch { return null; }
+}
+
+async function main() {
+  const sourcesConfig = loadJsonConfig("sources.json");
+  const keywordsConfig = loadJsonConfig("keywords.json");
+  const store = await openStore({ dataDir: DATA_DIR, readOnly: true, maxBytes: LIMITS.bytes });
+  const server = createSonarServer({ store, sourcesConfig, keywordsConfig, dataDir: DATA_DIR });
 
   server.listen(PORT, HOST, () => {
-    console.log(`[sonar-intel] http://${HOST}:${PORT} (data: ${DATA_DIR})`);
+    console.log(`[sonar-intel] http://${HOST}:${server.address().port} (read-only)`);
   });
 
   const shutdown = () => {
@@ -152,7 +219,7 @@ function summarizeEnabledSources(sourcesConfig) {
   return summary;
 }
 
-main().catch((error) => {
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => {
   console.error("[sonar-intel] fatal", error);
   process.exit(1);
 });

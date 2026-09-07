@@ -3536,14 +3536,27 @@
       "line_count": 2093
     },
     {
+      "module": "engines/systems_engineering/rules/task_hierarchy_mapper",
+      "area": "engines",
+      "exports": [
+        "TASK_HIERARCHY_MAPPER_VERSION",
+        "TaskHierarchyMapperError",
+        "mapTaskHierarchy",
+        "taskHierarchyDataDigest"
+      ],
+      "export_count": 4,
+      "line_count": 235
+    },
+    {
       "module": "engines/systems_engineering/schemas/task_hierarchy_v1_schema_validator",
       "area": "engines",
       "exports": [
         "collectSchemaSelfValidityErrors",
-        "validateJsonSchemaSubset"
+        "validateJsonSchemaSubset",
+        "validateTaskHierarchyNodes"
       ],
-      "export_count": 2,
-      "line_count": 154
+      "export_count": 3,
+      "line_count": 262
     },
     {
       "module": "engines/systems_engineering/tools/artifact_observation_inventory_runner",
@@ -3800,7 +3813,7 @@
       "line_count": 1885
     }
   ],
-  "module_count": 254,
+  "module_count": 255,
   "module_edges": [
     {
       "from": "core/evaluation_runtime/claim_ceilings",
@@ -9438,6 +9451,27 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     },
     {
+      "from": "engines/systems_engineering/rules/task_hierarchy_mapper",
+      "to": "engines/systems_engineering/guidance/guide_cards",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/systems_engineering/rules/task_hierarchy_mapper",
+      "to": "engines/systems_engineering/rules/stage_rule_compiler",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engines/systems_engineering/rules/task_hierarchy_mapper",
+      "to": "engines/systems_engineering/schemas/task_hierarchy_v1_schema_validator",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
+    },
+    {
       "from": "engines/systems_engineering/tools/artifact_observation_inventory_runner",
       "to": "engines/systems_engineering/observation/artifact_observation_candidates",
       "relation": "imports",
@@ -9767,7 +9801,7 @@
       "evidence_note": "declared by canonical source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 852,
+  "module_edge_count": 855,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -10118,5 +10152,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "6d0170ac0bcd910630259ad026f7ee1f282c62d07f5a60bb0afd492c7bdeab26"
+  "topology_digest": "8a447a11cee06aa8a2922ec5bcfc280cf367c63b841db98c41001c1935773c51"
 }

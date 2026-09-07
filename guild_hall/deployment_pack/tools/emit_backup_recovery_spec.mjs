@@ -54,11 +54,27 @@ const adapterFiles = [...new Set([
   ...libListFilesRecursive(ROOT, MODULE).filter((rel) => /\.(schema\.json|md|json|ps1|vbs|bat)$/.test(rel) && !rel.endsWith("module.manifest.json")),
 ])].sort();
 
+// nas_dr_preflight's actual installed schema tests import Ajv. Reuse only the
+// five already-reviewed HPP package pins that form Ajv's runtime closure; do
+// not discover arbitrary node_modules or accept unreviewed dependency bytes.
+const hppSpec = JSON.parse(readFileSync(join(ROOT, "guild_hall/deployment_pack/packs/hpp_server_pack.spec.json"), "utf8"));
+const requiredPackages = new Set(["ajv", "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string"]);
+const vendoredPackages = hppSpec.vendored_packages.filter((entry) => requiredPackages.has(entry.name));
+if (new Set(vendoredPackages.map((entry) => entry.name)).size !== requiredPackages.size) throw new Error("backup_vendored_dependency_pin_missing");
+const vendoredFiles = hppSpec.content_roles.vendored_dependencies.filter((rel) => vendoredPackages.some((entry) => rel.startsWith(`${entry.root}/`)));
+const vendoredHashes = Object.fromEntries(vendoredFiles.map((rel) => {
+  const digest = createHash("sha256").update(readFileSync(join(ROOT, ...rel.split("/")))).digest("hex");
+  if (hppSpec.vendored_file_sha256[rel] !== digest) throw new Error(`backup_vendored_dependency_pin_stale:${rel}`);
+  return [rel, digest];
+}));
+const inheritedReviewPins = new Map(hppSpec.content_scan_reviewed_files.map((entry) => [entry.path, entry.sha256]));
+
 const contentRoles = {
   recovery_policy_adapter: adapterFiles,
   shared_modules: sharedModules,
   manifests: [`${MODULE}/module.manifest.json`],
   validators,
+  vendored_dependencies: vendoredFiles,
 };
 
 // COVERAGE guard (review finding): every tracked file in the module dir
@@ -81,7 +97,9 @@ for (const rolePaths of Object.values(contentRoles)) {
   for (const relPath of rolePaths) {
     const bytes = readFileSync(join(ROOT, ...relPath.split("/")));
     if (SECRET_MATERIAL.test(bytes.toString("utf8"))) {
-      reviewed.push({ path: relPath, sha256: createHash("sha256").update(bytes).digest("hex") });
+      const digest = createHash("sha256").update(bytes).digest("hex");
+      if (relPath.startsWith("node_modules/") && inheritedReviewPins.get(relPath) !== digest) throw new Error(`backup_vendored_scan_review_missing:${relPath}`);
+      reviewed.push({ path: relPath, sha256: digest });
     }
   }
 }
@@ -111,6 +129,8 @@ const spec = {
   rollback_manual_ref: "manual.rollback.backup_recovery_extension",
   support_owner_ref: "owner.platform_support",
   secret_refs: [],
+  vendored_packages: vendoredPackages,
+  vendored_file_sha256: vendoredHashes,
   content_scan_reviewed_files: reviewed,
 };
 

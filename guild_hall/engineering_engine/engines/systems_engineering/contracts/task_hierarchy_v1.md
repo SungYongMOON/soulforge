@@ -17,207 +17,166 @@
   it the same day). Hoisting to `core/` is deferred until a second engine projects into this
   contract; that move must also classify the new `core/` subdirectory in
   `core/tests/zero_time_static_effect.test.mjs`.
-- This contract is Phase 0 commit 1 of 4. `task_invariants_v0` (the five cross-blueprint
-  invariants such as "no purchase order before an inventory check"), the field-mapping compiler,
-  the artifact-class part table, and the replayable `project_task_graph.v1` projection are
-  separate, later commits and are **not** part of this file. See "Follow-ups" below.
+- This contract is the bounded Phase 0 §16 alignment slice. The mapper, invariant enforcement,
+  artifact-class part table, and replayable projection remain separate later slices.
 
-## 1. Scope
+## 1. Scope and compatibility
 
-`task_hierarchy_v1` defines one JSON shape — a **node** — used for any of five layers:
-**Stage → WorkPackage → Task → Step → Action**. A `layer` field discriminates which one a given
-node is. The schema (`task_hierarchy_v1.schema.json`) validates exactly this shape. This is a pure
-data contract: it does not touch Rune's compiler, its MCP surface, or the artifact vocabulary
-files. Nothing here mints Task instances from real project data — that mapping is commit 2's
-"pure function (no fs/clock/net)" deliverable, tested against this contract but not part of it.
+This is the candidate contract alignment required by
+[`2026-09-06_soulforge_to_gpt_07_reply.md` §b.2](../../../../../docs/reviews/exchange/2026-09-06_soulforge_to_gpt_07_reply.md)
+and the reviewed Rune Phase 0 brief §16. Those corrections supersede the original
+commit-1 claim that one expected work item is automatically one actual Task.
 
-## 2. Layers, id rules, and required fields
+The five compatibility layer names remain **Stage → WorkPackage → Task → Step → Action**.
+`Task` now explicitly means an **expectation projection** (`node_role: "expectation"`).
+An expectation can justify a future Rune-owned Task, but cannot create or identify that
+Task by itself. The schema version and local id spellings remain unchanged because this
+is an unaccepted candidate; required `scope` and `procedure_state` distinguish the aligned
+shape. Pre-§16 unscoped rows are rejected, not silently migrated. A caller must supply
+the actual project/product scope and original evidence before rebuilding them.
 
-| Layer | id rule (deterministic) | Layer-specific required fields | Source |
-| --- | --- | --- | --- |
-| `Stage` | `<stage_code>` as-is | `stage_code`, `stage_sequence` | Copied from Rune's `needs_stage_declarations` / `orderStageWork` stage grouping |
-| `WorkPackage` | `wp:<stage_code>:<work_package_key>` | `stage_code`, `work_package_key`, `title_ko`, `owner_domain_rune` | **The only new layer.** Declared by a Blueprint, or defaults to one `wp:<stage_code>:default` per stage when no Blueprint declares Work Packages |
-| `Task` | `task:<stage_code>:<artifact_type_id>` | `stage_code`, `artifact_type_id`, `node_kind`, `gate_role`, `satisfied_inputs`, `blocked_by`, `steps` | **Rune work item = Task, 1:1.** One row of `orderStageWork`'s `stages[].work_items[]` becomes one Task |
-| `Step` | `step:<task_id>:<workflow_id>:<step_id>` | `task_id`, `workflow_id`, `step_id`, `seq`, `blueprint_ref` (must be non-null) | Same shape as `.workflow/<workflow_id>/step_graph.yaml`'s `steps[]` entries (`step_id`, `title`, `actor_slot`, `action.{kind,requires,validates,creates}`, `next.{on_success,on_fail}`) |
-| `Action` | `action:<step_id>:<action_kind>` | `step_id`, `action_kind`, `effect_class`, `receipt_required` | Same `steps[].action.{kind, requires[], validates[], creates[]}` shape, promoted to its own addressable node |
+This slice adds shape and reference validation only. No mapper, invariant enforcement,
+artifact classification, projection writer, real project reader, MCP change, clock,
+network call, or state mutation is authorized or implemented by this contract.
 
-**Id composition note (corrected 2026-09-06 review, M8)**: only `<task_id>` in the Step id rule
-is a *full* parent id string that already contains colons (a Task id is itself
-`task:<stage_code>:<artifact_type_id>`). The trailing `<step_id>` in that *same* Step id rule is
-**not** a parent id at all — it is the Step's own local `step_graph.yaml` key (e.g.
-`fabrication`), copied straight off the workflow's step list, and carries no colons of its own.
-Expanded, a Step id therefore reads
-`step:task:<stage_code>:<artifact_type_id>:<workflow_id>:<step_id>` (6 colon-separated segments:
-4 from `task_id`, 1 for `workflow_id`, 1 for the Step's own local `step_id`).
+## 2. Scoped identity and membership
 
-In the Action id rule (`action:<step_id>:<action_kind>`), by contrast, `<step_id>` **is** the
-*full* parent Step id string — the same 6-segment value above, not the bare local key. M6 (see
-`Action.step_id` in the schema's `allOf`/`if`/`then` blocks) enforces this with a
-`^step:task:...` pattern on `Action.step_id`, and a Task-hierarchy mapper that copies a Step
-node's own local `step_id` field onto an Action's `step_id` (instead of that Step node's `id`)
-produces a value this schema now rejects. An Action id expands to
-`action:step:task:<stage_code>:<artifact_type_id>:<workflow_id>:<step_id>:<action_kind>`
-(8 segments). The schema's `allOf`/`if`/`then` blocks encode the expanded form, not the
-shorthand — a reader of the raw regex who expects a 3- or 4-segment id will be surprised
-otherwise, and a reader who assumes `step_id` means the same thing on every layer will be
-equally surprised: it is a local key on `Step` nodes and a full parent-id reference on `Action`
-nodes.
+Every node requires `scope: {project_id, product_id}`. Both values are exact opaque tokens.
+The join key is the ordered tuple **(project_id, product_id, id)**. The same local id
+may occur in different projects or products; two occurrences in one scope are rejected.
+No scope may be inferred from a filename, stage, title, order index, or receipt digest.
 
-**Design additions beyond the brief's literal field list** (flagged here per the execution
-contract's "surface assumptions" rule, not silently decided):
-
-- `layer` is a new discriminator field. The brief's id-rule table distinguishes layers by id
-  *shape* (a bare token vs. a `wp:`/`task:`/`step:`/`action:` prefix) rather than naming an
-  explicit field, but a schema that dispatches required fields and id patterns per layer needs a
-  directly-checkable value, and an explicit enum is clearer for a downstream reader (the Vigil
-  world adapter) than re-deriving layer from id shape. Not sourced from Rune.
-- `Task.stage_code` is listed here as required even though the brief's own layer table (§3.1)
-  only lists `artifact_type_id`, `node_kind`, `gate_role` under Task's "필수" column. It is added
-  because the Task id rule in the *same* table already requires `<stage_code>` to construct the
-  id, and Rune's `orderStageWork` work items already carry `stage_code` 1:1 (verified at
-  `stage_rule_compiler.mjs:1989`) — so this closes an internal inconsistency in the source table
-  rather than introducing new scope.
-- `Step.task_id`, `Step.workflow_id`, and `Action.step_id` are likewise added because the id rules
-  for those layers cannot be reconstructed without them, and the brief's "필수" column for those
-  two rows only lists the layer's own local key (`step_id`/`seq`/`blueprint_ref`,
-  `action_kind`/`effect_class`/`receipt_required`).
-- `Task.steps` (array of Step-id strings, empty by default) is added to carry the "which Step
-  nodes did this Task mint" relationship using the same id-token-array idiom the contract already
-  uses for `depends_on` (§3.2), rather than embedding full Step objects. This is also the field
-  the "steps must be empty when blueprint_ref is null" rule (§4 below) constrains.
-- **Known open gap, not resolved here**: a Task's id rule does not encode which WorkPackage it
-  belongs to. In the Phase 0 default case (one `wp:<stage_code>:default` per stage) this is not
-  ambiguous, but if a Blueprint ever declares more than one named WorkPackage per stage, nothing
-  in this contract states how a Task is assigned to one of them. Left open for the owner decision
-  already flagged in the brief (§13-3) rather than guessed at here.
-
-**Mapper obligation (2026-09-06 review, M7; enforced starting commit 2)**: a Task node's `id`
-must be composed deterministically from exactly `stage_code` + `artifact_type_id`
-(`task:<stage_code>:<artifact_type_id>`, per the id rule above) — this is the same value a
-downstream consumer joins on as `rune_task_id`. Commit 2's field-mapping compiler test will
-reject any Task node whose `id` cannot be reconstructed from its own `stage_code` /
-`artifact_type_id` fields. The reviewer's rule, verbatim: 소비자가 join하는 키는 `id`(=
-`rune_task_id`)이고, `work_order_ref`는 노드의 `order_index` + 투영 영수증
-`upstream_receipt.output_digests.stages`로 구성한다. 노드에 별도 필드를 만들지 않는다. (A
-consumer's join key is `id`, i.e. `rune_task_id`; `work_order_ref` is built from the node's own
-`order_index` plus the projection receipt's `upstream_receipt.output_digests.stages` — no
-separate field is added to the node for it.)
-
-## 3. Common fields (all layers)
-
-| Field | Shape | Source |
+| Layer | Local id reconstruction | Required layer data |
 | --- | --- | --- |
-| `schema_version` | const `"soulforge.engineering_engine.task_hierarchy.v1"` | This contract |
-| `owner_authority` | const `"rune"` | Drive §15.1 |
-| `applicability` | `{business_type, prime_contractor, quality_grade, applies_when[]}` | `business_type`/`prime_contractor`/`quality_grade` copied from the compiled variant (`stage_rule_compiler.mjs` `VARIANT_FIELDS`, validated `assertSafeString` at `:513`–`:516`); `applies_when` copied per-task. The source field is nullable (`:945`–`:946`), but this contract's own schema requires `applies_when` to always be an array (2026-09-06 review, B2/M5) — a mapper (commit 2) coalesces a `null` source value to `[]` before emitting a node; "no conditions" is `[]`, never `null` |
-| `depends_on[]` | array of id tokens | Rune work item `depends_on` (`item.declared`, `stage_rule_compiler.mjs:2003`) |
-| `dependency_scope` | `{same_stage[], earlier_stage[], forward_stage[], out_of_scope[], unresolved[]}` | Rune's `same_stage_inputs`/`earlier_stage_inputs`/`forward_stage_inputs`/`out_of_scope_inputs`/`unresolved_inputs` (`:2004`–`:2008`), renamed without the `_inputs` suffix per the brief's own §3.2 naming |
-| `preconditions[]` | array of `{invariant_id, kind:"precondition", state}` | Populated by `task_invariants_v0` (commit 2). The exact `state` value set for a precondition record is not fixed by this contract — left as a non-empty string pending that commit |
-| `completion_contract` | `{invariant_ids[], minimum_presence_rule, required_evidence[]}` | `minimum_presence_rule` copied verbatim from Rune's `PRESENCE_RULE` enum: `present` \| `present_or_not_applicable` \| `optional_context` (`stage_rule_compiler.mjs:105`–`109`) |
-| `evidence_refs[]` | array of `{ref_kind, exact_ref, sha256\|null}` | Observation/receipt refs. No raw payloads — pointers only |
-| `blueprint_ref` | `{workflow_id, version, version_source:"id_suffix"}` or `null` | On a `Task` node, `null` ⇒ `state: WORKFLOW_GAP` (schema `allOf`, 2026-09-06 review M4/B3 — see §6). `Stage` and `WorkPackage` nodes are not workflow-bound at all and may carry a `null` `blueprint_ref` with any `state`; this constraint is Task-only. `version` is derived from the workflow id's suffix (e.g. `_v0`), **not** a registry field — see "`.workflow` has no `version:` field" below |
-| `state` | enum `READY \| BLOCKED_INPUT \| BLOCKED_PRECONDITION \| WORKFLOW_GAP \| SATISFIED \| UNKNOWN` | Computed (see §4 mapping table, `ready`/`blocked_by` row) |
-| `claim_ceiling` | const `"observed"` | Same claim ceiling Rune's own receipt carries (`stage_rule_compiler.mjs:2029`) |
+| Stage | `stage_code` | `stage_code`, `stage_sequence` |
+| WorkPackage | `wp:<stage_code>:<work_package_key>` | `stage_code`, `work_package_key`, `title_ko`, `owner_domain_rune` |
+| Task expectation | `task:<stage_code>:<artifact_type_id>` | `stage_code`, `artifact_type_id`, source work-item fields (§4), `steps[]`, `node_role`, membership fields below |
+| Step | `step:<full task_id>:<workflow_id>:<local step_id>` | `task_id`, `workflow_id`, local `step_id`, `seq`, `title`, `actor_slot`, `next`, `definition_ref`, non-null `blueprint_ref` |
+| Action | `action:<full Step id>:<action_kind>` | full parent `step_id`, `action_kind`, `effect_class`, `receipt_required`, `definition_ref`, non-null `blueprint_ref` |
 
-Task-only fields carried straight from the Rune work item, not re-derived: `satisfied_inputs[]`,
-`blocked_by[]` (kept outside `dependency_scope`, unchanged names, `:2009`–`:2010`), `order_index`,
-`dependents_count` (copied, not re-sorted, `:1988`, `:1995`), `engine_requirement_id`, `alias`
-(nullable, `stage_rule_compiler.mjs:974`), `observation_state`, and a `provenance` object holding
-`evidence_level` (enum `regulation_mandated \| guidebook_recommended \| prime_contract \|
-general_se_guidance \| internal_management \| unstated`, `stage_rule_compiler.mjs:116`),
-`evidence_rank` (number), `evidence_record[]`, and `depends_on_origin` (enum `canonical \|
-generic_layer_projection \| mixed`, `:170`).
+Task ids are local expectation keys, never durable actual-task ids.
+`order_index` plus an upstream digest identifies an occurrence in a particular projection;
+it is not a permanent business identity. Artifact revisions and execution episodes remain
+separate Rune-owned relations, outside this node shape.
 
-`steps` (§2) and `blocked_by` are Task-exclusive: the schema (2026-09-06 review, m12) rejects
-either field on a Stage, WorkPackage, Step, or Action node via `not`/`required`, not just via
-convention.
+Task membership is an explicit typed relation, represented by:
 
-## 4. `orderStageWork` → `task_hierarchy_v1` field mapping (verified, no Rune output change)
+- `work_package_ref: {project_id, product_id, id} | null`;
+- `work_package_basis_refs[]`: exact binding pointers and non-null SHA-256 digests;
+- `actual_task_ref: null`: an intentional restriction until a Rune-approved actual-task
+  relation contract supplies scope, authority, uniqueness, and evidence rules.
 
-Verified directly against `guild_hall/engineering_engine/engines/systems_engineering/rules/
-stage_rule_compiler.mjs` on this lane's `main` (`d0f95448`): the work-item object literal spans
-lines 1987–2013 (`for (const item of emitted)` starts at `:1981`), and the receipt object spans
-lines 2025–2049. **Every field name the brief's §3.3 table cites was found present, with the exact
-name given, at (or within two lines of) the line numbers the brief cited — no field-name mismatch
-against the brief was found.** One naming subtlety worth flagging for whoever writes commit 2's
-mapper: `evidence_rank` and `gate_role_rank` each appear **twice** in the compiler's output at two
-different levels with two different meanings — once per work item (`gate_role_rank:
-GATE_ROLE_RANK[item.node.gate_role] ?? 9`, a single number, `:1994`) and once on the whole receipt
-(`gate_role_rank: {...GATE_ROLE_RANK}`, the entire rank table, `:2033`). The mapping below only
-uses the per-item numbers; the receipt-level tables are not part of a Task node.
+A non-null WorkPackage reference requires at least one binding evidence reference, exactly
+one existing WorkPackage in the same project/product, and the same stage. Wrong-project,
+wrong-product, wrong-stage, missing, and duplicate endpoints fail validation. No default
+membership is inferred, even when there is only one WorkPackage. Unknown or ambiguous
+membership remains `null` with an empty basis list; multiple WPs may coexist. Explicit,
+evidence-backed membership to one of those WPs is allowed.
 
-| Rune `orderStageWork` field (`stage_rule_compiler.mjs:1981`–`:2013`) | `task_hierarchy_v1` field |
+Step `task_id`, Action `step_id`, and Task `steps[]` resolve only inside the node's exact
+scope. A Task must list each child Step once; every listed Step must point back to it.
+A Step's local `step_id` differs from an Action's full parent `step_id`.
+All ids must equal their reconstruction from fields, not merely match a regular expression.
+
+## 3. Evidence state and procedure availability
+
+All nodes carry `schema_version: "soulforge.engineering_engine.task_hierarchy.v1"`,
+`owner_authority: "rune"`, `claim_ceiling: "observed"`, applicability, source dependencies,
+preconditions, completion conditions, evidence pointers, and Blueprint availability.
+
+| Field | Meaning |
 | --- | --- |
-| `stage_code` (work item), `stage_sequence` (stage) | `Stage.stage_code` / `.stage_sequence`; also copied onto `Task.stage_code` (see §2 design note) |
-| `artifact_type_id` | `Task.artifact_type_id` + Task id material |
-| `node_kind`, `is_virtual`, `gate_role`, `gate_role_rank` | Same-named `Task` fields (`is_virtual` not yet in the schema's property bag — see "Not yet in the schema" below) |
-| `depends_on` | `Task.depends_on` |
-| `same_stage_inputs` / `earlier_stage_inputs` / `forward_stage_inputs` / `out_of_scope_inputs` / `unresolved_inputs` | `Task.dependency_scope.{same_stage,earlier_stage,forward_stage,out_of_scope,unresolved}` |
-| `satisfied_inputs` / `blocked_by` | `Task.satisfied_inputs[]` / `.blocked_by[]`, unchanged, outside `dependency_scope` |
-| `ready` | `ready === true` and every applicable precondition invariant `SATISFIED` ⇒ `READY`; `ready === false` ⇒ `BLOCKED_INPUT` |
-| `minimum_presence_rule` | `Task.completion_contract.minimum_presence_rule` |
-| `evidence_level`, `evidence_rank` (per-item), `evidence_record`, `depends_on_origin` | `Task.provenance.*` |
-| `engine_requirement_id`, `alias` | `Task.engine_requirement_id` / `.alias` |
-| `observation_state` | `Task.observation_state` |
-| `order_index`, `dependents_count` | `Task.order_index` / `.dependents_count` — copied, never re-sorted |
-| Receipt `input_digests` / `output_digests` / `counts` / `effects` (`:2034`–`:2048`) | Embedded verbatim into the projection receipt's `upstream_receipt` block (commit 4 concern, not this schema) |
+| `state` | Existing work/evidence state: READY, BLOCKED_INPUT, BLOCKED_PRECONDITION, SATISFIED, UNKNOWN |
+| `procedure_state` | Procedure availability only: READY or WORKFLOW_GAP |
+| `blueprint_ref` | `{workflow_id, version, version_source: "id_suffix"}` or `null` |
 
-`is_virtual` is present in Rune's output and is real, verified data, but is not yet included as a
-named property in `task_hierarchy_v1.schema.json`'s property bag for this commit — adding it is a
-one-line schema change commit 2's mapper author should make when they need it, not invented ahead
-of a consumer.
+A null Blueprint requires `procedure_state: "WORKFLOW_GAP"` and zero Steps.
+It never overwrites `state`, `ready`, `observation_state`, or other source evidence.
+A resolved Blueprint requires `procedure_state: "READY"`. This READY says only that a
+procedure is available; it does not authorize execution, accept a result, or make blocked
+source inputs ready. A projected `state: READY` cannot promote source `ready:false`.
 
-## 5. One-way rule
+Unversioned workflow ids stay unresolved with a null Blueprint. A non-null Blueprint must
+use a `_vN` suffix, an exactly matching `version: "vN"`, and `version_source: "id_suffix"`.
+Step and Action Blueprints must match their parent's exact workflow/version.
+A Step's own `workflow_id` must match its Blueprint. This does not add a registry version
+field or verify workflow bytes: exact approved version policy remains the workflow owner's
+D48 decision; definition pointers must be resolved and verified by the future source reader.
 
-`task_hierarchy_v1` only *reads* Rune's `orderStageWork` output. There is no path from a Task
-node, a Step node, or any evidence/receipt field back into Rune's compiler input, its stage rules,
-or its MCP surface. Rune's judgement of what is `ready`, `blocked_by`, or what a stage requires is
-never recalculated, only copied. This mirrors the brief's own instruction (§3.3, closing bullet)
-verbatim.
+## 4. Source field preservation
 
-The §2 mapper obligation (2026-09-06 review, M7) is part of this same one-way discipline: a
-consumer joins on the Task node's own `id` (= `rune_task_id`), and derives `work_order_ref` from
-that node's `order_index` plus the projection receipt's `upstream_receipt.output_digests.stages`
-— never a new field minted on the node. A consumer that invents its own parallel join key or
-work-order identifier instead of deriving one from what Rune already emits could drift from
-Rune's record without either side noticing; joining on `id` cannot.
+The current `orderStageWork` source is
+`rules/stage_rule_compiler.mjs` in this package. Every work-item property is represented
+without recomputation; source-token arrays are not hierarchy node references.
 
-## 6. `.workflow` has no `version:` field (owner decision, 2026-09-06)
+| Source | Required Task expectation field |
+| --- | --- |
+| `stage_code`, `artifact_type_id`, `node_kind`, `is_virtual`, `gate_role`, `gate_role_rank` | Same names |
+| `order_index`, `dependents_count`, `engine_requirement_id`, `alias`, `observation_state`, `ready` | Same names; alias retains null |
+| `depends_on` | `depends_on` (source artifact tokens, not invented task ids) |
+| `same_stage_inputs`, `earlier_stage_inputs`, `forward_stage_inputs`, `out_of_scope_inputs`, `unresolved_inputs` | `dependency_scope.{same_stage,earlier_stage,forward_stage,out_of_scope,unresolved}` |
+| `satisfied_inputs`, `blocked_by` | Same names |
+| `minimum_presence_rule` | `completion_contract.minimum_presence_rule` |
+| `evidence_level`, `evidence_rank`, `evidence_record`, `depends_on_origin` | `provenance.*` with unchanged names |
 
-None of the 71 entries in `.workflow/index.yaml` carry a `version:` field — the only version
-marker is the id suffix (e.g. `_v0`). Per the 2026-09-06 owner review answer (brief §15 row 4),
-this contract does **not** introduce a `version:` field into the `.workflow` registry contract.
-Instead, `blueprint_ref.version` is derived from the referenced workflow id's suffix, and
-`blueprint_ref.version_source` is fixed to the literal string `"id_suffix"` so a reader always
-knows how `version` was obtained (as opposed to, say, a future registry-native version field).
-Adding a real `version:` field to the registry is left as a `.workflow`-owner decision (see D48
-candidate row, §7 below).
+Ordering and arrays must be copied, not sorted again. Required integer counts/ranks are
+nonnegative; numbers must be finite; observation and provenance values use the source enums.
+Schema validation never mutates or coerces source values. A later mapper must independently
+test all fields against source and prove the upstream digest is unchanged; schema shape
+validation alone is not evidence that a mapper preserves values.
 
-**Unsuffixed workflow ids (2026-09-06 review addendum, B3)**: `version_source: "id_suffix"` is
-undefined when a workflow id carries no `_vN` suffix to derive a version from. Of the 71 entries
-in `.workflow/index.yaml`, 64 carry a `_vN` suffix and 7 do not: `frontline_assault`,
-`build_lineage_map`, `author_skill_package`, `meeting_followup`,
-`device_system_diagram_generation`, `exp_xml_component_materials`, and
-`component_pcb_layout_guide_extraction`. Decision (총괄 review, under Owner delegation): a
-Task whose workflow id has no `_vN` suffix does **not** get a `blueprint_ref` minted for it —
-it is left exactly as if the Task had no workflow reference at all, i.e.
-`blueprint_ref: null`, `state: WORKFLOW_GAP` (§3's `blueprint_ref` row and its Task/
-`blueprint_ref:null` ⇒ `state:WORKFLOW_GAP` schema conditional, M4). A `.workflow`-owner decision
-that adds a real `version:` field (D48 candidate, §7) could retire this gap for those 7 ids;
-until then, none of them can mint a `blueprint_ref` under this contract.
+Applicability is supplied from the compiled variant/source context, not invented from a
+work-item row. `applies_when` preserves its source array or null.
 
-## 7. Follow-ups (not this commit)
+Step `title`, `actor_slot`, and `next.on_success/on_fail` are copied when provided, retaining
+absent versus explicit null next targets. These next values are workflow-local source keys,
+not hierarchy refs or an execution transition policy. Other workflow next conditions remain
+in `definition_ref`; the future source reader must not discard their meaning.
+Action `requires[]`, `validates[]`, and `creates[]` are copied when present and omitted when
+absent, never filled with guessed empty arrays. Each Step/Action carries an exact
+`definition_ref` plus SHA-256 for its complete source definition, including other fields
+outside this bounded projection. `effect_class` and `receipt_required` need approved source
+mapping; the contract does not infer action authority.
 
-- `task_invariants_v0` (`guild_hall/engineering_engine/engines/systems_engineering/contracts/task_invariants_v0.json`): the
-  five cross-blueprint invariants (`INV-PROC-01` … `INV-BASE-05`) that populate `preconditions[]`
-  and give `completion_contract.invariant_ids[]` real content. Commit 2.
-- The pure-function field mapper (Rune work item → `task_hierarchy_v1.Task`) and its
-  fail-closed test (an invariant may only make `ready:true` more conservative, never promote
-  `ready:false` to `READY`). Commit 2.
-- The artifact-class → part table and the replayable `project_task_graph.v1` JSONL projection with
-  receipt. Commits 3 and 4.
-- `Task → WorkPackage` linkage when a Blueprint declares more than one WorkPackage per stage (§2
-  open gap above).
+## 5. Validation and public/private boundary
+
+Use both sibling validator APIs:
+
+1. `validateJsonSchemaSubset(node, schema)` for closed shape, required fields, enums and types.
+2. `validateTaskHierarchyNodes(nodes, schema)` for the complete scoped node set, including the
+   same schema validation, duplicate detection, deterministic id reconstruction, membership,
+   parent/child integrity, and Blueprint agreement.
+
+Both return error arrays and leave inputs unchanged. Missing context fails closed;
+validation does not resolve files, registry entries, canonical Task bindings, or evidence
+acceptance. Passing means structurally consistent candidate data, not approved truth.
+
+Evidence and definition references contain only `ref_kind`, an opaque `ref:` locator,
+and SHA-256 (nullable for observation/receipt evidence only). Raw bodies, extra fields,
+absolute paths, query-bearing URLs, and traversal references are rejected. Locators use
+slash-separated alphanumeric-leading tokens containing only letters, digits,
+underscores, dots, or hyphens. Colons after `ref:`, leading/repeated slashes, and backslashes
+are forbidden, including Windows paths or URL schemes hidden behind the `ref:` prefix.
+Caller-owned resolvers retain payloads and private bindings outside public code. Public tests use only
+synthetic project/product ids, tokens and opaque refs; they do not read real project data
+or secrets. These syntax checks do not replace classification of source content.
+
+## 6. One-way rule
+
+The projection reads Rune output and preserves its evidence. It cannot feed back into the
+compiler, stage rules, MCP surface, actual Task ledger, artifact revision history, or execution
+episodes. Preconditions and completion conditions describe approved evidence requirements;
+this contract adds no invariant execution or blocking authority. In particular, a missing
+procedure never manufactures Steps or changes coverage.
+
+## 7. Follow-ups and claim limit
+
+The mapper and digest-preservation tests follow this contract closure. Invariant enforcement,
+artifact-class/part dictionaries, fixed-generation replay, atomic receipt/projection output,
+bitemporal corrections, and live readers/writers are later slices. The expanded substitution,
+rework/revision/episode, cancellation, reuse, correction and duplicate-execution scenarios in
+brief §16 must be tested when those relation/projection surfaces exist. They are not claimed
+as implemented by node shape and scoped parent validation.
 
 ## 8. What a D46/D47 non-approval would invalidate
 

@@ -1,5 +1,18 @@
 # guild_hall/shared
 
+## Workbench / Rune 업무 결속
+
+`work_binding.mjs`는 접수 요청 전체의 정규화 digest와 과제·제품·WP·단계·산출물
+범위의 업무 식별을 분리한다. `evaluateWorkBinding`은 별도로 공급된 현재 인증·ACL·
+정책·Rune/Linear·입력 판본·Blueprint 근거를 비교하며, `evaluateWorkClaimEligibility`는
+접수 당시 결속과 새로운 현재 근거를 다시 비교한다. 이 함수들은 기존 실행 권한 검사나
+claim을 대체하지 않고 파일·모델·실행·수락 권한을 만들지 않는다.
+
+한 요청은 산출물 슬롯 하나다. 미매핑·절차 부재·구판 미승인은 기록 가능한 후보이고,
+인증·범위·정책 오류는 거부한다. 서버가 인증·근거 출처·신선도를 보장해야 하며 클라이언트
+요청을 신뢰 근거로 되돌려 쓰면 안 된다. `validate:workbench-binding`의 공유 합성 fixture가
+다른 과제 오조인·변경된 재요청·권한 회수·판본 변경을 검증한다.
+
 ## M2-1 Project Knowledge View admission (public-synthetic candidate)
 
 - `project_knowledge_view.mjs` selects exactly one project and an explicit set of

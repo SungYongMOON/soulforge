@@ -1,8 +1,9 @@
 # Server-pack absorption — TARGET (not current)
 
-Status: `TARGET`. Nothing in this document is built. It records the decision of
-2026-09-04 and the two preconditions that block it, so the next person does not
-have to rediscover them.
+Status: `TARGET`. The proposed operations-lane absorption is not implemented.
+Existing Pack capabilities are described separately below. It records the decision of
+2026-09-04. The 2026-09-07 source correction below distinguishes the existing
+vendored-dependency support from the still-missing Board build closure.
 
 ## The decision
 
@@ -34,23 +35,22 @@ Chosen order: **source-lane builder first, absorption second.**
   (`evidence_ledger.mjs` in the pack; the rest only in the lane). A module whose
   files live in two release trains has no single answer to "what version is it".
 
-## Precondition 1 — the untracked runtime closure
+## Existing capability — pinned vendored runtime closure
 
-A pack spec enumerates tracked repository files. The operations lane carries
-2,410 files that are not tracked:
+A pack spec enumerates explicit files, including untracked dependencies when
+their exact bytes are pinned. `emit_hpp_spec.mjs` already emits the
+`vendored_dependencies` role and `vendored_file_sha256` for six package roots:
+`yaml`, `ajv`, `fast-deep-equal`, `fast-uri`, `json-schema-traverse`, and
+`require-from-string`. Its `--check` validates those bytes. The earlier claim
+that `build_pack.mjs` had no representation for untracked runtime closure was
+incorrect.
 
-- `ui-workspace/node_modules/` — 2,177 files, the `vite` + `@vitejs/plugin-react`
-  runtime closure
-- `node_modules/yaml/` — 233 files
+This does not mean that the Board's Vite/React closure has been declared or
+built into HPP. Historical lane file counts are not current source evidence.
 
-`build_pack.mjs` has no representation for these. Until it does, absorbing the
-lane would mean either vendoring a dependency closure into tracked files or
-requiring the host to reach a package registry at install time. Both are
-decisions with consequences beyond this module, so neither is taken here.
+## Remaining precondition — Board source, build inputs and output provenance
 
-## Precondition 2 — the gitignored build output
-
-`ui-workspace/apps/team-ops-board/dist/` (5 files) is the vite client bundle. It
+`ui-workspace/apps/team-ops-board/dist/` is the vite client bundle. It
 is gitignored, so it cannot come from a commit, and it cannot be built inside
 the lane by design: the lane's `node_modules` is the runtime closure only, and
 the client bundle also imports `react`, `react-dom`, `@xyflow/react`,
@@ -60,12 +60,13 @@ it.
 The source-lane builder handles this honestly by carrying it forward with a
 digest proof and recording the condition under which that is valid (the Board
 client source unchanged since the previous lane's commit). A pack spec has no
-such concept: a pack is a pure function of tracked files, and `dist/` is not one.
+declared Board bundle input yet. Absorption needs source-bound build output and
+its complete dependency closure, followed by actual installed smoke evidence.
 
 ## What would have to be decided
 
-1. Does a pack gain a declared "unmanaged closure" partition with its own digest
-   ledger, or does the closure become tracked?
+1. Which additional Board build/runtime packages join the existing explicit
+   vendored closure, with lockfile and exact per-file digest evidence?
 2. Does `dist/` become a build step inside the release ladder (which would give
    the pack a build closure it deliberately does not have today), or a declared
    carried input with a provenance record?
@@ -73,5 +74,6 @@ such concept: a pack is a pure function of tracked files, and `dist/` is not one
    `hpp_server_pack` change that pack's `contains` boundary or its
    `content_roles`, and does the initial release gate have to be re-earned?
 
-Until 1 and 2 are answered, absorption is not a scheduling problem, it is a
-design problem, and the honest status is `TARGET`.
+Until the Board source/build/output closure and boundary are implemented and
+verified, absorption remains `TARGET`. The current-spec candidate rehearsal
+does not build, install, register or retire any operational source lane.

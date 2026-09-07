@@ -10,9 +10,17 @@
 
 ## 구성
 
+- `forge_world_coverage.mjs`: 기존 R1 입력을 다시 검증·계산하고, 컴파일된 기대 산출물 정책의
+  `(project_code, stage_code, artifact_family_id)`마다 세계 표시용 슬롯 하나를 만든다.
+  입력·정책 digest와 과제를 결속하고 원천 관측 시각·상태별 개수·미선언/미매핑 수를 보존한다.
+  요구 커버리지 셀 수를 슬롯 수로 세지 않으며 견본과 관측은 분리한다. 입력은 이미 허용된
+  메타데이터여야 한다. digest 일치는 읽기 권한이나 사람 수락을 만들지 않는다.
+  파일/시계/예약작업 접근이 없는 생산자이며 실제 프로젝트 입력 갱신·운영 배선은 별도다.
 - `requirement_coverage.mjs`: `computeRequirementCoverage(input)` 한 개의 export 표면과 그 보조 export
   (`requirementKeyFromRef`, `RequirementCoverageError`, `ERROR_CODES`, `ASSESSMENT`,
   `REQUIREMENT_COVERAGE_SCHEMA_VERSION`).
+- `REQUIREMENT_COVERAGE_REASON_CODES`는 원래 계산기가 쓰는 사유 어휘의 읽기 export다.
+  세계 reader는 이를 직접 소비해 상충·판본 미고정·잘못된 참조를 유효한 관측 사유로 보존한다.
 - `requirement_coverage.test.mjs`: 결정론, 양시간축 재생, fail-closed, outdated, 고아, 게이트 3분기,
   입력 불변·출력 deep-freeze, 소스 정적 pin 회귀.
 - `coverage_input_builder.mjs`(R2 준비, 2026-08-18): 요구 ID 색인 1건 + Needs 정책 1건 + 산출물 단위 관측을

@@ -173,13 +173,13 @@ function createAuthorityCapability(root, projectRef, { expiresInMs = 60 * 60 * 1
 function makeFixture(
   t,
   directoryName = "copy",
-  { bind = true, authorityOptions = {} } = {},
+  { bind = true, authorityOptions = {}, projectionSubdirectory = "artifacts" } = {},
 ) {
   const root = mkdtempSync(path.join(os.tmpdir(), "soulforge-ph-copy-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const directory = path.join(root, directoryName);
   const dbPath = path.join(directory, "pilot-copy.sqlite");
-  const projectionRoot = path.join(root, "artifacts");
+  const projectionRoot = path.join(root, projectionSubdirectory);
   const bindingPath = path.join(root, "private-binding.json");
   const parent = path.dirname(dbPath);
   mkdirSync(parent, { recursive: true });
@@ -227,6 +227,25 @@ function refreshBinding(fixture) {
     readbackPath: paths.xlsxReadbackPath,
   });
 }
+
+windowsPathLockTest("native identity-bound publication supports artifact paths beyond MAX_PATH and replays byte-identically", (t) => {
+  // Cross MAX_PATH even with a drive-root temp directory; keep each component
+  // below NTFS's 255-character component limit.
+  const fixture = makeFixture(t, "copy", { projectionSubdirectory: `long-artifacts-${"p".repeat(192)}` });
+  const generation = makeGeneration();
+  const attestation = sha256Canonical(generation);
+  assert.ok(fixture.directory.length > 260, "the actual native directory lock must cross the legacy Win32 limit");
+  const inserted = projectCopiedErpHistory({ ...fixture, generation, attestation, pilotCopy: true });
+  assert.equal(inserted.status, "inserted");
+  assert.equal(inserted.accepted_history, false);
+  const bytes = readFileSync(fixture.xlsxPath);
+  const verified = verifyCopiedProjectHistoryProjection({ ...fixture, generationId: generation.generation_id,
+    attestation, pilotCopy: true, artifactManifestDigest: inserted.artifact_manifest_digest });
+  assert.equal(verified.db_xlsx_parity, true);
+  refreshBinding(fixture);
+  assert.equal(projectCopiedErpHistory({ ...fixture, generation, attestation, pilotCopy: true }).status, "replayed");
+  assert.deepEqual(readFileSync(fixture.xlsxPath), bytes);
+});
 
 windowsPathLockTest("projects one immutable generation into an existing copied DB and replays byte-identically", (t) => {
   assert.deepEqual(PROJECT_HISTORY_COPY_PROJECTION_CLAIM_CEILING, {

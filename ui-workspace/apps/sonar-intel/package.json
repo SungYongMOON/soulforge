@@ -11,6 +11,7 @@
     "start": "node server.mjs",
     "dev": "node --watch server.mjs",
     "collect": "node tools/collect_once.mjs",
+    "analyze": "node --max-old-space-size=192 tools/analyze_once.mjs",
     "export:snapshot": "node tools/export_snapshot.mjs",
     "test": "node --test test/*.test.mjs"
   }

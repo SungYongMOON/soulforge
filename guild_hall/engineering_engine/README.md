@@ -1100,6 +1100,11 @@ compatibility Adapter와 per-profile compilation trace를 먼저 검증한다.
   + `engines/systems_engineering/schemas/task_hierarchy_v1.schema.json` +
   `task_hierarchy_v1_schema_validator.mjs` + `engines/systems_engineering/tests/task_hierarchy_contract.test.mjs`
   (`npm run validate:task-hierarchy-contract`, done-check 단계 `task-hierarchy-contract`)
+- `engines/systems_engineering/rules/task_hierarchy_mapper.mjs`는 exact variant·overlay·compiler·
+  work-order 입력을 scoped 기대 업무와 선택적인 WP/Blueprint 관계로 투영한다. 실제 Task를
+  만들지 않고 절차가 없을 때도 원래 관측 상태를 보존한다. digest는 파싱한 자료의 정합 검사이며
+  호출자가 제시한 원본 파일 SHA의 실제 검증을 대신하지 않는다. `validate:task-hierarchy-mapper`는
+  실제 컴파일러 합성 출력·overlay·상충·불변성·파일/네트워크/시계 없는 실행을 검증한다.
 - `fixtures/`: 합성 fixture
 - `tests/`: 동결 oracle 대조 conformance
 - `evaluation/`: Engine 결과와 외부 advisory 결과를 정규화해 비교하는 순수 평가기. provider 로그인·질의·업로드는 하지 않는다

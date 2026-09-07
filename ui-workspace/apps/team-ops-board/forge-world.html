@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Soulforge · 해안 연구개발기지</title><link rel="stylesheet" href="/src/forge-world.css"></head>
+<body>
+  <header><a class="brand" href="/forge-world.html"><span class="brand-mark">S</span><span>SOULFORGE<small>ENGINEERING OPERATING SYSTEM</small></span></a>
+    <nav aria-label="주요 화면"><a class="active" href="/forge-world.html" aria-current="page">세계</a><a href="/workbench.html">작업대</a><a href="/">운영 현황</a></nav>
+    <span class="mode">읽기 전용 · 개발 후보</span>
+  </header>
+  <main>
+    <section class="intro"><div><p class="eyebrow">CANTO I / THE KINDLING</p><h1>해안 연구개발기지</h1><p class="subtitle">과제의 근거가 쌓이고, 다음 업무가 이어지는 곳.</p></div>
+      <div class="refresh"><span id="read-time">관측 자료 연결 중</span><button id="refresh" type="button">관측 새로 읽기 ↻</button></div></section>
+    <div class="workspace">
+      <section class="scene-card" aria-label="프로젝트 부지 지도"><div class="map-caption"><span>RESEARCH COAST</span><span>2.5D · 부지 선택으로 근거 탐색</span></div>
+        <svg id="world" viewBox="0 0 1440 900" role="img" aria-label="해안 연구개발기지와 두 프로젝트 부지"><defs>
+          <linearGradient id="sea" x2="0" y2="1"><stop stop-color="#153746"/><stop offset="1" stop-color="#0d2432"/></linearGradient>
+          <linearGradient id="land" x2="0.9" y2="1"><stop stop-color="#89978c"/><stop offset="1" stop-color="#566d63"/></linearGradient>
+          <pattern id="water" width="80" height="48" patternUnits="userSpaceOnUse"><path d="M8 25l18-4m35 18l15-3" stroke="#72a5ae" stroke-width="1" opacity=".15"/></pattern>
+          <filter id="shadow"><feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#07151a" flood-opacity=".4"/></filter>
+        </defs><g id="viewport"></g></svg>
+        <div class="map-controls"><button id="zoom-out" aria-label="지도 축소">−</button><button id="reset-view">전체 보기</button><button id="zoom-in" aria-label="지도 확대">+</button></div>
+        <div class="legend" aria-label="근거 상태 범례"><span><i class="lit"></i>정책 충족 관측</span><span><i class="warm"></i>판정 유보</span><span><i class="missing"></i>부재 확인</span><span><i class="fog"></i>미확인</span><span><i class="conflict"></i>상충</span></div>
+      </section>
+      <aside class="detail"><p class="eyebrow">PROJECT SITES</p><div id="sites"></div><div id="project-detail" aria-live="polite"></div></aside>
+    </div>
+    <section class="evidence-strip"><div><span class="strip-label">표시의 기준</span><p>파일 존재 · 정책 비교 · 사람 수락은 각각 다른 증거입니다.</p></div><div><span class="strip-label">현재 연결</span><p id="coverage-summary">자료를 확인하고 있습니다.</p></div><div><span class="strip-label">다음 업무</span><p>부지의 산출물을 선택해 근거와 요청 연결을 확인합니다.</p></div></section>
+  </main>
+  <footer><span>SOULFORGE / GRAM</span><span>이 지도는 업무·수락 상태를 변경하지 않습니다.</span></footer>
+  <script type="module" src="/src/forge-world-page.mjs"></script>
+</body></html>

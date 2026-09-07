@@ -3,7 +3,7 @@
 > 이 문서가 소나 인텔 플랫폼 프로젝트의 **유일한 정본 계획서**다.
 > 어떤 봇이든 이 문서를 읽으면 대화 맥락 없이 작업을 이어갈 수 있어야 한다.
 - 작성: 2026-08-24, 관리자 봇(bot-message-probe)이 Owner(소나 엔지니어)와 합의
-- 상태: **기획 확정 / v1 Goal #1 구현+첫 수집 완료 (2026-09-06)** — 다음 단계는 §9
+- 상태: **Goal #1 구현 / Goal #2 제한 관측 읽기 기능 구현 (2026-09-07)** — 새 수집·군집·종합 순위는 §9 조건 유지
 - 하위 리서치 원본: `research_*.md`, `sonar-intel-platform-scout.md` — 이 문서와
   같은 폴더에 있다(별도 `research/` 하위폴더는 없음)
 
@@ -66,7 +66,7 @@ ui-workspace/apps/sonar-intel/          ← 본 앱 (dev-erp의 형제 앱, 동�
 │   │   ├── kipris                     ← 키 발급 후 활성화 (승인 절차 완료됨, 키 발급 대기)
 │   │   └── news_rss                   ← 6시간마다 (Google News RSS + Defense News RSS 실측 OK)
 │   ├── store.mjs                       ← CORE DB (intel.db, SQLite 시작 → PostgreSQL 이식 가능)
-│   ├── analysis/                       ← M4 공출현 그래프(networkx/louvain), 버스트 감지 (LLM 0회)
+│   ├── analysis/                       ← 제한된 Node 공출현·주간 차이 구현; 군집·버스트는 조건부 후속
 │   └── llm_station/                    ← M3 태깅·M5 브리핑만 (유일한 LLM 지점)
 ├── config/
 │   ├── sources.yaml                    ← 소스별 on/off 스위치 (논문=실험적 on, 끌 수 있음)
@@ -91,7 +91,7 @@ ERP 연동은 DB 병합이 아니라 export/ 스냅샷 교환으로 (결합 없�
 ## 5. UI 설계 (프론트엔드)
 
 - 스택: dev-erp와 동일 계열 — 무의존 Node 서버 + vanilla JS/static. 빌드체인 없음.
-  그래프 뷰만 cytoscape.js 추가. React/Next 등 무거운 스택 금지(과함).
+  현재 관계 뷰는 무의존 표와 근거 상세다. 그래프 라이브러리 추가는 후속 검증 뒤 판단한다.
 - 탭 구조: 대시보드(수집현황·시그널피드) / 논문 / 부품 / 시장 / 트렌드맵 / 장비 카탈로그
 - 엔티티 카드(Pedigree 리뷰 탭 방식): 기업·기술·부품 클릭 → 관련 논문+특허+뉴스+제품 한 화면
 - 버튼형 액션(Dealroom 방식): "심층분석", "비교표", "브리핑 생성"
@@ -108,6 +108,11 @@ ERP 연동은 DB 병합이 아니라 export/ 스냅샷 교환으로 (결합 없�
 | KIPRIS | 주 1회 | 특허 성격상 동일 |
 
 ## 7. API 제약 요약 (준수 의무)
+
+아래 수치는 초기 기획 당시의 참고값이다. 현재 수집 권한·계정·상품·일일/주간 예산을
+증명하지 않는다. OpenAlex/S2/EPO/KIPRIS는 현재 공식 계약과 권리 범위를 고정하기 전
+OFF를 유지하며, 꺼짐을 자료/점수 0으로 표시하지 않는다. OpenAlex의 초기 polite-pool
+가정만으로 활성화해서는 안 된다.
 
 - arXiv: 요청 간 최소 3초, 동시 접속 1개 (info.arxiv.org/help/api/tou.html)
 - OpenAlex: polite pool 10 req/s · 10만/day (email 파라미터 필수)
@@ -159,10 +164,15 @@ verifier: approve/request-changes/hold 판정 (request-changes면 자동 재루�
        아직 붙지 않았다 — 팀 봇 4종 운영 체계(위 1번)가 서기 전까지는 열린 채로 둔다.
        실행 수치는 `CHANGELOG.md`의 같은 날짜 항목이 소유한다(계획서에 운영 로그를
        중복 기록하지 않음).
-4. [ ] v1 Goal #2: OpenAlex+S2 수집기 + 공출현 분석 + 주간 브리핑
-5. [ ] v1 Goal #3: EPO OPS 수집기 + KIPRIS 키 발급 후 활성화
-6. [ ] v2: 프론트엔드 탭 UI (백엔드 안정화 후)
-7. [ ] v3: 트렌드맵 시각화 + 버튼형 LLM 액션 (Pedigree 형태 완성)
+4. [x] v1 Goal #2 첫 관측: Goal #1 화면·JSON 설정 재사용 → 출처·중복·관측 범위 읽기
+       패널 → 제한된 Node 공출현 및 UTC 주간 자료 수 차이(2026-09-07). 고정 synthetic
+       자료와 CLI·임시 HTTP·브라우저에서 검증한 구현이며 실제 코퍼스 분석·운영 활성화는
+       주장하지 않는다. 배치는 HTTP 밖에서 실행하며 상한·규칙·한계는 README가 소유한다.
+5. [ ] Goal #2 후속: 최신 수집 계약(현재 권한·예산·권리) 고정 → OpenAlex/S2 →
+       버스트·주간 브리핑·상세 관측 프로필. LLM 액션은 별도 경로/게이트가 갖춰진 뒤.
+6. [ ] Goal #3: 승인된 EPO OPS·KIPRIS 수집. 키 존재만으로 권리/예산 승인으로 보지 않는다.
+7. [ ] 군집·종합 순위: 기준 구현 대조·연결성·규모 상한 및 시간 분리 backtest 후에만
+       검토한다. 현 단계는 순위·확률·승자 표시 없이 수집 자료 관측만 제공한다.
 
 ### Owner에게 남은 것
 - KIPRIS ServiceKey 발급 (마이페이지에서) → 나오면 백엔드봇에 전달

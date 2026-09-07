@@ -149,6 +149,10 @@ const REASON = Object.freeze({
   BYTES_UNRESOLVABLE: 'artifact_bytes_unresolvable',
 });
 
+// Consumers preserve this owner's reason vocabulary; a second allow-list can
+// otherwise reject valid conflict or incomplete-reference projections.
+export const REQUIREMENT_COVERAGE_REASON_CODES = Object.freeze(Object.values(REASON));
+
 // The order in which a present observation's defects are reported. `firstMark` in §5.3 is
 // resolved against this table rather than against arrival order, so the reported reason
 // does not depend on how the caller happened to sort its observations.

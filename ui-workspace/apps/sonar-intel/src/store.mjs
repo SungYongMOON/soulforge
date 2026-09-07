@@ -15,7 +15,7 @@
 // LLM calls in this module: zero.
 
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, appendFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, appendFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -113,7 +113,7 @@ async function detectSqliteModule() {
  */
 export async function openStore(options = {}) {
   const dataDir = options.dataDir ?? path.join(APP_ROOT, "data");
-  if (!existsSync(dataDir)) {
+  if (!existsSync(dataDir) && !options.readOnly) {
     mkdirSync(dataDir, { recursive: true });
   }
 
@@ -126,22 +126,22 @@ export async function openStore(options = {}) {
     }
   }
 
-  if (sqliteModule) {
-    return openSqliteStore(sqliteModule, dataDir, options.dbFileName ?? "intel.db");
+  if (sqliteModule && (!options.readOnly || existsSync(path.join(dataDir, options.dbFileName ?? "intel.db")))) {
+    return openSqliteStore(sqliteModule, dataDir, options.dbFileName ?? "intel.db", options.readOnly);
   }
-  return openJsonlStore(dataDir, options.jsonlFileName ?? "intel.jsonl");
+  return openJsonlStore(dataDir, options.jsonlFileName ?? "intel.jsonl", options);
 }
 
 // ---------------------------------------------------------------------------
 // SQLite backend
 // ---------------------------------------------------------------------------
 
-function openSqliteStore(sqliteModule, dataDir, dbFileName) {
+function openSqliteStore(sqliteModule, dataDir, dbFileName, readOnly = false) {
   const { DatabaseSync } = sqliteModule;
   const dbPath = path.join(dataDir, dbFileName);
-  const db = new DatabaseSync(dbPath);
+  const db = new DatabaseSync(dbPath, { readOnly });
 
-  db.exec(`
+  if (!readOnly) db.exec(`
     CREATE TABLE IF NOT EXISTS items (
       id TEXT PRIMARY KEY,
       type TEXT NOT NULL,
@@ -199,6 +199,7 @@ function openSqliteStore(sqliteModule, dataDir, dbFileName) {
   }
 
   function upsertItem(inputRecord) {
+    if (readOnly) throw new Error("store_read_only");
     assertValidRecord(inputRecord);
     const normalized = normalizeInputRecord(inputRecord);
     const existing = getItem(normalized.id);
@@ -314,12 +315,13 @@ function openSqliteStore(sqliteModule, dataDir, dbFileName) {
 // JSONL fallback backend (append-only log; latest line per id wins)
 // ---------------------------------------------------------------------------
 
-function openJsonlStore(dataDir, jsonlFileName) {
+function openJsonlStore(dataDir, jsonlFileName, options = {}) {
   const filePath = path.join(dataDir, jsonlFileName);
   /** @type {Map<string, object>} */
   const index = new Map();
 
   if (existsSync(filePath)) {
+    if (options.maxBytes && statSync(filePath).size > options.maxBytes) throw new Error("store_byte_limit_exceeded");
     const raw = readFileSync(filePath, "utf8");
     for (const line of raw.split("\n")) {
       const trimmed = line.trim();
@@ -344,6 +346,7 @@ function openJsonlStore(dataDir, jsonlFileName) {
   }
 
   function upsertItem(inputRecord) {
+    if (options.readOnly) throw new Error("store_read_only");
     assertValidRecord(inputRecord);
     const normalized = normalizeInputRecord(inputRecord);
     const existing = index.get(normalized.id);

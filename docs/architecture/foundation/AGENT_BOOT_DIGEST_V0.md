@@ -73,6 +73,8 @@ context 경계 너머로 넘길 때만 필수(자율 루프 종료·compact·cle
 
 ## 6. 개발 예정 저장 규칙 (DEVELOPMENT_ROADMAP_V0)
 
+2026-09-07 전체 Goal: 현재 합의된 SW 로드맵의 구현·통합·검증·패키징·매뉴얼을 실사용 가능한 통합 출시 후보까지 이어간다. Goal1/2·한 화면·한 업무는 중간 이정표. 기술 미완성을 Owner Gate로 바꾸지 않으며 실제 권한·원천·운영 전환·사람 수락 경계는 유지한다.
+
 아이디어 계단: 불명확 → 로드맵 한 줄 / 개발 후보·실행 항목 →
 단일 개발 작업 장부 `_workmeta/<project>/dev_worker_queue/*.yaml`
 (`system` 공통은 `_workmeta/system/dev_worker_queue/*.yaml`). 후보/실행은
