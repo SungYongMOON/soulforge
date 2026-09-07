@@ -1,5 +1,14 @@
 # dev-erp — 개발팀 운영 콕핏 (P1: 읽기 전용)
 
+## 오너 응답 대기함
+
+`/owner-attention.html`은 명시적인 오너 응답 요청만 모으고 읽음·미루기와 실제
+응답 관측을 구분한다. 기본 비활성이며 기존 ERP 로그인·현재 과제 ACL을 사용한다.
+기존 업무 기록의 예약 `request_kind`로 연결하고 UI 상태와 알림 outbox는 기존 ERP
+runtime DB에만 저장한다. 실제 Buzz route·오너 전용 알림 transport는 아직 미연결이다.
+입력 예시·응답 검증·재시작·알림 중복 방지·합성 체험은
+[OWNER-ATTENTION-V0](docs/slices/OWNER-ATTENTION-V0.md)를 따른다.
+
 ## 수락 맥락: 기본 비활성 읽기 경로
 
 `/accepted-context.html`은 기존 World Tree 로그인으로 서버가 허용한 과제·보기와

@@ -26,6 +26,9 @@ import {
 } from "./src/workflow_job_contract.mjs";
 import { createWorkflowJobHttpController } from "./src/workflow_job_http.mjs";
 import { createWorkbenchHttpController } from "./src/workbench_http.mjs";
+import { createOwnerAttentionSource } from "./src/owner_attention_source.mjs";
+import { createOwnerAttentionService } from "./src/owner_attention_service.mjs";
+import { createOwnerAttentionHttpController } from "./src/owner_attention_http.mjs";
 import { createForgeWorldHttpController } from "./src/forge_world_http.mjs";
 import { createAcceptedContextHttpController } from "./src/accepted_context_http.mjs";
 import { createSyntheticAcceptedContextRuntime } from "./src/accepted_context_synthetic_runtime.mjs";
@@ -2458,6 +2461,18 @@ const forgeWorldHttpController = createForgeWorldHttpController({
   canAccessProject,
 });
 
+// Opt-in reversible Owner view state in the existing ERP runtime DB. This does
+// not create bots, import historical metadata, change canon or send messages.
+const ownerAttentionAccountId = process.env.DEV_ERP_OWNER_ATTENTION_ACCOUNT_ID || null;
+const ownerAttentionService = process.env.DEV_ERP_OWNER_ATTENTION === "1" && ERP_MCP_ENABLED && ownerAttentionAccountId
+  ? createOwnerAttentionService({ store, source: createOwnerAttentionSource({ store,
+    ownerAccountId: ownerAttentionAccountId, enabled: true }) }) : null;
+const ownerAttentionHttpController = createOwnerAttentionHttpController({
+  service: ownerAttentionService, ownerAccountId: ownerAttentionAccountId,
+  allowedOrigin: `${TLS_ENABLED ? "https" : "http"}://${HOST === "::1" ? "[::1]" : HOST}:${PORT}`,
+  currentAccount, sessionKey: req => readCookie(req, SID), canAccessProject,
+});
+
 // Synthetic verification only: no operational enable flag, source discovery,
 // writer, migration, or target persistence. Normal server construction stays OFF.
 const acceptedContextHttpController = createAcceptedContextHttpController({
@@ -2528,6 +2543,7 @@ const server = createServer(async (req, res) => {
     if (await workflowHttpController(req, res, url)) return;
     if (await workbenchHttpController(req, res, url)) return;
     if (await forgeWorldHttpController(req, res, url)) return;
+    if (await ownerAttentionHttpController(req, res, url)) return;
 
     // Personal Codex integration: browser cookie manages credentials; MCP calls use
     // a distinct per-account bearer. Upload bytes travel over a one-time raw PUT,
