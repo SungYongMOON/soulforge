@@ -6,8 +6,7 @@
 // a custody receipt that is a CANDIDATE — never acceptance. This core is pure
 // and in-memory: no process, file, license, or tool is touched; the "tool run"
 // itself happens outside and reports back through the typed API, and in this
-// repository only synthetic runs exist. Wiring a physical Tool PC is a
-// separately Owner-gated leaf.
+// repository the durable adapter can execute an isolated, trusted XLSX tool.
 //
 // Invariants pinned here:
 // - capacity is exactly one active lease per workshop resource;
@@ -26,7 +25,7 @@ export const WORKSHOP_CLASSES = Object.freeze([
 ]);
 
 export const JOB_STATES = Object.freeze([
-  "queued", "leased", "done_candidate", "failed_terminal",
+  "queued", "leased", "done_candidate", "failed_terminal", "cancel_requested", "cancelled",
 ]);
 
 const REF = /^[a-z][a-z0-9_.:-]{1,120}$/;
@@ -50,7 +49,7 @@ function assertDigest(value, field) {
 }
 
 function assertClock(value, field) {
-  if (typeof value !== "string" || !ISO.test(value)) fail("clock_invalid", field);
+  if (typeof value !== "string" || !ISO.test(value) || !Number.isFinite(Date.parse(value))) fail("clock_invalid", field);
   return value;
 }
 
@@ -84,6 +83,7 @@ export function createToolWorkshopCore() {
       const id = assertRef(input?.workshop_id, "workshop_id");
       if (workshops.has(id)) fail("workshop_duplicate", id);
       if (!WORKSHOP_CLASSES.includes(input.workshop_class)) fail("workshop_class_invalid", input.workshop_class);
+      if ([...workshops.values()].some((entry) => entry.resource_id === input.resource_id)) fail("resource_duplicate");
       const record = {
         workshop_id: id,
         workshop_class: input.workshop_class,
@@ -98,7 +98,7 @@ export function createToolWorkshopCore() {
       };
       workshops.set(id, record);
       append("workshop_registered", { workshop_id: id });
-      return deepFreeze({ ...record });
+      return deepFreeze({ ...record, tool_versions: [...record.tool_versions] });
     },
 
     submitJob(input) {
@@ -136,11 +136,12 @@ export function createToolWorkshopCore() {
 
     // Exclusive lease: highest priority first, then submission order. Returns
     // null when the resource is busy (callers wait; idle UIs never release).
-    acquireLease(workshopId, { now, lease_id } = {}) {
+    acquireLease(workshopId, { now, lease_id, project_ref } = {}) {
       const workshop = workshops.get(assertRef(workshopId, "workshop_id"));
       if (!workshop) fail("workshop_unknown", workshopId);
       const nowClock = assertClock(now, "now");
       const leaseId = assertRef(lease_id, "lease_id");
+      if (project_ref !== undefined) assertRef(project_ref, "project_ref");
       if (leases.has(leaseId)) fail("lease_duplicate", leaseId);
       if (workshop.active_lease_id !== null) {
         const active = leases.get(workshop.active_lease_id);
@@ -156,7 +157,7 @@ export function createToolWorkshopCore() {
         append("lease_expired", { lease_id: active.lease_id, job_id: active.job_id });
       }
       const next = [...jobs.values()]
-        .filter((job) => job.workshop_id === workshop.workshop_id && job.state === "queued")
+        .filter((job) => job.workshop_id === workshop.workshop_id && job.state === "queued" && (project_ref === undefined || job.project_ref === project_ref))
         .sort((left, right) => left.priority - right.priority || left.submitted_seq - right.submitted_seq)[0];
       if (!next) return null;
       workshop.fencing_counter += 1;
@@ -186,7 +187,9 @@ export function createToolWorkshopCore() {
       }
       const job = jobs.get(lease.job_id);
       if (job.state !== "leased") fail("job_not_leased", job.job_id);
+      if (input.now !== undefined && Date.parse(assertClock(input.now, "now")) >= Date.parse(lease.expires_at)) fail("lease_expired");
       if (!["pass", "fail"].includes(input.validator_result)) fail("validator_result_invalid", input.validator_result);
+      if (input.failure_code !== undefined && !["validator_failed", "runner_failed", "runner_timeout", "input_invalid", "binding_drift", "output_invalid"].includes(input.failure_code)) fail("failure_code_invalid");
 
       // Every input is validated BEFORE any mutation, so a malformed
       // completion leaves the lease active and the job leased - never a
@@ -218,7 +221,8 @@ export function createToolWorkshopCore() {
         return receipt;
       }
 
-      append("run_validator_failed", { job_id: job.job_id, lease_id: lease.lease_id });
+      const failureCode = input.failure_code ?? "validator_failed";
+      append("run_validator_failed", { job_id: job.job_id, lease_id: lease.lease_id, failure_code: failureCode });
       if (job.retries_remaining > 0) {
         job.retries_remaining -= 1;
         job.state = "queued";
@@ -226,7 +230,7 @@ export function createToolWorkshopCore() {
         return deepFreeze({ job_id: job.job_id, state: "queued", retries_remaining: job.retries_remaining });
       }
       job.state = "failed_terminal";
-      job.failure_code = "validator_failed_retries_exhausted";
+      job.failure_code = `${failureCode}_retries_exhausted`;
       append("job_failed_terminal", { job_id: job.job_id });
       return deepFreeze({ job_id: job.job_id, state: "failed_terminal" });
     },
@@ -239,15 +243,53 @@ export function createToolWorkshopCore() {
         fail("fence_stale", `${input.fencing_token}`);
       }
       const job = jobs.get(lease.job_id);
+      if (job.state === "cancel_requested") fail("job_cancel_requested");
       job.state = "queued"; // explicit surrender re-queues without consuming a retry
       workshop.active_lease_id = null;
       append("lease_released", { lease_id: lease.lease_id, job_id: job.job_id });
       return deepFreeze({ released: true, job_id: job.job_id });
     },
 
+    assertCurrentLease(input, now) {
+      const lease = leases.get(assertRef(input?.lease_id, "lease_id"));
+      if (!lease) fail("lease_unknown");
+      const workshop = workshops.get(lease.workshop_id);
+      if (workshop.active_lease_id !== lease.lease_id || workshop.fencing_counter !== input.fencing_token) fail("fence_stale");
+      if (jobs.get(lease.job_id).state === "cancel_requested") fail("job_cancel_requested");
+      if (Date.parse(assertClock(now, "now")) >= Date.parse(lease.expires_at)) fail("lease_expired");
+      return lease;
+    },
+
+    cancelJob(jobId) {
+      const job = jobs.get(assertRef(jobId, "job_id"));
+      if (!job) fail("job_unknown");
+      if (!["queued", "leased", "cancel_requested"].includes(job.state)) fail("job_terminal");
+      job.state = job.state === "queued" ? "cancelled" : "cancel_requested";
+      append("job_cancelled", { job_id: jobId });
+      return view(job);
+    },
+
+    finishCancellation(input) {
+      const lease = leases.get(assertRef(input?.lease_id, "lease_id"));
+      if (!lease) fail("lease_unknown");
+      const workshop = workshops.get(lease.workshop_id);
+      if (workshop.active_lease_id !== lease.lease_id || workshop.fencing_counter !== input.fencing_token) fail("fence_stale");
+      const job = jobs.get(lease.job_id);
+      if (job.state !== "cancel_requested") fail("cancellation_not_requested");
+      job.state = "cancelled";
+      workshop.active_lease_id = null;
+      append("run_cancelled_observed", { job_id: job.job_id, lease_id: lease.lease_id });
+      return view(job);
+    },
+
     getJob(jobId) {
       const job = jobs.get(assertRef(jobId, "job_id"));
       return job ? view(job) : null;
+    },
+
+    getWorkshop(workshopId) {
+      const workshop = workshops.get(assertRef(workshopId, "workshop_id"));
+      return workshop ? deepFreeze({ ...workshop, tool_versions: [...workshop.tool_versions] }) : null;
     },
 
     getCustodyReceipt(jobId) {
