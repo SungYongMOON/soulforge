@@ -69,7 +69,7 @@ node guild_hall/deployment_pack/tools/build_source_lane.mjs --verify <lane 루�
 
 ## 격리 후보 리허설 (`tools/release_rehearsal.mjs`)
 
-`node guild_hall/deployment_pack/tools/release_rehearsal.mjs`는 현재 HPP·Team Client·Backup-Recovery spec을 순서대로 확인하고 실제 기본 Node runner로 source unit과 선언된 installed smoke **전부**를 실행한다. `--pack <pack_id>`로 하나만 실행할 수 있으며 `--work-dir <아직 존재하지 않는 디렉터리>`를 생략하면 새 임시 디렉터리를 만든다. 기존 경로·checkout 내부·운영/보호 경로·junction 부모는 거부하며 운영 lane이나 등록기는 호출하지 않는다. Node 의존성은 실행 전 설치되어 있어야 한다. 각 suite는 최대 10분으로 제한되며 로그·실패 영수증도 보존한다.
+`node guild_hall/deployment_pack/tools/release_rehearsal.mjs`는 현재 HPP·Team Client·Backup-Recovery·Tool Workshop spec을 순서대로 확인하고 실제 기본 Node runner로 source unit과 선언된 installed smoke **전부**를 실행한다. `--pack <pack_id>`로 하나만 실행할 수 있으며 `--work-dir <아직 존재하지 않는 디렉터리>`를 생략하면 새 임시 디렉터리를 만든다. 기존 경로·checkout 내부·운영/보호 경로·junction 부모는 거부하며 운영 lane이나 등록기는 호출하지 않는다. Node 24+와 필요한 의존성은 실행 전 설치되어 있어야 한다. 각 suite는 최대 10분으로 제한되며 로그·실패 영수증도 보존한다. Tool Workshop은 실제 작성기·공유 envelope·Python child·기존 PPTX 치환 코드까지 포장하며 동일한 27개 시험을 source와 설치본에서 실행한다. 실제 PPTX 시험에는 `--workshop-test-config <합성5필드JSON>`으로 명시한 외부 Python·렌더러·템플릿이 필요하다. 이 값은 해당 공방 시험에만 전달되고 영수증에는 config digest만 기록하며 외부 런타임은 재배포하지 않는다. 미지정 시 1개 skip과 HOLD를 보존한다. 리허설은 코드 팩의 복구 근거이며 실행 중인 작업 장부의 운영 백업이나 사람의 매뉴얼 수락을 뜻하지 않는다.
 
 Windows native 경로 잠금은 신원 검증된 절대 로컬 경로를 extended-length Win32 경로로 전달하므로 260자를 넘는 artifact staging 경로도 같은 guard로 검증한다. 상대·UNC·device·dot-segment 입력을 새로 해석하지 않으며, 긴 경로·짧은 경로·신원 및 junction 경계 회귀시험을 유지한다. 파일 symlink 권한이 없는 호스트의 explicit skip은 그대로 실패 근거에 남긴다.
 

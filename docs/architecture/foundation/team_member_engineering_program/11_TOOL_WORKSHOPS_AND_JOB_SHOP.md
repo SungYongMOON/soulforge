@@ -52,7 +52,26 @@ Each future Workshop module contains an owner README, module manifest, interface
 
 ## Current status
 
-The repository has tool-related skills and artifacts, but no approved physical Team Workshop runtime/lease system is claimed by this plan. Build one first Workshop only after the Team Member MCP and Vault revision vertical prove their core contracts, unless its inputs/effects are fully isolated and separately approved.
+2026-09-07 CURRENT: the isolated XLSX workshop now uses a durable SQLite journal
+with transaction-bound leases, fencing, cancellation and restart replay. The
+fixed Node writer and separate validation child produce exact hash/size candidate
+receipts; both reuse the existing project-history XLSX implementation. The bounded
+PPTX adapter reuses the existing template text-replacement code, separately verifies
+native contents, and reimports the actual candidate for PNG review. Its configured
+27 tests and independent review cover resource/profile mismatch, database-lock
+expiry, strict existing-state reopening, drift and candidate validation. Native
+openpyxl and python-pptx readback confirm the isolated samples. Without the explicit
+synthetic PPTX runtime binding, 26 tests pass and one actual rendering test is skipped.
+The Tool Workshop Pack carries the actual source dependency closure and the same
+source/installed smoke suite. Node 24+ is required for the durable runtime.
+
+The PPTX profile is currently two ASCII text slides only; general/Korean presentation
+profiles and HWPX/CAD/PCB adapters remain implementation, rather than Owner approval.
+This evidence does not establish a physical Tool PC, Office round-trip/printing,
+operational disaster recovery, upstream execution authorization, artifact
+acceptance or the remaining specialist adapters. Those implementation and
+integration steps remain in the whole release-candidate goal. Operational inputs
+and activation require their existing owner bindings.
 
 ## Related plans
 

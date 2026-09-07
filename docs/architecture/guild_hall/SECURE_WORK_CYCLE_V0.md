@@ -4,6 +4,20 @@
 > 운영 승인이 아니고, 실자료 canary도 아니며, 결과는 후보다.
 > 실행 표면은 [`guild_hall/secure_work/README.md`](../../../guild_hall/secure_work/README.md)가 소유한다.
 
+> 2026-09-07 CURRENT: M10 후보 보관은 기존 IngressClient와 연결된 durable outbox,
+> exact candidate/revision/route/principal 결속 및 현재 권한 검증기를 구현했다.
+> 합성 loopback에서 실제 chunk/finalize/status, 중단 뒤 같은 제출 복구와 ACK 직전
+> 권한 회수를 검증했다. Node 17건과 Python 전체 28건(외부 kit 필요 12건 제외)을
+> 통과했고 별도 검토를 마쳤다. 아래 9월 5일 표는 첫 사이클의 관측 이력이다.
+> 이 변경은 전체 사이클·운영 설치·실자료 전송·검토 착지·수락 완료가 아니다.
+>
+> 같은 후보의 M07 보강은 기존 E14 durable reserve/IN_FLIGHT를 재사용한다. 현재
+> 서명·만료·원천·정책/작업/전송 판본을 호출 전후 확인하고, 저장 응답을 먼저 고정한다.
+> 중단된 예약은 NOT_SENT, 송신 불명은 DELIVERY_UNKNOWN으로 남겨 자동 재송신하지
+> 않는다. Windows controller 배타와 실제 자식 프로세스 중단/회수 시험을 포함한
+> 관련 80건과 독립 검토를 통과했다. 전체 신원 등록소·M06 계정 격리·불변 launcher의
+> 검증을 대신하지 않는다. JSON 가드·근거 보존·로컬 수치 비교도 별도 63건으로 검증했다.
+
 ## 결정
 
 업무 원문을 로컬에 둔 채 외부 작업자에게 일을 시키는 구조를, **새 계약을 발명하지 않고**
@@ -43,7 +57,7 @@
 | M07 | Mission State Engine | kit journal(SQLite CAS·멱등·attempt 불확실성) | — | `KIT_REFERENCE` |
 | M08 | Result Binder | kit 구조검사 + literal-safe Markdown 복원 | — | `KIT_REFERENCE` |
 | M09 | Validator Host | ValidationReport 생성(구조·유출검사 결과 요약) | BIND06 | `PARTIAL` · 의미 검토 `NOT_RUN` |
-| M10 | Custody | 로컬 outbox + Tongs(MCP 문) ingress 클라이언트 뼈대 | BIND07 | `LOCAL_ONLY` · 업로드 `NOT_BOUND` |
+| M10 | Custody | durable intent/ACK + 기존 ingress 클라이언트 + 현재 sender 권한 검증 | BIND07 | `BOUND_SYNTHETIC` · 실제 설치·업로드 `NOT_BOUND` |
 | — | 상태 투영 | Vigil(포트 4192)이 읽을 수 있는 상태 요약 1파일 | BIND08 | `BOUND` |
 
 ### 남은 binding
@@ -56,7 +70,7 @@
 | BIND04 | 실제 분류·공개 권한자 | 사이클 1호의 승인자는 합성 자료에 대한 운영자이며 분류 권한자가 아니다 |
 | BIND05 | 외부 provider route | Owner가 키 한 줄 파일을 배치하고 route를 명시적으로 켜야 한다. **이번 lane 호출 0회.** BIND09가 닫히기 전에는 켜지 않는다 |
 | BIND06 | 독립 의미 검토자 | 구조 통과는 의미 통과가 아니다. 작성자와 분리된 검토가 필요하다. 사람 승인자와 lane 작성자의 분리도 여기서 닫는다 |
-| BIND07 | Tongs(MCP 문) 보관 | Owner가 bearer를 발급하고 ingress를 켜야 한다. **이번 lane 업로드 0회** |
+| BIND07 | Tongs(MCP 문) 보관 | 합성 보관 포트는 검증됐다. 불변 launcher 신뢰점/전체 의존 코드 검증은 남은 기술 개발이며, 실제 역할 SID·정책·route·ACL·credential 배치는 Owner 입력이다. **실자료 업로드 0회** |
 | BIND08 | Vigil(포트 4192) 화면 노출 | 상태 파일은 있고, 화면에 띄우는 것은 Vigil 쪽 결정이다 |
 | BIND09 | 허가 주체의 신원 결속(신뢰 키 등록소 또는 OS 사용자 결속) | permit은 이제 설정에 고정된 신뢰 공개키로만 검증되어 자기 서명은 막혔지만, 그 신뢰 키를 누가 쥐고 있는지에 대한 신원 등록소는 아직 없다. 지금은 신뢰 서명키·job store 쓰기 권한이 곧 전송 허가다. BIND05를 켜기 전에 닫혀야 한다 |
 | BIND10 | 누적 공개 원장(security 요약 B8) | `released_history`가 매 job `[]`로 고정돼 있다. 같은 승인된 문장이 새 mission_id로 반복 재공개돼도 누적 기록이 없다. requester·mission family 단위로 살아남는 저장소와 "무엇을 공개로 친다"의 정의(패킷 필드? candidate bytes? 어느 round?)를 Owner가 정해야 닫힌다 |
@@ -99,6 +113,12 @@
 - 정본 승격. 결과는 후보로 남는다. 수락은 사람의 별도 결정이고 정본면은 Covenant 뒤의 문제다.
 
 ## Owner 손
+
+M10의 고정 설치 결속은 저장소에서 `null`이다. 코드가 임의 config·argv·환경변수로
+이 신뢰점을 대체하지 않는다. 실제 키만 배치해도 전체 개발이 닫히는 구조가 아니다.
+불변 launcher와 전체 전이 의존성 검증, M06 별도 principal 격리와 전체 BIND09 통합은
+계속 구현·검증할 기술 항목이다. M07의 file-owned 현재 권한·1회 소비·재시작 보강과
+구분하며 아래 사람 입력만으로 이 기술 공백이 닫힌다고 주장하지 않는다.
 
 | 항목 | 무엇을 하나 | 없으면 |
 | --- | --- | --- |

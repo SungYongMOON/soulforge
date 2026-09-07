@@ -3,7 +3,7 @@
 // This is code-payload evidence; it cannot accept a physical seat or runtime DR.
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { closeSync, cpSync, existsSync, fstatSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, readSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,12 +11,40 @@ import { buildPack, installPack, loadPackSpec, nodeTestRunner, recomputePackDige
 import { backupPack, parseVerifiedManifest, restorePack, rollbackPack, upgradePack } from "./pack_lifecycle.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-export const RELEASE_PACKS = Object.freeze(["hpp_server_pack", "team_client_pack", "backup_recovery_extension"]);
-const EMITTERS = { hpp_server_pack: "emit_hpp_spec.mjs", team_client_pack: "emit_team_client_spec.mjs", backup_recovery_extension: "emit_backup_recovery_spec.mjs" };
+export const RELEASE_PACKS = Object.freeze(["hpp_server_pack", "team_client_pack", "backup_recovery_extension", "tool_workshop_pack"]);
+const EMITTERS = { hpp_server_pack: "emit_hpp_spec.mjs", team_client_pack: "emit_team_client_spec.mjs", backup_recovery_extension: "emit_backup_recovery_spec.mjs", tool_workshop_pack: "emit_tool_workshop_spec.mjs" };
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const writeJson = (path, value) => writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
 function fail(code) { throw Object.assign(new Error(code), { code }); }
 const within = (root, path) => { const rel = relative(root, path); return rel !== "" && !rel.startsWith(`..${sep}`) && rel !== ".." && !isAbsolute(rel); };
+
+// Optional synthetic tool runtime input, never a general environment/config pass-through.
+export function readWorkshopTestConfig(path) {
+  if (!isAbsolute(path)) fail("rehearsal_workshop_config_invalid");
+  const info = lstatSync(path);
+  if (!info.isFile() || info.isSymbolicLink() || info.size > 16 * 1024) fail("rehearsal_workshop_config_invalid");
+  const handle = openSync(path, "r"), buffer = Buffer.alloc(16 * 1024 + 1);
+  let length = 0;
+  try {
+    const before = fstatSync(handle);
+    if (!before.isFile() || before.dev !== info.dev || before.ino !== info.ino) fail("rehearsal_workshop_config_invalid");
+    while (length < buffer.length) {
+      const count = readSync(handle, buffer, length, buffer.length - length, length);
+      if (!count) break;
+      length += count;
+    }
+    const after = fstatSync(handle), leaf = lstatSync(path);
+    if (length > 16 * 1024 || before.size !== after.size || before.mtimeMs !== after.mtimeMs
+      || leaf.isSymbolicLink() || leaf.dev !== after.dev || leaf.ino !== after.ino) fail("rehearsal_workshop_config_invalid");
+  } finally { closeSync(handle); }
+  const bytes = buffer.subarray(0, length);
+  let value; try { value = JSON.parse(new TextDecoder("utf-8", {fatal: true}).decode(bytes)); } catch { fail("rehearsal_workshop_config_invalid"); }
+  const keys = ["artifactRoot", "templatePath", "pythonExecutable", "templateProvenance", "templateApprovalRef"];
+  if (!value || Array.isArray(value) || Object.keys(value).length !== keys.length || keys.some(key => !Object.hasOwn(value, key))
+    || ![value.artifactRoot, value.templatePath, value.pythonExecutable].every(item => typeof item === "string" && isAbsolute(item))
+    || value.templateProvenance !== "synthetic_fixture" || !/^approval\.[a-z0-9_.:-]{1,120}$/.test(value.templateApprovalRef)) fail("rehearsal_workshop_config_invalid");
+  return {bytes, sha256: sha(bytes)};
+}
 
 function assertNoLinks(path) {
   if (lstatSync(path).isSymbolicLink()) fail("rehearsal_link_refused");
@@ -133,10 +161,17 @@ export function exerciseReleaseLifecycle({ packDir, workDir, clock }) {
   return { ok: true, baseline_kind: "synthetic_previous_from_current_candidate", current, prior, backup, upgraded, retained_after_upgrade: retainedAfterUpgrade, rolled_back: rolledBack, retained_after_rollback: retainedAfterRollback, restored, damaged_previous_retained_without_manifest: true };
 }
 
-export async function runReleaseRehearsal({ rootDir = ROOT, workDir = null, packIds = RELEASE_PACKS, clock = () => new Date().toISOString(), onProgress = () => {} } = {}) {
+export async function runReleaseRehearsal({ rootDir = ROOT, workDir = null, packIds = RELEASE_PACKS, workshopTestConfig = null, clock = () => new Date().toISOString(), onProgress = () => {} } = {}) {
   if (!packIds.length || new Set(packIds).size !== packIds.length || packIds.some((id) => !RELEASE_PACKS.includes(id))) fail("rehearsal_pack_selection_invalid");
+  if (workshopTestConfig !== null && !packIds.includes("tool_workshop_pack")) fail("rehearsal_workshop_config_without_pack");
+  const workshopConfig = workshopTestConfig === null ? null : readWorkshopTestConfig(workshopTestConfig);
   const workspace = createReleaseWorkspace({ rootDir, workDir });
   const env = buildReleaseTestEnv(workspace);
+  let workshopConfigCopy = null;
+  if (workshopConfig) {
+    workshopConfigCopy = join(workspace, "synthetic-workshop-test-config.json");
+    writeFileSync(workshopConfigCopy, workshopConfig.bytes, {flag: "wx"});
+  }
   const git = (args) => spawnSync("git", args, { cwd: rootDir, encoding: "utf8", windowsHide: true });
   const head = git(["rev-parse", "HEAD"]);
   const dirty = git(["status", "--porcelain", "--untracked-files=no"]);
@@ -152,6 +187,8 @@ export async function runReleaseRehearsal({ rootDir = ROOT, workDir = null, pack
   writeJson(receiptPath, receipt);
   for (const packId of packIds) {
     const result = { pack_id: packId, ok: false, stages: {} };
+    const packEnv = packId === "tool_workshop_pack" && workshopConfigCopy ? {...env, SOULFORGE_PPTX_TEST_CONFIG: workshopConfigCopy} : env;
+    if (packId === "tool_workshop_pack") result.test_runtime = {synthetic_config_sha256: workshopConfig?.sha256 ?? null, external_runtime_redistributed: false};
     receipt.packs.push(result);
     const packRoot = join(workspace, packId); mkdirSync(packRoot);
     try {
@@ -165,7 +202,7 @@ export async function runReleaseRehearsal({ rootDir = ROOT, workDir = null, pack
       if (checked.status !== 0) fail("rehearsal_spec_not_current");
       const observedRunner = (phase) => (entries, options) => {
         onProgress(`${packId}: ${phase} (${entries.length} entries)`);
-        const run = nodeTestRunner(entries, { ...options, env: { ...env, ...(phase === "installed_smoke" ? { GIT_CEILING_DIRECTORIES: workspace } : {}) } });
+        const run = nodeTestRunner(entries, { ...options, env: { ...packEnv, ...(phase === "installed_smoke" ? { GIT_CEILING_DIRECTORIES: workspace } : {}) } });
         writeFileSync(join(packRoot, `${phase}.tap`), run.stdout);
         writeFileSync(join(packRoot, `${phase}.stderr.log`), run.stderr);
         const { stdout, stderr, ...summary } = run;
@@ -213,16 +250,17 @@ export async function runReleaseRehearsal({ rootDir = ROOT, workDir = null, pack
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
   if (args.includes("--help")) {
-    process.stdout.write("usage: node release_rehearsal.mjs [--work-dir <nonexistent-directory>] [--pack hpp_server_pack|team_client_pack|backup_recovery_extension]\nDefault: all three current specs, real source and installed suites, candidate-only receipts in a retained temporary directory. A skipped test or file exclusion makes the rehearsal fail.\n");
+    process.stdout.write("usage: node release_rehearsal.mjs [--work-dir <nonexistent-directory>] [--pack hpp_server_pack|team_client_pack|backup_recovery_extension|tool_workshop_pack] [--workshop-test-config <synthetic-five-field-json>]\nDefault: all four current specs, real source and installed suites, candidate-only receipts in a retained temporary directory. A skipped test or file exclusion makes the rehearsal fail.\n");
   } else {
-    let workDir = null; const packIds = [];
+    let workDir = null, workshopTestConfig = null; const packIds = [];
     try {
       for (let index = 0; index < args.length; index += 2) {
-        if (!args[index + 1] || !["--work-dir", "--pack"].includes(args[index])) fail("rehearsal_arguments_invalid");
+        if (!args[index + 1] || !["--work-dir", "--pack", "--workshop-test-config"].includes(args[index])) fail("rehearsal_arguments_invalid");
         if (args[index] === "--work-dir") { if (workDir !== null) fail("rehearsal_arguments_invalid"); workDir = args[index + 1]; }
+        else if (args[index] === "--workshop-test-config") { if (workshopTestConfig !== null) fail("rehearsal_arguments_invalid"); workshopTestConfig = args[index + 1]; }
         else packIds.push(args[index + 1]);
       }
-      const out = await runReleaseRehearsal({ workDir, ...(packIds.length ? { packIds } : {}), onProgress: (message) => process.stdout.write(`${message}\n`) });
+      const out = await runReleaseRehearsal({ workDir, workshopTestConfig, ...(packIds.length ? { packIds } : {}), onProgress: (message) => process.stdout.write(`${message}\n`) });
       process.stdout.write(`${out.ok ? "PASS" : "HOLD"}: ${out.receiptPath}\n`);
       process.exitCode = out.ok ? 0 : 1;
     } catch (error) { process.stderr.write(`${error.code ?? "rehearsal_failed"}\n`); process.exitCode = 1; }

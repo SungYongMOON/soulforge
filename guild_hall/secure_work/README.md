@@ -187,7 +187,8 @@ Node의 권한원이 아니며 Node가 매 송신 경계에서 다시 확인한�
 이번 범위는 **M10 sender 측 부분 검증**이다. Python과 Node는 같은 sender SID를 상속하며
 이를 역할 분리로 주장하지 않는다. 실제 Owner 설치/launcher 결속·분리 계정 증거는 아직 없고,
 M06 worker가 source·vault·job store·서명키에 접근하지 못한다는 실제 token/접근 시험과
-전체 BIND09·M07 1회 소비 경계는 후속 구현·검증 대상이다. 실제 키 배치만으로 닫히지 않는다.
+전체 BIND09 신원 경계는 후속 구현·검증 대상이다. M07의 file-owned 1회 소비·재시작
+보강은 아래 절의 범위에서 검증됐으며, 실제 키 배치만으로 전체 경계가 닫히지 않는다.
 
 남은 **코드 작업**은 불변 launcher의 신뢰점 등록/실행 연결과 전체 전이 의존성 무결성 검사,
 M06 worker의 별도 principal 격리와 전체 BIND09 신원/정책 authority 연결이다. M07의

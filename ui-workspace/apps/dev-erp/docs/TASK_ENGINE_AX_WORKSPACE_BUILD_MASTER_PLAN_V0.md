@@ -1,5 +1,28 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-07 CURRENT (isolated candidate implementation): World Tree workbench
+> now wires catalogue, durable intake POST and own-request GET to the real server
+> account/session/CSRF/project ACL and independently pinned source/authority epoch.
+> A retry is bound to the exact approved bundle generation across restart.
+> The Linear metadata reader validates committed read-evidence/state lineage and
+> freshness without opening issue bodies; polling is not execution authority.
+> M10 custody uses current principal/capability checks through final ACK commit
+> and recovers the original immutable ingress submission after a finalize crash.
+> Separately pinned synthetic execution now reuses matcher/assignment/authority/CEC,
+> persists per-agent claims and fences, and serves the actual fixed-worker candidate
+> through the same authenticated workbench. Explicit cancel, timeout, revision retry,
+> source/authority revocation and restart HOLD are tested. World Tree shares the
+> Board world renderer with current project ACL and source-time-preserving coverage.
+> XLSX/PPTX workshop execution adds durable leases, native validation and actual
+> PPTX reimport/render. Workbench combined 105, world host 6, M10 Node 17 and
+> configured workshop 27 tests passed with independent reviews. Guard/extraction/
+> local comparison tests passed 63, with disclosure HOLD and semantic acceptance false.
+> Default execution routes remain OFF. Intake, custody ACK and workshop output do
+> not mean real task execution authority, World Tree review, human acceptance or
+> OfficialDone. Real provider compatibility, immutable security launch/dependency
+> closure, broader tool profiles and whole-product integration remain development
+> in the same RC goal.
+
 > 2026-08-30 CURRENT: three bounded, authority-neutral changes touched the
 > dev-ERP surface (Team Member Engineering Program loop; ledger in
 > `docs/architecture/foundation/team_member_engineering_program/14_ROADMAP_GATES_AND_DAG.md`).

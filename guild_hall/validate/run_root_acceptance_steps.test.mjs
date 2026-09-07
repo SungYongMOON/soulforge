@@ -68,6 +68,9 @@ test("루트 게이트: 앱 테스트 스텝이 validate·done-check 양 모드�
     ['"engine-release"', "npm run validate:engine-release"],
     ['"watchtower"', "npm run validate:watchtower"],
     ['"secure-work"', "npm run validate:secure-work"],
+    ['"secure-work-python"', "npm run validate:secure-work-python"],
+    ['"tool-workshop"', "npm run validate:tool-workshop"],
+    ['"workbench-wiring"', "npm run validate:workbench-wiring"],
   ];
   for (const [stepId, command] of requiredSteps) {
     const occurrences = source.split(stepId).length - 1;

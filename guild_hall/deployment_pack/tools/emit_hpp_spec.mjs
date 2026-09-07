@@ -59,7 +59,9 @@ const operationalEntrypoints = [
   "guild_hall/voice_capture/continuous_label_supervisor_cli.mjs",
 ];
 const closure = moduleClosure([...appEntrypoints, ...operationalEntrypoints, ...workflowFiles.filter((rel) => rel.endsWith(".mjs"))]);
-const appCode = closure.filter((rel) => rel.startsWith(`${APP}/`) && !rel.startsWith(`${APP}/test/`));
+// Test helper imports are part of the installed smoke dependency closure too.
+// Only actual test entrypoints belong exclusively to the validators role.
+const appCode = closure.filter((rel) => rel.startsWith(`${APP}/`) && !rel.endsWith(".test.mjs"));
 const sharedCode = closure.filter((rel) => !rel.startsWith(`${APP}/`));
 
 // fs-READ data closure: files the packed code and validators read at
@@ -128,6 +130,11 @@ const dataReads = [
   `${APP}/.gitignore`,
   `${APP}/docs/checklist_phase1.json`,
   "docs/architecture/workspace/examples/task_execution_core_poc/task_execution_core.synthetic.json",
+  "docs/architecture/workspace/examples/se_stage_rules/stage_work_order_synthetic_v0.json",
+  // World Tree serves the shared Board renderer from fixed URLs (fs-read closure).
+  "ui-workspace/apps/team-ops-board/forge-world.html",
+  "ui-workspace/apps/team-ops-board/src/forge-world.css",
+  "ui-workspace/apps/team-ops-board/src/forge-world-page.mjs",
   `${APP}/docs/CHATBOT_LLM_SETUP.md`,
   `${APP}/docs/REMOTE_PC_RUNBOOK.md`,
   `${APP}/docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md`,

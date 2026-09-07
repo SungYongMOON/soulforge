@@ -50,6 +50,7 @@
       ".workflow/report_authoring_v0/templates/report_authoring_request.full_authoring.template.json",
       ".workflow/report_authoring_v0/templates/report_authoring_request.template.json",
       ".workflow/report_authoring_v0/workflow.yaml",
+      "docs/architecture/workspace/examples/se_stage_rules/stage_work_order_synthetic_v0.json",
       "docs/architecture/workspace/examples/task_execution_core_poc/task_execution_core.synthetic.json",
       "guild_hall/agent_observation/agent_authority_verification.mjs",
       "guild_hall/agent_observation/agent_mark_lineage.mjs",
@@ -60,16 +61,32 @@
       "guild_hall/ai_usage_meter/evidence_ledger.mjs",
       "guild_hall/battle_log/battle_log.mjs",
       "guild_hall/doctor/platform_binary_check.mjs",
+      "guild_hall/engineering_engine/core/validators/authority.mjs",
       "guild_hall/engineering_engine/core/validators/canonical.mjs",
+      "guild_hall/engineering_engine/core/validators/ceilings.mjs",
       "guild_hall/engineering_engine/core/validators/contract_config.mjs",
+      "guild_hall/engineering_engine/core/validators/custody.mjs",
       "guild_hall/engineering_engine/core/validators/errors.mjs",
+      "guild_hall/engineering_engine/core/validators/fingerprint.mjs",
       "guild_hall/engineering_engine/core/validators/identity.mjs",
+      "guild_hall/engineering_engine/core/validators/minting.mjs",
       "guild_hall/engineering_engine/core/validators/project_context_acceptance_gate.mjs",
       "guild_hall/engineering_engine/core/validators/project_context_generation_candidate.mjs",
+      "guild_hall/engineering_engine/core/validators/snapshot.mjs",
+      "guild_hall/engineering_engine/engines/systems_engineering/guidance/guide_cards.mjs",
+      "guild_hall/engineering_engine/engines/systems_engineering/rules/artifact_vocabulary.mjs",
+      "guild_hall/engineering_engine/engines/systems_engineering/rules/stage_rule_compiler.mjs",
+      "guild_hall/engineering_engine/engines/systems_engineering/rules/task_hierarchy_mapper.mjs",
+      "guild_hall/engineering_engine/engines/systems_engineering/schemas/task_hierarchy_v1.schema.json",
+      "guild_hall/engineering_engine/engines/systems_engineering/schemas/task_hierarchy_v1_schema_validator.mjs",
+      "guild_hall/engineering_engine/kernel/authority.mjs",
       "guild_hall/engineering_engine/kernel/canonical.mjs",
+      "guild_hall/engineering_engine/kernel/contract_config.mjs",
+      "guild_hall/engineering_engine/kernel/custody.mjs",
       "guild_hall/engineering_engine/kernel/identity.mjs",
       "guild_hall/engineering_engine/kernel/project_context_acceptance_gate.mjs",
       "guild_hall/engineering_engine/kernel/project_context_generation_candidate.mjs",
+      "guild_hall/engineering_engine/kernel/snapshot.mjs",
       "guild_hall/file_activity/file_activity.mjs",
       "guild_hall/forge_intent/src/forge_intent_core.mjs",
       "guild_hall/gateway/mail_body_excerpt.mjs",
@@ -89,10 +106,17 @@
       "guild_hall/ingress/writer_authority_renewal_policy.schema.json",
       "guild_hall/knowledge_access/knowledge_rag_candidate_ledger.mjs",
       "guild_hall/knowledge_access/ledger.mjs",
+      "guild_hall/linear_history/linear_collect_receipt.mjs",
+      "guild_hall/linear_history/linear_collect_runner.mjs",
+      "guild_hall/linear_history/linear_custody.mjs",
+      "guild_hall/linear_history/linear_graphql_client.mjs",
+      "guild_hall/linear_history/linear_read_evidence_reader.mjs",
       "guild_hall/local_activity/cli.mjs",
       "guild_hall/local_activity/local_activity.mjs",
       "guild_hall/local_activity/store_validity_cli.mjs",
       "guild_hall/rag/project_pdf_knowledge_projection.mjs",
+      "guild_hall/requirement_trace/forge_world_coverage.mjs",
+      "guild_hall/requirement_trace/requirement_coverage.mjs",
       "guild_hall/shared/ai_work_record_event.v1.schema.json",
       "guild_hall/shared/io.mjs",
       "guild_hall/shared/physical_path_identity.mjs",
@@ -108,6 +132,7 @@
       "guild_hall/shared/scope_timeline_binding.v1.schema.json",
       "guild_hall/shared/source_timeline_annotation.mjs",
       "guild_hall/shared/source_timeline_annotation.v1.schema.json",
+      "guild_hall/shared/work_binding.mjs",
       "guild_hall/snapshot/producer.mjs",
       "guild_hall/town_crier/runtime.mjs",
       "guild_hall/voice_capture/bounded_strong_asr_request.schema.json",
@@ -191,6 +216,7 @@
       "ui-workspace/apps/dev-erp/src/five_field.mjs",
       "ui-workspace/apps/dev-erp/src/fixture.mjs",
       "ui-workspace/apps/dev-erp/src/forge_linear_execution_packet_admission.mjs",
+      "ui-workspace/apps/dev-erp/src/forge_world_http.mjs",
       "ui-workspace/apps/dev-erp/src/guide.mjs",
       "ui-workspace/apps/dev-erp/src/hermes_bot_submit_executor.mjs",
       "ui-workspace/apps/dev-erp/src/hourly_shadow_cycle_contract.mjs",
@@ -224,6 +250,12 @@
       "ui-workspace/apps/dev-erp/src/work_session_lifecycle.mjs",
       "ui-workspace/apps/dev-erp/src/work_session_outbox.mjs",
       "ui-workspace/apps/dev-erp/src/work_session_source_inventory.mjs",
+      "ui-workspace/apps/dev-erp/src/workbench_current_sources.mjs",
+      "ui-workspace/apps/dev-erp/src/workbench_execution_service.mjs",
+      "ui-workspace/apps/dev-erp/src/workbench_execution_sources.mjs",
+      "ui-workspace/apps/dev-erp/src/workbench_execution_store.mjs",
+      "ui-workspace/apps/dev-erp/src/workbench_http.mjs",
+      "ui-workspace/apps/dev-erp/src/workbench_synthetic_worker.mjs",
       "ui-workspace/apps/dev-erp/src/workflow_job_contract.mjs",
       "ui-workspace/apps/dev-erp/src/workflow_job_http.mjs",
       "ui-workspace/apps/dev-erp/src/workflow_job_orchestrator.mjs",
@@ -238,6 +270,11 @@
       "ui-workspace/apps/dev-erp/static/skins/regions/forest.svg",
       "ui-workspace/apps/dev-erp/static/skins/regions/guild.svg",
       "ui-workspace/apps/dev-erp/static/style.css",
+      "ui-workspace/apps/dev-erp/static/workbench.css",
+      "ui-workspace/apps/dev-erp/static/workbench.html",
+      "ui-workspace/apps/dev-erp/static/workbench.js",
+      "ui-workspace/apps/dev-erp/test/helpers/workbench_execution_fixture.mjs",
+      "ui-workspace/apps/dev-erp/test/helpers/workbench_fixture.mjs",
       "ui-workspace/apps/dev-erp/tools/a8_synth_secure_access.mjs",
       "ui-workspace/apps/dev-erp/tools/ai_proposal_ledger.mjs",
       "ui-workspace/apps/dev-erp/tools/auto_intake_cycle.mjs",
@@ -303,7 +340,15 @@
       "ui-workspace/apps/dev-erp/tools/task_ledger.mjs",
       "ui-workspace/apps/dev-erp/tools/team_preflight.mjs",
       "ui-workspace/apps/dev-erp/tools/verify_gate.mjs",
-      "ui-workspace/apps/dev-erp/tools/voice_to_task_candidates.mjs"
+      "ui-workspace/apps/dev-erp/tools/voice_to_task_candidates.mjs",
+      "ui-workspace/apps/team-ops-board/forge-world.html",
+      "ui-workspace/apps/team-ops-board/src/core/forge-world-state.mjs",
+      "ui-workspace/apps/team-ops-board/src/core/workbench-intake-record.mjs",
+      "ui-workspace/apps/team-ops-board/src/forge-world-page.mjs",
+      "ui-workspace/apps/team-ops-board/src/forge-world.css",
+      "ui-workspace/apps/team-ops-board/src/server/forge-world-coverage-adapter.mjs",
+      "ui-workspace/apps/team-ops-board/src/server/workbench-intake-adapter.mjs",
+      "ui-workspace/apps/team-ops-board/src/server/workbench-intake-store.mjs"
     ],
     "control_data_plane_services": [
       "ui-workspace/apps/dev-erp/ops/runtime-path-contract.ps1",
@@ -362,6 +407,8 @@
       "ui-workspace/apps/dev-erp/test/five_field_capture.test.mjs",
       "ui-workspace/apps/dev-erp/test/followup_scan.test.mjs",
       "ui-workspace/apps/dev-erp/test/forge_linear_execution_packet_admission.test.mjs",
+      "ui-workspace/apps/dev-erp/test/forge_world_http.test.mjs",
+      "ui-workspace/apps/dev-erp/test/forge_world_server.test.mjs",
       "ui-workspace/apps/dev-erp/test/haengbogwan_apply.test.mjs",
       "ui-workspace/apps/dev-erp/test/haengbogwan_candidate_judge.test.mjs",
       "ui-workspace/apps/dev-erp/test/haengbogwan_context_packet.test.mjs",
@@ -420,6 +467,11 @@
       "ui-workspace/apps/dev-erp/test/win_system_exe.test.mjs",
       "ui-workspace/apps/dev-erp/test/work_session_source_foundation.test.mjs",
       "ui-workspace/apps/dev-erp/test/work_session_source_inventory.test.mjs",
+      "ui-workspace/apps/dev-erp/test/workbench_current_sources.test.mjs",
+      "ui-workspace/apps/dev-erp/test/workbench_execution_http.test.mjs",
+      "ui-workspace/apps/dev-erp/test/workbench_execution_service.test.mjs",
+      "ui-workspace/apps/dev-erp/test/workbench_execution_store.test.mjs",
+      "ui-workspace/apps/dev-erp/test/workbench_http.test.mjs",
       "ui-workspace/apps/dev-erp/test/workflow_job_contract.test.mjs",
       "ui-workspace/apps/dev-erp/test/workflow_job_core_contract.test.mjs",
       "ui-workspace/apps/dev-erp/test/workflow_job_http.test.mjs",
@@ -1122,6 +1174,8 @@
     "test/five_field_capture.test.mjs",
     "test/followup_scan.test.mjs",
     "test/forge_linear_execution_packet_admission.test.mjs",
+    "test/forge_world_http.test.mjs",
+    "test/forge_world_server.test.mjs",
     "test/haengbogwan_apply.test.mjs",
     "test/haengbogwan_candidate_judge.test.mjs",
     "test/haengbogwan_context_packet.test.mjs",
@@ -1180,6 +1234,11 @@
     "test/win_system_exe.test.mjs",
     "test/work_session_source_foundation.test.mjs",
     "test/work_session_source_inventory.test.mjs",
+    "test/workbench_current_sources.test.mjs",
+    "test/workbench_execution_http.test.mjs",
+    "test/workbench_execution_service.test.mjs",
+    "test/workbench_execution_store.test.mjs",
+    "test/workbench_http.test.mjs",
     "test/workflow_job_contract.test.mjs",
     "test/workflow_job_core_contract.test.mjs",
     "test/workflow_job_http.test.mjs",
@@ -1221,6 +1280,8 @@
     "test/five_field_capture.test.mjs",
     "test/followup_scan.test.mjs",
     "test/forge_linear_execution_packet_admission.test.mjs",
+    "test/forge_world_http.test.mjs",
+    "test/forge_world_server.test.mjs",
     "test/haengbogwan_apply.test.mjs",
     "test/haengbogwan_candidate_judge.test.mjs",
     "test/haengbogwan_context_packet.test.mjs",
@@ -1279,6 +1340,11 @@
     "test/win_system_exe.test.mjs",
     "test/work_session_source_foundation.test.mjs",
     "test/work_session_source_inventory.test.mjs",
+    "test/workbench_current_sources.test.mjs",
+    "test/workbench_execution_http.test.mjs",
+    "test/workbench_execution_service.test.mjs",
+    "test/workbench_execution_store.test.mjs",
+    "test/workbench_http.test.mjs",
     "test/workflow_job_contract.test.mjs",
     "test/workflow_job_core_contract.test.mjs",
     "test/workflow_job_http.test.mjs",
@@ -2036,6 +2102,18 @@
       "sha256": "59e18e845d06a383d2a22809cd66f78eb8cbae27f6916b13c7dddb73a083c230"
     },
     {
+      "path": "guild_hall/linear_history/linear_collect_receipt.mjs",
+      "sha256": "8a293c62e30aa7e5344da872587f3e60af966c1d43690f4a6e6693c6a30caf80"
+    },
+    {
+      "path": "guild_hall/linear_history/linear_collect_runner.mjs",
+      "sha256": "b88d8a49dd0dc10af1f2ca3cca398b3b710311db788ed4dd317df1f72e5a86a1"
+    },
+    {
+      "path": "guild_hall/linear_history/linear_graphql_client.mjs",
+      "sha256": "9e8df9d44468ab52a1994bcc1903f961a6d80873c809eb0e9d426593ff6c44f5"
+    },
+    {
       "path": "guild_hall/shared/ai_work_record_event.v1.schema.json",
       "sha256": "a2553d76b11ad3703b70185123ab2f1ee21078f1276e8d3bab1cff61b4c8632c"
     },
@@ -2065,7 +2143,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/README.md",
-      "sha256": "b29e456d30ee59b764ed3399b45b858bc81d583c2b96bce4feb9d0bb0280182d"
+      "sha256": "fb975d9ce707c60f21310482713c0c59fc278ba5dde9873927dafb8c8c11c469"
     },
     {
       "path": "ui-workspace/apps/dev-erp/docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md",
@@ -2081,7 +2159,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/server.mjs",
-      "sha256": "f5f38d36ebe6d7432bfea8c11f3737737977b06a56e6df19f98612ee0bf5656b"
+      "sha256": "b82c47e8d736e0acf676c9f6ff7b978a302d4ab9185e78419cfb0cf284fd0d06"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/accepted_context_query.mjs",
@@ -2169,7 +2247,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/static/style.css",
-      "sha256": "517eb375466d8bc61cf692ab54b9d590772f3c4af6213577e124f7a2ec3c3ad6"
+      "sha256": "fa6683a5c307990d17b13a91f29b36a03f01de1aef4d13ce9dfe07846e7e1d4e"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/codex_bridge_process.test.mjs",
@@ -2204,6 +2282,10 @@
       "sha256": "d82ee924bed2cb8f580d84228a95cece60172d1ca8468f14e25c83e2e4290113"
     },
     {
+      "path": "ui-workspace/apps/dev-erp/test/forge_world_server.test.mjs",
+      "sha256": "b118fdd764109ecb11aa40d424219b1c8d159aea4c782ba4c24331f2a8e2ca5c"
+    },
+    {
       "path": "ui-workspace/apps/dev-erp/test/run_dev_erp_background_launcher.test.mjs",
       "sha256": "76d01055348f3755ad56e9b1832073351879a8ffef3bd53a45a3df52f656a0ba"
     },
@@ -2218,6 +2300,14 @@
     {
       "path": "ui-workspace/apps/dev-erp/test/work_session_source_foundation.test.mjs",
       "sha256": "ce6f200688d3ea40db1c5d777bd31dd4f2cc791acaa044d1b519d661e10aaaa0"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/workbench_execution_http.test.mjs",
+      "sha256": "a1b0a857e1f02bd4a17f253ba40d2c94675c8eda37ac09004347af0c99c5336f"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/workbench_http.test.mjs",
+      "sha256": "da43a0693f3f2de704dd081de4dcc134e458dfc633b44f56a9d50ead7c0a89b6"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/workflow_job_core_contract.test.mjs",

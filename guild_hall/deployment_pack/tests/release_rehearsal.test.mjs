@@ -5,11 +5,25 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { buildPack, nodeTestRunner } from "../tools/build_pack.mjs";
-import { buildReleaseTestEnv, createReleaseWorkspace, exerciseReleaseLifecycle, releaseSmokeVerdict, verifyReleaseGeneration } from "../tools/release_rehearsal.mjs";
+import { buildReleaseTestEnv, createReleaseWorkspace, exerciseReleaseLifecycle, readWorkshopTestConfig, runReleaseRehearsal, releaseSmokeVerdict, verifyReleaseGeneration } from "../tools/release_rehearsal.mjs";
 import { listReleaseStaticAssets } from "../tools/release_static_assets.mjs";
 
 const clock = () => "2026-09-07T00:00:00.000Z";
 const temp = (t) => { const dir = mkdtempSync(join(tmpdir(), "release-rehearsal-test-")); t.after(() => rmSync(dir, { recursive: true, force: true })); return dir; };
+
+test("only explicit bounded synthetic workshop runtime fields can reach the tool rehearsal", async t => {
+  const root = temp(t), file = join(root, "synthetic-runtime.json");
+  const config = {artifactRoot: root, templatePath: join(root, "fixture.pptx"), pythonExecutable: process.execPath, templateProvenance: "synthetic_fixture", templateApprovalRef: "approval.synthetic_template"};
+  writeFileSync(file, JSON.stringify(config));
+  const admitted = readWorkshopTestConfig(file);
+  assert.deepEqual(JSON.parse(admitted.bytes), config); assert.match(admitted.sha256, /^[a-f0-9]{64}$/);
+  for (const value of [{...config, liveEnabled: true}, {...config, templateProvenance: "owner_approved"}, {...config, templatePath: "relative"}, {...config, templateApprovalRef: null}]) {
+    writeFileSync(file, JSON.stringify(value)); assert.throws(() => readWorkshopTestConfig(file), {code: "rehearsal_workshop_config_invalid"});
+  }
+  writeFileSync(file, " ".repeat(16 * 1024 + 1));
+  assert.throws(() => readWorkshopTestConfig(file), {code: "rehearsal_workshop_config_invalid"});
+  await assert.rejects(runReleaseRehearsal({packIds: ["team_client_pack"], workshopTestConfig: file}), {code: "rehearsal_workshop_config_without_pack"});
+});
 
 test("isolated Windows profile gives real PowerShell native AppData paths inside the fixture", { skip: process.platform !== "win32" }, (t) => {
   const root = temp(t);

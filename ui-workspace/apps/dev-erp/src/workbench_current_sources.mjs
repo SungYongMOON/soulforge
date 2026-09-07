@@ -92,7 +92,7 @@ export function createWorkbenchCurrentSources({ root, expectedBinding, now = () 
     catch { return fail('SOURCE_JSON_INVALID'); }
   }
   function validTime(value) {
-    return typeof value === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/u.test(value)
+    return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(value)
       && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
   }
   function currentWindow(value) {

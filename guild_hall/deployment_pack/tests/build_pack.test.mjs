@@ -349,10 +349,17 @@ test("end to end against the REAL tracked spec: build, install, and smoke the ac
   try {
     const built = buildPack(REAL_SPEC, { rootDir: REPO_ROOT, outDir: out, clock: fixedClock });
     assert.equal(built.manifest.pack_id, "tool_workshop_pack");
-    assert.equal(built.manifest.files.length, 4, "core, tests, README, manifest");
-    const installed = installPack({ packDir: built.packDir, targetDir: target, clock: fixedClock });
     const spec = loadPackSpec(REAL_SPEC);
-    const smoke = runInstalledSmoke({ payloadDir: installed.payloadTarget, entries: spec.smoke_test_entries, clock: fixedClock });
+    const packedPaths = built.manifest.files.map(file => file.path).sort();
+    assert.deepEqual(packedPaths, [...new Set(Object.values(spec.content_roles).flat())].sort());
+    for (const required of [
+      "guild_hall/tool_workshop/src/tool_workshop_durable.mjs",
+      "guild_hall/tool_workshop/src/xlsx_tool_child.mjs",
+      "ui-workspace/apps/dev-erp/tools/project_history_copy_xlsx.mjs",
+      "guild_hall/shared/project_history_envelope.mjs",
+    ]) assert.ok(packedPaths.includes(required), `actual writer dependency missing: ${required}`);
+    const installed = installPack({ packDir: built.packDir, targetDir: target, clock: fixedClock });
+    const smoke = runInstalledSmoke({ payloadDir: installed.payloadTarget, entries: spec.smoke_test_entries, concurrency: spec.test_concurrency, clock: fixedClock });
     assert.equal(smoke.ok, true, `the real workshop suite must pass inside the installed copy: ${smoke.summary}`);
   } finally {
     rmSync(out, { recursive: true, force: true });
