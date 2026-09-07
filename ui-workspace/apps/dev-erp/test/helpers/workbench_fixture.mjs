@@ -81,7 +81,7 @@ export async function makeWorkbenchFixture({ observedAt = new Date().toISOString
     hierarchy, blueprint, recipe, input, write, repin };
 }
 
-export async function addSyntheticLinearEvidence(fixture) {
+export async function addSyntheticLinearEvidence(fixture, { stateName = 'In Progress' } = {}) {
   const root = join(fixture.root, 'linear-custody', 'synthetic-forge');
   const stateRoot = join(fixture.root, 'linear-state');
   const completed = fixture.binding.observed_at;
@@ -92,7 +92,7 @@ export async function addSyntheticLinearEvidence(fixture) {
     identity_digest: identityDigestForBinding(binding), writer_authority_id: binding.writer.authority_id,
     writer_epoch: 1, binding_sha256: `sha256:${'a'.repeat(64)}`, workspace_url_key: 'synthetic-forge',
     organization_id: 'a8091a2b-3c4d-4859-aa6b-465768798a9b', project_scope_ref: `project:${fixture.scope.project_code}`, project_code: fixture.scope.project_code };
-  const issue = { id: issueId, identifier: 'SYN-1', updated_at: completed, state_name: 'In Progress', project_id: 'project-1' };
+  const issue = { id: issueId, identifier: 'SYN-1', updated_at: completed, state_name: stateName, project_id: 'project-1' };
   const envelope = readEvidenceRecordForIssue(binding, issue).envelope;
   const evidenceDigest = sha256Canonical(envelope);
   const wrapper = { schema_version: 'soulforge.linear_collect.custody_object.v1', kind: 'read_evidence', object_id: issueId,
@@ -127,5 +127,5 @@ export async function addSyntheticLinearEvidence(fixture) {
   fixture.recipe.task_ref = fixture.request.policy_refs.task_ref; fixture.recipe.linear_issue_id = issueId;
   fixture.catalogue.entries[0].sources.recipe = await fixture.write('recipe.json', fixture.recipe);
   await fixture.repin();
-  return { state, receipt, stateFile, receiptFile };
+  return { state, receipt, stateFile, receiptFile, root, expectedBinding, issueId, envelope };
 }

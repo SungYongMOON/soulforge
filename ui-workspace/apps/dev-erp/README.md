@@ -75,6 +75,73 @@ fixture로 접수·재시도·개별 조회·과제 접근 철회·로그아웃�
 preview는 출력된 임시 loopback 주소와 합성 계정만 쓰며 종료 시 자기 임시 자료를 정리한다.
 운영 4300/4192, 실제 DB·과제 본문·운영 lane·예약작업은 사용하지 않는다.
 
+### 별도의 합성 실행 체험
+
+접수와 별도로 선택하는 **합성 실행 체험**은 실제 CEC 검사를 거쳐 저장소에 실행권을
+먼저 기록한 뒤, 고정된 Node worker가 합성 후보를 만드는 개발 검증 경로다. 실제 Hermes,
+모델, shell command, Linear 변경, 원격 제출, Official Done, 수락은 호출하지 않는다.
+후보의 로컬 저장·해시 확인과 원격 제출 ACK는 별개이며 후자는 항상 미확인이다.
+기존 CEC와 TaskExecutionCore 구현·저장 계약은 변경하지 않는다.
+
+- `DEV_ERP_WORKBENCH_SYNTHETIC_EXECUTION=1`이 별도로 있어야 실행 체험을 제공한다.
+  설정이 없으면 실행 저장소도 만들지 않는다. 접수 버튼은 이 설정이나 실행 동의를 대신하지 않는다.
+- `DEV_ERP_WORKBENCH_EXECUTION_ROOT`는 **source/intake root와 서로 겹치지 않는** 별도의,
+  이미 존재하는 절대경로 디렉터리다. 이 안의 `execution.sqlite`는 `backup_class=synthetic-only`인
+  개발 실행 장부이며 운영 정본이나 미래 target workspace가 아니다.
+- `DEV_ERP_WORKBENCH_EXECUTION_BINDING_SHA256`는 같은 source bundle 안의
+  `execution-binding.json`에 대한 **별도 승인된** bytes digest다. 접수 bundle의 digest와 realm,
+  generation을 정확히 연결한다. mode는 `synthetic_fixed`만 지원한다.
+
+실행 bundle은 정본 schema나 workflow를 새로 등록하지 않는 로컬 폐쇄 입력 계약이다.
+상위 필드는 `binding_id`, `realm_id`, `intake_binding_sha256`, `mode`, `generation`,
+`observed_at`, `valid_until`, `approvals`다. approval은 전체 요청자·업무·입력·지시의
+`request_basis_digest`와 아래의 별도 bytes 해시 참조를 갖는다. 멱등 nonce와 요청 판본 번호는
+업무 내용과 구별하며, 실제 재시도는 기존 접수기의 parent 계보 검사까지 통과해야 한다.
+
+| 입력 | 확인하는 근거 |
+| --- | --- |
+| `packet` | 실제 Forge/Linear admission 입력: issued WorkBrief, exact 공식 Todo, assignment 및 receipt 결속 |
+| `roles`, `capabilities`, `assignment_policy` | 원본 배열 digest, 현재 Role/Capability와 `responsible_ceo_triage` 배정 결과 |
+| `agent_projection`, `authority_pin`, `authority_current` | 별도 pin에 대한 기존 Agent authority 검증, 현재 epoch와 철회 상태 |
+| `executor_current`, `executor_binding` | exact agent/Bot/profile/session/deployment/tool 결속, 현재 assignment/authority epoch |
+| `task_authorization` | 별도 승인된 Task 상태·업무지시 digest·read receipt·assignment epoch와 유효 시각 |
+| `linear` | committed 수집 metadata reader의 exact root/identity/issue; 승인된 read receipt와 최신 Todo 재대조 |
+| `executor_code_sha256` | 저장소에 고정된 `workbench_synthetic_worker.mjs` 실제 bytes |
+| `timeout_ms`, `synthetic_delay_ms` | 승인된 합성 실행의 제한 시간과 취소·timeout 검증용 고정 지연 |
+
+WorkBrief·승인의 만료는 exact UTC 시각을 요구한다. date-only처럼 만료 순간이 불명확한
+입력은 실행하지 않는다. current authority/executor 관측은 60초 이내여야 한다. polling의
+삭제 관측 한계는 별도 Task 실행 승인으로 채워야 하며, 수집 영수증만으로 승인하지 않는다.
+`synthetic-code`/`none` binding은 실제 고정 코드 worker를 나타내는 합성 표기이며 모델 실행
+관측이나 운영 Agent 신원이 아니다. fixture의 승인값은 운영 authority로 사용하지 않는다.
+
+실행 흐름은 현재 인증·source admission → SQLite claim → 현재 근거 재검사 → 고정 worker
+시작 → 현재 근거 재검사 → fence를 비교하는 원자적 후보 저장 순서다. CEC의 내부 run ID는
+각 durable run 아래로 묶고, outer run ID·attempt·fence를 영수증에 함께 보관한다. worker는
+빈 환경변수와 메모리 상한으로 시작하며, 호출자가 코드·경로·명령을 선택할 수 없다. 이는
+임의 코드의 OS sandbox를 주장하지 않는 고정 합성 실행 경로다.
+
+SQLite는 동일 업무의 중복 claim과 한 agent의 동시 실행을 거래 안에서 막는다. 취소·timeout
+뒤 늦은 응답은 후보를 저장할 수 없다. 정상 종료는 진행 중 작업을 HOLD로 남기고 worker를
+종료한다. 비정상 종료 후 다른 프로세스에서 읽은 미완료 작업은 `RUN_RECOVERY_REQUIRED`로
+표시하며 자동으로 다시 실행하지 않는다. 이전 deadline이 지났거나 취소/실패/HOLD로 닫힌
+뒤, 사용자가 **다음 판본 접수와 별도 실행 체험**을 요청한 경우에만 새 attempt/fence를 얻는다.
+성공한 동일 업무는 새 멱등키여도 기존 결과를 재생한다.
+
+보존은 최대 256개 실행의 지속 보관이며 삭제·자동 정리·자동 복구·운영 migration API는 없다.
+한도에 도달하면 HOLD한다. 백업은 서비스를 종료하고 worker가 종료된 뒤 해당 디렉터리의
+SQLite 파일을 복사하는 합성 전용 절차다. 닫힌 DB 복사→별도 root 복원→동일 후보 digest
+재조회 시험이 있다. 운영 백업/DR 승격이나 실행 중 DB 복사를 이 시험으로 승인하지 않는다.
+
+```sh
+node --test ui-workspace/apps/dev-erp/test/workbench_execution_store.test.mjs ui-workspace/apps/dev-erp/test/workbench_execution_service.test.mjs ui-workspace/apps/dev-erp/test/workbench_execution_http.test.mjs
+node ui-workspace/apps/dev-erp/test/workbench_preview.mjs --execution
+```
+
+미리보기의 실행 승인은 60초 창의 합성 fixture다. 오래 열린 화면에서는 새로고침 시 권한이
+보류되는 것이 정상이며 자동으로 승인 시각을 갱신하지 않는다. 실제 current authority 공급자와
+Hermes transport, 원격 후보 제출은 이 합성 실행 경로의 완료 주장에 포함하지 않는다.
+
 ## Task Execution Core 최소 POC
 
 `src/task_execution_core.mjs`는 Linear Official Task를 변경하지 않고 합성 fixture에서만

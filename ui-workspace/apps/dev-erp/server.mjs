@@ -27,6 +27,10 @@ import {
 import { createWorkflowJobHttpController } from "./src/workflow_job_http.mjs";
 import { createWorkbenchHttpController } from "./src/workbench_http.mjs";
 import { createWorkbenchCurrentSources } from "./src/workbench_current_sources.mjs";
+import { createWorkbenchExecutionSources } from "./src/workbench_execution_sources.mjs";
+import { createWorkbenchExecutionStore } from "./src/workbench_execution_store.mjs";
+import { createWorkbenchExecutionService } from "./src/workbench_execution_service.mjs";
+import { createWorkbenchIntakeStore } from "../team-ops-board/src/server/workbench-intake-store.mjs";
 import { createLinearReadEvidenceReader } from "../../../guild_hall/linear_history/linear_read_evidence_reader.mjs";
 import { WorkflowJobPayloadStore } from "./src/workflow_job_payload_store.mjs";
 import { WorkflowJobRunnerBridge } from "./src/workflow_job_runner_bridge.mjs";
@@ -2413,11 +2417,30 @@ const workbenchSources = (() => {
     });
   } catch { return null; }
 })();
+const workbenchExecutionService = (() => {
+  if (process.env.DEV_ERP_WORKBENCH_INTAKE !== "1" || process.env.DEV_ERP_WORKBENCH_SYNTHETIC_EXECUTION !== "1"
+    || !workbenchSources || TLS_ENABLED) return null;
+  let executionStore = null;
+  try {
+    const roots = [process.env.DEV_ERP_WORKBENCH_EXECUTION_ROOT, process.env.DEV_ERP_WORKBENCH_SOURCE_ROOT,
+      process.env.DEV_ERP_WORKBENCH_INTAKE_ROOT];
+    if (roots.some(root => typeof root !== "string" || !isAbsolute(root))) return null;
+    const canonical = roots.map(root => realpathSync(root)).map(root => process.platform === "win32" ? root.toLowerCase() : root);
+    const overlaps = (left, right) => left === right || left.startsWith(`${right}${sep}`) || right.startsWith(`${left}${sep}`);
+    if (overlaps(canonical[0], canonical[1]) || overlaps(canonical[0], canonical[2])) return null;
+    const executionSources = createWorkbenchExecutionSources({ intakeSources: workbenchSources,
+      bindingDigest: process.env.DEV_ERP_WORKBENCH_EXECUTION_BINDING_SHA256 });
+    const intakeStore = createWorkbenchIntakeStore({ root: roots[2] });
+    executionStore = createWorkbenchExecutionStore({ root: roots[0] });
+    return createWorkbenchExecutionService({ enabled: true, intakeStore, intakeSources: workbenchSources, executionSources, executionStore });
+  } catch { executionStore?.close(); return null; }
+})();
 const workbenchHttpController = createWorkbenchHttpController({
   enabled: process.env.DEV_ERP_WORKBENCH_INTAKE === "1",
   allowedOrigin: TLS_ENABLED ? undefined : `http://${HOST === "::1" ? "[::1]" : HOST}:${PORT}`,
   intakeRoot: process.env.DEV_ERP_WORKBENCH_INTAKE_ROOT,
   sources: workbenchSources,
+  executionService: workbenchExecutionService,
   currentAccount,
   sessionKey: req => readCookie(req, SID),
   accountIds: () => store.db.prepare("SELECT id FROM core_account ORDER BY id").all().map(row => row.id),
@@ -4693,6 +4716,7 @@ async function shutdownDevErp(signalName) {
   if (shutdownStarted) return;
   shutdownStarted = true;
   try { runtimeListener?.close?.(); } catch {}
+  try { await workbenchHttpController.close(); } catch {}
   for (const active of activeCodexTurns.values()) active.controller.abort();
   const deadline = Date.now() + 5000;
   while (activeCodexTurns.size && Date.now() < deadline) {
